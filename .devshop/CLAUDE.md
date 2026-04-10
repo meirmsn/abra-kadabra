@@ -1,0 +1,103 @@
+<!-- Source file for the "## Devshop Conventions" section of root CLAUDE.md.
+     Edit here, not in root CLAUDE.md directly.
+     sync-from-template.sh injects this content into root CLAUDE.md. -->
+
+### Context Loading
+
+Reference docs (living):
+
+- Always loaded: CLAUDE.md (you're reading it)
+- For orientation: `.devshop/README.md`
+- When implementing features: `.devshop/GUIDE.md` + specs/<name>/spec.md + METRICS.md + DESIGN.md
+
+Build blueprints (historical after execution):
+
+- When bootstrapping or modifying devshop: `.devshop/notes/bootstrap/v0-web.md`
+- When adding native/mobile: `.devshop/notes/bootstrap/v1-native.md`
+
+### Philosophy
+
+Speed comes from Claude, stability comes from process. The devshop automates the boring parts (test loops, quality gates, deploy) so the human can focus on product decisions.
+
+### Implementation Approach
+
+Default to simple. Pick the boring solution. Tried-and-true over clever. Readable and debuggable over optimal. No fancy patterns unless the simple one genuinely can't do the job.
+
+Depth over speed. When a step or task hits friction, stop and think about what consequences it has for the project or the devshop. A wrong URL means deploys fail. A missing permission means /ship breaks. An undocumented gotcha means the next session wastes time debugging it. Solve the problem and update docs/skills so it doesn't recur. Don't suggest skipping or deferring unless the user asks.
+
+### Non-Negotiables
+
+- No code without tests — written alongside, never after.
+- No code that breaks existing tests — full suite before marking done.
+- No code without metrics — every user-facing feature has events in `METRICS.md`.
+- Responsive from day one — 375px to 2560px, mobile-first.
+- Light/dark theme required — both from launch, theme tokens only.
+- Edge functions always validate auth server-side via `getUser()`.
+- Auth flow changes always include route protection middleware in the same PR.
+- Pre-commit: ESLint + Prettier + gitleaks, no bypass.
+- Shared packages export TypeScript source directly — no build step.
+- For full detail on testing philosophy, metrics lifecycle, and backlog routing: see `.devshop/GUIDE.md § Shared Conventions`.
+
+### Known Footguns
+
+- Firewall IP rotation: if a build fails on a network error for an allowed domain, restart the container to re-resolve CDN IPs.
+- Workflow push requires human: the devcontainer PAT lacks `workflow` scope intentionally. If `git push` fails because a commit touches `.github/workflows/`, ask the human to push: `git -c credential.helper= push https://<github-user>@github.com/<owner>/<repo>.git <branch>` (GitHub will prompt for their PAT with workflow scope).
+
+### Documentation Convention
+
+- Every non-trivial `.ts`/`.tsx` file under `src/` or `app/` starts with a 3-line header (`// What:` / `// Why:` / `// Does NOT:`). Write on non-trivial files; `/pre-ship` convention check verifies.
+- Every exported function has a 1-2 sentence JSDoc. Internal/private: no doc required.
+- Config files (`*.config.*`, `*.d.ts`) are exempt.
+
+### Confidence Calibration
+
+**Proceed autonomously:**
+
+- UI components + their tests
+- Extending existing API endpoints
+- Bug fixes with clear root cause + confirming test
+- Styling / design token changes
+- Documentation updates
+- Adding new Supabase queries (no schema changes)
+- Instrumenting metrics for events already defined in METRICS.md
+
+**Stop and ask (before implementing):**
+
+- New database columns/tables (migrations are hard to reverse)
+- Auth flow changes
+- New third-party API integrations not yet in codebase
+- Performance-sensitive code paths
+- Security-related logic — stop before writing, get human sign-off; `/cso` still runs after
+- Anything requiring deletion of existing tests
+- New metric event definitions (add to METRICS.md requires review)
+
+### TODO Protocol
+
+- **Blocker** (can't complete task without human input) — stop, add to `TODOS.md` with `[blocked]` tag, mark task `blocked` in tasks.md, ping user
+- **Out-of-scope discovery** — route by who cares and urgency, skip, continue:
+  - Project, fix soon → `TODOS.md`
+  - Project, build later → `PRODUCT-ROADMAP.md`
+  - Devshop, fix soon → `.devshop/TODOS.md`
+  - Devshop, build later → `.devshop/ROADMAP.md`
+- **Minor issue** (< 5 min to fix) — fix in current task's commit, note in commit message
+- **Minor issue** (> 5 min to fix) — add to `TODOS.md` with `[minor]` tag, continue
+
+### Naming Convention
+
+- `abra-kadabra` = brand name (template repo, doc titles). Never used in file names or CLI commands.
+- `devshop` = code references (`.devshop/`, `.claude/skills/devshop/`, `/devshop:*` skills).
+
+### Devshop Documentation Structure
+
+All devshop docs live in `.devshop/`:
+
+- Overview: `.devshop/README.md` + operational reference: `.devshop/GUIDE.md` (update together in same commit)
+- Backlogs: `.devshop/TODOS.md` + `.devshop/ROADMAP.md` (grow independently)
+- Build blueprints: `.devshop/notes/bootstrap/` (historical after execution)
+
+### Build and Deploy
+
+- `/build` — autonomous pipeline: spec → implement → quality gates → ship → CI watch → notify. Say "build it" after autoplan.
+- `/go-live` — autonomous deploy: merge → deploy → canary → reflect → notify. Say "land it" after PR review.
+- Individual skills (`/spec`, `/implement`, `/pre-ship`) still work standalone.
+- Test commands: `pnpm turbo run test:unit` (fast inner loop), `pnpm turbo run test` (full suite).

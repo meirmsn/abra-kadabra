@@ -1,0 +1,4 @@
+pnpm exec lint-staged
+pnpm turbo run typecheck
+gitleaks protect --staged --redact
+bash .devshop/scripts/check-devshop-docs.sh

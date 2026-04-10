@@ -1,0 +1,56 @@
+name: CI
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches-ignore: [main]
+
+jobs:
+  fast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: gitleaks
+        run: |
+          GITLEAKS_VERSION=$(grep GITLEAKS_VERSION .devcontainer/devcontainer.json | head -1 | sed 's/.*: "//;s/".*//')
+          wget -q "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -O /tmp/gitleaks.tar.gz
+          tar xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          /tmp/gitleaks detect --source . --redact --log-opts="${{ github.event.pull_request.base.sha || 'HEAD~1' }}..HEAD"
+
+      - run: pnpm turbo run lint typecheck test:unit build
+
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_POSTHOG_KEY: ${{ secrets.NEXT_PUBLIC_POSTHOG_KEY }}
+      SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+
+  # Slow job — runs only on PRs to main, after fast passes.
+  # Phase 1c: add supabase start + integration tests + type drift check
+  # Phase 1g: add Playwright E2E
+  # slow:
+  #   if: github.event_name == 'pull_request'
+  #   runs-on: ubuntu-latest
+  #   needs: fast
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #   env:
+  #     SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  #     SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+  #     SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+  #     ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

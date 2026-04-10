@@ -1,0 +1,19 @@
+# Abra-Kadabra
+
+A one-person dev shop template. Goes from rough notes to deployed, tested, observable web app.
+
+## Getting Started
+
+1. Click **"Use this template"** → **"Create a new repository"**
+2. Clone your new repo and open it in VS Code
+3. Reopen in the dev container when prompted
+4. Place your Claude credentials in `.devcontainer/.env` (see below)
+5. Run `claude` in the terminal and say `/devshop:init`
+
+## Prerequisites
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop)
+- [VS Code](https://code.visualstudio.com) with the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension
+- **Claude access** — either:
+  - An [Anthropic API key](https://console.anthropic.com/) (`ANTHROPIC_API_KEY`), or
+  - A [Claude Pro/Team subscription](https://claude.ai/) (sign in via `claude` in the terminal)

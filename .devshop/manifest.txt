@@ -1,0 +1,39 @@
+# Dev-shop layer files — synced between projects and the abra-kadabra template.
+# Sync scripts read this file to determine which files to copy.
+# Lines marked [private] are stripped from the public mirror.
+# Sync scripts ignore annotations (strip trailing tags when reading paths).
+# Lines starting with ! are exclude patterns (applied to directory syncs).
+
+# --- Devshop docs & scripts ---
+.devshop/README.md           [private]
+.devshop/GUIDE.md            [private]
+.devshop/CLAUDE.md           [private]
+.devshop/FAQ.md              [private]
+.devshop/ROADMAP.md          [private]
+.devshop/CHANGELOG.md        [private]
+.devshop/TODOS.md            [private]
+.devshop/manifest.txt        [private]
+.devshop/version             [private]
+.devshop/template-remote     [private]
+.devshop/scripts/            [private]
+.devshop/templates/
+.devshop/notes/              [private]
+
+# --- Claude Code config (no gstack — installed per-project) ---
+.claude/settings.json
+.claude/commands/             [private]
+.claude/skills/devshop/       [private]
+
+# --- Devcontainer (exclude .env — has real credentials) ---
+.devcontainer/
+!.devcontainer/.env
+
+# --- Build tooling ---
+.dcg.toml                    [private]
+.husky/
+.github/workflows/
+.gitleaks.toml
+turbo.json
+pnpm-workspace.yaml
+tsconfig.base.json
+eslint.config.mjs
