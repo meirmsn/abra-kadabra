@@ -52,8 +52,8 @@ cp "$DEVSHOP/.claude/settings.json" "$WS/.claude/settings.json"
 # README
 [ -f "$DEVSHOP/.claude/README.md" ] && cp "$DEVSHOP/.claude/README.md" "$WS/.claude/README.md"
 
-# --- Generate CLAUDE.md from devshop template + project-specific parts ---
-cp "$DEVSHOP/CLAUDE.devshop.md" "$WS/CLAUDE.md"
+# --- Generate CLAUDE.md from devshop CLAUDE.md + project CLAUDE.project.md ---
+cp "$DEVSHOP/CLAUDE.md" "$WS/CLAUDE.md"
 if [ -f "$WS/CLAUDE.project.md" ]; then
   printf '\n' >> "$WS/CLAUDE.md"
   cat "$WS/CLAUDE.project.md" >> "$WS/CLAUDE.md"
