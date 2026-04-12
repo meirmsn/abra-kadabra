@@ -53,7 +53,9 @@
       "Edit(**/.devcontainer/*)",
       "Write(**/.devcontainer/*)",
       "Edit(**/.claude/settings.json)",
-      "Write(**/.claude/settings.json)"
+      "Write(**/.claude/settings.json)",
+      "Edit(**/.dcg.toml)",
+      "Write(**/.dcg.toml)"
     ]
   },
   "hooks": {
@@ -76,6 +78,15 @@
             "command": "bash .devshop/scripts/check-clean-tree.sh"
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .devshop/scripts/check-memory-created.sh"
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -86,6 +97,46 @@
             "type": "command",
             "if": "Bash(git commit*)",
             "command": "git remote get-url origin 2>/dev/null | grep -q 'abra-kadabra' && echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"This commit was made in the template repo (abra-kadabra). Ask the user if they want to run release.sh to bump the version and update the changelog.\"}}' || true"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(git commit*)",
+            "command": "bash .devshop/scripts/check-dirty-after-commit.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(git push*)",
+            "command": "bash .devshop/scripts/check-pr-description.sh"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .devshop/scripts/session-start.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .devshop/scripts/session-start.sh"
           }
         ]
       }

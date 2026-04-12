@@ -49,11 +49,31 @@ ln -sfn "$DEVSHOP/.claude/commands" "$WS/.claude/commands"
 # Settings (copy, not symlink — needs root ownership for security lockdown)
 cp "$DEVSHOP/.claude/settings.json" "$WS/.claude/settings.json"
 
+# README
+[ -f "$DEVSHOP/.claude/README.md" ] && cp "$DEVSHOP/.claude/README.md" "$WS/.claude/README.md"
+
 # --- Generate CLAUDE.md from devshop template + project-specific parts ---
 cp "$DEVSHOP/CLAUDE.devshop.md" "$WS/CLAUDE.md"
 if [ -f "$WS/CLAUDE.project.md" ]; then
   printf '\n' >> "$WS/CLAUDE.md"
   cat "$WS/CLAUDE.project.md" >> "$WS/CLAUDE.md"
+fi
+
+# --- Create BUILD-LOG.md if missing (session-start hook reads it) ---
+if [ ! -f "$WS/BUILD-LOG.md" ]; then
+  cat > "$WS/BUILD-LOG.md" << 'BUILDLOG'
+# Build Log — $(basename "$WS")
+
+Project build history. Updated by `/build` after each successful ship.
+
+> **New session?** Run `/ak-status` to get oriented.
+
+## Status
+
+**Current phase**: Not started
+**Last updated**: $(date +%Y-%m-%d)
+BUILDLOG
+  chown node:node "$WS/BUILD-LOG.md"
 fi
 
 # --- Lock security-critical files (root-owned, world-readable, not writable by node) ---
