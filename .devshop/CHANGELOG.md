@@ -2,20 +2,27 @@
 
 Auto-appended by `sync-to-template.sh` and `release.sh` on version bumps.
 
-## v1.0.0 (2026-04-12)
+## v1.0.0 (2026-04-12) — Devshop Separation
 
-- devshop: fix init-devshop.sh indentation, update devcontainer mount
-- devshop: fix stale references from separation audit
-- Revert "devshop: remove accidental .vscode/settings.json"
-- devshop: remove accidental .vscode/settings.json
-- devshop: symlink settings.json instead of copying
-- devshop: update ak-init for separation model
-- devshop: document separation architecture, add template configs
-- devshop: rename CLAUDE.devshop.md → CLAUDE.md, add separation TODO
-- devshop: fix gaps from separation audit
-- devshop: track gstack as regular directory (not embedded repo)
-- devshop: sync full toolchain from lalista for injection model
-- devshop: injection-based setup for clean project repos
+**Breaking change**: The devshop and project repos are now fully separate.
+
+Previously, all devshop files (`.devshop/`, `.claude/skills/`, `settings.json`, `CLAUDE.md`, `BUILD-LOG.md`) were tracked in the project repo. Now they live in abra-kadabra and get injected into the workspace at container start via `init-devshop.sh` symlinks.
+
+What changed:
+- `init-devshop.sh`: new injection script symlinks devshop files into `/workspace/`
+- Project repos have a thin forwarder at `.devcontainer/init-devshop.sh`
+- `devcontainer.json` mounts abra-kadabra at `/devshop` (was `/template-repo`)
+- `CLAUDE.md` is generated from `abra-kadabra/CLAUDE.md` + `CLAUDE.project.md`
+- `.claude/settings.json` is symlinked (all injected files are symlinks)
+- All injected files are gitignored in the project repo
+- `devshop-commit-guard.sh` updated: project infra (`.devcontainer/`, `.husky/`, etc.) is now project-layer
+- Sync scripts use `/devshop` mount path (`$DEVSHOP_DIR` env var)
+- `/ak-init` updated for separation model (steps 19, 22, 25)
+- Full documentation: `GUIDE.md` § Devshop Separation Architecture
+- Template root configs added: `.editorconfig`, `.prettierrc`, `.npmrc`, `.nvmrc`, `package.json`
+- `manifest.txt` rewritten: injected vs template distinction
+
+Project repos need: `CLAUDE.project.md` (tracked), `.claude-memory/` (tracked), `.gitignore` entries for `.devshop .claude .dcg.toml CLAUDE.md BUILD-LOG.md`
 
 ## v0.2.0 (2026-04-09)
 
