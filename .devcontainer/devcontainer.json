@@ -60,8 +60,8 @@
     "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
     // Claude Code config, sessions, and API key survive container rebuilds
     "source=claude-code-config-${devcontainerId},target=/home/node/.claude,type=volume",
-    // Template repo (abra-kadabra) on host — sync scripts write here, human pushes from host
-    "source=${localWorkspaceFolder}/../abra-kadabra,target=/template-repo,type=bind,consistency=delegated"
+    // Devshop (abra-kadabra) — injected into workspace at container start
+    "source=${localWorkspaceFolder}/../abra-kadabra,target=/devshop,type=bind,consistency=delegated"
   ],
   "containerEnv": {
     // Heap size of node. Increased to handle claude code projects
