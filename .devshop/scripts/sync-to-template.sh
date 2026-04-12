@@ -1,10 +1,10 @@
 #!/bin/bash
-# sync-to-template.sh — push dev-shop changes from this project to the template repo.
+# sync-to-template.sh — push build tooling changes from this project to the devshop repo.
 #
-# The template repo is bind-mounted at /template-repo (cloned on the host, mounted
-# into the devcontainer). This script copies files per manifest.txt, commits in the
-# template repo, and prints push instructions for the human operator (the devcontainer
-# PAT doesn't cover the template repo — pushing happens on the host side).
+# The devshop repo (abra-kadabra) is bind-mounted at /devshop (cloned on the host,
+# mounted into the devcontainer). This script copies TEMPLATE files per manifest.txt,
+# commits in the devshop repo, and prints push instructions for the human operator
+# (the devcontainer PAT doesn't cover the devshop repo — pushing happens on the host).
 #
 # Usage:
 #   sync-to-template.sh                  # auto-detect bump level
@@ -35,11 +35,11 @@ done
 if [ ! -d "$TEMPLATE_DIR" ]; then
   echo "ERROR: $TEMPLATE_DIR does not exist."
   echo ""
-  echo "The template repo must be bind-mounted into the devcontainer."
+  echo "The devshop repo (abra-kadabra) must be bind-mounted into the devcontainer."
   echo "Setup (one-time):"
-  echo "  1. On host: git clone <template-url> as sibling to this project"
+  echo "  1. On host: git clone <devshop-url> as sibling to this project"
   echo "  2. Add to .devcontainer/devcontainer.json mounts:"
-  echo '     "source=${localWorkspaceFolder}/../abra-kadabra,target=/template-repo,type=bind,consistency=delegated"'
+  echo '     "source=${localWorkspaceFolder}/../abra-kadabra,target=/devshop,type=bind,consistency=delegated"'
   echo "  3. Rebuild devcontainer"
   exit 1
 fi

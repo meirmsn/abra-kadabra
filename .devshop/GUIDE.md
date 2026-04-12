@@ -352,7 +352,7 @@ Unit tests are the fast inner loop (local + CI fast). Integration + E2E are the 
   - `.devcontainer/Dockerfile` — protects base image, binary installs, system packages
   - `.devcontainer/checksums.sha256` — protects integrity verification for pinned binaries
   - `.devcontainer/.env` — protects secrets and credentials
-- **Template repo gets the same protection** — after `sync-to-template.sh` (seed or regular sync), lock the same files in the template repo (minus `.env` which isn't synced). The sync script prints the exact commands. This prevents Claude from modifying synced security files when working directly in the template repo.
+- **Devshop repo gets the same protection** — `init-devshop.sh` locks symlinked files (settings.json, .dcg.toml) via `chown root:root` which follows symlinks to the targets in `/devshop/`. This prevents Claude from modifying security files through either path.
 
 #### Code Structure
 

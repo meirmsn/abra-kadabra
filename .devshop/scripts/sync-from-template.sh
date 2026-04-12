@@ -1,12 +1,13 @@
 #!/bin/bash
-# sync-from-template.sh — pull dev-shop updates from the template repo into this project.
+# sync-from-template.sh — pull build tooling updates from the devshop repo into this project.
 #
-# The template repo is bind-mounted at /template-repo (cloned on the host, mounted
-# into the devcontainer). This script copies files per manifest.txt, injects
-# .devshop/CLAUDE.md into root CLAUDE.md, and shows a diff for review.
+# The devshop repo (abra-kadabra) is bind-mounted at /devshop (cloned on the host,
+# mounted into the devcontainer). This script copies TEMPLATE files per manifest.txt
+# and shows a diff for review. INJECTED files (skills, settings, etc.) are handled
+# by init-devshop.sh — this script only syncs build tooling (turbo.json, eslint, etc.).
 #
-# Before running: make sure the template repo is up to date on the host side
-# (git pull in the template repo directory).
+# Before running: make sure the devshop repo is up to date on the host side
+# (git pull in the abra-kadabra directory).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -18,11 +19,11 @@ TEMPLATE_DIR="${DEVSHOP_DIR:-/devshop}"
 if [ ! -d "$TEMPLATE_DIR" ]; then
   echo "ERROR: $TEMPLATE_DIR does not exist."
   echo ""
-  echo "The template repo must be bind-mounted into the devcontainer."
+  echo "The devshop repo (abra-kadabra) must be bind-mounted into the devcontainer."
   echo "Setup (one-time):"
-  echo "  1. On host: git clone <template-url> as sibling to this project"
+  echo "  1. On host: git clone <devshop-url> as sibling to this project"
   echo "  2. Add to .devcontainer/devcontainer.json mounts:"
-  echo '     "source=${localWorkspaceFolder}/../abra-kadabra,target=/template-repo,type=bind,consistency=delegated"'
+  echo '     "source=${localWorkspaceFolder}/../abra-kadabra,target=/devshop,type=bind,consistency=delegated"'
   echo "  3. Rebuild devcontainer"
   exit 1
 fi
