@@ -16,28 +16,26 @@ The guinea pig project is **lalista** — a bilingual grocery list app being mig
 
 ## Is the dev-shop machinery portable to future projects?
 
-Yes — portability is a first-class concern. Files are separated into two layers:
+Yes — portability is a first-class concern. Files are separated into three categories:
 
-**Dev-shop layer** (same across all projects, synced via scripts):
+**Injected** (from abra-kadabra via symlinks at container start, gitignored in project):
 
-- `.devshop/` (including `.devshop/CLAUDE.md` — dev-shop conventions)
-- `.devcontainer/`
-- `.claude/settings.json`
-- `.github/workflows/`
-- `turbo.json`, `pnpm-workspace.yaml`
+- `.devshop/`, `.claude/` (skills, commands, settings), `.dcg.toml`, `CLAUDE.md`, `BUILD-LOG.md`
 
-**Project layer** (project-specific, never synced):
+**Templated** (copied from abra-kadabra during `/ak-init`, then project-owned):
 
-- `apps/`, `packages/`, `supabase/`
-- `CLAUDE.md` (project context only)
-- `DESIGN.md`, `specs/`, `README.md`, `TODOS.md`
+- `.devcontainer/`, `.husky/`, `.github/workflows/`, `turbo.json`, `eslint.config.mjs`, etc.
 
-After Phase 0, the dev-shop layer is pushed to a `devshop-template` GitHub Template Repository. New projects start from that template. Two scripts handle ongoing sync:
+**Project-only** (never in abra-kadabra):
 
-- `.devshop/scripts/sync-to-template.sh` — push an improvement from this project to the template
-- `.devshop/scripts/sync-from-template.sh` — pull template updates into this project (you review the diff before applying)
+- `apps/`, `packages/`, `supabase/`, `CLAUDE.project.md`, `DESIGN.md`, `specs/`, `METRICS.md`
 
-No git submodules. Git-native. You review every change.
+The devshop (abra-kadabra) and project repos are separate (since v1.0.0). Devshop files get injected into the workspace at container start via `init-devshop.sh` symlinks — they're gitignored in the project repo. Build tooling files (turbo.json, eslint, etc.) are tracked in both repos and can be synced:
+
+- `.devshop/scripts/sync-to-template.sh` — push build tooling improvements to abra-kadabra
+- `.devshop/scripts/sync-from-template.sh` — pull build tooling updates into a project
+
+No git submodules. Git-native. You review every change. See GUIDE.md § Devshop Separation Architecture for the full model.
 
 ---
 

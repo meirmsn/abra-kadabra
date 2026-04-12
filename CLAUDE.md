@@ -46,7 +46,7 @@ See `.devshop/GUIDE.md § Devshop Separation Architecture` for the full model.
 - Light/dark theme required — both from launch, theme tokens only.
 - Edge functions always validate auth server-side via `getUser()`.
 - Auth flow changes always include route protection middleware in the same PR.
-- Pre-commit enforcement on every commit, no bypass. See GUIDE.md § Commit Flow for what runs.
+- Pre-commit enforcement on every commit, no bypass. See GUIDE.md § Security + Quality for what runs.
 - Shared packages export TypeScript source directly — no build step.
 - For full detail on testing philosophy, metrics lifecycle, and backlog routing: see `.devshop/GUIDE.md § Shared Conventions`.
 

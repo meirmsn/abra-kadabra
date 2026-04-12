@@ -7,7 +7,7 @@ A one-person dev shop that goes from rough notes to deployed, tested, observable
 
 **Architecture**: The devshop (abra-kadabra) and project repos are separate. The project repo is clean and publishable. Devshop files get injected into the workspace at container start via `init-devshop.sh` symlinks. See GUIDE.md § Devshop Separation Architecture for the full model.
 
-**New project?** Create a repo, add a `.devcontainer/` that mounts `../abra-kadabra` at `/devshop`, then run `/devshop:init` — walks you through the setup checklist in GUIDE.md step by step.
+**New project?** Create a repo, add a `.devcontainer/` that mounts `../abra-kadabra` at `/devshop`, then run `/ak-init` — walks you through the setup checklist in GUIDE.md step by step.
 
 ## Workflow (Idea to Deployed)
 
@@ -16,17 +16,17 @@ A one-person dev shop that goes from rough notes to deployed, tested, observable
 3. `/autoplan` (gstack) — eng/CEO/design review; locks in architecture, edge cases, decisions
    3b. `/design-shotgun` (optional) — visual variants if feature is UI-heavy; approve one direction
    3c. `/design-html` (optional) — HTML reference from approved mockup; Claude builds React from this
-4. `/build` (devshop) — autonomous: spec → implement → quality gates → ship → CI watch+fix → notify you
+4. `/ak-build` (devshop) — autonomous: spec → implement → quality gates → ship → CI watch+fix → notify you
 5. You review PR — release notes + audit trail + CI green + preview URL
-6. `/go-live` (devshop) — autonomous: merge → deploy → canary → reflect → notify you
+6. `/ak-go-live` (devshop) — autonomous: merge → deploy → canary → reflect → notify you
 
 ### Branch strategy
 
 `main` (production) — always deployable. No `develop` branch.
 
-- `/build` creates a `feature/<name>` or `fix/<name>` branch, implements, pushes, opens PR
+- `/ak-build` creates a `feature/<name>` or `fix/<name>` branch, implements, pushes, opens PR
 - You review the PR (preview URL + audit trail + CI green)
-- `/go-live` merges the PR, deploys, runs canary, reflects
+- `/ak-go-live` merges the PR, deploys, runs canary, reflects
 
 Branch protection on `main` requires PR + CI green before merge.
 
