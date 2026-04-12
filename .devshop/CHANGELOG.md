@@ -2,6 +2,21 @@
 
 Auto-appended by `sync-to-template.sh` and `release.sh` on version bumps.
 
+## v1.0.0 (2026-04-12)
+
+- devshop: fix init-devshop.sh indentation, update devcontainer mount
+- devshop: fix stale references from separation audit
+- Revert "devshop: remove accidental .vscode/settings.json"
+- devshop: remove accidental .vscode/settings.json
+- devshop: symlink settings.json instead of copying
+- devshop: update ak-init for separation model
+- devshop: document separation architecture, add template configs
+- devshop: rename CLAUDE.devshop.md → CLAUDE.md, add separation TODO
+- devshop: fix gaps from separation audit
+- devshop: track gstack as regular directory (not embedded repo)
+- devshop: sync full toolchain from lalista for injection model
+- devshop: injection-based setup for clean project repos
+
 ## v0.2.0 (2026-04-09)
 
 - Added `.devshop/templates/` folder with `.md.tmpl` convention (README, PRODUCT-ROADMAP, BUILD-LOG)
