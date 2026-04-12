@@ -567,21 +567,38 @@ Run the gstack `/setup-deploy` skill to configure `/land-and-deploy` with the pr
 URL and health check endpoints. Must be done after Vercel is linked and before the first
 use of `/land-and-deploy`.
 
-### Step 19: Inject devshop conventions into root CLAUDE.md
+### Step 19: Create CLAUDE.project.md
 
-Root CLAUDE.md needs a `## Devshop Conventions` section containing the content of
-`.devshop/CLAUDE.md`. This ensures all Claude sessions see the non-negotiables,
-confidence calibration, and conventions without needing to read `.devshop/` files.
+Create `CLAUDE.project.md` in the project root with project-specific Claude guidance.
+This file is tracked in git and is the project's contribution to the generated `CLAUDE.md`.
 
-1. Read `.devshop/CLAUDE.md`
-2. Read root `CLAUDE.md`
-3. If `## Devshop Conventions` heading exists: replace that section's content
-4. If not: add `## Devshop Conventions` section (before the project section if possible,
-   otherwise append)
-5. Add a sync note below the heading:
-   `<!-- Synced from .devshop/CLAUDE.md — edit .devshop/CLAUDE.md, not here -->`
+At container start, `init-devshop.sh` generates `CLAUDE.md` by concatenating:
+- `abra-kadabra/CLAUDE.md` (devshop conventions) + `CLAUDE.project.md` (project context)
 
-Future updates via `sync-from-template.sh` keep this section current.
+The generated `CLAUDE.md` is gitignored — edits go to `CLAUDE.project.md`.
+
+Create `CLAUDE.project.md` with at minimum:
+
+```markdown
+## Project: <project-name>
+
+<one-line description>
+
+### Where Things Happen
+
+_This section grows as code is added. Update it when introducing new paths._
+
+### Stack
+
+<list the stack>
+
+### Env Var Naming
+
+<env var table if applicable>
+```
+
+The project-specific sections (deploy config, migration workflow, etc.) are added as
+they become relevant during feature development.
 
 ### Step 20: Enable documentation enforcement hooks
 
@@ -624,9 +641,12 @@ with real config values. Common additions: Supabase anon key pattern, PostHog pu
 
 ### Step 22: [HUMAN] Lock security-critical files
 
+`init-devshop.sh` automatically locks injected files (`.claude/settings.json`, `.dcg.toml`)
+on every container start. The project's `.devcontainer/` files also need locking:
+
 ```bash
-sudo chown root:root .claude/settings.json .devcontainer/devcontainer.json .devcontainer/init-firewall.sh .devcontainer/Dockerfile .devcontainer/checksums.sha256 .devcontainer/.env
-sudo chmod 644 .claude/settings.json .devcontainer/devcontainer.json .devcontainer/init-firewall.sh .devcontainer/Dockerfile .devcontainer/checksums.sha256 .devcontainer/.env
+sudo chown root:root .devcontainer/devcontainer.json .devcontainer/init-firewall.sh .devcontainer/Dockerfile .devcontainer/checksums.sha256 .devcontainer/.env
+sudo chmod 644 .devcontainer/devcontainer.json .devcontainer/init-firewall.sh .devcontainer/Dockerfile .devcontainer/checksums.sha256 .devcontainer/.env
 ```
 
 These files already have deny rules in settings.json; this adds filesystem-level protection.
@@ -675,41 +695,24 @@ Set up quota alerts in each service's dashboard (free, no infrastructure):
 - **Vercel**: Settings → Usage → email notifications
 - **GitHub Actions**: monitor via monthly `/retro` (no native alert)
 
-### Step 25: Set up template sync + initial seed
+### Step 25: [HUMAN] Set up abra-kadabra bind mount
 
-The template repo (`abra-kadabra`) is bind-mounted into the devcontainer from the
-host machine. The sync script writes to it inside the container; the human pushes
-from the host (where they have full git credentials). This avoids expanding the
-devcontainer PAT scope.
+The devshop repo (`abra-kadabra`) is bind-mounted into the devcontainer from the
+host machine. `init-devshop.sh` injects devshop files into the workspace via symlinks
+at container start. See `.devshop/GUIDE.md § Devshop Separation Architecture`.
 
 **[HUMAN] One-time setup** (if not already done):
 
-1. On the host, clone the template repo as a sibling to this project:
+1. On the host, clone the devshop repo as a sibling to this project:
    ```bash
    cd <parent-of-project> && git clone https://github.com/<org>/abra-kadabra
    ```
-2. Add the bind mount to `.devcontainer/devcontainer.json` in the `mounts` array:
+2. Verify `.devcontainer/devcontainer.json` has the mount in the `mounts` array:
    ```json
-   "source=${localWorkspaceFolder}/../abra-kadabra,target=/template-repo,type=bind,consistency=delegated"
+   "source=${localWorkspaceFolder}/../abra-kadabra,target=/devshop,type=bind,consistency=delegated"
    ```
 3. Rebuild the devcontainer.
-
-**Initial seed** (first sync to empty template repo):
-
-```bash
-bash .devshop/scripts/sync-to-template.sh --seed
-```
-
-This copies all manifest files from the project to `/template-repo` and commits.
-
-**[HUMAN] Push from host:**
-
-```bash
-cd <path-to-abra-kadabra> && git push -u origin main
-```
-
-Note: root `CLAUDE.md` is project-specific and is NOT copied. `.devshop/CLAUDE.md`
-is copied as the source for the devshop conventions section.
+4. Verify injection worked: `ls -la .devshop` should show a symlink to `/devshop/.devshop/`.
 
 ### Step 26: [HUMAN] Branch protection
 
