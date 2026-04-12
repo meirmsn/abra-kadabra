@@ -14,24 +14,17 @@ set -euo pipefail
 STAGED=$(git diff --cached --name-only)
 [ -z "$STAGED" ] && exit 0
 
-# --- Manifest-based devshop path patterns ---
-# Keep in sync with .devshop/manifest.txt
+# --- Devshop path patterns ---
+# After devshop separation, injected files are gitignored in the project repo.
+# These patterns catch accidental commits if someone removes a gitignore entry.
+# Project infra (.devcontainer/, .husky/, .github/, turbo.json, etc.) is now
+# project-layer and tracked normally — no longer classified as devshop.
 DEVSHOP_PATTERNS=(
   '^\.devshop/'
-  '^\.claude/settings\.json$'
-  '^\.claude/skills/devshop/'
-  '^\.claude/skills/ak-'
-  '^\.claude/commands/'
-  '^\.devcontainer/'
-  '^\.husky/'
-  '^\.github/workflows/'
-  '^\.gitleaks\.toml$'
+  '^\.claude/'
   '^\.dcg\.toml$'
-  '^turbo\.json$'
-  '^pnpm-workspace\.yaml$'
-  '^tsconfig\.base\.json$'
-  '^eslint\.config\.mjs$'
   '^CLAUDE\.md$'
+  '^BUILD-LOG\.md$'
 )
 
 # Build combined regex

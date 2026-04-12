@@ -18,7 +18,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 MANIFEST="$PROJECT_ROOT/.devshop/manifest.txt"
 VERSION_FILE="$PROJECT_ROOT/.devshop/version"
-TEMPLATE_DIR="/template-repo"
+TEMPLATE_DIR="${DEVSHOP_DIR:-/devshop}"
 
 # --- Parse args ---
 BUMP=""

@@ -12,7 +12,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 MANIFEST="$PROJECT_ROOT/.devshop/manifest.txt"
-TEMPLATE_DIR="/template-repo"
+TEMPLATE_DIR="${DEVSHOP_DIR:-/devshop}"
 
 # --- Guards ---
 if [ ! -d "$TEMPLATE_DIR" ]; then
