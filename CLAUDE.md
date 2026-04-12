@@ -29,7 +29,13 @@ Default to simple. Pick the boring solution. Tried-and-true over clever. Readabl
 
 Depth over speed. When a step or task hits friction, stop and think about what consequences it has for the project or the devshop. A wrong URL means deploys fail. A missing permission means /ship breaks. An undocumented gotcha means the next session wastes time debugging it. Solve the problem and update docs/skills so it doesn't recur. Don't suggest skipping or deferring unless the user asks.
 
-Flag concerns not covered by existing docs or conventions — wait for confirmation before proceeding. Commit per logical change (one task, one fix, one devshop improvement). Devshop commits use the `devshop:` prefix; project commits use conventional commits.
+Flag concerns not covered by existing docs or conventions — wait for confirmation before proceeding. Commit per logical change (one task, one fix, one devshop improvement).
+
+**Two repos, two commit flows:**
+- **Project commits** go to the project repo (`/workspace`). Use conventional commits (`feat:`, `fix:`, `chore:`, etc.).
+- **Devshop commits** go to the abra-kadabra repo (`/devshop`). Use the `devshop:` prefix. Since `.devshop/` is a symlink, edits are automatically in the abra-kadabra working tree — just `cd /devshop && git add && git commit`.
+
+See `.devshop/GUIDE.md § Devshop Separation Architecture` for the full model.
 
 ### Non-Negotiables
 

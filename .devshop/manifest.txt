@@ -1,39 +1,43 @@
-# Dev-shop layer files — synced between projects and the abra-kadabra template.
-# Sync scripts read this file to determine which files to copy.
-# Lines marked [private] are stripped from the public mirror.
-# Sync scripts ignore annotations (strip trailing tags when reading paths).
-# Lines starting with ! are exclude patterns (applied to directory syncs).
+# Dev-shop manifest — defines what the devshop owns and what projects own.
+#
+# After the devshop separation (2026-04):
+# - INJECTED files are symlinked into the project at container start by init-devshop.sh.
+#   They are gitignored in the project repo. Edits go to abra-kadabra.
+# - TEMPLATE files are copied into new projects by /ak-init. After that, they're
+#   owned by the project and can diverge. sync-from-template.sh can pull updates.
+# - Lines marked [private] are stripped from any public mirror.
 
-# --- Devshop docs & scripts ---
-.devshop/README.md           [private]
-.devshop/GUIDE.md            [private]
-.devshop/CLAUDE.md           [private]
-.devshop/FAQ.md              [private]
-.devshop/ROADMAP.md          [private]
-.devshop/CHANGELOG.md        [private]
-.devshop/TODOS.md            [private]
-.devshop/manifest.txt        [private]
-.devshop/version             [private]
-.devshop/template-remote     [private]
-.devshop/scripts/            [private]
-.devshop/templates/
-.devshop/notes/              [private]
+# === INJECTED (symlinked by init-devshop.sh, gitignored in project) ===
+# These never appear in project git history.
 
-# --- Claude Code config (no gstack — installed per-project) ---
-.claude/settings.json
-.claude/commands/             [private]
-.claude/skills/devshop/       [private]
+.devshop/                     [private]  # entire directory
+.claude/skills/devshop/       [private]  # devshop skills
+.claude/skills/gstack/                   # gstack tools
+.claude/skills/ak-*           [private]  # devshop skill symlinks
+.claude/skills/*                         # gstack skill symlinks
+.claude/commands/             [private]  # slash commands
+.claude/settings.json                    # Claude Code config
+.claude/README.md                        # Claude Code docs
+.dcg.toml                    [private]  # destructive command guard
+CLAUDE.md                               # generated from CLAUDE.md + CLAUDE.project.md
 
-# --- Devcontainer (exclude .env — has real credentials) ---
-.devcontainer/
-!.devcontainer/.env
+# === TEMPLATE (copied by /ak-init, then project-owned) ===
+# sync-from-template.sh can pull updates; project can diverge.
 
-# --- Build tooling ---
-.dcg.toml                    [private]
-.husky/
-.github/workflows/
-.gitleaks.toml
+# Build tooling
 turbo.json
 pnpm-workspace.yaml
 tsconfig.base.json
 eslint.config.mjs
+.gitleaks.toml
+.editorconfig
+.prettierrc
+.npmrc
+.nvmrc
+package.json
+
+# Project infrastructure
+.devcontainer/
+!.devcontainer/.env
+.husky/
+.github/workflows/

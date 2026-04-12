@@ -5,7 +5,9 @@
 
 A one-person dev shop that goes from rough notes to deployed, tested, observable web app with minimal manual intervention. Claude Code implements autonomously; gstack handles the full lifecycle around it (planning, review, QA, security, deploy, monitoring). The glue is conventions, pre-commit hooks, CI, and custom skills. Two touchpoints: review the PR, say "land it."
 
-**New project?** Create a repo from the `abra-kadabra` template on GitHub, open it in the devcontainer, then run `/devshop:init` — walks you through the setup checklist in GUIDE.md step by step.
+**Architecture**: The devshop (abra-kadabra) and project repos are separate. The project repo is clean and publishable. Devshop files get injected into the workspace at container start via `init-devshop.sh` symlinks. See GUIDE.md § Devshop Separation Architecture for the full model.
+
+**New project?** Create a repo, add a `.devcontainer/` that mounts `../abra-kadabra` at `/devshop`, then run `/devshop:init` — walks you through the setup checklist in GUIDE.md step by step.
 
 ## Workflow (Idea to Deployed)
 
@@ -36,8 +38,9 @@ Apps:    apps/web/ (Next.js 15, App Router)
 Shared:  packages/core/ (business logic, Supabase client, API wrappers) · packages/ui/ (design tokens, components)
 Backend: supabase/migrations/ (schema) · supabase/functions/ (edge functions)
 CI/CD:   .github/workflows/ci.yml · apps/web/vercel.json
-Devshop: .devshop/ (scripts, conventions, docs, notes, templates/) · .claude/skills/devshop/ (build, go-live, spec, implement, pre-ship, test-review, status, init)
-Logs:    BUILD-LOG.md (project builds) · .devshop/CHANGELOG.md (devshop versions)
+Devshop: .devshop/ → symlink to /devshop/.devshop/ (injected at container start from abra-kadabra)
+Claude:  .claude/ (injected: skills, commands, settings) · CLAUDE.md (generated) · CLAUDE.project.md (tracked, project-specific)
+Logs:    BUILD-LOG.md (project builds, gitignored) · .devshop/CHANGELOG.md (devshop versions)
 Backlogs: TODOS.md (project tactical) · PRODUCT-ROADMAP.md (project strategic) · .devshop/TODOS.md (devshop tactical) · .devshop/ROADMAP.md (devshop strategic)
 Config:  turbo.json · pnpm-workspace.yaml · tsconfig.base.json · eslint.config.mjs · .dcg.toml · .gitleaks.toml
 ```
