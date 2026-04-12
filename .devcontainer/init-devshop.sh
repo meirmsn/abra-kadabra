@@ -84,4 +84,3 @@ for f in \
   ; do
   [ -e "$f" ] && chown root:root "$f" && chmod 644 "$f"
 done
-INITEOF
