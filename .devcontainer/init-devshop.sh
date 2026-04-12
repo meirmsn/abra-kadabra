@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
-# Devshop container-start setup (runs as root via sudo on every start)
+# Devshop injection — runs as root via sudo on every container start.
+# Symlinks devshop infrastructure from /devshop into /workspace so
+# Claude Code sees it, but git doesn't track it (gitignored in project repo).
 
-# Set root password if provided (enables human `su -` access)
-if [ -f /workspace/.devcontainer/.env ]; then
-  ROOT_PASSWORD=$(grep '^DEVCONTAINER_ROOT_PASSWORD=' /workspace/.devcontainer/.env | cut -d= -f2)
+set -euo pipefail
+
+DEVSHOP=/devshop
+WS=/workspace
+
+# --- Password setup ---
+if [ -f "$WS/.devcontainer/.env" ]; then
+  ROOT_PASSWORD=$(grep '^DEVCONTAINER_ROOT_PASSWORD=' "$WS/.devcontainer/.env" | cut -d= -f2)
   if [ -n "$ROOT_PASSWORD" ]; then
     echo "root:$ROOT_PASSWORD" | chpasswd
     echo "node:$ROOT_PASSWORD" | chpasswd
@@ -11,3 +18,53 @@ if [ -f /workspace/.devcontainer/.env ]; then
     chmod 0440 /etc/sudoers.d/node
   fi
 fi
+
+# --- Symlink .devshop/ into workspace ---
+ln -sfn "$DEVSHOP/.devshop" "$WS/.devshop"
+
+# --- Symlink .dcg.toml ---
+[ -f "$DEVSHOP/.dcg.toml" ] && ln -sfn "$DEVSHOP/.dcg.toml" "$WS/.dcg.toml"
+
+# --- Build .claude/ directory ---
+mkdir -p "$WS/.claude/skills"
+
+# Core skill directories (actual content)
+ln -sfn "$DEVSHOP/.claude/skills/devshop" "$WS/.claude/skills/devshop"
+ln -sfn "$DEVSHOP/.claude/skills/gstack" "$WS/.claude/skills/gstack"
+
+# Recreate all skill symlinks (ak-*, gstack tools, etc.)
+for link in "$DEVSHOP/.claude/skills/"*; do
+  name=$(basename "$link")
+  # Skip the actual directories — already linked above
+  [ "$name" = "devshop" ] || [ "$name" = "gstack" ] && continue
+  # Copy symlinks (preserves relative targets like "devshop/build" or "gstack/browse")
+  if [ -L "$link" ]; then
+    cp -a "$link" "$WS/.claude/skills/$name"
+  fi
+done
+
+# Commands
+ln -sfn "$DEVSHOP/.claude/commands" "$WS/.claude/commands"
+
+# Settings (copy, not symlink — needs root ownership for security lockdown)
+cp "$DEVSHOP/.claude/settings.json" "$WS/.claude/settings.json"
+
+# --- Generate CLAUDE.md from devshop template + project-specific parts ---
+cp "$DEVSHOP/CLAUDE.devshop.md" "$WS/CLAUDE.md"
+if [ -f "$WS/CLAUDE.project.md" ]; then
+  printf '\n' >> "$WS/CLAUDE.md"
+  cat "$WS/CLAUDE.project.md" >> "$WS/CLAUDE.md"
+fi
+
+# --- Lock security-critical files (root-owned, world-readable, not writable by node) ---
+for f in \
+  "$WS/.claude/settings.json" \
+  "$WS/.devcontainer/devcontainer.json" \
+  "$WS/.devcontainer/init-firewall.sh" \
+  "$WS/.devcontainer/Dockerfile" \
+  "$WS/.devcontainer/checksums.sha256" \
+  "$WS/.devcontainer/.env" \
+  "$WS/.dcg.toml" \
+  ; do
+  [ -f "$f" ] && chown root:root "$f" && chmod 644 "$f"
+done
