@@ -483,7 +483,7 @@ The real script in abra-kadabra:
 4. Creates `.claude/skills/` with symlinks to devshop + gstack skill directories
 5. Copies skill symlinks (ak-*, gstack tools) preserving relative targets
 6. Symlinks `.claude/commands/` → `/devshop/.claude/commands/`
-7. Copies `.claude/settings.json` (copy, not symlink — needs root ownership)
+7. Symlinks `.claude/settings.json`
 8. Generates `CLAUDE.md` by concatenating `abra-kadabra/CLAUDE.md` + `CLAUDE.project.md`
 9. Creates `BUILD-LOG.md` with default content if missing
 10. Locks security-critical files (root-owned, 644)
@@ -511,7 +511,7 @@ git add -A && git commit -m "devshop: ..."
 
 - Devshop commits use the `devshop:` prefix
 - Changes take effect immediately (symlinks resolve live)
-- `.claude/settings.json` is an exception: it's copied, not symlinked. After editing it in abra-kadabra, re-run `sudo /usr/local/bin/init-devshop.sh` or rebuild the container.
+- All injected files (including `.claude/settings.json`) are symlinks — edits in `/devshop/` take effect immediately. The lock step (`chown root:root`) follows symlinks, so the target files in abra-kadabra are also locked.
 
 ### Propagating build tooling updates
 
