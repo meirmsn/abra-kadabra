@@ -166,9 +166,9 @@ if [ "$RUN_DRIFT_CHECK" = true ]; then
 fi
 
 # --- Check 3: Reference doc consistency ---
-# When any devshop reference doc is staged, the committer must either:
-#   (a) stage all three docs, or
-#   (b) certify consistency by providing a reason why unstaged docs don't need updating.
+# When any devshop reference doc is staged, always require an explicit statement
+# of what was verified for consistency. Even when all three are co-staged, the
+# changes may have been made across multiple rounds and not be mutually consistent.
 #
 # Each doc has a different scope — not every change needs all three updated:
 #   .devshop/CLAUDE.md  — agent rules and config (what Claude must/must not do)
@@ -188,7 +188,7 @@ $HAS_CLAUDE_MD && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("CLAUDE.md") ||
 $HAS_README && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("README.md") || UNCHANGED_DOCS+=(".devshop/README.md  (overview)")
 $HAS_GUIDE && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("GUIDE.md") || UNCHANGED_DOCS+=(".devshop/GUIDE.md   (full reference)")
 
-if [ "$DOC_COUNT" -gt 0 ] && [ "$DOC_COUNT" -lt 3 ]; then
+if [ "$DOC_COUNT" -gt 0 ]; then
   CHANGED_LIST=$(IFS=', '; echo "${CHANGED_DOCS[*]}")
   BYPASS_DOC_SYNC=$(get_bypass devshop.docSyncReason || true)
 
@@ -196,17 +196,20 @@ if [ "$DOC_COUNT" -gt 0 ] && [ "$DOC_COUNT" -lt 3 ]; then
     echo "✓ Doc consistency verified: $BYPASS_DOC_SYNC" >&2
   else
     echo "" >&2
-    echo "✖ Reference doc changed ($CHANGED_LIST) — verify the others are consistent:" >&2
-    for doc in "${UNCHANGED_DOCS[@]}"; do echo "    $doc" >&2; done
+    echo "✖ Reference doc changed ($CHANGED_LIST) — verify consistency:" >&2
+    if [ ${#UNCHANGED_DOCS[@]} -gt 0 ]; then
+      echo "  Unstaged docs to check:" >&2
+      for doc in "${UNCHANGED_DOCS[@]}"; do echo "    $doc" >&2; done
+    fi
     echo "" >&2
-    echo "  Not every change needs all three updated — each doc has a different scope." >&2
-    echo "  If the unstaged docs are already consistent, bypass with a reason:" >&2
-    echo "    git -c devshop.docSyncReason=\"<reason>\" commit ..." >&2
+    echo "  Each doc has a different scope — not every change needs all three updated." >&2
+    echo "  Explain what you verified:" >&2
+    echo "    git -c devshop.docSyncReason=\"<what you checked>\" commit ..." >&2
     echo "" >&2
     echo "  Examples:" >&2
     echo "    \"operational detail — below README overview scope, no rule changes\"" >&2
-    echo "    \"agent rule change — README overview unchanged, GUIDE procedures unaffected\"" >&2
-    echo "    \"overview wording — GUIDE already covers this, no rule impact\"" >&2
+    echo "    \"all three updated for new hook architecture — cross-checked sections\"" >&2
+    echo "    \"CLAUDE.md rules unaffected, only GUIDE procedures changed\"" >&2
     FAILED=true
   fi
 fi
