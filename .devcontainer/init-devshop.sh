@@ -71,6 +71,11 @@ BUILDLOG
   chown node:node "$WS/BUILD-LOG.md"
 fi
 
+# --- Install devshop dependencies (husky, lint-staged, prettier, eslint, etc.) ---
+# Runs on every start so deps stay current when devshop is updated from another project.
+# Fast no-op when lockfile and node_modules are in sync.
+(cd "$DEVSHOP" && su node -c 'pnpm install --frozen-lockfile 2>/dev/null || pnpm install') || true
+
 # --- Lock security-critical files (root-owned, world-readable, not writable by node) ---
 # chown follows symlinks, so this locks the target files in /devshop/ too
 for f in \
