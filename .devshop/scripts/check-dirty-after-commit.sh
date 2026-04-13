@@ -28,6 +28,11 @@ if [ -n "$OTHER_REPO" ] && [ -d "$OTHER_REPO/.git" ]; then
   fi
 fi
 
+# --- Reminder: cwd may have changed after cd-ing to the other repo ---
+if [ "$GIT_ROOT" != "/workspace" ]; then
+  MESSAGES+=("You are in $GIT_ROOT — use 'cd /workspace' or absolute paths for project work.")
+fi
+
 [ ${#MESSAGES[@]} -eq 0 ] && exit 0
 
 # Combine all messages into one additionalContext block
