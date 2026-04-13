@@ -33,7 +33,6 @@ DEVSHOP_PATTERNS=(
   '^\.claude/'
   '^\.dcg\.toml$'
   '^CLAUDE\.md$'
-  '^BUILD-LOG\.md$'
 )
 DEVSHOP_REGEX=$(IFS='|'; echo "${DEVSHOP_PATTERNS[*]}")
 
