@@ -126,11 +126,22 @@ if [ "$RUN_DRIFT_CHECK" = true ]; then
         echo "✓ Docs drift verified: $BYPASS_DOCS"
       else
         echo ""
-        echo "✖ Devshop tooling changed — verify docs are up to date:"
+        echo "✖ BLOCKING: Devshop tooling changed — docs may be stale."
+        echo ""
+        echo "  Affected docs to verify:"
         for w in "${DRIFT_WARNINGS[@]}"; do echo "$w"; done
         echo ""
-        echo "  Explain what you verified (even if docs are co-staged):"
-        echo "    git -c devshop.docsVerified=\"<what you checked>\" commit ..."
+        echo "  BEFORE bypassing, you MUST:"
+        echo "    1. Re-read each referenced doc section NOW (not from memory/cache)"
+        echo "    2. Confirm the section accurately describes the new behavior"
+        echo "    3. If stale: update the doc and stage it in this commit"
+        echo "    4. If accurate: bypass with a SPECIFIC reason per doc:"
+        echo ""
+        echo "    git -c devshop.docsVerified=\"<per-doc verification>\" commit ..."
+        echo ""
+        echo "  Your reason must name each doc section you checked and why it's correct."
+        echo "  Generic reasons like 'docs already updated' will pass the hook but are"
+        echo "  auditable in git log — false reasons erode trust in the guard system."
         FAILED=true
       fi
     fi
@@ -168,20 +179,23 @@ if [ "$DOC_COUNT" -gt 0 ]; then
     echo "✓ Doc consistency verified: $BYPASS_DOC_SYNC"
   else
     echo ""
-    echo "✖ Reference doc changed ($CHANGED_LIST) — verify consistency:"
+    echo "✖ BLOCKING: Reference doc changed ($CHANGED_LIST) — verify consistency."
+    echo ""
     if [ ${#UNCHANGED_DOCS[@]} -gt 0 ]; then
       echo "  Unstaged docs to check:"
       for doc in "${UNCHANGED_DOCS[@]}"; do echo "    $doc"; done
+      echo ""
     fi
+    echo "  BEFORE bypassing, you MUST:"
+    echo "    1. Re-read each doc listed above NOW (not from memory/cache)"
+    echo "    2. Check that your changes don't contradict or leave stale info in the other docs"
+    echo "    3. If inconsistent: update the doc and stage it in this commit"
+    echo "    4. If consistent: bypass with a SPECIFIC reason per doc:"
+    echo ""
+    echo "    git -c devshop.docSyncReason=\"<per-doc verification>\" commit ..."
     echo ""
     echo "  Each doc has a different scope — not every change needs all three updated."
-    echo "  Explain what you verified:"
-    echo "    git -c devshop.docSyncReason=\"<what you checked>\" commit ..."
-    echo ""
-    echo "  Examples:"
-    echo "    \"operational detail — below README overview scope, no rule changes\""
-    echo "    \"all three updated for new hook architecture — cross-checked sections\""
-    echo "    \"CLAUDE.md rules unaffected, only GUIDE procedures changed\""
+    echo "  But you must verify, not assume. Name each doc and why it's still correct."
     FAILED=true
   fi
 fi
