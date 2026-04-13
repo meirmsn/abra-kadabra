@@ -324,14 +324,7 @@ Unit tests are the fast inner loop (local + CI fast). Integration + E2E are the 
 - **Post-commit (Claude hooks)**: `check-dirty-after-commit.sh` checks both current repo and companion repo for uncommitted changes. Advisory — injects context, doesn't block.
 - **Secrets in CI**: wired into `ci.yml` in the same PR as the integration — never a follow-up.
 - **Third-party binaries**: pinned to specific version + SHA256 checksum. Never "latest." Update version + checksum in same commit.
-- **Security-critical files are root-owned** — six files have two layers of protection: (1) deny rules in `.claude/settings.json` block Edit/Write tools, and (2) `chown root:root` + `chmod 644` blocks Bash workarounds. Claude can read them but cannot modify them by any means. To edit: `sudo nano <file>`.
-  - `.claude/settings.json` — protects deny list, DCG hook, and permission mode
-  - `.devcontainer/devcontainer.json` — protects DinD config, env var loading, container setup
-  - `.devcontainer/init-firewall.sh` — protects the network egress allowlist
-  - `.devcontainer/Dockerfile` — protects base image, binary installs, system packages
-  - `.devcontainer/checksums.sha256` — protects integrity verification for pinned binaries
-  - `.devcontainer/.env` — protects secrets and credentials
-  - `.dcg.toml` — protects destructive command guard configuration
+- **Security-critical files are root-owned** — two layers of protection: (1) deny rules in `.claude/settings.json` block Edit/Write tools, and (2) `chown root:root` + `chmod 644` blocks Bash workarounds. Claude can read them but cannot modify them by any means. To edit: `sudo nano <file>`. See `init-devshop.sh` lock section for the full list and per-file rationale.
 - **Devshop repo gets the same protection** — `init-devshop.sh` locks symlinked files (settings.json, .dcg.toml) via `chown root:root` which follows symlinks to the targets in `/devshop/`. This prevents Claude from modifying security files through either path.
 - **Fakeowner caveat** — Docker Desktop bind mounts from macOS use `fakeowner`, where `chown`/`chmod` are cosmetic (displayed but not enforced by the kernel). Layer 2 only provides real protection on native Linux or Docker named volumes. See ROADMAP.md § v+ for hardening options.
 - **Known gap: Bash bypasses deny rules** — Edit/Write deny rules don't prevent Bash commands from modifying protected files (e.g., `python3 -c "open('file','w')"`). On fakeowner mounts, root ownership doesn't help either. DCG custom block rules were attempted but cause false positives on git commands (git add, git commit mention the filenames). See ROADMAP.md § v+ for planned fix.
@@ -441,7 +434,7 @@ checkboxes for resume tracking. Update both when changing the init process.
 19. [x] Create `CLAUDE.project.md` with project-specific Claude guidance (init-devshop.sh generates `CLAUDE.md` by combining devshop + project parts)
 20. [x] Enable doc enforcement hooks: `devshop-commit-guard.sh` as Claude PreToolUse hook, add `eslint-plugin-jsdoc`
 21. [x] Update `.gitleaks.toml` allowlist with project-specific public key patterns
-22. [x] **[HUMAN]** Lock security-critical files: `sudo chown root:root && sudo chmod 644` on settings.json, devcontainer.json, init-firewall.sh, Dockerfile, checksums.sha256, .env
+22. [x] **[HUMAN]** Lock security-critical files — handled automatically by `init-devshop.sh` on container start (see lock section for full list)
 23. [x] Create `keepalive.yml` GitHub Action (prevents Supabase free tier pause)
 24. [x] **[HUMAN]** Set up service quota alerts: Sentry, PostHog, Vercel
 25. [ ] **[HUMAN]** Set up abra-kadabra bind mount: clone/place `abra-kadabra` next to the project on the host. The `.devcontainer/devcontainer.json` mount handles the rest.
