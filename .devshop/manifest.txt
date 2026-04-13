@@ -30,9 +30,11 @@ turbo.json
 pnpm-workspace.yaml
 tsconfig.base.json
 eslint.config.mjs
+.gitattributes
 .gitleaks.toml
 .editorconfig
 .prettierrc
+.prettierignore
 .npmrc
 .nvmrc
 package.json

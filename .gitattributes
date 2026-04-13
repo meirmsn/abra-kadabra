@@ -1,0 +1,4 @@
+# Complements .editorconfig by enforcing line endings at the git level, not just editor level. Prevents Windows contributors from committing CRLF line endings even if their editor ignores EditorConfig
+* text=auto eol=lf
+*.sh text eol=lf
+*.bat text eol=crlf
