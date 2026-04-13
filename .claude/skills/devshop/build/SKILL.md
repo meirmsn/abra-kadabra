@@ -267,19 +267,20 @@ COMMENT
 
 ## Phase 7: Update BUILD-LOG.md
 
+If `BUILD-LOG.md` does not exist, create it from `.devshop/templates/BUILD-LOG.md.tmpl`.
+
 Append an entry to the project's `BUILD-LOG.md`:
 
 ```markdown
 ### <feature-name> (YYYY-MM-DD)
 
-- **Spec**: specs/<feature>/spec.md
+- **Branch**: <branch name>
 - **PR**: #<PR number>
+- **Spec**: specs/<feature>/spec.md
 - **Summary**: <1-line from spec>
 - **Commits**: <N>
 - **Quality gates**: all passed
 ```
-
-If `BUILD-LOG.md` does not exist, skip this step.
 
 ## Phase 8: Notify
 

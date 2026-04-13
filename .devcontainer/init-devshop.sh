@@ -63,17 +63,7 @@ fi
 
 # --- Create BUILD-LOG.md if missing (session-start hook reads it) ---
 if [ ! -f "$WS/BUILD-LOG.md" ]; then
-  cat > "$WS/BUILD-LOG.md" << 'BUILDLOG'
-# Build Log
-
-Project build history. Updated by `/build` after each successful ship.
-
-> **New session?** Run `/ak-status` to get oriented.
-
-## Status
-
-**Current phase**: Not started
-BUILDLOG
+  cp "$DEVSHOP/.devshop/templates/BUILD-LOG.md.tmpl" "$WS/BUILD-LOG.md"
   chown node:node "$WS/BUILD-LOG.md"
 fi
 
