@@ -71,6 +71,16 @@ BUILDLOG
   chown node:node "$WS/BUILD-LOG.md"
 fi
 
+# --- Claude memory symlink ---
+# Claude writes memories to ~/.claude/projects/-workspace/memory/ (native path).
+# Symlink redirects to /workspace/.claude/memory/ so memories are tracked in git.
+# .gitignore uses ".claude/*" + "!.claude/memory/" to track only the memory dir.
+MEMORY_DIR="$WS/.claude/memory"
+MEMORY_LINK="/home/node/.claude/projects/-workspace/memory"
+mkdir -p "$MEMORY_DIR" "$(dirname "$MEMORY_LINK")"
+ln -sfn "$MEMORY_DIR" "$MEMORY_LINK"
+chown -h node:node "$MEMORY_LINK"
+
 # --- Install devshop dependencies (husky, lint-staged, prettier, eslint, etc.) ---
 # Runs on every start so deps stay current when devshop is updated from another project.
 # Fast no-op when lockfile and node_modules are in sync.
