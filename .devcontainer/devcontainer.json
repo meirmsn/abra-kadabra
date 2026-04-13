@@ -71,9 +71,8 @@
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
-  // Onboarding skipped since it hangs, plus not needed! (saves time by not having to go through it every time you start the container) - Happened when using Anthrpic API Key
-  // Add a symbolic link so that claude memories are stored to the workspace and hence tracked in git (instead of being stored in the home directory and lost on container restart)
-  "postCreateCommand": "echo '{\"hasCompletedOnboarding\": true}' > ~/.claude.json && mkdir -p ~/.claude/projects/-workspace /workspace/.claude/memory && ln -sfn /workspace/.claude/memory ~/.claude/projects/-workspace/memory",
+  // Onboarding skipped since it hangs, plus not needed! (saves time by not having to go through it every time you start the container) - Happened when using Anthropic API Key
+  "postCreateCommand": "echo '{\"hasCompletedOnboarding\": true}' > ~/.claude.json",
   // Firewall + devshop sudo setup on every start
   // Configure git to use GITHUB_TOKEN via gh (skipped if token missing) - prevents having to sign in to github on container restart
   "postStartCommand": "sudo /usr/local/bin/init-firewall.sh && sudo /usr/local/bin/init-devshop.sh && ([ -n \"$GITHUB_TOKEN\" ] && gh auth setup-git || true)",
