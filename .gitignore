@@ -23,6 +23,9 @@ dist/
 .gstack/browse.json
 .gstack/browse-*.log
 
+# Injected hooks (created by init-devshop.sh)
+.hooks/
+
 # OS
 .DS_Store
 .vercel

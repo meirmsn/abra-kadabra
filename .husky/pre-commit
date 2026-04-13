@@ -1,3 +1,4 @@
 pnpm exec lint-staged
 pnpm turbo run typecheck
 gitleaks protect --staged --redact
+[ -x .hooks/pre-commit ] && bash .hooks/pre-commit
