@@ -1,0 +1,28 @@
+.env
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+/build/
+.next/
+*.tsbuildinfo
+
+# Turbo
+.turbo/
+
+# Next.js telemetry
+**/cache/config.json
+
+# Logs
+*.log
+
+# gstack runtime state (transient)
+.gstack/browse.json
+.gstack/browse-*.log
+
+# OS
+.DS_Store
+.vercel

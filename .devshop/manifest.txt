@@ -25,6 +25,7 @@ CLAUDE.md                               # generated from CLAUDE.md + CLAUDE.proj
 # sync-from-template.sh can pull updates; project can diverge.
 
 # Build tooling
+.gitignore
 turbo.json
 pnpm-workspace.yaml
 tsconfig.base.json
