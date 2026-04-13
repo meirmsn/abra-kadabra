@@ -118,6 +118,8 @@ for f in \
   "$WS/.devcontainer/Dockerfile" \
   "$WS/.devcontainer/checksums.sha256" \
   "$WS/.devcontainer/.env" \
+  "$WS/.devcontainer/init-devshop.sh" \
+  "$WS/.claude/settings.local.json" \
   "$WS/.dcg.toml" \
   ; do
   [ -e "$f" ] && chown root:root "$f" && chmod 644 "$f"
