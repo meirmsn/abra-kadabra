@@ -1,9 +1,9 @@
 #!/bin/bash
-# sync-from-template.sh — pull build tooling updates from the devshop repo into this project.
+# sync-from-devshop.sh — pull build tooling updates from the devshop repo into this project.
 #
 # The devshop repo (abra-kadabra) is bind-mounted at /devshop (cloned on the host,
-# mounted into the devcontainer). This script copies TEMPLATE files per manifest.txt
-# and shows a diff for review. INJECTED files (skills, settings, etc.) are handled
+# mounted into the devcontainer). This script copies files listed in manifest.txt
+# and shows a diff for review. Injected files (skills, settings, etc.) are handled
 # by init-devshop.sh — this script only syncs build tooling (turbo.json, eslint, etc.).
 #
 # Before running: make sure the devshop repo is up to date on the host side
@@ -13,11 +13,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 MANIFEST="$PROJECT_ROOT/.devshop/manifest.txt"
-TEMPLATE_DIR="${DEVSHOP_DIR:-/devshop}"
+DEVSHOP_DIR="${DEVSHOP_DIR:-/devshop}"
 
 # --- Guards ---
-if [ ! -d "$TEMPLATE_DIR" ]; then
-  echo "ERROR: $TEMPLATE_DIR does not exist."
+if [ ! -d "$DEVSHOP_DIR" ]; then
+  echo "ERROR: $DEVSHOP_DIR does not exist."
   echo ""
   echo "The devshop repo (abra-kadabra) must be bind-mounted into the devcontainer."
   echo "Setup (one-time):"
@@ -28,8 +28,8 @@ if [ ! -d "$TEMPLATE_DIR" ]; then
   exit 1
 fi
 
-if [ ! -d "$TEMPLATE_DIR/.git" ]; then
-  echo "ERROR: $TEMPLATE_DIR is not a git repository."
+if [ ! -d "$DEVSHOP_DIR/.git" ]; then
+  echo "ERROR: $DEVSHOP_DIR is not a git repository."
   exit 1
 fi
 
@@ -47,10 +47,10 @@ while IFS= read -r line; do
   [ -n "$path" ] && PATHS+=("$path")
 done < "$MANIFEST"
 
-# --- Copy files from template to project ---
-echo "Syncing ${#PATHS[@]} paths from template to project..."
+# --- Copy files from devshop to project ---
+echo "Syncing ${#PATHS[@]} paths from devshop to project..."
 for path in "${PATHS[@]}"; do
-  src="$TEMPLATE_DIR/$path"
+  src="$DEVSHOP_DIR/$path"
   dst="$PROJECT_ROOT/$path"
 
   if [ -d "$src" ]; then
@@ -60,7 +60,7 @@ for path in "${PATHS[@]}"; do
     mkdir -p "$(dirname "$dst")"
     cp "$src" "$dst"
   else
-    echo "WARNING: $path not found in template, skipping"
+    echo "WARNING: $path not found in devshop, skipping"
   fi
 done
 
@@ -69,7 +69,7 @@ DEVSHOP_CLAUDE="$PROJECT_ROOT/.devshop/CLAUDE.md"
 ROOT_CLAUDE="$PROJECT_ROOT/CLAUDE.md"
 
 if [ -f "$DEVSHOP_CLAUDE" ] && [ -f "$ROOT_CLAUDE" ]; then
-  SYNCED_NOTE="[Synced from .devshop/CLAUDE.md by sync-from-template.sh — edit .devshop/CLAUDE.md, not here]"
+  SYNCED_NOTE="[Synced from .devshop/CLAUDE.md by sync-from-devshop.sh — edit .devshop/CLAUDE.md, not here]"
 
   if grep -q "^## Devshop Conventions" "$ROOT_CLAUDE"; then
     echo ""
@@ -138,11 +138,11 @@ fi
 
 # --- Show what changed ---
 echo ""
-echo "=== Changes from template sync ==="
+echo "=== Changes from devshop sync ==="
 cd "$PROJECT_ROOT"
 git diff
 
-TEMPLATE_VERSION=$(cat "$TEMPLATE_DIR/.devshop/version" 2>/dev/null | tr -d '[:space:]' || echo "unknown")
+DEVSHOP_VERSION=$(cat "$DEVSHOP_DIR/.devshop/version" 2>/dev/null | tr -d '[:space:]' || echo "unknown")
 echo ""
 echo "Review the changes above. If they look good:"
-echo "  git add -A && git commit -m 'Sync devshop from template v$TEMPLATE_VERSION'"
+echo "  git add -A && git commit -m 'chore: sync from devshop v$DEVSHOP_VERSION'"

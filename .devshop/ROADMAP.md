@@ -75,7 +75,7 @@ Current: simple `cp` guided by `manifest.txt` (plus heading-based injection
 for `CLAUDE.md` — already in v0). Improve to:
 
 - Diff before overwrite — show what changed, ask for confirmation
-- Create PR on the template repo instead of direct push
+- Create PR on the devshop repo instead of direct push
 - Conflict detection with abort + diff shown
 
 ---
@@ -88,7 +88,7 @@ Evaluate alternatives to Supabase hosted for cost-conscious multi-project use:
 
 - **Neon + Auth.js + Vercel functions**: free database branching, $0/mo, medium assembly
 - **Self-hosted Supabase via Coolify + Hetzner**: ~€15/mo for multiple projects, higher ops burden
-- **Backend-agnostic template init**: `/devshop:init` asks which backend and wires accordingly
+- **Backend-agnostic init**: `/ak-init` asks which backend and wires accordingly
 
 Trigger: when monthly Supabase bills exceed ~€15/mo across projects, or when
 staging/branching becomes a real bottleneck.
@@ -164,7 +164,7 @@ bypass flag parsing from stdin JSON, exit code 2 on failure, repo detection.
 
 #### Sync script tests
 
-Tests for `sync-from-template.sh` and `sync-to-template.sh`. Create two temp
+Tests for `sync-from-devshop.sh` and `sync-to-devshop.sh`. Create two temp
 repos, run sync in both directions, verify correct files copied, exclusions
 honored, and CLAUDE.md injection works.
 

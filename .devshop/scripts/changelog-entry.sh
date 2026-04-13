@@ -1,6 +1,6 @@
 #!/bin/bash
 # changelog-entry.sh — append a versioned entry to the devshop CHANGELOG.md.
-# Called by sync-to-template.sh and release.sh after version bumps.
+# Called by sync-to-devshop.sh and release.sh after version bumps.
 #
 # Usage:
 #   changelog-entry.sh <version> <message> [changelog-path]

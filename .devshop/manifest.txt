@@ -1,8 +1,8 @@
-# Template manifest — files that sync scripts operate on.
+# Shared files manifest — files that sync scripts operate on.
 #
 # These files are copied into new projects by /ak-init. After that, they're
-# owned by the project and can diverge. sync-from-template.sh and
-# sync-to-template.sh use this list to sync changes in either direction.
+# owned by the project and can diverge. sync-from-devshop.sh and
+# sync-to-devshop.sh use this list to sync changes in either direction.
 #
 # Injected files (symlinked by init-devshop.sh) are NOT listed here —
 # see init-devshop.sh for the authoritative list of what gets symlinked.

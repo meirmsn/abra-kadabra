@@ -32,6 +32,7 @@ Depth over speed. When a step or task hits friction, stop and think about what c
 Flag concerns not covered by existing docs or conventions — wait for confirmation before proceeding. Commit per logical change (one task, one fix, one devshop improvement).
 
 **Two repos, two commit flows:**
+
 - **Project commits** go to the project repo (`/workspace`). Use conventional commits (`feat:`, `fix:`, `chore:`, etc.).
 - **Devshop commits** go to the abra-kadabra repo (`/devshop`). Use conventional commits. Since `.devshop/` is a symlink, edits are automatically in the abra-kadabra working tree — just `cd /devshop && git add && git commit`.
 
@@ -97,7 +98,7 @@ See `.devshop/GUIDE.md § Devshop Separation Architecture` for the full model.
 
 ### Naming Convention
 
-- `abra-kadabra` = brand name (template repo, doc titles). Never used in file names or CLI commands.
+- `abra-kadabra` = brand name (devshop repo, doc titles). Never used in file names or CLI commands.
 - `devshop` = code references (`.devshop/`, `.claude/skills/devshop/`).
 - `ak-` = skill prefix for devshop skills (`/ak-build`, `/ak-spec`, `/ak-init`, etc.).
 

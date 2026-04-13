@@ -1,14 +1,14 @@
 # Abra-Kadabra
 
-A one-person dev shop template. Goes from rough notes to deployed, tested, observable web app.
+A one-person dev shop. Goes from rough notes to deployed, tested, observable web app.
 
 ## Getting Started
 
-1. Click **"Use this template"** → **"Create a new repository"**
-2. Clone your new repo and open it in VS Code
-3. Reopen in the dev container when prompted
+1. Clone this repo as a sibling to your project repo
+2. Open your project in VS Code and reopen in the dev container
+3. The devcontainer mounts this repo at `/devshop` and runs `init-devshop.sh` on start
 4. Place your Claude credentials in `.devcontainer/.env` (see below)
-5. Run `claude` in the terminal and say `/devshop:init`
+5. Run `claude` in the terminal and say `/ak-init`
 
 ## Prerequisites
 

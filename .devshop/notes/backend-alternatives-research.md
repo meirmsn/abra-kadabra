@@ -2,7 +2,7 @@
 
 > **Key reference**: [Deploy Supabase on Hetzner with Coolify](https://community.hetzner.com/tutorials/coolify-supabase-deploy)
 
-Research conducted 2026-04-05. Context: evaluating whether Supabase is the right default backend for the devshop template, and what alternatives exist for cost-conscious solo devs building multiple projects.
+Research conducted 2026-04-05. Context: evaluating whether Supabase is the right default backend for the devshop repo, and what alternatives exist for cost-conscious solo devs building multiple projects.
 
 ---
 
@@ -268,11 +268,11 @@ Monthly cost for a typical personal project (<100 users):
 
 **For lalista (existing project):** Stay on Supabase free tier. Migration cost to any alternative is too high — 7 migrations, RLS policies, edge functions, auth, realtime all built on Supabase.
 
-**For the devshop template (future projects):**
+**For the devshop repo (future projects):**
 
 - Default to Supabase (lowest complexity, all-in-one)
 - Document Neon + Auth.js as the recommended alternative for projects needing free database branching
 - Self-host Supabase via Coolify + Hetzner when running 3+ projects and per-project costs become the concern
-- Keep template backend-agnostic in structure so switching is possible
+- Keep devshop backend-agnostic in structure so switching is possible
 
 **When to self-host:** When monthly Supabase bills exceed ~€15/mo (i.e., you have 2+ projects on Pro, or one project outgrows free tier limits). At that point, one Hetzner box replaces multiple paid projects.

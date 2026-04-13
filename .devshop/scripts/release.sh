@@ -1,6 +1,6 @@
 #!/bin/bash
-# release.sh — bump devshop version and tag. For direct template repo edits.
-# Run from the template repo root (not a project repo).
+# release.sh — bump devshop version and tag. For direct devshop repo edits.
+# Run from the devshop repo root (not a project repo).
 # Shows changes since last version tag, suggests bump level, asks for confirmation.
 set -euo pipefail
 
@@ -8,7 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 VERSION_FILE=".devshop/version"
 
 if [ ! -f "$VERSION_FILE" ]; then
-  echo "ERROR: $VERSION_FILE not found. Are you in the template repo root?"
+  echo "ERROR: $VERSION_FILE not found. Are you in the devshop repo root?"
   exit 1
 fi
 

@@ -1,6 +1,6 @@
 # Devshop Changelog
 
-Auto-appended by `sync-to-template.sh` and `release.sh` on version bumps.
+Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
 ## v1.0.0 (2026-04-12) — Devshop Separation
 
@@ -9,6 +9,7 @@ Auto-appended by `sync-to-template.sh` and `release.sh` on version bumps.
 Previously, all devshop files (`.devshop/`, `.claude/skills/`, `settings.json`, `CLAUDE.md`, `BUILD-LOG.md`) were tracked in the project repo. Now they live in abra-kadabra and get injected into the workspace at container start via `init-devshop.sh` symlinks.
 
 What changed:
+
 - `init-devshop.sh`: new injection script symlinks devshop files into `/workspace/`
 - Project repos have a thin forwarder at `.devcontainer/init-devshop.sh`
 - `devcontainer.json` mounts abra-kadabra at `/devshop` (was `/template-repo`)

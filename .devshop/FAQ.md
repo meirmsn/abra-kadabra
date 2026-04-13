@@ -22,7 +22,7 @@ Yes — portability is a first-class concern. Files are separated into three cat
 
 - `.devshop/`, `.claude/` (skills, commands, settings), `.dcg.toml`, `CLAUDE.md`, `BUILD-LOG.md`
 
-**Templated** (copied from abra-kadabra during `/ak-init`, then project-owned):
+**Shared** (copied from abra-kadabra during `/ak-init`, then project-owned):
 
 - `.devcontainer/`, `.husky/`, `.github/workflows/`, `turbo.json`, `eslint.config.mjs`, etc.
 
@@ -32,8 +32,8 @@ Yes — portability is a first-class concern. Files are separated into three cat
 
 The devshop (abra-kadabra) and project repos are separate (since v1.0.0). Devshop files get injected into the workspace at container start via `init-devshop.sh` symlinks — they're gitignored in the project repo. Build tooling files (turbo.json, eslint, etc.) are tracked in both repos and can be synced:
 
-- `.devshop/scripts/sync-to-template.sh` — push build tooling improvements to abra-kadabra
-- `.devshop/scripts/sync-from-template.sh` — pull build tooling updates into a project
+- `.devshop/scripts/sync-to-devshop.sh` — push build tooling improvements to abra-kadabra
+- `.devshop/scripts/sync-from-devshop.sh` — pull build tooling updates into a project
 
 No git submodules. Git-native. You review every change. See GUIDE.md § Devshop Separation Architecture for the full model.
 
@@ -56,7 +56,7 @@ What you write **twice**: the UI layer — each screen exists in both `apps/web`
 
 ## Does the plan account for dev happening inside a devcontainer?
 
-Yes. The `.devcontainer/` is part of the dev-shop layer — each project gets its own devcontainer stamped from the template.
+Yes. The `.devcontainer/` is part of the dev-shop layer — each project gets its own devcontainer with the devshop mounted via bind mount.
 
 Devcontainer-specific considerations in the plan:
 

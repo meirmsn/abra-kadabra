@@ -1,24 +1,24 @@
 #!/bin/bash
-# sync-to-template.sh — push build tooling changes from this project to the devshop repo.
+# sync-to-devshop.sh — push build tooling changes from this project to the devshop repo.
 #
 # The devshop repo (abra-kadabra) is bind-mounted at /devshop (cloned on the host,
-# mounted into the devcontainer). This script copies TEMPLATE files per manifest.txt,
+# mounted into the devcontainer). This script copies files listed in manifest.txt,
 # commits in the devshop repo, and prints push instructions for the human operator
 # (the devcontainer PAT doesn't cover the devshop repo — pushing happens on the host).
 #
 # Usage:
-#   sync-to-template.sh                  # auto-detect bump level
-#   sync-to-template.sh --bump patch     # force patch bump
-#   sync-to-template.sh --bump minor     # force minor bump
-#   sync-to-template.sh --bump major     # force major bump
-#   sync-to-template.sh --seed           # initial seed (first push to empty repo)
+#   sync-to-devshop.sh                  # auto-detect bump level
+#   sync-to-devshop.sh --bump patch     # force patch bump
+#   sync-to-devshop.sh --bump minor     # force minor bump
+#   sync-to-devshop.sh --bump major     # force major bump
+#   sync-to-devshop.sh --seed           # initial seed (first push to empty repo)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 MANIFEST="$PROJECT_ROOT/.devshop/manifest.txt"
 VERSION_FILE="$PROJECT_ROOT/.devshop/version"
-TEMPLATE_DIR="${DEVSHOP_DIR:-/devshop}"
+DEVSHOP_DIR="${DEVSHOP_DIR:-/devshop}"
 
 # --- Parse args ---
 BUMP=""
@@ -32,8 +32,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 # --- Guards ---
-if [ ! -d "$TEMPLATE_DIR" ]; then
-  echo "ERROR: $TEMPLATE_DIR does not exist."
+if [ ! -d "$DEVSHOP_DIR" ]; then
+  echo "ERROR: $DEVSHOP_DIR does not exist."
   echo ""
   echo "The devshop repo (abra-kadabra) must be bind-mounted into the devcontainer."
   echo "Setup (one-time):"
@@ -44,9 +44,9 @@ if [ ! -d "$TEMPLATE_DIR" ]; then
   exit 1
 fi
 
-if [ ! -d "$TEMPLATE_DIR/.git" ]; then
-  echo "ERROR: $TEMPLATE_DIR is not a git repository."
-  echo "Clone the template repo on the host first, then rebuild the devcontainer."
+if [ ! -d "$DEVSHOP_DIR/.git" ]; then
+  echo "ERROR: $DEVSHOP_DIR is not a git repository."
+  echo "Clone the devshop repo on the host first, then rebuild the devcontainer."
   exit 1
 fi
 
@@ -61,7 +61,7 @@ LOCK_FILES=".claude/settings.json .devcontainer/devcontainer.json .devcontainer/
 check_file_locks() {
   UNLOCKED=""
   for f in $LOCK_FILES; do
-    target="$TEMPLATE_DIR/$f"
+    target="$DEVSHOP_DIR/$f"
     [ ! -f "$target" ] && continue
     OWNER=$(stat -c '%U' "$target" 2>/dev/null || true)
     if [ "$OWNER" != "root" ]; then
@@ -70,8 +70,8 @@ check_file_locks() {
   done
   if [ -n "$UNLOCKED" ]; then
     echo ""
-    echo "⚠ Security-critical files not locked in template repo:"
-    echo "  cd <path-to-template-repo>"
+    echo "⚠ Security-critical files not locked in devshop repo:"
+    echo "  cd <path-to-devshop-repo>"
     echo "  sudo chown root:root$UNLOCKED"
     echo "  sudo chmod 644$UNLOCKED"
   fi
@@ -92,11 +92,11 @@ while IFS= read -r line; do
   fi
 done < "$MANIFEST"
 
-# --- Copy files from project to template ---
-echo "Syncing ${#PATHS[@]} paths from project to template..."
+# --- Copy files from project to devshop ---
+echo "Syncing ${#PATHS[@]} paths from project to devshop..."
 for path in "${PATHS[@]}"; do
   src="$PROJECT_ROOT/$path"
-  dst="$TEMPLATE_DIR/$path"
+  dst="$DEVSHOP_DIR/$path"
 
   if [ -d "$src" ]; then
     # Build rsync exclude args for this directory
@@ -119,21 +119,21 @@ done
 
 # --- Remove excluded files that may exist from prior syncs ---
 for excl in "${EXCLUDES[@]}"; do
-  target="$TEMPLATE_DIR/$excl"
+  target="$DEVSHOP_DIR/$excl"
   [ -e "$target" ] && rm -rf "$target" && echo "Excluded: $excl"
 done
 
-# Template repo gets its own README (from templates/ folder)
-cp "$PROJECT_ROOT/.devshop/templates/README.md.tmpl" "$TEMPLATE_DIR/README.md"
+# Devshop repo gets its own README (from templates/ folder)
+cp "$PROJECT_ROOT/.devshop/templates/README.md.tmpl" "$DEVSHOP_DIR/README.md"
 
 # --- Stage changes ---
-cd "$TEMPLATE_DIR"
+cd "$DEVSHOP_DIR"
 git add -A
 
 # --- Initial seed ---
 if [ "$SEED" = true ]; then
   if git diff --cached --quiet; then
-    echo "Nothing to seed — template already matches project."
+    echo "Nothing to seed — devshop already matches project."
     exit 0
   fi
   git commit -m "Initial devshop seed (v$CURRENT_VERSION)"
@@ -141,7 +141,7 @@ if [ "$SEED" = true ]; then
   echo "=== Initial seed committed ==="
   echo ""
   echo "Push from host:"
-  echo "  cd <path-to-template-repo> && git push -u origin main"
+  echo "  cd <path-to-devshop-repo> && git push -u origin main"
   check_file_locks
   exit 0
 fi
@@ -173,14 +173,14 @@ esac
 NEW_VERSION="$MAJOR.$MINOR.$PATCH"
 
 # Update version in both repos
-echo "$NEW_VERSION" > "$TEMPLATE_DIR/.devshop/version"
+echo "$NEW_VERSION" > "$DEVSHOP_DIR/.devshop/version"
 echo "$NEW_VERSION" > "$VERSION_FILE"
 
 # Re-stage after version update
 git add -A
 
 # --- Commit ---
-git commit -m "devshop sync v$NEW_VERSION"
+git commit -m "chore: sync from project v$NEW_VERSION"
 
 # --- Changelog entry (in project repo) ---
 DIFF_SUMMARY=$(git --no-pager diff --stat HEAD~1..HEAD | head -20)
@@ -191,11 +191,11 @@ bash "$SCRIPT_DIR/changelog-entry.sh" "$NEW_VERSION" "$CHANGELOG_MSG"
 echo ""
 echo "=== Sync committed (v$CURRENT_VERSION → v$NEW_VERSION) ==="
 echo ""
-echo "Changes in template repo:"
+echo "Changes in devshop repo:"
 echo "$DIFF_SUMMARY"
 echo ""
 echo "Push from host:"
-echo "  cd <path-to-template-repo> && git push"
+echo "  cd <path-to-devshop-repo> && git push"
 check_file_locks
 echo ""
 echo "Then commit the version bump + changelog in this project:"
