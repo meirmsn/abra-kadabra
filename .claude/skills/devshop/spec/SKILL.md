@@ -110,4 +110,12 @@ Confirm `specs/<feature-name>/spec.md` was written. No pointer file needed —
 
 ## Quality checklist
 
-Before finalizing, verify against the spec quality checklist in `.devshop/GUIDE.md § SPEC.md Quality Checklist`.
+Every spec must have:
+
+- [ ] All user-facing behaviors described (happy path + error states)
+- [ ] Data model changes explicit (exact schema diffs or "no changes")
+- [ ] API contracts specified (endpoints, inputs, outputs, auth requirements)
+- [ ] Out-of-scope items explicitly listed
+- [ ] Offline behavior declared for any feature with remote data: (a) online-only with error state, (b) read-only cache, (c) full offline with sync. Default to (a) unless explicitly upgraded.
+- [ ] Metrics section referencing events from `METRICS.md`
+- [ ] Provenance header linking to gstack plan

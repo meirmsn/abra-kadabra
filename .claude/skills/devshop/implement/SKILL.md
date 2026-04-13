@@ -69,17 +69,30 @@ Include a `## Decisions` section at the bottom (starts empty).
 and return one paragraph: which tasks are done, which is next, any blockers.
 Then continue from the next `todo` task.
 
-tasks.md format (see `.devshop/GUIDE.md § tasks.md Format` for full spec):
+tasks.md format:
 
-```
+```markdown
 ## Task: [name]
+
 **Hat**: FE | BE | Data | PM
 **Depends on**: [task names or "none"]
 **Blocks**: [task names or "none"]
-**Done when**: [concrete, testable criterion — a passing assertion, not prose]
+**Done when**: [concrete, testable criterion — tests pass, endpoint returns X, etc.]
 **Risk**: low | medium | high
 **Status**: todo | in_progress | done | blocked
 ```
+
+#### Resume pattern
+
+When a session is interrupted, start a new session with:
+
+```
+claude "use a sub-agent to read specs/<name>/tasks.md and recent git log,
+then tell me in one paragraph: which tasks are done, which is next,
+what context I need to continue"
+```
+
+Sub-agent reads the file; main session gets a short summary — no context pollution.
 
 ## Hats
 

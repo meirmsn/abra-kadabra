@@ -82,6 +82,52 @@ for `CLAUDE.md` — already in v0). Improve to:
 
 ## v+ (future — when the need is felt)
 
+### Fakeowner + Bash bypass hardening
+
+Two known security gaps in the file protection model:
+
+1. **Fakeowner**: Docker Desktop bind mounts from macOS use `fakeowner`, where `chown`/`chmod` are cosmetic — Layer 2 (root ownership) doesn't enforce on these mounts.
+2. **Bash bypass**: Edit/Write deny rules don't prevent Bash commands from modifying protected files (e.g., `python3 -c "open('file','w')"`). DCG custom block rules were attempted but cause false positives on git commands that mention the filenames.
+
+Options explored: DCG block rules (false positives), symlink targets to ext4 volume (complexity). Needs a solution that blocks Bash writes without interfering with legitimate git operations.
+
+### CI slow job expansion
+
+The `slow` job in `.github/workflows/ci.yml` is commented out at scaffold time. It gets
+built incrementally, tied to feature milestones. Each expansion lands in the same PR as the
+code it tests — no gap between "tests exist" and "CI runs them."
+
+**Trigger 1: First DB-backed feature** (e.g., auth, data queries):
+
+Uncomment the `slow` job (`needs: fast`, `if: github.event_name == 'pull_request'`). Add:
+
+- `supabase/setup-cli` GitHub Action for Supabase CLI
+- `supabase start` to spin up local DB stack (GitHub Actions has native Docker — no DinD needed)
+- Load `seed.sql` via `psql` against local Supabase Postgres
+- Integration test step: `pnpm turbo run test` (runs both unit + integration)
+- Type drift check: `supabase gen types typescript` → `git diff --exit-code packages/core/src/supabase.types.ts` → fail if types have drifted from schema
+- Rollback SQL validation: for each new migration, extract the `-- ROLLBACK` block and parse it against local Postgres (e.g., `EXPLAIN` wrapper). Fail if syntax is invalid — catches typos before they're needed in an emergency
+- Mask secrets: `echo "::add-mask::$SUPABASE_SERVICE_ROLE_KEY"`
+- Implementation note: verify which Supabase env vars are actually needed for `supabase start` + `supabase gen types` in CI. Wire only what's confirmed.
+
+**Trigger 2: First E2E-testable flow** (e.g., sign-in → core action → verify):
+
+Add to the `slow` job:
+
+- Install browsers: `npx playwright install --with-deps chromium`
+- Build and start app: `pnpm turbo run build --filter apps/web` then `npx next start` against local Supabase
+- Run E2E at both viewports: `npx playwright test --project=mobile --project=desktop`
+- Upload trace artifacts on failure via `actions/upload-artifact` for debugging
+- Cache Playwright browsers using lockfile hash
+
+**Additional secrets for slow job**: `SUPABASE_SERVICE_ROLE_KEY` (integration tests need admin access) and `ANTHROPIC_API_KEY` (if edge function integration tests call Anthropic). Add to GitHub Secrets when wiring up the slow job.
+
+**After both expansions**: update branch protection to require `slow` as a required status check alongside `fast`.
+
+**Caching** (both jobs): pnpm store (`actions/cache`), Turborepo outputs, Playwright browsers. Cache keys use lockfile hash.
+
+**Expected CI minutes**: ~260 min/month for 10 PRs (20 fast jobs × 4 min + 10 slow jobs × 15 min). GitHub Actions free tier: 2000 min/month.
+
 ### Backend alternatives and self-hosting evaluation
 
 Evaluate alternatives to Supabase hosted for cost-conscious multi-project use:

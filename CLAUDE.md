@@ -17,7 +17,7 @@ Reference docs (living):
 
 A `SessionStart` hook (on `startup` and `clear`) automatically injects `README.md`, the first 15 lines of `BUILD-LOG.md`, and the current branch into context. No manual reads needed — the hook runs `.devshop/scripts/session-start.sh`.
 
-If the user asks you to implement, fix, or continue work (not just answer a question), run `/ak-status` first to understand what's in progress, which specs exist, and whether there are open PRs.
+If the user asks you to implement, fix, or continue work (not just answer a question), run `/ak-status` first — it reads `BUILD-LOG.md`, git state, and any active spec to produce a one-paragraph orientation briefing. Alternatively, read `BUILD-LOG.md` § Status directly for phase, next step, and blockers.
 
 ### Philosophy
 

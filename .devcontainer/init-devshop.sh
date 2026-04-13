@@ -2,6 +2,12 @@
 # Devshop injection — runs as root via sudo on every container start.
 # Symlinks devshop infrastructure from /devshop into /workspace so
 # Claude Code sees it, but git doesn't track it (gitignored in project repo).
+#
+# Security role: this script is the mechanism that prevents Claude from
+# trivially escalating via sudo. It reads DEVCONTAINER_ROOT_PASSWORD from
+# .devcontainer/.env, sets root/node passwords, configures sudo with password
+# requirement (replaces default passwordless sudo), and locks all security-
+# critical files to root ownership (chown root:root + chmod 644).
 
 set -euo pipefail
 
