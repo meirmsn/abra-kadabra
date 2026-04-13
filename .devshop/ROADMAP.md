@@ -7,28 +7,6 @@ Tactical fixes go in `TODOS.md`. Project features go in root `PRODUCT-ROADMAP.md
 
 ## v1 (after v0 is validated on lalista)
 
-### Public mirror infrastructure
-
-Commit-by-commit mirror from private dev repo to public repo, stripping devshop
-files and cleaning commit messages. Includes: `mirror-sync.sh` (core replay logic),
-`test-mirror-sync.sh` (8 test cases), `public-mirror.yml` (GitHub Action),
-`check-devshop-commit-msg.sh` (PreToolUse hook for `---devshop---` enforcement),
-`.mirror-sha` tracking, CLAUDE.md section stripping, `[private]` manifest annotations.
-
-Deferred from Phase 0a Step 11 — validates core devshop workflow first, adds mirror
-when the portfolio benefit justifies the complexity. See `notes/bootstrap/v0-web.md` Step 11
-for the full design. When implemented, add mirror setup as an init step in
-`/devshop:init` and a checklist item in GUIDE.md.
-
-**Vercel integration**: Consider pointing Vercel at the public mirror instead of the
-private repo — keeps devshop internals off Vercel's build servers entirely. Production
-deploys work naturally (mirror receives merged commits). PR preview deploys require the
-sync script to also push PR branches to the mirror, since PRs live in the private repo
-and the mirror only receives main. Decide at implementation time whether to: (a) mirror
-PR branches too, (b) keep Vercel on the private repo for previews only + mirror for
-production, or (c) accept no previews from the mirror and keep the private repo for all
-Vercel deploys.
-
 ### Tiered pre-ship pipeline
 
 Auto-detect change scope and pick a tier:
