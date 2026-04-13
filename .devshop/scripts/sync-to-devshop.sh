@@ -179,8 +179,25 @@ echo "$NEW_VERSION" > "$VERSION_FILE"
 # Re-stage after version update
 git add -A
 
-# --- Commit ---
-git commit -m "chore: sync from project v$NEW_VERSION"
+# --- Build commit message from synced files ---
+DIFF_SUMMARY=$(git --no-pager diff --cached --stat | head -20)
+CHANGED_FILES=$(echo "$DIFF_SUMMARY" | awk '/\|/ {print $1}' | head -10)
+
+COMMIT_BODY=""
+if [ -n "$CHANGED_FILES" ]; then
+  while IFS= read -r file; do
+    [ -z "$file" ] && continue
+    COMMIT_BODY="$COMMIT_BODY
+- $file"
+  done <<< "$CHANGED_FILES"
+fi
+
+if [ -n "$COMMIT_BODY" ]; then
+  git commit -m "chore: sync from project v$NEW_VERSION
+$COMMIT_BODY"
+else
+  git commit -m "chore: sync from project v$NEW_VERSION"
+fi
 
 # --- Changelog entry (in project repo) ---
 DIFF_SUMMARY=$(git --no-pager diff --stat HEAD~1..HEAD | head -20)

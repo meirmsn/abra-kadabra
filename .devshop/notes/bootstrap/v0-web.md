@@ -1,8 +1,21 @@
 # Dev-Shop Setup Plan
 
-> **For the implementing agent**: This document is self-contained. You should be able to execute it without needing prior conversation context. Every decision is explained. When you encounter a human-action item (marked **[HUMAN]**), stop and wait for the user to complete it before proceeding.
+> **Status**: Historical build plan (construction record for the lalista devshop).
+> Living docs are the source of truth: `.devshop/GUIDE.md`, `.devshop/CLAUDE.md`, `.devshop/FAQ.md`, skill files.
 >
-> **Scope**: This plan covers the web devshop and lalista web app. Native/mobile planning (Expo, React Native, EAS, App Store, Siri) is preserved in `.devshop/notes/bootstrap/v1-native.md` — do not implement anything from that document until the web devshop is validated.
+> **Content only in this file** (not migrated to living docs):
+>
+> - Phase 1 steps (1a-1h) — lalista Swift → React migration pattern
+> - Detailed CI YAML examples for slow job (lines ~1065-1100)
+> - METRICS.md initial event taxonomy for lalista (lines ~1690-1715)
+> - Auth flow architecture with household onboarding (lines ~1860-1869)
+> - Verification checklists for Phase 0a/0b/1 (historical)
+> - Files to Create/Modify table (lines ~2018-2073)
+>
+> Sections marked with `⚠️ NOT IN LIVING DOCS` contain content not found elsewhere.
+> All other sections have been migrated. Search for the marker to find gaps.
+>
+> **Original scope**: Web devshop + lalista web app. Native/mobile in `v1-native.md`.
 
 ---
 
@@ -1062,6 +1075,10 @@ jobs:
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 ```
 
+> ⚠️ NOT IN LIVING DOCS — the YAML structure and env vars below are reference
+> examples for when the slow job is built. Triggers and principles are in
+> ROADMAP.md § v+ "CI slow job expansion".
+
 **Slow job** (runs only on PR to main — ~10-15 min, added in Phase 1c/1g):
 
 ```yaml
@@ -1689,6 +1706,10 @@ Values are read from `.devcontainer/.env` (already loaded into the container env
 
 **Step 4: Create `METRICS.md`**
 
+> ⚠️ NOT IN LIVING DOCS — the lalista-specific event taxonomy below (item_added,
+> item_bought, etc.) is a project example. The METRICS.md structure and metrics
+> principles are in GUIDE.md § Metrics Lifecycle.
+
 Create the project-level metrics source of truth:
 
 ```markdown
@@ -1812,6 +1833,8 @@ Add these to the `/devshop:init` checklist in .devshop/GUIDE.md under the new-pr
 ---
 
 ### Phase 1: Migrate lalista to React (Web)
+
+> Migrated to `PRODUCT-ROADMAP.md` § v0. Original detail preserved below for reference.
 
 > **Project-specific migration plan** — not devshop machinery. This is what
 > `/office-hours` + `/autoplan` + `/build` should produce for a specific project.
@@ -1976,6 +1999,9 @@ _Original content preserved below for reference._
 
 ## Verification Checklist (Full System)
 
+> ⚠️ NOT IN LIVING DOCS — historical checklists for lalista construction.
+> Init skill has its own verification checklist for new projects.
+
 After Phase 0:
 
 - [ ] `pnpm turbo run test` passes from root
@@ -2016,6 +2042,10 @@ For the implementing agent — these contain critical content to preserve or ref
 ---
 
 ## Files to Create / Modify
+
+> ⚠️ NOT IN LIVING DOCS — historical file reference table from construction time.
+
+> ⚠️ NOT IN LIVING DOCS — historical implementation tracker from construction time.
 
 | File                                           | Action                                                                                | Phase |
 | ---------------------------------------------- | ------------------------------------------------------------------------------------- | ----- |
