@@ -1,5 +1,5 @@
 ---
-name: build
+name: ak-build
 version: 1.0.0
 description: |
   Autonomous build pipeline: spec → implement → quality gates → ship → CI watch → notify.
@@ -24,7 +24,7 @@ allowed-tools:
 Autonomous pipeline: spec → implement → quality gates → ship → CI watch → notify.
 
 After this completes, the user has a PR ready for review with all quality gates passed,
-CI green, and an audit trail comment. The user's only action: review and say `/go-live`.
+CI green, and an audit trail comment. The user's only action: review and say `/ak-go-live`.
 
 ## Architecture: subagent delegation
 
@@ -33,11 +33,11 @@ Heavy phases run as **subagents** via the Agent tool. Each writes results to
 clean for orchestration and user communication.
 
 ```
-/build (main context — thin orchestrator)
-  ├─ Agent → /spec        → writes specs/<name>/spec.md
-  ├─ Agent → /implement   → writes specs/<name>/tasks.md + code + tests
-  ├─ Agent → /pre-ship    → writes specs/<name>/review.md
-  ├─ Agent → /ship        → pushes, creates PR
+/ak-build (main context — thin orchestrator)
+  ├─ Agent → /ak-spec        → writes specs/<name>/spec.md
+  ├─ Agent → /ak-implement   → writes specs/<name>/tasks.md + code + tests
+  ├─ Agent → /ak-pre-ship    → writes specs/<name>/review.md
+  ├─ Agent → /ship           → pushes, creates PR
   └─ CI watch (main ctx)  → reads review.md + tasks.md for audit comment
 ```
 
@@ -86,7 +86,7 @@ Launch **Agent** with prompt:
 > Follow the implementation loop: write code + tests, stuck protocol if needed,
 > commit per task. Return: number of tasks completed, number of commits, test status.
 
-`/implement` has its own stuck protocol:
+`/ak-implement` has its own stuck protocol:
 - Try fix × 2 → `/investigate` → ask user if still stuck
 - Writes `$FEATURE_DIR/tasks.md` with `## Decisions` section (judgment calls made)
 - Commits atomically per task
@@ -103,7 +103,7 @@ Launch **Agent** with prompt:
 > Write gate results to $FEATURE_DIR/review.md.
 > Return: summary of gate results, number of findings fixed.
 
-`/pre-ship` does NOT ship or create a PR. If findings require fixes, the agent
+`/ak-pre-ship` does NOT ship or create a PR. If findings require fixes, the agent
 handles them within its context.
 
 ## Phase 4: Ship
@@ -214,7 +214,7 @@ gh pr comment "$PR" --body "$(cat <<'COMMENT'
 | Metrics check | <pass/skipped/findings> |
 | Responsive + theme | <pass/skipped/findings> |
 | /simplify | <pass/N findings fixed> |
-| /test-review | <pass/N findings> |
+| /ak-test-review | <pass/N findings> |
 | /review | <pass/N findings fixed> |
 | /cso | <pass/N findings fixed> |
 | /design-review | <pass/skipped/N fixes> |
@@ -226,7 +226,7 @@ gh pr comment "$PR" --body "$(cat <<'COMMENT'
 <N attempts / 0 if CI passed first try / details of what was fixed>
 
 ### Implementation decisions
-<From $FEATURE_DIR/tasks.md § Decisions — judgment calls made during /implement>
+<From $FEATURE_DIR/tasks.md § Decisions — judgment calls made during /ak-implement>
 
 ### Findings fixed during pre-ship
 <From $FEATURE_DIR/review.md — one bullet per finding: what was found, which commit fixed it>
@@ -264,12 +264,12 @@ gh pr comment "$PR" --body "## Ready for review
 **Quality gates:** all passed
 **CI:** green <after N fix attempts if any>
 
-Review the diff, check the preview URL, then run \`/go-live\` to deploy."
+Review the diff, check the preview URL, then run \`/ak-go-live\` to deploy."
 ```
 
 ## Escalation chain
 
-1. **Self-fix**: stuck protocol (/implement), test checkpoints (/pre-ship), CI fix loop (/build)
+1. **Self-fix**: stuck protocol (/ak-implement), test checkpoints (/ak-pre-ship), CI fix loop (/ak-build)
 2. **AskUserQuestion**: if user is present in the session (blocking — waits for answer)
 3. **PR comment @mention**: if user may have walked away (async — GitHub notification)
 
@@ -284,4 +284,4 @@ The full pipeline consumes significant context. Mitigation:
   `specs/<name>/review.md`, git commits, PR on GitHub
 - On resume, Step 0 reads file state rather than relying on conversation history
 - If context is exhausted mid-pipeline, the session ends — user starts a new session,
-  says `/build`, and Step 0 resumes from where it left off
+  says `/ak-build`, and Step 0 resumes from where it left off

@@ -1,5 +1,5 @@
 ---
-name: init
+name: ak-init
 version: 2.0.0
 description: |
   Guided new-project setup walkthrough. Contains the full step-by-step instructions
@@ -157,7 +157,7 @@ Where to find each:
 - GitHub PAT: github.com/settings/tokens → Fine-grained tokens → Generate new token.
   Scope to this repo only. Required permissions:
   - `Contents: Read and write` — push branches and commits
-  - `Pull requests: Read and write` — create PRs (`/ship`), merge PRs (`/go-live`)
+  - `Pull requests: Read and write` — create PRs (`/ship`), merge PRs (`/ak-go-live`)
   - `Actions: Read` — watch CI status (`gh pr checks`, `gh run watch`)
   - `Variables: Read and write` — set `PRODUCTION_URL` via `gh variable set` (Step 14)
   - **Do NOT add `workflow` scope** — this is intentional. Commits that touch
@@ -349,7 +349,7 @@ postinstall is skipped and vitest fails at runtime (missing native binary).
 **Boundary**: Init generates from existing state but never writes feature logic.
 If a DB schema exists, `supabase gen types` produces real types. If not, create
 a placeholder. API wrappers, query functions, and feature-specific model types
-are built during `/build` — not here.
+are built during `/ak-build` — not here.
 
 ### Step 12: Scaffold packages/ui
 
@@ -380,7 +380,7 @@ and `globals.css` are mechanical derivations of `DESIGN.md`.
 
 **Boundary**: If `DESIGN.md` exists, read actual token values from it (mechanical
 derivation). If not, use sensible defaults. Feature-specific components are built
-during `/build` — not here.
+during `/ak-build` — not here.
 
 ### Step 13: Scaffold apps/web
 
@@ -558,7 +558,7 @@ Create the project-level metrics source of truth with the empty template structu
 | ---- | -------- | ------- |
 ```
 
-This is an empty structure — `/spec` populates it with project-specific events during
+This is an empty structure — `/ak-spec` populates it with project-specific events during
 the first feature build. See `.devshop/GUIDE.md § Metrics Lifecycle` for the full flow.
 
 ### Step 18: Run /setup-deploy
@@ -573,6 +573,7 @@ Create `CLAUDE.project.md` in the project root with project-specific Claude guid
 This file is tracked in git and is the project's contribution to the generated `CLAUDE.md`.
 
 At container start, `init-devshop.sh` generates `CLAUDE.md` by concatenating:
+
 - `abra-kadabra/CLAUDE.md` (devshop conventions) + `CLAUDE.project.md` (project context)
 
 The generated `CLAUDE.md` is gitignored — edits go to `CLAUDE.project.md`.
@@ -611,7 +612,7 @@ All scaffold commits are now landed. Enable the hooks that were intentionally de
    ```
 
    Note: `check-file-headers.sh` is NOT wired into pre-commit. File header enforcement
-   is handled by `/pre-ship` convention check instead — mechanical pre-commit enforcement
+   is handled by `/ak-pre-ship` convention check instead — mechanical pre-commit enforcement
    produces mechanical documentation.
 
 2. Add `eslint-plugin-jsdoc` as a root dev dependency:

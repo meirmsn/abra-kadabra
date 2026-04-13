@@ -1,11 +1,11 @@
 ---
-name: test-review
+name: ak-test-review
 version: 1.0.0
 description: |
   Review test quality with fresh eyes — no implementation context.
   Reads tests alongside the code they test and flags weak assertions,
   missing error paths, and untested auth boundaries.
-  Use when asked to "review tests", "test quality check", or as part of /pre-ship. (devshop)
+  Use when asked to "review tests", "test quality check", or as part of /ak-pre-ship. (devshop)
 allowed-tools:
   - Bash
   - Read
@@ -67,5 +67,5 @@ For each finding:
 ## Behavior
 
 - Report findings. Do NOT auto-fix.
-- Pause for review — the user or `/pre-ship` decides whether to fix before continuing.
+- Pause for review — the user or `/ak-pre-ship` decides whether to fix before continuing.
 - If no findings: report "Tests look solid" and auto-advance.

@@ -24,21 +24,21 @@ Runs CEO, design, and engineering review sequentially. Locks in architecture, ed
 - **3b: `/design-shotgun`** (optional) — visual variants before spec. Use for UI-heavy features only. Approve one direction before proceeding.
 - **3c: `/design-html`** (optional) — turns approved mockup into an HTML reference file. Claude builds React from this instead of interpreting a description.
 
-### Step 4: `/build` (devshop skill) — autonomous pipeline
+### Step 4: `/ak-build` (devshop skill) — autonomous pipeline
 
 One command after autoplan. Chains everything through PR creation, CI verification, and notification. Resumable if the session is interrupted.
 
-**Phase 1: `/spec`** — converts gstack plan into implementation-ready spec. May stop for METRICS.md confirmation (the one interactive moment before PR).
+**Phase 1: `/ak-spec`** — converts gstack plan into implementation-ready spec. May stop for METRICS.md confirmation (the one interactive moment before PR).
 
-**Phase 2: `/implement`** — reads spec, decomposes into tasks, implements with tests. Stuck protocol: try fix → `/investigate` → ask user. Logs judgment calls in `specs/<name>/tasks.md` § Decisions.
+**Phase 2: `/ak-implement`** — reads spec, decomposes into tasks, implements with tests. Stuck protocol: try fix → `/investigate` → ask user. Logs judgment calls in `specs/<name>/tasks.md` § Decisions.
 
-**Phase 3: `/pre-ship`** — quality gates only (no shipping):
+**Phase 3: `/ak-pre-ship`** — quality gates only (no shipping):
 
 1. Devshop docs check
 2. Metrics check
 3. Responsive + theme check (UI PRs)
 4. `/simplify` → test:unit checkpoint
-5. `/test-review`
+5. `/ak-test-review`
 6. `/review` → test:unit checkpoint
 7. `/cso` → test:unit checkpoint
 8. `/design-review` (UI PRs) → test:unit checkpoint
@@ -54,11 +54,11 @@ One command after autoplan. Chains everything through PR creation, CI verificati
 
 ### Step 5: You review the PR
 
-- Release notes (from `/ship`) + audit trail comment (from `/build`)
+- Release notes (from `/ship`) + audit trail comment (from `/ak-build`)
 - CI green + Vercel preview URL
 - You merge or request changes
 
-### Step 6: `/go-live` (devshop skill) — autonomous deploy
+### Step 6: `/ak-go-live` (devshop skill) — autonomous deploy
 
 One command after you approve the PR.
 
@@ -137,7 +137,7 @@ supabase gen types typescript --project-id <ref> > packages/core/src/supabase.ty
 - Apple meta tags: `apps/web/app/layout.tsx` (`apple-mobile-web-app-capable`, `apple-touch-icon`, status bar style)
 - Service worker caching (`@serwist/next`) deferred to `PRODUCT-ROADMAP.md` — added after core screens are stable
 
-_This section grows as code is added. `/implement` updates it when introducing new paths._
+_This section grows as code is added. `/ak-implement` updates it when introducing new paths._
 
 ---
 
@@ -165,16 +165,16 @@ _This section grows as code is added. `/implement` updates it when introducing n
 
 ## Devshop Skill Map
 
-| Skill          | When to use                    | What it does                                                                                 |
-| -------------- | ------------------------------ | -------------------------------------------------------------------------------------------- |
-| `/build`       | After autoplan — "build it"    | Autonomous pipeline: spec → implement → quality gates → ship → CI watch → notify. Resumable. |
-| `/go-live`     | After PR review — "land it"    | Autonomous deploy: merge → deploy → canary → reflect → notify.                               |
-| `/spec`        | Standalone or inside /build    | Converts gstack plan to implementation-ready spec + METRICS.md                               |
-| `/implement`   | Standalone or inside /build    | Implements tasks with tests, stuck protocol, decisions log                                   |
-| `/pre-ship`    | Standalone or inside /build    | Quality gates only (11 gates). Does not ship.                                                |
-| `/test-review` | Standalone or inside /pre-ship | Fresh-eyes test quality review (report only)                                                 |
-| `/status`      | Start of any session           | One-paragraph orientation briefing (read-only)                                               |
-| `/init`        | New project setup              | Guided walkthrough of new-project checklist                                                  |
+| Skill             | When to use                       | What it does                                                                                 |
+| ----------------- | --------------------------------- | -------------------------------------------------------------------------------------------- |
+| `/ak-build`       | After autoplan — "build it"       | Autonomous pipeline: spec → implement → quality gates → ship → CI watch → notify. Resumable. |
+| `/ak-go-live`     | After PR review — "land it"       | Autonomous deploy: merge → deploy → canary → reflect → notify.                               |
+| `/ak-spec`        | Standalone or inside /ak-build    | Converts gstack plan to implementation-ready spec + METRICS.md                               |
+| `/ak-implement`   | Standalone or inside /ak-build    | Implements tasks with tests, stuck protocol, decisions log                                   |
+| `/ak-pre-ship`    | Standalone or inside /ak-build    | Quality gates only (11 gates). Does not ship.                                                |
+| `/ak-test-review` | Standalone or inside /ak-pre-ship | Fresh-eyes test quality review (report only)                                                 |
+| `/ak-status`      | Start of any session              | One-paragraph orientation briefing (read-only)                                               |
+| `/ak-init`        | New project setup                 | Guided walkthrough of new-project checklist                                                  |
 
 ---
 
@@ -186,9 +186,9 @@ Single source of truth for conventions referenced by multiple skills. Skills poi
 
 Metrics flow through the devshop at four points:
 
-1. **`/spec` creates `METRICS.md`** on first run — drafts taxonomy from autoplan output, asks user to confirm. On subsequent runs: proposes new events when features introduce new user actions. New event definitions are always a "stop and ask" item.
-2. **`/implement` instruments** — `posthog.capture()` calls for events referenced in the spec's Metrics section. Instrumented alongside code, never after.
-3. **`/pre-ship` validates** — cross-references user-facing code against `METRICS.md`. Pauses if a user-facing PR is missing instrumentation.
+1. **`/ak-spec` creates `METRICS.md`** on first run — drafts taxonomy from autoplan output, asks user to confirm. On subsequent runs: proposes new events when features introduce new user actions. New event definitions are always a "stop and ask" item.
+2. **`/ak-implement` instruments** — `posthog.capture()` calls for events referenced in the spec's Metrics section. Instrumented alongside code, never after.
+3. **`/ak-pre-ship` validates** — cross-references user-facing code against `METRICS.md`. Pauses if a user-facing PR is missing instrumentation.
 4. **You confirm new events** — never auto-added without review.
 
 #### Metrics principles (for drafting/updating `METRICS.md`)
@@ -324,7 +324,7 @@ TODO items can be scheduled into versions defined in their corresponding ROADMAP
 | Post-commit (Claude) | dirty-tree + cross-repo reminder                    | No                 | No — advisory context                 |
 | CI fast (every push) | Lint + types + `test:unit` + build                  | No                 | Yes — shows red on PR                 |
 | CI slow (PR to main) | `test` (unit+integration) + E2E + type drift        | Yes (CI starts it) | Yes — merge blocked                   |
-| `/pre-ship`          | `/test-review` (reads tests) + `/qa` (browser)      | App running        | Pauses on findings                    |
+| `/ak-pre-ship`       | `/ak-test-review` (reads tests) + `/qa` (browser)   | App running        | Pauses on findings                    |
 
 Unit tests are the fast inner loop (local + CI fast). Integration + E2E are the outer gate (CI slow). No env var needed — the command you run is the mode.
 
@@ -361,7 +361,7 @@ Unit tests are the fast inner loop (local + CI fast). Integration + E2E are the 
 #### Code Structure
 
 - **Shared packages export TypeScript source directly** — `"main": "src/index.ts"`. Each consuming app transpiles. Every package has a `src/index.ts` barrel export. No deep path imports across package boundaries.
-- **File documentation**: every non-trivial `.ts`/`.tsx` file under `src/` or `app/` has a 3-line header (`// What:` / `// Why:` / `// Does NOT:`). Every exported function has 1-2 sentence JSDoc (enforced by ESLint via `eslint-plugin-jsdoc`). Internal/private: no doc required. Config files (`*.config.*`, `*.d.ts`) are exempt. Headers are checked by `/pre-ship` convention check, not pre-commit — mechanical enforcement produces mechanical documentation.
+- **File documentation**: every non-trivial `.ts`/`.tsx` file under `src/` or `app/` has a 3-line header (`// What:` / `// Why:` / `// Does NOT:`). Every exported function has 1-2 sentence JSDoc (enforced by ESLint via `eslint-plugin-jsdoc`). Internal/private: no doc required. Config files (`*.config.*`, `*.d.ts`) are exempt. Headers are checked by `/ak-pre-ship` convention check, not pre-commit — mechanical enforcement produces mechanical documentation.
 - **Implementation approach**: default to simple. Boring solution. Tried-and-true over clever. Readable over optimal.
 - **ESLint for code quality only** — Prettier owns all formatting.
 
@@ -656,7 +656,7 @@ All devshop docs live in `.devshop/`. Three types: reference docs (living), back
 - `.devshop/README.md` — bird's eye view (~60-80 lines). Read for orientation.
 - `.devshop/GUIDE.md` — full operational reference (this file). Read when implementing or shipping.
 
-Commit guard enforces: check 3 (doc consistency) blocks if one is staged without the others unless a reason is provided via `git -c devshop.docSyncReason="<reason>"`. `/pre-ship` also enforces.
+Commit guard enforces: check 3 (doc consistency) blocks if one is staged without the others unless a reason is provided via `git -c devshop.docSyncReason="<reason>"`. `/ak-pre-ship` also enforces.
 
 ### Backlogs (living — grow independently)
 
@@ -710,7 +710,7 @@ Integration tests (`*.integration.test.ts`) run in CI's slow job against a real 
 
 ## Service Quotas
 
-Check monthly or when approaching a launch. `/init` fills in project-specific links.
+Check monthly or when approaching a launch. `/ak-init` fills in project-specific links.
 
 | Service        | Free Tier Limit                                  | Dashboard                          |
 | -------------- | ------------------------------------------------ | ---------------------------------- |
@@ -746,7 +746,7 @@ Track if it creeps up as the test suite grows. The `/retro` skill reports on thi
 vercel rollback    # reverts to previous deployment
 ```
 
-Find the deployment ID in the rollback checkpoint (PR comment from `/go-live`).
+Find the deployment ID in the rollback checkpoint (PR comment from `/ak-go-live`).
 
 ### Migration rollback
 

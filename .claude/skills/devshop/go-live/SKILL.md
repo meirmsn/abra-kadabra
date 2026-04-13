@@ -1,5 +1,5 @@
 ---
-name: go-live
+name: ak-go-live
 version: 1.0.0
 description: |
   Autonomous deploy pipeline: merge → deploy → canary → reflect → notify.

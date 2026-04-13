@@ -1,11 +1,11 @@
 ---
-name: implement
+name: ak-implement
 version: 2.1.0
 description: |
   Run the implementation loop for the active spec. Reads spec from specs/<name>/ →
   traces the gstack plan → checks tasks (new vs resume) → implements each task with tests → runs stuck
   protocol on failure → commits atomically per task → prints completion summary and
-  handoff to /pre-ship. Follows conventions in .devshop/GUIDE.md and CLAUDE.md.
+  handoff to /ak-pre-ship. Follows conventions in .devshop/GUIDE.md and CLAUDE.md.
   Use when asked to "implement", "start coding", or "build this". (devshop)
 allowed-tools:
   - Bash
@@ -27,7 +27,7 @@ backlog routing, and metrics lifecycle. These are referenced throughout, not dup
 
 ## Step 1: Gather context
 
-Find the active feature spec. When invoked by `/build`, the feature directory is provided.
+Find the active feature spec. When invoked by `/ak-build`, the feature directory is provided.
 When invoked standalone, derive from branch:
 
 ```bash
@@ -145,7 +145,7 @@ Tests: all green (unit)
 Metrics: <list of events instrumented>
 Decisions: <count> judgment calls (see tasks.md § Decisions)
 
-Ready for /pre-ship
+Ready for /ak-pre-ship
 ```
 
 ## During implementation

@@ -48,7 +48,7 @@ Config:  turbo.json · pnpm-workspace.yaml · tsconfig.base.json · eslint.confi
 ## Key Conventions
 
 - **No code without tests** — written alongside, never after. Unit + integration + E2E. Integration tests hit a real local DB, never mocks.
-- **No code without metrics** — `/spec` creates events in `METRICS.md`, `/implement` instruments them, `/pre-ship` validates.
+- **No code without metrics** — `/ak-spec` creates events in `METRICS.md`, `/ak-implement` instruments them, `/ak-pre-ship` validates.
 - **No broken tests** — full suite runs before marking a task done. CI gates PR merge.
 - **Responsive + light/dark from day one** — build for 375px, scale up. Theme tokens only, no hardcoded colors. Both themes verified before ship.
 - **PWA-ready** — manifest.json, service worker, Apple meta tags. "Add to Home Screen" works on iOS/Android.

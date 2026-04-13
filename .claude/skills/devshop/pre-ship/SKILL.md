@@ -1,11 +1,11 @@
 ---
-name: pre-ship
+name: ak-pre-ship
 version: 3.0.0
 description: |
   Quality gates before shipping. Pauses on findings, auto-advances on clean passes.
   After each code-changing gate, verifies tests still pass (stuck protocol if not).
-  Does NOT ship or create a PR — use /build for the full pipeline, or /ship after this.
-  Runs: docs → metrics → responsive → /simplify → /test-review → /review → /cso →
+  Does NOT ship or create a PR — use /ak-build for the full pipeline, or /ship after this.
+  Runs: docs → metrics → responsive → /simplify → /ak-test-review → /review → /cso →
   /design-review → /qa → /benchmark → convention check.
   Use when asked to "pre-ship", "quality check", or "check before shipping". (devshop)
 allowed-tools:
@@ -81,7 +81,7 @@ pnpm turbo run test:unit
 
 If tests fail → stuck protocol (see below).
 
-## Gate 5: /test-review
+## Gate 5: /ak-test-review
 
 Invoke `/devshop:test-review` via Skill tool. Test quality review with fresh eyes.
 Report only — does not change code.
@@ -148,8 +148,8 @@ Verify:
 ## Output
 
 After all gates complete, report the accumulated audit trail to the caller.
-Do NOT ship, push, create a PR, or post comments — that's `/build`'s job (or the user
-runs `/ship` manually). `/pre-ship` is quality gates only.
+Do NOT ship, push, create a PR, or post comments — that's `/ak-build`'s job (or the user
+runs `/ship` manually). `/ak-pre-ship` is quality gates only.
 
 ## Stuck protocol (for test failures between gates)
 

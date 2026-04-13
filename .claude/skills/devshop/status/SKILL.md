@@ -1,5 +1,5 @@
 ---
-name: status
+name: ak-status
 version: 1.0.0
 description: |
   Session orientation briefing. Reads feature artifacts from specs/<name>/, recent git log,

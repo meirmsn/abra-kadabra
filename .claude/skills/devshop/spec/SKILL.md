@@ -1,5 +1,5 @@
 ---
-name: spec
+name: ak-spec
 version: 2.0.0
 description: |
   Convert the latest gstack plan into an implementation-ready spec.
@@ -32,7 +32,7 @@ in architecture, edge cases, and design direction.
   - **Stop and wait for confirmation** (new metric event definitions require review)
   - Write `METRICS.md` with confirmed events using the structure in `.devshop/GUIDE.md § Metrics Lifecycle`
 - If `METRICS.md` does not exist AND this is NOT the first feature:
-  - Error: "METRICS.md not found — create it before running /spec. See .devshop/GUIDE.md new-project checklist."
+  - Error: "METRICS.md not found — create it before running /ak-spec. See .devshop/GUIDE.md new-project checklist."
   - Stop.
 - If `METRICS.md` exists: continue.
 
@@ -106,7 +106,7 @@ If the feature introduces new user actions not yet in `METRICS.md`:
 ## Step 6: Verify feature directory
 
 Confirm `specs/<feature-name>/spec.md` was written. No pointer file needed —
-`/build` and `/implement` find the spec via the feature directory path.
+`/ak-build` and `/ak-implement` find the spec via the feature directory path.
 
 ## Quality checklist
 

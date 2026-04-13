@@ -44,7 +44,7 @@ Depth over speed. When a step or task hits friction, stop and think about what c
 
 ### Documentation Convention
 
-- Every non-trivial `.ts`/`.tsx` file under `src/` or `app/` starts with a 3-line header (`// What:` / `// Why:` / `// Does NOT:`). Write on non-trivial files; `/pre-ship` convention check verifies.
+- Every non-trivial `.ts`/`.tsx` file under `src/` or `app/` starts with a 3-line header (`// What:` / `// Why:` / `// Does NOT:`). Write on non-trivial files; `/ak-pre-ship` convention check verifies.
 - Every exported function has a 1-2 sentence JSDoc. Internal/private: no doc required.
 - Config files (`*.config.*`, `*.d.ts`) are exempt.
 
@@ -96,7 +96,7 @@ All devshop docs live in `.devshop/`:
 
 ### Build and Deploy
 
-- `/build` — autonomous pipeline: spec → implement → quality gates → ship → CI watch → notify. Say "build it" after autoplan.
-- `/go-live` — autonomous deploy: merge → deploy → canary → reflect → notify. Say "land it" after PR review.
-- Individual skills (`/spec`, `/implement`, `/pre-ship`) still work standalone.
+- `/ak-build` — autonomous pipeline: spec → implement → quality gates → ship → CI watch → notify. Say "build it" after autoplan.
+- `/ak-go-live` — autonomous deploy: merge → deploy → canary → reflect → notify. Say "land it" after PR review.
+- Individual skills (`/ak-spec`, `/ak-implement`, `/ak-pre-ship`) still work standalone.
 - Test commands: `pnpm turbo run test:unit` (fast inner loop), `pnpm turbo run test` (full suite).
