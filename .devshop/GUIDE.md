@@ -474,25 +474,7 @@ Inside container:
 
 ### How init-devshop.sh works
 
-Runs as root via sudo on every container start (`postStartCommand`). The project's `.devcontainer/init-devshop.sh` is a thin forwarder:
-
-```bash
-[ -f /devshop/.devcontainer/init-devshop.sh ] && exec bash /devshop/.devcontainer/init-devshop.sh
-```
-
-The real script in abra-kadabra:
-
-1. Sets root/node passwords from `.devcontainer/.env`
-2. Symlinks `.devshop/` → `/devshop/.devshop/`
-3. Symlinks `.dcg.toml` → `/devshop/.dcg.toml`
-4. Creates `.claude/skills/` with symlinks to devshop + gstack skill directories
-5. Copies skill symlinks (ak-\*, gstack tools) preserving relative targets
-6. Symlinks `.claude/commands/` → `/devshop/.claude/commands/`
-7. Symlinks `.claude/settings.json`
-8. Generates `CLAUDE.md` by concatenating `abra-kadabra/CLAUDE.md` + `CLAUDE.project.md`
-9. Creates `BUILD-LOG.md` with default content if missing
-10. Generates `.hooks/pre-commit` for both project and devshop repos (gitignored, regenerated on start)
-11. Locks security-critical files (root-owned, 644)
+Runs as root via sudo on every container start (`postStartCommand`). The project's `.devcontainer/init-devshop.sh` is a thin forwarder that delegates to `/devshop/.devcontainer/init-devshop.sh` — the **single source of truth** for what gets symlinked, generated, and locked. Read the script directly for the full list.
 
 ### Doing project work
 
