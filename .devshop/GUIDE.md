@@ -319,7 +319,9 @@ TODO items can be scheduled into versions defined in their corresponding ROADMAP
 | Stage                | What runs                                      | Needs DB?          | Blocking?                       |
 | -------------------- | ---------------------------------------------- | ------------------ | ------------------------------- |
 | Per-task (local)     | `test:unit`                                    | No                 | Yes — task not done until green |
-| Pre-commit hook      | Lint + secrets + devshop-docs reminder         | No                 | Yes — commit blocked            |
+| Pre-commit (husky)   | lint-staged + typecheck + gitleaks             | No                 | Yes — commit blocked            |
+| Pre-commit (Claude)  | DCG + clean-tree + commit guard (4 checks)     | No                 | Yes — exit 2 blocks commit      |
+| Post-commit (Claude) | dirty-tree + cross-repo reminder               | No                 | No — advisory context           |
 | CI fast (every push) | Lint + types + `test:unit` + build             | No                 | Yes — shows red on PR           |
 | CI slow (PR to main) | `test` (unit+integration) + E2E + type drift   | Yes (CI starts it) | Yes — merge blocked             |
 | `/pre-ship`          | `/test-review` (reads tests) + `/qa` (browser) | App running        | Pauses on findings              |
@@ -342,7 +344,9 @@ Unit tests are the fast inner loop (local + CI fast). Integration + E2E are the 
 #### Security + Quality
 
 - **Edge functions always validate auth server-side** — `getUser()` to verify against auth server, even with gateway JWT verification.
-- **Pre-commit**: husky + lint-staged → ESLint + Prettier + gitleaks secret scan on every commit, no bypass. Ship `.gitleaks.toml` with known-safe public key patterns to prevent false-positive rot.
+- **Pre-commit (husky)**: lint-staged (ESLint + Prettier) + typecheck + gitleaks secret scan on every commit, no bypass. Runs in both repos. Ship `.gitleaks.toml` with known-safe public key patterns to prevent false-positive rot.
+- **Pre-commit (Claude hooks)**: DCG (destructive command guard), clean-tree warning, and `devshop-commit-guard.sh` (4 checks: mixed commit detection, docs drift, doc consistency, cross-repo awareness). All blocking checks use exit 2. Bypass with `git -c devshop.<key>="<reason>"` — reason is auditable in git log via the pending command on stdin.
+- **Post-commit (Claude hooks)**: `check-dirty-after-commit.sh` checks both current repo and companion repo for uncommitted changes. Advisory — injects context, doesn't block.
 - **Secrets in CI**: wired into `ci.yml` in the same PR as the integration — never a follow-up.
 - **Third-party binaries**: pinned to specific version + SHA256 checksum. Never "latest." Update version + checksum in same commit.
 - **Security-critical files are root-owned** — six files have two layers of protection: (1) deny rules in `.claude/settings.json` block Edit/Write tools, and (2) `chown root:root` + `chmod 644` blocks Bash workarounds. Claude can read them but cannot modify them by any means. To edit: `sudo nano <file>`.
@@ -407,7 +411,7 @@ checkboxes for resume tracking. Update both when changing the init process.
 17. [x] Create `METRICS.md` with empty event taxonomy structure
 18. [x] Run `/setup-deploy` to configure deploy settings
 19. [x] Create `CLAUDE.project.md` with project-specific Claude guidance (init-devshop.sh generates `CLAUDE.md` by combining devshop + project parts)
-20. [x] Enable doc enforcement hooks: wire `check-devshop-docs.sh` into pre-commit, add `eslint-plugin-jsdoc`
+20. [x] Enable doc enforcement hooks: `devshop-commit-guard.sh` as Claude PreToolUse hook, add `eslint-plugin-jsdoc`
 21. [x] Update `.gitleaks.toml` allowlist with project-specific public key patterns
 22. [x] **[HUMAN]** Lock security-critical files: `sudo chown root:root && sudo chmod 644` on settings.json, devcontainer.json, init-firewall.sh, Dockerfile, checksums.sha256, .env
 23. [x] Create `keepalive.yml` GitHub Action (prevents Supabase free tier pause)
@@ -598,6 +602,41 @@ Each framework requires a specific prefix for client-accessible vars. GitHub Sec
 | Safety            | DCG (Destructive Command Guard)    | PreToolUse hook blocks 49+ destructive patterns             |
 | Secret scanning   | gitleaks                           | Pre-commit + CI; `.gitleaks.toml` prevents false positives  |
 
+### Commit Flow — Full Hook Chain
+
+When Claude runs `git commit`, three layers of hooks fire in sequence:
+
+**1. Claude PreToolUse (before git runs)** — configured in `.claude/settings.json`
+
+| Hook                      | What                                                       | Blocking?                                                       |
+| ------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------- |
+| `dcg`                     | Destructive command guard (all Bash)                       | Yes (exit 2)                                                    |
+| `check-clean-tree.sh`     | Warns about untracked/unstaged files                       | No (advisory)                                                   |
+| `devshop-commit-guard.sh` | Check 1: mixed devshop + project files (project repo only) | Yes (exit 2)                                                    |
+|                           | Check 2: tooling changed without doc verification          | Yes, bypass: `git -c devshop.docsVerified="<what you checked>"` |
+|                           | Check 3: reference doc changed without verifying others    | Yes, bypass: `git -c devshop.docSyncReason="<reason>"`          |
+|                           | Check 4: other repo has uncommitted changes                | Yes, bypass: `git -c devshop.crossRepoReason="<reason>"`        |
+
+The guard reads the pending command from Claude stdin (JSON) to parse `git -c` bypass flags. Bypass reasons are auditable — they appear in the command that Claude executed.
+
+**2. Husky pre-commit (during git commit)** — configured in `.husky/pre-commit`
+
+| Hook                        | What                              | Runs in    |
+| --------------------------- | --------------------------------- | ---------- |
+| `pnpm exec lint-staged`     | ESLint + Prettier on staged files | Both repos |
+| `pnpm turbo run typecheck`  | TypeScript type checking          | Both repos |
+| `gitleaks protect --staged` | Secret scanning                   | Both repos |
+
+These are universal — no devshop awareness, work for public contributors too.
+
+**3. Claude PostToolUse (after git commit)** — configured in `.claude/settings.json`
+
+| Hook                          | What                                                   | Fires when                        |
+| ----------------------------- | ------------------------------------------------------ | --------------------------------- |
+| Release prompt                | "Ask user about version bump + changelog"              | Commits in abra-kadabra repo only |
+| `check-dirty-after-commit.sh` | Checks current repo + other repo for remaining changes | All commits                       |
+| `check-pr-description.sh`     | PR description quality check                           | On `git push*`, not commit        |
+
 ---
 
 ## Devshop Documentation Structure
@@ -609,7 +648,7 @@ All devshop docs live in `.devshop/`. Three types: reference docs (living), back
 - `.devshop/README.md` — bird's eye view (~60-80 lines). Read for orientation.
 - `.devshop/GUIDE.md` — full operational reference (this file). Read when implementing or shipping.
 
-Pre-commit nudge: if either file is staged, prints a reminder to verify both are in sync. `/pre-ship` enforces.
+Commit guard enforces: check 3 (doc consistency) blocks if one is staged without the others unless a reason is provided via `git -c devshop.docSyncReason="<reason>"`. `/pre-ship` also enforces.
 
 ### Backlogs (living — grow independently)
 

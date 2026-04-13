@@ -148,22 +148,18 @@ if [ "$RUN_DRIFT_CHECK" = true ]; then
     NON_CHANGELOG=$(echo "$STAGED" | grep -E "$DEVSHOP_REGEX" | grep -vE '^\.devshop/(CHANGELOG\.md|version)$' || true)
 
     if [ -n "$NON_CHANGELOG" ]; then
-      DOCS_STAGED=false
-      echo "$STAGED" | grep -qE '^\.devshop/(GUIDE|README|CLAUDE)\.md$|^CLAUDE\.md$' && DOCS_STAGED=true
-
       BYPASS_DOCS=$(get_bypass devshop.docsVerified || true)
 
-      if [ "$DOCS_STAGED" = false ] && [ -z "$BYPASS_DOCS" ]; then
+      if [ -n "$BYPASS_DOCS" ]; then
+        echo "✓ Docs drift verified: $BYPASS_DOCS" >&2
+      else
         echo "" >&2
-        echo "✖ Devshop tooling changed without doc updates staged:" >&2
+        echo "✖ Devshop tooling changed — verify docs are up to date:" >&2
         for w in "${DRIFT_WARNINGS[@]}"; do echo "$w" >&2; done
         echo "" >&2
-        echo "  Option A: Stage doc updates and re-commit." >&2
-        echo "  Option B: If no doc changes are needed, bypass with:" >&2
-        echo "    git -c devshop.docsVerified=\"<reason>\" commit ..." >&2
+        echo "  Explain what you verified (even if docs are co-staged):" >&2
+        echo "    git -c devshop.docsVerified=\"<what you checked>\" commit ..." >&2
         FAILED=true
-      elif [ -n "$BYPASS_DOCS" ]; then
-        echo "✓ Docs drift verified: $BYPASS_DOCS" >&2
       fi
     fi
   fi
