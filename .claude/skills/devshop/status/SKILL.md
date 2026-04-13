@@ -28,6 +28,15 @@ git status --short
 git stash list 2>/dev/null
 gh pr list --state open --json number,title,headRefName --jq '.[] | "#\(.number) \(.title) (\(.headRefName))"' 2>/dev/null || echo "No open PRs (or gh not available)"
 
+# All specs (birds-eye view of planned/in-progress features)
+for spec in specs/*/spec.md; do
+  [ -f "$spec" ] || continue
+  name=$(basename "$(dirname "$spec")")
+  has_tasks=$( [ -f "specs/$name/tasks.md" ] && echo "+tasks" || echo "" )
+  has_review=$( [ -f "specs/$name/review.md" ] && echo "+review" || echo "" )
+  echo "  $name $has_tasks $has_review"
+done || echo "No specs"
+
 # Feature-level state (if on a feature branch)
 BRANCH=$(git branch --show-current)
 FEATURE=$(echo "$BRANCH" | sed 's|^feature/||;s|^feat/||;s|^fix/||')
@@ -56,7 +65,7 @@ Next:     <next task, next workflow step, or next init step>
 Blocked:  <anything blocked, pending [HUMAN] steps, or "none">
 Dirty:    <uncommitted changes, stashes, or "clean">
 PRs:      <open PRs with number/title, or "none">
-Specs:    <active specs in specs/, or "none">
+Specs:    <all specs in specs/ with state markers (+tasks, +review), or "none">
 ```
 
 Keep each line to one sentence. Do not modify any files.
