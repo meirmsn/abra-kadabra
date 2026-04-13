@@ -144,6 +144,35 @@ newly merged PRs and runs the post-merge pipeline. Lightest option may be GitHub
 auto-merge (PR merges when CI passes + approved) combined with a deploy workflow
 that runs canary checks — but loses Claude's structured reflection step.
 
+### Devshop testing
+
+Test infrastructure for the devshop itself — scripts, hooks, and sync tooling.
+Currently the devshop has no automated tests; correctness relies on manual
+verification during use.
+
+#### Hook tests (commit guard)
+
+Automated tests for `devshop-commit-guard.sh` and other commit hooks. Set up
+temp git repos, stage specific file combinations, and assert correct blocking
+behavior. Key invariant: **no auto-pass** — checks must never silently pass
+because the "right" files happen to be co-staged. Every blocking check must
+require an explicit reason, regardless of what else is in the commit.
+
+Test cases: mixed commit detection (project repo only), docs drift with/without
+co-staged docs, doc consistency with 1/2/3 docs staged, cross-repo dirty state,
+bypass flag parsing from stdin JSON, exit code 2 on failure, repo detection.
+
+#### Sync script tests
+
+Tests for `sync-from-template.sh` and `sync-to-template.sh`. Create two temp
+repos, run sync in both directions, verify correct files copied, exclusions
+honored, and CLAUDE.md injection works.
+
+#### init-devshop.sh tests
+
+Verify symlinks created, CLAUDE.md assembled correctly, security lockdown
+applied, BUILD-LOG.md created when missing, skill symlinks resolve.
+
 ### DNS wildcard firewall rules
 
 Current firewall resolves each domain to IPs via `dig` + `ipset`. Every subdomain
