@@ -418,7 +418,7 @@ checkboxes for resume tracking. Update both when changing the init process.
 > **Maintenance note**: This checklist and `.claude/skills/devshop/init/SKILL.md` are
 > companions. Update both when changing the init process.
 
-### Steps (all walked by /devshop:init — [HUMAN] items prompt the user)
+### Steps (all walked by /ak-init — [HUMAN] items prompt the user)
 
 1. [x] Check binary versions in `devcontainer.json` — upgrade if newer available
 2. [x] Seed `PRODUCT-ROADMAP.md` and `BUILD-LOG.md` (from `.devshop/templates/`, copied by init)

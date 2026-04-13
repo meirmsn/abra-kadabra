@@ -84,7 +84,8 @@ Depth over speed. When a step or task hits friction, stop and think about what c
 ### Naming Convention
 
 - `abra-kadabra` = brand name (devshop repo, doc titles). Never used in file names or CLI commands.
-- `devshop` = code references (`.devshop/`, `.claude/skills/devshop/`, `/devshop:*` skills).
+- `devshop` = code references (`.devshop/`, `.claude/skills/devshop/`).
+- `ak-` = skill prefix for devshop skills (`/ak-build`, `/ak-spec`, `/ak-init`, etc.).
 
 ### Devshop Documentation Structure
 
