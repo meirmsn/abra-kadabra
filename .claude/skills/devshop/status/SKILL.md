@@ -18,32 +18,45 @@ Session orientation — run at the start of any new session to get oriented.
 
 ## Gather state
 
-Derive feature name from branch, then read feature artifacts:
+Read project-level context first, then feature artifacts:
 
 ```bash
+# Project-level state
+cat BUILD-LOG.md 2>/dev/null | head -20  # status section + recent entries
+git log --oneline -10
+git status --short
+git stash list 2>/dev/null
+gh pr list --state open --json number,title,headRefName --jq '.[] | "#\(.number) \(.title) (\(.headRefName))"' 2>/dev/null || echo "No open PRs (or gh not available)"
+
+# Feature-level state (if on a feature branch)
 BRANCH=$(git branch --show-current)
 FEATURE=$(echo "$BRANCH" | sed 's|^feature/||;s|^feat/||;s|^fix/||')
 FEATURE_DIR="specs/$FEATURE"
 cat "$FEATURE_DIR/spec.md" 2>/dev/null || echo "No active spec"
 cat "$FEATURE_DIR/tasks.md" 2>/dev/null || echo "No tasks"
 cat "$FEATURE_DIR/review.md" 2>/dev/null || echo "No review yet"
-git log --oneline -10
-git status --short
 ```
 
 Also check for in-progress state:
 
+- BUILD-LOG.md status section (current phase, what's next)
 - Any `in_progress` tasks in `$FEATURE_DIR/tasks.md`
 - Any uncommitted changes
-- Any stashed changes (`git stash list`)
+- Any stashed changes
 
 ## Output
 
-One paragraph briefing covering:
+Use this exact format — no prose, no paragraphs:
 
-1. **Phase**: implementing / pre-ship / between features / devshop construction
-2. **What's done**: completed tasks or recent commits
-3. **What's next**: next task, or next workflow step
-4. **Blockers**: anything marked blocked in tasks.md, or uncommitted work that needs attention
+```
+Phase:    <init / implementing / pre-ship / between features / devshop>
+Branch:   <current branch name>
+Done:     <completed tasks, recent commits summary>
+Next:     <next task, next workflow step, or next init step>
+Blocked:  <anything blocked, pending [HUMAN] steps, or "none">
+Dirty:    <uncommitted changes, stashes, or "clean">
+PRs:      <open PRs with number/title, or "none">
+Specs:    <active specs in specs/, or "none">
+```
 
-Keep it concise — this is a briefing, not a report. Do not modify any files.
+Keep each line to one sentence. Do not modify any files.

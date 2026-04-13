@@ -47,6 +47,18 @@ Invoke `/land-and-deploy` via Skill tool.
 gstack's `/land-and-deploy`: checks CI green, merges PR, waits for deploy, verifies
 production health. If CI is failing, it stops (does not merge).
 
+## Step 2b: Branch cleanup
+
+After merge, clean up the feature branch locally and prune stale remote refs:
+
+```bash
+FEATURE_BRANCH=$(git branch --show-current)
+git checkout main
+git pull
+git branch -D "$FEATURE_BRANCH"
+git remote prune origin
+```
+
 ## Step 3: Canary monitoring
 
 Invoke `/canary` via Skill tool.

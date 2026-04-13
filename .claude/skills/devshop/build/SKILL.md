@@ -43,12 +43,39 @@ clean for orchestration and user communication.
 
 ## Step 0: Determine feature and resume state
 
-### Derive feature name
+### Derive feature name and ensure branch
+```bash
+BRANCH=$(git branch --show-current)
+```
+
+If on `main`, find or create the right branch:
+
+1. **Check for in-progress work** — look for open PRs or local feature/fix branches:
+   ```bash
+   # Open PRs from feature/fix branches
+   gh pr list --state open --json headRefName --jq '.[].headRefName' 2>/dev/null
+   # Local feature/fix branches
+   git branch --list 'feature/*' 'fix/*'
+   ```
+2. **If existing branch found** → ask the user which one to resume, switch to it:
+   ```bash
+   git checkout feature/<name>
+   ```
+3. **If no existing branch** → determine the feature name from the gstack plan
+   (`.gstack/projects/*/plan.md`) or ask the user. Pick the branch prefix:
+   `feature/` for new functionality, `fix/` for bug fixes. Create and switch:
+   ```bash
+   git checkout -b feature/<name>   # or fix/<name>
+   ```
+
+Re-read the branch after switching:
 ```bash
 BRANCH=$(git branch --show-current)
 FEATURE=$(echo "$BRANCH" | sed 's|^feature/||;s|^feat/||;s|^fix/||')
 FEATURE_DIR="specs/$FEATURE"
 ```
+
+If already on a `feature/*` or `fix/*` branch, skip straight to the resume check.
 
 ### Resume check
 
@@ -114,7 +141,9 @@ Launch **Agent** with prompt:
 > and auto-invoke /document-release.
 > Return: PR number and URL.
 
-After `/ship` completes, a PR exists on GitHub.
+After `/ship` completes, a PR exists on GitHub. Verify the PR title and description
+reflect all commits. Title: under 70 chars, summarizes the feature/fix. Description:
+## Summary (bullets), ## Test plan (checklist), attribution line.
 
 ## Phase 5: CI watch + fix loop
 
@@ -173,8 +202,10 @@ while CI is failing and FIX_ATTEMPTS < MAX_ATTEMPTS:
      git commit -m "fix: CI failure - <description>"
      git push
 
-  8. FIX_ATTEMPTS += 1
-  9. Go to 5.2 (watch CI again)
+  8. After pushing, update PR title/description if the fix changes scope.
+
+  9. FIX_ATTEMPTS += 1
+  10. Go to 5.2 (watch CI again)
 ```
 
 ### 5.5: Escalation after max attempts
