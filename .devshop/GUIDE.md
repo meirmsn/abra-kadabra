@@ -505,13 +505,20 @@ Devshop changes go to the abra-kadabra repo. Since `.devshop/` is a symlink to `
 ```bash
 cd /devshop                    # abra-kadabra repo
 git status                     # see devshop changes
-git add -A && git commit -m "devshop: ..."
+git add -A && git commit -m "chore: ..."
 # Push from host (container PAT may lack scope)
 ```
 
-- Devshop commits use the `devshop:` prefix
-- Changes take effect immediately (symlinks resolve live)
+- Devshop commits use conventional commits (`feat:`, `fix:`, `chore:`, etc.)
 - All injected files (including `.claude/settings.json`) are symlinks — edits in `/devshop/` take effect immediately. The lock step (`chown root:root`) follows symlinks, so the target files in abra-kadabra are also locked.
+
+### When devshop changes take effect
+
+| What you changed | When it takes effect | Why |
+|---|---|---|
+| Skills, scripts, docs (`.devshop/`, `.claude/skills/`, `.claude/commands/`) | Immediately | Symlinks resolve live |
+| `CLAUDE.md` (root, in abra-kadabra) | Container restart, or `sudo /usr/local/bin/init-devshop.sh` | Assembled from `/devshop/CLAUDE.md` + `CLAUDE.project.md` (copy, not symlink) |
+| Template build tooling (`.husky/`, `turbo.json`, CI, etc.) | Manual: run `sync-from-template.sh` | Project owns its copy — can diverge from template |
 
 ### Propagating build tooling updates
 

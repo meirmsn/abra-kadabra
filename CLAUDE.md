@@ -33,7 +33,7 @@ Flag concerns not covered by existing docs or conventions — wait for confirmat
 
 **Two repos, two commit flows:**
 - **Project commits** go to the project repo (`/workspace`). Use conventional commits (`feat:`, `fix:`, `chore:`, etc.).
-- **Devshop commits** go to the abra-kadabra repo (`/devshop`). Use the `devshop:` prefix. Since `.devshop/` is a symlink, edits are automatically in the abra-kadabra working tree — just `cd /devshop && git add && git commit`.
+- **Devshop commits** go to the abra-kadabra repo (`/devshop`). Use conventional commits. Since `.devshop/` is a symlink, edits are automatically in the abra-kadabra working tree — just `cd /devshop && git add && git commit`.
 
 See `.devshop/GUIDE.md § Devshop Separation Architecture` for the full model.
 
