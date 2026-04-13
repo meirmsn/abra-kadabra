@@ -100,6 +100,19 @@ No root pointer files — `/build` derives the feature name from the branch. Eac
 
 ---
 
+## Why this specific stack (Turborepo, Next.js, Vitest, Playwright)?
+
+Each choice optimizes for a solo dev using Claude Code in a devcontainer:
+
+- **Turborepo + pnpm** — fast incremental builds across monorepo packages with free remote caching. pnpm is faster than npm for monorepos (hard-links, no duplication). Both are standard, well-maintained, and free. The monorepo structure (`apps/web`, `packages/core`, `packages/ui`) supports future mobile apps without migration.
+- **Next.js (App Router)** — best-in-class React framework. Zero-config Vercel deployment. SSR + SSG + SEO out of the box. App Router is the current standard (Pages Router is legacy).
+- **Vitest** — faster than Jest, TypeScript-native, same config for unit and integration tests. Single test runner for the web-first phase.
+- **Playwright** — best-in-class web E2E tool, runs in GitHub Actions, built-in mobile viewport support (375px + 1440px). Covers visual regression via screenshot comparison.
+- **No Storybook/Chromatic** — too much overhead for a solo dev. Playwright screenshot comparison covers visual regression without a separate tool or service.
+- **Platform-agnostic shared packages** — `packages/core` and `packages/ui` must NOT contain Next.js-specific imports. They export pure TypeScript — framework-agnostic logic and design tokens. This ensures future mobile apps can import them without modification. Each consuming app (`apps/web`, future `apps/mobile`) handles its own framework integration.
+
+---
+
 ## Why are there multiple CLAUDE files?
 
 - **`abra-kadabra/CLAUDE.md`** — devshop conventions: confidence calibration, non-negotiables, workflow, hooks. Lives in the devshop repo, same across all projects.

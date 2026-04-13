@@ -47,16 +47,29 @@ Config:  turbo.json · pnpm-workspace.yaml · tsconfig.base.json · eslint.confi
 
 ## Key Conventions
 
+- **Detail lives closest to where it's used** — if one skill runs it, that skill owns it. If it spans skills or the whole workflow, GUIDE.md owns it. README.md is orientation; CLAUDE.md is agent config. Don't duplicate — point.
 - **No code without tests** — written alongside, never after. Unit + integration + E2E. Integration tests hit a real local DB, never mocks.
 - **No code without metrics** — `/ak-spec` creates events in `METRICS.md`, `/ak-implement` instruments them, `/ak-pre-ship` validates.
 - **No broken tests** — full suite runs before marking a task done. CI gates PR merge.
 - **Responsive + light/dark from day one** — build for 375px, scale up. Theme tokens only, no hardcoded colors. Both themes verified before ship.
-- **PWA-ready** — manifest.json, service worker, Apple meta tags. "Add to Home Screen" works on iOS/Android.
-- **Pre-commit enforcement** — ESLint + Prettier + gitleaks secret scan + file header check on every commit, no bypass.
+- **PWA-installable** — manifest.json, Apple meta tags. "Add to Home Screen" works on iOS/Android. Service worker deferred until core screens are stable.
+- **Pre-commit enforcement** — ESLint + Prettier + typecheck + gitleaks secret scan + devshop commit guard on every commit, no bypass.
 - **CI mirrors runtime** — if the app uses a DB at runtime, CI starts it locally and runs integration tests against it.
 - **Edge functions validate auth server-side** — `getUser()` on every request, even if gateway checks JWT.
 - **Shared packages export TypeScript source** — no build step. Barrel exports only, no deep path imports.
 - **Every `.ts`/`.tsx` file has a 3-line header** (`What` / `Why` / `Does NOT`); every export has JSDoc.
+
+## What GUIDE.md Covers (cross-cutting reference)
+
+These topics span multiple skills, so GUIDE.md owns them:
+
+- **Metrics Lifecycle** — how events flow through /ak-spec → /ak-implement → /ak-pre-ship
+- **Testing layers** — unit vs integration vs E2E, RLS boundary tests, seed.sql, CI mirrors runtime
+- **Security + Quality** — pre-commit steps, security-critical file list, fakeowner caveat, known gaps
+- **Hooks table + Commit Flow** — what fires on commit/push/session-start and in what order
+- **Rollback procedures** — Vercel rollback, migration rollback SQL, canary failure response
+
+CI slow job expansion plans are in ROADMAP.md § v+.
 
 ## Glossary
 
@@ -69,6 +82,7 @@ Config:  turbo.json · pnpm-workspace.yaml · tsconfig.base.json · eslint.confi
 ## Further Reading
 
 - `./GUIDE.md` — full operational reference (workflow details, skill map, checklists, new-project guide)
+- `./FAQ.md` — design rationale and architecture decisions
 - `./TODOS.md` — devshop tactical backlog (friction, bugs, small fixes)
 - `./ROADMAP.md` — devshop strategic backlog (capabilities, major improvements)
 - `./notes/bootstrap/v0-web.md` — construction blueprint for the web devshop (historical after build)

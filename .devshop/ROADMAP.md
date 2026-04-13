@@ -69,6 +69,45 @@ the change; on merge, changesets auto-generates the changelog entry.
 `.github/dependabot.yml` — weekly PRs for npm security updates. Catches known
 vulnerabilities in dependencies before they become incidents. Free, zero maintenance.
 
+### Devshop self-build pipeline
+
+Use the project build machinery (`/ak-build`) for devshop changes themselves.
+Currently devshop work is manual: branch, edit, commit with `devshop:` prefix,
+push, PR. The project pipeline (spec → implement → quality gates → ship) is
+tightly coupled to project conventions (specs/ dir, metrics, responsive/theme
+checks) and doesn't fit devshop changes.
+
+**Options (pick at implementation time):**
+
+- **`/ak-devshop-build`** — lighter devshop-specific pipeline: branch → edit →
+  commit guard → docs consistency check → push → PR. Reuses `/ship` for the PR
+  step. Skips specs, metrics, responsive checks.
+- **Mode-aware `/ak-build`** — detect `devshop/` branch prefix → swap in devshop
+  conventions (devshop commit prefix, docs drift checks, script tests) instead of
+  project ones. Single entry point but more complex.
+
+**Devshop quality gates (different from project):**
+
+- Commit guard passes (no mixed commits)
+- Docs consistency (three-way: CLAUDE.md ↔ README ↔ GUIDE)
+- Script tests (when they exist — see TODOS.md)
+- No responsive/theme/metrics checks
+
+**Trigger:** when devshop changes become frequent enough that the manual
+branch-edit-commit-push flow feels like friction.
+
+### CLAUDE.project.md block assembly
+
+Template snippets in `.devshop/templates/claude-blocks/` — one per technology choice
+(`supabase.md`, `vercel.md`, `posthog.md`, `sentry.md`, etc.). Each block contains the
+env vars, migration commands, file path patterns, and conventions for that tool.
+
+`/ak-init` assembles `CLAUDE.project.md` from the relevant blocks based on which
+services are set up (steps 3-6 already know). Same content across all projects using
+the same stack; different for projects with different tech choices.
+
+`/document-release` maintains "Where Things Happen" as paths get added post-init.
+
 ### Sync script improvements
 
 Current: simple `cp` guided by `manifest.txt` (plus heading-based injection
@@ -82,14 +121,53 @@ for `CLAUDE.md` — already in v0). Improve to:
 
 ## v+ (future — when the need is felt)
 
+### Native/mobile devshop support
+
+Extend the devshop to support React Native (Expo) apps alongside web. Adds `apps/mobile/`,
+EAS CLI, Maestro E2E, mobile Sentry/PostHog, App Store/Play Store deployment.
+Full build blueprint: `.devshop/notes/bootstrap/v1-native.md`.
+
 ### Fakeowner + Bash bypass hardening
 
 Two known security gaps in the file protection model:
 
 1. **Fakeowner**: Docker Desktop bind mounts from macOS use `fakeowner`, where `chown`/`chmod` are cosmetic — Layer 2 (root ownership) doesn't enforce on these mounts.
-2. **Bash bypass**: Edit/Write deny rules don't prevent Bash commands from modifying protected files (e.g., `python3 -c "open('file','w')"`). DCG custom block rules were attempted but cause false positives on git commands that mention the filenames.
+2. **Bash bypass**: Edit/Write deny rules don't prevent Bash commands from modifying protected files (e.g., `python3 -c "open('file','w')"`). On fakeowner mounts, root ownership doesn't help either.
 
-Options explored: DCG block rules (false positives), symlink targets to ext4 volume (complexity). Needs a solution that blocks Bash writes without interfering with legitimate git operations.
+**Current protection (v0):**
+
+1. Deny rules in `settings.json` block Edit/Write tools
+2. `init-devshop.sh` chowns files to root on container start (cosmetic on fakeowner)
+
+**Known gap:** Bash commands can modify any file on the fakeowner mount regardless of
+displayed ownership. Deny rules only cover Edit/Write tools, not Bash.
+
+**Attempted fix: DCG custom block rules** — added `[overrides] block` patterns in
+`.dcg.toml` matching protected filenames. Problem: DCG pattern-matches against the full
+command string, so `git add .claude/settings.json` and `git commit` mentioning protected
+files in messages trigger false positives. DCG's `allow` override precedence vs pack rules
+(e.g., `core.git` blocking `git reset --hard`) is undocumented — blanket git allowlisting
+might weaken existing protections. Reverted.
+
+**Option A: DCG with surgical patterns** — instead of filename-only patterns, use
+write-verb + filename combos (`> .*settings.json`, `tee .*settings.json`, `python.*settings.json`).
+Avoids git false positives but requires enumerating all write verbs — misses novel ones
+(`dd`, `perl`, `ruby`, `node -e`, etc.). Weaker net than broad filename matching.
+
+**Option B: Symlink to ext4 volume** — move protected files to `/home/node/.claude/`
+(real ext4 Docker named volume where permissions are kernel-enforced), symlink from
+workspace. `init-devshop.sh` copies latest from git → volume target, then
+`chown root:root` — kernel enforces it. Real protection, not pattern-matching.
+Complexity: lifecycle management (git updates must flow through copy step), container
+rebuild vs volume persistence timing, Claude Code must follow symlinks for settings
+loading (likely works, untested).
+
+**Option C: Custom PreToolUse hook** — a bash script (not DCG) that parses the command
+from stdin JSON and checks if it would write to protected paths. More flexible than DCG
+patterns, can do path resolution, but same fundamental limitation: pattern matching is
+bypassable with sufficient creativity.
+
+**Trigger:** When a Bash bypass is observed in practice (not just theoretical).
 
 ### CI slow job expansion
 
@@ -153,7 +231,7 @@ Playwright screenshot comparison for key screens. Store baseline screenshots in
 `tests/screenshots/`. CI step compares current vs baseline, fails if diff exceeds
 threshold. Catches unintended visual changes that unit tests miss.
 
-### `/devshop:migrate` skill
+### `/ak-migrate` skill
 
 Guided migration from an existing app to the devshop stack (e.g., Swift → React,
 Django → Next.js). Archive old code for reference, port design system, set up
