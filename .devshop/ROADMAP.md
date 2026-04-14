@@ -64,6 +64,19 @@ Trigger: when `/implement` starts losing context on features with 10+ tasks.
 Removes manual CHANGELOG maintenance. Each PR includes a changeset file describing
 the change; on merge, changesets auto-generates the changelog entry.
 
+### `/ak-commit` skill + husky gate
+
+Replace raw `git commit` with an `/ak-commit` skill that owns the full commit loop:
+assess dirty state in both repos → classify files → plan commits → execute → verify
+clean → repeat until done (or ask user for unknowns). Enforced by a husky pre-commit
+gate (`check-ak-commit.sh`) that blocks raw commits — bypass requires a descriptive
+reason, adversarially reviewed. Same pattern as `dirtyTreeReason` and `docsVerified`.
+
+Problem it solves: PostToolUse `check-dirty-after-commit.sh` is advisory — Claude can
+ignore it. PreToolUse hooks cannot block Bash calls (#26923). Husky can block.
+
+Full design: `.devshop/notes/ak-commit-design.md`
+
 ### Devshop self-build pipeline
 
 Use the project build machinery (`/ak-build`) for devshop changes themselves.
@@ -325,6 +338,29 @@ structured or correlated with user-facing issues.
 Consider structured console.log in edge functions with a standard format
 (timestamp, request ID, user ID, action, duration). Revisit after first
 production debugging session reveals what's actually needed.
+
+### Repo layout clarification
+
+The devshop repo root mixes several concerns without clear separation:
+
+- **Symlinked** into project repos: `.devshop/`, `.claude/`
+- **Templated/generated**: `CLAUDE.md` (assembled by init-devshop.sh)
+- **Repo infrastructure** (run/lint/test the devshop itself): `package.json`, `eslint.config.mjs`, `turbo.json`, `tsconfig.base.json`, `.prettierrc`, etc.
+- **Injection machinery**: `.devcontainer/init-devshop.sh`
+- **Git/editor config**: `.gitignore`, `.editorconfig`, `.gitleaks.toml`, `.husky/`
+
+This works but Claude (and humans) trip over it — e.g., trying to create
+CHANGELOG at the repo root instead of in `.devshop/`. The CLAUDE.md guidance
+added in the "Devshop Repo Layout" section is a band-aid.
+
+Evaluate whether a clearer directory structure would help, or if better docs
+are sufficient. Questions to answer:
+
+- Should symlinked content live in a dedicated top-level dir (e.g., `pkg/`) instead of dotfolders?
+- Should generated files be gitignored with a rebuild-on-start pattern?
+- Is the root-level monorepo config (turbo, pnpm workspace) actually used, or just scaffolding?
+
+Trigger: when the next person (or Claude) gets confused by the layout again.
 
 ### Standalone devcontainer for abra-kadabra
 
