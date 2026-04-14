@@ -17,6 +17,7 @@ Research notes, insights, and reference docs captured during devshop development
 - [`backend-alternatives-research.md`](backend-alternatives-research.md) — research on backend deployment alternatives to Supabase
 - [`integration-test-local-alternatives.md`](integration-test-local-alternatives.md) — testing strategies for constrained hardware
 - [`devshop-split.md`](devshop-split.md) — audit of the devshop separation (what changed, known issues, pre-split comparison instructions)
+- [`security-model.md`](security-model.md) — 6-layer permissions model: how root ownership, sticky bits, deny rules, DCG, git hooks, and PreToolUse hooks protect security-critical files
 
 ## Bootstrap (historical)
 
