@@ -335,14 +335,14 @@ Unit tests are the fast inner loop (local + CI fast). Integration + E2E are the 
 
 Hooks in `.claude/settings.json` guard the development workflow:
 
-| Hook                  | Event                    | Trigger                       | What it does                                                                                                                      |
-| --------------------- | ------------------------ | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| DCG                   | PreToolUse (all Bash)    | Every Bash command            | Destructive Command Guard — blocks 49+ dangerous patterns (rm -rf, git reset --hard, DROP TABLE, etc.)                            |
-| check-memory-created  | PreToolUse (Write\|Edit) | Write/Edit to memory paths    | Blocks memory file writes — forces Claude to ask user before creating memories                                                    |
-| release.sh reminder   | PostToolUse (git commit) | `git commit*` in devshop repo | Reminds to run `release.sh` for version bump + changelog (no-op in project repos)                                                 |
-| dirty tree check      | PostToolUse (git commit) | `git commit*` commands        | If tree still dirty after commit, tells Claude to address remaining files                                                         |
-| PR description update | PostToolUse (git push)   | `git push*` commands          | Two-step: (1) Claude assesses title/description vs commits — text only, no edits. (2) Next response: runs `gh pr edit` if needed. |
-| session-start.sh      | SessionStart             | New session or `/clear`       | Context for Claude (README, BUILD-LOG, branch) + visible briefing for user (state, workflow, next step)                           |
+| Hook                  | Event                    | Trigger                        | What it does                                                                                                                      |
+| --------------------- | ------------------------ | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| DCG                   | PreToolUse (all Bash)    | Every Bash command             | Destructive Command Guard — blocks 49+ dangerous patterns (rm -rf, git reset --hard, DROP TABLE, etc.)                            |
+| check-memory-created  | PreToolUse (Write\|Edit) | Write/Edit to memory paths     | Blocks memory file writes — forces Claude to ask user before creating memories                                                    |
+| release.sh reminder   | PostToolUse (git commit) | `*git commit*` in devshop repo | Reminds to run `release.sh` for version bump + changelog (no-op in project repos)                                                 |
+| dirty tree check      | PostToolUse (git commit) | `*git commit*` commands        | If tree still dirty after commit, tells Claude to address remaining files                                                         |
+| PR description update | PostToolUse (git push)   | `*git push*` commands          | Two-step: (1) Claude assesses title/description vs commits — text only, no edits. (2) Next response: runs `gh pr edit` if needed. |
+| session-start.sh      | SessionStart             | New session or `/clear`        | Context for Claude (README, BUILD-LOG, branch) + visible briefing for user (state, workflow, next step)                           |
 
 #### Commit Flow
 
@@ -369,7 +369,7 @@ Hooks in `.claude/settings.json` guard the development workflow:
    ├─ release.sh reminder (devshop repo only)
    └─ check-dirty-after-commit.sh: remaining dirty files in either repo
 
-5. PostToolUse: check-dirty-after-commit.sh  (settings.json hook, if: git commit*)
+5. PostToolUse: check-dirty-after-commit.sh  (settings.json hook, if: *git commit*)
    └─ If working tree still dirty: tells Claude to address remaining files
    └─ Claude stages + commits, stashes, or gitignores — loop until clean
 ```
@@ -653,7 +653,7 @@ Bypass via `git -c devshop.<key>="<reason>"` works natively in husky. Every bypa
 | ----------------------------- | ------------------------------------------------------ | --------------------------------- |
 | Release prompt                | "Ask user about version bump + changelog"              | Commits in abra-kadabra repo only |
 | `check-dirty-after-commit.sh` | Checks current repo + other repo for remaining changes | All commits                       |
-| `check-pr-description.sh`     | PR description quality check                           | On `git push*`, not commit        |
+| `check-pr-description.sh`     | PR description quality check                           | On `*git push*`, not commit       |
 
 PostToolUse hooks are advisory (inject context, don't block).
 
