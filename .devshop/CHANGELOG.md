@@ -6,6 +6,66 @@ Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
 Tagged `pre-split-snapshot` on the **lalista repo** at the bifurcation point (`24652cf`) where `main` diverged into `chore/separate-devshop`. Use this tag to compare against devshop files as they were before the split. See `notes/pre-split-comparison.md` for instructions.
 
+## v1.1.0 (2026-04-14)
+
+- docs: document settings.json copy model in CLAUDE.md and FAQ.md
+- fix: make settings.json and .dcg.toml root-owned copies, fix ak-\* bug
+- fix: wrap .hooks/pre-commit call in if/fi
+- refactor: extract symlink creation into create-devshop-symlinks.sh
+- feat: add hook bypass protection (check-hook-bypass.sh)
+- docs: remove stale devshop: commit prefix convention
+- refactor: make .devshop/CLAUDE.md the single source of conventions
+- fix: harden security for separated devshop infrastructure
+- devshop: fix permission prompts for /devshop/ and common Bash commands
+- chore: consolidate split audit into devshop-split.md, remove pre-split-comparison
+- chore: auto-recreate devshop symlinks in pre-commit if missing
+- fix: correct pre-split-snapshot tag location in docs
+- chore: add explicit permission patterns for symlink-resolved paths
+- chore: broaden docs drift check to review all docs on any devshop change
+- fix: widen PostToolUse hook globs to match git -c flag
+- chore: add devshop repo layout guidance to CLAUDE.md
+- chore: add ak-commit design note and v1 roadmap item
+- chore: strengthen check-dirty-after-commit.sh advisory language
+- chore: add standalone devcontainer roadmap item + read/edit permissions
+- fix: widen hook globs to match cd-prefixed git commands
+- chore: add pre-split-snapshot tag and comparison notes
+- chore: use sonnet for adversarial doc review
+- feat: adversarial review in husky, semantic vs deterministic checks
+- feat: three-layer commit guard enforcement
+- chore: triage v0-gaps for separation architecture
+- chore(security): add per-file rationale to lock list, deduplicate GUIDE
+- fix(security): lock init-devshop.sh and settings.local.json
+- feat(status): list all specs in ak-status for birds-eye project view
+- chore: rename /devshop:_ to /ak-_ in user-facing docs
+- chore: BUILD-LOG.md improvements
+- chore: restore v0-web.md annotations, fix commit guard, sync message
+- chore: restore v0-web.md annotations, sync commit message, BUILD-LOG template
+- chore: restore lost skill content from main branch
+- chore: restore lost content from main in README, ROADMAP, FAQ, TODOS
+- chore: reconcile GUIDE.md with main, fix cross-references
+- docs: remove duplicated init-devshop.sh steps from GUIDE.md
+- docs: update GUIDE.md for new pre-commit hooks
+- feat: add CLAUDE.md freshness check and devshop clean-tree hook
+- fix: restore ak- prefix on devshop skill names and update all docs
+- fix: strengthen bypass prompts, update GUIDE for husky guards
+- fix: move commit guards to husky via .hooks/pre-commit
+- chore: remove memory symlink from postCreateCommand
+- fix: add cwd reminder after commits outside /workspace
+- chore: move Claude memory to .claude/memory/
+- refactor: rename template → devshop across scripts and docs
+- fix: make check-clean-tree blocking, add advisory hook TODOs
+- chore: add devshop testing section to roadmap
+- fix: remove auto-pass from doc consistency check
+- fix: remove auto-pass from docs drift check, update GUIDE.md hooks docs
+- chore: remove public mirror concept, simplify manifest
+- chore: add .gitattributes and .prettierignore templates
+- chore: add .gitignore and track pnpm-lock.yaml
+- chore: run pnpm install in devshop on container start
+- refactor: move commit guard to Claude hook, add cross-repo awareness
+- devshop: fix audit findings — skill names, cross-refs, FAQ layers
+- devshop: remove stray INITEOF from init-devshop.sh
+- devshop: harden docs for session continuity
+
 ## v1.0.0 (2026-04-12) — Devshop Separation
 
 **Breaking change**: The devshop and project repos are now fully separate.
