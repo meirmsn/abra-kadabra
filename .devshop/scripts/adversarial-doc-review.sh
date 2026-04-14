@@ -1,44 +1,48 @@
 #!/bin/bash
-# PostToolUse hook: adversarial review when commit bypass flags are used.
-# Spawns a haiku agent to verify the bypass reason is legitimate.
-# Fires after git commit — checks if any devshop.* bypass flag was used.
+# Adversarial review of commit guard bypass reasons.
+# Called by devshop-commit-guard.sh and check-clean-tree.sh when a bypass
+# reason is provided. Spawns a haiku agent to judge the reason.
+#
+# Usage: adversarial-doc-review.sh <check-type> <reason> [context...]
+#   check-type: docsVerified | docSyncReason | crossRepoReason | dirtyTreeReason
+#   reason: the bypass reason provided via git -c
+#   context: additional context (piped or as arguments)
+#
+# Exit 0 = accepted, exit 1 = rejected (reason on stdout)
 set -euo pipefail
 
-INPUT=$(cat)
-COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
+CHECK_TYPE="${1:-unknown}"
+REASON="${2:-no reason given}"
+shift 2 || true
 
-# Only fire on git commit commands
-echo "$COMMAND" | grep -qE 'git.*commit' || exit 0
-
-# Check for any bypass flag
-BYPASS_FLAGS=()
-echo "$COMMAND" | grep -q 'devshop\.docsVerified' && BYPASS_FLAGS+=("docsVerified")
-echo "$COMMAND" | grep -q 'devshop\.docSyncReason' && BYPASS_FLAGS+=("docSyncReason")
-echo "$COMMAND" | grep -q 'devshop\.crossRepoReason' && BYPASS_FLAGS+=("crossRepoReason")
-echo "$COMMAND" | grep -q 'devshop\.dirtyTreeReason' && BYPASS_FLAGS+=("dirtyTreeReason")
-
-[ ${#BYPASS_FLAGS[@]} -eq 0 ] && exit 0
-
-# Extract the bypass reason(s) from the command
-REASONS=$(echo "$COMMAND" | grep -oP 'devshop\.\w+="[^"]*"' || echo "no reason extracted")
-
-# Detect which repo we're in
-GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "/workspace")
-
-# Build context based on flag types
+# Gather context based on check type
 CONTEXT=""
+GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
 
-for FLAG in "${BYPASS_FLAGS[@]}"; do
-  case "$FLAG" in
-    docsVerified|docSyncReason)
-      # Read the staged diff and reference docs
-      DIFF=$(git -C "$GIT_ROOT" diff --cached 2>/dev/null | head -200 || echo "no diff")
-      CLAUDE_MD=$(cat /devshop/.devshop/CLAUDE.md 2>/dev/null || echo "not found")
-      README_MD=$(cat /devshop/.devshop/README.md 2>/dev/null || echo "not found")
-      # GUIDE.md is large — read section headers + changed areas
-      GUIDE_HEADERS=$(grep -n '^##' /devshop/.devshop/GUIDE.md 2>/dev/null | head -40 || echo "not found")
-      CONTEXT+="
-=== Staged diff (first 200 lines) ===
+case "$CHECK_TYPE" in
+  docsVerified)
+    DIFF=$(git diff --cached --stat 2>/dev/null)
+    GUIDE_MD=$(grep -n '^##' "$GIT_ROOT/.devshop/GUIDE.md" 2>/dev/null | head -50)
+    README_MD=$(cat "$GIT_ROOT/.devshop/README.md" 2>/dev/null)
+    CLAUDE_MD=$(cat "$GIT_ROOT/.devshop/CLAUDE.md" 2>/dev/null | head -100)
+    CONTEXT="Staged diff (first 300 lines):
+$DIFF
+
+=== .devshop/CLAUDE.md ===
+$CLAUDE_MD
+
+=== .devshop/README.md ===
+$README_MD
+
+=== .devshop/GUIDE.md (first 200 lines) ===
+$GUIDE_MD"
+    ;;
+  docSyncReason)
+    DIFF=$(git diff --cached -- .devshop/CLAUDE.md .devshop/README.md .devshop/GUIDE.md 2>/dev/null | head -300)
+    README_MD=$(cat "$GIT_ROOT/.devshop/README.md" 2>/dev/null)
+    CLAUDE_MD=$(cat "$GIT_ROOT/.devshop/CLAUDE.md" 2>/dev/null)
+    GUIDE_HEADERS=$(grep -n '^##' "$GIT_ROOT/.devshop/GUIDE.md" 2>/dev/null | head -50)
+    CONTEXT="Doc changes (first 300 lines):
 $DIFF
 
 === .devshop/CLAUDE.md ===
@@ -48,61 +52,57 @@ $CLAUDE_MD
 $README_MD
 
 === .devshop/GUIDE.md section headers ===
-$GUIDE_HEADERS
-"
-      ;;
-    crossRepoReason)
-      case "$GIT_ROOT" in
-        /workspace) OTHER=/devshop ;;
-        /devshop) OTHER=/workspace ;;
-        *) OTHER="" ;;
-      esac
-      if [ -n "$OTHER" ]; then
-        OTHER_STATUS=$(git -C "$OTHER" status --porcelain 2>/dev/null | head -15 || echo "clean")
-        CONTEXT+="
-=== Other repo ($OTHER) uncommitted changes ===
-$OTHER_STATUS
-"
-      fi
-      ;;
-    dirtyTreeReason)
-      DIRTY=$(git -C "$GIT_ROOT" status --porcelain 2>/dev/null | head -15 || echo "clean")
-      CONTEXT+="
-=== Untracked/unstaged files in $GIT_ROOT ===
-$DIRTY
-"
-      ;;
-  esac
-done
+$GUIDE_HEADERS"
+    ;;
+  crossRepoReason)
+    case "$GIT_ROOT" in
+      /workspace) OTHER=/devshop ;;
+      /devshop) OTHER=/workspace ;;
+      *) OTHER="" ;;
+    esac
+    OTHER_STATUS=""
+    [ -n "$OTHER" ] && OTHER_STATUS=$(git -C "$OTHER" status --porcelain 2>/dev/null | head -20)
+    CONTEXT="Other repo uncommitted changes:
+$OTHER_STATUS"
+    ;;
+  dirtyTreeReason)
+    DIRTY=$(git status --porcelain 2>/dev/null | head -20)
+    CONTEXT="Untracked/unstaged files:
+$DIRTY"
+    ;;
+esac
 
-# Spawn adversarial review via haiku
-PROMPT="You are a commit guard auditor. Your default position is to REJECT bypass reasons.
+# Spawn adversarial review
+PROMPT="You are a commit guard auditor. Your default position is to REJECT bypass reasons. Be strict.
 
-A developer used bypass flags to skip commit guards. Your job: determine if the bypass is legitimate.
+A developer is committing code and provided a reason to skip a commit guard check.
 
-Bypass flags used: ${BYPASS_FLAGS[*]}
-Bypass reasons given: $REASONS
+Check type: $CHECK_TYPE
+Reason given: $REASON
 
 Context:
 $CONTEXT
 
-For each bypass flag, evaluate:
+Evaluate:
 1. Is the stated reason factually accurate given the context?
-2. Does skipping this check create a real risk (stale docs, forgotten files, missed cross-repo changes)?
-3. Would a careful human reviewer accept this reason?
+2. Does skipping this check create a real risk (stale docs, forgotten files, missed changes)?
+3. Is the reason specific enough? Generic reasons like 'docs are fine' or 'will fix later' are NOT acceptable.
+4. For doc checks: does the reason name specific sections reviewed? Do those sections actually match the changes?
 
-Respond with exactly one of:
-PASS - if every bypass reason is genuinely legitimate
-FAIL: <specific issue> - if any reason is wrong, misleading, or lazy
+Respond with EXACTLY one line:
+PASS - only if the reason is genuinely legitimate and specific
+FAIL: <what is wrong with the reason or what was missed>"
 
-Be strict. 'Docs are fine' without evidence is not legitimate. 'Will commit separately' for cross-repo is legitimate if the changes are genuinely independent."
+# Write prompt to temp file to avoid argument length limits
+PROMPT_FILE=$(mktemp)
+echo "$PROMPT" > "$PROMPT_FILE"
 
-REVIEW=$(claude -p --model haiku "$PROMPT" 2>/dev/null || echo "PASS")
+REVIEW=$(claude -p --model haiku < "$PROMPT_FILE" 2>/dev/null) || REVIEW="PASS"
+rm -f "$PROMPT_FILE"
 
 if echo "$REVIEW" | grep -qi "^FAIL"; then
-  # Escape for JSON
-  ESCAPED=$(echo "$REVIEW" | head -10 | jq -Rs . | sed 's/^"//;s/"$//')
-  cat <<HOOK_OUTPUT
-{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"⚠️ ADVERSARIAL DOC REVIEW FAILED\n\n${ESCAPED}\n\nYou used a commit bypass flag and the adversarial reviewer found issues. Fix the problems identified above, amend or create a follow-up commit, and ensure docs are accurate."}}
-HOOK_OUTPUT
+  echo "$REVIEW"
+  exit 1
 fi
+
+exit 0

@@ -5,15 +5,18 @@
 #
 # Four checks (all blocking via exit 1):
 #   1. Mixed commit detection: devshop + project files staged together (project repo only)
-#   2. Docs drift detection: devshop tooling changed without docs update
-#   3. Reference doc consistency: one doc changed without verifying the others
-#   4. Cross-repo awareness: uncommitted changes in the other repo
+#   2. Docs drift detection (SEMANTIC): tooling changed — requires review explanation
+#   3. Reference doc consistency (SEMANTIC): doc changed — requires review explanation
+#   4. Cross-repo awareness (DETERMINISTIC): other repo dirty — auto-passes when clean
 #
-# Bypass: pass a reason via git -c flag (human-only, not shown in output):
-#   git -c devshop.<key>="<reason>" commit -m "..."
-# Bypass flags are intentionally hidden from hook output so Claude cannot
-# self-certify. A PostToolUse adversarial agent reviews any bypass usage.
+# Semantic checks always require a review reason via git -c flag. The reason is
+# verified by an adversarial agent (adversarial-doc-review.sh) before accepting.
+#
+# Deterministic checks auto-pass when the condition is met. Bypass reasons for
+# deterministic checks are also adversarially reviewed.
 set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # --- Repo detection ---
 GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
@@ -29,7 +32,6 @@ STAGED=$(git diff --cached --name-only)
 FAILED=false
 
 # --- Classify staged files ---
-# Used by check 1 (project repo only) and check 2 (both repos, as guard condition).
 DEVSHOP_PATTERNS=(
   '^\.devshop/'
   '^\.claude/'
@@ -53,9 +55,7 @@ while IFS= read -r file; do
   fi
 done <<< "$STAGED"
 
-# --- Check 1: Mixed commit detection (project repo only) ---
-# In the devshop repo all files are devshop content (including templates).
-# This check only applies to the project repo where devshop files should be gitignored.
+# --- Check 1: Mixed commit detection (project repo only, DETERMINISTIC) ---
 if [ "$CURRENT_REPO" = "project" ]; then
   if [ ${#DEVSHOP_FILES[@]} -gt 0 ] && [ ${#PROJECT_FILES[@]} -gt 0 ]; then
     echo ""
@@ -82,10 +82,9 @@ if [ "$CURRENT_REPO" = "project" ]; then
   fi
 fi
 
-# --- Check 2: Docs drift detection ---
-# When devshop tooling changes, verify docs are updated.
-# In the project repo: only fires when devshop files are staged (safety net).
-# In the devshop repo: always fires (this is where tooling changes happen).
+# --- Check 2: Docs drift detection (SEMANTIC) ---
+# When devshop tooling changes, ALWAYS require a review explanation.
+# The explanation is adversarially reviewed — no auto-pass.
 RUN_DRIFT_CHECK=false
 if [ "$CURRENT_REPO" = "devshop" ]; then
   RUN_DRIFT_CHECK=true
@@ -121,53 +120,45 @@ if [ "$RUN_DRIFT_CHECK" = true ]; then
     NON_CHANGELOG=$(echo "$STAGED" | grep -E "$DEVSHOP_REGEX" | grep -vE '^\.devshop/(CHANGELOG\.md|version)$' || true)
 
     if [ -n "$NON_CHANGELOG" ]; then
-      # Check if all referenced docs are already staged (proactive update)
-      DOCS_MISSING=false
-      for w in "${DRIFT_WARNINGS[@]}"; do
-        # Extract doc names from warnings like "→ verify GUIDE.md § ..."
-        if echo "$w" | grep -q 'GUIDE\.md' && ! echo "$STAGED" | grep -q '^\.devshop/GUIDE\.md$'; then
-          DOCS_MISSING=true
-        fi
-        if echo "$w" | grep -q 'CLAUDE\.md.*Non-Negotiables' && ! echo "$STAGED" | grep -q '^\.devshop/CLAUDE\.md$'; then
-          DOCS_MISSING=true
-        fi
-        if echo "$w" | grep -q 'README\.md' && ! echo "$STAGED" | grep -q '^\.devshop/README\.md$'; then
-          DOCS_MISSING=true
-        fi
-      done
+      REVIEW_NOTES=$(git config --get devshop.docsVerified 2>/dev/null || true)
 
-      if [ "$DOCS_MISSING" = false ]; then
-        echo "✓ Docs drift: referenced docs are staged in this commit."
-      else
-        BYPASS_DOCS=$(git config --get devshop.docsVerified 2>/dev/null || true)
-
-        if [ -n "$BYPASS_DOCS" ]; then
-          echo "✓ Docs drift verified: $BYPASS_DOCS"
-        else
+      if [ -n "$REVIEW_NOTES" ]; then
+        # Review notes provided — run adversarial review
+        echo "⏳ Docs drift: reviewing notes with adversarial agent..."
+        REVIEW_RESULT=$(bash "$SCRIPT_DIR/adversarial-doc-review.sh" docsVerified "$REVIEW_NOTES" 2>&1) || {
           echo ""
-          echo "✖ BLOCKING: Devshop tooling changed — docs may be stale."
+          echo "✖ ADVERSARIAL REVIEW REJECTED your docs review notes."
+          echo "  $REVIEW_RESULT"
           echo ""
-          echo "  Affected docs to verify:"
-          for w in "${DRIFT_WARNINGS[@]}"; do echo "$w"; done
-          echo ""
-          echo "  Read each doc section listed above. Update anything that no longer"
-          echo "  matches the new behavior, stage the fixes, and retry the commit."
+          echo "  Address the finding above, then update your review notes and retry."
           FAILED=true
+        }
+        if [ "$FAILED" = false ]; then
+          echo "✓ Docs drift: adversarial review accepted."
         fi
+      else
+        echo ""
+        echo "✖ BLOCKING: Devshop tooling changed — docs review required."
+        echo ""
+        echo "  Affected docs to verify:"
+        for w in "${DRIFT_WARNINGS[@]}"; do echo "$w"; done
+        echo ""
+        echo "  1. Read each doc section listed above"
+        echo "  2. Update anything that no longer matches the new behavior"
+        echo "  3. Stage any doc changes"
+        echo "  4. Retry with your review notes:"
+        echo "     git -c devshop.docsVerified=\"<what you checked and changed>\" commit ..."
+        echo ""
+        echo "  Your notes will be verified by an independent reviewer."
+        FAILED=true
       fi
     fi
   fi
 fi
 
-# --- Check 3: Reference doc consistency ---
-# When any devshop reference doc is staged, always require an explicit statement
-# of what was verified for consistency. Even when all three are co-staged, the
-# changes may have been made across multiple rounds and not be mutually consistent.
-#
-# Each doc has a different scope — not every change needs all three updated:
-#   .devshop/CLAUDE.md  — agent rules and config (what Claude must/must not do)
-#   .devshop/README.md  — bird's eye overview (~80 lines, orientation only)
-#   .devshop/GUIDE.md   — full operational reference (workflow, checklists, conventions)
+# --- Check 3: Reference doc consistency (SEMANTIC) ---
+# When any devshop reference doc is staged, ALWAYS require a review explanation.
+# Adversarially reviewed — no auto-pass even when all docs are staged.
 HAS_CLAUDE_MD=false
 HAS_README=false
 HAS_GUIDE=false
@@ -184,47 +175,73 @@ $HAS_GUIDE && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("GUIDE.md") || UNCH
 
 if [ "$DOC_COUNT" -gt 0 ]; then
   CHANGED_LIST=$(IFS=', '; echo "${CHANGED_DOCS[*]}")
+  REVIEW_NOTES=$(git config --get devshop.docSyncReason 2>/dev/null || true)
 
-  if [ ${#UNCHANGED_DOCS[@]} -eq 0 ] || [ "$DOC_COUNT" -ge 2 ]; then
-    # All three docs staged, or at least two — sufficient co-review signal
-    echo "✓ Doc consistency: ${DOC_COUNT}/3 reference docs staged."
+  if [ -n "$REVIEW_NOTES" ]; then
+    # Review notes provided — run adversarial review
+    echo "⏳ Doc consistency: reviewing notes with adversarial agent..."
+    REVIEW_RESULT=$(bash "$SCRIPT_DIR/adversarial-doc-review.sh" docSyncReason "$REVIEW_NOTES" 2>&1) || {
+      echo ""
+      echo "✖ ADVERSARIAL REVIEW REJECTED your doc consistency notes."
+      echo "  $REVIEW_RESULT"
+      echo ""
+      echo "  Address the finding above, then update your review notes and retry."
+      FAILED=true
+    }
+    if [ "$FAILED" = false ]; then
+      echo "✓ Doc consistency: adversarial review accepted."
+    fi
   else
-    BYPASS_DOC_SYNC=$(git config --get devshop.docSyncReason 2>/dev/null || true)
-
-    if [ -n "$BYPASS_DOC_SYNC" ]; then
-      echo "✓ Doc consistency verified: $BYPASS_DOC_SYNC"
-    else
-      echo ""
-      echo "✖ BLOCKING: Reference doc changed ($CHANGED_LIST) — verify consistency."
-      echo ""
-      echo "  Other docs to check:"
+    echo ""
+    echo "✖ BLOCKING: Reference doc changed ($CHANGED_LIST) — review required."
+    echo ""
+    if [ ${#UNCHANGED_DOCS[@]} -gt 0 ]; then
+      echo "  Other docs to check for consistency:"
       for doc in "${UNCHANGED_DOCS[@]}"; do echo "    $doc"; done
       echo ""
-      echo "  Read each doc listed above. Update anything inconsistent with your"
-      echo "  changes, stage the fixes, and retry the commit."
-      FAILED=true
     fi
+    echo "  1. Read each doc listed above"
+    echo "  2. Update anything inconsistent with your changes"
+    echo "  3. Stage any doc changes"
+    echo "  4. Retry with your review notes:"
+    echo "     git -c devshop.docSyncReason=\"<what you checked and changed>\" commit ..."
+    echo ""
+    echo "  Your notes will be verified by an independent reviewer."
+    FAILED=true
   fi
 fi
 
-# --- Check 4: Cross-repo awareness ---
-# When committing in one repo, check if the other has uncommitted changes.
-# Prevents forgetting to commit related changes in the companion repo.
+# --- Check 4: Cross-repo awareness (DETERMINISTIC) ---
+# Auto-passes when the other repo is clean. Bypass reason adversarially reviewed.
 if [ -n "$OTHER_REPO" ] && [ -d "$OTHER_REPO/.git" ]; then
   OTHER_DIRTY=$(git -C "$OTHER_REPO" status --porcelain 2>/dev/null | head -10 || true)
 
   if [ -n "$OTHER_DIRTY" ]; then
-    BYPASS_CROSS_REPO=$(git config --get devshop.crossRepoReason 2>/dev/null || true)
+    BYPASS_REASON=$(git config --get devshop.crossRepoReason 2>/dev/null || true)
 
-    if [ -n "$BYPASS_CROSS_REPO" ]; then
-      echo "✓ Cross-repo skip: $BYPASS_CROSS_REPO"
+    if [ -n "$BYPASS_REASON" ]; then
+      # Reason provided — run adversarial review
+      echo "⏳ Cross-repo: reviewing reason with adversarial agent..."
+      REVIEW_RESULT=$(bash "$SCRIPT_DIR/adversarial-doc-review.sh" crossRepoReason "$BYPASS_REASON" 2>&1) || {
+        echo ""
+        echo "✖ ADVERSARIAL REVIEW REJECTED your cross-repo reason."
+        echo "  $REVIEW_RESULT"
+        echo ""
+        echo "  Address the finding above, then update your reason and retry."
+        FAILED=true
+      }
+      if [ "$FAILED" = false ]; then
+        echo "✓ Cross-repo: adversarial review accepted."
+      fi
     else
       echo ""
       echo "✖ The $OTHER_NAME repo has uncommitted changes:"
       echo "$OTHER_DIRTY" | sed 's/^/    /'
       echo ""
-      echo "  Commit there first, or address why these changes don't need"
-      echo "  to be committed alongside your current changes."
+      echo "  Commit there first, or explain why with:"
+      echo "    git -c devshop.crossRepoReason=\"<why it's OK>\" commit ..."
+      echo ""
+      echo "  Your reason will be verified by an independent reviewer."
       FAILED=true
     fi
   fi
