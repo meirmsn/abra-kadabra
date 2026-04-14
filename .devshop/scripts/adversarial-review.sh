@@ -1,10 +1,13 @@
 #!/bin/bash
-# Adversarial review of commit guard bypass reasons.
-# Called by devshop-commit-guard.sh and check-clean-tree.sh when a bypass
-# reason is provided. Spawns a haiku agent to judge the reason.
+# Adversarial review of bypass reasons.
+# Shared engine for all commit guard checks. Each caller passes a check type;
+# this script gathers context, spawns a Sonnet agent to judge the reason,
+# and returns PASS (exit 0) or FAIL (exit 1).
 #
-# Usage: adversarial-doc-review.sh <check-type> <reason> [context...]
-#   check-type: docsVerified | docSyncReason | crossRepoReason | dirtyTreeReason
+# Callers: devshop-commit-guard.sh, check-clean-tree.sh, check-hook-bypass.sh
+#
+# Usage: adversarial-review.sh <check-type> <reason> [context...]
+#   check-type: docsVerified | docSyncReason | crossRepoReason | dirtyTreeReason | hookBypass
 #   reason: the bypass reason provided via git -c
 #   context: additional context (piped or as arguments)
 #
@@ -88,6 +91,17 @@ $OTHER_STATUS"
     CONTEXT="Untracked/unstaged files:
 $DIRTY"
     ;;
+  hookBypass)
+    STAGED=$(git diff --cached --stat 2>/dev/null || true)
+    CONTEXT="The developer wants to commit with --no-verify, skipping ALL pre-commit hooks:
+- lint-staged (ESLint + Prettier)
+- typecheck (TypeScript)
+- gitleaks (secret scanning)
+- devshop commit guard (mixed commits, docs drift)
+
+Staged files:
+$STAGED"
+    ;;
 esac
 
 # --- Human review fallback (when API is unavailable) ---
@@ -112,9 +126,10 @@ $CONTEXT
 
 Evaluate:
 1. Is the stated reason factually accurate given the context?
-2. Does skipping this check create a real risk (stale docs, forgotten files, missed changes)?
+2. Does skipping this check create a real risk (stale docs, forgotten files, missed changes, leaked secrets)?
 3. Is the reason specific enough? Generic reasons like 'docs are fine' or 'will fix later' are NOT acceptable.
 4. For doc checks: does the reason name specific sections reviewed? Do those sections actually match the changes?
+5. For hookBypass: is this a known legitimate scenario (migration commits with git rm --cached, binary files that break lint-staged, intermediate refactor state with type errors)? Does skipping gitleaks create a real risk for these files?
 
 Respond with EXACTLY one line:
 PASS - only if the reason is genuinely legitimate and specific

@@ -85,7 +85,7 @@ fi
 
 # Reason provided — adversarial review
 echo "⏳ ak-commit gate: reviewing reason with adversarial agent..."
-REVIEW_RESULT=$(bash "$SCRIPT_DIR/adversarial-doc-review.sh" viaAkCommit "$REASON" 2>&1) || {
+REVIEW_RESULT=$(bash "$SCRIPT_DIR/adversarial-review.sh" viaAkCommit "$REASON" 2>&1) || {
   echo ""
   echo "✖ ADVERSARIAL REVIEW REJECTED your ak-commit reason."
   echo "  $REVIEW_RESULT"

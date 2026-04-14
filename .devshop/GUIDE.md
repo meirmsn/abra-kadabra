@@ -348,12 +348,15 @@ Hooks in `.claude/settings.json` guard the development workflow:
 
 #### Commit Flow
 
+Two enforcement levels: PreToolUse (Claude Code) and pre-commit (git). PreToolUse exists because git hooks can't prevent their own bypass — `--no-verify` skips all hooks silently. Something outside git must intercept the command first.
+
 ```
 1. PreToolUse: dcg  (settings.json hook, all Bash)
    └─ Blocks destructive commands (not relevant for git commit, passes through)
 
 1b. PreToolUse: check-hook-bypass.sh  (settings.json hook, *git*commit*)
     └─ Blocks core.hooksPath/HUSKY=0, requires reason for --no-verify
+    └─ WHY: guarantees step 2 (git hooks) can't be skipped
 
 2. .husky/pre-commit  (git hook, runs 5 steps sequentially)
    ├─ 2a. create-devshop-symlinks.sh   → recreate symlinks if lost by git ops
@@ -641,7 +644,7 @@ Note: PreToolUse hooks from shell scripts cannot block Bash tool calls (anthropi
 
 **Project repo** (`.hooks/pre-commit`):
 
-Guards are split into **deterministic** (auto-pass when condition is met) and **semantic** (always require a review explanation). All bypass reasons are verified by `adversarial-doc-review.sh` — an agent that actively tries to reject the reason. On API error, the review **fails closed** (blocks the commit). Human fallback: `devshop.humanReviewed` flag, but blocked for Claude via PreToolUse hook — only reachable when the human runs the commit directly in the terminal.
+Guards are split into **deterministic** (auto-pass when condition is met) and **semantic** (always require a review explanation). All bypass reasons are verified by `adversarial-review.sh` — an agent that actively tries to reject the reason. On API error, the review **fails closed** (blocks the commit). Human fallback: `devshop.humanReviewed` flag, but blocked for Claude via PreToolUse hook — only reachable when the human runs the commit directly in the terminal.
 
 | Guard                             | Type          | What                                                                                  | Bypass                                                    |
 | --------------------------------- | ------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------- |

@@ -14,7 +14,7 @@ BYPASS=$(git config --get devshop.dirtyTreeReason 2>/dev/null || true)
 if [ -n "$BYPASS" ]; then
   # Reason provided — run adversarial review
   echo "⏳ Dirty tree: reviewing reason with adversarial agent..."
-  REVIEW_RESULT=$(bash "$SCRIPT_DIR/adversarial-doc-review.sh" dirtyTreeReason "$BYPASS" 2>&1) || {
+  REVIEW_RESULT=$(bash "$SCRIPT_DIR/adversarial-review.sh" dirtyTreeReason "$BYPASS" 2>&1) || {
     echo ""
     echo "✖ ADVERSARIAL REVIEW REJECTED your dirty tree reason."
     echo "  $REVIEW_RESULT"
