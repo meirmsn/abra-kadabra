@@ -7,9 +7,11 @@
     "defaultMode": "acceptEdits",
     "allow": [
       "Read(.claude/**)",
-      "Read(.devshop/**)",
       "Edit(.claude/**)",
+
+      "Read(.devshop/**)",
       "Edit(.devshop/**)",
+
       "Bash(pnpm *)",
       "Bash(npx *)",
       "Bash(turbo *)",
@@ -48,6 +50,8 @@
     "deny": [
       "Read(.env*)",
       "Read(**/.env*)",
+      "Read(/devshop/.devcontainer/.env)",
+
       "Read(**/secrets*)",
       "Read(**/credentials*)",
       "Read(**/*.pem)",
@@ -66,7 +70,6 @@
       "Write(**/.devcontainer/*)",
       "Edit(/devshop/.devcontainer/*)",
       "Write(/devshop/.devcontainer/*)",
-      "Read(/devshop/.devcontainer/.env)",
 
       "Edit(**/.claude/settings.json)",
       "Write(**/.claude/settings.json)",

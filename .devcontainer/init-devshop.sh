@@ -55,8 +55,18 @@ ln -sfn "$DEVSHOP/.claude/commands" "$WS/.claude/commands"
 ln -sfn "$DEVSHOP/.claude/settings.json" "$WS/.claude/settings.json"
 [ -f "$DEVSHOP/.claude/README.md" ] && ln -sfn "$DEVSHOP/.claude/README.md" "$WS/.claude/README.md"
 
-# --- Generate CLAUDE.md from devshop CLAUDE.md + project CLAUDE.project.md ---
-cp "$DEVSHOP/CLAUDE.md" "$WS/CLAUDE.md"
+# --- Generate CLAUDE.md from .devshop/CLAUDE.md + project CLAUDE.project.md ---
+# .devshop/CLAUDE.md is the single source of truth for devshop conventions.
+# This script prepends the markdown header and appends project-specific context.
+cat > "$WS/CLAUDE.md" << 'CLAUDEHEADER'
+# CLAUDE.md
+
+## Devshop Conventions
+
+<!-- Assembled by init-devshop.sh from .devshop/CLAUDE.md + CLAUDE.project.md -->
+
+CLAUDEHEADER
+cat "$DEVSHOP/.devshop/CLAUDE.md" >> "$WS/CLAUDE.md"
 if [ -f "$WS/CLAUDE.project.md" ]; then
   printf '\n' >> "$WS/CLAUDE.md"
   cat "$WS/CLAUDE.project.md" >> "$WS/CLAUDE.md"

@@ -377,6 +377,13 @@ GUIDE.md without needing a sibling project repo.
 Trigger: when devshop-only work sessions become frequent enough to justify the
 setup.
 
+Related: `.devshop/CLAUDE.md` is now the single source of devshop conventions
+(used by `init-devshop.sh` to generate project `CLAUDE.md`). When editing the
+devshop directly from `/devshop/`, decide which subset of `.devshop/CLAUDE.md`
+applies — some sections are project-oriented (metrics, responsive, edge functions)
+and wouldn't apply to devshop-only sessions. The standalone devcontainer could
+generate a devshop-appropriate `CLAUDE.md` from the same source.
+
 ### DNS wildcard firewall rules
 
 Current firewall resolves each domain to IPs via `dig` + `ipset`. Every subdomain
