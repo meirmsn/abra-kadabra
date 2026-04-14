@@ -1,3 +1,7 @@
+# Recreate devshop symlinks if missing (git ops can lose untracked symlinks).
+# Runs init-devshop.sh which creates all symlinks — see /devshop/.devcontainer/init-devshop.sh
+[ ! -L .devshop ] && [ -d /devshop/.devshop ] && bash /devshop/.devcontainer/init-devshop.sh 2>/dev/null || true
+
 pnpm exec lint-staged
 pnpm turbo run typecheck
 gitleaks protect --staged --redact

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Devshop injection — runs as root via sudo on every container start.
+# Also called from .husky/pre-commit if symlinks are missing (git ops can lose them).
 # Symlinks devshop infrastructure from /devshop into /workspace so
 # Claude Code sees it, but git doesn't track it (gitignored in project repo).
 #
