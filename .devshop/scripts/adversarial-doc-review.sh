@@ -90,6 +90,15 @@ $DIRTY"
     ;;
 esac
 
+# --- Human review fallback (when API is unavailable) ---
+# devshop.humanReviewed is blocked by PreToolUse hook for Claude —
+# only reachable when human runs git commit directly in terminal.
+HUMAN_REVIEW=$(git config --get devshop.humanReviewed 2>/dev/null || true)
+if [ -n "$HUMAN_REVIEW" ]; then
+  echo "✓ Human-reviewed: $HUMAN_REVIEW"
+  exit 0
+fi
+
 # Spawn adversarial review
 PROMPT="You are a commit guard auditor. Your default position is to REJECT bypass reasons. Be strict.
 
@@ -115,7 +124,20 @@ FAIL: <what is wrong with the reason or what was missed>"
 PROMPT_FILE=$(mktemp)
 echo "$PROMPT" > "$PROMPT_FILE"
 
-REVIEW=$(claude -p --model sonnet < "$PROMPT_FILE" 2>/dev/null) || REVIEW="PASS"
+REVIEW=$(claude -p --model sonnet < "$PROMPT_FILE" 2>/dev/null) || {
+  rm -f "$PROMPT_FILE"
+  echo "⚠ Adversarial review API unavailable. Manual review required."
+  echo ""
+  echo "  Check type: $CHECK_TYPE"
+  echo "  Bypass reason: $REASON"
+  echo ""
+  echo "  Context:"
+  echo "$CONTEXT" | head -30 | sed 's/^/    /'
+  echo ""
+  echo "  To approve as human reviewer, run directly in the terminal:"
+  echo "    ! git -c devshop.humanReviewed=\"approve: <your assessment>\" commit ..."
+  exit 1
+}
 rm -f "$PROMPT_FILE"
 
 if echo "$REVIEW" | grep -qi "^FAIL"; then

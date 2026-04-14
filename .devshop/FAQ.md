@@ -20,8 +20,8 @@ Yes — portability is a first-class concern. Files are separated into three cat
 
 **Injected** (from abra-kadabra at container start, gitignored in project):
 
-- Symlinks: `.devshop/`, `.claude/` (skills, commands), `CLAUDE.md`, `BUILD-LOG.md`
-- Root-owned copies: `.claude/settings.json`, `.dcg.toml` (survive git ops, sticky bit prevents deletion — see GUIDE.md § Security)
+- Symlinks: `.devshop/`, `.claude/` (skills, commands), `.hooks/pre-commit`, `CLAUDE.md`, `BUILD-LOG.md`
+- Root-owned copies: `.claude/settings.json`, `.dcg.toml` (locked by init-devshop.sh, survive git ops, sticky bit prevents deletion — see GUIDE.md § Security)
 
 **Shared** (copied from abra-kadabra during `/ak-init`, then project-owned):
 

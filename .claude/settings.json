@@ -39,17 +39,17 @@
       "Bash(supabase migration list*)",
       "Bash(supabase start*)",
       "Bash(supabase stop*)",
-      "Bash(cat *)",
       "Bash(find *)",
       "Bash(git show*)",
       "Bash(echo *)",
-      "Bash(wc *)",
-      "Bash(head *)",
-      "Bash(tail *)"
+      "Bash(wc *)"
     ],
     "deny": [
       "Read(.env*)",
+      "Write(.env*)",
       "Read(**/.env*)",
+      "Write(**/.env*)",
+
       "Read(/devshop/.devcontainer/.env)",
 
       "Read(**/secrets*)",
@@ -61,8 +61,6 @@
       "Read(**/serviceAccountKey*.json)",
       "Read(**/gcp-credentials*.json)",
       "Read(**/*.xcconfig)",
-      "Write(.env*)",
-      "Write(**/.env*)",
       "Write(**/secrets*)",
       "Write(**/credentials*)",
 
@@ -80,6 +78,9 @@
       "Write(**/.dcg.toml)",
       "Edit(/devshop/.dcg.toml)",
       "Write(/devshop/.dcg.toml)",
+
+      "Edit(.husky/pre-commit)",
+      "Write(.husky/pre-commit)",
 
       "Edit(.devshop/scripts/*)",
       "Write(.devshop/scripts/*)",

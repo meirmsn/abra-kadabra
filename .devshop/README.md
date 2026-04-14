@@ -39,6 +39,7 @@ Shared:  packages/core/ (business logic, Supabase client, API wrappers) · packa
 Backend: supabase/migrations/ (schema) · supabase/functions/ (edge functions)
 CI/CD:   .github/workflows/ci.yml · apps/web/vercel.json
 Devshop: .devshop/ → symlink to /devshop/.devshop/ (injected at container start from abra-kadabra)
+Hooks:   .hooks/pre-commit → symlink to .devshop/hooks/pre-commit.sh (devshop guards, repo-aware)
 Claude:  .claude/ (injected: skills, commands, settings) · CLAUDE.md (generated) · CLAUDE.project.md (tracked, project-specific)
 Logs:    BUILD-LOG.md (project builds, gitignored) · .devshop/CHANGELOG.md (devshop versions)
 Backlogs: TODOS.md (project tactical) · PRODUCT-ROADMAP.md (project strategic) · .devshop/TODOS.md (devshop tactical) · .devshop/ROADMAP.md (devshop strategic)

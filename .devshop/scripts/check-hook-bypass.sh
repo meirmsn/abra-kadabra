@@ -33,6 +33,17 @@ HOOK_EOF
   exit 2
 fi
 
+if echo "$CMD" | grep -qE 'devshop\.humanReviewed'; then
+  cat <<'HOOK_EOF'
+BLOCKED: devshop.humanReviewed is reserved for human-only use.
+
+This flag bypasses adversarial review entirely. Only a human can use it,
+by running the commit directly in the terminal:
+  ! git -c devshop.humanReviewed="approve: <assessment>" commit ...
+HOOK_EOF
+  exit 2
+fi
+
 # --- Tier 2: --no-verify without reason → block ---
 if echo "$CMD" | grep -qE -- '--no-verify'; then
   # Check if a bypass reason is provided via git -c devshop.hookBypassReason="..."
@@ -85,7 +96,18 @@ FAIL: <what is wrong with the reason>"
   PROMPT_FILE=$(mktemp)
   echo "$PROMPT" > "$PROMPT_FILE"
 
-  REVIEW=$(claude -p --model sonnet < "$PROMPT_FILE" 2>/dev/null) || REVIEW="PASS"
+  REVIEW=$(claude -p --model sonnet < "$PROMPT_FILE" 2>/dev/null) || {
+    rm -f "$PROMPT_FILE"
+    echo "⚠ Adversarial review API unavailable. Manual review required."
+    echo ""
+    echo "  --no-verify reason: $REASON"
+    echo "  Staged files:"
+    echo "$STAGED" | sed 's/^/    /'
+    echo ""
+    echo "  To approve as human reviewer, run directly in the terminal:"
+    echo "    ! git -c devshop.humanReviewed=\"approve: <your assessment>\" -c devshop.hookBypassReason=\"$REASON\" commit --no-verify ..."
+    exit 2
+  }
   rm -f "$PROMPT_FILE"
 
   if echo "$REVIEW" | grep -qi "^FAIL"; then

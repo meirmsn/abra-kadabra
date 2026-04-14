@@ -211,6 +211,34 @@ bypassable with sufficient creativity.
 
 **Trigger:** When a Bash bypass is observed in practice (not just theoretical).
 
+### Symlink replacement protection
+
+The `.devshop` symlink (and other injected symlinks like `.claude/commands`,
+`.claude/skills/*`) are node-owned and have no deny rules. A single `mv` command
+(which is in the Bash allow list) could replace `.devshop` with a symlink to an
+attacker-controlled directory. All guard scripts (`bash .devshop/scripts/...`)
+and PreToolUse hooks would then execute from the new target.
+
+**Current mitigations:**
+
+1. `create-devshop-symlinks.sh` recovers symlinks at pre-commit and session start
+2. Detection window is one tool call (the next PreToolUse hook fires from the wrong location)
+3. `ln` is not in the Bash allow list — only `mv` could replace a symlink without prompt
+
+**Why not fixed now:** The attack requires `mv` (allowed), has a one-tool-call
+detection window, and self-heals at the next checkpoint. Practical risk is low.
+
+**Options when hardening:**
+
+- PreToolUse hook that validates `.devshop` symlink target before executing any
+  command that references `.devshop/` paths
+- Integrity check in DCG that verifies symlink targets haven't changed
+- Root-owned wrapper script at a fixed path (not a symlink) that hooks call
+  instead of relying on the `.devshop` symlink path
+
+**Trigger:** When a symlink replacement is observed in practice, or when
+hardening the Bash bypass gap (above) — both share the same attack surface.
+
 ### CI slow job expansion
 
 The `slow` job in `.github/workflows/ci.yml` is commented out at scaffold time. It gets

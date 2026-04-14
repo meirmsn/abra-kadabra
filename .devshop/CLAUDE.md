@@ -141,7 +141,7 @@ The container runs as the `node` user (non-root). On every start, `init-firewall
 
 ### Claude Code Configuration
 
-`.claude/settings.json` and `.dcg.toml` are root-owned copies (not symlinks) — they survive git operations and can't be modified or deleted by node (sticky bit on `.claude/`). Other devshop files are symlinks. See `.devshop/GUIDE.md § Security` for the full list and rationale. To edit: `sudo nano <file>`.
+`.claude/settings.json` and `.dcg.toml` are root-owned copies (not symlinks) locked by init-devshop.sh — they survive git operations and can't be modified or deleted by node (sticky bit on `.claude/`). Other devshop files are symlinks, including `.hooks/pre-commit` (symlinked to `.devshop/hooks/pre-commit.sh`). See `.devshop/GUIDE.md § Security` for the full list and rationale. To edit any locked file: `sudo nano <file>`.
 
 Custom slash commands go in `.claude/commands/` as Markdown files. Personal overrides go in `.claude/settings.local.json` (gitignored).
 
