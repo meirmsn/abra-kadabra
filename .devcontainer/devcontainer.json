@@ -67,7 +67,9 @@
     // Heap size of node. Increased to handle claude code projects
     "NODE_OPTIONS": "--max-old-space-size=4096",
     // Store gstack artifacts inside the project so they survive container rebuilds and are version-trackable
-    "GSTACK_STATE_DIR": "/workspace/.gstack"
+    "GSTACK_STATE_DIR": "/workspace/.gstack",
+    // Load CLAUDE.md from additional working directories (e.g. /devshop)
+    "CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD": "1"
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",

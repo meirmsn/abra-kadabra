@@ -32,6 +32,15 @@ CONTEXT+="
 === Current Branch ===
 $BRANCH"
 
+# Workaround for anthropics/claude-code#22583: CLAUDE.md from additionalDirectories
+# not loaded despite CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1
+if [ -f /devshop/CLAUDE.md ]; then
+  CONTEXT+="
+
+=== /devshop/CLAUDE.md ===
+$(cat /devshop/CLAUDE.md)"
+fi
+
 # --- Gather git state ---
 
 # Check for uncommitted changes
