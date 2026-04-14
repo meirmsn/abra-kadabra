@@ -378,7 +378,7 @@ Hooks in `.claude/settings.json` guard the development workflow:
 
 Step 1 is a Claude Code hook (runs before the tool executes). Step 2 is the git pre-commit hook (runs during commit). Steps 4-5 are Claude Code hooks (run after). Steps 2a-2d are all blocking (fail = commit aborted).
 
-**Devshop commit convention**: commits that change devshop-layer files use the `devshop:` prefix (e.g., `devshop: add CI expansion docs`). Project commits use conventional commits (e.g., `feat(auth): add sign-in screen`). The commit guard warns if both types of files are staged together — separate them into distinct commits.
+**Commit convention**: both repos use conventional commits (`feat:`, `fix:`, `chore:`, etc.). The `devshop:` prefix is no longer needed — with separate repos, the commit's repo makes the context obvious. The commit guard warns if both types of files are staged together in the project repo — separate them into distinct commits.
 
 **On push**: a PostToolUse prompt hook checks if there's an open PR for the branch. If the PR description is missing, outdated, or doesn't reflect the current commits, it updates the description automatically. Skips trivial pushes (typo fixes, formatting).
 

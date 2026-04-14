@@ -80,8 +80,7 @@ Full design: `.devshop/notes/ak-commit-design.md`
 ### Devshop self-build pipeline
 
 Use the project build machinery (`/ak-build`) for devshop changes themselves.
-Currently devshop work is manual: branch, edit, commit with `devshop:` prefix,
-push, PR. The project pipeline (spec → implement → quality gates → ship) is
+Currently devshop work is manual: branch, edit, commit, push, PR. The project pipeline (spec → implement → quality gates → ship) is
 tightly coupled to project conventions (specs/ dir, metrics, responsive/theme
 checks) and doesn't fit devshop changes.
 
