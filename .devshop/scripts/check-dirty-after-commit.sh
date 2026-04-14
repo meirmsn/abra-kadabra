@@ -10,7 +10,7 @@ MESSAGES=()
 # --- Check 1: Current repo still dirty ---
 DIRTY=$(git status --porcelain 2>/dev/null || true)
 if [ -n "$DIRTY" ]; then
-  MESSAGES+=("Working tree still dirty after commit. Remaining files:\\n$(echo "$DIRTY" | sed 's/"/\\"/g' | head -10)\\nAddress each file: stage + commit, stash, or add to .gitignore. Do not leave a dirty tree.")
+  MESSAGES+=("BLOCKING: Working tree still dirty after commit. You MUST address every remaining file BEFORE doing anything else. Remaining files:\\n$(echo "$DIRTY" | sed 's/"/\\"/g' | head -10)\\nFor each file: stage + commit, stash, or add to .gitignore. If you do not know what to do with a file, ask the user. Do NOT move on to other work until the tree is clean.")
 fi
 
 # --- Check 2: Other repo has uncommitted changes ---
@@ -24,7 +24,7 @@ esac
 if [ -n "$OTHER_REPO" ] && [ -d "$OTHER_REPO/.git" ]; then
   OTHER_DIRTY=$(git -C "$OTHER_REPO" status --porcelain 2>/dev/null | head -5 || true)
   if [ -n "$OTHER_DIRTY" ]; then
-    MESSAGES+=("The $OTHER_NAME repo ($OTHER_REPO) still has uncommitted changes:\\n$(echo "$OTHER_DIRTY" | sed 's/"/\\"/g')\\nCommit there too before moving on to other work.")
+    MESSAGES+=("BLOCKING: The $OTHER_NAME repo ($OTHER_REPO) still has uncommitted changes:\\n$(echo "$OTHER_DIRTY" | sed 's/"/\\"/g')\\nYou MUST commit or address these files BEFORE doing anything else. If you do not know what to do, ask the user.")
   fi
 fi
 
