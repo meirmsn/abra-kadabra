@@ -5,6 +5,12 @@
 
 set -euo pipefail
 
+# Recreate devshop symlinks if missing (git ops can lose them).
+# Without this, settings.json and hooks won't load for this session.
+if [ ! -L /workspace/.devshop ] && [ -d /devshop/.devshop ]; then
+  bash /devshop/.devshop/scripts/create-devshop-symlinks.sh 2>/dev/null || true
+fi
+
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo /workspace)"
 BRANCH="$(git -C "$ROOT" branch --show-current 2>/dev/null || echo "(detached)")"
 

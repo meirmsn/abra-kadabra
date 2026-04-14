@@ -53,7 +53,7 @@ Config:  turbo.json · pnpm-workspace.yaml · tsconfig.base.json · eslint.confi
 - **No broken tests** — full suite runs before marking a task done. CI gates PR merge.
 - **Responsive + light/dark from day one** — build for 375px, scale up. Theme tokens only, no hardcoded colors. Both themes verified before ship.
 - **PWA-installable** — manifest.json, Apple meta tags. "Add to Home Screen" works on iOS/Android. Service worker deferred until core screens are stable.
-- **Pre-commit enforcement** — ESLint + Prettier + typecheck + gitleaks secret scan + devshop commit guard on every commit. Bypass reasons are adversarially reviewed by an independent agent.
+- **Pre-commit enforcement** — symlink recovery + ESLint + Prettier + typecheck + gitleaks secret scan + devshop commit guard on every commit. Hook bypass protection blocks `--no-verify` without a reason; bypass reasons are adversarially reviewed by an independent agent.
 - **CI mirrors runtime** — if the app uses a DB at runtime, CI starts it locally and runs integration tests against it.
 - **Edge functions validate auth server-side** — `getUser()` on every request, even if gateway checks JWT.
 - **Shared packages export TypeScript source** — no build step. Barrel exports only, no deep path imports.

@@ -26,6 +26,9 @@ dist/
 # Injected hooks (created by init-devshop.sh)
 .hooks/
 
+# Stale skill symlinks inside subdirectories (ak-* belong in .claude/skills/ root only)
+.claude/skills/devshop/*/ak-*
+
 # OS
 .DS_Store
 .vercel

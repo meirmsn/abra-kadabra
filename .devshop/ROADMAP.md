@@ -151,6 +151,18 @@ for `CLAUDE.md` — already in v0). Improve to:
 
 ## v+ (future — when the need is felt)
 
+### Git hook symlink recovery (post-checkout / post-merge)
+
+Add husky `post-checkout` and `post-merge` hooks that call
+`create-devshop-symlinks.sh` to proactively recreate symlinks after git
+operations that can lose them. Currently symlinks are recreated reactively
+(at session start and before commits). Proactive recovery would mean
+symlinks are restored immediately after `git checkout`, `git merge`, and
+`git pull` — no waiting for the next session or commit.
+
+Trigger: after the symlink fragility TODO is resolved (settings.json copy
+vs symlink decision), reassess whether proactive recovery is still needed.
+
 ### Native/mobile devshop support
 
 Extend the devshop to support React Native (Expo) apps alongside web. Adds `apps/mobile/`,
