@@ -141,7 +141,7 @@ The container runs as the `node` user (non-root). On every start, `init-firewall
 
 ### Claude Code Configuration
 
-`.claude/settings.json` is committed and shared. Security-critical files (`.claude/settings.json`, `.devcontainer/*`) are root-owned and write-denied — see `.devshop/GUIDE.md § Security` for the full list. To edit: `sudo nano <file>`.
+`.claude/settings.json` and `.dcg.toml` are root-owned copies (not symlinks) — they survive git operations and can't be modified or deleted by node (sticky bit on `.claude/`). Other devshop files are symlinks. See `.devshop/GUIDE.md § Security` for the full list and rationale. To edit: `sudo nano <file>`.
 
 Custom slash commands go in `.claude/commands/` as Markdown files. Personal overrides go in `.claude/settings.local.json` (gitignored).
 

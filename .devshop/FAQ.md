@@ -18,9 +18,10 @@ The guinea pig project is **lalista** — a bilingual grocery list app being mig
 
 Yes — portability is a first-class concern. Files are separated into three categories:
 
-**Injected** (from abra-kadabra via symlinks at container start, gitignored in project):
+**Injected** (from abra-kadabra at container start, gitignored in project):
 
-- `.devshop/`, `.claude/` (skills, commands, settings), `.dcg.toml`, `CLAUDE.md`, `BUILD-LOG.md`
+- Symlinks: `.devshop/`, `.claude/` (skills, commands), `CLAUDE.md`, `BUILD-LOG.md`
+- Root-owned copies: `.claude/settings.json`, `.dcg.toml` (survive git ops, sticky bit prevents deletion — see GUIDE.md § Security)
 
 **Shared** (copied from abra-kadabra during `/ak-init`, then project-owned):
 
