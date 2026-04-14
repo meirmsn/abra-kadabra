@@ -6,6 +6,11 @@ Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
 Tagged `pre-split-snapshot` on the **lalista repo** at the bifurcation point (`24652cf`) where `main` diverged into `chore/separate-devshop`. Use this tag to compare against devshop files as they were before the split. See `notes/pre-split-comparison.md` for instructions.
 
+## v1.1.1 (2026-04-14)
+
+- docs: extract security model into dedicated reference note
+- fix: harden security — symlink hooks, fail-closed reviews, complete lock loop
+
 ## v1.1.0 (2026-04-14)
 
 - docs: document settings.json copy model in CLAUDE.md and FAQ.md
