@@ -2,6 +2,10 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## 2026-04-13 — Pre-Split Snapshot
+
+Tagged `pre-split-snapshot` on the devshop repo before merging `chore/separate-devshop` in lalista. Use this tag to compare against the devshop state before the split if anything breaks post-merge. See `notes/pre-split-comparison.md` for instructions.
+
 ## v1.0.0 (2026-04-12) — Devshop Separation
 
 **Breaking change**: The devshop and project repos are now fully separate.
