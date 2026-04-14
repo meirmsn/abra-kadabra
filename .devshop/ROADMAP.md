@@ -326,6 +326,21 @@ Consider structured console.log in edge functions with a standard format
 (timestamp, request ID, user ID, action, duration). Revisit after first
 production debugging session reveals what's actually needed.
 
+### Standalone devcontainer for abra-kadabra
+
+Open the abra-kadabra repo directly in a devcontainer for devshop-only work — no
+project repo required. Currently the devcontainer assumes a project repo at
+`/workspace`; opening abra-kadabra alone leaves `/workspace` empty and
+`init-devshop.sh` fails.
+
+Add a second devcontainer profile (e.g., `.devcontainer/devshop-only/`) that
+mounts abra-kadabra as the workspace, skips project injection, and provides a
+working Claude Code environment for editing devshop scripts, skills, docs, and
+GUIDE.md without needing a sibling project repo.
+
+Trigger: when devshop-only work sessions become frequent enough to justify the
+setup.
+
 ### DNS wildcard firewall rules
 
 Current firewall resolves each domain to IPs via `dig` + `ipset`. Every subdomain

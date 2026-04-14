@@ -6,6 +6,11 @@
   "permissions": {
     "defaultMode": "acceptEdits",
     "allow": [
+      "Read(.claude/**)",
+      "Read(.devshop/**)",
+      "Read(/devshop/**)",
+      "Edit(.devshop/**)",
+      "Edit(/devshop/**)",
       "Bash(pnpm *)",
       "Bash(npx *)",
       "Bash(turbo *)",
