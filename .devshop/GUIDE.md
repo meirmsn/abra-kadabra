@@ -337,14 +337,15 @@ Unit tests are the fast inner loop (local + CI fast). Integration + E2E are the 
 
 Hooks in `.claude/settings.json` guard the development workflow:
 
-| Hook                  | Event                    | Trigger                        | What it does                                                                                                                      |
-| --------------------- | ------------------------ | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| DCG                   | PreToolUse (all Bash)    | Every Bash command             | Destructive Command Guard — blocks 49+ dangerous patterns (rm -rf, git reset --hard, DROP TABLE, etc.)                            |
-| check-memory-created  | PreToolUse (Write\|Edit) | Write/Edit to memory paths     | Blocks memory file writes — forces Claude to ask user before creating memories                                                    |
-| release.sh reminder   | PostToolUse (git commit) | `*git*commit*` in devshop repo | Reminds to run `release.sh` for version bump + changelog (no-op in project repos)                                                 |
-| dirty tree check      | PostToolUse (git commit) | `*git*commit*` commands        | If tree still dirty after commit, tells Claude to address remaining files                                                         |
-| PR description update | PostToolUse (git push)   | `*git push*` commands          | Two-step: (1) Claude assesses title/description vs commits — text only, no edits. (2) Next response: runs `gh pr edit` if needed. |
-| session-start.sh      | SessionStart             | New session or `/clear`        | Context for Claude (README, BUILD-LOG, branch) + visible briefing for user (state, workflow, next step)                           |
+| Hook                  | Event                    | Trigger                        | What it does                                                                                                                               |
+| --------------------- | ------------------------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| DCG                   | PreToolUse (all Bash)    | Every Bash command             | Destructive Command Guard — blocks 49+ dangerous patterns (rm -rf, git reset --hard, DROP TABLE, etc.)                                     |
+| check-hook-bypass     | PreToolUse (Bash)        | `*git*commit*` commands        | Blocks hook bypass: always blocks `core.hooksPath`/`HUSKY=0`, requires `devshop.hookBypassReason` for `--no-verify` (adversarial reviewed) |
+| check-memory-created  | PreToolUse (Write\|Edit) | Write/Edit to memory paths     | Blocks memory file writes — forces Claude to ask user before creating memories                                                             |
+| release.sh reminder   | PostToolUse (git commit) | `*git*commit*` in devshop repo | Reminds to run `release.sh` for version bump + changelog (no-op in project repos)                                                          |
+| dirty tree check      | PostToolUse (git commit) | `*git*commit*` commands        | If tree still dirty after commit, tells Claude to address remaining files                                                                  |
+| PR description update | PostToolUse (git push)   | `*git push*` commands          | Two-step: (1) Claude assesses title/description vs commits — text only, no edits. (2) Next response: runs `gh pr edit` if needed.          |
+| session-start.sh      | SessionStart             | New session or `/clear`        | Context for Claude (README, BUILD-LOG, branch) + visible briefing for user (state, workflow, next step)                                    |
 
 #### Commit Flow
 
