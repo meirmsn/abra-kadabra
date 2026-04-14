@@ -21,27 +21,45 @@ GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
 
 case "$CHECK_TYPE" in
   docsVerified)
-    DIFF=$(git diff --cached --stat 2>/dev/null)
-    GUIDE_MD=$(grep -n '^##' "$GIT_ROOT/.devshop/GUIDE.md" 2>/dev/null | head -50)
-    README_MD=$(cat "$GIT_ROOT/.devshop/README.md" 2>/dev/null)
-    CLAUDE_MD=$(cat "$GIT_ROOT/.devshop/CLAUDE.md" 2>/dev/null | head -100)
-    CONTEXT="Staged diff (first 300 lines):
+    DIFF=$(git diff --cached --stat 2>/dev/null || true)
+    DIFF_FULL=$(git diff --cached 2>/dev/null | head -300 || true)
+    GUIDE_HEADERS=$(grep -n '^##' "$GIT_ROOT/.devshop/GUIDE.md" 2>/dev/null | head -50 || true)
+    README_MD=$(cat "$GIT_ROOT/.devshop/README.md" 2>/dev/null || true)
+    CLAUDE_MD=$(cat "$GIT_ROOT/.devshop/CLAUDE.md" 2>/dev/null | head -100 || true)
+    FAQ_HEADERS=$(grep -n '^##' "$GIT_ROOT/.devshop/FAQ.md" 2>/dev/null | head -30 || true)
+    PROJECT_CLAUDE=$(cat "$GIT_ROOT/CLAUDE.project.md" 2>/dev/null | head -100 || true)
+    PROJECT_README=$(cat "$GIT_ROOT/README.md" 2>/dev/null | head -60 || true)
+    CONTEXT="Staged diff summary:
 $DIFF
 
-=== .devshop/CLAUDE.md ===
+Staged diff (first 300 lines):
+$DIFF_FULL
+
+=== .devshop/CLAUDE.md (first 100 lines) ===
 $CLAUDE_MD
 
 === .devshop/README.md ===
 $README_MD
 
-=== .devshop/GUIDE.md (first 200 lines) ===
-$GUIDE_MD"
+=== .devshop/GUIDE.md section headers ===
+$GUIDE_HEADERS
+
+=== .devshop/FAQ.md section headers ===
+$FAQ_HEADERS
+
+=== CLAUDE.project.md (first 100 lines) ===
+$PROJECT_CLAUDE
+
+=== README.md (first 60 lines) ===
+$PROJECT_README
+
+The reviewer MUST have checked ALL of these docs — not just the ones that already mention the changed code. New functionality needs to be documented for the first time."
     ;;
   docSyncReason)
-    DIFF=$(git diff --cached -- .devshop/CLAUDE.md .devshop/README.md .devshop/GUIDE.md 2>/dev/null | head -300)
-    README_MD=$(cat "$GIT_ROOT/.devshop/README.md" 2>/dev/null)
-    CLAUDE_MD=$(cat "$GIT_ROOT/.devshop/CLAUDE.md" 2>/dev/null)
-    GUIDE_HEADERS=$(grep -n '^##' "$GIT_ROOT/.devshop/GUIDE.md" 2>/dev/null | head -50)
+    DIFF=$(git diff --cached -- .devshop/CLAUDE.md .devshop/README.md .devshop/GUIDE.md 2>/dev/null | head -300 || true)
+    README_MD=$(cat "$GIT_ROOT/.devshop/README.md" 2>/dev/null || true)
+    CLAUDE_MD=$(cat "$GIT_ROOT/.devshop/CLAUDE.md" 2>/dev/null || true)
+    GUIDE_HEADERS=$(grep -n '^##' "$GIT_ROOT/.devshop/GUIDE.md" 2>/dev/null | head -50 || true)
     CONTEXT="Doc changes (first 300 lines):
 $DIFF
 
@@ -61,12 +79,12 @@ $GUIDE_HEADERS"
       *) OTHER="" ;;
     esac
     OTHER_STATUS=""
-    [ -n "$OTHER" ] && OTHER_STATUS=$(git -C "$OTHER" status --porcelain 2>/dev/null | head -20)
+    [ -n "$OTHER" ] && OTHER_STATUS=$(git -C "$OTHER" status --porcelain 2>/dev/null | head -20 || true)
     CONTEXT="Other repo uncommitted changes:
 $OTHER_STATUS"
     ;;
   dirtyTreeReason)
-    DIRTY=$(git status --porcelain 2>/dev/null | head -20)
+    DIRTY=$(git status --porcelain 2>/dev/null | head -20 || true)
     CONTEXT="Untracked/unstaged files:
 $DIRTY"
     ;;

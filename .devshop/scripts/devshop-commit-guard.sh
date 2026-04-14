@@ -5,7 +5,8 @@
 #
 # Four checks (all blocking via exit 1):
 #   1. Mixed commit detection: devshop + project files staged together (project repo only)
-#   2. Docs drift detection (SEMANTIC): tooling changed — requires review explanation
+#   2. Docs drift detection (SEMANTIC): tooling changed — reviews ALL docs (not just
+#      the ones that already mention the changed code — new features need first-time docs)
 #   3. Reference doc consistency (SEMANTIC): doc changed — requires review explanation
 #   4. Cross-repo awareness (DETERMINISTIC): other repo dirty — auto-passes when clean
 #
@@ -93,65 +94,51 @@ elif [ "$CURRENT_REPO" = "project" ] && [ ${#DEVSHOP_FILES[@]} -gt 0 ]; then
 fi
 
 if [ "$RUN_DRIFT_CHECK" = true ]; then
-  DRIFT_WARNINGS=()
+  # Skip changelog-only / version-only commits
+  NON_CHANGELOG=$(echo "$STAGED" | grep -E "$DEVSHOP_REGEX" | grep -vE '^\.devshop/(CHANGELOG\.md|version)$' || true)
 
-  echo "$STAGED" | grep -q '^\.husky/pre-commit$' && \
-    DRIFT_WARNINGS+=("  .husky/pre-commit changed → verify GUIDE.md § Commit Flow + CLAUDE.md § Non-Negotiables")
+  if [ -n "$NON_CHANGELOG" ]; then
+    REVIEW_NOTES=$(git config --get devshop.docsVerified 2>/dev/null || true)
 
-  echo "$STAGED" | grep -q '^\.claude/settings\.json$' && \
-    DRIFT_WARNINGS+=("  .claude/settings.json changed → verify GUIDE.md § Claude Code Hooks table")
-
-  echo "$STAGED" | grep -q '^\.claude/skills/devshop/' && \
-    DRIFT_WARNINGS+=("  Devshop skill changed → verify GUIDE.md § Devshop Skill Map")
-
-  echo "$STAGED" | grep -q '^\.devshop/scripts/' && \
-    DRIFT_WARNINGS+=("  Devshop script changed → verify GUIDE.md references to changed scripts")
-
-  echo "$STAGED" | grep -q '^\.github/workflows/' && \
-    DRIFT_WARNINGS+=("  Workflow changed → verify GUIDE.md § CI/CD section")
-
-  echo "$STAGED" | grep -q '^\.devshop/FAQ\.md$' && \
-    DRIFT_WARNINGS+=("  FAQ.md changed → verify README.md § Further Reading still lists it")
-
-  echo "$STAGED" | grep -q '^\.claude/skills/devshop/init/SKILL\.md$' && \
-    DRIFT_WARNINGS+=("  Init skill changed → verify .devshop/templates/README.md.tmpl still matches")
-
-  if [ ${#DRIFT_WARNINGS[@]} -gt 0 ]; then
-    NON_CHANGELOG=$(echo "$STAGED" | grep -E "$DEVSHOP_REGEX" | grep -vE '^\.devshop/(CHANGELOG\.md|version)$' || true)
-
-    if [ -n "$NON_CHANGELOG" ]; then
-      REVIEW_NOTES=$(git config --get devshop.docsVerified 2>/dev/null || true)
-
-      if [ -n "$REVIEW_NOTES" ]; then
-        # Review notes provided — run adversarial review
-        echo "⏳ Docs drift: reviewing notes with adversarial agent..."
-        REVIEW_RESULT=$(bash "$SCRIPT_DIR/adversarial-doc-review.sh" docsVerified "$REVIEW_NOTES" 2>&1) || {
-          echo ""
-          echo "✖ ADVERSARIAL REVIEW REJECTED your docs review notes."
-          echo "  $REVIEW_RESULT"
-          echo ""
-          echo "  Address the finding above, then update your review notes and retry."
-          FAILED=true
-        }
-        if [ "$FAILED" = false ]; then
-          echo "✓ Docs drift: adversarial review accepted."
-        fi
-      else
+    if [ -n "$REVIEW_NOTES" ]; then
+      # Review notes provided — run adversarial review
+      echo "⏳ Docs drift: reviewing notes with adversarial agent..."
+      REVIEW_RESULT=$(bash "$SCRIPT_DIR/adversarial-doc-review.sh" docsVerified "$REVIEW_NOTES" 2>&1) || {
         echo ""
-        echo "✖ BLOCKING: Devshop tooling changed — docs review required."
+        echo "✖ ADVERSARIAL REVIEW REJECTED your docs review notes."
+        echo "  $REVIEW_RESULT"
         echo ""
-        echo "  Affected docs to verify:"
-        for w in "${DRIFT_WARNINGS[@]}"; do echo "$w"; done
-        echo ""
-        echo "  1. Read each doc section listed above"
-        echo "  2. Update anything that no longer matches the new behavior"
-        echo "  3. Stage any doc changes"
-        echo "  4. Retry with your review notes:"
-        echo "     git -c devshop.docsVerified=\"<what you checked and changed>\" commit ..."
-        echo ""
-        echo "  Your notes will be verified by an independent reviewer."
+        echo "  Address the finding above, then update your review notes and retry."
         FAILED=true
+      }
+      if [ "$FAILED" = false ]; then
+        echo "✓ Docs drift: adversarial review accepted."
       fi
+    else
+      echo ""
+      echo "✖ BLOCKING: Devshop tooling changed — docs review required."
+      echo ""
+      echo "  Changed devshop files:"
+      echo "$NON_CHANGELOG" | sed 's/^/    /'
+      echo ""
+      echo "  Review ALL of these docs — even if they don't mention the changed code yet"
+      echo "  (new functionality needs to be documented for the first time):"
+      echo "    .devshop/README.md     — devshop overview"
+      echo "    .devshop/GUIDE.md      — full operational reference"
+      echo "    .devshop/CLAUDE.md     — agent rules and conventions"
+      echo "    .devshop/FAQ.md        — design rationale"
+      echo "    CLAUDE.project.md      — project-specific conventions"
+      echo "    README.md              — user-facing description and commands"
+      echo ""
+      echo "  1. Read each doc above"
+      echo "  2. Check if the committed changes introduce, modify, or remove"
+      echo "     something that should be reflected — including new additions"
+      echo "  3. Stage any doc updates"
+      echo "  4. Retry with your review notes:"
+      echo "     git -c devshop.docsVerified=\"<which docs you checked and what you updated or why no update needed>\" commit ..."
+      echo ""
+      echo "  Your notes will be verified by an independent reviewer."
+      FAILED=true
     fi
   fi
 fi
