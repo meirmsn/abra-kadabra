@@ -16,6 +16,7 @@ Research notes, insights, and reference docs captured during devshop development
 - [`acfs-review.md`](acfs-review.md) — insights from external "Agentic Coding Flywheel" framework review
 - [`backend-alternatives-research.md`](backend-alternatives-research.md) — research on backend deployment alternatives to Supabase
 - [`integration-test-local-alternatives.md`](integration-test-local-alternatives.md) — testing strategies for constrained hardware
+- [`devshop-split.md`](devshop-split.md) — audit of the devshop separation (what changed, known issues, pre-split comparison instructions)
 
 ## Bootstrap (historical)
 
