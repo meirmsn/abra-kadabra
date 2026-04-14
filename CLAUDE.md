@@ -110,6 +110,16 @@ All devshop docs live in `.devshop/`:
 - Overview: `.devshop/README.md` + operational reference: `.devshop/GUIDE.md` + design rationale: `.devshop/FAQ.md`
 - Backlogs: `.devshop/TODOS.md` + `.devshop/ROADMAP.md` (grow independently)
 
+### Devshop Repo Layout
+
+When working in the devshop repo (`/devshop/`):
+
+- **Root** = repo infrastructure only (config, CI, devcontainer). No content files here.
+- **`.devshop/`** = the devshop itself — all docs (CHANGELOG, ROADMAP, TODOS, GUIDE, notes/), scripts, and templates. This is what gets symlinked into project repos.
+- **`.claude/`** = Claude Code runtime config (skills, commands, settings). Also symlinked.
+
+Never create CHANGELOG, NOTES, ROADMAP, or other content files at the repo root.
+
 ### Build and Deploy
 
 - `/ak-build` — autonomous pipeline: spec → implement → quality gates → ship → CI watch → notify. Say "build it" after autoplan.
