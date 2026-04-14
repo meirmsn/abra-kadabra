@@ -97,7 +97,7 @@ FAIL: <what is wrong with the reason or what was missed>"
 PROMPT_FILE=$(mktemp)
 echo "$PROMPT" > "$PROMPT_FILE"
 
-REVIEW=$(claude -p --model haiku < "$PROMPT_FILE" 2>/dev/null) || REVIEW="PASS"
+REVIEW=$(claude -p --model sonnet < "$PROMPT_FILE" 2>/dev/null) || REVIEW="PASS"
 rm -f "$PROMPT_FILE"
 
 if echo "$REVIEW" | grep -qi "^FAIL"; then

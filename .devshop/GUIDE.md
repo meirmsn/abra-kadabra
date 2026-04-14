@@ -645,7 +645,7 @@ Guards are split into **deterministic** (auto-pass when condition is met) and **
 
 Both repos use the same guard chain (project repo adds `check-claude-md-freshness.sh` first).
 
-Bypass via `git -c devshop.<key>="<reason>"` works natively in husky. Every bypass reason is verified by an adversarial haiku agent that actively tries to reject it. Semantic checks (2, 3) always require a reason — there is no auto-pass. Deterministic checks (clean tree, cross-repo) auto-pass when the condition is met.
+Bypass via `git -c devshop.<key>="<reason>"` works natively in husky. Every bypass reason is verified by an adversarial sonnet agent that actively tries to reject it. Semantic checks (2, 3) always require a reason — there is no auto-pass. Deterministic checks (clean tree, cross-repo) auto-pass when the condition is met.
 
 **3. Claude PostToolUse (after git commit)** — configured in `.claude/settings.json`
 
