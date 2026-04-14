@@ -16,22 +16,30 @@ The guinea pig project is **lalista** — a bilingual grocery list app being mig
 
 ## Is the dev-shop machinery portable to future projects?
 
-Yes — portability is a first-class concern. Files are separated into three categories:
+Yes — portability is a first-class concern. Files fall into five categories (see GUIDE.md § File Lifecycle for full detail):
 
-**Injected** (from abra-kadabra at container start, gitignored in project):
+**1. Symlinked** (from abra-kadabra at container start, gitignored in project):
 
-- Symlinks: `.devshop/`, `.claude/` (skills, commands), `.hooks/pre-commit`, `CLAUDE.md`, `BUILD-LOG.md`
-- Root-owned copies: `.claude/settings.json`, `.dcg.toml` (locked by init-devshop.sh, survive git ops, sticky bit prevents deletion — see GUIDE.md § Security)
+- `.devshop/`, `.claude/skills/`, `.claude/commands/`, `.hooks/pre-commit`
 
-**Shared** (copied from abra-kadabra during `/ak-init`, then project-owned):
+**2. Root-owned copies** (from abra-kadabra at container start, gitignored in project):
+
+- `.claude/settings.json`, `.dcg.toml` (locked by init-devshop.sh, survive git ops, sticky bit prevents deletion — see GUIDE.md § Security)
+
+**3. Manifest files** (from abra-kadabra initial clone, then project-owned, can diverge):
 
 - `.devcontainer/`, `.husky/`, `.github/workflows/`, `turbo.json`, `eslint.config.mjs`, etc.
 
-**Project-only** (never in abra-kadabra):
+**4. Generated** (assembled at container start):
+
+- `CLAUDE.md` (assembled from `.devshop/CLAUDE.md` + `CLAUDE.project.md`, gitignored)
+- `BUILD-LOG.md` (templated if missing, then project-owned and tracked)
+
+**5. Project-only** (never in abra-kadabra):
 
 - `apps/`, `packages/`, `supabase/`, `CLAUDE.project.md`, `DESIGN.md`, `specs/`, `METRICS.md`
 
-The devshop (abra-kadabra) and project repos are separate (since v1.0.0). Devshop files get injected into the workspace at container start via `init-devshop.sh` symlinks — they're gitignored in the project repo. Build tooling files (turbo.json, eslint, etc.) are tracked in both repos and can be synced:
+The devshop (abra-kadabra) and project repos are separate (since v1.0.0). Devshop files get injected into the workspace at container start via `init-devshop.sh` — they're gitignored in the project repo. Build tooling files (turbo.json, eslint, etc.) are tracked in both repos and can be synced:
 
 - `.devshop/scripts/sync-to-devshop.sh` — push build tooling improvements to abra-kadabra
 - `.devshop/scripts/sync-from-devshop.sh` — pull build tooling updates into a project

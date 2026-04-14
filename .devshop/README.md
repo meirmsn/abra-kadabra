@@ -5,7 +5,7 @@
 
 A one-person dev shop that goes from rough notes to deployed, tested, observable web app with minimal manual intervention. Claude Code implements autonomously; gstack handles the full lifecycle around it (planning, review, QA, security, deploy, monitoring). The glue is conventions, pre-commit hooks, CI, and custom skills. Two touchpoints: review the PR, say "land it."
 
-**Architecture**: The devshop (abra-kadabra) and project repos are separate. The project repo is clean and publishable. Devshop files get injected into the workspace at container start via `init-devshop.sh` symlinks. See GUIDE.md § Devshop Separation Architecture for the full model.
+**Architecture**: The devshop (abra-kadabra) and project repos are separate. The project repo is clean and publishable. Devshop files get injected into the workspace at container start via `init-devshop.sh` (symlinks + root-owned copies). See GUIDE.md § Devshop Separation Architecture for the full model.
 
 **New project?** Create a repo, add a `.devcontainer/` that mounts `../abra-kadabra` at `/devshop`, then run `/ak-init` — walks you through the setup checklist in GUIDE.md step by step.
 

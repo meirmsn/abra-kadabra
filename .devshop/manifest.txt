@@ -1,11 +1,16 @@
-# Shared files manifest — files that sync scripts operate on.
+# Shared files manifest — lists build tooling that lives in both repos.
 #
-# These files are copied into new projects by /ak-init. After that, they're
-# owned by the project and can diverge. sync-from-devshop.sh and
-# sync-to-devshop.sh use this list to sync changes in either direction.
+# New projects start as a clone of the devshop repo (abra-kadabra), so these
+# files are already present. After that, they're owned by the project and can
+# diverge (e.g., .gitignore adds project-specific exclusions).
+# sync-from-devshop.sh and sync-to-devshop.sh read this list to sync changes
+# in either direction.
 #
-# Injected files (symlinked by init-devshop.sh) are NOT listed here —
-# see init-devshop.sh for the authoritative list of what gets symlinked.
+# NOT listed here:
+# - Symlinked files (.devshop/, .claude/skills/, etc.) — always match devshop
+# - Root-owned copies (settings.json, .dcg.toml) — copied on every container start
+# - Project-only files (.env, settings.local.json, CLAUDE.project.md)
+# See GUIDE.md § File Lifecycle for the full model.
 
 # Build tooling
 .gitignore

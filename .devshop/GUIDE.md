@@ -482,7 +482,7 @@ Inside container:
 ├── .claude/               ← created by init-devshop.sh (skills, settings)
 ├── CLAUDE.md              ← generated: devshop CLAUDE.md + CLAUDE.project.md
 ├── BUILD-LOG.md           ← created if missing
-├── .dcg.toml              ← symlink → /devshop/.dcg.toml
+├── .dcg.toml              ← copy of /devshop/.dcg.toml (root-owned)
 └── (everything else)      ← project files, tracked normally
 
 /devshop/                  ← abra-kadabra (bind mount)
@@ -496,7 +496,7 @@ Inside container:
 | ------------------------------------------- | ------------ | -------- | ---------------------------------------------------------------------------- |
 | `.devshop/` (scripts, docs, file templates) | abra-kadabra | yes      | symlink by init-devshop.sh                                                   |
 | `.claude/skills/`, `.claude/commands/`      | abra-kadabra | yes      | symlink by init-devshop.sh                                                   |
-| `.claude/settings.json`                     | abra-kadabra | yes      | symlinked by init-devshop.sh                                                 |
+| `.claude/settings.json`, `.dcg.toml`        | abra-kadabra | yes      | copied by init-devshop.sh (root-owned, freshness-checked in pre-commit)      |
 | `CLAUDE.md` (combined)                      | neither      | no       | assembled by init-devshop.sh from `.devshop/CLAUDE.md` + `CLAUDE.project.md` |
 | `CLAUDE.project.md`                         | project      | yes      | already there                                                                |
 | `.claude/memory/`                           | project      | yes      | already there                                                                |
@@ -509,6 +509,43 @@ Inside container:
 ### How init-devshop.sh works
 
 Runs as root via sudo on every container start (`postStartCommand`). The project's `.devcontainer/init-devshop.sh` is a thin forwarder that delegates to `/devshop/.devcontainer/init-devshop.sh`. Symlink creation is in `create-devshop-symlinks.sh` (called by init-devshop.sh, and also by session-start.sh and .husky/pre-commit for reactive recovery when symlinks are lost by git ops). Read the scripts directly for the full list.
+
+### File lifecycle
+
+Every file in `/workspace/` falls into one of five categories based on where it comes from and how it stays current:
+
+**1. Symlinked (always match devshop)**
+
+Node-owned symlinks created by `init-devshop.sh` on container start. If lost by git operations (checkout, stash, clean), auto-recovered by the pre-commit hook via `create-devshop-symlinks.sh`.
+
+Files: `.devshop/`, `.claude/skills/`, `.claude/commands/`, `.claude/README.md`, `.hooks/pre-commit`
+
+**2. Root-owned copies (always match devshop)**
+
+Copied from devshop on every container start. Root-owned (`chown root:root`) so node (Claude) can't modify them. Freshness is verified by `check-security-files-freshness.sh` in the pre-commit hook — warns if stale, recommends `sudo bash /devshop/.devcontainer/init-devshop.sh` to fix.
+
+Files: `.claude/settings.json`, `.dcg.toml`
+
+Why copies instead of symlinks: symlinks are fragile — git ops can delete them, and node can replace symlink targets. Root-owned copies survive git ops and can't be tampered with.
+
+**3. Manifest files (can diverge per project)**
+
+Present from the initial clone of the devshop repo (abra-kadabra). After that, project-owned — they can and do diverge (e.g., `.gitignore` adds project-specific exclusions). Manually synced in either direction via `sync-from-devshop.sh` / `sync-to-devshop.sh`, which read the file list from `.devshop/manifest.txt`.
+
+Files: `.prettierrc`, `turbo.json`, `eslint.config.mjs`, `.husky/`, `.github/workflows/`, `.devcontainer/`, and other build tooling (see `manifest.txt` for the full list)
+
+**4. Generated (assembled at runtime)**
+
+Created or assembled by `init-devshop.sh` on container start. Not tracked in either repo's git (or templated on first create).
+
+- `CLAUDE.md` — assembled from `.devshop/CLAUDE.md` + `CLAUDE.project.md` on every start
+- `BUILD-LOG.md` — copied from `.devshop/templates/BUILD-LOG.md.tmpl` if missing, then project-owned
+
+**5. Project-only (never in devshop)**
+
+Files that exist only in the project repo. No devshop source, no sync.
+
+Files: `.devcontainer/.env` (secrets), `.claude/settings.local.json` (project-specific permission grants), `CLAUDE.project.md`, `.claude/memory/`, `apps/`, `packages/`, `supabase/`, `METRICS.md`, `TODOS.md`
 
 ### Doing project work
 
@@ -532,7 +569,7 @@ git add -A && git commit -m "chore: ..."
 ```
 
 - Devshop commits use conventional commits (`feat:`, `fix:`, `chore:`, etc.)
-- All injected files (including `.claude/settings.json`) are symlinks — edits in `/devshop/` take effect immediately. The lock step (`chown root:root`) follows symlinks, so the target files in abra-kadabra are also locked.
+- Most injected files are symlinks — edits in `/devshop/` take effect immediately. The exceptions are `settings.json` and `.dcg.toml`, which are copies (see File Lifecycle above). The lock step (`chown root:root`) applies to both copies in `/workspace/` and the source files in `/devshop/`.
 
 ### When devshop changes take effect
 
