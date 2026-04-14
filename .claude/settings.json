@@ -9,12 +9,6 @@
       "Read(.claude/**)",
       "Read(.devshop/**)",
       "Edit(.devshop/**)",
-      "Read(/devshop/**)",
-      "Edit(/devshop/**)",
-      "Read(/devshop/.devshop/**)",
-      "Read(/devshop/.claude/**)",
-      "Edit(/devshop/.devshop/**)",
-      "Edit(/devshop/.claude/**)",
       "Bash(pnpm *)",
       "Bash(npx *)",
       "Bash(turbo *)",
@@ -41,7 +35,14 @@
       "Bash(supabase status*)",
       "Bash(supabase migration list*)",
       "Bash(supabase start*)",
-      "Bash(supabase stop*)"
+      "Bash(supabase stop*)",
+      "Bash(cat *)",
+      "Bash(find *)",
+      "Bash(git show*)",
+      "Bash(echo *)",
+      "Bash(wc *)",
+      "Bash(head *)",
+      "Bash(tail *)"
     ],
     "deny": [
       "Read(.env*)",
@@ -65,7 +66,8 @@
       "Write(**/.claude/settings.json)",
       "Edit(**/.dcg.toml)",
       "Write(**/.dcg.toml)"
-    ]
+    ],
+    "additionalDirectories": ["/devshop"]
   },
   "hooks": {
     "PreToolUse": [

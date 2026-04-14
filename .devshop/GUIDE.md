@@ -478,6 +478,8 @@ Inside container:
 /devshop/                  ← abra-kadabra (bind mount)
 ```
 
+**Scope expansion:** `additionalDirectories: ["/devshop"]` in `.claude/settings.json` tells Claude Code to treat `/devshop/` as part of the project. This lets `acceptEdits` mode auto-approve Read/Edit on devshop files without per-path allow rules. The Bash allow list also includes common read-only utilities (`cat`, `find`, `head`, `tail`, `wc`, `echo`, `git show`) so skills and hook scripts can use them without prompts — Claude itself should still prefer dedicated tools (Read, Grep, Glob) per its system instructions.
+
 ### What lives where
 
 | Content                                     | Repo         | Tracked?        | How it gets to /workspace                      |
