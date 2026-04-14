@@ -9,8 +9,10 @@
 #   3. Reference doc consistency: one doc changed without verifying the others
 #   4. Cross-repo awareness: uncommitted changes in the other repo
 #
-# Bypass: pass a reason via git -c flag:
+# Bypass: pass a reason via git -c flag (human-only, not shown in output):
 #   git -c devshop.<key>="<reason>" commit -m "..."
+# Bypass flags are intentionally hidden from hook output so Claude cannot
+# self-certify. A PostToolUse adversarial agent reviews any bypass usage.
 set -euo pipefail
 
 # --- Repo detection ---
@@ -119,29 +121,39 @@ if [ "$RUN_DRIFT_CHECK" = true ]; then
     NON_CHANGELOG=$(echo "$STAGED" | grep -E "$DEVSHOP_REGEX" | grep -vE '^\.devshop/(CHANGELOG\.md|version)$' || true)
 
     if [ -n "$NON_CHANGELOG" ]; then
-      BYPASS_DOCS=$(git config --get devshop.docsVerified 2>/dev/null || true)
+      # Check if all referenced docs are already staged (proactive update)
+      DOCS_MISSING=false
+      for w in "${DRIFT_WARNINGS[@]}"; do
+        # Extract doc names from warnings like "→ verify GUIDE.md § ..."
+        if echo "$w" | grep -q 'GUIDE\.md' && ! echo "$STAGED" | grep -q '^\.devshop/GUIDE\.md$'; then
+          DOCS_MISSING=true
+        fi
+        if echo "$w" | grep -q 'CLAUDE\.md.*Non-Negotiables' && ! echo "$STAGED" | grep -q '^\.devshop/CLAUDE\.md$'; then
+          DOCS_MISSING=true
+        fi
+        if echo "$w" | grep -q 'README\.md' && ! echo "$STAGED" | grep -q '^\.devshop/README\.md$'; then
+          DOCS_MISSING=true
+        fi
+      done
 
-      if [ -n "$BYPASS_DOCS" ]; then
-        echo "✓ Docs drift verified: $BYPASS_DOCS"
+      if [ "$DOCS_MISSING" = false ]; then
+        echo "✓ Docs drift: referenced docs are staged in this commit."
       else
-        echo ""
-        echo "✖ BLOCKING: Devshop tooling changed — docs may be stale."
-        echo ""
-        echo "  Affected docs to verify:"
-        for w in "${DRIFT_WARNINGS[@]}"; do echo "$w"; done
-        echo ""
-        echo "  BEFORE bypassing, you MUST:"
-        echo "    1. Re-read each referenced doc section NOW (not from memory/cache)"
-        echo "    2. Confirm the section accurately describes the new behavior"
-        echo "    3. If stale: update the doc and stage it in this commit"
-        echo "    4. If accurate: bypass with a SPECIFIC reason per doc:"
-        echo ""
-        echo "    git -c devshop.docsVerified=\"<per-doc verification>\" commit ..."
-        echo ""
-        echo "  Your reason must name each doc section you checked and why it's correct."
-        echo "  Generic reasons like 'docs already updated' will pass the hook but are"
-        echo "  auditable in git log — false reasons erode trust in the guard system."
-        FAILED=true
+        BYPASS_DOCS=$(git config --get devshop.docsVerified 2>/dev/null || true)
+
+        if [ -n "$BYPASS_DOCS" ]; then
+          echo "✓ Docs drift verified: $BYPASS_DOCS"
+        else
+          echo ""
+          echo "✖ BLOCKING: Devshop tooling changed — docs may be stale."
+          echo ""
+          echo "  Affected docs to verify:"
+          for w in "${DRIFT_WARNINGS[@]}"; do echo "$w"; done
+          echo ""
+          echo "  Read each doc section listed above. Update anything that no longer"
+          echo "  matches the new behavior, stage the fixes, and retry the commit."
+          FAILED=true
+        fi
       fi
     fi
   fi
@@ -172,30 +184,26 @@ $HAS_GUIDE && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("GUIDE.md") || UNCH
 
 if [ "$DOC_COUNT" -gt 0 ]; then
   CHANGED_LIST=$(IFS=', '; echo "${CHANGED_DOCS[*]}")
-  BYPASS_DOC_SYNC=$(git config --get devshop.docSyncReason 2>/dev/null || true)
 
-  if [ -n "$BYPASS_DOC_SYNC" ]; then
-    echo "✓ Doc consistency verified: $BYPASS_DOC_SYNC"
+  if [ ${#UNCHANGED_DOCS[@]} -eq 0 ] || [ "$DOC_COUNT" -ge 2 ]; then
+    # All three docs staged, or at least two — sufficient co-review signal
+    echo "✓ Doc consistency: ${DOC_COUNT}/3 reference docs staged."
   else
-    echo ""
-    echo "✖ BLOCKING: Reference doc changed ($CHANGED_LIST) — verify consistency."
-    echo ""
-    if [ ${#UNCHANGED_DOCS[@]} -gt 0 ]; then
-      echo "  Unstaged docs to check:"
+    BYPASS_DOC_SYNC=$(git config --get devshop.docSyncReason 2>/dev/null || true)
+
+    if [ -n "$BYPASS_DOC_SYNC" ]; then
+      echo "✓ Doc consistency verified: $BYPASS_DOC_SYNC"
+    else
+      echo ""
+      echo "✖ BLOCKING: Reference doc changed ($CHANGED_LIST) — verify consistency."
+      echo ""
+      echo "  Other docs to check:"
       for doc in "${UNCHANGED_DOCS[@]}"; do echo "    $doc"; done
       echo ""
+      echo "  Read each doc listed above. Update anything inconsistent with your"
+      echo "  changes, stage the fixes, and retry the commit."
+      FAILED=true
     fi
-    echo "  BEFORE bypassing, you MUST:"
-    echo "    1. Re-read each doc listed above NOW (not from memory/cache)"
-    echo "    2. Check that your changes don't contradict or leave stale info in the other docs"
-    echo "    3. If inconsistent: update the doc and stage it in this commit"
-    echo "    4. If consistent: bypass with a SPECIFIC reason per doc:"
-    echo ""
-    echo "    git -c devshop.docSyncReason=\"<per-doc verification>\" commit ..."
-    echo ""
-    echo "  Each doc has a different scope — not every change needs all three updated."
-    echo "  But you must verify, not assume. Name each doc and why it's still correct."
-    FAILED=true
   fi
 fi
 
@@ -215,12 +223,8 @@ if [ -n "$OTHER_REPO" ] && [ -d "$OTHER_REPO/.git" ]; then
       echo "✖ The $OTHER_NAME repo has uncommitted changes:"
       echo "$OTHER_DIRTY" | sed 's/^/    /'
       echo ""
-      echo "  Commit there too, or bypass with a reason:"
-      echo "    git -c devshop.crossRepoReason=\"<reason>\" commit ..."
-      echo ""
-      echo "  Examples:"
-      echo "    \"committing repos sequentially — $OTHER_NAME is next\""
-      echo "    \"$OTHER_NAME changes are unrelated, will address separately\""
+      echo "  Commit there first, or address why these changes don't need"
+      echo "  to be committed alongside your current changes."
       FAILED=true
     fi
   fi

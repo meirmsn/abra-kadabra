@@ -34,6 +34,7 @@ Depth over speed. When a step or task hits friction, stop and think about what c
 - Edge functions always validate auth server-side via `getUser()`.
 - Auth flow changes always include route protection middleware in the same PR.
 - Pre-commit: ESLint + Prettier + gitleaks, no bypass.
+- Every devshop tooling change includes doc updates in the same commit. Before committing, review GUIDE.md and README.md for accuracy against your changes. The commit guard will block — update the docs, don't look for workarounds.
 - Shared packages export TypeScript source directly — no build step.
 - For full detail on testing philosophy, metrics lifecycle, and backlog routing: see `.devshop/GUIDE.md § Shared Conventions`.
 
