@@ -115,11 +115,11 @@ chmod +x "$DEVSHOP/.hooks/pre-commit"
 # (2) chown root:root + chmod 644 blocks Bash workarounds.
 # chown follows symlinks, so this locks the target files in /devshop/ too.
 # To edit any of these: sudo nano <file>
-# Security-critical files locked below:
+# Security-critical files locked below (both workspace and devshop repo):
 #   settings.json        — deny list, DCG hook, permission mode
 #   settings.local.json  — additional permissions grants
 #   devcontainer.json    — DinD config, env var loading, container setup
-#   init-devshop.sh      — thin forwarder — runs as root via sudo
+#   init-devshop.sh      — injection script (runs as root via sudo)
 #   init-firewall.sh     — network egress allowlist
 #   Dockerfile           — base image, binary installs, system packages
 #   checksums.sha256     — integrity verification for pinned binaries
@@ -135,6 +135,11 @@ for f in \
   "$WS/.devcontainer/checksums.sha256" \
   "$WS/.devcontainer/.env" \
   "$WS/.dcg.toml" \
+  "$DEVSHOP/.devcontainer/devcontainer.json" \
+  "$DEVSHOP/.devcontainer/init-devshop.sh" \
+  "$DEVSHOP/.devcontainer/init-firewall.sh" \
+  "$DEVSHOP/.devcontainer/Dockerfile" \
+  "$DEVSHOP/.devcontainer/checksums.sha256" \
   ; do
   [ -e "$f" ] && chown root:root "$f" && chmod 644 "$f"
 done

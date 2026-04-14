@@ -8,6 +8,7 @@
     "allow": [
       "Read(.claude/**)",
       "Read(.devshop/**)",
+      "Edit(.claude/**)",
       "Edit(.devshop/**)",
       "Bash(pnpm *)",
       "Bash(npx *)",
@@ -60,12 +61,27 @@
       "Write(**/.env*)",
       "Write(**/secrets*)",
       "Write(**/credentials*)",
+
       "Edit(**/.devcontainer/*)",
       "Write(**/.devcontainer/*)",
+      "Edit(/devshop/.devcontainer/*)",
+      "Write(/devshop/.devcontainer/*)",
+      "Read(/devshop/.devcontainer/.env)",
+
       "Edit(**/.claude/settings.json)",
       "Write(**/.claude/settings.json)",
+      "Edit(/devshop/.claude/settings.json)",
+      "Write(/devshop/.claude/settings.json)",
+
       "Edit(**/.dcg.toml)",
-      "Write(**/.dcg.toml)"
+      "Write(**/.dcg.toml)",
+      "Edit(/devshop/.dcg.toml)",
+      "Write(/devshop/.dcg.toml)",
+
+      "Edit(.devshop/scripts/*)",
+      "Write(.devshop/scripts/*)",
+      "Edit(/devshop/.devshop/scripts/*)",
+      "Write(/devshop/.devshop/scripts/*)"
     ],
     "additionalDirectories": ["/devshop"]
   },
