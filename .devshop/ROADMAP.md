@@ -64,11 +64,6 @@ Trigger: when `/implement` starts losing context on features with 10+ tasks.
 Removes manual CHANGELOG maintenance. Each PR includes a changeset file describing
 the change; on merge, changesets auto-generates the changelog entry.
 
-### Dependabot
-
-`.github/dependabot.yml` — weekly PRs for npm security updates. Catches known
-vulnerabilities in dependencies before they become incidents. Free, zero maintenance.
-
 ### Devshop self-build pipeline
 
 Use the project build machinery (`/ak-build`) for devshop changes themselves.
@@ -107,6 +102,29 @@ services are set up (steps 3-6 already know). Same content across all projects u
 the same stack; different for projects with different tech choices.
 
 `/document-release` maintains "Where Things Happen" as paths get added post-init.
+
+### Staging migration validation
+
+Local `supabase start` and CI both run migrations against fresh DBs from seed.sql.
+Neither tests against production data shapes. Data-dependent migration failures
+(NOT NULL on columns with legacy nulls, table locks on large tables) only surface
+in production. `-- ROLLBACK` and `pg_dump` are recovery, not prevention.
+
+Options:
+
+- Restore latest pg_dump into temporary local Supabase, run new migration against it
+  before deploying (automated in `/post-merge`)
+- At minimum, make every migration a "stop and ask" item with human review against
+  production schema (already the convention — this automates verification)
+
+### Accessibility testing in E2E (axe-core)
+
+`eslint-plugin-jsx-a11y` already runs via `eslint-config-next`. Add runtime a11y
+testing with `@axe-core/playwright` in E2E tests — catches issues that static
+analysis misses (dynamic content, focus management, ARIA state). Wire into Playwright
+test setup so every E2E page visit runs an axe scan.
+
+Trigger: when the first E2E-testable flow exists (Phase 1e or equivalent).
 
 ### Sync script improvements
 
@@ -296,6 +314,17 @@ honored, and CLAUDE.md injection works.
 
 Verify symlinks created, CLAUDE.md assembled correctly, security lockdown
 applied, BUILD-LOG.md created when missing, skill symlinks resolve.
+
+### Structured logging for edge functions
+
+Sentry catches crashes. PostHog tracks user actions. Gap: application-level
+operational logging. When a user reports "my item didn't appear," you need edge
+function logs, query timing, auth flow steps. Supabase has logging but it's not
+structured or correlated with user-facing issues.
+
+Consider structured console.log in edge functions with a standard format
+(timestamp, request ID, user ID, action, duration). Revisit after first
+production debugging session reveals what's actually needed.
 
 ### DNS wildcard firewall rules
 

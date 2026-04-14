@@ -272,6 +272,8 @@ Two questions decide where deferred work goes:
 
 TODO items can be scheduled into versions defined in their corresponding ROADMAP (e.g., `[v0.2]`, `[v2]`). Project files never reference devshop files.
 
+**When a roadmap item ships**: remove it from the roadmap entirely and log the completion in `BUILD-LOG.md`. Roadmaps only show what's ahead — `BUILD-LOG.md` is the record of what was done.
+
 ### Non-Negotiables
 
 #### Testing

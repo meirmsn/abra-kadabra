@@ -138,12 +138,19 @@ Performance regression check (Core Web Vitals + load time). Report only.
 
 ## Gate 11: Convention check
 
-Verify:
+Run the mechanical check first, then apply judgment:
+
+```bash
+bash .devshop/scripts/check-file-headers.sh main
+```
+
+Review any flagged files — skip config-like or trivial files (single export, <50 lines). Then verify:
 
 - File headers (`// What:` / `// Why:` / `// Does NOT:`) exist on non-trivial files (>1 export or >50 lines) under `src/` or `app/`
 - JSDoc on exported functions
 - Every new migration file has a `-- ROLLBACK` comment block — **pause if missing**
 - Backlog items appear to be in the correct file per routing guide in `.devshop/GUIDE.md § Shared Conventions`
+- No completed items left in `PRODUCT-ROADMAP.md` or `.devshop/ROADMAP.md` — if this PR ships a roadmap item, remove the entry and log the completion in `BUILD-LOG.md`
 
 ## Output
 

@@ -687,6 +687,14 @@ Requires the `PRODUCTION_URL` repository variable (set in Step 14).
 >
 > This applies to any commit that creates or modifies workflow files.
 
+### Step 23b: Create dependabot.yml
+
+Copy `.devshop/templates/.github/dependabot.yml` to `.github/dependabot.yml`.
+Weekly npm security update PRs, minor+patch grouped.
+
+> **[HUMAN] push required**: Same as Step 23 — this commit touches `.github/`.
+> Batch with keepalive.yml in the same push if both are pending.
+
 ### Step 24: [HUMAN] Service quota alerts
 
 Set up quota alerts in each service's dashboard (free, no infrastructure):

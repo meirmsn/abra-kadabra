@@ -1,7 +1,7 @@
 # Devshop Plan Gaps & Holes
 
 Identified during plan review (2026-04-05) before Phase 0a implementation.
-Review after Phase 1 is complete — some may be resolved naturally during implementation.
+Reviewed 2026-04-13 after devshop separation. Resolution status annotated per gap.
 
 ---
 
@@ -12,6 +12,8 @@ Phases 0 and 1 ship with zero automated detection of known vulnerabilities in th
 dependency tree. A compromised transitive dependency goes unnoticed.
 
 **Recommendation**: Move Dependabot to Phase 0a. Single YAML file, zero cost.
+
+> **Status (2026-04-13): FIXED.** Added `.github/dependabot.yml` to project repo.
 
 ## 2. No staging environment — migrations hit production untested against real data
 
@@ -27,6 +29,8 @@ a temporary local Supabase and runs the new migration against it before deployin
 Or at minimum, make every migration a "stop and ask" item with human review against
 production schema.
 
+> **Status (2026-04-13): ROADMAP v1.** Added "Staging migration validation" to devshop ROADMAP. Migrations are already "stop and ask" per CLAUDE.md confidence calibration.
+
 ## 3. No data validation library — "never trust client input" without tooling
 
 No Zod, Yup, or equivalent specified. Without one: every API wrapper hand-rolls
@@ -35,6 +39,8 @@ TypeScript types, "invalid input" tests have no schema to test against.
 
 **Recommendation**: Add Zod to `packages/core`. Define validation schemas alongside
 API wrappers. `/implement` uses them at all external input boundaries.
+
+> **Status (2026-04-13): PROJECT DECISION.** Routed to project TODOS.md § Architecture decisions. Decide during Phase 1c implementation.
 
 ## 4. No state management architecture for a realtime collaborative app
 
@@ -54,6 +60,8 @@ shows an item my wife deleted 30 seconds ago").
 (b) React Query + Realtime invalidation (optimistic + reconciliation)
 (c) Raw useState + Realtime (simplest, fine for small lists in v1)
 
+> **Status (2026-04-13): PROJECT DECISION.** Routed to project TODOS.md § Architecture decisions. Decide during Phase 1e spec.
+
 ## 5. No i18n architecture for a bilingual app
 
 "Voice-first bilingual grocery list" — edge function handles bilingual NLP, but the
@@ -62,6 +70,8 @@ Language selectable or auto-detected? Where do translations live?
 
 **Recommendation**: Make an explicit decision. If bilingual UI is v1, add next-intl.
 If deferred, document in PRODUCT-ROADMAP.md.
+
+> **Status (2026-04-13): PROJECT DECISION.** Added "Bilingual UI (i18n)" to PRODUCT-ROADMAP.md v+.
 
 ## 6. Pre-ship pipeline too heavy for every PR
 
@@ -77,6 +87,8 @@ discipline — the first skip establishes that the process is optional.
 - `/pre-ship --full` (schema/auth/security): everything
   Three if-statements in the skill prompt, not sophisticated auto-detection.
 
+> **Status (2026-04-13): ROADMAP v1.** Already captured as "Tiered pre-ship pipeline" in devshop ROADMAP. The minimal 3-if approach is noted there as an option.
+
 ## 7. Single-agent `/implement` will hit context walls during Phase 1
 
 Phase 1 has 8 sub-phases (1a-1h), each with multiple tasks. Reference docs alone
@@ -86,6 +98,8 @@ Resume pattern (new session reads TASKS.md) loses nuanced decision context.
 **Recommendation**: Break Phase 1 into separate `/implement` runs per sub-phase,
 each with its own SPEC.md and TASKS.md. Don't run all of Phase 1 as one invocation.
 
+> **Status (2026-04-13): ROADMAP v1.** Already captured as "Subagent architecture for /implement" in devshop ROADMAP. The practical workaround (break into sub-phase runs) is operational guidance, not a code change.
+
 ## 8. No local dev workflow documentation
 
 How to start the dev server, what env vars are needed, local vs remote Supabase,
@@ -94,6 +108,8 @@ and the resume pattern rely on.
 
 **Recommendation**: Add "Local Development" section to `.devshop/GUIDE.md` with exact
 commands and env var requirements.
+
+> **Status (2026-04-13): RESOLVED.** GUIDE.md § Local Development (line 703) documents both DinD and non-DinD workflows with exact commands.
 
 ## 9. Public mirror complexity disproportionate to value
 
@@ -108,6 +124,8 @@ can block commits on formatting.
 primary motivation is "nice to have," consider deferring to v1 or just making the
 repo public with devshop files included (they're process docs, not secrets).
 
+> **Status (2026-04-13): RESOLVED BY SEPARATION.** The devshop separation architecture eliminates mirror entirely. Project repo is clean and publishable by design — no mirror-sync, no devshop-commit-msg hook, no section stripping, no `---devshop---` dividers.
+
 ## 10. No accessibility testing automation
 
 "Accessible (keyboard nav, labels, contrast)" stated as a principle, but no
@@ -116,6 +134,8 @@ no Lighthouse CI. Manual checks will be forgotten by screen three.
 
 **Recommendation**: Add eslint-plugin-jsx-a11y to ESLint config (Phase 0a).
 Add @axe-core/playwright to E2E tests (Phase 1e). Low cost, high value.
+
+> **Status (2026-04-13): PARTIALLY RESOLVED.** ESLint part already active — `eslint-plugin-jsx-a11y` bundled via `eslint-config-next/core-web-vitals`. Runtime part (axe-core/Playwright) added to devshop ROADMAP v1 as "Accessibility testing in E2E".
 
 ## 11. No structured logging — blind spot between crash and analytics
 
@@ -128,12 +148,14 @@ structured or correlated with user-facing issues.
 console.log in edge functions with a standard format. Revisit after first production
 debugging session reveals what's actually needed.
 
+> **Status (2026-04-13): ROADMAP v+.** Added "Structured logging for edge functions" to devshop ROADMAP v+. Revisit after first production debugging session.
+
 ---
 
 ## Minor gaps (from initial review)
 
-- `.gitignore` entry for `.devshop/template-remote` referenced but never explicitly created
-- Minor inconsistency: Step 9 mentions `<!-- synced-from -->` markers but Step 3 uses heading-based injection for CLAUDE.md sync
-- `check-file-headers.sh` created but never called by anything (not pre-commit, not /pre-ship script)
-- `PRODUCTION_URL` repository variable not listed in "Required Repository Variables" section
-- Branch protection listed in "Prerequisites" but must happen after first PR lands
+- ~~`.gitignore` entry for `.devshop/template-remote` referenced but never explicitly created~~ — **RESOLVED BY SEPARATION.** No template-remote in new architecture.
+- ~~Minor inconsistency: Step 9 mentions `<!-- synced-from -->` markers but Step 3 uses heading-based injection for CLAUDE.md sync~~ — **RESOLVED BY SEPARATION.** Sync mechanism replaced by symlink injection.
+- ~~`check-file-headers.sh` created but never called by anything (not pre-commit, not /pre-ship script)~~ — **FIXED.** Wired into pre-ship Gate 11 convention check (runs with branch arg in pre-ship mode).
+- ~~`PRODUCTION_URL` repository variable not listed in "Required Repository Variables" section~~ — **RESOLVED.** Already in GUIDE.md init checklist (line 420).
+- Branch protection listed in "Prerequisites" but must happen after first PR lands — **STILL VALID.** Operational sequencing note, not a code gap.
