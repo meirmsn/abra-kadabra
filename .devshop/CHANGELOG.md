@@ -6,6 +6,13 @@ Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
 Tagged `pre-split-snapshot` on the **lalista repo** at the bifurcation point (`24652cf`) where `main` diverged into `chore/separate-devshop`. Use this tag to compare against devshop files as they were before the split. See `notes/pre-split-comparison.md` for instructions.
 
+## v1.1.2 (2026-04-14)
+
+- chore: workaround claude-code#22583 — inject devshop CLAUDE.md via session hook
+- chore: simplify CLAUDE.md — no assembly, auto-loaded via additionalDirectories
+- docs: add file lifecycle section, fix symlink/copy inaccuracies
+- refactor: consolidate adversarial review into single shared script
+
 ## v1.1.1 (2026-04-14)
 
 - docs: extract security model into dedicated reference note
