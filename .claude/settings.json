@@ -90,7 +90,7 @@
         "hooks": [
           {
             "type": "command",
-            "if": "Bash(*git commit*)",
+            "if": "Bash(*git*commit*)",
             "command": "git remote get-url origin 2>/dev/null | grep -q 'abra-kadabra' && echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"This commit was made in the devshop repo (abra-kadabra). Ask the user if they want to run release.sh to bump the version and update the changelog.\"}}' || true"
           }
         ]
@@ -100,7 +100,7 @@
         "hooks": [
           {
             "type": "command",
-            "if": "Bash(*git commit*)",
+            "if": "Bash(*git*commit*)",
             "command": "bash .devshop/scripts/check-dirty-after-commit.sh"
           }
         ]
