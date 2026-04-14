@@ -28,9 +28,9 @@ case "$CHECK_TYPE" in
     DIFF_FULL=$(git diff --cached 2>/dev/null | head -300 || true)
     GUIDE_HEADERS=$(grep -n '^##' "$GIT_ROOT/.devshop/GUIDE.md" 2>/dev/null | head -50 || true)
     README_MD=$(cat "$GIT_ROOT/.devshop/README.md" 2>/dev/null || true)
-    CLAUDE_MD=$(cat "$GIT_ROOT/.devshop/CLAUDE.md" 2>/dev/null | head -100 || true)
+    CLAUDE_MD=$(cat "$GIT_ROOT/CLAUDE.md" 2>/dev/null | head -100 || true)
     FAQ_HEADERS=$(grep -n '^##' "$GIT_ROOT/.devshop/FAQ.md" 2>/dev/null | head -30 || true)
-    PROJECT_CLAUDE=$(cat "$GIT_ROOT/CLAUDE.project.md" 2>/dev/null | head -100 || true)
+    PROJECT_CLAUDE=$(cat "/workspace/CLAUDE.md" 2>/dev/null | head -100 || true)
     PROJECT_README=$(cat "$GIT_ROOT/README.md" 2>/dev/null | head -60 || true)
     CONTEXT="Staged diff summary:
 $DIFF
@@ -38,7 +38,7 @@ $DIFF
 Staged diff (first 300 lines):
 $DIFF_FULL
 
-=== .devshop/CLAUDE.md (first 100 lines) ===
+=== CLAUDE.md (devshop) (first 100 lines) ===
 $CLAUDE_MD
 
 === .devshop/README.md ===
@@ -50,7 +50,7 @@ $GUIDE_HEADERS
 === .devshop/FAQ.md section headers ===
 $FAQ_HEADERS
 
-=== CLAUDE.project.md (first 100 lines) ===
+=== CLAUDE.md (project) (first 100 lines) ===
 $PROJECT_CLAUDE
 
 === README.md (first 60 lines) ===
@@ -61,12 +61,12 @@ The reviewer MUST have checked ALL of these docs — not just the ones that alre
   docSyncReason)
     DIFF=$(git diff --cached -- .devshop/CLAUDE.md .devshop/README.md .devshop/GUIDE.md 2>/dev/null | head -300 || true)
     README_MD=$(cat "$GIT_ROOT/.devshop/README.md" 2>/dev/null || true)
-    CLAUDE_MD=$(cat "$GIT_ROOT/.devshop/CLAUDE.md" 2>/dev/null || true)
+    CLAUDE_MD=$(cat "$GIT_ROOT/CLAUDE.md" 2>/dev/null || true)
     GUIDE_HEADERS=$(grep -n '^##' "$GIT_ROOT/.devshop/GUIDE.md" 2>/dev/null | head -50 || true)
     CONTEXT="Doc changes (first 300 lines):
 $DIFF
 
-=== .devshop/CLAUDE.md ===
+=== CLAUDE.md (devshop) ===
 $CLAUDE_MD
 
 === .devshop/README.md ===

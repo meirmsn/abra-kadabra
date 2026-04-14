@@ -13,10 +13,9 @@ which forwards to `/devshop/.devcontainer/init-devshop.sh`. This script:
    sets it on root + node, writes `node ALL=(ALL:ALL) ALL` to sudoers (password required).
 2. **Creates all symlinks** via `create-devshop-symlinks.sh`.
 3. **Copies security files as real files** (not symlinks) — `settings.json`, `.dcg.toml`.
-4. **Generates `CLAUDE.md`** by assembling `.devshop/CLAUDE.md` + project `CLAUDE.project.md`.
-5. **Locks files** — `chown root:root` + `chmod 644` on every security-critical file
+4. **Locks files** — `chown root:root` + `chmod 644` on every security-critical file
    in both `/workspace` and `/devshop`.
-6. **Sets sticky bit** — `chmod 1755 /workspace/.claude/`.
+5. **Sets sticky bit** — `chmod 1755 /workspace/.claude/`.
 
 ### Layer 2: File ownership + sticky bit (OS level)
 
@@ -77,10 +76,9 @@ Two pre-commit chains run in sequence:
 
 **Devshop** (`.hooks/pre-commit` → symlink → `.devshop/hooks/pre-commit.sh`):
 
-1. `check-claude-md-freshness.sh` — CLAUDE.md matches source
-2. `check-security-files-freshness.sh` — settings.json/dcg.toml match devshop source, are copies not symlinks
-3. `check-clean-tree.sh` — no unstaged changes
-4. `devshop-commit-guard.sh` — prevents mixed project/devshop commits
+1. `check-security-files-freshness.sh` — settings.json/dcg.toml match devshop source, are copies not symlinks
+2. `check-clean-tree.sh` — no unstaged changes
+3. `devshop-commit-guard.sh` — prevents mixed project/devshop commits
 
 ### Layer 6: Claude Code PreToolUse hooks (commit-specific)
 

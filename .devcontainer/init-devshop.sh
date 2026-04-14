@@ -41,22 +41,6 @@ cp "$DEVSHOP/.claude/settings.json" "$WS/.claude/settings.json"
 [ -L "$WS/.dcg.toml" ] && rm "$WS/.dcg.toml"
 [ -f "$DEVSHOP/.dcg.toml" ] && cp "$DEVSHOP/.dcg.toml" "$WS/.dcg.toml"
 
-# --- Generate CLAUDE.md from .devshop/CLAUDE.md + project CLAUDE.project.md ---
-# .devshop/CLAUDE.md is the single source of truth for devshop conventions.
-# This script prepends the markdown header and appends project-specific context.
-cat > "$WS/CLAUDE.md" << 'CLAUDEHEADER'
-# CLAUDE.md
-
-## Devshop Conventions
-
-<!-- Assembled by init-devshop.sh from .devshop/CLAUDE.md + CLAUDE.project.md -->
-
-CLAUDEHEADER
-cat "$DEVSHOP/.devshop/CLAUDE.md" >> "$WS/CLAUDE.md"
-if [ -f "$WS/CLAUDE.project.md" ]; then
-  printf '\n' >> "$WS/CLAUDE.md"
-  cat "$WS/CLAUDE.project.md" >> "$WS/CLAUDE.md"
-fi
 
 # --- Create BUILD-LOG.md if missing (session-start hook reads it) ---
 if [ ! -f "$WS/BUILD-LOG.md" ]; then

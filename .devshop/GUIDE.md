@@ -364,7 +364,6 @@ Two enforcement levels: PreToolUse (Claude Code) and pre-commit (git). PreToolUs
    ├─ 2c. pnpm turbo run typecheck     → TypeScript check all packages
    ├─ 2d. gitleaks protect --staged    → Secret scan
    └─ 2e. .hooks/pre-commit            → devshop guards (symlinked to .devshop/hooks/pre-commit.sh)
-          ├─ check-claude-md-freshness.sh: CLAUDE.md matches sources → auto-fix
           ├─ check-security-files-freshness.sh: settings.json/.dcg.toml present + current → warn (can't auto-fix root-owned)
           ├─ check-clean-tree.sh: untracked/unstaged files → block (deterministic)
           └─ devshop-commit-guard.sh (4 checks):
@@ -442,7 +441,7 @@ checkboxes for resume tracking. Update both when changing the init process.
 16. [x] Supabase init + link: `supabase init` (if needed) + `supabase link --project-ref <ref>` (if using Supabase)
 17. [x] Create `METRICS.md` with empty event taxonomy structure
 18. [x] Run `/setup-deploy` to configure deploy settings
-19. [x] Create `CLAUDE.project.md` with project-specific Claude guidance (init-devshop.sh generates `CLAUDE.md` by combining devshop + project parts)
+19. [x] Create project `CLAUDE.md` with project-specific Claude guidance (devshop conventions auto-loaded from devshop repo via `additionalDirectories`)
 20. [x] Enable doc enforcement hooks: `devshop-commit-guard.sh` as Claude PreToolUse hook, add `eslint-plugin-jsdoc`
 21. [x] Update `.gitleaks.toml` allowlist with project-specific public key patterns
 22. [x] **[HUMAN]** Lock security-critical files — handled automatically by `init-devshop.sh` on container start (see lock section for full list)
@@ -471,7 +470,7 @@ Host filesystem:
 │
 └── lalista/               ← project repo (mounted at /workspace)
     ├── .devcontainer/     ← Dockerfile, firewall, thin forwarder
-    ├── CLAUDE.project.md  ← project-specific Claude context (tracked)
+    ├── CLAUDE.md          ← project-specific Claude context (tracked)
     ├── .claude/memory/    ← Claude memory (tracked)
     ├── apps/, packages/   ← project code
     └── (build configs)    ← turbo.json, eslint, etc. (tracked)
@@ -480,31 +479,31 @@ Inside container:
 /workspace/                ← lalista (bind mount)
 ├── .devshop/              ← symlink → /devshop/.devshop/
 ├── .claude/               ← created by init-devshop.sh (skills, settings)
-├── CLAUDE.md              ← generated: devshop CLAUDE.md + CLAUDE.project.md
+├── CLAUDE.md              ← project-specific Claude context (tracked)
 ├── BUILD-LOG.md           ← created if missing
 ├── .dcg.toml              ← copy of /devshop/.dcg.toml (root-owned)
 └── (everything else)      ← project files, tracked normally
 
-/devshop/                  ← abra-kadabra (bind mount)
+/devshop/                  ← abra-kadabra (bind mount, CLAUDE.md auto-loaded via additionalDirectories)
 ```
 
 **Scope expansion:** `additionalDirectories: ["/devshop"]` in `.claude/settings.json` tells Claude Code to treat `/devshop/` as part of the project. This lets `acceptEdits` mode auto-approve Read/Edit on devshop files without per-path allow rules. The Bash allow list also includes common read-only utilities (`cat`, `find`, `head`, `tail`, `wc`, `echo`, `git show`) so skills and hook scripts can use them without prompts — Claude itself should still prefer dedicated tools (Read, Grep, Glob) per its system instructions.
 
 ### What lives where
 
-| Content                                     | Repo         | Tracked? | How it gets to /workspace                                                    |
-| ------------------------------------------- | ------------ | -------- | ---------------------------------------------------------------------------- |
-| `.devshop/` (scripts, docs, file templates) | abra-kadabra | yes      | symlink by init-devshop.sh                                                   |
-| `.claude/skills/`, `.claude/commands/`      | abra-kadabra | yes      | symlink by init-devshop.sh                                                   |
-| `.claude/settings.json`, `.dcg.toml`        | abra-kadabra | yes      | copied by init-devshop.sh (root-owned, freshness-checked in pre-commit)      |
-| `CLAUDE.md` (combined)                      | neither      | no       | assembled by init-devshop.sh from `.devshop/CLAUDE.md` + `CLAUDE.project.md` |
-| `CLAUDE.project.md`                         | project      | yes      | already there                                                                |
-| `.claude/memory/`                           | project      | yes      | already there                                                                |
-| `BUILD-LOG.md`                              | project      | yes      | created by init-devshop.sh if missing                                        |
-| `.devcontainer/`                            | project      | yes      | already there                                                                |
-| `.husky/`, `.github/`, `turbo.json`, etc.   | project      | yes      | already there                                                                |
-| `apps/`, `packages/`, `supabase/`           | project      | yes      | already there                                                                |
-| Sessions, API keys, credentials             | neither      | no       | `~/.claude/` volume (persists across rebuilds)                               |
+| Content                                     | Repo         | Tracked? | How it gets to /workspace                                               |
+| ------------------------------------------- | ------------ | -------- | ----------------------------------------------------------------------- |
+| `.devshop/` (scripts, docs, file templates) | abra-kadabra | yes      | symlink by init-devshop.sh                                              |
+| `.claude/skills/`, `.claude/commands/`      | abra-kadabra | yes      | symlink by init-devshop.sh                                              |
+| `.claude/settings.json`, `.dcg.toml`        | abra-kadabra | yes      | copied by init-devshop.sh (root-owned, freshness-checked in pre-commit) |
+| `CLAUDE.md` (devshop conventions)           | abra-kadabra | yes      | auto-loaded via `additionalDirectories` in settings.json                |
+| `CLAUDE.md` (project context)               | project      | yes      | already there                                                           |
+| `.claude/memory/`                           | project      | yes      | already there                                                           |
+| `BUILD-LOG.md`                              | project      | yes      | created by init-devshop.sh if missing                                   |
+| `.devcontainer/`                            | project      | yes      | already there                                                           |
+| `.husky/`, `.github/`, `turbo.json`, etc.   | project      | yes      | already there                                                           |
+| `apps/`, `packages/`, `supabase/`           | project      | yes      | already there                                                           |
+| Sessions, API keys, credentials             | neither      | no       | `~/.claude/` volume (persists across rebuilds)                          |
 
 ### How init-devshop.sh works
 
@@ -534,18 +533,17 @@ Present from the initial clone of the devshop repo (abra-kadabra). After that, p
 
 Files: `.prettierrc`, `turbo.json`, `eslint.config.mjs`, `.husky/`, `.github/workflows/`, `.devcontainer/`, and other build tooling (see `manifest.txt` for the full list)
 
-**4. Generated (assembled at runtime)**
+**4. Generated (created at runtime if missing)**
 
-Created or assembled by `init-devshop.sh` on container start. Not tracked in either repo's git (or templated on first create).
+Created by `init-devshop.sh` on container start if not present. Once created, project-owned and tracked.
 
-- `CLAUDE.md` — assembled from `.devshop/CLAUDE.md` + `CLAUDE.project.md` on every start
 - `BUILD-LOG.md` — copied from `.devshop/templates/BUILD-LOG.md.tmpl` if missing, then project-owned
 
 **5. Project-only (never in devshop)**
 
 Files that exist only in the project repo. No devshop source, no sync.
 
-Files: `.devcontainer/.env` (secrets), `.claude/settings.local.json` (project-specific permission grants), `CLAUDE.project.md`, `.claude/memory/`, `apps/`, `packages/`, `supabase/`, `METRICS.md`, `TODOS.md`
+Files: `.devcontainer/.env` (secrets), `.claude/settings.local.json` (project-specific permission grants), `CLAUDE.md`, `.claude/memory/`, `apps/`, `packages/`, `supabase/`, `METRICS.md`, `TODOS.md`
 
 ### Doing project work
 
@@ -554,7 +552,7 @@ All project work happens in the project repo. Branches, PRs, commits — all on 
 - `git status` only shows project files (devshop files are gitignored)
 - Commits use conventional commits (`feat:`, `fix:`, `chore:`, etc.)
 - PRs go to the project repo — clean diffs, no devshop noise
-- Edit `CLAUDE.project.md` for project-specific Claude guidance (tracked)
+- Edit `CLAUDE.md` for project-specific Claude guidance (tracked)
 - Edit `BUILD-LOG.md`, `TODOS.md`, `METRICS.md` as normal project docs
 
 ### Doing devshop work
@@ -573,11 +571,11 @@ git add -A && git commit -m "chore: ..."
 
 ### When devshop changes take effect
 
-| What you changed                                                            | When it takes effect                                                                                | Why                                                                           |
-| --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Skills, scripts, docs (`.devshop/`, `.claude/skills/`, `.claude/commands/`) | Immediately                                                                                         | Symlinks resolve live                                                         |
-| `.devshop/CLAUDE.md` or `CLAUDE.project.md`                                 | Next project commit (auto-reassembled by pre-commit hook), or `sudo /usr/local/bin/init-devshop.sh` | Assembled from `.devshop/CLAUDE.md` + `CLAUDE.project.md` (copy, not symlink) |
-| Shared build tooling (`.husky/`, `turbo.json`, CI, etc.)                    | Manual: run `sync-from-devshop.sh`                                                                  | Project owns its copy — can diverge from devshop                              |
+| What you changed                                                            | When it takes effect               | Why                                                       |
+| --------------------------------------------------------------------------- | ---------------------------------- | --------------------------------------------------------- |
+| Skills, scripts, docs (`.devshop/`, `.claude/skills/`, `.claude/commands/`) | Immediately                        | Symlinks resolve live                                     |
+| Devshop `CLAUDE.md` or project `CLAUDE.md`                                  | Immediately                        | Claude Code watches CLAUDE.md files and reloads on change |
+| Shared build tooling (`.husky/`, `turbo.json`, CI, etc.)                    | Manual: run `sync-from-devshop.sh` | Project owns its copy — can diverge from devshop          |
 
 ### Propagating build tooling updates
 
@@ -603,7 +601,7 @@ Contributors who clone the project without abra-kadabra get a working repo:
 
 - `pnpm install && pnpm turbo run dev` works
 - `.devcontainer/` works (init-devshop.sh forwarder is a no-op without `/devshop`)
-- Rename `CLAUDE.project.md` → `CLAUDE.md` for Claude Code guidance
+- `CLAUDE.md` is already the standard name — works out of the box with Claude Code
 - No devshop skills, hooks, or quality gates — just standard development
 
 ### Known gotchas (separation)
@@ -685,14 +683,13 @@ Guards are split into **deterministic** (auto-pass when condition is met) and **
 
 | Guard                             | Type          | What                                                                                  | Bypass                                                    |
 | --------------------------------- | ------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| `check-claude-md-freshness.sh`    | Auto-fix      | Reassembles CLAUDE.md if sources diverged                                             | N/A — never blocks                                        |
 | `check-clean-tree.sh`             | Deterministic | Blocks if untracked/unstaged files exist                                              | `dirtyTreeReason` — adversarially reviewed                |
 | `devshop-commit-guard.sh` check 1 | Deterministic | Mixed devshop + project files (project repo only)                                     | No bypass — unstage one set                               |
 | check 2                           | **Semantic**  | Tooling changed — reviews ALL docs (including ones that don't yet mention the change) | `docsVerified` — always required, adversarially reviewed  |
 | check 3                           | **Semantic**  | Reference doc changed — consistency review                                            | `docSyncReason` — always required, adversarially reviewed |
 | check 4                           | Deterministic | Other repo has uncommitted changes                                                    | `crossRepoReason` — adversarially reviewed                |
 
-Both repos use the same guard chain (project repo adds `check-claude-md-freshness.sh` first).
+Both repos use the same guard chain.
 
 Bypass via `git -c devshop.<key>="<reason>"` works natively in husky. Every bypass reason is verified by an adversarial agent that actively tries to reject it. On API error, the review fails closed (blocks). Human fallback: `git -c devshop.humanReviewed="approve: <assessment>"` — blocked for Claude via PreToolUse, only usable from the terminal. Semantic checks (2, 3) always require a reason — there is no auto-pass. Deterministic checks (clean tree, cross-repo) auto-pass when the condition is met.
 
@@ -836,7 +833,7 @@ _Grows as issues are encountered. Add entries with date, symptom, cause, fix._
 **Symptom**: Container starts but no devshop skills/settings
 **Check**: `ls -la /workspace/.devshop` — should be a symlink to `/devshop/.devshop/`
 **Check**: `ls /workspace/.claude/skills/ | wc -l` — should be ~38
-**Check**: `cat /workspace/CLAUDE.md | head -5` — should show devshop + project content
+**Check**: `cat /workspace/CLAUDE.md | head -5` — should show project-specific content
 
 **Symptom**: `git status` shows devshop files as untracked
 **Check**: `.gitignore` must have `.devshop` and `.claude` (no trailing `/` — symlinks need pattern without slash)

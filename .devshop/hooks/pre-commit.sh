@@ -13,7 +13,6 @@ GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
 case "$GIT_ROOT" in
   /workspace)
     # Project repo: full guard suite
-    bash "$SCRIPTS_DIR/check-claude-md-freshness.sh"
     bash "$SCRIPTS_DIR/check-security-files-freshness.sh"
     bash "$SCRIPTS_DIR/check-clean-tree.sh"
     bash "$SCRIPTS_DIR/devshop-commit-guard.sh"

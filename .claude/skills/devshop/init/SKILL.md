@@ -567,18 +567,13 @@ Run the gstack `/setup-deploy` skill to configure `/land-and-deploy` with the pr
 URL and health check endpoints. Must be done after Vercel is linked and before the first
 use of `/land-and-deploy`.
 
-### Step 19: Create CLAUDE.project.md
+### Step 19: Create project CLAUDE.md
 
-Create `CLAUDE.project.md` in the project root with project-specific Claude guidance.
-This file is tracked in git and is the project's contribution to the generated `CLAUDE.md`.
+Create `CLAUDE.md` in the project root with project-specific Claude guidance.
+This file is tracked in git. Devshop conventions are auto-loaded from the devshop
+repo's `CLAUDE.md` via `additionalDirectories` in `settings.json` — no assembly needed.
 
-At container start, `init-devshop.sh` generates `CLAUDE.md` by concatenating:
-
-- `abra-kadabra/CLAUDE.md` (devshop conventions) + `CLAUDE.project.md` (project context)
-
-The generated `CLAUDE.md` is gitignored — edits go to `CLAUDE.project.md`.
-
-Create `CLAUDE.project.md` with at minimum:
+Create `CLAUDE.md` with at minimum:
 
 ```markdown
 ## Project: <project-name>

@@ -1,5 +1,9 @@
-<!-- Devshop conventions — single source of truth.
-     init-devshop.sh assembles workspace CLAUDE.md from this + CLAUDE.project.md. -->
+# CLAUDE.md
+
+## Devshop Conventions
+
+<!-- Auto-loaded via additionalDirectories in settings.json.
+     Project repos have their own CLAUDE.md with project-specific context. -->
 
 ### Context Loading
 

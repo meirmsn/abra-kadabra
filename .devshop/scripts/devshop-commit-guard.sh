@@ -37,7 +37,6 @@ DEVSHOP_PATTERNS=(
   '^\.devshop/'
   '^\.claude/'
   '^\.dcg\.toml$'
-  '^CLAUDE\.md$'
 )
 DEVSHOP_REGEX=$(IFS='|'; echo "${DEVSHOP_PATTERNS[*]}")
 
@@ -125,9 +124,9 @@ if [ "$RUN_DRIFT_CHECK" = true ]; then
       echo "  (new functionality needs to be documented for the first time):"
       echo "    .devshop/README.md     — devshop overview"
       echo "    .devshop/GUIDE.md      — full operational reference"
-      echo "    .devshop/CLAUDE.md     — agent rules and conventions"
+      echo "    CLAUDE.md               — devshop conventions (repo root)"
       echo "    .devshop/FAQ.md        — design rationale"
-      echo "    CLAUDE.project.md      — project-specific conventions"
+      echo "    CLAUDE.md (project)    — project-specific conventions"
       echo "    README.md              — user-facing description and commands"
       echo ""
       echo "  1. Read each doc above"
@@ -149,14 +148,15 @@ fi
 HAS_CLAUDE_MD=false
 HAS_README=false
 HAS_GUIDE=false
-echo "$STAGED" | grep -q '^\.devshop/CLAUDE\.md$' && HAS_CLAUDE_MD=true
+# In the devshop repo, CLAUDE.md is at the root. In project repos, CLAUDE.md is a project file — skip it.
+[ "$CURRENT_REPO" = "devshop" ] && echo "$STAGED" | grep -q '^CLAUDE\.md$' && HAS_CLAUDE_MD=true
 echo "$STAGED" | grep -q '^\.devshop/README\.md$' && HAS_README=true
 echo "$STAGED" | grep -q '^\.devshop/GUIDE\.md$' && HAS_GUIDE=true
 
 DOC_COUNT=0
 CHANGED_DOCS=()
 UNCHANGED_DOCS=()
-$HAS_CLAUDE_MD && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("CLAUDE.md") || UNCHANGED_DOCS+=(".devshop/CLAUDE.md  (agent rules)")
+$HAS_CLAUDE_MD && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("CLAUDE.md") || UNCHANGED_DOCS+=("CLAUDE.md  (devshop conventions)")
 $HAS_README && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("README.md") || UNCHANGED_DOCS+=(".devshop/README.md  (overview)")
 $HAS_GUIDE && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("GUIDE.md") || UNCHANGED_DOCS+=(".devshop/GUIDE.md   (full reference)")
 

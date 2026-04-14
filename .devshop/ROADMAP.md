@@ -103,13 +103,13 @@ checks) and doesn't fit devshop changes.
 **Trigger:** when devshop changes become frequent enough that the manual
 branch-edit-commit-push flow feels like friction.
 
-### CLAUDE.project.md block assembly
+### CLAUDE.md block assembly
 
 Template snippets in `.devshop/templates/claude-blocks/` — one per technology choice
 (`supabase.md`, `vercel.md`, `posthog.md`, `sentry.md`, etc.). Each block contains the
 env vars, migration commands, file path patterns, and conventions for that tool.
 
-`/ak-init` assembles `CLAUDE.project.md` from the relevant blocks based on which
+`/ak-init` assembles the project's `CLAUDE.md` from the relevant blocks based on which
 services are set up (steps 3-6 already know). Same content across all projects using
 the same stack; different for projects with different tech choices.
 
@@ -140,8 +140,7 @@ Trigger: when the first E2E-testable flow exists (Phase 1e or equivalent).
 
 ### Sync script improvements
 
-Current: simple `cp` guided by `manifest.txt` (plus heading-based injection
-for `CLAUDE.md` — already in v0). Improve to:
+Current: simple `cp` guided by `manifest.txt`. Improve to:
 
 - Diff before overwrite — show what changed, ask for confirmation
 - Create PR on the devshop repo instead of direct push
@@ -359,13 +358,13 @@ bypass flag parsing from stdin JSON, exit code 2 on failure, repo detection.
 #### Sync script tests
 
 Tests for `sync-from-devshop.sh` and `sync-to-devshop.sh`. Create two temp
-repos, run sync in both directions, verify correct files copied, exclusions
-honored, and CLAUDE.md injection works.
+repos, run sync in both directions, verify correct files copied and exclusions
+honored.
 
 #### init-devshop.sh tests
 
-Verify symlinks created, CLAUDE.md assembled correctly, security lockdown
-applied, BUILD-LOG.md created when missing, skill symlinks resolve.
+Verify symlinks created, security lockdown applied, BUILD-LOG.md created when
+missing, skill symlinks resolve.
 
 ### Structured logging for edge functions
 
@@ -383,9 +382,8 @@ production debugging session reveals what's actually needed.
 The devshop repo root mixes several concerns without clear separation:
 
 - **Symlinked** into project repos: `.devshop/`, `.claude/`
-- **Templated/generated**: `CLAUDE.md` (assembled by init-devshop.sh)
 - **Repo infrastructure** (run/lint/test the devshop itself): `package.json`, `eslint.config.mjs`, `turbo.json`, `tsconfig.base.json`, `.prettierrc`, etc.
-- **Injection machinery**: `.devcontainer/init-devshop.sh`
+- **Init machinery**: `.devcontainer/init-devshop.sh`
 - **Git/editor config**: `.gitignore`, `.editorconfig`, `.gitleaks.toml`, `.husky/`
 
 This works but Claude (and humans) trip over it — e.g., trying to create
@@ -416,12 +414,11 @@ GUIDE.md without needing a sibling project repo.
 Trigger: when devshop-only work sessions become frequent enough to justify the
 setup.
 
-Related: `.devshop/CLAUDE.md` is now the single source of devshop conventions
-(used by `init-devshop.sh` to generate project `CLAUDE.md`). When editing the
-devshop directly from `/devshop/`, decide which subset of `.devshop/CLAUDE.md`
-applies — some sections are project-oriented (metrics, responsive, edge functions)
-and wouldn't apply to devshop-only sessions. The standalone devcontainer could
-generate a devshop-appropriate `CLAUDE.md` from the same source.
+Related: the devshop's root `CLAUDE.md` contains conventions that span both
+devshop and project work (e.g., metrics, responsive, edge function rules). In
+devshop-only sessions those project-oriented sections are harmless noise, but
+over time consider splitting into universal devshop conventions vs.
+project-template conventions — or just accepting the noise as low-cost.
 
 ### DNS wildcard firewall rules
 
