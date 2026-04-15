@@ -2,6 +2,18 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.3.0 (2026-04-15) — Kit Restructure
+
+**Structural change**: `.devshop/` renamed to `kit/`, conceptual model added, GUIDE.md split.
+
+- refactor: rename `.devshop/` to `kit/` (devshop repo) / `.devshopkit` (project symlink)
+- feat: `kit/docs/MODEL.md` — conceptual model document (three layers, two repos, pipeline, file lifecycle)
+- refactor: split 59KB GUIDE.md into `kit/docs/guide/` with 7 focused documents (workflow, conventions, hooks, security, architecture, ops)
+- refactor: move OVERVIEW.md, FAQ.md, CHANGELOG.md into `kit/docs/`
+- chore: group `kit/notes/` into subdirectories (security, design, research, setup)
+- fix: use `.devshopkit/` paths in settings.json — hooks run relative to /workspace/
+- fix: simplify init-devshop.sh — straight copy instead of sed replacement
+
 ## 2026-04-13 — Pre-Split Snapshot
 
 Tagged `pre-split-snapshot` on the **lalista repo** at the bifurcation point (`24652cf`) where `main` diverged into `chore/separate-devshop`. Use this tag to compare against devshop files as they were before the split. See `notes/pre-split-comparison.md` for instructions.
