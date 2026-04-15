@@ -7,7 +7,7 @@ How the devshop protects security-critical files from modification by Claude (ru
 ### Layer 1: Container startup (`init-devshop.sh`, runs as root)
 
 On every `postStartCommand`, the devcontainer runs `sudo /usr/local/bin/init-devshop.sh`,
-which forwards to `/devshop/.devshop/scripts/init-devshop.sh`. This script:
+which forwards to `/devshop/kit/scripts/init-devshop.sh`. This script:
 
 1. **Removes passwordless sudo** — reads `DEVCONTAINER_ROOT_PASSWORD` from `.devcontainer/.env`,
    sets it on root + node, writes `node ALL=(ALL:ALL) ALL` to sudoers (password required).
@@ -36,13 +36,13 @@ has write permission on the directory.
 
 **Symlinks** (node-owned, recreatable if lost):
 
-| Symlink             | Target                                  |
-| ------------------- | --------------------------------------- |
-| `.devshop`          | `/devshop/.devshop`                     |
-| `.claude/commands`  | `/devshop/.claude/commands`             |
-| `.claude/README.md` | `/devshop/.claude/README.md`            |
-| `.claude/skills/*`  | `/devshop/.claude/skills/*`             |
-| `.hooks/pre-commit` | `/devshop/.devshop/hooks/pre-commit.sh` |
+| Symlink             | Target                             |
+| ------------------- | ---------------------------------- |
+| `.devshopkit`       | `/devshop/kit`                     |
+| `.claude/commands`  | `/devshop/.claude/commands`        |
+| `.claude/README.md` | `/devshop/.claude/README.md`       |
+| `.claude/skills/*`  | `/devshop/.claude/skills/*`        |
+| `.hooks/pre-commit` | `/devshop/kit/hooks/pre-commit.sh` |
 
 If symlinks are lost by git operations, the pre-commit hook in `.husky/pre-commit`
 re-creates them by calling `create-devshop-symlinks.sh`.
@@ -52,7 +52,7 @@ re-creates them by calling `create-devshop-symlinks.sh`.
 Even if Claude tried to use `Edit` or `Write` tools, deny rules block modifications to:
 
 - `.devcontainer/*`, `.claude/settings.json`, `.dcg.toml`
-- `.husky/pre-commit`, `.devshop/scripts/*`
+- `.husky/pre-commit`, `kit/scripts/*`
 - Secrets (`.env*`, `*.pem`, `*.key`, credentials)
 
 This is the Claude Code tool-level block — Claude never even gets to try the filesystem.
@@ -74,7 +74,7 @@ Two pre-commit chains run in sequence:
 4. `gitleaks protect --staged`
 5. Call `.hooks/pre-commit` (the devshop hook)
 
-**Devshop** (`.hooks/pre-commit` → symlink → `.devshop/hooks/pre-commit.sh`):
+**Devshop** (`.hooks/pre-commit` → symlink → `kit/hooks/pre-commit.sh`):
 
 1. `check-security-files-freshness.sh` — settings.json/dcg.toml match devshop source, are copies not symlinks
 2. `check-clean-tree.sh` — no unstaged changes
