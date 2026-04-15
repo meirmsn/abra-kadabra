@@ -6,7 +6,6 @@ Research notes, insights, and reference docs captured during devshop development
 
 - Add a file in the relevant subdirectory (or create a new one if no fit)
 - Ask Claude: "check my notes on X" to have it read the relevant file
-- Promote anything cross-session useful to `.claude/projects/-workspace/memory/`
 
 ## Directories
 

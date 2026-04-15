@@ -49,10 +49,11 @@ DEVSHOP="$DEVSHOP" WS="$WS" bash "$DEVSHOP/kit/scripts/create-devshop-symlinks.s
 # Symlinks are fragile: git ops delete them, node can replace them.
 # Root-owned copies survive git ops and can't be modified by node.
 # Freshness is checked by check-security-files-freshness.sh in pre-commit.
-# Both repos use .devshopkit/ paths in settings.json because Claude Code
-# runs hooks relative to /workspace/ regardless of which repo is being committed to.
+# Devshop settings.json uses kit/ paths (works from /devshop/ cwd).
+# Workspace copy needs .devshopkit/ paths (works from /workspace/ cwd).
+# Hooks run from the shell's cwd, which differs per repo.
 [ -L "$WS/.claude/settings.json" ] && rm "$WS/.claude/settings.json"
-cp "$DEVSHOP/.claude/settings.json" "$WS/.claude/settings.json"
+sed 's|/devshop/kit/|@@DK@@|g; s|kit/|.devshopkit/|g; s|@@DK@@|/devshop/kit/|g' "$DEVSHOP/.claude/settings.json" > "$WS/.claude/settings.json"
 
 [ -L "$WS/.dcg.toml" ] && rm "$WS/.dcg.toml"
 [ -f "$DEVSHOP/.dcg.toml" ] && cp "$DEVSHOP/.dcg.toml" "$WS/.dcg.toml"
