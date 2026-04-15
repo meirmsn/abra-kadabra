@@ -16,7 +16,7 @@ The guinea pig project is **lalista** — a bilingual grocery list app being mig
 
 ## Is the dev-shop machinery portable to future projects?
 
-Yes — portability is a first-class concern. New projects are created from `template/` at the devshop repo root via `/ak-new-project` (no cloning the devshop itself). Files fall into five categories (see the guide § File Lifecycle for full detail):
+Yes — portability is a first-class concern. New projects are created from `template/` at the devshop repo root via `/ak-new-project` (no cloning the devshop itself). Files fall into five categories (see `guide/architecture.md` § File Lifecycle for full detail):
 
 **1. Symlinked** (from abra-kadabra at container start, gitignored in project):
 
@@ -24,7 +24,7 @@ Yes — portability is a first-class concern. New projects are created from `tem
 
 **2. Root-owned copies** (from abra-kadabra at container start, gitignored in project):
 
-- `.claude/settings.json`, `.dcg.toml` (locked by init-devshop.sh, survive git ops, sticky bit prevents deletion — see GUIDE.md § Security)
+- `.claude/settings.json`, `.dcg.toml` (locked by init-devshop.sh, survive git ops, sticky bit prevents deletion — see guide/security.md)
 
 **3. Manifest files** (from abra-kadabra initial clone, then project-owned, can diverge):
 
@@ -43,7 +43,7 @@ The devshop (abra-kadabra) and project repos are separate (since v1.0.0). The `t
 - `kit/scripts/sync-to-devshop.sh` — push build tooling improvements to abra-kadabra's `template/`
 - `kit/scripts/sync-from-devshop.sh` — pull build tooling updates from `template/` into a project
 
-No git submodules. Git-native. You review every change. See the guide § Devshop Separation Architecture for the full model.
+No git submodules. Git-native. You review every change. See `guide/architecture.md` for the full model.
 
 ---
 

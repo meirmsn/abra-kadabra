@@ -1,11 +1,11 @@
 <!-- Editorial: one line per concept. If it takes more than one line to explain,
-     it belongs in GUIDE.md. This file should stay under 80 lines / ~1k tokens. -->
+     it belongs in the guide. This file should stay under 80 lines / ~1k tokens. -->
 
 # Abra-Kadabra Dev Shop — Overview
 
 A one-person dev shop that goes from rough notes to deployed, tested, observable web app with minimal manual intervention. Claude Code implements autonomously; gstack handles the full lifecycle around it (planning, review, QA, security, deploy, monitoring). The glue is conventions, pre-commit hooks, CI, and custom skills. Two touchpoints: review the PR, say "land it."
 
-**Architecture**: The devshop (abra-kadabra) and project repos are separate. The project repo is clean and publishable. Devshop files get injected into the workspace at container start via `init-devshop.sh` (symlinks + root-owned copies). See the guide § Devshop Separation Architecture for the full model.
+**Architecture**: The devshop (abra-kadabra) and project repos are separate. The project repo is clean and publishable. Devshop files get injected into the workspace at container start via `init-devshop.sh` (symlinks + root-owned copies). See `guide/architecture.md` for the full model.
 
 **New project?** Run `/ak-new-project` from any devcontainer — Phase A creates the GitHub repo from the `template/` skeleton, Phase B runs setup after you open the new project.
 
@@ -33,7 +33,7 @@ Branch protection on `main` requires PR + CI green before merge.
 ## File Map
 
 ```
-Docs:    GUIDE.md (reference) · DESIGN.md (visual) · METRICS.md (analytics) · CLAUDE.md (agent config) · PRODUCT-ROADMAP.md (deferred items)
+Docs:    guide/ (reference) · DESIGN.md (visual) · METRICS.md (analytics) · CLAUDE.md (agent config) · PRODUCT-ROADMAP.md (deferred items)
 Apps:    apps/web/ (Next.js 15, App Router)
 Shared:  packages/core/ (business logic, Supabase client, API wrappers) · packages/ui/ (design tokens, components)
 Backend: supabase/migrations/ (schema) · supabase/functions/ (edge functions)
@@ -49,7 +49,7 @@ Config:  turbo.json · pnpm-workspace.yaml · tsconfig.base.json · eslint.confi
 
 ## Key Conventions
 
-- **Detail lives closest to where it's used** — if one skill runs it, that skill owns it. If it spans skills or the whole workflow, GUIDE.md owns it. OVERVIEW.md is orientation; CLAUDE.md is agent config. Don't duplicate — point.
+- **Detail lives closest to where it's used** — if one skill runs it, that skill owns it. If it spans skills or the whole workflow, the guide owns it. OVERVIEW.md is orientation; CLAUDE.md is agent config. Don't duplicate — point.
 - **No code without tests** — written alongside, never after. Unit + integration + E2E. Integration tests hit a real local DB, never mocks.
 - **No code without metrics** — `/ak-spec` creates events in `METRICS.md`, `/ak-implement` instruments them, `/ak-pre-ship` validates.
 - **No broken tests** — full suite runs before marking a task done. CI gates PR merge.
@@ -61,9 +61,9 @@ Config:  turbo.json · pnpm-workspace.yaml · tsconfig.base.json · eslint.confi
 - **Shared packages export TypeScript source** — no build step. Barrel exports only, no deep path imports.
 - **Every `.ts`/`.tsx` file has a 3-line header** (`What` / `Why` / `Does NOT`); every export has JSDoc.
 
-## What GUIDE.md Covers (cross-cutting reference)
+## What the Guide Covers (cross-cutting reference)
 
-These topics span multiple skills, so GUIDE.md owns them:
+These topics span multiple skills, so the guide (`./guide/`) owns them:
 
 - **Metrics Lifecycle** — how events flow through /ak-spec → /ak-implement → /ak-pre-ship
 - **Testing layers** — unit vs integration vs E2E, RLS boundary tests, seed.sql, CI mirrors runtime
