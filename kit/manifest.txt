@@ -6,10 +6,10 @@
 # sync-from-devshop.sh and sync-to-devshop.sh read this list.
 #
 # NOT listed here:
-# - Symlinked files (.devshop/, .claude/skills/, etc.) — always match devshop
+# - Symlinked files (.devshopkit/, .claude/skills/, etc.) — always match devshop
 # - Root-owned copies (settings.json, .dcg.toml) — copied on every container start
-# - Project-only files (.env, settings.local.json, CLAUDE.project.md)
-# See GUIDE.md § File Lifecycle for the full model.
+# - Project-only files (.env, settings.local.json, CLAUDE.md)
+# See kit/docs/guide/architecture.md § File Lifecycle for the full model.
 
 # Build tooling
 .gitignore
