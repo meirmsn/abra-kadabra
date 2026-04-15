@@ -141,19 +141,27 @@ fi
 # When any devshop reference doc is staged, ALWAYS require a review explanation.
 # Adversarially reviewed — no auto-pass even when all docs are staged.
 HAS_CLAUDE_MD=false
+HAS_MODEL=false
 HAS_OVERVIEW=false
 HAS_GUIDE=false
+HAS_FAQ=false
 # In the devshop repo, CLAUDE.md is at the root. In project repos, CLAUDE.md is a project file — skip it.
 [ "$CURRENT_REPO" = "devshop" ] && echo "$STAGED" | grep -q '^CLAUDE\.md$' && HAS_CLAUDE_MD=true
+echo "$STAGED" | grep -q '^kit/docs/MODEL\.md$' && HAS_MODEL=true
 echo "$STAGED" | grep -q '^kit/docs/OVERVIEW\.md$' && HAS_OVERVIEW=true
 echo "$STAGED" | grep -qE '^kit/docs/guide/' && HAS_GUIDE=true
+echo "$STAGED" | grep -q '^kit/docs/FAQ\.md$' && HAS_FAQ=true
 
 DOC_COUNT=0
 CHANGED_DOCS=()
 UNCHANGED_DOCS=()
 $HAS_CLAUDE_MD && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("CLAUDE.md") || UNCHANGED_DOCS+=("CLAUDE.md  (devshop conventions)")
-$HAS_OVERVIEW && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("OVERVIEW.md") || UNCHANGED_DOCS+=("kit/docs/OVERVIEW.md  (overview)")
-$HAS_GUIDE && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("guide/") || UNCHANGED_DOCS+=("kit/docs/guide/  (operational reference)")
+$HAS_MODEL && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("MODEL.md") || UNCHANGED_DOCS+=("kit/docs/MODEL.md  (conceptual model)")
+$HAS_OVERVIEW && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("OVERVIEW.md") || UNCHANGED_DOCS+=("kit/docs/OVERVIEW.md  (orientation)")
+# guide/ is a directory of focused docs (workflow, conventions, hooks, security, architecture, ops).
+# Any change to a file inside triggers the consistency check for the whole doc set.
+$HAS_GUIDE && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("guide/") || UNCHANGED_DOCS+=("kit/docs/guide/  (operational reference — 7 files)")
+$HAS_FAQ && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("FAQ.md") || UNCHANGED_DOCS+=("kit/docs/FAQ.md  (design rationale)")
 
 if [ "$DOC_COUNT" -gt 0 ]; then
   CHANGED_LIST=$(IFS=', '; echo "${CHANGED_DOCS[*]}")
