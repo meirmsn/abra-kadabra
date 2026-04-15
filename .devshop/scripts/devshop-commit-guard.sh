@@ -203,7 +203,7 @@ if [ -n "$OTHER_REPO" ] && [ -d "$OTHER_REPO/.git" ]; then
     if [ -n "$BYPASS_REASON" ]; then
       # Reason provided — run adversarial review
       echo "⏳ Cross-repo: reviewing reason with adversarial agent..."
-      REVIEW_RESULT=$(bash "$SCRIPT_DIR/adversarial-review.sh" crossRepoReason "$BYPASS_REASON" 2>&1) || {
+      REVIEW_RESULT=$(bash "$SCRIPT_DIR/adversarial-review.sh" crossRepoReason "$BYPASS_REASON" "$OTHER_DIRTY" 2>&1) || {
         echo ""
         echo "✖ ADVERSARIAL REVIEW REJECTED your cross-repo reason."
         echo "  $REVIEW_RESULT"

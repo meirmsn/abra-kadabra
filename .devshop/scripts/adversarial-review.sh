@@ -76,20 +76,29 @@ $README_MD
 $GUIDE_HEADERS"
     ;;
   crossRepoReason)
-    case "$GIT_ROOT" in
-      /workspace) OTHER=/devshop ;;
-      /devshop) OTHER=/workspace ;;
-      *) OTHER="" ;;
-    esac
-    OTHER_STATUS=""
-    [ -n "$OTHER" ] && OTHER_STATUS=$(git -C "$OTHER" status --porcelain 2>/dev/null | head -20 || true)
+    # Use caller-provided snapshot (avoids TOCTOU with lint-staged stash cycle)
+    OTHER_STATUS="${1:-}"
+    if [ -z "$OTHER_STATUS" ]; then
+      # Fallback: re-check if no snapshot passed
+      case "$GIT_ROOT" in
+        /workspace) OTHER=/devshop ;;
+        /devshop) OTHER=/workspace ;;
+        *) OTHER="" ;;
+      esac
+      [ -n "$OTHER" ] && OTHER_STATUS=$(git -C "$OTHER" status --porcelain 2>/dev/null | head -20 || true)
+    fi
     CONTEXT="Other repo uncommitted changes:
 $OTHER_STATUS"
     ;;
   dirtyTreeReason)
     DIRTY=$(git status --porcelain 2>/dev/null | grep -E '^\?\?|^ [MD]' | head -20 || true)
+    BRANCH=$(git branch --show-current 2>/dev/null || true)
+    STASHED=$(git stash list 2>/dev/null | grep -F "on $BRANCH:" | head -5 || true)
     CONTEXT="Untracked/unstaged files:
-$DIRTY"
+$DIRTY
+
+Stashed changes on current branch ($BRANCH):
+${STASHED:-(none)}"
     ;;
   hookBypass)
     STAGED=$(git diff --cached --stat 2>/dev/null || true)

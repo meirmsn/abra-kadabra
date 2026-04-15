@@ -7,7 +7,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 DIRTY=$(git status --porcelain 2>/dev/null | grep -E '^\?\?|^ [MD]' || true)
-[ -z "$DIRTY" ] && exit 0
+BRANCH=$(git branch --show-current 2>/dev/null || true)
+STASHED=$(git stash list 2>/dev/null | grep -F "on $BRANCH:" | head -5 || true)
+[ -z "$DIRTY" ] && [ -z "$STASHED" ] && exit 0
 
 # Check for bypass reason
 BYPASS=$(git config --get devshop.dirtyTreeReason 2>/dev/null || true)
@@ -27,10 +29,18 @@ if [ -n "$BYPASS" ]; then
 fi
 
 echo ""
-echo "✖ Working tree not clean before commit. Untracked or unstaged files:"
-echo "$DIRTY" | sed 's/^/    /'
+if [ -n "$DIRTY" ]; then
+  echo "✖ Working tree not clean before commit. Untracked or unstaged files:"
+  echo "$DIRTY" | sed 's/^/    /'
+fi
+if [ -n "$STASHED" ]; then
+  echo "✖ Stashed changes on current branch — address them before committing:"
+  echo "$STASHED" | sed 's/^/    /'
+  echo ""
+  echo "  Pop the stash and commit or drop it: git stash pop / git stash drop"
+fi
 echo ""
-echo "  Address these before committing — stage, gitignore, or stash."
+echo "  Address these before committing — stage, commit, gitignore, or drop."
 echo "  If intentionally committing a subset, explain why with:"
 echo "    git -c devshop.dirtyTreeReason=\"<why it's OK>\" commit ..."
 echo ""

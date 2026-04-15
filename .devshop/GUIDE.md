@@ -367,7 +367,7 @@ Two enforcement levels: PreToolUse (Claude Code) and pre-commit (git). PreToolUs
    ├─ 2d. gitleaks protect --staged    → Secret scan
    └─ 2e. /devshop/.devshop/hooks/pre-commit.sh  → devshop guards (called by absolute path)
           ├─ check-security-files-freshness.sh: settings.json/.dcg.toml present + current → block (can't auto-fix root-owned, shows fix command)
-          ├─ check-clean-tree.sh: untracked/unstaged files → block (deterministic)
+          ├─ check-clean-tree.sh: untracked/unstaged files OR stashed changes on current branch → block (deterministic)
           └─ devshop-commit-guard.sh (4 checks):
              ├─ Mixed commit: devshop + project files staged together → block (deterministic)
              ├─ Docs drift: tooling changed → reviews ALL docs for needed updates (semantic, adversarial)
