@@ -25,6 +25,7 @@ Tagged `pre-split-snapshot` on the **lalista repo** at the bifurcation point (`2
 - chore: rename `v1-native.md` → `v+-native.md` (aligns with ROADMAP v+ section)
 - docs: GUIDE.md, OVERVIEW.md, FAQ.md, CLAUDE.md, README.md, ROADMAP.md updated
 - docs: detailed construction notes in `notes/bootstrap/v1.2-reorganization.md`
+- docs: pre/post split comparison in `notes/bootstrap/v1.2-comparison-to-before-split.md`
 
 Resolves ROADMAP "Repo layout clarification" item.
 
