@@ -3,7 +3,7 @@
 # Why: settings.json and .dcg.toml are root-owned copies (not symlinks) for resilience.
 #      If missing/stale/symlinked, security rules may not be active.
 # Does NOT: Fix the files — runs as node, can't write root-owned files.
-#           Warns with fix command instead.
+#           Blocks the commit and shows the fix command instead.
 
 set -euo pipefail
 
@@ -51,7 +51,5 @@ fi
 
 if [ "$STALE" = true ]; then
   echo "  Fix: sudo bash /devshop/.devshop/scripts/init-devshop.sh"
+  exit 1
 fi
-
-# Never block — node can't fix root-owned files
-exit 0

@@ -8,9 +8,11 @@ set -euo pipefail
 MESSAGES=()
 
 # --- Check 1: Current repo still dirty ---
-DIRTY=$(git status --porcelain 2>/dev/null || true)
+DIRTY=$(git status --porcelain 2>/dev/null | head -10 || true)
 if [ -n "$DIRTY" ]; then
-  MESSAGES+=("BLOCKING: Working tree still dirty after commit. You MUST address every remaining file BEFORE doing anything else. Remaining files:\\n$(echo "$DIRTY" | sed 's/"/\\"/g' | head -10)\\nFor each file: stage + commit, stash, or add to .gitignore. If you do not know what to do with a file, ask the user. Do NOT move on to other work until the tree is clean.")
+  MESSAGES+=("BLOCKING: Working tree still dirty after commit. You MUST address every remaining file BEFORE doing anything else. Remaining files:
+$DIRTY
+For each file: stage + commit, stash, or add to .gitignore. If you do not know what to do with a file, ask the user. Do NOT move on to other work until the tree is clean.")
 fi
 
 # --- Check 2: Other repo has uncommitted changes ---
@@ -24,7 +26,9 @@ esac
 if [ -n "$OTHER_REPO" ] && [ -d "$OTHER_REPO/.git" ]; then
   OTHER_DIRTY=$(git -C "$OTHER_REPO" status --porcelain 2>/dev/null | head -5 || true)
   if [ -n "$OTHER_DIRTY" ]; then
-    MESSAGES+=("BLOCKING: The $OTHER_NAME repo ($OTHER_REPO) still has uncommitted changes:\\n$(echo "$OTHER_DIRTY" | sed 's/"/\\"/g')\\nYou MUST commit or address these files BEFORE doing anything else. If you do not know what to do, ask the user.")
+    MESSAGES+=("BLOCKING: The $OTHER_NAME repo ($OTHER_REPO) still has uncommitted changes:
+$OTHER_DIRTY
+You MUST commit or address these files BEFORE doing anything else. If you do not know what to do, ask the user.")
   fi
 fi
 
@@ -35,8 +39,7 @@ fi
 
 [ ${#MESSAGES[@]} -eq 0 ] && exit 0
 
-# Combine all messages into one additionalContext block
-COMBINED=$(IFS='\\n\\n'; echo "${MESSAGES[*]}")
-cat <<HOOK_OUTPUT
-{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"$COMBINED"}}
-HOOK_OUTPUT
+# Combine all messages and output as properly escaped JSON
+COMBINED=$(printf '%s\n\n' "${MESSAGES[@]}")
+jq -n --arg ctx "$COMBINED" \
+  '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":$ctx}}'

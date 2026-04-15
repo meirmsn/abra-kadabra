@@ -8,7 +8,11 @@ set -euo pipefail
 
 # Read the tool input from stdin (JSON with command)
 INPUT="$(cat)"
-CMD="$(echo "$INPUT" | jq -r '.tool_input.command // empty')"
+CMD="$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)" || CMD=""
+if [ -z "$CMD" ]; then
+  echo "BLOCKED: Could not parse tool input. Command blocked as a precaution."
+  exit 2
+fi
 
 # --- Tier 1: Always block — no legitimate use case ---
 if echo "$CMD" | grep -qE 'core\.hooksPath'; then

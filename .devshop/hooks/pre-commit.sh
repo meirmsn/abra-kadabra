@@ -29,5 +29,9 @@ else
       bash "$SCRIPTS_DIR/check-clean-tree.sh"
       bash "$SCRIPTS_DIR/devshop-commit-guard.sh"
       ;;
+    *)
+      echo "✖ Cannot determine git root (got: '${GIT_ROOT:-empty}'). Commit blocked."
+      exit 1
+      ;;
   esac
 fi

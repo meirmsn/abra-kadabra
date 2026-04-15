@@ -63,26 +63,23 @@ if [ -n "$UPSTREAM" ]; then
   fi
 fi
 
-# Open PRs (via gh, falls back gracefully)
+# Open PRs and WIP branches (single gh call, 5s timeout)
 OPEN_PRS=""
-if command -v gh &>/dev/null; then
-  OPEN_PRS="$(gh pr list --state open --limit 10 --json number,title,headRefName \
-    --jq '.[] | "  #\(.number) \(.title) (\(.headRefName))"' 2>/dev/null || true)"
-fi
-
-# Local branches with no PR (exclude main and current if it has a PR)
 WIP_BRANCHES=""
 if command -v gh &>/dev/null; then
-  PR_BRANCHES="$(gh pr list --state open --limit 20 --json headRefName \
-    --jq '.[].headRefName' 2>/dev/null || true)"
-  while IFS= read -r b; do
-    [ -z "$b" ] && continue
-    [ "$b" = "main" ] || [ "$b" = "master" ] && continue
-    if ! echo "$PR_BRANCHES" | grep -qxF "$b"; then
-      WIP_BRANCHES+="  $b
+  PR_JSON="$(timeout 5 gh pr list --state open --limit 20 --json number,title,headRefName 2>/dev/null || true)"
+  if [ -n "$PR_JSON" ]; then
+    OPEN_PRS="$(echo "$PR_JSON" | jq -r '.[] | "  #\(.number) \(.title) (\(.headRefName))"' 2>/dev/null || true)"
+    PR_BRANCHES="$(echo "$PR_JSON" | jq -r '.[].headRefName' 2>/dev/null || true)"
+    while IFS= read -r b; do
+      [ -z "$b" ] && continue
+      [ "$b" = "main" ] || [ "$b" = "master" ] && continue
+      if ! echo "$PR_BRANCHES" | grep -qxF "$b"; then
+        WIP_BRANCHES+="  $b
 "
-    fi
-  done < <(git -C "$ROOT" branch --format='%(refname:short)' 2>/dev/null)
+      fi
+    done < <(git -C "$ROOT" branch --format='%(refname:short)' 2>/dev/null)
+  fi
 fi
 
 # --- Parse BUILD-LOG status ---

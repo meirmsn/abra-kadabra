@@ -48,14 +48,11 @@ DEVSHOP_REGEX=$(IFS='|'; echo "${DEVSHOP_PATTERNS[*]}")
 
 DEVSHOP_FILES=()
 PROJECT_FILES=()
-AMBIGUOUS_FILES=()
 
 while IFS= read -r file; do
   [ -z "$file" ] && continue
   if echo "$file" | grep -qE "$DEVSHOP_REGEX"; then
     DEVSHOP_FILES+=("$file")
-  elif echo "$file" | grep -qE '^\.claude/|^\.devshop/'; then
-    AMBIGUOUS_FILES+=("$file")
   else
     PROJECT_FILES+=("$file")
   fi
@@ -77,15 +74,6 @@ if [ "$CURRENT_REPO" = "project" ]; then
     FAILED=true
   fi
 
-  if [ ${#AMBIGUOUS_FILES[@]} -gt 0 ]; then
-    echo ""
-    echo "✖ Ambiguous files — devshop or project? Review these staged files:"
-    for f in "${AMBIGUOUS_FILES[@]}"; do echo "    $f"; done
-    echo ""
-    echo "  If devshop: move to a separate commit."
-    echo "  If project: add the path to the project-layer exception in this script."
-    FAILED=true
-  fi
 fi
 
 # --- Check 2: Docs drift detection (SEMANTIC) ---

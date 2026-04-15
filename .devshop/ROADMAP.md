@@ -416,6 +416,23 @@ devshop-only sessions those project-oriented sections are harmless noise, but
 over time consider splitting into universal devshop conventions vs.
 project-template conventions — or just accepting the noise as low-cost.
 
+### CODEOWNERS + branch protection
+
+Add `CODEOWNERS` to both repos requiring review approval for changes to
+`.devshop/`, `.claude/`, `.devcontainer/`, and hook files. Pair with GitHub
+branch protection on `main` (require PR reviews, block direct pushes).
+
+Currently all guards are local (hooks, file ownership, deny lists). A force
+push to main bypasses everything. CODEOWNERS + branch protection adds
+server-side enforcement that survives local bypass.
+
+Not needed for solo development — the local guards handle the actual threat
+model (Claude bypassing checks). Becomes relevant when a second contributor
+joins or when the devshop is used across multiple projects with different
+maintainers.
+
+Trigger: when a second human contributor needs commit access.
+
 ### DNS wildcard firewall rules
 
 Current firewall resolves each domain to IPs via `dig` + `ipset`. Every subdomain

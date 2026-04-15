@@ -87,7 +87,7 @@ $GUIDE_HEADERS"
 $OTHER_STATUS"
     ;;
   dirtyTreeReason)
-    DIRTY=$(git status --porcelain 2>/dev/null | head -20 || true)
+    DIRTY=$(git status --porcelain 2>/dev/null | grep -E '^\?\?|^ [MD]' | head -20 || true)
     CONTEXT="Untracked/unstaged files:
 $DIRTY"
     ;;
@@ -139,9 +139,24 @@ FAIL: <what is wrong with the reason or what was missed>"
 PROMPT_FILE=$(mktemp)
 echo "$PROMPT" > "$PROMPT_FILE"
 
-REVIEW=$(claude -p --model sonnet < "$PROMPT_FILE" 2>/dev/null) || {
+REVIEW=""
+BACKOFF_DELAYS=(15 60)
+ATTEMPT=0
+MAX_ATTEMPTS=$(( ${#BACKOFF_DELAYS[@]} + 1 ))
+
+while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+  REVIEW=$(timeout 90 claude -p --model sonnet < "$PROMPT_FILE" 2>/dev/null) && break
+  ATTEMPT=$((ATTEMPT + 1))
+  if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+    DELAY=${BACKOFF_DELAYS[$((ATTEMPT - 1))]}
+    echo "⚠ Adversarial review attempt $ATTEMPT failed. Retrying in ${DELAY}s..."
+    sleep "$DELAY"
+  fi
+done
+
+if [ $ATTEMPT -ge $MAX_ATTEMPTS ]; then
   rm -f "$PROMPT_FILE"
-  echo "⚠ Adversarial review API unavailable. Manual review required."
+  echo "⚠ Adversarial review API unavailable after $MAX_ATTEMPTS attempts. Manual review required."
   echo ""
   echo "  Check type: $CHECK_TYPE"
   echo "  Bypass reason: $REASON"
@@ -152,7 +167,7 @@ REVIEW=$(claude -p --model sonnet < "$PROMPT_FILE" 2>/dev/null) || {
   echo "  To approve as human reviewer, run directly in the terminal:"
   echo "    ! git -c devshop.humanReviewed=\"approve: <your assessment>\" commit ..."
   exit 1
-}
+fi
 rm -f "$PROMPT_FILE"
 
 if echo "$REVIEW" | grep -qi "^FAIL"; then

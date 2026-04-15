@@ -92,6 +92,9 @@ chown -h node:node "$MEMORY_LINK"
 #   checksums.sha256     — integrity verification for pinned binaries
 #   .env                 — secrets and credentials
 #   .dcg.toml            — destructive command guard configuration
+#   .devshop/scripts/*   — commit guard scripts (breaks circularity: the
+#                          scripts that watch settings.json must survive
+#                          settings.json disappearing)
 for f in \
   "$WS/.claude/settings.json" \
   "$WS/.claude/settings.local.json" \
@@ -116,6 +119,10 @@ for f in \
   "$DEVSHOP/.claude/settings.json" \
   "$DEVSHOP/.dcg.toml" \
   ; do
+  [ -e "$f" ] && chown root:root "$f" && chmod 644 "$f"
+done
+# Lock all devshop scripts (glob — future scripts are auto-protected)
+for f in "$DEVSHOP/.devshop/scripts/"*.sh; do
   [ -e "$f" ] && chown root:root "$f" && chmod 644 "$f"
 done
 

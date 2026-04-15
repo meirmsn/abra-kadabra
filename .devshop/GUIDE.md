@@ -328,6 +328,7 @@ Unit tests are the fast inner loop (local + CI fast). Integration + E2E are the 
 - **Secrets in CI**: wired into `ci.yml` in the same PR as the integration — never a follow-up.
 - **Third-party binaries**: pinned to specific version + SHA256 checksum. Never "latest." Update version + checksum in same commit.
 - **Security-critical files are root-owned copies** — not symlinks. 6 layers of protection: root ownership + sticky bit, deny rules, DCG, git hooks, PreToolUse hooks, and freshness checks. To edit: `sudo nano <file>`. **Full model**: see [`notes/security-model.md`](notes/security-model.md).
+- **All `.devshop/scripts/*.sh` are root-locked** — `init-devshop.sh` globs and locks every script in the directory (`root:root 644`). Breaks the circularity where the scripts that watch `settings.json` were themselves only protected by `settings.json`. Future scripts added to the directory are auto-protected.
 - **Guard script deny rules are easy to toggle** — when the user wants Claude to edit guard scripts, uncomment the four `.devshop/scripts/*` deny lines in settings.json.
 - **`.claude/` allow is broad, settings.json is denied** — `Edit(.claude/**)` allows Claude to edit skills, commands, and memory through the symlink path. `settings.json` is safe: the explicit `Edit(**/.claude/settings.json)` deny takes priority.
 - **Fakeowner caveat** — Docker Desktop bind mounts from macOS use `fakeowner`, where `chown`/`chmod` are cosmetic (displayed but not enforced by the kernel). Layer 2 only provides real protection on native Linux or Docker named volumes. See ROADMAP.md § v+ for hardening options.
@@ -337,15 +338,15 @@ Unit tests are the fast inner loop (local + CI fast). Integration + E2E are the 
 
 Hooks in `.claude/settings.json` guard the development workflow:
 
-| Hook                  | Event                    | Trigger                        | What it does                                                                                                                                                                                   |
-| --------------------- | ------------------------ | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| DCG                   | PreToolUse (all Bash)    | Every Bash command             | Destructive Command Guard — blocks 49+ dangerous patterns (rm -rf, git reset --hard, DROP TABLE, etc.)                                                                                         |
-| check-hook-bypass     | PreToolUse (Bash)        | `*git*commit*` commands        | Blocks hook bypass: always blocks `core.hooksPath`/`HUSKY=0`/`devshop.humanReviewed`, requires `devshop.hookBypassReason` for `--no-verify` (adversarially reviewed, fail-closed on API error) |
-| check-memory-created  | PreToolUse (Write\|Edit) | Write/Edit to memory paths     | Blocks memory file writes — forces Claude to ask user before creating memories                                                                                                                 |
-| release.sh reminder   | PostToolUse (git commit) | `*git*commit*` in devshop repo | Reminds to run `release.sh` for version bump + changelog (no-op in project repos)                                                                                                              |
-| dirty tree check      | PostToolUse (git commit) | `*git*commit*` commands        | If tree still dirty after commit, tells Claude to address remaining files                                                                                                                      |
-| PR description update | PostToolUse (git push)   | `*git push*` commands          | Two-step: (1) Claude assesses title/description vs commits — text only, no edits. (2) Next response: runs `gh pr edit` if needed.                                                              |
-| session-start.sh      | SessionStart             | New session or `/clear`        | Recreates symlinks if missing, then context for Claude (README, BUILD-LOG, branch, devshop CLAUDE.md) + visible briefing for user                                                              |
+| Hook                  | Event                    | Trigger                        | What it does                                                                                                                                                                                       |
+| --------------------- | ------------------------ | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DCG                   | PreToolUse (all Bash)    | Every Bash command             | Destructive Command Guard — blocks 49+ dangerous patterns (rm -rf, git reset --hard, DROP TABLE, etc.)                                                                                             |
+| check-hook-bypass     | PreToolUse (Bash)        | `*git*commit*` commands        | Blocks hook bypass: always blocks `core.hooksPath`/`HUSKY=0`/`devshop.humanReviewed`, requires `devshop.hookBypassReason` for `--no-verify` (adversarially reviewed, fail-closed on API error)     |
+| check-memory-created  | PreToolUse (Write\|Edit) | Write/Edit to memory paths     | Blocks memory file writes — Claude must classify (project → `/workspace/.claude/memory/`, devshop → incorporate into `/devshop/CLAUDE.md`, unclear → ask user) and get confirmation before writing |
+| release.sh reminder   | PostToolUse (git commit) | `*git*commit*` in devshop repo | Reminds to run `release.sh` for version bump + changelog (no-op in project repos)                                                                                                                  |
+| dirty tree check      | PostToolUse (git commit) | `*git*commit*` commands        | If tree still dirty after commit, tells Claude to address remaining files                                                                                                                          |
+| PR description update | PostToolUse (git push)   | `*git push*` commands          | Two-step: (1) Claude assesses title/description vs commits — text only, no edits. (2) Next response: runs `gh pr edit` if needed.                                                                  |
+| session-start.sh      | SessionStart             | New session or `/clear`        | Recreates symlinks if missing, then context for Claude (README, BUILD-LOG, branch, devshop CLAUDE.md) + visible briefing for user                                                                  |
 
 #### Commit Flow
 
@@ -364,8 +365,8 @@ Two enforcement levels: PreToolUse (Claude Code) and pre-commit (git). PreToolUs
    ├─ 2b. pnpm exec lint-staged        → ESLint + Prettier on staged files
    ├─ 2c. pnpm turbo run typecheck     → TypeScript check all packages
    ├─ 2d. gitleaks protect --staged    → Secret scan
-   └─ 2e. .hooks/pre-commit            → devshop guards (symlinked to .devshop/hooks/pre-commit.sh)
-          ├─ check-security-files-freshness.sh: settings.json/.dcg.toml present + current → warn (can't auto-fix root-owned)
+   └─ 2e. /devshop/.devshop/hooks/pre-commit.sh  → devshop guards (called by absolute path)
+          ├─ check-security-files-freshness.sh: settings.json/.dcg.toml present + current → block (can't auto-fix root-owned, shows fix command)
           ├─ check-clean-tree.sh: untracked/unstaged files → block (deterministic)
           └─ devshop-commit-guard.sh (4 checks):
              ├─ Mixed commit: devshop + project files staged together → block (deterministic)

@@ -40,7 +40,7 @@ Backend: supabase/migrations/ (schema) · supabase/functions/ (edge functions)
 CI/CD:   .github/workflows/ci.yml · apps/web/vercel.json
 Template: template/ (project skeleton — .devcontainer/, .github/, turbo.json, eslint, package.json, etc.)
 Devshop: .devshop/ → symlink to /devshop/.devshop/ (injected at container start from abra-kadabra)
-Hooks:   .hooks/pre-commit → symlink to .devshop/hooks/pre-commit.sh (devshop guards, repo-aware)
+Hooks:   .husky/pre-commit calls /devshop/.devshop/hooks/pre-commit.sh by absolute path (devshop guards, repo-aware)
 Claude:  .claude/ (injected: skills, commands, settings) · CLAUDE.md (project-specific, tracked) · /devshop/CLAUDE.md (devshop conventions, auto-loaded)
 Logs:    BUILD-LOG.md (project builds, gitignored) · .devshop/CHANGELOG.md (devshop versions)
 Backlogs: TODOS.md (project tactical) · PRODUCT-ROADMAP.md (project strategic) · .devshop/TODOS.md (devshop tactical) · .devshop/ROADMAP.md (devshop strategic)
