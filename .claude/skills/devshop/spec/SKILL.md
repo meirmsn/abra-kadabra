@@ -27,12 +27,12 @@ in architecture, edge cases, and design direction.
 
 - If `METRICS.md` does not exist AND this is the first feature (no `apps/`, `packages/` with code):
   - Read the gstack plan output
-  - Draft an initial event taxonomy following the metrics principles in `.devshop/GUIDE.md § Metrics Lifecycle`
+  - Draft an initial event taxonomy following the metrics principles in `kit/docs/guide/ § Metrics Lifecycle`
   - Present to user: "Here's the initial metrics taxonomy I derived from the plan — confirm, adjust, or add events before I continue"
   - **Stop and wait for confirmation** (new metric event definitions require review)
-  - Write `METRICS.md` with confirmed events using the structure in `.devshop/GUIDE.md § Metrics Lifecycle`
+  - Write `METRICS.md` with confirmed events using the structure in `kit/docs/guide/ § Metrics Lifecycle`
 - If `METRICS.md` does not exist AND this is NOT the first feature:
-  - Error: "METRICS.md not found — create it before running /ak-spec. See .devshop/GUIDE.md new-project checklist."
+  - Error: "METRICS.md not found — create it before running /ak-spec. See kit/docs/guide/ new-project checklist."
   - Stop.
 - If `METRICS.md` exists: continue.
 
@@ -99,7 +99,7 @@ No decision Q&A — architecture decisions were made by `/autoplan`'s eng review
 
 If the feature introduces new user actions not yet in `METRICS.md`:
 
-- Propose new events following the metrics principles in `.devshop/GUIDE.md § Metrics Lifecycle`
+- Propose new events following the metrics principles in `kit/docs/guide/ § Metrics Lifecycle`
 - **Stop and ask for confirmation** before adding to `METRICS.md`
 - Never auto-add events without review
 

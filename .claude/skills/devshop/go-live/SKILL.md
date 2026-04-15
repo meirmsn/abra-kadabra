@@ -83,7 +83,7 @@ gh pr comment "$PR" --body "## Canary FAILED — action needed
 - Git SHA: $(git rev-parse HEAD)
 
 **Recommended action:** \`vercel rollback\` then investigate on the branch.
-See .devshop/GUIDE.md § When Things Go Wrong."
+See kit/docs/guide/ § When Things Go Wrong."
 ```
 
 **If canary passes**: continue.
@@ -104,9 +104,9 @@ echo "  Git SHA: $(git rev-parse HEAD)"
 Ask yourself and route learnings to **committed files** (not memory):
 
 - New conventions, gotchas, calibration updates → `CLAUDE.md`
-- Troubleshooting entries (date, symptom, cause, fix) → `.devshop/GUIDE.md § Troubleshooting`
-- Decision log entries ("chose X over Y because Z, date") → `.devshop/GUIDE.md § Decision Log`
-- Devshop friction → `.devshop/TODOS.md` (tactical) or `.devshop/ROADMAP.md` (strategic)
+- Troubleshooting entries (date, symptom, cause, fix) → `kit/docs/guide/ § Troubleshooting`
+- Decision log entries ("chose X over Y because Z, date") → `kit/docs/guide/ § Decision Log`
+- Devshop friction → `kit/TODOS.md` (tactical) or `kit/ROADMAP.md` (strategic)
 - Confidence calibration adjustments → `CLAUDE.md § Confidence Calibration`
 
 Commit: `docs: post-deploy reflection for <feature-name>`

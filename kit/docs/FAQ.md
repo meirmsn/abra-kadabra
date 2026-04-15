@@ -8,7 +8,7 @@ Answers to questions that came up while reviewing the devshop plan (`notes/boots
 
 A repeatable system that takes an idea to a deployed, tested, monitored app with minimal manual intervention — built for a solo developer using Claude Code as the implementation engine.
 
-The dev-shop is already ~70% assembled via **gstack** (planning, QA, code review, shipping, monitoring). What the plan adds is the repo + CI/CD infrastructure that gstack runs on, plus the conventions (`.devshop/GUIDE.md`, `CLAUDE.md`, per-feature specs/) that make handoffs between tools clean.
+The dev-shop is already ~70% assembled via **gstack** (planning, QA, code review, shipping, monitoring). What the plan adds is the repo + CI/CD infrastructure that gstack runs on, plus the conventions (the guide, `CLAUDE.md`, per-feature specs/) that make handoffs between tools clean.
 
 The guinea pig project is **lalista** — a bilingual grocery list app being migrated from Swift/SwiftUI to React (Next.js web) + React Native (Expo mobile).
 
@@ -16,11 +16,11 @@ The guinea pig project is **lalista** — a bilingual grocery list app being mig
 
 ## Is the dev-shop machinery portable to future projects?
 
-Yes — portability is a first-class concern. New projects are created from `template/` at the devshop repo root via `/ak-new-project` (no cloning the devshop itself). Files fall into five categories (see GUIDE.md § File Lifecycle for full detail):
+Yes — portability is a first-class concern. New projects are created from `template/` at the devshop repo root via `/ak-new-project` (no cloning the devshop itself). Files fall into five categories (see the guide § File Lifecycle for full detail):
 
 **1. Symlinked** (from abra-kadabra at container start, gitignored in project):
 
-- `.devshop/`, `.claude/skills/`, `.claude/commands/`, `.hooks/pre-commit`
+- `.devshopkit/`, `.claude/skills/`, `.claude/commands/`, `.hooks/pre-commit`
 
 **2. Root-owned copies** (from abra-kadabra at container start, gitignored in project):
 
@@ -40,10 +40,10 @@ Yes — portability is a first-class concern. New projects are created from `tem
 
 The devshop (abra-kadabra) and project repos are separate (since v1.0.0). The `template/` directory at the devshop root contains the project skeleton — `/ak-new-project` creates a GitHub repo from it. Devshop files get injected into the workspace at container start via `init-devshop.sh` — they're gitignored in the project repo. Build tooling files (turbo.json, eslint, etc.) are tracked in both repos and can be synced:
 
-- `.devshop/scripts/sync-to-devshop.sh` — push build tooling improvements to abra-kadabra's `template/`
-- `.devshop/scripts/sync-from-devshop.sh` — pull build tooling updates from `template/` into a project
+- `kit/scripts/sync-to-devshop.sh` — push build tooling improvements to abra-kadabra's `template/`
+- `kit/scripts/sync-from-devshop.sh` — pull build tooling updates from `template/` into a project
 
-No git submodules. Git-native. You review every change. See GUIDE.md § Devshop Separation Architecture for the full model.
+No git submodules. Git-native. You review every change. See the guide § Devshop Separation Architecture for the full model.
 
 ---
 

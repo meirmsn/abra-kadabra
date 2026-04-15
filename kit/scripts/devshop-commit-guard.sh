@@ -22,8 +22,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # --- Repo detection ---
 GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
 # Detect devshop-self mode: workspace IS the devshop repo (opened directly in VS Code).
-# .devshop/ is a real directory in the devshop repo but always a symlink in projects.
-if [ -d "$GIT_ROOT/.devshop" ] && [ ! -L "$GIT_ROOT/.devshop" ]; then
+# kit/ is a real directory in the devshop repo but .devshopkit/ is always a symlink in projects.
+if [ -d "$GIT_ROOT/kit" ] && [ ! -L "$GIT_ROOT/kit" ]; then
   CURRENT_REPO=devshop; OTHER_REPO=/devshop; OTHER_NAME="project"
 else
   case "$GIT_ROOT" in
@@ -40,7 +40,7 @@ FAILED=false
 
 # --- Classify staged files ---
 DEVSHOP_PATTERNS=(
-  '^\.devshop/'
+  '^\.devshopkit/'
   '^\.claude/'
   '^\.dcg\.toml$'
 )
@@ -88,7 +88,7 @@ fi
 
 if [ "$RUN_DRIFT_CHECK" = true ]; then
   # Skip changelog-only / version-only commits
-  NON_CHANGELOG=$(echo "$STAGED" | grep -E "$DEVSHOP_REGEX" | grep -vE '^\.devshop/(CHANGELOG\.md|version)$' || true)
+  NON_CHANGELOG=$(echo "$STAGED" | grep -E "$DEVSHOP_REGEX" | grep -vE '^\.devshopkit/(docs/CHANGELOG\.md|version)$' || true)
 
   if [ -n "$NON_CHANGELOG" ]; then
     REVIEW_NOTES=$(git config --get devshop.docsVerified 2>/dev/null || true)
@@ -116,10 +116,10 @@ if [ "$RUN_DRIFT_CHECK" = true ]; then
       echo ""
       echo "  Review ALL of these docs — even if they don't mention the changed code yet"
       echo "  (new functionality needs to be documented for the first time):"
-      echo "    .devshop/OVERVIEW.md   — devshop overview"
-      echo "    .devshop/GUIDE.md      — full operational reference"
+      echo "    kit/docs/OVERVIEW.md   — devshop overview"
+      echo "    kit/docs/GUIDE.md      — full operational reference"
       echo "    CLAUDE.md               — devshop conventions (repo root)"
-      echo "    .devshop/FAQ.md        — design rationale"
+      echo "    kit/docs/FAQ.md        — design rationale"
       echo "    CLAUDE.md (project)    — project-specific conventions"
       echo "    README.md              — user-facing description and commands"
       echo ""
@@ -144,15 +144,15 @@ HAS_README=false
 HAS_GUIDE=false
 # In the devshop repo, CLAUDE.md is at the root. In project repos, CLAUDE.md is a project file — skip it.
 [ "$CURRENT_REPO" = "devshop" ] && echo "$STAGED" | grep -q '^CLAUDE\.md$' && HAS_CLAUDE_MD=true
-echo "$STAGED" | grep -q '^\.devshop/OVERVIEW\.md$' && HAS_README=true
-echo "$STAGED" | grep -q '^\.devshop/GUIDE\.md$' && HAS_GUIDE=true
+echo "$STAGED" | grep -q '^kit/docs/OVERVIEW\.md$' && HAS_README=true
+echo "$STAGED" | grep -q '^kit/docs/GUIDE\.md$' && HAS_GUIDE=true
 
 DOC_COUNT=0
 CHANGED_DOCS=()
 UNCHANGED_DOCS=()
 $HAS_CLAUDE_MD && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("CLAUDE.md") || UNCHANGED_DOCS+=("CLAUDE.md  (devshop conventions)")
-$HAS_README && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("OVERVIEW.md") || UNCHANGED_DOCS+=(".devshop/OVERVIEW.md  (overview)")
-$HAS_GUIDE && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("GUIDE.md") || UNCHANGED_DOCS+=(".devshop/GUIDE.md   (full reference)")
+$HAS_README && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("OVERVIEW.md") || UNCHANGED_DOCS+=("kit/docs/OVERVIEW.md  (overview)")
+$HAS_GUIDE && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("GUIDE.md") || UNCHANGED_DOCS+=("kit/docs/GUIDE.md   (full reference)")
 
 if [ "$DOC_COUNT" -gt 0 ]; then
   CHANGED_LIST=$(IFS=', '; echo "${CHANGED_DOCS[*]}")

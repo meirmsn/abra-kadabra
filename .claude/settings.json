@@ -1,7 +1,7 @@
 {
   "statusLine": {
     "type": "command",
-    "command": "bash .devshop/scripts/statusline.sh"
+    "command": "bash kit/scripts/statusline.sh"
   },
   "permissions": {
     "defaultMode": "acceptEdits",
@@ -9,8 +9,8 @@
       "Read(.claude/**)",
       "Edit(.claude/**)",
 
-      "Read(.devshop/**)",
-      "Edit(.devshop/**)",
+      "Read(kit/**)",
+      "Edit(kit/**)",
 
       "Bash(pnpm *)",
       "Bash(npx *)",
@@ -82,10 +82,10 @@
       "Edit(.husky/pre-commit)",
       "Write(.husky/pre-commit)",
 
-      "Edit(.devshop/scripts/*)",
-      "Write(.devshop/scripts/*)",
-      "Edit(/devshop/.devshop/scripts/*)",
-      "Write(/devshop/.devshop/scripts/*)",
+      "Edit(kit/scripts/*)",
+      "Write(kit/scripts/*)",
+      "Edit(/devshop/kit/scripts/*)",
+      "Write(/devshop/kit/scripts/*)",
 
       "Edit(/devshop/template/**)",
       "Write(/devshop/template/**)"
@@ -109,7 +109,7 @@
           {
             "type": "command",
             "if": "Bash(*git*commit*)",
-            "command": "bash .devshop/scripts/check-hook-bypass.sh"
+            "command": "bash kit/scripts/check-hook-bypass.sh"
           }
         ]
       },
@@ -118,7 +118,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .devshop/scripts/check-memory-created.sh"
+            "command": "bash kit/scripts/check-memory-created.sh"
           }
         ]
       }
@@ -140,7 +140,7 @@
           {
             "type": "command",
             "if": "Bash(*git*commit*)",
-            "command": "bash .devshop/scripts/check-dirty-after-commit.sh"
+            "command": "bash kit/scripts/check-dirty-after-commit.sh"
           }
         ]
       },
@@ -150,7 +150,7 @@
           {
             "type": "command",
             "if": "Bash(*git push*)",
-            "command": "bash .devshop/scripts/check-pr-description.sh"
+            "command": "bash kit/scripts/check-pr-description.sh"
           }
         ]
       }
@@ -161,7 +161,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .devshop/scripts/session-start.sh"
+            "command": "bash kit/scripts/session-start.sh"
           }
         ]
       },
@@ -170,7 +170,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .devshop/scripts/session-start.sh"
+            "command": "bash kit/scripts/session-start.sh"
           }
         ]
       }

@@ -145,7 +145,7 @@ Project repos need: `CLAUDE.project.md` (tracked), `.claude-memory/` (tracked), 
 
 ### Plan Deviations
 
-Agreed-upon changes from the master plan (`.devshop/notes/bootstrap/v0-web.md`):
+Agreed-upon changes from the master plan (`kit/notes/bootstrap/v0-web.md`):
 
 1. **Public mirror (Step 11)** deferred to ROADMAP v1
 2. **EAS CLI removed** from Dockerfile — native/mobile deferred

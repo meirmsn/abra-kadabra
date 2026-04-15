@@ -19,7 +19,7 @@ allowed-tools:
 Review test quality with **fresh eyes** — read tests alongside the code they test,
 with no implementation context. You are looking at this code for the first time.
 
-Reference the testing philosophy in `.devshop/GUIDE.md § Shared Conventions` for principles.
+Reference the testing philosophy in `kit/docs/guide/ § Shared Conventions` for principles.
 
 ## What to flag
 

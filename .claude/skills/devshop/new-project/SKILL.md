@@ -26,7 +26,7 @@ template. Auto-detects which phase to run based on the workspace context.
 ## Phase Detection
 
 ```
-if .devshop/ is a real directory (not symlink) → Phase A (create repo)
+if kit/ is a real directory (not symlink) → Phase A (create repo)
 elif INIT-TRACKER.md exists                    → Resume Phase B (continue setup)
 elif turbo.json exists                         → Phase B first run (start setup)
 else                                           → Error: not a recognized context

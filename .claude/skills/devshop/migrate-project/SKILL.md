@@ -19,7 +19,7 @@ allowed-tools:
 # Migrate Project
 
 Adopt the devshop on an existing project. Not yet fully implemented — this is a
-skeleton that documents the approach. See `.devshop/ROADMAP.md § /ak-migrate skill`
+skeleton that documents the approach. See `kit/ROADMAP.md § /ak-migrate skill`
 for the full design.
 
 ## Two Tiers
@@ -47,11 +47,11 @@ Migration from another framework (e.g., Swift → React, Django → Next.js).
 ## Trigger
 
 When a second project needs to adopt the devshop. The lalista Phase 1 execution
-(`.devshop/notes/bootstrap/v0-web.md`) is the first data point for parametrization.
+(`kit/notes/bootstrap/v0-web.md`) is the first data point for parametrization.
 
 ## For now
 
 Tell the user this skill is a skeleton. Point them to:
 
-- `.devshop/ROADMAP.md § /ak-migrate skill` for the full design
+- `kit/ROADMAP.md § /ak-migrate skill` for the full design
 - `/ak-new-project` if they want to start from scratch instead

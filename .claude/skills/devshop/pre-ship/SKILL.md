@@ -38,7 +38,7 @@ at the end. For each gate, record:
 
 ## Gate 1: Devshop docs check
 
-If the PR touches `.devshop/` or reference docs (`.devshop/OVERVIEW.md`, `.devshop/GUIDE.md`):
+If the PR touches `kit/` or reference docs (`kit/docs/OVERVIEW.md`, `kit/docs/guide/`):
 
 - Verify both reference docs are in sync
 - Pause if they've drifted
@@ -141,7 +141,7 @@ Performance regression check (Core Web Vitals + load time). Report only.
 Run the mechanical check first, then apply judgment:
 
 ```bash
-bash .devshop/scripts/check-file-headers.sh main
+bash kit/scripts/check-file-headers.sh main
 ```
 
 Review any flagged files — skip config-like or trivial files (single export, <50 lines). Then verify:
@@ -149,8 +149,8 @@ Review any flagged files — skip config-like or trivial files (single export, <
 - File headers (`// What:` / `// Why:` / `// Does NOT:`) exist on non-trivial files (>1 export or >50 lines) under `src/` or `app/`
 - JSDoc on exported functions
 - Every new migration file has a `-- ROLLBACK` comment block — **pause if missing**
-- Backlog items appear to be in the correct file per routing guide in `.devshop/GUIDE.md § Shared Conventions`
-- No completed items left in `PRODUCT-ROADMAP.md` or `.devshop/ROADMAP.md` — if this PR ships a roadmap item, remove the entry and log the completion in `BUILD-LOG.md`
+- Backlog items appear to be in the correct file per routing guide in `kit/docs/guide/ § Shared Conventions`
+- No completed items left in `PRODUCT-ROADMAP.md` or `kit/ROADMAP.md` — if this PR ships a roadmap item, remove the entry and log the completion in `BUILD-LOG.md`
 
 ## Output
 

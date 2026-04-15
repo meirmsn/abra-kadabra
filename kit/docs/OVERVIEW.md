@@ -5,7 +5,7 @@
 
 A one-person dev shop that goes from rough notes to deployed, tested, observable web app with minimal manual intervention. Claude Code implements autonomously; gstack handles the full lifecycle around it (planning, review, QA, security, deploy, monitoring). The glue is conventions, pre-commit hooks, CI, and custom skills. Two touchpoints: review the PR, say "land it."
 
-**Architecture**: The devshop (abra-kadabra) and project repos are separate. The project repo is clean and publishable. Devshop files get injected into the workspace at container start via `init-devshop.sh` (symlinks + root-owned copies). See GUIDE.md § Devshop Separation Architecture for the full model.
+**Architecture**: The devshop (abra-kadabra) and project repos are separate. The project repo is clean and publishable. Devshop files get injected into the workspace at container start via `init-devshop.sh` (symlinks + root-owned copies). See the guide § Devshop Separation Architecture for the full model.
 
 **New project?** Run `/ak-new-project` from any devcontainer — Phase A creates the GitHub repo from the `template/` skeleton, Phase B runs setup after you open the new project.
 
@@ -39,11 +39,11 @@ Shared:  packages/core/ (business logic, Supabase client, API wrappers) · packa
 Backend: supabase/migrations/ (schema) · supabase/functions/ (edge functions)
 CI/CD:   .github/workflows/ci.yml · apps/web/vercel.json
 Template: template/ (project skeleton — .devcontainer/, .github/, turbo.json, eslint, package.json, etc.)
-Devshop: .devshop/ → symlink to /devshop/.devshop/ (injected at container start from abra-kadabra)
-Hooks:   .husky/pre-commit calls /devshop/.devshop/hooks/pre-commit.sh by absolute path (devshop guards, repo-aware)
+Devshop: .devshopkit/ → symlink to /devshop/kit/ (injected at container start from abra-kadabra)
+Hooks:   .husky/pre-commit calls /devshop/kit/hooks/pre-commit.sh by absolute path (devshop guards, repo-aware)
 Claude:  .claude/ (injected: skills, commands, settings) · CLAUDE.md (project-specific, tracked) · /devshop/CLAUDE.md (devshop conventions, auto-loaded)
-Logs:    BUILD-LOG.md (project builds, gitignored) · .devshop/CHANGELOG.md (devshop versions)
-Backlogs: TODOS.md (project tactical) · PRODUCT-ROADMAP.md (project strategic) · .devshop/TODOS.md (devshop tactical) · .devshop/ROADMAP.md (devshop strategic)
+Logs:    BUILD-LOG.md (project builds, gitignored) · kit/docs/CHANGELOG.md (devshop versions)
+Backlogs: TODOS.md (project tactical) · PRODUCT-ROADMAP.md (project strategic) · kit/TODOS.md (devshop tactical) · kit/ROADMAP.md (devshop strategic)
 Config:  turbo.json · pnpm-workspace.yaml · tsconfig.base.json · eslint.config.mjs · .dcg.toml · .gitleaks.toml
 ```
 
@@ -76,16 +76,16 @@ CI slow job expansion plans are in ROADMAP.md § v+.
 ## Glossary
 
 - **abra-kadabra** — brand name for the dev shop (devshop repo, doc titles). Never used in file names or CLI commands.
-- **devshop** — code name: `.devshop/`, `.claude/skills/devshop/`. Skills use `ak-` prefix (`/ak-build`, `/ak-spec`, etc.).
+- **devshop** — code name: `kit/` (repo), `.devshopkit/` (workspace symlink), `.claude/skills/devshop/`. Skills use `ak-` prefix (`/ak-build`, `/ak-spec`, etc.).
 - **gstack** — AI lifecycle toolkit (`.claude/skills/gstack/`). Per-project install, not part of devshop sync.
 - **specs/<name>/** — per-feature folder: `spec.md` (spec), `tasks.md` (tasks + decisions), `review.md` (quality gate results). Permanent record after merge.
 - **METRICS.md** — event taxonomy + feature flags. Source of truth for analytics.
 
 ## Further Reading
 
-- `./GUIDE.md` — full operational reference (workflow details, skill map, checklists, new-project guide)
+- `./guide/` — full operational reference (workflow details, skill map, checklists, new-project guide)
 - `./FAQ.md` — design rationale and architecture decisions
-- `./TODOS.md` — devshop tactical backlog (friction, bugs, small fixes)
-- `./ROADMAP.md` — devshop strategic backlog (capabilities, major improvements)
-- `./notes/bootstrap/v0-web.md` — construction blueprint for the web devshop (historical after build)
-- `./notes/bootstrap/v+-native.md` — construction blueprint for native/mobile capability (deferred)
+- `../TODOS.md` — devshop tactical backlog (friction, bugs, small fixes)
+- `../ROADMAP.md` — devshop strategic backlog (capabilities, major improvements)
+- `../notes/bootstrap/v0-web.md` — construction blueprint for the web devshop (historical after build)
+- `../notes/bootstrap/v+-native.md` — construction blueprint for native/mobile capability (deferred)

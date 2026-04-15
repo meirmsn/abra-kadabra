@@ -10,18 +10,18 @@
 Reference docs (living):
 
 - Always loaded: CLAUDE.md (you're reading it)
-- For high-level orientation: `.devshop/OVERVIEW.md`
-- Before making decisions (workflow, conventions, architecture): `.devshop/GUIDE.md`
+- For high-level orientation: `kit/docs/OVERVIEW.md`
+- Before making decisions (workflow, conventions, architecture): `kit/docs/guide/`
 - When implementing features: specs/<name>/spec.md + METRICS.md + DESIGN.md
 
 Build blueprints (historical after execution):
 
-- When bootstrapping or modifying devshop: `.devshop/notes/bootstrap/v0-web.md`
-- When adding native/mobile: `.devshop/notes/bootstrap/v+-native.md`
+- When bootstrapping or modifying devshop: `kit/notes/bootstrap/v0-web.md`
+- When adding native/mobile: `kit/notes/bootstrap/v+-native.md`
 
 ### Session Start
 
-A `SessionStart` hook (on `startup` and `clear`) automatically injects `README.md`, the first 15 lines of `BUILD-LOG.md`, the current branch, and this devshop `CLAUDE.md` into context. No manual reads needed — the hook runs `.devshop/scripts/session-start.sh`. (The devshop CLAUDE.md injection is a workaround for `anthropics/claude-code#22583` — remove when `additionalDirectories` loading is fixed.)
+A `SessionStart` hook (on `startup` and `clear`) automatically injects `README.md`, the first 15 lines of `BUILD-LOG.md`, the current branch, and this devshop `CLAUDE.md` into context. No manual reads needed — the hook runs `kit/scripts/session-start.sh`. (The devshop CLAUDE.md injection is a workaround for `anthropics/claude-code#22583` — remove when `additionalDirectories` loading is fixed.)
 
 If the user asks you to implement, fix, or continue work (not just answer a question), run `/ak-status` first — it reads `BUILD-LOG.md`, git state, and any active spec to produce a one-paragraph orientation briefing. Alternatively, read `BUILD-LOG.md` § Status directly for phase, next step, and blockers.
 
@@ -40,9 +40,9 @@ Flag concerns not covered by existing docs or conventions — wait for confirmat
 **Two repos, two commit flows:**
 
 - **Project commits** go to the project repo (`/workspace`). Use conventional commits (`feat:`, `fix:`, `chore:`, etc.).
-- **Devshop commits** go to the abra-kadabra repo (`/devshop`). Use conventional commits. Since `.devshop/` is a symlink, edits are automatically in the abra-kadabra working tree — just `cd /devshop && git add && git commit`.
+- **Devshop commits** go to the abra-kadabra repo (`/devshop`). Use conventional commits. Since `.devshopkit/` is a symlink to `/devshop/kit/`, edits are automatically in the abra-kadabra working tree — just `cd /devshop && git add && git commit`.
 
-See `.devshop/GUIDE.md § Devshop Separation Architecture` for the full model.
+See `kit/docs/guide/architecture.md` for the full model, or `kit/docs/MODEL.md` for the conceptual overview.
 
 ### Non-Negotiables
 
@@ -53,10 +53,10 @@ See `.devshop/GUIDE.md § Devshop Separation Architecture` for the full model.
 - Light/dark theme required — both from launch, theme tokens only.
 - Edge functions always validate auth server-side via `getUser()`.
 - Auth flow changes always include route protection middleware in the same PR.
-- Pre-commit enforcement on every commit, no bypass. See GUIDE.md § Security + Quality for what runs.
-- Every devshop tooling change includes doc updates in the same commit. Before committing, review GUIDE.md and README.md for accuracy against your changes. The commit guard will block — update the docs, don't look for workarounds.
+- Pre-commit enforcement on every commit, no bypass. See `kit/docs/guide/security.md` for what runs.
+- Every devshop tooling change includes doc updates in the same commit. Before committing, review guide docs and README.md for accuracy against your changes. The commit guard will block — update the docs, don't look for workarounds.
 - Shared packages export TypeScript source directly — no build step.
-- For full detail on testing philosophy, metrics lifecycle, and backlog routing: see `.devshop/GUIDE.md § Shared Conventions`.
+- For full detail on testing philosophy, metrics lifecycle, and backlog routing: see `kit/docs/guide/conventions.md`.
 
 ### Known Footguns
 
@@ -98,24 +98,26 @@ See `.devshop/GUIDE.md § Devshop Separation Architecture` for the full model.
 - **Out-of-scope discovery** — route by who cares and urgency, skip, continue:
   - Project, fix soon → `TODOS.md`
   - Project, build later → `PRODUCT-ROADMAP.md`
-  - Devshop, fix soon → `.devshop/TODOS.md`
-  - Devshop, build later → `.devshop/ROADMAP.md`
+  - Devshop, fix soon → `kit/TODOS.md`
+  - Devshop, build later → `kit/ROADMAP.md`
 - **Minor issue** (< 5 min to fix) — fix in current task's commit, note in commit message
 - **Minor issue** (> 5 min to fix) — add to `TODOS.md` with `[minor]` tag, continue
 
 ### Naming Convention
 
 - `abra-kadabra` = brand name (devshop repo, doc titles). Never used in file names or CLI commands.
-- `devshop` = code references (`.devshop/`, `.claude/skills/devshop/`).
+- `devshop` = code references (`.claude/skills/devshop/`).
+- `kit/` = devshop operational files (docs, scripts, hooks) in the devshop repo. Symlinked as `.devshopkit` in project repos.
 - `ak-` = skill prefix for devshop skills (`/ak-build`, `/ak-spec`, `/ak-new-project`, `/ak-migrate-project`, etc.).
 
 ### Devshop Documentation Structure
 
-All devshop docs live in `.devshop/`:
+All devshop docs live in `kit/docs/`:
 
-- Overview: `.devshop/OVERVIEW.md` + operational reference: `.devshop/GUIDE.md` + design rationale: `.devshop/FAQ.md`
-- Backlogs: `.devshop/TODOS.md` + `.devshop/ROADMAP.md` (grow independently)
-- Build blueprints: `.devshop/notes/bootstrap/` (historical after execution)
+- Conceptual model: `kit/docs/MODEL.md`
+- Overview: `kit/docs/OVERVIEW.md` + operational reference: `kit/docs/guide/` + design rationale: `kit/docs/FAQ.md`
+- Backlogs: `kit/TODOS.md` + `kit/ROADMAP.md` (grow independently)
+- Build blueprints: `kit/notes/bootstrap/` (historical after execution)
 
 ### Devshop Repo Layout
 
@@ -123,7 +125,7 @@ When working in the devshop repo (`/devshop/`):
 
 - **Root** = devshop infrastructure only (minimal package.json, .devcontainer/, shared configs).
 - **`template/`** = project skeleton. Copied by `/ak-new-project` Phase A. Deny-ruled — do not modify directly via Claude (use sync scripts after project changes).
-- **`.devshop/`** = the devshop itself — all docs (CHANGELOG, ROADMAP, TODOS, GUIDE, notes/), scripts (including `init-devshop.sh`), and hooks. Symlinked into project repos.
+- **`kit/`** = the devshop kit — docs (`kit/docs/`), scripts (`kit/scripts/`), hooks (`kit/hooks/`), notes, backlogs. Symlinked as `.devshopkit` into project repos.
 - **`.claude/`** = Claude Code runtime config (skills, commands, settings). Also symlinked.
 
 Root keeps eslint + friends because `lint-staged` invokes `eslint --fix` on every commit. Practically a no-op (no .ts/.js at root) but removing it would break the pre-commit hook.
@@ -150,7 +152,7 @@ The container runs as the `node` user (non-root). On every start, `init-firewall
 
 ### Claude Code Configuration
 
-`.claude/settings.json` and `.dcg.toml` are root-owned copies (not symlinks) locked by init-devshop.sh — they survive git operations and can't be modified or deleted by node (sticky bit on `.claude/`). Other devshop files are symlinks, including `.hooks/pre-commit` (symlinked to `.devshop/hooks/pre-commit.sh`). See `.devshop/GUIDE.md § Security` for the full list and rationale. To edit any locked file: `sudo nano <file>`.
+`.claude/settings.json` and `.dcg.toml` are root-owned copies (not symlinks) locked by init-devshop.sh — they survive git operations and can't be modified or deleted by node (sticky bit on `.claude/`). Other devshop files are symlinks, including `.hooks/pre-commit` (symlinked to `kit/hooks/pre-commit.sh`). See `kit/docs/guide/security.md` for the full list and rationale. To edit any locked file: `sudo nano <file>`.
 
 Custom slash commands go in `.claude/commands/` as Markdown files. Personal overrides go in `.claude/settings.local.json` (gitignored).
 

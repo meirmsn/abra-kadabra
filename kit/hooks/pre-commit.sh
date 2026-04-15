@@ -6,13 +6,13 @@
 set -euo pipefail
 
 DEVSHOP="${DEVSHOP:-/devshop}"
-SCRIPTS_DIR="$DEVSHOP/.devshop/scripts"
+SCRIPTS_DIR="$DEVSHOP/kit/scripts"
 
 GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
 
 # Detect devshop-self mode: workspace IS the devshop repo (opened directly in VS Code).
-# .devshop/ is a real directory in the devshop repo but always a symlink in projects.
-if [ -d "$GIT_ROOT/.devshop" ] && [ ! -L "$GIT_ROOT/.devshop" ]; then
+# kit/ is a real directory in the devshop repo but always a symlink (.devshopkit) in projects.
+if [ -d "$GIT_ROOT/kit" ] && [ ! -L "$GIT_ROOT/kit" ]; then
   # Devshop-self mode: same checks as devshop repo
   bash "$SCRIPTS_DIR/check-clean-tree.sh"
   bash "$SCRIPTS_DIR/devshop-commit-guard.sh"

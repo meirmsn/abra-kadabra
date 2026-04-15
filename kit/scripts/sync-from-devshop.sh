@@ -12,7 +12,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-MANIFEST="$PROJECT_ROOT/.devshop/manifest.txt"
+MANIFEST="$PROJECT_ROOT/.devshopkit/manifest.txt"
 DEVSHOP_DIR="${DEVSHOP_DIR:-/devshop}"
 
 # --- Guards ---
@@ -34,7 +34,7 @@ if [ ! -d "$DEVSHOP_DIR/.git" ]; then
 fi
 
 if [ ! -f "$MANIFEST" ]; then
-  echo "ERROR: .devshop/manifest.txt not found."
+  echo "ERROR: .devshopkit/manifest.txt not found."
   exit 1
 fi
 
@@ -71,7 +71,7 @@ echo "=== Changes from devshop sync ==="
 cd "$PROJECT_ROOT"
 git diff
 
-DEVSHOP_VERSION=$(cat "$DEVSHOP_DIR/.devshop/version" 2>/dev/null | tr -d '[:space:]' || echo "unknown")
+DEVSHOP_VERSION=$(cat "$DEVSHOP_DIR/kit/version" 2>/dev/null | tr -d '[:space:]' || echo "unknown")
 echo ""
 echo "Review the changes above. If they look good:"
 echo "  git add -A && git commit -m 'chore: sync from devshop v$DEVSHOP_VERSION'"

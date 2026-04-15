@@ -28,10 +28,10 @@ fi
 
 # --- Devshop-self guard ---
 # When the workspace IS the devshop (opened directly in VS Code as a devcontainer),
-# skip injection. .devshop/ is a real directory in the devshop repo but always
-# a symlink in project repos. Without this guard, symlink creation would replace
-# the real .devshop/ directory with a self-referential symlink (destructive).
-if [ -d "$WS/.devshop" ] && [ ! -L "$WS/.devshop" ]; then
+# skip injection. kit/ is a real directory in the devshop repo but always
+# a symlink (.devshopkit) in project repos. Without this guard, symlink creation
+# would replace the real kit/ directory with a self-referential symlink (destructive).
+if [ -d "$WS/kit" ] && [ ! -L "$WS/kit" ]; then
   (cd "$DEVSHOP" && su node -c 'pnpm install --frozen-lockfile 2>/dev/null || pnpm install') || true
   # Lock essentials even in devshop-self mode (prevents security freshness warnings)
   for f in "$WS/.claude/settings.json" "$WS/.dcg.toml"; do
@@ -43,14 +43,18 @@ fi
 # --- Create devshop symlinks ---
 # Extracted to create-devshop-symlinks.sh so it can also be called from
 # session-start.sh and .husky/pre-commit when symlinks are lost by git ops.
-DEVSHOP="$DEVSHOP" WS="$WS" bash "$DEVSHOP/.devshop/scripts/create-devshop-symlinks.sh"
+DEVSHOP="$DEVSHOP" WS="$WS" bash "$DEVSHOP/kit/scripts/create-devshop-symlinks.sh"
 
 # --- Copy security-critical files (real files, not symlinks) ---
 # Symlinks are fragile: git ops delete them, node can replace them.
 # Root-owned copies survive git ops and can't be modified by node.
 # Freshness is checked by check-security-files-freshness.sh in pre-commit.
+# Copy settings.json with path replacement: devshop uses kit/ paths,
+# workspace uses .devshopkit/ paths (the symlink name in projects).
 [ -L "$WS/.claude/settings.json" ] && rm "$WS/.claude/settings.json"
-cp "$DEVSHOP/.claude/settings.json" "$WS/.claude/settings.json"
+# Two-pass: first protect absolute /devshop/kit/ paths with a placeholder,
+# then replace relative kit/ with .devshopkit/, then restore the placeholder.
+sed 's|/devshop/kit/|@@DEVSHOP_KIT@@|g; s|kit/|.devshopkit/|g; s|@@DEVSHOP_KIT@@|/devshop/kit/|g' "$DEVSHOP/.claude/settings.json" > "$WS/.claude/settings.json"
 
 [ -L "$WS/.dcg.toml" ] && rm "$WS/.dcg.toml"
 [ -f "$DEVSHOP/.dcg.toml" ] && cp "$DEVSHOP/.dcg.toml" "$WS/.dcg.toml"
@@ -92,7 +96,7 @@ chown -h node:node "$MEMORY_LINK"
 #   checksums.sha256     — integrity verification for pinned binaries
 #   .env                 — secrets and credentials
 #   .dcg.toml            — destructive command guard configuration
-#   .devshop/scripts/*   — commit guard scripts (breaks circularity: the
+#   kit/scripts/*        — commit guard scripts (breaks circularity: the
 #                          scripts that watch settings.json must survive
 #                          settings.json disappearing)
 for f in \
@@ -105,7 +109,7 @@ for f in \
   "$WS/.devcontainer/checksums.sha256" \
   "$WS/.devcontainer/.env" \
   "$WS/.dcg.toml" \
-  "$DEVSHOP/.devshop/scripts/init-devshop.sh" \
+  "$DEVSHOP/kit/scripts/init-devshop.sh" \
   "$DEVSHOP/.devcontainer/devcontainer.json" \
   "$DEVSHOP/.devcontainer/init-devshop.sh" \
   "$DEVSHOP/.devcontainer/init-firewall.sh" \
@@ -122,7 +126,7 @@ for f in \
   [ -e "$f" ] && chown root:root "$f" && chmod 644 "$f"
 done
 # Lock all devshop scripts (glob — future scripts are auto-protected)
-for f in "$DEVSHOP/.devshop/scripts/"*.sh; do
+for f in "$DEVSHOP/kit/scripts/"*.sh; do
   [ -e "$f" ] && chown root:root "$f" && chmod 644 "$f"
 done
 

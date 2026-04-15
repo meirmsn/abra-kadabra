@@ -25,7 +25,7 @@ migration. GitHub Action cron → `pg_dump` → artifact or private gist.
 
 ### Devshop observability — skill invocation log
 
-Each devshop skill appends one line to `.devshop/log.csv`:
+Each devshop skill appends one line to `kit/log.csv`:
 timestamp, skill name, duration, outcome (pass/fail/paused), notes.
 `/retro` reads it to inform retrospectives with real data instead of opinions.
 
@@ -39,14 +39,14 @@ testing catches data-dependent rollback failures.
 
 GitHub Action cron (weekly or monthly) that checks usage against quotas for
 Supabase, Sentry, PostHog, GitHub Actions, and Vercel. Warns when usage > 80%.
-v0 has manual dashboard links in `.devshop/GUIDE.md`; this automates the check.
+v0 has manual dashboard links in the guide; this automates the check.
 
 ### Local integration test alternatives to DinD
 
 v0 uses Docker-in-Docker for `supabase start` inside the devcontainer (16GB+ RAM).
 If DinD proves too heavy, evaluate alternatives: host-side Supabase with devcontainer
 connecting via `host.docker.internal`, or optimized CI-only workflow.
-Full research: `.devshop/notes/integration-test-local-alternatives.md`
+Full research: `kit/notes/integration-test-local-alternatives.md`
 
 ### Subagent architecture for `/implement`
 
@@ -75,7 +75,7 @@ reason, adversarially reviewed. Same pattern as `dirtyTreeReason` and `docsVerif
 Problem it solves: PostToolUse `check-dirty-after-commit.sh` is advisory — Claude can
 ignore it. PreToolUse hooks cannot block Bash calls (#26923). Husky can block.
 
-Full design: `.devshop/notes/ak-commit-design.md`
+Full design: `kit/notes/ak-commit-design.md`
 
 ### Devshop self-build pipeline
 
@@ -89,7 +89,7 @@ checks) and doesn't fit devshop changes.
 - **`/ak-devshop-build`** — lighter devshop-specific pipeline: branch → edit →
   commit guard → docs consistency check → push → PR. Reuses `/ship` for the PR
   step. Skips specs, metrics, responsive checks.
-- **Mode-aware `/ak-build`** — detect `devshop/` branch prefix → swap in devshop
+- **Mode-aware `/ak-build`** — detect devshop branch prefix → swap in devshop
   conventions (devshop commit prefix, docs drift checks, script tests) instead of
   project ones. Single entry point but more complex.
 
@@ -105,7 +105,7 @@ branch-edit-commit-push flow feels like friction.
 
 ### CLAUDE.md block assembly
 
-Template snippets in `.devshop/templates/claude-blocks/` — one per technology choice
+Template snippets in `kit/templates/claude-blocks/` — one per technology choice
 (`supabase.md`, `vercel.md`, `posthog.md`, `sentry.md`, etc.). Each block contains the
 env vars, migration commands, file path patterns, and conventions for that tool.
 
@@ -166,7 +166,7 @@ vs symlink decision), reassess whether proactive recovery is still needed.
 
 Extend the devshop to support React Native (Expo) apps alongside web. Adds `apps/mobile/`,
 EAS CLI, Maestro E2E, mobile Sentry/PostHog, App Store/Play Store deployment.
-Full build blueprint: `.devshop/notes/bootstrap/v+-native.md`.
+Full build blueprint: `kit/notes/bootstrap/v+-native.md`.
 
 ### Fakeowner + Bash bypass hardening
 
@@ -212,10 +212,10 @@ bypassable with sufficient creativity.
 
 ### Symlink replacement protection
 
-The `.devshop` symlink (and other injected symlinks like `.claude/commands`,
+The `.devshopkit` symlink (and other injected symlinks like `.claude/commands`,
 `.claude/skills/*`) are node-owned and have no deny rules. A single `mv` command
-(which is in the Bash allow list) could replace `.devshop` with a symlink to an
-attacker-controlled directory. All guard scripts (`bash .devshop/scripts/...`)
+(which is in the Bash allow list) could replace `.devshopkit` with a symlink to an
+attacker-controlled directory. All guard scripts (`bash kit/scripts/...`)
 and PreToolUse hooks would then execute from the new target.
 
 **Current mitigations:**
@@ -229,11 +229,11 @@ detection window, and self-heals at the next checkpoint. Practical risk is low.
 
 **Options when hardening:**
 
-- PreToolUse hook that validates `.devshop` symlink target before executing any
-  command that references `.devshop/` paths
+- PreToolUse hook that validates `.devshopkit` symlink target before executing any
+  command that references `kit/` paths
 - Integrity check in DCG that verifies symlink targets haven't changed
 - Root-owned wrapper script at a fixed path (not a symlink) that hooks call
-  instead of relying on the `.devshop` symlink path
+  instead of relying on the `.devshopkit` symlink path
 
 **Trigger:** When a symlink replacement is observed in practice, or when
 hardening the Bash bypass gap (above) — both share the same attack surface.
@@ -286,7 +286,7 @@ Evaluate alternatives to Supabase hosted for cost-conscious multi-project use:
 Trigger: when monthly Supabase bills exceed ~€15/mo across projects, or when
 staging/branching becomes a real bottleneck.
 
-Full research: `.devshop/notes/backend-alternatives-research.md`
+Full research: `kit/notes/backend-alternatives-research.md`
 
 ### `/rollback` skill
 
@@ -314,7 +314,7 @@ Skeleton exists (`.claude/skills/devshop/migrate-project/SKILL.md`). Two tiers:
 
 `/ak-init` assumes a fresh template clone. `/ak-migrate` handles the cases where
 that assumption doesn't hold. Reference: lalista Phase 1 execution in
-`.devshop/notes/bootstrap/v0-web.md` as the first data point for parametrization.
+`kit/notes/bootstrap/v0-web.md` as the first data point for parametrization.
 
 Trigger: when a second project needs to adopt the devshop.
 
@@ -391,7 +391,7 @@ production debugging session reveals what's actually needed.
 
 Resolved: created `template/` directory at devshop root containing the project
 skeleton. Root simplified to devshop-only needs (no turbo, no pnpm-workspace).
-`init-devshop.sh` moved to `.devshop/scripts/`. `/ak-init` replaced by
+`init-devshop.sh` moved to `kit/scripts/`. `/ak-init` replaced by
 `/ak-new-project` (two-phase: create repo + setup) and `/ak-migrate-project`
 (skeleton). Init checklist moved from GUIDE.md to per-project `INIT-TRACKER.md`.
 
@@ -419,7 +419,7 @@ project-template conventions — or just accepting the noise as low-cost.
 ### CODEOWNERS + branch protection
 
 Add `CODEOWNERS` to both repos requiring review approval for changes to
-`.devshop/`, `.claude/`, `.devcontainer/`, and hook files. Pair with GitHub
+`.devshopkit/`, `.claude/`, `.devcontainer/`, and hook files. Pair with GitHub
 branch protection on `main` (require PR reviews, block direct pushes).
 
 Currently all guards are local (hooks, file ownership, deny lists). A force

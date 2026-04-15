@@ -5,7 +5,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-VERSION_FILE=".devshop/version"
+VERSION_FILE="kit/version"
 
 if [ ! -f "$VERSION_FILE" ]; then
   echo "ERROR: $VERSION_FILE not found. Are you in the devshop repo root?"
@@ -67,7 +67,7 @@ fi
 
 # Write new version, update changelog, commit, tag
 echo "$NEW_VERSION" > "$VERSION_FILE"
-CHANGELOG_PATH="$(pwd)/.devshop/CHANGELOG.md"
+CHANGELOG_PATH="$(pwd)/kit/docs/CHANGELOG.md"
 bash "$SCRIPT_DIR/changelog-entry.sh" "$NEW_VERSION" "$CHANGELOG_MSG" "$CHANGELOG_PATH"
 git add "$VERSION_FILE" "$CHANGELOG_PATH"
 git commit -m "Bump devshop version to $NEW_VERSION"

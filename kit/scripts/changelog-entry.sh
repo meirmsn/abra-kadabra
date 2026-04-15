@@ -6,14 +6,14 @@
 #   changelog-entry.sh <version> <message> [changelog-path]
 #
 # message can be multi-line (use \n or pass a heredoc via variable).
-# changelog-path defaults to .devshop/CHANGELOG.md relative to the script's repo root.
+# changelog-path defaults to kit/docs/CHANGELOG.md relative to the script's repo root.
 set -euo pipefail
 
 VERSION="${1:?Usage: changelog-entry.sh <version> <message> [changelog-path]}"
 MESSAGE="${2:?Usage: changelog-entry.sh <version> <message> [changelog-path]}"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-DEFAULT_CHANGELOG="$(cd "$SCRIPT_DIR/../.." && pwd)/.devshop/CHANGELOG.md"
+DEFAULT_CHANGELOG="$(cd "$SCRIPT_DIR/../.." && pwd)/kit/docs/CHANGELOG.md"
 CHANGELOG="${3:-$DEFAULT_CHANGELOG}"
 
 if [ ! -f "$CHANGELOG" ]; then

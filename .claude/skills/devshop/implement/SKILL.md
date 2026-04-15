@@ -5,7 +5,7 @@ description: |
   Run the implementation loop for the active spec. Reads spec from specs/<name>/ →
   traces the gstack plan → checks tasks (new vs resume) → implements each task with tests → runs stuck
   protocol on failure → commits atomically per task → prints completion summary and
-  handoff to /ak-pre-ship. Follows conventions in .devshop/GUIDE.md and CLAUDE.md.
+  handoff to /ak-pre-ship. Follows conventions in kit/docs/guide/ and CLAUDE.md.
   Use when asked to "implement", "start coding", or "build this". (devshop)
 allowed-tools:
   - Bash
@@ -22,7 +22,7 @@ allowed-tools:
 
 Run the implementation loop for the active spec.
 
-**Before starting**: read `.devshop/GUIDE.md § Shared Conventions` for testing philosophy,
+**Before starting**: read `kit/docs/guide/ § Shared Conventions` for testing philosophy,
 backlog routing, and metrics lifecycle. These are referenced throughout, not duplicated here.
 
 ## Step 1: Gather context
@@ -164,5 +164,5 @@ Ready for /ak-pre-ship
 ## During implementation
 
 Follow the TODO protocol in `CLAUDE.md` and backlog routing guide in
-`.devshop/GUIDE.md § Shared Conventions` for blockers, out-of-scope discoveries,
+`kit/docs/guide/ § Shared Conventions` for blockers, out-of-scope discoveries,
 and minor issues encountered along the way.

@@ -15,8 +15,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-MANIFEST="$PROJECT_ROOT/.devshop/manifest.txt"
-VERSION_FILE="$PROJECT_ROOT/.devshop/version"
+MANIFEST="$PROJECT_ROOT/.devshopkit/manifest.txt"
+VERSION_FILE="$PROJECT_ROOT/.devshopkit/version"
 DEVSHOP_DIR="${DEVSHOP_DIR:-/devshop}"
 
 # --- Parse args ---
@@ -50,7 +50,7 @@ if [ ! -d "$DEVSHOP_DIR/.git" ]; then
 fi
 
 if [ ! -f "$MANIFEST" ]; then
-  echo "ERROR: .devshop/manifest.txt not found."
+  echo "ERROR: .devshopkit/manifest.txt not found."
   exit 1
 fi
 
@@ -169,7 +169,7 @@ esac
 NEW_VERSION="$MAJOR.$MINOR.$PATCH"
 
 # Update version in both repos
-echo "$NEW_VERSION" > "$DEVSHOP_DIR/.devshop/version"
+echo "$NEW_VERSION" > "$DEVSHOP_DIR/kit/version"
 echo "$NEW_VERSION" > "$VERSION_FILE"
 
 # Re-stage after version update
@@ -212,4 +212,4 @@ echo "  cd <path-to-devshop-repo> && git push"
 check_file_locks
 echo ""
 echo "Then commit the version bump + changelog in this project:"
-echo "  git add .devshop/version .devshop/CHANGELOG.md && git commit -m 'Bump devshop version to $NEW_VERSION'"
+echo "  git add .devshopkit/version .devshopkit/docs/CHANGELOG.md && git commit -m 'Bump devshop version to $NEW_VERSION'"

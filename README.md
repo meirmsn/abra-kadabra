@@ -14,7 +14,7 @@ A one-person dev shop. Goes from rough notes to deployed, tested, observable web
 
 ### Existing project
 
-Run `/ak-migrate-project` (skeleton — two tiers: lightweight and full). See `.devshop/ROADMAP.md § /ak-migrate`.
+Run `/ak-migrate-project` (skeleton — two tiers: lightweight and full). See `kit/ROADMAP.md § /ak-migrate`.
 
 ## Prerequisites
 
@@ -26,14 +26,14 @@ Run `/ak-migrate-project` (skeleton — two tiers: lightweight and full). See `.
 
 ## How it works
 
-See `.devshop/OVERVIEW.md` for the full picture: workflow, file map, conventions, and glossary.
+See `kit/docs/MODEL.md` for how the system works. See `kit/docs/OVERVIEW.md` for the full picture: workflow, file map, conventions, and glossary.
 
 Short version: you write rough notes, `/office-hours` turns them into a product design, `/autoplan` locks in architecture, `/ak-build` implements autonomously (spec → code → quality gates → PR), you review, `/ak-go-live` deploys.
 
 ## Improving the devshop
 
-- `.devshop/TODOS.md` — tactical: friction, bugs, small fixes
-- `.devshop/ROADMAP.md` — strategic: new capabilities, major improvements
-- `.devshop/notes/` — research, design notes, build blueprints
-- `.devshop/GUIDE.md` — full operational reference (update when changing conventions)
-- `.devshop/FAQ.md` — design rationale and architecture decisions
+- `kit/TODOS.md` — tactical: friction, bugs, small fixes
+- `kit/ROADMAP.md` — strategic: new capabilities, major improvements
+- `kit/notes/` — research, design notes, build blueprints
+- `kit/docs/guide/` — full operational reference (update when changing conventions)
+- `kit/docs/FAQ.md` — design rationale and architecture decisions
