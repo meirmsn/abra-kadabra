@@ -39,22 +39,6 @@ RED='\033[1;31m'
 ORANGE='\033[38;5;208m'
 RESET='\033[0m'
 
-# Color a percentage: default <50, orange 50-80, red >80
-color_pct() {
-  pct="$1"
-  if [ -z "$pct" ]; then
-    printf '%s' '--%'
-    return
-  fi
-  rounded=$(printf '%.0f' "$pct")
-  if [ "$rounded" -gt 80 ] 2>/dev/null; then
-    printf "${RED}%s%%${RESET}" "$rounded"
-  elif [ "$rounded" -gt 50 ] 2>/dev/null; then
-    printf "${ORANGE}%s%%${RESET}" "$rounded"
-  else
-    printf '%s%%' "$rounded"
-  fi
-}
 
 # Build context bar: [████░░░░] XX%
 context_bar() {
@@ -112,8 +96,8 @@ format_reset() {
     diff_h=$(( (diff_sec % 86400) / 3600 ))
     diff_m=$(( (diff_sec % 3600) / 60 ))
     if [ "$diff_d" -ge 3 ]; then
-      # Far out: just days
-      printf '%dd' "$diff_d"
+      # Far out: just days with refresh icon
+      printf '↻ %dd' "$diff_d"
     elif [ "$diff_d" -gt 0 ]; then
       # Under 3 days: show deadline + rounded-up days
       deadline=$(date -d "@$reset_epoch" +'%a@%-I:%M%P' 2>/dev/null)
@@ -138,17 +122,17 @@ format_reset() {
   fi
 }
 
-# Compute expected linear usage % and return label color + arrow
-# Usage: rate_label "5h" pct resets_at
-# Outputs the colored label (e.g., "5h" or "5h(↑)")
-rate_label() {
+# Compute expected linear usage % and print: "5h" colored + "30%" plain + "(/63%)" colored
+# Usage: rate_segment "5h" pct resets_at
+rate_segment() {
   window="$1"
   pct="$2"
   iso="$3"
+  label="$window"
 
-  # Default: no color, no arrow
+  # No data — plain label + dashes
   if [ -z "$pct" ] || [ -z "$iso" ]; then
-    printf '%s' "$window"
+    printf '%s --%%' "$label"
     return
   fi
 
@@ -158,7 +142,7 @@ rate_label() {
     *)        reset_epoch="$iso" ;;
   esac
   if [ -z "$reset_epoch" ]; then
-    printf '%s' "$window"
+    printf '%s --%%' "$label"
     return
   fi
 
@@ -180,16 +164,38 @@ rate_label() {
   rounded_pct=$(printf '%.0f' "$pct")
   delta=$(( rounded_pct - expected ))
 
+  # Pick color based on delta
   if [ "$delta" -ge 15 ]; then
-    printf "${RED}%s(↑)${RESET}" "$window"
+    color="$RED"
   elif [ "$delta" -ge 5 ]; then
-    printf "${ORANGE}%s(↑)${RESET}" "$window"
+    color="$ORANGE"
   elif [ "$delta" -ge -5 ]; then
-    printf "${GREEN}%s(·)${RESET}" "$window"
+    color="$GREEN"
   elif [ "$delta" -ge -10 ]; then
-    printf "${BLUE}%s(↓)${RESET}" "$window"
+    color="$BLUE"
   else
-    printf '%s' "$window"
+    color=""
+  fi
+
+  # Color actual pct by absolute range: <50 plain, 50-80 orange, >80 red
+  if [ "$rounded_pct" -gt 80 ] 2>/dev/null; then
+    pct_color="$RED"
+  elif [ "$rounded_pct" -gt 50 ] 2>/dev/null; then
+    pct_color="$ORANGE"
+  else
+    pct_color=""
+  fi
+  if [ -n "$pct_color" ]; then
+    actual_fmt="${pct_color}%s%%${RESET}"
+  else
+    actual_fmt='%s%%'
+  fi
+
+  # Print: pace-colored label + range-colored actual% + pace-colored /expected%
+  if [ -n "$color" ]; then
+    printf "${color}%s${RESET} ${actual_fmt}/${color}%d%%${RESET}" "$label" "$rounded_pct" "$expected"
+  else
+    printf "%s ${actual_fmt}" "$label" "$rounded_pct"
   fi
 }
 
@@ -210,14 +216,13 @@ printf " %s" "$(context_bar "$used")"
 echo
 
 # === LINE 2 ===
-printf "%s: " "$(rate_label "5h" "$rl5_pct" "$rl5_resets")"
-color_pct "$rl5_pct"
+rate_segment "5h" "$rl5_pct" "$rl5_resets"
 if [ -n "$rl5_resets" ]; then
   printf " (%s)" "$(format_reset "$rl5_resets" "5h")"
 fi
 
-printf " | %s: " "$(rate_label "7d" "$rl7_pct" "$rl7_resets")"
-color_pct "$rl7_pct"
+printf " | "
+rate_segment "7d" "$rl7_pct" "$rl7_resets"
 if [ -n "$rl7_resets" ]; then
   printf " (%s)" "$(format_reset "$rl7_resets" "7d")"
 fi
