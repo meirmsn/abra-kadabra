@@ -26,10 +26,11 @@ case "$CHECK_TYPE" in
   docsVerified)
     DIFF=$(git diff --cached --stat 2>/dev/null || true)
     DIFF_FULL=$(git diff --cached 2>/dev/null | head -300 || true)
-    GUIDE_HEADERS=$(grep -n '^##' "$GIT_ROOT/kit/docs/GUIDE.md" 2>/dev/null | head -50 || true)
+    GUIDE_HEADERS=$(for f in "$GIT_ROOT"/kit/docs/guide/*.md; do echo "--- $(basename "$f") ---"; grep -n '^##' "$f" 2>/dev/null | head -20; done || true)
     README_MD=$(cat "$GIT_ROOT/kit/docs/OVERVIEW.md" 2>/dev/null || true)
     CLAUDE_MD=$(cat "$GIT_ROOT/CLAUDE.md" 2>/dev/null | head -100 || true)
     FAQ_HEADERS=$(grep -n '^##' "$GIT_ROOT/kit/docs/FAQ.md" 2>/dev/null | head -30 || true)
+    MODEL_MD=$(cat "$GIT_ROOT/kit/docs/MODEL.md" 2>/dev/null || true)
     PROJECT_CLAUDE=$(cat "/workspace/CLAUDE.md" 2>/dev/null | head -100 || true)
     PROJECT_README=$(cat "$GIT_ROOT/README.md" 2>/dev/null | head -60 || true)
     CONTEXT="Staged diff summary:
@@ -41,10 +42,13 @@ $DIFF_FULL
 === CLAUDE.md (devshop) (first 100 lines) ===
 $CLAUDE_MD
 
+=== kit/docs/MODEL.md ===
+$MODEL_MD
+
 === kit/docs/OVERVIEW.md ===
 $README_MD
 
-=== kit/docs/GUIDE.md section headers ===
+=== kit/docs/guide/ section headers ===
 $GUIDE_HEADERS
 
 === kit/docs/FAQ.md section headers ===
@@ -59,10 +63,10 @@ $PROJECT_README
 The reviewer MUST have checked ALL of these docs — not just the ones that already mention the changed code. New functionality needs to be documented for the first time."
     ;;
   docSyncReason)
-    DIFF=$(git diff --cached -- CLAUDE.md kit/docs/OVERVIEW.md kit/docs/GUIDE.md 2>/dev/null | head -300 || true)
+    DIFF=$(git diff --cached -- CLAUDE.md kit/docs/OVERVIEW.md kit/docs/guide/ 2>/dev/null | head -300 || true)
     README_MD=$(cat "$GIT_ROOT/kit/docs/OVERVIEW.md" 2>/dev/null || true)
     CLAUDE_MD=$(cat "$GIT_ROOT/CLAUDE.md" 2>/dev/null || true)
-    GUIDE_HEADERS=$(grep -n '^##' "$GIT_ROOT/kit/docs/GUIDE.md" 2>/dev/null | head -50 || true)
+    GUIDE_HEADERS=$(for f in "$GIT_ROOT"/kit/docs/guide/*.md; do echo "--- $(basename "$f") ---"; grep -n '^##' "$f" 2>/dev/null | head -20; done || true)
     CONTEXT="Doc changes (first 300 lines):
 $DIFF
 
@@ -72,7 +76,7 @@ $CLAUDE_MD
 === kit/docs/OVERVIEW.md ===
 $README_MD
 
-=== kit/docs/GUIDE.md section headers ===
+=== kit/docs/guide/ section headers ===
 $GUIDE_HEADERS"
     ;;
   crossRepoReason)

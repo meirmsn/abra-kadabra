@@ -116,8 +116,9 @@ if [ "$RUN_DRIFT_CHECK" = true ]; then
       echo ""
       echo "  Review ALL of these docs — even if they don't mention the changed code yet"
       echo "  (new functionality needs to be documented for the first time):"
+      echo "    kit/docs/MODEL.md      — conceptual model"
       echo "    kit/docs/OVERVIEW.md   — devshop overview"
-      echo "    kit/docs/GUIDE.md      — full operational reference"
+      echo "    kit/docs/guide/        — operational reference (workflow, conventions, hooks, security, architecture, ops)"
       echo "    CLAUDE.md               — devshop conventions (repo root)"
       echo "    kit/docs/FAQ.md        — design rationale"
       echo "    CLAUDE.md (project)    — project-specific conventions"
@@ -140,19 +141,19 @@ fi
 # When any devshop reference doc is staged, ALWAYS require a review explanation.
 # Adversarially reviewed — no auto-pass even when all docs are staged.
 HAS_CLAUDE_MD=false
-HAS_README=false
+HAS_OVERVIEW=false
 HAS_GUIDE=false
 # In the devshop repo, CLAUDE.md is at the root. In project repos, CLAUDE.md is a project file — skip it.
 [ "$CURRENT_REPO" = "devshop" ] && echo "$STAGED" | grep -q '^CLAUDE\.md$' && HAS_CLAUDE_MD=true
-echo "$STAGED" | grep -q '^kit/docs/OVERVIEW\.md$' && HAS_README=true
-echo "$STAGED" | grep -q '^kit/docs/GUIDE\.md$' && HAS_GUIDE=true
+echo "$STAGED" | grep -q '^kit/docs/OVERVIEW\.md$' && HAS_OVERVIEW=true
+echo "$STAGED" | grep -qE '^kit/docs/guide/' && HAS_GUIDE=true
 
 DOC_COUNT=0
 CHANGED_DOCS=()
 UNCHANGED_DOCS=()
 $HAS_CLAUDE_MD && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("CLAUDE.md") || UNCHANGED_DOCS+=("CLAUDE.md  (devshop conventions)")
-$HAS_README && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("OVERVIEW.md") || UNCHANGED_DOCS+=("kit/docs/OVERVIEW.md  (overview)")
-$HAS_GUIDE && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("GUIDE.md") || UNCHANGED_DOCS+=("kit/docs/GUIDE.md   (full reference)")
+$HAS_OVERVIEW && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("OVERVIEW.md") || UNCHANGED_DOCS+=("kit/docs/OVERVIEW.md  (overview)")
+$HAS_GUIDE && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("guide/") || UNCHANGED_DOCS+=("kit/docs/guide/  (operational reference)")
 
 if [ "$DOC_COUNT" -gt 0 ]; then
   CHANGED_LIST=$(IFS=', '; echo "${CHANGED_DOCS[*]}")
