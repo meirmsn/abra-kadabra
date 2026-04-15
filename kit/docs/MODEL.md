@@ -96,9 +96,9 @@ kit/
 
 ## Where to Learn More
 
-| Doc                        | When to read it                                    |
-| -------------------------- | -------------------------------------------------- |
-| `kit/docs/OVERVIEW.md`     | Orientation — file map, glossary, key conventions  |
-| `kit/docs/guide/README.md` | Before making decisions — index to detailed guides |
-| `kit/docs/FAQ.md`          | "Why did we do X?" — design rationale              |
-| `kit/notes/`               | Historical — bootstrap records, design decisions   |
+| Doc                    | When to read it                                   |
+| ---------------------- | ------------------------------------------------- |
+| `kit/docs/OVERVIEW.md` | Orientation — file map, glossary, key conventions |
+| `kit/docs/guide/`      | Before making decisions — operational reference   |
+| `kit/docs/FAQ.md`      | "Why did we do X?" — design rationale             |
+| `kit/notes/`           | Historical — bootstrap records, design decisions  |
