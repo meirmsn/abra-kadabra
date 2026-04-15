@@ -7,7 +7,7 @@ How the devshop protects security-critical files from modification by Claude (ru
 ### Layer 1: Container startup (`init-devshop.sh`, runs as root)
 
 On every `postStartCommand`, the devcontainer runs `sudo /usr/local/bin/init-devshop.sh`,
-which forwards to `/devshop/.devcontainer/init-devshop.sh`. This script:
+which forwards to `/devshop/.devshop/scripts/init-devshop.sh`. This script:
 
 1. **Removes passwordless sudo** — reads `DEVCONTAINER_ROOT_PASSWORD` from `.devcontainer/.env`,
    sets it on root + node, writes `node ALL=(ALL:ALL) ALL` to sudoers (password required).

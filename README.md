@@ -6,17 +6,15 @@ A one-person dev shop. Goes from rough notes to deployed, tested, observable web
 
 ### New project
 
-1. Create a new repo on GitHub
-2. Clone abra-kadabra as a sibling: `git clone <devshop-url> ../abra-kadabra`
-3. Add a `.devcontainer/` that mounts `../abra-kadabra` at `/devshop` (copy from abra-kadabra's `.devcontainer/`)
-4. Open in VS Code, reopen in the dev container
-5. Run `claude` in the terminal and say `/ak-init`
-
-`/ak-init` walks through a 27-step guided setup: accounts, scaffolding, integrations, security, and verification. See `.devshop/GUIDE.md § Starting a New Project` for the full checklist.
+1. Open the devshop (or any existing project) in its devcontainer
+2. Run `claude` in the terminal and say `/ak-new-project`
+3. Phase A creates a GitHub repo from the `template/` skeleton
+4. Clone the new repo on your host next to abra-kadabra, open in VS Code, reopen in container
+5. Run `/ak-new-project` again — Phase B walks through guided setup (accounts, scaffolding, integrations, security)
 
 ### Existing project
 
-Adopting the devshop on an existing codebase is planned but not yet automated. See `.devshop/ROADMAP.md § /ak-migrate` for the design.
+Run `/ak-migrate-project` (skeleton — two tiers: lightweight and full). See `.devshop/ROADMAP.md § /ak-migrate`.
 
 ## Prerequisites
 

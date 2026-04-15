@@ -1,0 +1,82 @@
+{
+  "name": "LaLista",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "args": {
+      "TZ": "${localEnv:TZ:America/Los_Angeles}",
+      "CLAUDE_CODE_VERSION": "latest",
+      "GIT_DELTA_VERSION": "0.19.2",
+      "SUPABASE_CLI_VERSION": "2.84.2",
+      "DCG_VERSION": "0.4.0",
+      "GITLEAKS_VERSION": "8.30.1"
+    }
+  },
+  "runArgs": [
+    "--cap-add=NET_ADMIN",
+    "--cap-add=NET_RAW",
+    // Add the anthropic api key env var
+    "--env-file",
+    "${localWorkspaceFolder}/.devcontainer/.env"
+    // Here you can add "--memory=8g", "--cpus=4" for CPU/RAM limits for the container itself
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "anthropic.claude-code",
+        "EditorConfig.EditorConfig",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode"
+      ],
+      "settings": {
+        // Trigger Prettier on save. Without it, Prettier is installed but does nothing automatically
+        "editor.formatOnSave": true,
+        // Without this VS Code will ask which formatter to use or use the wrong one, especially in TypeScript files where multiple formatters compete
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        // This is the only place ESLint auto-fix on save is configured. EditorConfig and Prettier don't cover this. Explicit means only when you explicitly save (not on auto-save, which triggers constantly as you type)
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        },
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "terminal.integrated.profiles.linux": {
+          "bash": {
+            "path": "bash",
+            "icon": "terminal-bash"
+          },
+          "zsh": {
+            "path": "zsh"
+          }
+        }
+      }
+    }
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "moby": false
+    }
+  },
+  "remoteUser": "node",
+  "mounts": [
+    // Shell history survives container rebuilds (zsh/bash)
+    "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
+    // Claude Code config, sessions, and API key survive container rebuilds
+    "source=claude-code-config-${devcontainerId},target=/home/node/.claude,type=volume",
+    // Devshop (abra-kadabra) — injected into workspace at container start
+    "source=${localWorkspaceFolder}/../abra-kadabra,target=/devshop,type=bind,consistency=delegated"
+  ],
+  "containerEnv": {
+    // Heap size of node. Increased to handle claude code projects
+    "NODE_OPTIONS": "--max-old-space-size=4096",
+    // Store gstack artifacts inside the project so they survive container rebuilds and are version-trackable
+    "GSTACK_STATE_DIR": "/workspace/.gstack",
+    // Load CLAUDE.md from additional working directories (e.g. /devshop)
+    "CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD": "1"
+  },
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
+  "workspaceFolder": "/workspace",
+  // Onboarding skipped since it hangs, plus not needed! (saves time by not having to go through it every time you start the container) - Happened when using Anthropic API Key
+  "postCreateCommand": "echo '{\"hasCompletedOnboarding\": true}' > ~/.claude.json",
+  // Firewall + devshop sudo setup on every start
+  // Configure git to use GITHUB_TOKEN via gh (skipped if token missing) - prevents having to sign in to github on container restart
+  "postStartCommand": "sudo /usr/local/bin/init-firewall.sh && sudo /usr/local/bin/init-devshop.sh && ([ -n \"$GITHUB_TOKEN\" ] && gh auth setup-git || true)",
+  "waitFor": "postStartCommand"
+}

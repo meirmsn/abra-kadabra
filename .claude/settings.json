@@ -85,7 +85,10 @@
       "Edit(.devshop/scripts/*)",
       "Write(.devshop/scripts/*)",
       "Edit(/devshop/.devshop/scripts/*)",
-      "Write(/devshop/.devshop/scripts/*)"
+      "Write(/devshop/.devshop/scripts/*)",
+
+      "Edit(/devshop/template/**)",
+      "Write(/devshop/template/**)"
     ],
     "additionalDirectories": ["/devshop"]
   },

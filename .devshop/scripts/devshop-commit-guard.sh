@@ -21,11 +21,17 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # --- Repo detection ---
 GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
-case "$GIT_ROOT" in
-  /workspace) CURRENT_REPO=project; OTHER_REPO=/devshop;  OTHER_NAME="devshop (abra-kadabra)" ;;
-  /devshop)   CURRENT_REPO=devshop; OTHER_REPO=/workspace; OTHER_NAME="project" ;;
-  *)          CURRENT_REPO=unknown; OTHER_REPO="";          OTHER_NAME="" ;;
-esac
+# Detect devshop-self mode: workspace IS the devshop repo (opened directly in VS Code).
+# .devshop/ is a real directory in the devshop repo but always a symlink in projects.
+if [ -d "$GIT_ROOT/.devshop" ] && [ ! -L "$GIT_ROOT/.devshop" ]; then
+  CURRENT_REPO=devshop; OTHER_REPO=/devshop; OTHER_NAME="project"
+else
+  case "$GIT_ROOT" in
+    /workspace) CURRENT_REPO=project; OTHER_REPO=/devshop;  OTHER_NAME="devshop (abra-kadabra)" ;;
+    /devshop)   CURRENT_REPO=devshop; OTHER_REPO=/workspace; OTHER_NAME="project" ;;
+    *)          CURRENT_REPO=unknown; OTHER_REPO="";          OTHER_NAME="" ;;
+  esac
+fi
 
 STAGED=$(git diff --cached --name-only)
 [ -z "$STAGED" ] && exit 0

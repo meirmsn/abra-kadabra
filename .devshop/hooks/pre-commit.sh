@@ -10,16 +10,24 @@ SCRIPTS_DIR="$DEVSHOP/.devshop/scripts"
 
 GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
 
-case "$GIT_ROOT" in
-  /workspace)
-    # Project repo: full guard suite
-    bash "$SCRIPTS_DIR/check-security-files-freshness.sh"
-    bash "$SCRIPTS_DIR/check-clean-tree.sh"
-    bash "$SCRIPTS_DIR/devshop-commit-guard.sh"
-    ;;
-  /devshop)
-    # Devshop repo: clean tree + commit guards only
-    bash "$SCRIPTS_DIR/check-clean-tree.sh"
-    bash "$SCRIPTS_DIR/devshop-commit-guard.sh"
-    ;;
-esac
+# Detect devshop-self mode: workspace IS the devshop repo (opened directly in VS Code).
+# .devshop/ is a real directory in the devshop repo but always a symlink in projects.
+if [ -d "$GIT_ROOT/.devshop" ] && [ ! -L "$GIT_ROOT/.devshop" ]; then
+  # Devshop-self mode: same checks as devshop repo
+  bash "$SCRIPTS_DIR/check-clean-tree.sh"
+  bash "$SCRIPTS_DIR/devshop-commit-guard.sh"
+else
+  case "$GIT_ROOT" in
+    /workspace)
+      # Project repo: full guard suite
+      bash "$SCRIPTS_DIR/check-security-files-freshness.sh"
+      bash "$SCRIPTS_DIR/check-clean-tree.sh"
+      bash "$SCRIPTS_DIR/devshop-commit-guard.sh"
+      ;;
+    /devshop)
+      # Devshop repo: clean tree + commit guards only
+      bash "$SCRIPTS_DIR/check-clean-tree.sh"
+      bash "$SCRIPTS_DIR/devshop-commit-guard.sh"
+      ;;
+  esac
+fi

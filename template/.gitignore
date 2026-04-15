@@ -1,0 +1,36 @@
+.env
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+/build/
+.next/
+*.tsbuildinfo
+
+# Turbo
+.turbo/
+
+# Next.js telemetry
+**/cache/config.json
+
+# Logs
+*.log
+
+# Devshop (injected at container start from abra-kadabra, not tracked)
+.devshop
+.claude/*
+!.claude/memory/
+.dcg.toml
+.hooks/
+
+
+# gstack runtime state (transient) — design docs, plans, and review history are version-tracked; logs/state are not
+.gstack/browse.json
+.gstack/browse-*.log
+
+# OS
+.DS_Store
+.vercel

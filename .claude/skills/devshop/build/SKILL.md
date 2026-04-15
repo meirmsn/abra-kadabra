@@ -267,7 +267,7 @@ COMMENT
 
 ## Phase 7: Update BUILD-LOG.md
 
-If `BUILD-LOG.md` does not exist, create it from `.devshop/templates/BUILD-LOG.md.tmpl`.
+If `BUILD-LOG.md` does not exist, copy from `/devshop/template/BUILD-LOG.md`.
 
 Append an entry to the project's `BUILD-LOG.md`:
 

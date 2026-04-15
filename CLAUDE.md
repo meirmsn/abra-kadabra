@@ -17,7 +17,7 @@ Reference docs (living):
 Build blueprints (historical after execution):
 
 - When bootstrapping or modifying devshop: `.devshop/notes/bootstrap/v0-web.md`
-- When adding native/mobile: `.devshop/notes/bootstrap/v1-native.md`
+- When adding native/mobile: `.devshop/notes/bootstrap/v+-native.md`
 
 ### Session Start
 
@@ -107,7 +107,7 @@ See `.devshop/GUIDE.md § Devshop Separation Architecture` for the full model.
 
 - `abra-kadabra` = brand name (devshop repo, doc titles). Never used in file names or CLI commands.
 - `devshop` = code references (`.devshop/`, `.claude/skills/devshop/`).
-- `ak-` = skill prefix for devshop skills (`/ak-build`, `/ak-spec`, `/ak-init`, etc.).
+- `ak-` = skill prefix for devshop skills (`/ak-build`, `/ak-spec`, `/ak-new-project`, `/ak-migrate-project`, etc.).
 
 ### Devshop Documentation Structure
 
@@ -121,11 +121,16 @@ All devshop docs live in `.devshop/`:
 
 When working in the devshop repo (`/devshop/`):
 
-- **Root** = repo infrastructure only (config, CI, devcontainer). No content files here.
-- **`.devshop/`** = the devshop itself — all docs (CHANGELOG, ROADMAP, TODOS, GUIDE, notes/), scripts, and templates. This is what gets symlinked into project repos.
+- **Root** = devshop infrastructure only (minimal package.json, .devcontainer/, shared configs).
+- **`template/`** = project skeleton. Copied by `/ak-new-project` Phase A. Deny-ruled — do not modify directly via Claude (use sync scripts after project changes).
+- **`.devshop/`** = the devshop itself — all docs (CHANGELOG, ROADMAP, TODOS, GUIDE, notes/), scripts (including `init-devshop.sh`), and hooks. Symlinked into project repos.
 - **`.claude/`** = Claude Code runtime config (skills, commands, settings). Also symlinked.
 
+Root keeps eslint + friends because `lint-staged` invokes `eslint --fix` on every commit. Practically a no-op (no .ts/.js at root) but removing it would break the pre-commit hook.
+
 Never create CHANGELOG, NOTES, ROADMAP, or other content files at the repo root.
+
+Root `.devcontainer/` and `template/.devcontainer/` are identical — both contain thin forwarders. When updating (e.g., new tool version in Dockerfile), update both.
 
 ### Build and Deploy
 

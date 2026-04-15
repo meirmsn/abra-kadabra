@@ -3,6 +3,6 @@
 [ ! -L .devshop ] && [ -d /devshop/.devshop ] && bash /devshop/.devshop/scripts/create-devshop-symlinks.sh 2>/dev/null || true
 
 pnpm exec lint-staged
-pnpm turbo run typecheck
+[ -f turbo.json ] && pnpm turbo run typecheck
 gitleaks protect --staged --redact
 if [ -x .hooks/pre-commit ]; then bash .hooks/pre-commit; fi

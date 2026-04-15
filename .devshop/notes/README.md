@@ -25,4 +25,5 @@ Build blueprints for the devshop construction:
 
 - [`bootstrap/v0-web.md`](bootstrap/v0-web.md) — web devshop construction plan (Phase 0)
 - [`bootstrap/v0-gaps.md`](bootstrap/v0-gaps.md) — structural gaps identified in v0 plan review
-- [`bootstrap/v1-native.md`](bootstrap/v1-native.md) — native/mobile capability plan (deferred)
+- [`bootstrap/v1.2-reorganization.md`](bootstrap/v1.2-reorganization.md) — template separation: what changed, why, file-by-file details
+- [`bootstrap/v+-native.md`](bootstrap/v+-native.md) — native/mobile capability plan (deferred)

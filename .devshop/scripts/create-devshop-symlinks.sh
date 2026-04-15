@@ -15,6 +15,13 @@ WS="${WS:-/workspace}"
 # Bail if devshop isn't mounted
 [ -d "$DEVSHOP/.devshop" ] || exit 0
 
+# Skip if workspace IS the devshop (devshop-only development).
+# .devshop/ is a real directory in the devshop repo but always a symlink in projects.
+# Without this guard, symlink creation would replace the real directory (destructive).
+if [ -d "$WS/.devshop" ] && [ ! -L "$WS/.devshop" ]; then
+  exit 0
+fi
+
 # --- Symlink .devshop/ into workspace ---
 ln -sfn "$DEVSHOP/.devshop" "$WS/.devshop"
 

@@ -1,0 +1,14 @@
+[allowlist]
+description = "Known-safe public client keys (not secrets)"
+paths = [
+  '''\.env\.example$''',
+]
+regexTarget = "match"
+regexes = [
+  # Supabase anon key (public, embedded in client JS — not a secret)
+  '''SUPABASE_ANON_KEY''',
+  # PostHog public project key (designed to be client-side)
+  '''POSTHOG_KEY''',
+  # Sentry DSN (public, used in client error reporting)
+  '''SENTRY_DSN''',
+]

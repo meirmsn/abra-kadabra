@@ -33,9 +33,9 @@ Playwright screenshot comparison for key screens.
 `/benchmark` checks frontend Core Web Vitals but not API performance.
 Add:
 
-- Baseline response times for key queries (list items, add item, mark bought)
+- Baseline response times for key queries
 - Alert when queries degrade as data grows
-- Consider: load test with realistic data volume (1000+ items)
+- Consider: load test with realistic data volume
 
 ---
 
@@ -44,10 +44,6 @@ Add:
 ### Changesets for automated changelogs
 
 `@changesets/cli` + `.changeset/config.json` — automated changelog entries in PRs.
-
-### Dependabot for dependency updates
-
-`.github/dependabot.yml` — weekly PRs for npm security updates.
 
 ### Offline support
 

@@ -16,7 +16,7 @@ The guinea pig project is **lalista** — a bilingual grocery list app being mig
 
 ## Is the dev-shop machinery portable to future projects?
 
-Yes — portability is a first-class concern. Files fall into five categories (see GUIDE.md § File Lifecycle for full detail):
+Yes — portability is a first-class concern. New projects are created from `template/` at the devshop repo root via `/ak-new-project` (no cloning the devshop itself). Files fall into five categories (see GUIDE.md § File Lifecycle for full detail):
 
 **1. Symlinked** (from abra-kadabra at container start, gitignored in project):
 
@@ -38,10 +38,10 @@ Yes — portability is a first-class concern. Files fall into five categories (s
 
 - `apps/`, `packages/`, `supabase/`, `CLAUDE.md`, `DESIGN.md`, `specs/`, `METRICS.md`
 
-The devshop (abra-kadabra) and project repos are separate (since v1.0.0). Devshop files get injected into the workspace at container start via `init-devshop.sh` — they're gitignored in the project repo. Build tooling files (turbo.json, eslint, etc.) are tracked in both repos and can be synced:
+The devshop (abra-kadabra) and project repos are separate (since v1.0.0). The `template/` directory at the devshop root contains the project skeleton — `/ak-new-project` creates a GitHub repo from it. Devshop files get injected into the workspace at container start via `init-devshop.sh` — they're gitignored in the project repo. Build tooling files (turbo.json, eslint, etc.) are tracked in both repos and can be synced:
 
-- `.devshop/scripts/sync-to-devshop.sh` — push build tooling improvements to abra-kadabra
-- `.devshop/scripts/sync-from-devshop.sh` — pull build tooling updates into a project
+- `.devshop/scripts/sync-to-devshop.sh` — push build tooling improvements to abra-kadabra's `template/`
+- `.devshop/scripts/sync-from-devshop.sh` — pull build tooling updates from `template/` into a project
 
 No git submodules. Git-native. You review every change. See GUIDE.md § Devshop Separation Architecture for the full model.
 

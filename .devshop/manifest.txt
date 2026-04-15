@@ -1,10 +1,9 @@
 # Shared files manifest — lists build tooling that lives in both repos.
 #
-# New projects start as a clone of the devshop repo (abra-kadabra), so these
-# files are already present. After that, they're owned by the project and can
-# diverge (e.g., .gitignore adds project-specific exclusions).
-# sync-from-devshop.sh and sync-to-devshop.sh read this list to sync changes
-# in either direction.
+# Paths are project-relative. Sync scripts map them to template/ in the devshop:
+#   project: /workspace/<path>  <->  devshop: /devshop/template/<path>
+# After init, files are owned by the project and can diverge.
+# sync-from-devshop.sh and sync-to-devshop.sh read this list.
 #
 # NOT listed here:
 # - Symlinked files (.devshop/, .claude/skills/, etc.) — always match devshop

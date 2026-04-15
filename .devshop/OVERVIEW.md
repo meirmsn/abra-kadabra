@@ -7,7 +7,7 @@ A one-person dev shop that goes from rough notes to deployed, tested, observable
 
 **Architecture**: The devshop (abra-kadabra) and project repos are separate. The project repo is clean and publishable. Devshop files get injected into the workspace at container start via `init-devshop.sh` (symlinks + root-owned copies). See GUIDE.md § Devshop Separation Architecture for the full model.
 
-**New project?** Create a repo, add a `.devcontainer/` that mounts `../abra-kadabra` at `/devshop`, then run `/ak-init` — walks you through the setup checklist in GUIDE.md step by step.
+**New project?** Run `/ak-new-project` from any devcontainer — Phase A creates the GitHub repo from the `template/` skeleton, Phase B runs setup after you open the new project.
 
 ## Workflow (Idea to Deployed)
 
@@ -38,6 +38,7 @@ Apps:    apps/web/ (Next.js 15, App Router)
 Shared:  packages/core/ (business logic, Supabase client, API wrappers) · packages/ui/ (design tokens, components)
 Backend: supabase/migrations/ (schema) · supabase/functions/ (edge functions)
 CI/CD:   .github/workflows/ci.yml · apps/web/vercel.json
+Template: template/ (project skeleton — .devcontainer/, .github/, turbo.json, eslint, package.json, etc.)
 Devshop: .devshop/ → symlink to /devshop/.devshop/ (injected at container start from abra-kadabra)
 Hooks:   .hooks/pre-commit → symlink to .devshop/hooks/pre-commit.sh (devshop guards, repo-aware)
 Claude:  .claude/ (injected: skills, commands, settings) · CLAUDE.md (project-specific, tracked) · /devshop/CLAUDE.md (devshop conventions, auto-loaded)
@@ -87,4 +88,4 @@ CI slow job expansion plans are in ROADMAP.md § v+.
 - `./TODOS.md` — devshop tactical backlog (friction, bugs, small fixes)
 - `./ROADMAP.md` — devshop strategic backlog (capabilities, major improvements)
 - `./notes/bootstrap/v0-web.md` — construction blueprint for the web devshop (historical after build)
-- `./notes/bootstrap/v1-native.md` — construction blueprint for native/mobile capability (deferred)
+- `./notes/bootstrap/v+-native.md` — construction blueprint for native/mobile capability (deferred)

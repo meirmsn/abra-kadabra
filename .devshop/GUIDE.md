@@ -165,16 +165,17 @@ _This section grows as code is added. `/ak-implement` updates it when introducin
 
 ## Devshop Skill Map
 
-| Skill             | When to use                       | What it does                                                                                 |
-| ----------------- | --------------------------------- | -------------------------------------------------------------------------------------------- |
-| `/ak-build`       | After autoplan — "build it"       | Autonomous pipeline: spec → implement → quality gates → ship → CI watch → notify. Resumable. |
-| `/ak-go-live`     | After PR review — "land it"       | Autonomous deploy: merge → deploy → canary → reflect → notify.                               |
-| `/ak-spec`        | Standalone or inside /ak-build    | Converts gstack plan to implementation-ready spec + METRICS.md                               |
-| `/ak-implement`   | Standalone or inside /ak-build    | Implements tasks with tests, stuck protocol, decisions log                                   |
-| `/ak-pre-ship`    | Standalone or inside /ak-build    | Quality gates only (11 gates). Does not ship.                                                |
-| `/ak-test-review` | Standalone or inside /ak-pre-ship | Fresh-eyes test quality review (report only)                                                 |
-| `/ak-status`      | Start of any session              | One-paragraph orientation briefing (read-only)                                               |
-| `/ak-init`        | New project setup                 | Guided walkthrough of new-project checklist                                                  |
+| Skill                 | When to use                       | What it does                                                                                 |
+| --------------------- | --------------------------------- | -------------------------------------------------------------------------------------------- |
+| `/ak-build`           | After autoplan — "build it"       | Autonomous pipeline: spec → implement → quality gates → ship → CI watch → notify. Resumable. |
+| `/ak-go-live`         | After PR review — "land it"       | Autonomous deploy: merge → deploy → canary → reflect → notify.                               |
+| `/ak-spec`            | Standalone or inside /ak-build    | Converts gstack plan to implementation-ready spec + METRICS.md                               |
+| `/ak-implement`       | Standalone or inside /ak-build    | Implements tasks with tests, stuck protocol, decisions log                                   |
+| `/ak-pre-ship`        | Standalone or inside /ak-build    | Quality gates only (11 gates). Does not ship.                                                |
+| `/ak-test-review`     | Standalone or inside /ak-pre-ship | Fresh-eyes test quality review (report only)                                                 |
+| `/ak-status`          | Start of any session              | One-paragraph orientation briefing (read-only)                                               |
+| `/ak-new-project`     | New project setup                 | Create repo (Phase A) + guided setup (Phase B). Single entry point.                          |
+| `/ak-migrate-project` | Adopt devshop on existing project | Skeleton — two tiers (lightweight, full). See ROADMAP.md.                                    |
 
 > **Skill autocomplete**: The `name` field in SKILL.md frontmatter drives `/` autocomplete,
 > not the directory or symlink name. When adding or renaming a skill, set `name: ak-<skill>`
@@ -413,43 +414,17 @@ After each feature ships, run structured reflection and route learnings to commi
 
 ## Starting a New Project
 
-Create a repo, add a devcontainer that mounts `../abra-kadabra` at `/devshop`, open it,
-then run `/ak-init` for a guided walkthrough with detailed instructions for each step.
-The init skill owns the execution detail; this checklist is the compact summary with
-checkboxes for resume tracking. Update both when changing the init process.
+Run `/ak-new-project` from any devcontainer (the devshop's own or an existing project's).
 
-> **Maintenance note**: This checklist and `.claude/skills/devshop/init/SKILL.md` are
-> companions. Update both when changing the init process.
+- **Phase A** creates a GitHub repo populated with the `template/` skeleton.
+- **Phase B** runs inside the new project's container for interactive setup (accounts,
+  credentials, scaffolding, integrations, security).
 
-### Steps (all walked by /ak-init — [HUMAN] items prompt the user)
+The skill creates `INIT-TRACKER.md` in the project root for resume tracking. See
+`.claude/skills/devshop/new-project/SKILL.md` for the full step-by-step process.
 
-1. [x] Check binary versions in `devcontainer.json` — upgrade if newer available
-2. [x] Seed `PRODUCT-ROADMAP.md` and `BUILD-LOG.md` (from `.devshop/templates/`, copied by init)
-3. [x] **[HUMAN]** Create accounts: Vercel (+ install GitHub App — do NOT import repo yet), Sentry, PostHog, optionally Apple Developer
-4. [x] **[HUMAN]** Fill `.devcontainer/.env` with credentials (init skill shows full list + where to find each)
-5. [x] **[HUMAN]** Add GitHub Secrets (CI env vars) + variable `PRODUCTION_URL` (init skill has full list)
-6. [x] **[HUMAN]** Add project-specific firewall domains to `init-firewall.sh`
-7. [x] **[HUMAN]** Rebuild devcontainer (Cmd/Ctrl+Shift+P → "Rebuild Container")
-8. [x] Clean scaffolding placeholders (`apps/`, `packages/`, `supabase/`, `DESIGN.md`, `METRICS.md`) + untrack devshop paths + gitignore injected files + replace `README.md` with project README
-9. [x] Disable turbo telemetry: `pnpm turbo telemetry disable`
-10. [x] Install gstack: `git clone ... .claude/skills/gstack && ./setup`
-11. [x] Scaffold `packages/core` (Supabase client factory, generated types, vitest)
-12. [x] Scaffold `packages/ui` (tokens.ts, proof-of-concept component — no tailwind.config.js, Tailwind v4 uses CSS `@theme`)
-13. [x] Scaffold `apps/web` (Next.js + Sentry + PostHog + PWA + security headers + vercel.json + import repo on Vercel)
-14. [x] Add Vercel CLI + link project + pipe env vars from `.env` to Vercel
-15. [x] Install Playwright + create config (375px mobile + 1440px desktop viewports)
-16. [x] Supabase init + link: `supabase init` (if needed) + `supabase link --project-ref <ref>` (if using Supabase)
-17. [x] Create `METRICS.md` with empty event taxonomy structure
-18. [x] Run `/setup-deploy` to configure deploy settings
-19. [x] Create project `CLAUDE.md` with project-specific Claude guidance (devshop conventions auto-loaded from devshop repo via `additionalDirectories`)
-20. [x] Enable doc enforcement hooks: `devshop-commit-guard.sh` as Claude PreToolUse hook, add `eslint-plugin-jsdoc`
-21. [x] Update `.gitleaks.toml` allowlist with project-specific public key patterns
-22. [x] **[HUMAN]** Lock security-critical files — handled automatically by `init-devshop.sh` on container start (see lock section for full list)
-23. [x] Create `keepalive.yml` GitHub Action (prevents Supabase free tier pause)
-24. [x] **[HUMAN]** Set up service quota alerts: Sentry, PostHog, Vercel
-25. [ ] **[HUMAN]** Set up abra-kadabra bind mount: clone/place `abra-kadabra` next to the project on the host. The `.devcontainer/devcontainer.json` mount handles the rest.
-26. [ ] **[HUMAN]** Enable branch protection on `main` (after first CI run produces a green `ci` check)
-27. [ ] Run `/cso` for baseline infrastructure security audit (last — audits the complete setup)
+To adopt the devshop on an existing project, run `/ak-migrate-project` (skeleton —
+see `.devshop/ROADMAP.md`).
 
 ---
 
@@ -461,12 +436,13 @@ The devshop (abra-kadabra) and the project repo (e.g., lalista) are separate git
 
 ```
 Host filesystem:
-├── abra-kadabra/          ← devshop repo (opened in VS Code)
-│   ├── .devshop/          ← scripts, docs, file templates
+├── abra-kadabra/          ← devshop repo
+│   ├── template/          ← project skeleton (copied by /ak-new-project)
+│   ├── .devshop/          ← scripts (incl. init-devshop.sh), docs, hooks
 │   ├── .claude/           ← skills, commands, settings
-│   ├── .devcontainer/     ← init-devshop.sh (injection script)
+│   ├── .devcontainer/     ← devshop's own container config (thin forwarder)
 │   ├── CLAUDE.md          ← devshop conventions for Claude
-│   └── (shared configs)   ← .editorconfig, turbo.json, etc.
+│   └── (shared configs)   ← .editorconfig, eslint.config.mjs, etc.
 │
 └── lalista/               ← project repo (mounted at /workspace)
     ├── .devcontainer/     ← Dockerfile, firewall, thin forwarder
@@ -507,7 +483,7 @@ Inside container:
 
 ### How init-devshop.sh works
 
-Runs as root via sudo on every container start (`postStartCommand`). The project's `.devcontainer/init-devshop.sh` is a thin forwarder that delegates to `/devshop/.devcontainer/init-devshop.sh`. Symlink creation is in `create-devshop-symlinks.sh` (called by init-devshop.sh, and also by session-start.sh and .husky/pre-commit for reactive recovery when symlinks are lost by git ops). Read the scripts directly for the full list.
+Runs as root via sudo on every container start (`postStartCommand`). The project's `.devcontainer/init-devshop.sh` is a thin forwarder that delegates to `/devshop/.devshop/scripts/init-devshop.sh` (the real script). Includes a devshop-self guard that skips injection when the workspace IS the devshop (prevents destructive symlink-over-directory). Symlink creation is in `create-devshop-symlinks.sh` (called by init-devshop.sh, and also by session-start.sh and .husky/pre-commit for reactive recovery when symlinks are lost by git ops).
 
 ### File lifecycle
 
@@ -521,7 +497,7 @@ Files: `.devshop/`, `.claude/skills/`, `.claude/commands/`, `.claude/README.md`,
 
 **2. Root-owned copies (always match devshop)**
 
-Copied from devshop on every container start. Root-owned (`chown root:root`) so node (Claude) can't modify them. Freshness is verified by `check-security-files-freshness.sh` in the pre-commit hook — warns if stale, recommends `sudo bash /devshop/.devcontainer/init-devshop.sh` to fix.
+Copied from devshop on every container start. Root-owned (`chown root:root`) so node (Claude) can't modify them. Freshness is verified by `check-security-files-freshness.sh` in the pre-commit hook — warns if stale, recommends `sudo bash /devshop/.devshop/scripts/init-devshop.sh` to fix.
 
 Files: `.claude/settings.json`, `.dcg.toml`
 
@@ -537,7 +513,7 @@ Files: `.prettierrc`, `turbo.json`, `eslint.config.mjs`, `.husky/`, `.github/wor
 
 Created by `init-devshop.sh` on container start if not present. Once created, project-owned and tracked.
 
-- `BUILD-LOG.md` — copied from `.devshop/templates/BUILD-LOG.md.tmpl` if missing, then project-owned
+- `BUILD-LOG.md` — copied from `/devshop/template/BUILD-LOG.md` if missing, then project-owned
 
 **5. Project-only (never in devshop)**
 
@@ -726,7 +702,7 @@ See "Backlog Routing Guide" above for routing rules. Project backlogs (`TODOS.md
 ### Build blueprints (one-time — historical after execution)
 
 - `.devshop/notes/bootstrap/v0-web.md` — web devshop construction.
-- `.devshop/notes/bootstrap/v1-native.md` — native/mobile capability (deferred).
+- `.devshop/notes/bootstrap/v+-native.md` — native/mobile capability (deferred).
 
 Blueprints are not synced to projects — they live in the devshop repo as construction history for the devshop maintainer.
 

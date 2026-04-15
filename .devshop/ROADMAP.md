@@ -166,7 +166,7 @@ vs symlink decision), reassess whether proactive recovery is still needed.
 
 Extend the devshop to support React Native (Expo) apps alongside web. Adds `apps/mobile/`,
 EAS CLI, Maestro E2E, mobile Sentry/PostHog, App Store/Play Store deployment.
-Full build blueprint: `.devshop/notes/bootstrap/v1-native.md`.
+Full build blueprint: `.devshop/notes/bootstrap/v+-native.md`.
 
 ### Fakeowner + Bash bypass hardening
 
@@ -300,9 +300,9 @@ Playwright screenshot comparison for key screens. Store baseline screenshots in
 `tests/screenshots/`. CI step compares current vs baseline, fails if diff exceeds
 threshold. Catches unintended visual changes that unit tests miss.
 
-### `/ak-migrate` skill
+### `/ak-migrate-project` skill
 
-Adopt devshop on an existing project — two tiers:
+Skeleton exists (`.claude/skills/devshop/migrate-project/SKILL.md`). Two tiers:
 
 - **Lightweight (same stack)**: existing Node/Next.js project, just needs devshop
   tooling. Merge configs (`.prettierrc`, `eslint.config.mjs`, `tsconfig.base.json`,
@@ -387,27 +387,13 @@ Consider structured console.log in edge functions with a standard format
 (timestamp, request ID, user ID, action, duration). Revisit after first
 production debugging session reveals what's actually needed.
 
-### Repo layout clarification
+### ~~Repo layout clarification~~ — RESOLVED
 
-The devshop repo root mixes several concerns without clear separation:
-
-- **Symlinked** into project repos: `.devshop/`, `.claude/`
-- **Repo infrastructure** (run/lint/test the devshop itself): `package.json`, `eslint.config.mjs`, `turbo.json`, `tsconfig.base.json`, `.prettierrc`, etc.
-- **Init machinery**: `.devcontainer/init-devshop.sh`
-- **Git/editor config**: `.gitignore`, `.editorconfig`, `.gitleaks.toml`, `.husky/`
-
-This works but Claude (and humans) trip over it — e.g., trying to create
-CHANGELOG at the repo root instead of in `.devshop/`. The CLAUDE.md guidance
-added in the "Devshop Repo Layout" section is a band-aid.
-
-Evaluate whether a clearer directory structure would help, or if better docs
-are sufficient. Questions to answer:
-
-- Should symlinked content live in a dedicated top-level dir (e.g., `pkg/`) instead of dotfolders?
-- Should generated files be gitignored with a rebuild-on-start pattern?
-- Is the root-level monorepo config (turbo, pnpm workspace) actually used, or just scaffolding?
-
-Trigger: when the next person (or Claude) gets confused by the layout again.
+Resolved: created `template/` directory at devshop root containing the project
+skeleton. Root simplified to devshop-only needs (no turbo, no pnpm-workspace).
+`init-devshop.sh` moved to `.devshop/scripts/`. `/ak-init` replaced by
+`/ak-new-project` (two-phase: create repo + setup) and `/ak-migrate-project`
+(skeleton). Init checklist moved from GUIDE.md to per-project `INIT-TRACKER.md`.
 
 ### Standalone devcontainer for abra-kadabra
 

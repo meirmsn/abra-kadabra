@@ -1,0 +1,8 @@
+# Recreate devshop symlinks if missing (git ops can lose untracked symlinks).
+# Uses the lightweight symlink-only script, not full init-devshop.sh (no root needed).
+[ ! -L .devshop ] && [ -d /devshop/.devshop ] && bash /devshop/.devshop/scripts/create-devshop-symlinks.sh 2>/dev/null || true
+
+pnpm exec lint-staged
+[ -f turbo.json ] && pnpm turbo run typecheck
+gitleaks protect --staged --redact
+if [ -x .hooks/pre-commit ]; then bash .hooks/pre-commit; fi

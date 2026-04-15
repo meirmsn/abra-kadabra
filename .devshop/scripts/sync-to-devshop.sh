@@ -1,10 +1,9 @@
 #!/bin/bash
 # sync-to-devshop.sh — push build tooling changes from this project to the devshop repo.
 #
-# The devshop repo (abra-kadabra) is bind-mounted at /devshop (cloned on the host,
-# mounted into the devcontainer). This script copies files listed in manifest.txt,
-# commits in the devshop repo, and prints push instructions for the human operator
-# (the devcontainer PAT doesn't cover the devshop repo — pushing happens on the host).
+# The devshop repo (abra-kadabra) is bind-mounted at /devshop. This script copies
+# files listed in manifest.txt into the devshop's template/ directory, commits in
+# the devshop repo, and prints push instructions for the human operator.
 #
 # Usage:
 #   sync-to-devshop.sh                  # auto-detect bump level
@@ -57,7 +56,7 @@ fi
 
 CURRENT_VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
 
-LOCK_FILES=".claude/settings.json .devcontainer/devcontainer.json .devcontainer/init-firewall.sh .devcontainer/Dockerfile .devcontainer/checksums.sha256"
+LOCK_FILES=".claude/settings.json template/.devcontainer/devcontainer.json template/.devcontainer/init-firewall.sh template/.devcontainer/Dockerfile template/.devcontainer/checksums.sha256"
 check_file_locks() {
   UNLOCKED=""
   for f in $LOCK_FILES; do
@@ -96,7 +95,7 @@ done < "$MANIFEST"
 echo "Syncing ${#PATHS[@]} paths from project to devshop..."
 for path in "${PATHS[@]}"; do
   src="$PROJECT_ROOT/$path"
-  dst="$DEVSHOP_DIR/$path"
+  dst="$DEVSHOP_DIR/template/$path"
 
   if [ -d "$src" ]; then
     # Build rsync exclude args for this directory
@@ -119,7 +118,7 @@ done
 
 # --- Remove excluded files that may exist from prior syncs ---
 for excl in "${EXCLUDES[@]}"; do
-  target="$DEVSHOP_DIR/$excl"
+  target="$DEVSHOP_DIR/template/$excl"
   [ -e "$target" ] && rm -rf "$target" && echo "Excluded: $excl"
 done
 

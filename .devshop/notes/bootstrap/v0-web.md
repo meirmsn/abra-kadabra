@@ -15,7 +15,7 @@
 > Sections marked with `⚠️ NOT IN LIVING DOCS` contain content not found elsewhere.
 > All other sections have been migrated. Search for the marker to find gaps.
 >
-> **Original scope**: Web devshop + lalista web app. Native/mobile in `v1-native.md`.
+> **Original scope**: Web devshop + lalista web app. Native/mobile in `v+-native.md`.
 
 ---
 
@@ -35,7 +35,7 @@ A plan to build a professional one-person dev shop — from scratch to a repeata
 - Release approval workflow (PR review → merge → deploy)
 - Dev-shop layer portable to future projects via template repo + sync scripts
 
-**Future** (see `.devshop/notes/bootstrap/v1-native.md`):
+**Future** (see `.devshop/notes/bootstrap/v+-native.md`):
 
 - iOS app via Expo + EAS
 - Siri integration, Mac app, Android
@@ -48,7 +48,7 @@ A plan to build a professional one-person dev shop — from scratch to a repeata
 - **AI tools**: Claude Code CLI as primary tool. The key frustration: manually feeding test output back to Claude after failures. The dev-shop solves this.
 - **Environment**: Mac + VS Code + devcontainers exclusively. Likes to keep Mac isolated. This Claude Code session IS running inside the devcontainer.
 - **Budget**: Free tiers preferred. Small paid things OK ($5/mo VPS, $99/yr Apple Dev account).
-- **Surfaces**: Web first. iOS + Mac + Android later via Expo (same monorepo — see `.devshop/notes/bootstrap/v1-native.md`).
+- **Surfaces**: Web first. iOS + Mac + Android later via Expo (same monorepo — see `.devshop/notes/bootstrap/v+-native.md`).
 - **Autonomy preference**: Claude runs autonomously, stopping only when stuck (same error 3x), drifting, or facing a low-confidence decision (schema changes, auth, security, new integrations). Log completed tasks clearly. Never ship code without tests. Never break existing tests.
 
 ---
@@ -462,7 +462,7 @@ Devshop files may include optional project context ("discovered during lalista a
 | Service worker caching for offline             | `PRODUCT-ROADMAP.md`  | Product feature, later                                                                         |
 | Sync script can't handle merge conflicts       | `.devshop/TODOS.md`   | Devshop friction, fix soon                                                                     |
 | `/implement` should support parallel subagents | `.devshop/ROADMAP.md` | Devshop capability, later                                                                      |
-| Native/mobile devshop support                  | `.devshop/ROADMAP.md` | Major devshop capability (see `.devshop/notes/bootstrap/v1-native.md` for the build blueprint) |
+| Native/mobile devshop support                  | `.devshop/ROADMAP.md` | Major devshop capability (see `.devshop/notes/bootstrap/v+-native.md` for the build blueprint) |
 | `check-file-headers.sh` slow on large diffs    | `.devshop/TODOS.md`   | Devshop friction                                                                               |
 
 ### When routing happens
@@ -545,7 +545,7 @@ lalista/
 ├── .devshop/OVERVIEW.md               ← bird's eye view (~60-80 lines)
 ├── .devshop/GUIDE.md                       ← full operational reference (living doc, grows over time)
 ├── .devshop/notes/bootstrap/v0-web.md  ← build blueprint: web devshop (this file; historical after Phase 0)
-├── .devshop/notes/bootstrap/v1-native.md           ← build blueprint: native capability (deferred)
+├── .devshop/notes/bootstrap/v+-native.md           ← build blueprint: native capability (deferred)
 ├── .devshop/TODOS.md                  ← devshop tactical backlog (friction, bugs, small fixes)
 ├── .devshop/ROADMAP.md               ← devshop strategic backlog (capabilities, major improvements)
 ├── PRODUCT-ROADMAP.md               ← project strategic backlog (features users would want)
@@ -643,7 +643,7 @@ No git submodules, no npm packages. Git-native. You review the diff before apply
 | DB migrations     | Supabase CLI (existing)            | Keep existing workflow                                         |
 | Lint/format       | ESLint + Prettier (existing)       | Pre-commit via husky + lint-staged                             |
 
-**Deferred to native phase**: Expo, React Native, EAS, Jest (mobile), Maestro, mobile Sentry/PostHog — see `.devshop/notes/bootstrap/v1-native.md`.
+**Deferred to native phase**: Expo, React Native, EAS, Jest (mobile), Maestro, mobile Sentry/PostHog — see `.devshop/notes/bootstrap/v+-native.md`.
 
 ---
 
@@ -1216,7 +1216,7 @@ Do not create `.devshop/DETAILS.md` preemptively. YAGNI — create it only when 
 
 **`.devshop/TODOS.md`** — devshop tactical backlog. Friction, bugs, small fixes discovered during use. Items can have version tags (e.g., `[v0.2]`) referencing versions defined in `.devshop/ROADMAP.md`. Already exists — restructure during Phase 0a: move strategic/capability items to `.devshop/ROADMAP.md`, keep tactical items here.
 
-**`.devshop/ROADMAP.md`** — devshop strategic backlog. Capabilities and major improvements. Defines version milestones that `.devshop/TODOS.md` items can reference. Create during Phase 0a with the strategic items extracted from `.devshop/TODOS.md`'s current v+ section, plus a one-liner for native/mobile support pointing to `.devshop/notes/bootstrap/v1-native.md`.
+**`.devshop/ROADMAP.md`** — devshop strategic backlog. Capabilities and major improvements. Defines version milestones that `.devshop/TODOS.md` items can reference. Create during Phase 0a with the strategic items extracted from `.devshop/TODOS.md`'s current v+ section, plus a one-liner for native/mobile support pointing to `.devshop/notes/bootstrap/v+-native.md`.
 
 **`PRODUCT-ROADMAP.md`** — project strategic backlog (template ships with standard deferred items like service worker caching). Already exists — verify consistency.
 
@@ -1226,7 +1226,7 @@ See the "Backlog Routing Guide" section above for the full routing rules.
 
 #### Build blueprints (one-time — become historical after execution)
 
-`.devshop/notes/bootstrap/v0-web.md` and `.devshop/notes/bootstrap/v1-native.md` are construction docs. They're synced to the template but independent of the reference docs — no sync enforcement between blueprints and reference docs.
+`.devshop/notes/bootstrap/v0-web.md` and `.devshop/notes/bootstrap/v+-native.md` are construction docs. They're synced to the template but independent of the reference docs — no sync enforcement between blueprints and reference docs.
 
 All three types are dev-shop layer (synced to template). Build blueprints become historical after execution — they're only read when bootstrapping a new devshop or modifying infrastructure.
 
@@ -1309,7 +1309,7 @@ The devshop conventions section is **lean — behavioral directives and pointers
 
   Build blueprints (historical after execution):
   - When bootstrapping or modifying devshop: .devshop/notes/bootstrap/v0-web.md
-  - When adding native/mobile: .devshop/notes/bootstrap/v1-native.md
+  - When adding native/mobile: .devshop/notes/bootstrap/v+-native.md
   ```
 
 - Dev-shop philosophy (fast via Claude, stable via process)

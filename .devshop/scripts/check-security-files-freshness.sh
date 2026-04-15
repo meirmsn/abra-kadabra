@@ -50,7 +50,7 @@ if [ -f "$SRC_DCG" ]; then
 fi
 
 if [ "$STALE" = true ]; then
-  echo "  Fix: sudo bash /devshop/.devcontainer/init-devshop.sh"
+  echo "  Fix: sudo bash /devshop/.devshop/scripts/init-devshop.sh"
 fi
 
 # Never block — node can't fix root-owned files

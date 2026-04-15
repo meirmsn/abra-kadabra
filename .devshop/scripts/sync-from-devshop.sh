@@ -1,10 +1,10 @@
 #!/bin/bash
 # sync-from-devshop.sh — pull build tooling updates from the devshop repo into this project.
 #
-# The devshop repo (abra-kadabra) is bind-mounted at /devshop (cloned on the host,
-# mounted into the devcontainer). This script copies files listed in manifest.txt
-# and shows a diff for review. Injected files (skills, settings, etc.) are handled
-# by init-devshop.sh — this script only syncs build tooling (turbo.json, eslint, etc.).
+# The devshop repo (abra-kadabra) is bind-mounted at /devshop. This script copies
+# files listed in manifest.txt from the devshop's template/ directory and shows a
+# diff for review. Injected files (skills, settings, etc.) are handled by
+# init-devshop.sh — this script only syncs build tooling (turbo.json, eslint, etc.).
 #
 # Before running: make sure the devshop repo is up to date on the host side
 # (git pull in the abra-kadabra directory).
@@ -50,7 +50,7 @@ done < "$MANIFEST"
 # --- Copy files from devshop to project ---
 echo "Syncing ${#PATHS[@]} paths from devshop to project..."
 for path in "${PATHS[@]}"; do
-  src="$DEVSHOP_DIR/$path"
+  src="$DEVSHOP_DIR/template/$path"
   dst="$PROJECT_ROOT/$path"
 
   if [ -d "$src" ]; then

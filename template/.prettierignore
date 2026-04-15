@@ -1,0 +1,18 @@
+# Dependencies
+node_modules
+
+# Vendored
+.claude/skills/gstack
+.gstack
+
+# Build output
+dist
+build
+coverage
+
+# Generated files
+*.min.js
+*.min.css
+
+# Config files that need exact formatting
+package-lock.json

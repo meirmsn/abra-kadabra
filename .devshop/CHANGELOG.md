@@ -6,6 +6,28 @@ Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
 Tagged `pre-split-snapshot` on the **lalista repo** at the bifurcation point (`24652cf`) where `main` diverged into `chore/separate-devshop`. Use this tag to compare against devshop files as they were before the split. See `notes/pre-split-comparison.md` for instructions.
 
+## v1.2.0 (2026-04-14) — Template Separation
+
+**Structural change**: Project template material separated from devshop tooling.
+
+- feat: create `template/` directory at repo root with complete project skeleton (25 files)
+- feat: `/ak-new-project` skill replaces `/ak-init` — two-phase: create GitHub repo (Phase A) + guided setup (Phase B)
+- feat: `/ak-migrate-project` skeleton skill for adopting devshop on existing projects
+- refactor: move `init-devshop.sh` from `.devcontainer/` to `.devshop/scripts/` — all scripts in one place
+- refactor: eliminate `.devshop/templates/` — .tmpl files moved into `template/` at final locations
+- refactor: simplify root `package.json` — remove turbo + vercel (template has full deps)
+- feat: devshop-self guards in 4 scripts — safe to open devshop as its own devcontainer
+- feat: `INIT-TRACKER.md` per-project replaces mutable checklist in GUIDE.md
+- chore: genericize `init-firewall.sh` — project-specific domains replaced with placeholders
+- chore: `.husky/pre-commit` turbo guard (`[ -f turbo.json ] &&`) — works in both contexts
+- chore: sync scripts source from `template/` instead of repo root
+- chore: `settings.json` deny rules for `template/**`
+- chore: rename `v1-native.md` → `v+-native.md` (aligns with ROADMAP v+ section)
+- docs: GUIDE.md, OVERVIEW.md, FAQ.md, CLAUDE.md, README.md, ROADMAP.md updated
+- docs: detailed construction notes in `notes/bootstrap/v1.2-reorganization.md`
+
+Resolves ROADMAP "Repo layout clarification" item.
+
 ## v1.1.2 (2026-04-14)
 
 - chore: workaround claude-code#22583 — inject devshop CLAUDE.md via session hook

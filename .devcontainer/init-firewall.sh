@@ -64,9 +64,10 @@ while read -r cidr; do
 done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]' | aggregate -q)
 
 # Resolve and add other allowed domains
-# === PROJECT-SPECIFIC DOMAINS (edit per project) ===
-# Uncomment and add to the for-loop below as needed.
-# Add project-specific domains below (e.g. api.example.com for your backend):
+# === PROJECT-SPECIFIC DOMAINS ===
+# /ak-new-project will guide you to add your project-specific domains here.
+# Examples of what to add:
+#   "<your-app>.vercel.app"            — your Vercel production URL
 #   "<ref>.supabase.co"                — your Supabase project URL
 #   "o<org-id>.ingest.sentry.io"       — your Sentry ingest endpoint
 #   "us.i.posthog.com"                 — PostHog ingest (us or eu)
@@ -94,13 +95,6 @@ for domain in \
     "objects.githubusercontent.com" \
     "fonts.googleapis.com" \
     "fonts.gstatic.com" \
-    "nzfdfjctpotjyuxdfcpw.supabase.co" \
-    "o4511185033035776.ingest.sentry.io" \
-    "us.i.posthog.com" \
-    "registry-1.docker.io" \
-    "auth.docker.io" \
-    "production.cloudflare.docker.com" \
-    "lalista-ten.vercel.app" \
     ; do
     echo "Resolving $domain..."
     ips=$(dig +noall +answer A "$domain" | awk '$4 == "A" {print $5}')
