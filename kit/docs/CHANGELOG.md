@@ -4,6 +4,7 @@ Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
 ## v1.3.1 (2026-04-15)
 
+- feat: add --bump flag to release.sh for non-interactive use
 - fix: update stale .devshop paths in husky pre-commit and security-model.md
 - fix: update stale references in manifest.txt
 - fix: add MODEL.md and FAQ.md to doc consistency watch list
