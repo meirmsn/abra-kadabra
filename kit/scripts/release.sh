@@ -2,10 +2,23 @@
 # release.sh — bump devshop version and tag. For direct devshop repo edits.
 # Run from the devshop repo root (not a project repo).
 # Shows changes since last version tag, suggests bump level, asks for confirmation.
+#
+# Usage:
+#   release.sh                # interactive (prompts for bump level + confirm)
+#   release.sh --bump patch   # non-interactive (for Claude)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 VERSION_FILE="kit/version"
+
+# Parse args
+ARG_BUMP=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --bump) ARG_BUMP="$2"; shift 2 ;;
+    *) echo "Unknown arg: $1"; exit 1 ;;
+  esac
+done
 
 if [ ! -f "$VERSION_FILE" ]; then
   echo "ERROR: $VERSION_FILE not found. Are you in the devshop repo root?"
@@ -24,21 +37,23 @@ if git rev-parse "$LAST_TAG" &>/dev/null; then
   git log --oneline "$LAST_TAG"..HEAD
   echo ""
 
-  # Guess bump: new files = minor, only modifications = patch
-  NEW_FILES=$(git diff --name-only --diff-filter=A "$LAST_TAG"..HEAD | wc -l)
-  if [ "$NEW_FILES" -gt 0 ]; then
-    SUGGESTED="minor"
-  else
-    SUGGESTED="patch"
-  fi
 else
   echo "No previous tag found. This will be the first tagged release."
-  SUGGESTED="minor"
 fi
 
-echo "Suggested bump: $SUGGESTED"
-read -p "Bump level (patch/minor/major) [$SUGGESTED]: " BUMP
-BUMP=${BUMP:-$SUGGESTED}
+if [ -n "$ARG_BUMP" ]; then
+  BUMP="$ARG_BUMP"
+elif [ -t 0 ]; then
+  # Interactive — prompt the user
+  read -p "Bump level (patch/minor/major): " BUMP
+else
+  echo "ERROR: --bump is required in non-interactive mode."
+  echo "Analyze the changes since the last release to determine the level:"
+  echo "  patch — bug fixes, doc updates, internal refactors"
+  echo "  minor — new capabilities, structural changes, new scripts/skills"
+  echo "  major — breaking changes that require project-side updates"
+  exit 1
+fi
 
 # Calculate new version
 IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
@@ -52,10 +67,14 @@ NEW_VERSION="$MAJOR.$MINOR.$PATCH"
 
 echo ""
 echo "Bumping $CURRENT_VERSION -> $NEW_VERSION"
-read -p "Confirm? (y/n): " CONFIRM
-if [ "$CONFIRM" != "y" ] && [ "$CONFIRM" != "Y" ]; then
-  echo "Aborted."
-  exit 1
+
+if [ -z "$ARG_BUMP" ]; then
+  # Interactive — confirm before proceeding
+  read -p "Confirm? (y/n): " CONFIRM
+  if [ "$CONFIRM" != "y" ] && [ "$CONFIRM" != "Y" ]; then
+    echo "Aborted."
+    exit 1
+  fi
 fi
 
 # Generate changelog message from commits since last tag

@@ -2,6 +2,17 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.3.1 (2026-04-15)
+
+- fix: update stale .devshop paths in husky pre-commit and security-model.md
+- fix: update stale references in manifest.txt
+- fix: add MODEL.md and FAQ.md to doc consistency watch list
+- fix: restore sed path replacement for settings.json copy
+- fix: update stale GUIDE.md § references to specific guide/ files
+- fix: update commit guard and adversarial review for guide/ directory
+- docs: note that root-owned files can be git-added
+- chore: update settings.json to .devshopkit/ paths
+
 ## v1.3.0 (2026-04-15) — Kit Restructure
 
 **Structural change**: `.devshop/` renamed to `kit/`, conceptual model added, GUIDE.md split.
