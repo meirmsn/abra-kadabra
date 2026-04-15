@@ -154,6 +154,8 @@ The container runs as the `node` user (non-root). On every start, `init-firewall
 
 `.claude/settings.json` and `.dcg.toml` are root-owned copies (not symlinks) locked by init-devshop.sh — they survive git operations and can't be modified or deleted by node (sticky bit on `.claude/`). Other devshop files are symlinks, including `.hooks/pre-commit` (symlinked to `kit/hooks/pre-commit.sh`). See `kit/docs/guide/security.md` for the full list and rationale. To edit any locked file: `sudo nano <file>`.
 
+Root-owned files can still be staged and committed with `git add` — git only needs read access. Do not assume root-owned means unstage-able.
+
 Custom slash commands go in `.claude/commands/` as Markdown files. Personal overrides go in `.claude/settings.local.json` (gitignored).
 
 ### Persistent Storage
