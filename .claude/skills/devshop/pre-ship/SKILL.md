@@ -38,7 +38,7 @@ at the end. For each gate, record:
 
 ## Gate 1: Devshop docs check
 
-If the PR touches `.devshop/` or reference docs (`.devshop/README.md`, `.devshop/GUIDE.md`):
+If the PR touches `.devshop/` or reference docs (`.devshop/OVERVIEW.md`, `.devshop/GUIDE.md`):
 
 - Verify both reference docs are in sync
 - Pause if they've drifted

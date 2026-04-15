@@ -48,7 +48,7 @@ Config:  turbo.json · pnpm-workspace.yaml · tsconfig.base.json · eslint.confi
 
 ## Key Conventions
 
-- **Detail lives closest to where it's used** — if one skill runs it, that skill owns it. If it spans skills or the whole workflow, GUIDE.md owns it. README.md is orientation; CLAUDE.md is agent config. Don't duplicate — point.
+- **Detail lives closest to where it's used** — if one skill runs it, that skill owns it. If it spans skills or the whole workflow, GUIDE.md owns it. OVERVIEW.md is orientation; CLAUDE.md is agent config. Don't duplicate — point.
 - **No code without tests** — written alongside, never after. Unit + integration + E2E. Integration tests hit a real local DB, never mocks.
 - **No code without metrics** — `/ak-spec` creates events in `METRICS.md`, `/ak-implement` instruments them, `/ak-pre-ship` validates.
 - **No broken tests** — full suite runs before marking a task done. CI gates PR merge.

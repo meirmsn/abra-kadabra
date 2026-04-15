@@ -1,19 +1,17 @@
-# Abra-Kadabra
+# <project-name>
 
-A one-person dev shop template. Goes from rough notes to deployed, tested, observable web app.
+<one-line description>
 
-## Getting Started
+## Development
 
-1. Click **"Use this template"** → **"Create a new repository"**
-2. Clone your new repo and open it in VS Code
-3. Reopen in the dev container when prompted
-4. Place your Claude credentials in `.devcontainer/.env` (see below)
-5. Run `claude` in the terminal and say `/ak-init`
+1. Open in VS Code and select **Reopen in Container**
+2. Run `claude` in the terminal
 
-## Prerequisites
+### Commands
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop)
-- [VS Code](https://code.visualstudio.com) with the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension
-- **Claude access** — either:
-  - An [Anthropic API key](https://console.anthropic.com/) (`ANTHROPIC_API_KEY`), or
-  - A [Claude Pro/Team subscription](https://claude.ai/) (sign in via `claude` in the terminal)
+- `pnpm turbo run test:unit` — fast test loop
+- `pnpm turbo run test` — full test suite
+- `pnpm turbo run build` — production build
+- `pnpm turbo run dev` — dev server
+
+> Without the devcontainer: `pnpm install && pnpm turbo run dev`

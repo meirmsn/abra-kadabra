@@ -123,9 +123,6 @@ for excl in "${EXCLUDES[@]}"; do
   [ -e "$target" ] && rm -rf "$target" && echo "Excluded: $excl"
 done
 
-# Devshop repo gets its own README (from templates/ folder)
-cp "$PROJECT_ROOT/.devshop/templates/README.md.tmpl" "$DEVSHOP_DIR/README.md"
-
 # --- Stage changes ---
 cd "$DEVSHOP_DIR"
 git add -A

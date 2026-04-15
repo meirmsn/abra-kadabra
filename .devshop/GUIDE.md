@@ -711,7 +711,7 @@ All devshop docs live in `.devshop/`. Three types: reference docs (living), back
 
 ### Reference docs (living — update together in the same commit)
 
-- `.devshop/README.md` — bird's eye view (~60-80 lines). Read for orientation.
+- `.devshop/OVERVIEW.md` — bird's eye view (~60-80 lines). Read for orientation.
 - `.devshop/GUIDE.md` — full operational reference (this file). Read when implementing or shipping.
 
 Commit guard enforces: check 3 (doc consistency) blocks if one is staged without the others unless a reason is provided via `git -c devshop.docSyncReason="<reason>"`. `/ak-pre-ship` also enforces.

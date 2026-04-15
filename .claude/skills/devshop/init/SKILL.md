@@ -297,28 +297,15 @@ cat >> .gitignore << 'EOF'
 EOF
 ```
 
-Then replace `README.md` with a minimal project README:
+Then replace `README.md` with the project README seed:
 
-```markdown
-# <project-name>
-
-## Development
-
-1. Open in VS Code and select **Reopen in Container**
-2. Run `claude` in the terminal
-
-### Commands
-
-- `pnpm turbo run test:unit` — fast test loop
-- `pnpm turbo run test` — full test suite
-- `pnpm turbo run build` — production build
-- `pnpm turbo run dev` — dev server
-
-> Without the devcontainer: `pnpm install && pnpm turbo run dev`
+```bash
+cp .devshop/templates/README.md.tmpl README.md
 ```
 
+Fill in `<project-name>` and `<one-line description>`, then commit.
+
 The project README grows over time as features ship (`/document-release` updates it).
-The template repo has its own README (`.devshop/templates/README.md.tmpl`), synced separately.
 
 ### Step 9: Disable turbo telemetry
 

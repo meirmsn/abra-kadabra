@@ -122,7 +122,7 @@ if [ "$RUN_DRIFT_CHECK" = true ]; then
       echo ""
       echo "  Review ALL of these docs — even if they don't mention the changed code yet"
       echo "  (new functionality needs to be documented for the first time):"
-      echo "    .devshop/README.md     — devshop overview"
+      echo "    .devshop/OVERVIEW.md   — devshop overview"
       echo "    .devshop/GUIDE.md      — full operational reference"
       echo "    CLAUDE.md               — devshop conventions (repo root)"
       echo "    .devshop/FAQ.md        — design rationale"
@@ -150,14 +150,14 @@ HAS_README=false
 HAS_GUIDE=false
 # In the devshop repo, CLAUDE.md is at the root. In project repos, CLAUDE.md is a project file — skip it.
 [ "$CURRENT_REPO" = "devshop" ] && echo "$STAGED" | grep -q '^CLAUDE\.md$' && HAS_CLAUDE_MD=true
-echo "$STAGED" | grep -q '^\.devshop/README\.md$' && HAS_README=true
+echo "$STAGED" | grep -q '^\.devshop/OVERVIEW\.md$' && HAS_README=true
 echo "$STAGED" | grep -q '^\.devshop/GUIDE\.md$' && HAS_GUIDE=true
 
 DOC_COUNT=0
 CHANGED_DOCS=()
 UNCHANGED_DOCS=()
 $HAS_CLAUDE_MD && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("CLAUDE.md") || UNCHANGED_DOCS+=("CLAUDE.md  (devshop conventions)")
-$HAS_README && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("README.md") || UNCHANGED_DOCS+=(".devshop/README.md  (overview)")
+$HAS_README && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("OVERVIEW.md") || UNCHANGED_DOCS+=(".devshop/OVERVIEW.md  (overview)")
 $HAS_GUIDE && DOC_COUNT=$((DOC_COUNT + 1)) && CHANGED_DOCS+=("GUIDE.md") || UNCHANGED_DOCS+=(".devshop/GUIDE.md   (full reference)")
 
 if [ "$DOC_COUNT" -gt 0 ]; then

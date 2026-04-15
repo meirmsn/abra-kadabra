@@ -10,7 +10,7 @@
 Reference docs (living):
 
 - Always loaded: CLAUDE.md (you're reading it)
-- For high-level orientation: `.devshop/README.md`
+- For high-level orientation: `.devshop/OVERVIEW.md`
 - Before making decisions (workflow, conventions, architecture): `.devshop/GUIDE.md`
 - When implementing features: specs/<name>/spec.md + METRICS.md + DESIGN.md
 
@@ -113,7 +113,7 @@ See `.devshop/GUIDE.md § Devshop Separation Architecture` for the full model.
 
 All devshop docs live in `.devshop/`:
 
-- Overview: `.devshop/README.md` + operational reference: `.devshop/GUIDE.md` + design rationale: `.devshop/FAQ.md`
+- Overview: `.devshop/OVERVIEW.md` + operational reference: `.devshop/GUIDE.md` + design rationale: `.devshop/FAQ.md`
 - Backlogs: `.devshop/TODOS.md` + `.devshop/ROADMAP.md` (grow independently)
 - Build blueprints: `.devshop/notes/bootstrap/` (historical after execution)
 

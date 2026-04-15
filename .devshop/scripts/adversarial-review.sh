@@ -27,7 +27,7 @@ case "$CHECK_TYPE" in
     DIFF=$(git diff --cached --stat 2>/dev/null || true)
     DIFF_FULL=$(git diff --cached 2>/dev/null | head -300 || true)
     GUIDE_HEADERS=$(grep -n '^##' "$GIT_ROOT/.devshop/GUIDE.md" 2>/dev/null | head -50 || true)
-    README_MD=$(cat "$GIT_ROOT/.devshop/README.md" 2>/dev/null || true)
+    README_MD=$(cat "$GIT_ROOT/.devshop/OVERVIEW.md" 2>/dev/null || true)
     CLAUDE_MD=$(cat "$GIT_ROOT/CLAUDE.md" 2>/dev/null | head -100 || true)
     FAQ_HEADERS=$(grep -n '^##' "$GIT_ROOT/.devshop/FAQ.md" 2>/dev/null | head -30 || true)
     PROJECT_CLAUDE=$(cat "/workspace/CLAUDE.md" 2>/dev/null | head -100 || true)
@@ -41,7 +41,7 @@ $DIFF_FULL
 === CLAUDE.md (devshop) (first 100 lines) ===
 $CLAUDE_MD
 
-=== .devshop/README.md ===
+=== .devshop/OVERVIEW.md ===
 $README_MD
 
 === .devshop/GUIDE.md section headers ===
@@ -59,8 +59,8 @@ $PROJECT_README
 The reviewer MUST have checked ALL of these docs — not just the ones that already mention the changed code. New functionality needs to be documented for the first time."
     ;;
   docSyncReason)
-    DIFF=$(git diff --cached -- .devshop/CLAUDE.md .devshop/README.md .devshop/GUIDE.md 2>/dev/null | head -300 || true)
-    README_MD=$(cat "$GIT_ROOT/.devshop/README.md" 2>/dev/null || true)
+    DIFF=$(git diff --cached -- .devshop/CLAUDE.md .devshop/OVERVIEW.md .devshop/GUIDE.md 2>/dev/null | head -300 || true)
+    README_MD=$(cat "$GIT_ROOT/.devshop/OVERVIEW.md" 2>/dev/null || true)
     CLAUDE_MD=$(cat "$GIT_ROOT/CLAUDE.md" 2>/dev/null || true)
     GUIDE_HEADERS=$(grep -n '^##' "$GIT_ROOT/.devshop/GUIDE.md" 2>/dev/null | head -50 || true)
     CONTEXT="Doc changes (first 300 lines):
@@ -69,7 +69,7 @@ $DIFF
 === CLAUDE.md (devshop) ===
 $CLAUDE_MD
 
-=== .devshop/README.md ===
+=== .devshop/OVERVIEW.md ===
 $README_MD
 
 === .devshop/GUIDE.md section headers ===

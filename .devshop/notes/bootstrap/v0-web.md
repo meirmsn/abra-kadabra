@@ -331,7 +331,7 @@ Sub-agent reads the file; main session gets a short summary — no context pollu
 
 The `/pre-ship` skill (`.claude/skills/devshop/pre-ship/SKILL.md`) chains the quality gates:
 
-1. Devshop docs consistency check — if PR touches `.devshop/` or reference docs (`.devshop/README.md`, `.devshop/GUIDE.md`), verify both are in sync
+1. Devshop docs consistency check — if PR touches `.devshop/` or reference docs (`.devshop/OVERVIEW.md`, `.devshop/GUIDE.md`), verify both are in sync
 2. **Metrics check** — if the PR touches user-facing code (components, API wrappers, edge functions), verify it has corresponding `posthog.capture()` calls. Cross-reference against `METRICS.md`: are all events for this feature instrumented? If no metrics found in a user-facing PR, pause and ask — don't auto-advance.
 3. **Responsive + theme check** (only if PR touches UI files) — verify the app at: 375px light, 375px dark, 1440px light, 1440px dark. Check for: overflow/scroll issues, unreadable text, untappable buttons (min 44px touch target), hardcoded colors not using theme tokens, broken layouts. Pause if any issues found.
 4. `/simplify` — code quality pass
@@ -542,7 +542,7 @@ lalista/
 ├── eslint.config.mjs                ← flat config (migrated from .eslintrc.json in Phase 0a)
 ├── .prettierrc                      ← EXISTING: keep
 ├── .editorconfig                    ← EXISTING: keep
-├── .devshop/README.md               ← bird's eye view (~60-80 lines)
+├── .devshop/OVERVIEW.md               ← bird's eye view (~60-80 lines)
 ├── .devshop/GUIDE.md                       ← full operational reference (living doc, grows over time)
 ├── .devshop/notes/bootstrap/v0-web.md  ← build blueprint: web devshop (this file; historical after Phase 0)
 ├── .devshop/notes/bootstrap/v1-native.md           ← build blueprint: native capability (deferred)
@@ -574,7 +574,7 @@ Dev-shop layer (templated — same for all projects, enumerated in .devshop/mani
   pnpm-workspace.yaml
   tsconfig.base.json
   eslint.config.mjs
-  .devshop/README.md   ← bird's eye view (reference)
+  .devshop/OVERVIEW.md   ← bird's eye view (reference)
   .devshop/GUIDE.md            ← full operational reference (living doc)
   .devshop/TODOS.md       ← devshop tactical backlog (template ships empty)
   .devshop/ROADMAP.md    ← devshop strategic backlog (template ships with standard items)
@@ -884,7 +884,7 @@ Note: `init-firewall.sh` is `COPY`d into the image at build time, so this change
   ```
   .devshop/                    [private]
   .claude/skills/devshop/      [private]
-  .devshop/README.md          [private]
+  .devshop/OVERVIEW.md          [private]
   .devshop/GUIDE.md                   [private]
   .devshop/TODOS.md              [private]
   .devshop/ROADMAP.md           [private]
@@ -1013,11 +1013,11 @@ Add lint-staged config to root `package.json`:
 
 Also create `.devshop/scripts/check-file-headers.sh` — checks that every staged `.ts`/`.tsx` file **under `src/` or `app/` directories** contains `// What:` in its first 5 lines. Exits 1 with the offending filename if missing. Config files (`*.config.*`, `*.d.ts`, root-level scripts) are excluded by only checking source directories — no growing exclusion list.
 
-Also create `.devshop/scripts/check-devshop-docs.sh` — if `.devshop/README.md` or `.devshop/GUIDE.md` is staged, prints a reminder to update the other (not a hard block). Only checks the reference pair — build blueprints (`.devshop/notes/bootstrap/`) are independent:
+Also create `.devshop/scripts/check-devshop-docs.sh` — if `.devshop/OVERVIEW.md` or `.devshop/GUIDE.md` is staged, prints a reminder to update the other (not a hard block). Only checks the reference pair — build blueprints (`.devshop/notes/bootstrap/`) are independent:
 
 ```
 ⚠ DEVSHOP reference doc changed — verify both are in sync:
-  .devshop/README.md  (bird's eye)
+  .devshop/OVERVIEW.md  (bird's eye)
   .devshop/GUIDE.md           (full reference)
 ```
 
@@ -1122,7 +1122,7 @@ The devshop has three types of documentation, all under `.devshop/`. Reference d
 
 #### Reference docs (living — update together in the same commit)
 
-**`.devshop/README.md`** — already exists. Verify it matches the spec below and update if needed (do not rewrite from scratch). Bird's eye view, ~60-80 lines, ~1k tokens. Title: `# Abra-Kadabra Dev Shop — Overview`.
+**`.devshop/OVERVIEW.md`** — already exists. Verify it matches the spec below and update if needed (do not rewrite from scratch). Bird's eye view, ~60-80 lines, ~1k tokens. Title: `# Abra-Kadabra Dev Shop — Overview`.
 
 ```markdown
 <!-- Editorial: one line per concept. If it takes more than one line to explain,
@@ -1153,7 +1153,7 @@ Contents:
 ```markdown
 <!-- Editorial: enough detail to act on — exact file paths, exact commands, specific gotchas.
      If it's a one-time build instruction, it belongs in .devshop/notes/bootstrap/v0-web.md, not here.
-     If it's a one-line orientation fact, it belongs in .devshop/README.md.
+     If it's a one-line orientation fact, it belongs in .devshop/OVERVIEW.md.
      This file is the living reference — update it when code structure changes.
      Target: under 500 lines. If a section grows past ~30 lines, consider whether the
      detail belongs in a .devshop/DETAILS.md (see "When to split" below). -->
@@ -1205,7 +1205,7 @@ When splitting:
 
 - `.devshop/GUIDE.md` keeps: workflow, skill map, conventions, checklists — the stuff needed for every task
 - `.devshop/DETAILS.md` gets: "Where Things Happen" (full paths), Troubleshooting, Decision Log — deep reference consulted when needed
-- `.devshop/README.md` unchanged — it already points to `.devshop/GUIDE.md`
+- `.devshop/OVERVIEW.md` unchanged — it already points to `.devshop/GUIDE.md`
 - `.devshop/GUIDE.md` adds pointers: "See .devshop/DETAILS.md for full file paths, troubleshooting, and decision log"
 - Update `CLAUDE.md` context loading section to include `.devshop/DETAILS.md`
 - Update `check-devshop-docs.sh` to include the new file in the sync reminder
@@ -1304,7 +1304,7 @@ The devshop conventions section is **lean — behavioral directives and pointers
   ```
   Reference docs (living):
   - Always loaded: CLAUDE.md (you're reading it)
-  - For orientation: .devshop/README.md
+  - For orientation: .devshop/OVERVIEW.md
   - When implementing features: .devshop/GUIDE.md + SPEC.md + METRICS.md + DESIGN.md
 
   Build blueprints (historical after execution):
@@ -1338,7 +1338,7 @@ The devshop conventions section is **lean — behavioral directives and pointers
   - **Minor < 5 min** → fix in current commit, note in message
   - **Minor > 5 min** → add to `TODOS.md` `[minor]`, continue
 - **Naming convention**: `abra-kadabra` = brand name (repo, doc titles). `devshop` = code references (`.devshop/`, `.claude/skills/devshop/`, `/devshop:*` skills).
-- **Devshop documentation structure**: reference docs (.devshop/README.md + .devshop/GUIDE.md, update together), backlogs (.devshop/TODOS.md + .devshop/ROADMAP.md, grow independently), build blueprints (.devshop/notes/bootstrap/, historical after execution).
+- **Devshop documentation structure**: reference docs (.devshop/OVERVIEW.md + .devshop/GUIDE.md, update together), backlogs (.devshop/TODOS.md + .devshop/ROADMAP.md, grow independently), build blueprints (.devshop/notes/bootstrap/, historical after execution).
 - **Commit message convention: public mirror** — `---devshop---` divider in body separates public from private context. Devshop-only commits: no divider needed. Mixed commits: project above, devshop below. Project-only: no divider. PreToolUse hook enforces on mixed commits.
 - Implementation loop: `/implement`. Test commands: `pnpm turbo run test`.
 
@@ -1522,7 +1522,7 @@ This is covered in Step 9 above (the commit message convention is part of the de
 - [ ] `docker ps` works inside devcontainer (Docker-in-Docker is functional)
 - [ ] `.github/workflows/ci.yml` exists, is valid YAML, includes gitleaks step, and maps all required secrets
 - [ ] All Dockerfile binary installs are version-pinned via `devcontainer.json` build args and SHA256 checksum-verified via `checksums.sha256` (git-delta, supabase-cli, DCG, gitleaks)
-- [ ] `.devshop/README.md` exists (bird's eye, ~60-80 lines)
+- [ ] `.devshop/OVERVIEW.md` exists (bird's eye, ~60-80 lines)
 - [ ] `.devshop/GUIDE.md` exists (full operational reference with workflow + new-project checklist)
 - [ ] All seven devshop skill files exist (spec, implement, test-review, pre-ship, post-merge, status, init)
 - [ ] `.devshop/TODOS.md` exists (devshop tactical backlog)
@@ -2083,7 +2083,7 @@ For the implementing agent — these contain critical content to preserve or ref
 | `eslint.config.mjs`                            | Create: replaces .eslintrc.json (flat config)                                         | 0a    |
 | `package.json` (root)                          | Modify: add husky, lint-staged, turbo scripts                                         | 0a    |
 | `.github/workflows/ci.yml`                     | Create (evolves in 1c and 1g)                                                         | 0a    |
-| `.devshop/README.md`                           | Create: bird's eye view                                                               | 0a    |
+| `.devshop/OVERVIEW.md`                         | Create: bird's eye view                                                               | 0a    |
 | `.devshop/GUIDE.md`                            | Create: full operational reference (living doc)                                       | 0a    |
 | `.devshop/scripts/check-devshop-docs.sh`       | Create: pre-commit reminder for doc sync                                              | 0a    |
 | `CLAUDE.md`                                    | Modify: add devshop conventions section + project section                             | 0a    |
