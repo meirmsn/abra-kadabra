@@ -275,6 +275,28 @@ Skip if these directories don't exist (first project, no template). If they exis
 and contain project-specific content (git-tracked files), ask the user before
 deleting — they may be from a prior project, not template placeholders.
 
+Then untrack devshop-injected paths (they're tracked from the template clone but
+should be gitignored in the project — `init-devshop.sh` recreates them as
+symlinks/copies on every container start):
+
+```bash
+git rm -r --cached .devshop .claude .dcg.toml 2>/dev/null || true
+```
+
+And append the injection ignores to `.gitignore`:
+
+```bash
+cat >> .gitignore << 'EOF'
+
+# Devshop (injected at container start from abra-kadabra, not tracked)
+.devshop
+.claude/*
+!.claude/memory/
+.dcg.toml
+.hooks/
+EOF
+```
+
 Then replace `README.md` with a minimal project README:
 
 ```markdown
@@ -292,7 +314,7 @@ Then replace `README.md` with a minimal project README:
 - `pnpm turbo run build` — production build
 - `pnpm turbo run dev` — dev server
 
-> See `.devshop/README.md` for architecture and devshop details.
+> Without the devcontainer: `pnpm install && pnpm turbo run dev`
 ```
 
 The project README grows over time as features ship (`/document-release` updates it).

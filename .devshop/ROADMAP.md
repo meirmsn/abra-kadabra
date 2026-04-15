@@ -302,11 +302,21 @@ threshold. Catches unintended visual changes that unit tests miss.
 
 ### `/ak-migrate` skill
 
-Guided migration from an existing app to the devshop stack (e.g., Swift → React,
-Django → Next.js). Archive old code for reference, port design system, set up
-backend integration, rebuild screens, full test pass. Reference: lalista Phase 1
-execution in `.devshop/notes/bootstrap/v0-web.md` as the first data point for
-parametrization. Build after a second migration provides a second data point.
+Adopt devshop on an existing project — two tiers:
+
+- **Lightweight (same stack)**: existing Node/Next.js project, just needs devshop
+  tooling. Merge configs (`.prettierrc`, `eslint.config.mjs`, `tsconfig.base.json`,
+  etc.) instead of replacing, create/adapt `.devcontainer/`, skip N/A steps
+  (no Supabase, no PostHog, etc.), don't delete existing `apps/`/`packages/`.
+- **Full (different stack)**: migration from another framework (e.g., Swift → React,
+  Django → Next.js). Archive old code for reference, port design system, set up
+  backend integration, rebuild screens, full test pass.
+
+`/ak-init` assumes a fresh template clone. `/ak-migrate` handles the cases where
+that assumption doesn't hold. Reference: lalista Phase 1 execution in
+`.devshop/notes/bootstrap/v0-web.md` as the first data point for parametrization.
+
+Trigger: when a second project needs to adopt the devshop.
 
 ### Parallel implementation loops via worktrees
 

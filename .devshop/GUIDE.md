@@ -430,7 +430,7 @@ checkboxes for resume tracking. Update both when changing the init process.
 5. [x] **[HUMAN]** Add GitHub Secrets (CI env vars) + variable `PRODUCTION_URL` (init skill has full list)
 6. [x] **[HUMAN]** Add project-specific firewall domains to `init-firewall.sh`
 7. [x] **[HUMAN]** Rebuild devcontainer (Cmd/Ctrl+Shift+P → "Rebuild Container")
-8. [x] Clean scaffolding placeholders (`apps/`, `packages/`, `supabase/`, `DESIGN.md`, `METRICS.md`) + replace `README.md` with project README
+8. [x] Clean scaffolding placeholders (`apps/`, `packages/`, `supabase/`, `DESIGN.md`, `METRICS.md`) + untrack devshop paths + gitignore injected files + replace `README.md` with project README
 9. [x] Disable turbo telemetry: `pnpm turbo telemetry disable`
 10. [x] Install gstack: `git clone ... .claude/skills/gstack && ./setup`
 11. [x] Scaffold `packages/core` (Supabase client factory, generated types, vitest)
