@@ -164,8 +164,11 @@ rate_segment() {
   rounded_pct=$(printf '%.0f' "$pct")
   delta=$(( rounded_pct - expected ))
 
-  # Pick color based on delta
-  if [ "$delta" -ge 15 ]; then
+  # Suppress pace coloring when absolute usage is under 5% — the pace delta
+  # against a tiny expected value is noisy early in a window.
+  if [ "$rounded_pct" -lt 5 ]; then
+    color=""
+  elif [ "$delta" -ge 15 ]; then
     color="$RED"
   elif [ "$delta" -ge 5 ]; then
     color="$ORANGE"
