@@ -2,6 +2,10 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.4.1 (2026-04-15)
+
+- fix: use /etc/devshop-env for devshop token, keep SSH remote
+
 ## v1.4.0 (2026-04-15)
 
 - fix: use transient push URL instead of credential helper for devshop token
