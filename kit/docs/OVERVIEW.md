@@ -1,5 +1,5 @@
-<!-- Editorial: one line per concept. If it takes more than one line to explain,
-     it belongs in the guide. This file should stay under 80 lines / ~1k tokens. -->
+<!-- Editorial: prose sections use one line per concept (detail belongs in the guide).
+     Diagrams (System Components) are an exception — they pack operational detail visually. -->
 
 # Abra-Kadabra Dev Shop — Overview
 
@@ -8,6 +8,82 @@ A one-person dev shop that goes from rough notes to deployed, tested, observable
 **Architecture**: The devshop (abra-kadabra) and project repos are separate. The project repo is clean and publishable. Devshop files get injected into the workspace at container start via `init-devshop.sh` (symlinks + root-owned copies). See `guide/architecture.md` for the full model.
 
 **New project?** Run `/ak-new-project` from any devcontainer — Phase A creates the GitHub repo from the `template/` skeleton, Phase B runs setup after you open the new project.
+
+## System Components
+
+### Workspace layout
+
+```
+Container Workspace (/workspace)
+│
+├── Project repo (git-tracked, public-facing)
+│   ├── apps/web/                Next.js 15 app
+│   ├── packages/core/           Business logic, Supabase client, types
+│   ├── packages/ui/             Design tokens, shared components
+│   ├── supabase/                Migrations, edge functions
+│   ├── .github/workflows/       CI (lint, typecheck, test, build)
+│   ├── .husky/pre-commit        → kit/hooks/pre-commit.sh (5-step chain + 4 guards)
+│   ├── CLAUDE.md                Project-specific agent config
+│   └── METRICS.md, TODOS.md    Project analytics + backlog
+│
+├── Devshop injection (gitignored — created at container start by init-devshop.sh)
+│   ├── .devshopkit/ ──symlink──→ /devshop/kit/
+│   │   ├── scripts/ (19)        Init, guards, sync, session, adversarial review
+│   │   ├── hooks/pre-commit.sh  Orchestrates the 5-step + 4-guard chain
+│   │   └── docs/                MODEL, OVERVIEW, guide/ (6 files), FAQ
+│   ├── .claude/
+│   │   ├── skills/ ──symlink──→ /devshop/.claude/skills/
+│   │   │   ├── devshop/         ak-build, ak-spec, ak-implement, ak-pre-ship...
+│   │   │   └── gstack/          autoplan, review, qa, browse, ship, canary...
+│   │   └── settings.json       ← root-owned copy (permissions, hooks, deny rules)
+│   └── .dcg.toml               ← root-owned copy (49+ blocked destructive patterns)
+│
+└── /devshop/ (bind mount — private repo, not tracked in project)
+    ├── kit/             Operational devshop (symlinked into projects)
+    ├── template/        Project skeleton for /ak-new-project
+    ├── CLAUDE.md        Devshop conventions (auto-loaded every session)
+    └── README.md        Entry point — goals, getting started
+```
+
+### Event flow
+
+What fires and when across the session lifecycle:
+
+```
+Container Start
+  └─ init-devshop.sh ────────── create symlinks, copy+lock security files, install deps
+
+Session Start (new session or /clear)
+  └─ session-start.sh ────────── recover symlinks, check security freshness, inject context
+
+Every Bash Command
+  └─ DCG ──────────────────────── blocks 49+ destructive patterns (rm -rf, DROP TABLE, etc.)
+
+git commit
+  ├─ PreToolUse
+  │   └─ check-hook-bypass.sh ── blocks --no-verify without documented reason
+  ├─ .husky/pre-commit (5 steps + devshop guards)
+  │   ├─ 1. create-devshop-symlinks.sh ── recover if git ops lost them
+  │   ├─ 2. lint-staged ───────────────── ESLint + Prettier on staged files
+  │   ├─ 3. turbo typecheck ──────────── TypeScript errors
+  │   ├─ 4. gitleaks ─────────────────── secret scan on staged files
+  │   └─ 5. devshop guards
+  │       ├─ check-security-files-freshness.sh
+  │       ├─ check-clean-tree.sh ────────── no unaddressed dirty state
+  │       ├─ check-manifest.sh ──────────── (devshop repo only)
+  │       └─ devshop-commit-guard.sh ────── 4 checks:
+  │           ├─ mixed commit ───────────── devshop + project files together? block
+  │           ├─ docs drift ─────────────── tooling changed without doc update? block
+  │           ├─ doc consistency ─────────── one ref doc changed without others? block
+  │           └─ cross-repo dirty ───────── other repo has uncommitted changes? block
+  └─ PostToolUse (advisory)
+      ├─ check-dirty-after-commit.sh ──── warn if tree still dirty
+      └─ check-pr-description.sh ──────── assess + update PR description
+
+git push
+  └─ PostToolUse
+      └─ check-pr-description.sh ──────── assess + update PR description
+```
 
 ## Workflow (Idea to Deployed)
 

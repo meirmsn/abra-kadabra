@@ -160,9 +160,33 @@ Track if it creeps up as the test suite grows. The `/retro` skill reports on thi
 
 ---
 
+## Dev Container
+
+The dev container is defined in `.devcontainer/` and requires:
+
+1. API keys and credentials placed in `.devcontainer/.env`
+2. Opening in VS Code and selecting **Reopen in Container**
+
+The container runs as the `node` user (non-root). On every start, `init-firewall.sh` runs with sudo to lock down outbound network access before VS Code connects. The firewall uses `iptables` + `ipset` to allowlist outbound traffic — everything else is rejected.
+
+---
+
+## Persistent Storage
+
+Two Docker named volumes survive container rebuilds:
+
+- `/commandhistory` — shell history (bash/zsh)
+- `/home/node/.claude` — Claude Code config, sessions, and API key
+
+These volumes are **not** on the host filesystem and are **lost on machine migration**.
+
+---
+
 ## Known Footguns
 
 - **Firewall IP rotation**: CDN domains like `fonts.gstatic.com` rotate IPs. Firewall resolves at container start. If a build fails on a network error for an allowed domain hours later, restart the container to re-resolve.
+- **Never commit directly to main**: branch protection requires PRs. Always create a feature branch first, even for small fixes.
+- **Workflow push requires human**: the devcontainer PAT lacks `workflow` scope intentionally. If `git push` fails because a commit touches `.github/workflows/`, ask the human to push: `git -c credential.helper= push https://<github-user>@github.com/<owner>/<repo>.git <branch>` (GitHub will prompt for their PAT with workflow scope).
 
 ---
 

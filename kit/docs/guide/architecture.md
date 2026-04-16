@@ -152,6 +152,21 @@ Contributors who clone the project without abra-kadabra get a working repo:
 - `CLAUDE.md` is already the standard name — works out of the box with Claude Code
 - No devshop skills, hooks, or quality gates — just standard development
 
+## Devshop Repo Layout
+
+When working in the devshop repo (`/devshop/`):
+
+- **Root** = devshop infrastructure only (minimal package.json, .devcontainer/, shared configs).
+- **`template/`** = project skeleton. Copied by `/ak-new-project` Phase A. Deny-ruled — do not modify directly via Claude (use sync scripts after project changes).
+- **`kit/`** = the devshop kit — docs (`kit/docs/`), scripts (`kit/scripts/`), hooks (`kit/hooks/`), notes, backlogs. Symlinked as `.devshopkit` into project repos.
+- **`.claude/`** = Claude Code runtime config (skills, commands, settings). Also symlinked.
+
+Root keeps eslint + friends because `lint-staged` invokes `eslint --fix` on every commit. Practically a no-op (no .ts/.js at root) but removing it would break the pre-commit hook.
+
+Never create CHANGELOG, NOTES, ROADMAP, or other content files at the repo root.
+
+Root `.devcontainer/` and `template/.devcontainer/` are identical — both contain thin forwarders. When updating (e.g., new tool version in Dockerfile), update both.
+
 ## Known gotchas
 
 - **macOS bind mount no-execute**: Scripts on the `/devshop/` mount can't execute via shebang (`/usr/bin/env: bad interpreter: Permission denied`). The thin forwarder must use `exec bash /devshop/...` not `exec /devshop/...`.

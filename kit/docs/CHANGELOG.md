@@ -2,6 +2,29 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.3.4 (2026-04-15) — CLAUDE.md Restructure + Goals
+
+**CLAUDE.md restructure** — moved reference-only sections to guide files, kept all always-on behavioral guidance (non-negotiables, confidence calibration, TODO protocol, known footguns, naming, gstack, design system, code config).
+
+| Removed from CLAUDE.md                | Moved to                                                                                                            |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Devshop Repo Layout (§ lines 122-135) | guide/architecture.md § Devshop Repo Layout                                                                         |
+| Build and Deploy (§ lines 137-142)    | guide/workflow.md § Build and Deploy Quick Reference (test commands kept as 1-liner in CLAUDE.md § Quick Reference) |
+| Dev Container (§ lines 144-151)       | guide/ops.md § Dev Container                                                                                        |
+| Persistent Storage (§ lines 161-168)  | guide/ops.md § Persistent Storage                                                                                   |
+
+**Merged within CLAUDE.md** (no content removed, consolidated):
+
+- Documentation Convention (§ lines 67-71) → folded into Non-Negotiables as bullets
+- Code Style (§ lines 188-191) → folded into Non-Negotiables as bullet
+- Devshop Documentation Structure (§ lines 113-120) → merged into Context Loading
+
+**Added**:
+
+- README.md: "Why" section with 8 explicit goals + links to deeper docs
+- OVERVIEW.md: System Components visualization (workspace layout + event flow diagrams)
+- ops.md: two missing footguns (direct-to-main, workflow push) added to Known Footguns
+
 ## v1.3.3 (2026-04-15)
 
 - fix: cross-repo check was comparing devshop against itself

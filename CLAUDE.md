@@ -13,11 +13,14 @@ Reference docs (living):
 - For high-level orientation: `kit/docs/OVERVIEW.md`
 - Before making decisions (workflow, conventions, architecture): `kit/docs/guide/`
 - When implementing features: specs/<name>/spec.md + METRICS.md + DESIGN.md
+- Design rationale ("why X?"): `kit/docs/FAQ.md`
 
 Build blueprints (historical after execution):
 
 - When bootstrapping or modifying devshop: `kit/notes/bootstrap/v0-web.md`
 - When adding native/mobile: `kit/notes/bootstrap/v+-native.md`
+
+Backlogs: `kit/TODOS.md` (tactical) + `kit/ROADMAP.md` (strategic). Project backlogs: `TODOS.md` + `PRODUCT-ROADMAP.md`.
 
 ### Session Start
 
@@ -56,6 +59,8 @@ See `kit/docs/guide/architecture.md` for the full model, or `kit/docs/MODEL.md` 
 - Pre-commit enforcement on every commit, no bypass. See `kit/docs/guide/security.md` for what runs.
 - Every devshop tooling change includes doc updates in the same commit. Before committing, review guide docs and README.md for accuracy against your changes. The commit guard will block — update the docs, don't look for workarounds.
 - Shared packages export TypeScript source directly — no build step.
+- Every non-trivial `.ts`/`.tsx` file under `src/` or `app/` starts with a 3-line header (`// What:` / `// Why:` / `// Does NOT:`). Every exported function has a 1-2 sentence JSDoc. Config files (`*.config.*`, `*.d.ts`) are exempt. `/ak-pre-ship` convention check verifies.
+- Do not add formatting rules to ESLint — Prettier owns all formatting. ESLint is for code quality only.
 - For full detail on testing philosophy, metrics lifecycle, and backlog routing: see `kit/docs/guide/conventions.md`.
 
 ### Known Footguns
@@ -63,12 +68,6 @@ See `kit/docs/guide/architecture.md` for the full model, or `kit/docs/MODEL.md` 
 - Firewall IP rotation: if a build fails on a network error for an allowed domain, restart the container to re-resolve CDN IPs.
 - Never commit directly to main: branch protection requires PRs. Always create a feature branch first, even for small fixes.
 - Workflow push requires human: the devcontainer PAT lacks `workflow` scope intentionally. If `git push` fails because a commit touches `.github/workflows/`, ask the human to push: `git -c credential.helper= push https://<github-user>@github.com/<owner>/<repo>.git <branch>` (GitHub will prompt for their PAT with workflow scope).
-
-### Documentation Convention
-
-- Every non-trivial `.ts`/`.tsx` file under `src/` or `app/` starts with a 3-line header (`// What:` / `// Why:` / `// Does NOT:`). Write on non-trivial files; `/ak-pre-ship` convention check verifies.
-- Every exported function has a 1-2 sentence JSDoc. Internal/private: no doc required.
-- Config files (`*.config.*`, `*.d.ts`) are exempt.
 
 ### Confidence Calibration
 
@@ -110,45 +109,11 @@ See `kit/docs/guide/architecture.md` for the full model, or `kit/docs/MODEL.md` 
 - `kit/` = devshop operational files (docs, scripts, hooks) in the devshop repo. Symlinked as `.devshopkit` in project repos.
 - `ak-` = skill prefix for devshop skills (`/ak-build`, `/ak-spec`, `/ak-new-project`, `/ak-migrate-project`, etc.).
 
-### Devshop Documentation Structure
+### Quick Reference
 
-All devshop docs live in `kit/docs/`:
-
-- Conceptual model: `kit/docs/MODEL.md`
-- Overview: `kit/docs/OVERVIEW.md` + operational reference: `kit/docs/guide/` + design rationale: `kit/docs/FAQ.md`
-- Backlogs: `kit/TODOS.md` + `kit/ROADMAP.md` (grow independently)
-- Build blueprints: `kit/notes/bootstrap/` (historical after execution)
-
-### Devshop Repo Layout
-
-When working in the devshop repo (`/devshop/`):
-
-- **Root** = devshop infrastructure only (minimal package.json, .devcontainer/, shared configs).
-- **`template/`** = project skeleton. Copied by `/ak-new-project` Phase A. Deny-ruled — do not modify directly via Claude (use sync scripts after project changes).
-- **`kit/`** = the devshop kit — docs (`kit/docs/`), scripts (`kit/scripts/`), hooks (`kit/hooks/`), notes, backlogs. Symlinked as `.devshopkit` into project repos.
-- **`.claude/`** = Claude Code runtime config (skills, commands, settings). Also symlinked.
-
-Root keeps eslint + friends because `lint-staged` invokes `eslint --fix` on every commit. Practically a no-op (no .ts/.js at root) but removing it would break the pre-commit hook.
-
-Never create CHANGELOG, NOTES, ROADMAP, or other content files at the repo root.
-
-Root `.devcontainer/` and `template/.devcontainer/` are identical — both contain thin forwarders. When updating (e.g., new tool version in Dockerfile), update both.
-
-### Build and Deploy
-
-- `/ak-build` — autonomous pipeline: spec → implement → quality gates → ship → CI watch → notify. Say "build it" after autoplan.
-- `/ak-go-live` — autonomous deploy: merge → deploy → canary → reflect → notify. Say "land it" after PR review.
-- Individual skills (`/ak-spec`, `/ak-implement`, `/ak-pre-ship`) still work standalone.
 - Test commands: `pnpm turbo run test:unit` (fast inner loop), `pnpm turbo run test` (full suite).
-
-### Dev Container
-
-The dev container is defined in `.devcontainer/` and requires:
-
-1. API keys and credentials placed in `.devcontainer/.env`
-2. Opening in VS Code and selecting **Reopen in Container**
-
-The container runs as the `node` user (non-root). On every start, `init-firewall.sh` runs with sudo to lock down outbound network access before VS Code connects. The firewall uses `iptables` + `ipset` to allowlist outbound traffic — everything else is rejected.
+- Devshop repo layout, dev container setup, persistent storage: see `kit/docs/guide/architecture.md` and `kit/docs/guide/ops.md`.
+- Full pipeline and skill maps: see `kit/docs/guide/workflow.md`.
 
 ### Claude Code Configuration
 
@@ -157,15 +122,6 @@ The container runs as the `node` user (non-root). On every start, `init-firewall
 Root-owned files can still be staged and committed with `git add` — git only needs read access. Do not assume root-owned means unstage-able.
 
 Custom slash commands go in `.claude/commands/` as Markdown files. Personal overrides go in `.claude/settings.local.json` (gitignored).
-
-### Persistent Storage
-
-Two Docker named volumes survive container rebuilds:
-
-- `/commandhistory` — shell history (bash/zsh)
-- `/home/node/.claude` — Claude Code config, sessions, and API key
-
-These volumes are **not** on the host filesystem and are **lost on machine migration**.
 
 ### gstack
 
@@ -184,7 +140,3 @@ cd .claude/skills/gstack && ./setup
 ### Design System
 
 Always read `DESIGN.md` before making any visual or UI decisions. All font choices, colors, spacing, and aesthetic direction are defined there. Do not deviate without explicit user approval. In QA mode, flag any code that doesn't match DESIGN.md.
-
-### Code Style
-
-- Do not add formatting rules to ESLint — Prettier owns all formatting. ESLint is for code quality only.

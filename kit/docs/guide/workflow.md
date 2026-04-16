@@ -89,6 +89,17 @@ see `kit/ROADMAP.md`).
 
 ---
 
+## Build and Deploy Quick Reference
+
+- `/ak-build` — autonomous pipeline: spec → implement → quality gates → ship → CI watch → notify. Say "build it" after autoplan.
+- `/ak-go-live` — autonomous deploy: merge → deploy → canary → reflect → notify. Say "land it" after PR review.
+- Individual skills (`/ak-spec`, `/ak-implement`, `/ak-pre-ship`) still work standalone.
+- Test commands: `pnpm turbo run test:unit` (fast inner loop), `pnpm turbo run test` (full suite).
+
+For the full pipeline detail, see Steps 1–6 above.
+
+---
+
 ## gstack Skill Map
 
 | Skill                  | When to use                            | What it expects           | What it produces                                                                                                     |
