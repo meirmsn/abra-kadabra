@@ -15,7 +15,8 @@ which forwards to `/devshop/kit/scripts/init-devshop.sh`. This script:
 3. **Copies security files as real files** (not symlinks) — `settings.json`, `.dcg.toml`.
 4. **Locks files** — `chown root:root` + `chmod 644` on every security-critical file
    in both `/workspace` and `/devshop`.
-5. **Sets sticky bit** — `chmod 1755 /workspace/.claude/`.
+5. **Sets sticky bits** — `chmod 1755` on `/workspace/.claude/`, `/workspace/.devcontainer/`,
+   `/devshop/.claude/`, `/devshop/.devcontainer/`, and `/devshop/template/.devcontainer/`.
 
 ### Layer 2: File ownership + sticky bit (OS level)
 
@@ -29,10 +30,13 @@ which forwards to `/devshop/kit/scripts/init-devshop.sh`. This script:
 | `.devcontainer/*`             | Dockerfile, init scripts, .env, firewall                                  |
 | `CLAUDE.md`                   | Generated file — devshop conventions + project context                    |
 
-**The sticky bit** (`t` in `drwxr-xr-t` on `.claude/`) is the key mechanism: node owns the
-directory (can create files like `memory/`), but the sticky bit means node can only delete
-files **it owns**. Root-owned `settings.json` inside the directory survives even though node
-has write permission on the directory.
+**The sticky bit** (`t` in `drwxr-xr-t`) is the key mechanism: node owns the directory (can
+create files like `memory/` or add new devcontainer layers), but the sticky bit means node
+can only delete files **it owns**. Root-owned files inside the directory survive even though
+node has write permission on the directory — this closes the unlink-and-recreate vector that
+otherwise lets node replace root-owned files by deleting them and writing new node-owned
+copies. Sticky bit covers both repos' `.claude/` and `.devcontainer/` directories, plus the
+project template's `.devcontainer/`.
 
 **Symlinks** (node-owned, recreatable if lost):
 

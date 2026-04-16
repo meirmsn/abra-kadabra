@@ -145,7 +145,18 @@ for f in "$DEVSHOP/kit/scripts/"*.sh; do
   [ -e "$f" ] && chown root:root "$f" && chmod 644 "$f"
 done
 
-# Sticky bit on .claude/: prevents node from deleting root-owned files
-# (settings.json). Without this, directory write permission lets node delete
-# any file regardless of ownership. Sticky bit restricts deletion to file owner.
-[ -d "$WS/.claude" ] && chmod 1755 "$WS/.claude"
+# Sticky bit on security-critical dirs: prevents node from deleting root-owned
+# files inside them. Without this, directory write permission lets node delete
+# any file regardless of ownership, defeating chown root:root protection on
+# files like settings.json, devcontainer.json, Dockerfile, .env. The sticky bit
+# restricts deletion to the file owner (root for locked files). Covers both
+# workspace and devshop (including devshop-self mode) and the template.
+for d in \
+  "$WS/.claude" \
+  "$WS/.devcontainer" \
+  "$DEVSHOP/.claude" \
+  "$DEVSHOP/.devcontainer" \
+  "$DEVSHOP/template/.devcontainer" \
+  ; do
+  [ -d "$d" ] && chmod 1755 "$d"
+done

@@ -4,7 +4,7 @@
 
 **Claude cannot weaken its own guardrails.** Six layers of protection enforce this:
 
-1. **Root ownership + sticky bit** — security-critical files are `root:root 644`, sticky bit on `.claude/` prevents deletion
+1. **Root ownership + sticky bit** — security-critical files are `root:root 644`; sticky bit on `.claude/` and `.devcontainer/` in both repos (plus `template/.devcontainer/`) prevents node from deleting root-owned files
 2. **Deny rules** — `settings.json` denies Edit/Write on itself, `.dcg.toml`, `.devcontainer/*`, guard scripts, and Bash writes to memory paths
 3. **DCG** — compiled binary blocks 49+ destructive Bash patterns (rm -rf, git reset --hard, DROP TABLE, etc.)
 4. **Git hooks** — pre-commit guards enforce clean tree, doc consistency, secret scanning

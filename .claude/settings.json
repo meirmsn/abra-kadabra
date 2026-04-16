@@ -48,6 +48,7 @@
       "Read(**/.env*)",
       "Write(**/.env*)",
       "Read(/devshop/.devcontainer/.env)",
+      "Read(/workspace/.devcontainer/.env)",
       "Read(**/secrets*)",
       "Read(**/credentials*)",
       "Read(**/*.pem)",

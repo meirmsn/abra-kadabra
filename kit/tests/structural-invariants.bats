@@ -524,3 +524,54 @@ setup() {
     false
   }
 }
+
+# =============================================================================
+# Security deny rules — symmetric coverage across both repos
+# (settings.json is cwd-relative for globs, so absolute-path denies are needed
+# to protect the OTHER repo's files when working from this repo's cwd)
+# =============================================================================
+
+@test "wiring: settings.json denies reads of both repos' .env files" {
+  local settings="$DEVSHOP/.claude/settings.json"
+  [ -f "$settings" ] || skip "settings.json not found"
+  local denies
+  denies=$(jq -r '.permissions.deny[]?' "$settings")
+  echo "$denies" | grep -qF 'Read(/devshop/.devcontainer/.env)' || {
+    echo "Missing: Read(/devshop/.devcontainer/.env)"
+    false
+  }
+  echo "$denies" | grep -qF 'Read(/workspace/.devcontainer/.env)' || {
+    echo "Missing: Read(/workspace/.devcontainer/.env)"
+    false
+  }
+}
+
+# =============================================================================
+# Filesystem hardening — init-devshop.sh applies sticky bits to security dirs
+# (sticky bit is what keeps chown root:root effective against node's ability
+# to unlink files from a node-owned directory and recreate them node-owned)
+# =============================================================================
+
+@test "wiring: init-devshop.sh applies sticky bits to all security dirs" {
+  local script="$DEVSHOP/kit/scripts/init-devshop.sh"
+  [ -f "$script" ] || skip "init-devshop.sh not found"
+  local missing=""
+  for d in \
+    '$WS/.claude' \
+    '$WS/.devcontainer' \
+    '$DEVSHOP/.claude' \
+    '$DEVSHOP/.devcontainer' \
+    '$DEVSHOP/template/.devcontainer' \
+    ; do
+    grep -qF "\"$d\"" "$script" || missing+="  $d\n"
+  done
+  if [ -n "$missing" ]; then
+    echo "init-devshop.sh missing sticky-bit coverage for:"
+    echo -e "$missing"
+    echo "Expected: chmod 1755 loop covering each dir above"
+    false
+  fi
+  # Verify the chmod 1755 call actually appears in the script
+  run grep -q 'chmod 1755' "$script"
+  assert_success
+}
