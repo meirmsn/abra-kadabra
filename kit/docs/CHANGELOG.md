@@ -2,6 +2,13 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.3.2 (2026-04-15)
+
+- chore: remove hardcoded lalista references from devshop
+- chore: add manifest check guard and fix template .gitignore
+- chore: remove devshop- prefix from version tags
+- fix: show security warnings in session briefing, fix JSON output
+
 ## v1.3.1 (2026-04-15)
 
 - feat: add --bump flag to release.sh for non-interactive use
