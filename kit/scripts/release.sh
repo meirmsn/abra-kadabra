@@ -26,7 +26,7 @@ if [ ! -f "$VERSION_FILE" ]; then
 fi
 
 CURRENT_VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
-LAST_TAG="devshop-v$CURRENT_VERSION"
+LAST_TAG="v$CURRENT_VERSION"
 
 echo "Current version: $CURRENT_VERSION"
 echo ""
@@ -90,8 +90,8 @@ CHANGELOG_PATH="$(pwd)/kit/docs/CHANGELOG.md"
 bash "$SCRIPT_DIR/changelog-entry.sh" "$NEW_VERSION" "$CHANGELOG_MSG" "$CHANGELOG_PATH"
 git add "$VERSION_FILE" "$CHANGELOG_PATH"
 git commit -m "Bump devshop version to $NEW_VERSION"
-git tag "devshop-v$NEW_VERSION"
+git tag "v$NEW_VERSION"
 
 echo ""
-echo "Done. Version bumped to $NEW_VERSION and tagged devshop-v$NEW_VERSION."
+echo "Done. Version bumped to $NEW_VERSION and tagged v$NEW_VERSION."
 echo "Push with: git push && git push --tags"
