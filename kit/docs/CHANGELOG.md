@@ -2,6 +2,11 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.5.6 (2026-04-16)
+
+- fix: move pre-release coverage review into commit guard
+- docs: expand TODO on cwd-asymmetric absolute-path deny rules
+
 ## v1.5.5 (2026-04-16)
 
 - fix: harden security — sticky bits on 5 dirs, symmetric .env deny
