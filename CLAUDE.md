@@ -42,8 +42,13 @@ Flag concerns not covered by existing docs or conventions — wait for confirmat
 
 **Two repos, two commit flows:**
 
-- **Project commits** go to the project repo (`/workspace`). Use conventional commits (`feat:`, `fix:`, `chore:`, etc.).
+- **Project commits** go to the project repo (`/workspace`). Use conventional commits (`feat:`, `fix:`, `chore:`, etc.). Branch protection requires PRs.
 - **Devshop commits** go to the abra-kadabra repo (`/devshop`). Use conventional commits. Since `.devshopkit/` is a symlink to `/devshop/kit/`, edits are automatically in the abra-kadabra working tree — just `cd /devshop && git add && git commit`.
+
+**Devshop shipping flow (no PRs):** The devshop is a single-developer private repo — the pre-commit guards (adversarial review, docs drift, test suite) serve as the quality gate. Use feature branches for grouped work, then rebase onto main and release:
+
+1. `git checkout main && git rebase feat/my-branch` (or ask the user to confirm)
+2. `bash kit/scripts/release.sh --bump patch|minor|major` (tags, pushes, creates GitHub release)
 
 See `kit/docs/guide/architecture.md` for the full model, or `kit/docs/MODEL.md` for the conceptual overview.
 

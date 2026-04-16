@@ -210,6 +210,10 @@ setup() {
   local version_file="$DEVSHOP/kit/version"
   [ -f "$version_file" ] || skip "version file not found"
 
+  # During a release commit, version is bumped before the tag is created.
+  # Skip if kit/version is staged (release in progress).
+  git -C "$DEVSHOP" diff --cached --name-only | grep -q '^kit/version$' && skip "version bump in progress (release commit)"
+
   local file_version
   file_version=$(cat "$version_file" | tr -d '[:space:]')
 
