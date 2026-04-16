@@ -1,6 +1,6 @@
 # Abra-Kadabra
 
-A one-person dev shop. Goes from rough notes to deployed, tested, observable web app.
+A one-person dev shop. Goes from rough notes to deployed, tested, observable web app. Currently web — [native upcoming](kit/notes/bootstrap/v+-native.md).
 
 ## Getting Started
 
@@ -24,18 +24,15 @@ Run `/ak-migrate-project` (skeleton — two tiers: lightweight and full). See `k
   - An [Anthropic API key](https://console.anthropic.com/) (`ANTHROPIC_API_KEY`), or
   - A [Claude Pro/Team subscription](https://claude.ai/) (sign in via `claude` in the terminal)
 
-## Goals of Abra-Kadabra Devshop
+## Goals
 
-| Goal                                         | Description                                                                                                                                         | Details                                                                 |
-| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| **Devcontainer → plan → build → go live**    | One workflow from idea to production. You handle product decisions, the devshop handles everything technical.                                       | [Pipeline](kit/docs/guide/workflow.md)                                  |
-| **Improve devshop separately from projects** | Devshop changes benefit all projects without touching project code. Two repos, one workspace.                                                       | [Two-repo model](kit/docs/guide/architecture.md)                        |
-| **Keep devshop out of the project**          | Public contributors see clean code, normal PRs, standard CI. No devshop artifacts in the project repo.                                              | [File lifecycle](kit/docs/guide/architecture.md#file-lifecycle)         |
-| **Regular project record on git/GitHub**     | Conventional commits, feature branch PRs, CI gates — the project history reads like any well-run project.                                           | [Branch strategy](kit/docs/OVERVIEW.md#branch-strategy)                 |
-| **Easy to start a new project**              | One command creates a repo from the template, guided setup walks through the rest.                                                                  | [New project](kit/docs/guide/workflow.md#starting-a-new-project)        |
-| **Easy to migrate an existing project**      | Two tiers: lightweight (same stack) and full (different stack). _(Skeleton — built when a second project needs it.)_                                | [Roadmap](kit/ROADMAP.md)                                               |
-| **Simple system, easy to debug**             | Boring solutions over clever ones. Three layers, five file categories, one pipeline. When something breaks, the model tells you where to look.      | [Conceptual model](kit/docs/MODEL.md)                                   |
-| **Clear, hierarchical documentation**        | Docs mirror the conceptual model: MODEL for the mental model, OVERVIEW for orientation, guide/ for operational reference, FAQ for design rationale. | [Doc structure](kit/docs/guide/architecture.md#documentation-structure) |
+| Goal                                                                                                          | In practice                                                                                                                                                                                                                                                                                             |
+| ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **End-to-end automation** — idea to production, two touchpoints: review the PR, say "land it"                 | [Pipeline](kit/docs/guide/workflow.md): plan → implement → quality gates → ship → deploy → monitor. [New project](kit/docs/guide/workflow.md#starting-a-new-project) from template in one command. [Migrate existing projects](kit/ROADMAP.md) _(upcoming)_. Picks up where it left off if interrupted. |
+| **Separation** — devshop and project are independent; improve one without touching the other                  | [Two repos, one workspace](kit/docs/guide/architecture.md). Clean project repo — conventional commits, PRs, CI, [no devshop artifacts](kit/docs/guide/architecture.md#file-lifecycle). Works without the devshop (`pnpm install && pnpm turbo run dev`).                                                |
+| **Guardrails built in** — tests, security, and quality are mandatory; Claude can't weaken its own constraints | No code ships without tests, metrics, and [security review](kit/docs/MODEL.md#security). Pre-commit enforcement on every commit. Root-owned config files. [11 quality gates](kit/docs/guide/workflow.md) before PR.                                                                                     |
+
+Design principle: **simple and debuggable** — boring solutions, three layers, one pipeline. When something breaks, the [conceptual model](kit/docs/MODEL.md) tells you where to look.
 
 ## How it works
 
