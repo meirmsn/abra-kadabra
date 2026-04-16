@@ -110,7 +110,7 @@ None of the security files are pushed. All are gitignored:
 | `.claude/settings.local.json` | `.claude/*`    | Local only                     |
 | `.dcg.toml`                   | `.dcg.toml`    | Devshop repo (source of truth) |
 | `CLAUDE.md`                   | `CLAUDE.md`    | Generated at container start   |
-| `.devshop`                    | `.devshop`     | Symlink to devshop repo        |
+| `.devshopkit`                 | `.devshopkit`  | Symlink to devshop repo (kit/) |
 | `.devcontainer/.env`          | `.env`         | Local only (secrets)           |
 
 The project repo only carries `.devcontainer/devcontainer.json` (tells Docker to mount
