@@ -9,6 +9,11 @@ HOOKS_DIR="$(cd "$TESTS_DIR/../hooks" && pwd)"
 load "$TESTS_DIR/lib/bats-support/load"
 load "$TESTS_DIR/lib/bats-assert/load"
 
+# --- Environment isolation ---
+# When BATS runs inside a pre-commit hook (e.g., git -c devshop.docsVerified="..."),
+# GIT_CONFIG_PARAMETERS leaks -c flags into test repos. Unset to isolate tests.
+unset GIT_CONFIG_PARAMETERS
+
 # --- Mock bin ---
 
 # Create a temp directory for mock executables and prepend to PATH.

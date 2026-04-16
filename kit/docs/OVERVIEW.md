@@ -63,12 +63,13 @@ Every Bash Command
 git commit
   ├─ PreToolUse
   │   └─ check-hook-bypass.sh ── blocks --no-verify without documented reason
-  ├─ .husky/pre-commit (5 steps + devshop guards)
+  ├─ .husky/pre-commit (6 steps + devshop guards)
   │   ├─ 1. create-devshop-symlinks.sh ── recover if git ops lost them
   │   ├─ 2. lint-staged ───────────────── ESLint + Prettier on staged files
   │   ├─ 3. turbo typecheck ──────────── TypeScript errors
   │   ├─ 4. gitleaks ─────────────────── secret scan on staged files
-  │   └─ 5. devshop guards
+  │   ├─ 5. bats kit/tests/ ────────────── kit script regression tests (devshop only)
+  │   └─ 6. devshop guards
   │       ├─ check-security-files-freshness.sh
   │       ├─ check-clean-tree.sh ────────── no unaddressed dirty state
   │       ├─ check-manifest.sh ──────────── (devshop repo only)

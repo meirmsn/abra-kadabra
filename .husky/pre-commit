@@ -5,4 +5,10 @@
 pnpm exec lint-staged
 [ -f turbo.json ] && pnpm turbo run typecheck
 gitleaks protect --staged --redact
+
+# Run kit tests (devshop repo only — kit/tests/ doesn't exist in projects)
+if [ -d kit/tests ] && [ -x kit/tests/lib/bats-core/bin/bats ]; then
+  kit/tests/lib/bats-core/bin/bats kit/tests/ --print-output-on-failure
+fi
+
 if [ -x /devshop/kit/hooks/pre-commit.sh ]; then bash /devshop/kit/hooks/pre-commit.sh; fi
