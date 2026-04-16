@@ -2,6 +2,10 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.5.2 (2026-04-16)
+
+- fix: block Bash writes to memory paths, add WIP file guidance
+
 ## v1.5.1 (2026-04-16)
 
 - test: add release gate adversarial review pass/fail tests
