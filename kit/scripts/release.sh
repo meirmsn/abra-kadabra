@@ -93,7 +93,7 @@ git commit -m "Bump devshop version to $NEW_VERSION"
 git tag -a "v$NEW_VERSION" -m "v$NEW_VERSION"
 
 # Push + create GitHub release (if devshop token is available)
-_DEVSHOP_GH_TOKEN=$(grep '^GH_TOKEN=' "$(pwd)/.devcontainer/.env" 2>/dev/null | cut -d= -f2 || true)
+_DEVSHOP_GH_TOKEN=$(grep -E '^(GH_TOKEN|GITHUB_TOKEN)=' "$(pwd)/.devcontainer/.env" 2>/dev/null | head -1 | cut -d= -f2 || true)
 echo ""
 if [ -n "$_DEVSHOP_GH_TOKEN" ]; then
   git push

@@ -32,7 +32,7 @@ fi
 # Enables git push and gh release create from the project container.
 # The token is stored in /devshop/.devcontainer/.env as GH_TOKEN=<pat>.
 if [ -f "$DEVSHOP/.devcontainer/.env" ]; then
-  _DEVSHOP_GH_TOKEN=$(grep '^GH_TOKEN=' "$DEVSHOP/.devcontainer/.env" 2>/dev/null | cut -d= -f2 || true)
+  _DEVSHOP_GH_TOKEN=$(grep -E '^(GH_TOKEN|GITHUB_TOKEN)=' "$DEVSHOP/.devcontainer/.env" 2>/dev/null | head -1 | cut -d= -f2 || true)
   # Strip quotes if present (GH_TOKEN="ghp_xxx" or GH_TOKEN='ghp_xxx')
   _DEVSHOP_GH_TOKEN=$(echo "$_DEVSHOP_GH_TOKEN" | tr -d "\"'" || true)
   if [ -n "$_DEVSHOP_GH_TOKEN" ]; then
