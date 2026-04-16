@@ -12,7 +12,7 @@ The tradeoff ladder:
 | Local emulator (`supabase start`) | Once you're iterating on schema frequently — fast resets, no internet needed, no risk to prod data |
 | Staging remote project            | Once you have real users who'd be hurt by a bad migration or downtime                              |
 
-For lalista right now: single remote is correct. Add local emulator when schema work picks up.
+For an early-stage solo project: single remote is correct. Add local emulator when schema work picks up.
 
 What you have now (single remote):
 
@@ -26,7 +26,7 @@ When people add more environments:
   doing active schema work
 - Staging remote project — separate Supabase project you push to before prod. Worth adding when you have real users and can't afford to break them with a bad migration
 
-Practical recommendation for lalista right now:
+Practical recommendation for early-stage projects:
 
 - Keep the single remote for now — it's fine
 - Add a local emulator once you start iterating on the schema a lot (it's just supabase init + supabase start)

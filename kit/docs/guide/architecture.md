@@ -1,6 +1,6 @@
 # Devshop Separation Architecture
 
-The devshop (abra-kadabra) and the project repo (e.g., lalista) are separate git repositories. The project repo is clean and publishable — it contains only project code, build config, and CI. All devshop infrastructure gets **injected at container start** via symlinks.
+The devshop (abra-kadabra) and the project repo are separate git repositories. The project repo is clean and publishable — it contains only project code, build config, and CI. All devshop infrastructure gets **injected at container start** via symlinks.
 
 For the conceptual model (layers, pipeline, file lifecycle): see [`../MODEL.md`](../MODEL.md)
 
@@ -16,7 +16,7 @@ Host filesystem:
 │   ├── CLAUDE.md          ← devshop conventions for Claude
 │   └── (shared configs)   ← .editorconfig, eslint.config.mjs, etc.
 │
-└── lalista/               ← project repo (mounted at /workspace)
+└── my-project/            ← project repo (mounted at /workspace)
     ├── .devcontainer/     ← Dockerfile, firewall, thin forwarder
     ├── CLAUDE.md          ← project-specific Claude context (tracked)
     ├── .claude/memory/    ← Claude memory (tracked)
@@ -24,7 +24,7 @@ Host filesystem:
     └── (build configs)    ← turbo.json, eslint, etc. (tracked)
 
 Inside container:
-/workspace/                ← lalista (bind mount)
+/workspace/                ← project repo (bind mount)
 ├── .devshopkit/           ← symlink → /devshop/kit/
 ├── .claude/               ← created by init-devshop.sh (skills, settings)
 ├── CLAUDE.md              ← project-specific Claude context (tracked)

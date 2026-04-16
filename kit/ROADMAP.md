@@ -5,7 +5,7 @@ Tactical fixes go in `TODOS.md`. Project features go in root `PRODUCT-ROADMAP.md
 
 ---
 
-## v1 (after v0 is validated on lalista)
+## v1 (after v0 is validated on the first project)
 
 ### Tiered pre-ship pipeline
 
@@ -313,7 +313,7 @@ Skeleton exists (`.claude/skills/devshop/migrate-project/SKILL.md`). Two tiers:
   backend integration, rebuild screens, full test pass.
 
 `/ak-init` assumes a fresh template clone. `/ak-migrate` handles the cases where
-that assumption doesn't hold. Reference: lalista Phase 1 execution in
+that assumption doesn't hold. Reference: Phase 1 execution in
 `kit/notes/bootstrap/v0-web.md` as the first data point for parametrization.
 
 Trigger: when a second project needs to adopt the devshop.

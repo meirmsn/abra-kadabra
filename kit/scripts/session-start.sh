@@ -15,6 +15,7 @@ SECURITY_WARN="$(bash /devshop/kit/scripts/check-security-files-freshness.sh 2>/
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo /workspace)"
 BRANCH="$(git -C "$ROOT" branch --show-current 2>/dev/null || echo "(detached)")"
+PROJECT_NAME="$(git -C "$ROOT" remote get-url origin 2>/dev/null | sed 's#.*/##; s/\.git$//' || echo "Project")"
 
 # --- Context for Claude (not shown to user) ---
 
@@ -101,7 +102,7 @@ fi
 
 BRIEFING="
 ────────────────────────────────────────
- lalista — Session Briefing
+ ${PROJECT_NAME} — Session Briefing
 ────────────────────────────────────────
  Branch:  ${BRANCH}${DIRTY}${UNPUSHED}"
 

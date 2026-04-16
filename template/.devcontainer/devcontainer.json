@@ -1,5 +1,5 @@
 {
-  "name": "LaLista",
+  "name": "MyProject",
   "build": {
     "dockerfile": "Dockerfile",
     "args": {

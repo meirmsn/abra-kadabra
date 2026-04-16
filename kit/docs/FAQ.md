@@ -10,7 +10,7 @@ A repeatable system that takes an idea to a deployed, tested, monitored app with
 
 The dev-shop is already ~70% assembled via **gstack** (planning, QA, code review, shipping, monitoring). What the plan adds is the repo + CI/CD infrastructure that gstack runs on, plus the conventions (the guide, `CLAUDE.md`, per-feature specs/) that make handoffs between tools clean.
 
-The guinea pig project is **lalista** — a bilingual grocery list app being migrated from Swift/SwiftUI to React (Next.js web) + React Native (Expo mobile).
+The first project built with the devshop was a bilingual grocery list app migrated from Swift/SwiftUI to React (Next.js web) + React Native (Expo mobile).
 
 ---
 
