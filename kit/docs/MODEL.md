@@ -89,6 +89,7 @@ kit/
 ├── docs/          documentation (MODEL, OVERVIEW, FAQ, guide/)
 ├── scripts/       injection, checks, sync
 ├── hooks/         pre-commit
+├── tests/         BATS test suite for scripts and hooks
 ├── notes/         historical design decisions
 ├── manifest.txt   sync manifest (which files sync between repos)
 └── version        current devshop version

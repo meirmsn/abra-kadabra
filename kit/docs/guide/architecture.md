@@ -158,7 +158,7 @@ When working in the devshop repo (`/devshop/`):
 
 - **Root** = devshop infrastructure only (minimal package.json, .devcontainer/, shared configs).
 - **`template/`** = project skeleton. Copied by `/ak-new-project` Phase A. Deny-ruled — do not modify directly via Claude (use sync scripts after project changes).
-- **`kit/`** = the devshop kit — docs (`kit/docs/`), scripts (`kit/scripts/`), hooks (`kit/hooks/`), notes, backlogs. Symlinked as `.devshopkit` into project repos.
+- **`kit/`** = the devshop kit — docs (`kit/docs/`), scripts (`kit/scripts/`), hooks (`kit/hooks/`), tests (`kit/tests/`), notes, backlogs. Symlinked as `.devshopkit` into project repos.
 - **`.claude/`** = Claude Code runtime config (skills, commands, settings). Also symlinked.
 
 Root keeps eslint + friends because `lint-staged` invokes `eslint --fix` on every commit. Practically a no-op (no .ts/.js at root) but removing it would break the pre-commit hook.

@@ -89,7 +89,13 @@ fi
 
 if [ "$RUN_DRIFT_CHECK" = true ]; then
   # Skip changelog-only / version-only commits
-  NON_CHANGELOG=$(echo "$STAGED" | grep -E "$DEVSHOP_REGEX" | grep -vE '^\.devshopkit/(docs/CHANGELOG\.md|version)$' || true)
+  if [ "$CURRENT_REPO" = "devshop" ]; then
+    # In the devshop repo, all files under kit/ are devshop tooling
+    NON_CHANGELOG=$(echo "$STAGED" | grep -E '^kit/' | grep -vE '^kit/(docs/CHANGELOG\.md|version)$' || true)
+  else
+    # In project repos, devshop files are under .devshopkit/, .claude/, or .dcg.toml
+    NON_CHANGELOG=$(echo "$STAGED" | grep -E "$DEVSHOP_REGEX" | grep -vE '^\.devshopkit/(docs/CHANGELOG\.md|version)$' || true)
+  fi
 
   if [ -n "$NON_CHANGELOG" ]; then
     REVIEW_NOTES=$(git config --get devshop.docsVerified 2>/dev/null || true)

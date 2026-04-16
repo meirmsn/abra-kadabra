@@ -30,6 +30,7 @@ Container Workspace (/workspace)
 │   ├── .devshopkit/ ──symlink──→ /devshop/kit/
 │   │   ├── scripts/ (19)        Init, guards, sync, session, adversarial review
 │   │   ├── hooks/pre-commit.sh  Orchestrates the 5-step + 4-guard chain
+│   │   ├── tests/               BATS test suite (guards, routing, goal verification)
 │   │   └── docs/                MODEL, OVERVIEW, guide/ (6 files), FAQ
 │   ├── .claude/
 │   │   ├── skills/ ──symlink──→ /devshop/.claude/skills/
