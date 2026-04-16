@@ -2,6 +2,14 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.5.1 (2026-04-16)
+
+- test: add release gate adversarial review pass/fail tests
+- test: add release gate change-detection tests
+- feat: pre-release semantic test coverage review in release.sh
+- feat: adversarial reviewer now checks new capabilities have docs
+- docs: document kit testing strategy in guide/conventions.md
+
 ## v1.5.0 (2026-04-16)
 
 - docs: document devshop rebase-to-main workflow, branch-aware hook
