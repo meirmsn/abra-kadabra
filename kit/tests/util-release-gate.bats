@@ -1,7 +1,8 @@
 #!/usr/bin/env bats
-# Tests for release.sh pre-release test coverage gate
-# Verifies the gate detects functional changes, invokes adversarial review,
-# and blocks the release when review rejects.
+# Tests for release.sh pre-release test coverage gate.
+# The gate runs on every release (once the first tag exists), builds the full
+# diff + test inventory since the last tag, and delegates the judgment to the
+# adversarial reviewer. PASS/FAIL comes entirely from the reviewer's verdict.
 
 setup() {
   load helpers/setup
@@ -22,26 +23,6 @@ echo "guard logic"' > "$TEST_REPO/kit/scripts/guard.sh"
   git -C "$TEST_REPO" add .
   git -C "$TEST_REPO" commit -q -m "initial"
   git -C "$TEST_REPO" tag -a v1.0.0 -m "v1.0.0"
-}
-
-# Extract the pre-release gate's change-detection logic for unit testing
-run_gate_check() {
-  local repo="$1"
-  cd "$repo"
-
-  local LAST_TAG="v$(cat kit/version | tr -d '[:space:]')"
-  local FUNC_CHANGES
-  FUNC_CHANGES=$(git diff --name-only "$LAST_TAG"..HEAD | grep -E '^kit/scripts/|^kit/hooks/' || true)
-  local TEST_CHANGES
-  TEST_CHANGES=$(git diff --name-only "$LAST_TAG"..HEAD | grep '^kit/tests/' || true)
-
-  if [ -z "$FUNC_CHANGES" ]; then
-    echo "NO_FUNC_CHANGES"
-  elif [ -n "$TEST_CHANGES" ]; then
-    echo "TESTS_ALSO_CHANGED"
-  else
-    echo "NEEDS_REVIEW"
-  fi
 }
 
 # Run the full release.sh gate section with mocked adversarial-review.sh.
@@ -72,67 +53,82 @@ WRAP
   run bash -c "cd '$repo' && bash '$full_wrapper'"
 }
 
-# === Change detection ===
+# === Gate runs on every release regardless of file type ===
 
-@test "release gate: skips when no functional changes since tag" {
+@test "release gate: runs on docs-only release" {
   echo "# updated" > "$TEST_REPO/README.md"
   git -C "$TEST_REPO" add README.md
   git -C "$TEST_REPO" commit -q -m "docs only"
-
-  result=$(run_gate_check "$TEST_REPO")
-  assert_equal "$result" "NO_FUNC_CHANGES"
-}
-
-@test "release gate: detects functional changes without test updates" {
-  echo '#!/bin/bash
-echo "modified guard"' > "$TEST_REPO/kit/scripts/guard.sh"
-  git -C "$TEST_REPO" add kit/scripts/guard.sh
-  git -C "$TEST_REPO" commit -q -m "modify script"
-
-  result=$(run_gate_check "$TEST_REPO")
-  assert_equal "$result" "NEEDS_REVIEW"
-}
-
-@test "release gate: passes when both scripts and tests changed" {
-  echo '#!/bin/bash
-echo "modified guard"' > "$TEST_REPO/kit/scripts/guard.sh"
-  echo '@test "guard handles new flag" { true; }' >> "$TEST_REPO/kit/tests/guard.bats"
-  git -C "$TEST_REPO" add kit/scripts/guard.sh kit/tests/guard.bats
-  git -C "$TEST_REPO" commit -q -m "script and test updated together"
-
-  result=$(run_gate_check "$TEST_REPO")
-  assert_equal "$result" "TESTS_ALSO_CHANGED"
-}
-
-@test "release gate: detects hook changes as functional" {
-  mkdir -p "$TEST_REPO/kit/hooks"
-  echo '#!/bin/bash
-echo "hook logic"' > "$TEST_REPO/kit/hooks/pre-commit.sh"
-  git -C "$TEST_REPO" add kit/hooks/pre-commit.sh
-  git -C "$TEST_REPO" commit -q -m "add hook"
-
-  result=$(run_gate_check "$TEST_REPO")
-  assert_equal "$result" "NEEDS_REVIEW"
-}
-
-# === Adversarial review integration ===
-
-@test "release gate: passes when adversarial review accepts coverage" {
-  echo '#!/bin/bash
-echo "modified guard"' > "$TEST_REPO/kit/scripts/guard.sh"
-  git -C "$TEST_REPO" add kit/scripts/guard.sh
-  git -C "$TEST_REPO" commit -q -m "modify script without updating tests"
 
   run_release_gate "$TEST_REPO" PASS
   assert_success
   assert_output --partial "GATE_PASSED"
 }
 
-@test "release gate: blocks when adversarial review rejects coverage" {
+@test "release gate: runs on config-only change (devcontainer.json)" {
+  mkdir -p "$TEST_REPO/.devcontainer"
+  echo '{"containerEnv": {"NEW_VAR": "1"}}' > "$TEST_REPO/.devcontainer/devcontainer.json"
+  git -C "$TEST_REPO" add .devcontainer/devcontainer.json
+  git -C "$TEST_REPO" commit -q -m "add devcontainer env var"
+
+  run_release_gate "$TEST_REPO" PASS
+  assert_success
+  assert_output --partial "GATE_PASSED"
+}
+
+@test "release gate: runs on script change with tests" {
+  echo '#!/bin/bash
+echo "modified guard"' > "$TEST_REPO/kit/scripts/guard.sh"
+  echo '@test "guard handles new flag" { true; }' >> "$TEST_REPO/kit/tests/guard.bats"
+  git -C "$TEST_REPO" add kit/scripts/guard.sh kit/tests/guard.bats
+  git -C "$TEST_REPO" commit -q -m "script and test updated together"
+
+  run_release_gate "$TEST_REPO" PASS
+  assert_success
+  assert_output --partial "GATE_PASSED"
+}
+
+@test "release gate: runs on script change without tests" {
   echo '#!/bin/bash
 echo "modified guard"' > "$TEST_REPO/kit/scripts/guard.sh"
   git -C "$TEST_REPO" add kit/scripts/guard.sh
-  git -C "$TEST_REPO" commit -q -m "modify script without updating tests"
+  git -C "$TEST_REPO" commit -q -m "modify script"
+
+  run_release_gate "$TEST_REPO" PASS
+  assert_success
+  assert_output --partial "GATE_PASSED"
+}
+
+@test "release gate: runs on hook change" {
+  mkdir -p "$TEST_REPO/kit/hooks"
+  echo '#!/bin/bash
+echo "hook logic"' > "$TEST_REPO/kit/hooks/pre-commit.sh"
+  git -C "$TEST_REPO" add kit/hooks/pre-commit.sh
+  git -C "$TEST_REPO" commit -q -m "add hook"
+
+  run_release_gate "$TEST_REPO" PASS
+  assert_success
+  assert_output --partial "GATE_PASSED"
+}
+
+# === Gate respects adversarial verdict ===
+
+@test "release gate: passes when adversarial review accepts" {
+  echo '#!/bin/bash
+echo "modified"' > "$TEST_REPO/kit/scripts/guard.sh"
+  git -C "$TEST_REPO" add kit/scripts/guard.sh
+  git -C "$TEST_REPO" commit -q -m "modify"
+
+  run_release_gate "$TEST_REPO" PASS
+  assert_success
+  assert_output --partial "GATE_PASSED"
+}
+
+@test "release gate: blocks when adversarial review rejects" {
+  echo '#!/bin/bash
+echo "modified"' > "$TEST_REPO/kit/scripts/guard.sh"
+  git -C "$TEST_REPO" add kit/scripts/guard.sh
+  git -C "$TEST_REPO" commit -q -m "modify"
 
   run_release_gate "$TEST_REPO" FAIL
   assert_failure 1

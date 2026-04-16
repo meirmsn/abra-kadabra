@@ -89,8 +89,9 @@ git push
 
 release.sh (devshop version bump)
   └─ Pre-release gate
-      └─ Semantic test coverage review ── adversarial agent checks functional
-         changes since last tag have adequate test coverage (one Sonnet call)
+      └─ Semantic test coverage review ── adversarial agent judges whether
+         changes since last tag need test coverage (docs-only / config-only
+         covered by wiring tests can PASS; one Sonnet call, always runs)
 ```
 
 ## Workflow (Idea to Deployed)

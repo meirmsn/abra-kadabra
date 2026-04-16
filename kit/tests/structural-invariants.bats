@@ -445,6 +445,26 @@ setup() {
 }
 
 # =============================================================================
+# Telemetry opt-outs — env vars in containerEnv for rebuild resilience
+# (the state files live under ~/.config/ which is not volume-mounted, so
+# one-time CLI disable commands don't survive devcontainer rebuilds)
+# =============================================================================
+
+@test "wiring: template devcontainer.json disables turbo telemetry" {
+  local dc="$DEVSHOP/template/.devcontainer/devcontainer.json"
+  [ -f "$dc" ] || skip "template devcontainer.json not found"
+  run grep -q '"TURBO_TELEMETRY_DISABLED": "1"' "$dc"
+  assert_success
+}
+
+@test "wiring: devshop devcontainer.json disables turbo telemetry" {
+  local dc="$DEVSHOP/.devcontainer/devcontainer.json"
+  [ -f "$dc" ] || skip "devshop devcontainer.json not found"
+  run grep -q '"TURBO_TELEMETRY_DISABLED": "1"' "$dc"
+  assert_success
+}
+
+# =============================================================================
 # CI workflow validity
 # =============================================================================
 
