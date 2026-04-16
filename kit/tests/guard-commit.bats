@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # Tests for kit/scripts/devshop-commit-guard.sh
-# Four checks: mixed commits, docs drift, doc consistency, cross-repo awareness
+# Five checks: mixed-commit, docs-drift, doc-consistency, cross-repo, release-coverage
 
 setup() {
   load helpers/setup
@@ -63,9 +63,9 @@ run_guard() {
   run bash -c "cd '$TEST_REPO' && bash '$WRAPPER'"
 }
 
-# === Check 1: Mixed commit detection (project repo only) ===
+# === mixed-commit (project repo only) ===
 
-@test "check1: blocks mixed devshop + project files in project repo" {
+@test "mixed-commit: blocks mixed devshop + project files in project repo" {
   setup_project_repo
   stage_file ".claude/skills/new-skill.md" "skill"
   stage_file "src/index.ts" "code"
@@ -74,7 +74,7 @@ run_guard() {
   assert_output --partial "Mixed commit"
 }
 
-@test "check1: allows project-only files in project repo" {
+@test "mixed-commit: allows project-only files in project repo" {
   setup_project_repo
   stage_file "src/index.ts" "code"
   stage_file "src/utils.ts" "utils"
@@ -82,17 +82,17 @@ run_guard() {
   assert_success
 }
 
-@test "check1: allows devshop-only files in project repo (with docs review)" {
+@test "mixed-commit: allows devshop-only files in project repo (with docs review)" {
   setup_project_repo
   mock_adversarial_review PASS
   stage_file ".claude/skills/new-skill.md" "skill"
-  # Devshop-only files still trigger docs drift (check2)
+  # Devshop-only files still trigger docs-drift
   git -C "$TEST_REPO" config devshop.docsVerified "reviewed — new skill, no doc changes needed"
   run_guard
   assert_success
 }
 
-@test "check1: detects .dcg.toml as devshop file" {
+@test "mixed-commit: detects .dcg.toml as devshop file" {
   setup_project_repo
   stage_file ".dcg.toml" "[packs]"
   stage_file "src/index.ts" "code"
@@ -101,9 +101,9 @@ run_guard() {
   assert_output --partial "Mixed commit"
 }
 
-# === Check 2: Docs drift detection ===
+# === docs-drift ===
 
-@test "check2: blocks devshop file change without docs review notes" {
+@test "docs-drift: blocks devshop file change without docs review notes" {
   setup_devshop_repo
   stage_file "kit/scripts/new-guard.sh" "#!/bin/bash"
   run_guard
@@ -111,7 +111,7 @@ run_guard() {
   assert_output --partial "docs review required"
 }
 
-@test "check2: passes with review notes when adversarial accepts" {
+@test "docs-drift: passes with review notes when adversarial accepts" {
   setup_devshop_repo
   mock_adversarial_review PASS
   stage_file "kit/scripts/new-guard.sh" "#!/bin/bash"
@@ -120,7 +120,7 @@ run_guard() {
   assert_success
 }
 
-@test "check2: blocks with review notes when adversarial rejects" {
+@test "docs-drift: blocks with review notes when adversarial rejects" {
   setup_devshop_repo
   mock_adversarial_review FAIL
   stage_file "kit/scripts/new-guard.sh" "#!/bin/bash"
@@ -130,7 +130,7 @@ run_guard() {
   assert_output --partial "REJECTED"
 }
 
-@test "check2: skips changelog-only commits" {
+@test "docs-drift: skips changelog-only commits" {
   setup_devshop_repo
   echo "## v1.0.1" >> "$TEST_REPO/kit/docs/CHANGELOG.md"
   git -C "$TEST_REPO" add kit/docs/CHANGELOG.md
@@ -140,7 +140,7 @@ run_guard() {
   assert_success
 }
 
-@test "check2: triggers for project repo devshop file changes" {
+@test "docs-drift: triggers for project repo devshop file changes" {
   setup_project_repo
   # .devshopkit/ is a real dir (created in setup), so staging works
   stage_file ".devshopkit/scripts/new-guard.sh" "#!/bin/bash"
@@ -149,9 +149,9 @@ run_guard() {
   assert_output --partial "docs review required"
 }
 
-# === Check 3: Reference doc consistency ===
+# === doc-consistency ===
 
-@test "check3: blocks when ref doc staged without sync reason" {
+@test "doc-consistency: blocks when ref doc staged without sync reason" {
   setup_devshop_repo
   echo "# Updated MODEL" > "$TEST_REPO/kit/docs/MODEL.md"
   git -C "$TEST_REPO" add kit/docs/MODEL.md
@@ -160,19 +160,19 @@ run_guard() {
   assert_output --partial "Reference doc changed"
 }
 
-@test "check3: passes with sync reason when adversarial accepts" {
+@test "doc-consistency: passes with sync reason when adversarial accepts" {
   setup_devshop_repo
   mock_adversarial_review PASS
   echo "# Updated MODEL" > "$TEST_REPO/kit/docs/MODEL.md"
   git -C "$TEST_REPO" add kit/docs/MODEL.md
-  # MODEL.md is under kit/ so check2 (docs drift) triggers too — need both flags
+  # MODEL.md is under kit/ so docs-drift triggers too — need both flags
   git -C "$TEST_REPO" config devshop.docsVerified "updated MODEL, checked all other docs"
   git -C "$TEST_REPO" config devshop.docSyncReason "updated MODEL, checked OVERVIEW and guide for consistency"
   run_guard
   assert_success
 }
 
-@test "check3: detects CLAUDE.md change in devshop repo" {
+@test "doc-consistency: detects CLAUDE.md change in devshop repo" {
   setup_devshop_repo
   echo "# Updated CLAUDE" > "$TEST_REPO/CLAUDE.md"
   git -C "$TEST_REPO" add CLAUDE.md
@@ -181,7 +181,7 @@ run_guard() {
   assert_output --partial "Reference doc changed"
 }
 
-@test "check3: detects guide/ changes" {
+@test "doc-consistency: detects guide/ changes" {
   setup_devshop_repo
   echo "# Updated workflow" > "$TEST_REPO/kit/docs/guide/workflow.md"
   git -C "$TEST_REPO" add kit/docs/guide/workflow.md
@@ -190,9 +190,9 @@ run_guard() {
   assert_output --partial "Reference doc changed"
 }
 
-# === Check 4: Cross-repo awareness ===
+# === cross-repo ===
 
-@test "check4: passes when no other repo exists (devshop-self)" {
+@test "cross-repo: passes when no other repo exists (devshop-self)" {
   setup_devshop_repo
   echo "## v1.0.1" >> "$TEST_REPO/kit/docs/CHANGELOG.md"
   git -C "$TEST_REPO" add kit/docs/CHANGELOG.md
@@ -202,7 +202,7 @@ run_guard() {
   assert_success
 }
 
-@test "check4: blocks when other repo is dirty" {
+@test "cross-repo: blocks when other repo is dirty" {
   # Set up two repos: project + devshop
   setup_project_repo
   local other_repo="$BATS_TEST_TMPDIR/other-devshop"
@@ -226,7 +226,7 @@ run_guard() {
   assert_output --partial "uncommitted changes"
 }
 
-@test "check4: passes when other repo is clean" {
+@test "cross-repo: passes when other repo is clean" {
   setup_project_repo
   local other_repo="$BATS_TEST_TMPDIR/other-devshop"
   mkdir -p "$other_repo"
@@ -247,9 +247,9 @@ run_guard() {
 
 # === Multiple simultaneous failures ===
 
-@test "reports both check2 and check3 failures together" {
+@test "reports both docs-drift and doc-consistency failures together" {
   setup_devshop_repo
-  # Stage a kit/ file (triggers check2 docs drift) AND a ref doc (triggers check3)
+  # Stage a kit/ file (triggers docs-drift) AND a ref doc (triggers doc-consistency)
   stage_file "kit/scripts/new-thing.sh" "#!/bin/bash"
   echo "# Updated MODEL" > "$TEST_REPO/kit/docs/MODEL.md"
   git -C "$TEST_REPO" add kit/docs/MODEL.md
@@ -262,7 +262,7 @@ run_guard() {
 
 # === DEVSHOP_REGEX pattern coverage ===
 
-@test "check1: detects .devshopkit/ files as devshop in project repo" {
+@test "mixed-commit: detects .devshopkit/ files as devshop in project repo" {
   setup_project_repo
   stage_file ".devshopkit/scripts/guard.sh" "#!/bin/bash"
   stage_file "src/index.ts" "code"
@@ -286,9 +286,9 @@ run_guard() {
   assert_success
 }
 
-# === Check 5: Release commit test coverage review (devshop repo only) ===
+# === release-coverage (devshop repo only) ===
 
-@test "check5: skips when kit/version not staged" {
+@test "release-coverage: skips when kit/version not staged" {
   setup_devshop_repo
   git -C "$TEST_REPO" tag -a v1.0.0 -m "v1.0.0"
   stage_file "README.md" "# updated readme"
@@ -297,7 +297,7 @@ run_guard() {
   refute_output --partial "Release coverage:"
 }
 
-@test "check5: skips when no prior tag exists (first release)" {
+@test "release-coverage: skips when no prior tag exists (first release)" {
   setup_devshop_repo
   # No tag created — v1.0.0 does not exist yet
   echo "1.0.1" > "$TEST_REPO/kit/version"
@@ -307,7 +307,7 @@ run_guard() {
   refute_output --partial "Release coverage:"
 }
 
-@test "check5: runs review when kit/version is bumped" {
+@test "release-coverage: runs review when kit/version is bumped" {
   setup_devshop_repo
   git -C "$TEST_REPO" tag -a v1.0.0 -m "v1.0.0"
   echo "1.0.1" > "$TEST_REPO/kit/version"
@@ -318,7 +318,7 @@ run_guard() {
   assert_output --partial "Release coverage: adversarial review accepted"
 }
 
-@test "check5: blocks when adversarial review rejects coverage" {
+@test "release-coverage: blocks when adversarial review rejects coverage" {
   setup_devshop_repo
   git -C "$TEST_REPO" tag -a v1.0.0 -m "v1.0.0"
   echo "1.0.1" > "$TEST_REPO/kit/version"
@@ -329,7 +329,7 @@ run_guard() {
   assert_output --partial "Pre-release test coverage review FAILED"
 }
 
-@test "check5: passes with releaseReviewed bypass when reviewer accepts" {
+@test "release-coverage: passes with releaseReviewed bypass when reviewer accepts" {
   setup_devshop_repo
   git -C "$TEST_REPO" tag -a v1.0.0 -m "v1.0.0"
   echo "1.0.1" > "$TEST_REPO/kit/version"
@@ -341,7 +341,7 @@ run_guard() {
   assert_output --partial "Release coverage: adversarial review accepted"
 }
 
-@test "check5: blocks bypass when reviewer rejects justification" {
+@test "release-coverage: blocks bypass when reviewer rejects justification" {
   setup_devshop_repo
   git -C "$TEST_REPO" tag -a v1.0.0 -m "v1.0.0"
   echo "1.0.1" > "$TEST_REPO/kit/version"

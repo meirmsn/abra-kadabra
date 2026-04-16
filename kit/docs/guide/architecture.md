@@ -189,7 +189,7 @@ All devshop docs live in `kit/docs/`. Three types: reference docs (living), back
 - `kit/docs/OVERVIEW.md` — bird's eye view (~60-80 lines). Read for orientation.
 - `kit/docs/guide/` — operational reference (this directory). Read when implementing or shipping.
 
-Commit guard enforces: check 3 (doc consistency) blocks if one is staged without the others unless a reason is provided via `git -c devshop.docSyncReason="<reason>"`. `/ak-pre-ship` also enforces.
+Commit guard enforces: `doc-consistency` check blocks if one is staged without the others unless a reason is provided via `git -c devshop.docSyncReason="<reason>"`. `/ak-pre-ship` also enforces.
 
 ### Backlogs (living — grow independently)
 

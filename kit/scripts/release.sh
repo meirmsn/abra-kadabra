@@ -3,8 +3,11 @@
 # Run from the devshop repo root (not a project repo).
 # Shows changes since last version tag, suggests bump level, asks for confirmation.
 #
-# Pre-release gate: semantic test coverage review — checks whether tests cover
-# all functional changes since the last tag. Runs once per release, not per commit.
+# Test coverage review: the `release-coverage` check in devshop-commit-guard.sh
+# fires on the bump commit (triggered by kit/version being staged) and runs an
+# adversarial review of the changes since the last tag. Runs once per release,
+# not per commit. Cannot be bypassed by skipping release.sh — any bump commit
+# triggers it regardless of how the bump was made.
 #
 # Usage:
 #   release.sh                # interactive (prompts for bump level + confirm)
@@ -52,11 +55,12 @@ else
   echo "No previous tag found. This will be the first tagged release."
 fi
 
-# Pre-release test coverage review runs in the commit guard — see check 5 in
-# kit/scripts/devshop-commit-guard.sh. Triggered by kit/version being staged,
-# which happens below when release.sh writes the new version and calls
-# `git commit`. The review covers all changes since $LAST_TAG via the adversarial
-# agent. Cannot be bypassed by calling `git tag` directly without a bump commit.
+# Pre-release test coverage review runs in the commit guard — see the
+# release-coverage check in kit/scripts/devshop-commit-guard.sh. Triggered by
+# kit/version being staged, which happens below when release.sh writes the new
+# version and calls `git commit`. The review covers all changes since $LAST_TAG
+# via the adversarial agent. Cannot be bypassed by calling `git tag` directly
+# without a bump commit.
 
 if [ -n "$ARG_BUMP" ]; then
   BUMP="$ARG_BUMP"

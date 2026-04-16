@@ -74,14 +74,14 @@ git commit
   │       ├─ check-clean-tree.sh ────────── no unaddressed dirty state
   │       ├─ check-manifest.sh ──────────── (devshop repo only)
   │       ├─ check-test-coverage.sh ─────── new scripts need tests (devshop only)
-  │       └─ devshop-commit-guard.sh ────── 5 checks:
-  │           ├─ mixed commit ───────────── devshop + project files together? block
-  │           ├─ docs drift ─────────────── tooling changed without doc update? block
-  │           ├─ doc consistency ─────────── one ref doc changed without others? block
-  │           ├─ cross-repo dirty ───────── other repo has uncommitted changes? block
-  │           └─ release coverage ────────── kit/version bumped? adversarial agent
-  │                                          judges whether changes since last tag
-  │                                          need test coverage (one Sonnet call)
+  │       └─ devshop-commit-guard.sh ────── 5 checks (run in this order):
+  │           ├─ mixed-commit ───────────── devshop + project files together? block
+  │           ├─ docs-drift ─────────────── tooling changed without doc update? block
+  │           ├─ doc-consistency ────────── one ref doc changed without others? block
+  │           ├─ cross-repo ─────────────── other repo has uncommitted changes? block
+  │           └─ release-coverage ───────── kit/version bumped? adversarial agent
+  │                                         judges whether changes since last tag
+  │                                         need test coverage (one Sonnet call)
   └─ PostToolUse (advisory)
       ├─ check-dirty-after-commit.sh ──── warn if tree still dirty
       └─ check-pr-description.sh ──────── assess + update PR description
