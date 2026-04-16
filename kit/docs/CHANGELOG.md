@@ -2,6 +2,10 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.5.4 (2026-04-16)
+
+- fix: run release test-coverage gate on every release
+
 ## v1.5.3 (2026-04-16)
 
 - docs: document ~/.config not being volume-mounted as a known footgun
