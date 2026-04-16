@@ -92,6 +92,18 @@ git add "$VERSION_FILE" "$CHANGELOG_PATH"
 git commit -m "Bump devshop version to $NEW_VERSION"
 git tag -a "v$NEW_VERSION" -m "v$NEW_VERSION"
 
+# Push + create GitHub release (if devshop token is available)
+_DEVSHOP_GH_TOKEN=$(grep '^GH_TOKEN=' "$(pwd)/.devcontainer/.env" 2>/dev/null | cut -d= -f2 || true)
 echo ""
-echo "Done. Version bumped to $NEW_VERSION and tagged v$NEW_VERSION."
-echo "Push with: git push (tags included if push.followTags is set)"
+if [ -n "$_DEVSHOP_GH_TOKEN" ]; then
+  git push
+  git push --tags
+  GH_TOKEN="$_DEVSHOP_GH_TOKEN" gh release create "v$NEW_VERSION" \
+    --title "v$NEW_VERSION" \
+    --notes "$CHANGELOG_MSG"
+  echo "Done. v$NEW_VERSION pushed and released on GitHub."
+else
+  echo "Done. Version bumped to $NEW_VERSION and tagged v$NEW_VERSION."
+  echo "Push with: git push (tags included if push.followTags is set)"
+  echo "No GH_TOKEN in .devcontainer/.env — skipping push and GitHub release."
+fi

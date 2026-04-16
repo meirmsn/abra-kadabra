@@ -111,7 +111,7 @@ Devshop changes go to the abra-kadabra repo. Since `.devshopkit/` is a symlink t
 cd /devshop                    # abra-kadabra repo
 git status                     # see devshop changes
 git add -A && git commit -m "chore: ..."
-# Push from host (container PAT may lack scope)
+# Push works if GH_TOKEN is in /devshop/.devcontainer/.env, otherwise push from host
 ```
 
 - Devshop commits use conventional commits (`feat:`, `fix:`, `chore:`, etc.)
@@ -171,7 +171,7 @@ Root `.devcontainer/` and `template/.devcontainer/` are identical — both conta
 
 - **macOS bind mount no-execute**: Scripts on the `/devshop/` mount can't execute via shebang (`/usr/bin/env: bad interpreter: Permission denied`). The thin forwarder must use `exec bash /devshop/...` not `exec /devshop/...`.
 - **Thin forwarder mechanism**: The Dockerfile COPYs `init-devshop.sh` at build time → baked at `/usr/local/bin/init-devshop.sh`. A NOPASSWD sudoers rule only covers this exact path. The project's `.devcontainer/init-devshop.sh` is a thin forwarder (`[ -f /devshop/... ] && exec bash /devshop/...`) that delegates to abra-kadabra. This way the Dockerfile and sudoers rule don't change — only the forwarder content matters, and it gets re-baked on container rebuild.
-- **Container PAT scope**: The GitHub token in `.devcontainer/.env` is scoped to the project repo. Cannot push to abra-kadabra from the container. Push devshop changes from the host machine.
+- **Container PAT scope**: The project's GitHub token (`.devcontainer/.env`) is scoped to the project repo. To push devshop changes from the container, add `GH_TOKEN=<pat>` to `/devshop/.devcontainer/.env` — `init-devshop.sh` configures git credentials and `release.sh` uses it for push + GitHub release. Without it, push devshop changes from the host.
 - **`.devcontainer/` files are root-owned**: Cannot edit inside the container without sudo. Edit from the host filesystem or use `sudo nano <file>`.
 - **`[ -e ]` not `[ -f ]` for symlinks**: `[ -f ]` tests for regular files and may return false for symlinks. Use `[ -e ]` (exists) for symlinked paths.
 - **gitignore patterns for symlinks**: Use `.devshopkit` and `.claude` (no trailing `/`). A trailing slash only matches directories, but symlinks to directories may not match.

@@ -26,6 +26,18 @@ if [ -f "$WS/.devcontainer/.env" ]; then
   fi
 fi
 
+# --- Devshop GitHub token ---
+# Reads GH_TOKEN from devshop .env, configures git credential helper for /devshop/.
+# Enables git push and gh release create from the project container.
+# The token is stored in /devshop/.devcontainer/.env as GH_TOKEN=<pat>.
+if [ -f "$DEVSHOP/.devcontainer/.env" ]; then
+  _DEVSHOP_GH_TOKEN=$(grep '^GH_TOKEN=' "$DEVSHOP/.devcontainer/.env" | cut -d= -f2)
+  if [ -n "$_DEVSHOP_GH_TOKEN" ]; then
+    git -C "$DEVSHOP" config credential.helper "!f() { echo username=x-access-token; echo password=$_DEVSHOP_GH_TOKEN; }; f"
+  fi
+  unset _DEVSHOP_GH_TOKEN
+fi
+
 # --- Devshop-self guard ---
 # When the workspace IS the devshop (opened directly in VS Code as a devcontainer),
 # skip injection. kit/ is a real directory in the devshop repo but always
@@ -114,6 +126,7 @@ for f in \
   "$DEVSHOP/.devcontainer/init-firewall.sh" \
   "$DEVSHOP/.devcontainer/Dockerfile" \
   "$DEVSHOP/.devcontainer/checksums.sha256" \
+  "$DEVSHOP/.devcontainer/.env" \
   "$DEVSHOP/template/.devcontainer/devcontainer.json" \
   "$DEVSHOP/template/.devcontainer/init-devshop.sh" \
   "$DEVSHOP/template/.devcontainer/init-firewall.sh" \
