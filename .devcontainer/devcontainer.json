@@ -69,7 +69,9 @@
     // Store gstack artifacts inside the project so they survive container rebuilds and are version-trackable
     "GSTACK_STATE_DIR": "/workspace/.gstack",
     // Load CLAUDE.md from additional working directories (e.g. /devshop)
-    "CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD": "1"
+    "CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD": "1",
+    // Disable turbo telemetry — opt-out file lives in ~/.config outside the volume mount, so it'd reset on every rebuild otherwise
+    "TURBO_TELEMETRY_DISABLED": "1"
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
