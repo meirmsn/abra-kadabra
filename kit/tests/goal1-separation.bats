@@ -76,6 +76,42 @@ setup() {
   assert_output --partial "Mixed commit"
 }
 
+# --- Project works without devshop ---
+
+@test "separation: pre-commit hook no-ops when devshop not mounted" {
+  # Simulate a standalone project with no devshop
+  local standalone="$BATS_TEST_TMPDIR/standalone"
+  mkdir -p "$standalone/.husky"
+  git -C "$standalone" init -q
+  git -C "$standalone" config user.email "test@test.com"
+  git -C "$standalone" config user.name "Test"
+  echo "init" > "$standalone/.gitkeep"
+  git -C "$standalone" add .
+  git -C "$standalone" commit -q -m "initial"
+
+  # Copy the husky pre-commit but point DEVSHOP to nonexistent path
+  local hook="$standalone/.husky/pre-commit"
+  cat > "$hook" <<'HOOK'
+# Symlink recovery — no-ops without devshop
+[ ! -L .devshopkit ] && [ -d /nonexistent/devshop/kit ] && bash /nonexistent/devshop/kit/scripts/create-devshop-symlinks.sh 2>/dev/null || true
+
+# Kit tests — no-ops without kit/tests/
+if [ -d kit/tests ] && [ -x kit/tests/lib/bats-core/bin/bats ]; then
+  kit/tests/lib/bats-core/bin/bats kit/tests/ --print-output-on-failure
+fi
+
+# Devshop guards — no-ops without devshop
+if [ -x /nonexistent/devshop/kit/hooks/pre-commit.sh ]; then bash /nonexistent/devshop/kit/hooks/pre-commit.sh; fi
+HOOK
+  chmod +x "$hook"
+
+  # Stage a file and verify the hook runs without errors
+  echo "code" > "$standalone/index.ts"
+  git -C "$standalone" add index.ts
+  run bash -c "cd '$standalone' && bash .husky/pre-commit"
+  assert_success
+}
+
 # --- Path normalization ---
 
 @test "separation: paths normalized for project context" {

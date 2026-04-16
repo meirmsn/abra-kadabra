@@ -72,6 +72,36 @@ setup() {
   assert_output --partial "Cannot determine git root"
 }
 
+# --- Security file enforcement ---
+
+@test "guardrails: missing settings.json blocks commit" {
+  local ds="$BATS_TEST_TMPDIR/devshop"
+  local ws="$BATS_TEST_TMPDIR/workspace"
+  mkdir -p "$ds/.claude" "$ds/kit/scripts" "$ws/.claude"
+  echo '{}' > "$ds/.claude/settings.json"
+  echo '[packs]' > "$ds/.dcg.toml"
+  cp "$SCRIPTS_DIR/normalize-devshop-paths.sh" "$ds/kit/scripts/"
+  # Don't create settings.json in workspace
+  cp "$ds/.dcg.toml" "$ws/.dcg.toml"
+  run bash -c "DEVSHOP='$ds' WS='$ws' bash '$SCRIPTS_DIR/check-security-files-freshness.sh'"
+  assert_failure 1
+  assert_output --partial "MISSING"
+}
+
+@test "guardrails: symlinked settings.json blocks commit" {
+  local ds="$BATS_TEST_TMPDIR/devshop"
+  local ws="$BATS_TEST_TMPDIR/workspace"
+  mkdir -p "$ds/.claude" "$ds/kit/scripts" "$ws/.claude"
+  echo '{}' > "$ds/.claude/settings.json"
+  echo '[packs]' > "$ds/.dcg.toml"
+  cp "$SCRIPTS_DIR/normalize-devshop-paths.sh" "$ds/kit/scripts/"
+  ln -s "$ds/.claude/settings.json" "$ws/.claude/settings.json"
+  cp "$ds/.dcg.toml" "$ws/.dcg.toml"
+  run bash -c "DEVSHOP='$ds' WS='$ws' bash '$SCRIPTS_DIR/check-security-files-freshness.sh'"
+  assert_failure 1
+  assert_output --partial "SYMLINK"
+}
+
 # --- Clean tree enforcement ---
 
 @test "guardrails: dirty working tree blocks commit" {

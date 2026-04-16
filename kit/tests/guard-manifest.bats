@@ -87,6 +87,20 @@ run_check_with_review() {
   assert_success
 }
 
+@test "passes when added file is under excluded path in manifest" {
+  # manifest has !.devcontainer/.env — add .devcontainer/.env exclusion to test
+  echo '!.devcontainer/.env' >> "$TEST_REPO/kit/manifest.txt"
+  git -C "$TEST_REPO" add kit/manifest.txt
+  git -C "$TEST_REPO" commit -q -m "add exclusion"
+
+  # Add a file under .devcontainer/ (covered by directory entry) that isn't excluded
+  mkdir -p "$TEST_REPO/template/.devcontainer"
+  echo '{}' > "$TEST_REPO/template/.devcontainer/devcontainer.json"
+  git -C "$TEST_REPO" add "template/.devcontainer/devcontainer.json"
+  run_check
+  assert_success
+}
+
 @test "blocks when added file is NOT in manifest" {
   echo "new" > "$TEST_REPO/template/new-config.yml"
   git -C "$TEST_REPO" add "template/new-config.yml"

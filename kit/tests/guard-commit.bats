@@ -245,6 +245,32 @@ run_guard() {
   assert_success
 }
 
+# === Multiple simultaneous failures ===
+
+@test "reports both check2 and check3 failures together" {
+  setup_devshop_repo
+  # Stage a kit/ file (triggers check2 docs drift) AND a ref doc (triggers check3)
+  stage_file "kit/scripts/new-thing.sh" "#!/bin/bash"
+  echo "# Updated MODEL" > "$TEST_REPO/kit/docs/MODEL.md"
+  git -C "$TEST_REPO" add kit/docs/MODEL.md
+  run_guard
+  assert_failure 1
+  # Both checks should appear in output
+  assert_output --partial "docs review required"
+  assert_output --partial "Reference doc changed"
+}
+
+# === DEVSHOP_REGEX pattern coverage ===
+
+@test "check1: detects .devshopkit/ files as devshop in project repo" {
+  setup_project_repo
+  stage_file ".devshopkit/scripts/guard.sh" "#!/bin/bash"
+  stage_file "src/index.ts" "code"
+  run_guard
+  assert_failure 1
+  assert_output --partial "Mixed commit"
+}
+
 # === Edge cases ===
 
 @test "passes with no staged files" {
