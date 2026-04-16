@@ -74,6 +74,7 @@ See `kit/docs/guide/architecture.md` for the full model, or `kit/docs/MODEL.md` 
 - Never commit directly to main: branch protection requires PRs. Always create a feature branch first, even for small fixes.
 - Workflow push requires human: the devcontainer PAT lacks `workflow` scope intentionally. If `git push` fails because a commit touches `.github/workflows/`, ask the human to push: `git -c credential.helper= push https://<github-user>@github.com/<owner>/<repo>.git <branch>` (GitHub will prompt for their PAT with workflow scope).
 - Never discard unrelated dirty files: when the clean-tree guard flags files you didn't modify (WIP from a previous session), do NOT `git checkout` or `git restore` them — that permanently destroys uncommitted work. Use the bypass: `git -c devshop.dirtyTreeReason="<file> is WIP, committing separately" commit ...` or `git stash push <file>` before committing.
+- Only `/home/node/.claude` is volume-mounted: state in `~/.config/` (e.g. `~/.config/turborepo/telemetry.json`) resets on every devcontainer rebuild. When configuring a persistent tool opt-out or preference, set it via `containerEnv` in `devcontainer.json` (e.g. `TURBO_TELEMETRY_DISABLED=1`) rather than running a one-time CLI disable command — the env-var form is declarative and rebuild-safe.
 
 ### Confidence Calibration
 
