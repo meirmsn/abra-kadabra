@@ -8,7 +8,27 @@ gitleaks protect --staged --redact
 
 # Run kit tests (devshop repo only — kit/tests/ doesn't exist in projects)
 if [ -d kit/tests ] && [ -x kit/tests/lib/bats-core/bin/bats ]; then
-  kit/tests/lib/bats-core/bin/bats kit/tests/ --print-output-on-failure
+  _bats_start=$(date +%s%N 2>/dev/null || date +%s)
+  _bats_output=$(kit/tests/lib/bats-core/bin/bats kit/tests/ --print-output-on-failure 2>&1)
+  _bats_exit=$?
+  echo "$_bats_output"
+  _bats_total=$(echo "$_bats_output" | grep -c '^ok ' || true)
+  _bats_failed=$(echo "$_bats_output" | grep -c '^not ok ' || true)
+  _bats_end=$(date +%s%N 2>/dev/null || date +%s)
+  if [ ${#_bats_start} -gt 10 ]; then
+    _bats_ms=$(( (_bats_end - _bats_start) / 1000000 ))
+    _bats_secs=$(( _bats_ms / 1000 ))
+    _bats_frac=$(( _bats_ms % 1000 ))
+    _bats_time=$(printf '%d.%03ds' "$_bats_secs" "$_bats_frac")
+  else
+    _bats_time="$(( _bats_end - _bats_start ))s"
+  fi
+  if [ "$_bats_exit" -eq 0 ]; then
+    echo "✓ Kit tests: ${_bats_total}/${_bats_total} pass (${_bats_time})"
+  else
+    echo "✖ Kit tests: $((_bats_total + _bats_failed)) total, ${_bats_failed} failed (${_bats_time})"
+    exit 1
+  fi
 fi
 
 if [ -x /devshop/kit/hooks/pre-commit.sh ]; then bash /devshop/kit/hooks/pre-commit.sh; fi
