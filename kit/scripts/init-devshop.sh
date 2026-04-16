@@ -11,6 +11,7 @@
 # critical files to root ownership (chown root:root + chmod 644).
 
 set -euo pipefail
+trap 'echo "init-devshop.sh FAILED at line $LINENO (exit $?): $(sed -n "${LINENO}p" "$0")" >&2' ERR
 
 DEVSHOP=/devshop
 WS=/workspace
@@ -31,9 +32,11 @@ fi
 # Enables git push and gh release create from the project container.
 # The token is stored in /devshop/.devcontainer/.env as GH_TOKEN=<pat>.
 if [ -f "$DEVSHOP/.devcontainer/.env" ]; then
-  _DEVSHOP_GH_TOKEN=$(grep '^GH_TOKEN=' "$DEVSHOP/.devcontainer/.env" | cut -d= -f2)
+  _DEVSHOP_GH_TOKEN=$(grep '^GH_TOKEN=' "$DEVSHOP/.devcontainer/.env" 2>/dev/null | cut -d= -f2 || true)
+  # Strip quotes if present (GH_TOKEN="ghp_xxx" or GH_TOKEN='ghp_xxx')
+  _DEVSHOP_GH_TOKEN=$(echo "$_DEVSHOP_GH_TOKEN" | tr -d "\"'" || true)
   if [ -n "$_DEVSHOP_GH_TOKEN" ]; then
-    git -C "$DEVSHOP" config credential.helper "!f() { echo username=x-access-token; echo password=$_DEVSHOP_GH_TOKEN; }; f"
+    git -C "$DEVSHOP" config credential.helper "!f() { echo username=x-access-token; echo password=$_DEVSHOP_GH_TOKEN; }; f" || true
   fi
   unset _DEVSHOP_GH_TOKEN
 fi
