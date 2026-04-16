@@ -2,6 +2,10 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.5.7 (2026-04-16)
+
+- refactor: name commit-guard checks (numbers → names)
+
 ## v1.5.6 (2026-04-16)
 
 - fix: move pre-release coverage review into commit guard
