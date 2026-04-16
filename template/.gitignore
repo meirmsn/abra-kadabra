@@ -20,7 +20,7 @@ dist/
 *.log
 
 # Devshop (injected at container start from abra-kadabra, not tracked)
-.devshop
+.devshopkit
 .claude/*
 !.claude/memory/
 .dcg.toml

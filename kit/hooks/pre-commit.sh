@@ -15,6 +15,7 @@ GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
 if [ -d "$GIT_ROOT/kit" ] && [ ! -L "$GIT_ROOT/kit" ]; then
   # Devshop-self mode: same checks as devshop repo
   bash "$SCRIPTS_DIR/check-clean-tree.sh"
+  bash "$SCRIPTS_DIR/check-manifest.sh"
   bash "$SCRIPTS_DIR/devshop-commit-guard.sh"
 else
   case "$GIT_ROOT" in
@@ -25,8 +26,9 @@ else
       bash "$SCRIPTS_DIR/devshop-commit-guard.sh"
       ;;
     /devshop)
-      # Devshop repo: clean tree + commit guards only
+      # Devshop repo: clean tree + manifest sync + commit guards
       bash "$SCRIPTS_DIR/check-clean-tree.sh"
+      bash "$SCRIPTS_DIR/check-manifest.sh"
       bash "$SCRIPTS_DIR/devshop-commit-guard.sh"
       ;;
     *)

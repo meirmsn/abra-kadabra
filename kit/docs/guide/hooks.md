@@ -36,6 +36,7 @@ Two enforcement levels: PreToolUse (Claude Code) and pre-commit (git). PreToolUs
    └─ 2e. devshop pre-commit guards    → devshop guards (called by absolute path)
           ├─ check-security-files-freshness.sh: settings.json/.dcg.toml present + current → block
           ├─ check-clean-tree.sh: untracked/unstaged files OR stashed changes → block
+          ├─ check-manifest.sh: template/ files added/removed → propose manifest update
           └─ devshop-commit-guard.sh (4 checks):
              ├─ Mixed commit: devshop + project files staged together → block
              ├─ Docs drift: tooling changed → reviews ALL docs for needed updates (semantic)
@@ -82,13 +83,14 @@ Configured in `.husky/pre-commit`.
 
 Guards are split into **deterministic** (auto-pass when condition is met) and **semantic** (always require a review explanation). All bypass reasons are verified by `adversarial-review.sh` — an agent that actively tries to reject the reason. On API error, the review **fails closed** (blocks the commit). Human fallback: `devshop.humanReviewed` flag, but blocked for Claude via PreToolUse hook — only reachable when the human runs the commit directly in the terminal.
 
-| Guard                             | Type          | What                                                                                  | Bypass                                                    |
-| --------------------------------- | ------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| `check-clean-tree.sh`             | Deterministic | Blocks if untracked/unstaged files exist                                              | `dirtyTreeReason` — adversarially reviewed                |
-| `devshop-commit-guard.sh` check 1 | Deterministic | Mixed devshop + project files (project repo only)                                     | No bypass — unstage one set                               |
-| check 2                           | **Semantic**  | Tooling changed — reviews ALL docs (including ones that don't yet mention the change) | `docsVerified` — always required, adversarially reviewed  |
-| check 3                           | **Semantic**  | Reference doc changed — consistency review                                            | `docSyncReason` — always required, adversarially reviewed |
-| check 4                           | Deterministic | Other repo has uncommitted changes                                                    | `crossRepoReason` — adversarially reviewed                |
+| Guard                             | Type          | What                                                                                  | Bypass                                                       |
+| --------------------------------- | ------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `check-clean-tree.sh`             | Deterministic | Blocks if untracked/unstaged files exist                                              | `dirtyTreeReason` — adversarially reviewed                   |
+| `check-manifest.sh`               | **Semantic**  | template/ files added/removed — propose manifest.txt update with reasoning            | `manifestReviewed` — always required, adversarially reviewed |
+| `devshop-commit-guard.sh` check 1 | Deterministic | Mixed devshop + project files (project repo only)                                     | No bypass — unstage one set                                  |
+| check 2                           | **Semantic**  | Tooling changed — reviews ALL docs (including ones that don't yet mention the change) | `docsVerified` — always required, adversarially reviewed     |
+| check 3                           | **Semantic**  | Reference doc changed — consistency review                                            | `docSyncReason` — always required, adversarially reviewed    |
+| check 4                           | Deterministic | Other repo has uncommitted changes                                                    | `crossRepoReason` — adversarially reviewed                   |
 
 Both repos use the same guard chain.
 
