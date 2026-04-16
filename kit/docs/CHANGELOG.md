@@ -2,6 +2,11 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.3.7 (2026-04-15)
+
+- fix: add ERR trap to init-devshop.sh + make token setup resilient
+- feat: enable devshop push + GitHub releases from project container
+
 ## v1.3.6 (2026-04-15)
 
 - chore: use annotated tags in release script
