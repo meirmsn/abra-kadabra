@@ -97,7 +97,7 @@ $OTHER_STATUS"
   dirtyTreeReason)
     DIRTY=$(git status --porcelain 2>/dev/null | grep -E '^\?\?|^ [MD]' | head -20 || true)
     BRANCH=$(git branch --show-current 2>/dev/null || true)
-    STASHED=$(git stash list 2>/dev/null | grep -F "on $BRANCH:" | head -5 || true)
+    STASHED=$(git stash list 2>/dev/null | grep -Fi "on $BRANCH:" | head -5 || true)
     CONTEXT="Untracked/unstaged files:
 $DIRTY
 
@@ -114,6 +114,12 @@ ${STASHED:-(none)}"
 
 Staged files:
 $STAGED"
+    ;;
+  manifestReviewed)
+    CONTEXT="Template file additions/removals vs manifest.txt.
+The developer proposes how to handle manifest updates.
+
+Reason: $REASON"
     ;;
 esac
 
@@ -142,7 +148,13 @@ Evaluate:
 2. Does skipping this check create a real risk (stale docs, forgotten files, missed changes, leaked secrets)?
 3. Is the reason specific enough? Generic reasons like 'docs are fine' or 'will fix later' are NOT acceptable.
 4. For doc checks: does the reason name specific sections reviewed? Do those sections actually match the changes?
-5. For hookBypass: is this a known legitimate scenario (migration commits with git rm --cached, binary files that break lint-staged, intermediate refactor state with type errors)? Does skipping gitleaks create a real risk for these files?
+5. For doc checks: if the diff introduces a NEW capability (new script category, new workflow, new convention, new tool), verify documentation exists at the right level:
+   - guide/ section required: what it is, how it works, how to extend it (e.g., conventions.md for testing strategy, hooks.md for new guards)
+   - OVERVIEW.md if it changes the workspace layout, event flow, or file map
+   - MODEL.md if it adds a new structural component to the kit (rare)
+   - CLAUDE.md if it changes how Claude should behave or what workflows to follow
+   Layout mentions alone (a line in a tree diagram) are NOT sufficient for new capabilities — strategy/usage docs are also required.
+6. For hookBypass: is this a known legitimate scenario (migration commits with git rm --cached, binary files that break lint-staged, intermediate refactor state with type errors)? Does skipping gitleaks create a real risk for these files?
 
 Respond with EXACTLY one line:
 PASS - only if the reason is genuinely legitimate and specific
