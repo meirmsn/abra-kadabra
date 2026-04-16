@@ -2,6 +2,10 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.3.3 (2026-04-15)
+
+- fix: cross-repo check was comparing devshop against itself
+
 ## v1.3.2 (2026-04-15)
 
 - chore: remove hardcoded lalista references from devshop
