@@ -2,6 +2,10 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.3.5 (2026-04-15)
+
+- docs: consolidate 8 goals into 3 crisp goals + design principle
+
 ## v1.3.4 (2026-04-15) — CLAUDE.md Restructure + Goals
 
 **CLAUDE.md restructure** — moved reference-only sections to guide files, kept all always-on behavioral guidance (non-negotiables, confidence calibration, TODO protocol, known footguns, naming, gstack, design system, code config).
