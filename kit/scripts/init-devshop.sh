@@ -28,17 +28,17 @@ if [ -f "$WS/.devcontainer/.env" ]; then
 fi
 
 # --- Devshop GitHub token ---
-# Reads GH_TOKEN from devshop .env, configures git credential helper for /devshop/.
-# Enables git push and gh release create from the project container.
-# The token is stored in /devshop/.devcontainer/.env as GH_TOKEN=<pat>.
+# No config changes here — release.sh reads the token from .env at push time.
+# This avoids storing the token in .git/config (visible to Claude).
+# The token lives in /devshop/.devcontainer/.env as GITHUB_TOKEN=<pat> (or GH_TOKEN=).
+# init-devshop.sh only ensures the remote is HTTPS (required for token-based push).
 if [ -f "$DEVSHOP/.devcontainer/.env" ]; then
-  _DEVSHOP_GH_TOKEN=$(grep -E '^(GH_TOKEN|GITHUB_TOKEN)=' "$DEVSHOP/.devcontainer/.env" 2>/dev/null | head -1 | cut -d= -f2 || true)
-  # Strip quotes if present (GH_TOKEN="ghp_xxx" or GH_TOKEN='ghp_xxx')
-  _DEVSHOP_GH_TOKEN=$(echo "$_DEVSHOP_GH_TOKEN" | tr -d "\"'" || true)
-  if [ -n "$_DEVSHOP_GH_TOKEN" ]; then
-    git -C "$DEVSHOP" config credential.helper "!f() { echo username=x-access-token; echo password=$_DEVSHOP_GH_TOKEN; }; f" || true
+  _REMOTE_URL=$(git -C "$DEVSHOP" remote get-url origin 2>/dev/null || true)
+  if echo "$_REMOTE_URL" | grep -q 'git@github\.com:'; then
+    _REPO_PATH=$(echo "$_REMOTE_URL" | sed -E 's|.*github\.com[:/]||; s|\.git$||')
+    git -C "$DEVSHOP" remote set-url origin "https://github.com/${_REPO_PATH}.git" || true
   fi
-  unset _DEVSHOP_GH_TOKEN
+  unset _REMOTE_URL _REPO_PATH
 fi
 
 # --- Devshop-self guard ---

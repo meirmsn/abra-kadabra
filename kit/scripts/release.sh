@@ -101,14 +101,21 @@ git commit -m "Bump devshop version to $NEW_VERSION"
 git tag -a "v$NEW_VERSION" -m "v$NEW_VERSION"
 
 # Push + create GitHub release (if devshop token is available)
+# Token is read from .env at push time — never stored in .git/config.
+# VS Code's credential helpers return the project token, so we bypass them
+# by pushing to an HTTPS URL with the token embedded (transient, not persisted).
 _DEVSHOP_GH_TOKEN=$(grep -E '^(GH_TOKEN|GITHUB_TOKEN)=' "$(pwd)/.devcontainer/.env" 2>/dev/null | head -1 | cut -d= -f2 || true)
 echo ""
 if [ -n "$_DEVSHOP_GH_TOKEN" ]; then
-  git push
-  git push --tags
+  _REMOTE_URL=$(git remote get-url origin 2>/dev/null || true)
+  _REPO_PATH=$(echo "$_REMOTE_URL" | sed -E 's|.*github\.com[:/]||; s|\.git$||')
+  _PUSH_URL="https://x-access-token:${_DEVSHOP_GH_TOKEN}@github.com/${_REPO_PATH}.git"
+  git push "$_PUSH_URL" HEAD --tags
   GH_TOKEN="$_DEVSHOP_GH_TOKEN" gh release create "v$NEW_VERSION" \
+    --repo "$_REPO_PATH" \
     --title "v$NEW_VERSION" \
     --notes "$CHANGELOG_MSG"
+  unset _REMOTE_URL _REPO_PATH _PUSH_URL _DEVSHOP_GH_TOKEN
   echo "Done. v$NEW_VERSION pushed and released on GitHub."
 else
   echo "Done. Version bumped to $NEW_VERSION and tagged v$NEW_VERSION."
