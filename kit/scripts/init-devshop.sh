@@ -28,17 +28,17 @@ if [ -f "$WS/.devcontainer/.env" ]; then
 fi
 
 # --- Devshop GitHub token ---
-# No config changes here — release.sh reads the token from .env at push time.
-# This avoids storing the token in .git/config (visible to Claude).
-# The token lives in /devshop/.devcontainer/.env as GITHUB_TOKEN=<pat> (or GH_TOKEN=).
-# init-devshop.sh only ensures the remote is HTTPS (required for token-based push).
+# Reads GITHUB_TOKEN (or GH_TOKEN) from devshop .env → exports as DEVSHOP_GITHUB_TOKEN
+# via /etc/devshop-env. release.sh sources this to push and create GitHub releases.
+# SSH remote stays untouched — release.sh constructs a transient HTTPS URL for push.
 if [ -f "$DEVSHOP/.devcontainer/.env" ]; then
-  _REMOTE_URL=$(git -C "$DEVSHOP" remote get-url origin 2>/dev/null || true)
-  if echo "$_REMOTE_URL" | grep -q 'git@github\.com:'; then
-    _REPO_PATH=$(echo "$_REMOTE_URL" | sed -E 's|.*github\.com[:/]||; s|\.git$||')
-    git -C "$DEVSHOP" remote set-url origin "https://github.com/${_REPO_PATH}.git" || true
+  _TOKEN=$(grep -E '^(GH_TOKEN|GITHUB_TOKEN)=' "$DEVSHOP/.devcontainer/.env" 2>/dev/null | head -1 | cut -d= -f2 || true)
+  _TOKEN=$(echo "$_TOKEN" | tr -d "\"'" || true)
+  if [ -n "$_TOKEN" ]; then
+    echo "DEVSHOP_GITHUB_TOKEN=$_TOKEN" > /etc/devshop-env
+    chmod 644 /etc/devshop-env
   fi
-  unset _REMOTE_URL _REPO_PATH
+  unset _TOKEN
 fi
 
 # --- Devshop-self guard ---
