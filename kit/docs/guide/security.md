@@ -5,7 +5,7 @@
 **Claude cannot weaken its own guardrails.** Six layers of protection enforce this:
 
 1. **Root ownership + sticky bit** — security-critical files are `root:root 644`, sticky bit on `.claude/` prevents deletion
-2. **Deny rules** — `settings.json` explicitly denies Edit on itself, `.dcg.toml`, `.devcontainer/*`, guard scripts
+2. **Deny rules** — `settings.json` denies Edit/Write on itself, `.dcg.toml`, `.devcontainer/*`, guard scripts, and Bash writes to memory paths
 3. **DCG** — compiled binary blocks 49+ destructive Bash patterns (rm -rf, git reset --hard, DROP TABLE, etc.)
 4. **Git hooks** — pre-commit guards enforce clean tree, doc consistency, secret scanning
 5. **PreToolUse hooks** — Claude Code hooks block hook bypass attempts before git even runs
@@ -42,6 +42,15 @@ Guard script deny rules are easy to toggle — when the user wants Claude to edi
 ## `.claude/` Allow vs settings.json Deny
 
 `Edit(.claude/**)` allows Claude to edit skills, commands, and memory through the symlink path. `settings.json` is safe: the explicit `Edit(**/.claude/settings.json)` deny takes priority.
+
+## Memory Write Protection
+
+Memory files (`.claude/memory/`, `.claude/projects/*/memory/`) are protected at two levels:
+
+1. **Write/Edit hook** (`check-memory-created.sh`) — blocks the Write and Edit tools, forces Claude to classify the memory (project vs. devshop) and get user confirmation before writing.
+2. **Bash deny rules** — blocks Bash commands that redirect output to memory paths (`cat >`, `>>`, `tee`). Prevents bypassing the classification hook via shell redirects.
+
+`MEMORY.md` (the index file) is exempt from the Write/Edit hook — it's updated alongside memory files to maintain the index.
 
 ## Known Gaps
 

@@ -73,6 +73,7 @@ See `kit/docs/guide/architecture.md` for the full model, or `kit/docs/MODEL.md` 
 - Firewall IP rotation: if a build fails on a network error for an allowed domain, restart the container to re-resolve CDN IPs.
 - Never commit directly to main: branch protection requires PRs. Always create a feature branch first, even for small fixes.
 - Workflow push requires human: the devcontainer PAT lacks `workflow` scope intentionally. If `git push` fails because a commit touches `.github/workflows/`, ask the human to push: `git -c credential.helper= push https://<github-user>@github.com/<owner>/<repo>.git <branch>` (GitHub will prompt for their PAT with workflow scope).
+- Never discard unrelated dirty files: when the clean-tree guard flags files you didn't modify (WIP from a previous session), do NOT `git checkout` or `git restore` them — that permanently destroys uncommitted work. Use the bypass: `git -c devshop.dirtyTreeReason="<file> is WIP, committing separately" commit ...` or `git stash push <file>` before committing.
 
 ### Confidence Calibration
 

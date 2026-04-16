@@ -3,6 +3,9 @@
 # Why: Memories must be routed correctly — project insights to /workspace/.claude/memory/,
 #      devshop insights to /devshop/CLAUDE.md. Claude classifies, user confirms.
 # Does NOT: Allow the write — blocks it and tells Claude to classify and ask first
+#
+# Bash writes to memory paths are blocked by deny rules in settings.json,
+# not by this hook. This hook handles Write/Edit tool calls only.
 
 set -euo pipefail
 

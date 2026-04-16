@@ -98,6 +98,8 @@ Both repos use the same guard chain.
 
 Bypass via `git -c devshop.<key>="<reason>"` works natively in husky. Every bypass reason is verified by an adversarial agent that actively tries to reject it. On API error, the review fails closed (blocks). Human fallback: `git -c devshop.humanReviewed="approve: <assessment>"` — blocked for Claude via PreToolUse, only usable from the terminal. Semantic checks (2, 3) always require a reason — there is no auto-pass. Deterministic checks (clean tree, cross-repo) auto-pass when the condition is met.
 
+**Handling WIP files (clean-tree guard):** When the clean-tree guard flags files you didn't modify in this session (WIP from a previous session or the user's in-progress work), NEVER discard them with `git checkout` or `git restore` — that permanently destroys uncommitted work. Instead, use the bypass: `git -c devshop.dirtyTreeReason="<file> is WIP, committing separately" commit ...`. Alternatively, `git stash push <file>` before committing, then `git stash pop` after.
+
 ### 3. Claude PostToolUse (after git commit)
 
 Configured in `.claude/settings.json`.

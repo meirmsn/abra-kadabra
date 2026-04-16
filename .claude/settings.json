@@ -78,7 +78,15 @@
       "Edit(/devshop/kit/scripts/*)",
       "Write(/devshop/kit/scripts/*)",
       "Edit(/devshop/template/**)",
-      "Write(/devshop/template/**)"
+      "Write(/devshop/template/**)",
+      "Bash(cat * > *.claude/memory/*)",
+      "Bash(cat * > *.claude/projects/*/memory/*)",
+      "Bash(*> *.claude/memory/*)",
+      "Bash(*> *.claude/projects/*/memory/*)",
+      "Bash(*>>*.claude/memory/*)",
+      "Bash(*>> *.claude/projects/*/memory/*)",
+      "Bash(*tee *.claude/memory/*)",
+      "Bash(*tee *.claude/projects/*/memory/*)"
     ],
     "additionalDirectories": ["/devshop"]
   },

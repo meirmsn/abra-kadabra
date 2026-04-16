@@ -54,3 +54,8 @@ run_check() {
   assert_failure 2
   assert_output --partial "BLOCKED"
 }
+
+# Note: Bash writes to memory paths are blocked by deny rules in settings.json,
+# not by this hook script. Deny rules are enforced by Claude Code at the tool
+# level and can't be tested via BATS. The structural-invariants.bats test
+# "wiring: devshop settings.json is valid JSON" ensures the deny rules are parseable.

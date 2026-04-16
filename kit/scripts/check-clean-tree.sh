@@ -40,9 +40,9 @@ if [ -n "$STASHED" ]; then
   echo "  Pop the stash and commit or drop it: git stash pop / git stash drop"
 fi
 echo ""
-echo "  Address these before committing — stage, commit, gitignore, or drop."
-echo "  If intentionally committing a subset, explain why with:"
-echo "    git -c devshop.dirtyTreeReason=\"<why it's OK>\" commit ..."
+echo "  ⚠ Do NOT discard these with git checkout/restore — that destroys uncommitted work."
+echo "  Instead: stage + commit them, stash them, or explain why with:"
+echo "    git -c devshop.dirtyTreeReason=\"<why it's OK to commit without these>\" commit ..."
 echo ""
 echo "  Your reason will be verified by an independent reviewer."
 exit 1
