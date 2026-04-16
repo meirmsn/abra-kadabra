@@ -72,13 +72,13 @@ Note: PreToolUse hooks from shell scripts cannot block Bash tool calls (anthropi
 
 Configured in `.husky/pre-commit`.
 
-| Hook                        | What                              | Blocking?                   |
-| --------------------------- | --------------------------------- | --------------------------- |
-| `pnpm exec lint-staged`     | ESLint + Prettier on staged files | Yes — both repos            |
-| `pnpm turbo run typecheck`  | TypeScript type checking          | Yes — both repos            |
-| `gitleaks protect --staged` | Secret scanning                   | Yes — both repos            |
-| `bats kit/tests/`           | Kit script regression tests       | Yes — devshop only          |
-| `.hooks/pre-commit`         | Devshop guards (see below)        | Yes — no-op without devshop |
+| Hook                        | What                                       | Blocking?                   |
+| --------------------------- | ------------------------------------------ | --------------------------- |
+| `pnpm exec lint-staged`     | ESLint + Prettier on staged files          | Yes — both repos            |
+| `pnpm turbo run typecheck`  | TypeScript type checking                   | Yes — both repos            |
+| `gitleaks protect --staged` | Secret scanning                            | Yes — both repos            |
+| `bats kit/tests/`           | Kit tests: scripts + structural invariants | Yes — devshop only          |
+| `.hooks/pre-commit`         | Devshop guards (see below)                 | Yes — no-op without devshop |
 
 `.hooks/pre-commit` is gitignored, symlinked to `kit/hooks/pre-commit.sh` (created by `create-devshop-symlinks.sh` for both repos). It detects which repo it's in and calls the appropriate guards.
 

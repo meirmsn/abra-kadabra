@@ -30,7 +30,7 @@ Container Workspace (/workspace)
 │   ├── .devshopkit/ ──symlink──→ /devshop/kit/
 │   │   ├── scripts/ (19)        Init, guards, sync, session, adversarial review
 │   │   ├── hooks/pre-commit.sh  Orchestrates the 5-step + 4-guard chain
-│   │   ├── tests/               BATS test suite (guards, routing, goal verification)
+│   │   ├── tests/               BATS test suite (guards, routing, goals, structural invariants)
 │   │   └── docs/                MODEL, OVERVIEW, guide/ (6 files), FAQ
 │   ├── .claude/
 │   │   ├── skills/ ──symlink──→ /devshop/.claude/skills/
@@ -68,7 +68,7 @@ git commit
   │   ├─ 2. lint-staged ───────────────── ESLint + Prettier on staged files
   │   ├─ 3. turbo typecheck ──────────── TypeScript errors
   │   ├─ 4. gitleaks ─────────────────── secret scan on staged files
-  │   ├─ 5. bats kit/tests/ ────────────── kit script regression tests (devshop only)
+  │   ├─ 5. bats kit/tests/ ────────────── kit tests: scripts + structural invariants (devshop only)
   │   └─ 6. devshop guards
   │       ├─ check-security-files-freshness.sh
   │       ├─ check-clean-tree.sh ────────── no unaddressed dirty state
