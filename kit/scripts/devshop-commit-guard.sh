@@ -23,8 +23,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
 # Detect devshop-self mode: workspace IS the devshop repo (opened directly in VS Code).
 # kit/ is a real directory in the devshop repo but .devshopkit/ is always a symlink in projects.
-if [ -d "$GIT_ROOT/kit" ] && [ ! -L "$GIT_ROOT/kit" ]; then
-  CURRENT_REPO=devshop; OTHER_REPO=/devshop; OTHER_NAME="project"
+if [ "$GIT_ROOT" != "/devshop" ] && [ -d "$GIT_ROOT/kit" ] && [ ! -L "$GIT_ROOT/kit" ]; then
+  # Devshop-self mode: devshop opened directly as workspace (no project repo)
+  CURRENT_REPO=devshop; OTHER_REPO=""; OTHER_NAME=""
 else
   case "$GIT_ROOT" in
     /workspace) CURRENT_REPO=project; OTHER_REPO=/devshop;  OTHER_NAME="devshop (abra-kadabra)" ;;
