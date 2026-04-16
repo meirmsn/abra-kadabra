@@ -2,7 +2,8 @@
   "name": "abra-kadabra",
   "private": true,
   "scripts": {
-    "prepare": "husky"
+    "prepare": "husky",
+    "test:kit": "kit/tests/lib/bats-core/bin/bats kit/tests/ --print-output-on-failure"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
