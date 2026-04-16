@@ -8,7 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 DIRTY=$(git status --porcelain 2>/dev/null | grep -E '^\?\?|^ [MD]' || true)
 BRANCH=$(git branch --show-current 2>/dev/null || true)
-STASHED=$(git stash list 2>/dev/null | grep -F "on $BRANCH:" | head -5 || true)
+STASHED=$(git stash list 2>/dev/null | grep -Fi "on $BRANCH:" | head -5 || true)
 [ -z "$DIRTY" ] && [ -z "$STASHED" ] && exit 0
 
 # Check for bypass reason
