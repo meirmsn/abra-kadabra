@@ -19,9 +19,9 @@ setup() {
   local settings="$DEVSHOP/.claude/settings.json"
   [ -f "$settings" ] || skip "settings.json not found"
 
-  # Extract all "bash kit/scripts/*.sh" references from hook commands
+  # Extract all "bash /devshop/kit/scripts/*.sh" references from hook commands
   local scripts
-  scripts=$(grep -oP 'bash kit/scripts/\K[a-z-]+\.sh' "$settings" | sort -u)
+  scripts=$(grep -oP 'bash /devshop/kit/scripts/\K[a-z-]+\.sh' "$settings" | sort -u)
 
   local missing=""
   while IFS= read -r script; do
@@ -43,7 +43,7 @@ setup() {
   [ -f "$settings" ] || skip "settings.json not found"
 
   local scripts
-  scripts=$(grep -oP 'bash kit/scripts/\K[a-z-]+\.sh' "$settings" | sort -u)
+  scripts=$(grep -oP 'bash /devshop/kit/scripts/\K[a-z-]+\.sh' "$settings" | sort -u)
 
   local failures=""
   while IFS= read -r script; do
@@ -65,7 +65,7 @@ setup() {
 
   local statusline_script
   statusline_script=$(grep -oP '"command":\s*"bash \K[^"]+' "$settings" | head -1)
-  [ -f "$DEVSHOP/$statusline_script" ]
+  [ -f "$statusline_script" ]
 }
 
 # =============================================================================
