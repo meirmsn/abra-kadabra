@@ -123,6 +123,37 @@ TODO items can be scheduled into versions defined in their corresponding ROADMAP
 
 Unit tests are the fast inner loop (local + CI fast). Integration + E2E are the outer gate (CI slow). No env var needed — the command you run is the mode.
 
+### Kit Testing (devshop infrastructure)
+
+The devshop's own scripts and configuration are tested with [BATS](https://github.com/bats-core/bats-core) (Bash Automated Testing System). Tests run on every devshop commit (step 5 of pre-commit chain, ~6s). Run manually: `pnpm test:kit`.
+
+**Test categories** (`kit/tests/`):
+
+| Category              | Files                                            | What it verifies                                                                                                                                |
+| --------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Goal verification     | `goal1-separation.bats`, `goal2-guardrails.bats` | Devshop goals hold: separation (symlinks, mixed commits, standalone projects) and guardrails (security model)                                   |
+| Guard behavior        | `guard-*.bats` (7 files)                         | Every pre-commit guard and PreToolUse hook: block/allow logic, bypass paths, adversarial review integration                                     |
+| Pre-commit routing    | `pre-commit-router.bats`                         | Correct guards called per repo type, failure propagation                                                                                        |
+| Structural invariants | `structural-invariants.bats`                     | System-level wiring: hook paths resolve, symlinks intact, manifest consistent, template contracts valid, configs parseable, version/tag aligned |
+| Utilities             | `util-*.bats` (3 files)                          | Path normalization, changelog insertion, file header checks                                                                                     |
+
+**What's tested vs. exempt:**
+
+Every script in `kit/scripts/` is either tested or explicitly exempt in `check-test-coverage.sh`. Exempt scripts have documented reasons (e.g., `adversarial-review.sh` calls Claude CLI — non-deterministic, mocked in all callers; `init-devshop.sh` runs as root). The `check-test-coverage` pre-commit guard blocks new scripts without tests and warns on modified scripts without tests.
+
+**How tests mock external dependencies:**
+
+- `adversarial-review.sh` (Claude Sonnet) → PATH-first stub returning PASS/FAIL
+- Git state → throwaway repos in `$BATS_TMPDIR` with controlled staging
+- Cross-repo checks → disabled via wrapper sed or fake repos
+- `GIT_CONFIG_PARAMETERS` → unset to isolate from parent commit's `-c` flags
+
+**Adding tests for a new script:**
+
+1. Create `kit/tests/guard-<name>.bats` or `kit/tests/util-<name>.bats`
+2. Use `load helpers/setup` for shared helpers (mock bin, test repos, adversarial stubs)
+3. If the script is genuinely untestable, add to the exempt list in `check-test-coverage.sh` with a reason
+
 ### Metrics
 
 - **No code without metrics** — every user-facing feature must have events in `METRICS.md`, instrumented in the same PR.
