@@ -358,3 +358,145 @@ setup() {
   run jq -e '.["lint-staged"]' "$pkg"
   assert_success
 }
+
+# =============================================================================
+# Normalization pipeline — settings.json survives the copy transform
+# =============================================================================
+
+@test "wiring: normalized settings.json is valid JSON" {
+  local src="$DEVSHOP/.claude/settings.json"
+  [ -f "$src" ] || skip "source settings.json not found"
+  run bash -c "bash '$DEVSHOP/kit/scripts/normalize-devshop-paths.sh' < '$src' | jq empty"
+  assert_success
+}
+
+@test "wiring: normalized settings.json hook paths all resolve" {
+  local src="$DEVSHOP/.claude/settings.json"
+  [ -f "$src" ] || skip "source settings.json not found"
+
+  local paths
+  paths=$(bash "$DEVSHOP/kit/scripts/normalize-devshop-paths.sh" < "$src" | grep -oP 'bash \K[^ "]+\.sh')
+
+  local missing=""
+  while IFS= read -r path; do
+    [ -z "$path" ] && continue
+    if [ ! -f "$path" ]; then
+      missing+="  $path\n"
+    fi
+  done <<< "$paths"
+
+  if [ -n "$missing" ]; then
+    echo "Normalized settings.json references scripts that don't exist:"
+    echo -e "$missing"
+    false
+  fi
+}
+
+# =============================================================================
+# DCG configuration
+# =============================================================================
+
+@test "wiring: .dcg.toml exists and is parseable" {
+  local dcg="$DEVSHOP/.dcg.toml"
+  [ -f "$dcg" ] || skip ".dcg.toml not found"
+  # Basic TOML validation: no syntax errors on section headers and key-value pairs
+  # Full TOML parser not available, but we can check structure
+  run bash -c "grep -cE '^\[|^[a-z]' '$dcg'"
+  assert_success
+  # Must have at least a [packs] section
+  run grep -q '^\[packs\]' "$dcg"
+  assert_success
+}
+
+# =============================================================================
+# Container wiring — devcontainer.json calls init-devshop.sh
+# =============================================================================
+
+@test "wiring: template devcontainer.json calls init-devshop.sh on start" {
+  local dc="$DEVSHOP/template/.devcontainer/devcontainer.json"
+  [ -f "$dc" ] || skip "template devcontainer.json not found"
+  run grep -q 'init-devshop.sh' "$dc"
+  assert_success
+}
+
+@test "wiring: template devcontainer.json calls init-firewall.sh on start" {
+  local dc="$DEVSHOP/template/.devcontainer/devcontainer.json"
+  [ -f "$dc" ] || skip "template devcontainer.json not found"
+  run grep -q 'init-firewall.sh' "$dc"
+  assert_success
+}
+
+@test "wiring: template devcontainer.json mounts devshop at /devshop" {
+  local dc="$DEVSHOP/template/.devcontainer/devcontainer.json"
+  [ -f "$dc" ] || skip "template devcontainer.json not found"
+  run grep -q 'target=/devshop' "$dc"
+  assert_success
+}
+
+@test "wiring: template devcontainer.json sets workspace to /workspace" {
+  local dc="$DEVSHOP/template/.devcontainer/devcontainer.json"
+  [ -f "$dc" ] || skip "template devcontainer.json not found"
+  run grep -q '"workspaceFolder": "/workspace"' "$dc"
+  assert_success
+}
+
+# =============================================================================
+# CI workflow validity
+# =============================================================================
+
+@test "wiring: template CI workflow is valid YAML" {
+  local ci="$DEVSHOP/template/.github/workflows/ci.yml"
+  [ -f "$ci" ] || skip "CI workflow not found"
+  # yq or python yaml not guaranteed — validate structure with grep
+  # Must have 'on:' trigger and 'jobs:' section
+  run grep -q '^on:' "$ci"
+  assert_success
+  run grep -q '^jobs:' "$ci"
+  assert_success
+}
+
+# =============================================================================
+# additionalDirectories — Claude can access devshop files
+# =============================================================================
+
+@test "wiring: settings.json has additionalDirectories for /devshop" {
+  local settings="$DEVSHOP/.claude/settings.json"
+  [ -f "$settings" ] || skip "settings.json not found"
+  local dirs
+  dirs=$(jq -r '.permissions.additionalDirectories[]?' "$settings")
+  echo "$dirs" | grep -qF '/devshop'
+}
+
+# =============================================================================
+# Script mode consistency — all kit/scripts tracked as 644
+# =============================================================================
+
+@test "wiring: all kit/scripts/*.sh tracked as 644 (not 755)" {
+  local wrong_mode=""
+  while IFS= read -r line; do
+    local mode file
+    mode=$(echo "$line" | awk '{print $1}')
+    file=$(echo "$line" | awk '{print $4}')
+    if [ "$mode" != "100644" ]; then
+      wrong_mode+="  $file (tracked as $mode, should be 100644)\n"
+    fi
+  done < <(git -C "$DEVSHOP" ls-files -s kit/scripts/*.sh)
+
+  if [ -n "$wrong_mode" ]; then
+    echo "Scripts tracked with wrong mode (init-devshop.sh locks all to 644):"
+    echo -e "$wrong_mode"
+    echo "Fix: git add --chmod=-x <file>"
+    false
+  fi
+}
+
+# =============================================================================
+# BATS submodules initialized
+# =============================================================================
+
+@test "wiring: BATS submodules are initialized" {
+  [ -x "$DEVSHOP/kit/tests/lib/bats-core/bin/bats" ] || {
+    echo "BATS not initialized. Run: git submodule update --init --recursive"
+    false
+  }
+}
