@@ -88,6 +88,7 @@ Guards are split into **deterministic** (auto-pass when condition is met) and **
 | --------------------------------- | ------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | `check-clean-tree.sh`             | Deterministic | Blocks if untracked/unstaged files exist                                              | `dirtyTreeReason` — adversarially reviewed                   |
 | `check-manifest.sh`               | **Semantic**  | template/ files added/removed — propose manifest.txt update with reasoning            | `manifestReviewed` — always required, adversarially reviewed |
+| `check-test-coverage.sh`          | Deterministic | New scripts block if no test file; modified scripts warn (devshop only)               | Add to exempt list with reason, or write tests               |
 | `devshop-commit-guard.sh` check 1 | Deterministic | Mixed devshop + project files (project repo only)                                     | No bypass — unstage one set                                  |
 | check 2                           | **Semantic**  | Tooling changed — reviews ALL docs (including ones that don't yet mention the change) | `docsVerified` — always required, adversarially reviewed     |
 | check 3                           | **Semantic**  | Reference doc changed — consistency review                                            | `docSyncReason` — always required, adversarially reviewed    |

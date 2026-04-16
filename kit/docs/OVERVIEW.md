@@ -73,6 +73,7 @@ git commit
   │       ├─ check-security-files-freshness.sh
   │       ├─ check-clean-tree.sh ────────── no unaddressed dirty state
   │       ├─ check-manifest.sh ──────────── (devshop repo only)
+  │       ├─ check-test-coverage.sh ─────── new scripts need tests (devshop only)
   │       └─ devshop-commit-guard.sh ────── 4 checks:
   │           ├─ mixed commit ───────────── devshop + project files together? block
   │           ├─ docs drift ─────────────── tooling changed without doc update? block

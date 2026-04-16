@@ -9,7 +9,7 @@ setup() {
 
   # Create stubs for all scripts the router calls — we only test routing logic
   for script in check-security-files-freshness.sh check-clean-tree.sh \
-                check-manifest.sh devshop-commit-guard.sh; do
+                check-manifest.sh check-test-coverage.sh devshop-commit-guard.sh; do
     create_capturing_stub "$script" "" 0
   done
 
@@ -42,11 +42,12 @@ scripts_called() {
   [ -f "$MOCK_BIN/check-security-files-freshness.sh.args" ]
   [ -f "$MOCK_BIN/check-clean-tree.sh.args" ]
   [ -f "$MOCK_BIN/devshop-commit-guard.sh.args" ]
-  # Manifest check should NOT be called for project repos
+  # Manifest and test-coverage should NOT be called for project repos
   [ ! -f "$MOCK_BIN/check-manifest.sh.args" ]
+  [ ! -f "$MOCK_BIN/check-test-coverage.sh.args" ]
 }
 
-@test "devshop repo (/devshop): calls clean-tree + manifest + commit-guard" {
+@test "devshop repo (/devshop): calls clean-tree + manifest + test-coverage + commit-guard" {
   create_test_repo
   sed -i 's|GIT_ROOT=$(git rev-parse.*|GIT_ROOT="/devshop"|' "$WRAPPER"
   run bash -c "cd '$TEST_REPO' && bash '$WRAPPER'"
@@ -54,12 +55,13 @@ scripts_called() {
 
   [ -f "$MOCK_BIN/check-clean-tree.sh.args" ]
   [ -f "$MOCK_BIN/check-manifest.sh.args" ]
+  [ -f "$MOCK_BIN/check-test-coverage.sh.args" ]
   [ -f "$MOCK_BIN/devshop-commit-guard.sh.args" ]
   # Security freshness should NOT be called for devshop repo
   [ ! -f "$MOCK_BIN/check-security-files-freshness.sh.args" ]
 }
 
-@test "devshop-self mode (kit/ is real dir): calls clean-tree + manifest + commit-guard" {
+@test "devshop-self mode (kit/ is real dir): calls clean-tree + manifest + test-coverage + commit-guard" {
   create_test_repo
   # Create a real kit/ dir to trigger devshop-self detection
   mkdir -p "$TEST_REPO/kit"
@@ -68,6 +70,7 @@ scripts_called() {
 
   [ -f "$MOCK_BIN/check-clean-tree.sh.args" ]
   [ -f "$MOCK_BIN/check-manifest.sh.args" ]
+  [ -f "$MOCK_BIN/check-test-coverage.sh.args" ]
   [ -f "$MOCK_BIN/devshop-commit-guard.sh.args" ]
   [ ! -f "$MOCK_BIN/check-security-files-freshness.sh.args" ]
 }
