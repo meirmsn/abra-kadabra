@@ -25,6 +25,14 @@ if [ ! -f "$VERSION_FILE" ]; then
   exit 1
 fi
 
+# Guard: releases only from main
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+if [ "$CURRENT_BRANCH" != "main" ]; then
+  echo "ERROR: Releases must be from main (currently on '$CURRENT_BRANCH')."
+  echo "Merge or rebase to main first, then release."
+  exit 1
+fi
+
 CURRENT_VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
 LAST_TAG="v$CURRENT_VERSION"
 
