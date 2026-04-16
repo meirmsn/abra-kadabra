@@ -2,6 +2,21 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.5.0 (2026-04-16)
+
+- docs: document devshop rebase-to-main workflow, branch-aware hook
+- test: add system-level structural invariants
+- chore: track check-test-coverage.sh as 644 to match init-devshop lock
+- fix: use absolute paths in settings.json hooks for cross-repo cwd
+- chore: add summary line after kit test run in pre-commit
+- feat: add structural invariant tests, fix broken debug symlink
+- test: fill coverage gaps — security freshness, multi-failure, separation
+- feat: add test coverage hook — flags untested kit script changes
+- feat: run kit tests on every devshop commit
+- fix: docs-drift check never triggered for devshop repo commits, add P3 tests
+- fix: stash detection case bug + manifest entry parsing bug, add P2 tests
+- feat: add BATS test infrastructure for kit scripts
+
 ## v1.4.1 (2026-04-15)
 
 - fix: use /etc/devshop-env for devshop token, keep SSH remote
