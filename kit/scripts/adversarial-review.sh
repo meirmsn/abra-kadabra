@@ -121,6 +121,11 @@ The developer proposes how to handle manifest updates.
 
 Reason: $REASON"
     ;;
+  testCoverage)
+    # Context is passed as $REASON (contains diff + test content)
+    # No additional context gathering needed — release.sh provides everything
+    CONTEXT="$REASON"
+    ;;
 esac
 
 # --- Human review fallback (when API is unavailable) ---
@@ -148,13 +153,14 @@ Evaluate:
 2. Does skipping this check create a real risk (stale docs, forgotten files, missed changes, leaked secrets)?
 3. Is the reason specific enough? Generic reasons like 'docs are fine' or 'will fix later' are NOT acceptable.
 4. For doc checks: does the reason name specific sections reviewed? Do those sections actually match the changes?
-5. For doc checks: if the diff introduces a NEW capability (new script category, new workflow, new convention, new tool), verify documentation exists at the right level:
+5. For testCoverage checks: are the existing tests sufficient to catch regressions in the changed behavior? Look for: new code paths without corresponding test cases, changed exit codes or output formats not verified by assertions, new flags or options not exercised. If the changes are purely cosmetic (comments, formatting, variable renames) existing tests are likely sufficient.
+6. For doc checks: if the diff introduces a NEW capability (new script category, new workflow, new convention, new tool), verify documentation exists at the right level:
    - guide/ section required: what it is, how it works, how to extend it (e.g., conventions.md for testing strategy, hooks.md for new guards)
    - OVERVIEW.md if it changes the workspace layout, event flow, or file map
    - MODEL.md if it adds a new structural component to the kit (rare)
    - CLAUDE.md if it changes how Claude should behave or what workflows to follow
    Layout mentions alone (a line in a tree diagram) are NOT sufficient for new capabilities — strategy/usage docs are also required.
-6. For hookBypass: is this a known legitimate scenario (migration commits with git rm --cached, binary files that break lint-staged, intermediate refactor state with type errors)? Does skipping gitleaks create a real risk for these files?
+7. For hookBypass: is this a known legitimate scenario (migration commits with git rm --cached, binary files that break lint-staged, intermediate refactor state with type errors)? Does skipping gitleaks create a real risk for these files?
 
 Respond with EXACTLY one line:
 PASS - only if the reason is genuinely legitimate and specific

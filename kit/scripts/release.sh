@@ -3,6 +3,9 @@
 # Run from the devshop repo root (not a project repo).
 # Shows changes since last version tag, suggests bump level, asks for confirmation.
 #
+# Pre-release gate: semantic test coverage review — checks whether tests cover
+# all functional changes since the last tag. Runs once per release, not per commit.
+#
 # Usage:
 #   release.sh                # interactive (prompts for bump level + confirm)
 #   release.sh --bump patch   # non-interactive (for Claude)
@@ -47,6 +50,59 @@ if git rev-parse "$LAST_TAG" &>/dev/null; then
 
 else
   echo "No previous tag found. This will be the first tagged release."
+fi
+
+# --- Pre-release gate: semantic test coverage review ---
+# Checks whether functional changes since last tag have adequate test coverage.
+# Runs once per release (not per commit) to avoid friction during development.
+if git rev-parse "$LAST_TAG" &>/dev/null; then
+  # Functional file patterns (changes that affect behavior)
+  FUNC_CHANGES=$(git diff --name-only "$LAST_TAG"..HEAD | grep -E '^kit/scripts/|^kit/hooks/|^\.claude/settings\.json$|^\.husky/pre-commit$|^\.dcg\.toml$' || true)
+  TEST_CHANGES=$(git diff --name-only "$LAST_TAG"..HEAD | grep '^kit/tests/' || true)
+
+  if [ -n "$FUNC_CHANGES" ]; then
+    echo "--- Pre-release test coverage review ---"
+
+    if [ -n "$TEST_CHANGES" ]; then
+      echo "Functional changes and test changes detected. Reviewing coverage..."
+    else
+      echo "Functional changes detected but NO test files were modified. Reviewing..."
+    fi
+
+    # Build context: functional diff + test file listing with @test names
+    FUNC_DIFF=$(git diff "$LAST_TAG"..HEAD -- kit/scripts/ kit/hooks/ .claude/settings.json .husky/pre-commit .dcg.toml 2>/dev/null | head -500)
+    TEST_SUMMARY=""
+    for tf in kit/tests/*.bats; do
+      [ -f "$tf" ] || continue
+      TEST_SUMMARY+="--- $(basename "$tf") ---
+$(grep '@test ' "$tf" | sed 's/.*@test "//;s/".*//')
+"
+    done
+
+    REVIEW_CONTEXT="Functional changes since $LAST_TAG:
+$FUNC_CHANGES
+
+Test files modified since $LAST_TAG:
+${TEST_CHANGES:-(none)}
+
+Functional diff (first 500 lines):
+$FUNC_DIFF
+
+Test suite coverage (test names per file):
+$TEST_SUMMARY"
+
+    echo "⏳ Reviewing test coverage with adversarial agent..."
+    REVIEW_RESULT=$(bash "$SCRIPT_DIR/adversarial-review.sh" testCoverage "$REVIEW_CONTEXT" 2>&1) || {
+      echo ""
+      echo "✖ Pre-release test coverage review FAILED."
+      echo "  $REVIEW_RESULT"
+      echo ""
+      echo "  Address the gaps above, then re-run release.sh."
+      exit 1
+    }
+    echo "✓ Pre-release test coverage review passed."
+    echo ""
+  fi
 fi
 
 if [ -n "$ARG_BUMP" ]; then

@@ -137,9 +137,14 @@ The devshop's own scripts and configuration are tested with [BATS](https://githu
 | Structural invariants | `structural-invariants.bats`                     | System-level wiring: hook paths resolve, symlinks intact, manifest consistent, template contracts valid, configs parseable, version/tag aligned |
 | Utilities             | `util-*.bats` (3 files)                          | Path normalization, changelog insertion, file header checks                                                                                     |
 
+**Two enforcement layers:**
+
+1. **Per-commit (pre-commit chain):** BATS runs the full test suite (~6s). Catches regressions immediately. The `check-test-coverage` guard blocks new scripts without test files and warns on modified scripts without test files.
+2. **Per-release (release.sh):** Semantic test coverage review via adversarial agent. Compares the functional diff since the last tag against the test suite's `@test` names. Catches new code paths, changed exit codes, or new options that existing tests don't exercise. Blocks the release if coverage gaps are found. This avoids the cost of a Sonnet call on every commit while still catching gaps before they ship.
+
 **What's tested vs. exempt:**
 
-Every script in `kit/scripts/` is either tested or explicitly exempt in `check-test-coverage.sh`. Exempt scripts have documented reasons (e.g., `adversarial-review.sh` calls Claude CLI — non-deterministic, mocked in all callers; `init-devshop.sh` runs as root). The `check-test-coverage` pre-commit guard blocks new scripts without tests and warns on modified scripts without tests.
+Every script in `kit/scripts/` is either tested or explicitly exempt in `check-test-coverage.sh`. Exempt scripts have documented reasons (e.g., `adversarial-review.sh` calls Claude CLI — non-deterministic, mocked in all callers; `init-devshop.sh` runs as root).
 
 **How tests mock external dependencies:**
 

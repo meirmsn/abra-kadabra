@@ -86,6 +86,11 @@ git commit
 git push
   └─ PostToolUse
       └─ check-pr-description.sh ──────── assess + update PR description
+
+release.sh (devshop version bump)
+  └─ Pre-release gate
+      └─ Semantic test coverage review ── adversarial agent checks functional
+         changes since last tag have adequate test coverage (one Sonnet call)
 ```
 
 ## Workflow (Idea to Deployed)
