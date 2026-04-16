@@ -285,3 +285,70 @@ run_guard() {
   run_guard
   assert_success
 }
+
+# === Check 5: Release commit test coverage review (devshop repo only) ===
+
+@test "check5: skips when kit/version not staged" {
+  setup_devshop_repo
+  git -C "$TEST_REPO" tag -a v1.0.0 -m "v1.0.0"
+  stage_file "README.md" "# updated readme"
+  run_guard
+  assert_success
+  refute_output --partial "Release coverage:"
+}
+
+@test "check5: skips when no prior tag exists (first release)" {
+  setup_devshop_repo
+  # No tag created — v1.0.0 does not exist yet
+  echo "1.0.1" > "$TEST_REPO/kit/version"
+  git -C "$TEST_REPO" add kit/version
+  run_guard
+  assert_success
+  refute_output --partial "Release coverage:"
+}
+
+@test "check5: runs review when kit/version is bumped" {
+  setup_devshop_repo
+  git -C "$TEST_REPO" tag -a v1.0.0 -m "v1.0.0"
+  echo "1.0.1" > "$TEST_REPO/kit/version"
+  git -C "$TEST_REPO" add kit/version
+  mock_adversarial_review PASS
+  run_guard
+  assert_success
+  assert_output --partial "Release coverage: adversarial review accepted"
+}
+
+@test "check5: blocks when adversarial review rejects coverage" {
+  setup_devshop_repo
+  git -C "$TEST_REPO" tag -a v1.0.0 -m "v1.0.0"
+  echo "1.0.1" > "$TEST_REPO/kit/version"
+  git -C "$TEST_REPO" add kit/version
+  mock_adversarial_review FAIL
+  run_guard
+  assert_failure 1
+  assert_output --partial "Pre-release test coverage review FAILED"
+}
+
+@test "check5: passes with releaseReviewed bypass when reviewer accepts" {
+  setup_devshop_repo
+  git -C "$TEST_REPO" tag -a v1.0.0 -m "v1.0.0"
+  echo "1.0.1" > "$TEST_REPO/kit/version"
+  git -C "$TEST_REPO" add kit/version
+  git -C "$TEST_REPO" config devshop.releaseReviewed "changes are docs-only, no new test coverage needed"
+  mock_adversarial_review PASS
+  run_guard
+  assert_success
+  assert_output --partial "Release coverage: adversarial review accepted"
+}
+
+@test "check5: blocks bypass when reviewer rejects justification" {
+  setup_devshop_repo
+  git -C "$TEST_REPO" tag -a v1.0.0 -m "v1.0.0"
+  echo "1.0.1" > "$TEST_REPO/kit/version"
+  git -C "$TEST_REPO" add kit/version
+  git -C "$TEST_REPO" config devshop.releaseReviewed "looks fine"
+  mock_adversarial_review FAIL
+  run_guard
+  assert_failure 1
+  assert_output --partial "Your justification was rejected"
+}

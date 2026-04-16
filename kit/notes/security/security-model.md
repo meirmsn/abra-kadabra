@@ -82,7 +82,16 @@ Two pre-commit chains run in sequence:
 
 1. `check-security-files-freshness.sh` — settings.json/dcg.toml match devshop source, are copies not symlinks
 2. `check-clean-tree.sh` — no unstaged changes
-3. `devshop-commit-guard.sh` — prevents mixed project/devshop commits
+3. `check-manifest.sh` — (devshop repo only) template files align with manifest
+4. `check-test-coverage.sh` — new kit/scripts/\*.sh need matching test files
+5. `devshop-commit-guard.sh` — 5 semantic/deterministic checks:
+   1. mixed commit (project repo: devshop + project files staged together)
+   2. docs drift (devshop tooling changed → requires adversarial-reviewed docsVerified note)
+   3. doc consistency (reference doc changed → requires adversarial-reviewed docSyncReason)
+   4. cross-repo awareness (other repo dirty → auto-blocks unless crossRepoReason justifies)
+   5. release coverage (devshop: kit/version staged → adversarial reviews whether changes
+      since last tag have adequate test coverage; bypass via `devshop.releaseReviewed`
+      gets the justification re-reviewed)
 
 ### Layer 6: Claude Code PreToolUse hooks (commit-specific)
 

@@ -74,11 +74,14 @@ git commit
   │       ├─ check-clean-tree.sh ────────── no unaddressed dirty state
   │       ├─ check-manifest.sh ──────────── (devshop repo only)
   │       ├─ check-test-coverage.sh ─────── new scripts need tests (devshop only)
-  │       └─ devshop-commit-guard.sh ────── 4 checks:
+  │       └─ devshop-commit-guard.sh ────── 5 checks:
   │           ├─ mixed commit ───────────── devshop + project files together? block
   │           ├─ docs drift ─────────────── tooling changed without doc update? block
   │           ├─ doc consistency ─────────── one ref doc changed without others? block
-  │           └─ cross-repo dirty ───────── other repo has uncommitted changes? block
+  │           ├─ cross-repo dirty ───────── other repo has uncommitted changes? block
+  │           └─ release coverage ────────── kit/version bumped? adversarial agent
+  │                                          judges whether changes since last tag
+  │                                          need test coverage (one Sonnet call)
   └─ PostToolUse (advisory)
       ├─ check-dirty-after-commit.sh ──── warn if tree still dirty
       └─ check-pr-description.sh ──────── assess + update PR description
@@ -88,10 +91,10 @@ git push
       └─ check-pr-description.sh ──────── assess + update PR description
 
 release.sh (devshop version bump)
-  └─ Pre-release gate
-      └─ Semantic test coverage review ── adversarial agent judges whether
-         changes since last tag need test coverage (docs-only / config-only
-         covered by wiring tests can PASS; one Sonnet call, always runs)
+  └─ Bump + commit + tag + push
+      (the test-coverage review runs via the commit guard above — triggered by
+       kit/version being staged — so any bump commit is reviewed, whether from
+       release.sh or a manual git commit)
 ```
 
 ## Workflow (Idea to Deployed)

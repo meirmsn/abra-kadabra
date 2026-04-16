@@ -52,55 +52,11 @@ else
   echo "No previous tag found. This will be the first tagged release."
 fi
 
-# --- Pre-release gate: semantic test coverage review ---
-# Runs on every release. Sends the full diff since last tag plus the test
-# inventory to an adversarial reviewer. The reviewer decides whether any
-# functional changes need test coverage; docs-only or config-only releases
-# that are already covered by structural wiring tests pass.
-# Runs once per release (not per commit) to avoid friction during development.
-if git rev-parse "$LAST_TAG" &>/dev/null; then
-  CHANGED_FILES=$(git diff --name-only "$LAST_TAG"..HEAD || true)
-  TEST_CHANGES=$(echo "$CHANGED_FILES" | grep '^kit/tests/' || true)
-
-  echo "--- Pre-release test coverage review ---"
-  echo "Files changed since $LAST_TAG:"
-  echo "$CHANGED_FILES" | sed 's/^/  /'
-  echo ""
-
-  # Build context: full diff + test file listing with @test names
-  FULL_DIFF=$(git diff "$LAST_TAG"..HEAD 2>/dev/null | head -500)
-  TEST_SUMMARY=""
-  for tf in kit/tests/*.bats; do
-    [ -f "$tf" ] || continue
-    TEST_SUMMARY+="--- $(basename "$tf") ---
-$(grep '@test ' "$tf" | sed 's/.*@test "//;s/".*//')
-"
-  done
-
-  REVIEW_CONTEXT="Files changed since $LAST_TAG:
-$CHANGED_FILES
-
-Test files modified since $LAST_TAG:
-${TEST_CHANGES:-(none)}
-
-Full diff (first 500 lines):
-$FULL_DIFF
-
-Test suite coverage (test names per file):
-$TEST_SUMMARY"
-
-  echo "⏳ Reviewing test coverage with adversarial agent..."
-  REVIEW_RESULT=$(bash "$SCRIPT_DIR/adversarial-review.sh" testCoverage "$REVIEW_CONTEXT" 2>&1) || {
-    echo ""
-    echo "✖ Pre-release test coverage review FAILED."
-    echo "  $REVIEW_RESULT"
-    echo ""
-    echo "  Address the gaps above, then re-run release.sh."
-    exit 1
-  }
-  echo "✓ Pre-release test coverage review passed."
-  echo ""
-fi
+# Pre-release test coverage review runs in the commit guard — see check 5 in
+# kit/scripts/devshop-commit-guard.sh. Triggered by kit/version being staged,
+# which happens below when release.sh writes the new version and calls
+# `git commit`. The review covers all changes since $LAST_TAG via the adversarial
+# agent. Cannot be bypassed by calling `git tag` directly without a bump commit.
 
 if [ -n "$ARG_BUMP" ]; then
   BUMP="$ARG_BUMP"
