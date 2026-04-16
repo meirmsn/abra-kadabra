@@ -2,6 +2,12 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.4.0 (2026-04-15)
+
+- fix: use transient push URL instead of credential helper for devshop token
+- chore: release.sh only runs from main branch
+- fix: accept both GH_TOKEN and GITHUB_TOKEN in devshop .env
+
 ## v1.3.7 (2026-04-15)
 
 - fix: add ERR trap to init-devshop.sh + make token setup resilient
