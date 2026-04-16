@@ -26,7 +26,7 @@ if [ -f "$SRC_FILE" ]; then
   elif [ ! -f "$WS_FILE" ]; then
     echo "⚠ .claude/settings.json is MISSING. Security rules not active!"
     STALE=true
-  elif ! diff -q "$SRC_FILE" "$WS_FILE" >/dev/null 2>&1; then
+  elif ! bash "$DEVSHOP/kit/scripts/normalize-devshop-paths.sh" < "$SRC_FILE" | diff -q - "$WS_FILE" >/dev/null 2>&1; then
     echo "⚠ .claude/settings.json is stale (differs from devshop source)."
     STALE=true
   fi
