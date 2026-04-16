@@ -12,7 +12,7 @@ Hooks in `.claude/settings.json` guard the development workflow:
 | release.sh reminder   | PostToolUse (git commit) | `*git*commit*` in devshop repo | Reminds to run `release.sh` for version bump + changelog (no-op in project repos)                                                                                                                  |
 | dirty tree check      | PostToolUse (git commit) | `*git*commit*` commands        | If tree still dirty after commit, tells Claude to address remaining files                                                                                                                          |
 | PR description update | PostToolUse (git push)   | `*git push*` commands          | Two-step: (1) Claude assesses title/description vs commits — text only, no edits. (2) Next response: runs `gh pr edit` if needed.                                                                  |
-| session-start.sh      | SessionStart             | New session or `/clear`        | Recreates symlinks if missing, then context for Claude (README, BUILD-LOG, branch, devshop CLAUDE.md) + visible briefing for user                                                                  |
+| session-start.sh      | SessionStart             | New session or `/clear`        | Recreates symlinks if missing, then context for Claude (README, BUILD-LOG, branch, devshop CLAUDE.md) + briefing via `systemMessage`                                                               |
 
 ---
 

@@ -11,7 +11,7 @@ if [ ! -L /workspace/.devshopkit ] && [ -d /devshop/kit ]; then
 fi
 
 # Check security-critical files (warns if missing, stale, or symlinked)
-bash /devshop/kit/scripts/check-security-files-freshness.sh 2>/dev/null || true
+SECURITY_WARN="$(bash /devshop/kit/scripts/check-security-files-freshness.sh 2>/dev/null)" || true
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo /workspace)"
 BRANCH="$(git -C "$ROOT" branch --show-current 2>/dev/null || echo "(detached)")"
@@ -126,6 +126,11 @@ if [ -n "$WIP_BRANCHES" ]; then
   BRIEFING+="
  WIP:
 ${WIP_BRANCHES%$'\n'}"
+fi
+
+# Security warnings (if any)
+if [ -n "$SECURITY_WARN" ]; then
+  BRIEFING+=$'\n \033[1;31m'"${SECURITY_WARN}"$'\033[0m'
 fi
 
 BRIEFING+="
