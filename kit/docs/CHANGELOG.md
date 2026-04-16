@@ -2,6 +2,13 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.5.3 (2026-04-16)
+
+- docs: document ~/.config not being volume-mounted as a known footgun
+- chore: disable turbo telemetry via containerEnv for rebuild resilience
+- docs: rename .devshop to .devshopkit in security-model table
+- fix: suppress noisy pace coloring when usage is under 5%
+
 ## v1.5.2 (2026-04-16)
 
 - fix: block Bash writes to memory paths, add WIP file guidance
