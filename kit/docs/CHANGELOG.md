@@ -2,6 +2,14 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.8.0 (2026-04-17)
+
+- Initial release
+
+## v1.7.0 (2026-04-17)
+
+- feat: block Claude commits on main + add In Flight tracking
+
 ## v1.6.1 (2026-04-17)
 
 - test: cover skill symlink target resolution
