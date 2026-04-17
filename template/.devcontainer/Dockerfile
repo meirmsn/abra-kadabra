@@ -95,7 +95,7 @@ RUN ARCH=$(dpkg --print-architecture | sed 's/amd64/x64/;s/arm64/arm64/') && \
   chmod +x /usr/local/bin/gitleaks && \
   rm "$FILE"
 
-# Copy firewall and tooling script and grant node passwordless sudo for it
+# Grant node passwordless sudo for root-only scripts
 COPY init-firewall.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/init-firewall.sh && \
   echo "node ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh" > /etc/sudoers.d/node-firewall && \

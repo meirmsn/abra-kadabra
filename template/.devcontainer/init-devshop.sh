@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
-# Thin forwarder — delegates to tooling injection script if mounted.
+# Forwarder - delegates to mounted injection script if available.
 [ -f /devshop/kit/scripts/init-devshop.sh ] && exec bash /devshop/kit/scripts/init-devshop.sh

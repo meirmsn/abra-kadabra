@@ -1,5 +1,4 @@
-# Recreate tooling symlinks if missing (git ops can lose untracked symlinks).
-# Uses the lightweight symlink-only script (no root needed).
+# Symlinks are untracked — recreate if git ops lost them.
 [ ! -L .devshopkit ] && [ -d /devshop/kit ] && bash /devshop/kit/scripts/create-devshop-symlinks.sh 2>/dev/null || true
 
 pnpm exec lint-staged
