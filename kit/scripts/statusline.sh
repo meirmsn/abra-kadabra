@@ -180,25 +180,12 @@ rate_segment() {
     color=""
   fi
 
-  # Color actual pct by absolute range: <50 plain, 50-80 orange, >80 red
-  if [ "$rounded_pct" -gt 80 ] 2>/dev/null; then
-    pct_color="$RED"
-  elif [ "$rounded_pct" -gt 50 ] 2>/dev/null; then
-    pct_color="$ORANGE"
-  else
-    pct_color=""
-  fi
-  if [ -n "$pct_color" ]; then
-    actual_fmt="${pct_color}%s%%${RESET}"
-  else
-    actual_fmt='%s%%'
-  fi
-
-  # Print: pace-colored label + range-colored actual% + pace-colored /expected%
+  # Print: pace-colored label + pace-colored actual% + plain /expected%
+  # When pace is outside colored bands, hide /expected (signal is noisy).
   if [ -n "$color" ]; then
-    printf "${color}%s${RESET} ${actual_fmt}/${color}%d%%${RESET}" "$label" "$rounded_pct" "$expected"
+    printf "${color}%s${RESET} ${color}%s%%${RESET}/%d%%" "$label" "$rounded_pct" "$expected"
   else
-    printf "%s ${actual_fmt}" "$label" "$rounded_pct"
+    printf "%s %s%%" "$label" "$rounded_pct"
   fi
 }
 
