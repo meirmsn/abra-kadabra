@@ -81,7 +81,8 @@ Run `/ak-new-project` from any devcontainer (the devshop's own or an existing pr
 - **Phase B** runs inside the new project's container for interactive setup (accounts,
   credentials, scaffolding, integrations, security).
 
-The skill creates `INIT-TRACKER.md` in the project root for resume tracking. See
+The skill tracks progress in `/devshop/kit/notes/projects/<name>.md` (not in
+the project repo — keeps project history clean). See
 `.claude/skills/devshop/new-project/SKILL.md` for the full step-by-step process.
 
 To adopt the devshop on an existing project, run `/ak-migrate-project` (skeleton —

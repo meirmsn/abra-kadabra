@@ -7,6 +7,46 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
 <!-- Items discovered during use. Tag with [v0.2], [v1] etc. to schedule into ROADMAP versions. -->
 
+- [ ] **Route init tracking out of project BUILD-LOG.** Currently `ak-new-project` logs all 25 init steps into the project's `BUILD-LOG.md`, mixing devshop infrastructure with project setup. BUILD-LOG should only contain entries from `/ak-build` (feature ships).
+
+  **Changes needed:**
+  1. `ak-new-project/SKILL.md`: write INIT-TRACKER to `/devshop/kit/notes/projects/<name>.md` instead of project root
+  2. `session-start.sh`: read init progress from devshop notes file (not BUILD-LOG Status section); surface both project build status and init progress
+  3. `init-devshop.sh`: remove BUILD-LOG.md creation (lines 77-81) — `ak-new-project` copies it from template during Phase A
+  4. `template/BUILD-LOG.md`: remove init-tracking Status fields (`Current phase`, `Current step`, `Remaining`); keep only `Last build`
+  5. Separate ak-new-project steps into devshop-infra vs project-setup so only project steps appear in project-facing records
+
+  **Devshop infrastructure steps** (go to `/devshop/kit/notes/projects/<name>.md`):
+
+  | Step                                     | Why devshop-specific                     |
+  | ---------------------------------------- | ---------------------------------------- |
+  | 1. Check binary versions                 | Devshop-managed binaries in devcontainer |
+  | 4. [HUMAN] Fill credentials              | Devshop `.devcontainer/.env` pattern     |
+  | 6. [HUMAN] Add firewall domains          | Devshop firewall infrastructure          |
+  | 7. [HUMAN] Rebuild devcontainer          | Devshop container lifecycle              |
+  | 8. Disable turbo telemetry               | Container env config                     |
+  | 9. Install gstack                        | Devshop tooling dependency               |
+  | 19. Enable doc enforcement hooks         | Devshop convention enforcement           |
+  | 21. [HUMAN] Lock security-critical files | Devshop security model                   |
+  | 25. Run /cso baseline audit              | Devshop quality gate                     |
+
+  **Project setup steps** (could appear in project-facing records):
+
+  | Step                                      | What it does                      |
+  | ----------------------------------------- | --------------------------------- |
+  | 2. Customize project docs                 | README, PRODUCT-ROADMAP           |
+  | 3. [HUMAN] Create accounts                | Vercel, Sentry, PostHog, Supabase |
+  | 5. [HUMAN] Add GitHub Secrets + Variables | Repo configuration                |
+  | 10-16. Scaffold packages + apps           | Core project code                 |
+  | 17. Run /setup-deploy                     | Deploy configuration              |
+  | 18. Create project CLAUDE.md              | Project docs                      |
+  | 20. Update .gitleaks.toml                 | Project-specific secret patterns  |
+  | 22. Create keepalive.yml                  | Project CI                        |
+  | 23. [HUMAN] Service quota alerts          | Project ops                       |
+  | 24. [HUMAN] Branch protection             | Repo configuration                |
+
+  [post-separation, documented 2026-04-16]
+
 - [x] Review plan gaps after Phase 1: `notes/bootstrap/v0-gaps.md` — reviewed 2026-04-13 after devshop separation. 3 resolved by separation (#8 local dev docs, #9 mirror, minor gaps), 2 fixed (#1 dependabot, minor check-file-headers), 3 project decisions routed (#3 Zod, #4 state mgmt, #5 i18n), 3 added to ROADMAP (#2 staging v1, #10 axe-core v1, #11 logging v+), 2 already in ROADMAP (#6 tiered pre-ship, #7 subagent).
 - [ ] Investigate scoping node user's sudo access — base image gives full passwordless sudo, which means Claude could bypass root-owned file protections via `sudo chown`. See `kit/notes/sudo-hardening.md` for analysis and approach. [post-Phase-1]
 - [ ] **Investigate merging `docs-drift` and `doc-consistency` checks.** Currently separate checks in `devshop-commit-guard.sh`, each with its own bypass flag (`docsVerified` / `docSyncReason`). They ask related-but-different questions: `docs-drift` fires when tooling changes (code → do docs need updating?), `doc-consistency` fires when a ref doc changes (doc → are cross-referenced docs still consistent?). In practice most devshop commits stage both code AND doc updates, so both checks fire and the committer must write two justifications for what feels like one logical review. Investigate whether a single merged check (`docs-review`?) with one bypass flag could cover both concerns without losing signal. Main risk: the adversarial reviewer may do a weaker job if both concerns are merged into one prompt — currently it can focus narrowly on each. Mitigation: give the reviewer explicit context about which trigger fired (code changed / doc changed / both) and tailored criteria per case. Decision criteria: does the merged reviewer catch all cases the split reviewers caught in recent commits (survey this session's commits + previous few releases). If yes → merge. If no → keep separate and document the rationale in `kit/docs/guide/hooks.md` so the two-flag friction is a known intentional cost. [ergonomics, documented 2026-04-16]

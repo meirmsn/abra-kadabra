@@ -28,7 +28,7 @@ Inside container:
 ├── .devshopkit/           ← symlink → /devshop/kit/
 ├── .claude/               ← created by init-devshop.sh (skills, settings)
 ├── CLAUDE.md              ← project-specific Claude context (tracked)
-├── BUILD-LOG.md           ← created if missing
+├── BUILD-LOG.md           ← project-owned (template copied by ak-new-project)
 ├── .dcg.toml              ← copy of /devshop/.dcg.toml (root-owned)
 └── (everything else)      ← project files, tracked normally
 
@@ -47,7 +47,7 @@ Inside container:
 | `CLAUDE.md` (devshop conventions)         | abra-kadabra | yes      | auto-loaded via `additionalDirectories` in settings.json                |
 | `CLAUDE.md` (project context)             | project      | yes      | already there                                                           |
 | `.claude/memory/`                         | project      | yes      | already there                                                           |
-| `BUILD-LOG.md`                            | project      | yes      | created by init-devshop.sh if missing                                   |
+| `BUILD-LOG.md`                            | project      | yes      | copied from template by ak-new-project during Phase A                   |
 | `.devcontainer/`                          | project      | yes      | already there                                                           |
 | `.husky/`, `.github/`, `turbo.json`, etc. | project      | yes      | already there                                                           |
 | `apps/`, `packages/`, `supabase/`         | project      | yes      | already there                                                           |
@@ -81,17 +81,11 @@ Present from the initial clone of the devshop repo (abra-kadabra). After that, p
 
 Files: `.prettierrc`, `turbo.json`, `eslint.config.mjs`, `.husky/`, `.github/workflows/`, `.devcontainer/`, and other build tooling (see `manifest.txt` for the full list)
 
-**4. Generated (created at runtime if missing)**
-
-Created by `init-devshop.sh` on container start if not present. Once created, project-owned and tracked.
-
-- `BUILD-LOG.md` — copied from `/devshop/template/BUILD-LOG.md` if missing, then project-owned
-
-**5. Project-only (never in devshop)**
+**4. Project-only (never in devshop)**
 
 Files that exist only in the project repo. No devshop source, no sync.
 
-Files: `.devcontainer/.env` (secrets), `.claude/settings.local.json` (project-specific permission grants), `CLAUDE.md`, `.claude/memory/`, `apps/`, `packages/`, `supabase/`, `METRICS.md`, `TODOS.md`
+Files: `.devcontainer/.env` (secrets), `.claude/settings.local.json` (project-specific permission grants), `CLAUDE.md`, `.claude/memory/`, `BUILD-LOG.md`, `apps/`, `packages/`, `supabase/`, `METRICS.md`, `TODOS.md`
 
 ## Doing project work
 

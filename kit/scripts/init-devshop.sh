@@ -74,12 +74,6 @@ bash "$DEVSHOP/kit/scripts/normalize-devshop-paths.sh" < "$DEVSHOP/.claude/setti
 [ -f "$DEVSHOP/.dcg.toml" ] && cp "$DEVSHOP/.dcg.toml" "$WS/.dcg.toml"
 
 
-# --- Create BUILD-LOG.md if missing (session-start hook reads it) ---
-if [ ! -f "$WS/BUILD-LOG.md" ]; then
-  cp "$DEVSHOP/template/BUILD-LOG.md" "$WS/BUILD-LOG.md"
-  chown node:node "$WS/BUILD-LOG.md"
-fi
-
 # --- Claude memory symlink ---
 # Claude writes memories to ~/.claude/projects/-workspace/memory/ (native path).
 # Symlink redirects to /workspace/.claude/memory/ so memories are tracked in git.

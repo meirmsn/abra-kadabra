@@ -27,9 +27,9 @@ template. Auto-detects which phase to run based on the workspace context.
 
 ```
 if kit/ is a real directory (not symlink) → Phase A (create repo)
-elif INIT-TRACKER.md exists                    → Resume Phase B (continue setup)
-elif turbo.json exists                         → Phase B first run (start setup)
-else                                           → Error: not a recognized context
+elif /devshop/kit/notes/projects/<name>.md exists → Resume Phase B (continue setup)
+elif turbo.json exists                            → Phase B first run (start setup)
+else                                              → Error: not a recognized context
 ```
 
 ---
@@ -92,13 +92,16 @@ Creates a GitHub repo populated with the devshop template.
 ## Phase B: Set Up Project
 
 Runs inside the new project's devcontainer. Walks through service setup,
-scaffolding, and configuration. Creates `INIT-TRACKER.md` for resume tracking.
+scaffolding, and configuration. Tracks progress in `/devshop/kit/notes/projects/<name>.md`
+(not in the project repo — keeps project history clean).
 
 ### Resume Support
 
-On first run: create `INIT-TRACKER.md` with all steps unchecked.
-On subsequent runs: read `INIT-TRACKER.md`, count completed items, show summary
+On first run: create `/devshop/kit/notes/projects/<name>.md` with all steps unchecked.
+On subsequent runs: read that file, count completed items, show summary
 ("7/20 done, next: Scaffold packages"), skip completed, continue from first unchecked.
+
+Derive `<name>` from the git remote: `git remote get-url origin | sed 's#.*/##; s/\.git$//'`.
 
 ### Principles
 
@@ -116,13 +119,13 @@ so the next project doesn't hit it, and only move on when the step is genuinely 
 - Show what the user needs to do (clear instructions, links where helpful)
 - Wait for the user to say "done" or provide the requested value
 - Do NOT present the next step until the current one is confirmed done
-- Mark `[x]` in INIT-TRACKER.md
+- Mark `[x]` in `/devshop/kit/notes/projects/<name>.md`
 
 ### On automated items
 
 - Run the command/action per the detail below
 - Verify success (check exit code, verify file exists, etc.)
-- Mark `[x]` in INIT-TRACKER.md
+- Mark `[x]` in `/devshop/kit/notes/projects/<name>.md`
 
 ### On failure
 
@@ -132,9 +135,9 @@ so the next project doesn't hit it, and only move on when the step is genuinely 
 
 ---
 
-## INIT-TRACKER.md Format
+## Init Tracker Format
 
-Created by this skill in the project root on first Phase B run:
+Created by this skill at `/devshop/kit/notes/projects/<name>.md` on first Phase B run:
 
 ```markdown
 # Init Tracker — <project-name>
@@ -443,5 +446,6 @@ After all steps pass, verify:
 
 ## Cleanup
 
-After all items pass, confirm completion with the user. `INIT-TRACKER.md` stays as
-a permanent record of when the project was set up and which steps were completed.
+After all items pass, confirm completion with the user. The init tracker at
+`/devshop/kit/notes/projects/<name>.md` stays as a permanent record of when
+the project was set up and which steps were completed.

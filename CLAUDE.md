@@ -24,9 +24,9 @@ Backlogs: `kit/TODOS.md` (tactical) + `kit/ROADMAP.md` (strategic). Project back
 
 ### Session Start
 
-A `SessionStart` hook (on `startup` and `clear`) automatically injects `README.md`, the first 15 lines of `BUILD-LOG.md`, the current branch, and this devshop `CLAUDE.md` into context. No manual reads needed — the hook runs `kit/scripts/session-start.sh`. (The devshop CLAUDE.md injection is a workaround for `anthropics/claude-code#22583` — remove when `additionalDirectories` loading is fixed.)
+A `SessionStart` hook (on `startup` and `clear`) automatically injects `README.md`, `BUILD-LOG.md` status, the current branch, and this devshop `CLAUDE.md` into context. It also reads init progress from `/devshop/kit/notes/projects/<name>.md` if bootstrapping is in progress. No manual reads needed — the hook runs `kit/scripts/session-start.sh`. (The devshop CLAUDE.md injection is a workaround for `anthropics/claude-code#22583` — remove when `additionalDirectories` loading is fixed.)
 
-If the user asks you to implement, fix, or continue work (not just answer a question), run `/ak-status` first — it reads `BUILD-LOG.md`, git state, and any active spec to produce a one-paragraph orientation briefing. Alternatively, read `BUILD-LOG.md` § Status directly for phase, next step, and blockers.
+If the user asks you to implement, fix, or continue work (not just answer a question), run `/ak-status` first — it reads `BUILD-LOG.md`, git state, and any active spec to produce a one-paragraph orientation briefing.
 
 ### Philosophy
 

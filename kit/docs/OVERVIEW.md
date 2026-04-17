@@ -130,7 +130,7 @@ Template: template/ (project skeleton — .devcontainer/, .github/, turbo.json, 
 Devshop: .devshopkit/ → symlink to /devshop/kit/ (injected at container start from abra-kadabra)
 Hooks:   .husky/pre-commit calls /devshop/kit/hooks/pre-commit.sh by absolute path (devshop guards, repo-aware)
 Claude:  .claude/ (injected: skills, commands, settings) · CLAUDE.md (project-specific, tracked) · /devshop/CLAUDE.md (devshop conventions, auto-loaded)
-Logs:    BUILD-LOG.md (project builds, gitignored) · kit/docs/CHANGELOG.md (devshop versions)
+Logs:    BUILD-LOG.md (project builds, tracked) · kit/docs/CHANGELOG.md (devshop versions) · kit/notes/projects/<name>.md (init tracking)
 Backlogs: TODOS.md (project tactical) · PRODUCT-ROADMAP.md (project strategic) · kit/TODOS.md (devshop tactical) · kit/ROADMAP.md (devshop strategic)
 Config:  turbo.json · pnpm-workspace.yaml · tsconfig.base.json · eslint.config.mjs · .dcg.toml · .gitleaks.toml
 ```

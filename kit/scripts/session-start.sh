@@ -83,19 +83,27 @@ if command -v gh &>/dev/null; then
   fi
 fi
 
-# --- Parse BUILD-LOG status ---
+# --- Parse init progress (from devshop notes, not project BUILD-LOG) ---
 
-PHASE=""
-STEP=""
-REMAINING=""
-INIT_DONE=false
-if [ -f "$ROOT/BUILD-LOG.md" ]; then
-  PHASE="$(grep -m1 '^\*\*Current phase\*\*' "$ROOT/BUILD-LOG.md" | sed 's/.*: //' || true)"
-  STEP="$(grep -m1 '^\*\*Current step\*\*' "$ROOT/BUILD-LOG.md" | sed 's/.*: //' || true)"
-  REMAINING="$(grep -m1 '^\*\*Remaining\*\*' "$ROOT/BUILD-LOG.md" | sed 's/.*: //' || true)"
-  if [ -z "$REMAINING" ] || [ "$REMAINING" = "None" ] || [ "$REMAINING" = "none" ]; then
-    INIT_DONE=true
+INIT_DONE=true
+INIT_STEP=""
+INIT_TRACKER="/devshop/kit/notes/projects/${PROJECT_NAME}.md"
+if [ -f "$INIT_TRACKER" ]; then
+  TOTAL="$(grep -c '^\s*[0-9]\+\. \[' "$INIT_TRACKER" 2>/dev/null || echo 0)"
+  DONE="$(grep -c '^\s*[0-9]\+\. \[x\]' "$INIT_TRACKER" 2>/dev/null || echo 0)"
+  if [ "$DONE" -lt "$TOTAL" ] && [ "$TOTAL" -gt 0 ]; then
+    INIT_DONE=false
+    INIT_STEP="$(grep -m1 '^\s*[0-9]\+\. \[ \]' "$INIT_TRACKER" | sed 's/.*\[ \] //' || true)"
+    INIT_STEP="${DONE}/${TOTAL} done — next: ${INIT_STEP}"
   fi
+fi
+
+# --- Parse latest build from project BUILD-LOG ---
+
+LAST_BUILD=""
+if [ -f "$ROOT/BUILD-LOG.md" ]; then
+  # Grab the most recent ### heading in the Log section (format: "### feature-name (YYYY-MM-DD)")
+  LAST_BUILD="$(grep -m1 '^### ' "$ROOT/BUILD-LOG.md" | sed 's/^### //' || true)"
 fi
 
 # --- Build visible briefing ---
@@ -107,9 +115,15 @@ BRIEFING="
  Branch:  ${BRANCH}${DIRTY}${UNPUSHED}"
 
 # Init section — only if init is not done
-if [ "$INIT_DONE" = false ] && [ -n "$PHASE" ]; then
+if [ "$INIT_DONE" = false ] && [ -n "$INIT_STEP" ]; then
   BRIEFING+="
- Init:    ${STEP:-unknown}"
+ Init:    ${INIT_STEP}"
+fi
+
+# Last build — only if there's a build entry
+if [ -n "$LAST_BUILD" ]; then
+  BRIEFING+="
+ Build:   ${LAST_BUILD}"
 fi
 
 # Open PRs
