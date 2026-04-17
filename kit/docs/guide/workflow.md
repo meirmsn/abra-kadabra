@@ -1,5 +1,95 @@
 # Workflow: Idea to Deployed
 
+## Pipeline at a Glance
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  IDEATION                                                               │
+│                                                                         │
+│    rough notes                                                          │
+│       │                                                                 │
+│       ▼                                                                 │
+│  ┌─────────────────┐  interviews → product design doc                   │
+│  │ /office-hours   │  (demand, urgency, scope)                          │
+│  └─────────────────┘                                                    │
+└─────────────────────────────────────────────────────────────────────────┘
+       │
+       ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  PLANNING                                                               │
+│                                                                         │
+│  ┌─────────────────┐  runs sequentially:                                │
+│  │ /autoplan       │  ├─ /plan-ceo-review                               │
+│  │                 │  ├─ /plan-design-review                            │
+│  │                 │  └─ /plan-eng-review                               │
+│  └─────────────────┘  → .gstack/projects/<slug>/                        │
+│                                                                         │
+│  optional (UI-heavy): /design-shotgun → /design-html                    │
+└─────────────────────────────────────────────────────────────────────────┘
+       │
+       ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  /ak-build  — autonomous pipeline (one command)                         │
+│                                                                         │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │ Phase 1 · /ak-spec                                               │   │
+│  │   gstack plan → specs/<name>/spec.md  (+ METRICS.md pause)       │   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+│                    │                                                    │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │ Phase 2 · /ak-implement                                          │   │
+│  │   decompose → code + tests per task                              │   │
+│  │   stuck protocol: try fix → /investigate → ask user              │   │
+│  │   atomic commits, decisions logged in tasks.md                   │   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+│                    │                                                    │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │ Phase 3 · /ak-pre-ship  (11 gates, re-run tests after each)      │   │
+│  │   1. devshop docs check                                          │   │
+│  │   2. metrics check                                               │   │
+│  │   3. responsive + theme (UI)                                     │   │
+│  │   4. /simplify          ──▶ test:unit                            │   │
+│  │   5. /ak-test-review                                             │   │
+│  │   6. /review            ──▶ test:unit                            │   │
+│  │   7. /cso               ──▶ test:unit                            │   │
+│  │   8. /design-review (UI)──▶ test:unit                            │   │
+│  │   9. /qa                (own fix loop)                           │   │
+│  │  10. /benchmark     (UI)                                         │   │
+│  │  11. convention check                                            │   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+│                    │                                                    │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │ Phase 4 · /ship                                                  │   │
+│  │   merge base → tests → /review → bump VERSION → push → PR        │   │
+│  │                                 → auto /document-release         │   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+│                    │                                                    │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │ Phase 5 · CI watch (gh pr checks --watch)                        │   │
+│  │   on fail: read logs → fix → push, max 3 cycles, else @mention   │   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+│                    │                                                    │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │ Phase 6 · audit-trail PR comment + "@user PR ready"              │   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────┘
+       │
+       ▼
+   HUMAN REVIEW  (release notes + audit comment + preview URL)
+       │
+       ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  /ak-go-live  — autonomous deploy (one command)                         │
+│                                                                         │
+│   1. /land-and-deploy   merge → wait for deploy → prod health check     │
+│   2. /canary            ~15 min monitor; fail = stop + rollback SHA     │
+│   3. structured reflection → CLAUDE.md / guide docs / TODOS / ROADMAP   │
+│   4. notify: "@user deployed. Canary: pass/fail. Rollback SHA: xxx"     │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+Standalone skills (usable outside the pipeline): `/ak-status`, `/ak-spec`, `/ak-implement`, `/ak-pre-ship`, `/ak-test-review`, `/ak-new-project`, `/ak-migrate-project`.
+
 ## Step 1: Write rough notes
 
 Problem description + rough solution idea. Not a full spec — just enough to seed the conversation.
@@ -19,9 +109,9 @@ Runs CEO, design, and engineering review sequentially. Locks in architecture, ed
 
 One command after autoplan. Chains everything through PR creation, CI verification, and notification. Resumable if the session is interrupted.
 
-**Phase 1: `/ak-spec`** — converts gstack plan into implementation-ready spec. May stop for METRICS.md confirmation (the one interactive moment before PR).
+**Phase 1: `/ak-spec`** — converts gstack plan into implementation-ready spec. Creates the feature branch (`feat/<slug>` or `fix/<slug>`) if currently on main, and registers the work in `BUILD-LOG.md § In Flight`. May stop for METRICS.md confirmation (the one interactive moment before PR).
 
-**Phase 2: `/ak-implement`** — reads spec, decomposes into tasks, implements with tests. Stuck protocol: try fix → `/investigate` → ask user. Logs judgment calls in `specs/<name>/tasks.md` § Decisions.
+**Phase 2: `/ak-implement`** — reads spec, decomposes into tasks, implements with tests. Confirms active branch against `BUILD-LOG.md § In Flight`. Stuck protocol: try fix → `/investigate` → ask user. Logs judgment calls in `specs/<name>/tasks.md` § Decisions.
 
 **Phase 3: `/ak-pre-ship`** — quality gates only (no shipping):
 
@@ -55,8 +145,22 @@ One command after you approve the PR.
 
 1. `/land-and-deploy` (gstack) — checks CI green, merges, waits for deploy, verifies prod health
 2. `/canary` (gstack) — ~15 min post-deploy monitoring. If fail: stops, notifies with rollback info (no auto-rollback)
-3. **Structured reflection** — routes learnings to committed files (CLAUDE.md, guide docs, backlogs)
-4. **Notify** — PR comment: "@username deployed. Canary: pass/fail. Rollback SHA: xxx"
+3. **Close BUILD-LOG entry** — moves the feature from `## In Flight` to `## Log` with the PR number and merge date
+4. **Structured reflection** — routes learnings to committed files (CLAUDE.md, guide docs, backlogs)
+5. **Notify** — PR comment: "@username deployed. Canary: pass/fail. Rollback SHA: xxx"
+
+---
+
+## BUILD-LOG.md — In Flight vs Log
+
+`BUILD-LOG.md` lives at the project root and has two sections:
+
+- **`## In Flight`** — one line per active branch. Source of truth for which feature a given branch maps to. Consumed by `/ak-implement` (confirms it's on the right branch), `/ak-status` (surfaces active work), and `/ak-go-live` (moves the entry out on merge).
+- **`## Log`** — chronological list of completed features (branch, PR number, spec, summary, date). Append-only.
+
+`/ak-spec` creates the In Flight entry at the start of a feature. `/ak-go-live` moves it to Log on merge. The In Flight status progresses: `spec` → `implementing` → `pre-ship` → removed.
+
+Multiple features can be in flight at once — `/ak-build` and `/ak-implement` ask which one to resume if more than one line is active.
 
 ---
 

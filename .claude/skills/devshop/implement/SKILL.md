@@ -28,13 +28,30 @@ backlog routing, and metrics lifecycle. These are referenced throughout, not dup
 ## Step 1: Gather context
 
 Find the active feature spec. When invoked by `/ak-build`, the feature directory is provided.
-When invoked standalone, derive from branch:
+When invoked standalone, resolve from `BUILD-LOG.md § In Flight`:
 
 ```bash
+# Source of truth: BUILD-LOG.md § In Flight lists active branches.
+# Grep the current branch out of it to confirm we're on the right one.
 BRANCH=$(git branch --show-current)
-FEATURE=$(echo "$BRANCH" | sed 's|^feature/||;s|^feat/||;s|^fix/||')
+IN_FLIGHT=$(awk '/^## In Flight/,/^## Log/' BUILD-LOG.md 2>/dev/null | grep -F "\`$BRANCH\`" || true)
+
+if [ -z "$IN_FLIGHT" ]; then
+  # Fall back to branch-name derivation (legacy specs without In Flight entries)
+  FEATURE=$(echo "$BRANCH" | sed 's|^feature/||;s|^feat/||;s|^fix/||;s|^docs/||;s|^chore/||')
+else
+  # Parse `specs/<FEATURE>/spec.md` out of the In Flight line
+  FEATURE=$(echo "$IN_FLIGHT" | grep -oE 'specs/[^/]+/spec\.md' | head -1 | sed 's|^specs/||;s|/spec\.md$||')
+fi
+
 FEATURE_DIR="specs/$FEATURE"
 ```
+
+If `BUILD-LOG.md § In Flight` does not list the current branch and there is no
+fallback spec at `$FEATURE_DIR/spec.md`, stop and tell the user to run `/ak-spec`
+first (it creates the branch and registers the In Flight entry).
+
+On first task start, update the In Flight status from `spec` to `implementing`.
 
 Read the spec:
 
@@ -42,7 +59,7 @@ Read the spec:
 cat "$FEATURE_DIR/spec.md"
 ```
 
-If spec is absent: stop and tell the user to run `/devshop:spec` first.
+If spec is absent: stop and tell the user to run `/ak-spec` first.
 
 Read the gstack-plan reference from the provenance header.
 Read the gstack plan. Read `DESIGN.md` if the spec touches UI. Read `METRICS.md`.

@@ -44,7 +44,53 @@ cat .gstack/projects/*/IMPLEMENT.md
 
 Read the design doc and test plan referenced in IMPLEMENT.md fully before proceeding.
 
-## Step 3: Judge completeness
+## Step 3: Ensure feature branch
+
+Derive the feature name from the gstack plan slug (`.gstack/projects/<slug>/`), then
+make sure we're on a dedicated branch for it. Main/master is PR-only — a PreToolUse
+hook blocks commits on main, but we should create the branch here, not wait for the
+hook to trip later.
+
+```bash
+PLAN_SLUG=$(ls -1 .gstack/projects/ 2>/dev/null | head -1)
+BRANCH=$(git branch --show-current)
+
+if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
+  # Not on a feature branch — create one from the plan slug.
+  # Pick prefix from the plan's nature: feat for new functionality, fix for bug fixes.
+  # Default to feat unless the plan name or content clearly indicates a bug fix.
+  [ -z "$PLAN_SLUG" ] && { echo "No gstack plan found and not on a feature branch — ask the user for a feature name before continuing."; exit 1; }
+  git checkout -b "feat/$PLAN_SLUG"    # or fix/<slug> if the plan is a bug fix
+  FEATURE="$PLAN_SLUG"
+else
+  # Already on a feature branch — trust it.
+  FEATURE=$(echo "$BRANCH" | sed 's|^feature/||;s|^feat/||;s|^fix/||;s|^docs/||;s|^chore/||')
+fi
+
+FEATURE_DIR="specs/$FEATURE"
+```
+
+## Step 4: Register In Flight entry in BUILD-LOG.md
+
+Record that work is starting on this feature. `BUILD-LOG.md § In Flight` is the
+single source of truth for active branches — `/ak-implement` confirms against it,
+`/ak-status` surfaces it, `/ak-go-live` moves the entry to `## Log` on merge.
+
+If `BUILD-LOG.md` has no `## In Flight` section, add one above `## Log`:
+
+```markdown
+## In Flight
+
+- `feat/<FEATURE>` — `specs/<FEATURE>/spec.md` — started YYYY-MM-DD — status: spec
+```
+
+If the section exists, append the entry (one line per active feature — multiple
+branches may be in flight at once).
+
+Use today's date. Set status to `spec` for now; `/ak-implement` updates it to
+`implementing`, `/ak-pre-ship` to `pre-ship`, `/ak-go-live` moves the entry out.
+
+## Step 5: Judge completeness
 
 The plan is ready to implement directly if it specifies **all** of:
 
@@ -54,25 +100,19 @@ The plan is ready to implement directly if it specifies **all** of:
 - Service dependencies
 - Explicit out-of-scope items
 
-**If complete**: write `specs/<feature-name>/spec.md` noting the plan is the spec:
+**If complete**: write `$FEATURE_DIR/spec.md` noting the plan is the spec:
 
 ```
-# Spec: <feature-name>
+# Spec: <FEATURE>
 The gstack plan is the spec. See .gstack/projects/<slug>/<plan-file>.md
 ```
 
-**If gaps exist**: continue to Step 4.
+**If gaps exist**: continue to Step 6.
 
-## Step 4: Write the spec
+## Step 6: Write the spec
 
-Derive the feature name from the current branch:
-
-```bash
-git branch --show-current | sed 's|^feat/||;s|^fix/||;s|^chore/||'
-```
-
-Create the feature directory and write `specs/<feature-name>/spec.md`. The first 3 lines
-must be machine-parseable provenance so that `/devshop:implement` can trace the full
+Create `$FEATURE_DIR/` and write `$FEATURE_DIR/spec.md`. The first 3 lines
+must be machine-parseable provenance so that `/ak-implement` can trace the full
 context chain:
 
 ```
@@ -95,7 +135,7 @@ Do not rewrite what the plan already said. If something is genuinely ambiguous a
 reading the full plan, ask. Otherwise fill the gap from what the plan implies.
 No decision Q&A — architecture decisions were made by `/autoplan`'s eng review.
 
-## Step 5: Handle new metrics
+## Step 7: Handle new metrics
 
 If the feature introduces new user actions not yet in `METRICS.md`:
 
@@ -103,10 +143,11 @@ If the feature introduces new user actions not yet in `METRICS.md`:
 - **Stop and ask for confirmation** before adding to `METRICS.md`
 - Never auto-add events without review
 
-## Step 6: Verify feature directory
+## Step 8: Verify feature directory
 
-Confirm `specs/<feature-name>/spec.md` was written. No pointer file needed —
-`/ak-build` and `/ak-implement` find the spec via the feature directory path.
+Confirm `$FEATURE_DIR/spec.md` was written. No pointer file needed —
+`/ak-build` and `/ak-implement` find the spec via `BUILD-LOG.md § In Flight`
+or the feature directory path.
 
 ## Quality checklist
 

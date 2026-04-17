@@ -47,9 +47,10 @@ Invoke `/land-and-deploy` via Skill tool.
 gstack's `/land-and-deploy`: checks CI green, merges PR, waits for deploy, verifies
 production health. If CI is failing, it stops (does not merge).
 
-## Step 2b: Branch cleanup
+## Step 2b: Branch cleanup + In Flight → Log
 
-After merge, clean up the feature branch locally and prune stale remote refs:
+After merge, clean up the feature branch locally, prune stale remote refs, and
+move the feature's entry from `BUILD-LOG.md § In Flight` into `## Log`.
 
 ```bash
 FEATURE_BRANCH=$(git branch --show-current)
@@ -58,6 +59,24 @@ git pull
 git branch -D "$FEATURE_BRANCH"
 git remote prune origin
 ```
+
+Then edit `BUILD-LOG.md`:
+
+1. Remove the line matching the feature branch from `## In Flight`. If that leaves
+   the section empty, restore the placeholder `_No work in progress._`.
+2. Append a new entry under `## Log` with today's date — `/ak-build` Phase 7 already
+   writes this entry after merge; if it did, just confirm. If not, add:
+
+   ```markdown
+   ### <FEATURE> (YYYY-MM-DD)
+
+   - **Branch**: <FEATURE_BRANCH>
+   - **PR**: #<PR number>
+   - **Spec**: specs/<FEATURE>/spec.md
+   - **Summary**: <1-line from spec>
+   ```
+
+Commit as `chore: close <FEATURE> in BUILD-LOG`.
 
 ## Step 3: Canary monitoring
 

@@ -22,7 +22,8 @@ Read project-level context first, then feature artifacts:
 
 ```bash
 # Project-level state
-cat BUILD-LOG.md 2>/dev/null | head -20  # status section + recent entries
+cat BUILD-LOG.md 2>/dev/null | head -40  # In Flight section + recent Log entries
+awk '/^## In Flight/,/^## Log/' BUILD-LOG.md 2>/dev/null  # active branches, the source of truth
 git log --oneline -10
 git status --short
 git stash list 2>/dev/null
@@ -60,6 +61,7 @@ Use this exact format — no prose, no paragraphs:
 ```
 Phase:    <init / implementing / pre-ship / between features / devshop>
 Branch:   <current branch name>
+InFlight: <active branches from BUILD-LOG.md § In Flight with their status, or "none">
 Done:     <completed tasks, recent commits summary>
 Next:     <next task, next workflow step, or next init step>
 Blocked:  <anything blocked, pending [HUMAN] steps, or "none">

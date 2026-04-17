@@ -4,15 +4,16 @@
 
 Hooks in `.claude/settings.json` guard the development workflow:
 
-| Hook                  | Event                    | Trigger                        | What it does                                                                                                                                                                                       |
-| --------------------- | ------------------------ | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| DCG                   | PreToolUse (all Bash)    | Every Bash command             | Destructive Command Guard — blocks 49+ dangerous patterns (rm -rf, git reset --hard, DROP TABLE, etc.)                                                                                             |
-| check-hook-bypass     | PreToolUse (Bash)        | `*git*commit*` commands        | Blocks hook bypass: always blocks `core.hooksPath`/`HUSKY=0`/`devshop.humanReviewed`, requires `devshop.hookBypassReason` for `--no-verify` (adversarially reviewed, fail-closed on API error)     |
-| check-memory-created  | PreToolUse (Write\|Edit) | Write/Edit to memory paths     | Blocks memory file writes — Claude must classify (project → `/workspace/.claude/memory/`, devshop → incorporate into `/devshop/CLAUDE.md`, unclear → ask user) and get confirmation before writing |
-| release.sh reminder   | PostToolUse (git commit) | `*git*commit*` in devshop repo | Reminds to run `release.sh` for version bump + changelog (no-op in project repos)                                                                                                                  |
-| dirty tree check      | PostToolUse (git commit) | `*git*commit*` commands        | If tree still dirty after commit, tells Claude to address remaining files                                                                                                                          |
-| PR description update | PostToolUse (git push)   | `*git push*` commands          | Two-step: (1) Claude assesses title/description vs commits — text only, no edits. (2) Next response: runs `gh pr edit` if needed.                                                                  |
-| session-start.sh      | SessionStart             | New session or `/clear`        | Recreates symlinks if missing, then context for Claude (README, BUILD-LOG latest build, branch, devshop CLAUDE.md) + init progress from devshop notes + briefing via `systemMessage`               |
+| Hook                  | Event                    | Trigger                        | What it does                                                                                                                                                                                                                                                        |
+| --------------------- | ------------------------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DCG                   | PreToolUse (all Bash)    | Every Bash command             | Destructive Command Guard — blocks 49+ dangerous patterns (rm -rf, git reset --hard, DROP TABLE, etc.)                                                                                                                                                              |
+| check-hook-bypass     | PreToolUse (Bash)        | `*git*commit*` commands        | Blocks hook bypass: always blocks `core.hooksPath`/`HUSKY=0`/`devshop.humanReviewed`, requires `devshop.hookBypassReason` for `--no-verify` (adversarially reviewed, fail-closed on API error)                                                                      |
+| check-branch-not-main | PreToolUse (Bash)        | `*git*commit*` commands        | Blocks direct commits to `main`/`master` from Claude. Parses `git -C <dir>` and `cd <dir> &&` prefixes to target the right repo. Humans committing from the terminal are unaffected (PreToolUse only intercepts Claude) — so `release.sh` version bumps still work. |
+| check-memory-created  | PreToolUse (Write\|Edit) | Write/Edit to memory paths     | Blocks memory file writes — Claude must classify (project → `/workspace/.claude/memory/`, devshop → incorporate into `/devshop/CLAUDE.md`, unclear → ask user) and get confirmation before writing                                                                  |
+| release.sh reminder   | PostToolUse (git commit) | `*git*commit*` in devshop repo | Reminds to run `release.sh` for version bump + changelog (no-op in project repos)                                                                                                                                                                                   |
+| dirty tree check      | PostToolUse (git commit) | `*git*commit*` commands        | If tree still dirty after commit, tells Claude to address remaining files                                                                                                                                                                                           |
+| PR description update | PostToolUse (git push)   | `*git push*` commands          | Two-step: (1) Claude assesses title/description vs commits — text only, no edits. (2) Next response: runs `gh pr edit` if needed.                                                                                                                                   |
+| session-start.sh      | SessionStart             | New session or `/clear`        | Recreates symlinks if missing, then context for Claude (README, BUILD-LOG latest build, branch, devshop CLAUDE.md) + init progress from devshop notes + briefing via `systemMessage`                                                                                |
 
 ---
 
@@ -27,6 +28,10 @@ Two enforcement levels: PreToolUse (Claude Code) and pre-commit (git). PreToolUs
 1b. PreToolUse: check-hook-bypass.sh  (settings.json hook, *git*commit*)
     └─ Blocks core.hooksPath/HUSKY=0, requires reason for --no-verify
     └─ WHY: guarantees step 2 (git hooks) can't be skipped
+
+1c. PreToolUse: check-branch-not-main.sh  (settings.json hook, *git*commit*)
+    └─ Blocks Claude from committing on main/master (parses git -C and cd &&)
+    └─ Humans committing from the terminal pass through (release.sh works)
 
 2. .husky/pre-commit  (git hook, runs 5 steps sequentially)
    ├─ 2a. create-devshop-symlinks.sh   → recreate symlinks if lost by git ops
@@ -65,11 +70,13 @@ When Claude runs `git commit`, three layers fire in sequence:
 
 Configured in `.claude/settings.json`.
 
-| Hook  | What                                 | Blocking?                                                    |
-| ----- | ------------------------------------ | ------------------------------------------------------------ |
-| `dcg` | Destructive command guard (all Bash) | Yes (compiled binary, only mechanism that blocks Bash calls) |
+| Hook                       | What                                                                                               | Blocking?                                                    |
+| -------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `dcg`                      | Destructive command guard (all Bash)                                                               | Yes (compiled binary, only mechanism that blocks Bash calls) |
+| `check-hook-bypass.sh`     | Blocks `--no-verify`/`core.hooksPath`/`HUSKY=0` without adversarially-reviewed reason              | Yes (exit 2 on `*git*commit*` match)                         |
+| `check-branch-not-main.sh` | Blocks `git commit` when HEAD is `main`/`master`. Parses `git -C <dir>` and `cd <dir> &&` prefixes | Yes (exit 2 on `*git*commit*` match); terminal humans pass   |
 
-Note: PreToolUse hooks from shell scripts cannot block Bash tool calls (anthropics/claude-code#26923). DCG works because it's a compiled binary with special integration.
+Shell-script PreToolUse hooks block Bash calls by exiting with code 2 and printing the message to stdout — Claude Code surfaces stdout as the block reason. DCG is a compiled binary for performance (it runs on every Bash call, so startup cost matters); the other hooks run only on matched patterns like `*git*commit*`.
 
 ### 2. Husky pre-commit (during git commit)
 

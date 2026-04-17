@@ -48,7 +48,7 @@ Container Workspace (/workspace)
 
 ### Event flow
 
-What fires and when across the session lifecycle:
+What fires and when across the session lifecycle (per-hook detail: `guide/hooks.md`):
 
 ```
 Container Start
@@ -62,7 +62,8 @@ Every Bash Command
 
 git commit
   ├─ PreToolUse
-  │   └─ check-hook-bypass.sh ── blocks --no-verify without documented reason
+  │   ├─ check-hook-bypass.sh ──── blocks --no-verify without documented reason
+  │   └─ check-branch-not-main.sh ─ blocks Claude from committing on main/master
   ├─ .husky/pre-commit (6 steps + devshop guards)
   │   ├─ 1. create-devshop-symlinks.sh ── recover if git ops lost them
   │   ├─ 2. lint-staged ───────────────── ESLint + Prettier on staged files
@@ -98,6 +99,8 @@ release.sh (devshop version bump)
 ```
 
 ## Workflow (Idea to Deployed)
+
+See `guide/workflow.md` for the full pipeline diagram and per-step detail.
 
 1. You write rough notes — problem description + rough solution idea
 2. `/office-hours` (gstack) — interviews you, challenges framing, produces product design doc
@@ -137,6 +140,8 @@ Config:  turbo.json · pnpm-workspace.yaml · tsconfig.base.json · eslint.confi
 
 ## Key Conventions
 
+Full specification in `guide/conventions.md`; enforcement in `guide/hooks.md`; security rules in `guide/security.md`.
+
 - **Detail lives closest to where it's used** — if one skill runs it, that skill owns it. If it spans skills or the whole workflow, the guide owns it. OVERVIEW.md is orientation; CLAUDE.md is agent config. Don't duplicate — point.
 - **No code without tests** — written alongside, never after. Unit + integration + E2E. Integration tests hit a real local DB, never mocks.
 - **No code without metrics** — `/ak-spec` creates events in `METRICS.md`, `/ak-implement` instruments them, `/ak-pre-ship` validates.
@@ -153,11 +158,11 @@ Config:  turbo.json · pnpm-workspace.yaml · tsconfig.base.json · eslint.confi
 
 These topics span multiple skills, so the guide (`./guide/`) owns them:
 
-- **Metrics Lifecycle** — how events flow through /ak-spec → /ak-implement → /ak-pre-ship
-- **Testing layers** — unit vs integration vs E2E, RLS boundary tests, seed.sql, CI mirrors runtime
-- **Security + Quality** — pre-commit steps, security-critical file list, fakeowner caveat, known gaps
-- **Hooks table + Commit Flow** — what fires on commit/push/session-start and in what order
-- **Rollback procedures** — Vercel rollback, migration rollback SQL, canary failure response
+- **Metrics Lifecycle** (`guide/conventions.md § Metrics Lifecycle`) — how events flow through /ak-spec → /ak-implement → /ak-pre-ship
+- **Testing layers** (`guide/conventions.md § Testing`) — unit vs integration vs E2E, RLS boundary tests, seed.sql, CI mirrors runtime
+- **Security + Quality** (`guide/security.md`) — pre-commit steps, security-critical file list, fakeowner caveat, known gaps
+- **Hooks table + Commit Flow** (`guide/hooks.md`) — what fires on commit/push/session-start and in what order
+- **Rollback procedures** (`guide/ops.md § When Things Go Wrong`) — Vercel rollback, migration rollback SQL, canary failure response
 
 CI slow job expansion plans are in ROADMAP.md § v+.
 
@@ -171,7 +176,7 @@ CI slow job expansion plans are in ROADMAP.md § v+.
 
 ## Further Reading
 
-- `./guide/` — full operational reference (workflow details, skill map, checklists, new-project guide)
+- `./guide/README.md` — full operational reference (table of contents; per-doc summaries for workflow, conventions, hooks, security, architecture, ops)
 - `./FAQ.md` — design rationale and architecture decisions
 - `../TODOS.md` — devshop tactical backlog (friction, bugs, small fixes)
 - `../ROADMAP.md` — devshop strategic backlog (capabilities, major improvements)
