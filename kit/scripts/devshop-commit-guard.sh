@@ -266,7 +266,7 @@ if [ "$CURRENT_REPO" = "devshop" ] && echo "$STAGED" | grep -q '^kit/version$'; 
     if git rev-parse "$LAST_TAG" &>/dev/null; then
       CHANGED_FILES=$(git diff --cached --name-only "$LAST_TAG" 2>/dev/null || true)
       TEST_CHANGES=$(echo "$CHANGED_FILES" | grep '^kit/tests/' || true)
-      FULL_DIFF=$(git diff --cached "$LAST_TAG" 2>/dev/null | head -500)
+      FULL_DIFF=$(git diff --cached "$LAST_TAG" 2>/dev/null | head -500 || true)
 
       TEST_SUMMARY=""
       for tf in kit/tests/*.bats; do
