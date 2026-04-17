@@ -2,6 +2,13 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.6.1 (2026-04-17)
+
+- test: cover skill symlink target resolution
+- fix: use absolute symlink targets for workspace skills; add /cso to ak-migrate-project
+- chore: tweak peacock colors for local and remote
+- statusline: make rate-limit coloring purely pace-based
+
 ## v1.6.0 (2026-04-17)
 
 - fix: swallow SIGPIPE in release-coverage diff collection
