@@ -2,6 +2,18 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.6.0 (2026-04-17)
+
+- fix: swallow SIGPIPE in release-coverage diff collection
+- docs: recommend enabling auto-merge in ak-new-project
+- docs: update ak-new-project branch protection with real-world settings
+- chore: lock .husky/pre-commit at filesystem layer
+- chore: minimize redundant comments in template
+- chore: neutralize devshop/abra-kadabra comments in template
+- docs: clarify PRODUCTION_URL setup in ak-new-project
+- refactor: route init tracking to devshop notes, not project BUILD-LOG
+- docs: add TODO to investigate merging docs-drift + doc-consistency
+
 ## v1.5.7 (2026-04-16)
 
 - refactor: name commit-guard checks (numbers → names)
