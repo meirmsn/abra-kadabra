@@ -254,7 +254,6 @@ Where to find each:
   - `Contents: Read and write` — push branches and commits
   - `Pull requests: Read and write` — create PRs, merge PRs
   - `Actions: Read` — watch CI status
-  - `Variables: Read and write` — set `PRODUCTION_URL`
   - **Do NOT add `workflow` scope** — workflow file changes must be pushed by the human.
 - Vercel: `vercel.com/account/tokens`
 - Supabase URL + keys: Project Settings → API.
@@ -272,7 +271,7 @@ Go to repo on github.com → **Settings** → **Secrets and variables** → **Ac
 
 All values come from `.devcontainer/.env`.
 
-Note: `PRODUCTION_URL` variable is set later in Step 13 (after Vercel domain is known).
+Note: `PRODUCTION_URL` is a **Variable** (not a Secret) and is added later in Step 13 after the Vercel domain is known.
 
 ### Step 6: [HUMAN] Add firewall domains
 
@@ -353,8 +352,23 @@ pnpm add -D -w vercel
 pnpm exec vercel link --yes --project <project-name> --token $VERCEL_TOKEN
 ```
 
-Pipe env vars with `--value` flag (Vercel CLI v50+). Set `PRODUCTION_URL` GitHub variable
-after confirming actual Vercel domain.
+Pipe env vars with `--value` flag (Vercel CLI v50+).
+
+**[HUMAN]** Add `PRODUCTION_URL` as a GitHub **Variable** (not Secret) once the Vercel
+domain is known. Value is the Vercel production domain (e.g. `https://<project>-<hash>.vercel.app`
+or your custom domain).
+
+To fetch the value, run:
+
+```bash
+pnpm exec vercel inspect <project-name> --token $VERCEL_TOKEN 2>&1 | grep -i 'production\|domain' | head -5
+```
+
+Or check Vercel dashboard → Project → Settings → Domains. Show the value to the user.
+
+Add it at: repo on github.com → **Settings** → **Secrets and variables** → **Actions** → **Variables** tab → **New repository variable**.
+
+Used by `.github/workflows/keepalive.yml` to prevent Supabase auto-pause.
 
 ### Step 14: Install Playwright
 
