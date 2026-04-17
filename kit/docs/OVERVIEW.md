@@ -171,7 +171,7 @@ CI slow job expansion plans are in ROADMAP.md § v+.
 - **abra-kadabra** — brand name for the dev shop (devshop repo, doc titles). Never used in file names or CLI commands.
 - **devshop** — code name: `kit/` (repo), `.devshopkit/` (workspace symlink), `.claude/skills/devshop/`. Skills use `ak-` prefix (`/ak-build`, `/ak-spec`, etc.).
 - **gstack** — AI lifecycle toolkit (`.claude/skills/gstack/`). Per-project install, not part of devshop sync.
-- **specs/<name>/** — per-feature folder: `spec.md` (spec), `tasks.md` (tasks + decisions), `review.md` (quality gate results). Permanent record after merge.
+- **specs/<name>/** — per-feature folder: `spec.md` (spec), `tasks.md` (tasks + decisions), `review.md` (quality gate results), `hero/` (committed durable screenshots), `screenshots/` (gitignored per-gate evidence). Permanent record after merge; see `FAQ.md § How are specs and pipeline artifacts organized?` for the hero/evidence split.
 - **METRICS.md** — event taxonomy + feature flags. Source of truth for analytics.
 
 ## Further Reading

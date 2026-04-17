@@ -1,14 +1,16 @@
 ---
 name: ak-pre-ship
-version: 3.1.0
+version: 3.2.0
 description: |
   Quality gates before shipping. Pauses on findings, auto-advances on clean passes.
   After each code-changing gate, verifies tests still pass (stuck protocol if not).
   Does NOT ship or create a PR — use /ak-build for the full pipeline, or /ship after this.
   Runs: preflight → docs → metrics → responsive → /simplify → /ak-test-review → /review
-  → /cso → /design-review → /qa → /benchmark → convention check.
+  → /cso → /design-review → /qa → /benchmark → convention check → capture hero shots.
   Preflight blocks if required tooling (e.g. Chromium for browser gates) is missing,
-  so gates can never silently turn a missing-tool into a cheerful "skipped".
+  so gates can never silently turn a missing-tool into a cheerful "skipped", and
+  auto-creates Playwright Chromium symlinks for the gstack browse daemon.
+  Hero screenshots for committed evidence are captured after all gates pass.
   Use when asked to "pre-ship", "quality check", or "check before shipping". (devshop)
 allowed-tools:
   - Bash
@@ -88,6 +90,27 @@ CHROMIUM=$(ls /home/node/.cache/ms-playwright/chromium-*/chrome-linux/chrome 2>/
 CHROMIUM=${CHROMIUM:-$(which chromium 2>/dev/null)}
 CHROMIUM=${CHROMIUM:-$(which chrome 2>/dev/null)}
 "$CHROMIUM" --version >/dev/null 2>&1 || BLOCK_REASON="Chromium not available"
+
+# Browse daemon Chromium version reconciliation (workaround until the upstream
+# daemon auto-detects the installed version — tracked in /devshop/kit/TODOS.md).
+# gstack's compiled browse daemon is pinned to chromium-1208 paths; when
+# Playwright fetches a newer version (e.g. chromium-1217), the daemon fails to
+# launch with "Executable doesn't exist". Create symlinks so the pinned paths
+# resolve to whatever is actually installed. Idempotent.
+if [ -n "$CHROMIUM" ]; then
+  LATEST_CHROMIUM_DIR=$(ls -d /home/node/.cache/ms-playwright/chromium-* 2>/dev/null \
+    | grep -v headless_shell | sort -V | tail -1)
+  LATEST_HEADLESS_DIR=$(ls -d /home/node/.cache/ms-playwright/chromium_headless_shell-* \
+    2>/dev/null | sort -V | tail -1)
+  if [ -n "$LATEST_CHROMIUM_DIR" ] \
+     && [ ! -e /home/node/.cache/ms-playwright/chromium-1208 ]; then
+    ln -sf "$LATEST_CHROMIUM_DIR" /home/node/.cache/ms-playwright/chromium-1208
+  fi
+  if [ -n "$LATEST_HEADLESS_DIR" ] \
+     && [ ! -e /home/node/.cache/ms-playwright/chromium_headless_shell-1208 ]; then
+    ln -sf "$LATEST_HEADLESS_DIR" /home/node/.cache/ms-playwright/chromium_headless_shell-1208
+  fi
+fi
 ```
 
 If blocked:
@@ -134,6 +157,8 @@ If the PR touches user-facing code (components, API wrappers, edge functions):
 Verify the app at 4 combos:
 
 - 375px light, 375px dark, 1440px light, 1440px dark
+
+**Capture evidence screenshots** to `specs/<feature>/screenshots/` — one per combo per primary screen. File convention: `<screen>-<viewport>-<theme>.png`, e.g. `signin-1440-light.png`. This directory is gitignored (see root `.gitignore § specs/*/screenshots/`) — it holds per-gate audit evidence, regenerable on every pre-ship run. The corresponding _hero_ shots, which are committed, come later (see "Capture hero screenshots" at the bottom of this file).
 
 Check for:
 
@@ -235,6 +260,32 @@ Review any flagged files — skip config-like or trivial files (single export, <
 - Every new migration file has a `-- ROLLBACK` comment block — **pause if missing**
 - Backlog items appear to be in the correct file per routing guide in `kit/docs/guide/ § Shared Conventions`
 - No completed items left in `PRODUCT-ROADMAP.md` or `kit/ROADMAP.md` — if this PR ships a roadmap item, remove the entry and log the completion in `BUILD-LOG.md`
+
+## Capture hero screenshots
+
+After all gates pass (or findings fixed), capture 1–2 **hero** screenshots per primary screen to `specs/<feature>/hero/`. These are committed with the feature and surface in the PR body + `BUILD-LOG.md` as the durable visual record.
+
+**Distinction from evidence:**
+
+- `specs/<feature>/screenshots/` — gitignored, regenerable per-gate evidence (all 4 viewport/theme combos)
+- `specs/<feature>/hero/` — committed, 1–2 hero shots that define the feature visually
+
+**Defaults:** `1440×light` for each key user-facing screen in the PR (sign-in, onboarding, list view, etc.). Filename convention: `<screen>.png` (no viewport/theme suffix — they're all 1440×light by default; deviate with a suffix when needed, e.g. `list-dark.png` if dark mode is the feature).
+
+**When to skip:** non-UI PRs (API-only, infrastructure, docs), and UI PRs where the happy-path can't be reached in this sandbox (e.g. Supabase rate-limits a signup flow). Document the reason in `review.md` instead of leaving a gap.
+
+**Capture mechanics** (via the gstack `browse` skill):
+
+```bash
+# Ensure the hero dir exists
+mkdir -p /workspace/specs/<feature>/hero
+
+# Navigate, capture — repeat per screen
+browse goto http://localhost:3000/<path>
+browse screenshot /workspace/specs/<feature>/hero/<screen>.png --full-page
+```
+
+Add the paths to the pre-ship audit trail under Gate 3 / 8. `/ak-build` Phase 6 embeds them into the audit PR comment via repo-relative markdown (GitHub renders them inline).
 
 ## Output
 

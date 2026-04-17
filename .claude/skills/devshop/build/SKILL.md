@@ -289,8 +289,25 @@ gh pr comment "$PR" --body "$(cat <<'COMMENT'
 
 ### Findings fixed during pre-ship
 <From $FEATURE_DIR/review.md — one bullet per finding: what was found, which commit fixed it>
+
+### Evidence
+<If specs/$FEATURE/hero/*.png exists, include one markdown image-embed per
+file using the repo-relative path. GitHub renders these inline in the PR
+comment once the files are on the branch. Skip this section entirely when
+no hero shots were captured — do not leave placeholder text.>
 COMMENT
 )"
+```
+
+Hero screenshot embeds — generate one image-tag per file found in
+`$FEATURE_DIR/hero/`, to splice into the `### Evidence` section above:
+
+```bash
+for shot in "$FEATURE_DIR"/hero/*.png; do
+  [ -f "$shot" ] || continue
+  REL=${shot#/workspace/}
+  echo "![${shot##*/}](${REL})"
+done
 ```
 
 ## Phase 7: Update BUILD-LOG.md

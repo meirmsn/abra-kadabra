@@ -113,11 +113,11 @@ One command after autoplan. Chains everything through PR creation, CI verificati
 
 **Phase 2: `/ak-implement`** — reads spec, decomposes into tasks, implements with tests. Confirms active branch against `BUILD-LOG.md § In Flight`. Stuck protocol: try fix → `/investigate` → ask user. Logs judgment calls in `specs/<name>/tasks.md` § Decisions.
 
-**Phase 3: `/ak-pre-ship`** — quality gates only (no shipping):
+**Phase 3: `/ak-pre-ship`** — quality gates only (no shipping). A Phase 0 preflight runs first: verifies required tooling (Chromium for browser gates) and aborts the whole pre-ship with a `blocked` status if tooling is missing, so gates can't silently turn a missing tool into a cheerful "skipped". After preflight passes:
 
 1. Devshop docs check
 2. Metrics check
-3. Responsive + theme check (UI PRs)
+3. Responsive + theme check (UI PRs) — captures 4-combo evidence screenshots
 4. `/simplify` → test:unit checkpoint
 5. `/ak-test-review`
 6. `/review` → test:unit checkpoint
@@ -126,6 +126,10 @@ One command after autoplan. Chains everything through PR creation, CI verificati
 9. `/qa` (has own fix loop)
 10. `/benchmark` (UI PRs)
 11. Convention check
+
+After all gates pass, hero screenshots are captured to `specs/<name>/hero/` (committed) for the PR audit comment — see `FAQ.md § How are specs and pipeline artifacts organized?` for the hero vs evidence split.
+
+Gate outcomes use four categories: `pass`, `findings (N) [fixed|pending]`, `n/a`, `blocked`. `/ak-build` refuses to advance to `/ship` on any `blocked` gate.
 
 **Phase 4: `/ship`** (gstack) — merges base, runs tests + review (final verification), bumps VERSION, pushes, creates PR, auto-invokes `/document-release`.
 

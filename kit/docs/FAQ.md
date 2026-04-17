@@ -99,12 +99,21 @@ Each feature gets its own folder in `specs/`:
 
 ```
 specs/add-item-voice/
-  spec.md      — implementation spec (from /spec)
-  tasks.md     — task breakdown + decisions (from /implement)
-  review.md    — quality gate results (from /pre-ship)
+  spec.md           — implementation spec (from /ak-spec)
+  tasks.md          — task breakdown + decisions (from /ak-implement)
+  review.md         — quality gate results (from /ak-pre-ship)
+  hero/             — committed: 1–2 durable screenshots per key screen
+  screenshots/      — gitignored: per-gate evidence (4 viewport/theme combos)
 ```
 
-No root pointer files — `/build` derives the feature name from the branch. Each skill reads/writes to `specs/<name>/`. After merge, the folder is a permanent record of the full pipeline: **bug → code → spec → plan** traceability.
+No root pointer files — `/ak-build` derives the feature name from the branch. Each skill reads/writes to `specs/<name>/`. After merge, the folder is a permanent record of the full pipeline: **bug → code → spec → plan** traceability.
+
+**Hero vs evidence screenshots:**
+
+- `specs/<name>/hero/` is **committed**. 1–2 files per key user-facing screen, default 1440×light (`signin.png`, `onboarding.png`). Embedded in the `/ak-build` audit comment and referenced from `BUILD-LOG.md` as the durable visual record of what shipped. Captured after all gates pass.
+- `specs/<name>/screenshots/` is **gitignored** via the root `.gitignore` pattern `specs/*/screenshots/`. Holds the 4 viewport/theme combos (375 × light/dark, 1440 × light/dark) captured during Gate 3 as per-run evidence. Regenerable; never committed.
+
+The split exists so durable documentation (hero) doesn't bloat the repo with every pre-ship run's full 4-combo grid, while the grid itself is still available locally for audit.
 
 ---
 
