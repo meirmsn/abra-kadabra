@@ -427,16 +427,33 @@ Set up in each service's dashboard: Sentry (80% alert), PostHog (usage), Vercel 
 
 ### Step 24: [HUMAN] Branch protection
 
-After first CI run produces green `ci` check:
+After first CI run produces a green `fast` check (triggered by a PR, since the workflow doesn't run on direct pushes to main):
 
 ```bash
 gh api repos/{owner}/{repo}/branches/main/protection \
   --method PUT \
-  --field 'required_status_checks={"strict":true,"contexts":["ci"]}' \
+  --field 'required_status_checks={"strict":true,"contexts":["fast"]}' \
   --field enforce_admins=true \
-  --field required_pull_request_reviews=null \
+  --field 'required_pull_request_reviews={"dismiss_stale_reviews":true,"required_approving_review_count":0}' \
+  --field required_linear_history=true \
+  --field allow_force_pushes=false \
+  --field allow_deletions=false \
   --field restrictions=null
 ```
+
+This requires:
+
+- PRs for all merges (no required approvals, but stale approvals dismissed on new pushes)
+- `fast` status check must pass + branch must be up-to-date before merge
+- Linear history (works with repo-level squash-only merges)
+- No force pushes, no branch deletion, no admin bypass
+
+Also configure repo-level **merge settings** at github.com → repo → Settings → General → Pull Requests:
+
+- Enable **Allow squash merging** only (disable merge commits and rebase)
+- Enable **Automatically delete head branches**
+
+> **Note**: this API call requires a PAT with `Administration: write` permission, which the default PAT lacks. Either temporarily add that scope, run the call with an admin-scoped token, or configure manually via the GitHub UI (Settings → Branches).
 
 ### Step 25: Run /cso baseline audit
 
