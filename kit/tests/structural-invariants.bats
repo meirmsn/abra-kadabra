@@ -559,9 +559,12 @@ setup() {
   for d in \
     '$WS/.claude' \
     '$WS/.devcontainer' \
+    '$WS/.husky' \
     '$DEVSHOP/.claude' \
     '$DEVSHOP/.devcontainer' \
+    '$DEVSHOP/.husky' \
     '$DEVSHOP/template/.devcontainer' \
+    '$DEVSHOP/template/.husky' \
     ; do
     grep -qF "\"$d\"" "$script" || missing+="  $d\n"
   done

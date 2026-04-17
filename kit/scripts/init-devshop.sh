@@ -107,6 +107,9 @@ chown -h node:node "$MEMORY_LINK"
 #   kit/scripts/*        — commit guard scripts (breaks circularity: the
 #                          scripts that watch settings.json must survive
 #                          settings.json disappearing)
+#   .husky/pre-commit    — gates commit-time guards (gitleaks, docs-drift,
+#                          mixed-commit, cross-repo, release-coverage);
+#                          removing .hooks/pre-commit call silently disables all
 for f in \
   "$WS/.claude/settings.json" \
   "$WS/.claude/settings.local.json" \
@@ -117,6 +120,7 @@ for f in \
   "$WS/.devcontainer/checksums.sha256" \
   "$WS/.devcontainer/.env" \
   "$WS/.dcg.toml" \
+  "$WS/.husky/pre-commit" \
   "$DEVSHOP/kit/scripts/init-devshop.sh" \
   "$DEVSHOP/.devcontainer/devcontainer.json" \
   "$DEVSHOP/.devcontainer/init-devshop.sh" \
@@ -124,11 +128,13 @@ for f in \
   "$DEVSHOP/.devcontainer/Dockerfile" \
   "$DEVSHOP/.devcontainer/checksums.sha256" \
   "$DEVSHOP/.devcontainer/.env" \
+  "$DEVSHOP/.husky/pre-commit" \
   "$DEVSHOP/template/.devcontainer/devcontainer.json" \
   "$DEVSHOP/template/.devcontainer/init-devshop.sh" \
   "$DEVSHOP/template/.devcontainer/init-firewall.sh" \
   "$DEVSHOP/template/.devcontainer/Dockerfile" \
   "$DEVSHOP/template/.devcontainer/checksums.sha256" \
+  "$DEVSHOP/template/.husky/pre-commit" \
   "$DEVSHOP/.claude/settings.json" \
   "$DEVSHOP/.dcg.toml" \
   ; do
@@ -148,9 +154,12 @@ done
 for d in \
   "$WS/.claude" \
   "$WS/.devcontainer" \
+  "$WS/.husky" \
   "$DEVSHOP/.claude" \
   "$DEVSHOP/.devcontainer" \
+  "$DEVSHOP/.husky" \
   "$DEVSHOP/template/.devcontainer" \
+  "$DEVSHOP/template/.husky" \
   ; do
   [ -d "$d" ] && chmod 1755 "$d"
 done
