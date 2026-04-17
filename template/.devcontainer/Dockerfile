@@ -21,6 +21,31 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   wget \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# Playwright / Chromium shared libraries.
+# Playwright downloads its own Chromium binary at user-install time, but that
+# binary needs a set of system C libraries that the stock javascript-node base
+# image does not include. Without these, any browser-dependent gate (gstack
+# browse daemon, /design-review, /qa, /benchmark, Playwright E2E) fails with
+# "libnspr4.so: cannot open shared object file". Package names use the Debian
+# Trixie (t64) suffix where applicable. Kept as a separate RUN so Docker can
+# cache the layer independently of the firewall-tools layer above.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  libnspr4 \
+  libnss3 \
+  libatk1.0-0t64 \
+  libatk-bridge2.0-0t64 \
+  libdbus-1-3 \
+  libcups2t64 \
+  libxkbcommon0 \
+  libasound2t64 \
+  libgbm1 \
+  libxcomposite1 \
+  libxdamage1 \
+  libxfixes3 \
+  libxrandr2 \
+  libatspi2.0-0t64 \
+  && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # GitHub CLI — not in default Debian repos. Needed for git push (credential helper),
 # PR creation/merge, CI status checks, and the autonomous /build workflow.
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \

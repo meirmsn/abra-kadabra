@@ -1,10 +1,13 @@
 ---
 name: ak-new-project
-version: 1.0.0
+version: 1.1.0
 description: |
   Create and set up a new project from the devshop template. Single entry point
   with two phases: Phase A creates a GitHub repo with the template from any
   container. Phase B does interactive setup inside the new project's container.
+  Phase B also generates apps/web/.env.local so local `pnpm dev` and browser
+  gates (design-review / qa / benchmark / Playwright E2E) work without extra
+  manual plumbing.
   Use when asked to "new project", "create project", "start a project". (devshop)
 allowed-tools:
   - Bash
@@ -369,6 +372,41 @@ Or check Vercel dashboard → Project → Settings → Domains. Show the value t
 Add it at: repo on github.com → **Settings** → **Secrets and variables** → **Actions** → **Variables** tab → **New repository variable**.
 
 Used by `.github/workflows/keepalive.yml` to prevent Supabase auto-pause.
+
+#### Step 13b: Generate `apps/web/.env.local` for local dev
+
+The devcontainer loads `.devcontainer/.env` as shell env with base names
+(`SUPABASE_URL`, `SUPABASE_ANON_KEY`, …). Next.js only exposes env vars to the
+browser when they are prefixed `NEXT_PUBLIC_*`. Vercel has already been piped
+the prefixed names above, but **local** `pnpm dev` still needs them — generate
+a `.env.local` that maps shell vars to the prefixed names.
+
+```bash
+mkdir -p apps/web
+cat > apps/web/.env.local <<EOF
+NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
+NEXT_PUBLIC_POSTHOG_KEY=$NEXT_PUBLIC_POSTHOG_KEY
+NEXT_PUBLIC_SENTRY_DSN=$SENTRY_DSN
+EOF
+```
+
+Verify Next.js's default `.gitignore` covers `apps/web/.env*.local` (it does for
+`create-next-app` output, but double-check). If not, append:
+
+```
+# Local env (never commit)
+.env*.local
+```
+
+to `apps/web/.gitignore`. The `.env.local` file itself is never committed — it
+is a local derivation of shell env, and the shell env comes from `.devcontainer/.env`
+which is itself gitignored + read-protected.
+
+Without this step, every browser-dependent gate (`/design-review`, `/qa`,
+`/benchmark`, Playwright E2E) + local dev breaks with "supabaseUrl is required"
+or a crashing 500 on first render, because the Next.js client bundle can't read
+the unprefixed shell env at build time.
 
 ### Step 14: Install Playwright
 

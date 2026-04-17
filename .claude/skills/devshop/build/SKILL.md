@@ -1,11 +1,13 @@
 ---
 name: ak-build
-version: 1.0.0
+version: 1.1.0
 description: |
   Autonomous build pipeline: spec → implement → quality gates → ship → CI watch → notify.
   Runs unattended after autoplan is ready. User's only touchpoint: review the PR.
   Delegates heavy phases to subagents to keep main context clean.
   Resumable — detects where it left off if session is interrupted.
+  If /ak-pre-ship reports any `blocked` gate (tooling missing), refuses to advance to
+  /ship and surfaces the preflight fix recipe to the user.
   Use when asked to "build it", "build this", "go", or "implement and ship". (devshop)
 allowed-tools:
   - Bash
@@ -128,10 +130,32 @@ Launch **Agent** with prompt:
 > Read tasks and decisions from $FEATURE_DIR/tasks.md.
 > Run all quality gates (1-11) with test:unit checkpoints after code-changing gates.
 > Write gate results to $FEATURE_DIR/review.md.
-> Return: summary of gate results, number of findings fixed.
+> Return these counts explicitly (not buried in prose):
+> `passed`, `findings_pending`, `n_a`, `blocked`.
+> If `blocked > 0`, include the preflight fix recipe verbatim in the return.
 
 `/ak-pre-ship` does NOT ship or create a PR. If findings require fixes, the agent
 handles them within its context.
+
+### Phase 3 → Phase 4 handoff: refuse to advance on blocked
+
+After the agent returns, parse the counts. The only acceptable state to advance to
+`/ship` is: `findings_pending == 0` **and** `blocked == 0`.
+
+- If `findings_pending > 0` → pause and escalate to the user (findings need fixes).
+- If `blocked > 0` → **do NOT advance to Phase 4**. The PR is not shippable until the
+  tooling gap is closed. Take these actions:
+
+  1. Emit a clear message to the user with the preflight fix recipe from the agent's return.
+  2. Post a PR comment (if a PR exists for this branch already — unusual in Phase 3,
+     but possible on resume) describing which gates are blocked and why.
+  3. Stop the pipeline. The user decides how to proceed (rebuild devcontainer, install
+     tooling, or re-scope the PR so the blocked gates no longer apply).
+  4. Do NOT treat `blocked` as `n/a`. A cheerful advance past blocked gates is the
+     exact failure mode this workflow exists to prevent.
+
+Once the user has resolved the tooling issue, re-run `/ak-build` — Step 0's resume
+check will pick up at Phase 3 and rerun pre-ship from the start.
 
 ## Phase 4: Ship
 
@@ -232,7 +256,11 @@ Stop and wait. The user gets a GitHub notification.
 ## Phase 6: Post audit trail comment
 
 After CI is green, read `$FEATURE_DIR/review.md` and `$FEATURE_DIR/tasks.md` for the
-audit data. Post the audit trail on the PR:
+audit data. Post the audit trail on the PR.
+
+Use the outcome vocabulary from `/ak-pre-ship`: **`pass`**, **`findings (N) [fixed | pending]`**,
+**`n/a`** (gate didn't apply), **`blocked`** (tooling missing — should never reach
+Phase 6 because Phase 3 refuses to advance, but surface it if it somehow does).
 
 ```bash
 gh pr comment "$PR" --body "$(cat <<'COMMENT'
@@ -241,17 +269,17 @@ gh pr comment "$PR" --body "$(cat <<'COMMENT'
 ### Quality gates
 | Gate | Result |
 |------|--------|
-| Docs check | <pass/skipped/findings> |
-| Metrics check | <pass/skipped/findings> |
-| Responsive + theme | <pass/skipped/findings> |
-| /simplify | <pass/N findings fixed> |
-| /ak-test-review | <pass/N findings> |
-| /review | <pass/N findings fixed> |
-| /cso | <pass/N findings fixed> |
-| /design-review | <pass/skipped/N fixes> |
-| /qa | <pass/N bugs fixed> |
-| /benchmark | <pass/skipped/regression> |
-| Convention check | <pass/N issues> |
+| Docs check | <pass / findings (N) fixed / n/a / blocked> |
+| Metrics check | <pass / findings (N) fixed / n/a / blocked> |
+| Responsive + theme | <pass / findings (N) fixed / n/a / blocked> |
+| /simplify | <pass / findings (N) fixed / blocked> |
+| /ak-test-review | <pass / findings (N) / blocked> |
+| /review | <pass / findings (N) fixed / blocked> |
+| /cso | <pass / findings (N) fixed / blocked> |
+| /design-review | <pass / findings (N) fixed / n/a / blocked> |
+| /qa | <pass / findings (N) fixed / blocked> |
+| /benchmark | <pass / findings (N) / n/a / blocked> |
+| Convention check | <pass / findings (N) / blocked> |
 
 ### CI fix loop
 <N attempts / 0 if CI passed first try / details of what was fixed>
