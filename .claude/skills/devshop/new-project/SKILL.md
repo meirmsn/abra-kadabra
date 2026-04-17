@@ -451,6 +451,7 @@ This requires:
 Also configure repo-level **merge settings** at github.com → repo → Settings → General → Pull Requests:
 
 - Enable **Allow squash merging** only (disable merge commits and rebase)
+- Enable **Allow auto-merge** — lets you queue PRs to merge when branch protection requirements are met (useful for Dependabot PRs)
 - Enable **Automatically delete head branches**
 
 > **Note**: this API call requires a PAT with `Administration: write` permission, which the default PAT lacks. Either temporarily add that scope, run the call with an admin-scoped token, or configure manually via the GitHub UI (Settings → Branches).
