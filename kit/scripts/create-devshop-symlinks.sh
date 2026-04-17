@@ -40,12 +40,16 @@ for link in "$DEVSHOP/.claude/skills/"*; do
   name=$(basename "$link")
   # Skip the actual directories — already linked above
   [ "$name" = "devshop" ] || [ "$name" = "gstack" ] && continue
-  # Copy symlinks (preserves relative targets like "devshop/build" or "gstack/browse").
-  # rm first: if the target already exists as a symlink to a directory, cp -a
-  # follows it and copies INTO the directory instead of replacing the symlink.
+  # Resolve relative targets to absolute paths under $DEVSHOP. Relative targets
+  # (e.g. "gstack/cso") break when $WS/.claude/skills/gstack can't be symlinked
+  # to /devshop because a real dir is already there — e.g. a virtiofs build
+  # workaround that places compiled binaries at $WS/.claude/skills/gstack/.
+  # Absolute targets are immune to that layout.
   if [ -L "$link" ]; then
+    target=$(readlink "$link")
+    case "$target" in /*) ;; *) target="$DEVSHOP/.claude/skills/$target" ;; esac
     rm -f "$WS/.claude/skills/$name"
-    cp -a "$link" "$WS/.claude/skills/$name"
+    ln -sfn "$target" "$WS/.claude/skills/$name"
   fi
 done
 

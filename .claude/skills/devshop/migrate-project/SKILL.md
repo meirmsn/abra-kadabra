@@ -33,6 +33,7 @@ The project already uses the same stack. Just needs devshop tooling wired in.
 - Create/adapt `.devcontainer/` from the devshop template
 - Skip N/A steps (no Supabase, no PostHog, etc.)
 - Don't delete existing `apps/` / `packages/` — they have real code
+- Run `/cso` baseline audit once tooling is wired in
 
 ### Full (different stack — migration from another framework)
 
@@ -43,6 +44,7 @@ Migration from another framework (e.g., Swift → React, Django → Next.js).
 - Set up backend integration
 - Rebuild screens
 - Full test pass
+- Run `/cso` baseline audit before going live
 
 ## Trigger
 
