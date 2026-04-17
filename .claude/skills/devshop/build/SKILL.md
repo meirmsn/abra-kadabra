@@ -1,6 +1,6 @@
 ---
 name: ak-build
-version: 1.1.0
+version: 1.2.0
 description: |
   Autonomous build pipeline: spec → implement → quality gates → ship → CI watch → notify.
   Runs unattended after autoplan is ready. User's only touchpoint: review the PR.
@@ -8,6 +8,8 @@ description: |
   Resumable — detects where it left off if session is interrupted.
   If /ak-pre-ship reports any `blocked` gate (tooling missing), refuses to advance to
   /ship and surfaces the preflight fix recipe to the user.
+  PR body conventions codified: private-repo-safe image URLs, checkbox timing per
+  phase, hero-screenshot embeds rendered correctly at Phase 6.
   Use when asked to "build it", "build this", "go", or "implement and ship". (devshop)
 allowed-tools:
   - Bash
@@ -167,7 +169,32 @@ Launch **Agent** with prompt:
 
 After `/ship` completes, a PR exists on GitHub. Verify the PR title and description
 reflect all commits. Title: under 70 chars, summarizes the feature/fix. Description:
-## Summary (bullets), ## Test plan (checklist), attribution line.
+`## Summary` (bullets), `## Test plan` (checklist), attribution line.
+
+Apply the **PR body conventions** (see § "PR body conventions" near the end of this
+skill) — in particular:
+
+- **Image embeds**: every `![alt](path)` must use
+  `https://github.com/<owner>/<repo>/raw/<branch>/<path>`. Repo-relative paths
+  (`specs/auth/hero/signin.png`) do not resolve in PR descriptions, and
+  `raw.githubusercontent.com` URLs require an auth token on private repos
+  (they silently 404 for viewers). Convert every embed when you see one.
+- **Checkbox state at PR creation time**: the pre-push automated gates
+  (`pnpm turbo run lint typecheck test:unit build`) are already green by the
+  time `/ship` runs them — those checkboxes should be `[x]` in the body
+  `/ship` writes. Manual-review items (visual audits, QA walkthrough,
+  post-deploy metrics) stay `[ ]` for the reviewer. CI-job checkboxes
+  (fast job / slow job / Vercel preview) start `[ ]` — they get marked as
+  the signals land during Phase 5.
+
+If `/ship` produced a body with violations of the above (wrong image URLs,
+missing pre-push checkmarks), fix with:
+
+```bash
+gh pr view "$PR" --json body --jq .body > /tmp/pr-body.md
+# edit /tmp/pr-body.md
+gh pr edit "$PR" --body-file /tmp/pr-body.md
+```
 
 ## Phase 5: CI watch + fix loop
 
@@ -206,7 +233,23 @@ GitHub Actions + Vercel preview, `gh run list` covers it.
 When GitHub re-enables the fine-grained Checks permission, swap back to
 `gh pr checks "$PR" --watch --fail-fast` — tracked in `kit/TODOS.md`.
 
-### 5.3: On CI green → proceed to Phase 6
+### 5.3: On CI green → update PR body checkboxes, then proceed to Phase 6
+
+Once the CI run completes successfully, mark the relevant `## Test plan` /
+`### CI gates` checkboxes as `[x]` with the short attestation inline
+(`green on <commit-sha>`, deploy URL + timestamp, etc.). Also check for
+Vercel / Netlify / Fly bot comments on the PR — if a preview is deployed,
+mark the "preview deploys successfully" checkbox with the URL.
+
+```bash
+gh pr view "$PR" --json body --jq .body > /tmp/pr-body.md
+# Mark CI + preview checkboxes per actual status; leave manual-review items [ ].
+# See § "PR body conventions" for the checkbox-timing table.
+gh pr edit "$PR" --body-file /tmp/pr-body.md
+```
+
+Do NOT mark manual-review callouts (visual audits, live QA walkthrough,
+post-deploy metrics) — those stay `[ ]` for the reviewer.
 
 ### 5.4: On CI failure → fix loop
 
@@ -313,23 +356,43 @@ gh pr comment "$PR" --body "$(cat <<'COMMENT'
 
 ### Evidence
 <If specs/$FEATURE/hero/*.png exists, include one markdown image-embed per
-file using the repo-relative path. GitHub renders these inline in the PR
-comment once the files are on the branch. Skip this section entirely when
-no hero shots were captured — do not leave placeholder text.>
+file. Use the github.com/.../raw/... URL form per § "PR body conventions"
+(private-repo safe; raw.githubusercontent.com 404s for viewers without a
+token). Skip this section entirely when no hero shots were captured —
+do not leave placeholder text.>
 COMMENT
 )"
 ```
 
 Hero screenshot embeds — generate one image-tag per file found in
-`$FEATURE_DIR/hero/`, to splice into the `### Evidence` section above:
+`$FEATURE_DIR/hero/`, to splice into the `### Evidence` section above.
+Use the private-repo-safe URL form:
 
 ```bash
+OWNER_REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+BRANCH=$(git branch --show-current)
 for shot in "$FEATURE_DIR"/hero/*.png; do
   [ -f "$shot" ] || continue
   REL=${shot#/workspace/}
-  echo "![${shot##*/}](${REL})"
+  echo "![${shot##*/}](https://github.com/${OWNER_REPO}/raw/${BRANCH}/${REL})"
 done
 ```
+
+### Phase 6 checkbox verification (final sweep)
+
+Before leaving Phase 6, re-read the PR body one more time and reconcile
+the `## Test plan` checkboxes against reality:
+
+| Box | Should be `[x]` when |
+|-----|----------------------|
+| Pre-push automated gates (`pnpm turbo run lint typecheck test:unit build`) | `/ship` ran them green before pushing — mark at PR creation time (Phase 4). |
+| Fast-job CI green | CI run completed with `conclusion == "success"` — mark when Phase 5.3 fires. |
+| Slow-job CI green | CI run's slow job completed green. **If the repo doesn't run a slow job yet**, do NOT mark `[x]` — instead strike the row through (`~~...~~`) with a short "out of scope for this PR" note, so the box reads as a known deferred gate rather than a failing one. |
+| Vercel/Netlify/Fly preview deploys successfully | Platform bot comment reports `Ready` / equivalent — mark with the preview URL + timestamp. |
+| Manual-review callouts (visual audits, QA walkthrough, post-deploy p95) | **Never** — these are for the reviewer, not the automation. |
+
+If any box is in the wrong state when Phase 6 runs, fix it with
+`gh pr edit "$PR" --body-file` before posting the audit comment.
 
 ## Phase 7: Update BUILD-LOG.md
 
@@ -364,6 +427,65 @@ gh pr comment "$PR" --body "## Ready for review
 
 Review the diff, check the preview URL, then run \`/ak-go-live\` to deploy."
 ```
+
+## PR body conventions
+
+These rules are referenced from Phase 4 (creation), Phase 5.3 (CI-green update), and Phase 6 (final sweep). Apply them every time `gh pr edit` is called on a PR body in this pipeline.
+
+### Image embeds — private-repo safe
+
+Most devshop projects are private. Markdown image-embed URLs must render for an authenticated viewer without leaking tokens or 404'ing:
+
+| URL form | Use? | Why |
+|-----|-----|-----|
+| `specs/auth/hero/signin.png` (repo-relative) | ❌ | PR bodies don't resolve repo-relative paths like README.md does. |
+| `https://raw.githubusercontent.com/owner/repo/branch/path` | ❌ for private repos | Requires an auth token the body can't embed; silently 404s for viewers. |
+| `https://github.com/owner/repo/raw/branch/path` | ✅ | GitHub resolves with the viewer's own auth; works in both public and private repos. Branch names with slashes (`feature/auth`) are handled correctly. |
+| Drag-drop upload in the PR UI → `https://github.com/user-attachments/assets/<uuid>` | ✅ | Manual-only; fine when the image isn't in the repo. |
+
+Generate the safe URL programmatically:
+
+```bash
+OWNER_REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+BRANCH=$(git branch --show-current)
+REL="specs/${FEATURE}/hero/signin.png"   # relative to repo root
+echo "![signin](https://github.com/${OWNER_REPO}/raw/${BRANCH}/${REL})"
+```
+
+When reviewing an existing PR body, `grep -E '!\[.*\]\(' /tmp/pr-body.md` catches every embed to check.
+
+### Checkbox semantics + timing
+
+Every `- [ ]` / `- [x]` in the Test plan has a specific moment at which it flips:
+
+| Checkbox (typical wording) | Flips to `[x]` when | Where in /ak-build |
+|---|---|---|
+| `pnpm turbo run lint typecheck test:unit build` — green | `/ship` ran them clean before push | Phase 4 — mark at PR creation |
+| `Playwright spec parses via playwright test --list` | `/ak-implement` wrote the spec; `/ak-pre-ship` verified parse | Phase 4 — mark at PR creation |
+| Fast-job CI green | `gh run watch` returned `success` | Phase 5.3 |
+| Slow-job CI green | Slow-job workflow finished green | Phase 5.3 — or strike through with "out of scope" if the slow job isn't enabled yet |
+| Vercel / Netlify / Fly preview deployed | Platform bot comment reports `Ready` / equivalent | Phase 5.3 — include preview URL + timestamp |
+| Visual audit (375 / 1440 × light / dark) | — | **Never** — human reviewer only |
+| Live QA walkthrough | — | **Never** — human reviewer only |
+| Post-deploy middleware p95 / metrics | — | **Never** — runs after merge |
+| Onboarding / screen-specific hero screenshot | — | **Never** if blocked on rate-limit / env; note why in `review.md` |
+
+Two kinds of mistakes to avoid:
+
+1. Leaving a verified gate as `[ ]` — reviewer sees "not green" on something that actually is; reads as partial failure.
+2. Marking a reviewer-only item `[x]` — pre-commits to a human verification you didn't do; misleading.
+
+Phase 6's final sweep reconciles both sides.
+
+### Edit flow
+
+```bash
+gh pr view "$PR" --json body --jq .body > /tmp/pr-body.md
+# edit /tmp/pr-body.md per the rules above
+gh pr edit "$PR" --body-file /tmp/pr-body.md
+```
+
+Prefer `--body-file` over `--body "<string>"`. The file path keeps long bodies readable in the edit round-trip and avoids shell-escape gotchas on multi-line markdown.
 
 ## Escalation chain
 
