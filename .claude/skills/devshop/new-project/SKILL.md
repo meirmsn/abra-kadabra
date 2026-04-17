@@ -256,7 +256,12 @@ Where to find each:
   Scope to this repo only. Required permissions:
   - `Contents: Read and write` — push branches and commits
   - `Pull requests: Read and write` — create PRs, merge PRs
-  - `Actions: Read` — watch CI status
+  - `Actions: Read` — watch CI status via `gh run list` / `gh run watch`
+    (the richer `gh pr checks <N>` needs Check Runs API access, which
+    fine-grained PATs can't grant — GitHub removed the Checks
+    permission after initial release and hasn't reintroduced it; see
+    https://github.com/orgs/community/discussions/129512. `Actions: Read`
+    is enough for every CI-monitoring flow `/ak-build` actually runs.)
   - **Do NOT add `workflow` scope** — workflow file changes must be pushed by the human.
 - Vercel: `vercel.com/account/tokens`
 - Supabase URL + keys: Project Settings → API.

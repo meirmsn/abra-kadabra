@@ -179,11 +179,32 @@ PR=$(gh pr list --head "$(git branch --show-current)" --json number --jq '.[0].n
 ```
 
 ### 5.2: Watch CI
+
+The canonical `gh pr checks "$PR" --watch --fail-fast` requires Check Runs
+API access, which is **not available to fine-grained PATs** — the Checks
+permission was removed after initial release and has not been reintroduced
+(see https://github.com/orgs/community/discussions/129512). Fine-grained
+PATs with Actions: Read can still watch GitHub Actions runs via the Actions
+API, which is what this devshop uses.
+
 ```bash
-gh pr checks "$PR" --watch --fail-fast
+BRANCH=$(git branch --show-current)
+RUN_ID=$(gh run list --branch "$BRANCH" --limit 1 --json databaseId --jq '.[0].databaseId')
+gh run watch "$RUN_ID" --exit-status
 ```
-This blocks until all checks complete or one fails. If it times out, re-run.
-Cap total wait at 30 minutes.
+
+This blocks until the most-recent workflow run on the branch completes.
+Non-zero exit on failure. If it times out, re-run. Cap total wait at 30
+minutes.
+
+If a project uses third-party CIs that only publish commit statuses (not
+Actions workflow runs), `gh pr checks` works if the PAT has
+**Commit statuses: Read** granted — those contexts come back, just not
+the GitHub Actions check runs. For the typical devshop project that uses
+GitHub Actions + Vercel preview, `gh run list` covers it.
+
+When GitHub re-enables the fine-grained Checks permission, swap back to
+`gh pr checks "$PR" --watch --fail-fast` — tracked in `kit/TODOS.md`.
 
 ### 5.3: On CI green → proceed to Phase 6
 
