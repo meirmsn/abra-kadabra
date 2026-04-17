@@ -123,3 +123,49 @@ HOOK
   result=$(echo "/devshop/kit/hooks/pre-commit.sh" | bash "$SCRIPTS_DIR/normalize-devshop-paths.sh")
   assert_equal "$result" "/devshop/kit/hooks/pre-commit.sh"
 }
+
+# --- Skill symlink target resolution ---
+
+@test "separation: skill symlinks resolved to absolute targets in workspace" {
+  # Relative targets like "gstack/cso" break when $WS/.claude/skills/gstack
+  # is a real directory (e.g. virtiofs workaround holding locally-compiled
+  # binaries). create-devshop-symlinks.sh must resolve to absolute paths
+  # under $DEVSHOP so skills remain discoverable regardless of layout.
+  local ws="$BATS_TEST_TMPDIR/workspace"
+  local ds="$BATS_TEST_TMPDIR/devshop"
+  mkdir -p "$ws" "$ds/kit" "$ds/.claude/skills/devshop" "$ds/.claude/skills/gstack/cso" "$ds/.claude/commands"
+
+  # Simulate the real devshop layout: skill symlink with a relative target
+  # pointing into gstack/.
+  ln -s "gstack/cso" "$ds/.claude/skills/cso"
+
+  run bash -c "DEVSHOP='$ds' WS='$ws' bash '$SCRIPTS_DIR/create-devshop-symlinks.sh'"
+  assert_success
+
+  # Workspace symlink must exist and target an absolute path under $ds
+  [ -L "$ws/.claude/skills/cso" ]
+  local target
+  target=$(readlink "$ws/.claude/skills/cso")
+  assert_equal "$target" "$ds/.claude/skills/gstack/cso"
+
+  # And the target must actually resolve
+  [ -d "$ws/.claude/skills/cso" ]
+}
+
+@test "separation: absolute skill symlink targets preserved" {
+  # If a skill symlink already uses an absolute target, pass it through.
+  local ws="$BATS_TEST_TMPDIR/workspace"
+  local ds="$BATS_TEST_TMPDIR/devshop"
+  mkdir -p "$ws" "$ds/kit" "$ds/.claude/skills/devshop" "$ds/.claude/commands"
+  mkdir -p "/tmp/fake-skill-target-$$"
+  ln -s "/tmp/fake-skill-target-$$" "$ds/.claude/skills/fake-skill"
+
+  run bash -c "DEVSHOP='$ds' WS='$ws' bash '$SCRIPTS_DIR/create-devshop-symlinks.sh'"
+  assert_success
+
+  local target
+  target=$(readlink "$ws/.claude/skills/fake-skill")
+  assert_equal "$target" "/tmp/fake-skill-target-$$"
+
+  rmdir "/tmp/fake-skill-target-$$"
+}
