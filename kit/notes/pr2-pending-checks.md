@@ -5,8 +5,8 @@ its Test plan were left `[ ]`. This note explains, honestly, **why each
 wasn't completed during the session** and what it would take to close
 the gap — either now or in a follow-up.
 
-Parent session's handoff: `/devshop/kit/notes/pr2-auth-resume.md`.
-Subagent-hooks split: `/devshop/kit/notes/pr2-subagents.md`.
+Forward-looking handoff (PR 3 + beyond): `/devshop/kit/notes/phase-1-next-steps.md`.
+Subagent-hooks split (separate session): `/devshop/kit/notes/subagent-hook-scope.md`.
 
 ---
 
@@ -153,7 +153,7 @@ If you want stricter discipline, take Path A.
 
 ## What should be different next time (devshop-level)
 
-The real fix is workflow-level, not PR-specific. `/ak-pre-ship` Gate 3 currently says "verify at 4 combos" — it should enforce that all four combos are captured as evidence before Gate 3 can `pass`. Draft rule: "Gate 3 passes iff `specs/<feature>/screenshots/` contains exactly 4 files per primary screen matching the `<screen>-{375,1440}-{light,dark}.png` pattern, OR the missing combos are explicitly documented in review.md under Gate 3 with an unambiguous reason (e.g., 'dark mode not wired — see `pr2-auth-resume.md`')."
+The real fix is workflow-level, not PR-specific. `/ak-pre-ship` Gate 3 currently says "verify at 4 combos" — it should enforce that all four combos are captured as evidence before Gate 3 can `pass`. Draft rule: "Gate 3 passes iff `specs/<feature>/screenshots/` contains exactly 4 files per primary screen matching the `<screen>-{375,1440}-{light,dark}.png` pattern, OR the missing combos are explicitly documented in review.md under Gate 3 with an unambiguous reason (e.g., 'dark mode not wired — see `kit/notes/phase-1-next-steps.md § Known gaps #6`')."
 
 Add as a devshop follow-up in `kit/TODOS.md`:
 

@@ -501,7 +501,7 @@ When we're done, we want **one** of these outcomes in the devshop repo:
 
 - New commit on a new devshop branch applying the **softened scripts** (content above).
 - Touches: both `check-*.sh` scripts, `kit/docs/guide/hooks.md` (note the softened wording + rationale + dedup semantics), `kit/TODOS.md` (add an entry to revisit once Claude Code exposes subagent metadata).
-- Reference this file (`kit/notes/pr2-subagents.md`) from the commit message.
+- Reference this file (`kit/notes/subagent-hook-scope.md`) from the commit message.
 
 In both cases: verify the parent-agent path still works (hook still fires on a real dirty-tree commit), and the subagent path is now clean (no more interference).
 
@@ -511,15 +511,15 @@ In both cases: verify the parent-agent path still works (hook still fires on a r
 
 All absolute paths from the container:
 
-| Path                                               | What                                                                                |
-| -------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `/devshop/kit/scripts/check-dirty-after-commit.sh` | The dirty-tree hook — subject of the bug                                            |
-| `/devshop/kit/scripts/check-pr-description.sh`     | The PR-review hook — subject of the bug                                             |
-| `/devshop/.claude/settings.json`                   | Where the hooks are registered (root-owned + write-denied)                          |
-| `/devshop/kit/docs/guide/hooks.md`                 | Operational reference for hooks — will need a docs update whichever approach lands  |
-| `/devshop/kit/docs/guide/workflow.md`              | Currently has the `/ak-pre-ship` phase description — no change expected             |
-| `/devshop/kit/TODOS.md`                            | Devshop tactical backlog — may add upstream/hook-scope items                        |
-| `/devshop/kit/notes/pr2-auth-resume.md`            | Parent-session handoff doc (pointer only; no need to load to continue this session) |
+| Path                                               | What                                                                                               |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `/devshop/kit/scripts/check-dirty-after-commit.sh` | The dirty-tree hook — subject of the bug                                                           |
+| `/devshop/kit/scripts/check-pr-description.sh`     | The PR-review hook — subject of the bug                                                            |
+| `/devshop/.claude/settings.json`                   | Where the hooks are registered (root-owned + write-denied)                                         |
+| `/devshop/kit/docs/guide/hooks.md`                 | Operational reference for hooks — will need a docs update whichever approach lands                 |
+| `/devshop/kit/docs/guide/workflow.md`              | Currently has the `/ak-pre-ship` phase description — no change expected                            |
+| `/devshop/kit/TODOS.md`                            | Devshop tactical backlog — may add upstream/hook-scope items                                       |
+| `/devshop/kit/notes/phase-1-next-steps.md`         | Forward-looking handoff for PR 3 + beyond (pointer only; no need to load to continue this session) |
 
 ---
 
@@ -545,7 +545,7 @@ Here's a prompt for a fresh Claude Code session. Paste the whole
 thing:
 
 > I want you to implement the subagent-hook-scope fix described in
-> `/devshop/kit/notes/pr2-subagents.md`. Read that file first — it
+> `/devshop/kit/notes/subagent-hook-scope.md`. Read that file first — it
 > is self-contained and tells you exactly what to do.
 >
 > Start by reading the file. Then:

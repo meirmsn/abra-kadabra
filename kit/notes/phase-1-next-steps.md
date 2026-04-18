@@ -86,13 +86,17 @@ Do these in order:
    - Live QA walkthrough — fresh sign-up (use `@example.com`, not `.local` — Supabase rejects `.local` TLD) → onboarding → home; wrong password → inline error (no fallback signup); refresh cookie round-trip; sign-out via devtools `localStorage.clear()` → reload; direct-nav `/onboarding` while authed-with-household → `/`.
    - Middleware p95 post-deploy — Vercel function metrics; target `< 50ms`. If exceeded, `specs/auth/review.md § Gate 10` has the `getSession()`-vs-`getUser()` mitigation.
 
-3. **Revert the softened hook scripts if still dirty** — see `/devshop/kit/notes/pr2-auth-resume.md § User actions A`. One-liner:
+3. **Revert the softened hook scripts if still dirty.** During the parent
+   session a softened version of both hook scripts was briefly applied
+   before being split off to `subagent-hook-scope.md`. If the working tree
+   shows them as modified:
 
    ```
    sudo chmod 644 /devshop/kit/scripts/check-dirty-after-commit.sh /devshop/kit/scripts/check-pr-description.sh
    ```
 
-   (If HEAD versions are also needed: `git -C /devshop show HEAD:kit/scripts/check-dirty-after-commit.sh > /tmp/orig1.sh && sudo cp /tmp/orig1.sh /devshop/kit/scripts/check-dirty-after-commit.sh` — same for the other file.)
+   If the diff is actually content-different (not just mode), restore HEAD
+   versions: `git -C /devshop show HEAD:kit/scripts/check-dirty-after-commit.sh > /tmp/orig1.sh && sudo cp /tmp/orig1.sh /devshop/kit/scripts/check-dirty-after-commit.sh` — same for the other file.
 
 4. **Consider closing the PR 2 evidence gap first (optional).** Four manual-review checkboxes on PR #10 stayed `[ ]`. See `/devshop/kit/notes/pr2-pending-checks.md` for why, and Paths A/B/C for how to handle. Recommended: **Path C** — defer the 4-combo matrix and full happy-path walk to PR 3's pre-ship, which will re-exercise the same screens plus add more.
 
@@ -299,7 +303,7 @@ LATEST_HS=$(ls -d /home/node/.cache/ms-playwright/chromium_headless_shell-* | so
 
 ### 14. Subagent hooks scope — separate session
 
-Parent-agent git/commit hooks fire inside subagent bash calls and may hijack subagents with "BLOCKING" demands outside their scope. This is tracked in `/devshop/kit/notes/pr2-subagents.md` as its own follow-up. If PR 3's `/ak-build` subagents get tripped up by hooks, you have two options: (a) push through ignoring the hooks (they're informational; you have explicit scope from the parent), or (b) pause and pick up the pr2-subagents session to fix it properly.
+Parent-agent git/commit hooks fire inside subagent bash calls and may hijack subagents with "BLOCKING" demands outside their scope. This is tracked in `/devshop/kit/notes/subagent-hook-scope.md` as its own follow-up. If PR 3's `/ak-build` subagents get tripped up by hooks, you have two options: (a) push through ignoring the hooks (they're informational; you have explicit scope from the parent), or (b) pause and pick up the subagent-hook-scope session to fix it properly.
 
 ### 15. Fine-grained PAT lacks Checks permission
 
@@ -483,8 +487,7 @@ block from § "Option 1" above.
 
 - **`/home/node/.claude/plans/we-decided-to-do-scalable-shore.md`** — the 4-PR plan written at session start. Strategic frame; consult when scope questions arise.
 - **`/devshop/kit/notes/bootstrap/v0-web.md § Phase 1`** — the original migration blueprint. Has more detail on each sub-phase (1a–1h) than this handoff; some references are slightly outdated relative to the devshop's current state (skill names have `ak-` prefix now; hardening is new). Treat as historical + directional.
-- **`/devshop/kit/notes/pr2-auth-resume.md`** — parent-session handoff. Captures exactly where PR 2 left off; includes the 5 findings surfaced during pre-ship (Tailwind regression, Button touch target, auth shell centering, E2E email TLD, dark-mode gap).
-- **`/devshop/kit/notes/pr2-subagents.md`** — standalone handoff for the subagent-hook-scope problem. Full investigation protocol + softened-script fallback inline. Run its Session kickoff prompt in a separate session when you want to tackle that problem.
+- **`/devshop/kit/notes/subagent-hook-scope.md`** — standalone handoff for the subagent-hook-scope problem (parent-agent hooks firing inside subagent bash). Full investigation protocol + softened-script fallback inline. Run its Session kickoff prompt in a separate session when you want to tackle that problem.
 - **`/devshop/kit/notes/pr2-pending-checks.md`** — retrospective on the four manual-review checkboxes on PR #10 that stayed unchecked. Documents what wasn't done, why, and the 3 paths (A close gap, B accept, C defer to PR 3).
 - **`/workspace/PRODUCT-ROADMAP.md § v0`** — project-level roadmap; mirrors v0-web.md § Phase 1. The 1e section is your scope for PR 3.
 - **`/workspace/specs/auth/spec.md`** — PR 2's implementation spec. Pattern to emulate for PR 3's spec.
