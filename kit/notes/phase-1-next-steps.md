@@ -98,7 +98,7 @@ Do these in order:
    If the diff is actually content-different (not just mode), restore HEAD
    versions: `git -C /devshop show HEAD:kit/scripts/check-dirty-after-commit.sh > /tmp/orig1.sh && sudo cp /tmp/orig1.sh /devshop/kit/scripts/check-dirty-after-commit.sh` — same for the other file.
 
-4. **Consider closing the PR 2 evidence gap first (optional).** Four manual-review checkboxes on PR #10 stayed `[ ]`. See `/devshop/kit/notes/pr2-pending-checks.md` for why, and Paths A/B/C for how to handle. Recommended: **Path C** — defer the 4-combo matrix and full happy-path walk to PR 3's pre-ship, which will re-exercise the same screens plus add more.
+4. **Consider closing the PR 2 evidence gap first (optional).** Four manual-review checkboxes on PR #10 stayed `[ ]`. See `/devshop/kit/notes/pr2-pending-checks.md § Part 1` for close-out actions (Path A — close now, or Path C — defer to PR 3's pre-ship). Recommended: **Path C** — PR 3 re-exercises the same screens with more content, so the 4-combo matrix + happy-path walk land once against a richer UI surface.
 
 ---
 
@@ -488,7 +488,7 @@ block from § "Option 1" above.
 - **`/home/node/.claude/plans/we-decided-to-do-scalable-shore.md`** — the 4-PR plan written at session start. Strategic frame; consult when scope questions arise.
 - **`/devshop/kit/notes/bootstrap/v0-web.md § Phase 1`** — the original migration blueprint. Has more detail on each sub-phase (1a–1h) than this handoff; some references are slightly outdated relative to the devshop's current state (skill names have `ak-` prefix now; hardening is new). Treat as historical + directional.
 - **`/devshop/kit/notes/subagent-hook-scope.md`** — standalone handoff for the subagent-hook-scope problem (parent-agent hooks firing inside subagent bash). Full investigation protocol + softened-script fallback inline. Run its Session kickoff prompt in a separate session when you want to tackle that problem.
-- **`/devshop/kit/notes/pr2-pending-checks.md`** — retrospective on the four manual-review checkboxes on PR #10 that stayed unchecked. Documents what wasn't done, why, and the 3 paths (A close gap, B accept, C defer to PR 3).
+- **`/devshop/kit/notes/pr2-pending-checks.md`** — dual-purpose: (Part 1) close-out actions for PR #10's 4 unchecked boxes with two paths (A close now, C defer to PR 3); (Parts 2–5) full systemic fix-plan for pre-ship QA reliability — 4 concrete `/ak-pre-ship` + `/ak-build` edits (local Supabase default in Gate 9, Gate 3 evidence enforcement, Gate 9 completion requirement, Phase 6 evidence-on-disk sweep) with design + implementation + verification for each, plus a copy-paste session kickoff prompt. The reliability fixes prevent the root cause that produced the 4 unchecked boxes in the first place.
 - **`/workspace/PRODUCT-ROADMAP.md § v0`** — project-level roadmap; mirrors v0-web.md § Phase 1. The 1e section is your scope for PR 3.
 - **`/workspace/specs/auth/spec.md`** — PR 2's implementation spec. Pattern to emulate for PR 3's spec.
 - **`/workspace/specs/auth/review.md`** — PR 2's pre-ship review. Pattern for PR 3's review.
