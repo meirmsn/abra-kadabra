@@ -9,6 +9,18 @@
 # not per commit. Cannot be bypassed by skipping release.sh — any bump commit
 # triggers it regardless of how the bump was made.
 #
+# Atomic rollback on failure: any step before the commit (incl. husky pre-commit
+# tests + adversarial reviews) failing → kit/version and kit/docs/CHANGELOG.md
+# are restored to HEAD via a shell trap, so re-running release.sh starts from a
+# clean slate. If the commit SUCCEEDS but a later step fails (tag already
+# exists, push fails, gh release create fails), the local commit is KEPT —
+# adversarial review is expensive and we don't want to re-trigger it on retry.
+# The trap inspects PHASE to know which mode to apply:
+#   - modifying  → files written but commit failed → roll back fully
+#   - committed  → commit survived; tag/push/release failed → keep, retry manually
+#   - completed  → all good → no-op
+# See PHASE/rollback below.
+#
 # Usage:
 #   release.sh                # interactive (prompts for bump level + confirm)
 #   release.sh --bump patch   # non-interactive (for Claude)
@@ -41,6 +53,7 @@ fi
 
 CURRENT_VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
 LAST_TAG="v$CURRENT_VERSION"
+CHANGELOG_PATH="$(pwd)/kit/docs/CHANGELOG.md"
 
 echo "Current version: $CURRENT_VERSION"
 echo ""
@@ -105,12 +118,50 @@ else
   CHANGELOG_MSG="- Initial release"
 fi
 
+# --- Atomic rollback on failure ---
+# PHASE tracks how far we got. The trap on EXIT inspects PHASE and rolls back
+# accordingly (see header comment for full intent):
+#   modifying  → files written + staged but commit didn't succeed → restore
+#                HEAD state for kit/version + CHANGELOG.md so re-running is clean.
+#   committed  → commit survived but tag/push/release failed → KEEP commit
+#                (so user retries remaining steps only; preserves adversarial
+#                review work).
+#   completed  → full success → no-op.
+# This means a transient test failure or network blip doesn't leave a dirty tree.
+PHASE="init"
+rollback() {
+  local exit_code=$?
+  case "$PHASE" in
+    modifying)
+      echo ""
+      echo "✖ Release failed before commit (exit $exit_code) — rolling back kit/version and CHANGELOG.md to HEAD."
+      git restore --staged "$VERSION_FILE" "$CHANGELOG_PATH" 2>/dev/null || true
+      git restore "$VERSION_FILE" "$CHANGELOG_PATH" 2>/dev/null || true
+      ;;
+    committed)
+      echo ""
+      echo "⚠ Commit (v$NEW_VERSION) landed locally but a later step failed (exit $exit_code)."
+      echo "   Local commit is KEPT (so you don't re-trigger adversarial review on retry)."
+      echo "   Retry the remaining steps manually:"
+      echo "     # if tag not yet created:"
+      echo "     git tag -a v$NEW_VERSION -m 'v$NEW_VERSION'"
+      echo "     # push commit + tag:"
+      echo "     git push origin main --tags"
+      echo "     # GitHub release:"
+      echo "     gh release create v$NEW_VERSION --notes \"\$CHANGELOG_MSG\""
+      ;;
+    completed) ;; # success, no-op
+  esac
+}
+trap rollback EXIT
+
 # Write new version, update changelog, commit, tag
+PHASE="modifying"
 echo "$NEW_VERSION" > "$VERSION_FILE"
-CHANGELOG_PATH="$(pwd)/kit/docs/CHANGELOG.md"
 bash "$SCRIPT_DIR/changelog-entry.sh" "$NEW_VERSION" "$CHANGELOG_MSG" "$CHANGELOG_PATH"
 git add "$VERSION_FILE" "$CHANGELOG_PATH"
 git commit -m "Bump devshop version to $NEW_VERSION"
+PHASE="committed"
 git tag -a "v$NEW_VERSION" -m "v$NEW_VERSION"
 
 # Push + create GitHub release (if devshop token is available)
@@ -134,3 +185,5 @@ else
   echo "Push with: git push (tags included if push.followTags is set)"
   echo "No DEVSHOP_GITHUB_TOKEN — run init-devshop.sh with .devcontainer/.env to enable."
 fi
+
+PHASE="completed"

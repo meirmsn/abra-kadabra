@@ -38,11 +38,12 @@ Same convention applies to topic notes that get superseded by a newer doc — de
 - [`v1.2-comparison-to-before-split.md`](bootstrap/v1.2-comparison-to-before-split.md) — pre/post split comparison
 - [`v+-native.md`](bootstrap/v+-native.md) — native/mobile capability plan (deferred)
 
-### `roadmap/` — Implementation plans for ROADMAP entries
+### `roadmap/` — Implementation plans
 
-Plans that take a specific `kit/ROADMAP.md` entry from "we should do this eventually" to "here's exactly how."
+Self-contained implementation plans for devshop changes — both ROADMAP-entry-aligned plans and tactical fixes too detailed for `TODOS.md`. Each plan is intended to be picked up in a fresh session and executed end-to-end.
 
 - [`hook-migration-plan.md`](roadmap/hook-migration-plan.md) — git-layer migration: PostToolUse Bash workflow hooks → husky pre-push + skill ownership. Resolves the subagent-hooks audience problem; closes TODOs 76/77/78.
+- [`release-rollback-plan.md`](roadmap/release-rollback-plan.md) — atomic rollback in `release.sh` if the bump commit fails. Preserves the success path; restores `kit/version` + `CHANGELOG.md` to HEAD on commit-step failure; keeps commit + tag if only push fails.
 
 ### `security/` — Security model and hardening
 

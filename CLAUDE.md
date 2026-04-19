@@ -45,10 +45,15 @@ Flag concerns not covered by existing docs or conventions — wait for confirmat
 - **Project commits** go to the project repo (`/workspace`). Use conventional commits (`feat:`, `fix:`, `chore:`, etc.). Branch protection requires PRs.
 - **Devshop commits** go to the abra-kadabra repo (`/devshop`). Use conventional commits. Since `.devshopkit/` is a symlink to `/devshop/kit/`, edits are automatically in the abra-kadabra working tree — just `cd /devshop && git add && git commit`.
 
-**Devshop shipping flow (no PRs):** The devshop is a single-developer private repo — the pre-commit guards (adversarial review, docs drift, test suite) serve as the quality gate. Use feature branches for grouped work, then rebase onto main and release:
+**Devshop shipping flow (no PRs):** The devshop is a single-developer private repo — pre-commit guards (adversarial review, docs drift, release-coverage, test suite) are the quality gate. Three steps:
 
-1. `git checkout main && git rebase feat/my-branch` (or ask the user to confirm)
-2. `bash kit/scripts/release.sh --bump patch|minor|major` (tags, pushes, creates GitHub release)
+1. **Branch for anything beyond trivial.** New capability, multi-file refactor, risky tooling change → feature branch (`feat/<topic>`, `fix/<topic>`, etc.). Trivial doc nits may go direct-to-main, but only by a human in a raw terminal — Claude is blocked by the `check-branch-not-main.sh` PreToolUse hook. Scripts that legitimately need main commits (e.g., `release.sh`) wrap them so the outer Bash call doesn't match the hook pattern.
+
+2. **Land with fast-forward or rebase.** `git checkout main && git merge --ff-only feat/my-branch` (or `git rebase feat/my-branch` if divergence). No new commit — just pointer movement. Multiple feature branches can land on main before a release is cut.
+
+3. **Release when a cohesive delta has landed.** Not per commit, not per feature — per meaningful batch that consumers (project repos pinning a devshop version) would want. Mechanism: `bash kit/scripts/release.sh --bump patch|minor|major` or invoke `/ak-release-devshop` for Claude-guided categorization. `release.sh` is atomic: pre-commit failure (tests, adversarial review) rolls back `kit/version` + `CHANGELOG.md` automatically; post-commit failure (tag clash, push error) keeps the commit so retries don't re-trigger expensive adversarial review.
+
+Bump levels: `patch` (bug fix / doc / refactor) · `minor` (new capability, script, skill) · `major` (breaking for consumers).
 
 See `kit/docs/guide/architecture.md` for the full model, or `kit/docs/MODEL.md` for the conceptual overview.
 
