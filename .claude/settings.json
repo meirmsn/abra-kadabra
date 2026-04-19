@@ -132,38 +132,6 @@
         ]
       }
     ],
-    "PostToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "if": "Bash(*git*commit*)",
-            "command": "if git remote get-url origin 2>/dev/null | grep -q 'abra-kadabra'; then _branch=$(git branch --show-current 2>/dev/null); if [ \"$_branch\" = \"main\" ]; then echo \"{\\\"hookSpecificOutput\\\":{\\\"hookEventName\\\":\\\"PostToolUse\\\",\\\"additionalContext\\\":\\\"This commit was made in the devshop repo (abra-kadabra). Ask the user if they want to run release.sh to bump the version and update the changelog.\\\"}}\"; else echo \"{\\\"hookSpecificOutput\\\":{\\\"hookEventName\\\":\\\"PostToolUse\\\",\\\"additionalContext\\\":\\\"This commit was made in the devshop repo (abra-kadabra) on branch $_branch. When the work is done: ask the user to confirm, then rebase onto main and release.\\\"}}\"; fi; fi"
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "if": "Bash(*git*commit*)",
-            "command": "bash /devshop/kit/scripts/check-dirty-after-commit.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "if": "Bash(*git push*)",
-            "command": "bash /devshop/kit/scripts/check-pr-description.sh"
-          }
-        ]
-      }
-    ],
     "SessionStart": [
       {
         "matcher": "startup",

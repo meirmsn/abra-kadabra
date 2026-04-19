@@ -72,8 +72,12 @@ clean → repeat until done (or ask user for unknowns). Enforced by a husky pre-
 gate (`check-ak-commit.sh`) that blocks raw commits — bypass requires a descriptive
 reason, adversarially reviewed. Same pattern as `dirtyTreeReason` and `docsVerified`.
 
-Problem it solves: PostToolUse `check-dirty-after-commit.sh` is advisory — Claude can
-ignore it. PreToolUse hooks cannot block Bash calls (#26923). Husky can block.
+Problem it solves: raw `git commit` has no skill-level orchestration of the
+assess → classify → plan → commit → verify loop. The pre-commit husky gates
+block bad commits and the pre-push gate blocks stale PRs / dirty pushes (since
+the 2026-04-19 hook architecture migration), but neither plans multi-commit
+sequences. `/ak-commit` would own the commit loop end-to-end, replacing raw
+`git commit` for anything beyond a single-file change.
 
 Full design: `kit/notes/ak-commit-design.md`
 

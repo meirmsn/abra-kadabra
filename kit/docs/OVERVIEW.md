@@ -83,13 +83,15 @@ git commit
   │           └─ release-coverage ───────── kit/version bumped? adversarial agent
   │                                         judges whether changes since last tag
   │                                         need test coverage (one Sonnet call)
-  └─ PostToolUse (advisory)
-      ├─ check-dirty-after-commit.sh ──── warn if tree still dirty
-      └─ check-pr-description.sh ──────── assess + update PR description
+  (no PostToolUse — workflow nudges live at the git layer; see guide/hooks.md)
 
 git push
-  └─ PostToolUse
-      └─ check-pr-description.sh ──────── assess + update PR description
+  └─ .husky/pre-push (blocking)
+      ├─ PR description staleness ────── vs commits on branch
+      │                                   (skipped for chore/docs/test/etc. only)
+      └─ dirty tree / stash check ────── block if unclean
+           (both adversarially reviewed; bypass via
+            devshop.prDescStaleReason / devshop.dirtyPushReason)
 
 release.sh (devshop version bump)
   └─ Bump + commit + tag + push

@@ -106,6 +106,32 @@ if [ -f "$ROOT/BUILD-LOG.md" ]; then
   LAST_BUILD="$(grep -m1 '^### ' "$ROOT/BUILD-LOG.md" | sed 's/^### //' || true)"
 fi
 
+# --- Cross-repo WIP heads-up (warning only) ---
+# Catches uncommitted or stashed work left in either repo from a previous session,
+# so Claude doesn't start editing over it. Non-blocking — the user may legitimately
+# be resuming WIP. Moved here from a PostToolUse hook during the 2026-04-18 hook
+# architecture migration (see kit/notes/roadmap/hook-migration-plan.md).
+
+SESSION_WIP=()
+for REPO_DIR in /workspace /devshop; do
+  [ ! -d "$REPO_DIR/.git" ] && continue
+  REPO_LABEL="$(basename "$REPO_DIR")"
+  [ "$REPO_LABEL" = "devshop" ] && REPO_LABEL="devshop (abra-kadabra)"
+
+  WIP_DIRTY="$(git -C "$REPO_DIR" status --porcelain 2>/dev/null | head -5 || true)"
+  WIP_STASH_COUNT="$(git -C "$REPO_DIR" stash list 2>/dev/null | wc -l | tr -d ' ' || echo 0)"
+
+  if [ -n "$WIP_DIRTY" ]; then
+    SESSION_WIP+=("$REPO_LABEL has uncommitted changes:
+$(echo "$WIP_DIRTY" | sed 's/^/    /')")
+  fi
+  if [ "$WIP_STASH_COUNT" -gt 0 ]; then
+    WIP_STASH_LIST="$(git -C "$REPO_DIR" stash list 2>/dev/null | head -3)"
+    SESSION_WIP+=("$REPO_LABEL has $WIP_STASH_COUNT stash entrie(s):
+$(echo "$WIP_STASH_LIST" | sed 's/^/    /')")
+  fi
+done
+
 # --- Build visible briefing ---
 
 BRIEFING="
@@ -141,6 +167,16 @@ if [ -n "$WIP_BRANCHES" ]; then
   BRIEFING+="
  WIP:
 ${WIP_BRANCHES%$'\n'}"
+fi
+
+# Cross-repo WIP (uncommitted + stash)
+if [ ${#SESSION_WIP[@]} -gt 0 ]; then
+  BRIEFING+="
+ ⚠ Heads up — WIP from a previous session:"
+  for _wip_entry in "${SESSION_WIP[@]}"; do
+    BRIEFING+="
+   ${_wip_entry}"
+  done
 fi
 
 # Security warnings (if any)

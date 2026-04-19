@@ -4,10 +4,12 @@
 # this script gathers context, spawns a Sonnet agent to judge the reason,
 # and returns PASS (exit 0) or FAIL (exit 1).
 #
-# Callers: devshop-commit-guard.sh, check-clean-tree.sh, check-hook-bypass.sh
+# Callers: devshop-commit-guard.sh, check-clean-tree.sh, check-hook-bypass.sh,
+#          .husky/pre-push (prDescStaleReason, dirtyPushReason)
 #
 # Usage: adversarial-review.sh <check-type> <reason> [context...]
 #   check-type: docsVerified | docSyncReason | crossRepoReason | dirtyTreeReason | hookBypass
+#               | manifestReviewed | testCoverage | prDescStaleReason | dirtyPushReason
 #   reason: the bypass reason provided via git -c
 #   context: additional context (piped or as arguments)
 #
@@ -126,6 +128,47 @@ Reason: $REASON"
     # No additional context gathering needed — release.sh provides everything
     CONTEXT="$REASON"
     ;;
+  prDescStaleReason)
+    # Called by .husky/pre-push. Gathers PR title/body vs commits on branch.
+    BRANCH=$(git branch --show-current 2>/dev/null || true)
+    PR_NUM=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number // empty' 2>/dev/null || true)
+
+    if [ -z "$PR_NUM" ]; then
+      # Shouldn't happen — pre-push checks for PR existence before invoking — but fail safe.
+      CONTEXT="No open PR for branch $BRANCH. This check should not have been invoked."
+    else
+      PR_DATA=$(gh pr view "$PR_NUM" --json title,body 2>/dev/null || echo "{}")
+      PR_TITLE=$(echo "$PR_DATA" | jq -r '.title // "(no title)"')
+      PR_BODY=$(echo "$PR_DATA" | jq -r '.body // ""' | head -25)
+      # All commits in the branch relative to main — this is what reviewers see in the PR.
+      COMMITS=$(git log --oneline origin/main..HEAD 2>/dev/null | head -30 || true)
+      COMMIT_COUNT=$(echo "$COMMITS" | grep -c . 2>/dev/null || echo 0)
+      CONTEXT="PR #$PR_NUM on branch $BRANCH (${COMMIT_COUNT} commits ahead of main).
+
+Current PR title:
+$PR_TITLE
+
+Current PR body (first 25 lines):
+$PR_BODY
+
+All commits on this branch (origin/main..HEAD, first 30):
+$COMMITS"
+    fi
+    ;;
+  dirtyPushReason)
+    # Called by .husky/pre-push. Gathers dirty tree + stash snapshot.
+    DIRTY=$(git status --porcelain 2>/dev/null | head -20 || true)
+    BRANCH=$(git branch --show-current 2>/dev/null || true)
+    STASH_LIST=$(git stash list 2>/dev/null | head -5 || true)
+    STASH_COUNT=$(git stash list 2>/dev/null | wc -l | tr -d ' ' || echo 0)
+    CONTEXT="Pushing branch $BRANCH with non-clean local state.
+
+Dirty files (git status --porcelain, first 20):
+${DIRTY:-(none)}
+
+Stash entries (${STASH_COUNT} total, first 5):
+${STASH_LIST:-(none)}"
+    ;;
 esac
 
 # --- Human review fallback (when API is unavailable) ---
@@ -161,6 +204,8 @@ Evaluate:
    - CLAUDE.md if it changes how Claude should behave or what workflows to follow
    Layout mentions alone (a line in a tree diagram) are NOT sufficient for new capabilities — strategy/usage docs are also required.
 7. For hookBypass: is this a known legitimate scenario (migration commits with git rm --cached, binary files that break lint-staged, intermediate refactor state with type errors)? Does skipping gitleaks create a real risk for these files?
+8. For prDescStaleReason: does the PR title/body accurately describe ALL commits on the branch (origin/main..HEAD)? If the commits add a new capability, the PR description should name it. Generic reasons ('WIP', 'will update later', 'fine for now') are NOT acceptable. A PASS requires either (a) the PR description genuinely matches the commits — the reviewer is wrong — or (b) a specific structural reason the description lags temporarily (e.g., 'batching rebases — will squash-update after final review' with a concrete next step).
+9. For dirtyPushReason: does the reason name WHICH files are intentionally dirty and WHY? Generic reasons ('whatever', 'local only', 'does not matter') are NOT acceptable. PASS requires specificity: 'untracked *.log debug files from local testing, not project code' or 'stashed branch X changes to push unrelated branch Y — will resume after'. Forgotten WIP (files the developer doesn't recognize) should FAIL.
 
 Respond with EXACTLY one line:
 PASS - only if the reason is genuinely legitimate and specific

@@ -4,22 +4,21 @@
 
 Hooks in `.claude/settings.json` guard the development workflow:
 
-| Hook                  | Event                    | Trigger                        | What it does                                                                                                                                                                                                                                                        |
-| --------------------- | ------------------------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| DCG                   | PreToolUse (all Bash)    | Every Bash command             | Destructive Command Guard — blocks 49+ dangerous patterns (rm -rf, git reset --hard, DROP TABLE, etc.)                                                                                                                                                              |
-| check-hook-bypass     | PreToolUse (Bash)        | `*git*commit*` commands        | Blocks hook bypass: always blocks `core.hooksPath`/`HUSKY=0`/`devshop.humanReviewed`, requires `devshop.hookBypassReason` for `--no-verify` (adversarially reviewed, fail-closed on API error)                                                                      |
-| check-branch-not-main | PreToolUse (Bash)        | `*git*commit*` commands        | Blocks direct commits to `main`/`master` from Claude. Parses `git -C <dir>` and `cd <dir> &&` prefixes to target the right repo. Humans committing from the terminal are unaffected (PreToolUse only intercepts Claude) — so `release.sh` version bumps still work. |
-| check-memory-created  | PreToolUse (Write\|Edit) | Write/Edit to memory paths     | Blocks memory file writes — Claude must classify (project → `/workspace/.claude/memory/`, devshop → incorporate into `/devshop/CLAUDE.md`, unclear → ask user) and get confirmation before writing                                                                  |
-| release.sh reminder   | PostToolUse (git commit) | `*git*commit*` in devshop repo | Reminds to run `release.sh` for version bump + changelog (no-op in project repos)                                                                                                                                                                                   |
-| dirty tree check      | PostToolUse (git commit) | `*git*commit*` commands        | If tree still dirty after commit, tells Claude to address remaining files                                                                                                                                                                                           |
-| PR description update | PostToolUse (git push)   | `*git push*` commands          | Two-step: (1) Claude assesses title/description vs commits — text only, no edits. (2) Next response: runs `gh pr edit` if needed.                                                                                                                                   |
-| session-start.sh      | SessionStart             | New session or `/clear`        | Recreates symlinks if missing, then context for Claude (README, BUILD-LOG latest build, branch, devshop CLAUDE.md) + init progress from devshop notes + briefing via `systemMessage`                                                                                |
+| Hook                  | Event                    | Trigger                    | What it does                                                                                                                                                                                                                                                        |
+| --------------------- | ------------------------ | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DCG                   | PreToolUse (all Bash)    | Every Bash command         | Destructive Command Guard — blocks 49+ dangerous patterns (rm -rf, git reset --hard, DROP TABLE, etc.)                                                                                                                                                              |
+| check-hook-bypass     | PreToolUse (Bash)        | `*git*commit*` commands    | Blocks hook bypass: always blocks `core.hooksPath`/`HUSKY=0`/`devshop.humanReviewed`, requires `devshop.hookBypassReason` for `--no-verify` (adversarially reviewed, fail-closed on API error)                                                                      |
+| check-branch-not-main | PreToolUse (Bash)        | `*git*commit*` commands    | Blocks direct commits to `main`/`master` from Claude. Parses `git -C <dir>` and `cd <dir> &&` prefixes to target the right repo. Humans committing from the terminal are unaffected (PreToolUse only intercepts Claude) — so `release.sh` version bumps still work. |
+| check-memory-created  | PreToolUse (Write\|Edit) | Write/Edit to memory paths | Blocks memory file writes — Claude must classify (project → `/workspace/.claude/memory/`, devshop → incorporate into `/devshop/CLAUDE.md`, unclear → ask user) and get confirmation before writing                                                                  |
+| session-start.sh      | SessionStart             | New session or `/clear`    | Recreates symlinks if missing, then context for Claude (README, BUILD-LOG latest build, branch, devshop CLAUDE.md) + init progress from devshop notes + cross-repo WIP heads-up (uncommitted/stashed state in either repo) + briefing via `systemMessage`           |
+
+> PostToolUse Bash workflow hooks are intentionally absent. Workflow nudges that used to fire after `git commit` / `git push` (release reminder, dirty-tree check, PR description review) now live at the **git layer** (`.husky/pre-push`, husky pre-commit guards) or are owned by skills (`/ak-release-devshop`). See [Why workflow nudges live at the git layer](#why-workflow-nudges-live-at-the-git-layer) below for the rationale.
 
 ---
 
 ## Commit Flow
 
-Two enforcement levels: PreToolUse (Claude Code) and pre-commit (git). PreToolUse exists because git hooks can't prevent their own bypass — `--no-verify` skips all hooks silently. Something outside git must intercept the command first.
+Three enforcement levels: PreToolUse (Claude Code), pre-commit (husky), and pre-push (husky). PreToolUse exists because git hooks can't prevent their own bypass — `--no-verify` skips all hooks silently. Something outside git must intercept the command first. Pre-push adds push-time checks (PR description staleness, dirty-tree / stash) at the git layer so they fire agent-agnostically — see [Why workflow nudges live at the git layer](#why-workflow-nudges-live-at-the-git-layer).
 
 ```
 1. PreToolUse: dcg  (settings.json hook, all Bash)
@@ -53,18 +52,18 @@ Two enforcement levels: PreToolUse (Claude Code) and pre-commit (git). PreToolUs
 
 3. Git creates the commit (if pre-commit passed)
 
-4. PostToolUse hooks (settings.json):
-   ├─ release.sh reminder (devshop repo only)
-   └─ check-dirty-after-commit.sh: remaining dirty files in either repo
+4. On eventual `git push`: `.husky/pre-push`
+   └─ PR description staleness + dirty-tree / stash cleanliness
+      (adversarially reviewed; bypass via `devshop.prDescStaleReason` / `dirtyPushReason`)
 ```
 
-Step 1 is a Claude Code hook (runs before the tool executes). Step 2 is the git pre-commit hook (runs during commit). Step 4 is a Claude Code hook (runs after). Steps 2a-2d are all blocking (fail = commit aborted).
+Step 1 is a Claude Code hook (runs before the tool executes). Step 2 is the git pre-commit hook (runs during commit). Step 4 is the git pre-push hook (runs during `git push`, independent of commit). Steps 2a-2d and 4 are all blocking (fail = operation aborted).
 
 ---
 
 ## Full Hook Chain Detail
 
-When Claude runs `git commit`, three layers fire in sequence:
+Enforcement layers in chronological order. Sections 1 and 2 fire during `git commit`; section 3 fires later, on `git push`:
 
 ### 1. Claude PreToolUse (before git runs)
 
@@ -112,17 +111,46 @@ Bypass via `git -c devshop.<key>="<reason>"` works natively in husky. Every bypa
 
 **Handling WIP files (clean-tree guard):** When the clean-tree guard flags files you didn't modify in this session (WIP from a previous session or the user's in-progress work), NEVER discard them with `git checkout` or `git restore` — that permanently destroys uncommitted work. Instead, use the bypass: `git -c devshop.dirtyTreeReason="<file> is WIP, committing separately" commit ...`. Alternatively, `git stash push <file>` before committing, then `git stash pop` after.
 
-### 3. Claude PostToolUse (after git commit)
+### 3. Husky pre-push (during git push)
 
-Configured in `.claude/settings.json`.
+Configured in `.husky/pre-push`.
 
-| Hook                          | What                                                   | Fires when                        |
-| ----------------------------- | ------------------------------------------------------ | --------------------------------- |
-| Release prompt                | "Ask user about version bump + changelog"              | Commits in abra-kadabra repo only |
-| `check-dirty-after-commit.sh` | Checks current repo + other repo for remaining changes | All commits                       |
-| `check-pr-description.sh`     | PR description quality check                           | On `*git push*`, not commit       |
+| Check              | What                                                                                                                                                            | Blocking?                                                |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| PR description     | Is the PR title + body current vs all commits on the branch? Skipped when every commit is `chore:` / `docs:` / `style:` / `test:` / `ci:` / `build:` / `perf:`. | Yes — `devshop.prDescStaleReason` adversarially reviewed |
+| Dirty tree / stash | Is the working tree clean? Zero stash entries?                                                                                                                  | Yes — `devshop.dirtyPushReason` adversarially reviewed   |
 
-PostToolUse hooks are advisory (inject context, don't block).
+Short-circuits (no review, exit 0): detached HEAD, push to `main`/`master` (release.sh territory), branch deletions (zero-sha local).
+
+Both bypass flags run through the same shared engine as commit-time guards (`kit/scripts/adversarial-review.sh`). Generic reasons (`WIP`, `later`, `fine`) fail; specific structural reasons (`intentionally batching updates until post-rebase — will squash-update after final review`, `stashed feature X to push hotfix Y on unrelated branch`) pass.
+
+Release-side work (`/ak-release-devshop` skill) is invoked manually or by a follow-up skill chain. The old PostToolUse commit-time "remember to run release.sh" reminder was deleted — release is a deliberate decision, not a post-commit nudge.
+
+---
+
+## Why workflow nudges live at the git layer
+
+The devshop used to have PostToolUse Bash hooks in `.claude/settings.json` for workflow nudges that fired after `git commit` / `git push`:
+
+- **release.sh reminder** — "commit in abra-kadabra → remember to bump version"
+- **check-dirty-after-commit.sh** — "tree still dirty after commit, deal with the remaining files"
+- **check-pr-description.sh** — "PR open, review title/body vs commits"
+
+They shared an audience problem: **PostToolUse Bash fires in subagents too**. A subagent with a narrow mandate (e.g., `/ak-pre-ship` gates, `/ak-build` phases) has no authority to commit a parent's WIP or edit a parent's PR description. When these hooks fired inside a subagent, the subagent either ignored the nudge (burning tokens deciding each time) or partially complied (acting outside its scope). Neither is correct. The PostToolUse payload does not carry subagent identity — the hook cannot self-detect.
+
+**Git hooks fire at git invocation regardless of which agent ran git.** A subagent that legitimately commits or pushes passes through the same pre-commit + pre-push gates as the parent. Each agent satisfies the gates in its own narrow context. No audience reasoning is baked into the trigger — the gate is agent-agnostic by construction.
+
+Three moves replaced the three audience-confused PostToolUse hooks:
+
+1. **`check-dirty-after-commit.sh`** deleted as redundant with existing husky pre-commit guards (`check-clean-tree.sh` in devshop-commit-guard.sh — same dirty-tree concern, commit-time, blocking).
+2. **`check-pr-description.sh`** superseded by `.husky/pre-push` "PR description" check — now blocking (was advisory), agent-agnostic, single adversarial review.
+3. **Inline release reminder** replaced by the `/ak-release-devshop` skill — invocation is explicit, not post-commit-prompted.
+
+Plus one additive change: `session-start.sh` grew a "cross-repo WIP heads-up" section that warns (non-blocking) at session boundaries if either `/workspace` or `/devshop` has uncommitted or stashed work. Catches WIP left over from a previous session before Claude starts editing over it.
+
+See [kit/notes/roadmap/hook-migration-plan.md](../../notes/roadmap/hook-migration-plan.md) for the investigation, alternatives considered, and migration scope.
+
+**PreToolUse hooks are unchanged.** They enforce agent-agnostic invariants (`dcg`, `check-hook-bypass.sh`, `check-branch-not-main.sh`, `check-memory-created.sh`) — any agent running any `Bash` or `Write`/`Edit` should be intercepted by them. Their audience-correctness was never the problem.
 
 ---
 
@@ -132,4 +160,4 @@ Both repos use conventional commits (`feat:`, `fix:`, `chore:`, etc.). The `devs
 
 ## On Push
 
-A PostToolUse prompt hook checks if there's an open PR for the branch. If the PR description is missing, outdated, or doesn't reflect the current commits, it updates the description automatically. Skips trivial pushes (typo fixes, formatting).
+The `.husky/pre-push` hook runs at the git layer on every `git push` to non-main branches. If there's an open PR for the branch and the PR description does not track the commits (excluding trivial conventional-commit-only pushes), the push is blocked until the description is updated — or the push provides an adversarially-reviewed bypass reason. A second check blocks pushes with a dirty tree or non-empty stash list on the same pass. Branch deletions and pushes to `main` / `master` short-circuit. See §3 above for the full check list and bypass flag names.

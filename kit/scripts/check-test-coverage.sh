@@ -27,8 +27,6 @@ EXEMPT_SCRIPTS=(
   "session-start.sh"             # advisory output only, heavy fixture setup
   "sync-from-devshop.sh"         # manual-run, low blast radius
   "sync-to-devshop.sh"           # manual-run, low blast radius
-  "check-dirty-after-commit.sh"  # PostToolUse advisory, never blocks
-  "check-pr-description.sh"      # PostToolUse advisory, depends on gh
   "statusline.sh"                # pure formatting, zero blast radius
   "release.sh"                   # manual, low frequency
 )
