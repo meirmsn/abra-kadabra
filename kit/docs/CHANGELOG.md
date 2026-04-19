@@ -2,6 +2,10 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.10.2 (2026-04-19)
+
+- fix(release): fail fast when no commits since last tag
+
 ## v1.10.1 (2026-04-19)
 
 - fix(release): atomic rollback on commit failure + CLAUDE.md shipping-flow clarification
