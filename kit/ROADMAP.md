@@ -445,3 +445,68 @@ Trade-off: adds a proxy process and config — more moving parts than the curren
 plain `iptables` + `ipset` approach.
 
 Trigger: when the firewall domain list grows unwieldy across multiple projects.
+
+### Self-correcting workflow patterns
+
+The 2026-04-18 hook architecture migration (`kit/notes/roadmap/hook-migration-plan.md`) moved
+workflow nudges from `PostToolUse Bash` (audience-confused, fires in subagents) to
+the husky pre-push layer (agent-agnostic, blocking with adversarial review). That
+fix solves the audience problem and strengthens enforcement, but it preserves the
+existing pattern: hooks DETECT a problem, AGENT/HUMAN must ACT on it.
+
+The deeper architectural reframe — deferred to v+ — is **self-correcting workflow**:
+hooks (or skills) take the action themselves, with the agent/human just confirming
+substantive decisions. Examples:
+
+- **Auto-update PR description**: pre-push hook detects staleness, regenerates
+  description from commit log via `gh pr edit`, asks user to confirm only if the
+  diff is substantive (renames, removals, scope changes). Trivial appends auto-apply.
+- **Auto-stage leftover files**: post-commit detects untracked/unstaged files, asks
+  "stage these as a follow-up commit?" with one-key confirmation. Cleaner than
+  warning + agent-must-remember.
+- **Auto-invoke `/ak-release-devshop`**: post-merge to abra-kadabra `main` with
+  `feat:`/`fix:` commits → automatically suggest the release skill via skill chain.
+- **Auto-stash on dirty session start**: SessionStart detects WIP from prior session,
+  offers to stash it under a labeled stash so the new session starts clean. Reversible
+  via `git stash pop`.
+
+**Why deferred from the 2026-04-18 migration**: each pattern is its own design
+decision (substantive-vs-trivial threshold, confirmation flow, reversal-on-error,
+edge cases like concurrent edits). Bundling all of them was multi-PR work that would
+have delayed PR 3 of the lalista migration. The current adversarial-review pattern
+captures most of B's enforcement value (LLM judges the bypass reason) without the
+auto-action complexity.
+
+**Why this is worth doing eventually**: the persistent failure mode of "agent
+ignores advisory" remains, even with strong adversarial gates. Auto-action removes
+the agent-discipline dependency entirely. Particularly valuable for high-frequency
+workflow concerns where reading and acting on each warning is a tax.
+
+**Structural concerns to design through**:
+
+1. **Confirmation UX for auto-actions in git hooks**: husky hooks run during git
+   operations. Interactive confirmation requires tty/stdin handling that's clunky
+   in some shell contexts. Self-correcting actions are more naturally implemented
+   in skills (where confirmation flows are first-class) than in pure git hooks.
+   May lead to a hybrid: husky detects, signals to next skill invocation to act.
+2. **Reversal**: every auto-action needs a clear undo path (`git restore --staged`,
+   `git stash pop`, `gh pr edit` to revert description). Design must surface the
+   undo at the moment of action.
+3. **Substantive-vs-trivial threshold**: "auto-apply trivial, confirm substantive"
+   only works if "substantive" is reliably detectable. Likely needs adversarial
+   LLM review as the discriminator (matches existing pattern).
+4. **Failure modes**: what if `gh pr edit` fails mid-update? What if auto-staging
+   stages files the user didn't want? Each auto-action needs failure-safe defaults.
+
+**Trigger**: when the persistent "agent ignores advisory" failure mode is observed
+in practice often enough that adversarial-gate enforcement isn't sufficient. Or when
+specific auto-action candidates (PR description sync, post-merge release prompts)
+become high-frequency enough to justify per-pattern design work.
+
+**Migration path from current**: each candidate auto-action can be implemented
+incrementally — no need to do them all at once. Likely first candidate: auto-update
+PR description on push (extends the existing pre-push staleness check from "block
+with reason" to "regenerate + confirm if substantive").
+
+Related: `kit/notes/roadmap/hook-migration-plan.md` § "Architectural shift" for the
+why-not-now rationale.
