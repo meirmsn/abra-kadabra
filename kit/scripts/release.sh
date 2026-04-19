@@ -60,10 +60,15 @@ echo ""
 
 # Show changes since last tag
 if git rev-parse "$LAST_TAG" &>/dev/null; then
+  CHANGES=$(git log --oneline "$LAST_TAG"..HEAD)
+  if [ -z "$CHANGES" ]; then
+    echo "ERROR: No commits since $LAST_TAG. Nothing to release."
+    echo "Commit your changes first, then re-run release.sh."
+    exit 1
+  fi
   echo "Changes since $LAST_TAG:"
-  git log --oneline "$LAST_TAG"..HEAD
+  echo "$CHANGES"
   echo ""
-
 else
   echo "No previous tag found. This will be the first tagged release."
 fi
@@ -111,9 +116,12 @@ if [ -z "$ARG_BUMP" ]; then
   fi
 fi
 
-# Generate changelog message from commits since last tag
+# Generate changelog message from commits since last tag (reusing $CHANGES
+# from the earlier show-and-validate block; falls back to initial-release
+# message only when $LAST_TAG doesn't exist yet — the no-commits case is
+# already trapped above with a clear exit 1).
 if git rev-parse "$LAST_TAG" &>/dev/null; then
-  CHANGELOG_MSG=$(git log --oneline "$LAST_TAG"..HEAD | sed 's/^[a-f0-9]* /- /')
+  CHANGELOG_MSG=$(echo "$CHANGES" | sed 's/^[a-f0-9]* /- /')
 else
   CHANGELOG_MSG="- Initial release"
 fi
