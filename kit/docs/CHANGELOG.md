@@ -2,6 +2,11 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.10.0 (2026-04-19)
+
+- fix(pre-push): re-exec as bash — husky v9 shim invokes via sh
+- refactor(hooks): migrate workflow nudges from PostToolUse to git layer
+
 ## v1.9.0 (2026-04-19)
 
 - docs(notes): consolidate lalista handoff + add hook-migration roadmap plan
