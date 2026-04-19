@@ -17,6 +17,14 @@
 # History: replaces the old check-pr-description.sh PostToolUse (advisory,
 # audience-confused) and check-dirty-after-commit.sh (redundant with pre-commit).
 # See kit/notes/roadmap/hook-migration-plan.md for rationale.
+
+# Husky v9's hook shim (.husky/_/h) runs hooks with `sh -e "$hook"` regardless
+# of shebang. This hook uses bash features (here-string, [[ ]]-style patterns
+# via `<<<`). Re-exec under bash if we weren't invoked as bash.
+if [ -z "${BASH_VERSION:-}" ]; then
+  exec bash "$0" "$@"
+fi
+
 set -euo pipefail
 
 # pre-push receives ref info on stdin: <local-ref> <local-sha> <remote-ref> <remote-sha>
