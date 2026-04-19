@@ -2,6 +2,19 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.9.0 (2026-04-19)
+
+- docs(notes): consolidate lalista handoff + add hook-migration roadmap plan
+- docs(notes): transform pr2-pending-checks into actionable fix-plan
+- docs(notes): kit/notes housekeeping — drop stale, rename standalone problem
+- docs(notes): phase-1 next-steps handoff + pr2 pending-checks retrospective
+- feat(ak-build): PR body conventions + phase-by-phase checkbox timing
+- docs(skills): route around missing Checks permission on fine-grained PATs
+- docs(notes): pr2-subagents handoff + current pr2-auth-resume
+- feat(pre-ship): Chromium symlink, screenshot convention + TODOS
+- docs(notes): session handoff notes for PR 2 (lalista auth) + devshop follow-ups
+- feat(hardening): pre-ship blocked outcome + new-project .env.local + template Playwright deps
+
 ## v1.8.0 (2026-04-17)
 
 - Initial release
