@@ -205,6 +205,15 @@ These are Category C finds that need the devshop v1 helper before they can be re
 - **`PasswordResetCard` surface on `/sign-in`** — "Forgot password?" link that triggers `resetPasswordForEmail(..., { redirectTo: <callback URL> })`.
 - **Verification** (once v1 helper ships + lalista adopts it): manually request a recovery email from Supabase dashboard → click link → land on `/reset-password` → set new password → signed in → land on `/`.
 
+### Devshop infrastructure findings (pre-Step-2 reading)
+
+Two container/firewall issues surfaced during Step 1 close-out that aren't already in Step 2 scope but WILL block Step 2 work if not addressed. Capture into `kit/TODOS.md` at Step 2 start:
+
+1. **`sudo /usr/local/bin/init-firewall.sh` hangs the Claude Code session when re-run mid-session.** Container rebuild is the only known recovery. Root cause hypothesis (unconfirmed): iptables/ipset rebuild drops the session's own established API connection; when Claude Code reconnects against the new network state, commands stall indefinitely. Observed twice during 2026-04-20 lalista session. **Workaround**: never re-init the firewall during a session. If outbound HTTPS to a new domain fails mid-session (CDN IPs rotate), treat it as infrastructure TODO, don't try to hot-patch. **Proper fix** (Step 2 polish or later): investigate whether the firewall script can be made connection-preserving (e.g., atomic ipset swap instead of destroy-and-recreate), or run in a separate network namespace.
+2. **gstack `browse` daemon's chromium chain is unreliable** because the fix requires re-running init-firewall (see #1). Playwright's CDN (`playwright.download.prss.microsoft.com`, `cdn.playwright.dev`) is in the firewall allowlist by domain name, but the CDN's edge IPs rotate and the ipset's resolved IPs go stale within hours. Mid-session `pnpm exec playwright install chromium` fails with `ENOTFOUND` / `EHOSTUNREACH` against the current IPs. **Proper fix** (Step 2, high-leverage): bake apt-installed `chromium + chromium-driver` into the devcontainer template Dockerfile, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium` in `containerEnv`, drop the Playwright download step. Aligned with the existing `/home/node/.claude/projects/-workspace/memory` virtiofs note that already prescribes this for the Chromium install. **Prerequisite for**: `/canary` working reliably in `/ak-go-live` (currently falls back to curl-based health checks per the 2026-04-20 Step 1 session). **Edit target**: `/devshop/template/.devcontainer/Dockerfile` + `/devshop/template/.devcontainer/devcontainer.json`.
+
+Both of these were observed but NOT committed to `kit/TODOS.md` during Step 1 close-out (context constraints). First task for a Step 2 session: append them as TODO entries.
+
 ### Current state (supersedes § "State at this handoff" below)
 
 **Lalista** (`/workspace`):
