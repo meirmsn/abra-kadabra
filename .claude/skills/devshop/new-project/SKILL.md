@@ -166,6 +166,7 @@ Created by `/ak-new-project` on <date>.
 15. [ ] Supabase init + link (if using)
 16. [ ] Create METRICS.md
 17. [ ] Run /setup-deploy
+        17b. [ ] Harden Supabase auth defaults (password + CAPTCHA + site_url / uri_allow_list)
 18. [ ] Create project CLAUDE.md
 19. [ ] Enable doc enforcement hooks
 20. [ ] Update .gitleaks.toml allowlist
@@ -437,6 +438,109 @@ Empty event taxonomy structure. `/ak-spec` populates during first feature build.
 ### Step 17: Run /setup-deploy
 
 Run gstack `/setup-deploy` to configure deploy settings.
+
+### Step 17b: Harden Supabase auth defaults
+
+Supabase's free-tier defaults are too permissive for production: `password_min_length: 6`, CAPTCHA off, `site_url: http://localhost:3000`, empty `uri_allow_list`. Every email-based auth flow (password recovery, magic link, email change, signup confirmation) silently breaks when the user clicks a link from a real inbox because the redirect lands on `localhost`. Patch these at setup time so no project ships with the bad defaults.
+
+This step runs **after** Step 17 because `site_url` + `uri_allow_list` derive from the production URL written to `CLAUDE.md § Deploy Configuration` by `/setup-deploy`.
+
+**Inputs**:
+
+- `SUPABASE_ACCESS_TOKEN` — already in shell env from Step 4
+- `SUPABASE_URL` — from `.env.local` (generated in Step 13b) or `.devcontainer/.env` — used to derive the project ref
+- Production URL — from `CLAUDE.md § Deploy Configuration § Production URL` (written by `/setup-deploy` at Step 17)
+- Vercel project slug — from `.vercel/project.json` (written in Step 13)
+
+**Sub-step 1: Password policy (mandatory, non-interactive)**
+
+Bump `password_min_length` from the free-tier default 6 → 8.
+
+```bash
+PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's|https://([^.]+)\.supabase\.co|\1|')
+
+curl -sX PATCH "https://api.supabase.com/v1/projects/${PROJECT_REF}/config/auth" \
+  -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"password_min_length": 8}'
+
+# Verify
+curl -sX GET "https://api.supabase.com/v1/projects/${PROJECT_REF}/config/auth" \
+  -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+  | jq '.password_min_length'
+# Expected output: 8
+```
+
+**Sub-step 2: CAPTCHA (interactive)**
+
+```
+[HUMAN] Paste your hCaptcha secret from https://dashboard.hcaptcha.com/, or leave blank to skip:
+```
+
+If a secret is provided:
+
+```bash
+curl -sX PATCH "https://api.supabase.com/v1/projects/${PROJECT_REF}/config/auth" \
+  -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d "{\"security_captcha_enabled\": true, \"security_captcha_provider\": \"hcaptcha\", \"security_captcha_secret\": \"${HCAPTCHA_SECRET}\"}"
+```
+
+If skipped, prepend a visible reminder to `BUILD-LOG.md` so it surfaces at every `/ak-status`:
+
+```markdown
+# Build Log — <project>
+
+> **[TODO] CAPTCHA deferred** — hCaptcha was not configured during /ak-new-project Step 17b. Add before public launch via PATCH /v1/projects/{ref}/config/auth with `security_captcha_enabled: true`, `security_captcha_provider: "hcaptcha"`, `security_captcha_secret: "<secret>"`. Remove this line when done.
+
+Project build history.
+...
+```
+
+The reminder lives above the `Project build history.` line (not inside `## In Flight` — that section is for feature branches, not platform TODOs).
+
+**Sub-step 3: site_url + uri_allow_list (mandatory)**
+
+Read the production URL + Vercel slug; compose the redirect allow list.
+
+```bash
+# Production URL, written by /setup-deploy at Step 17
+PROD_URL=$(awk -F': ' '/Production URL:/ {print $2; exit}' CLAUDE.md | tr -d ' \r')
+
+# Vercel project slug (team-scoped domain is <project>-<team>.vercel.app if applicable)
+VERCEL_PROJECT=$(jq -r '.projectName' .vercel/project.json 2>/dev/null || echo "")
+
+if [ -z "$VERCEL_PROJECT" ]; then
+  echo "[HUMAN] Vercel project slug not found in .vercel/project.json. Enter the Vercel project domain (e.g., lalista or lalista-meirs-projects):"
+  read -r VERCEL_PROJECT
+fi
+
+URI_ALLOW="${PROD_URL}/**,https://${VERCEL_PROJECT}.vercel.app/**,http://localhost:3000/**"
+
+curl -sX PATCH "https://api.supabase.com/v1/projects/${PROJECT_REF}/config/auth" \
+  -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d "{\"site_url\": \"${PROD_URL}\", \"uri_allow_list\": \"${URI_ALLOW}\"}"
+
+# Read-back for confirmation
+echo "Configured URLs:"
+curl -sX GET "https://api.supabase.com/v1/projects/${PROJECT_REF}/config/auth" \
+  -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+  | jq '{site_url, uri_allow_list}'
+```
+
+```
+[HUMAN] Do these match your deploy targets (production + Vercel preview wildcard + localhost)? [y/N]:
+```
+
+If the user says no, iterate with them to correct the URLs before advancing. Misconfigured `site_url` is a silent failure mode at runtime — get it loud and right at setup time.
+
+**What this step does NOT touch** (by design):
+
+- `rate_limit_email_sent` — stays at the free-tier default (2/hour). Tightening is a production-launch concern, not a setup-time concern; raising requires custom SMTP, which is per-project.
+- `disable_signup` — stays `false`. Invite-code alternative is a separate roadmap item tracked in `kit/ROADMAP.md § v1 § Invite-code signup control`.
+
+See `kit/docs/guide/conventions.md § Supabase Hardening Defaults` for the full rationale + FK-cascade convention that pairs with this step.
 
 ### Step 18: Create project CLAUDE.md
 
