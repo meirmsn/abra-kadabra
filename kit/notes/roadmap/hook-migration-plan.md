@@ -1,6 +1,7 @@
 # Hook Architecture Migration: PostToolUse → Git Layer + Skill Ownership
 
 **Status**: **EXECUTED 2026-04-19** on branch `feature/hook-architecture-migration`. See git log for the landing commit.
+**Verification**: **COMPLETE 2026-04-19** per [`hook-migration-test.md`](hook-migration-test.md). Migration objective (subagent-noise elimination — Smoke 1) validated. One ⚠ actionable follow-up tracked in `kit/TODOS.md` (prDescStaleReason blank-reason auto-reject) — non-blocking UX issue, not a correctness regression. No hotfix plan warranted.
 **Scope delivered**: ~350 LoC across 9 files, one PR. `adversarial-review.sh` extended with two new check types (`prDescStaleReason`, `dirtyPushReason`) rather than a stdin-prompt interface (plan assumed the latter — the real engine is argument-based with internal context-gathering). `kit/notes/subagent-hook-scope.md` step #8 was a no-op: the file was already consolidated into `kit/notes/lalista-migration-resume.md` before this migration started. All other scope items landed as planned.
 **Authoring date**: 2026-04-18
 
