@@ -2,6 +2,18 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.10.3 (2026-04-20)
+
+- docs(roadmap): record /ak-collateral skill under v1
+- chore(template): add /screenshots/ convention + document it in guide/
+- docs(backlog): compress TODO to pointer, sync ROADMAP cross-ref for PR-desc staleness discussion
+- docs(roadmap): record PR-desc staleness check alternatives for post-PR-3 decision
+- docs(notes): archive executed hook-migration + release-rollback plans, add subagent-cleanup measure-then-codify plan
+- docs(hook-migration): Smoke 1 re-run passed — upgrade ⧗ → ✅, close TODO
+- docs(todos): extract Smoke 1 rerun as trigger-bound TODO
+- docs(hook-migration): populate test rollup + stamp parent plan verification complete
+- docs(hook-migration): add verification plan doc + reviewer prompt follow-up todo
+
 ## v1.10.2 (2026-04-19)
 
 - fix(release): fail fast when no commits since last tag
