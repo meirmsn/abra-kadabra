@@ -159,9 +159,39 @@ All sit in the same "close evidence→action gap" theme as Fixes A-D. One versio
   - **Covers email-based auth flows** that projects otherwise have to debug in production: password recovery, magic-link sign-in, email change, signup confirmation.
   - **Paired with the v1 "Auth UX conventions" password-reset sub-pattern** — the code-side helpers (`PasswordResetCard`, `/auth/callback`, `/reset-password`) depend on these config values being correct. Hardening step sets the config; convention ships the routes.
 
-### Pending lalista work (post-PR 10 merge, pre-PR 3)
+- **`guide/conventions.md § Supabase Hardening Defaults` ADDITION: mandatory ON DELETE on auth.users FK references**. Any schema table that references `auth.users(id)` MUST specify `ON DELETE CASCADE`, `ON DELETE SET NULL` (with the column made nullable), or `ON DELETE RESTRICT` — explicitly. The Postgres default (`NO ACTION`) silently blocks user deletion as soon as any dependent row exists, which Supabase's built-in Authentication UI surfaces as the opaque "Database error deleting user." Surfaced 2026-04-20 when trying to delete a test user from the dashboard after they'd added 2 `list_entries`. Content for the convention section:
+  > Every schema reviewer / `/ak-pre-ship` migration gate should reject a migration where a `references auth.users(id)` lacks an explicit `on delete` clause. Recommended defaults per column meaning: `added_by` / audit columns → `set null` (preserve history, lose attribution); tight ownership columns → `cascade`. Never use the default `no action` — it's a latent bug, not a design choice.
+  - **Size**: ~10 lines of markdown inside the existing `guide/conventions.md § Supabase Hardening Defaults` section. No new section.
+  - **Paired with lalista migration 009 (see § "Pending lalista work § standalone" below)** — the convention adds the rule; migration 009 retroactively fixes lalista's two offending FKs (`list_entries.added_by`, `purchase_history.added_by`).
 
-These are Category C finds that need the devshop v1 "Auth UX conventions" helper before they can be refactored cleanly. Inline fix on lalista is blocked on devshop side.
+### Pending lalista work (scheduled into the migration, NOT floating TODOs)
+
+Items discovered during Step 1 that are lalista-side but not yet fixed. Each has a specific scheduling home (PR 2.1, PR 3, or refactor-after-v1-ships). These are migration work, not backlog — every item has a concrete next-session action.
+
+#### Standalone (no dependency on devshop v1 helper)
+
+- **Migration 009 — add `ON DELETE` to `auth.users` FK references**. Lalista's migration 001 declares `list_entries.added_by references auth.users(id)` and `purchase_history.added_by references auth.users(id)` with no explicit `on delete` clause — default `NO ACTION`. Result: any user who has added a list entry can't be deleted from the Supabase dashboard ("Database error deleting user"). Surfaced 2026-04-20. Schedule: **PR 2.1 (small follow-up) OR folded into PR 3** (before PR 3's `/add-item` flow adds more write paths). Shape:
+  ```sql
+  -- 009_cascade_auth_user_fks.sql
+  alter table list_entries
+    drop constraint list_entries_added_by_fkey,
+    add constraint list_entries_added_by_fkey
+      foreign key (added_by) references auth.users(id) on delete set null;
+  -- added_by becomes nullable to match; existing rows unaffected
+  alter table list_entries alter column added_by drop not null;
+  -- same for purchase_history
+  alter table purchase_history
+    drop constraint purchase_history_added_by_fkey,
+    add constraint purchase_history_added_by_fkey
+      foreign key (added_by) references auth.users(id) on delete set null;
+  alter table purchase_history alter column added_by drop not null;
+  ```
+  Rationale for `SET NULL` over `CASCADE`: `added_by` is audit data; preserving the entry (with unknown attribution) is more useful than deleting history when a user leaves. `household_id` FKs already `CASCADE` and handle household dissolution.
+  **Paired with the devshop convention** in Step 2's `guide/conventions.md § Supabase Hardening Defaults` (see above) — the convention prevents this in future projects; migration 009 retroactively fixes lalista.
+
+#### Blocked on devshop v1 "Auth UX conventions" helper (refactor-to-adopt)
+
+These are Category C finds that need the devshop v1 helper before they can be refactored cleanly; inline fix on lalista would just duplicate future work.
 
 - **`/auth/callback` route** — handle Supabase's recovery / signup-confirm / email-change redirect tokens. Currently missing → all email-based auth flows hang. Status: NOT present in lalista yet; shipped as part of the v1 helper's route pattern.
 - **`/reset-password` form** — landed on after a recovery-link callback. Calls `supabase.auth.updateUser({ password })`.
