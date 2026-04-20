@@ -42,7 +42,7 @@ Fix A (auto-bootstrap local Supabase in `/ak-pre-ship` Phase 0) was the original
 
 Known Gap #5 (hosted rate-limit) now has a workaround: use admin API from service role. Document this in Gap #5 when Step 2 lands.
 
-### Step 2 scope expanded — bundle 3 more devshop changes
+### Step 2 scope expanded — bundle several devshop changes
 
 Original: Fixes A–D on `feature/preship-qa-reliability` branch. Added to the same bundle:
 
@@ -51,8 +51,15 @@ Original: Fixes A–D on `feature/preship-qa-reliability` branch. Added to the s
   - Diff touches runtime code (`apps/web/**`, `packages/**`, `supabase/migrations/**`, `supabase/functions/**`) → `"Next step after you merge: run /ak-go-live to deploy + canary-check."`
   - Diff is docs-only (`docs/`, `README.md`, `BUILD-LOG.md`, `kit/`, `.github/**`, `specs/*/review.md`) → `"/ak-go-live not needed — no runtime changes."` (explicit, not silent skip).
   - Edit target: `/devshop/.claude/skills/devshop/build/SKILL.md § Phase 6`.
+- **`/ak-new-project` Phase B — Supabase auth hardening** — Supabase's free-tier defaults are too weak for any serious project (`password_min_length: 6`, CAPTCHA off, `rate_limit_email_sent: 2/hour`). `/ak-new-project` should patch these at setup time so no project ships with them by accident. Concretely:
+  - **Target file**: `/devshop/.claude/skills/devshop/new-project/SKILL.md` — new sub-step inside Phase B, right after the Supabase project-linking step. Token (`SUPABASE_ACCESS_TOKEN`) is already in the shell env at that point.
+  - **Mandatory patch (non-interactive)**: Management API call to `PATCH https://api.supabase.com/v1/projects/{ref}/config/auth` with `{"password_min_length": 8}`. Verify with a follow-up `GET` + grep.
+  - **Interactive CAPTCHA step**: prompt "paste your hCaptcha secret (or blank to skip)"; if provided, `PATCH` with `{"security_captcha_enabled": true, "security_captcha_provider": "hcaptcha", "security_captcha_secret": "<paste>"}`. If skipped, log "captcha deferred — add before public launch" to `BUILD-LOG.md` so it surfaces at next status check.
+  - **Document the hardening defaults**: short section in `kit/docs/guide/conventions.md` under a new `## Supabase Hardening Defaults` (between Screenshot Routing and Confidence Calibration) listing what `/ak-new-project` sets and why, so projects know what they inherited.
+  - **Do NOT touch**: `rate_limit_email_sent` (leave as free-tier default 2/hour — tightening is a production-launch concern, not a setup-time concern; raising requires custom SMTP which is per-project). `disable_signup` (leave as false — invite-code alternative is a separate roadmap item; see `kit/ROADMAP.md § Invite-code signup control`).
+  - **Verification during Step 2**: dry-run against a fresh test project OR against lalista's current hosted config (apply `password_min_length: 8` via Management API and confirm existing users aren't locked out). Mark complete when `curl ... /config/auth | jq .password_min_length` returns `8`.
 
-All three sit in the same "close evidence→action gap" theme as Fixes A-D. One version bump, one adversarial-review cycle.
+All sit in the same "close evidence→action gap" theme as Fixes A-D. One version bump, one adversarial-review cycle. The paired bigger-picture entry for invite-code signup lives in `kit/ROADMAP.md § v1 § Invite-code signup control`.
 
 ### Current state (supersedes § "State at this handoff" below)
 

@@ -193,6 +193,45 @@ Projects need something to showcase before showcase tooling matters. lalista is 
 - Whether output lives in `docs/collateral/` (per project) or `specs/_collateral/` (spec-adjacent).
 - How to handle brand assets (logo, fonts) — point at `DESIGN.md` token set or require a separate brand kit.
 
+### Invite-code signup control — opt-in at `/ak-new-project`
+
+Some projects launch invite-only (private beta, controlled rollout, reputation-protection while testing). Supabase's built-in signup is open by default; the only lever is `disable_signup: True` which blocks everyone indiscriminately. Invite-code gating is the common middle-ground and will be a repeat request.
+
+**Shape (not final):**
+
+- **Migration**: `invite_codes` table — `id uuid`, `code text unique not null`, `created_by uuid references auth.users(id)`, `used_by_user_id uuid references auth.users(id)`, `created_at`, `expires_at`, `invalidated_at`, `notes text`. RLS: service_role full access; authed users can only SELECT their own redeemed code (for UI confirmation).
+- **Admin RPCs** (SECURITY DEFINER, grant to `authenticated` with admin check inside):
+  - `create_invite_code(p_notes text, p_expires_in interval default '30 days')` returns `text` (the new code).
+  - `invalidate_invite_code(p_id uuid)` returns `void`.
+  - `list_active_invite_codes()` returns `setof invite_codes`.
+- **Edge function `signup-with-invite`** (public endpoint) — accepts `{email, password, invite_code}`, validates the code against the table, marks it used atomically, calls `auth.admin.createUser` with service role. All in one transaction so a failed `createUser` doesn't burn the code.
+- **Supabase auth config**: `disable_signup: True` to force all signups through the edge function.
+- **Optional admin surface**: simple CLI script under `kit/scripts/invite-codes.sh` (list/generate/invalidate). A full UI page is project-specific — out of scope for the devshop template.
+
+**Integration pattern:**
+
+- `/ak-new-project` Phase B: interactive prompt "enable invite-code signup control? [y/N, default N]". If yes, run an `ak-scaffold-invites` sub-step that:
+  1. Drops the migration into `supabase/migrations/`
+  2. Drops the edge function into `supabase/functions/signup-with-invite/`
+  3. Patches auth config to `disable_signup: True`
+  4. Drops the CLI script + seed invite code into `kit/scripts/`
+  5. Updates project `README.md` with a "Closed beta — signups require an invite code" note
+- If no, skip — open signup stays default. Projects can opt in later by running the same scaffold-invites step manually (or via a future `/ak-add-invites` skill).
+- Existing projects (like lalista) that want to adopt invite-only post-launch: point them at this scaffold flow.
+
+**Why v1, not v+:**
+
+This was the second auth-hardening request in one conversation (password_min_length: 8 was first, now invite-code gating). Paired with the Supabase hardening step shipping in Step 2 — the auth-defaults story is incomplete without a controlled-signup option. Invite-only is table stakes for any serious closed-beta launch; waiting until v+ means the first project needing it gets an ad-hoc implementation.
+
+**Trigger:**
+
+- First project explicitly asks for invite-only signup (lalista might; future projects very likely when launching)
+- OR: second project adopts the devshop and hits the same "bots will hammer the site" concern — that's the "don't forget reviewing this again on next project" moment
+
+**Cross-ref:**
+
+- Step 2's `/ak-new-project` Phase B auth-hardening step (see `kit/notes/lalista-migration-resume.md § UPDATE 2026-04-20 § Step 2 scope`) — the mandatory password-length + interactive CAPTCHA bits ship first; invite-code gating is the next layer up for projects that need it.
+
 ---
 
 ## v+ (future — when the need is felt)
