@@ -168,6 +168,31 @@ Current: simple `cp` guided by `manifest.txt`. Improve to:
 - Create PR on the devshop repo instead of direct push
 - Conflict detection with abort + diff shown
 
+### `/ak-collateral` skill — marketing / landing-page asset composer
+
+Devshop has design-ops skills (`/design-consultation`, `/design-review`, `/plan-design-review`) but nothing that composes marketing collateral. Produce README banners and landing-page imagery from assets the pipeline already generates.
+
+**Shape (not final):**
+
+- Inputs: latest `specs/<feature>/hero/*.png` across merged features, project `README.md`, `DESIGN.md` tokens, optional `PRODUCT-ROADMAP.md` teaser line.
+- Output: one or more composed PNGs (README banner, social card, hero strip) + an HTML landing-page layout (one page, static, design-system-consistent) in `docs/collateral/` or similar.
+- Related: similar compositional pattern to `/design-html` + `/design-shotgun` — reuse that infrastructure if possible.
+
+**Why not now:**
+
+Projects need something to showcase before showcase tooling matters. lalista is pre-MVP (PR 2 = auth, PR 3 = core flows) — nothing to feature yet. The `guide/conventions.md § Screenshot Routing` table explicitly defers README-banner / marketing imagery until "the first project needs one." When the first flow ships with a visible product surface, that's the signal to build this.
+
+**Trigger:**
+
+- First project has at least one merged feature with committed `hero/*.png` showing end-user value (not just an auth gate).
+- OR: user explicitly asks for a README banner and we realize this is the fourth ad-hoc composition request.
+
+**First-pass design work:**
+
+- Whether to reuse `/design-html`'s Playwright + screenshot pipeline vs. a new sharp/canvas-based compositor.
+- Whether output lives in `docs/collateral/` (per project) or `specs/_collateral/` (spec-adjacent).
+- How to handle brand assets (logo, fonts) — point at `DESIGN.md` token set or require a separate brand kit.
+
 ---
 
 ## v+ (future — when the need is felt)
