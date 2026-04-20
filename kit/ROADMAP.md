@@ -97,7 +97,7 @@ Full design: `kit/notes/ak-commit-design.md`
 
 **Decision trigger:** after PR 3 (`/ak-build core-flows`) has surfaced real data on (a) the false-positive rate of the current always-fires implementation, (b) whether the prefix-match heuristic holds up against real PR-desc patterns, (c) whether Claude's forget-to-update bug recurs during PR 3's pushes. Decide between A / B / C / E / hybrid with evidence.
 
-**Cross-refs:** `kit/TODOS.md` (tactical TODO with options A/B/C inline). Origin in the 2026-04-19 hook architecture migration — see git log around v1.10.0.
+**Cross-refs:** `kit/TODOS.md` (tactical TODO — compressed to a pointer back to this section). Origin in the 2026-04-19 hook architecture migration — see git log around v1.10.0.
 
 ### Devshop self-build pipeline
 
