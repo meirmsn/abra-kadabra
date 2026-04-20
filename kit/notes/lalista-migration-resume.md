@@ -153,6 +153,21 @@ All sit in the same "close evidence→action gap" theme as Fixes A-D. One versio
   - **Why it belongs in Step 2**: discovered while closing out PR #10 — user asked "does Vercel deploy include Supabase changes?" — answer is no, migrations/functions/auth-config need separate deployment. That confusion will hit every next project; docs now, not later.
   - **Size**: ~20 lines of markdown; no code.
 
+- **`/ak-new-project` Phase B — Supabase auth-hardening ADDITION: `site_url` + `uri_allow_list`** (extends the earlier hardening bullet). Free-tier defaults are `site_url: http://localhost:3000` and empty `uri_allow_list` — which silently breaks every email-based auth flow (password recovery, magic link, email change) the moment a user clicks a link from a real inbox. Surfaced 2026-04-20 when a recovery email link hung trying to load localhost:3000.
+  - **Mandatory patch**: `PATCH /v1/projects/{ref}/config/auth` with `{"site_url": "<production_url>", "uri_allow_list": "<production_url>/**,https://<project>-<team>.vercel.app/**,http://localhost:3000/**"}`. Production URL comes from the `/setup-deploy` step earlier in `/ak-new-project`; Vercel wildcard is derived from the Vercel project name.
+  - **Interactive confirmation**: read back the config after PATCH, show the 3 URLs, confirm with user they match the deploy targets. Misconfigured `site_url` is a silent failure mode — make it loud.
+  - **Covers email-based auth flows** that projects otherwise have to debug in production: password recovery, magic-link sign-in, email change, signup confirmation.
+  - **Paired with the v1 "Auth UX conventions" password-reset sub-pattern** — the code-side helpers (`PasswordResetCard`, `/auth/callback`, `/reset-password`) depend on these config values being correct. Hardening step sets the config; convention ships the routes.
+
+### Pending lalista work (post-PR 10 merge, pre-PR 3)
+
+These are Category C finds that need the devshop v1 "Auth UX conventions" helper before they can be refactored cleanly. Inline fix on lalista is blocked on devshop side.
+
+- **`/auth/callback` route** — handle Supabase's recovery / signup-confirm / email-change redirect tokens. Currently missing → all email-based auth flows hang. Status: NOT present in lalista yet; shipped as part of the v1 helper's route pattern.
+- **`/reset-password` form** — landed on after a recovery-link callback. Calls `supabase.auth.updateUser({ password })`.
+- **`PasswordResetCard` surface on `/sign-in`** — "Forgot password?" link that triggers `resetPasswordForEmail(..., { redirectTo: <callback URL> })`.
+- **Verification** (once v1 helper ships + lalista adopts it): manually request a recovery email from Supabase dashboard → click link → land on `/reset-password` → set new password → signed in → land on `/`.
+
 ### Current state (supersedes § "State at this handoff" below)
 
 **Lalista** (`/workspace`):
