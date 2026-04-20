@@ -33,3 +33,12 @@ dist/
 # OS
 .DS_Store
 .vercel
+
+# Screenshots convention — /screenshots/ is for dev-context shots shared
+# with Claude / the team. Folder contents are ignored; only the README is
+# tracked so a fresh clone discovers the convention. Per-feature product
+# shots still live in specs/<feature>/hero/ (tracked).
+/screenshots/*
+!/screenshots/README.md
+# macOS drops screenshots at repo root by default — ignore those too.
+/Screenshot*.png

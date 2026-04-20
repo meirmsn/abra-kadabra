@@ -3,13 +3,69 @@
 **Read this doc first if you're continuing the lalista Swift → Next.js migration.**
 This is **self-contained**. No need to read the three predecessor docs (`phase-1-next-steps.md`, `pr2-pending-checks.md`, `subagent-hook-scope.md`) — every still-relevant detail from them is inlined below. Predecessor docs can be referenced for historical context only.
 
-**Authoring date**: 2026-04-18.
+**Authoring date**: 2026-04-18. **Last updated**: 2026-04-20 (inline block below).
 
 **Predecessor docs** (historical — content inlined here):
 
 - `/devshop/kit/notes/phase-1-next-steps.md` — original migration handoff (PR 3 + beyond)
 - `/devshop/kit/notes/pr2-pending-checks.md` — PR 2 close-out + 4-fix systemic plan
 - `/devshop/kit/notes/subagent-hook-scope.md` — RESOLVED by roadmap/hook-migration-plan.md
+
+---
+
+## UPDATE 2026-04-20 — Step 1 DONE, Step 2 scope expanded
+
+### Step 1 — PR #10 close-out: ✅ DONE
+
+Closing commit on `feature/auth`: **`23b9795 fix(auth): atomic household RPC + QA walk evidence closing PR 2`**. CI green on that commit; PR #10 mergeable; all 4 manual-review checkboxes now `[x]`.
+
+**Bug found + fixed along the way** — would have blocked every new user at onboarding:
+
+- Root cause: `createHousehold` did `.insert({name}).select('*').single()`. PostgREST requires the SELECT RLS policy to pass on the RETURNING row; `households_select` gates on membership, which doesn't exist until the second insert. Every first-household create got 403, second insert never ran.
+- Missed because unit tests mock the Supabase chain (RLS never runs) and Gate 9's original walk was rate-limited before reaching this step.
+- Fix: migration `008_create_household_with_owner_rpc.sql` — SECURITY DEFINER RPC that wraps both inserts atomically, binds owner to `auth.uid()` server-side. Client then SELECTs (now a member, passes RLS). Grants: `authenticated` + `service_role` only (revoked from `anon` + `public`). **Migration already applied to hosted via Management API** — verified grants + function body.
+
+**New machinery** (reusable for Steps 2-4):
+
+- `apps/web/e2e/helpers/test-user.ts` — admin-API lifecycle for `preship-qa@lalista-test.invalid` (RFC 2606 reserved `.invalid` TLD, unroutable). Idempotent delete + cascade-aware cleanup. Safety assertion rejects any non-test email.
+- `apps/web/e2e/qa-walk.spec.ts` + `pnpm --filter @lalista/web test:qa-walk` — Playwright-driven happy-path walk against hosted, captures 8-shot 4-combo hero matrix.
+- `apps/web/playwright.config.ts` has a dedicated `qa-walk` project with explicit `executablePath` (devcontainer firewall blocks the Playwright CDN's smaller headless-shell binary; full chromium works).
+
+**Remaining for Step 1**:
+
+- User merges PR #10 (deliberate handoff — no auto-merge)
+- User runs `/ak-go-live` post-merge to trigger deploy + canary
+
+### Admin-API workaround changes urgency of Step 2's Fix A
+
+Fix A (auto-bootstrap local Supabase in `/ak-pre-ship` Phase 0) was the original answer to hosted rate-limits. **Admin API bypasses rate-limits entirely** and works against hosted today (no docker needed). Fix A is still valuable (true local-only workflow, no hosted-DB pollution during dev), but **less urgent**. Rebuild of devcontainer.json with `--privileged` flag is required for docker-in-docker to actually run (currently defined-but-inert) — painful; could be deferred.
+
+Known Gap #5 (hosted rate-limit) now has a workaround: use admin API from service role. Document this in Gap #5 when Step 2 lands.
+
+### Step 2 scope expanded — bundle 3 more devshop changes
+
+Original: Fixes A–D on `feature/preship-qa-reliability` branch. Added to the same bundle:
+
+- **Rename `/clean-branches` → `/ak-clean-branches`** — devshop-provided slash commands should follow the `ak-` prefix convention (`/devshop/.claude/commands/clean-branches.md` is currently the odd-one-out). Note: `release-devshop` skill is fine — its frontmatter is already `ak-release-devshop`; directory name un-prefixed is consistent with other devshop skill dirs.
+- **`/ak-build` Phase 6 handoff nudge** — after printing the PR-ready link, also print the next-step hint:
+  - Diff touches runtime code (`apps/web/**`, `packages/**`, `supabase/migrations/**`, `supabase/functions/**`) → `"Next step after you merge: run /ak-go-live to deploy + canary-check."`
+  - Diff is docs-only (`docs/`, `README.md`, `BUILD-LOG.md`, `kit/`, `.github/**`, `specs/*/review.md`) → `"/ak-go-live not needed — no runtime changes."` (explicit, not silent skip).
+  - Edit target: `/devshop/.claude/skills/devshop/build/SKILL.md § Phase 6`.
+
+All three sit in the same "close evidence→action gap" theme as Fixes A-D. One version bump, one adversarial-review cycle.
+
+### Current state (supersedes § "State at this handoff" below)
+
+- `feature/auth` tip: `23b9795` (pushed, CI green)
+- `main`: still `ade6dff` + `8d0a31e`
+- `/workspace` working tree: clean
+- `/devshop` working tree: **dirty** (this update — uncommitted). Fold into Step 2's devshop PR, or commit as a standalone docs update first.
+- Hero shots + migration committed at `23b9795`
+- `qa-walk.log` is gitignored (regen via `pnpm test:qa-walk`)
+
+### Unchanged from the original plan
+
+Steps 3 (PR 3 core flows) and 4 (PR 4 CI slow job) — scope + questions-for-ak-spec + CI matrix all stand as written below. Known Gaps 1-17 all still apply except Gap #5 (rate-limit has admin-API workaround now) and Gap #6 (dark mode) which is still deferred but was exercised during QA-walk by injecting `classList.add('dark')` — so the visual regression surface is covered even pre-ThemeProvider.
 
 ---
 

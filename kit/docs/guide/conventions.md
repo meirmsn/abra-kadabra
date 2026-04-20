@@ -45,6 +45,26 @@ Owned by `/ak-implement` — see `.claude/skills/devshop/implement/SKILL.md` for
 
 Owned by `/ak-spec` — see `.claude/skills/devshop/spec/SKILL.md § Quality checklist` for the full checklist.
 
+## Screenshot Routing
+
+Projects have three tracked locations for screenshots plus one gitignored sink. Each has a distinct purpose; routing matters because gate tooling and PR bodies assume these paths.
+
+| Location                       | Tracked? | Who writes            | Purpose                                                                    |
+| ------------------------------ | -------- | --------------------- | -------------------------------------------------------------------------- |
+| `specs/<name>/hero/`           | ✅       | `/ak-pre-ship`, human | Durable product shots embedded in PR body + BUILD-LOG; one matrix per PR   |
+| `specs/<name>/screenshots/`    | ❌       | `/ak-pre-ship` gates  | Per-gate evidence (responsive check, design-review diffs); regenerable     |
+| `/screenshots/` (repo root)    | ❌       | human                 | Dev-context shots shared in a conversation / Slack / bug report; ephemeral |
+| `/Screenshot*.png` (repo root) | ❌       | macOS                 | Caught by `.gitignore` so default-named drops don't pollute `git status`   |
+
+**When choosing where to put a shot, ask:**
+
+1. Is it evidence for a specific PR, committed as part of the review package? → `specs/<name>/hero/`
+2. Is it produced by a `/ak-pre-ship` gate (responsive, design-review, benchmark)? → `specs/<name>/screenshots/` (gate tooling writes here)
+3. Is it context I'm sharing with Claude or a teammate right now, not tied to a PR? → `/screenshots/`
+4. Is it README-banner / marketing / landing-page imagery? → **Not yet established** as a convention; surface when the first project needs one.
+
+New projects get the `/screenshots/` folder + README template automatically via `/ak-new-project`. Existing projects inherit the `.gitignore` rules via `sync-from-devshop.sh` (manifest-tracked) but not the folder; copy from `template/screenshots/README.md` manually if you want it.
+
 ## Confidence Calibration
 
 ### Proceed autonomously

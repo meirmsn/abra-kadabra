@@ -174,6 +174,7 @@ CI slow job expansion plans are in ROADMAP.md § v+.
 - **devshop** — code name: `kit/` (repo), `.devshopkit/` (workspace symlink), `.claude/skills/devshop/`. Skills use `ak-` prefix (`/ak-build`, `/ak-spec`, etc.).
 - **gstack** — AI lifecycle toolkit (`.claude/skills/gstack/`). Per-project install, not part of devshop sync.
 - **specs/<name>/** — per-feature folder: `spec.md` (spec), `tasks.md` (tasks + decisions), `review.md` (quality gate results), `hero/` (committed durable screenshots), `screenshots/` (gitignored per-gate evidence). Permanent record after merge; see `FAQ.md § How are specs and pipeline artifacts organized?` for the hero/evidence split.
+- **/screenshots/** — repo-root folder for dev-context shots (what you paste into a conversation / share for a bug report). Contents gitignored; tracked `README.md` inside documents the convention. Distinct from `specs/<name>/hero/` (per-PR product shots) and `specs/<name>/screenshots/` (pre-ship gate evidence). See `guide/conventions.md § Screenshot Routing`.
 - **METRICS.md** — event taxonomy + feature flags. Source of truth for analytics.
 
 ## Further Reading
