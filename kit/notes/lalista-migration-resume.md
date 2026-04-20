@@ -606,6 +606,12 @@ These should be resolved before locking the spec:
 4. **Confirm the 5 new METRICS.md events?** (`item_added`, `item_bought`, `disambiguation_shown`, `store_routed`, `error_displayed`) — user must confirm before `/ak-spec` appends them per devshop convention.
 5. **Sign-out surface location?** Settings page only, or also a menu/header affordance?
 6. **PR 3 close-out gates**: Step 1 already closed PR #10's matrix gap. PR 3's `/ak-pre-ship` exercises richer UI surface; confirm pre-ship targets (which screens get the 4-combo matrix, etc.).
+7. **Information architecture — restore the landing page at `/` and move the authed home to `/list`?** Surfaced 2026-04-20: the current `/` page renders a `lalista` wordmark + "say leche. it handles the rest." + "Get started" button (the landing content), but `middleware.ts` redirects every unauth request from `/` to `/sign-in`, making the landing unreachable. PR 3 is the natural place to resolve this because it replaces the `/` placeholder with the list view anyway. Proposed IA for v0 (confirm at `/ak-spec`):
+   - `/` → **public landing** (unauth allowed; shows wordmark + tagline + "Get started" button → `/sign-in`; authed-with-household users see a "Go to your list" CTA or redirect to `/list`)
+   - `/list` (new path) → authed home, the grouped-by-store list view — PR 3's main deliverable
+   - `/sign-in`, `/onboarding` — unchanged from PR 2
+   - Middleware matcher needs two edits: remove `/` from auth-required, add `/list` as auth+household-required, update authed-`/sign-in` redirect destination to `/list` (currently `/onboarding` which handles the household gate on its own)
+   - Open sub-question: is `/` content purely marketing (sparse), or a dashboard-y "overview" for authed users? Depends on what product value exists beyond the list.
 
 ---
 
