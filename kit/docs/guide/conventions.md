@@ -65,6 +65,56 @@ Projects have three tracked locations for screenshots plus one gitignored sink. 
 
 New projects get the `/screenshots/` folder + README template automatically via `/ak-new-project`. Existing projects inherit the `.gitignore` rules via `sync-from-devshop.sh` (manifest-tracked) but not the folder; copy from `template/screenshots/README.md` manually if you want it.
 
+## Deploy Boundaries
+
+Every Supabase-backed project has multiple deploy surfaces; deploying one does NOT deploy the others. This matters because `git push` / PR merge only triggers the Next.js app deploy — Supabase migrations, edge functions, and auth config stay untouched unless you run the corresponding command explicitly.
+
+| Surface                 | How it deploys                                                           | Trigger               | `/ak-go-live` covers? |
+| ----------------------- | ------------------------------------------------------------------------ | --------------------- | --------------------- |
+| Next.js app (Vercel)    | Automatic on push — preview on PR, production on merge                   | `git push` / PR merge | ✅                    |
+| Supabase migrations     | `supabase db push` OR Management API `/v1/projects/{ref}/database/query` | Manual, per migration | ❌ (manual)           |
+| Supabase edge functions | `supabase functions deploy <fn-name>`                                    | Manual, per function  | ❌ (manual)           |
+| Supabase auth config    | Management API `/v1/projects/{ref}/config/auth` or dashboard             | Manual, per change    | ❌ (manual)           |
+
+**When a feature touches more than one surface**, ship them in this order:
+
+1. **Migrations first** — schema changes must be live before code that depends on them. If a migration fails, nothing downstream runs.
+2. **App deploy** — Vercel picks up the PR merge automatically. New code can now query the new schema.
+3. **Edge functions** — if the app calls a new or changed edge function, deploy the function after the app that calls it. (Functions can deploy before, but post-app keeps the rollback surface smaller: revert the app to pull traffic off the function before reverting the function itself.)
+4. **Auth config** — if the feature depends on new redirect URLs, CAPTCHA, password policy, etc., patch auth config before the app deploy so the first request using the new behavior finds config ready. Auth-config changes are cheap to roll back (re-PATCH) so ordering is flexible here.
+
+**Rollback** reverses the order: revert the app first to pull traffic off the new surfaces, then roll back migrations (if the migration supports it) and edge functions.
+
+## Supabase Hardening Defaults
+
+What `/ak-new-project` Step 17b applies to every new Supabase project, and why:
+
+| Setting                    | Default (free-tier)     | Hardened                           | Rationale                                                                                                                                                |
+| -------------------------- | ----------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `password_min_length`      | 6                       | 8                                  | 6 is below published password-policy floors (NIST 800-63B minimum is 8). Non-breaking for new projects; existing users are grandfathered.                |
+| `security_captcha_enabled` | `false`                 | `true` (if secret provided)        | CAPTCHA blocks automated signup abuse (credential stuffing, spam-account creation). Interactive because it needs an hCaptcha secret per project.         |
+| `site_url`                 | `http://localhost:3000` | production URL                     | Every email-based auth flow (password recovery, magic link, email change, signup confirm) redirects via `site_url`. Stale `localhost` = silent breakage. |
+| `uri_allow_list`           | empty                   | prod + Vercel wildcard + localhost | Supabase rejects auth redirects outside this list. Must include the Vercel preview-deploy wildcard so PR previews can exercise the full auth flow.       |
+
+Not touched (intentional):
+
+- `rate_limit_email_sent` stays at the free-tier default (2/hour). Raising requires custom SMTP (per-project decision, production-launch concern).
+- `disable_signup` stays `false`. Invite-code alternative is a separate roadmap item (`kit/ROADMAP.md § v1 § Invite-code signup control`).
+
+### ON DELETE on `auth.users` FK references
+
+Any schema table that references `auth.users(id)` MUST specify the `ON DELETE` action explicitly — `CASCADE`, `SET NULL` (column must be nullable), or `RESTRICT`. Never leave it implicit.
+
+Postgres defaults to `NO ACTION`, which silently blocks user deletion as soon as any dependent row exists. Supabase's Authentication UI surfaces this as the opaque "Database error deleting user" — the operator's only recourse is to go hunt down every FK and delete the dependent rows manually, or change the constraint (which requires DDL, which requires another migration).
+
+Recommended defaults by column meaning:
+
+- **`added_by` / audit columns** → `ON DELETE SET NULL` (preserve history, lose attribution).
+- **Tight ownership columns** (row doesn't make sense without the user) → `ON DELETE CASCADE`.
+- **Rare case: must keep row AND must have a user** → `ON DELETE RESTRICT` (forces an explicit decision at user-deletion time; worst UX but most explicit).
+
+Every schema reviewer and `/ak-pre-ship` migration gate should reject a migration where a `references auth.users(id)` lacks an explicit `ON DELETE` clause — it's a latent bug, not a design choice.
+
 ## Confidence Calibration
 
 ### Proceed autonomously
