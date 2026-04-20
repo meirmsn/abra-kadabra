@@ -74,7 +74,9 @@ FEATURE_DIR="specs/$FEATURE"
 
 Record that work is starting on this feature. `BUILD-LOG.md § In Flight` is the
 single source of truth for active branches — `/ak-implement` confirms against it,
-`/ak-status` surfaces it, `/ak-go-live` moves the entry to `## Log` on merge.
+`/ak-status` surfaces it, `/ak-build` Phase 5.6 moves the entry to `## Log` on
+the feature branch (as part of the PR, before merge). `/ak-go-live` Step 2b just
+sanity-checks that Phase 5.6 ran — no BUILD-LOG commits happen post-merge.
 
 If `BUILD-LOG.md` has no `## In Flight` section, add one above `## Log`:
 
@@ -88,7 +90,8 @@ If the section exists, append the entry (one line per active feature — multipl
 branches may be in flight at once).
 
 Use today's date. Set status to `spec` for now; `/ak-implement` updates it to
-`implementing`, `/ak-pre-ship` to `pre-ship`, `/ak-go-live` moves the entry out.
+`implementing`, `/ak-pre-ship` to `pre-ship`, `/ak-build` Phase 5.6 moves the
+entry out (to `## Log` on the feature branch, before merge).
 
 ## Step 5: Judge completeness
 

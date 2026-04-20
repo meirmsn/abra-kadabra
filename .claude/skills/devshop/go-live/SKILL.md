@@ -47,10 +47,9 @@ Invoke `/land-and-deploy` via Skill tool.
 gstack's `/land-and-deploy`: checks CI green, merges PR, waits for deploy, verifies
 production health. If CI is failing, it stops (does not merge).
 
-## Step 2b: Branch cleanup + In Flight → Log
+## Step 2b: Branch cleanup + BUILD-LOG sanity check
 
-After merge, clean up the feature branch locally, prune stale remote refs, and
-move the feature's entry from `BUILD-LOG.md § In Flight` into `## Log`.
+After merge, clean up the feature branch locally and prune stale remote refs. `BUILD-LOG.md` is closed by `/ak-build` Phase 5.6 on the feature branch **before merge**, so by this point main already has the entry in `## Log` and the placeholder `_No work in progress._` in `## In Flight`. This step is branch hygiene only — no BUILD-LOG commits, no second PR.
 
 ```bash
 FEATURE_BRANCH=$(git branch --show-current)
@@ -60,23 +59,23 @@ git branch -D "$FEATURE_BRANCH"
 git remote prune origin
 ```
 
-Then edit `BUILD-LOG.md`:
+### Sanity check — did Phase 5.6 run?
 
-1. Remove the line matching the feature branch from `## In Flight`. If that leaves
-   the section empty, restore the placeholder `_No work in progress._`.
-2. Append a new entry under `## Log` with today's date — `/ak-build` Phase 7 already
-   writes this entry after merge; if it did, just confirm. If not, add:
+Verify that `BUILD-LOG.md § In Flight` no longer references `$FEATURE_BRANCH`. If it does, Phase 5.6 was skipped (legacy build, manual PR that didn't use `/ak-build`, or Phase 5.6 silently failed). Do NOT auto-commit the close-out — Claude can't commit to main, and the whole point of Phase 5.6 was to avoid a second PR.
 
-   ```markdown
-   ### <FEATURE> (YYYY-MM-DD)
+```bash
+if awk '/^## In Flight/,/^## Log/' BUILD-LOG.md | grep -qF "$FEATURE_BRANCH"; then
+  echo "⚠  BUILD-LOG.md still shows $FEATURE_BRANCH under ## In Flight."
+  echo "   /ak-build Phase 5.6 appears to have skipped."
+  echo "   Ask the user to manually:"
+  echo "     1. Edit BUILD-LOG.md — move the $FEATURE_BRANCH In Flight entry to ## Log"
+  echo "     2. Commit on main as 'chore: close $FEATURE in BUILD-LOG' (human-initiated commits to main are allowed)"
+  echo ""
+  echo "   Continuing /ak-go-live; the BUILD-LOG cleanup is non-blocking for deploy verification."
+fi
+```
 
-   - **Branch**: <FEATURE_BRANCH>
-   - **PR**: #<PR number>
-   - **Spec**: specs/<FEATURE>/spec.md
-   - **Summary**: <1-line from spec>
-   ```
-
-Commit as `chore: close <FEATURE> in BUILD-LOG`.
+The sanity check surfaces the issue; it does not block or auto-fix. Clean Phase 5.6 runs leave this check a silent pass.
 
 ## Step 3: Canary monitoring
 

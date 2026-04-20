@@ -233,7 +233,7 @@ GitHub Actions + Vercel preview, `gh run list` covers it.
 When GitHub re-enables the fine-grained Checks permission, swap back to
 `gh pr checks "$PR" --watch --fail-fast` — tracked in `kit/TODOS.md`.
 
-### 5.3: On CI green → update PR body checkboxes, then proceed to Phase 6
+### 5.3: On CI green → update PR body checkboxes, then continue to 5.6
 
 Once the CI run completes successfully, mark the relevant `## Test plan` /
 `### CI gates` checkboxes as `[x]` with the short attestation inline
@@ -317,6 +317,52 @@ gh pr comment "$PR" --body "## CI failing — help needed
 
 Stop and wait. The user gets a GitHub notification.
 
+### 5.6: Finalize BUILD-LOG.md on the feature branch
+
+Runs on CI green (after 5.3), before advancing to Phase 6. Closes out this feature's `BUILD-LOG.md` entry **on the feature branch** so it ships as part of this PR — not as a separate post-merge cleanup PR.
+
+**Why here, not post-merge**: the prior design landed a second `chore: close <feature> in BUILD-LOG` PR on main after merge. That's an extra PR for pure history, and fails on projects with a main-is-PR-only guard that blocks Claude from committing to main directly. Writing on the feature branch eliminates both problems — the PR carries its own history entry, and merge-to-main brings it along.
+
+**Inputs**:
+
+- `$FEATURE` — feature name (from Phase 0 / Phase 1)
+- `$PR` — PR number (from 5.1)
+- `$FEATURE_DIR` — `specs/$FEATURE/`
+- `BUILD-LOG.md` at repo root (Phase 1's `/ak-spec` created the `## In Flight` entry)
+
+**Steps**:
+
+1. If `BUILD-LOG.md` doesn't exist, copy from `/devshop/template/BUILD-LOG.md`.
+
+2. Find the In Flight entry for `$FEATURE` (format: `` - `<branch>` — `specs/<feature>/spec.md` — started YYYY-MM-DD — status: <state> ``). Remove it from `## In Flight`. If the section is now empty, restore the placeholder `_No work in progress._`.
+
+3. Append a finalized entry under `## Log`, most-recent-first (above existing entries):
+
+   ```markdown
+   ### <FEATURE> (YYYY-MM-DD)
+
+   - **Branch**: `<FEATURE_BRANCH>` (merging via #<PR>)
+   - **PR**: [#<PR>](https://github.com/<owner>/<repo>/pull/<PR>)
+   - **Spec**: `specs/<FEATURE>/spec.md`
+   - **Summary**: <1-line summary from $FEATURE_DIR/spec.md>
+   - **Commits**: <N> (<brief list if ≤ 5, else "N atomic commits per /ak-implement">)
+   - **Quality gates**: <summary from audit — "all passed" / "N findings fixed during pre-ship" / etc>
+   ```
+
+4. Commit on the feature branch:
+
+   ```bash
+   git add BUILD-LOG.md
+   git commit -m "chore(build-log): record <FEATURE>"
+   git push
+   ```
+
+5. Re-fetch the PR body. If it carries a commit count that's now stale (e.g., `Commits: N`), update via `gh pr edit "$PR" --body-file`.
+
+**Idempotence**: if 5.6 has already run for this feature (no In Flight entry for `$FEATURE` AND a `## Log` entry referencing `$PR` exists), skip — don't duplicate.
+
+**Fallback for CI-timeout**: if `$PR` is not yet set (5.1 hasn't run — edge case where Phase 5 was entered out-of-band), 5.6 is a no-op; it will fire next time CI is green with a known PR.
+
 ## Phase 6: Post audit trail comment
 
 After CI is green, read `$FEATURE_DIR/review.md` and `$FEATURE_DIR/tasks.md` for the
@@ -394,26 +440,9 @@ the `## Test plan` checkboxes against reality:
 If any box is in the wrong state when Phase 6 runs, fix it with
 `gh pr edit "$PR" --body-file` before posting the audit comment.
 
-## Phase 7: Update BUILD-LOG.md
+## Phase 7: Notify
 
-If `BUILD-LOG.md` does not exist, copy from `/devshop/template/BUILD-LOG.md`.
-
-Append an entry to the project's `BUILD-LOG.md`:
-
-```markdown
-### <feature-name> (YYYY-MM-DD)
-
-- **Branch**: <branch name>
-- **PR**: #<PR number>
-- **Spec**: specs/<feature>/spec.md
-- **Summary**: <1-line from spec>
-- **Commits**: <N>
-- **Quality gates**: all passed
-```
-
-## Phase 8: Notify
-
-### 8.1: Detect diff type (runtime vs docs-only)
+### 7.1: Detect diff type (runtime vs docs-only)
 
 The "next step" handoff depends on whether this PR has runtime changes that need a deploy. Runtime paths trigger `/ak-go-live`; docs-only diffs don't — and leaving the hint as "run `/ak-go-live`" on a docs-only PR leads to unnecessary canary runs and user confusion about what's shipping.
 
@@ -440,7 +469,7 @@ fi
 
 The branch is explicit rather than silent: on docs-only PRs, the user should SEE "no deploy needed" rather than wonder whether the pipeline forgot to suggest one.
 
-### 8.2: Post ready-for-review comment
+### 7.2: Post ready-for-review comment
 
 ```bash
 GITHUB_USER=$(gh api user --jq .login 2>/dev/null || git config user.name)
@@ -457,7 +486,7 @@ gh pr comment "$PR" --body "## Ready for review
 ${NEXT_STEP_LINE}"
 ```
 
-### 8.3: Print the handoff to the terminal
+### 7.3: Print the handoff to the terminal
 
 After the comment posts, echo the handoff to the session's stdout so the user sees the next step in Claude Code without having to read the PR on GitHub first:
 
