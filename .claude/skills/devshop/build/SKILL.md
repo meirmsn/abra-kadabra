@@ -413,6 +413,35 @@ Append an entry to the project's `BUILD-LOG.md`:
 
 ## Phase 8: Notify
 
+### 8.1: Detect diff type (runtime vs docs-only)
+
+The "next step" handoff depends on whether this PR has runtime changes that need a deploy. Runtime paths trigger `/ak-go-live`; docs-only diffs don't — and leaving the hint as "run `/ak-go-live`" on a docs-only PR leads to unnecessary canary runs and user confusion about what's shipping.
+
+```bash
+BASE=$(gh pr view "$PR" --json baseRefName --jq .baseRefName)
+DIFF_FILES=$(git diff --name-only "origin/${BASE}...HEAD")
+
+# Runtime paths — touching any of these means the deploy pipeline needs to run:
+#   apps/**        — Next.js / web app code
+#   packages/**    — workspace packages (core, ui)
+#   supabase/migrations/**  — DB schema
+#   supabase/functions/**   — edge functions
+RUNTIME_REGEX='^(apps/|packages/|supabase/migrations/|supabase/functions/)'
+
+if echo "$DIFF_FILES" | grep -qE "$RUNTIME_REGEX"; then
+  NEXT_STEP_LINE="Review the diff, check the preview URL, then run \`/ak-go-live\` to deploy + canary-check."
+  TERMINAL_HINT="Next step after you merge: run /ak-go-live to deploy + canary-check."
+else
+  # Docs-only diff (docs/, README.md, BUILD-LOG.md, kit/, .github/, specs/**/*.md, CHANGELOG.md, etc.)
+  NEXT_STEP_LINE="Review the diff and merge. No runtime changes in this PR — \`/ak-go-live\` not needed."
+  TERMINAL_HINT="/ak-go-live not needed — no runtime changes."
+fi
+```
+
+The branch is explicit rather than silent: on docs-only PRs, the user should SEE "no deploy needed" rather than wonder whether the pipeline forgot to suggest one.
+
+### 8.2: Post ready-for-review comment
+
 ```bash
 GITHUB_USER=$(gh api user --jq .login 2>/dev/null || git config user.name)
 
@@ -425,7 +454,16 @@ gh pr comment "$PR" --body "## Ready for review
 **Quality gates:** all passed
 **CI:** green <after N fix attempts if any>
 
-Review the diff, check the preview URL, then run \`/ak-go-live\` to deploy."
+${NEXT_STEP_LINE}"
+```
+
+### 8.3: Print the handoff to the terminal
+
+After the comment posts, echo the handoff to the session's stdout so the user sees the next step in Claude Code without having to read the PR on GitHub first:
+
+```bash
+echo ""
+echo "→ $TERMINAL_HINT"
 ```
 
 ## PR body conventions
