@@ -3,7 +3,7 @@
 **Read this doc first if you're continuing the lalista Swift → Next.js migration.**
 This is **self-contained**. No need to read the three predecessor docs (`phase-1-next-steps.md`, `pr2-pending-checks.md`, `subagent-hook-scope.md`) — every still-relevant detail from them is inlined below. Predecessor docs can be referenced for historical context only.
 
-**Authoring date**: 2026-04-18. **Last updated**: 2026-04-20 (inline block below).
+**Authoring date**: 2026-04-18. **Last updated**: 2026-04-20 (Step 2 in progress — see "UPDATE 2026-04-20 — Step 2 IN PROGRESS" below).
 
 **Predecessor docs** (historical — content inlined here):
 
@@ -85,7 +85,20 @@ This forces the triage to be explicit and auditable, rather than drifting to inl
 
 ---
 
-## UPDATE 2026-04-20 — Step 1 DONE, Step 2 scope expanded
+## UPDATE 2026-04-20 — Step 1 DONE, Step 2 IN PROGRESS
+
+**Latest status (2026-04-20 afternoon)** — pick up here after a context reset:
+
+- **Step 1 fully wrapped**: PR #10 merged as squash commit `41b3eaa` on lalista `main`; BUILD-LOG housekeeping PR #12 merged as `81b2638`; `/ak-go-live` deploy complete; canary verified.
+- **Step 2 ACTIVE**: implementing the full bundled scope in § "Step 2 scope expanded" below on devshop branch `feature/preship-qa-reliability`. **Fresh-session resume sequence**:
+  1. `git -C /devshop checkout feature/preship-qa-reliability` (create if missing, from `main`)
+  2. `git -C /devshop log --oneline main..HEAD` to see how far Step 2 got before reset
+  3. Walk the Step 2 checklist top-to-bottom (Fixes A-D, then expanded items: `/ak-clean-branches` rename+remote-delete, `/ak-build` Phase 5.x + Phase 7 removal + Phase 6 handoff nudge, `/ak-new-project` Supabase hardening, conventions doc additions)
+  4. First task on resume: capture the 2 infra TODOs from § "Devshop infrastructure findings (pre-Step-2 reading)" into `/devshop/kit/TODOS.md` if not already there
+- **Locked-in decisions 2026-04-20**:
+  - **Lalista migration 009 (ON DELETE FK cascades)** → **folded into PR 3**, not standalone PR 2.1. Rationale: avoids a one-commit interstitial PR; co-located with the new write paths PR 3 introduces; the devshop `ON DELETE` FK convention landing in Step 2 guides the migration shape. See § "Pending lalista work § standalone § Migration 009".
+- **Lalista main tip** (as of Step 2 kickoff): `81b2638`. Working tree clean. No active feature branches on lalista during Step 2.
+- **Devshop main tip** (as of Step 2 kickoff): `2aa4db1 docs(notes): /ak-clean-branches edge case — checkout main first if HEAD matches target`. Working tree clean. All Step 2 scope captured in docs; implementation pending on `feature/preship-qa-reliability`.
 
 ### Step 1 — PR #10 close-out: ✅ DONE
 
@@ -181,7 +194,7 @@ Items discovered during Step 1 that are lalista-side but not yet fixed. Each has
 
 #### Standalone (no dependency on devshop v1 helper)
 
-- **Migration 009 — add `ON DELETE` to `auth.users` FK references**. Lalista's migration 001 declares `list_entries.added_by references auth.users(id)` and `purchase_history.added_by references auth.users(id)` with no explicit `on delete` clause — default `NO ACTION`. Result: any user who has added a list entry can't be deleted from the Supabase dashboard ("Database error deleting user"). Surfaced 2026-04-20. Schedule: **PR 2.1 (small follow-up) OR folded into PR 3** (before PR 3's `/add-item` flow adds more write paths). Shape:
+- **Migration 009 — add `ON DELETE` to `auth.users` FK references**. Lalista's migration 001 declares `list_entries.added_by references auth.users(id)` and `purchase_history.added_by references auth.users(id)` with no explicit `on delete` clause — default `NO ACTION`. Result: any user who has added a list entry can't be deleted from the Supabase dashboard ("Database error deleting user"). Surfaced 2026-04-20. Schedule: **folded into PR 3** (decided 2026-04-20 — avoids a one-commit interstitial PR; co-located with the new write paths PR 3 introduces; the devshop `ON DELETE` FK convention landing in Step 2 guides the migration shape). Apply as the first migration in PR 3, before `/add-item` write paths land. Shape:
   ```sql
   -- 009_cascade_auth_user_fks.sql
   alter table list_entries
@@ -222,29 +235,32 @@ Both of these were observed but NOT committed to `kit/TODOS.md` during Step 1 cl
 
 **Lalista** (`/workspace`):
 
-- `feature/auth` tip: **`e1ceb9c fix(auth): distinguish existing-user from new-user in signup fallback`** (pushed)
-- Commits on `feature/auth` since `main` (5 ahead):
-  - `e1ceb9c` — existing-user `identities.length === 0` detection, prevents misleading "check your email" for wrong-password on existing accounts
-  - `31b5637` — `awaitingConfirmation` UI + `friendlyAuthError` helper (for unconfirmed-signup + friendly error copy)
-  - `d36e45c` — `/screenshots/` convention (gitignored folder + tracked README)
-  - `23b9795` — atomic household-creation RPC (migration 008) + QA-walk harness + 8-shot hero matrix
-  - `6618141` — Tailwind `@source` + Button 44px + auth-shell centering + E2E email TLD (pre-dates this session)
-- **PR #10**: open, mergeable, all 4 review checkboxes `[x]`. Awaiting user to merge + run `/ak-go-live`.
-- `main`: `ade6dff` + `8d0a31e` (unchanged since Step 1 started)
+- `main` tip: **`81b2638 chore: close auth in BUILD-LOG (#12)`** — PR #10 merged as squash `41b3eaa`; BUILD-LOG housekeeping merged as `81b2638`; `feature/auth` branch deleted locally + remotely.
+- **PR #10**: **merged** 2026-04-20 (squash). 4 review checkboxes `[x]`, CI green, Vercel deploy complete via `/ak-go-live`.
+- **PR #12** (BUILD-LOG close): merged. Unblocks the `main-is-PR-only` guard for future feature PRs.
+- No active feature branches during Step 2 (all Step 2 work lives on devshop). Next lalista work is PR 3 after Step 2 lands.
 - Working tree: clean
-- Test counts: 35 web + 36 core + 21 UI = **92 unit tests pass**; `pnpm test:qa-walk` green against hosted Supabase
+- Test counts at PR #10 merge: 35 web + 36 core + 21 UI = **92 unit tests pass**; `pnpm test:qa-walk` green against hosted Supabase
 - Inline fixes with verification debt (see Core Principles § 4): `31b5637` and `e1ceb9c` owe a refactor-to-adopt once v1 Auth UX conventions ship
 
 **Devshop** (`/devshop`, abra-kadabra):
 
-- `main` tip: **`85cbfd6 docs(notes): add Deploy Boundaries section to Step 2 scope`** (pushed)
-- Latest tag: `v1.10.3` (bumped earlier this session)
-- Commits on `main` since `v1.10.3`:
-  - `85cbfd6` — Deploy Boundaries to Step 2 + identities-check to Fix C friendly-error coverage
+- `main` tip: **`2aa4db1 docs(notes): /ak-clean-branches edge case — checkout main first if HEAD matches target`** (pushed)
+- Latest tag: `v1.10.3` (behind main by a growing run of docs-only commits — no re-release needed until Step 2 lands implementation)
+- Recent docs-only commits on `main` since `v1.10.3` (all captured in this doc's Step 2 scope; no implementation yet):
+  - `2aa4db1` — `/ak-clean-branches` edge case: checkout main first if HEAD matches a target
+  - `a85915a` — extend `/ak-clean-branches` scope to delete remote branches
+  - `90f113c` — capture two devshop infra findings from Step 1 close-out (firewall re-init hang + Playwright CDN flakiness)
+  - `44bb0fd` — Step 2: restructure `/ak-build` BUILD-LOG flow (Phase 5.x on branch, delete Phase 7)
+  - `98379eb` — PR 3 /ak-spec question: restore public landing + move authed home to `/list`
+  - `99adf23` — schedule migration 009 (auth.users FK cascades) into migration plan
+  - `097e4d2` — capture password-reset flow gaps surfaced by PR #10 testing
+  - `c93630a` — add Core Principles section + sync current state
+  - `85cbfd6` — Deploy Boundaries section to Step 2
   - `982e28e` — Auth UX conventions (v1 ROADMAP) + Fix C user-state matrix expansion
   - `d4f9a42` — Supabase auth hardening (Step 2) + Invite-code signup (v1 ROADMAP)
 - Working tree: clean
-- Tag `v1.10.3` is behind current main by 3 docs-only commits — no re-release needed (all `docs:` / `chore:` per ak-release-devshop skill heuristic)
+- **Implementation branch for Step 2**: `feature/preship-qa-reliability` (to be created from `main`)
 
 **Hosted Supabase** (shared state — record so future sessions don't rediscover):
 
@@ -253,13 +269,14 @@ Both of these were observed but NOT committed to `kit/TODOS.md` during Step 1 cl
 - Auth config: defaults (free-tier) — `password_min_length: 6`, `rate_limit_email_sent: 2/hour`, `security_captcha_enabled: false`, `mailer_autoconfirm: false`, `disable_signup: false`, no custom SMTP. These are what Step 2's `/ak-new-project` auth-hardening step will tighten for future projects; lalista's hosted project can optionally be patched mid-Step-2 as a dry-run
 - No orphan test users — admin-API `preship-qa@lalista-test.invalid` test user is created + deleted by `qa-walk.spec.ts`'s beforeAll/afterAll; all `*@lalista-test.invalid` diagnostic users cleaned up at end of this session
 
-**Next actions for user (before closing this session)**:
+**Next actions (Step 2 now in progress)**:
 
-1. Merge PR #10 (squash per project CLAUDE.md)
-2. Run `/ak-go-live` in this session — deploy + canary + reflect
-3. I print the fresh-session handoff prompt (final step)
+1. ✅ Merge PR #10 (done — squash commit `41b3eaa`)
+2. ✅ `/ak-go-live` (done — Vercel deploy + canary complete)
+3. ✅ BUILD-LOG housekeeping PR #12 (done — `81b2638`)
+4. **→ Execute Step 2 on devshop `feature/preship-qa-reliability` branch.** Full checklist in § "Step 2 scope expanded" above. Fresh-session resume: check `git -C /devshop log --oneline main..feature/preship-qa-reliability` to see completed commits; pick up at the next uncommitted item.
 
-**Next session will start with**: this doc's § Core Principles, then Step 2. See § "Session kickoff prompts" below for the exact text to paste.
+**If context resets during Step 2**: read § Core Principles, then this UPDATE section (you're here), then § "Step 2 scope expanded". Check branch progress before doing anything. Keep folded-into-PR-3 items (migration 009, Auth UX conventions refactor-to-adopt) in scope awareness but don't work on them during Step 2.
 
 ### Unchanged from the original plan
 
