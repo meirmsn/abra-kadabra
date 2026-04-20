@@ -13,6 +13,78 @@ This is **self-contained**. No need to read the three predecessor docs (`phase-1
 
 ---
 
+## Core principles (READ FIRST — this drives every decision in the migration)
+
+The migration's whole purpose is to get the devshop into a good state, with lalista as the byproduct. NOT "ship lalista fast and fix devshop later." Rushing inline fixes defeats the purpose — every gap lalista surfaces is an opportunity to refine devshop so the next project inherits the fix.
+
+### 1. Triage every finding at discovery time
+
+Every finding has exactly one origin. Classify at the moment it surfaces:
+
+- **A. Pure project** — product feature or UX decision (design tokens, specific layouts, business-logic-unique-to-this-product). **Always fix inline**; no devshop implication.
+- **B. Pure devshop** — QA gap, tooling missing, reusable convention that spans projects. **Always route to devshop**; don't patch lalista ad-hoc.
+- **C. Both** — the most common case for auth / deploy / data / testing patterns. Needs an entry in both homes.
+
+### 2. For Category C: ASK the user before choosing
+
+On every Category C finding, stop and ask:
+
+> "This is Category C. Implement the devshop fix now (slower, proves devshop works on lalista), or capture in ROADMAP + fix lalista inline (faster but accrues verification debt)?"
+
+**Bias toward "implement now."** Deferring is a real choice with a real cost — the devshop helper stays untested until a future project surfaces the same gap. The point of this migration is to close those gaps now, while lalista is actively forcing them.
+
+### 3. Time-box rule (default for ambiguous cases)
+
+- Devshop fix **< 1 day** → implement devshop FIRST, then apply to lalista (adopt the new helper/convention). This is the preferred path.
+- Devshop fix **≥ 1 day** → capture in ROADMAP with shape + trigger + prior-art references; fix lalista inline; **verification debt is owed** (see principle 4).
+
+### 4. Verification = refactor-to-adopt (NOT rebuild-from-scratch)
+
+When a Category C finding is fixed inline (principle 3's ≥1 day branch), the devshop implementation still needs to be validated. The verification isn't rebuilding lalista from scratch — it's refactor-to-adopt:
+
+1. A future devshop session implements the convention/helper per the ROADMAP entry
+2. A future lalista session **replaces** the inline lalista code with imports from the new helper (delete the inline version)
+3. Verify identical behavior: existing unit tests pass, `pnpm test:qa-walk` passes, manual UX check matches
+4. If identical → devshop is proven; any future project using the same helper gets the same behavior for free
+5. If different → the devshop implementation is wrong; iterate until identical
+
+This is how each ROADMAP entry gets discharged — not "we wrote the helper," but "lalista successfully adopted it with no regression."
+
+**Inline fixes that owe verification** (as of 2026-04-20):
+
+| Lalista commit | Inline fix                                      | Devshop ROADMAP entry                       | Verification owed                                                                                                                  |
+| -------------- | ----------------------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `31b5637`      | `awaitingConfirmation` UI + `friendlyAuthError` | `kit/ROADMAP.md § v1 § Auth UX conventions` | After v1 ships: delete inline, import `AwaitingConfirmationCard` + `friendlyAuthError` from the helper; tests + qa-walk still pass |
+| `e1ceb9c`      | `identities.length === 0` existing-user check   | same entry (added to same v1 scope)         | Same flow — the identities-check should live in the helper, not in lalista's page                                                  |
+
+### 5. Stop criterion — when to let devshop be
+
+Tied to PR milestones, not calendar time. Don't over-optimize devshop for problems the project hasn't hit yet.
+
+| Milestone     | Stop signal (devshop is "v1-ready" for this phase)                                                                    |
+| ------------- | --------------------------------------------------------------------------------------------------------------------- |
+| After PR 2    | Devshop has: auth, RLS, RPC, QA-walk patterns                                                                         |
+| After PR 3    | Devshop has: realtime, edge-fn, item-UX, theme-auto-detect patterns                                                   |
+| After PR 4    | Devshop has: CI slow job, type-drift, rollback validation, deploy boundary docs                                       |
+| **Post-PR 4** | STOP routing small findings to devshop. New findings go to ROADMAP with trigger = "next project surfaces this again." |
+
+Heuristic to know you're done: post-PR 4, if you're still finding >1 devshop gap per PR, devshop isn't done. If you find zero per PR for two PRs in a row, you're done.
+
+### How to ASK (principle 2) — exact phrasing
+
+When a Category C finding surfaces mid-session, present it like this:
+
+> "Category C finding: <description>. Options:
+>
+> **A.** Implement devshop now (shape: <1-line>, est: <hours/days>). Paired lalista change: <what adopts it>. Proves the devshop helper works.
+> **B.** Capture in ROADMAP + fix lalista inline (est: <hours>). Fastest today; verification debt owed (devshop side untested until the refactor-to-adopt step).
+>
+> Bias is toward A unless you tell me otherwise. Which?"
+
+This forces the triage to be explicit and auditable, rather than drifting to inline fixes by default.
+
+---
+
 ## UPDATE 2026-04-20 — Step 1 DONE, Step 2 scope expanded
 
 ### Step 1 — PR #10 close-out: ✅ DONE
@@ -83,12 +155,46 @@ All sit in the same "close evidence→action gap" theme as Fixes A-D. One versio
 
 ### Current state (supersedes § "State at this handoff" below)
 
-- `feature/auth` tip: `31b5637 fix(auth): show awaiting-confirmation UI + friendly-error copy on sign-in` (pushed, CI running)
-- `main`: still `ade6dff` + `8d0a31e`
-- `/workspace` working tree: clean
-- `/devshop` working tree: **dirty** (this update — uncommitted). Commit as a docs update before next session.
-- Hero shots + migration committed at `23b9795`; sign-in UX fix at `31b5637`
-- `qa-walk.log` is gitignored (regen via `pnpm test:qa-walk`)
+**Lalista** (`/workspace`):
+
+- `feature/auth` tip: **`e1ceb9c fix(auth): distinguish existing-user from new-user in signup fallback`** (pushed)
+- Commits on `feature/auth` since `main` (5 ahead):
+  - `e1ceb9c` — existing-user `identities.length === 0` detection, prevents misleading "check your email" for wrong-password on existing accounts
+  - `31b5637` — `awaitingConfirmation` UI + `friendlyAuthError` helper (for unconfirmed-signup + friendly error copy)
+  - `d36e45c` — `/screenshots/` convention (gitignored folder + tracked README)
+  - `23b9795` — atomic household-creation RPC (migration 008) + QA-walk harness + 8-shot hero matrix
+  - `6618141` — Tailwind `@source` + Button 44px + auth-shell centering + E2E email TLD (pre-dates this session)
+- **PR #10**: open, mergeable, all 4 review checkboxes `[x]`. Awaiting user to merge + run `/ak-go-live`.
+- `main`: `ade6dff` + `8d0a31e` (unchanged since Step 1 started)
+- Working tree: clean
+- Test counts: 35 web + 36 core + 21 UI = **92 unit tests pass**; `pnpm test:qa-walk` green against hosted Supabase
+- Inline fixes with verification debt (see Core Principles § 4): `31b5637` and `e1ceb9c` owe a refactor-to-adopt once v1 Auth UX conventions ship
+
+**Devshop** (`/devshop`, abra-kadabra):
+
+- `main` tip: **`85cbfd6 docs(notes): add Deploy Boundaries section to Step 2 scope`** (pushed)
+- Latest tag: `v1.10.3` (bumped earlier this session)
+- Commits on `main` since `v1.10.3`:
+  - `85cbfd6` — Deploy Boundaries to Step 2 + identities-check to Fix C friendly-error coverage
+  - `982e28e` — Auth UX conventions (v1 ROADMAP) + Fix C user-state matrix expansion
+  - `d4f9a42` — Supabase auth hardening (Step 2) + Invite-code signup (v1 ROADMAP)
+- Working tree: clean
+- Tag `v1.10.3` is behind current main by 3 docs-only commits — no re-release needed (all `docs:` / `chore:` per ak-release-devshop skill heuristic)
+
+**Hosted Supabase** (shared state — record so future sessions don't rediscover):
+
+- Project ref: `nzfdfjctpotjyuxdfcpw`
+- Migration `008_create_household_with_owner_rpc.sql` applied (not via CI; applied manually via Management API in this session — verified via `pg_policy` + `routine_privileges` queries)
+- Auth config: defaults (free-tier) — `password_min_length: 6`, `rate_limit_email_sent: 2/hour`, `security_captcha_enabled: false`, `mailer_autoconfirm: false`, `disable_signup: false`, no custom SMTP. These are what Step 2's `/ak-new-project` auth-hardening step will tighten for future projects; lalista's hosted project can optionally be patched mid-Step-2 as a dry-run
+- No orphan test users — admin-API `preship-qa@lalista-test.invalid` test user is created + deleted by `qa-walk.spec.ts`'s beforeAll/afterAll; all `*@lalista-test.invalid` diagnostic users cleaned up at end of this session
+
+**Next actions for user (before closing this session)**:
+
+1. Merge PR #10 (squash per project CLAUDE.md)
+2. Run `/ak-go-live` in this session — deploy + canary + reflect
+3. I print the fresh-session handoff prompt (final step)
+
+**Next session will start with**: this doc's § Core Principles, then Step 2. See § "Session kickoff prompts" below for the exact text to paste.
 
 ### Unchanged from the original plan
 
