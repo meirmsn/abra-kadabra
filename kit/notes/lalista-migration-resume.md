@@ -73,6 +73,13 @@ All sit in the same "close evidence→action gap" theme as Fixes A-D. One versio
   - **Edit target**: `/devshop/.claude/skills/devshop/pre-ship/SKILL.md § Gate 9` (per Step 2's existing Fix C plan) — add the matrix as mandatory evidence. Harness helpers live in each project's `e2e/helpers/` (or, post-convention, `@devshop-template/auth-ux`).
   - **Cross-ref to `kit/ROADMAP.md § v1 § Auth UX conventions`** — the QA-side matrix and the UX-side convention are paired. Projects implement the UX patterns; Gate 9 verifies they handle each user-state correctly.
   - **Verification during Step 2**: update lalista's `qa-walk.spec.ts` to exercise all 5 rows, watch it catch a regressing of the sign-in-silent-bounce bug if I intentionally break the fix.
+  - **Friendly-error coverage** — add a case for the existing-user-via-signup-fallback pattern. Supabase's user-enumeration-prevention returns `data.user.identities: []` (empty) when signup hits an already-confirmed email; sign-in pages MUST check this before falling into "awaiting confirmation" UI. Concrete prior art in lalista `31b5637` (the initial awaiting-confirmation fix) and `e1ceb9c` (the identities-check follow-up).
+
+- **`guide/conventions.md § Deploy Boundaries`** — new short section documenting what each deploy target covers. Every Supabase-backed project hits this question; a single place to point at saves repeated explanations.
+  - **Content**: 4-row table — Next.js app (Vercel, auto on push), Supabase migrations (`supabase db push` / Management API, manual), Supabase edge functions (`supabase functions deploy`, manual), Supabase auth config (Management API or dashboard, manual). Plus a "when you ship a feature that touches both" pointer — migrations land first, then app deploy, then edge-fn deploy if applicable.
+  - **Edit target**: `/devshop/kit/docs/guide/conventions.md` — new `## Deploy Boundaries` section (position: after Screenshot Routing, before Supabase Hardening Defaults when that lands from the earlier bullet).
+  - **Why it belongs in Step 2**: discovered while closing out PR #10 — user asked "does Vercel deploy include Supabase changes?" — answer is no, migrations/functions/auth-config need separate deployment. That confusion will hit every next project; docs now, not later.
+  - **Size**: ~20 lines of markdown; no code.
 
 ### Current state (supersedes § "State at this handoff" below)
 
