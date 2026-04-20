@@ -61,13 +61,26 @@ Original: Fixes A–D on `feature/preship-qa-reliability` branch. Added to the s
 
 All sit in the same "close evidence→action gap" theme as Fixes A-D. One version bump, one adversarial-review cycle. The paired bigger-picture entry for invite-code signup lives in `kit/ROADMAP.md § v1 § Invite-code signup control`.
 
+- **Fix C expansion — Gate 9 user-state matrix**. The current `apps/web/e2e/qa-walk.spec.ts` uses the admin API with `email_confirm: true` and exercises a single user-state: already-confirmed, has-correct-password, no-household. That's the reason it missed lalista's onboarding 403 AND the sign-in silent-bounce bug. Fix C must enforce that Gate 9 exercises the matrix of user states that real users actually hit:
+
+  | User-state                           | Why it matters                                                            | How to exercise                                                                                   |
+  | ------------------------------------ | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+  | **Unconfirmed signup**               | Default Supabase config; new users ALWAYS hit this first                  | Create user with admin API `email_confirm: false`; walk until UI surfaces "check your email"      |
+  | **Wrong password for existing user** | Real users mistype passwords constantly                                   | Existing confirmed user + intentionally wrong password; assert friendly error, no silent fallback |
+  | **Rate-limited signup**              | Free-tier default `rate_limit_email_sent: 2/hour` trips easily in testing | Trigger 3 signups in rapid succession; 3rd must show friendly rate-limit message                  |
+  | **Existing user, correct password**  | The canonical happy path (currently covered)                              | Already covered by current harness                                                                |
+  | **Session expired mid-onboarding**   | Supabase tokens expire; RSC `getUser()` returns null                      | Create user, sign in, admin-delete session, attempt onboarding; assert redirect to `/sign-in`     |
+  - **Edit target**: `/devshop/.claude/skills/devshop/pre-ship/SKILL.md § Gate 9` (per Step 2's existing Fix C plan) — add the matrix as mandatory evidence. Harness helpers live in each project's `e2e/helpers/` (or, post-convention, `@devshop-template/auth-ux`).
+  - **Cross-ref to `kit/ROADMAP.md § v1 § Auth UX conventions`** — the QA-side matrix and the UX-side convention are paired. Projects implement the UX patterns; Gate 9 verifies they handle each user-state correctly.
+  - **Verification during Step 2**: update lalista's `qa-walk.spec.ts` to exercise all 5 rows, watch it catch a regressing of the sign-in-silent-bounce bug if I intentionally break the fix.
+
 ### Current state (supersedes § "State at this handoff" below)
 
-- `feature/auth` tip: `23b9795` (pushed, CI green)
+- `feature/auth` tip: `31b5637 fix(auth): show awaiting-confirmation UI + friendly-error copy on sign-in` (pushed, CI running)
 - `main`: still `ade6dff` + `8d0a31e`
 - `/workspace` working tree: clean
-- `/devshop` working tree: **dirty** (this update — uncommitted). Fold into Step 2's devshop PR, or commit as a standalone docs update first.
-- Hero shots + migration committed at `23b9795`
+- `/devshop` working tree: **dirty** (this update — uncommitted). Commit as a docs update before next session.
+- Hero shots + migration committed at `23b9795`; sign-in UX fix at `31b5637`
 - `qa-walk.log` is gitignored (regen via `pnpm test:qa-walk`)
 
 ### Unchanged from the original plan

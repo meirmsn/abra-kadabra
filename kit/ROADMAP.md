@@ -232,6 +232,41 @@ This was the second auth-hardening request in one conversation (password_min_len
 
 - Step 2's `/ak-new-project` Phase B auth-hardening step (see `kit/notes/lalista-migration-resume.md § UPDATE 2026-04-20 § Step 2 scope`) — the mandatory password-length + interactive CAPTCHA bits ship first; invite-code gating is the next layer up for projects that need it.
 
+### Auth UX conventions — shared error-surface + state patterns
+
+Projects using Supabase auth keep re-solving the same UX gaps because there's no shared convention. Lalista surfaced two that every hosted-Supabase auth flow hits:
+
+1. **Unconfirmed-signup silent bounce** — `mailer_autoconfirm: false` (default) makes a successful signup return no session. If the client immediately routes to an authed area, middleware redirects the unconfirmed user back to `/sign-in` with no feedback. Looks broken.
+2. **Raw Supabase error strings leaking to users** — messages like "Invalid login credentials" / "Email rate limit exceeded" / "User already registered" are developer-facing. Users read them as "what does this mean?"
+
+Both were fixed ad-hoc in lalista (commit `31b5637` on `feature/auth`: new `awaitingConfirmation` state + `friendlyAuthError()` helper). Every next project will hit the same gaps.
+
+**Shape of the convention (not final):**
+
+- **Package**: a thin `@devshop-template/auth-ux` helper module (or inline pattern in the template's sign-in page) providing:
+  - `AwaitingConfirmationCard({ email, onBack })` React component — standardized "Check your email" UI
+  - `friendlyAuthError(message: string): string` — normalizes Supabase error strings to user copy. Exhaustive coverage of the ~6 common cases (`invalid_credentials`, `email_not_confirmed`, `email rate limit exceeded`, `user already registered`, `over_email_send_rate_limit`, `signup disabled`). Unmapped messages pass through unchanged (safe default).
+- **Convention doc** in `guide/conventions.md § Auth UX Conventions` with:
+  - When to show awaiting-confirmation vs. sign-in-error UI
+  - Error-copy style guide (user-action-oriented, not dev-state-oriented)
+  - Email enumeration vs. UX-clarity trade-offs (projects pick a stance; document which one they picked)
+- **Template sign-in page**: the lalista-auth-feature scaffold (or its successor) includes the pattern out-of-the-box so projects don't rediscover it.
+- **Test helpers**: a standardized `e2e/helpers/auth-ux.ts` that exercises the awaiting-confirmation path, rate-limit path, wrong-password path — pairs with the "user-state matrix" expansion to Step 2's Fix C (QA walks must exercise more than the admin-API happy path).
+
+**Why v1, not v+:**
+
+Combined with the auth-hardening step (password_min_length: 8) and invite-code signup (v1 entry above), this completes the "serious project auth out of the box" story. Waiting means every project gets an ad-hoc implementation — lalista is example #1 with the awaiting-confirmation state and friendlyAuthError function that every future project will want.
+
+**Trigger:**
+
+- Second project adopts the devshop and hits the same silent-bounce bug (almost guaranteed)
+- OR: lalista's implementation gets iterated on twice — the 3rd refinement is the signal to factor up
+
+**Cross-ref:**
+
+- Lalista commits `31b5637` (fix) and sign-in page.tsx / page.test.tsx — the concrete prior art
+- Step 2's Fix C expansion (see `kit/notes/lalista-migration-resume.md § UPDATE 2026-04-20 § Step 2 scope`) — the QA-side pair of this UX-side convention
+
 ---
 
 ## v+ (future — when the need is felt)
