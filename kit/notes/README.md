@@ -42,8 +42,7 @@ Same convention applies to topic notes that get superseded by a newer doc — de
 
 Self-contained implementation plans for devshop changes — both ROADMAP-entry-aligned plans and tactical fixes too detailed for `TODOS.md`. Each plan is intended to be picked up in a fresh session and executed end-to-end.
 
-- [`hook-migration-plan.md`](roadmap/hook-migration-plan.md) — git-layer migration: PostToolUse Bash workflow hooks → husky pre-push + skill ownership. Resolves the subagent-hooks audience problem; closes TODOs 76/77/78.
-- [`release-rollback-plan.md`](roadmap/release-rollback-plan.md) — atomic rollback in `release.sh` if the bump commit fails. Preserves the success path; restores `kit/version` + `CHANGELOG.md` to HEAD on commit-step failure; keeps commit + tag if only push fails.
+- [`subagent-cleanup-pattern.md`](roadmap/subagent-cleanup-pattern.md) — measure subagent drift rate (Phase 1 instrumentation), then decide whether to codify a parent-verifies-subagent-state cleanup pattern at the prompt / agent-to-agent layer (Phase 2, contingent on data).
 
 ### `security/` — Security model and hardening
 
