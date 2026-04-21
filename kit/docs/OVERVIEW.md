@@ -126,7 +126,7 @@ Branch protection on `main` requires PR + CI green before merge.
 ## File Map
 
 ```
-Docs:    guide/ (reference) · DESIGN.md (visual) · METRICS.md (analytics) · CLAUDE.md (agent config) · PRODUCT-ROADMAP.md (deferred items)
+Docs:    guide/ (reference) · DESIGN.md (visual) · METRICS.md (analytics) · CLAUDE.md (agent config) · PLAN.md (forward plan at PR grain) · PRODUCT-ROADMAP.md (deferred items)
 Apps:    apps/web/ (Next.js 15, App Router)
 Shared:  packages/core/ (business logic, Supabase client, API wrappers) · packages/ui/ (design tokens, components)
 Backend: supabase/migrations/ (schema) · supabase/functions/ (edge functions)
@@ -135,7 +135,7 @@ Template: template/ (project skeleton — .devcontainer/, .github/, turbo.json, 
 Devshop: .devshopkit/ → symlink to /devshop/kit/ (injected at container start from abra-kadabra)
 Hooks:   .husky/pre-commit calls /devshop/kit/hooks/pre-commit.sh by absolute path (devshop guards, repo-aware)
 Claude:  .claude/ (injected: skills, commands, settings) · CLAUDE.md (project-specific, tracked) · /devshop/CLAUDE.md (devshop conventions, auto-loaded)
-Logs:    BUILD-LOG.md (project builds, tracked) · kit/docs/CHANGELOG.md (devshop versions) · kit/notes/projects/<name>.md (init tracking)
+Logs:    BUILD-LOG.md (shipped features, tracked) · kit/docs/CHANGELOG.md (devshop versions) · kit/notes/projects/<name>.md (init tracking)
 Backlogs: TODOS.md (project tactical) · PRODUCT-ROADMAP.md (project strategic) · kit/TODOS.md (devshop tactical) · kit/ROADMAP.md (devshop strategic)
 Config:  turbo.json · pnpm-workspace.yaml · tsconfig.base.json · eslint.config.mjs · .dcg.toml · .gitleaks.toml
 ```

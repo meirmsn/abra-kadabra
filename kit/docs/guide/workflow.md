@@ -109,9 +109,9 @@ Runs CEO, design, and engineering review sequentially. Locks in architecture, ed
 
 One command after autoplan. Chains everything through PR creation, CI verification, and notification. Resumable if the session is interrupted.
 
-**Phase 1: `/ak-spec`** — converts gstack plan into implementation-ready spec. Creates the feature branch (`feat/<slug>` or `fix/<slug>`) if currently on main, and registers the work in `BUILD-LOG.md § In Flight`. May stop for METRICS.md confirmation (the one interactive moment before PR).
+**Phase 1: `/ak-spec`** — converts gstack plan into implementation-ready spec. Creates the feature branch (`feat/<slug>` or `fix/<slug>`) if currently on main, and flips the `PLAN.md` Planned row for this feature into `## Active` (or adds a new Active row if no Planned row existed). May stop for METRICS.md confirmation (the one interactive moment before PR).
 
-**Phase 2: `/ak-implement`** — reads spec, decomposes into tasks, implements with tests. Confirms active branch against `BUILD-LOG.md § In Flight`. Stuck protocol: try fix → `/investigate` → ask user. Logs judgment calls in `specs/<name>/tasks.md` § Decisions.
+**Phase 2: `/ak-implement`** — reads spec, decomposes into tasks, implements with tests. Confirms active branch against `PLAN.md § Active`. Stuck protocol: try fix → `/investigate` → ask user. Logs judgment calls in `specs/<name>/tasks.md` § Decisions.
 
 **Phase 3: `/ak-pre-ship`** — quality gates only (no shipping). A Phase 0 preflight runs first: verifies required tooling (Chromium for browser gates) and aborts the whole pre-ship with a `blocked` status if tooling is missing, so gates can't silently turn a missing tool into a cheerful "skipped". After preflight passes:
 
@@ -149,20 +149,51 @@ One command after you approve the PR.
 
 1. `/land-and-deploy` (gstack) — checks CI green, merges, waits for deploy, verifies prod health
 2. `/canary` (gstack) — ~15 min post-deploy monitoring. If fail: stops, notifies with rollback info (no auto-rollback)
-3. **Close BUILD-LOG entry** — moves the feature from `## In Flight` to `## Log` with the PR number and merge date
+3. **Sanity-check PLAN.md + BUILD-LOG close-out** — `/ak-build` Phase 5.6 already removed the Active row from PLAN.md and appended the entry to BUILD-LOG on the feature branch before merge. Step 2b verifies the transition ran; does not auto-fix if skipped (Claude can't commit to main).
 4. **Structured reflection** — routes learnings to committed files (CLAUDE.md, guide docs, backlogs)
 5. **Notify** — PR comment: "@username deployed. Canary: pass/fail. Rollback SHA: xxx"
 
 ---
 
-## BUILD-LOG.md — In Flight vs Log
+## Feature tracking: PLAN.md, BUILD-LOG.md, tasks.md
 
-`BUILD-LOG.md` lives at the project root and has two sections:
+Three artifacts at three different grains:
 
-- **`## In Flight`** — one line per active branch. Source of truth for which feature a given branch maps to. Consumed by `/ak-implement` (confirms it's on the right branch), `/ak-status` (surfaces active work), and `/ak-go-live` (moves the entry out on merge).
-- **`## Log`** — chronological list of completed features (branch, PR number, spec, summary, date). Append-only.
+- **`PLAN.md`** (at project root, forward-looking) — `## Active` and `## Planned` tables at the feature/PR grain. Source of truth for "what's being built right now, on what branch" and "what's next." Consumed by `/ak-implement` (resolves spec via Active row), `/ak-status` (surfaces both sections), `/ak-go-live` Step 2b (sanity check). Written by `/ak-spec` (flips Planned → Active) and `/ak-build` Phase 5.6 (removes Active row at ship).
 
-`/ak-spec` creates the In Flight entry at the start of a feature. `/ak-go-live` moves it to Log on merge. The In Flight status progresses: `spec` → `implementing` → `pre-ship` → removed.
+- **`BUILD-LOG.md`** (at project root, backward-looking) — append-only shipped entries, no sections, most-recent first. One rich entry per merged PR with branch/PR number/spec path/summary/gate results. Written by `/ak-build` Phase 5.6 on the feature branch before merge, so the entry ships as part of the PR itself.
+
+- **`specs/<name>/tasks.md`** (per-feature, live) — in-flight per-task status with commit SHAs. Written by `/ak-implement` as it progresses. Commit-level granularity — this is how you resume an in-progress feature across sessions.
+
+Multiple rows may live in `PLAN.md § Active` at once — parallel feature work is supported, one row per live branch.
+
+## Plan-level changes (rescope, reorder, drop)
+
+The plan is a living doc. When scope shifts:
+
+- **Reorder Planned**: edit `#` values; commit message captures why.
+- **Drop a Planned row**: delete it; commit message is the audit record.
+- **Defer "maybe later"**: move the entry from `PLAN.md` to `PRODUCT-ROADMAP.md` — explicit signal that it's not next.
+- **Rename a feature**: edit the Feature cell; rename the spec folder if the feature is already Active.
+- **History**: `git log --follow PLAN.md` shows the full evolution.
+
+No `## Deprecated` section, no status column — git log is the audit trail.
+
+---
+
+## Workflow variants
+
+The main pipeline diagram shows the idea-to-deployed flow. In practice five variants of that flow exist, differing in where you enter the pipeline:
+
+| Variant                        | Entry point                  | Plan-time steps                                                                                                                          | PLAN.md handling                                                                                                           |
+| ------------------------------ | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **Idea → full app**            | Rough notes                  | `/office-hours` → `/autoplan` → seed PLAN.md with one Planned row per PR                                                                 | Planned rows initialized in build order; each `/ak-build` flips row → Active → (removed at ship, entry lands in BUILD-LOG) |
+| **New feature (existing app)** | "Let's add X"                | Short `/office-hours` or skip → `/autoplan` scoped → add a Planned row                                                                   | `/ak-build` picks up the row and transitions it                                                                            |
+| **Feature improvement**        | "Auth's error UX needs work" | `/autoplan` on the scoped improvement → add Planned row with a new spec folder name, Notes references the prior spec as `**Builds on**:` | Same transitions as a new feature; spec folder is new (original stays as a snapshot of what shipped)                       |
+| **Bug fix**                    | Reported bug                 | `/investigate` for root cause → brief Planned row (Notes = "bug fix: X") → `/ak-build` on `fix/*` branch                                 | Row lives briefly; ships like any feature                                                                                  |
+| **Urgent hotfix**              | Production incident          | Skip planning — branch, fix, PR, merge                                                                                                   | Optional: retroactive BUILD-LOG entry + PLAN.md row only if meaningful                                                     |
+
+The pipeline machinery is the same across all five — only the pre-pipeline planning depth varies. `/ak-build` doesn't care whether the Planned row came from `/autoplan` or from a one-line edit.
 
 Multiple features can be in flight at once — `/ak-build` and `/ak-implement` ask which one to resume if more than one line is active.
 

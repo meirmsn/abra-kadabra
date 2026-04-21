@@ -87,7 +87,7 @@ One thing to know: the `/home/node/.claude` Docker volume (Claude's API key, ses
 
 - Claude Code sessions and conversation history — lost if the container is rebuilt from scratch
 
-This is acceptable because: container failures are rare, and the plan's implementation loop commits frequently. If a session is interrupted, the resume pattern (`read specs/<name>/tasks.md + recent git log`) reconstructs context from git state without needing the session history.
+This is acceptable because: container failures are rare, and the implementation loop commits frequently. On resume, `/ak-status` reconstructs context from file state — it reads `PLAN.md` (what's active, what's planned), the active branch's `specs/<name>/tasks.md` (per-task status), `BUILD-LOG.md` (what's shipped recently), and `git log` / `git status`. No session history needed.
 
 **Mitigation**: avoid rebuilding the container from scratch during long-running implementation work.
 
@@ -95,10 +95,16 @@ This is acceptable because: container failures are rare, and the plan's implemen
 
 ## How are specs and pipeline artifacts organized?
 
-Each feature gets its own folder in `specs/`:
+Three layers of tracking, each at its own grain:
 
 ```
-specs/add-item-voice/
+Project root (forward-looking)
+  PLAN.md               — Active + Planned features at PR grain
+  BUILD-LOG.md          — shipped entries (append-only, newest first)
+  PRODUCT-ROADMAP.md    — deferred / long-term
+  TODOS.md              — tactical bugs/polish
+
+Per-feature (specs/<name>/)
   spec.md           — implementation spec (from /ak-spec)
   tasks.md          — task breakdown + decisions (from /ak-implement)
   review.md         — quality gate results (from /ak-pre-ship)
@@ -106,7 +112,9 @@ specs/add-item-voice/
   screenshots/      — gitignored: per-gate evidence (4 viewport/theme combos)
 ```
 
-No root pointer files — `/ak-build` derives the feature name from the branch. Each skill reads/writes to `specs/<name>/`. After merge, the folder is a permanent record of the full pipeline: **bug → code → spec → plan** traceability.
+Each feature directory is immutable after merge — a permanent record of the full pipeline: **bug → code → spec → plan** traceability. Improvements to a shipped feature get a new folder (e.g. `specs/auth-invite-codes/`, not `specs/auth/v2/`), with a `**Builds on**:` pointer to the prior spec in the new spec.md.
+
+`/ak-build` resolves the active feature from `PLAN.md § Active` (Branch + Spec columns). `/ak-implement` and `/ak-status` do the same. No root-level pointer file needed.
 
 **Hero vs evidence screenshots:**
 
