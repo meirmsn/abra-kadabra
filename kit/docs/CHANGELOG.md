@@ -2,6 +2,31 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.11.0 (2026-04-20)
+
+- docs(notes): correct PR-flow language for devshop — use branch + ff-merge + /ak-release-devshop
+- feat(ak-build): Fix D — Phase 6 evidence-on-disk sweep cross-checks PR body [x] against artifacts
+- feat(pre-ship): Fix C — Gate 9 happy-path evidence + user-state matrix + friendly-error coverage
+- feat(pre-ship): Fix B — Gate 3 enforces 4-combo evidence matrix before declaring pass
+- feat(pre-ship): Fix A — local Supabase bootstrap for Gate 9 (preship-supabase-bootstrap.sh)
+- docs(guide): conventions.md — Deploy Boundaries + Supabase Hardening Defaults + ON DELETE FK rule
+- feat(ak-new-project): Step 17b — harden Supabase auth defaults at setup time
+- feat(ak-build,ak-go-live,ak-spec): restructure BUILD-LOG flow — Phase 5.6 on feature branch; delete Phase 7
+- feat(ak-build): Phase 8 handoff nudge — conditional deploy hint based on diff type
+- chore(commands): rename /clean-branches → /ak-clean-branches + add remote-delete + checkout-main edge case
+- docs(notes+todos): Step 2 IN PROGRESS status + fold migration 009 into PR 3 + capture infra TODOs
+- docs(notes): /ak-clean-branches edge case — checkout main first if HEAD matches target
+- docs(notes): extend /ak-clean-branches scope to delete remote branches
+- docs(notes): capture two devshop infra findings from Step 1 close-out
+- docs(notes): Step 2 — restructure /ak-build BUILD-LOG flow so no second PR is needed
+- docs(notes): PR 3 /ak-spec question — restore public landing + move authed home to /list
+- docs(notes): schedule migration 009 (auth.users FK cascades) into migration plan
+- docs(notes+roadmap): capture password-reset flow gaps surfaced by PR #10 testing
+- docs(notes): add Core Principles section to lalista-migration-resume.md + sync current state
+- docs(notes): add Deploy Boundaries section to Step 2 scope
+- docs(notes+roadmap): capture auth UX conventions for v1 + Fix C user-state matrix
+- docs(notes+roadmap): Step 2 Supabase auth-hardening + v1 invite-code entry
+
 ## v1.10.3 (2026-04-20)
 
 - docs(roadmap): record /ak-collateral skill under v1
