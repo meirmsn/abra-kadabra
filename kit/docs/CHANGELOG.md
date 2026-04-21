@@ -2,6 +2,10 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.14.0 (2026-04-21)
+
+- feat(ak-status,session-start): richer repo-aware orientation
+
 ## v1.13.0 (2026-04-21)
 
 - docs(ops): cover Local Supabase manual + hero screenshot manual workflows
