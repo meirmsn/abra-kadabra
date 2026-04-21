@@ -1,6 +1,6 @@
 ---
 name: ak-build
-version: 1.2.0
+version: 1.3.0
 description: |
   Autonomous build pipeline: spec → implement → quality gates → ship → CI watch → notify.
   Runs unattended after autoplan is ready. User's only touchpoint: review the PR.
@@ -65,9 +65,10 @@ If on `main`, find or create the right branch:
    ```bash
    git checkout feature/<name>
    ```
-3. **If no existing branch** → determine the feature name from the gstack plan
-   (`.gstack/projects/*/plan.md`) or ask the user. Pick the branch prefix:
-   `feature/` for new functionality, `fix/` for bug fixes. Create and switch:
+3. **If no existing branch** → determine the feature name from `PLAN.md § Planned`
+   (top-ranked row) or from the gstack plan artifacts under `.gstack/projects/<slug>/`.
+   Pick the branch prefix: `feature/` for new functionality, `fix/` for bug fixes.
+   Create and switch:
    ```bash
    git checkout -b feature/<name>   # or fix/<name>
    ```
@@ -317,9 +318,9 @@ gh pr comment "$PR" --body "## CI failing — help needed
 
 Stop and wait. The user gets a GitHub notification.
 
-### 5.6: Finalize BUILD-LOG.md on the feature branch
+### 5.6: Finalize PLAN.md + BUILD-LOG.md on the feature branch
 
-Runs on CI green (after 5.3), before advancing to Phase 6. Closes out this feature's `BUILD-LOG.md` entry **on the feature branch** so it ships as part of this PR — not as a separate post-merge cleanup PR.
+Runs on CI green (after 5.3), before advancing to Phase 6. Closes out this feature's history **on the feature branch** so it ships as part of this PR — not as a separate post-merge cleanup PR.
 
 **Why here, not post-merge**: the prior design landed a second `chore: close <feature> in BUILD-LOG` PR on main after merge. That's an extra PR for pure history, and fails on projects with a main-is-PR-only guard that blocks Claude from committing to main directly. Writing on the feature branch eliminates both problems — the PR carries its own history entry, and merge-to-main brings it along.
 
@@ -328,15 +329,16 @@ Runs on CI green (after 5.3), before advancing to Phase 6. Closes out this featu
 - `$FEATURE` — feature name (from Phase 0 / Phase 1)
 - `$PR` — PR number (from 5.1)
 - `$FEATURE_DIR` — `specs/$FEATURE/`
-- `BUILD-LOG.md` at repo root (Phase 1's `/ak-spec` created the `## In Flight` entry)
+- `PLAN.md` at repo root (Phase 1's `/ak-spec` flipped the Planned row into `## Active`)
+- `BUILD-LOG.md` at repo root (append-only ship log)
 
 **Steps**:
 
-1. If `BUILD-LOG.md` doesn't exist, copy from `/devshop/template/BUILD-LOG.md`.
+1. If `BUILD-LOG.md` doesn't exist, copy from `/devshop/template/BUILD-LOG.md`. If `PLAN.md` doesn't exist, copy from `/devshop/template/PLAN.md`.
 
-2. Find the In Flight entry for `$FEATURE` (format: `` - `<branch>` — `specs/<feature>/spec.md` — started YYYY-MM-DD — status: <state> ``). Remove it from `## In Flight`. If the section is now empty, restore the placeholder `_No work in progress._`.
+2. **Remove the Active row from `PLAN.md`**: find the row in `## Active` whose Branch column matches `$FEATURE_BRANCH`, delete it. If `## Active` is now empty (no remaining rows), restore the placeholder `_No work in progress._` under the `## Active` heading.
 
-3. Append a finalized entry under `## Log`, most-recent-first (above existing entries):
+3. **Append the ship entry to `BUILD-LOG.md`**, most-recent-first (top of the entry list, after the intro paragraph and the `_No builds yet._` placeholder if present — remove the placeholder on first real entry):
 
    ```markdown
    ### <FEATURE> (YYYY-MM-DD)
@@ -352,14 +354,14 @@ Runs on CI green (after 5.3), before advancing to Phase 6. Closes out this featu
 4. Commit on the feature branch:
 
    ```bash
-   git add BUILD-LOG.md
+   git add PLAN.md BUILD-LOG.md
    git commit -m "chore(build-log): record <FEATURE>"
    git push
    ```
 
 5. Re-fetch the PR body. If it carries a commit count that's now stale (e.g., `Commits: N`), update via `gh pr edit "$PR" --body-file`.
 
-**Idempotence**: if 5.6 has already run for this feature (no In Flight entry for `$FEATURE` AND a `## Log` entry referencing `$PR` exists), skip — don't duplicate.
+**Idempotence**: if 5.6 has already run for this feature (no Active row for `$FEATURE_BRANCH` in `PLAN.md` AND a `BUILD-LOG.md` entry referencing `$PR` exists), skip — don't duplicate.
 
 **Fallback for CI-timeout**: if `$PR` is not yet set (5.1 hasn't run — edge case where Phase 5 was entered out-of-band), 5.6 is a no-op; it will fire next time CI is green with a known PR.
 

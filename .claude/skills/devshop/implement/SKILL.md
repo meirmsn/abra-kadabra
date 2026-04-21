@@ -1,6 +1,6 @@
 ---
 name: ak-implement
-version: 2.1.0
+version: 2.2.0
 description: |
   Run the implementation loop for the active spec. Reads spec from specs/<name>/ →
   traces the gstack plan → checks tasks (new vs resume) → implements each task with tests → runs stuck
@@ -28,30 +28,28 @@ backlog routing, and metrics lifecycle. These are referenced throughout, not dup
 ## Step 1: Gather context
 
 Find the active feature spec. When invoked by `/ak-build`, the feature directory is provided.
-When invoked standalone, resolve from `BUILD-LOG.md § In Flight`:
+When invoked standalone, resolve from `PLAN.md § Active`:
 
 ```bash
-# Source of truth: BUILD-LOG.md § In Flight lists active branches.
-# Grep the current branch out of it to confirm we're on the right one.
+# Source of truth: PLAN.md § Active lists active branches + their specs.
+# Find the row whose Branch column matches the current branch.
 BRANCH=$(git branch --show-current)
-IN_FLIGHT=$(awk '/^## In Flight/,/^## Log/' BUILD-LOG.md 2>/dev/null | grep -F "\`$BRANCH\`" || true)
+ACTIVE_ROW=$(awk '/^## Active/,/^## Planned/' PLAN.md 2>/dev/null | grep -F "$BRANCH" || true)
 
-if [ -z "$IN_FLIGHT" ]; then
-  # Fall back to branch-name derivation (legacy specs without In Flight entries)
+if [ -z "$ACTIVE_ROW" ]; then
+  # Fall back to branch-name derivation (legacy specs with no PLAN.md row)
   FEATURE=$(echo "$BRANCH" | sed 's|^feature/||;s|^feat/||;s|^fix/||;s|^docs/||;s|^chore/||')
 else
-  # Parse `specs/<FEATURE>/spec.md` out of the In Flight line
-  FEATURE=$(echo "$IN_FLIGHT" | grep -oE 'specs/[^/]+/spec\.md' | head -1 | sed 's|^specs/||;s|/spec\.md$||')
+  # Parse `specs/<FEATURE>/spec.md` out of the Active row's Spec cell
+  FEATURE=$(echo "$ACTIVE_ROW" | grep -oE 'specs/[^/]+/spec\.md' | head -1 | sed 's|^specs/||;s|/spec\.md$||')
 fi
 
 FEATURE_DIR="specs/$FEATURE"
 ```
 
-If `BUILD-LOG.md § In Flight` does not list the current branch and there is no
-fallback spec at `$FEATURE_DIR/spec.md`, stop and tell the user to run `/ak-spec`
-first (it creates the branch and registers the In Flight entry).
-
-On first task start, update the In Flight status from `spec` to `implementing`.
+If `PLAN.md § Active` does not list the current branch and there is no fallback spec
+at `$FEATURE_DIR/spec.md`, stop and tell the user to run `/ak-spec` first — it creates
+the branch and flips the PLAN.md row into `## Active`.
 
 Read the spec:
 

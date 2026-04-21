@@ -1,6 +1,6 @@
 ---
 name: ak-spec
-version: 2.0.0
+version: 2.1.0
 description: |
   Convert the latest gstack plan into an implementation-ready spec.
   Run after /autoplan (and optionally /design-shotgun + /design-html) has locked
@@ -36,13 +36,41 @@ in architecture, edge cases, and design direction.
   - Stop.
 - If `METRICS.md` exists: continue.
 
-## Step 2: Read the gstack plan
+## Step 2: Discover and read the gstack plan sources
+
+Find the gstack project dir and read all relevant plan artifacts. No pointer file required — artifacts are discovered directly by filename pattern:
 
 ```bash
-cat .gstack/projects/*/IMPLEMENT.md
+# Single gstack project per repo
+GSTACK_PROJECT_DIR=$(ls -d .gstack/projects/*/ 2>/dev/null | head -1)
+[ -z "$GSTACK_PROJECT_DIR" ] && { echo "No gstack project found under .gstack/projects/. Run /office-hours + /autoplan first."; exit 1; }
+
+# Newest design + test plan (gstack produces timestamped snapshots — latest by mtime)
+DESIGN_DOC=$(ls -t "$GSTACK_PROJECT_DIR"*-design-*.md 2>/dev/null | head -1)
+TEST_PLAN=$(ls -t "$GSTACK_PROJECT_DIR"*-test-plan-*.md 2>/dev/null | head -1)
+
+# Required
+[ -z "$DESIGN_DOC" ] && { echo "No design doc in $GSTACK_PROJECT_DIR — run /office-hours."; exit 1; }
+[ -z "$TEST_PLAN" ]  && { echo "No test plan in $GSTACK_PROJECT_DIR — run /plan-eng-review."; exit 1; }
+
+# Optional — present if /autoplan ran the CEO review and/or UI flows touched design-html
+CEO_PLAN=$(ls -t "$GSTACK_PROJECT_DIR"ceo-plans/*.md 2>/dev/null | head -1)
+DESIGN_HTML=$(ls -t "$GSTACK_PROJECT_DIR"design-html/*.html 2>/dev/null | head -1)
 ```
 
-Read the design doc and test plan referenced in IMPLEMENT.md fully before proceeding.
+Read every source that's present:
+
+```bash
+cat "$DESIGN_DOC"
+cat "$TEST_PLAN"
+[ -n "$CEO_PLAN" ]    && cat "$CEO_PLAN"
+[ -f DESIGN.md ]      && cat DESIGN.md                       # root-level design system (UI features)
+[ -n "$DESIGN_HTML" ] && cat "$DESIGN_HTML"                  # UI reference from /design-html
+[ -f PLAN.md ]        && cat PLAN.md                         # Active + Planned rows (this feature's Notes has scope pointer)
+[ -f PRODUCT-ROADMAP.md ] && cat PRODUCT-ROADMAP.md          # detailed scope per section the PLAN.md row points at
+```
+
+The `PLAN.md` row for this feature (in `## Planned`) typically names the source section in `PRODUCT-ROADMAP.md` — follow that pointer for full scope detail. If there's no PLAN.md row yet for this feature, the run is kickstarting one.
 
 ## Step 3: Ensure feature branch
 
@@ -70,28 +98,25 @@ fi
 FEATURE_DIR="specs/$FEATURE"
 ```
 
-## Step 4: Register In Flight entry in BUILD-LOG.md
+## Step 4: Flip PLAN.md row from Planned → Active
 
-Record that work is starting on this feature. `BUILD-LOG.md § In Flight` is the
-single source of truth for active branches — `/ak-implement` confirms against it,
-`/ak-status` surfaces it, `/ak-build` Phase 5.6 moves the entry to `## Log` on
-the feature branch (as part of the PR, before merge). `/ak-go-live` Step 2b just
-sanity-checks that Phase 5.6 ran — no BUILD-LOG commits happen post-merge.
+`PLAN.md` is the single source of truth for planned + active features. `/ak-implement` resolves the active spec via `PLAN.md § Active`; `/ak-status` surfaces both sections; `/ak-build` Phase 5.6 removes the Active row and appends a full entry to `BUILD-LOG.md` on the feature branch (before merge); `/ak-go-live` Step 2b sanity-checks that Phase 5.6 ran.
 
-If `BUILD-LOG.md` has no `## In Flight` section, add one above `## Log`:
+If `PLAN.md` doesn't exist, create it from `/devshop/template/PLAN.md`.
 
-```markdown
-## In Flight
+Find the row in `PLAN.md § Planned` whose Feature cell matches `$FEATURE`:
 
-- `feat/<FEATURE>` — `specs/<FEATURE>/spec.md` — started YYYY-MM-DD — status: spec
-```
+- **Row exists**: move it from `## Planned` to `## Active` with this format, preserving the Notes content:
 
-If the section exists, append the entry (one line per active feature — multiple
-branches may be in flight at once).
+  ```markdown
+  | feat/$FEATURE | specs/$FEATURE/spec.md | <Notes from the Planned row> |
+  ```
 
-Use today's date. Set status to `spec` for now; `/ak-implement` updates it to
-`implementing`, `/ak-pre-ship` to `pre-ship`, `/ak-build` Phase 5.6 moves the
-entry out (to `## Log` on the feature branch, before merge).
+  Renumber remaining Planned rows so their `#` values stay dense (no gaps).
+
+- **Row doesn't exist** (feature kickstarted without a prior Planned entry): add a new row directly to `## Active`. Ask the user for a one-line Notes pointer identifying the scope source (e.g. `PRODUCT-ROADMAP.md § v0 § Xa`, or a gstack plan section reference).
+
+Multiple rows may live in `## Active` at once — parallel feature work is supported. Git log on PLAN.md captures the transition date and any rationale from the commit message.
 
 ## Step 5: Judge completeness
 
@@ -149,8 +174,8 @@ If the feature introduces new user actions not yet in `METRICS.md`:
 ## Step 8: Verify feature directory
 
 Confirm `$FEATURE_DIR/spec.md` was written. No pointer file needed —
-`/ak-build` and `/ak-implement` find the spec via `BUILD-LOG.md § In Flight`
-or the feature directory path.
+`/ak-build` and `/ak-implement` find the spec via `PLAN.md § Active`
+(the row's Branch + Spec columns) or the feature directory path.
 
 ## Quality checklist
 

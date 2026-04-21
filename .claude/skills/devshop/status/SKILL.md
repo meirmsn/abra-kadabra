@@ -1,6 +1,6 @@
 ---
 name: ak-status
-version: 1.0.0
+version: 1.1.0
 description: |
   Session orientation briefing. Reads feature artifacts from specs/<name>/, recent git log,
   current branch, and uncommitted changes. Outputs a one-paragraph briefing of where things stand.
@@ -22,14 +22,14 @@ Read project-level context first, then feature artifacts:
 
 ```bash
 # Project-level state
-cat BUILD-LOG.md 2>/dev/null | head -40  # In Flight section + recent Log entries
-awk '/^## In Flight/,/^## Log/' BUILD-LOG.md 2>/dev/null  # active branches, the source of truth
+cat PLAN.md 2>/dev/null                                       # full forward plan — Active + Planned
+head -40 BUILD-LOG.md 2>/dev/null                             # intro + most recent ship entries (newest at top)
 git log --oneline -10
 git status --short
 git stash list 2>/dev/null
 gh pr list --state open --json number,title,headRefName --jq '.[] | "#\(.number) \(.title) (\(.headRefName))"' 2>/dev/null || echo "No open PRs (or gh not available)"
 
-# All specs (birds-eye view of planned/in-progress features)
+# All specs (birds-eye view of features with artifacts on disk)
 for spec in specs/*/spec.md; do
   [ -f "$spec" ] || continue
   name=$(basename "$(dirname "$spec")")
@@ -49,7 +49,8 @@ cat "$FEATURE_DIR/review.md" 2>/dev/null || echo "No review yet"
 
 Also check for in-progress state:
 
-- BUILD-LOG.md status section (current phase, what's next)
+- `PLAN.md § Active` rows (what branches are alive and what they're building)
+- `PLAN.md § Planned` rows (what's next, ordered)
 - Any `in_progress` tasks in `$FEATURE_DIR/tasks.md`
 - Any uncommitted changes
 - Any stashed changes
@@ -61,8 +62,10 @@ Use this exact format — no prose, no paragraphs:
 ```
 Phase:    <init / implementing / pre-ship / between features / devshop>
 Branch:   <current branch name>
-InFlight: <active branches from BUILD-LOG.md § In Flight with their status, or "none">
-Done:     <completed tasks, recent commits summary>
+Active:   <active branches from PLAN.md § Active with their Notes, or "none">
+Planned:  <top 1–3 rows from PLAN.md § Planned with their #, or "none">
+Recent:   <last 1–2 ship entries from BUILD-LOG.md (feature + PR#), or "none">
+Done:     <completed tasks on current branch, recent commits summary>
 Next:     <next task, next workflow step, or next init step>
 Blocked:  <anything blocked, pending [HUMAN] steps, or "none">
 Dirty:    <uncommitted changes, stashes, or "clean">

@@ -549,7 +549,7 @@ Project build history.
 ...
 ```
 
-The reminder lives above the `Project build history.` line (not inside `## In Flight` — that section is for feature branches, not platform TODOs).
+The reminder lives above the `Project build history.` line — BUILD-LOG is for shipped features, not platform TODOs, so platform reminders surface as a visible header note.
 
 **Sub-step 3: site_url + uri_allow_list (mandatory site_url; minimal allow list by default, opt-in extras)**
 

@@ -1,6 +1,6 @@
 ---
 name: ak-go-live
-version: 1.0.0
+version: 1.1.0
 description: |
   Autonomous deploy pipeline: merge → deploy → canary → reflect → notify.
   Runs after user approves PR. Chains /land-and-deploy → /canary → reflection.
@@ -47,9 +47,9 @@ Invoke `/land-and-deploy` via Skill tool.
 gstack's `/land-and-deploy`: checks CI green, merges PR, waits for deploy, verifies
 production health. If CI is failing, it stops (does not merge).
 
-## Step 2b: Branch cleanup + BUILD-LOG sanity check
+## Step 2b: Branch cleanup + PLAN.md / BUILD-LOG sanity check
 
-After merge, clean up the feature branch locally and prune stale remote refs. `BUILD-LOG.md` is closed by `/ak-build` Phase 5.6 on the feature branch **before merge**, so by this point main already has the entry in `## Log` and the placeholder `_No work in progress._` in `## In Flight`. This step is branch hygiene only — no BUILD-LOG commits, no second PR.
+After merge, clean up the feature branch locally and prune stale remote refs. `PLAN.md` + `BUILD-LOG.md` are closed by `/ak-build` Phase 5.6 on the feature branch **before merge**, so by this point main already has the ship entry in `BUILD-LOG.md` and no longer references `$FEATURE_BRANCH` in `PLAN.md § Active`. This step is branch hygiene only — no commits on main, no second PR.
 
 ```bash
 FEATURE_BRANCH=$(git branch --show-current)
@@ -61,17 +61,18 @@ git remote prune origin
 
 ### Sanity check — did Phase 5.6 run?
 
-Verify that `BUILD-LOG.md § In Flight` no longer references `$FEATURE_BRANCH`. If it does, Phase 5.6 was skipped (legacy build, manual PR that didn't use `/ak-build`, or Phase 5.6 silently failed). Do NOT auto-commit the close-out — Claude can't commit to main, and the whole point of Phase 5.6 was to avoid a second PR.
+Verify that `PLAN.md § Active` no longer references `$FEATURE_BRANCH`. If it does, Phase 5.6 was skipped (legacy build, manual PR that didn't use `/ak-build`, or Phase 5.6 silently failed). Do NOT auto-commit the close-out — Claude can't commit to main, and the whole point of Phase 5.6 was to avoid a second PR.
 
 ```bash
-if awk '/^## In Flight/,/^## Log/' BUILD-LOG.md | grep -qF "$FEATURE_BRANCH"; then
-  echo "⚠  BUILD-LOG.md still shows $FEATURE_BRANCH under ## In Flight."
+if awk '/^## Active/,/^## Planned/' PLAN.md | grep -qF "$FEATURE_BRANCH"; then
+  echo "⚠  PLAN.md still shows $FEATURE_BRANCH under ## Active."
   echo "   /ak-build Phase 5.6 appears to have skipped."
   echo "   Ask the user to manually:"
-  echo "     1. Edit BUILD-LOG.md — move the $FEATURE_BRANCH In Flight entry to ## Log"
-  echo "     2. Commit on main as 'chore: close $FEATURE in BUILD-LOG' (human-initiated commits to main are allowed)"
+  echo "     1. Edit PLAN.md — remove the $FEATURE_BRANCH row from ## Active"
+  echo "     2. Edit BUILD-LOG.md — add the ship entry for $FEATURE"
+  echo "     3. Commit on main as 'chore: close $FEATURE' (human-initiated commits to main are allowed)"
   echo ""
-  echo "   Continuing /ak-go-live; the BUILD-LOG cleanup is non-blocking for deploy verification."
+  echo "   Continuing /ak-go-live; the cleanup is non-blocking for deploy verification."
 fi
 ```
 
