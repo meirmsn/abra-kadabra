@@ -28,7 +28,7 @@ Container Workspace (/workspace)
 │
 ├── Devshop injection (gitignored — created at container start by init-devshop.sh)
 │   ├── .devshopkit/ ──symlink──→ /devshop/kit/
-│   │   ├── scripts/ (19)        Init, guards, sync, session, adversarial review
+│   │   ├── scripts/ (20)        Init, guards, sync, session, adversarial review, preflight bootstraps
 │   │   ├── hooks/pre-commit.sh  Orchestrates the 5-step + 4-guard chain
 │   │   ├── tests/               BATS test suite (guards, routing, goals, structural invariants)
 │   │   └── docs/                MODEL, OVERVIEW, guide/ (6 files), FAQ

@@ -113,6 +113,31 @@ if [ -n "$CHROMIUM" ]; then
 fi
 ```
 
+**Supabase availability check** (advisory — Gate 9 degrades gracefully):
+
+Gate 9 (`/qa`) walks the happy path against a Supabase instance. Hosted Supabase rate-limits signups aggressively (~30-min cooldown after 1-2 attempts), so the preferred backend is local Supabase. If Docker-in-Docker isn't available in the devcontainer (currently inert without a `--privileged` rebuild), Gate 9 falls back to admin-API against hosted — which bypasses rate limits entirely but pollutes the hosted DB with test data.
+
+```bash
+# Bootstrap local Supabase if possible; otherwise report the fallback.
+bash /devshop/kit/scripts/preship-supabase-bootstrap.sh up
+# Outputs one of:
+#   ok: local Supabase up; .env.local rewritten (backup at .preship-backup)
+#   reused: local Supabase already running
+#   unavailable: Docker not running — local Supabase cannot start; Gate 9 must use admin-API against hosted
+```
+
+`ok` / `reused` / `unavailable` are all exit 0. Non-zero exits (2-5) indicate hard failures (CLI missing, `supabase start` failed, seed fixtures missing) — blocking if `$TOUCHES_UI`; warn otherwise.
+
+At the end of the pre-ship run (success or failure), call the teardown:
+
+```bash
+bash /devshop/kit/scripts/preship-supabase-bootstrap.sh down
+```
+
+`down` restores the original `.env.local` and stops local Supabase. Idempotent — safe to call even if `up` didn't run.
+
+If pre-ship exits abnormally without `down` running, the operator can run `down` manually to recover. The sentinel file `apps/web/.env.local.preship-backup` indicates a partial state; its `.created` variant indicates `up` created `.env.local` from scratch (down deletes instead of restoring).
+
 If blocked:
 
 1. Record `blocked (Chromium not available — run the fix below)` against the four
@@ -230,6 +255,9 @@ If tests fail → stuck protocol (see below).
 ## Gate 9: /qa
 
 - If Phase 0 preflight flagged Chromium as unavailable → `blocked`.
+- Phase 0's Supabase bootstrap determines which backend Gate 9 uses:
+  - `ok` / `reused` → local Supabase; use seeded fixtures (`alice@test.local` / `bob@test.local` / etc.).
+  - `unavailable` → admin-API against hosted; create test users with `email_confirm: true` to bypass Supabase's email-rate-limit. Clean up in `afterAll`.
 
 Invoke `/qa` via Skill tool. Browser-based QA — discovers bugs, fixes source code,
 commits per bug, re-tests. Has its own internal fix loop.
