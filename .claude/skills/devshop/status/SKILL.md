@@ -1,6 +1,6 @@
 ---
 name: ak-status
-version: 1.1.0
+version: 1.2.0
 description: |
   Session orientation briefing. Reads feature artifacts from specs/<name>/, recent git log,
   current branch, and uncommitted changes. Outputs a one-paragraph briefing of where things stand.
@@ -57,6 +57,10 @@ Also check for in-progress state:
 
 ## Output
 
+Two parts: the structured one-liner block, then a "Next up" synthesis paragraph when the phase is `between features` and PLAN.md has a Planned row.
+
+### Part 1 — Structured block
+
 Use this exact format — no prose, no paragraphs:
 
 ```
@@ -74,3 +78,40 @@ Specs:    <all specs in specs/ with state markers (+tasks, +review), or "none">
 ```
 
 Keep each line to one sentence. Do not modify any files.
+
+### Part 2 — "Next up" synthesis (conditional)
+
+**When to produce**: phase is `between features` (on main, no active row in PLAN.md) **and** PLAN.md has at least one row under `## Planned`. Skip otherwise.
+
+**What it is**: a 2–4 line paragraph that previews exactly what `/ak-build` would do if invoked right now. This is the regenerable forward orientation the structured `Next:` single-liner can't express — a session-resume view without needing conversation history.
+
+**How to build it**:
+
+1. Read PLAN.md `## Planned` top row (smallest `#`). Extract:
+   - **Feature** cell → what `/ak-build` will be invoked on (e.g. `core-flows`)
+   - **Notes** cell → scope summary and scope-source pointer (typically `PRODUCT-ROADMAP.md § v0 § 1e` or a gstack plan reference)
+
+2. Follow the scope-source pointer:
+   - If it names a `PRODUCT-ROADMAP.md § ...` section, read that section from `PRODUCT-ROADMAP.md` and extract (a) the ~3-bullet scope summary, (b) any open-decisions / questions list (e.g. "Open `/ak-spec`-time decisions" headers with enumerated items).
+   - If it names a gstack plan file under `.gstack/projects/<slug>/`, read that and summarize similarly.
+
+3. Discover what `/ak-spec` Step 2 would consume generically:
+   - `.gstack/projects/<slug>/*-design-*.md` (newest by mtime) — product design doc
+   - `.gstack/projects/<slug>/*-test-plan-*.md` (newest) — test plan
+   - `DESIGN.md` at root (if present and the feature touches UI)
+   - `.gstack/projects/<slug>/ceo-plans/*.md` (if exists)
+
+4. Synthesize 2–4 lines describing:
+   - Command to invoke: `` `/ak-build <feature>` ``
+   - What it flips: `PLAN.md § Planned` row #N → `## Active`
+   - What `/ak-spec` consumes: the pointer source + discovered gstack files + `DESIGN.md`
+   - What pauses for human confirmation: open-decisions / METRICS events / scope questions — with a rough count
+   - If the feature's scope source references migrations, tests, or specific components, mention them by name
+
+Use backticks for file paths and command names. No emoji. No additional sections.
+
+**Example output** (for lalista's current state):
+
+> **Next up**: `/ak-build core-flows` flips PLAN.md row 1 (core flows) from Planned → Active. `/ak-spec` will consume `PRODUCT-ROADMAP.md § v0 § 1e` + `DESIGN.md` + `.gstack/projects/meirmsn-lalista/*-design-*.md` + `*-test-plan-*.md`. Expect to pause for 7 open `/ak-spec`-time decisions (theme bootstrap, FAB vs sticky, disambiguation UI, METRICS confirmation, sign-out surface, close-out gates, IA for public landing + `/list`). Migration 009 (ON DELETE FK cascades) lands as the first migration in this PR per the 2026-04-20 decision.
+
+**When Part 2 is skipped**: state one sentence explaining why (`on feature branch — in-flight view lives in tasks.md`, `no planned work — PLAN.md empty`, `init mode — finish setup first`, etc.).

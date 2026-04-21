@@ -24,9 +24,14 @@ Backlogs: `kit/TODOS.md` (tactical) + `kit/ROADMAP.md` (strategic). Project back
 
 ### Session Start
 
-A `SessionStart` hook (on `startup` and `clear`) automatically injects `README.md`, `BUILD-LOG.md` status, the current branch, and this devshop `CLAUDE.md` into context. It also reads init progress from `/devshop/kit/notes/projects/<name>.md` if bootstrapping is in progress. No manual reads needed — the hook runs `kit/scripts/session-start.sh`. (The devshop CLAUDE.md injection is a workaround for `anthropics/claude-code#22583` — remove when `additionalDirectories` loading is fixed.)
+A `SessionStart` hook (on `startup` and `clear`) injects context that depends on which repo owns the session (`$ROOT = git rev-parse --show-toplevel`):
 
-If the user asks you to implement, fix, or continue work (not just answer a question), run `/ak-status` first — it reads `BUILD-LOG.md`, git state, and any active spec to produce a one-paragraph orientation briefing.
+- **Project session** (cwd is a project repo) — injects project `README.md`, project `BUILD-LOG.md` (head 15, recent ship entries), project `PLAN.md` (`## Active` + `## Planned`), current branch, and `/devshop/CLAUDE.md` (workaround for `anthropics/claude-code#22583` — `additionalDirectories` CLAUDE.md not loaded).
+- **Devshop session** (cwd is `/devshop`) — injects devshop `README.md`, `kit/docs/CHANGELOG.md` (head 25, recent releases), current branch. Skips the `/devshop/CLAUDE.md` force-inject because the session cwd's native CLAUDE.md discovery already loads it.
+
+The hook also reads init progress from `/devshop/kit/notes/projects/<name>.md` if bootstrapping is in progress. No manual reads needed — the hook runs `kit/scripts/session-start.sh`.
+
+If the user asks you to implement, fix, or continue work (not just answer a question), run `/ak-status` first — it reads `PLAN.md` (forward), `BUILD-LOG.md` (backward), the active branch's `specs/<name>/tasks.md`, and git state to produce a structured briefing plus a "Next up" synthesis when phase is `between features`.
 
 ### Philosophy
 

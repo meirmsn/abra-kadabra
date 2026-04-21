@@ -24,18 +24,39 @@ CONTEXT+="=== README.md ===
 "
 CONTEXT+="$(cat "$ROOT/README.md" 2>/dev/null || echo "(README.md not found)")
 "
-CONTEXT+="
-=== BUILD-LOG.md (Status) ===
+
+# Backward / forward context — artifacts differ per repo kind.
+#   Project sessions: BUILD-LOG.md (shipped history) + PLAN.md (Active + Planned).
+#   Devshop sessions: kit/docs/CHANGELOG.md (release history). No PLAN.md yet —
+#     devshop uses kit/TODOS.md + kit/ROADMAP.md for forward-looking work.
+if [ "$ROOT" = "/devshop" ]; then
+  CONTEXT+="
+=== kit/docs/CHANGELOG.md (head 25) ===
 "
-CONTEXT+="$(head -15 "$ROOT/BUILD-LOG.md" 2>/dev/null || echo "(BUILD-LOG.md not found)")
+  CONTEXT+="$(head -25 "$ROOT/kit/docs/CHANGELOG.md" 2>/dev/null || echo "(CHANGELOG.md not found)")
 "
+else
+  CONTEXT+="
+=== BUILD-LOG.md (head 15) ===
+"
+  CONTEXT+="$(head -15 "$ROOT/BUILD-LOG.md" 2>/dev/null || echo "(BUILD-LOG.md not found)")
+"
+  CONTEXT+="
+=== PLAN.md (Active + Planned) ===
+"
+  CONTEXT+="$(awk '/^## Active/{flag=1} /^<!--/{flag=0} flag' "$ROOT/PLAN.md" 2>/dev/null || echo "(PLAN.md not found)")
+"
+fi
+
 CONTEXT+="
 === Current Branch ===
 $BRANCH"
 
 # Workaround for anthropics/claude-code#22583: CLAUDE.md from additionalDirectories
-# not loaded despite CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1
-if [ -f /devshop/CLAUDE.md ]; then
+# not loaded despite CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1.
+# Only force-load when the session cwd is NOT /devshop — on devshop sessions
+# it's already loaded natively via the session cwd's CLAUDE.md discovery.
+if [ "$ROOT" != "/devshop" ] && [ -f /devshop/CLAUDE.md ]; then
   CONTEXT+="
 
 === /devshop/CLAUDE.md ===
@@ -98,12 +119,37 @@ if [ -f "$INIT_TRACKER" ]; then
   fi
 fi
 
-# --- Parse latest build from project BUILD-LOG ---
+# --- Parse forward/backward orientation signals (per-repo) ---
 
-LAST_BUILD=""
-if [ -f "$ROOT/BUILD-LOG.md" ]; then
-  # Grab the most recent ### heading in the Log section (format: "### feature-name (YYYY-MM-DD)")
-  LAST_BUILD="$(grep -m1 '^### ' "$ROOT/BUILD-LOG.md" | sed 's/^### //' || true)"
+LAST_BUILD=""        # project: most recent BUILD-LOG.md entry header
+NEXT_PLAN=""         # project: top-priority Planned row (Feature + first clause of Notes)
+RELEASE_VERSION=""   # devshop: kit/version
+COMMITS_SINCE_TAG="" # devshop: commits on main since the latest tag
+
+if [ "$ROOT" = "/devshop" ]; then
+  # Devshop session — release-oriented briefing.
+  RELEASE_VERSION="$(cat "$ROOT/kit/version" 2>/dev/null || true)"
+  LAST_TAG="$(git -C "$ROOT" describe --tags --abbrev=0 2>/dev/null || true)"
+  if [ -n "$LAST_TAG" ]; then
+    COMMITS_SINCE_TAG="$(git -C "$ROOT" rev-list --count "$LAST_TAG..HEAD" 2>/dev/null || echo 0)"
+  fi
+else
+  # Project session — BUILD-LOG last entry + PLAN.md top Planned row.
+  if [ -f "$ROOT/BUILD-LOG.md" ]; then
+    LAST_BUILD="$(grep -m1 '^### ' "$ROOT/BUILD-LOG.md" | sed 's/^### //' || true)"
+  fi
+  if [ -f "$ROOT/PLAN.md" ]; then
+    # First data row under ## Planned, format `| N | <feature> | <notes> |`
+    NEXT_ROW="$(awk '/^## Planned/,/^<!--/' "$ROOT/PLAN.md" 2>/dev/null | grep -m1 '^| [0-9]' || true)"
+    if [ -n "$NEXT_ROW" ]; then
+      NEXT_FEATURE="$(echo "$NEXT_ROW" | awk -F'|' '{gsub(/^ +| +$/, "", $3); print $3}')"
+      # First two sentences of Notes (split on LITERAL ". ", not regex ". ")
+      # — gives enough orientation without dumping the full scope blurb.
+      NEXT_NOTE="$(echo "$NEXT_ROW" | awk -F'|' '{gsub(/^ +| +$/, "", $4); print $4}' \
+        | awk -F'\\. ' '{ if (NF >= 2) print $1 ". " $2 "."; else print $1 }')"
+      NEXT_PLAN="${NEXT_FEATURE} — ${NEXT_NOTE}"
+    fi
+  fi
 fi
 
 # --- Cross-repo WIP heads-up (warning only) ---
@@ -146,10 +192,24 @@ if [ "$INIT_DONE" = false ] && [ -n "$INIT_STEP" ]; then
  Init:    ${INIT_STEP}"
 fi
 
-# Last build — only if there's a build entry
+# Project: Build (most recent ship) + Next (top-priority planned row)
 if [ -n "$LAST_BUILD" ]; then
   BRIEFING+="
  Build:   ${LAST_BUILD}"
+fi
+if [ -n "$NEXT_PLAN" ]; then
+  BRIEFING+="
+ Next:    ${NEXT_PLAN}"
+fi
+
+# Devshop: Release (current kit/version) + commits queued since the latest tag
+if [ -n "$RELEASE_VERSION" ]; then
+  BRIEFING+="
+ Release: v${RELEASE_VERSION}"
+fi
+if [ -n "$COMMITS_SINCE_TAG" ] && [ "$COMMITS_SINCE_TAG" -gt 0 ]; then
+  BRIEFING+="
+ Queue:   ${COMMITS_SINCE_TAG} commit(s) on main since last tag — /ak-release-devshop to cut"
 fi
 
 # Open PRs
