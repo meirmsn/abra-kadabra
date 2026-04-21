@@ -130,6 +130,15 @@
             "command": "bash /devshop/kit/scripts/check-memory-created.sh"
           }
         ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/devshop/kit/scripts/notify-claude-cancel"
+          }
+        ]
       }
     ],
     "SessionStart": [
@@ -148,6 +157,39 @@
           {
             "type": "command",
             "command": "bash /devshop/kit/scripts/session-start.sh"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/devshop/kit/scripts/notify-claude-request"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/devshop/kit/scripts/notify-claude-done"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/devshop/kit/scripts/notify-claude-cancel"
           }
         ]
       }

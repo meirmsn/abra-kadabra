@@ -156,6 +156,7 @@ Created by `/ak-new-project` on <date>.
 5. [ ] **[HUMAN]** Add GitHub Secrets + Variables
 6. [ ] **[HUMAN]** Add firewall domains to .devcontainer/init-firewall.sh
 7. [ ] **[HUMAN]** Rebuild devcontainer
+       7b. [ ] **[HUMAN]** Set up Claude Code notifications (optional, one-time per user)
 8. [ ] Disable turbo telemetry
 9. [ ] Install gstack
 10. [ ] Scaffold packages/core
@@ -198,7 +199,7 @@ Check if devshop tooling is current:
 4. If newer versions are available: tell the user which ones, confirm whether to upgrade.
 5. If all current: confirm and continue.
 
-### Step 2: Customize project docs
+### Step 2: Customize project docs and root package.json
 
 The template includes `BUILD-LOG.md`, `PRODUCT-ROADMAP.md`, and `README.md` at their
 final locations. Customize them in-place:
@@ -208,6 +209,16 @@ final locations. Customize them in-place:
 - **BUILD-LOG.md**: generic template — no changes needed unless the user wants to customize.
 - **PRODUCT-ROADMAP.md**: generic template — ask the user if they have existing roadmap
   items to add, or keep as-is for now.
+- **Root `package.json`**: template ships `"name": "project-name"` as a placeholder. Rename
+  it to the project name (used by `notify-claude-*` hooks for the banner label; also keeps
+  pnpm's workspace root name honest). Safe to change — nothing else in the tree references it.
+
+  ```bash
+  tmp=$(mktemp) && jq ".name = \"<project-name>\"" package.json > "$tmp" && mv "$tmp" package.json
+  ```
+
+  Optional `-dev` suffix if you plan to publish a public npm package under the same name later
+  (e.g. `lalista-dev` so `lalista` stays free on npm).
 
 ### Step 3: [HUMAN] Create accounts
 
@@ -248,6 +259,11 @@ SENTRY_AUTH_TOKEN=<auth-token>
 
 # PostHog
 NEXT_PUBLIC_POSTHOG_KEY=<project-api-key>
+
+# Claude Code notifications (optional)
+# Same topic across all your projects — generate once per user, reuse everywhere.
+# See kit/docs/guide/notifications.md
+NTFY_URL=https://ntfy.sh/<your-topic>
 ```
 
 Where to find each:
@@ -269,6 +285,10 @@ Where to find each:
 - Supabase access token: `supabase.com/dashboard/account/tokens`
 - Sentry DSN: Project Settings → Client Keys. Auth token: Org Settings → Auth Tokens.
 - PostHog: Project Settings → Project API key
+- NTFY_URL: one-time per user. Generate a topic: `openssl rand -hex 32` (ntfy caps topics at 64 chars; 64 hex = exactly 64).
+  Reuse the same URL across every project — banner differentiates by project name via the
+  hook scripts. Subscribe on iPhone (ntfy app) and Mac (ntfy.sh URL in Safari → Add to Dock).
+  Full details in `kit/docs/guide/notifications.md`. Optional — leave blank to disable.
 
 ### Step 5: [HUMAN] Add GitHub Secrets + Variables
 
@@ -307,6 +327,38 @@ for k in keys:
     print(f'{k}: {status}')
 "
 ```
+
+### Step 7b: [HUMAN] Set up Claude Code notifications (optional, one-time per user)
+
+Claude Code pings your iPhone/Apple Watch/Mac via ntfy.sh when it needs input or finishes a task. The firewall allowlist ships with the template; the hook wiring is propagated from `/devshop/.claude/settings.json` into every project's `.claude/settings.json` by `init-devshop.sh` at each container start. Per-user pieces: pick a topic (once, reused across projects), put it in each project's `.devcontainer/.env`, and subscribe on your devices.
+
+**Skip if you already have a topic and have subscribed**: just confirm `NTFY_URL` in `.devcontainer/.env` matches your existing topic and move to Step 8.
+
+**Otherwise, one-time setup (do this in your first project; reuse in every subsequent project)**:
+
+1. **Generate a topic** (shared across all your projects, high-entropy so it's unguessable):
+
+   ```bash
+   openssl rand -hex 32
+   ```
+
+   Example output: `60c9bacd782a4622bdb17719acd11c65d13ccf4447ffe8244d017f34f53c17c2` (64 hex chars — ntfy caps topics at 64, so no prefix fits).
+
+2. **Set `NTFY_URL` in `.devcontainer/.env`** — replace the `<your-topic>` placeholder from Step 4:
+
+   ```
+   NTFY_URL=https://ntfy.sh/<your-topic>
+   ```
+
+   Reuse the exact same value in every project's `.devcontainer/.env`. Rotating later means editing N files — rare, acceptable.
+
+3. **Subscribe on iPhone**: install [ntfy iOS app](https://apps.apple.com/us/app/ntfy/id1625396347), tap **+**, paste just the topic (`<your-topic>` — no `https://` prefix), accept the notification permission. Apple Watch mirrors automatically.
+
+4. **Subscribe on Mac** (optional, no app needed): open `https://ntfy.sh/<your-topic>` in Safari → accept notifications → File → **Add to Dock** to keep it alive when the browser closes. Chrome alternative: ⋮ menu → Install ntfy.sh as app.
+
+5. **Rebuild this devcontainer** so Docker re-reads `.devcontainer/.env`. If you already rebuilt in Step 7 after filling in NTFY_URL in Step 4, you're done.
+
+See `kit/docs/guide/notifications.md` for architecture, privacy notes, rotation, and disabling.
 
 ### Step 8: Disable turbo telemetry
 

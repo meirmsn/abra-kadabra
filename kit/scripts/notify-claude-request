@@ -1,0 +1,32 @@
+#!/bin/bash
+# Fires when Claude Code needs user input (permission prompt or idle).
+# Schedules a notification 30s in the future; any activity signal (next
+# hook, user prompt, tool use) cancels it. If user ignores for 30s, it
+# sends. Reads NTFY_URL from env (loaded from .devcontainer/.env).
+# No-op if NTFY_URL unset. Always exits 0.
+
+set +e
+[ -z "${NTFY_URL:-}" ] && exit 0
+
+proj=$(jq -r '.name // empty' package.json 2>/dev/null)
+proj=${proj:-$(basename "$PWD")}
+
+PID_FILE=/tmp/claude-notify-pending.pid
+
+# Cancel any prior pending notification
+[ -f "$PID_FILE" ] && kill "$(cat "$PID_FILE")" 2>/dev/null
+rm -f "$PID_FILE"
+
+# Schedule new notification 30s out (backgrounded, detached from hook stdio)
+(
+  sleep 30
+  curl -sS --max-time 3 \
+    -H "Title: $proj — Claude Code" \
+    -H 'Priority: high' \
+    -d 'Needs your input' \
+    "$NTFY_URL" >/dev/null 2>&1
+  rm -f "$PID_FILE"
+) </dev/null >/dev/null 2>&1 &
+echo "$!" > "$PID_FILE"
+
+exit 0

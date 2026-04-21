@@ -1,0 +1,28 @@
+#!/bin/bash
+# Fires on Claude Code Stop event (task finished).
+# Schedules a notification 30s in the future; any activity signal cancels
+# it. Keeps you quiet during active sessions (where you'd immediately
+# send the next prompt), but notifies if you've walked away.
+
+set +e
+[ -z "${NTFY_URL:-}" ] && exit 0
+
+proj=$(jq -r '.name // empty' package.json 2>/dev/null)
+proj=${proj:-$(basename "$PWD")}
+
+PID_FILE=/tmp/claude-notify-pending.pid
+
+[ -f "$PID_FILE" ] && kill "$(cat "$PID_FILE")" 2>/dev/null
+rm -f "$PID_FILE"
+
+(
+  sleep 30
+  curl -sS --max-time 3 \
+    -H "Title: $proj — Claude Code" \
+    -d 'Task finished' \
+    "$NTFY_URL" >/dev/null 2>&1
+  rm -f "$PID_FILE"
+) </dev/null >/dev/null 2>&1 &
+echo "$!" > "$PID_FILE"
+
+exit 0

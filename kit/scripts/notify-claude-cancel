@@ -1,0 +1,11 @@
+#!/bin/bash
+# Cancels any pending delayed notification. Called by UserPromptSubmit +
+# PreToolUse hooks — any sign of user activity or Claude progressing to
+# tool execution means the user is either at the computer or responded
+# to whatever was pending. Idempotent (no-op if nothing pending).
+
+set +e
+PID_FILE=/tmp/claude-notify-pending.pid
+[ -f "$PID_FILE" ] && kill "$(cat "$PID_FILE")" 2>/dev/null
+rm -f "$PID_FILE"
+exit 0

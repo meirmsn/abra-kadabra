@@ -95,6 +95,7 @@ for domain in \
     "objects.githubusercontent.com" \
     "fonts.googleapis.com" \
     "fonts.gstatic.com" \
+    "ntfy.sh" \
     ; do
     echo "Resolving $domain..."
     ips=$(dig +noall +answer A "$domain" | awk '$4 == "A" {print $5}')

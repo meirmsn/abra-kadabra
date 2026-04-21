@@ -164,6 +164,7 @@ These topics span multiple skills, so the guide (`./guide/`) owns them:
 - **Testing layers** (`guide/conventions.md § Testing`) — unit vs integration vs E2E, RLS boundary tests, seed.sql, CI mirrors runtime
 - **Security + Quality** (`guide/security.md`) — pre-commit steps, security-critical file list, fakeowner caveat, known gaps
 - **Hooks table + Commit Flow** (`guide/hooks.md`) — what fires on commit/push/session-start and in what order
+- **Notifications** (`guide/notifications.md`) — push alerts to iPhone/Watch/Mac via ntfy.sh, 30s debounce, privacy, rotation
 - **Rollback procedures** (`guide/ops.md § When Things Go Wrong`) — Vercel rollback, migration rollback SQL, canary failure response
 
 CI slow job expansion plans are in ROADMAP.md § v+.

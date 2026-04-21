@@ -14,6 +14,8 @@ Hooks in `.claude/settings.json` guard the development workflow:
 
 > PostToolUse Bash workflow hooks are intentionally absent. Workflow nudges that used to fire after `git commit` / `git push` (release reminder, dirty-tree check, PR description review) now live at the **git layer** (`.husky/pre-push`, husky pre-commit guards) or are owned by skills (`/ak-release-devshop`). See [Why workflow nudges live at the git layer](#why-workflow-nudges-live-at-the-git-layer) below for the rationale.
 
+> **Notification hooks** (`Notification`, `Stop`, `UserPromptSubmit` cancel, `PreToolUse` cancel) push alerts to iPhone/Watch/Mac via ntfy.sh when Claude needs input or a task finishes, with 30s debounce to stay quiet during active sessions. Separate concern from the commit-flow guards above. See [notifications.md](notifications.md).
+
 ---
 
 ## Commit Flow
