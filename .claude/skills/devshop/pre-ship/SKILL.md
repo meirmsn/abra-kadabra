@@ -195,6 +195,68 @@ Check for:
 
 **Pause if any issues found.**
 
+### Evidence enforcement (mandatory before declaring `pass`)
+
+A gate that runs one of four combo-captures and reports `pass` hides the other three failures. Gate 3 MUST verify evidence on disk before returning `pass`.
+
+**Primary screens** — derived from the PR's diff against `origin/main`:
+
+```bash
+# Any new page.tsx under apps/web/app/ is a primary screen.
+# Strip the (route-group) folders (like "(auth)") to get the canonical slug.
+PRIMARY_SCREENS=$(git diff --name-only --diff-filter=A origin/main...HEAD \
+  | grep -E '^apps/web/app/.*/page\.tsx$' \
+  | sed -E 's|apps/web/app/\(\w+\)/||;s|/page\.tsx$||;s|^/||' \
+  | grep -v '^$')
+```
+
+For each primary screen, require all 4 combos in `specs/<feature>/screenshots/`:
+
+- `<screen>-375-light.png`
+- `<screen>-375-dark.png`
+- `<screen>-1440-light.png`
+- `<screen>-1440-dark.png`
+
+**Outcome mapping**:
+
+| State                                                                                                                                                                                                       | Gate 3 outcome                      |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| All 4 combos × each primary screen present                                                                                                                                                                  | `pass`                              |
+| Any combo missing, AND `review.md § Gate 3` has an explicit blocker entry naming the specific screen + combo (e.g. "375×dark for /sign-in skipped because dark-mode bootstrap deferred — see Known Gap #6") | `findings (N) [blocker documented]` |
+| Any combo missing, no blocker doc                                                                                                                                                                           | `blocked (evidence incomplete)`     |
+
+Never silently `pass` when evidence is incomplete. The blocker-documented escape is for genuine deferrals (e.g. dark-mode bootstrap not yet wired), not for "ran out of time."
+
+**Implementation sketch** (embed in the gate's verification script):
+
+```bash
+MISSING=""
+while IFS= read -r screen; do
+  [ -z "$screen" ] && continue
+  for vp in 375 1440; do
+    for theme in light dark; do
+      path="specs/$FEATURE/screenshots/${screen}-${vp}-${theme}.png"
+      [ -f "$path" ] || MISSING+="  $path\n"
+    done
+  done
+done <<< "$PRIMARY_SCREENS"
+
+if [ -n "$MISSING" ]; then
+  # Check for blocker documentation in review.md § Gate 3
+  BLOCKER=$(awk '/^## Gate 3/,/^## Gate [0-9]+/' "specs/$FEATURE/review.md" 2>/dev/null \
+    | grep -i 'blocker\|deferred\|skipped' || true)
+  if [ -n "$BLOCKER" ]; then
+    echo "findings (evidence incomplete — blocker documented in review.md)"
+  else
+    echo "blocked (evidence incomplete — capture missing shots or document blocker in review.md § Gate 3)"
+    echo -e "Missing:\n$MISSING"
+    exit 1
+  fi
+else
+  echo "pass"
+fi
+```
+
 ## Gate 4: /simplify
 
 Invoke `/simplify` via Skill tool. Code quality pass (reuse, efficiency, dead code).
