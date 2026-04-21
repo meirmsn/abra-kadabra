@@ -499,24 +499,57 @@ Project build history.
 
 The reminder lives above the `Project build history.` line (not inside `## In Flight` — that section is for feature branches, not platform TODOs).
 
-**Sub-step 3: site_url + uri_allow_list (mandatory)**
+**Sub-step 3: site_url + uri_allow_list (mandatory site_url; minimal allow list by default, opt-in extras)**
 
-Read the production URL + Vercel slug; compose the redirect allow list.
+Compose the minimal allow list (production URL + localhost) from values `/setup-deploy` already wrote to `CLAUDE.md`. Preview-deploy wildcards and additional Vercel aliases are **opt-in** — their exact patterns vary per Vercel team + hash, are hard to auto-derive reliably, and are not needed for basic email-auth flows to work.
 
 ```bash
-# Production URL, written by /setup-deploy at Step 17
+# Production URL from /setup-deploy (Step 17 wrote it to CLAUDE.md § Deploy Configuration § Production URL)
 PROD_URL=$(awk -F': ' '/Production URL:/ {print $2; exit}' CLAUDE.md | tr -d ' \r')
 
-# Vercel project slug (team-scoped domain is <project>-<team>.vercel.app if applicable)
-VERCEL_PROJECT=$(jq -r '.projectName' .vercel/project.json 2>/dev/null || echo "")
+# Minimal default: production + localhost. No project alias, no preview wildcard.
+# This matches the lalista 2026-04-20 convention — the minimal set that makes
+# password recovery + magic link + email change + signup confirm all work in
+# production AND local dev, without over-permissively opening additional surface.
+URI_ALLOW="${PROD_URL}/**,http://localhost:3000/**"
+```
 
-if [ -z "$VERCEL_PROJECT" ]; then
-  echo "[HUMAN] Vercel project slug not found in .vercel/project.json. Enter the Vercel project domain (e.g., lalista or lalista-meirs-projects):"
-  read -r VERCEL_PROJECT
-fi
+**Opt-in A: Vercel preview deploys**
 
-URI_ALLOW="${PROD_URL}/**,https://${VERCEL_PROJECT}.vercel.app/**,http://localhost:3000/**"
+Ask whether email-auth flows need to work from Vercel PR previews. Most projects don't need this for MVP — previews are developer-facing.
 
+```
+[HUMAN] Want email-auth flows (password reset, magic link, signup confirm) to work from Vercel PR preview deploys? [y/N]:
+```
+
+If `y`, help the user compose the wildcard. Preview URLs look like `https://<project>-git-<branch>-<team>-<hash>.vercel.app`. The wildcard that catches all of them is typically `https://*-<team>-<hash>.vercel.app/**`.
+
+```
+[HUMAN] Look at a recent Vercel preview URL (paste it here or look up in the Vercel dashboard). Enter the wildcard pattern — e.g., `https://*-meirs-projects-4803a76a.vercel.app/**` if your team slug is `meirs-projects` and your hash is `4803a76a`:
+```
+
+```bash
+# After user enters the wildcard:
+URI_ALLOW="${URI_ALLOW},${PREVIEW_WILDCARD}"
+```
+
+If `n` (or user skips), log a TODO to `BUILD-LOG.md` so it surfaces at next `/ak-status`:
+
+```markdown
+> **[TODO] Preview-deploy email-auth deferred** — `uri_allow_list` does not include the Vercel preview wildcard. Email-auth flows (password reset, magic link) will not work from PR preview deploys. Add via `PATCH /v1/projects/{ref}/config/auth` when needed.
+```
+
+**Opt-in B: additional aliases** (rare — e.g., custom domains + the default `<project>.vercel.app` alias Vercel auto-provides):
+
+```
+[HUMAN] Any other URLs that need email-auth redirects (comma-separated wildcards, or blank to skip)?
+```
+
+Append to `URI_ALLOW` if provided.
+
+**Apply and verify**:
+
+```bash
 curl -sX PATCH "https://api.supabase.com/v1/projects/${PROJECT_REF}/config/auth" \
   -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
   -H "Content-Type: application/json" \
@@ -530,10 +563,12 @@ curl -sX GET "https://api.supabase.com/v1/projects/${PROJECT_REF}/config/auth" \
 ```
 
 ```
-[HUMAN] Do these match your deploy targets (production + Vercel preview wildcard + localhost)? [y/N]:
+[HUMAN] Do these match your deploy targets (production + opted-in extras + localhost)? [y/N]:
 ```
 
-If the user says no, iterate with them to correct the URLs before advancing. Misconfigured `site_url` is a silent failure mode at runtime — get it loud and right at setup time.
+If the user says no, iterate with them to correct before advancing. Misconfigured `site_url` is a silent failure mode at runtime — get it loud and right at setup time.
+
+**Why minimal-by-default**: the 2026-04-20 lalista application of this step used `${PROD_URL}/**,http://localhost:3000/**` (nothing else) and fixed the immediate broken-email-links issue. Additional patterns can always be added later via a single Management API PATCH — no downside to starting minimal. Over-permissive defaults, in contrast, create latent attack surface if a wildcard ever matches an attacker-controlled domain.
 
 **What this step does NOT touch** (by design):
 
