@@ -321,11 +321,57 @@ If tests fail → stuck protocol (see below).
   - `ok` / `reused` → local Supabase; use seeded fixtures (`alice@test.local` / `bob@test.local` / etc.).
   - `unavailable` → admin-API against hosted; create test users with `email_confirm: true` to bypass Supabase's email-rate-limit. Clean up in `afterAll`.
 
-Invoke `/qa` via Skill tool. Browser-based QA — discovers bugs, fixes source code,
-commits per bug, re-tests. Has its own internal fix loop.
+Invoke `/qa` via Skill tool. Browser-based QA — discovers bugs, fixes source code, commits per bug, re-tests. Has its own internal fix loop.
 
-Runs AFTER /design-review so it browser-tests the visually polished code. This is the
-final "does this actually work in a browser" pass before /ship.
+Runs AFTER /design-review so it browser-tests the visually polished code. This is the final "does this actually work in a browser" pass before /ship.
+
+### Outcome contract (three outcomes — `skipped` is not one of them)
+
+Gate 9 MUST emit exactly one of:
+
+- **`pass`** — happy-path walk completed end-to-end. Evidence: a Playwright trace OR a structured log at `specs/<feature>/qa-walk.log` showing the full sequence (URL → assertion → next URL → ...) with timestamps. Without evidence, `pass` is not available.
+- **`findings (N) fixed`** / **`findings (N) pending`** — walk found issues; `/qa` fixed what it could. Each finding recorded in `review.md § Gate 9` with repro + commit.
+- **`blocked (<reason>)`** — walk couldn't complete. Requires an explicit reason (tooling gap, external dependency unreachable, harness not yet written). Writes fix recipe to `review.md § Gate 9` so the next run knows how to clear the block.
+
+Never `skipped`. If Gate 9 simply wasn't exercised, the correct outcome is `blocked` with the reason. `pass` on an unexercised gate is the failure mode that landed lalista PR #10's Gate 9 in a false-positive state.
+
+### User-state matrix (mandatory for auth-touching PRs)
+
+A walk that only exercises one user-state (existing-confirmed-user with correct password) hides every other failure mode real users hit. For PRs touching auth (`apps/web/app/(auth)/`, sign-in/sign-up/onboarding code paths, Supabase auth config), Gate 9 MUST exercise all five rows below — or document in `review.md § Gate 9` why a specific row is deferred to a later PR.
+
+| User-state                       | Why it matters                                                     | How to exercise                                                                                                               |
+| -------------------------------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| Unconfirmed signup               | Default Supabase config; new users ALWAYS hit this first           | Create user with admin API `email_confirm: false`; walk until UI surfaces "check your email" awaiting-confirmation state.     |
+| Wrong password for existing user | Real users mistype passwords constantly                            | Existing confirmed user + intentionally wrong password; assert friendly error, no silent fallback into signup or other flows. |
+| Rate-limited signup              | Free-tier default `rate_limit_email_sent: 2/hour` trips in testing | Trigger 3 signups in rapid succession; 3rd must show a friendly rate-limit message (not a raw Supabase error or silent hang). |
+| Existing user, correct password  | The canonical happy path                                           | Existing confirmed user + correct password → sign-in success → lands on expected destination (onboarding or home).            |
+| Session expired mid-onboarding   | Supabase tokens expire; RSC `getUser()` returns null               | Create user, sign in, admin-delete session, attempt to continue onboarding; assert clean redirect to `/sign-in`.              |
+
+Each row's harness lives in the project's `e2e/helpers/` (or, post-convention, `@devshop-template/auth-ux`). Harness helpers use the admin API to set up each state deterministically — no relying on hosted Supabase's email-confirmation timing or rate-limit cooldowns.
+
+### Friendly-error coverage — existing-user-via-signup-fallback
+
+Supabase's user-enumeration-prevention returns `data.user.identities: []` (empty array) when a signup attempt hits an already-confirmed email. Naïve sign-in pages fall into "awaiting confirmation" UI — which is misleading for an existing-user-with-wrong-password scenario.
+
+Gate 9 MUST include a case where the test signs up with an email that already has a confirmed account (using the wrong password), and asserts:
+
+- The UI does NOT show "check your email" awaiting-confirmation state.
+- The UI surfaces a friendly "account already exists — try signing in or reset your password" message.
+- `data.user.identities.length === 0` is checked in the app code before branching into awaiting-confirmation UI.
+
+Prior art: lalista commit `31b5637` (`awaitingConfirmation` UI + `friendlyAuthError` helper) + `e1ceb9c` (identities-check follow-up) — both flagged as verification debt in `lalista-migration-resume.md § Core Principles § 4` awaiting the v1 "Auth UX conventions" helper. Once that helper ships, this matrix row is how Gate 9 verifies the helper did its job.
+
+### Cross-reference to ROADMAP
+
+`kit/ROADMAP.md § v1 § Auth UX conventions` defines the project-side patterns (awaiting-confirmation card, friendly error helper, identities-check, password-reset route). Gate 9's matrix above is how pre-ship verifies those patterns handle each user-state correctly. The two are paired — the convention ships the UI; the gate verifies it works.
+
+### Evidence requirements recap
+
+- **`pass`** needs `specs/<feature>/qa-walk.log` (structured trace) OR a Playwright trace artifact. The log format mirrors the walk sequence — each line is `<ISO timestamp> <URL> <action> <assertion> <result>`.
+- **`findings (N)`** needs per-finding entries in `review.md § Gate 9` with repro steps.
+- **`blocked`** needs the reason + fix recipe in `review.md § Gate 9`.
+
+Phase 6's final sweep (Fix D) cross-checks these artifacts against any Gate-9-related checkboxes in the PR body.
 
 ## Gate 10: /benchmark (UI PRs only)
 
