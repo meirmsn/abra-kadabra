@@ -2,6 +2,14 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.13.0 (2026-04-21)
+
+- docs(ops): cover Local Supabase manual + hero screenshot manual workflows
+- docs(notes,claude,ops,todos,roadmap,pre-ship): distill + delete lalista-migration-resume.md
+- docs(ak-migrate-project): document v1.12 → v1.13 PLAN.md migration
+- docs(guide,overview,faq): describe PLAN.md role + workflow variants
+- feat(ak-spec,ak-implement,ak-build,ak-go-live,ak-status): adopt PLAN.md as feature-level tracker
+
 ## v1.12.0 (2026-04-21)
 
 - test(notifications): add wiring tests for pnpm install + ntfy.sh firewall entry
