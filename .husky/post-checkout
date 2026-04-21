@@ -1,0 +1,7 @@
+# Auto-install deps when switching branches if pnpm-lock.yaml differs.
+# Args: $1=prev HEAD, $2=new HEAD, $3=flag (1=branch checkout, 0=file checkout)
+[ "$3" = "1" ] || exit 0
+git diff-tree -r --name-only --no-commit-id "$1" "$2" 2>/dev/null | grep -qE '(^|/)pnpm-lock\.yaml$' && {
+    echo "[husky post-checkout] pnpm-lock.yaml changed — running pnpm install..."
+    pnpm install --frozen-lockfile
+} || true

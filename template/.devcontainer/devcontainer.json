@@ -74,7 +74,7 @@
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
   // Onboarding skipped since it hangs, plus not needed! (saves time by not having to go through it every time you start the container) - Happened when using Anthropic API Key
-  "postCreateCommand": "echo '{\"hasCompletedOnboarding\": true}' > ~/.claude.json",
+  "postCreateCommand": "echo '{\"hasCompletedOnboarding\": true}' > ~/.claude.json && pnpm install",
   // Configure git to use GITHUB_TOKEN via gh (skipped if token missing) - prevents having to sign in to github on container restart
   "postStartCommand": "sudo /usr/local/bin/init-firewall.sh && sudo /usr/local/bin/init-devshop.sh && ([ -n \"$GITHUB_TOKEN\" ] && gh auth setup-git || true)",
   "waitFor": "postStartCommand"
