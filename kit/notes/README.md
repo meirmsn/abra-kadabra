@@ -26,7 +26,7 @@ Same convention applies to topic notes that get superseded by a newer doc — de
 
 ## Active handoffs (root-level)
 
-- [`lalista-migration-resume.md`](lalista-migration-resume.md) — self-contained handoff for the Swift→Next.js lalista migration. Covers PR 2 close-out, Fixes A-D pre-ship reliability plan, PR 3 (core flows), PR 4 (CI slow job). Delete when migration completes.
+_No active handoffs._
 
 ## Directories
 

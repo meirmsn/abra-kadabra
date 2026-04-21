@@ -236,6 +236,25 @@ _Grows as issues are encountered. Add entries with date, symptom, cause, fix._
 **Cause**: init-devshop.sh didn't run (password setup is in that script)
 **Fix**: Run `sudo /usr/local/bin/init-devshop.sh` (NOPASSWD rule covers this path). If that also fails, the thin forwarder may be broken — check `/workspace/.devcontainer/init-devshop.sh` content.
 
+### Chromium symlink autoheal (2026-04-20)
+
+**Symptom**: `/ak-pre-ship` gates that use the gstack `browse` daemon fail with `Executable doesn't exist at .../chromium-1208/chrome-linux/chrome` (or similar version number).
+
+**Cause**: The compiled `browse` daemon is pinned to a specific Playwright Chromium version directory (e.g. `chromium-1208`). Playwright may install a newer version (`chromium-1217`, etc.) when the devcontainer is rebuilt — the pinned path goes stale.
+
+**Fix**: `/ak-pre-ship` Phase 0 creates the symlink automatically. If you invoke `browse` outside pre-ship and hit this, run:
+
+```bash
+LATEST=$(ls -d /home/node/.cache/ms-playwright/chromium-* | grep -v headless_shell | sort -V | tail -1)
+[ ! -e /home/node/.cache/ms-playwright/chromium-1208 ] && ln -sf "$LATEST" /home/node/.cache/ms-playwright/chromium-1208
+LATEST_HS=$(ls -d /home/node/.cache/ms-playwright/chromium_headless_shell-* | sort -V | tail -1)
+[ ! -e /home/node/.cache/ms-playwright/chromium_headless_shell-1208 ] && ln -sf "$LATEST_HS" /home/node/.cache/ms-playwright/chromium_headless_shell-1208
+```
+
+**Upstream resolution** (tracked in `kit/TODOS.md`): the `browse` daemon should autodetect the highest-version dir under `~/.cache/ms-playwright/` instead of hard-coding a version. When that ships, drop the symlink workaround.
+
+**Root cause alternative** (also in `kit/TODOS.md`): bake apt-installed `chromium + chromium-driver` into the devcontainer template and set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium`. Eliminates Playwright-CDN dependence entirely (which has its own firewall-stale-ipset issues).
+
 ---
 
 ## Decision Log

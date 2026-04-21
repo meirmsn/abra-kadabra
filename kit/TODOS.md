@@ -21,7 +21,7 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
   1. Add `chromium` + `chromium-driver` to the `apt-get install` list in `template/.devcontainer/Dockerfile`.
   2. Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium` in `template/.devcontainer/devcontainer.json`'s `containerEnv`.
   3. Drop any `pnpm exec playwright install chromium` step from `/ak-new-project` Phase B (if present).
-  4. Keep the v1.5.x symlink auto-heal (Known Gap #13 in `lalista-migration-resume.md`) as belt-and-suspenders for projects still using Playwright-downloaded Chromium.
+  4. Keep the v1.5.x symlink auto-heal (documented in `kit/docs/guide/ops.md § Troubleshooting § Chromium symlink autoheal`) as belt-and-suspenders for projects still using Playwright-downloaded Chromium.
 
   **Prerequisite for**: reliable `/canary` in `/ak-go-live` (2026-04-20 Step 1 session fell back to curl-based health checks when `browse` couldn't provision Chromium). Also aligned with the existing `/home/node/.claude/projects/-workspace/memory` virtiofs note that already prescribes apt Chromium for local builds.
 

@@ -230,7 +230,7 @@ This was the second auth-hardening request in one conversation (password_min_len
 
 **Cross-ref:**
 
-- Step 2's `/ak-new-project` Phase B auth-hardening step (see `kit/notes/lalista-migration-resume.md § UPDATE 2026-04-20 § Step 2 scope`) — the mandatory password-length + interactive CAPTCHA bits ship first; invite-code gating is the next layer up for projects that need it.
+- The `/ak-new-project` Phase B auth-hardening step (landed in devshop v1.11.0) — mandatory password-length + interactive CAPTCHA ship first; invite-code gating is the next layer up for projects that need it.
 
 ### Auth UX conventions — shared error-surface + state patterns
 
@@ -276,7 +276,7 @@ Combined with the auth-hardening step (password_min_length: 8) and invite-code s
 **Cross-ref:**
 
 - Lalista commits `31b5637` (fix) and sign-in page.tsx / page.test.tsx — the concrete prior art
-- Step 2's Fix C expansion (see `kit/notes/lalista-migration-resume.md § UPDATE 2026-04-20 § Step 2 scope`) — the QA-side pair of this UX-side convention
+- The `/ak-pre-ship` Gate 9 user-state matrix (landed in devshop v1.11.0) — the QA-side pair of this UX-side convention
 
 ---
 

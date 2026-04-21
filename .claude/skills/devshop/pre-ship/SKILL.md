@@ -1,6 +1,6 @@
 ---
 name: ak-pre-ship
-version: 3.2.0
+version: 3.2.1
 description: |
   Quality gates before shipping. Pauses on findings, auto-advances on clean passes.
   After each code-changing gate, verifies tests still pass (stuck protocol if not).
@@ -219,11 +219,11 @@ For each primary screen, require all 4 combos in `specs/<feature>/screenshots/`:
 
 **Outcome mapping**:
 
-| State                                                                                                                                                                                                       | Gate 3 outcome                      |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
-| All 4 combos × each primary screen present                                                                                                                                                                  | `pass`                              |
-| Any combo missing, AND `review.md § Gate 3` has an explicit blocker entry naming the specific screen + combo (e.g. "375×dark for /sign-in skipped because dark-mode bootstrap deferred — see Known Gap #6") | `findings (N) [blocker documented]` |
-| Any combo missing, no blocker doc                                                                                                                                                                           | `blocked (evidence incomplete)`     |
+| State                                                                                                                                                                                                                                               | Gate 3 outcome                      |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| All 4 combos × each primary screen present                                                                                                                                                                                                          | `pass`                              |
+| Any combo missing, AND `review.md § Gate 3` has an explicit blocker entry naming the specific screen + combo (e.g. "375×dark for /sign-in skipped because the project's dark-mode bootstrap is deferred — tracked in PLAN.md / PRODUCT-ROADMAP.md") | `findings (N) [blocker documented]` |
+| Any combo missing, no blocker doc                                                                                                                                                                                                                   | `blocked (evidence incomplete)`     |
 
 Never silently `pass` when evidence is incomplete. The blocker-documented escape is for genuine deferrals (e.g. dark-mode bootstrap not yet wired), not for "ran out of time."
 
@@ -359,7 +359,7 @@ Gate 9 MUST include a case where the test signs up with an email that already ha
 - The UI surfaces a friendly "account already exists — try signing in or reset your password" message.
 - `data.user.identities.length === 0` is checked in the app code before branching into awaiting-confirmation UI.
 
-Prior art: lalista commit `31b5637` (`awaitingConfirmation` UI + `friendlyAuthError` helper) + `e1ceb9c` (identities-check follow-up) — both flagged as verification debt in `lalista-migration-resume.md § Core Principles § 4` awaiting the v1 "Auth UX conventions" helper. Once that helper ships, this matrix row is how Gate 9 verifies the helper did its job.
+Prior art: lalista commits `31b5637` (`awaitingConfirmation` UI + `friendlyAuthError` helper) + `e1ceb9c` (identities-check follow-up) — both carried as `[verification-debt]` in lalista's `TODOS.md` awaiting the v1 "Auth UX conventions" helper, per the refactor-to-adopt pattern in `kit/notes/dual-goal-project-principles.md § 4`. Once that helper ships, this matrix row is how Gate 9 verifies the helper did its job.
 
 ### Cross-reference to ROADMAP
 
