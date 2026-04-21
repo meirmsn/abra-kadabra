@@ -134,6 +134,48 @@ pnpm turbo run test:unit    # fast inner loop — no DB needed
 
 Integration tests (`*.integration.test.ts`) run in CI's slow job against a real Supabase instance. Push a PR to run them.
 
+### Local Supabase — manual workflow for QA / ad-hoc testing
+
+`/ak-pre-ship` Phase 0 automates this via `preship-supabase-bootstrap.sh` (Fix A) when Docker-in-Docker is available. For manual use outside pre-ship, or when DinD is inert:
+
+```bash
+supabase start     # starts Postgres, Auth, Realtime containers (~45s first time)
+supabase status    # prints local API URL + anon key
+```
+
+Temporarily point `apps/web/.env.local` at local (back up the hosted values first — the file is gitignored either way):
+
+```
+NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<from supabase status>
+NEXT_PUBLIC_POSTHOG_KEY=<keep hosted>
+NEXT_PUBLIC_SENTRY_DSN=<keep hosted>
+```
+
+Restart the dev server to pick up the new env. Use seeded test accounts for sign-in — project `seed.sql` inserts directly into `auth.users` bypassing the email validator, so `.test.local` TLDs work (e.g. `alice@test.local` / `password123` if the project follows the template seed pattern). Freshly-created users via the UI use `@example.com` (RFC 2606 reserved TLD).
+
+When done: revert `.env.local` to hosted, run `supabase stop`.
+
+### Hero screenshot — manual capture
+
+`/ak-pre-ship` end-of-run captures hero shots automatically. For ad-hoc captures between gates (e.g., documenting a design iteration), use the gstack `browse` daemon directly:
+
+```bash
+cd /workspace/.claude/skills/gstack/browse/dist && ./browse status   # ensure daemon is up
+
+./browse goto http://localhost:3000/sign-in
+./browse screenshot /workspace/specs/<feature>/hero/signin.png --full-page
+```
+
+For dark-mode captures when the app hasn't yet wired a theme bootstrap (CSS vars respond to `.dark` on `<html>`):
+
+```bash
+./browse exec "document.documentElement.classList.add('dark')"
+./browse screenshot /workspace/specs/<feature>/hero/signin-dark.png --full-page
+```
+
+Put shots under `specs/<feature>/hero/` (committed per `guide/conventions.md § Screenshot Routing`).
+
 ---
 
 ## Service Quotas
