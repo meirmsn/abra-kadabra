@@ -85,20 +85,33 @@ This forces the triage to be explicit and auditable, rather than drifting to inl
 
 ---
 
-## UPDATE 2026-04-20 — Step 1 DONE, Step 2 IN PROGRESS
+## UPDATE 2026-04-20 — Step 1 DONE, Step 2 IMPLEMENTATION COMPLETE (awaiting ff-merge + release)
 
-**Latest status (2026-04-20 afternoon)** — pick up here after a context reset:
+**Latest status (2026-04-20 evening)** — pick up here after a context reset:
 
 - **Step 1 fully wrapped**: PR #10 merged as squash commit `41b3eaa` on lalista `main`; BUILD-LOG housekeeping PR #12 merged as `81b2638`; `/ak-go-live` deploy complete; canary verified.
-- **Step 2 ACTIVE**: implementing the full bundled scope in § "Step 2 scope expanded" below on devshop branch `feature/preship-qa-reliability`. **Fresh-session resume sequence**:
-  1. `git -C /devshop checkout feature/preship-qa-reliability` (create if missing, from `main`)
-  2. `git -C /devshop log --oneline main..HEAD` to see how far Step 2 got before reset
-  3. Walk the Step 2 checklist top-to-bottom (Fixes A-D, then expanded items: `/ak-clean-branches` rename+remote-delete, `/ak-build` Phase 5.x + Phase 7 removal + Phase 6 handoff nudge, `/ak-new-project` Supabase hardening, conventions doc additions)
-  4. First task on resume: capture the 2 infra TODOs from § "Devshop infrastructure findings (pre-Step-2 reading)" into `/devshop/kit/TODOS.md` if not already there
+- **Step 2 IMPLEMENTATION COMPLETE**: all 10 commits landed on devshop branch `feature/preship-qa-reliability`. Awaiting the devshop landing flow (see § "Devshop shipping flow (no PRs)" below — **NOT** a PR on abra-kadabra; devshop uses ff-merge). **Fresh-session resume sequence**:
+  1. `git -C /devshop checkout feature/preship-qa-reliability`
+  2. `git -C /devshop log --oneline main..HEAD` — should show the 10 Step 2 commits (listed below under "Step 2 commits landed").
+  3. If tree is clean and main is still behind: `git -C /devshop checkout main && git -C /devshop merge --ff-only feature/preship-qa-reliability` — ff-merge is a pointer move, not a commit, so Claude's main-commit block doesn't fire.
+  4. Run `/ak-release-devshop` from main. Skill proposes bump level (minor — multiple `feat:` commits; `v1.10.3 → v1.11.0`), asks user to confirm, then `release.sh` writes kit/version, generates CHANGELOG entry, commits the bump, tags `v1.11.0`, pushes, creates GitHub release.
+- **⚠ PR-flow trap**: past sessions (including this one) wasted cycles trying to open a PR on abra-kadabra. Don't. DEVSHOP_GITHUB_TOKEN lacks Pull Requests: Write scope AND devshop explicitly uses ff-merge (see `/devshop/CLAUDE.md § Devshop shipping flow (no PRs)` + the § "Devshop shipping flow" section in this doc — formerly misnamed "Devshop conventions for these PRs" which seeded the confusion).
+- **Step 2 commits landed on feature/preship-qa-reliability** (10 total, in reverse chronological order):
+  1. `f5ff43b` — feat(ak-build): Fix D — Phase 6 evidence-on-disk sweep
+  2. `0c22e8b` — feat(pre-ship): Fix C — Gate 9 user-state matrix + friendly-error
+  3. `4875a0c` — feat(pre-ship): Fix B — Gate 3 evidence-matrix enforcement
+  4. `f01c89b` — feat(pre-ship): Fix A — preship-supabase-bootstrap.sh
+  5. `2869a51` — docs(guide): Deploy Boundaries + Supabase Hardening + ON DELETE
+  6. `0c854e1` — feat(ak-new-project): Step 17b Supabase auth hardening
+  7. `7c86ed6` — feat(ak-build,ak-go-live,ak-spec): BUILD-LOG flow restructure
+  8. `8acd25f` — feat(ak-build): Phase 7 deploy-hint nudge
+  9. `6699692` — chore(commands): /ak-clean-branches rename + remote-delete
+  10. `b38b09d` — docs(notes+todos): Step 2 status + migration 009 → PR 3 + infra TODOs
+- **Branch pushed to origin** (via the devshop-token HTTPS URL — `git@github.com:…` is SSH and doesn't work from this container). Feature branch is visible at `github.com/meirmsn/abra-kadabra/tree/feature/preship-qa-reliability`, but that's informational; the actual land is via ff-merge to main, not via a PR on that branch.
 - **Locked-in decisions 2026-04-20**:
   - **Lalista migration 009 (ON DELETE FK cascades)** → **folded into PR 3**, not standalone PR 2.1. Rationale: avoids a one-commit interstitial PR; co-located with the new write paths PR 3 introduces; the devshop `ON DELETE` FK convention landing in Step 2 guides the migration shape. See § "Pending lalista work § standalone § Migration 009".
-- **Lalista main tip** (as of Step 2 kickoff): `81b2638`. Working tree clean. No active feature branches on lalista during Step 2.
-- **Devshop main tip** (as of Step 2 kickoff): `2aa4db1 docs(notes): /ak-clean-branches edge case — checkout main first if HEAD matches target`. Working tree clean. All Step 2 scope captured in docs; implementation pending on `feature/preship-qa-reliability`.
+- **Lalista main tip**: `81b2638`. Working tree clean. No active feature branches on lalista.
+- **Devshop main tip**: `2aa4db1` until ff-merge lands; then `f5ff43b` (tip of feature branch); then `Bump devshop version to 1.11.0` after `/ak-release-devshop`.
 
 ### Step 1 — PR #10 close-out: ✅ DONE
 
@@ -431,7 +444,7 @@ If already merged: skip to Step 2 (Fixes A-D) since PR 2's close-out is moot.
 
 **Branch**: `feature/preship-qa-reliability` on devshop (abra-kadabra). Commit structure: one bundled commit per the doc's recommendation, OR one commit per fix for reviewability — implementer's call.
 
-**Estimated scope**: ~200 lines of SKILL.md edits + 1-2 new scripts + doc updates. One devshop PR.
+**Estimated scope**: ~200 lines of SKILL.md edits + 1-2 new scripts + doc updates. One devshop feature branch, landed via ff-merge + single `/ak-release-devshop` invocation (**no PR on abra-kadabra** — see § "Devshop shipping flow (no PRs)" below).
 
 #### Fix A — Local Supabase as the default for Gate 9
 
@@ -947,16 +960,30 @@ For dark-mode shots under unreachable-dark-mode gap (Known Gap #6):
 
 ---
 
-## Devshop conventions for these PRs
+## Devshop shipping flow (no PRs)
 
-When working in `/devshop` (e.g., for Step 2's Fixes A-D devshop PR):
+**Critical** — the devshop (abra-kadabra) uses a different landing flow than projects like lalista. Source of truth: `/devshop/CLAUDE.md § "Devshop shipping flow (no PRs)"`. This section restates the flow in migration-doc terms so Step 2 / Step 3 / Step 4 sessions don't re-discover the trap.
 
-- **Branch on devshop**: separate from project work. Use `feature/<descriptive-name>`.
+**The flow is branch → ff-merge → `/ak-release-devshop`. NOT a PR.**
+
+1. **Branch**: `feature/<descriptive-name>`. Commit as usual; pre-commit guards (cross-repo clean-tree, docs-drift, doc-consistency, kit tests, gitleaks) are the quality gate. Iterate commits on the branch until guards pass.
+2. **Land with fast-forward**: from main, `git merge --ff-only feature/<name>` — no new commit, just a pointer move. Claude CAN do this: the main-commit block (`check-branch-not-main.sh`) applies to `git commit`, not `git merge --ff-only`. If main has diverged (a different branch landed in the meantime), rebase the feature branch first: `git rebase main <branch>` then ff-merge.
+3. **Release**: `/ak-release-devshop` from main. The skill categorizes commits since last tag, proposes a bump (patch/minor/major), asks for confirmation, then runs `kit/scripts/release.sh` which writes `kit/version`, generates a CHANGELOG entry, creates the bump commit (this is the ONE legitimate main commit — release.sh wraps it so the PreToolUse hook doesn't see a bare `git commit` on main), tags, pushes via the DEVSHOP_GITHUB_TOKEN HTTPS URL, and creates a GitHub release. The `release-coverage` adversarial review fires at the bump-commit step.
+
+**⚠ Do NOT**:
+
+- Open a PR on abra-kadabra. There isn't a reviewer; it's single-developer + private. The DEVSHOP_GITHUB_TOKEN doesn't have Pull Requests: Write scope anyway, so `gh pr create` / `curl POST /pulls` both fail with 403 — past sessions have wasted cycles retrying this.
+- Push to `origin/main` manually before running `/ak-release-devshop`. Let the release script do the push so the version bump + tag + push + release are atomic.
+- Push directly to `main` from any command other than release.sh. The PreToolUse branch-not-main guard + pre-push protections exist to catch this.
+
+**Still applies** (these are commit-time, not PR-time):
+
 - **Cross-repo clean-tree**: husky pre-commit blocks if the OTHER repo is dirty. Use `git stash push -u` on the non-committing side, OR `git -c devshop.dirtyTreeReason="..."` (adversarially reviewed).
-- **Pre-push (NEW after hook migration)**: pre-push hook adversarially reviews PR description sync + tree/stash cleanliness. Bypass via `git -c devshop.prDescStaleReason="..."` or `git -c devshop.dirtyPushReason="..."`. Both reviewed.
-- **docs-drift / doc-consistency**: when changing `kit/` or `.claude/skills/`, both adversarial reviewers may fire. Have `docsVerified` and `docSyncReason` reasons ready, covering each of 7 top-level docs.
-- **PR body images**: use `https://github.com/<owner>/<repo>/raw/<branch>/<path>` (raw.githubusercontent.com 404s for private repos).
-- **PR body checkboxes**: pre-push gates auto-check; CI gates check on signal landing; human-review items never auto-checked. Phase 6 reconciles.
+- **docs-drift / doc-consistency**: when changing `kit/` or `kit/docs/guide/`, both adversarial reviewers may fire. Have `docsVerified` / `docSyncReason` reasons ready covering each of the 7 top-level docs where relevant.
+- **Pre-push `prDescStaleReason`**: `.husky/pre-push` can adversarially review PR-description freshness if an open PR exists on the pushed branch. For devshop work no PR exists, so this check short-circuits in practice. Pushes to `main` itself also short-circuit (per `/devshop/CLAUDE.md` line 82). Safe to push.
+- **Pre-push `dirtyPushReason`**: blocks push to non-main branches when the working tree is dirty or has stashes; bypass via `git -c devshop.dirtyPushReason="..."`.
+
+**PR-specific conventions** (e.g., PR body image URLs, checkbox timing) apply to **lalista** PRs — not to abra-kadabra work. See `/devshop/.claude/skills/devshop/build/SKILL.md § "PR body conventions"` for the project-side rules.
 
 ---
 
@@ -975,11 +1002,11 @@ When working in `/devshop` (e.g., for Step 2's Fixes A-D devshop PR):
 > 5. Commit + update PR #10 body to mark all 4 boxes `[x]`.
 > 6. Revert `.env.local` to hosted and `supabase stop`.
 
-### For Step 2 (Fixes A-D devshop PR)
+### For Step 2 (Fixes A-D devshop feature branch)
 
 > I want to implement the pre-ship QA reliability fix-plan in `/devshop/kit/notes/lalista-migration-resume.md § Step 2`. Four fixes (A: local Supabase Gate 9 preflight; B: Gate 3 evidence enforcement; C: Gate 9 completion requirement; D: Phase 6 evidence-on-disk sweep).
 >
-> Branch: `feature/preship-qa-reliability` on devshop.
+> Branch: `feature/preship-qa-reliability` on devshop. Landing flow is **ff-merge + /ak-release-devshop — not a PR** (see § "Devshop shipping flow (no PRs)" in the resume doc).
 >
 > Read the doc first. Then propose commit structure (one bundled commit or one per fix; prefer one per fix for reviewability). Verify each fix with the verification steps in the doc. Use lalista's `feature/auth` (already in /workspace) as target of dry-run, since it's a real spec with real artifacts.
 >
