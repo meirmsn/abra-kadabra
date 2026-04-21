@@ -444,6 +444,34 @@ setup() {
   assert_success
 }
 
+@test "wiring: template devcontainer.json runs pnpm install in postCreateCommand" {
+  local dc="$DEVSHOP/template/.devcontainer/devcontainer.json"
+  [ -f "$dc" ] || skip "template devcontainer.json not found"
+  run grep -q '"postCreateCommand":.*pnpm install' "$dc"
+  assert_success
+}
+
+@test "wiring: devshop devcontainer.json runs pnpm install in postCreateCommand" {
+  local dc="$DEVSHOP/.devcontainer/devcontainer.json"
+  [ -f "$dc" ] || skip "devshop devcontainer.json not found"
+  run grep -q '"postCreateCommand":.*pnpm install' "$dc"
+  assert_success
+}
+
+@test "wiring: template init-firewall.sh allows ntfy.sh" {
+  local f="$DEVSHOP/template/.devcontainer/init-firewall.sh"
+  [ -f "$f" ] || skip "template init-firewall.sh not found"
+  run grep -qE '^\s*"ntfy\.sh"\s*\\' "$f"
+  assert_success
+}
+
+@test "wiring: devshop init-firewall.sh allows ntfy.sh" {
+  local f="$DEVSHOP/.devcontainer/init-firewall.sh"
+  [ -f "$f" ] || skip "devshop init-firewall.sh not found"
+  run grep -qE '^\s*"ntfy\.sh"\s*\\' "$f"
+  assert_success
+}
+
 # =============================================================================
 # Telemetry opt-outs — env vars in containerEnv for rebuild resilience
 # (the state files live under ~/.config/ which is not volume-mounted, so
