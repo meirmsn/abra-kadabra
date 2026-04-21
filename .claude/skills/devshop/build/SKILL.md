@@ -426,19 +426,77 @@ done
 
 ### Phase 6 checkbox verification (final sweep)
 
-Before leaving Phase 6, re-read the PR body one more time and reconcile
-the `## Test plan` checkboxes against reality:
+Before leaving Phase 6, re-read the PR body one more time and reconcile the `## Test plan` checkboxes against reality.
 
-| Box | Should be `[x]` when |
-|-----|----------------------|
-| Pre-push automated gates (`pnpm turbo run lint typecheck test:unit build`) | `/ship` ran them green before pushing — mark at PR creation time (Phase 4). |
-| Fast-job CI green | CI run completed with `conclusion == "success"` — mark when Phase 5.3 fires. |
-| Slow-job CI green | CI run's slow job completed green. **If the repo doesn't run a slow job yet**, do NOT mark `[x]` — instead strike the row through (`~~...~~`) with a short "out of scope for this PR" note, so the box reads as a known deferred gate rather than a failing one. |
-| Vercel/Netlify/Fly preview deploys successfully | Platform bot comment reports `Ready` / equivalent — mark with the preview URL + timestamp. |
-| Manual-review callouts (visual audits, QA walkthrough, post-deploy p95) | **Never** — these are for the reviewer, not the automation. |
+**Part A — State-based reconciliation** (does the box's state match its trigger signal?):
 
-If any box is in the wrong state when Phase 6 runs, fix it with
-`gh pr edit "$PR" --body-file` before posting the audit comment.
+| Box                                                                       | Should be `[x]` when                                                                                                                                                                                                                          |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pre-push automated gates (`pnpm turbo run lint typecheck test:unit build`) | `/ship` ran them green before pushing — mark at PR creation time (Phase 4).                                                                                                                                                                   |
+| Fast-job CI green                                                         | CI run completed with `conclusion == "success"` — mark when Phase 5.3 fires.                                                                                                                                                                  |
+| Slow-job CI green                                                         | CI run's slow job completed green. **If the repo doesn't run a slow job yet**, do NOT mark `[x]` — instead strike the row through (`~~...~~`) with a short "out of scope for this PR" note, so the box reads as a known deferred gate rather than a failing one. |
+| Vercel/Netlify/Fly preview deploys successfully                           | Platform bot comment reports `Ready` / equivalent — mark with the preview URL + timestamp.                                                                                                                                                    |
+| Manual-review callouts (visual audits, QA walkthrough, post-deploy p95)   | **Never** — these are for the reviewer, not the automation.                                                                                                                                                                                   |
+
+If any box is in the wrong state when Phase 6 runs, fix it with `gh pr edit "$PR" --body-file` before posting the audit comment.
+
+**Part B — Evidence-on-disk sweep** (does every `[x]` that maps to an artifact actually have that artifact?):
+
+A `[x]` claim is only credible when the artifact exists. Phase 6 verifies this for every checkbox that maps to a file or URL-resolvable resource:
+
+| Checkbox type                                                       | Expected artifact                                                                           | Verification                                                                                                 |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Hero screenshot(s) (`![...](https://github.com/.../raw/.../specs/.../hero/*.png)`) | File exists at `specs/<feature>/hero/<screen>.png`                                          | `[ -f "specs/$FEATURE/hero/<screen>.png" ]`                                                                  |
+| 4-combo evidence matrix (Gate 3)                                    | Files exist at `specs/<feature>/screenshots/<screen>-{375,1440}-{light,dark}.png`           | Stat each of the 4 per primary screen (same list Gate 3 used)                                                |
+| Gate 9 happy-path walk                                              | `specs/<feature>/qa-walk.log` OR Playwright trace in `specs/<feature>/traces/`              | `[ -f qa-walk.log -o -d traces ]`                                                                            |
+| Vercel/preview deploy checkbox                                      | URL in the checkbox line resolves (HTTP 2xx)                                                | `curl -sfI "$URL" >/dev/null`                                                                                |
+| CI-green checkboxes                                                 | Referenced run-id is `success` in `gh run view`                                             | Already covered by Part A's state-based reconciliation                                                       |
+
+**Implementation sketch**:
+
+```bash
+# Re-fetch current PR body
+gh pr view "$PR" --json body --jq .body > /tmp/pr-body.md
+
+EVIDENCE_MISSING=""
+
+# For every [x] image embed, check the referenced file exists in specs/
+grep -oE '!\[.*\]\(https://github.com/[^)]+\)' /tmp/pr-body.md | while read -r embed; do
+  # Extract the path after /raw/<branch>/
+  rel_path=$(echo "$embed" | sed -E 's|.*/raw/[^/]+/(.+)\).*|\1|')
+  if [ ! -f "$rel_path" ]; then
+    EVIDENCE_MISSING+="  $rel_path (referenced in PR body but not in repo)\n"
+  fi
+done
+
+# For every [x] preview-deploy line, curl the URL
+grep -oE '\[x\].*(https://[^ )]+\.(vercel|netlify|fly)\.(app|dev|io)[^ ]*)' /tmp/pr-body.md \
+  | grep -oE 'https://[^ )]+' \
+  | while read -r url; do
+      curl -sfI "$url" >/dev/null || EVIDENCE_MISSING+="  $url (preview URL not reachable)\n"
+    done
+
+# For Gate 3 / Gate 9 evidence (inferred from $FEATURE_DIR):
+[ -n "$(ls specs/$FEATURE/hero/ 2>/dev/null)" ] || EVIDENCE_MISSING+="  specs/$FEATURE/hero/ (no hero shots captured)\n"
+```
+
+If `$EVIDENCE_MISSING` is non-empty → **halt Phase 6**. Do NOT post the audit-trail comment. Surface the discrepancy to the operator:
+
+```
+✖ Phase 6 evidence-on-disk sweep: N [x] checkbox(es) reference missing evidence.
+
+Missing:
+$EVIDENCE_MISSING
+
+Options:
+  1. Produce the evidence (re-run the gate, commit the artifact)
+  2. Downgrade the checkbox to [ ] — only appropriate if the claim was aspirational
+  3. Remove the checkbox row entirely — if it was never in scope
+
+Do NOT ship a PR with [x] claims that don't match reality. The reviewer trusts those marks.
+```
+
+This extension pairs with Gate 3's evidence-matrix enforcement (Fix B) and Gate 9's happy-path evidence requirement (Fix C) — both gates produce the artifacts; Phase 6 verifies the PR body tells the truth about them.
 
 ## Phase 7: Notify
 
