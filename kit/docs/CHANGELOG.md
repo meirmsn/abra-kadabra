@@ -2,6 +2,16 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.12.0 (2026-04-21)
+
+- test(notifications): add wiring tests for pnpm install + ntfy.sh firewall entry
+- test(notifications): cover notify-claude-\* scripts + husky auto-install hooks
+- feat: auto-run pnpm install on rebuild + lockfile change
+- feat(notifications): Claude Code push notifications via ntfy with 30s debounce
+- feat(commands): /ak-clean-branches gains ancestry-anchored detection for no-PR flows
+- feat(ak-new-project): Step 17b Sub-step 3 — minimal-by-default uri_allow_list, opt-in preview wildcard
+- docs(notes): Step 2 verification plan — detailed per-change test matrix with pass/fail criteria
+
 ## v1.11.0 (2026-04-20)
 
 - docs(notes): correct PR-flow language for devshop — use branch + ff-merge + /ak-release-devshop
