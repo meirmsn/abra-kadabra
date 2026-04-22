@@ -77,7 +77,7 @@ git commit
   │       ├─ check-test-coverage.sh ─────── new scripts need tests (devshop only)
   │       └─ devshop-commit-guard.sh ────── 5 checks (run in this order):
   │           ├─ mixed-commit ───────────── devshop + project files together? block
-  │           ├─ docs-drift ─────────────── tooling changed without doc update? block
+  │           ├─ docs-drift ─────────────── any devshop file staged (non-release)? block
   │           ├─ doc-consistency ────────── one ref doc changed without others? block
   │           ├─ cross-repo ─────────────── other repo has uncommitted changes? block
   │           └─ release-coverage ───────── kit/version bumped? adversarial agent

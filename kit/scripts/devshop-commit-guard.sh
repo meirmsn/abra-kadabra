@@ -98,14 +98,19 @@ fi
 if [ "$RUN_DRIFT_CHECK" = true ]; then
   # Skip changelog-only / version-only commits
   if [ "$CURRENT_REPO" = "devshop" ]; then
-    # Devshop tooling surfaces in the devshop repo, mirroring the project-repo
-    # breadth at line 51–55: kit/ (scripts, tests, template, docs, notes),
-    # .claude/ (skills, settings, memory, projects, hooks), and CLAUDE.md at
-    # the repo root (conventions). Prior to v1.15 this only matched `^kit/`,
-    # which let skill changes under `.claude/skills/devshop/` and root-level
-    # CLAUDE.md edits slip past the drift gate entirely.
-    DEVSHOP_SELF_REGEX='^kit/|^\.claude/|^CLAUDE\.md$'
-    NON_CHANGELOG=$(echo "$STAGED" | grep -E "$DEVSHOP_SELF_REGEX" | grep -vE '^kit/(docs/CHANGELOG\.md|version)$' || true)
+    # Devshop repo: every working-tree file IS devshop (the repo's whole
+    # purpose is the devshop). Anything staged triggers docs-drift except
+    # release artifacts — CHANGELOG bumps and `kit/version` updates are
+    # mechanical outputs of the release workflow, not tooling changes.
+    # No include-list: when we enumerate "what counts as tooling," we
+    # inevitably miss surfaces (skills under `.claude/skills/devshop/` were
+    # the gap that motivated this file; `.claude/settings.json` + devcontainer
+    # configs would be the next). Match-all-minus-exclusions is future-proof
+    # — new subdirectories auto-trigger without a hook edit. The adversarial
+    # review of `devshop.docsVerified` judges whether the notes adequately
+    # explain the change, so trivial edits can still pass with appropriate
+    # justification ("lockfile bump, no docs needed" etc.).
+    NON_CHANGELOG=$(echo "$STAGED" | grep -vE '^kit/(docs/CHANGELOG\.md|version)$' || true)
   else
     # In project repos, devshop files are under .devshopkit/, .claude/, or .dcg.toml
     NON_CHANGELOG=$(echo "$STAGED" | grep -E "$DEVSHOP_REGEX" | grep -vE '^\.devshopkit/(docs/CHANGELOG\.md|version)$' || true)

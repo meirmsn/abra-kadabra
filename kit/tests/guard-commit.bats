@@ -304,19 +304,28 @@ run_guard() {
   assert_success
 }
 
-@test "passes with non-kit files in devshop repo" {
+@test "docs-drift: triggers for README.md in devshop repo (no tooling-allowlist)" {
+  # In the devshop repo, every staged file is devshop by default — only
+  # release artifacts (CHANGELOG + version) are excluded. README.md is a
+  # reference doc; changes can have cross-ref implications, so the adversarial
+  # drift review must judge them. See `docs-drift: skips changelog-only
+  # commits` above for the opposite case.
   setup_devshop_repo
   stage_file "README.md" "# updated readme"
   run_guard
-  assert_success
+  assert_failure 1
+  assert_output --partial "docs review required"
 }
 
 # === release-coverage (devshop repo only) ===
 
 @test "release-coverage: skips when kit/version not staged" {
+  # Use a changelog-only stage so docs-drift skips too (the devshop-repo drift
+  # regex matches everything except CHANGELOG/version). The intent here is
+  # to verify release-coverage doesn't fire, not to test drift behavior.
   setup_devshop_repo
   git -C "$TEST_REPO" tag -a v1.0.0 -m "v1.0.0"
-  stage_file "README.md" "# updated readme"
+  stage_file "kit/docs/CHANGELOG.md" "## v1.0.1"
   run_guard
   assert_success
   refute_output --partial "Release coverage:"
