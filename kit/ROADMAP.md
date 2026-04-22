@@ -7,6 +7,44 @@ Tactical fixes go in `TODOS.md`. Project features go in root `PRODUCT-ROADMAP.md
 
 ## v1 (after v0 is validated on the first project)
 
+### `/ak-test-review` — flag shape-only assertions
+
+**What this is** — extend `/ak-test-review` (devshop Gate 5) with one LLM-prompt rule that catches a class of bugs Phase 1's Core User Story + Gate 9 artifact assertion doesn't fully cover: **tests that assert on state / array-length / mock-call-count without a corresponding assertion on user-visible rendered output** (`getByText`, `getByRole`, `toBeInTheDocument`, etc.).
+
+**Background — the Bug 3 residual gap**
+
+The lalista core-flows PR shipped a Realtime blank-row race: `hydrateFromRealtime(incoming, null)` produced a row-shaped entry with empty `itemName` / `storeName`. Unit tests asserted `entries.length === 1` and the test passed — but the user saw a blank row where "milk" should have been. Shape assertion green; UX broken.
+
+Phase 1's Gate 9 artifact assertion (landed in v1.16 / PR #4) **partially** catches this — if the qa-walk harness captures a DOM assertion artifact (`{itemName: "milk", visible: true}`), the bug surfaces. But if it captures only a screenshot, the "row shape differs from baseline" check passes even when the row is empty. So the catch depends on harness quality, not gate mechanics.
+
+The clean fix is one level up: force unit tests themselves to assert what the user sees, not just what the state machine did.
+
+**The rule** (paragraph added to `/ak-test-review`'s LLM prompt):
+
+> For every test that asserts on state shape, array length, mock-call count, or internal reducer output, verify a corresponding assertion exists on user-visible rendered output — text content (`getByText`, `toHaveTextContent`), role (`getByRole`), or accessibility attributes (`getByLabelText`, `toHaveAccessibleName`). Shape assertion without a matching DOM assertion → flag as finding.
+>
+> **Escape hatch**: if the code genuinely has no user-visible output (pure-state reducer, internal data transform, utility function), a test-file comment stating the rationale (`// shape-only: pure reducer, no render path`) is sufficient to bypass. The reviewer should ACCEPT bypass comments that name the absence of user-visible output; REJECT generic / boilerplate bypass comments ("test simple state", "obvious from context").
+
+**Catches a class of bugs, not just Bug 3**. Any test that confirms "the code did a thing" without verifying "the user sees the right thing" falls into the same anti-pattern. The rule generalizes.
+
+**Ship size**: ~80–120 LOC.
+
+- `.claude/skills/devshop/test-review/SKILL.md` — new checklist rule (~40 LOC in the prompt body).
+- `kit/docs/guide/conventions.md` — new § Test Assertion Depth describing the rule + escape hatch + examples (~30 LOC).
+- `kit/tests/test-review-prompt-check.bats` (NEW) — smoke test that the rule text is present in the SKILL.md (~20 LOC). Actual LLM-behavior testing requires real Sonnet calls and is out of scope.
+- Doc touch: `guide/workflow.md` Gate 5 row gets one sentence about the new rule.
+
+**Risk**: Low.
+
+1. **Additive prompt extension**, not a structural change. `/ak-test-review` is already an LLM-judgment gate; one more rule in its prompt doesn't change operating mode.
+2. **False-positive retrofit**: if lalista has many shape-only tests already, the gate could flag them all at once on first run. Mitigation: scope the rule to **tests added or modified in this PR's diff** — don't re-flag grandfathered tests. Add a § Test Assertion Depth migration TODO to `TODOS.md` for existing-test conversion if it matters later.
+3. **False-positive legitimate cases**: pure reducers, store middleware tests, algorithm tests — all legitimately shape-only. The escape-hatch comment covers these; adversarial reviewer accepts rationales that name the absence of user-visible output.
+4. **Marginal LLM cost**: Gate 5 already runs; this adds tokens to the prompt, not a new LLM call. Negligible.
+
+**Build trigger**: anytime — it's cheap, low-risk, and closes a real gap the three landed phases don't perfectly cover. The 2026-04-22 gstack-guidance-enforcement analysis flagged this as the residual test-quality issue after Phase 3/1/2 landed; capturing it here so it doesn't get lost.
+
+**Cross-refs**: see `kit/docs/guide/conventions.md § Test Assertion Depth` (once added) and the 3-phase plan at `/home/node/.claude/plans/cheeky-crafting-frost.md` where the gap was initially flagged.
+
 ### Tiered pre-ship pipeline
 
 Auto-detect change scope and pick a tier:
@@ -355,6 +393,28 @@ When Phase 4 lands:
 6. **Docs** — `kit/docs/guide/workflow.md` Phase 3 pre-ship paragraph extended; `kit/docs/guide/hooks.md` § Dismissal Log subsection upgraded to § Finding Router; `CLAUDE.md` Known Footguns entry updated for the new dismissal-log contract.
 
 **Ship size estimate**: ~250 lines for the router core + ~60 lines per wired gate + ~80 lines per bats test file. Landing the first two gates (`/qa` + `/design-review`) is roughly ~500 LOC. Subsequent gates are smaller as patterns emerge.
+
+**Cost breakdown (2026-04-22 estimate)**
+
+- **Phase 4a — router scaffold + first two gates (`/qa` + `/design-review`)**: ~500 LOC across ~5 files. Realistically 2 PRs (scaffolding PR: router core + adversarial-review extension + bats tests; then gate-wiring PR). Several focused sessions, not a single sitting.
+- **Phase 4b — remaining 5 gates (`/ak-test-review`, `/review`, `/cso`, `/benchmark`, `/simplify`)**: ~60–100 LOC per gate for the rule file + tests. ~400 LOC total. Can be incremental over weeks as patterns emerge.
+- **Full program**: ~900 LOC, 3–5 PRs, spread over multiple working days.
+- **Doubled adversarial-review load**: every non-`None` dismissal goes through TWO LLM calls (rationale-quality + disposition-plausibility). Cost per pipeline run doubles for dismissal review specifically; the short-circuit on `None` bodies (Phase 3's scoped parse) keeps default runs at zero cost.
+
+**Risk breakdown (2026-04-22 estimate)**
+
+Medium-to-high overall. Four distinct risk classes:
+
+1. **Automated `fix-now` is a real risk.** The pipeline decides "this is a bug, fix it now" and commits inline. If the routing is wrong (finding is a false positive) or the fix is wrong, bad code lands without human review. The existing `/ak-implement` stuck protocol + tests-must-pass gate help but don't eliminate this — layering "pipeline decides to fix" on top of "pipeline tries to fix" is a new compound failure mode. Mitigation: require `fix-now` to route through `/ak-implement`'s atomic commit pattern; never allow `fix-now` to skip test verification.
+
+2. **Automated `spec-amendment` is worse.** The pipeline decides "the spec was ambiguous, let me amend it" and edits `spec.md` mid-run. That invalidates earlier agent decisions made against the old spec, may contradict things the user already approved at Phase 0 of /ak-build. Safe design: `spec-amendment` PAUSES and asks the user rather than auto-amending. Which reduces the automation value — you've added ceremony without speed. Probably right to require human confirmation on this disposition specifically.
+
+3. **Opacity vs. transparency.** Today the human reads `review.md` and sees findings + rationales. With Phase 4, many findings auto-route and the human sees "pipeline did X with Y finding." Harder to audit retrospectively ("why did it choose TODO over fix-before-ship?"). The project's strength has been human-in-the-loop visibility; heavy automation here works against that. Mitigation: every routing decision writes an audit-trail entry with the chosen disposition + its rationale, not just the outcome.
+
+4. **Secondary risks**:
+   - **Per-gate rule drift** — six+ mapping functions (one per wired gate) that can subtly differ over time without shared conventions. Mitigation: a shared `kit/scripts/finding-router-rules/_common.sh` for severity-agnostic logic; per-gate files only hold gate-specific mappings.
+   - **Regression surface** — if Phase 4 code has bugs, it can block pipelines Phase 3 handles fine. Mitigation: feature-flag per-gate wiring so each gate's router can be disabled independently; phase-in matches the incremental landing order.
+   - **Adversarial-reviewer false-rejection rate** — the disposition plausibility judgment adds a new rejection surface. If the reviewer is too strict, pipelines grind on edge cases. Mitigation: the same `DEVSHOP_SKIP_ADVERSARIAL=1` escape hatch Phase 3 already has.
 
 **Trigger — when to build this**
 
