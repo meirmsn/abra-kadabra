@@ -32,8 +32,19 @@
 │  /ak-build  — autonomous pipeline (one command)                         │
 │                                                                         │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │ Phase 0 · preview + decisions checkpoint                         │   │
+│  │   reads roadmap / design / test-plan sources                     │   │
+│  │   → 3-section preview: decisions / scope / tracker               │   │
+│  │   user approves → writes specs/<name>/spec.md SKELETON           │   │
+│  │     (provenance + Sources + Decisions — no Task order yet)       │   │
+│  │   starts live TaskCreate tracker                                 │   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+│                    │                                                    │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
 │  │ Phase 1 · /ak-spec                                               │   │
-│  │   gstack plan → specs/<name>/spec.md  (+ METRICS.md pause)       │   │
+│  │   reads spec.md skeleton (Decisions preserved verbatim)          │   │
+│  │   expands in place → full spec (In scope, Task order, Tests, …)  │   │
+│  │   flips PLAN.md row Planned → Active                             │   │
 │  └──────────────────────────────────────────────────────────────────┘   │
 │                    │                                                    │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
@@ -109,7 +120,24 @@ Runs CEO, design, and engineering review sequentially. Locks in architecture, ed
 
 One command after autoplan. Chains everything through PR creation, CI verification, and notification. Resumable if the session is interrupted.
 
-**Phase 1: `/ak-spec`** — converts gstack plan into implementation-ready spec. Creates the feature branch (`feat/<slug>` or `fix/<slug>`) if currently on main, and flips the `PLAN.md` Planned row for this feature into `## Active` (or adds a new Active row if no Planned row existed). May stop for METRICS.md confirmation (the one interactive moment before PR).
+**Phase 0: Preview + decisions checkpoint** — the one interactive beat before
+token-heavy work. Reads the roadmap section, design doc, and test plan for this
+feature; produces a 3-section preview (decisions / scope / hierarchical tracker
+simulation) for user approval. On approval, writes `specs/<name>/spec.md` as a
+skeleton — provenance header, Sources list, and a fully-populated Decisions
+section — and commits it on the feature branch so the user's judgment calls
+survive a crash. Starts a live `TaskCreate` tracker mirroring the preview's
+hierarchy (phases as rows, Phase 2 expanded into per-task sub-rows).
+
+**Phase 1: `/ak-spec`** — reads the Phase 0 skeleton and expands it in place
+into a full spec (In scope, Screens, Data model, API contracts, Tests, Task
+order, Gotchas, Acceptance plan). Preserves the skeleton's Decisions section
+verbatim — does NOT re-resolve. Creates the feature branch (`feat/<slug>` or
+`fix/<slug>`) if currently on main (inherited from Step 0), and flips the
+`PLAN.md` Planned row for this feature into `## Active`. The `## Task order`
+section is the discriminator the resume check uses to tell "skeleton" from
+"complete spec." METRICS.md confirmation only fires when the Phase 0 skeleton
+didn't cover events (rare — only on manually-seeded feature branches).
 
 **Phase 2: `/ak-implement`** — reads spec, decomposes into tasks, implements with tests. Confirms active branch against `PLAN.md § Active`. Stuck protocol: try fix → `/investigate` → ask user. Logs judgment calls in `specs/<name>/tasks.md` § Decisions.
 

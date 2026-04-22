@@ -105,7 +105,8 @@ Project root (forward-looking)
   TODOS.md              — tactical bugs/polish
 
 Per-feature (specs/<name>/)
-  spec.md           — implementation spec (from /ak-spec)
+  spec.md           — seeded by /ak-build Phase 0 as a Decisions skeleton,
+                      expanded by /ak-spec into the full spec
   tasks.md          — task breakdown + decisions (from /ak-implement)
   review.md         — quality gate results (from /ak-pre-ship)
   hero/             — committed: 1–2 durable screenshots per key screen

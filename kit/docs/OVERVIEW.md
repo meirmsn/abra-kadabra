@@ -109,7 +109,7 @@ See `guide/workflow.md` for the full pipeline diagram and per-step detail.
 3. `/autoplan` (gstack) — eng/CEO/design review; locks in architecture, edge cases, decisions
    3b. `/design-shotgun` (optional) — visual variants if feature is UI-heavy; approve one direction
    3c. `/design-html` (optional) — HTML reference from approved mockup; Claude builds React from this
-4. `/ak-build` (devshop) — autonomous: spec → implement → quality gates → ship → CI watch+fix → notify you
+4. `/ak-build` (devshop) — autonomous: preview → spec → implement → quality gates → ship → CI watch+fix → notify you
 5. You review PR — release notes + audit trail + CI green + preview URL
 6. `/ak-go-live` (devshop) — autonomous: merge → deploy → canary → reflect → notify you
 
@@ -174,7 +174,7 @@ CI slow job expansion plans are in ROADMAP.md § v+.
 - **abra-kadabra** — brand name for the dev shop (devshop repo, doc titles). Never used in file names or CLI commands.
 - **devshop** — code name: `kit/` (repo), `.devshopkit/` (workspace symlink), `.claude/skills/devshop/`. Skills use `ak-` prefix (`/ak-build`, `/ak-spec`, etc.).
 - **gstack** — AI lifecycle toolkit (`.claude/skills/gstack/`). Per-project install, not part of devshop sync.
-- **specs/<name>/** — per-feature folder: `spec.md` (spec), `tasks.md` (tasks + decisions), `review.md` (quality gate results), `hero/` (committed durable screenshots), `screenshots/` (gitignored per-gate evidence). Permanent record after merge; see `FAQ.md § How are specs and pipeline artifacts organized?` for the hero/evidence split.
+- **specs/<name>/** — per-feature folder: `spec.md` (seeded by /ak-build Phase 0 as a Decisions skeleton, expanded by /ak-spec into the full spec), `tasks.md` (tasks + decisions from /ak-implement), `review.md` (quality gate results from /ak-pre-ship), `hero/` (committed durable screenshots), `screenshots/` (gitignored per-gate evidence). Permanent record after merge; see `FAQ.md § How are specs and pipeline artifacts organized?` for the hero/evidence split.
 - **/screenshots/** — repo-root folder for dev-context shots (what you paste into a conversation / share for a bug report). Contents gitignored; tracked `README.md` inside documents the convention. Distinct from `specs/<name>/hero/` (per-PR product shots) and `specs/<name>/screenshots/` (pre-ship gate evidence). See `guide/conventions.md § Screenshot Routing`.
 - **METRICS.md** — event taxonomy + feature flags. Source of truth for analytics.
 

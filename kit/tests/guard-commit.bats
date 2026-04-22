@@ -149,6 +149,31 @@ run_guard() {
   assert_output --partial "docs review required"
 }
 
+@test "docs-drift: triggers for skill changes in devshop repo (.claude/skills/devshop/)" {
+  setup_devshop_repo
+  stage_file ".claude/skills/devshop/build/SKILL.md" "# Skill body"
+  run_guard
+  assert_failure 1
+  assert_output --partial "docs review required"
+}
+
+@test "docs-drift: triggers for root CLAUDE.md change in devshop repo" {
+  setup_devshop_repo
+  echo "new convention line" >> "$TEST_REPO/CLAUDE.md"
+  git -C "$TEST_REPO" add CLAUDE.md
+  run_guard
+  assert_failure 1
+  assert_output --partial "docs review required"
+}
+
+@test "docs-drift: triggers for .claude/settings change in devshop repo" {
+  setup_devshop_repo
+  stage_file ".claude/settings.json" '{"key":"value"}'
+  run_guard
+  assert_failure 1
+  assert_output --partial "docs review required"
+}
+
 # === doc-consistency ===
 
 @test "doc-consistency: blocks when ref doc staged without sync reason" {

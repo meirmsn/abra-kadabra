@@ -98,8 +98,14 @@ fi
 if [ "$RUN_DRIFT_CHECK" = true ]; then
   # Skip changelog-only / version-only commits
   if [ "$CURRENT_REPO" = "devshop" ]; then
-    # In the devshop repo, all files under kit/ are devshop tooling
-    NON_CHANGELOG=$(echo "$STAGED" | grep -E '^kit/' | grep -vE '^kit/(docs/CHANGELOG\.md|version)$' || true)
+    # Devshop tooling surfaces in the devshop repo, mirroring the project-repo
+    # breadth at line 51–55: kit/ (scripts, tests, template, docs, notes),
+    # .claude/ (skills, settings, memory, projects, hooks), and CLAUDE.md at
+    # the repo root (conventions). Prior to v1.15 this only matched `^kit/`,
+    # which let skill changes under `.claude/skills/devshop/` and root-level
+    # CLAUDE.md edits slip past the drift gate entirely.
+    DEVSHOP_SELF_REGEX='^kit/|^\.claude/|^CLAUDE\.md$'
+    NON_CHANGELOG=$(echo "$STAGED" | grep -E "$DEVSHOP_SELF_REGEX" | grep -vE '^kit/(docs/CHANGELOG\.md|version)$' || true)
   else
     # In project repos, devshop files are under .devshopkit/, .claude/, or .dcg.toml
     NON_CHANGELOG=$(echo "$STAGED" | grep -E "$DEVSHOP_REGEX" | grep -vE '^\.devshopkit/(docs/CHANGELOG\.md|version)$' || true)
