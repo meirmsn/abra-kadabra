@@ -112,6 +112,13 @@ Detect where a previous run left off. Evaluate top-to-bottom; the first match wi
 
 Log resume point: "Resuming from Phase N: <reason>"
 
+**Remote-control nudge on resume paths**: when the resume check lands at
+rungs 1–5 (i.e. N > 0 — skipping Phase 0's interactive beat entirely),
+emit the Phase 0.5 nudge once before advancing to the target phase. This
+mirrors the fresh-run timing: nudge = last beat before autonomous work
+starts. On rung 6 (N = 0, fresh run), Phase 0.5 handles the nudge itself
+after the decisions preview.
+
 **What "skip to Phase N" means**: start executing at Phase N. Some phases have
 recoverable state (Phase 2 resumes per-task from `tasks.md`; Phase 5 resumes
 polling the latest CI run), some are atomic re-runs (Phase 1 spawns a fresh
@@ -268,6 +275,30 @@ match. Add new rows dynamically for:
 
 If `TaskCreate` is not available in the current harness, narrate progress in
 text instead — the tracker is a visibility aid, not a correctness requirement.
+
+### 0.5: Remote-control nudge (last beat before autonomous work)
+
+Emit a short reminder in user-facing text, placed immediately before spawning
+the Phase 1 subagent:
+
+> 💡 Pipeline is about to run autonomously. If you want to monitor progress
+> from phone / watch / another device, type `/remote-control` now to connect
+> this session. The rest of /ak-build is unattended until the PR is ready.
+
+Timing matters: the nudge must appear AFTER the decisions preview + skeleton
+commit + tracker start, so it's the last thing the user sees before stepping
+away — not buried above the interactive decisions list (which they'll scroll
+past and forget).
+
+Resume paths that skip Phase 0 (because `specs/<feature>/spec.md` already
+exists from a prior run, or the resume check lands at a later phase) should
+still emit this nudge once — right before the first subagent spawn on the
+resume path. See Step 0's resume-check section for the resume-path hook.
+
+The nudge fires once per `/ak-build` invocation regardless of path. It's a
+visibility aid — do NOT gate the pipeline on whether `/remote-control` is
+active (we can't detect that from inside the skill, and the user may
+legitimately not want it enabled).
 
 ---
 

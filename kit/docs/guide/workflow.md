@@ -127,7 +127,11 @@ simulation) for user approval. On approval, writes `specs/<name>/spec.md` as a
 skeleton — provenance header, Sources list, and a fully-populated Decisions
 section — and commits it on the feature branch so the user's judgment calls
 survive a crash. Starts a live `TaskCreate` tracker mirroring the preview's
-hierarchy (phases as rows, Phase 2 expanded into per-task sub-rows).
+hierarchy (phases as rows, Phase 2 expanded into per-task sub-rows). Finally,
+emits a remote-control nudge ("type `/remote-control` now if you want
+phone/watch monitoring") right before spawning the first subagent — the last
+main-context beat before autonomous work begins. On resume paths that skip
+Phase 0, the same nudge fires once from Step 0 at the equivalent timing.
 
 **Phase 1: `/ak-spec`** — reads the Phase 0 skeleton and expands it in place
 into a full spec (In scope, Screens, Data model, API contracts, Tests, Task
