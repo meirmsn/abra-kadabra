@@ -42,3 +42,10 @@ dist/
 !/screenshots/README.md
 # macOS drops screenshots at repo root by default — ignore those too.
 /Screenshot*.png
+
+# Design-conformance artifacts — claims cache + per-run verification report
+# produced by /ak-pre-ship's design-conformance gate. Regenerable; not committed.
+# See kit/docs/guide/conventions.md and .claude/skills/devshop/design-conformance/SKILL.md.
+specs/*/design-claims.json
+specs/*/design-claims.json.sha256
+specs/*/design-conformance-report.md

@@ -314,6 +314,48 @@ pnpm turbo run test:unit
 
 If tests fail → stuck protocol (see below).
 
+## Gate design-conformance: DESIGN.md contract check
+
+- If no `DESIGN.md` at project root → `n/a (no DESIGN.md)`.
+- Runs regardless of `$TOUCHES_UI` — a non-UI PR can still contradict a
+  DESIGN.md claim (e.g. an error message that violates the voice doctrine).
+
+Invoke `/ak-design-conformance` (devshop skill — see
+`/devshop/.claude/skills/devshop/design-conformance/SKILL.md`). Covers axes
+`/design-review` skips: voice/copy canonical-example matching, explicit
+token values, imperative rules, component-contract claims.
+
+Orchestrated via:
+
+```bash
+bash /devshop/kit/scripts/preship-design-conformance.sh run \
+  --feature "$FEATURE" \
+  --design  DESIGN.md
+```
+
+The script extracts normative claims from DESIGN.md (LLM, cached by
+sha256), verifies each against the implementation (grep for explicit
+values, LLM-judgment for copy/imperative claims), and writes a report to
+`specs/$FEATURE/design-conformance-report.md` including a `## Dismissals`
+section per the Phase 3 contract.
+
+Outcome mapping:
+
+- `pass` — all claims honored.
+- `findings (N) pending` — one or more claims need human review (copy
+  judgment) or code changes (missing token value).
+- `n/a` — no DESIGN.md, OR DESIGN.md contains only aspirational prose and
+  the extractor returned zero normative claims.
+
+**⚠ May surface findings in copy/code.** If the gate emits
+`findings (N) pending`, the pipeline pauses; a human (or follow-up agent
+loop) resolves each. No test:unit checkpoint — this gate inspects contract
+conformance, it doesn't change code directly.
+
+Cross-ref: `/ak-design-conformance` vs `/design-review` (gstack) — the
+latter covers visual hierarchy / spacing / AI-slop; this gate covers
+DESIGN.md as a contract. Different axes, different findings; both run.
+
 ## Gate 9: /qa
 
 - If Phase 0 preflight flagged Chromium as unavailable → `blocked`.

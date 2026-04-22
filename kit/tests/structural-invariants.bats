@@ -173,7 +173,7 @@ setup() {
   exempts=$(grep -oP '^\s+"[a-z-]+\.sh"' "$coverage_script" | tr -d '" ')
 
   # Scripts called by other scripts or skills (not directly by hooks/pre-commit)
-  local infra_scripts="create-devshop-symlinks.sh normalize-devshop-paths.sh changelog-entry.sh check-file-headers.sh preship-supabase-bootstrap.sh"
+  local infra_scripts="create-devshop-symlinks.sh normalize-devshop-paths.sh changelog-entry.sh check-file-headers.sh preship-supabase-bootstrap.sh preship-design-conformance.sh"
 
   # Combine hook references and pre-commit references
   local wired=""

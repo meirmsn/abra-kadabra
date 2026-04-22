@@ -111,6 +111,12 @@ Per-feature (specs/<name>/)
   review.md         — quality gate results (from /ak-pre-ship)
   hero/             — committed: 1–2 durable screenshots per key screen
   screenshots/      — gitignored: per-gate evidence (4 viewport/theme combos)
+  design-claims.json            — gitignored: normative claims extracted
+                                  from DESIGN.md by /ak-design-conformance
+                                  (cached by sha256, re-extracted on DESIGN.md
+                                  changes)
+  design-conformance-report.md  — gitignored: per-claim verdict + findings
+                                  from the design-conformance gate
 ```
 
 Each feature directory is immutable after merge — a permanent record of the full pipeline: **bug → code → spec → plan** traceability. Improvements to a shipped feature get a new folder (e.g. `specs/auth-invite-codes/`, not `specs/auth/v2/`), with a `**Builds on**:` pointer to the prior spec in the new spec.md.
