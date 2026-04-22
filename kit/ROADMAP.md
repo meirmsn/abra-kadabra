@@ -7,44 +7,6 @@ Tactical fixes go in `TODOS.md`. Project features go in root `PRODUCT-ROADMAP.md
 
 ## v1 (after v0 is validated on the first project)
 
-### `/ak-test-review` — flag shape-only assertions
-
-**What this is** — extend `/ak-test-review` (devshop Gate 5) with one LLM-prompt rule that catches a class of bugs Phase 1's Core User Story + Gate 9 artifact assertion doesn't fully cover: **tests that assert on state / array-length / mock-call-count without a corresponding assertion on user-visible rendered output** (`getByText`, `getByRole`, `toBeInTheDocument`, etc.).
-
-**Background — the Bug 3 residual gap**
-
-The lalista core-flows PR shipped a Realtime blank-row race: `hydrateFromRealtime(incoming, null)` produced a row-shaped entry with empty `itemName` / `storeName`. Unit tests asserted `entries.length === 1` and the test passed — but the user saw a blank row where "milk" should have been. Shape assertion green; UX broken.
-
-Phase 1's Gate 9 artifact assertion (landed in v1.16 / PR #4) **partially** catches this — if the qa-walk harness captures a DOM assertion artifact (`{itemName: "milk", visible: true}`), the bug surfaces. But if it captures only a screenshot, the "row shape differs from baseline" check passes even when the row is empty. So the catch depends on harness quality, not gate mechanics.
-
-The clean fix is one level up: force unit tests themselves to assert what the user sees, not just what the state machine did.
-
-**The rule** (paragraph added to `/ak-test-review`'s LLM prompt):
-
-> For every test that asserts on state shape, array length, mock-call count, or internal reducer output, verify a corresponding assertion exists on user-visible rendered output — text content (`getByText`, `toHaveTextContent`), role (`getByRole`), or accessibility attributes (`getByLabelText`, `toHaveAccessibleName`). Shape assertion without a matching DOM assertion → flag as finding.
->
-> **Escape hatch**: if the code genuinely has no user-visible output (pure-state reducer, internal data transform, utility function), a test-file comment stating the rationale (`// shape-only: pure reducer, no render path`) is sufficient to bypass. The reviewer should ACCEPT bypass comments that name the absence of user-visible output; REJECT generic / boilerplate bypass comments ("test simple state", "obvious from context").
-
-**Catches a class of bugs, not just Bug 3**. Any test that confirms "the code did a thing" without verifying "the user sees the right thing" falls into the same anti-pattern. The rule generalizes.
-
-**Ship size**: ~80–120 LOC.
-
-- `.claude/skills/devshop/test-review/SKILL.md` — new checklist rule (~40 LOC in the prompt body).
-- `kit/docs/guide/conventions.md` — new § Test Assertion Depth describing the rule + escape hatch + examples (~30 LOC).
-- `kit/tests/test-review-prompt-check.bats` (NEW) — smoke test that the rule text is present in the SKILL.md (~20 LOC). Actual LLM-behavior testing requires real Sonnet calls and is out of scope.
-- Doc touch: `guide/workflow.md` Gate 5 row gets one sentence about the new rule.
-
-**Risk**: Low.
-
-1. **Additive prompt extension**, not a structural change. `/ak-test-review` is already an LLM-judgment gate; one more rule in its prompt doesn't change operating mode.
-2. **False-positive retrofit**: if lalista has many shape-only tests already, the gate could flag them all at once on first run. Mitigation: scope the rule to **tests added or modified in this PR's diff** — don't re-flag grandfathered tests. Add a § Test Assertion Depth migration TODO to `TODOS.md` for existing-test conversion if it matters later.
-3. **False-positive legitimate cases**: pure reducers, store middleware tests, algorithm tests — all legitimately shape-only. The escape-hatch comment covers these; adversarial reviewer accepts rationales that name the absence of user-visible output.
-4. **Marginal LLM cost**: Gate 5 already runs; this adds tokens to the prompt, not a new LLM call. Negligible.
-
-**Build trigger**: anytime — it's cheap, low-risk, and closes a real gap the three landed phases don't perfectly cover. The 2026-04-22 gstack-guidance-enforcement analysis flagged this as the residual test-quality issue after Phase 3/1/2 landed; capturing it here so it doesn't get lost.
-
-**Cross-refs**: see `kit/docs/guide/conventions.md § Test Assertion Depth` (once added) and the 3-phase plan at `/home/node/.claude/plans/cheeky-crafting-frost.md` where the gap was initially flagged.
-
 ### Tiered pre-ship pipeline
 
 Auto-detect change scope and pick a tier:

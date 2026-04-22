@@ -197,6 +197,25 @@ TODO items can be scheduled into versions defined in their corresponding ROADMAP
 - **CI mirrors runtime**: if the app uses a DB at runtime, CI starts it locally. Never skip integration tests because "they work locally." Never hit shared remote environments from CI. Supabase: `supabase start` + `seed.sql` + type drift check + mask `SUPABASE_SERVICE_ROLE_KEY`.
 - **Type drift check**: CI regenerates types from schema and fails if committed types have drifted.
 
+### Test Assertion Depth
+
+Every test that asserts on **state shape, array length, mock-call count, or internal reducer output** must also assert on **user-visible rendered output** — text content (`getByText`, `toHaveTextContent`), role (`getByRole`), or accessibility attributes (`getByLabelText`, `toHaveAccessibleName`). Shape assertion without a matching DOM assertion is a class-of-bugs anti-pattern: the state machine reports success while the user sees a broken UI (the lalista core-flows blank-row race — `entries.length === 1` passed, the user saw an empty row).
+
+**Escape hatch** — for genuinely-no-render code (pure-state reducers, internal data transforms, utility functions), a test-file comment stating the rationale bypasses the rule:
+
+```ts
+// shape-only: pure reducer, no render path
+test('addItem appends to entries', () => {
+  expect(reducer(state, addItem('milk')).entries).toHaveLength(1);
+});
+```
+
+The comment must name the absence of user-visible output. Generic bypasses (`// shape-only: test simple state`, `// shape-only: obvious from context`) are rejected by `/ak-test-review` (Gate 5).
+
+**Scope** — `/ak-test-review` enforces this only on tests added or modified in the current PR's diff. Grandfathered tests in untouched files are not retroactively flagged; conversion of legacy shape-only tests is tracked in `TODOS.md` if it ever becomes worth the churn.
+
+**Why this exists** — Phase 1's Gate 9 artifact assertion (qa-walk per-verb evidence) catches missing-DOM-output bugs _if_ the harness captures DOM state. This rule moves the catch one level up so even unit tests fail fast when "code did a thing" diverges from "user sees the right thing." See `.claude/skills/devshop/test-review/SKILL.md § Shape-only assertions`.
+
 ### Testing Lifecycle
 
 | Stage                | What runs                                           | Needs DB?          | Blocking?                             |
