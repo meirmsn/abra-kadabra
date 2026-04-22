@@ -163,3 +163,52 @@ Both repos use conventional commits (`feat:`, `fix:`, `chore:`, etc.). The `devs
 ## On Push
 
 The `.husky/pre-push` hook runs at the git layer on every `git push` to non-main branches. If there's an open PR for the branch and the PR description does not track the commits (excluding trivial conventional-commit-only pushes), the push is blocked until the description is updated — or the push provides an adversarially-reviewed bypass reason. A second check blocks pushes with a dirty tree or non-empty stash list on the same pass. Branch deletions and pushes to `main` / `master` short-circuit. See §3 above for the full check list and bypass flag names.
+
+---
+
+## Dismissal Log (pre-ship gate-time adversarial review)
+
+Commit-time guards check that the developer explained bypasses. The pre-ship layer has a parallel concern: each quality gate (`/simplify`, `/review`, `/cso`, `/design-review`, `/qa`, `/benchmark`, etc.) produces an advisory report, and the pipeline used to rubber-stamp "gate said pass" without checking whether the gate silently dismissed findings it surfaced. The Dismissal Log closes that hole.
+
+### Contract (every gate)
+
+Every gate's output MUST include a `## Dismissals` section with exactly one of:
+
+- **Body `None`** — zero findings were worth dismissing. Default for most gate runs.
+- **Bulleted list** — one bullet per dismissal with a `rationale:` field (1 line) explaining why the gate chose not to act.
+
+Pre-ship aggregates all gates' Dismissals into a `## Router Summary` block at the top of `review.md`. Every dismissal is the auditable reason a finding did NOT become a pending blocker.
+
+### Adversarial review
+
+When a gate's `## Dismissals` body is non-`None` (scoped parse — `kit/scripts/preship-router-shim.sh is-empty <report>`), pre-ship hands the rationales to `adversarial-review.sh dismissalLog`. The check-type rejects rationales that:
+
+- Are generic (`not critical`, `minor`, `can wait`, `won't fix`)
+- Contradict the spec's `## Core user story` (Phase 1 — coming) or `## In scope`
+- Punt to TODOS / follow-up without a specific tag or issue reference
+- Omit the `rationale:` field entirely
+
+Rejection fails the gate with outcome `findings (N) pending` — the pipeline pauses like any other unresolved finding. The reviewer has the full `review.md` entry + the spec's scope sections as context, so "this is consistent with our scope" claims get checked against the actual scope.
+
+### Bypass flags + env hatches
+
+| Flag / Env                                 | Purpose                                                                                                                                                                                                      | Where it applies                                |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------- |
+| `DEVSHOP_SKIP_ADVERSARIAL=1` (env)         | Skip ALL adversarial review for this process — intended for tight iteration loops with active human review. Never set in CI / release.                                                                       | Every adversarial call (commit-time + pre-ship) |
+| `PRESHIP_ADVERSARIAL_TIMEOUT=<sec>` (env)  | Per-call timeout for `dismissalLog` reviews (default 120s). Commit-time calls keep the 90s default because they run one-at-a-time; pre-ship can fire up to N per gate-run and each call's context is denser. | Only `dismissalLog`                             |
+| `devshop.humanReviewed="..."` (git config) | Fully-human-approved bypass — ONLY reachable from a terminal commit (PreToolUse hook blocks Claude).                                                                                                         | All adversarial calls                           |
+
+### Shim: structured-output gates
+
+Gates that already emit structured findings get a mechanical dismissal mapping via `kit/scripts/preship-router-shim.sh` — no LLM call for the obvious cases:
+
+- `/cso` JSON with `severity: TENTATIVE` → auto-dismissed with rationale `"TENTATIVE per /cso confidence tier (self-verified only)"`. CRITICAL / HIGH / MEDIUM stay as findings.
+- `/benchmark` metrics within threshold → filtered at the gate itself; no dismissal needed.
+
+The shim's output is a rendered Dismissals body that pre-ship treats like any other gate's — an explicit gate run can still override and invoke adversarial review.
+
+### Forward-compatibility (Phase 4 — deferred)
+
+Today's Dismissal Log entries carry a single `rationale:` field. Phase 4 (Finding Router, not yet landed) will add a `disposition:` field adjacent (`fix-now` | `fix-before-ship` | `TODO` | `spec-amendment` | `ignore`) to route dismissals into concrete actions. Today's entries extend, not migrate — the `rationale:` field stays.
+
+See `/devshop/.claude/skills/devshop/pre-ship/SKILL.md § Dismissal Log (every gate, mandatory)` for the full skill-level contract, including the canonical ordered gate list.

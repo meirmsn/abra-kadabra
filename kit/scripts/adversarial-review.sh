@@ -10,8 +10,17 @@
 # Usage: adversarial-review.sh <check-type> <reason> [context...]
 #   check-type: docsVerified | docSyncReason | crossRepoReason | dirtyTreeReason | hookBypass
 #               | manifestReviewed | testCoverage | prDescStaleReason | dirtyPushReason
-#   reason: the bypass reason provided via git -c
+#               | dismissalLog   (pre-ship /ak-pre-ship — reviews gate dismissal rationales)
+#   reason: the bypass reason provided via git -c, OR for dismissalLog the body of the
+#           `## Dismissals` section of the gate's review.md entry
 #   context: additional context (piped or as arguments)
+#     dismissalLog: $1 = gate name, $2 = path to review.md
+#
+# Env overrides:
+#   DEVSHOP_SKIP_ADVERSARIAL=1         — bypass review entirely (dev-loop escape hatch;
+#                                        never set in CI or release)
+#   PRESHIP_ADVERSARIAL_TIMEOUT=<sec>  — per-call timeout for pre-ship dismissalLog
+#                                        reviews (default 120s; other check-types 90s)
 #
 # Exit 0 = accepted, exit 1 = rejected (reason on stdout)
 set -euo pipefail
@@ -169,7 +178,75 @@ ${DIRTY:-(none)}
 Stash entries (${STASH_COUNT} total, first 5):
 ${STASH_LIST:-(none)}"
     ;;
+  dismissalLog)
+    # Called by /ak-pre-ship's router shim. REASON is the `## Dismissals` section
+    # body (the rationales the gate gave for not acting on findings). Extra args:
+    #   $1 = gate name (e.g. "qa", "design-review")
+    #   $2 = path to the gate's review.md (for full section context)
+    GATE_NAME="${1:-unknown-gate}"
+    GATE_REPORT_PATH="${2:-}"
+
+    # Extract this gate's section from review.md for fuller context
+    GATE_SECTION=""
+    if [ -n "$GATE_REPORT_PATH" ] && [ -f "$GATE_REPORT_PATH" ]; then
+      GATE_SECTION=$(awk -v gn="$GATE_NAME" '
+        $0 ~ ("^## Gate .*" gn) && !in_s { in_s=1; print; next }
+        in_s && /^## Gate / { exit }
+        in_s && /^## Router Summary/ { exit }
+        in_s { print }
+      ' "$GATE_REPORT_PATH" | head -150)
+    fi
+
+    # Spec § In scope (what's on the menu for this PR) — helps reviewer judge
+    # "dismissed as out-of-scope" claims against the actual scope declaration.
+    FEATURE_DIR=$(dirname "$GATE_REPORT_PATH" 2>/dev/null || true)
+    SPEC_IN_SCOPE=""
+    SPEC_CORE_STORY=""
+    if [ -n "$FEATURE_DIR" ] && [ -f "$FEATURE_DIR/spec.md" ]; then
+      SPEC_IN_SCOPE=$(awk '/^## In scope/{f=1;next} f && /^## /{exit} f' \
+        "$FEATURE_DIR/spec.md" 2>/dev/null | head -80)
+      SPEC_CORE_STORY=$(awk '/^## Core user story/{f=1;next} f && /^## /{exit} f' \
+        "$FEATURE_DIR/spec.md" 2>/dev/null | head -30)
+    fi
+
+    CONTEXT="Gate under review: $GATE_NAME
+
+The gate surfaced findings and dismissed some with rationale rather than fixing them
+or escalating to findings (N) pending. Judge whether those dismissals are credible.
+
+=== Dismissals section body (the reason being audited) ===
+$REASON
+
+=== Full gate section from review.md ===
+${GATE_SECTION:-(not available — no review.md path passed)}
+
+=== Spec § Core user story (MUST NOT be dismissed) ===
+${SPEC_CORE_STORY:-(not declared — spec lacks Core user story section)}
+
+=== Spec § In scope (what's committed for this PR) ===
+${SPEC_IN_SCOPE:-(not available)}"
+    ;;
 esac
+
+# --- Devshop-wide adversarial review bypass (tight iteration loops) ---
+# Active-human-review escape hatch for pre-ship dismissalLog calls that cascade
+# across many gates. NEVER set in CI or release — this is a dev-loop convenience.
+if [ "${DEVSHOP_SKIP_ADVERSARIAL:-0}" = "1" ]; then
+  echo "✓ Adversarial review bypassed via DEVSHOP_SKIP_ADVERSARIAL=1"
+  exit 0
+fi
+
+# --- Pre-ship vs commit-guard timeout budgeting ---
+# Commit-guard calls one adversarial review per commit; 90s is comfortable.
+# Pre-ship can fire up to 11 reviews (one per gate with dismissals); bump the
+# per-call timeout so individual gates with dense context don't time out.
+COMMIT_TIMEOUT=90
+PRESHIP_TIMEOUT="${PRESHIP_ADVERSARIAL_TIMEOUT:-120}"
+if [ "$CHECK_TYPE" = "dismissalLog" ]; then
+  TIMEOUT=$PRESHIP_TIMEOUT
+else
+  TIMEOUT=$COMMIT_TIMEOUT
+fi
 
 # --- Human review fallback (when API is unavailable) ---
 # devshop.humanReviewed is blocked by PreToolUse hook for Claude —
@@ -206,6 +283,14 @@ Evaluate:
 7. For hookBypass: is this a known legitimate scenario (migration commits with git rm --cached, binary files that break lint-staged, intermediate refactor state with type errors)? Does skipping gitleaks create a real risk for these files?
 8. For prDescStaleReason: does the PR title/body accurately describe ALL commits on the branch (origin/main..HEAD)? If the commits add a new capability, the PR description should name it. Generic reasons ('WIP', 'will update later', 'fine for now') are NOT acceptable. A PASS requires either (a) the PR description genuinely matches the commits — the reviewer is wrong — or (b) a specific structural reason the description lags temporarily (e.g., 'batching rebases — will squash-update after final review' with a concrete next step).
 9. For dirtyPushReason: does the reason name WHICH files are intentionally dirty and WHY? Generic reasons ('whatever', 'local only', 'does not matter') are NOT acceptable. PASS requires specificity: 'untracked *.log debug files from local testing, not project code' or 'stashed branch X changes to push unrelated branch Y — will resume after'. Forgotten WIP (files the developer doesn't recognize) should FAIL.
+10. For dismissalLog: the Reason is the body of a gate's '## Dismissals' section — the rationales given for NOT acting on specific findings. Judge each dismissal bullet individually. REJECT the whole bypass if ANY bullet exhibits:
+    - Generic rationale: 'not critical', 'minor', 'can wait', 'won't fix for now' without specifics
+    - Contradicts the spec's § Core user story: dismissing a bug that affects a verb in the core story is categorically NOT acceptable (the core story names the product's load-bearing flow — dismissals must not touch it)
+    - Claims 'out of scope for this PR' when the spec's § In scope explicitly covers that behavior
+    - Missing rationale field entirely (a bullet that just names a finding without explaining the dismissal)
+    - Punts to 'TODOS' or 'follow-up' without a specific tag, issue number, or existing entry to point at
+    - Claims 'user-acceptable' or 'product decision' without attributing to a specific approved spec line or design doc
+    PASS only when every rationale is: specific (names what was considered and why deferred), consistent with the PR scope (doesn't cross the core user story, doesn't dismiss committed scope), and actionable (a later reviewer could find the rationale plausible given the evidence).
 
 Respond with EXACTLY one line:
 PASS - only if the reason is genuinely legitimate and specific
@@ -221,7 +306,7 @@ ATTEMPT=0
 MAX_ATTEMPTS=$(( ${#BACKOFF_DELAYS[@]} + 1 ))
 
 while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-  REVIEW=$(timeout 90 claude -p --model sonnet < "$PROMPT_FILE" 2>/dev/null) && break
+  REVIEW=$(timeout "$TIMEOUT" claude -p --model sonnet < "$PROMPT_FILE" 2>/dev/null) && break
   ATTEMPT=$((ATTEMPT + 1))
   if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
     DELAY=${BACKOFF_DELAYS[$((ATTEMPT - 1))]}

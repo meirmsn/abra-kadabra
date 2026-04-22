@@ -163,6 +163,8 @@ After all gates pass, hero screenshots are captured to `specs/<name>/hero/` (com
 
 Gate outcomes use four categories: `pass`, `findings (N) [fixed|pending]`, `n/a`, `blocked`. `/ak-build` refuses to advance to `/ship` on any `blocked` gate.
 
+Every gate's report must also include a `## Dismissals` section (body `None` or a bulleted list of findings-with-rationale). Pre-ship aggregates these into a `## Router Summary` block at the top of `review.md` and — when any body is non-`None` — hands the rationales to an adversarial reviewer (`kit/scripts/adversarial-review.sh dismissalLog`) that rejects weak, generic, or out-of-scope justifications. Rejection fails the gate the same as any `findings (N) pending` outcome. The check-type also applies severity-weighted shims for structured-output gates like `/cso` (TENTATIVE findings auto-dismiss with a mechanical rationale, no LLM call). See `hooks.md § Dismissal Log` for the full gating rules, env-var escape hatches, and forward-compatibility with the Phase 4 Finding Router.
+
 **Phase 4: `/ship`** (gstack) — merges base, runs tests + review (final verification), bumps VERSION, pushes, creates PR, auto-invokes `/document-release`.
 
 **Phase 5: CI watch + fix loop** — watches CI via `gh pr checks --watch`. On failure: reads CI logs, reads local test/source code, makes informed fix, verifies locally if possible, pushes. Max 3 fix cycles. Escalates via PR @mention if stuck.

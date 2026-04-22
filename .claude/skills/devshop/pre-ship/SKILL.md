@@ -157,7 +157,104 @@ If blocked:
 
 3. Do NOT run Gates 1–11. Exit here with the `blocked` summary.
 
-If preflight passes, proceed to Gate 1.
+If preflight passes, proceed to the gate sequence (canonical list below).
+
+## Gates (canonical order + named IDs)
+
+**This table is the single source of truth for pipeline ordering.** Code, docs, and
+`review.md` entries SHOULD reference gates by **name** (e.g. `qa`, `design-review`) —
+the position number is a label that re-enumerates here when the pipeline changes. When
+a new gate is inserted (Phase 2 will add `design-conformance` between `design-review`
+and `qa`), update this one table; downstream refs using names stay stable.
+
+| #   | Name               | Title                              | Scope                                 |
+| --- | ------------------ | ---------------------------------- | ------------------------------------- |
+| 1   | `docs-check`       | Devshop docs diff review           | when `kit/` or reference docs touched |
+| 2   | `metrics-check`    | Metrics coverage                   | user-facing code PRs                  |
+| 3   | `responsive-theme` | Responsive + theme capture         | UI PRs only                           |
+| 4   | `simplify`         | `/simplify` pass                   | always                                |
+| 5   | `test-review`      | `/ak-test-review`                  | always                                |
+| 6   | `review`           | `/review` (+ Greptile triage)      | always                                |
+| 7   | `cso`              | `/cso` (security)                  | always                                |
+| 8   | `design-review`    | `/design-review`                   | UI PRs only                           |
+| 9   | `qa`               | `/qa` (functional walk)            | always                                |
+| 10  | `benchmark`        | `/benchmark`                       | UI PRs only                           |
+| 11  | `convention`       | Convention headers + hook-coverage | always                                |
+
+## Dismissal Log (every gate, mandatory)
+
+Every gate's output MUST include a `## Dismissals` section with exactly one of:
+
+- Body `None` — the gate considered zero findings worth dismissing (default; most common).
+- A bulleted list — findings the gate considered but chose not to act on, each with a
+  `rationale:` field explaining why in one line.
+
+**Why this exists**: gstack gates are advisory by design — they produce reports for human
+judgment. Our autonomous pipeline used to treat "gate said pass" as sufficient, which let
+silent dismissals slip through (e.g. `/qa` walking every screen but never exercising the
+add-item flow, `/design-review` checking tokens without cross-referencing DESIGN.md §
+Voice). The Dismissal Log forces each gate to make triage explicit: every finding
+the gate saw is either fixed, escalated to `findings (N) pending`, or dismissed with
+rationale. Silent "I didn't think this mattered" is no longer a path to `pass`.
+
+Pre-ship aggregates all gates' Dismissals into `## Router Summary` at the top of
+`review.md` before returning to the caller (see `## Router Summary aggregation` near the
+end of this file).
+
+### When adversarial review fires
+
+Dismissal Log invokes the adversarial reviewer (via `kit/scripts/adversarial-review.sh`
+with check-type `dismissalLog`) **only when a gate's `## Dismissals` body resolves to
+something other than `None`**. The "is it `None`?" check is a **scoped section parse**
+handled by `kit/scripts/preship-router-shim.sh`:
+
+```bash
+body=$(awk '/^## Dismissals$/{f=1; next} f && /^## /{exit} f' "$GATE_REPORT" \
+       | tr -d '[:space:]')
+[ "$body" = "None" ] && skip_adversarial_review=true
+```
+
+The scoped parse is mandatory — a bare `grep '^None$'` could false-positive on lines
+anywhere else in the report (e.g. a finding description "None of the viewports failed").
+Only the `## Dismissals` section body, whitespace-normalized, equalling exactly `None`
+skips adversarial review. Everything else (including edge cases like a bulleted list
+with the word "None" in a rationale) invokes the reviewer.
+
+Rejection (weak / generic / suspicious rationale) fails the gate with outcome
+`findings (N) pending` — the pipeline pauses like any other pending state.
+
+### Escape hatches + tuning
+
+- **`DEVSHOP_SKIP_ADVERSARIAL=1`** env var bypasses adversarial review entirely.
+  Intended for tight iteration loops where a human is actively reviewing the output.
+  Never set in CI or release pipelines. Single design point — do not add per-gate
+  escape hatches.
+- **`PRESHIP_ADVERSARIAL_TIMEOUT`** env var — per-call timeout for pre-ship adversarial
+  calls. Default 120s (the commit-guard's 90s is tuned for a single bypass per commit;
+  pre-ship may fire up to 11, so the per-call budget is distinct).
+
+### Structured-output shortcut (parser shim)
+
+Gates whose output is already structured in a way that mechanically categorizes findings
+(notably `/cso` emitting JSON with
+`severity: CRITICAL | HIGH | MEDIUM | TENTATIVE`) get an implicit dismissal mapping
+via `kit/scripts/preship-router-shim.sh`:
+
+- CSO `TENTATIVE` findings → auto-dismissed with `rationale: TENTATIVE per /cso
+confidence tier (self-verified only)`.
+- `/benchmark` metrics within threshold → not surfaced as findings at all (no mapping
+  needed — the skill already filters).
+
+The shim produces a rendered `## Dismissals` body that pre-ship treats like any other
+gate's — adversarial review can still challenge the mechanical mapping if an explicit
+gate run chooses to override it.
+
+### Forward-compatibility (Phase 4)
+
+`rationale:` is free-text today. Phase 4 (Finding Router — deferred) will add a
+`disposition:` field adjacent to it (`fix-now` | `fix-before-ship` | `TODO` |
+`spec-amendment` | `ignore`). Dismissal Log entries written now will extend, not
+migrate — today's `rationale:` stays; `disposition:` adds.
 
 ## Gate 1: Devshop docs check
 
@@ -397,6 +494,38 @@ Review any flagged files — skip config-like or trivial files (single export, <
 - Backlog items appear to be in the correct file per routing guide in `kit/docs/guide/ § Shared Conventions`
 - No completed items left in `PRODUCT-ROADMAP.md` or `kit/ROADMAP.md` — if this PR ships a roadmap item, remove the entry and log the completion in `BUILD-LOG.md`
 
+## Router Summary aggregation
+
+After all gates run (pass or findings), BEFORE capturing hero screenshots, aggregate
+every gate's `## Dismissals` section into a single `## Router Summary` block at the top
+of `specs/<feature>/review.md`. Shape:
+
+```markdown
+## Router Summary
+
+| Gate                    | Dismissals                      | Adversarial review            |
+| ----------------------- | ------------------------------- | ----------------------------- |
+| `docs-check`            | None                            | skipped (scoped parse = None) |
+| `metrics-check`         | None                            | skipped                       |
+| `design-review`         | 1 polish-tier finding           | accepted                      |
+| `qa`                    | 2 low-severity nits             | accepted                      |
+| `cso`                   | 3 auto (TENTATIVE, parser shim) | skipped (mechanical mapping)  |
+| _...all other gates..._ |                                 |                               |
+
+**Total dismissed findings**: 6 (3 LLM-reviewed, 3 shim-mapped, 0 rejected).
+```
+
+- `Dismissals` column: short description of what was dismissed, or `None`.
+- `Adversarial review` column: `skipped` (scoped parse = None or shim-mapped), `accepted`,
+  `rejected (see gate)`, or `bypassed (DEVSHOP_SKIP_ADVERSARIAL)`.
+- If **any** adversarial review returned `rejected`, pre-ship reports `findings (N)
+pending` to the caller for that gate — the Router Summary is the audit trail, not
+  the verdict.
+
+This section is the provenance trail for what the pipeline chose NOT to surface as a
+pending finding — a reviewer reading the PR later can grep here to see each dismissal
+and its reasoning.
+
 ## Capture hero screenshots
 
 After all gates pass (or findings fixed), capture 1–2 **hero** screenshots per primary screen to `specs/<feature>/hero/`. These are committed with the feature and surface in the PR body + `BUILD-LOG.md` as the durable visual record.
@@ -434,13 +563,20 @@ runs `/ship` manually). `/ak-pre-ship` is quality gates only.
 When you return to the caller, include these counts explicitly (not buried in prose):
 
 - `passed: N` — gates that ran and passed
-- `findings_pending: N` — gates with unresolved findings
+- `findings_pending: N` — gates with unresolved findings (including dismissals whose
+  adversarial review was rejected)
 - `n_a: N` — gates that did not apply
 - **`blocked: N`** — gates that could not run due to missing tooling
+- `dismissals_total: N` — findings the gates dismissed with rationale (sum across gates)
+- `dismissals_llm_reviewed: N` — of the above, how many went through `dismissalLog`
+  adversarial review (as opposed to shim-mapped or `DEVSHOP_SKIP_ADVERSARIAL` bypass)
 
 The caller uses `blocked` as a hard signal. If `blocked > 0`, `/ak-build` must NOT
 advance to `/ship`. Emit the preflight fix recipe verbatim so the user can copy it
 out of the orchestrator's report.
+
+`dismissals_*` are informational for the `/ak-build` audit comment — not a hard gate,
+but a pipeline-health signal worth surfacing to the human reviewer.
 
 ## Stuck protocol (for test failures between gates)
 
