@@ -134,14 +134,27 @@ main-context beat before autonomous work begins. On resume paths that skip
 Phase 0, the same nudge fires once from Step 0 at the equivalent timing.
 
 **Phase 1: `/ak-spec`** — reads the Phase 0 skeleton and expands it in place
-into a full spec (In scope, Screens, Data model, API contracts, Tests, Task
-order, Gotchas, Acceptance plan). Preserves the skeleton's Decisions section
-verbatim — does NOT re-resolve. Creates the feature branch (`feat/<slug>` or
-`fix/<slug>`) if currently on main (inherited from Step 0), and flips the
-`PLAN.md` Planned row for this feature into `## Active`. The `## Task order`
-section is the discriminator the resume check uses to tell "skeleton" from
-"complete spec." METRICS.md confirmation only fires when the Phase 0 skeleton
-didn't cover events (rare — only on manually-seeded feature branches).
+into a full spec (Core user story, In scope, Screens, Data model, API
+contracts, Tests, Task order, Gotchas, Acceptance plan). Preserves the
+skeleton's Decisions section verbatim — does NOT re-resolve. Creates the
+feature branch (`feat/<slug>` or `fix/<slug>`) if currently on main
+(inherited from Step 0), and flips the `PLAN.md` Planned row for this
+feature into `## Active`. The `## Task order` section is the discriminator
+the resume check uses to tell "skeleton" from "complete spec." METRICS.md
+confirmation only fires when the Phase 0 skeleton didn't cover events
+(rare — only on manually-seeded feature branches).
+
+**New (Phase 1-B landing — Core user story requirement)**: every spec
+produced by `/ak-spec` MUST include a `## Core user story` section — 2-4
+imperative verbs describing the product's primary flow end-to-end, OR the
+literal body `N/A — <reason>` for non-user-facing PRs (migration-only,
+internal refactor). Gate 9 enforces that every verb has a matching artifact
+at `specs/<feature>/qa-walk/verb-<N>-<slug>.{png,json}` proving the action
+completed — missing / empty artifact blocks Gate 9 with a per-verb
+diagnostic. See `/devshop/.claude/skills/devshop/spec/SKILL.md § Core user
+story` for the template + examples, and
+`/devshop/.claude/skills/devshop/pre-ship/SKILL.md § Gate 9` for the
+enforcement contract.
 
 **Phase 2: `/ak-implement`** — reads spec, decomposes into tasks, implements with tests. Confirms active branch against `PLAN.md § Active`. Stuck protocol: try fix → `/investigate` → ask user. Logs judgment calls in `specs/<name>/tasks.md` § Decisions.
 

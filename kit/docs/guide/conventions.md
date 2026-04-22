@@ -49,12 +49,13 @@ Owned by `/ak-spec` — see `.claude/skills/devshop/spec/SKILL.md § Quality che
 
 Projects have three tracked locations for screenshots plus one gitignored sink. Each has a distinct purpose; routing matters because gate tooling and PR bodies assume these paths.
 
-| Location                       | Tracked? | Who writes            | Purpose                                                                    |
-| ------------------------------ | -------- | --------------------- | -------------------------------------------------------------------------- |
-| `specs/<name>/hero/`           | ✅       | `/ak-pre-ship`, human | Durable product shots embedded in PR body + BUILD-LOG; one matrix per PR   |
-| `specs/<name>/screenshots/`    | ❌       | `/ak-pre-ship` gates  | Per-gate evidence (responsive check, design-review diffs); regenerable     |
-| `/screenshots/` (repo root)    | ❌       | human                 | Dev-context shots shared in a conversation / Slack / bug report; ephemeral |
-| `/Screenshot*.png` (repo root) | ❌       | macOS                 | Caught by `.gitignore` so default-named drops don't pollute `git status`   |
+| Location                       | Tracked? | Who writes            | Purpose                                                                                       |
+| ------------------------------ | -------- | --------------------- | --------------------------------------------------------------------------------------------- |
+| `specs/<name>/hero/`           | ✅       | `/ak-pre-ship`, human | Durable product shots embedded in PR body + BUILD-LOG; one matrix per PR                      |
+| `specs/<name>/screenshots/`    | ❌       | `/ak-pre-ship` gates  | Per-gate evidence (responsive check, design-review diffs); regenerable                        |
+| `specs/<name>/qa-walk/`        | ❌       | `/ak-pre-ship` Gate 9 | Per-verb artifacts (`verb-<N>-<slug>.{png,json}`) proving each Core user story verb completed |
+| `/screenshots/` (repo root)    | ❌       | human                 | Dev-context shots shared in a conversation / Slack / bug report; ephemeral                    |
+| `/Screenshot*.png` (repo root) | ❌       | macOS                 | Caught by `.gitignore` so default-named drops don't pollute `git status`                      |
 
 **When choosing where to put a shot, ask:**
 

@@ -151,6 +151,7 @@ context chain:
 
 Then fill only the gaps the gstack plan left — the missing detail only, not a rewrite:
 
+- **`## Core user story`** (REQUIRED — see below) — 2–4 imperative verbs, one per line, describing the product's primary observable flow end-to-end. `/ak-pre-ship` Gate 9 (qa-walk) enforces that every verb in this section produces a verifiable artifact.
 - User-facing behaviors not yet specified (happy path + all error states)
 - Data model changes (exact schema diffs)
 - API contracts (endpoints, inputs, outputs, auth)
@@ -162,6 +163,61 @@ Then fill only the gaps the gstack plan left — the missing detail only, not a 
 Do not rewrite what the plan already said. If something is genuinely ambiguous after
 reading the full plan, ask. Otherwise fill the gap from what the plan implies.
 No decision Q&A — architecture decisions were made by `/autoplan`'s eng review.
+
+### Core user story (required — Gate 9 enforces via artifact assertion)
+
+Every spec MUST include a `## Core user story` section: **2–4 imperative verbs, one per
+line, describing the product's primary observable flow end-to-end.** This is the
+contract `/ak-pre-ship` Gate 9 uses to enforce thorough QA — for every verb, the
+qa-walk must produce a verifiable artifact (screenshot, DOM assertion, or state
+capture) proving the action completed. Missing / empty / unchanged artifact → Gate 9
+`blocked`. No `pass` is possible without artifact proof per verb.
+
+The rule addresses a specific failure mode: the lalista core-flows PR shipped with a
+qa-walk trace reading "add-sheet **open+Escape**" — `/qa` opened the add-item sheet,
+hit Escape, and moved on without completing the core flow. The gate emitted `pass`
+because no assertion was broken. The Core user story + artifact requirement makes
+"exercised to completion" a verifiable claim, not a narrative one.
+
+**Format**: one `## Core user story` heading, then a numbered list of 2–4 bullets.
+Each bullet is one short imperative sentence — the active verb is what gets
+checked. Don't editorialize; the section is a contract, not prose.
+
+**Good example** (grocery-list app feature):
+
+```markdown
+## Core user story
+
+1. Sign in.
+2. Tap FAB, type "milk", submit.
+3. See "milk" appear in the list.
+4. Tap the buy button on the row.
+5. See the row fade out and disappear.
+```
+
+Five verbs (sign-in, add, see-added, mark-bought, see-removed). Each produces a
+verifiable artifact the qa-walk harness can capture.
+
+**Bad example** (evasive — passes the section but doesn't enforce anything):
+
+```markdown
+## Core user story
+
+1. Users can add items to their list and mark them as bought when purchased.
+```
+
+One long hedging sentence. No discrete verbs. Don't write this.
+
+**When the feature has no user-facing flow** (e.g., a migration-only PR, an
+internal refactor, a docs-only change), the section body may be `N/A — <reason>`.
+Example: `N/A — database migration only; no user flow added or modified.`
+Gate 9 recognizes `N/A` and skips artifact assertion for that PR. Do NOT omit
+the section; declare `N/A` explicitly so the gate knows you considered it.
+
+**Artifact location** `/ak-pre-ship` Gate 9 expects: `specs/<feature>/qa-walk/verb-<N>-<slug>.{png,json}` where `<N>` is the 1-based step number and `<slug>` is a short
+filesystem-safe label derived from the verb. Example: `verb-2-add-milk.png`. The
+qa-walk harness captures these via the gstack `browse` daemon; see
+`/devshop/.claude/skills/devshop/pre-ship/SKILL.md` Gate 9 for the capture contract.
 
 ## Step 7: Handle new metrics
 
@@ -181,6 +237,7 @@ Confirm `$FEATURE_DIR/spec.md` was written. No pointer file needed —
 
 Every spec must have:
 
+- [ ] **`## Core user story` section — 2–4 imperative verbs OR `N/A — <reason>`** (Gate 9 enforces artifact coverage for each verb)
 - [ ] All user-facing behaviors described (happy path + error states)
 - [ ] Data model changes explicit (exact schema diffs or "no changes")
 - [ ] API contracts specified (endpoints, inputs, outputs, auth requirements)
