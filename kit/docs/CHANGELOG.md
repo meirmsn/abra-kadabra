@@ -2,6 +2,12 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.16.0 (2026-04-22)
+
+- feat(pre-ship): design-conformance gate + /ak-design-conformance skill (Phase 2)
+- feat(spec+pre-ship): Core User Story + Gate 9 artifact assertion (Phase 1)
+- feat(pre-ship): Dismissal Log across all 11 gates (Phase 3 scaffolding)
+
 ## v1.15.0 (2026-04-21)
 
 - feat(ak-build): remote-control nudge before autonomous work begins
