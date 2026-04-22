@@ -1,9 +1,12 @@
 ---
 name: ak-build
-version: 1.3.0
+version: 1.4.0
 description: |
-  Autonomous build pipeline: spec → implement → quality gates → ship → CI watch → notify.
-  Runs unattended after autoplan is ready. User's only touchpoint: review the PR.
+  Autonomous build pipeline: preview → spec → implement → quality gates → ship → CI watch → notify.
+  Phase 0 produces a 3-section pre-flight preview (decisions / scope / tracker) and
+  persists user-approved decisions to `specs/<feature>/decisions.md` before any
+  subagent spawns — so scope disagreements surface cheaply and decisions survive a
+  crash. The live TaskCreate tracker mirrors the preview's hierarchy as phases run.
   Delegates heavy phases to subagents to keep main context clean.
   Resumable — detects where it left off if session is interrupted.
   If /ak-pre-ship reports any `blocked` gate (tooling missing), refuses to advance to
@@ -21,6 +24,9 @@ allowed-tools:
   - Skill
   - Agent
   - AskUserQuestion
+  - TaskCreate
+  - TaskUpdate
+  - TaskList
 ---
 
 # Build
@@ -38,11 +44,14 @@ clean for orchestration and user communication.
 
 ```
 /ak-build (main context — thin orchestrator)
-  ├─ Agent → /ak-spec        → writes specs/<name>/spec.md
+  ├─ Phase 0 (main ctx)      → 3-section preview + user approval +
+  │                             writes specs/<name>/decisions.md +
+  │                             starts live TaskCreate tracker
+  ├─ Agent → /ak-spec        → writes specs/<name>/spec.md (reads decisions.md)
   ├─ Agent → /ak-implement   → writes specs/<name>/tasks.md + code + tests
   ├─ Agent → /ak-pre-ship    → writes specs/<name>/review.md
   ├─ Agent → /ship           → pushes, creates PR
-  └─ CI watch (main ctx)  → reads review.md + tasks.md for audit comment
+  └─ CI watch (main ctx)     → reads review.md + tasks.md for audit comment
 ```
 
 ## Step 0: Determine feature and resume state
@@ -84,7 +93,7 @@ If already on a `feature/*` or `fix/*` branch, skip straight to the resume check
 
 ### Resume check
 
-Detect where a previous run left off:
+Detect where a previous run left off. Evaluate top-to-bottom; the first match wins:
 
 1. **Open PR for this branch?** → skip to Phase 5 (CI watch)
    ```bash
@@ -93,21 +102,151 @@ Detect where a previous run left off:
 2. **`$FEATURE_DIR/tasks.md` exists with all tasks `done`?** → skip to Phase 3 (pre-ship)
 3. **`$FEATURE_DIR/tasks.md` exists with some tasks `done`?** → skip to Phase 2 (implement resumes internally)
 4. **`$FEATURE_DIR/spec.md` exists?** → skip to Phase 2 (implement)
-5. **None of the above** → start from Phase 1 (create `$FEATURE_DIR/`)
+5. **`$FEATURE_DIR/decisions.md` exists?** → skip to Phase 1 (spec; decisions already user-approved and persisted — do NOT re-prompt)
+6. **None of the above** → start from Phase 0 (preview + decisions checkpoint)
 
 Log resume point: "Resuming from Phase N: <reason>"
+
+## Phase 0: Preview + decisions checkpoint
+
+Before spawning any subagent, produce a pre-flight preview so the user can flag
+scope or decision issues before token-heavy work begins. Catching a mis-shaped
+build here is orders of magnitude cheaper than discovering it mid-Phase 2 (which
+has already burned context writing code around the wrong decision).
+
+Skip Phase 0 entirely when the resume check lands at step 5 — `decisions.md`
+exists, meaning the user already approved them on a prior run.
+
+### 0.1: Read sources
+
+Read enough context to produce the preview accurately. Typical inputs:
+
+- `PRODUCT-ROADMAP.md` section for this feature (e.g., `§ v0 § 1e`) — primary
+  scope and the enumerated `/ak-spec`-time decisions.
+- `PLAN.md` row Notes for this feature — scope summary and source pointer.
+- `DESIGN.md` at repo root, if the feature touches UI.
+- `.gstack/projects/<slug>/*-design-*.md` (newest by mtime), if present.
+- `.gstack/projects/<slug>/*-test-plan-*.md` (newest by mtime), if present.
+- Prior PR's spec (`specs/<prior-feature>/spec.md`) as a style/structure reference.
+
+### 0.2: Produce the 3-section preview
+
+Output a single message with these three sections, in order:
+
+**1. Decisions** — table with columns `# / Question / Proposed answer / One-line
+rationale`. Include every `/ak-spec`-time decision called out in the scope
+source (or discovered by reading test-plan / design docs). If a decision is
+genuinely a judgment call the user must make (e.g., adding new metric events),
+mark it `[USER MUST DECIDE]` in the "Proposed answer" column — don't fake a
+default.
+
+**2. Scope** — bullets at the *what* level: screens added, migrations, new
+events, files in broad strokes. Stay at one-screen-scannable granularity. Do
+NOT include: full per-decision rationale (§1), file-level diffs (spec owns),
+test coverage matrices (spec owns), rollout/rollback plans (spec owns). The
+preview is "what would you object to?", not "here's the spec."
+
+**3. Tracker (the live view you'll see come alive)** — hierarchical, mirroring
+exactly what Phase 0.4 will instantiate via `TaskCreate`:
+
+```
+Phase 1: Spec
+Phase 2: Implement
+  - Task 1: <first implementation task>
+  - Task 2: <second>
+  - …
+  - Task N: <last>
+Phase 3: Pre-ship
+Phase 4: Ship
+Phase 5: CI watch + BUILD-LOG
+Phase 6: Audit comment
+Phase 7: Notify
+```
+
+Derive the Phase 2 sub-tasks from the roadmap's numbered subsections + any
+obvious dependency-order tasks (e.g., migrations first, E2E last). This is a
+rough cut; Phase 1's spec will refine it. Usually the spec adds 1–2 sub-steps
+but doesn't change the overall shape.
+
+End the preview with: **"Proceed? or flip any decision / trim scope / add task?"**
+
+Wait for the user's response. Do NOT proceed to 0.3 without explicit approval.
+
+### 0.3: Persist approved decisions
+
+Once the user approves (or after any flips they request), write
+`$FEATURE_DIR/decisions.md` — this is the durable checkpoint that lets a
+crashed Phase 1 resume without re-asking:
+
+```markdown
+<!-- generated-by: /ak-build Phase 0 -->
+<!-- feature: <name> -->
+<!-- date: YYYY-MM-DD -->
+
+# Decisions — <feature>
+
+User-approved `/ak-spec`-time decisions, captured before Phase 1 runs.
+`/ak-spec` reads this verbatim and embeds into `spec.md § Decisions`.
+Exists so a crashed Phase 1 can resume without re-asking the user.
+
+## D1: <decision topic>
+
+**Question:** <the question>
+**Answer:** <user-approved answer>
+**Rationale:** <1–2 lines>
+
+## D2: …
+```
+
+Commit this file immediately on the feature branch so it survives a crash:
+
+```bash
+mkdir -p "$FEATURE_DIR"
+# write $FEATURE_DIR/decisions.md per template above
+git add "$FEATURE_DIR/decisions.md"
+git commit -m "chore($FEATURE): Phase 0 decisions checkpoint"
+```
+
+No push yet — the feature-branch push happens in Phase 4 along with the rest
+of the implementation. Decisions commit just needs to exist locally so a
+session crash + restart finds it via Step 0's resume check.
+
+### 0.4: Start the live tracker
+
+Call `TaskCreate` to instantiate the hierarchical tracker from §0.2 item 3 —
+one task per row, with Phase 2's sub-rows indented (or prefixed "Phase 2 /
+Task N:" if the harness's task list is flat). Mark Phase 1 `in_progress` the
+moment you spawn its subagent; mark `completed` when it returns. Expand /
+correct Phase 2 sub-rows against `spec.md § Task order` once Phase 1 finishes
+— if the spec's tasks shifted from the preview, update the tracker rows to
+match. Add new rows dynamically for:
+
+- Phase 3 findings as they're surfaced (e.g., "CSP fix", "dead ternary fix").
+- Ad-hoc user corrections mid-flight (e.g., "D7 flip" added after the user
+  objects to a Phase 1 decision).
+
+If `TaskCreate` is not available in the current harness, narrate progress in
+text instead — the tracker is a visibility aid, not a correctness requirement.
+
+---
 
 ## Phase 1: Spec
 
 Launch **Agent** with prompt:
 > Run /devshop:spec for feature "$FEATURE".
+> Read $FEATURE_DIR/decisions.md (if it exists) and treat those as user-approved
+> — embed them verbatim into the spec's Decisions section. Do NOT re-resolve.
 > Write the spec to $FEATURE_DIR/spec.md (create the directory if needed).
 > Write provenance header linking to the gstack plan.
-> If METRICS.md needs new events, stop and ask me before adding them.
+> If METRICS.md needs new events AND the decisions.md file did not already
+> cover them, stop and ask me before adding them.
 > Return a one-line summary of what was written.
 
-This may stop for METRICS.md confirmation on new projects (new metric definitions
-require human review). This is the one acceptable interactive moment before the PR.
+When Phase 0 ran, `decisions.md` exists and every `/ak-spec`-time decision
+(including new METRICS events) is already user-approved — the spec agent
+should not re-prompt. The METRICS-confirmation fallback above only fires on
+resume-from-Phase-1 when Phase 0 didn't run (rare — only when the user
+manually created the feature branch without going through `/ak-build`).
 
 ## Phase 2: Implement
 
