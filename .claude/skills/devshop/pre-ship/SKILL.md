@@ -432,6 +432,66 @@ Gate 9 MUST emit exactly one of:
 
 Never `skipped`. If Gate 9 simply wasn't exercised, the correct outcome is `blocked` with the reason. `pass` on an unexercised gate is the failure mode that landed lalista PR #10's Gate 9 in a false-positive state.
 
+### Core user story artifact assertion (mandatory per spec)
+
+`/ak-spec` requires every spec to declare a `## Core user story` section (2–4
+imperative verbs describing the product's primary flow end-to-end, or `N/A`
+with reason for non-user-facing PRs). Gate 9 enforces that **every verb in
+the declared story produces a verifiable artifact** proving the action
+completed — not just that it was attempted.
+
+**Why this exists**: the lalista core-flows PR shipped with a qa-walk trace
+reading _"add-sheet open+Escape"_ — `/qa` opened the add-item sheet and hit
+Escape without completing the core flow, but the gate reported `pass`
+because no assertion was broken. The story/artifact contract closes this
+"silent no-op" failure mode by requiring observable-outcome evidence per
+verb.
+
+**Artifact location + format** (the qa-walk harness must emit these):
+
+- Path: `specs/<feature>/qa-walk/verb-<N>-<slug>.<ext>`
+- `<N>` = 1-based verb index from the spec's `## Core user story` list
+- `<slug>` = short filesystem-safe label derived from the verb (caller's choice)
+- `<ext>` = one of `png` (screenshot), `json` (structured state capture)
+
+**Capture via the gstack `browse` daemon**:
+
+```bash
+$B screenshot "specs/<feature>/qa-walk/verb-${N}-${slug}.png"
+# OR structured state:
+$B js "JSON.stringify({test: ...})" > "specs/<feature>/qa-walk/verb-${N}-${slug}.json"
+```
+
+**Enforcement** (runs BEFORE reporting Gate 9's outcome):
+
+```bash
+bash /devshop/kit/scripts/preship-verify-story.sh verify-all \
+  --feature "$FEATURE" --spec "specs/$FEATURE/spec.md"
+```
+
+`preship-verify-story.sh verify-all` parses the spec's `## Core user story`
+section, walks each verb, and checks that the matching artifact exists AND
+is non-empty AND (for screenshots) differs from the pre-action baseline.
+Missing / empty / unchanged artifact → exit non-zero → Gate 9 outcome
+`blocked (core user story verb N not exercised — missing artifact
+specs/<feature>/qa-walk/verb-N-<slug>.png)`.
+
+**When the spec's Core user story is `N/A`**:
+The script recognizes `N/A` / `N/A — <reason>` bodies and skips artifact
+assertion for that PR. Example: a migration-only PR with body
+`N/A — database migration only; no user flow added or modified.` → Gate 9
+emits `pass` (or `n/a`) without artifact requirement.
+
+**Outcome mapping** (adds to the Outcome contract above):
+
+| State                                                                                         | Gate 9 outcome                                               |
+| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| All verbs have artifacts (present, non-empty, screenshot diffs from baseline)                 | `pass` (if other contract items also met)                    |
+| Any verb missing an artifact                                                                  | `blocked` with specific verb call-out + fix recipe           |
+| Spec has no `## Core user story` section                                                      | `blocked (spec missing Core user story — rerun /ak-spec)`    |
+| Spec's `## Core user story` is `N/A — <reason>`                                               | Skip artifact assertion; outcome follows the normal contract |
+| Spec declares N verbs but the qa-walk log doesn't mention any of them by name (narrative gap) | Gate 9 surfaces as `findings (1)` to flag the mismatch       |
+
 ### User-state matrix (mandatory for auth-touching PRs)
 
 A walk that only exercises one user-state (existing-confirmed-user with correct password) hides every other failure mode real users hit. For PRs touching auth (`apps/web/app/(auth)/`, sign-in/sign-up/onboarding code paths, Supabase auth config), Gate 9 MUST exercise all five rows below — or document in `review.md § Gate 9` why a specific row is deferred to a later PR.

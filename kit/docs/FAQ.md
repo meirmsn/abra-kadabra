@@ -106,8 +106,13 @@ Project root (forward-looking)
 
 Per-feature (specs/<name>/)
   spec.md           — seeded by /ak-build Phase 0 as a Decisions skeleton,
-                      expanded by /ak-spec into the full spec
+                      expanded by /ak-spec into the full spec; includes a
+                      required `## Core user story` section (or N/A) whose
+                      verbs Gate 9 enforces with per-verb artifacts
   tasks.md          — task breakdown + decisions (from /ak-implement)
+  qa-walk/          — gitignored: per-verb artifacts from Gate 9 (screenshots
+                      or state JSON) proving each Core user story verb
+                      completed; path: verb-<N>-<slug>.{png,json}
   review.md         — quality gate results (from /ak-pre-ship)
   hero/             — committed: 1–2 durable screenshots per key screen
   screenshots/      — gitignored: per-gate evidence (4 viewport/theme combos)

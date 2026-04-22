@@ -42,3 +42,9 @@ dist/
 !/screenshots/README.md
 # macOS drops screenshots at repo root by default — ignore those too.
 /Screenshot*.png
+
+# Pre-ship qa-walk artifacts — per-verb screenshots / state captures from
+# Gate 9 proving each Core user story verb completed. Regenerable on every
+# pre-ship run; not committed. See kit/docs/guide/workflow.md § Phase 1
+# /ak-spec + pre-ship SKILL.md § Gate 9 § Core user story artifact assertion.
+specs/*/qa-walk/
