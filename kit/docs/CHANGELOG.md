@@ -2,6 +2,14 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.15.0 (2026-04-21)
+
+- feat(ak-build): remote-control nudge before autonomous work begins
+- refactor(commit-guard): match-all minus release artifacts (future-proof)
+- fix(commit-guard)+docs: broaden docs-drift scope + record Phase 0 in ref docs
+- refactor(ak-build): Phase 0 writes spec.md skeleton, not separate decisions.md
+- feat(ak-build): Phase 0 preview + decisions checkpoint
+
 ## v1.14.0 (2026-04-21)
 
 - feat(ak-status,session-start): richer repo-aware orientation
