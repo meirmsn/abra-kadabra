@@ -48,3 +48,10 @@ dist/
 # pre-ship run; not committed. See kit/docs/guide/workflow.md § Phase 1
 # /ak-spec + pre-ship SKILL.md § Gate 9 § Core user story artifact assertion.
 specs/*/qa-walk/
+
+# Design-conformance artifacts — claims cache + per-run verification report
+# produced by /ak-pre-ship's design-conformance gate. Regenerable; not committed.
+# See kit/docs/guide/conventions.md and .claude/skills/devshop/design-conformance/SKILL.md.
+specs/*/design-claims.json
+specs/*/design-claims.json.sha256
+specs/*/design-conformance-report.md

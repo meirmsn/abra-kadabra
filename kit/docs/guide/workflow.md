@@ -55,7 +55,7 @@
 │  └──────────────────────────────────────────────────────────────────┘   │
 │                    │                                                    │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │ Phase 3 · /ak-pre-ship  (11 gates, re-run tests after each)      │   │
+│  │ Phase 3 · /ak-pre-ship  (12 gates, re-run tests after each)      │   │
 │  │   1. devshop docs check                                          │   │
 │  │   2. metrics check                                               │   │
 │  │   3. responsive + theme (UI)                                     │   │
@@ -64,6 +64,7 @@
 │  │   6. /review            ──▶ test:unit                            │   │
 │  │   7. /cso               ──▶ test:unit                            │   │
 │  │   8. /design-review (UI)──▶ test:unit                            │   │
+│  │   8b. design-conformance (DESIGN.md contract check)              │   │
 │  │   9. /qa                (own fix loop)                           │   │
 │  │  10. /benchmark     (UI)                                         │   │
 │  │  11. convention check                                            │   │
@@ -311,17 +312,18 @@ For the full pipeline detail, see Steps 1–6 above.
 
 ## Devshop Skill Map
 
-| Skill                 | When to use                       | What it does                                                                                 |
-| --------------------- | --------------------------------- | -------------------------------------------------------------------------------------------- |
-| `/ak-build`           | After autoplan — "build it"       | Autonomous pipeline: spec → implement → quality gates → ship → CI watch → notify. Resumable. |
-| `/ak-go-live`         | After PR review — "land it"       | Autonomous deploy: merge → deploy → canary → reflect → notify.                               |
-| `/ak-spec`            | Standalone or inside /ak-build    | Converts gstack plan to implementation-ready spec + METRICS.md                               |
-| `/ak-implement`       | Standalone or inside /ak-build    | Implements tasks with tests, stuck protocol, decisions log                                   |
-| `/ak-pre-ship`        | Standalone or inside /ak-build    | Quality gates only (11 gates). Does not ship.                                                |
-| `/ak-test-review`     | Standalone or inside /ak-pre-ship | Fresh-eyes test quality review (report only)                                                 |
-| `/ak-status`          | Start of any session              | One-paragraph orientation briefing (read-only)                                               |
-| `/ak-new-project`     | New project setup                 | Create repo (Phase A) + guided setup (Phase B). Single entry point.                          |
-| `/ak-migrate-project` | Adopt devshop on existing project | Skeleton — two tiers (lightweight, full). See ROADMAP.md.                                    |
+| Skill                    | When to use                                 | What it does                                                                                                                 |
+| ------------------------ | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `/ak-build`              | After autoplan — "build it"                 | Autonomous pipeline: spec → implement → quality gates → ship → CI watch → notify. Resumable.                                 |
+| `/ak-go-live`            | After PR review — "land it"                 | Autonomous deploy: merge → deploy → canary → reflect → notify.                                                               |
+| `/ak-spec`               | Standalone or inside /ak-build              | Converts gstack plan to implementation-ready spec + METRICS.md                                                               |
+| `/ak-implement`          | Standalone or inside /ak-build              | Implements tasks with tests, stuck protocol, decisions log                                                                   |
+| `/ak-pre-ship`           | Standalone or inside /ak-build              | Quality gates only (12 gates incl. design-conformance). Does not ship.                                                       |
+| `/ak-design-conformance` | Inside /ak-pre-ship Gate design-conformance | Extracts normative claims from DESIGN.md, verifies each against implementation. Complements /design-review (different axes). |
+| `/ak-test-review`        | Standalone or inside /ak-pre-ship           | Fresh-eyes test quality review (report only)                                                                                 |
+| `/ak-status`             | Start of any session                        | One-paragraph orientation briefing (read-only)                                                                               |
+| `/ak-new-project`        | New project setup                           | Create repo (Phase A) + guided setup (Phase B). Single entry point.                                                          |
+| `/ak-migrate-project`    | Adopt devshop on existing project           | Skeleton — two tiers (lightweight, full). See ROADMAP.md.                                                                    |
 
 > **Skill autocomplete**: The `name` field in SKILL.md frontmatter drives `/` autocomplete,
 > not the directory or symlink name. When adding or renaming a skill, set `name: ak-<skill>`

@@ -45,6 +45,23 @@ Owned by `/ak-implement` — see `.claude/skills/devshop/implement/SKILL.md` for
 
 Owned by `/ak-spec` — see `.claude/skills/devshop/spec/SKILL.md § Quality checklist` for the full checklist.
 
+## DESIGN.md as Contract (`design-conformance` gate)
+
+`/ak-pre-ship` runs a `design-conformance` gate (between `design-review` and `qa`). The gate treats `DESIGN.md` as a contract: it LLM-extracts normative claims (explicit values, canonical examples, imperative rules, component contracts) and verifies each against the implementation. Complementary to `/design-review` (gstack), which covers visual hierarchy / spacing / AI-slop; this gate covers the orthogonal axes `/design-review` skips.
+
+**Claim types** (see `.claude/skills/devshop/design-conformance/SKILL.md` for the extraction prompt):
+
+- `explicit_value` — exact values: hex colors, pixel sizes, durations. Verified via `grep` across source roots.
+- `canonical_example` — literal text the doc names as archetypal. Surfaces for human / LLM-judgment review.
+- `imperative_rule` — "must / should / always / never" claims. Surfaces for judgment review.
+- `component_contract` — declared props / classes / attributes. Surfaces for review.
+
+**When the extractor returns zero claims** (DESIGN.md absent or purely aspirational), the gate emits `n/a` and the pipeline advances.
+
+**Extraction is cached** by `sha256(DESIGN.md)` in `specs/<feature>/design-claims.json.sha256`. Changing DESIGN.md triggers re-extraction; the diff to the claims file requires adversarial review per the Phase 3 Dismissal Log contract so claim drift stays auditable.
+
+**Authoring DESIGN.md for the gate**: no project-side markers required. If extraction over-produces noise, tune the skill's extraction prompt on the devshop side. Project DESIGN.md files stay framework-neutral.
+
 ## Screenshot Routing
 
 Projects have three tracked locations for screenshots plus one gitignored sink. Each has a distinct purpose; routing matters because gate tooling and PR bodies assume these paths.
