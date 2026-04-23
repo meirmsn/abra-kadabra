@@ -2,6 +2,14 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.17.0 (2026-04-23)
+
+- feat(template): apt-bake Chromium for reliable Playwright (closes TODO)
+- docs(roadmap): add v0 priority tier — auth-ux + LLM-validation conventions
+- feat(test-review): shape-vs-text assertion rule + Test Assertion Depth doc
+- docs(roadmap): expand Phase 4 cost/risk + add shape-vs-text rule to v1
+- docs(roadmap): capture Phase 4 Finding Router under v+
+
 ## v1.16.0 (2026-04-22)
 
 - feat(pre-ship): design-conformance gate + /ak-design-conformance skill (Phase 2)
