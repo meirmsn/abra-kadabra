@@ -7,6 +7,36 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
 <!-- Items discovered during use. Tag with [v0.2], [v1] etc. to schedule into ROADMAP versions. -->
 
+- [ ] **Pre-ship gate: RLS coverage check.** When the diff adds a new `.from('<table>').insert(...)` / `.update(...)` / `.delete(...)` call in `supabase/functions/**` or `packages/core/src/api/**`, fail the gate unless `supabase/migrations/*.sql` contains a corresponding `policy "..." on <table> for insert|update|delete to <role>` for the role that will execute the call. Deterministic check, no AI needed.
+
+  **Context**: lalista PR 5 (disambig-add-new) shipped a force-create branch that called `supabase.from('items').insert(...)`. The `items` table only had an `items_select` RLS policy — no INSERT — so PostgREST returned 42501 and the function returned a generic 500. The front-end's catch-all hid the root cause as "Couldn't save your pick" until dogfooding caught it. A simple grep-the-diff-vs-grep-the-migrations check would have failed the gate at /ak-pre-ship time and surfaced the missing policy before the function deployed.
+
+  **Implementation**: bash script in `kit/scripts/preship-rls-coverage.sh`, invoked from /ak-pre-ship Gate 7 (/cso) or as a standalone Gate 12. Parse new write call sites with `git diff main...HEAD --name-only -- 'supabase/functions/**' 'packages/core/src/api/**' | xargs grep -nE "\.from\([\"'][^\"']+[\"']\)\.(insert|update|delete)\("` then check each table+verb against the migrations corpus.
+
+  **Edit targets**: `kit/scripts/preship-rls-coverage.sh` (new), `.claude/skills/devshop/pre-ship/SKILL.md` (add gate invocation).
+
+  [pre-ship-gate, surfaced-by lalista-PR5-bug-1, 2026-04-23]
+
+- [ ] **`/ak-spec` requires a render-condition matrix for new UI elements.** When a spec adds a new UI element (button, row, banner, etc.), require a "Render Conditions" matrix: rows = element render conditions, columns = parent states (e.g. `followup_type` × `already_on_list` × exact-match-against-input). Forces the spec author to enumerate WHEN the element renders across the state lattice instead of relying on implicit "always" or "happy-path only" intent.
+
+  **Context**: lalista PR 5's D1 said "always shown" for the add-new row. The implementation took it literally. The row then showed up in cascading store/brand follow-ups (where it's nonsensical — you can't "add as new" a store) AND when the user's utterance matched a candidate exactly (where it's misleading — picking add-new force-creates an item that already exists, hits the unique constraint, falls through to the same candidate). A render-condition matrix would have read: "show when followup_type === 'item' AND no exact-match candidate" — surfacing both gaps at spec time, before code.
+
+  **Implementation**: extend the `/ak-spec` skill prompt template with a "Render Conditions" requirement for new UI elements. Sample matrix in `kit/docs/guide/conventions.md` for reference. The /ak-spec subagent fails the spec if any new UI element in the diff is missing its matrix.
+
+  **Edit targets**: `.claude/skills/devshop/spec/SKILL.md` (prompt template extension), maybe a worked example in `kit/docs/guide/conventions.md`.
+
+  [spec-template, surfaced-by lalista-PR5-bug-2-and-3, 2026-04-23]
+
+- [ ] **`/plan-design-review` checklist gains "input duplicates existing data" prompt.** Standing checklist item: "For each new UI element that takes user input, what happens when the input duplicates existing data already visible in the same view?" Catches the "autocomplete shows my-typed-value AND lets me click 'add new my-typed-value'" anti-pattern (and similar duplication-confusion design pitfalls).
+
+  **Context**: lalista PR 5's add-new row showed even when the user's utterance exactly matched a candidate row visible in the same disambig sheet. Confusing — picking the candidate vs. picking add-new lead to the same row in the items table (force-create hits the unique constraint, falls through). A standing checklist item in design-review would have surfaced this design pitfall before implementation.
+
+  **Implementation**: add the prompt to the gstack `plan-design-review` skill (lives in `~/.claude/skills/gstack/plan-design-review/`, separate from the devshop kit) under a "Standing checks" / "Common pitfalls" section. One sentence + a brief example.
+
+  **Edit targets**: gstack skill file for plan-design-review (upstream PR to gstack — not a devshop-side change).
+
+  [plan-design-review, surfaced-by lalista-PR5-bug-3, 2026-04-23]
+
 - [ ] **`sudo /usr/local/bin/init-firewall.sh` hangs the Claude Code session when re-run mid-session.** Observed twice during lalista PR 2 close-out (2026-04-20). Container rebuild is the only known recovery. Root-cause hypothesis (unconfirmed): iptables/ipset rebuild drops the session's own established API connection; when Claude Code reconnects against the new network state, commands stall indefinitely.
 
   **Workaround**: never re-init the firewall during a session. If outbound HTTPS to a new domain fails mid-session (CDN IPs rotate), treat it as an infrastructure TODO — don't hot-patch.
