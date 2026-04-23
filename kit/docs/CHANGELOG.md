@@ -2,6 +2,10 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.18.0 (2026-04-23)
+
+- feat(ak-build): Phase 4 enforces out-of-band deploy items in test plan
+
 ## v1.17.0 (2026-04-23)
 
 - feat(template): apt-bake Chromium for reliable Playwright (closes TODO)
