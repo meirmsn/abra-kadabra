@@ -69,7 +69,9 @@
     "GSTACK_STATE_DIR": "/workspace/.gstack",
     "CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD": "1",
     // Disable turbo telemetry — opt-out file lives in ~/.config outside the volume mount, so it'd reset on every rebuild otherwise
-    "TURBO_TELEMETRY_DISABLED": "1"
+    "TURBO_TELEMETRY_DISABLED": "1",
+    // Tell Playwright to use the apt-installed Chromium (see Dockerfile chromium block) instead of trying to download one from its CDN. Eliminates the firewall-stale-ipset problem entirely (DNS rotates faster than init-firewall.sh re-resolves).
+    "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH": "/usr/bin/chromium"
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",

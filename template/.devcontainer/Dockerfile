@@ -21,15 +21,28 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   wget \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Playwright / Chromium shared libraries.
-# Playwright downloads its own Chromium binary at user-install time, but that
-# binary needs a set of system C libraries that the stock javascript-node base
-# image does not include. Without these, any browser-dependent gate (gstack
-# browse daemon, /design-review, /qa, /benchmark, Playwright E2E) fails with
-# "libnspr4.so: cannot open shared object file". Package names use the Debian
-# Trixie (t64) suffix where applicable. Kept as a separate RUN so Docker can
-# cache the layer independently of the firewall-tools layer above.
+# Chromium (for Playwright) + its shared C library dependencies.
+#
+# Why apt-installed Chromium and not Playwright's CDN download:
+# Playwright's CDNs (cdn.playwright.dev, playwright.download.prss.microsoft.com)
+# are firewall-allowlisted by domain name, but their edge IPs rotate while the
+# devcontainer's resolved ipset goes stale within hours of init-firewall.sh
+# running. A mid-session `pnpm exec playwright install chromium` then fails
+# with EHOSTUNREACH, blocking every browser-dependent gate (gstack browse
+# daemon, /design-review, /qa, /benchmark, Playwright E2E). Re-running
+# init-firewall.sh is itself unreliable for the same DNS-rotation reason, so
+# this is effectively unfixable at the Playwright-download layer. Baking
+# Chromium into the image with apt eliminates the dependency on the CDN
+# being reachable post-build.
+#
+# Playwright is told to use this binary via PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+# in devcontainer.json's containerEnv. The shared libs below are still needed
+# even with apt-installed chromium because chromium's own deps may not pull
+# in every transitive dep Playwright tests trigger. Package names use the
+# Debian Trixie (t64) suffix where applicable.
 RUN apt-get update && apt-get install -y --no-install-recommends \
+  chromium \
+  chromium-driver \
   libnspr4 \
   libnss3 \
   libatk1.0-0t64 \

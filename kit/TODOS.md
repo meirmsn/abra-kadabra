@@ -15,20 +15,6 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
   [container-infrastructure, documented 2026-04-20]
 
-- [ ] **Bake apt-installed Chromium into the devcontainer template Dockerfile.** The gstack `browse` daemon's Chromium provisioning is unreliable because Playwright's CDN (`playwright.download.prss.microsoft.com`, `cdn.playwright.dev`) is firewall-allowlisted by domain name but edge IPs rotate; the devcontainer's resolved ipset goes stale within hours. Mid-session `pnpm exec playwright install chromium` then fails with `ENOTFOUND` / `EHOSTUNREACH`. Re-running `init-firewall.sh` to refresh the ipset is itself unreliable (see firewall-reinit TODO above), so this is effectively unfixable at the Playwright-download layer.
-
-  **Fix**:
-  1. Add `chromium` + `chromium-driver` to the `apt-get install` list in `template/.devcontainer/Dockerfile`.
-  2. Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium` in `template/.devcontainer/devcontainer.json`'s `containerEnv`.
-  3. Drop any `pnpm exec playwright install chromium` step from `/ak-new-project` Phase B (if present).
-  4. Keep the v1.5.x symlink auto-heal (documented in `kit/docs/guide/ops.md § Troubleshooting § Chromium symlink autoheal`) as belt-and-suspenders for projects still using Playwright-downloaded Chromium.
-
-  **Prerequisite for**: reliable `/canary` in `/ak-go-live` (2026-04-20 Step 1 session fell back to curl-based health checks when `browse` couldn't provision Chromium). Also aligned with the existing `/home/node/.claude/projects/-workspace/memory` virtiofs note that already prescribes apt Chromium for local builds.
-
-  **Edit targets**: `template/.devcontainer/Dockerfile`, `template/.devcontainer/devcontainer.json`.
-
-  [container-infrastructure, documented 2026-04-20]
-
 - [ ] **When GitHub re-enables Checks permission on fine-grained PATs, revert `/ak-build` Phase 5 to `gh pr checks`.** The Check Runs API isn't accessible to fine-grained PATs — GitHub removed the Checks permission after initial release (see https://github.com/orgs/community/discussions/129512). Phase 5 currently uses `gh run list` + `gh run watch` which goes through the Actions API and works with `Actions: Read`. When the Checks permission returns:
   - Swap `gh run list --branch "$BRANCH" --limit 1 --json databaseId --jq '.[0].databaseId' | xargs gh run watch --exit-status` back to `gh pr checks "$PR" --watch --fail-fast` in `.claude/skills/devshop/build/SKILL.md § Phase 5.2`.
   - Update `.claude/skills/devshop/new-project/SKILL.md § Step 4` to add `Checks: Read` to the required PAT permissions.
