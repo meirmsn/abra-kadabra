@@ -164,22 +164,29 @@ If preflight passes, proceed to the gate sequence (canonical list below).
 **This table is the single source of truth for pipeline ordering.** Code, docs, and
 `review.md` entries SHOULD reference gates by **name** (e.g. `qa`, `design-review`) —
 the position number is a label that re-enumerates here when the pipeline changes. When
-a new gate is inserted (Phase 2 will add `design-conformance` between `design-review`
+a new gate is inserted (Phase 2 added `design-conformance` (ak) between `design-review`
 and `qa`), update this one table; downstream refs using names stay stable.
 
-| #   | Name               | Title                              | Scope                                 |
-| --- | ------------------ | ---------------------------------- | ------------------------------------- |
-| 1   | `docs-check`       | Devshop docs diff review           | when `kit/` or reference docs touched |
-| 2   | `metrics-check`    | Metrics coverage                   | user-facing code PRs                  |
-| 3   | `responsive-theme` | Responsive + theme capture         | UI PRs only                           |
-| 4   | `simplify`         | `/simplify` pass                   | always                                |
-| 5   | `test-review`      | `/ak-test-review`                  | always                                |
-| 6   | `review`           | `/review` (+ Greptile triage)      | always                                |
-| 7   | `cso`              | `/cso` (security)                  | always                                |
-| 8   | `design-review`    | `/design-review`                   | UI PRs only                           |
-| 9   | `qa`               | `/qa` (functional walk)            | always                                |
-| 10  | `benchmark`        | `/benchmark`                       | UI PRs only                           |
-| 11  | `convention`       | Convention headers + hook-coverage | always                                |
+**Gate naming convention**: the `Owner` column marks gates as `ak` (devshop-owned: a
+devshop-native check or a devshop-authored skill like `/ak-test-review` /
+`/ak-design-conformance`) or `—` (wraps a gstack skill invoked verbatim). Narrative
+prose elsewhere in the devshop renders the same split inline as `test-review (ak)`
+vs `review` so readers can tell at a glance which gates come from where.
+
+| #   | Name                 | Owner | Title                              | Scope                                 |
+| --- | -------------------- | ----- | ---------------------------------- | ------------------------------------- |
+| 1   | `docs-check`         | ak    | Devshop docs diff review           | when `kit/` or reference docs touched |
+| 2   | `metrics-check`      | ak    | Metrics coverage                   | user-facing code PRs                  |
+| 3   | `responsive-theme`   | ak    | Responsive + theme capture         | UI PRs only                           |
+| 4   | `simplify`           | —     | `/simplify` pass                   | always                                |
+| 5   | `test-review`        | ak    | `/ak-test-review`                  | always                                |
+| 6   | `review`             | —     | `/review` (+ Greptile triage)      | always                                |
+| 7   | `cso`                | —     | `/cso` (security)                  | always                                |
+| 8   | `design-review`      | —     | `/design-review`                   | UI PRs only                           |
+| 8b  | `design-conformance` | ak    | `/ak-design-conformance`           | runs regardless of UI scope           |
+| 9   | `qa`                 | —     | `/qa` (functional walk)            | always                                |
+| 10  | `benchmark`          | —     | `/benchmark`                       | UI PRs only                           |
+| 11  | `convention`         | ak    | Convention headers + hook-coverage | always                                |
 
 ## Dismissal Log (every gate, mandatory)
 
@@ -411,7 +418,7 @@ pnpm turbo run test:unit
 
 If tests fail → stuck protocol (see below).
 
-## Gate design-conformance: DESIGN.md contract check
+## Gate design-conformance (ak): DESIGN.md contract check
 
 - If no `DESIGN.md` at project root → `n/a (no DESIGN.md)`.
 - Runs regardless of `$TOUCHES_UI` — a non-UI PR can still contradict a
@@ -605,14 +612,15 @@ of `specs/<feature>/review.md`. Shape:
 ```markdown
 ## Router Summary
 
-| Gate                    | Dismissals                      | Adversarial review            |
-| ----------------------- | ------------------------------- | ----------------------------- |
-| `docs-check`            | None                            | skipped (scoped parse = None) |
-| `metrics-check`         | None                            | skipped                       |
-| `design-review`         | 1 polish-tier finding           | accepted                      |
-| `qa`                    | 2 low-severity nits             | accepted                      |
-| `cso`                   | 3 auto (TENTATIVE, parser shim) | skipped (mechanical mapping)  |
-| _...all other gates..._ |                                 |                               |
+| Gate                      | Dismissals                      | Adversarial review            |
+| ------------------------- | ------------------------------- | ----------------------------- |
+| `docs-check` (ak)         | None                            | skipped (scoped parse = None) |
+| `metrics-check` (ak)      | None                            | skipped                       |
+| `design-review`           | 1 polish-tier finding           | accepted                      |
+| `design-conformance` (ak) | 1 voice drift                   | accepted                      |
+| `qa`                      | 2 low-severity nits             | accepted                      |
+| `cso`                     | 3 auto (TENTATIVE, parser shim) | skipped (mechanical mapping)  |
+| _...all other gates..._   |                                 |                               |
 
 **Total dismissed findings**: 6 (3 LLM-reviewed, 3 shim-mapped, 0 rejected).
 ```

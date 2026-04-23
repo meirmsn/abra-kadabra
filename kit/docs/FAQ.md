@@ -121,7 +121,7 @@ Per-feature (specs/<name>/)
                                   (cached by sha256, re-extracted on DESIGN.md
                                   changes)
   design-conformance-report.md  — gitignored: per-claim verdict + findings
-                                  from the design-conformance gate
+                                  from the design-conformance (ak) gate
 ```
 
 Each feature directory is immutable after merge — a permanent record of the full pipeline: **bug → code → spec → plan** traceability. Improvements to a shipped feature get a new folder (e.g. `specs/auth-invite-codes/`, not `specs/auth/v2/`), with a `**Builds on**:` pointer to the prior spec in the new spec.md.

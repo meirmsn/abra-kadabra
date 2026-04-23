@@ -45,9 +45,9 @@ Owned by `/ak-implement` — see `.claude/skills/devshop/implement/SKILL.md` for
 
 Owned by `/ak-spec` — see `.claude/skills/devshop/spec/SKILL.md § Quality checklist` for the full checklist.
 
-## DESIGN.md as Contract (`design-conformance` gate)
+## DESIGN.md as Contract (`design-conformance` (ak) gate)
 
-`/ak-pre-ship` runs a `design-conformance` gate (between `design-review` and `qa`). The gate treats `DESIGN.md` as a contract: it LLM-extracts normative claims (explicit values, canonical examples, imperative rules, component contracts) and verifies each against the implementation. Complementary to `/design-review` (gstack), which covers visual hierarchy / spacing / AI-slop; this gate covers the orthogonal axes `/design-review` skips.
+`/ak-pre-ship` runs a `design-conformance` (ak) gate (between `design-review` and `qa`). The gate treats `DESIGN.md` as a contract: it LLM-extracts normative claims (explicit values, canonical examples, imperative rules, component contracts) and verifies each against the implementation. Complementary to `/design-review` (gstack), which covers visual hierarchy / spacing / AI-slop; this gate covers the orthogonal axes `/design-review` skips.
 
 **Claim types** (see `.claude/skills/devshop/design-conformance/SKILL.md` for the extraction prompt):
 

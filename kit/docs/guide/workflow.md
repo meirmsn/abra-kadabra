@@ -56,18 +56,19 @@
 │                    │                                                    │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
 │  │ Phase 3 · /ak-pre-ship  (12 gates, re-run tests after each)      │   │
-│  │   1. devshop docs check                                          │   │
-│  │   2. metrics check                                               │   │
-│  │   3. responsive + theme (UI)                                     │   │
-│  │   4. /simplify          ──▶ test:unit                            │   │
-│  │   5. /ak-test-review                                             │   │
-│  │   6. /review            ──▶ test:unit                            │   │
-│  │   7. /cso               ──▶ test:unit                            │   │
-│  │   8. /design-review (UI)──▶ test:unit                            │   │
-│  │   8b. design-conformance (DESIGN.md contract check)              │   │
-│  │   9. /qa                (own fix loop)                           │   │
-│  │  10. /benchmark     (UI)                                         │   │
-│  │  11. convention check                                            │   │
+│  │   gate naming: (ak) = devshop-native; bare = wraps gstack skill  │   │
+│  │   1. docs-check (ak)                                             │   │
+│  │   2. metrics-check (ak)                                          │   │
+│  │   3. responsive-theme (ak)      (UI)                             │   │
+│  │   4. simplify                   ──▶ test:unit                    │   │
+│  │   5. test-review (ak)                                            │   │
+│  │   6. review                     ──▶ test:unit                    │   │
+│  │   7. cso                        ──▶ test:unit                    │   │
+│  │   8. design-review              ──▶ test:unit  (UI)              │   │
+│  │   8b. design-conformance (ak)   (DESIGN.md contract)             │   │
+│  │   9. qa                         (own fix loop)                   │   │
+│  │  10. benchmark                  (UI)                             │   │
+│  │  11. convention (ak)                                             │   │
 │  └──────────────────────────────────────────────────────────────────┘   │
 │                    │                                                    │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
@@ -77,12 +78,20 @@
 │  └──────────────────────────────────────────────────────────────────┘   │
 │                    │                                                    │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │ Phase 5 · CI watch (gh pr checks --watch)                        │   │
-│  │   on fail: read logs → fix → push, max 3 cycles, else @mention   │   │
+│  │ Phase 5 · CI watch + PR bookkeeping                              │   │
+│  │   5.1-5.2  watch CI via gh pr checks --watch                     │   │
+│  │   5.3      green → tick PR checkboxes + preview URL              │   │
+│  │   5.4-5.5  fail  → fix loop (max 3) → @mention if stuck          │   │
+│  │   5.6      green → remove PLAN.md Active row + append BUILD-LOG  │   │
 │  └──────────────────────────────────────────────────────────────────┘   │
 │                    │                                                    │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │ Phase 6 · audit-trail PR comment + "@user PR ready"              │   │
+│  │ Phase 6 · audit-trail PR comment + final checkbox sweep          │   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+│                    │                                                    │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │ Phase 7 · notify: "@user PR ready" + terminal handoff            │   │
+│  │   diff-type aware: runtime → /ak-go-live; docs-only → no deploy  │   │
 │  └──────────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────────┘
        │
@@ -100,7 +109,7 @@
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-Standalone skills (usable outside the pipeline): `/ak-status`, `/ak-spec`, `/ak-implement`, `/ak-pre-ship`, `/ak-test-review`, `/ak-new-project`, `/ak-migrate-project`.
+Standalone skills (usable outside the pipeline): `/ak-status`, `/ak-spec`, `/ak-implement`, `/ak-pre-ship`, `/ak-test-review`, `/ak-design-conformance`, `/ak-new-project`, `/ak-migrate-project`.
 
 ## Step 1: Write rough notes
 
@@ -159,19 +168,20 @@ enforcement contract.
 
 **Phase 2: `/ak-implement`** — reads spec, decomposes into tasks, implements with tests. Confirms active branch against `PLAN.md § Active`. Stuck protocol: try fix → `/investigate` → ask user. Logs judgment calls in `specs/<name>/tasks.md` § Decisions.
 
-**Phase 3: `/ak-pre-ship`** — quality gates only (no shipping). A Phase 0 preflight runs first: verifies required tooling (Chromium for browser gates) and aborts the whole pre-ship with a `blocked` status if tooling is missing, so gates can't silently turn a missing tool into a cheerful "skipped". After preflight passes:
+**Phase 3: `/ak-pre-ship`** — quality gates only (no shipping). A Phase 0 preflight runs first: verifies required tooling (Chromium for browser gates) and aborts the whole pre-ship with a `blocked` status if tooling is missing, so gates can't silently turn a missing tool into a cheerful "skipped". After preflight passes, 12 gates run in canonical order. Gate naming: `(ak)` marks devshop-native gates (either a devshop-owned check or a devshop-authored skill like `/ak-test-review`); bare names wrap gstack skills invoked verbatim.
 
-1. Devshop docs check
-2. Metrics check
-3. Responsive + theme check (UI PRs) — captures 4-combo evidence screenshots
-4. `/simplify` → test:unit checkpoint
-5. `/ak-test-review`
-6. `/review` → test:unit checkpoint
-7. `/cso` → test:unit checkpoint
-8. `/design-review` (UI PRs) → test:unit checkpoint
-9. `/qa` (has own fix loop)
-10. `/benchmark` (UI PRs)
-11. Convention check
+1. `docs-check` (ak)
+2. `metrics-check` (ak)
+3. `responsive-theme` (ak) — UI PRs only; captures 4-combo evidence screenshots
+4. `simplify` → test:unit checkpoint
+5. `test-review` (ak)
+6. `review` → test:unit checkpoint
+7. `cso` → test:unit checkpoint
+8. `design-review` → test:unit checkpoint (UI PRs only)
+   8b. `design-conformance` (ak) — DESIGN.md contract check (runs regardless of UI scope)
+9. `qa` (has own fix loop)
+10. `benchmark` — UI PRs only
+11. `convention` (ak)
 
 After all gates pass, hero screenshots are captured to `specs/<name>/hero/` (committed) for the PR audit comment — see `FAQ.md § How are specs and pipeline artifacts organized?` for the hero vs evidence split.
 
@@ -179,11 +189,13 @@ Gate outcomes use four categories: `pass`, `findings (N) [fixed|pending]`, `n/a`
 
 Every gate's report must also include a `## Dismissals` section (body `None` or a bulleted list of findings-with-rationale). Pre-ship aggregates these into a `## Router Summary` block at the top of `review.md` and — when any body is non-`None` — hands the rationales to an adversarial reviewer (`kit/scripts/adversarial-review.sh dismissalLog`) that rejects weak, generic, or out-of-scope justifications. Rejection fails the gate the same as any `findings (N) pending` outcome. The check-type also applies severity-weighted shims for structured-output gates like `/cso` (TENTATIVE findings auto-dismiss with a mechanical rationale, no LLM call). See `hooks.md § Dismissal Log` for the full gating rules, env-var escape hatches, and forward-compatibility with the Phase 4 Finding Router.
 
-**Phase 4: `/ship`** (gstack) — merges base, runs tests + review (final verification), bumps VERSION, pushes, creates PR, auto-invokes `/document-release`.
+**Phase 4: `/ship`** (gstack) — merges base, runs tests + review (final verification), bumps VERSION, pushes, creates PR, auto-invokes `/document-release`. PR body is seeded per the checkbox conventions in `/devshop/.claude/skills/devshop/build/SKILL.md § PR body conventions` — image embeds use the private-repo-safe `https://github.com/<owner>/<repo>/raw/<branch>/<path>` form; checkboxes are left `[ ]` at creation and ticked incrementally at 5.3 and 6.
 
-**Phase 5: CI watch + fix loop** — watches CI via `gh pr checks --watch`. On failure: reads CI logs, reads local test/source code, makes informed fix, verifies locally if possible, pushes. Max 3 fix cycles. Escalates via PR @mention if stuck.
+**Phase 5: CI watch + PR bookkeeping** — watches CI via `gh pr checks --watch` (5.1–5.2). On failure: reads CI logs, reads local test/source code, makes informed fix, verifies locally if possible, pushes — max 3 fix cycles (5.4), escalates via PR @mention if stuck (5.5). On CI green: ticks the corresponding `## Test plan` / `### CI gates` PR-body checkboxes with attestations like `green on <sha>` and preview-deploy URLs (5.3), then closes out the feature's history on the feature branch — removes the Active row from `PLAN.md` and appends the ship entry to `BUILD-LOG.md` (5.6) so the history ships as part of this PR rather than a follow-up cleanup commit.
 
-**Phase 6: Audit trail + notify** — posts PR comment with quality gate results, implementation decisions, CI fix summary. Notifies user: "@username PR ready for review."
+**Phase 6: Audit-trail PR comment** — posts the quality-gate results, implementation decisions, CI fix summary, and rendered hero screenshots (`https://github.com/<owner>/<repo>/raw/<branch>/specs/<feature>/hero/<screen>.png`). Does a final sweep (Fix D) cross-checking the PR-body checkbox state against on-disk evidence before Phase 7 declares ready-for-review.
+
+**Phase 7: Notify** — detects diff type (runtime vs docs-only) and posts a ready-for-review comment tuned to the diff: runtime changes (`apps/**`, `packages/**`, `supabase/migrations/**`, `supabase/functions/**`) get a "run `/ak-go-live` next" hint; docs-only diffs explicitly say `/ak-go-live` is not needed. Prints the matching terminal handoff to the session's stdout so the user sees the next step without re-opening the PR.
 
 ## Step 5: You review the PR
 

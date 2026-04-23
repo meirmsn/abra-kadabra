@@ -168,7 +168,7 @@ The `.husky/pre-push` hook runs at the git layer on every `git push` to non-main
 
 ## Dismissal Log (pre-ship gate-time adversarial review)
 
-Commit-time guards check that the developer explained bypasses. The pre-ship layer has a parallel concern: each quality gate (`/simplify`, `/review`, `/cso`, `/design-review`, `/qa`, `/benchmark`, etc.) produces an advisory report, and the pipeline used to rubber-stamp "gate said pass" without checking whether the gate silently dismissed findings it surfaced. The Dismissal Log closes that hole.
+Commit-time guards check that the developer explained bypasses. The pre-ship layer has a parallel concern: each quality gate (`simplify`, `test-review` (ak), `review`, `cso`, `design-review`, `design-conformance` (ak), `qa`, `benchmark`, etc. — `(ak)` marks devshop-native gates, bare names wrap gstack skills) produces an advisory report, and the pipeline used to rubber-stamp "gate said pass" without checking whether the gate silently dismissed findings it surfaced. The Dismissal Log closes that hole.
 
 ### Contract (every gate)
 
@@ -202,8 +202,8 @@ Rejection fails the gate with outcome `findings (N) pending` — the pipeline pa
 
 Gates that already emit structured findings get a mechanical dismissal mapping via `kit/scripts/preship-router-shim.sh` — no LLM call for the obvious cases:
 
-- `/cso` JSON with `severity: TENTATIVE` → auto-dismissed with rationale `"TENTATIVE per /cso confidence tier (self-verified only)"`. CRITICAL / HIGH / MEDIUM stay as findings.
-- `/benchmark` metrics within threshold → filtered at the gate itself; no dismissal needed.
+- `cso` JSON with `severity: TENTATIVE` → auto-dismissed with rationale `"TENTATIVE per /cso confidence tier (self-verified only)"`. CRITICAL / HIGH / MEDIUM stay as findings.
+- `benchmark` metrics within threshold → filtered at the gate itself; no dismissal needed.
 
 The shim's output is a rendered Dismissals body that pre-ship treats like any other gate's — an explicit gate run can still override and invoke adversarial review.
 

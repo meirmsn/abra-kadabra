@@ -9,7 +9,7 @@ description: |
   Covers axes /design-review (gstack) does NOT: voice/copy doctrine drift,
   explicit-value conformance, canonical-example matching. Complementary, not
   redundant — they check different things.
-  Invoked as Gate `design-conformance` inside /ak-pre-ship, between
+  Invoked as Gate `design-conformance` (ak) inside /ak-pre-ship, between
   `design-review` and `qa`. Emits `n/a` when DESIGN.md is absent.
   Use when asked to "run design conformance" or "check DESIGN.md compliance".
   (devshop)
@@ -43,7 +43,7 @@ patterns. This skill covers the orthogonal axes `/design-review` skips:
 
 ## When it runs
 
-Invoked by `/ak-pre-ship` as Gate `design-conformance`. Scope detection:
+Invoked by `/ak-pre-ship` as Gate `design-conformance` (ak). Scope detection:
 
 - **`n/a`** — project has no `DESIGN.md` at repo root. Skill emits no finding;
   pipeline advances.
