@@ -45,6 +45,14 @@ Depth over speed. When a step or task hits friction, stop and think about what c
 
 Flag concerns not covered by existing docs or conventions — wait for confirmation before proceeding. Commit per logical change (one task, one fix, one devshop improvement).
 
+**Principle of least privilege** for security-sensitive code paths. When a code path needs more access than its caller's role grants (e.g., an authenticated user needs to write a table that RLS doesn't allow), prefer the narrower fix in this order:
+
+1. **Table-level RLS policy** scoped to the actual role (`to authenticated`, `to anon`). Declarative, auditable in SQL, smallest blast radius.
+2. **`SECURITY DEFINER` RPC** with an explicit auth check inside (e.g. `mark_item_bought` style). Use when the operation needs to span tables or violate multiple policies in a controlled way; the in-RPC check stands in for the bypassed RLS.
+3. **Service-role escalation in the edge function** (admin client constructed without the user's `Authorization` header). **Last resort** — admin can write any table, not just the one you needed. The escalation moves the security boundary from SQL into application code, which is harder to inspect.
+
+Don't reach for option 3 because option 1 felt like "more work" — a one-line policy in a migration is almost always less code than the function-side workaround, and the long-term audit story is dramatically better. Recent example: lalista PR 5 ("add as new" force-create) needed authenticated users to insert into `items`. First-pass fix was an admin client; correct fix that shipped was migration 011 `items_insert` policy.
+
 **Two repos, two commit flows:**
 
 - **Project commits** go to the project repo (`/workspace`). Use conventional commits (`feat:`, `fix:`, `chore:`, etc.). Branch protection requires PRs.
