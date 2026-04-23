@@ -819,6 +819,40 @@ Two kinds of mistakes to avoid:
 
 Phase 6's final sweep reconciles both sides.
 
+### Out-of-band deploy items
+
+Some surfaces don't ship with the PR merge. The front-end gets auto-deployed (Vercel/Netlify on merge to main); other artifacts need a separate command after merge or they silently lag behind. The most common offender for Supabase-backed projects is `supabase/functions/**` — the front-end calls the new contract, the back-end is still the old one, the user hits stale behavior with no clear error.
+
+Phase 4 must inspect the diff and, if it touches a known out-of-band-deploy path, add the deploy step to the test plan checklist explicitly so `/ak-go-live` doesn't skip it. Detection patterns to handle:
+
+| Diff path matches | Add to test plan |
+|---|---|
+| `supabase/functions/**` | `- [ ] After merge: \`supabase functions deploy <name>\` for each touched function — front-end ships to prod calling unchanged back-end otherwise (stale behavior + analytics misattribution).` |
+| `supabase/migrations/**` | `- [ ] After merge: \`supabase db push\` (or hosted dashboard apply) — schema needed by the new code.` |
+| `terraform/**` / `*.tf` | `- [ ] After merge: \`terraform apply\` — infra change required for the new code.` |
+| `k8s/**` / `*.yaml` under deploy paths | `- [ ] After merge: \`kubectl apply -f <path>\` — k8s manifest update required.` |
+
+Implementation sketch for Phase 4:
+
+```bash
+DIFF_FILES=$(git diff --name-only "origin/${BASE}...HEAD")
+DEPLOY_ITEMS=""
+if echo "$DIFF_FILES" | grep -qE '^supabase/functions/'; then
+  FNS=$(echo "$DIFF_FILES" | grep -oE '^supabase/functions/[^/]+' | sort -u | sed 's|supabase/functions/||')
+  for fn in $FNS; do
+    DEPLOY_ITEMS+="- [ ] After merge: \`supabase functions deploy ${fn}\` — function code changed, no auto-deploy.\n"
+  done
+fi
+# ... add other patterns ...
+# Splice $DEPLOY_ITEMS into the PR body's ## Test plan section.
+```
+
+Add the items inside the existing `## Test plan` block, ideally above the manual-review callouts (visual audit, live QA walkthrough), so reviewers see them adjacent to the CI checkboxes rather than at the bottom.
+
+The handoff comment in Phase 7 should also surface these — print them in the terminal hint AND as part of the "Ready for review" comment on the PR. `/ak-go-live` does not run these for you; the user (or the slow-job CI from a future PR) does.
+
+If the project's spec template doesn't already mention this convention, the next PR that touches an out-of-band-deploy path is a good time to add it to `CLAUDE.md § Gotchas` — but Phase 4 should not block on whether the convention is documented; it should add the test-plan items unconditionally based on diff detection.
+
 ### Edit flow
 
 ```bash
