@@ -196,6 +196,7 @@ TODO items can be scheduled into versions defined in their corresponding ROADMAP
 - **CI enforcement lands in the same PR as the code it tests** — no gap between "tests exist" and "CI runs them."
 - **CI mirrors runtime**: if the app uses a DB at runtime, CI starts it locally. Never skip integration tests because "they work locally." Never hit shared remote environments from CI. Supabase: `supabase start` + `seed.sql` + type drift check + mask `SUPABASE_SERVICE_ROLE_KEY`.
 - **Type drift check**: CI regenerates types from schema and fails if committed types have drifted.
+- **QA-backend isolation** (which Supabase flavor dev / CI / pre-ship point at): see [kit/notes/roadmap/qa-options.md](../../notes/roadmap/qa-options.md) for the 6-option backend matrix (local / preview branches / staging / testcontainers / mocks / hybrid), 4-layer enforcement stack (firewall / credential split / URL guard / branch protection), and the 5-surface map of where QA happens across `/ak-implement`, `/ak-pre-ship`, CI fast/slow jobs, and `/canary`.
 
 ### Test Assertion Depth
 
