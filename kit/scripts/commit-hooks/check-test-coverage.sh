@@ -25,8 +25,8 @@ EXEMPT_SCRIPTS=(
   "adversarial-review.sh"        # calls claude CLI — non-deterministic, mocked in all callers
   "init-devshop.sh"              # runs as root — needs integration test environment
   "session-start.sh"             # advisory output only, heavy fixture setup
-  "sync-from-devshop.sh"         # manual-run, low blast radius
-  "sync-to-devshop.sh"           # manual-run, low blast radius
+  "from-devshop.sh"              # manual-run sync script, low blast radius
+  "to-devshop.sh"                # manual-run sync script, low blast radius
   "statusline.sh"                # pure formatting, zero blast radius
   "release.sh"                   # manual, low frequency
 )

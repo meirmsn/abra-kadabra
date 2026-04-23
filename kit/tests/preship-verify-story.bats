@@ -1,12 +1,12 @@
 #!/usr/bin/env bats
-# Tests for kit/scripts/preship-verify-story.sh
+# Tests for kit/scripts/preship/verify-story.sh
 # Gate 9 Core-User-Story artifact assertion — enforces that every verb in
 # the spec's `## Core user story` section produces a verifiable artifact.
 
 setup() {
   load helpers/setup
   setup_mock_bin
-  SCRIPT="$SCRIPTS_DIR/preship-verify-story.sh"
+  SCRIPT="$SCRIPTS_DIR/preship/verify-story.sh"
   FEATURE_DIR="$BATS_TEST_TMPDIR/feature"
   mkdir -p "$FEATURE_DIR"
   SPEC="$FEATURE_DIR/spec.md"

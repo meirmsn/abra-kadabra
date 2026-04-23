@@ -108,7 +108,7 @@
           {
             "type": "command",
             "if": "Bash(*git*commit*)",
-            "command": "bash /devshop/kit/scripts/check-hook-bypass.sh"
+            "command": "bash /devshop/kit/scripts/commit-hooks/check-hook-bypass.sh"
           }
         ]
       },
@@ -118,7 +118,7 @@
           {
             "type": "command",
             "if": "Bash(*git*commit*)",
-            "command": "bash /devshop/kit/scripts/check-branch-not-main.sh"
+            "command": "bash /devshop/kit/scripts/commit-hooks/check-branch-not-main.sh"
           }
         ]
       },
@@ -127,7 +127,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash /devshop/kit/scripts/check-memory-created.sh"
+            "command": "bash /devshop/kit/scripts/commit-hooks/check-memory-created.sh"
           }
         ]
       },
@@ -136,7 +136,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/devshop/kit/scripts/notify-claude-cancel"
+            "command": "/devshop/kit/scripts/notify/claude-cancel"
           }
         ]
       }
@@ -167,7 +167,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/devshop/kit/scripts/notify-claude-request"
+            "command": "/devshop/kit/scripts/notify/claude-request"
           }
         ]
       }
@@ -178,7 +178,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/devshop/kit/scripts/notify-claude-done"
+            "command": "/devshop/kit/scripts/notify/claude-done"
           }
         ]
       }
@@ -189,7 +189,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/devshop/kit/scripts/notify-claude-cancel"
+            "command": "/devshop/kit/scripts/notify/claude-cancel"
           }
         ]
       }

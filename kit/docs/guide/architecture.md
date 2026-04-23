@@ -55,7 +55,7 @@ Inside container:
 
 ## How init-devshop.sh works
 
-Runs as root via sudo on every container start (`postStartCommand`). The project's `.devcontainer/init-devshop.sh` is a thin forwarder that delegates to `/devshop/kit/scripts/init-devshop.sh` (the real script). Includes a devshop-self guard that skips injection when the workspace IS the devshop (prevents destructive symlink-over-directory). Symlink creation is in `create-devshop-symlinks.sh` (called by init-devshop.sh, and also by session-start.sh and .husky/pre-commit for reactive recovery when symlinks are lost by git ops).
+Runs as root via sudo on every container start (`postStartCommand`). The project's `.devcontainer/init-devshop.sh` is a thin forwarder that delegates to `/devshop/kit/scripts/init-devshop.sh` (the real script). Includes a devshop-self guard that skips injection when the workspace IS the devshop (prevents destructive symlink-over-directory). Symlink creation is in `sync/create-devshop-symlinks.sh` (called by init-devshop.sh, and also by session-start.sh and .husky/pre-commit for reactive recovery when symlinks are lost by git ops).
 
 ## File lifecycle
 
@@ -63,7 +63,7 @@ Every file in `/workspace/` falls into one of five categories based on where it 
 
 **1. Symlinked (always match devshop)**
 
-Node-owned symlinks created by `init-devshop.sh` on container start. If lost by git operations (checkout, stash, clean), auto-recovered by the pre-commit hook via `create-devshop-symlinks.sh`.
+Node-owned symlinks created by `init-devshop.sh` on container start. If lost by git operations (checkout, stash, clean), auto-recovered by the pre-commit hook via `sync/create-devshop-symlinks.sh`.
 
 Files: `.devshopkit/`, `.claude/skills/`, `.claude/commands/`, `.claude/README.md`, `.hooks/pre-commit`
 
@@ -77,7 +77,7 @@ Why copies instead of symlinks: symlinks are fragile — git ops can delete them
 
 **3. Manifest files (can diverge per project)**
 
-Present from the initial clone of the devshop repo (abra-kadabra). After that, project-owned — they can and do diverge (e.g., `.gitignore` adds project-specific exclusions). Manually synced in either direction via `sync-from-devshop.sh` / `sync-to-devshop.sh`, which read the file list from `kit/manifest.txt`.
+Present from the initial clone of the devshop repo (abra-kadabra). After that, project-owned — they can and do diverge (e.g., `.gitignore` adds project-specific exclusions). Manually synced in either direction via `sync/from-devshop.sh` / `sync/to-devshop.sh`, which read the file list from `kit/manifest.txt`.
 
 Files: `.prettierrc`, `turbo.json`, `eslint.config.mjs`, `.husky/`, `.github/workflows/`, `.devcontainer/`, and other build tooling (see `manifest.txt` for the full list)
 
@@ -117,7 +117,7 @@ git add -A && git commit -m "chore: ..."
 | ---------------------------------------------------------------------- | ---------------------------------- | --------------------------------------------------------- |
 | Skills, scripts, docs (`kit/`, `.claude/skills/`, `.claude/commands/`) | Immediately                        | Symlinks resolve live                                     |
 | Devshop `CLAUDE.md` or project `CLAUDE.md`                             | Immediately                        | Claude Code watches CLAUDE.md files and reloads on change |
-| Shared build tooling (`.husky/`, `turbo.json`, CI, etc.)               | Manual: run `sync-from-devshop.sh` | Project owns its copy — can diverge from devshop          |
+| Shared build tooling (`.husky/`, `turbo.json`, CI, etc.)               | Manual: run `sync/from-devshop.sh` | Project owns its copy — can diverge from devshop          |
 
 ## Propagating build tooling updates
 
@@ -126,13 +126,13 @@ Build tooling files (`turbo.json`, `eslint.config.mjs`, `.husky/`, etc.) are tra
 To pull devshop updates into a project:
 
 ```bash
-.devshopkit/scripts/sync-from-devshop.sh    # diffs + applies; you review
+.devshopkit/scripts/sync/from-devshop.sh    # diffs + applies; you review
 ```
 
 To push project improvements back to the devshop:
 
 ```bash
-.devshopkit/scripts/sync-to-devshop.sh      # copies to abra-kadabra; you review + push
+.devshopkit/scripts/sync/to-devshop.sh      # copies to abra-kadabra; you review + push
 ```
 
 `manifest.txt` defines which files the sync scripts operate on. See `kit/manifest.txt`.

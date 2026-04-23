@@ -12,7 +12,7 @@ setup() {
 @test "guardrails: core.hooksPath always blocked (no escape)" {
   local json
   json=$(jq -n '{"tool_input": {"command": "git -c core.hooksPath=/dev/null commit -m test"}}')
-  run bash "$SCRIPTS_DIR/check-hook-bypass.sh" <<< "$json"
+  run bash "$SCRIPTS_DIR/commit-hooks/check-hook-bypass.sh" <<< "$json"
   assert_failure 2
   assert_output --partial "BLOCKED"
 }
@@ -20,14 +20,14 @@ setup() {
 @test "guardrails: HUSKY=0 always blocked (no escape)" {
   local json
   json=$(jq -n '{"tool_input": {"command": "HUSKY=0 git commit -m test"}}')
-  run bash "$SCRIPTS_DIR/check-hook-bypass.sh" <<< "$json"
+  run bash "$SCRIPTS_DIR/commit-hooks/check-hook-bypass.sh" <<< "$json"
   assert_failure 2
 }
 
 @test "guardrails: humanReviewed flag reserved for humans only" {
   local json
   json=$(jq -n '{"tool_input": {"command": "git -c devshop.humanReviewed=\"approve: ok\" commit -m test"}}')
-  run bash "$SCRIPTS_DIR/check-hook-bypass.sh" <<< "$json"
+  run bash "$SCRIPTS_DIR/commit-hooks/check-hook-bypass.sh" <<< "$json"
   assert_failure 2
   assert_output --partial "human-only"
 }
@@ -35,7 +35,7 @@ setup() {
 @test "guardrails: --no-verify requires a reason" {
   local json
   json=$(jq -n '{"tool_input": {"command": "git commit --no-verify -m test"}}')
-  run bash "$SCRIPTS_DIR/check-hook-bypass.sh" <<< "$json"
+  run bash "$SCRIPTS_DIR/commit-hooks/check-hook-bypass.sh" <<< "$json"
   assert_failure 2
   assert_output --partial "hookBypassReason"
 }
@@ -45,7 +45,7 @@ setup() {
 @test "guardrails: memory file writes blocked until classified" {
   local json
   json=$(jq -n '{"tool_input": {"file_path": "/workspace/.claude/memory/insight.md"}}')
-  run bash "$SCRIPTS_DIR/check-memory-created.sh" <<< "$json"
+  run bash "$SCRIPTS_DIR/commit-hooks/check-memory-created.sh" <<< "$json"
   assert_failure 2
   assert_output --partial "BLOCKED"
   assert_output --partial "classify"
@@ -54,7 +54,7 @@ setup() {
 @test "guardrails: MEMORY.md index writes allowed" {
   local json
   json=$(jq -n '{"tool_input": {"file_path": "/workspace/.claude/memory/MEMORY.md"}}')
-  run bash "$SCRIPTS_DIR/check-memory-created.sh" <<< "$json"
+  run bash "$SCRIPTS_DIR/commit-hooks/check-memory-created.sh" <<< "$json"
   assert_success
 }
 
@@ -80,10 +80,10 @@ setup() {
   mkdir -p "$ds/.claude" "$ds/kit/scripts" "$ws/.claude"
   echo '{}' > "$ds/.claude/settings.json"
   echo '[packs]' > "$ds/.dcg.toml"
-  cp "$SCRIPTS_DIR/normalize-devshop-paths.sh" "$ds/kit/scripts/"
+  cp "$SCRIPTS_DIR/sync/normalize-devshop-paths.sh" "$ds/kit/scripts/"
   # Don't create settings.json in workspace
   cp "$ds/.dcg.toml" "$ws/.dcg.toml"
-  run bash -c "DEVSHOP='$ds' WS='$ws' bash '$SCRIPTS_DIR/check-security-files-freshness.sh'"
+  run bash -c "DEVSHOP='$ds' WS='$ws' bash '$SCRIPTS_DIR/commit-hooks/check-security-files-freshness.sh'"
   assert_failure 1
   assert_output --partial "MISSING"
 }
@@ -94,10 +94,10 @@ setup() {
   mkdir -p "$ds/.claude" "$ds/kit/scripts" "$ws/.claude"
   echo '{}' > "$ds/.claude/settings.json"
   echo '[packs]' > "$ds/.dcg.toml"
-  cp "$SCRIPTS_DIR/normalize-devshop-paths.sh" "$ds/kit/scripts/"
+  cp "$SCRIPTS_DIR/sync/normalize-devshop-paths.sh" "$ds/kit/scripts/"
   ln -s "$ds/.claude/settings.json" "$ws/.claude/settings.json"
   cp "$ds/.dcg.toml" "$ws/.dcg.toml"
-  run bash -c "DEVSHOP='$ds' WS='$ws' bash '$SCRIPTS_DIR/check-security-files-freshness.sh'"
+  run bash -c "DEVSHOP='$ds' WS='$ws' bash '$SCRIPTS_DIR/commit-hooks/check-security-files-freshness.sh'"
   assert_failure 1
   assert_output --partial "SYMLINK"
 }
@@ -107,7 +107,7 @@ setup() {
 @test "guardrails: dirty working tree blocks commit" {
   create_test_repo
   create_untracked "forgotten-file.txt"
-  run bash -c "cd '$TEST_REPO' && bash '$SCRIPTS_DIR/check-clean-tree.sh'"
+  run bash -c "cd '$TEST_REPO' && bash '$SCRIPTS_DIR/commit-hooks/check-clean-tree.sh'"
   assert_failure 1
   assert_output --partial "forgotten-file.txt"
 }
@@ -125,8 +125,8 @@ setup() {
   git -C "$TEST_REPO" commit -q -m "initial"
 
   local wrapper="$BATS_TEST_TMPDIR/guard-wrapper.sh"
-  cp "$SCRIPTS_DIR/devshop-commit-guard.sh" "$wrapper"
-  sed -i "s|bash \"\$SCRIPT_DIR/adversarial-review.sh\"|bash \"$MOCK_BIN/adversarial-review.sh\"|" "$wrapper"
+  cp "$SCRIPTS_DIR/commit-hooks/commit-guard.sh" "$wrapper"
+  sed -i "s|bash \"\$SCRIPT_DIR/../adversarial-review.sh\"|bash \"$MOCK_BIN/adversarial-review.sh\"|" "$wrapper"
   sed -i 's|if \[ -n "\$OTHER_REPO" \] \&\& \[ -d "\$OTHER_REPO/\.git" \]|if false|' "$wrapper"
   chmod +x "$wrapper"
 

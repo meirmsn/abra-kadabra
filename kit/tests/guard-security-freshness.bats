@@ -1,18 +1,18 @@
 #!/usr/bin/env bats
-# Tests for kit/scripts/check-security-files-freshness.sh
+# Tests for kit/scripts/commit-hooks/check-security-files-freshness.sh
 # Verifies settings.json and .dcg.toml are present, are copies (not symlinks), and match source
 
 setup() {
   load helpers/setup
-  CHECK="$SCRIPTS_DIR/check-security-files-freshness.sh"
+  CHECK="$SCRIPTS_DIR/commit-hooks/check-security-files-freshness.sh"
 
   # Create a fake devshop with source security files
   FAKE_DS="$BATS_TEST_TMPDIR/devshop"
-  mkdir -p "$FAKE_DS/.claude" "$FAKE_DS/kit/scripts"
+  mkdir -p "$FAKE_DS/.claude" "$FAKE_DS/kit/scripts/sync"
   echo '{"permissions": {"allow": ["Read"]}}' > "$FAKE_DS/.claude/settings.json"
   echo '[packs]' > "$FAKE_DS/.dcg.toml"
   # Copy normalize script so the freshness check can call it
-  cp "$SCRIPTS_DIR/normalize-devshop-paths.sh" "$FAKE_DS/kit/scripts/"
+  cp "$SCRIPTS_DIR/sync/normalize-devshop-paths.sh" "$FAKE_DS/kit/scripts/sync/"
 
   # Create a fake workspace
   FAKE_WS="$BATS_TEST_TMPDIR/workspace"
@@ -28,7 +28,7 @@ run_check() {
 @test "passes when both files are fresh copies" {
   # Copy source files (simulate init-devshop.sh)
   # settings.json needs path normalization applied (kit/ → .devshopkit/)
-  bash "$FAKE_DS/kit/scripts/normalize-devshop-paths.sh" < "$FAKE_DS/.claude/settings.json" > "$FAKE_WS/.claude/settings.json"
+  bash "$FAKE_DS/kit/scripts/sync/normalize-devshop-paths.sh" < "$FAKE_DS/.claude/settings.json" > "$FAKE_WS/.claude/settings.json"
   cp "$FAKE_DS/.dcg.toml" "$FAKE_WS/.dcg.toml"
   run_check
   assert_success
@@ -70,7 +70,7 @@ run_check() {
 # --- .dcg.toml ---
 
 @test "blocks when .dcg.toml is missing" {
-  bash "$FAKE_DS/kit/scripts/normalize-devshop-paths.sh" < "$FAKE_DS/.claude/settings.json" > "$FAKE_WS/.claude/settings.json"
+  bash "$FAKE_DS/kit/scripts/sync/normalize-devshop-paths.sh" < "$FAKE_DS/.claude/settings.json" > "$FAKE_WS/.claude/settings.json"
   # Don't create .dcg.toml
   run_check
   assert_failure 1
@@ -79,7 +79,7 @@ run_check() {
 }
 
 @test "blocks when .dcg.toml is a symlink" {
-  bash "$FAKE_DS/kit/scripts/normalize-devshop-paths.sh" < "$FAKE_DS/.claude/settings.json" > "$FAKE_WS/.claude/settings.json"
+  bash "$FAKE_DS/kit/scripts/sync/normalize-devshop-paths.sh" < "$FAKE_DS/.claude/settings.json" > "$FAKE_WS/.claude/settings.json"
   ln -s "$FAKE_DS/.dcg.toml" "$FAKE_WS/.dcg.toml"
   run_check
   assert_failure 1
@@ -87,7 +87,7 @@ run_check() {
 }
 
 @test "blocks when .dcg.toml is stale" {
-  bash "$FAKE_DS/kit/scripts/normalize-devshop-paths.sh" < "$FAKE_DS/.claude/settings.json" > "$FAKE_WS/.claude/settings.json"
+  bash "$FAKE_DS/kit/scripts/sync/normalize-devshop-paths.sh" < "$FAKE_DS/.claude/settings.json" > "$FAKE_WS/.claude/settings.json"
   echo '[different]' > "$FAKE_WS/.dcg.toml"
   run_check
   assert_failure 1

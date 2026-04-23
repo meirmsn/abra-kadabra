@@ -91,21 +91,21 @@ Configured in `.husky/pre-commit`.
 | `bats kit/tests/`           | Kit tests: scripts + structural invariants | Yes — devshop only          |
 | `.hooks/pre-commit`         | Devshop guards (see below)                 | Yes — no-op without devshop |
 
-`.hooks/pre-commit` is gitignored, symlinked to `kit/hooks/pre-commit.sh` (created by `create-devshop-symlinks.sh` for both repos). It detects which repo it's in and calls the appropriate guards.
+`.hooks/pre-commit` is gitignored, symlinked to `kit/hooks/pre-commit.sh` (created by `sync/create-devshop-symlinks.sh` for both repos). It detects which repo it's in and calls the appropriate guards.
 
 Guards are split into **deterministic** (auto-pass when condition is met) and **semantic** (always require a review explanation). All bypass reasons are verified by `adversarial-review.sh` — an agent that actively tries to reject the reason. On API error, the review **fails closed** (blocks the commit). Human fallback: `devshop.humanReviewed` flag, but blocked for Claude via PreToolUse hook — only reachable when the human runs the commit directly in the terminal.
 
-| Guard                     | Type          | What                                                                                                                     | Bypass                                                       |
-| ------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
-| `check-clean-tree.sh`     | Deterministic | Blocks if untracked/unstaged files exist                                                                                 | `dirtyTreeReason` — adversarially reviewed                   |
-| `check-manifest.sh`       | **Semantic**  | template/ files added/removed — propose manifest.txt update with reasoning                                               | `manifestReviewed` — always required, adversarially reviewed |
-| `check-test-coverage.sh`  | Deterministic | New scripts block if no test file; modified scripts warn (devshop only)                                                  | Add to exempt list with reason, or write tests               |
-| `devshop-commit-guard.sh` |               |                                                                                                                          |                                                              |
-| └─ `mixed-commit`         | Deterministic | Mixed devshop + project files (project repo only)                                                                        | No bypass — unstage one set                                  |
-| └─ `docs-drift`           | **Semantic**  | Any devshop file staged (except release artifacts) — reviews ALL docs (including ones that don't yet mention the change) | `docsVerified` — always required, adversarially reviewed     |
-| └─ `doc-consistency`      | **Semantic**  | Reference doc changed — consistency review                                                                               | `docSyncReason` — always required, adversarially reviewed    |
-| └─ `cross-repo`           | Deterministic | Other repo has uncommitted changes                                                                                       | `crossRepoReason` — adversarially reviewed                   |
-| └─ `release-coverage`     | **Semantic**  | Release commit (devshop only) — `kit/version` staged → adversarial reviews coverage                                      | `releaseReviewed` — justification re-reviewed with diff      |
+| Guard                          | Type          | What                                                                                                                     | Bypass                                                       |
+| ------------------------------ | ------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| `check-clean-tree.sh`          | Deterministic | Blocks if untracked/unstaged files exist                                                                                 | `dirtyTreeReason` — adversarially reviewed                   |
+| `check-manifest.sh`            | **Semantic**  | template/ files added/removed — propose manifest.txt update with reasoning                                               | `manifestReviewed` — always required, adversarially reviewed |
+| `check-test-coverage.sh`       | Deterministic | New scripts block if no test file; modified scripts warn (devshop only)                                                  | Add to exempt list with reason, or write tests               |
+| `commit-hooks/commit-guard.sh` |               |                                                                                                                          |                                                              |
+| └─ `mixed-commit`              | Deterministic | Mixed devshop + project files (project repo only)                                                                        | No bypass — unstage one set                                  |
+| └─ `docs-drift`                | **Semantic**  | Any devshop file staged (except release artifacts) — reviews ALL docs (including ones that don't yet mention the change) | `docsVerified` — always required, adversarially reviewed     |
+| └─ `doc-consistency`           | **Semantic**  | Reference doc changed — consistency review                                                                               | `docSyncReason` — always required, adversarially reviewed    |
+| └─ `cross-repo`                | Deterministic | Other repo has uncommitted changes                                                                                       | `crossRepoReason` — adversarially reviewed                   |
+| └─ `release-coverage`          | **Semantic**  | Release commit (devshop only) — `kit/version` staged → adversarial reviews coverage                                      | `releaseReviewed` — justification re-reviewed with diff      |
 
 Both repos use the same guard chain. Checks run in the order listed above.
 
@@ -181,7 +181,7 @@ Pre-ship aggregates all gates' Dismissals into a `## Router Summary` block at th
 
 ### Adversarial review
 
-When a gate's `## Dismissals` body is non-`None` (scoped parse — `kit/scripts/preship-router-shim.sh is-empty <report>`), pre-ship hands the rationales to `adversarial-review.sh dismissalLog`. The check-type rejects rationales that:
+When a gate's `## Dismissals` body is non-`None` (scoped parse — `kit/scripts/preship/router-shim.sh is-empty <report>`), pre-ship hands the rationales to `adversarial-review.sh dismissalLog`. The check-type rejects rationales that:
 
 - Are generic (`not critical`, `minor`, `can wait`, `won't fix`)
 - Contradict the spec's `## Core user story` (Phase 1 — coming) or `## In scope`
@@ -200,7 +200,7 @@ Rejection fails the gate with outcome `findings (N) pending` — the pipeline pa
 
 ### Shim: structured-output gates
 
-Gates that already emit structured findings get a mechanical dismissal mapping via `kit/scripts/preship-router-shim.sh` — no LLM call for the obvious cases:
+Gates that already emit structured findings get a mechanical dismissal mapping via `kit/scripts/preship/router-shim.sh` — no LLM call for the obvious cases:
 
 - `cso` JSON with `severity: TENTATIVE` → auto-dismissed with rationale `"TENTATIVE per /cso confidence tier (self-verified only)"`. CRITICAL / HIGH / MEDIUM stay as findings.
 - `benchmark` metrics within threshold → filtered at the gate itself; no dismissal needed.

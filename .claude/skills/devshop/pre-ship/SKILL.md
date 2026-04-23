@@ -119,7 +119,7 @@ Gate 9 (`/qa`) walks the happy path against a Supabase instance. Hosted Supabase
 
 ```bash
 # Bootstrap local Supabase if possible; otherwise report the fallback.
-bash /devshop/kit/scripts/preship-supabase-bootstrap.sh up
+bash /devshop/kit/scripts/preship/supabase-bootstrap.sh up
 # Outputs one of:
 #   ok: local Supabase up; .env.local rewritten (backup at .preship-backup)
 #   reused: local Supabase already running
@@ -131,7 +131,7 @@ bash /devshop/kit/scripts/preship-supabase-bootstrap.sh up
 At the end of the pre-ship run (success or failure), call the teardown:
 
 ```bash
-bash /devshop/kit/scripts/preship-supabase-bootstrap.sh down
+bash /devshop/kit/scripts/preship/supabase-bootstrap.sh down
 ```
 
 `down` restores the original `.env.local` and stops local Supabase. Idempotent — safe to call even if `up` didn't run.
@@ -213,7 +213,7 @@ end of this file).
 Dismissal Log invokes the adversarial reviewer (via `kit/scripts/adversarial-review.sh`
 with check-type `dismissalLog`) **only when a gate's `## Dismissals` body resolves to
 something other than `None`**. The "is it `None`?" check is a **scoped section parse**
-handled by `kit/scripts/preship-router-shim.sh`:
+handled by `kit/scripts/preship/router-shim.sh`:
 
 ```bash
 body=$(awk '/^## Dismissals$/{f=1; next} f && /^## /{exit} f' "$GATE_REPORT" \
@@ -245,7 +245,7 @@ Rejection (weak / generic / suspicious rationale) fails the gate with outcome
 Gates whose output is already structured in a way that mechanically categorizes findings
 (notably `/cso` emitting JSON with
 `severity: CRITICAL | HIGH | MEDIUM | TENTATIVE`) get an implicit dismissal mapping
-via `kit/scripts/preship-router-shim.sh`:
+via `kit/scripts/preship/router-shim.sh`:
 
 - CSO `TENTATIVE` findings → auto-dismissed with `rationale: TENTATIVE per /cso
 confidence tier (self-verified only)`.
@@ -432,7 +432,7 @@ token values, imperative rules, component-contract claims.
 Orchestrated via:
 
 ```bash
-bash /devshop/kit/scripts/preship-design-conformance.sh run \
+bash /devshop/kit/scripts/preship/design-conformance.sh run \
   --feature "$FEATURE" \
   --design  DESIGN.md
 ```
@@ -514,7 +514,7 @@ $B js "JSON.stringify({test: ...})" > "specs/<feature>/qa-walk/verb-${N}-${slug}
 **Enforcement** (runs BEFORE reporting Gate 9's outcome):
 
 ```bash
-bash /devshop/kit/scripts/preship-verify-story.sh verify-all \
+bash /devshop/kit/scripts/preship/verify-story.sh verify-all \
   --feature "$FEATURE" --spec "specs/$FEATURE/spec.md"
 ```
 
@@ -592,7 +592,7 @@ Performance regression check (Core Web Vitals + load time). Report only.
 Run the mechanical check first, then apply judgment:
 
 ```bash
-bash kit/scripts/check-file-headers.sh main
+bash kit/scripts/commit-hooks/check-file-headers.sh main
 ```
 
 Review any flagged files — skip config-like or trivial files (single export, <50 lines). Then verify:

@@ -40,8 +40,8 @@ Yes — portability is a first-class concern. New projects are created from `tem
 
 The devshop (abra-kadabra) and project repos are separate (since v1.0.0). The `template/` directory at the devshop root contains the project skeleton — `/ak-new-project` creates a GitHub repo from it. Devshop files get injected into the workspace at container start via `init-devshop.sh` — they're gitignored in the project repo. Build tooling files (turbo.json, eslint, etc.) are tracked in both repos and can be synced:
 
-- `kit/scripts/sync-to-devshop.sh` — push build tooling improvements to abra-kadabra's `template/`
-- `kit/scripts/sync-from-devshop.sh` — pull build tooling updates from `template/` into a project
+- `kit/scripts/sync/to-devshop.sh` — push build tooling improvements to abra-kadabra's `template/`
+- `kit/scripts/sync/from-devshop.sh` — pull build tooling updates from `template/` into a project
 
 No git submodules. Git-native. You review every change. See `guide/architecture.md` for the full model.
 

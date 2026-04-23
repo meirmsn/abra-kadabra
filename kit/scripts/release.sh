@@ -74,7 +74,7 @@ else
 fi
 
 # Pre-release test coverage review runs in the commit guard — see the
-# release-coverage check in kit/scripts/devshop-commit-guard.sh. Triggered by
+# release-coverage check in kit/scripts/commit-hooks/commit-guard.sh. Triggered by
 # kit/version being staged, which happens below when release.sh writes the new
 # version and calls `git commit`. The review covers all changes since $LAST_TAG
 # via the adversarial agent. Cannot be bypassed by calling `git tag` directly

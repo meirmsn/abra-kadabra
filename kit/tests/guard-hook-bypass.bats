@@ -1,11 +1,11 @@
 #!/usr/bin/env bats
-# Tests for kit/scripts/check-hook-bypass.sh
+# Tests for kit/scripts/commit-hooks/check-hook-bypass.sh
 # PreToolUse hook that reads JSON from stdin, blocks git commands bypassing pre-commit
 
 setup() {
   load helpers/setup
   setup_mock_bin
-  CHECK="$SCRIPTS_DIR/check-hook-bypass.sh"
+  CHECK="$SCRIPTS_DIR/commit-hooks/check-hook-bypass.sh"
 }
 
 # Helper: construct valid JSON and pipe to the check script
@@ -23,7 +23,7 @@ run_check_with_review() {
   local json
   json=$(jq -n --arg cmd "$cmd" '{"tool_input": {"command": $cmd}}')
   local wrapper="$BATS_TEST_TMPDIR/check-wrapper.sh"
-  sed "s|bash \"\$SCRIPT_DIR/adversarial-review.sh\"|bash \"$MOCK_BIN/adversarial-review.sh\"|" "$CHECK" > "$wrapper"
+  sed "s|bash \"\$SCRIPT_DIR/../adversarial-review.sh\"|bash \"$MOCK_BIN/adversarial-review.sh\"|" "$CHECK" > "$wrapper"
   chmod +x "$wrapper"
   run bash "$wrapper" <<< "$json"
 }

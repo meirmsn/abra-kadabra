@@ -1,11 +1,11 @@
 #!/usr/bin/env bats
-# Tests for kit/scripts/check-file-headers.sh
+# Tests for kit/scripts/commit-hooks/check-file-headers.sh
 # Validates .ts/.tsx files under src/ or app/ have // What: header
 
 setup() {
   load helpers/setup
   create_test_repo
-  CHECK="$SCRIPTS_DIR/check-file-headers.sh"
+  CHECK="$SCRIPTS_DIR/commit-hooks/check-file-headers.sh"
 }
 
 # Helper: stage a .ts file and run the check in staged mode

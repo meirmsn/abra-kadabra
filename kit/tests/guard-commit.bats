@@ -1,11 +1,11 @@
 #!/usr/bin/env bats
-# Tests for kit/scripts/devshop-commit-guard.sh
+# Tests for kit/scripts/commit-hooks/commit-guard.sh
 # Five checks: mixed-commit, docs-drift, doc-consistency, cross-repo, release-coverage
 
 setup() {
   load helpers/setup
   setup_mock_bin
-  GUARD="$SCRIPTS_DIR/devshop-commit-guard.sh"
+  GUARD="$SCRIPTS_DIR/commit-hooks/commit-guard.sh"
 }
 
 # Create a wrapper with mocked adversarial-review, optional GIT_ROOT override,
@@ -15,7 +15,7 @@ make_wrapper() {
   WRAPPER="$BATS_TEST_TMPDIR/guard-wrapper.sh"
   cp "$GUARD" "$WRAPPER"
   # Mock adversarial-review.sh
-  sed -i "s|bash \"\$SCRIPT_DIR/adversarial-review.sh\"|bash \"$MOCK_BIN/adversarial-review.sh\"|" "$WRAPPER"
+  sed -i "s|bash \"\$SCRIPT_DIR/../adversarial-review.sh\"|bash \"$MOCK_BIN/adversarial-review.sh\"|" "$WRAPPER"
   # Override GIT_ROOT if requested
   if [ -n "$git_root_override" ]; then
     sed -i "s|GIT_ROOT=\$(git rev-parse --show-toplevel.*|GIT_ROOT=\"$git_root_override\"|" "$WRAPPER"

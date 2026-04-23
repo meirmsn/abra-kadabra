@@ -81,7 +81,7 @@ Projects have three tracked locations for screenshots plus one gitignored sink. 
 3. Is it context I'm sharing with Claude or a teammate right now, not tied to a PR? → `/screenshots/`
 4. Is it README-banner / marketing / landing-page imagery? → **Not yet established** as a convention; surface when the first project needs one.
 
-New projects get the `/screenshots/` folder + README template automatically via `/ak-new-project`. Existing projects inherit the `.gitignore` rules via `sync-from-devshop.sh` (manifest-tracked) but not the folder; copy from `template/screenshots/README.md` manually if you want it.
+New projects get the `/screenshots/` folder + README template automatically via `/ak-new-project`. Existing projects inherit the `.gitignore` rules via `sync/from-devshop.sh` (manifest-tracked) but not the folder; copy from `template/screenshots/README.md` manually if you want it.
 
 ## Deploy Boundaries
 

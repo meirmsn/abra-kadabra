@@ -21,7 +21,7 @@ setup() {
 
   # Extract all "bash /devshop/kit/scripts/*.sh" references from hook commands
   local scripts
-  scripts=$(grep -oP 'bash /devshop/kit/scripts/\K[a-z-]+\.sh' "$settings" | sort -u)
+  scripts=$(grep -oP 'bash /devshop/kit/scripts/\K[a-z/-]+\.sh' "$settings" | sort -u)
 
   local missing=""
   while IFS= read -r script; do
@@ -43,7 +43,7 @@ setup() {
   [ -f "$settings" ] || skip "settings.json not found"
 
   local scripts
-  scripts=$(grep -oP 'bash /devshop/kit/scripts/\K[a-z-]+\.sh' "$settings" | sort -u)
+  scripts=$(grep -oP 'bash /devshop/kit/scripts/\K[a-z/-]+\.sh' "$settings" | sort -u)
 
   local failures=""
   while IFS= read -r script; do
@@ -130,17 +130,20 @@ setup() {
 # =============================================================================
 
 @test "wiring: check-test-coverage exempt scripts all exist" {
-  local coverage_script="$DEVSHOP/kit/scripts/check-test-coverage.sh"
+  local coverage_script="$DEVSHOP/kit/scripts/commit-hooks/check-test-coverage.sh"
   [ -f "$coverage_script" ] || skip "check-test-coverage.sh not found"
 
   # Extract script names from the EXEMPT_SCRIPTS array
   local exempts
   exempts=$(grep -oP '^\s+"[a-z-]+\.sh"' "$coverage_script" | tr -d '" ')
 
+  # Exempt entries are basenames (check-test-coverage.sh matches via basename).
+  # Scripts may live at root or in a subfolder (preship/, commit-hooks/, sync/,
+  # notify/) — find the basename anywhere under kit/scripts/.
   local missing=""
   while IFS= read -r script; do
     [ -z "$script" ] && continue
-    if [ ! -f "$DEVSHOP/kit/scripts/$script" ]; then
+    if [ -z "$(find "$DEVSHOP/kit/scripts/" -type f -name "$script" -print -quit 2>/dev/null)" ]; then
       missing+="  $script (exempt but doesn't exist)\n"
     fi
   done <<< "$exempts"
@@ -157,29 +160,29 @@ setup() {
 # =============================================================================
 
 @test "wiring: every non-exempt kit script is wired into a hook or pre-commit" {
-  local coverage_script="$DEVSHOP/kit/scripts/check-test-coverage.sh"
+  local coverage_script="$DEVSHOP/kit/scripts/commit-hooks/check-test-coverage.sh"
   local settings="$DEVSHOP/.claude/settings.json"
   local precommit="$DEVSHOP/kit/hooks/pre-commit.sh"
 
   [ -f "$coverage_script" ] || skip "check-test-coverage.sh not found"
   [ -f "$settings" ] || skip "settings.json not found"
 
-  # Get all scripts
+  # Get all scripts (recursive — covers root + preship/, commit-hooks/, sync/)
   local all_scripts
-  all_scripts=$(ls "$DEVSHOP/kit/scripts/"*.sh 2>/dev/null | xargs -I{} basename {})
+  all_scripts=$(find "$DEVSHOP/kit/scripts/" -type f -name '*.sh' -print0 2>/dev/null | xargs -0 -I{} basename {})
 
   # Get exempt scripts
   local exempts
   exempts=$(grep -oP '^\s+"[a-z-]+\.sh"' "$coverage_script" | tr -d '" ')
 
   # Scripts called by other scripts or skills (not directly by hooks/pre-commit)
-  local infra_scripts="create-devshop-symlinks.sh normalize-devshop-paths.sh changelog-entry.sh check-file-headers.sh preship-supabase-bootstrap.sh preship-router-shim.sh preship-verify-story.sh preship-design-conformance.sh"
+  local infra_scripts="create-devshop-symlinks.sh normalize-devshop-paths.sh changelog-entry.sh check-file-headers.sh supabase-bootstrap.sh router-shim.sh verify-story.sh design-conformance.sh"
 
-  # Combine hook references and pre-commit references
+  # Combine hook references and pre-commit references (match paths-with-slashes)
   local wired=""
-  wired+=$(grep -oP '[a-z-]+\.sh' "$settings" | sort -u)
+  wired+=$(grep -oP '[a-z/-]+\.sh' "$settings" | xargs -I{} basename {} | sort -u)
   wired+=$'\n'
-  wired+=$(grep -oP '[a-z-]+\.sh' "$precommit" | sort -u)
+  wired+=$(grep -oP '[a-z/-]+\.sh' "$precommit" | xargs -I{} basename {} | sort -u)
 
   local unwired=""
   while IFS= read -r script; do
@@ -370,7 +373,7 @@ setup() {
 @test "wiring: normalized settings.json is valid JSON" {
   local src="$DEVSHOP/.claude/settings.json"
   [ -f "$src" ] || skip "source settings.json not found"
-  run bash -c "bash '$DEVSHOP/kit/scripts/normalize-devshop-paths.sh' < '$src' | jq empty"
+  run bash -c "bash '$DEVSHOP/kit/scripts/sync/normalize-devshop-paths.sh' < '$src' | jq empty"
   assert_success
 }
 
@@ -379,7 +382,7 @@ setup() {
   [ -f "$src" ] || skip "source settings.json not found"
 
   local paths
-  paths=$(bash "$DEVSHOP/kit/scripts/normalize-devshop-paths.sh" < "$src" | grep -oP 'bash \K[^ "]+\.sh')
+  paths=$(bash "$DEVSHOP/kit/scripts/sync/normalize-devshop-paths.sh" < "$src" | grep -oP 'bash \K[^ "]+\.sh')
 
   local missing=""
   while IFS= read -r path; do
@@ -532,7 +535,7 @@ setup() {
     if [ "$mode" != "100644" ]; then
       wrong_mode+="  $file (tracked as $mode, should be 100644)\n"
     fi
-  done < <(git -C "$DEVSHOP" ls-files -s kit/scripts/*.sh)
+  done < <(git -C "$DEVSHOP" ls-files -s 'kit/scripts/**/*.sh' 'kit/scripts/*.sh')
 
   if [ -n "$wrong_mode" ]; then
     echo "Scripts tracked with wrong mode (init-devshop.sh locks all to 644):"

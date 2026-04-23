@@ -1,12 +1,12 @@
 #!/usr/bin/env bats
-# Tests for kit/scripts/preship-design-conformance.sh
+# Tests for kit/scripts/preship/design-conformance.sh
 # Gate `design-conformance` — DESIGN.md contract verification.
 # Mocks the `claude` CLI via CLAUDE_CLI env var so tests don't hit the API.
 
 setup() {
   load helpers/setup
   setup_mock_bin
-  SCRIPT="$SCRIPTS_DIR/preship-design-conformance.sh"
+  SCRIPT="$SCRIPTS_DIR/preship/design-conformance.sh"
   WORK="$BATS_TEST_TMPDIR/work"
   mkdir -p "$WORK"
 }

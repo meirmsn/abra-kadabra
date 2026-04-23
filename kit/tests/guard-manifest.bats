@@ -1,11 +1,11 @@
 #!/usr/bin/env bats
-# Tests for kit/scripts/check-manifest.sh
+# Tests for kit/scripts/commit-hooks/check-manifest.sh
 # Pre-commit guard: detects template/ file additions/removals not in manifest.txt
 
 setup() {
   load helpers/setup
   setup_mock_bin
-  CHECK="$SCRIPTS_DIR/check-manifest.sh"
+  CHECK="$SCRIPTS_DIR/commit-hooks/check-manifest.sh"
 
   # Create a test repo that looks like the devshop (kit/ is a real dir)
   TEST_REPO="$BATS_TEST_TMPDIR/devshop-repo"
@@ -40,7 +40,7 @@ run_check_with_review() {
   local review_result="$1"
   mock_adversarial_review "$review_result"
   local wrapper="$BATS_TEST_TMPDIR/check-wrapper.sh"
-  sed "s|bash \"\$SCRIPT_DIR/adversarial-review.sh\"|bash \"$MOCK_BIN/adversarial-review.sh\"|" "$CHECK" > "$wrapper"
+  sed "s|bash \"\$SCRIPT_DIR/../adversarial-review.sh\"|bash \"$MOCK_BIN/adversarial-review.sh\"|" "$CHECK" > "$wrapper"
   chmod +x "$wrapper"
   run bash -c "cd '$TEST_REPO' && DEVSHOP='$TEST_REPO' bash '$wrapper'"
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for kit/scripts/preship-supabase-bootstrap.sh
+# Tests for kit/scripts/preship/supabase-bootstrap.sh
 # Phase 0 preflight helper — bootstraps local Supabase for Gate 9, or reports unavailable.
 # Deep integration (real supabase start / docker) is out of scope; these tests exercise the
 # error paths + CLI-contract surface via stubs.
@@ -8,7 +8,7 @@ setup() {
   load helpers/setup
   setup_mock_bin
   create_test_repo
-  SCRIPT="$SCRIPTS_DIR/preship-supabase-bootstrap.sh"
+  SCRIPT="$SCRIPTS_DIR/preship/supabase-bootstrap.sh"
 
   # Project layout the script expects
   mkdir -p "$TEST_REPO/apps/web"

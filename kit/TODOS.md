@@ -11,9 +11,9 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
   **Context**: lalista PR 5 (disambig-add-new) shipped a force-create branch that called `supabase.from('items').insert(...)`. The `items` table only had an `items_select` RLS policy — no INSERT — so PostgREST returned 42501 and the function returned a generic 500. The front-end's catch-all hid the root cause as "Couldn't save your pick" until dogfooding caught it. A simple grep-the-diff-vs-grep-the-migrations check would have failed the gate at /ak-pre-ship time and surfaced the missing policy before the function deployed.
 
-  **Implementation**: bash script in `kit/scripts/preship-rls-coverage.sh`, invoked from /ak-pre-ship Gate 7 (/cso) or as a standalone Gate 12. Parse new write call sites with `git diff main...HEAD --name-only -- 'supabase/functions/**' 'packages/core/src/api/**' | xargs grep -nE "\.from\([\"'][^\"']+[\"']\)\.(insert|update|delete)\("` then check each table+verb against the migrations corpus.
+  **Implementation**: bash script in `kit/scripts/preship/rls-coverage.sh`, invoked from /ak-pre-ship Gate 7 (/cso) or as a standalone Gate 12. Parse new write call sites with `git diff main...HEAD --name-only -- 'supabase/functions/**' 'packages/core/src/api/**' | xargs grep -nE "\.from\([\"'][^\"']+[\"']\)\.(insert|update|delete)\("` then check each table+verb against the migrations corpus.
 
-  **Edit targets**: `kit/scripts/preship-rls-coverage.sh` (new), `.claude/skills/devshop/pre-ship/SKILL.md` (add gate invocation).
+  **Edit targets**: `kit/scripts/preship/rls-coverage.sh` (new), `.claude/skills/devshop/pre-ship/SKILL.md` (add gate invocation).
 
   [pre-ship-gate, surfaced-by lalista-PR5-bug-1, 2026-04-23]
 

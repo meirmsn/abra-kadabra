@@ -79,7 +79,7 @@ review_gate_dismissals() {
 
   # Hand off. adversarial-review.sh respects DEVSHOP_SKIP_ADVERSARIAL +
   # PRESHIP_ADVERSARIAL_TIMEOUT; we don't need to re-check them here.
-  bash "$SCRIPT_DIR/adversarial-review.sh" dismissalLog "$body" "$gate_name" "$review_md"
+  bash "$SCRIPT_DIR/../adversarial-review.sh" dismissalLog "$body" "$gate_name" "$review_md"
 }
 
 # Convert /cso JSON findings to a rendered Dismissals section body.

@@ -14,24 +14,24 @@ GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
 # kit/ is a real directory in the devshop repo but always a symlink (.devshopkit) in projects.
 if [ -d "$GIT_ROOT/kit" ] && [ ! -L "$GIT_ROOT/kit" ]; then
   # Devshop-self mode: same checks as devshop repo
-  bash "$SCRIPTS_DIR/check-clean-tree.sh"
-  bash "$SCRIPTS_DIR/check-manifest.sh"
-  bash "$SCRIPTS_DIR/check-test-coverage.sh"
-  bash "$SCRIPTS_DIR/devshop-commit-guard.sh"
+  bash "$SCRIPTS_DIR/commit-hooks/check-clean-tree.sh"
+  bash "$SCRIPTS_DIR/commit-hooks/check-manifest.sh"
+  bash "$SCRIPTS_DIR/commit-hooks/check-test-coverage.sh"
+  bash "$SCRIPTS_DIR/commit-hooks/commit-guard.sh"
 else
   case "$GIT_ROOT" in
     /workspace)
       # Project repo: full guard suite
-      bash "$SCRIPTS_DIR/check-security-files-freshness.sh"
-      bash "$SCRIPTS_DIR/check-clean-tree.sh"
-      bash "$SCRIPTS_DIR/devshop-commit-guard.sh"
+      bash "$SCRIPTS_DIR/commit-hooks/check-security-files-freshness.sh"
+      bash "$SCRIPTS_DIR/commit-hooks/check-clean-tree.sh"
+      bash "$SCRIPTS_DIR/commit-hooks/commit-guard.sh"
       ;;
     /devshop)
       # Devshop repo: clean tree + manifest sync + test coverage + commit guards
-      bash "$SCRIPTS_DIR/check-clean-tree.sh"
-      bash "$SCRIPTS_DIR/check-manifest.sh"
-      bash "$SCRIPTS_DIR/check-test-coverage.sh"
-      bash "$SCRIPTS_DIR/devshop-commit-guard.sh"
+      bash "$SCRIPTS_DIR/commit-hooks/check-clean-tree.sh"
+      bash "$SCRIPTS_DIR/commit-hooks/check-manifest.sh"
+      bash "$SCRIPTS_DIR/commit-hooks/check-test-coverage.sh"
+      bash "$SCRIPTS_DIR/commit-hooks/commit-guard.sh"
       ;;
     *)
       echo "✖ Cannot determine git root (got: '${GIT_ROOT:-empty}'). Commit blocked."

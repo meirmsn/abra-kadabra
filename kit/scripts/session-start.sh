@@ -7,11 +7,11 @@ set -euo pipefail
 
 # Recreate devshop symlinks if missing (git ops can lose them).
 if [ ! -L /workspace/.devshopkit ] && [ -d /devshop/kit ]; then
-  bash /devshop/kit/scripts/create-devshop-symlinks.sh 2>/dev/null || true
+  bash /devshop/kit/scripts/sync/create-devshop-symlinks.sh 2>/dev/null || true
 fi
 
 # Check security-critical files (warns if missing, stale, or symlinked)
-SECURITY_WARN="$(bash /devshop/kit/scripts/check-security-files-freshness.sh 2>/dev/null)" || true
+SECURITY_WARN="$(bash /devshop/kit/scripts/commit-hooks/check-security-files-freshness.sh 2>/dev/null)" || true
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo /workspace)"
 BRANCH="$(git -C "$ROOT" branch --show-current 2>/dev/null || echo "(detached)")"

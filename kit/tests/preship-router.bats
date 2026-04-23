@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for kit/scripts/preship-router-shim.sh
+# Tests for kit/scripts/preship/router-shim.sh
 # Pre-ship dismissal-log helpers: scoped parse of the `## Dismissals` section,
 # short-circuit on body=None, CSO JSON → dismissals shim, adversarial review
 # wiring.
@@ -7,7 +7,7 @@
 setup() {
   load helpers/setup
   setup_mock_bin
-  SCRIPT="$SCRIPTS_DIR/preship-router-shim.sh"
+  SCRIPT="$SCRIPTS_DIR/preship/router-shim.sh"
 }
 
 # Make a wrapper copy of the shim with the internal reference to
@@ -16,7 +16,7 @@ setup() {
 make_shim_wrapper() {
   WRAPPER="$BATS_TEST_TMPDIR/preship-router-shim.sh"
   cp "$SCRIPT" "$WRAPPER"
-  sed -i "s|bash \"\$SCRIPT_DIR/adversarial-review.sh\"|bash \"$MOCK_BIN/adversarial-review.sh\"|" "$WRAPPER"
+  sed -i "s|bash \"\$SCRIPT_DIR/../adversarial-review.sh\"|bash \"$MOCK_BIN/adversarial-review.sh\"|" "$WRAPPER"
   chmod +x "$WRAPPER"
 }
 

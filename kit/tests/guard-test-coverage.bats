@@ -1,10 +1,10 @@
 #!/usr/bin/env bats
-# Tests for kit/scripts/check-test-coverage.sh
+# Tests for kit/scripts/commit-hooks/check-test-coverage.sh
 # Flags kit/scripts changes that lack corresponding tests
 
 setup() {
   load helpers/setup
-  CHECK="$SCRIPTS_DIR/check-test-coverage.sh"
+  CHECK="$SCRIPTS_DIR/commit-hooks/check-test-coverage.sh"
 
   # Create a devshop-like repo with kit/scripts and kit/tests
   TEST_REPO="$BATS_TEST_TMPDIR/devshop"

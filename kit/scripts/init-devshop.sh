@@ -58,7 +58,7 @@ fi
 # --- Create devshop symlinks ---
 # Extracted to create-devshop-symlinks.sh so it can also be called from
 # session-start.sh and .husky/pre-commit when symlinks are lost by git ops.
-DEVSHOP="$DEVSHOP" WS="$WS" bash "$DEVSHOP/kit/scripts/create-devshop-symlinks.sh"
+DEVSHOP="$DEVSHOP" WS="$WS" bash "$DEVSHOP/kit/scripts/sync/create-devshop-symlinks.sh"
 
 # --- Copy security-critical files (real files, not symlinks) ---
 # Symlinks are fragile: git ops delete them, node can replace them.
@@ -68,7 +68,7 @@ DEVSHOP="$DEVSHOP" WS="$WS" bash "$DEVSHOP/kit/scripts/create-devshop-symlinks.s
 # Workspace copy needs .devshopkit/ paths (works from /workspace/ cwd).
 # Hooks run from the shell's cwd, which differs per repo.
 [ -L "$WS/.claude/settings.json" ] && rm "$WS/.claude/settings.json"
-bash "$DEVSHOP/kit/scripts/normalize-devshop-paths.sh" < "$DEVSHOP/.claude/settings.json" > "$WS/.claude/settings.json"
+bash "$DEVSHOP/kit/scripts/sync/normalize-devshop-paths.sh" < "$DEVSHOP/.claude/settings.json" > "$WS/.claude/settings.json"
 
 [ -L "$WS/.dcg.toml" ] && rm "$WS/.dcg.toml"
 [ -f "$DEVSHOP/.dcg.toml" ] && cp "$DEVSHOP/.dcg.toml" "$WS/.dcg.toml"
@@ -140,10 +140,12 @@ for f in \
   ; do
   [ -e "$f" ] && chown root:root "$f" && chmod 644 "$f"
 done
-# Lock all devshop scripts (glob — future scripts are auto-protected)
-for f in "$DEVSHOP/kit/scripts/"*.sh; do
-  [ -e "$f" ] && chown root:root "$f" && chmod 644 "$f"
-done
+# Lock all devshop scripts (recursive — covers root + subfolders like
+# preship/, commit-hooks/, sync/; future scripts are auto-protected)
+find "$DEVSHOP/kit/scripts/" -type f -name '*.sh' -print0 | \
+  while IFS= read -r -d '' f; do
+    chown root:root "$f" && chmod 644 "$f"
+  done
 
 # Sticky bit on security-critical dirs: prevents node from deleting root-owned
 # files inside them. Without this, directory write permission lets node delete

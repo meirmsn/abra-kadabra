@@ -122,7 +122,7 @@ if [ "$RUN_DRIFT_CHECK" = true ]; then
     if [ -n "$REVIEW_NOTES" ]; then
       # Review notes provided — run adversarial review
       echo "⏳ Docs drift: reviewing notes with adversarial agent..."
-      REVIEW_RESULT=$(bash "$SCRIPT_DIR/adversarial-review.sh" docsVerified "$REVIEW_NOTES" 2>&1) || {
+      REVIEW_RESULT=$(bash "$SCRIPT_DIR/../adversarial-review.sh" docsVerified "$REVIEW_NOTES" 2>&1) || {
         echo ""
         echo "✖ ADVERSARIAL REVIEW REJECTED your docs review notes."
         echo "  $REVIEW_RESULT"
@@ -196,7 +196,7 @@ if [ "$DOC_COUNT" -gt 0 ]; then
   if [ -n "$REVIEW_NOTES" ]; then
     # Review notes provided — run adversarial review
     echo "⏳ Doc consistency: reviewing notes with adversarial agent..."
-    REVIEW_RESULT=$(bash "$SCRIPT_DIR/adversarial-review.sh" docSyncReason "$REVIEW_NOTES" 2>&1) || {
+    REVIEW_RESULT=$(bash "$SCRIPT_DIR/../adversarial-review.sh" docSyncReason "$REVIEW_NOTES" 2>&1) || {
       echo ""
       echo "✖ ADVERSARIAL REVIEW REJECTED your doc consistency notes."
       echo "  $REVIEW_RESULT"
@@ -238,7 +238,7 @@ if [ -n "$OTHER_REPO" ] && [ -d "$OTHER_REPO/.git" ]; then
     if [ -n "$BYPASS_REASON" ]; then
       # Reason provided — run adversarial review
       echo "⏳ Cross-repo: reviewing reason with adversarial agent..."
-      REVIEW_RESULT=$(bash "$SCRIPT_DIR/adversarial-review.sh" crossRepoReason "$BYPASS_REASON" "$OTHER_DIRTY" 2>&1) || {
+      REVIEW_RESULT=$(bash "$SCRIPT_DIR/../adversarial-review.sh" crossRepoReason "$BYPASS_REASON" "$OTHER_DIRTY" 2>&1) || {
         echo ""
         echo "✖ ADVERSARIAL REVIEW REJECTED your cross-repo reason."
         echo "  $REVIEW_RESULT"
@@ -311,7 +311,7 @@ $BYPASS_REASON"
       fi
 
       echo "⏳ Release coverage: reviewing with adversarial agent..."
-      REVIEW_RESULT=$(bash "$SCRIPT_DIR/adversarial-review.sh" testCoverage "$REVIEW_CONTEXT" 2>&1) || {
+      REVIEW_RESULT=$(bash "$SCRIPT_DIR/../adversarial-review.sh" testCoverage "$REVIEW_CONTEXT" 2>&1) || {
         echo ""
         echo "✖ Pre-release test coverage review FAILED."
         echo "  $REVIEW_RESULT"

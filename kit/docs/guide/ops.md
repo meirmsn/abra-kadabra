@@ -136,7 +136,7 @@ Integration tests (`*.integration.test.ts`) run in CI's slow job against a real 
 
 ### Local Supabase — manual workflow for QA / ad-hoc testing
 
-`/ak-pre-ship` Phase 0 automates this via `preship-supabase-bootstrap.sh` (Fix A) when Docker-in-Docker is available. For manual use outside pre-ship, or when DinD is inert:
+`/ak-pre-ship` Phase 0 automates this via `preship/supabase-bootstrap.sh` (Fix A) when Docker-in-Docker is available. For manual use outside pre-ship, or when DinD is inert:
 
 ```bash
 supabase start     # starts Postgres, Auth, Realtime containers (~45s first time)

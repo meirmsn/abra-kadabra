@@ -1,12 +1,12 @@
 #!/usr/bin/env bats
-# Tests for kit/scripts/check-clean-tree.sh
+# Tests for kit/scripts/commit-hooks/check-clean-tree.sh
 # Pre-commit guard: blocks if working tree has untracked/unstaged files
 
 setup() {
   load helpers/setup
   setup_mock_bin
   create_test_repo
-  CHECK="$SCRIPTS_DIR/check-clean-tree.sh"
+  CHECK="$SCRIPTS_DIR/commit-hooks/check-clean-tree.sh"
 }
 
 # Helper: run the check inside the test repo with adversarial-review mocked
@@ -18,7 +18,7 @@ run_check_with_review() {
   local review_result="$1"
   mock_adversarial_review "$review_result"
   local wrapper="$BATS_TEST_TMPDIR/check-wrapper.sh"
-  sed "s|bash \"\$SCRIPT_DIR/adversarial-review.sh\"|bash \"$MOCK_BIN/adversarial-review.sh\"|" "$CHECK" > "$wrapper"
+  sed "s|bash \"\$SCRIPT_DIR/../adversarial-review.sh\"|bash \"$MOCK_BIN/adversarial-review.sh\"|" "$CHECK" > "$wrapper"
   chmod +x "$wrapper"
   run bash -c "cd '$TEST_REPO' && bash '$wrapper'"
 }

@@ -7,9 +7,12 @@ setup() {
   setup_mock_bin
   HOOK="$HOOKS_DIR/pre-commit.sh"
 
-  # Create stubs for all scripts the router calls — we only test routing logic
-  for script in check-security-files-freshness.sh check-clean-tree.sh \
-                check-manifest.sh check-test-coverage.sh devshop-commit-guard.sh; do
+  # Create stubs for all scripts the router calls — we only test routing logic.
+  # Scripts live under commit-hooks/ (post v1.19 reorg); the stub helper takes
+  # the subpath relative to $MOCK_BIN.
+  mkdir -p "$MOCK_BIN/commit-hooks"
+  for script in commit-hooks/check-security-files-freshness.sh commit-hooks/check-clean-tree.sh \
+                commit-hooks/check-manifest.sh commit-hooks/check-test-coverage.sh commit-hooks/commit-guard.sh; do
     create_capturing_stub "$script" "" 0
   done
 
@@ -23,8 +26,8 @@ setup() {
 # Helper to check which scripts were called
 scripts_called() {
   local called=""
-  for script in check-security-files-freshness.sh check-clean-tree.sh \
-                check-manifest.sh devshop-commit-guard.sh; do
+  for script in commit-hooks/check-security-files-freshness.sh commit-hooks/check-clean-tree.sh \
+                commit-hooks/check-manifest.sh commit-hooks/commit-guard.sh; do
     [ -f "$MOCK_BIN/${script}.args" ] && called="$called $script"
   done
   echo "$called"
@@ -39,12 +42,12 @@ scripts_called() {
   assert_success
 
   # Verify correct scripts were called
-  [ -f "$MOCK_BIN/check-security-files-freshness.sh.args" ]
-  [ -f "$MOCK_BIN/check-clean-tree.sh.args" ]
-  [ -f "$MOCK_BIN/devshop-commit-guard.sh.args" ]
+  [ -f "$MOCK_BIN/commit-hooks/check-security-files-freshness.sh.args" ]
+  [ -f "$MOCK_BIN/commit-hooks/check-clean-tree.sh.args" ]
+  [ -f "$MOCK_BIN/commit-hooks/commit-guard.sh.args" ]
   # Manifest and test-coverage should NOT be called for project repos
-  [ ! -f "$MOCK_BIN/check-manifest.sh.args" ]
-  [ ! -f "$MOCK_BIN/check-test-coverage.sh.args" ]
+  [ ! -f "$MOCK_BIN/commit-hooks/check-manifest.sh.args" ]
+  [ ! -f "$MOCK_BIN/commit-hooks/check-test-coverage.sh.args" ]
 }
 
 @test "devshop repo (/devshop): calls clean-tree + manifest + test-coverage + commit-guard" {
@@ -53,12 +56,12 @@ scripts_called() {
   run bash -c "cd '$TEST_REPO' && bash '$WRAPPER'"
   assert_success
 
-  [ -f "$MOCK_BIN/check-clean-tree.sh.args" ]
-  [ -f "$MOCK_BIN/check-manifest.sh.args" ]
-  [ -f "$MOCK_BIN/check-test-coverage.sh.args" ]
-  [ -f "$MOCK_BIN/devshop-commit-guard.sh.args" ]
+  [ -f "$MOCK_BIN/commit-hooks/check-clean-tree.sh.args" ]
+  [ -f "$MOCK_BIN/commit-hooks/check-manifest.sh.args" ]
+  [ -f "$MOCK_BIN/commit-hooks/check-test-coverage.sh.args" ]
+  [ -f "$MOCK_BIN/commit-hooks/commit-guard.sh.args" ]
   # Security freshness should NOT be called for devshop repo
-  [ ! -f "$MOCK_BIN/check-security-files-freshness.sh.args" ]
+  [ ! -f "$MOCK_BIN/commit-hooks/check-security-files-freshness.sh.args" ]
 }
 
 @test "devshop-self mode (kit/ is real dir): calls clean-tree + manifest + test-coverage + commit-guard" {
@@ -68,11 +71,11 @@ scripts_called() {
   run bash -c "cd '$TEST_REPO' && bash '$WRAPPER'"
   assert_success
 
-  [ -f "$MOCK_BIN/check-clean-tree.sh.args" ]
-  [ -f "$MOCK_BIN/check-manifest.sh.args" ]
-  [ -f "$MOCK_BIN/check-test-coverage.sh.args" ]
-  [ -f "$MOCK_BIN/devshop-commit-guard.sh.args" ]
-  [ ! -f "$MOCK_BIN/check-security-files-freshness.sh.args" ]
+  [ -f "$MOCK_BIN/commit-hooks/check-clean-tree.sh.args" ]
+  [ -f "$MOCK_BIN/commit-hooks/check-manifest.sh.args" ]
+  [ -f "$MOCK_BIN/commit-hooks/check-test-coverage.sh.args" ]
+  [ -f "$MOCK_BIN/commit-hooks/commit-guard.sh.args" ]
+  [ ! -f "$MOCK_BIN/commit-hooks/check-security-files-freshness.sh.args" ]
 }
 
 @test "unknown git root: exits 1" {
@@ -87,11 +90,11 @@ scripts_called() {
   create_test_repo
   sed -i 's|GIT_ROOT=$(git rev-parse.*|GIT_ROOT="/workspace"|' "$WRAPPER"
   # Make security-freshness fail
-  create_capturing_stub "check-security-files-freshness.sh" "FAIL: stale" 1
+  create_capturing_stub "commit-hooks/check-security-files-freshness.sh" "FAIL: stale" 1
   run bash -c "cd '$TEST_REPO' && bash '$WRAPPER'"
   assert_failure 1
 
   # clean-tree and commit-guard should NOT have been called (set -e stops)
-  [ ! -f "$MOCK_BIN/check-clean-tree.sh.args" ]
-  [ ! -f "$MOCK_BIN/devshop-commit-guard.sh.args" ]
+  [ ! -f "$MOCK_BIN/commit-hooks/check-clean-tree.sh.args" ]
+  [ ! -f "$MOCK_BIN/commit-hooks/commit-guard.sh.args" ]
 }

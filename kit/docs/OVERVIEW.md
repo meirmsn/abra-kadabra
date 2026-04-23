@@ -28,7 +28,11 @@ Container Workspace (/workspace)
 │
 ├── Devshop injection (gitignored — created at container start by init-devshop.sh)
 │   ├── .devshopkit/ ──symlink──→ /devshop/kit/
-│   │   ├── scripts/ (20)        Init, guards, sync, session, adversarial review, preflight bootstraps
+│   │   ├── scripts/             Init, release, session, statusline, adversarial review, changelog (root)
+│   │   │   ├── preship/         Pre-ship gate helpers: router-shim, verify-story, design-conformance, supabase-bootstrap
+│   │   │   ├── commit-hooks/    commit-guard + check-* (clean-tree, manifest, security-freshness, etc.)
+│   │   │   ├── sync/            from/to-devshop, create-devshop-symlinks, normalize-devshop-paths
+│   │   │   └── notify/          claude-{cancel,done,request}
 │   │   ├── hooks/pre-commit.sh  Orchestrates the 5-step + 4-guard chain
 │   │   ├── tests/               BATS test suite (guards, routing, goals, structural invariants)
 │   │   └── docs/                MODEL, OVERVIEW, guide/ (6 files), FAQ
@@ -65,17 +69,17 @@ git commit
   │   ├─ check-hook-bypass.sh ──── blocks --no-verify without documented reason
   │   └─ check-branch-not-main.sh ─ blocks Claude from committing on main/master
   ├─ .husky/pre-commit (6 steps + devshop guards)
-  │   ├─ 1. create-devshop-symlinks.sh ── recover if git ops lost them
+  │   ├─ 1. sync/create-devshop-symlinks.sh ── recover if git ops lost them
   │   ├─ 2. lint-staged ───────────────── ESLint + Prettier on staged files
   │   ├─ 3. turbo typecheck ──────────── TypeScript errors
   │   ├─ 4. gitleaks ─────────────────── secret scan on staged files
   │   ├─ 5. bats kit/tests/ ────────────── kit tests: scripts + structural invariants (devshop only)
-  │   └─ 6. devshop guards
+  │   └─ 6. devshop guards (under commit-hooks/)
   │       ├─ check-security-files-freshness.sh
   │       ├─ check-clean-tree.sh ────────── no unaddressed dirty state
   │       ├─ check-manifest.sh ──────────── (devshop repo only)
   │       ├─ check-test-coverage.sh ─────── new scripts need tests (devshop only)
-  │       └─ devshop-commit-guard.sh ────── 5 checks (run in this order):
+  │       └─ commit-guard.sh ──────────── 5 checks (run in this order):
   │           ├─ mixed-commit ───────────── devshop + project files together? block
   │           ├─ docs-drift ─────────────── any devshop file staged (non-release)? block
   │           ├─ doc-consistency ────────── one ref doc changed without others? block

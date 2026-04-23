@@ -1,13 +1,13 @@
 #!/usr/bin/env bats
-# Tests for kit/scripts/notify-claude-{request,done,cancel}
+# Tests for kit/scripts/notify/claude-{request,done,cancel}
 # 30s-debounced ntfy.sh notifications with cancel-on-activity.
 
 setup() {
   load helpers/setup
   setup_mock_bin
-  REQUEST="$SCRIPTS_DIR/notify-claude-request"
-  DONE_SCRIPT="$SCRIPTS_DIR/notify-claude-done"
-  CANCEL="$SCRIPTS_DIR/notify-claude-cancel"
+  REQUEST="$SCRIPTS_DIR/notify/claude-request"
+  DONE_SCRIPT="$SCRIPTS_DIR/notify/claude-done"
+  CANCEL="$SCRIPTS_DIR/notify/claude-cancel"
 
   # Isolate PID file per test + short delay so happy-path tests don't hang
   export CLAUDE_NOTIFY_PID_FILE="$BATS_TEST_TMPDIR/pending.pid"

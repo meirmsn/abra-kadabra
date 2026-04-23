@@ -106,7 +106,7 @@ if the reason is weak.
 In addition to the prompt block above:
 
 - `kit/scripts/snapshot-repo-state.sh <label>` — called by the parent immediately before `Agent()` to write a baseline snapshot for each affected repo to `/tmp/subagent-snapshot-<label>.json`.
-- `kit/scripts/check-subagent-cleanup.sh <label> [<repo>...]` — called after the subagent returns:
+- `kit/scripts/commit-hooks/check-subagent-cleanup.sh <label> [<repo>...]` — called after the subagent returns:
   - Reads the baseline snapshot.
   - Runs `git status --porcelain`, `git stash list`, `git log <baseline-head>..HEAD`, `git branch --show-current` on each listed repo (default: `/workspace` and `/devshop`).
   - Compares against baseline.

@@ -1,10 +1,10 @@
 #!/usr/bin/env bats
-# Tests for kit/scripts/check-memory-created.sh
+# Tests for kit/scripts/commit-hooks/check-memory-created.sh
 # PreToolUse hook that blocks memory file writes until classified
 
 setup() {
   load helpers/setup
-  CHECK="$SCRIPTS_DIR/check-memory-created.sh"
+  CHECK="$SCRIPTS_DIR/commit-hooks/check-memory-created.sh"
 }
 
 # Helper: construct Write tool JSON and pipe to the check script

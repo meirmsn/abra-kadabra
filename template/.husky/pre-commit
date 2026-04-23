@@ -1,5 +1,5 @@
 # Symlinks are untracked — recreate if git ops lost them.
-[ ! -L .devshopkit ] && [ -d /devshop/kit ] && bash /devshop/kit/scripts/create-devshop-symlinks.sh 2>/dev/null || true
+[ ! -L .devshopkit ] && [ -d /devshop/kit ] && bash /devshop/kit/scripts/sync/create-devshop-symlinks.sh 2>/dev/null || true
 
 pnpm exec lint-staged
 [ -f turbo.json ] && pnpm turbo run typecheck

@@ -1,10 +1,10 @@
 #!/usr/bin/env bats
-# Tests for kit/scripts/check-branch-not-main.sh
+# Tests for kit/scripts/commit-hooks/check-branch-not-main.sh
 # PreToolUse hook that blocks Claude from committing directly to main/master.
 
 setup() {
   load helpers/setup
-  CHECK="$SCRIPTS_DIR/check-branch-not-main.sh"
+  CHECK="$SCRIPTS_DIR/commit-hooks/check-branch-not-main.sh"
   create_test_repo
 }
 

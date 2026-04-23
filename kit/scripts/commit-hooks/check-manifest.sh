@@ -99,7 +99,7 @@ BYPASS=$(git config --get devshop.manifestReviewed 2>/dev/null || true)
 if [ -n "$BYPASS" ]; then
   SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
   echo "⏳ Manifest check: reviewing proposal with adversarial agent..."
-  REVIEW_RESULT=$(bash "$SCRIPT_DIR/adversarial-review.sh" manifestReviewed "$BYPASS" 2>&1) || {
+  REVIEW_RESULT=$(bash "$SCRIPT_DIR/../adversarial-review.sh" manifestReviewed "$BYPASS" 2>&1) || {
     echo ""
     echo "✖ ADVERSARIAL REVIEW REJECTED your manifest proposal."
     echo "  $REVIEW_RESULT"

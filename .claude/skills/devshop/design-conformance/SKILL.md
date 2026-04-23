@@ -53,7 +53,7 @@ Invoked by `/ak-pre-ship` as Gate `design-conformance` (ak). Scope detection:
 
 ## How it works
 
-The skill delegates the heavy lifting to `kit/scripts/preship-design-conformance.sh`
+The skill delegates the heavy lifting to `kit/scripts/preship/design-conformance.sh`
 so the mechanics are testable via bats without an LLM. The skill is the
 contract + orchestration layer.
 
@@ -73,7 +73,7 @@ description, evidence_path, severity}` records. `severity` is weighted by
 claim strength (explicit-value misses = `high`; aspirational drift = `low`).
 
 ```bash
-bash kit/scripts/preship-design-conformance.sh extract-claims \
+bash kit/scripts/preship/design-conformance.sh extract-claims \
   --design DESIGN.md \
   --out   "specs/$FEATURE/design-claims.json"
 ```
@@ -99,7 +99,7 @@ For each claim, apply the appropriate verification strategy:
   / class / attribute.
 
 ```bash
-bash kit/scripts/preship-design-conformance.sh verify-claims \
+bash kit/scripts/preship/design-conformance.sh verify-claims \
   --claims "specs/$FEATURE/design-claims.json" \
   --out    "specs/$FEATURE/design-conformance-report.md"
 ```
@@ -129,7 +129,7 @@ Adversarial review runs only on non-`None` bodies.
 ## Entry point
 
 ```bash
-bash kit/scripts/preship-design-conformance.sh run \
+bash kit/scripts/preship/design-conformance.sh run \
   --feature "$FEATURE" \
   --design  DESIGN.md
 ```

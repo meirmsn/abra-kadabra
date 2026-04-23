@@ -3,7 +3,7 @@
 # Paths are project-relative. Sync scripts map them to template/ in the devshop:
 #   project: /workspace/<path>  <->  devshop: /devshop/template/<path>
 # After init, files are owned by the project and can diverge.
-# sync-from-devshop.sh and sync-to-devshop.sh read this list.
+# kit/scripts/sync/from-devshop.sh and kit/scripts/sync/to-devshop.sh read this list.
 #
 # NOT listed here:
 # - Symlinked files (.devshopkit/, .claude/skills/, etc.) — always match devshop

@@ -9,7 +9,7 @@ Claude Code pushes to your iPhone, Apple Watch, and Mac via [ntfy.sh](https://nt
 | `Notification` hook | `{project} — Claude Code` / `Needs your input` | high     |
 | `Stop` hook         | `{project} — Claude Code` / `Task finished`    | default  |
 
-Scripts at `/devshop/kit/scripts/notify-claude-{request,done}` read `$NTFY_URL` from env, no-op silently if unset, and always exit 0 (never block Claude).
+Scripts at `/devshop/kit/scripts/notify/claude-{request,done}` read `$NTFY_URL` from env, no-op silently if unset, and always exit 0 (never block Claude).
 
 `{project}` auto-labels from `package.json` `name` field (fallback: directory basename).
 
@@ -23,7 +23,7 @@ To avoid pinging you when you're actively working, notifications are **scheduled
 
 Net effect: if you're at the computer and responding, you won't get pings. If you walked away and nothing happens for 30s, you do.
 
-Implementation: `notify-claude-request` / `notify-claude-done` background a `sleep 30 && curl ...` job, stash its PID in `/tmp/claude-notify-pending.pid`. `notify-claude-cancel` reads the PID and kills it. Single pending slot per container (multiple sessions share it — last event wins, which is the right UX for one-human-one-device).
+Implementation: `notify/claude-request` / `notify/claude-done` background a `sleep 30 && curl ...` job, stash its PID in `/tmp/claude-notify-pending.pid`. `notify/claude-cancel` reads the PID and kills it. Single pending slot per container (multiple sessions share it — last event wins, which is the right UX for one-human-one-device).
 
 ## One-time user setup
 
@@ -52,7 +52,7 @@ Implementation: `notify-claude-request` / `notify-claude-done` background a `sle
 ## How it works
 
 ```
-Claude event → hook → /devshop/kit/scripts/notify-claude-*
+Claude event → hook → /devshop/kit/scripts/notify/claude-*
                         ↓ reads $NTFY_URL (loaded from .devcontainer/.env)
                         ↓ curl POST → ntfy.sh/<topic>
                                        ↓ Apple APNS
@@ -67,7 +67,7 @@ Claude event → hook → /devshop/kit/scripts/notify-claude-*
   "ntfy.sh" \
   ```
 
-- **Hook wiring**: lives in `/devshop/.claude/settings.json` (source of truth). `init-devshop.sh` copies it into every project's `.claude/settings.json` at each container start, preserving absolute `/devshop/kit/...` paths via `normalize-devshop-paths.sh`.
+- **Hook wiring**: lives in `/devshop/.claude/settings.json` (source of truth). `init-devshop.sh` copies it into every project's `.claude/settings.json` at each container start, preserving absolute `/devshop/kit/...` paths via `sync/normalize-devshop-paths.sh`.
 
 ## Privacy
 

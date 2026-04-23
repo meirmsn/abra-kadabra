@@ -75,7 +75,7 @@ HOOK_EOF
   # --- Tier 3: --no-verify with reason → adversarial review ---
   SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
   echo "⏳ Hook bypass: reviewing reason with adversarial agent..."
-  REVIEW_RESULT=$(bash "$SCRIPT_DIR/adversarial-review.sh" hookBypass "$REASON" 2>&1) || {
+  REVIEW_RESULT=$(bash "$SCRIPT_DIR/../adversarial-review.sh" hookBypass "$REASON" 2>&1) || {
     cat <<HOOK_EOF
 BLOCKED: Adversarial review REJECTED your --no-verify reason.
 

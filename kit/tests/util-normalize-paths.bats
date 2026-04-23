@@ -1,10 +1,10 @@
 #!/usr/bin/env bats
-# Tests for kit/scripts/normalize-devshop-paths.sh
+# Tests for kit/scripts/sync/normalize-devshop-paths.sh
 # Pure pipe: stdin → sed transformation → stdout
 
 setup() {
   load helpers/setup
-  NORMALIZE="$SCRIPTS_DIR/normalize-devshop-paths.sh"
+  NORMALIZE="$SCRIPTS_DIR/sync/normalize-devshop-paths.sh"
 }
 
 @test "rewrites kit/ to .devshopkit/" {
