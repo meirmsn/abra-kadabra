@@ -2,6 +2,14 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.19.0 (2026-04-23)
+
+- refactor(kit/scripts): reorganize into preship/, commit-hooks/, sync/, notify/ subfolders
+- docs: refresh workflow.md phases + (ak) gate-naming convention
+- docs(todos): minor [v+] footguns from lalista PR-17 land
+- docs(todos): preship hardening surfaced by lalista PR 5 dogfood
+- docs(claude): add principle of least privilege to Implementation Approach
+
 ## v1.18.0 (2026-04-23)
 
 - feat(ak-build): Phase 4 enforces out-of-band deploy items in test plan
