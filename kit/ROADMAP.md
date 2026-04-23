@@ -3,6 +3,99 @@
 Devshop capabilities to build eventually — how you build, not what you ship.
 Tactical fixes go in `TODOS.md`. Project features go in root `PRODUCT-ROADMAP.md`.
 
+Priority tiers:
+
+- **v0** — fixes the current template needs before a second project adopts it. Each exists because the first template-validation project (lalista) surfaced a gap every future project will hit. Factoring up now avoids each project re-inventing the wheel.
+- **v1** — devshop capabilities that would be valuable but aren't blocking next-project onboarding.
+- **v+** — future, when the need is felt.
+
+---
+
+## v0 — blocks next-project adoption
+
+### Auth UX conventions — shared error-surface + state patterns
+
+Projects using Supabase auth keep re-solving the same UX gaps because there's no shared convention. Lalista surfaced two that every hosted-Supabase auth flow hits:
+
+1. **Unconfirmed-signup silent bounce** — `mailer_autoconfirm: false` (default) makes a successful signup return no session. If the client immediately routes to an authed area, middleware redirects the unconfirmed user back to `/sign-in` with no feedback. Looks broken.
+2. **Raw Supabase error strings leaking to users** — messages like "Invalid login credentials" / "Email rate limit exceeded" / "User already registered" are developer-facing. Users read them as "what does this mean?"
+
+Both were fixed ad-hoc in lalista (commit `31b5637` on `feature/auth`: new `awaitingConfirmation` state + `friendlyAuthError()` helper). Every next project will hit the same gaps.
+
+**Shape of the convention (not final):**
+
+- **Package**: a thin `@devshop-template/auth-ux` helper module (or inline pattern in the template's sign-in page) providing:
+  - `AwaitingConfirmationCard({ email, onBack })` React component — standardized "Check your email" UI
+  - `friendlyAuthError(message: string): string` — normalizes Supabase error strings to user copy. Exhaustive coverage of the ~6 common cases (`invalid_credentials`, `email_not_confirmed`, `email rate limit exceeded`, `user already registered`, `over_email_send_rate_limit`, `signup disabled`). Unmapped messages pass through unchanged (safe default).
+- **Convention doc** in `guide/conventions.md § Auth UX Conventions` with:
+  - When to show awaiting-confirmation vs. sign-in-error UI
+  - Error-copy style guide (user-action-oriented, not dev-state-oriented)
+  - Email enumeration vs. UX-clarity trade-offs (projects pick a stance; document which one they picked)
+- **Template sign-in page**: the lalista-auth-feature scaffold (or its successor) includes the pattern out-of-the-box so projects don't rediscover it.
+- **Test helpers**: a standardized `e2e/helpers/auth-ux.ts` that exercises the awaiting-confirmation path, rate-limit path, wrong-password path — pairs with the "user-state matrix" expansion to Step 2's Fix C (QA walks must exercise more than the admin-API happy path).
+
+**Password-reset sub-pattern (required for the full story):**
+
+Surfaced 2026-04-20 while testing PR #10 on the Vercel preview. Supabase's dashboard "Send password recovery" email links to `<site_url>/#access_token=...&type=recovery`; if the project has no callback route to land on, the link hangs. Every Supabase project needs this plumbing.
+
+- **`PasswordResetCard` component**: email input → `supabase.auth.resetPasswordForEmail(email, { redirectTo: <callback URL> })` → success state ("Check your email for a reset link"). Lives in the same `@devshop-template/auth-ux` module as `AwaitingConfirmationCard`.
+- **`/auth/callback` route** (RSC + Route Handler hybrid): reads `code` query param, calls `supabase.auth.exchangeCodeForSession(code)` server-side, then redirects based on `type` (`recovery` → `/reset-password`; `email_change` → `/settings`; default → `/`). Sets the session cookie so subsequent requests are authed.
+- **`/reset-password` route**: form to set a new password (validated against `password_min_length`). Calls `supabase.auth.updateUser({ password })` on submit — works because the callback already set a session. On success, push to `/` (or `/onboarding` if the user has no household).
+- **Required Supabase config** (must be set at `/ak-new-project` time — see the `/ak-new-project` Phase B auth-hardening step):
+  - `site_url` = production URL (e.g., `https://app.vercel.app`) — **NOT** `localhost:3000` (the free-tier default). Recovery emails embed this; a wrong value makes every reset link hang.
+  - `uri_allow_list` includes: production URL, Vercel preview wildcard (`https://*-<team>.vercel.app/**`), and `http://localhost:3000/**` for dev. Without this, `redirectTo` values get rejected.
+
+**Why v0 — blocks next-project adoption:**
+
+Combined with the auth-hardening step (password_min_length: 8, landed in v1.11.0) and the invite-code signup (v1 entry below), this completes the "serious project auth out of the box" story. Waiting means every project gets an ad-hoc implementation. Lalista is example #1 with the `awaitingConfirmation` state and `friendlyAuthError()` function; lalista has a `TODOS.md § auth-ux-refactor-to-adopt` entry standing by to adopt the helper once it ships, which also verifies the helper works in practice.
+
+**Trigger:**
+
+- Second project adopts the devshop and hits the same silent-bounce bug (almost guaranteed)
+- OR: lalista's implementation gets iterated on twice — the 3rd refinement is the signal to factor up
+- OR: lalista clears its `auth-ux-refactor-to-adopt` verification debt as soon as the helper ships (current plan)
+
+**Cross-ref:**
+
+- Lalista commits `31b5637` (fix) and sign-in page.tsx / page.test.tsx — the concrete prior art
+- Lalista `TODOS.md § v0 § auth-ux-refactor-to-adopt` — the refactor-to-adopt TODO that verifies the helper when it ships
+- The `/ak-pre-ship` Gate 9 user-state matrix (landed in devshop v1.11.0) — the QA-side pair of this UX-side convention
+
+---
+
+### Runtime validation at LLM / edge-function boundaries (Zod)
+
+Projects with LLM-backed edge functions (or any endpoint returning structured data) currently rely on TypeScript's compile-time assertions alone — `client.functions.invoke<T>(...)` in Supabase, `(await fetch()).json() as T` in general. The generic or cast is a compiler promise, not a runtime check: whatever the server sends flows through untyped. For LLM-backed endpoints the risk is real — a prompt tweak, model swap, or function refactor that alters the response shape crashes clients at the use-site (`response.foo.bar` on `undefined`) instead of failing fast at the boundary.
+
+Lalista surfaced this during TODOS cleanup 2026-04-22. See `lalista/PRODUCT-ROADMAP.md § v0 § 1j` + PR 6 (`feature/zod-validation`, queued): the `add-item` edge function returns an `AddItemResponse` shape generated by Claude Sonnet + pg_trgm logic, typed client-side via `functions.invoke<AddItemResponse>` with no runtime guard. Every next devshop project with an LLM-backed edge function will hit the same gap.
+
+**Shape of the convention:**
+
+- **Zod as the standard runtime-validation dependency** — added to the template's `packages/core` at scaffold time. ~12 KB min+gzip, tree-shakeable, TS-first schemas with inference.
+- **Schema module pattern** — `packages/core/src/schemas/<feature>.ts` holds the Zod mirror of each `<feature>Response` type in `models/index.ts`. `z.infer<typeof Schema>` keeps the TS type and runtime schema in sync from one source.
+- **Parse at the client wrapper boundary** — API wrappers in `packages/core/src/api/` call `Schema.safeParse(data)` before returning. On failure: report to Sentry with the raw payload (PII-scrubbed) and throw a typed `{Feature}ValidationError`. `.safeParse()` (not `.parse()`) gives observability a chance before the existing error boundary catches the throw.
+- **Permissive object defaults** — use `.passthrough()` on object schemas so unknown fields (forward-compat from future additions) don't throw. Strict only on required shape.
+- **Convention doc** in `guide/conventions.md § Runtime Validation at LLM / Edge-Function Boundaries`:
+  - When to add Zod (LLM-backed endpoints) vs. when not to (DB queries — generated types + CI drift check already cover; form inputs — HTML5 + platform validation already cover)
+  - How to author a schema (`.passthrough()` default, `z.infer` for type)
+  - How to surface validation errors (Sentry with scrubbed payload, typed error class)
+- **Template scaffold** — `/ak-new-project` adds Zod to `packages/core/package.json` and creates `packages/core/src/schemas/` with a placeholder `README.md` pointing at the convention doc.
+
+**Why v0 — blocks next-project adoption:**
+
+Lalista is about to implement this inline at PR 6 (`lalista/PRODUCT-ROADMAP.md § v0 § 1j`). Shipping the devshop convention **before** lalista PR 6 means lalista adopts the template directly and verifies the convention works on first use. Shipping after means factoring from lalista's inline implementation as prior art (same playbook as Auth UX conventions above, sourced from lalista's PR 2). Either order works — but the convention needs to exist before a second project onboards.
+
+**Trigger:**
+
+- Lalista reaches PR 6 `/ak-spec` time (imminent — queued on `lalista/PLAN.md` row 2)
+- OR: a second project shows up with an LLM-backed edge function
+
+**Cross-ref:**
+
+- `lalista/PRODUCT-ROADMAP.md § v0 § 1j` — the inline implementation prior art (or target of adoption if the devshop convention lands first)
+- `lalista/TODOS.md § v0 § zod-validation-refactor-to-adopt` — the refactor-to-adopt TODO (filed only if lalista ships inline before the devshop convention lands)
+- `models/index.ts` is the devshop-template file where response types live today — schemas colocate as `schemas/*.ts`
+
 ---
 
 ## v1 (after v0 is validated on the first project)
@@ -231,52 +324,6 @@ This was the second auth-hardening request in one conversation (password_min_len
 **Cross-ref:**
 
 - The `/ak-new-project` Phase B auth-hardening step (landed in devshop v1.11.0) — mandatory password-length + interactive CAPTCHA ship first; invite-code gating is the next layer up for projects that need it.
-
-### Auth UX conventions — shared error-surface + state patterns
-
-Projects using Supabase auth keep re-solving the same UX gaps because there's no shared convention. Lalista surfaced two that every hosted-Supabase auth flow hits:
-
-1. **Unconfirmed-signup silent bounce** — `mailer_autoconfirm: false` (default) makes a successful signup return no session. If the client immediately routes to an authed area, middleware redirects the unconfirmed user back to `/sign-in` with no feedback. Looks broken.
-2. **Raw Supabase error strings leaking to users** — messages like "Invalid login credentials" / "Email rate limit exceeded" / "User already registered" are developer-facing. Users read them as "what does this mean?"
-
-Both were fixed ad-hoc in lalista (commit `31b5637` on `feature/auth`: new `awaitingConfirmation` state + `friendlyAuthError()` helper). Every next project will hit the same gaps.
-
-**Shape of the convention (not final):**
-
-- **Package**: a thin `@devshop-template/auth-ux` helper module (or inline pattern in the template's sign-in page) providing:
-  - `AwaitingConfirmationCard({ email, onBack })` React component — standardized "Check your email" UI
-  - `friendlyAuthError(message: string): string` — normalizes Supabase error strings to user copy. Exhaustive coverage of the ~6 common cases (`invalid_credentials`, `email_not_confirmed`, `email rate limit exceeded`, `user already registered`, `over_email_send_rate_limit`, `signup disabled`). Unmapped messages pass through unchanged (safe default).
-- **Convention doc** in `guide/conventions.md § Auth UX Conventions` with:
-  - When to show awaiting-confirmation vs. sign-in-error UI
-  - Error-copy style guide (user-action-oriented, not dev-state-oriented)
-  - Email enumeration vs. UX-clarity trade-offs (projects pick a stance; document which one they picked)
-- **Template sign-in page**: the lalista-auth-feature scaffold (or its successor) includes the pattern out-of-the-box so projects don't rediscover it.
-- **Test helpers**: a standardized `e2e/helpers/auth-ux.ts` that exercises the awaiting-confirmation path, rate-limit path, wrong-password path — pairs with the "user-state matrix" expansion to Step 2's Fix C (QA walks must exercise more than the admin-API happy path).
-
-**Password-reset sub-pattern (required for the full story):**
-
-Surfaced 2026-04-20 while testing PR #10 on the Vercel preview. Supabase's dashboard "Send password recovery" email links to `<site_url>/#access_token=...&type=recovery`; if the project has no callback route to land on, the link hangs. Every Supabase project needs this plumbing.
-
-- **`PasswordResetCard` component**: email input → `supabase.auth.resetPasswordForEmail(email, { redirectTo: <callback URL> })` → success state ("Check your email for a reset link"). Lives in the same `@devshop-template/auth-ux` module as `AwaitingConfirmationCard`.
-- **`/auth/callback` route** (RSC + Route Handler hybrid): reads `code` query param, calls `supabase.auth.exchangeCodeForSession(code)` server-side, then redirects based on `type` (`recovery` → `/reset-password`; `email_change` → `/settings`; default → `/`). Sets the session cookie so subsequent requests are authed.
-- **`/reset-password` route**: form to set a new password (validated against `password_min_length`). Calls `supabase.auth.updateUser({ password })` on submit — works because the callback already set a session. On success, push to `/` (or `/onboarding` if the user has no household).
-- **Required Supabase config** (must be set at `/ak-new-project` time — see Step 2's hardening step):
-  - `site_url` = production URL (e.g., `https://app.vercel.app`) — **NOT** `localhost:3000` (the free-tier default). Recovery emails embed this; a wrong value makes every reset link hang.
-  - `uri_allow_list` includes: production URL, Vercel preview wildcard (`https://*-<team>.vercel.app/**`), and `http://localhost:3000/**` for dev. Without this, `redirectTo` values get rejected.
-
-**Why v1, not v+:**
-
-Combined with the auth-hardening step (password_min_length: 8) and invite-code signup (v1 entry above), this completes the "serious project auth out of the box" story. Waiting means every project gets an ad-hoc implementation — lalista is example #1 with the awaiting-confirmation state and friendlyAuthError function that every future project will want.
-
-**Trigger:**
-
-- Second project adopts the devshop and hits the same silent-bounce bug (almost guaranteed)
-- OR: lalista's implementation gets iterated on twice — the 3rd refinement is the signal to factor up
-
-**Cross-ref:**
-
-- Lalista commits `31b5637` (fix) and sign-in page.tsx / page.test.tsx — the concrete prior art
-- The `/ak-pre-ship` Gate 9 user-state matrix (landed in devshop v1.11.0) — the QA-side pair of this UX-side convention
 
 ---
 
