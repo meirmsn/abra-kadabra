@@ -13,6 +13,99 @@ Priority tiers:
 
 ## v0 — blocks next-project adoption
 
+### CI artifact-host firewall allowlist
+
+The devcontainer's `init-firewall.sh` allowlists `vscode.blob.core.windows.net` (for VS Code updates) but NOT `*.blob.core.windows.net` (where GitHub Actions stores workflow artifacts — trace zips, screenshot PNGs, test reports). Every `gh run download` attempt from inside the devcontainer fails with `no route to host`, which means Claude cannot pull Playwright traces, jest coverage reports, or any CI-generated artifact for offline inspection.
+
+Lalista surfaced this during PR 4's slow-job stabilization (2026-04-24): Playwright E2E failed with a test-side bug the CI log didn't contain enough context to diagnose. The trace artifact would have shown the page DOM + network logs + screenshots at the assertion moment — a 30-second inspection would have replaced the 3-round guess-and-check loop that burned ~30 minutes of CI time.
+
+**Shape of the fix:**
+
+- Add `*.blob.core.windows.net` (or more narrowly: `productionresultssa*.blob.core.windows.net`, which is Microsoft's Azure storage pattern for GH-hosted runners — currently `productionresultssa9`, `productionresultssa10`, etc. rotate per-region) to `.devcontainer/init-firewall.sh`'s allowlist.
+- Narrower preferred (smaller attack surface): grep the CI run's artifact URLs for the exact domain, use a wildcard-bounded regex.
+- The allowlist is GH-Actions-generic — every devshop project that uses GH Actions will need this.
+
+**Why v0 — blocks next-project adoption:**
+
+Without trace access, `/ak-build` Phase 5's fix loop is guess-based. First-time CI failures for any new project will hit the same blind-debugging trap. Adding the domain is a one-line change + devcontainer rebuild; every project benefits.
+
+**Trigger:**
+
+- Lalista completes PR 4 investigation — that happens when trace pull works. Block until fixed (as of 2026-04-24 blocked).
+- Second project's first CI failure.
+
+**Cross-ref:**
+
+- `lalista/TODOS.md § v0 § Pre-ship § core-flows-happy-path-ci-investigation` — the immediate beneficiary of this fix
+- `kit/ROADMAP.md § v0 § /ak-build Phase 5 trace-pull-on-second-failure` — the convention this fix unblocks
+- `lalista/.devcontainer/init-firewall.sh` lines 77-105 — existing allowlist structure for guidance
+
+---
+
+### /ak-build Phase 5 — trace-pull-on-second-failure convention
+
+`/ak-build` Phase 5's CI fix loop currently guesses from `gh run view --log-failed` output. This worked for straightforward failures (YAML typo, missing dep, env-var format) but fails for anything requiring UI / runtime observability (Playwright failures, hidden page state, race conditions).
+
+The 2026-04-24 lalista session burned ~30 minutes + 6 CI roundtrips trying to fix a single Playwright test because each attempt guessed from the log without access to the Playwright trace. The trace would have definitively shown what the page looked like at the assertion — turning a 30-minute guess-loop into a 30-second diagnosis.
+
+**Shape of the convention:**
+
+Amend `/ak-build` Phase 5.4 (CI failure → fix loop) to the following rhythm:
+
+1. **Failure #1**: pull `--log-failed`, guess based on error context. Fix + push. Cost: 1 CI round (~5 min). This is the "same as today" path — often the failure is straightforward and the log is enough.
+2. **Failure #2** (same or related test): before attempting another fix, run:
+   ```bash
+   RUN_ID=$(gh run list --branch "$BRANCH" --limit 1 --json databaseId --jq '.[0].databaseId')
+   # Pull every failure artifact (Playwright report, uploaded screenshots, coverage, etc.)
+   for art in $(gh api "/repos/OWNER/REPO/actions/runs/$RUN_ID/artifacts" --jq '.artifacts[].name'); do
+     gh run download "$RUN_ID" --name "$art" --dir "/tmp/ci-artifacts/$RUN_ID/"
+   done
+   ```
+   Inspect `error-context.md` files (human-readable Playwright assertion context), PNG screenshots, and `trace.zip` (via `playwright show-trace` or unzipping for DOM snapshots). Diagnosis is now observability-driven, not log-driven.
+3. **Failure #3+** (if still unresolved after trace inspection): escalate to user — something structural is wrong; pattern-matching isn't enough.
+
+**Prerequisites:**
+
+- CI artifact-host firewall allowlist (above) — without it step #2's `gh run download` fails.
+- Playwright workflow must upload `playwright-report/` on failure (lalista already does — `actions/upload-artifact@v4` with `if: failure()`).
+- `playwright show-trace` requires a local Playwright install + X11/web-ui; the fallback of reading `error-context.md` + PNG screenshots + zipped DOM snapshots works without it.
+
+**Why v0 — blocks next-project adoption:**
+
+The "blind guess" loop is the #1 time sink in `/ak-build` today. Every project using slow-job Playwright will hit the same trap. Documenting the convention + wiring the skill to follow it turns "I got lucky / unlucky" into "investigation was bounded at 2 rounds."
+
+**Shape of the skill amendment:**
+
+`kit/skills/ak-build/SKILL.md` Phase 5.4 block grows a decision tree:
+
+```
+- Attempt 1 fix: infer from `gh run view --log-failed`. One-shot.
+- Attempt 2 fix: before guessing, `gh run download` all artifacts to
+  `/tmp/ci-artifacts/<RUN_ID>/`. Inspect `error-context.md` per failed test,
+  PNG screenshots, and (if available) unzipped trace.zip for DOM snapshots +
+  network logs. THEN fix.
+- Attempt 3 fix: if artifacts didn't resolve it, escalate to user.
+```
+
+**Trigger:**
+
+- CI firewall allowlist ships (prereq).
+- Then: amend the skill in one commit.
+
+**Cross-ref:**
+
+- `lalista/TODOS.md § v0 § Pre-ship § core-flows-happy-path-ci-investigation` — the 2026-04-24 case study that motivated this
+- `kit/ROADMAP.md § v0 § CI artifact-host firewall allowlist` — the prereq
+- `kit/skills/ak-build/SKILL.md § Phase 5` — target for the amendment
+
+**Cost/risk:**
+
+- Implementation: ~30 min (script changes to SKILL.md) + testing on one deliberate CI-failure reproduction
+- Risk: artifact downloads eat CI-minutes billing trivially (MB not GB); no security-surface change assuming allowlist is narrow
+- Benefit: substantially shorter debug loops on E2E / UI-heavy failures
+
+---
+
 ### Pre-commit test-presence hook (project repo)
 
 Today `check-test-coverage.sh` runs only in the devshop repo itself — it flags `kit/scripts/*.sh` additions/modifications that lack a `.bats` test. Project repos (lalista, every future project) have no equivalent: new `.ts`/`.tsx` files under `apps/*/src/` + `packages/*/src/` can land without a paired `.test.ts` and the pre-commit gate says nothing. `/ak-test-review` catches this at ship time (late — feature already built), and adversarial reviewers can't enforce test _existence_ because no machine-readable invariant exists.
