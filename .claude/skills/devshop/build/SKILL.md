@@ -469,13 +469,56 @@ post-deploy metrics) — those stay `[ ]` for the reviewer.
 
 ### 5.4: On CI failure → fix loop
 
+The loop is a 3-attempt decision tree that escalates observability as blind
+inference becomes less likely to work. Attempt 1 guesses from the log (cheap —
+often enough for straightforward failures); attempt 2+ pulls run artifacts
+BEFORE guessing (evidence-based); attempt 3 escalates to the user (structural).
+This bounds the blind-loop cost to one round and forces evidence on the second
+— the "never more than ~2 blind iterations" rail codified from the 2026-04-24
+lalista slow-job stabilization incident, where 4 blind retries against a
+Playwright failure burned ~30 minutes because the trace artifact was
+unreachable from the devcontainer.
+
 ```
 FIX_ATTEMPTS=0
 MAX_ATTEMPTS=3
 
 while CI is failing and FIX_ATTEMPTS < MAX_ATTEMPTS:
-  1. Read failure logs:
-     gh run view <RUN_ID> --log-failed 2>&1 | tail -200
+  1. Read failure context (tier escalates with attempt count):
+
+     a. Attempt #1 — log-based inference:
+        gh run view <RUN_ID> --log-failed 2>&1 | tail -200
+        Proceed with log-only diagnosis. Often enough for lint errors,
+        missing deps, env-var format, straightforward test assertions.
+
+     b. Attempt #2+ — artifact-based investigation:
+        The log-only guess already failed once. Before attempting another
+        fix, pull every artifact from the failed run and inspect:
+
+           mkdir -p /tmp/ci-artifacts/<RUN_ID>
+           OWNER_REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+           for art in $(gh api \
+               "/repos/$OWNER_REPO/actions/runs/<RUN_ID>/artifacts" \
+               --jq '.artifacts[].name'); do
+             gh run download "<RUN_ID>" --name "$art" \
+                 --dir "/tmp/ci-artifacts/<RUN_ID>/"
+           done
+
+        For Playwright failures, each failed test has a subdirectory with
+        `error-context.md` (the assertion's text context), PNG screenshots,
+        and `trace.zip`. Unzip trace.zip for DOM snapshots + network logs:
+
+           unzip -d /tmp/ci-artifacts/<RUN_ID>/<test-dir>/trace \
+               /tmp/ci-artifacts/<RUN_ID>/<test-dir>/trace.zip
+
+        Or open interactively if a GUI is available:
+
+           pnpm exec playwright show-trace \
+               /tmp/ci-artifacts/<RUN_ID>/<test-dir>/trace.zip
+
+        The page state at the assertion is definitive — diagnose from
+        evidence, not inference. Skipping this step turns the loop into
+        guessing; that's the exact trap this convention closes.
 
   2. Classify failure: lint | typecheck | unit | integration | e2e | build | timeout
 
@@ -487,7 +530,9 @@ while CI is failing and FIX_ATTEMPTS < MAX_ATTEMPTS:
      a. Grep the test name from the logs
      b. Read the failing test file locally
      c. Read the source code the test exercises
-     d. Understand why it fails (logs + local code context)
+     d. Understand why it fails:
+        - Attempt #1: logs + local code context
+        - Attempt #2+: artifacts (trace, error-context.md, screenshots) + logs + local code
      e. Fix the source code
 
   5. For locally verifiable failures (lint, typecheck, unit, build):
@@ -498,8 +543,8 @@ while CI is failing and FIX_ATTEMPTS < MAX_ATTEMPTS:
      pnpm turbo run build       # for build failures
 
   6. For CI-only failures (integration, E2E):
-     Fix is informed by logs but cannot be verified locally.
-     Push and let CI verify.
+     Fix is informed by logs (and artifacts on attempt 2+) but cannot be
+     verified locally. Push and let CI verify.
 
   7. Commit + push:
      git add -A
@@ -511,6 +556,12 @@ while CI is failing and FIX_ATTEMPTS < MAX_ATTEMPTS:
   9. FIX_ATTEMPTS += 1
   10. Go to 5.2 (watch CI again)
 ```
+
+**Prerequisites for the artifact-pull path** (one-time per project):
+
+- `.devcontainer/init-firewall.sh` allowlists `productionresultssa*.blob.core.windows.net` (Azure Blob storage where GH Actions stashes workflow artifacts). Without this, `gh run download` fails with "no route to host" from inside the devcontainer. See `kit/ROADMAP.md § v0 § CI artifact-host firewall allowlist`.
+- CI workflow uploads the relevant artifact on failure. Playwright's default recipe (`actions/upload-artifact@v4` with `if: failure()`) covers it; other test frameworks may need equivalent wiring.
+- `playwright show-trace` requires a local Playwright install + display; the fallback of `error-context.md` + PNGs + unzipped `trace.zip` DOM snapshots works without it.
 
 ### 5.5: Escalation after max attempts
 

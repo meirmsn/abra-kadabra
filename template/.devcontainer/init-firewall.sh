@@ -114,6 +114,24 @@ for domain in \
     done < <(echo "$ips")
 done
 
+# GitHub Actions artifact storage — Azure Blob subdomains productionresultssa<N>.
+# GH Actions shards workflow artifacts (Playwright traces, screenshots, coverage
+# reports, etc.) across a rotating numeric range. Resolve a generous range,
+# tolerating indexes that don't exist in this Azure region. Without this, every
+# `gh run download` attempt from the devcontainer fails with "no route to host".
+echo "Resolving GitHub Actions artifact storage hosts..."
+for i in $(seq 0 30); do
+    domain="productionresultssa${i}.blob.core.windows.net"
+    ips=$(dig +noall +answer A "$domain" 2>/dev/null | awk '$4 == "A" {print $5}')
+    [ -z "$ips" ] && continue
+    while read -r ip; do
+        if [[ "$ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+            echo "Adding $ip for $domain"
+            ipset add allowed-domains "$ip" 2>/dev/null || true
+        fi
+    done < <(echo "$ips")
+done
+
 # Get host IP from default route
 HOST_IP=$(ip route | grep default | cut -d" " -f3)
 if [ -z "$HOST_IP" ]; then
