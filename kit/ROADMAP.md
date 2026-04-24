@@ -13,6 +13,51 @@ Priority tiers:
 
 ## v0 — blocks next-project adoption
 
+### Pre-commit test-presence hook (project repo)
+
+Today `check-test-coverage.sh` runs only in the devshop repo itself — it flags `kit/scripts/*.sh` additions/modifications that lack a `.bats` test. Project repos (lalista, every future project) have no equivalent: new `.ts`/`.tsx` files under `apps/*/src/` + `packages/*/src/` can land without a paired `.test.ts` and the pre-commit gate says nothing. `/ak-test-review` catches this at ship time (late — feature already built), and adversarial reviewers can't enforce test _existence_ because no machine-readable invariant exists.
+
+Lalista surfaced the gap post-PR-4 when surveying what CI actually protects: every E2E / integration gate runs only in slow-job CI, unit-test coverage is not machine-enforced at all, and test deletion during refactor is invisible until coverage numbers drift down — which nobody watches.
+
+**Shape of the convention:**
+
+- **New script**: `kit/scripts/commit-hooks/check-test-coverage-project.sh` — mirrors the existing devshop-self version but scoped to project-repo paths:
+  - Walks staged `.ts`/`.tsx` files under `apps/*/src/`, `apps/*/app/`, `apps/*/components/`, `apps/*/lib/`, `packages/*/src/`
+  - For each, requires an adjacent `.test.ts` / `.test.tsx` / `.integration.test.ts`
+  - New file without a test → BLOCK. Modified without a test → WARN (same tiering as the devshop script).
+  - Exempt list (conservative, project-tunable): barrel `index.ts`, `*.d.ts`, `*.config.ts`, `page.tsx` / `layout.tsx` (route entry points — unit-testing server components is fraught; E2E covers those), `middleware.ts` (covered by `middleware.test.ts` but flagging needed once), anything under `*/e2e/` or `*/tests/`, any file whose sibling dir contains a `*.integration.test.ts` or `*.spec.ts` that references the filename.
+  - Per-project override: `.devshop-test-coverage-exempt` file at repo root, one path per line, commit-auditable.
+
+- **Wire into `.hooks/pre-commit`**: in the project-repo branch, add `bash "$SCRIPTS_DIR/commit-hooks/check-test-coverage-project.sh"` after `check-security-files-freshness.sh`.
+
+- **Convention doc** in `guide/conventions.md § Test Presence`: explain what's blocked vs. warned, how to add to the exempt list (with a commit message explaining why), and the relationship to `/ak-test-review` (hook catches "I forgot entirely"; review catches "this test is weak").
+
+- **`.bats` tests** in `kit/tests/` for the script: fixtures cover (a) new file without test → block, (b) new file with adjacent test → pass, (c) modified file without test → warn not block, (d) exempt file → pass, (e) override file addition → pass.
+
+**Why v0 — blocks next-project adoption:**
+
+Every devshop project will hit this exact gap. Lalista is already carrying a `TODOS.md § v0 § e2e-audit-fill-gaps` entry that exists because unit-test enforcement was not in place — future projects shouldn't have to carry the same note. The hook is cheap (~100 LOC bash, ~200 ms pre-commit overhead) and high-value (closes the "silent test removal" gap `qa-options.md § Q3 shift #6` identified for every project).
+
+**Trigger:**
+
+- Lalista adopts the hook and runs a full commit cycle to flush out false-positive-exempt-list tuning — that data feeds the template's default exempt list
+- OR: a second project shows up and immediately needs test-presence enforcement — ship at that moment
+
+**Cross-ref:**
+
+- `kit/scripts/commit-hooks/check-test-coverage.sh` — the devshop-repo prior art (kit-scripts only)
+- `lalista/TODOS.md § v0 § e2e-audit-fill-gaps` — the E2E-side pair of this unit-side convention
+- `lalista/PLAN.md` row 1 — the concrete surfacing opportunity
+
+**Cost/risk reference (from 2026-04-24 lalista scoping session):**
+
+- Implementation: ~4–6 focused hours (script + .bats tests + doc + wire-in)
+- False-positive risk: mitigated by conservative exempt list + per-project override file
+- Test-file-existence ≠ test quality: deliberate — `/ak-test-review` is the quality gate
+- Maintenance: exempt list drifts a few entries per year; cheap to keep current
+
+---
+
 ### Auth UX conventions — shared error-surface + state patterns
 
 Projects using Supabase auth keep re-solving the same UX gaps because there's no shared convention. Lalista surfaced two that every hosted-Supabase auth flow hits:
