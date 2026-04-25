@@ -546,15 +546,47 @@ while CI is failing and FIX_ATTEMPTS < MAX_ATTEMPTS:
      Fix is informed by logs (and artifacts on attempt 2+) but cannot be
      verified locally. Push and let CI verify.
 
-  7. Commit + push:
+  7. Commit:
      git add -A
      git commit -m "fix: CI failure - <description>"
-     git push
 
-  8. After pushing, update PR title/description if the fix changes scope.
+  8. **Workflow-scope detection** — before pushing, check whether the
+     commit touches `.github/workflows/**`. The devcontainer PAT lacks
+     `workflow` scope intentionally (security posture: Claude can't
+     silently amend CI). If the diff matches:
 
-  9. FIX_ATTEMPTS += 1
-  10. Go to 5.2 (watch CI again)
+        TOUCHED_WORKFLOWS=$(git diff --name-only HEAD~1 HEAD | \
+          grep -E '^\.github/workflows/' || true)
+
+     If `TOUCHED_WORKFLOWS` is non-empty, do NOT attempt `git push`
+     (it will fail with `refusing to allow a Personal Access Token
+     to create or update workflow ... without 'workflow' scope`).
+     Surface the human-push command directly:
+
+        SHA=$(git rev-parse HEAD)
+        REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+        USER=$(gh api user --jq .login)
+        echo "⚠ Commit $SHA touches workflow file(s):"
+        echo "$TOUCHED_WORKFLOWS"
+        echo ""
+        echo "The devcontainer PAT lacks 'workflow' scope. Push needs a"
+        echo "user PAT with that scope:"
+        echo ""
+        echo "  git -C \$PWD -c credential.helper= \\"
+        echo "    push https://${USER}@github.com/${REPO}.git ${BRANCH}"
+
+     Then **exit the fix loop** (do NOT increment FIX_ATTEMPTS or
+     re-enter 5.2). After the user pushes manually, /ak-build will
+     resume on next invocation via Step 0's resume check (which lands
+     at Phase 5).
+
+     Otherwise (no workflow files touched):
+        git push
+
+  9. After pushing, update PR title/description if the fix changes scope.
+
+  10. FIX_ATTEMPTS += 1
+  11. Go to 5.2 (watch CI again)
 ```
 
 **Prerequisites for the artifact-pull path** (one-time per project):
@@ -586,7 +618,7 @@ Stop and wait. The user gets a GitHub notification.
 
 ### 5.6: Finalize PLAN.md + BUILD-LOG.md on the feature branch
 
-Runs on CI green (after 5.3), before advancing to Phase 6. Closes out this feature's history **on the feature branch** so it ships as part of this PR — not as a separate post-merge cleanup PR.
+Runs on CI green (after 5.3), before advancing to Phase 5.7. Closes out this feature's history **on the feature branch** so it ships as part of this PR — not as a separate post-merge cleanup PR.
 
 **Why here, not post-merge**: the prior design landed a second `chore: close <feature> in BUILD-LOG` PR on main after merge. That's an extra PR for pure history, and fails on projects with a main-is-PR-only guard that blocks Claude from committing to main directly. Writing on the feature branch eliminates both problems — the PR carries its own history entry, and merge-to-main brings it along.
 
@@ -630,6 +662,55 @@ Runs on CI green (after 5.3), before advancing to Phase 6. Closes out this featu
 **Idempotence**: if 5.6 has already run for this feature (no Active row for `$FEATURE_BRANCH` in `PLAN.md` AND a `BUILD-LOG.md` entry referencing `$PR` exists), skip — don't duplicate.
 
 **Fallback for CI-timeout**: if `$PR` is not yet set (5.1 hasn't run — edge case where Phase 5 was entered out-of-band), 5.6 is a no-op; it will fire next time CI is green with a known PR.
+
+### 5.7: Re-watch CI after the 5.6 bookkeeping push
+
+The 5.6 commit triggers a fresh CI run on the latest SHA. Even though
+the diff is docs-only (PLAN.md + BUILD-LOG.md), the new run can fail on
+environmental flakes (runner-image variance, browser-cache hits that
+skip system-deps install, CDN IP rotation, etc.) that the prior run got
+lucky on. Phase 6's audit comment claims "CI is green" — that claim
+must be true for the SHA the comment is being posted against, not for
+an earlier SHA whose CI passed.
+
+**Codified from**: lalista PR 18 audit-trail correction (2026-04-25) —
+audit + ready-for-review comments were posted while the bookkeeping
+commit's CI was still `in_progress`; that run failed on a WebKit
+system-libs flake (`libwoff2dec.so.1.0.2` not on this runner image),
+forcing a public retraction comment. Phase 5.6's push has the same
+shape as any other push and deserves the same watch-then-advance
+discipline; collapsing the watch was a load-bearing oversight, not a
+shortcut.
+
+**Steps**:
+
+1. Re-read the latest run on the feature branch. The 5.6 push triggers
+   a new run; that run is now the canonical CI signal:
+
+   ```bash
+   RUN_ID=$(gh run list --branch "$BRANCH" --limit 1 \
+     --json databaseId --jq '.[0].databaseId')
+   gh run watch "$RUN_ID" --exit-status
+   ```
+
+   This blocks until the bookkeeping run completes. Same 30-minute cap
+   as 5.2.
+
+2. **If green**: re-run 5.3 to repoint the PR body's CI checkboxes at
+   this latest run (the prior CI attestation now references a stale
+   SHA — leaving it points reviewers at an older run that doesn't
+   reflect the latest commit). Then advance to Phase 6.
+
+3. **If red**: re-enter Phase 5.4's fix loop. The bookkeeping commit's
+   failure is a CI failure like any other; the same observability-tiered
+   cadence applies (attempt #1 from logs; attempt #2+ pulls artifacts).
+   Do NOT advance to Phase 6 with a red latest run — the audit and
+   ready-for-review comments are public artifacts, and overclaiming
+   ("CI is green") in them costs trust.
+
+**Idempotence**: 5.7 fires once per 5.6 push. If 5.6 was a no-op (e.g.,
+PLAN.md was already empty and BUILD-LOG entry already existed), there
+is no new run to watch and 5.7 is a no-op too.
 
 ## Phase 6: Post audit trail comment
 
@@ -717,7 +798,7 @@ A `[x]` claim is only credible when the artifact exists. Phase 6 verifies this f
 | Hero screenshot(s) (`![...](https://github.com/.../raw/.../specs/.../hero/*.png)`) | File exists at `specs/<feature>/hero/<screen>.png`                                          | `[ -f "specs/$FEATURE/hero/<screen>.png" ]`                                                                  |
 | 4-combo evidence matrix (Gate 3)                                    | Files exist at `specs/<feature>/screenshots/<screen>-{375,1440}-{light,dark}.png`           | Stat each of the 4 per primary screen (same list Gate 3 used)                                                |
 | Gate 9 happy-path walk                                              | `specs/<feature>/qa-walk.log` OR Playwright trace in `specs/<feature>/traces/`              | `[ -f qa-walk.log -o -d traces ]`                                                                            |
-| Vercel/preview deploy checkbox                                      | URL in the checkbox line resolves (HTTP 2xx)                                                | `curl -sfI "$URL" >/dev/null`                                                                                |
+| Vercel/Netlify/Fly preview deploy checkbox                          | Platform bot's status comment reports `Ready` / `Deployed` / `Healthy`                      | Parse `gh pr view "$PR" --json comments` for the platform-bot comment; match its status badge / status line |
 | CI-green checkboxes                                                 | Referenced run-id is `success` in `gh run view`                                             | Already covered by Part A's state-based reconciliation                                                       |
 
 **Implementation sketch**:
@@ -737,12 +818,37 @@ grep -oE '!\[.*\]\(https://github.com/[^)]+\)' /tmp/pr-body.md | while read -r e
   fi
 done
 
-# For every [x] preview-deploy line, curl the URL
-grep -oE '\[x\].*(https://[^ )]+\.(vercel|netlify|fly)\.(app|dev|io)[^ ]*)' /tmp/pr-body.md \
-  | grep -oE 'https://[^ )]+' \
-  | while read -r url; do
-      curl -sfI "$url" >/dev/null || EVIDENCE_MISSING+="  $url (preview URL not reachable)\n"
-    done
+# For every [x] preview-deploy line, verify the PLATFORM BOT's status —
+# not the URL. curl-from-devcontainer is brittle: branch-preview subdomains
+# aren't in the firewall allowlist (resolved IPs vary per branch), CDN IPs
+# rotate, geo-routing can give different answers than what reviewers see.
+# The platform bot's comment is the canonical signal — that's what GitHub
+# shows reviewers regardless of where the curl runs from. Codified from
+# lalista PR 18 (2026-04-25): firewall blocked the preview-host curl, but
+# Vercel's `Ready` badge in the bot comment was authoritative.
+if grep -qE '\[x\].*(vercel|netlify|fly)\.(app|dev|io)' /tmp/pr-body.md; then
+  # Find the platform bot's most recent comment + check its status line.
+  # Each platform's bot user/format:
+  #   Vercel  → login "vercel", body contains `![Ready](...ready.svg)`
+  #   Netlify → login "netlify", body contains "Deploy preview ready!"
+  #   Fly     → login "fly-pr-review-apps", body contains "Successful deploy"
+  STATUS=$(gh pr view "$PR" --json comments --jq '
+    [.comments[] | select(.author.login | IN("vercel","netlify","fly-pr-review-apps"))] | last |
+    if . == null then "no-bot-comment"
+    elif (.body | test("Ready|Deploy preview ready|Successful deploy")) then "ready"
+    elif (.body | test("Building|Queued|Deploying|in_progress")) then "in-progress"
+    else "failed-or-unknown"
+    end')
+  case "$STATUS" in
+    ready) ;;  # matches the [x] claim — pass
+    in-progress)
+      EVIDENCE_MISSING+="  Platform deploy still in progress (bot not yet showing 'Ready') — checkbox is premature\n";;
+    failed-or-unknown)
+      EVIDENCE_MISSING+="  Platform bot comment does not show Ready/Deployed/Healthy — checkbox claim is wrong\n";;
+    no-bot-comment)
+      EVIDENCE_MISSING+="  No platform bot comment found, but PR body claims preview deployed — verify out-of-band\n";;
+  esac
+fi
 
 # For Gate 3 / Gate 9 evidence (inferred from $FEATURE_DIR):
 [ -n "$(ls specs/$FEATURE/hero/ 2>/dev/null)" ] || EVIDENCE_MISSING+="  specs/$FEATURE/hero/ (no hero shots captured)\n"
