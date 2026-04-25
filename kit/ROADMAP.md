@@ -106,6 +106,147 @@ The "blind guess" loop is the #1 time sink in `/ak-build` today. Every project u
 
 ---
 
+### Security-posture cleanup: CI/prod credential separation + URL guard + classification
+
+Audit of `/ak-new-project`'s credential surface (2026-04-25, after the auto-deploy-backend ship) surfaced four issues that compound:
+
+1. **Real duplication**: `SUPABASE_PROJECT_REF` is the subdomain slice of `SUPABASE_URL` (the URL is `https://<ref>.supabase.co`). We added it as a GH Variable when the deploy workflows landed; it can be derived inline. Single source of truth = `SUPABASE_URL`. Eliminate the Variable.
+
+2. **Public values stored as Secrets**: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `NEXT_PUBLIC_POSTHOG_KEY` are public by design — baked into the front-end JS bundle, visible to every browser. Storing as GH Secrets is symmetric with the rest but technically a misclassification. Doesn't leak (Secrets and Variables share the same UI) but confuses readers about what's actually sensitive. Move to Variables.
+
+3. **Real security risk: `SUPABASE_SERVICE_ROLE_KEY` ambiguity**. The skill says `SUPABASE_SERVICE_ROLE_KEY=<secret-key>` without specifying which project. A reader will paste their **prod** service-role key — full DB admin access via REST, no RLS. If it leaks (CI logs, container image, misconfigured workflow), prod is **totally compromised**. Lalista's PR 18 D8 + D22 already worked around this (CI's `SUPABASE_URL` rotated to local stack `http://127.0.0.1:54321`; CI's service-role key is the local stack's published default JWT, not sensitive); plus a runtime URL guard `assertNotProdUrlInTestEnv` that throws if test-env code ever instantiates a Supabase client pointing at prod. The template + skill need to ship this discipline by default.
+
+4. **Documentation gaps**: each credential has "where to find it" but no blast-radius callout, no CI-vs-prod separation guidance, no rotation cadence, no explanation of why some are stored as Secrets vs Variables.
+
+**Shape of the fix** (5 tracks; do them as one coordinated change because they cross-reference each other):
+
+**Track A — Eliminate `SUPABASE_PROJECT_REF`**:
+
+- `template/.github/workflows/deploy-migrations.yml` + `deploy-functions.yml`: replace `--project-ref ${{ vars.SUPABASE_PROJECT_REF }}` with a sed-derive from `SUPABASE_PROD_URL`:
+  ```bash
+  PROJECT_REF=$(echo "$SUPABASE_PROD_URL" | sed -E 's|https://([^.]+)\.supabase\.co|\1|')
+  supabase link --project-ref "$PROJECT_REF"
+  ```
+- `/ak-new-project` Step 5 Variables: drop `SUPABASE_PROJECT_REF`; add `SUPABASE_PROD_URL` instead (this is the prod URL the deploy workflows target — distinct from CI's `SUPABASE_URL` which points at local stack).
+- Lalista mirrors the same change (its workflows also derive ref from `SUPABASE_PROD_URL`).
+
+**Track B — Reclassify public values + add CI-vs-prod naming distinction**:
+
+- `/ak-new-project` Step 5 reorganized:
+  - **Variables tab** (public):
+    - `SUPABASE_URL` = local stack URL `http://127.0.0.1:54321` (used by CI fast/slow jobs against `supabase start`)
+    - `SUPABASE_ANON_KEY` = local stack's published default anon JWT
+    - `SUPABASE_SERVICE_ROLE_KEY` = local stack's published default service-role JWT (still admin, but on a sandboxed local instance — not prod)
+    - `SUPABASE_PROD_URL` = real prod URL (used by deploy-migrations + deploy-functions only)
+    - `NEXT_PUBLIC_POSTHOG_KEY` = PostHog key (public via NEXT*PUBLIC* convention)
+  - **Secrets tab** (genuinely sensitive):
+    - `SUPABASE_DB_PASSWORD` = prod DB password (used by deploy-migrations)
+    - `SUPABASE_ACCESS_TOKEN` = account-wide Supabase token (used by both deploy workflows)
+    - `ANTHROPIC_API_KEY` = if edge functions call Claude (used by slow-job)
+    - `SENTRY_DSN` + `SENTRY_AUTH_TOKEN`
+    - `VERCEL_TOKEN`
+- Vercel env (separate surface from GH) keeps prod values: `NEXT_PUBLIC_SUPABASE_URL` = prod, `NEXT_PUBLIC_SUPABASE_ANON_KEY` = prod anon. Skill should explicitly note Vercel and GH are different env surfaces with different values.
+
+**Track C — Local-stack defaults documented in skill**:
+
+- `/ak-new-project` Step 5 Variables sub-section gains the **literal values** for local-stack defaults:
+  - `SUPABASE_URL` value: `http://127.0.0.1:54321`
+  - `SUPABASE_ANON_KEY` value: the published JWT (currently `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9...` — implementer should source the current published value from `supabase start` output or Supabase docs)
+  - `SUPABASE_SERVICE_ROLE_KEY` value: same shape, role: service_role
+- Note that these are public hardcoded values across every Supabase local-stack install, so no per-project copying from `.env` is needed for these three.
+
+**Track D — Ship the URL guard helper in the template**:
+
+- New file `template/packages/core/src/supabase.ts` (or similar — match the template's existing structure) exporting `assertNotProdUrlInTestEnv` per lalista's PR 18 D22 implementation.
+- Helper logic: when `process.env.NODE_ENV === 'test'` AND the URL passed to `createClient` matches a prod-shaped pattern (`*.supabase.co` and NOT the configured project's CI-allowed values), throw with a clear message.
+- Tests for the helper (mirror lalista's 5 unit tests in `packages/core/src/supabase.test.ts`).
+- Wire into the template's `createClient` call sites so it fires on every client instantiation in test env.
+
+**Track E — Add § Security Posture to `/ak-new-project`**:
+
+New section after Step 5 (or as part of Step 5) with:
+
+- **Blast-radius table** per credential — what an attacker can do if it leaks:
+
+  | Credential                                    | Blast radius if leaked                                                                                       |
+  | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+  | `SUPABASE_DB_PASSWORD`                        | Direct DB connection (no RLS); read/write any table                                                          |
+  | `SUPABASE_ACCESS_TOKEN`                       | Account-wide: all projects on this Supabase account, manage settings, drop projects                          |
+  | `ANTHROPIC_API_KEY`                           | Spend rate-limit until rotated                                                                               |
+  | `SENTRY_AUTH_TOKEN`                           | Upload sourcemaps, manage org                                                                                |
+  | `VERCEL_TOKEN`                                | Deploy to any of your Vercel projects                                                                        |
+  | `SUPABASE_SERVICE_ROLE_KEY` (prod, NOT in CI) | Full DB admin via REST; no RLS — if it gets in CI accidentally, that's the highest-blast-radius failure mode |
+  | Local-stack defaults (Variables)              | None — published constants                                                                                   |
+
+- **CI-vs-prod credential separation** — explicit rule: CI never holds prod Supabase credentials except `SUPABASE_PROD_URL` (used only by deploy workflows), `SUPABASE_DB_PASSWORD`, `SUPABASE_ACCESS_TOKEN`. Everything else CI uses is the local-stack default.
+
+- **Rotation cadence**: rotate `SUPABASE_ACCESS_TOKEN` quarterly (account-wide blast radius); `SUPABASE_DB_PASSWORD` after any team-member departure or suspected compromise; sourcemaps tokens annually.
+
+- **URL guard reminder**: the structural defense (assertNotProdUrlInTestEnv) is in the template by default — Track D — and projects should keep it active.
+
+**Track F — Cleanup step in `/ak-new-project` for upgrading existing projects**:
+
+For projects that already went through the OLD `/ak-new-project` flow (lalista is one), add a "Migration to new credential layout" step OR a one-off cleanup section in the skill:
+
+- List of GH Secrets to delete that no longer apply (e.g., legacy `SUPABASE_PROJECT_REF` Variable if previously set)
+- List of values to add (e.g., `SUPABASE_PROD_URL` Variable if not present)
+- List of Secrets to convert to Variables
+- Rotation prompt for any potentially-mixed credentials
+
+This step is `[HUMAN]` — Claude can list what to do but can't manage GH Secrets via the devcontainer PAT.
+
+**Doc propagation** (after Tracks A–E land):
+
+- `OVERVIEW.md` — workspace-layout file map gains the URL guard helper file at `packages/core/src/supabase.ts` (already there for lalista; needs template parity)
+- `kit/docs/guide/conventions.md` — § Deploy Boundaries already updated for auto-deploy; gains a callout about CI-vs-prod credential separation as the structural enforcement of the boundary
+- `kit/docs/guide/security.md` — gains a § "CI credential isolation" subsection summarizing the URL guard + local-stack-defaults pattern
+- `kit/docs/guide/ops.md` § CI/CD — already updated; verify the prod-URL-vs-local-URL distinction is noted
+- `CLAUDE.md` § Known Footguns — gains an entry about the prod-service-role-in-CI risk + URL guard remediation
+
+**Project-side changes (lalista — first adopter)**:
+
+After the devshop side lands on a feature branch (NOT ff-merged yet — per the new "hold ff-merge until project validates" convention from CLAUDE.md § Devshop shipping flow):
+
+1. **Workflow files**: update `.github/workflows/deploy-migrations.yml` + `deploy-functions.yml` to derive ref from `SUPABASE_PROD_URL` instead of `vars.SUPABASE_PROJECT_REF`. Drop the `SUPABASE_PROJECT_REF` Variable.
+2. **GH Variables additions**:
+   - Add `SUPABASE_PROD_URL` = `https://nzfdfjctpotjyuxdfcpw.supabase.co`
+3. **GH Secrets → Variables migrations** (delete from Secrets after confirming Variables tab has them):
+   - `SUPABASE_URL` (value already = local stack URL per D8) → Variables
+   - `SUPABASE_ANON_KEY` (value already = local stack default) → Variables
+   - `SUPABASE_SERVICE_ROLE_KEY` (value already = local stack default) → Variables
+   - `NEXT_PUBLIC_POSTHOG_KEY` → Variables
+4. **GH Secrets to keep as Secrets**: `SUPABASE_DB_PASSWORD`, `SUPABASE_ACCESS_TOKEN`, `ANTHROPIC_API_KEY`, `SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `VERCEL_TOKEN`.
+5. **GH Variable to delete**: `SUPABASE_PROJECT_REF` (added today; superseded by `SUPABASE_PROD_URL` + sed-derive).
+6. **URL guard already present**: lalista already has D22's `assertNotProdUrlInTestEnv` in `packages/core/src/supabase.ts` — verify it's wired into all `createClient` call sites.
+7. **CI verification**: re-run slow-job CI on `feat/auto-deploy-backend` to confirm both deploy workflows still run green after the parameterization change.
+8. **Once CI green on lalista, ff-merge devshop-side feature branch to devshop main**.
+
+**Why v0**:
+
+- Track A: trivial debt that compounds with every future project — fix while it's fresh.
+- Track B–E: closes a real security gap. The prod-service-role-in-CI footgun is the highest-blast-radius failure mode in the current `/ak-new-project` flow. Every project scaffolded today has it; fixing now means the second project starts in the secure-by-default state.
+- Track F: existing projects need a migration path; without it, the cleanup is ambiguous.
+
+**Trigger**:
+
+- Lalista PR 18 retro (2026-04-25) surfaced the audit — concrete case study + first adopter ready.
+- Coordinated devshop+project change: implement on devshop feature branch, validate on lalista, ff-merge devshop after lalista CI green (per the convention from CLAUDE.md § Devshop shipping flow step 2 added 2026-04-25).
+
+**Cross-ref**:
+
+- Lalista PR 18 D8 (CI URL/anon rotation to local stack) — already shipped, this entry generalizes the pattern to template
+- Lalista PR 18 D22 (`assertNotProdUrlInTestEnv` URL guard) — already shipped, this entry generalizes to template
+- `kit/docs/guide/conventions.md` § Deploy Boundaries — context for the parallel-deploy model
+- `kit/ROADMAP.md` § "Pre-commit test-presence hook (project repo)" below — sibling project-repo convention propagation
+
+**Cost/risk**:
+
+- Implementation: ~3-4 focused hours (template helper + tests, skill rewrite of Step 4/5, doc propagation across 5+ files, lalista mirror, CI re-run + verification). Adversarial review will require 2-3 doc enumeration cycles per commit; budget for that.
+- Risk during rollout: lalista's deploy workflows briefly need `SUPABASE_PROD_URL` Variable BEFORE the workflow file change merges (or the parameter substitution will fail). Set the Variable first; merge second. Same for any future project adopting from template.
+- Benefit: closes the prod-service-role-in-CI risk by default; eliminates the `SUPABASE_PROJECT_REF` redundancy; documents what's actually sensitive vs symmetric-but-public; provides migration recipe for existing projects.
+
+---
+
 ### Pre-commit test-presence hook (project repo)
 
 Today `check-test-coverage.sh` runs only in the devshop repo itself — it flags `kit/scripts/*.sh` additions/modifications that lack a `.bats` test. Project repos (lalista, every future project) have no equivalent: new `.ts`/`.tsx` files under `apps/*/src/` + `packages/*/src/` can land without a paired `.test.ts` and the pre-commit gate says nothing. `/ak-test-review` catches this at ship time (late — feature already built), and adversarial reviewers can't enforce test _existence_ because no machine-readable invariant exists.
