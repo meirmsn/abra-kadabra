@@ -18,7 +18,9 @@ Container Workspace (/workspace)
 │
 ├── Project repo (git-tracked, public-facing)
 │   ├── apps/web/                Next.js 15 app
-│   ├── packages/core/           Business logic, Supabase client, types
+│   ├── packages/core/           Business logic, Supabase client + URL guard, types
+│   │   └── src/supabase.ts      `assertNotProdUrlInTestEnv` — structural defense
+│   │                            against tests dialing prod (see guide/security.md)
 │   ├── packages/ui/             Design tokens, shared components
 │   ├── supabase/                Migrations, edge functions
 │   ├── .github/workflows/       CI (lint, typecheck, test, build) + auto-deploy (migrations, edge functions on push:main)

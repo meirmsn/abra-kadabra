@@ -78,16 +78,18 @@ _This section grows as code is added. `/ak-implement` updates it when introducin
 
 ## Env Var Naming Convention
 
-Each framework requires a specific prefix for client-accessible vars. GitHub Secrets use the base name; each surface adds its own prefix.
+Each framework requires a specific prefix for client-accessible vars. GH and Vercel are **separate env surfaces with different values for the same name** — the prod URL lives on Vercel; the GH `SUPABASE_URL` is the local-stack URL because CI's fast/slow jobs run against `supabase start` in the runner. Don't reuse a value across surfaces without checking which side you're on.
 
-| Secret (base name)        | Next.js (Vercel)                |
-| ------------------------- | ------------------------------- |
-| `SUPABASE_URL`            | `NEXT_PUBLIC_SUPABASE_URL`      |
-| `SUPABASE_ANON_KEY`       | `NEXT_PUBLIC_SUPABASE_ANON_KEY` |
-| `SENTRY_DSN`              | `NEXT_PUBLIC_SENTRY_DSN`        |
-| `NEXT_PUBLIC_POSTHOG_KEY` | `NEXT_PUBLIC_POSTHOG_KEY`       |
+| Base name                   | GH Variable (CI)                 | Vercel (`apps/web`)                                                          | What it actually is on each side                                                                                                               |
+| --------------------------- | -------------------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SUPABASE_URL`              | `http://127.0.0.1:54321`         | `NEXT_PUBLIC_SUPABASE_URL` = prod URL                                        | GH = local-stack; Vercel = prod. Front-end runtime needs prod; CI tests don't.                                                                 |
+| `SUPABASE_ANON_KEY`         | published local-stack JWT        | `NEXT_PUBLIC_SUPABASE_ANON_KEY` = prod anon                                  | GH = published default; Vercel = prod. Public on both sides.                                                                                   |
+| `SUPABASE_SERVICE_ROLE_KEY` | published local-stack JWT        | _(not on Vercel — server-side)_                                              | Prod service-role NEVER reaches CI. The local-stack default is admin on a sandbox the runner spins up fresh.                                   |
+| `SUPABASE_PROD_URL`         | prod URL (deploy workflows only) | _(piped from `.devcontainer/.env` to `NEXT_PUBLIC_SUPABASE_URL` at Step 13)_ | The single source of truth for "where does this push go?" — `deploy-{migrations,functions}.yml` sed-derive the project ref from this Variable. |
+| `SENTRY_DSN`                | _(GH Secret)_                    | `NEXT_PUBLIC_SENTRY_DSN`                                                     | Same value on both sides.                                                                                                                      |
+| `NEXT_PUBLIC_POSTHOG_KEY`   | `NEXT_PUBLIC_POSTHOG_KEY`        | `NEXT_PUBLIC_POSTHOG_KEY`                                                    | Same value on both sides.                                                                                                                      |
 
-`packages/core` does NOT read env vars directly — exports `createClient(config: CoreConfig)`. Each app reads its prefixed vars and passes them in.
+`packages/core` does NOT read env vars directly — exports `createClient(config: CoreConfig)` that wraps `assertNotProdUrlInTestEnv`. Each app reads its prefixed vars and passes them in. The URL guard throws if a `NODE_ENV=test` caller ever passes the prod URL — backstop for the CI/Vercel split above. See `guide/security.md § CI Credential Isolation` for the structural-defense rationale; `/ak-new-project § Security Posture` for the blast-radius table; `/ak-new-project § Migration: existing project to current credential layout` for the cleanup recipe.
 
 ---
 

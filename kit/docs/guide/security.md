@@ -32,6 +32,17 @@ Edge functions always validate auth server-side — `getUser()` to verify agains
 
 Wired into `ci.yml` in the same PR as the integration — never a follow-up.
 
+## CI Credential Isolation
+
+Two structural defenses keep prod credentials out of CI test paths:
+
+1. **Local-stack defaults in CI.** The `SUPABASE_URL` GH Variable resolves to `http://127.0.0.1:54321` and the `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` Variables resolve to the published local-stack JWTs. CI's fast-job + slow-job spin up `supabase start` in the runner and dial the local stack — never prod. The deploy workflows are separate and consume `SUPABASE_PROD_URL` (Variable) + `SUPABASE_DB_PASSWORD` + `SUPABASE_ACCESS_TOKEN` (Secrets) only.
+2. **URL guard in `packages/core/src/supabase.ts`.** Every `createClient` call passes through `assertNotProdUrlInTestEnv`, which throws if `NODE_ENV=test` and the URL points at the configured prod project ref. Catches a future drift where someone re-introduces a prod Supabase URL into CI's env or a unit test imports the wrong client factory. Tests in `packages/core/src/supabase.test.ts` lock the contract.
+
+The combination matters. Without the local-stack defaults, the URL guard is the only defense — easy to disable accidentally. Without the URL guard, the local-stack defaults are convention — easy to forget when adding a new env var. With both, breaking either layer fails CI loudly.
+
+The full credential blast-radius table + rotation cadence + Variables-vs-Secrets classification rules live in `/ak-new-project § Security Posture`. The cleanup recipe for older projects whose CI surface still mixes prod and local-stack credentials: `/ak-new-project § Migration: existing project to current credential layout`.
+
 ## Third-Party Binaries
 
 Pinned to specific version + SHA256 checksum. Never "latest." Update version + checksum in same commit.

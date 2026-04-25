@@ -45,17 +45,27 @@ jobs:
 
       - name: Link + push
         # SUPABASE_ACCESS_TOKEN: personal access token from
-        #   https://supabase.com/dashboard/account/tokens
+        #   https://supabase.com/dashboard/account/tokens (GH Secret).
         # SUPABASE_DB_PASSWORD: project DB password from
-        #   Settings → Database → Connection string
-        # SUPABASE_PROJECT_REF: GH Variable (not Secret — public value), the
-        #   project ref shown in dashboard URLs / SUPABASE_URL.
+        #   Settings → Database → Connection string (GH Secret).
+        # SUPABASE_PROD_URL: prod project URL (GH Variable — public value). The
+        #   project ref is sed-derived from this URL inline. Single source of
+        #   truth: SUPABASE_PROD_URL is the only knob the deploy workflows read
+        #   for "which project does this push go to?". CI's separate
+        #   SUPABASE_URL Variable points at the local stack (http://127.0.0.1:54321)
+        #   and never reaches prod — see /ak-new-project § Security Posture.
         # All three must be configured before this workflow can run; /ak-new-project
-        # Step 5 lists them under "Migration auto-deploy workflow" in the secrets
-        # group + the Variables sub-step.
+        # Step 5 lists them under "Migration auto-deploy workflow".
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_PROD_URL: ${{ vars.SUPABASE_PROD_URL }}
         run: |
-          supabase link --project-ref ${{ vars.SUPABASE_PROJECT_REF }}
+          PROJECT_REF=$(echo "$SUPABASE_PROD_URL" | sed -E 's|https://([^.]+)\.supabase\.co.*|\1|')
+          if [ -z "$PROJECT_REF" ] || [ "$PROJECT_REF" = "$SUPABASE_PROD_URL" ]; then
+            echo "ERROR: failed to derive project ref from SUPABASE_PROD_URL='$SUPABASE_PROD_URL'"
+            echo "Expected shape: https://<ref>.supabase.co"
+            exit 1
+          fi
+          supabase link --project-ref "$PROJECT_REF"
           supabase db push --include-roles

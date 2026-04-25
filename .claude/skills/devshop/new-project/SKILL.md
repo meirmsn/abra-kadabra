@@ -235,7 +235,12 @@ final locations. Customize them in-place:
 
 ### Step 4: [HUMAN] Fill credentials file
 
-Fill `.devcontainer/.env` (already gitignored, read-protected by `.claude/settings.json`):
+Fill `.devcontainer/.env` (already gitignored, read-protected by `.claude/settings.json`).
+
+The file holds the operator's local source-of-truth values. Two non-obvious things:
+
+- `SUPABASE_PROD_URL` is the prod Supabase URL — used by the auto-deploy workflows + piped to Vercel as `NEXT_PUBLIC_SUPABASE_URL`. The variable name says "PROD" so it's never confused with CI's local-stack `SUPABASE_URL` (Step 5).
+- `SUPABASE_SERVICE_ROLE_KEY` is the **prod** service-role key — full DB admin via REST, no RLS. **Never put it in CI** (Step 5 uses the local-stack default instead). See § Security Posture for blast-radius detail.
 
 ```
 # Devcontainer
@@ -247,11 +252,11 @@ GITHUB_TOKEN=<fine-grained-pat>
 # Vercel
 VERCEL_TOKEN=<personal-access-token>
 
-# Supabase (if using)
-SUPABASE_URL=https://<project-ref>.supabase.co
-SUPABASE_ANON_KEY=<publishable-key>
-SUPABASE_SERVICE_ROLE_KEY=<secret-key>
-SUPABASE_ACCESS_TOKEN=<personal-access-token>
+# Supabase prod (if using)
+SUPABASE_PROD_URL=https://<project-ref>.supabase.co
+SUPABASE_PROD_ANON_KEY=<publishable-key>
+SUPABASE_SERVICE_ROLE_KEY=<secret-key — prod admin, never in CI>
+SUPABASE_ACCESS_TOKEN=<personal-access-token — account-wide>
 SUPABASE_DB_PASSWORD=<project-db-password>
 
 # Anthropic (if using Claude in edge functions)
@@ -285,8 +290,14 @@ Where to find each:
     is enough for every CI-monitoring flow `/ak-build` actually runs.)
   - **Do NOT add `workflow` scope** — workflow file changes must be pushed by the human.
 - Vercel: `vercel.com/account/tokens`
-- Supabase URL + keys: Project Settings → API.
-- Supabase access token: `supabase.com/dashboard/account/tokens`
+- `SUPABASE_PROD_URL` + `SUPABASE_PROD_ANON_KEY`: Project Settings → API on the prod
+  Supabase project. Both are public (baked into the Vercel front-end bundle); the
+  `_PROD_` infix is naming hygiene, not a sensitivity claim.
+- `SUPABASE_SERVICE_ROLE_KEY`: Project Settings → API → `service_role` secret. **This is
+  the prod admin key — never put it in GH Secrets or any CI surface.** See § Security
+  Posture for why CI uses the local-stack default instead.
+- Supabase access token: `supabase.com/dashboard/account/tokens`. Account-wide blast
+  radius — see § Security Posture for the rotation cadence.
 - Supabase DB password: Project Settings → Database → Connection string (the password
   shown when you copy a connection string). Used by the migration auto-deploy workflow
   to authenticate `supabase db push` non-interactively.
@@ -304,18 +315,125 @@ Where to find each:
 
 Go to repo on github.com → **Settings** → **Secrets and variables** → **Actions**.
 
-**Secrets** tab → **Repository secrets**. All values come from `.devcontainer/.env`. Group by which workflow consumes them (so missing entries surface as a workflow failure, not a silent skip):
+The split between Variables and Secrets is **classification**, not just convention.
+Variables hold values that are public by design (anon keys baked into the front-end
+bundle, local-stack defaults that ship in every Supabase install, project URLs).
+Secrets hold values that compromise something if leaked. Storing public values as
+Secrets confuses readers about what's actually sensitive — and forces a leak audit
+on every accidental log dump that includes a `SUPABASE_URL`. See § Security Posture
+for the full blast-radius table.
 
-- **Front-end + fast-job CI baseline**: `VERCEL_TOKEN`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `NEXT_PUBLIC_POSTHOG_KEY`
-- **Slow-job CI** (integration tests + edge-function deploy proof): `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY` (only if edge functions call Claude — slow-job will fail loudly without it)
-- **Migration auto-deploy workflow** (`.github/workflows/deploy-migrations.yml`, applies migrations to prod on push:main when `supabase/migrations/**` changes): `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`. Without these, the workflow fails at link/push and prod schema goes stale silently — same failure mode as no auto-deploy at all, just noisier.
-- **Edge-function auto-deploy workflow** (`.github/workflows/deploy-functions.yml`, deploys all `supabase/functions/*/` dirs on push:main when any function changes): `SUPABASE_ACCESS_TOKEN` (re-used from above; functions deploy uses the management API, no DB password needed).
+**The CI surface uses local-stack credentials by default** — fast-job and slow-job
+both run against `supabase start` in the GH-Actions runner, so CI never holds
+prod-grade credentials except `SUPABASE_PROD_URL` (deploy workflows only),
+`SUPABASE_DB_PASSWORD`, and `SUPABASE_ACCESS_TOKEN`. See § Security Posture for
+the prod-service-role-in-CI failure mode this guards against.
 
-**Variables** tab → **Repository variables** (not Secret — these are non-sensitive values the workflow files reference):
+**Variables** tab → **Repository variables** (public values; not in scope for
+secret-leak alerts):
 
-- `SUPABASE_PROJECT_REF` — the project ref from `SUPABASE_URL` (the `<ref>` in `https://<ref>.supabase.co`). Used by the migration + edge-function deploy workflows to target the right project. Public value; storing as Variable makes it referenceable without conflating with secrets.
+- `SUPABASE_URL` = `http://127.0.0.1:54321` — local-stack URL. Used by CI fast/slow
+  jobs against `supabase start` in the runner. **Not** the prod URL.
+- `SUPABASE_ANON_KEY` = the published local-stack anon JWT (run `supabase start`
+  locally and copy the `anon key` line; it's the same value across every Supabase
+  install, because the local stack ships with a deterministic default JWT signing
+  secret. Current published value documented at
+  https://supabase.com/docs/guides/local-development/cli/getting-started#start-the-supabase-stack).
+- `SUPABASE_SERVICE_ROLE_KEY` = the published local-stack service-role JWT (same
+  source as anon — `supabase start` output's `service_role key` line). Public
+  hardcoded value; admin on the local stack only, which the CI runner spins up
+  fresh per job.
+- `SUPABASE_PROD_URL` = real prod URL (e.g. `https://<ref>.supabase.co`). Used **only**
+  by `deploy-migrations.yml` + `deploy-functions.yml` to target the prod project.
+  Project ref is sed-derived inline — no separate `SUPABASE_PROJECT_REF` Variable.
+- `NEXT_PUBLIC_POSTHOG_KEY` = PostHog project API key (public via `NEXT_PUBLIC_*`
+  convention — baked into the front-end bundle).
+- `PRODUCTION_URL` (added later in Step 13 after the Vercel domain is known) = Vercel
+  prod URL, used by `keepalive.yml`.
 
-Note: `PRODUCTION_URL` is also a **Variable** and is added later in Step 13 after the Vercel domain is known.
+**Secrets** tab → **Repository secrets** (genuinely sensitive — leak any of these and
+the blast-radius table in § Security Posture tells you what an attacker can do):
+
+- `SUPABASE_DB_PASSWORD` — prod DB password. Direct DB connection bypasses RLS. Used
+  by `deploy-migrations.yml`.
+- `SUPABASE_ACCESS_TOKEN` — account-wide Supabase token. Manages every project on
+  the account, including settings + project deletion. Used by both deploy workflows.
+- `ANTHROPIC_API_KEY` — only if edge functions call Claude. Slow-job runs an
+  integration test against the function, which calls the API.
+- `SENTRY_DSN` — error-reporting endpoint. Public-ish (visible in client errors)
+  but treated as Secret to keep out of source-map upload abuse.
+- `SENTRY_AUTH_TOKEN` — sourcemap upload + org admin.
+- `VERCEL_TOKEN` — deploys to your Vercel projects.
+
+**Not on either list** (intentional):
+
+- `SUPABASE_PROJECT_REF` — superseded by `SUPABASE_PROD_URL`. The deploy workflows
+  derive the ref via `sed` inline. Single source of truth; no redundant Variable.
+- Prod `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` — these are
+  on Vercel (as `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`), set in
+  Step 13 via `vercel env add`. **Vercel and GH are separate env surfaces with
+  different values for the same name** — Vercel = prod, GH = local stack. The URL
+  guard in `packages/core/src/supabase.ts` (Step 10) catches drift if a future
+  refactor accidentally crosses the streams.
+
+### § Security Posture
+
+Read once after Step 5; refer back when rotating credentials or auditing CI surface
+changes. Three rules + a blast-radius table.
+
+**Rule 1: CI never holds prod-grade Supabase credentials except three.**
+
+CI's fast-job + slow-job both run against `supabase start` in the GH-Actions
+runner — a fresh local stack per job, isolated from prod. The only prod-grade
+credentials CI legitimately needs are:
+
+- `SUPABASE_PROD_URL` (Variable) — read **only** by `deploy-migrations.yml` +
+  `deploy-functions.yml` to target the right project. Public.
+- `SUPABASE_DB_PASSWORD` (Secret) — used by `deploy-migrations.yml` only.
+- `SUPABASE_ACCESS_TOKEN` (Secret) — used by both deploy workflows; account-wide.
+
+Everything else CI uses is the **local-stack default** — `SUPABASE_URL`
+= `http://127.0.0.1:54321`, `SUPABASE_ANON_KEY` + `SUPABASE_SERVICE_ROLE_KEY`
+= the published JWTs that ship with every Supabase install. Public hardcoded
+values; admin on a sandbox the runner spins up fresh per job.
+
+**Rule 2: Vercel and GH are separate env surfaces with different values for the
+same name.** Vercel holds `NEXT_PUBLIC_SUPABASE_URL` = prod URL +
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` = prod anon (because the front-end at runtime
+must dial prod). GH holds `SUPABASE_URL` = local stack (because CI tests must
+dial the local stack). Don't reuse a value across surfaces without checking
+which side you're on.
+
+**Rule 3: The URL guard is the structural backstop.** `packages/core/src/supabase.ts`
+exports `assertNotProdUrlInTestEnv` (Step 10), which throws when a `NODE_ENV=test`
+caller passes a Supabase URL pointing at the prod project ref. Wired into every
+`createClient` call site. If a future refactor accidentally points CI at prod, a
+unit test crashes loudly instead of silently mutating prod data.
+
+**Blast-radius table** — what an attacker can do if each credential leaks:
+
+| Credential                                    | Blast radius if leaked                                                                                                                                           |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SUPABASE_DB_PASSWORD`                        | Direct DB connection (no RLS); read/write any table on the prod project.                                                                                         |
+| `SUPABASE_ACCESS_TOKEN`                       | Account-wide: every project on this Supabase account, including settings management + project deletion. **Highest blast radius** of the routine credentials.     |
+| `SUPABASE_SERVICE_ROLE_KEY` (prod, NOT in CI) | Full DB admin via REST API; no RLS. **If it ever ends up in CI by mistake, that's the highest-blast-radius failure mode** — every PR build leaks prod admin.     |
+| `ANTHROPIC_API_KEY`                           | Spend rate-limit until rotated. Not catastrophic; rotate within a day.                                                                                           |
+| `SENTRY_AUTH_TOKEN`                           | Upload sourcemaps (poisoning + intel), manage Sentry org settings.                                                                                               |
+| `VERCEL_TOKEN`                                | Deploy to any of your Vercel projects.                                                                                                                           |
+| `GITHUB_TOKEN` (PAT)                          | Per the fine-grained scope — Contents R/W + Pull Requests R/W on this one repo. Without `workflow` scope, can't tamper with CI.                                  |
+| Local-stack defaults (Variables)              | None. Published JWTs that ship with every Supabase install; admin on a sandbox the CI runner spins up fresh per job. Documented as Variables to make this clear. |
+| `SUPABASE_PROD_URL` / `NEXT_PUBLIC_*`         | None. Public values baked into the front-end bundle every browser already has.                                                                                   |
+
+**Rotation cadence:**
+
+| Credential                  | Cadence                                                                          |
+| --------------------------- | -------------------------------------------------------------------------------- |
+| `SUPABASE_ACCESS_TOKEN`     | Quarterly (account-wide blast radius justifies tighter cadence than the others). |
+| `SUPABASE_DB_PASSWORD`      | After any team-member departure, suspected compromise, or annually as hygiene.   |
+| `SUPABASE_SERVICE_ROLE_KEY` | After suspected compromise. Rare in practice — the key never leaves prod.        |
+| `SENTRY_AUTH_TOKEN`         | Annually.                                                                        |
+| `VERCEL_TOKEN`              | Annually, or on team-member departure.                                           |
+| `ANTHROPIC_API_KEY`         | On suspected leak only — rate-limit caps the bleed.                              |
 
 ### Step 6: [HUMAN] Add firewall domains
 
@@ -392,14 +510,49 @@ If `./setup` fails due to virtiofs mount, build from `/tmp` — see project memo
 
 ### Step 10: Scaffold packages/core
 
-Create `packages/core/` with:
+The template's `packages/core/` skeleton already landed via the Phase A rsync —
+it ships with a typed `createClient` factory + the prod-URL guard
+(`assertNotProdUrlInTestEnv`) + 5 unit tests for the guard. Two substitutions
+finish the job, plus the project-specific extras (models, integration test
+glob already wired in `vitest.config.ts`).
 
-- `package.json` (name: `@<project-name>/core`, main: `src/index.ts`)
-- `tsconfig.json` extending `../../tsconfig.base.json`
-- `src/index.ts` (barrel), `src/supabase.ts` (typed client factory), `src/supabase.types.ts` (generated or placeholder), `src/models/index.ts`
-- `vitest.config.ts` + one passing smoke test
+**Sub-step 1: substitute placeholders**
 
-Add `pnpm.onlyBuiltDependencies: ["esbuild"]` to root package.json.
+`PROJECT_NAME_PLACEHOLDER` → the project name (used by package name + barrel header).
+`PROJECT_REF_PLACEHOLDER` → the prod Supabase project ref (sed-derived from
+`$SUPABASE_PROD_URL` in `.devcontainer/.env`; used by the URL guard to detect
+test runs that would dial prod).
+
+```bash
+cd packages/core
+PROJECT_REF=$(echo "$SUPABASE_PROD_URL" | sed -E 's|https://([^.]+)\.supabase\.co.*|\1|')
+if [ -z "$PROJECT_REF" ] || [ "$PROJECT_REF" = "$SUPABASE_PROD_URL" ]; then
+  echo "ERROR: SUPABASE_PROD_URL not set or wrong shape — fix .devcontainer/.env first"
+  exit 1
+fi
+sed -i "s/PROJECT_REF_PLACEHOLDER/$PROJECT_REF/g" src/supabase.ts src/supabase.test.ts
+sed -i "s/PROJECT_NAME_PLACEHOLDER/<project-name>/g" package.json src/index.ts
+cd ../..
+```
+
+After substitution: `pnpm install` (the package's `@supabase/supabase-js`
+dependency is now real), then verify the tests:
+
+```bash
+pnpm --filter @<project-name>/core test:unit
+# Expected: 5 tests pass. If guardActive=false (placeholder still present)
+# the prod-URL tests are skipped — re-check the sed substitution.
+```
+
+**Sub-step 2: add models + smoke**
+
+- `src/models/index.ts` — placeholder for shared domain types (filled by `/ak-spec`
+  during the first feature build).
+- Optional: an additional smoke test in `src/index.test.ts` that exercises the
+  barrel exports.
+
+Add `pnpm.onlyBuiltDependencies: ["esbuild"]` to root package.json (pnpm 10
+build-script approval — `@supabase/supabase-js` transitively pulls in `esbuild`).
 
 ### Step 11: Scaffold packages/ui
 
@@ -708,6 +861,123 @@ Also configure repo-level **merge settings** at github.com → repo → Settings
 ### Step 25: Run /cso baseline audit
 
 Run `/cso` for infrastructure security audit (last — audits complete setup).
+
+---
+
+## Migration: existing project to current credential layout
+
+For projects that went through `/ak-new-project` BEFORE the security-posture
+cleanup (2026-04-25). Symptoms: `SUPABASE_PROJECT_REF` exists as a GH
+Variable; public values like `SUPABASE_URL` / `SUPABASE_ANON_KEY` /
+`NEXT_PUBLIC_POSTHOG_KEY` are stored as GH Secrets; no `SUPABASE_PROD_URL`
+Variable; deploy workflows reference `vars.SUPABASE_PROJECT_REF`.
+
+The migration is `[HUMAN]` end-to-end — Claude can list what to do but the
+devcontainer PAT can't manage GH Secrets/Variables. Order matters: Variables
+side first (additive — workflows still work mid-migration), then workflow
+files (cuts over to the new ref-derive), then Secrets→Variables conversion
+(safe once nothing reads the old Secret name), then deletions.
+
+**Pre-flight: confirm current `.devcontainer/.env`**
+
+If `.devcontainer/.env` has `SUPABASE_URL=https://<ref>.supabase.co` (the prod
+URL), keep that variable for Vercel piping but add an alias so the rest of the
+flow uses the new name:
+
+```
+# Add (keeps SUPABASE_URL working for any existing references):
+SUPABASE_PROD_URL=https://<ref>.supabase.co
+```
+
+The two variables can coexist. Newer scaffolds use `SUPABASE_PROD_URL`
+exclusively; older projects can keep `SUPABASE_URL` until the next refactor.
+
+**Step M1: Add `SUPABASE_PROD_URL` GH Variable**
+
+Repo → Settings → Secrets and variables → Actions → **Variables** tab → New
+repository variable:
+
+- Name: `SUPABASE_PROD_URL`
+- Value: `https://<your-ref>.supabase.co` (same as the existing `SUPABASE_URL`
+  Secret + the existing `SUPABASE_PROJECT_REF` Variable's `<ref>` slice).
+
+Workflows still read `vars.SUPABASE_PROJECT_REF` at this point — no behavior
+change yet.
+
+**Step M2: Update workflow files**
+
+Edit `.github/workflows/deploy-migrations.yml` + `.github/workflows/deploy-functions.yml`
+to derive the project ref from `SUPABASE_PROD_URL` inline (see the template
+versions at `template/.github/workflows/deploy-{migrations,functions}.yml`).
+
+Workflow files need a workflow-scope PAT to push — the devcontainer PAT lacks
+that scope intentionally. After Claude commits locally, push from the human's
+terminal:
+
+```bash
+git -c credential.helper= push https://<github-user>@github.com/<owner>/<repo>.git <branch>
+# GitHub will prompt for a workflow-scope PAT
+```
+
+**Step M3: Move public Secrets → Variables**
+
+For each value that's currently in **Secrets** but is public (anon keys, project
+URLs, PostHog key), copy the value, add it as a Variable with the same name,
+then delete the Secret.
+
+Move:
+
+- `SUPABASE_URL` (Secret → Variable). Optionally also rotate the Variable's
+  value to `http://127.0.0.1:54321` so CI uses the local stack. If you want
+  CI to keep dialing prod for now, keep the Variable's value at the prod URL —
+  but you've then opted out of the URL-guard's structural protection. Recommend:
+  rotate to local stack at the same time as the URL guard goes in (Step M5).
+- `SUPABASE_ANON_KEY` (Secret → Variable). Same trade-off — rotate to the
+  published local-stack default JWT (`supabase start` output's `anon key` line)
+  at the same time as the URL switches.
+- `SUPABASE_SERVICE_ROLE_KEY` (Secret → Variable, **only if** you also rotate
+  to the local-stack default value at the same time). **Do not** convert the
+  prod service-role key to a Variable — that's the highest blast-radius
+  failure mode the cleanup is designed to close. Move only when CI no longer
+  needs prod admin (which is always — slow-job runs against `supabase start`).
+- `NEXT_PUBLIC_POSTHOG_KEY` (Secret → Variable). Public by `NEXT_PUBLIC_*`
+  convention.
+
+**Keep as Secrets** (genuinely sensitive — see § Security Posture for
+blast-radius detail):
+
+- `SUPABASE_DB_PASSWORD`, `SUPABASE_ACCESS_TOKEN`, `ANTHROPIC_API_KEY`,
+  `SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `VERCEL_TOKEN`.
+
+**Step M4: Delete legacy `SUPABASE_PROJECT_REF` Variable**
+
+After M2 + a green CI run on a PR (proves the ref-derive works), delete the
+old `SUPABASE_PROJECT_REF` Variable from Variables tab. Single source of
+truth: `SUPABASE_PROD_URL`.
+
+**Step M5: Add the URL guard to `packages/core/src/supabase.ts`**
+
+If the project's `packages/core/src/supabase.ts` doesn't yet export
+`assertNotProdUrlInTestEnv`, port it from the template (see Step 10). Wire
+into every `createClient` call site — `apps/web/lib/supabase/client.ts`,
+`apps/web/lib/supabase/server.ts`, `apps/web/middleware.ts`, any others. Add
+the matching unit tests under `packages/core/src/supabase.test.ts`.
+
+This is the structural defense that lets you safely point CI at the local
+stack — without it, a future drift could re-introduce the prod-service-role-
+in-CI risk.
+
+**Step M6: Rotation prompt for any potentially-mixed credentials**
+
+If `SUPABASE_SERVICE_ROLE_KEY` was ever a Secret pointing at prod (the most
+likely case in a pre-cleanup project): rotate the prod service-role key. It
+may be in CI logs, container images, or workflow run artifacts from before
+the cleanup. Rotation: Supabase dashboard → Project Settings → API → Reset
+service role key. Update `.devcontainer/.env` with the new value; do **not**
+add the new value to GH (CI uses the local-stack default).
+
+Same logic for `SUPABASE_DB_PASSWORD` if it was ever exposed in run logs of
+a pre-cleanup workflow.
 
 ---
 

@@ -107,6 +107,8 @@ Default to option 2 for production-impact mutating migrations; option 1 is fine 
 
 **Rollback** is reverse-order with the same backwards-compatibility caveats: revert the app first to pull traffic off the new surfaces, then roll back migrations (if the migration's `-- ROLLBACK` block supports it) and edge functions.
 
+**CI-vs-prod credential separation is the structural enforcement of the Deploy Boundary.** The deploy workflows are the only CI paths that hold prod-grade Supabase credentials (`SUPABASE_PROD_URL` Variable, `SUPABASE_DB_PASSWORD` Secret, `SUPABASE_ACCESS_TOKEN` Secret). Fast-job + slow-job CI use the local-stack default `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` — published JWTs that ship with every Supabase install, admin on a sandbox the runner spins up fresh per job. The `assertNotProdUrlInTestEnv` helper in `packages/core/src/supabase.ts` throws if a `NODE_ENV=test` caller ever passes the prod URL anyway. Full detail: `/ak-new-project § Security Posture`. The cleanup recipe for projects that scaffolded under the older mixed-credential layout: `/ak-new-project § Migration: existing project to current credential layout`.
+
 ## Supabase Hardening Defaults
 
 What `/ak-new-project` Step 17b applies to every new Supabase project, and why:
