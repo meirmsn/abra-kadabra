@@ -87,21 +87,25 @@ New projects get the `/screenshots/` folder + README template automatically via 
 
 Every Supabase-backed project has multiple deploy surfaces; deploying one does NOT deploy the others. This matters because `git push` / PR merge only triggers the Next.js app deploy — Supabase migrations, edge functions, and auth config stay untouched unless you run the corresponding command explicitly.
 
-| Surface                 | How it deploys                                                           | Trigger               | `/ak-go-live` covers? |
-| ----------------------- | ------------------------------------------------------------------------ | --------------------- | --------------------- |
-| Next.js app (Vercel)    | Automatic on push — preview on PR, production on merge                   | `git push` / PR merge | ✅                    |
-| Supabase migrations     | `supabase db push` OR Management API `/v1/projects/{ref}/database/query` | Manual, per migration | ❌ (manual)           |
-| Supabase edge functions | `supabase functions deploy <fn-name>`                                    | Manual, per function  | ❌ (manual)           |
-| Supabase auth config    | Management API `/v1/projects/{ref}/config/auth` or dashboard             | Manual, per change    | ❌ (manual)           |
+| Surface                 | How it deploys                                                                                                              | Trigger                                  | `/ak-go-live` covers? |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- | --------------------- |
+| Next.js app (Vercel)    | Automatic on push — preview on PR, production on merge                                                                      | `git push` / PR merge                    | ✅                    |
+| Supabase migrations     | `.github/workflows/deploy-migrations.yml` runs `supabase db push --include-roles` (path-filtered to `supabase/migrations/`) | Auto on push:main when migrations change | ✅ (via the merge)    |
+| Supabase edge functions | `.github/workflows/deploy-functions.yml` runs `supabase functions deploy` per dir (path-filtered to `supabase/functions/`)  | Auto on push:main when functions change  | ✅ (via the merge)    |
+| Supabase auth config    | Management API `/v1/projects/{ref}/config/auth` or dashboard                                                                | Manual, per change                       | ❌ (manual)           |
 
-**When a feature touches more than one surface**, ship them in this order:
+**Schema-mutating migrations need extra care.** The migrations + Vercel deploys race in parallel on push:main — fine for **schema-additive** migrations (new columns/tables, defaults, NOT NULL only on backfilled columns) because old code keeps working on the new schema. For **schema-mutating** migrations (renames, drops, NOT NULL without default, type changes), old code breaks the moment the migration lands and stays broken until the new code deploys. Two options:
 
-1. **Migrations first** — schema changes must be live before code that depends on them. If a migration fails, nothing downstream runs.
-2. **App deploy** — Vercel picks up the PR merge automatically. New code can now query the new schema.
-3. **Edge functions** — if the app calls a new or changed edge function, deploy the function after the app that calls it. (Functions can deploy before, but post-app keeps the rollback surface smaller: revert the app to pull traffic off the function before reverting the function itself.)
-4. **Auth config** — if the feature depends on new redirect URLs, CAPTCHA, password policy, etc., patch auth config before the app deploy so the first request using the new behavior finds config ready. Auth-config changes are cheap to roll back (re-PATCH) so ordering is flexible here.
+1. **Mark the migration as backwards-incompatible in the PR description**, and gate merge on the deploy-migrations workflow finishing before approving the PR for `/ak-go-live`. The window where old code sees new schema is brief but non-zero — accept it, or
+2. **Split the change into two PRs**: PR 1 ships an additive migration (new column/table) + new code paths that handle BOTH shapes. PR 2 ships the mutating migration + cleanup of the old paths. Slower but window-free.
 
-**Rollback** reverses the order: revert the app first to pull traffic off the new surfaces, then roll back migrations (if the migration supports it) and edge functions.
+Default to option 2 for production-impact mutating migrations; option 1 is fine for low-traffic windows on solo-dev projects.
+
+**Surfaces that auto-deploy on push:main** (Next.js app, migrations, edge functions) all fire in parallel — there's no sequential ordering between them anymore. The schema-additive guidance above covers the migrations-vs-app race; the functions-vs-app race is symmetric (old app calling new function or vice versa) and follows the same backwards-compatibility-or-split-PR remedy.
+
+**Auth config still needs to ship manually**, ideally before the app deploy if the new code relies on new redirect URLs / CAPTCHA / password policy. PATCH `/v1/projects/{ref}/config/auth` or use the dashboard. Auth-config changes are cheap to roll back (re-PATCH) so ordering is flexible.
+
+**Rollback** is reverse-order with the same backwards-compatibility caveats: revert the app first to pull traffic off the new surfaces, then roll back migrations (if the migration's `-- ROLLBACK` block supports it) and edge functions.
 
 ## Supabase Hardening Defaults
 

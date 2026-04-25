@@ -208,7 +208,7 @@ Every gate's report must also include a `## Dismissals` section (body `None` or 
 
 One command after you approve the PR.
 
-1. `/land-and-deploy` (gstack) — checks CI green, merges, waits for deploy, verifies prod health
+1. `/land-and-deploy` (gstack) — checks CI green, merges, waits for deploy, verifies prod health. The merge to main triggers three parallel auto-deploys: Vercel (Next.js app), `deploy-migrations.yml` if `supabase/migrations/**` changed, `deploy-functions.yml` if `supabase/functions/**` changed. See `guide/conventions.md § Deploy Boundaries` for the backwards-compatibility constraints that follow from the parallel-deploy race (especially for schema-mutating migrations). Auth-config changes still ship manually.
 2. `/canary` (gstack) — ~15 min post-deploy monitoring. If fail: stops, notifies with rollback info (no auto-rollback)
 3. **Sanity-check PLAN.md + BUILD-LOG close-out** — `/ak-build` Phase 5.6 already removed the Active row from PLAN.md and appended the entry to BUILD-LOG on the feature branch before merge. Step 2b verifies the transition ran; does not auto-fix if skipped (Claude can't commit to main).
 4. **Structured reflection** — routes learnings to committed files (CLAUDE.md, guide docs, backlogs)

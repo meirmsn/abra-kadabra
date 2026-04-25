@@ -21,7 +21,7 @@ Container Workspace (/workspace)
 │   ├── packages/core/           Business logic, Supabase client, types
 │   ├── packages/ui/             Design tokens, shared components
 │   ├── supabase/                Migrations, edge functions
-│   ├── .github/workflows/       CI (lint, typecheck, test, build)
+│   ├── .github/workflows/       CI (lint, typecheck, test, build) + auto-deploy (migrations, edge functions on push:main)
 │   ├── .husky/pre-commit        → kit/hooks/pre-commit.sh (5-step chain + 4 guards)
 │   ├── CLAUDE.md                Project-specific agent config
 │   └── METRICS.md, TODOS.md    Project analytics + backlog
@@ -134,7 +134,7 @@ Docs:    guide/ (reference) · DESIGN.md (visual) · METRICS.md (analytics) · C
 Apps:    apps/web/ (Next.js 15, App Router)
 Shared:  packages/core/ (business logic, Supabase client, API wrappers) · packages/ui/ (design tokens, components)
 Backend: supabase/migrations/ (schema) · supabase/functions/ (edge functions)
-CI/CD:   .github/workflows/ci.yml · apps/web/vercel.json
+CI/CD:   .github/workflows/ci.yml (PR gates) · deploy-migrations.yml + deploy-functions.yml (push:main auto-deploy) · apps/web/vercel.json
 Template: template/ (project skeleton — .devcontainer/, .github/, turbo.json, eslint, package.json, etc.)
 Devshop: .devshopkit/ → symlink to /devshop/kit/ (injected at container start from abra-kadabra)
 Hooks:   .husky/pre-commit calls /devshop/kit/hooks/pre-commit.sh by absolute path (devshop guards, repo-aware)

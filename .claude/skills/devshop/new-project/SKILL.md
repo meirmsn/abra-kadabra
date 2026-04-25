@@ -309,8 +309,13 @@ Go to repo on github.com → **Settings** → **Secrets and variables** → **Ac
 - **Front-end + fast-job CI baseline**: `VERCEL_TOKEN`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `NEXT_PUBLIC_POSTHOG_KEY`
 - **Slow-job CI** (integration tests + edge-function deploy proof): `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY` (only if edge functions call Claude — slow-job will fail loudly without it)
 - **Migration auto-deploy workflow** (`.github/workflows/deploy-migrations.yml`, applies migrations to prod on push:main when `supabase/migrations/**` changes): `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`. Without these, the workflow fails at link/push and prod schema goes stale silently — same failure mode as no auto-deploy at all, just noisier.
+- **Edge-function auto-deploy workflow** (`.github/workflows/deploy-functions.yml`, deploys all `supabase/functions/*/` dirs on push:main when any function changes): `SUPABASE_ACCESS_TOKEN` (re-used from above; functions deploy uses the management API, no DB password needed).
 
-Note: `PRODUCTION_URL` is a **Variable** (not a Secret) and is added later in Step 13 after the Vercel domain is known.
+**Variables** tab → **Repository variables** (not Secret — these are non-sensitive values the workflow files reference):
+
+- `SUPABASE_PROJECT_REF` — the project ref from `SUPABASE_URL` (the `<ref>` in `https://<ref>.supabase.co`). Used by the migration + edge-function deploy workflows to target the right project. Public value; storing as Variable makes it referenceable without conflating with secrets.
+
+Note: `PRODUCTION_URL` is also a **Variable** and is added later in Step 13 after the Vercel domain is known.
 
 ### Step 6: [HUMAN] Add firewall domains
 

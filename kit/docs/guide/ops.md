@@ -50,7 +50,11 @@ supabase gen types typescript --project-id <ref> > packages/core/src/supabase.ty
 
 ### CI/CD
 
-- Workflow: `.github/workflows/ci.yml` (base CI in Phase 0b — will add Supabase integration tests with Phase 1c, Playwright E2E with Phase 1g)
+- **PR-time gates**: `.github/workflows/ci.yml` (lint, typecheck, test:unit, build on every push; integration + Playwright E2E + edge-fn deploy proof on PRs to main per the slow-job)
+- **Push:main auto-deploy** (post-merge):
+  - `.github/workflows/deploy-migrations.yml` — path-filtered to `supabase/migrations/**`; runs `supabase db push --include-roles` against the linked project. Concurrency-grouped so back-to-back merges serialize.
+  - `.github/workflows/deploy-functions.yml` — path-filtered to `supabase/functions/**`; deploys every non-underscore-prefixed function dir via the management API.
+  - Vercel auto-deploys the Next.js app via its own webhook on push:main. All three surfaces (migrations, functions, app) fire in parallel — see `guide/conventions.md § Deploy Boundaries` for the backwards-compatibility constraints that follow from the parallel-deploy race.
 - Vercel config: `apps/web/vercel.json` (monorepo-aware install/build commands)
 - Branch protection: `main` requires PR + CI green before merge
 - Branch strategy: `main` (production), `feature/*`, `fix/*` — no `develop` branch

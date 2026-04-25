@@ -1,0 +1,61 @@
+# What: Auto-applies Supabase migrations to the linked prod project on push to main
+# Why: Manual `supabase db push` after every migration-touching merge is easy to
+#      forget. Without this, prod app code can land before the schema it reads from,
+#      surfacing as 500s for users until a human notices and runs the push.
+# Does NOT: Auto-deploy edge functions (sibling workflow `deploy-functions.yml`).
+#           Does NOT roll back — failed pushes leave prod in whatever partial state
+#           Supabase reached; review the run logs and the rollback block in the
+#           migration file.
+#
+# Sequencing note: Vercel auto-deploys on push:main in parallel with this workflow.
+#   For schema-additive migrations (new columns/tables, default values, NOT NULL
+#   only on backfilled columns) the parallel race is fine — old code keeps working
+#   on the new schema. For schema-mutating migrations (renames, drops, NOT NULL
+#   without default), gate the merge on this workflow finishing first OR mark the
+#   migration as backwards-incompatible in the PR description.
+
+name: Deploy migrations
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+
+# One-at-a-time. Two pushes-to-main back-to-back must serialize: parallel db push
+# on the same project surfaces as race conditions in the migration history table.
+concurrency:
+  group: deploy-migrations-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Apply migrations to linked Supabase project
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link + push
+        # SUPABASE_ACCESS_TOKEN: personal access token from
+        #   https://supabase.com/dashboard/account/tokens
+        # SUPABASE_DB_PASSWORD: project DB password from
+        #   Settings → Database → Connection string
+        # SUPABASE_PROJECT_REF: GH Variable (not Secret — public value), the
+        #   project ref shown in dashboard URLs / SUPABASE_URL.
+        # All three must be configured before this workflow can run; /ak-new-project
+        # Step 5 lists them under "Migration auto-deploy workflow" in the secrets
+        # group + the Variables sub-step.
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          supabase link --project-ref ${{ vars.SUPABASE_PROJECT_REF }}
+          supabase db push --include-roles
