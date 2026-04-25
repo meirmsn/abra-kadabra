@@ -83,7 +83,7 @@
 │  │   5.3      green → tick PR checkboxes + preview URL              │   │
 │  │   5.4-5.5  fail  → fix loop (max 3) → @mention if stuck          │   │
 │  │   5.6      green → remove PLAN.md Active row + append BUILD-LOG  │   │
-│  │   5.7      re-watch CI on the bookkeeping push, then advance     │   │
+│  │   5.7      re-watch CI after the 5.6 push, then advance          │   │
 │  └──────────────────────────────────────────────────────────────────┘   │
 │                    │                                                    │
 │  ┌──────────────────────────────────────────────────────────────────┐   │

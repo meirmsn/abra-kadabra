@@ -252,6 +252,10 @@ SUPABASE_URL=https://<project-ref>.supabase.co
 SUPABASE_ANON_KEY=<publishable-key>
 SUPABASE_SERVICE_ROLE_KEY=<secret-key>
 SUPABASE_ACCESS_TOKEN=<personal-access-token>
+SUPABASE_DB_PASSWORD=<project-db-password>
+
+# Anthropic (if using Claude in edge functions)
+ANTHROPIC_API_KEY=<api-key>
 
 # Sentry
 SENTRY_DSN=https://<key>@o<org-id>.ingest.sentry.io/<project-id>
@@ -283,6 +287,12 @@ Where to find each:
 - Vercel: `vercel.com/account/tokens`
 - Supabase URL + keys: Project Settings → API.
 - Supabase access token: `supabase.com/dashboard/account/tokens`
+- Supabase DB password: Project Settings → Database → Connection string (the password
+  shown when you copy a connection string). Used by the migration auto-deploy workflow
+  to authenticate `supabase db push` non-interactively.
+- Anthropic API key: console.anthropic.com → Settings → API Keys. Required only if the
+  project's edge functions call Claude. Slow-job CI integration tests will fail loudly
+  without it (per the project's own pre-merge actions list).
 - Sentry DSN: Project Settings → Client Keys. Auth token: Org Settings → Auth Tokens.
 - PostHog: Project Settings → Project API key
 - NTFY_URL: one-time per user. Generate a topic: `openssl rand -hex 32` (ntfy caps topics at 64 chars; 64 hex = exactly 64).
@@ -294,11 +304,11 @@ Where to find each:
 
 Go to repo on github.com → **Settings** → **Secrets and variables** → **Actions**.
 
-**Secrets** tab → **Repository secrets**:
+**Secrets** tab → **Repository secrets**. All values come from `.devcontainer/.env`. Group by which workflow consumes them (so missing entries surface as a workflow failure, not a silent skip):
 
-- `VERCEL_TOKEN`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `NEXT_PUBLIC_POSTHOG_KEY`
-
-All values come from `.devcontainer/.env`.
+- **Front-end + fast-job CI baseline**: `VERCEL_TOKEN`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `NEXT_PUBLIC_POSTHOG_KEY`
+- **Slow-job CI** (integration tests + edge-function deploy proof): `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY` (only if edge functions call Claude — slow-job will fail loudly without it)
+- **Migration auto-deploy workflow** (`.github/workflows/deploy-migrations.yml`, applies migrations to prod on push:main when `supabase/migrations/**` changes): `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`. Without these, the workflow fails at link/push and prod schema goes stale silently — same failure mode as no auto-deploy at all, just noisier.
 
 Note: `PRODUCTION_URL` is a **Variable** (not a Secret) and is added later in Step 13 after the Vercel domain is known.
 
@@ -319,8 +329,8 @@ After rebuild, verify env vars:
 python3 -c "
 import os
 keys = ['VERCEL_TOKEN','SUPABASE_URL','SUPABASE_ANON_KEY','SUPABASE_SERVICE_ROLE_KEY',
-        'SUPABASE_ACCESS_TOKEN','SENTRY_DSN','SENTRY_AUTH_TOKEN',
-        'NEXT_PUBLIC_POSTHOG_KEY','GITHUB_TOKEN']
+        'SUPABASE_ACCESS_TOKEN','SUPABASE_DB_PASSWORD','ANTHROPIC_API_KEY',
+        'SENTRY_DSN','SENTRY_AUTH_TOKEN','NEXT_PUBLIC_POSTHOG_KEY','GITHUB_TOKEN']
 for k in keys:
     v = os.environ.get(k, '')
     status = f'SET (len={len(v)})' if v else 'MISSING'
