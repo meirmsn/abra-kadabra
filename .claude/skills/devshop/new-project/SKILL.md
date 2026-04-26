@@ -386,7 +386,19 @@ the blast-radius table in § Security Posture tells you what an attacker can do)
 ### § Security Posture
 
 Read once after Step 5; refer back when rotating credentials or auditing CI surface
-changes. Three rules + a blast-radius table.
+changes. Three rules + three tables (surface matrix, blast-radius, rotation cadence) + the access-token-vs-service-role-key clarification.
+
+**Three surfaces, three reasons.**
+
+Every credential lives on one or more of these surfaces. The surface determines who consumes the value, who can see it, and what rotation looks like:
+
+1. **`.devcontainer/.env`** — the operator's local source-of-truth on their devcontainer. Read by the devcontainer at start; piped to Vercel via `vercel env add`; used by operator-side `gh` / `supabase` / `vercel` CLI invocations. Gitignored, read-protected by `.claude/settings.json`. Rotation = edit the file + rebuild devcontainer.
+2. **GH Variables/Secrets** — CI's source-of-truth. Injected as env vars into the GH Actions VM at job-start; never propagated to deployed artifacts. Variables are public values (anon keys, local-stack defaults, project URLs); Secrets are sensitive (DB password, account-wide tokens, sourcemap auth). Rotation = `gh secret set` / Variables UI.
+3. **Vercel env** — production runtime's source-of-truth. Set per-environment (Production/Preview/Development) via Vercel UI or `vercel env add` (Step 13); read at runtime by the deployed Next.js app. Independent of GH; the same name can have a different value than on the GH side (e.g., Vercel's `NEXT_PUBLIC_SUPABASE_URL` = prod, GH's `SUPABASE_URL` = local stack).
+
+A fourth implicit surface — **Supabase project's auto-injected env** — exists for deployed edge functions: Supabase's hosted edge runtime auto-provides `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` to every function at runtime. You never deploy these; the platform handles them.
+
+**Rule 1: CI never holds prod-grade Supabase credentials except three.**
 
 **Rule 1: CI never holds prod-grade Supabase credentials except three.**
 
@@ -441,6 +453,43 @@ unit test crashes loudly instead of silently mutating prod data.
 | `SENTRY_AUTH_TOKEN`         | Annually.                                                                        |
 | `VERCEL_TOKEN`              | Annually, or on team-member departure.                                           |
 | `ANTHROPIC_API_KEY`         | On suspected leak only — rate-limit caps the bleed.                              |
+
+**Surface matrix** — where each credential lives across the four surfaces:
+
+| Credential                    | `.devcontainer/.env` | GH Variable                 | GH Secret       | Vercel                                  | Supabase auto-inject (edge runtime) |
+| ----------------------------- | -------------------- | --------------------------- | --------------- | --------------------------------------- | ----------------------------------- |
+| `SUPABASE_PROD_URL`           | ✅ prod URL          | ✅ prod URL                 | —               | piped → `NEXT_PUBLIC_SUPABASE_URL`      | (auto)                              |
+| `SUPABASE_URL`                | (alias of PROD_URL)  | ✅ `http://127.0.0.1:54321` | —               | —                                       | (auto)                              |
+| `SUPABASE_PROD_ANON_KEY`      | ✅ prod anon         | —                           | —               | piped → `NEXT_PUBLIC_SUPABASE_ANON_KEY` | (auto)                              |
+| `SUPABASE_ANON_KEY`           | —                    | ✅ local-stack default JWT  | —               | —                                       | (auto)                              |
+| `SUPABASE_SERVICE_ROLE_KEY`   | ✅ local-stack JWT   | ✅ local-stack default JWT  | —               | —                                       | ✅ prod service-role (auto)         |
+| `SUPABASE_DB_PASSWORD`        | ✅ prod              | —                           | ✅ prod         | —                                       | —                                   |
+| `SUPABASE_ACCESS_TOKEN`       | ✅ operator's        | —                           | ✅              | —                                       | —                                   |
+| `ANTHROPIC_API_KEY`           | ✅ operator's        | —                           | ✅              | —                                       | (set in Supabase project secrets)   |
+| `NEXT_PUBLIC_POSTHOG_KEY`     | ✅                   | ✅                          | —               | ✅                                      | —                                   |
+| `SENTRY_DSN`                  | ✅                   | —                           | ✅              | piped → `NEXT_PUBLIC_SENTRY_DSN`        | —                                   |
+| `SENTRY_AUTH_TOKEN`           | ✅                   | —                           | ✅              | ✅ (build env, Preview + Production)    | —                                   |
+| `VERCEL_TOKEN`                | ✅                   | —                           | ✅              | —                                       | —                                   |
+| `GITHUB_TOKEN` (operator PAT) | ✅                   | —                           | (auto-provided) | —                                       | —                                   |
+| `NTFY_URL`                    | ✅                   | —                           | —               | —                                       | —                                   |
+| `DEVCONTAINER_ROOT_PASSWORD`  | ✅                   | —                           | —               | —                                       | —                                   |
+
+**Reading the matrix:** every row's checkmarks tell you "where this value lives." Most credentials live on two surfaces (operator local + one runtime); the Supabase URL/anon pair is the only one with **different values for the same name** across surfaces (`SUPABASE_URL` Variable on GH = local stack; `NEXT_PUBLIC_SUPABASE_URL` on Vercel = prod). That's not a bug — that's the structural defense the cleanup makes explicit. Don't reuse a value across surfaces without checking which side you're on.
+
+**`SUPABASE_ACCESS_TOKEN` vs `SUPABASE_SERVICE_ROLE_KEY` — easily confused, very different**:
+
+|                     | `SUPABASE_SERVICE_ROLE_KEY`                                                         | `SUPABASE_ACCESS_TOKEN`                                                                                |
+| ------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| **What it is**      | JWT signed by **one project's** signing secret, with `role=service_role` in payload | Opaque bearer token tied to **your supabase.com user account**                                         |
+| **Where it lives**  | Project Settings → API → `service_role` (per-project)                               | supabase.com/dashboard/account/tokens (per-account)                                                    |
+| **API it hits**     | Project's data plane: `<ref>.supabase.co/rest/v1/...` + `/auth/v1/...`              | Management API: `api.supabase.com/v1/projects/...`                                                     |
+| **What it can do**  | Read/write any table in **that one project's** DB, bypassing RLS                    | List, create, link, configure, **delete** any project on your account; change settings; pause projects |
+| **Used by**         | Edge functions; CI integration tests against local stack; ad-hoc REST scripts       | The `supabase` CLI: `link`, `functions deploy`, `projects list`, `db diff`, etc.                       |
+| **Blast if leaked** | Full data-plane admin on **one project**                                            | Account-wide control: every project, including deletion. Strictly worse.                               |
+
+Common confusion: **`supabase db push` uses neither.** It opens a direct Postgres connection authenticated by `SUPABASE_DB_PASSWORD`; ACCESS_TOKEN is only used by the preceding `supabase link` step to identify the project, and SERVICE_ROLE_KEY isn't involved at all (data-plane JWT vs Postgres-protocol auth). So `deploy-migrations.yml` consumes both ACCESS_TOKEN and DB_PASSWORD; SERVICE_ROLE_KEY isn't needed.
+
+**Mental shorthand**: service_role = "admin of this DB" (data plane); access_token = "owner of these projects" (control plane). Leak service_role → one project's data is gone. Leak access_token → your whole Supabase account is gone.
 
 ### Step 6: [HUMAN] Add firewall domains
 
@@ -588,7 +637,31 @@ pnpm add -D -w vercel
 pnpm exec vercel link --yes --project <project-name> --token $VERCEL_TOKEN
 ```
 
-Pipe env vars with `--value` flag (Vercel CLI v50+).
+**Pipe env vars to all three Vercel environments** (Preview / Development / Production). Vercel's runtime needs `NEXT_PUBLIC_*` values to dial prod Supabase + PostHog + Sentry — this is a different surface from CI's GH Variables (which point at the local stack). See § Security Posture for the surface-vs-credential matrix.
+
+```bash
+# All five vars below get the same value across all three environments.
+# `--value` requires Vercel CLI v50+ (pinned in template's package.json).
+for env in production preview development; do
+  pnpm exec vercel env add NEXT_PUBLIC_SUPABASE_URL "$env" --value "$SUPABASE_PROD_URL" --token $VERCEL_TOKEN --yes
+  pnpm exec vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY "$env" --value "$SUPABASE_PROD_ANON_KEY" --token $VERCEL_TOKEN --yes
+  pnpm exec vercel env add NEXT_PUBLIC_POSTHOG_KEY "$env" --value "$NEXT_PUBLIC_POSTHOG_KEY" --token $VERCEL_TOKEN --yes
+  pnpm exec vercel env add NEXT_PUBLIC_SENTRY_DSN "$env" --value "$SENTRY_DSN" --token $VERCEL_TOKEN --yes
+done
+
+# SENTRY_AUTH_TOKEN goes only to environments that build (Preview + Production);
+# Development doesn't run a sourcemap upload.
+for env in production preview; do
+  pnpm exec vercel env add SENTRY_AUTH_TOKEN "$env" --value "$SENTRY_AUTH_TOKEN" --token $VERCEL_TOKEN --yes
+done
+
+# Verify
+pnpm exec vercel env ls --token $VERCEL_TOKEN
+```
+
+The `for env in production preview development` loop is intentional: the front-end behaves the same way in all three environments (always dials prod Supabase). If you ever want a preview-only or dev-only override (e.g., a staging Supabase project), set that single var explicitly and remove it from the loop.
+
+**Don't pipe**: `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_PASSWORD`, `SUPABASE_ACCESS_TOKEN`, `ANTHROPIC_API_KEY`. None of these belong in the Vercel runtime — they're either auto-injected by Supabase's edge runtime (service-role) or only consumed by CI/operator-side tooling.
 
 **[HUMAN]** Add `PRODUCTION_URL` as a GitHub **Variable** (not Secret) once the Vercel
 domain is known. Value is the Vercel production domain (e.g. `https://<project>-<hash>.vercel.app`
