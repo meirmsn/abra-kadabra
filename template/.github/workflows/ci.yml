@@ -34,15 +34,31 @@ jobs:
       - run: pnpm turbo run lint typecheck test:unit build
 
     env:
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-      NEXT_PUBLIC_POSTHOG_KEY: ${{ secrets.NEXT_PUBLIC_POSTHOG_KEY }}
+      # Public values resolved from GH Variables (post-security-posture-cleanup):
+      # SUPABASE_URL = http://127.0.0.1:54321 (CI local stack — fast-job doesn't dial,
+      #   build just needs the env var present).
+      # SUPABASE_ANON_KEY = published local-stack default JWT.
+      # NEXT_PUBLIC_POSTHOG_KEY = public by NEXT_PUBLIC_* convention.
+      # See /ak-new-project § Security Posture for the rationale.
+      SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_POSTHOG_KEY: ${{ vars.NEXT_PUBLIC_POSTHOG_KEY }}
       SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
   # Slow job — runs only on PRs to main, after fast passes.
   # Phase 1c: add supabase start + integration tests + type drift check
   # Phase 1g: add Playwright E2E
+  #
+  # When uncommenting: source SUPABASE_URL / SUPABASE_ANON_KEY /
+  # SUPABASE_SERVICE_ROLE_KEY from the live local-stack via
+  # `supabase status -o env >> $GITHUB_ENV` (after `supabase start`); these
+  # match the GH Variables by design (published local-stack defaults). Add
+  # a defense-in-depth step that decodes $SERVICE_ROLE_KEY and asserts
+  # `iss == "supabase-demo"` + `role == "service_role"` — catches a
+  # misconfiguration where someone wires `secrets.SUPABASE_SERVICE_ROLE_KEY`
+  # (which would carry the prod admin key) instead of the env var derived
+  # from the local stack.
   # slow:
   #   if: github.event_name == 'pull_request'
   #   runs-on: ubuntu-latest
@@ -50,7 +66,7 @@ jobs:
   #   steps:
   #     - uses: actions/checkout@v4
   #   env:
-  #     SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-  #     SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-  #     SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-  #     ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  #     SUPABASE_URL: ${{ vars.SUPABASE_URL }}                    # local stack
+  #     SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}          # local stack
+  #     SUPABASE_SERVICE_ROLE_KEY: ${{ vars.SUPABASE_SERVICE_ROLE_KEY }}  # local stack
+  #     ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}       # genuine secret

@@ -237,10 +237,11 @@ final locations. Customize them in-place:
 
 Fill `.devcontainer/.env` (already gitignored, read-protected by `.claude/settings.json`).
 
-The file holds the operator's local source-of-truth values. Two non-obvious things:
+The file holds the operator's local source-of-truth values. Three non-obvious things:
 
 - `SUPABASE_PROD_URL` is the prod Supabase URL — used by the auto-deploy workflows + piped to Vercel as `NEXT_PUBLIC_SUPABASE_URL`. The variable name says "PROD" so it's never confused with CI's local-stack `SUPABASE_URL` (Step 5).
-- `SUPABASE_SERVICE_ROLE_KEY` is the **prod** service-role key — full DB admin via REST, no RLS. **Never put it in CI** (Step 5 uses the local-stack default instead). See § Security Posture for blast-radius detail.
+- `SUPABASE_SERVICE_ROLE_KEY` is the **local-stack default JWT** — NOT the prod service-role key. Local edge function dev (`supabase functions serve`) needs a service-role JWT; the local stack ships one that's safe to persist (admin on a sandbox the operator's `supabase start` spins up). Get the value by running `supabase start` in any devcontainer and copying the `service_role key:` line from the output (or `supabase status -o env | grep SERVICE_ROLE_KEY`). The same JWT ships with every Supabase install — it's the published default. The **prod** service-role key (full DB admin via REST, no RLS) MUST NOT live on disk in this file — paste it temporarily from your password manager when an ad-hoc prod admin operation genuinely needs it, then clear. See § Security Posture for blast-radius detail.
+- `SUPABASE_DB_PASSWORD` IS the prod DB password — not a local-stack equivalent. The auto-deploy migrations workflow needs it. Justified persistence because rotating it on every devcontainer rebuild would be noisy; mitigate via `.devcontainer/.env`'s gitignore + `.claude/settings.json` Read-deny rules + root-owned filesystem perms.
 
 ```
 # Devcontainer
@@ -252,12 +253,12 @@ GITHUB_TOKEN=<fine-grained-pat>
 # Vercel
 VERCEL_TOKEN=<personal-access-token>
 
-# Supabase prod (if using)
+# Supabase
 SUPABASE_PROD_URL=https://<project-ref>.supabase.co
-SUPABASE_PROD_ANON_KEY=<publishable-key>
-SUPABASE_SERVICE_ROLE_KEY=<secret-key — prod admin, never in CI>
+SUPABASE_PROD_ANON_KEY=<publishable-key — prod>
+SUPABASE_SERVICE_ROLE_KEY=<local-stack default JWT — `supabase start` output's `service_role key:` line>
 SUPABASE_ACCESS_TOKEN=<personal-access-token — account-wide>
-SUPABASE_DB_PASSWORD=<project-db-password>
+SUPABASE_DB_PASSWORD=<prod-db-password>
 
 # Anthropic (if using Claude in edge functions)
 ANTHROPIC_API_KEY=<api-key>
