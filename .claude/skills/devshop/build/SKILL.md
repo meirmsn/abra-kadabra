@@ -589,11 +589,10 @@ while CI is failing and FIX_ATTEMPTS < MAX_ATTEMPTS:
   11. Go to 5.2 (watch CI again)
 ```
 
-**Prerequisites for the artifact-pull path** (one-time per project):
+**Notes on the artifact-pull path:**
 
-- `.devcontainer/init-firewall.sh` allowlists `productionresultssa*.blob.core.windows.net` (Azure Blob storage where GH Actions stashes workflow artifacts). Without this, `gh run download` fails with "no route to host" from inside the devcontainer. See `kit/ROADMAP.md § v0 § CI artifact-host firewall allowlist`.
-- CI workflow uploads the relevant artifact on failure. Playwright's default recipe (`actions/upload-artifact@v4` with `if: failure()`) covers it; other test frameworks may need equivalent wiring.
-- `playwright show-trace` requires a local Playwright install + display; the fallback of `error-context.md` + PNGs + unzipped `trace.zip` DOM snapshots works without it.
+- Inspect `error-context.md` + PNG screenshots + unzipped `trace.zip` (DOM snapshots + network logs) directly. `playwright show-trace` is optional (needs a local display); the inline files are sufficient for evidence.
+- Whatever the test framework, attempt #2 pulls every artifact the failed run produced — `gh api .../artifacts` enumerates them. If the artifact you need isn't there, that's a CI-config bug worth fixing in this same PR (e.g., the workflow forgot `actions/upload-artifact@v4` with `if: failure()`).
 
 ### 5.5: Escalation after max attempts
 
