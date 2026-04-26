@@ -294,9 +294,15 @@ Where to find each:
 - `SUPABASE_PROD_URL` + `SUPABASE_PROD_ANON_KEY`: Project Settings → API on the prod
   Supabase project. Both are public (baked into the Vercel front-end bundle); the
   `_PROD_` infix is naming hygiene, not a sensitivity claim.
-- `SUPABASE_SERVICE_ROLE_KEY`: Project Settings → API → `service_role` secret. **This is
-  the prod admin key — never put it in GH Secrets or any CI surface.** See § Security
-  Posture for why CI uses the local-stack default instead.
+- `SUPABASE_SERVICE_ROLE_KEY`: **NOT the prod admin key.** Run `supabase start` in any
+  devcontainer (or locally) and copy the `service_role key:` line from the output.
+  That value is the published local-stack default JWT — same string across every
+  Supabase install, signed with a hardcoded secret in supabase-cli, admin only on
+  the ephemeral local stack. The prod admin key (Project Settings → API → `service_role`
+  on supabase.com) lives ONLY in two places: (1) Supabase's project itself, where it's
+  auto-injected into the deployed edge runtime, and (2) your password manager for
+  rare ad-hoc operator-side admin operations. Never persist the prod key on disk
+  here. See § Security Posture for blast-radius detail.
 - Supabase access token: `supabase.com/dashboard/account/tokens`. Account-wide blast
   radius — see § Security Posture for the rotation cadence.
 - Supabase DB password: Project Settings → Database → Connection string (the password
