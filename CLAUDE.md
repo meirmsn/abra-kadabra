@@ -138,6 +138,19 @@ See `kit/docs/guide/architecture.md` for the full model, or `kit/docs/MODEL.md` 
 - **Minor issue** (< 5 min to fix) — fix in current task's commit, note in commit message
 - **Minor issue** (> 5 min to fix) — add to `TODOS.md` with `[minor]` tag, continue
 
+### Closing TODO / ROADMAP entries when a fix ships
+
+The same PR that ships a fix MUST close the tracker entries for it — otherwise stale entries get cited as "still pending" in future sessions and recreate the false belief the fix removed. Three things, all in one PR:
+
+1. **Delete the entry** from `kit/ROADMAP.md` / `kit/TODOS.md` / project `TODOS.md`. No "shipped 2026-04-25" footnote, no strikethrough — just delete. Git log + the PR description are the audit trail.
+2. **Rewrite docs that described the prior constraint** from conditional prose to imperative present tense:
+   - Anti-pattern: _"Without X, Y fails. See ROADMAP § Z."_ — reads as a precondition the reader must verify.
+   - Replacement: _"Do Y."_ / _"Y works."_ — the capability is ambient now, treat it that way.
+   - The "must be true / verify before assuming blocked" hedge is a pre-fix artifact; strip it.
+3. **Unwind every cross-reference** to the deleted entry in the same PR. An orphan citation in some other doc respawns the false belief in any session that reads it.
+
+Future sessions trust the docs. Trust is only earned by keeping them honest at fix-ship time. Surfaced 2026-04-26: a `Without this, gh run download fails` line in `/ak-build` SKILL.md survived a month past the firewall fix shipping; a session read it as "still blocked" and skipped artifact-pull on a CI failure that had artifacts waiting.
+
 ### Naming Convention
 
 - `abra-kadabra` = brand name (devshop repo, doc titles). Never used in file names or CLI commands.
