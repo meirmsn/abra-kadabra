@@ -324,6 +324,114 @@ Holding to v0 (vs v1) because: (a) lalista is the first adopter and is mid-rollo
 
 ---
 
+### Browse binary + Playwright browser availability in project devcontainers
+
+Surfaced 2026-04-26 while attempting to run `/qa-only` + `/design-review` against lalista's PR 18 preview URL from the project devcontainer. The skills produced no audit because **the browse binary is broken** (in the project install) AND **Playwright browsers can't be downloaded** (firewall blocks the CDN).
+
+**Concrete failure sequence**:
+
+1. `gstack/browse/dist/browse` in lalista's `/workspace/.claude/skills/` errors with:
+
+   ```
+   TypeError: Attempted to assign to readonly property.
+       at /workspace/.claude/skills/gstack/browse/dist/bun-polyfill.cjs:16:1
+   ```
+
+   The committed `bun-polyfill.cjs` assigns to `globalThis.Bun` unconditionally, but a recent Bun version made `globalThis.Bun` non-writable. The cached binary was built against an older Bun.
+
+2. The devshop's own `/devshop/.claude/skills/gstack/browse/dist/browse` (built from the same source) **does** load — different Bun-runtime version path inside the binary, apparently. So it's not a source-level issue, it's a stale build of the workspace copy.
+
+3. Trying to use the working devshop binary, Playwright fails because no browsers are cached (`~/.cache/ms-playwright/` empty) and the Chromium env-var fallback isn't honored by Playwright's launch path:
+
+   ```
+   ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+   ║ Please run the following command to download new browsers:              ║
+   ║     npx playwright install                                              ║
+   ```
+
+4. Trying to install browsers (`pnpm --filter @lalista/web exec playwright install chromium`) fails because the devcontainer firewall blocks Playwright's CDN:
+   ```
+   Failed to install browsers
+   Error: Failed to download FFmpeg (playwright ffmpeg v1011)
+   Error: Download failure, code=1
+   ```
+
+The combined effect: project devcontainers can't run `/qa-only`, `/design-review`, `/canary`, `/benchmark`, or any other browse-dependent gstack skill — even though the underlying browser tooling is partially present.
+
+**Why each layer is broken** (so the fix targets the right one):
+
+- **Layer 1 (browse binary stale on workspace install)**: lalista's gstack install dates from a build that targeted a different Bun runtime than what's currently on `$PATH`. Per the project memory's "virtiofs Build Workaround", rebuilding from `/tmp` (because virtiofs blocks Bun's `--compile` rename) is the sanctioned recipe — but it requires the source tree, which lives at `/devshop/.claude/skills/gstack/browse/src/`, not in the workspace.
+- **Layer 2 (Playwright browsers not cached)**: lalista's devcontainer Dockerfile is older than the 2026-04-23 fix that apt-installs Chromium directly + sets `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`. The env var IS set on this devcontainer (per `echo $PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` returning `/usr/bin/chromium`) but Playwright's launch path checks the cache dir before honoring the override, so an empty cache dir causes the "please install" message even when Chromium is system-installed.
+- **Layer 3 (firewall blocks Playwright CDN)**: the firewall allowlist in `template/.devcontainer/init-firewall.sh` doesn't include `playwright.azureedge.net` / `cdn.playwright.dev` (or whatever current Playwright CDN host is). This is intentional for the apt-baked path (no need for CDN) but blocks the fallback `playwright install chromium` flow.
+
+**Shape of the fix** — three coordinated changes:
+
+1. **Source the rebuild from devshop, not workspace**:
+   - Update the `gstack Setup — virtiofs Build Workaround` memory entry to use `/devshop/.claude/skills/gstack/browse/src/cli.ts` as the source path instead of `/workspace/.claude/skills/gstack/browse/src/` (which doesn't exist in project devcontainers — gstack's source only ships with the devshop install, the workspace gets dist binaries only).
+   - Optionally: ship a one-line wrapper script `kit/scripts/rebuild-browse.sh` that runs the rebuild + copies binaries back, so the recipe doesn't have to live in operator memory.
+
+2. **Make the Chromium-env-var fallback actually work**:
+   - Patch the gstack browse binary's launch path (or document the workaround) so when `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` is set AND `~/.cache/ms-playwright/` is empty, Playwright uses the env-var path instead of demanding the cache. The lalista CLAUDE.md gotcha at `2026-04-23` claims this works — verify it does, or fix it.
+   - Alternatively: pre-populate `~/.cache/ms-playwright/` with stub directories that satisfy Playwright's existence check, pointing at the apt-installed Chromium. Cheap; worth investigating.
+
+3. **Cleanup migration recipe for pre-2026-04-23 project devcontainers**:
+   - Add a one-off section to `/ak-new-project § Migration: existing project to current credential layout` (or a new sibling section) describing how to bring an older project devcontainer up to the apt-baked Chromium standard. Steps: bring `Dockerfile` in line with the template (`apt-get install chromium chromium-driver`), add `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium` to `containerEnv` in `devcontainer.json`, rebuild devcontainer.
+   - Lalista is the canonical first adopter; once shipped, remove the operator-side TODO from `lalista/TODOS.md`.
+
+**Proposed fallback-fix steps for an operator hitting this today** (to embed in the cleanup section + add to skill error messages):
+
+```bash
+# 1. Rebuild lalista's browse binary from devshop's source (workspace is virtiofs)
+cd /tmp
+bun build --compile /devshop/.claude/skills/gstack/browse/src/cli.ts --outfile /tmp/browse-bin
+cp /tmp/browse-bin /workspace/.claude/skills/gstack/browse/dist/browse
+chmod +x /workspace/.claude/skills/gstack/browse/dist/browse
+cd /workspace/.claude/skills/gstack && bash browse/scripts/build-node-server.sh   # rebuilds server-node.mjs
+
+# 2. (If apt-baked Chromium isn't already there) install via apt
+sudo apt-get update && sudo apt-get install -y chromium chromium-driver
+echo 'export PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium' >> ~/.bashrc
+
+# 3. Manually populate Playwright cache with a minimal stub so the launch path is happy
+# (or add the Playwright CDN to the firewall allowlist as a temporary fallback)
+mkdir -p ~/.cache/ms-playwright/chromium-1140/chrome-linux
+ln -sf /usr/bin/chromium ~/.cache/ms-playwright/chromium-1140/chrome-linux/chrome
+```
+
+The exact `chromium-1140` directory name varies by Playwright version (current as of 2026-04-26); detect from `node_modules/.pnpm/playwright-core@*/.../packages.json`.
+
+**Why v0**:
+
+The audit-from-devcontainer story is broken for any project that scaffolded before 2026-04-23 (the apt-bake fix landed) AND hits the browse binary bun-runtime drift. New scaffolds get the apt-bake but still inherit the browse binary fragility. Without this fix:
+
+- `/ak-pre-ship` Phase 0 preflight check claims to verify browser availability — and currently passes when in reality the workspace browse binary is stale, masking the issue until a skill actually tries to drive a browser.
+- `/qa`, `/qa-only`, `/design-review`, `/canary`, `/benchmark` are all blocked from working in the devcontainer. Operator either fixes manually (yak-shave) or runs audits from outside the container (loses gstack integration).
+- The PR-18-style "visual audit + live QA walkthrough" checkboxes become non-actionable from inside the container.
+
+It's v0 because every project hits it; v1 because it's not strictly blocking adoption (operators can fall back to manual visual checks). Calling it v0 because the cost/benefit of fixing it once is much better than the cost of every project's operator yak-shaving the same path independently.
+
+**Trigger**:
+
+- Lalista's `/qa-only` attempt on PR 18 (2026-04-26) — concrete case study + the operator (current user) is mid-iteration, so the fix payoff is immediate.
+- OR: a second project's first `/ak-pre-ship` run.
+
+**Cross-ref**:
+
+- Project memory's `gstack Setup — virtiofs Build Workaround` — the source-rebuild recipe, currently pointing at `/workspace/.../src/` (doesn't exist in project devcontainers); needs update.
+- `/devshop/CLAUDE.md § Known Footguns` 2026-04-23 entry: "Chromium is exempt from this footgun as of 2026-04-23 — `template/.devcontainer/Dockerfile` apt-installs `chromium + chromium-driver`." Lalista predates this so doesn't inherit.
+- `template/.devcontainer/Dockerfile` and `template/.devcontainer/devcontainer.json` — the canonical apt-bake + env-var pattern.
+- `/devshop/.claude/skills/gstack/browse/src/cli.ts` — source path for the rebuild.
+- `/workspace/.claude/skills/gstack/browse/dist/{browse,bun-polyfill.cjs,server-node.mjs}` — files that need replacing on lalista.
+- Lalista PR 18 conversation 2026-04-26 — the surfacing context.
+
+**Cost/risk**:
+
+- Implementation: ~3-5 focused hours (debug Playwright launch path, write the Chromium-env-var stub, write the migration script, test on lalista, doc cascade across `/ak-new-project § Migration` + the project memory entry + adversarial reviews).
+- Risk: low — all changes are operator-side tooling, no prod credential surface, no schema implications.
+- Benefit: unblocks the entire gstack browser-skill suite from project devcontainers; closes the "checked at preflight, broken in practice" gap that's currently masking the issue; makes `/ak-pre-ship`'s browser gates actually verify state instead of trusting cached binaries.
+
+---
+
 ### Pre-commit test-presence hook (project repo)
 
 Today `check-test-coverage.sh` runs only in the devshop repo itself — it flags `kit/scripts/*.sh` additions/modifications that lack a `.bats` test. Project repos (lalista, every future project) have no equivalent: new `.ts`/`.tsx` files under `apps/*/src/` + `packages/*/src/` can land without a paired `.test.ts` and the pre-commit gate says nothing. `/ak-test-review` catches this at ship time (late — feature already built), and adversarial reviewers can't enforce test _existence_ because no machine-readable invariant exists.
