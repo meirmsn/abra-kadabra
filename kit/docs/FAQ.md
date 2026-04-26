@@ -155,6 +155,8 @@ Each choice optimizes for a solo dev using Claude Code in a devcontainer:
 - **`CLAUDE.md`** (devshop repo root) — devshop conventions: confidence calibration, non-negotiables, workflow, hooks. Same across all projects.
 - **`CLAUDE.md`** (project root) — project-specific context: stack, paths, env vars, deploy config. Tracked in the project repo.
 
-Claude Code auto-loads both because `/devshop` is configured as an `additionalDirectories` entry in `settings.json`. No assembly or generation step needed.
+Claude Code auto-loads both: the project's via natural CLAUDE.md discovery in the workspace; the devshop's via the SessionStart hook, which injects `/devshop/CLAUDE.md` into project sessions at runtime (workaround for `anthropics/claude-code#22583` — `additionalDirectories` CLAUDE.md isn't loaded by Claude Code natively). No assembly or generation step needed; the file copies stay independent.
 
-Edit devshop conventions in the devshop repo's `CLAUDE.md`. Edit project context in the project's `CLAUDE.md`.
+**Design principle: project `CLAUDE.md` is self-sufficient for public contributors.** Because the SessionStart hook delivers devshop context at runtime, the project's committed `CLAUDE.md` does **not** need to mention devshop conventions, point at `/devshop/...` paths, or otherwise reference the devshop side. A public contributor cloning the project on GitHub sees only project-relevant content (stack, paths, env vars, gotchas, deploy config) — nothing pointing into the private `/devshop` bind mount they can't navigate. The hook bridges the two layers at runtime; the file does not. When tempted to add a `/devshop/CLAUDE.md § X` cross-reference to project `CLAUDE.md`, the rule is: **don't**. Either lift the convention into project-side guidance (if it applies project-side) or trust the hook.
+
+Edit devshop conventions in the devshop repo's `CLAUDE.md`. Edit project context in the project's `CLAUDE.md`. The hook handles the rest. See `/devshop/CLAUDE.md § Session Start` for the mechanism and `/ak-new-project § Step 18` for what goes in (and what does NOT go in) project `CLAUDE.md` at scaffold time.

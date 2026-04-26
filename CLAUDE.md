@@ -31,6 +31,8 @@ A `SessionStart` hook (on `startup` and `clear`) injects context that depends on
 
 The hook also reads init progress from `/devshop/kit/notes/projects/<name>.md` if bootstrapping is in progress. No manual reads needed — the hook runs `kit/scripts/session-start.sh`.
 
+**Design principle: project `CLAUDE.md` is self-sufficient for public contributors.** Because the SessionStart hook delivers `/devshop/CLAUDE.md` to project sessions at runtime, the project's own committed `CLAUDE.md` does NOT need to mention devshop conventions, point at `/devshop/...` paths, or otherwise reference the devshop side. Project `CLAUDE.md` is **project directives only** — what a public contributor cloning the repo on GitHub sees, with no broken pointers into the private `/devshop` bind mount. The hook bridges the two layers at runtime; the file does not. When tempted to add a `/devshop/CLAUDE.md § X` cross-reference to project `CLAUDE.md`, the rule is: **don't**. Either (a) lift the convention into project-side guidance if it applies project-side, or (b) trust the hook to deliver the devshop context. Skill files (`/ak-new-project § Step 18`) restate this principle at scaffold time so each new project starts in the right shape.
+
 If the user asks you to implement, fix, or continue work (not just answer a question), run `/ak-status` first — it reads `PLAN.md` (forward), `BUILD-LOG.md` (backward), the active branch's `specs/<name>/tasks.md`, and git state to produce a structured briefing plus a "Next up" synthesis when phase is `between features`.
 
 ### Philosophy

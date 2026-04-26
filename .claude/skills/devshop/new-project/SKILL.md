@@ -879,8 +879,53 @@ See `kit/docs/guide/conventions.md § Supabase Hardening Defaults` for the full 
 
 ### Step 18: Create project CLAUDE.md
 
-Project-specific Claude guidance. Tracked in git. Devshop conventions auto-loaded
-from devshop repo via `additionalDirectories`.
+Project-specific Claude guidance. Tracked in git. Devshop conventions are NOT in
+this file — they reach Claude sessions at runtime via the SessionStart hook
+(per `/devshop/CLAUDE.md § Session Start`), which injects `/devshop/CLAUDE.md`
+as ambient context whenever a project session starts.
+
+**Design principle: project `CLAUDE.md` is self-sufficient for public contributors.**
+A public contributor cloning the repo on GitHub sees only project-relevant content
+in `CLAUDE.md` — no `/devshop/...` paths (which point at a private bind mount the
+public repo can't see), no devshop conventions duplicated from the devshop side.
+The hook bridges the two layers at runtime; the file does not.
+
+What goes in project `CLAUDE.md`:
+
+- **Project description** — one-paragraph "what is this app, what stack, what's the
+  current migration target if any."
+- **Where Things Happen** — file-map pointers (auth lives in `lib/auth.ts`, schema
+  in `supabase/migrations/`, etc.). Grows as code is added; `/ak-implement` updates
+  it when introducing new paths.
+- **Gotchas** — non-obvious project-specific rules surfaced by shipping work
+  (e.g., "Tailwind v4 `@source` directive needed for `packages/ui/**`," "RLS-bypass
+  writes prefer table-level policy over service-role escalation"). Each gotcha
+  should stand on its own as project guidance — no devshop cross-refs needed.
+- **Stack** — one-line summary of frameworks/libs in use.
+- **Env Var Naming** — short reference table of base names and their per-surface
+  prefixes (e.g., `SUPABASE_URL` → `NEXT_PUBLIC_SUPABASE_URL` on Vercel). Detail
+  about the structural rationale lives in devshop docs and arrives via the hook;
+  this file is the at-a-glance shorthand.
+- **Migration Workflow** — short command reference.
+
+What does NOT go in project `CLAUDE.md`:
+
+- Devshop conventions (always-loaded via the hook from `/devshop/CLAUDE.md`)
+- `/devshop/...` paths (private bind mount; public contributors can't navigate them)
+- Cross-references to `kit/docs/guide/*.md` files (devshop-internal)
+- Skill names like `/ak-new-project` (devshop-internal)
+- The blast-radius table, surface matrix, or other devshop-side reference content
+  (lives in `/ak-new-project § Security Posture`; reaches Claude via the hook)
+
+When tempted to add a `/devshop/CLAUDE.md § X` cross-reference to project
+`CLAUDE.md`, the rule is: **don't**. Either lift the relevant convention into
+project-side guidance (if it applies project-side) or trust the SessionStart hook
+to deliver the devshop context.
+
+The template's `CLAUDE.md` skeleton starts in this shape; new projects scaffolded
+from the template inherit it. Existing projects that drifted (e.g., accumulated
+`/devshop/...` cross-refs over time) should clean up by stripping those refs back
+to project-only content. Lalista's PR 25 (2026-04-26) is the case study.
 
 ### Step 19: Enable doc enforcement hooks
 

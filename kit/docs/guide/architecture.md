@@ -143,8 +143,10 @@ Contributors who clone the project without abra-kadabra get a working repo:
 
 - `pnpm install && pnpm turbo run dev` works
 - `.devcontainer/` works (init-devshop.sh forwarder is a no-op without `/devshop`)
-- `CLAUDE.md` is already the standard name — works out of the box with Claude Code
+- `CLAUDE.md` is project-only by design (no `/devshop/...` paths, no devshop conventions duplicated) — works out of the box with Claude Code, points at nothing the public contributor can't see, reads as standard project documentation
 - No devshop skills, hooks, or quality gates — just standard development
+
+The "project CLAUDE.md is self-sufficient" property is structural — kept by the SessionStart hook delivering devshop context to project sessions at runtime instead of via file copy or sync. See `/devshop/CLAUDE.md § Session Start` for the mechanism, FAQ § "Why are there two CLAUDE files?" for the rationale, and `/ak-new-project § Step 18` for the operational what-goes-where checklist at scaffold time.
 
 ## Devshop Repo Layout
 
