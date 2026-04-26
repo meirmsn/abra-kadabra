@@ -182,9 +182,7 @@ Two questions decide where deferred work goes:
 
 TODO items can be scheduled into versions defined in their corresponding ROADMAP (e.g., `[v0.2]`, `[v2]`). Project files never reference devshop files.
 
-**When a roadmap item ships**: remove it from the roadmap entirely and log the completion in `BUILD-LOG.md`. Roadmaps only show what's ahead — `BUILD-LOG.md` is the record of what was done.
-
-**When closing a TODO / ROADMAP entry**: the same PR that ships the fix also (a) deletes the entry, (b) rewrites any docs that described the prior constraint from conditional preflight prose to imperative present tense, and (c) unwinds every cross-reference to the deleted entry. Stale entries cited as "still pending" in future sessions re-introduce the false belief the fix removed. See `/devshop/CLAUDE.md § Closing TODO / ROADMAP entries when a fix ships` for the full rule + a worked example. Devshop side has no BUILD-LOG, so git log + the PR description are the audit trail; project side keeps its existing BUILD-LOG.md flow.
+**When a roadmap item ships**: remove it from the roadmap entirely and log the completion in `BUILD-LOG.md`. Roadmaps only show what's ahead — `BUILD-LOG.md` is the record of what was done. The full closure protocol (delete entry, rewrite conditional prose to present tense, unwind cross-references) lives in `/devshop/CLAUDE.md § Closing TODO / ROADMAP entries when a fix ships` (always loaded) and `/ak-build § Phase 5.6` (loaded when the action fires).
 
 ---
 

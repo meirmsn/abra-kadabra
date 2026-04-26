@@ -13,6 +13,120 @@ Priority tiers:
 
 ## v0 — blocks next-project adoption
 
+### Audit `kit/docs/guide/conventions.md` → distribute operational copy into the skills that fire
+
+**Problem.** `kit/docs/guide/` (including `conventions.md`) is loaded **on demand only** — never at session start. Skills load their own `SKILL.md` content when invoked. So a convention placed only in `conventions.md` is a paper rule: it never enters my context unless I happen to grep for it. The session that surfaced this (2026-04-26) read `/ak-build` SKILL.md's "Without this, gh run download fails" prereq line, decided artifact-pull was blocked, and never opened `conventions.md` to find the routing rule that would have told it otherwise.
+
+**Tier model** (from the 2026-04-26 audit):
+
+| Tier | Content                                                                        | Loaded when                                |
+| ---- | ------------------------------------------------------------------------------ | ------------------------------------------ |
+| 1    | `/devshop/CLAUDE.md` (+ project `CLAUDE.md` per session via SessionStart hook) | Every session start                        |
+| 2    | Skill `SKILL.md` files                                                         | Only when the matching slash command fires |
+| 3    | `kit/docs/guide/**`, `kit/docs/MODEL.md`, `OVERVIEW.md`, `FAQ.md`              | Only when explicitly read or grep'd        |
+
+Operational rules belong in Tier 1 (cross-cutting principles) or Tier 2 (skill-specific actions). Tier 3 is the human-browseable encyclopedia + cross-reference index.
+
+**Audit (mapping each `conventions.md` section to its action skill, surfaced 2026-04-26):**
+
+| Section in `conventions.md`                                           | Where it actually fires                                                                 | Current state                               | Action                                                                                                                               |
+| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Metrics Lifecycle                                                     | `/ak-spec` (event-add gate at decision time), `/ak-build` Phase 0.2 (decisions preview) | Likely already in `/ak-spec`; verify        | Verify replication; remove from conventions.md if duplicated, OR keep conventions.md as reference + ensure skill copy is canonical   |
+| Events / Feature Flags taxonomy                                       | reference taxonomy (no specific skill)                                                  | Reference-only                              | Keep in conventions.md as Tier 3 reference                                                                                           |
+| TASKS.md Format                                                       | `/ak-implement` (writes the file)                                                       | Likely in `/ak-implement` SKILL.md; verify  | Verify; canonical home is the skill                                                                                                  |
+| SPEC.md Quality Checklist                                             | `/ak-spec`                                                                              | Likely in `/ak-spec` SKILL.md; verify       | Verify; canonical home is the skill                                                                                                  |
+| DESIGN.md as Contract (`design-conformance` (ak) gate)                | `/ak-pre-ship` Gate 3                                                                   | Likely in `/ak-pre-ship` SKILL.md; verify   | Verify; canonical home is the skill                                                                                                  |
+| Screenshot Routing                                                    | `/ak-pre-ship` (screenshot capture)                                                     | Likely in `/ak-pre-ship` SKILL.md; verify   | Verify; canonical home is the skill                                                                                                  |
+| Deploy Boundaries                                                     | `/ak-go-live`                                                                           | Possibly in `/ak-go-live` SKILL.md; verify  | Verify; canonical home is the skill                                                                                                  |
+| Supabase Hardening Defaults (incl. `ON DELETE on auth.users` rule)    | migration time (no dedicated skill)                                                     | Reference-only                              | Lift the principles to `/devshop/CLAUDE.md § Implementation Approach`; keep details in conventions.md as reference                   |
+| Confidence Calibration                                                | every decision the agent makes                                                          | Tier 3 only — paper rule                    | **Move to `/devshop/CLAUDE.md` (Tier 1)** — cross-cutting; affects every action                                                      |
+| TODO Protocol                                                         | every out-of-scope discovery                                                            | In CLAUDE.md ✓ + conventions.md (duplicate) | Drop conventions.md copy; CLAUDE.md is canonical                                                                                     |
+| Backlog Routing Guide                                                 | every TODO filing                                                                       | In CLAUDE.md (paraphrased) + conventions.md | Either lift the table verbatim into CLAUDE.md, or keep table in conventions.md and ensure CLAUDE.md cross-refs it                    |
+| Test Assertion Depth                                                  | `/ak-test-review`                                                                       | Likely in `/ak-test-review` SKILL.md ✓      | Verify; canonical home is the skill                                                                                                  |
+| Testing Lifecycle                                                     | `/ak-implement` (test-after-task discipline)                                            | Likely already there; verify                | Verify; canonical home is the skill                                                                                                  |
+| Kit Testing                                                           | bash test authoring (no dedicated skill)                                                | Reference-only                              | Keep in conventions.md as Tier 3 reference                                                                                           |
+| Non-Negotiables → Testing                                             | every commit                                                                            | Tier 3 only — but rule is cross-cutting     | **Lift to `/devshop/CLAUDE.md` § Non-Negotiables** (already exists there) — verify match + drop the conventions.md copy if redundant |
+| Non-Negotiables → Metrics / Responsive + Theme / PWA / Code Structure | per-action gates                                                                        | Skill-resident                              | Verify each is in the right gate's skill copy                                                                                        |
+
+**Why v0 — blocks next-project adoption:**
+
+The first project that scaffolds the devshop today inherits a guide-conventions tree that looks authoritative but isn't load-bearing. Their first `/ak-build` run reads SKILL.md (good) and `/devshop/CLAUDE.md` (good) and never opens `conventions.md` (oops). Conventions written-but-never-followed are worse than no conventions, because they create the illusion that the agent will respect them. Fixing the placement once means future projects start with a tier model that actually fires.
+
+**Trigger:**
+
+- Lalista PR 26 (e2e-audit-fill-gaps) ships with the "closure rule" already moved correctly (`/ak-build` Phase 5.6 + CLAUDE.md + a one-line pointer in conventions.md). That's the worked example; the audit + sweep is the generalization.
+- OR: a second project surfaces a "convention not followed" issue traceable to a conventions.md-only rule.
+
+**Cross-ref:**
+
+- `/ak-build § Phase 5.6` — the destination skill for the closure rule (worked example shipped 2026-04-26).
+- `/devshop/CLAUDE.md § Closing TODO / ROADMAP entries when a fix ships` — Tier 1 home for the closure rule.
+- `/devshop/CLAUDE.md § Context Loading` — describes the load tiers but doesn't yet name the implication ("rules in Tier 3 don't fire").
+- `/devshop/kit/docs/guide/conventions.md` — the file being audited.
+
+**Cost/risk:**
+
+- Implementation: ~3-5 focused hours per skill (read each skill's `SKILL.md`, identify operational rules, ensure each is restated where it fires; cross-ref conventions.md sections to confirm). Adversarial-review docs-drift will check each skill change carefully — budget review-cycle time accordingly.
+- Risk: low — non-functional doc shuffling. Worst case: a temporary duplication that gets resolved on the next audit pass. No production code changes.
+- Benefit: rules actually fire. Closes the "paper rule" footgun for every future devshop project.
+
+**Adjacent v0 entry**: § Adversarial reviewer reads guide/ for convention checks (below) — the same audit's other half. They can ship as one PR (sweep skills + amend reviewer prompts in the same change) or as two — the latter is cleaner because the skill audit is more text-heavy and the reviewer change is more structural.
+
+---
+
+### Adversarial reviewer reads `guide/` for convention checks
+
+**Problem.** The current pre-commit adversarial reviewers (`devshop-commit-guard.sh` + `adversarial-review.sh`) check whether **bypass reasons** are valid (e.g., is the docsVerified note thorough? is the dirtyTreeReason load-bearing?). They don't check whether the **commit itself** follows the project's documented conventions. So a commit that adds a feature without a test, or adds a metric event without registering it in `METRICS.md`, or skips a doc update that conventions require, sails through the reviewer because the bypass-reason gate is the only checkpoint.
+
+The agent often forgets convention X (especially one buried in conventions.md per the sibling audit above), and the reviewer doesn't catch it because it doesn't know X exists.
+
+**Shape of the fix:**
+
+Extend the adversarial-review prompt construction to **inline relevant `kit/docs/guide/` sections** as context the reviewer uses to flag convention violations. Two modes:
+
+1. **Inline conventions in the existing per-flag reviewers** (cheap, additive). Each existing review (`docsVerified`, `prDescStaleReason`, etc.) gets the relevant conventions appended to its prompt: "These are the documented conventions for this concern; flag the commit if it violates them." E.g., the `docsVerified` reviewer gets `conventions.md § Metrics Lifecycle` and `§ Non-Negotiables → Testing`; the `prDescStaleReason` reviewer gets nothing (no relevant convention).
+
+2. **A new "convention check" gate** that runs unconditionally on every commit (no bypass flag). Reads the diff, reads the conventions, asks the reviewer: "Does this diff follow them?" Cheaper path: only fire on commits that touch `apps/**` / `packages/**` / `supabase/**` (real code), skip on docs-only.
+
+**Implementation surface:**
+
+- `kit/scripts/adversarial-review.sh` — extend the prompt builder to inline guide sections by topic. Add a `CONVENTIONS_TO_INCLUDE` map keyed by review topic.
+- `kit/scripts/commit-hooks/devshop-commit-guard.sh` — add a `convention-check` gate (or fold into existing gates per option #1 above).
+- `kit/scripts/preship/check-conventions.sh` (new) — option #2's standalone check, invoked from pre-commit.
+- `kit/tests/<corresponding>.bats` — coverage tests using fixture commits that violate / follow each convention.
+
+**Why v0 — blocks next-project adoption:**
+
+The whole reason `kit/docs/guide/conventions.md` exists is to encode "how this devshop wants you to work." Without an automated check, the conventions are aspirational — agents follow them when convenient and skip them when not, with no mechanism to catch the skip. New projects bring new convention pressure (mobile devshop adds touch-target rules, etc.); each new convention adds maintenance burden if it's only enforced by future-Claude-remembering. Codifying convention-check at commit-time means each documented rule is also enforced.
+
+**Sequencing with the conventions audit (above):**
+
+Order matters. Audit first, reviewer-check second. Reasons:
+
+1. The audit moves operational rules out of conventions.md into skills. Once rules are in skills, the reviewer can prompt against the SKILL.md content directly (no need to inline guide/conventions.md). Conventions.md becomes pure reference (taxonomies, examples).
+2. Without the audit first, the reviewer prompt would inline content that's also being moved — risky doc drift during the convention-check ship.
+3. Audit also surfaces which conventions are operational (worth enforcing) vs aspirational (reference-only) — the reviewer should only enforce the former.
+
+**Trigger:**
+
+- Conventions audit (above) lands on devshop main.
+- OR: a real "convention violation slipped through review" incident that costs an hour+ of debugging.
+
+**Cross-ref:**
+
+- `/devshop/kit/scripts/adversarial-review.sh` — the prompt builder to extend.
+- `/devshop/kit/scripts/commit-hooks/devshop-commit-guard.sh` — the gate-orchestration point.
+- `/devshop/kit/docs/guide/hooks.md` — documents the existing adversarial-review pattern; will need updates when this ships.
+- Sibling entry above (conventions audit) — load-bearing prereq.
+
+**Cost/risk:**
+
+- Implementation: ~2-3 focused hours (prompt builder changes + new gate + bats coverage).
+- Risk: false positives if the reviewer misreads convention scope (e.g., flags a "missing test" for a doc-only PR). Mitigate via narrow prompts + diff-aware filtering before invoking the reviewer.
+- Benefit: documented conventions become enforced conventions, end-to-end. Closes the gap between "we wrote it down" and "the agent follows it."
+
+---
+
 ### Security-posture cleanup: CI/prod credential separation + URL guard + classification
 
 Audit of `/ak-new-project`'s credential surface (2026-04-25, after the auto-deploy-backend ship) surfaced four issues that compound:

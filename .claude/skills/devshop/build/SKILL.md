@@ -648,17 +648,32 @@ Runs on CI green (after 5.3), before advancing to Phase 5.7. Closes out this fea
    - **Quality gates**: <summary from audit — "all passed" / "N findings fixed during pre-ship" / etc>
    ```
 
-4. Commit on the feature branch:
+4. **Retire any tracker entry the PR closes.** If the PR shipped a fix that resolves a tracker entry living in any of:
+
+   - `TODOS.md` (project)
+   - `PRODUCT-ROADMAP.md` (project, e.g. a v0 chapter)
+   - `/devshop/kit/TODOS.md`
+   - `/devshop/kit/ROADMAP.md`
+
+   …the same commit that runs step 4 also (a) **deletes** the entry — no "shipped 2026-04-26" footnote, no strikethrough, just delete; git log + the PR description are the audit trail; (b) **rewrites any docs that described the prior constraint** from conditional preflight prose ("Without this, X fails", "verify X before assuming blocked") to imperative present tense ("Do X." / "X works."), since "Without this" framing reads identically whether the prereq is met or not and trips future sessions into false beliefs; and (c) **unwinds every cross-reference to the deleted entry** in the same commit — orphan citations elsewhere respawn the false belief.
+
+   How to enumerate the cross-refs cheaply: `grep -rE "<dropped-entry-name>|<dropped-entry-section-id>" /workspace/ /devshop/kit/docs/ /devshop/CLAUDE.md` — every hit needs to be either rewritten or removed. Don't trust that "the entry is just in v0" — a sibling entry (or a SKILL.md, or another guide doc) may cite it as a prereq.
+
+   Worked example: this convention was codified after a session read `/ak-build` SKILL.md Phase 5.4's "Without this, `gh run download` fails" line as "still blocked" and skipped artifact-pull on a CI failure that had artifacts waiting. The firewall fix had shipped weeks earlier; the v0 entry tracking it never moved out of `kit/ROADMAP.md` v0; the SKILL.md prereq prose never moved to imperative present. See devshop commits `7e03f6a` (cleanup of the specific incident) + `f3ec42b` (the convention itself). Full statement: `/devshop/CLAUDE.md § Closing TODO / ROADMAP entries when a fix ships`.
+
+5. Commit on the feature branch:
 
    ```bash
-   git add PLAN.md BUILD-LOG.md
+   git add PLAN.md BUILD-LOG.md  # plus any deleted/rewritten files from step 4
    git commit -m "chore(build-log): record <FEATURE>"
    git push
    ```
 
-5. Re-fetch the PR body. If it carries a commit count that's now stale (e.g., `Commits: N`), update via `gh pr edit "$PR" --body-file`.
+   If step 4 retired a tracker entry, prefer a separate commit on the feature branch with message `chore(roadmap): close <entry-name> (shipped via PR #<PR>)` — keeps the bookkeeping atomic.
 
-**Idempotence**: if 5.6 has already run for this feature (no Active row for `$FEATURE_BRANCH` in `PLAN.md` AND a `BUILD-LOG.md` entry referencing `$PR` exists), skip — don't duplicate.
+6. Re-fetch the PR body. If it carries a commit count that's now stale (e.g., `Commits: N`), update via `gh pr edit "$PR" --body-file`.
+
+**Idempotence**: if 5.6 has already run for this feature (no Active row for `$FEATURE_BRANCH` in `PLAN.md` AND a `BUILD-LOG.md` entry referencing `$PR` exists, AND no PR-closed tracker entry remains in any roadmap), skip — don't duplicate.
 
 **Fallback for CI-timeout**: if `$PR` is not yet set (5.1 hasn't run — edge case where Phase 5 was entered out-of-band), 5.6 is a no-op; it will fire next time CI is green with a known PR.
 
