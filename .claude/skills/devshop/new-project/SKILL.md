@@ -836,9 +836,16 @@ Set up in each service's dashboard: Sentry (80% alert), PostHog (usage), Vercel 
 
 ### Step 24: [HUMAN] Branch protection
 
-After first CI run produces a green `fast` check (triggered by a PR, since the workflow doesn't run on direct pushes to main):
+After first CI run produces a green check (triggered by a PR, since the workflow doesn't run on direct pushes to main):
 
 ```bash
+# Default: project ships only fast-job. Use this contexts list:
+#   "contexts":["fast"]
+# If slow-job is enabled in ci.yml (uncommented after Phase 1c — integration
+# tests + supabase start, OR Phase 1g — Playwright E2E), require it too:
+#   "contexts":["fast","slow"]
+# Slow-job is path-/event-filtered to PRs against main, so requiring it on
+# branch protection only adds a check where it's actually expected to run.
 gh api repos/{owner}/{repo}/branches/main/protection \
   --method PUT \
   --field 'required_status_checks={"strict":true,"contexts":["fast"]}' \
@@ -853,7 +860,7 @@ gh api repos/{owner}/{repo}/branches/main/protection \
 This requires:
 
 - PRs for all merges (no required approvals, but stale approvals dismissed on new pushes)
-- `fast` status check must pass + branch must be up-to-date before merge
+- `fast` status check must pass + branch must be up-to-date before merge (and `slow` too if enabled)
 - Linear history (works with repo-level squash-only merges)
 - No force pushes, no branch deletion, no admin bypass
 
