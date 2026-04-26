@@ -493,7 +493,11 @@ while CI is failing and FIX_ATTEMPTS < MAX_ATTEMPTS:
 
      b. Attempt #2+ — artifact-based investigation:
         The log-only guess already failed once. Before attempting another
-        fix, pull every artifact from the failed run and inspect:
+        fix, pull every artifact from the failed run AND extract each
+        failed test's trace.zip — error-context.md alone is not enough
+        (it shows the assertion's page snapshot but NOT the console
+        messages, network calls, or upgrade-failure events that contain
+        the actual root cause for many bugs):
 
            mkdir -p /tmp/ci-artifacts/<RUN_ID>
            OWNER_REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
@@ -504,21 +508,47 @@ while CI is failing and FIX_ATTEMPTS < MAX_ATTEMPTS:
                  --dir "/tmp/ci-artifacts/<RUN_ID>/"
            done
 
-        For Playwright failures, each failed test has a subdirectory with
-        `error-context.md` (the assertion's text context), PNG screenshots,
-        and `trace.zip`. Unzip trace.zip for DOM snapshots + network logs:
+           # MUST extract trace.zip per failed test — the .trace and
+           # .network files carry the load-bearing evidence. Use a unique
+           # extract dir name per zip (avoid `rm -rf` shortcuts):
+           for zip in $(find /tmp/ci-artifacts/<RUN_ID> -name 'trace.zip'); do
+             dest="/tmp/trace-${zip##*/}-$(basename $(dirname "$zip"))-$$"
+             mkdir -p "$dest" && (cd "$dest" && unzip -q "$zip")
+           done
 
-           unzip -d /tmp/ci-artifacts/<RUN_ID>/<test-dir>/trace \
-               /tmp/ci-artifacts/<RUN_ID>/<test-dir>/trace.zip
+        For each failed test, run BOTH inspections:
 
-        Or open interactively if a GUI is available:
+        - Read `error-context.md` for the assertion's page snapshot and
+          the immediate failure signature.
+        - Inspect the extracted `0-trace.trace` and `0-trace.network`
+          (and `1-trace.*` for two-context tests) for:
+            * `'"messageType":"error"'` — console errors (CSP violations,
+              uncaught throws, network errors that didn't surface in the
+              assertion). CSP violations in particular do NOT appear in
+              error-context.md — they only surface as console events.
+            * `'"url":"http[^"]*"'` — actual network requests; absence
+              of an expected call (e.g. no `auth/v1/token` POST when
+              the test should have signed in) is often the smoking gun
+              that the click did not actually fire the API call.
+            * `'fill\\(|click\\(|getByLabel|getByRole'` — Playwright
+              actions and what they resolved to.
+
+        These two inspections answer different questions: error-context
+        says "what did the page look like at the assertion?"; trace says
+        "what did the page do over the test's lifetime?" Many root causes
+        are visible only in the trace (silent network failures, CSP
+        blocks, missing API calls, console errors that don't bubble to
+        assertions).
+
+        Optional: open interactively if a local GUI is available:
 
            pnpm exec playwright show-trace \
                /tmp/ci-artifacts/<RUN_ID>/<test-dir>/trace.zip
 
         The page state at the assertion is definitive — diagnose from
-        evidence, not inference. Skipping this step turns the loop into
-        guessing; that's the exact trap this convention closes.
+        evidence, not inference. Reading only error-context.md and
+        skipping the trace turns attempt #2 back into guessing; that
+        defeats the artifact-pull rung's purpose.
 
   2. Classify failure: lint | typecheck | unit | integration | e2e | build | timeout
 
