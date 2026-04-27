@@ -293,8 +293,8 @@ Audit of `/ak-new-project`'s credential surface (2026-04-25, after the auto-depl
   - **Secrets tab** (genuinely sensitive):
     - `SUPABASE_DB_PASSWORD` = prod DB password (used by deploy-migrations)
     - `SUPABASE_ACCESS_TOKEN` = account-wide Supabase token (used by both deploy workflows)
-    - `QA_ANTHROPIC_API_KEY` = if edge functions call Claude (used by slow-job; re-exported as `ANTHROPIC_API_KEY` inside the test step's env block)
-    - `PROD_ANTHROPIC_API_KEY` = if edge functions call Claude in prod (pushed by `deploy-functions.yml` to the prod Supabase project's edge-function secrets as `ANTHROPIC_API_KEY`; never on local disk)
+    - `ANTHROPIC_API_KEY_QA` = if edge functions call Claude (used by slow-job; re-exported as `ANTHROPIC_API_KEY` inside the test step's env block)
+    - `ANTHROPIC_API_KEY_PROD` = if edge functions call Claude in prod (pushed by `deploy-functions.yml` to the prod Supabase project's edge-function secrets as `ANTHROPIC_API_KEY`; never on local disk)
     - `SENTRY_DSN` + `SENTRY_AUTH_TOKEN`
     - `VERCEL_TOKEN`
 - Vercel env (separate surface from GH) keeps prod values: `NEXT_PUBLIC_SUPABASE_URL` = prod, `NEXT_PUBLIC_SUPABASE_ANON_KEY` = prod anon. Skill should explicitly note Vercel and GH are different env surfaces with different values.
@@ -324,8 +324,8 @@ New section after Step 5 (or as part of Step 5) with:
   | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
   | `SUPABASE_DB_PASSWORD`                        | Direct DB connection (no RLS); read/write any table                                                          |
   | `SUPABASE_ACCESS_TOKEN`                       | Account-wide: all projects on this Supabase account, manage settings, drop projects                          |
-  | `QA_ANTHROPIC_API_KEY`                        | Spend rate-limit on the CI/local-dev key only — cannot affect prod billing or rate limits                    |
-  | `PROD_ANTHROPIC_API_KEY`                      | Spend rate-limit on the prod-traffic key only — cannot pollute CI rate limits; rotate same-day               |
+  | `ANTHROPIC_API_KEY_QA`                        | Spend rate-limit on the CI/local-dev key only — cannot affect prod billing or rate limits                    |
+  | `ANTHROPIC_API_KEY_PROD`                      | Spend rate-limit on the prod-traffic key only — cannot pollute CI rate limits; rotate same-day               |
   | `SENTRY_AUTH_TOKEN`                           | Upload sourcemaps, manage org                                                                                |
   | `VERCEL_TOKEN`                                | Deploy to any of your Vercel projects                                                                        |
   | `SUPABASE_SERVICE_ROLE_KEY` (prod, NOT in CI) | Full DB admin via REST; no RLS — if it gets in CI accidentally, that's the highest-blast-radius failure mode |
@@ -368,7 +368,7 @@ After the devshop side lands on a feature branch (NOT ff-merged yet — per the 
    - `SUPABASE_ANON_KEY` (value already = local stack default) → Variables
    - `SUPABASE_SERVICE_ROLE_KEY` (value already = local stack default) → Variables
    - `NEXT_PUBLIC_POSTHOG_KEY` → Variables
-4. **GH Secrets to keep as Secrets**: `SUPABASE_DB_PASSWORD`, `SUPABASE_ACCESS_TOKEN`, `QA_ANTHROPIC_API_KEY`, `PROD_ANTHROPIC_API_KEY`, `SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `VERCEL_TOKEN`.
+4. **GH Secrets to keep as Secrets**: `SUPABASE_DB_PASSWORD`, `SUPABASE_ACCESS_TOKEN`, `ANTHROPIC_API_KEY_QA`, `ANTHROPIC_API_KEY_PROD`, `SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `VERCEL_TOKEN`.
 5. **GH Variable to delete**: `SUPABASE_PROJECT_REF` (added today; superseded by `SUPABASE_PROD_URL` + sed-derive).
 6. **URL guard already present**: lalista already has D22's `assertNotProdUrlInTestEnv` in `packages/core/src/supabase.ts` — verify it's wired into all `createClient` call sites.
 7. **CI verification**: re-run slow-job CI on `feat/auto-deploy-backend` to confirm both deploy workflows still run green after the parameterization change.
@@ -436,7 +436,7 @@ Devshop side (`/devshop`):
 
 - Delete `template/.github/workflows/deploy-migrations.yml`. Drop the `[deploy-migrations.yml]` row from any docs that list it.
 - Update `/ak-go-live` skill (`.claude/skills/devshop/go-live/SKILL.md`) — add a "detect migration changes + JIT password fetch + local `db push`" phase between merge-complete and canary checks. Reference both Path A (password-manager CLI) and Path B (`!`-prefix), with detection: try Path A's CLI first (e.g. `command -v op`), fall back to Path B's `!`-prefix block if no manager CLI is present.
-- Update `/ak-new-project` Step 5 — drop `SUPABASE_DB_PASSWORD` from the GH Secrets list (only `SUPABASE_ACCESS_TOKEN` + `QA_ANTHROPIC_API_KEY` + `PROD_ANTHROPIC_API_KEY` + `SENTRY_*` + `VERCEL_TOKEN` remain as Secrets).
+- Update `/ak-new-project` Step 5 — drop `SUPABASE_DB_PASSWORD` from the GH Secrets list (only `SUPABASE_ACCESS_TOKEN` + `ANTHROPIC_API_KEY_QA` + `ANTHROPIC_API_KEY_PROD` + `SENTRY_*` + `VERCEL_TOKEN` remain as Secrets).
 - Update `/ak-new-project` Step 4 — remove `SUPABASE_DB_PASSWORD` from `.devcontainer/.env`. Add a new Step 4 sub-bullet asking the operator which password-manager path they'll use; document the chosen path in CLAUDE.md so `/ak-go-live` knows which to invoke.
 - Update `/ak-new-project` § Security Posture — update the blast-radius table row for `SUPABASE_DB_PASSWORD` (now: lives only in password manager + Supabase project; never in GH Secrets / `.devcontainer/.env`).
 - Update `/ak-new-project § Migration: existing project to current credential layout` — add a final step "delete `SUPABASE_DB_PASSWORD` GH Secret + `.devcontainer/.env` row; install your password manager CLI in the devcontainer; document the path in CLAUDE.md."
@@ -1169,7 +1169,7 @@ Add to the `slow` job:
 - Upload trace artifacts on failure via `actions/upload-artifact` for debugging
 - Cache Playwright browsers using lockfile hash
 
-**Additional secrets for slow job**: `SUPABASE_SERVICE_ROLE_KEY` (integration tests need admin access) and `QA_ANTHROPIC_API_KEY` (if edge function integration tests call Anthropic — re-exported as `ANTHROPIC_API_KEY` inside the integration-test step's env block; the canonical name stays inside the function process). Add to GitHub Secrets when wiring up the slow job. The corresponding prod-traffic key (`PROD_ANTHROPIC_API_KEY`) is unrelated to slow-job — it's pushed to Supabase by `deploy-functions.yml` for real-user runtime.
+**Additional secrets for slow job**: `SUPABASE_SERVICE_ROLE_KEY` (integration tests need admin access) and `ANTHROPIC_API_KEY_QA` (if edge function integration tests call Anthropic — re-exported as `ANTHROPIC_API_KEY` inside the integration-test step's env block; the canonical name stays inside the function process). Add to GitHub Secrets when wiring up the slow job. The corresponding prod-traffic key (`ANTHROPIC_API_KEY_PROD`) is unrelated to slow-job — it's pushed to Supabase by `deploy-functions.yml` for real-user runtime.
 
 **After both expansions**: update branch protection to require `slow` as a required status check alongside `fast`.
 

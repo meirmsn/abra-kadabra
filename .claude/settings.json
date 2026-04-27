@@ -64,6 +64,8 @@
       "Write(**/.devcontainer/*)",
       "Edit(/devshop/.devcontainer/*)",
       "Write(/devshop/.devcontainer/*)",
+      "Edit(/workspace/.devcontainer/*)",
+      "Write(/workspace/.devcontainer/*)",
       "Edit(**/.claude/settings.json)",
       "Write(**/.claude/settings.json)",
       "Edit(/devshop/.claude/settings.json)",

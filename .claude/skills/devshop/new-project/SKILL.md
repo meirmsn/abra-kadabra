@@ -267,7 +267,7 @@ SUPABASE_DB_PASSWORD=<prod-db-password>
 # `ANTHROPIC_API_KEY` only inside the Supabase function runtime via
 # `supabase/functions/.env`. NEVER put the prod key here — see § Security
 # Posture for the QA/PROD split rationale.
-QA_ANTHROPIC_API_KEY=<api-key — same value used in the QA_ANTHROPIC_API_KEY GH Secret>
+ANTHROPIC_API_KEY_QA=<api-key — same value used in the ANTHROPIC_API_KEY_QA GH Secret>
 
 # Sentry
 SENTRY_DSN=https://<key>@o<org-id>.ingest.sentry.io/<project-id>
@@ -317,11 +317,11 @@ Where to find each:
 - Anthropic API key — TWO keys, not one: console.anthropic.com → Settings → API Keys.
   Required only if the project's edge functions call Claude. Mint two separate keys with
   identical scope: one for **QA** (CI integration tests + local dev — stored as the GH
-  Secret `QA_ANTHROPIC_API_KEY` and as `QA_ANTHROPIC_API_KEY` here in `.devcontainer/.env`)
+  Secret `ANTHROPIC_API_KEY_QA` and as `ANTHROPIC_API_KEY_QA` here in `.devcontainer/.env`)
   and one for **PROD** (real user traffic — stored ONLY as the GH Secret
-  `PROD_ANTHROPIC_API_KEY` and pushed to the prod Supabase project's edge-function secrets
+  `ANTHROPIC_API_KEY_PROD` and pushed to the prod Supabase project's edge-function secrets
   by `deploy-functions.yml`; never on disk). Slow-job CI integration tests will fail loudly
-  without `QA_ANTHROPIC_API_KEY`. Splitting the keys keeps QA rate-limit pressure off prod
+  without `ANTHROPIC_API_KEY_QA`. Splitting the keys keeps QA rate-limit pressure off prod
   and isolates billing/blast-radius. See § Security Posture for the full rationale.
 - Sentry DSN: Project Settings → Client Keys. Auth token: Org Settings → Auth Tokens.
 - PostHog: Project Settings → Project API key
@@ -377,12 +377,12 @@ the blast-radius table in § Security Posture tells you what an attacker can do)
   by `deploy-migrations.yml`.
 - `SUPABASE_ACCESS_TOKEN` — account-wide Supabase token. Manages every project on
   the account, including settings + project deletion. Used by both deploy workflows.
-- `QA_ANTHROPIC_API_KEY` — only if edge functions call Claude. Re-exported as
+- `ANTHROPIC_API_KEY_QA` — only if edge functions call Claude. Re-exported as
   `ANTHROPIC_API_KEY` inside the slow-job's integration-test env block (the
   function code reads the canonical name; the QA prefix exists only on the
   outer surfaces to dodge Claude Code's auto-detection in the devcontainer).
-  Same value as the `QA_ANTHROPIC_API_KEY` line in your local `.devcontainer/.env`.
-- `PROD_ANTHROPIC_API_KEY` — only if edge functions call Claude in prod. Pushed
+  Same value as the `ANTHROPIC_API_KEY_QA` line in your local `.devcontainer/.env`.
+- `ANTHROPIC_API_KEY_PROD` — only if edge functions call Claude in prod. Pushed
   by `deploy-functions.yml` to the prod Supabase project's edge-function secrets
   as `ANTHROPIC_API_KEY` on every function deploy. **NEVER** lives on a local
   disk; mint a second key on console.anthropic.com so the QA + PROD blast
@@ -457,8 +457,8 @@ unit test crashes loudly instead of silently mutating prod data.
 | `SUPABASE_DB_PASSWORD`                        | Direct DB connection (no RLS); read/write any table on the prod project.                                                                                           |
 | `SUPABASE_ACCESS_TOKEN`                       | Account-wide: every project on this Supabase account, including settings management + project deletion. **Highest blast radius** of the routine credentials.       |
 | `SUPABASE_SERVICE_ROLE_KEY` (prod, NOT in CI) | Full DB admin via REST API; no RLS. **If it ever ends up in CI by mistake, that's the highest-blast-radius failure mode** — every PR build leaks prod admin.       |
-| `QA_ANTHROPIC_API_KEY`                        | Spend rate-limit until rotated, on a key shared between CI + local dev only. Cannot affect prod billing or prod rate limits — that's the whole point of the split. |
-| `PROD_ANTHROPIC_API_KEY`                      | Spend rate-limit until rotated, on the prod-traffic key only. CI rate limits unaffected. Rotate within hours of any suspected leak.                                |
+| `ANTHROPIC_API_KEY_QA`                        | Spend rate-limit until rotated, on a key shared between CI + local dev only. Cannot affect prod billing or prod rate limits — that's the whole point of the split. |
+| `ANTHROPIC_API_KEY_PROD`                      | Spend rate-limit until rotated, on the prod-traffic key only. CI rate limits unaffected. Rotate within hours of any suspected leak.                                |
 | `SENTRY_AUTH_TOKEN`                           | Upload sourcemaps (poisoning + intel), manage Sentry org settings.                                                                                                 |
 | `VERCEL_TOKEN`                                | Deploy to any of your Vercel projects.                                                                                                                             |
 | `GITHUB_TOKEN` (PAT)                          | Per the fine-grained scope — Contents R/W + Pull Requests R/W on this one repo. Without `workflow` scope, can't tamper with CI.                                    |
@@ -474,8 +474,8 @@ unit test crashes loudly instead of silently mutating prod data.
 | `SUPABASE_SERVICE_ROLE_KEY` | After suspected compromise. Rare in practice — the key never leaves prod.        |
 | `SENTRY_AUTH_TOKEN`         | Annually.                                                                        |
 | `VERCEL_TOKEN`              | Annually, or on team-member departure.                                           |
-| `QA_ANTHROPIC_API_KEY`      | On suspected leak only — rate-limit caps the bleed; CI is the only consumer.     |
-| `PROD_ANTHROPIC_API_KEY`    | On suspected leak only — rotate same-day if real prod traffic was affected.      |
+| `ANTHROPIC_API_KEY_QA`      | On suspected leak only — rate-limit caps the bleed; CI is the only consumer.     |
+| `ANTHROPIC_API_KEY_PROD`    | On suspected leak only — rotate same-day if real prod traffic was affected.      |
 
 **Surface matrix** — where each credential lives across the four surfaces:
 
@@ -488,8 +488,8 @@ unit test crashes loudly instead of silently mutating prod data.
 | `SUPABASE_SERVICE_ROLE_KEY`   | ✅ local-stack JWT   | ✅ local-stack default JWT  | —               | —                                       | ✅ prod service-role (auto)                             |
 | `SUPABASE_DB_PASSWORD`        | ✅ prod              | —                           | ✅ prod         | —                                       | —                                                       |
 | `SUPABASE_ACCESS_TOKEN`       | ✅ operator's        | —                           | ✅              | —                                       | —                                                       |
-| `QA_ANTHROPIC_API_KEY`        | ✅ operator's        | —                           | ✅              | —                                       | —                                                       |
-| `PROD_ANTHROPIC_API_KEY`      | ❌ NEVER             | —                           | ✅              | —                                       | pushed by `deploy-functions.yml` as `ANTHROPIC_API_KEY` |
+| `ANTHROPIC_API_KEY_QA`        | ✅ operator's        | —                           | ✅              | —                                       | —                                                       |
+| `ANTHROPIC_API_KEY_PROD`      | ❌ NEVER             | —                           | ✅              | —                                       | pushed by `deploy-functions.yml` as `ANTHROPIC_API_KEY` |
 | `NEXT_PUBLIC_POSTHOG_KEY`     | ✅                   | ✅                          | —               | ✅                                      | —                                                       |
 | `SENTRY_DSN`                  | ✅                   | —                           | ✅              | piped → `NEXT_PUBLIC_SENTRY_DSN`        | —                                                       |
 | `SENTRY_AUTH_TOKEN`           | ✅                   | —                           | ✅              | ✅ (build env, Preview + Production)    | —                                                       |
@@ -532,7 +532,7 @@ After rebuild, verify env vars:
 python3 -c "
 import os
 keys = ['VERCEL_TOKEN','SUPABASE_URL','SUPABASE_ANON_KEY','SUPABASE_SERVICE_ROLE_KEY',
-        'SUPABASE_ACCESS_TOKEN','SUPABASE_DB_PASSWORD','QA_ANTHROPIC_API_KEY',
+        'SUPABASE_ACCESS_TOKEN','SUPABASE_DB_PASSWORD','ANTHROPIC_API_KEY_QA',
         'SENTRY_DSN','SENTRY_AUTH_TOKEN','NEXT_PUBLIC_POSTHOG_KEY','GITHUB_TOKEN']
 for k in keys:
     v = os.environ.get(k, '')
@@ -693,7 +693,7 @@ pnpm exec vercel env ls --token $VERCEL_TOKEN
 
 The `for env in production preview development` loop is intentional: the front-end behaves the same way in all three environments (always dials prod Supabase). If you ever want a preview-only or dev-only override (e.g., a staging Supabase project), set that single var explicitly and remove it from the loop.
 
-**Don't pipe**: `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_PASSWORD`, `SUPABASE_ACCESS_TOKEN`, `QA_ANTHROPIC_API_KEY`, `PROD_ANTHROPIC_API_KEY`. None of these belong in the Vercel runtime — they're either auto-injected by Supabase's edge runtime (service-role), pushed directly to Supabase project secrets by deploy workflows (prod Anthropic), or only consumed by CI/operator-side tooling.
+**Don't pipe**: `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_PASSWORD`, `SUPABASE_ACCESS_TOKEN`, `ANTHROPIC_API_KEY_QA`, `ANTHROPIC_API_KEY_PROD`. None of these belong in the Vercel runtime — they're either auto-injected by Supabase's edge runtime (service-role), pushed directly to Supabase project secrets by deploy workflows (prod Anthropic), or only consumed by CI/operator-side tooling.
 
 **[HUMAN]** Add `PRODUCTION_URL` as a GitHub **Variable** (not Secret) once the Vercel
 domain is known. Value is the Vercel production domain (e.g. `https://<project>-<hash>.vercel.app`
@@ -1110,8 +1110,8 @@ Move:
 **Keep as Secrets** (genuinely sensitive — see § Security Posture for
 blast-radius detail):
 
-- `SUPABASE_DB_PASSWORD`, `SUPABASE_ACCESS_TOKEN`, `QA_ANTHROPIC_API_KEY`,
-  `PROD_ANTHROPIC_API_KEY`, `SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `VERCEL_TOKEN`.
+- `SUPABASE_DB_PASSWORD`, `SUPABASE_ACCESS_TOKEN`, `ANTHROPIC_API_KEY_QA`,
+  `ANTHROPIC_API_KEY_PROD`, `SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `VERCEL_TOKEN`.
 
 **Step M4: Delete legacy `SUPABASE_PROJECT_REF` Variable**
 

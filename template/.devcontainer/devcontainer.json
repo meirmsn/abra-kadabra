@@ -15,9 +15,9 @@
     "--cap-add=NET_ADMIN",
     "--cap-add=NET_RAW",
     // Pipe project-runtime env vars from .devcontainer/.env into the container
-    // (Supabase / Vercel tokens, optional QA_ANTHROPIC_API_KEY for projects whose
+    // (Supabase / Vercel tokens, optional ANTHROPIC_API_KEY_QA for projects whose
     // edge functions call Claude, etc.). Project-runtime ONLY — prod keys
-    // (PROD_ANTHROPIC_API_KEY, prod service-role JWT) must never appear in
+    // (ANTHROPIC_API_KEY_PROD, prod service-role JWT) must never appear in
     // this file. See README.md § Getting started + your project's
     // /ak-new-project § Security Posture.
     "--env-file",
