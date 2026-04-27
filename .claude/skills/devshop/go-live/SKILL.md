@@ -40,6 +40,34 @@ Check:
 
 If any check fails, report and stop.
 
+## Step 1.5: Production health probe (catches pre-existing prod issues before merge masks them)
+
+After PR readiness is confirmed but BEFORE invoking `/land-and-deploy`, curl the production URL from `CLAUDE.md § Deploy Configuration`. The goal isn't canary verification (that's Step 3 post-deploy); it's catching pre-existing production failures whose symptoms the about-to-land deploy might silently change or mask.
+
+```bash
+PROD_URL=$(grep -i 'production.*url' CLAUDE.md 2>/dev/null | head -1 | sed 's/.*: *//' | tr -d '[:space:]')
+[ -z "$PROD_URL" ] && echo "PROD_URL not configured in CLAUDE.md § Deploy Configuration — skipping health probe" && exit 0
+echo "Probing production at $PROD_URL ..."
+HTTP=$(curl -s -o /tmp/prod-preflight.html -w "%{http_code}" --connect-timeout 8 "$PROD_URL/" 2>/dev/null)
+echo "HTTP $HTTP"
+```
+
+**If `HTTP` is 2xx or 3xx**: production is healthy. Continue to Step 2.
+
+**If `HTTP` is 4xx, 5xx, or 000** (connection failed): production has a pre-existing issue. Surface to the user via AskUserQuestion:
+
+> Production `$PROD_URL/` is currently returning HTTP `<code>`. This is pre-existing (caught before this PR's merge), not introduced by the diff about to land.
+>
+> Options:
+>
+> - **Investigate first** — pause `/ak-go-live`; spin up a separate session to diagnose the production failure before merging anything that may interact with the same code paths.
+> - **Ship + flag** — proceed with the merge if you can confirm the diff doesn't touch the failing surface; file a TODO for the prod issue with the symptoms captured.
+> - **Ship and ignore** — only if you already know about this issue and are tracking it elsewhere.
+
+**Codified from**: lalista PR 26 (2026-04-26). Prod `/` had been returning 500 since project setup (trailing newline in `NEXT_PUBLIC_SUPABASE_URL` from a copy-paste fat-finger; SSR `getUser()` fetched the malformed URL and threw uncaught). Nobody noticed because every authenticated flow goes through `/sign-in`, which worked. Caught during this Step 1.5 probe, fixed in the same PR before merge (added `.trim()` defense at every env var read site). Without the probe, the `/ak-go-live` would have merged + the canary would have flagged it post-deploy as a "regression" rather than a pre-existing issue.
+
+The probe is a single curl; it adds <1s in the green path and saves a fix-loop on the red path.
+
 ## Step 2: Land and deploy
 
 Invoke `/land-and-deploy` via Skill tool.
@@ -83,6 +111,26 @@ The sanity check surfaces the issue; it does not block or auto-fix. Clean Phase 
 Invoke `/canary` via Skill tool.
 
 ~15 min post-deploy monitoring: console errors, performance regressions, page failures.
+
+### Firewall-IP-rotation fallback (if canary can't reach prod)
+
+If `/canary`'s curl reports `HTTP 000` with `Failed to connect ... No route to host`, the devcontainer's `init-firewall.sh` resolved the prod URL's IPs at container start, but the CDN (Vercel/Netlify/Cloudflare) has rotated to fresh IPs that aren't in the allowlist. This is a known footgun documented in `kit/docs/guide/ops.md § Known Footguns § Firewall IP rotation` — but `/canary` doesn't currently detect-and-recover.
+
+When this happens, surface the 3 fallback paths to the user (in order of friction, lowest first):
+
+1. **Operator-side curl via shell escape** — emit a single `!`-prefixed line the user can paste into their terminal:
+
+   ```
+   ! curl -sI <PROD_URL>/ | head -5
+   ```
+
+   Output lands in the conversation; you can read the HTTP status + headers and complete canary verification from there.
+
+2. **Browser open** — ask the user to open `<PROD_URL>` in their browser and tell you what they see (200 + expected content vs 4xx/5xx error page).
+
+3. **Devcontainer rebuild** — the heavy option. Re-runs `init-firewall.sh` and re-resolves CDN IPs. User pastes a "verify prod after deploy" prompt in a fresh session; the merge state on main + BUILD-LOG entry are durable, so resumption is cheap.
+
+Codified from lalista PR 26 (2026-04-26): `/ak-go-live` Step 3 hit `No route to host` on `lalista-ten.vercel.app` because Vercel rotated edge IPs since container start. User chose option 2 (browser-confirmed prod healthy in 5 seconds), pipeline closed out cleanly.
 
 **If canary fails**: STOP. Do NOT auto-rollback. Post rollback info and notify user:
 
