@@ -127,6 +127,136 @@ Order matters. Audit first, reviewer-check second. Reasons:
 
 ---
 
+### Migration sequencing safety nets for the Vercel-preview window
+
+**Problem.** The lalista-style architecture pipes the same `NEXT_PUBLIC_SUPABASE_URL` (= prod) into all three Vercel envs (Production, Preview, Development) per `/ak-new-project § Step 13`, so **Vercel previews dial prod Supabase**. `deploy-migrations.yml` runs `on: push: main` — migrations apply only at merge-time, not when the PR opens. That creates a window between PR-open and PR-merge where:
+
+- Feature branch has migration M+1 applied to its slow-job-CI local stack (`supabase start` + `supabase db reset` apply all migrations).
+- Vercel preview front-end is on M+1 code, but reads prod which is still on schema M → preview is broken or surfaces wrong shape.
+- Reviewer opens preview, can't tell whether what they see is a real bug or a schema-lag artifact.
+
+The architecture's implicit assumption is that **all migrations are backwards-compatible in BOTH directions during the PR window**:
+
+- New code on old schema must work (e.g., handles missing column with default)
+- Old code on new schema must work (e.g., new NOT NULL column has a default)
+
+Additive migrations satisfy this. Mutating migrations (renames, drops, NOT NULL without default, type changes) violate it — they break preview during the PR window.
+
+**Why DiD doesn't fully solve this.** The pending lalista PLAN row `devshop-preship-hardening` ships DiD (`/var/run/docker.sock` bind-mount) so `supabase start` runs in the devcontainer. After that ships:
+
+- ✅ qa-walk during dev runs against the local stack (no migration race)
+- ✅ `pnpm dev` reads from local stack
+- ✅ `/qa`, `/qa-only`, `/design-review` (when their separate v0 entry ships) run against local stack
+- ❌ Vercel previews still hit prod (DiD is irrelevant — Vercel runs on Vercel's infrastructure)
+
+So DiD closes the dev-side gap but not the Vercel-preview gap. This entry addresses the Vercel-preview side specifically.
+
+**Shape of the fix** — three coordinated safety nets:
+
+#### Track A: `/ak-spec` migration scoping prompt
+
+When a feature spec includes a migration, the spec subagent (or `/ak-build § Phase 0` decisions preview) must ask:
+
+> "Is this migration backwards-compatible in BOTH directions during the PR window? (a) New code on old schema works (e.g., handles missing column gracefully) AND (b) old code on new schema works (e.g., new NOT NULL column has a default)."
+
+If yes (additive) → ship normally.
+
+If no (mutating) → spec must include a **staged-deploy plan** under a "Migration Sequencing" section:
+
+- Apply the migration to prod manually before merging the code PR (operator runs `supabase db push --include-roles` or triggers `deploy-migrations.yml` via `workflow_dispatch`); OR
+- Document the brief preview-breakage window the team accepts during the PR review (timeboxed: "preview is intentionally broken from PR-open to PR-merge; expect <2hr").
+
+The decision is recorded in the spec; later phases (`/ak-pre-ship` and `/ak-go-live`) cross-check.
+
+**Edit targets:** `.claude/skills/devshop/spec/SKILL.md` (or wherever migration-scoping prompts live) — add the question + decision-tree paragraph. `kit/docs/guide/supabase-ssr-boilerplate.md § Pattern 4` (Realtime publication) is adjacent but different — keep this in its own subsection.
+
+#### Track B: `/ak-go-live § Step 1.6` migration sequencing pre-flight (do this first; highest-leverage)
+
+Before invoking `/land-and-deploy`, if the PR diff touches `supabase/migrations/**`, classify the migration and surface the right action:
+
+```bash
+MIGRATIONS_TOUCHED=$(git diff --name-only "origin/${BASE}...HEAD" | grep -E '^supabase/migrations/' || true)
+if [ -n "$MIGRATIONS_TOUCHED" ]; then
+  # Read the migration file(s); classify additive vs mutating
+  # Heuristic: presence of CREATE TABLE / ALTER TABLE ADD COLUMN ... DEFAULT
+  # without DROP / RENAME / ALTER COLUMN SET NOT NULL → likely additive.
+  # If the spec already declared the migration's compatibility in
+  # specs/<feature>/spec.md § Migration Sequencing, trust that.
+  ...
+fi
+```
+
+If migration is **additive** → continue normally; the post-merge `deploy-migrations.yml` race is fine per the existing comment in that workflow.
+
+If migration is **mutating** → AskUserQuestion before proceeding to merge:
+
+> The PR's migration `<NNN>_<name>.sql` is mutating (rename / drop / NOT NULL without default). After merge, Vercel auto-deploys the front-end in parallel with `deploy-migrations.yml`; for ~30-60s prod runs new code against old schema → user-visible 500s.
+>
+> Options:
+>
+> - **Apply migration to prod first, then merge** — recommended. Run `supabase db push --include-roles` against prod (or trigger `deploy-migrations.yml` via `workflow_dispatch`); confirm prod schema is M+1; then merge the code PR. Closes the race window.
+> - **Merge anyway, accept the brief breakage window** — only if the spec already documented this as an accepted trade-off (cross-check `specs/<feature>/spec.md § Migration Sequencing`).
+> - **Pause and re-spec** — if the spec didn't document this, the spec author skipped Track A's check; surface the gap.
+
+This is the **highest-leverage capture** because it catches the most dangerous case (non-additive migration about to merge with prod still on old schema) at the most actionable moment (right before merge).
+
+**Edit targets:** `.claude/skills/devshop/go-live/SKILL.md` — add Step 1.6 between the existing Step 1.5 (prod-curl probe) and Step 2 (`/land-and-deploy`). Step 1.6 only fires when the diff touches migrations.
+
+#### Track C: `kit/docs/guide/ops.md § Migration Sequencing` (documentation backstop)
+
+Add a new section to ops.md documenting:
+
+- The architecture's "additive-only during PR window" assumption (cross-ref `apps/web/.github/workflows/deploy-migrations.yml`'s sequencing-note comment as the authoritative source on the post-merge race; this section adds the pre-merge half).
+- The two-phase manual deploy recipe (operator-side `supabase db push`).
+- Decision tree: additive → ship normally; mutating → two-phase OR documented acceptance.
+- Cross-ref to Tracks A + B as the operational enforcement points.
+
+**Edit targets:** `kit/docs/guide/ops.md` — new `## Migration Sequencing` section (place after `## CI/CD` or wherever migration-related ops content lives).
+
+**Why v0 — blocks next-project adoption:**
+
+Every devshop project that adopts the Vercel + Supabase + auto-deploy-on-merge pattern (which is the default `/ak-new-project` shape) inherits this gap. Without these safety nets:
+
+- Spec authors don't think about migration compatibility until reviewers spot it (or worse, until prod breaks).
+- Operators rely on remembering to manually push migrations for non-additive changes — easy to forget.
+- The Vercel preview's apparent brokenness during PR review confuses reviewers and erodes trust in the preview signal.
+
+These three tracks codify the discipline once at the devshop level so every project gets it for free.
+
+**Sequencing recommendation (do them in this order):**
+
+1. **Track B first** (`/ak-go-live § Step 1.6` pre-flight). Highest leverage; catches the most dangerous case at the most actionable moment. Single SKILL.md edit, ~30 lines. If this fires often enough that the patterns become clear, escalate to Tracks A + C; if it fires rarely (because the team's migrations are mostly additive), Track B alone may be sufficient and Tracks A + C can be skipped or deferred.
+2. **Track A second** (spec scoping prompt). Shifts the decision earlier — better, but requires `/ak-spec` (or Phase 0 decisions preview) to grow a new question category. Worth doing once Track B's data shows the pattern is real and frequent.
+3. **Track C third** (ops.md doc). Wraps it up with the documentation backstop. Cheapest of the three (~30 min); ship after A + B so the doc references the actually-shipped operational rules rather than aspirational ones.
+
+If the project's migration cadence is mostly additive (typical for early-stage products), **Track B alone** is sufficient and A + C can stay as "file-and-forget" reminders. The ordering preserves option value: Track B's data tells you whether to invest in A + C.
+
+**Trigger:**
+
+- A second project adopts the devshop and hits the migration-sequencing question on its first non-additive migration; OR
+- Lalista hits a non-additive migration in PR 6 (Zod) / PR 7 (structured intent parsing) — Zod doesn't add migrations, structured intent parsing might add `quantity` / `unit` columns to `list_entries` (already exist per the v0 § 1k spec, so this is also additive). So lalista may not trigger this on its current PR queue; second-project adoption is the more likely trigger.
+
+**Cross-ref:**
+
+- `apps/web/.github/workflows/deploy-migrations.yml` — the sequencing-note comment in this file is the authoritative description of the **post-merge** race. This entry adds the **pre-merge** half (PR-open to merge window).
+- `lalista PLAN.md row 2 (devshop-preship-hardening)` — closes the dev-side gap (DiD bind-mount, qa-walk against local stack); Vercel-preview gap remains regardless.
+- `/devshop/kit/notes/roadmap/qa-options.md` — original QA-backend isolation discussion that surfaced the dev-side gap.
+- `kit/docs/guide/supabase-ssr-boilerplate.md § Pattern 4` (Realtime publication) — adjacent migration-discipline pattern; same migration file usually carries Realtime publication adds, so spec scoping in Track A naturally covers both.
+
+**Cost/risk:**
+
+- **Track B implementation**: ~1 hour (single SKILL.md edit + bats coverage if the existing pre-flight has bats). Adversarial-review docs cycles add 2-3 cycles per commit.
+- **Track A implementation**: ~2 hours (spec subagent prompt extension + worked example in `kit/docs/guide/supabase-ssr-boilerplate.md`).
+- **Track C implementation**: ~30 min (ops.md doc section + cross-refs).
+- **Risk during rollout**: false positives in Track B's classifier (e.g., misclassifies an `ALTER TABLE` that's actually safe because of a default). Mitigate via the spec's pre-declared classification (Track A) when present; fall back to "ask the user, prefer manual two-phase" when uncertain.
+- **Benefit**: catches the most dangerous migration-sequencing failure mode at the right moment; codifies the "additive-only during PR window" assumption explicitly so it's a deliberate architecture choice rather than an undocumented surprise.
+
+**Out of scope (deferred to v1 if/when needed):**
+
+- A **staging Supabase project** with separate Vercel preview env override + a staging-targeted `deploy-migrations.yml` variant. The full-isolation solution. Lower priority because (a) most projects accept the Vercel-preview gap as a trade-off if migrations are mostly additive, (b) it doubles the Supabase-project management overhead, (c) staging-vs-prod data drift becomes its own problem. Revisit if multiple projects adopt the devshop and report frequent Vercel-preview-broken-by-pending-migration incidents — that's the data signal that the trade-off is no longer acceptable.
+
+---
+
 ### Security-posture cleanup: CI/prod credential separation + URL guard + classification
 
 Audit of `/ak-new-project`'s credential surface (2026-04-25, after the auto-deploy-backend ship) surfaced four issues that compound:
