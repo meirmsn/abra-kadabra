@@ -510,6 +510,24 @@ setup() {
   assert_success
 }
 
+@test "wiring: template deploy-migrations workflow is valid YAML" {
+  local mig="$DEVSHOP/template/.github/workflows/deploy-migrations.yml"
+  [ -f "$mig" ] || skip "deploy-migrations workflow not found"
+  run grep -q '^on:' "$mig"
+  assert_success
+  run grep -q '^jobs:' "$mig"
+  assert_success
+}
+
+@test "wiring: template deploy-functions workflow is valid YAML" {
+  local fns="$DEVSHOP/template/.github/workflows/deploy-functions.yml"
+  [ -f "$fns" ] || skip "deploy-functions workflow not found"
+  run grep -q '^on:' "$fns"
+  assert_success
+  run grep -q '^jobs:' "$fns"
+  assert_success
+}
+
 # =============================================================================
 # additionalDirectories — Claude can access devshop files
 # =============================================================================
