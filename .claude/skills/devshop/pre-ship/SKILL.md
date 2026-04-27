@@ -113,20 +113,27 @@ if [ -n "$CHROMIUM" ]; then
 fi
 ```
 
-**Supabase availability check** (advisory — Gate 9 degrades gracefully):
+**Supabase availability check** (hard `blocked` if Docker is missing, never falls back to hosted):
 
-Gate 9 (`/qa`) walks the happy path against a Supabase instance. Hosted Supabase rate-limits signups aggressively (~30-min cooldown after 1-2 attempts), so the preferred backend is local Supabase. If Docker-in-Docker isn't available in the devcontainer (currently inert without a `--privileged` rebuild), Gate 9 falls back to admin-API against hosted — which bypasses rate limits entirely but pollutes the hosted DB with test data.
+Gate 9 (`/qa`) walks the happy path against a Supabase instance. Hosted Supabase has two failure modes for this: (a) rate-limits signups aggressively (~30-min cooldown after 1-2 attempts), and (b) every signup leaves a real account on the production project — which the bootstrap historically did when Docker wasn't available. As of the dev-side prod-isolation interlude, the hosted fallback is removed: if Docker isn't reachable, Gate 9 reports `blocked` and the pipeline halts.
 
 ```bash
-# Bootstrap local Supabase if possible; otherwise report the fallback.
+# Bootstrap local Supabase or report blocked.
 bash /devshop/kit/scripts/preship/supabase-bootstrap.sh up
 # Outputs one of:
 #   ok: local Supabase up; .env.local rewritten (backup at .preship-backup)
 #   reused: local Supabase already running
-#   unavailable: Docker not running — local Supabase cannot start; Gate 9 must use admin-API against hosted
+#   blocked: Docker not running — local Supabase cannot start. Refusing hosted-Supabase fallback (would pollute prod). Fix: rebuild devcontainer with host docker socket bind-mount, or run on a machine with Docker.
 ```
 
-`ok` / `reused` / `unavailable` are all exit 0. Non-zero exits (2-5) indicate hard failures (CLI missing, `supabase start` failed, seed fixtures missing) — blocking if `$TOUCHES_UI`; warn otherwise.
+`ok` / `reused` are exit 0. `blocked` is also exit 0 (the script reports the situation; pre-ship's gate dispatcher decides the outcome). Non-zero exits (2-5) indicate hard failures (CLI missing, `supabase start` failed, seed fixtures missing) — blocking if `$TOUCHES_UI`; warn otherwise.
+
+**If preflight reads `blocked:` from the bootstrap script's stdout**:
+
+1. Record `blocked (Docker unavailable — see fix recipe below)` against Gate 9.
+2. Report back to the caller immediately with the script's full stdout as the fix recipe.
+3. Do NOT run subsequent gates that depend on Gate 9 evidence (qa-walk artifacts).
+4. `/ak-build` MUST refuse to advance to `/ship` with any `blocked` gate (existing contract — see Outcome semantics).
 
 At the end of the pre-ship run (success or failure), call the teardown:
 
@@ -173,20 +180,21 @@ devshop-native check or a devshop-authored skill like `/ak-test-review` /
 prose elsewhere in the devshop renders the same split inline as `test-review (ak)`
 vs `review` so readers can tell at a glance which gates come from where.
 
-| #   | Name                 | Owner | Title                              | Scope                                 |
-| --- | -------------------- | ----- | ---------------------------------- | ------------------------------------- |
-| 1   | `docs-check`         | ak    | Devshop docs diff review           | when `kit/` or reference docs touched |
-| 2   | `metrics-check`      | ak    | Metrics coverage                   | user-facing code PRs                  |
-| 3   | `responsive-theme`   | ak    | Responsive + theme capture         | UI PRs only                           |
-| 4   | `simplify`           | —     | `/simplify` pass                   | always                                |
-| 5   | `test-review`        | ak    | `/ak-test-review`                  | always                                |
-| 6   | `review`             | —     | `/review` (+ Greptile triage)      | always                                |
-| 7   | `cso`                | —     | `/cso` (security)                  | always                                |
-| 8   | `design-review`      | —     | `/design-review`                   | UI PRs only                           |
-| 8b  | `design-conformance` | ak    | `/ak-design-conformance`           | runs regardless of UI scope           |
-| 9   | `qa`                 | —     | `/qa` (functional walk)            | always                                |
-| 10  | `benchmark`          | —     | `/benchmark`                       | UI PRs only                           |
-| 11  | `convention`         | ak    | Convention headers + hook-coverage | always                                |
+| #   | Name                 | Owner | Title                                 | Scope                                               |
+| --- | -------------------- | ----- | ------------------------------------- | --------------------------------------------------- |
+| 1   | `docs-check`         | ak    | Devshop docs diff review              | when `kit/` or reference docs touched               |
+| 2   | `metrics-check`      | ak    | Metrics coverage                      | user-facing code PRs                                |
+| 2b  | `rls-coverage`       | ak    | RLS policy coverage for client writes | when `supabase/migrations/**` or client API touched |
+| 3   | `responsive-theme`   | ak    | Responsive + theme capture            | UI PRs only                                         |
+| 4   | `simplify`           | —     | `/simplify` pass                      | always                                              |
+| 5   | `test-review`        | ak    | `/ak-test-review`                     | always                                              |
+| 6   | `review`             | —     | `/review` (+ Greptile triage)         | always                                              |
+| 7   | `cso`                | —     | `/cso` (security)                     | always                                              |
+| 8   | `design-review`      | —     | `/design-review`                      | UI PRs only                                         |
+| 8b  | `design-conformance` | ak    | `/ak-design-conformance`              | runs regardless of UI scope                         |
+| 9   | `qa`                 | —     | `/qa` (functional walk)               | always                                              |
+| 10  | `benchmark`          | —     | `/benchmark`                          | UI PRs only                                         |
+| 11  | `convention`         | ak    | Convention headers + hook-coverage    | always                                              |
 
 ## Dismissal Log (every gate, mandatory)
 
@@ -277,6 +285,27 @@ If the PR touches user-facing code (components, API wrappers, edge functions):
 - Verify `posthog.capture()` calls exist for events in this feature's spec
 - Cross-reference against `METRICS.md`
 - **Pause if missing** — don't auto-advance on a user-facing PR without metrics
+
+## Gate rls-coverage (ak): RLS policy coverage for client writes
+
+Mechanical check that every table written-to by client code through PostgREST (`from('table').insert/update/delete/upsert`) has a matching `CREATE POLICY` for that operation when the table has RLS enabled. Catches the silent class of failures lalista PR 5 hit (`items` had RLS enabled but no `for insert` policy, so the force-create flow's writes succeeded as zero-row no-ops at the client and produced no error — invisible in unit tests, invisible in `/cso`).
+
+- Scope: runs when the diff against `origin/main` touches `supabase/migrations/**`, `packages/core/src/api/**`, `apps/web/app/**`, or `supabase/functions/**`. Otherwise `n/a (no migration or client API change)`.
+- Out of scope: `WHERE` / `WITH CHECK` predicate semantics (an integration test against a live DB is the right tool), `SECURITY DEFINER` RPCs (intentionally bypass RLS — see `mark_item_bought` as the canonical example in `CLAUDE.md § Principle of least privilege`), and tests/E2E (admin client bypasses RLS).
+
+Invocation:
+
+```bash
+bash /devshop/kit/scripts/preship/rls-coverage-check.sh "$(git rev-parse --show-toplevel)"
+```
+
+Outcomes:
+
+- `pass` — every RLS-enabled table written by client code has a matching policy for the operation in use.
+- `findings (N)` — N gaps. Stdout enumerates `<table> <op> (RLS enabled, no '<op>' policy)` and prints the canonical fix recipe (add the policy in a new migration, or reroute through a `SECURITY DEFINER` RPC, or use the service-role admin client as last resort).
+- `n/a (no supabase/migrations directory)` — projects without Supabase, or pure-frontend changes.
+
+**⚠ May change code (operator-applied fix in a new migration).** If the gate emits findings and the operator adds a migration, run `pnpm turbo run test:unit` after; if any integration tests exist they should be re-run too. The gate itself is read-only.
 
 ## Gate 3: Responsive + theme check (UI PRs only)
 

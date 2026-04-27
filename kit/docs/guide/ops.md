@@ -217,6 +217,14 @@ The dev container is defined in `.devcontainer/` and requires:
 
 The container runs as the `node` user (non-root). On every start, `init-firewall.sh` runs with sudo to lock down outbound network access before VS Code connects. The firewall uses `iptables` + `ipset` to allowlist outbound traffic — everything else is rejected.
 
+### Docker socket bind-mount (host engine, not docker-in-docker)
+
+The dev container talks to the host's docker daemon via a `/var/run/docker.sock` bind-mount declared in `devcontainer.json § mounts`. The container ships only the docker CLI (no daemon) and an `init-docker-socket.sh` postStart script that aligns the in-container `docker` group's GID with the host socket's GID and adds `node` to that group.
+
+This replaces the previous `docker-in-docker` feature, which was inert without `--privileged` and silently routed `/ak-pre-ship` Gate 9 to admin-API-against-hosted-prod. With the bind-mount, `supabase start` runs against the host docker engine — `kit/scripts/preship/supabase-bootstrap.sh up` reports `blocked` (refusing the hosted fallback) when the socket isn't reachable. See `kit/notes/roadmap/qa-options.md § Q1` for the full options matrix.
+
+If `docker info` fails after a devcontainer rebuild, check that `/var/run/docker.sock` is mounted (`ls -la /var/run/docker.sock`) and that `id -nG node | grep docker` lists the docker group; `init-docker-socket.sh` is idempotent and re-running it (`sudo /usr/local/bin/init-docker-socket.sh`) realigns the GID if the host's docker group changed.
+
 ---
 
 ## Persistent Storage

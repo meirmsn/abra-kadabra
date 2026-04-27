@@ -54,18 +54,25 @@
       }
     }
   },
-  "features": {
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {
-      "moby": false
-    }
-  },
   "remoteUser": "node",
   "mounts": [
     // Shell history survives container rebuilds (zsh/bash)
     "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
     // Claude Code config, sessions, and API key survive container rebuilds
     "source=claude-code-config-${devcontainerId},target=/home/node/.claude,type=volume",
-    "source=${localWorkspaceFolder}/../abra-kadabra,target=/devshop,type=bind,consistency=delegated"
+    "source=${localWorkspaceFolder}/../abra-kadabra,target=/devshop,type=bind,consistency=delegated",
+    // Host docker socket — lets `supabase start` (which spawns its own
+    // Postgres + GoTrue + Realtime + Edge Function containers) work from
+    // inside this devcontainer. Why not the docker-in-docker feature: DiD
+    // requires --privileged to actually function, otherwise the embedded
+    // dockerd never starts and `docker info` reports "unavailable", which
+    // historically silently routed /ak-pre-ship Gate 9 to admin-API-against-
+    // hosted (i.e. polluting prod). Sharing the host socket is lighter and
+    // works without --privileged. Containers that supabase spawns are
+    // siblings of this devcontainer on the host engine, not nested.
+    // The Dockerfile installs the docker CLI; the daemon is the host's.
+    // See /devshop/kit/notes/roadmap/qa-options.md § Q1 option 1.
+    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
   ],
   "containerEnv": {
     // Heap size of node. Increased to handle claude code projects
@@ -83,6 +90,7 @@
   // Onboarding skipped since it hangs, plus not needed! (saves time by not having to go through it every time you start the container) - Happened when using Anthropic API Key
   "postCreateCommand": "echo '{\"hasCompletedOnboarding\": true}' > ~/.claude.json && pnpm install",
   // Configure git to use GITHUB_TOKEN via gh (skipped if token missing) - prevents having to sign in to github on container restart
-  "postStartCommand": "sudo /usr/local/bin/init-firewall.sh && sudo /usr/local/bin/init-devshop.sh && ([ -n \"$GITHUB_TOKEN\" ] && gh auth setup-git || true)",
+  // init-docker-socket.sh aligns the in-container docker group's GID with the host socket's GID so `docker info` works without sudo.
+  "postStartCommand": "sudo /usr/local/bin/init-firewall.sh && sudo /usr/local/bin/init-devshop.sh && sudo /usr/local/bin/init-docker-socket.sh && ([ -n \"$GITHUB_TOKEN\" ] && gh auth setup-git || true)",
   "waitFor": "postStartCommand"
 }

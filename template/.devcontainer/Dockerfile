@@ -69,6 +69,23 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
   && apt-get update && apt-get install -y --no-install-recommends gh \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# Docker CLI (no daemon) — talks to the host docker engine via the
+# /var/run/docker.sock bind-mount declared in devcontainer.json. Installing
+# only the client (no docker-ce / dockerd) avoids any nested-daemon weirdness
+# and keeps the image small. Required for `supabase start` to spawn its
+# Postgres / GoTrue / Realtime / Edge Function containers. See devcontainer.json
+# § mounts and /devshop/kit/notes/roadmap/qa-options.md § Q1.
+RUN install -m 0755 -d /etc/apt/keyrings \
+  && curl -fsSL https://download.docker.com/linux/debian/gpg \
+     -o /etc/apt/keyrings/docker.asc \
+  && chmod a+r /etc/apt/keyrings/docker.asc \
+  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(. /etc/os-release && echo \"$VERSION_CODENAME\") stable" \
+     > /etc/apt/sources.list.d/docker.list \
+  && apt-get update \
+  && apt-get install -y --no-install-recommends docker-ce-cli docker-compose-plugin \
+  && apt-get clean && rm -rf /var/lib/apt/lists/* \
+  && groupadd -f docker
+
 ARG USERNAME=node
 
 # Persist bash history in a dedicated volume-backed directory. The directory is created at build time so Docker has a valid mount point. At runtime the named volume overlays this directory, making history persist across container rebuilds.
@@ -142,6 +159,13 @@ RUN chmod +x /usr/local/bin/init-firewall.sh && \
 COPY init-devshop.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/init-devshop.sh && \
   echo "node ALL=(root) NOPASSWD: /usr/local/bin/init-devshop.sh" >> /etc/sudoers.d/node-firewall && \
+  chmod 0440 /etc/sudoers.d/node-firewall
+
+# Docker-socket gid alignment — runs at container start. Without it the node
+# user cannot talk to the host docker engine via the bind-mounted socket.
+COPY init-docker-socket.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/init-docker-socket.sh && \
+  echo "node ALL=(root) NOPASSWD: /usr/local/bin/init-docker-socket.sh" >> /etc/sudoers.d/node-firewall && \
   chmod 0440 /etc/sudoers.d/node-firewall
 
 # Remove blanket sudo — base image (common-utils) grants NOPASSWD:ALL by default. Only the firewall script should run as root (see node-firewall sudoers entry above).

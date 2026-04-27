@@ -172,6 +172,7 @@ These topics span multiple skills, so the guide (`./guide/`) owns them:
 - **Notifications** (`guide/notifications.md`) — push alerts to iPhone/Watch/Mac via ntfy.sh, 30s debounce, privacy, rotation
 - **Rollback procedures** (`guide/ops.md § When Things Go Wrong`) — Vercel rollback, migration rollback SQL, canary failure response
 - **Supabase SSR + E2E patterns** (`guide/supabase-ssr-boilerplate.md`) — 5 canonical patterns for Supabase + Next.js + Playwright projects (env-var trim, CSP scheme handling, E2E helpers, Realtime publication, WebKit hydration race), each codified from a real production incident with verbatim copy-paste-ready snippets
+- **Runtime validation at LLM / edge-function boundaries** (`guide/conventions.md § Runtime Validation at LLM / Edge-Function Boundaries`) — when to add Zod (LLM-backed boundaries, third-party APIs not under your control) vs. when not (PostgREST, forms, internal calls); the `packages/core/src/schemas/<feature>.ts` schema-module pattern with `.safeParse()` + Sentry-scrubbed payload + typed `{Feature}ValidationError`
 
 CI slow job expansion plans are in ROADMAP.md § v+.
 

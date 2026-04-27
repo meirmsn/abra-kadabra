@@ -153,6 +153,7 @@ Then fill only the gaps the gstack plan left — the missing detail only, not a 
 
 - **`## Core user story`** (REQUIRED — see below) — 2–4 imperative verbs, one per line, describing the product's primary observable flow end-to-end. `/ak-pre-ship` Gate 9 (qa-walk) enforces that every verb in this section produces a verifiable artifact.
 - User-facing behaviors not yet specified (happy path + all error states)
+- **`## Render conditions`** (REQUIRED for any feature introducing or modifying a UI element with conditional visibility — see below). One row per element, every state combination resolved to `shown` / `hidden`. Default for an unmentioned combination is implicit `hidden`; never leave the matrix sparse.
 - Data model changes (exact schema diffs)
 - API contracts (endpoints, inputs, outputs, auth)
 - Service dependencies
@@ -219,6 +220,33 @@ filesystem-safe label derived from the verb. Example: `verb-2-add-milk.png`. The
 qa-walk harness captures these via the gstack `browse` daemon; see
 `/devshop/.claude/skills/devshop/pre-ship/SKILL.md` Gate 9 for the capture contract.
 
+### Render conditions (required when the feature touches conditional UI)
+
+When the feature introduces a new UI element (button, row, sheet, banner, etc.) — or changes the visibility of an existing one — the spec MUST declare a `## Render conditions` section that resolves _every_ state combination to `shown` or `hidden`. This is the contract that prevents add-shown-when-it-shouldn't-be bugs (lalista PR 5 surfaced two: an add-new row visible inside a results sheet that was supposed to show only candidate options, and visible across an empty-list state combination the spec hadn't enumerated).
+
+**Format**: a markdown table. Rows are UI elements; columns are the state combinations enumerated for the surface that contains them. Every cell is `shown` or `hidden` — no blanks, no "depends on …" prose. If a column genuinely doesn't apply (e.g., element doesn't exist on that surface), write `n/a`.
+
+**Good example** (lalista add-item disambig sheet, post-PR-5):
+
+```markdown
+## Render conditions — disambig sheet rows
+
+| Element               | empty utterance | 0 candidates + valid utterance | 1+ candidates | error from edge fn |
+| --------------------- | --------------- | ------------------------------ | ------------- | ------------------ |
+| Candidate option rows | n/a             | hidden                         | shown         | hidden             |
+| `+ add as new` row    | hidden          | shown                          | hidden        | hidden             |
+| Force-create button   | hidden          | shown                          | hidden        | hidden             |
+| Error banner          | hidden          | hidden                         | hidden        | shown              |
+```
+
+Four rows × four states × explicit `shown` / `hidden` / `n/a` — the `add-new` row's "hidden when 1+ candidates" cell is the cell that fixed PR 5 Bug #2.
+
+**How to enumerate state columns**: for each surface, list every distinct combination of (input-validity × backend-response × user-action) that produces a meaningfully different UI. Five rows is usually enough; if the surface has more than ~8, decompose by primary state (e.g., one matrix per route param value).
+
+**Why this is mandatory for UI features**: the implementation will inevitably ship at least one `&&`-chain inside JSX whose visibility logic was implicit. If the spec didn't enumerate the matrix, neither did the implementation — the surface bug is downstream of a missing-spec-row, every time. Pre-ship `/qa` happens to catch some, not most. Filling the matrix at spec time is the cheap version of the same checking.
+
+**When to skip**: backend-only PRs, schema-only migrations, refactors that don't change rendered output. If the diff doesn't add or change a `if (…)` / `&& <Element>` / `?:` inside JSX/TSX, the section may be omitted. When in doubt, write the matrix — it's a few minutes; missing one is hours of QA-discovered bugs.
+
 ## Step 7: Handle new metrics
 
 If the feature introduces new user actions not yet in `METRICS.md`:
@@ -239,6 +267,7 @@ Every spec must have:
 
 - [ ] **`## Core user story` section — 2–4 imperative verbs OR `N/A — <reason>`** (Gate 9 enforces artifact coverage for each verb)
 - [ ] All user-facing behaviors described (happy path + error states)
+- [ ] **`## Render conditions` matrix — every state combination resolved to `shown` / `hidden` / `n/a` for every new or visibility-modified UI element** (omit if PR is pure backend / migration / refactor; see Render conditions section above)
 - [ ] Data model changes explicit (exact schema diffs or "no changes")
 - [ ] API contracts specified (endpoints, inputs, outputs, auth requirements)
 - [ ] Out-of-scope items explicitly listed

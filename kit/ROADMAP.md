@@ -520,7 +520,18 @@ Holding to v0 (vs v1) because: (a) lalista is the first adopter and is mid-rollo
 
 ---
 
-### Browse binary + Playwright browser availability in project devcontainers
+### Browse binary + Playwright browser availability in project devcontainers — _shipped 2026-04-27_
+
+**Status:** structural fix landed. Two operator scripts (`kit/scripts/rebuild-browse.sh` + `kit/scripts/populate-playwright-cache.sh`) plus a CLI fallback in `gstack/browse/src/cli.ts` close the gap. Lalista's workspace install verified end-to-end against `https://lalista-ten.vercel.app`. Below preserved as the original problem statement; the deferred work in the closing ##### Carry-forward block tracks anything still open.
+
+##### Carry-forward (2026-04-27)
+
+- Migration recipe section in `/ak-new-project § Migration: existing project to current credential layout` for older devcontainers that still need the apt-bake + `containerEnv` updates. Track separately under `### Pre-2026-04-23 devcontainer migration recipe` if/when a second pre-cutoff project surfaces.
+- `/ak-pre-ship` Phase 0 preflight could call `populate-playwright-cache.sh` defensively when `~/.cache/ms-playwright/` is empty AND `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` is set — currently it just verifies the env var. Cheap upgrade once a second project hits the empty-cache path.
+
+---
+
+#### Original problem statement (preserved for context)
 
 Surfaced 2026-04-26 while attempting to run `/qa-only` + `/design-review` against lalista's PR 18 preview URL from the project devcontainer. The skills produced no audit because **the browse binary is broken** (in the project install) AND **Playwright browsers can't be downloaded** (firewall blocks the CDN).
 
@@ -814,7 +825,18 @@ Combined with the auth-hardening step (password_min_length: 8, landed in v1.11.0
 
 ---
 
-### Runtime validation at LLM / edge-function boundaries (Zod)
+### Runtime validation at LLM / edge-function boundaries (Zod) — _shipped 2026-04-27_
+
+**Status:** convention shipped. `kit/docs/guide/conventions.md § Runtime Validation at LLM / Edge-Function Boundaries` documents when to use Zod (LLM-backed boundaries, third-party APIs) and when not (PostgREST, forms, internal calls), the schema-module pattern (`packages/core/src/schemas/<feature>.ts`, `.passthrough()` default, `z.infer` for type), the wrapper-site `.safeParse()` + Sentry-scrubbed payload + typed-error pattern, and the template scaffold (Zod added to `template/packages/core/package.json`, `schemas/README.md` placeholder created). Lalista PR 6 (`feature/zod-validation`, queued on `lalista/PLAN.md`) is the canonical first-adopter.
+
+##### Carry-forward (2026-04-27)
+
+- Lalista's `feature/zod-validation` adopts the convention as-is. After PR 6 ships, sync the inline schema back to the template if any pattern proved useful enough to share (e.g. a generic `scrubExcerpt` helper).
+- Second-project adoption: `/ak-new-project` Step N (TBD which) should reference the conventions section so the schema dir + Zod dep land at scaffold time. Currently the dep is in `template/packages/core/package.json`; the scaffold step that copies templates already pulls it in.
+
+---
+
+#### Original problem statement (preserved for context)
 
 Projects with LLM-backed edge functions (or any endpoint returning structured data) currently rely on TypeScript's compile-time assertions alone — `client.functions.invoke<T>(...)` in Supabase, `(await fetch()).json() as T` in general. The generic or cast is a compiler promise, not a runtime check: whatever the server sends flows through untyped. For LLM-backed endpoints the risk is real — a prompt tweak, model swap, or function refactor that alters the response shape crashes clients at the use-site (`response.foo.bar` on `undefined`) instead of failing fast at the boundary.
 

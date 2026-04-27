@@ -21,7 +21,7 @@ export function resolveServerScript(
   env: Record<string, string | undefined> = process.env,
   metaDir: string = import.meta.dir,
   execPath: string = process.execPath
-): string {
+): string | null {
   if (env.BROWSE_SERVER_SCRIPT) {
     return env.BROWSE_SERVER_SCRIPT;
   }
@@ -44,16 +44,19 @@ export function resolveServerScript(
     }
   }
 
-  throw new Error(
-    'Cannot find server.ts. Set BROWSE_SERVER_SCRIPT env or run from the browse source tree.'
-  );
+  // Source tree unavailable; caller falls back to NODE_SERVER_SCRIPT (server-node.mjs).
+  return null;
 }
 
 const SERVER_SCRIPT = resolveServerScript();
 
 /**
- * On Windows, resolve the Node.js-compatible server bundle.
- * Falls back to null if not found (server will use Bun instead).
+ * Resolve the Node-compatible server bundle (browse/dist/server-node.mjs).
+ *
+ * Used on Windows always (Bun can't drive Playwright there) and on Linux/macOS
+ * as a fallback when the source tree (server.ts) isn't shipped alongside the
+ * binary — e.g., a project install that ships dist/ only without src/. The
+ * bundle is produced by browse/scripts/build-node-server.sh.
  */
 export function resolveNodeServerScript(
   metaDir: string = import.meta.dir,
@@ -74,7 +77,14 @@ export function resolveNodeServerScript(
   return null;
 }
 
-const NODE_SERVER_SCRIPT = IS_WINDOWS ? resolveNodeServerScript() : null;
+const NODE_SERVER_SCRIPT = resolveNodeServerScript();
+
+// Both server scripts unavailable: nothing we can launch.
+if (!SERVER_SCRIPT && !NODE_SERVER_SCRIPT) {
+  throw new Error(
+    'Cannot find server.ts (Bun) or server-node.mjs (Node). Set BROWSE_SERVER_SCRIPT env, run from the browse source tree, or rebuild dist via /devshop/kit/scripts/rebuild-browse.sh.'
+  );
+}
 
 // On Windows, hard-fail if server-node.mjs is missing — the Bun path is known broken.
 if (IS_WINDOWS && !NODE_SERVER_SCRIPT) {
@@ -82,6 +92,10 @@ if (IS_WINDOWS && !NODE_SERVER_SCRIPT) {
     'server-node.mjs not found. Run `bun run build` to generate the Windows server bundle.'
   );
 }
+
+// Use the Node bundle on Windows always; on Linux/macOS only when the Bun
+// source tree is unavailable (project install without src/).
+const USE_NODE_SERVER = IS_WINDOWS || !SERVER_SCRIPT;
 
 interface ServerState {
   pid: number;
@@ -196,7 +210,7 @@ function cleanupLegacyState(): void {
             stdout: 'pipe', stderr: 'pipe', timeout: 2000,
           });
           const cmd = check.stdout.toString().trim();
-          if (cmd.includes('bun') || cmd.includes('server.ts')) {
+          if (cmd.includes('bun') || cmd.includes('server.ts') || cmd.includes('server-node.mjs')) {
             try { process.kill(data.pid, 'SIGTERM'); } catch {}
           }
         }
@@ -238,9 +252,18 @@ async function startServer(extraEnv?: Record<string, string>): Promise<ServerSta
       `{detached:true,stdio:['ignore','ignore','ignore'],env:Object.assign({},process.env,` +
       `{BROWSE_STATE_FILE:${JSON.stringify(config.stateFile)}})}).unref()`;
     Bun.spawnSync(['node', '-e', launcherCode], { stdio: ['ignore', 'ignore', 'ignore'] });
+  } else if (USE_NODE_SERVER && NODE_SERVER_SCRIPT) {
+    // Linux/macOS without a source tree (project install ships dist/ only):
+    // launch the Node bundle. Slightly slower startup than Bun, but the
+    // bundle is the same code and Node + Playwright is a battle-tested combo.
+    proc = Bun.spawn(['node', NODE_SERVER_SCRIPT], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, BROWSE_STATE_FILE: config.stateFile, ...extraEnv },
+    });
+    proc.unref();
   } else {
-    // macOS/Linux: Bun.spawn + unref works correctly
-    proc = Bun.spawn(['bun', 'run', SERVER_SCRIPT], {
+    // macOS/Linux dev path: Bun.spawn + unref works correctly
+    proc = Bun.spawn(['bun', 'run', SERVER_SCRIPT!], {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, BROWSE_STATE_FILE: config.stateFile, ...extraEnv },
     });

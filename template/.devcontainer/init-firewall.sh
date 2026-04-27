@@ -75,6 +75,17 @@ done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]' | aggregate -q)
 #   "registry-1.docker.io"             — Docker Hub
 #   "auth.docker.io"                   — Docker Hub auth
 #   "production.cloudflare.docker.com" — Docker Hub CDN
+#
+# Note on Supabase egress (deliberately omitted):
+# `api.supabase.com` (control plane) and `aws-0-us-west-2.pooler.supabase.com`
+# (connection pooler) are NOT in this allowlist. Migrations + functions deploy
+# from CI on push-to-main (see .github/workflows/deploy-{migrations,functions}.yml),
+# never from the dev devcontainer. The local stack (`supabase start` via the host
+# docker socket bind-mount) talks to localhost only — no firewall hole needed.
+# A project's `<ref>.supabase.co` data-plane URL is added by /ak-new-project as
+# part of the project-specific block above (anon-key data-plane only — never
+# the service-role JWT). Removing the control-plane + pooler entries shrinks
+# the dev-side prod blast radius. See /devshop/kit/notes/roadmap/qa-options.md.
 for domain in \
     "registry.npmjs.org" \
     "deb.debian.org" \
@@ -87,8 +98,6 @@ for domain in \
     "update.code.visualstudio.com" \
     "cdn.playwright.dev" \
     "playwright.download.prss.microsoft.com" \
-    "api.supabase.com" \
-    "aws-0-us-west-2.pooler.supabase.com" \
     "vercel.com" \
     "api.vercel.com" \
     "cdn.jsdelivr.net" \
@@ -96,6 +105,7 @@ for domain in \
     "fonts.googleapis.com" \
     "fonts.gstatic.com" \
     "ntfy.sh" \
+    "download.docker.com" \
     ; do
     echo "Resolving $domain..."
     ips=$(dig +noall +answer A "$domain" | awk '$4 == "A" {print $5}')

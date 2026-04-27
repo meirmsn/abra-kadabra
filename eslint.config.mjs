@@ -27,6 +27,15 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ['**/node_modules/**', '**/.next/**', '**/dist/**'],
+    // .claude/skills/gstack/** is vendored from the gstack repo (see commit
+    // 6c240b9). It lints clean upstream against gstack's own rules but trips
+    // devshop's stricter empty-block-statement / no-require-imports rules.
+    // Treat vendored code as third-party — upstream owns its lint config.
+    ignores: [
+      '**/node_modules/**',
+      '**/.next/**',
+      '**/dist/**',
+      '.claude/skills/gstack/**',
+    ],
   }
 );

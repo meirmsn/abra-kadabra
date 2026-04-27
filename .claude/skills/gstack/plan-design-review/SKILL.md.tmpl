@@ -261,6 +261,19 @@ descriptions of what 10/10 looks like.
 ### Pass 1: Information Architecture
 Rate 0-10: Does the plan define what the user sees first, second, third?
 FIX TO 10: Add information hierarchy to the plan. Include ASCII diagram of screen/page structure and navigation flow. Apply "constraint worship" — if you can only show 3 things, which 3?
+
+**Standing prompt — does any input duplicate data the system already has?**
+For every input field, picker, or confirmation step the plan introduces, run this audit:
+1. Inventory existing knowable sources — signed-in user identity, profile, prior selection in this session, server-side state, derived/computed values, route params.
+2. For each input: is the value the user is being asked to supply already in one of those sources?
+3. If yes, the input is a UX failure. The plan must replace it with one of:
+   - **Confirmed state** — render the known value (e.g. "Posting as `meir`") with a single edit affordance, not an input.
+   - **Implicit binding** — the value is set automatically; user never sees a field.
+   - **Single-choice shortcut** — a one-tap "use existing" button when there's a sensible default.
+4. If the input genuinely needs to override the known value (rare), the plan must explain WHY the user would override it AND what the default visible state is.
+
+Common offenders to scan for explicitly: a household-picker on a screen where the user has only one household; a location picker when geolocation is already known; a "select your role" prompt when the role is already in the profile; a "confirm your email" entry when the user is signed in; a search box that re-types what was just clicked. If the plan introduces any of these, drop the rating to ≤6 until they are resolved.
+
 **STOP.** AskUserQuestion once per issue. Do NOT batch. Recommend + WHY. If no issues, say so and move on. Do NOT proceed until user responds.
 
 ### Pass 2: Interaction State Coverage

@@ -25,10 +25,16 @@ case "$MODE" in
       exit 2
     fi
 
-    # 2. Docker check — advisory, not blocking. If Docker-in-Docker isn't available (common in the
-    #    current devcontainer without --privileged), Gate 9 falls back to admin-API against hosted.
+    # 2. Docker check — hard `blocked`, no hosted fallback. Historically this branch
+    #    routed Gate 9 to admin-API-against-hosted-prod, which created real users +
+    #    households + items on the production Supabase project during every dev-side
+    #    pre-ship walk. Refusing the fallback forces the operator to fix the root
+    #    cause (mount /var/run/docker.sock per template/.devcontainer/devcontainer.json,
+    #    or run on a host with Docker). Pre-ship treats `blocked` as a non-advancing
+    #    failure for Gate 9; /ak-build refuses to ship with any blocked gate. See
+    #    /devshop/kit/notes/roadmap/qa-options.md.
     if ! docker info >/dev/null 2>&1; then
-      echo "unavailable: Docker not running — local Supabase cannot start; Gate 9 must use admin-API against hosted"
+      echo "blocked: Docker not running — local Supabase cannot start. Refusing hosted-Supabase fallback (would pollute prod). Fix: rebuild the devcontainer with the host docker socket bind-mount (see template/.devcontainer/devcontainer.json § mounts), or run on a machine with Docker."
       exit 0
     fi
 
