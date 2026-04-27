@@ -190,6 +190,26 @@ When a gate's `## Dismissals` body is non-`None` (scoped parse — `kit/scripts/
 
 Rejection fails the gate with outcome `findings (N) pending` — the pipeline pauses like any other unresolved finding. The reviewer has the full `review.md` entry + the spec's scope sections as context, so "this is consistent with our scope" claims get checked against the actual scope.
 
+### Convention adherence (CONVENTIONS_TO_INCLUDE inlining)
+
+`adversarial-review.sh` additionally inlines relevant sections of `kit/docs/guide/conventions.md` into the reviewer's context block, keyed by `(check-type, gate-name)`. Bypass-reason authors must demonstrate that the diff or dismissal is **consistent with the inlined rules** — a change that violates an explicit convention rule fails unless the reason explicitly engages that rule's stated rationale.
+
+How it works:
+
+- A `CONVENTIONS_TO_INCLUDE` map (function `get_conventions_to_inline` in `adversarial-review.sh`) returns the pipe-separated list of `## ` heading names from `conventions.md` to inline for a given check-type. For `dismissalLog`, the map is keyed additionally by gate-name so each gate's review sees only its relevant convention(s).
+- The `extract_convention_section` helper greps the requested sections out of `conventions.md` and appends them to `CONTEXT` under a `=== Relevant conventions ===` header.
+- Rule 11 in the prompt template instructs the reviewer to FAIL when the diff/dismissal violates an explicit rule unless the reason engages the rule's rationale.
+
+Initial map covers 10 routes: `testCoverage` → Non-Negotiables; `docsVerified` → Backlog Routing Guide; and `dismissalLog/<gate>` for `qa`, `test-review`, `design-review`, `cso`, `rls-coverage`, `slow-job-lifecycle`, `review`, `metrics-check`.
+
+Extending enforcement:
+
+1. Identify the convention in `conventions.md` (must already exist as a `## ` section).
+2. Add the routing entry in `get_conventions_to_inline` (case statement keyed by check-type, with a nested case for `dismissalLog` gate-names).
+3. The new section is now inlined for every matching adversarial review — no further code changes needed.
+
+The map is intentionally conservative: only enforce conventions whose violations have been seen in the wild AND whose textual rule is concrete enough for an LLM reviewer to judge against. Aspirational / taxonomic sections (Tier 3 per the audit at `kit/notes/roadmap/conventions-audit-redistribution-2026-04-27.md`) should NOT be inlined.
+
 ### Bypass flags + env hatches
 
 | Flag / Env                                 | Purpose                                                                                                                                                                                                      | Where it applies                                |

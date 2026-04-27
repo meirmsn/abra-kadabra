@@ -22,12 +22,23 @@
 #   PRESHIP_ADVERSARIAL_TIMEOUT=<sec>  — per-call timeout for pre-ship dismissalLog
 #                                        reviews (default 120s; other check-types 90s)
 #
+# Convention-inlining: per check-type (and gate-name for dismissalLog), this
+# script appends relevant sections of `kit/docs/guide/conventions.md` to the
+# reviewer's context block via the CONVENTIONS_TO_INCLUDE map below. The
+# reviewer judges convention adherence in addition to the bypass-reason
+# semantics. Add new mappings to expand convention enforcement coverage.
+#
 # Exit 0 = accepted, exit 1 = rejected (reason on stdout)
 set -euo pipefail
 
 CHECK_TYPE="${1:-unknown}"
 REASON="${2:-no reason given}"
 shift 2 || true
+
+# Capture GATE_NAME early so the convention-inlining block (after the case
+# statement) can use it for dismissalLog routing. Only meaningful for
+# dismissalLog; harmless empty for other check types.
+GATE_NAME="${1:-}"
 
 # Gather context based on check type
 CONTEXT=""
@@ -166,9 +177,9 @@ ${STASH_LIST:-(none)}"
   dismissalLog)
     # Called by /ak-pre-ship's router shim. REASON is the `## Dismissals` section
     # body (the rationales the gate gave for not acting on findings). Extra args:
-    #   $1 = gate name (e.g. "qa", "design-review")
+    #   $1 = gate name (e.g. "qa", "design-review") — already captured into GATE_NAME above
     #   $2 = path to the gate's review.md (for full section context)
-    GATE_NAME="${1:-unknown-gate}"
+    [ -z "$GATE_NAME" ] && GATE_NAME="unknown-gate"
     GATE_REPORT_PATH="${2:-}"
 
     # Extract this gate's section from review.md for fuller context
@@ -212,6 +223,77 @@ ${SPEC_CORE_STORY:-(not declared — spec lacks Core user story section)}
 ${SPEC_IN_SCOPE:-(not available)}"
     ;;
 esac
+
+# --- Convention inlining (CONVENTIONS_TO_INCLUDE map) ---
+# Append relevant sections of `kit/docs/guide/conventions.md` to CONTEXT so the
+# reviewer can judge convention adherence (not just bypass-reason semantics).
+# Mapping is (CHECK_TYPE [+ GATE_NAME for dismissalLog]) → pipe-separated list
+# of `## <heading>` names from conventions.md.
+#
+# Extend this map when a new convention warrants commit-time enforcement. The
+# `## ` heading must match conventions.md exactly (spaces, capitalization).
+extract_convention_section() {
+  local file="$1"
+  local heading="$2"
+  awk -v h="$heading" '
+    $0 == ("## " h) { in_s=1; print; next }
+    in_s && /^## / { exit }
+    in_s { print }
+  ' "$file"
+}
+
+# Returns pipe-separated list of section names to inline, or empty if none.
+get_conventions_to_inline() {
+  local check_type="$1"
+  local gate_name="${2:-}"
+  case "$check_type" in
+    testCoverage)
+      echo "Non-Negotiables"
+      ;;
+    docsVerified)
+      echo "Backlog Routing Guide"
+      ;;
+    dismissalLog)
+      case "$gate_name" in
+        qa)                 echo "Non-Negotiables" ;;
+        test-review)        echo "Wrapper API design" ;;
+        design-review)      echo "DESIGN.md as Contract|Screenshot Routing" ;;
+        cso|rls-coverage)   echo "Supabase Hardening Defaults" ;;
+        slow-job-lifecycle) echo "Slow-Job Lifecycle" ;;
+        review)             echo "Backlog Routing Guide" ;;
+        metrics-check)      echo "Metrics Lifecycle" ;;
+        *)                  echo "" ;;
+      esac
+      ;;
+    *)
+      echo ""
+      ;;
+  esac
+}
+
+CONVENTIONS_FILE="$GIT_ROOT/kit/docs/guide/conventions.md"
+SECTIONS_TO_INCLUDE=$(get_conventions_to_inline "$CHECK_TYPE" "$GATE_NAME")
+if [ -n "$SECTIONS_TO_INCLUDE" ] && [ -f "$CONVENTIONS_FILE" ]; then
+  INLINED_CONVENTIONS=""
+  IFS='|' read -ra SECTIONS_ARR <<< "$SECTIONS_TO_INCLUDE"
+  for section in "${SECTIONS_ARR[@]}"; do
+    body=$(extract_convention_section "$CONVENTIONS_FILE" "$section")
+    if [ -n "$body" ]; then
+      INLINED_CONVENTIONS+="
+$body
+"
+    fi
+  done
+  if [ -n "$INLINED_CONVENTIONS" ]; then
+    CONTEXT="$CONTEXT
+
+=== Relevant conventions (kit/docs/guide/conventions.md) ===
+The diff / dismissal must be consistent with the rules below. A change that
+violates an explicit rule should fail unless the bypass reason explicitly
+justifies the deviation against the rule's stated rationale.
+$INLINED_CONVENTIONS"
+  fi
+fi
 
 # --- Devshop-wide adversarial review bypass (tight iteration loops) ---
 # Active-human-review escape hatch for pre-ship dismissalLog calls that cascade
@@ -276,6 +358,7 @@ Evaluate:
     - Punts to 'TODOS' or 'follow-up' without a specific tag, issue number, or existing entry to point at
     - Claims 'user-acceptable' or 'product decision' without attributing to a specific approved spec line or design doc
     PASS only when every rationale is: specific (names what was considered and why deferred), consistent with the PR scope (doesn't cross the core user story, doesn't dismiss committed scope), and actionable (a later reviewer could find the rationale plausible given the evidence).
+11. **Convention adherence** (when '=== Relevant conventions ===' appears in the context): the diff/dismissal must follow the inlined conventions. A change that violates an explicit rule (e.g. a new wrapper without onError when § Wrapper API design requires it; a dismissal that punts on an RLS-coverage finding when § Supabase Hardening Defaults marks it non-negotiable; a slow-job stripped of the edge-runtime retry when § Slow-Job Lifecycle's checklist requires it) must FAIL unless the reason explicitly engages the rule's stated rationale. Generic 'this convention doesn't apply here' WITHOUT naming why is NOT acceptable.
 
 Respond with EXACTLY one line:
 PASS - only if the reason is genuinely legitimate and specific
