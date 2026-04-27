@@ -105,10 +105,13 @@
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  /ak-go-live  — autonomous deploy (one command)                         │
 │                                                                         │
-│   1. /land-and-deploy   merge → wait for deploy → prod health check     │
-│   2. /canary            ~15 min monitor; fail = stop + rollback SHA     │
-│   3. structured reflection → CLAUDE.md / guide docs / TODOS / ROADMAP   │
-│   4. notify: "@user deployed. Canary: pass/fail. Rollback SHA: xxx"     │
+│   1. pre-flight: CI ready + prod-health probe + migration sequencing    │
+│   2. /land-and-deploy   merge → wait for deploy → prod health check     │
+│   3. branch cleanup + PLAN.md/BUILD-LOG sanity check on main            │
+│   4. /canary            ~15 min monitor; fail = stop + rollback SHA     │
+│   5. rollback checkpoint (records SHA + Vercel ID + last migration)     │
+│   6. structured reflection → CLAUDE.md / guide docs / TODOS / ROADMAP   │
+│   7. notify: "@user deployed. Canary: pass/fail. Rollback SHA: xxx"     │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -171,10 +174,12 @@ enforcement contract.
 
 **Phase 2: `/ak-implement`** — reads spec, decomposes into tasks, implements with tests. Confirms active branch against `PLAN.md § Active`. Stuck protocol: try fix → `/investigate` → ask user. Logs judgment calls in `specs/<name>/tasks.md` § Decisions.
 
-**Phase 3: `/ak-pre-ship`** — quality gates only (no shipping). A Phase 0 preflight runs first: verifies required tooling (Chromium for browser gates) and aborts the whole pre-ship with a `blocked` status if tooling is missing, so gates can't silently turn a missing tool into a cheerful "skipped". After preflight passes, 12 gates run in canonical order. Gate naming: `(ak)` marks devshop-native gates (either a devshop-owned check or a devshop-authored skill like `/ak-test-review`); bare names wrap gstack skills invoked verbatim.
+**Phase 3: `/ak-pre-ship`** — quality gates only (no shipping). A Phase 0 preflight runs first: verifies required tooling (Chromium for browser gates) and aborts the whole pre-ship with a `blocked` status if tooling is missing, so gates can't silently turn a missing tool into a cheerful "skipped". After preflight passes, 14 gates run in canonical order. Gate naming: `(ak)` marks devshop-native gates (either a devshop-owned check or a devshop-authored skill like `/ak-test-review`); bare names wrap gstack skills invoked verbatim. The canonical source of truth for gate ordering + scope is `pre-ship/SKILL.md § Gates (canonical order + named IDs)`.
 
 1. `docs-check` (ak)
 2. `metrics-check` (ak)
+   2b. `rls-coverage` (ak) — when `supabase/migrations/**` or client API touched; mechanical check that every RLS-enabled table written by client code has a matching `CREATE POLICY` for the operation in use (catches the silent-zero-row class lalista PR 5 hit)
+   2c. `slow-job-lifecycle` (ak) — when `*.integration.test.ts` or `apps/web/e2e/*.spec.ts` files exist; verifies the slow-job CI is uncommented, has the right `if:` predicate + retry pattern, and that branch protection includes the `slow` context
 3. `responsive-theme` (ak) — UI PRs only; captures 4-combo evidence screenshots
 4. `simplify` → test:unit checkpoint
 5. `test-review` (ak)
@@ -210,11 +215,15 @@ Every gate's report must also include a `## Dismissals` section (body `None` or 
 
 One command after you approve the PR.
 
-1. `/land-and-deploy` (gstack) — checks CI green, merges, waits for deploy, verifies prod health. The merge to main triggers three parallel auto-deploys: Vercel (Next.js app), `deploy-migrations.yml` if `supabase/migrations/**` changed, `deploy-functions.yml` if `supabase/functions/**` changed. See `guide/conventions.md § Deploy Boundaries` for the backwards-compatibility constraints that follow from the parallel-deploy race (especially for schema-mutating migrations). Auth-config changes still ship manually.
-2. `/canary` (gstack) — ~15 min post-deploy monitoring. If fail: stops, notifies with rollback info (no auto-rollback)
-3. **Sanity-check PLAN.md + BUILD-LOG close-out** — `/ak-build` Phase 5.6 already removed the Active row from PLAN.md and appended the entry to BUILD-LOG on the feature branch before merge. Step 2b verifies the transition ran; does not auto-fix if skipped (Claude can't commit to main).
-4. **Structured reflection** — routes learnings to committed files (CLAUDE.md, guide docs, backlogs)
-5. **Notify** — PR comment: "@username deployed. Canary: pass/fail. Rollback SHA: xxx"
+1. **Pre-flight** — verifies the PR is ready (CI green, no merge conflicts), then runs two pre-merge probes:
+   - **Production health probe** — curls the production URL from `CLAUDE.md § Deploy Configuration` to catch pre-existing prod failures the about-to-land deploy might mask. Splits HTTP `000` (firewall-IP-rotation — devcontainer connectivity issue, prod is probably fine) from real `4xx`/`5xx` responses (genuine pre-existing prod issue → operator question). Codified from lalista PR 26 (trailing-newline `NEXT_PUBLIC_SUPABASE_URL` → SSR 500) and PR 28 (Vercel edge-IP rotation false-positive).
+   - **Migration sequencing pre-flight** — when the diff touches `supabase/migrations/**`, classifies each touched file as additive (CREATE / ADD COLUMN with default) vs mutating (DROP / RENAME / ALTER TYPE / SET NOT NULL without default). Honors `specs/<feature>/spec.md § Migration Sequencing` if pre-declared; otherwise applies the heuristic. Pauses on mutating migrations without an explicit deploy plan, since the parallel-deploy race (Vercel vs `deploy-migrations.yml`) creates a ~30–60s window where prod runs new code against the old schema.
+2. `/land-and-deploy` (gstack) — checks CI green, merges, waits for deploy, verifies prod health. The merge to main triggers three parallel auto-deploys: Vercel (Next.js app), `deploy-migrations.yml` if `supabase/migrations/**` changed, `deploy-functions.yml` if `supabase/functions/**` changed. See `guide/conventions.md § Deploy Boundaries` for the backwards-compatibility constraints that follow from the parallel-deploy race (especially for schema-mutating migrations). Auth-config changes still ship manually.
+3. **Branch cleanup + PLAN.md / BUILD-LOG sanity check** — locally `git branch -D` the merged feature branch and `git remote prune origin`. Verifies `/ak-build` Phase 5.6 already removed the Active row from PLAN.md and appended the entry to BUILD-LOG on the feature branch before merge. Surfaces (does NOT auto-fix) if the close-out was skipped — Claude can't commit to main, so missing close-outs need a human-initiated commit.
+4. `/canary` (gstack) — ~15 min post-deploy monitoring. If fail: stops, notifies with rollback info (no auto-rollback). Same HTTP 000 vs 4xx/5xx split as Step 1 applies for canary failures.
+5. **Rollback checkpoint** — records the current Vercel deployment ID, the latest migration filename, and the current Git SHA every time (even on success), so a future rollback has the coordinates pre-staged in the conversation rather than having to be reconstructed.
+6. **Structured reflection** — routes learnings to committed files (CLAUDE.md, guide docs, backlogs). Two distinct categories, both required: 5a project-side (conventions, gotchas, troubleshooting, decision log) and 5b devshop-side generalization (skill amendments, template fixes, conventions). Either may be empty — explicit "nothing this session" beats fishing for noise.
+7. **Notify** — PR comment: "@username deployed. Canary: pass/fail. Rollback SHA: xxx"
 
 ---
 
@@ -333,7 +342,7 @@ For the full pipeline detail, see Steps 1–6 above.
 | `/design-html`         | After approving a mockup               | Approved mockup           | HTML reference for Claude                                                                                            |
 | `/simplify`            | After tests green, before review       | Working code              | Cleaner code (reuse, dead code removal)                                                                              |
 | `/review`              | Every PR                               | Diff against base branch  | Staff engineer code review                                                                                           |
-| `/cso`                 | Every PR; infra baseline at Phase 0    | Repo state                | Security audit (OWASP, STRIDE, secrets, CI/CD)                                                                       |
+| `/cso`                 | Every PR (Pre-Ship Gate 7)             | Repo state                | Security audit (OWASP, STRIDE, secrets, CI/CD)                                                                       |
 | `/qa`                  | Every PR                               | Running app               | Bug reports + fixes + regression tests                                                                               |
 | `/design-review`       | Every PR touching UI                   | Running app               | Visual audit + fixes. **Note**: when mobile is added, must explicitly check for visual divergence between platforms. |
 | `/benchmark`           | Every PR touching UI                   | Running app               | Core Web Vitals + load time regression check                                                                         |
@@ -352,7 +361,7 @@ For the full pipeline detail, see Steps 1–6 above.
 | `/ak-go-live`            | After PR review — "land it"                 | Autonomous deploy: merge → deploy → canary → reflect → notify.                                                                                                                                                                                                                                                                                                                |
 | `/ak-spec`               | Standalone or inside /ak-build              | Converts gstack plan to implementation-ready spec + METRICS.md                                                                                                                                                                                                                                                                                                                |
 | `/ak-implement`          | Standalone or inside /ak-build              | Implements tasks with tests, stuck protocol, decisions log                                                                                                                                                                                                                                                                                                                    |
-| `/ak-pre-ship`           | Standalone or inside /ak-build              | Quality gates only (12 gates incl. design-conformance). Does not ship.                                                                                                                                                                                                                                                                                                        |
+| `/ak-pre-ship`           | Standalone or inside /ak-build              | Quality gates only (14 gates incl. rls-coverage, slow-job-lifecycle, design-conformance). Does not ship.                                                                                                                                                                                                                                                                      |
 | `/ak-design-conformance` | Inside /ak-pre-ship Gate design-conformance | Extracts normative claims from DESIGN.md, verifies each against implementation. Complements /design-review (different axes).                                                                                                                                                                                                                                                  |
 | `/ak-test-review`        | Standalone or inside /ak-pre-ship           | Fresh-eyes test quality review (report only). Includes Test Assertion Depth rule (shape/length/mock-count must pair with user-visible-output; bypass via `// shape-only: <reason>`) and Skipped Tests Audit (`test.only`/`describe.only` always critical, `test.skip(true, ...)` requires grep-able TODO pointer, conditional skip predicates verified against real CI envs). |
 | `/ak-status`             | Start of any session                        | One-paragraph orientation briefing (read-only)                                                                                                                                                                                                                                                                                                                                |
