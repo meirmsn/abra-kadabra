@@ -275,6 +275,31 @@ Lalista's slow job got uncommented when Phase 1c shipped, but the wiring quality
      Block-on-failure with a clear "uncomment + add to branch protection" remediation message.
 - **Convention doc** in `guide/conventions.md § Slow-Job Lifecycle`: documents the Phase 1c / 1g threshold, the uncommenting checklist, and the cross-link to branch protection.
 - **Template improvement**: convert the commented `slow:` block in `/devshop/template/.github/workflows/ci.yml` to a separate `template/.github/workflows/ci-slow.yml.template` file that `/ak-new-project § Step 1c` (or wherever the integration-test setup lives) renames into place when the threshold is crossed. Cleaner than uncommenting, and the rename itself is a structural signal the pre-ship gate can detect.
+- **Path filter on slow-job trigger** — the slow job is expensive (~6–8 min cold) and shouldn't run on docs-only PRs. The naive filter `paths-ignore: ['**/*.md']` is _wrong_: a markdown file CAN be production-bearing (system prompt loaded by an edge function at runtime, agent instructions imported by the build). The convention should default the ignore list to **explicitly-named doc trees**, not a glob over all `.md`. Lalista shape:
+  ```yaml
+  paths-ignore:
+    - 'BUILD-LOG.md'
+    - 'PLAN.md'
+    - 'PRODUCT-ROADMAP.md'
+    - 'TODOS.md'
+    - 'CLAUDE.md'
+    - '**/README.md'
+    - 'specs/**'
+    - 'apps/web/screenshots/**'
+  ```
+  Or the inverse `paths` allowlist (more conservative — forgetting a new dir keeps CI running, fail-safe direction):
+  ```yaml
+  paths:
+    - 'apps/**'
+    - 'packages/**'
+    - 'supabase/**'
+    - '.github/workflows/**'
+    - 'pnpm-lock.yaml'
+    - 'package.json'
+    - 'turbo.json'
+    - 'tsconfig.base.json'
+  ```
+  Convention should pick one shape (allowlist preferred for safety) and enforce it in the same `/ak-pre-ship` gate that asserts uncommenting + branch-protection (item above) — i.e., when `*.integration.test.ts` / `*.spec.ts` is present, ALSO assert the slow-job has a `paths`-include or `paths-ignore`-explicit-doc-trees filter. Surfaced 2026-04-27 when lalista PRs #29, #30, #33 (all docs-heavy or workflow-only) all triggered full slow-job runs that didn't need to. PR #33 specifically failed on a transient `supabase/setup-cli` 502 — failure surface that wouldn't have existed if the slow-job hadn't run for a docs-only PR.
 
 **Why v0 — blocks next-project adoption:**
 
