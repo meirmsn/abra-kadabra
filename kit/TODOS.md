@@ -175,3 +175,25 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
   **Edit targets**: `.claude/skills/devshop/clean-branches/SKILL.md` (swap Phase 1 remote enumeration to `gh api`).
 
   [v+, tooling-nit, surfaced-by lalista-PR17-cleanup, 2026-04-23]
+
+- [ ] **Wrapper-API design rule: expose lifecycle events, not just data.** [v0] When a wrapper around an event-emitter-style library (Supabase Realtime channel, EventEmitter, MQTT client, SSE, WebSocket) returns only the data callback and swallows error/lifecycle events, async failures silently degrade UX — the user-facing surface that should react to errors never gets the signal. Add this as both a `conventions.md` rule and a deterministic `ak-test-review` check.
+
+  **Context**: lalista PR 27 (`fix/skipped-tests-cleanup`). `subscribeToList(client, householdId, callback)` in `packages/core/src/api/realtime.ts` wrapped supabase-js's channel and exposed only the postgres-changes `callback`. The `.subscribe()` call was passed no status callback — so `'CHANNEL_ERROR'` and `'TIMED_OUT'` (the ASYNC failure paths, which are the common case in production) never surfaced to consumers. `ListClient.tsx` had a try/catch around `subscribeToList` that handled SYNCHRONOUS WebSocket-constructor throws (a near-zero-frequency path) and nothing else. Result: real WS failures in production silently no-op'd the sync-error banner that was supposed to fire. The unit test (`SyncErrorBanner.test.tsx`) covered banner-rendering given state ✓ but no test covered the trigger path; the gap survived multiple PR cycles. The fix extended `subscribeToList(client, householdId, callback, onError?)` to pass a status callback to `.subscribe()` and invoke `onError` on `'CHANNEL_ERROR'` / `'TIMED_OUT'`.
+
+  **Implementation**:
+  1. **`conventions.md § Wrapper API design`** (new section): one-paragraph rule. _"When wrapping an event-emitter-style library, the wrapper's signature must include a way for consumers to receive error / lifecycle events, not only the data event. If the library's API has a status callback (e.g. supabase-js's `.subscribe(callback)`), pass it through. If consumers ignore it, that's their choice — but the wrapper must not foreclose the option."_ Include the `subscribeToList` before/after as the worked example.
+  2. **`ak-test-review` deterministic check**: grep the diff for new wrappers in `packages/core/src/api/**` that call `.subscribe(` / `.on(` / `addEventListener(` and don't accept an `onError`-shaped parameter. Flag as a `critical` finding so it can't be silently dismissed. Heuristic, but cheap to run; false positives are negotiated at review time.
+
+  **Edit targets**: `kit/docs/guide/conventions.md` (new "Wrapper API design" section), `.claude/skills/devshop/test-review/SKILL.md` (new check under "What to flag").
+
+  [v0, surfaced-by lalista-PR27, 2026-04-26]
+
+- [ ] **WS-failure E2E recipe: `page.routeWebSocket`, not `page.route().fulfill(503)`.** [v0] Document the canonical Playwright pattern for testing "what happens when the realtime WebSocket fails?" so the next Supabase project doesn't re-debug the silent-retry trap.
+
+  **Context**: lalista PR 26 originally wrote a `realtime.spec.ts` banner test using `page.route('**/realtime/v1/websocket**', route => route.fulfill({status: 503}))` — assuming a 503 on the WS upgrade would surface CHANNEL_ERROR through supabase-js. It doesn't. supabase-js's realtime client absorbs the 503 into its onerror→onclose→silent-retry loop without emitting CHANNEL_ERROR within any reasonable test budget; the test stayed `test.skip(true, ...)` for an entire PR cycle while diagnosis ran (PR 26 trace investigation, then PR 27's actual fix). The right API is `page.routeWebSocket('**/realtime/v1/websocket**', ws => ws.close())` (Playwright 1.48+) — purpose-built for WS interception, triggers a deterministic close that supabase-js converts to CHANNEL_ERROR via the subscribe-status callback.
+
+  **Implementation**: add a "Pattern N: Testing realtime WS failures" section to `kit/docs/guide/supabase-ssr-boilerplate.md`. The file already has Pattern 4 (realtime publication setup) and Pattern 5 (WebKit form-state hydration race) — Pattern 6 fits the cadence. Body: the trap (route.fulfill 503 silently retried), the fix (page.routeWebSocket close), the assertion shape (banner copy via getByText), the prereq (Playwright ≥ 1.48; check `apps/web/package.json`). Cite lalista PR 26 trace evidence + PR 27 fix as worked examples.
+
+  **Edit targets**: `kit/docs/guide/supabase-ssr-boilerplate.md` (new Pattern 6 section).
+
+  [v0, surfaced-by lalista-PR26-and-PR27, 2026-04-26]
