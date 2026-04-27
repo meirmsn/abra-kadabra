@@ -2,6 +2,43 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.20.0 (2026-04-26)
+
+- fix(claude-md+architecture): devshop flow says no-PRs in both canonical docs
+- feat(test-review): add skipped-tests audit (test.only / hard skip / conditional skip)
+- fix(deny): widen kit/scripts deny rules to recursive \*\* + file v1 TODO for Layer 2 erosion
+- feat(commit-guard): remove cross-repo blocking check (multi-project obsolescence)
+- test(structural-invariants): add YAML wiring tests for deploy-{migrations,functions} workflows
+- docs(todos): add v0 entry for PR-body Manual-review category guardrail + Phase 6 auto-attest
+- docs(todos): add v0 entries surfaced by lalista PR 27 (wrapper-API rule + WS-failure E2E recipe)
+- roadmap(v0): migration sequencing safety nets for the Vercel-preview window
+- docs(skill+claude+workflow): /ak-go-live Step 5b + CLAUDE.md prompt + workflow.md alignment
+- docs(guide+skill+template): canonical Supabase + CI patterns from lalista PR 26
+- docs(skill): /ak-go-live Step 1.5 prod-curl probe + Step 3 firewall-fallback
+- docs(skill): make trace.zip extraction explicit + required at attempt #2
+- docs(skill+conventions+roadmap): relocate closure rule to /ak-build § 5.6; file conventions audit + reviewer-convention-check on v0
+- docs(claude+conventions): codify post-fix doc retirement convention
+- docs(roadmap+skill+ops): close shipped CI-firewall + trace-pull v0 entries
+- docs(claude+skill+faq+arch): codify project CLAUDE.md self-sufficiency principle
+- docs(claude): tighten prod-service-role footgun cross-ref to mention surface matrix + token comparison
+- docs(skill): expand /ak-new-project § Security Posture with 4-surface matrix + access-token vs service-role explainer; tighten Step 13 vercel env piping
+- fix(skill): /ak-new-project Step 24 — include slow in branch-protection when enabled
+- roadmap(v0) + footgun: browse binary + Playwright browser availability
+- roadmap(v0): JIT DB password entry for prod migration deploys via /ak-go-live
+- fix(skill): Step 4 where-to-find for SUPABASE_SERVICE_ROLE_KEY
+- fix(security-posture): align Step 4 + template ci.yml with local-stack-default rule
+- feat(security-posture): CI/prod credential separation + URL guard + classification
+- roadmap(v0): security posture cleanup — CI/prod cred separation + URL guard
+- docs(claude): hold devshop ff-merge until project-side validates
+- feat(template): add auto-deploy workflows for migrations + edge functions
+- chore(new-project): widen GH Secrets inventory + clarify workflow.md 5.7
+- feat(ak-build): codify pr18-retro skill improvements
+- refactor(template/devcontainer): drive artifact hosts off api.github.com/meta
+- feat(ak-build): codify trace-pull-on-second-failure CI-fix loop
+- roadmap(v0): CI artifact-host allowlist + /ak-build Phase 5 trace-pull
+- roadmap(v0): add pre-commit test-presence hook (project repo)
+- docs(notes/roadmap): QA backend isolation options + current state
+
 ## v1.19.0 (2026-04-23)
 
 - refactor(kit/scripts): reorganize into preship/, commit-hooks/, sync/, notify/ subfolders
