@@ -172,18 +172,78 @@ Boundaries` (when to use, schema-module pattern, wrapper-site
 
 - **Pair**: conventions audit → adversarial reviewer reads guide/ (audit first
   per ROADMAP sequencing note).
+  - ✅ **Audit produced** (proposal at
+    `kit/notes/roadmap/conventions-audit-redistribution-2026-04-27.md`,
+    shipped in v1.22.0): classifies all 23 sections of `conventions.md` as
+    Tier 1 / Tier 2 / Tier 3 with target SKILL.md paths and load-bearing
+    rule extracts.
+  - ✅ **Adversarial reviewer reads guide/** (shipped in v1.22.0): the
+    `CONVENTIONS_TO_INCLUDE` map in `kit/scripts/adversarial-review.sh`
+    inlines relevant `conventions.md` sections per check-type / gate-name;
+    initial 10-route map covers `testCoverage`, `docsReviewed`, and
+    `dismissalLog/<gate>` for 7 gates.
+  - ⏳ **Per-skill redistribution** of Tier 1 / Tier 2 inlines into
+    CLAUDE.md and the 9 affected SKILL.mds — proposal exists, execution
+    deferred to a follow-up session per the audit's sequencing
+    recommendation (batch per-skill, not per-convention).
 - **Triplet**: test-presence hook + docs-freshness hook + hierarchical docs
   scaffold — ship together so one lalista commit cycle flushes false-positive
   exempt lists for all three.
-- **Pair**: CI slow-job lifecycle convention + backport-to-template.
+- ✅ **Pair**: CI slow-job lifecycle convention + backport-to-template.
+  Shipped in v1.22.0: `kit/docs/guide/conventions.md § Slow-Job Lifecycle`
+  documents the Phase 1c/1g threshold + uncommenting checklist; new
+  `/ak-pre-ship` gate `slow-job-lifecycle` (gate 2c) at
+  `kit/scripts/preship/slow-job-lifecycle-check.sh` enforces it; helpers
+  backported to `template/scripts/{ci-type-drift,ci-rollback-explain}.sh`;
+  `kit/ROADMAP.md § CI slow job expansion Trigger 1` rewritten to reference
+  the now-shipped helpers. Patch v1.22.1 fixed a 403 false-positive in the
+  branch-protection sub-check.
 - **JIT DB password** — follow-on to the now-shipped security-posture
   cleanup; lalista is mid-rollout so docs cascade lands once.
-- **Standalone**: Migration-sequencing Track B (single SKILL.md edit; A + C
-  only if Track B's data shows the pattern is real).
+- ✅ **Standalone**: Migration-sequencing Track B. Shipped in v1.22.0 as
+  `/ak-go-live § Step 1.6` migration-sequencing pre-flight (catches
+  non-additive migrations before the parallel-deploy race window). Tracks A
+  - C remain deferred per the original "do B first, escalate only if data
+    shows the pattern is real" sequencing note.
 - **Standalone**: Auth UX conventions (closes lalista's
   `auth-ux-refactor-to-adopt`).
-- **Smaller**: wrapper-API rule, WS-failure E2E recipe, PR-body manual-review
-  guardrail.
+- ✅ **Smaller**: wrapper-API rule, WS-failure E2E recipe, PR-body
+  manual-review guardrail. All three shipped in v1.22.0:
+  - **Wrapper API design** convention in `conventions.md` + deterministic
+    check in `/ak-test-review` (flags wrappers in `packages/core/src/api/**`
+    that call `.subscribe(`/`.on(`/`addEventListener(` without an
+    `onError`-shaped param).
+  - **Pattern 6** added to `kit/docs/guide/supabase-ssr-boilerplate.md`:
+    `page.routeWebSocket(ws => ws.close())` (Playwright 1.48+) instead of
+    `page.route().fulfill(503)` for E2E-testing realtime WS failures.
+  - **PR-body manual-review guardrail (Layer A)** + **Phase 6 auto-attest
+    (Layer B)** in `/ak-build`: defines the canonical Manual review set
+    (spec/intent, visual audit, live QA, post-deploy metrics) and
+    auto-attests factual checkboxes inline at Phase 6.
+
+**Tangential improvements that shipped in this same session (not on the
+original parallel list, but enabled by it)**:
+
+- ✅ **Per-check-type adversarial-review model split** (v1.22.0): Haiku 4.5
+  for deterministic checks (`dirtyTreeReason` / `dirtyPushReason` /
+  `manifestReviewed`); Sonnet 4.6 for judgment-heavy checks (`docsReviewed`
+  / `prDescStaleReason` / `testCoverage` / `dismissalLog` / `hookBypass`).
+  `DEVSHOP_ADVERSARIAL_MODEL_OVERRIDE` env var as an operator-facing upgrade
+  backdoor — say "use the upgraded adversarial review for this commit" and
+  Claude prepends the env var.
+- ✅ **Merged `docsVerified` + `docSyncReason` → `docsReviewed`** (v1.22.0):
+  one check, one bypass flag, one adversarial call. Per-doc enumeration AND
+  cross-file coherence covered in a single review. Closes the ergonomics
+  TODO at `kit/TODOS.md:111` that proposed the merge investigation.
+- ✅ **Bats coverage for both new preship gates** (v1.22.0): 32 new tests
+  across `preship-rls-coverage.bats` (19 tests) and
+  `preship-slow-job-lifecycle.bats` (13 + 5 added in v1.22.1 patch =
+  18 tests). Closed the test-coverage debt the release-coverage
+  adversarial review surfaced when v1.22.0 was first attempted.
+- ⏳ **Bun test for `gstack/browse/src/cli.ts` server-resolution path** —
+  filed as `[v0]` TODO at `kit/TODOS.md` (was originally `[v+]`, bumped to
+  `v0` because the v1.22.0 release-coverage bypass was load-bearing on
+  this gap getting addressed).
 
 **Why this order:**
 

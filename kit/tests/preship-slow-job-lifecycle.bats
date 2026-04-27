@@ -254,3 +254,97 @@ YML
   assert_output --partial "findings"
   assert_output --partial "slow-job not present"
 }
+
+# --- branch-protection sub-check (gh-dependent) ---
+# Helper for these tests: the script does `gh repo view` then `gh api branches/main`.
+# Stub responds to both call shapes; the test repo doesn't need to be a github clone.
+
+# Helper: write a well-formed slow-job ci.yml so the only finding source under
+# test is the branch-protection sub-check.
+write_good_slow_job_yml() {
+  add_integration_test
+  write_ci_yml <<'YML'
+name: CI
+jobs:
+  slow:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Edge runtime probe loop"
+      - run: pnpm test:integration
+YML
+}
+
+# Stub gh to respond to both call shapes the script makes.
+# $1 = JSON to return on `gh api repos/.../branches/main`
+stub_gh_with_branch_response() {
+  local response="$1"
+  cat > "$MOCK_BIN/gh" <<STUB
+#!/bin/bash
+case "\$*" in
+  "repo view --json nameWithOwner --jq .nameWithOwner")
+    echo "fake/repo"
+    ;;
+  *"repos/fake/repo/branches/main"*)
+    cat <<'JSON'
+$response
+JSON
+    ;;
+  *)
+    exit 1
+    ;;
+esac
+STUB
+  chmod +x "$MOCK_BIN/gh"
+}
+
+@test "branch-protection: PAT lacks admin (HTTP 403 on /protection endpoint) → no false-positive (regression test for v1.22.1)" {
+  write_good_slow_job_yml
+  # The /branches/main endpoint succeeds even with read-only PAT; if the
+  # repo IS protected but the PAT can't read /protection, the response still
+  # carries .protection. Simulate the case where the response simply lacks
+  # the protection key (e.g. unprotected branch, or read scope sufficient
+  # but admin probe declined). Script must NOT false-flag.
+  stub_gh_with_branch_response '{"name":"main","protected":false}'
+  run_script
+  assert_success
+  assert_output "pass"
+  refute_output --partial "branch protection"
+}
+
+@test "branch-protection: gh returns error JSON {message: ...} (legacy /protection 403) → no false-positive" {
+  write_good_slow_job_yml
+  # Belt-and-suspenders test: if some future change reverts to a privileged
+  # endpoint, ensure the error-shaped response still doesn't false-flag.
+  # Without `.protection.required_status_checks`, the check skips.
+  stub_gh_with_branch_response '{"message":"Resource not accessible by personal access token","status":"403"}'
+  run_script
+  assert_success
+  assert_output "pass"
+  refute_output --partial "branch protection"
+}
+
+@test "branch-protection: 'slow' present in .protection.required_status_checks.contexts (older format)" {
+  write_good_slow_job_yml
+  stub_gh_with_branch_response '{"protection":{"required_status_checks":{"contexts":["fast","slow"]}}}'
+  run_script
+  assert_success
+  assert_output "pass"
+}
+
+@test "branch-protection: 'slow' present in .protection.required_status_checks.checks[].context (newer format)" {
+  write_good_slow_job_yml
+  stub_gh_with_branch_response '{"protection":{"required_status_checks":{"checks":[{"context":"fast","app_id":1},{"context":"slow","app_id":1}]}}}'
+  run_script
+  assert_success
+  assert_output "pass"
+}
+
+@test "branch-protection: 'slow' missing from BOTH contexts and checks → finding fires" {
+  write_good_slow_job_yml
+  stub_gh_with_branch_response '{"protection":{"required_status_checks":{"contexts":["fast"],"checks":[{"context":"fast","app_id":1}]}}}'
+  run_script
+  assert_success
+  assert_output --partial "findings"
+  assert_output --partial "branch protection on main does NOT include 'slow'"
+}

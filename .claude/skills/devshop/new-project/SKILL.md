@@ -1007,6 +1007,8 @@ gh api repos/{owner}/{repo}/branches/main/protection \
   --field restrictions=null
 ```
 
+**Structural enforcement (post-2026-04-27):** when the project crosses the Phase 1c / 1g threshold and `*.integration.test.ts` or `apps/web/e2e/*.spec.ts` files exist, `/ak-pre-ship` runs gate `slow-job-lifecycle` (gate 2c, conditional). It asserts the slow-job stub is uncommented, the `if:` predicate matches `github.event_name == 'pull_request'`, the edge-runtime retry pattern is wired, branch protection includes `slow`, and the slow-job's test glob matches at least one repo-resident integration test or E2E spec. Misconfigurations surface as findings with remediation messages pointing back at this section. See `kit/docs/guide/conventions.md § Slow-Job Lifecycle § Uncommenting checklist` for the full convention this gate enforces.
+
 This requires:
 
 - PRs for all merges (no required approvals, but stale approvals dismissed on new pushes)

@@ -89,23 +89,42 @@ if [ "$SLOW_LIVE" = "1" ]; then
 fi
 
 # --- Check 4 (soft): branch protection on main includes 'slow' ---
-# Requires gh CLI auth. If unavailable or repo not yet on GitHub, surface as
-# an advisory finding (still listed, so operator sees it) rather than skipping
-# silently.
+# Uses the public `repos/{owner}/{repo}/branches/main` endpoint (works with
+# standard read-scope PAT) rather than `repos/.../branches/main/protection`
+# which requires admin. The branch endpoint embeds protection settings under
+# `.protection.required_status_checks.contexts[]` — same data, lower scope.
+#
+# Endpoint choice is load-bearing: a previous version used the protection
+# endpoint and got HTTP 403 for non-admin tokens; the error response was
+# JSON with a `.message` field, my old logic saw it as non-empty and jq
+# returned empty for `.contexts[]`, falsely flagging 'slow' as missing on
+# correctly-configured projects (caught against meirmsn/lalista on
+# 2026-04-27 — protection was correct, gate falsely reported a gap).
+#
+# `cd "$PROJECT_ROOT"` is load-bearing: gh resolves the repo from cwd, not
+# from a path arg, so without the cd this check would target whatever repo
+# the operator launched the gate from instead of the project being audited.
 if [ "$SLOW_LIVE" = "1" ] && command -v gh >/dev/null 2>&1; then
-  # gh resolves the repo from cwd, not from a path arg — `cd "$PROJECT_ROOT"`
-  # is load-bearing so the check targets the project being audited rather than
-  # whatever repo the operator launched the gate from.
   OWNER_REPO="$(cd "$PROJECT_ROOT" && gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null || true)"
   if [ -n "$OWNER_REPO" ]; then
-    PROTECTION_JSON="$(cd "$PROJECT_ROOT" && gh api "repos/$OWNER_REPO/branches/main/protection" 2>/dev/null || true)"
-    if [ -n "$PROTECTION_JSON" ]; then
-      if ! echo "$PROTECTION_JSON" | jq -r '.required_status_checks.contexts[]? // empty' 2>/dev/null | grep -qx 'slow'; then
+    BRANCH_JSON="$(cd "$PROJECT_ROOT" && gh api "repos/$OWNER_REPO/branches/main" 2>/dev/null || true)"
+    if [ -n "$BRANCH_JSON" ] && echo "$BRANCH_JSON" | jq -e '.protection.required_status_checks' >/dev/null 2>&1; then
+      # Look in both `.contexts[]` (older format, list of strings) and
+      # `.checks[].context` (newer format, list of {context, app_id}) so the
+      # check works regardless of which format the project's protection uses.
+      if ! echo "$BRANCH_JSON" | jq -r '
+        (.protection.required_status_checks.contexts // []) +
+        (.protection.required_status_checks.checks // [] | map(.context))
+        | .[]?
+      ' 2>/dev/null | grep -qx 'slow'; then
         findings+=("branch protection on main does NOT include 'slow' as a required status check — PRs can merge red on the slow path; add via 'gh api repos/$OWNER_REPO/branches/main/protection' or the GitHub UI")
       fi
     fi
-    # If gh api failed (no auth, no permissions), don't add a finding —
-    # gracefully degrade. The operator will see it on the next gh-authed run.
+    # If gh api failed (no auth) OR returned a response without
+    # `.protection.required_status_checks` (no protection configured yet, or
+    # error response with `.message` only), don't add a finding — gracefully
+    # degrade. The operator will see it on the next gh-authed run against
+    # a protected repo.
   fi
 fi
 
