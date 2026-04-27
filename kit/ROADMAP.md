@@ -76,7 +76,7 @@ The first project that scaffolds the devshop today inherits a guide-conventions 
 
 ### Adversarial reviewer reads `guide/` for convention checks
 
-**Problem.** The current pre-commit adversarial reviewers (`devshop-commit-guard.sh` + `adversarial-review.sh`) check whether **bypass reasons** are valid (e.g., is the docsVerified note thorough? is the dirtyTreeReason load-bearing?). They don't check whether the **commit itself** follows the project's documented conventions. So a commit that adds a feature without a test, or adds a metric event without registering it in `METRICS.md`, or skips a doc update that conventions require, sails through the reviewer because the bypass-reason gate is the only checkpoint.
+**Problem.** The current pre-commit adversarial reviewers (`devshop-commit-guard.sh` + `adversarial-review.sh`) check whether **bypass reasons** are valid (e.g., is the docsReviewed note thorough? is the dirtyTreeReason load-bearing?). They don't check whether the **commit itself** follows the project's documented conventions. So a commit that adds a feature without a test, or adds a metric event without registering it in `METRICS.md`, or skips a doc update that conventions require, sails through the reviewer because the bypass-reason gate is the only checkpoint.
 
 The agent often forgets convention X (especially one buried in conventions.md per the sibling audit above), and the reviewer doesn't catch it because it doesn't know X exists.
 
@@ -84,7 +84,7 @@ The agent often forgets convention X (especially one buried in conventions.md pe
 
 Extend the adversarial-review prompt construction to **inline relevant `kit/docs/guide/` sections** as context the reviewer uses to flag convention violations. Two modes:
 
-1. **Inline conventions in the existing per-flag reviewers** (cheap, additive). Each existing review (`docsVerified`, `prDescStaleReason`, etc.) gets the relevant conventions appended to its prompt: "These are the documented conventions for this concern; flag the commit if it violates them." E.g., the `docsVerified` reviewer gets `conventions.md § Metrics Lifecycle` and `§ Non-Negotiables → Testing`; the `prDescStaleReason` reviewer gets nothing (no relevant convention).
+1. **Inline conventions in the existing per-flag reviewers** (cheap, additive). Each existing review (`docsReviewed`, `prDescStaleReason`, etc.) gets the relevant conventions appended to its prompt: "These are the documented conventions for this concern; flag the commit if it violates them." E.g., the `docsReviewed` reviewer gets `conventions.md § Metrics Lifecycle` and `§ Non-Negotiables → Testing`; the `prDescStaleReason` reviewer gets nothing (no relevant convention).
 
 2. **A new "convention check" gate** that runs unconditionally on every commit (no bypass flag). Reads the diff, reads the conventions, asks the reviewer: "Does this diff follow them?" Cheaper path: only fire on commits that touch `apps/**` / `packages/**` / `supabase/**` (real code), skip on docs-only.
 
@@ -656,7 +656,7 @@ Lalista surfaced the gap post-PR-4 when surveying what CI actually protects: eve
 
 - **Wire into `.hooks/pre-commit`**: in the project-repo branch, add `bash "$SCRIPTS_DIR/commit-hooks/check-test-coverage-project.sh"` after `check-security-files-freshness.sh`.
 
-- **Adversarial-reviewer pairing**: extend `kit/scripts/adversarial-review.sh` with a new `testCoverageProject` check-type. Layer-1 (the bash hook above) catches the deterministic 90% (file-existence math, orphan-after-delete). Layer-2 (the reviewer) judges modify-cases the hook can only WARN on: receives the staged diff, the existing test file, and the project's `guide/conventions.md § Test Presence` rules; rejects whitespace-only test diffs against substantive source changes, accepts legitimate "test was already correct" reasons. Same exit-0/exit-1 contract as `docsVerified` / `manifestReviewed`. Bypass via `git -c testCoverageReason=...` mirroring devshop's existing pattern.
+- **Adversarial-reviewer pairing**: extend `kit/scripts/adversarial-review.sh` with a new `testCoverageProject` check-type. Layer-1 (the bash hook above) catches the deterministic 90% (file-existence math, orphan-after-delete). Layer-2 (the reviewer) judges modify-cases the hook can only WARN on: receives the staged diff, the existing test file, and the project's `guide/conventions.md § Test Presence` rules; rejects whitespace-only test diffs against substantive source changes, accepts legitimate "test was already correct" reasons. Same exit-0/exit-1 contract as `docsReviewed` / `manifestReviewed`. Bypass via `git -c testCoverageReason=...` mirroring devshop's existing pattern.
 
 - **Convention doc** in `guide/conventions.md § Test Presence`: explain what's blocked vs. warned, how to add to the exempt list (with a commit message explaining why), and the relationship to `/ak-test-review` (hook catches "I forgot entirely"; review catches "this test is weak").
 
@@ -690,7 +690,7 @@ Every devshop project will hit this exact gap. Lalista is already carrying a `TO
 
 Sibling to the test-presence entry above, on the docs side. Today the project's hierarchical doc set (`CLAUDE.md`, `PLAN.md`, `BUILD-LOG.md`, `PRODUCT-ROADMAP.md`, `TODOS.md`, `METRICS.md`) is maintained by convention only — nothing structurally enforces that a code change touching a documented surface also updates the doc. So `CLAUDE.md § Where Things Happen` decays as routes get added, `METRICS.md` decays as new `posthog.capture(...)` events land, `BUILD-LOG.md` decays as PRs ship without entries.
 
-This is the project-repo analog of devshop's existing `docsVerified` adversarial-review path (`commit-guard.sh:127-137`) — same two-layer shape, scoped to project paths and project doc files.
+This is the project-repo analog of devshop's existing `docsReviewed` adversarial-review path (`commit-guard.sh:127-137`) — same two-layer shape, scoped to project paths and project doc files.
 
 **Shape of the convention:**
 
@@ -702,7 +702,7 @@ This is the project-repo analog of devshop's existing `docsVerified` adversarial
   - **Add**: BLOCK on missing doc update. **Modify** an existing route/wrapper/event: WARN. **Remove** (source path deleted): BLOCK if the doc still references the removed path (deterministic — grep the doc for the deleted basename).
   - Per-project override: `.devshop-docs-freshness-exempt` file at repo root, one entry per line — same audit-trail discipline as the test-presence override.
 
-- **Adversarial-reviewer pairing**: extend `kit/scripts/adversarial-review.sh` with a `docsFreshnessProject` check-type. Layer-2 receives the staged diff + the project's `CLAUDE.md` + `METRICS.md` + relevant `kit/docs/guide/conventions.md` sections; judges whether the bypass reason is load-bearing. Same exit-0/exit-1 contract and `git -c docsFreshnessReason=...` bypass as devshop's existing `docsVerified`.
+- **Adversarial-reviewer pairing**: extend `kit/scripts/adversarial-review.sh` with a `docsFreshnessProject` check-type. Layer-2 receives the staged diff + the project's `CLAUDE.md` + `METRICS.md` + relevant `kit/docs/guide/conventions.md` sections; judges whether the bypass reason is load-bearing. Same exit-0/exit-1 contract and `git -c docsFreshnessReason=...` bypass as devshop's existing `docsReviewed`.
 
 - **Wire into `.hooks/pre-commit`**: project-repo branch, after `check-test-coverage-project.sh`.
 
@@ -721,7 +721,7 @@ Lalista's `CLAUDE.md § Where Things Happen` is currently accurate because the o
 
 **Cross-ref:**
 
-- `kit/scripts/commit-hooks/commit-guard.sh:127-137` — the prior-art `docsVerified` reviewer flow this entry mirrors
+- `kit/scripts/commit-hooks/commit-guard.sh:127-137` — the prior-art `docsReviewed` reviewer flow this entry mirrors
 - `### Pre-commit test-presence hook (project repo)` above — sibling convention
 - `### Hierarchical docs scaffold in template` below — the structure this hook keeps fresh
 - `lalista CLAUDE.md § Where Things Happen` — the live example of the structure being enforced
@@ -936,7 +936,7 @@ Replace raw `git commit` with an `/ak-commit` skill that owns the full commit lo
 assess dirty state in both repos → classify files → plan commits → execute → verify
 clean → repeat until done (or ask user for unknowns). Enforced by a husky pre-commit
 gate (`check-ak-commit.sh`) that blocks raw commits — bypass requires a descriptive
-reason, adversarially reviewed. Same pattern as `dirtyTreeReason` and `docsVerified`.
+reason, adversarially reviewed. Same pattern as `dirtyTreeReason` and `docsReviewed`.
 
 Problem it solves: raw `git commit` has no skill-level orchestration of the
 assess → classify → plan → commit → verify loop. The pre-commit husky gates

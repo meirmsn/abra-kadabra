@@ -86,8 +86,7 @@ Two pre-commit chains run in sequence:
 4. `check-test-coverage.sh` — new kit/scripts/\*.sh need matching test files
 5. `devshop-commit-guard.sh` — 5 named checks (run in this order):
    - `mixed-commit` — (project repo) devshop + project files staged together → block
-   - `docs-drift` — devshop tooling changed → requires adversarial-reviewed `docsVerified` note
-   - `doc-consistency` — reference doc changed → requires adversarial-reviewed `docSyncReason`
+   - `docs-reviewed` — devshop tooling changed → requires adversarial-reviewed `docsReviewed` note (merged 2026-04-27 from former `docs-drift` + `doc-consistency` pair; single bypass flag covers per-doc enumeration AND cross-file coherence when reference docs are staged)
    - `cross-repo` — other repo dirty → auto-blocks unless `crossRepoReason` justifies
    - `release-coverage` — (devshop) `kit/version` staged → adversarial reviews whether
      changes since last tag have adequate test coverage; bypass via `devshop.releaseReviewed`

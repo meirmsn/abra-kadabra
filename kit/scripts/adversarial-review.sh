@@ -8,7 +8,7 @@
 #          .husky/pre-push (prDescStaleReason, dirtyPushReason)
 #
 # Usage: adversarial-review.sh <check-type> <reason> [context...]
-#   check-type: docsVerified | docSyncReason | dirtyTreeReason | hookBypass
+#   check-type: docsReviewed | dirtyTreeReason | hookBypass
 #               | manifestReviewed | testCoverage | prDescStaleReason | dirtyPushReason
 #               | dismissalLog   (pre-ship /ak-pre-ship — reviews gate dismissal rationales)
 #   reason: the bypass reason provided via git -c, OR for dismissalLog the body of the
@@ -17,10 +17,26 @@
 #     dismissalLog: $1 = gate name, $2 = path to review.md
 #
 # Env overrides:
-#   DEVSHOP_SKIP_ADVERSARIAL=1         — bypass review entirely (dev-loop escape hatch;
-#                                        never set in CI or release)
-#   PRESHIP_ADVERSARIAL_TIMEOUT=<sec>  — per-call timeout for pre-ship dismissalLog
-#                                        reviews (default 120s; other check-types 90s)
+#   DEVSHOP_SKIP_ADVERSARIAL=1            — bypass review entirely (dev-loop escape hatch;
+#                                           never set in CI or release)
+#   DEVSHOP_ADVERSARIAL_MODEL_OVERRIDE=X  — force a specific model (haiku|sonnet) for
+#                                           all check-types in this invocation. Use
+#                                           when an operator wants to upgrade a
+#                                           normally-Haiku check for a high-stakes
+#                                           commit. Default routing is per check-type
+#                                           (see get_model_for_check_type below).
+#   PRESHIP_ADVERSARIAL_TIMEOUT=<sec>     — per-call timeout for pre-ship dismissalLog
+#                                           reviews (default 120s; other check-types 90s)
+#
+# Per-check-type model routing (Haiku 4.5 for deterministic rule-application,
+# Sonnet 4.6 for judgment-heavy or high-blast-radius checks):
+#   Haiku:  dirtyTreeReason, dirtyPushReason, manifestReviewed
+#   Sonnet: docsReviewed, prDescStaleReason, testCoverage, dismissalLog, hookBypass
+# Rationale: docs feed future sessions (errors compound), PR descriptions are the
+# canonical reviewer-facing record, hookBypass can leak secrets via gitleaks bypass,
+# testCoverage requires code-semantics judgment, dismissalLog weighs spec scope.
+# Dirty-tree / manifest checks are pure rule-application (does the reason name
+# specific files? does the manifest decision reasoning hold?).
 #
 # Convention-inlining: per check-type (and gate-name for dismissalLog), this
 # script appends relevant sections of `kit/docs/guide/conventions.md` to the
@@ -45,7 +61,11 @@ CONTEXT=""
 GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
 
 case "$CHECK_TYPE" in
-  docsVerified)
+  docsReviewed)
+    # Merged check (formerly docsVerified + docSyncReason). Fires on any staged
+    # devshop file (the broader of the two old triggers). The reviewer judges:
+    # (a) per-doc enumeration of the 7 reference docs, (b) cross-file coherence
+    # when reference docs are staged, (c) new-capability docs at the right level.
     DIFF=$(git diff --cached --stat 2>/dev/null || true)
     DIFF_FULL=$(git diff --cached 2>/dev/null | head -300 || true)
     GUIDE_HEADERS=$(for f in "$GIT_ROOT"/kit/docs/guide/*.md; do echo "--- $(basename "$f") ---"; grep -n '^##' "$f" 2>/dev/null | head -20; done || true)
@@ -55,11 +75,18 @@ case "$CHECK_TYPE" in
     MODEL_MD=$(cat "$GIT_ROOT/kit/docs/MODEL.md" 2>/dev/null || true)
     PROJECT_CLAUDE=$(cat "/workspace/CLAUDE.md" 2>/dev/null | head -100 || true)
     PROJECT_README=$(cat "$GIT_ROOT/README.md" 2>/dev/null | head -60 || true)
+    # Surface whether reference docs are also staged so the reviewer knows
+    # whether to additionally demand cross-file coherence.
+    REFERENCE_DOCS_STAGED=$(git diff --cached --name-only 2>/dev/null | grep -E '^(CLAUDE\.md$|kit/docs/(MODEL|OVERVIEW|FAQ)\.md$|kit/docs/guide/)' || true)
+    REFERENCE_DOCS_STAGED_NOTE="${REFERENCE_DOCS_STAGED:-(none — only non-reference devshop files staged; cross-file coherence rule does not apply)}"
     CONTEXT="Staged diff summary:
 $DIFF
 
 Staged diff (first 300 lines):
 $DIFF_FULL
+
+Reference docs staged in this commit:
+$REFERENCE_DOCS_STAGED_NOTE
 
 === CLAUDE.md (devshop) (first 100 lines) ===
 $CLAUDE_MD
@@ -82,24 +109,7 @@ $PROJECT_CLAUDE
 === README.md (first 60 lines) ===
 $PROJECT_README
 
-The reviewer MUST have checked ALL of these docs — not just the ones that already mention the changed code. New functionality needs to be documented for the first time."
-    ;;
-  docSyncReason)
-    DIFF=$(git diff --cached -- CLAUDE.md kit/docs/OVERVIEW.md kit/docs/guide/ 2>/dev/null | head -300 || true)
-    README_MD=$(cat "$GIT_ROOT/kit/docs/OVERVIEW.md" 2>/dev/null || true)
-    CLAUDE_MD=$(cat "$GIT_ROOT/CLAUDE.md" 2>/dev/null || true)
-    GUIDE_HEADERS=$(for f in "$GIT_ROOT"/kit/docs/guide/*.md; do echo "--- $(basename "$f") ---"; grep -n '^##' "$f" 2>/dev/null | head -20; done || true)
-    CONTEXT="Doc changes (first 300 lines):
-$DIFF
-
-=== CLAUDE.md (devshop) ===
-$CLAUDE_MD
-
-=== kit/docs/OVERVIEW.md ===
-$README_MD
-
-=== kit/docs/guide/ section headers ===
-$GUIDE_HEADERS"
+The reviewer MUST have checked ALL of these docs — not just the ones that already mention the changed code. New functionality needs to be documented for the first time. When reference docs ARE staged (see 'Reference docs staged' above), the reviewer must additionally attest cross-file coherence — staged doc changes must leave the doc set internally consistent."
     ;;
   dirtyTreeReason)
     DIRTY=$(git status --porcelain 2>/dev/null | grep -E '^\?\?|^ [MD]' | head -20 || true)
@@ -250,7 +260,7 @@ get_conventions_to_inline() {
     testCoverage)
       echo "Non-Negotiables"
       ;;
-    docsVerified)
+    docsReviewed)
       echo "Backlog Routing Guide"
       ;;
     dismissalLog)
@@ -315,6 +325,32 @@ else
   TIMEOUT=$COMMIT_TIMEOUT
 fi
 
+# --- Per-check-type model selection ---
+# Haiku for deterministic rule-application checks (cheap, fast, sufficient).
+# Sonnet for judgment-heavy checks where false-passes are expensive or
+# irreversible. DEVSHOP_ADVERSARIAL_MODEL_OVERRIDE forces a specific model
+# for all check-types in this invocation — operator backdoor for high-stakes
+# commits where they want to upgrade a normally-Haiku check.
+get_model_for_check_type() {
+  if [ -n "${DEVSHOP_ADVERSARIAL_MODEL_OVERRIDE:-}" ]; then
+    echo "$DEVSHOP_ADVERSARIAL_MODEL_OVERRIDE"
+    return
+  fi
+  case "$1" in
+    docsReviewed|prDescStaleReason|testCoverage|dismissalLog|hookBypass)
+      echo "sonnet"
+      ;;
+    dirtyTreeReason|dirtyPushReason|manifestReviewed)
+      echo "haiku"
+      ;;
+    *)
+      # Safe default: unknown check-types get Sonnet (better strict than lax).
+      echo "sonnet"
+      ;;
+  esac
+}
+MODEL=$(get_model_for_check_type "$CHECK_TYPE")
+
 # --- Human review fallback (when API is unavailable) ---
 # devshop.humanReviewed is blocked by PreToolUse hook for Claude —
 # only reachable when human runs git commit directly in terminal.
@@ -339,18 +375,16 @@ Evaluate:
 1. Is the stated reason factually accurate given the context?
 2. Does skipping this check create a real risk (stale docs, forgotten files, missed changes, leaked secrets)?
 3. Is the reason specific enough? Generic reasons like 'docs are fine' or 'will fix later' are NOT acceptable.
-4. For doc checks: does the reason name specific sections reviewed? Do those sections actually match the changes?
+4. For docsReviewed checks (the unified doc-coverage + cross-file-coherence check): the reason MUST satisfy ALL of:
+   (a) **Per-doc enumeration**: explicit affected/not-affected assessment for each of the 7 reference docs — MODEL.md, OVERVIEW.md, guide/{workflow,conventions,hooks,security,ops,architecture}.md, FAQ.md. Naming a doc generically ('checked all docs') without per-doc assessment FAILS.
+   (b) **New-capability docs at the right level**: when the diff introduces a new script category / workflow / convention / tool, verify documentation exists at the right level — guide/ section required (what it is, how it works, how to extend it); OVERVIEW.md if workspace-layout / event-flow / file-map changes; MODEL.md if a new structural component is added; CLAUDE.md if Claude's behavior changes. Layout mentions alone (a line in a tree diagram) are NOT sufficient for new capabilities — strategy/usage docs are also required.
+   (c) **Cross-file coherence** (when reference docs are staged in this commit — see 'Reference docs staged' in context): the staged doc changes must leave the doc set internally consistent. Stale claims that contradict each other across files (README says N gates, workflow.md says M; one doc names a script the other doesn't enumerate) MUST be flagged as inconsistent. If reference docs are NOT staged, this rule is satisfied trivially.
+   The reviewer must specifically check the docs the reason CLAIMS to have updated against the staged diff to verify the claim holds.
 5. For testCoverage checks: judge whether existing tests are sufficient to catch regressions in any functional changes since the last release. Look for: new code paths without corresponding test cases, changed exit codes or output formats not verified by assertions, new flags or options not exercised. PASS when any of: (a) changes are purely cosmetic (comments, formatting, variable renames); (b) no functional changes at all (docs-only release — README, CLAUDE.md, kit/docs/, kit/notes/); (c) config-only changes (devcontainer env vars, gitignore entries, image versions) already validated by wiring tests in structural-invariants.bats — name the specific wiring test you verified exists; (d) existing tests already exercise the changed behavior — name the specific test.
-6. For doc checks: if the diff introduces a NEW capability (new script category, new workflow, new convention, new tool), verify documentation exists at the right level:
-   - guide/ section required: what it is, how it works, how to extend it (e.g., conventions.md for testing strategy, hooks.md for new guards)
-   - OVERVIEW.md if it changes the workspace layout, event flow, or file map
-   - MODEL.md if it adds a new structural component to the kit (rare)
-   - CLAUDE.md if it changes how Claude should behave or what workflows to follow
-   Layout mentions alone (a line in a tree diagram) are NOT sufficient for new capabilities — strategy/usage docs are also required.
-7. For hookBypass: is this a known legitimate scenario (migration commits with git rm --cached, binary files that break lint-staged, intermediate refactor state with type errors)? Does skipping gitleaks create a real risk for these files?
-8. For prDescStaleReason: does the PR title/body accurately describe ALL commits on the branch (origin/main..HEAD)? If the commits add a new capability, the PR description should name it. Generic reasons ('WIP', 'will update later', 'fine for now') are NOT acceptable. A PASS requires either (a) the PR description genuinely matches the commits — the reviewer is wrong — or (b) a specific structural reason the description lags temporarily (e.g., 'batching rebases — will squash-update after final review' with a concrete next step).
-9. For dirtyPushReason: does the reason name WHICH files are intentionally dirty and WHY? Generic reasons ('whatever', 'local only', 'does not matter') are NOT acceptable. PASS requires specificity: 'untracked *.log debug files from local testing, not project code' or 'stashed branch X changes to push unrelated branch Y — will resume after'. Forgotten WIP (files the developer doesn't recognize) should FAIL.
-10. For dismissalLog: the Reason is the body of a gate's '## Dismissals' section — the rationales given for NOT acting on specific findings. Judge each dismissal bullet individually. REJECT the whole bypass if ANY bullet exhibits:
+6. For hookBypass: is this a known legitimate scenario (migration commits with git rm --cached, binary files that break lint-staged, intermediate refactor state with type errors)? Does skipping gitleaks create a real risk for these files?
+7. For prDescStaleReason: does the PR title/body accurately describe ALL commits on the branch (origin/main..HEAD)? If the commits add a new capability, the PR description should name it. Generic reasons ('WIP', 'will update later', 'fine for now') are NOT acceptable. A PASS requires either (a) the PR description genuinely matches the commits — the reviewer is wrong — or (b) a specific structural reason the description lags temporarily (e.g., 'batching rebases — will squash-update after final review' with a concrete next step).
+8. For dirtyPushReason: does the reason name WHICH files are intentionally dirty and WHY? Generic reasons ('whatever', 'local only', 'does not matter') are NOT acceptable. PASS requires specificity: 'untracked *.log debug files from local testing, not project code' or 'stashed branch X changes to push unrelated branch Y — will resume after'. Forgotten WIP (files the developer doesn't recognize) should FAIL.
+9. For dismissalLog: the Reason is the body of a gate's '## Dismissals' section — the rationales given for NOT acting on specific findings. Judge each dismissal bullet individually. REJECT the whole bypass if ANY bullet exhibits:
     - Generic rationale: 'not critical', 'minor', 'can wait', 'won't fix for now' without specifics
     - Contradicts the spec's § Core user story: dismissing a bug that affects a verb in the core story is categorically NOT acceptable (the core story names the product's load-bearing flow — dismissals must not touch it)
     - Claims 'out of scope for this PR' when the spec's § In scope explicitly covers that behavior
@@ -358,7 +392,7 @@ Evaluate:
     - Punts to 'TODOS' or 'follow-up' without a specific tag, issue number, or existing entry to point at
     - Claims 'user-acceptable' or 'product decision' without attributing to a specific approved spec line or design doc
     PASS only when every rationale is: specific (names what was considered and why deferred), consistent with the PR scope (doesn't cross the core user story, doesn't dismiss committed scope), and actionable (a later reviewer could find the rationale plausible given the evidence).
-11. **Convention adherence** (when '=== Relevant conventions ===' appears in the context): the diff/dismissal must follow the inlined conventions. A change that violates an explicit rule (e.g. a new wrapper without onError when § Wrapper API design requires it; a dismissal that punts on an RLS-coverage finding when § Supabase Hardening Defaults marks it non-negotiable; a slow-job stripped of the edge-runtime retry when § Slow-Job Lifecycle's checklist requires it) must FAIL unless the reason explicitly engages the rule's stated rationale. Generic 'this convention doesn't apply here' WITHOUT naming why is NOT acceptable.
+10. **Convention adherence** (when '=== Relevant conventions ===' appears in the context): the diff/dismissal must follow the inlined conventions. A change that violates an explicit rule (e.g. a new wrapper without onError when § Wrapper API design requires it; a dismissal that punts on an RLS-coverage finding when § Supabase Hardening Defaults marks it non-negotiable; a slow-job stripped of the edge-runtime retry when § Slow-Job Lifecycle's checklist requires it) must FAIL unless the reason explicitly engages the rule's stated rationale. Generic 'this convention doesn't apply here' WITHOUT naming why is NOT acceptable.
 
 Respond with EXACTLY one line:
 PASS - only if the reason is genuinely legitimate and specific
@@ -374,7 +408,7 @@ ATTEMPT=0
 MAX_ATTEMPTS=$(( ${#BACKOFF_DELAYS[@]} + 1 ))
 
 while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-  REVIEW=$(timeout "$TIMEOUT" claude -p --model sonnet < "$PROMPT_FILE" 2>/dev/null) && break
+  REVIEW=$(timeout "$TIMEOUT" claude -p --model "$MODEL" < "$PROMPT_FILE" 2>/dev/null) && break
   ATTEMPT=$((ATTEMPT + 1))
   if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
     DELAY=${BACKOFF_DELAYS[$((ATTEMPT - 1))]}

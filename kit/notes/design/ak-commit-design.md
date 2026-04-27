@@ -19,7 +19,7 @@ So enforcement goes through husky, not Claude Code hooks. Same pattern as
 `check-clean-tree.sh` and `devshop-commit-guard.sh`.
 
 To prevent trivial bypass (passing a boolean flag), the gate uses **adversarial review**
-on the reason — same pattern as `dirtyTreeReason` and `docsVerified`.
+on the reason — same pattern as `dirtyTreeReason` and `docsReviewed`.
 
 ## Design
 
@@ -46,7 +46,7 @@ A simple loop with an escape hatch:
 4. **Execute** each commit:
    - Stage specific files (never `git add -A` or `git add .`)
    - Construct `-c` bypass flags as needed (`dirtyTreeReason`, `crossRepoReason`,
-     `docsVerified`, `docSyncReason`)
+     `docsReviewed`)
    - Pass `devshop.viaAkCommit="ak-commit: <description of this commit in context>"` to
      pass the husky gate
    - If pre-commit rejects, fix the root cause and retry (don't bypass)
