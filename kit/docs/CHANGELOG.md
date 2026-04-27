@@ -2,6 +2,10 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.22.1 (2026-04-27)
+
+- fix(slow-job-lifecycle-check): branch-protection sub-check 403 false-positive
+
 ## v1.22.0 (2026-04-27)
 
 - chore(todos): file Bun test for cli.ts server-resolution path
