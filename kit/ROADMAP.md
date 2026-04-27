@@ -257,6 +257,49 @@ If the project's migration cadence is mostly additive (typical for early-stage p
 
 ---
 
+### CI slow-job lifecycle convention
+
+Today `/devshop/template/.github/workflows/ci.yml` ships the `slow:` job entirely commented out (lines 75-113, including the lalista-PR-26 edge-runtime health-check retry pattern). `/ak-new-project` Step 24 explicitly defers slow-job adoption to "after Phase 1c (integration tests + supabase start) or Phase 1g (Playwright E2E)" with branch-protection contexts updated from `["fast"]` to `["fast","slow"]`. That deferral is correct — there's no point running a slow job when there's nothing to run. But once a project crosses the threshold, **nothing structural enforces that the slow job actually gets uncommented, that branch protection gets updated, or that subsequent integration/E2E specs get included in its globs**. Maintenance is operator-memory only.
+
+Lalista's slow job got uncommented when Phase 1c shipped, but the wiring quality is hand-maintained — PR 26 surfaced an edge-runtime startup flake the operator had to debug + retry-loop manually. Future projects will hit the same class of issue without the lalista-codified retry pattern unless the convention enforces it.
+
+**Shape of the convention:**
+
+- **`/ak-spec` migration-scoping prompt extension**: when a spec includes the project's first integration test or Playwright spec, the spec subagent must surface "this is the Phase 1c / 1g threshold — uncommenting the slow job is part of the spec's scope, not a follow-up" as an explicit decision row. Today this is implicit in `/ak-new-project § Step 24`; making it spec-time-explicit means the slow-job ship lands in the same PR as the test that needs it.
+- **`/ak-pre-ship` gate**: new check that runs when `*.integration.test.ts` or `apps/web/e2e/*.spec.ts` files are present in the repo. Asserts:
+  1. The `slow:` job in `.github/workflows/ci.yml` is uncommented.
+  2. Its `if:` predicate matches the canonical `github.event_name == 'pull_request'` shape.
+  3. `supabase start` health-check retry is wired (the codified PR-26 pattern, comparable against a checksum of the template's commented reference).
+  4. Branch protection contexts include `slow` (via `gh api repos/{owner}/{repo}/branches/main/protection` query).
+  5. The slow job's test glob actually matches at least one staged or repo-resident integration test file (catches "uncommented slow job that runs zero tests" silent regression).
+     Block-on-failure with a clear "uncomment + add to branch protection" remediation message.
+- **Convention doc** in `guide/conventions.md § Slow-Job Lifecycle`: documents the Phase 1c / 1g threshold, the uncommenting checklist, and the cross-link to branch protection.
+- **Template improvement**: convert the commented `slow:` block in `/devshop/template/.github/workflows/ci.yml` to a separate `template/.github/workflows/ci-slow.yml.template` file that `/ak-new-project § Step 1c` (or wherever the integration-test setup lives) renames into place when the threshold is crossed. Cleaner than uncommenting, and the rename itself is a structural signal the pre-ship gate can detect.
+
+**Why v0 — blocks next-project adoption:**
+
+Every devshop project that adopts integration tests or E2E will hit this lifecycle question. Without enforcement: (a) the slow job lives commented out indefinitely while integration tests run only locally, masking environment-specific failures, (b) branch protection drifts from CI reality, letting PRs merge without the slow check actually gating, (c) the lalista-codified edge-runtime retry pattern doesn't propagate, so each project re-invents it after their own PR-26-style incident.
+
+**Trigger:**
+
+- Lalista is the prior art — its slow job is already uncommented and includes the retry pattern. The convention extracts that shape into the template + adds the pre-ship gate.
+- Second project crosses Phase 1c / 1g without this in place → slow-job uncommenting becomes operator-memory and the lifecycle gap reproduces
+
+**Cross-ref:**
+
+- `/devshop/template/.github/workflows/ci.yml:75-113` — the commented-out slow-job stub
+- `/devshop/.claude/skills/ak-new-project/SKILL.md:967-989` — the current Step 24 deferral language
+- `lalista/.github/workflows/ci.yml § slow:` — the live shape this convention codifies (especially the edge-runtime health-check retry)
+- `### Migration sequencing safety nets for the Vercel-preview window` above — adjacent CI/migration territory; both are about making CI behavior structural rather than operator-maintained
+
+**Cost/risk:**
+
+- Implementation: ~3–5 focused hours (`.yml.template` extraction + `/ak-new-project` Step 1c edit + `/ak-pre-ship` new gate + branch-protection check + conventions doc)
+- Risk: low — all changes are CI/template surface, no prod data path
+- Benefit: the slow job becomes a structural gate that every integration-test-shipping project gets correctly, with the lalista-PR-26 hard-won retry pattern propagated by default rather than re-discovered per project
+
+---
+
 ### Security-posture cleanup: CI/prod credential separation + URL guard + classification
 
 Audit of `/ak-new-project`'s credential surface (2026-04-25, after the auto-deploy-backend ship) surfaced four issues that compound:
@@ -596,11 +639,13 @@ Lalista surfaced the gap post-PR-4 when surveying what CI actually protects: eve
 - **New script**: `kit/scripts/commit-hooks/check-test-coverage-project.sh` — mirrors the existing devshop-self version but scoped to project-repo paths:
   - Walks staged `.ts`/`.tsx` files under `apps/*/src/`, `apps/*/app/`, `apps/*/components/`, `apps/*/lib/`, `packages/*/src/`
   - For each, requires an adjacent `.test.ts` / `.test.tsx` / `.integration.test.ts`
-  - New file without a test → BLOCK. Modified without a test → WARN (same tiering as the devshop script).
+  - **Add** (new file without a test) → BLOCK. **Modify** (without paired test diff) → WARN by default; escalates to BLOCK via the adversarial reviewer when the source diff is non-trivial and the test diff is whitespace-only / nonexistent. **Remove** (source file deleted, paired test still present) → BLOCK as orphaned test (same shape as the existing devshop-self check).
   - Exempt list (conservative, project-tunable): barrel `index.ts`, `*.d.ts`, `*.config.ts`, `page.tsx` / `layout.tsx` (route entry points — unit-testing server components is fraught; E2E covers those), `middleware.ts` (covered by `middleware.test.ts` but flagging needed once), anything under `*/e2e/` or `*/tests/`, any file whose sibling dir contains a `*.integration.test.ts` or `*.spec.ts` that references the filename.
   - Per-project override: `.devshop-test-coverage-exempt` file at repo root, one path per line, commit-auditable.
 
 - **Wire into `.hooks/pre-commit`**: in the project-repo branch, add `bash "$SCRIPTS_DIR/commit-hooks/check-test-coverage-project.sh"` after `check-security-files-freshness.sh`.
+
+- **Adversarial-reviewer pairing**: extend `kit/scripts/adversarial-review.sh` with a new `testCoverageProject` check-type. Layer-1 (the bash hook above) catches the deterministic 90% (file-existence math, orphan-after-delete). Layer-2 (the reviewer) judges modify-cases the hook can only WARN on: receives the staged diff, the existing test file, and the project's `guide/conventions.md § Test Presence` rules; rejects whitespace-only test diffs against substantive source changes, accepts legitimate "test was already correct" reasons. Same exit-0/exit-1 contract as `docsVerified` / `manifestReviewed`. Bypass via `git -c testCoverageReason=...` mirroring devshop's existing pattern.
 
 - **Convention doc** in `guide/conventions.md § Test Presence`: explain what's blocked vs. warned, how to add to the exempt list (with a commit message explaining why), and the relationship to `/ak-test-review` (hook catches "I forgot entirely"; review catches "this test is weak").
 
@@ -627,6 +672,95 @@ Every devshop project will hit this exact gap. Lalista is already carrying a `TO
 - False-positive risk: mitigated by conservative exempt list + per-project override file
 - Test-file-existence ≠ test quality: deliberate — `/ak-test-review` is the quality gate
 - Maintenance: exempt list drifts a few entries per year; cheap to keep current
+
+---
+
+### Project-repo docs-freshness hook + adversarial reviewer
+
+Sibling to the test-presence entry above, on the docs side. Today the project's hierarchical doc set (`CLAUDE.md`, `PLAN.md`, `BUILD-LOG.md`, `PRODUCT-ROADMAP.md`, `TODOS.md`, `METRICS.md`) is maintained by convention only — nothing structurally enforces that a code change touching a documented surface also updates the doc. So `CLAUDE.md § Where Things Happen` decays as routes get added, `METRICS.md` decays as new `posthog.capture(...)` events land, `BUILD-LOG.md` decays as PRs ship without entries.
+
+This is the project-repo analog of devshop's existing `docsVerified` adversarial-review path (`commit-guard.sh:127-137`) — same two-layer shape, scoped to project paths and project doc files.
+
+**Shape of the convention:**
+
+- **New script**: `kit/scripts/commit-hooks/check-docs-freshness-project.sh` — deterministic Layer-1 check that maps staged paths → required doc updates:
+  - New `apps/*/app/**/page.tsx` or `apps/*/app/**/route.ts` → `CLAUDE.md § Where Things Happen` must be in the staged diff
+  - New `packages/*/src/api/*.ts` (API wrapper) → `CLAUDE.md § Where Things Happen` must be in the staged diff
+  - New `posthog.capture(...)` / `Sentry.captureException(...)` call site (greppable) → `METRICS.md` must be in the staged diff
+  - New `supabase/migrations/*.sql` → `CLAUDE.md § Migration Workflow` reference must still resolve (no extra update required, but the file's existence is asserted)
+  - **Add**: BLOCK on missing doc update. **Modify** an existing route/wrapper/event: WARN. **Remove** (source path deleted): BLOCK if the doc still references the removed path (deterministic — grep the doc for the deleted basename).
+  - Per-project override: `.devshop-docs-freshness-exempt` file at repo root, one entry per line — same audit-trail discipline as the test-presence override.
+
+- **Adversarial-reviewer pairing**: extend `kit/scripts/adversarial-review.sh` with a `docsFreshnessProject` check-type. Layer-2 receives the staged diff + the project's `CLAUDE.md` + `METRICS.md` + relevant `kit/docs/guide/conventions.md` sections; judges whether the bypass reason is load-bearing. Same exit-0/exit-1 contract and `git -c docsFreshnessReason=...` bypass as devshop's existing `docsVerified`.
+
+- **Wire into `.hooks/pre-commit`**: project-repo branch, after `check-test-coverage-project.sh`.
+
+- **Convention doc**: new section in `guide/conventions.md § Project Docs Freshness` listing what's tracked, the staged-doc rule, and the override-file discipline. Cross-ref the test-presence section above so the two sibling conventions read together.
+
+- **`.bats` tests** in `kit/tests/`: fixtures cover (a) new page without CLAUDE.md update → block, (b) new page with CLAUDE.md update → pass, (c) new posthog.capture without METRICS.md update → block, (d) source delete with stale CLAUDE.md reference → block, (e) override file addition → pass.
+
+**Why v0 — blocks next-project adoption:**
+
+Lalista's `CLAUDE.md § Where Things Happen` is currently accurate because the operator (current user) maintains it by hand and `/ak-build` Phase 4's body conventions partly keep it honest. New projects won't have that discipline pre-installed. Without enforcement, every new project's `CLAUDE.md` decays the same way — and the orientation hierarchy (point 3 below) only works if the entry-point doc is trustworthy. Pair-shipping with the test-presence hook so projects gain test + docs enforcement together.
+
+**Trigger:**
+
+- Lalista adopts the hook + scaffold (point 3) together — same commit cycle flushes false positives in both
+- OR: a second project comes online and the docs-decay starts immediately
+
+**Cross-ref:**
+
+- `kit/scripts/commit-hooks/commit-guard.sh:127-137` — the prior-art `docsVerified` reviewer flow this entry mirrors
+- `### Pre-commit test-presence hook (project repo)` above — sibling convention
+- `### Hierarchical docs scaffold in template` below — the structure this hook keeps fresh
+- `lalista CLAUDE.md § Where Things Happen` — the live example of the structure being enforced
+
+**Cost/risk:**
+
+- Implementation: ~5–7 focused hours (script + reviewer check-type + .bats tests + conventions doc + wire-in)
+- False-positive risk: moderate — pattern-matching on `posthog.capture` etc. catches comments/strings; mitigate via simple AST-aware grep or a per-project override that's commit-auditable
+- Maintenance: the path → doc map is small (~10 entries) and stable; reviewers handle edge cases
+
+---
+
+### Hierarchical docs scaffold in template
+
+Today `/devshop/template/` ships `PLAN.md`, `BUILD-LOG.md`, `PRODUCT-ROADMAP.md`, `README.md` — but NOT `CLAUDE.md`, `TODOS.md`, or `METRICS.md`. Those are created interactively by `/ak-new-project` Step 16 (METRICS) + Step 18 (CLAUDE); nothing creates `TODOS.md`. So the project doc hierarchy is partial-and-inconsistent across new projects depending on what the operator does in the interactive setup.
+
+Lalista's hierarchy is the de-facto pattern that works: `CLAUDE.md` (always-loaded entry point with "Where Things Happen" pointers + Gotchas + Stack + Env vars + Deploy config) → drill into `PLAN.md` / `BUILD-LOG.md` / `PRODUCT-ROADMAP.md` / `TODOS.md` / `METRICS.md` as needed. The session-start loader (`kit/scripts/session-start.sh:59-63`) injects the project `CLAUDE.md` at every session, making it the orientation surface for new sessions — but only if it exists and is well-shaped.
+
+**Shape of the convention:**
+
+- **Template scaffolds for all six files**:
+  - `template/CLAUDE.md` — skeleton with section headers `## Project: <name>`, `### Where Things Happen` (empty bullet list with a "fill in as code lands" prompt), `### Gotchas` (empty), `### Testing`, `### Stack`, `### Env Var Naming` (empty table skeleton), `### Migration Workflow` (Supabase boilerplate from lalista), `## Deploy Configuration` (filled by `/setup-deploy`). Plus a leading `> Orientation: this is the entry-point doc loaded at every session start. Drill into PLAN.md / BUILD-LOG.md / TODOS.md / METRICS.md / PRODUCT-ROADMAP.md only when the question demands it.` block to make the hierarchy explicit.
+  - `template/TODOS.md` — skeleton with `## v0` / `## v1` / `## Dismissals` headers (mirrors the devshop ROADMAP shape).
+  - `template/METRICS.md` — already created interactively by `/ak-new-project` Step 16; convert to a template skeleton + interactive-fill-in pattern instead of full interactive creation.
+  - `template/PLAN.md` / `template/BUILD-LOG.md` / `template/PRODUCT-ROADMAP.md` — verify the existing skeletons match the lalista shape (Active / Planned / Shipped sections at PR grain).
+- **`/ak-new-project` change**: Steps 16 + 18 simplify from "create the file" to "fill in project-specific values in the existing template skeleton." Reduces operator cognitive load + guarantees structural consistency.
+- **Convention doc**: new section in `guide/conventions.md § Project Docs Hierarchy` documenting the orientation pattern: `CLAUDE.md` is always-loaded; everything else is on-demand; what belongs in each.
+- **Pair with the docs-freshness hook**: scaffold puts the structure in place; freshness hook keeps it from decaying. They ship as a unit — without the hook, the scaffold rots; without the scaffold, the hook has nothing to enforce against.
+
+**Why v0 — blocks next-project adoption:**
+
+Every devshop project needs an orientation doc that loads at session start. Without a scaffolded shape, each project invents its own — defeating the "one devshop, many projects" cohesion. The session-start hook already routes through `CLAUDE.md`; making the structure consistent means the agent's mental model of "where do I look for X" transfers across projects. Cheap (skeleton files + small `/ak-new-project` simplification), high-value (every future project starts with the right shape).
+
+**Trigger:**
+
+- Ship alongside the docs-freshness hook entry above (same commit cycle, same lalista flush-and-tune pass)
+- OR: second project comes online and immediately needs orientation scaffolding — ship at that moment
+
+**Cross-ref:**
+
+- `kit/scripts/session-start.sh:59-63` — the loader that makes the entry-point doc load at every session
+- `lalista/CLAUDE.md` — the de-facto pattern this entry codifies
+- `### Project-repo docs-freshness hook + adversarial reviewer` above — the freshness-enforcement pair
+- `/devshop/.claude/skills/ak-new-project/SKILL.md` Steps 16 + 18 — the interactive-creation steps that simplify
+
+**Cost/risk:**
+
+- Implementation: ~2–3 focused hours (six template files + `/ak-new-project` Step 16 + 18 edits + conventions doc)
+- Risk: very low — template file additions, no production code surface
+- Benefit: every new project starts with the lalista-proven orientation hierarchy; combined with the freshness hook, orientation stays trustworthy as the project grows
 
 ---
 
