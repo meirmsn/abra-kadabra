@@ -54,7 +54,21 @@ echo "HTTP $HTTP"
 
 **If `HTTP` is 2xx or 3xx**: production is healthy. Continue to Step 2.
 
-**If `HTTP` is 4xx, 5xx, or 000** (connection failed): production has a pre-existing issue. Surface to the user via AskUserQuestion:
+**If `HTTP` is 000** (connection failed — typically firewall-IP-rotation, not a prod issue): the devcontainer's `init-firewall.sh` resolved the prod URL's IPs at container start, but the CDN (Vercel/Netlify/Cloudflare) has rotated to fresh IPs that aren't in the allowlist. **Do NOT treat this as a pre-existing prod issue** — it's an in-container connectivity issue, prod is probably fine. Surface the same 3 fallback paths as Step 3's canary fallback (in order of friction, lowest first):
+
+1. **Operator-side curl via shell escape** — emit a single `!`-prefixed line the user can paste into their terminal:
+
+   ```
+   ! curl -sI <PROD_URL>/ | head -5
+   ```
+
+   Output lands in the conversation; you can read the HTTP status + headers and complete the pre-merge probe from there. If 2xx/3xx, continue to Step 2. If 4xx/5xx, treat as a real pre-existing prod issue (path below).
+
+2. **Browser open** — ask the user to open `<PROD_URL>` in their browser and tell you what they see (200 + expected content vs 4xx/5xx error page).
+
+3. **Devcontainer rebuild** — the heavy option. Re-runs `init-firewall.sh` and re-resolves CDN IPs. Higher friction than paths 1 + 2; only suggest if those don't work.
+
+**If `HTTP` is 4xx or 5xx** (a real response from the server): production has a pre-existing issue. Surface to the user via AskUserQuestion:
 
 > Production `$PROD_URL/` is currently returning HTTP `<code>`. This is pre-existing (caught before this PR's merge), not introduced by the diff about to land.
 >
@@ -64,7 +78,10 @@ echo "HTTP $HTTP"
 > - **Ship + flag** — proceed with the merge if you can confirm the diff doesn't touch the failing surface; file a TODO for the prod issue with the symptoms captured.
 > - **Ship and ignore** — only if you already know about this issue and are tracking it elsewhere.
 
-**Codified from**: lalista PR 26 (2026-04-26). Prod `/` had been returning 500 since project setup (trailing newline in `NEXT_PUBLIC_SUPABASE_URL` from a copy-paste fat-finger; SSR `getUser()` fetched the malformed URL and threw uncaught). Nobody noticed because every authenticated flow goes through `/sign-in`, which worked. Caught during this Step 1.5 probe, fixed in the same PR before merge (added `.trim()` defense at every env var read site). Without the probe, the `/ak-go-live` would have merged + the canary would have flagged it post-deploy as a "regression" rather than a pre-existing issue.
+**Codified from**:
+
+- The 4xx/5xx path: lalista PR 26 (2026-04-26). Prod `/` had been returning 500 since project setup (trailing newline in `NEXT_PUBLIC_SUPABASE_URL` from a copy-paste fat-finger; SSR `getUser()` fetched the malformed URL and threw uncaught). Nobody noticed because every authenticated flow goes through `/sign-in`, which worked. Caught during this Step 1.5 probe, fixed in the same PR before merge (added `.trim()` defense at every env var read site).
+- The HTTP 000 split: lalista PR 28 (2026-04-27). Pre-merge probe AND post-merge canary BOTH hit HTTP 000 within ~10 minutes of each other (Vercel rotated edge IPs since container start). The previous Step 1.5 logic lumped 000 with 4xx/5xx and asked "investigate the prod failure?" — wrong category, costing ~30 sec of disambiguation per occurrence. Step 3 already had the firewall-fallback paragraph; mirroring it here closes the gap so the agent doesn't re-derive disambiguation each session.
 
 The probe is a single curl; it adds <1s in the green path and saves a fix-loop on the red path.
 
