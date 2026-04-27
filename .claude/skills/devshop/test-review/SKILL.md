@@ -80,6 +80,24 @@ await page.waitForURL(...);  // ← will time out on WebKit
 
 If a new E2E or integration test calls `subscribeTo<X>` (or any `postgres_changes` subscription) on a table, verify a migration exists adding that table to the `supabase_realtime` publication. Without it, the subscriber connects but never receives events from other sessions — the test will time out on the assertion that the change arrived. See `kit/docs/guide/conventions.md § Realtime publication setup` + `kit/docs/guide/supabase-ssr-boilerplate.md § Pattern 4`.
 
+### Skipped tests audit
+
+Tests that look green in CI but quietly run nothing are worse than no test — they create false confidence. Scan the diff for skip / `.only` patterns:
+
+- **`test.only(...)` / `describe.only(...)`** — pins the runner to that block, silently hides every other test in the file. CI passes but only ran 1/N. Always flag as **critical** — never acceptable in committed code.
+- **`test.skip(true, ...)` / `describe.skip` (hard skip)** — require a grep-able pointer in the skip reason (e.g., `TODOS.md § <section> § <name>`). Run `grep -F` against `TODOS.md` to verify the pointer resolves; stale pointers (referencing sections that no longer exist) → flag as **important**. Hard skips with no pointer at all → flag as **important** (becomes invisible coverage debt).
+- **`test.skip(<predicate>, '<reason>')` (conditional skip)** — verify the predicate evaluates `false` in at least one CI job that actually runs the suite. Common pitfall: `test.skip(!isLocalSupabase(), ...)` is correct only when some CI job sets `SUPABASE_URL=http://127.0.0.1:54321`. If no job satisfies the predicate, the test runs nowhere → flag as **critical**.
+- **`test.skip()` with no args** — Vitest no-op block; reports as zero tests, no failure signal. Always flag as **critical**.
+
+Quick scan command:
+
+```bash
+git diff --diff-filter=AM <base>...HEAD -- '*.spec.ts' '*.test.ts' '*.test.tsx' \
+  | grep -nE '^\+.*\b(test|describe|it)\.(skip|only)\b' | grep -v '^+++'
+```
+
+For each match, report the file:line, the pattern, and (for hard skips) whether the TODO pointer in the skip reason resolves against `TODOS.md`. Lalista PR 27 is the prior art — the audit caught one stale pointer (`v0 § Carry-forward § password-reset-e2e` after the entry moved to `v1 § Verification debt`) and confirmed the conditional `!isLocalSupabase()` skips run in slow-job.
+
 ## Output format
 
 For each finding:
