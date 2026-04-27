@@ -19,12 +19,13 @@ Source: https://github.com/anthropics/claude-code/tree/main/.devcontainer
 
 ## Getting started
 
-1. Create a dedicated Anthropic API key at [console.anthropic.com](https://console.anthropic.com)
-2. Add it to `.devcontainer/.env`: `ANTHROPIC_API_KEY=your-key-here`
-3. Open the project in VS Code and select **Reopen in Container**
-4. Run `claude` in the terminal — onboarding is auto-skipped, so Claude Code is ready immediately
+1. Create `.devcontainer/.env` (copy from `.env.example` if your project ships one). The file holds **project-runtime** secrets (Supabase tokens, Vercel token, etc.) — see your project's `/ak-new-project` Step 4 for the full list.
+2. Open the project in VS Code and select **Reopen in Container**
+3. Run `claude` in the terminal — onboarding is auto-skipped, so Claude Code is ready immediately
 
-> Use a dedicated key per container for isolated billing and easy revocability.
+> **Anthropic API key** — if your project's edge functions call Claude at runtime, add `QA_ANTHROPIC_API_KEY=...` to `.devcontainer/.env`. The `QA_` prefix is deliberate: Claude Code in the devcontainer auto-detects a bare `ANTHROPIC_API_KEY` as its own auth credential and prompts the operator at every start, even when the key is meant for the project's runtime, not Claude Code itself. The prefix dodges that detection. The corresponding prod key (`PROD_ANTHROPIC_API_KEY`) MUST NEVER live in this file — it lives only in GitHub Secrets and the Supabase project secrets pushed by `deploy-functions.yml`. See your project's `/ak-new-project` § Security Posture for the QA/PROD split rationale.
+
+> **Claude Code auth** — Claude Code uses your VS Code extension login or your subscription session by default; you don't need to put your Claude Code API key in this `.env` unless you're explicitly opting into pay-as-you-go API billing for the CLI itself.
 
 ---
 
@@ -32,7 +33,7 @@ Source: https://github.com/anthropics/claude-code/tree/main/.devcontainer
 
 - **ESLint for code quality only** — formatting is handled entirely by Prettier; no overlap between the two
 - **EditorConfig as source of truth** — universal formatting rules (indent, line endings, charset) that apply in any editor or CI environment
-- **Dedicated API key per container** — isolates usage/billing per project and allows revoking a single container's access without affecting others
+- **`.devcontainer/.env` holds project-runtime secrets only** — Claude Code auth runs through the VS Code extension or your subscription session, not via env-var. Project-runtime keys (Supabase, Vercel, optional `QA_ANTHROPIC_API_KEY` for projects whose edge functions call Claude) go in `.env`. Prod keys never live here.
 - **`waitFor: postStartCommand`** — VS Code won't connect until the firewall script succeeds, so you're never silently in an unprotected environment
 
 ---

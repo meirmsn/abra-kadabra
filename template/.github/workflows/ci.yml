@@ -110,4 +110,9 @@ jobs:
   #     SUPABASE_URL: ${{ vars.SUPABASE_URL }}                    # local stack
   #     SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}          # local stack
   #     SUPABASE_SERVICE_ROLE_KEY: ${{ vars.SUPABASE_SERVICE_ROLE_KEY }}  # local stack
-  #     ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}       # genuine secret
+  #     # Re-export QA_ANTHROPIC_API_KEY (the GH Secret name) as ANTHROPIC_API_KEY
+  #     # for the local edge-function runtime (Deno.env.get('ANTHROPIC_API_KEY')).
+  #     # PROD_ANTHROPIC_API_KEY MUST NOT be wired here — CI runs against the
+  #     # local Supabase stack and should never burn prod billing. See
+  #     # /ak-new-project § Security Posture for the QA/PROD split rationale.
+  #     ANTHROPIC_API_KEY: ${{ secrets.QA_ANTHROPIC_API_KEY }}     # QA-tier secret

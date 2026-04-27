@@ -14,7 +14,12 @@
   "runArgs": [
     "--cap-add=NET_ADMIN",
     "--cap-add=NET_RAW",
-    // Add the anthropic api key env var
+    // Pipe project-runtime env vars from .devcontainer/.env into the container
+    // (Supabase / Vercel tokens, optional QA_ANTHROPIC_API_KEY for projects whose
+    // edge functions call Claude, etc.). Project-runtime ONLY — prod keys
+    // (PROD_ANTHROPIC_API_KEY, prod service-role JWT) must never appear in
+    // this file. See README.md § Getting started + your project's
+    // /ak-new-project § Security Posture.
     "--env-file",
     "${localWorkspaceFolder}/.devcontainer/.env"
     // Here you can add "--memory=8g", "--cpus=4" for CPU/RAM limits for the container itself
