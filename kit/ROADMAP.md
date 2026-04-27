@@ -1262,8 +1262,8 @@ because the "right" files happen to be co-staged. Every blocking check must
 require an explicit reason, regardless of what else is in the commit.
 
 Test cases: mixed commit detection (project repo only), docs drift with/without
-co-staged docs, doc consistency with 1/2/3 docs staged, cross-repo dirty state,
-bypass flag parsing from stdin JSON, exit code 2 on failure, repo detection.
+co-staged docs, doc consistency with 1/2/3 docs staged, bypass flag parsing
+from stdin JSON, exit code 2 on failure, repo detection.
 
 #### Sync script tests
 

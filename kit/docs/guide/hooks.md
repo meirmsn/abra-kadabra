@@ -43,11 +43,10 @@ Three enforcement levels: PreToolUse (Claude Code), pre-commit (husky), and pre-
           ├─ check-security-files-freshness.sh: settings.json/.dcg.toml present + current → block
           ├─ check-clean-tree.sh: untracked/unstaged files OR stashed changes → block
           ├─ check-manifest.sh: template/ files added/removed → propose manifest update
-          └─ devshop-commit-guard.sh (5 checks, run in this order):
+          └─ devshop-commit-guard.sh (4 checks, run in this order):
              ├─ mixed-commit: devshop + project files staged together → block
              ├─ docs-drift: any devshop file staged (except release artifacts) → reviews ALL docs (semantic)
              ├─ doc-consistency: reference doc changed → requires review notes (semantic)
-             ├─ cross-repo: other repo dirty → block
              └─ release-coverage (devshop only): kit/version staged → adversarial
                 reviews whether changes since last tag have adequate test coverage
                 (semantic); bypass via `devshop.releaseReviewed`
@@ -104,8 +103,9 @@ Guards are split into **deterministic** (auto-pass when condition is met) and **
 | └─ `mixed-commit`              | Deterministic | Mixed devshop + project files (project repo only)                                                                        | No bypass — unstage one set                                  |
 | └─ `docs-drift`                | **Semantic**  | Any devshop file staged (except release artifacts) — reviews ALL docs (including ones that don't yet mention the change) | `docsVerified` — always required, adversarially reviewed     |
 | └─ `doc-consistency`           | **Semantic**  | Reference doc changed — consistency review                                                                               | `docSyncReason` — always required, adversarially reviewed    |
-| └─ `cross-repo`                | Deterministic | Other repo has uncommitted changes                                                                                       | `crossRepoReason` — adversarially reviewed                   |
 | └─ `release-coverage`          | **Semantic**  | Release commit (devshop only) — `kit/version` staged → adversarial reviews coverage                                      | `releaseReviewed` — justification re-reviewed with diff      |
+
+The blocking pre-commit `cross-repo` check (other repo has uncommitted changes → fail) was removed in **v1.20.0**. Its lockstep assumption (one template + one validation project, in dual-goal sessions) only held for v0 dogfooding; in a multi-project world the bypass became the rule rather than the exception. The session-start.sh "cross-repo WIP heads-up" — informational, runs once per session — replaces it as the better fit and is documented above (line 13) and below (line 151 §session-start.sh additive change).
 
 Both repos use the same guard chain. Checks run in the order listed above.
 

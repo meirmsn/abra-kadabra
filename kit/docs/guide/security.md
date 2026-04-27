@@ -20,7 +20,7 @@ Root-owned copies (not symlinks), verified fresh on every commit:
 - `.claude/settings.json` — permissions, hooks, deny rules
 - `.dcg.toml` — destructive command patterns
 - `.devcontainer/*` — container config, firewall, secrets
-- `.husky/pre-commit` — gates commit-time guards (gitleaks, docs-drift, mixed-commit, cross-repo, release-coverage); tampering silently disables them
+- `.husky/pre-commit` — gates commit-time guards (gitleaks, docs-drift, mixed-commit, release-coverage); tampering silently disables them
 
 All `kit/scripts/*.sh` are also root-locked — `init-devshop.sh` globs and locks every script in the directory (`root:root 644`). This breaks the circularity where the scripts that watch `settings.json` were themselves only protected by `settings.json`.
 

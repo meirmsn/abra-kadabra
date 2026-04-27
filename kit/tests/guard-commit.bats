@@ -1,6 +1,7 @@
 #!/usr/bin/env bats
 # Tests for kit/scripts/commit-hooks/commit-guard.sh
-# Five checks: mixed-commit, docs-drift, doc-consistency, cross-repo, release-coverage
+# Four checks: mixed-commit, docs-drift, doc-consistency, release-coverage
+# (cross-repo blocking check removed in v1.20.0 — see commit-guard.sh header.)
 
 setup() {
   load helpers/setup
@@ -8,10 +9,9 @@ setup() {
   GUARD="$SCRIPTS_DIR/commit-hooks/commit-guard.sh"
 }
 
-# Create a wrapper with mocked adversarial-review, optional GIT_ROOT override,
-# and cross-repo check disabled (OTHER_REPO="") unless explicitly testing it.
+# Create a wrapper with mocked adversarial-review, optional GIT_ROOT override.
 make_wrapper() {
-  local git_root_override="${1:-}" disable_cross_repo="${2:-true}"
+  local git_root_override="${1:-}"
   WRAPPER="$BATS_TEST_TMPDIR/guard-wrapper.sh"
   cp "$GUARD" "$WRAPPER"
   # Mock adversarial-review.sh
@@ -19,10 +19,6 @@ make_wrapper() {
   # Override GIT_ROOT if requested
   if [ -n "$git_root_override" ]; then
     sed -i "s|GIT_ROOT=\$(git rev-parse --show-toplevel.*|GIT_ROOT=\"$git_root_override\"|" "$WRAPPER"
-  fi
-  # Disable cross-repo check to isolate tests from real /devshop state
-  if [ "$disable_cross_repo" = "true" ]; then
-    sed -i 's|if \[ -n "\$OTHER_REPO" \] \&\& \[ -d "\$OTHER_REPO/\.git" \]|if false|' "$WRAPPER"
   fi
   chmod +x "$WRAPPER"
 }
@@ -213,61 +209,6 @@ run_guard() {
   run_guard
   assert_failure 1
   assert_output --partial "Reference doc changed"
-}
-
-# === cross-repo ===
-
-@test "cross-repo: passes when no other repo exists (devshop-self)" {
-  setup_devshop_repo
-  echo "## v1.0.1" >> "$TEST_REPO/kit/docs/CHANGELOG.md"
-  git -C "$TEST_REPO" add kit/docs/CHANGELOG.md
-  echo "1.0.1" > "$TEST_REPO/kit/version"
-  git -C "$TEST_REPO" add kit/version
-  run_guard
-  assert_success
-}
-
-@test "cross-repo: blocks when other repo is dirty" {
-  # Set up two repos: project + devshop
-  setup_project_repo
-  local other_repo="$BATS_TEST_TMPDIR/other-devshop"
-  mkdir -p "$other_repo"
-  git -C "$other_repo" init -q
-  git -C "$other_repo" config user.email "test@test.com"
-  git -C "$other_repo" config user.name "Test"
-  echo "init" > "$other_repo/.gitkeep"
-  git -C "$other_repo" add .
-  git -C "$other_repo" commit -q -m "initial"
-  # Make the other repo dirty
-  echo "dirty" > "$other_repo/uncommitted.txt"
-
-  # Rebuild wrapper: override GIT_ROOT and OTHER_REPO (keep cross-repo enabled)
-  make_wrapper "/workspace" "false"
-  sed -i "s|OTHER_REPO=/devshop|OTHER_REPO=$other_repo|" "$WRAPPER"
-
-  stage_file "src/index.ts" "code"
-  run_guard
-  assert_failure 1
-  assert_output --partial "uncommitted changes"
-}
-
-@test "cross-repo: passes when other repo is clean" {
-  setup_project_repo
-  local other_repo="$BATS_TEST_TMPDIR/other-devshop"
-  mkdir -p "$other_repo"
-  git -C "$other_repo" init -q
-  git -C "$other_repo" config user.email "test@test.com"
-  git -C "$other_repo" config user.name "Test"
-  echo "init" > "$other_repo/.gitkeep"
-  git -C "$other_repo" add .
-  git -C "$other_repo" commit -q -m "initial"
-
-  make_wrapper "/workspace" "false"
-  sed -i "s|OTHER_REPO=/devshop|OTHER_REPO=$other_repo|" "$WRAPPER"
-
-  stage_file "src/index.ts" "code"
-  run_guard
-  assert_success
 }
 
 # === Multiple simultaneous failures ===

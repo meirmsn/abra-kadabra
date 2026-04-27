@@ -8,7 +8,7 @@
 #          .husky/pre-push (prDescStaleReason, dirtyPushReason)
 #
 # Usage: adversarial-review.sh <check-type> <reason> [context...]
-#   check-type: docsVerified | docSyncReason | crossRepoReason | dirtyTreeReason | hookBypass
+#   check-type: docsVerified | docSyncReason | dirtyTreeReason | hookBypass
 #               | manifestReviewed | testCoverage | prDescStaleReason | dirtyPushReason
 #               | dismissalLog   (pre-ship /ak-pre-ship — reviews gate dismissal rationales)
 #   reason: the bypass reason provided via git -c, OR for dismissalLog the body of the
@@ -89,21 +89,6 @@ $README_MD
 
 === kit/docs/guide/ section headers ===
 $GUIDE_HEADERS"
-    ;;
-  crossRepoReason)
-    # Use caller-provided snapshot (avoids TOCTOU with lint-staged stash cycle)
-    OTHER_STATUS="${1:-}"
-    if [ -z "$OTHER_STATUS" ]; then
-      # Fallback: re-check if no snapshot passed
-      case "$GIT_ROOT" in
-        /workspace) OTHER=/devshop ;;
-        /devshop) OTHER=/workspace ;;
-        *) OTHER="" ;;
-      esac
-      [ -n "$OTHER" ] && OTHER_STATUS=$(git -C "$OTHER" status --porcelain 2>/dev/null | head -20 || true)
-    fi
-    CONTEXT="Other repo uncommitted changes:
-$OTHER_STATUS"
     ;;
   dirtyTreeReason)
     DIRTY=$(git status --porcelain 2>/dev/null | grep -E '^\?\?|^ [MD]' | head -20 || true)
