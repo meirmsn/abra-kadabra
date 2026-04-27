@@ -197,3 +197,38 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
   **Edit targets**: `kit/docs/guide/supabase-ssr-boilerplate.md` (new Pattern 6 section).
 
   [v0, surfaced-by lalista-PR26-and-PR27, 2026-04-26]
+
+- [ ] **Backport lalista's CI slow-job + helper scripts to the template.** [v0] Lalista PR 4 (merged) shipped a working slow-job: `supabase start` + `supabase db reset`, integration tests gated on `VITEST_INTEGRATION=1`, type-drift via `scripts/ci-type-drift.sh`, rollback-EXPLAIN via `scripts/ci-rollback-explain.sh`, edge-fn deploy, Playwright at mobile + desktop. The shape is now proven on a real project; the next devshop project shouldn't have to re-derive ~200 lines of bash + ~140 lines of YAML from `kit/ROADMAP.md § CI slow job expansion`'s prose checklist.
+
+  **Context**: `kit/ROADMAP.md:526-561` documents Trigger 1 / Trigger 2 expansion as if both checks need to be authored from scratch when the first DB-backed feature lands. They don't anymore — the bash + YAML exist in `/workspace/`. Without this backport, every future project re-implements them from prose, defeating the "lalista is the template-validation project" framing that already works for Auth UX and zod-validation conventions (lalista `TODOS.md`).
+
+  **Implementation**:
+  1. Copy `/workspace/scripts/ci-type-drift.sh` → `template/scripts/ci-type-drift.sh`; parameterize anything lalista-specific (verify the types path `packages/core/src/supabase.types.ts` is shared convention).
+  2. Copy `/workspace/scripts/ci-rollback-explain.sh` → `template/scripts/ci-rollback-explain.sh`; verify no lalista-specific assumptions.
+  3. Replace `template/.github/workflows/ci.yml`'s commented-out stub (lines 43-56) with the live lalista-shape slow-job, kept commented behind a sentinel like `# UNCOMMENT WHEN: first DB-backed feature ships — see kit/ROADMAP.md § CI slow job expansion`.
+  4. Rewrite `kit/ROADMAP.md § CI slow job expansion` Trigger 1 from "write a type drift check, write a rollback validator…" to "uncomment the slow-job block; fill in `SUPABASE_SERVICE_ROLE_KEY` + `ANTHROPIC_API_KEY` secrets; helpers already ship in `template/scripts/`."
+  5. Optional follow-up (defer until a second project actually scaffolds): `.claude/skills/devshop/new-project/SKILL.md` Phase B gains a question "does this project ship a DB at scaffold time? If yes, uncomment the slow-job stub now."
+
+  **Edit targets**: `template/scripts/ci-type-drift.sh` (new), `template/scripts/ci-rollback-explain.sh` (new), `template/.github/workflows/ci.yml` (replace stub lines 43-56), `kit/ROADMAP.md § CI slow job expansion` (rewrite Trigger 1), optional `.claude/skills/devshop/new-project/SKILL.md`.
+
+  [v0, devshop-template-backport, surfaced-by lalista-PR4-merged, 2026-04-24]
+
+- [ ] **PR-body "Manual review" category guardrail + Phase 6 auto-attest.** [v0] PR-body `[ ]` items under "Manual review" should be ONLY genuinely judgmental items the automation cannot answer (intent match, design review, live QA walkthrough, post-deploy metrics). Today the section drifts to include factually-verifiable items (idempotent guard pattern correct, JSDoc cites coverage, doc paragraph reads correctly) — items that pre-ship gates already attested. Reviewers see these as `[ ]` and feel obligated to re-verify; meaningful judgment items get diluted.
+
+  **Context**: lalista PR 27 shipped with 4 "Manual review" items: (1) spec reflects intent — judgmental, kept `[ ]` correctly; (2) migration idempotent guard correct — factually verified by reading `supabase/migrations/013_realtime_publication.sql:12-20`; (3) JSDoc cites E2E coverage — factually verified by reading `packages/core/src/api/realtime.ts:28-31`; (4) CLAUDE.md gotcha reads correctly — factually verified by reading `CLAUDE.md:28`. Items (2)/(3)/(4) were ALREADY attested by pre-ship Gate 1 (Docs check), Gate 5 (/ak-test-review), Gate 6 (/review), and Gate 11 (Convention check); restating them in Manual review duplicated the work and obscured (1) — the only item that genuinely needs a human.
+
+  **Implementation** — two-layer fix:
+  1. **Layer A (prevention)**: extend `/ak-build` Phase 4 § "Checkbox semantics + timing" with a "What belongs in Manual review" rule. Canonical set: spec/intent match, visual/design audit, live QA walkthrough, post-deploy metrics. Anything resolvable by `cat <file>` / `grep <symbol>` / fixed-shape comparison is NOT a manual-review item — either drop it (pre-ship gate already covered it; audit comment carries the attestation) or self-attest under "Pre-push automated gates" with `[x]` + file:line.
+
+  2. **Layer B (Phase 6 auto-attest)**: add Part C to Phase 6's checkbox sweep. For each `[ ]` line under "Manual review", classify as `factual` (resolvable by file/symbol/value lookup) or `judgmental` (spec/design/UX/intent). Behavior:
+     - `factual` + verifies ✓ → mark `[x]` with file:line attestation inline (no halt, no operator prompt — autonomous closure is Phase 6's job).
+     - `factual` + verifies ✗ → halt, same shape as Part B's "evidence missing" branch (the body claims something the artifact contradicts — real problem).
+     - `judgmental` → leave `[ ]` for the human reviewer.
+
+     Heuristic for classification: keywords like "is correct", "cites", "reads correctly", "matches schema X", "follows convention Y" → factual. Keywords like "reflects intent", "looks right", "feels good", "tests pass on prod" → judgmental. When ambiguous, default to factual (the verification is cheap; halting on a false positive is recoverable).
+
+  **Edit targets**: `.claude/skills/devshop/build/SKILL.md § Phase 4 / PR body conventions / Checkbox semantics + timing` (Layer A rule + canonical-set list), `.claude/skills/devshop/build/SKILL.md § Phase 6 / Part C` (Layer B sweep — new sub-section after Part B's evidence-on-disk sweep).
+
+  **Why Phase 6 auto-attests rather than surfacing**: Phase 6's existing Parts A and B already do autonomous closure (state-based reconciliation marks CI/preview `[x]`; evidence sweep halts only on missing artifacts). The factual-checkbox case is symmetric to Part A — auto-attest when verifiable, halt only when something is genuinely wrong. Surfacing a factual item to the operator just to do the verification I could have done myself wastes their attention; surfacing only on real failure preserves it.
+
+  [v0, ak-build-skill-improvement, surfaced-by lalista-PR27, 2026-04-27]
