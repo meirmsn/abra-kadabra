@@ -2,6 +2,13 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.21.0 (2026-04-27)
+
+- docs(roadmap): four v0 entries for project-repo test/docs/CI enforcement
+- fix(skill/ak-go-live): split HTTP 000 from 4xx/5xx in Step 1.5 prod probe
+- fix+refactor: /workspace/.devcontainer/\* deny + Anthropic-key suffix rename
+- feat(skill): document Anthropic key QA/PROD split convention for new projects
+
 ## v1.20.0 (2026-04-26)
 
 - fix(claude-md+architecture): devshop flow says no-PRs in both canonical docs
