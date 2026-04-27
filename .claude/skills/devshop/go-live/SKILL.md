@@ -168,15 +168,38 @@ echo "  Git SHA: $(git rev-parse HEAD)"
 
 ## Step 5: Structured reflection
 
+The natural reflection moment — the work just shipped, learnings are fresh. Two distinct categories of capture, both required:
+
+### 5a: Project-side reflection
+
 Ask yourself and route learnings to **committed files** (not memory):
 
-- New conventions, gotchas, calibration updates → `CLAUDE.md`
+- New conventions, gotchas, calibration updates → project `CLAUDE.md`
 - Troubleshooting entries (date, symptom, cause, fix) → `kit/docs/guide/ § Troubleshooting`
 - Decision log entries ("chose X over Y because Z, date") → `kit/docs/guide/ § Decision Log`
-- Devshop friction → `kit/TODOS.md` (tactical) or `kit/ROADMAP.md` (strategic)
-- Confidence calibration adjustments → `CLAUDE.md § Confidence Calibration`
+- Confidence calibration adjustments → project `CLAUDE.md § Confidence Calibration`
 
-Commit: `docs: post-deploy reflection for <feature-name>`
+Commit (project repo): `docs: post-deploy reflection for <feature-name>`
+
+If nothing project-specific to capture (the bug + commit message + spec docs already carry the context), skip this sub-step. Don't add CLAUDE.md noise for self-evident lessons — see today's prompt: _"the next time this kind of issue hits, the 500 itself is the signal."_
+
+### 5b: Devshop-side generalization (catches lessons that should leave this project)
+
+Did this PR's investigation surface anything that would generalize **beyond this project**? Most sessions produce 0; some produce many. Examples in order of typical leverage:
+
+- **Skill amendment** — a rule that should fire in `/ak-build` / `/ak-go-live` / `/ak-spec` / `/ak-implement` / `/ak-test-review` / `/ak-pre-ship`. Add to the SKILL.md where the action happens, not just to a guide doc — guide docs are Tier 3 and don't auto-load (see `kit/docs/guide/conventions.md § SSR + E2E boilerplate canonical patterns` for the layout pattern of "operational copy in skill, brief reference pointer in guide").
+- **Template fix** — boilerplate in `template/` (or referenced from `/ak-new-project Step <N>` if scaffolded inline). Other projects scaffolding from the template inherit on next setup.
+- **New convention or extension to an existing one** — `kit/docs/guide/conventions.md` (per the audit, this is Tier 3 reference; pair with a skill amendment that actually fires the rule).
+- **`/devshop/CLAUDE.md` Tier 1 entry** — for cross-cutting principles that need to be always-loaded.
+- **`kit/ROADMAP.md § v0 / v1`** — work that's bigger than an inline edit and worth filing for later, OR an audit/sweep that needs a focused session.
+
+For each lesson, present: _what was learned, proposed devshop placement, effort estimate_. The user picks which to ship now vs file vs skip.
+
+If nothing this session, just say so — explicitly. Don't fish for lessons; most sessions don't produce them. The signal is high but the rate is low.
+
+**Don't wait to be prompted.** Surfacing devshop-generalizable lessons is the agent's job, not the user's. Lalista PR 26 produced 8 generalizations (firewall closure rule, trace.zip discipline, conventions audit + reviewer-reads-conventions ROADMAP entries, prod-curl probe, firewall-IP-rotation fallback, .trim() defense convention, CSP scheme handling, Realtime publication, WebKit hydration race, edge-runtime retry — all shipped to devshop within the same session). Without this prompt earlier in the session, only 0-1 would have surfaced via ad-hoc memory or a follow-up "anything else?" from the user.
+
+Commit (devshop repo, separate from project commit): per-concept atomic commits per `/devshop/CLAUDE.md § Closing TODO / ROADMAP entries when a fix ships` and `/ak-build § Phase 5.6 step 4` (if any tracker entries close as part of the lessons surfaced).
 
 ## Step 6: Notify
 

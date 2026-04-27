@@ -262,14 +262,33 @@ Multiple features can be in flight at once — `/ak-build` and `/ak-implement` a
 
 ## Structured Reflection
 
-After each feature ships, run structured reflection and route learnings to committed files (not memory files):
+After each feature ships, run structured reflection in two distinct categories. Both required; either can be empty (just say "nothing to capture this session" explicitly). The full prompt template lives in `/ak-go-live § Step 5` (5a + 5b); this is the workflow-level summary.
+
+### Project-side (5a)
 
 - What went well? What was surprisingly hard?
-- New conventions, gotchas, calibration updates → `CLAUDE.md`
+- New conventions, gotchas, calibration updates → project `CLAUDE.md`
 - New troubleshooting entries → guide docs (troubleshooting section)
 - Decision log entries → guide docs (decision log section)
+- Did confidence calibration need adjustment? (New items for "proceed" or "stop and ask" in project `CLAUDE.md`)
+
+Skip 5a entirely when the bug + commit message + spec docs already carry the context — don't add CLAUDE.md noise for self-evident lessons. The next time the same kind of issue hits, the symptom itself is the signal.
+
+### Devshop-side generalization (5b)
+
+Did the session surface anything that would generalize **beyond this project**? Categories in order of typical leverage:
+
+- **Skill amendment** — `/ak-build`, `/ak-go-live`, `/ak-spec`, `/ak-implement`, `/ak-test-review`, `/ak-pre-ship`. Operational rules belong in the skill where they fire (Tier 2), not just in conventions.md (Tier 3 — discoverable but not auto-loaded).
+- **Template fix** — `template/` (or referenced from `/ak-new-project Step <N>`). Inherited by every new project on next setup.
+- **New convention or extension** — `kit/docs/guide/conventions.md`. Pair with a skill amendment that fires the rule.
+- **`/devshop/CLAUDE.md` Tier 1 entry** — for cross-cutting principles that need to be always-loaded regardless of which skill ran.
+- **`kit/ROADMAP.md § v0 / v1`** — for work bigger than an inline edit, OR an audit/sweep that needs a focused session.
+
+Most sessions produce zero devshop-generalizable lessons. That's fine — explicitly say "nothing this session" rather than fish for noise. The signal is high but the rate is low. The agent surfaces the question proactively (per `/devshop/CLAUDE.md § Implementation Approach`); the user picks which lessons to ship now vs file vs skip.
+
+Lalista PR 26 (2026-04-26) is the calibration case study: 8 generalizations in a single session — firewall closure rule, trace.zip discipline, conventions audit + reviewer-reads-conventions ROADMAP entries, prod-curl probe, firewall-IP-rotation fallback, .trim() defense, CSP scheme handling, Realtime publication, WebKit hydration race, edge-runtime retry. All shipped to devshop within the session because the agent surfaced the prompt explicitly.
+
 - Devshop friction or ideas → `kit/TODOS.md` (tactical) or `kit/ROADMAP.md` (strategic)
-- Did confidence calibration need adjustment? (New items for "proceed" or "stop and ask" in `CLAUDE.md`)
 
 ---
 
