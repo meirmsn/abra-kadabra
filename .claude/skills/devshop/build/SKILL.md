@@ -1,6 +1,6 @@
 ---
 name: ak-build
-version: 1.4.0
+version: 1.5.0
 description: |
   Autonomous build pipeline: preview → spec → implement → quality gates → ship → CI watch → notify.
   Phase 0 produces a 3-section pre-flight preview (decisions / scope / tracker) and
@@ -916,6 +916,54 @@ Do NOT ship a PR with [x] claims that don't match reality. The reviewer trusts t
 
 This extension pairs with Gate 3's evidence-matrix enforcement (Fix B) and Gate 9's happy-path evidence requirement (Fix C) — both gates produce the artifacts; Phase 6 verifies the PR body tells the truth about them.
 
+**Part C — Manual-review classification sweep** (does each `[ ]` under "Manual review" actually need a human?):
+
+For every `[ ]` line under a `### Manual review` (or "Live QA" / "Reviewer-only") heading in the PR body, classify as `factual` (resolvable by file/symbol/value lookup) or `judgmental` (spec/design/UX/intent). See `## PR body conventions § What belongs in "Manual review"` for the canonical set the body should have followed.
+
+| Classification | Verification result | Action |
+|---|---|---|
+| `factual` | Verifies ✓ (file exists / symbol present / claim true) | Rewrite line as `[x] <text> (verified at <file>:<line>)`. No halt; no operator prompt — autonomous closure is Phase 6's job. |
+| `factual` | Verifies ✗ (artifact contradicts the claim) | Halt — same shape as Part B's "evidence missing" branch. The body claims something the file disproves; that's a real problem. |
+| `judgmental` | n/a | Leave `[ ]` for the human reviewer. |
+
+Classification heuristic — words that fire `factual`: "is correct", "matches", "cites", "references", "reads correctly", "follows convention X", "matches schema Y", "guards against pattern Z", "file exists", "symbol exists". Words that fire `judgmental`: "reflects intent", "looks right", "feels good", "is intuitive", "tests pass on prod", "design hierarchy correct", "user flow works end-to-end". When ambiguous, default to **factual** — the verification is cheap (one Read or one grep), halting on a false positive is recoverable, and keeping a factual item under Manual review just to dodge the verification round-trip wastes the operator's attention.
+
+**Implementation sketch**:
+
+```bash
+# Reuse /tmp/pr-body.md from Part B if present
+[ -f /tmp/pr-body.md ] || gh pr view "$PR" --json body --jq .body > /tmp/pr-body.md
+
+# Extract the Manual review block (from "### Manual review" to the next ###/## or EOF)
+awk '/^### Manual review/,/^(### |## )/' /tmp/pr-body.md \
+  | grep -E '^- \[ \]' > /tmp/manual-review-items.txt
+
+FACTUAL_RE='is correct|matches|cites|references|reads correctly|follows convention|file exists|symbol exists'
+JUDGMENT_RE='reflects intent|looks right|feels good|is intuitive|tests pass on prod|design hierarchy|user flow|end-to-end'
+
+while IFS= read -r line; do
+  if echo "$line" | grep -qiE "$JUDGMENT_RE"; then
+    CLASS=judgmental
+  elif echo "$line" | grep -qiE "$FACTUAL_RE"; then
+    CLASS=factual
+  else
+    CLASS=factual  # default when ambiguous; verify is cheap
+  fi
+  case "$CLASS" in
+    judgmental) ;;  # leave [ ] for human
+    factual)
+      # Run the operator-drafted verification (Read the file / grep the symbol).
+      # On verifies ✓: edit /tmp/pr-body.md to rewrite this line as [x] with attestation.
+      # On verifies ✗: append to $EVIDENCE_MISSING per Part B's halt path.
+      ;;
+  esac
+done < /tmp/manual-review-items.txt
+```
+
+**Why Phase 6 auto-attests rather than surfacing**: Phase 6's existing Parts A and B already do autonomous closure (state-based reconciliation marks CI/preview `[x]`; evidence sweep halts only on missing artifacts). The factual-checkbox case is symmetric to Part A — auto-attest when verifiable, halt only when something is genuinely wrong. Surfacing a factual item to the operator just to do the verification I could have done myself wastes their attention; surfacing only on real failure preserves it.
+
+Codified from lalista PR 27 (2026-04-27) — the PR shipped with 4 Manual-review items; 3 of 4 were factually verifiable by reading specific files. Phase 6 should have auto-attested those rather than leaving them as `[ ]` for the operator's eyes.
+
 ## Phase 7: Notify
 
 ### 7.1: Detect diff type (runtime vs docs-only)
@@ -1019,6 +1067,24 @@ Two kinds of mistakes to avoid:
 2. Marking a reviewer-only item `[x]` — pre-commits to a human verification you didn't do; misleading.
 
 Phase 6's final sweep reconciles both sides.
+
+### What belongs in "Manual review"
+
+PR-body items under a `### Manual review` (or "Live QA" / "Reviewer-only") heading must be **genuinely judgmental** — items the automation cannot answer. Canonical set:
+
+- Spec / intent match — does the PR actually do what was specified?
+- Visual / design audit — hierarchy, spacing, typography, dark-mode parity
+- Live QA walkthrough — does the user flow feel right end-to-end?
+- Post-deploy metrics — p95 latency, error rate, conversion deltas (only measurable after merge)
+
+Anything resolvable by `cat <file>` / `grep <symbol>` / fixed-shape comparison is **NOT** a manual-review item — it's factual and pre-ship gates already attested it. If you draft a body with a factual item under Manual review:
+
+1. **Drop it** — the pre-ship gate already covered it; the gate's audit comment carries the attestation.
+2. **Or self-attest under "Pre-push automated gates"** with `[x]` + the file:line that grounds the claim. Example: `[x] Migration idempotent guard correct (supabase/migrations/013_realtime_publication.sql:12-20)`.
+
+Phase 6's Part C sweep auto-attests factual items the body author missed, so the rule has a structural backstop — but draft them right at Phase 4 to save the round-trip.
+
+Codified from lalista PR 27 (2026-04-27): the PR shipped with 4 Manual-review items, three of which were factually verifiable (idempotent guard correct, JSDoc cites coverage, CLAUDE.md gotcha reads correctly). Reviewers feel obligated to re-verify each `[ ]`; restating factually-attested items dilutes the one item that genuinely needed a human (spec/intent match).
 
 ### Out-of-band deploy items
 
