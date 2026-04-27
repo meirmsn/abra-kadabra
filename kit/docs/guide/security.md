@@ -22,7 +22,18 @@ Root-owned copies (not symlinks), verified fresh on every commit:
 - `.devcontainer/*` — container config, firewall, secrets
 - `.husky/pre-commit` — gates commit-time guards (gitleaks, docs-drift, mixed-commit, release-coverage); tampering silently disables them
 
-All `kit/scripts/*.sh` are also root-locked — `init-devshop.sh` globs and locks every script in the directory (`root:root 644`). This breaks the circularity where the scripts that watch `settings.json` were themselves only protected by `settings.json`.
+All scripts under `kit/scripts/` (recursive — covers `commit-hooks/`, `preship/`, `notify/`, `sync/`, etc.) are also root-locked — `init-devshop.sh` runs `find $DEVSHOP/kit/scripts/ -type f -name '*.sh'` at container start and chowns each to `root:root 644`. This breaks the circularity where the scripts that watch `settings.json` were themselves only protected by `settings.json`. The two-layer model (Layer 1 = settings.json deny rules, Layer 2 = filesystem ownership) is documented inline in `.claude/settings.json` permission rules:
+
+```json
+"Edit(kit/scripts/**)",          // matches subdirectories too
+"Write(kit/scripts/**)",
+"Edit(/devshop/kit/scripts/**)", // absolute-path variant
+"Write(/devshop/kit/scripts/**)",
+```
+
+The `**` recursive glob is load-bearing — single-segment `*` would not match `kit/scripts/commit-hooks/commit-guard.sh` and would let Claude bypass Layer 1 by editing subdirectory scripts. (Layer 1 widening from `*` → `**` shipped in v1.20.0 after the gap was exploited unintentionally during the cross-repo check removal session — the file was Layer-2-eroded by prior git activity AND Layer-1-uncovered by the single-segment glob.)
+
+**Layer 2 erosion via git operations** is a known defense-in-depth gap tracked in `kit/TODOS.md` (v1): when git modifies a locked file (`checkout`, `merge`, `pull`, `rebase`), the rewritten file inherits node ownership from the running user, breaking the root lock until the next container restart. Layer 1 (the settings.json deny rules) is the load-bearing protection now that its glob is correct; Layer 2 erosion makes the model degrade defense-in-depth-wise but doesn't expose any one file unless Layer 1 also has a hole.
 
 ## Edge Function Auth
 
@@ -49,7 +60,7 @@ Pinned to specific version + SHA256 checksum. Never "latest." Update version + c
 
 ## Guard Script Editing
 
-Guard script deny rules are easy to toggle — when the user wants Claude to edit guard scripts, uncomment the four `kit/scripts/*` deny lines in settings.json.
+Guard script deny rules are easy to toggle — when the user wants Claude to edit guard scripts, uncomment the four `kit/scripts/**` deny lines in settings.json (relative + absolute path variants for both `Edit` and `Write`). The `**` recursive glob covers subdirectory scripts too (`commit-hooks/`, `preship/`, etc.); a previous single-segment `*` glob shipped briefly through v1.19.x and was tightened in v1.20.0.
 
 ## `.claude/` Allow vs settings.json Deny
 
