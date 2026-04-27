@@ -172,6 +172,7 @@ These topics span multiple skills, so the guide (`./guide/`) owns them:
 - **Hooks table + Commit Flow** (`guide/hooks.md`) — what fires on commit/push/session-start and in what order
 - **Notifications** (`guide/notifications.md`) — push alerts to iPhone/Watch/Mac via ntfy.sh, 30s debounce, privacy, rotation
 - **Rollback procedures** (`guide/ops.md § When Things Go Wrong`) — Vercel rollback, migration rollback SQL, canary failure response
+- **Supabase SSR + E2E patterns** (`guide/supabase-ssr-boilerplate.md`) — 5 canonical patterns for Supabase + Next.js + Playwright projects (env-var trim, CSP scheme handling, E2E helpers, Realtime publication, WebKit hydration race), each codified from a real production incident with verbatim copy-paste-ready snippets
 
 CI slow job expansion plans are in ROADMAP.md § v+.
 

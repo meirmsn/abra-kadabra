@@ -59,12 +59,53 @@ jobs:
   # misconfiguration where someone wires `secrets.SUPABASE_SERVICE_ROLE_KEY`
   # (which would carry the prod admin key) instead of the env var derived
   # from the local stack.
+  #
+  # IMPORTANT — supabase_edge_runtime startup flake retry (codified from
+  # lalista PR 26 incident, 2026-04-26): the `supabase_edge_runtime_workspace`
+  # container occasionally fails health-check on cold start in GH-Actions
+  # runners (visible as "Error status 502" in startup logs). When this
+  # happens, every test that calls an edge function fails with "Couldn't
+  # add. Check your connection and try again." or similar — the test code
+  # is correct; the local stack just isn't fully healthy. Without retry,
+  # the run fails red on a transient infra issue. Add a health-check
+  # step after `supabase start` that polls the edge-functions endpoint
+  # and retries the start ONCE on 502/timeout. ~30s extra in the unhappy
+  # path; zero cost in the happy path.
+  #
   # slow:
   #   if: github.event_name == 'pull_request'
   #   runs-on: ubuntu-latest
   #   needs: fast
   #   steps:
   #     - uses: actions/checkout@v4
+  #     # ... pnpm/setup-node/install ...
+  #     - uses: supabase/setup-cli@v1
+  #     - name: Start local Supabase (with edge-runtime health-check retry)
+  #       run: |
+  #         set -e
+  #         start_supabase() {
+  #           supabase start --ignore-health-check
+  #           # Probe edge-functions endpoint for ~10s; expect 401/404 on the
+  #           # base path (means service is up, just no function at /), NOT 502.
+  #           for i in $(seq 1 10); do
+  #             code=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 \
+  #               "http://127.0.0.1:54321/functions/v1/" 2>/dev/null || echo "000")
+  #             if [ "$code" = "401" ] || [ "$code" = "404" ]; then
+  #               echo "Edge runtime healthy (HTTP $code)"
+  #               return 0
+  #             fi
+  #             echo "Edge runtime probe $i/10 returned HTTP $code; waiting..."
+  #             sleep 3
+  #           done
+  #           echo "Edge runtime didn't pass health-check"
+  #           return 1
+  #         }
+  #         if ! start_supabase; then
+  #           echo "::warning::supabase_edge_runtime_workspace failed first health-check; restarting once"
+  #           supabase stop || true
+  #           start_supabase  # second attempt; if this fails, fail the job
+  #         fi
+  #         supabase status -o env >> "$GITHUB_ENV"
   #   env:
   #     SUPABASE_URL: ${{ vars.SUPABASE_URL }}                    # local stack
   #     SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}          # local stack

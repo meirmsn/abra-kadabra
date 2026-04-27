@@ -61,6 +61,25 @@ For every test that asserts on state shape, array length, mock-call count, or in
 
 Scope: only flag tests added or modified in this PR's diff. Do not re-flag grandfathered tests in untouched files. See `kit/docs/guide/conventions.md § Test Assertion Depth`.
 
+### WebKit form-state hydration race (Playwright `mobile` project only)
+
+Direct `page.goto('/<form-route>')` followed by immediate `fill()` + `click()` on a controlled-input form races React 18's state hydration on WebKit. The fill dispatches input events but React state may not commit before the click — submit handlers see empty state and fail validation. The submit never fires the API call. Symptom: form refuses to submit on `mobile` only; assertions like `waitForURL(/\/<next>/)` time out.
+
+Flag any new E2E test that does:
+
+```ts
+await page.goto('/sign-in'); // or any form route on the mobile project
+await page.getByLabel(...).fill(...);
+await page.getByRole('button', ...).click();
+await page.waitForURL(...);  // ← will time out on WebKit
+```
+
+**Recommendation**: navigate via a click chain that lets React hydrate first (e.g. `/` → "Get started" → /sign-in), or add `await page.waitForLoadState('networkidle')` after the goto. Full pattern + lalista PR 26 trace evidence in `kit/docs/guide/supabase-ssr-boilerplate.md § Pattern 5`.
+
+### Realtime test missing publication migration
+
+If a new E2E or integration test calls `subscribeTo<X>` (or any `postgres_changes` subscription) on a table, verify a migration exists adding that table to the `supabase_realtime` publication. Without it, the subscriber connects but never receives events from other sessions — the test will time out on the assertion that the change arrived. See `kit/docs/guide/conventions.md § Realtime publication setup` + `kit/docs/guide/supabase-ssr-boilerplate.md § Pattern 4`.
+
 ## Output format
 
 For each finding:

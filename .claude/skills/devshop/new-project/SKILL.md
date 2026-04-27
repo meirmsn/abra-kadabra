@@ -630,6 +630,14 @@ Then: import on Vercel, Tailwind v4 tokens in globals.css, transpilePackages,
 workspace deps, Sentry, PostHog, PWA manifest, security headers, vercel.json,
 remove placeholders, approve build scripts in onlyBuiltDependencies.
 
+**Apply the Supabase SSR boilerplate patterns from `kit/docs/guide/supabase-ssr-boilerplate.md`** — five canonical patterns codified from real production incidents (lalista PR 26, 2026-04-26). Don't paraphrase; copy verbatim:
+
+- **Pattern 1**: `.trim()` defense at every `process.env.NEXT_PUBLIC_*` read site in `lib/supabase/{server,client}.ts` + `middleware.ts`. Trailing-whitespace env vars from copy-paste fat-fingers silently 500 SSR routes; trim makes runtime bulletproof.
+- **Pattern 2**: CSP `connect-src` builder uses `^http(s?)://` → `ws$1://` regex (handles BOTH prod `https→wss` AND local-stack `http→ws`). Missing the http→ws case silently breaks Realtime in dev mode.
+- **Pattern 3**: `apps/web/e2e/helpers/admin-client.ts` with the 5 canonical exports (`adminClient`, `anonClient`, `userIdFromSignIn`, `isLocalSupabase`, `localSupabaseSkipReason`). Don't reinvent; copy.
+
+If the project also uses Realtime cross-session, also apply **Pattern 4** (publication migration) at `Step 15: Supabase init` time. If it has E2E tests on the WebKit `mobile` project, **Pattern 5** (WebKit form-state hydration race workaround) belongs in your E2E test conventions.
+
 ### Step 13: Add Vercel CLI + link + pipe env vars
 
 ```bash
