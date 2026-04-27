@@ -1,6 +1,6 @@
 ---
 name: ak-go-live
-version: 1.1.0
+version: 1.2.0
 description: |
   Autonomous deploy pipeline: merge → deploy → canary → reflect → notify.
   Runs after user approves PR. Chains /land-and-deploy → /canary → reflection.
@@ -84,6 +84,52 @@ echo "HTTP $HTTP"
 - The HTTP 000 split: lalista PR 28 (2026-04-27). Pre-merge probe AND post-merge canary BOTH hit HTTP 000 within ~10 minutes of each other (Vercel rotated edge IPs since container start). The previous Step 1.5 logic lumped 000 with 4xx/5xx and asked "investigate the prod failure?" — wrong category, costing ~30 sec of disambiguation per occurrence. Step 3 already had the firewall-fallback paragraph; mirroring it here closes the gap so the agent doesn't re-derive disambiguation each session.
 
 The probe is a single curl; it adds <1s in the green path and saves a fix-loop on the red path.
+
+## Step 1.6: Migration sequencing pre-flight (catches non-additive migrations before the parallel-deploy race)
+
+Only fires when the PR diff touches `supabase/migrations/**`. The architecture's implicit assumption is that all migrations are backwards-compatible in **both** directions during the PR window — new code on old schema works (handles missing column gracefully), AND old code on new schema works (new NOT NULL column has a default). Additive migrations satisfy this; mutating migrations (renames, drops, NOT NULL without default, type changes) violate it — they break Vercel preview during the PR window AND cause a ~30–60s post-merge race where prod runs new code against the old schema before `deploy-migrations.yml` finishes.
+
+```bash
+BASE=${BASE:-main}
+MIGRATIONS_TOUCHED=$(git diff --name-only "origin/${BASE}...HEAD" 2>/dev/null | grep -E '^supabase/migrations/' || true)
+[ -z "$MIGRATIONS_TOUCHED" ] && : # no migration changes; skip the rest of Step 1.6
+```
+
+If the diff touches migrations, classify each touched file. Honor a pre-declared classification when present:
+
+1. **Spec pre-declaration** (preferred). If `specs/<feature>/spec.md` has a `## Migration Sequencing` section recording the migration's compatibility + deploy plan, trust that classification. Track A of the migration-sequencing convention plants this at spec time; this step is its enforcement point.
+
+2. **Heuristic classification** (fallback when the spec didn't pre-declare). Scan each touched file for mutating signals; if any fire, treat as mutating:
+
+   ```bash
+   for f in $MIGRATIONS_TOUCHED; do
+     # Mutating signals (any one match → mutating):
+     #   DROP TABLE / DROP COLUMN / DROP CONSTRAINT
+     #   RENAME (table or column)
+     #   ALTER COLUMN ... TYPE
+     #   ALTER COLUMN ... SET NOT NULL (without an accompanying DEFAULT in same file)
+     # Additive (none of the above):
+     #   CREATE TABLE / CREATE INDEX / CREATE POLICY
+     #   ALTER TABLE ... ADD COLUMN [... DEFAULT ...]
+     grep -iE 'DROP (TABLE|COLUMN|CONSTRAINT)|RENAME (TABLE|COLUMN|TO)|ALTER COLUMN .* (TYPE|SET NOT NULL)' "$f" || true
+   done
+   ```
+
+   When the heuristic is ambiguous (mixed signals, novel DDL shape), prefer the **mutating** default — a false positive costs one operator-question; missing a real mutating migration costs a ~30–60s prod brownout.
+
+If every touched migration is **additive** → continue to Step 2. The post-merge `deploy-migrations.yml` race is fine per the existing comment in that workflow (new code handles missing column with default; old code ignores added column).
+
+If any migration is **mutating** → BEFORE invoking `/land-and-deploy`, surface via AskUserQuestion:
+
+> The PR's migration `<NNN>_<name>.sql` is mutating (rename / drop / NOT NULL without default / type change). After merge, Vercel auto-deploys the front-end in parallel with `deploy-migrations.yml`; for ~30–60s prod runs new code against the old schema → user-visible 500s. Vercel preview during the PR window also reads prod, so reviewers may see breakage that looks like a real bug.
+>
+> Options:
+>
+> - **Apply migration to prod first, then merge** (recommended). Run `supabase db push --include-roles` against prod via the operator-side path the project documented in `CLAUDE.md` (Path A: password-manager CLI like `op read`; Path B: `!`-prefix shell escape with `read -s`), OR trigger `deploy-migrations.yml` via `gh workflow run`. Confirm prod schema is M+1 (e.g. via `supabase db diff` or a direct query). THEN merge the code PR. Closes the parallel-deploy race window.
+> - **Merge anyway, accept brief breakage** — only if `specs/<feature>/spec.md § Migration Sequencing` already documented this as an accepted trade-off (timeboxed: "preview is intentionally broken from PR-open to PR-merge; expect <2hr").
+> - **Pause and re-spec** — the spec author skipped Track A's scoping question. Surface the gap, update the spec, then resume `/ak-go-live`.
+
+**Codified from**: `kit/ROADMAP.md § Migration sequencing safety nets for the Vercel-preview window` (Track B). This step adds the **pre-merge** half of the migration-sequencing discipline; the **post-merge** half is already documented in the sequencing-note comment of `apps/web/.github/workflows/deploy-migrations.yml`.
 
 ## Step 2: Land and deploy
 
