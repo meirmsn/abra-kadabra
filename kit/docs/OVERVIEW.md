@@ -31,7 +31,7 @@ Container Workspace (/workspace)
 ├── Devshop injection (gitignored — created at container start by init-devshop.sh)
 │   ├── .devshopkit/ ──symlink──→ /devshop/kit/
 │   │   ├── scripts/             Init, release, session, statusline, adversarial review, changelog (root)
-│   │   │   ├── preship/         Pre-ship gate helpers: router-shim, verify-story, design-conformance, supabase-bootstrap
+│   │   │   ├── preship/         Pre-ship gate helpers: router-shim, verify-story, design-conformance, supabase-bootstrap, rls-coverage-check, slow-job-lifecycle-check
 │   │   │   ├── commit-hooks/    commit-guard + check-* (clean-tree, manifest, security-freshness, etc.)
 │   │   │   ├── sync/            from/to-devshop, create-devshop-symlinks, normalize-devshop-paths
 │   │   │   └── notify/          claude-{cancel,done,request}

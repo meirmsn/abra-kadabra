@@ -1304,16 +1304,20 @@ code it tests — no gap between "tests exist" and "CI runs them."
 
 **Trigger 1: First DB-backed feature** (e.g., auth, data queries):
 
-Uncomment the `slow` job (`needs: fast`, `if: github.event_name == 'pull_request'`). Add:
+Uncomment the `slow:` job in `.github/workflows/ci.yml`. The template stub already ships the canonical shape:
 
-- `supabase/setup-cli` GitHub Action for Supabase CLI
-- `supabase start` to spin up local DB stack (GitHub Actions has native Docker — no DinD needed)
-- Load `seed.sql` via `psql` against local Supabase Postgres
-- Integration test step: `pnpm turbo run test` (runs both unit + integration)
-- Type drift check: `supabase gen types typescript` → `git diff --exit-code packages/core/src/supabase.types.ts` → fail if types have drifted from schema
-- Rollback SQL validation: for each new migration, extract the `-- ROLLBACK` block and parse it against local Postgres (e.g., `EXPLAIN` wrapper). Fail if syntax is invalid — catches typos before they're needed in an emergency
-- Mask secrets: `echo "::add-mask::$SUPABASE_SERVICE_ROLE_KEY"`
-- Implementation note: verify which Supabase env vars are actually needed for `supabase start` + `supabase gen types` in CI. Wire only what's confirmed.
+- `supabase/setup-cli` step + `supabase start` (GitHub Actions has native Docker — no DinD)
+- The lalista-PR-26 `supabase_edge_runtime` health-check retry loop (preserve it; don't strip)
+- `scripts/ci-type-drift.sh` — regenerates `packages/core/src/supabase.types.ts` against the local stack and fails on drift (helper ships in `template/scripts/`; copied verbatim into every project)
+- `scripts/ci-rollback-explain.sh` — for each migration with `-- ROLLBACK:`, applies the rollback then re-applies forward (round-trip), catching syntax errors before they bite during a real outage (also ships in `template/scripts/`)
+
+Per-project wiring (the only operator-facing work):
+
+- Add `SUPABASE_SERVICE_ROLE_KEY` to CI Variables — value is the local-stack default JWT (published; same value across every Supabase install). Per the security-posture cleanup, prod service-role NEVER goes here.
+- Add `ANTHROPIC_API_KEY_QA` to CI Secrets if edge functions call Claude — re-exported as `ANTHROPIC_API_KEY` inside the test step's env block. `ANTHROPIC_API_KEY_PROD` is unrelated to CI; it's pushed to Supabase by `deploy-functions.yml`.
+- Update branch protection to require `slow` alongside `fast`.
+
+Full lifecycle convention (when the threshold is crossed, structural enforcement, codified prior art): `kit/docs/guide/conventions.md § Slow-Job Lifecycle`. The `/ak-pre-ship` gate `slow-job-lifecycle` (fires when `*.integration.test.ts` or `apps/web/e2e/*.spec.ts` exists) catches misconfigurations: stub still commented, wrong `if:` predicate, retry pattern stripped, branch protection missing, slow-job runs zero tests.
 
 **Trigger 2: First E2E-testable flow** (e.g., sign-in → core action → verify):
 

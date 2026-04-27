@@ -109,6 +109,53 @@ Default to option 2 for production-impact mutating migrations; option 1 is fine 
 
 **CI-vs-prod credential separation is the structural enforcement of the Deploy Boundary.** The deploy workflows are the only CI paths that hold prod-grade Supabase credentials (`SUPABASE_PROD_URL` Variable, `SUPABASE_DB_PASSWORD` Secret, `SUPABASE_ACCESS_TOKEN` Secret). Fast-job + slow-job CI use the local-stack default `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` — published JWTs that ship with every Supabase install, admin on a sandbox the runner spins up fresh per job. The `assertNotProdUrlInTestEnv` helper in `packages/core/src/supabase.ts` throws if a `NODE_ENV=test` caller ever passes the prod URL anyway. Full detail: `/ak-new-project § Security Posture`. The cleanup recipe for projects that scaffolded under the older mixed-credential layout: `/ak-new-project § Migration: existing project to current credential layout`.
 
+## Slow-Job Lifecycle
+
+CI's `slow:` job is the home for tests that need a real Supabase stack: integration tests (`*.integration.test.ts` reading the local stack via `VITEST_INTEGRATION=1`), Playwright E2E specs (`apps/web/e2e/*.spec.ts`), type-drift validation (`scripts/ci-type-drift.sh`), rollback round-trip checks (`scripts/ci-rollback-explain.sh`), and edge-function deploys against the local stack. The `fast:` job is unit tests + lint + typecheck + build — no DB, no functions, no headless browser.
+
+Templates ship the slow job **commented out**, with a Phase 1c / 1g threshold:
+
+- **Phase 1c** — first integration test arrives (`*.integration.test.ts` exists in any package). Trigger: a feature requiring DB-state assertions (RLS coverage, two-user race conditions, schema-dependent shape).
+- **Phase 1g** — first Playwright E2E spec arrives (`apps/web/e2e/*.spec.ts`). Trigger: a feature whose primary verb needs an end-to-end browser walk (auth flows, multi-screen interactions).
+
+When a project crosses either threshold, the spec that adds the test must include the slow-job uncomment in the same PR — not as a follow-up — so coverage and gating land together. `/ak-spec` surfaces the threshold-crossing as an explicit decision row when a spec includes the project's first integration test or Playwright spec.
+
+### Uncommenting checklist
+
+When the threshold is crossed:
+
+1. **Uncomment the `slow:` block** in `.github/workflows/ci.yml`. The template stub already includes the lalista-PR-26-codified `supabase_edge_runtime` health-check retry — preserve it; don't strip the retry loop.
+2. **Verify the `if:` predicate** matches `github.event_name == 'pull_request'` (not `push`). Slow-job runs on PRs only — pushing to a feature branch shouldn't burn CI minutes on the slow path until the PR opens.
+3. **Wire env vars from the live local stack**, not from CI Variables/Secrets directly: `supabase status -o env >> $GITHUB_ENV` after `supabase start` resolves `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` to the actual just-spun-up stack. The Variables shadow these for the fast-job (build-only) but the slow-job needs the live values.
+4. **Re-export `ANTHROPIC_API_KEY_QA` as `ANTHROPIC_API_KEY`** for any test step exercising an edge function that calls Claude. Never wire `ANTHROPIC_API_KEY_PROD` here — CI runs against the local stack and must not burn prod billing. See `/ak-new-project § Security Posture` for the QA/PROD rationale.
+5. **Update branch protection** to require the `slow` check: `gh api repos/{owner}/{repo}/branches/main/protection` and add `slow` to `required_status_checks.contexts`. Without this step, CI runs the slow job but PRs can merge red — the structural gate is incomplete.
+6. **Add the test glob** to the slow-job's vitest / Playwright invocation if it differs from the template default. Catches the silent regression of "uncommented slow job that runs zero tests."
+
+### Helper scripts
+
+The slow-job invokes two helpers from `scripts/` that the template ships:
+
+- **`scripts/ci-type-drift.sh`** — regenerates `packages/core/src/supabase.types.ts` against the local stack and fails on drift. Catches the failure mode where a migration changes column nullability / FKs / RPC signatures and the committed types weren't regenerated.
+- **`scripts/ci-rollback-explain.sh`** — for every migration with a `-- ROLLBACK:` block, applies the rollback against the local DB then re-applies the forward migration. Catches rollback-block syntax errors before they bite during a real outage.
+
+Both are project-agnostic — copied verbatim from the template into every project; no per-project tuning expected.
+
+### Structural enforcement
+
+`/ak-pre-ship` runs a `slow-job-lifecycle` gate when the repo contains `*.integration.test.ts` or `apps/web/e2e/*.spec.ts` files. The gate asserts:
+
+1. The `slow:` job in `.github/workflows/ci.yml` is uncommented.
+2. Its `if:` predicate matches the `pull_request` shape.
+3. The `supabase start` health-check retry is wired (compare against the template-shipped reference).
+4. Branch protection contexts include `slow`.
+5. The slow-job's test glob actually matches at least one staged or repo-resident integration test or E2E spec (catches the "uncommented but runs zero tests" regression).
+
+Block-on-failure with a remediation message pointing at this section's checklist.
+
+### Codified prior art
+
+Lalista is the prior art — its slow-job carries the edge-runtime retry pattern that PR 26 (2026-04-26) hard-won during a real CI flake. Without the retry, the `supabase_edge_runtime_workspace` container's occasional cold-start 502 fails the entire run on a transient infra issue. The retry adds ~30s in the unhappy path and zero in the happy path. The convention propagates this pattern by default to every devshop project rather than letting each one re-discover it after their own PR-26-style incident.
+
 ## Supabase Hardening Defaults
 
 What `/ak-new-project` Step 17b applies to every new Supabase project, and why:
@@ -261,6 +308,78 @@ export async function invokeAddItem(
 ### Template scaffold
 
 `/ak-new-project` adds Zod to `packages/core/package.json` at scaffold time and creates `packages/core/src/schemas/` with a `README.md` pointing at this section. New projects inherit the convention; existing projects adopt it the first time they ship an LLM-backed endpoint (lalista PR 6, `feature/zod-validation`, is the canonical first-adopter — see `lalista/PRODUCT-ROADMAP.md § v0 § 1j`).
+
+## Wrapper API design
+
+When wrapping an event-emitter-style library — Supabase Realtime channel, EventEmitter, MQTT client, SSE source, raw WebSocket — the wrapper's signature must include a way for consumers to receive **error / lifecycle events**, not only the data event. If the wrapped library exposes a status callback (e.g. supabase-js's `.subscribe(statusCallback)`), pass it through. Consumers may choose to ignore it; the wrapper must not foreclose the option.
+
+The failure mode this rule prevents is silent UX degradation: the data callback gets wired to a banner / sync indicator / error toast, but the path that should fire on async failure (`'CHANNEL_ERROR'`, `'TIMED_OUT'`, `onerror`, etc.) never receives the signal. Synchronous-throw paths (the WebSocket constructor failing immediately) are usually handled by a `try/catch` around the wrapper invocation; the async-failure path is the common one in production and the easy one to miss.
+
+### Worked example: `subscribeToList` (lalista PR 27)
+
+Before — only the data callback exposed; status events swallowed:
+
+```ts
+export function subscribeToList(
+  client: SupabaseClient,
+  householdId: string,
+  callback: (entry: HydratedListEntry) => void
+) {
+  return client
+    .channel(`list:${householdId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'list_entries',
+        filter: `household_id=eq.${householdId}`,
+      },
+      callback
+    )
+    .subscribe(); // ← no status callback; CHANNEL_ERROR / TIMED_OUT never reach the consumer
+}
+```
+
+After — `onError?` exposed; status callback wired:
+
+```ts
+export function subscribeToList(
+  client: SupabaseClient,
+  householdId: string,
+  callback: (entry: HydratedListEntry) => void,
+  onError?: (status: 'CHANNEL_ERROR' | 'TIMED_OUT') => void
+) {
+  return client
+    .channel(`list:${householdId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'list_entries',
+        filter: `household_id=eq.${householdId}`,
+      },
+      callback
+    )
+    .subscribe((status) => {
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT')
+        onError?.(status);
+    });
+}
+```
+
+The consumer (`ListClient.tsx`) wires `onError` to a sync-error banner. Without the wrapper change, the banner had no trigger path on real WS failures — the only way to fire it was a synchronous WebSocket-constructor throw (a near-zero-frequency path). Real production failures silently no-op'd the banner that was supposed to fire.
+
+### Test-time enforcement
+
+`/ak-test-review` runs a deterministic check on PR diffs adding new wrappers in `packages/core/src/api/**`: any new exported function whose body calls `.subscribe(`, `.on(`, or `addEventListener(` and whose signature does NOT accept an `onError`-shaped parameter is flagged as a **critical** finding. The check is heuristic — false positives are negotiated at review time (e.g., a fire-and-forget wrapper that intentionally swallows lifecycle events) — but the default is "expose the lifecycle event."
+
+### Cross-references
+
+- `kit/docs/guide/supabase-ssr-boilerplate.md § Pattern 6` — the E2E recipe that exercises this rule (close the WS, assert the banner)
+- `.claude/skills/devshop/test-review/SKILL.md § Wrapper API design — lifecycle events not just data` — the deterministic check
+- Lalista PR 27 (2026-04-26 → 2026-04-27) — surfaced the gap; closed both halves (wrapper signature + E2E recipe)
 
 ## Confidence Calibration
 

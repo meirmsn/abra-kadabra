@@ -1,6 +1,6 @@
 ---
 name: ak-pre-ship
-version: 3.2.1
+version: 3.3.0
 description: |
   Quality gates before shipping. Pauses on findings, auto-advances on clean passes.
   After each code-changing gate, verifies tests still pass (stuck protocol if not).
@@ -180,21 +180,22 @@ devshop-native check or a devshop-authored skill like `/ak-test-review` /
 prose elsewhere in the devshop renders the same split inline as `test-review (ak)`
 vs `review` so readers can tell at a glance which gates come from where.
 
-| #   | Name                 | Owner | Title                                 | Scope                                               |
-| --- | -------------------- | ----- | ------------------------------------- | --------------------------------------------------- |
-| 1   | `docs-check`         | ak    | Devshop docs diff review              | when `kit/` or reference docs touched               |
-| 2   | `metrics-check`      | ak    | Metrics coverage                      | user-facing code PRs                                |
-| 2b  | `rls-coverage`       | ak    | RLS policy coverage for client writes | when `supabase/migrations/**` or client API touched |
-| 3   | `responsive-theme`   | ak    | Responsive + theme capture            | UI PRs only                                         |
-| 4   | `simplify`           | —     | `/simplify` pass                      | always                                              |
-| 5   | `test-review`        | ak    | `/ak-test-review`                     | always                                              |
-| 6   | `review`             | —     | `/review` (+ Greptile triage)         | always                                              |
-| 7   | `cso`                | —     | `/cso` (security)                     | always                                              |
-| 8   | `design-review`      | —     | `/design-review`                      | UI PRs only                                         |
-| 8b  | `design-conformance` | ak    | `/ak-design-conformance`              | runs regardless of UI scope                         |
-| 9   | `qa`                 | —     | `/qa` (functional walk)               | always                                              |
-| 10  | `benchmark`          | —     | `/benchmark`                          | UI PRs only                                         |
-| 11  | `convention`         | ak    | Convention headers + hook-coverage    | always                                              |
+| #   | Name                 | Owner | Title                                 | Scope                                                                |
+| --- | -------------------- | ----- | ------------------------------------- | -------------------------------------------------------------------- |
+| 1   | `docs-check`         | ak    | Devshop docs diff review              | when `kit/` or reference docs touched                                |
+| 2   | `metrics-check`      | ak    | Metrics coverage                      | user-facing code PRs                                                 |
+| 2b  | `rls-coverage`       | ak    | RLS policy coverage for client writes | when `supabase/migrations/**` or client API touched                  |
+| 2c  | `slow-job-lifecycle` | ak    | Slow-job CI enabled past Phase 1c/1g  | when `*.integration.test.ts` or `apps/web/e2e/*.spec.ts` files exist |
+| 3   | `responsive-theme`   | ak    | Responsive + theme capture            | UI PRs only                                                          |
+| 4   | `simplify`           | —     | `/simplify` pass                      | always                                                               |
+| 5   | `test-review`        | ak    | `/ak-test-review`                     | always                                                               |
+| 6   | `review`             | —     | `/review` (+ Greptile triage)         | always                                                               |
+| 7   | `cso`                | —     | `/cso` (security)                     | always                                                               |
+| 8   | `design-review`      | —     | `/design-review`                      | UI PRs only                                                          |
+| 8b  | `design-conformance` | ak    | `/ak-design-conformance`              | runs regardless of UI scope                                          |
+| 9   | `qa`                 | —     | `/qa` (functional walk)               | always                                                               |
+| 10  | `benchmark`          | —     | `/benchmark`                          | UI PRs only                                                          |
+| 11  | `convention`         | ak    | Convention headers + hook-coverage    | always                                                               |
 
 ## Dismissal Log (every gate, mandatory)
 
@@ -306,6 +307,28 @@ Outcomes:
 - `n/a (no supabase/migrations directory)` — projects without Supabase, or pure-frontend changes.
 
 **⚠ May change code (operator-applied fix in a new migration).** If the gate emits findings and the operator adds a migration, run `pnpm turbo run test:unit` after; if any integration tests exist they should be re-run too. The gate itself is read-only.
+
+## Gate slow-job-lifecycle (ak): Slow-job CI is enabled past the Phase 1c/1g threshold
+
+Mechanical check that the project's `.github/workflows/ci.yml` slow-job is correctly configured once the project ships integration tests (`*.integration.test.ts`) or Playwright E2E specs (`apps/web/e2e/*.spec.ts`). Catches the failure mode where a project crosses the Phase 1c / 1g threshold but leaves the slow-job stub commented out (uncommented but with the wrong `if:` predicate, or stripped of the lalista-PR-26 edge-runtime retry pattern, or branch protection still gating only on `fast`). See `kit/docs/guide/conventions.md § Slow-Job Lifecycle` for the convention this gate enforces.
+
+- Scope: runs when `find packages/ apps/ -name '*.integration.test.ts'` finds any file, OR `find apps -path '*/e2e/*.spec.ts'` finds any file. Otherwise `n/a (no integration tests or E2E specs — Phase 1c/1g threshold not crossed)`.
+- Out of scope: actually running the slow job, validating test content, repairing the workflow YAML. Read-only check; operator applies fixes.
+
+Invocation:
+
+```bash
+bash /devshop/kit/scripts/preship/slow-job-lifecycle-check.sh "$(git rev-parse --show-toplevel)"
+```
+
+Outcomes:
+
+- `pass` — slow-job is uncommented, `if:` predicate is `pull_request`, edge-runtime retry pattern is wired, branch protection includes `slow`, and the test glob matches at least one repo-resident file.
+- `findings (N)` — N misconfigurations. Stdout enumerates each gap with the canonical fix recipe inline. Common gaps: stub still commented out, `if:` predicate wrong shape, retry pattern stripped, branch protection missing `slow` context, integration/E2E files exist but the slow job doesn't invoke them.
+- `n/a (no .github/workflows/ci.yml)` — projects without GitHub Actions CI.
+- `n/a (no integration tests or E2E specs — Phase 1c/1g threshold not crossed)` — pre-Phase-1c projects.
+
+**⚠ Branch-protection check is best-effort.** When `gh` CLI auth is missing or the repo isn't on GitHub yet, the protection check silently degrades (no finding emitted for that sub-check). Operators on a fresh devcontainer should re-run the gate after `gh auth login` to surface a real protection-state finding if any.
 
 ## Gate 3: Responsive + theme check (UI PRs only)
 

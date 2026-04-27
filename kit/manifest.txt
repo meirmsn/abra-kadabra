@@ -31,3 +31,8 @@ package.json
 !.devcontainer/.env
 .husky/
 .github/workflows/
+
+# CI helper scripts — invoked from .github/workflows/ci.yml's slow-job
+# (type drift validation + rollback round-trip checks). Project-agnostic;
+# sync-on-change keeps every project running the canonical shape.
+scripts/

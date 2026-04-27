@@ -55,20 +55,22 @@
 │  └──────────────────────────────────────────────────────────────────┘   │
 │                    │                                                    │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │ Phase 3 · /ak-pre-ship  (12 gates, re-run tests after each)      │   │
+│  │ Phase 3 · /ak-pre-ship  (14 gates, re-run tests after each)      │   │
 │  │   gate naming: (ak) = devshop-native; bare = wraps gstack skill  │   │
-│  │   1. docs-check (ak)                                             │   │
-│  │   2. metrics-check (ak)                                          │   │
-│  │   3. responsive-theme (ak)      (UI)                             │   │
-│  │   4. simplify                   ──▶ test:unit                    │   │
-│  │   5. test-review (ak)                                            │   │
-│  │   6. review                     ──▶ test:unit                    │   │
-│  │   7. cso                        ──▶ test:unit                    │   │
-│  │   8. design-review              ──▶ test:unit  (UI)              │   │
+│  │   1.  docs-check (ak)                                            │   │
+│  │   2.  metrics-check (ak)                                         │   │
+│  │   2b. rls-coverage (ak)         (migrations + client API)        │   │
+│  │   2c. slow-job-lifecycle (ak)   (integration/E2E threshold)      │   │
+│  │   3.  responsive-theme (ak)     (UI)                             │   │
+│  │   4.  simplify                  ──▶ test:unit                   │   │
+│  │   5.  test-review (ak)                                           │   │
+│  │   6.  review                    ──▶ test:unit                   │   │
+│  │   7.  cso                       ──▶ test:unit                   │   │
+│  │   8.  design-review             ──▶ test:unit  (UI)             │   │
 │  │   8b. design-conformance (ak)   (DESIGN.md contract)             │   │
-│  │   9. qa                         (own fix loop)                   │   │
-│  │  10. benchmark                  (UI)                             │   │
-│  │  11. convention (ak)                                             │   │
+│  │   9.  qa                        (own fix loop)                   │   │
+│  │   10. benchmark                 (UI)                             │   │
+│  │   11. convention (ak)                                            │   │
 │  └──────────────────────────────────────────────────────────────────┘   │
 │                    │                                                    │
 │  ┌──────────────────────────────────────────────────────────────────┐   │

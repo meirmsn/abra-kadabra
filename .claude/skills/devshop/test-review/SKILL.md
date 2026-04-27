@@ -1,6 +1,6 @@
 ---
 name: ak-test-review
-version: 1.0.0
+version: 1.1.0
 description: |
   Review test quality with fresh eyes — no implementation context.
   Reads tests alongside the code they test and flags weak assertions,
@@ -79,6 +79,33 @@ await page.waitForURL(...);  // ← will time out on WebKit
 ### Realtime test missing publication migration
 
 If a new E2E or integration test calls `subscribeTo<X>` (or any `postgres_changes` subscription) on a table, verify a migration exists adding that table to the `supabase_realtime` publication. Without it, the subscriber connects but never receives events from other sessions — the test will time out on the assertion that the change arrived. See `kit/docs/guide/conventions.md § Realtime publication setup` + `kit/docs/guide/supabase-ssr-boilerplate.md § Pattern 4`.
+
+### Wrapper API design — lifecycle events not just data
+
+When a PR adds a new wrapper in `packages/core/src/api/**` (or equivalent) around an event-emitter-style library — supabase-js channel, EventEmitter, MQTT client, SSE, raw WebSocket — the wrapper must expose lifecycle / error events, not only the data event. Wrappers that swallow status callbacks force consumers into try/catch-only error handling, which only catches synchronous-construction failures. The dominant failure mode in production (`'CHANNEL_ERROR'` / `'TIMED_OUT'` async paths) silently no-ops UX that should react.
+
+Quick scan command:
+
+```bash
+git diff --diff-filter=AM <base>...HEAD -- 'packages/core/src/api/*.ts' \
+  | grep -nE '^\+.*\.(subscribe|on|addEventListener)\(' | grep -v '^+++'
+```
+
+For each match, locate the enclosing exported function (the wrapper). If the wrapper's signature doesn't accept an `onError`-shaped parameter (or `onStatus`, `onLifecycle`, etc. — any escape hatch for non-data events), flag as **critical**:
+
+```
+### packages/core/src/api/<wrapper>.ts:<line> — critical
+**What**: wrapper calls `.subscribe(...)` / `.on(...)` but exposes only the data callback to consumers.
+**Why**: async lifecycle events (e.g. supabase-js's `'CHANNEL_ERROR'`, `'TIMED_OUT'`) cannot reach consumer code. UX surfaces depending on these events (sync banners, error toasts) silently no-op in production.
+**Fix**: extend the signature with an optional `onError?` (or `onStatus?`) parameter and wire it to the underlying status callback. See `kit/docs/guide/conventions.md § Wrapper API design` for the worked example.
+```
+
+Two false-positive escape hatches accepted at review time:
+
+1. **Intentional fire-and-forget** (e.g. a "best-effort" wrapper that genuinely doesn't surface errors). A code comment naming this intent satisfies the bypass: `// fire-and-forget: errors logged, not surfaced`.
+2. **Already exposed via a different shape** (wrapper returns a Promise that rejects on error, or yields events through an async iterator). Verify the alternative path actually surfaces lifecycle events before accepting the bypass.
+
+Lalista PR 27 is the prior art — `subscribeToList(client, householdId, callback)` was extended to `subscribeToList(client, householdId, callback, onError?)` after the E2E test caught silent no-op of the sync-error banner. The test caught it because Pattern 6's `routeWebSocket` triggered `'CHANNEL_ERROR'` deterministically; the wrapper had been swallowing it.
 
 ### Skipped tests audit
 
