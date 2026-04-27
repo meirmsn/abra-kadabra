@@ -93,9 +93,12 @@ fi
 # an advisory finding (still listed, so operator sees it) rather than skipping
 # silently.
 if [ "$SLOW_LIVE" = "1" ] && command -v gh >/dev/null 2>&1; then
-  OWNER_REPO="$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null || true)"
+  # gh resolves the repo from cwd, not from a path arg — `cd "$PROJECT_ROOT"`
+  # is load-bearing so the check targets the project being audited rather than
+  # whatever repo the operator launched the gate from.
+  OWNER_REPO="$(cd "$PROJECT_ROOT" && gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null || true)"
   if [ -n "$OWNER_REPO" ]; then
-    PROTECTION_JSON="$(gh api "repos/$OWNER_REPO/branches/main/protection" 2>/dev/null || true)"
+    PROTECTION_JSON="$(cd "$PROJECT_ROOT" && gh api "repos/$OWNER_REPO/branches/main/protection" 2>/dev/null || true)"
     if [ -n "$PROTECTION_JSON" ]; then
       if ! echo "$PROTECTION_JSON" | jq -r '.required_status_checks.contexts[]? // empty' 2>/dev/null | grep -qx 'slow'; then
         findings+=("branch protection on main does NOT include 'slow' as a required status check — PRs can merge red on the slow path; add via 'gh api repos/$OWNER_REPO/branches/main/protection' or the GitHub UI")
