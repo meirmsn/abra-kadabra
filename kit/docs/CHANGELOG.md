@@ -2,6 +2,19 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.22.0 (2026-04-27)
+
+- chore(todos): file Bun test for cli.ts server-resolution path
+- test(preship): add bats coverage for rls-coverage + slow-job-lifecycle gates
+- refactor(adversarial-review): per-check-type model split + merge docs reviews
+- docs(workflow): align /ak-go-live + pre-ship narrative with current SKILL.md
+- feat: adversarial-review reads conventions.md + redistribution audit proposal
+- feat(skill/ak-build): manual-review guardrail (Layer A) + Phase 6 auto-attest (Layer B)
+- feat: wrapper-API + slow-job-lifecycle conventions + ak-pre-ship gate + helpers
+- docs(guide): Pattern 6 — page.routeWebSocket for realtime WS failure tests
+- feat(skill/ak-go-live): Step 1.6 migration-sequencing pre-flight
+- feat: cluster 1 — unblock lalista PR 6 (interlude + Zod convention)
+
 ## v1.21.0 (2026-04-27)
 
 - docs(roadmap): four v0 entries for project-repo test/docs/CI enforcement
