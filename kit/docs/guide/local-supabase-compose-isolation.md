@@ -134,6 +134,108 @@ getent ahostsv4 host.docker.internal    # → some "192.168.x.x  STREAM ..." lin
 
 If 1-7 all pass, Option 3 isolation is intact and the local-dev path is healthy.
 
+## Running integration tests locally
+
+Integration tests (`*.integration.test.ts`) hit a real Supabase stack — they're the highest-confidence local verification a project has, but they're opt-in via `VITEST_INTEGRATION=1` so the default `pnpm turbo run test:unit` loop stays fast.
+
+### When in the dev cycle
+
+Recommended order, smallest-feedback-loop first:
+
+1. **While iterating on a feature**: `pnpm turbo run test:unit` — runs in seconds, no live stack needed. Use as the default save-trigger gate.
+2. **Before pushing a commit that touches `packages/core/src/api/*`, `supabase/migrations/*`, or `supabase/functions/*`**: `pnpm test:integration` — confirms the wire-shape contract still holds against a real Postgres + GoTrue + PostgREST + edge runtime.
+3. **Before opening a PR**: re-run `pnpm test:integration` once after the final rebase. Catches any drift against the latest local schema.
+4. **CI slow-job runs them automatically on PRs to main** — but the local feedback loop is faster than CI's ~10-15 min.
+
+You don't need to run them on every save (use `test:unit` for that), and you don't need to run them when only touching `apps/web/components/*` (UI-only changes) — but any change at the API or schema seam should get one local pass before push.
+
+### How to manually run them
+
+The compose stack auto-sets `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` on workspace startup, so no env-prefix is needed. From `/workspace`:
+
+```bash
+# Run all integration tests
+pnpm test:integration
+
+# Just the core package's
+pnpm --filter @lalista/core test:integration
+
+# A single test file
+pnpm --filter @lalista/core exec vitest run --include 'src/api/items.integration.test.ts'
+
+# A single test by name
+pnpm --filter @lalista/core exec vitest run -t 'addedByName hydration'
+```
+
+If the stack isn't up, start it via the relay before running tests:
+
+```bash
+pnpm db:start    # POST http://supabase-runner:9000/start — supabase start in the runner
+pnpm db:status   # GET http://supabase-runner:9000/status — confirm services table renders
+```
+
+After a schema change (new migration), reseed before re-running:
+
+```bash
+pnpm db:reset           # POST http://supabase-runner:9000/db-reset — drops + reapplies all migrations + seed.sql
+pnpm db:gen-types       # GET http://supabase-runner:9000/gen-types -o packages/core/src/supabase.types.ts
+git diff --stat packages/core/src/supabase.types.ts   # confirm types refreshed cleanly
+pnpm test:integration   # re-run against the new schema
+```
+
+### How to debug a failing integration test
+
+Failures come in three shapes — diagnose by what's true.
+
+**Shape 1: `tests skipped (N skipped)` instead of running.** The test files have a runtime gate that requires `SUPABASE_URL` to start with one of `http://127.0.0.1:`, `http://localhost:`, `http://host.docker.internal:` AND `SUPABASE_ANON_KEY` + `SUPABASE_SERVICE_ROLE_KEY` to be set. If they skip:
+
+```bash
+echo "SUPABASE_URL=$SUPABASE_URL"
+echo "SUPABASE_ANON_KEY (first 30)=${SUPABASE_ANON_KEY:0:30}..."
+echo "SUPABASE_SERVICE_ROLE_KEY (first 30)=${SUPABASE_SERVICE_ROLE_KEY:0:30}..."
+```
+
+If any are empty, the workspace's compose-set env block didn't apply — likely the workspace container hasn't been recreated since the env block was added. Recreate via `docker compose --project-name <project>_devcontainer -f .devcontainer/compose.yml up -d` from a macOS terminal, or "Dev Containers: Rebuild Container" in VS Code.
+
+**Shape 2: `connect ECONNREFUSED` / `getaddrinfo ENOTFOUND` against `host.docker.internal:54321` or `:54322`.** The supabase stack isn't actually up:
+
+```bash
+# Check stack via the relay
+curl -fsS http://supabase-runner:9000/status
+
+# If status is empty or returns 500, look at the runner's logs from a macOS terminal
+docker logs lalista_devcontainer-supabase-runner-1 | tail -50
+
+# Common: supabase start failed during runner boot. Restart the stack:
+pnpm db:start
+```
+
+If the runner logs show `dial tcp 127.0.0.1:54322: connect: connection refused` during `supabase start`, the socat tunnels aren't in place — see § The socat workaround in supabase-runner.
+
+**Shape 3: tests run but fail with assertion errors / RLS errors / `null` rows.** This is the actual test failure path — a real bug in the code under test, or schema drift from a migration that didn't seed correctly.
+
+```bash
+# Confirm the schema is what tests expect
+pnpm db:reset      # reapply migrations + seed.sql
+pnpm db:gen-types  # regenerate types — if diff is non-cosmetic, types are stale
+
+# Re-run the failing test with vitest verbose mode
+pnpm --filter @lalista/core exec vitest run -t '<test name>' --reporter verbose
+
+# Inspect the actual db state via the supabase Studio UI (forwarded to host)
+open http://host.docker.internal:54323
+```
+
+The Studio UI lets you browse rows, run SQL, and check that RLS policies are actually rejecting the calls you expect them to reject — the most common source of "the test is right, the production code is wrong" mismatches.
+
+### Common test-file patterns to know
+
+Lalista's integration tests follow a few conventions worth recognizing when extending or debugging them:
+
+- **`signInAs(email, password, displayName)` helper** (in `profiles.integration.test.ts`) — uses the anon client to `signUp` a fresh user per test, returns an authenticated client that carries the user's JWT. Local seed sets `mailer_autoconfirm = true` so the session is issued immediately; in CI's local stack the same convention holds.
+- **`adminClient()` helper** (in `items.integration.test.ts` and similar) — returns a Supabase client built with the SERVICE_ROLE_KEY, bypasses RLS. Use ONLY in test setup/teardown (creating users, deleting users, seeding rows). Never in production code.
+- **`describe.skipIf(!shouldRun)(...)`** — the URL-prefix + key-presence gate. If the gate doesn't fire, the test never runs (Shape 1 above).
+
 ## Debugging tree
 
 The failure modes hit during lalista PR 34's verification, in order surfaced. Future operators recognizing the symptom can jump straight to the fix.
