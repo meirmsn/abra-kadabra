@@ -247,6 +247,17 @@ Four rows × four states × explicit `shown` / `hidden` / `n/a` — the `add-new
 
 **When to skip**: backend-only PRs, schema-only migrations, refactors that don't change rendered output. If the diff doesn't add or change a `if (…)` / `&& <Element>` / `?:` inside JSX/TSX, the section may be omitted. When in doubt, write the matrix — it's a few minutes; missing one is hours of QA-discovered bugs.
 
+### Spec-time conventions and decision rows
+
+Several conventions shape what the spec must contain or surface for user sign-off before `/ak-implement` runs. Full text + rationale: `kit/docs/guide/conventions.md`.
+
+- **Confidence calibration** — classify spec items as proceed-autonomously vs stop-and-ask using the calibration list. The seven stop-and-ask categories — new DB columns/tables, auth flow changes, new third-party API integrations, performance-sensitive code paths, security-related logic, deletion of existing tests, new METRICS.md events — become **Decision rows** the user signs off on before `/ak-implement` runs. See `conventions.md § Confidence Calibration`.
+- **Deploy boundaries** — if the spec includes a schema-mutating migration (rename, drop, NOT NULL without default, type change), the test plan MUST either (a) flag the migration as backwards-incompatible and gate `/ak-go-live` on the deploy-migrations workflow finishing before the app deploy, or (b) split into two PRs — additive PR with dual-shape code paths first, mutating PR after. Default to (b) for prod-impact migrations. Edge function changes need a slow-job E2E or an explicit deploy-verification step in the test plan. See `conventions.md § Deploy Boundaries`.
+- **Screenshot paths** — when the spec references screenshot paths, use canonical locations only: `specs/<feature>/hero/` (durable PR-body shots), `specs/<feature>/screenshots/` (per-gate evidence), `specs/<feature>/qa-walk/` (per-verb artifacts proving each Core user story verb). Never invent new paths. See `conventions.md § Screenshot Routing`.
+- **Slow-job threshold** — if this spec adds the project's first `*.integration.test.ts` or `apps/web/e2e/*.spec.ts` (Phase 1c / 1g threshold-crossing), surface that as a Decision row. The same PR that adds the test must uncomment the slow-job in `.github/workflows/ci.yml`, wire branch protection to require it, and preserve the edge-runtime retry pattern. See `conventions.md § Slow-Job Lifecycle`.
+- **Testing layers** (T1) — every UI surface added or modified gets a Playwright E2E (375px + 1440px). Every API wrapper in `packages/core/src/api/*.ts` either has a dedicated E2E or is transitively covered (cite the covering spec in JSDoc). RLS-policied tables get an auth-boundary integration test. See `conventions.md § Non-Negotiables — Testing`.
+- **Code structure** (T1) — when the spec proposes module boundaries, honor barrel-export discipline (no deep path imports across packages) and the file-header / JSDoc rules. See `conventions.md § Non-Negotiables — Code Structure`.
+
 ## Step 7: Handle new metrics
 
 If the feature introduces new user actions not yet in `METRICS.md`:
@@ -274,3 +285,7 @@ Every spec must have:
 - [ ] Offline behavior declared for any feature with remote data: (a) online-only with error state, (b) read-only cache, (c) full offline with sync. Default to (a) unless explicitly upgraded.
 - [ ] Metrics section referencing events from `METRICS.md`
 - [ ] Provenance header linking to gstack plan
+- [ ] **Decision rows** capture every stop-and-ask item from Confidence Calibration (new schema, auth changes, new third-party APIs, perf-sensitive paths, security logic, test deletions, new metric events) for user sign-off before `/ak-implement` runs
+- [ ] If the spec includes a **schema-mutating migration**, test plan flags it backwards-incompatible OR proposes a split-PR plan (Deploy Boundaries)
+- [ ] If the spec adds the project's **first integration test or Playwright E2E**, a Phase 1c/1g threshold-crossing Decision row is included with the slow-job uncomment landing in the same PR
+- [ ] Screenshot paths reference canonical `specs/<feature>/{hero,screenshots,qa-walk}/` locations only

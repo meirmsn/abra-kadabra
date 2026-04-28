@@ -45,11 +45,8 @@ patterns. This skill covers the orthogonal axes `/design-review` skips:
 
 Invoked by `/ak-pre-ship` as Gate `design-conformance` (ak). Scope detection:
 
-- **`n/a`** — project has no `DESIGN.md` at repo root. Skill emits no finding;
-  pipeline advances.
-- **Runs** — `DESIGN.md` exists. Regardless of whether the PR touches UI —
-  a backend refactor can still contradict a DESIGN.md claim (e.g. an edge-
-  function error message that violates the voice doctrine).
+- **`n/a`** — project has no `DESIGN.md` at repo root, OR `DESIGN.md` exists but is purely aspirational and the extractor returns zero normative claims. Skill emits no finding; pipeline advances. See `kit/docs/guide/conventions.md § DESIGN.md as Contract` for the four claim types (explicit_value / canonical_example / imperative_rule / component_contract) and the contract framing.
+- **Runs** — `DESIGN.md` exists with at least one extractable normative claim. Regardless of whether the PR touches UI — a backend refactor can still contradict a DESIGN.md claim (e.g. an edge-function error message that violates the voice doctrine).
 
 ## How it works
 

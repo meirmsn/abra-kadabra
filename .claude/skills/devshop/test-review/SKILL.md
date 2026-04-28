@@ -40,6 +40,7 @@ Reference the testing philosophy in `kit/docs/guide/ § Shared Conventions` for 
 - Every table with RLS policies must have at least one integration test:
   authenticate as User A → create data → authenticate as User B → verify data is NOT visible
 - RLS bugs are silent data leaks — mocked unit tests can never catch them
+- See `kit/docs/guide/conventions.md § Non-Negotiables — Testing` for the three-layer testing model + auth-boundary requirement and `§ QA-backend isolation` (`kit/notes/roadmap/qa-options.md`) for which Supabase flavor each layer points at.
 
 ### Implementation detail tests
 
@@ -106,6 +107,41 @@ Two false-positive escape hatches accepted at review time:
 2. **Already exposed via a different shape** (wrapper returns a Promise that rejects on error, or yields events through an async iterator). Verify the alternative path actually surfaces lifecycle events before accepting the bypass.
 
 Lalista PR 27 is the prior art — `subscribeToList(client, householdId, callback)` was extended to `subscribeToList(client, householdId, callback, onError?)` after the E2E test caught silent no-op of the sync-error banner. The test caught it because Pattern 6's `routeWebSocket` triggered `'CHANNEL_ERROR'` deterministically; the wrapper had been swallowing it.
+
+### Runtime validation at LLM / edge-function boundaries
+
+When a PR adds a wrapper in `packages/core/src/api/**` around `client.functions.invoke<T>(...)` or a `fetch(...).then(r => r.json()) as T` returning a hand-written response shape (LLM-backed edge function, third-party HTTP API with hand-written contract), the wrapper MUST parse with Zod at the boundary. TypeScript generics and `as`-casts are compile-time assertions only; a prompt edit, model swap, or function refactor changes the shape silently, surfacing as `response.foo.bar is undefined` deep in the call site instead of a clear "boundary returned unexpected shape" error at the seam.
+
+Quick scan command:
+
+```bash
+git diff --diff-filter=AM <base>...HEAD -- 'packages/core/src/api/*.ts' \
+  | grep -nE '^\+.*(\.functions\.invoke<|\.json\(\) as )' | grep -v '^+++'
+```
+
+For each match, verify the wrapper:
+
+- Imports a schema from `packages/core/src/schemas/<feature>.ts`.
+- Uses `.safeParse()` (never `.parse()` — the thrown-exception form skips the observability hook below).
+- Throws a feature-named error class (`{Feature}ValidationError`) on validation failure.
+- Captures to Sentry with `extra: { issues, raw_excerpt: scrubExcerpt(data) }` **before** throwing.
+
+If any are missing, flag as **critical**:
+
+```
+### packages/core/src/api/<wrapper>.ts:<line> — critical
+**What**: wrapper invokes an LLM-backed edge function (or hand-written-shape fetch) but doesn't parse the response with Zod.
+**Why**: TypeScript generics + `as`-cast are compile-time only. A prompt tweak / model swap / function refactor changes the shape silently; bugs surface deep in the call site, not at the seam.
+**Fix**: add a schema to `packages/core/src/schemas/<feature>.ts` (use `.passthrough()` so server-side additions don't break old clients), parse with `.safeParse()`, throw `{Feature}ValidationError`, capture to Sentry with a scrubbed payload excerpt before throwing. See `kit/docs/guide/conventions.md § Runtime Validation at LLM / Edge-Function Boundaries` for the full pattern + worked example.
+```
+
+Acceptable bypasses (don't flag):
+
+- **PostgREST results** — `client.from('<table>').select(...)`. CI type-drift check enforces shape against schema; Zod here is paranoia.
+- **App-internal calls** — TypeScript already proves the shape; bundle weight without ROI.
+- **Form input** — HTML5 attributes + platform validation cover this layer.
+
+When a wrapper genuinely returns `unknown` / `Record<string, unknown>` and pushes parsing to the caller (rare; generic proxies, transitional shims), require a code comment naming why so the bypass survives review. Lalista PR 6 (`packages/core/src/api/add-item.ts`) is the canonical first-adopter — `invokeAddItem` parses with `AddItemResponseSchema.safeParse()` and throws `AddItemValidationError` on failure.
 
 ### Skipped tests audit
 

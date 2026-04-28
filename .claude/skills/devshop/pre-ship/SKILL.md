@@ -164,6 +164,16 @@ If blocked:
 
 3. Do NOT run Gates 1–11. Exit here with the `blocked` summary.
 
+### Deploy boundaries reminder
+
+If `git diff --name-only origin/main...HEAD` shows changes under `supabase/migrations/**` or `supabase/functions/**`, the merge will trigger Supabase's auto-deploy workflows in parallel with the Vercel app deploy. Surface this reminder before gates run so the test plan flags any backwards-incompatible change:
+
+- **Schema-mutating migrations** (rename, drop, NOT NULL without default, type change) race the app deploy. The PR description / test plan must either (a) mark the migration backwards-incompatible and gate `/ak-go-live` on the deploy-migrations workflow finishing first, or (b) split into two PRs (additive PR with dual-shape code paths first, mutating PR after). Default to (b) for prod-impact migrations.
+- **Edge function changes** auto-deploy on push:main but the local-vs-deployed function code can diverge if the slow-job didn't exercise the path. The test plan must include either a slow-job E2E exercising the new path, or an explicit deploy-verification step.
+- **Auth config changes** still need manual deploy via Management API or dashboard. Not auto-triggered by `git push`.
+
+Full surface table + rollback semantics: `kit/docs/guide/conventions.md § Deploy Boundaries`. This is a reminder, not a gate — the structural enforcement lives in `/ak-spec` (which decides the test plan) and `/ak-go-live` (which orchestrates the merge).
+
 If preflight passes, proceed to the gate sequence (canonical list below).
 
 ## Gates (canonical order + named IDs)
@@ -286,6 +296,8 @@ If the PR touches user-facing code (components, API wrappers, edge functions):
 - Verify `posthog.capture()` calls exist for events in this feature's spec
 - Cross-reference against `METRICS.md`
 - **Pause if missing** — don't auto-advance on a user-facing PR without metrics
+
+This gate is the validation step in the four-stage flow `/ak-spec` drafts → `/ak-implement` instruments → this gate validates → user confirms new events. Full canonical taxonomy: `kit/docs/guide/conventions.md § Metrics Lifecycle`.
 
 ## Gate rls-coverage (ak): RLS policy coverage for client writes
 
@@ -472,6 +484,8 @@ If tests fail → stuck protocol (see below).
 
 ## Gate design-conformance (ak): DESIGN.md contract check
 
+**Rule** (see `kit/docs/guide/conventions.md § DESIGN.md as Contract`): treat DESIGN.md as a contract. Extraction failure (no normative claims surfaced because DESIGN.md is absent or purely aspirational) is **non-blocking** and resolves to `n/a`. A claim violated by the implementation is **blocking** and resolves to `findings (N) pending`. Extraction is cached by `sha256(DESIGN.md)` in `specs/<feature>/design-claims.json.sha256`; when DESIGN.md changes, re-extract and adversarially review the diff so claim drift stays auditable.
+
 - If no `DESIGN.md` at project root → `n/a (no DESIGN.md)`.
 - Runs regardless of `$TOUCHES_UI` — a non-UI PR can still contradict a
   DESIGN.md claim (e.g. an error message that violates the voice doctrine).
@@ -649,9 +663,11 @@ bash kit/scripts/commit-hooks/check-file-headers.sh main
 
 Review any flagged files — skip config-like or trivial files (single export, <50 lines). Then verify:
 
-- File headers (`// What:` / `// Why:` / `// Does NOT:`) exist on non-trivial files (>1 export or >50 lines) under `src/` or `app/`
+- File headers (`// What:` / `// Why:` / `// Does NOT:`) exist on non-trivial files (>1 export or >50 lines) under `src/` or `app/` (see `kit/docs/guide/conventions.md § Code Structure`)
 - JSDoc on exported functions
 - Every new migration file has a `-- ROLLBACK` comment block — **pause if missing**
+- Every new migration that references `auth.users(id)` has an explicit `ON DELETE` clause (`CASCADE` / `SET NULL` / `RESTRICT`) — implicit `NO ACTION` silently blocks user deletion. Mechanical grep of staged `supabase/migrations/**` for `references auth.users` lines lacking `on delete`. **Pause if missing.** See `kit/docs/guide/conventions.md § ON DELETE on auth.users FK references`.
+- Every PR that adds a `subscribeTo<X>` helper or `postgres_changes` listener also adds the corresponding table to `supabase_realtime` publication via a migration (`alter publication supabase_realtime add table <name>;`). Without it, cross-session delivery silently no-ops. **Pause if missing.** See `kit/docs/guide/conventions.md § Realtime publication setup`.
 - Backlog items appear to be in the correct file per routing guide in `kit/docs/guide/ § Shared Conventions`
 - No completed items left in `PRODUCT-ROADMAP.md` or `kit/ROADMAP.md` — if this PR ships a roadmap item, remove the entry and log the completion in `BUILD-LOG.md`
 
@@ -692,10 +708,16 @@ and its reasoning.
 
 After all gates pass (or findings fixed), capture 1–2 **hero** screenshots per primary screen to `specs/<feature>/hero/`. These are committed with the feature and surface in the PR body + `BUILD-LOG.md` as the durable visual record.
 
-**Distinction from evidence:**
+**Screenshot Routing** (see `kit/docs/guide/conventions.md § Screenshot Routing` for the full decision flow):
 
-- `specs/<feature>/screenshots/` — gitignored, regenerable per-gate evidence (all 4 viewport/theme combos)
-- `specs/<feature>/hero/` — committed, 1–2 hero shots that define the feature visually
+| Location                       | Tracked? | Who writes       | Purpose                                                     |
+| ------------------------------ | -------- | ---------------- | ----------------------------------------------------------- |
+| `specs/<feature>/hero/`        | ✅       | this gate, human | Durable PR-body + BUILD-LOG shots; 1–2 per primary screen   |
+| `specs/<feature>/screenshots/` | ❌       | gates 3, 8, 10   | Per-gate regenerable evidence (4 viewport/theme combos)     |
+| `specs/<feature>/qa-walk/`     | ❌       | Gate 9           | Per-verb artifacts proving each Core user story verb worked |
+| `/screenshots/` (repo root)    | ❌       | human            | Dev-context shots shared in chat / Slack / bug reports      |
+
+Never write gate-produced screenshots to repo root; `/Screenshot*.png` is gitignored to catch macOS default-named drops without polluting `git status`.
 
 **Defaults:** `1440×light` for each key user-facing screen in the PR (sign-in, onboarding, list view, etc.). Filename convention: `<screen>.png` (no viewport/theme suffix — they're all 1440×light by default; deviate with a suffix when needed, e.g. `list-dark.png` if dark mode is the feature).
 

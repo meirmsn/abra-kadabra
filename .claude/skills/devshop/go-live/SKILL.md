@@ -131,6 +131,16 @@ If any migration is **mutating** → BEFORE invoking `/land-and-deploy`, surface
 
 **Codified from**: `kit/ROADMAP.md § Migration sequencing safety nets for the Vercel-preview window` (Track B). This step adds the **pre-merge** half of the migration-sequencing discipline; the **post-merge** half is already documented in the sequencing-note comment of `apps/web/.github/workflows/deploy-migrations.yml`.
 
+## Step 1.7: Auth-config deploy reminder
+
+Vercel app + Supabase migrations + edge functions all auto-deploy on push:main. **Auth config** (`site_url`, `uri_allow_list`, password policy, CAPTCHA, email templates) does NOT — it ships via the Supabase dashboard or `PATCH /v1/projects/{ref}/config/auth` manually.
+
+If the spec or PR body references auth-config changes, surface to the user before merge:
+
+> The PR references auth-config changes that don't auto-deploy with the merge. Apply them via the Supabase dashboard or Management API now, ideally **before** the app deploy if the new code relies on new redirect URLs / CAPTCHA / password policy. Auth-config changes are cheap to roll back (re-PATCH), so ordering is flexible — but they must ship manually.
+
+Rollback is reverse-order across all surfaces with the same backwards-compatibility caveats: revert the app first to pull traffic off the new schema/functions, then roll back migrations (if the migration's `-- ROLLBACK` block supports it) and edge functions. Full surface table + rollback semantics: `kit/docs/guide/conventions.md § Deploy Boundaries`.
+
 ## Step 2: Land and deploy
 
 Invoke `/land-and-deploy` via Skill tool.

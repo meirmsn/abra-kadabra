@@ -119,6 +119,18 @@ Each task has a primary hat that sets the quality bar:
 
 A task can involve multiple hats; the primary hat sets the quality bar.
 
+## Conventions to honor (every task)
+
+Pre-write checks restated here so they fire before code lands, not after. Full text + rationale: `kit/docs/guide/conventions.md`.
+
+- **Confidence calibration** — before implementing, re-verify the spec's stop-and-ask items (new DB columns/tables, auth flow changes, new third-party APIs, performance-sensitive paths, security logic, deletion of existing tests, new METRICS.md events) have user approval. Adding a new metric event mid-implementation triggers a pause. See `conventions.md § Confidence Calibration`.
+- **Testing** — tests alongside code, never after. Three layers: unit (`*.test.ts`, no DB), integration (`*.integration.test.ts`, real local DB — Supabase: `supabase start`), E2E (Playwright at 375px + 1440px — both must pass). Auth-boundary RLS test required for every RLS-policied table (User A creates → User B can't see). See `conventions.md § Non-Negotiables — Testing`.
+- **Metrics** — `posthog.capture()` calls for every event referenced in the spec's Metrics section, instrumented alongside code, never after. New event definitions are stop-and-ask, never auto-added. See `conventions.md § Metrics Lifecycle`.
+- **Code structure** — every non-trivial `.ts`/`.tsx` file under `src/` or `app/` starts with a 3-line header (`// What:` / `// Why:` / `// Does NOT:`); every exported function has a 1-2 sentence JSDoc. Shared packages export TypeScript source directly (`"main": "src/index.ts"`); each package has a `src/index.ts` barrel; no deep path imports across package boundaries. Default to the boring solution. See `conventions.md § Non-Negotiables — Code Structure`.
+- **Migrations referencing `auth.users(id)`** — every FK MUST specify `ON DELETE` explicitly (`CASCADE` for tight-ownership columns / `SET NULL` for nullable audit columns / `RESTRICT` for must-keep-row). Implicit `NO ACTION` silently blocks user deletion. See `conventions.md § ON DELETE on auth.users FK references`.
+- **Realtime helpers** — when adding a `subscribeTo<X>` wrapper or `postgres_changes` listener, add the matching `alter publication supabase_realtime add table <name>;` migration in the same PR with a `-- ROLLBACK:` block. Without it, cross-session delivery silently no-ops. See `conventions.md § Realtime publication setup`.
+- **LLM / edge-function response boundaries** — parse with Zod at the wrapper boundary in `packages/core/src/api/<feature>.ts` for any LLM-backed edge function call or third-party HTTP fetch with a hand-written response shape. Use `.safeParse()` (never `.parse()`); throw a feature-named `{Feature}ValidationError`; capture to Sentry with a scrubbed payload excerpt before throwing. Do NOT add Zod to PostgREST results, form input, or app-internal function args (TypeScript already proves those). See `conventions.md § Runtime Validation at LLM / Edge-Function Boundaries`.
+
 ## Step 3: Implementation loop
 
 For each `todo` task in dependency order:

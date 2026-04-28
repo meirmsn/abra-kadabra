@@ -634,6 +634,20 @@ pnpm --filter @<project-name>/core test:unit
 Add `pnpm.onlyBuiltDependencies: ["esbuild"]` to root package.json (pnpm 10
 build-script approval — `@supabase/supabase-js` transitively pulls in `esbuild`).
 
+**Sub-step 3: add Zod schema scaffold for runtime validation**
+
+```bash
+pnpm --filter @<project-name>/core add zod
+mkdir -p packages/core/src/schemas
+cat > packages/core/src/schemas/README.md <<'MD'
+# Schemas
+
+Runtime validation schemas for trust boundaries — LLM-backed edge functions and third-party HTTP APIs with hand-written response shapes. See `kit/docs/guide/conventions.md § Runtime Validation at LLM / Edge-Function Boundaries` for: where to add Zod (and where not — PostgREST results, form input, app-internal args are excluded); the schema-module pattern (`z.infer<typeof Schema>` for the type); the wrapper-boundary parse with `.safeParse()` (never `.parse()`); the feature-named `{Feature}ValidationError` shape; the scrub-payload-then-Sentry-then-throw discipline.
+MD
+```
+
+Empty `schemas/` directory + README at scaffold means the convention is reachable when the first LLM-backed endpoint ships; no schemas exist yet, so nothing imports anything.
+
 ### Step 11: Scaffold packages/ui
 
 Create `packages/ui/` with:
@@ -651,8 +665,11 @@ pnpm create next-app apps/web --typescript --tailwind --app --no-src-dir --impor
 ```
 
 Then: import on Vercel, Tailwind v4 tokens in globals.css, transpilePackages,
-workspace deps, Sentry, PostHog, PWA manifest, security headers, vercel.json,
-remove placeholders, approve build scripts in onlyBuiltDependencies.
+workspace deps, Sentry, PostHog, PWA scaffold (`manifest.json`, Apple meta tags,
+placeholder icons — service worker via `@serwist/next` is deferred to
+`PRODUCT-ROADMAP.md` to avoid stale-data bugs during active development; see
+`kit/docs/guide/conventions.md § Non-Negotiables — PWA`), security headers,
+vercel.json, remove placeholders, approve build scripts in onlyBuiltDependencies.
 
 **Apply the Supabase SSR boilerplate patterns from `kit/docs/guide/supabase-ssr-boilerplate.md`** — five canonical patterns codified from real production incidents (lalista PR 26, 2026-04-26). Don't paraphrase; copy verbatim:
 
