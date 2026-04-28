@@ -15,9 +15,17 @@ flight, and the order that minimizes wasted motion.
   lands before PR 6 so subsequent feature PRs benefit. Four parts:
   (a) RLS-coverage pre-ship gate, (b) `/ak-spec` render-condition matrix for
   new UI elements, (c) `/plan-design-review` "input duplicates existing data"
-  prompt, (d) dev-side prod-Supabase isolation (DiD bind-mount, refuse hosted
-  fallback, strip prod hosts from firewall, drop `SUPABASE_SERVICE_ROLE_KEY`
-  from `.devcontainer/.env`).
+  prompt, (d) dev-side prod-Supabase isolation. After exploring the
+  host-`/var/run/docker.sock`-bind-mount path (Option 2) we shipped Option 3
+  compose isolation instead: workspace dev container has NO docker socket,
+  sibling `supabase-runner` compose service holds the socket and runs
+  `supabase start` against the host engine, narrow `<host>/supabase` bind on
+  the runner, RPC relay on :9000 for orchestration commands, host-path-
+  mirrored bind so spawned function-runtime sees the same path inside and
+  outside the runner. Refuses hosted fallback; strips prod hosts from
+  firewall; drops `SUPABASE_SERVICE_ROLE_KEY` from `.devcontainer/.env`.
+  Architecture doc: `kit/docs/guide/local-supabase-compose-isolation.md`;
+  threat-model: `kit/notes/security/local-supabase-isolation-options.md`.
 - **PR 6: zod-validation** — runtime validation of `AddItemResponse` at
   `invokeAddItem` (the one genuinely unchecked seam). `.safeParse()` + Sentry
   on failure, `.passthrough()` on objects. ~2–3 hrs.
@@ -31,13 +39,21 @@ flight, and the order that minimizes wasted motion.
 
 - ✅ **core-flows-happy-path-ci-investigation** — shipped 2026-04-27 as
   lalista #31 `4e78fbd`.
-- **devcontainer-migrate-to-host-docker-socket** — surfaced 2026-04-27.
-  Lalista's devcontainer still uses the old `docker-in-docker:2` feature;
-  `/var/run/docker.sock` does not exist; `supabase start` fails inside the
-  container; documented `pnpm test:integration` workflow only runs in CI
-  slow-job. Mechanical migration (4 file edits, 1 new file) following the
-  template at `/devshop/template/.devcontainer/`. Not GA-blocking, but
-  closes interlude (d)'s adoption gap on the lalista side.
+- ✅ **devcontainer-migrate-to-Option-3-compose-isolation** — shipped
+  2026-04-28 as lalista PR 34 (`devcontainer-compose-isolated`, commits
+  `75a02f6` → `7231cb9` → `3d4ef2d` → `cf71aad` → `a76b5f8`). Pivoted from
+  the original Option 2 (host docker socket bind-mount) framing — the
+  fallback branch `devcontainer-host-docker-socket` carries that snapshot.
+  Five-commit diagnostic arc captured each failure mode hit during real
+  verification (LOCAL_WORKSPACE_FOLDER unset → empty bind, port 54321/54322
+  conflicts with supabase siblings, supabase CLI hardcoded localhost
+  healthcheck failing inside the runner, integration-test URL gate too
+  narrow, IPv6 vs iptables-IPv4-only) so future operators recognize them
+  from the commit messages rather than re-deriving. Closes interlude (d)'s
+  adoption gap on the lalista side. New devshop architecture doc captured
+  the pattern at `kit/docs/guide/local-supabase-compose-isolation.md`;
+  template-variant follow-up tracked in `kit/TODOS.md §
+lalista-option3-template-variant`.
 
 **Launch-day** (`TODOS.md § v0 § launch-day`):
 
