@@ -29,9 +29,15 @@ flight, and the order that minimizes wasted motion.
 
 **Pre-ship** (`TODOS.md § v0 § pre-ship`):
 
-- **core-flows-happy-path-ci-investigation** — flaky-on-edge-runtime-startup,
-  NOT test-side broken. Long-term fix: `supabase status` health-check +
-  retry-once-on-502 in slow-job CI.
+- ✅ **core-flows-happy-path-ci-investigation** — shipped 2026-04-27 as
+  lalista #31 `4e78fbd`.
+- **devcontainer-migrate-to-host-docker-socket** — surfaced 2026-04-27.
+  Lalista's devcontainer still uses the old `docker-in-docker:2` feature;
+  `/var/run/docker.sock` does not exist; `supabase start` fails inside the
+  container; documented `pnpm test:integration` workflow only runs in CI
+  slow-job. Mechanical migration (4 file edits, 1 new file) following the
+  template at `/devshop/template/.devcontainer/`. Not GA-blocking, but
+  closes interlude (d)'s adoption gap on the lalista side.
 
 **Launch-day** (`TODOS.md § v0 § launch-day`):
 
@@ -41,7 +47,8 @@ flight, and the order that minimizes wasted motion.
 
 **v0 GA checkpoint** (PRODUCT-ROADMAP.md): every functional gate checked off
 (auth, add/list/bought, realtime, dark mode, errors, CI, Sentry, PostHog).
-**Remaining for GA = PR 6 + PR 7, then the launch-day seed.**
+**Remaining for GA = PR 7, then the launch-day seed.** (PR 6 shipped
+2026-04-27; core-flows CI flake fix shipped same day.)
 
 ---
 
@@ -70,7 +77,20 @@ flight, and the order that minimizes wasted motion.
 
 - **Migration sequencing safety nets for the Vercel-preview window** — Track B
   (`/ak-go-live` Step 1.6 pre-flight) is highest leverage; A + C deferred
-  until B's data justifies them.
+  until B's data justifies them. Note: Track B addresses the **post-merge
+  prod-cutover race** (parallel `deploy-migrations.yml` + Vercel auto-deploy);
+  it does NOT close the **PR-window preview race** (Vercel previews dial
+  prod, so PR previews show new code on old schema during PR-open → merge).
+- **PR-preview backend isolation (backend #3 in the four-backend topology:
+  local-dev / CI / preview / prod)** — _deferred to v1_ per
+  `/devshop/kit/ROADMAP.md § Migration sequencing § Out of scope`. The
+  full-isolation solution is a separate staging Supabase project + Vercel
+  preview env override + staging-targeted `deploy-migrations.yml` variant.
+  Lower priority because (a) most projects accept the gap if migrations
+  are mostly additive, (b) doubles Supabase project management overhead,
+  (c) staging-vs-prod data drift becomes its own problem. Revisit when a
+  second project adopts the devshop OR lalista hits a mutating migration
+  that actually creates real reviewer confusion.
 - **CI slow-job lifecycle convention** — pre-ship gate enforces "uncomment
   slow-job + update branch protection" at Phase 1c/1g threshold; codifies the
   lalista PR-26 edge-runtime retry pattern.
@@ -83,9 +103,11 @@ flight, and the order that minimizes wasted motion.
   reclassify public values to Variables, URL guard, blast-radius docs).
   Anthropic split + URL guard already shipped (commits #28, #18); ROADMAP
   entry is largely retrospective. Worth a sweep to confirm any residual items.
-- **JIT DB password entry via `/ak-go-live`** — structural follow-on: delete
-  `deploy-migrations.yml`, operator-side JIT password fetch via
-  password-manager CLI or `!`-prefix shell escape.
+- ~~**JIT DB password entry via `/ak-go-live`**~~ — _demoted to v1 on
+  2026-04-27._ Structural completion of the security-posture cleanup, but
+  no incident forces it; existing GH-Secret flow has shipped successfully.
+  Revisit after lalista v0 GA + first prod migration deploy via existing
+  flow. See `kit/ROADMAP.md § v1` for the moved entry.
 
 **Operator pain (immediate-impact):**
 
@@ -93,6 +115,21 @@ flight, and the order that minimizes wasted motion.
   stale browse binary + Chromium-env-var fallback so `/qa-only`,
   `/design-review`, `/canary`, `/benchmark` actually work on lalista
   (currently broken since 2026-04-26).
+- **Devcontainer migration recipe + adversarial-review check** — interlude
+  (d) shipped to the template only; existing projects (lalista) are
+  stranded on the old `docker-in-docker:2` feature with no documented
+  upgrade path. Add a `§ Migration: existing project to host-docker-socket
+devcontainer` section to `/ak-new-project` SKILL.md, plus an adversarial
+  check that flags repos still referencing `docker-in-docker:2`. Filed
+  2026-04-27 at `/devshop/kit/TODOS.md`. Best written **after** lalista
+  migrates so the recipe codifies real diff applied (same pattern as the
+  2026-04-25 credential-layout migration recipe).
+- **Bats coverage for the new devcontainer shape** — `preship-supabase-
+bootstrap.bats` covers the runtime "docker not running → blocked" path,
+  but nothing tests that the template's structural pieces (host socket
+  bind-mount in `mounts`, `init-docker-socket.sh` GID alignment logic,
+  `init-firewall.sh` allowlist drops) have the right content. Pure
+  structural verification, doesn't need a real container. Not yet filed.
 
 **Reusable conventions:**
 
@@ -137,13 +174,19 @@ that:
    quality-checklist row;
    (c) "input duplicates existing data" standing prompt in
    `/plan-design-review` Pass 1 (SKILL.md + .tmpl);
-   (d) template `.devcontainer/devcontainer.json` swaps `docker-in-docker`
-   feature for host `/var/run/docker.sock` bind-mount; Dockerfile installs
-   docker CLI + ships `init-docker-socket.sh` for GID alignment;
-   `init-firewall.sh` drops `api.supabase.com` +
-   `aws-0-us-west-2.pooler.supabase.com`; `supabase-bootstrap.sh up`
-   reports `blocked` (refusing hosted fallback) instead of `unavailable`,
-   with bats coverage updated.
+   (d) **template-side only** — `template/.devcontainer/devcontainer.json`
+   swaps `docker-in-docker` feature for host `/var/run/docker.sock`
+   bind-mount; Dockerfile installs docker CLI + ships
+   `init-docker-socket.sh` for GID alignment; `init-firewall.sh` drops
+   `api.supabase.com` + `aws-0-us-west-2.pooler.supabase.com`;
+   `supabase-bootstrap.sh up` reports `blocked` (refusing hosted fallback)
+   instead of `unavailable`, with bats coverage updated.
+   **Adoption gap (surfaced 2026-04-27):** lalista was scaffolded before
+   the template change and has not been migrated. `/var/run/docker.sock`
+   does not exist in the lalista devcontainer; `supabase start` inside the
+   container fails. No `/ak-new-project § Migration` recipe for the
+   devcontainer shape exists. Tracked as a follow-up — see
+   `lalista/TODOS.md § devcontainer-migrate-to-host-docker-socket`.
 3. ✅ **Devshop Zod LLM-boundary convention** —
    `kit/docs/guide/conventions.md § Runtime Validation at LLM / Edge-Function
 Boundaries` (when to use, schema-module pattern, wrapper-site
@@ -155,13 +198,15 @@ Boundaries` (when to use, schema-module pattern, wrapper-site
 
 **Cluster 2 — lalista feature flow:**
 
-4. **PR 6 (Zod)** — adopts the convention from step 3.
+4. ✅ **PR 6 (Zod)** — shipped 2026-04-27 (lalista #30 `4ba875f`, closer #33
+   `a7450c9`). Adopted the convention from step 3 directly.
 5. **PR 7 (structured intent parsing)** — adds `entries[]` to the response
    (small Zod schema delta on top of PR 6, not a rewrite). Sequencing 6→7
    keeps the response-shape change cleanly diff-able; bundling would make a
    wide-blast-radius single PR.
-6. **core-flows CI flake fix** — ship anytime, ride alongside PR 6 or PR 7.
-   Cheap.
+6. ✅ **core-flows CI flake fix** — shipped 2026-04-27 (lalista #31
+   `4e78fbd`). `supabase status` health-check + retry-once-on-502 in
+   slow-job CI; rode alongside PR 6 as planned.
 
 **Cluster 3 — launch-day:**
 
@@ -198,8 +243,8 @@ Boundaries` (when to use, schema-module pattern, wrapper-site
   `kit/ROADMAP.md § CI slow job expansion Trigger 1` rewritten to reference
   the now-shipped helpers. Patch v1.22.1 fixed a 403 false-positive in the
   branch-protection sub-check.
-- **JIT DB password** — follow-on to the now-shipped security-posture
-  cleanup; lalista is mid-rollout so docs cascade lands once.
+- **JIT DB password** — _demoted to v1 on 2026-04-27_; see top-section
+  bullet for rationale. No longer in lalista's parallel devshop cluster.
 - ✅ **Standalone**: Migration-sequencing Track B. Shipped in v1.22.0 as
   `/ak-go-live § Step 1.6` migration-sequencing pre-flight (catches
   non-additive migrations before the parallel-deploy race window). Tracks A
@@ -240,10 +285,14 @@ original parallel list, but enabled by it)**:
   `preship-slow-job-lifecycle.bats` (13 + 5 added in v1.22.1 patch =
   18 tests). Closed the test-coverage debt the release-coverage
   adversarial review surfaced when v1.22.0 was first attempted.
-- ⏳ **Bun test for `gstack/browse/src/cli.ts` server-resolution path** —
-  filed as `[v0]` TODO at `kit/TODOS.md` (was originally `[v+]`, bumped to
-  `v0` because the v1.22.0 release-coverage bypass was load-bearing on
-  this gap getting addressed).
+- ✅ **Bun test for `gstack/browse/src/cli.ts` server-resolution path** —
+  shipped at `.claude/skills/gstack/browse/test/cli.test.ts` (11 tests across
+  three describe blocks: `resolveServerScript` covers the null-when-src-absent
+  branch + dev-mode path resolution + execPath-adjacent resolution;
+  `resolveNodeServerScript` covers the bundled `server-node.mjs` lookup;
+  `USE_NODE_SERVER launch-path flip` is a contract test for the
+  `IS_WINDOWS || !SERVER_SCRIPT` formula). `kit/TODOS.md` entry can be
+  closed.
 
 **Why this order:**
 
@@ -251,10 +300,18 @@ original parallel list, but enabled by it)**:
   AND validates 4 devshop conventions on the same ship.
 - PR 6 → PR 7 sequencing keeps the LLM-boundary changes diff-reviewable;
   PR 7's `entries[]` is a 5-line schema extension if PR 6 lands first.
+- **Lalista devcontainer migration is project-side first, devshop recipe
+  second** — same pattern as the 2026-04-25 credential-layout migration
+  recipe. Doing it on a real project produces the empirical diff that
+  becomes the recipe's content; writing the recipe first risks aspirational
+  steps that don't match what's actually needed. Sequencing: lalista
+  migrates → diff captured → `/ak-new-project § Migration: existing project
+to host-docker-socket devcontainer` written → adversarial check + bats
+  coverage as parallel cleanup.
 - The parallel devshop cluster is "fixes a gap every future project hits" —
   value scales with project count. Within it, prioritize the bundles that
   unblock the next-project onboarding (auth UX + docs scaffold + freshness
   hook) over deeper convention work (audit → reviewer).
 - Security-posture cleanup is largely retrospective at this point — JIT DB
-  password is the only meaningful remaining structural step, and it shouldn't
-  gate lalista GA.
+  password (now v1) is the only meaningful remaining structural step, and
+  it shouldn't gate lalista GA.
