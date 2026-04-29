@@ -132,19 +132,20 @@ lalista-option3-template-variant`.
   `/design-review`, `/canary`, `/benchmark` actually work on lalista
   (currently broken since 2026-04-26).
 - ~~**Devcontainer migration recipe + adversarial-review check**~~ —
-  **deferred indefinitely** as part of the Option 3 template port
-  (2026-04-28). No stranded Option-2 projects exist: lalista (the only
-  candidate) migrated directly to Option 3 via PR 34 the same day the
-  template port shipped, so there's no audience for a written migration
-  recipe. If a future project ever needs the diff, Lalista PR 34
-  (commits `75a02f6` → `7231cb9` → `3d4ef2d` → `cf71aad` → `a76b5f8` →
-  `9cdad4e` → `97eec6b`) is the canonical reference. Adversarial-review
-  check on per-project `.devcontainer/` shape: also deferred — the
+  **deferred indefinitely** as part of the compose-isolation template
+  port (2026-04-28). No stranded host-docker-socket-bind-mount projects
+  exist: lalista (the only candidate) migrated directly to compose
+  isolation via PR 34 the same day the template port shipped, so
+  there's no audience for a written migration recipe. If a future
+  project ever needs the diff, Lalista PR 34 (commits `75a02f6` →
+  `7231cb9` → `3d4ef2d` → `cf71aad` → `a76b5f8` → `9cdad4e` →
+  `97eec6b`) is the canonical reference. Adversarial-review check on
+  per-project `.devcontainer/` shape: also deferred — the
   template-port BATS structural assertions catch regressions on the
   template side; per-project drift can be added later if it becomes
   common.
 - ✅ **Bats coverage for the new devcontainer shape** — shipped alongside
-  the Option 3 template port: `kit/tests/template-option3.bats` asserts
+  the compose-isolation template port: `kit/tests/template-compose-isolation.bats` asserts
   `dockerComposeFile`/`service` in devcontainer.json, `compose.yml` /
   `init-host-env.sh` / `supabase-runner/{Dockerfile,cmd-relay.mjs}`
   presence, host.docker.internal allow rule in init-firewall.sh,

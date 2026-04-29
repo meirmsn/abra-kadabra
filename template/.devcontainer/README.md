@@ -14,7 +14,7 @@ Source: https://github.com/anthropics/claude-code/tree/main/.devcontainer
 - `git-delta` for syntax-highlighted diffs
 - Zsh + Oh My Zsh (provided by the Microsoft base image)
 - Outbound firewall (allowlist-only)
-- Sibling `supabase-runner` container for local Supabase stack (Option 3 compose isolation — workspace itself has NO docker access)
+- Sibling `supabase-runner` container for local Supabase stack (compose isolation — workspace itself has NO docker access)
 
 ---
 
@@ -41,7 +41,7 @@ Source: https://github.com/anthropics/claude-code/tree/main/.devcontainer
 - **EditorConfig as source of truth** — universal formatting rules (indent, line endings, charset) that apply in any editor or CI environment
 - **`.devcontainer/.env` holds project-runtime secrets only** — Claude Code auth runs through the VS Code extension or your subscription session, not via env-var. Project-runtime keys (Supabase, Vercel, optional `ANTHROPIC_API_KEY_QA` for projects whose edge functions call Claude) go in `.env`. Prod keys never live here.
 - **`waitFor: postStartCommand`** — VS Code won't connect until the firewall script succeeds, so you're never silently in an unprotected environment
-- **Two-container compose isolation (Option 3)** — workspace dev container has no docker socket; the sibling `supabase-runner` holds the socket and runs `supabase start` against the host engine. A compromised devtool / npm dep in the workspace cannot spawn `docker run -v /Users:/h alpine` to escape into the host's File Sharing. Architecture rationale + lifecycle table: [`/devshop/kit/docs/guide/local-supabase-compose-isolation.md`](../../devshop/kit/docs/guide/local-supabase-compose-isolation.md). Threat-model + decision matrix: [`/devshop/kit/notes/security/local-supabase-isolation-options.md`](../../devshop/kit/notes/security/local-supabase-isolation-options.md).
+- **Two-container compose isolation** — workspace dev container has no docker socket; the sibling `supabase-runner` holds the socket and runs `supabase start` against the host engine. A compromised devtool / npm dep in the workspace cannot spawn `docker run -v /Users:/h alpine` to escape into the host's File Sharing. Architecture rationale + lifecycle table: [`/devshop/kit/docs/guide/local-supabase-compose-isolation.md`](../../devshop/kit/docs/guide/local-supabase-compose-isolation.md). Threat-model + decision matrix: [`/devshop/kit/notes/security/local-supabase-isolation-options.md`](../../devshop/kit/notes/security/local-supabase-isolation-options.md).
 
 ---
 
@@ -73,7 +73,7 @@ Then replace ESLint/Prettier with Python equivalents (e.g. `ruff` for both linti
 
 ## Container settings — compose.yml + devcontainer.json
 
-Settings that affect the container at build / run time live in `compose.yml` (per Option 3 — VS Code attaches via `dockerComposeFile`). Settings that are VS-Code-specific or need devcontainer interpolation (`${devcontainerId}`, `${localWorkspaceFolder}`) stay in `devcontainer.json` and are additive on top of the compose service config.
+Settings that affect the container at build / run time live in `compose.yml` (under compose isolation — VS Code attaches via `dockerComposeFile`). Settings that are VS-Code-specific or need devcontainer interpolation (`${devcontainerId}`, `${localWorkspaceFolder}`) stay in `devcontainer.json` and are additive on top of the compose service config.
 
 ### Build Args
 
@@ -87,7 +87,7 @@ DCG_VERSION: 0.4.0
 GITLEAKS_VERSION: 8.30.1
 ```
 
-- `compose.yml` is the **single source of truth** for tool versions (moved here from `devcontainer.json` when Option 3 compose isolation shipped — the workspace's `build:` block moved with it). The Dockerfile ARGs have no defaults, so the build fails loudly if a version is missing here.
+- `compose.yml` is the **single source of truth** for tool versions (moved here from `devcontainer.json` when compose isolation shipped — the workspace's `build:` block moved with it). The Dockerfile ARGs have no defaults, so the build fails loudly if a version is missing here.
 - The same `GITLEAKS_VERSION:` line is read by `.github/workflows/ci.yml` to fetch a matching binary on the GH runner — keep the YAML key shape stable so the workflow's `grep | sed` extraction keeps working.
 - Pinned versions are a tradeoff: you get reproducible builds, but you have to manually bump them to get updates (tools like Dependabot can automate this).
 - `CLAUDE_CODE_VERSION` is intentionally left as `latest` since Claude Code is the primary tool and staying current is preferred over strict pinning.
@@ -168,7 +168,7 @@ Important caveats:
 - These are **not** stored on your Mac's filesystem - they live inside Docker's Linux VM, invisible to Finder and not backed up by Time Machine
 - They are **lost if you move to a new machine** - your session history won't carry over (the API key comes from `.devcontainer/.env`, so that's fine)
 - The `${devcontainerId}` suffix ensures each project gets its own isolated volumes
-- `${devcontainerId}` is a hash of the project's local-folder path **and** the dev container schema (single-container vs compose). Switching between schemas — e.g. an older single-container setup → Option 3 compose — yields a different `devcontainerId`, so the named volumes are NOT shared across schema changes. (This is why a fresh `claude` in a newly-attached compose-stack workspace asks you to log in again rather than picking up your prior session.)
+- `${devcontainerId}` is a hash of the project's local-folder path **and** the dev container schema (single-container vs compose). Switching between schemas — e.g. an older single-container setup → compose isolation — yields a different `devcontainerId`, so the named volumes are NOT shared across schema changes. (This is why a fresh `claude` in a newly-attached compose-stack workspace asks you to log in again rather than picking up your prior session.)
 
 This is different from your workspace folder, which is a **bind mount** - a direct portal to your Mac's filesystem:
 
@@ -271,13 +271,13 @@ The general pattern is: explicitly allow the things you trust, then block everyt
   - Processes on the container talking to each other
 - Host machine's local network
   - The script detects the host machine's local network range (e.g. `192.168.x.x`) and allows traffic to it. This lets the container reach your local machine and LAN resources without opening the broader internet
-- `host.docker.internal:54321/54322` (Option 3 — supabase data plane bound on the host by spawned siblings; resolved via `getent ahostsv4` to force IPv4 since iptables is IPv4-only and Docker Desktop's resolution can flip to IPv6 between restarts)
+- `host.docker.internal:54321/54322` (compose isolation — supabase data plane bound on the host by spawned siblings; resolved via `getent ahostsv4` to force IPv4 since iptables is IPv4-only and Docker Desktop's resolution can flip to IPv6 between restarts)
 - GitHub IP ranges (fetched dynamically from `api.github.com/meta`) + GitHub Actions artifact-storage Azure Blob shards
 - Specific domains: `registry.npmjs.org`, `api.anthropic.com`, `sentry.io`, `statsig.anthropic.com`, `statsig.com`, VS Code marketplace and update servers, Playwright CDNs, Vercel API + project domain (filled in by `/ak-new-project`), Sentry ingest endpoint (filled in by `/ak-new-project`), PostHog ingest, the project's `<ref>.supabase.co` data-plane host (anon-key data plane only — added by `/ak-new-project` Step 6)
 
-`api.supabase.com` (control plane) and `aws-0-us-west-2.pooler.supabase.com` (connection pooler) are deliberately NOT in the allowlist under Option 3 — migrations + functions deploy from CI on push-to-main; the local stack runs in the sibling `supabase-runner` and is reached through host-port forwarding, not through Supabase's public APIs.
+`api.supabase.com` (control plane) and `aws-0-us-west-2.pooler.supabase.com` (connection pooler) are deliberately NOT in the allowlist under compose isolation — migrations + functions deploy from CI on push-to-main; the local stack runs in the sibling `supabase-runner` and is reached through host-port forwarding, not through Supabase's public APIs.
 
-`download.docker.com` / `registry-1.docker.io` / `auth.docker.io` / `production.cloudflare.docker.com` are also deliberately NOT in the workspace allowlist — Option 3's workspace has no docker CLI install, so it never fetches Docker tooling at build or runtime. The supabase-runner sibling does fetch Docker tooling at build time, but it doesn't run this firewall script.
+`download.docker.com` / `registry-1.docker.io` / `auth.docker.io` / `production.cloudflare.docker.com` are also deliberately NOT in the workspace allowlist — compose-isolation workspace has no docker CLI install, so it never fetches Docker tooling at build or runtime. The supabase-runner sibling does fetch Docker tooling at build time, but it doesn't run this firewall script.
 
 Domain-based rules have a caveat: IPs are resolved once at startup. If a service's IPs change while the container is running, the rules won't update until the next restart.
 
@@ -310,7 +310,7 @@ Because `waitFor: postStartCommand` is set in `devcontainer.json`, VS Code won't
 - The `/commandhistory` directory is created at **build time** so Docker has a valid path to attach the volume at runtime
 - Claude Code is installed globally via `npm install -g @anthropic-ai/claude-code`
 - The `node` user is granted passwordless sudo for `init-firewall.sh` and `init-devshop.sh` only - not general sudo access
-- The workspace Dockerfile does NOT install the docker CLI (Option 3 — workspace has no docker access). The runner's separate `supabase-runner/Dockerfile` is the only image with the docker CLI.
+- The workspace Dockerfile does NOT install the docker CLI (compose isolation — workspace has no docker access). The runner's separate `supabase-runner/Dockerfile` is the only image with the docker CLI.
 
 ### Base image
 

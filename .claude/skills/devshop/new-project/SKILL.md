@@ -223,22 +223,22 @@ final locations. Customize them in-place:
 
 ### Step 2b: [HUMAN] Choose local supabase reachability
 
-The template ships **Option 3 (compose isolation) by default**. Pick how this project will reach a local Supabase stack — the choice strips per-option files from `.devcontainer/` and is sticky (changing later means manually re-applying the file diff from `/devshop/template/.devcontainer/`; no formal migration recipe shipped because no project has needed one yet).
+The template ships **compose isolation by default**. Pick how this project will reach a local Supabase stack — the choice strips per-option files from `.devcontainer/` and is sticky (changing later means manually re-applying the file diff from `/devshop/template/.devcontainer/`; no formal migration recipe shipped because no project has needed one yet).
 
-Option 2 (host docker socket bind-mount, single container) is **not on this menu** — the threat model rejects it (workspace has full docker access; a compromised npm transitive dep can spawn `docker run -v /Users:/h alpine` and read the macOS home), and Option 3 supersedes it with equivalent ergonomics. Decision matrix: [`/devshop/kit/notes/security/local-supabase-isolation-options.md`](../../../../kit/notes/security/local-supabase-isolation-options.md). Operational details for Option 3: [`/devshop/kit/docs/guide/local-supabase-compose-isolation.md`](../../../../kit/docs/guide/local-supabase-compose-isolation.md).
+The host-docker-socket-bind-mount shape (the threat model's Option 2) is **not on this menu** — workspace has full docker access; a compromised npm transitive dep can spawn `docker run -v /Users:/h alpine` and read the macOS home. Compose isolation supersedes it with equivalent ergonomics. Decision matrix: [`/devshop/kit/notes/security/local-supabase-isolation-options.md`](../../../../kit/notes/security/local-supabase-isolation-options.md). Operational details for compose isolation: [`/devshop/kit/docs/guide/local-supabase-compose-isolation.md`](../../../../kit/docs/guide/local-supabase-compose-isolation.md).
 
 ```
 Local supabase reachability:
-  (a) Option 1 — supabase CLI on macOS host (`brew install supabase/tap/supabase`).
+  (a) Host Supabase — supabase CLI on macOS host (`brew install supabase/tap/supabase`).
       Workspace dev container has no docker access. supabase runs natively
       on macOS; you spawn / stop the stack from a host terminal. No compose
       runner needed. Threat model recommends this as default when ~/dev/
       contains multiple project families.
-  (b) Option 3 — compose isolation [RECOMMENDED — template default].
+  (b) Compose isolation [RECOMMENDED — template default].
       Two-container compose: workspace (no docker) + supabase-runner
       (holds socket, runs supabase start). RPC relay on :9000 for
       orchestration. Workspace + macOS browser reach data plane via
-      host.docker.internal:54321. Equivalent isolation to Option 1
+      host.docker.internal:54321. Equivalent isolation to Host Supabase
       without the brew install requirement.
   (c) Skip — CI-only integration tests.
       No local supabase. `pnpm test:integration` runs only in CI slow-job.
@@ -247,19 +247,19 @@ Local supabase reachability:
 
 **After the operator picks, apply the per-choice strip:**
 
-- **(a) Option 1** — strip compose machinery + revert devcontainer.json to single-container `build:` form (no docker tooling):
+- **(a) Host Supabase** — strip compose machinery + revert devcontainer.json to single-container `build:` form (no docker tooling):
 
   ```bash
   rm -f .devcontainer/compose.yml .devcontainer/init-host-env.sh
   rm -rf .devcontainer/supabase-runner/
-  # devcontainer.json: switch dockerComposeFile/service back to build:/runArgs:/workspaceMount form (mirror the pre-Option-3 shape, MINUS the docker-socket mount + init-docker-socket COPY/sudoers — Option 1's workspace has no docker socket).
+  # devcontainer.json: switch dockerComposeFile/service back to build:/runArgs:/workspaceMount form (mirror the pre-compose-isolation shape, MINUS the docker-socket mount + init-docker-socket COPY/sudoers — Host Supabase's workspace has no docker socket).
   # package.json: drop the db:* scripts (no relay to call).
   # init-firewall.sh: drop the host.docker.internal allow rule (no local stack to reach from inside the container).
   ```
 
   At end of Phase B: `[HUMAN] On macOS host: brew install supabase/tap/supabase. Run \`supabase start\` from a host terminal whenever you need the local stack.`
 
-- **(b) Option 3** — keep template files as-shipped. Print at end of Phase B:
+- **(b) Compose isolation** — keep template files as-shipped. Print at end of Phase B:
 
   ```
   [HUMAN] One-time per machine: add `127.0.0.1 host.docker.internal` to your
@@ -273,13 +273,13 @@ Local supabase reachability:
   ```bash
   rm -f .devcontainer/compose.yml .devcontainer/init-host-env.sh
   rm -rf .devcontainer/supabase-runner/
-  # devcontainer.json: same single-container revert as Option 1.
+  # devcontainer.json: same single-container revert as Host Supabase.
   # package.json: drop db:* scripts.
   # init-firewall.sh: drop the host.docker.internal allow rule.
-  # Add a CLAUDE.md note: "Integration tests run CI-only (no local stack); to enable local-stack testing, switch to Option 1 or 3 by mirroring the diff at /devshop/template/.devcontainer/."
+  # Add a CLAUDE.md note: "Integration tests run CI-only (no local stack); to enable local-stack testing, switch to Host Supabase or Compose isolation by mirroring the diff at /devshop/template/.devcontainer/."
   ```
 
-After the per-choice strip, update `/devshop/kit/notes/projects/<name>.md`'s Step 2b checkbox with the chosen option in parens (e.g., `2b. [x] Choose local supabase reachability (Option 3)`) so future `/ak-status` runs surface which variant the project is on.
+After the per-choice strip, update `/devshop/kit/notes/projects/<name>.md`'s Step 2b checkbox with the chosen option in parens (e.g., `2b. [x] Choose local supabase reachability (compose-isolation)`) so future `/ak-status` runs surface which variant the project is on.
 
 ### Step 3: [HUMAN] Create accounts
 
@@ -1047,14 +1047,14 @@ Add project-specific public key patterns (Supabase anon key, PostHog key).
 
 ### Step 21: [HUMAN] Lock security-critical files
 
-The chown/chmod set depends on the Step-2b choice — Option 3 has additional `.devcontainer/` files (compose.yml, init-host-env.sh, supabase-runner/) that need locking too. The `[ -f ]` guards on the Option-3 files make the block silently skip them under Option 1 / skip (where they were stripped at Step 2b).
+The chown/chmod set depends on the Step-2b choice — compose isolation has additional `.devcontainer/` files (compose.yml, init-host-env.sh, supabase-runner/) that need locking too. The `[ -f ]` guards on the compose-isolation files make the block silently skip them under host-supabase / skip (where they were stripped at Step 2b).
 
 ```bash
 # Always-present (every choice):
 sudo chown root:root .devcontainer/devcontainer.json .devcontainer/init-firewall.sh .devcontainer/Dockerfile .devcontainer/checksums.sha256 .devcontainer/.env
 sudo chmod 644 .devcontainer/devcontainer.json .devcontainer/init-firewall.sh .devcontainer/Dockerfile .devcontainer/checksums.sha256 .devcontainer/.env
 
-# Option 3 only (compose isolation files — silently skipped under Option 1 / skip):
+# Compose-isolation only (silently skipped under host-supabase / skip):
 for f in .devcontainer/compose.yml .devcontainer/init-host-env.sh \
          .devcontainer/supabase-runner/Dockerfile .devcontainer/supabase-runner/cmd-relay.mjs; do
   [ -f "$f" ] && sudo chown root:root "$f" && sudo chmod 644 "$f"

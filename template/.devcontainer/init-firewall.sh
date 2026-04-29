@@ -72,7 +72,7 @@ done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]' | aggregate -q)
 #   "o<org-id>.ingest.sentry.io"       — your Sentry ingest endpoint
 #   "us.i.posthog.com"                 — PostHog ingest (us or eu)
 #
-# Note on Supabase egress (deliberately omitted under Option 3 compose
+# Note on Supabase egress (deliberately omitted under compose
 # isolation):
 # `api.supabase.com` (control plane) and `aws-0-us-west-2.pooler.supabase.com`
 # (connection pooler) are NOT in this allowlist. Migrations + functions
@@ -89,7 +89,7 @@ done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]' | aggregate -q)
 # See /devshop/kit/notes/security/local-supabase-isolation-options.md.
 #
 # Also no `download.docker.com` / `registry-1.docker.io` / `auth.docker.io`
-# / `production.cloudflare.docker.com` — Option 3's workspace has no docker
+# / `production.cloudflare.docker.com` — compose-isolation workspace has no docker
 # CLI install, so it never fetches Docker tooling at build or runtime. The
 # supabase-runner sibling does, but it doesn't run this firewall script.
 for domain in \
@@ -161,7 +161,7 @@ iptables -A INPUT -s "$HOST_NETWORK" -j ACCEPT
 iptables -A OUTPUT -d "$HOST_NETWORK" -j ACCEPT
 
 # Allow workspace → host.docker.internal on supabase data-plane ports.
-# Under Option 3 compose isolation, supabase's spawned sibling containers
+# Under compose isolation, supabase's spawned sibling containers
 # (supabase_kong_*, supabase_db_*) bind host ports 54321 (REST/kong) +
 # 54322 (Postgres) directly. Workspace reaches them via
 # host.docker.internal which Docker Desktop maps to the host gateway.

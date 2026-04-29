@@ -1,6 +1,6 @@
 {
   "name": "MyProject",
-  // Two-container compose isolation (Option 3). The workspace service
+  // Compose isolation: two-container compose. The workspace service
   // here has no docker access; the supabase-runner sibling holds the
   // docker socket and runs `supabase start` against the host engine.
   // See compose.yml comment block for the full architecture rationale,
@@ -75,7 +75,7 @@
   // Onboarding skipped since it hangs, plus not needed! (saves time by not having to go through it every time you start the container) - Happened when using Anthropic API Key
   "postCreateCommand": "echo '{\"hasCompletedOnboarding\": true}' > ~/.claude.json && pnpm install",
   // Configure git to use GITHUB_TOKEN via gh (skipped if token missing) - prevents having to sign in to github on container restart.
-  // No init-docker-socket.sh under Option 3 — the workspace has no docker
+  // No init-docker-socket.sh under compose isolation — the workspace has no docker
   // socket to align (the docker socket lives on supabase-runner only).
   "postStartCommand": "sudo /usr/local/bin/init-firewall.sh && sudo /usr/local/bin/init-devshop.sh && ([ -n \"$GITHUB_TOKEN\" ] && gh auth setup-git || true)",
   "waitFor": "postStartCommand"

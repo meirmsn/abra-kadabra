@@ -1,4 +1,4 @@
-# What: Two-container compose for Option 3 (compose isolation).
+# What: Two-container compose for compose isolation.
 # Why:  workspace (dev container) has no docker access; supabase-runner
 #       holds the docker socket and runs the local Supabase stack as a
 #       sibling-container fan-out. RPC relay on :9000 lets the workspace

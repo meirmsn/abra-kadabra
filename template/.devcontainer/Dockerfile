@@ -69,7 +69,7 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
   && apt-get update && apt-get install -y --no-install-recommends gh \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# No docker CLI in the workspace — Option 3 compose isolation puts the
+# No docker CLI in the workspace — compose isolation puts the
 # docker socket on the supabase-runner sibling service only. Workspace
 # drives supabase commands via `pnpm db:*` → cmd-relay on :9000.
 
@@ -148,7 +148,7 @@ RUN chmod +x /usr/local/bin/init-devshop.sh && \
   echo "node ALL=(root) NOPASSWD: /usr/local/bin/init-devshop.sh" >> /etc/sudoers.d/node-firewall && \
   chmod 0440 /etc/sudoers.d/node-firewall
 
-# No init-docker-socket.sh under Option 3 — the workspace has no docker
+# No init-docker-socket.sh under compose isolation — the workspace has no docker
 # socket to align (the docker socket lives on supabase-runner only).
 
 # Remove blanket sudo — base image (common-utils) grants NOPASSWD:ALL by default. Only the firewall script should run as root (see node-firewall sudoers entry above).

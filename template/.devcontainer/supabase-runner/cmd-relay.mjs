@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// What: Whitelisted RPC relay for Option 3 compose isolation. Listens on
+// What: Whitelisted RPC relay for compose isolation. Listens on
 //       0.0.0.0:9000 inside the supabase-runner container. The workspace
 //       container has no docker socket, so it cannot run
 //       `docker compose exec supabase-runner ...`; instead it curls one

@@ -16,7 +16,7 @@
 #       from the host into compose-time interpolation via the .env file
 #       compose auto-reads from its project directory (.devcontainer/).
 #       See /devshop/kit/notes/security/local-supabase-isolation-options.md
-#       § Operational details for Option 3.
+#       § Operational details for compose isolation.
 # Does NOT: assume the path is stable. Re-runs on every container start
 #       (initializeCommand fires on Rebuild Container too) and refreshes
 #       the value in case the project moved.
