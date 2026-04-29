@@ -78,7 +78,13 @@ _This section grows as code is added. `/ak-implement` updates it when introducin
 
 ## Env Var Naming Convention
 
-Each framework requires a specific prefix for client-accessible vars. GH and Vercel are **separate env surfaces with different values for the same name** — the prod URL lives on Vercel; the GH `SUPABASE_URL` is the local-stack URL because CI's fast/slow jobs run against `supabase start` in the runner. Don't reuse a value across surfaces without checking which side you're on.
+**How it works.** `packages/core/src/supabase.ts` exports `createClient({ supabaseUrl, supabaseAnonKey })` — the package never reads `process.env` itself. Each surface reads its own prefix-named vars and passes them into the same factory, so identical code runs in all three places and only the config object differs:
+
+- **Local dev** — `compose.yml`'s workspace env-block auto-sets `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` to `host.docker.internal:54321` + the published local-stack default JWTs at every container start. `apps/web/.env.local` mirrors them as `NEXT_PUBLIC_*` for the dev server.
+- **CI** — there is no separate "CI Supabase" service. `supabase/setup-cli@v1` + `supabase start` brings up the same local stack as your laptop, _inside_ the GH Actions runner. The slow-job pipes the just-spun-up stack's keys into the workflow env via `supabase status -o env >> $GITHUB_ENV` (resolves `API_URL` / `ANON_KEY` / `SERVICE_ROLE_KEY`), then downstream steps plumb those into `NEXT_PUBLIC_SUPABASE_URL` / `SUPABASE_URL` for the build and integration tests. The fast-job's GH-Variable values (`http://127.0.0.1:54321` + default JWT) are compile-time placeholders only — fast-job tests mock the network.
+- **Production** — Vercel env (`NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`) points at the prod project. Migrations + edge functions deploy via separate workflows that sed-derive the project ref from the `SUPABASE_PROD_URL` GH Variable.
+
+Don't reuse a value across surfaces without checking which side you're on — the same name carries different values per surface. The table below is the lookup index.
 
 | Base name                   | GH Variable (CI)                 | Vercel (`apps/web`)                                                          | What it actually is on each side                                                                                                               |
 | --------------------------- | -------------------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -89,7 +95,7 @@ Each framework requires a specific prefix for client-accessible vars. GH and Ver
 | `SENTRY_DSN`                | _(GH Secret)_                    | `NEXT_PUBLIC_SENTRY_DSN`                                                     | Same value on both sides.                                                                                                                      |
 | `NEXT_PUBLIC_POSTHOG_KEY`   | `NEXT_PUBLIC_POSTHOG_KEY`        | `NEXT_PUBLIC_POSTHOG_KEY`                                                    | Same value on both sides.                                                                                                                      |
 
-`packages/core` does NOT read env vars directly — exports `createClient(config: CoreConfig)` that wraps `assertNotProdUrlInTestEnv`. Each app reads its prefixed vars and passes them in. The URL guard throws if a `NODE_ENV=test` caller ever passes the prod URL — backstop for the CI/Vercel split above. See `guide/security.md § CI Credential Isolation` for the structural-defense rationale; `/ak-new-project § Security Posture` for the blast-radius table; `/ak-new-project § Migration: existing project to current credential layout` for the cleanup recipe.
+The `createClient` factory wraps `assertNotProdUrlInTestEnv` as a runtime backstop — throws if a `NODE_ENV=test` caller ever passes the prod URL, so a misconfigured CI Secret can't silently dial prod. See `guide/security.md § CI Credential Isolation` for the structural-defense rationale; `/ak-new-project § Security Posture` for the blast-radius table; `/ak-new-project § Migration: existing project to current credential layout` for the cleanup recipe.
 
 ---
 
