@@ -547,7 +547,7 @@ Every new source file under `apps/*/{src,app,components,lib,hooks}/` or `package
 - **DELETE source while paired test still present** → BLOCK as orphan. Stage the test deletion in the same commit.
 - **MODIFY without test diff** → WARN only. `/ak-test-review` is the quality gate at ship time.
 
-**Exempt by filename** (entry-points + framework-required files where unit-testing is fraught — E2E covers them): `index.ts`, `index.tsx`, `page.tsx`, `layout.tsx`, `loading.tsx`, `error.tsx`, `not-found.tsx`, `global-error.tsx`, `template.tsx`, `default.tsx`, `head.tsx`, `icon.tsx`, `robots.ts`, `sitemap.ts`, `manifest.ts`, `middleware.ts`.
+**Exempt by filename** (entry-points + framework-required files where unit-testing is fraught — E2E covers them): `index.ts`, `index.tsx`, `page.tsx`, `layout.tsx`, `loading.tsx`, `error.tsx`, `not-found.tsx`, `global-error.tsx`, `template.tsx`, `default.tsx`, `head.tsx`, `icon.tsx`, `robots.ts`, `sitemap.ts`, `manifest.ts`, `middleware.ts`, `instrumentation.ts`, `instrumentation-client.ts`, `vitest.setup.ts`, `providers.tsx`.
 
 **Exempt by pattern**: `*.d.ts`, `*.config.*`, `*.test.*`, `*.spec.*`, `*.integration.test.*`, anything under `e2e/`, `tests/`, `__tests__/`, `__mocks__/`, `types/**/*.ts`, top-level `types.ts`.
 

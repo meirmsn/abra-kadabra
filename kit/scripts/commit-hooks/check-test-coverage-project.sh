@@ -44,6 +44,10 @@ EXEMPT_FILENAMES=(
   "sitemap.ts"
   "manifest.ts"
   "middleware.ts"
+  "instrumentation.ts"
+  "instrumentation-client.ts"
+  "vitest.setup.ts"
+  "providers.tsx"
 )
 
 # Path patterns the convention exempts wholesale.
