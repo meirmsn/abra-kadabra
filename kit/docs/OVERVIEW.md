@@ -91,12 +91,21 @@ git commit
   (no PostToolUse — workflow nudges live at the git layer; see guide/hooks.md)
 
 git push
-  └─ .husky/pre-push (blocking)
-      ├─ PR description staleness ────── vs commits on branch
-      │                                   (skipped for chore/docs/test/etc. only)
-      └─ dirty tree / stash check ────── block if unclean
-           (both adversarially reviewed; bypass via
-            devshop.prDescStaleReason / devshop.dirtyPushReason)
+  └─ .husky/pre-push (blocking; two variants per repo)
+      ├─ PROJECT (template/.husky/pre-push):
+      │   ├─ refs/heads/main or refs/heads/master ── BLOCK, no bypass
+      │   │                                          (deploy via PR-merge → CI → Vercel;
+      │   │                                          remote enforces the same rule)
+      │   ├─ PR description staleness ────────────── vs commits on branch
+      │   │                                          (skipped for chore/docs/test/etc. only;
+      │   │                                          bypass: devshop.prDescStaleReason)
+      │   └─ dirty tree / stash check ────────────── block if unclean
+      │                                              (bypass: devshop.dirtyPushReason)
+      └─ DEVSHOP (/devshop/.husky/pre-push):
+          ├─ push to main/master short-circuits (release.sh territory)
+          └─ dirty tree / stash check ────────────── block if unclean
+                                                     (bypass: devshop.dirtyPushReason)
+           (all bypasses adversarially reviewed)
 
 release.sh (devshop version bump)
   └─ Bump + commit + tag + push
