@@ -2,6 +2,21 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.23.0 (2026-04-28)
+
+- feat(template): port to Option 3 (compose isolation) + /ak-new-project choice
+- docs(notes): security audit of supabase-runner control surface from workspace
+- docs(notes): correct option3 template-port roadmap to current devshop state
+- docs(notes): host-side "which container am I in?" debugging snippet for Option 3
+- fix(notify): kill orphaned sleep child + accept zombies in cancel test
+- docs: integration-test workflow + lalista option3 template-port roadmap note
+- docs(notes): land threat-model note + sync lalista-launch with Option 3 reality
+- docs: local-dev compose-isolation guide + TODO for /ak-new-project template variant
+- docs: codify /tmp + sudo handoff for permission-denied paths
+- docs(roadmap): demote JIT DB password v0→v1, lalista cluster status updates
+- docs(skills): redistribute conventions into per-skill SKILL.md inlines
+- docs(roadmap): add slow-job paths-filter sub-item to lifecycle convention
+
 ## v1.22.2 (2026-04-27)
 
 - test(browse): cli.ts server-resolution + USE_NODE_SERVER flip
