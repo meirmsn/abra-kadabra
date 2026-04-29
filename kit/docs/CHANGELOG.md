@@ -2,6 +2,10 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.23.2 (2026-04-28)
+
+- fix(skills+docs): post-v1.23.1 audit fixes for /ak-new-project + debug tree
+
 ## v1.23.1 (2026-04-28)
 
 - docs(template): rename Option-N labels to semantic names throughout
