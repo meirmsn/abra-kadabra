@@ -2,6 +2,10 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.23.3 (2026-04-28)
+
+- fix(preship+docs): supabase-bootstrap.sh refactor for compose isolation + doc sweep
+
 ## v1.23.2 (2026-04-28)
 
 - fix(skills+docs): post-v1.23.1 audit fixes for /ak-new-project + debug tree
