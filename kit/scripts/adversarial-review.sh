@@ -69,6 +69,12 @@ case "$CHECK_TYPE" in
     # when reference docs are staged, (c) new-capability docs at the right level.
     DIFF=$(git diff --cached --stat 2>/dev/null || true)
     DIFF_FULL=$(git diff --cached 2>/dev/null | head -300 || true)
+    # Surface renames + deletions explicitly so the reviewer can grep the doc
+    # set for stale references to the old names. -M enables rename detection;
+    # diff-filter=DR yields Deleted + Renamed entries with the old path on
+    # the LHS. Each line is "<status>\t<old-path>[\t<new-path>]".
+    RENAMED_DELETED=$(git diff --cached --name-status --diff-filter=DR -M 2>/dev/null || true)
+    RENAMED_DELETED_NOTE="${RENAMED_DELETED:-(none — no files renamed, moved, or deleted in this commit)}"
     GUIDE_HEADERS=$(for f in "$GIT_ROOT"/kit/docs/guide/*.md; do echo "--- $(basename "$f") ---"; grep -n '^##' "$f" 2>/dev/null | head -20; done || true)
     README_MD=$(cat "$GIT_ROOT/kit/docs/OVERVIEW.md" 2>/dev/null || true)
     CLAUDE_MD=$(cat "$GIT_ROOT/CLAUDE.md" 2>/dev/null | head -100 || true)
@@ -85,6 +91,9 @@ $DIFF
 
 Staged diff (first 300 lines):
 $DIFF_FULL
+
+Renamed/moved/deleted in this commit (status<TAB>old-path[<TAB>new-path]):
+$RENAMED_DELETED_NOTE
 
 Reference docs staged in this commit:
 $REFERENCE_DOCS_STAGED_NOTE
@@ -408,6 +417,7 @@ Evaluate:
    (a) **Per-doc enumeration**: explicit affected/not-affected assessment for each of the 7 reference docs — MODEL.md, OVERVIEW.md, guide/{workflow,conventions,hooks,security,ops,architecture}.md, FAQ.md. Naming a doc generically ('checked all docs') without per-doc assessment FAILS.
    (b) **New-capability docs at the right level**: when the diff introduces a new script category / workflow / convention / tool, verify documentation exists at the right level — guide/ section required (what it is, how it works, how to extend it); OVERVIEW.md if workspace-layout / event-flow / file-map changes; MODEL.md if a new structural component is added; CLAUDE.md if Claude's behavior changes. Layout mentions alone (a line in a tree diagram) are NOT sufficient for new capabilities — strategy/usage docs are also required.
    (c) **Cross-file coherence** (when reference docs are staged in this commit — see 'Reference docs staged' in context): the staged doc changes must leave the doc set internally consistent. Stale claims that contradict each other across files (README says N gates, workflow.md says M; one doc names a script the other doesn't enumerate) MUST be flagged as inconsistent. If reference docs are NOT staged, this rule is satisfied trivially.
+   (d) **Rename/move/delete drift sweep** (when 'Renamed/moved/deleted in this commit' lists any entries): for each old-path entry, the reviewer must verify that ACTIVE docs (kit/docs/, kit/ROADMAP.md, repo-root CLAUDE.md/README.md, .claude/skills/**/SKILL.md) no longer reference the OLD name unless the reason explicitly cites the surviving reference and explains why it is intentional. Drift surfaces include: renamed/moved/deleted files (script paths, hook paths, doc files), renamed section headings (## Foo → ## Bar in conventions.md / hooks.md), renamed CI job names, renamed skills, renamed gate names, renamed roadmap entries. The provided context (CLAUDE.md, OVERVIEW.md, MODEL.md, guide/ headers, FAQ.md headers, project CLAUDE.md, README.md) covers the load-bearing surfaces — scan them for the old names. Historical notes under kit/notes/** are intentionally allowed to mention deleted/renamed items (they document the rationale archive); do NOT flag those as drift. If 'Renamed/moved/deleted in this commit' is empty, this rule is satisfied trivially.
    The reviewer must specifically check the docs the reason CLAIMS to have updated against the staged diff to verify the claim holds.
 5. For testCoverage checks: judge whether existing tests are sufficient to catch regressions in any functional changes since the last release. Look for: new code paths without corresponding test cases, changed exit codes or output formats not verified by assertions, new flags or options not exercised. PASS when any of: (a) changes are purely cosmetic (comments, formatting, variable renames); (b) no functional changes at all (docs-only release — README, CLAUDE.md, kit/docs/, kit/notes/); (c) config-only changes (devcontainer env vars, gitignore entries, image versions) already validated by wiring tests in structural-invariants.bats — name the specific wiring test you verified exists; (d) existing tests already exercise the changed behavior — name the specific test.
 6. For hookBypass: is this a known legitimate scenario (migration commits with git rm --cached, binary files that break lint-staged, intermediate refactor state with type errors)? Does skipping gitleaks create a real risk for these files?
