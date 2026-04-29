@@ -8,7 +8,16 @@ Self-contained briefing for the focused session that ports lalista's Option 3 co
 
 ## Why this matters
 
-Option 3 compose isolation is the default-recommended setup for any project where the operator has other code under `~/dev/` whose contents shouldn't be readable by a compromised npm transitive dep. That's most operators. Currently `/devshop/template/.devcontainer/` ships the older single-container shape; new projects scaffolded via `/ak-new-project` get that shape and would need the manual migration recipe captured in this note. Better: have `/ak-new-project` offer Option 3 as a choice (default = Option 3) so future projects start clean.
+Option 3 compose isolation is the default-recommended setup for any project where the operator has other code under `~/dev/` whose contents shouldn't be readable by a compromised npm transitive dep. That's most operators.
+
+**Current template state (verified 2026-04-28 against `/devshop/template/.devcontainer/`):** the template ships **Option 2 — host docker socket bind-mount** (single-container with `/var/run/docker.sock` bind, `init-docker-socket.sh` for GID alignment, docker-ce-cli installed in Dockerfile). Interlude (d) on 2026-04-27 already shipped the firewall cleanup (drops `api.supabase.com` + `aws-0-us-west-2.pooler.supabase.com` from the allowlist; the comment block in `template/.devcontainer/init-firewall.sh` documents this).
+
+So the migration this note captures is **Option 2 → Option 3** for the template, not "older shape → Option 3." Lalista's PR 34 made the same Option 2 → Option 3 jump on its own copy. The shipping move:
+
+- Update the template's `.devcontainer/` to the Option 3 shape.
+- Add a `/ak-new-project` choice for Option 3 so new projects start with it (default = Option 3).
+- Keep Option 2 as an explicit choice for projects that pin to it (single-container is easier to reason about for some operators); document the trade-offs.
+- Provide a migration recipe for stranded projects already on Option 2.
 
 ## Source materials
 
@@ -33,12 +42,14 @@ All paths below are in lalista (source) → template (destination). The template
 | `<lalista>/.devcontainer/supabase-runner/cmd-relay.mjs` | `template/.devcontainer/supabase-runner/cmd-relay.mjs`                             | None                                                                                                                                                                              |
 | (none)                                                  | `template/.devcontainer/supabase-runner/.gitkeep` (or rely on the two files above) | The directory itself needs to exist; the two files inside are sufficient.                                                                                                         |
 
-### Modified files (2)
+### Modified files (3) + 1 deleted
 
-| Template file                              | What to change                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `template/.devcontainer/devcontainer.json` | Switch to `dockerComposeFile: "compose.yml"` + `service: "workspace"`. Drop the `build:` block (moves to compose.yml). Drop the `runArgs` (cap_add + env_file move to compose.yml). Add `initializeCommand: ["bash", "${localWorkspaceFolder}/.devcontainer/init-host-env.sh", "${localWorkspaceFolder}"]`. Drop `workspaceMount` (moves to compose.yml). Keep named-volume `mounts` (need `${devcontainerId}` interpolation). Keep the devshop bind in `mounts` (needs `${localWorkspaceFolder}`). Keep `containerEnv`, `customizations`, `remoteUser`, `postCreateCommand`, `postStartCommand`, `waitFor`. |
-| `template/.devcontainer/init-firewall.sh`  | Drop `api.supabase.com` + `aws-0-us-west-2.pooler.supabase.com` from the for-loop. Update the project-specific-domains comment block to describe Option 3 architecture (template-version of the same comment in lalista's init-firewall.sh). Add the host.docker.internal allow rule (per lalista commit `a76b5f8`): use `getent ahostsv4` to force IPv4 resolution; fall back to a warn if unresolved.                                                                                                                                                                                                      |
+| Template file                                  | What to change                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `template/.devcontainer/devcontainer.json`     | Switch to `dockerComposeFile: "compose.yml"` + `service: "workspace"`. Drop the `build:` block (moves to compose.yml). Drop the `runArgs` (cap_add + env_file move to compose.yml). Add `initializeCommand: ["bash", "${localWorkspaceFolder}/.devcontainer/init-host-env.sh", "${localWorkspaceFolder}"]`. Drop `workspaceMount` (moves to compose.yml). Keep named-volume `mounts` (need `${devcontainerId}` interpolation). Keep the devshop bind in `mounts` (needs `${localWorkspaceFolder}`). Keep `containerEnv`, `customizations`, `remoteUser`, `postCreateCommand`, `postStartCommand`, `waitFor`. |
+| `template/.devcontainer/init-firewall.sh`      | Add the host.docker.internal allow rule (per lalista commit `a76b5f8`): use `getent ahostsv4` to force IPv4 resolution; fall back to a warn if unresolved. **Already done by interlude (d):** drop of `api.supabase.com` + `aws-0-us-west-2.pooler.supabase.com` from the allowlist for-loop and the corresponding comment block. The interlude-(d) comment text references "host docker socket bind-mount"; update wording to reflect Option 3 (workspace has no socket; supabase-runner sibling holds it; data plane reached via `host.docker.internal:54321/54322`).                                      |
+| `template/.devcontainer/Dockerfile`            | Drop the docker-ce-cli + docker-compose-plugin install block (Option 2 needs it; Option 3 workspace has no docker access). Drop the `init-docker-socket.sh` COPY + sudoers entry. Drop the `RUN groupadd -f docker` line. Everything else stays.                                                                                                                                                                                                                                                                                                                                                             |
+| `template/.devcontainer/init-docker-socket.sh` | **DELETE this file** — Option 3 workspace has no docker socket to align with the host's docker group GID.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 ### Optional template doc files (1-2)
 
@@ -99,22 +110,29 @@ Local supabase reachability:
       Workspace dev container has no docker access. supabase runs natively
       on macOS; you spawn / stop the stack from a host terminal. No compose
       runner needed.
-  (b) Option 3 — compose isolation [recommended].
+  (b) Option 2 — host docker socket bind-mount.
+      Single-container devcontainer with /var/run/docker.sock bind-mount.
+      `supabase start` runs from inside the dev container. Smaller footprint
+      than Option 3 but workspace has docker socket access (a compromised
+      npm transitive dep can spawn `docker run -v /Users:/h alpine`).
+      Acceptable only if ~/dev/ contains a single project family.
+  (c) Option 3 — compose isolation [RECOMMENDED].
       Two-container compose: workspace (no docker) + supabase-runner (holds
       socket, runs supabase start). RPC relay on :9000 for orchestration.
       Workspace + browser reach data plane via host.docker.internal:54321.
-  (c) Skip — CI-only integration tests.
+  (d) Skip — CI-only integration tests.
       No local supabase. pnpm test:integration runs only in CI slow-job.
       Lowest setup; loses local integration test feedback loop.
 ```
 
-Default = (b). Decision matrix is at `kit/notes/security/local-supabase-isolation-options.md`.
+Default = (c). Decision matrix is at `kit/notes/security/local-supabase-isolation-options.md`.
 
 ### Per-choice setup behavior
 
-- **(a)**: skip copying `compose.yml`, `init-host-env.sh`, `supabase-runner/`. Keep `devcontainer.json` in single-container shape (build/runArgs blocks, no `dockerComposeFile`). Print the `brew install supabase/tap/supabase` instruction at end of Phase B.
-- **(b)**: copy the 5 new files + apply the 2 modifications above. Print the `127.0.0.1 host.docker.internal` /etc/hosts step at end of Phase B (idempotent — only print if grep doesn't find an existing entry).
-- **(c)**: skip everything supabase-runtime related. Note in the new project's CLAUDE.md that integration tests are CI-only.
+- **(a)** Option 1: skip copying `compose.yml`, `init-host-env.sh`, `supabase-runner/`. Strip the `/var/run/docker.sock` mount + `init-docker-socket.sh` references from `devcontainer.json`. Strip the docker-CLI install + `init-docker-socket.sh` COPY from `Dockerfile`. Workspace ends up with no docker access at all. Print the `brew install supabase/tap/supabase` instruction at end of Phase B.
+- **(b)** Option 2 (the current template default): keep the existing template files unchanged. The project starts with `/var/run/docker.sock` bound to the workspace + `init-docker-socket.sh` for GID alignment. No compose runner.
+- **(c)** Option 3: copy the 5 new files + apply the 3 modifications above (devcontainer.json, init-firewall.sh, Dockerfile) + delete `init-docker-socket.sh`. Print the `127.0.0.1 host.docker.internal` /etc/hosts step at end of Phase B (idempotent — only print if grep doesn't find an existing entry).
+- **(d)** Skip: Option 1's strip of docker-related references + skip everything supabase-runtime related. Note in the new project's CLAUDE.md that integration tests are CI-only.
 
 ### Test plan for /ak-new-project changes
 
@@ -129,12 +147,15 @@ The devshop pre-commit hook fires `docsReviewed` on any staged file. For this po
 - `template/.devcontainer/init-host-env.sh` (new)
 - `template/.devcontainer/supabase-runner/Dockerfile` (new)
 - `template/.devcontainer/supabase-runner/cmd-relay.mjs` (new)
-- `template/.devcontainer/devcontainer.json` (modified)
-- `template/.devcontainer/init-firewall.sh` (modified)
+- `template/.devcontainer/devcontainer.json` (modified — switch to dockerComposeFile)
+- `template/.devcontainer/Dockerfile` (modified — drop docker-ce-cli + init-docker-socket COPY/sudoers)
+- `template/.devcontainer/init-firewall.sh` (modified — add host.docker.internal allow rule + Option 3 comment text)
+- `template/.devcontainer/init-docker-socket.sh` (DELETED — workspace has no socket under Option 3)
 - `template/package.json` (modified — db:\* scripts)
-- `.claude/skills/devshop/new-project/SKILL.md` (modified — new Option 3/1/skip choice)
-- Possibly `template/.devcontainer/README.md` (modified)
-- Possibly `template/.github/workflows/ci.yml` (modified — gitleaks grep fix)
+- `.claude/skills/devshop/new-project/SKILL.md` (modified — new 4-choice prompt + per-choice setup branches)
+- `kit/tests/wiring.bats` and/or `kit/tests/template.bats` (modified — flip docker-socket assertions to dockerComposeFile, add Option-3 assertions)
+- Possibly `template/.devcontainer/README.md` (modified — sync to lalista's `97eec6b` content scrubbed of project-specific values)
+- Possibly `template/.github/workflows/ci.yml` (modified — gitleaks grep fix per lalista commit `9cdad4e`)
 
 The bypass reason needs to enumerate each of the 7 reference docs (MODEL.md, OVERVIEW.md, guide/{workflow,conventions,hooks,security,ops,architecture}.md, FAQ.md). Likely affected:
 
@@ -149,15 +170,25 @@ Cross-file coherence: ensure the new template files don't contradict the existin
 
 The devshop has BATS tests (`kit/tests/`) that validate template wiring. Add tests for:
 
+**New tests (Option 3 shape):**
+
 - New template files exist and are valid (compose.yml is valid YAML, init-host-env.sh is bash-syntax-clean, cmd-relay.mjs is parseable JS, supabase-runner Dockerfile builds at least to FROM line).
-- `template/.devcontainer/devcontainer.json` is valid JSON (existing test in `kit/tests/template.bats` covers this; ensure the Option 3 shape passes).
 - `template/.devcontainer/devcontainer.json` has `dockerComposeFile: "compose.yml"` + `service: "workspace"` (verify the schema flip).
 - `template/.devcontainer/devcontainer.json` has `initializeCommand` invoking `init-host-env.sh`.
-- `template/.devcontainer/init-firewall.sh` does NOT contain `api.supabase.com` or `aws-0-us-west-2.pooler.supabase.com` in the allowlist for-loop.
 - `template/.devcontainer/init-firewall.sh` contains the host.docker.internal allow rule (`getent ahostsv4`).
+- `template/.devcontainer/init-firewall.sh` does NOT contain `api.supabase.com` or `aws-0-us-west-2.pooler.supabase.com` (already true post-interlude-(d); regression-guard).
+- `template/.devcontainer/init-docker-socket.sh` does NOT exist (Option 3 deletes it).
+- `template/.devcontainer/Dockerfile` does NOT contain `docker-ce-cli` or `init-docker-socket.sh` references (verify the Option 2 docker tooling was stripped).
 - `template/package.json` has the `db:*` scripts.
 - `/ak-new-project` SKILL.md has the new "Local supabase reachability" choice prompt.
-- `/ak-new-project` SKILL.md per-choice setup branches reference the correct file copies.
+- `/ak-new-project` SKILL.md per-choice setup branches reference the correct file copies / strips for each of (a) / (b) / (c) / (d).
+
+**Existing tests to UPDATE (current Option 2 assertions will break):**
+
+- `kit/tests/wiring.bats` § "wiring: template devcontainer.json is valid JSON" — still applies; just confirm Option 3 JSON parses.
+- Any test asserting `/var/run/docker.sock` mount in template/.devcontainer/devcontainer.json — needs to flip to asserting `dockerComposeFile` for the default-Option-3 case (or split into per-choice tests if `/ak-new-project` keeps Option 2 as a choice).
+- Any test asserting `docker-ce-cli` install line in template/Dockerfile — same flip.
+- Run `grep -rn 'docker.sock\|docker-ce-cli\|init-docker-socket' kit/tests/` in the focused session to enumerate the assertions to update.
 
 Look at existing `kit/tests/wiring.bats` and `kit/tests/template.bats` for the pattern.
 
@@ -169,9 +200,9 @@ Look at existing `kit/tests/wiring.bats` and `kit/tests/template.bats` for the p
 
 3. **Default choice in /ak-new-project:** (b) Option 3 [recommended] OR (a) Option 1? The threat-model note recommends Option 1 as the default; this roadmap entry assumes Option 3 because it's the no-brew-install path. Surface to the operator at session start.
 
-4. **Should there be a 4th choice (Option 2: host docker socket bind-mount)?** Per the threat model, Option 2 is acceptable only if `~/dev/` will only ever contain this one project family. Probably skip — it's a niche choice and adding it complicates the prompt.
+4. **Should Option 2 stay as a choice in the prompt?** The current template IS Option 2, so existing developers familiar with it (and migration users not yet ready to flip) may want to keep it. Recommendation: **YES, keep Option 2 as choice (b)** with a clearly-marked "Recommended: Option 3" annotation on the (c) entry. Only adds one prompt option and acknowledges what was just shipped in interlude (d). Drop only if `kit/notes/security/local-supabase-isolation-options.md`'s decision-matrix conclusion explicitly recommends against Option 2 in any new project.
 
-5. **Backward-compat for existing projects on the old shape:** Add a `/ak-new-project § Migration` section covering the 5-files-new + 2-modified migration on stranded projects. Or file as a separate followup.
+5. **Backward-compat for stranded Option 2 projects:** Add a `/ak-new-project § Migration: Option 2 → Option 3` section covering the file diff (5 new files + 2 modified + 2 deleted, including `init-docker-socket.sh`). Most projects scaffolded between interlude (d) on 2026-04-27 and this template port will be on Option 2 — that's the migration target audience. Lalista PR 34 (commits `75a02f6` → `a76b5f8`) is the canonical reference diff.
 
 ## Workflow — execute the focused session
 
