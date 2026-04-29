@@ -47,6 +47,34 @@ All paths below are in lalista (source) → template (destination). The template
 | `template/.devcontainer/README.md` | If the template has a README, sync to Option 3 reality (use lalista's `97eec6b` commit's README as the source). If no template README exists, skip. |
 | `template/package.json`            | Add the `db:*` script entries. Per lalista PR 34's commit `75a02f6`.                                                                                |
 
+### Host-side "which container am I in?" debugging snippet
+
+Drop into the template README's Option 3 section (or merge into `kit/docs/guide/local-supabase-compose-isolation.md` alongside its existing Smoke-test commands). Under Option 3 the compose stack runs `workspace` + `supabase-runner` as siblings; operators occasionally need to confirm they `docker exec`d into the right one (e.g. when a `~/.zshrc` `devcontainer` helper picks the wrong container, or when debugging a "why doesn't my project show up" issue). These three commands resolve it from the macOS host:
+
+````md
+### "Did I connect to the wrong container?"
+
+Run on the macOS host:
+
+```sh
+# 1. Which compose stacks are up, and which services in each:
+docker compose ls          # lists compose projects
+docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Labels}}'
+
+# 2. What VS Code thinks the dev container is (it labels the service named in
+#    devcontainer.json's "service" field — workspace — and only that one):
+docker ps --filter label=devcontainer.local_folder \
+  --format 'table {{.Names}}\t{{.Label "devcontainer.local_folder"}}\t{{.Label "com.docker.compose.service"}}'
+
+# 3. Inside a container, "where am I really?":
+hostname              # container ID prefix
+cat /etc/hostname
+ls /workspace 2>/dev/null && echo "this is the dev container" || echo "this is a sibling"
+```
+
+The `devcontainer.local_folder` label is added by the VS Code Dev Containers extension via a temporary override compose file at attach time, and is stamped only on the service container (`workspace`) — not on `supabase-runner`. Compose also stamps `com.docker.compose.project` and `com.docker.compose.service` on every container it manages, so labels are the durable identity (image + container names can drift across compose v1/v2's `_` vs `-` conventions).
+````
+
 ## Files to NOT copy / NOT modify
 
 - `<lalista>/apps/web/.env.local` — gitignored, project-specific.
