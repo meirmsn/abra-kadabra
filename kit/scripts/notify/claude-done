@@ -14,7 +14,13 @@ DELAY="${CLAUDE_NOTIFY_DELAY:-30}"
 proj=$(jq -r '.name // empty' package.json 2>/dev/null)
 proj=${proj:-$(basename "$PWD")}
 
-[ -f "$PID_FILE" ] && kill "$(cat "$PID_FILE")" 2>/dev/null
+# Kill children first (the prior subshell's `sleep`) so an orphan doesn't
+# survive into the next curl. See claude-cancel for the full rationale.
+if [ -f "$PID_FILE" ]; then
+  _prev=$(cat "$PID_FILE")
+  pkill -P "$_prev" 2>/dev/null
+  kill "$_prev" 2>/dev/null
+fi
 rm -f "$PID_FILE"
 
 (

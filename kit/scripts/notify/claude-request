@@ -16,8 +16,15 @@ DELAY="${CLAUDE_NOTIFY_DELAY:-30}"
 proj=$(jq -r '.name // empty' package.json 2>/dev/null)
 proj=${proj:-$(basename "$PWD")}
 
-# Cancel any prior pending notification
-[ -f "$PID_FILE" ] && kill "$(cat "$PID_FILE")" 2>/dev/null
+# Cancel any prior pending notification. Kill children first (the `sleep`
+# the prior subshell spawned) so the orphaned `sleep` doesn't fire its curl
+# after we've already scheduled a new one. See claude-cancel for the full
+# rationale.
+if [ -f "$PID_FILE" ]; then
+  _prev=$(cat "$PID_FILE")
+  pkill -P "$_prev" 2>/dev/null
+  kill "$_prev" 2>/dev/null
+fi
 rm -f "$PID_FILE"
 
 # Schedule new notification (backgrounded, detached from hook stdio)

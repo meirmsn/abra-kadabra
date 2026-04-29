@@ -5,6 +5,14 @@
 
 set +e
 PID_FILE="${CLAUDE_NOTIFY_PID_FILE:-/tmp/claude-notify-pending.pid}"
-[ -f "$PID_FILE" ] && kill "$(cat "$PID_FILE")" 2>/dev/null
+# Kill the subshell's children (the `sleep` it spawned) BEFORE the subshell
+# itself — bash doesn't propagate SIGTERM to children when the parent is
+# killed, and an orphaned `sleep` survives until $DELAY elapses, racing the
+# next `curl` and breaking idempotency.
+if [ -f "$PID_FILE" ]; then
+  _pid=$(cat "$PID_FILE")
+  pkill -P "$_pid" 2>/dev/null
+  kill "$_pid" 2>/dev/null
+fi
 rm -f "$PID_FILE"
 exit 0

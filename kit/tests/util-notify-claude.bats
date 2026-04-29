@@ -22,6 +22,18 @@ teardown() {
   fi
 }
 
+# Returns 0 if `pid` is gone OR a zombie. Use this instead of `! kill -0` —
+# in containers where PID 1 is a non-init like `sleep infinity` (Option 3
+# devcontainer), orphaned children stay zombie until reaped, and `kill -0`
+# still returns 0 against a zombie. For the cancel/replace tests we just
+# need to confirm the script actually signaled the subshell — Z state is
+# "logically dead" for our purposes.
+_dead_or_zombie() {
+  local pid="$1" state
+  state=$(ps -p "$pid" -o stat= 2>/dev/null | tr -d ' ')
+  [ -z "$state" ] || [[ "$state" == Z* ]]
+}
+
 # --- No-op path (NTFY_URL unset) ---
 
 @test "notify-claude-request: no-op when NTFY_URL unset" {
@@ -83,7 +95,7 @@ teardown() {
   assert_success
   [ ! -f "$CLAUDE_NOTIFY_PID_FILE" ]
   sleep 0.1
-  ! kill -0 "$pid" 2>/dev/null  # process dead
+  _dead_or_zombie "$pid"  # subshell signaled (gone or zombie)
 }
 
 @test "notify-claude-request: replaces prior pending (cancel-then-schedule)" {
@@ -96,8 +108,8 @@ teardown() {
   second_pid=$(cat "$CLAUDE_NOTIFY_PID_FILE")
   [ "$first_pid" != "$second_pid" ]
   sleep 0.1
-  ! kill -0 "$first_pid" 2>/dev/null  # old pending killed
-  kill -0 "$second_pid" 2>/dev/null    # new pending alive
+  _dead_or_zombie "$first_pid"          # old subshell signaled (gone or zombie)
+  kill -0 "$second_pid" 2>/dev/null     # new pending alive
 }
 
 # --- Project label detection ---
