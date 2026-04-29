@@ -83,8 +83,11 @@ git commit
   │       ├─ check-test-coverage.sh ─────── new scripts need tests (devshop only)
   │       └─ commit-guard.sh ──────────── 4 checks (run in this order):
   │           ├─ mixed-commit ───────────── devshop + project files together? block
-  │           ├─ docs-drift ─────────────── any devshop file staged (non-release)? block
-  │           ├─ doc-consistency ────────── one ref doc changed without others? block
+  │           ├─ docs-reviewed ──────────── any devshop file staged (non-release)? adversarial
+  │           │                              review covers per-doc enumeration, cross-file
+  │           │                              coherence, new-capability docs, and rename/move/
+  │           │                              delete drift sweep (merged from former docs-drift
+  │           │                              + doc-consistency 2026-04-27)
   │           └─ release-coverage ───────── kit/version bumped? adversarial agent
   │                                         judges whether changes since last tag
   │                                         need test coverage (one Sonnet call)
