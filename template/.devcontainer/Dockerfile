@@ -69,22 +69,9 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
   && apt-get update && apt-get install -y --no-install-recommends gh \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Docker CLI (no daemon) — talks to the host docker engine via the
-# /var/run/docker.sock bind-mount declared in devcontainer.json. Installing
-# only the client (no docker-ce / dockerd) avoids any nested-daemon weirdness
-# and keeps the image small. Required for `supabase start` to spawn its
-# Postgres / GoTrue / Realtime / Edge Function containers. See devcontainer.json
-# § mounts and /devshop/kit/notes/roadmap/qa-options.md § Q1.
-RUN install -m 0755 -d /etc/apt/keyrings \
-  && curl -fsSL https://download.docker.com/linux/debian/gpg \
-     -o /etc/apt/keyrings/docker.asc \
-  && chmod a+r /etc/apt/keyrings/docker.asc \
-  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(. /etc/os-release && echo \"$VERSION_CODENAME\") stable" \
-     > /etc/apt/sources.list.d/docker.list \
-  && apt-get update \
-  && apt-get install -y --no-install-recommends docker-ce-cli docker-compose-plugin \
-  && apt-get clean && rm -rf /var/lib/apt/lists/* \
-  && groupadd -f docker
+# No docker CLI in the workspace — Option 3 compose isolation puts the
+# docker socket on the supabase-runner sibling service only. Workspace
+# drives supabase commands via `pnpm db:*` → cmd-relay on :9000.
 
 ARG USERNAME=node
 
@@ -133,7 +120,7 @@ RUN ARCH=$(dpkg --print-architecture) && \
 # DCG (Destructive Command Guard) — PreToolUse safety hook for Claude Code
 # Blocks git reset --hard, force push, rm -rf outside /tmp, DROP TABLE, and 49+ other
 # destructive patterns including heredoc/inline-script scanning. Fail-open design.
-RUN ARCH=$(dpkg --print-architecture | sed 's/amd64/x86_64/;s/arm64/aarch64/') && \
+RUN ARCH=$(dpkg --print-architecture) && \
   FILE="dcg-${ARCH}-unknown-linux-gnu.tar.xz" && \
   wget -q "https://github.com/Dicklesworthstone/destructive_command_guard/releases/download/v${DCG_VERSION}/${FILE}" && \
   grep "dcg/${FILE}" /checksums.sha256 | sed 's|dcg/||' | sha256sum -c - && \
@@ -161,12 +148,8 @@ RUN chmod +x /usr/local/bin/init-devshop.sh && \
   echo "node ALL=(root) NOPASSWD: /usr/local/bin/init-devshop.sh" >> /etc/sudoers.d/node-firewall && \
   chmod 0440 /etc/sudoers.d/node-firewall
 
-# Docker-socket gid alignment — runs at container start. Without it the node
-# user cannot talk to the host docker engine via the bind-mounted socket.
-COPY init-docker-socket.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/init-docker-socket.sh && \
-  echo "node ALL=(root) NOPASSWD: /usr/local/bin/init-docker-socket.sh" >> /etc/sudoers.d/node-firewall && \
-  chmod 0440 /etc/sudoers.d/node-firewall
+# No init-docker-socket.sh under Option 3 — the workspace has no docker
+# socket to align (the docker socket lives on supabase-runner only).
 
 # Remove blanket sudo — base image (common-utils) grants NOPASSWD:ALL by default. Only the firewall script should run as root (see node-firewall sudoers entry above).
 RUN rm -f /etc/sudoers.d/node

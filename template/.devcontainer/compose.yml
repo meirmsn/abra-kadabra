@@ -1,0 +1,128 @@
+# What: Two-container compose for Option 3 (compose isolation).
+# Why:  workspace (dev container) has no docker access; supabase-runner
+#       holds the docker socket and runs the local Supabase stack as a
+#       sibling-container fan-out. RPC relay on :9000 lets the workspace
+#       drive supabase commands without needing the socket.
+#
+# Required env at compose-up time:
+#   LOCAL_WORKSPACE_FOLDER  host-side absolute path to the project root
+#       (i.e. the parent of this .devcontainer/ dir). Auto-written into
+#       .devcontainer/.env by .devcontainer/init-host-env.sh, which the
+#       VS Code Dev Containers extension runs before compose-up via the
+#       initializeCommand in devcontainer.json. For manual `docker
+#       compose up` runs from a host terminal, run init-host-env.sh
+#       once first or `export LOCAL_WORKSPACE_FOLDER=$(pwd)`.
+#
+# Why the runner uses a host-path-mirrored bind:
+#   `supabase start` (inside the runner) tells the HOST docker engine to
+#   bind-mount the function source into a sibling edge-runtime container.
+#   The host engine resolves the bind path on its OWN filesystem, not the
+#   runner's. So the runner's source path MUST equal the host path. The
+#   ${LOCAL_WORKSPACE_FOLDER}/supabase:${LOCAL_WORKSPACE_FOLDER}/supabase
+#   shape produces that mirroring. Without it, the function container
+#   start fails with "no such file or directory" on the bind path.
+#
+# Why supabase-runner does NOT forward 54321 / 54322 to the host:
+#   `supabase start` spawns sibling containers (supabase_kong_*,
+#   supabase_db_*, ...) on the HOST docker engine — outside this compose
+#   project. Those siblings bind 54321 (REST/kong) and 54322 (Postgres)
+#   to the host themselves. If supabase-runner ALSO declared
+#   `ports: ["54321:54321"]`, the host port allocation conflicts and
+#   `supabase start` fails with "Bind for 0.0.0.0:54322 failed: port is
+#   already allocated". Workspace + macOS browser reach the supabase
+#   data plane via http://host.docker.internal:54321 (Docker Desktop
+#   maps host.docker.internal to the host gateway from any container,
+#   and the operator adds `127.0.0.1 host.docker.internal` to macOS
+#   /etc/hosts so the browser resolves it too — see template README §
+#   Operator setup, and project CLAUDE.md § Gotchas after scaffold).
+#   Only port 9000 (the cmd-relay) belongs to this compose project, and
+#   it stays as compose-internal (workspace reaches it via DNS as
+#   `supabase-runner:9000`); no host forwarding is needed.
+#
+# Why the runner's `command` runs socat tunnels first:
+#   `supabase start` (inside the runner) hardcodes `127.0.0.1` for its
+#   own healthcheck connections to the spawned db / kong containers,
+#   but those containers are siblings on the HOST docker engine — their
+#   ports are bound to the host, NOT to the runner's loopback. Without
+#   forwarding, the healthcheck fails with "dial tcp 127.0.0.1:54322:
+#   connect: connection refused" and supabase tears the stack down.
+#   The two `socat` lines forward 127.0.0.1:54321 / :54322 inside the
+#   runner to host.docker.internal:54321 / :54322 (where the spawned
+#   siblings' host-bound ports actually live). socat's lazy-connect
+#   behavior + supabase's healthcheck retry loop handle the brief
+#   window where the spawned db isn't yet up — by the time supabase's
+#   second healthcheck attempt runs, db is listening and the forward
+#   succeeds. socat keeps running for the lifetime of the runner so
+#   later `pnpm db:reset` etc. (issued via the relay) hit healthy
+#   forwards too.
+#
+# Does NOT persist supabase stack data — the spawned supabase_* sibling
+# containers manage their own volumes on the host docker engine. A
+# `docker compose down -v` here only removes this compose's volumes
+# (none currently); reset the supabase stack with `curl -X POST
+# http://supabase-runner:9000/stop` first if needed.
+
+services:
+  workspace:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        TZ: ${TZ:-America/Los_Angeles}
+        CLAUDE_CODE_VERSION: latest
+        GIT_DELTA_VERSION: 0.19.2
+        SUPABASE_CLI_VERSION: 2.84.2
+        DCG_VERSION: 0.4.0
+        GITLEAKS_VERSION: 8.30.1
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    env_file:
+      - .env
+    environment:
+      # Auto-set by compose so workspace processes (integration tests,
+      # ad-hoc supabase-js scripts, seed scripts) reach the local stack
+      # without a manual env prefix. Local-stack JWTs are the published
+      # supabase-demo defaults (same string across every Supabase install)
+      # — safe to commit. Prod values live on a separate surface (Vercel
+      # for NEXT_PUBLIC_*, never on this devcontainer's local-dev surface).
+      SUPABASE_URL: http://host.docker.internal:54321
+      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+      SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+      CONTAINER: '1'
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    volumes:
+      - ..:/workspace:cached
+    networks:
+      - supabase-net
+    depends_on:
+      - supabase-runner
+    command: ['sleep', 'infinity']
+
+  supabase-runner:
+    build:
+      context: ./supabase-runner
+      dockerfile: Dockerfile
+      args:
+        SUPABASE_CLI_VERSION: 2.84.2
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    volumes:
+      - ${LOCAL_WORKSPACE_FOLDER}/supabase:${LOCAL_WORKSPACE_FOLDER}/supabase
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - supabase-net
+    working_dir: ${LOCAL_WORKSPACE_FOLDER}/supabase
+    command:
+      - sh
+      - -c
+      - |
+        socat -d TCP-LISTEN:54321,fork,reuseaddr,bind=127.0.0.1 TCP:host.docker.internal:54321 &
+        socat -d TCP-LISTEN:54322,fork,reuseaddr,bind=127.0.0.1 TCP:host.docker.internal:54322 &
+        sleep 0.5
+        supabase start
+        exec /usr/local/bin/cmd-relay.mjs
+
+networks:
+  supabase-net:

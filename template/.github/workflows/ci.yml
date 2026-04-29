@@ -26,7 +26,12 @@ jobs:
 
       - name: gitleaks
         run: |
-          GITLEAKS_VERSION=$(grep GITLEAKS_VERSION .devcontainer/devcontainer.json | head -1 | sed 's/.*: "//;s/".*//')
+          # GITLEAKS_VERSION source-of-truth lives in .devcontainer/compose.yml
+          # (YAML, unquoted) under the workspace service's `args:` block. The
+          # sed strips both the `KEY: ` prefix and any quoting / whitespace so
+          # this works regardless of the YAML quoting style.
+          GITLEAKS_VERSION=$(grep 'GITLEAKS_VERSION:' .devcontainer/compose.yml | head -1 | sed 's/.*: //;s/[" ]//g')
+          if [ -z "$GITLEAKS_VERSION" ]; then echo "ERROR: GITLEAKS_VERSION not found in .devcontainer/compose.yml"; exit 1; fi
           wget -q "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -O /tmp/gitleaks.tar.gz
           tar xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
           /tmp/gitleaks detect --source . --redact --log-opts="${{ github.event.pull_request.base.sha || 'HEAD~1' }}..HEAD"
@@ -61,7 +66,7 @@ jobs:
   # from the local stack.
   #
   # IMPORTANT — supabase_edge_runtime startup flake retry (codified from
-  # lalista PR 26 incident, 2026-04-26): the `supabase_edge_runtime_workspace`
+  # lalista PR 26 incident, 2026-04-26): the `supabase_edge_runtime_*`
   # container occasionally fails health-check on cold start in GH-Actions
   # runners (visible as "Error status 502" in startup logs). When this
   # happens, every test that calls an edge function fails with "Couldn't

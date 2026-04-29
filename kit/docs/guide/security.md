@@ -39,6 +39,19 @@ The `**` recursive glob is load-bearing — single-segment `*` would not match `
 
 Edge functions always validate auth server-side — `getUser()` to verify against auth server, even with gateway JWT verification.
 
+## Local Supabase Isolation (devcontainer)
+
+Projects that run a local Supabase stack pick a reachability shape at scaffold time via `/ak-new-project § Step 2b`. The **template default is Option 3 (compose isolation)** — workspace dev container has no docker socket or docker CLI; a sibling `supabase-runner` compose service holds the socket and runs `supabase start` against the host engine. A compromised devtool / npm transitive dep in the workspace cannot spawn `docker run -v /Users:/h alpine` to read the macOS home via Docker Desktop's File Sharing, even though the host has File Sharing enabled.
+
+Two other shapes are available per-project:
+
+- **Option 1** (supabase CLI on macOS host, `brew install`) — equivalent isolation; threat-model's preferred default for operators with multiple `~/dev/` project families.
+- **Skip** — no local Supabase stack; integration tests run CI-only.
+
+Option 2 (host docker socket bind-mount, single container) was an earlier shape — not offered to new projects because workspace docker access defeats the macOS-home blast-radius isolation that motivated Option 3.
+
+Threat-model + decision matrix: [`/devshop/kit/notes/security/local-supabase-isolation-options.md`](../../notes/security/local-supabase-isolation-options.md). Operational guide for Option 3: [`local-supabase-compose-isolation.md`](./local-supabase-compose-isolation.md).
+
 ## Secrets in CI
 
 Wired into `ci.yml` in the same PR as the integration — never a follow-up.

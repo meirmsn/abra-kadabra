@@ -71,21 +71,27 @@ done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]' | aggregate -q)
 #   "<ref>.supabase.co"                — your Supabase project URL
 #   "o<org-id>.ingest.sentry.io"       — your Sentry ingest endpoint
 #   "us.i.posthog.com"                 — PostHog ingest (us or eu)
-#   "ghcr.io"                          — GitHub Container Registry (supabase start)
-#   "registry-1.docker.io"             — Docker Hub
-#   "auth.docker.io"                   — Docker Hub auth
-#   "production.cloudflare.docker.com" — Docker Hub CDN
 #
-# Note on Supabase egress (deliberately omitted):
+# Note on Supabase egress (deliberately omitted under Option 3 compose
+# isolation):
 # `api.supabase.com` (control plane) and `aws-0-us-west-2.pooler.supabase.com`
-# (connection pooler) are NOT in this allowlist. Migrations + functions deploy
-# from CI on push-to-main (see .github/workflows/deploy-{migrations,functions}.yml),
-# never from the dev devcontainer. The local stack (`supabase start` via the host
-# docker socket bind-mount) talks to localhost only — no firewall hole needed.
-# A project's `<ref>.supabase.co` data-plane URL is added by /ak-new-project as
-# part of the project-specific block above (anon-key data-plane only — never
-# the service-role JWT). Removing the control-plane + pooler entries shrinks
-# the dev-side prod blast radius. See /devshop/kit/notes/roadmap/qa-options.md.
+# (connection pooler) are NOT in this allowlist. Migrations + functions
+# deploy from CI on push-to-main (see .github/workflows/deploy-{migrations,
+# functions}.yml), never from this devcontainer. The local stack runs in
+# the sibling `supabase-runner` compose service; the workspace reaches the
+# data plane via host.docker.internal:54321 (REST) / :54322 (Postgres) —
+# explicitly allowed by the host-gateway rule below — and reaches the
+# cmd-relay via `supabase-runner:9000` over the compose-internal
+# `supabase-net` bridge (allowed by the HOST_NETWORK ACCEPT rule). The
+# project's `<ref>.supabase.co` data-plane URL stays in the allowlist
+# (anon-key data-plane only — never the service-role JWT). Removing the
+# control-plane + pooler entries shrinks the dev-side prod blast radius.
+# See /devshop/kit/notes/security/local-supabase-isolation-options.md.
+#
+# Also no `download.docker.com` / `registry-1.docker.io` / `auth.docker.io`
+# / `production.cloudflare.docker.com` — Option 3's workspace has no docker
+# CLI install, so it never fetches Docker tooling at build or runtime. The
+# supabase-runner sibling does, but it doesn't run this firewall script.
 for domain in \
     "registry.npmjs.org" \
     "deb.debian.org" \
@@ -105,7 +111,6 @@ for domain in \
     "fonts.googleapis.com" \
     "fonts.gstatic.com" \
     "ntfy.sh" \
-    "download.docker.com" \
     ; do
     echo "Resolving $domain..."
     ips=$(dig +noall +answer A "$domain" | awk '$4 == "A" {print $5}')
@@ -154,6 +159,32 @@ echo "Host network detected as: $HOST_NETWORK"
 # Set up remaining iptables rules
 iptables -A INPUT -s "$HOST_NETWORK" -j ACCEPT
 iptables -A OUTPUT -d "$HOST_NETWORK" -j ACCEPT
+
+# Allow workspace → host.docker.internal on supabase data-plane ports.
+# Under Option 3 compose isolation, supabase's spawned sibling containers
+# (supabase_kong_*, supabase_db_*) bind host ports 54321 (REST/kong) +
+# 54322 (Postgres) directly. Workspace reaches them via
+# host.docker.internal which Docker Desktop maps to the host gateway.
+# Without this rule the default DROP policy below would block the
+# connection, since host.docker.internal's IP is outside HOST_NETWORK.
+#
+# Use `getent ahostsv4` (NOT `getent hosts`) — Docker Desktop's
+# host.docker.internal can resolve to either an IPv4 or IPv6 address
+# depending on Docker Desktop version + macOS Docker network settings,
+# and the choice may flip across Docker Desktop restarts. iptables here
+# is IPv4-only (ip6tables would be a separate rule set), so passing it
+# an IPv6 address fails with "host/network not found" and the script
+# aborts. ahostsv4 explicitly returns the IPv4 form, which is also the
+# one that actually works for our case (supabase's spawned siblings bind
+# 0.0.0.0:54321 + 0.0.0.0:54322 IPv4 host ports).
+HOST_DOCKER_INTERNAL=$(getent ahostsv4 host.docker.internal 2>/dev/null | awk '{print $1}' | head -1)
+if [ -n "$HOST_DOCKER_INTERNAL" ]; then
+    echo "Allowing host.docker.internal ($HOST_DOCKER_INTERNAL) on supabase ports 54321 + 54322"
+    iptables -A OUTPUT -d "$HOST_DOCKER_INTERNAL" -p tcp --dport 54321 -j ACCEPT
+    iptables -A OUTPUT -d "$HOST_DOCKER_INTERNAL" -p tcp --dport 54322 -j ACCEPT
+else
+    echo "warn: host.docker.internal did not resolve to IPv4; supabase reachability from workspace will fail"
+fi
 
 # Set default policies to DROP first
 iptables -P INPUT DROP

@@ -1,28 +1,23 @@
 {
   "name": "MyProject",
-  "build": {
-    "dockerfile": "Dockerfile",
-    "args": {
-      "TZ": "${localEnv:TZ:America/Los_Angeles}",
-      "CLAUDE_CODE_VERSION": "latest",
-      "GIT_DELTA_VERSION": "0.19.2",
-      "SUPABASE_CLI_VERSION": "2.84.2",
-      "DCG_VERSION": "0.4.0",
-      "GITLEAKS_VERSION": "8.30.1"
-    }
-  },
-  "runArgs": [
-    "--cap-add=NET_ADMIN",
-    "--cap-add=NET_RAW",
-    // Pipe project-runtime env vars from .devcontainer/.env into the container
-    // (Supabase / Vercel tokens, optional ANTHROPIC_API_KEY_QA for projects whose
-    // edge functions call Claude, etc.). Project-runtime ONLY — prod keys
-    // (ANTHROPIC_API_KEY_PROD, prod service-role JWT) must never appear in
-    // this file. See README.md § Getting started + your project's
-    // /ak-new-project § Security Posture.
-    "--env-file",
-    "${localWorkspaceFolder}/.devcontainer/.env"
-    // Here you can add "--memory=8g", "--cpus=4" for CPU/RAM limits for the container itself
+  // Two-container compose isolation (Option 3). The workspace service
+  // here has no docker access; the supabase-runner sibling holds the
+  // docker socket and runs `supabase start` against the host engine.
+  // See compose.yml comment block for the full architecture rationale,
+  // and /devshop/kit/notes/security/local-supabase-isolation-options.md
+  // for the threat model + decision matrix that motivated the swap.
+  "dockerComposeFile": "compose.yml",
+  "service": "workspace",
+  "workspaceFolder": "/workspace",
+  // Runs on the HOST before compose-up. Writes LOCAL_WORKSPACE_FOLDER
+  // into .devcontainer/.env so compose can interpolate the supabase-
+  // runner's host-path-mirrored bind. See init-host-env.sh for full
+  // rationale; without this, compose-up fails with "path /supabase is
+  // not shared from the host" because the bind interpolates to empty.
+  "initializeCommand": [
+    "bash",
+    "${localWorkspaceFolder}/.devcontainer/init-host-env.sh",
+    "${localWorkspaceFolder}"
   ],
   "customizations": {
     "vscode": {
@@ -55,24 +50,16 @@
     }
   },
   "remoteUser": "node",
+  // mounts here are additive to volumes declared on the workspace service
+  // in compose.yml. Keep entries that need devcontainer-style interpolation
+  // (${devcontainerId}, ${localWorkspaceFolder}) here; everything else
+  // belongs in compose.yml.
   "mounts": [
     // Shell history survives container rebuilds (zsh/bash)
     "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
     // Claude Code config, sessions, and API key survive container rebuilds
     "source=claude-code-config-${devcontainerId},target=/home/node/.claude,type=volume",
-    "source=${localWorkspaceFolder}/../abra-kadabra,target=/devshop,type=bind,consistency=delegated",
-    // Host docker socket — lets `supabase start` (which spawns its own
-    // Postgres + GoTrue + Realtime + Edge Function containers) work from
-    // inside this devcontainer. Why not the docker-in-docker feature: DiD
-    // requires --privileged to actually function, otherwise the embedded
-    // dockerd never starts and `docker info` reports "unavailable", which
-    // historically silently routed /ak-pre-ship Gate 9 to admin-API-against-
-    // hosted (i.e. polluting prod). Sharing the host socket is lighter and
-    // works without --privileged. Containers that supabase spawns are
-    // siblings of this devcontainer on the host engine, not nested.
-    // The Dockerfile installs the docker CLI; the daemon is the host's.
-    // See /devshop/kit/notes/roadmap/qa-options.md § Q1 option 1.
-    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
+    "source=${localWorkspaceFolder}/../abra-kadabra,target=/devshop,type=bind,consistency=delegated"
   ],
   "containerEnv": {
     // Heap size of node. Increased to handle claude code projects
@@ -85,12 +72,11 @@
     // Tell Playwright to use the apt-installed Chromium (see Dockerfile chromium block) instead of trying to download one from its CDN. Eliminates the firewall-stale-ipset problem entirely (DNS rotates faster than init-firewall.sh re-resolves).
     "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH": "/usr/bin/chromium"
   },
-  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
-  "workspaceFolder": "/workspace",
   // Onboarding skipped since it hangs, plus not needed! (saves time by not having to go through it every time you start the container) - Happened when using Anthropic API Key
   "postCreateCommand": "echo '{\"hasCompletedOnboarding\": true}' > ~/.claude.json && pnpm install",
-  // Configure git to use GITHUB_TOKEN via gh (skipped if token missing) - prevents having to sign in to github on container restart
-  // init-docker-socket.sh aligns the in-container docker group's GID with the host socket's GID so `docker info` works without sudo.
-  "postStartCommand": "sudo /usr/local/bin/init-firewall.sh && sudo /usr/local/bin/init-devshop.sh && sudo /usr/local/bin/init-docker-socket.sh && ([ -n \"$GITHUB_TOKEN\" ] && gh auth setup-git || true)",
+  // Configure git to use GITHUB_TOKEN via gh (skipped if token missing) - prevents having to sign in to github on container restart.
+  // No init-docker-socket.sh under Option 3 — the workspace has no docker
+  // socket to align (the docker socket lives on supabase-runner only).
+  "postStartCommand": "sudo /usr/local/bin/init-firewall.sh && sudo /usr/local/bin/init-devshop.sh && ([ -n \"$GITHUB_TOKEN\" ] && gh auth setup-git || true)",
   "waitFor": "postStartCommand"
 }

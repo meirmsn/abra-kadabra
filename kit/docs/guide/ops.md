@@ -119,35 +119,47 @@ Each framework requires a specific prefix for client-accessible vars. GH and Ver
 
 ## Local Development
 
-### With Docker-in-Docker (16GB+ RAM)
+The template ships **Option 3 (compose isolation) by default** — workspace dev container has no docker socket; the sibling `supabase-runner` compose service holds the socket and runs `supabase start` against the host engine. `/ak-new-project` Step 2b lets the operator pick a different local-supabase reachability shape per project. Architecture + lifecycle table + smoke tests + debugging tree: [`local-supabase-compose-isolation.md`](./local-supabase-compose-isolation.md). Threat model + decision matrix: [`/devshop/kit/notes/security/local-supabase-isolation-options.md`](../../notes/security/local-supabase-isolation-options.md).
 
-Full local stack: `supabase start` provides local Postgres, Auth, Realtime, etc. Run integration tests locally.
+### Option 3 (compose isolation, default)
+
+Workspace + supabase-runner sibling. The workspace drives the local stack via `pnpm db:*` wrappers that call the runner's whitelisted RPC relay on `supabase-runner:9000`:
 
 ```bash
 pnpm turbo run dev          # start Next.js dev server
-supabase start              # local Supabase (needs DinD)
-pnpm turbo run test         # full suite (unit + integration)
+pnpm db:start               # spawn local Supabase via runner relay
+pnpm db:status              # local API URL + anon/service-role keys
+pnpm test:integration       # integration tests against the running local stack
+pnpm db:stop                # tear down (host docker engine reclaims sibling container resources)
 ```
 
-### Without Docker-in-Docker (< 16GB RAM or DinD unavailable)
+`SUPABASE_URL` + `SUPABASE_ANON_KEY` + `SUPABASE_SERVICE_ROLE_KEY` are auto-set on every workspace start by `compose.yml` (env-block on the workspace service), pointing at `host.docker.internal:54321` + the published local-stack default JWTs — so vitest / supabase-js scripts / integration tests work without any manual env-prefix.
 
-First-class workflow, not a degraded experience. Unit tests cover business logic; integration tests run in CI.
+### Option 1 (supabase CLI on macOS host)
 
-```bash
-pnpm turbo run dev          # start Next.js dev server (uses remote Supabase)
-pnpm turbo run test:unit    # fast inner loop — no DB needed
-```
-
-Integration tests (`*.integration.test.ts`) run in CI's slow job against a real Supabase instance. Push a PR to run them.
-
-### Local Supabase — manual workflow for QA / ad-hoc testing
-
-`/ak-pre-ship` Phase 0 automates this via `preship/supabase-bootstrap.sh` (Fix A) when Docker-in-Docker is available. For manual use outside pre-ship, or when DinD is inert:
+Workspace has no docker access; supabase runs natively on macOS. `pnpm db:*` scripts don't apply (relay isn't installed under this option). From a macOS host terminal:
 
 ```bash
 supabase start     # starts Postgres, Auth, Realtime containers (~45s first time)
-supabase status    # prints local API URL + anon key
+supabase status    # local API URL + anon key
 ```
+
+Workspace processes reach the host stack via `host.docker.internal:54321`. Same `/etc/hosts` entry applies as for Option 3.
+
+### Skip — no local Supabase
+
+Integration tests (`*.integration.test.ts`) run in CI's slow job only. Local feedback is unit tests:
+
+```bash
+pnpm turbo run dev          # start Next.js dev server (dials Vercel-piped prod for SSR data)
+pnpm turbo run test:unit    # fast inner loop — no DB needed
+```
+
+Push a PR to run integration tests in CI.
+
+### Local Supabase — manual ad-hoc QA flow
+
+`/ak-pre-ship` Phase 0 automates the bring-up via `preship/supabase-bootstrap.sh`. For manual use outside pre-ship — under Option 3, the bootstrap script issues `pnpm db:start` (relay) instead of `supabase start` directly. Under Option 1 you run `supabase start` from a host terminal. Either way the data plane lands on `http://host.docker.internal:54321` (Option 3) or `http://localhost:54321` (Option 1, host-side).
 
 Temporarily point `apps/web/.env.local` at local (back up the hosted values first — the file is gitignored either way):
 
@@ -217,13 +229,20 @@ The dev container is defined in `.devcontainer/` and requires:
 
 The container runs as the `node` user (non-root). On every start, `init-firewall.sh` runs with sudo to lock down outbound network access before VS Code connects. The firewall uses `iptables` + `ipset` to allowlist outbound traffic — everything else is rejected.
 
-### Docker socket bind-mount (host engine, not docker-in-docker)
+### Compose isolation — workspace + supabase-runner sibling (Option 3)
 
-The dev container talks to the host's docker daemon via a `/var/run/docker.sock` bind-mount declared in `devcontainer.json § mounts`. The container ships only the docker CLI (no daemon) and an `init-docker-socket.sh` postStart script that aligns the in-container `docker` group's GID with the host socket's GID and adds `node` to that group.
+The template default is two-container compose isolation. The workspace dev container has NO docker access (no socket bind-mount, no docker CLI installed). A sibling `supabase-runner` compose service holds `/var/run/docker.sock` and runs `supabase start` against the host engine; the spawned supabase containers (`supabase_db_<project>`, `supabase_kong_<project>`, …) are siblings of the runner on the HOST docker engine, NOT nested. The runner exposes a whitelisted RPC relay on `:9000` so the workspace can drive supabase lifecycle commands (`start`, `stop`, `status`, `db reset`, `gen types`) without docker access. `pnpm db:*` scripts curl the relay.
 
-This replaces the previous `docker-in-docker` feature, which was inert without `--privileged` and silently routed `/ak-pre-ship` Gate 9 to admin-API-against-hosted-prod. With the bind-mount, `supabase start` runs against the host docker engine — `kit/scripts/preship/supabase-bootstrap.sh up` reports `blocked` (refusing the hosted fallback) when the socket isn't reachable. See `kit/notes/roadmap/qa-options.md § Q1` for the full options matrix.
+The workspace + macOS browser reach the supabase data plane via `host.docker.internal:54321 / :54322` (Docker Desktop maps `host.docker.internal` to the host gateway from any container; the operator adds `127.0.0.1 host.docker.internal` to `/etc/hosts` so the browser resolves it too). `init-firewall.sh` includes the host.docker.internal allow rule using `getent ahostsv4` to force IPv4 (iptables is IPv4-only; Docker Desktop's resolution can flip to IPv6 between restarts).
 
-If `docker info` fails after a devcontainer rebuild, check that `/var/run/docker.sock` is mounted (`ls -la /var/run/docker.sock`) and that `id -nG node | grep docker` lists the docker group; `init-docker-socket.sh` is idempotent and re-running it (`sudo /usr/local/bin/init-docker-socket.sh`) realigns the GID if the host's docker group changed.
+Earlier devshop generations shipped two precursor shapes that are no longer offered (both rejected because the workspace had docker access, which broke the macOS-home blast-radius isolation):
+
+- **Option 2 (host docker socket bind-mount, single container)** — devcontainer held `/var/run/docker.sock`, container shipped docker CLI + `init-docker-socket.sh` postStart script that aligned the in-container `docker` group's GID with the host socket's GID.
+- **`docker-in-docker:2` feature** — inert without `--privileged`, silently routed `/ak-pre-ship` Gate 9 to admin-API-against-hosted-prod.
+
+Both have been superseded; Option 3 is the default and Option 1 is the alternative for operators who prefer host-side supabase tooling. `/ak-new-project § Step 2b` lets a project pick Option 1 (host CLI), Option 3 (default), or skip (no local stack). Architecture + decision matrix: [`local-supabase-compose-isolation.md`](./local-supabase-compose-isolation.md) + [`/devshop/kit/notes/security/local-supabase-isolation-options.md`](../../notes/security/local-supabase-isolation-options.md). `kit/scripts/preship/supabase-bootstrap.sh up` reports `blocked` (refusing the hosted fallback) when the local stack isn't reachable.
+
+Debugging Option 3 ("which container am I in", "is the relay reachable", "did supabase start fail"): see [`local-supabase-compose-isolation.md § Debugging tree`](./local-supabase-compose-isolation.md).
 
 ---
 

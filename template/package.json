@@ -9,6 +9,11 @@
     "test:unit": "turbo run test:unit",
     "build": "turbo run build",
     "dev": "turbo run dev",
+    "db:start": "curl -fsS -X POST http://supabase-runner:9000/start",
+    "db:stop": "curl -fsS -X POST http://supabase-runner:9000/stop",
+    "db:reset": "curl -fsS -X POST http://supabase-runner:9000/db-reset",
+    "db:status": "curl -fsS http://supabase-runner:9000/status",
+    "db:gen-types": "curl -fsS http://supabase-runner:9000/gen-types -o packages/core/src/supabase.types.ts",
     "prepare": "husky"
   },
   "devDependencies": {
