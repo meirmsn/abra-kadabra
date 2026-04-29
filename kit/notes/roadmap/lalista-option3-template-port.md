@@ -86,6 +86,91 @@ ls /workspace 2>/dev/null && echo "this is the dev container" || echo "this is a
 The `devcontainer.local_folder` label is added by the VS Code Dev Containers extension via a temporary override compose file at attach time, and is stamped only on the service container (`workspace`) — not on `supabase-runner`. Compose also stamps `com.docker.compose.project` and `com.docker.compose.service` on every container it manages, so labels are the durable identity (image + container names can drift across compose v1/v2's `_` vs `-` conventions).
 ````
 
+### Security note: the runner has exactly one control surface from the workspace
+
+Folds into the template's `.devcontainer/README.md § Threat model` section (or merges into `kit/docs/guide/local-supabase-compose-isolation.md` alongside its threat-model paragraph). Captures a verification audit run in lalista PR 34's post-merge workspace — useful as a doc, more useful as a checklist for any future "could a compromised devtool / npm dep escalate?" review.
+
+````md
+### Can a compromised process inside `workspace` reach `supabase-runner`?
+
+Only via the cmd-relay on `:9000`. Verified by port probe from the workspace container:
+
+```
+port 22  (ssh)         → refused
+port 23  (telnet)      → refused
+port 80  / 443         → refused
+port 2375 / 2376       → refused (docker daemon, never exposed)
+port 5000              → refused
+port 9000 (cmd-relay)  → 403 on /, accepts only whitelisted endpoints
+port 54321 (REST)      → refused
+port 54322 (Postgres)  → refused
+```
+
+`54321` / `54322` are bound on the **host** by spawned-sibling containers (`supabase_kong_workspace`, `supabase_db_workspace`), not by the runner itself — workspace reaches the data plane via `host.docker.internal`, not via the runner's compose-network IP. So the runner's only listener that's reachable from workspace is the relay.
+
+#### Relay shape
+
+47-line node script (`.devcontainer/supabase-runner/cmd-relay.mjs`). The full handler:
+
+```js
+const ALLOWED = {
+  'db-reset': ['supabase', 'db', 'reset'],
+  status: ['supabase', 'status'],
+  start: ['supabase', 'start'],
+  stop: ['supabase', 'stop'],
+  'gen-types': ['supabase', 'gen', 'types', 'typescript', '--local'],
+};
+
+createServer((req, res) => {
+  const key = req.url.replace(/^\//, '').split('?')[0];
+  const cmd = ALLOWED[key];
+  if (!cmd) {
+    res.writeHead(403);
+    res.end(`blocked: ${key}\n`);
+    return;
+  }
+  const p = spawn(cmd[0], cmd.slice(1));
+  // ... buffer stdout, map exit code to HTTP 200/500 ...
+}).listen(9000, '0.0.0.0');
+```
+
+The URL path becomes a lookup key against a literal `ALLOWED` map. **Nothing from the request body, headers, or query string is ever passed to `spawn`.** The argv arrays are hardcoded in source; there's no `sh -c`, no shell expansion, no string interpolation. Adding a command means editing the source + rebuilding the runner image — out-of-band of any RPC.
+
+#### Attack surface walkthrough
+
+| Vector                                          | Reachable?           | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ----------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| SSH / direct shell into the runner              | no                   | No sshd, no other listener on the runner.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Docker exec into the runner                     | no                   | Workspace has no docker socket and no docker CLI (`/var/run/docker.sock` not bind-mounted into workspace; the runner's `volumes:` block is the only one that mounts it).                                                                                                                                                                                                                                                                                                                                                 |
+| Command injection via the relay                 | no                   | Relay only reads the URL **path** as an `ALLOWED`-map lookup key; nothing else is parsed. spawn args are literal.                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Privilege escalation via the 5 whitelisted cmds | no                   | All five are `supabase <subcommand>`. `supabase` doesn't shell out to user-controlled args; no arbitrary-exec subcommand exists.                                                                                                                                                                                                                                                                                                                                                                                         |
+| Indirect: write malicious migration → db-reset  | bounded              | A compromised process in workspace **can** write `supabase/migrations/0XX_evil.sql` (the workspace bind includes `supabase/`) and then `curl supabase-runner:9000/db-reset` to apply it. But the migration runs on the **`supabase_db_workspace` postgres container** (yet another sibling), not on the runner. That container has no docker socket mounted, no shared host paths beyond its own volume. Worst-case escalation: trash the local DB. Cannot reach the runner, the docker socket, the host, or production. |
+| Reach prod via the local stack                  | no                   | Local supabase keys are hardcoded supabase-local defaults (well-known JWTs); prod uses a separate project with separate keys. No shared network path. Vercel envs / GH Secrets are the prod surface and don't pass through the local stack.                                                                                                                                                                                                                                                                              |
+| Read macOS home via Docker Desktop File Sharing | no (Option 3's goal) | The threat model that motivated Option 3. Workspace has no docker socket, so `docker run -v /Users:/h alpine cat /Users/.../id_rsa` is impossible. Even with full control of the runner, the runner's host bind is narrow (`<host>/supabase` only, not `/Users` or `~`).                                                                                                                                                                                                                                                 |
+
+#### Net
+
+The runner has exactly one control surface from the workspace. The surface accepts 5 fixed verbs. Even the indirect "compromised migration applied via db-reset" path is firewalled to the postgres container's blast radius, which itself has no escalation path to the host. The threat model that motivated Option 3 stays intact.
+
+#### Re-verification commands
+
+When this checklist needs an update (new compose file, relay change, supabase CLI subcommand added):
+
+```sh
+# From inside workspace — repro the port probe:
+for port in 22 80 443 2375 2376 5000 9000 54321 54322; do
+  curl -sS -m 2 -o /dev/null -w "port $port: %{http_code}\n" "http://supabase-runner:$port" || echo "port $port: refused"
+done
+
+# Confirm workspace has no docker:
+ls /var/run/docker.sock 2>&1                # ENOENT expected
+command -v docker || echo "(no binary)"      # not in PATH
+
+# Audit the relay's allowlist against current source:
+sed -n '/const ALLOWED/,/};/p' /workspace/.devcontainer/supabase-runner/cmd-relay.mjs
+```
+````
+
 ## Files to NOT copy / NOT modify
 
 - `<lalista>/apps/web/.env.local` — gitignored, project-specific.
