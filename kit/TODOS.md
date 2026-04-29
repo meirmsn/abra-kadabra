@@ -13,7 +13,9 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
 - [x] **Bun test for `gstack/browse/src/cli.ts`'s server-resolution path.** Cluster 1 (shipped 2026-04-27) added structural fallback in `cli.ts`: `resolveServerScript` returns `null` instead of throwing when src isn't shipped, plus a `USE_NODE_SERVER` env-var fallback for Linux/macOS that switches the launch path from Bun-compiled binary to bundled `server-node.mjs` (Node). Surfaced 2026-04-27 by `release-coverage` adversarial review of v1.22.0 — no `test/cli.test.ts` exists despite the substantive behavioral change. **Closed 2026-04-27**: shipped at `.claude/skills/gstack/browse/test/cli.test.ts` (11 tests covering all three required cases: `resolveServerScript` null-when-absent + path-when-present, `resolveNodeServerScript` bundled-mjs lookup, and `USE_NODE_SERVER` launch-path flip contract). [v0, surfaced-by v1.22.0-release-coverage-review, 2026-04-27, closed 2026-04-27]
 
-- [ ] **Pre-ship gate: RLS coverage check.** When the diff adds a new `.from('<table>').insert(...)` / `.update(...)` / `.delete(...)` call in `supabase/functions/**` or `packages/core/src/api/**`, fail the gate unless `supabase/migrations/*.sql` contains a corresponding `policy "..." on <table> for insert|update|delete to <role>` for the role that will execute the call. Deterministic check, no AI needed.
+- [x] **Pre-ship gate: RLS coverage check.** ✅ **shipped 2026-04-27** as `kit/scripts/preship/rls-coverage-check.sh` + new `rls-coverage` gate in `/ak-pre-ship` SKILL.md (verified caught the simulated PR 5 Bug #1 gap). Original entry preserved below.
+
+  Original entry: When the diff adds a new `.from('<table>').insert(...)` / `.update(...)` / `.delete(...)` call in `supabase/functions/**` or `packages/core/src/api/**`, fail the gate unless `supabase/migrations/*.sql` contains a corresponding `policy "..." on <table> for insert|update|delete to <role>` for the role that will execute the call. Deterministic check, no AI needed.
 
   **Context**: lalista PR 5 (disambig-add-new) shipped a force-create branch that called `supabase.from('items').insert(...)`. The `items` table only had an `items_select` RLS policy — no INSERT — so PostgREST returned 42501 and the function returned a generic 500. The front-end's catch-all hid the root cause as "Couldn't save your pick" until dogfooding caught it. A simple grep-the-diff-vs-grep-the-migrations check would have failed the gate at /ak-pre-ship time and surfaced the missing policy before the function deployed.
 
@@ -21,9 +23,11 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
   **Edit targets**: `kit/scripts/preship/rls-coverage.sh` (new), `.claude/skills/devshop/pre-ship/SKILL.md` (add gate invocation).
 
-  [pre-ship-gate, surfaced-by lalista-PR5-bug-1, 2026-04-23]
+  [pre-ship-gate, surfaced-by lalista-PR5-bug-1, 2026-04-23, closed 2026-04-27]
 
-- [ ] **`/ak-spec` requires a render-condition matrix for new UI elements.** When a spec adds a new UI element (button, row, banner, etc.), require a "Render Conditions" matrix: rows = element render conditions, columns = parent states (e.g. `followup_type` × `already_on_list` × exact-match-against-input). Forces the spec author to enumerate WHEN the element renders across the state lattice instead of relying on implicit "always" or "happy-path only" intent.
+- [x] **`/ak-spec` requires a render-condition matrix for new UI elements.** ✅ **shipped 2026-04-27** as a `## Render conditions` matrix requirement in `/ak-spec` SKILL.md + paired quality-checklist row. Original entry preserved below.
+
+  Original entry: When a spec adds a new UI element (button, row, banner, etc.), require a "Render Conditions" matrix: rows = element render conditions, columns = parent states (e.g. `followup_type` × `already_on_list` × exact-match-against-input). Forces the spec author to enumerate WHEN the element renders across the state lattice instead of relying on implicit "always" or "happy-path only" intent.
 
   **Context**: lalista PR 5's D1 said "always shown" for the add-new row. The implementation took it literally. The row then showed up in cascading store/brand follow-ups (where it's nonsensical — you can't "add as new" a store) AND when the user's utterance matched a candidate exactly (where it's misleading — picking add-new force-creates an item that already exists, hits the unique constraint, falls through to the same candidate). A render-condition matrix would have read: "show when followup_type === 'item' AND no exact-match candidate" — surfacing both gaps at spec time, before code.
 
@@ -31,9 +35,11 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
   **Edit targets**: `.claude/skills/devshop/spec/SKILL.md` (prompt template extension), maybe a worked example in `kit/docs/guide/conventions.md`.
 
-  [spec-template, surfaced-by lalista-PR5-bug-2-and-3, 2026-04-23]
+  [spec-template, surfaced-by lalista-PR5-bug-2-and-3, 2026-04-23, closed 2026-04-27]
 
-- [ ] **`/plan-design-review` checklist gains "input duplicates existing data" prompt.** Standing checklist item: "For each new UI element that takes user input, what happens when the input duplicates existing data already visible in the same view?" Catches the "autocomplete shows my-typed-value AND lets me click 'add new my-typed-value'" anti-pattern (and similar duplication-confusion design pitfalls).
+- [x] **`/plan-design-review` checklist gains "input duplicates existing data" prompt.** ✅ **shipped 2026-04-27** as a standing prompt in `/plan-design-review` Pass 1 (SKILL.md + .tmpl). Original entry preserved below.
+
+  Original entry: Standing checklist item: "For each new UI element that takes user input, what happens when the input duplicates existing data already visible in the same view?" Catches the "autocomplete shows my-typed-value AND lets me click 'add new my-typed-value'" anti-pattern (and similar duplication-confusion design pitfalls).
 
   **Context**: lalista PR 5's add-new row showed even when the user's utterance exactly matched a candidate row visible in the same disambig sheet. Confusing — picking the candidate vs. picking add-new lead to the same row in the items table (force-create hits the unique constraint, falls through). A standing checklist item in design-review would have surfaced this design pitfall before implementation.
 
@@ -41,7 +47,7 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
   **Edit targets**: gstack skill file for plan-design-review (upstream PR to gstack — not a devshop-side change).
 
-  [plan-design-review, surfaced-by lalista-PR5-bug-3, 2026-04-23]
+  [plan-design-review, surfaced-by lalista-PR5-bug-3, 2026-04-23, closed 2026-04-27]
 
 - [ ] **`sudo /usr/local/bin/init-firewall.sh` hangs the Claude Code session when re-run mid-session.** Observed twice during lalista PR 2 close-out (2026-04-20). Container rebuild is the only known recovery. Root-cause hypothesis (unconfirmed): iptables/ipset rebuild drops the session's own established API connection; when Claude Code reconnects against the new network state, commands stall indefinitely.
 
