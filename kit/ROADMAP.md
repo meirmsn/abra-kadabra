@@ -76,7 +76,7 @@ The first project that scaffolds the devshop today inherits a guide-conventions 
 
 ### Adversarial reviewer reads `guide/` for convention checks
 
-**Problem.** The current pre-commit adversarial reviewers (`devshop-commit-guard.sh` + `adversarial-review.sh`) check whether **bypass reasons** are valid (e.g., is the docsReviewed note thorough? is the dirtyTreeReason load-bearing?). They don't check whether the **commit itself** follows the project's documented conventions. So a commit that adds a feature without a test, or adds a metric event without registering it in `METRICS.md`, or skips a doc update that conventions require, sails through the reviewer because the bypass-reason gate is the only checkpoint.
+**Problem.** The current pre-commit adversarial reviewers (`commit-guard.sh` + `adversarial-review.sh`) check whether **bypass reasons** are valid (e.g., is the docsReviewed note thorough? is the dirtyTreeReason load-bearing?). They don't check whether the **commit itself** follows the project's documented conventions. So a commit that adds a feature without a test, or adds a metric event without registering it in `METRICS.md`, or skips a doc update that conventions require, sails through the reviewer because the bypass-reason gate is the only checkpoint.
 
 The agent often forgets convention X (especially one buried in conventions.md per the sibling audit above), and the reviewer doesn't catch it because it doesn't know X exists.
 
@@ -91,7 +91,7 @@ Extend the adversarial-review prompt construction to **inline relevant `kit/docs
 **Implementation surface:**
 
 - `kit/scripts/adversarial-review.sh` — extend the prompt builder to inline guide sections by topic. Add a `CONVENTIONS_TO_INCLUDE` map keyed by review topic.
-- `kit/scripts/commit-hooks/devshop-commit-guard.sh` — add a `convention-check` gate (or fold into existing gates per option #1 above).
+- `kit/scripts/commit-hooks/commit-guard.sh` — add a `convention-check` gate (or fold into existing gates per option #1 above).
 - `kit/scripts/preship/check-conventions.sh` (new) — option #2's standalone check, invoked from pre-commit.
 - `kit/tests/<corresponding>.bats` — coverage tests using fixture commits that violate / follow each convention.
 
@@ -115,7 +115,7 @@ Order matters. Audit first, reviewer-check second. Reasons:
 **Cross-ref:**
 
 - `/devshop/kit/scripts/adversarial-review.sh` — the prompt builder to extend.
-- `/devshop/kit/scripts/commit-hooks/devshop-commit-guard.sh` — the gate-orchestration point.
+- `/devshop/kit/scripts/commit-hooks/commit-guard.sh` — the gate-orchestration point.
 - `/devshop/kit/docs/guide/hooks.md` — documents the existing adversarial-review pattern; will need updates when this ships.
 - Sibling entry above (conventions audit) — load-bearing prereq.
 
@@ -1450,7 +1450,7 @@ verification during use.
 
 #### Hook tests (commit guard)
 
-Automated tests for `devshop-commit-guard.sh` and other commit hooks. Set up
+Automated tests for `commit-guard.sh` and other commit hooks. Set up
 temp git repos, stage specific file combinations, and assert correct blocking
 behavior. Key invariant: **no auto-pass** — checks must never silently pass
 because the "right" files happen to be co-staged. Every blocking check must
