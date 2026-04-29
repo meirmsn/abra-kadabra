@@ -81,6 +81,7 @@ git commit
   │       ├─ check-clean-tree.sh ────────── no unaddressed dirty state
   │       ├─ check-manifest.sh ──────────── (devshop repo only)
   │       ├─ check-test-coverage.sh ─────── new scripts need tests (devshop only)
+  │       ├─ check-doc-script-refs.sh ───── active docs cite real kit/scripts paths (devshop only)
   │       └─ commit-guard.sh ──────────── 4 checks (run in this order):
   │           ├─ mixed-commit ───────────── devshop + project files together? block
   │           ├─ docs-drift ─────────────── any devshop file staged (non-release)? block

@@ -17,6 +17,7 @@ if [ -d "$GIT_ROOT/kit" ] && [ ! -L "$GIT_ROOT/kit" ]; then
   bash "$SCRIPTS_DIR/commit-hooks/check-clean-tree.sh"
   bash "$SCRIPTS_DIR/commit-hooks/check-manifest.sh"
   bash "$SCRIPTS_DIR/commit-hooks/check-test-coverage.sh"
+  bash "$SCRIPTS_DIR/commit-hooks/check-doc-script-refs.sh"
   bash "$SCRIPTS_DIR/commit-hooks/commit-guard.sh"
 else
   case "$GIT_ROOT" in
@@ -29,10 +30,11 @@ else
       bash "$SCRIPTS_DIR/commit-hooks/commit-guard.sh"
       ;;
     /devshop)
-      # Devshop repo: clean tree + manifest sync + test coverage + commit guards
+      # Devshop repo: clean tree + manifest sync + test coverage + doc-script-refs + commit guards
       bash "$SCRIPTS_DIR/commit-hooks/check-clean-tree.sh"
       bash "$SCRIPTS_DIR/commit-hooks/check-manifest.sh"
       bash "$SCRIPTS_DIR/commit-hooks/check-test-coverage.sh"
+      bash "$SCRIPTS_DIR/commit-hooks/check-doc-script-refs.sh"
       bash "$SCRIPTS_DIR/commit-hooks/commit-guard.sh"
       ;;
     *)

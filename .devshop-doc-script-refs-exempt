@@ -1,0 +1,25 @@
+# Devshop-side override for kit/scripts/commit-hooks/check-doc-script-refs.sh.
+# One regex per line — matched against the repo-relative path of the broken ref.
+# `#` comments + blank lines are stripped.
+#
+# Format: regex (anchored with ^ and $ for exact match)
+#
+# Each entry MUST cite WHY the broken ref is intentional. If the reason no
+# longer holds (file landed, ref removed from doc), the exempt entry must be
+# revisited.
+
+# --- Pending PR cleanup (rename drift) ---
+# Fixed by PR #7 (chore/hook-docs-cleanup-and-template-stubs) which renames
+# devshop-commit-guard.sh → commit-guard.sh in kit/ROADMAP.md (4 hits) and
+# kit/docs/guide/hooks.md (2 hits). When PR #7 merges, this entry becomes
+# dead and should be removed in a follow-up.
+^kit/scripts/commit-hooks/devshop-commit-guard\.sh$
+
+# --- ROADMAP forward-looking refs (script-to-be-created) ---
+# These appear in kit/ROADMAP.md describing planned work. The path-style refs
+# document the implementation surface for future PRs. Not yet implemented;
+# remove from this exempt list when each script lands.
+^kit/scripts/preship/check-conventions\.sh$
+^kit/scripts/invite-codes\.sh$
+^kit/scripts/finding-router\.sh$
+^kit/scripts/finding-router-rules/_common\.sh$

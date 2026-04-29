@@ -14,6 +14,7 @@ setup() {
   for script in commit-hooks/check-security-files-freshness.sh commit-hooks/check-clean-tree.sh \
                 commit-hooks/check-manifest.sh commit-hooks/check-test-coverage.sh \
                 commit-hooks/check-test-coverage-project.sh commit-hooks/check-docs-freshness-project.sh \
+                commit-hooks/check-doc-script-refs.sh \
                 commit-hooks/commit-guard.sh; do
     create_capturing_stub "$script" "" 0
   done
@@ -54,7 +55,7 @@ scripts_called() {
   [ ! -f "$MOCK_BIN/commit-hooks/check-test-coverage.sh.args" ]
 }
 
-@test "devshop repo (/devshop): calls clean-tree + manifest + test-coverage + commit-guard" {
+@test "devshop repo (/devshop): calls clean-tree + manifest + test-coverage + doc-script-refs + commit-guard" {
   create_test_repo
   sed -i 's|GIT_ROOT=$(git rev-parse.*|GIT_ROOT="/devshop"|' "$WRAPPER"
   run bash -c "cd '$TEST_REPO' && bash '$WRAPPER'"
@@ -63,12 +64,13 @@ scripts_called() {
   [ -f "$MOCK_BIN/commit-hooks/check-clean-tree.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-manifest.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-test-coverage.sh.args" ]
+  [ -f "$MOCK_BIN/commit-hooks/check-doc-script-refs.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/commit-guard.sh.args" ]
   # Security freshness should NOT be called for devshop repo
   [ ! -f "$MOCK_BIN/commit-hooks/check-security-files-freshness.sh.args" ]
 }
 
-@test "devshop-self mode (kit/ is real dir): calls clean-tree + manifest + test-coverage + commit-guard" {
+@test "devshop-self mode (kit/ is real dir): calls clean-tree + manifest + test-coverage + doc-script-refs + commit-guard" {
   create_test_repo
   # Create a real kit/ dir to trigger devshop-self detection
   mkdir -p "$TEST_REPO/kit"
@@ -78,8 +80,11 @@ scripts_called() {
   [ -f "$MOCK_BIN/commit-hooks/check-clean-tree.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-manifest.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-test-coverage.sh.args" ]
+  [ -f "$MOCK_BIN/commit-hooks/check-doc-script-refs.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/commit-guard.sh.args" ]
   [ ! -f "$MOCK_BIN/commit-hooks/check-security-files-freshness.sh.args" ]
+  # Project-only checks should NOT fire in devshop-self mode
+  [ ! -f "$MOCK_BIN/commit-hooks/check-test-coverage-project.sh.args" ]
 }
 
 @test "unknown git root: exits 1" {
