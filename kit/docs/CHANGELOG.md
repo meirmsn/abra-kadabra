@@ -2,6 +2,14 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.24.0 (2026-04-29)
+
+- docs(ops): lead Env Var Naming with three-surface "How it works" preamble
+- docs(todos): close three shipped entries from the v1.22.0/Cluster-1 interlude
+- fix(commit-hooks): is_override accepts trailing inline comments + close lalista-launch sweep
+- fix(check-test-coverage-project): exempt instrumentation.ts + vitest.setup.ts + providers.tsx
+- feat(commit-hooks+template): project-repo gates triplet — test-presence + docs-freshness + scaffold
+
 ## v1.23.3 (2026-04-28)
 
 - fix(preship+docs): supabase-bootstrap.sh refactor for compose isolation + doc sweep
