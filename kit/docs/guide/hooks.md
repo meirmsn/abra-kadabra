@@ -20,7 +20,7 @@ Hooks in `.claude/settings.json` guard the development workflow:
 
 ## Commit Flow
 
-Three enforcement levels: PreToolUse (Claude Code), pre-commit (husky), and pre-push (husky). PreToolUse exists because git hooks can't prevent their own bypass — `--no-verify` skips all hooks silently. Something outside git must intercept the command first. Pre-push adds push-time checks (PR description staleness, dirty-tree / stash) at the git layer so they fire agent-agnostically — see [Why workflow nudges live at the git layer](#why-workflow-nudges-live-at-the-git-layer).
+Three enforcement levels: PreToolUse (Claude Code), pre-commit (husky), and pre-push (husky). PreToolUse exists because git hooks can't prevent their own bypass — `--no-verify` skips all hooks silently. Something outside git must intercept the command first. Pre-push adds push-time checks (no-direct-push-to-main on projects, PR description staleness, dirty-tree / stash) at the git layer so they fire agent-agnostically — see [Why workflow nudges live at the git layer](#why-workflow-nudges-live-at-the-git-layer).
 
 ```
 1. PreToolUse: dcg  (settings.json hook, all Bash)
@@ -52,9 +52,14 @@ Three enforcement levels: PreToolUse (Claude Code), pre-commit (husky), and pre-
 
 3. Git creates the commit (if pre-commit passed)
 
-4. On eventual `git push`: `.husky/pre-push`
-   └─ PR description staleness + dirty-tree / stash cleanliness
-      (adversarially reviewed; bypass via `devshop.prDescStaleReason` / `dirtyPushReason`)
+4. On eventual `git push`: `.husky/pre-push` (two variants)
+   ├─ PROJECT (template/.husky/pre-push):
+   │   ├─ no-direct-push-to-main → BLOCK (no bypass)
+   │   ├─ PR description staleness (devshop.prDescStaleReason)
+   │   └─ dirty tree / stash (devshop.dirtyPushReason)
+   └─ DEVSHOP (/devshop/.husky/pre-push):
+       └─ dirty tree / stash (devshop.dirtyPushReason)
+      (PR-desc check absent in devshop — devshop has no PRs)
 ```
 
 Step 1 is a Claude Code hook (runs before the tool executes). Step 2 is the git pre-commit hook (runs during commit). Step 4 is the git pre-push hook (runs during `git push`, independent of commit). Steps 2a-2d and 4 are all blocking (fail = operation aborted).
@@ -113,16 +118,31 @@ Bypass via `git -c devshop.<key>="<reason>"` works natively in husky. Every bypa
 
 ### 3. Husky pre-push (during git push)
 
-Configured in `.husky/pre-push`.
+Two variants, configured per-repo in `.husky/pre-push`:
 
-| Check              | What                                                                                                                                                            | Blocking?                                                |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| PR description     | Is the PR title + body current vs all commits on the branch? Skipped when every commit is `chore:` / `docs:` / `style:` / `test:` / `ci:` / `build:` / `perf:`. | Yes — `devshop.prDescStaleReason` adversarially reviewed |
-| Dirty tree / stash | Is the working tree clean? Zero stash entries?                                                                                                                  | Yes — `devshop.dirtyPushReason` adversarially reviewed   |
+**Project repos** (`template/.husky/pre-push` → propagated to every project):
 
-Short-circuits (no review, exit 0): detached HEAD, push to `main`/`master` (release.sh territory), branch deletions (zero-sha local).
+| Check                                 | What                                                                                                                                                                                           | Blocking?                                                                                                                                                                                                                             |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **No direct push to `main`/`master`** | Refuses any push whose `<remote-ref>` is `refs/heads/main` or `refs/heads/master`. Catches direct commits, FF-merges, cherry-picks — every path that lands commits on local main without a PR. | **Yes — no bypass.** Projects deploy via PR-merge → CI → Vercel; there's no `release.sh` equivalent that needs direct-push. The remote enforces the same rule via GitHub branch protection; this hook fails fast. Hotfixes ride a PR. |
+| PR description                        | Is the PR title + body current vs all commits on the branch? Skipped when every commit is `chore:` / `docs:` / `style:` / `test:` / `ci:` / `build:` / `perf:`.                                | Yes — `devshop.prDescStaleReason` adversarially reviewed                                                                                                                                                                              |
+| Dirty tree / stash                    | Is the working tree clean? Zero stash entries?                                                                                                                                                 | Yes — `devshop.dirtyPushReason` adversarially reviewed                                                                                                                                                                                |
 
-Both bypass flags run through the same shared engine as commit-time guards (`kit/scripts/adversarial-review.sh`). Generic reasons (`WIP`, `later`, `fine`) fail; specific structural reasons (`intentionally batching updates until post-rebase — will squash-update after final review`, `stashed feature X to push hotfix Y on unrelated branch`) pass.
+**Devshop repo** (`/devshop/.husky/pre-push`):
+
+| Check              | What                                           | Blocking?                                              |
+| ------------------ | ---------------------------------------------- | ------------------------------------------------------ |
+| Dirty tree / stash | Is the working tree clean? Zero stash entries? | Yes — `devshop.dirtyPushReason` adversarially reviewed |
+
+The PR-description check that used to live here was dead code in devshop — devshop has no PRs (`release.sh` tags + pushes direct to main), so `gh pr list --head <branch>` always returned empty and the check no-op'd. That check now lives in the project pre-push (where PRs actually exist).
+
+Short-circuits (no review, exit 0):
+
+- **Both:** detached HEAD; branch deletions (zero-sha local).
+- **Devshop only:** push to `main`/`master` (release.sh territory).
+- **Project only:** push from a feature branch where remote-ref ≠ main/master and the branch has only conventional-trivial commits (PR-desc check skips; dirty-tree check still fires).
+
+Bypass flags run through the same shared engine as commit-time guards (`kit/scripts/adversarial-review.sh`). Generic reasons (`WIP`, `later`, `fine`) fail; specific structural reasons (`intentionally batching updates until post-rebase — will squash-update after final review`, `stashed feature X to push hotfix Y on unrelated branch`) pass.
 
 Release-side work (`/ak-release-devshop` skill) is invoked manually or by a follow-up skill chain. The old PostToolUse commit-time "remember to run release.sh" reminder was deleted — release is a deliberate decision, not a post-commit nudge.
 
@@ -160,7 +180,7 @@ Both repos use conventional commits (`feat:`, `fix:`, `chore:`, etc.). The `devs
 
 ## On Push
 
-The `.husky/pre-push` hook runs at the git layer on every `git push` to non-main branches. If there's an open PR for the branch and the PR description does not track the commits (excluding trivial conventional-commit-only pushes), the push is blocked until the description is updated — or the push provides an adversarially-reviewed bypass reason. A second check blocks pushes with a dirty tree or non-empty stash list on the same pass. Branch deletions and pushes to `main` / `master` short-circuit. See §3 above for the full check list and bypass flag names.
+The `.husky/pre-push` hook runs at the git layer on every `git push`. The project variant (template/.husky/pre-push) hard-blocks any push whose remote-ref is `refs/heads/main` or `refs/heads/master` with no bypass — projects deploy via PR-merge → CI → Vercel and the remote enforces the same rule via GitHub branch protection. For pushes to feature branches, if there's an open PR and the PR description does not track the commits (excluding trivial conventional-commit-only pushes), the push is blocked until the description is updated — or the push provides an adversarially-reviewed bypass reason. A third check blocks pushes with a dirty tree or non-empty stash list on the same pass. Branch deletions short-circuit. The devshop variant (/devshop/.husky/pre-push) skips the no-direct-push-to-main check (release.sh territory) and the PR-desc check (devshop has no PRs); it runs only the dirty-tree / stash check. See §3 above for the full check lists and bypass flag names.
 
 ---
 

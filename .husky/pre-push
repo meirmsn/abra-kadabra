@@ -1,26 +1,26 @@
 #!/usr/bin/env bash
-# Pre-push hook: three checks before allowing the push.
-#   1. PR description staleness (adversarial review via adversarial-review.sh)
-#   2. Tree cleanliness (block if dirty, with adversarial review of bypass)
-#   3. Stash cleanliness (same — folded into check 2)
+# Pre-push hook (devshop repo): one check before allowing the push.
+#   1. Tree + stash cleanliness (block if dirty, with adversarial review of bypass)
 #
-# Bypass flags (all adversarially reviewed via adversarial-review.sh):
-#   git -c devshop.prDescStaleReason="<reason>"  - acknowledges PR desc intentionally lags
-#   git -c devshop.dirtyPushReason="<reason>"    - acknowledges legitimate WIP/stash at push
+# Bypass flag (adversarially reviewed):
+#   git -c devshop.dirtyPushReason="<reason>"  - acknowledges legitimate WIP/stash at push
 #
 # Short-circuits (no review, exit 0):
 #   - Detached HEAD
-#   - Push to main/master (release.sh territory)
+#   - Push to main/master (release.sh territory — devshop releases push direct to main)
 #   - Branch deletion (zero local sha)
-#   - Conventional-commit-only pushes (chore/docs/style/test/ci/build/perf)
 #
 # History: replaces the old check-pr-description.sh PostToolUse (advisory,
 # audience-confused) and check-dirty-after-commit.sh (redundant with pre-commit).
-# See kit/notes/roadmap/hook-migration-plan.md for rationale.
+# The PR-description-staleness check that used to live here was dead code in
+# devshop — devshop has no PRs (release.sh tags + pushes direct to main), so
+# `gh pr list --head <branch>` always returned empty and the check no-op'd.
+# That check now lives in template/.husky/pre-push (project-side) where PRs
+# actually exist. See kit/notes/roadmap/hook-migration-plan.md for the full
+# rationale.
 
-# Husky v9's hook shim (.husky/_/h) runs hooks with `sh -e "$hook"` regardless
-# of shebang. This hook uses bash features (here-string, [[ ]]-style patterns
-# via `<<<`). Re-exec under bash if we weren't invoked as bash.
+# Husky v9's hook shim runs hooks with `sh -e "$hook"` regardless of shebang.
+# Re-exec under bash for here-string features.
 if [ -z "${BASH_VERSION:-}" ]; then
   exec bash "$0" "$@"
 fi
@@ -41,51 +41,7 @@ REMOTE_NAME="${1:-origin}"
 # Detect branch deletion (--delete sends local sha = 40 zeros)
 echo "$INPUT" | awk '{print $2}' | grep -qE '^0{40}$' && exit 0
 
-# --- Check 1: PR description staleness ---
-PR=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number // empty' 2>/dev/null || echo "")
-
-if [ -n "$PR" ]; then
-  # Get commits in this PR (all commits on branch relative to main)
-  COMMITS=$(git log --oneline origin/main..HEAD 2>/dev/null || true)
-
-  # Conventional-commit short-circuit: skip LLM review if all commits are trivial
-  ALL_TRIVIAL=true
-  ANY_COMMIT=false
-  while IFS= read -r line; do
-    [ -z "$line" ] && continue
-    ANY_COMMIT=true
-    subj=$(echo "$line" | sed 's/^[a-f0-9]* //')
-    if ! echo "$subj" | grep -qE '^(chore|docs|style|test|ci|build|perf)(\([^)]*\))?!?:'; then
-      ALL_TRIVIAL=false
-      break
-    fi
-  done <<< "$COMMITS"
-
-  if [ "$ANY_COMMIT" = "true" ] && [ "$ALL_TRIVIAL" = "false" ]; then
-    # Non-trivial commits — adversarial review of PR description sync
-    BYPASS_REASON=$(git config --get devshop.prDescStaleReason 2>/dev/null || echo "")
-
-    # Invoke shared adversarial engine (same as commit guards).
-    # Engine gathers PR title/body/commits itself from the current branch.
-    if ! REVIEW_OUTPUT=$(bash /devshop/kit/scripts/adversarial-review.sh \
-           prDescStaleReason \
-           "${BYPASS_REASON:-no reason given}" 2>&1); then
-      echo "❌ Pre-push: PR #${PR} description appears stale relative to commits." >&2
-      echo "" >&2
-      echo "Reviewer assessment:" >&2
-      echo "$REVIEW_OUTPUT" | sed 's/^/  /' >&2
-      echo "" >&2
-      echo "Options:" >&2
-      echo "  1. Update PR via: gh pr edit $PR --title \"...\" --body \"...\"" >&2
-      echo "     then retry the push." >&2
-      echo "  2. Bypass (adversarially reviewed): " >&2
-      echo "     git -c devshop.prDescStaleReason=\"<specific reason>\" push ..." >&2
-      exit 1
-    fi
-  fi
-fi
-
-# --- Check 2: Tree + stash cleanliness ---
+# --- Check 1: Tree + stash cleanliness ---
 DIRTY=$(git status --porcelain 2>/dev/null | head -20 || true)
 STASH_COUNT=$(git stash list 2>/dev/null | wc -l | tr -d ' ' || echo "0")
 

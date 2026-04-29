@@ -99,6 +99,26 @@ setup() {
   [ -e "$DEVSHOP/.hooks/pre-commit" ]
 }
 
+@test "wiring: template/.husky/pre-push exists and is executable" {
+  # New projects inherit pre-push from the template via rsync at /ak-new-project time.
+  # Project pre-push is the load-bearing layer for: no-direct-push-to-main + PR-desc + dirty-push.
+  local hook="$DEVSHOP/template/.husky/pre-push"
+  [ -f "$hook" ]
+  [ -x "$hook" ]
+  # Sanity: the no-bypass main-block lives in the project hook, not devshop's.
+  grep -q "BLOCKED: direct push to" "$hook"
+  grep -q "No bypass available" "$hook"
+}
+
+@test "wiring: devshop /.husky/pre-push does NOT contain PR-desc check (devshop has no PRs)" {
+  # Devshop releases push direct to main with tags — no PRs exist for the
+  # PR-desc check to fire on. The check moved to template/.husky/pre-push.
+  local hook="$DEVSHOP/.husky/pre-push"
+  [ -f "$hook" ]
+  ! grep -q "prDescStaleReason" "$hook"
+  ! grep -q "PR description staleness" "$hook"
+}
+
 # =============================================================================
 # Manifest consistency — entries correspond to real template files
 # =============================================================================
