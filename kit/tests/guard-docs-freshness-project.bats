@@ -148,6 +148,16 @@ export const handle = (e) => Sentry.captureException(e);"
   assert_success
 }
 
+@test "override file accepts trailing inline comment after path" {
+  stage_file apps/web/app/internal-only/page.tsx "export default function P() {}"
+  cat > "$TEST_REPO/.devshop-docs-freshness-exempt" <<EOF
+apps/web/app/internal-only/page.tsx  # internal-only, no public surface
+EOF
+  git -C "$TEST_REPO" add .devshop-docs-freshness-exempt
+  run_script
+  assert_success
+}
+
 # --- no-op path ---
 
 @test "no-op when only README.md staged" {

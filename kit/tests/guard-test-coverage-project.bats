@@ -121,6 +121,16 @@ EOF
   assert_success
 }
 
+@test "override file accepts trailing inline comment after path" {
+  stage_file packages/core/src/api/legacy.ts "export const x = 1;"
+  cat > "$TEST_REPO/.devshop-test-coverage-exempt" <<EOF
+packages/core/src/api/legacy.ts  # covered by api.integration.test.ts
+EOF
+  git -C "$TEST_REPO" add .devshop-test-coverage-exempt
+  run_script
+  assert_success
+}
+
 # --- DELETE: orphan check ---
 
 @test "BLOCK when src deleted but paired test still present" {

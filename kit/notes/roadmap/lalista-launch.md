@@ -124,9 +124,18 @@ section below) · v1 = deferred to v1, captured in `kit/ROADMAP.md`.
 
 **Security (mostly already in flight):**
 
-- ⏳ **Security-posture cleanup sweep** — Anthropic split + URL guard
-  already shipped (commits #28, #18); ROADMAP entry largely retrospective.
-  Worth a sweep to confirm any residual items.
+- ✅ **Security-posture cleanup sweep** — verified 2026-04-29: all 8
+  project-side items from `kit/ROADMAP.md § Security-posture cleanup` are
+  in place. Both deploy workflows sed-derive ref from `SUPABASE_PROD_URL`
+  (no `SUPABASE_PROJECT_REF` references anywhere); CI service-role comes
+  from `supabase status -o env` with explicit JWT-decode guard at
+  `ci.yml:206` verifying `iss=supabase-demo` + `role=service_role`
+  BEFORE any step uses it; `assertNotProdUrlInTestEnv` wired into all 4
+  createClient call sites (`packages/core/src/supabase.ts`,
+  `apps/web/lib/supabase/server.ts`, `apps/web/lib/supabase/client.ts`,
+  `apps/web/middleware.ts`); Anthropic key split QA-vs-PROD; PR 5
+  force-create uses table-level RLS instead of admin client. Roadmap
+  entry is fully retrospective — nothing left to ship.
 - v1 **JIT DB password entry via `/ak-go-live`** — demoted 2026-04-27
   (no incident forcing it; existing GH-Secret flow has shipped successfully).
   Captured at `kit/ROADMAP.md:824` with full implementation plan preserved.
@@ -170,9 +179,9 @@ Runtime Validation at LLM / Edge-Function Boundaries`); lalista PR 6
 - ✅ **PR-body "Manual review" guardrail + Phase 6 auto-attest** — shipped
   v1.22.0 in `/ak-build`.
 
-**Net for v0**: only ⏳ items above remain — the security-posture sweep and
-the auth UX conventions package. The project-repo gates triplet shipped on
-devshop 2026-04-28 (project-side adoption pending). None gate lalista v0 GA.
+**Net for v0**: only ⏳ item above remains — the auth UX conventions
+package. The project-repo gates triplet shipped on devshop 2026-04-28
+and was adopted project-side 2026-04-29. None gate lalista v0 GA.
 
 ---
 
@@ -274,9 +283,28 @@ Boundaries` (when to use, schema-module pattern, wrapper-site
 - ✅ **Triplet**: test-presence hook + docs-freshness hook + hierarchical docs
   scaffold — shipped 2026-04-28 on devshop branch
   `feat/project-repo-gates-triplet` (40 new bats cases, all 379 in suite green).
-  Lalista-side adoption (wire `.hooks/pre-commit` to call the new scripts via
-  the SCRIPTS_DIR dispatch + seed initial override files for any false
-  positives) follows in a separate project-side commit cycle.
+  **Lalista-side adoption shipped 2026-04-29**: `.hooks/pre-commit` already
+  symlinks to `/devshop/kit/hooks/pre-commit.sh` (which dispatches the
+  project-side scripts via the `/workspace` branch of its case statement) — no
+  project-side wiring change was needed. Seeded `.devshop-test-coverage-exempt`
+  with 5 entries, each citing transitive coverage:
+  `packages/core/src/supabase.types.ts` (generated types — covered by
+  `ci-type-drift.sh`), `packages/core/src/errors.ts` (typed-error class,
+  covered by `addItem.test.ts` + `reportAddItemValidationError.test.ts`),
+  `packages/core/src/schemas/addItem.ts` (Zod schema, covered by
+  `addItem.test.ts`), `apps/web/app/(auth)/onboarding/OnboardingForm.tsx`
+  (covered by `auth-edge-cases.spec.ts`), and
+  `apps/web/app/item/[id]/RemoveEntryButton.tsx` (covered by
+  `item-detail.spec.ts § Step 4`). No `.devshop-docs-freshness-exempt`
+  needed — current tree has zero false positives on that gate. Verified
+  end-to-end via a synthetic ADD: hook BLOCKs unstaged path, exempt entry
+  suppresses cleanly. **Devshop follow-up landed same day** on
+  `feat/project-repo-gates-triplet`: `is_override` in both project-side
+  scripts now strips trailing inline `# reason` comments before exact-match
+  (was whole-line comments only — the docstring claimed both); 2 new bats
+  cases (`override file accepts trailing inline comment after path`),
+  381/381 green; `conventions.md § Test Presence` + `§ Project Docs
+Freshness` updated to clarify the supported syntax.
 - ✅ **Pair**: CI slow-job lifecycle convention + backport-to-template.
   Shipped in v1.22.0: `kit/docs/guide/conventions.md § Slow-Job Lifecycle`
   documents the Phase 1c/1g threshold + uncommenting checklist; new

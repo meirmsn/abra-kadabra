@@ -32,8 +32,10 @@ OVERRIDE_FILE="$GIT_ROOT/.devshop-docs-freshness-exempt"
 
 is_override() {
   [ -f "$OVERRIDE_FILE" ] || return 1
-  grep -v '^[[:space:]]*#' "$OVERRIDE_FILE" 2>/dev/null \
-    | grep -v '^[[:space:]]*$' \
+  # Strip whole-line comments, trailing inline comments, surrounding whitespace,
+  # and blank lines; then exact-match. Both `path` and `path  # reason` work.
+  sed -E 's/[[:space:]]*#.*$//; s/^[[:space:]]+//; s/[[:space:]]+$//' "$OVERRIDE_FILE" 2>/dev/null \
+    | grep -v '^$' \
     | grep -Fxq "$1"
 }
 

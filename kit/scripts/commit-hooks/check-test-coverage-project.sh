@@ -87,9 +87,10 @@ is_path_exempt() {
 is_override() {
   local p="$1"
   [ -f "$OVERRIDE_FILE" ] || return 1
-  # Strip comments + blank lines, then exact-match
-  grep -v '^[[:space:]]*#' "$OVERRIDE_FILE" 2>/dev/null \
-    | grep -v '^[[:space:]]*$' \
+  # Strip whole-line comments, trailing inline comments, surrounding whitespace,
+  # and blank lines; then exact-match. Both `path` and `path  # reason` work.
+  sed -E 's/[[:space:]]*#.*$//; s/^[[:space:]]+//; s/[[:space:]]+$//' "$OVERRIDE_FILE" 2>/dev/null \
+    | grep -v '^$' \
     | grep -Fxq "$p"
 }
 

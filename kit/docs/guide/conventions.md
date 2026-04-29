@@ -551,7 +551,7 @@ Every new source file under `apps/*/{src,app,components,lib,hooks}/` or `package
 
 **Exempt by pattern**: `*.d.ts`, `*.config.*`, `*.test.*`, `*.spec.*`, `*.integration.test.*`, anything under `e2e/`, `tests/`, `__tests__/`, `__mocks__/`, `types/**/*.ts`, top-level `types.ts`.
 
-**Per-project override**: `.devshop-test-coverage-exempt` at repo root, one path per line, `#` comments. Audit-trail discipline — each exemption commits with a reason in the commit message.
+**Per-project override**: `.devshop-test-coverage-exempt` at repo root, one path per line. Whole-line `#` comments and trailing `# reason` comments after a path are both stripped before exact-match. Audit-trail discipline — each exemption commits with a reason in the commit message.
 
 **Layer 2 (adversarial reviewer)**: bypass via `git -c devshop.testCoverageReviewed="<why>"` triggers `adversarial-review.sh testCoverageProject`. The reviewer requires the reason to name the SPECIFIC blocked path and EITHER the existing test that already covers it OR a concrete reason a test would not add value (e.g. pure type re-export). Generic "low risk" / "WIP" / "test exists somewhere" → reject.
 
@@ -577,7 +577,7 @@ The project's hierarchical doc set decays silently as routes get added, API wrap
 
 **Layer 2 (adversarial reviewer)**: bypass via `git -c devshop.docsFreshnessReviewed="<per-doc enumeration>"` triggers `adversarial-review.sh docsFreshnessProject`. The reviewer gets the project's `CLAUDE.md` + `METRICS.md` and verifies bypass-claims like "this surface is already documented under § Auth" — if the section the reason names is not actually present in the staged docs, the bypass fails.
 
-**Per-project override**: `.devshop-docs-freshness-exempt` at repo root, one path per line, same audit discipline as the test-coverage override.
+**Per-project override**: `.devshop-docs-freshness-exempt` at repo root, one path per line. Whole-line `#` comments and trailing `# reason` comments are both stripped before exact-match. Same audit discipline as the test-coverage override.
 
 **Relationship to devshop's `docsReviewed`**: this is the project-repo analog of `commit-guard.sh`'s docs-coverage check (which only fires on changes under `kit/`, `.claude/`, or `.devshopkit/`). The two never overlap — `docsReviewed` covers devshop tooling docs, `docsFreshnessProject` covers project-orientation docs.
 
