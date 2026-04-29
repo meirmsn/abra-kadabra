@@ -2,6 +2,10 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.23.1 (2026-04-28)
+
+- docs(template): rename Option-N labels to semantic names throughout
+
 ## v1.23.0 (2026-04-28)
 
 - feat(template): port to Option 3 (compose isolation) + /ak-new-project choice
