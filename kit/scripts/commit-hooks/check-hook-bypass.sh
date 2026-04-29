@@ -37,13 +37,41 @@ HOOK_EOF
   exit 2
 fi
 
-if echo "$CMD" | grep -qE 'devshop\.humanReviewed'; then
+# Match the actual flag-assignment form (`devshop.humanReviewed=...`), not bare
+# mentions of the flag name in commit messages or doc citations. The bypass
+# requires the `=` for git -c to apply it.
+if echo "$CMD" | grep -qE 'devshop\.humanReviewed='; then
   cat <<'HOOK_EOF'
 BLOCKED: devshop.humanReviewed is reserved for human-only use.
 
 This flag bypasses adversarial review entirely. Only a human can use it,
 by running the commit directly in the terminal:
   ! git -c devshop.humanReviewed="approve: <assessment>" commit ...
+HOOK_EOF
+  exit 2
+fi
+
+# Match DEVSHOP_SKIP_ADVERSARIAL= ONLY when it appears as an env-var prefix
+# (start of command, or after a shell separator) — not when it appears inside
+# a commit message or other quoted text. Anchors:
+#   ^             — beginning of command
+#   [;&|]         — after ; & or | (and-or chains)
+#   $\(           — after $( substitution opener
+#   `             — after backtick command substitution opener
+# Followed by optional whitespace then DEVSHOP_SKIP_ADVERSARIAL=
+if echo "$CMD" | grep -qE '(^|[;&|`]|\$\()[[:space:]]*DEVSHOP_SKIP_ADVERSARIAL='; then
+  cat <<'HOOK_EOF'
+BLOCKED: DEVSHOP_SKIP_ADVERSARIAL bypass detected.
+
+Setting DEVSHOP_SKIP_ADVERSARIAL=1 disables ALL adversarial review for
+the process — every bypass flag (dirtyTreeReason, docsReviewed,
+manifestReviewed, etc.) auto-passes without judgment. This is never
+legitimate from Claude — it would silently neutralize every gate at once.
+
+The env var exists for the human operator's tight iteration loops with
+active human review. If you need to bypass a specific check, use that
+check's named bypass flag with a reviewable reason:
+  git -c devshop.<check>Reason="<specific reason>" commit ...
 HOOK_EOF
   exit 2
 fi

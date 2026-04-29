@@ -57,6 +57,35 @@ run_check_with_review() {
   assert_output --partial "humanReviewed"
 }
 
+@test "allows commit messages that mention devshop.humanReviewed as a doc citation" {
+  # False-positive guard: the regex must require `=` (the actual bypass form),
+  # not match bare mentions like 'see devshop.humanReviewed'.
+  run_check 'git commit -m "docs: explain devshop.humanReviewed bypass boundary"'
+  assert_success
+}
+
+@test "blocks DEVSHOP_SKIP_ADVERSARIAL=1 env-var bypass" {
+  run_check 'DEVSHOP_SKIP_ADVERSARIAL=1 git commit -m "test"'
+  assert_failure 2
+  assert_output --partial "BLOCKED"
+  assert_output --partial "DEVSHOP_SKIP_ADVERSARIAL"
+}
+
+@test "blocks DEVSHOP_SKIP_ADVERSARIAL=true (any value) env-var bypass" {
+  run_check 'DEVSHOP_SKIP_ADVERSARIAL=true git commit -m "test"'
+  assert_failure 2
+  assert_output --partial "BLOCKED"
+  assert_output --partial "DEVSHOP_SKIP_ADVERSARIAL"
+}
+
+@test "allows commit messages that mention DEVSHOP_SKIP_ADVERSARIAL= as literal text" {
+  # False-positive guard: the regex must anchor to env-var-prefix usage,
+  # not match every occurrence of the string in the command (which would
+  # block any commit message documenting the bypass).
+  run_check 'git commit -m "fix(hooks): note that DEVSHOP_SKIP_ADVERSARIAL= bypass is human-only"'
+  assert_success
+}
+
 # --- Tier 2: --no-verify without reason ---
 
 @test "blocks --no-verify without bypass reason" {
