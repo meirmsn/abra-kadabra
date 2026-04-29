@@ -24,6 +24,8 @@ else
       # Project repo: full guard suite
       bash "$SCRIPTS_DIR/commit-hooks/check-security-files-freshness.sh"
       bash "$SCRIPTS_DIR/commit-hooks/check-clean-tree.sh"
+      bash "$SCRIPTS_DIR/commit-hooks/check-test-coverage-project.sh"
+      bash "$SCRIPTS_DIR/commit-hooks/check-docs-freshness-project.sh"
       bash "$SCRIPTS_DIR/commit-hooks/commit-guard.sh"
       ;;
     /devshop)

@@ -10,6 +10,7 @@
 # Usage: adversarial-review.sh <check-type> <reason> [context...]
 #   check-type: docsReviewed | dirtyTreeReason | hookBypass
 #               | manifestReviewed | testCoverage | prDescStaleReason | dirtyPushReason
+#               | testCoverageProject | docsFreshnessProject  (project-repo gates)
 #               | dismissalLog   (pre-ship /ak-pre-ship — reviews gate dismissal rationales)
 #   reason: the bypass reason provided via git -c, OR for dismissalLog the body of the
 #           `## Dismissals` section of the gate's review.md entry
@@ -143,6 +144,28 @@ Reason: $REASON"
     # No additional context gathering needed — release.sh provides everything
     CONTEXT="$REASON"
     ;;
+  testCoverageProject)
+    # Project-repo test-presence bypass review. REASON contains the developer's
+    # justification AND the hook's own block summary + staged diff (built by
+    # check-test-coverage-project.sh, since that hook has the cleanest view of
+    # which paths were blocked and why).
+    CONTEXT="$REASON"
+    ;;
+  docsFreshnessProject)
+    # Project-repo docs-freshness bypass review. REASON contains the developer's
+    # per-doc enumeration + the hook's block summary + staged file list. The
+    # reviewer also gets the project's CLAUDE.md and METRICS.md so it can verify
+    # claims like "this surface is already documented under § Auth".
+    PROJECT_CLAUDE=$(head -200 "$GIT_ROOT/CLAUDE.md" 2>/dev/null || true)
+    PROJECT_METRICS=$(head -200 "$GIT_ROOT/METRICS.md" 2>/dev/null || true)
+    CONTEXT="$REASON
+
+=== Project CLAUDE.md (first 200 lines) ===
+${PROJECT_CLAUDE:-(missing — fail open since the file the hook expects to be updated does not exist; flag this in your review)}
+
+=== Project METRICS.md (first 200 lines) ===
+${PROJECT_METRICS:-(missing — fail open similarly)}"
+    ;;
   prDescStaleReason)
     # Called by .husky/pre-push. Gathers PR title/body vs commits on branch.
     BRANCH=$(git branch --show-current 2>/dev/null || true)
@@ -260,6 +283,12 @@ get_conventions_to_inline() {
     testCoverage)
       echo "Non-Negotiables"
       ;;
+    testCoverageProject)
+      echo "Test Presence|Non-Negotiables"
+      ;;
+    docsFreshnessProject)
+      echo "Project Docs Freshness|Project Docs Hierarchy"
+      ;;
     docsReviewed)
       echo "Backlog Routing Guide"
       ;;
@@ -337,7 +366,7 @@ get_model_for_check_type() {
     return
   fi
   case "$1" in
-    docsReviewed|prDescStaleReason|testCoverage|dismissalLog|hookBypass)
+    docsReviewed|prDescStaleReason|testCoverage|testCoverageProject|docsFreshnessProject|dismissalLog|hookBypass)
       echo "sonnet"
       ;;
     dirtyTreeReason|dirtyPushReason|manifestReviewed)
@@ -393,6 +422,8 @@ Evaluate:
     - Claims 'user-acceptable' or 'product decision' without attributing to a specific approved spec line or design doc
     PASS only when every rationale is: specific (names what was considered and why deferred), consistent with the PR scope (doesn't cross the core user story, doesn't dismiss committed scope), and actionable (a later reviewer could find the rationale plausible given the evidence).
 10. **Convention adherence** (when '=== Relevant conventions ===' appears in the context): the diff/dismissal must follow the inlined conventions. A change that violates an explicit rule (e.g. a new wrapper without onError when § Wrapper API design requires it; a dismissal that punts on an RLS-coverage finding when § Supabase Hardening Defaults marks it non-negotiable; a slow-job stripped of the edge-runtime retry when § Slow-Job Lifecycle's checklist requires it) must FAIL unless the reason explicitly engages the rule's stated rationale. Generic 'this convention doesn't apply here' WITHOUT naming why is NOT acceptable.
+11. For testCoverageProject (project-repo pre-commit, ADD-without-test or orphan-after-DELETE was blocked): the reason MUST name the SPECIFIC blocked path(s) and explain WHY a test does not apply (e.g. 'page.tsx is the route entry — covered by e2e/list.spec.ts driving sign-in → add → bought', or 'utils/format.ts is a pure 3-line type re-export over packages/core/src/types — covered transitively by addItem.test.ts asserting the shape'). Generic reasons ('test coverage exists elsewhere', 'low risk', 'WIP') FAIL. PASS requires a named test or named exempt-list rationale that a future reviewer could verify in 30 seconds.
+12. For docsFreshnessProject (project-repo pre-commit, new page/wrapper/event without doc update was blocked): the reason MUST be a per-doc enumeration that names each blocked surface and either (a) points at the existing CLAUDE.md / METRICS.md entry that ALREADY covers it (verify against the inlined CLAUDE.md / METRICS.md content — if the named entry is not actually there, FAIL), or (b) explains why this specific surface does not need an entry (e.g. 'apps/web/app/healthz/route.ts is an internal infra-only liveness probe — no user-visible surface, no operator-relevant flow'). Generic 'docs are fine', 'will update later', 'minor change' FAIL. Surfaces named in CLAUDE.md § Where Things Happen are load-bearing for orientation — dismissals that touch them face a higher bar.
 
 Respond with EXACTLY one line:
 PASS - only if the reason is genuinely legitimate and specific

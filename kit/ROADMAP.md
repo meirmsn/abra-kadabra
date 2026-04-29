@@ -587,7 +587,9 @@ It's v0 because every project hits it; v1 because it's not strictly blocking ado
 
 ---
 
-### Pre-commit test-presence hook (project repo)
+### Pre-commit test-presence hook (project repo) [SHIPPED]
+
+> Shipped as part of the project-repo gates triplet (test-presence + docs-freshness + hierarchical docs scaffold). See `BUILD-LOG.md` and `kit/docs/guide/conventions.md § Test Presence`. Layer-1 deterministic check at `kit/scripts/commit-hooks/check-test-coverage-project.sh`; Layer-2 adversarial reviewer via `adversarial-review.sh testCoverageProject`. Override file `.devshop-test-coverage-exempt` at project root. Wired into `kit/hooks/pre-commit.sh` for the `/workspace` (project) branch. 23 bats cases at `kit/tests/guard-test-coverage-project.bats`. Original entry preserved below for context.
 
 Today `check-test-coverage.sh` runs only in the devshop repo itself — it flags `kit/scripts/*.sh` additions/modifications that lack a `.bats` test. Project repos (lalista, every future project) have no equivalent: new `.ts`/`.tsx` files under `apps/*/src/` + `packages/*/src/` can land without a paired `.test.ts` and the pre-commit gate says nothing. `/ak-test-review` catches this at ship time (late — feature already built), and adversarial reviewers can't enforce test _existence_ because no machine-readable invariant exists.
 
@@ -634,7 +636,9 @@ Every devshop project will hit this exact gap. Lalista is already carrying a `TO
 
 ---
 
-### Project-repo docs-freshness hook + adversarial reviewer
+### Project-repo docs-freshness hook + adversarial reviewer [SHIPPED]
+
+> Shipped as part of the project-repo gates triplet. See `kit/docs/guide/conventions.md § Project Docs Freshness`. Layer-1 deterministic check at `kit/scripts/commit-hooks/check-docs-freshness-project.sh`; Layer-2 adversarial reviewer via `adversarial-review.sh docsFreshnessProject`. Override file `.devshop-docs-freshness-exempt` at project root. Wired into `kit/hooks/pre-commit.sh` for the `/workspace` branch. 17 bats cases at `kit/tests/guard-docs-freshness-project.bats`. Original entry preserved below.
 
 Sibling to the test-presence entry above, on the docs side. Today the project's hierarchical doc set (`CLAUDE.md`, `PLAN.md`, `BUILD-LOG.md`, `PRODUCT-ROADMAP.md`, `TODOS.md`, `METRICS.md`) is maintained by convention only — nothing structurally enforces that a code change touching a documented surface also updates the doc. So `CLAUDE.md § Where Things Happen` decays as routes get added, `METRICS.md` decays as new `posthog.capture(...)` events land, `BUILD-LOG.md` decays as PRs ship without entries.
 
@@ -682,7 +686,9 @@ Lalista's `CLAUDE.md § Where Things Happen` is currently accurate because the o
 
 ---
 
-### Hierarchical docs scaffold in template
+### Hierarchical docs scaffold in template [SHIPPED]
+
+> Shipped as part of the project-repo gates triplet. See `kit/docs/guide/conventions.md § Project Docs Hierarchy`. Template now ships `template/CLAUDE.md`, `template/TODOS.md`, `template/METRICS.md` skeletons (alongside the existing `PLAN.md` / `BUILD-LOG.md` / `PRODUCT-ROADMAP.md` / `README.md`). `/ak-new-project § Step 16` simplified from "create METRICS.md" to "fill the scaffolded skeleton"; `§ Step 18` likewise for `CLAUDE.md`. Manifest comment updated to acknowledge the six-file orientation hierarchy as project-owned-after-scaffold. Original entry preserved below.
 
 Today `/devshop/template/` ships `PLAN.md`, `BUILD-LOG.md`, `PRODUCT-ROADMAP.md`, `README.md` — but NOT `CLAUDE.md`, `TODOS.md`, or `METRICS.md`. Those are created interactively by `/ak-new-project` Step 16 (METRICS) + Step 18 (CLAUDE); nothing creates `TODOS.md`. So the project doc hierarchy is partial-and-inconsistent across new projects depending on what the operator does in the interactive setup.
 

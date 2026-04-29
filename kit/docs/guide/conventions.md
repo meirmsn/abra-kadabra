@@ -534,3 +534,72 @@ Every script in `kit/scripts/` is either tested or explicitly exempt in `check-t
 - **File documentation**: every non-trivial `.ts`/`.tsx` file under `src/` or `app/` has a 3-line header (`// What:` / `// Why:` / `// Does NOT:`). Every exported function has 1-2 sentence JSDoc (enforced by ESLint via `eslint-plugin-jsdoc`). Internal/private: no doc required. Config files (`*.config.*`, `*.d.ts`) are exempt. Headers are checked by `/ak-pre-ship` convention check, not pre-commit — mechanical enforcement produces mechanical documentation.
 - **Implementation approach**: default to simple. Boring solution. Tried-and-true over clever. Readable over optimal.
 - **ESLint for code quality only** — Prettier owns all formatting.
+
+---
+
+## Test Presence
+
+Every new source file under `apps/*/{src,app,components,lib,hooks}/` or `packages/*/src/` MUST ship with a paired test in the same commit. Enforcement is `kit/scripts/commit-hooks/check-test-coverage-project.sh`, wired into project-repo `.hooks/pre-commit` via `kit/hooks/pre-commit.sh`.
+
+**Layer 1 (deterministic, this hook):**
+
+- **ADD without paired test** → BLOCK. The pair is `<file>.test.ts` / `<file>.test.tsx` / `<file>.integration.test.ts` / `<file>.spec.ts` in the same directory, OR any `*.test.*` in the same directory that mentions the new file's stem.
+- **DELETE source while paired test still present** → BLOCK as orphan. Stage the test deletion in the same commit.
+- **MODIFY without test diff** → WARN only. `/ak-test-review` is the quality gate at ship time.
+
+**Exempt by filename** (entry-points + framework-required files where unit-testing is fraught — E2E covers them): `index.ts`, `index.tsx`, `page.tsx`, `layout.tsx`, `loading.tsx`, `error.tsx`, `not-found.tsx`, `global-error.tsx`, `template.tsx`, `default.tsx`, `head.tsx`, `icon.tsx`, `robots.ts`, `sitemap.ts`, `manifest.ts`, `middleware.ts`.
+
+**Exempt by pattern**: `*.d.ts`, `*.config.*`, `*.test.*`, `*.spec.*`, `*.integration.test.*`, anything under `e2e/`, `tests/`, `__tests__/`, `__mocks__/`, `types/**/*.ts`, top-level `types.ts`.
+
+**Per-project override**: `.devshop-test-coverage-exempt` at repo root, one path per line, `#` comments. Audit-trail discipline — each exemption commits with a reason in the commit message.
+
+**Layer 2 (adversarial reviewer)**: bypass via `git -c devshop.testCoverageReviewed="<why>"` triggers `adversarial-review.sh testCoverageProject`. The reviewer requires the reason to name the SPECIFIC blocked path and EITHER the existing test that already covers it OR a concrete reason a test would not add value (e.g. pure type re-export). Generic "low risk" / "WIP" / "test exists somewhere" → reject.
+
+**Relationship to `/ak-test-review`**: this hook catches "I forgot a test entirely." `/ak-test-review` catches "this test is weak." They're complementary, not redundant.
+
+---
+
+## Project Docs Freshness
+
+The project's hierarchical doc set decays silently as routes get added, API wrappers proliferate, and analytics events land. Enforcement is `kit/scripts/commit-hooks/check-docs-freshness-project.sh`, paired with the test-presence hook above.
+
+**Trigger map (staged path → required doc):**
+
+| Staged change                                                          | Required doc update                |
+| ---------------------------------------------------------------------- | ---------------------------------- |
+| New `apps/*/app/**/page.tsx`, `layout.tsx`, `route.ts`                 | `CLAUDE.md` (must also be staged)  |
+| New `apps/*/middleware.ts`                                             | `CLAUDE.md`                        |
+| New `packages/*/src/api/*.ts` (wrapper module)                         | `CLAUDE.md`                        |
+| New `posthog.capture(...)` or `Sentry.captureException(...)` call site | `METRICS.md` (must also be staged) |
+| Source path DELETE while doc still references it                       | BLOCK on stale reference           |
+
+**Layer 1 (deterministic)**: matches staged paths against the trigger map. If a triggering surface is added without the paired doc staged, BLOCK. If a deleted source path's basename-or-full-path still appears in `CLAUDE.md` or `METRICS.md`, BLOCK.
+
+**Layer 2 (adversarial reviewer)**: bypass via `git -c devshop.docsFreshnessReviewed="<per-doc enumeration>"` triggers `adversarial-review.sh docsFreshnessProject`. The reviewer gets the project's `CLAUDE.md` + `METRICS.md` and verifies bypass-claims like "this surface is already documented under § Auth" — if the section the reason names is not actually present in the staged docs, the bypass fails.
+
+**Per-project override**: `.devshop-docs-freshness-exempt` at repo root, one path per line, same audit discipline as the test-coverage override.
+
+**Relationship to devshop's `docsReviewed`**: this is the project-repo analog of `commit-guard.sh`'s docs-coverage check (which only fires on changes under `kit/`, `.claude/`, or `.devshopkit/`). The two never overlap — `docsReviewed` covers devshop tooling docs, `docsFreshnessProject` covers project-orientation docs.
+
+---
+
+## Project Docs Hierarchy
+
+Every devshop project ships with the same six-file orientation hierarchy at the repo root. The session-start hook (`kit/scripts/session-start.sh`) loads the project's `CLAUDE.md` at every Claude session, making it the **always-available orientation surface**. The other five files are drilled into on demand.
+
+| File                 | Role                                                                                                                                                                                                                                  | Loaded                                                |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `CLAUDE.md`          | Always-loaded entry point. § Where Things Happen (path map of every documented surface), § Gotchas (non-obvious rules surfaced by shipping work), § Testing, § Stack, § Env Var Naming, § Migration Workflow, § Deploy Configuration. | Every session, automatically                          |
+| `PLAN.md`            | Forward plan at PR grain. § Active / § Planned.                                                                                                                                                                                       | On demand                                             |
+| `BUILD-LOG.md`       | Shipped history. PRs in chronological order with what shipped + non-obvious context.                                                                                                                                                  | On demand                                             |
+| `PRODUCT-ROADMAP.md` | Long-term / deferred features by version.                                                                                                                                                                                             | On demand                                             |
+| `TODOS.md`           | Tactical bugs/polish, organized by version + when-it-runs.                                                                                                                                                                            | On demand                                             |
+| `METRICS.md`         | Event taxonomy + feature flags. Updated alongside every new `posthog.capture` / `Sentry.captureException`.                                                                                                                            | On demand (and required by docs-freshness hook above) |
+
+**Authoring rule for `CLAUDE.md` § Where Things Happen**: every new page, API wrapper, edge function, design token surface, or CI/CD workflow lands with a one-bullet entry naming the file path. The freshness hook above enforces this on add. The bullet should be terse — one sentence pointing at the file, plus any cross-reference to other surfaces touched.
+
+**Authoring rule for `CLAUDE.md` § Gotchas**: surfaces a non-obvious rule that future sessions need before touching the relevant code (e.g., "RLS blocks direct inserts — use the RPC", "this hook fires on `*git*commit*` substring, not `git commit` exact"). Add only when shipping work surfaces a real gotcha — not preemptively.
+
+**Authoring rule for `METRICS.md`**: every `posthog.capture(...)` or `Sentry.captureException(...)` call gets a row in the Events table. Properties listed; "why we care" sentence stating what the event signals. The docs-freshness hook blocks PRs that add new event call-sites without staging `METRICS.md`.
+
+The template ships skeletons for all six files (`/devshop/template/{CLAUDE,PLAN,BUILD-LOG,PRODUCT-ROADMAP,TODOS,METRICS}.md`) so new projects start with the right shape rather than inventing their own. `/ak-new-project` Step 16 + Step 18 fill in project-specific values; the structural skeleton is always present.

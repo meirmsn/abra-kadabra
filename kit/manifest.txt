@@ -8,7 +8,11 @@
 # NOT listed here:
 # - Symlinked files (.devshopkit/, .claude/skills/, etc.) — always match devshop
 # - Root-owned copies (settings.json, .dcg.toml) — copied on every container start
-# - Project-only files (.env, settings.local.json, CLAUDE.md)
+# - Project-only files (.env, settings.local.json)
+# - Project orientation hierarchy scaffolded once at /ak-new-project time
+#   (CLAUDE.md, PLAN.md, BUILD-LOG.md, PRODUCT-ROADMAP.md, TODOS.md, METRICS.md, README.md):
+#   the template ships skeletons; projects own them after scaffold and diverge freely.
+#   See kit/docs/guide/conventions.md § Project Docs Hierarchy.
 # See kit/docs/guide/architecture.md § File Lifecycle for the full model.
 
 # Build tooling

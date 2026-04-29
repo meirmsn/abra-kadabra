@@ -84,15 +84,25 @@ section below) · v1 = deferred to v1, captured in `kit/ROADMAP.md`.
 
 **Project-repo gates (triplet, pair-ship):**
 
-- ⏳ **Pre-commit test-presence hook** — block new `src/*.ts` without paired
-  `.test.ts`; exempt-list file; adversarial reviewer for modify cases.
-- ⏳ **Project-repo docs-freshness hook + adversarial reviewer** — sibling on
-  the docs side: new `page.tsx` / API wrapper / `posthog.capture` requires
-  `CLAUDE.md` / `METRICS.md` update in the same diff.
-- ⏳ **Hierarchical docs scaffold in template** — template ships `CLAUDE.md`
-  / `TODOS.md` / `METRICS.md` skeletons (explicitly paired with the freshness
-  hook). Ship the triplet together so one lalista commit cycle flushes
-  false-positive exempt lists for all three.
+- ✅ **Pre-commit test-presence hook** — shipped 2026-04-28 on devshop branch
+  `feat/project-repo-gates-triplet`. `kit/scripts/commit-hooks/check-test-coverage-project.sh`
+  - adversarial reviewer (`testCoverageProject`) + 23 bats cases. Override file
+    `.devshop-test-coverage-exempt`. Wired into the project branch of
+    `kit/hooks/pre-commit.sh`. See `conventions.md § Test Presence`.
+- ✅ **Project-repo docs-freshness hook + adversarial reviewer** — shipped same
+  branch. `check-docs-freshness-project.sh` blocks new `page.tsx` / `route.ts` /
+  API wrappers / `posthog.capture` / `Sentry.captureException` without paired
+  `CLAUDE.md` / `METRICS.md` update; blocks delete-with-stale-doc-reference.
+  Reviewer (`docsFreshnessProject`) verifies bypass-claims against the actual
+  staged docs. Override file `.devshop-docs-freshness-exempt`. 17 bats cases.
+  See `conventions.md § Project Docs Freshness`.
+- ✅ **Hierarchical docs scaffold in template** — shipped same branch. Template
+  now ships `CLAUDE.md` / `TODOS.md` / `METRICS.md` skeletons alongside existing
+  `PLAN.md` / `BUILD-LOG.md` / `PRODUCT-ROADMAP.md` / `README.md`.
+  `/ak-new-project § Step 16` + `§ Step 18` simplified from "create the file"
+  to "fill the scaffolded skeleton." See `conventions.md § Project Docs Hierarchy`.
+  Adoption on lalista (false-positive flush) follows in a project-side commit
+  that wires `.hooks/pre-commit` and seeds the override files.
 
 **Migration / CI hygiene:**
 
@@ -160,9 +170,9 @@ Runtime Validation at LLM / Edge-Function Boundaries`); lalista PR 6
 - ✅ **PR-body "Manual review" guardrail + Phase 6 auto-attest** — shipped
   v1.22.0 in `/ak-build`.
 
-**Net for v0**: only ⏳ items above remain — the project-repo gates triplet,
-the security-posture sweep, and the auth UX conventions package. None gate
-lalista v0 GA.
+**Net for v0**: only ⏳ items above remain — the security-posture sweep and
+the auth UX conventions package. The project-repo gates triplet shipped on
+devshop 2026-04-28 (project-side adoption pending). None gate lalista v0 GA.
 
 ---
 
@@ -261,9 +271,12 @@ Boundaries` (when to use, schema-module pattern, wrapper-site
     bridges the two layers at runtime, the file does not).
     The only project-side Tier 1 rule — **ON DELETE on auth.users
     FK references** — is in lalista's `/workspace/CLAUDE.md § Gotchas`.
-- **Triplet**: test-presence hook + docs-freshness hook + hierarchical docs
-  scaffold — ship together so one lalista commit cycle flushes false-positive
-  exempt lists for all three.
+- ✅ **Triplet**: test-presence hook + docs-freshness hook + hierarchical docs
+  scaffold — shipped 2026-04-28 on devshop branch
+  `feat/project-repo-gates-triplet` (40 new bats cases, all 379 in suite green).
+  Lalista-side adoption (wire `.hooks/pre-commit` to call the new scripts via
+  the SCRIPTS_DIR dispatch + seed initial override files for any false
+  positives) follows in a separate project-side commit cycle.
 - ✅ **Pair**: CI slow-job lifecycle convention + backport-to-template.
   Shipped in v1.22.0: `kit/docs/guide/conventions.md § Slow-Job Lifecycle`
   documents the Phase 1c/1g threshold + uncommenting checklist; new

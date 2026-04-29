@@ -876,9 +876,11 @@ supabase init    # if supabase/config.toml doesn't exist
 supabase link --project-ref <project-ref>
 ```
 
-### Step 16: Create METRICS.md
+### Step 16: Fill METRICS.md skeleton
 
-Empty event taxonomy structure. `/ak-spec` populates during first feature build.
+The template ships a `METRICS.md` skeleton with the Events / Feature Flags / Dashboards table headers and authoring rules. No file creation needed — open the scaffolded file and replace the placeholder rows with project-specific values when the first feature lands. `/ak-spec` populates the Events table during the first feature build.
+
+Per `guide/conventions.md § Project Docs Hierarchy`, this file is one of six in the always-present orientation hierarchy. The pre-commit `check-docs-freshness-project.sh` hook enforces that new `posthog.capture(...)` / `Sentry.captureException(...)` call sites stage `METRICS.md` updates in the same commit.
 
 ### Step 17: Run /setup-deploy
 
@@ -1024,7 +1026,9 @@ If the user says no, iterate with them to correct before advancing. Misconfigure
 
 See `kit/docs/guide/conventions.md § Supabase Hardening Defaults` for the full rationale + FK-cascade convention that pairs with this step.
 
-### Step 18: Create project CLAUDE.md
+### Step 18: Fill project CLAUDE.md skeleton
+
+The template ships a `CLAUDE.md` skeleton — open the scaffolded file and replace the placeholder values (project name, one-line description, deploy configuration block populated by `/setup-deploy` at Step 17). The structural sections (`§ Where Things Happen`, `§ Gotchas`, `§ Testing`, `§ Stack`, `§ Env Var Naming`, `§ Migration Workflow`, `§ Deploy Configuration`) are pre-laid; do not invent your own structure.
 
 Project-specific Claude guidance. Tracked in git. Devshop conventions are NOT in
 this file — they reach Claude sessions at runtime via the SessionStart hook
@@ -1073,6 +1077,8 @@ The template's `CLAUDE.md` skeleton starts in this shape; new projects scaffolde
 from the template inherit it. Existing projects that drifted (e.g., accumulated
 `/devshop/...` cross-refs over time) should clean up by stripping those refs back
 to project-only content. Lalista's PR 25 (2026-04-26) is the case study.
+
+The template also scaffolds `TODOS.md` and (alongside `PLAN.md` / `BUILD-LOG.md` / `PRODUCT-ROADMAP.md` / `METRICS.md` / `README.md`) completes the six-file orientation hierarchy described in `guide/conventions.md § Project Docs Hierarchy`. No interactive creation step exists for `TODOS.md` — the skeleton is enough; rows land as tactical work surfaces.
 
 ### Step 19: Enable doc enforcement hooks
 
