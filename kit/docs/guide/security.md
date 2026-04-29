@@ -50,6 +50,8 @@ Two other shapes are available per-project:
 
 The host-docker-socket-bind-mount shape (the threat model's Option 2) was an earlier shape — not offered to new projects because workspace docker access defeats the macOS-home blast-radius isolation that motivated compose isolation.
 
+**Template default vs threat-model recommendation — two axes, not a contradiction**: the template ships compose isolation by default for ergonomics (no `brew install supabase/tap/supabase` step; `pnpm db:start` works out of the box). The [threat-model decision matrix](../../notes/security/local-supabase-isolation-options.md) recommends **Host Supabase** as the marginal-safer default for operators with multiple project families under `~/dev/` — the workspace has ZERO docker surface there (vs. compose isolation's runner-with-narrow-bind, which is also macOS-home-safe but slightly broader attack surface). Both options block the macOS-home read; the differentiation is brew-install-friction vs marginal-extra-isolation. `/ak-new-project § Step 2b` exposes both at scaffold time; pick per the operator profile.
+
 Threat-model + decision matrix: [`/devshop/kit/notes/security/local-supabase-isolation-options.md`](../../notes/security/local-supabase-isolation-options.md). Operational guide for compose isolation: [`local-supabase-compose-isolation.md`](./local-supabase-compose-isolation.md).
 
 ## Secrets in CI

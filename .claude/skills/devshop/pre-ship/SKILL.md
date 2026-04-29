@@ -113,24 +113,31 @@ if [ -n "$CHROMIUM" ]; then
 fi
 ```
 
-**Supabase availability check** (hard `blocked` if Docker is missing, never falls back to hosted):
+**Supabase availability check** (hard `blocked` if no local stack reachable, never falls back to hosted):
 
-Gate 9 (`/qa`) walks the happy path against a Supabase instance. Hosted Supabase has two failure modes for this: (a) rate-limits signups aggressively (~30-min cooldown after 1-2 attempts), and (b) every signup leaves a real account on the production project — which the bootstrap historically did when Docker wasn't available. As of the dev-side prod-isolation interlude, the hosted fallback is removed: if Docker isn't reachable, Gate 9 reports `blocked` and the pipeline halts.
+Gate 9 (`/qa`) walks the happy path against a Supabase instance. Hosted Supabase has two failure modes for this: (a) rate-limits signups aggressively (~30-min cooldown after 1-2 attempts), and (b) every signup leaves a real account on the production project — which the bootstrap historically did when Docker wasn't available. As of the dev-side prod-isolation interlude, the hosted fallback is removed: if no local stack is reachable, Gate 9 reports `blocked` and the pipeline halts.
+
+The bootstrap auto-detects three reachability shapes (compose isolation = template default since v1.23.0; docker-bind = legacy single-container shape; Host Supabase = supabase runs on macOS host) and routes lifecycle commands accordingly. See [`/devshop/kit/docs/guide/local-supabase-compose-isolation.md`](../../../kit/docs/guide/local-supabase-compose-isolation.md) for the operator-facing architecture.
 
 ```bash
 # Bootstrap local Supabase or report blocked.
 bash /devshop/kit/scripts/preship/supabase-bootstrap.sh up
 # Outputs one of:
 #   ok: local Supabase up; .env.local rewritten (backup at .preship-backup)
-#   reused: local Supabase already running
-#   blocked: Docker not running — local Supabase cannot start. Refusing hosted-Supabase fallback (would pollute prod). Fix: rebuild devcontainer with host docker socket bind-mount, or run on a machine with Docker.
+#   reused: local Supabase already running [(via cmd-relay)|(Host Supabase shape — lifecycle managed from macOS terminal)]
+#   blocked: <shape-specific reason> — Refusing hosted-Supabase fallback (would pollute prod). Fix: <shape-specific recipe>
 ```
 
-`ok` / `reused` are exit 0. `blocked` is also exit 0 (the script reports the situation; pre-ship's gate dispatcher decides the outcome). Non-zero exits (2-5) indicate hard failures (CLI missing, `supabase start` failed, seed fixtures missing) — blocking if `$TOUCHES_UI`; warn otherwise.
+Shape-specific `blocked` messages:
+
+- **compose isolation**: "cmd-relay on supabase-runner:9000 unreachable. Fix: from a macOS terminal, restart the runner (`docker restart <project>_devcontainer-supabase-runner-1`), or rebuild the devcontainer."
+- **none reachable**: "no local Supabase reachable. Detection fell through (no compose.yml + supabase-runner/, no docker daemon, no listener at host.docker.internal:54321). Fix: rebuild the devcontainer with one of the supported shapes — compose isolation (template default), Host Supabase (`brew install supabase/tap/supabase` on macOS host), or run on a machine with Docker."
+
+`ok` / `reused` are exit 0. `blocked` is also exit 0 (the script reports the situation; pre-ship's gate dispatcher decides the outcome). Non-zero exits (2-5) indicate hard failures (CLI missing, relay-driven `supabase start` failed, seed fixtures missing, env vars missing) — blocking if `$TOUCHES_UI`; warn otherwise.
 
 **If preflight reads `blocked:` from the bootstrap script's stdout**:
 
-1. Record `blocked (Docker unavailable — see fix recipe below)` against Gate 9.
+1. Record `blocked (<shape-specific reason> — see fix recipe below)` against Gate 9.
 2. Report back to the caller immediately with the script's full stdout as the fix recipe.
 3. Do NOT run subsequent gates that depend on Gate 9 evidence (qa-walk artifacts).
 4. `/ak-build` MUST refuse to advance to `/ship` with any `blocked` gate (existing contract — see Outcome semantics).

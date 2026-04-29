@@ -436,7 +436,7 @@ TODO items can be scheduled into versions defined in their corresponding ROADMAP
 - **No code that breaks existing tests** — full test suite runs before marking done.
 - **Testing layers**:
   - Unit tests (`*.test.ts`): mock external dependencies. Pure business logic only — validation, transforms, calculations.
-  - Integration tests (`*.integration.test.ts`): must hit a real local database (Docker-in-Docker). Never mock the DB layer for queries, access control, or data integrity. Supabase: `supabase start`. Other: Docker Compose.
+  - Integration tests (`*.integration.test.ts`): must hit a real local database. Never mock the DB layer for queries, access control, or data integrity. Bring up via `pnpm db:start` under the template-default compose-isolation shape (relay → supabase-runner sibling), or `supabase start` from the macOS host terminal under Host Supabase, or Docker Compose for non-Supabase stacks. See `kit/docs/guide/local-supabase-compose-isolation.md` for the architecture.
   - E2E tests: required for every user-facing flow. Playwright runs at 375px (mobile) and 1440px (desktop). Both must pass.
 - **Test commands**: `pnpm turbo run test:unit` (unit only, no DB) vs `pnpm turbo run test` (unit + integration, needs local DB). Use `test:unit` for the fast inner loop; `test` for full verification.
 - **Auth boundary tests (RLS)**: every table with RLS policies must have at least one integration test — authenticate as User A, create data, authenticate as User B, verify data is NOT visible. RLS bugs are silent data leaks; mocked tests can never catch them.

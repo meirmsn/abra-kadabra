@@ -2,11 +2,27 @@
 # What: Phase 0 preflight helper — bootstrap local Supabase for Gate 9 evidence, or report unavailable.
 # Why: Hosted Supabase rate-limits signups aggressively (~30-min cooldown after 1-2 tries), which
 #      turns Gate 9 into a "blocked (rate-limited)" result. Local Supabase has no limits and keeps
-#      Gate 9 isolated from hosted-DB pollution during dev. Admin-API against hosted is the fallback
-#      when Docker-in-Docker isn't available in the devcontainer.
-# Does NOT: Install the Supabase CLI or Docker. Both must be provisioned by the devcontainer.
-#           Does not touch hosted Supabase. Does not create migrations or seed files — expects them
-#           to already exist at supabase/migrations/ and supabase/seed.sql.
+#      Gate 9 isolated from hosted-DB pollution during dev. Hosted-Supabase fallback is refused
+#      under any shape (would pollute prod with real Gate-9 walk artifacts).
+# Does NOT: install the Supabase CLI, Docker, or compose.yml/supabase-runner. The devcontainer
+#      ships those (or doesn't, per the project's chosen reachability shape — see /ak-new-project §
+#      Step 2b). Does not touch hosted Supabase. Does not create migrations/seed — expects them
+#      to already exist at supabase/migrations/ and supabase/seed.sql.
+#
+# Reachability shape detection (auto):
+#   - "compose"     : project ships .devcontainer/compose.yml + supabase-runner/. Workspace has
+#                     no docker CLI; lifecycle drives through the cmd-relay on supabase-runner:9000.
+#                     Data plane reached via host.docker.internal:54321/54322. (Template default
+#                     since v1.23.0.)
+#   - "docker-bind" : workspace has docker CLI + daemon access (legacy host-docker-socket bind-
+#                     mount shape, no longer offered to new projects but supported here for
+#                     existing projects scaffolded pre-v1.23.0).
+#   - "host"        : workspace has neither docker CLI nor compose.yml, but the data plane is
+#                     reachable at host.docker.internal:54321 — Host Supabase shape, where the
+#                     operator runs `supabase start` from a macOS host terminal. This script
+#                     can verify reachability + rewrite .env.local but cannot start/stop the
+#                     stack (lifecycle lives on the macOS host).
+#   - "none"        : nothing reachable. Report `blocked` with shape-specific fix recipe.
 
 set -euo pipefail
 
@@ -17,76 +33,160 @@ BACKUP_FILE="$ENV_FILE.preship-backup"
 
 MODE="${1:-up}"
 
+RELAY_URL="http://supabase-runner:9000"
+
+# Detect which reachability shape this project is on. Read-only, side-effect-free.
+detect_shape() {
+  if [ -f "$PROJECT_ROOT/.devcontainer/compose.yml" ] && [ -d "$PROJECT_ROOT/.devcontainer/supabase-runner" ]; then
+    echo "compose"
+    return
+  fi
+  if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+    echo "docker-bind"
+    return
+  fi
+  # Host Supabase: data plane reachable at host.docker.internal:54321 even though workspace
+  # has no docker tooling. -fsS exits 22 on HTTP 4xx (kong returns 401 on bare /), which
+  # confirms the listener is up. exit 7 (couldn't connect) → not reachable.
+  if curl -sS -m 2 "http://host.docker.internal:54321" -o /dev/null 2>/dev/null; then
+    echo "host"
+    return
+  fi
+  # curl returned non-zero — treat 22 (HTTP 4xx, listener alive) as host-supabase-reachable.
+  if [ "$?" = "22" ]; then
+    echo "host"
+    return
+  fi
+  echo "none"
+}
+
 case "$MODE" in
   up)
-    # 1. CLI check — hard block. Without the CLI, Phase 0 can't do anything here.
+    # 1. CLI check — hard block. Without the CLI, workspace can't run `supabase migration new`
+    #    or any of the filesystem-only supabase commands, even under compose isolation where
+    #    lifecycle is relay-driven (the workspace still uses supabase CLI for non-runtime ops).
     if ! command -v supabase >/dev/null 2>&1; then
       echo "error: supabase CLI not installed — install via devcontainer Dockerfile" >&2
       exit 2
     fi
 
-    # 2. Docker check — hard `blocked`, no hosted fallback. Historically this branch
-    #    routed Gate 9 to admin-API-against-hosted-prod, which created real users +
-    #    households + items on the production Supabase project during every dev-side
-    #    pre-ship walk. Refusing the fallback forces the operator to fix the root
-    #    cause (mount /var/run/docker.sock per template/.devcontainer/devcontainer.json,
-    #    or run on a host with Docker). Pre-ship treats `blocked` as a non-advancing
-    #    failure for Gate 9; /ak-build refuses to ship with any blocked gate. See
-    #    /devshop/kit/notes/roadmap/qa-options.md.
-    if ! docker info >/dev/null 2>&1; then
-      echo "blocked: Docker not running — local Supabase cannot start. Refusing hosted-Supabase fallback (would pollute prod). Fix: rebuild the devcontainer with the host docker socket bind-mount (see template/.devcontainer/devcontainer.json § mounts), or run on a machine with Docker."
-      exit 0
-    fi
+    SHAPE=$(detect_shape)
 
-    # 3. Already running → reuse (idempotent).
-    cd "$PROJECT_ROOT"
-    if supabase status >/dev/null 2>&1; then
-      echo "reused: local Supabase already running"
-      exit 0
-    fi
+    case "$SHAPE" in
+      compose)
+        # Check relay reachability via /status (which runs `supabase status` inside the runner).
+        # curl exit code mapping:
+        #   0  → relay alive AND stack running (supabase status returned 0; relay returned HTTP 200)
+        #   22 → relay alive but stack not running (supabase status non-zero; relay returned HTTP 500)
+        #   7  → relay unreachable (couldn't connect)
+        #   28 → relay unreachable (timeout)
+        STATUS_RC=0
+        curl -fsS -m 5 "$RELAY_URL/status" -o /dev/null 2>/dev/null || STATUS_RC=$?
 
-    # 4. Start.
-    if ! supabase start >/dev/null 2>&1; then
-      echo "error: supabase start failed — check Docker quota + supabase/config.toml" >&2
-      exit 3
-    fi
+        if [ "$STATUS_RC" = "0" ]; then
+          echo "reused: local Supabase already running (via cmd-relay)"
+        elif [ "$STATUS_RC" = "22" ]; then
+          # Relay alive, stack down — start via relay /start (runs `supabase start` inside runner).
+          # First start can take 30-60s; allow generous timeout.
+          if ! curl -fsS -X POST -m 180 "$RELAY_URL/start" -o /dev/null 2>/dev/null; then
+            echo "error: relay-driven supabase start failed — check \`docker logs <project>_devcontainer-supabase-runner-1\` from a macOS terminal" >&2
+            exit 3
+          fi
+        else
+          echo "blocked: cmd-relay on supabase-runner:9000 unreachable (curl exit $STATUS_RC). Compose isolation requires the supabase-runner sibling container to be running. Fix: from a macOS terminal, restart the runner (\`docker restart <project>_devcontainer-supabase-runner-1\`), or rebuild the devcontainer (Cmd+Shift+P → Dev Containers: Rebuild Container)."
+          exit 0
+        fi
 
-    # 5. Verify seed fixtures loaded. Gate 9's walk uses alice@test.local; absence means the seed
-    #    file didn't replay and downstream tests will fail cryptically.
-    if ! PGPASSWORD=postgres psql -h localhost -p 54322 -U postgres -d postgres \
-         -tAc "SELECT count(*) FROM auth.users WHERE email IN ('alice@test.local', 'bob@test.local')" \
-         2>/dev/null | grep -q '^2$'; then
-      echo "error: seed fixtures missing (expected alice@test.local + bob@test.local in auth.users) — check supabase/seed.sql" >&2
-      exit 4
-    fi
+        # Verify seed fixtures via Postgres (data plane at host.docker.internal:54322 under compose).
+        if ! PGPASSWORD=postgres psql -h host.docker.internal -p 54322 -U postgres -d postgres \
+             -tAc "SELECT count(*) FROM auth.users WHERE email IN ('alice@test.local', 'bob@test.local')" \
+             2>/dev/null | grep -q '^2$'; then
+          echo "error: seed fixtures missing (expected alice@test.local + bob@test.local in auth.users) — check supabase/seed.sql, then re-run \`pnpm db:reset\`" >&2
+          exit 4
+        fi
 
-    # 6. Extract anon_key from supabase status.
-    ANON_KEY=$(supabase status --output env 2>/dev/null | grep '^ANON_KEY=' | cut -d= -f2- | tr -d '"' || true)
-    if [ -z "$ANON_KEY" ]; then
-      # Fallback to --output pretty parsing for older CLI versions.
-      ANON_KEY=$(supabase status 2>/dev/null | grep -i 'anon key' | sed -E 's/.*:\s*//')
-    fi
-    if [ -z "$ANON_KEY" ]; then
-      echo "error: could not extract anon_key from supabase status" >&2
-      exit 5
-    fi
+        # Under compose isolation, compose.yml's environment block already exposes
+        # SUPABASE_URL=http://host.docker.internal:54321 + the published local-stack JWTs as
+        # SUPABASE_ANON_KEY. Use those rather than re-extracting via the relay.
+        if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ]; then
+          echo "error: SUPABASE_URL or SUPABASE_ANON_KEY not in workspace env — compose.yml's services.workspace.environment block should set both" >&2
+          exit 5
+        fi
+        _LOCAL_URL="$SUPABASE_URL"
+        _LOCAL_ANON_KEY="$SUPABASE_ANON_KEY"
+        ;;
 
-    # 7. Back up + rewrite .env.local to point at local.
+      docker-bind)
+        # Legacy shape: workspace holds docker socket + supabase CLI talks to it directly.
+        # Already running → reuse (idempotent).
+        cd "$PROJECT_ROOT"
+        if supabase status >/dev/null 2>&1; then
+          echo "reused: local Supabase already running"
+        else
+          if ! supabase start >/dev/null 2>&1; then
+            echo "error: supabase start failed — check Docker quota + supabase/config.toml" >&2
+            exit 3
+          fi
+        fi
+
+        if ! PGPASSWORD=postgres psql -h localhost -p 54322 -U postgres -d postgres \
+             -tAc "SELECT count(*) FROM auth.users WHERE email IN ('alice@test.local', 'bob@test.local')" \
+             2>/dev/null | grep -q '^2$'; then
+          echo "error: seed fixtures missing (expected alice@test.local + bob@test.local in auth.users) — check supabase/seed.sql" >&2
+          exit 4
+        fi
+
+        _LOCAL_URL="http://localhost:54321"
+        _LOCAL_ANON_KEY=$(supabase status --output env 2>/dev/null | grep '^ANON_KEY=' | cut -d= -f2- | tr -d '"' || true)
+        if [ -z "$_LOCAL_ANON_KEY" ]; then
+          # Fallback to --output pretty parsing for older CLI versions.
+          _LOCAL_ANON_KEY=$(supabase status 2>/dev/null | grep -i 'anon key' | sed -E 's/.*:\s*//')
+        fi
+        if [ -z "$_LOCAL_ANON_KEY" ]; then
+          echo "error: could not extract anon_key from supabase status" >&2
+          exit 5
+        fi
+        ;;
+
+      host)
+        # Host Supabase: data plane is reachable but lifecycle lives on the macOS host.
+        # Treat as reused — Phase 0 doesn't try to manage start/stop.
+        echo "reused: local Supabase reachable at host.docker.internal (Host Supabase shape — lifecycle managed from macOS terminal)"
+
+        # Verify seed via Postgres on host.docker.internal:54322.
+        if ! PGPASSWORD=postgres psql -h host.docker.internal -p 54322 -U postgres -d postgres \
+             -tAc "SELECT count(*) FROM auth.users WHERE email IN ('alice@test.local', 'bob@test.local')" \
+             2>/dev/null | grep -q '^2$'; then
+          echo "error: seed fixtures missing (expected alice@test.local + bob@test.local in auth.users) — check supabase/seed.sql, then run \`supabase db reset\` from your macOS host terminal" >&2
+          exit 4
+        fi
+
+        # ANON_KEY: published well-known supabase-local default JWT (same across every install).
+        # Hardcoded here to avoid forcing the workspace to shell out to a CLI it can't run under
+        # Host Supabase (no docker daemon access).
+        _LOCAL_URL="http://host.docker.internal:54321"
+        _LOCAL_ANON_KEY="${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0}"
+        ;;
+
+      none)
+        echo "blocked: no local Supabase reachable. Detection fell through (no compose.yml + supabase-runner/, no docker daemon, no listener at host.docker.internal:54321). Refusing hosted-Supabase fallback (would pollute prod). Fix: rebuild the devcontainer with one of the supported shapes — compose isolation (template default; see /devshop/kit/docs/guide/local-supabase-compose-isolation.md), Host Supabase (\`brew install supabase/tap/supabase\` on macOS host + \`supabase start\` from host terminal), or run on a machine with Docker."
+        exit 0
+        ;;
+    esac
+
+    # Common: rewrite .env.local using $_LOCAL_URL + $_LOCAL_ANON_KEY.
     if [ -f "$ENV_FILE" ]; then
       cp "$ENV_FILE" "$BACKUP_FILE"
-      # Rewrite only the Supabase vars; preserve PostHog, Sentry, etc.
       sed -i.tmp \
-        -e 's|^NEXT_PUBLIC_SUPABASE_URL=.*|NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321|' \
-        -e "s|^NEXT_PUBLIC_SUPABASE_ANON_KEY=.*|NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY|" \
+        -e "s|^NEXT_PUBLIC_SUPABASE_URL=.*|NEXT_PUBLIC_SUPABASE_URL=$_LOCAL_URL|" \
+        -e "s|^NEXT_PUBLIC_SUPABASE_ANON_KEY=.*|NEXT_PUBLIC_SUPABASE_ANON_KEY=$_LOCAL_ANON_KEY|" \
         "$ENV_FILE"
       rm -f "$ENV_FILE.tmp"
     else
-      # No existing .env.local — create a minimal one with just Supabase vars.
       cat > "$ENV_FILE" <<ENV
-NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321
-NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY
+NEXT_PUBLIC_SUPABASE_URL=$_LOCAL_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY=$_LOCAL_ANON_KEY
 ENV
-      # Sentinel so "down" knows to delete (not restore) — empty backup = new file.
       touch "$BACKUP_FILE.created"
     fi
 
@@ -96,34 +196,64 @@ ENV
   down)
     # Restore .env.local.
     if [ -f "$BACKUP_FILE.created" ]; then
-      # We created the file from scratch; delete it.
       rm -f "$ENV_FILE" "$BACKUP_FILE.created"
     elif [ -f "$BACKUP_FILE" ]; then
       mv "$BACKUP_FILE" "$ENV_FILE"
     fi
 
-    # Stop local Supabase if Docker + CLI both available.
-    if command -v supabase >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
-      cd "$PROJECT_ROOT"
-      supabase stop >/dev/null 2>&1 || true
-    fi
+    # Stop local Supabase (best-effort; only stops if THIS script is responsible for lifecycle).
+    SHAPE=$(detect_shape)
+    case "$SHAPE" in
+      compose)
+        # Stop via relay (best-effort).
+        curl -fsS -X POST -m 60 "$RELAY_URL/stop" -o /dev/null 2>/dev/null || true
+        ;;
+      docker-bind)
+        if command -v supabase >/dev/null 2>&1 && command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+          cd "$PROJECT_ROOT"
+          supabase stop >/dev/null 2>&1 || true
+        fi
+        ;;
+      host|none)
+        # Host Supabase: lifecycle on macOS, don't touch. None: nothing to stop.
+        ;;
+    esac
 
     echo "down: .env.local restored; local Supabase stopped"
     ;;
 
   status)
-    # Diagnostic — report what the bootstrap would do without side effects.
     if ! command -v supabase >/dev/null 2>&1; then
       echo "cli-missing"; exit 0
     fi
-    if ! docker info >/dev/null 2>&1; then
-      echo "docker-unavailable"; exit 0
-    fi
-    cd "$PROJECT_ROOT"
-    if supabase status >/dev/null 2>&1; then
-      echo "running"; exit 0
-    fi
-    echo "stopped"
+
+    SHAPE=$(detect_shape)
+    case "$SHAPE" in
+      compose)
+        STATUS_RC=0
+        curl -fsS -m 5 "$RELAY_URL/status" -o /dev/null 2>/dev/null || STATUS_RC=$?
+        case "$STATUS_RC" in
+          0)  echo "running" ;;
+          22) echo "stopped" ;;
+          *)  echo "relay-unreachable" ;;
+        esac
+        ;;
+      docker-bind)
+        cd "$PROJECT_ROOT"
+        if supabase status >/dev/null 2>&1; then
+          echo "running"
+        else
+          echo "stopped"
+        fi
+        ;;
+      host)
+        # Data plane reachable → running. Lifecycle on macOS, can't query "stopped" precisely.
+        echo "running"
+        ;;
+      none)
+        echo "docker-unavailable"
+        ;;
+    esac
     ;;
 
   *)

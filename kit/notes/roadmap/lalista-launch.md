@@ -1,6 +1,6 @@
 # Lalista launch — pending v0 work, both sides
 
-Snapshot 2026-04-27. Synthesizes `lalista/PLAN.md` + `lalista/PRODUCT-ROADMAP.md` +
+Snapshot 2026-04-28. Synthesizes `lalista/PLAN.md` + `lalista/PRODUCT-ROADMAP.md` +
 `lalista/TODOS.md` and `/devshop/kit/ROADMAP.md` + `/devshop/kit/TODOS.md` into a
 single picture of what's left for lalista v0 GA, what devshop v0 work is in
 flight, and the order that minimizes wasted motion.
@@ -70,111 +70,99 @@ lalista-option3-template-variant`.
 
 ## Devshop v0 — pending (`/devshop/kit/ROADMAP.md` + `/devshop/kit/TODOS.md`)
 
+Status legend: ⏳ truly pending · ✅ shipped (full detail in the parallel-cluster
+section below) · v1 = deferred to v1, captured in `kit/ROADMAP.md`.
+
 **Convention enforcement (paired):**
 
-- **Audit `conventions.md` → distribute operational copy into skills** —
-  Tier 3 rules don't fire; move into Tier 1 (CLAUDE.md) / Tier 2 (SKILL.md).
-- **Adversarial reviewer reads `guide/` for convention checks** — depends on
-  audit; inlines relevant guide sections so the reviewer flags violations at
-  commit time.
+- ✅ **Audit `conventions.md` → distribute operational copy into skills** —
+  audit shipped v1.22.0; per-skill redistribution shipped 2026-04-27 in
+  commit `75500e2` (7 SKILL.mds inlined; Tier 1 already lived in
+  `/devshop/CLAUDE.md` and arrives at project sessions via SessionStart hook).
+- ✅ **Adversarial reviewer reads `guide/` for convention checks** —
+  shipped v1.22.0 (`CONVENTIONS_TO_INCLUDE` map in `adversarial-review.sh`).
 
-**Project-repo gates (cluster, pair-ship):**
+**Project-repo gates (triplet, pair-ship):**
 
-- **Pre-commit test-presence hook** — block new `src/*.ts` without paired
+- ⏳ **Pre-commit test-presence hook** — block new `src/*.ts` without paired
   `.test.ts`; exempt-list file; adversarial reviewer for modify cases.
-- **Project-repo docs-freshness hook + adversarial reviewer** — sibling on the
-  docs side: new `page.tsx` / API wrapper / `posthog.capture` requires
+- ⏳ **Project-repo docs-freshness hook + adversarial reviewer** — sibling on
+  the docs side: new `page.tsx` / API wrapper / `posthog.capture` requires
   `CLAUDE.md` / `METRICS.md` update in the same diff.
-- **Hierarchical docs scaffold in template** — template ships `CLAUDE.md` /
-  `TODOS.md` / `METRICS.md` skeletons (explicitly paired with the freshness
-  hook).
+- ⏳ **Hierarchical docs scaffold in template** — template ships `CLAUDE.md`
+  / `TODOS.md` / `METRICS.md` skeletons (explicitly paired with the freshness
+  hook). Ship the triplet together so one lalista commit cycle flushes
+  false-positive exempt lists for all three.
 
 **Migration / CI hygiene:**
 
-- **Migration sequencing safety nets for the Vercel-preview window** — Track B
-  (`/ak-go-live` Step 1.6 pre-flight) is highest leverage; A + C deferred
-  until B's data justifies them. Note: Track B addresses the **post-merge
-  prod-cutover race** (parallel `deploy-migrations.yml` + Vercel auto-deploy);
-  it does NOT close the **PR-window preview race** (Vercel previews dial
-  prod, so PR previews show new code on old schema during PR-open → merge).
-- **PR-preview backend isolation (backend #3 in the four-backend topology:
-  local-dev / CI / preview / prod)** — _deferred to v1_ per
-  `/devshop/kit/ROADMAP.md § Migration sequencing § Out of scope`. The
-  full-isolation solution is a separate staging Supabase project + Vercel
-  preview env override + staging-targeted `deploy-migrations.yml` variant.
-  Lower priority because (a) most projects accept the gap if migrations
-  are mostly additive, (b) doubles Supabase project management overhead,
-  (c) staging-vs-prod data drift becomes its own problem. Revisit when a
-  second project adopts the devshop OR lalista hits a mutating migration
-  that actually creates real reviewer confusion.
-- **CI slow-job lifecycle convention** — pre-ship gate enforces "uncomment
-  slow-job + update branch protection" at Phase 1c/1g threshold; codifies the
-  lalista PR-26 edge-runtime retry pattern.
-- **Backport lalista's CI slow-job + helpers** (`ci-type-drift.sh`,
-  `ci-rollback-explain.sh`) **to the template.**
+- ✅ **Migration sequencing — Track B** shipped v1.22.0 (`/ak-go-live § Step
+1.6` pre-flight). Tracks A + C remain file-and-forget per
+  `kit/ROADMAP.md § Migration sequencing safety nets` — escalate only if
+  Track B's data shows the pattern is real and frequent. Track B closes the
+  **post-merge prod-cutover race** but does NOT close the **PR-window
+  preview race** (see next bullet).
+- v1 **PR-preview backend isolation** (backend #3 in the four-backend
+  topology: local-dev / CI / preview / prod) — captured at
+  `kit/ROADMAP.md § Migration sequencing § Out of scope`. Full-isolation
+  solution is a separate staging Supabase project + Vercel preview env
+  override + staging-targeted `deploy-migrations.yml` variant. Revisit when a
+  2nd project adopts devshop or lalista hits a mutating migration causing
+  real reviewer confusion.
+- ✅ **CI slow-job lifecycle convention + helper backport to template**
+  shipped v1.22.0 (gate `slow-job-lifecycle` + `template/scripts/{ci-type-drift,ci-rollback-explain}.sh`).
 
 **Security (mostly already in flight):**
 
-- **Security-posture cleanup** — Tracks A–F (eliminate `SUPABASE_PROJECT_REF`,
-  reclassify public values to Variables, URL guard, blast-radius docs).
-  Anthropic split + URL guard already shipped (commits #28, #18); ROADMAP
-  entry is largely retrospective. Worth a sweep to confirm any residual items.
-- ~~**JIT DB password entry via `/ak-go-live`**~~ — _demoted to v1 on
-  2026-04-27._ Structural completion of the security-posture cleanup, but
-  no incident forces it; existing GH-Secret flow has shipped successfully.
-  Revisit after lalista v0 GA + first prod migration deploy via existing
-  flow. See `kit/ROADMAP.md § v1` for the moved entry.
+- ⏳ **Security-posture cleanup sweep** — Anthropic split + URL guard
+  already shipped (commits #28, #18); ROADMAP entry largely retrospective.
+  Worth a sweep to confirm any residual items.
+- v1 **JIT DB password entry via `/ak-go-live`** — demoted 2026-04-27
+  (no incident forcing it; existing GH-Secret flow has shipped successfully).
+  Captured at `kit/ROADMAP.md:824` with full implementation plan preserved.
 
 **Operator pain (immediate-impact):**
 
-- **Browse binary + Playwright availability in project devcontainers** — fix
-  stale browse binary + Chromium-env-var fallback so `/qa-only`,
-  `/design-review`, `/canary`, `/benchmark` actually work on lalista
-  (currently broken since 2026-04-26).
-- ~~**Devcontainer migration recipe + adversarial-review check**~~ —
-  **deferred indefinitely** as part of the compose-isolation template
-  port (2026-04-28). No stranded host-docker-socket-bind-mount projects
-  exist: lalista (the only candidate) migrated directly to compose
-  isolation via PR 34 the same day the template port shipped, so
-  there's no audience for a written migration recipe. If a future
-  project ever needs the diff, Lalista PR 34 (commits `75a02f6` →
-  `7231cb9` → `3d4ef2d` → `cf71aad` → `a76b5f8` → `9cdad4e` →
-  `97eec6b`) is the canonical reference. Adversarial-review check on
-  per-project `.devcontainer/` shape: also deferred — the
-  template-port BATS structural assertions catch regressions on the
-  template side; per-project drift can be added later if it becomes
-  common.
-- ✅ **Bats coverage for the new devcontainer shape** — shipped alongside
-  the compose-isolation template port: `kit/tests/template-compose-isolation.bats` asserts
-  `dockerComposeFile`/`service` in devcontainer.json, `compose.yml` /
-  `init-host-env.sh` / `supabase-runner/{Dockerfile,cmd-relay.mjs}`
-  presence, host.docker.internal allow rule in init-firewall.sh,
-  init-docker-socket.sh absence, no docker-ce-cli in workspace
-  Dockerfile, `db:*` scripts in package.json, and the SKILL.md prompt
-  presence. Pure structural verification, no container needed. Earlier
-  `preship-supabase-bootstrap.bats` continues to cover the runtime
-  "docker not running → blocked" path orthogonally.
+- ✅ **Browse binary + Playwright availability in project devcontainers** —
+  fixed via `kit/scripts/rebuild-browse.sh` + `populate-playwright-cache.sh`
+  - structural `cli.ts` fallback (Bun src absent → bundled `server-node.mjs`
+    via Node).
+- _Deferred indefinitely_ **Devcontainer migration recipe +
+  adversarial-review check** — no audience: lalista migrated directly via
+  PR 34 (2026-04-28); no other host-docker-socket-bind-mount project exists.
+  Captured at `kit/TODOS.md:10` (within the shipped
+  `lalista-option3-template-variant` entry) with canonical-reference pointer
+  to lalista PR 34 commits (`75a02f6` → `7231cb9` → `3d4ef2d` → `cf71aad`
+  → `a76b5f8` → `9cdad4e` → `97eec6b`) for any future project that needs
+  the diff.
+- ✅ **Bats coverage for the new devcontainer shape** —
+  `kit/tests/template-compose-isolation.bats` (structural assertions on the
+  compose-isolation template port).
 
 **Reusable conventions:**
 
-- **Auth UX conventions** — `@devshop-template/auth-ux`
+- ⏳ **Auth UX conventions** — `@devshop-template/auth-ux`
   (`AwaitingConfirmationCard`, `friendlyAuthError`) **plus** password-reset
   sub-pattern (`PasswordResetCard` + `/auth/callback` + `/reset-password` +
   Supabase `site_url` / `uri_allow_list` config). Closes lalista's
   `auth-ux-refactor-to-adopt` debt.
-- **Runtime Zod validation at LLM / edge-function boundaries** — companion to
-  lalista PR 6. If devshop ships first, PR 6 adopts directly; otherwise
-  lalista ships inline and refactors later.
+- ✅ **Runtime Zod validation at LLM / edge-function boundaries** —
+  shipped 2026-04-27 in Cluster 1 step 3 (`kit/docs/guide/conventions.md §
+Runtime Validation at LLM / Edge-Function Boundaries`); lalista PR 6
+  adopted directly.
 
-**Smaller v0 items in `/devshop/kit/TODOS.md`:**
+**Smaller v0 items (`/devshop/kit/TODOS.md`):**
 
-- **Wrapper-API design rule** — convention + `/ak-test-review` deterministic
-  check (motivated by lalista PR 27's realtime `onError` gap).
-- **WS-failure E2E recipe** — Pattern 6 in `supabase-ssr-boilerplate.md` (use
-  `page.routeWebSocket(... ws.close())`, not `route.fulfill(503)`).
-- **PR-body "Manual review" guardrail + Phase 6 auto-attest** — keep
-  manual-review section judgmental-only; `/ak-build` Phase 6 auto-verifies
-  factual items.
+- ✅ **Wrapper-API design rule** — convention + `/ak-test-review`
+  deterministic check, shipped v1.22.0.
+- ✅ **WS-failure E2E recipe** — Pattern 6 in `supabase-ssr-boilerplate.md`,
+  shipped v1.22.0.
+- ✅ **PR-body "Manual review" guardrail + Phase 6 auto-attest** — shipped
+  v1.22.0 in `/ak-build`.
+
+**Net for v0**: only ⏳ items above remain — the project-repo gates triplet,
+the security-posture sweep, and the auth UX conventions package. None gate
+lalista v0 GA.
 
 ---
 
@@ -251,10 +239,28 @@ Boundaries` (when to use, schema-module pattern, wrapper-site
     inlines relevant `conventions.md` sections per check-type / gate-name;
     initial 10-route map covers `testCoverage`, `docsReviewed`, and
     `dismissalLog/<gate>` for 7 gates.
-  - ⏳ **Per-skill redistribution** of Tier 1 / Tier 2 inlines into
-    CLAUDE.md and the 9 affected SKILL.mds — proposal exists, execution
-    deferred to a follow-up session per the audit's sequencing
-    recommendation (batch per-skill, not per-convention).
+  - ✅ **Per-skill redistribution** shipped 2026-04-27 in commit
+    `75500e2` (`docs(skills): redistribute conventions into per-skill
+    SKILL.md inlines`). Tier 2 inlines added to 7 SKILL.mds:
+    `pre-ship`, `implement`, `spec`, `design-conformance`, `go-live`,
+    `new-project`, `test-review` (the other 2 of the audit's "9
+    affected" — `slow-job-lifecycle` gate + `Wrapper API design`
+    check + `Test Assertion Depth` Gate 5 + `new-project § Step 17b`
+    Hardening Defaults — were already inlined earlier in v1.22.0, so
+    not re-touched). Audit proposal doc deleted in the same commit
+    (intent now lives in the actual SKILL.md edits). Tier 1 inlines
+    were already present in `/devshop/CLAUDE.md` (Non-Negotiables,
+    Confidence Calibration, Principle of Least Privilege, TODO
+    Protocol, Closing TODO/ROADMAP entries) and arrive at project
+    sessions via the SessionStart hook. The audit's recommendation
+    to also duplicate Tier 1 into `/workspace/CLAUDE.md` was
+    deliberately rejected — `/devshop/.claude/skills/devshop/new-project/SKILL.md
+§ Step 18` codifies the "project CLAUDE.md is project directives
+    only" principle; duplicating devshop conventions into project
+    CLAUDE.md violates self-sufficiency (the SessionStart hook
+    bridges the two layers at runtime, the file does not).
+    The only project-side Tier 1 rule — **ON DELETE on auth.users
+    FK references** — is in lalista's `/workspace/CLAUDE.md § Gotchas`.
 - **Triplet**: test-presence hook + docs-freshness hook + hierarchical docs
   scaffold — ship together so one lalista commit cycle flushes false-positive
   exempt lists for all three.

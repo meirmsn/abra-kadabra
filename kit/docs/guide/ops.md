@@ -44,7 +44,7 @@ supabase gen types typescript --project-id <ref> > packages/core/src/supabase.ty
 ### Testing
 
 - Unit tests: `packages/core/**/*.test.ts`, `packages/ui/**/*.test.ts` (Vitest, mock externals)
-- Integration tests: `packages/core/**/*.integration.test.ts` (Vitest, real local Supabase via Docker-in-Docker)
+- Integration tests: `packages/core/**/*.integration.test.ts` (Vitest, real local Supabase reached at `host.docker.internal:54321` under the template-default compose-isolation shape, or `localhost:54321` under Host Supabase — see `local-supabase-compose-isolation.md` for which-runs-where)
 - E2E tests: `apps/web/tests/` (Playwright — runs at 375px + 1440px viewports)
 - Test fixtures: `supabase/seed.sql` (minimum: 1 household, 2 users in different households for RLS tests, 1 store, list entries)
 
@@ -159,7 +159,7 @@ Push a PR to run integration tests in CI.
 
 ### Local Supabase — manual ad-hoc QA flow
 
-`/ak-pre-ship` Phase 0 automates the bring-up via `preship/supabase-bootstrap.sh`. For manual use outside pre-ship — under compose isolation, the bootstrap script issues `pnpm db:start` (relay) instead of `supabase start` directly. Under Host Supabase you run `supabase start` from a host terminal. Either way the data plane lands on `http://host.docker.internal:54321` (compose isolation) or `http://localhost:54321` (Host Supabase, host-side).
+`/ak-pre-ship` Phase 0 automates the bring-up via `preship/supabase-bootstrap.sh`. The script auto-detects the project's reachability shape (compose-isolation / docker-bind / Host Supabase) and routes lifecycle accordingly: under compose isolation it `curl -fsS -X POST $RELAY_URL/start`s the cmd-relay (same mechanism `pnpm db:start` uses); under Host Supabase it just verifies the host-running stack is reachable + rewrites `.env.local` (lifecycle stays on the macOS host); under docker-bind (legacy) it shells out to `supabase start`. Either way the data plane lands on `http://host.docker.internal:54321` (compose isolation / Host Supabase) or `http://localhost:54321` (docker-bind, host-bound).
 
 Temporarily point `apps/web/.env.local` at local (back up the hosted values first — the file is gitignored either way):
 
@@ -242,6 +242,13 @@ Earlier devshop generations shipped two precursor shapes that are no longer offe
 
 Both have been superseded; compose isolation is the default and Host Supabase is the alternative for operators who prefer host-side supabase tooling. `/ak-new-project § Step 2b` lets a project pick Host Supabase, compose isolation (default), or skip (no local stack). Architecture + decision matrix: [`local-supabase-compose-isolation.md`](./local-supabase-compose-isolation.md) + [`/devshop/kit/notes/security/local-supabase-isolation-options.md`](../../notes/security/local-supabase-isolation-options.md). `kit/scripts/preship/supabase-bootstrap.sh up` reports `blocked` (refusing the hosted fallback) when the local stack isn't reachable.
 
+**Why "compose isolation is the template default" doesn't conflict with the threat model recommending Host Supabase**: these are two different axes, not a contradiction.
+
+- **Template default = compose isolation**: zero-friction first-run (no macOS-side `brew install supabase/tap/supabase`; `pnpm db:start` and you have a local stack). Optimizes for the common case where an operator scaffolds a project and wants integration tests working immediately.
+- **Threat-model default-recommendation = Host Supabase (Option 1)**: stronger blast-radius isolation for operators whose `~/dev/` parent contains multiple project families. Under Host Supabase the workspace has zero docker surface (no socket, no narrow bind, no relay). Under compose isolation the workspace also has zero docker surface, BUT the sibling supabase-runner has the docker socket + a narrow `<host>/supabase` bind — a marginally larger attack surface than Host Supabase, even though both options block the macOS-home read that motivated the rejection of the host-docker-socket-bind-mount shape.
+
+For single-project-family operators, compose isolation is a clean ergonomics win. For multi-project-family operators, the threat-model recommends Host Supabase for the marginal-extra-isolation. `/ak-new-project § Step 2b` exposes both at scaffold time; the operator picks per their profile.
+
 Debugging compose isolation ("which container am I in", "is the relay reachable", "did supabase start fail"): see [`local-supabase-compose-isolation.md § Debugging tree`](./local-supabase-compose-isolation.md).
 
 ---
@@ -286,7 +293,7 @@ If `/canary` detects issues after deploy, immediately run `vercel rollback`. The
 
 ### Data recovery
 
-Free-tier Supabase has no point-in-time recovery. Pre-migration `pg_dump` will be automated in Phase 1c — runs before applying new migrations, stored as GitHub Actions artifact. For weekly backups beyond deploys, see `kit/ROADMAP.md` v1. Always test schema changes against `supabase start` locally before deploying.
+Free-tier Supabase has no point-in-time recovery. Pre-migration `pg_dump` will be automated in Phase 1c — runs before applying new migrations, stored as GitHub Actions artifact. For weekly backups beyond deploys, see `kit/ROADMAP.md` v1. Always test schema changes against the local Supabase stack before deploying — `pnpm db:reset` under compose isolation (template default), or `supabase db reset` from the macOS host terminal under Host Supabase.
 
 ---
 

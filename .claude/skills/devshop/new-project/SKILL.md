@@ -223,7 +223,7 @@ final locations. Customize them in-place:
 
 ### Step 2b: [HUMAN] Choose local supabase reachability
 
-The template ships **compose isolation by default**. Pick how this project will reach a local Supabase stack — the choice strips per-option files from `.devcontainer/` and is sticky (changing later means manually re-applying the file diff from `/devshop/template/.devcontainer/`; no formal migration recipe shipped because no project has needed one yet).
+The template ships **compose isolation by default**. Pick how this project will reach a local Supabase stack — the choice strips per-option files from `.devcontainer/` and is sticky. Switching shapes later means hand-applying the inverse of the per-choice strip block below (the template only ships one shape, so there's no canonical "before" to diff against — the strip blocks ARE the inverse-migration recipe). No formal migration skill shipped because no project has needed one yet.
 
 The host-docker-socket-bind-mount shape (the threat model's Option 2) is **not on this menu** — workspace has full docker access; a compromised npm transitive dep can spawn `docker run -v /Users:/h alpine` and read the macOS home. Compose isolation supersedes it with equivalent ergonomics. Decision matrix: [`/devshop/kit/notes/security/local-supabase-isolation-options.md`](../../../../kit/notes/security/local-supabase-isolation-options.md). Operational details for compose isolation: [`/devshop/kit/docs/guide/local-supabase-compose-isolation.md`](../../../../kit/docs/guide/local-supabase-compose-isolation.md).
 
@@ -609,8 +609,10 @@ Common confusion: **`supabase db push` uses neither.** It opens a direct Postgre
 
 Add project-specific domains to `.devcontainer/init-firewall.sh`. Find the `for domain in \`
 block and add lines before the closing `; do`. See placeholder comments in the file for
-which domains to add (Vercel app URL, Supabase project ref, Sentry org ingest, PostHog,
-Docker Hub for supabase start).
+which domains to add (Vercel app URL, Supabase project ref, Sentry org ingest, PostHog).
+Under compose isolation (the template default) the workspace doesn't fetch Docker images
+itself — the supabase-runner sibling does, but it doesn't run this firewall script — so
+no Docker Hub allowlist entry is needed in workspace init-firewall.sh.
 
 ### Step 7: [HUMAN] Rebuild devcontainer (conditional on Step 2b)
 

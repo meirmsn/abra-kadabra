@@ -12,8 +12,7 @@
 #
 # Background: lalista PR 34 (2026-04-28) shipped compose isolation to
 # lalista; the devshop template was ported to the same shape immediately
-# after. Roadmap note (port plan):
-#   kit/notes/roadmap/lalista-option3-template-port.md
+# after (devshop v1.23.0).
 # Architecture guide (operator-facing):
 #   kit/docs/guide/local-supabase-compose-isolation.md
 # Threat model + decision matrix (where the Option-N numbering lives):
