@@ -43,7 +43,7 @@ Three enforcement levels: PreToolUse (Claude Code), pre-commit (husky), and pre-
           ├─ check-security-files-freshness.sh: settings.json/.dcg.toml present + current → block
           ├─ check-clean-tree.sh: untracked/unstaged files OR stashed changes → block
           ├─ check-manifest.sh: template/ files added/removed → propose manifest update
-          └─ devshop-commit-guard.sh (4 checks, run in this order):
+          └─ commit-guard.sh (4 checks, run in this order):
              ├─ mixed-commit: devshop + project files staged together → block
              ├─ docs-reviewed: any devshop file staged (except release artifacts) → reviews ALL docs + cross-file coherence when reference docs staged (semantic; merged from docs-drift + doc-consistency)
              └─ release-coverage (devshop only): kit/version staged → adversarial
@@ -142,7 +142,7 @@ They shared an audience problem: **PostToolUse Bash fires in subagents too**. A 
 
 Three moves replaced the three audience-confused PostToolUse hooks:
 
-1. **`check-dirty-after-commit.sh`** deleted as redundant with existing husky pre-commit guards (`check-clean-tree.sh` in devshop-commit-guard.sh — same dirty-tree concern, commit-time, blocking).
+1. **`check-dirty-after-commit.sh`** deleted as redundant with existing husky pre-commit guards (`check-clean-tree.sh` in commit-guard.sh — same dirty-tree concern, commit-time, blocking).
 2. **`check-pr-description.sh`** superseded by `.husky/pre-push` "PR description" check — now blocking (was advisory), agent-agnostic, single adversarial review.
 3. **Inline release reminder** replaced by the `/ak-release-devshop` skill — invocation is explicit, not post-commit-prompted.
 

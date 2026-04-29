@@ -1,0 +1,10 @@
+# Project-side override for kit/scripts/commit-hooks/check-docs-freshness-project.sh.
+# One repo-relative path per line. `#` comments + blank lines are stripped.
+# See guide/conventions.md § Project Docs Freshness for the convention.
+#
+# Each entry MUST cite why the path doesn't need a paired doc update. If the
+# stated reason no longer holds (file role changed, doc landed), the exempt
+# entry must be revisited.
+#
+# Pattern:
+#   path/to/file.ts  # reason this file doesn't need a paired doc update

@@ -13,6 +13,15 @@
 #   (CLAUDE.md, PLAN.md, BUILD-LOG.md, PRODUCT-ROADMAP.md, TODOS.md, METRICS.md, README.md):
 #   the template ships skeletons; projects own them after scaffold and diverge freely.
 #   See kit/docs/guide/conventions.md § Project Docs Hierarchy.
+# - Per-project hook exempt lists scaffolded once at /ak-new-project time
+#   (.devshop-test-coverage-exempt, .devshop-docs-freshness-exempt):
+#   same lifecycle as the orientation hierarchy — template ships an empty
+#   stub with header comments; projects own them after scaffold and add
+#   project-specific path entries. Bidirectional sync would clobber those
+#   project-specific entries, so they're out of the manifest by design.
+#   See kit/docs/guide/conventions.md § Test Presence + § Project Docs Freshness
+#   for the conventions; check-test-coverage-project.sh + check-docs-freshness-project.sh
+#   are the consumers.
 # See kit/docs/guide/architecture.md § File Lifecycle for the full model.
 
 # Build tooling
