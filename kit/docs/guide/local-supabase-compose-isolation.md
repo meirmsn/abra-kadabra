@@ -1,4 +1,4 @@
-# Local Supabase via two-container compose isolation (Option 3)
+# Local Supabase via two-container compose isolation
 
 How a project's dev container runs `supabase start` for local-dev integration tests **without** giving the workspace docker socket access. This is the recommended setup for projects with other code under `~/dev/` whose contents a compromised npm dep (transitive or otherwise) should not be able to read.
 
@@ -238,19 +238,27 @@ Lalista's integration tests follow a few conventions worth recognizing when exte
 
 ## Debugging tree
 
-The failure modes hit during lalista PR 34's verification, in order surfaced. Future operators recognizing the symptom can jump straight to the fix.
+The failure modes hit during lalista PR 34's verification + later operator-pain reports, in order of likelihood. **Substitute your project name for `lalista` in `docker logs lalista_devcontainer-...` commands** — the container name follows the pattern `<project-folder-name>_devcontainer-<service>-<index>` (where `<project-folder-name>` is the macOS host folder name VS Code attached to).
+
+0. **Preflight checklist — start here when something is wrong:**
+   - Docker Desktop is running on the macOS host (compose-up needs the daemon).
+   - `.devcontainer/.env` exists and has `LOCAL_WORKSPACE_FOLDER=<host-path>` (init-host-env.sh writes this before compose-up; see item 1 if missing).
+   - The devcontainer is fully attached (VS Code shows "Dev Container: <project>" in the bottom-left status bar, not "Opening..." or "Attaching...").
+   - Both compose services are up: from a macOS terminal, `docker ps --filter "name=devcontainer-" --format '{{.Names}}\t{{.Status}}'` should list both `<project>_devcontainer-workspace-1` and `<project>_devcontainer-supabase-runner-1` as `Up`.
 
 1. **`Error response from daemon: mounts denied: The path /supabase is not shared from the host`** during compose-up.
    → `LOCAL_WORKSPACE_FOLDER` was unset, so the `${LOCAL_WORKSPACE_FOLDER}/supabase:${LOCAL_WORKSPACE_FOLDER}/supabase` bind interpolated to `/supabase:/supabase`. Fix: confirm `.devcontainer/init-host-env.sh` ran on the host before compose-up (look for the "init-host-env.sh: LOCAL_WORKSPACE_FOLDER=..." log line in VS Code's rebuild output). For manual `docker compose up`, export it: `LOCAL_WORKSPACE_FOLDER=$(pwd) docker compose ...`.
 
 2. **`Bind for 0.0.0.0:54322 failed: port is already allocated`** during supabase start.
-   → Another container (probably a leftover `supabase_db_workspace` from a previous run) holds the host port. Fix from a macOS terminal: `docker ps -a --filter "name=supabase_" --format "{{.Names}}" | xargs -r docker rm -f`, then re-up the compose stack.
+   → Another container holds the host port. Two common cases:
+   (a) A leftover `supabase_db_<project>` from a previous run of THIS project's stack. Fix: `docker ps -a --filter "name=supabase_" --format "{{.Names}}" | xargs -r docker rm -f`, then re-up.
+   (b) ANOTHER project's compose-isolation stack is running. Only one project's local Supabase can run per host (they all bind the same 54321/54322). Fix: `cd ../<other-project> && pnpm db:stop` from that project's workspace, then retry `pnpm db:start` here.
 
 3. **`failed to connect to postgres: dial tcp 127.0.0.1:54322: connect: connection refused`** during supabase start, followed by "Stopping containers...".
-   → socat tunnels aren't running inside the runner (or they failed). Check `docker logs lalista_devcontainer-supabase-runner-1` for socat startup lines. Confirm `socat` is installed in the runner image (Dockerfile installs it via apt). Confirm the `command:` in compose.yml runs the socat lines before `supabase start`.
+   → socat tunnels aren't running inside the runner (or they failed). Check `docker logs <project>_devcontainer-supabase-runner-1` for socat startup lines. Confirm `socat` is installed in the runner image (Dockerfile installs it via apt). Confirm the `command:` in compose.yml runs the socat lines before `supabase start`.
 
 4. **Relay returns empty body, integration tests skip silently, kong unreachable**.
-   → `supabase start` may have failed in the runner. Read `docker logs lalista_devcontainer-supabase-runner-1` from the top — first error is the actionable one. Common: missing `supabase/config.toml` (working_dir wrong), or migrations bug.
+   → `supabase start` may have failed in the runner. Read `docker logs <project>_devcontainer-supabase-runner-1` from the top — first error is the actionable one. Common: missing `supabase/config.toml` (working_dir wrong), or migrations bug.
 
 5. **Integration tests print "skipped" instead of running**.
    → The test files have a runtime gate that requires `SUPABASE_URL` to start with one of `http://127.0.0.1:`, `http://localhost:`, `http://host.docker.internal:` AND `SUPABASE_ANON_KEY` + `SUPABASE_SERVICE_ROLE_KEY` to be set. Confirm `compose.yml`'s `workspace.environment` block has all three. The well-known supabase-local JWTs work; same values CI uses.
@@ -260,6 +268,15 @@ The failure modes hit during lalista PR 34's verification, in order surfaced. Fu
 
 7. **macOS browser can't reach Supabase even though workspace can**.
    → `/etc/hosts` on macOS doesn't have the `host.docker.internal` entry. Add it: `sudo sh -c 'echo "127.0.0.1 host.docker.internal" >> /etc/hosts'`. Idempotent.
+
+8. **Relay returns HTTP 403 (e.g., `pnpm db:foo` curls and the response body says `blocked: foo`).**
+   → The verb isn't in the relay allowlist (`db-reset`, `status`, `start`, `stop`, `gen-types` only). Common cause: typo (`db_reset` with underscore vs `db-reset` with hyphen), or calling a verb that doesn't exist. The allowlist lives in `template/.devcontainer/supabase-runner/cmd-relay.mjs` (and the symlinked copy in your project). Adding a new verb requires editing the `ALLOWED` map AND adding a `pnpm db:<verb>` script in `package.json` AND rebuilding the runner image (`Rebuild Container` in VS Code). Path is intentionally narrow — the relay's blast-radius story depends on the allowlist being explicit.
+
+9. **Runner container is down (crashed, OOM, exited).**
+   → Symptom: `pnpm db:status` hangs or `curl` returns "connection refused" to `supabase-runner:9000`. From a macOS terminal: `docker ps --filter "name=supabase-runner"` returns empty or shows `Exited`. Recovery: `docker restart <project>_devcontainer-supabase-runner-1` (preserves the spawned supabase sibling containers). If that fails, `Rebuild Container` in VS Code rebuilds both compose services from scratch. Spawned supabase containers are orphans of the runner — they survive the runner crashing, so the next `pnpm db:status` should still show the data plane up once the relay listens again.
+
+10. **`supabase` CLI command fails inside the runner with `unknown flag` / `deprecated option` errors.**
+    → The workspace's `SUPABASE_CLI_VERSION` build arg (compose.yml's workspace service) and the runner's `SUPABASE_CLI_VERSION` (compose.yml's supabase-runner service) drifted. Both should be the same version — the workspace doesn't run supabase CLI commands today (compose isolation routes through the relay), but if a `pnpm db:gen-types` -style flow ever shells out locally too, the version mismatch surfaces. Fix: edit compose.yml so both args match, then `Rebuild Container`.
 
 ## CI / prod isolation
 
@@ -275,4 +292,4 @@ Changing local-dev compose / firewall / env-block does not touch CI or prod surf
 
 - Threat-model + alternatives matrix: [`/devshop/kit/notes/security/local-supabase-isolation-options.md`](../../notes/security/local-supabase-isolation-options.md)
 - Pattern reference (real diff, real failure modes, real fixes): lalista PR 34 (`devcontainer-compose-isolated`, 2026-04-28), commits `75a02f6` → `7231cb9` → `3d4ef2d` → `cf71aad` → `a76b5f8`.
-- Future template work: `kit/TODOS.md § lalista-option3-template-variant` — convert this into an `/ak-new-project` choice once a second project picks the same architecture.
+- Template + `/ak-new-project` integration: shipped in devshop v1.23.0 (template port) + v1.23.1 (semantic-name cleanup) on 2026-04-28. `/ak-new-project § Step 2b` lets the operator pick at scaffold time (host-supabase / compose-isolation [default] / skip). See `kit/TODOS.md § lalista-option3-template-variant` for the closing summary.

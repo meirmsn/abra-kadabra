@@ -1,16 +1,20 @@
 # Lalista Option 3 → /devshop/template/.devcontainer/ port
 
+> **STATUS — SHIPPED (devshop v1.23.0 + v1.23.1, 2026-04-28).** This document was the working spec for the template port; the port has shipped end-to-end (5 new template files, 6 modified, 1 deleted; `/ak-new-project` Step 2b 3-choice prompt; new BATS file `kit/tests/template-compose-isolation.bats`). See `kit/TODOS.md § lalista-option3-template-variant` for the closing summary; see `kit/docs/guide/local-supabase-compose-isolation.md` for the operator-facing architecture; see `kit/docs/guide/security.md § Local Supabase Isolation` for the security-side framing. Decision #4 (drop Option 2 from `/ak-new-project` menu) and decision #5 (no formal migration recipe — no audience) were finalized in conversation and applied in v1.23.1.
+>
+> **Preserved below as a historical artifact** — do NOT execute the recipe verbatim; the shipped state has diverged in places (Option 2 dropped from menu; semantic naming throughout per v1.23.1; etc.). Useful for the diagnostic-arc commit references and the threat-model rationale.
+
 Self-contained briefing for the focused session that ports lalista's Option 3 compose-isolation setup into the devshop template, plus a `/ak-new-project` interactive choice for it. Designed to be copy-pasted into a fresh `claude` session and executed without re-deriving any context.
 
-**Status as of 2026-04-28:** lalista PR 34 (`devcontainer-compose-isolated`) verified working; merging soon. Devshop architecture guide + threat-model note already landed (devshop main commits `967508b` + `d1adce4`). This roadmap note captures the followup work that template-izes the pattern for future projects.
+**Status as of 2026-04-28 (pre-ship):** lalista PR 34 (`devcontainer-compose-isolated`) verified working; merging soon. Devshop architecture guide + threat-model note already landed (devshop main commits `967508b` + `d1adce4`). This roadmap note captures the followup work that template-izes the pattern for future projects.
 
-**Tracked in:** `/devshop/kit/TODOS.md § lalista-option3-template-variant`.
+**Tracked in:** `/devshop/kit/TODOS.md § lalista-option3-template-variant` (now closed — ✅ shipped 2026-04-28).
 
 ## Why this matters
 
 Option 3 compose isolation is the default-recommended setup for any project where the operator has other code under `~/dev/` whose contents shouldn't be readable by a compromised npm transitive dep. That's most operators.
 
-**Current template state (verified 2026-04-28 against `/devshop/template/.devcontainer/`):** the template ships **Option 2 — host docker socket bind-mount** (single-container with `/var/run/docker.sock` bind, `init-docker-socket.sh` for GID alignment, docker-ce-cli installed in Dockerfile). Interlude (d) on 2026-04-27 already shipped the firewall cleanup (drops `api.supabase.com` + `aws-0-us-west-2.pooler.supabase.com` from the allowlist; the comment block in `template/.devcontainer/init-firewall.sh` documents this).
+**Pre-ship template state (snapshot 2026-04-28):** the template shipped **Option 2 — host docker socket bind-mount** (single-container with `/var/run/docker.sock` bind, `init-docker-socket.sh` for GID alignment, docker-ce-cli installed in Dockerfile). After v1.23.0 (this port), the template ships compose isolation; Option 2 is no longer a /ak-new-project menu choice (per decision #4 finalized at ship-time). Interlude (d) on 2026-04-27 already shipped the firewall cleanup (drops `api.supabase.com` + `aws-0-us-west-2.pooler.supabase.com` from the allowlist; the comment block in `template/.devcontainer/init-firewall.sh` documents this).
 
 So the migration this note captures is **Option 2 → Option 3** for the template, not "older shape → Option 3." Lalista's PR 34 made the same Option 2 → Option 3 jump on its own copy. The shipping move:
 

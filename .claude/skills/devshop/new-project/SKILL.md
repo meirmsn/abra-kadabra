@@ -253,31 +253,60 @@ Local supabase reachability:
   rm -f .devcontainer/compose.yml .devcontainer/init-host-env.sh
   rm -rf .devcontainer/supabase-runner/
   # devcontainer.json: switch dockerComposeFile/service back to build:/runArgs:/workspaceMount form (mirror the pre-compose-isolation shape, MINUS the docker-socket mount + init-docker-socket COPY/sudoers — Host Supabase's workspace has no docker socket).
-  # package.json: drop the db:* scripts (no relay to call).
-  # init-firewall.sh: drop the host.docker.internal allow rule (no local stack to reach from inside the container).
+  # package.json: drop the db:* scripts (no relay to call; the macOS host runs supabase directly).
+  # init-firewall.sh: KEEP the host.docker.internal allow rule (workspace processes still reach the host-running supabase via host.docker.internal:54321 — same Docker Desktop host-gateway routing as compose isolation).
   ```
 
-  At end of Phase B: `[HUMAN] On macOS host: brew install supabase/tap/supabase. Run \`supabase start\` from a host terminal whenever you need the local stack.`
-
-- **(b) Compose isolation** — keep template files as-shipped. Print at end of Phase B:
+  At end of Phase B (print this verbatim to the operator):
 
   ```
-  [HUMAN] One-time per machine: add `127.0.0.1 host.docker.internal` to your
-  macOS /etc/hosts so the browser resolves the same hostname containers use:
-    grep -q host.docker.internal /etc/hosts || \
-      echo '127.0.0.1 host.docker.internal' | sudo tee -a /etc/hosts
-  Idempotent — skip if grep finds the line already present.
+  [HUMAN] Host Supabase setup:
+    1. On macOS host (NOT inside the devcontainer):
+         brew install supabase/tap/supabase
+         supabase start                       # whenever you need the local stack
+    2. Add /etc/hosts entry once per machine (so the macOS browser resolves the
+       same hostname workspace processes use):
+         grep -q host.docker.internal /etc/hosts || \
+           echo '127.0.0.1 host.docker.internal' | sudo tee -a /etc/hosts
+    3. `pnpm db:*` scripts will NOT work under Host Supabase (the relay isn't
+       installed). Drive the stack from your macOS host terminal: `supabase
+       db reset`, `supabase stop`, etc.
+    4. Rebuild the devcontainer (Cmd+Shift+P → "Dev Containers: Rebuild
+       Container") so the Step-2b strip takes effect on the running workspace.
   ```
 
-- **(c) Skip** — minimum-footprint variant:
+- **(b) Compose isolation** — keep template files as-shipped. Print at end of Phase B (verbatim):
+
+  ```
+  [HUMAN] Compose isolation setup:
+    1. Run on the macOS host (NOT inside the devcontainer) — adds the entry your
+       browser needs to resolve the same hostname containers reach data plane
+       through. Idempotent; skips if already present:
+         grep -q host.docker.internal /etc/hosts || \
+           echo '127.0.0.1 host.docker.internal' | sudo tee -a /etc/hosts
+    2. No devcontainer rebuild needed — the template ships in compose-isolation
+       form by default; Step 2b's "keep as-shipped" choice didn't modify any
+       devcontainer config.
+    3. Bring up the local Supabase stack from the workspace shell whenever you
+       need it:
+         pnpm db:start    # spawns supabase via cmd-relay → supabase-runner sibling
+         pnpm db:status   # prints local API URL + JWT keys
+         pnpm db:stop     # tear down
+       First `db:start` takes ~45-60s (image instantiation + schema apply).
+  ```
+
+- **(c) Skip** — minimum-footprint variant (no local stack at all; integration tests run CI-only):
+
   ```bash
   rm -f .devcontainer/compose.yml .devcontainer/init-host-env.sh
   rm -rf .devcontainer/supabase-runner/
   # devcontainer.json: same single-container revert as Host Supabase.
-  # package.json: drop db:* scripts.
-  # init-firewall.sh: drop the host.docker.internal allow rule.
+  # package.json: drop db:* scripts (no stack to drive).
+  # init-firewall.sh: drop the host.docker.internal allow rule (no local stack to reach).
   # Add a CLAUDE.md note: "Integration tests run CI-only (no local stack); to enable local-stack testing, switch to Host Supabase or Compose isolation by mirroring the diff at /devshop/template/.devcontainer/."
   ```
+
+  At end of Phase B: `[HUMAN] Rebuild the devcontainer (Cmd+Shift+P → "Dev Containers: Rebuild Container") so the Step-2b strip takes effect.`
 
 After the per-choice strip, update `/devshop/kit/notes/projects/<name>.md`'s Step 2b checkbox with the chosen option in parens (e.g., `2b. [x] Choose local supabase reachability (compose-isolation)`) so future `/ak-status` runs surface which variant the project is on.
 
@@ -583,7 +612,11 @@ block and add lines before the closing `; do`. See placeholder comments in the f
 which domains to add (Vercel app URL, Supabase project ref, Sentry org ingest, PostHog,
 Docker Hub for supabase start).
 
-### Step 7: [HUMAN] Rebuild devcontainer
+### Step 7: [HUMAN] Rebuild devcontainer (conditional on Step 2b)
+
+**Skip this step if you picked Compose isolation (the template default) at Step 2b** — that choice doesn't modify devcontainer config, so no rebuild is needed for Step 2b's effects to take hold. (You may still want to rebuild here to pick up any changes from Steps 4–6, e.g., `.devcontainer/.env` or `init-firewall.sh` edits.)
+
+**You MUST rebuild if you picked Host Supabase or Skip at Step 2b** — those choices modified `.devcontainer/devcontainer.json` + `Dockerfile` + `init-firewall.sh` to revert the workspace to single-container form, and the running container still has the pre-strip image. Without a rebuild, Step 2b's strip has no runtime effect.
 
 Rebuild: Cmd/Ctrl+Shift+P → "Dev Containers: Rebuild Container".
 
@@ -791,17 +824,17 @@ Used by `.github/workflows/keepalive.yml` to prevent Supabase auto-pause.
 
 #### Step 13b: Generate `apps/web/.env.local` for local dev
 
-The devcontainer loads `.devcontainer/.env` as shell env with base names
-(`SUPABASE_URL`, `SUPABASE_ANON_KEY`, …). Next.js only exposes env vars to the
-browser when they are prefixed `NEXT_PUBLIC_*`. Vercel has already been piped
-the prefixed names above, but **local** `pnpm dev` still needs them — generate
-a `.env.local` that maps shell vars to the prefixed names.
+The devcontainer loads `.devcontainer/.env` as shell env (which holds prod URLs/keys under `SUPABASE_PROD_*` names — see Step 4). Next.js only exposes env vars to the browser when they are prefixed `NEXT_PUBLIC_*`. Vercel has already been piped the prefixed names above; **local** `pnpm dev` still needs them — generate a `.env.local` that maps the prod shell vars to the prefixed names so the local dev server dials prod Supabase by default (matching what Vercel does at runtime).
+
+**Why prod by default**: `pnpm dev` should mirror prod-runtime behavior (consistent SSR data, no migration drift). For ad-hoc testing against a local stack, see `kit/docs/guide/ops.md § Local Supabase — manual ad-hoc QA flow` (which walks through temporarily overriding the URL/key — back up first since `.env.local` is gitignored either way).
+
+**`SUPABASE_PROD_*` (prod values), not `SUPABASE_*` (auto-set by compose isolation)**: under compose isolation, the workspace's `$SUPABASE_URL` / `$SUPABASE_ANON_KEY` env vars are auto-set by `compose.yml` to the local-stack values (`http://host.docker.internal:54321` + the published local-stack JWTs). Using those here would silently make `pnpm dev` dial the local stack instead of prod, which (a) breaks if the local stack isn't running, (b) hides prod-data SSR bugs. Use `$SUPABASE_PROD_URL` / `$SUPABASE_PROD_ANON_KEY` from `.devcontainer/.env`.
 
 ```bash
 mkdir -p apps/web
 cat > apps/web/.env.local <<EOF
-NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
+NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_PROD_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_PROD_ANON_KEY
 NEXT_PUBLIC_POSTHOG_KEY=$NEXT_PUBLIC_POSTHOG_KEY
 NEXT_PUBLIC_SENTRY_DSN=$SENTRY_DSN
 EOF
@@ -862,12 +895,14 @@ This step runs **after** Step 17 because `site_url` + `uri_allow_list` derive fr
 - Production URL — from `CLAUDE.md § Deploy Configuration § Production URL` (written by `/setup-deploy` at Step 17)
 - Vercel project slug — from `.vercel/project.json` (written in Step 13)
 
+**Note on `SUPABASE_PROD_URL` (not `SUPABASE_URL`)**: this step targets the **prod** Supabase project's auth config via the management API. Use `$SUPABASE_PROD_URL` from `.devcontainer/.env` (set at Step 4), not `$SUPABASE_URL` — under compose isolation the latter is auto-set to the local-stack URL (`http://host.docker.internal:54321`) and the sed regex would extract garbage instead of the project ref.
+
 **Sub-step 1: Password policy (mandatory, non-interactive)**
 
 Bump `password_min_length` from the free-tier default 6 → 8.
 
 ```bash
-PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's|https://([^.]+)\.supabase\.co|\1|')
+PROJECT_REF=$(echo "$SUPABASE_PROD_URL" | sed -E 's|https://([^.]+)\.supabase\.co.*|\1|')
 
 curl -sX PATCH "https://api.supabase.com/v1/projects/${PROJECT_REF}/config/auth" \
   -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
