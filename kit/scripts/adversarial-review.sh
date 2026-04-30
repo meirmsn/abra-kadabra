@@ -10,7 +10,7 @@
 # Usage: adversarial-review.sh <check-type> <reason> [context...]
 #   check-type: docsReviewed | dirtyTreeReason | hookBypass
 #               | manifestReviewed | testCoverage | prDescStaleReason | dirtyPushReason
-#               | testCoverageProject | docsFreshnessProject  (project-repo gates)
+#               | testCoverageProject | docsFreshnessProject | exemptAddition  (project-repo gates)
 #               | dismissalLog   (pre-ship /ak-pre-ship — reviews gate dismissal rationales)
 #   reason: the bypass reason provided via git -c, OR for dismissalLog the body of the
 #           `## Dismissals` section of the gate's review.md entry
@@ -32,7 +32,7 @@
 # Per-check-type model routing (Haiku 4.5 for deterministic rule-application,
 # Sonnet 4.6 for judgment-heavy or high-blast-radius checks):
 #   Haiku:  dirtyTreeReason, dirtyPushReason, manifestReviewed
-#   Sonnet: docsReviewed, prDescStaleReason, testCoverage, dismissalLog, hookBypass
+#   Sonnet: docsReviewed, prDescStaleReason, testCoverage, dismissalLog, hookBypass, exemptAddition
 # Rationale: docs feed future sessions (errors compound), PR descriptions are the
 # canonical reviewer-facing record, hookBypass can leak secrets via gitleaks bypass,
 # testCoverage requires code-semantics judgment, dismissalLog weighs spec scope.
@@ -175,6 +175,16 @@ ${PROJECT_CLAUDE:-(missing — fail open since the file the hook expects to be u
 === Project METRICS.md (first 200 lines) ===
 ${PROJECT_METRICS:-(missing — fail open similarly)}"
     ;;
+  exemptAddition)
+    # Project-repo exempt-file addition review. REASON contains the staged
+    # additions to .devshop-test-coverage-exempt / .devshop-docs-freshness-exempt
+    # and the list of cited paths verified to exist on disk (built by
+    # check-exempt-additions.sh). The reviewer judges per-entry specificity of
+    # the inline `# reason` after each path. The pre-flight in the caller has
+    # already proven that any cited file paths exist — the reviewer's job is
+    # specificity, not file-existence.
+    CONTEXT="$REASON"
+    ;;
   prDescStaleReason)
     # Called by .husky/pre-push. Gathers PR title/body vs commits on branch.
     BRANCH=$(git branch --show-current 2>/dev/null || true)
@@ -298,6 +308,12 @@ get_conventions_to_inline() {
     docsFreshnessProject)
       echo "Project Docs Freshness|Project Docs Hierarchy"
       ;;
+    exemptAddition)
+      # Reuse the same convention sections as the gates being exempted —
+      # the reviewer should judge new exempt entries against the same rules
+      # the gates themselves enforce.
+      echo "Test Presence|Project Docs Freshness|Project Docs Hierarchy"
+      ;;
     docsReviewed)
       echo "Backlog Routing Guide"
       ;;
@@ -375,7 +391,7 @@ get_model_for_check_type() {
     return
   fi
   case "$1" in
-    docsReviewed|prDescStaleReason|testCoverage|testCoverageProject|docsFreshnessProject|dismissalLog|hookBypass)
+    docsReviewed|prDescStaleReason|testCoverage|testCoverageProject|docsFreshnessProject|dismissalLog|hookBypass|exemptAddition)
       echo "sonnet"
       ;;
     dirtyTreeReason|dirtyPushReason|manifestReviewed)
@@ -434,6 +450,14 @@ Evaluate:
 10. **Convention adherence** (when '=== Relevant conventions ===' appears in the context): the diff/dismissal must follow the inlined conventions. A change that violates an explicit rule (e.g. a new wrapper without onError when § Wrapper API design requires it; a dismissal that punts on an RLS-coverage finding when § Supabase Hardening Defaults marks it non-negotiable; a slow-job stripped of the edge-runtime retry when § Slow-Job Lifecycle's checklist requires it) must FAIL unless the reason explicitly engages the rule's stated rationale. Generic 'this convention doesn't apply here' WITHOUT naming why is NOT acceptable.
 11. For testCoverageProject (project-repo pre-commit, ADD-without-test or orphan-after-DELETE was blocked): the reason MUST name the SPECIFIC blocked path(s) and explain WHY a test does not apply (e.g. 'page.tsx is the route entry — covered by e2e/list.spec.ts driving sign-in → add → bought', or 'utils/format.ts is a pure 3-line type re-export over packages/core/src/types — covered transitively by addItem.test.ts asserting the shape'). Generic reasons ('test coverage exists elsewhere', 'low risk', 'WIP') FAIL. PASS requires a named test or named exempt-list rationale that a future reviewer could verify in 30 seconds.
 12. For docsFreshnessProject (project-repo pre-commit, new page/wrapper/event without doc update was blocked): the reason MUST be a per-doc enumeration that names each blocked surface and either (a) points at the existing CLAUDE.md / METRICS.md entry that ALREADY covers it (verify against the inlined CLAUDE.md / METRICS.md content — if the named entry is not actually there, FAIL), or (b) explains why this specific surface does not need an entry (e.g. 'apps/web/app/healthz/route.ts is an internal infra-only liveness probe — no user-visible surface, no operator-relevant flow'). Generic 'docs are fine', 'will update later', 'minor change' FAIL. Surfaces named in CLAUDE.md § Where Things Happen are load-bearing for orientation — dismissals that touch them face a higher bar.
+13. For exemptAddition (project-repo pre-commit, lines added to .devshop-test-coverage-exempt or .devshop-docs-freshness-exempt): the Reason is the staged additions PLUS the list of cited paths verified to exist on disk. Each entry in the additions has the format `path  # inline reason`. Judge each entry's inline reason individually. REJECT the WHOLE bypass if ANY entry exhibits:
+    - Missing inline reason (a path with no `#` comment after it)
+    - Generic rationale: 'TODO test', 'skip for now', 'covered elsewhere', 'low risk', 'will fix', 'see other tests' without specifics
+    - Cites a covering spec/test by description but not by path (e.g. 'covered by the auth flow test' — name the file, not the concept)
+    - Claims 'page entry' / 'route' / 'config' for a path that's not actually one of those (judge against the path's location: pages live under apps/*/app/**/page.tsx; routes under app/**/route.ts; configs match *.config.ts; etc.)
+    - For test-coverage exemptions: the reason should name the covering spec/test path (which the pre-flight has already verified exists) OR explain why this path is intrinsically untestable (pure re-export, type-only, dev-only stub). Reasons of the form 'covered by <path>' where <path> is not in the verified-cited-paths list MUST FAIL — the pre-flight already validated existence, so absence from that list means the path was never even cited, not that it's missing.
+    - For docs-freshness exemptions: the reason should explain WHY the surface doesn't need a CLAUDE.md / METRICS.md entry (e.g. 'internal liveness probe', 'feature-flag-gated dev-only screen never shown to users') — not simply assert that it doesn't.
+    PASS only when every entry has a specific reason that a future reviewer could verify in 30 seconds against the inlined conventions.
 
 Respond with EXACTLY one line:
 PASS - only if the reason is genuinely legitimate and specific

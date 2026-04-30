@@ -13,6 +13,7 @@ setup() {
   mkdir -p "$MOCK_BIN/commit-hooks"
   for script in commit-hooks/check-security-files-freshness.sh commit-hooks/check-clean-tree.sh \
                 commit-hooks/check-manifest.sh commit-hooks/check-test-coverage.sh \
+                commit-hooks/check-exempt-additions.sh \
                 commit-hooks/check-test-coverage-project.sh commit-hooks/check-docs-freshness-project.sh \
                 commit-hooks/commit-guard.sh; do
     create_capturing_stub "$script" "" 0
@@ -35,7 +36,7 @@ scripts_called() {
   echo "$called"
 }
 
-@test "project repo (/workspace): calls security-freshness + clean-tree + test-coverage-project + docs-freshness-project + commit-guard" {
+@test "project repo (/workspace): calls security-freshness + clean-tree + exempt-additions + test-coverage-project + docs-freshness-project + commit-guard" {
   create_test_repo
   # Override git rev-parse in the wrapper to return /workspace
   sed -i 's|GIT_ROOT=$(git rev-parse.*|GIT_ROOT="/workspace"|' "$WRAPPER"
@@ -46,6 +47,7 @@ scripts_called() {
   # Verify correct scripts were called
   [ -f "$MOCK_BIN/commit-hooks/check-security-files-freshness.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-clean-tree.sh.args" ]
+  [ -f "$MOCK_BIN/commit-hooks/check-exempt-additions.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-test-coverage-project.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-docs-freshness-project.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/commit-guard.sh.args" ]

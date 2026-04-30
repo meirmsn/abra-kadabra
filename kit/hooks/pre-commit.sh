@@ -21,9 +21,13 @@ if [ -d "$GIT_ROOT/kit" ] && [ ! -L "$GIT_ROOT/kit" ]; then
 else
   case "$GIT_ROOT" in
     /workspace)
-      # Project repo: full guard suite
+      # Project repo: full guard suite. check-exempt-additions runs BEFORE
+      # check-test-coverage-project / check-docs-freshness-project so that bad
+      # exempt entries surface first (the operator knows to fix the exempt
+      # entry, not chase the gate it would have silenced).
       bash "$SCRIPTS_DIR/commit-hooks/check-security-files-freshness.sh"
       bash "$SCRIPTS_DIR/commit-hooks/check-clean-tree.sh"
+      bash "$SCRIPTS_DIR/commit-hooks/check-exempt-additions.sh"
       bash "$SCRIPTS_DIR/commit-hooks/check-test-coverage-project.sh"
       bash "$SCRIPTS_DIR/commit-hooks/check-docs-freshness-project.sh"
       bash "$SCRIPTS_DIR/commit-hooks/commit-guard.sh"
