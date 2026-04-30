@@ -115,7 +115,7 @@
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-Standalone skills (usable outside the pipeline): `/ak-status`, `/ak-spec`, `/ak-implement`, `/ak-pre-ship`, `/ak-test-review`, `/ak-design-conformance`, `/ak-new-project`, `/ak-migrate-project`.
+Standalone skills (usable outside the pipeline): `/ak-status`, `/ak-handoff`, `/ak-spec`, `/ak-implement`, `/ak-pre-ship`, `/ak-test-review`, `/ak-design-conformance`, `/ak-new-project`, `/ak-migrate-project`.
 
 ## Step 1: Write rough notes
 
@@ -365,6 +365,7 @@ For the full pipeline detail, see Steps 1–6 above.
 | `/ak-design-conformance` | Inside /ak-pre-ship Gate design-conformance | Extracts normative claims from DESIGN.md, verifies each against implementation. Complements /design-review (different axes).                                                                                                                                                                                                                                                  |
 | `/ak-test-review`        | Standalone or inside /ak-pre-ship           | Fresh-eyes test quality review (report only). Includes Test Assertion Depth rule (shape/length/mock-count must pair with user-visible-output; bypass via `// shape-only: <reason>`) and Skipped Tests Audit (`test.only`/`describe.only` always critical, `test.skip(true, ...)` requires grep-able TODO pointer, conditional skip predicates verified against real CI envs). |
 | `/ak-status`             | Start of any session                        | One-paragraph orientation briefing (read-only)                                                                                                                                                                                                                                                                                                                                |
+| `/ak-handoff`            | When context is filling up                  | Writes `.handoff/<name>.md` so a fresh session can continue this work. Detects session slug + permission mode, emits a one-line `claude -n <name>__continuation_<n> "..."` bootstrap command + `/rename` line for the current session. (`.handoff/` is gitignored in the project template.)                                                                                   |
 | `/ak-new-project`        | New project setup                           | Create repo (Phase A) + guided setup (Phase B). Single entry point.                                                                                                                                                                                                                                                                                                           |
 | `/ak-migrate-project`    | Adopt devshop on existing project           | Skeleton — two tiers (lightweight, full). See ROADMAP.md.                                                                                                                                                                                                                                                                                                                     |
 
