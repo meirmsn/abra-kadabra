@@ -10,9 +10,42 @@ INPUT="$(cat)"
 CMD="$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)" || CMD=""
 [ -z "$CMD" ] && exit 0
 
-# Only fire on actual `git commit` (not `git commit-tree`, not arbitrary text
-# with "commit" in it). Accept `git -c key=val commit`, `git -C <dir> commit`.
-echo "$CMD" | grep -qE '(^|[^a-zA-Z0-9_/])git( +-[cC] +[^ ]+)* +commit([^a-zA-Z0-9_-]|$)' || exit 0
+# Leading-executable whitelist (parity with check-hook-bypass.sh — see that
+# script's comment block for the rationale). The outer `if: Bash(*git*commit*)`
+# matcher uses substring globbing, so it fires on any command containing both
+# "git" and "commit" — including `gh pr create --body "...git commit..."` and
+# `echo "git commit ready"`. Strip env-var assignments at command start
+# (KEY=value), then inspect the leading executable token. Only proceed when
+# the command actually starts with `git` (any path), `cd` (for `cd /foo &&
+# git commit` chains), or `export` (for `export VAR=val && git commit`
+# chains — symmetric to the `VAR=val git commit` form already covered by
+# env-var stripping).
+STRIPPED=$(echo "$CMD" | sed -E 's/^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*//')
+LEAD=$(echo "$STRIPPED" | awk '{print $1}')
+case "$LEAD" in
+  git|*/git|cd|export) ;;  # proceed
+  *) exit 0 ;;
+esac
+
+# Now verify it's actually `git commit` (not `git commit-tree`, `git status`,
+# `git log --grep="commit"`, `cd /tmp && git status`). Strip `-c key=val` and
+# `-C dir` flag segments first — handles quoted values containing spaces.
+# The previous regex form `( +-[cC] +[^ ]+)*` had a latent bug: `[^ ]+`
+# consumes up to the first space, so `git -c devshop.foo="quoted val" commit`
+# failed to match because the regex couldn't resync past the space inside
+# the quoted value. Symptom was harmless (false negative — legitimate commits
+# slipped past the on-main check) but the asymmetry with the canonical
+# Tier-3 bypass form caused the same class of bug to bite check-hook-bypass.sh
+# in PR #19. Stripping flag-segments first via sed handles all three quoting
+# forms (double, single, unquoted) cleanly. After stripping, what remains is
+# the bare command minus -c/-C flags; the on-`commit` regex then resolves
+# unambiguously without space-handling concerns.
+PRUNED=$(echo "$CMD" | sed -E '
+s/-[cC][[:space:]]+[^[:space:]"'\'']*"[^"]*"//g
+s/-[cC][[:space:]]+[^[:space:]"'\'']*'\''[^'\'']*'\''//g
+s/-[cC][[:space:]]+[^[:space:]]+//g
+')
+echo "$PRUNED" | grep -qE '(^|[^a-zA-Z0-9_/])git[[:space:]]+commit([^a-zA-Z0-9_-]|$)' || exit 0
 
 # Figure out which repo the commit targets. Order:
 #   1. `git -C <dir> commit` — explicit
