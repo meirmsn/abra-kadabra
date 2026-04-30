@@ -14,6 +14,35 @@ if [ -z "$CMD" ]; then
   exit 2
 fi
 
+# Leading-executable whitelist. The outer `if: Bash(*git*commit*)` matcher
+# uses substring globbing, so it fires on any command containing both "git"
+# and "commit" — including `gh pr create --body "...git commit..."`.
+#
+# Strip env-var assignments at command start (KEY=value), then inspect the
+# leading executable token. Only proceed when the command actually starts
+# with `git` (any path) or `cd` (for `cd /foo && git commit` chains). `gh`,
+# `echo`, `pnpm`, etc. can't be a real commit invocation — exit early.
+#
+# Bypass strings inside env-var prefixes (e.g. `HUSKY=0 git commit`) are
+# still caught: env-vars are stripped to find LEAD, but the bypass-string
+# regexes below run against $CMD (the original).
+#
+# A regex-based "actual git commit invocation" check (mirroring
+# check-branch-not-main.sh:15) would be too brittle here — its `[^ ]+` token
+# trips on quoted values that contain spaces, e.g.
+#   git -c devshop.hookBypassReason="just because" commit --no-verify
+# which is the canonical legitimate Tier-3 bypass form. The whitelist alone
+# closes the realistic false-positive (gh pr create with body text). On the
+# remaining surface (commands with leading `git`/`cd` that aren't real
+# commits, e.g. `git commit-tree` or `git log --grep="commit"`), the
+# bypass-string regexes correctly exit 0 — no false block.
+STRIPPED=$(echo "$CMD" | sed -E 's/^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*//')
+LEAD=$(echo "$STRIPPED" | awk '{print $1}')
+case "$LEAD" in
+  git|*/git|cd) ;;  # proceed
+  *) exit 0 ;;
+esac
+
 # --- Tier 1: Always block — no legitimate use case ---
 # Match core.hooksPath only in load-bearing positions:
 #   `-c[[:space:]]+core.hooksPath=` — the git -c flag form
