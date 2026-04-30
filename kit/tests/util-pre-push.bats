@@ -84,6 +84,88 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+# --- Project pre-push: PR-desc trivial-prefix short-circuit (PR G) ---
+# Helper: stand up a fake `origin/main` ref + commits diverging from it, so
+# `git log origin/main..HEAD` and `git diff --name-only origin/main..HEAD`
+# return real data.
+setup_branch_with_commits() {
+  cd "$TEST_REPO"
+  # Mark the initial-commit branch as origin/main equivalent by giving git
+  # a local "origin/main" ref pointing at HEAD.
+  git update-ref refs/remotes/origin/main HEAD
+  git checkout -q -b feature-x
+}
+
+@test "project pre-push: short-circuits PR-desc check when all commits trivial AND no source files change" {
+  setup_branch_with_commits
+  # Commit a doc-only change with chore: prefix — trivial AND non-source.
+  echo "doc" > "$TEST_REPO/README.md"
+  git add README.md
+  git -c user.email=test@test.com -c user.name=Test commit -q -m "chore: bump readme"
+  # gh stub returns a PR — would normally trigger the PR-desc review
+  create_stub gh "42"
+  # adversarial-review.sh stub will FAIL if invoked. Short-circuit must
+  # prevent that invocation entirely. (Dirty-tree check still fires later
+  # but tree is clean, so it short-circuits too.)
+  mock_adversarial_review FAIL
+  run bash "$PROJECT_PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  [ "$status" -eq 0 ]
+  refute_output --partial "description appears stale"
+}
+
+@test "project pre-push: trivial prefix WITH source-file change DOES fire PR-desc review (PR G)" {
+  setup_branch_with_commits
+  # chore-prefixed commit but it touches packages/*/src/ — exploit case.
+  mkdir -p "$TEST_REPO/packages/core/src"
+  echo "export const x = 1;" > "$TEST_REPO/packages/core/src/foo.ts"
+  git add packages/core/src/foo.ts
+  git -c user.email=test@test.com -c user.name=Test commit -q -m "chore: tidy"
+  create_stub gh "42"
+  mock_adversarial_review FAIL
+  run bash "$PROJECT_PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  [ "$status" -eq 1 ]
+  assert_output --partial "description appears stale"
+}
+
+@test "project pre-push: trivial prefix WITH apps/*/src change ALSO fires PR-desc review (PR G)" {
+  setup_branch_with_commits
+  mkdir -p "$TEST_REPO/apps/web/src"
+  echo "export const y = 2;" > "$TEST_REPO/apps/web/src/bar.ts"
+  git add apps/web/src/bar.ts
+  git -c user.email=test@test.com -c user.name=Test commit -q -m "docs: oops actually code"
+  create_stub gh "99"
+  mock_adversarial_review FAIL
+  run bash "$PROJECT_PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  [ "$status" -eq 1 ]
+  assert_output --partial "description appears stale"
+}
+
+@test "project pre-push: trivial-prefix + ONLY non-source files (e2e/, scripts/) still short-circuits" {
+  setup_branch_with_commits
+  mkdir -p "$TEST_REPO/e2e" "$TEST_REPO/scripts"
+  echo "test" > "$TEST_REPO/e2e/foo.spec.ts"
+  echo "#!/bin/bash" > "$TEST_REPO/scripts/build.sh"
+  git add e2e/foo.spec.ts scripts/build.sh
+  git -c user.email=test@test.com -c user.name=Test commit -q -m "test: add e2e + tweak script"
+  create_stub gh "42"
+  mock_adversarial_review FAIL
+  run bash "$PROJECT_PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  [ "$status" -eq 0 ]
+  refute_output --partial "description appears stale"
+}
+
+@test "project pre-push: non-trivial prefix (feat:) still fires PR-desc review (existing behavior)" {
+  setup_branch_with_commits
+  echo "doc" > "$TEST_REPO/README.md"
+  git add README.md
+  git -c user.email=test@test.com -c user.name=Test commit -q -m "feat: add login"
+  create_stub gh "42"
+  mock_adversarial_review FAIL
+  run bash "$PROJECT_PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  [ "$status" -eq 1 ]
+  assert_output --partial "description appears stale"
+}
+
 # --- Devshop pre-push: still short-circuits on main ---
 
 @test "devshop pre-push: short-circuits on push from main (release.sh territory)" {
