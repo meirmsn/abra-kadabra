@@ -15,12 +15,13 @@ Full security model: [`../../../notes/security-model.md`](../../notes/security-m
 
 ## Security-Critical Files
 
-Root-owned copies (not symlinks), verified fresh on every commit:
+Root-owned copies (not symlinks), verified fresh on every commit. Project-workspace files in this list are declared `[locked]` in `kit/manifest.txt` (the single source of truth — see `architecture.md § File lifecycle`) and refreshed from `template/` by `init-devshop.sh` on every container start; project-special and devshop-self files (settings.json, .dcg.toml, settings.local.json, .devcontainer/.env, plus the `$DEVSHOP/...` mirror) stay carved out as a hardcoded list in init-devshop.sh with comments explaining why.
 
 - `.claude/settings.json` — permissions, hooks, deny rules
 - `.dcg.toml` — destructive command patterns
-- `.devcontainer/*` — container config, firewall, secrets
+- `.devcontainer/*` — container config (Dockerfile, init-devshop.sh, init-firewall.sh, devcontainer.json, checksums.sha256), firewall, secrets
 - `.husky/pre-commit` — gates commit-time guards (gitleaks, docs-drift, mixed-commit, release-coverage); tampering silently disables them
+- `.husky/pre-push` — gates push-time guards (no-direct-push-to-main, dirty-tree adversarial review); tampering silently disables them
 
 All scripts under `kit/scripts/` (recursive — covers `commit-hooks/`, `preship/`, `notify/`, `sync/`, etc.) are also root-locked — `init-devshop.sh` runs `find $DEVSHOP/kit/scripts/ -type f -name '*.sh'` at container start and chowns each to `root:root 644`. This breaks the circularity where the scripts that watch `settings.json` were themselves only protected by `settings.json`. The two-layer model (Layer 1 = settings.json deny rules, Layer 2 = filesystem ownership) is documented inline in `.claude/settings.json` permission rules:
 

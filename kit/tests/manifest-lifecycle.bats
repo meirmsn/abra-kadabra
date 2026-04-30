@@ -214,3 +214,117 @@ M
   "
   assert_success
 }
+
+# ---------------------------------------------------------------------------
+# Test 8 — init-devshop.sh sources the parser and iterates manifest_paths_by
+# (regression guard: PR 2 made init-devshop manifest-driven; this catches a
+# revert / hardcoded-list regression statically without needing sudo)
+# ---------------------------------------------------------------------------
+
+@test "init-devshop.sh sources parse-manifest.sh and iterates manifest_paths_by locked" {
+  local script="$DEVSHOP/kit/scripts/init-devshop.sh"
+  [ -f "$script" ] || skip "init-devshop.sh not found"
+  run grep -q 'source.*parse-manifest.sh' "$script"
+  assert_success
+  run grep -q 'manifest_paths_by locked' "$script"
+  assert_success
+  run grep -q 'manifest_paths_by locked-dir' "$script"
+  assert_success
+}
+
+@test "init-devshop.sh refreshes [locked] content via install -D -m 644 -o root -g root" {
+  local script="$DEVSHOP/kit/scripts/init-devshop.sh"
+  [ -f "$script" ] || skip "init-devshop.sh not found"
+  # The whole point of manifest-driven init is content refresh — chown alone
+  # would not have fixed .husky/pre-push (the file didn't exist locally to chown).
+  run grep -q 'install -D -m 644 -o root -g root' "$script"
+  assert_success
+}
+
+# ---------------------------------------------------------------------------
+# Test 9 — .husky/pre-push regression: it MUST be a [locked] manifest entry,
+# AND its template source must exist. Catches the bug class where a new
+# template/.husky/<hook> file lacks a manifest entry and silently fails to
+# propagate to existing projects on container rebuild.
+# ---------------------------------------------------------------------------
+
+@test "regression: .husky/pre-push is declared [locked] in manifest" {
+  run bash -c "
+    source '$PARSE_LIB'
+    parse_manifest '$MANIFEST'
+    manifest_paths_by locked
+  "
+  assert_success
+  assert_line ".husky/pre-push"
+}
+
+@test "regression: every template/.husky/<hook> file is in manifest" {
+  # If a future PR adds template/.husky/post-push or similar, that entry must
+  # appear in the manifest (either [locked] or [sync] via the .husky/ dir entry).
+  # This test guards the mental model: template hook = manifest entry.
+  run bash -c "
+    source '$PARSE_LIB'
+    parse_manifest '$MANIFEST'
+    rc=0
+    for hook in /devshop/template/.husky/*; do
+      [ -f \"\$hook\" ] || continue
+      name=\$(basename \"\$hook\")
+      [ \"\$name\" = '_' ] && continue
+      rel=\".husky/\$name\"
+      # Either declared explicitly OR covered by .husky/ dir [sync] entry.
+      if [ -n \"\${MANIFEST_CATEGORY[\$rel]:-}\" ]; then
+        continue
+      fi
+      if [ -n \"\${MANIFEST_CATEGORY['.husky/']:-}\" ]; then
+        continue
+      fi
+      echo \"orphan hook (not in manifest): \$rel\"
+      rc=1
+    done
+    exit \$rc
+  "
+  assert_success
+}
+
+# ---------------------------------------------------------------------------
+# Test 13 — manifest [locked-dir] entries are real dirs in template/ (or
+# carved out as project-special in init-devshop.sh's hardcoded list).
+# ---------------------------------------------------------------------------
+
+@test "every [locked-dir] entry in real manifest is a real dir under /devshop/template/" {
+  run bash -c "
+    source '$PARSE_LIB'
+    parse_manifest '$MANIFEST'
+    rc=0
+    while IFS= read -r d; do
+      [ -d \"/devshop/template/\$d\" ] || { echo \"missing: /devshop/template/\$d\"; rc=1; }
+    done < <(manifest_paths_by locked-dir)
+    exit \$rc
+  "
+  assert_success
+}
+
+# ---------------------------------------------------------------------------
+# Cross-check: workspace-side [locked] files are NOT also hardcoded in
+# init-devshop.sh's fallback for-loop (would be double-source-of-truth)
+# ---------------------------------------------------------------------------
+
+@test "init-devshop.sh hardcoded list does NOT redeclare workspace [locked] files" {
+  local script="$DEVSHOP/kit/scripts/init-devshop.sh"
+  [ -f "$script" ] || skip "init-devshop.sh not found"
+  run bash -c "
+    source '$PARSE_LIB'
+    parse_manifest '$MANIFEST'
+    rc=0
+    while IFS= read -r p; do
+      # The hardcoded for-loop in init-devshop.sh has \"\$WS/<path>\" entries.
+      # If a manifest [locked] path appears there too, it's double-counted.
+      if grep -qF \"\\\"\\\$WS/\$p\\\"\" '$script'; then
+        echo \"double-source: '\$p' is [locked] in manifest AND hardcoded in init-devshop.sh's for-loop\"
+        rc=1
+      fi
+    done < <(manifest_paths_by locked)
+    exit \$rc
+  "
+  assert_success
+}
