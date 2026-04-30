@@ -15,7 +15,15 @@ if [ -z "$CMD" ]; then
 fi
 
 # --- Tier 1: Always block — no legitimate use case ---
-if echo "$CMD" | grep -qE 'core\.hooksPath'; then
+# Match core.hooksPath only in load-bearing positions:
+#   `-c[[:space:]]+core.hooksPath=` — the git -c flag form
+#   `git config <flags> core.hooksPath` — persistent config set (bounded to
+#     a single command via `[^;&|]*` so a doc citation after a separator
+#     doesn't match)
+#   `GIT_CONFIG_PARAMETERS=…core.hooksPath` — env-var smuggled config
+# Bare `core.hooksPath` mentions in commit messages or doc citations are NOT
+# load-bearing and must not match.
+if echo "$CMD" | grep -qE '(-c[[:space:]]+["'"'"'`]?core\.hooksPath=|git[[:space:]]+config[[:space:]][^;&|]*core\.hooksPath|GIT_CONFIG_PARAMETERS=[^[:space:]]*core\.hooksPath)'; then
   cat <<'HOOK_EOF'
 BLOCKED: core.hooksPath bypass detected.
 
@@ -26,7 +34,15 @@ HOOK_EOF
   exit 2
 fi
 
-if echo "$CMD" | grep -qE 'HUSKY=0|HUSKY_SKIP'; then
+# Match HUSKY=0 / HUSKY_SKIP= ONLY when they appear as an env-var prefix
+# (start of command, after a shell separator, or after `export`) — not when
+# they appear inside a commit message or doc citation. Same anchoring shape
+# as DEVSHOP_SKIP_ADVERSARIAL below:
+#   ^             — beginning of command
+#   [;&|`]        — after ; & | or backtick
+#   $\(           — after $( substitution opener
+#   followed by optional whitespace, optional `export `, then HUSKY=…
+if echo "$CMD" | grep -qE '(^|[;&|`]|\$\()[[:space:]]*(export[[:space:]]+)?(HUSKY=0|HUSKY_SKIP=)'; then
   cat <<'HOOK_EOF'
 BLOCKED: HUSKY bypass detected.
 

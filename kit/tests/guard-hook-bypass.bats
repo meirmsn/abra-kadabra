@@ -30,11 +30,54 @@ run_check_with_review() {
 
 # --- Tier 1: Always blocked ---
 
-@test "blocks core.hooksPath" {
+@test "blocks core.hooksPath via -c flag" {
   run_check 'git -c core.hooksPath=/dev/null commit -m "test"'
   assert_failure 2
   assert_output --partial "BLOCKED"
   assert_output --partial "core.hooksPath"
+}
+
+@test "blocks core.hooksPath via -c flag with quoted value" {
+  run_check 'git -c "core.hooksPath=/dev/null" commit -m "test"'
+  assert_failure 2
+  assert_output --partial "BLOCKED"
+  assert_output --partial "core.hooksPath"
+}
+
+@test "blocks core.hooksPath via git config (persistent set)" {
+  run_check 'git config core.hooksPath /dev/null && git commit -m "test"'
+  assert_failure 2
+  assert_output --partial "BLOCKED"
+  assert_output --partial "core.hooksPath"
+}
+
+@test "blocks core.hooksPath via git config --global" {
+  run_check 'git config --global core.hooksPath /dev/null'
+  assert_failure 2
+  assert_output --partial "BLOCKED"
+  assert_output --partial "core.hooksPath"
+}
+
+@test "blocks core.hooksPath via GIT_CONFIG_PARAMETERS env-var smuggle" {
+  run_check "GIT_CONFIG_PARAMETERS=\"'core.hooksPath=/dev/null'\" git commit -m test"
+  assert_failure 2
+  assert_output --partial "BLOCKED"
+  assert_output --partial "core.hooksPath"
+}
+
+@test "allows commit messages that mention core.hooksPath as a doc citation" {
+  # False-positive guard: bare mentions of `core.hooksPath` in commit messages
+  # or doc text must not trigger — only the load-bearing forms above do.
+  run_check 'git commit -m "docs: explain core.hooksPath bypass detection"'
+  assert_success
+}
+
+@test "allows command chains where core.hooksPath only appears as literal text after a separator" {
+  # False-positive guard: `git config user.name foo; echo core.hooksPath` must
+  # not match — the `git config` arm of the regex bounds on `[^;&|]*` so the
+  # config invocation can't reach across a shell separator.
+  run_check 'git config user.name foo && echo "see docs for core.hooksPath details"'
+  assert_success
 }
 
 @test "blocks HUSKY=0" {
@@ -45,9 +88,35 @@ run_check_with_review() {
 }
 
 @test "blocks HUSKY_SKIP" {
-  run_check 'HUSKY_SKIP=1 git commit -m "test"'
+  run_check 'HUSKY_SKIP=pre-commit git commit -m "test"'
   assert_failure 2
   assert_output --partial "BLOCKED"
+}
+
+@test "blocks export HUSKY=0 followed by commit" {
+  run_check 'export HUSKY=0 && git commit -m "test"'
+  assert_failure 2
+  assert_output --partial "BLOCKED"
+  assert_output --partial "HUSKY"
+}
+
+@test "blocks HUSKY=0 after a shell separator" {
+  run_check 'cd /tmp; HUSKY=0 git commit -m "test"'
+  assert_failure 2
+  assert_output --partial "BLOCKED"
+  assert_output --partial "HUSKY"
+}
+
+@test "allows commit messages that mention HUSKY=0 as a doc citation" {
+  # False-positive guard: the regex must anchor on env-var-prefix position,
+  # not match every occurrence in command text.
+  run_check 'git commit -m "docs: HUSKY=0 disables hooks but is blocked here"'
+  assert_success
+}
+
+@test "allows commit messages that mention HUSKY_SKIP= as a doc citation" {
+  run_check 'git commit -m "fix(hooks): document HUSKY_SKIP=pre-commit bypass"'
+  assert_success
 }
 
 @test "blocks devshop.humanReviewed from Claude" {
