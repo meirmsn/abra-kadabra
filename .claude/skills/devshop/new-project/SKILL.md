@@ -149,6 +149,7 @@ Created by `/ak-new-project` on <date>.
 
 ## Progress
 
+0. [ ] **[HUMAN]** macOS host setup (per-machine, one-time — skip if already done for a previous devshop project)
 1. [ ] Check binary versions
 2. [ ] Customize project docs (BUILD-LOG.md, PRODUCT-ROADMAP.md, README.md)
        2b. [ ] **[HUMAN]** Choose local supabase reachability (Option 1 / 3 / skip — strips per-choice template files)
@@ -185,6 +186,28 @@ Created by `/ak-new-project` on <date>.
 
 Ask the user for the project name before starting (used as `<project-name>` throughout).
 Derive the npm scope: `@<project-name>`.
+
+### Step 0: [HUMAN] macOS host setup (per-machine, one-time)
+
+The devshop's compose isolation security model assumes four pieces of macOS-host config the dev container can't introspect or apply: Docker Desktop File Sharing restriction, Docker Engine JSON hardening, `/etc/hosts` loopback for `host.docker.internal`, and Docker Desktop hygiene (auto-update on, K8s off, stable channel). Items 1+2 close the security model; item 3 is mechanically required for `pnpm dev` and the macOS browser to reach local supabase.
+
+Ask the operator (single AskUserQuestion):
+
+```
+Have you already run macOS host setup (Docker Desktop File Sharing
+restriction + Docker Engine JSON hardening + /etc/hosts entry for
+host.docker.internal) for a previous devshop project on this Mac?
+
+  [yes]   skip — it's a per-machine one-time setup
+  [no]    walk through /devshop/kit/docs/guide/macos-host-setup.md
+  [skip]  this project is option (c) skip + I never use Docker Desktop
+```
+
+- **Yes** → mark `[x]` and continue to Step 1. Optionally suggest a 5-second sanity check from the host: `docker info --format '{{.SecurityOptions}}'` should include `name=no-new-privileges`. If it doesn't, treat that as "no" and walk through the guide.
+- **No** → read [`/devshop/kit/docs/guide/macos-host-setup.md`](../../../../kit/docs/guide/macos-host-setup.md) and walk the operator through each numbered step in the guide, one at a time. Wait for confirmation between steps. The guide's "Verifying it stuck" snippet is the proof-of-completion for step 2.
+- **Skip (option-c-only operator who doesn't use Docker Desktop at all)** → mark `[x]` and continue. Note in the tracker that the security model docs assume Docker Desktop is installed; if that ever changes, revisit.
+
+The skill itself does NOT bake the guide content inline — read it on demand only when the operator answers "no", so the skill stays slim and the guide stays the single source of truth.
 
 ### Step 1: Check binary versions
 
@@ -284,6 +307,9 @@ Local supabase reachability:
        through. Idempotent; skips if already present:
          grep -q host.docker.internal /etc/hosts || \
            echo '127.0.0.1 host.docker.internal' | sudo tee -a /etc/hosts
+       (If you've already done this for a previous devshop project, it's a
+       no-op. Step 0 of this skill should have caught it; this is the safety
+       net.)
     2. No devcontainer rebuild needed — the template ships in compose-isolation
        form by default; Step 2b's "keep as-shipped" choice didn't modify any
        devcontainer config.
@@ -293,6 +319,15 @@ Local supabase reachability:
          pnpm db:status   # prints local API URL + JWT keys
          pnpm db:stop     # tear down
        First `db:start` takes ~45-60s (image instantiation + schema apply).
+    4. Per-developer apps/web/.env.local (gitignored — required for `pnpm dev`
+       SSR + browser to reach the local stack via the same hostname workspace
+       processes use):
+         pnpm db:start                       # spawn local stack if not already up
+         pnpm db:status                      # copy the `anon key` line below
+         cat > apps/web/.env.local <<EOF
+         NEXT_PUBLIC_SUPABASE_URL=http://host.docker.internal:54321
+         NEXT_PUBLIC_SUPABASE_ANON_KEY=<paste anon key from db:status>
+         EOF
   ```
 
 - **(c) Skip** — minimum-footprint variant (no local stack at all; integration tests run CI-only):
