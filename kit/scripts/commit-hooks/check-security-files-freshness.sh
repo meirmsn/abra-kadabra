@@ -14,7 +14,7 @@ STALE=false
 # Skip if devshop isn't mounted
 [ -d "$DEVSHOP/.claude" ] || exit 0
 
-# --- settings.json ---
+# --- settings.json (devshop-self-derived; not in manifest) ---
 WS_FILE="$WS/.claude/settings.json"
 SRC_FILE="$DEVSHOP/.claude/settings.json"
 
@@ -32,7 +32,7 @@ if [ -f "$SRC_FILE" ]; then
   fi
 fi
 
-# --- .dcg.toml ---
+# --- .dcg.toml (devshop-self-derived; not in manifest) ---
 WS_DCG="$WS/.dcg.toml"
 SRC_DCG="$DEVSHOP/.dcg.toml"
 
@@ -47,6 +47,33 @@ if [ -f "$SRC_DCG" ]; then
     echo "⚠ .dcg.toml is stale (differs from devshop source)."
     STALE=true
   fi
+fi
+
+# --- Manifest [locked] files (template-derived) ---
+# Verify each [locked] entry in kit/manifest.txt is a real file matching its
+# template/ source. Catches drift if init-devshop.sh failed to refresh, or if
+# git ops created a symlink where a copy should be (Layer-2 erosion described
+# in guide/security.md).
+MANIFEST="$DEVSHOP/kit/manifest.txt"
+if [ -f "$MANIFEST" ] && [ -f "$DEVSHOP/kit/scripts/sync/lib/parse-manifest.sh" ]; then
+  source "$DEVSHOP/kit/scripts/sync/lib/parse-manifest.sh"
+  parse_manifest "$MANIFEST" 2>/dev/null || true
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    src="$DEVSHOP/template/$path"
+    dst="$WS/$path"
+    [ -f "$src" ] || continue
+    if [ -L "$dst" ]; then
+      echo "⚠ $path is a SYMLINK (should be a root-owned copy)."
+      STALE=true
+    elif [ ! -f "$dst" ]; then
+      echo "⚠ $path is MISSING. Security/hook integrity compromised."
+      STALE=true
+    elif ! diff -q "$src" "$dst" >/dev/null 2>&1; then
+      echo "⚠ $path is stale (differs from /devshop/template/$path)."
+      STALE=true
+    fi
+  done < <(manifest_paths_by locked)
 fi
 
 if [ "$STALE" = true ]; then

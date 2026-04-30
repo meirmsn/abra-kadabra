@@ -19,10 +19,33 @@
 # Exclusions are written as `!path` and carry no annotation (e.g. `!.devcontainer/.env`
 # excludes that file from a parent directory's [sync] rsync).
 #
-# See kit/docs/guide/architecture.md § File lifecycle for the model. PR rollout
-# of the consolidation plan: PR 1 (this) declares [sync] + [locked]; later PRs
-# add [locked-dir], [symlink], [scaffold-once] entries as init-devshop.sh,
-# create-devshop-symlinks.sh, and ak-new-project become manifest-driven.
+# See kit/docs/guide/architecture.md § File lifecycle for the model and the
+# consumer scripts. The shared parser is kit/scripts/sync/lib/parse-manifest.sh.
+
+# Symlinked from /devshop/ into the workspace by sync/create-devshop-symlinks.sh
+# at container start. Source paths vary (kit/, .claude/skills/, .claude/commands,
+# .claude/README.md, hooks/pre-commit.sh) — the script's body is the authoritative
+# wiring; the entries here are the source-of-truth declaration that those symlinks
+# exist and where in the workspace they land.
+.devshopkit [symlink]
+.claude/skills/devshop [symlink]
+.claude/skills/gstack [symlink]
+.claude/commands [symlink]
+.claude/README.md [symlink]
+.hooks/pre-commit [symlink]
+
+# Scaffolded once at /ak-new-project create time — project owns thereafter and
+# the template's version becomes irrelevant. Bidirectional sync would clobber
+# project narrative, so from-devshop.sh / to-devshop.sh skip these entries.
+CLAUDE.md [scaffold-once]
+PLAN.md [scaffold-once]
+BUILD-LOG.md [scaffold-once]
+PRODUCT-ROADMAP.md [scaffold-once]
+TODOS.md [scaffold-once]
+METRICS.md [scaffold-once]
+README.md [scaffold-once]
+.devshop-test-coverage-exempt [scaffold-once]
+.devshop-docs-freshness-exempt [scaffold-once]
 
 # Build tooling — sync via sync/from-devshop.sh / sync/to-devshop.sh
 .gitignore [sync]
