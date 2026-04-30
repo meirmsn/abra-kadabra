@@ -82,7 +82,7 @@ Configured in `.claude/settings.json`.
 
 Shell-script PreToolUse hooks block Bash calls by exiting with code 2 and printing the message to stdout — Claude Code surfaces stdout as the block reason. DCG is a compiled binary for performance (it runs on every Bash call, so startup cost matters); the other hooks run only on matched patterns like `*git*commit*`.
 
-The bypass-string regexes in `check-hook-bypass.sh` are anchored to **assignment / env-var-prefix form**, not bare string matching: `devshop.humanReviewed=` (with `=`), `DEVSHOP_SKIP_ADVERSARIAL=` at start of command or after a shell separator. This lets commit messages and PR-body prose discuss the bypass mechanisms as documentation without tripping the gate. The actual bypass requires the assignment form for git or the shell to apply it.
+The bypass-string regexes in `check-hook-bypass.sh` are anchored to **assignment / env-var-prefix / git-config form**, not bare string matching: `devshop.humanReviewed=` (with `=`), `DEVSHOP_SKIP_ADVERSARIAL=` and `HUSKY=0`/`HUSKY_SKIP=` at start of command, after a shell separator, or after `export`, and `core.hooksPath` only via `git -c <flag>`, `git config <flags> core.hooksPath` (bounded to a single shell command), or `GIT_CONFIG_PARAMETERS=…core.hooksPath`. This lets commit messages and PR-body prose discuss the bypass mechanisms as documentation without tripping the gate. The actual bypass requires one of these load-bearing forms for git or the shell to apply it.
 
 ### 2. Husky pre-commit (during git commit)
 
