@@ -128,7 +128,7 @@ setup() {
   [ -f "$manifest" ] || skip "manifest.txt not found"
 
   local entries
-  entries=$(grep -v '^\s*#' "$manifest" | grep -v '^\s*$' | grep -v '^!' | sed 's/[[:space:]]*$//')
+  entries=$(grep -v '^\s*#' "$manifest" | grep -v '^\s*$' | grep -v '^!' | sed 's/\[[^]]*\]//g; s/[[:space:]]*$//')
 
   local missing=""
   while IFS= read -r entry; do
@@ -196,7 +196,7 @@ setup() {
   exempts=$(grep -oP '^\s+"[a-z-]+\.sh"' "$coverage_script" | tr -d '" ')
 
   # Scripts called by other scripts or skills (not directly by hooks/pre-commit)
-  local infra_scripts="create-devshop-symlinks.sh normalize-devshop-paths.sh changelog-entry.sh check-file-headers.sh supabase-bootstrap.sh router-shim.sh verify-story.sh design-conformance.sh rls-coverage-check.sh slow-job-lifecycle-check.sh rebuild-browse.sh populate-playwright-cache.sh"
+  local infra_scripts="create-devshop-symlinks.sh normalize-devshop-paths.sh changelog-entry.sh check-file-headers.sh supabase-bootstrap.sh router-shim.sh verify-story.sh design-conformance.sh rls-coverage-check.sh slow-job-lifecycle-check.sh rebuild-browse.sh populate-playwright-cache.sh parse-manifest.sh"
 
   # Combine hook references and pre-commit references (match paths-with-slashes)
   local wired=""

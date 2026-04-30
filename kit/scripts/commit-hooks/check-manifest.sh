@@ -27,8 +27,8 @@ DELETED=$(git diff --cached --name-only --diff-filter=D | grep '^template/' | se
 
 [ -z "$ADDED" ] && [ -z "$DELETED" ] && exit 0
 
-# Read manifest entries (skip comments, blank lines, exclusions)
-MANIFEST_ENTRIES=$(grep -v '^\s*#' "$MANIFEST" | grep -v '^\s*$' | grep -v '^!' | sed 's/[[:space:]]*$//' || true)
+# Read manifest entries (skip comments, blank lines, exclusions; strip [tag] annotations)
+MANIFEST_ENTRIES=$(grep -v '^\s*#' "$MANIFEST" | grep -v '^\s*$' | grep -v '^!' | sed 's/\[[^]]*\]//g; s/[[:space:]]*$//' || true)
 
 # Check which added/deleted files are NOT in the manifest
 UNTRACKED_ADDED=""

@@ -16,27 +16,27 @@ The first project built with the devshop was a bilingual grocery list app migrat
 
 ## Is the dev-shop machinery portable to future projects?
 
-Yes — portability is a first-class concern. New projects are created from `template/` at the devshop repo root via `/ak-new-project` (no cloning the devshop itself). Files fall into five categories (see `guide/architecture.md` § File Lifecycle for full detail):
+Yes — portability is a first-class concern. New projects are created from `template/` at the devshop repo root via `/ak-new-project` (no cloning the devshop itself). `kit/manifest.txt` is the single source of truth for every workspace path the devshop manages; each declared path carries an inline lifecycle annotation. See `guide/architecture.md § File lifecycle` for the full table and the parser library.
 
-**1. Symlinked** (from abra-kadabra at container start, gitignored in project):
+**`[symlink]`** (node-owned symlinks to `/devshop/`, auto-recovered if lost by git ops):
 
 - `.devshopkit/`, `.claude/skills/`, `.claude/commands/`, `.hooks/pre-commit`
 
-**2. Root-owned copies** (from abra-kadabra at container start, gitignored in project):
+**`[locked]` + `[locked-dir]`** (root-owned copies refreshed every container start, sticky-bit dirs prevent deletion):
 
-- `.claude/settings.json`, `.dcg.toml` (locked by init-devshop.sh, survive git ops, sticky bit prevents deletion — see guide/security.md)
+- `.claude/settings.json`, `.dcg.toml`, `.devcontainer/{Dockerfile,init-devshop.sh,init-firewall.sh,devcontainer.json,checksums.sha256}`, `.husky/{pre-commit,pre-push}` (see `guide/security.md`)
 
-**3. Manifest files** (from abra-kadabra initial clone, then project-owned, can diverge):
+**`[sync]`** (initial copy at scaffold, then project-owned and may diverge; manual bidirectional sync via `from-devshop.sh` / `to-devshop.sh`):
 
 - `.devcontainer/`, `.husky/`, `.github/workflows/`, `turbo.json`, `eslint.config.mjs`, etc.
 
-**4. Generated** (created at container start if missing):
+**`[scaffold-once]`** (copied once at `/ak-new-project` time, project owns thereafter — template's version becomes irrelevant):
 
-- `BUILD-LOG.md` (templated if missing, then project-owned and tracked)
+- `BUILD-LOG.md`, `CLAUDE.md`, `PLAN.md`, `TODOS.md`, `METRICS.md`, `.devshop-test-coverage-exempt`, `.devshop-docs-freshness-exempt`
 
-**5. Project-only** (never in abra-kadabra):
+**Project-only** (never in abra-kadabra, not in the manifest):
 
-- `apps/`, `packages/`, `supabase/`, `CLAUDE.md`, `DESIGN.md`, `specs/`, `METRICS.md`
+- `apps/`, `packages/`, `supabase/`, `DESIGN.md`, `specs/`, `.devcontainer/.env`, `.claude/settings.local.json`
 
 The devshop (abra-kadabra) and project repos are separate (since v1.0.0). The `template/` directory at the devshop root contains the project skeleton — `/ak-new-project` creates a GitHub repo from it. Devshop files get injected into the workspace at container start via `init-devshop.sh` — they're gitignored in the project repo. Build tooling files (turbo.json, eslint, etc.) are tracked in both repos and can be synced:
 

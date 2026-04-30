@@ -59,33 +59,21 @@ Runs as root via sudo on every container start (`postStartCommand`). The project
 
 ## File lifecycle
 
-Every file in `/workspace/` falls into one of five categories based on where it comes from and how it stays current:
+`kit/manifest.txt` is the single source of truth for every workspace path managed by the devshop. Each declared path carries an inline `[tag]` annotation describing how it stays current. The shared parser is `kit/scripts/sync/lib/parse-manifest.sh`.
 
-**1. Symlinked (always match devshop)**
+| Annotation        | Meaning                                                                                                                                  | Where it's enforced                                                                                       |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `[symlink]`       | Node-owned symlink to devshop, always matches devshop. Auto-recovered if lost by git ops.                                                | `sync/create-devshop-symlinks.sh` (run by `init-devshop.sh`, `session-start.sh`, and `.husky/pre-commit`) |
+| `[locked]`        | Root-owned copy, refreshed every container start. Project cannot edit (`chown root:root` + `chmod 644`). Freshness verified each commit. | `init-devshop.sh` install loop + `commit-hooks/check-security-files-freshness.sh`                         |
+| `[locked-dir]`    | Sticky-bit dir (`chmod 1755`) holding `[locked]` leaves. Prevents node from deleting locked files.                                       | `init-devshop.sh` sticky-bit loop                                                                         |
+| `[sync]`          | Manual bidirectional sync; project owns its copy and may diverge.                                                                        | `sync/from-devshop.sh` and `sync/to-devshop.sh`                                                           |
+| `[scaffold-once]` | Copied once at `/ak-new-project` create time; project owns thereafter. Template's version becomes irrelevant.                            | `/ak-new-project` Phase A rsync                                                                           |
 
-Node-owned symlinks created by `init-devshop.sh` on container start. If lost by git operations (checkout, stash, clean), auto-recovered by the pre-commit hook via `sync/create-devshop-symlinks.sh`.
+**Project-only files** (no devshop source): files that exist only in the project repo and are never managed by the manifest. Examples: `.devcontainer/.env` (secrets), `.claude/settings.local.json` (per-project permission grants), `CLAUDE.md` once it has diverged from the scaffold, `apps/`, `packages/`, `supabase/`. These don't appear in the manifest.
 
-Files: `.devshopkit/`, `.claude/skills/`, `.claude/commands/`, `.claude/README.md`, `.hooks/pre-commit`
+**Why copies instead of symlinks for `[locked]`:** symlinks are fragile — git ops can delete them, and node can replace symlink targets. Root-owned copies survive git ops and can't be tampered with.
 
-**2. Root-owned copies (always match devshop)**
-
-Copied from devshop on every container start. Root-owned (`chown root:root`) so node (Claude) can't modify them. Freshness is verified by `check-security-files-freshness.sh` in the pre-commit hook — warns if stale, recommends `sudo bash /devshop/kit/scripts/init-devshop.sh` to fix.
-
-Files: `.claude/settings.json`, `.dcg.toml`
-
-Why copies instead of symlinks: symlinks are fragile — git ops can delete them, and node can replace symlink targets. Root-owned copies survive git ops and can't be tampered with.
-
-**3. Manifest files (can diverge per project)**
-
-Present from the initial clone of the devshop repo (abra-kadabra). After that, project-owned — they can and do diverge (e.g., `.gitignore` adds project-specific exclusions). Manually synced in either direction via `sync/from-devshop.sh` / `sync/to-devshop.sh`, which read the file list from `kit/manifest.txt`.
-
-Files: `.prettierrc`, `turbo.json`, `eslint.config.mjs`, `.husky/`, `.github/workflows/`, `.devcontainer/`, and other build tooling (see `manifest.txt` for the full list)
-
-**4. Project-only (never in devshop)**
-
-Files that exist only in the project repo. No devshop source, no sync.
-
-Files: `.devcontainer/.env` (secrets), `.claude/settings.local.json` (project-specific permission grants), `CLAUDE.md`, `.claude/memory/`, `BUILD-LOG.md`, `apps/`, `packages/`, `supabase/`, `METRICS.md`, `TODOS.md`
+**Annotation rollout (PR series):** PR 1 declares `[sync]` and `[locked]` annotations. Subsequent PRs make `init-devshop.sh`, `sync/from-devshop.sh` / `sync/to-devshop.sh`, `sync/create-devshop-symlinks.sh`, and `/ak-new-project` consume the manifest as their single list — replacing today's hardcoded lists across those scripts. The annotated manifest is the foundation; behavior consolidates onto it incrementally.
 
 ## Doing project work
 

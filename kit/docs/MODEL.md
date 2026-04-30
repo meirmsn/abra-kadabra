@@ -60,7 +60,7 @@ didn't anticipate inform the roadmap.
 
 ## File Lifecycle
 
-Every file in the project falls into one of three categories:
+Every file in the project falls into one of three categories at this conceptual level:
 
 | Category            | How it works                 | When changes take effect | Examples                     |
 | ------------------- | ---------------------------- | ------------------------ | ---------------------------- |
@@ -69,6 +69,8 @@ Every file in the project falls into one of three categories:
 | **Security-locked** | Root-owned copy from devshop | Next container start     | `settings.json`, `.dcg.toml` |
 
 When something isn't working, this tells you where to look and what to expect.
+
+The implementation classifies each managed path with an inline lifecycle annotation in `kit/manifest.txt` (the single source of truth — `[symlink]`, `[locked]`, `[locked-dir]`, `[sync]`, `[scaffold-once]`). See `guide/architecture.md § File lifecycle` for the full table; this conceptual three-way split groups those annotations: **Project-owned** covers `[sync]` (after divergence) + `[scaffold-once]` + project-only files, **Devshop-linked** covers `[symlink]`, **Security-locked** covers `[locked]` + `[locked-dir]`.
 
 ## Security
 
