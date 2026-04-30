@@ -120,6 +120,64 @@ run_check_with_review() {
   assert_success
 }
 
+# --- Outer-matcher false-positive guards ---
+# The `if: Bash(*git*commit*)` matcher fires on any command containing both
+# `git` and `commit` substrings — including `gh pr create` bodies that mention
+# "git commit" in their PR description. The hook now early-exits unless the
+# command is an actual git commit invocation.
+
+@test "allows gh pr create with body text mentioning git commit" {
+  run_check 'gh pr create --title "fix(hooks): tighten" --body "ensures git commit chain remains protected"'
+  assert_success
+}
+
+@test "allows gh issue comment with body text mentioning git commit" {
+  run_check 'gh issue comment 42 --body "see git commit a1b2c3d for context"'
+  assert_success
+}
+
+@test "allows echo with git commit in literal text" {
+  run_check 'echo "run git commit -am foo to commit changes"'
+  assert_success
+}
+
+@test "allows git log search containing the word commit" {
+  # Has leading `git` but not a commit — bypass-string regex would exit 0
+  # anyway (no bypass present). Just verifies the whitelist doesn't break it.
+  run_check 'git log --grep="initial commit" --oneline'
+  assert_success
+}
+
+@test "allows HUSKY=0 mentioned in body text of gh pr create" {
+  # Whitelist exits early because LEAD is `gh`, not `git`/`cd`. Bypass-string
+  # regex never gets to false-positive on the body content.
+  run_check 'gh pr create --body "fix HUSKY=0 bypass detection in git commit chain"'
+  assert_success
+}
+
+@test "still blocks bypass on cd <dir> && git commit chain" {
+  # cd is whitelisted, so the chain proceeds to bypass-string regex which
+  # catches HUSKY=0 in env-var-prefix position.
+  run_check 'cd /tmp && HUSKY=0 git commit -m test'
+  assert_failure 2
+  assert_output --partial "BLOCKED"
+}
+
+@test "still blocks bypass when leading is path-qualified git" {
+  run_check '/usr/bin/git -c core.hooksPath=/dev/null commit -m test'
+  assert_failure 2
+  assert_output --partial "BLOCKED"
+  assert_output --partial "core.hooksPath"
+}
+
+@test "still blocks bypass with env-var prefix on git command" {
+  # Whitelist must strip env-var prefix before inspecting LEAD.
+  run_check 'HUSKY=0 git commit -m test'
+  assert_failure 2
+  assert_output --partial "BLOCKED"
+  assert_output --partial "HUSKY"
+}
+
 # --- Edge cases ---
 
 @test "blocks on unparseable JSON" {

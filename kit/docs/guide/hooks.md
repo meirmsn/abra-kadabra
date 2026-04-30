@@ -84,6 +84,8 @@ Shell-script PreToolUse hooks block Bash calls by exiting with code 2 and printi
 
 The bypass-string regexes in `check-hook-bypass.sh` are anchored to **assignment / env-var-prefix form**, not bare string matching: `devshop.humanReviewed=` (with `=`), `DEVSHOP_SKIP_ADVERSARIAL=` at start of command or after a shell separator. This lets commit messages and PR-body prose discuss the bypass mechanisms as documentation without tripping the gate. The actual bypass requires the assignment form for git or the shell to apply it.
 
+The outer `if: Bash(*git*commit*)` matcher uses substring globbing, so it fires on any command containing both `git` and `commit` — including `gh pr create --body "...git commit..."`. To avoid spurious hook invocations on PR-authoring commands, `check-hook-bypass.sh` applies a **leading-executable whitelist** at the top of the script: env-var assignments (`KEY=value`) at command start are stripped, and the leading executable must be `git` (any path) or `cd` (for `cd /foo && git commit` chains) to proceed. Anything else (`gh`, `echo`, `pnpm`, etc.) exits 0 immediately. Bypass strings inside env-var prefixes (`HUSKY=0 git commit`) are still caught — env-vars are stripped to find the leading executable, but the bypass-string regexes inspect the original command. `check-branch-not-main.sh` uses a regex-based narrowing for the same purpose; the whitelist form was chosen here because the regex's `[^ ]+` token trips on quoted bypass-reason values containing spaces (the canonical Tier-3 form).
+
 ### 2. Husky pre-commit (during git commit)
 
 Configured in `.husky/pre-commit`.
