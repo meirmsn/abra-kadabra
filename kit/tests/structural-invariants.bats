@@ -623,24 +623,51 @@ setup() {
 
 @test "wiring: init-devshop.sh applies sticky bits to all security dirs" {
   local script="$DEVSHOP/kit/scripts/init-devshop.sh"
+  local manifest="$DEVSHOP/kit/manifest.txt"
   [ -f "$script" ] || skip "init-devshop.sh not found"
-  local missing=""
+  [ -f "$manifest" ] || skip "manifest.txt not found"
+
+  # Workspace sticky-bit dirs split into two sources:
+  #   1. Manifest-driven [locked-dir] entries (project-workspace lifecycle):
+  #      currently .devcontainer and .husky.
+  #   2. Hardcoded fallback in init-devshop.sh (project-special + devshop-self):
+  #      .claude (workspace, contains symlinks not in template/), plus all
+  #      $DEVSHOP/... and $DEVSHOP/template/... dirs (devshop-bootstrap).
+  local manifest_dirs hardcoded_dirs missing=""
+
+  # Source the parser and read [locked-dir] entries
+  source "$DEVSHOP/kit/scripts/sync/lib/parse-manifest.sh"
+  parse_manifest "$manifest"
+  manifest_dirs=$(manifest_paths_by locked-dir)
+  for d in $manifest_dirs; do
+    case "$d" in
+      .devcontainer|.husky) ;;
+      *)
+        echo "Unexpected [locked-dir] entry: $d (test asserts known set)"
+        false ;;
+    esac
+  done
+  for required in .devcontainer .husky; do
+    echo "$manifest_dirs" | grep -qx "$required" || missing+="  $required (manifest [locked-dir])\n"
+  done
+
+  # Hardcoded dirs still expected as literal strings in init-devshop.sh
   for d in \
     '$WS/.claude' \
-    '$WS/.devcontainer' \
-    '$WS/.husky' \
     '$DEVSHOP/.claude' \
     '$DEVSHOP/.devcontainer' \
     '$DEVSHOP/.husky' \
     '$DEVSHOP/template/.devcontainer' \
     '$DEVSHOP/template/.husky' \
     ; do
-    grep -qF "\"$d\"" "$script" || missing+="  $d\n"
+    grep -qF "\"$d\"" "$script" || missing+="  $d (hardcoded literal)\n"
   done
+
   if [ -n "$missing" ]; then
     echo "init-devshop.sh missing sticky-bit coverage for:"
     echo -e "$missing"
-    echo "Expected: chmod 1755 loop covering each dir above"
+    echo "Expected: [locked-dir] entries in manifest for workspace dirs +"
+    echo "          chmod 1755 loop covering devshop-self and project-special dirs"
     false
   fi
   # Verify the chmod 1755 call actually appears in the script

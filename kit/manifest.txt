@@ -41,15 +41,18 @@ package.json [sync]
 
 # Project infrastructure — directory entries sync the whole tree; locked
 # leaves below override per-leaf (init-devshop.sh refreshes + locks them on
-# every container start, sync scripts skip them).
+# every container start, sync scripts skip them). Sticky-bit dirs (without
+# trailing slash) prevent node from deleting locked leaves.
 .devcontainer/ [sync]
 !.devcontainer/.env
+.devcontainer [locked-dir]
 .devcontainer/Dockerfile [locked]
 .devcontainer/devcontainer.json [locked]
 .devcontainer/init-devshop.sh [locked]
 .devcontainer/init-firewall.sh [locked]
 .devcontainer/checksums.sha256 [locked]
 .husky/ [sync]
+.husky [locked-dir]
 .husky/pre-commit [locked]
 .husky/pre-push [locked]
 .github/workflows/ [sync]

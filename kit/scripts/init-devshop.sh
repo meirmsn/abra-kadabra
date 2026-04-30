@@ -92,35 +92,51 @@ chown -h node:node "$MEMORY_LINK"
 # --- Lock security-critical files (root-owned, world-readable, not writable by node) ---
 # Two layers: (1) deny rules in settings.json block Edit/Write tools,
 # (2) chown root:root + chmod 644 blocks Bash workarounds.
-# Devshop repo files are explicitly included — they're copies, not symlinks.
 # To edit any of these: sudo nano <file>
-# Security-critical files locked below (both workspace and devshop repo):
-#   settings.json        — deny list, DCG hook, permission mode
-#   settings.local.json  — additional permissions grants
-#   devcontainer.json    — DinD config, env var loading, container setup
-#   init-devshop.sh      — injection script (runs as root via sudo)
-#   init-firewall.sh     — network egress allowlist
-#   Dockerfile           — base image, binary installs, system packages
-#   checksums.sha256     — integrity verification for pinned binaries
-#   .env                 — secrets and credentials
-#   .dcg.toml            — destructive command guard configuration
-#   kit/scripts/*        — commit guard scripts (breaks circularity: the
-#                          scripts that watch settings.json must survive
-#                          settings.json disappearing)
-#   .husky/pre-commit    — gates commit-time guards (gitleaks, docs-drift,
-#                          mixed-commit, cross-repo, release-coverage);
-#                          removing .hooks/pre-commit call silently disables all
+#
+# Workspace [locked] files (template-derived) are sourced from kit/manifest.txt
+# via the shared parser at kit/scripts/sync/lib/parse-manifest.sh — single source
+# of truth. install -m 644 -o root -g root atomically refreshes content + chowns
+# + chmods, so a new template/<file> propagates on the next container start
+# without a parallel hardcoded list (this is the .husky/pre-push fix).
+#
+# Devshop-self locks (the $DEVSHOP/... and $DEVSHOP/template/... lists below) and
+# project-only locks (settings.json, settings.local.json, .dcg.toml, .env,
+# .claude dir) stay hardcoded — they're devshop-bootstrap or operator-secret
+# files outside the project-workspace lifecycle the manifest describes.
+#
+# See kit/docs/guide/architecture.md § File lifecycle for the model.
+
+# Manifest-driven [locked] files: refresh content from template/ + chown root.
+source "$DEVSHOP/kit/scripts/sync/lib/parse-manifest.sh"
+parse_manifest "$DEVSHOP/kit/manifest.txt"
+while IFS= read -r path; do
+  [ -z "$path" ] && continue
+  src="$DEVSHOP/template/$path"
+  dst="$WS/$path"
+  if [ -f "$src" ]; then
+    install -D -m 644 -o root -g root "$src" "$dst"
+  fi
+done < <(manifest_paths_by locked)
+
+# Manifest-driven [locked-dir]s: sticky bit on workspace dirs.
+while IFS= read -r d; do
+  [ -z "$d" ] && continue
+  [ -d "$WS/$d" ] && chmod 1755 "$WS/$d"
+done < <(manifest_paths_by locked-dir)
+
+# Devshop-self + project-special locks (NOT in manifest by design):
+#   settings.json        — copied via normalize-devshop-paths.sh above; not template-derived
+#   settings.local.json  — operator-created additional permissions; project-only
+#   .dcg.toml            — copied from $DEVSHOP/.dcg.toml above; not template-derived
+#   .devcontainer/.env   — operator-created secrets; project-only
+#   $DEVSHOP/...         — devshop-self bootstrap protection
+#   $DEVSHOP/template/...— template-source integrity (read by ak-new-project)
 for f in \
   "$WS/.claude/settings.json" \
   "$WS/.claude/settings.local.json" \
-  "$WS/.devcontainer/devcontainer.json" \
-  "$WS/.devcontainer/init-devshop.sh" \
-  "$WS/.devcontainer/init-firewall.sh" \
-  "$WS/.devcontainer/Dockerfile" \
-  "$WS/.devcontainer/checksums.sha256" \
-  "$WS/.devcontainer/.env" \
   "$WS/.dcg.toml" \
-  "$WS/.husky/pre-commit" \
+  "$WS/.devcontainer/.env" \
   "$DEVSHOP/kit/scripts/init-devshop.sh" \
   "$DEVSHOP/.devcontainer/devcontainer.json" \
   "$DEVSHOP/.devcontainer/init-devshop.sh" \
@@ -129,12 +145,14 @@ for f in \
   "$DEVSHOP/.devcontainer/checksums.sha256" \
   "$DEVSHOP/.devcontainer/.env" \
   "$DEVSHOP/.husky/pre-commit" \
+  "$DEVSHOP/.husky/pre-push" \
   "$DEVSHOP/template/.devcontainer/devcontainer.json" \
   "$DEVSHOP/template/.devcontainer/init-devshop.sh" \
   "$DEVSHOP/template/.devcontainer/init-firewall.sh" \
   "$DEVSHOP/template/.devcontainer/Dockerfile" \
   "$DEVSHOP/template/.devcontainer/checksums.sha256" \
   "$DEVSHOP/template/.husky/pre-commit" \
+  "$DEVSHOP/template/.husky/pre-push" \
   "$DEVSHOP/.claude/settings.json" \
   "$DEVSHOP/.dcg.toml" \
   ; do
@@ -147,16 +165,12 @@ find "$DEVSHOP/kit/scripts/" -type f -name '*.sh' -print0 | \
     chown root:root "$f" && chmod 644 "$f"
   done
 
-# Sticky bit on security-critical dirs: prevents node from deleting root-owned
-# files inside them. Without this, directory write permission lets node delete
-# any file regardless of ownership, defeating chown root:root protection on
-# files like settings.json, devcontainer.json, Dockerfile, .env. The sticky bit
-# restricts deletion to the file owner (root for locked files). Covers both
-# workspace and devshop (including devshop-self mode) and the template.
+# Sticky bit on dirs not covered by manifest [locked-dir] (devshop-self + .claude).
+# Workspace [locked-dir]s (.husky, .devcontainer) are handled by the manifest
+# loop above. .claude is project-special: it contains symlinks (skills, commands)
+# and locked copies (settings.json) but isn't in template/, so it stays here.
 for d in \
   "$WS/.claude" \
-  "$WS/.devcontainer" \
-  "$WS/.husky" \
   "$DEVSHOP/.claude" \
   "$DEVSHOP/.devcontainer" \
   "$DEVSHOP/.husky" \

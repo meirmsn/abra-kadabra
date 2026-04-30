@@ -75,21 +75,27 @@ parse_manifest() {
 manifest_paths_by() {
   local cat="${1:?usage: manifest_paths_by <category>}"
   local p
-  for p in "${MANIFEST_PATHS[@]}"; do
-    [ "${MANIFEST_CATEGORY[$p]:-}" = "$cat" ] && printf '%s\n' "$p"
+  for p in "${MANIFEST_PATHS[@]:-}"; do
+    [ -n "$p" ] || continue
+    if [ "${MANIFEST_CATEGORY[$p]:-}" = "$cat" ]; then
+      printf '%s\n' "$p"
+    fi
   done
+  return 0
 }
 
 manifest_locked_under() {
   local dir="${1:?usage: manifest_locked_under <dir>}"
   local prefix="${dir%/}/"
   local p rel
-  for p in "${MANIFEST_PATHS[@]}"; do
+  for p in "${MANIFEST_PATHS[@]:-}"; do
+    [ -n "$p" ] || continue
     [ "${MANIFEST_CATEGORY[$p]:-}" = "locked" ] || continue
     [[ "$p" == "$prefix"* ]] || continue
     rel="${p#$prefix}"
     printf '%s\n' "$rel"
   done
+  return 0
 }
 
 manifest_strip_annotation() {
