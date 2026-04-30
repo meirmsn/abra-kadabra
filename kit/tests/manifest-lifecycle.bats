@@ -8,6 +8,7 @@
 setup() {
   load helpers/setup
   setup_mock_bin
+  DEVSHOP="/devshop"
   PARSE_LIB="$SCRIPTS_DIR/sync/lib/parse-manifest.sh"
   MANIFEST="$TESTS_DIR/../manifest.txt"
   FIXTURE_DIR="$BATS_TEST_TMPDIR/fixtures"
@@ -308,6 +309,80 @@ M
 # Cross-check: workspace-side [locked] files are NOT also hardcoded in
 # init-devshop.sh's fallback for-loop (would be double-source-of-truth)
 # ---------------------------------------------------------------------------
+
+@test "from-devshop.sh sources the parser and pulls only [sync] entries" {
+  local script="$DEVSHOP/kit/scripts/sync/from-devshop.sh"
+  [ -f "$script" ] || skip "from-devshop.sh not found"
+  run grep -q 'source.*parse-manifest.sh' "$script"
+  assert_success
+  run grep -q 'manifest_paths_by sync' "$script"
+  assert_success
+  # Must NOT iterate all entries (would clobber [locked] / [scaffold-once]).
+  refute_output --partial 'sed.*\[\.\*\]'
+}
+
+@test "to-devshop.sh sources the parser and pushes only [sync] entries" {
+  local script="$DEVSHOP/kit/scripts/sync/to-devshop.sh"
+  [ -f "$script" ] || skip "to-devshop.sh not found"
+  run grep -q 'source.*parse-manifest.sh' "$script"
+  assert_success
+  run grep -q 'manifest_paths_by sync' "$script"
+  assert_success
+  run grep -q 'manifest_locked_under' "$script"
+  assert_success
+}
+
+@test "to-devshop.sh excludes [locked] leaves from the rsync of their parent [sync] dir" {
+  # Functional: with a fixture manifest declaring `.dirA/ [sync]` and a leaf
+  # `.dirA/locked.txt [locked]`, manifest_locked_under .dirA/ must return locked.txt.
+  cat > "$FIXTURE_DIR/excludes.txt" <<'M'
+.dirA/ [sync]
+.dirA/locked.txt [locked]
+.dirA/synced.txt [sync]
+M
+  run bash -c "
+    source '$PARSE_LIB'
+    parse_manifest '$FIXTURE_DIR/excludes.txt'
+    manifest_locked_under .dirA/
+  "
+  assert_success
+  assert_line "locked.txt"
+  refute_line "synced.txt"
+}
+
+@test "check-security-files-freshness.sh iterates manifest [locked] entries" {
+  local script="$DEVSHOP/kit/scripts/commit-hooks/check-security-files-freshness.sh"
+  [ -f "$script" ] || skip "check-security-files-freshness.sh not found"
+  run grep -q 'source.*parse-manifest.sh' "$script"
+  assert_success
+  run grep -q 'manifest_paths_by locked' "$script"
+  assert_success
+}
+
+@test "every [symlink] entry in real manifest is created by create-devshop-symlinks.sh" {
+  # create-devshop-symlinks.sh's source paths vary per entry (kit/, .claude/skills,
+  # hooks/pre-commit.sh) so the script body stays hardcoded; this test asserts
+  # that every [symlink] manifest entry is matched by an `ln -sfn ... <path>`
+  # line in the script — single source of truth, dual-checked.
+  local script="$DEVSHOP/kit/scripts/sync/create-devshop-symlinks.sh"
+  [ -f "$script" ] || skip "create-devshop-symlinks.sh not found"
+  run bash -c "
+    source '$PARSE_LIB'
+    parse_manifest '$MANIFEST'
+    rc=0
+    while IFS= read -r p; do
+      [ -n \"\$p\" ] || continue
+      if ! grep -q \"ln -sfn .* \\\"\\\$WS/\$p\\\"\" '$script' && \
+         ! grep -q \"ln -sfn .* \\\"\\\$WS/\$(dirname \"\$p\")/\\\$name\\\"\" '$script'; then
+        # second grep matches the dynamic ak-* loop that covers .claude/skills/<name>
+        echo \"create-devshop-symlinks.sh missing ln -sfn for [symlink] entry: \$p\"
+        rc=1
+      fi
+    done < <(manifest_paths_by symlink)
+    exit \$rc
+  "
+  assert_success
+}
 
 @test "init-devshop.sh hardcoded list does NOT redeclare workspace [locked] files" {
   local script="$DEVSHOP/kit/scripts/init-devshop.sh"

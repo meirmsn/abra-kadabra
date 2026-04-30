@@ -56,10 +56,38 @@ fi
 
 CURRENT_VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
 
-LOCK_FILES=".claude/settings.json template/.devcontainer/devcontainer.json template/.devcontainer/init-firewall.sh template/.devcontainer/Dockerfile template/.devcontainer/checksums.sha256"
+# --- Read manifest via shared parser ---
+# Only [sync] entries get pushed to template/. [locked] entries are owned by
+# init-devshop.sh on the workspace side and devshop-self locks for the devshop
+# mirror; pushing them via to-devshop would either clobber root-locked files
+# (cp fails with EACCES) or undo the locking. [symlink] and [scaffold-once]
+# entries are similarly owned by other mechanisms.
+source "$SCRIPT_DIR/lib/parse-manifest.sh"
+parse_manifest "$MANIFEST"
+PATHS=()
+EXCLUDES=()
+while IFS= read -r path; do
+  [ -n "$path" ] && PATHS+=("$path")
+done < <(manifest_paths_by sync)
+for excl in "${MANIFEST_EXCLUDES[@]:-}"; do
+  [ -n "$excl" ] && EXCLUDES+=("$excl")
+done
+
 check_file_locks() {
+  # LOCK_FILES is derived from the manifest's [locked] entries (their template/
+  # mirror under devshop) plus settings.json (devshop-self-derived, not in
+  # manifest). Operator gets a clear chown command if any drift loose.
   UNLOCKED=""
-  for f in $LOCK_FILES; do
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    target="$DEVSHOP_DIR/template/$p"
+    [ ! -f "$target" ] && continue
+    OWNER=$(stat -c '%U' "$target" 2>/dev/null || true)
+    if [ "$OWNER" != "root" ]; then
+      UNLOCKED="$UNLOCKED template/$p"
+    fi
+  done < <(manifest_paths_by locked)
+  for f in .claude/settings.json; do
     target="$DEVSHOP_DIR/$f"
     [ ! -f "$target" ] && continue
     OWNER=$(stat -c '%U' "$target" 2>/dev/null || true)
@@ -76,21 +104,6 @@ check_file_locks() {
   fi
 }
 
-# --- Read manifest (strip annotations, skip comments/blanks, collect excludes) ---
-PATHS=()
-EXCLUDES=()
-while IFS= read -r line; do
-  [[ "$line" =~ ^[[:space:]]*# ]] && continue
-  [[ -z "${line// /}" ]] && continue
-  path=$(echo "$line" | sed 's/\[.*\]//g' | xargs)
-  [ -z "$path" ] && continue
-  if [[ "$path" == !* ]]; then
-    EXCLUDES+=("${path#!}")
-  else
-    PATHS+=("$path")
-  fi
-done < "$MANIFEST"
-
 # --- Copy files from project to devshop ---
 echo "Syncing ${#PATHS[@]} paths from project to devshop..."
 for path in "${PATHS[@]}"; do
@@ -98,14 +111,22 @@ for path in "${PATHS[@]}"; do
   dst="$DEVSHOP_DIR/template/$path"
 
   if [ -d "$src" ]; then
-    # Build rsync exclude args for this directory
+    # Build rsync exclude args for this directory:
+    #  - explicit !path entries from the manifest (e.g. !.devcontainer/.env)
+    #  - manifest [locked] leaves under this dir (init-devshop.sh owns those;
+    #    rsync'ing the project's local copy back to template/ would round-trip
+    #    a node-owned drift over the canonical template content)
     RSYNC_EXCLUDES=()
-    for excl in "${EXCLUDES[@]}"; do
+    for excl in "${EXCLUDES[@]:-}"; do
+      [ -z "$excl" ] && continue
       if [[ "$excl" == "$path"* ]]; then
         rel="${excl#$path}"
         RSYNC_EXCLUDES+=(--exclude "$rel")
       fi
     done
+    while IFS= read -r locked_rel; do
+      [ -n "$locked_rel" ] && RSYNC_EXCLUDES+=(--exclude "$locked_rel")
+    done < <(manifest_locked_under "$path")
     mkdir -p "$dst"
     rsync -a --delete "${RSYNC_EXCLUDES[@]}" "$src/" "$dst/"
   elif [ -f "$src" ]; then

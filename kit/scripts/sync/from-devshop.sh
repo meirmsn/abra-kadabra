@@ -38,14 +38,16 @@ if [ ! -f "$MANIFEST" ]; then
   exit 1
 fi
 
-# --- Read manifest (strip annotations, skip comments and blanks) ---
+# --- Read manifest (only [sync] entries — skip [locked], [symlink], [scaffold-once]) ---
+# [locked] is owned by init-devshop.sh on every container start (template→workspace).
+# [symlink] is owned by sync/create-devshop-symlinks.sh.
+# [scaffold-once] is project narrative — copying from template would clobber it.
+source "$SCRIPT_DIR/lib/parse-manifest.sh"
+parse_manifest "$MANIFEST"
 PATHS=()
-while IFS= read -r line; do
-  [[ "$line" =~ ^[[:space:]]*# ]] && continue
-  [[ -z "${line// /}" ]] && continue
-  path=$(echo "$line" | sed 's/\[.*\]//g' | xargs)
+while IFS= read -r path; do
   [ -n "$path" ] && PATHS+=("$path")
-done < "$MANIFEST"
+done < <(manifest_paths_by sync)
 
 # --- Copy files from devshop to project ---
 echo "Syncing ${#PATHS[@]} paths from devshop to project..."

@@ -127,16 +127,20 @@ setup() {
   local manifest="$DEVSHOP/kit/manifest.txt"
   [ -f "$manifest" ] || skip "manifest.txt not found"
 
-  local entries
-  entries=$(grep -v '^\s*#' "$manifest" | grep -v '^\s*$' | grep -v '^!' | sed 's/\[[^]]*\]//g; s/[[:space:]]*$//')
+  # [symlink] entries source from /devshop/ (kit/, .claude/, .hooks/), not
+  # template/, so they're correctly absent under template/. All other
+  # categories ([locked], [locked-dir], [sync], [scaffold-once]) MUST have a
+  # corresponding template/ path.
+  source "$DEVSHOP/kit/scripts/sync/lib/parse-manifest.sh"
+  parse_manifest "$manifest"
 
   local missing=""
-  while IFS= read -r entry; do
-    [ -z "$entry" ] && continue
-    if [ ! -e "$DEVSHOP/template/$entry" ]; then
-      missing+="  $entry\n"
+  for path in "${MANIFEST_PATHS[@]}"; do
+    [ "${MANIFEST_CATEGORY[$path]}" = "symlink" ] && continue
+    if [ ! -e "$DEVSHOP/template/$path" ]; then
+      missing+="  $path (annotated [${MANIFEST_CATEGORY[$path]}])\n"
     fi
-  done <<< "$entries"
+  done
 
   if [ -n "$missing" ]; then
     echo "Manifest entries not found in template/:"
