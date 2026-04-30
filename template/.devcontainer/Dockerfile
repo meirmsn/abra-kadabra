@@ -120,7 +120,7 @@ RUN ARCH=$(dpkg --print-architecture) && \
 # DCG (Destructive Command Guard) — PreToolUse safety hook for Claude Code
 # Blocks git reset --hard, force push, rm -rf outside /tmp, DROP TABLE, and 49+ other
 # destructive patterns including heredoc/inline-script scanning. Fail-open design.
-RUN ARCH=$(dpkg --print-architecture) && \
+RUN ARCH=$(dpkg --print-architecture | sed 's/amd64/x86_64/;s/arm64/aarch64/') && \
   FILE="dcg-${ARCH}-unknown-linux-gnu.tar.xz" && \
   wget -q "https://github.com/Dicklesworthstone/destructive_command_guard/releases/download/v${DCG_VERSION}/${FILE}" && \
   grep "dcg/${FILE}" /checksums.sha256 | sed 's|dcg/||' | sha256sum -c - && \
