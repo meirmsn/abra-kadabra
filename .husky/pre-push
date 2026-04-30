@@ -1,71 +1,10 @@
-#!/usr/bin/env bash
-# Pre-push hook (devshop repo): one check before allowing the push.
-#   1. Tree + stash cleanliness (block if dirty, with adversarial review of bypass)
-#
-# Bypass flag (adversarially reviewed):
-#   git -c devshop.dirtyPushReason="<reason>"  - acknowledges legitimate WIP/stash at push
-#
-# Short-circuits (no review, exit 0):
-#   - Detached HEAD
-#   - Push to main/master (release.sh territory — devshop releases push direct to main)
-#   - Branch deletion (zero local sha)
-#
-# History: replaces the old check-pr-description.sh PostToolUse (advisory,
-# audience-confused) and check-dirty-after-commit.sh (redundant with pre-commit).
-# The PR-description-staleness check that used to live here was dead code in
-# devshop — devshop has no PRs (release.sh tags + pushes direct to main), so
-# `gh pr list --head <branch>` always returned empty and the check no-op'd.
-# That check now lives in template/.husky/pre-push (project-side) where PRs
-# actually exist. See kit/notes/roadmap/hook-migration-plan.md for the full
-# rationale.
+# Run the unified pre-push guard suite. The .hooks/pre-push symlink points at
+# /devshop/kit/hooks/pre-push.sh and is recreated by create-devshop-symlinks.sh
+# (called from .husky/pre-commit) if lost. Repo detection happens inside the
+# script — devshop-self mode skips main-block + PR-desc, runs only dirty-tree.
+# Mirrors the .hooks/pre-commit wrapper pattern. See kit/docs/guide/hooks.md § 3.
+[ ! -L .devshopkit ] && [ -d /devshop/kit ] && bash /devshop/kit/scripts/sync/create-devshop-symlinks.sh 2>/dev/null || true
 
-# Husky v9's hook shim runs hooks with `sh -e "$hook"` regardless of shebang.
-# Re-exec under bash for here-string features.
-if [ -z "${BASH_VERSION:-}" ]; then
-  exec bash "$0" "$@"
+if [ -x .hooks/pre-push ]; then
+  exec bash .hooks/pre-push "$@"
 fi
-
-set -euo pipefail
-
-# pre-push receives ref info on stdin: <local-ref> <local-sha> <remote-ref> <remote-sha>
-INPUT=$(cat)
-
-BRANCH=$(git branch --show-current 2>/dev/null || echo "")
-REMOTE_NAME="${1:-origin}"
-
-# --- Check 0: short-circuit conditions ---
-[ -z "$BRANCH" ] && exit 0                         # detached HEAD
-[ "$BRANCH" = "main" ] && exit 0                   # release.sh territory
-[ "$BRANCH" = "master" ] && exit 0
-
-# Detect branch deletion (--delete sends local sha = 40 zeros)
-echo "$INPUT" | awk '{print $2}' | grep -qE '^0{40}$' && exit 0
-
-# --- Check 1: Tree + stash cleanliness ---
-DIRTY=$(git status --porcelain 2>/dev/null | head -20 || true)
-STASH_COUNT=$(git stash list 2>/dev/null | wc -l | tr -d ' ' || echo "0")
-
-if [ -n "$DIRTY" ] || [ "$STASH_COUNT" -gt 0 ]; then
-  BYPASS_REASON=$(git config --get devshop.dirtyPushReason 2>/dev/null || echo "")
-
-  if ! REVIEW_OUTPUT=$(bash /devshop/kit/scripts/adversarial-review.sh \
-         dirtyPushReason \
-         "${BYPASS_REASON:-no reason given}" 2>&1); then
-    echo "❌ Pre-push: local state is not clean at push time." >&2
-    echo "" >&2
-    [ -n "$DIRTY" ] && { echo "Dirty files:"; echo "$DIRTY" | sed 's/^/  /'; } >&2
-    [ "$STASH_COUNT" -gt 0 ] && echo "Stash entries: $STASH_COUNT" >&2
-    echo "" >&2
-    echo "Reviewer assessment:" >&2
-    echo "$REVIEW_OUTPUT" | sed 's/^/  /' >&2
-    echo "" >&2
-    echo "Options:" >&2
-    echo "  1. Commit or stash-and-drop your changes first." >&2
-    echo "  2. Clear stashes with 'git stash drop' if no longer needed." >&2
-    echo "  3. Bypass (adversarially reviewed):" >&2
-    echo "     git -c devshop.dirtyPushReason=\"<specific reason>\" push ..." >&2
-    exit 1
-  fi
-fi
-
-exit 0

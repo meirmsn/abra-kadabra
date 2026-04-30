@@ -1,32 +1,37 @@
 #!/usr/bin/env bats
-# Tests for .husky/pre-push (devshop) and template/.husky/pre-push (project).
-# Project version blocks direct push to main with no bypass; both versions
-# block dirty trees with adversarial review.
+# Tests for kit/hooks/pre-push.sh — the unified pre-push policy script that
+# both .husky/pre-push wrappers exec into via .hooks/pre-push symlink.
+# Repo mode (project vs devshop) is detected at runtime by probing whether
+# `kit/` exists at the repo root and is a real directory (not a symlink) —
+# the same probe kit/hooks/pre-commit.sh uses.
 
 setup() {
   load helpers/setup
   setup_mock_bin
   DEVSHOP_ROOT="$(cd "$TESTS_DIR/.." && pwd)"
-  REPO_ROOT="$(cd "$DEVSHOP_ROOT/.." && pwd)"
-  # Wrap each hook so the absolute /devshop/kit/scripts/adversarial-review.sh
-  # path points at the BATS mock instead. Pattern mirrors guard-clean-tree.bats.
-  PROJECT_PRE_PUSH="$BATS_TEST_TMPDIR/project-pre-push"
-  DEVSHOP_PRE_PUSH="$BATS_TEST_TMPDIR/devshop-pre-push"
-  sed "s|bash /devshop/kit/scripts/adversarial-review.sh|bash $MOCK_BIN/adversarial-review.sh|" \
-    "$REPO_ROOT/template/.husky/pre-push" > "$PROJECT_PRE_PUSH"
-  sed "s|bash /devshop/kit/scripts/adversarial-review.sh|bash $MOCK_BIN/adversarial-review.sh|" \
-    "$REPO_ROOT/.husky/pre-push" > "$DEVSHOP_PRE_PUSH"
-  chmod +x "$PROJECT_PRE_PUSH" "$DEVSHOP_PRE_PUSH"
+  # sed-substitute the absolute /devshop/kit/scripts/adversarial-review.sh
+  # path to point at the BATS mock. Pattern mirrors guard-clean-tree.bats.
+  PRE_PUSH="$BATS_TEST_TMPDIR/pre-push.sh"
+  sed "s|bash \"\$DEVSHOP/kit/scripts/adversarial-review.sh\"|bash $MOCK_BIN/adversarial-review.sh|" \
+    "$DEVSHOP_ROOT/hooks/pre-push.sh" > "$PRE_PUSH"
+  chmod +x "$PRE_PUSH"
   create_test_repo
   # Mock gh: returns empty (no PR found) by default
   create_stub gh ""
+}
+
+# Force devshop-self mode: the script's REPO_MODE detector probes for a real
+# `kit/` directory at the repo root. Creating it in the test repo flips the
+# branch from project (default) to devshop.
+setup_devshop_mode() {
+  mkdir -p "$TEST_REPO/kit"
 }
 
 # --- Project pre-push: refs-based main-block ---
 
 @test "project pre-push: blocks push to refs/heads/main with no bypass" {
   cd "$TEST_REPO" && git checkout -q -b feature-x
-  run bash "$PROJECT_PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/main 0000000000000000000000000000000000000000"
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/main 0000000000000000000000000000000000000000"
   [ "$status" -eq 1 ]
   [[ "$output" =~ "BLOCKED: direct push to refs/heads/main" ]]
   [[ "$output" =~ "No bypass available" ]]
@@ -34,14 +39,14 @@ setup() {
 
 @test "project pre-push: blocks push to refs/heads/master with no bypass" {
   cd "$TEST_REPO" && git checkout -q -b feature-x
-  run bash "$PROJECT_PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/master 0000000000000000000000000000000000000000"
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/master 0000000000000000000000000000000000000000"
   [ "$status" -eq 1 ]
   [[ "$output" =~ "BLOCKED: direct push to refs/heads/master" ]]
 }
 
 @test "project pre-push: blocks rename-style push (HEAD:main) from feature branch" {
   cd "$TEST_REPO" && git checkout -q -b feature-x
-  run bash "$PROJECT_PRE_PUSH" origin <<< "HEAD abc123 refs/heads/main 0000000000000000000000000000000000000000"
+  run bash "$PRE_PUSH" origin <<< "HEAD abc123 refs/heads/main 0000000000000000000000000000000000000000"
   [ "$status" -eq 1 ]
   [[ "$output" =~ "BLOCKED: direct push to refs/heads/main" ]]
 }
@@ -49,19 +54,19 @@ setup() {
 @test "project pre-push: allows push to feature branch (clean tree, no PR)" {
   cd "$TEST_REPO" && git checkout -q -b feature-x
   mock_adversarial_review PASS
-  run bash "$PROJECT_PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x 0000000000000000000000000000000000000000"
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x 0000000000000000000000000000000000000000"
   [ "$status" -eq 0 ]
 }
 
 @test "project pre-push: short-circuits on detached HEAD" {
   cd "$TEST_REPO" && git checkout -q --detach HEAD 2>/dev/null
-  run bash "$PROJECT_PRE_PUSH" origin <<< ""
+  run bash "$PRE_PUSH" origin <<< ""
   [ "$status" -eq 0 ]
 }
 
 @test "project pre-push: short-circuits on branch deletion (zero local sha)" {
   cd "$TEST_REPO" && git checkout -q -b feature-x
-  run bash "$PROJECT_PRE_PUSH" origin <<< "(delete) 0000000000000000000000000000000000000000 refs/heads/old-branch abc123"
+  run bash "$PRE_PUSH" origin <<< "(delete) 0000000000000000000000000000000000000000 refs/heads/old-branch abc123"
   [ "$status" -eq 0 ]
 }
 
@@ -71,7 +76,7 @@ setup() {
   cd "$TEST_REPO" && git checkout -q -b feature-x
   echo "wip" > "$TEST_REPO/uncommitted.txt"
   mock_adversarial_review FAIL
-  run bash "$PROJECT_PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
   [ "$status" -eq 1 ]
   [[ "$output" =~ "local state is not clean" ]]
 }
@@ -80,7 +85,7 @@ setup() {
   cd "$TEST_REPO" && git checkout -q -b feature-x
   echo "wip" > "$TEST_REPO/uncommitted.txt"
   mock_adversarial_review PASS
-  run bash "$PROJECT_PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
   [ "$status" -eq 0 ]
 }
 
@@ -108,7 +113,7 @@ setup_branch_with_commits() {
   # prevent that invocation entirely. (Dirty-tree check still fires later
   # but tree is clean, so it short-circuits too.)
   mock_adversarial_review FAIL
-  run bash "$PROJECT_PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
   [ "$status" -eq 0 ]
   refute_output --partial "description appears stale"
 }
@@ -122,7 +127,7 @@ setup_branch_with_commits() {
   git -c user.email=test@test.com -c user.name=Test commit -q -m "chore: tidy"
   create_stub gh "42"
   mock_adversarial_review FAIL
-  run bash "$PROJECT_PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
   [ "$status" -eq 1 ]
   assert_output --partial "description appears stale"
 }
@@ -135,7 +140,7 @@ setup_branch_with_commits() {
   git -c user.email=test@test.com -c user.name=Test commit -q -m "docs: oops actually code"
   create_stub gh "99"
   mock_adversarial_review FAIL
-  run bash "$PROJECT_PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
   [ "$status" -eq 1 ]
   assert_output --partial "description appears stale"
 }
@@ -149,7 +154,7 @@ setup_branch_with_commits() {
   git -c user.email=test@test.com -c user.name=Test commit -q -m "test: add e2e + tweak script"
   create_stub gh "42"
   mock_adversarial_review FAIL
-  run bash "$PROJECT_PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
   [ "$status" -eq 0 ]
   refute_output --partial "description appears stale"
 }
@@ -161,36 +166,71 @@ setup_branch_with_commits() {
   git -c user.email=test@test.com -c user.name=Test commit -q -m "feat: add login"
   create_stub gh "42"
   mock_adversarial_review FAIL
-  run bash "$PROJECT_PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
   [ "$status" -eq 1 ]
   assert_output --partial "description appears stale"
 }
 
-# --- Devshop pre-push: still short-circuits on main ---
+# --- Devshop pre-push: short-circuits main, runs only dirty-tree ---
 
 @test "devshop pre-push: short-circuits on push from main (release.sh territory)" {
+  setup_devshop_mode
   cd "$TEST_REPO"
   # Already on master/main from create_test_repo's initial commit; just run.
   current_branch=$(git branch --show-current)
   if [ "$current_branch" != "main" ] && [ "$current_branch" != "master" ]; then
     git checkout -q -b main 2>/dev/null || git checkout -q main
   fi
-  run bash "$DEVSHOP_PRE_PUSH" origin <<< "refs/heads/main abc123 refs/heads/main def456"
+  run bash "$PRE_PUSH" origin <<< "refs/heads/main abc123 refs/heads/main def456"
   [ "$status" -eq 0 ]
 }
 
 @test "devshop pre-push: blocks dirty tree when adversarial rejects" {
+  setup_devshop_mode
   cd "$TEST_REPO" && git checkout -q -b feature-x
   echo "wip" > "$TEST_REPO/uncommitted.txt"
   mock_adversarial_review FAIL
-  run bash "$DEVSHOP_PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
   [ "$status" -eq 1 ]
   [[ "$output" =~ "local state is not clean" ]]
 }
 
 @test "devshop pre-push: passes clean tree on feature branch" {
+  setup_devshop_mode
   cd "$TEST_REPO" && git checkout -q -b feature-x
   mock_adversarial_review PASS
-  run bash "$DEVSHOP_PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
   [ "$status" -eq 0 ]
+}
+
+# --- Devshop pre-push: project-only checks must NOT fire under devshop mode ---
+
+@test "devshop pre-push: does NOT block push to refs/heads/main from devshop repo" {
+  # Devshop releases push direct to main with tags — the project-only
+  # main-block must short-circuit before triggering. This is the same
+  # invariant that the prior /devshop/.husky/pre-push asserted by simply
+  # not having the main-block code; under unified script + REPO_MODE
+  # branching, we test it directly.
+  setup_devshop_mode
+  cd "$TEST_REPO"
+  current_branch=$(git branch --show-current)
+  if [ "$current_branch" != "main" ] && [ "$current_branch" != "master" ]; then
+    git checkout -q -b main 2>/dev/null || git checkout -q main
+  fi
+  run bash "$PRE_PUSH" origin <<< "refs/heads/main abc123 refs/heads/main def456"
+  [ "$status" -eq 0 ]
+  refute_output --partial "BLOCKED: direct push to"
+}
+
+@test "devshop pre-push: does NOT invoke PR-desc check (devshop has no PRs)" {
+  # If the PR-desc branch fired in devshop mode, the gh stub returning a PR
+  # number + adversarial-review FAIL would block. Devshop mode must skip
+  # the entire PR-desc block.
+  setup_devshop_mode
+  cd "$TEST_REPO" && git checkout -q -b feature-x
+  create_stub gh "42"
+  mock_adversarial_review PASS  # only fires for dirty-tree (clean here)
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  [ "$status" -eq 0 ]
+  refute_output --partial "description appears stale"
 }

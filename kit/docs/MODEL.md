@@ -90,7 +90,7 @@ The devshop's operational files live in `kit/` (devshop repo) / `.devshopkit`
 kit/
 ├── docs/          documentation (MODEL, OVERVIEW, FAQ, guide/)
 ├── scripts/       injection, checks, sync
-├── hooks/         pre-commit
+├── hooks/         pre-commit, pre-push
 ├── tests/         BATS test suite for scripts and hooks
 ├── notes/         historical design decisions
 ├── manifest.txt   sync manifest (which files sync between repos)
