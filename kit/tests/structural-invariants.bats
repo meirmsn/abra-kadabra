@@ -99,12 +99,14 @@ setup() {
   [ -e "$DEVSHOP/.hooks/pre-commit" ]
 }
 
-@test "wiring: template/.husky/pre-push exists and is executable" {
+@test "wiring: template/.husky/pre-push exists with the load-bearing checks" {
   # New projects inherit pre-push from the template via rsync at /ak-new-project time.
   # Project pre-push is the load-bearing layer for: no-direct-push-to-main + PR-desc + dirty-push.
+  # Tracked as 644 (matches template/.husky/pre-commit) — husky invokes via
+  # `bash <hook>` so the executable bit is not required, and PR #14's
+  # init-devshop.sh chmod 644 lock loop applies to it too.
   local hook="$DEVSHOP/template/.husky/pre-push"
   [ -f "$hook" ]
-  [ -x "$hook" ]
   # Sanity: the no-bypass main-block lives in the project hook, not devshop's.
   grep -q "BLOCKED: direct push to" "$hook"
   grep -q "No bypass available" "$hook"
