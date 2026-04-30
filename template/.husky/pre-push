@@ -11,7 +11,11 @@
 # Short-circuits (no review, exit 0):
 #   - Detached HEAD
 #   - Branch deletion (zero local sha)
-#   - Conventional-commit-only pushes (chore/docs/style/test/ci/build/perf) — PR-desc check only
+#   - Conventional-commit-only pushes (chore/docs/style/test/ci/build/perf)
+#     AND zero source-file changes (apps/*/src/, packages/*/src/) — PR-desc
+#     check only. A `chore:`-prefixed commit that touches source files is
+#     NOT trivial — the prefix can mislabel a substantive change. Both
+#     conditions must hold for the short-circuit to fire.
 #
 # Why no main-push bypass: projects deploy via Vercel-on-merge — there is no
 # release.sh equivalent that needs to push directly to main. The remote
@@ -73,7 +77,11 @@ if [ -n "$PR" ]; then
   # Get commits in this PR (all commits on branch relative to main)
   COMMITS=$(git log --oneline origin/main..HEAD 2>/dev/null || true)
 
-  # Conventional-commit short-circuit: skip LLM review if all commits are trivial
+  # Conventional-commit short-circuit: skip LLM review if all commits are
+  # trivially-prefixed AND zero source files changed. The prefix-check alone
+  # is bypassable — `chore: rewrite auth flow` would skip the PR-desc check
+  # despite shipping substantive code. Requiring zero source-file changes
+  # closes that hole. Source roots: apps/*/src/, packages/*/src/.
   ALL_TRIVIAL=true
   ANY_COMMIT=false
   while IFS= read -r line; do
@@ -85,6 +93,17 @@ if [ -n "$PR" ]; then
       break
     fi
   done <<< "$COMMITS"
+
+  # Even when every prefix is trivial, treat any source-file change as
+  # non-trivial. A mis-prefixed substantive commit must not slip past the
+  # PR-desc check.
+  if [ "$ANY_COMMIT" = "true" ] && [ "$ALL_TRIVIAL" = "true" ]; then
+    SOURCE_CHANGES=$(git diff --name-only origin/main..HEAD 2>/dev/null \
+      | grep -E '^(apps/[^/]+/src/|packages/[^/]+/src/)' || true)
+    if [ -n "$SOURCE_CHANGES" ]; then
+      ALL_TRIVIAL=false
+    fi
+  fi
 
   if [ "$ANY_COMMIT" = "true" ] && [ "$ALL_TRIVIAL" = "false" ]; then
     # Non-trivial commits — adversarial review of PR description sync

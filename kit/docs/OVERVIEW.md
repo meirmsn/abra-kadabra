@@ -105,7 +105,9 @@ git push
       │   │                                          (deploy via PR-merge → CI → Vercel;
       │   │                                          remote enforces the same rule)
       │   ├─ PR description staleness ────────────── vs commits on branch
-      │   │                                          (skipped for chore/docs/test/etc. only;
+      │   │                                          (skipped only when every commit has a
+      │   │                                          trivial prefix AND zero source-file
+      │   │                                          changes (apps/*/src/, packages/*/src/);
       │   │                                          bypass: devshop.prDescStaleReason)
       │   └─ dirty tree / stash check ────────────── block if unclean
       │                                              (bypass: devshop.dirtyPushReason)
