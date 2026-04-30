@@ -77,10 +77,15 @@ git commit
   │   ├─ 4. gitleaks ─────────────────── secret scan on staged files
   │   ├─ 5. bats kit/tests/ ────────────── kit tests: scripts + structural invariants (devshop only)
   │   └─ 6. devshop guards (under commit-hooks/)
-  │       ├─ check-security-files-freshness.sh
-  │       ├─ check-clean-tree.sh ────────── no unaddressed dirty state
-  │       ├─ check-manifest.sh ──────────── (devshop repo only)
+  │       ├─ check-security-files-freshness.sh (project only)
+  │       ├─ check-clean-tree.sh ────────── no unaddressed dirty state (both)
+  │       ├─ check-manifest.sh ──────────── template/ files added/removed (devshop only)
   │       ├─ check-test-coverage.sh ─────── new scripts need tests (devshop only)
+  │       ├─ check-exempt-additions.sh ─── adversarial review of additions to
+  │       │                                 .devshop-test-coverage-exempt /
+  │       │                                 .devshop-docs-freshness-exempt (project only)
+  │       ├─ check-test-coverage-project.sh src ADD without paired test → block (project only)
+  │       ├─ check-docs-freshness-project.sh page/wrapper/event without doc update → block (project only)
   │       └─ commit-guard.sh ──────────── 4 checks (run in this order):
   │           ├─ mixed-commit ───────────── devshop + project files together? block
   │           ├─ docs-reviewed ──────────── any devshop file staged (non-release)? adversarial

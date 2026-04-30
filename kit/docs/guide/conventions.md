@@ -551,7 +551,7 @@ Every new source file under `apps/*/{src,app,components,lib,hooks}/` or `package
 
 **Exempt by pattern**: `*.d.ts`, `*.config.*`, `*.test.*`, `*.spec.*`, `*.integration.test.*`, anything under `e2e/`, `tests/`, `__tests__/`, `__mocks__/`, `types/**/*.ts`, top-level `types.ts`.
 
-**Per-project override**: `.devshop-test-coverage-exempt` at repo root, one path per line. Whole-line `#` comments and trailing `# reason` comments after a path are both stripped before exact-match. Audit-trail discipline — each exemption commits with a reason in the commit message.
+**Per-project override**: `.devshop-test-coverage-exempt` at repo root, one path per line. Whole-line `#` comments and trailing `# reason` comments after a path are both stripped before exact-match. Audit-trail discipline — each exemption commits with a reason in the commit message. **Adding a new entry triggers `check-exempt-additions.sh`** (Pre-flight: any cited covering test/spec path in the inline reason must exist on disk; Layer 2: adversarial review judges per-entry specificity). See § Exempt-File Additions below.
 
 **Layer 2 (adversarial reviewer)**: bypass via `git -c devshop.testCoverageReviewed="<why>"` triggers `adversarial-review.sh testCoverageProject`. The reviewer requires the reason to name the SPECIFIC blocked path and EITHER the existing test that already covers it OR a concrete reason a test would not add value (e.g. pure type re-export). Generic "low risk" / "WIP" / "test exists somewhere" → reject.
 
@@ -577,9 +577,25 @@ The project's hierarchical doc set decays silently as routes get added, API wrap
 
 **Layer 2 (adversarial reviewer)**: bypass via `git -c devshop.docsFreshnessReviewed="<per-doc enumeration>"` triggers `adversarial-review.sh docsFreshnessProject`. The reviewer gets the project's `CLAUDE.md` + `METRICS.md` and verifies bypass-claims like "this surface is already documented under § Auth" — if the section the reason names is not actually present in the staged docs, the bypass fails.
 
-**Per-project override**: `.devshop-docs-freshness-exempt` at repo root, one path per line. Whole-line `#` comments and trailing `# reason` comments are both stripped before exact-match. Same audit discipline as the test-coverage override.
+**Per-project override**: `.devshop-docs-freshness-exempt` at repo root, one path per line. Whole-line `#` comments and trailing `# reason` comments are both stripped before exact-match. Same audit discipline as the test-coverage override. **Adding a new entry triggers `check-exempt-additions.sh`** — see § Exempt-File Additions below.
 
 **Relationship to devshop's `docsReviewed`**: this is the project-repo analog of `commit-guard.sh`'s docs-coverage check (which only fires on changes under `kit/`, `.claude/`, or `.devshopkit/`). The two never overlap — `docsReviewed` covers devshop tooling docs, `docsFreshnessProject` covers project-orientation docs.
+
+---
+
+## Exempt-File Additions
+
+The two exempt files (`.devshop-test-coverage-exempt`, `.devshop-docs-freshness-exempt`) are the operator's escape hatch for legitimately-uncovered surfaces. Without review, anyone can append a path with a vague reason (or no reason at all) and silently disable the upstream gate for that path. `kit/scripts/commit-hooks/check-exempt-additions.sh` reviews every added line.
+
+**Pre-flight (deterministic)**: each added line of the form `path  # reason` is parsed; path-like tokens in the **reason** (everything after `#`) are extracted (`*.ts`, `*.tsx`, `*.spec.ts`, `*.integration.test.ts`, `*.test.ts`, `*.spec.tsx`, `*.md`) and verified to exist on disk. The LHS path (the exemption target) is NOT checked — it commonly does not exist yet. A cited covering spec/test that doesn't exist is a **hard block — no adversarial bypass**, because that's the exact problem this check exists to catch.
+
+**Layer 2 (adversarial)**: when pre-flight passes, the inline reasons are sent to `adversarial-review.sh exemptAddition`. The reviewer requires per-entry specificity: a cited path that the pre-flight verified, OR an explanation of why the path is intrinsically untestable (pure re-export, type-only, dev-only stub) / doesn't need a doc entry (internal liveness probe, dev-only screen). Generic reasons (`TODO test`, `low risk`, `WIP`, `covered elsewhere`) fail. The relevant convention sections (Test Presence, Project Docs Freshness, Project Docs Hierarchy) are inlined into the reviewer's context.
+
+**Removals are unreviewed** — relaxing an exemption (re-applying the upstream gate) is always safe.
+
+**Order in the chain**: runs BEFORE `check-test-coverage-project` and `check-docs-freshness-project`, so a bad exempt addition surfaces first — the operator knows to fix the exempt entry, not chase the gate it would have silenced.
+
+**No check-specific bypass flag**. The inline `# reason` IS the bypass surface. If the reviewer is wrong, the universal terminal-only override is `git -c devshop.humanReviewed="approve: <assessment>" commit ...`.
 
 ---
 
