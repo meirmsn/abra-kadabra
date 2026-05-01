@@ -565,17 +565,24 @@ The project's hierarchical doc set decays silently as routes get added, API wrap
 
 **Trigger map (staged path → required doc):**
 
-| Staged change                                                          | Required doc update                |
-| ---------------------------------------------------------------------- | ---------------------------------- |
-| New `apps/*/app/**/page.tsx`, `layout.tsx`, `route.ts`                 | `CLAUDE.md` (must also be staged)  |
-| New `apps/*/middleware.ts`                                             | `CLAUDE.md`                        |
-| New `packages/*/src/api/*.ts` (wrapper module)                         | `CLAUDE.md`                        |
-| New `posthog.capture(...)` or `Sentry.captureException(...)` call site | `METRICS.md` (must also be staged) |
-| Source path DELETE while doc still references it                       | BLOCK on stale reference           |
+| Staged change                                                           | Required doc update                                                                        |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| New `apps/*/app/**/page.tsx`, `layout.tsx`, `route.ts`                  | `CLAUDE.md` (must also be staged)                                                          |
+| New `apps/*/middleware.ts`                                              | `CLAUDE.md`                                                                                |
+| New `packages/*/src/api/*.ts` (wrapper module)                          | `CLAUDE.md`                                                                                |
+| New `posthog.capture(...)` or `Sentry.captureException(...)` call site  | `METRICS.md` (must also be staged)                                                         |
+| New `apps/*/app/**/page.tsx` or `layout.tsx` (user-visible flow)        | `OVERVIEW.md` (opt-in: only if file exists at HEAD)                                        |
+| New `apps/*/app/**/page.tsx`, `route.ts`, middleware, or function entry | `ARCHITECTURE.md` (opt-in: only if file exists at HEAD)                                    |
+| New file under `apps/<x>/`                                              | `apps/<x>/README.md` (opt-in: only if file exists at HEAD)                                 |
+| New file under `packages/<x>/src/`                                      | `packages/<x>/README.md` (opt-in: only if file exists at HEAD)                             |
+| New file under `supabase/functions/<x>/`                                | `supabase/functions/README.md` (opt-in: only if file exists at HEAD)                       |
+| Source path DELETE while doc still references it                        | BLOCK on stale reference (across CLAUDE/METRICS/OVERVIEW/ARCHITECTURE/per-package READMEs) |
 
-**Layer 1 (deterministic)**: matches staged paths against the trigger map. If a triggering surface is added without the paired doc staged, BLOCK. If a deleted source path's basename-or-full-path still appears in `CLAUDE.md` or `METRICS.md`, BLOCK.
+**Layer 1 (deterministic)**: matches staged paths against the trigger map. If a triggering surface is added without the paired doc staged, BLOCK. If a deleted source path's basename-or-full-path still appears in any orientation doc (CLAUDE.md, METRICS.md, OVERVIEW.md, ARCHITECTURE.md, or any per-package README discovered under `apps/`, `packages/`, `supabase/functions/`), BLOCK.
 
-**Layer 2 (adversarial reviewer)**: bypass via `git -c devshop.docsFreshnessReviewed="<per-doc enumeration>"` triggers `adversarial-review.sh docsFreshnessProject`. The reviewer gets the project's `CLAUDE.md` + `METRICS.md` and verifies bypass-claims like "this surface is already documented under § Auth" — if the section the reason names is not actually present in the staged docs, the bypass fails.
+**Opt-in semantics**: `OVERVIEW.md`, `ARCHITECTURE.md`, and per-package READMEs (`apps/<x>/README.md`, `packages/<x>/README.md`, `supabase/functions/README.md`) trigger ONLY when the target doc file exists at HEAD. Projects opt in by creating the file from the template skeleton or writing one directly. New projects scaffold `OVERVIEW.md` + `ARCHITECTURE.md` automatically via the template; per-package READMEs are operator-driven (create the file when there's enough package-level surface to document, leave absent otherwise). The trigger does not fire on the commit that first creates the README — only on subsequent additions to that package.
+
+**Layer 2 (adversarial reviewer)**: bypass via `git -c devshop.docsFreshnessReviewed="<per-doc enumeration>"` triggers `adversarial-review.sh docsFreshnessProject`. The reviewer gets the project's `CLAUDE.md` + `METRICS.md` + `OVERVIEW.md` + `ARCHITECTURE.md` (opt-in, surfaced if present) + every per-package `README.md` discovered at HEAD, and verifies bypass-claims like "this surface is already documented under § Auth" or "this is covered in apps/web/README.md § Routes" — if the section the reason names is not actually present in the inlined doc, the bypass fails.
 
 **Per-project override**: `.devshop-docs-freshness-exempt` at repo root, one path per line. Whole-line `#` comments and trailing `# reason` comments are both stripped before exact-match. Same audit discipline as the test-coverage override. **Adding a new entry triggers `check-exempt-additions.sh`** — see § Exempt-File Additions below.
 
@@ -601,7 +608,9 @@ The two exempt files (`.devshop-test-coverage-exempt`, `.devshop-docs-freshness-
 
 ## Project Docs Hierarchy
 
-Every devshop project ships with the same six-file orientation hierarchy at the repo root. The session-start hook (`kit/scripts/session-start.sh`) loads the project's `CLAUDE.md` at every Claude session, making it the **always-available orientation surface**. The other five files are drilled into on demand.
+Every devshop project ships with a tiered orientation hierarchy. **Tier 1** is the six-file orientation set at repo root (always-loaded entry + on-demand siblings). **Tier 2** is two on-demand product/system overviews. **Tier 3** is per-package READMEs at `apps/<x>/`, `packages/<x>/`, and `supabase/functions/`, opt-in per package. The session-start hook (`kit/scripts/session-start.sh`) loads only the Tier 1 entry point — everything else is on-demand.
+
+### Tier 1 — Repo-root orientation set (always present)
 
 | File                 | Role                                                                                                                                                                                                                                  | Loaded                                                |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
@@ -612,10 +621,69 @@ Every devshop project ships with the same six-file orientation hierarchy at the 
 | `TODOS.md`           | Tactical bugs/polish, organized by version + when-it-runs.                                                                                                                                                                            | On demand                                             |
 | `METRICS.md`         | Event taxonomy + feature flags. Updated alongside every new `posthog.capture` / `Sentry.captureException`.                                                                                                                            | On demand (and required by docs-freshness hook above) |
 
-**Authoring rule for `CLAUDE.md` § Where Things Happen**: every new page, API wrapper, edge function, design token surface, or CI/CD workflow lands with a one-bullet entry naming the file path. The freshness hook above enforces this on add. The bullet should be terse — one sentence pointing at the file, plus any cross-reference to other surfaces touched.
+### Tier 2 — Product + system overviews (template-scaffolded, on-demand)
 
-**Authoring rule for `CLAUDE.md` § Gotchas**: surfaces a non-obvious rule that future sessions need before touching the relevant code (e.g., "RLS blocks direct inserts — use the RPC", "this hook fires on `*git*commit*` substring, not `git commit` exact"). Add only when shipping work surfaces a real gotcha — not preemptively.
+| File              | Role                                                                                                                            | Loaded    |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| `OVERVIEW.md`     | **Product**: what the app does, who uses it, core flows, features, scope bounds. Cross-links to ARCHITECTURE.md.                | On demand |
+| `ARCHITECTURE.md` | **System**: components, data flow, deployment topology, module map. Cross-links to OVERVIEW.md, links into per-package READMEs. | On demand |
 
-**Authoring rule for `METRICS.md`**: every `posthog.capture(...)` or `Sentry.captureException(...)` call gets a row in the Events table. Properties listed; "why we care" sentence stating what the event signals. The docs-freshness hook blocks PRs that add new event call-sites without staging `METRICS.md`.
+These two are the next level of detail under `CLAUDE.md`. They split product audience (stakeholder, onboarding) from system audience (engineering). Both ship in `/devshop/template/` so new projects start with the shape; the freshness hook fires on add-paths-that-change-what's-documented only **once the file exists at HEAD** (opt-in by retaining the scaffold). Cross-link them in both directions at the top of each file ("for the system view see ARCHITECTURE.md" / "for the product view see OVERVIEW.md").
 
-The template ships skeletons for all six files (`/devshop/template/{CLAUDE,PLAN,BUILD-LOG,PRODUCT-ROADMAP,TODOS,METRICS}.md`) so new projects start with the right shape rather than inventing their own. `/ak-new-project` Step 16 + Step 18 fill in project-specific values; the structural skeleton is always present.
+### Tier 3 — Per-package READMEs (opt-in by package)
+
+| File pattern                   | Role                                                                                                                                               | Loaded    |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| `apps/<x>/README.md`           | App-specific surfaces — route map, layout structure, component conventions, env var slice. One per app under `apps/`.                              | On demand |
+| `packages/<x>/README.md`       | Package-specific surfaces — purpose, module map, public API, conventions. One per package under `packages/`.                                       | On demand |
+| `supabase/functions/README.md` | Function contracts — one row per edge function (purpose, request/response shape, auth model, env vars). Single file for all functions, not per-fn. | On demand |
+
+These are **opt-in per package**: create the README when there's enough surface in that package to warrant a focused doc. The freshness hook fires only when the README exists at HEAD — packages without one are silently skipped. No template-side scaffolding (apps/packages/functions land via `/ak-new-project` and are project-specific in shape); the skeleton below is the source of truth for content shape.
+
+**Per-package README skeleton** (copy when creating a new one):
+
+```markdown
+# <package name>
+
+> <one-sentence purpose>. Up to [OVERVIEW.md](../../OVERVIEW.md) for the product context, [ARCHITECTURE.md](../../ARCHITECTURE.md) for where this fits in the system.
+
+## What's here
+
+<one paragraph mapping the directory shape to module purpose>
+
+## <Surface map — route map for apps, module map for packages, function list for supabase/functions>
+
+| <surface> | <file path> | <purpose> |
+| --------- | ----------- | --------- |
+|           |             |           |
+
+## Conventions
+
+<package-specific rules: how components are structured, how exports are organized, what's allowed in public API, etc.>
+
+-
+
+## See also
+
+- [OVERVIEW.md](../../OVERVIEW.md) — product context
+- [ARCHITECTURE.md](../../ARCHITECTURE.md) — system view
+- Other related per-package READMEs
+```
+
+### Authoring rules
+
+**`CLAUDE.md § Where Things Happen`**: every new page, API wrapper, edge function, design token surface, or CI/CD workflow lands with a one-bullet entry naming the file path. Terse — one sentence + cross-references. Freshness hook enforces this on add.
+
+**`CLAUDE.md § Gotchas`**: surfaces a non-obvious rule future sessions need before touching the relevant code (e.g., "RLS blocks direct inserts — use the RPC"). Add only when shipping work surfaces a real gotcha — not preemptively.
+
+**`METRICS.md`**: every `posthog.capture(...)` or `Sentry.captureException(...)` call gets a row in the Events table. Properties listed; "why we care" sentence. Hook blocks PRs adding new event call-sites without staging.
+
+**`OVERVIEW.md`**: update when a new user-visible flow lands, a feature category is added, or product scope changes (in vs out). Product-language only — engineering details belong in ARCHITECTURE.md.
+
+**`ARCHITECTURE.md`**: update when a new package/app/edge-function module lands, a deployment-topology change ships, or an external-service dependency is added/removed. System-language only — product framing belongs in OVERVIEW.md.
+
+**Per-package `README.md`**: update when a new file lands under that package's source tree (the freshness hook enforces this on add). Skeleton above is the source of truth — when a new per-package README is created, follow it.
+
+### Template ships
+
+`/devshop/template/` provides skeletons for every Tier 1 + Tier 2 file (`{CLAUDE,PLAN,BUILD-LOG,PRODUCT-ROADMAP,TODOS,METRICS,OVERVIEW,ARCHITECTURE}.md`) so new projects start with the right shape. `/ak-new-project` Step 16 + Step 18 fill in project-specific values for the older Tier 1 files; OVERVIEW.md + ARCHITECTURE.md ship as-is and are populated as the project's product/system view solidifies. Tier 3 READMEs are NOT scaffolded by the template — they're created per-package when content warrants.

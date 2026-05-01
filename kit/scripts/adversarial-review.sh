@@ -27,7 +27,7 @@
 #                                           commit. Default routing is per check-type
 #                                           (see get_model_for_check_type below).
 #   PRESHIP_ADVERSARIAL_TIMEOUT=<sec>     — per-call timeout for pre-ship dismissalLog
-#                                           reviews (default 120s; other check-types 90s)
+#                                           reviews (default 120s; other check-types 180s)
 #
 # Per-check-type model routing (Haiku 4.5 for deterministic rule-application,
 # Sonnet 4.6 for judgment-heavy or high-blast-radius checks):
@@ -163,17 +163,46 @@ Reason: $REASON"
   docsFreshnessProject)
     # Project-repo docs-freshness bypass review. REASON contains the developer's
     # per-doc enumeration + the hook's block summary + staged file list. The
-    # reviewer also gets the project's CLAUDE.md and METRICS.md so it can verify
-    # claims like "this surface is already documented under § Auth".
+    # reviewer gets the project's orientation docs (always-loaded entry + on-demand
+    # OVERVIEW/ARCHITECTURE if they exist) plus every per-package README at HEAD,
+    # so it can verify claims like "this surface is already documented under
+    # § Auth" or "this is covered in apps/web/README.md § Routes".
     PROJECT_CLAUDE=$(head -200 "$GIT_ROOT/CLAUDE.md" 2>/dev/null || true)
     PROJECT_METRICS=$(head -200 "$GIT_ROOT/METRICS.md" 2>/dev/null || true)
+    PROJECT_OVERVIEW=$(head -150 "$GIT_ROOT/OVERVIEW.md" 2>/dev/null || true)
+    PROJECT_ARCHITECTURE=$(head -150 "$GIT_ROOT/ARCHITECTURE.md" 2>/dev/null || true)
+
+    # Discover per-package READMEs (apps/<x>/, packages/<x>/, supabase/functions/).
+    # Inline first 80 lines of each so the reviewer can verify section-level claims.
+    PER_PACKAGE_READMES=""
+    while IFS= read -r readme; do
+      [ -z "$readme" ] && continue
+      rel="${readme#$GIT_ROOT/}"
+      body=$(head -80 "$readme" 2>/dev/null || true)
+      PER_PACKAGE_READMES+="
+=== $rel (first 80 lines) ===
+$body
+"
+    done < <(find "$GIT_ROOT/apps" "$GIT_ROOT/packages" "$GIT_ROOT/supabase/functions" \
+      -maxdepth 3 -name README.md -type f 2>/dev/null | sort)
+
     CONTEXT="$REASON
 
 === Project CLAUDE.md (first 200 lines) ===
 ${PROJECT_CLAUDE:-(missing — fail open since the file the hook expects to be updated does not exist; flag this in your review)}
 
 === Project METRICS.md (first 200 lines) ===
-${PROJECT_METRICS:-(missing — fail open similarly)}"
+${PROJECT_METRICS:-(missing — fail open similarly)}
+
+=== Project OVERVIEW.md (first 150 lines) ===
+${PROJECT_OVERVIEW:-(not present — opt-in doc; trigger does not fire if absent)}
+
+=== Project ARCHITECTURE.md (first 150 lines) ===
+${PROJECT_ARCHITECTURE:-(not present — opt-in doc; trigger does not fire if absent)}
+${PER_PACKAGE_READMES:-
+=== Per-package READMEs ===
+(none present at HEAD under apps/, packages/, or supabase/functions/ — opt-in; triggers do not fire when absent)
+}"
     ;;
   exemptAddition)
     # Project-repo exempt-file addition review. REASON contains the staged
@@ -444,10 +473,12 @@ if [ "${DEVSHOP_SKIP_ADVERSARIAL:-0}" = "1" ]; then
 fi
 
 # --- Pre-ship vs commit-guard timeout budgeting ---
-# Commit-guard calls one adversarial review per commit; 90s is comfortable.
+# Commit-guard calls one adversarial review per commit; 180s gives headroom for
+# dense docsReviewed prompts (full guide-doc bodies inlined post-PR #25 made the
+# prior 90s budget too tight under sonnet load).
 # Pre-ship can fire up to 11 reviews (one per gate with dismissals); bump the
 # per-call timeout so individual gates with dense context don't time out.
-COMMIT_TIMEOUT=90
+COMMIT_TIMEOUT=180
 PRESHIP_TIMEOUT="${PRESHIP_ADVERSARIAL_TIMEOUT:-120}"
 if [ "$CHECK_TYPE" = "dismissalLog" ]; then
   TIMEOUT=$PRESHIP_TIMEOUT
@@ -526,8 +557,8 @@ Evaluate:
     PASS only when every rationale is: specific (names what was considered and why deferred), consistent with the PR scope (doesn't cross the core user story, doesn't dismiss committed scope), and actionable (a later reviewer could find the rationale plausible given the evidence).
 10. **Convention adherence** (when '=== Relevant conventions ===' appears in the context): the diff/dismissal must follow the inlined conventions. A change that violates an explicit rule (e.g. a new wrapper without onError when § Wrapper API design requires it; a dismissal that punts on an RLS-coverage finding when § Supabase Hardening Defaults marks it non-negotiable; a slow-job stripped of the edge-runtime retry when § Slow-Job Lifecycle's checklist requires it) must FAIL unless the reason explicitly engages the rule's stated rationale. Generic 'this convention doesn't apply here' WITHOUT naming why is NOT acceptable.
 11. For testCoverageProject (project-repo pre-commit, ADD-without-test or orphan-after-DELETE was blocked): the reason MUST name the SPECIFIC blocked path(s) and explain WHY a test does not apply (e.g. 'page.tsx is the route entry — covered by e2e/list.spec.ts driving sign-in → add → bought', or 'utils/format.ts is a pure 3-line type re-export over packages/core/src/types — covered transitively by addItem.test.ts asserting the shape'). Generic reasons ('test coverage exists elsewhere', 'low risk', 'WIP') FAIL. PASS requires a named test or named exempt-list rationale that a future reviewer could verify in 30 seconds.
-12. For docsFreshnessProject (project-repo pre-commit, new page/wrapper/event without doc update was blocked): the reason MUST be a per-doc enumeration that names each blocked surface and either (a) points at the existing CLAUDE.md / METRICS.md entry that ALREADY covers it (verify against the inlined CLAUDE.md / METRICS.md content — if the named entry is not actually there, FAIL), or (b) explains why this specific surface does not need an entry (e.g. 'apps/web/app/healthz/route.ts is an internal infra-only liveness probe — no user-visible surface, no operator-relevant flow'). Generic 'docs are fine', 'will update later', 'minor change' FAIL. Surfaces named in CLAUDE.md § Where Things Happen are load-bearing for orientation — dismissals that touch them face a higher bar.
-13. For exemptAddition (project-repo pre-commit, lines added to .devshop-test-coverage-exempt or .devshop-docs-freshness-exempt): the Reason is the staged additions PLUS the list of cited paths verified to exist on disk. Each entry in the additions has the format `path  # inline reason`. Judge each entry's inline reason individually. REJECT the WHOLE bypass if ANY entry exhibits:
+12. For docsFreshnessProject (project-repo pre-commit, new page/wrapper/event/component without doc update was blocked): the reason MUST be a per-doc enumeration that names each blocked surface and either (a) points at the existing entry in the relevant doc — CLAUDE.md / METRICS.md / OVERVIEW.md / ARCHITECTURE.md / per-package README — that ALREADY covers it (verify against the inlined doc content; if the named entry is not actually there, FAIL), or (b) explains why this specific surface does not need an entry (e.g. 'apps/web/app/healthz/route.ts is an internal infra-only liveness probe — no user-visible surface, no operator-relevant flow'). Generic 'docs are fine', 'will update later', 'minor change' FAIL. Surfaces named in CLAUDE.md § Where Things Happen are load-bearing for orientation — dismissals that touch them face a higher bar. OVERVIEW.md and ARCHITECTURE.md are opt-in (the trigger only fires when the file exists at HEAD): a reason that says 'OVERVIEW.md is not present' is only valid when the file is genuinely absent — verify against the inlined content. Per-package READMEs (apps/<x>/README.md, packages/<x>/README.md, supabase/functions/README.md) likewise only fire when present; if they fired, they ARE present and the reason must engage with their inlined section content.
+13. For exemptAddition (project-repo pre-commit, lines added to .devshop-test-coverage-exempt or .devshop-docs-freshness-exempt): the Reason is the staged additions PLUS the list of cited paths verified to exist on disk. Each entry in the additions has the format \`path  # inline reason\`. Judge each entry's inline reason individually. REJECT the WHOLE bypass if ANY entry exhibits:
     - Missing inline reason (a path with no `#` comment after it)
     - Generic rationale: 'TODO test', 'skip for now', 'covered elsewhere', 'low risk', 'will fix', 'see other tests' without specifics
     - Cites a covering spec/test by description but not by path (e.g. 'covered by the auth flow test' — name the file, not the concept)
