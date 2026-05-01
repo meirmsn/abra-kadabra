@@ -359,6 +359,82 @@ $INLINED_CONVENTIONS"
   fi
 fi
 
+# --- Guide doc inlining (GUIDES_TO_INCLUDE map) ---
+# Selectively inline guide-doc bodies into CONTEXT when the staged diff touches
+# code areas whose reference doc is a guide. Mirrors CONVENTIONS_TO_INCLUDE
+# above, but keyed on diff-paths (not check-type) so it generalizes to any new
+# structural unit. The default header-only treatment of guide/* in the
+# docsReviewed CONTEXT block lets the reviewer see chapter titles but not
+# chapter bodies — historically this caused structural-enumeration drift
+# (bypass tables, flowcharts, gate lists) to be missed because the diff didn't
+# touch the table itself, only created a new unit the table should have grown
+# a row for.
+#
+# Only fires for docsReviewed (the only check that judges doc adequacy).
+# Format: pipe-separated <abs-path>:<heading-or-FULL> entries.
+get_guides_to_inline() {
+  local staged_paths="$1"
+  local out=""
+
+  # hooks.md (FULL) — bypass tables, flowchart, gate lists, dismissal log,
+  # practical recipes. Triggers on anything hooks.md enumerates: commit-hook
+  # scripts, husky hooks, pre-ship gates, Claude-side hooks in settings.json.
+  if echo "$staged_paths" | grep -qE '^(kit/scripts/commit-hooks/|kit/hooks/|kit/scripts/preship/|template/\.husky/|\.claude/settings\.json$)'; then
+    out+="${out:+|}$GIT_ROOT/kit/docs/guide/hooks.md:FULL"
+  fi
+
+  # architecture.md § File lifecycle — manifest enumerations + scaffold-bucket
+  # taxonomy. Triggers on template/ changes, manifest edits, init-devshop, sync.
+  if echo "$staged_paths" | grep -qE '^(template/|kit/manifest\.txt$|kit/scripts/init-devshop\.sh$|kit/scripts/sync/)'; then
+    out+="${out:+|}$GIT_ROOT/kit/docs/guide/architecture.md:File lifecycle"
+  fi
+
+  # security.md (FULL) — devcontainer, firewall, locked-file enumeration.
+  if echo "$staged_paths" | grep -qE '^(\.devcontainer/|template/\.devcontainer/|kit/scripts/init-firewall\.sh$)'; then
+    out+="${out:+|}$GIT_ROOT/kit/docs/guide/security.md:FULL"
+  fi
+
+  echo "$out"
+}
+
+if [ "$CHECK_TYPE" = "docsReviewed" ]; then
+  STAGED_PATHS=$(git diff --cached --name-only 2>/dev/null || true)
+  GUIDES_LIST=$(get_guides_to_inline "$STAGED_PATHS")
+  if [ -n "$GUIDES_LIST" ]; then
+    INLINED_GUIDES=""
+    IFS='|' read -ra GUIDES_ARR <<< "$GUIDES_LIST"
+    for entry in "${GUIDES_ARR[@]}"; do
+      gfile="${entry%%:*}"
+      marker="${entry#*:}"
+      [ -f "$gfile" ] || continue
+      if [ "$marker" = "FULL" ]; then
+        body=$(cat "$gfile")
+        label="$(basename "$gfile")"
+      else
+        body=$(extract_convention_section "$gfile" "$marker")
+        label="$(basename "$gfile") § $marker"
+      fi
+      if [ -n "$body" ]; then
+        INLINED_GUIDES+="
+=== $label ===
+$body
+"
+      fi
+    done
+    if [ -n "$INLINED_GUIDES" ]; then
+      CONTEXT="$CONTEXT
+
+=== Relevant guide doc bodies (selectively inlined based on staged diff) ===
+The headers-only previews above for kit/docs/guide/* may hide structured
+enumerations (tables, flowcharts, file-maps, gate lists). The bodies below are
+the chapters whose subject area the staged diff touches — scan them for any
+enumeration that should grow a new entry alongside the structural unit being
+added or removed.
+$INLINED_GUIDES"
+    fi
+  fi
+fi
+
 # --- Devshop-wide adversarial review bypass (tight iteration loops) ---
 # Active-human-review escape hatch for pre-ship dismissalLog calls that cascade
 # across many gates. NEVER set in CI or release — this is a dev-loop convenience.
@@ -434,6 +510,7 @@ Evaluate:
    (b) **New-capability docs at the right level**: when the diff introduces a new script category / workflow / convention / tool, verify documentation exists at the right level — guide/ section required (what it is, how it works, how to extend it); OVERVIEW.md if workspace-layout / event-flow / file-map changes; MODEL.md if a new structural component is added; CLAUDE.md if Claude's behavior changes. Layout mentions alone (a line in a tree diagram) are NOT sufficient for new capabilities — strategy/usage docs are also required.
    (c) **Cross-file coherence** (when reference docs are staged in this commit — see 'Reference docs staged' in context): the staged doc changes must leave the doc set internally consistent. Stale claims that contradict each other across files (README says N gates, workflow.md says M; one doc names a script the other doesn't enumerate) MUST be flagged as inconsistent. If reference docs are NOT staged, this rule is satisfied trivially.
    (d) **Rename/move/delete drift sweep** (when 'Renamed/moved/deleted in this commit' lists any entries): for each old-path entry, the reviewer must verify that ACTIVE docs (kit/docs/, kit/ROADMAP.md, repo-root CLAUDE.md/README.md, .claude/skills/**/SKILL.md) no longer reference the OLD name unless the reason explicitly cites the surviving reference and explains why it is intentional. Drift surfaces include: renamed/moved/deleted files (script paths, hook paths, doc files), renamed section headings (## Foo → ## Bar in conventions.md / hooks.md), renamed CI job names, renamed skills, renamed gate names, renamed roadmap entries. The provided context (CLAUDE.md, OVERVIEW.md, MODEL.md, guide/ headers, FAQ.md headers, project CLAUDE.md, README.md) covers the load-bearing surfaces — scan them for the old names. Historical notes under kit/notes/** are intentionally allowed to mention deleted/renamed items (they document the rationale archive); do NOT flag those as drift. If 'Renamed/moved/deleted in this commit' is empty, this rule is satisfied trivially.
+   (e) **Addition drift sweep** (when the staged diff adds new STRUCTURAL UNITS — scripts under kit/scripts/, hooks in kit/hooks/, husky hook files, skills, env vars surfaced in CLAUDE.md, conventions, pre-ship gates, slash commands, GitHub Actions jobs, env-prefixed secret-store names): for each added unit, scan the inlined doc bodies (CLAUDE.md, OVERVIEW.md, MODEL.md, FAQ.md, kit/docs/guide/* selectively-inlined under '=== Relevant guide doc bodies ===', kit/ROADMAP.md, .claude/skills/**/SKILL.md) for any STRUCTURED ENUMERATION of that kind of unit — a table, flowchart, list, file-map, or numbered taxonomy. If a matching enumeration exists, it MUST contain a corresponding new entry in the staged diff. Generic prose mentioning the new unit elsewhere does NOT satisfy a missing enumeration entry. When a guide doc appears under '=== kit/docs/guide/ section headers ===' (header-only) but NOT under '=== Relevant guide doc bodies ===' (selectively-inlined full body), the bypass reason MUST explicitly cite which doc's enumeration was checked and quote the relevant row/entry — header-only context cannot verify table-row presence on the reviewer's behalf. Historical notes under kit/notes/** are exempt (rationale archive). If no new structural units are added, this rule is satisfied trivially.
    The reviewer must specifically check the docs the reason CLAIMS to have updated against the staged diff to verify the claim holds.
 5. For testCoverage checks: judge whether existing tests are sufficient to catch regressions in any functional changes since the last release. Look for: new code paths without corresponding test cases, changed exit codes or output formats not verified by assertions, new flags or options not exercised. PASS when any of: (a) changes are purely cosmetic (comments, formatting, variable renames); (b) no functional changes at all (docs-only release — README, CLAUDE.md, kit/docs/, kit/notes/); (c) config-only changes (devcontainer env vars, gitignore entries, image versions) already validated by wiring tests in structural-invariants.bats — name the specific wiring test you verified exists; (d) existing tests already exercise the changed behavior — name the specific test.
 6. For hookBypass: is this a known legitimate scenario (migration commits with git rm --cached, binary files that break lint-staged, intermediate refactor state with type errors)? Does skipping gitleaks create a real risk for these files?

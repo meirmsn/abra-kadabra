@@ -110,16 +110,19 @@ Configured in `.husky/pre-commit`.
 
 Guards are split into **deterministic** (auto-pass when condition is met) and **semantic** (always require a review explanation). All bypass reasons are verified by `adversarial-review.sh` — an agent that actively tries to reject the reason. On API error, the review **fails closed** (blocks the commit). Human fallback: `devshop.humanReviewed` flag, but blocked for Claude via PreToolUse hook — only reachable when the human runs the commit directly in the terminal.
 
-| Guard                          | Type          | What                                                                                                                                                                                                                                                                                                                                                                                                                | Bypass                                                                   |
-| ------------------------------ | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `check-clean-tree.sh`          | Deterministic | Blocks if untracked/unstaged files exist                                                                                                                                                                                                                                                                                                                                                                            | `dirtyTreeReason` — adversarially reviewed                               |
-| `check-manifest.sh`            | **Semantic**  | template/ files added/removed — propose manifest.txt update with reasoning                                                                                                                                                                                                                                                                                                                                          | `manifestReviewed` — always required, adversarially reviewed             |
-| `check-test-coverage.sh`       | Deterministic | New scripts block if no test file; modified scripts warn (devshop only)                                                                                                                                                                                                                                                                                                                                             | Add to exempt list with reason, or write tests                           |
-| `check-exempt-additions.sh`    | **Semantic**  | Additions to `.devshop-test-coverage-exempt` / `.devshop-docs-freshness-exempt` (project only) — pre-flight: any cited covering test/spec path in inline reason must exist on disk; Layer 2: adversarial review judges per-entry specificity                                                                                                                                                                        | No check-specific bypass — improve inline reasons or use `humanReviewed` |
-| `commit-hooks/commit-guard.sh` |               |                                                                                                                                                                                                                                                                                                                                                                                                                     |                                                                          |
-| └─ `mixed-commit`              | Deterministic | Mixed devshop + project files (project repo only)                                                                                                                                                                                                                                                                                                                                                                   | No bypass — unstage one set                                              |
-| └─ `docs-reviewed`             | **Semantic**  | Any devshop file staged (except release artifacts) — single review judges per-doc enumeration of the 7 reference docs + cross-file coherence (when reference docs ARE staged) + new-capability docs at the right level + rename/move/delete drift sweep (when files are renamed or deleted, the OLD names must be swept from active docs). Merged 2026-04-27 from the former `docs-drift` + `doc-consistency` pair. | `docsReviewed` — always required, adversarially reviewed                 |
-| └─ `release-coverage`          | **Semantic**  | Release commit (devshop only) — `kit/version` staged → adversarial reviews coverage                                                                                                                                                                                                                                                                                                                                 | `releaseReviewed` — justification re-reviewed with diff                  |
+| Guard                               | Type                         | What                                                                                                                                                                                                                                                                                                                                                                                                                | Bypass                                                                                       |
+| ----------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `check-security-files-freshness.sh` | Deterministic                | settings.json / .dcg.toml present and current vs `template/` source — drift means `init-devshop.sh` failed to refresh or post-commit drift slipped in                                                                                                                                                                                                                                                               | No bypass — fix with `sudo bash /devshop/kit/scripts/init-devshop.sh`                        |
+| `check-clean-tree.sh`               | Deterministic                | Blocks if untracked/unstaged files exist                                                                                                                                                                                                                                                                                                                                                                            | `dirtyTreeReason` — adversarially reviewed                                                   |
+| `check-manifest.sh`                 | **Semantic**                 | template/ files added/removed — propose manifest.txt update with reasoning (devshop only)                                                                                                                                                                                                                                                                                                                           | `manifestReviewed` — always required, adversarially reviewed                                 |
+| `check-test-coverage.sh`            | Deterministic                | New scripts block if no test file; modified scripts warn (devshop only)                                                                                                                                                                                                                                                                                                                                             | Add to exempt list with reason, or write tests                                               |
+| `check-exempt-additions.sh`         | **Semantic**                 | Additions to `.devshop-test-coverage-exempt` / `.devshop-docs-freshness-exempt` (project only) — pre-flight: any cited covering test/spec path in inline reason must exist on disk; Layer 2: adversarial review judges per-entry specificity                                                                                                                                                                        | No check-specific bypass — improve inline reasons or use `humanReviewed`                     |
+| `check-test-coverage-project.sh`    | Deterministic + **Semantic** | Project repo only. Layer 1: new file under `apps/*/{src,app,components,lib,hooks}/` or `packages/*/src/` without paired `.test.ts` → block. Source delete with paired test still present → block as orphan. Layer 2: adversarial review judges modify-cases when a bypass reason is given                                                                                                                           | `testCoverageReviewed` — adversarially reviewed; or add to `.devshop-test-coverage-exempt`   |
+| `check-docs-freshness-project.sh`   | Deterministic + **Semantic** | Project repo only. New `apps/*/app/**/page.tsx` / `layout.tsx` / `route.ts` / `middleware.ts` and `packages/*/src/api/*.ts` → CLAUDE.md must be staged. New `posthog.capture(...)` / `Sentry.captureException(...)` call sites → METRICS.md staged. Source delete while doc still references the path → block on stale ref. Layer 2: adversarial review judges per-doc rationales                                   | `docsFreshnessReviewed` — adversarially reviewed; or add to `.devshop-docs-freshness-exempt` |
+| `commit-hooks/commit-guard.sh`      |                              |                                                                                                                                                                                                                                                                                                                                                                                                                     |                                                                                              |
+| └─ `mixed-commit`                   | Deterministic                | Mixed devshop + project files (project repo only)                                                                                                                                                                                                                                                                                                                                                                   | No bypass — unstage one set                                                                  |
+| └─ `docs-reviewed`                  | **Semantic**                 | Any devshop file staged (except release artifacts) — single review judges per-doc enumeration of the 7 reference docs + cross-file coherence (when reference docs ARE staged) + new-capability docs at the right level + rename/move/delete drift sweep (when files are renamed or deleted, the OLD names must be swept from active docs). Merged 2026-04-27 from the former `docs-drift` + `doc-consistency` pair. | `docsReviewed` — always required, adversarially reviewed                                     |
+| └─ `release-coverage`               | **Semantic**                 | Release commit (devshop only) — `kit/version` staged → adversarial reviews coverage                                                                                                                                                                                                                                                                                                                                 | `releaseReviewed` — justification re-reviewed with diff                                      |
 
 The blocking pre-commit `cross-repo` check (other repo has uncommitted changes → fail) was removed in **v1.20.0**. Its lockstep assumption (one template + one validation project, in dual-goal sessions) only held for v0 dogfooding; in a multi-project world the bypass became the rule rather than the exception. The session-start.sh "cross-repo WIP heads-up" — informational, runs once per session — replaces it as the better fit and is documented above (line 13) and below (line 151 §session-start.sh additive change).
 
@@ -158,6 +161,60 @@ Short-circuits (no review, exit 0):
 Bypass flags run through the same shared engine as commit-time guards (`kit/scripts/adversarial-review.sh`). Generic reasons (`WIP`, `later`, `fine`) fail; specific structural reasons (`intentionally batching updates until post-rebase — will squash-update after final review`, `stashed feature X to push hotfix Y on unrelated branch`) pass.
 
 Release-side work (`/ak-release-devshop` skill) is invoked manually or by a follow-up skill chain. The old PostToolUse commit-time "remember to run release.sh" reminder was deleted — release is a deliberate decision, not a post-commit nudge.
+
+---
+
+## Practical recipes
+
+Use-case index for the gates documented above. Each recipe links into the reference material rather than duplicating it.
+
+### Doc-only PR
+
+Goal: ship a PR touching only Markdown / docs / non-source files with minimum ceremony.
+
+1. Branch off `main`. Prefix every commit with `docs:` (or `chore:` / `style:` / `test:` / `ci:` / `build:` / `perf:` if more accurate).
+2. Commit normally. The project-side pre-commit gates ([§ 2](#2-husky-pre-commit-during-git-commit)) — `check-test-coverage-project` and `check-docs-freshness-project` — only fire on `apps/*/src/` or `packages/*/src/` changes, so a doc-only diff sails through. If an edge case does flag, use `git -c devshop.docsFreshnessReviewed="<per-doc enumeration>" commit ...` or `git -c devshop.testCoverageReviewed="<why>" commit ...`.
+3. Push. The pre-push trivial-commit short-circuit ([§ 3](#3-husky-pre-push-during-git-push)) skips the PR-description review entirely when both conditions hold: every branch commit has a trivial conventional prefix AND zero source-file changes. The dirty-tree check still fires.
+4. Open the PR. Squash-merge as usual; Vercel auto-deploys on merge.
+
+If a commit accidentally touches `apps/*/src/` or `packages/*/src/`, the short-circuit drops and the PR-desc check fires — fix the prefix or split the commit, don't reach for a bypass.
+
+### Hotfix
+
+Goal: get a small fix to production fast. There's no `release.sh` equivalent for projects — the no-direct-push-to-main rule on pre-push ([§ 3](#3-husky-pre-push-during-git-push)) and GitHub branch protection both refuse a direct push, so the fast path is still a PR.
+
+1. `git checkout -b hotfix/<short-name> main`.
+2. Make the minimum change. One commit, conventional prefix.
+3. `git push -u origin hotfix/<short-name>` then `gh pr create`.
+4. If a non-essential gate flags something in the way (test-coverage on a one-line guard, docs-freshness on a tiny config tweak), use the relevant `git -c devshop.<flag>="<reason>" commit ...` — adversarially reviewed, so the reason needs to be specific. For genuine emergencies a human at the terminal can use `git -c devshop.humanReviewed="approve: <assessment>" commit ...` to skip the LLM step entirely.
+5. Squash-merge → Vercel auto-deploys.
+
+Do NOT try to work around the no-direct-push-to-main rule. It's hard-blocked at the local hook AND at the remote via branch protection — the bypass flags don't apply, by design.
+
+### Committing from the terminal as a human
+
+Goal: commit and push by hand without Claude in the loop. The git hooks run unconditionally; nothing is disabled. What changes is which escape hatches are reachable — the PreToolUse layer ([§ 1](#1-claude-pretooluse-before-git-runs)) only intercepts Claude's `Bash` invocations, so a human at the terminal can use bypass forms Claude can't.
+
+Standard process:
+
+```bash
+git add <files>
+git commit -m "..."     # husky: lint-staged → typecheck → gitleaks → devshop guards
+git push                # husky: no-main-push, PR-desc staleness, dirty-tree
+```
+
+Human-only escape hatches (PreToolUse `check-hook-bypass.sh` blocks all three for Claude):
+
+- `git -c devshop.humanReviewed="approve: <your assessment>" commit ...` — bypass any commit guard with no LLM review.
+- `DEVSHOP_SKIP_ADVERSARIAL=1 git commit ...` — skip all adversarial reviews for this process. Tight iteration loops only; never CI.
+- `git commit --no-verify` — bypass husky entirely. The nuclear option; reach for the targeted bypass flags first. (Claude additionally needs `devshop.hookBypassReason` to use `--no-verify` even with PreToolUse off; humans don't.)
+
+The targeted bypass flags (`devshop.dirtyTreeReason`, `devshop.docsFreshnessReviewed`, `devshop.testCoverageReviewed`, `devshop.docsReviewed`, `devshop.prDescStaleReason`, `devshop.dirtyPushReason`) work identically for humans and Claude — both go through the adversarial reviewer. Full list in [§ 2](#2-husky-pre-commit-during-git-commit) and [§ 3](#3-husky-pre-push-during-git-push).
+
+Performance notes:
+
+- Pre-commit typecheck runs against the whole repo. On a cold turbo cache it's slow — warm it once with `pnpm turbo run typecheck` before a commit-heavy session and subsequent commits are near-instant.
+- gitleaks runs on staged content. False-positives belong in `.gitleaksignore`, not behind `--no-verify`.
 
 ---
 
@@ -240,6 +297,20 @@ Extending enforcement:
 3. The new section is now inlined for every matching adversarial review — no further code changes needed.
 
 The map is intentionally conservative: only enforce conventions whose violations have been seen in the wild AND whose textual rule is concrete enough for an LLM reviewer to judge against. Aspirational / taxonomic sections (Tier 3 per the audit at `kit/notes/roadmap/conventions-audit-redistribution-2026-04-27.md`) should NOT be inlined.
+
+### Guide-body inlining (GUIDES_TO_INCLUDE)
+
+The default `docsReviewed` context inlines `kit/docs/guide/*.md` as `## ` headings only — chapter titles without bodies. That's cheap but creates a structural blind spot: the reviewer can see `hooks.md` has a section called "Husky pre-commit (during git commit)" but can't see the bypass table inside it, so historically a new guard's row got missed every time the diff added a guard without also touching the table. The `GUIDES_TO_INCLUDE` map closes that gap.
+
+How it works:
+
+- A `GUIDES_TO_INCLUDE` map (function `get_guides_to_inline` in `adversarial-review.sh`) returns pipe-separated `<abs-path>:<heading-or-FULL>` entries based on the **staged-paths** (not check-type — guide bodies are diff-relevant, not review-relevant). Only fires for `docsReviewed`.
+- The same `extract_convention_section` helper extracts `## <heading>` sections, or the full file when marker is `FULL`. Inlined under a `=== Relevant guide doc bodies (selectively inlined based on staged diff) ===` block.
+- Rule 4(e) "Addition drift sweep" in the prompt template instructs the reviewer to scan the inlined bodies for structured enumerations (tables / flowcharts / file-maps / lists) and FAIL when the diff adds a structural unit that an enumeration should grow a new entry for.
+
+Initial map covers 3 routes: `kit/scripts/commit-hooks/` / `kit/hooks/` / `kit/scripts/preship/` / `template/.husky/` / `.claude/settings.json` → `hooks.md` (FULL); `template/` / `kit/manifest.txt` / `init-devshop.sh` / `kit/scripts/sync/` → `architecture.md § File lifecycle`; `.devcontainer/` / `init-firewall.sh` → `security.md` (FULL).
+
+Extending: add a route in `get_guides_to_inline` keyed off `grep -qE` on the staged paths. Same conservative bar as the conventions map — only inline guide bodies whose enumerations have caught real drift in the wild. The keyword routing is path-based so it stays generic across check-types and survives convention-doc reorganization.
 
 ### Bypass flags + env hatches
 
