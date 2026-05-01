@@ -130,3 +130,73 @@ run_check() {
   run_check 'echo "the commit is ready"'
   assert_success
 }
+
+# --- Whitelist parity (mirrors check-hook-bypass.sh PR #19) ---
+
+@test "allows gh pr create with body text mentioning git commit" {
+  # Without the leading-executable whitelist, the outer Bash(*git*commit*)
+  # matcher would let this through to the regex check, which is harmless
+  # here but inefficient. The whitelist exits 0 before any further work.
+  run_check 'gh pr create --body "running git commit on every push"'
+  assert_success
+}
+
+@test "allows pnpm command with git commit in its arguments" {
+  run_check 'pnpm exec lint-staged --commit-message "git commit hash"'
+  assert_success
+}
+
+# --- Quoted-value -c flag support (the parity bug from PR E) ---
+
+@test "blocks git -c key=\"quoted value\" commit on main" {
+  # The OLD regex ( +-[cC] +[^ ]+)* had [^ ]+ that consumed up to the first
+  # space, so `git -c devshop.foo="quoted val" commit` failed to match — the
+  # on-main check silently skipped. After this fix, the sed-strip removes
+  # the -c flag segment cleanly and the commit-verb regex resolves.
+  git -C "$TEST_REPO" branch -m main 2>/dev/null || true
+  local json
+  json=$(jq -n --arg cmd 'git -c devshop.dirtyTreeReason="WIP for review" commit -m test' '{"tool_input": {"command": $cmd}}')
+  run bash -c "cd '$TEST_REPO' && bash '$CHECK'" <<< "$json"
+  assert_failure 2
+  assert_output --partial "BLOCKED"
+}
+
+@test "blocks git -c key='single-quoted value' commit on main" {
+  git -C "$TEST_REPO" branch -m main 2>/dev/null || true
+  local json
+  json=$(jq -n --arg cmd "git -c devshop.dirtyTreeReason='WIP for review' commit -m test" '{"tool_input": {"command": $cmd}}')
+  run bash -c "cd '$TEST_REPO' && bash '$CHECK'" <<< "$json"
+  assert_failure 2
+  assert_output --partial "BLOCKED"
+}
+
+@test "blocks multiple -c flags with quoted values on main" {
+  git -C "$TEST_REPO" branch -m main 2>/dev/null || true
+  local json
+  json=$(jq -n --arg cmd 'git -c user.email="a b@x.com" -c devshop.dirtyTreeReason="WIP one two" commit -m test' '{"tool_input": {"command": $cmd}}')
+  run bash -c "cd '$TEST_REPO' && bash '$CHECK'" <<< "$json"
+  assert_failure 2
+  assert_output --partial "BLOCKED"
+}
+
+@test "still allows quoted-value -c with non-commit verb (git -c key=\"quoted\" status)" {
+  # After stripping the -c segment, the result `git status` should NOT match
+  # the commit-verb regex — confirms we strip flags but don't bias toward
+  # block.
+  run_check 'git -c devshop.dirtyTreeReason="WIP" status'
+  assert_success
+}
+
+# --- Symmetric `export` chain support ---
+
+@test "blocks export VAR=val && git commit when in dir on main" {
+  # Symmetric form to `VAR=val git commit` (which is already handled by
+  # env-var stripping). The whitelist must accept `export` as LEAD; the
+  # cwd-based branch detection handles the rest.
+  git -C "$TEST_REPO" branch -m main 2>/dev/null || true
+  local json
+  json=$(jq -n --arg cmd "export GIT_AUTHOR_NAME=Test && cd $TEST_REPO && git commit -m test" '{"tool_input": {"command": $cmd}}')
+  run bash "$CHECK" <<< "$json"
+  assert_failure 2
+  assert_output --partial "BLOCKED"
+}
