@@ -57,14 +57,17 @@ Three enforcement levels: PreToolUse (Claude Code), pre-commit (husky), and pre-
 
 3. Git creates the commit (if pre-commit passed)
 
-4. On eventual `git push`: `.husky/pre-push` (two variants)
-   ├─ PROJECT (template/.husky/pre-push):
+4. On eventual `git push`: `.husky/pre-push` (thin wrapper) →
+   `.hooks/pre-push` (symlink) → `kit/hooks/pre-push.sh` (unified policy).
+   Repo-mode (project vs devshop) detected at runtime; same wrapper, both repos.
+   ├─ PROJECT mode (workspace/`/workspace`):
    │   ├─ no-direct-push-to-main → BLOCK (no bypass)
    │   ├─ PR description staleness (devshop.prDescStaleReason)
    │   └─ dirty tree / stash (devshop.dirtyPushReason)
-   └─ DEVSHOP (/devshop/.husky/pre-push):
+   └─ DEVSHOP mode (`/devshop` itself):
+       ├─ push to main/master short-circuits (release.sh territory)
        └─ dirty tree / stash (devshop.dirtyPushReason)
-      (PR-desc check absent in devshop — devshop has no PRs)
+      (PR-desc check skipped — devshop has no PRs)
 ```
 
 Step 1 is a Claude Code hook (runs before the tool executes). Step 2 is the git pre-commit hook (runs during commit). Step 4 is the git pre-push hook (runs during `git push`, independent of commit). Steps 2a-2d and 4 are all blocking (fail = operation aborted).
@@ -128,9 +131,9 @@ Bypass via `git -c devshop.<key>="<reason>"` works natively in husky. Every bypa
 
 ### 3. Husky pre-push (during git push)
 
-Two variants, configured per-repo in `.husky/pre-push`:
+Single unified policy at `kit/hooks/pre-push.sh`, symlinked into both repos as `.hooks/pre-push` by `sync/create-devshop-symlinks.sh` (mirrors the `.hooks/pre-commit` pattern documented in §2 above — same gitignored symlink, same auto-recovery). Each repo's `.husky/pre-push` is a tiny husky-shim wrapper that `exec bash .hooks/pre-push "$@"` and contains no policy. Repo mode (project vs devshop) is detected inside the script at runtime by probing whether `kit/` exists at the repo root and is a real directory — the same probe `kit/hooks/pre-commit.sh` uses. The two modes share the dirty-tree check; they diverge on main-push behavior and PR-desc:
 
-**Project repos** (`template/.husky/pre-push` → propagated to every project):
+**Project mode** (`/workspace` repo — both the wrapper at `template/.husky/pre-push` propagated to every project, and the policy in `kit/hooks/pre-push.sh` under the project branch):
 
 | Check                                 | What                                                                                                                                                                                                                                                                                                                                  | Blocking?                                                                                                                                                                                                                             |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -138,13 +141,13 @@ Two variants, configured per-repo in `.husky/pre-push`:
 | PR description                        | Is the PR title + body current vs all commits on the branch? Skipped when every commit is `chore:` / `docs:` / `style:` / `test:` / `ci:` / `build:` / `perf:` **AND** zero source-file changes (`apps/*/src/`, `packages/*/src/`). Both conditions must hold — a `chore:`-prefixed commit that touches source still fires the check. | Yes — `devshop.prDescStaleReason` adversarially reviewed                                                                                                                                                                              |
 | Dirty tree / stash                    | Is the working tree clean? Zero stash entries?                                                                                                                                                                                                                                                                                        | Yes — `devshop.dirtyPushReason` adversarially reviewed                                                                                                                                                                                |
 
-**Devshop repo** (`/devshop/.husky/pre-push`):
+**Devshop mode** (`/devshop` repo — wrapper at `/devshop/.husky/pre-push`, policy in `kit/hooks/pre-push.sh` under the devshop branch):
 
 | Check              | What                                           | Blocking?                                              |
 | ------------------ | ---------------------------------------------- | ------------------------------------------------------ |
 | Dirty tree / stash | Is the working tree clean? Zero stash entries? | Yes — `devshop.dirtyPushReason` adversarially reviewed |
 
-The PR-description check that used to live here was dead code in devshop — devshop has no PRs (`release.sh` tags + pushes direct to main), so `gh pr list --head <branch>` always returned empty and the check no-op'd. That check now lives in the project pre-push (where PRs actually exist).
+The PR-description check used to be inlined in `/devshop/.husky/pre-push` as dead code — devshop has no PRs (`release.sh` tags + pushes direct to main), so `gh pr list --head <branch>` always returned empty and the check no-op'd. Under the unified script the PR-desc branch is gated behind project-mode detection; in devshop mode it's skipped entirely (no `gh` invocation at all). The check still lives where PRs actually exist (project mode).
 
 Short-circuits (no review, exit 0):
 
@@ -190,7 +193,7 @@ Both repos use conventional commits (`feat:`, `fix:`, `chore:`, etc.). The `devs
 
 ## On Push
 
-The `.husky/pre-push` hook runs at the git layer on every `git push`. The project variant (template/.husky/pre-push) hard-blocks any push whose remote-ref is `refs/heads/main` or `refs/heads/master` with no bypass — projects deploy via PR-merge → CI → Vercel and the remote enforces the same rule via GitHub branch protection. For pushes to feature branches, if there's an open PR and the PR description does not track the commits (excluding trivial conventional-commit-only pushes), the push is blocked until the description is updated — or the push provides an adversarially-reviewed bypass reason. A third check blocks pushes with a dirty tree or non-empty stash list on the same pass. Branch deletions short-circuit. The devshop variant (/devshop/.husky/pre-push) skips the no-direct-push-to-main check (release.sh territory) and the PR-desc check (devshop has no PRs); it runs only the dirty-tree / stash check. See §3 above for the full check lists and bypass flag names.
+The `.husky/pre-push` hook runs at the git layer on every `git push`. The wrapper exec's `kit/hooks/pre-push.sh` via the `.hooks/pre-push` symlink (single-source policy, mirrors the pre-commit chain). In **project mode** the script hard-blocks any push whose remote-ref is `refs/heads/main` or `refs/heads/master` with no bypass — projects deploy via PR-merge → CI → Vercel and the remote enforces the same rule via GitHub branch protection. For pushes to feature branches, if there's an open PR and the PR description does not track the commits (excluding trivial conventional-commit-only pushes that don't touch source files), the push is blocked until the description is updated — or the push provides an adversarially-reviewed bypass reason. A third check blocks pushes with a dirty tree or non-empty stash list on the same pass. Branch deletions short-circuit. In **devshop mode** the script skips the no-direct-push-to-main check (release.sh territory) and the PR-desc check (devshop has no PRs); it runs only the dirty-tree / stash check. See §3 above for the full check lists and bypass flag names.
 
 ---
 

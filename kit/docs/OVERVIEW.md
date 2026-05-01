@@ -99,8 +99,9 @@ git commit
   (no PostToolUse — workflow nudges live at the git layer; see guide/hooks.md)
 
 git push
-  └─ .husky/pre-push (blocking; two variants per repo)
-      ├─ PROJECT (template/.husky/pre-push):
+  └─ .husky/pre-push (thin wrapper) → .hooks/pre-push (symlink) →
+     kit/hooks/pre-push.sh (unified policy; repo-mode detected at runtime)
+      ├─ PROJECT mode (workspace repo):
       │   ├─ refs/heads/main or refs/heads/master ── BLOCK, no bypass
       │   │                                          (deploy via PR-merge → CI → Vercel;
       │   │                                          remote enforces the same rule)
@@ -111,7 +112,7 @@ git push
       │   │                                          bypass: devshop.prDescStaleReason)
       │   └─ dirty tree / stash check ────────────── block if unclean
       │                                              (bypass: devshop.dirtyPushReason)
-      └─ DEVSHOP (/devshop/.husky/pre-push):
+      └─ DEVSHOP mode (devshop repo):
           ├─ push to main/master short-circuits (release.sh territory)
           └─ dirty tree / stash check ────────────── block if unclean
                                                      (bypass: devshop.dirtyPushReason)

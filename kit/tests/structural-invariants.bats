@@ -99,26 +99,55 @@ setup() {
   [ -e "$DEVSHOP/.hooks/pre-commit" ]
 }
 
-@test "wiring: template/.husky/pre-push exists with the load-bearing checks" {
-  # New projects inherit pre-push from the template via rsync at /ak-new-project time.
-  # Project pre-push is the load-bearing layer for: no-direct-push-to-main + PR-desc + dirty-push.
-  # Tracked as 644 (matches template/.husky/pre-commit) — husky invokes via
-  # `bash <hook>` so the executable bit is not required, and PR #14's
-  # init-devshop.sh chmod 644 lock loop applies to it too.
-  local hook="$DEVSHOP/template/.husky/pre-push"
-  [ -f "$hook" ]
-  # Sanity: the no-bypass main-block lives in the project hook, not devshop's.
-  grep -q "BLOCKED: direct push to" "$hook"
-  grep -q "No bypass available" "$hook"
+@test "wiring: .hooks/pre-push symlink chain resolves" {
+  # The chain: .husky/pre-push (wrapper) → exec's .hooks/pre-push → symlink to kit/hooks/pre-push.sh.
+  # Mirrors the .hooks/pre-commit chain test above. The wrapper is a tiny husky-shim
+  # bridge; all policy lives in kit/hooks/pre-push.sh and is shared between repos.
+  [ -f "$DEVSHOP/.husky/pre-push" ] || skip ".husky/pre-push not found"
+  [ -L "$DEVSHOP/.hooks/pre-push" ] || skip ".hooks/pre-push not a symlink"
+  # Verify the symlink target exists
+  [ -e "$DEVSHOP/.hooks/pre-push" ]
 }
 
-@test "wiring: devshop /.husky/pre-push does NOT contain PR-desc check (devshop has no PRs)" {
-  # Devshop releases push direct to main with tags — no PRs exist for the
-  # PR-desc check to fire on. The check moved to template/.husky/pre-push.
+@test "wiring: template/.husky/pre-push is a thin wrapper that exec's .hooks/pre-push" {
+  # New projects inherit pre-push from the template via rsync at /ak-new-project time.
+  # The wrapper itself contains no policy — it just exec's the symlink. Policy lives
+  # in kit/hooks/pre-push.sh. This test guards against accidental regressions where
+  # someone re-inlines policy back into the wrapper (the original wart that motivated
+  # this refactor).
+  local hook="$DEVSHOP/template/.husky/pre-push"
+  [ -f "$hook" ]
+  grep -q "exec bash .hooks/pre-push" "$hook"
+  # Wrapper must NOT contain policy markers — those belong in kit/hooks/pre-push.sh
+  ! grep -q "BLOCKED: direct push to" "$hook"
+  ! grep -q "prDescStaleReason" "$hook"
+  ! grep -q "dirtyPushReason" "$hook"
+}
+
+@test "wiring: devshop /.husky/pre-push is a thin wrapper that exec's .hooks/pre-push" {
+  # Devshop's wrapper mirrors the template wrapper byte-for-byte except for the
+  # leading comment. Repo-mode detection (project vs devshop) happens inside
+  # kit/hooks/pre-push.sh, not in the wrapper.
   local hook="$DEVSHOP/.husky/pre-push"
   [ -f "$hook" ]
+  grep -q "exec bash .hooks/pre-push" "$hook"
+  ! grep -q "BLOCKED: direct push to" "$hook"
   ! grep -q "prDescStaleReason" "$hook"
-  ! grep -q "PR description staleness" "$hook"
+  ! grep -q "dirtyPushReason" "$hook"
+}
+
+@test "wiring: kit/hooks/pre-push.sh contains the load-bearing project + devshop policies" {
+  # The unified script holds both repo-mode policies. This test asserts the
+  # markers are present at the policy layer (where the prior structural test
+  # asserted they were present in the wrapper). REPO_MODE branching is verified
+  # by util-pre-push.bats — this is just a sanity check on the script's existence.
+  local script="$DEVSHOP/kit/hooks/pre-push.sh"
+  [ -f "$script" ]
+  [ -x "$script" ]
+  grep -q "BLOCKED: direct push to" "$script"
+  grep -q "No bypass available" "$script"
+  grep -q "prDescStaleReason" "$script"
+  grep -q "dirtyPushReason" "$script"
 }
 
 # =============================================================================

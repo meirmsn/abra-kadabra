@@ -33,6 +33,7 @@
 .claude/commands [symlink]
 .claude/README.md [symlink]
 .hooks/pre-commit [symlink]
+.hooks/pre-push [symlink]
 
 # Scaffolded once at /ak-new-project create time — project owns thereafter and
 # the template's version becomes irrelevant. Bidirectional sync would clobber

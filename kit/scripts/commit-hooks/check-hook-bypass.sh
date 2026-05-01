@@ -39,7 +39,7 @@ fi
 STRIPPED=$(echo "$CMD" | sed -E 's/^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*//')
 LEAD=$(echo "$STRIPPED" | awk '{print $1}')
 case "$LEAD" in
-  git|*/git|cd) ;;  # proceed
+  git|*/git|cd|export) ;;  # proceed (`export VAR=val && git commit` chains too)
   *) exit 0 ;;
 esac
 
