@@ -688,7 +688,7 @@ Lalista's `CLAUDE.md § Where Things Happen` is currently accurate because the o
 
 ### Deeper project docs hierarchy — OVERVIEW + ARCHITECTURE + per-package READMEs [SHIPPED]
 
-> Shipped on `feat/project-docs-deeper-hierarchy`. Builds directly on the "Hierarchical docs scaffold in template [SHIPPED]" entry below by adding two more tiers: Tier 2 product/system overviews (`OVERVIEW.md` + `ARCHITECTURE.md`, both template-scaffolded, opt-in via file existence) and Tier 3 per-package READMEs (`apps/<x>/README.md`, `packages/<x>/README.md`, `supabase/functions/README.md`, opt-in per package). The Tier 1 flat hierarchy (`CLAUDE.md` + 5 siblings) was the de-facto pattern; the next two tiers were missing — projects past ~30 PRs hit `CLAUDE.md` bulge with no escape valve.
+> Shipped on `feat/project-docs-deeper-hierarchy`. Builds directly on the "Hierarchical docs scaffold in template [SHIPPED]" entry below by adding two **Foundational** doc layers (per `guide/conventions.md § Project Docs Hierarchy`): repo-root product/system overviews (`OVERVIEW.md` + `ARCHITECTURE.md`, both template-scaffolded, opt-in via file existence) and per-package READMEs (`apps/<x>/README.md`, `packages/<x>/README.md`, `supabase/functions/README.md`, opt-in per package). The pre-existing repo-root flat hierarchy (`CLAUDE.md` + 5 Operational siblings) was the de-facto pattern; the next two layers were missing — projects past ~30 PRs hit `CLAUDE.md` bulge with no escape valve.
 >
 > **Trigger map extended** in `kit/scripts/commit-hooks/check-docs-freshness-project.sh`:
 >
@@ -697,7 +697,7 @@ Lalista's `CLAUDE.md § Where Things Happen` is currently accurate because the o
 > - New file under `apps/<x>/`, `packages/<x>/src/`, `supabase/functions/<x>/` → corresponding per-package `README.md` if exists
 > - Stale-reference check on DELETE extends to all four target docs + every per-package README discovered at HEAD
 >
-> **Opt-in semantics**: per-package and Tier 2 triggers fire ONLY when the target doc exists at HEAD. New projects scaffold OVERVIEW + ARCHITECTURE automatically; per-package READMEs are operator-driven (created when there's enough surface to document).
+> **Opt-in semantics**: per-package and repo-root Foundational triggers fire ONLY when the target doc exists at HEAD. New projects scaffold OVERVIEW + ARCHITECTURE automatically; per-package READMEs are operator-driven (created when there's enough surface to document).
 >
 > **Adversarial reviewer (`docsFreshnessProject`)**: reviewer context now inlines OVERVIEW.md (head 150), ARCHITECTURE.md (head 150), and the first 80 lines of every per-package README at HEAD. Rule 12 in the prompt extended to verify section-level claims against the new docs. Reviewer rejects bypass reasons that cite sections not actually present.
 >
@@ -705,7 +705,7 @@ Lalista's `CLAUDE.md § Where Things Happen` is currently accurate because the o
 >
 > **Tests**: 13 new BATS cases under `kit/tests/guard-docs-freshness-project.bats` covering opt-in (doc absent → no fire), enforcement (doc present → block on missing stage), test-file exclusion, multi-package isolation, and stale-reference scanning across per-package READMEs. Full suite: 495/495 pass.
 >
-> **Templates added**: `/devshop/template/OVERVIEW.md`, `/devshop/template/ARCHITECTURE.md`. Cross-linked at the top of each. Per-package README skeleton lives in `conventions.md` (operator-driven creation; no template-side scaffolding for Tier 3 since `apps/`, `packages/`, `supabase/functions/` shapes are project-specific).
+> **Templates added**: `/devshop/template/OVERVIEW.md`, `/devshop/template/ARCHITECTURE.md`. Cross-linked at the top of each. Per-package README skeleton lives in `conventions.md` (operator-driven creation; no template-side scaffolding for per-package READMEs since `apps/`, `packages/`, `supabase/functions/` shapes are project-specific).
 
 ---
 

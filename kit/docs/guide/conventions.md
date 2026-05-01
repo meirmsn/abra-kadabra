@@ -608,37 +608,47 @@ The two exempt files (`.devshop-test-coverage-exempt`, `.devshop-docs-freshness-
 
 ## Project Docs Hierarchy
 
-Every devshop project ships with a tiered orientation hierarchy. **Tier 1** is the six-file orientation set at repo root (always-loaded entry + on-demand siblings). **Tier 2** is two on-demand product/system overviews. **Tier 3** is per-package READMEs at `apps/<x>/`, `packages/<x>/`, and `supabase/functions/`, opt-in per package. The session-start hook (`kit/scripts/session-start.sh`) loads only the Tier 1 entry point — everything else is on-demand.
+Every devshop project ships with three categories of orientation docs, distinguished by how each is loaded and what role it plays:
 
-### Tier 1 — Repo-root orientation set (always present)
+- **Always-loaded** — `CLAUDE.md`, injected into every Claude session by the SessionStart hook (`kit/scripts/session-start.sh`). The agent's standing operating manual.
+- **Foundational (on-demand)** — `OVERVIEW.md` (product), `ARCHITECTURE.md` (system), and per-package READMEs at `apps/<x>/`, `packages/<x>/`, `supabase/functions/`. The "what is this / how is it built" docs a new reader (human or fresh-session agent) drills into first. Durable; updated when scope or shape shifts.
+- **Operational (on-demand)** — `PLAN.md`, `BUILD-LOG.md`, `PRODUCT-ROADMAP.md`, `TODOS.md`, `METRICS.md`. Project-management state. Read when planning, shipping, or triaging; transient and continuously updated.
 
-| File                 | Role                                                                                                                                                                                                                                  | Loaded                                                |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| `CLAUDE.md`          | Always-loaded entry point. § Where Things Happen (path map of every documented surface), § Gotchas (non-obvious rules surfaced by shipping work), § Testing, § Stack, § Env Var Naming, § Migration Workflow, § Deploy Configuration. | Every session, automatically                          |
-| `PLAN.md`            | Forward plan at PR grain. § Active / § Planned.                                                                                                                                                                                       | On demand                                             |
-| `BUILD-LOG.md`       | Shipped history. PRs in chronological order with what shipped + non-obvious context.                                                                                                                                                  | On demand                                             |
-| `PRODUCT-ROADMAP.md` | Long-term / deferred features by version.                                                                                                                                                                                             | On demand                                             |
-| `TODOS.md`           | Tactical bugs/polish, organized by version + when-it-runs.                                                                                                                                                                            | On demand                                             |
-| `METRICS.md`         | Event taxonomy + feature flags. Updated alongside every new `posthog.capture` / `Sentry.captureException`.                                                                                                                            | On demand (and required by docs-freshness hook above) |
+> **Naming note**: this doc-category framing is distinct from the **devshop's context-loading tiers** (`/devshop/CLAUDE.md`'s "Tier 1 / Tier 2 / Tier 3", at `kit/notes/roadmap/conventions-audit-redistribution-2026-04-27.md`), which classify devshop's _own_ operational docs by load-frequency. The two taxonomies are unrelated; they apply to different doc sets and use different vocabulary deliberately.
 
-### Tier 2 — Product + system overviews (template-scaffolded, on-demand)
+### Always-loaded
 
-| File              | Role                                                                                                                            | Loaded    |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| `OVERVIEW.md`     | **Product**: what the app does, who uses it, core flows, features, scope bounds. Cross-links to ARCHITECTURE.md.                | On demand |
-| `ARCHITECTURE.md` | **System**: components, data flow, deployment topology, module map. Cross-links to OVERVIEW.md, links into per-package READMEs. | On demand |
+| File        | Role                                                                                                                                                                                                                                  | Loaded                       |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| `CLAUDE.md` | Always-loaded entry point. § Where Things Happen (path map of every documented surface), § Gotchas (non-obvious rules surfaced by shipping work), § Testing, § Stack, § Env Var Naming, § Migration Workflow, § Deploy Configuration. | Every session, automatically |
 
-These two are the next level of detail under `CLAUDE.md`. They split product audience (stakeholder, onboarding) from system audience (engineering). Both ship in `/devshop/template/` so new projects start with the shape; the freshness hook fires on add-paths-that-change-what's-documented only **once the file exists at HEAD** (opt-in by retaining the scaffold). Cross-link them in both directions at the top of each file ("for the system view see ARCHITECTURE.md" / "for the product view see OVERVIEW.md").
+### Foundational (on-demand)
 
-### Tier 3 — Per-package READMEs (opt-in by package)
+The "what is this / how is it built" docs. Read on first contact with the project; updated when scope or shape shifts.
 
-| File pattern                   | Role                                                                                                                                               | Loaded    |
+| File                           | Role                                                                                                                                               | Loaded    |
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| `OVERVIEW.md`                  | **Product**: what the app does, who uses it, core flows, features, scope bounds. Cross-links to ARCHITECTURE.md.                                   | On demand |
+| `ARCHITECTURE.md`              | **System**: components, data flow, deployment topology, module map. Cross-links to OVERVIEW.md, links into per-package READMEs.                    | On demand |
 | `apps/<x>/README.md`           | App-specific surfaces — route map, layout structure, component conventions, env var slice. One per app under `apps/`.                              | On demand |
 | `packages/<x>/README.md`       | Package-specific surfaces — purpose, module map, public API, conventions. One per package under `packages/`.                                       | On demand |
 | `supabase/functions/README.md` | Function contracts — one row per edge function (purpose, request/response shape, auth model, env vars). Single file for all functions, not per-fn. | On demand |
 
-These are **opt-in per package**: create the README when there's enough surface in that package to warrant a focused doc. The freshness hook fires only when the README exists at HEAD — packages without one are silently skipped. No template-side scaffolding (apps/packages/functions land via `/ak-new-project` and are project-specific in shape); the skeleton below is the source of truth for content shape.
+`OVERVIEW.md` + `ARCHITECTURE.md` ship in `/devshop/template/` so new projects start with the shape; the freshness hook fires on add-paths-that-change-what's-documented only **once the file exists at HEAD** (opt-in by retaining the scaffold). Cross-link them in both directions at the top of each file ("for the system view see ARCHITECTURE.md" / "for the product view see OVERVIEW.md").
+
+Per-package READMEs are **opt-in per package**: create the README when there's enough surface in that package to warrant a focused doc. The freshness hook fires only when the README exists at HEAD — packages without one are silently skipped. No template-side scaffolding (apps/packages/functions land via `/ak-new-project` and are project-specific in shape); the skeleton below is the source of truth for content shape.
+
+### Operational (on-demand)
+
+Project-management state — read when planning, shipping, or triaging. Continuously updated.
+
+| File                 | Role                                                                                                       | Loaded                                                |
+| -------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `PLAN.md`            | Forward plan at PR grain. § Active / § Planned.                                                            | On demand                                             |
+| `BUILD-LOG.md`       | Shipped history. PRs in chronological order with what shipped + non-obvious context.                       | On demand                                             |
+| `PRODUCT-ROADMAP.md` | Long-term / deferred features by version.                                                                  | On demand                                             |
+| `TODOS.md`           | Tactical bugs/polish, organized by version + when-it-runs.                                                 | On demand                                             |
+| `METRICS.md`         | Event taxonomy + feature flags. Updated alongside every new `posthog.capture` / `Sentry.captureException`. | On demand (and required by docs-freshness hook above) |
 
 **Per-package README skeleton** (copy when creating a new one):
 
@@ -686,4 +696,4 @@ These are **opt-in per package**: create the README when there's enough surface 
 
 ### Template ships
 
-`/devshop/template/` provides skeletons for every Tier 1 + Tier 2 file (`{CLAUDE,PLAN,BUILD-LOG,PRODUCT-ROADMAP,TODOS,METRICS,OVERVIEW,ARCHITECTURE}.md`) so new projects start with the right shape. `/ak-new-project` Step 16 + Step 18 fill in project-specific values for the older Tier 1 files; OVERVIEW.md + ARCHITECTURE.md ship as-is and are populated as the project's product/system view solidifies. Tier 3 READMEs are NOT scaffolded by the template — they're created per-package when content warrants.
+`/devshop/template/` provides skeletons for every Always-loaded + Foundational repo-root file + every Operational file (`{CLAUDE,PLAN,BUILD-LOG,PRODUCT-ROADMAP,TODOS,METRICS,OVERVIEW,ARCHITECTURE}.md`) so new projects start with the right shape. `/ak-new-project` Step 16 + Step 18 fill in project-specific values for the older Operational files (METRICS, CLAUDE); OVERVIEW.md + ARCHITECTURE.md ship as-is and are populated as the project's product/system view solidifies. Per-package READMEs are NOT scaffolded by the template — they're created per-package when content warrants.
