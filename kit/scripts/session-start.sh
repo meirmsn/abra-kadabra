@@ -244,6 +244,27 @@ if [ -n "$SECURITY_WARN" ]; then
   BRIEFING+=$'\n \033[1;31m'"${SECURITY_WARN}"$'\033[0m'
 fi
 
+# Deps watch — surface overdue dependency-revisit reminders.
+# Reads $ROOT/DEPS-WATCH.md (markdown table). Silent if file is absent or
+# every row's recheck-on date is in the future. Format:
+#   | recheck-on | dep | block | how-to-unignore |
+#   |------------|-----|-------|-----------------|
+#   | 2026-06-01 | eslint 10 | upstream still pins ^9 | gh pr comment 21 ... |
+DEPS_WATCH_FILE="$ROOT/DEPS-WATCH.md"
+if [ -f "$DEPS_WATCH_FILE" ]; then
+  TODAY="$(date -u +%Y-%m-%d)"
+  DEPS_OVERDUE="$(awk -F'|' -v today="$TODAY" '
+    /^\| [0-9]{4}-[0-9]{2}-[0-9]{2} \|/ {
+      gsub(/^ +| +$/, "", $2)
+      gsub(/^ +| +$/, "", $3)
+      gsub(/^ +| +$/, "", $4)
+      if ($2 <= today) printf "   • %s — %s (since %s)\n", $3, $4, $2
+    }' "$DEPS_WATCH_FILE" 2>/dev/null)"
+  if [ -n "$DEPS_OVERDUE" ]; then
+    BRIEFING+=$'\n \xf0\x9f\x9a\xa8 \033[1;33mDEPS-WATCH overdue — see DEPS-WATCH.md:\033[0m\n'"$DEPS_OVERDUE"
+  fi
+fi
+
 BRIEFING+="
 ────────────────────────────────────────
  /ak-status  — full briefing
