@@ -192,3 +192,155 @@ EOF
   assert_output --partial "apps/web/app/list/page.tsx"
   assert_output --partial "packages/core/src/api/orders.ts"
 }
+
+# --- OVERVIEW.md / ARCHITECTURE.md (opt-in: trigger only fires when file exists) ---
+
+@test "PASS: new page when OVERVIEW.md does not exist (opt-in not engaged)" {
+  stage_file apps/web/app/about/page.tsx "export default function P() {}"
+  echo "# CLAUDE.md\n- about at apps/web/app/about/page.tsx" > "$TEST_REPO/CLAUDE.md"
+  git -C "$TEST_REPO" add CLAUDE.md
+  # OVERVIEW.md absent → trigger silent
+  run_script
+  assert_success
+}
+
+@test "BLOCK: new page when OVERVIEW.md exists but is NOT staged" {
+  echo "# OVERVIEW" > "$TEST_REPO/OVERVIEW.md"
+  git -C "$TEST_REPO" add OVERVIEW.md
+  git -C "$TEST_REPO" commit -q -m "seed OVERVIEW"
+  stage_file apps/web/app/about/page.tsx "export default function P() {}"
+  echo "# CLAUDE.md\n- about at apps/web/app/about/page.tsx" > "$TEST_REPO/CLAUDE.md"
+  git -C "$TEST_REPO" add CLAUDE.md
+  run_script
+  assert_failure
+  assert_output --partial "OVERVIEW.md NOT staged"
+}
+
+@test "PASS: new page when OVERVIEW.md exists AND is staged" {
+  echo "# OVERVIEW" > "$TEST_REPO/OVERVIEW.md"
+  git -C "$TEST_REPO" add OVERVIEW.md
+  git -C "$TEST_REPO" commit -q -m "seed OVERVIEW"
+  stage_file apps/web/app/about/page.tsx "export default function P() {}"
+  echo "# CLAUDE.md\n- about at apps/web/app/about/page.tsx" > "$TEST_REPO/CLAUDE.md"
+  echo "# OVERVIEW\n- about flow" > "$TEST_REPO/OVERVIEW.md"
+  git -C "$TEST_REPO" add CLAUDE.md OVERVIEW.md
+  run_script
+  assert_success
+}
+
+@test "BLOCK: new page when ARCHITECTURE.md exists but is NOT staged" {
+  echo "# ARCH" > "$TEST_REPO/ARCHITECTURE.md"
+  git -C "$TEST_REPO" add ARCHITECTURE.md
+  git -C "$TEST_REPO" commit -q -m "seed ARCH"
+  stage_file apps/web/app/about/page.tsx "export default function P() {}"
+  echo "# CLAUDE.md\n- about at apps/web/app/about/page.tsx" > "$TEST_REPO/CLAUDE.md"
+  git -C "$TEST_REPO" add CLAUDE.md
+  run_script
+  assert_failure
+  assert_output --partial "ARCHITECTURE.md NOT staged"
+}
+
+@test "PASS: new packages/<x>/src/ file does NOT trigger ARCHITECTURE.md (only entrypoint surfaces do)" {
+  echo "# ARCH" > "$TEST_REPO/ARCHITECTURE.md"
+  git -C "$TEST_REPO" add ARCHITECTURE.md
+  git -C "$TEST_REPO" commit -q -m "seed ARCH"
+  stage_file packages/core/src/util/format.ts "export const fmt = (s: string) => s"
+  run_script
+  assert_success
+}
+
+# --- per-package README (opt-in by package) ---
+
+@test "PASS: new file under apps/web/ when apps/web/README.md does NOT exist" {
+  stage_file apps/web/components/Button.tsx "export const Button = () => null"
+  # No apps/web/README.md → trigger silent
+  run_script
+  assert_success
+}
+
+@test "BLOCK: new file under apps/web/ when apps/web/README.md exists but is NOT staged" {
+  mkdir -p "$TEST_REPO/apps/web"
+  echo "# apps/web" > "$TEST_REPO/apps/web/README.md"
+  git -C "$TEST_REPO" add apps/web/README.md
+  git -C "$TEST_REPO" commit -q -m "seed apps/web README"
+  stage_file apps/web/components/Button.tsx "export const Button = () => null"
+  run_script
+  assert_failure
+  assert_output --partial "apps/web/README.md"
+  assert_output --partial "apps/web/components/Button.tsx"
+}
+
+@test "PASS: new file under apps/web/ when apps/web/README.md is staged" {
+  mkdir -p "$TEST_REPO/apps/web"
+  echo "# apps/web" > "$TEST_REPO/apps/web/README.md"
+  git -C "$TEST_REPO" add apps/web/README.md
+  git -C "$TEST_REPO" commit -q -m "seed apps/web README"
+  stage_file apps/web/components/Button.tsx "export const Button = () => null"
+  echo "# apps/web\n- Button" > "$TEST_REPO/apps/web/README.md"
+  git -C "$TEST_REPO" add apps/web/README.md
+  run_script
+  assert_success
+}
+
+@test "PASS: test files under apps/web/ do NOT trigger per-package README requirement" {
+  mkdir -p "$TEST_REPO/apps/web"
+  echo "# apps/web" > "$TEST_REPO/apps/web/README.md"
+  git -C "$TEST_REPO" add apps/web/README.md
+  git -C "$TEST_REPO" commit -q -m "seed apps/web README"
+  stage_file apps/web/lib/util.test.ts "test('x', () => {})"
+  run_script
+  assert_success
+}
+
+@test "BLOCK: new file under packages/core/src/ when packages/core/README.md exists but NOT staged" {
+  mkdir -p "$TEST_REPO/packages/core"
+  echo "# packages/core" > "$TEST_REPO/packages/core/README.md"
+  git -C "$TEST_REPO" add packages/core/README.md
+  git -C "$TEST_REPO" commit -q -m "seed packages/core README"
+  stage_file packages/core/src/api/orders.ts "export const fetchOrders = async () => {}"
+  echo "# CLAUDE.md\n- orders at packages/core/src/api/orders.ts" > "$TEST_REPO/CLAUDE.md"
+  git -C "$TEST_REPO" add CLAUDE.md
+  run_script
+  assert_failure
+  assert_output --partial "packages/core/README.md"
+}
+
+@test "BLOCK: new file under supabase/functions/ when supabase/functions/README.md exists but NOT staged" {
+  mkdir -p "$TEST_REPO/supabase/functions"
+  echo "# functions" > "$TEST_REPO/supabase/functions/README.md"
+  git -C "$TEST_REPO" add supabase/functions/README.md
+  git -C "$TEST_REPO" commit -q -m "seed functions README"
+  stage_file supabase/functions/add-item/index.ts "Deno.serve(() => new Response('ok'))"
+  run_script
+  assert_failure
+  assert_output --partial "supabase/functions/README.md"
+}
+
+@test "PASS: new file in packages/<other> does not trigger another package's README" {
+  # Only packages/core/README.md exists; adding to packages/ui should be silent.
+  mkdir -p "$TEST_REPO/packages/core"
+  echo "# core" > "$TEST_REPO/packages/core/README.md"
+  git -C "$TEST_REPO" add packages/core/README.md
+  git -C "$TEST_REPO" commit -q -m "seed core README"
+  stage_file packages/ui/src/Button.tsx "export const Button = () => null"
+  run_script
+  assert_success
+}
+
+# --- stale reference now scans per-package READMEs ---
+
+@test "BLOCK: source delete leaves stale reference in apps/<x>/README.md" {
+  mkdir -p "$TEST_REPO/apps/web"
+  stage_file apps/web/components/Button.tsx "export const Button = () => null"
+  cat > "$TEST_REPO/apps/web/README.md" <<EOF
+# apps/web
+- Button at apps/web/components/Button.tsx
+EOF
+  git -C "$TEST_REPO" add apps/web/components/Button.tsx apps/web/README.md
+  git -C "$TEST_REPO" commit -q -m "add Button"
+  git -C "$TEST_REPO" rm apps/web/components/Button.tsx -q
+  # Don't update apps/web/README.md → stale ref
+  run_script
+  assert_failure
+  assert_output --partial "apps/web/components/Button.tsx referenced in apps/web/README.md"
+}

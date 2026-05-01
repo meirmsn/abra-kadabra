@@ -85,7 +85,7 @@ git commit
   │       │                                 .devshop-test-coverage-exempt /
   │       │                                 .devshop-docs-freshness-exempt (project only)
   │       ├─ check-test-coverage-project.sh src ADD without paired test → block (project only)
-  │       ├─ check-docs-freshness-project.sh page/wrapper/event without doc update → block (project only)
+  │       ├─ check-docs-freshness-project.sh page/wrapper/event without CLAUDE/METRICS update → block (project only); per-package READMEs + OVERVIEW/ARCHITECTURE opt-in (fire only when file exists at HEAD)
   │       └─ commit-guard.sh ──────────── 4 checks (run in this order):
   │           ├─ mixed-commit ───────────── devshop + project files together? block
   │           ├─ docs-reviewed ──────────── any devshop file staged (non-release)? adversarial
