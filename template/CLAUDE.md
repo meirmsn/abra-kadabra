@@ -13,7 +13,6 @@
 
 Path map of every documented surface. Update this section when introducing a new page, API wrapper, edge function, design token surface, or CI/CD workflow — `kit/scripts/commit-hooks/check-docs-freshness-project.sh` blocks PRs that add a triggering surface without updating this section.
 
-- **Forward plan**: `PLAN.md` (Active + Planned features at PR grain). Shipped history in `BUILD-LOG.md`. Deferred / long-term in `PRODUCT-ROADMAP.md`. Tactical bugs/polish in `TODOS.md`.
 - **<surface name>**: <one-sentence pointer to the file path(s) where it lives>
 
 _This section grows as code is added. Update it when introducing new paths._
