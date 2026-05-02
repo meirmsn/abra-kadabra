@@ -63,6 +63,11 @@ while read -r cidr; do
     ipset add allowed-domains "$cidr"
 done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]' | aggregate -q)
 
+# Track soft-skipped domains so the final summary banner makes them
+# impossible to miss (a single mid-script WARN can scroll off-screen
+# behind hundreds of "Adding $ip" lines from the surviving entries).
+SKIPPED_DOMAINS=()
+
 # Resolve and add other allowed domains
 # === PROJECT-SPECIFIC DOMAINS ===
 # /ak-new-project will guide you to add your project-specific domains here.
@@ -80,7 +85,6 @@ for domain in \
     "deb.debian.org" \
     "api.anthropic.com" \
     "sentry.io" \
-    "statsig.anthropic.com" \
     "statsig.com" \
     "marketplace.visualstudio.com" \
     "vscode.blob.core.windows.net" \
@@ -98,10 +102,20 @@ for domain in \
     "ntfy.sh" \
     ; do
     echo "Resolving $domain..."
-    ips=$(dig +noall +answer A "$domain" | awk '$4 == "A" {print $5}')
+    ips=$(dig +noall +answer A "$domain" 2>/dev/null | awk '$4 == "A" {print $5}')
     if [ -z "$ips" ]; then
-        echo "ERROR: Failed to resolve $domain"
-        exit 1
+        # Tolerant resolution: a single retired or transiently-unresolvable
+        # domain shouldn't brick postStartCommand. Loud yellow inline banner
+        # AND a deferred summary banner at the end (so it can't scroll away
+        # behind hundreds of "Adding $ip" lines from surviving entries).
+        printf '\n\033[1;33m================================================================\n' >&2
+        printf 'WARN: Failed to resolve %s\n' "$domain" >&2
+        printf 'Skipping — egress to this host will be BLOCKED by the firewall.\n' >&2
+        printf 'If the domain is gone, remove it from init-firewall.sh.\n' >&2
+        printf 'If transient, rerun: sudo /usr/local/bin/init-firewall.sh\n' >&2
+        printf '================================================================\033[0m\n\n' >&2
+        SKIPPED_DOMAINS+=("$domain")
+        continue
     fi
 
     while read -r ip; do
@@ -158,4 +172,17 @@ if ! curl --connect-timeout 5 https://api.github.com/zen >/dev/null 2>&1; then
     exit 1
 else
     echo "Firewall verification passed - able to reach https://api.github.com as expected"
+fi
+
+# Final summary: re-surface skipped domains so they don't scroll off-screen
+# behind hundreds of "Adding $ip" / verification lines.
+if [ ${#SKIPPED_DOMAINS[@]} -gt 0 ]; then
+    printf '\n\033[1;33m################################################################\n' >&2
+    printf '#  WARN: Firewall init completed with %d unresolved domain(s):\n' "${#SKIPPED_DOMAINS[@]}" >&2
+    for d in "${SKIPPED_DOMAINS[@]}"; do
+        printf '#    - %s\n' "$d" >&2
+    done
+    printf '#  Egress to those hosts is BLOCKED. If the domain is retired,\n' >&2
+    printf '#  remove it from .devcontainer/init-firewall.sh and rebuild.\n' >&2
+    printf '################################################################\033[0m\n\n' >&2
 fi
