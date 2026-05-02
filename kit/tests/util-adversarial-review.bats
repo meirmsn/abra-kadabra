@@ -24,7 +24,6 @@ EOF
   mkdir -p "$TEST_REPO/kit/docs/guide"
   mkdir -p "$TEST_REPO/kit/scripts/commit-hooks"
   echo "# OVERVIEW" > "$TEST_REPO/kit/docs/OVERVIEW.md"
-  echo "# MODEL"    > "$TEST_REPO/kit/docs/MODEL.md"
   echo "# FAQ"      > "$TEST_REPO/kit/docs/FAQ.md"
   echo "# README"   > "$TEST_REPO/README.md"
   echo "# CLAUDE"   > "$TEST_REPO/CLAUDE.md"
@@ -62,9 +61,10 @@ EOF
 
   (cd "$TEST_REPO" && bash "$REVIEW" docsReviewed "test reason" >/dev/null 2>&1) || true
   [ -f "$CAPTURED_PROMPT" ]
-  # Rule (d) heading + the historical-notes carve-out
+  # Rule (d) heading + the historical-archives carve-out (now a single
+  # end-of-rule-4 line covering both kit/notes/** and project equivalents).
   grep -q "Rename/move/delete drift sweep" "$CAPTURED_PROMPT"
-  grep -q "Historical notes under kit/notes/" "$CAPTURED_PROMPT"
+  grep -q "kit/notes/" "$CAPTURED_PROMPT"
 }
 
 @test "docsReviewed: prompt surfaces deleted file in rename-detection block" {

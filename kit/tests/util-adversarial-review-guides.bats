@@ -37,7 +37,6 @@ EOF
 
   # Reference docs the docsReviewed CONTEXT block reads — keep minimal.
   echo "# OVERVIEW" > "$TEST_REPO/kit/docs/OVERVIEW.md"
-  echo "# MODEL"    > "$TEST_REPO/kit/docs/MODEL.md"
   echo "# FAQ"      > "$TEST_REPO/kit/docs/FAQ.md"
   echo "# README"   > "$TEST_REPO/README.md"
   echo "# CLAUDE"   > "$TEST_REPO/CLAUDE.md"
@@ -189,7 +188,7 @@ GUIDE
   [ "$status" -ne 0 ]
 }
 
-# === Prompt rule 4(e) — addition drift sweep ===
+# === Prompt rule 1(e) — addition drift sweep ===
 
 @test "docsReviewed: prompt includes rule (e) — addition drift sweep" {
   echo "# new" > "$TEST_REPO/kit/scripts/commit-hooks/check-new.sh"
@@ -199,6 +198,97 @@ GUIDE
   [ -f "$CAPTURED_PROMPT" ]
   grep -q "Addition drift sweep" "$CAPTURED_PROMPT"
   grep -q "STRUCTURED ENUMERATION" "$CAPTURED_PROMPT"
-  # Mirrors the (d) carve-out so historical-notes traffic doesn't trip it.
-  grep -q "Historical notes under kit/notes/" "$CAPTURED_PROMPT"
+  # Historical-archives carve-out now applies to both (d) and (e) — single
+  # line at the end of rule 1 covering kit/notes/** + project equivalents.
+  grep -q "kit/notes/" "$CAPTURED_PROMPT"
+}
+
+# === Prompt rule 1(a) — sharpened: name specific edits + grep verification ===
+
+@test "docsReviewed: prompt includes rule (a) — name distinctive phrase + grep verification" {
+  echo "x" > "$TEST_REPO/kit/scripts/anything.sh"
+  (cd "$TEST_REPO" && git add kit/scripts/anything.sh)
+
+  (cd "$TEST_REPO" && bash "$REVIEW" docsReviewed "test reason" >/dev/null 2>&1) || true
+  [ -f "$CAPTURED_PROMPT" ]
+  # Rule 1(a) — sharpened 2026-05-01: each AFFECTED-doc claim must name a
+  # distinctive phrase from the edit, and the reviewer verifies via grep-on-diff.
+  grep -q "Per-doc enumeration" "$CAPTURED_PROMPT"
+  grep -q "distinctive phrase" "$CAPTURED_PROMPT"
+  grep -q "searching the staged diff" "$CAPTURED_PROMPT"
+}
+
+# === Cross-repo inlining removed (devshop-side docsReviewed) ===
+
+@test "docsReviewed (devshop): no longer inlines /workspace/CLAUDE.md cross-repo" {
+  echo "# new" > "$TEST_REPO/kit/scripts/commit-hooks/check-new.sh"
+  (cd "$TEST_REPO" && git add kit/scripts/commit-hooks/check-new.sh)
+
+  (cd "$TEST_REPO" && bash "$REVIEW" docsReviewed "test reason" >/dev/null 2>&1) || true
+  [ -f "$CAPTURED_PROMPT" ]
+  # Pre-2026-05-01 the prompt had a "=== CLAUDE.md (project) ===" block fed
+  # from /workspace/CLAUDE.md head-100. Dropped — devshop docs review reads
+  # only devshop docs.
+  run grep -F "CLAUDE.md (project)" "$CAPTURED_PROMPT"
+  [ "$status" -ne 0 ]
+}
+
+# === FULL CLAUDE.md inline (head-100 truncation removed) ===
+
+@test "docsReviewed (devshop): inlines CLAUDE.md FULL — captures content past line 100" {
+  # Build a CLAUDE.md that's longer than 100 lines, with a sentinel near the end.
+  # Pre-2026-05-01 the inliner used `head -100`, which would silently drop the
+  # sentinel; FULL inlining must surface it.
+  {
+    for i in $(seq 1 120); do echo "filler line $i"; done
+    echo "SENTINEL_PAST_LINE_100: load-bearing gotcha that lives near the bottom"
+  } > "$TEST_REPO/CLAUDE.md"
+  (cd "$TEST_REPO" && git add CLAUDE.md && git -c user.email=t@t -c user.name=t commit -q -m "extend CLAUDE.md")
+
+  echo "# new" > "$TEST_REPO/kit/scripts/commit-hooks/check-new.sh"
+  (cd "$TEST_REPO" && git add kit/scripts/commit-hooks/check-new.sh)
+
+  (cd "$TEST_REPO" && bash "$REVIEW" docsReviewed "test reason" >/dev/null 2>&1) || true
+  [ -f "$CAPTURED_PROMPT" ]
+  grep -q "=== CLAUDE.md (devshop, FULL) ===" "$CAPTURED_PROMPT"
+  grep -q "SENTINEL_PAST_LINE_100" "$CAPTURED_PROMPT"
+}
+
+# === Project-side docsReviewed (unified check-type, REPO_MODE=project) ===
+
+@test "docsReviewed (project): inlines project doc catalog when run from non-devshop repo" {
+  # Spin up a parallel "project" test repo (no kit/ dir → REPO_MODE=project).
+  PROJECT_REPO="$BATS_TEST_TMPDIR/project"
+  mkdir -p "$PROJECT_REPO/apps/web" "$PROJECT_REPO/packages/core"
+  (cd "$PROJECT_REPO" && git init -q && git config user.email t@t && git config user.name t)
+  cat > "$PROJECT_REPO/CLAUDE.md" <<'EOF'
+# Project CLAUDE.md
+SENTINEL_PROJECT_CLAUDE: project-side catalog should pick this up.
+EOF
+  cat > "$PROJECT_REPO/METRICS.md" <<'EOF'
+# METRICS
+SENTINEL_PROJECT_METRICS: events live here.
+EOF
+  cat > "$PROJECT_REPO/apps/web/README.md" <<'EOF'
+# apps/web
+SENTINEL_APPS_WEB_README: per-package README inlined FULL.
+EOF
+  (cd "$PROJECT_REPO" && git add . && git -c user.email=t@t -c user.name=t commit -q -m base)
+
+  # Stage a project-side change.
+  echo "export const x = 1" > "$PROJECT_REPO/packages/core/src.ts"
+  (cd "$PROJECT_REPO" && git add packages/core/src.ts)
+
+  (cd "$PROJECT_REPO" && bash "$REVIEW" docsReviewed "test reason" >/dev/null 2>&1) || true
+  [ -f "$CAPTURED_PROMPT" ]
+  grep -q "Repo: project" "$CAPTURED_PROMPT"
+  grep -q "=== CLAUDE.md (project, FULL) ===" "$CAPTURED_PROMPT"
+  grep -q "SENTINEL_PROJECT_CLAUDE" "$CAPTURED_PROMPT"
+  grep -q "=== METRICS.md (FULL) ===" "$CAPTURED_PROMPT"
+  grep -q "SENTINEL_PROJECT_METRICS" "$CAPTURED_PROMPT"
+  grep -q "apps/web/README.md (FULL)" "$CAPTURED_PROMPT"
+  grep -q "SENTINEL_APPS_WEB_README" "$CAPTURED_PROMPT"
+  # Devshop-only sections must NOT appear on the project branch.
+  run grep -F "kit/docs/guide/ section headers" "$CAPTURED_PROMPT"
+  [ "$status" -ne 0 ]
 }

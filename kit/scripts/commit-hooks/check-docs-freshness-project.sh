@@ -272,7 +272,7 @@ ARCHITECTURE.md staged in this commit: $ARCHITECTURE_STAGED
 Staged file list:
 $STAGED"
     echo "⏳ Docs-freshness bypass: reviewing reason with adversarial agent..."
-    if RESULT=$(bash "$SCRIPT_DIR/../adversarial-review.sh" docsFreshnessProject "$REVIEW_CONTEXT" 2>&1); then
+    if RESULT=$(bash "$SCRIPT_DIR/../adversarial-review.sh" docsReviewed "$REVIEW_CONTEXT" 2>&1); then
       echo "✓ Docs-freshness bypass: adversarial review accepted."
       exit 0
     else
