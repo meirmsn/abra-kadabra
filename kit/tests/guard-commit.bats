@@ -43,7 +43,6 @@ setup_devshop_repo() {
   git -C "$TEST_REPO" config user.email "test@test.com"
   git -C "$TEST_REPO" config user.name "Test"
   echo "init" > "$TEST_REPO/.gitkeep"
-  echo "# MODEL" > "$TEST_REPO/kit/docs/MODEL.md"
   echo "# OVERVIEW" > "$TEST_REPO/kit/docs/OVERVIEW.md"
   echo "# FAQ" > "$TEST_REPO/kit/docs/FAQ.md"
   echo "# CLAUDE" > "$TEST_REPO/CLAUDE.md"
@@ -175,8 +174,8 @@ run_guard() {
 
 @test "docs-reviewed: blocks when ref doc staged without review notes" {
   setup_devshop_repo
-  echo "# Updated MODEL" > "$TEST_REPO/kit/docs/MODEL.md"
-  git -C "$TEST_REPO" add kit/docs/MODEL.md
+  echo "# Updated OVERVIEW" > "$TEST_REPO/kit/docs/OVERVIEW.md"
+  git -C "$TEST_REPO" add kit/docs/OVERVIEW.md
   run_guard
   assert_failure 1
   assert_output --partial "docs review required"
@@ -186,9 +185,9 @@ run_guard() {
 @test "docs-reviewed: passes when ref doc staged with single docsReviewed flag (one flag covers both coverage + coherence)" {
   setup_devshop_repo
   mock_adversarial_review PASS
-  echo "# Updated MODEL" > "$TEST_REPO/kit/docs/MODEL.md"
-  git -C "$TEST_REPO" add kit/docs/MODEL.md
-  git -C "$TEST_REPO" config devshop.docsReviewed "updated MODEL; checked OVERVIEW and guide for cross-file coherence; no other docs affected"
+  echo "# Updated OVERVIEW" > "$TEST_REPO/kit/docs/OVERVIEW.md"
+  git -C "$TEST_REPO" add kit/docs/OVERVIEW.md
+  git -C "$TEST_REPO" config devshop.docsReviewed "updated OVERVIEW; checked guide for cross-file coherence; no other docs affected"
   run_guard
   assert_success
 }
@@ -220,8 +219,8 @@ run_guard() {
   # Stage a kit/ file AND a ref doc — formerly fired docs-drift + doc-consistency
   # as two separate checks; now fires ONE merged docs-reviewed check.
   stage_file "kit/scripts/new-thing.sh" "#!/bin/bash"
-  echo "# Updated MODEL" > "$TEST_REPO/kit/docs/MODEL.md"
-  git -C "$TEST_REPO" add kit/docs/MODEL.md
+  echo "# Updated OVERVIEW" > "$TEST_REPO/kit/docs/OVERVIEW.md"
+  git -C "$TEST_REPO" add kit/docs/OVERVIEW.md
   run_guard
   assert_failure 1
   assert_output --partial "docs review required"

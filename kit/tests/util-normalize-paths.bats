@@ -18,8 +18,8 @@ setup() {
 }
 
 @test "handles mixed absolute and relative in same input" {
-  input=$'kit/hooks/pre-commit.sh\n/devshop/kit/scripts/init.sh\nkit/docs/MODEL.md'
-  expected=$'.devshopkit/hooks/pre-commit.sh\n/devshop/kit/scripts/init.sh\n.devshopkit/docs/MODEL.md'
+  input=$'kit/hooks/pre-commit.sh\n/devshop/kit/scripts/init.sh\nkit/docs/OVERVIEW.md'
+  expected=$'.devshopkit/hooks/pre-commit.sh\n/devshop/kit/scripts/init.sh\n.devshopkit/docs/OVERVIEW.md'
   result=$(echo "$input" | bash "$NORMALIZE")
   assert_equal "$result" "$expected"
 }

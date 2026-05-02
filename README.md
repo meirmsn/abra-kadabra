@@ -30,13 +30,13 @@ Run `/ak-migrate-project` (skeleton — two tiers: lightweight and full). See `k
 | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **End-to-end automation** — idea to production, two touchpoints: review the PR, say "land it"                 | [Pipeline](kit/docs/guide/workflow.md): plan → implement → quality gates → ship → deploy → monitor. [New project](kit/docs/guide/workflow.md#starting-a-new-project) from template in one command. [Migrate existing projects](kit/ROADMAP.md) _(upcoming)_. Picks up where it left off if interrupted. |
 | **Separation** — devshop and project are independent; improve one without touching the other                  | [Two repos, one workspace](kit/docs/guide/architecture.md). Clean project repo — conventional commits, PRs, CI, [no devshop artifacts](kit/docs/guide/architecture.md#file-lifecycle). Works without the devshop (`pnpm install && pnpm turbo run dev`).                                                |
-| **Guardrails built in** — tests, security, and quality are mandatory; Claude can't weaken its own constraints | No code ships without tests, metrics, and [security review](kit/docs/MODEL.md#security). Pre-commit enforcement on every commit. Root-owned config files. [14 quality gates](kit/docs/guide/workflow.md) before PR.                                                                                     |
+| **Guardrails built in** — tests, security, and quality are mandatory; Claude can't weaken its own constraints | No code ships without tests, metrics, and [security review](kit/docs/OVERVIEW.md#security). Pre-commit enforcement on every commit. Root-owned config files. [14 quality gates](kit/docs/guide/workflow.md) before PR.                                                                                  |
 
-Design principle: **simple and debuggable** — boring solutions, three layers, one pipeline. When something breaks, the [conceptual model](kit/docs/MODEL.md) tells you where to look.
+Design principle: **simple and debuggable** — boring solutions, three layers, one pipeline. When something breaks, the [conceptual model](kit/docs/OVERVIEW.md#concept) tells you where to look.
 
 ## How it works
 
-See `kit/docs/MODEL.md` for how the system works. See `kit/docs/OVERVIEW.md` for the full picture: workflow, file map, conventions, and glossary.
+See `kit/docs/OVERVIEW.md § Concept` for how the system works (three layers, two repos, pipeline, file lifecycle). The rest of `OVERVIEW.md` is the operational picture: workflow, file map, conventions, and glossary.
 
 Short version: you write rough notes, `/office-hours` turns them into a product design, `/autoplan` locks in architecture, `/ak-build` implements autonomously (spec → code → quality gates → PR), you review, `/ak-go-live` deploys.
 

@@ -2,7 +2,7 @@
 
 The devshop (abra-kadabra) and the project repo are separate git repositories. The project repo is clean and publishable — it contains only project code, build config, and CI. All devshop infrastructure gets **injected at container start** via symlinks.
 
-For the conceptual model (layers, pipeline, file lifecycle): see [`../MODEL.md`](../MODEL.md)
+For the conceptual model (layers, pipeline, file lifecycle): see [`../OVERVIEW.md § Concept`](../OVERVIEW.md#concept)
 
 ## Two repos, one workspace
 

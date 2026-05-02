@@ -23,7 +23,7 @@ Priority tiers:
 | ---- | ------------------------------------------------------------------------------ | ------------------------------------------ |
 | 1    | `/devshop/CLAUDE.md` (+ project `CLAUDE.md` per session via SessionStart hook) | Every session start                        |
 | 2    | Skill `SKILL.md` files                                                         | Only when the matching slash command fires |
-| 3    | `kit/docs/guide/**`, `kit/docs/MODEL.md`, `OVERVIEW.md`, `FAQ.md`              | Only when explicitly read or grep'd        |
+| 3    | `kit/docs/guide/**`, `kit/docs/OVERVIEW.md` (incl. § Concept), `FAQ.md`        | Only when explicitly read or grep'd        |
 
 Operational rules belong in Tier 1 (cross-cutting principles) or Tier 2 (skill-specific actions). Tier 3 is the human-browseable encyclopedia + cross-reference index.
 

@@ -131,9 +131,9 @@ if [ "$RUN_DOCS_CHECK" = true ]; then
     # message so the operator knows the cross-file coherence rule kicks in.
     REFERENCE_DOCS_STAGED=""
     if [ "$CURRENT_REPO" = "devshop" ]; then
-      REFERENCE_DOCS_STAGED=$(echo "$STAGED" | grep -E '^(CLAUDE\.md$|kit/docs/(MODEL|OVERVIEW|FAQ)\.md$|kit/docs/guide/)' || true)
+      REFERENCE_DOCS_STAGED=$(echo "$STAGED" | grep -E '^(CLAUDE\.md$|kit/docs/(OVERVIEW|FAQ)\.md$|kit/docs/guide/)' || true)
     else
-      REFERENCE_DOCS_STAGED=$(echo "$STAGED" | grep -E '^\.devshopkit/docs/(MODEL|OVERVIEW|FAQ)\.md$|^\.devshopkit/docs/guide/' || true)
+      REFERENCE_DOCS_STAGED=$(echo "$STAGED" | grep -E '^\.devshopkit/docs/(OVERVIEW|FAQ)\.md$|^\.devshopkit/docs/guide/' || true)
     fi
 
     REVIEW_NOTES=$(git config --get devshop.docsReviewed 2>/dev/null || true)
@@ -166,12 +166,10 @@ if [ "$RUN_DOCS_CHECK" = true ]; then
       echo ""
       echo "  Review ALL of these docs — even if they don't mention the changed code yet"
       echo "  (new functionality needs to be documented for the first time):"
-      echo "    kit/docs/MODEL.md      — conceptual model"
-      echo "    kit/docs/OVERVIEW.md   — devshop overview"
+      echo "    kit/docs/OVERVIEW.md   — devshop overview (incl. § Concept)"
       echo "    kit/docs/guide/        — operational reference (workflow, conventions, hooks, security, architecture, ops)"
       echo "    CLAUDE.md               — devshop conventions (repo root)"
       echo "    kit/docs/FAQ.md        — design rationale"
-      echo "    CLAUDE.md (project)    — project-specific conventions"
       echo "    README.md              — user-facing description and commands"
       echo ""
       echo "  1. Read each doc above"

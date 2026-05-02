@@ -9,6 +9,75 @@ A one-person dev shop that goes from rough notes to deployed, tested, observable
 
 **New project?** Run `/ak-new-project` from any devcontainer — Phase A creates the GitHub repo from the `template/` skeleton, Phase B runs setup after you open the new project.
 
+## Concept
+
+A transparent, opinionated workshop for building software. You bring the product idea and taste. The devshop handles everything technical — from planning through production — following industry-standard practices. You can always open the hatch to see and improve the inner workings.
+
+### Three Layers
+
+```
+┌─────────────────────────────────┐
+│           Project               │  Your code. Clean repo.
+│         /workspace/             │
+├─────────────────────────────────┤
+│        Workshop (ak)            │  Process, orchestration, quality
+│         /devshop/               │
+├─────────────────────────────────┤
+│        Toolbox (gstack)         │  Building-block skills
+│       (third-party)             │
+└─────────────────────────────────┘
+```
+
+**Toolbox (gstack)** — Third-party toolkit. Individual skills: browse, review, plan, qa, ship, canary, etc. Devshop consumes it; gstack doesn't know devshop exists. Evolves independently — when gstack adds a capability devshop was doing custom, devshop adopts it.
+
+**Workshop (ak)** — What devshop adds on top. Orchestrates toolbox skills into end-to-end workflows (ak-build, ak-go-live), enforces quality gates (ak-pre-ship), and maintains conventions, hooks, and security. Opinionated defaults reusable across projects.
+
+**Project** — The software being built. Clean repo — code, tests, CI. A public contributor sees normal commits, PRs, and workflows. No devshop artifacts.
+
+### Two Repos
+
+|                     | Devshop                        | Project                 |
+| ------------------- | ------------------------------ | ----------------------- |
+| Contains            | Tools, process, docs, template | Product code, tests, CI |
+| Source of truth for | How to build                   | What to build           |
+| Git visibility      | Private                        | Public-friendly         |
+| Mount               | `/devshop/`                    | `/workspace/`           |
+
+They meet inside the **container**. At startup, the devshop injects itself into the project workspace — skills become available, hooks activate, docs are reachable. The project repo stays clean.
+
+### The Pipeline
+
+```
+idea → /office-hours → /autoplan → /ak-spec → /ak-build → you review → /ak-go-live
+       product         plan         spec        build+test   approval     deploy+monitor
+       conversation    architecture             +quality                  +canary
+```
+
+You participate at product conversations and review. Everything else is autonomous. Engineering insights flow upward — implementation details that the product stage didn't anticipate inform the roadmap.
+
+### File Lifecycle
+
+Every file in the project falls into one of three categories at this conceptual level:
+
+| Category            | How it works                 | When changes take effect | Examples                     |
+| ------------------- | ---------------------------- | ------------------------ | ---------------------------- |
+| **Project-owned**   | Normal git files             | Immediately              | `src/`, `CLAUDE.md`          |
+| **Devshop-linked**  | Symlink to `/devshop/`       | Immediately              | `.devshopkit/`, skills       |
+| **Security-locked** | Root-owned copy from devshop | Next container start     | `settings.json`, `.dcg.toml` |
+
+When something isn't working, this tells you where to look and what to expect.
+
+The implementation classifies each managed path with an inline lifecycle annotation in `kit/manifest.txt` (the single source of truth — `[symlink]`, `[locked]`, `[locked-dir]`, `[sync]`, `[scaffold-once]`). See `guide/architecture.md § File lifecycle` for the full table; this conceptual three-way split groups those annotations: **Project-owned** covers `[sync]` (after divergence) + `[scaffold-once]` + project-only files, **Devshop-linked** covers `[symlink]`, **Security-locked** covers `[locked]` + `[locked-dir]`.
+
+### Security
+
+One principle: **Claude cannot weaken its own guardrails.**
+
+- **Firewall** — allowlisted outbound traffic only
+- **Root-owned files** — settings, configs, scripts can't be modified by Claude's user
+- **Pre-commit hooks** — enforce conventions before code enters git
+- **DCG** — blocks destructive commands
+
 ## System Components
 
 ### Workspace layout
@@ -37,7 +106,7 @@ Container Workspace (/workspace)
 │   │   │   └── notify/          claude-{cancel,done,request}
 │   │   ├── hooks/pre-commit.sh  Orchestrates the 5-step + 4-guard chain
 │   │   ├── tests/               BATS test suite (guards, routing, goals, structural invariants)
-│   │   └── docs/                MODEL, OVERVIEW, guide/ (6 files), FAQ
+│   │   └── docs/                OVERVIEW (with § Concept), guide/ (6 files), FAQ
 │   ├── .claude/
 │   │   ├── skills/ ──symlink──→ /devshop/.claude/skills/
 │   │   │   ├── devshop/         ak-build, ak-spec, ak-implement, ak-pre-ship...

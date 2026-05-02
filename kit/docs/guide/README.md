@@ -2,7 +2,7 @@
 
 Operational reference for the devshop. Read the relevant section before making decisions.
 
-For the conceptual model (start here if new): [`../MODEL.md`](../MODEL.md)
+For the conceptual model (start here if new): [`../OVERVIEW.md § Concept`](../OVERVIEW.md#concept)
 For orientation and file map: [`../OVERVIEW.md`](../OVERVIEW.md)
 For design rationale ("why X?"): [`../FAQ.md`](../FAQ.md)
 
