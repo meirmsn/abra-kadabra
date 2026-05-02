@@ -1,6 +1,9 @@
 # CLAUDE.md
 
-> **Orientation**: this is the entry-point doc loaded at every session start. Drill into `PLAN.md` / `BUILD-LOG.md` / `TODOS.md` / `METRICS.md` / `PRODUCT-ROADMAP.md` only when the question demands it.
+> **Orientation**: drill in on demand —
+>
+> - **Foundational** (what is this / how is it built): `OVERVIEW.md` (product), `ARCHITECTURE.md` (system). Per-package detail in `apps/<x>/README.md`, `packages/<x>/README.md`, `supabase/functions/README.md` (opt-in per package).
+> - **Operational** (project-management state): `PLAN.md`, `BUILD-LOG.md`, `TODOS.md`, `METRICS.md`, `PRODUCT-ROADMAP.md`.
 
 ## Project: <project-name>
 
@@ -10,7 +13,6 @@
 
 Path map of every documented surface. Update this section when introducing a new page, API wrapper, edge function, design token surface, or CI/CD workflow — `kit/scripts/commit-hooks/check-docs-freshness-project.sh` blocks PRs that add a triggering surface without updating this section.
 
-- **Forward plan**: `PLAN.md` (Active + Planned features at PR grain). Shipped history in `BUILD-LOG.md`. Deferred / long-term in `PRODUCT-ROADMAP.md`. Tactical bugs/polish in `TODOS.md`.
 - **<surface name>**: <one-sentence pointer to the file path(s) where it lives>
 
 _This section grows as code is added. Update it when introducing new paths._

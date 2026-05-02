@@ -610,7 +610,12 @@ The two exempt files (`.devshop-test-coverage-exempt`, `.devshop-docs-freshness-
 
 Every devshop project ships with three categories of orientation docs, distinguished by how each is loaded and what role it plays:
 
-- **Always-loaded** — `CLAUDE.md`, injected into every Claude session by the SessionStart hook (`kit/scripts/session-start.sh`). The agent's standing operating manual.
+- **Always-loaded** — `CLAUDE.md`. The standing operating manual. **Which `CLAUDE.md` loads depends on the session's cwd** (set when the devcontainer opens):
+  - **Project session** (cwd = project root, the typical case when you open the project's devcontainer): Claude Code's **native CLAUDE.md discovery** loads the **project's** `CLAUDE.md` — standard Claude Code mechanism, no hook involved. The SessionStart hook (`kit/scripts/session-start.sh`) additionally injects `/devshop/CLAUDE.md` so devshop conventions reach the agent too — workaround for [`anthropics/claude-code#22583`](https://github.com/anthropics/claude-code/issues/22583) (additionalDirectories CLAUDE.md isn't loaded natively). Net effect: project session has BOTH CLAUDE.md files in context.
+  - **Devshop session** (cwd = `/devshop`, when you open the devshop's own devcontainer): native discovery loads `/devshop/CLAUDE.md` directly. The SessionStart hook detects this case (`$ROOT == /devshop`) and skips its `/devshop/CLAUDE.md` injection — would be redundant. The project's `CLAUDE.md` is NOT loaded in this case (the session is interacting with the devshop, not the project).
+
+  See `/devshop/CLAUDE.md § Session Start` for the conditional logic + `kit/scripts/session-start.sh:55-63` for the implementation.
+
 - **Foundational (on-demand)** — `OVERVIEW.md` (product), `ARCHITECTURE.md` (system), and per-package READMEs at `apps/<x>/`, `packages/<x>/`, `supabase/functions/`. The "what is this / how is it built" docs a new reader (human or fresh-session agent) drills into first. Durable; updated when scope or shape shifts.
 - **Operational (on-demand)** — `PLAN.md`, `BUILD-LOG.md`, `PRODUCT-ROADMAP.md`, `TODOS.md`, `METRICS.md`. Project-management state. Read when planning, shipping, or triaging; transient and continuously updated.
 
