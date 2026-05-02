@@ -1,6 +1,9 @@
 # CLAUDE.md
 
-> **Orientation**: this is the entry-point doc loaded at every session start. Drill into `PLAN.md` / `BUILD-LOG.md` / `TODOS.md` / `METRICS.md` / `PRODUCT-ROADMAP.md` only when the question demands it.
+> **Orientation**: this is the entry-point doc loaded at every session start (Claude Code's native CLAUDE.md discovery — the session cwd is the project root). Drill in on demand:
+>
+> - **Foundational** (what is this / how is it built): `OVERVIEW.md` (product), `ARCHITECTURE.md` (system). Per-package detail in `apps/<x>/README.md`, `packages/<x>/README.md`, `supabase/functions/README.md` (each opt-in per package — present only when the package warrants a focused doc).
+> - **Operational** (project-management state): `PLAN.md`, `BUILD-LOG.md`, `TODOS.md`, `METRICS.md`, `PRODUCT-ROADMAP.md`.
 
 ## Project: <project-name>
 
