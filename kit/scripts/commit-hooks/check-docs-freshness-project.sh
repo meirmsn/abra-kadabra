@@ -21,7 +21,7 @@
 # Opt-in semantics: per-package and OVERVIEW/ARCHITECTURE triggers fire ONLY when the target
 # doc file exists at HEAD. Projects opt in by creating the file from the template skeleton.
 #
-# Bypass: git -c devshop.docsFreshnessReviewed="<per-doc enumeration>" commit ...
+# Bypass: git -c devshop.docsReviewed="<per-doc enumeration>" commit ...
 #
 # Per-project override: .devshop-docs-freshness-exempt at repo root (one path per line).
 
@@ -255,7 +255,7 @@ if [ "$FAILED" = true ]; then
   echo ""
   echo "  Convention: guide/conventions.md § Project Docs Freshness"
   echo ""
-  REASON=$(git config --get devshop.docsFreshnessReviewed 2>/dev/null || true)
+  REASON=$(git config --get devshop.docsReviewed 2>/dev/null || true)
   if [ -n "$REASON" ]; then
     SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]}")
     REVIEW_CONTEXT="Project docs-freshness hook blocking. Developer's reason:
@@ -282,7 +282,7 @@ $STAGED"
       exit 1
     fi
   fi
-  echo "  Bypass: git -c devshop.docsFreshnessReviewed=\"<per-doc enumeration of what's affected and why no update needed>\" commit ..."
+  echo "  Bypass: git -c devshop.docsReviewed=\"<per-doc enumeration of what's affected and why no update needed; with named distinctive phrases for each AFFECTED edit per rule 1(a)>\" commit ..."
   exit 1
 fi
 

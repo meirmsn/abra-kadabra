@@ -4,7 +4,7 @@
 #   New page/route/wrapper → CLAUDE.md must be staged
 #   New posthog.capture / Sentry.captureException call site → METRICS.md must be staged
 #   DELETE source while doc still references it → BLOCK
-# Bypass via git -c devshop.docsFreshnessReviewed (Layer 2 — adversarial-review.sh docsFreshnessProject).
+# Bypass via git -c devshop.docsReviewed (Layer 2 — adversarial-review.sh docsReviewed; unified key + check-type 2026-05-01).
 
 setup() {
   load helpers/setup
