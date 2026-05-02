@@ -8,7 +8,9 @@ Both detection methods run in sequence (PR-path → ancestry-path) for both loca
 
 ## Phase 1 — Refresh state
 
-Switch to main and pull latest so merge info is up to date. Also run `git remote prune origin` to clean stale remote-tracking refs (these are separate from actual remote branches — pruning just drops local `origin/*` refs for branches that no longer exist on the remote).
+Switch to main and pull latest so merge info is up to date. Then run `git remote prune origin` to clean stale remote-tracking refs (these are separate from actual remote branches — pruning just drops local `origin/*` refs for branches that no longer exist on the remote).
+
+**Why both `fetch --prune` AND `remote prune origin`**: `git fetch <url> --prune` against a one-shot URL only acts on that fetch's refs — it does NOT prune the configured `origin` remote's tracking refs. To actually drop stale `origin/*` refs from the local repo, the prune has to target the configured remote name (`origin`) directly. Skipping this leaves stale tracking refs that show up in `git branch -r` even though the corresponding remote branches were deleted (commonly seen after a PR merges + auto-deletes the source branch).
 
 **Origin must be reachable** for the remote-branch enumeration + ancestry fetches. If `origin` is SSH but the session lacks an SSH key, use an HTTPS-with-token override for the remote queries. For **abra-kadabra (devshop)** where origin is SSH by convention:
 
@@ -17,10 +19,22 @@ source /etc/devshop-env
 # Pass the HTTPS URL to any command that hits the remote:
 ORIGIN_URL="https://x-access-token:${DEVSHOP_GITHUB_TOKEN}@github.com/meirmsn/abra-kadabra.git"
 git -c "remote.origin.url=$ORIGIN_URL" ls-remote origin 'refs/heads/*'
-git fetch "$ORIGIN_URL" --prune
+# Fetch all branches from the override URL (one-shot — does NOT prune configured origin):
+git fetch "$ORIGIN_URL" '+refs/heads/*:refs/remotes/origin/*'
+# Then explicitly prune configured origin to drop stale tracking refs.
+# This invocation uses the configured origin URL (SSH) for the prune connection,
+# so it requires SSH auth OR a temporary URL override on this command too:
+git -c "remote.origin.url=$ORIGIN_URL" remote prune origin
 ```
 
-For projects where origin is already HTTPS (via a PAT in the git credential helper), use `origin` directly.
+For projects where origin is already HTTPS (via a PAT in the git credential helper), use `origin` directly:
+
+```bash
+git fetch origin --prune
+git remote prune origin   # belt-and-suspenders — fetch --prune already prunes,
+                          # but this catches refs that --prune missed (e.g. when
+                          # the branch was deleted between fetch attempts)
+```
 
 ## Phase 2 — Identify deletion candidates
 
