@@ -16,6 +16,8 @@ Restrict the allowed paths to `/Users/<you>/dev` (or whichever single parent hol
 
 ### 2. Docker Desktop → Settings → Docker Engine
 
+> ⚠️ **Known issue (2026-05-02): `no-new-privileges: true` breaks the workspace devcontainer's `postStartCommand`.** Sudo is a setuid binary; daemon-level NNP applies it to every new container including the workspace, and `postStartCommand` in `template/.devcontainer/devcontainer.json` is `sudo /usr/local/bin/init-firewall.sh && sudo /usr/local/bin/init-devshop.sh && …`. Container rebuild fails with `sudo: The "no new privileges" flag is set, which prevents sudo from running as root.` Until the resolution path is picked (see `kit/TODOS.md` § _Docker Desktop daemon-level `no-new-privileges: true` breaks the workspace devcontainer's postStartCommand_), **omit the `no-new-privileges: true` line** from the JSON below — keep `userland-proxy: false` and `icc: false`.
+
 Paste-merge into the JSON config:
 
 ```jsonc
