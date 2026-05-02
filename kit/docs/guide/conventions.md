@@ -610,7 +610,7 @@ The two exempt files (`.devshop-test-coverage-exempt`, `.devshop-docs-freshness-
 
 Every devshop project ships with three categories of orientation docs, distinguished by how each is loaded and what role it plays:
 
-- **Always-loaded** — `CLAUDE.md`, injected into every Claude session by the SessionStart hook (`kit/scripts/session-start.sh`). The agent's standing operating manual.
+- **Always-loaded** — `CLAUDE.md`, loaded into every Claude session by Claude Code's native CLAUDE.md discovery (the session cwd is the project root, so this is the standard mechanism — no hook involved). The agent's standing operating manual. (Distinct from `/devshop/CLAUDE.md`, which IS hook-injected by `kit/scripts/session-start.sh` as a workaround for `anthropics/claude-code#22583`.)
 - **Foundational (on-demand)** — `OVERVIEW.md` (product), `ARCHITECTURE.md` (system), and per-package READMEs at `apps/<x>/`, `packages/<x>/`, `supabase/functions/`. The "what is this / how is it built" docs a new reader (human or fresh-session agent) drills into first. Durable; updated when scope or shape shifts.
 - **Operational (on-demand)** — `PLAN.md`, `BUILD-LOG.md`, `PRODUCT-ROADMAP.md`, `TODOS.md`, `METRICS.md`. Project-management state. Read when planning, shipping, or triaging; transient and continuously updated.
 
