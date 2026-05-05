@@ -1,6 +1,6 @@
 # Lalista launch — pending v0 work, both sides
 
-Snapshot 2026-04-28. Synthesizes `lalista/PLAN.md` + `lalista/PRODUCT-ROADMAP.md` +
+Snapshot 2026-05-04. Synthesizes `lalista/PLAN.md` + `lalista/PRODUCT-ROADMAP.md` +
 `lalista/TODOS.md` and `/devshop/kit/ROADMAP.md` + `/devshop/kit/TODOS.md` into a
 single picture of what's left for lalista v0 GA, what devshop v0 work is in
 flight, and the order that minimizes wasted motion.
@@ -9,31 +9,41 @@ flight, and the order that minimizes wasted motion.
 
 ## Lalista v0 — pending
 
-**Forward features** (`PLAN.md` rows 1–3):
+**Forward features** (chapter-grain — `PRODUCT-ROADMAP.md § v0` 1k/1l/1m;
+sliced into PRs on `PLAN.md` as each becomes next-up):
 
-- **Interlude: devshop-preship-hardening** — no lalista PR; devshop work that
-  lands before PR 6 so subsequent feature PRs benefit. Four parts:
-  (a) RLS-coverage pre-ship gate, (b) `/ak-spec` render-condition matrix for
-  new UI elements, (c) `/plan-design-review` "input duplicates existing data"
-  prompt, (d) dev-side prod-Supabase isolation. After exploring the
-  host-`/var/run/docker.sock`-bind-mount path (Option 2) we shipped Option 3
-  compose isolation instead: workspace dev container has NO docker socket,
-  sibling `supabase-runner` compose service holds the socket and runs
-  `supabase start` against the host engine, narrow `<host>/supabase` bind on
-  the runner, RPC relay on :9000 for orchestration commands, host-path-
-  mirrored bind so spawned function-runtime sees the same path inside and
-  outside the runner. Refuses hosted fallback; strips prod hosts from
-  firewall; drops `SUPABASE_SERVICE_ROLE_KEY` from `.devcontainer/.env`.
-  Architecture doc: `kit/docs/guide/local-supabase-compose-isolation.md`;
-  threat-model: `kit/notes/security/local-supabase-isolation-options.md`.
-- **PR 6: zod-validation** — runtime validation of `AddItemResponse` at
-  `invokeAddItem` (the one genuinely unchecked seam). `.safeParse()` + Sentry
-  on failure, `.passthrough()` on objects. ~2–3 hrs.
-- **PR 7: structured-intent-parsing** — replace Claude's translator-only role
-  in `add-item` with structured extraction (compound adds, quantity/unit,
-  brand, store hints). Response grows `entries[]` for N-row optimistic
-  inserts. `per-household-items-catalog` no longer a hard dep for
-  single-household v0.
+- ✅ **Interlude: devshop-preship-hardening** — shipped 2026-04-27/28. Four
+  parts: (a) RLS-coverage pre-ship gate, (b) `/ak-spec` render-condition
+  matrix, (c) `/plan-design-review` "input duplicates existing data" prompt,
+  (d) dev-side prod-Supabase isolation (Option 3 compose isolation —
+  workspace has no docker socket; sibling `supabase-runner` holds it; narrow
+  `<host>/supabase` bind; RPC relay on :9000). Architecture doc:
+  `kit/docs/guide/local-supabase-compose-isolation.md`; threat-model:
+  `kit/notes/security/local-supabase-isolation-options.md`.
+- ✅ **chapter 1j (zod-validation)** — shipped 2026-04-27 as lalista #30
+  `4ba875f` (closer #33 `a7450c9`). Adopted the upstream Zod LLM-boundary
+  convention directly.
+- 🚧 **chapter 1l: auth UX rework** — **in flight on `feat/auth-ux-rework`**.
+  Splits the magic sign-in form into `/sign-in` + `/sign-up` +
+  `/forgot-password` + `/reset-password`, adds branded EN-only Supabase
+  email templates, hard-gates email confirmation with resend countdown,
+  ships `AuthSubmitButton` (instant disable + 250ms threshold spinner),
+  unified `AuthErrorDisplay`, email persistence via React context across
+  auth screens, name-collection moved to onboarding. Supersedes the prior
+  `auth-ux-refactor-to-adopt` framing — see "Inverted devshop-extraction
+  sequencing" below.
+- ⏳ **chapter 1k: structured-intent-parsing** — replace Claude's
+  translator-only role in `add-item` with structured extraction (compound
+  adds, quantity/unit, brand, store hints). Response grows `entries[]` for
+  N-row optimistic inserts. `per-household-items-catalog` no longer a hard
+  dep for single-household v0. (Was PR 7 in the prior snapshot.)
+- ⏳ **chapter 1m: app-wide snappiness** — generalizes 1l's button-feedback
+  pattern app-wide: lifts `AuthSubmitButton` → `packages/ui/SubmitButton`,
+  adopts across AddItemSheet / ListRow / DisambiguationSheet / force-create /
+  Settings / DisplayNameField; new `LoadingArea` primitive + `loading.tsx`
+  on every route under `apps/web/app/**` (deliberately empty container with
+  soft animated color shift, NOT wireframe skeletons). Structurally depends
+  on 1l (the lift target).
 
 **Pre-ship** (`TODOS.md § v0 § pre-ship`):
 
@@ -63,8 +73,10 @@ lalista-option3-template-variant`.
 
 **v0 GA checkpoint** (PRODUCT-ROADMAP.md): every functional gate checked off
 (auth, add/list/bought, realtime, dark mode, errors, CI, Sentry, PostHog).
-**Remaining for GA = PR 7, then the launch-day seed.** (PR 6 shipped
-2026-04-27; core-flows CI flake fix shipped same day.)
+**Remaining for GA = 1l (in flight) → 1k → 1m → launch-day seed.**
+(1j shipped 2026-04-27; core-flows CI flake fix shipped same day; 1l/1m
+chapters added to roadmap 2026-05-02 — supersede the prior PR 6/PR 7
+framing.)
 
 ---
 
@@ -161,10 +173,18 @@ section below) · v1 = deferred to v1, captured in `kit/ROADMAP.md`.
 **Reusable conventions:**
 
 - ⏳ **Auth UX conventions** — `@devshop-template/auth-ux`
-  (`AwaitingConfirmationCard`, `friendlyAuthError`) **plus** password-reset
-  sub-pattern (`PasswordResetCard` + `/auth/callback` + `/reset-password` +
-  Supabase `site_url` / `uri_allow_list` config). Closes lalista's
-  `auth-ux-refactor-to-adopt` debt.
+  (`AwaitingConfirmationCard`, `friendlyAuthError`, `AuthSubmitButton`,
+  `AuthErrorDisplay`, `(auth)/layout.tsx` email-context pattern) **plus**
+  password-reset sub-pattern (`/auth/callback` recovery handler +
+  `/reset-password` + Supabase `site_url` / `uri_allow_list` config + EN-only
+  branded email templates).
+  **Sequencing inverted vs the prior snapshot:** the original framing was
+  "lalista refactors to adopt a future devshop helper." Chapter 1l's source
+  line locks the new framing — **ship inline in lalista first → soak with
+  real users → extract to devshop later** — to protect against extracting
+  half-baked patterns. Devshop extraction now waits on 1l shipping and
+  soaking; tracked at `lalista/PRODUCT-ROADMAP.md § v1 § Devshop extraction
+of validated UX patterns`.
 - ✅ **Runtime Zod validation at LLM / edge-function boundaries** —
   shipped 2026-04-27 in Cluster 1 step 3 (`kit/docs/guide/conventions.md §
 Runtime Validation at LLM / Edge-Function Boundaries`); lalista PR 6
@@ -180,8 +200,9 @@ Runtime Validation at LLM / Edge-Function Boundaries`); lalista PR 6
   v1.22.0 in `/ak-build`.
 
 **Net for v0**: only ⏳ item above remains — the auth UX conventions
-package. The project-repo gates triplet shipped on devshop 2026-04-28
-and was adopted project-side 2026-04-29. None gate lalista v0 GA.
+package, now sequenced AFTER lalista 1l ships (not before). The project-repo
+gates triplet shipped on devshop 2026-04-28 and was adopted project-side
+2026-04-29. None gate lalista v0 GA.
 
 ---
 
@@ -229,19 +250,26 @@ Boundaries` (when to use, schema-module pattern, wrapper-site
 
 **Cluster 2 — lalista feature flow:**
 
-4. ✅ **PR 6 (Zod)** — shipped 2026-04-27 (lalista #30 `4ba875f`, closer #33
-   `a7450c9`). Adopted the convention from step 3 directly.
-5. **PR 7 (structured intent parsing)** — adds `entries[]` to the response
-   (small Zod schema delta on top of PR 6, not a rewrite). Sequencing 6→7
-   keeps the response-shape change cleanly diff-able; bundling would make a
-   wide-blast-radius single PR.
-6. ✅ **core-flows CI flake fix** — shipped 2026-04-27 (lalista #31
+4. ✅ **chapter 1j (Zod)** — shipped 2026-04-27 (lalista #30 `4ba875f`,
+   closer #33 `a7450c9`). Adopted the convention from step 3 directly.
+5. ✅ **core-flows CI flake fix** — shipped 2026-04-27 (lalista #31
    `4e78fbd`). `supabase status` health-check + retry-once-on-502 in
-   slow-job CI; rode alongside PR 6 as planned.
+   slow-job CI.
+6. 🚧 **chapter 1l (auth UX rework)** — in flight on `feat/auth-ux-rework`.
+   Ships first because it's already on a branch and gates 1m structurally
+   (1m lifts `AuthSubmitButton` → `packages/ui/SubmitButton`).
+7. ⏳ **chapter 1k (structured intent parsing)** — adds `entries[]` to the
+   response (small Zod schema delta on top of 1j, not a rewrite). Independent
+   of 1l; sequenced after to keep LLM-boundary changes diff-reviewable.
+8. ⏳ **chapter 1m (app-wide snappiness)** — last because (a) it
+   structurally depends on 1l's `AuthSubmitButton` existing as the lift
+   source, and (b) it touches AddItemSheet + DisambiguationSheet —
+   surfaces 1k may also touch — so doing 1m last avoids redoing snappy
+   feedback wiring after 1k changes those surfaces.
 
 **Cluster 3 — launch-day:**
 
-7. **bootstrap-purchase-history-prod** — runs once after first prod account
+9. **bootstrap-purchase-history-prod** — runs once after first prod account
    exists.
 
 **In parallel** (doesn't block lalista GA, ships from devshop side):
@@ -367,10 +395,17 @@ original parallel list, but enabled by it)**:
 
 **Why this order:**
 
-- Cluster 1 is high-leverage: the interlude pays back in PR 6's spec quality
-  AND validates 4 devshop conventions on the same ship.
-- PR 6 → PR 7 sequencing keeps the LLM-boundary changes diff-reviewable;
-  PR 7's `entries[]` is a 5-line schema extension if PR 6 lands first.
+- Cluster 1 was high-leverage: the interlude paid back in 1j's spec quality
+  AND validated 4 devshop conventions on the same ship.
+- 1j → 1k sequencing keeps the LLM-boundary changes diff-reviewable;
+  1k's `entries[]` is a small Zod-schema extension on top of 1j.
+- **1l → 1k → 1m within Cluster 2** — 1l is already in flight; 1m
+  structurally depends on 1l (lift source); 1k slots between because it's
+  independent of both, and putting 1m last lets it polish 1k's new
+  compound-add UX surfaces in one pass instead of touching them twice.
+- **Auth UX devshop extraction now waits on 1l soaking in prod** — flipped
+  from the prior "lalista adopts a devshop helper" framing per chapter 1l's
+  ship-inline-→-soak-→-extract sequencing rule.
 - **Lalista devcontainer migration is project-side first, devshop recipe
   second** — same pattern as the 2026-04-25 credential-layout migration
   recipe. Doing it on a real project produces the empirical diff that

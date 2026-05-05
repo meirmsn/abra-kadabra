@@ -752,6 +752,260 @@ Every devshop project needs an orientation doc that loads at session start. With
 
 ---
 
+### `/ak-build` Phase 5.8 — auto-rerun `/ak-test-review` over the post-pre-ship range
+
+**Problem.** `/ak-pre-ship` runs `/ak-test-review` as Gate 5 once, against the spec snapshot. Every commit landed AFTER the pre-ship audit — the `/ship` `Suspense`-fix commit, the entire CI fix-loop, the BUILD-LOG bookkeeping commit, and any post-Phase-3 polish iterations the user asks for during local dogfood — bypasses test-coverage review entirely. The pre-push adversarial reviewer covers PR-description coverage, the Layer-1 test-presence hook covers "did you touch a test file at all," and the freshness hook covers docs — but none of them check **whether the new behavior is actually pinned by an assertion**. That's what `/ak-test-review` does, and right now it stops running the moment Phase 3 ends.
+
+Lalista PR #43 (chapter 1l, auth UX rework) is the worked example. Phase 3 audited commit `80485cb` clean. The PR then accumulated 16 polish iterations between `80485cb` and merge: a wordmark layout iteration (3×), a sign-up no-enumeration parity flip (security-relevant behavior change), an `AwaitingConfirmationCard` back-link (a user-observable navigation capability shipped without a paired test in commit `79b0a9c`, only caught when the user manually flagged it during dogfood), the password policy escalation to `lower_upper_letters_digits_symbols`, and several CI fix-loop test-helper rewrites. The user's question "how come the reviewer didn't ask for [the missing test]? what do we need to change so that we can trust all flows are tested?" is the exact gap.
+
+**Why a test-presence hook isn't enough.** The shipped Layer-1 hook (`check-test-coverage-project.sh`) catches "added a `.tsx` file with no `.test.tsx` next to it" — a file-level math check. It cannot judge:
+
+- A new prop on an existing component lacks a test for the prop's behavior (`AwaitingConfirmationCard` gained an `onEdit` callback; the file-level paired test exists but does nothing for the new prop).
+- A new code branch is unreached by any existing test (sign-up's no-enumeration parity changed which UI path renders for `identities=[]` — same file, same test file, but the existing tests pinned the OLD behavior).
+- A Layer-2 modification crossing a security boundary (password policy) where the existing tests still pass but no longer assert the right thing.
+
+These are the cases `/ak-test-review` is designed to catch via a fresh-eyes read. The fix is to RE-RUN that audit over the diff that landed AFTER Phase 3 — once, late in the pipeline, before the audit comment goes out.
+
+**Shape of the convention.**
+
+- **New step**: `Phase 5.8: Post-pre-ship test-coverage audit`, inserted in `kit/.claude/skills/ak-build/SKILL.md` between current §5.7 (re-watch CI on bookkeeping push) and Phase 6 (post audit comment). The architecture diagram at the top of the SKILL.md gets a sibling line. Skill version bumps `1.5.0 → 1.6.0`.
+
+- **Range determination**: the audit runs over `<pre-ship-commit>..HEAD`. Two viable signals for the lower bound:
+  - **Preferred**: the commit that wrote `specs/<feature>/review.md` — find via `git log --diff-filter=A --format=%H -- "$FEATURE_DIR/review.md" | head -1`. Deterministic; survives rebases that preserve the file.
+  - **Fallback**: the commit hash recorded in `review.md` itself (the agent that wrote it should embed `<!-- audited-at: <SHA> -->` in the front-matter so 5.8 can grep it back). Belt-and-suspenders against `review.md` being modified post-creation.
+  - Edge case: empty range (no commits between Phase 3 and HEAD — possible if Phase 4 + ship landed cleanly with no CI fix-loop and no bookkeeping commit). 5.8 is a no-op in that case; skip straight to Phase 6.
+
+- **Subagent invocation** (mirrors how `/ak-pre-ship` already spawns gate-runner agents):
+
+  ```bash
+  Agent({
+    description: "Phase 5.8: post-pre-ship test-coverage re-audit",
+    subagent_type: "general-purpose",
+    prompt: "Run /ak-test-review (the gstack test-quality skill) — fresh-eyes
+    audit — over commits ${PRE_SHIP_SHA}..HEAD on branch ${BRANCH} of repo
+    ${REPO_ROOT}. Read every test in the diff alongside the source it covers.
+    Flag missing assertions, untested branches, sloppy mocks, outdated
+    fixtures. Write findings to ${FEATURE_DIR}/test-review-followup.md with
+    a final summary line `findings: high=N, medium=N, low=N`. Do NOT write
+    any tests yourself — your job is to audit and recommend, not implement.
+    Return the summary line + the report path."
+  })
+  ```
+
+- **Persistence**: `specs/<feature>/test-review-followup.md` (mirrors the existing `specs/<feature>/review.md` shape but scoped to the post-pre-ship range — keeps the two artifacts side-by-side so reviewers can read the full audit story without cross-referencing commit hashes).
+
+- **Severity branching** (parallel to `/ak-pre-ship`'s `findings_pending > 0` halt and the Phase 3 → Phase 4 `blocked > 0` refusal):
+  - `high>0` → **halt** at 5.8. Emit the findings to the user with the same shape as `findings_pending`. Phase 6 does NOT run until `high=0`. The user decides: (a) close findings with new test commits and re-run /ak-build (which re-enters at Phase 5 via Step 0's resume check; 5.8 re-runs over the new HEAD), (b) override with a `git -c devshop.testReviewSkipReason="..."` flag mirroring the existing pre-push reason patterns. Layer-2 adversarial reviewer judges the override the same way `dirtyPushReason` / `prDescStaleReason` are judged today.
+  - `medium>0` → **proceed**, but Phase 6's audit comment includes a `### Post-pre-ship test-coverage findings` section listing them so the human reviewer sees them inline. Mediums are recommendations, not blockers.
+  - `low>0` → audit comment notes `(N low-severity items in test-review-followup.md)` without listing.
+  - `0/0/0` → audit comment notes `Post-pre-ship coverage: clean.`
+
+- **Phase 6 audit-comment template change**: add a row to the existing quality-gates table for `Post-pre-ship test-coverage` with the same vocabulary (`pass / findings (N) [fixed | pending] / n/a`). Plus a new section after `### Findings fixed during pre-ship`:
+
+  ```
+  ### Post-pre-ship test-coverage audit (range: ${PRE_SHIP_SHA}..${HEAD})
+
+  <Counts: high=N medium=N low=N from test-review-followup.md.
+  If 0/0/0: "Clean — no new gaps."
+  If medium>0: list mediums verbatim.
+  If high>0: should not reach Phase 6 — halt at 5.8.>
+  ```
+
+- **Idempotence**: 5.8 fires once per `/ak-build` invocation. If `specs/<feature>/test-review-followup.md` already exists at the same `audited-at` SHA as HEAD, skip — already done.
+
+- **Resume-check addition**: Step 0's resume tree gets a new rung between current rungs 1 and 2 — "open PR + `test-review-followup.md` exists for the current HEAD" → skip to Phase 6. Lets a session crash + restart pick up cleanly between 5.8 and Phase 6.
+
+**Sibling convention — per-push CI watch during the polish loop.** 5.8 is the FINAL gate, run once before Phase 6 posts the audit comment. The PER-ITERATION guard is a sibling discipline that has to land at the same time, or 5.8's audit ends up running against a tree where multiple silent CI failures have already accumulated:
+
+- Every `git push` after Phase 5.7 (the original `/ak-build`'s post-bookkeeping watch) and before merge MUST be paired with a background `gh run watch` on the resulting CI run. "Background" means non-blocking — the conversation continues, but a failure surfaces as a notification instead of accumulating silent reds.
+- The discipline that failed in lalista PR #43 (5 polish commits pushed without watching, 4 silently red, the user manually flagged the failure two iterations later) is the exact failure mode this codifies. The 4 reds spanned three distinct root causes (password fixtures missed in `packages/core/src/api/*.integration.test.ts`, an accidentally-committed `enable_confirmations = true` flip from local QA, and the original strict-policy regex breaking other test fixtures) — each would have been a one-commit fix if caught immediately; finding them stacked at the end made the diff harder to reason about.
+- Implementation: in `/ak-build` SKILL.md's iterative-polish prose (currently informal — there is no codified "polish loop" section), add a one-paragraph rule: every push spawns a background watch via `gh run watch <RUN_ID> --exit-status` with `run_in_background: true`. The orchestrator MAY proceed with other work; it MUST NOT recommend merge to the user until the latest pushed run has reported `conclusion: success`. Failed runs surface immediately and re-enter the existing Phase 5.4 fix loop.
+- Why a separate convention from 5.8 itself: 5.8 is a gate (one audit, one result, branch on findings); per-push watch is a per-iteration discipline (one watch per push, no per-watch findings, just success/failure routing). Different shapes; different spots in the SKILL.md. They both ship in the 1.6.0 bump.
+- Adversarial reviewer pairing: the existing pre-push reviewer rejects pushes whose `dirtyTreeReason` waves away staged-but-shouldn't-be-staged changes (the cause of root-cause #2 above). Tightening that reviewer to require an explicit `git diff --cached` enumeration before accepting "not relevant" reasons would have caught the `enable_confirmations` bulk-add at commit time. Optional secondary deliverable; defer if scope creeps.
+
+**Why this beats the obvious alternatives.**
+
+- **Tightening the per-commit pre-commit hook to BLOCK on "source modified, paired test not in commit"** (the current warning) would catch more — but at high false-positive cost (legitimate refactors, comment-only edits, helper extractions all warn today and would block tomorrow). 5.8 runs ONCE per PR, late in the pipeline, when the diff is whole — fewer interruptions, smarter judgment, same coverage outcome.
+- **Adding `/ak-test-review` to slow-job CI** would also work but couples the gate to the runner image, costs CI time on every push, and makes the audit's findings live on a CI run page instead of in the PR's own audit-trail comment where they're discoverable forever.
+- **Asking the user to manually run `/ak-test-review`** is exactly the load-bearing-discipline the entire `/ak-build` orchestration was built to remove.
+
+**Why v0 — blocks next-project adoption.**
+
+Every devshop project that uses `/ak-build` will hit this gap as soon as a PR accumulates more than a couple of post-pre-ship polish commits — which is the common case (CI fix-loops alone routinely add 2-9 commits past Phase 3, and dogfood-driven polish adds more). The lalista PR #43 example shows the gap is real and the user-facing complaint shape is predictable ("how do I trust all flows are tested?"). Closing it before a second project adopts the devshop means future projects inherit the protection by default.
+
+**Trigger:**
+
+- Lalista chapter 1m (`PRODUCT-ROADMAP.md § v0 § 1m: app-wide snappiness`) is the next `/ak-build` invocation on the project — implementing 5.8 before that ships gives one immediate validation pass.
+- OR: a second devshop project shows up and starts running `/ak-build` flows — ship at that moment.
+
+**Cross-ref:**
+
+- `lalista PR #43` (chapter 1l, branch `feat/auth-ux-rework`) — the worked example that surfaced the gap; the test-review-followup written manually during that PR (`specs/auth-ux-rework/test-review-followup.md`) is the format prototype 5.8 will produce automatically.
+- `kit/scripts/commit-hooks/check-test-coverage-project.sh` — the Layer-1 file-level hook this builds on (Layer-2 audit at the diff level).
+- `/devshop/.claude/skills/ak-pre-ship/SKILL.md § Gate 5` — the original `/ak-test-review` gate this re-runs.
+- `/devshop/.claude/skills/ak-test-review/SKILL.md` — the audit logic itself (no changes needed; 5.8 just re-invokes it over a different range).
+
+**Cost/risk:**
+
+- Implementation: ~3–4 focused hours total — SKILL.md edits (Phase 5.8 prose + diagram + audit-comment template + Step 0 resume rung), one new bypass reason in the adversarial reviewer (`testReviewSkipReason`), maybe ~30 lines of bash for the commit-range derivation, version bump.
+- Subagent token cost per `/ak-build` run: ~50–100k tokens for the audit subagent (mirrors the original Phase-3 `/ak-test-review` cost). Runs once per PR — small relative to the rest of the pipeline.
+- False-positive risk: medium-low. The audit's judgment quality is the same as the existing Phase-3 audit, which is already trusted to gate ship-readiness — nothing new here. The 9-day-old `/ak-test-review` audit on lalista PR #43 (run on commit `80485cb`) returned `0 high, 1 medium, 6 low` cleanly; the post-polish re-run (run via subagent during the PR) returned the same shape over a different range — predictable behavior, not noisy.
+- Pipeline-time risk: 5.8 adds one subagent invocation between bookkeeping and the audit comment. Estimated 30–90 seconds wall-time. Negligible relative to the 15–25 minute slow-job CI wait that already happens twice (Phase 5.2 + 5.7).
+
+---
+
+### `/ak-build` Phase 5.9 — auto-refresh visual evidence over the post-pre-ship range
+
+**Problem.** The hero screenshots embedded in the PR body are captured during `/ak-pre-ship` Gate 4 (responsive + theme) and Gate 13 (hero shots) at Phase 3 — against the spec snapshot. Every commit that lands AFTER Phase 3 — the `/ship` commits, the entire CI fix-loop, the BUILD-LOG bookkeeping, and any post-Phase-3 polish iterations — can change what each screen looks like, but the PR-body screenshots stay frozen at the Phase-3 SHA. The reviewer reads the body, sees the wrong UI, and either (a) re-runs the screenshots manually or (b) reviews the wrong artifact.
+
+The pair to the post-polish test-coverage gap (entry above) — same "Phase 3 audit captures a snapshot, polish lands afterwards, the artifact decays" shape; same trigger window; same fix shape (re-run the gate at 5.9, before Phase 6 posts the audit comment).
+
+Lalista PR #43 (chapter 1l) is the worked example for both halves. Hero shots captured at commit `80485cb`; 16 polish commits later the auth shell layout had changed three times (page-corner → centered column → page-corner), the awaiting-confirmation card had grown a back-link, the password fields had grown new validation copy, and the public landing had paired CTAs instead of "Get started." The user dogfooded the PR by running the local dev server and surfaced visual regressions the PR-body screenshots couldn't show. Asking the user to "re-capture screenshots" is exactly the load-bearing-discipline `/ak-build` was built to remove.
+
+**Why "regenerate on every commit" is wrong.** Hero captures cost ~30–60 seconds wall-time each (browser launch + nav + waitForFunction + screenshot × 5–8 screens × 2 themes × 2 viewports = potentially 20+ shots). Running per-commit during a CI fix-loop that already hits 8+ pushes blows up wall-time by 4–8 minutes per push and burns Playwright/Chromium cycles with little incremental value (the failing test commits don't change the UI). Once-per-PR, late in the pipeline, is the right cadence — same logic as 5.8.
+
+**Shape of the convention.**
+
+- **New step**: `Phase 5.9: Post-pre-ship visual evidence refresh`, inserted in `kit/.claude/skills/ak-build/SKILL.md` between proposed Phase 5.8 (test-coverage re-audit) and Phase 6 (post audit comment). Same architecture-diagram update; bumps to skill version that lands 5.8 (so 5.8 + 5.9 ship together as `1.6.0` rather than two version bumps).
+
+- **Range determination**: identical to 5.8 — `<pre-ship-commit>..HEAD`, derived from `git log --diff-filter=A --format=%H -- "$FEATURE_DIR/review.md" | head -1`. Empty range → 5.9 is a no-op.
+
+- **What gets regenerated**:
+  - `specs/<feature>/hero/*.png` — the curated hero set referenced by the PR body's `https://github.com/.../raw/.../hero/<file>.png` embeds. Updating the file at the same path makes the embeds resolve to the new image automatically; PR body needs no edit.
+  - `specs/<feature>/screenshots/<screen>-<vw>-<theme>.png` — the 4-combo evidence matrix from Gate 3. Less critical (typically not embedded in the PR body) but kept fresh for the audit doc.
+  - **NOT regenerated**: `specs/<feature>/qa-walk/*.png` (those represent a specific user-flow walk-through; re-running the walk at 5.9 would be useful but requires a full re-run of the Gate 9 happy-path, which is too expensive — defer to a separate roadmap entry if the need surfaces).
+
+- **Subagent invocation** (mirrors the `/ak-pre-ship` Gate 4 + Gate 13 logic that already knows how to run the captures):
+
+  ```bash
+  Agent({
+    description: "Phase 5.9: post-pre-ship visual evidence refresh",
+    subagent_type: "general-purpose",
+    prompt: "Re-run /ak-pre-ship Gate 4 (responsive + theme — 4 combos
+    per screen) and Gate 13 (hero shots) over branch ${BRANCH} at HEAD.
+    Read the existing screenshot manifest at ${FEATURE_DIR}/review.md
+    to know which screens were captured originally; capture the same
+    set against the latest UI. Diff the new shots against the existing
+    files in ${FEATURE_DIR}/{screenshots,hero}/. For each file:
+    - bytewise identical → leave alone
+    - changed → overwrite the file
+    - new screen (rare; only if a polish commit added a new route) → write
+    - missing screen (rare; only if a polish commit removed one) → delete
+    Commit any changes on the feature branch with message
+    'chore(<feature>): refresh visual evidence after polish (Phase 5.9)'.
+    Return: count of unchanged / changed / new / deleted files."
+  })
+  ```
+
+- **Severity branching**: 5.9 is freshness-only; there's no "high-severity finding" concept. The output is purely "what changed" and the changed files get committed. No halt path.
+
+- **Phase 6 audit-comment template change**: existing `### Evidence` section gains a one-line note: `(Hero shots refreshed at 5.9 — N changed, M unchanged.)` so the reviewer knows the embeds are post-polish.
+
+- **PR body update at 5.9**: typically none required — the embed URLs are SHA-pinned to `<branch>/<path>`, so a fresh file at the path renders fresh. The exception: if a screen was REMOVED in polish (delete file), the embed needs to be removed from the body — 5.9 handles that with a `gh pr edit --body-file` write.
+
+- **Idempotence**: same shape as 5.9 — `git status -- specs/<feature>/{screenshots,hero}/` clean → already done; skip.
+
+- **Resume-check addition**: same rung as 5.8 — "open PR + visual-evidence already refreshed for the current HEAD" → skip 5.9 specifically. Lets a session crash + restart pick up at the right step.
+
+**Why this beats the obvious alternatives.**
+
+- **Per-commit pre-commit hook that regenerates hero shots when source changes** would be the equivalent of the failed "tighten the test-presence hook" alternative — too aggressive, too many false positives (every CSS tweak fires the hook), too costly. 5.9 captures-once-per-PR-late.
+- **CI-side screenshot regeneration** would couple the gate to the slow-job runner image. Possible (Gate 4/13 already run there) but adds wall-time to every CI push, not just the merge-ready one.
+- **Asking the user to manually re-capture before merge** — same load-bearing-discipline problem 5.8 fixes.
+
+**Why v0 — blocks next-project adoption.**
+
+Same rationale as 5.8: every devshop project that ships visual UI through `/ak-build` will hit this gap as soon as a PR has post-pre-ship polish. Lalista is the worked example. Closing 5.8 + 5.9 together (one SKILL.md edit, one version bump) means future projects inherit both protections by default.
+
+**Trigger:**
+
+- Ship as a pair with 5.8 — the SKILL.md edits cluster in the same span, the version bump is one bump, and the architecture-diagram update touches the same lines.
+- Could ship 5.8 alone first if 5.9 needs more design (e.g., the "delete on removed screen" branch wants more thought) — but the lalista evidence motivates landing them together.
+
+**Cross-ref:**
+
+- `lalista PR #43` — same worked example as 5.8; the visual regressions surfaced 2026-05-04 are the immediate motivation.
+- `/devshop/.claude/skills/ak-pre-ship/SKILL.md § Gate 4 + Gate 13` — the original capture logic 5.9 re-invokes.
+- The 5.8 entry above — sibling phase; ship together.
+
+**Cost/risk:**
+
+- Implementation: ~2 focused hours added on top of 5.8 (most of the SKILL.md plumbing is shared with 5.8 — version bump, diagram update, resume-check rung). The new prose is the §5.9 step + its diff branch.
+- Subagent + Playwright cost per `/ak-build` run: ~30–90 seconds wall-time (one browser session, ~10–20 captures total). Cheaper than the test-review subagent in 5.8.
+- False-positive risk: low — the only "noise" case is captures that bytewise-differ due to font hinting / GPU rasterization variance across runs. Mitigation: capture at fixed viewport sizes with `prefers-reduced-motion: reduce` (already standard in `/ak-pre-ship`); diff with an SSIM threshold instead of bytewise if false positives surface in practice.
+- Pipeline-time risk: 5.9 adds another subagent invocation between 5.8 and Phase 6. Combined with 5.8, ~1–3 minutes added wall-time per /ak-build run. Still negligible relative to slow-job CI.
+
+---
+
+### `/ak-go-live` post-merge prod-config sync + pre-flight surface
+
+**Problem.** `/ak-go-live` today does merge → wait-for-Vercel → canary-check, then stops. Anything Vercel doesn't auto-deploy is left as "operator runs the manual step" — and right now that includes:
+
+- **Hosted Supabase email templates** (`[auth.email.template.confirmation]` + `[auth.email.template.recovery]` from `supabase/config.toml` only auto-apply to the LOCAL stack; the prod project reads from its own dashboard). When chapter 1l ships, the operator has to log into supabase.com/dashboard, navigate to Auth → Email Templates, paste subject + body for both templates by hand. Easy to forget; trivial to typo.
+- **Hosted Supabase auth allow-list** (`additional_redirect_urls`). Local-stack glob patterns from `supabase/config.toml` are dev-only; prod's allow-list is configured separately on the dashboard. When a chapter changes the redirect surface (chapter 1l added `/auth/callback`), the operator has to verify or update the prod allow-list manually.
+- **Static asset reachability** (`lalista-email-logo.png` referenced by absolute prod URL inside the email templates). Vercel deploys it, but until verified the email might render with a broken image. A single curl confirms.
+
+These surface in two places today — the PR body's "Out-of-band deploy items (after merge)" section AND the audit-trail comment from Phase 6. The user has to mentally cross-reference both right at the moment they're invoking `/ak-go-live`. The split surfaces sometimes overlap (logo verification appears in both), sometimes don't (allow-list update only in the audit comment), and the user can't tell at a glance which the skill will handle automatically vs which need their hands.
+
+**Sibling to 5.8 + 5.9 because same family — "automate the gap between Phase 6 and a fully-deployed prod state."** 5.8 catches test-coverage drift before merge; 5.9 refreshes visual evidence before merge; this one closes the gap AFTER merge, so the operator's `/ak-go-live` invocation results in a fully-deployed-and-verified state without manual paste-and-curl steps.
+
+**Shape of the convention.**
+
+The convention has two arms — a **pre-flight surface** (so the operator sees what's pending) and an **automation core** (so most of those pending items aren't pending anymore).
+
+**Arm A — Pre-flight surface** (the thing the user feels first):
+
+- Before invoking the canary/deploy logic, `/ak-go-live` reads the merging PR's body via `gh pr view --json body` AND the latest audit/ready-for-review comment via `gh pr view --json comments`. Pulls every `[ ]` checkbox grouped by section ("Out-of-band deploy items", "Manual review", "Operator follow-up").
+- Prints a "Pending tasks before live" section to the user, with each item annotated:
+  - `[auto]` — `/ak-go-live` itself will do this in Arm B's automation core; no operator action needed.
+  - `[manual]` — the operator must do it; show the SPECIFIC steps inline (e.g., for "paste email templates": which Supabase dashboard URL, which fields, where to copy from).
+  - `[deferred]` — long-horizon (v1 chapter) items; mention briefly so they're not surprised.
+- Then proceeds with the merge → deploy → canary flow. The skill blocks on `[manual]` items only when they're prerequisites (e.g., email templates must be pasted BEFORE the canary tests an auth flow that depends on them); otherwise surfaces them as a post-deploy reminder.
+
+**Arm B — Automation core** (so most `[manual]` items become `[auto]`):
+
+- **Email templates push** via Supabase Management API (`PATCH /v1/projects/<ref>/config/auth` with `mailer_subjects_*` and `mailer_templates_*` fields). Triggered when the merged PR's diff touches `supabase/templates/**` or `[auth.email.template.*]` in `supabase/config.toml`. Reads the local files, posts the Management API call. Requires a Supabase Personal Access Token — new credential surface, separate from the service-role key used for ad-hoc admin queries.
+- **Auth allow-list verification** via the same Management API (`GET /v1/projects/<ref>/config/auth`). Reads the prod allow-list, compares against the GLOB patterns in local `supabase/config.toml`'s `additional_redirect_urls` block (substituting the prod URL for `localhost`/`127.0.0.1`), warns or auto-updates depending on policy. The "auto-update" path requires user confirmation per the auto-mode-not-license-to-destroy rule — same shape as the existing `/ak-go-live` rollback path (no auto-rollback because human judgment).
+- **Static asset reachability check** via `curl -fsS https://<prod-domain>/<asset>` after Vercel reports deploy-ready. Specific to assets referenced by absolute URLs in places Vercel can't serve (email templates, third-party redirects). Reads which assets to check from a new `[ak-go-live.verify-assets]` block in the project's CLAUDE.md or `.devshop-deploy.toml` — explicit allow-list, not auto-discovery.
+
+**Persistence**: `/ak-go-live` writes a per-run report to `specs/<feature>/go-live.md` with what ran, what passed/failed, and what's still pending. Reviewer of a future incident can `git log specs/*/go-live.md` to reconstruct what the deploy did.
+
+**New credentials surface**: the Supabase Personal Access Token (`SUPABASE_ACCESS_TOKEN` env var convention) needs to live somewhere the skill can read at runtime. Two paths: (a) GH Secret + workflow-only access (skill reads via `gh secret get`); (b) operator's local `.devcontainer/.env` for local invocations + a CI run for merged-PR triggers. The convention recommends (a) because `/ak-go-live` IS a deploy action and deploy actions belong in CI; locally it's "show me what would happen" mode without the actual prod-write authority. Same shape as how `ANTHROPIC_API_KEY_PROD` is handled today (CLAUDE.md § Anthropic API key split).
+
+**Why this beats the obvious alternatives.**
+
+- **"Just have the user paste the templates"** — the current default. Reliable in the literal sense (it works) but brittle in practice (the operator forgets, or pastes the wrong template, or skips the allow-list update because it's not in the PR body). The pre-flight surface alone (Arm A) closes ~70% of that risk; Arm B closes the rest.
+- **"Use a generic `supabase config push` flow"** — Supabase CLI doesn't have a clean equivalent for hosted projects (it's local-stack-focused). The Management API is the right shape; Arm B uses it directly.
+- **"Roll into /ak-build Phase 7 instead of /ak-go-live"** — Phase 7 fires before the merge happens; the prod-config sync needs to happen AFTER. /ak-go-live is the correct skill.
+
+**Why v0 — blocks next-project adoption.**
+
+Every devshop project that ships a feature touching email templates / auth allow-list / absolute-URL-referenced assets hits this gap. Lalista is the worked example for chapter 1l (auth UX rework: 4 new email templates + new redirect URL + new logo asset). Once a second project shows up, both projects pay the manual-paste tax until this lands. Closing it before that second project arrives means future projects inherit the protection.
+
+The pre-flight surface (Arm A) alone is high-value and low-risk — even if Arm B (Management API integration) takes longer to design, ship Arm A first as a behavior-change-only update to `/ak-go-live`'s SKILL.md.
+
+**Trigger:**
+
+- Lalista PR #43 (this auth-ux-rework PR) is the immediate motivation — the operator has 3 manual items (paste templates × 2 + verify allow-list + curl logo) at merge time. Shipping Arm A before that merge happens means the user sees the pre-flight surface on this very deploy.
+- OR: a second devshop project shows up and starts /ak-go-live flows — ship at that moment.
+- Recommend shipping **Arm A as part of the same `1.6.0` cluster as 5.8 + 5.9** (small SKILL.md edit, no new credentials); **Arm B as `1.7.0`** (separate scope, requires Management API integration + credential surface).
+
+**Cross-ref:**
+
+- `lalista PR #43` — the worked example. PR body currently has 2 out-of-band items + the audit comment has 3, with overlap; user explicitly asked for a unified pre-flight surface 2026-05-04.
+- The existing Phase 6 audit-comment template (`/ak-build` SKILL.md) — names the same items but at a different moment in the lifecycle (just-shipped, not just-going-live).
+- `/devshop/.claude/skills/ak-go-live/SKILL.md` — the skill that gets the new prose for Arm A and the new automation steps for Arm B.
+
+**Cost/risk:**
+
+- Arm A implementation: ~1–2 hours — pure SKILL.md prose, no new code, no new credential.
+- Arm B implementation: ~6–10 hours — Management API integration (3 endpoints), credential plumbing, error handling, the per-run `go-live.md` report shape, bats tests for the auto-update confirmation flow.
+- New-credential risk (Arm B only): the Supabase Personal Access Token has broad scope (project config write); leaking it = ability to misconfigure auth on the prod project. Same blast radius as today's `ANTHROPIC_API_KEY_PROD` (per chapter 1l's existing split convention) — manageable with the same CI-only + 1Password discipline.
+- False-positive risk on Arm B's allow-list compare: `additional_redirect_urls` glob pattern matching is fuzzy; the safer default is "warn, don't auto-update" until the convention is exercised on a few real chapters and the failure modes are known.
+- Pipeline-time risk: Arm A adds ~5 seconds wall-time (one `gh pr view` call). Arm B adds ~10–30 seconds for the Management API round-trips plus the curl check. Negligible.
+
+---
+
 ### Auth UX conventions — shared error-surface + state patterns
 
 Projects using Supabase auth keep re-solving the same UX gaps because there's no shared convention. Lalista surfaced two that every hosted-Supabase auth flow hits:
