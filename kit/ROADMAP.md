@@ -1006,6 +1006,62 @@ The pre-flight surface (Arm A) alone is high-value and low-risk — even if Arm 
 
 ---
 
+### Generalize lalista PR #43's E2E + Supabase test-infra lessons to template + conventions
+
+**Problem.** Four discrete testing-infrastructure lessons surfaced during chapter 1l's CI fix-loop are inline-documented in lalista's own files (forgot-password helper, auth-edge-cases spec) but not extracted to devshop. Every future devshop project that ships a Supabase auth flow + Playwright E2Es will rediscover all four from first principles. They cost lalista 9 CI fix-loop iterations + ~2 hours of debugging across two sessions; codifying them upstream cuts that to zero on the next project.
+
+**The four lessons.** Each is reproducibly generic (not lalista-specific):
+
+1. **Mailpit replaced Inbucket but Supabase CLI keeps the legacy `INBUCKET_URL` env var name.** Any devshop project using Supabase local stack with E2E helpers that need to read the mail relay hits this on Supabase CLI ≥ 2.x. The wire-level API differs (mailpit uses `/api/v1/search?query=to:<addr>`; inbucket used `/api/v1/mailbox/<addr>`). Inline doc lives at `lalista/apps/web/e2e/helpers/inbucket.ts:1-22`.
+
+2. **Supabase's `{{ .ConfirmationURL }}` template variable renders with a bare `/verify` path on the auth host (port 54321) instead of the Kong-prefixed `/auth/v1/verify`.** Browsers follow the bare URL fine because they handle Kong's redirects, but `page.goto(link)` in Playwright 404s with "no Route matched." Affects any project that drives Supabase recovery/confirmation links via Playwright. Inline doc + the `rewriteBareVerify` function lives at `lalista/apps/web/e2e/helpers/inbucket.ts:108-128`.
+
+3. **WebKit React-hydration race on controlled inputs.** `page.locator('#input').fill(value)` can resolve before React's state syncs back to the DOM `value` attribute on a freshly hydrated controlled input. The result: `fill` reports "value set", the next interaction observes the field as empty, the form submits with missing data. Reproduced identically across three CI runs in PR #43 (25258858879 / 25259626169 / 25260400981) before the fix landed. Robust pattern: `click + pressSequentially(value, { delay: 10 }) + expect().toHaveValue(value)` — real keystrokes give React time to settle, the value-equality assert auto-retries. Affects any Playwright + React project, not Supabase-specific. Inline doc at `lalista/apps/web/e2e/forgot-password.spec.ts:73-89`.
+
+4. **Two-shape signup behavior depending on `[auth.email].enable_confirmations`.** When TRUE (prod's typical posture): Supabase returns `{ user: { identities: [] }, session: null }` for an existing-account second-signup — the no-enumeration shape. The app's /sign-up page can branch into AwaitingConfirmationCard, indistinguishable from a fresh signup. When FALSE (auto-confirm; CI's typical posture): Supabase returns an explicit `User already registered` error and the app's friendly-error mapping renders "already registered, try signing in instead." E2E tests on local stack (auto-confirm) exercise the visible-error path; unit tests should mock the prod shape to pin the no-enumeration parity. Inline doc at `lalista/apps/web/e2e/auth-edge-cases.spec.ts:155-174`.
+
+**Shape of the convention.**
+
+- **Lessons 1 + 2 → template helper file.** Ship `template/apps/web/e2e/helpers/inbucket.ts` (or whatever the canonical mail-relay helper is named for new projects — "inbucket.ts" preserves Supabase's env-var name; fine to keep) as part of the standard E2E scaffold. New projects scaffolding from the template inherit a working helper on day 1. The file's own docstring explains why the name is misleading + the bare-/verify rewrite. Pure code; no convention prose needed beyond what's in the file.
+
+- **Lesson 3 → convention + skill amendment.** Convention prose lives at `kit/docs/guide/conventions.md § Playwright + controlled inputs on WebKit`. The rule: for forms with controlled inputs whose values are read at submit time (login, password reset, anything with `<input value={state} onChange=...>`), prefer `pressSequentially` over `fill` when targeting WebKit. One-line callout in `/ak-pre-ship` Gate 9 (QA walks) so it fires at the right moment.
+
+- **Lesson 4 → convention + (optionally) template scaffold.** Convention prose at `kit/docs/guide/conventions.md § Supabase auth E2E patterns` covering: how to test the no-enumeration shape (mock at the unit level with `identities: []` + null session), how to test the auto-confirm shape (E2E against local stack), why the test-layer split is correct. If template ships any auth E2E examples, mirror this dual-layer pattern.
+
+- **Cross-link from `kit/ROADMAP.md § Auth UX conventions`** (the existing v0 entry that extracts `AwaitingConfirmationCard` + `friendlyAuthError`). That entry is about UX components; this one is about test infrastructure. They pair naturally — UX work without test-infra produces flaky lessons-by-rediscovery loops.
+
+- **Implementation order:** ship the template helper file FIRST (lessons 1 + 2 are pure code, easiest to verify), then the conventions (lessons 3 + 4 are prose, easier when there's a template helper to reference). One PR per lesson keeps the diff small; or one PR for the helper file + one for the conventions.
+
+**Why this beats the obvious alternatives.**
+
+- **"Just leave it inline in lalista"** — works for lalista (we wrote it; we'll find it), fails for the next project (they'll rediscover all 4 from first principles, costing ~2 hours each). The whole point of the template + conventions is to compound learning across projects.
+- **"Wait for a second project to surface the gap"** — the Auth UX conventions entry already has this exact sequencing (extract after lalista soaks). Lessons 1-3 are technical and don't benefit from soak; the helper either works or doesn't. Lesson 4 might benefit from soak (the no-enumeration UX trade-off has UI implications worth seeing in production), but the convention prose can ship now and refine later.
+
+**Why v0 — blocks next-project adoption.**
+
+A second project shipping Supabase auth without these four lessons in template + conventions will hit them. Lessons 1 + 2 cost ~30 minutes each to debug from scratch (you need the trace.zip to see the URL form). Lesson 3 cost lalista a 9-iteration CI fix-loop because the symptom (test fails on WebKit, passes on Chromium) reads as flake. Lesson 4 is design-trade-off shaped (you need to KNOW about the two shapes to test correctly); without the convention, projects ship the wrong test layer and miss bugs.
+
+**Trigger:**
+
+- Lalista PR #43 just landed (2026-05-05); lessons are fresh. Ship the template helper this week.
+- Conventions can be drafted alongside; pair-review with a future devshop project's auth flow as the validation pass.
+
+**Cross-ref:**
+
+- `lalista PR #43` (chapter 1l, merged 2026-05-05). The four files where the lessons currently live.
+- `kit/ROADMAP.md § Auth UX conventions` — UX-side companion entry; pair these two to ship.
+- `kit/ROADMAP.md § /ak-build Phase 5.8` — the post-pre-ship audit entry that this convention's lessons feed into (the "did you remember to use pressSequentially?" question is exactly what `/ak-test-review` should ask).
+- `kit/scripts/commit-hooks/check-test-coverage-project.sh` — the Layer-1 test-presence hook; the Layer-2 conventions ride on top.
+
+**Cost/risk.**
+
+- Template helper file: ~1 hour — copy lalista's file verbatim, generalize the comments, drop in `template/apps/web/e2e/helpers/`. Mirror in `template/apps/web/e2e/sign-up.spec.ts` + `forgot-password.spec.ts` skeletons that consume it.
+- WebKit conventions: ~1 hour — prose in `kit/docs/guide/conventions.md` + the one-line callout in `/ak-pre-ship` SKILL.md.
+- Two-shape signup convention: ~1 hour — prose + a small worked example in conventions.md.
+- Total: ~3 hours for all four lessons. False-positive risk: zero (these are well-validated patterns from a 9-iteration debug loop).
+
+---
+
 ### Auth UX conventions — shared error-surface + state patterns
 
 Projects using Supabase auth keep re-solving the same UX gaps because there's no shared convention. Lalista surfaced two that every hosted-Supabase auth flow hits:
