@@ -290,7 +290,7 @@ How it works:
 - The `extract_convention_section` helper greps the requested sections out of `conventions.md` and appends them to `CONTEXT` under a `=== Relevant conventions ===` header.
 - Rule 7 in the prompt template instructs the reviewer to FAIL when the diff/dismissal violates an explicit rule unless the reason engages the rule's rationale.
 
-Initial map covers: `testCoverage` → Non-Negotiables; `testCoverageProject` → Test Presence | Non-Negotiables; `docsReviewed` (devshop) → Backlog Routing Guide; `docsReviewed` (project) → Project Docs Freshness | Project Docs Hierarchy; `exemptAddition` → Test Presence | Project Docs Freshness | Project Docs Hierarchy; and `dismissalLog/<gate>` for `qa`, `test-review`, `design-review`, `cso`, `rls-coverage`, `slow-job-lifecycle`, `review`, `metrics-check`.
+Initial map covers: `testCoverage` → Non-Negotiables; `testCoverageProject` → Test Presence | Non-Negotiables; `testReviewSkipReason` → Non-Negotiables | Test Assertion Depth; `docsReviewed` (devshop) → Backlog Routing Guide; `docsReviewed` (project) → Project Docs Freshness | Project Docs Hierarchy; `exemptAddition` → Test Presence | Project Docs Freshness | Project Docs Hierarchy; and `dismissalLog/<gate>` for `qa`, `test-review`, `design-review`, `cso`, `rls-coverage`, `slow-job-lifecycle`, `review`, `metrics-check`.
 
 Extending enforcement:
 
@@ -329,10 +329,10 @@ Extending: add a route in `get_guides_to_inline` keyed off `grep -qE` on the sta
 
 `adversarial-review.sh` runs different models per check-type — Haiku 4.5 for deterministic rule-application checks (cheap, fast, sufficient) and Sonnet 4.6 for judgment-heavy or high-blast-radius checks (where false-passes compound or are irreversible):
 
-| Model      | Check-types                                                                                                                                                  | Rationale                                                                                                                                                                                                                                                                                                                                                 |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Haiku 4.5  | `dirtyTreeReason`, `dirtyPushReason`, `manifestReviewed`                                                                                                     | Pure rule-application: does the reason name specific files? does the manifest decision reasoning hold? False-passes are recoverable (operator notices via downstream symptoms).                                                                                                                                                                           |
-| Sonnet 4.6 | `docsReviewed` (both devshop + project branches), `prDescStaleReason`, `testCoverage`, `testCoverageProject`, `dismissalLog`, `hookBypass`, `exemptAddition` | Errors compound (stale docs feed future sessions; PR descriptions are the canonical reviewer-facing record), require code/spec-scope judgment (testCoverage, dismissalLog, exemptAddition), or have irreversible failure modes (gitleaks bypass via hookBypass can leak secrets; an unreviewed exempt entry silently disables the upstream gate forever). |
+| Model      | Check-types                                                                                                                                                                          | Rationale                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Haiku 4.5  | `dirtyTreeReason`, `dirtyPushReason`, `manifestReviewed`                                                                                                                             | Pure rule-application: does the reason name specific files? does the manifest decision reasoning hold? False-passes are recoverable (operator notices via downstream symptoms).                                                                                                                                                                                                                                                                                 |
+| Sonnet 4.6 | `docsReviewed` (both devshop + project branches), `prDescStaleReason`, `testCoverage`, `testCoverageProject`, `testReviewSkipReason`, `dismissalLog`, `hookBypass`, `exemptAddition` | Errors compound (stale docs feed future sessions; PR descriptions are the canonical reviewer-facing record), require code/spec-scope judgment (testCoverage, dismissalLog, exemptAddition, testReviewSkipReason), or have irreversible failure modes (gitleaks bypass via hookBypass can leak secrets; an unreviewed exempt entry silently disables the upstream gate forever; a thin testReviewSkipReason ships unaudited polish-loop coverage gaps to merge). |
 
 Routing lives in `get_model_for_check_type` near the bottom of `adversarial-review.sh`. Override via `DEVSHOP_ADVERSARIAL_MODEL_OVERRIDE=sonnet` to upgrade a Haiku check for a high-stakes commit. Operator pattern: ask Claude to "use the upgraded adversarial review" and Claude prepends the env var.
 
@@ -350,3 +350,22 @@ The shim's output is a rendered Dismissals body that pre-ship treats like any ot
 Today's Dismissal Log entries carry a single `rationale:` field. Phase 4 (Finding Router, not yet landed) will add a `disposition:` field adjacent (`fix-now` | `fix-before-ship` | `TODO` | `spec-amendment` | `ignore`) to route dismissals into concrete actions. Today's entries extend, not migrate — the `rationale:` field stays.
 
 See `/devshop/.claude/skills/devshop/pre-ship/SKILL.md § Dismissal Log (every gate, mandatory)` for the full skill-level contract, including the canonical ordered gate list.
+
+### `/ak-build` Phase 5.8 — `testReviewSkipReason`
+
+`adversarial-review.sh` is invoked from one more surface beyond commit-time and pre-ship: `/ak-build` Phase 5.8 (post-pre-ship test-coverage re-audit). When the audit subagent surfaces high-severity findings in `specs/<feature>/test-review-followup.md`, Phase 5.8 halts. The operator can override by setting the bypass:
+
+```bash
+git config devshop.testReviewSkipReason "<per-finding rationale>"
+```
+
+…and re-invoking `/ak-build`. The bypass is judged by `adversarial-review.sh testReviewSkipReason` — Sonnet model, with `Non-Negotiables` + `Test Assertion Depth` from `conventions.md` inlined as the rule corpus. The reviewer FAILS the override unless the reason satisfies all four:
+
+1. **Per-finding engagement** — names each high-severity finding (file:line) and explains specifically why shipping without the test is acceptable. Generic "tests are fine" / "audit is overzealous" without per-finding rationale FAILS.
+2. **No core-flow dismissal** — a high finding touching the project's primary user verb (sign-in / add / list / bought / equivalent) is categorically NOT acceptable.
+3. **Plausible follow-up commitment** (when "will fix later" appears) — names a specific TODOS.md / ROADMAP entry / issue, not a vague intent.
+4. **No security-boundary skips** — findings touching auth, RLS, password policy, or other security-relevant assertions cannot be deferred.
+
+The default is REJECT — the audit already weighed signal vs noise; high-severity findings reflect real gaps. The override exists for genuinely-justified ship-now cases (e.g., the test fixture is blocked on infrastructure that lands next week and is tracked in TODOS).
+
+This is the only adversarial-review check-type whose surface isn't a git hook — it fires inside the `/ak-build` skill rather than at commit or push time. The bypass flag and per-check-type model routing are otherwise identical to the rest.

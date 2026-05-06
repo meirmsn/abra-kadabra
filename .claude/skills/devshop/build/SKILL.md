@@ -1,6 +1,6 @@
 ---
 name: ak-build
-version: 1.5.0
+version: 1.6.0
 description: |
   Autonomous build pipeline: preview → spec → implement → quality gates → ship → CI watch → notify.
   Phase 0 produces a 3-section pre-flight preview (decisions / scope / tracker) and
@@ -56,7 +56,15 @@ clean for orchestration and user communication.
   ├─ Agent → /ak-implement   → writes specs/<name>/tasks.md + code + tests
   ├─ Agent → /ak-pre-ship    → writes specs/<name>/review.md
   ├─ Agent → /ship           → pushes, creates PR
-  └─ CI watch (main ctx)     → reads review.md + tasks.md for audit comment
+  ├─ CI watch (main ctx)     → fix-loop, bookkeeping, re-watch (Phase 5.1–5.7)
+  ├─ Agent → /ak-test-review → re-audit over post-pre-ship range (Phase 5.8 —
+  │                             writes specs/<name>/test-review-followup.md;
+  │                             halts on high-severity findings)
+  ├─ Agent → visual refresh  → re-runs /ak-pre-ship Gates 4 + 13 over HEAD
+  │                             (Phase 5.9 — overwrites stale screenshots/
+  │                             hero shots; freshness-only, no halt path)
+  └─ Phase 6 (main ctx)      → reads review.md + tasks.md +
+                                test-review-followup.md for audit comment
 ```
 
 ## Step 0: Determine feature and resume state
@@ -104,6 +112,15 @@ Detect where a previous run left off. Evaluate top-to-bottom; the first match wi
    ```bash
    PR=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number // empty')
    ```
+   Two sub-rungs land closer to Phase 6 if their artifacts already match HEAD —
+   the per-phase idempotence checks (5.8 § Idempotence, 5.9 § Idempotence) do
+   the same work, but pinning them in the resume tree saves a session-restart
+   from re-spawning a subagent that would no-op anyway:
+   - **1a.** Open PR + `$FEATURE_DIR/test-review-followup.md` exists with an
+     `<!-- audited-at: <SHA> -->` line whose SHA equals current `HEAD` →
+     skip Phase 5.8 specifically (jump straight to 5.9, then Phase 6).
+   - **1b.** Open PR + `git status --porcelain -- "$FEATURE_DIR/screenshots" "$FEATURE_DIR/hero" 2>/dev/null` is empty AND the latest commit touching either dir is at HEAD → skip Phase 5.9 specifically (jump to Phase 6).
+   - Both sub-rungs satisfied → skip 5.8 + 5.9 entirely → Phase 6.
 2. **`$FEATURE_DIR/tasks.md` exists with all tasks `done`?** → skip to Phase 3 (pre-ship)
 3. **`$FEATURE_DIR/tasks.md` exists with some tasks `done`?** → skip to Phase 2 (implement resumes internally)
 4. **`$FEATURE_DIR/spec.md` exists and contains `## Task order`?** → full spec written by Phase 1 → skip to Phase 2 (implement)
@@ -756,6 +773,294 @@ shortcut.
 PLAN.md was already empty and BUILD-LOG entry already existed), there
 is no new run to watch and 5.7 is a no-op too.
 
+## Phase 5.8: Post-pre-ship test-coverage re-audit
+
+`/ak-pre-ship` runs `/ak-test-review` as Gate 5 once, against the spec
+snapshot. Every commit landed AFTER that audit — `/ship`'s `Suspense`-fix
+commit, the entire CI fix-loop, the 5.6 bookkeeping commit, and any
+post-Phase-3 polish iterations the user asks for during local dogfood —
+bypasses test-coverage review entirely. The pre-push reviewer covers
+PR-description coverage, the Layer-1 test-presence hook covers "did you
+touch a test file at all," and the freshness hook covers docs — but none
+check **whether the new behavior is actually pinned by an assertion**.
+That's `/ak-test-review`'s job; 5.8 re-runs it once over the polish range
+before Phase 6 posts the audit comment.
+
+**Why a test-presence hook isn't enough**: the Layer-1 hook
+(`check-test-coverage-project.sh`) catches "added a `.tsx` file with no
+`.test.tsx` next to it" — a file-level math check. It cannot judge:
+
+- A new prop on an existing component lacks a test for the prop's
+  behavior (`AwaitingConfirmationCard` gained an `onEdit` callback in
+  lalista PR #43; the file-level paired test exists but does nothing
+  for the new prop).
+- A new code branch is unreached by any existing test (sign-up's
+  no-enumeration parity changed which UI path renders for `identities=[]`
+  — same file, same test file, but the existing tests pinned the OLD
+  behavior).
+- A modification crossing a security boundary (password policy) where
+  the existing tests still pass but no longer assert the right thing.
+
+These are the cases `/ak-test-review` catches via fresh-eyes read.
+
+### 5.8.1: Polish-loop CI sanity check (enumerate-on-invocation)
+
+Every push between Phase 4 (PR open) and 5.8 fires a CI run. That data
+is free; ignoring it lets reds accumulate silently across polish
+iterations until something forces a check (the lalista PR #43 failure
+mode — 4 silent reds before the user manually flagged one). 5.8's first
+job is to surface every CI result since the PR opened, then halt if the
+latest is non-success.
+
+This replaces the prior "watch every push as discipline" framing. There's
+no orchestrator state to maintain, no background watches to keep alive
+across user-driven dogfood sessions, and no load-bearing-discipline
+ask. The data is queried from GitHub at the moment we actually need it.
+
+```bash
+PR_OPENED_AT=$(gh pr view "$PR" --json createdAt --jq .createdAt)
+RUNS=$(gh run list --branch "$BRANCH" --limit 50 \
+  --json conclusion,createdAt,headSha,displayTitle,databaseId,status \
+  --jq "[.[] | select(.createdAt >= \"$PR_OPENED_AT\")]")
+
+# Surface every red run since PR open — informational, even when latest is green.
+echo "$RUNS" | jq -r '
+  .[] | select(.conclusion == "failure") |
+  "  \(.createdAt | sub("T"; " ") | sub("Z"; "")) \(.headSha[0:7]) \(.displayTitle)"' \
+  > /tmp/polish-loop-reds.txt
+
+if [ -s /tmp/polish-loop-reds.txt ]; then
+  echo "Polish-loop CI failures since PR open:"
+  cat /tmp/polish-loop-reds.txt
+fi
+
+# Halt only if LATEST is non-success — that's the actionable state.
+LATEST=$(echo "$RUNS" | jq -r '.[0] | .conclusion // .status // "unknown"')
+if [ "$LATEST" != "success" ]; then
+  echo "✖ 5.8 prereq: latest CI run is $LATEST (not success)."
+  echo "  Routing to Phase 5.4's fix loop. 5.8 will re-run on the"
+  echo "  next /ak-build invocation after CI is green."
+  goto_phase=5.4
+  return
+fi
+```
+
+**Reading the output**: a transient red→green sequence (push broke
+something, next push fixed it) is informational. The audit comment in
+Phase 6 records the count for reviewer due-diligence — it's evidence
+the polish loop hit and resolved real failures, not a problem. A
+sustained-red latest run is the halt path.
+
+### 5.8.2: Determine the audit range
+
+The audit runs over `<pre-ship-commit>..HEAD`, where `<pre-ship-commit>`
+is read directly from `review.md`'s frontmatter:
+
+```bash
+PRE_SHIP_SHA=$(grep -oE 'audited-at: [0-9a-f]{7,40}' \
+  "$FEATURE_DIR/review.md" 2>/dev/null | head -1 | awk '{print $2}')
+
+if [ -z "$PRE_SHIP_SHA" ]; then
+  echo "✖ 5.8: review.md missing 'audited-at' frontmatter."
+  echo "  Phase 3 (/ak-pre-ship Gate 5) is supposed to emit the stamp"
+  echo "  when it writes review.md. Either the file was rebased and"
+  echo "  the stamp was lost, or the producer is on an older skill"
+  echo "  version. Re-run /ak-pre-ship to regenerate review.md with"
+  echo "  the current stamp."
+  SKIP_5_8=1
+fi
+
+# Empty range = no commits between Phase 3 and HEAD = 5.8 is a no-op.
+if [ -z "$SKIP_5_8" ] && [ -z "$(git log --oneline "$PRE_SHIP_SHA"..HEAD)" ]; then
+  echo "✓ 5.8: empty range ($PRE_SHIP_SHA..HEAD) — no polish commits"
+  echo "  to audit. Recording 'clean — no polish range' in the audit"
+  echo "  comment."
+  SKIP_5_8=1
+fi
+```
+
+`/ak-pre-ship` Gate 5 emits `<!-- audited-at: <SHA> -->` when it writes
+`review.md`. That's the only signal — no fallback machinery, no
+introduction-commit lookup. If the stamp is missing, the producer is
+the bug; surface it loudly.
+
+### 5.8.3: Spawn the audit subagent
+
+Mirrors the `/ak-pre-ship` Gate 5 invocation pattern — fresh-eyes audit
+over a different commit range:
+
+```bash
+Agent({
+  description: "Phase 5.8: post-pre-ship test-coverage re-audit",
+  subagent_type: "general-purpose",
+  prompt: "Run /ak-test-review (the gstack test-quality skill) over
+  commits ${PRE_SHIP_SHA}..HEAD on branch ${BRANCH} of repo
+  ${REPO_ROOT}. Read every test in the diff alongside the source it
+  covers. Flag missing assertions, untested branches, sloppy mocks,
+  outdated fixtures, security-relevant behavior changes whose existing
+  tests still pass but no longer pin the right behavior. Write findings
+  to ${FEATURE_DIR}/test-review-followup.md with frontmatter line
+  '<!-- audited-at: <HEAD-SHA> -->' and a final summary line
+  'findings: high=N, medium=N, low=N'. Do NOT write any tests yourself
+  — your job is to audit and recommend, not implement. Return the
+  summary line + the report path."
+})
+```
+
+### 5.8.4: Severity branching
+
+Mirrors `/ak-pre-ship`'s `findings_pending > 0` halt and the Phase 3 → 4
+`blocked > 0` refusal:
+
+| Severity     | Action                                                                                                                                                                                      |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `high>0`     | **Halt** at 5.8. Surface the findings to the user in the same shape as `findings_pending`. Phase 6 does NOT run. User options: (a) close findings with new test commits and re-invoke `/ak-build` (resumes via Step 0 — 5.8 re-runs over the new HEAD); (b) override via `git config devshop.testReviewSkipReason "<specific reason>"` (then re-invoke). The Layer-2 adversarial reviewer judges the override. |
+| `medium>0`   | **Proceed**. Phase 6's audit comment includes a `### Post-pre-ship test-coverage findings` section listing them so the human reviewer sees them inline. Mediums are recommendations, not blockers.                                          |
+| `low>0`      | Audit comment notes `(N low-severity items in test-review-followup.md)` without listing.                                                                                                    |
+| `0/0/0`      | Audit comment notes `Post-pre-ship coverage: clean.`                                                                                                                                        |
+
+**Halt-path output**:
+
+```
+✖ Phase 5.8: post-pre-ship test-coverage audit found N high-severity
+findings over range ${PRE_SHIP_SHA}..${HEAD}.
+
+Findings (full report at ${FEATURE_DIR}/test-review-followup.md):
+  - <finding 1: file:line + one-line summary>
+  - <finding 2: ...>
+
+Phase 6 will not post the audit comment until findings are closed.
+
+Options:
+  1. Close findings with new test commits, then re-run /ak-build.
+     Step 0 resumes at Phase 5.8; the audit re-runs over the new HEAD.
+  2. Override with a specific bypass reason:
+     git config devshop.testReviewSkipReason "<why these are OK to ship>"
+     then re-run /ak-build. The reason is judged by the adversarial
+     reviewer (testReviewSkipReason check-type, Sonnet 4.6); generic
+     reasons fail.
+```
+
+### 5.8.5: Idempotence
+
+Skip 5.8 when the followup report already exists at the same SHA as HEAD:
+
+```bash
+if [ -f "$FEATURE_DIR/test-review-followup.md" ]; then
+  AUDITED=$(grep -oE 'audited-at: [0-9a-f]{7,40}' \
+    "$FEATURE_DIR/test-review-followup.md" | head -1 | awk '{print $2}')
+  HEAD_SHA=$(git rev-parse HEAD)
+  if [ "$AUDITED" = "$HEAD_SHA" ]; then
+    echo "✓ 5.8: already audited at $HEAD_SHA — skipping"
+    SKIP_5_8=1
+  fi
+fi
+```
+
+This is the same idempotence pattern that lets Step 0's resume-rung
+1a fast-forward past 5.8 — both paths read the `audited-at` stamp.
+
+## Phase 5.9: Post-pre-ship visual evidence refresh
+
+The hero screenshots embedded in the PR body are captured during
+`/ak-pre-ship` Gate 4 (responsive + theme) and Gate 13 (hero shots) at
+Phase 3 — against the spec snapshot. Every commit that lands AFTER
+Phase 3 can change what each screen looks like, but the PR-body
+screenshots stay frozen at the Phase-3 SHA. The reviewer reads the body,
+sees the wrong UI, and either re-runs the screenshots manually or
+reviews the wrong artifact.
+
+5.9 is the visual-evidence sibling to 5.8 — once-per-PR, late in the
+pipeline. The previous version of this section routed captures through
+a bytewise diff (changed / unchanged / new / deleted). That was
+over-engineering: headless Chromium captures vary on font hinting and
+GPU rasterization, so bytewise comparison false-positives on every run;
+and the reviewer doesn't actually care which files changed, only that
+the embeds match HEAD. **Always regenerate, always commit on changes;
+no diff routing**.
+
+### 5.9.1: What gets regenerated
+
+| Path                                                 | Refresh? | Why                                                                                                                                                                                                                        |
+| ---------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `$FEATURE_DIR/hero/*.png`                            | yes      | The curated hero set referenced by the PR body's `https://github.com/.../raw/.../hero/<file>.png` embeds — overwriting the file at the same path makes the embeds resolve to the new image automatically; no PR body edit. |
+| `$FEATURE_DIR/screenshots/<screen>-<vw>-<theme>.png` | yes      | The 4-combo evidence matrix from Gate 3 (typically not embedded in the PR body, but kept fresh for the audit doc).                                                                                                         |
+| `$FEATURE_DIR/qa-walk/*.png`                         | **no**   | Walk-through-specific; re-running the walk requires a full Gate 9 happy-path re-run, too expensive for routine 5.9. Defer to a separate roadmap entry if the need surfaces.                                                |
+
+### 5.9.2: Spawn the refresh subagent
+
+```bash
+Agent({
+  description: "Phase 5.9: post-pre-ship visual evidence refresh",
+  subagent_type: "general-purpose",
+  prompt: "Re-run /ak-pre-ship Gate 4 (responsive + theme — 4 combos
+  per screen) and Gate 13 (hero shots) over branch ${BRANCH} at HEAD.
+  Read the existing screenshot manifest at ${FEATURE_DIR}/review.md
+  to know which screens were captured originally; capture the same
+  set against the latest UI, overwriting every file under
+  ${FEATURE_DIR}/{screenshots,hero}/. Do not diff against the previous
+  captures — always regenerate. Capture at fixed viewport sizes with
+  prefers-reduced-motion: reduce (per /ak-pre-ship convention).
+
+  Edge cases:
+  - New screen (rare; only if a polish commit added a new route) →
+    write a new file using the manifest's filename convention.
+  - Removed screen (rare; only if a polish commit deleted one) →
+    delete the stale file AND update the PR body via
+    'gh pr edit \$PR --body-file <new-body>' to drop the embed.
+
+  Stage everything under ${FEATURE_DIR}/{screenshots,hero}/, then:
+  - if 'git diff --cached --quiet' (no actual changes), do not commit
+    (the captures were bytewise-identical or only differ by deterministic
+    noise that git's content hashing happens to absorb — either way,
+    nothing to ship);
+  - otherwise commit with message
+    'chore(${FEATURE}): refresh visual evidence at HEAD (Phase 5.9)'.
+
+  Return: 'committed' or 'no-op'."
+})
+```
+
+The "regenerate, then commit only if `git diff --cached` shows changes"
+shape replaces the bytewise-routing prose. Git already does
+content-addressed hashing — let it decide whether the regenerated
+captures are actually different from what's tracked. False positives
+from rasterization variance still reach the working tree but don't
+reach a commit.
+
+### 5.9.3: No halt path
+
+5.9 is freshness-only. There is no "high-severity finding" concept and
+no escalation. The subagent either produces a commit (UI did change
+during polish) or a no-op (UI is unchanged). Phase 6's audit comment
+records which.
+
+### 5.9.4: Idempotence
+
+Skip 5.9 when both `$FEATURE_DIR/screenshots/` and `$FEATURE_DIR/hero/`
+have a clean working tree AND the latest commit touching either dir is
+at HEAD:
+
+```bash
+if [ -z "$(git status --porcelain -- \
+  "$FEATURE_DIR/screenshots" "$FEATURE_DIR/hero" 2>/dev/null)" ]; then
+  LAST_VISUAL_COMMIT=$(git log -1 --format=%H -- \
+    "$FEATURE_DIR/screenshots" "$FEATURE_DIR/hero" 2>/dev/null)
+  if [ "$LAST_VISUAL_COMMIT" = "$(git rev-parse HEAD)" ]; then
+    echo "✓ 5.9: visual evidence already at HEAD — skipping"
+    SKIP_5_9=1
+  fi
+fi
+```
+
+This is the same shape that lets Step 0's resume-rung 1b fast-forward
+past 5.9 — both paths read the same git state.
+
+After 5.9 commits its refresh (when the UI did change), the resulting
+push triggers a fresh CI run. 5.8's polish-loop CI sanity check (§5.8.1)
+catches any failure on the next /ak-build invocation; do not advance to
+Phase 6 until that run is green.
+
 ## Phase 6: Post audit trail comment
 
 After CI is green, read `$FEATURE_DIR/review.md` and `$FEATURE_DIR/tasks.md` for the
@@ -783,9 +1088,19 @@ gh pr comment "$PR" --body "$(cat <<'COMMENT'
 | /qa | <pass / findings (N) fixed / blocked> |
 | /benchmark | <pass / findings (N) / n/a / blocked> |
 | Convention check | <pass / findings (N) / blocked> |
+| Post-pre-ship test-coverage | <pass / findings (N) [pending or medium-only] / n/a — empty range / skipped — testReviewSkipReason / blocked> |
 
 ### CI fix loop
 <N attempts / 0 if CI passed first try / details of what was fixed>
+
+### Polish-loop CI history
+<From 5.8.1's enumerate-on-invocation. If zero reds since PR open: "Clean —
+ no transient failures during polish."
+ If N reds with latest = green: "N transient failure(s) resolved during
+ polish (most-recent-first, SHA + run title):" + bulleted list.
+ If latest is non-success: should not reach Phase 6 — halted at 5.8.1.
+ The reviewer reads this as evidence of polish-loop due diligence — red
+ runs that the next push fixed are signal, not noise.>
 
 ### Implementation decisions
 <From $FEATURE_DIR/tasks.md § Decisions — judgment calls made during /ak-implement>
@@ -793,12 +1108,30 @@ gh pr comment "$PR" --body "$(cat <<'COMMENT'
 ### Findings fixed during pre-ship
 <From $FEATURE_DIR/review.md — one bullet per finding: what was found, which commit fixed it>
 
+### Post-pre-ship test-coverage audit (range: ${PRE_SHIP_SHA}..${HEAD})
+<From $FEATURE_DIR/test-review-followup.md.
+ If 0/0/0: "Clean — no new gaps."
+ If medium>0: list each medium verbatim (file:line + one-line summary +
+              recommended assertion shape).
+ If low>0 (and medium=0): "(N low-severity items in test-review-followup.md)"
+ If high>0: should not reach Phase 6 — halt at 5.8.
+ If skipped (testReviewSkipReason): "Skipped per <reason>; reviewer judged the
+              override (testReviewSkipReason adversarial review PASS)."
+ If empty range: "Empty post-pre-ship range — no polish commits to audit.">
+
 ### Evidence
 <If specs/$FEATURE/hero/*.png exists, include one markdown image-embed per
 file. Use the github.com/.../raw/... URL form per § "PR body conventions"
 (private-repo safe; raw.githubusercontent.com 404s for viewers without a
 token). Skip this section entirely when no hero shots were captured —
-do not leave placeholder text.>
+do not leave placeholder text.
+
+Append a one-line freshness note based on 5.9's outcome:
+  "(Hero shots refreshed at 5.9.)"             — subagent committed new captures
+  "(Hero shots unchanged; already at HEAD.)"    — subagent ran, no diff to commit
+  "(5.9 skipped — visual evidence already at HEAD via idempotence.)"
+This gives the reviewer ground-truth on whether the embeds reflect
+the merge-target SHA.>
 COMMENT
 )"
 ```

@@ -78,3 +78,74 @@ EOF
   # Format is "<status>\t<old-path>" — D for delete, so 'D\tkit/scripts/doomed.sh'
   grep -qE "^D[[:space:]]+kit/scripts/doomed\.sh" "$CAPTURED_PROMPT"
 }
+
+# === testReviewSkipReason context: /ak-build Phase 5.8 halt override ===
+
+# Helper: seed a feature branch with specs/<feature>/test-review-followup.md so
+# the testReviewSkipReason context-gathering switch has a file to read.
+_seed_followup() {
+  local feature="$1" audited_at="$2" body="$3"
+  local dir="$TEST_REPO/specs/$feature"
+  mkdir -p "$dir"
+  cat > "$dir/test-review-followup.md" <<EOF
+<!-- audited-at: $audited_at -->
+
+# Test review followup — $feature
+
+$body
+
+findings: high=1, medium=2, low=0
+EOF
+  (cd "$TEST_REPO" && git checkout -q -b "feature/$feature" 2>/dev/null \
+    || git -c user.email=t@t -c user.name=t checkout -q "feature/$feature")
+  (cd "$TEST_REPO" && git add "specs/$feature/test-review-followup.md" \
+    && git -c user.email=t@t -c user.name=t commit -q -m "seed followup")
+}
+
+@test "testReviewSkipReason: prompt includes the audited-at SHA from the followup" {
+  _seed_followup "auth-rework" "deadbeef1234567" \
+    "## High\n- AwaitingConfirmationCard onEdit prop is untested"
+
+  (cd "$TEST_REPO" && bash "$REVIEW" testReviewSkipReason \
+    "tracked at TODOS.md § follow-up-tests" >/dev/null 2>&1) || true
+  [ -f "$CAPTURED_PROMPT" ]
+  grep -q "audited-at" "$CAPTURED_PROMPT"
+  grep -q "deadbeef1234567" "$CAPTURED_PROMPT"
+}
+
+@test "testReviewSkipReason: prompt includes the followup body verbatim" {
+  _seed_followup "feature-x" "abcdef1234567" \
+    "## High\n- onEdit prop is untested at AwaitingConfirmationCard.tsx:42"
+
+  (cd "$TEST_REPO" && bash "$REVIEW" testReviewSkipReason "any reason" >/dev/null 2>&1) || true
+  [ -f "$CAPTURED_PROMPT" ]
+  grep -q "AwaitingConfirmationCard.tsx:42" "$CAPTURED_PROMPT"
+  grep -q "onEdit prop is untested" "$CAPTURED_PROMPT"
+}
+
+@test "testReviewSkipReason: prompt includes the findings summary line" {
+  _seed_followup "feature-y" "1111111aaaaaa" "## High\n- a gap"
+
+  (cd "$TEST_REPO" && bash "$REVIEW" testReviewSkipReason "x" >/dev/null 2>&1) || true
+  [ -f "$CAPTURED_PROMPT" ]
+  grep -qE "findings: high=1, medium=2, low=0" "$CAPTURED_PROMPT"
+}
+
+@test "testReviewSkipReason: prompt includes per-finding engagement rule" {
+  _seed_followup "feature-z" "2222222bbbbbb" "## High\n- gap"
+
+  (cd "$TEST_REPO" && bash "$REVIEW" testReviewSkipReason "x" >/dev/null 2>&1) || true
+  [ -f "$CAPTURED_PROMPT" ]
+  grep -q "Per-finding engagement" "$CAPTURED_PROMPT"
+  grep -q "No core-flow dismissal" "$CAPTURED_PROMPT"
+  grep -q "No security-boundary skips" "$CAPTURED_PROMPT"
+}
+
+@test "testReviewSkipReason: prompt warns loudly when followup file is missing" {
+  (cd "$TEST_REPO" && git checkout -q -b feature/no-followup)
+
+  (cd "$TEST_REPO" && bash "$REVIEW" testReviewSkipReason "x" >/dev/null 2>&1) || true
+  [ -f "$CAPTURED_PROMPT" ]
+  grep -q "test-review-followup.md not found" "$CAPTURED_PROMPT"
+  grep -q "suspicious" "$CAPTURED_PROMPT"
+}

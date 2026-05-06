@@ -1,6 +1,6 @@
 ---
 name: ak-test-review
-version: 1.1.0
+version: 1.2.0
 description: |
   Review test quality with fresh eyes — no implementation context.
   Reads tests alongside the code they test and flags weak assertions,
@@ -20,6 +20,11 @@ Review test quality with **fresh eyes** — read tests alongside the code they t
 with no implementation context. You are looking at this code for the first time.
 
 Reference the testing philosophy in `kit/docs/guide/ § Shared Conventions` for principles.
+
+**Two invocation surfaces:**
+
+- **`/ak-pre-ship` Gate 5** — audits the spec snapshot once, before `/ship`. Findings written to `specs/<feature>/review.md § Gate 5`.
+- **`/ak-build` Phase 5.8** — re-invokes this skill over `<pre-ship-sha>..HEAD` to catch coverage gaps in commits that landed AFTER Gate 5 (the `/ship` `Suspense`-fix commit, the entire CI fix-loop, dogfood-driven polish iterations). Findings written to `specs/<feature>/test-review-followup.md` with `<!-- audited-at: <SHA> -->` frontmatter. Same audit logic — only the range and output path differ. High-severity findings halt 5.8 (operator override via `git config devshop.testReviewSkipReason "..."`); medium surface in Phase 6's audit comment.
 
 ## What to flag
 

@@ -113,7 +113,15 @@ Per-feature (specs/<name>/)
   qa-walk/          — gitignored: per-verb artifacts from Gate 9 (screenshots
                       or state JSON) proving each Core user story verb
                       completed; path: verb-<N>-<slug>.{png,json}
-  review.md         — quality gate results (from /ak-pre-ship)
+  review.md         — quality gate results (from /ak-pre-ship). First line is
+                      `<!-- audited-at: <SHA> -->` (the contract /ak-build
+                      Phase 5.8 reads to derive the post-pre-ship audit range)
+  test-review-followup.md
+                    — committed: post-pre-ship test-coverage findings written
+                      by /ak-build Phase 5.8 (Sonnet subagent re-runs
+                      /ak-test-review over <pre-ship-sha>..HEAD). First line
+                      is `<!-- audited-at: <SHA> -->`. Read by Phase 6's
+                      audit comment + Step 0 resume rung 1a
   hero/             — committed: 1–2 durable screenshots per key screen
   screenshots/      — gitignored: per-gate evidence (4 viewport/theme combos)
   design-claims.json            — gitignored: normative claims extracted

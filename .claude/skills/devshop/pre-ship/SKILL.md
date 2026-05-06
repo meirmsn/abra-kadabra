@@ -682,9 +682,16 @@ Review any flagged files — skip config-like or trivial files (single export, <
 
 After all gates run (pass or findings), BEFORE capturing hero screenshots, aggregate
 every gate's `## Dismissals` section into a single `## Router Summary` block at the top
-of `specs/<feature>/review.md`. Shape:
+of `specs/<feature>/review.md`. Prepend an `audited-at` stamp on the very first line —
+substitute the current HEAD SHA inline (`git rev-parse HEAD`), do not write the literal
+`$(...)` to the file. The stamp is the contract `/ak-build` Phase 5.8's
+range-determination step reads: it tells 5.8 which commits landed AFTER pre-ship and
+must therefore be re-audited for test-coverage. Without the stamp, 5.8 halts loudly
+("review.md missing 'audited-at' frontmatter — re-run /ak-pre-ship to regenerate").
 
 ```markdown
+<!-- audited-at: 80485cb1234567890abcdef1234567890abcdef -->
+
 ## Router Summary
 
 | Gate                      | Dismissals                      | Adversarial review            |

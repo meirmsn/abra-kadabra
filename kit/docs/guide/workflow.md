@@ -86,6 +86,14 @@
 │  │   5.4-5.5  fail  → fix loop (max 3) → @mention if stuck          │   │
 │  │   5.6      green → remove PLAN.md Active row + append BUILD-LOG  │   │
 │  │   5.7      re-watch CI after the 5.6 push, then advance          │   │
+│  │   5.8      post-pre-ship test-coverage re-audit (Sonnet subagent │   │
+│  │            re-runs /ak-test-review over <pre-ship-sha>..HEAD;    │   │
+│  │            halts on high-severity findings, surfaces medium in   │   │
+│  │            audit comment) — entry runs polish-loop CI sanity     │   │
+│  │            check first via gh run list since pr.createdAt        │   │
+│  │   5.9      visual evidence refresh (subagent re-captures Gate 4  │   │
+│  │            + Gate 13 hero shots at HEAD, commits only on real    │   │
+│  │            content change) — freshness-only, no halt path        │   │
 │  └──────────────────────────────────────────────────────────────────┘   │
 │                    │                                                    │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
@@ -199,7 +207,9 @@ Every gate's report must also include a `## Dismissals` section (body `None` or 
 
 **Phase 4: `/ship`** (gstack) — merges base, runs tests + review (final verification), bumps VERSION, pushes, creates PR, auto-invokes `/document-release`. PR body is seeded per the checkbox conventions in `/devshop/.claude/skills/devshop/build/SKILL.md § PR body conventions` — image embeds use the private-repo-safe `https://github.com/<owner>/<repo>/raw/<branch>/<path>` form; checkboxes are left `[ ]` at creation and ticked incrementally at 5.3 and 6.
 
-**Phase 5: CI watch + PR bookkeeping** — watches CI via `gh pr checks --watch` (5.1–5.2). On failure: reads CI logs, reads local test/source code, makes informed fix, verifies locally if possible, pushes — max 3 fix cycles (5.4), escalates via PR @mention if stuck (5.5). On CI green: ticks the corresponding `## Test plan` / `### CI gates` PR-body checkboxes with attestations like `green on <sha>` and preview-deploy URLs (5.3), then closes out the feature's history on the feature branch — removes the Active row from `PLAN.md` and appends the ship entry to `BUILD-LOG.md` (5.6) so the history ships as part of this PR rather than a follow-up cleanup commit.
+**Phase 5: CI watch + PR bookkeeping** — watches CI via `gh pr checks --watch` (5.1–5.2). On failure: reads CI logs, reads local test/source code, makes informed fix, verifies locally if possible, pushes — max 3 fix cycles (5.4), escalates via PR @mention if stuck (5.5). On CI green: ticks the corresponding `## Test plan` / `### CI gates` PR-body checkboxes with attestations like `green on <sha>` and preview-deploy URLs (5.3), then closes out the feature's history on the feature branch — removes the Active row from `PLAN.md` and appends the ship entry to `BUILD-LOG.md` (5.6) so the history ships as part of this PR rather than a follow-up cleanup commit. The 5.6 push triggers a fresh CI run; 5.7 re-watches it before advancing.
+
+After 5.7, two late gates close the post-pre-ship gap (commits that landed AFTER `/ak-pre-ship` Gate 5 audited the spec snapshot — `/ship` commits, the entire CI fix-loop, dogfood-driven polish iterations — would otherwise reach merge unaudited). **Phase 5.8** spawns a Sonnet subagent that re-runs `/ak-test-review` over `<pre-ship-sha>..HEAD` (range read from the `<!-- audited-at: <SHA> -->` stamp `/ak-pre-ship` writes at the top of `review.md`), writing findings to `specs/<feature>/test-review-followup.md`. High-severity findings halt; medium surface in the audit comment for reviewer eyes; low get mentioned without listing. 5.8's first move is a polish-loop CI sanity check — it enumerates every CI run since `pr.createdAt` via `gh run list` and halts if the latest is non-success (mechanical replacement for a load-bearing per-push-watch discipline). **Phase 5.9** spawns a refresh subagent that re-captures `/ak-pre-ship` Gate 4 + Gate 13 hero shots at HEAD, commits only when `git diff --cached` shows real changes — freshness-only, no halt path, the `### Evidence` block in Phase 6 reports `(refreshed)` / `(unchanged at HEAD)` / `(skipped via idempotence)`.
 
 **Phase 6: Audit-trail PR comment** — posts the quality-gate results, implementation decisions, CI fix summary, and rendered hero screenshots (`https://github.com/<owner>/<repo>/raw/<branch>/specs/<feature>/hero/<screen>.png`). Does a final sweep (Fix D) cross-checking the PR-body checkbox state against on-disk evidence before Phase 7 declares ready-for-review.
 

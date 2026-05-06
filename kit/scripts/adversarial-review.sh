@@ -5,12 +5,14 @@
 # and returns PASS (exit 0) or FAIL (exit 1).
 #
 # Callers: devshop-commit-guard.sh, check-clean-tree.sh, check-hook-bypass.sh,
-#          .husky/pre-push (prDescStaleReason, dirtyPushReason)
+#          .husky/pre-push (prDescStaleReason, dirtyPushReason),
+#          /ak-build Phase 5.8 (testReviewSkipReason — post-pre-ship coverage halt override)
 #
 # Usage: adversarial-review.sh <check-type> <reason> [context...]
 #   check-type: docsReviewed | dirtyTreeReason | hookBypass
 #               | manifestReviewed | testCoverage | prDescStaleReason | dirtyPushReason
 #               | testCoverageProject | exemptAddition  (project-repo gates)
+#               | testReviewSkipReason  (/ak-build Phase 5.8 halt override)
 #               | dismissalLog   (pre-ship /ak-pre-ship — reviews gate dismissal rationales)
 #
 # `docsReviewed` is the unified docs-coverage check for both repos: it branches
@@ -38,7 +40,7 @@
 # Per-check-type model routing (Haiku 4.5 for deterministic rule-application,
 # Sonnet 4.6 for judgment-heavy or high-blast-radius checks):
 #   Haiku:  dirtyTreeReason, dirtyPushReason, manifestReviewed
-#   Sonnet: docsReviewed, prDescStaleReason, testCoverage, dismissalLog, hookBypass, exemptAddition
+#   Sonnet: docsReviewed, prDescStaleReason, testCoverage, testReviewSkipReason, dismissalLog, hookBypass, exemptAddition
 # Rationale: docs feed future sessions (errors compound), PR descriptions are the
 # canonical reviewer-facing record, hookBypass can leak secrets via gitleaks bypass,
 # testCoverage requires code-semantics judgment, dismissalLog weighs spec scope.
@@ -247,6 +249,46 @@ Reason: $REASON"
     # specificity, not file-existence.
     CONTEXT="$REASON"
     ;;
+  testReviewSkipReason)
+    # Called by /ak-build Phase 5.8 when the user has set
+    # `git config devshop.testReviewSkipReason "..."` to override a halt on
+    # high-severity findings from the post-pre-ship test-coverage re-audit.
+    # The reviewer judges whether the override is load-bearing against the
+    # actual findings — not against a generic "tests look fine" claim.
+    BRANCH=$(git branch --show-current 2>/dev/null || true)
+    FEATURE=$(echo "$BRANCH" | sed 's|^feature/||;s|^feat/||;s|^fix/||')
+    FOLLOWUP="specs/$FEATURE/test-review-followup.md"
+    if [ -f "$FOLLOWUP" ]; then
+      FOLLOWUP_BODY=$(cat "$FOLLOWUP" 2>/dev/null || true)
+      AUDITED_AT=$(grep -oE 'audited-at: [0-9a-f]{7,40}' "$FOLLOWUP" \
+        | head -1 | awk '{print $2}')
+      SUMMARY=$(grep -oE 'findings: high=[0-9]+, medium=[0-9]+, low=[0-9]+' \
+        "$FOLLOWUP" | tail -1)
+    else
+      FOLLOWUP_BODY="(test-review-followup.md not found at $FOLLOWUP — the"
+      FOLLOWUP_BODY+=" override is being applied without a report on disk;"
+      FOLLOWUP_BODY+=" reviewer should treat this as suspicious)"
+      AUDITED_AT="(unknown)"
+      SUMMARY="(unknown)"
+    fi
+    HEAD_SHA=$(git rev-parse HEAD 2>/dev/null || echo "(unknown)")
+    CONTEXT="The user is overriding /ak-build Phase 5.8's halt on high-severity
+findings from the post-pre-ship test-coverage re-audit.
+
+Phase 5.8 re-runs /ak-test-review (fresh-eyes audit) over the commit range
+that landed AFTER /ak-pre-ship Gate 5 — the polish iterations that bypass
+the pre-ship audit. High-severity findings = a new behavior shipped
+without an assertion that pins it. The override claims those findings
+are OK to ship anyway.
+
+Branch: $BRANCH
+HEAD SHA: $HEAD_SHA
+Audit was run against: $AUDITED_AT
+Audit summary: $SUMMARY
+
+Full followup report (specs/$FEATURE/test-review-followup.md):
+$FOLLOWUP_BODY"
+    ;;
   prDescStaleReason)
     # Called by .husky/pre-push. Gathers PR title/body vs commits on branch.
     BRANCH=$(git branch --show-current 2>/dev/null || true)
@@ -366,6 +408,13 @@ get_conventions_to_inline() {
       ;;
     testCoverageProject)
       echo "Test Presence|Non-Negotiables"
+      ;;
+    testReviewSkipReason)
+      # Same convention surface as testCoverage — the override claims
+      # high-severity findings are OK to ship; the reviewer judges that
+      # claim against the same Non-Negotiables that gate the rest of the
+      # test-coverage discipline.
+      echo "Non-Negotiables|Test Assertion Depth"
       ;;
     exemptAddition)
       # Reuse the same convention sections as the gates being exempted —
@@ -533,7 +582,7 @@ get_model_for_check_type() {
     return
   fi
   case "$1" in
-    docsReviewed|prDescStaleReason|testCoverage|testCoverageProject|dismissalLog|hookBypass|exemptAddition)
+    docsReviewed|prDescStaleReason|testCoverage|testCoverageProject|testReviewSkipReason|dismissalLog|hookBypass|exemptAddition)
       echo "sonnet"
       ;;
     dirtyTreeReason|dirtyPushReason|manifestReviewed)
@@ -590,7 +639,13 @@ Per-check-type rules:
     PASS only when every rationale is: specific (names what was considered and why deferred), consistent with the PR scope (doesn't cross the core user story, doesn't dismiss committed scope), and actionable (a later reviewer could find the rationale plausible given the evidence).
 7. **Convention adherence** (when '=== Relevant conventions ===' appears in the context): the diff/dismissal must follow the inlined conventions. A change that violates an explicit rule (e.g. a new wrapper without onError when § Wrapper API design requires it; a dismissal that punts on an RLS-coverage finding when § Supabase Hardening Defaults marks it non-negotiable; a slow-job stripped of the edge-runtime retry when § Slow-Job Lifecycle's checklist requires it) must FAIL unless the reason explicitly engages the rule's stated rationale. Generic 'this convention doesn't apply here' WITHOUT naming why is NOT acceptable.
 8. For testCoverageProject (project-repo pre-commit, ADD-without-test or orphan-after-DELETE was blocked): the reason MUST name the SPECIFIC blocked path(s) and explain WHY a test does not apply (e.g. 'page.tsx is the route entry — covered by e2e/list.spec.ts driving sign-in → add → bought', or 'utils/format.ts is a pure 3-line type re-export over packages/core/src/types — covered transitively by addItem.test.ts asserting the shape'). PASS requires a named test or named exempt-list rationale that a future reviewer could verify in 30 seconds.
-9. For exemptAddition (project-repo pre-commit, lines added to .devshop-test-coverage-exempt or .devshop-docs-freshness-exempt): the Reason is the staged additions PLUS the list of cited paths verified to exist on disk. Each entry has the format \`path  # inline reason\`. Judge each entry's inline reason individually. REJECT the WHOLE bypass if ANY entry exhibits:
+9. For testReviewSkipReason (/ak-build Phase 5.8 halt override): the Reason justifies shipping the PR despite high-severity findings from the post-pre-ship test-coverage re-audit. PASS requires ALL of:
+    (a) **Per-finding engagement**: the reason names each high-severity finding from the followup report (file:line + the gap the audit identified) AND explains specifically why shipping without that test is acceptable. Generic 'audit is overzealous' / 'tests are fine' / 'will fix in follow-up' WITHOUT a per-finding rationale FAILS.
+    (b) **No core-flow dismissal**: a high finding that touches the project's primary user verb (sign-in / add / list / bought / equivalent) is categorically NOT acceptable. Core-flow gaps must be closed with new test commits, not waved away.
+    (c) **Plausible follow-up commitment** (when 'will fix later' appears): the reason names a specific TODOS.md entry, ROADMAP entry, or follow-up issue — not a vague intent. 'Tracked at TODOS.md § <name>' with a verifiable entry PASSES; 'will add tests in next PR' without a tracker entry FAILS.
+    (d) **No security-boundary skips**: findings touching auth, RLS, password policy, or other security-relevant assertions cannot be deferred — the existing tests still pass but no longer pin the right behavior, and shipping the gap is a real regression risk.
+    Default: REJECT. The Phase 5.8 audit already weighed signal vs noise; high-severity findings reflect real gaps in coverage of behavior that landed after the pre-ship snapshot. The override exists for genuinely-justified ship-now cases, not for skipping the audit.
+10. For exemptAddition (project-repo pre-commit, lines added to .devshop-test-coverage-exempt or .devshop-docs-freshness-exempt): the Reason is the staged additions PLUS the list of cited paths verified to exist on disk. Each entry has the format \`path  # inline reason\`. Judge each entry's inline reason individually. REJECT the WHOLE bypass if ANY entry exhibits:
     - Missing inline reason (a path with no \`#\` comment after it)
     - Generic rationale: 'TODO test', 'skip for now', 'covered elsewhere', 'low risk', 'will fix', 'see other tests' without specifics
     - Cites a covering spec/test by description but not by path (e.g. 'covered by the auth flow test' — name the file, not the concept)
