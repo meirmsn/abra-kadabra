@@ -57,7 +57,7 @@ clean for orchestration and user communication.
   ├─ Agent → /ak-pre-ship    → writes specs/<name>/review.md
   ├─ Agent → /ship           → pushes, creates PR
   ├─ CI watch (main ctx)     → fix-loop, bookkeeping, re-watch (Phase 5.1–5.7)
-  ├─ Agent → /ak-test-review → re-audit over post-pre-ship range (Phase 5.8 —
+  ├─ Agent → /ak-tests-review → re-audit over post-pre-ship range (Phase 5.8 —
   │                             writes specs/<name>/test-review-followup.md;
   │                             halts on high-severity findings)
   ├─ Agent → visual refresh  → re-runs /ak-pre-ship Gates 4 + 13 over HEAD
@@ -775,7 +775,7 @@ is no new run to watch and 5.7 is a no-op too.
 
 ## Phase 5.8: Post-pre-ship test-coverage re-audit
 
-`/ak-pre-ship` runs `/ak-test-review` as Gate 5 once, against the spec
+`/ak-pre-ship` runs `/ak-tests-review` as Gate 5 once, against the spec
 snapshot. Every commit landed AFTER that audit — `/ship`'s `Suspense`-fix
 commit, the entire CI fix-loop, the 5.6 bookkeeping commit, and any
 post-Phase-3 polish iterations the user asks for during local dogfood —
@@ -783,7 +783,7 @@ bypasses test-coverage review entirely. The pre-push reviewer covers
 PR-description coverage, the Layer-1 test-presence hook covers "did you
 touch a test file at all," and the freshness hook covers docs — but none
 check **whether the new behavior is actually pinned by an assertion**.
-That's `/ak-test-review`'s job; 5.8 re-runs it once over the polish range
+That's `/ak-tests-review`'s job; 5.8 re-runs it once over the polish range
 before Phase 6 posts the audit comment.
 
 **Why a test-presence hook isn't enough**: the Layer-1 hook
@@ -801,7 +801,7 @@ before Phase 6 posts the audit comment.
 - A modification crossing a security boundary (password policy) where
   the existing tests still pass but no longer assert the right thing.
 
-These are the cases `/ak-test-review` catches via fresh-eyes read.
+These are the cases `/ak-tests-review` catches via fresh-eyes read.
 
 ### 5.8.1: Polish-loop CI sanity check (enumerate-on-invocation)
 
@@ -893,7 +893,7 @@ over a different commit range:
 Agent({
   description: "Phase 5.8: post-pre-ship test-coverage re-audit",
   subagent_type: "general-purpose",
-  prompt: "Run /ak-test-review (the gstack test-quality skill) over
+  prompt: "Run /ak-tests-review (the gstack test-quality skill) over
   commits ${PRE_SHIP_SHA}..HEAD on branch ${BRANCH} of repo
   ${REPO_ROOT}. Read every test in the diff alongside the source it
   covers. Flag missing assertions, untested branches, sloppy mocks,
@@ -1081,7 +1081,7 @@ gh pr comment "$PR" --body "$(cat <<'COMMENT'
 | Metrics check | <pass / findings (N) fixed / n/a / blocked> |
 | Responsive + theme | <pass / findings (N) fixed / n/a / blocked> |
 | /simplify | <pass / findings (N) fixed / blocked> |
-| /ak-test-review | <pass / findings (N) / blocked> |
+| /ak-tests-review | <pass / findings (N) / blocked> |
 | /review | <pass / findings (N) fixed / blocked> |
 | /cso | <pass / findings (N) fixed / blocked> |
 | /design-review | <pass / findings (N) fixed / n/a / blocked> |

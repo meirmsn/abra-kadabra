@@ -2,7 +2,7 @@
 # What: Pre-commit check — flags kit/scripts changes that lack corresponding tests
 # Why: Ensures new scripts get test coverage and modified scripts are considered.
 #      New scripts without tests are blocked. Modified scripts without tests warn.
-# Does NOT: Verify test quality or coverage depth — that's /ak-test-review's job.
+# Does NOT: Verify test quality or coverage depth — that's /ak-tests-review's job.
 
 set -euo pipefail
 

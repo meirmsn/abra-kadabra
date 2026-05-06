@@ -5,7 +5,7 @@ description: |
   Quality gates before shipping. Pauses on findings, auto-advances on clean passes.
   After each code-changing gate, verifies tests still pass (stuck protocol if not).
   Does NOT ship or create a PR — use /ak-build for the full pipeline, or /ship after this.
-  Runs: preflight → docs → metrics → responsive → /simplify → /ak-test-review → /review
+  Runs: preflight → docs → metrics → responsive → /simplify → /ak-check-docs-and-tests → /review
   → /cso → /design-review → /qa → /benchmark → convention check → capture hero shots.
   Preflight blocks if required tooling (e.g. Chromium for browser gates) is missing,
   so gates can never silently turn a missing-tool into a cheerful "skipped", and
@@ -192,27 +192,27 @@ a new gate is inserted (Phase 2 added `design-conformance` (ak) between `design-
 and `qa`), update this one table; downstream refs using names stay stable.
 
 **Gate naming convention**: the `Owner` column marks gates as `ak` (devshop-owned: a
-devshop-native check or a devshop-authored skill like `/ak-test-review` /
+devshop-native check or a devshop-authored skill like `/ak-check-docs-and-tests` /
 `/ak-design-conformance`) or `—` (wraps a gstack skill invoked verbatim). Narrative
-prose elsewhere in the devshop renders the same split inline as `test-review (ak)`
+prose elsewhere in the devshop renders the same split inline as `docs-and-tests-review (ak)`
 vs `review` so readers can tell at a glance which gates come from where.
 
-| #   | Name                 | Owner | Title                                 | Scope                                                                |
-| --- | -------------------- | ----- | ------------------------------------- | -------------------------------------------------------------------- |
-| 1   | `docs-check`         | ak    | Devshop docs diff review              | when `kit/` or reference docs touched                                |
-| 2   | `metrics-check`      | ak    | Metrics coverage                      | user-facing code PRs                                                 |
-| 2b  | `rls-coverage`       | ak    | RLS policy coverage for client writes | when `supabase/migrations/**` or client API touched                  |
-| 2c  | `slow-job-lifecycle` | ak    | Slow-job CI enabled past Phase 1c/1g  | when `*.integration.test.ts` or `apps/web/e2e/*.spec.ts` files exist |
-| 3   | `responsive-theme`   | ak    | Responsive + theme capture            | UI PRs only                                                          |
-| 4   | `simplify`           | —     | `/simplify` pass                      | always                                                               |
-| 5   | `test-review`        | ak    | `/ak-test-review`                     | always                                                               |
-| 6   | `review`             | —     | `/review` (+ Greptile triage)         | always                                                               |
-| 7   | `cso`                | —     | `/cso` (security)                     | always                                                               |
-| 8   | `design-review`      | —     | `/design-review`                      | UI PRs only                                                          |
-| 8b  | `design-conformance` | ak    | `/ak-design-conformance`              | runs regardless of UI scope                                          |
-| 9   | `qa`                 | —     | `/qa` (functional walk)               | always                                                               |
-| 10  | `benchmark`          | —     | `/benchmark`                          | UI PRs only                                                          |
-| 11  | `convention`         | ak    | Convention headers + hook-coverage    | always                                                               |
+| #   | Name                    | Owner | Title                                 | Scope                                                                |
+| --- | ----------------------- | ----- | ------------------------------------- | -------------------------------------------------------------------- |
+| 1   | `docs-check`            | ak    | Devshop docs diff review              | when `kit/` or reference docs touched                                |
+| 2   | `metrics-check`         | ak    | Metrics coverage                      | user-facing code PRs                                                 |
+| 2b  | `rls-coverage`          | ak    | RLS policy coverage for client writes | when `supabase/migrations/**` or client API touched                  |
+| 2c  | `slow-job-lifecycle`    | ak    | Slow-job CI enabled past Phase 1c/1g  | when `*.integration.test.ts` or `apps/web/e2e/*.spec.ts` files exist |
+| 3   | `responsive-theme`      | ak    | Responsive + theme capture            | UI PRs only                                                          |
+| 4   | `simplify`              | —     | `/simplify` pass                      | always                                                               |
+| 5   | `docs-and-tests-review` | ak    | `/ak-check-docs-and-tests`            | always                                                               |
+| 6   | `review`                | —     | `/review` (+ Greptile triage)         | always                                                               |
+| 7   | `cso`                   | —     | `/cso` (security)                     | always                                                               |
+| 8   | `design-review`         | —     | `/design-review`                      | UI PRs only                                                          |
+| 8b  | `design-conformance`    | ak    | `/ak-design-conformance`              | runs regardless of UI scope                                          |
+| 9   | `qa`                    | —     | `/qa` (functional walk)               | always                                                               |
+| 10  | `benchmark`             | —     | `/benchmark`                          | UI PRs only                                                          |
+| 11  | `convention`            | ak    | Convention headers + hook-coverage    | always                                                               |
 
 ## Dismissal Log (every gate, mandatory)
 
@@ -444,10 +444,29 @@ pnpm turbo run test:unit
 
 If tests fail → stuck protocol (see below).
 
-## Gate 5: /ak-test-review
+## Gate 5: /ak-check-docs-and-tests
 
-Invoke `/devshop:test-review` via Skill tool. Test quality review with fresh eyes.
-Report only — does not change code.
+Invoke `/ak-check-docs-and-tests` via the Skill tool. Audit-time docs + tests review.
+
+This gate is the **first audit moment** in the canonical two-audit model
+(see `kit/ROADMAP.md § Move adversarial Layer 2 reviews from per-commit
+to audit-time`). The orchestrator computes the commit range from
+`specs/<feature>/review.md`'s latest `## Audit N` section's
+`<!-- audited-at: <SHA> -->` stamp, invokes `/ak-docs-review` and
+`/ak-tests-review` sequentially, and appends a new `## Audit N` section
+with structured findings. First-time runs default to `origin/main..HEAD`
+and emit `## Audit 1`.
+
+Outcome mapping:
+
+- `pass` — orchestrator reports zero high-severity findings (medium / low
+  may exist; they record but don't halt).
+- `findings (N) pending` — at least one high-severity finding. Pipeline
+  pauses. Operator fixes (or escalates) before continuing.
+- `n/a` — never applies; the gate runs on every PR.
+
+Report only — does not change code. Sub-skills do not auto-fix; the
+operator decides what to do with each finding.
 
 ## Gate 6: /review
 

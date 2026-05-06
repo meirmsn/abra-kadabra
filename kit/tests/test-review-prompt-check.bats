@@ -1,14 +1,20 @@
 #!/usr/bin/env bats
-# Smoke test for the /ak-test-review SKILL.md prompt content.
+# Smoke test for the /ak-tests-review SKILL.md prompt content.
 # Verifies the Test Assertion Depth rule (shape-vs-text) text is present so
 # silent edits to the SKILL.md can't accidentally drop the rule.
 # LLM-behavior testing requires real Sonnet calls and is intentionally out of
 # scope here — see kit/docs/guide/conventions.md § Test Assertion Depth for
 # the canonical rule statement that this smoke test guards.
+#
+# Renamed from /ak-test-review (singular) to /ak-tests-review (plural) in PR-A
+# of the audit-time migration (see kit/ROADMAP.md § Move adversarial Layer 2
+# reviews from per-commit to audit-time). The Shape-only sub-section is now
+# under "## Section B — Test quality" but the heading text and rule body are
+# preserved verbatim.
 
 setup() {
   load helpers/setup
-  SKILL_MD="/devshop/.claude/skills/devshop/test-review/SKILL.md"
+  SKILL_MD="/devshop/.claude/skills/devshop/tests-review/SKILL.md"
   CONVENTIONS_MD="/devshop/kit/docs/guide/conventions.md"
 }
 

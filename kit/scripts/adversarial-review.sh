@@ -275,7 +275,7 @@ Reason: $REASON"
     CONTEXT="The user is overriding /ak-build Phase 5.8's halt on high-severity
 findings from the post-pre-ship test-coverage re-audit.
 
-Phase 5.8 re-runs /ak-test-review (fresh-eyes audit) over the commit range
+Phase 5.8 re-runs /ak-tests-review (fresh-eyes audit) over the commit range
 that landed AFTER /ak-pre-ship Gate 5 — the polish iterations that bypass
 the pre-ship audit. High-severity findings = a new behavior shipped
 without an assertion that pins it. The override claims those findings
@@ -433,7 +433,7 @@ get_conventions_to_inline() {
     dismissalLog)
       case "$gate_name" in
         qa)                 echo "Non-Negotiables" ;;
-        test-review)        echo "Wrapper API design" ;;
+        docs-and-tests-review) echo "Wrapper API design" ;;
         design-review)      echo "DESIGN.md as Contract|Screenshot Routing" ;;
         cso|rls-coverage)   echo "Supabase Hardening Defaults" ;;
         slow-job-lifecycle) echo "Slow-Job Lifecycle" ;;

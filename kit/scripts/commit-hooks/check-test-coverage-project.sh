@@ -1,7 +1,7 @@
 #!/bin/bash
 # What: Pre-commit check (project repos) — flags new/removed source files without paired tests
-# Why: Closes the test-deletion + missing-test-on-add gap that /ak-test-review only catches at ship time
-# Does NOT: Verify test quality/coverage depth (that's /ak-test-review). Does NOT block test-only diffs.
+# Why: Closes the test-deletion + missing-test-on-add gap that /ak-tests-review only catches at ship time
+# Does NOT: Verify test quality/coverage depth (that's /ak-tests-review). Does NOT block test-only diffs.
 #
 # Layered design:
 #   Layer 1 (this script): deterministic ADD-without-test → BLOCK; orphan-after-DELETE → BLOCK; MODIFY without test → WARN
@@ -247,7 +247,7 @@ if [ -n "$WARN_MODIFIED" ] && [ "$FAILED" = false ]; then
   echo ""
   echo "⚠ Modified source files without staged test changes:"
   echo -n "$WARN_MODIFIED"
-  echo "  This is a warning — commit will proceed. /ak-test-review will judge"
+  echo "  This is a warning — commit will proceed. /ak-tests-review will judge"
   echo "  whether the existing test still covers the new behavior."
 fi
 

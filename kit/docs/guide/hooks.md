@@ -256,7 +256,7 @@ The `.husky/pre-push` hook runs at the git layer on every `git push`. The wrappe
 
 ## Dismissal Log (pre-ship gate-time adversarial review)
 
-Commit-time guards check that the developer explained bypasses. The pre-ship layer has a parallel concern: each quality gate (`simplify`, `test-review` (ak), `review`, `cso`, `design-review`, `design-conformance` (ak), `qa`, `benchmark`, etc. — `(ak)` marks devshop-native gates, bare names wrap gstack skills) produces an advisory report, and the pipeline used to rubber-stamp "gate said pass" without checking whether the gate silently dismissed findings it surfaced. The Dismissal Log closes that hole.
+Commit-time guards check that the developer explained bypasses. The pre-ship layer has a parallel concern: each quality gate (`simplify`, `docs-and-tests-review` (ak), `review`, `cso`, `design-review`, `design-conformance` (ak), `qa`, `benchmark`, etc. — `(ak)` marks devshop-native gates, bare names wrap gstack skills) produces an advisory report, and the pipeline used to rubber-stamp "gate said pass" without checking whether the gate silently dismissed findings it surfaced. The Dismissal Log closes that hole.
 
 ### Contract (every gate)
 
@@ -290,7 +290,7 @@ How it works:
 - The `extract_convention_section` helper greps the requested sections out of `conventions.md` and appends them to `CONTEXT` under a `=== Relevant conventions ===` header.
 - Rule 7 in the prompt template instructs the reviewer to FAIL when the diff/dismissal violates an explicit rule unless the reason engages the rule's rationale.
 
-Initial map covers: `testCoverage` → Non-Negotiables; `testCoverageProject` → Test Presence | Non-Negotiables; `testReviewSkipReason` → Non-Negotiables | Test Assertion Depth; `docsReviewed` (devshop) → Backlog Routing Guide; `docsReviewed` (project) → Project Docs Freshness | Project Docs Hierarchy; `exemptAddition` → Test Presence | Project Docs Freshness | Project Docs Hierarchy; and `dismissalLog/<gate>` for `qa`, `test-review`, `design-review`, `cso`, `rls-coverage`, `slow-job-lifecycle`, `review`, `metrics-check`.
+Initial map covers: `testCoverage` → Non-Negotiables; `testCoverageProject` → Test Presence | Non-Negotiables; `testReviewSkipReason` → Non-Negotiables | Test Assertion Depth; `docsReviewed` (devshop) → Backlog Routing Guide; `docsReviewed` (project) → Project Docs Freshness | Project Docs Hierarchy; `exemptAddition` → Test Presence | Project Docs Freshness | Project Docs Hierarchy; and `dismissalLog/<gate>` for `qa`, `docs-and-tests-review`, `design-review`, `cso`, `rls-coverage`, `slow-job-lifecycle`, `review`, `metrics-check`.
 
 Extending enforcement:
 

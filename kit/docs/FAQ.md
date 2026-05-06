@@ -119,7 +119,7 @@ Per-feature (specs/<name>/)
   test-review-followup.md
                     — committed: post-pre-ship test-coverage findings written
                       by /ak-build Phase 5.8 (Sonnet subagent re-runs
-                      /ak-test-review over <pre-ship-sha>..HEAD). First line
+                      /ak-tests-review over <pre-ship-sha>..HEAD). First line
                       is `<!-- audited-at: <SHA> -->`. Read by Phase 6's
                       audit comment + Step 0 resume rung 1a
   hero/             — committed: 1–2 durable screenshots per key screen

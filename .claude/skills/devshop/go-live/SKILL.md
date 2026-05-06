@@ -260,7 +260,7 @@ If nothing project-specific to capture (the bug + commit message + spec docs alr
 
 Did this PR's investigation surface anything that would generalize **beyond this project**? Most sessions produce 0; some produce many. Examples in order of typical leverage:
 
-- **Skill amendment** — a rule that should fire in `/ak-build` / `/ak-go-live` / `/ak-spec` / `/ak-implement` / `/ak-test-review` / `/ak-pre-ship`. Add to the SKILL.md where the action happens, not just to a guide doc — guide docs are Tier 3 and don't auto-load (see `kit/docs/guide/conventions.md § SSR + E2E boilerplate canonical patterns` for the layout pattern of "operational copy in skill, brief reference pointer in guide").
+- **Skill amendment** — a rule that should fire in `/ak-build` / `/ak-go-live` / `/ak-spec` / `/ak-implement` / `/ak-tests-review` / `/ak-pre-ship`. Add to the SKILL.md where the action happens, not just to a guide doc — guide docs are Tier 3 and don't auto-load (see `kit/docs/guide/conventions.md § SSR + E2E boilerplate canonical patterns` for the layout pattern of "operational copy in skill, brief reference pointer in guide").
 - **Template fix** — boilerplate in `template/` (or referenced from `/ak-new-project Step <N>` if scaffolded inline). Other projects scaffolding from the template inherit on next setup.
 - **New convention or extension to an existing one** — `kit/docs/guide/conventions.md` (per the audit, this is Tier 3 reference; pair with a skill amendment that actually fires the rule).
 - **`/devshop/CLAUDE.md` Tier 1 entry** — for cross-cutting principles that need to be always-loaded.

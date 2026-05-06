@@ -1,32 +1,53 @@
 ---
-name: ak-test-review
-version: 1.2.0
+name: ak-tests-review
+version: 2.0.0
 description: |
-  Review test quality with fresh eyes — no implementation context.
-  Reads tests alongside the code they test and flags weak assertions,
-  missing error paths, and untested auth boundaries.
-  Use when asked to "review tests", "test quality check", or as part of /ak-pre-ship. (devshop)
+  Coverage + quality audit of tests in a commit range. Audit-time
+  companion to /ak-docs-review. Invoked by /ak-check-docs-and-tests
+  orchestrator (or directly when /ak-build Phase 5.8 fires).
+  Use when asked to "audit tests", "tests review", or as part of
+  /ak-check-docs-and-tests. (devshop)
 allowed-tools:
   - Bash
   - Read
   - Glob
   - Grep
-  - AskUserQuestion
 ---
 
-# Test Review
+# Tests Review
 
-Review test quality with **fresh eyes** — read tests alongside the code they test,
-with no implementation context. You are looking at this code for the first time.
+Fresh-eyes audit of test coverage and test quality across a commit range. Read tests alongside the code they test, with no implementation context — you are looking at this code for the first time. Findings are scoped to the range supplied by the orchestrator (typically `origin/main..HEAD` or `<pre-ship-sha>..HEAD`), so the same skill judges both pre-ship snapshots and post-ship follow-up commits.
 
-Reference the testing philosophy in `kit/docs/guide/ § Shared Conventions` for principles.
+Audit-time companion to `/ak-docs-review`. Invoked by the `/ak-check-docs-and-tests` orchestrator (which also handles output-file routing, Audit N numbering, and halt-on-high decisions); may also be invoked directly when `/ak-build` Phase 5.8 fires. Reference the testing philosophy in `kit/docs/guide/ § Shared Conventions` for principles.
 
-**Two invocation surfaces:**
+## Inputs
 
-- **`/ak-pre-ship` Gate 5** — audits the spec snapshot once, before `/ship`. Findings written to `specs/<feature>/review.md § Gate 5`.
-- **`/ak-build` Phase 5.8** — re-invokes this skill over `<pre-ship-sha>..HEAD` to catch coverage gaps in commits that landed AFTER Gate 5 (the `/ship` `Suspense`-fix commit, the entire CI fix-loop, dogfood-driven polish iterations). Findings written to `specs/<feature>/test-review-followup.md` with `<!-- audited-at: <SHA> -->` frontmatter. Same audit logic — only the range and output path differ. High-severity findings halt 5.8 (operator override via `git config devshop.testReviewSkipReason "..."`); medium surface in Phase 6's audit comment.
+- `$RANGE` — commit range to audit (e.g. `origin/main..HEAD`).
+- `$FEATURE_DIR` — `specs/<feature>/` for emitting findings.
 
-## What to flag
+## Section A — Coverage of new behavior
+
+For each source change in the diff range, verify a corresponding test exercises the **new behavior** — not just file pairing. A test file that exists alongside the source is necessary but not sufficient; the test must actually cover the new code path / new assertion / new failure mode introduced by the diff.
+
+Rubric (project-side):
+
+- New API wrapper in `packages/core/src/api/` → test for happy path AND invalid input AND unauthorized access (RLS where applicable)
+- New `page.tsx` / `route.ts` → e2e spec exercising the primary verb
+- New RPC function (`SECURITY DEFINER`) → integration test
+- New edge function endpoint → integration test against deployed function OR slow-job e2e
+- New `posthog.capture` / `Sentry.captureException` call site → trace assertion in an existing test (NOT a separate test, NOT shape-only)
+- New realtime subscription wrapper → cross-session E2E + publication migration assertion
+
+Rubric (devshop-side):
+
+- New `kit/scripts/**.sh` → matching `.bats` spec under `kit/tests/`
+- New `kit/scripts/preship/**.sh` → matching `guard-` or `util-` bats spec
+- New `.claude/skills/devshop/**/SKILL.md` → either `util-<skill>.bats` (smoke) or proven-by an existing build/preship `.bats`
+- New `kit/hooks/**` → `guard-` bats coverage
+
+For each missing pair, flag with section tag = `[section: A]`.
+
+## Section B — Test quality
 
 ### Weak assertions
 
@@ -166,19 +187,46 @@ git diff --diff-filter=AM <base>...HEAD -- '*.spec.ts' '*.test.ts' '*.test.tsx' 
 
 For each match, report the file:line, the pattern, and (for hard skips) whether the TODO pointer in the skip reason resolves against `TODOS.md`. Lalista PR 27 is the prior art — the audit caught one stale pointer (`v0 § Carry-forward § password-reset-e2e` after the entry moved to `v1 § Verification debt`) and confirmed the conditional `!isLocalSupabase()` skips run in slow-job.
 
+## Section C — Bypass trailer audit
+
+For each `Tests-Coverage-Bypass:` trailer harvested from the range, judge the bypass given the full diff context.
+
+Harvest one-liner:
+
+```bash
+git log --format='%H%n%B%n---' "$RANGE" | \
+  awk '/^Tests-Coverage-Bypass:/{print prev_sha, $0}/^[a-f0-9]{40}$/{prev_sha=$0}'
+```
+
+Three outcomes:
+
+- **VERIFIED** — bypass was load-bearing AND remains valid given current diff.
+- **DEFER** — bypass remains pending (e.g., test deferred to follow-up PR).
+- **ESCALATE** — bypass was load-bearing at the time but the diff has shifted such that it would no longer be valid. Promote to medium or high.
+
+The bypass trailer mechanic itself activates in PR-C; for now, this section may legitimately harvest zero rows. The prompt is forward-compatible.
+
 ## Output format
 
 For each finding:
 
-```
-### [file:line] — [severity: critical | important | suggestion]
-**What**: [specific assertion or test that needs improvement]
-**Why**: [what bug this could miss]
-**Fix**: [specific improvement — show the code]
-```
+### [domain: tests] [section: A|B|C] [severity: high|medium|low]
+
+**File**: `<path>:<line>`
+**What**: <specific assertion or test that needs improvement>
+**Why**: <what bug this could miss>
+**Fix**: <specific improvement — show the code if relevant>
+
+If 0/0/0 findings: "Tests look solid — no findings."
+
+## Severity rules
+
+- `high` → halt audit. Operator must fix before ship.
+- `medium` → surface in Phase 6 audit comment.
+- `low` → noted in `review.md`, not surfaced elsewhere.
 
 ## Behavior
 
-- Report findings. Do NOT auto-fix.
-- Pause for review — the user or `/ak-pre-ship` decides whether to fix before continuing.
+- Report findings; do NOT auto-fix.
+- Pause for review — orchestrator decides halt-or-continue based on highs.
 - If no findings: report "Tests look solid" and auto-advance.

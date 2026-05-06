@@ -1,6 +1,6 @@
 # Supabase SSR + Realtime + E2E Boilerplate
 
-Canonical code patterns for any devshop project using Supabase + Next.js + Playwright. Source the snippets here when scaffolding a new project (`/ak-new-project § Step 12`) or adding a new env-var read site / Realtime-using table / E2E test (`/ak-implement` + `/ak-test-review`).
+Canonical code patterns for any devshop project using Supabase + Next.js + Playwright. Source the snippets here when scaffolding a new project (`/ak-new-project § Step 12`) or adding a new env-var read site / Realtime-using table / E2E test (`/ak-implement` + `/ak-tests-review`).
 
 Each pattern was codified from a real lalista incident (most from PR 26, 2026-04-26). Don't paraphrase the patterns; copy them verbatim and adapt the project-specific names. The behaviors they encode are subtle — drift breaks production silently.
 
@@ -334,7 +334,7 @@ Cited prior art: lalista PR 26 (the original 503-fulfill shape + test.skip durin
 
 - `/ak-new-project § Step 12 (Scaffold apps/web)` — the entry point that should apply Patterns 1, 2, 3 at scaffold time
 - `/ak-implement` — when adding a new env-var read site (Pattern 1), Realtime-using table (Pattern 4), or E2E test (Patterns 5 + 6)
-- `/ak-test-review` — when reviewing E2E specs, flag direct-goto on WebKit (Pattern 5), missing realtime publication migration (Pattern 4), and `route().fulfill(503)` on realtime WS endpoints (Pattern 6)
+- `/ak-tests-review` — when reviewing E2E specs, flag direct-goto on WebKit (Pattern 5), missing realtime publication migration (Pattern 4), and `route().fulfill(503)` on realtime WS endpoints (Pattern 6)
 - `kit/docs/guide/conventions.md § Supabase Hardening Defaults` — high-level rule pointing at this guide
 - `kit/docs/guide/conventions.md § Wrapper API design` — companion rule that makes Pattern 6's banner-trigger path reachable
 - Lalista PR 26 (2026-04-26) — the source incident for Patterns 1, 2, 3, 4 (carry-forward), 5, and Pattern 6 (initial 503-fulfill shape)

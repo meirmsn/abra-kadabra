@@ -373,7 +373,7 @@ The consumer (`ListClient.tsx`) wires `onError` to a sync-error banner. Without 
 
 ### Test-time enforcement
 
-`/ak-test-review` runs a deterministic check on PR diffs adding new wrappers in `packages/core/src/api/**`: any new exported function whose body calls `.subscribe(`, `.on(`, or `addEventListener(` and whose signature does NOT accept an `onError`-shaped parameter is flagged as a **critical** finding. The check is heuristic — false positives are negotiated at review time (e.g., a fire-and-forget wrapper that intentionally swallows lifecycle events) — but the default is "expose the lifecycle event."
+`/ak-tests-review` runs a deterministic check on PR diffs adding new wrappers in `packages/core/src/api/**`: any new exported function whose body calls `.subscribe(`, `.on(`, or `addEventListener(` and whose signature does NOT accept an `onError`-shaped parameter is flagged as a **critical** finding. The check is heuristic — false positives are negotiated at review time (e.g., a fire-and-forget wrapper that intentionally swallows lifecycle events) — but the default is "expose the lifecycle event."
 
 ### Cross-references
 
@@ -459,9 +459,9 @@ test('addItem appends to entries', () => {
 });
 ```
 
-The comment must name the absence of user-visible output. Generic bypasses (`// shape-only: test simple state`, `// shape-only: obvious from context`) are rejected by `/ak-test-review` (Gate 5).
+The comment must name the absence of user-visible output. Generic bypasses (`// shape-only: test simple state`, `// shape-only: obvious from context`) are rejected by `/ak-tests-review` (Gate 5).
 
-**Scope** — `/ak-test-review` enforces this only on tests added or modified in the current PR's diff. Grandfathered tests in untouched files are not retroactively flagged; conversion of legacy shape-only tests is tracked in `TODOS.md` if it ever becomes worth the churn.
+**Scope** — `/ak-tests-review` enforces this only on tests added or modified in the current PR's diff. Grandfathered tests in untouched files are not retroactively flagged; conversion of legacy shape-only tests is tracked in `TODOS.md` if it ever becomes worth the churn.
 
 **Why this exists** — Phase 1's Gate 9 artifact assertion (qa-walk per-verb evidence) catches missing-DOM-output bugs _if_ the harness captures DOM state. This rule moves the catch one level up so even unit tests fail fast when "code did a thing" diverges from "user sees the right thing." See `.claude/skills/devshop/test-review/SKILL.md § Shape-only assertions`.
 
@@ -475,7 +475,7 @@ The comment must name the absence of user-visible output. Generic bypasses (`// 
 | Post-commit (Claude) | dirty-tree + cross-repo reminder                    | No                 | No — advisory context                 |
 | CI fast (every push) | Lint + types + `test:unit` + build                  | No                 | Yes — shows red on PR                 |
 | CI slow (PR to main) | `test` (unit+integration) + E2E + type drift        | Yes (CI starts it) | Yes — merge blocked                   |
-| `/ak-pre-ship`       | `/ak-test-review` (reads tests) + `/qa` (browser)   | App running        | Pauses on findings                    |
+| `/ak-pre-ship`       | `/ak-tests-review` (reads tests) + `/qa` (browser)  | App running        | Pauses on findings                    |
 
 Unit tests are the fast inner loop (local + CI fast). Integration + E2E are the outer gate (CI slow). No env var needed — the command you run is the mode.
 
@@ -545,7 +545,7 @@ Every new source file under `apps/*/{src,app,components,lib,hooks}/` or `package
 
 - **ADD without paired test** → BLOCK. The pair is `<file>.test.ts` / `<file>.test.tsx` / `<file>.integration.test.ts` / `<file>.spec.ts` in the same directory, OR any `*.test.*` in the same directory that mentions the new file's stem.
 - **DELETE source while paired test still present** → BLOCK as orphan. Stage the test deletion in the same commit.
-- **MODIFY without test diff** → WARN only. `/ak-test-review` is the quality gate at ship time.
+- **MODIFY without test diff** → WARN only. `/ak-tests-review` is the quality gate at ship time.
 
 **Exempt by filename** (entry-points + framework-required files where unit-testing is fraught — E2E covers them): `index.ts`, `index.tsx`, `page.tsx`, `layout.tsx`, `loading.tsx`, `error.tsx`, `not-found.tsx`, `global-error.tsx`, `template.tsx`, `default.tsx`, `head.tsx`, `icon.tsx`, `robots.ts`, `sitemap.ts`, `manifest.ts`, `middleware.ts`, `instrumentation.ts`, `instrumentation-client.ts`, `vitest.setup.ts`, `providers.tsx`.
 
@@ -555,7 +555,7 @@ Every new source file under `apps/*/{src,app,components,lib,hooks}/` or `package
 
 **Layer 2 (adversarial reviewer)**: bypass via `git -c devshop.testCoverageReviewed="<why>"` triggers `adversarial-review.sh testCoverageProject`. The reviewer requires the reason to name the SPECIFIC blocked path and EITHER the existing test that already covers it OR a concrete reason a test would not add value (e.g. pure type re-export). Generic "low risk" / "WIP" / "test exists somewhere" → reject.
 
-**Relationship to `/ak-test-review`**: this hook catches "I forgot a test entirely." `/ak-test-review` catches "this test is weak." They're complementary, not redundant.
+**Relationship to `/ak-tests-review`**: this hook catches "I forgot a test entirely." `/ak-tests-review` catches "this test is weak." They're complementary, not redundant.
 
 ---
 
