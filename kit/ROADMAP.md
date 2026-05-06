@@ -13,6 +13,158 @@ Priority tiers:
 
 ## v0 — blocks next-project adoption
 
+### Move adversarial Layer 2 reviews from per-commit to sweep-time (`/ak-check-docs-and-tests`)
+
+**Problem.** Every devshop commit fires `docsReviewed` (Sonnet, 30–90s, ~$0.05–0.15 of API spend). Every project commit touching source can fire `testCoverageProject` Layer 2 + `docsReviewed` (project branch). A typical PR cycle has 5–15 commits past `/ak-implement`; collapsing to one Sonnet call per sweep moment saves ~5–14× the cost and time per ship.
+
+The deeper structural critique: per-commit adversarial review **asks the wrong question at the wrong moment**. While a developer is iterating on code, the docs and tests aren't ready yet — they're explicitly batched for an end-of-work pass. The hook fires asking "where are the docs?", the developer correctly answers "later," and a Sonnet adversarial review judges a not-yet-written artifact. The right shape: per-commit is **deterministic Layer 1 only** (cheap, file-existence math); Sonnet judgment fires at named **sweep moments** when docs and tests have actually been written.
+
+**Sweep moments (canonical):**
+
+- **First sweep** — work is done, before any polish/review begins. This is when docs and tests get _written_ for the change. The reviewer judges thoroughness as input to the human reviewer (project) or self-review (devshop).
+- **Second sweep** — polish is done, immediately before merge. The reviewer audits the diff between the first sweep and HEAD; anything that changed must be reflected in updated docs/tests.
+
+Both sweeps write to a single `specs/<feature>/review.md`. Each sweep appends a new `## Sweep N` section with its own `audited-at: <SHA>` stamp, range, findings counts, and per-finding bullets. Audit history is visible in one file; idempotence (Phase 5.8 § Idempotence + Step 0 resume rung 1a) reads the latest sweep section's stamp. The file is the historical record of what the audit found and how it was handled — the reviewer judges the actual artifacts (CLAUDE.md, OVERVIEW.md, .test.ts files), not the audit log itself. Replaces the previous two-file model (`review.md` + `test-review-followup.md`).
+
+Sweep section shape:
+
+```
+## Sweep 1: pre-polish (YYYY-MM-DD)
+audited-at: <SHA>
+range: origin/main..<SHA>
+findings: high=0 medium=2 low=3
+- [med] apps/web/.../<file>:<line> — <one-line summary>
+- ...
+
+## Sweep 2: post-polish (YYYY-MM-DD)
+audited-at: <SHA>
+range: <Sweep 1 SHA>..<HEAD>
+findings: high=0 medium=1 low=0
+- ...
+```
+
+**Trigger map (per repo / per surface):**
+
+| Repo                        | First sweep                                                   | Second sweep                                                     |
+| --------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Project, inside `/ak-build` | Phase 3 (`/ak-pre-ship` invokes `/ak-check-docs-and-tests`)   | Phase 5.8 (re-runs `/ak-check-docs-and-tests` over polish range) |
+| Project, manual flow        | Operator invokes `/ak-check-docs-and-tests` when work is done | Operator invokes `/ak-check-docs-and-tests` again before merge   |
+| Devshop                     | Operator invokes `/ak-check-docs-and-tests` before ff-merge   | Re-invokes if iterating; sweep is idempotent                     |
+
+Devshop has no PR review surface, so its "polish round" is informal local iteration. Re-running `/ak-sweep` before each merge attempt covers it; one structural sweep moment, multiple invocations if needed.
+
+**Shape of the change — three coordinated parts:**
+
+#### Part 1 — New `/ak-check-docs-and-tests` skill (the gate runner)
+
+A focused skill (separate from `/ak-pre-ship`'s 14-gate heavyweight) that audits docs + tests over a specified commit range. Inputs:
+
+- `--range <SHA>..HEAD` — commit range to audit. Defaults: when `specs/<feature>/review.md` has no `Sweep N` section, the range is `origin/main..HEAD` (first sweep). When a previous sweep exists, the range is `<latest-sweep-audited-at>..HEAD` (the polish-range audit).
+
+Behavior:
+
+- Reads the full diff over the range.
+- Invokes Sonnet via `adversarial-review.sh` with two check-types in sequence: `docsReviewed` (existing, repo-aware) and `testsReviewed` (NEW, repo-aware — see Part 2).
+- Appends a new `## Sweep N: <pre-polish | post-polish> (date)` section to `specs/<feature>/review.md` with `audited-at: <HEAD-SHA>`, range, findings counts, per-finding bullets.
+- Severity grading mirrors current `/ak-test-review`: high → halt, medium → surface in Phase 6 audit comment, low → noted only, 0/0/0 → "Clean" entry.
+
+Idempotent — when the latest `Sweep N` section's `audited-at` matches current HEAD, the skill no-ops with a short `✓ already audited at <SHA>` message.
+
+Repo awareness: skill works in both project and devshop. The repo difference is encapsulated in the check-types' surface-path mapping (see Part 2), not in the skill's own logic.
+
+#### Part 2 — Layer 1 + check-type unification
+
+**Project Layer 1 (already exists, mostly fine — minor tuning pass):**
+
+`check-test-coverage-project.sh` and `check-docs-freshness-project.sh` Layer 1 file-level math stays at commit-time. Drop their Layer 2 adversarial-review invocations entirely — those move to `/ak-check-docs-and-tests`.
+
+Tuning items surfaced during the lalista PR #43 work that warrant a pass:
+
+- Component prop additions (`AwaitingConfirmationCard` + `onEdit`) don't fire Layer 1 today — still slip through. Hard to catch deterministically; accept this is a sweep-time concern.
+- `posthog.capture(...)` / `Sentry.captureException(...)` triggers fire correctly.
+- New `apps/*/app/**/page.tsx` / `route.ts` triggers fire correctly.
+
+**Devshop Layer 1 (NEW — replaces the always-Sonnet `docsReviewed` per-commit firing):**
+
+Surface→doc mapping derived from co-occurrence pattern in last 40 commits on devshop main:
+
+| Surface path touched                                 | Required staged doc (at least one)                               |
+| ---------------------------------------------------- | ---------------------------------------------------------------- |
+| `kit/scripts/**.sh`                                  | any `kit/docs/guide/*.md` OR `CLAUDE.md`                         |
+| `kit/scripts/commit-hooks/**`                        | `kit/docs/guide/hooks.md`                                        |
+| `kit/scripts/preship/**`                             | `.claude/skills/devshop/pre-ship/SKILL.md` OR `kit/docs/guide/*` |
+| `kit/hooks/**`                                       | `kit/docs/guide/hooks.md` OR `CLAUDE.md`                         |
+| `.claude/skills/**/SKILL.md`                         | `kit/docs/guide/workflow.md` OR `CLAUDE.md`                      |
+| `template/**` (excl. `template/.devcontainer/.env*`) | `kit/docs/guide/{architecture,security,ops}.md`                  |
+| `.devcontainer/**` (excl. `.env`)                    | `kit/docs/guide/{security,ops}.md`                               |
+| `kit/manifest.txt`                                   | `kit/docs/guide/architecture.md`                                 |
+
+Carve-outs (no firing): `kit/notes/**`, `kit/ROADMAP.md`, `kit/TODOS.md`, `kit/docs/CHANGELOG.md`, `kit/version`, `kit/tests/**`, `kit/docs/**` itself (sweep handles guide-only commits).
+
+Bypass: `git -c devshop.docsLayer1Reason="<why>"`. Recorded as context for sweep-time review; never adversarially judged at commit time.
+
+**Unified `testsReviewed` check-type (NEW — replaces `testCoverageProject` Layer 2 AND release-time `testCoverage`):**
+
+Today the test-coverage adversarial review is split asymmetrically: project gets it per-commit (`testCoverageProject`), devshop gets it only at release time (`testCoverage`, when `kit/version` is bumped). The new model unifies them under a single `testsReviewed` check-type that fires at sweep moments in both repos. The check-type prompt branches internally on `$GIT_ROOT` for the surface-path mapping:
+
+- **Project**: src changes (`apps/*/src/`, `packages/*/src/`, `apps/*/app/**`) → corresponding `*.test.ts` / `*.spec.ts` should be in the diff
+- **Devshop**: `kit/scripts/**`, `kit/hooks/**`, `.claude/skills/**` changes → corresponding `kit/tests/**.bats` should be in the diff
+
+Same Sonnet judgment in both repos; mirrors the `docsReviewed` pattern already in `adversarial-review.sh`.
+
+**Release-time `testCoverage` removed entirely.** Each devshop merge to main is now audited at sweep time, so by the time `release.sh` cuts a tag, every commit in the release range has already been audited. Re-auditing at release becomes redundant. Release.sh is reduced to: bump version + write a semantic summary of the bundle in the tag description. Operator (or `/ak-release-devshop`) drafts the summary by reading recent merge titles.
+
+#### Part 3 — CLAUDE.md convention codifying the sweep model
+
+Add to `/devshop/CLAUDE.md`:
+
+> **Adversarial Layer 2 reviews fire at sweep moments, not per commit.**
+>
+> Per-commit hooks run only Layer 1: deterministic file-existence math. Layer 2 (Sonnet judgment over the diff — `docsReviewed`, `testsReviewed`) fires when `/ak-check-docs-and-tests` is invoked:
+>
+> - **First sweep**: when the working code is done, before polish/review begins. Inside `/ak-build`, this is Phase 3. Manually, the operator invokes `/ak-check-docs-and-tests`.
+> - **Second sweep**: when polish is done, immediately before merge. Inside `/ak-build`, this is Phase 5.8. Manually, the operator re-invokes `/ak-check-docs-and-tests`.
+>
+> Devshop has no PR review surface — its sweep moment is **before each ff-merge to main**. If the operator iterates locally between attempts, the sweep is re-invoked. Idempotent.
+>
+> Both sweeps append to a single `specs/<feature>/review.md` (one section per sweep, each with its own `audited-at: <SHA>` stamp). The file is the historical record. The reviewer judges the _actual_ docs (CLAUDE.md, OVERVIEW.md, guide/*) and *actual\* tests (.test.ts / .bats files), not the audit log itself.
+
+**Phased rollout:**
+
+Recommend three PRs to keep each change small and revertible:
+
+- **PR-A**: ship `/ak-check-docs-and-tests` skill + new `testsReviewed` check-type (universal, branches on `$GIT_ROOT`) + add the skill as a `/ak-pre-ship` Gate (project side first; covers the Phase 3 first-sweep path). Validates the sweep mechanics on the project side. Does NOT yet remove per-commit Layer 2.
+- **PR-B**: wire `/ak-check-docs-and-tests` into `/ak-build` Phase 5.8 (replacing the test-only audit with a docs+tests audit) + collapse the two-file model — sweeps now append `## Sweep N` sections to a single `specs/<feature>/review.md`; delete `test-review-followup.md` (renamed/folded). Update Phase 5.8.5 idempotence + Step 0 resume rung 1a to read the latest sweep section's `audited-at`. Validates the second-sweep path.
+- **PR-C**: remove per-commit Layer 2 invocations (devshop `docsReviewed`, project `testCoverageProject` / `docsFreshnessProject` adversarial paths). Add devshop Layer 1 surface→doc mapping (`check-docs-layer1-devshop.sh`). Remove release-time `testCoverage` from `release.sh` (release becomes tag + semantic summary). Add CLAUDE.md convention. Cost savings land here. Should ship only after PR-A + PR-B prove the sweep works on a real `/ak-build` cycle.
+
+**Why v0:**
+
+Cost saving is non-trivial (Sonnet calls per ship: 5–15× → 1–2×). More importantly, the per-commit-Sonnet model produces low-signal reviews (asks for docs that aren't ready yet), pushing developers toward generic bypass reasons. Concentrating the review at the sweep moments produces higher-signal output and matches how docs/tests actually get written.
+
+**Trigger:**
+
+- Lalista chapter 1m or 1k is the next `/ak-build` invocation. PR-A could land before that ships, validating the first-sweep path on a real PR.
+- OR: a second devshop project shows up — the per-commit cost compounds across projects.
+
+**Cross-ref:**
+
+- `/ak-build § Phase 5.8` (shipped 2026-05-05) — the second-sweep path that PR-B extends.
+- `/ak-pre-ship § Gate 5` — currently runs `/ak-test-review` on the spec snapshot; PR-A adds `/ak-check-docs-and-tests` alongside (or folds Gate 5 into the new skill — design choice resolved in PR-A's spec).
+- `kit/scripts/adversarial-review.sh § CONVENTIONS_TO_INCLUDE` — the convention-inlining map; the unified `testsReviewed` check-type reuses it.
+- `kit/scripts/commit-hooks/check-{test-coverage,docs-freshness}-project.sh` — Layer 1 stays; Layer 2 invocations removed in PR-C.
+- `kit/scripts/commit-hooks/commit-guard.sh § docsReviewed` — removed in PR-C; replaced by new `kit/scripts/commit-hooks/check-docs-layer1-devshop.sh` for the deterministic surface→doc mapping.
+- `kit/scripts/release.sh § release-coverage` — removed in PR-C. Release flow simplifies to: bump version + write semantic tag-description summary.
+
+**Cost/risk:**
+
+- PR-A: ~5–7 hours (new `/ak-check-docs-and-tests` skill + new `testsReviewed` check-type with repo-aware surface-path mapping + add as `/ak-pre-ship` gate + bats coverage for both new check-types).
+- PR-B: ~4–6 hours (Phase 5.8 wiring + collapse two-file model into single `review.md` with appended sections + update idempotence + Step 0 resume rung 1a + cross-reference unwind for `test-review-followup.md`).
+- PR-C: ~3–5 hours (remove per-commit Layer 2 invocations + ship `check-docs-layer1-devshop.sh` with surface→doc mapping + remove release-time `testCoverage` from `release.sh` + add CLAUDE.md convention + bats coverage for the new Layer 1 hook + remove now-unused check-types from `adversarial-review.sh`).
+- **Risk**: lose fast-feedback during iteration. The hooks today catch missing docs at commit-time while context is fresh; the sweep model defers that to a structurally later moment. Mitigation: deterministic Layer 1 still blocks obvious gaps (added a `route.ts` without staging CLAUDE.md → block); Layer 2 judgment moves to sweep where it has the full diff to judge thoroughness.
+- **Reversibility**: each PR is independently revertible. PR-C is the load-bearing cost-saving step; if it bites harder than expected, revert it alone keeps PR-A + PR-B's sweep mechanics in place.
+
+---
+
 ### Audit `kit/docs/guide/conventions.md` → distribute operational copy into the skills that fire
 
 **Problem.** `kit/docs/guide/` (including `conventions.md`) is loaded **on demand only** — never at session start. Skills load their own `SKILL.md` content when invoked. So a convention placed only in `conventions.md` is a paper rule: it never enters my context unless I happen to grep for it. The session that surfaced this (2026-04-26) read `/ak-build` SKILL.md's "Without this, gh run download fails" prereq line, decided artifact-pull was blocked, and never opened `conventions.md` to find the routing rule that would have told it otherwise.
