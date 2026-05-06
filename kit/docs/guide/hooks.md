@@ -353,7 +353,7 @@ See `/devshop/.claude/skills/devshop/pre-ship/SKILL.md § Dismissal Log (every g
 
 ### `/ak-build` Phase 5.8 — `testReviewSkipReason`
 
-`adversarial-review.sh` is invoked from one more surface beyond commit-time and pre-ship: `/ak-build` Phase 5.8 (post-pre-ship test-coverage re-audit). When the audit subagent surfaces high-severity findings in `specs/<feature>/test-review-followup.md`, Phase 5.8 halts. The operator can override by setting the bypass:
+`adversarial-review.sh` is invoked from one more surface beyond commit-time and pre-ship: `/ak-build` Phase 5.8 (post-pre-ship docs + tests re-audit). When the audit subagent surfaces high-severity findings in `specs/<feature>/review.md` § the latest `## Audit N` section, Phase 5.8 halts. The operator can override by setting the bypass:
 
 ```bash
 git config devshop.testReviewSkipReason "<per-finding rationale>"

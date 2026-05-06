@@ -81,41 +81,76 @@ EOF
 
 # === testReviewSkipReason context: /ak-build Phase 5.8 halt override ===
 
-# Helper: seed a feature branch with specs/<feature>/test-review-followup.md so
-# the testReviewSkipReason context-gathering switch has a file to read.
-_seed_followup() {
+# Helper: seed a feature branch with specs/<feature>/review.md containing a
+# `## Audit N` section so the testReviewSkipReason context-gathering switch
+# has a file to read. Post-PR-B model: findings live in review.md (collapsed
+# two-file model — no separate test-review-followup.md).
+_seed_review() {
   local feature="$1" audited_at="$2" body="$3"
   local dir="$TEST_REPO/specs/$feature"
   mkdir -p "$dir"
-  cat > "$dir/test-review-followup.md" <<EOF
+  cat > "$dir/review.md" <<EOF
+# Review — $feature
+
+## Gate 5: Pre-polish docs + tests audit (2026-05-06)
+
+(prior gate output — not the section under override)
+
+## Audit 1: pre-polish (2026-05-06)
+
+<!-- audited-at: aaaa1111bbbb2222 -->
+<!-- range: origin/main..aaaa1111bbbb2222 -->
+
+findings: high=0 medium=1 low=2
+
+### Docs findings
+- (none)
+### Tests findings
+- [med] apps/web/example.test.ts:1 — placeholder
+### Bypass trailer audit
+- (none)
+
+## Audit 2: post-polish (2026-05-06)
+
 <!-- audited-at: $audited_at -->
+<!-- range: aaaa1111bbbb2222..$audited_at -->
 
-# Test review followup — $feature
+findings: high=1 medium=2 low=0
 
+### Docs findings
+- (none)
+
+### Tests findings
 $body
 
-findings: high=1, medium=2, low=0
+### Bypass trailer audit
+- (none)
 EOF
   (cd "$TEST_REPO" && git checkout -q -b "feature/$feature" 2>/dev/null \
     || git -c user.email=t@t -c user.name=t checkout -q "feature/$feature")
-  (cd "$TEST_REPO" && git add "specs/$feature/test-review-followup.md" \
-    && git -c user.email=t@t -c user.name=t commit -q -m "seed followup")
+  (cd "$TEST_REPO" && git add "specs/$feature/review.md" \
+    && git -c user.email=t@t -c user.name=t commit -q -m "seed review")
 }
 
-@test "testReviewSkipReason: prompt includes the audited-at SHA from the followup" {
-  _seed_followup "auth-rework" "deadbeef1234567" \
-    "## High\n- AwaitingConfirmationCard onEdit prop is untested"
+@test "testReviewSkipReason: prompt includes the audited-at SHA from the latest Audit N section" {
+  _seed_review "auth-rework" "deadbeef1234567" \
+    "- [high] AwaitingConfirmationCard.tsx:42 — onEdit prop is untested"
 
   (cd "$TEST_REPO" && bash "$REVIEW" testReviewSkipReason \
     "tracked at TODOS.md § follow-up-tests" >/dev/null 2>&1) || true
   [ -f "$CAPTURED_PROMPT" ]
   grep -q "audited-at" "$CAPTURED_PROMPT"
   grep -q "deadbeef1234567" "$CAPTURED_PROMPT"
+  # Ensure the prior Audit 1 stamp is NOT what got harvested (must be the
+  # latest audit, not the first).
+  ! grep -q "aaaa1111bbbb2222" "$CAPTURED_PROMPT" \
+    || (grep -q "deadbeef1234567" "$CAPTURED_PROMPT" \
+        && [ "$(grep -c "audited-at: deadbeef1234567" "$CAPTURED_PROMPT")" -ge 1 ])
 }
 
-@test "testReviewSkipReason: prompt includes the followup body verbatim" {
-  _seed_followup "feature-x" "abcdef1234567" \
-    "## High\n- onEdit prop is untested at AwaitingConfirmationCard.tsx:42"
+@test "testReviewSkipReason: prompt includes the latest Audit body verbatim" {
+  _seed_review "feature-x" "abcdef1234567" \
+    "- [high] AwaitingConfirmationCard.tsx:42 — onEdit prop is untested"
 
   (cd "$TEST_REPO" && bash "$REVIEW" testReviewSkipReason "any reason" >/dev/null 2>&1) || true
   [ -f "$CAPTURED_PROMPT" ]
@@ -123,16 +158,16 @@ EOF
   grep -q "onEdit prop is untested" "$CAPTURED_PROMPT"
 }
 
-@test "testReviewSkipReason: prompt includes the findings summary line" {
-  _seed_followup "feature-y" "1111111aaaaaa" "## High\n- a gap"
+@test "testReviewSkipReason: prompt includes the findings summary line (space-separated post-PR-B format)" {
+  _seed_review "feature-y" "1111111aaaaaa" "- [high] file:1 — a gap"
 
   (cd "$TEST_REPO" && bash "$REVIEW" testReviewSkipReason "x" >/dev/null 2>&1) || true
   [ -f "$CAPTURED_PROMPT" ]
-  grep -qE "findings: high=1, medium=2, low=0" "$CAPTURED_PROMPT"
+  grep -qE "findings: high=1 medium=2 low=0" "$CAPTURED_PROMPT"
 }
 
 @test "testReviewSkipReason: prompt includes per-finding engagement rule" {
-  _seed_followup "feature-z" "2222222bbbbbb" "## High\n- gap"
+  _seed_review "feature-z" "2222222bbbbbb" "- [high] file:1 — gap"
 
   (cd "$TEST_REPO" && bash "$REVIEW" testReviewSkipReason "x" >/dev/null 2>&1) || true
   [ -f "$CAPTURED_PROMPT" ]
@@ -141,11 +176,30 @@ EOF
   grep -q "No security-boundary skips" "$CAPTURED_PROMPT"
 }
 
-@test "testReviewSkipReason: prompt warns loudly when followup file is missing" {
-  (cd "$TEST_REPO" && git checkout -q -b feature/no-followup)
+@test "testReviewSkipReason: prompt warns loudly when review.md is missing" {
+  (cd "$TEST_REPO" && git checkout -q -b feature/no-review)
 
   (cd "$TEST_REPO" && bash "$REVIEW" testReviewSkipReason "x" >/dev/null 2>&1) || true
   [ -f "$CAPTURED_PROMPT" ]
-  grep -q "test-review-followup.md not found" "$CAPTURED_PROMPT"
+  grep -q "review.md not found" "$CAPTURED_PROMPT"
+  grep -q "suspicious" "$CAPTURED_PROMPT"
+}
+
+@test "testReviewSkipReason: prompt warns loudly when review.md exists but lacks an Audit N section" {
+  (cd "$TEST_REPO" && git checkout -q -b feature/no-audit-section)
+  mkdir -p "$TEST_REPO/specs/no-audit-section"
+  cat > "$TEST_REPO/specs/no-audit-section/review.md" <<EOF
+# Review — no-audit-section
+
+## Gate 1: Docs check (2026-05-06)
+
+(prior gate output, but no Audit N section yet)
+EOF
+  (cd "$TEST_REPO" && git add specs/no-audit-section/review.md \
+    && git -c user.email=t@t -c user.name=t commit -q -m "seed review no audit")
+
+  (cd "$TEST_REPO" && bash "$REVIEW" testReviewSkipReason "x" >/dev/null 2>&1) || true
+  [ -f "$CAPTURED_PROMPT" ]
+  grep -q "no '## Audit N' section" "$CAPTURED_PROMPT"
   grep -q "suspicious" "$CAPTURED_PROMPT"
 }

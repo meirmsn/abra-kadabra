@@ -252,41 +252,66 @@ Reason: $REASON"
   testReviewSkipReason)
     # Called by /ak-build Phase 5.8 when the user has set
     # `git config devshop.testReviewSkipReason "..."` to override a halt on
-    # high-severity findings from the post-pre-ship test-coverage re-audit.
+    # high-severity findings from the post-pre-ship docs + tests re-audit.
     # The reviewer judges whether the override is load-bearing against the
     # actual findings — not against a generic "tests look fine" claim.
+    #
+    # Post-PR-B: findings live in specs/<feature>/review.md as appended
+    # `## Audit N` sections (collapsed two-file model — no separate
+    # test-review-followup.md). The latest `## Audit N` section is the
+    # one whose halt is being overridden; harvest it from there.
     BRANCH=$(git branch --show-current 2>/dev/null || true)
     FEATURE=$(echo "$BRANCH" | sed 's|^feature/||;s|^feat/||;s|^fix/||')
-    FOLLOWUP="specs/$FEATURE/test-review-followup.md"
-    if [ -f "$FOLLOWUP" ]; then
-      FOLLOWUP_BODY=$(cat "$FOLLOWUP" 2>/dev/null || true)
-      AUDITED_AT=$(grep -oE 'audited-at: [0-9a-f]{7,40}' "$FOLLOWUP" \
-        | head -1 | awk '{print $2}')
-      SUMMARY=$(grep -oE 'findings: high=[0-9]+, medium=[0-9]+, low=[0-9]+' \
-        "$FOLLOWUP" | tail -1)
+    REVIEW="specs/$FEATURE/review.md"
+    if [ -f "$REVIEW" ]; then
+      # First confirm there's at least one `## Audit N` header — if not, the
+      # awk slice below would silently yield the whole file, which would
+      # mask the missing-audit case.
+      AUDIT_COUNT=$(grep -cE '^## Audit [0-9]+' "$REVIEW" 2>/dev/null || echo 0)
+      if [ "$AUDIT_COUNT" -gt 0 ]; then
+        # Slice from the last `## Audit N` header to EOF — that's the latest
+        # audit section (the one being overridden).
+        LATEST_AUDIT=$(awk '/^## Audit [0-9]+/{buf=""} {buf = buf $0 ORS} END{print buf}' "$REVIEW")
+        FOLLOWUP_BODY="$LATEST_AUDIT"
+        AUDITED_AT=$(printf '%s\n' "$LATEST_AUDIT" \
+          | grep -oE 'audited-at: [0-9a-f]{7,40}' | head -1 \
+          | awk '{print $2}')
+        # Audit N summary line is `findings: high=N medium=N low=N` (space-separated, no commas).
+        SUMMARY=$(printf '%s\n' "$LATEST_AUDIT" \
+          | grep -oE 'findings: high=[0-9]+ medium=[0-9]+ low=[0-9]+' \
+          | tail -1)
+      else
+        FOLLOWUP_BODY="(review.md exists at $REVIEW but contains no '## Audit N'"
+        FOLLOWUP_BODY+=" section — the override is being applied without an audit"
+        FOLLOWUP_BODY+=" record; reviewer should treat this as suspicious)"
+        AUDITED_AT="(unknown)"
+        SUMMARY="(unknown)"
+      fi
     else
-      FOLLOWUP_BODY="(test-review-followup.md not found at $FOLLOWUP — the"
-      FOLLOWUP_BODY+=" override is being applied without a report on disk;"
-      FOLLOWUP_BODY+=" reviewer should treat this as suspicious)"
+      FOLLOWUP_BODY="(review.md not found at $REVIEW — the override is being"
+      FOLLOWUP_BODY+=" applied without a report on disk; reviewer should treat"
+      FOLLOWUP_BODY+=" this as suspicious)"
       AUDITED_AT="(unknown)"
       SUMMARY="(unknown)"
     fi
     HEAD_SHA=$(git rev-parse HEAD 2>/dev/null || echo "(unknown)")
     CONTEXT="The user is overriding /ak-build Phase 5.8's halt on high-severity
-findings from the post-pre-ship test-coverage re-audit.
+findings from the post-pre-ship docs + tests re-audit.
 
-Phase 5.8 re-runs /ak-tests-review (fresh-eyes audit) over the commit range
-that landed AFTER /ak-pre-ship Gate 5 — the polish iterations that bypass
-the pre-ship audit. High-severity findings = a new behavior shipped
-without an assertion that pins it. The override claims those findings
-are OK to ship anyway.
+Phase 5.8 invokes /ak-check-docs-and-tests (fresh-eyes audit; runs both
+/ak-docs-review and /ak-tests-review) over the commit range that landed
+AFTER /ak-pre-ship Gate 5 — the polish iterations that bypass the
+pre-ship audit. High-severity findings = either a new behavior shipped
+without an assertion that pins it, OR a polish diff that invalidated
+load-bearing docs (CLAUDE.md / Gotchas / a README) without updating
+them. The override claims those findings are OK to ship anyway.
 
 Branch: $BRANCH
 HEAD SHA: $HEAD_SHA
 Audit was run against: $AUDITED_AT
 Audit summary: $SUMMARY
 
-Full followup report (specs/$FEATURE/test-review-followup.md):
+Latest audit section (specs/$FEATURE/review.md § Audit N):
 $FOLLOWUP_BODY"
     ;;
   prDescStaleReason)

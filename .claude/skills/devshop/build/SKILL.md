@@ -1,6 +1,6 @@
 ---
 name: ak-build
-version: 1.6.0
+version: 1.7.0
 description: |
   Autonomous build pipeline: preview → spec → implement → quality gates → ship → CI watch → notify.
   Phase 0 produces a 3-section pre-flight preview (decisions / scope / tracker) and
@@ -54,17 +54,19 @@ clean for orchestration and user communication.
   │                             preserved verbatim; fills In scope, Task
   │                             order, Tests, etc.)
   ├─ Agent → /ak-implement   → writes specs/<name>/tasks.md + code + tests
-  ├─ Agent → /ak-pre-ship    → writes specs/<name>/review.md
+  ├─ Agent → /ak-pre-ship    → writes specs/<name>/review.md (Gate 5
+  │                             appends `## Audit 1` via /ak-check-docs-and-tests)
   ├─ Agent → /ship           → pushes, creates PR
   ├─ CI watch (main ctx)     → fix-loop, bookkeeping, re-watch (Phase 5.1–5.7)
-  ├─ Agent → /ak-tests-review → re-audit over post-pre-ship range (Phase 5.8 —
-  │                             writes specs/<name>/test-review-followup.md;
-  │                             halts on high-severity findings)
+  ├─ Agent → /ak-check-docs-and-tests → re-audit over post-pre-ship range
+  │                             (Phase 5.8 — appends `## Audit 2` to
+  │                             specs/<name>/review.md; halts on high-severity
+  │                             findings)
   ├─ Agent → visual refresh  → re-runs /ak-pre-ship Gates 4 + 13 over HEAD
   │                             (Phase 5.9 — overwrites stale screenshots/
   │                             hero shots; freshness-only, no halt path)
-  └─ Phase 6 (main ctx)      → reads review.md + tasks.md +
-                                test-review-followup.md for audit comment
+  └─ Phase 6 (main ctx)      → reads review.md (Gate N + Audit N sections) +
+                                tasks.md for audit comment
 ```
 
 ## Step 0: Determine feature and resume state
@@ -116,9 +118,16 @@ Detect where a previous run left off. Evaluate top-to-bottom; the first match wi
    the per-phase idempotence checks (5.8 § Idempotence, 5.9 § Idempotence) do
    the same work, but pinning them in the resume tree saves a session-restart
    from re-spawning a subagent that would no-op anyway:
-   - **1a.** Open PR + `$FEATURE_DIR/test-review-followup.md` exists with an
-     `<!-- audited-at: <SHA> -->` line whose SHA equals current `HEAD` →
-     skip Phase 5.8 specifically (jump straight to 5.9, then Phase 6).
+   - **1a.** Open PR + `$FEATURE_DIR/review.md` has a latest `## Audit N`
+     section whose `<!-- audited-at: <SHA> -->` SHA equals current `HEAD` →
+     skip Phase 5.8 specifically (jump straight to 5.9, then Phase 6). Use
+     the same parser one-liners as `/ak-check-docs-and-tests § Step 2`:
+     ```bash
+     LATEST_AUDIT_SHA=$(grep -oP '(?<=<!-- audited-at: )[a-f0-9]+' \
+       "$FEATURE_DIR/review.md" 2>/dev/null | tail -1)
+     ```
+     Note: `tail -1` (not `head -1`) because Audit N sections append over
+     time — the latest section is the bottommost stamp in the file.
    - **1b.** Open PR + `git status --porcelain -- "$FEATURE_DIR/screenshots" "$FEATURE_DIR/hero" 2>/dev/null` is empty AND the latest commit touching either dir is at HEAD → skip Phase 5.9 specifically (jump to Phase 6).
    - Both sub-rungs satisfied → skip 5.8 + 5.9 entirely → Phase 6.
 2. **`$FEATURE_DIR/tasks.md` exists with all tasks `done`?** → skip to Phase 3 (pre-ship)
@@ -773,18 +782,20 @@ shortcut.
 PLAN.md was already empty and BUILD-LOG entry already existed), there
 is no new run to watch and 5.7 is a no-op too.
 
-## Phase 5.8: Post-pre-ship test-coverage re-audit
+## Phase 5.8: Post-pre-ship docs + tests re-audit
 
-`/ak-pre-ship` runs `/ak-tests-review` as Gate 5 once, against the spec
-snapshot. Every commit landed AFTER that audit — `/ship`'s `Suspense`-fix
-commit, the entire CI fix-loop, the 5.6 bookkeeping commit, and any
-post-Phase-3 polish iterations the user asks for during local dogfood —
-bypasses test-coverage review entirely. The pre-push reviewer covers
-PR-description coverage, the Layer-1 test-presence hook covers "did you
-touch a test file at all," and the freshness hook covers docs — but none
-check **whether the new behavior is actually pinned by an assertion**.
-That's `/ak-tests-review`'s job; 5.8 re-runs it once over the polish range
-before Phase 6 posts the audit comment.
+`/ak-pre-ship` runs `/ak-check-docs-and-tests` as Gate 5 once, against the
+spec snapshot — that audit appends `## Audit 1` to `review.md`. Every commit
+landed AFTER that audit — `/ship`'s `Suspense`-fix commit, the entire CI
+fix-loop, the 5.6 bookkeeping commit, and any post-Phase-3 polish
+iterations the user asks for during local dogfood — bypasses docs +
+test-coverage review entirely. The pre-push reviewer covers PR-description
+coverage, the Layer-1 test-presence hook covers "did you touch a test file
+at all," and the freshness hook covers docs — but none check **whether the
+new behavior is actually pinned by an assertion** or **whether the polish
+diff invalidated existing docs**. That's `/ak-check-docs-and-tests`'s job;
+5.8 re-runs it once over the polish range — appending `## Audit 2` to the
+same `review.md` — before Phase 6 posts the audit comment.
 
 **Why a test-presence hook isn't enough**: the Layer-1 hook
 (`check-test-coverage-project.sh`) catches "added a `.tsx` file with no
@@ -801,7 +812,10 @@ before Phase 6 posts the audit comment.
 - A modification crossing a security boundary (password policy) where
   the existing tests still pass but no longer assert the right thing.
 
-These are the cases `/ak-tests-review` catches via fresh-eyes read.
+These are the cases `/ak-check-docs-and-tests` (sub-skill `/ak-tests-review`)
+catches via fresh-eyes read; the docs sub-skill `/ak-docs-review` covers
+the symmetric "the polish diff invalidated CLAUDE.md / Gotchas / a
+README" case.
 
 ### 5.8.1: Polish-loop CI sanity check (enumerate-on-invocation)
 
@@ -853,20 +867,27 @@ sustained-red latest run is the halt path.
 
 ### 5.8.2: Determine the audit range
 
-The audit runs over `<pre-ship-commit>..HEAD`, where `<pre-ship-commit>`
-is read directly from `review.md`'s frontmatter:
+The audit runs over `<latest-audit-SHA>..HEAD`, where `<latest-audit-SHA>`
+is read from the **latest `## Audit N` section** in `review.md` —
+typically Audit 1, written by `/ak-pre-ship` Gate 5 against the spec
+snapshot. The orchestrator (`/ak-check-docs-and-tests § Step 2`) does this
+computation itself; 5.8 doesn't need to pre-compute the range. But the
+following pre-flight signal still applies — surface it loudly if the
+stamp is missing so the producer (Gate 5) gets fixed, not the consumer:
 
 ```bash
-PRE_SHIP_SHA=$(grep -oE 'audited-at: [0-9a-f]{7,40}' \
-  "$FEATURE_DIR/review.md" 2>/dev/null | head -1 | awk '{print $2}')
+PRE_SHIP_SHA=$(grep -oP '(?<=<!-- audited-at: )[a-f0-9]+' \
+  "$FEATURE_DIR/review.md" 2>/dev/null | tail -1)
 
 if [ -z "$PRE_SHIP_SHA" ]; then
-  echo "✖ 5.8: review.md missing 'audited-at' frontmatter."
-  echo "  Phase 3 (/ak-pre-ship Gate 5) is supposed to emit the stamp"
-  echo "  when it writes review.md. Either the file was rebased and"
-  echo "  the stamp was lost, or the producer is on an older skill"
-  echo "  version. Re-run /ak-pre-ship to regenerate review.md with"
-  echo "  the current stamp."
+  echo "✖ 5.8: review.md has no '## Audit N' section with"
+  echo "  '<!-- audited-at: <SHA> -->'."
+  echo "  Phase 3 (/ak-pre-ship Gate 5) is supposed to invoke"
+  echo "  /ak-check-docs-and-tests, which appends '## Audit 1' with"
+  echo "  the stamp. Either the file was rebased and the section"
+  echo "  was lost, or Gate 5 ran against an older skill version."
+  echo "  Re-run /ak-pre-ship to regenerate review.md with the"
+  echo "  current stamp."
   SKIP_5_8=1
 fi
 
@@ -879,61 +900,63 @@ if [ -z "$SKIP_5_8" ] && [ -z "$(git log --oneline "$PRE_SHIP_SHA"..HEAD)" ]; th
 fi
 ```
 
-`/ak-pre-ship` Gate 5 emits `<!-- audited-at: <SHA> -->` when it writes
-`review.md`. That's the only signal — no fallback machinery, no
-introduction-commit lookup. If the stamp is missing, the producer is
-the bug; surface it loudly.
+The `tail -1` (vs `head -1`) is intentional: `## Audit N` sections append
+over time, so the latest stamp is the bottommost one. The orchestrator
+uses the same parser; 5.8 mirrors it for the pre-flight skip check.
 
 ### 5.8.3: Spawn the audit subagent
 
-Mirrors the `/ak-pre-ship` Gate 5 invocation pattern — fresh-eyes audit
-over a different commit range:
+5.8 delegates to `/ak-check-docs-and-tests` (the audit-time orchestrator)
+rather than calling `/ak-tests-review` directly. The orchestrator runs
+both Layer 2 reviews (docs + tests) over the same range and appends a
+single `## Audit 2` section to `review.md`.
 
 ```bash
 Agent({
-  description: "Phase 5.8: post-pre-ship test-coverage re-audit",
+  description: "Phase 5.8: post-pre-ship docs + tests re-audit",
   subagent_type: "general-purpose",
-  prompt: "Run /ak-tests-review (the gstack test-quality skill) over
-  commits ${PRE_SHIP_SHA}..HEAD on branch ${BRANCH} of repo
-  ${REPO_ROOT}. Read every test in the diff alongside the source it
-  covers. Flag missing assertions, untested branches, sloppy mocks,
-  outdated fixtures, security-relevant behavior changes whose existing
-  tests still pass but no longer pin the right behavior. Write findings
-  to ${FEATURE_DIR}/test-review-followup.md with frontmatter line
-  '<!-- audited-at: <HEAD-SHA> -->' and a final summary line
-  'findings: high=N, medium=N, low=N'. Do NOT write any tests yourself
-  — your job is to audit and recommend, not implement. Return the
-  summary line + the report path."
+  prompt: "Run /ak-check-docs-and-tests via the Skill tool with
+  --feature-dir ${FEATURE_DIR} --label post-polish on branch ${BRANCH}
+  of repo ${REPO_ROOT}. The orchestrator computes the range from the
+  latest '## Audit N' section in ${FEATURE_DIR}/review.md, invokes
+  /ak-docs-review and /ak-tests-review in sequence, and appends a new
+  '## Audit N' section with structured findings (docs + tests) and
+  bypass-trailer review. Do NOT write any docs or tests yourself —
+  your job is to audit and recommend, not implement. Return the
+  findings summary line ('findings: high=N medium=N low=N') from the
+  appended section."
 })
 ```
 
 ### 5.8.4: Severity branching
 
 Mirrors `/ak-pre-ship`'s `findings_pending > 0` halt and the Phase 3 → 4
-`blocked > 0` refusal:
+`blocked > 0` refusal. Severity totals come from the appended `## Audit
+N` section's `findings: high=H medium=M low=L` summary line:
 
 | Severity     | Action                                                                                                                                                                                      |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `high>0`     | **Halt** at 5.8. Surface the findings to the user in the same shape as `findings_pending`. Phase 6 does NOT run. User options: (a) close findings with new test commits and re-invoke `/ak-build` (resumes via Step 0 — 5.8 re-runs over the new HEAD); (b) override via `git config devshop.testReviewSkipReason "<specific reason>"` (then re-invoke). The Layer-2 adversarial reviewer judges the override. |
-| `medium>0`   | **Proceed**. Phase 6's audit comment includes a `### Post-pre-ship test-coverage findings` section listing them so the human reviewer sees them inline. Mediums are recommendations, not blockers.                                          |
-| `low>0`      | Audit comment notes `(N low-severity items in test-review-followup.md)` without listing.                                                                                                    |
-| `0/0/0`      | Audit comment notes `Post-pre-ship coverage: clean.`                                                                                                                                        |
+| `high>0`     | **Halt** at 5.8. Surface the findings to the user in the same shape as `findings_pending`. Phase 6 does NOT run. User options: (a) close findings with new commits (docs and/or tests) and re-invoke `/ak-build` (resumes via Step 0 — 5.8 re-runs over the new HEAD; the orchestrator's idempotence guard skips if HEAD didn't move); (b) override via `git config devshop.testReviewSkipReason "<specific reason>"` (then re-invoke). The Layer-2 adversarial reviewer judges the override. |
+| `medium>0`   | **Proceed**. Phase 6's audit comment includes a `### Post-pre-ship docs + tests findings` section listing them so the human reviewer sees them inline. Mediums are recommendations, not blockers.                                          |
+| `low>0`      | Audit comment notes `(N low-severity items in review.md § Audit N)` without listing.                                                                                                        |
+| `0/0/0`      | Audit comment notes `Post-pre-ship audit: clean.`                                                                                                                                           |
 
 **Halt-path output**:
 
 ```
-✖ Phase 5.8: post-pre-ship test-coverage audit found N high-severity
+✖ Phase 5.8: post-pre-ship docs + tests audit found N high-severity
 findings over range ${PRE_SHIP_SHA}..${HEAD}.
 
-Findings (full report at ${FEATURE_DIR}/test-review-followup.md):
+Findings (full report at ${FEATURE_DIR}/review.md § Audit N):
   - <finding 1: file:line + one-line summary>
   - <finding 2: ...>
 
 Phase 6 will not post the audit comment until findings are closed.
 
 Options:
-  1. Close findings with new test commits, then re-run /ak-build.
-     Step 0 resumes at Phase 5.8; the audit re-runs over the new HEAD.
+  1. Close findings with new commits (docs and/or tests), then re-run
+     /ak-build. Step 0 resumes at Phase 5.8; the audit re-runs over
+     the new HEAD.
   2. Override with a specific bypass reason:
      git config devshop.testReviewSkipReason "<why these are OK to ship>"
      then re-run /ak-build. The reason is judged by the adversarial
@@ -943,14 +966,15 @@ Options:
 
 ### 5.8.5: Idempotence
 
-Skip 5.8 when the followup report already exists at the same SHA as HEAD:
+Skip 5.8 when the latest `## Audit N` section in `review.md` is already
+stamped at HEAD:
 
 ```bash
-if [ -f "$FEATURE_DIR/test-review-followup.md" ]; then
-  AUDITED=$(grep -oE 'audited-at: [0-9a-f]{7,40}' \
-    "$FEATURE_DIR/test-review-followup.md" | head -1 | awk '{print $2}')
+if [ -f "$FEATURE_DIR/review.md" ]; then
+  LATEST_AUDIT_SHA=$(grep -oP '(?<=<!-- audited-at: )[a-f0-9]+' \
+    "$FEATURE_DIR/review.md" 2>/dev/null | tail -1)
   HEAD_SHA=$(git rev-parse HEAD)
-  if [ "$AUDITED" = "$HEAD_SHA" ]; then
+  if [ -n "$LATEST_AUDIT_SHA" ] && [ "$LATEST_AUDIT_SHA" = "$HEAD_SHA" ]; then
     echo "✓ 5.8: already audited at $HEAD_SHA — skipping"
     SKIP_5_8=1
   fi
@@ -958,7 +982,11 @@ fi
 ```
 
 This is the same idempotence pattern that lets Step 0's resume-rung
-1a fast-forward past 5.8 — both paths read the `audited-at` stamp.
+1a fast-forward past 5.8 — both paths read the latest `## Audit N`
+section's `audited-at` stamp via `tail -1`. It also matches the
+orchestrator's own Step 6 idempotence guard (so even if 5.8 invokes
+the orchestrator unconditionally, the orchestrator no-ops at the same
+boundary — defensive double-check).
 
 ## Phase 5.9: Post-pre-ship visual evidence refresh
 
@@ -1081,14 +1109,14 @@ gh pr comment "$PR" --body "$(cat <<'COMMENT'
 | Metrics check | <pass / findings (N) fixed / n/a / blocked> |
 | Responsive + theme | <pass / findings (N) fixed / n/a / blocked> |
 | /simplify | <pass / findings (N) fixed / blocked> |
-| /ak-tests-review | <pass / findings (N) / blocked> |
+| /ak-check-docs-and-tests (Audit 1, pre-polish) | <pass / findings (N) / blocked> |
 | /review | <pass / findings (N) fixed / blocked> |
 | /cso | <pass / findings (N) fixed / blocked> |
 | /design-review | <pass / findings (N) fixed / n/a / blocked> |
 | /qa | <pass / findings (N) fixed / blocked> |
 | /benchmark | <pass / findings (N) / n/a / blocked> |
 | Convention check | <pass / findings (N) / blocked> |
-| Post-pre-ship test-coverage | <pass / findings (N) [pending or medium-only] / n/a — empty range / skipped — testReviewSkipReason / blocked> |
+| /ak-check-docs-and-tests (Audit 2, post-polish) | <pass / findings (N) [pending or medium-only] / n/a — empty range / skipped — testReviewSkipReason / blocked> |
 
 ### CI fix loop
 <N attempts / 0 if CI passed first try / details of what was fixed>
@@ -1106,14 +1134,19 @@ gh pr comment "$PR" --body "$(cat <<'COMMENT'
 <From $FEATURE_DIR/tasks.md § Decisions — judgment calls made during /ak-implement>
 
 ### Findings fixed during pre-ship
-<From $FEATURE_DIR/review.md — one bullet per finding: what was found, which commit fixed it>
+<From $FEATURE_DIR/review.md § Gate N sections — one bullet per finding:
+ what was found, which commit fixed it>
 
-### Post-pre-ship test-coverage audit (range: ${PRE_SHIP_SHA}..${HEAD})
-<From $FEATURE_DIR/test-review-followup.md.
+### Post-pre-ship docs + tests audit (range: ${PRE_SHIP_SHA}..${HEAD})
+<From $FEATURE_DIR/review.md § Audit 2 (the latest `## Audit N` section
+ appended by /ak-check-docs-and-tests at Phase 5.8). Surface docs + tests
+ findings together — they share one severity budget.
+
  If 0/0/0: "Clean — no new gaps."
- If medium>0: list each medium verbatim (file:line + one-line summary +
-              recommended assertion shape).
- If low>0 (and medium=0): "(N low-severity items in test-review-followup.md)"
+ If medium>0: list each medium verbatim from the section's
+              `### Docs findings` and `### Tests findings` subsections
+              (file:line + one-line summary).
+ If low>0 (and medium=0): "(N low-severity items in review.md § Audit 2)"
  If high>0: should not reach Phase 6 — halt at 5.8.
  If skipped (testReviewSkipReason): "Skipped per <reason>; reviewer judged the
               override (testReviewSkipReason adversarial review PASS)."
