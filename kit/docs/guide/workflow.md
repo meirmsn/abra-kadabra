@@ -184,12 +184,13 @@ enforcement contract.
 
 **Phase 2: `/ak-implement`** — reads spec, decomposes into tasks, implements with tests. Confirms active branch against `PLAN.md § Active`. Stuck protocol: try fix → `/investigate` → ask user. Logs judgment calls in `specs/<name>/tasks.md` § Decisions.
 
-**Phase 3: `/ak-pre-ship`** — quality gates only (no shipping). A Phase 0 preflight runs first: verifies required tooling (Chromium for browser gates) and aborts the whole pre-ship with a `blocked` status if tooling is missing, so gates can't silently turn a missing tool into a cheerful "skipped". After preflight passes, 14 gates run in canonical order. Gate naming: `(ak)` marks devshop-native gates (either a devshop-owned check or a devshop-authored skill like `/ak-tests-review`); bare names wrap gstack skills invoked verbatim. The canonical source of truth for gate ordering + scope is `pre-ship/SKILL.md § Gates (canonical order + named IDs)`.
+**Phase 3: `/ak-pre-ship`** — quality gates only (no shipping). A Phase 0 preflight runs first: verifies required tooling (Chromium for browser gates) and aborts the whole pre-ship with a `blocked` status if tooling is missing, so gates can't silently turn a missing tool into a cheerful "skipped". After preflight passes, 15 gates run in canonical order. Gate naming: `(ak)` marks devshop-native gates (either a devshop-owned check or a devshop-authored skill like `/ak-tests-review`); bare names wrap gstack skills invoked verbatim. The canonical source of truth for gate ordering + scope is `pre-ship/SKILL.md § Gates (canonical order + named IDs)`.
 
 1. `docs-check` (ak)
 2. `metrics-check` (ak)
    2b. `rls-coverage` (ak) — when `supabase/migrations/**` or client API touched; mechanical check that every RLS-enabled table written by client code has a matching `CREATE POLICY` for the operation in use (catches the silent-zero-row class lalista PR 5 hit)
    2c. `slow-job-lifecycle` (ak) — when `*.integration.test.ts` or `apps/web/e2e/*.spec.ts` files exist; verifies the slow-job CI is uncommented, has the right `if:` predicate + retry pattern, and that branch protection includes the `slow` context
+   2d. `changed-tests-local` (ak) — when diff includes `apps/**`, `packages/{core,ui}/**`, `*.integration.test.ts`, `apps/*/e2e/*.spec.ts`, or `supabase/{migrations,functions}/**`; cheap local checks: Playwright `--list` parse-check, changed E2E + integration specs (bounded wallclock), convention-based smoke set (`*-qa-walk.spec.ts`)
 3. `responsive-theme` (ak) — UI PRs only; captures 4-combo evidence screenshots
 4. `simplify` → test:unit checkpoint
 5. `test-review` (ak)
