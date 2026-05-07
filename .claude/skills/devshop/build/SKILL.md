@@ -798,7 +798,7 @@ diff invalidated existing docs**. That's `/ak-check-docs-and-tests`'s job;
 same `review.md` — before Phase 6 posts the audit comment.
 
 **Why a test-presence hook isn't enough**: the Layer-1 hook
-(`check-test-coverage-project.sh`) catches "added a `.tsx` file with no
+(`check-tests-coverage-project.sh`) catches "added a `.tsx` file with no
 `.test.tsx` next to it" — a file-level math check. It cannot judge:
 
 - A new prop on an existing component lacks a test for the prop's

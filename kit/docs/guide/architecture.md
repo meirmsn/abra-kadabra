@@ -89,7 +89,7 @@ All project work happens in the project repo. Branches, PRs, commits — all on 
 
 Devshop changes go to the abra-kadabra repo. Since `.devshopkit/` is a symlink to `/devshop/kit/`, edits to devshop files are automatically in the abra-kadabra working tree.
 
-**No GitHub PRs on devshop** — devshop is a single-developer private repo where pre-commit guards (adversarial review, docs drift, release-coverage, test suite) are the quality gate. Land via feature branch + `ff-merge` to main locally; push directly to `origin/main`.
+**No GitHub PRs on devshop** — devshop is a single-developer private repo where pre-commit guards (Layer 1 docs/tests-coverage hooks, mixed-commit, manifest, clean-tree, security-files-freshness, gitleaks, lint, typecheck, test suite) are the inner quality gate, and audit-time `/ak-check-docs-and-tests` (fired before each ff-merge) is the outer gate. Land via feature branch + `ff-merge` to main locally; push directly to `origin/main`.
 
 ```bash
 cd /devshop                                          # abra-kadabra repo

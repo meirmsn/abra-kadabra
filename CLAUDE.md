@@ -62,7 +62,7 @@ Don't reach for option 3 because option 1 felt like "more work" — a one-line p
 - **Project commits** go to the project repo (`/workspace`). Use conventional commits (`feat:`, `fix:`, `chore:`, etc.). Branch protection requires PRs.
 - **Devshop commits** go to the abra-kadabra repo (`/devshop`). Use conventional commits. Since `.devshopkit/` is a symlink to `/devshop/kit/`, edits are automatically in the abra-kadabra working tree — just `cd /devshop && git add && git commit`.
 
-**Devshop shipping flow (no PRs):** The devshop is a single-developer private repo — pre-commit guards (adversarial review, docs drift, release-coverage, test suite) are the quality gate. Three steps:
+**Devshop shipping flow (no PRs):** The devshop is a single-developer private repo — pre-commit guards (Layer 1 docs/tests-coverage hooks, mixed-commit, manifest, clean-tree, security-files-freshness, gitleaks, lint, typecheck, test suite) are the inner quality gate; audit-time `/ak-check-docs-and-tests` (one Sonnet call per sub-skill, fired before each ff-merge) is the outer gate. Three steps:
 
 1. **Branch for anything beyond trivial.** New capability, multi-file refactor, risky tooling change → feature branch (`feat/<topic>`, `fix/<topic>`, etc.). Trivial doc nits may go direct-to-main, but only by a human in a raw terminal — Claude is blocked by the `check-branch-not-main.sh` PreToolUse hook. Scripts that legitimately need main commits (e.g., `release.sh`) wrap them so the outer Bash call doesn't match the hook pattern.
 

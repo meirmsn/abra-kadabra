@@ -378,7 +378,7 @@ The consumer (`ListClient.tsx`) wires `onError` to a sync-error banner. Without 
 ### Cross-references
 
 - `kit/docs/guide/supabase-ssr-boilerplate.md § Pattern 6` — the E2E recipe that exercises this rule (close the WS, assert the banner)
-- `.claude/skills/devshop/test-review/SKILL.md § Wrapper API design — lifecycle events not just data` — the deterministic check
+- `.claude/skills/devshop/tests-review/SKILL.md § Wrapper API design — lifecycle events not just data` — the deterministic check
 - Lalista PR 27 (2026-04-26 → 2026-04-27) — surfaced the gap; closed both halves (wrapper signature + E2E recipe)
 
 ## Confidence Calibration
@@ -463,7 +463,7 @@ The comment must name the absence of user-visible output. Generic bypasses (`// 
 
 **Scope** — `/ak-tests-review` enforces this only on tests added or modified in the current PR's diff. Grandfathered tests in untouched files are not retroactively flagged; conversion of legacy shape-only tests is tracked in `TODOS.md` if it ever becomes worth the churn.
 
-**Why this exists** — Phase 1's Gate 9 artifact assertion (qa-walk per-verb evidence) catches missing-DOM-output bugs _if_ the harness captures DOM state. This rule moves the catch one level up so even unit tests fail fast when "code did a thing" diverges from "user sees the right thing." See `.claude/skills/devshop/test-review/SKILL.md § Shape-only assertions`.
+**Why this exists** — Phase 1's Gate 9 artifact assertion (qa-walk per-verb evidence) catches missing-DOM-output bugs _if_ the harness captures DOM state. This rule moves the catch one level up so even unit tests fail fast when "code did a thing" diverges from "user sees the right thing." See `.claude/skills/devshop/tests-review/SKILL.md § Shape-only assertions`.
 
 ### Testing Lifecycle
 
@@ -495,8 +495,8 @@ The devshop's own scripts and configuration are tested with [BATS](https://githu
 
 **Two enforcement layers:**
 
-1. **Per-commit (pre-commit chain):** BATS runs the full test suite (~6s). Catches regressions immediately. The `check-test-coverage` guard blocks new scripts without test files and warns on modified scripts without test files.
-2. **Per-release (release.sh):** Semantic test coverage review via adversarial agent. Compares the functional diff since the last tag against the test suite's `@test` names. Catches new code paths, changed exit codes, or new options that existing tests don't exercise. Blocks the release if coverage gaps are found. This avoids the cost of a Sonnet call on every commit while still catching gaps before they ship.
+1. **Per-commit (pre-commit chain):** BATS runs the full test suite (~6s). Catches regressions immediately. The `check-tests-coverage-devshop.sh` guard blocks new scripts without test files and warns on modified scripts without test files.
+2. **Per-merge (audit-time):** `/ak-tests-review` reviews the diff before each ff-merge to main, fired by `/ak-check-docs-and-tests`. Surfaces missing coverage of new behavior + weak assertions + the 11-rubric quality checks against the actual `.bats` files. Replaces the per-release adversarial review removed in PR-C of the audit-time docs+tests migration (`kit/ROADMAP.md § PR-C`).
 
 **What's tested vs. exempt:**
 

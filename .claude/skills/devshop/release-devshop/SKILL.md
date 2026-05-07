@@ -85,14 +85,11 @@ bash kit/scripts/release.sh --bump <level>
 
 1. Writing new version to `kit/version`
 2. Generating a changelog entry from `$LAST_TAG..HEAD` commits
-3. Creating a bump commit — this triggers the `release-coverage` pre-commit adversarial review. If the review blocks, surface the reason to the user and stop. Do not bypass without explicit user direction.
+3. Creating a bump commit. (Per-release adversarial test-coverage review was removed in PR-C of the audit-time docs+tests migration — `kit/ROADMAP.md § PR-C`. Coverage is now judged at audit time by `/ak-check-docs-and-tests` before each ff-merge to main; the bump commit itself runs only the standard Layer 1 hooks.)
 4. Tagging `v<new>`
 5. Pushing to origin + creating a GitHub release (if `DEVSHOP_GITHUB_TOKEN` is set in `/etc/devshop-env`)
 
-If `release-coverage` blocks (e.g., missing test for a new script), the user can:
-
-- Add the missing test, then re-run `/ak-release-devshop`
-- Provide `git -c devshop.releaseReviewed="<reason>"` override (adversarially reviewed — be specific)
+If a Layer 1 hook blocks (e.g., missing test-pairing for a new script that should have been caught earlier), surface the reason to the user — don't bypass at release time. Coverage gaps belong in the merge-time audit, not the bump commit.
 
 ## Phase 3 — Confirm
 
