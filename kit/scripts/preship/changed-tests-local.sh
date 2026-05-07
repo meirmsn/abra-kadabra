@@ -179,8 +179,6 @@ fi
 # --- Step 2: changed E2E execution ---
 
 CHANGED_E2E=$(changed_paths_matching "$BASE_REF" '^apps/[^/]+/e2e/.*\.spec\.ts$' || true)
-E2E_RAN_COUNT=0
-E2E_DEFERRED_COUNT=0
 if [ -n "$CHANGED_E2E" ] && [ -n "$PLAYWRIGHT_CONFIG" ]; then
   E2E_FILES_REL=()
   while IFS= read -r f; do
@@ -202,15 +200,11 @@ if [ -n "$CHANGED_E2E" ] && [ -n "$PLAYWRIGHT_CONFIG" ]; then
        pnpm exec playwright test --project=chromium --max-failures=1 --workers=1 "${E2E_ARGS[@]}" >/dev/null 2>&1 ); then
     RC=$?
     if [ "$RC" = "124" ]; then
-      E2E_RAN_COUNT=0
-      E2E_DEFERRED_COUNT=$E2E_TOTAL
       findings+=("changed E2E execution exceeded ${E2E_CHANGED_TIMEOUT_S}s budget — found $E2E_TOTAL specs; 0 ran, $E2E_TOTAL deferred to CI")
       budget_exceeded=1
     else
       findings+=("changed E2E specs failed (exit $RC across $E2E_TOTAL spec(s)) — re-run \`pnpm exec playwright test --project=chromium\` to see failures")
     fi
-  else
-    E2E_RAN_COUNT=$E2E_TOTAL
   fi
 fi
 
@@ -238,8 +232,6 @@ fi
 
 # --- Step 4: smoke set (apps/web/e2e/*-qa-walk.spec.ts ∪ apps/web/e2e/qa-walk.spec.ts) ---
 
-SMOKE_RAN_COUNT=0
-SMOKE_DEFERRED_COUNT=0
 if [ -n "$PLAYWRIGHT_CONFIG" ]; then
   # Detect smoke-set membership at the project repo root, not relative to config.
   SMOKE_FILES=()
@@ -264,14 +256,11 @@ if [ -n "$PLAYWRIGHT_CONFIG" ]; then
          pnpm exec playwright test --project=chromium --max-failures=1 --workers=1 "${SMOKE_ARGS[@]}" >/dev/null 2>&1 ); then
       RC=$?
       if [ "$RC" = "124" ]; then
-        SMOKE_DEFERRED_COUNT=$SMOKE_TOTAL
         findings+=("smoke set exceeded ${SMOKE_SET_TIMEOUT_S}s budget — found $SMOKE_TOTAL specs; 0 ran, $SMOKE_TOTAL deferred to CI")
         budget_exceeded=1
       else
         findings+=("smoke set failed (exit $RC across $SMOKE_TOTAL spec(s)) — re-run the *-qa-walk specs locally")
       fi
-    else
-      SMOKE_RAN_COUNT=$SMOKE_TOTAL
     fi
   fi
 fi
