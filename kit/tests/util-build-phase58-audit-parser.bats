@@ -25,7 +25,10 @@
 setup() {
   load helpers/setup
   SKILL_FILE="/devshop/.claude/skills/devshop/build/SKILL.md"
-  [ -f "$SKILL_FILE" ] || skip "build/SKILL.md not found at $SKILL_FILE"
+  # Do NOT defensively skip when SKILL.md is missing — a rename/move/delete is
+  # precisely the regression this file exists to catch. Let per-test assertions
+  # fail naturally so the report says "SKILL.md exists at the expected path"
+  # FAILED rather than "all tests skipped". Audit 1 finding (2026-05-07).
 }
 
 # === Architecture diagram (top-of-file) ===

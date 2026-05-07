@@ -915,7 +915,7 @@ supabase link --project-ref <project-ref>
 
 The template ships a `METRICS.md` skeleton with the Events / Feature Flags / Dashboards table headers and authoring rules. No file creation needed — open the scaffolded file and replace the placeholder rows with project-specific values when the first feature lands. `/ak-spec` populates the Events table during the first feature build.
 
-Per `guide/conventions.md § Project Docs Hierarchy`, this file is one of six in the always-present orientation hierarchy. The pre-commit `check-docs-freshness-project.sh` hook enforces that new `posthog.capture(...)` / `Sentry.captureException(...)` call sites stage `METRICS.md` updates in the same commit.
+Per `guide/conventions.md § Project Docs Coverage`, this file is one of six in the always-present orientation hierarchy. The pre-commit `check-docs-coverage-project.sh` hook enforces that new `posthog.capture(...)` / `Sentry.captureException(...)` call sites stage `METRICS.md` updates in the same commit.
 
 ### Step 17: Run /setup-deploy
 
