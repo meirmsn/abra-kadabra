@@ -17,14 +17,14 @@ Source spec: /devshop/specs/cheap-test-gates-local/spec.md
 ## Task 2 — Path classifier + `supabase-bootstrap.sh` integration (sub-fix 3)
 
 - [x]
-- Commit: (pending)
-- Notes: Created `kit/scripts/preship/path-classifier.sh` with `classify` + `diff-needs-stack` subcommands; D4's hardcoded glob table; exit codes 0 (stack-needing in diff) / 1 (no match) / 2 (git error). Modified `supabase-bootstrap.sh` to inject `emit_degraded_outcome` helper that reads `git config devshop.requireHealthyLocalStack` (unset → `when-relevant` → consult classifier; `never` → always pass-with-note; `always` → always blocked) — the previously-unconditional `echo "blocked: ..."` callsites in the `up` mode now route through this helper. Fail-safe: classifier missing OR git-error → emit `blocked:` (legacy behavior). 39 BATS tests added: 25 in `util-path-classifier.bats` (D4 table + ambiguous paths + diff-needs-stack exit codes), 14 in `preship-supabase-bootstrap-classifier.bats` (full D6 decision matrix). All 19 existing supabase-bootstrap tests still pass.
+- Commit: 047136b
+- Notes: Created `kit/scripts/preship/path-classifier.sh` with `classify` + `diff-needs-stack` subcommands; D4's hardcoded glob table; exit codes 0 (stack-needing in diff) / 1 (no match) / 2 (git error). Modified `supabase-bootstrap.sh` to inject `emit_degraded_outcome` helper that reads `git config devshop.requireHealthyLocalStack` (unset → `when-relevant` → consult classifier; `never` → always pass-with-note; `always` → always blocked) — the previously-unconditional `echo "blocked: ..."` callsites in the `up` mode now route through this helper. Fail-safe: classifier missing OR git-error → emit `blocked:` (legacy behavior). 39 BATS tests added: 25 in `util-path-classifier.bats` (D4 table + ambiguous paths + diff-needs-stack exit codes), 14 in `preship-supabase-bootstrap-classifier.bats` (full D6 decision matrix). All 19 existing supabase-bootstrap tests still pass. Documented in `kit/docs/guide/conventions.md § Local Pre-Push Test Gates` (this is the bulk of Task 6's conventions.md slice — landed early because the docs-coverage hook required a paired guide-doc update on this commit's preship-surface changes).
 
 ## Task 3 — `localTestSkipReason` adversarial-review check-type
 
-- [ ]
-- Commit:
-- Notes:
+- [x]
+- Commit: (pending)
+- Notes: Added `localTestSkipReason)` case to `kit/scripts/adversarial-review.sh` (after `testReviewSkipReason)`); routes to Sonnet (joins the high-blast-radius judgment group); appended rule #10 to the prompt mirroring `testReviewSkipReason`'s (a)-(d) shape. Context block enumerates the four gate categories (parse-check / changed E2E / changed integration / smoke set), surfaces the diff against origin/main (or HEAD~1 fallback), and includes branch + HEAD SHA. 13 BATS tests added in `kit/tests/util-adversarial-review-localTestSkipReason.bats`.
 
 ## Task 4 — Wire new gate at #2d in `ak-pre-ship/SKILL.md`
 
