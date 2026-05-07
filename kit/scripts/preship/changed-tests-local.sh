@@ -86,10 +86,15 @@ changed_paths_matching() {
 }
 
 # True if the diff contains any path classified as stack-needing.
+# Returns 0 (yes) / non-zero (no). When the canonical path-classifier helper is
+# on disk, defer to it; otherwise inline-classify for the self-contained shape.
 diff_needs_stack() {
   local base="$1"
-  if [ -x "$DEVSHOP/kit/scripts/preship/path-classifier.sh" ]; then
-    "$DEVSHOP/kit/scripts/preship/path-classifier.sh" diff-needs-stack "$base" >/dev/null 2>&1
+  local classifier="$DEVSHOP/kit/scripts/preship/path-classifier.sh"
+  # Allow tests to override via env (mirrors emit_degraded_outcome's pattern).
+  classifier="${PATH_CLASSIFIER_SCRIPT:-$classifier}"
+  if [ -x "$classifier" ] || [ -f "$classifier" ]; then
+    (cd "$PROJECT_ROOT" && bash "$classifier" diff-needs-stack "$base" >/dev/null 2>&1)
     return $?
   fi
   # Fallback: inline classifier (matches D4's table). Returns 0 if any

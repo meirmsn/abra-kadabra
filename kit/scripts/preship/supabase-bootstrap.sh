@@ -35,6 +35,59 @@ MODE="${1:-up}"
 
 RELAY_URL="http://supabase-runner:9000"
 
+# Path classifier (sub-fix 3) — used by emit_degraded_outcome to decide whether
+# a degraded-stack situation should hard-block or fall back to legacy
+# pass-with-note. Tests can override via PATH_CLASSIFIER_SCRIPT.
+PATH_CLASSIFIER_SCRIPT="${PATH_CLASSIFIER_SCRIPT:-$DEVSHOP/kit/scripts/preship/path-classifier.sh}"
+
+# D6 decision: read git config devshop.requireHealthyLocalStack and decide
+# whether the current `blocked:` situation should be promoted to a hard block
+# or downgraded to `pass-with-note:` advisory. The orchestrator treats
+# `blocked:` as halt and `pass-with-note:` as continue-with-note.
+#
+# Args: $1 = the message to emit (without the leading token).
+# Stdout: either `blocked: <msg>` or `pass-with-note: <msg>`.
+emit_degraded_outcome() {
+  local msg="$1"
+  # Read config; treat unset as "when-relevant".
+  local cfg
+  cfg=$(cd "$PROJECT_ROOT" 2>/dev/null && git config --get devshop.requireHealthyLocalStack 2>/dev/null || true)
+  [ -z "$cfg" ] && cfg="when-relevant"
+  case "$cfg" in
+    never)
+      # Explicit opt-out: legacy pass-with-note regardless of diff.
+      echo "pass-with-note: $msg"
+      return
+      ;;
+    always)
+      # Aspirational strict: hard block regardless of diff.
+      echo "blocked: $msg"
+      return
+      ;;
+    when-relevant|*)
+      # Default: hard-block only when the diff is stack-needing AND we can
+      # actually classify the diff. If the classifier is unavailable OR the
+      # base ref is missing (git error → exit 2), fail-safe to `blocked:` so
+      # a missing tool / missing remote can't silently downgrade the gate.
+      if [ -x "$PATH_CLASSIFIER_SCRIPT" ] || [ -f "$PATH_CLASSIFIER_SCRIPT" ]; then
+        local rc=0
+        (cd "$PROJECT_ROOT" && bash "$PATH_CLASSIFIER_SCRIPT" diff-needs-stack "${LOCAL_TESTS_BASE_REF:-origin/main}" >/dev/null 2>&1) || rc=$?
+        case "$rc" in
+          0) echo "blocked: $msg" ;;        # diff has stack-needing paths
+          1) echo "pass-with-note: $msg" ;; # docs-only diff
+          *) echo "blocked: $msg" ;;        # git error / classifier failure → fail-safe
+        esac
+      else
+        # Classifier unavailable → fall back to legacy `blocked:` (the safer
+        # default — orchestrator halts on it; better than silently letting
+        # a stack-needing diff slip through).
+        echo "blocked: $msg"
+      fi
+      return
+      ;;
+  esac
+}
+
 # Detect which reachability shape this project is on. Read-only, side-effect-free.
 detect_shape() {
   if [ -f "$PROJECT_ROOT/.devcontainer/compose.yml" ] && [ -d "$PROJECT_ROOT/.devcontainer/supabase-runner" ]; then
@@ -93,7 +146,7 @@ case "$MODE" in
             exit 3
           fi
         else
-          echo "blocked: cmd-relay on supabase-runner:9000 unreachable (curl exit $STATUS_RC). Compose isolation requires the supabase-runner sibling container to be running. Fix: from a macOS terminal, restart the runner (\`docker restart <project>_devcontainer-supabase-runner-1\`), or rebuild the devcontainer (Cmd+Shift+P → Dev Containers: Rebuild Container)."
+          emit_degraded_outcome "cmd-relay on supabase-runner:9000 unreachable (curl exit $STATUS_RC). Compose isolation requires the supabase-runner sibling container to be running. Fix: from a macOS terminal, restart the runner (\`docker restart <project>_devcontainer-supabase-runner-1\`), or rebuild the devcontainer (Cmd+Shift+P → Dev Containers: Rebuild Container)."
           exit 0
         fi
 
@@ -169,7 +222,7 @@ case "$MODE" in
         ;;
 
       none)
-        echo "blocked: no local Supabase reachable. Detection fell through (no compose.yml + supabase-runner/, no docker daemon, no listener at host.docker.internal:54321). Refusing hosted-Supabase fallback (would pollute prod). Fix: rebuild the devcontainer with one of the supported shapes — compose isolation (template default; see /devshop/kit/docs/guide/local-supabase-compose-isolation.md), Host Supabase (\`brew install supabase/tap/supabase\` on macOS host + \`supabase start\` from host terminal), or run on a machine with Docker."
+        emit_degraded_outcome "no local Supabase reachable. Detection fell through (no compose.yml + supabase-runner/, no docker daemon, no listener at host.docker.internal:54321). Refusing hosted-Supabase fallback (would pollute prod). Fix: rebuild the devcontainer with one of the supported shapes — compose isolation (template default; see /devshop/kit/docs/guide/local-supabase-compose-isolation.md), Host Supabase (\`brew install supabase/tap/supabase\` on macOS host + \`supabase start\` from host terminal), or run on a machine with Docker."
         exit 0
         ;;
     esac

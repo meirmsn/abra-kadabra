@@ -156,6 +156,92 @@ Block-on-failure with a remediation message pointing at this section's checklist
 
 Lalista is the prior art — its slow-job carries the edge-runtime retry pattern that PR 26 (2026-04-26) hard-won during a real CI flake. Without the retry, the `supabase_edge_runtime_workspace` container's occasional cold-start 502 fails the entire run on a transient infra issue. The retry adds ~30s in the unhappy path and zero in the happy path. The convention propagates this pattern by default to every devshop project rather than letting each one re-discover it after their own PR-26-style incident.
 
+### Cross-reference: Local Pre-Push Test Gates
+
+The slow-job is the upper layer of the test discipline. The lower layer is the local-floor gate `changed-tests-local` (#2d in `/ak-pre-ship`) — see the next section for the convention. The two layers are complementary, not redundant: local fires on a strict subset (parse-check + changed specs + smoke set, ~5 min total) so a developer discovers the cheap failures 30s before pushing. CI's slow-job runs the full multi-viewport / multi-project matrix, on which the local floor depends for everything outside the cheap subset. Set `git config devshop.requireHealthyLocalStack never` to opt out of the local floor's degraded-stack promotion if a project legitimately can't run a local stack.
+
+## Local Pre-Push Test Gates
+
+A devshop-side gate that runs the cheap halves of integration + E2E test execution locally so a developer discovers a broken Playwright spec or a degraded local Supabase stack 30 seconds before pushing instead of 8–10 minutes after. CI's slow-job (above) still runs the full matrix; this gate is the early-warning floor. Lives at `kit/scripts/preship/changed-tests-local.sh`, surfaced as `/ak-pre-ship` Gate `changed-tests-local (ak)` at #2d.
+
+### Smoke-set convention (`*-qa-walk.spec.ts`)
+
+The smoke set is convention-based, not config-driven. The gate runs the union of two globs at the project repo root:
+
+- `apps/web/e2e/*-qa-walk.spec.ts`
+- `apps/web/e2e/qa-walk.spec.ts`
+
+A spec named `*-qa-walk.spec.ts` is by convention a fast happy-path walk that exercises a primary user verb without setup-heavy fixtures. Lalista already adopted the convention organically (4 specs as of 2026-05-06: `core-flows-qa-walk.spec.ts`, `disambig-add-new-hero-qa-walk.spec.ts`, `qa-walk.spec.ts`, `ci-slow-job-qa-walk.spec.ts`). Other projects adopt by renaming. A project that doesn't follow the convention gets no smoke set from this gate; an explicit per-project `.devshop/test-impact.json` is the deferred sub-fix-2 stage 2 (precision layer above the convention floor).
+
+### Stack-needing path classifier (`path-classifier.sh`)
+
+Single source of truth for the question "does this diff need the local Supabase stack to be healthy?" Used both by `changed-tests-local.sh` (for `n/a` scope detection) and by `supabase-bootstrap.sh up` (for the degraded-stack promotion below). Hardcoded glob list:
+
+| Path glob                                      | Classified as     |
+| ---------------------------------------------- | ----------------- |
+| `apps/**`                                      | stack-needing     |
+| `packages/core/**`, `packages/ui/**`           | stack-needing     |
+| `**/*.integration.test.ts` (added or modified) | stack-needing     |
+| `apps/*/e2e/*.spec.ts` (added or modified)     | stack-needing     |
+| `supabase/migrations/**`                       | stack-needing     |
+| `supabase/functions/**`                        | stack-needing     |
+| Anything else                                  | not stack-needing |
+
+CLI:
+
+```bash
+bash kit/scripts/preship/path-classifier.sh classify <path>
+bash kit/scripts/preship/path-classifier.sh diff-needs-stack [<base-ref>]
+```
+
+### Wallclock budgets
+
+Each step is bounded via the `timeout --kill-after=10s` shell builtin. On hit, the step records the triage line `found N specs; M ran, K deferred to CI` and the gate emits `findings (N) [budget exceeded]`. Defaults (env-overridable):
+
+| Step                              | Budget | Env var                         |
+| --------------------------------- | ------ | ------------------------------- |
+| Parse-check (`playwright --list`) | 30s    | `PARSE_CHECK_TIMEOUT_S`         |
+| Changed E2E execution             | 2 min  | `E2E_CHANGED_TIMEOUT_S`         |
+| Changed integration execution     | 1 min  | `INTEGRATION_CHANGED_TIMEOUT_S` |
+| Smoke set                         | 2 min  | `SMOKE_SET_TIMEOUT_S`           |
+| Combined floor                    | ~5 min | (sum of above)                  |
+
+### Bypass flag (`devshop.localTestSkipReason`)
+
+Set the bypass to short-circuit the gate per-invocation:
+
+```bash
+git -c devshop.localTestSkipReason="<why these are OK to skip locally>" \
+    git push  # or however the gate is invoked
+```
+
+Same shape as `devshop.testReviewSkipReason` / `devshop.dirtyPushReason`. The gate invokes adversarial review (check-type `localTestSkipReason`, Sonnet-routed) on the reason. PASS → `pass (skipped — adversarially reviewed)`; FAIL → `findings (1) pending` with the reviewer's verdict on stdout. Reviewer rules:
+
+- **Per-category engagement**: name each test category being skipped + why CI is sufficient for that category.
+- **No core-flow dismissal**: skipping the smoke set on a diff that touches the project's primary user verb is categorically NOT acceptable.
+- **Plausible follow-up commitment**: if "will fix later" appears, name a specific TODOS.md / ROADMAP entry.
+- **No silent-broken-env skips**: "the local stack is broken so I'm skipping" must include either an open issue OR a concrete recipe the operator already tried.
+
+Default REJECT — passes require explicit specificity.
+
+### Preflight integration: `devshop.requireHealthyLocalStack`
+
+`supabase-bootstrap.sh up` (the existing preflight stack-bootstrap helper) reads the same path classifier to decide whether a degraded stack should hard-block or fall back to a legacy advisory. The decision is parameterized via `git config devshop.requireHealthyLocalStack`:
+
+| Value           | Behavior                                                                           |
+| --------------- | ---------------------------------------------------------------------------------- |
+| _(unset)_       | Same as `when-relevant` (default). Hard-block on stack-needing diffs only.         |
+| `when-relevant` | Explicit form. Hard-block on stack-needing diffs; advisory on docs-only.           |
+| `never`         | Explicit opt-out. Advisory regardless of diff. For projects without a local stack. |
+| `always`        | Aspirational strict. Hard-block on any degraded stack.                             |
+
+The preflight emits one of two stdout tokens:
+
+- `blocked: <reason>` — orchestrator halts the pipeline (today's behavior).
+- `pass-with-note: <reason>` — orchestrator continues with the message as advisory.
+
+Fail-safe: if the classifier is missing OR git can't resolve the base ref, the preflight emits `blocked:` (the safer default — better strict than lax when the tool can't decide).
+
 ## Supabase Hardening Defaults
 
 What `/ak-new-project` Step 17b applies to every new Supabase project, and why:
