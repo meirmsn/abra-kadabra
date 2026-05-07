@@ -23,8 +23,8 @@ Source spec: /devshop/specs/cheap-test-gates-local/spec.md
 ## Task 3 — `localTestSkipReason` adversarial-review check-type
 
 - [x]
-- Commit: (pending)
-- Notes: Added `localTestSkipReason)` case to `kit/scripts/adversarial-review.sh` (after `testReviewSkipReason)`); routes to Sonnet (joins the high-blast-radius judgment group); appended rule #10 to the prompt mirroring `testReviewSkipReason`'s (a)-(d) shape. Context block enumerates the four gate categories (parse-check / changed E2E / changed integration / smoke set), surfaces the diff against origin/main (or HEAD~1 fallback), and includes branch + HEAD SHA. 13 BATS tests added in `kit/tests/util-adversarial-review-localTestSkipReason.bats`.
+- Commit: a2d605b
+- Notes: Added `localTestSkipReason)` case to `kit/scripts/adversarial-review.sh` (after `testReviewSkipReason)`); routes to Sonnet (joins the high-blast-radius judgment group); appended rule #10 to the prompt mirroring `testReviewSkipReason`'s (a)-(d) shape. Context block enumerates the four gate categories (parse-check / changed E2E / changed integration / smoke set), surfaces the diff against origin/main (or HEAD~1 fallback), and includes branch + HEAD SHA. 13 BATS tests added in `kit/tests/util-adversarial-review-localTestSkipReason.bats`. Updated `kit/docs/guide/hooks.md`'s three bypass-flag enumerations to add `localTestSkipReason` (Task 6's hooks.md slice — landed alongside Task 3 because the docs-coverage hook treats `kit/scripts/*` as a "scripts" surface).
 
 ## Task 4 — Wire new gate at #2d in `ak-pre-ship/SKILL.md`
 
@@ -34,27 +34,27 @@ Source spec: /devshop/specs/cheap-test-gates-local/spec.md
 
 ## Task 5 — BATS test coverage
 
-- [ ]
-- Commit:
-- Notes:
+- [x]
+- Commit: 4ad6ae4 (changed-tests-local), 047136b (path-classifier + bootstrap-classifier), a2d605b (localTestSkipReason)
+- Notes: All four BATS files from spec § Tests landed alongside their respective tasks (1, 2, 3) because the devshop pre-commit `check-tests-coverage-devshop.sh` requires every new kit/scripts file to have a paired test in the same commit. Total new BATS coverage: `util-path-classifier.bats` (25 tests), `preship-changed-tests-local.bats` (10 tests), `util-adversarial-review-localTestSkipReason.bats` (13 tests), `preship-supabase-bootstrap-classifier.bats` (14 tests) = 62 new tests. Full BATS suite at HEAD: 660/660 pass.
 
 ## Task 6 — Doc updates
 
-- [ ]
-- Commit:
-- Notes:
+- [x]
+- Commit: 4ad6ae4 (workflow.md slice), 047136b (conventions.md `## Local Pre-Push Test Gates` + cross-ref from `## Slow-Job Lifecycle`), a2d605b (hooks.md `localTestSkipReason` enumerations), (CLAUDE.md Tier-1 entry — pending)
+- Notes: Most doc updates landed alongside the surface changes that triggered docs-coverage hook requirements. Final piece: `/devshop/CLAUDE.md` Tier-1 entry naming both `devshop.localTestSkipReason` (gate bypass) and `devshop.requireHealthyLocalStack` (preflight promotion control), with cross-reference to conventions.md § Local Pre-Push Test Gates for the full convention.
 
 ## Task 7 — Roadmap bookkeeping
 
-- [ ]
-- Commit:
-- Notes:
+- [x]
+- Commit: (pending)
+- Notes: Marked `kit/ROADMAP.md § Shift cheap test gates from CI-only to local pre-push` as `[SHIPPED 2026-05-06 — feature/cheap-test-gates-local]` with a one-line ship note. Appended three new v1 entries: (1) sub-fix 2 stage 2 (per-project `.devshop/test-impact.json` path-pattern map), (2) sub-fix 2 stage 3 (import-graph match via `tsc --listFiles` / `madge`), (3) Lalista adoption PR (validation ground for the new gate firing on a real diff + bypass flow + degraded-stack `blocked` promotion).
 
 ## Task 8 — Seed `PLAN.md` + `BUILD-LOG.md` in the devshop repo
 
-- [ ]
-- Commit:
-- Notes:
+- [x]
+- Commit: (pending)
+- Notes: Created `/devshop/PLAN.md` from `template/PLAN.md` with this branch's row in `## Active`; created `/devshop/BUILD-LOG.md` from `template/BUILD-LOG.md` (intro + `_No builds yet._` placeholder). PROACTIVE seed per spec § Task 8 — defuses the docs-only-first-commit edge case in /ak-build Phase 5.6 / 5.7. Reference paths in PLAN.md adjusted from project-template defaults (PRODUCT-ROADMAP.md / TODOS.md) to devshop-side equivalents (kit/ROADMAP.md / kit/TODOS.md).
 
 ## Decisions (judgment calls made during implementation)
 

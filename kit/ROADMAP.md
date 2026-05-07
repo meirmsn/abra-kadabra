@@ -1705,7 +1705,9 @@ Auto-detect change scope and pick a tier:
 
 Announce which tier was picked. Override with `--full` or `--light`.
 
-### Shift cheap test gates from CI-only to local pre-push
+### Shift cheap test gates from CI-only to local pre-push [SHIPPED 2026-05-06 — feature/cheap-test-gates-local]
+
+Lands the cheap-floor halves of sub-fix 1 (changed E2E + changed integration + smoke set, all wallclock-bounded), sub-fix 2 stage 1 (the convention-based smoke-set glob — `apps/web/e2e/*-qa-walk.spec.ts` ∪ `apps/web/e2e/qa-walk.spec.ts`), and sub-fix 3 (the path-classifier + `requireHealthyLocalStack` `when-relevant` promotion). See the deferred sub-fix 2 stages 2 and 3 below for the precision layers above the floor. Lalista adoption is its own follow-up entry.
 
 **Problem.** Today only Vitest unit/component tests (`pnpm turbo run test:unit`) run locally before push — they fire in `/ak-implement`, `/ak-pre-ship`, and `/ship`'s pre-push gate, so a new unit test gets exercised three times before code leaves the workstation. Every other test type runs CI-only:
 
@@ -1776,6 +1778,52 @@ Stack-needing paths (project-template defaults; projects can extend):
 - **Slow-job skip-on-docs-only**: when the diff matches `^(specs/|PLAN\.md|BUILD-LOG\.md|TODOS\.md|.*\.md|\.gstack/|\.devshop/)` only, slow-job CI shouldn't run at all — saves the 8–10 min cycle on each Phase 5.6 / Phase 5.8 / Audit-N bookkeeping push. Belongs in `.github/workflows/ci.yml` with a `paths-ignore` filter, not in this pre-ship entry.
 - **Test-impact analysis (TIA) systems**: real TIA platforms (Gradle Enterprise, Datadog Test Optimization) instrument runtime to record which production code each test actually exercises, then re-run only impacted tests. That's the precise version of sub-fix 2; the heuristics here are an approximation that doesn't require infra. Move to TIA only if the heuristics' false-negative rate becomes painful — and that lift is its own roadmap entry.
 - **Tightening `/qa`'s `n/a` criteria**: today an operator can mark `/qa` `n/a` with prose like "no visible UI change" and the pipeline accepts it. Ought to require a positive file:line claim ("no `.tsx` files modified in this diff") that an adversarial reviewer can verify, not just a self-attestation. Adjacent to this entry but mechanically separate.
+
+### Cheap-test-gates-local sub-fix 2 stage 2 — per-project `.devshop/test-impact.json` path-pattern map
+
+**Problem.** The shipped feature (sub-fix 2 stage 1) implements the convention-based smoke-set floor only — `apps/web/e2e/*-qa-walk.spec.ts` ∪ `apps/web/e2e/qa-walk.spec.ts`. A project that doesn't follow that convention gets no smoke set; a project that follows it gets a fixed-cost floor but nothing precision-targeted to the diff. The path-pattern layer is the next precision rung above the floor.
+
+**Shape.** Per-project config at `.devshop/test-impact.json` (or `.devshop/test-impact.toml` — pick one) mapping changed source paths to spec paths via filename regex. Example:
+
+```json
+{
+  "patterns": [
+    {
+      "match": "apps/web/components/(.+)\\.tsx",
+      "specs": [
+        "apps/web/e2e/$1-qa-walk.spec.ts",
+        "apps/web/e2e/add-item-banner.spec.ts"
+      ]
+    },
+    {
+      "match": "packages/core/src/api/(.+)\\.ts",
+      "specs": ["packages/core/src/api/$1.integration.test.ts"]
+    }
+  ]
+}
+```
+
+`changed-tests-local.sh` reads the file (when present) AFTER the convention-based smoke set, deduplicates against already-running specs, and adds the resolved patterns to the spec list. Wallclock cap unchanged (specs that exceed the budget defer to CI per the existing triage line).
+
+**Cost/risk.** ~2-3h (file format + reader + dedup + tests). Backward-compatible: projects without the file get the same behavior as today. Risk: false positives (running specs that don't actually exercise the diff) cost wallclock but never silent breakage.
+
+### Cheap-test-gates-local sub-fix 2 stage 3 — import-graph match via `tsc --listFiles` / `madge`
+
+**Problem.** Stage 2's path-pattern map catches the cases the operator can express as a regex; helper changes that ripple into specs without filename overlap escape it. Sub-fix 1 of cheap-test-gates-local catches this only when the spec itself is in the diff.
+
+**Shape.** For each changed source file, walk the TypeScript reference graph (`tsc --listFiles` or a lightweight tracer like `madge`) to find every spec that transitively imports the changed file. Cache the graph against the diff hash so repeated invocations within the same session don't re-walk. ~5-15s on a typical project.
+
+The new match logic ORs with stage 1 (smoke set) and stage 2 (path-pattern map) — a spec runs locally if any layer surfaces it.
+
+**Cost/risk.** ~3-4h (tsc/madge integration + cache + budget enforcement + tests). Risk: tsc invocation cost can spike on large projects — wallclock cap is the safety valve. Defer until the smoke + path-pattern layers prove insufficient on a real project.
+
+### Lalista adoption of cheap-test-gates-local
+
+**Problem.** The devshop ships the new gate, but lalista — the validation ground — needs an explicit adoption PR to (a) verify the convention-based smoke set fires correctly on a real diff (already organically present: `core-flows-qa-walk.spec.ts`, `disambig-add-new-hero-qa-walk.spec.ts`, `qa-walk.spec.ts`, `ci-slow-job-qa-walk.spec.ts`), (b) exercise sub-fix 3's `blocked` promotion against a real degraded-stack scenario, and (c) verify the bypass flow (`devshop.localTestSkipReason` + adversarial review).
+
+**Shape.** Devshop pull, then a deliberately stack-needing PR (e.g. minor UI change in `apps/web/components/`) with the local stack stopped, observe the preflight emit `blocked:` for the stack-needing diff, fix recipe surfaces, restart the stack, the gate passes. Then a docs-only PR to verify the same degraded stack does NOT block (legacy `pass-with-note:` advisory). Add a short note to the project's CLAUDE.md or ROADMAP about adoption status. ~30 min once the devshop merge has propagated to the project.
+
+**Cost/risk.** Pure validation — no code changes in the project. The risk is the gate firing falsely on a real diff (false positive caught by the validation PR; correctable in devshop if needed). The benefit is empirical confirmation that the convention-based smoke set + the D6 promotion both behave as specified.
 
 ### Persona-axis pre-ship gates (designer / backend-eng / frontend-eng / security / data)
 
