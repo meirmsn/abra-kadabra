@@ -10,9 +10,7 @@ Forward-looking plan at the feature/PR grain.
 
 ## Active
 
-| Branch                         | Spec                                 | Notes                                                                                                                                                               |
-| ------------------------------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| feature/cheap-test-gates-local | specs/cheap-test-gates-local/spec.md | Shift cheap test gates from CI-only to local pre-push. New `changed-tests-local (ak)` gate at #2d, path-classifier for sub-fix 3, `localTestSkipReason` check-type. |
+_No work in progress._
 
 ## Planned
 
