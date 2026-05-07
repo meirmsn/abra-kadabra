@@ -185,14 +185,14 @@ setup() {
 # =============================================================================
 
 @test "wiring: check-test-coverage exempt scripts all exist" {
-  local coverage_script="$DEVSHOP/kit/scripts/commit-hooks/check-test-coverage.sh"
-  [ -f "$coverage_script" ] || skip "check-test-coverage.sh not found"
+  local coverage_script="$DEVSHOP/kit/scripts/commit-hooks/check-tests-coverage-devshop.sh"
+  [ -f "$coverage_script" ] || skip "check-tests-coverage-devshop.sh not found"
 
   # Extract script names from the EXEMPT_SCRIPTS array
   local exempts
   exempts=$(grep -oP '^\s+"[a-z-]+\.sh"' "$coverage_script" | tr -d '" ')
 
-  # Exempt entries are basenames (check-test-coverage.sh matches via basename).
+  # Exempt entries are basenames (check-tests-coverage-devshop.sh matches via basename).
   # Scripts may live at root or in a subfolder (preship/, commit-hooks/, sync/,
   # notify/) — find the basename anywhere under kit/scripts/.
   local missing=""
@@ -215,11 +215,11 @@ setup() {
 # =============================================================================
 
 @test "wiring: every non-exempt kit script is wired into a hook or pre-commit" {
-  local coverage_script="$DEVSHOP/kit/scripts/commit-hooks/check-test-coverage.sh"
+  local coverage_script="$DEVSHOP/kit/scripts/commit-hooks/check-tests-coverage-devshop.sh"
   local settings="$DEVSHOP/.claude/settings.json"
   local precommit="$DEVSHOP/kit/hooks/pre-commit.sh"
 
-  [ -f "$coverage_script" ] || skip "check-test-coverage.sh not found"
+  [ -f "$coverage_script" ] || skip "check-tests-coverage-devshop.sh not found"
   [ -f "$settings" ] || skip "settings.json not found"
 
   # Get all scripts (recursive — covers root + preship/, commit-hooks/, sync/)
@@ -233,11 +233,19 @@ setup() {
   # Scripts called by other scripts or skills (not directly by hooks/pre-commit)
   local infra_scripts="create-devshop-symlinks.sh normalize-devshop-paths.sh changelog-entry.sh check-file-headers.sh supabase-bootstrap.sh router-shim.sh verify-story.sh design-conformance.sh rls-coverage-check.sh slow-job-lifecycle-check.sh rebuild-browse.sh populate-playwright-cache.sh parse-manifest.sh"
 
-  # Combine hook references and pre-commit references (match paths-with-slashes)
+  # Combine hook references and pre-commit references (match paths-with-slashes).
+  # Also include prepare-commit-msg (devshop + template) which calls
+  # append-bypass-trailers.sh — the hook chain extends beyond pre-commit since PR-C.
+  local prepmsg_devshop="$DEVSHOP/.husky/prepare-commit-msg"
+  local prepmsg_template="$DEVSHOP/template/.husky/prepare-commit-msg"
   local wired=""
   wired+=$(grep -oP '[a-z/-]+\.sh' "$settings" | xargs -I{} basename {} | sort -u)
   wired+=$'\n'
   wired+=$(grep -oP '[a-z/-]+\.sh' "$precommit" | xargs -I{} basename {} | sort -u)
+  wired+=$'\n'
+  [ -f "$prepmsg_devshop" ] && wired+=$(grep -oP '[a-z/-]+\.sh' "$prepmsg_devshop" | xargs -I{} basename {} | sort -u)
+  wired+=$'\n'
+  [ -f "$prepmsg_template" ] && wired+=$(grep -oP '[a-z/-]+\.sh' "$prepmsg_template" | xargs -I{} basename {} | sort -u)
 
   local unwired=""
   while IFS= read -r script; do

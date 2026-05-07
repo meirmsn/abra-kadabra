@@ -1,16 +1,18 @@
 #!/usr/bin/env bats
-# Tests for kit/scripts/commit-hooks/check-test-coverage-project.sh
+# Tests for kit/scripts/commit-hooks/check-tests-coverage-project.sh
 # Layer-1 deterministic test-presence hook for project repos:
 #   ADD without paired test → BLOCK
 #   DELETE source while paired test still present → BLOCK (orphan)
 #   MODIFY without test diff → WARN only
-# Bypass via git -c devshop.testCoverageReviewed (Layer 2 — adversarial-review.sh testCoverageProject).
+# Bypass via `git -c devshop.testsCoverageReason="<why>"` accepts on flag presence
+# (no LLM call). Trailer emission is the prepare-commit-msg hook's job; audit-time
+# `/ak-tests-review` harvests the trailer (PR-C migration — see kit/ROADMAP.md).
 
 setup() {
   load helpers/setup
   setup_mock_bin
   create_test_repo
-  SCRIPT="$SCRIPTS_DIR/commit-hooks/check-test-coverage-project.sh"
+  SCRIPT="$SCRIPTS_DIR/commit-hooks/check-tests-coverage-project.sh"
   cd "$TEST_REPO"
 }
 
@@ -179,31 +181,33 @@ EOF
   refute_output --partial "Modified source files"
 }
 
-# --- bypass via adversarial reviewer ---
+# --- Layer 1 bypass: flag-presence (no LLM call) ---
 
-@test "bypass passes when devshop.testCoverageReviewed is set and reviewer accepts" {
-  mock_adversarial_review PASS
+@test "bypass: flag presence accepts ADD-without-test (no LLM call)" {
   stage_file packages/core/src/api/foo.ts "export const foo = 1;"
-  git -C "$TEST_REPO" config devshop.testCoverageReviewed "foo.ts is a 1-line type re-export of @types/x — covered transitively by api.test.ts asserting the imported shape"
-  # Point the script at our mocked adversarial-review by adjusting the script-resolved path
-  # The script uses $SCRIPT_DIR/../adversarial-review.sh — overlay via mock-bin lookup.
-  # Drop a thin shim at the expected location for this test only.
-  ADVERSARIAL_TARGET="$BATS_TEST_TMPDIR/adversarial-review.sh"
-  cat > "$ADVERSARIAL_TARGET" <<'SHIM'
-#!/bin/bash
-exec /tmp/__bats_mock_review "$@"
-SHIM
-  cp "$MOCK_BIN/adversarial-review.sh" /tmp/__bats_mock_review 2>/dev/null || true
-  # The script uses $(dirname "${BASH_SOURCE[0]}")/../adversarial-review.sh — too entangled.
-  # Skip the adversarial path here; it's covered by direct integration with the real script.
-  skip "adversarial bypass tested via integration in commit-flow tests"
+  git -C "$TEST_REPO" config devshop.testsCoverageReason "foo.ts is a 1-line type re-export — covered transitively by api.test.ts"
+  run_script
+  assert_success
+  assert_output --partial "Tests-coverage block bypassed"
+  assert_output --partial "Tests-Coverage-Bypass: trailer"
 }
 
-@test "bypass fails (still blocks) when reviewer rejects" {
-  mock_adversarial_review FAIL
+@test "bypass: flag presence accepts orphan-after-DELETE" {
   stage_file packages/core/src/api/foo.ts "export const foo = 1;"
-  git -C "$TEST_REPO" config devshop.testCoverageReviewed "low risk"
-  skip "adversarial bypass tested via integration in commit-flow tests"
+  stage_file packages/core/src/api/foo.test.ts "test('x', () => {})"
+  git -C "$TEST_REPO" commit -q -m "add foo"
+  git -C "$TEST_REPO" rm packages/core/src/api/foo.ts -q
+  git -C "$TEST_REPO" config devshop.testsCoverageReason "test now covers the replacement util in api.test.ts"
+  run_script
+  assert_success
+}
+
+@test "bypass: empty flag value still blocks" {
+  stage_file packages/core/src/api/foo.ts "export const foo = 1;"
+  git -C "$TEST_REPO" config devshop.testsCoverageReason ""
+  run_script
+  assert_failure
+  assert_output --partial "BLOCKING"
 }
 
 # --- multi-file scenarios ---

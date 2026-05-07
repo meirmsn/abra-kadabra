@@ -1,13 +1,16 @@
 #!/bin/bash
 # What: Pre-commit check (project repos) — flags new/removed source files without paired tests
-# Why: Closes the test-deletion + missing-test-on-add gap that /ak-tests-review only catches at ship time
-# Does NOT: Verify test quality/coverage depth (that's /ak-tests-review). Does NOT block test-only diffs.
+# Why: Closes the test-deletion + missing-test-on-add gap that audit-time `/ak-tests-review`
+#      catches at ship time (so commits get useful blast-radius signal at commit time too).
+# Does NOT: Verify test quality/coverage depth (that's `/ak-tests-review`, fired at
+#           audit time via `/ak-check-docs-and-tests`). Does NOT block test-only diffs.
 #
-# Layered design:
-#   Layer 1 (this script): deterministic ADD-without-test → BLOCK; orphan-after-DELETE → BLOCK; MODIFY without test → WARN
-#   Layer 2 (adversarial-review.sh testCoverageProject): judges modify-cases with bypass reason
-#
-# Bypass: git -c devshop.testCoverageReviewed="<why>" commit ...
+# Layer 1 only. Per-commit Sonnet judgment was removed alongside the audit-time
+# migration (see kit/ROADMAP.md § PR-C). Bypass via
+# `git -c devshop.testsCoverageReason="<why>"` accepts the commit without an LLM
+# round-trip; the bypass is recorded as a `Tests-Coverage-Bypass:` trailer by
+# the prepare-commit-msg hook (kit/scripts/commit-hooks/append-bypass-trailers.sh)
+# and harvested at audit time by `/ak-tests-review`.
 #
 # Per-project override: .devshop-test-coverage-exempt at repo root (one path per line, # comments allowed)
 
@@ -16,7 +19,7 @@ set -euo pipefail
 GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
 [ -z "$GIT_ROOT" ] && exit 0
 
-# Project-repo only. Devshop self has its own check-test-coverage.sh.
+# Project-repo only. Devshop self has its own check-tests-coverage-devshop.sh.
 if [ -d "$GIT_ROOT/kit" ] && [ ! -L "$GIT_ROOT/kit" ]; then
   exit 0
 fi
@@ -159,8 +162,8 @@ while IFS= read -r src; do
 done <<< "$DELETED"
 
 # --- MODIFY: warn if no test diff staged alongside non-trivial source change ---
-# "Non-trivial" is judged by Layer 2 when the operator passes a bypass reason.
-# Default: WARN only — never block on Layer 1 for modifications.
+# "Non-trivial" is judged by audit-time `/ak-tests-review` (Layer 2 lives there now,
+# not per-commit). Layer 1 keeps modifications WARN-only — never block.
 TEST_PATHS_STAGED=$(git diff --cached --name-only 2>/dev/null | grep -E '\.(test|spec|integration\.test)\.(ts|tsx)$' || true)
 while IFS= read -r src; do
   [ -z "$src" ] && continue
@@ -198,8 +201,8 @@ if [ -n "$BLOCK_ADDED" ]; then
   echo "  Options:"
   echo "    1. Add the paired test file alongside the source"
   echo "    2. Add the path to .devshop-test-coverage-exempt (commit it with reason)"
-  echo "    3. Bypass with reviewer:"
-  echo "       git -c devshop.testCoverageReviewed=\"<why this file legitimately ships without a test>\" commit ..."
+  echo "    3. Bypass for this commit (recorded as a Tests-Coverage-Bypass: trailer):"
+  echo "       git -c devshop.testsCoverageReason=\"<why this file legitimately ships without a test>\" commit ..."
   FAILED=true
 fi
 
@@ -207,39 +210,21 @@ if [ -n "$BLOCK_ORPHAN" ]; then
   echo ""
   echo "✖ BLOCKING: Source files removed but paired tests still present:"
   echo -n "$BLOCK_ORPHAN"
-  echo "  Stage the test deletion in the same commit (or add a bypass reason"
-  echo "  if the test legitimately covers a different path now):"
-  echo "    git -c devshop.testCoverageReviewed=\"<why orphan stays>\" commit ..."
+  echo "  Stage the test deletion in the same commit, OR bypass for this commit"
+  echo "  (recorded as a Tests-Coverage-Bypass: trailer):"
+  echo "    git -c devshop.testsCoverageReason=\"<why orphan stays>\" commit ..."
   FAILED=true
 fi
 
-# --- Bypass-reason path (Layer 2 adversarial review) ---
+# --- Bypass: accept on flag presence (no LLM call). Trailer emission is the
+# --- prepare-commit-msg hook's job — see append-bypass-trailers.sh.
 if [ "$FAILED" = true ]; then
-  REASON=$(git config --get devshop.testCoverageReviewed 2>/dev/null || true)
+  REASON=$(git config --get devshop.testsCoverageReason 2>/dev/null || true)
   if [ -n "$REASON" ]; then
-    SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]}")
-    DIFF_STAT=$(git diff --cached --stat 2>/dev/null | head -40 || true)
-    DIFF_FULL=$(git diff --cached 2>/dev/null | head -300 || true)
-    REVIEW_CONTEXT="Project test-coverage hook is blocking. Developer's reason:
-$REASON
-
-Blocked items:
-${BLOCK_ADDED}${BLOCK_ORPHAN}
-Staged diff (stat):
-$DIFF_STAT
-
-Staged diff (first 300 lines):
-$DIFF_FULL"
     echo ""
-    echo "⏳ Test-coverage bypass: reviewing reason with adversarial agent..."
-    if RESULT=$(bash "$SCRIPT_DIR/../adversarial-review.sh" testCoverageProject "$REVIEW_CONTEXT" 2>&1); then
-      echo "✓ Test-coverage bypass: adversarial review accepted."
-      FAILED=false
-    else
-      echo ""
-      echo "✖ ADVERSARIAL REVIEW REJECTED the bypass reason."
-      echo "  $RESULT"
-    fi
+    echo "⚠ Tests-coverage block bypassed: $REASON"
+    echo "  → recorded as Tests-Coverage-Bypass: trailer; will be revisited at audit time."
+    FAILED=false
   fi
 fi
 
@@ -247,8 +232,8 @@ if [ -n "$WARN_MODIFIED" ] && [ "$FAILED" = false ]; then
   echo ""
   echo "⚠ Modified source files without staged test changes:"
   echo -n "$WARN_MODIFIED"
-  echo "  This is a warning — commit will proceed. /ak-tests-review will judge"
-  echo "  whether the existing test still covers the new behavior."
+  echo "  This is a warning — commit will proceed. Audit-time /ak-tests-review will"
+  echo "  judge whether the existing test still covers the new behavior."
 fi
 
 [ "$FAILED" = true ] && exit 1

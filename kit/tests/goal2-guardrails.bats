@@ -112,9 +112,16 @@ setup() {
   assert_output --partial "forgotten-file.txt"
 }
 
-# --- Docs drift enforcement ---
+# --- Docs coverage enforcement ---
+# Pre-PR-C this asserted commit-guard.sh's docs-reviewed check fired on devshop
+# tooling changes. After PR-C of the audit-time docs+tests migration, that check
+# moved to audit-time `/ak-docs-review` (orchestrated by `/ak-check-docs-and-tests`).
+# Per-commit coverage now lives in check-docs-coverage-{project,devshop}.sh; the
+# devshop-side variant is exercised by guard-docs-coverage-devshop.bats. Here we
+# pin commit-guard.sh's actual surviving behavior: a kit/scripts change in the
+# devshop repo no longer triggers a commit-guard.sh failure.
 
-@test "guardrails: devshop changes require docs review" {
+@test "guardrails: commit-guard.sh no longer judges docs coverage (moved to audit-time in PR-C)" {
   TEST_REPO="$BATS_TEST_TMPDIR/devshop-test"
   mkdir -p "$TEST_REPO/kit/scripts" "$TEST_REPO/kit/docs"
   git -C "$TEST_REPO" init -q
@@ -126,12 +133,10 @@ setup() {
 
   local wrapper="$BATS_TEST_TMPDIR/guard-wrapper.sh"
   cp "$SCRIPTS_DIR/commit-hooks/commit-guard.sh" "$wrapper"
-  sed -i "s|bash \"\$SCRIPT_DIR/../adversarial-review.sh\"|bash \"$MOCK_BIN/adversarial-review.sh\"|" "$wrapper"
-  sed -i 's|if \[ -n "\$OTHER_REPO" \] \&\& \[ -d "\$OTHER_REPO/\.git" \]|if false|' "$wrapper"
   chmod +x "$wrapper"
 
   stage_file "kit/scripts/new-thing.sh" "#!/bin/bash"
   run bash -c "cd '$TEST_REPO' && bash '$wrapper'"
-  assert_failure 1
-  assert_output --partial "docs review required"
+  assert_success
+  refute_output --partial "docs review required"
 }

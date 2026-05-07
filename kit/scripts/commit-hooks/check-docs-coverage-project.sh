@@ -1,10 +1,17 @@
 #!/bin/bash
 # What: Pre-commit check (project repos) — flags code changes that touch documented surfaces
 #       without a paired doc update.
-# Why: CLAUDE.md § Where Things Happen, METRICS.md, and TODOS.md decay silently as routes,
-#      API wrappers, and analytics events land. Layer-1 deterministic check + Layer-2
-#      adversarial reviewer makes the convention enforceable instead of advisory.
-# Does NOT: Verify doc quality (the reviewer does). Does NOT block changelog/version bumps.
+# Why: CLAUDE.md § Where Things Happen, METRICS.md, and per-package READMEs decay silently as
+#      routes, API wrappers, and analytics events land. Layer 1 catches the obvious gaps at
+#      commit time so audit-time `/ak-docs-review` can focus on substance, not paperwork.
+# Does NOT: Verify doc quality (the audit-time reviewer does). Does NOT block changelog/version bumps.
+#
+# Layer 1 only. Per-commit Sonnet judgment was removed alongside the audit-time
+# migration (see kit/ROADMAP.md § PR-C). Bypass via
+# `git -c devshop.docsCoverageReason="<why>"` accepts the commit without an LLM
+# round-trip; the bypass is recorded as a `Docs-Coverage-Bypass:` trailer by
+# the prepare-commit-msg hook (kit/scripts/commit-hooks/append-bypass-trailers.sh)
+# and harvested at audit time by `/ak-docs-review`.
 #
 # Trigger map (staged path → required doc update):
 #   apps/*/app/**/page.tsx, layout.tsx, route.ts            → CLAUDE.md (must be staged)
@@ -20,8 +27,6 @@
 #
 # Opt-in semantics: per-package and OVERVIEW/ARCHITECTURE triggers fire ONLY when the target
 # doc file exists at HEAD. Projects opt in by creating the file from the template skeleton.
-#
-# Bypass: git -c devshop.docsReviewed="<per-doc enumeration>" commit ...
 #
 # Per-project override: .devshop-docs-freshness-exempt at repo root (one path per line).
 
@@ -251,38 +256,23 @@ ${STALE_REFS}  Remove or update the doc references in the same commit."
 fi
 
 if [ "$FAILED" = true ]; then
+  # Bypass: accept on flag presence (no LLM call). Trailer emission is the
+  # prepare-commit-msg hook's job — see append-bypass-trailers.sh.
+  REASON=$(git config --get devshop.docsCoverageReason 2>/dev/null || true)
+  if [ -n "$REASON" ]; then
+    echo "$BLOCK_MSG"
+    echo ""
+    echo "⚠ Docs-coverage block bypassed: $REASON"
+    echo "  → recorded as Docs-Coverage-Bypass: trailer; will be revisited at audit time."
+    exit 0
+  fi
+
   echo "$BLOCK_MSG"
   echo ""
-  echo "  Convention: guide/conventions.md § Project Docs Freshness"
+  echo "  Convention: guide/conventions.md § Project Docs Coverage"
   echo ""
-  REASON=$(git config --get devshop.docsReviewed 2>/dev/null || true)
-  if [ -n "$REASON" ]; then
-    SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]}")
-    REVIEW_CONTEXT="Project docs-freshness hook blocking. Developer's reason:
-$REASON
-
-Blocked items (raw hook output):
-$BLOCK_MSG
-
-CLAUDE.md staged in this commit: $CLAUDE_STAGED
-METRICS.md staged in this commit: $METRICS_STAGED
-OVERVIEW.md staged in this commit: $OVERVIEW_STAGED
-ARCHITECTURE.md staged in this commit: $ARCHITECTURE_STAGED
-
-Staged file list:
-$STAGED"
-    echo "⏳ Docs-freshness bypass: reviewing reason with adversarial agent..."
-    if RESULT=$(bash "$SCRIPT_DIR/../adversarial-review.sh" docsReviewed "$REVIEW_CONTEXT" 2>&1); then
-      echo "✓ Docs-freshness bypass: adversarial review accepted."
-      exit 0
-    else
-      echo ""
-      echo "✖ ADVERSARIAL REVIEW REJECTED the reason."
-      echo "  $RESULT"
-      exit 1
-    fi
-  fi
-  echo "  Bypass: git -c devshop.docsReviewed=\"<per-doc enumeration of what's affected and why no update needed; with named distinctive phrases for each AFFECTED edit per rule 1(a)>\" commit ..."
+  echo "  Bypass for this commit (recorded as a Docs-Coverage-Bypass: trailer):"
+  echo "    git -c devshop.docsCoverageReason=\"<per-doc enumeration of what's affected and why no update needed; with named distinctive phrases for each AFFECTED edit per audit rule 1(a)>\" commit ..."
   exit 1
 fi
 

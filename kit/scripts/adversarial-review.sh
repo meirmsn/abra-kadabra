@@ -1,25 +1,31 @@
 #!/bin/bash
 # Adversarial review of bypass reasons.
-# Shared engine for all commit guard checks. Each caller passes a check type;
-# this script gathers context, spawns a Sonnet agent to judge the reason,
-# and returns PASS (exit 0) or FAIL (exit 1).
+# Shared engine for commit-time, pre-ship-time, and `/ak-build` Phase-5.8 bypass-
+# reason judging. Each caller passes a check type; this script gathers context,
+# spawns a Sonnet/Haiku agent to judge the reason, and returns PASS (exit 0) or
+# FAIL (exit 1).
 #
-# Callers: devshop-commit-guard.sh, check-clean-tree.sh, check-hook-bypass.sh,
-#          .husky/pre-push (prDescStaleReason, dirtyPushReason),
-#          /ak-build Phase 5.8 (testReviewSkipReason — post-pre-ship coverage halt override)
+# After PR-C of the audit-time docs+tests migration (kit/ROADMAP.md § PR-C § F),
+# this script no longer judges docs/tests coverage per-commit. Coverage
+# judgment lives in audit-time `/ak-docs-review` and `/ak-tests-review`,
+# orchestrated by `/ak-check-docs-and-tests`. The check-types removed here
+# (docsReviewed, testCoverage, testCoverageProject, docsFreshnessProject) all
+# fail with "unknown check type" so a stale caller surfaces immediately.
+#
+# Surviving check-types (each judges a bypass-reason — the reason itself is the
+# auditable artifact, not coverage):
+#   prDescStaleReason     — `.husky/pre-push` PR-description staleness
+#   dirtyTreeReason       — `.husky/pre-commit` clean-tree bypass
+#   dirtyPushReason       — `.husky/pre-push` clean-tree bypass
+#   manifestReviewed      — commit-guard.sh manifest-decision review
+#   hookBypass            — `--no-verify` bypass review
+#   exemptAddition        — added entries in .devshop-{test-coverage,docs-freshness}-exempt
+#   testReviewSkipReason  — `/ak-build` Phase 5.8 halt-override review (audit-time scope,
+#                           judges PER-FINDING engagement against the latest `## Audit N`
+#                           section in specs/<feature>/review.md)
+#   dismissalLog          — pre-ship gate-dismissal rationale review
 #
 # Usage: adversarial-review.sh <check-type> <reason> [context...]
-#   check-type: docsReviewed | dirtyTreeReason | hookBypass
-#               | manifestReviewed | testCoverage | prDescStaleReason | dirtyPushReason
-#               | testCoverageProject | exemptAddition  (project-repo gates)
-#               | testReviewSkipReason  (/ak-build Phase 5.8 halt override)
-#               | dismissalLog   (pre-ship /ak-pre-ship — reviews gate dismissal rationales)
-#
-# `docsReviewed` is the unified docs-coverage check for both repos: it branches
-# internally on $GIT_ROOT (/devshop reads devshop docs; /workspace reads project
-# docs). Same prompt rules apply to both surfaces; only the inlined doc set
-# differs. (Replaced the former separate `docsFreshnessProject` check-type
-# 2026-05-01 — see kit/notes/roadmap/adversarial-review-doc-inlining.md.)
 #   reason: the bypass reason provided via git -c, OR for dismissalLog the body of the
 #           `## Dismissals` section of the gate's review.md entry
 #   context: additional context (piped or as arguments)
@@ -40,18 +46,17 @@
 # Per-check-type model routing (Haiku 4.5 for deterministic rule-application,
 # Sonnet 4.6 for judgment-heavy or high-blast-radius checks):
 #   Haiku:  dirtyTreeReason, dirtyPushReason, manifestReviewed
-#   Sonnet: docsReviewed, prDescStaleReason, testCoverage, testReviewSkipReason, dismissalLog, hookBypass, exemptAddition
-# Rationale: docs feed future sessions (errors compound), PR descriptions are the
-# canonical reviewer-facing record, hookBypass can leak secrets via gitleaks bypass,
-# testCoverage requires code-semantics judgment, dismissalLog weighs spec scope.
-# Dirty-tree / manifest checks are pure rule-application (does the reason name
-# specific files? does the manifest decision reasoning hold?).
+#   Sonnet: prDescStaleReason, testReviewSkipReason, dismissalLog, hookBypass, exemptAddition
+# Rationale: PR descriptions are the canonical reviewer-facing record; hookBypass
+# can leak secrets via gitleaks bypass; testReviewSkipReason judges audit-time
+# halt overrides; dismissalLog weighs spec scope. Dirty-tree / manifest checks
+# are pure rule-application.
 #
-# Convention-inlining: per check-type (and gate-name for dismissalLog), this
-# script appends relevant sections of `kit/docs/guide/conventions.md` to the
-# reviewer's context block via the CONVENTIONS_TO_INCLUDE map below. The
-# reviewer judges convention adherence in addition to the bypass-reason
-# semantics. Add new mappings to expand convention enforcement coverage.
+# Convention-inlining: for surviving check-types this script appends relevant
+# sections of `kit/docs/guide/conventions.md` to the reviewer's context block via
+# the CONVENTIONS_TO_INCLUDE map below. After PR-C, the only coverage-related
+# entries are `exemptAddition` (still judges entries to the two project-side
+# exempt files) and `testReviewSkipReason` (audit-time halt override).
 #
 # Exit 0 = accepted, exit 1 = rejected (reason on stdout)
 set -euo pipefail
@@ -69,11 +74,10 @@ GATE_NAME="${1:-}"
 CONTEXT=""
 GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
 
-# Repo-mode detection (devshop vs project) — used by docsReviewed to pick the
-# right inlined catalog and by get_conventions_to_inline to pick the right
-# convention sections. Same heuristic as commit-guard.sh: a real `kit/` dir at
-# the repo root means devshop-self mode (works for both /devshop and bats
-# sandboxes). Otherwise treat as project repo.
+# Repo-mode detection (devshop vs project) — used by get_conventions_to_inline
+# to pick the right convention sections. Same heuristic as commit-guard.sh: a
+# real `kit/` dir at the repo root means devshop-self mode (works for both
+# /devshop and bats sandboxes). Otherwise treat as project repo.
 if [ "$GIT_ROOT" = "/devshop" ] || { [ -n "$GIT_ROOT" ] && [ -d "$GIT_ROOT/kit" ] && [ ! -L "$GIT_ROOT/kit" ]; }; then
   REPO_MODE=devshop
 else
@@ -81,125 +85,6 @@ else
 fi
 
 case "$CHECK_TYPE" in
-  docsReviewed)
-    # Unified docs-coverage check for both repos. Branches on $GIT_ROOT to load
-    # the right doc set. Same prompt rules apply to both surfaces — only the
-    # inlined catalog differs. The reviewer judges: (a) per-doc enumeration of
-    # the inlined catalog, (b) cross-file coherence when reference docs are
-    # staged, (c) new-capability docs at the right level, (d) rename/delete
-    # drift sweep, (e) addition drift sweep.
-    DIFF=$(git diff --cached --stat 2>/dev/null || true)
-    DIFF_FULL=$(git diff --cached 2>/dev/null | head -300 || true)
-    # Surface renames + deletions explicitly so the reviewer can grep the doc
-    # set for stale references to the old names. -M enables rename detection;
-    # diff-filter=DR yields Deleted + Renamed entries with the old path on
-    # the LHS. Each line is "<status>\t<old-path>[\t<new-path>]".
-    RENAMED_DELETED=$(git diff --cached --name-status --diff-filter=DR -M 2>/dev/null || true)
-    RENAMED_DELETED_NOTE="${RENAMED_DELETED:-(none — no files renamed, moved, or deleted in this commit)}"
-
-    case "$REPO_MODE" in
-      devshop)
-        # Devshop-side catalog. Top-level orientation docs FULL (CLAUDE.md,
-        # OVERVIEW.md with § Concept, README.md); guide/ + FAQ.md flat-catalog
-        # headers. Selective full-body expansion for guide/* via the
-        # GUIDES_TO_INCLUDE map below (keyed on staged paths).
-        CLAUDE_MD=$(cat "$GIT_ROOT/CLAUDE.md" 2>/dev/null || true)
-        OVERVIEW_MD=$(cat "$GIT_ROOT/kit/docs/OVERVIEW.md" 2>/dev/null || true)
-        README_MD=$(cat "$GIT_ROOT/README.md" 2>/dev/null || true)
-        GUIDE_HEADERS=$(for f in "$GIT_ROOT"/kit/docs/guide/*.md; do echo "--- $(basename "$f") ---"; grep -n '^##' "$f" 2>/dev/null | head -20; done || true)
-        FAQ_HEADERS=$(grep -n '^##' "$GIT_ROOT/kit/docs/FAQ.md" 2>/dev/null | head -30 || true)
-        REFERENCE_DOCS_STAGED=$(git diff --cached --name-only 2>/dev/null | grep -E '^(CLAUDE\.md$|kit/docs/(OVERVIEW|FAQ)\.md$|kit/docs/guide/)' || true)
-        REFERENCE_DOCS_STAGED_NOTE="${REFERENCE_DOCS_STAGED:-(none — only non-reference devshop files staged; cross-file coherence rule does not apply)}"
-        CONTEXT="Repo: devshop (/devshop)
-
-Staged diff summary:
-$DIFF
-
-Staged diff (first 300 lines):
-$DIFF_FULL
-
-Renamed/moved/deleted in this commit (status<TAB>old-path[<TAB>new-path]):
-$RENAMED_DELETED_NOTE
-
-Reference docs staged in this commit:
-$REFERENCE_DOCS_STAGED_NOTE
-
-=== CLAUDE.md (devshop, FULL) ===
-$CLAUDE_MD
-
-=== kit/docs/OVERVIEW.md (FULL — incl. § Concept) ===
-$OVERVIEW_MD
-
-=== README.md (FULL) ===
-$README_MD
-
-=== kit/docs/guide/ section headers ===
-$GUIDE_HEADERS
-
-=== kit/docs/FAQ.md section headers ===
-$FAQ_HEADERS
-
-The reviewer MUST have checked ALL of these docs — not just the ones that already mention the changed code. New functionality needs to be documented for the first time. When reference docs ARE staged (see 'Reference docs staged' above), the reviewer must additionally attest cross-file coherence — staged doc changes must leave the doc set internally consistent."
-        ;;
-      project)
-        # Project-side catalog. Top-level orientation docs FULL (CLAUDE.md,
-        # METRICS.md, OVERVIEW.md, ARCHITECTURE.md); per-package READMEs FULL
-        # (apps/<x>/, packages/<x>/, supabase/functions/). OVERVIEW.md and
-        # ARCHITECTURE.md are opt-in — the trigger only fires when present at
-        # HEAD; if absent, the inline shows "(not present)".
-        CLAUDE_MD=$(cat "$GIT_ROOT/CLAUDE.md" 2>/dev/null || true)
-        METRICS_MD=$(cat "$GIT_ROOT/METRICS.md" 2>/dev/null || true)
-        OVERVIEW_MD=$(cat "$GIT_ROOT/OVERVIEW.md" 2>/dev/null || true)
-        ARCHITECTURE_MD=$(cat "$GIT_ROOT/ARCHITECTURE.md" 2>/dev/null || true)
-        PER_PACKAGE_READMES=""
-        while IFS= read -r readme; do
-          [ -z "$readme" ] && continue
-          rel="${readme#$GIT_ROOT/}"
-          body=$(cat "$readme" 2>/dev/null || true)
-          PER_PACKAGE_READMES+="
-=== $rel (FULL) ===
-$body
-"
-        done < <(find "$GIT_ROOT/apps" "$GIT_ROOT/packages" "$GIT_ROOT/supabase/functions" \
-          -maxdepth 3 -name README.md -type f 2>/dev/null | sort)
-        REFERENCE_DOCS_STAGED=$(git diff --cached --name-only 2>/dev/null | grep -E '^(CLAUDE|METRICS|OVERVIEW|ARCHITECTURE)\.md$|^(apps|packages|supabase/functions)/[^/]+/README\.md$|^supabase/functions/README\.md$' || true)
-        REFERENCE_DOCS_STAGED_NOTE="${REFERENCE_DOCS_STAGED:-(none — only non-reference project files staged; cross-file coherence rule does not apply)}"
-        CONTEXT="Repo: project (/workspace)
-
-$REASON
-
-Staged diff summary:
-$DIFF
-
-Staged diff (first 300 lines):
-$DIFF_FULL
-
-Renamed/moved/deleted in this commit (status<TAB>old-path[<TAB>new-path]):
-$RENAMED_DELETED_NOTE
-
-Reference docs staged in this commit:
-$REFERENCE_DOCS_STAGED_NOTE
-
-=== CLAUDE.md (project, FULL) ===
-${CLAUDE_MD:-(missing — fail open since the file the hook expects to be updated does not exist; flag this in your review)}
-
-=== METRICS.md (FULL) ===
-${METRICS_MD:-(missing — fail open similarly)}
-
-=== OVERVIEW.md (FULL) ===
-${OVERVIEW_MD:-(not present — opt-in doc; trigger does not fire if absent)}
-
-=== ARCHITECTURE.md (FULL) ===
-${ARCHITECTURE_MD:-(not present — opt-in doc; trigger does not fire if absent)}
-${PER_PACKAGE_READMES:-
-=== Per-package READMEs ===
-(none present at HEAD under apps/, packages/, or supabase/functions/ — opt-in; triggers do not fire when absent)
-}
-
-CLAUDE.md § Where Things Happen names load-bearing surfaces — dismissals that touch them face a higher bar. The reviewer MUST have checked ALL inlined docs — not just the ones that already mention the changed code. New surfaces need to be documented for the first time. When reference docs ARE staged (see 'Reference docs staged' above), the reviewer must additionally attest cross-file coherence."
-        ;;
-    esac
-    ;;
   dirtyTreeReason)
     DIRTY=$(git status --porcelain 2>/dev/null | grep -E '^\?\?|^ [MD]' | head -20 || true)
     BRANCH=$(git branch --show-current 2>/dev/null || true)
@@ -216,7 +101,7 @@ ${STASHED:-(none)}"
 - lint-staged (ESLint + Prettier)
 - typecheck (TypeScript)
 - gitleaks (secret scanning)
-- devshop commit guard (mixed commits, docs drift)
+- devshop commit guard (mixed-commit + Layer 1 docs/tests coverage)
 
 Staged files:
 $STAGED"
@@ -226,18 +111,6 @@ $STAGED"
 The developer proposes how to handle manifest updates.
 
 Reason: $REASON"
-    ;;
-  testCoverage)
-    # Context is passed as $REASON (contains diff + test content)
-    # No additional context gathering needed — release.sh provides everything
-    CONTEXT="$REASON"
-    ;;
-  testCoverageProject)
-    # Project-repo test-presence bypass review. REASON contains the developer's
-    # justification AND the hook's own block summary + staged diff (built by
-    # check-test-coverage-project.sh, since that hook has the cleanest view of
-    # which paths were blocked and why).
-    CONTEXT="$REASON"
     ;;
   exemptAddition)
     # Project-repo exempt-file addition review. REASON contains the staged
@@ -403,6 +276,16 @@ ${SPEC_CORE_STORY:-(not declared — spec lacks Core user story section)}
 === Spec § In scope (what's committed for this PR) ===
 ${SPEC_IN_SCOPE:-(not available)}"
     ;;
+  *)
+    # Unknown / removed check-type. PR-C narrowed the supported set —
+    # docsReviewed, testCoverage, testCoverageProject, docsFreshnessProject all
+    # moved to audit-time `/ak-check-docs-and-tests`. A stale caller hits this
+    # branch and surfaces immediately rather than silently no-op'ing.
+    echo "FAIL: unknown check type: $CHECK_TYPE" >&2
+    echo "  Surviving check-types: prDescStaleReason | dirtyTreeReason | dirtyPushReason | manifestReviewed | hookBypass | exemptAddition | testReviewSkipReason | dismissalLog"
+    echo "  Coverage reviews (docsReviewed / testCoverage / testCoverageProject / docsFreshnessProject) moved to audit-time /ak-check-docs-and-tests in PR-C — see kit/ROADMAP.md."
+    exit 1
+    ;;
 esac
 
 # --- Convention inlining (CONVENTIONS_TO_INCLUDE map) ---
@@ -411,8 +294,11 @@ esac
 # Mapping is (CHECK_TYPE [+ GATE_NAME for dismissalLog]) → pipe-separated list
 # of `## <heading>` names from conventions.md.
 #
-# Extend this map when a new convention warrants commit-time enforcement. The
-# `## ` heading must match conventions.md exactly (spaces, capitalization).
+# After PR-C, only `testReviewSkipReason`, `exemptAddition`, and `dismissalLog`
+# (gate-routed) remain on the convention-inlining surface. The docs/tests
+# coverage check-types removed in PR-C took their `Backlog Routing Guide` /
+# `Test Presence | Project Docs Coverage | Project Docs Hierarchy` /
+# `Non-Negotiables` entries with them.
 extract_convention_section() {
   local file="$1"
   local heading="$2"
@@ -428,43 +314,28 @@ get_conventions_to_inline() {
   local check_type="$1"
   local gate_name="${2:-}"
   case "$check_type" in
-    testCoverage)
-      echo "Non-Negotiables"
-      ;;
-    testCoverageProject)
-      echo "Test Presence|Non-Negotiables"
-      ;;
     testReviewSkipReason)
-      # Same convention surface as testCoverage — the override claims
-      # high-severity findings are OK to ship; the reviewer judges that
-      # claim against the same Non-Negotiables that gate the rest of the
-      # test-coverage discipline.
+      # Audit-time halt override — the override claims high-severity findings
+      # are OK to ship; the reviewer judges that claim against the same
+      # Non-Negotiables that gate the rest of the test-coverage discipline.
       echo "Non-Negotiables|Test Assertion Depth"
       ;;
     exemptAddition)
       # Reuse the same convention sections as the gates being exempted —
       # the reviewer should judge new exempt entries against the same rules
       # the gates themselves enforce.
-      echo "Test Presence|Project Docs Freshness|Project Docs Hierarchy"
-      ;;
-    docsReviewed)
-      # Devshop-side gets devshop conventions; project-side (same check-type,
-      # different repo) gets the project docs-freshness conventions instead.
-      case "${REPO_MODE:-devshop}" in
-        project) echo "Project Docs Freshness|Project Docs Hierarchy" ;;
-        *)       echo "Backlog Routing Guide" ;;
-      esac
+      echo "Test Presence|Project Docs Coverage|Project Docs Hierarchy"
       ;;
     dismissalLog)
       case "$gate_name" in
-        qa)                 echo "Non-Negotiables" ;;
-        docs-and-tests-review) echo "Wrapper API design" ;;
-        design-review)      echo "DESIGN.md as Contract|Screenshot Routing" ;;
-        cso|rls-coverage)   echo "Supabase Hardening Defaults" ;;
-        slow-job-lifecycle) echo "Slow-Job Lifecycle" ;;
-        review)             echo "Backlog Routing Guide" ;;
-        metrics-check)      echo "Metrics Lifecycle" ;;
-        *)                  echo "" ;;
+        qa)                        echo "Non-Negotiables" ;;
+        docs-and-tests-review)     echo "Wrapper API design" ;;
+        design-review)             echo "DESIGN.md as Contract|Screenshot Routing" ;;
+        cso|rls-coverage)          echo "Supabase Hardening Defaults" ;;
+        slow-job-lifecycle)        echo "Slow-Job Lifecycle" ;;
+        review)                    echo "Backlog Routing Guide" ;;
+        metrics-check)             echo "Metrics Lifecycle" ;;
+        *)                         echo "" ;;
       esac
       ;;
     *)
@@ -497,81 +368,9 @@ $INLINED_CONVENTIONS"
   fi
 fi
 
-# --- Guide doc inlining (GUIDES_TO_INCLUDE map) ---
-# Selectively inline guide-doc bodies into CONTEXT when the staged diff touches
-# code areas whose reference doc is a guide. Mirrors CONVENTIONS_TO_INCLUDE
-# above, but keyed on diff-paths (not check-type) so it generalizes to any new
-# structural unit. The default header-only treatment of guide/* in the
-# docsReviewed CONTEXT block lets the reviewer see chapter titles but not
-# chapter bodies — historically this caused structural-enumeration drift
-# (bypass tables, flowcharts, gate lists) to be missed because the diff didn't
-# touch the table itself, only created a new unit the table should have grown
-# a row for.
-#
-# Only fires for docsReviewed (the only check that judges doc adequacy).
-# Format: pipe-separated <abs-path>:<heading-or-FULL> entries.
-get_guides_to_inline() {
-  local staged_paths="$1"
-  local out=""
-
-  # hooks.md (FULL) — bypass tables, flowchart, gate lists, dismissal log,
-  # practical recipes. Triggers on anything hooks.md enumerates: commit-hook
-  # scripts, husky hooks, pre-ship gates, Claude-side hooks in settings.json.
-  if echo "$staged_paths" | grep -qE '^(kit/scripts/commit-hooks/|kit/hooks/|kit/scripts/preship/|template/\.husky/|\.claude/settings\.json$)'; then
-    out+="${out:+|}$GIT_ROOT/kit/docs/guide/hooks.md:FULL"
-  fi
-
-  # architecture.md § File lifecycle — manifest enumerations + scaffold-bucket
-  # taxonomy. Triggers on template/ changes, manifest edits, init-devshop, sync.
-  if echo "$staged_paths" | grep -qE '^(template/|kit/manifest\.txt$|kit/scripts/init-devshop\.sh$|kit/scripts/sync/)'; then
-    out+="${out:+|}$GIT_ROOT/kit/docs/guide/architecture.md:File lifecycle"
-  fi
-
-  # security.md (FULL) — devcontainer, firewall, locked-file enumeration.
-  if echo "$staged_paths" | grep -qE '^(\.devcontainer/|template/\.devcontainer/|kit/scripts/init-firewall\.sh$)'; then
-    out+="${out:+|}$GIT_ROOT/kit/docs/guide/security.md:FULL"
-  fi
-
-  echo "$out"
-}
-
-if [ "$CHECK_TYPE" = "docsReviewed" ]; then
-  STAGED_PATHS=$(git diff --cached --name-only 2>/dev/null || true)
-  GUIDES_LIST=$(get_guides_to_inline "$STAGED_PATHS")
-  if [ -n "$GUIDES_LIST" ]; then
-    INLINED_GUIDES=""
-    IFS='|' read -ra GUIDES_ARR <<< "$GUIDES_LIST"
-    for entry in "${GUIDES_ARR[@]}"; do
-      gfile="${entry%%:*}"
-      marker="${entry#*:}"
-      [ -f "$gfile" ] || continue
-      if [ "$marker" = "FULL" ]; then
-        body=$(cat "$gfile")
-        label="$(basename "$gfile")"
-      else
-        body=$(extract_convention_section "$gfile" "$marker")
-        label="$(basename "$gfile") § $marker"
-      fi
-      if [ -n "$body" ]; then
-        INLINED_GUIDES+="
-=== $label ===
-$body
-"
-      fi
-    done
-    if [ -n "$INLINED_GUIDES" ]; then
-      CONTEXT="$CONTEXT
-
-=== Relevant guide doc bodies (selectively inlined based on staged diff) ===
-The headers-only previews above for kit/docs/guide/* may hide structured
-enumerations (tables, flowcharts, file-maps, gate lists). The bodies below are
-the chapters whose subject area the staged diff touches — scan them for any
-enumeration that should grow a new entry alongside the structural unit being
-added or removed.
-$INLINED_GUIDES"
-    fi
-  fi
-fi
+# (Selective guide-doc inlining — formerly GUIDES_TO_INCLUDE — only fired for
+# `docsReviewed`, which moved to audit-time `/ak-docs-review` in PR-C. The map
+# moved with it; no surviving check-type needs it.)
 
 # --- Devshop-wide adversarial review bypass (tight iteration loops) ---
 # Active-human-review escape hatch for pre-ship dismissalLog calls that cascade
@@ -582,9 +381,9 @@ if [ "${DEVSHOP_SKIP_ADVERSARIAL:-0}" = "1" ]; then
 fi
 
 # --- Pre-ship vs commit-guard timeout budgeting ---
-# Commit-guard calls one adversarial review per commit; 180s gives headroom for
-# dense docsReviewed prompts (full guide-doc bodies inlined post-PR #25 made the
-# prior 90s budget too tight under sonnet load).
+# Commit-guard calls are now scoped to bypass-reason judging only; 180s gives
+# headroom for context-rich exemptAddition / hookBypass / testReviewSkipReason
+# prompts.
 # Pre-ship can fire up to 11 reviews (one per gate with dismissals); bump the
 # per-call timeout so individual gates with dense context don't time out.
 COMMIT_TIMEOUT=180
@@ -607,7 +406,7 @@ get_model_for_check_type() {
     return
   fi
   case "$1" in
-    docsReviewed|prDescStaleReason|testCoverage|testCoverageProject|testReviewSkipReason|dismissalLog|hookBypass|exemptAddition)
+    prDescStaleReason|testReviewSkipReason|dismissalLog|hookBypass|exemptAddition)
       echo "sonnet"
       ;;
     dirtyTreeReason|dirtyPushReason|manifestReviewed)
@@ -639,22 +438,14 @@ Reason given: $REASON
 Context:
 $CONTEXT
 
-The reason must be specific, factually accurate per the context, and address actual risk (stale docs, forgotten files, missed changes, leaked secrets). Generic placeholders ('docs are fine', 'will fix later', 'low risk', 'WIP', 'minor change') FAIL.
+The reason must be specific, factually accurate per the context, and address actual risk (forgotten files, missed changes, leaked secrets). Generic placeholders ('docs are fine', 'will fix later', 'low risk', 'WIP', 'minor change') FAIL.
 
 Per-check-type rules:
 
-1. For docsReviewed (unified doc-coverage check; the inlined catalog above shows the docs loaded for the staged repo — /devshop or /workspace): the reason MUST satisfy ALL of:
-   (a) **Per-doc enumeration + named edits**: for every reference doc shown in the inlined catalog, the reason states either NOT-AFFECTED or AFFECTED. For each AFFECTED doc, the reason names (i) the section the edit lives in, AND (ii) a distinctive phrase from the edit (a new bullet, a row-cell, a changed sentence) that will appear in the staged diff. The reviewer MUST verify each named phrase by searching the staged diff for it (grep semantic). A claim of 'updated to add X' where X is not visible in the staged diff FAILS. 'Checked all docs' or per-doc rows without a named phrase FAILS.
-   (b) **New-capability docs at the right level**: when the diff adds a new capability/surface, verify docs exist at the right level — devshop: a guide/* section (what/how/extend); OVERVIEW.md (incl. § Concept) for workspace-layout / event-flow / structural changes; CLAUDE.md when Claude's behavior changes. Project: CLAUDE.md § Where Things Happen (load-bearing — higher bar); the relevant per-package README; OVERVIEW.md / ARCHITECTURE.md when present (opt-in — only fire when the file exists at HEAD). Tree-diagram mentions alone are NOT sufficient — strategy/usage prose required.
-   (c) **Cross-file coherence** (when reference docs are staged — see 'Reference docs staged'): staged doc changes must leave the doc set internally consistent. Contradictory claims across files (one doc says N gates, another says M; one names a script the other doesn't enumerate) MUST be flagged. Trivially satisfied when no reference docs are staged.
-   (d) **Rename/move/delete drift sweep** (when 'Renamed/moved/deleted in this commit' lists entries): for each old-path entry, the inlined catalog must no longer reference the OLD name unless the reason cites the surviving reference and explains why it's intentional. Drift surfaces: file paths, section headings (## Foo → ## Bar), CI job names, skills, gate names, roadmap entries. Trivially satisfied when empty.
-   (e) **Addition drift sweep** (when the staged diff adds new STRUCTURAL UNITS — scripts, hooks, skills, conventions, pre-ship gates, slash commands, GitHub Actions jobs, env-prefixed secret-store names, new pages/routes/API wrappers, new analytics events, new packages/apps/edge functions): for each added unit, scan the inlined doc bodies for any STRUCTURED ENUMERATION of that kind of unit (table, flowchart, list, taxonomy). A matching enumeration MUST contain a corresponding new entry in the staged diff. Generic prose mentioning the new unit doesn't satisfy a missing enumeration entry. When a guide doc appears headers-only (not under '=== Relevant guide doc bodies ==='), the reason MUST cite which enumeration was checked and quote the relevant row. Trivially satisfied when no new structural units are added.
-   The reviewer must check the docs the reason CLAIMS to have updated against the staged diff — rule (a) is the verification anchor; every named phrase must match. Carve-out: kit/notes/**, kit/docs/CHANGELOG.md, and project-equivalent historical archives may mention deleted/renamed/old items — they're the rationale archive, not active docs.
-2. For testCoverage: judge whether existing tests are sufficient to catch regressions in any functional changes since the last release. Look for: new code paths without test cases, changed exit codes / output formats not verified, new flags / options not exercised. PASS when any of: (a) changes are purely cosmetic (comments, formatting, variable renames); (b) no functional changes (docs-only release); (c) config-only changes already validated by wiring tests in structural-invariants.bats — name the specific wiring test; (d) existing tests already exercise the changed behavior — name the specific test.
-3. For hookBypass: is this a known legitimate scenario (migration commits with git rm --cached, binary files that break lint-staged, intermediate refactor state with type errors)? Does skipping gitleaks create a real risk for these files?
-4. For prDescStaleReason: does the PR title/body accurately describe ALL commits on the branch (origin/main..HEAD)? If the commits add a new capability, the PR description should name it. PASS requires either (a) the PR description genuinely matches the commits — the reviewer is wrong — or (b) a specific structural reason the description lags temporarily (e.g., 'batching rebases — will squash-update after final review' with a concrete next step).
-5. For dirtyPushReason: does the reason name WHICH files are intentionally dirty and WHY? PASS requires specificity: 'untracked *.log debug files from local testing, not project code' or 'stashed branch X changes to push unrelated branch Y — will resume after'. Forgotten WIP (files the developer doesn't recognize) should FAIL.
-6. For dismissalLog: the Reason is the body of a gate's '## Dismissals' section — the rationales given for NOT acting on specific findings. Judge each dismissal bullet individually. REJECT the whole bypass if ANY bullet exhibits:
+1. For hookBypass: is this a known legitimate scenario (migration commits with git rm --cached, binary files that break lint-staged, intermediate refactor state with type errors)? Does skipping gitleaks create a real risk for these files?
+2. For prDescStaleReason: does the PR title/body accurately describe ALL commits on the branch (origin/main..HEAD)? If the commits add a new capability, the PR description should name it. PASS requires either (a) the PR description genuinely matches the commits — the reviewer is wrong — or (b) a specific structural reason the description lags temporarily (e.g., 'batching rebases — will squash-update after final review' with a concrete next step).
+3. For dirtyPushReason: does the reason name WHICH files are intentionally dirty and WHY? PASS requires specificity: 'untracked *.log debug files from local testing, not project code' or 'stashed branch X changes to push unrelated branch Y — will resume after'. Forgotten WIP (files the developer doesn't recognize) should FAIL.
+4. For dismissalLog: the Reason is the body of a gate's '## Dismissals' section — the rationales given for NOT acting on specific findings. Judge each dismissal bullet individually. REJECT the whole bypass if ANY bullet exhibits:
     - Generic rationale: 'not critical', 'minor', 'can wait', 'won't fix for now' without specifics
     - Contradicts the spec's § Core user story: dismissing a bug that affects a verb in the core story is categorically NOT acceptable (the core story names the product's load-bearing flow — dismissals must not touch it)
     - Claims 'out of scope for this PR' when the spec's § In scope explicitly covers that behavior
@@ -662,15 +453,8 @@ Per-check-type rules:
     - Punts to 'TODOS' or 'follow-up' without a specific tag, issue number, or existing entry to point at
     - Claims 'user-acceptable' or 'product decision' without attributing to a specific approved spec line or design doc
     PASS only when every rationale is: specific (names what was considered and why deferred), consistent with the PR scope (doesn't cross the core user story, doesn't dismiss committed scope), and actionable (a later reviewer could find the rationale plausible given the evidence).
-7. **Convention adherence** (when '=== Relevant conventions ===' appears in the context): the diff/dismissal must follow the inlined conventions. A change that violates an explicit rule (e.g. a new wrapper without onError when § Wrapper API design requires it; a dismissal that punts on an RLS-coverage finding when § Supabase Hardening Defaults marks it non-negotiable; a slow-job stripped of the edge-runtime retry when § Slow-Job Lifecycle's checklist requires it) must FAIL unless the reason explicitly engages the rule's stated rationale. Generic 'this convention doesn't apply here' WITHOUT naming why is NOT acceptable.
-8. For testCoverageProject (project-repo pre-commit, ADD-without-test or orphan-after-DELETE was blocked): the reason MUST name the SPECIFIC blocked path(s) and explain WHY a test does not apply (e.g. 'page.tsx is the route entry — covered by e2e/list.spec.ts driving sign-in → add → bought', or 'utils/format.ts is a pure 3-line type re-export over packages/core/src/types — covered transitively by addItem.test.ts asserting the shape'). PASS requires a named test or named exempt-list rationale that a future reviewer could verify in 30 seconds.
-9. For testReviewSkipReason (/ak-build Phase 5.8 halt override): the Reason justifies shipping the PR despite high-severity findings from the post-pre-ship test-coverage re-audit. PASS requires ALL of:
-    (a) **Per-finding engagement**: the reason names each high-severity finding from the followup report (file:line + the gap the audit identified) AND explains specifically why shipping without that test is acceptable. Generic 'audit is overzealous' / 'tests are fine' / 'will fix in follow-up' WITHOUT a per-finding rationale FAILS.
-    (b) **No core-flow dismissal**: a high finding that touches the project's primary user verb (sign-in / add / list / bought / equivalent) is categorically NOT acceptable. Core-flow gaps must be closed with new test commits, not waved away.
-    (c) **Plausible follow-up commitment** (when 'will fix later' appears): the reason names a specific TODOS.md entry, ROADMAP entry, or follow-up issue — not a vague intent. 'Tracked at TODOS.md § <name>' with a verifiable entry PASSES; 'will add tests in next PR' without a tracker entry FAILS.
-    (d) **No security-boundary skips**: findings touching auth, RLS, password policy, or other security-relevant assertions cannot be deferred — the existing tests still pass but no longer pin the right behavior, and shipping the gap is a real regression risk.
-    Default: REJECT. The Phase 5.8 audit already weighed signal vs noise; high-severity findings reflect real gaps in coverage of behavior that landed after the pre-ship snapshot. The override exists for genuinely-justified ship-now cases, not for skipping the audit.
-10. For exemptAddition (project-repo pre-commit, lines added to .devshop-test-coverage-exempt or .devshop-docs-freshness-exempt): the Reason is the staged additions PLUS the list of cited paths verified to exist on disk. Each entry has the format \`path  # inline reason\`. Judge each entry's inline reason individually. REJECT the WHOLE bypass if ANY entry exhibits:
+5. **Convention adherence** (when '=== Relevant conventions ===' appears in the context): the diff/dismissal must follow the inlined conventions. A change that violates an explicit rule (e.g. a dismissal that punts on an RLS-coverage finding when § Supabase Hardening Defaults marks it non-negotiable; a slow-job stripped of the edge-runtime retry when § Slow-Job Lifecycle's checklist requires it) must FAIL unless the reason explicitly engages the rule's stated rationale. Generic 'this convention doesn't apply here' WITHOUT naming why is NOT acceptable.
+6. For exemptAddition (project-repo pre-commit, lines added to .devshop-test-coverage-exempt or .devshop-docs-freshness-exempt): the Reason is the staged additions PLUS the list of cited paths verified to exist on disk. Each entry has the format \`path  # inline reason\`. Judge each entry's inline reason individually. REJECT the WHOLE bypass if ANY entry exhibits:
     - Missing inline reason (a path with no \`#\` comment after it)
     - Generic rationale: 'TODO test', 'skip for now', 'covered elsewhere', 'low risk', 'will fix', 'see other tests' without specifics
     - Cites a covering spec/test by description but not by path (e.g. 'covered by the auth flow test' — name the file, not the concept)
@@ -678,6 +462,14 @@ Per-check-type rules:
     - For test-coverage exemptions: name the covering spec/test path (which the pre-flight has already verified exists) OR explain why this path is intrinsically untestable (pure re-export, type-only, dev-only stub). Reasons of the form 'covered by <path>' where <path> is not in the verified-cited-paths list MUST FAIL — absence from that list means the path was never even cited.
     - For docs-freshness exemptions: explain WHY the surface doesn't need a CLAUDE.md / METRICS.md entry (e.g. 'internal liveness probe', 'feature-flag-gated dev-only screen never shown to users') — not simply assert that it doesn't.
     PASS only when every entry has a specific reason that a future reviewer could verify in 30 seconds against the inlined conventions.
+7. For testReviewSkipReason (/ak-build Phase 5.8 halt override): the Reason justifies shipping the PR despite high-severity findings from the post-pre-ship docs+tests re-audit. PASS requires ALL of:
+    (a) **Per-finding engagement**: the reason names each high-severity finding from the latest \`## Audit N\` section (file:line + the gap the audit identified) AND explains specifically why shipping without that test/doc is acceptable. Generic 'audit is overzealous' / 'will fix in follow-up' WITHOUT a per-finding rationale FAILS.
+    (b) **No core-flow dismissal**: a high finding that touches the project's primary user verb (sign-in / add / list / bought / equivalent) is categorically NOT acceptable. Core-flow gaps must be closed with new test commits, not waved away.
+    (c) **Plausible follow-up commitment** (when 'will fix later' appears): the reason names a specific TODOS.md entry, ROADMAP entry, or follow-up issue — not a vague intent. 'Tracked at TODOS.md § <name>' with a verifiable entry PASSES; 'will add tests in next PR' without a tracker entry FAILS.
+    (d) **No security-boundary skips**: findings touching auth, RLS, password policy, or other security-relevant assertions cannot be deferred — the existing tests still pass but no longer pin the right behavior, and shipping the gap is a real regression risk.
+    Default: REJECT. The Phase 5.8 audit already weighed signal vs noise; high-severity findings reflect real gaps in coverage of behavior that landed after the pre-ship snapshot. The override exists for genuinely-justified ship-now cases, not for skipping the audit.
+8. For manifestReviewed: judge whether the proposed manifest treatment matches the actual file's lifecycle (locked / sync / scaffold-once / symlink / locked-dir). Generic 'add to manifest' without naming the lifecycle tag FAILS.
+9. For dirtyTreeReason: same shape as dirtyPushReason but at commit-time.
 
 Respond with EXACTLY one line:
 PASS - only if the reason is genuinely legitimate and specific

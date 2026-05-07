@@ -3,19 +3,19 @@
 # Run from the devshop repo root (not a project repo).
 # Shows changes since last version tag, suggests bump level, asks for confirmation.
 #
-# Test coverage review: the `release-coverage` check in devshop-commit-guard.sh
-# fires on the bump commit (triggered by kit/version being staged) and runs an
-# adversarial review of the changes since the last tag. Runs once per release,
-# not per commit. Cannot be bypassed by skipping release.sh — any bump commit
-# triggers it regardless of how the bump was made.
+# Test-coverage at release time: the per-commit `release-coverage` adversarial
+# review was removed in PR-C of the audit-time docs+tests migration (see
+# kit/ROADMAP.md). Coverage judgment now lives in audit-time `/ak-tests-review`,
+# which fires per-merge via `/ak-check-docs-and-tests`. The release flow here is
+# reduced to: bump version + write a semantic tag-description summary + tag + push.
 #
 # Atomic rollback on failure: any step before the commit (incl. husky pre-commit
-# tests + adversarial reviews) failing → kit/version and kit/docs/CHANGELOG.md
-# are restored to HEAD via a shell trap, so re-running release.sh starts from a
-# clean slate. If the commit SUCCEEDS but a later step fails (tag already
-# exists, push fails, gh release create fails), the local commit is KEPT —
-# adversarial review is expensive and we don't want to re-trigger it on retry.
-# The trap inspects PHASE to know which mode to apply:
+# checks) failing → kit/version and kit/docs/CHANGELOG.md are restored to HEAD
+# via a shell trap, so re-running release.sh starts from a clean slate. If the
+# commit SUCCEEDS but a later step fails (tag already exists, push fails,
+# gh release create fails), the local commit is KEPT — re-doing the bump commit
+# would re-add a duplicate CHANGELOG entry. The trap inspects PHASE to know
+# which mode to apply:
 #   - modifying  → files written but commit failed → roll back fully
 #   - committed  → commit survived; tag/push/release failed → keep, retry manually
 #   - completed  → all good → no-op
@@ -73,12 +73,11 @@ else
   echo "No previous tag found. This will be the first tagged release."
 fi
 
-# Pre-release test coverage review runs in the commit guard — see the
-# release-coverage check in kit/scripts/commit-hooks/commit-guard.sh. Triggered by
-# kit/version being staged, which happens below when release.sh writes the new
-# version and calls `git commit`. The review covers all changes since $LAST_TAG
-# via the adversarial agent. Cannot be bypassed by calling `git tag` directly
-# without a bump commit.
+# Pre-release test-coverage review moved to audit-time `/ak-tests-review` in
+# PR-C (see kit/ROADMAP.md). The bump commit below no longer triggers a
+# per-commit adversarial review — coverage is judged per-merge in the audit
+# pipeline, not at release time. The CHANGELOG entry below is the human-facing
+# release artifact.
 
 if [ -n "$ARG_BUMP" ]; then
   BUMP="$ARG_BUMP"
@@ -149,7 +148,7 @@ rollback() {
     committed)
       echo ""
       echo "⚠ Commit (v$NEW_VERSION) landed locally but a later step failed (exit $exit_code)."
-      echo "   Local commit is KEPT (so you don't re-trigger adversarial review on retry)."
+      echo "   Local commit is KEPT (so you don't double-write the CHANGELOG entry on retry)."
       echo "   Retry the remaining steps manually:"
       echo "     # if tag not yet created:"
       echo "     git tag -a v$NEW_VERSION -m 'v$NEW_VERSION'"

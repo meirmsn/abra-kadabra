@@ -20,7 +20,8 @@ Root-owned copies (not symlinks), verified fresh on every commit. Project-worksp
 - `.claude/settings.json` — permissions, hooks, deny rules
 - `.dcg.toml` — destructive command patterns
 - `.devcontainer/*` — container config (Dockerfile, init-devshop.sh, init-firewall.sh, devcontainer.json, checksums.sha256), firewall, secrets
-- `.husky/pre-commit` — gates commit-time guards (gitleaks, docs-drift, mixed-commit, release-coverage); tampering silently disables them
+- `.husky/pre-commit` — gates commit-time guards (gitleaks, mixed-commit, Layer 1 docs/tests-coverage hooks); tampering silently disables them
+- `.husky/prepare-commit-msg` — appends `Tests-Coverage-Bypass:` / `Docs-Coverage-Bypass:` trailers when bypass flags are set; tampering hides bypass evidence from audit-time review
 - `.husky/pre-push` — gates push-time guards (no-direct-push-to-main, dirty-tree adversarial review); tampering silently disables them
 
 All scripts under `kit/scripts/` (recursive — covers `commit-hooks/`, `preship/`, `notify/`, `sync/`, etc.) are also root-locked — `init-devshop.sh` runs `find $DEVSHOP/kit/scripts/ -type f -name '*.sh'` at container start and chowns each to `root:root 644`. This breaks the circularity where the scripts that watch `settings.json` were themselves only protected by `settings.json`. The two-layer model (Layer 1 = settings.json deny rules, Layer 2 = filesystem ownership) is documented inline in `.claude/settings.json` permission rules:

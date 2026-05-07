@@ -146,6 +146,7 @@ for f in \
   "$DEVSHOP/.devcontainer/.env" \
   "$DEVSHOP/.husky/pre-commit" \
   "$DEVSHOP/.husky/pre-push" \
+  "$DEVSHOP/.husky/prepare-commit-msg" \
   "$DEVSHOP/template/.devcontainer/devcontainer.json" \
   "$DEVSHOP/template/.devcontainer/init-devshop.sh" \
   "$DEVSHOP/template/.devcontainer/init-firewall.sh" \
@@ -153,6 +154,7 @@ for f in \
   "$DEVSHOP/template/.devcontainer/checksums.sha256" \
   "$DEVSHOP/template/.husky/pre-commit" \
   "$DEVSHOP/template/.husky/pre-push" \
+  "$DEVSHOP/template/.husky/prepare-commit-msg" \
   "$DEVSHOP/.claude/settings.json" \
   "$DEVSHOP/.dcg.toml" \
   ; do

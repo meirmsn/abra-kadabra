@@ -149,22 +149,21 @@ git commit
   │       ├─ check-security-files-freshness.sh (project only)
   │       ├─ check-clean-tree.sh ────────── no unaddressed dirty state (both)
   │       ├─ check-manifest.sh ──────────── template/ files added/removed (devshop only)
-  │       ├─ check-test-coverage.sh ─────── new scripts need tests (devshop only)
+  │       ├─ check-tests-coverage-devshop.sh ─ new scripts need tests (devshop only); Layer 1
+  │       │                                    bypass via devshop.testsCoverageReason → trailer
+  │       ├─ check-docs-coverage-devshop.sh ── surface→doc mapping (devshop only); Layer 1
+  │       │                                    bypass via devshop.docsCoverageReason → trailer
   │       ├─ check-exempt-additions.sh ─── adversarial review of additions to
   │       │                                 .devshop-test-coverage-exempt /
   │       │                                 .devshop-docs-freshness-exempt (project only)
-  │       ├─ check-test-coverage-project.sh src ADD without paired test → block (project only)
-  │       ├─ check-docs-freshness-project.sh page/wrapper/event without CLAUDE/METRICS update → block (project only); per-package READMEs + OVERVIEW/ARCHITECTURE opt-in (fire only when file exists at HEAD)
-  │       └─ commit-guard.sh ──────────── 4 checks (run in this order):
-  │           ├─ mixed-commit ───────────── devshop + project files together? block
-  │           ├─ docs-reviewed ──────────── any devshop file staged (non-release)? adversarial
-  │           │                              review covers per-doc enumeration, cross-file
-  │           │                              coherence, new-capability docs, and rename/move/
-  │           │                              delete drift sweep (merged from former docs-drift
-  │           │                              + doc-consistency 2026-04-27)
-  │           └─ release-coverage ───────── kit/version bumped? adversarial agent
-  │                                         judges whether changes since last tag
-  │                                         need test coverage (one Sonnet call)
+  │       ├─ check-tests-coverage-project.sh src ADD without paired test → block (project only)
+  │       ├─ check-docs-coverage-project.sh page/wrapper/event without CLAUDE/METRICS update → block (project only); per-package READMEs + OVERVIEW/ARCHITECTURE opt-in (fire only when file exists at HEAD)
+  │       └─ commit-guard.sh ──────────── 1 check after PR-C (audit-time docs+tests migration):
+  │           └─ mixed-commit ───────────── devshop + project files together? block
+  │           (docs-reviewed + release-coverage moved to audit-time /ak-check-docs-and-tests)
+  ├─ .husky/prepare-commit-msg ──────────── append-bypass-trailers.sh: bypass flags →
+  │                                          Tests-Coverage-Bypass: / Docs-Coverage-Bypass:
+  │                                          trailers for audit-time review
   (no PostToolUse — workflow nudges live at the git layer; see guide/hooks.md)
 
 git push

@@ -1,16 +1,18 @@
 #!/usr/bin/env bats
-# Tests for kit/scripts/commit-hooks/check-docs-freshness-project.sh
-# Layer-1 deterministic docs-freshness hook for project repos:
+# Tests for kit/scripts/commit-hooks/check-docs-coverage-project.sh
+# Layer-1 deterministic docs-coverage hook for project repos:
 #   New page/route/wrapper → CLAUDE.md must be staged
 #   New posthog.capture / Sentry.captureException call site → METRICS.md must be staged
 #   DELETE source while doc still references it → BLOCK
-# Bypass via git -c devshop.docsReviewed (Layer 2 — adversarial-review.sh docsReviewed; unified key + check-type 2026-05-01).
+# Bypass via `git -c devshop.docsCoverageReason="<why>"` accepts on flag presence
+# (no LLM call). Trailer emission is the prepare-commit-msg hook's job; audit-time
+# `/ak-docs-review` harvests the trailer (PR-C migration — see kit/ROADMAP.md).
 
 setup() {
   load helpers/setup
   setup_mock_bin
   create_test_repo
-  SCRIPT="$SCRIPTS_DIR/commit-hooks/check-docs-freshness-project.sh"
+  SCRIPT="$SCRIPTS_DIR/commit-hooks/check-docs-coverage-project.sh"
   cd "$TEST_REPO"
   # Always seed the docs (committed, not staged) so freshness checks have something to read
   echo "# CLAUDE.md" > "$TEST_REPO/CLAUDE.md"
@@ -343,4 +345,23 @@ EOF
   run_script
   assert_failure
   assert_output --partial "apps/web/components/Button.tsx referenced in apps/web/README.md"
+}
+
+# --- Layer 1 bypass: flag-presence (no LLM call) ---
+
+@test "bypass: flag presence accepts new page without CLAUDE.md (no LLM call)" {
+  stage_file apps/web/app/list/page.tsx "export default function P() {}"
+  git -C "$TEST_REPO" config devshop.docsCoverageReason "deferring CLAUDE.md§Where Things Happen update to end of feature"
+  run_script
+  assert_success
+  assert_output --partial "Docs-coverage block bypassed"
+  assert_output --partial "Docs-Coverage-Bypass: trailer"
+}
+
+@test "bypass: empty flag value still blocks" {
+  stage_file apps/web/app/list/page.tsx "export default function P() {}"
+  git -C "$TEST_REPO" config devshop.docsCoverageReason ""
+  run_script
+  assert_failure
+  assert_output --partial "BLOCKING"
 }

@@ -82,6 +82,7 @@ package.json [sync]
 .husky [locked-dir]
 .husky/pre-commit [locked]
 .husky/pre-push [locked]
+.husky/prepare-commit-msg [locked]
 .github/workflows/ [sync]
 
 # CI helper scripts — invoked from .github/workflows/ci.yml's slow-job

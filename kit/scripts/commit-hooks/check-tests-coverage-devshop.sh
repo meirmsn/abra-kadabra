@@ -1,8 +1,16 @@
 #!/bin/bash
-# What: Pre-commit check — flags kit/scripts changes that lack corresponding tests
+# What: Pre-commit check (devshop self) — flags kit/scripts changes that lack corresponding tests
 # Why: Ensures new scripts get test coverage and modified scripts are considered.
 #      New scripts without tests are blocked. Modified scripts without tests warn.
-# Does NOT: Verify test quality or coverage depth — that's /ak-tests-review's job.
+# Does NOT: Verify test quality or coverage depth — that's `/ak-tests-review`'s
+#           job, fired at audit time via `/ak-check-docs-and-tests` (NOT per-commit).
+#
+# Layer 1 only. Per-commit Sonnet judgment was removed alongside the audit-time
+# migration (see kit/ROADMAP.md § PR-C). Bypass via
+# `git -c devshop.testsCoverageReason="<why>"` accepts the commit without an LLM
+# round-trip; the bypass is recorded as a `Tests-Coverage-Bypass:` trailer by
+# the prepare-commit-msg hook (kit/scripts/commit-hooks/append-bypass-trailers.sh)
+# and harvested at audit time by `/ak-tests-review`.
 
 set -euo pipefail
 
@@ -81,15 +89,29 @@ if [ "$WARN" = true ]; then
   echo -e "$WARNED_LIST"
   echo "  These scripts have no corresponding .bats test file."
   echo "  Consider adding tests, or add the script to the exempt list"
-  echo "  in check-test-coverage.sh if testing isn't practical."
+  echo "  in check-tests-coverage-devshop.sh if testing isn't practical."
 fi
 
 if [ "$BLOCK" = true ]; then
+  # Bypass: accept on flag presence (no LLM call). Trailer emission is the
+  # prepare-commit-msg hook's job — see append-bypass-trailers.sh.
+  REASON=$(git config --get devshop.testsCoverageReason 2>/dev/null || true)
+  if [ -n "$REASON" ]; then
+    echo ""
+    echo "⚠ Tests-coverage block bypassed: $REASON"
+    echo "  → recorded as Tests-Coverage-Bypass: trailer; will be revisited at audit time."
+    exit 0
+  fi
+
   echo ""
   echo "✖ BLOCKING: New kit scripts added without test coverage:"
   echo -e "$BLOCKED_LIST"
   echo "  Every new script needs a test file in kit/tests/."
-  echo "  Write the tests, or add the script to the exempt list"
-  echo "  in check-test-coverage.sh with a reason if testing isn't practical."
+  echo ""
+  echo "  Options:"
+  echo "    1. Write the .bats test alongside the script"
+  echo "    2. Add the script to the exempt list in check-tests-coverage-devshop.sh"
+  echo "    3. Bypass for this commit (recorded as a Tests-Coverage-Bypass: trailer):"
+  echo "       git -c devshop.testsCoverageReason=\"<why a test won't be written in this commit>\" commit ..."
   exit 1
 fi

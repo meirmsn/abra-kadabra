@@ -176,7 +176,7 @@ All devshop docs live in `kit/docs/`. Three types: reference docs (living), back
 - `kit/docs/OVERVIEW.md` — bird's eye view (~60-80 lines). Read for orientation.
 - `kit/docs/guide/` — operational reference (this directory). Read when implementing or shipping.
 
-Commit guard enforces: the merged `docs-reviewed` check (formerly `docs-drift` + `doc-consistency`) blocks if any reference doc is staged without a review note via `git -c devshop.docsReviewed="<reason>"`. The single bypass flag covers both per-doc enumeration and cross-file coherence — formerly two separate flags. `/ak-pre-ship` also enforces.
+Doc coverage enforcement: per-commit Layer 1 hooks (`check-docs-coverage-{project,devshop}.sh`) catch obvious file-pairing gaps; bypass via `git -c devshop.docsCoverageReason="<reason>"` accepts on flag presence and emits a `Docs-Coverage-Bypass:` trailer. Audit-time Layer 2 (`/ak-docs-review`, fired by `/ak-check-docs-and-tests` at `/ak-pre-ship` Gate 5 and `/ak-build` Phase 5.8) judges the diff with the full doc context and harvests trailer entries as `[bypass-revisit]` findings. The per-commit `docs-reviewed` adversarial check that ran before PR-C of the audit-time migration was retired alongside the move — see `kit/ROADMAP.md § PR-C` and `kit/docs/guide/conventions.md § Bypass trailers`.
 
 ### Backlogs (living — grow independently)
 

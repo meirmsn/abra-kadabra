@@ -16,27 +16,29 @@ if [ -d "$GIT_ROOT/kit" ] && [ ! -L "$GIT_ROOT/kit" ]; then
   # Devshop-self mode: same checks as devshop repo
   bash "$SCRIPTS_DIR/commit-hooks/check-clean-tree.sh"
   bash "$SCRIPTS_DIR/commit-hooks/check-manifest.sh"
-  bash "$SCRIPTS_DIR/commit-hooks/check-test-coverage.sh"
+  bash "$SCRIPTS_DIR/commit-hooks/check-tests-coverage-devshop.sh"
+  bash "$SCRIPTS_DIR/commit-hooks/check-docs-coverage-devshop.sh"
   bash "$SCRIPTS_DIR/commit-hooks/commit-guard.sh"
 else
   case "$GIT_ROOT" in
     /workspace)
       # Project repo: full guard suite. check-exempt-additions runs BEFORE
-      # check-test-coverage-project / check-docs-freshness-project so that bad
+      # check-tests-coverage-project / check-docs-coverage-project so that bad
       # exempt entries surface first (the operator knows to fix the exempt
       # entry, not chase the gate it would have silenced).
       bash "$SCRIPTS_DIR/commit-hooks/check-security-files-freshness.sh"
       bash "$SCRIPTS_DIR/commit-hooks/check-clean-tree.sh"
       bash "$SCRIPTS_DIR/commit-hooks/check-exempt-additions.sh"
-      bash "$SCRIPTS_DIR/commit-hooks/check-test-coverage-project.sh"
-      bash "$SCRIPTS_DIR/commit-hooks/check-docs-freshness-project.sh"
+      bash "$SCRIPTS_DIR/commit-hooks/check-tests-coverage-project.sh"
+      bash "$SCRIPTS_DIR/commit-hooks/check-docs-coverage-project.sh"
       bash "$SCRIPTS_DIR/commit-hooks/commit-guard.sh"
       ;;
     /devshop)
-      # Devshop repo: clean tree + manifest sync + test coverage + commit guards
+      # Devshop repo: clean tree + manifest sync + Layer 1 docs/tests coverage + commit guards
       bash "$SCRIPTS_DIR/commit-hooks/check-clean-tree.sh"
       bash "$SCRIPTS_DIR/commit-hooks/check-manifest.sh"
-      bash "$SCRIPTS_DIR/commit-hooks/check-test-coverage.sh"
+      bash "$SCRIPTS_DIR/commit-hooks/check-tests-coverage-devshop.sh"
+      bash "$SCRIPTS_DIR/commit-hooks/check-docs-coverage-devshop.sh"
       bash "$SCRIPTS_DIR/commit-hooks/commit-guard.sh"
       ;;
     *)

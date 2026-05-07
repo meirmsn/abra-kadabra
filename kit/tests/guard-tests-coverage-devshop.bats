@@ -1,10 +1,13 @@
 #!/usr/bin/env bats
-# Tests for kit/scripts/commit-hooks/check-test-coverage.sh
-# Flags kit/scripts changes that lack corresponding tests
+# Tests for kit/scripts/commit-hooks/check-tests-coverage-devshop.sh
+# Flags kit/scripts changes that lack corresponding tests.
+# Layer 1 only — Layer 2 lives in audit-time `/ak-tests-review` (PR-C).
+# Bypass via `git -c devshop.testsCoverageReason="<why>"` accepts on flag presence;
+# trailer emission is the prepare-commit-msg hook's job.
 
 setup() {
   load helpers/setup
-  CHECK="$SCRIPTS_DIR/commit-hooks/check-test-coverage.sh"
+  CHECK="$SCRIPTS_DIR/commit-hooks/check-tests-coverage-devshop.sh"
 
   # Create a devshop-like repo with kit/scripts and kit/tests
   TEST_REPO="$BATS_TEST_TMPDIR/devshop"
@@ -97,4 +100,26 @@ run_check() {
   git -C "$TEST_REPO" add "kit/scripts/statusline.sh"
   run_check
   assert_success
+}
+
+# --- Layer 1 bypass: flag-presence (no LLM call) ---
+
+@test "bypass: flag presence accepts blocked add (no LLM call, no prompt)" {
+  echo '#!/bin/bash' > "$TEST_REPO/kit/scripts/new-guard.sh"
+  git -C "$TEST_REPO" add "kit/scripts/new-guard.sh"
+  git -C "$TEST_REPO" config devshop.testsCoverageReason "deferring test to follow-up commit; lift candidate"
+  run_check
+  assert_success
+  assert_output --partial "Tests-coverage block bypassed"
+  assert_output --partial "Tests-Coverage-Bypass: trailer"
+  refute_output --partial "BLOCKING"
+}
+
+@test "bypass: empty flag still blocks" {
+  echo '#!/bin/bash' > "$TEST_REPO/kit/scripts/new-guard.sh"
+  git -C "$TEST_REPO" add "kit/scripts/new-guard.sh"
+  git -C "$TEST_REPO" config devshop.testsCoverageReason ""
+  run_check
+  assert_failure 1
+  assert_output --partial "BLOCKING"
 }

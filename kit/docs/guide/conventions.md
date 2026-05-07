@@ -500,7 +500,7 @@ The devshop's own scripts and configuration are tested with [BATS](https://githu
 
 **What's tested vs. exempt:**
 
-Every script in `kit/scripts/` is either tested or explicitly exempt in `check-test-coverage.sh`. Exempt scripts have documented reasons (e.g., `adversarial-review.sh` calls Claude CLI — non-deterministic, mocked in all callers; `init-devshop.sh` runs as root).
+Every script in `kit/scripts/` is either tested or explicitly exempt in `check-tests-coverage-devshop.sh`. Exempt scripts have documented reasons (e.g., `adversarial-review.sh` calls Claude CLI — non-deterministic, mocked in all callers; `init-devshop.sh` runs as root).
 
 **How tests mock external dependencies:**
 
@@ -513,7 +513,7 @@ Every script in `kit/scripts/` is either tested or explicitly exempt in `check-t
 
 1. Create `kit/tests/guard-<name>.bats` or `kit/tests/util-<name>.bats`
 2. Use `load helpers/setup` for shared helpers (mock bin, test repos, adversarial stubs)
-3. If the script is genuinely untestable, add to the exempt list in `check-test-coverage.sh` with a reason
+3. If the script is genuinely untestable, add to the exempt list in `check-tests-coverage-devshop.sh` with a reason
 
 ### Metrics
 
@@ -539,7 +539,7 @@ Every script in `kit/scripts/` is either tested or explicitly exempt in `check-t
 
 ## Test Presence
 
-Every new source file under `apps/*/{src,app,components,lib,hooks}/` or `packages/*/src/` MUST ship with a paired test in the same commit. Enforcement is `kit/scripts/commit-hooks/check-test-coverage-project.sh`, wired into project-repo `.hooks/pre-commit` via `kit/hooks/pre-commit.sh`.
+Every new source file under `apps/*/{src,app,components,lib,hooks}/` or `packages/*/src/` MUST ship with a paired test in the same commit. Enforcement is `kit/scripts/commit-hooks/check-tests-coverage-project.sh`, wired into project-repo `.hooks/pre-commit` via `kit/hooks/pre-commit.sh`.
 
 **Layer 1 (deterministic, this hook):**
 
@@ -553,15 +553,15 @@ Every new source file under `apps/*/{src,app,components,lib,hooks}/` or `package
 
 **Per-project override**: `.devshop-test-coverage-exempt` at repo root, one path per line. Whole-line `#` comments and trailing `# reason` comments after a path are both stripped before exact-match. Audit-trail discipline — each exemption commits with a reason in the commit message. **Adding a new entry triggers `check-exempt-additions.sh`** (Pre-flight: any cited covering test/spec path in the inline reason must exist on disk; Layer 2: adversarial review judges per-entry specificity). See § Exempt-File Additions below.
 
-**Layer 2 (adversarial reviewer)**: bypass via `git -c devshop.testCoverageReviewed="<why>"` triggers `adversarial-review.sh testCoverageProject`. The reviewer requires the reason to name the SPECIFIC blocked path and EITHER the existing test that already covers it OR a concrete reason a test would not add value (e.g. pure type re-export). Generic "low risk" / "WIP" / "test exists somewhere" → reject.
+**Bypass (Layer 1 trailer)**: `git -c devshop.testsCoverageReason="<why>" commit ...` accepts on flag presence (no LLM call). The `prepare-commit-msg` hook appends a `Tests-Coverage-Bypass: <why>` trailer to the commit message; audit-time `/ak-tests-review` harvests trailers from the commit range and surfaces each as a `[bypass-revisit]` finding (VERIFIED / DEFER / ESCALATE per the diff at audit time). See § Bypass trailers below.
 
-**Relationship to `/ak-tests-review`**: this hook catches "I forgot a test entirely." `/ak-tests-review` catches "this test is weak." They're complementary, not redundant.
+**Relationship to `/ak-tests-review`**: this hook catches "I forgot a test entirely." `/ak-tests-review` (audit-time, fired by `/ak-check-docs-and-tests`) catches "this test is weak." They're complementary, not redundant.
 
 ---
 
-## Project Docs Freshness
+## Project Docs Coverage
 
-The project's hierarchical doc set decays silently as routes get added, API wrappers proliferate, and analytics events land. Enforcement is `kit/scripts/commit-hooks/check-docs-freshness-project.sh`, paired with the test-presence hook above.
+The project's hierarchical doc set decays silently as routes get added, API wrappers proliferate, and analytics events land. Enforcement is `kit/scripts/commit-hooks/check-docs-coverage-project.sh`, paired with the test-presence hook above. (Renamed from "Project Docs Freshness" / `check-docs-freshness-project.sh` in PR-C of the audit-time docs+tests migration — single naming convention `coverage` for both docs and tests file-pairing; see `kit/ROADMAP.md § PR-C § A`.)
 
 **Trigger map (staged path → required doc):**
 
@@ -582,11 +582,48 @@ The project's hierarchical doc set decays silently as routes get added, API wrap
 
 **Opt-in semantics**: `OVERVIEW.md`, `ARCHITECTURE.md`, and per-package READMEs (`apps/<x>/README.md`, `packages/<x>/README.md`, `supabase/functions/README.md`) trigger ONLY when the target doc file exists at HEAD. Projects opt in by creating the file from the template skeleton or writing one directly. New projects scaffold `OVERVIEW.md` + `ARCHITECTURE.md` automatically via the template; per-package READMEs are operator-driven (create the file when there's enough package-level surface to document, leave absent otherwise). The trigger does not fire on the commit that first creates the README — only on subsequent additions to that package.
 
-**Layer 2 (adversarial reviewer)**: bypass via `git -c devshop.docsReviewed="<per-doc enumeration with named edits>"` triggers the unified `adversarial-review.sh docsReviewed` (project branch — same check-type as the devshop-side docs-coverage gate, branched internally on `$GIT_ROOT`). The bypass key is unified with the devshop-side docs-coverage gate (renamed from `devshop.docsFreshnessReviewed` 2026-05-01 alongside the check-type unification — one key, one check-type, one rule set). The reviewer gets the project's `CLAUDE.md` + `METRICS.md` + `OVERVIEW.md` + `ARCHITECTURE.md` (opt-in, surfaced if present) + every per-package `README.md` discovered at HEAD (FULL bodies) and verifies bypass-claims like "this surface is already documented under § Auth" or "this is covered in apps/web/README.md § Routes" — if the section the reason names is not actually present in the inlined doc, the bypass fails. Per rule 4(a), each AFFECTED-doc claim must additionally name a distinctive phrase from the edit; the reviewer verifies each phrase against the staged diff, so "updated to add X" without a phrase visible in the diff FAILS.
+**Bypass (Layer 1 trailer)**: `git -c devshop.docsCoverageReason="<per-doc enumeration with named edits>" commit ...` accepts on flag presence (no LLM call). The `prepare-commit-msg` hook appends a `Docs-Coverage-Bypass: <reason>` trailer to the commit message; audit-time `/ak-docs-review` harvests trailers from the commit range and surfaces each as a `[bypass-revisit]` finding (VERIFIED / DEFER / ESCALATE per the diff at audit time). See § Bypass trailers below.
 
 **Per-project override**: `.devshop-docs-freshness-exempt` at repo root, one path per line. Whole-line `#` comments and trailing `# reason` comments are both stripped before exact-match. Same audit discipline as the test-coverage override. **Adding a new entry triggers `check-exempt-additions.sh`** — see § Exempt-File Additions below.
 
-**One check-type, two repos**: project- and devshop-side docs-coverage now share the unified `docsReviewed` reviewer (kept separate as `docsFreshnessProject` until 2026-05-01; merged via the doc-inlining-architecture RFC). Same rules apply to both surfaces; only the inlined doc catalog differs (devshop-side: CLAUDE.md + OVERVIEW.md + guide/\* + FAQ.md; project-side: CLAUDE.md + METRICS.md + OVERVIEW.md + ARCHITECTURE.md + per-package READMEs). The two surfaces never overlap because `commit-guard.sh`'s docs-coverage check only fires on changes under `kit/`, `.claude/`, or `.devshopkit/` while `check-docs-freshness-project.sh` fires on project source surfaces.
+**One Layer 1 surface per repo**: project-side `check-docs-coverage-project.sh` fires on project source surfaces (apps/, packages/, supabase/functions/); devshop-side `check-docs-coverage-devshop.sh` fires on devshop source surfaces (kit/scripts/, kit/hooks/, .claude/skills/, template/, .devcontainer/, kit/manifest.txt) per the surface→doc mapping in `kit/ROADMAP.md § PR-C § A`. The two never overlap because they detect repo-mode at runtime and exit 0 in the wrong repo.
+
+---
+
+## Bypass trailers
+
+Layer 1 docs/tests-coverage bypass flags emit Git trailers (instead of running an LLM at commit time) so that audit-time `/ak-docs-review` and `/ak-tests-review` can harvest them and surface each as a `[bypass-revisit]` finding. The trailer mechanic was introduced in PR-C of the audit-time docs+tests migration alongside the per-commit Layer 2 removal — see `kit/ROADMAP.md § PR-C § B`.
+
+**Trailer keys**:
+
+| Layer 1 script                              | Bypass flag                          | Trailer key              |
+| ------------------------------------------- | ------------------------------------ | ------------------------ |
+| `check-tests-coverage-{project,devshop}.sh` | `git -c devshop.testsCoverageReason` | `Tests-Coverage-Bypass:` |
+| `check-docs-coverage-{project,devshop}.sh`  | `git -c devshop.docsCoverageReason`  | `Docs-Coverage-Bypass:`  |
+
+**How it works**:
+
+1. **Pre-commit**: the Layer 1 script reads `git config devshop.<flag>`. If a non-empty value is present AND the script would otherwise block, it accepts the commit (no LLM call). If the flag is absent, the script blocks normally with a helpful message including the bypass invocation.
+2. **`prepare-commit-msg`** (`kit/scripts/commit-hooks/append-bypass-trailers.sh`, called from `.husky/prepare-commit-msg`): runs after pre-commit, before the commit message is finalized. Reads the same `git config` flags and appends the corresponding trailer via `git interpret-trailers --in-place`. Idempotent — re-running on the same message file does not duplicate trailers.
+3. **Audit-time consumption**: `/ak-docs-review` and `/ak-tests-review` each run a `git log --format=%B <range>` over their commit range, grep for `Docs-Coverage-Bypass:` / `Tests-Coverage-Bypass:` lines, and emit each one as a `[bypass-revisit]` finding in the audit report. Possible audit outcomes:
+   - **VERIFIED** — bypass was load-bearing AND remains valid given current diff. Recorded but not escalated.
+   - **DEFER** — bypass remains pending (e.g., docs update batched to end-of-feature; subsequent audit re-checks). Recorded.
+   - **ESCALATE** — bypass was load-bearing at the time but the diff has shifted such that the bypass would no longer be valid. Surfaced as medium or high severity.
+
+**Example commit body after bypass**:
+
+```
+fix(auth): wire onEdit prop into AwaitingConfirmationCard
+
+Adds the prop and its handler. CLAUDE.md update batched with
+parent feature work; will be addressed at end-of-feature audit.
+
+Docs-Coverage-Bypass: deferring CLAUDE.md§Where Things Happen update to end of feature
+```
+
+**Why trailers vs side-log**: trailers travel with the commit (survive rebase, push, clone) and are universally greppable via `git log`. Side-log files are local-only and flaky (interruptions, container rebuilds). Trailers are visible to anyone reading the PR (GitHub displays the full commit body). Git trailers + `prepare-commit-msg` are documented Git conventions — no new format invented.
+
+**What the trailer mechanic does NOT do**: it does NOT judge whether the bypass is reasonable. That judgment moves to audit time, where the reviewer has the full diff and the docs HAVE been written. Generic bypass reasons (`later`, `WIP`, `low risk`) still get recorded as trailers — but the audit-time `[bypass-revisit]` pass over them produces high-severity findings if the diff shows the work wasn't actually done.
 
 ---
 
@@ -596,11 +633,11 @@ The two exempt files (`.devshop-test-coverage-exempt`, `.devshop-docs-freshness-
 
 **Pre-flight (deterministic)**: each added line of the form `path  # reason` is parsed; path-like tokens in the **reason** (everything after `#`) are extracted (`*.ts`, `*.tsx`, `*.spec.ts`, `*.integration.test.ts`, `*.test.ts`, `*.spec.tsx`, `*.md`) and verified to exist on disk. The LHS path (the exemption target) is NOT checked — it commonly does not exist yet. A cited covering spec/test that doesn't exist is a **hard block — no adversarial bypass**, because that's the exact problem this check exists to catch.
 
-**Layer 2 (adversarial)**: when pre-flight passes, the inline reasons are sent to `adversarial-review.sh exemptAddition`. The reviewer requires per-entry specificity: a cited path that the pre-flight verified, OR an explanation of why the path is intrinsically untestable (pure re-export, type-only, dev-only stub) / doesn't need a doc entry (internal liveness probe, dev-only screen). Generic reasons (`TODO test`, `low risk`, `WIP`, `covered elsewhere`) fail. The relevant convention sections (Test Presence, Project Docs Freshness, Project Docs Hierarchy) are inlined into the reviewer's context.
+**Layer 2 (adversarial)**: when pre-flight passes, the inline reasons are sent to `adversarial-review.sh exemptAddition`. The reviewer requires per-entry specificity: a cited path that the pre-flight verified, OR an explanation of why the path is intrinsically untestable (pure re-export, type-only, dev-only stub) / doesn't need a doc entry (internal liveness probe, dev-only screen). Generic reasons (`TODO test`, `low risk`, `WIP`, `covered elsewhere`) fail. The relevant convention sections (Test Presence, Project Docs Coverage, Project Docs Hierarchy) are inlined into the reviewer's context.
 
 **Removals are unreviewed** — relaxing an exemption (re-applying the upstream gate) is always safe.
 
-**Order in the chain**: runs BEFORE `check-test-coverage-project` and `check-docs-freshness-project`, so a bad exempt addition surfaces first — the operator knows to fix the exempt entry, not chase the gate it would have silenced.
+**Order in the chain**: runs BEFORE `check-tests-coverage-project` and `check-docs-coverage-project`, so a bad exempt addition surfaces first — the operator knows to fix the exempt entry, not chase the gate it would have silenced.
 
 **No check-specific bypass flag**. The inline `# reason` IS the bypass surface. If the reviewer is wrong, the universal terminal-only override is `git -c devshop.humanReviewed="approve: <assessment>" commit ...`.
 
