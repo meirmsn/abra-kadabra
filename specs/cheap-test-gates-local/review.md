@@ -224,3 +224,35 @@ findings: high=0 medium=0 low=1
 
 - 613ce0b `Docs-Coverage-Bypass:` — VERIFIED. Bypass body cites a "zero hits across all 13 reference docs" attestation for the four removed counter variables. Re-grep across `CLAUDE.md`, `kit/docs/OVERVIEW.md`, `README.md`, `kit/docs/FAQ.md`, and all `kit/docs/guide/*.md` returns 0 matches for `E2E_RAN_COUNT|E2E_DEFERRED_COUNT|SMOKE_RAN_COUNT|SMOKE_DEFERRED_COUNT`. Bypass attestation accurate; trailer load-bearing for a pure dead-code refactor where no doc edit is warranted.
 - (no `Tests-Coverage-Bypass:` trailers in range — Layer 1 tests-coverage-devshop hook fired on each of Tasks 1, 2, 3 and was satisfied by paired bats in the same commit.)
+
+---
+
+## Audit 2: post-polish (2026-05-06)
+
+<!-- audited-at: 98082c2a73c1289b004c4ec4e152aa4cf493cd58 -->
+<!-- range: 613ce0b25356b925e5b72b89ddaa3ec0d74c5f75..98082c2a73c1289b004c4ec4e152aa4cf493cd58 -->
+
+findings: high=0 medium=2 low=0
+
+Three commits in range, all docs/bookkeeping (zero source files, zero test files touched):
+
+- `320e86d` chore(cheap-test-gates-local): record /ak-pre-ship Audit 1 + fix bypass example
+- `3b8937d` docs: bump quality-gate count from 14 to 15 (changed-tests-local at #2d)
+- `98082c2` chore(build-log): record cheap-test-gates-local
+
+### Docs findings
+
+- [medium] kit/docs/guide/workflow.md:58 + kit/docs/guide/workflow.md:377 — two stale "14 gates" references not updated by the /document-release commit (3b8937d). Line 58 is the Phase 3 ASCII pipeline diagram (`Phase 3 · /ak-pre-ship  (14 gates, re-run tests after each)`); line 377 is the skill-summary table row for `/ak-pre-ship` (`Quality gates only (14 gates incl. rls-coverage, slow-job-lifecycle, design-conformance).`). Both contradict line 187 in the same file (correctly bumped to "15 gates" by 3b8937d) and `README.md:33` (correctly "15 quality gates"). Canonical source `pre-ship/SKILL.md § Gates (canonical order + named IDs)` enumerates 15 rows. Fix: bump both to "15 gates"; in the line-377 row, update the parenthetical to enumerate the new gate (e.g. `Quality gates only (15 gates incl. changed-tests-local, rls-coverage, slow-job-lifecycle, design-conformance).`). Verified by `grep -rnE "14 (gate|quality)" --include="*.md"` from repo root.
+- [medium] kit/ROADMAP.md:1710 — the surviving stage-2 entry's preamble ("The shipped feature (sub-fix 2 stage 1) implements the convention-based smoke-set floor only…") references the "sub-fix 2 stage 1" enumeration that was defined only in the just-deleted v1 entry. After the deletion, the reader has to reconstruct the enumeration from context. The stage-3 entry on line 1738 was rewritten on the same axis ("The shipped `changed-tests-local` gate catches this only when…", per commit 98082c2's message: "Cross-reference at the import-graph follow-up rewritten in imperative present tense"); the stage-2 entry was not given the same treatment. Asymmetric. Fix: rewrite the stage-2 preamble to use the shipped-gate name directly, e.g. `The shipped 'changed-tests-local' gate implements the convention-based smoke-set floor only (apps/web/e2e/*-qa-walk.spec.ts ∪ apps/web/e2e/qa-walk.spec.ts).` Severity medium because it's the explicit symmetry counterpart to a fix the commit message claims was made; closing this asymmetry keeps the audit-trail self-consistent.
+
+### Tests findings
+
+- (none) — zero source files (`.sh`, `.ts`, `.tsx`) and zero test files (`.bats`, `.test.ts`, `.spec.ts`) touched in range. The shipped behavior's coverage matrix was verified in Audit 1 (commit ranges before 613ce0b); nothing in this range modifies it. All Section B sub-sections (weak assertions, missing error/invalid input, RLS auth boundaries, implementation detail tests, missing boundary conditions, shape-only assertions, WebKit hydration race, realtime publication, wrapper API design, runtime validation at LLM boundaries, skipped tests audit) are vacuously satisfied — no diff-staged tests to scan.
+
+### Bypass trailer audit
+
+- (none) — `git log --format='%B' 613ce0b..98082c2 | grep -E '^(Tests|Docs)-Coverage-Bypass:'` returns zero rows. No bypass trailers in range — nothing to verify.
+
+### Summary
+
+`findings: high=0 medium=2 low=0` — both medium findings are intra-doc consistency adequacy nits in the docs domain. No high-severity issues. Phase 6 surfaces them in the audit comment per /ak-build § Phase 5.8.4. Tests are solid (zero test changes in range; Audit 1's coverage matrix unaffected).
