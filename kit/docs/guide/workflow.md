@@ -61,6 +61,8 @@
 │  │   2.  metrics-check (ak)                                         │   │
 │  │   2b. rls-coverage (ak)         (migrations + client API)        │   │
 │  │   2c. slow-job-lifecycle (ak)   (integration/E2E threshold)      │   │
+│  │   2d. changed-tests-local (ak)  (cheap local floor: parse +      │   │
+│  │                                  changed E2E + smoke set)        │   │
 │  │   3.  responsive-theme (ak)     (UI)                             │   │
 │  │   4.  simplify                  ──▶ test:unit                   │   │
 │  │   5.  test-review (ak)                                           │   │

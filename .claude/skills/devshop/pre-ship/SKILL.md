@@ -197,22 +197,23 @@ devshop-native check or a devshop-authored skill like `/ak-check-docs-and-tests`
 prose elsewhere in the devshop renders the same split inline as `docs-and-tests-review (ak)`
 vs `review` so readers can tell at a glance which gates come from where.
 
-| #   | Name                    | Owner | Title                                 | Scope                                                                |
-| --- | ----------------------- | ----- | ------------------------------------- | -------------------------------------------------------------------- |
-| 1   | `docs-check`            | ak    | Devshop docs diff review              | when `kit/` or reference docs touched                                |
-| 2   | `metrics-check`         | ak    | Metrics coverage                      | user-facing code PRs                                                 |
-| 2b  | `rls-coverage`          | ak    | RLS policy coverage for client writes | when `supabase/migrations/**` or client API touched                  |
-| 2c  | `slow-job-lifecycle`    | ak    | Slow-job CI enabled past Phase 1c/1g  | when `*.integration.test.ts` or `apps/web/e2e/*.spec.ts` files exist |
-| 3   | `responsive-theme`      | ak    | Responsive + theme capture            | UI PRs only                                                          |
-| 4   | `simplify`              | —     | `/simplify` pass                      | always                                                               |
-| 5   | `docs-and-tests-review` | ak    | `/ak-check-docs-and-tests`            | always                                                               |
-| 6   | `review`                | —     | `/review` (+ Greptile triage)         | always                                                               |
-| 7   | `cso`                   | —     | `/cso` (security)                     | always                                                               |
-| 8   | `design-review`         | —     | `/design-review`                      | UI PRs only                                                          |
-| 8b  | `design-conformance`    | ak    | `/ak-design-conformance`              | runs regardless of UI scope                                          |
-| 9   | `qa`                    | —     | `/qa` (functional walk)               | always                                                               |
-| 10  | `benchmark`             | —     | `/benchmark`                          | UI PRs only                                                          |
-| 11  | `convention`            | ak    | Convention headers + hook-coverage    | always                                                               |
+| #   | Name                    | Owner | Title                                            | Scope                                                                                                                                           |
+| --- | ----------------------- | ----- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `docs-check`            | ak    | Devshop docs diff review                         | when `kit/` or reference docs touched                                                                                                           |
+| 2   | `metrics-check`         | ak    | Metrics coverage                                 | user-facing code PRs                                                                                                                            |
+| 2b  | `rls-coverage`          | ak    | RLS policy coverage for client writes            | when `supabase/migrations/**` or client API touched                                                                                             |
+| 2c  | `slow-job-lifecycle`    | ak    | Slow-job CI enabled past Phase 1c/1g             | when `*.integration.test.ts` or `apps/web/e2e/*.spec.ts` files exist                                                                            |
+| 2d  | `changed-tests-local`   | ak    | Cheap local test gates (parse + changed + smoke) | when diff includes `apps/**`, `packages/{core,ui}/**`, `*.integration.test.ts`, `apps/*/e2e/*.spec.ts`, or `supabase/{migrations,functions}/**` |
+| 3   | `responsive-theme`      | ak    | Responsive + theme capture                       | UI PRs only                                                                                                                                     |
+| 4   | `simplify`              | —     | `/simplify` pass                                 | always                                                                                                                                          |
+| 5   | `docs-and-tests-review` | ak    | `/ak-check-docs-and-tests`                       | always                                                                                                                                          |
+| 6   | `review`                | —     | `/review` (+ Greptile triage)                    | always                                                                                                                                          |
+| 7   | `cso`                   | —     | `/cso` (security)                                | always                                                                                                                                          |
+| 8   | `design-review`         | —     | `/design-review`                                 | UI PRs only                                                                                                                                     |
+| 8b  | `design-conformance`    | ak    | `/ak-design-conformance`                         | runs regardless of UI scope                                                                                                                     |
+| 9   | `qa`                    | —     | `/qa` (functional walk)                          | always                                                                                                                                          |
+| 10  | `benchmark`             | —     | `/benchmark`                                     | UI PRs only                                                                                                                                     |
+| 11  | `convention`            | ak    | Convention headers + hook-coverage               | always                                                                                                                                          |
 
 ## Dismissal Log (every gate, mandatory)
 
@@ -348,6 +349,41 @@ Outcomes:
 - `n/a (no integration tests or E2E specs — Phase 1c/1g threshold not crossed)` — pre-Phase-1c projects.
 
 **⚠ Branch-protection check is best-effort.** When `gh` CLI auth is missing or the repo isn't on GitHub yet, the protection check silently degrades (no finding emitted for that sub-check). Operators on a fresh devcontainer should re-run the gate after `gh auth login` to surface a real protection-state finding if any.
+
+## Gate changed-tests-local (ak): Cheap local test gates (parse + changed + smoke)
+
+Runs the cheap halves of integration + E2E test execution locally so a developer discovers a broken Playwright spec or a degraded local Supabase stack 30 seconds before pushing instead of 8–10 minutes after. The CI slow-job still runs the full matrix; this gate is the early-warning floor that fails fast on the subset of failures that don't need full multi-viewport / multi-project coverage. See `kit/docs/guide/conventions.md § Local Pre-Push Test Gates` for the convention this gate ships.
+
+- Scope: runs when the diff against `origin/main` includes any of `apps/**`, `packages/core/**`, `packages/ui/**`, `*.integration.test.ts` (added/modified), `apps/*/e2e/*.spec.ts` (added/modified), `supabase/migrations/**`, or `supabase/functions/**`. Otherwise `n/a (no stack-needing paths in diff)`. Path classification is the same hardcoded table used by `path-classifier.sh classify` / `diff-needs-stack` and by `supabase-bootstrap.sh`'s D6 promotion logic — single source of truth.
+- Out of scope: replacing the CI slow-job, running the full multi-viewport matrix, or managing `pnpm dev` lifecycle (delegated to Playwright's `webServer` block in the project's `playwright.config.ts`).
+
+Invocation:
+
+```bash
+bash /devshop/kit/scripts/preship/changed-tests-local.sh "$(git rev-parse --show-toplevel)"
+```
+
+The gate runs four steps in order, each wallclock-bounded via `timeout --kill-after=10s`:
+
+1. **Parse-check** (cap: 30s) — `pnpm exec playwright test --list` from the project's Playwright config root. Parse failure short-circuits before execution steps fire (no point running a config that won't load). This is the only place in the pipeline where the parse-check claim from `kit/ROADMAP.md` is actually wired.
+2. **Changed E2E execution** (cap: 2 min) — collects `apps/*/e2e/*.spec.ts` files in `git diff --name-only --diff-filter=AM origin/main...HEAD`, runs them with `--project=chromium --max-failures=1 --workers=1` against the project's existing `webServer` block.
+3. **Changed integration execution** (cap: 1 min) — collects `*.integration.test.ts` files in the diff, runs with `VITEST_INTEGRATION=1 pnpm vitest run <files>` against the local Supabase stack already brought up by preflight.
+4. **Smoke set** (cap: 2 min) — when the diff touches `apps/**` or `packages/{core,ui}/**`, runs the convention-based smoke set: union of `apps/web/e2e/*-qa-walk.spec.ts` and `apps/web/e2e/qa-walk.spec.ts`. On budget hit, emits the triage line `found N specs; M ran, K deferred to CI` per `conventions.md § Local Pre-Push Test Gates`.
+
+Combined floor cap: ~5 min wallclock total across all steps.
+
+Outcomes:
+
+- `pass` — every step ran cleanly within budget OR every step was a no-op (no changed specs and smoke set didn't apply).
+- `findings (N)` — N steps surfaced failures. Each step's failure appears as a bullet with the canonical re-run command.
+- `findings (N) [budget exceeded]` — at least one step hit its wallclock cap; the triage line `found N specs; M ran, K deferred to CI` appears as a bullet, and the deferred specs are recorded under `## Dismissals` with rationale `wallclock budget exceeded; CI will exercise these in slow-job`.
+- `n/a (no stack-needing paths in diff)` — diff is pure-docs / outside the classifier's stack-needing globs.
+- `pass (skipped — adversarially reviewed)` — `git config devshop.localTestSkipReason "<reason>"` is set and adversarial review (check-type `localTestSkipReason`, Sonnet-routed) accepted the reason.
+- `findings (1) pending` — bypass flag set but adversarial review FAILed the reason; gate emits the reviewer's verdict.
+
+**Bypass:** `git config devshop.localTestSkipReason "<why these are OK to skip locally>"` short-circuits the gate after invoking adversarial review on the reason. Same shape as `devshop.testReviewSkipReason` / `devshop.dirtyPushReason`. Default REJECT — passes require per-category engagement, no core-flow dismissal, plausible follow-up commitment, no security-boundary skips.
+
+**Preflight contract:** the preflight Supabase bootstrap (`kit/scripts/preship/supabase-bootstrap.sh up`) reads the same path-classifier and `git config devshop.requireHealthyLocalStack` (default `when-relevant`) — when the diff is stack-needing AND the local stack is degraded, preflight promotes the legacy `pass-with-note` outcome to `blocked`, which halts the pipeline before this gate runs. Set `devshop.requireHealthyLocalStack never` to opt out (legacy `pass-with-note` behavior preserved).
 
 ## Gate 3: Responsive + theme check (UI PRs only)
 
