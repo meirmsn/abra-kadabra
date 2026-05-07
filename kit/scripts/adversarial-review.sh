@@ -23,6 +23,9 @@
 #   testReviewSkipReason  — `/ak-build` Phase 5.8 halt-override review (audit-time scope,
 #                           judges PER-FINDING engagement against the latest `## Audit N`
 #                           section in specs/<feature>/review.md)
+#   localTestSkipReason   — `changed-tests-local` gate bypass review (sub-fix 1 of
+#                           cheap-test-gates-local; judges per-category engagement
+#                           on a skip of changed E2E / changed integration / smoke set)
 #   dismissalLog          — pre-ship gate-dismissal rationale review
 #
 # Usage: adversarial-review.sh <check-type> <reason> [context...]
@@ -46,7 +49,7 @@
 # Per-check-type model routing (Haiku 4.5 for deterministic rule-application,
 # Sonnet 4.6 for judgment-heavy or high-blast-radius checks):
 #   Haiku:  dirtyTreeReason, dirtyPushReason, manifestReviewed
-#   Sonnet: prDescStaleReason, testReviewSkipReason, dismissalLog, hookBypass, exemptAddition
+#   Sonnet: prDescStaleReason, testReviewSkipReason, localTestSkipReason, dismissalLog, hookBypass, exemptAddition
 # Rationale: PR descriptions are the canonical reviewer-facing record; hookBypass
 # can leak secrets via gitleaks bypass; testReviewSkipReason judges audit-time
 # halt overrides; dismissalLog weighs spec scope. Dirty-tree / manifest checks
@@ -187,6 +190,42 @@ Audit summary: $SUMMARY
 Latest audit section (specs/$FEATURE/review.md § Audit N):
 $FOLLOWUP_BODY"
     ;;
+  localTestSkipReason)
+    # Called by kit/scripts/preship/changed-tests-local.sh when the user has set
+    # `git config devshop.localTestSkipReason "..."` to short-circuit the gate.
+    # The reviewer judges whether the skip is load-bearing against the actual
+    # diff scope — not against a generic "tests look fine" claim.
+    BRANCH=$(git branch --show-current 2>/dev/null || true)
+    HEAD_SHA=$(git rev-parse HEAD 2>/dev/null || echo "(unknown)")
+    # Surface the diff so the reviewer can judge the categories being skipped.
+    # `origin/main` is the canonical base for the gate; fall back to HEAD~1 if
+    # origin isn't reachable (test fixtures, fresh clones).
+    DIFF_PATHS=""
+    if DIFF_PATHS=$(git diff --name-only --diff-filter=AM origin/main...HEAD 2>/dev/null); then
+      :
+    else
+      DIFF_PATHS=$(git diff --name-only --diff-filter=AM HEAD~1..HEAD 2>/dev/null || true)
+    fi
+    DIFF_PATHS="${DIFF_PATHS:-(no diff or origin/main unreachable)}"
+    CONTEXT="The user is bypassing the changed-tests-local pre-ship gate (#2d).
+
+The gate runs the cheap halves of integration + E2E test execution locally:
+  Step 1: parse-check (playwright test --list)
+  Step 2: changed E2E specs (apps/*/e2e/*.spec.ts in the diff)
+  Step 3: changed integration tests (*.integration.test.ts in the diff)
+  Step 4: smoke set (apps/web/e2e/*-qa-walk.spec.ts ∪ apps/web/e2e/qa-walk.spec.ts)
+
+Bypass means none of these run; the bypass reason claims that's OK.
+
+Branch: $BRANCH
+HEAD SHA: $HEAD_SHA
+
+Diff paths (origin/main...HEAD, added/modified):
+$DIFF_PATHS
+
+The reviewer judges whether the bypass reason addresses each test category that
+would otherwise have run, against the diff above."
+    ;;
   prDescStaleReason)
     # Called by .husky/pre-push. Gathers PR title/body vs commits on branch.
     BRANCH=$(git branch --show-current 2>/dev/null || true)
@@ -282,7 +321,7 @@ ${SPEC_IN_SCOPE:-(not available)}"
     # moved to audit-time `/ak-check-docs-and-tests`. A stale caller hits this
     # branch and surfaces immediately rather than silently no-op'ing.
     echo "FAIL: unknown check type: $CHECK_TYPE" >&2
-    echo "  Surviving check-types: prDescStaleReason | dirtyTreeReason | dirtyPushReason | manifestReviewed | hookBypass | exemptAddition | testReviewSkipReason | dismissalLog"
+    echo "  Surviving check-types: prDescStaleReason | dirtyTreeReason | dirtyPushReason | manifestReviewed | hookBypass | exemptAddition | testReviewSkipReason | localTestSkipReason | dismissalLog"
     echo "  Coverage reviews (docsReviewed / testCoverage / testCoverageProject / docsFreshnessProject) moved to audit-time /ak-check-docs-and-tests in PR-C — see kit/ROADMAP.md."
     exit 1
     ;;
@@ -406,7 +445,7 @@ get_model_for_check_type() {
     return
   fi
   case "$1" in
-    prDescStaleReason|testReviewSkipReason|dismissalLog|hookBypass|exemptAddition)
+    prDescStaleReason|testReviewSkipReason|localTestSkipReason|dismissalLog|hookBypass|exemptAddition)
       echo "sonnet"
       ;;
     dirtyTreeReason|dirtyPushReason|manifestReviewed)
@@ -470,6 +509,23 @@ Per-check-type rules:
     Default: REJECT. The Phase 5.8 audit already weighed signal vs noise; high-severity findings reflect real gaps in coverage of behavior that landed after the pre-ship snapshot. The override exists for genuinely-justified ship-now cases, not for skipping the audit.
 8. For manifestReviewed: judge whether the proposed manifest treatment matches the actual file's lifecycle (locked / sync / scaffold-once / symlink / locked-dir). Generic 'add to manifest' without naming the lifecycle tag FAILS.
 9. For dirtyTreeReason: same shape as dirtyPushReason but at commit-time.
+10. For localTestSkipReason (changed-tests-local gate bypass): the Reason justifies
+    skipping local execution of changed E2E specs / changed integration specs /
+    smoke set despite paths in the diff that need them. PASS requires ALL of:
+    (a) Per-finding engagement: the reason names each test category being
+        skipped (e.g. \"skipping the smoke set because pnpm dev wedges in this
+        devcontainer; the changed E2E specs ran fine\") AND explains why CI
+        coverage is sufficient for that category.
+    (b) No core-flow dismissal: skipping the smoke set on a diff that touches
+        the project's primary user verb is categorically NOT acceptable.
+    (c) Plausible follow-up commitment (when \"will fix later\" appears): the
+        reason names a specific TODOS.md / ROADMAP entry tracking the
+        environmental fix.
+    (d) No silent-broken-env skips: \"the local stack is broken so I'm
+        skipping\" must include either an open issue tracking the env fix OR
+        a concrete recipe the operator already tried.
+    Default: REJECT. Generic \"ran out of time\" / \"I'll fix later\" / \"low risk\"
+    FAIL.
 
 Respond with EXACTLY one line:
 PASS - only if the reason is genuinely legitimate and specific

@@ -1705,77 +1705,51 @@ Auto-detect change scope and pick a tier:
 
 Announce which tier was picked. Override with `--full` or `--light`.
 
-### Shift cheap test gates from CI-only to local pre-push
+### Cheap-test-gates-local sub-fix 2 stage 2 — per-project `.devshop/test-impact.json` path-pattern map
 
-**Problem.** Today only Vitest unit/component tests (`pnpm turbo run test:unit`) run locally before push — they fire in `/ak-implement`, `/ak-pre-ship`, and `/ship`'s pre-push gate, so a new unit test gets exercised three times before code leaves the workstation. Every other test type runs CI-only:
+**Problem.** The shipped `changed-tests-local` gate runs the convention-based smoke-set floor only — `apps/web/e2e/*-qa-walk.spec.ts` ∪ `apps/web/e2e/qa-walk.spec.ts`. A project that doesn't follow that convention gets no smoke set; a project that follows it gets a fixed-cost floor but nothing precision-targeted to the diff. The path-pattern layer is the next precision rung above the floor.
 
-- **`*.integration.test.ts`** files — gated behind `VITEST_INTEGRATION=1`, run by CI's slow-job against the runner-side Supabase stack.
-- **Playwright E2E specs** — run by CI's slow-job × 2 viewports.
-- **`/qa` happy-path walk** (browser-driven smoke against the dev server) — fires only inside `/ak-pre-ship` Gate 9; routinely marked `n/a` on changes the operator labels "no visible UI delta," and silently skipped when the local Supabase stack is degraded.
+**Shape.** Per-project config at `.devshop/test-impact.json` (or `.devshop/test-impact.toml` — pick one) mapping changed source paths to spec paths via filename regex. Example:
 
-This is correct for _expensive_ checks that need real CI infra, but wrong for _fast_ ones. The slow-job is the first time a new Playwright spec executes. A new integration test with a missing fixture costs an 8–10 min CI roundtrip to discover. A typo in a `*.spec.ts` import statement that breaks parsing only surfaces after the entire fast-job + slow-job cycle finishes red — even though `playwright test --list` (already wired into pre-ship) would have caught it locally in <5s.
+```json
+{
+  "patterns": [
+    {
+      "match": "apps/web/components/(.+)\\.tsx",
+      "specs": [
+        "apps/web/e2e/$1-qa-walk.spec.ts",
+        "apps/web/e2e/add-item-banner.spec.ts"
+      ]
+    },
+    {
+      "match": "packages/core/src/api/(.+)\\.ts",
+      "specs": ["packages/core/src/api/$1.integration.test.ts"]
+    }
+  ]
+}
+```
 
-The cost compounds. Lalista PR #52 (disambig-sheet symmetry fix, 2026-05-06) burned three full CI cycles back-to-back: the actual fix, the Phase 5.6 PLAN.md+BUILD-LOG.md bookkeeping commit, and the Phase 5.8 Audit 2 review.md commit. The latter two are docs-only and shouldn't have triggered slow-job at all (separate roadmap entry — slow-job skip-on-docs-only). But even on the first run, the only test that actually ran locally was the new Vitest test the operator added; the existing E2E coverage that exercises the same `useOptimisticMutation` + `SyncErrorBanner` machinery (`apps/web/e2e/add-item-banner.spec.ts`) only ran on CI. If that spec had broken on the diff, the operator would discover it 8 minutes after pushing rather than 30 seconds before.
+`changed-tests-local.sh` reads the file (when present) AFTER the convention-based smoke set, deduplicates against already-running specs, and adds the resolved patterns to the spec list. Wallclock cap unchanged (specs that exceed the budget defer to CI per the existing triage line).
 
-**Solution shape — three sub-fixes layered together:**
+**Cost/risk.** ~2-3h (file format + reader + dedup + tests). Backward-compatible: projects without the file get the same behavior as today. Risk: false positives (running specs that don't actually exercise the diff) cost wallclock but never silent breakage.
 
-#### Sub-fix 1: Run new/edited tests locally before push
+### Cheap-test-gates-local sub-fix 2 stage 3 — import-graph match via `tsc --listFiles` / `madge`
 
-In `/ak-pre-ship`, after the existing `playwright test --list` parse-check, add an _execution_ step that compiles two lists from `git diff --name-only origin/<base>...HEAD`:
+**Problem.** Stage 2's path-pattern map catches the cases the operator can express as a regex; helper changes that ripple into specs without filename overlap escape it. The shipped `changed-tests-local` gate catches this only when the spec itself is in the diff.
 
-- **Changed Playwright specs** (`apps/web/e2e/*.spec.ts` matching the diff) — run them locally against `pnpm dev`'s server with chromium only (single viewport — full multi-viewport coverage stays on CI). Cap at ~2 min total; spec execution time × number of changed specs is bounded on a per-PR diff.
-- **Changed integration specs** (`*.integration.test.ts` matching the diff) — run them against the local Supabase stack with `VITEST_INTEGRATION=1`. Cap at ~1 min.
+**Shape.** For each changed source file, walk the TypeScript reference graph (`tsc --listFiles` or a lightweight tracer like `madge`) to find every spec that transitively imports the changed file. Cache the graph against the diff hash so repeated invocations within the same session don't re-walk. ~5-15s on a typical project.
 
-Both run only if the diff actually changed those file types — pure-docs diffs skip both. Failure surfaces the same way an existing Vitest checkpoint failure would: `/ak-pre-ship` halts with the gate's `findings_pending` shape, operator fixes locally and re-runs.
+The new match logic ORs with stage 1 (smoke set) and stage 2 (path-pattern map) — a spec runs locally if any layer surfaces it.
 
-This is purely additive to existing gates — no change to what runs on CI, just one earlier net for the cases where execution outpaces typing.
+**Cost/risk.** ~3-4h (tsc/madge integration + cache + budget enforcement + tests). Risk: tsc invocation cost can spike on large projects — wallclock cap is the safety valve. Defer until the smoke + path-pattern layers prove insufficient on a real project.
 
-#### Sub-fix 2: Cheap heuristic for "tests covering modified codepaths"
+### Lalista adoption of cheap-test-gates-local
 
-The harder gap: even tests that _aren't_ in the diff but exercise a changed codepath should run locally before push. Lalista PR #52 changed `DisambiguationSheet.tsx`; the existing `apps/web/e2e/add-item-banner.spec.ts` exercises the failure-banner machinery the change touches; nothing in the pipeline connects those.
+**Problem.** The devshop ships the new gate, but lalista — the validation ground — needs an explicit adoption PR to (a) verify the convention-based smoke set fires correctly on a real diff (already organically present: `core-flows-qa-walk.spec.ts`, `disambig-add-new-hero-qa-walk.spec.ts`, `qa-walk.spec.ts`, `ci-slow-job-qa-walk.spec.ts`), (b) exercise sub-fix 3's `blocked` promotion against a real degraded-stack scenario, and (c) verify the bypass flow (`devshop.localTestSkipReason` + adversarial review).
 
-Three heuristics in cost/precision order — implement them as a layered AND-OR chain:
+**Shape.** Devshop pull, then a deliberately stack-needing PR (e.g. minor UI change in `apps/web/components/`) with the local stack stopped, observe the preflight emit `blocked:` for the stack-needing diff, fix recipe surfaces, restart the stack, the gate passes. Then a docs-only PR to verify the same degraded stack does NOT block (legacy `pass-with-note:` advisory). Add a short note to the project's CLAUDE.md or ROADMAP about adoption status. ~30 min once the devshop merge has propagated to the project.
 
-1. **Path-pattern map** (cheapest, deterministic). A repo-local config maps changed source paths to spec paths via filename regex. Example: `apps/web/components/(.+)\.tsx` → `apps/web/e2e/$1*.spec.ts`. Catches the obvious "I changed `AddItemSheet.tsx`, run `add-item-banner.spec.ts`" case. Coverage is whatever the regex catches; misses are biased toward false negatives (which CI catches).
-2. **Import-graph match** (medium cost, broader coverage). For each changed source file, walk the TypeScript reference graph (`tsc --listFiles` or a lightweight tracer like `madge`) to find every spec that transitively imports the changed file. Catches helper changes that ripple into specs without filename overlap. Cost: one `tsc --listFiles` per `tsconfig.json` per pre-ship invocation, cached against the diff hash. ~5–15s on a typical project.
-3. **Curated smoke set** (fixed cost, always runs). A repo-maintained `pnpm test:e2e:smoke` runs the 5–10 most load-bearing user flows (sign-in → list view → add item → mark bought, etc.). Always runs locally on any `apps/web/**` diff regardless of what the heuristics surfaced. Bounds the floor: even a wildly creative diff that defeats both heuristics still runs the critical-path smoke before push.
-
-The OR semantics are deliberate: a spec runs locally if it's in the diff, OR a path-pattern matches it, OR the import graph reaches it, OR it's in the smoke set. The smoke set is the discipline floor; the heuristics are the precision ceiling. Total local budget cap: ~5 min wallclock. Specs that exceed the budget get triaged with a one-line message ("smoke + path-match + import-graph found 14 specs; 9 ran locally, 5 deferred to CI; full list: …") so the operator sees what got skipped and can re-run with `--full` if the diff genuinely touches that much surface.
-
-Ship sub-fix 2 in stages: smoke-set first (no static analysis required, immediate floor), path-pattern second (config in `kit/template/.devshop/test-impact.json` or similar), import-graph last (the only expensive piece, can be deferred).
-
-#### Sub-fix 3: Promote degraded local Supabase from `pass-with-note` to `blocked` when the diff needs it
-
-Today `/ak-pre-ship`'s preflight notes a degraded local stack ("Database error querying schema 500 on `/auth/v1/token`," items count = 0, etc.) and continues. Downstream gates that need the stack (`/qa`, integration tests, the planned sub-fix 1's local execution) get marked `n/a` with the rationale "stack is broken, can't walk." That's exactly the cheerful-advance-past-blocked failure mode `/ak-build § Phase 3 → 4` already explicitly warns against in the opposite direction:
-
-> A cheerful advance past blocked gates is the exact failure mode this workflow exists to prevent.
-
-Flip the rule: when preflight detects a degraded stack AND the diff touches paths whose gates need the stack — `apps/**` runtime code, new/edited integration specs, new/edited E2E specs, new migrations, edge functions — preflight classifies the stack state as `blocked`, not `pass-with-note`. The operator gets the same fix-recipe surface `/ak-build` already has for missing tooling: bring up a clean stack (`pnpm db:reset` + `pnpm db:start`), or explicitly downgrade gate relevance with a specific reason (not "the tool is broken").
-
-For pure-docs diffs (no runtime / test paths touched), preflight stays informational — the gates that _would_ need the stack legitimately don't apply.
-
-Stack-needing paths (project-template defaults; projects can extend):
-
-| Path                                     | Why it needs a healthy stack                                                |
-| ---------------------------------------- | --------------------------------------------------------------------------- |
-| `apps/**`                                | runtime code that integration / E2E coverage exercises                      |
-| `packages/core/**`, `packages/ui/**`     | shared libraries imported by runtime code                                   |
-| `*.integration.test.ts` (new or edited)  | the sub-fix 1 local execution requires Supabase                             |
-| `apps/web/e2e/*.spec.ts` (new or edited) | Playwright specs hit the dev server which hits Supabase                     |
-| `supabase/migrations/**`                 | apply locally before push to catch SQL errors that don't show up in `--dry` |
-| `supabase/functions/**`                  | local `functions serve` needs the stack for auth + DB access                |
-
-**Cost/risk.**
-
-- Implementation: smoke-set scaffolding ~2h (per project; one-time); pre-ship integration of sub-fix 1 ~3–4h (skill edit + telemetry surface + bypass mechanism); preflight gating in sub-fix 3 ~1–2h (preflight script + path classifier + reused `findings_pending` halt path); import-graph heuristic ~3–4h (caching + wallclock-budget enforcement). Total ~10–14h spread across two or three commits.
-- Risk: false positives on path-pattern (running specs that don't actually exercise the diff) cost wallclock but never silent breakage — fail-shut is harmless. False negatives are caught by CI, same as today. The `blocked` promotion in sub-fix 3 changes the "what passes pre-ship" semantics, so first project to adopt should ship behind a config flag (`devshop.requireHealthyLocalStack: 'when-relevant' | 'never' | 'always'`) and default to `'when-relevant'` once one project has run for two cycles without false-blocks.
-- Benefit: the typical lalista PR runs through 2–3 CI cycles end-to-end (initial push, bookkeeping push, audit push); shifting cheap execution left saves the bug-discovery roundtrip on the first cycle. On a PR where any of the heuristics actually catches a real failure pre-push, the savings are 8–20 min per ship _plus_ the operator's context-switch cost. On clean PRs, the local cost is bounded at ~5 min — comparable to what `/ak-pre-ship` already takes.
-
-**Out of scope (separate roadmap entries):**
-
-- **Slow-job skip-on-docs-only**: when the diff matches `^(specs/|PLAN\.md|BUILD-LOG\.md|TODOS\.md|.*\.md|\.gstack/|\.devshop/)` only, slow-job CI shouldn't run at all — saves the 8–10 min cycle on each Phase 5.6 / Phase 5.8 / Audit-N bookkeeping push. Belongs in `.github/workflows/ci.yml` with a `paths-ignore` filter, not in this pre-ship entry.
-- **Test-impact analysis (TIA) systems**: real TIA platforms (Gradle Enterprise, Datadog Test Optimization) instrument runtime to record which production code each test actually exercises, then re-run only impacted tests. That's the precise version of sub-fix 2; the heuristics here are an approximation that doesn't require infra. Move to TIA only if the heuristics' false-negative rate becomes painful — and that lift is its own roadmap entry.
-- **Tightening `/qa`'s `n/a` criteria**: today an operator can mark `/qa` `n/a` with prose like "no visible UI change" and the pipeline accepts it. Ought to require a positive file:line claim ("no `.tsx` files modified in this diff") that an adversarial reviewer can verify, not just a self-attestation. Adjacent to this entry but mechanically separate.
+**Cost/risk.** Pure validation — no code changes in the project. The risk is the gate firing falsely on a real diff (false positive caught by the validation PR; correctable in devshop if needed). The benefit is empirical confirmation that the convention-based smoke set + the D6 promotion both behave as specified.
 
 ### Persona-axis pre-ship gates (designer / backend-eng / frontend-eng / security / data)
 
