@@ -2,6 +2,51 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.25.0 (2026-05-07)
+
+- chore(post-pr-c-deferred-polish): record Audit 1 — clean
+- fix(post-pr-c): close 2 deferred-low items from Audit 1
+- chore(ak-check-docs-and-tests): record Audit 2 (post-fix) — clean
+- chore(ak-check-docs-and-tests): Audit 1 + fix mediums (rename/release-coverage drift)
+- feat(devshop): PR-C — remove per-commit Layer 2, add devshop docs Layer 1, symmetry rename, bypass trailers
+- feat(devshop): PR-B — Phase 5.8 wiring + collapse two-file model
+- feat(devshop): PR-A — audit-time docs+tests review skills
+- docs(spec): ak-check-docs-and-tests — sweep-time docs+tests audit
+- feat(ak-build): Phase 5.8 + 5.9 — post-pre-ship coverage re-audit + visual evidence refresh
+- docs(roadmap): queue v0 — extract PR #43 E2E + Supabase test-infra lessons
+- docs(roadmap): queue /ak-build Phase 5.8/5.9 + /ak-go-live prod-config sync; refresh lalista snapshot
+- docs(todos): track NNP daemon-flag breaking workspace postStartCommand sudo
+- fix(devcontainer): tolerant init-firewall DNS resolution + drop retired statsig.anthropic.com
+- docs(notes): add adversarial-review doc-inlining follow-ups note
+- docs(roadmap): track deferred adversarial-reviewer phases (Phase 5 tool-use grep + Phase 6 coherence sweep)
+- refactor(adversarial-review): unify bypass key — devshop.docsFreshnessReviewed → devshop.docsReviewed
+- feat(adversarial-review): unify docsReviewed across both repos + sharpen rule 1(a) (formerly 4(a))
+- docs: fold kit/docs/MODEL.md into OVERVIEW.md § Concept
+- docs(ak-clean-branches): clarify why both fetch --prune and remote prune origin are needed
+- docs(roadmap): RFC — unified adversarial-reviewer doc-inlining architecture
+- fix(conventions): § Project Docs Hierarchy — project CLAUDE.md uses native discovery, not the SessionStart hook (#26)
+- feat(docs): deeper project docs hierarchy — OVERVIEW + ARCHITECTURE + per-package READMEs (#25)
+- docs(roadmap): persona-axis pre-ship gates (designer/backend-eng/frontend-eng/security/data)
+- feat(adversarial-review): inline relevant guide-doc bodies + addition-drift sweep
+- feat(hooks): DEPS-WATCH.md — parked-dependency revisit reminders in session briefing (#24)
+- fix(hooks): check-branch-not-main.sh whitelist parity with PR #19 (#23)
+- refactor(hooks): pre-push wrapper+symlink — close template-propagation wart (#22)
+- fix(pre-push): require zero source changes for PR-desc short-circuit (#21)
+- feat(hooks): adversarially review additions to project exempt files (#20)
+- fix(hooks): narrow check-hook-bypass to skip non-commit bash invocations (#19)
+- fix(hooks): tighten hook-bypass regexes to anchor on actual usage form (#18)
+- chore(template): track .husky/pre-push as 644 + relax mode test (#17)
+- feat(hooks): make sync scripts + freshness check manifest-driven (#15)
+- fix(template): translate Debian arch to Rust target-triple for DCG download (#16)
+- feat(hooks): make init-devshop.sh manifest-driven (fixes .husky/pre-push) (#14)
+- feat(hooks): annotate manifest.txt with file-lifecycle tags + shared parser (#12)
+- feat(new-project)+docs(guide): macOS host setup guide + Step 0 gate (#13)
+- feat(commands+template): /ak-handoff for context-continuation handoffs
+- feat(hooks): docsReviewed adversarial reviewer detects rename/move/delete drift (#11)
+- fix(hooks): close env-var bypass + tighten flag-assignment matching (#10)
+- feat(hooks): project pre-push with no-direct-push-to-main + strip dead PR-desc from devshop pre-push (#8)
+- chore(hooks): fix script-name drift + add project exempt-file template stubs (#7)
+
 ## v1.24.0 (2026-04-29)
 
 - docs(ops): lead Env Var Naming with three-surface "How it works" preamble
