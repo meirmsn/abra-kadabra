@@ -211,8 +211,10 @@ Each step is bounded via the `timeout --kill-after=10s` shell builtin. On hit, t
 Set the bypass to short-circuit the gate per-invocation:
 
 ```bash
-git -c devshop.localTestSkipReason="<why these are OK to skip locally>" \
-    git push  # or however the gate is invoked
+# Set the bypass on the repo (read by the gate body, not by a git hook):
+git config devshop.localTestSkipReason "<why these are OK to skip locally>"
+# Then re-run /ak-pre-ship; the gate short-circuits after adversarial review.
+# To clear: git config --unset devshop.localTestSkipReason
 ```
 
 Same shape as `devshop.testReviewSkipReason` / `devshop.dirtyPushReason`. The gate invokes adversarial review (check-type `localTestSkipReason`, Sonnet-routed) on the reason. PASS → `pass (skipped — adversarially reviewed)`; FAIL → `findings (1) pending` with the reviewer's verdict on stdout. Reviewer rules:
