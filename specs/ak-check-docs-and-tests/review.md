@@ -30,3 +30,22 @@ findings: high=0 medium=7 low=7
 
 - a2e1f34 Docs-Coverage-Bypass — VERIFIED. All 7 AFFECTED-doc named-phrase claims grep-verified in the staged diff. Three attestation-quality nits classified as low findings above (D-section).
 - a2e1f34 Tests-Coverage-Bypass — VERIFIED. util-bypass-trailers.bats (12 tests, 147 lines) covers append-bypass-trailers.sh substantively; guard-docs-coverage-devshop.bats (29 tests, 299 lines) covers check-docs-coverage-devshop.sh substantively. Both new scripts ship with paired bats.
+
+## Audit 2: manual (2026-05-07)
+
+<!-- audited-at: 88ef9f4f27ed3902b29a79f1083f0619b728b616 -->
+<!-- range: a2e1f34a9f60a2862a76fbe4420b14e38fc642ca..HEAD -->
+
+findings: high=0 medium=0 low=0
+
+### Docs findings
+
+- (none) — fix commit `88ef9f4` resolved the 7 medium drift findings + the 1 self-introduced low from Audit 1. Remaining stale-name reference at conventions.md L564 is the intentional "(Renamed from ... in PR-C)" archival parenthetical, carve-out per the "rationale archive, not active docs" rule.
+
+### Tests findings
+
+- (none) — fix commit was docs-only; no source/test changes.
+
+### Bypass trailer audit
+
+- (none — no `Docs-Coverage-Bypass:` or `Tests-Coverage-Bypass:` trailers in range; the `dirtyTreeReason` bypass used on the fix commit is adversarially-reviewed at commit time and out of scope for audit-time review).
