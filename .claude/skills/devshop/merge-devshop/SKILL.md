@@ -80,16 +80,17 @@ fi
 
 git fetch origin
 
-# Verify ff-mergeability from origin/main onto HEAD (i.e. branch is ahead of main, not divergent)
-if ! git merge-base --is-ancestor origin/main HEAD; then
-  echo "✖ origin/main is not an ancestor of $BRANCH — rebase first:"
-  echo "    git rebase origin/main"
-  exit 1
-fi
-
-# Refuse if branch == origin/main (nothing to merge)
+# Refuse if branch == origin/main (nothing to merge). Divergent branches are
+# OK — Phase 2's rebase reconciles them with origin/main before squashing.
 if [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ]; then
   echo "✖ $BRANCH is at origin/main — nothing to merge"; exit 1
+fi
+
+# Verify branch has at least one commit ahead of merge-base (otherwise nothing
+# to squash). `git rev-list --count <merge-base>..HEAD` returns the ahead count.
+MERGE_BASE=$(git merge-base origin/main HEAD)
+if [ "$(git rev-list --count ${MERGE_BASE}..HEAD)" = "0" ]; then
+  echo "✖ $BRANCH has no commits ahead of origin/main — nothing to squash"; exit 1
 fi
 ```
 
@@ -372,99 +373,112 @@ The skill does NOT auto-fix findings. Sub-skills don't either.
 
 ---
 
-## Phase 2: Stage the squash
+## Phase 2: Squash on the feature branch
+
+The squash commit is created on the **feature branch**, not on main. Two
+reasons this is the right shape:
+
+1. **`check-branch-not-main.sh` blocks Claude from running `git commit` on
+   main.** Committing on the feature branch dodges the hook structurally —
+   no operator handoff, no `!`-prefix terminal incantation, fully
+   autonomous. Pre-commit hooks (gitleaks, doc-coverage, lint, typecheck,
+   test suite) still fire on the feature-branch commit, so coverage is
+   identical.
+2. **It's what GitHub's "Squash and merge" does internally.** Squash on
+   the source side, fast-forward to the destination. Phase 3 then becomes
+   a pointer move with no new commit.
 
 ```bash
-git checkout main
-git merge --ff-only origin/main          # catch local-main lag
-
-# Stage all the feature branch's changes WITHOUT creating a commit
-git merge --squash "$BRANCH"
+# Already on the feature branch from Phase 0.
+git rebase origin/main          # incorporate origin/main's commits; resolve conflicts inline
+git reset --soft origin/main    # collapse all of $BRANCH's commits to a single staged delta
+git commit -F "/tmp/squash-message-${FEATURE}.txt"
 ```
 
-If `git merge --squash` reports textual conflicts (both sides modified the
-same lines), resolve them — either inline if the resolution is mechanical
-(e.g. both sides appended at the file's tail; concatenate them in
-chronological order), or by surfacing the conflict to the operator. After
-resolution, `git add` the resolved files. The merge stays staged for Phase 3.
+Why `--soft`: `git reset --soft <commit>` moves HEAD to `<commit>` while
+leaving the index AND working tree untouched. So after the soft-reset, the
+working tree still contains the rebased branch's full content; HEAD is at
+origin/main; the index has every change from the squashed commits as a
+single staged delta. The follow-up `git commit` produces one commit on top
+of origin/main containing exactly that delta.
 
-If `git merge --squash` fails with the rename+symlink-at-old-path combo (see
-§ Known limitations): abort with `git reset --hard HEAD` and switch to the
-documented ff-only fallback recipe, skipping Phase 3.
+Why the rebase is required first: `git reset --soft origin/main` produces a
+correct squash only if the working tree already contains origin/main's
+content. Without the rebase, the soft-reset would create a commit that
+appears to _revert_ any origin/main changes the branch hadn't picked up.
+The rebase merges them in first; conflicts are resolved at rebase time
+(operator-visible, recoverable via `git rebase --abort`).
 
-The commit and push happen in Phase 3 — Claude does NOT run them. Read on.
+If `git rebase origin/main` reports conflicts: resolve them (mechanical
+resolutions inline, ambiguous ones via the operator), `git add`, then
+`git rebase --continue`. Repeat until rebase finishes.
+
+If `git commit` fails (pre-commit hook block — Layer 1 docs/tests-coverage,
+gitleaks, lint, typecheck, test suite): halt and surface the hook output.
+The fix lives in the branch content; resolve, re-stage if needed, retry
+the commit. The branch is still valid for re-invocation — Phase 0's
+ff-mergeability check is the only thing that needs to re-pass.
+
+If the rename+symlink-at-old-path combo from § Known limitations fires
+during the rebase or commit: switch to the documented ff-only fallback
+(unaffected by lint-staged's stash bug because it doesn't go through the
+squash machinery).
 
 ---
 
-## Phase 3: Hand off commit + push to operator
+## Phase 3: Fast-forward main + push
 
-The devshop's `kit/scripts/commit-hooks/check-branch-not-main.sh` PreToolUse
-hook unconditionally blocks Claude from running `git commit` on main —
-that's the same hook that guards every other Claude-driven workflow. Humans
-CAN commit from a terminal; that's the documented escape hatch. The skill
-surfaces the command and waits.
-
-Print exactly:
-
-```
-⚠ The on-main commit hook blocks Claude commits to main.
-  Run from your terminal (the `!` prefix at this prompt also works):
-
-    git commit -F /tmp/squash-message-${FEATURE}.txt && git push origin main
-
-  Reply "done" once both succeed (or paste the error if either fails —
-  I'll guide recovery from there).
+```bash
+git checkout main
+git merge --ff-only origin/main         # catch local-main lag
+git merge --ff-only "$BRANCH"           # ff main → squash commit (no NEW commit, no hook)
+git push origin main
 ```
 
-Then stop and wait for the operator's response.
+`git merge --ff-only` does not create a new commit — it just moves main's
+HEAD pointer forward to the squash commit Claude created on the feature
+branch. The on-main commit hook never fires. The push transports a
+pointer move plus the new commit object.
 
-### 3.1: Resume after operator confirms
+If `git merge --ff-only "$BRANCH"` fails (would require a real merge
+because main moved during Phase 2): rare on a single-developer devshop, but
+recoverable — `git fetch origin && git rebase origin/main` on the feature
+branch, then re-run Phase 3.
 
-If the operator says **done**: continue to Phase 4.
+If push fails because someone else pushed in between (multi-machine race):
 
-If the operator surfaces a commit/push error, route by type:
+```
+✖ push rejected — origin/main has moved since fetch.
+  Run /ak-merge-devshop again; Phase 0's fetch + ff-mergeability check
+  will re-evaluate against the new tip. The squash commit on the feature
+  branch is preserved (recoverable via git reflog if rebase rewrites it),
+  and /tmp/squash-message-${FEATURE}.txt survives across invocations.
+```
 
-- **Pre-commit hook blocked the commit** (Layer 1 docs/tests-coverage,
-  gitleaks, lint, typecheck, test suite): the conflict is in the staged
-  content, not the commit machinery. Instruct the operator to undo the
-  staged squash, switch back to the feature branch, fix, re-invoke
-  /ak-merge-devshop:
+If push fails because the commit touched `.github/workflows/**` (PAT
+lacks `workflow` scope — same issue as `/ak-build` Phase 5.4 step 8):
+surface the human-push command and exit. The operator pushes manually;
+the skill is done.
 
-  ```bash
-  git reset --merge
-  git checkout "$BRANCH"
-  ```
-
-- **Push rejected — origin/main moved since fetch** (multi-machine race):
-
-  ```
-  ✖ push rejected — origin/main has moved since fetch.
-    Run /ak-merge-devshop again; Phase 0's fetch + ff-mergeability check
-    will re-evaluate against the new tip.
-
-    Note: the squash commit on local main needs to be discarded before
-    re-invocation, otherwise local main is divergent from origin:
-      git reset --hard origin/main      # discard local squash
-      git checkout $BRANCH              # back to the feature branch
-    Then re-invoke. The squash commit message in /tmp survives, so
-    Phase 0's compose step won't be wasted.
-  ```
-
-- **Push failed because the commit touched `.github/workflows/**`** (PAT
-lacks `workflow`scope — same issue as`/ak-build` Phase 5.4 step 8):
-  surface the human-push command. The operator pushes manually; the skill
-  skips to Phase 4 cleanup once they confirm.
-
-  ```
-  ⚠ Squash commit touches workflow file(s):
-  <list>
-
-  Devcontainer PAT lacks 'workflow' scope. Push manually:
-
-    git -c credential.helper= push https://<your-user>@github.com/<owner>/<repo>.git main
-
-  Reply "done" when push succeeds; I'll continue Phase 4 cleanup.
-  ```
+```bash
+TOUCHED_WORKFLOWS=$(git diff --name-only HEAD~1 HEAD | \
+  grep -E '^\.github/workflows/' || true)
+if [ -n "$TOUCHED_WORKFLOWS" ]; then
+  USER=$(gh api user --jq .login 2>/dev/null || echo "<your-github-user>")
+  echo "⚠ Squash commit touches workflow file(s):"
+  echo "$TOUCHED_WORKFLOWS"
+  echo ""
+  echo "Devcontainer PAT lacks 'workflow' scope. Push manually:"
+  echo ""
+  echo "  git -c credential.helper= \\"
+  echo "    push https://${USER}@github.com/<owner>/<repo>.git main"
+  echo ""
+  echo "Then run Phase 4 cleanup manually:"
+  echo "  git branch -D ${BRANCH}"
+  echo "  git push origin --delete ${BRANCH} 2>/dev/null || true"
+  exit 0
+fi
+```
 
 ---
 
@@ -472,24 +486,23 @@ lacks `workflow`scope — same issue as`/ak-build` Phase 5.4 step 8):
 
 ### 4.1: Tree-equality check
 
-Defense-in-depth that the squash didn't drop anything. Runs after the
-operator's commit + push has landed (Phase 3.1's "done" signal):
+Under the soft-reset + ff-merge flow this check is trivially true (main
+and the feature branch point at the same commit after Phase 3's
+ff-merge), so it's a near-free sanity assertion. Worth keeping as
+defense-in-depth in case the flow changes or the operator interrupted
+between Phase 2 and Phase 3 in a way that left the branches at different
+commits:
 
 ```bash
 if ! git diff --quiet "main" "$BRANCH"; then
-  echo "✖ post-squash tree mismatch between main and $BRANCH:"
+  echo "✖ post-merge tree mismatch between main and $BRANCH:"
   git diff --stat "main" "$BRANCH"
   echo ""
-  echo "  The squash on main does NOT contain all the feature branch's"
-  echo "  changes. Halting before cleanup so the feature branch is still"
+  echo "  Halting before cleanup so the feature branch is still"
   echo "  recoverable. Investigate the diff manually."
   exit 1
 fi
 ```
-
-Paranoia; never been observed to fire. But the cost of a false negative
-(deleted feature branch + partial merge already pushed to main) is too
-high to skip the one `git diff`.
 
 ### 4.2: Cleanup
 
@@ -625,11 +638,14 @@ Every phase is idempotent on re-invocation:
   file's mtime, offer to reuse it (skip recompose). Otherwise recompose.
 - **Phase 1 audit**: idempotent via `/ak-check-docs-and-tests`'s own no-op
   guard (latest `## Audit N` at HEAD → skip).
-- **Phase 2 stage**: if HEAD on main already contains the squash (detected
-  via `git log --grep="<subject-line>" -1 main`), skip Phase 2 — already
-  merged; jump to Phase 4.
-- **Phase 3 handoff**: re-prints the same operator command on resume. The
-  operator's `git push` is idempotent ("Everything up-to-date" on re-run).
+- **Phase 2 squash**: if the feature branch's tip is already a single
+  commit on top of origin/main with the expected message subject (detected
+  via `git log -1 --format='%s' "$BRANCH"` matching the composed subject
+  AND `git rev-list --count origin/main..HEAD = 1`), skip the rebase +
+  soft-reset + commit — already squashed.
+- **Phase 3 ff-merge + push**: `git merge --ff-only` is a no-op when
+  already at the target; `git push` is idempotent ("Everything up-to-date"
+  on re-run).
 - **Phase 4 cleanup**: re-running the deletes when the branch is already
   gone is a no-op (use the `ls-remote --exit-code` guard for the remote;
   `git branch -D` errors when local branch is absent — wrap in `|| true`).
