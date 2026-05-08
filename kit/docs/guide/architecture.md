@@ -89,14 +89,15 @@ All project work happens in the project repo. Branches, PRs, commits — all on 
 
 Devshop changes go to the abra-kadabra repo. Since `.devshopkit/` is a symlink to `/devshop/kit/`, edits to devshop files are automatically in the abra-kadabra working tree.
 
-**No GitHub PRs on devshop** — devshop is a single-developer private repo where pre-commit guards (Layer 1 docs/tests-coverage hooks, mixed-commit, manifest, clean-tree, security-files-freshness, gitleaks, lint, typecheck, test suite) are the inner quality gate, and audit-time `/ak-check-docs-and-tests` (fired before each ff-merge) is the outer gate. Land via feature branch + `ff-merge` to main locally; push directly to `origin/main`.
+**No GitHub PRs on devshop** — devshop is a single-developer private repo where pre-commit guards (Layer 1 docs/tests-coverage hooks, mixed-commit, manifest, clean-tree, security-files-freshness, gitleaks, lint, typecheck, test suite) are the inner quality gate, and audit-time `/ak-check-docs-and-tests` (fired automatically inside `/ak-merge-devshop` Phase 1) is the outer gate. Land via feature branch + `/ak-merge-devshop` (squash-merge with structured commit message + push + cleanup); the skill is the canonical merge path.
 
 ```bash
 cd /devshop                                          # abra-kadabra repo
 git checkout -b feat/<topic>                         # branch off main
 # ... edits + commits with conventional-commit messages ...
-git checkout main && git merge --ff-only feat/<topic>
-git push origin main
+# then: invoke /ak-merge-devshop — it audits, composes the squash commit
+# message (with operator approval gate), squash-merges, pushes, and
+# deletes the feature branch local + remote.
 ```
 
 - Devshop commits use conventional commits (`feat:`, `fix:`, `chore:`, etc.)

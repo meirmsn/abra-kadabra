@@ -584,7 +584,7 @@ The devshop's own scripts and configuration are tested with [BATS](https://githu
 **Two enforcement layers:**
 
 1. **Per-commit (pre-commit chain):** BATS runs the full test suite (~6s). Catches regressions immediately. The `check-tests-coverage-devshop.sh` guard blocks new scripts without test files and warns on modified scripts without test files.
-2. **Per-merge (audit-time):** `/ak-tests-review` reviews the diff before each ff-merge to main, fired by `/ak-check-docs-and-tests`. Surfaces missing coverage of new behavior + weak assertions + the 11-rubric quality checks against the actual `.bats` files. Replaces the per-release adversarial review removed in PR-C of the audit-time docs+tests migration (`kit/ROADMAP.md § PR-C`).
+2. **Per-merge (audit-time):** `/ak-tests-review` reviews the diff before each merge to main (fires automatically inside `/ak-merge-devshop` Phase 1, which delegates to `/ak-check-docs-and-tests`). Surfaces missing coverage of new behavior + weak assertions + the 11-rubric quality checks against the actual `.bats` files. Replaces the per-release adversarial review removed in PR-C of the audit-time docs+tests migration (`kit/ROADMAP.md § PR-C`).
 
 **What's tested vs. exempt:**
 

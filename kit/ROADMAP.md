@@ -2159,6 +2159,44 @@ The diff is well-understood now (lalista ran it 2026-05-05). Encoding is cheap r
 
 ---
 
+### Project-side devshop version tracking + upgrade-gap surfacing
+
+**Problem.** Today there's no mechanism for a project (lalista et al.) to know which devshop version it was scaffolded against, nor for `init-devshop.sh` (or any session-start hook) to surface "your project is N versions behind the live devshop; here's what's changed in between." The devshop ships releases (`/ak-release-devshop` cuts tags from `kit/version`); projects pin nothing and discover drift only when a skill behaves unexpectedly or a convention referenced in a doc no longer matches the current devshop. The asymmetry is: devshop knows its own version; projects don't know the devshop version they're built against.
+
+A second problem: there's no ambient pressure to propagate devshop improvements to existing projects. A new convention codified in `/devshop/CLAUDE.md § Foo` only lands in the projects that happen to have a session active when the convention ships — older projects keep operating on stale assumptions until their operator manually re-reads devshop docs (rare). The result: each project's behavior drifts from the current devshop's assumed-shared baseline at a rate that scales with elapsed time, and the only recovery is post-hoc "why is this skill failing on lalista but not abracadabra" debugging.
+
+**Shape of the fix:**
+
+1. **Project records the devshop version it was built against.** `/ak-new-project` writes `<project>/.devshop-version` (or a JSON `<project>/.devshop/state.json` if multiple state fields accumulate) at scaffold time, containing the `kit/version` of the devshop release used. Tracked in git; explicitly NOT a generated artifact.
+
+2. **Session-start hook diff.** The existing `kit/scripts/session-start.sh` (which already injects different context for project vs devshop sessions) reads `.devshop-version` and compares to `/devshop/kit/version`. When the project is behind:
+   - One-line at session start: `📦 Project on devshop v0.7.2 → live is v0.9.1 (N releases behind). See /devshop/kit/docs/CHANGELOG.md for what's changed.`
+   - Don't block; don't auto-upgrade — surface only.
+
+3. **`/ak-upgrade-devshop` skill (new).** Operator-invoked when they're ready to bring a project's conventions / template files / skill assumptions up to current. The skill:
+   - Reads the project's pinned version + devshop's current version.
+   - Walks `kit/docs/CHANGELOG.md` entries between them, classifying which entries imply project-side action (e.g., "new convention X in `/devshop/CLAUDE.md` — rewrite project's Y to match") vs project-irrelevant (e.g., "internal devshop refactor").
+   - Surfaces the action items as a checklist; operator approves or skips each. Skill applies the approved diffs.
+   - On completion, bumps `<project>/.devshop-version` to the new version + commits.
+
+4. **Decoupled from `/ak-merge-devshop`.** Deliberately. Merging a feature on the devshop side does not auto-propagate to projects — projects could be many, and coordinating each devshop release with active project work breaks the user's scaling assumption ("we shouldn't on every devshop release ask about this"). Upgrade is operator-initiated per-project, on the project's schedule.
+
+**Why deferred to v1:** the gap is real but not blocking next-project adoption. The first project (lalista) is on the devshop's working tree directly via the `.devshopkit/` symlink; there's no "version pinning" — every devshop change is immediately visible to lalista. The convention drift problem only emerges when a second project exists AND that second project is decoupled from devshop main (e.g., scaffolded against a tagged release). v0 work doesn't hit this; v1 onboarding of a second project will.
+
+**Implementation surface (when picked up):**
+
+- New file: `/devshop/template/.devshop-version` template (just contains the placeholder `__DEVSHOP_VERSION__` that `/ak-new-project` substitutes).
+- Edit `/ak-new-project` Step N (scaffold time): write `.devshop-version` with current `cat /devshop/kit/version`.
+- Edit `kit/scripts/session-start.sh` (project session branch): read + diff + emit upgrade-gap line.
+- New skill: `/devshop/.claude/skills/ak-upgrade-devshop/SKILL.md`.
+- `kit/docs/CHANGELOG.md` discipline: entries that imply project action need a structured marker (e.g., `**Project action:** rewrite X to match Y`) so the upgrade skill can extract them. `/ak-release-devshop` Phase 2 (changelog generation) is the right place to enforce the marker convention.
+
+**Source:**
+
+- Surfaced 2026-05-07 during the `/ak-merge-devshop` design conversation. Operator pushed back on a coordinated-change check at merge time, observing: "in the case we need to do changes on the projectS (plural) side so they support the newest version of the devshop... seems like we should have a way that when we open the project, the init-devshop brings it up to date. Perhaps we'll need some tracking of the devshop version a project has been built with so far. But definitely we shouldn't on every devshop release ask about this, since projects could be many." This entry captures that idea verbatim before it's lost.
+
+---
+
 ## v+ (future — when the need is felt)
 
 ### Full Finding Router — structured `disposition:` per gate dismissal
