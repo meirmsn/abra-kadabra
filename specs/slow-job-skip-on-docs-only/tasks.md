@@ -27,7 +27,18 @@ Comment block above the stubs explains the uncomment-both ritual + cross-referen
 
 ## Task 2 — `kit/tests/template-ci-yml-shape.bats`
 
-**Status:** pending
+**Status:** done
+
+New BATS file pinning the literal commented-out shape of the `changes:` setup-job stub + slow-job's `needs:` / `if:` wiring + the D2 ignore list (in canonical order). 23 assertions covering:
+
+- changes-job stub presence + canonical shape (checkout@v4, fetch-depth: 0, classify step writes `runtime=` to `$GITHUB_OUTPUT`, three-dot diff, `shopt -s globstar`, empty-diff defaults to `runtime=true`, outputs.runtime declaration).
+- D2 ignore list — every glob present (`**/*.md`, `specs/**`, `PLAN.md`, `BUILD-LOG.md`, `TODOS.md`, `.gstack/**`, `.devshop/**`) AND in canonical order (line-number ascending check pins the read-flow).
+- Slow-job stub still commented; `needs: [fast, changes]` and `if:` carries pull_request gate AND runtime gate.
+- Comment block cross-references conventions.md § Skip-on-docs-only filter and warns about the dangling-needs trap.
+
+23/23 pass.
+
+**Commit:** Task 2 atomic.
 
 ## Task 3 — Extend slow-job-lifecycle gate + BATS
 
