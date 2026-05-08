@@ -1747,6 +1747,108 @@ Lalista is about to implement this inline at PR 6 (`lalista/PRODUCT-ROADMAP.md �
 
 ---
 
+### Context-aware guideline routing for `/ak-spec` and `/ak-implement`
+
+The implementer (`/ak-implement`) and spec author (`/ak-spec`) currently read **one fixed guide** — `kit/docs/guide/conventions.md` (877 lines, 69 H2 sections) — and the rest of `kit/docs/guide/` is Tier 3 reference that doesn't auto-load. Net effect: project-relevant gotchas live in the docs but don't fire for the change that needs them. Lalista PR 54 (2026-05-08) hit this twice in one PR — the iOS input-zoom rule and the cross-origin redirect gotcha both lived in head-knowledge / lalista CLAUDE.md, but a fresh agent on a new project would re-discover them empirically. The structural fix is **lazy-loaded context tied to the change shape**: each skill consults a routing index that maps "what your change touches" → "which guide section(s) to read," and each guide section carries a `**See also:**` footer for transitive discovery.
+
+Same pattern senior engineers use to onboard ("read the auth doc when you touch auth"), surfaced as machine-readable routing instead of human pattern-recognition.
+
+**The pattern (three load-bearing pieces):**
+
+1. **Routing index in `kit/docs/guide/README.md`.** Today the README is a flat ToC. Promote it to a routing table keyed by triggering signal — files paths in spec's `## Files` section, keywords in spec's `## Decisions`, primitives imported in the diff. Each row points to a guide section, not a whole file (because conventions.md and ops.md both have ~10–60 sections each and "read conventions.md" is too coarse to act on).
+2. **`See also:` footers on guide sections** for transitive discovery. The user's "those might be further read if they apply to the current change" point — the implementer follows See-also links recursively when relevant. Example: `ops.md § PWA` ends with "See also: `latency-feedback.md` (Tier B for forms ≥16px input rule)" so an iOS-PWA-touching change also picks up the input-tier convention.
+3. **Skill consultation in `/ak-spec` Step 1 and `/ak-implement` Step 1.** Both currently say "read conventions.md." Replace with: parse the spec's Files + Decisions, look up matching routing rows, read those sections, follow See-also where the spec's scope makes them relevant. `/ak-spec` consults to write the spec correctly (encode known gotchas as Decisions); `/ak-implement` consults to apply guidelines the spec didn't fully encode. Defense in depth.
+
+**Routing index — proposed initial rows** (concrete starting set; the audit pass below will refine and extend):
+
+| Trigger signal in spec or diff                                                                | Guide section to read                                                             |
+| --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `apps/web/app/layout.tsx`, `manifest.json`, "PWA" / "standalone" / "iOS" in Decisions         | `ops.md § PWA`                                                                    |
+| Focusable input primitives (`<input>`, `<textarea>`, `<select>`, `Input.tsx`, `Textarea.tsx`) | `ops.md § PWA` (iOS input-zoom rule)                                              |
+| `apps/web/app/(auth)/**`, `middleware.ts`, "sign-in" / "session" / "recovery" in Decisions    | `supabase-ssr-boilerplate.md`, `security.md § Auth boundaries`                    |
+| `supabase/migrations/**`, "RLS" / "PostgREST" / `.select()` calls                             | `conventions.md § Database queries`, `conventions.md § Migration sequencing`      |
+| `subscribeToList`, "realtime" / `supabase_realtime` publication                               | `conventions.md § Realtime publication`, `supabase-ssr-boilerplate.md § Realtime` |
+| `supabase/functions/**` edge function changes, LLM call boundaries                            | `conventions.md § Runtime validation at LLM boundaries`                           |
+| Optimistic mutation, `useOptimisticMutation`, button mutations, route nav with `loading.tsx`  | `latency-feedback.md`                                                             |
+| Custom-domain swap, `*.vercel.app` ↔ canonical-domain change                                  | `ops.md § PWA cross-origin redirect`, `ops.md § Custom domain`                    |
+| `.test.ts` / `.spec.ts` / `e2e/**` test additions                                             | `testing.md`, `supabase-ssr-boilerplate.md § E2E helpers`                         |
+| `.github/workflows/**` CI changes                                                             | `ops.md § CI`, `conventions.md § Deploy Boundaries`                               |
+| `.devcontainer/compose.yml`, supabase-runner edits                                            | `local-supabase-compose-isolation.md`                                             |
+| `.devcontainer/.env`, ntfy / notifications                                                    | `notifications.md`                                                                |
+| New git hook, husky / `prepare-commit-msg` / `pre-push`                                       | `hooks.md`                                                                        |
+
+**Audit pass — all guides** (the user's "audit of all guides to see which ones should be linked to" requirement). For each guide in `kit/docs/guide/`, decide: what change-shape signals fire it, what's the natural See-also target, does any subsection deserve to be its own guide (file-size / link-target proportionality):
+
+| Guide (lines)                               | Fires when spec/diff touches                                                                                                                                                                                                                          | Natural See-also targets                                                                                                                                   |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `architecture.md` (194)                     | Container/symlink layout, devshop-vs-project separation. **Never on feature work** — flag as "not in routing index" so it stays out of every spec's reading list.                                                                                     | n/a (foundational, read once)                                                                                                                              |
+| `conventions.md` (877)                      | **Mega-file** — 69 H2 sections, cross-cutting. Routing must target sub-sections, not the whole file. Audit may surface 2-3 sections to lift to standalone guides (Migration sequencing, Latency feedback, Database queries are all >100 lines today). | per-section, see below                                                                                                                                     |
+| `hooks.md` (382)                            | Adding / modifying a git hook (husky, prepare-commit-msg, pre-push, pre-commit).                                                                                                                                                                      | `conventions.md § Bypass trailers`, `workflow.md`                                                                                                          |
+| `latency-feedback.md` (124)                 | Interactive UI: forms, buttons, optimistic mutations, route nav with `loading.tsx`, skeleton placeholders.                                                                                                                                            | `ops.md § PWA` (iOS input-zoom rule applies to Tier B forms), `conventions.md § Database queries` (PostgREST error-first applies inside Tier A2 mutations) |
+| `local-supabase-compose-isolation.md` (295) | `.devcontainer/compose.yml`, supabase-runner, `pnpm db:*` lifecycle commands.                                                                                                                                                                         | `macos-host-setup.md`, `conventions.md § Env Var Naming`                                                                                                   |
+| `macos-host-setup.md` (67)                  | Per-Mac one-time host config. **Out of routing index** — fires on first project setup, not on feature work.                                                                                                                                           | n/a                                                                                                                                                        |
+| `notifications.md` (97)                     | ntfy wiring, push notifications, `.devcontainer/.env` notifier additions.                                                                                                                                                                             | n/a                                                                                                                                                        |
+| `ops.md` (355)                              | **Topic-routed** — has `Where Things Happen`, `Env Var Naming`, `Migration Workflow`, `PWA`, `CI`, `Custom Domain` sub-sections. Each sub-section gets its own routing row.                                                                           | per-section                                                                                                                                                |
+| `security.md` (98)                          | Auth boundaries, secrets, RLS bypass, CI credential isolation, principle-of-least-privilege.                                                                                                                                                          | `conventions.md § Database queries`, `supabase-ssr-boilerplate.md § Edge fn auth`                                                                          |
+| `supabase-ssr-boilerplate.md` (341)         | Env vars, CSP, Realtime publication, WebKit form-state, edge-function auth, E2E helpers. **Has its own internal section structure** suitable for sub-routing.                                                                                         | `testing.md`, `latency-feedback.md` (forms touch both)                                                                                                     |
+| `testing.md` (69)                           | Test additions (`.test.ts`, `.spec.ts`, `e2e/**`).                                                                                                                                                                                                    | `supabase-ssr-boilerplate.md § E2E helpers`, `conventions.md § Test presence`                                                                              |
+| `workflow.md` (435)                         | Meta — describes the devshop pipeline / skill flow. **Out of routing index for feature work** (it's read by skill authors, not by feature implementers).                                                                                              | n/a (orientation doc)                                                                                                                                      |
+
+**Sub-sections that may deserve standalone-guide promotion** (decided in audit phase — proportionality test: if the section is >100 lines + has its own See-also targets + is referenced by 3+ skills, lift it):
+
+- `conventions.md § Migration sequencing` (likely lift candidate — overlaps with `/ak-go-live` Step 1.6 + Track A spec discipline + Vercel-preview window).
+- `conventions.md § Database queries` (PostgREST error-first + RLS query patterns — lalista's most-hit gotcha class).
+- `conventions.md § Latency feedback` (this one's already lifted — see "non-duplication" below).
+
+The user's question — "how should `/devshop/kit/docs/guide/latency-feedback.md` and `conventions.md § Latency feedback tiers` get condensed":
+
+**They're already condensed.** `conventions.md` does NOT have a `§ Latency feedback tiers` section — it has one pointer line in `§ Cross-skill awareness` (line 661): "_Snappiness / latency feedback_ — see `kit/docs/guide/latency-feedback.md`." The substance lives entirely in the standalone guide; conventions.md only cross-references.
+
+The user's mental model assumed duplication because the topic appears in both places, but content-wise there's none. What's worth codifying as a rule is the **content-architecture invariant** this exemplifies:
+
+> **Substance lives in the topic-specific guide; `conventions.md` only cross-references via one-line pointers in `§ Cross-skill awareness`. Never copy.**
+
+This rule also resolves the lalista CLAUDE.md three-place pattern noted in the existing `kit/ROADMAP.md § Latency feedback framework` entry (canonical lives in lalista spec → lifts to devshop guide → lalista CLAUDE.md collapses to a pointer post-lift). The routing system enforces this naturally — if there's only one source of substance, the routing index has one row, and See-also footers chain from there.
+
+**Implementation surface:**
+
+- `kit/docs/guide/README.md` — promote from flat ToC to routing index. Adds a "Routing for `/ak-spec` and `/ak-implement`" table at the top; keeps the alphabetical ToC below for orientation. ~80 rows after audit.
+- `kit/docs/guide/*.md` — append `**See also:**` footer to every section that has natural neighbors. Touches ~6-8 guides; ~1-3 lines per section. Conservative — start with high-confidence pairs (the routing-table cross-references) and let later passes thicken.
+- `.claude/skills/devshop/spec/SKILL.md § Step 1` — replace "read conventions.md" with "parse spec → look up routing rows → read matching sections → follow See-also where scope-relevant."
+- `.claude/skills/devshop/implement/SKILL.md § Step 1` — same replacement, plus a heuristic for when the spec didn't fully encode (e.g., spec mentions PWA but didn't list `ops.md § PWA` in its Sources — implementer fills the gap by reading the routing match).
+- `kit/docs/guide/workflow.md` — paired one-paragraph reference under the "Implementation phase" section, pointing back to the load-bearing skill prose.
+- `kit/docs/guide/conventions.md § Cross-skill awareness` — possibly evolves into a derived view of the routing index, or stays as the one-line-pointer pattern. Decided in the audit.
+- BATS coverage — at least: routing index references resolve to existing guide sections (no broken links), every guide listed in `kit/docs/guide/` appears in either the routing index OR an explicit "out of routing" list, every routing-row trigger signal has an example match in lalista's existing specs (sanity check that the heuristic actually fires).
+
+**Why v0 — blocks next-project adoption:**
+
+Same playbook as `kit/ROADMAP.md § Latency feedback framework` and `§ Auth UX conventions`. Without context-aware routing, every next project will re-derive the same gotchas empirically — input zoom, cross-origin redirect, PostgREST error-first, Realtime publication, optimistic-mutation rollback timing, every other lesson lalista codified will rot in Tier 3 docs that don't auto-load. The lalista CLAUDE.md gotchas section (currently 25+ rules, growing) is the symptom of routing being absent: project-side accumulation because devshop side has no fire-on-demand mechanism. Fixing this is not a "polish" — it's the structural piece that lets the devshop's accumulated knowledge actually reach the implementer at the right moment.
+
+**Trigger:**
+
+- Surfaced by lalista PR 54 (2026-05-08) — iOS PWA fixes shipped, but the lessons would not auto-fire for the next project. User explicitly raised the structural gap.
+- Compounding pressure: lalista CLAUDE.md has 25+ gotchas that should generalize but currently rely on agent attention to lalista's CLAUDE.md (won't generalize). Each new gotcha extends the file; no extraction path exists.
+- OR: a second project adopts the devshop and the operator hits any of the gotchas the lalista CLAUDE.md already documents — the post-mortem reveals "this lesson was in our docs but didn't fire."
+
+**Cross-ref:**
+
+- `kit/ROADMAP.md § Latency feedback framework` — concrete prior-art lift that this routing system enables. Latency feedback was the first lift; the routing index makes lift #2, #3, … cheap.
+- `kit/ROADMAP.md § Self-correcting workflow patterns` (v+) — adjacent reframe: where this entry fixes context-discovery, that one fixes auto-action. Both share the "remove agent-discipline dependency" thread.
+- `lalista/CLAUDE.md § Gotchas` — the canonical "things that need to fire on context" list. Once routing lands, audit each gotcha: which collapse to a pointer (if their substance lifts to a guide), which stay project-specific (project-only surface mappings).
+- `lalista/specs/app-snappiness/spec.md § D1` — the most recent example of a spec that pre-encoded a gotcha into Decisions. Routing makes this the default flow, not an ad-hoc move.
+- `kit/docs/guide/conventions.md § Cross-skill awareness` (line 661) — the existing one-line-pointer pattern. The routing index is its structured generalization.
+
+**Cost/risk:**
+
+- Implementation: ~1-1.5h for the routing index draft (audit pass — read each guide's H2s, compose initial table); ~1h for See-also footers (~6-8 guides touched); ~30 min for skill amendments + workflow.md paragraph; ~1h for BATS coverage of link-resolution + routing match-check. Total ~3.5-4h focused work. Splittable into two PRs: (1) routing index + skill amendments + minimal See-also; (2) thick See-also + sub-section promotion decisions + lalista CLAUDE.md audit.
+- Risk of premature scope: the audit may surface 2-3 conventions.md sub-sections that warrant lifting to standalone guides. Resist doing all lifts in one PR — each lift is its own design decision (shape of the new guide, what stays in conventions.md as a cross-reference, where the See-also chains land). Track each as its own ROADMAP entry; the routing PR just creates the routing rows pointing into conventions.md sub-sections, and lift PRs land separately.
+- Risk of stale routing: routing rows can rot when guide sections get renamed or moved. Mitigation: BATS coverage that resolves every routing-row link to a real anchor in a real guide. Adversarial review can also catch routing-row drift at audit time (the existing `/ak-check-docs-and-tests` framework already catches doc-drift in commit ranges).
+- Risk of too-narrow heuristics: file-path matching alone misses changes that touch the right concept via different paths (e.g. a non-monorepo project's auth might live at `app/auth/**` not `apps/web/app/(auth)/**`). Mitigation: routing rows include both file-path globs AND keyword matches against the spec's Decisions section. Spec authors writing Decisions in clear topic-language helps the routing fire correctly.
+
+[v0, surfaced-by lalista-PR54, 2026-05-08]
+
+---
+
 ## v1 (after v0 is validated on the first project)
 
 ### JIT DB password entry for prod migration deploys via `/ak-go-live`
