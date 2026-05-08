@@ -372,7 +372,7 @@ The skill does NOT auto-fix findings. Sub-skills don't either.
 
 ---
 
-## Phase 2: Squash-merge
+## Phase 2: Stage the squash
 
 ```bash
 git checkout main
@@ -380,108 +380,122 @@ git merge --ff-only origin/main          # catch local-main lag
 
 # Stage all the feature branch's changes WITHOUT creating a commit
 git merge --squash "$BRANCH"
-
-# Commit using the message composed in Phase 0
-git commit -F "/tmp/squash-message-${FEATURE}.txt"
 ```
 
-If `git merge --squash` fails (working-tree conflict — should never happen at
-this point because Phase 0 checked tree was clean and origin/main was an
-ancestor): halt with the conflict message. The operator resolves and re-invokes.
+If `git merge --squash` reports textual conflicts (both sides modified the
+same lines), resolve them — either inline if the resolution is mechanical
+(e.g. both sides appended at the file's tail; concatenate them in
+chronological order), or by surfacing the conflict to the operator. After
+resolution, `git add` the resolved files. The merge stays staged for Phase 3.
 
-If `git commit` fails (pre-commit hook block — Layer 1 docs/tests-coverage,
-gitleaks, lint, typecheck, test suite): halt and surface the hook output.
-This is the inner quality gate doing its job; the operator fixes the issue
-on the feature branch (NOT on main — `git reset --merge` to undo the staged
-squash, switch back to feature branch, fix, re-invoke).
+If `git merge --squash` fails with the rename+symlink-at-old-path combo (see
+§ Known limitations): abort with `git reset --hard HEAD` and switch to the
+documented ff-only fallback recipe, skipping Phase 3.
 
-```bash
-# If commit blocked, undo the staged squash so main is unchanged:
-git reset --merge
-git checkout "$BRANCH"
+The commit and push happen in Phase 3 — Claude does NOT run them. Read on.
+
+---
+
+## Phase 3: Hand off commit + push to operator
+
+The devshop's `kit/scripts/commit-hooks/check-branch-not-main.sh` PreToolUse
+hook unconditionally blocks Claude from running `git commit` on main —
+that's the same hook that guards every other Claude-driven workflow. Humans
+CAN commit from a terminal; that's the documented escape hatch. The skill
+surfaces the command and waits.
+
+Print exactly:
+
+```
+⚠ The on-main commit hook blocks Claude commits to main.
+  Run from your terminal (the `!` prefix at this prompt also works):
+
+    git commit -F /tmp/squash-message-${FEATURE}.txt && git push origin main
+
+  Reply "done" once both succeed (or paste the error if either fails —
+  I'll guide recovery from there).
 ```
 
-The skill prints the exact commands and stops; the operator runs the reset
-when ready (this is the destructive-action confirmation gate).
+Then stop and wait for the operator's response.
 
-### 2.1: Verify the squash captured everything
+### 3.1: Resume after operator confirms
 
-After the commit succeeds, verify main's tree equals the feature branch's tree
-— a defense-in-depth check that the squash didn't drop anything:
+If the operator says **done**: continue to Phase 4.
+
+If the operator surfaces a commit/push error, route by type:
+
+- **Pre-commit hook blocked the commit** (Layer 1 docs/tests-coverage,
+  gitleaks, lint, typecheck, test suite): the conflict is in the staged
+  content, not the commit machinery. Instruct the operator to undo the
+  staged squash, switch back to the feature branch, fix, re-invoke
+  /ak-merge-devshop:
+
+  ```bash
+  git reset --merge
+  git checkout "$BRANCH"
+  ```
+
+- **Push rejected — origin/main moved since fetch** (multi-machine race):
+
+  ```
+  ✖ push rejected — origin/main has moved since fetch.
+    Run /ak-merge-devshop again; Phase 0's fetch + ff-mergeability check
+    will re-evaluate against the new tip.
+
+    Note: the squash commit on local main needs to be discarded before
+    re-invocation, otherwise local main is divergent from origin:
+      git reset --hard origin/main      # discard local squash
+      git checkout $BRANCH              # back to the feature branch
+    Then re-invoke. The squash commit message in /tmp survives, so
+    Phase 0's compose step won't be wasted.
+  ```
+
+- **Push failed because the commit touched `.github/workflows/**`** (PAT
+lacks `workflow`scope — same issue as`/ak-build` Phase 5.4 step 8):
+  surface the human-push command. The operator pushes manually; the skill
+  skips to Phase 4 cleanup once they confirm.
+
+  ```
+  ⚠ Squash commit touches workflow file(s):
+  <list>
+
+  Devcontainer PAT lacks 'workflow' scope. Push manually:
+
+    git -c credential.helper= push https://<your-user>@github.com/<owner>/<repo>.git main
+
+  Reply "done" when push succeeds; I'll continue Phase 4 cleanup.
+  ```
+
+---
+
+## Phase 4: Verify + cleanup
+
+### 4.1: Tree-equality check
+
+Defense-in-depth that the squash didn't drop anything. Runs after the
+operator's commit + push has landed (Phase 3.1's "done" signal):
 
 ```bash
 if ! git diff --quiet "main" "$BRANCH"; then
   echo "✖ post-squash tree mismatch between main and $BRANCH:"
   git diff --stat "main" "$BRANCH"
   echo ""
-  echo "  This means the squash commit on main does NOT contain all the"
-  echo "  feature branch's changes. Halting before push to avoid shipping"
-  echo "  a partial merge. Investigate manually."
+  echo "  The squash on main does NOT contain all the feature branch's"
+  echo "  changes. Halting before cleanup so the feature branch is still"
+  echo "  recoverable. Investigate the diff manually."
   exit 1
 fi
 ```
 
-This is paranoia; it has never been observed to fire in normal use. But the
-cost of a false negative (push half a feature to main, then notice in
-production) is high enough that one `git diff` is worth it.
+Paranoia; never been observed to fire. But the cost of a false negative
+(deleted feature branch + partial merge already pushed to main) is too
+high to skip the one `git diff`.
 
----
-
-## Phase 3: Push
-
-```bash
-git push origin main
-```
-
-If push fails because someone else pushed in between (unlikely on a
-single-developer devshop, but possible across multi-machine sessions):
-
-```
-✖ push rejected — origin/main has moved since fetch.
-  Run /ak-merge-devshop again; Phase 0's fetch + ff-mergeability check
-  will re-evaluate against the new tip.
-
-  Note: the squash commit you just created is still on local main.
-  Re-invocation will detect this state via the merge-base check —
-  if local main is now divergent from origin/main, you'll need to:
-    git reset --hard origin/main      # discard local squash
-    git checkout $BRANCH              # back to the feature branch
-  Then re-invoke. The squash commit message in /tmp survives, so
-  Phase 0's compose step won't be wasted.
-```
-
-If push fails because a commit touches `.github/workflows/**` (PAT lacks
-`workflow` scope — same issue as `/ak-build` Phase 5.4 step 8): surface the
-human-push command and exit. The operator pushes manually; the skill is done.
-
-```bash
-TOUCHED_WORKFLOWS=$(git diff --name-only HEAD~1 HEAD | \
-  grep -E '^\.github/workflows/' || true)
-if [ -n "$TOUCHED_WORKFLOWS" ]; then
-  USER=$(gh api user --jq .login 2>/dev/null || echo "<your-github-user>")
-  echo "⚠ Squash commit touches workflow file(s):"
-  echo "$TOUCHED_WORKFLOWS"
-  echo ""
-  echo "Devcontainer PAT lacks 'workflow' scope. Push manually:"
-  echo ""
-  echo "  git -c credential.helper= \\"
-  echo "    push https://${USER}@github.com/<owner>/<repo>.git main"
-  echo ""
-  echo "Then run Phase 4 cleanup manually:"
-  echo "  git branch -D ${BRANCH}"
-  echo "  git push origin --delete ${BRANCH} 2>/dev/null || true"
-  exit 0
-fi
-```
-
----
-
-## Phase 4: Cleanup
+### 4.2: Cleanup
 
 After the squash, the feature branch's commits are NOT in main's ancestry —
-git's `branch -d` (lowercase) safety check will refuse. Phase 2.1's tree-
-equality check is the proxy for "the work is on main"; with that passing,
-force-delete is safe.
+git's `branch -d` (lowercase) safety check will refuse. With 4.1's tree-
+equality check passing, force-delete is safe.
 
 ```bash
 git branch -D "$BRANCH"
@@ -611,10 +625,11 @@ Every phase is idempotent on re-invocation:
   file's mtime, offer to reuse it (skip recompose). Otherwise recompose.
 - **Phase 1 audit**: idempotent via `/ak-check-docs-and-tests`'s own no-op
   guard (latest `## Audit N` at HEAD → skip).
-- **Phase 2 merge**: if HEAD on main already contains the squash (detected
-  via `git log --grep="<subject-line>" -1 main`), skip Phase 2 — already merged.
-- **Phase 3 push**: `git push` is idempotent. If main has nothing new,
-  the push reports "Everything up-to-date" and exits 0.
+- **Phase 2 stage**: if HEAD on main already contains the squash (detected
+  via `git log --grep="<subject-line>" -1 main`), skip Phase 2 — already
+  merged; jump to Phase 4.
+- **Phase 3 handoff**: re-prints the same operator command on resume. The
+  operator's `git push` is idempotent ("Everything up-to-date" on re-run).
 - **Phase 4 cleanup**: re-running the deletes when the branch is already
   gone is a no-op (use the `ls-remote --exit-code` guard for the remote;
   `git branch -D` errors when local branch is absent — wrap in `|| true`).

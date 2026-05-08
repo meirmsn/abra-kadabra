@@ -25,8 +25,14 @@
 # - Phase 0.5 AskUserQuestion gate offers approve/edit/cancel.
 # - Phase 1 invokes /ak-check-docs-and-tests (NOT /ak-tests-review directly).
 # - Phase 2 uses `git merge --squash` (NOT --ff-only).
-# - Phase 2.1 has the post-squash tree-equality defense.
+# - Phase 3 hands commit + push off to the operator — skill does NOT run
+#   `git commit` itself, since the on-main commit hook
+#   (`kit/scripts/commit-hooks/check-branch-not-main.sh`) blocks Claude.
+# - Phase 3 surfaces the `git commit -F /tmp/squash-message-${FEATURE}.txt`
+#   command for the operator to run from terminal.
 # - Phase 3 has workflow-scope detection (parallels /ak-build Phase 5.4).
+# - Phase 4.1 has the post-squash tree-equality defense (moved from old
+#   Phase 2.1 — the check now runs after the operator's commit lands).
 # - Phase 4 force-deletes (`git branch -D`) and cleans up the remote
 #   (`git push origin --delete`).
 # - The verbatim-history framing is explicitly retired (only mentioned in the
@@ -165,18 +171,26 @@ setup() {
   ! awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE" | grep -qE 'git merge --ff-only "\$BRANCH"|git merge --ff-only.*\$FEATURE_BRANCH'
 }
 
-@test "Phase 2 uses git commit -F to read the prepared message file" {
-  awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE" | grep -qE 'git commit -F'
+# === Phase 3: hand off commit + push to operator ===
+
+@test "Phase 3 surfaces git commit -F for the operator to run (skill does NOT run it)" {
+  # The commit command appears in Phase 3's operator-facing text.
+  awk '/^## Phase 3:/,/^## Phase 4:/' "$SKILL_FILE" | grep -qE 'git commit -F'
+  # And Phase 2 must NOT run the commit itself — it should stop at staging.
+  ! awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE" | grep -qE '^[^#]*git commit -F'
 }
 
-@test "Phase 2.1 verifies post-squash tree equality between main and feature branch" {
-  awk '/### 2\.1:/,/^## Phase 3:/' "$SKILL_FILE" | grep -qE 'git diff.*main.*BRANCH'
+@test "Phase 3 explains the on-main commit hook is what forces the handoff" {
+  awk '/^## Phase 3:/,/^## Phase 4:/' "$SKILL_FILE" \
+    | grep -qE 'check-branch-not-main|on-main commit hook|commit hook blocks Claude'
 }
-
-# === Phase 3: push + workflow-scope detection ===
 
 @test "Phase 3 has workflow-scope detection mirroring /ak-build Phase 5.4" {
   awk '/^## Phase 3:/,/^## Phase 4:/' "$SKILL_FILE" | grep -qE '\.github/workflows/'
+}
+
+@test "Phase 4.1 verifies post-squash tree equality between main and feature branch" {
+  awk '/### 4\.1:/,/### 4\.2:/' "$SKILL_FILE" | grep -qE 'git diff.*main.*BRANCH'
 }
 
 # === Phase 4: cleanup ===

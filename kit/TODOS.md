@@ -367,3 +367,74 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
   **Edit targets**: `.claude/skills/devshop/merge-devshop/SKILL.md § Phase 2` adds the detection block; new `## Known limitations` section documents the rename-plus-symlink combo; `kit/tests/util-ak-merge-devshop.bats` adds a content-validation test for the detection prose.
 
   [v0+, skill-improvement, surfaced-by ak-merge-devshop-smoke-test, 2026-05-07]
+
+- [ ] **SKILL.md gstack-helper path resolution falls through silently when user-global gstack is auto-pruned.** [v0] When a SKILL.md preamble hardcodes `~/.claude/skills/gstack/bin/<helper>` (or any path under `~/.claude/skills/gstack/`), the helper goes silently no-op when Claude Code's settings-file maintenance prunes the user-global gstack folder (sometimes happens on devcontainer rebuilds or settings refreshes). Telemetry, timeline, and learnings have been silently no-op'ing across multiple deploy cycles on lalista. Only `gstack-slug` failed visibly, because `/land-and-deploy` depends on its output — every other helper that "fires and forgets" silently degraded.
+
+  **Fix**: SKILL.md preambles should resolve the helper path via the same fallback the `browse` SETUP block uses (`/devshop/.claude/skills/gstack/browse/SKILL.md` lines 358-361) — try `$_ROOT/.claude/skills/gstack/<helper>` (project-local, survives Claude Code prune) first, fall back to `~/.claude/skills/gstack/<helper>`. Either inline as a `B=` resolver pattern in every SKILL.md preamble, OR factor into a single helper `bin/gstack-resolve-bin <helper-name>` and call that from each SKILL.md preamble.
+
+  Reference shape from `browse` SETUP:
+
+  ```bash
+  _ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+  B=""
+  [ -n "$_ROOT" ] && [ -x "$_ROOT/.claude/skills/gstack/<helper>" ] && B="$_ROOT/.claude/skills/gstack/<helper>"
+  [ -z "$B" ] && B=~/.claude/skills/gstack/<helper>
+  ```
+
+  **Edit targets**: enumerate all SKILL.md files in `/devshop/.claude/skills/` that hardcode a `~/.claude/skills/gstack/...` path (telemetry, timeline, learnings emitters at minimum) + their lalista counterparts in `/workspace/.claude/skills/`. Apply the resolver pattern (or factor into `bin/gstack-resolve-bin`). Lalista has a project-local `.claude/skills/gstack/` (per `MEMORY.md § gstack Setup — virtiofs Build Workaround`); that's the structural defense the fallback pattern leans on.
+
+  **Why v0 — blocks next-project adoption**: affected EVERY skill silently for an entire deploy cycle on lalista. The next project that scaffolds inherits the same bug — and worse, the next project may not have a project-local `.claude/skills/gstack/` yet (lalista does because of the virtiofs rebuild workaround). Defending against it now costs ~20 min; the next debugging session that surfaces "why did my telemetry never log?" will cost more.
+
+  [v0, surfaced-by lalista-PR49-deploy-cycle, 2026-05-07]
+
+- [ ] **PostgREST returns `data: null` + `error` field for non-existent columns; downstream null-deref masks the typo.** [v0] When a Supabase query selects a column that doesn't exist (`from('table').select('id, nonexistent').single()`), PostgREST returns `data: null` AND populates the `error` field. But most call sites only consume `data` and crash later with `TypeError: Cannot read properties of null (reading 'id')`. The actual error message ("column does not exist") is swallowed by the developer's catch-the-data-is-null pattern.
+
+  **Context**: hit twice in lalista PR #49 — `items.name` (column doesn't exist; `items` table has `name_canonical`) and `purchase_history.list_entry_id` (FK was deliberately not added per migration 010 design — `purchase_history` doesn't carry it back). Both crashed Playwright E2E tests with generic null-deref errors; root cause was found by re-reading the query against the schema, not by reading the swallowed error message.
+
+  **Fix options** (pick one or combine):
+  1. **Convention doc** — `kit/docs/guide/conventions.md § Database queries`: require all `.select()` call sites to either use `.single()` AND check `error` first, OR use a typed wrapper that throws on `error`. Soft enforcement.
+  2. **Typed query helper** in `template/packages/core/src/supabase.ts` (or a new `@devshop-template/core` export): wrap supabase-js's `.from().select()` to throw immediately if `error` is set, regardless of `data`. Hard enforcement at the API boundary. Requires consumer migration.
+  3. **CLAUDE.md gotcha template** in `template/CLAUDE.md` — preemptive entry warning future projects of the failure mode + the "always check `error` first" pattern.
+
+  Recommend (1) + (3) for cheap proportionate coverage; (2) is durable but invasive — defer until a third project hits the same bug.
+
+  **Edit targets**: `kit/docs/guide/conventions.md` (new "Database queries" section), `template/CLAUDE.md` (new gotcha entry), optionally `template/packages/core/src/supabase.ts` (typed wrapper).
+
+  **Why v0 — blocks next-project adoption**: every Supabase project will hit this. Lalista alone hit it twice in one PR. The cost of (1) + (3) is ~10 min for prose; the cost of NOT shipping it is one debugging session per project per occurrence — and the symptom ("test crashes with null data") looks like a null-data bug, not a column-name typo, so the debugging path is unintuitive.
+
+  [v0, surfaced-by lalista-PR49-fix-loop, 2026-05-07]
+
+- [ ] **`/ak-pre-ship` Gate 9 (`/qa`) doesn't run fault-injected scenarios — happy-path crawl misses banner / error-state UI bugs.** [v0] UI flows pass under happy-path QA conditions but break under fault-injected ones (network failure, RPC abort, timeout). PR #49's `AddItemSheet` overlay-intercepts-Undo bug only surfaced when CI ran `page.route().abort()` to simulate a network failure — `/qa`'s happy-path crawl never tickled the failing-mutation banner state, so the overlay-z-index bug shipped past pre-ship and only got caught by Playwright's slow-job CI run.
+
+  **Shape**: extend `/ak-pre-ship` Gate 9 with a "fault-injected QA pass" sub-step. For each Tier A2 surface (looked up via spec or convention — the new `kit/docs/guide/latency-feedback.md` will tell us which surfaces are Tier A2; until that ships, parse the diff for `useOptimisticMutation({ failureMode: 'banner' })` call sites), abort the relevant edge-function/RPC route via `page.route().abort()` and assert the banner Retry/Undo affordances render and are clickable (no overlay intercept, no z-index regression).
+
+  Could be deterministic (parse spec for "Tier A2" annotations) or heuristic (grep diff for `useOptimisticMutation` + `failureMode: 'banner'`). Either works for v0.
+
+  **Edit targets**: `.claude/skills/devshop/pre-ship/SKILL.md` Gate 9 amendment + new helper `kit/scripts/preship/fault-injected-qa.sh` for the route-pattern detection logic.
+
+  **Why v0 — blocks next-project adoption**: pattern is reusable for any Tier A2 surface; lalista PR #49 paid 3 CI fix-loop iterations worth of cycles on bugs this gate would have caught pre-ship. Every next project that ships optimistic UI will hit the same class of bug (overlay z-index, focus management, banner accessibility under failure). The convention has to exist before a second project onboards or each project re-pays the same iteration cost.
+
+  **Cross-ref**: depends on the latency-feedback framework (`kit/ROADMAP.md § Latency feedback framework — 4-tier decision rule + primitives`) for the "which surfaces are Tier A2?" lookup. Either ships first; if this lands first, the lookup is a manual spec annotation; once the framework ships, the lookup is automatic via `useOptimisticMutation` call-site detection.
+
+  [v0, pre-ship-gate, surfaced-by lalista-PR49-fix-loop, 2026-05-07]
+
+- [ ] **Tier A2 retry-budget E2E tests need `page.clock.fastForward()` instead of bumped per-test timeouts.** [v0] When a Playwright test exercises a retry sequence with backoff (e.g. lalista's `RETRY_BACKOFF_MS = [1000, 3000, 7000]` totaling 11s of wall-clock backoff), the test runtime explodes past Playwright's default 30s timeout once you add sign-in flow + abort RTT + post-banner assertions. Lalista's `add-item-banner.spec.ts` workaround was `test.setTimeout(60000)` and `bannerLabel toBeVisible({ timeout: 25000 })` — works but inheritable-pattern-shaped, not a one-off. Future Tier A2 surfaces will write similarly-shaped tests and rediscover the workaround instead of the right answer.
+
+  **Fix**: document the canonical `page.clock.fastForward()` pattern (Playwright 1.45+) for tests against retry-budget-shaped surfaces. Fast-forward fake time past the backoff intervals so the test runs in <2s wall-clock instead of 11s+. Pattern reference: Playwright docs at https://playwright.dev/docs/clock + lalista's `add-item-banner.spec.ts` as the "DO NOT do it this way" prior art.
+
+  Sketch:
+
+  ```ts
+  await page.clock.install();
+  // ... trigger the optimistic mutation ...
+  await page.clock.fastForward('00:11'); // skip past 11s of backoff
+  await expect(bannerLabel).toBeVisible(); // banner appears at fake-time-end
+  ```
+
+  **Edit targets**: `kit/docs/guide/testing.md` (new "Pattern N: Tier A2 retry-budget tests" section, alongside the existing supabase-ssr-boilerplate.md patterns) + an example helper showing the install / fastForward / assertion shape. Verify Playwright version in `template/apps/web/package.json` is ≥1.45 (lalista is on 1.55, fine).
+
+  **Why v0 — blocks next-project adoption**: future Tier A2 surfaces in the next project (or in lalista as the surface count grows) will write similarly-shaped tests. Without this guide, each rediscovers the timeout-bumping workaround. Cost is ~15 min for doc + helper; cost of NOT shipping it is one debugging session per Tier A2 test per project.
+
+  **Cross-ref**: depends on the latency-feedback framework (`kit/ROADMAP.md § Latency feedback framework — 4-tier decision rule + primitives`) for the "which surfaces are Tier A2?" definition. Pairs with the fault-injected QA gate above — both are Tier-A2-shaped test infrastructure gaps lalista PR #49 surfaced.
+
+  [v0, surfaced-by lalista-PR49-add-item-banner-spec, 2026-05-07]

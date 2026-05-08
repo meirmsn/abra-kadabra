@@ -1568,6 +1568,56 @@ Combined with the auth-hardening step (password_min_length: 8, landed in v1.11.0
 
 ---
 
+### Latency feedback framework — 4-tier decision rule + primitives
+
+Projects keep re-solving the same UX gap: how snappy to make a button / a route nav / an optimistic mutation. Defaults skew either too eager (spinner everywhere, including <250ms ops where it's noise) or too lazy (no feedback, user double-taps). Lalista chapter 1m (`feat/app-snappiness`, PR #49, shipped 2026-05-07) co-developed a 4-tier framework with the user that matches the affordance to the operation's actual latency. Every next project with interactive UI will hit the same decision tree.
+
+**The framework** (lalista's `specs/app-snappiness/spec.md § D1` is canonical until this lifts):
+
+- **5-tier table** (A1 / A2 / B / C / D) — pick by latency + whether we have local state to commit optimistically + whether failure is self-explanatory in context.
+- **Decision rule** for picking a tier when adding a new interactive surface.
+- **Primitives** (live in `lalista/packages/ui/`, ready to lift):
+  - `useSubmitFeedback` — Tier B's 250ms-threshold spinner timer + cleanup state machine.
+  - `SubmitButton` — Tier B affordance built on `useSubmitFeedback` + `Button`.
+  - `LoadingArea` — Tier C placeholder (soft `animate-pulse` on `bg-muted/40`).
+  - `useOptimisticMutation` — Tier A1/A2 hook with `failureMode: 'rollback' | 'banner'` discriminated union, retry sequence with budget check, banner state with retry/undo/dismiss callbacks.
+- **Tokens**: `FEEDBACK_THRESHOLD_MS = 250`, `RETRY_BUDGET_MS = 15000`, `RETRY_BACKOFF_MS = [1000, 3000, 7000]`.
+- **Load-bearing implementation detail (preserve verbatim if you fork)**: Tier A's `useOptimisticMutation` rollback uses `queueMicrotask` so the optimistic frame paints BEFORE the rollback's setState. React 19's auto-batching otherwise elides the visible "row appeared then disappeared" frame and the user sees no feedback at all. Same pattern lalista's `ListClient.handleAddResponse` realtime-merge race uses. Test coverage in `useOptimisticMutation.test.ts`.
+
+**Implementation surface:**
+
+- `kit/docs/guide/latency-feedback.md` (new) — full framework prose: 5 tiers, decision rule, retry-budget shape, queueMicrotask gotcha, worked examples (generic surfaces, not lalista-specific). Becomes the ground truth.
+- `template/CLAUDE.md` — short pointer: "when adding a surface with feedback needs, see `kit/docs/guide/latency-feedback.md`." So new projects inherit by default.
+- `.claude/skills/devshop/spec/SKILL.md` — `/ak-spec` consults the guide when the spec involves interactive UI or async ops; spec author produces a project-specific surface tier mapping table as part of `## Decisions` (same shape as PR #49's spec § D1, just systematic).
+- **Primitives extraction** (separate PR after the framework doc lands and lalista soaks): lift `useSubmitFeedback` / `SubmitButton` / `LoadingArea` / `useOptimisticMutation` from `lalista/packages/ui/` to a `@devshop-template/ui` package. Lalista refactors to import from the package, deletes the inline copies.
+
+**Why v0 — blocks next-project adoption:**
+
+Same playbook as Auth UX conventions above. Every project with interactive UI hits the same decision tree; without the convention, every project re-derives ad-hoc spinners, miscalibrates the 250ms threshold, or skips optimistic UI entirely because the rollback timing is non-obvious (the React 19 auto-batching gotcha is the load-bearing detail nobody discovers until they ship it). Factoring up now avoids each project re-inventing the wheel.
+
+**Trigger:**
+
+- 2-4 weeks after lalista chapter 1m ships (2026-05-07) — gives the patterns time to surface real-world quirks before extraction. Same "ship inline → soak → extract" sequencing chapter 1l followed.
+- OR: a second project adopts the devshop and the operator pushes back on "no convention for tap feedback" (almost guaranteed once anyone ships interactive UI).
+- OR: lalista clears its `PRODUCT-ROADMAP.md § v1 § Devshop extraction of validated UX patterns` row by adopting the lifted primitives — the natural verification step.
+
+**Cross-ref:**
+
+- `lalista/specs/app-snappiness/spec.md § D1` — canonical framework + decision rule until this lift makes the devshop guide canonical. Source for the 5-tier table.
+- `lalista/CLAUDE.md § Latency feedback tiers` — currently carries the 5-tier table, decision rule, and a lalista-specific surface mapping. After this lifts, lalista CLAUDE.md trims to just the surface mapping with a pointer to `kit/docs/guide/latency-feedback.md`.
+- `lalista/DESIGN.md § Motion + feedback` — token values; lifts alongside the components.
+- `lalista/PRODUCT-ROADMAP.md § v1 § Devshop extraction of validated UX patterns` (line 347) — the soak-reminder counterpart on the lalista side.
+- `lalista/packages/ui/src/{useSubmitFeedback,SubmitButton,LoadingArea,useOptimisticMutation}.{ts,tsx}` — concrete prior art ready to lift.
+
+**Cost/risk:**
+
+- Implementation: ~30 min for the guide doc + ~15 min for the `/ak-spec` SKILL amendment + ~1-2h for the primitives extraction PR (separate, post-soak). Total ~2-3 focused hours across two PRs.
+- Risk of premature extraction is the main cost of NOT waiting for the soak; once we've waited, the patterns have already proven themselves on real users. Lalista's CI fix-loop on PR #49 surfaced 4 fix-loop iterations worth of edge cases (overlay-z-index intercept on banner Retry/Undo, React batching defeats observable optimistic frame, schema-drift footguns in test queries) — the doc + primitives codify those lessons so the next project doesn't rediscover them.
+
+[v0, surfaced-by lalista-PR49, 2026-05-07]
+
+---
+
 ### Runtime validation at LLM / edge-function boundaries (Zod) — _shipped 2026-04-27_
 
 **Status:** convention shipped. `kit/docs/guide/conventions.md § Runtime Validation at LLM / Edge-Function Boundaries` documents when to use Zod (LLM-backed boundaries, third-party APIs) and when not (PostgREST, forms, internal calls), the schema-module pattern (`packages/core/src/schemas/<feature>.ts`, `.passthrough()` default, `z.infer` for type), the wrapper-site `.safeParse()` + Sentry-scrubbed payload + typed-error pattern, and the template scaffold (Zod added to `template/packages/core/package.json`, `schemas/README.md` placeholder created). Lalista PR 6 (`feature/zod-validation`, queued on `lalista/PLAN.md`) is the canonical first-adopter.
@@ -1750,6 +1800,60 @@ The new match logic ORs with stage 1 (smoke set) and stage 2 (path-pattern map) 
 **Shape.** Devshop pull, then a deliberately stack-needing PR (e.g. minor UI change in `apps/web/components/`) with the local stack stopped, observe the preflight emit `blocked:` for the stack-needing diff, fix recipe surfaces, restart the stack, the gate passes. Then a docs-only PR to verify the same degraded stack does NOT block (legacy `pass-with-note:` advisory). Add a short note to the project's CLAUDE.md or ROADMAP about adoption status. ~30 min once the devshop merge has propagated to the project.
 
 **Cost/risk.** Pure validation — no code changes in the project. The risk is the gate firing falsely on a real diff (false positive caught by the validation PR; correctable in devshop if needed). The benefit is empirical confirmation that the convention-based smoke set + the D6 promotion both behave as specified.
+
+### Slow-job skip-on-docs-only via CI workflow `paths-ignore`
+
+**Problem.** A `/ak-build` pipeline produces multiple bookkeeping pushes per PR (Phase 5.6 PLAN/BUILD-LOG, Phase 5.8 review.md Audit 2 record, sometimes the /document-release doc-sync). All are docs-only — they touch `specs/**/*.md`, `PLAN.md`, `BUILD-LOG.md`, `TODOS.md`, plus other `*.md` files. None affect runtime, integration tests, or E2E specs. Yet each push triggers the project's full CI cycle, including the slow-job's runner-side Supabase + integration tests + Playwright × 2 viewports — 8–10 minutes of CI per push, on a diff that mathematically cannot affect the test outcome. Lalista PR #52 (disambig-sheet symmetry fix, 2026-05-06) burned three full slow-job cycles back-to-back for one logical change. abra-kadabra PR #27 (cheap-test-gates-local) added Phase 5.8 Audit 2 + bookkeeping commits that compound this further.
+
+**Shape.** Add a `paths-ignore:` filter to the slow-job in project `.github/workflows/ci.yml`:
+
+```yaml
+slow:
+  if: github.event_name == 'pull_request'
+  paths-ignore:
+    - '**/*.md'
+    - 'specs/**'
+    - 'PLAN.md'
+    - 'BUILD-LOG.md'
+    - 'TODOS.md'
+    - '.gstack/**'
+    - '.devshop/**'
+```
+
+The fast-job keeps running — it's seconds, and the lint/typecheck/test:unit/build chain catches type-drift if a doc-only PR somehow includes a `.ts` change too. Slow-job is the expensive one and the only one that needs skipping.
+
+Implementation surface:
+
+- `/devshop/template/.github/workflows/ci.yml` — the project template's slow-job gets the `paths-ignore` block (new projects inherit it via `/ak-new-project`).
+- Documentation: `kit/docs/guide/conventions.md § Deploy Boundaries` or a sibling note explaining the convention.
+- BATS test in `kit/tests/` validating that the template's workflow file parses + has the expected ignore list.
+- Existing projects (lalista) need a one-line PR to adopt — same pattern as the cheap-test-gates lalista-adoption entry.
+
+**Cost/risk.** ~1h (template edit + BATS coverage + lalista adoption PR). Backward-compatible — projects without the `paths-ignore` block run unchanged. False positives (non-docs change accidentally matching the glob): only `*.md` could be affected if someone names a runtime file `*.md`, which is structurally implausible. False negatives (docs-only change that DOES need slow-job): zero — by construction, slow-job only runs the integration + Playwright suites, both of which are gated on `apps/**` / `packages/**` source. No runtime → no test outcome can change.
+
+Source: queued by abra-kadabra PR #27 (was an "out of scope" bullet on the cheap-test-gates source v1 entry that PR #27 deletes; promoted here to a standalone entry).
+
+### Tightening `/qa`'s `n/a` criteria — require a verifiable file:line claim
+
+**Problem.** Today the operator can mark Gate 9 (`/qa`) `n/a` with prose like "no visible UI change" and the pipeline accepts it. The rationale is self-attested — the operator types it, no reviewer checks it. That mirrors a class of failure mode the rest of the pipeline already guards against: `git config devshop.testReviewSkipReason` is judged by an adversarial reviewer; gate Dismissals trigger adversarial review of any non-`None` body; `git config devshop.dirtyPushReason` is judged. The `/qa` `n/a` decision sits outside this mechanism — a documented gap.
+
+The shape of the gap is precise. A correct `n/a` reason is a fact the reviewer can verify: "no `.tsx` files modified in this diff" can be checked against `git diff --name-only origin/main...HEAD`. A wrong-shape `n/a` reason is a vibe: "no visible UI change" requires the reviewer to interpret what's visible — and an adversarial reviewer judging interpretive prose is exactly what the audit-time architecture moved Sonnet calls AWAY from. The fix is to require the cheap-side first.
+
+**Shape of the fix.** Reuse the bypass-flag adversarial-review channel `kit/scripts/adversarial-review.sh` already has. Add a new check-type `qaNaReason` (or extend the existing dismissal-log path with a stricter prompt for the `qa` gate's `n/a` outcome). The prompt:
+
+- ACCEPT: positive, file/path-based claims that grep against the diff verify (`no .tsx files modified`, `diff is supabase/migrations/** only`, `apps/web/components/** untouched`).
+- REJECT: interpretive prose (`no visible UI change`, `nothing user-facing changed`, `cosmetic only`).
+
+Implementation surface:
+
+- `/devshop/.claude/skills/devshop/pre-ship/SKILL.md § Gate 9` — add the `n/a` outcome contract: "Gate 9 may emit `n/a` only if the dismissal reason is a positive file/path claim verifiable against the diff. The adversarial reviewer judges; weak reasons fail."
+- `kit/scripts/adversarial-review.sh` — new check-type `qaNaReason` (or stricter prompt branch on the existing `dismissalLog` path when the gate is `qa` and the body declares `n/a`).
+- BATS test in `kit/tests/` — covers the accept/reject vocabulary above; mirrors `util-adversarial-review-localTestSkipReason.bats`.
+- Documentation: `kit/docs/guide/hooks.md § Bypass mechanism table` — add `qaNaReason` row.
+
+**Cost/risk.** ~2h (script branch + BATS + docs). Risk: false rejection of legitimate `n/a` reasons that happen to be phrased interpretively (e.g. "migration-only PR — no `apps/**` files in diff" is fine, but "migration only" alone isn't). Mitigation — the adversarial-review prompt asks for the positive file claim; rejections include a fix recipe ("Re-run with reason like 'no apps/** or packages/{core,ui}/** files in the diff'").
+
+Source: queued by abra-kadabra PR #27 (was an "out of scope" bullet on the cheap-test-gates source v1 entry that PR #27 deletes; promoted here to a standalone entry). Adjacent to Gate 9's existing outcome contract (`pass | findings (N) [fixed|pending] | blocked | n/a`); this entry tightens the `n/a` rung.
 
 ### Persona-axis pre-ship gates (designer / backend-eng / frontend-eng / security / data)
 
@@ -2458,6 +2562,23 @@ first production incident and know what the workflow should actually be.
 Playwright screenshot comparison for key screens. Store baseline screenshots in
 `tests/screenshots/`. CI step compares current vs baseline, fails if diff exceeds
 threshold. Catches unintended visual changes that unit tests miss.
+
+### Test-impact analysis (TIA) — runtime-instrumented test selection
+
+Real TIA platforms (Gradle Enterprise, Datadog Test Optimization, NCrunch, Bazel's `bazel test --runs_per_test`-style pruning) instrument test runs to record which production code each test actually exercises, store the mapping in a coverage database, then on a diff re-run only tests whose recorded coverage intersects the changed lines. The precise version of `/ak-pre-ship`'s `changed-tests-local (ak)` gate's heuristic layers (smoke set + path-pattern map + import-graph match) — a heuristic catches what filename + reference-graph traversal can find; TIA catches what the code actually executed.
+
+The heuristics are an approximation that doesn't require infra. TIA requires:
+
+- A runtime instrumentation hook (Istanbul / V8 coverage / Playwright's coverage API) wired into every test run.
+- A coverage database keyed on test ID × file:line (per-commit or per-test-suite).
+- A diff-resolver that maps changed lines back to test IDs, with cache invalidation when test files themselves change.
+- A "first-run-after-test-change" path that runs the changed test fresh (no recorded coverage yet).
+
+**When to revisit.** Move to TIA only if the heuristic layers' false-negative rate becomes painful — e.g., a project ships a behavior bug that would have been caught by a spec the heuristics missed but TIA would have surfaced. Until that happens, the heuristics are the right cost/benefit point: zero infra, false positives only cost wallclock, false negatives are caught by CI.
+
+**Cost/risk.** Multi-week build (instrumentation + DB + resolver + cache invalidation + project-template wiring + BATS coverage). Risk: instrumentation overhead can be 10–30% per test run depending on the engine; coverage-DB drift if test files refactor without invalidation. Mitigation — TIA platforms run in-process; cost is amortized across the savings on subsequent runs.
+
+Source: queued by abra-kadabra PR #27 (was an "out of scope" bullet on the cheap-test-gates source v1 entry that PR #27 deletes; promoted to v+ here per operator direction — no current need, theoretical upper bound on what cheap-test-gates can become).
 
 ### `/ak-migrate-project` skill
 
