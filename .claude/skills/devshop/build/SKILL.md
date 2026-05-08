@@ -222,6 +222,57 @@ End the preview with: **"Proceed? or flip any decision / trim scope / add task?"
 
 Wait for the user's response. Do NOT proceed to 0.3 without explicit approval.
 
+### 0.2.5: Empirical-verify load-bearing decisions before locking
+
+For any decision where the proposed answer's correctness turns on **"does X
+work in version Y of Z"** — a framework's resolution order, a library's
+default behavior, an API's edge-case semantics, a runtime's contract — run
+the empirical test BEFORE the user approves. Cost is typically 30 seconds;
+the alternative is committing implementation code against an unverified
+hypothesis and discovering the hypothesis was wrong mid-Phase 2 (which
+burns the implementation commit + the revert + a re-spec round-trip + the
+operator's attention).
+
+**Triggering signals** in a Decision row:
+
+- "vN of Z does/should X" without a citation that proves it
+- "framework documentation says..." paired with an inferred extrapolation
+- "this is the standard behavior" applied to an edge-case combination
+- Any decision whose proposed answer reads as a hypothesis the spec author
+  is fairly confident in but hasn't actually run
+
+**How to verify** depends on the layer:
+
+- Build-system / token resolution → run the compiler directly against a
+  fixture (e.g. `node -e "import('@tailwindcss/node').then(m =>
+  m.compile(...).build([...]))"`) and grep the output.
+- API / SDK behavior → minimal repro script that exercises the specific
+  call shape against the actual library version pinned in
+  `package.json`.
+- Database / driver behavior → spin a transaction in `psql` against the
+  local stack and check the side effects.
+- Browser / runtime behavior → 5-line Playwright spec or `node:test` that
+  asserts the load-bearing assumption.
+
+**Codified from**: lalista PR 53 (2026-05-08). D1 was "define Tailwind v4
+`--container-*` tokens to override the `--spacing-*` fall-through for
+`max-w-*` named keys." Hypothesized the override would work; shipped the
+implementation commit; discovered via direct `@tailwindcss/node@4.2.4`
+compile that v4 4.2.x DOES resolve every named-key max-w through
+`--spacing-*` regardless of what's defined under `--container-*`. Reverted
+in the same PR and shipped the surgical fallback (D2). The 30-second compile
+test would have flipped D1 from "global with surgical fallback" to just
+"surgical" before any code was written, saving the failed-attempt commit +
+revert + the operator's review of the empirical disconfirmation. Apply
+this rule when a decision's proposed answer reads "X should work because Y"
+and the verification cost is under a minute.
+
+If the empirical test contradicts the hypothesis, **rewrite the decision
+row** with the verified answer (not the hypothesis) before showing the
+preview to the user. Don't mark the row "verified" without showing the
+verification — say which test ran, what command produced what output, where
+the test artifact lives. Loud verification beats silent extrapolation.
+
 ### 0.3: Persist approved decisions as a spec.md skeleton
 
 Once the user approves (or after any flips they request), write
@@ -492,6 +543,89 @@ gh pr edit "$PR" --body-file /tmp/pr-body.md
 
 Do NOT mark manual-review callouts (visual audits, live QA walkthrough,
 post-deploy metrics) — those stay `[ ]` for the reviewer.
+
+### 5.3.5: Body-consistency check (catches post-/ship scope drift)
+
+Phase 5.3 marks checkboxes; it doesn't notice when a commit between /ship
+and Phase 6 materially **changed what shipped** in a way that invalidates
+the body's Summary, Evidence, or Test plan narrative. Without this check,
+the body authored at /ship time silently drifts: a new test file lands,
+hero shots get replaced with a different methodology, a CI fix gets
+bundled — none of those flag "did you change what shipped?" until Phase 6's
+final sweep, which can be many commits later.
+
+Fires once per CI-green tick (alongside 5.3, after the checkbox update).
+Compares the post-/ship commit range against four scope-drift signals:
+
+```bash
+SHIP_SHA=$(git log --grep="^chore.*ship" --pretty=%H -1 origin/${BASE}...HEAD 2>/dev/null \
+  || git log --reverse --pretty=%H "origin/${BASE}..HEAD" | head -1)
+DRIFT_RANGE="${SHIP_SHA}..HEAD"
+DRIFT_FILES=$(git diff --name-only "$DRIFT_RANGE")
+
+DRIFT_SIGNALS=""
+
+# Signal 1: new test files (the body's "Test plan" probably doesn't mention them)
+NEW_TESTS=$(git diff --diff-filter=A --name-only "$DRIFT_RANGE" | \
+  grep -E '^(apps/[^/]+/e2e/.+\.spec\.(ts|tsx)|.+\.test\.(ts|tsx)|.+\.integration\.test\.(ts|tsx))$' || true)
+[ -n "$NEW_TESTS" ] && DRIFT_SIGNALS+="  new test files added since /ship:\n$(echo "$NEW_TESTS" | sed 's/^/    /')\n"
+
+# Signal 2: hero / qa-walk evidence replaced (different methodology than what the body cites)
+EVIDENCE_REPLACED=$(echo "$DRIFT_FILES" | grep -E "^specs/[^/]+/(hero|qa-walk|screenshots)/" || true)
+[ -n "$EVIDENCE_REPLACED" ] && DRIFT_SIGNALS+="  visual / qa-walk evidence touched:\n$(echo "$EVIDENCE_REPLACED" | sed 's/^/    /')\n"
+
+# Signal 3: workflow / CI changes bundled (changes the merge / deploy contract)
+WORKFLOW_BUNDLED=$(echo "$DRIFT_FILES" | grep -E "^\.github/workflows/" || true)
+[ -n "$WORKFLOW_BUNDLED" ] && DRIFT_SIGNALS+="  CI workflow changes bundled:\n$(echo "$WORKFLOW_BUNDLED" | sed 's/^/    /')\n"
+
+# Signal 4: new runtime files (component, page, route, API wrapper) — scope expansion
+NEW_RUNTIME=$(git diff --diff-filter=A --name-only "$DRIFT_RANGE" | \
+  grep -E '^(apps/[^/]+/(app|components|lib)/.+\.(ts|tsx)|packages/[^/]+/src/.+\.(ts|tsx))$' | \
+  grep -vE '\.(test|spec)\.' || true)
+[ -n "$NEW_RUNTIME" ] && DRIFT_SIGNALS+="  new runtime files added since /ship:\n$(echo "$NEW_RUNTIME" | sed 's/^/    /')\n"
+```
+
+If `$DRIFT_SIGNALS` is empty → continue. The body's narrative still matches
+what's in the diff.
+
+If `$DRIFT_SIGNALS` is non-empty → **read the current PR body** and judge
+whether the signals invalidate any specific claim:
+
+- Summary section names the bug + fix. New runtime / test files often mean
+  there's a "scope expansion" angle the Summary should mention.
+- Evidence section embeds hero shots. If hero shots were replaced with a
+  different methodology (synthetic → live, single-viewport → multi-viewport,
+  injected DOM → real flow), the Evidence caption must reflect that —
+  reviewers reading the new shots through the old caption assume the wrong
+  methodology shipped.
+- Test plan lists pre-push gates + manual-review items. New test files
+  warrant a row attesting they ran green; bundled CI / workflow changes
+  warrant a row flagging the scope-creep with a "happy to split" offer
+  per `§ PR body conventions § What belongs in "Manual review"`.
+
+When any claim is invalidated, edit `/tmp/pr-body.md` and `gh pr edit`
+inline (same flow as 5.3). Do NOT post a comment — comments accumulate;
+the body is the authoritative summary at merge time.
+
+When no claim is invalidated (the signals are present but the existing
+body already covers them, or they're trivially additive), record the
+no-op decision in `review.md § Body-consistency log` so Phase 6's sweep
+sees the receipts:
+
+```markdown
+- 5.3.5 at `<SHA>`: signals fired (new test file `<path>`); body already
+  attests via "<existing claim>"; no edit needed.
+```
+
+**Codified from**: lalista PR 53 (2026-05-08). Between /ship at 3ef24da
+and Phase 6 the branch landed: a new e2e spec
+(`apps/web/e2e/confirmation-toast-width-qa-walk.spec.ts`), hero shot
+replacement (synthetic DOM-injection captures swapped for live /list
+captures via `b52d22f`), and a bundled CI workflow fix
+(`.github/workflows/ci.yml` at 3d1546c). All three would have fired the
+signals above. The body went stale across all three; the user caught it
+at audit-comment time and asked "isn't the PR description stale?" —
+which is exactly the question this check exists to answer pre-emptively.
 
 ### 5.4: On CI failure → fix loop
 

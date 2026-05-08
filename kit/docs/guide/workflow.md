@@ -159,6 +159,14 @@ phone/watch monitoring") right before spawning the first subagent — the last
 main-context beat before autonomous work begins. On resume paths that skip
 Phase 0, the same nudge fires once from Step 0 at the equivalent timing.
 
+For decision rows that turn on **"does X work in version Y of Z"** —
+framework resolution order, library defaults, API edge-case semantics —
+Phase 0 runs the empirical test BEFORE the user approves. 30 seconds of
+"actually compile this and grep the output" beats committing implementation
+code against an unverified hypothesis and discovering it was wrong
+mid-Phase 2. Full triggering signals + per-layer verification recipes:
+`/ak-build § 0.2.5 Empirical-verify load-bearing decisions before locking`.
+
 **Phase 1: `/ak-spec`** — reads the Phase 0 skeleton and expands it in place
 into a full spec (Core user story, In scope, Screens, Data model, API
 contracts, Tests, Task order, Gotchas, Acceptance plan). Preserves the
@@ -181,6 +189,26 @@ diagnostic. See `/devshop/.claude/skills/devshop/spec/SKILL.md § Core user
 story` for the template + examples, and
 `/devshop/.claude/skills/devshop/pre-ship/SKILL.md § Gate 9` for the
 enforcement contract.
+
+**Body-consistency check between /ship and Phase 6.** Each post-/ship
+commit that lands while CI is green runs a body-consistency sub-step
+(`/ak-build § 5.3.5`) that checks the post-/ship range for scope-drift
+signals — new test files, replaced hero / qa-walk evidence, bundled CI
+workflow changes, new runtime files. When a signal fires, the agent
+reads the current PR body and edits any narrative claim the signals
+invalidate (Summary scope, Evidence methodology, Test plan rows). Closes
+the gap between Phase 5.3's checkbox-only refresh and Phase 6's full
+sweep — without it, multi-commit polish loops silently drift the body
+out of sync with what's been committed.
+
+**Synthetic-harness substitution at Gate 9 is forbidden.** A degraded local
+Supabase stack (auth schema errors, missing migrations, runner unreachable)
+must surface as `blocked` with the bootstrap script's fix recipe — not be
+worked around by mounting the component on an unrelated page or stubbing
+its data path with fixtures. The full contract + the lalista PR 53 incident
+that codified it lives at `/devshop/.claude/skills/devshop/pre-ship/SKILL.md
+§ No synthetic-harness substitution`; deliberate operator opt-out for
+low-risk diffs uses `git config devshop.requireHealthyLocalStack never`.
 
 **Phase 2: `/ak-implement`** — reads spec, decomposes into tasks, implements with tests. Confirms active branch against `PLAN.md § Active`. Stuck protocol: try fix → `/investigate` → ask user. Logs judgment calls in `specs/<name>/tasks.md` § Decisions.
 

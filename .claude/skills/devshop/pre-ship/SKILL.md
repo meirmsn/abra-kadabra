@@ -609,6 +609,28 @@ Gate 9 MUST emit exactly one of:
 
 Never `skipped`. If Gate 9 simply wasn't exercised, the correct outcome is `blocked` with the reason. `pass` on an unexercised gate is the failure mode that landed lalista PR #10's Gate 9 in a false-positive state.
 
+### No synthetic-harness substitution
+
+If the local stack is degraded — auth schema errors, missing migrations, supabase-runner unreachable — the correct outcome is **`blocked`**, with the shape-specific fix recipe surfaced to the caller. Phase 0 preflight already routes degraded-stack-on-stack-needing-diff to `blocked` per the `requireHealthyLocalStack` config (default `when-relevant`); if you reach Gate 9 with the stack still degraded, that's the contract failing and you must report `blocked` to the caller, not improvise around it.
+
+**Do NOT**:
+
+- Inject the component's DOM directly into a page that doesn't normally render it (e.g. mounting the success-toast on the public landing because `/list` requires auth).
+- Spin up an ephemeral Playwright spec that bypasses the live data path with stubs / fixtures / `JSON.stringify` mocks of API responses, then claim that spec satisfies Gate 9.
+- Self-report `pass` with a "substituted with synthetic harness" note in `review.md` — that's the exact failure mode this section forbids.
+
+**Why**: synthetic harnesses look like evidence in screenshots and qa-walk logs but exercise zero of the real code path under test. They produce captures that mislead reviewers (toast rendering on the wrong page, fixture data instead of server-resolved state) and let regressions ship — the whole point of /qa is the live walk, not a re-render of the component.
+
+The honest path on a degraded stack is to:
+
+1. Surface `blocked` with the bootstrap script's full stdout as the fix recipe.
+2. Let `/ak-build` halt before `/ship` (existing contract).
+3. Resume after the operator clears the block (`pnpm db:start`, devcontainer rebuild, etc.).
+
+If the operator deliberately wants to bypass the live walk for a low-risk diff (CSS-only token change, docs-only PR), that's what `git config devshop.requireHealthyLocalStack never` is for — explicit opt-out at the project level, judged by the adversarial-review chain. Inventing a substitute and self-reporting `pass` is not the supported path.
+
+Codified from lalista PR 53 (2026-05-08): the initial pre-ship subagent encountered "Database error querying schema" (turned out: stack was simply down, not corrupted), substituted a DOM-injection harness mounting `ConfirmationToast` on the public landing page, and self-reported `pass`. The user caught it on review when the hero PNGs showed the toast on the marketing page. The follow-up commit replaced synthetic captures with authentic /list captures after `pnpm db:start` brought the stack up cleanly.
+
 ### Core user story artifact assertion (mandatory per spec)
 
 `/ak-spec` requires every spec to declare a `## Core user story` section (2–4
