@@ -19,3 +19,23 @@ findings: high=0 medium=0 low=2
 ### Bypass trailer audit
 
 - (none) — no `Docs-Coverage-Bypass:` or `Tests-Coverage-Bypass:` trailers in range.
+
+## Audit 2: manual (2026-05-08)
+
+<!-- audited-at: 132a98d9a856411456b1db455620963b1cc46efe -->
+<!-- range: origin/main..HEAD -->
+<!-- rebased: prior audit at 1f99e92 squashed into main as eb26f79; range overridden from 1f99e92..HEAD to origin/main..HEAD to focus on the actual branch delta -->
+
+findings: high=0 medium=0 low=1 (resolved inline before squash)
+
+### Docs findings
+
+- [low → resolved] kit/docs/guide/testing.md:66 — Parenthetical "(focused stub today — Tier C only)" undercounts what `kit/docs/guide/latency-feedback.md` actually ships (Tier C at line 21 + sizing-primitive override rule at line 72). Fixed inline by rewording to "(focused stub today — Tier C + sizing-primitive override only)" before squash-merge.
+
+### Tests findings
+
+- (none) — one-line prose edit; Section A and B rubrics do not apply.
+
+### Bypass trailer audit
+
+- (none) — no trailers in range.
