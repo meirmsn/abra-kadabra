@@ -68,8 +68,11 @@ supabase gen types typescript --project-id <ref> > packages/core/src/supabase.ty
 
 ### PWA
 
-- Manifest: `apps/web/public/manifest.json` (app name, icons, theme color, `display: standalone`)
-- Apple meta tags: `apps/web/app/layout.tsx` (`apple-mobile-web-app-capable`, `apple-touch-icon`, status bar style)
+- Manifest: `apps/web/public/manifest.json` (app name, icons, theme color, `display: standalone`, explicit `scope: "/"`).
+- Apple meta tags: emitted by Next's `metadata.appleWebApp` in `apps/web/app/layout.tsx`. The `apple-touch-icon` link is NOT auto-detected from `/public/apple-touch-icon.png` — declare it explicitly via `metadata.icons.apple` or place the file at `app/apple-icon.png` (Next convention). Without the link, iOS uses a screenshot for the home-screen icon.
+- Viewport must include `viewportFit: 'cover'` for full-bleed on notched iOS devices — without it Safari leaves white safe-area bars that look like the browser frame is leaking through.
+- **iOS input-zoom rule.** Every focusable form control (`<input>`, `<textarea>`, `<select>`) must render at font-size ≥ 16px on small screens. Below 16px, Safari zooms the viewport on focus and doesn't reliably zoom back out — looks like a layout bug after submit. Enforce in shared input primitives (e.g. `packages/ui/src/Input.tsx`), not per-call-site, and add a snapshot test pinning the floor.
+- **Cross-origin redirect breaks standalone.** If a PWA is installed from origin A and A redirects to origin B (custom-domain swap, vercel preview → prod), iOS launches it in Safari chrome on next open. There is no in-app fix; users must remove the home-screen icon and re-add from the canonical origin. When swapping domains, surface this in release notes.
 - Service worker caching (`@serwist/next`) deferred to `PRODUCT-ROADMAP.md` — added after core screens are stable
 
 _This section grows as code is added. `/ak-implement` updates it when introducing new paths._
