@@ -210,7 +210,9 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
   [v+, tooling-nit, surfaced-by lalista-PR17-cleanup, 2026-04-23]
 
-- [ ] **Wrapper-API design rule: expose lifecycle events, not just data.** [v0] When a wrapper around an event-emitter-style library (Supabase Realtime channel, EventEmitter, MQTT client, SSE, WebSocket) returns only the data callback and swallows error/lifecycle events, async failures silently degrade UX — the user-facing surface that should react to errors never gets the signal. Add this as both a `conventions.md` rule and a deterministic `ak-test-review` check.
+- [x] **Wrapper-API design rule: expose lifecycle events, not just data.** ✅ **shipped v1.22.0** as `kit/docs/guide/conventions.md § Wrapper API design` (line 400) + deterministic `ak-test-review` check. Original entry preserved below.
+
+  [v0] When a wrapper around an event-emitter-style library (Supabase Realtime channel, EventEmitter, MQTT client, SSE, WebSocket) returns only the data callback and swallows error/lifecycle events, async failures silently degrade UX — the user-facing surface that should react to errors never gets the signal. Add this as both a `conventions.md` rule and a deterministic `ak-test-review` check.
 
   **Context**: lalista PR 27 (`fix/skipped-tests-cleanup`). `subscribeToList(client, householdId, callback)` in `packages/core/src/api/realtime.ts` wrapped supabase-js's channel and exposed only the postgres-changes `callback`. The `.subscribe()` call was passed no status callback — so `'CHANNEL_ERROR'` and `'TIMED_OUT'` (the ASYNC failure paths, which are the common case in production) never surfaced to consumers. `ListClient.tsx` had a try/catch around `subscribeToList` that handled SYNCHRONOUS WebSocket-constructor throws (a near-zero-frequency path) and nothing else. Result: real WS failures in production silently no-op'd the sync-error banner that was supposed to fire. The unit test (`SyncErrorBanner.test.tsx`) covered banner-rendering given state ✓ but no test covered the trigger path; the gap survived multiple PR cycles. The fix extended `subscribeToList(client, householdId, callback, onError?)` to pass a status callback to `.subscribe()` and invoke `onError` on `'CHANNEL_ERROR'` / `'TIMED_OUT'`.
 
@@ -222,7 +224,9 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
   [v0, surfaced-by lalista-PR27, 2026-04-26]
 
-- [ ] **WS-failure E2E recipe: `page.routeWebSocket`, not `page.route().fulfill(503)`.** [v0] Document the canonical Playwright pattern for testing "what happens when the realtime WebSocket fails?" so the next Supabase project doesn't re-debug the silent-retry trap.
+- [x] **WS-failure E2E recipe: `page.routeWebSocket`, not `page.route().fulfill(503)`.** ✅ **shipped v1.22.0** as `kit/docs/guide/supabase-ssr-boilerplate.md § Pattern 6: Testing realtime WebSocket failures` (line 291). Original entry preserved below.
+
+  [v0] Document the canonical Playwright pattern for testing "what happens when the realtime WebSocket fails?" so the next Supabase project doesn't re-debug the silent-retry trap.
 
   **Context**: lalista PR 26 originally wrote a `realtime.spec.ts` banner test using `page.route('**/realtime/v1/websocket**', route => route.fulfill({status: 503}))` — assuming a 503 on the WS upgrade would surface CHANNEL_ERROR through supabase-js. It doesn't. supabase-js's realtime client absorbs the 503 into its onerror→onclose→silent-retry loop without emitting CHANNEL_ERROR within any reasonable test budget; the test stayed `test.skip(true, ...)` for an entire PR cycle while diagnosis ran (PR 26 trace investigation, then PR 27's actual fix). The right API is `page.routeWebSocket('**/realtime/v1/websocket**', ws => ws.close())` (Playwright 1.48+) — purpose-built for WS interception, triggers a deterministic close that supabase-js converts to CHANNEL_ERROR via the subscribe-status callback.
 
@@ -232,7 +236,9 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
   [v0, surfaced-by lalista-PR26-and-PR27, 2026-04-26]
 
-- [ ] **Backport lalista's CI slow-job + helper scripts to the template.** [v0] Lalista PR 4 (merged) shipped a working slow-job: `supabase start` + `supabase db reset`, integration tests gated on `VITEST_INTEGRATION=1`, type-drift via `scripts/ci-type-drift.sh`, rollback-EXPLAIN via `scripts/ci-rollback-explain.sh`, edge-fn deploy, Playwright at mobile + desktop. The shape is now proven on a real project; the next devshop project shouldn't have to re-derive ~200 lines of bash + ~140 lines of YAML from `kit/ROADMAP.md § CI slow job expansion`'s prose checklist.
+- [x] **Backport lalista's CI slow-job + helper scripts to the template.** ✅ **shipped v1.22.0**: `template/scripts/{ci-type-drift,ci-rollback-explain}.sh` ship verbatim; `template/.github/workflows/ci.yml` carries the slow-job stub commented (lines 54-123) with the lalista-PR-26 edge-runtime health-check retry preserved; `kit/docs/guide/conventions.md § Slow-Job Lifecycle` + `/ak-pre-ship` gate `slow-job-lifecycle-check.sh` enforce it; `kit/ROADMAP.md § CI slow job expansion Trigger 1` (line 2506) rewritten to "uncomment the stub; helpers already ship in template/scripts." Original entry preserved below.
+
+  [v0] Lalista PR 4 (merged) shipped a working slow-job: `supabase start` + `supabase db reset`, integration tests gated on `VITEST_INTEGRATION=1`, type-drift via `scripts/ci-type-drift.sh`, rollback-EXPLAIN via `scripts/ci-rollback-explain.sh`, edge-fn deploy, Playwright at mobile + desktop. The shape is now proven on a real project; the next devshop project shouldn't have to re-derive ~200 lines of bash + ~140 lines of YAML from `kit/ROADMAP.md § CI slow job expansion`'s prose checklist.
 
   **Context**: `kit/ROADMAP.md:526-561` documents Trigger 1 / Trigger 2 expansion as if both checks need to be authored from scratch when the first DB-backed feature lands. They don't anymore — the bash + YAML exist in `/workspace/`. Without this backport, every future project re-implements them from prose, defeating the "lalista is the template-validation project" framing that already works for Auth UX and zod-validation conventions (lalista `TODOS.md`).
 
@@ -247,7 +253,9 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
   [v0, devshop-template-backport, surfaced-by lalista-PR4-merged, 2026-04-24]
 
-- [ ] **PR-body "Manual review" category guardrail + Phase 6 auto-attest.** [v0] PR-body `[ ]` items under "Manual review" should be ONLY genuinely judgmental items the automation cannot answer (intent match, design review, live QA walkthrough, post-deploy metrics). Today the section drifts to include factually-verifiable items (idempotent guard pattern correct, JSDoc cites coverage, doc paragraph reads correctly) — items that pre-ship gates already attested. Reviewers see these as `[ ]` and feel obligated to re-verify; meaningful judgment items get diluted.
+- [x] **PR-body "Manual review" category guardrail + Phase 6 auto-attest.** ✅ **shipped v1.22.0** in `/ak-build`: Layer A (prevention) at `.claude/skills/devshop/build/SKILL.md § What belongs in "Manual review"` (line 1437) defining the canonical judgmental set; Layer B (auto-attest) at `§ Phase 6 / Part C — Manual-review classification sweep` (line 1285) — factual items get `[x]` + file:line attestation, judgmental stay `[ ]`, contradiction halts. Original entry preserved below.
+
+  [v0] PR-body `[ ]` items under "Manual review" should be ONLY genuinely judgmental items the automation cannot answer (intent match, design review, live QA walkthrough, post-deploy metrics). Today the section drifts to include factually-verifiable items (idempotent guard pattern correct, JSDoc cites coverage, doc paragraph reads correctly) — items that pre-ship gates already attested. Reviewers see these as `[ ]` and feel obligated to re-verify; meaningful judgment items get diluted.
 
   **Context**: lalista PR 27 shipped with 4 "Manual review" items: (1) spec reflects intent — judgmental, kept `[ ]` correctly; (2) migration idempotent guard correct — factually verified by reading `supabase/migrations/013_realtime_publication.sql:12-20`; (3) JSDoc cites E2E coverage — factually verified by reading `packages/core/src/api/realtime.ts:28-31`; (4) CLAUDE.md gotcha reads correctly — factually verified by reading `CLAUDE.md:28`. Items (2)/(3)/(4) were ALREADY attested by pre-ship Gate 1 (Docs check), Gate 5 (/ak-test-review), Gate 6 (/review), and Gate 11 (Convention check); restating them in Manual review duplicated the work and obscured (1) — the only item that genuinely needs a human.
 
@@ -387,23 +395,6 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
   [v0, surfaced-by lalista-PR49-deploy-cycle, 2026-05-07]
 
-- [ ] **PostgREST returns `data: null` + `error` field for non-existent columns; downstream null-deref masks the typo.** [v0] When a Supabase query selects a column that doesn't exist (`from('table').select('id, nonexistent').single()`), PostgREST returns `data: null` AND populates the `error` field. But most call sites only consume `data` and crash later with `TypeError: Cannot read properties of null (reading 'id')`. The actual error message ("column does not exist") is swallowed by the developer's catch-the-data-is-null pattern.
-
-  **Context**: hit twice in lalista PR #49 — `items.name` (column doesn't exist; `items` table has `name_canonical`) and `purchase_history.list_entry_id` (FK was deliberately not added per migration 010 design — `purchase_history` doesn't carry it back). Both crashed Playwright E2E tests with generic null-deref errors; root cause was found by re-reading the query against the schema, not by reading the swallowed error message.
-
-  **Fix options** (pick one or combine):
-  1. **Convention doc** — `kit/docs/guide/conventions.md § Database queries`: require all `.select()` call sites to either use `.single()` AND check `error` first, OR use a typed wrapper that throws on `error`. Soft enforcement.
-  2. **Typed query helper** in `template/packages/core/src/supabase.ts` (or a new `@devshop-template/core` export): wrap supabase-js's `.from().select()` to throw immediately if `error` is set, regardless of `data`. Hard enforcement at the API boundary. Requires consumer migration.
-  3. **CLAUDE.md gotcha template** in `template/CLAUDE.md` — preemptive entry warning future projects of the failure mode + the "always check `error` first" pattern.
-
-  Recommend (1) + (3) for cheap proportionate coverage; (2) is durable but invasive — defer until a third project hits the same bug.
-
-  **Edit targets**: `kit/docs/guide/conventions.md` (new "Database queries" section), `template/CLAUDE.md` (new gotcha entry), optionally `template/packages/core/src/supabase.ts` (typed wrapper).
-
-  **Why v0 — blocks next-project adoption**: every Supabase project will hit this. Lalista alone hit it twice in one PR. The cost of (1) + (3) is ~10 min for prose; the cost of NOT shipping it is one debugging session per project per occurrence — and the symptom ("test crashes with null data") looks like a null-data bug, not a column-name typo, so the debugging path is unintuitive.
-
-  [v0, surfaced-by lalista-PR49-fix-loop, 2026-05-07]
-
 - [ ] **`/ak-pre-ship` Gate 9 (`/qa`) doesn't run fault-injected scenarios — happy-path crawl misses banner / error-state UI bugs.** [v0] UI flows pass under happy-path QA conditions but break under fault-injected ones (network failure, RPC abort, timeout). PR #49's `AddItemSheet` overlay-intercepts-Undo bug only surfaced when CI ran `page.route().abort()` to simulate a network failure — `/qa`'s happy-path crawl never tickled the failing-mutation banner state, so the overlay-z-index bug shipped past pre-ship and only got caught by Playwright's slow-job CI run.
 
   **Shape**: extend `/ak-pre-ship` Gate 9 with a "fault-injected QA pass" sub-step. For each Tier A2 surface (looked up via spec or convention — the new `kit/docs/guide/latency-feedback.md` will tell us which surfaces are Tier A2; until that ships, parse the diff for `useOptimisticMutation({ failureMode: 'banner' })` call sites), abort the relevant edge-function/RPC route via `page.route().abort()` and assert the banner Retry/Undo affordances render and are clickable (no overlay intercept, no z-index regression).
@@ -418,23 +409,27 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
   [v0, pre-ship-gate, surfaced-by lalista-PR49-fix-loop, 2026-05-07]
 
-- [ ] **Tier A2 retry-budget E2E tests need `page.clock.fastForward()` instead of bumped per-test timeouts.** [v0] When a Playwright test exercises a retry sequence with backoff (e.g. lalista's `RETRY_BACKOFF_MS = [1000, 3000, 7000]` totaling 11s of wall-clock backoff), the test runtime explodes past Playwright's default 30s timeout once you add sign-in flow + abort RTT + post-banner assertions. Lalista's `add-item-banner.spec.ts` workaround was `test.setTimeout(60000)` and `bannerLabel toBeVisible({ timeout: 25000 })` — works but inheritable-pattern-shaped, not a one-off. Future Tier A2 surfaces will write similarly-shaped tests and rediscover the workaround instead of the right answer.
+- [ ] **Convention drift cleanup: shipped ROADMAP/TODOS entries → BUILD-LOG.** [v0] Per `/devshop/CLAUDE.md § Closing TODO / ROADMAP entries when a fix ships` and `kit/docs/guide/conventions.md:515`, shipped roadmap items must be deleted from the roadmap entirely and logged in `BUILD-LOG.md` ("Roadmaps only show what's ahead; BUILD-LOG.md is the record of what was done"). Practice has drifted across the v1.22.0–v1.25.0 ship cycle.
 
-  **Fix**: document the canonical `page.clock.fastForward()` pattern (Playwright 1.45+) for tests against retry-budget-shaped surfaces. Fast-forward fake time past the backoff intervals so the test runs in <2s wall-clock instead of 11s+. Pattern reference: Playwright docs at https://playwright.dev/docs/clock + lalista's `add-item-banner.spec.ts` as the "DO NOT do it this way" prior art.
+  **Drift audit (2026-05-07):**
+  - `BUILD-LOG.md` has only 1 entry (`cheap-test-gates-local`, 2026-05-06) — missing the entire v1.22.0–v1.25.0 ship history (~12 entries).
+  - `kit/ROADMAP.md § v0` carries 12 shipped entries that should have been deleted: 6 silently-shipped (heading reads as pending) and 6 explicitly-tagged-shipped (e.g. `_shipped 2026-04-27_`, `[SHIPPED]` inline). ~600+ lines net deletion.
+  - `kit/TODOS.md` carries 18 `[x]` entries vs 24 `[ ]` open — `[x]` items should have been deleted at ship time, not left as preserved-with-context.
 
-  Sketch:
+  **Concrete delete list — `kit/ROADMAP.md § v0`** (line numbers as of 2026-05-07):
+  - Silently-shipped six: `Move adversarial Layer 2 from per-commit to audit-time` (L16), `Audit conventions.md → distribute` (L657), `Adversarial reviewer reads guide/` (L718), `Migration sequencing safety nets` (L771 — Track B only; reframe entry to keep Tracks A/C if still desired), `CI slow-job lifecycle convention` (L901), `Security-posture cleanup` (L969).
+  - Explicitly-tagged-shipped six: `Browse binary + Playwright` (L1112), `Pre-commit test-presence hook` (L1231), `Project-repo docs-freshness hook` (L1280), `Deeper project docs hierarchy` (L1330), `Hierarchical docs scaffold in template` (L1353), `Runtime validation Zod` (L1621).
 
-  ```ts
-  await page.clock.install();
-  // ... trigger the optimistic mutation ...
-  await page.clock.fastForward('00:11'); // skip past 11s of backoff
-  await expect(bannerLabel).toBeVisible(); // banner appears at fake-time-end
-  ```
+  **BUILD-LOG entry shape**: match the existing `cheap-test-gates-local (2026-05-06)` entry's format — Branch / PR / Spec / Summary / Commits / Quality gates. Reconstruct from git log + release notes + the `_shipped_` annotations being deleted.
 
-  **Edit targets**: `kit/docs/guide/testing.md` (new "Pattern N: Tier A2 retry-budget tests" section, alongside the existing supabase-ssr-boilerplate.md patterns) + an example helper showing the install / fastForward / assertion shape. Verify Playwright version in `template/apps/web/package.json` is ≥1.45 (lalista is on 1.55, fine).
+  **Wrinkle — rationale preservation.** Some `[x]` TODOS entries carry substantive design rationale that doesn't fit a one-paragraph BUILD-LOG entry. Example: `lalista-option3-template-variant` (L10) explains why a migration recipe for stranded host-docker-socket projects was deliberately NOT shipped. The closure convention's step 2 — "rewrite docs that described the prior constraint from conditional prose to imperative present tense" — is the right home for these. For each `[x]` entry, ask: "is the rationale still load-bearing for a future reader?" If yes, lift to the relevant `kit/docs/guide/*.md` or skill `SKILL.md` BEFORE deleting; if it was incident-bound (closed problem, no future relevance), delete cleanly.
 
-  **Why v0 — blocks next-project adoption**: future Tier A2 surfaces in the next project (or in lalista as the surface count grows) will write similarly-shaped tests. Without this guide, each rediscovers the timeout-bumping workaround. Cost is ~15 min for doc + helper; cost of NOT shipping it is one debugging session per Tier A2 test per project.
+  **Suggested PR split**:
+  1. **PR 1** — ROADMAP sweep + BUILD-LOG reconstruction. Most visible drift; mostly mechanical.
+  2. **PR 2** — TODOS sweep + `kit/notes/roadmap/lalista-launch.md` refresh (the `Devshop v0 — pending` table shrinks to the 4 genuinely-open v0 entries: `/ak-go-live` post-merge sync, Generalize PR #43 E2E lessons, Auth UX conventions, Latency feedback framework).
 
-  **Cross-ref**: depends on the latency-feedback framework (`kit/ROADMAP.md § Latency feedback framework — 4-tier decision rule + primitives`) for the "which surfaces are Tier A2?" definition. Pairs with the fault-injected QA gate above — both are Tier-A2-shaped test infrastructure gaps lalista PR #49 surfaced.
+  **Why v0 — blocks next-project adoption.** A second project scaffolding today inherits a ROADMAP that reads as if v1.22.0–v1.25.0 work is still pending, plus a TODOS file where shipped items are indistinguishable at a glance from open work. The convention says "git log + PR description are the audit trail" — but that contract only works if the live trackers stay current. The drift was costless during single-project use; it becomes onboarding friction the moment a second project arrives.
 
-  [v0, surfaced-by lalista-PR49-add-item-banner-spec, 2026-05-07]
+  **Edit targets**: `BUILD-LOG.md` (write ~12 entries), `kit/ROADMAP.md` (delete sections), `kit/TODOS.md` (delete `[x]` entries), `kit/notes/roadmap/lalista-launch.md` (refresh), plus any `kit/docs/guide/*.md` / `.claude/skills/devshop/*/SKILL.md` that need rationale-lift per the wrinkle above.
+
+  [v0, convention-drift, surfaced-by 2026-05-07-roadmap-audit, 2026-05-07]

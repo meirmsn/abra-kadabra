@@ -4,6 +4,15 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### postgrest-null-and-tier-a2-retry-docs (2026-05-08)
+
+- **Branch**: `feat/postgrest-null-and-tier-a2-retry-docs`
+- **PR**: TBD
+- **Spec**: prose-only, drafted from `kit/TODOS.md` entries (now deleted per closure protocol)
+- **Summary**: Two prose-only conventions surfaced by lalista PR #49. (1) `kit/docs/guide/conventions.md § Database queries` + `template/CLAUDE.md` gotcha — PostgREST returns `data: null` + populated `error` on a non-existent column; downstream null-deref masks the typo. Convention requires `error`-first checks at every `.select()` call site (lalista PR #49 hit this twice: `items.name` typo + `purchase_history.list_entry_id` unmapped FK). (2) New `kit/docs/guide/testing.md` (Pattern 1) — Tier A2 retry-budget E2E tests use `page.clock.fastForward()` (Playwright 1.45+) instead of bumping `test.setTimeout()` past the backoff window; cites lalista's `add-item-banner.spec.ts` as the don't-do-this prior art. Closure deletes the two `[v0]` TODOS entries (no strikethrough, no shipped footnote) per the post-cleanup convention.
+- **Commits**: 2 atomic commits (uncommitted-TODOs annotation + the two-doc ship + closure)
+- **Quality gates**: `/ak-pre-ship` (prose-only docs, no test gates apply)
+
 ### cheap-test-gates-local (2026-05-06)
 
 - **Branch**: `feature/cheap-test-gates-local` (merging via #27)
