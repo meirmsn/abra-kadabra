@@ -658,6 +658,7 @@ Every script in `kit/scripts/` is either tested or explicitly exempt in `check-t
 
 - **Responsive from day one** — works (not just renders) from iPhone SE (375px) to large desktop (2560px). Mobile-first. `packages/ui/src/tokens.ts` defines breakpoints as single source of truth; `tailwind.config.js` reads them. No hardcoded pixel widths. Playwright E2E runs at mobile + desktop. Snapshot tests include both variants.
 - **Light/dark theme required** — both from launch. `tokens.ts` defines semantic theme tokens. Tailwind maps to CSS custom properties. Theme follows `prefers-color-scheme` with optional toggle. No hardcoded colors — always theme tokens. Snapshots include both themes.
+- **Snappiness / latency feedback** — when adding loading affordances, threshold spinners, optimistic mutations, or skeleton placeholders, see `kit/docs/guide/latency-feedback.md`. The guide owns the two-skeleton-handoff rule and the sizing-primitive override gotcha — both silently degrade UI without throwing errors.
 
 ### PWA
 
