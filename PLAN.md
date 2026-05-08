@@ -10,9 +10,7 @@ Forward-looking plan at the feature/PR grain.
 
 ## Active
 
-| Feature                    | Branch                               | Spec                                       | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| -------------------------- | ------------------------------------ | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| slow-job-skip-on-docs-only | `feature/slow-job-skip-on-docs-only` | `specs/slow-job-skip-on-docs-only/spec.md` | Adds a `changes:` setup-job + slow-job `needs:`/`if:` gate to `template/.github/workflows/ci.yml` so docs-only diffs (`**/*.md`, `specs/**`, `PLAN.md`, `BUILD-LOG.md`, `TODOS.md`, `.gstack/**`, `.devshop/**`) skip the 8–10 min slow-job cycle. Backward-compatible. Pre-ship slow-job-lifecycle gate extended (Check 6) to assert the filter is wired once a project's slow-job is uncommented. Lalista adopts via a one-line PR after this lands (D4). |
+_No work in progress._
 
 ## Planned
 
