@@ -91,4 +91,15 @@ The new sub-section captures:
 
 ## Task 5 — PLAN.md flip to Active
 
-**Status:** pending
+**Status:** done
+
+Flipped `slow-job-skip-on-docs-only` from PLAN.md Planned (was row #1) to Active. Active table uses the canonical column shape per the convention block at the bottom of PLAN.md: `Feature | Branch | Spec | Notes` (no #).
+
+- Branch: `feature/slow-job-skip-on-docs-only`
+- Spec: `specs/slow-job-skip-on-docs-only/spec.md`
+
+Renumbered remaining Planned rows (qa-na-tightening was #2 → #1, etc.) per "Planned ordered by # ascending (smallest = next up). Renumber on reorder."
+
+ROADMAP entry deletion (the matching `kit/ROADMAP.md § Slow-job skip-on-docs-only via CI workflow paths-ignore`) is intentionally NOT done in this task — that's Phase 5.6 of `/ak-build`'s post-ship cleanup per spec § Task order line 157.
+
+**Commit:** Task 5 atomic.
