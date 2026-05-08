@@ -2,6 +2,22 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.26.0 (2026-05-08)
+
+- feat(roadmap+plan): add pr-body-img-merge-sha-survival entry (v0)
+- feat(ak-build,ak-pre-ship): codify 3 hardening rules from lalista PR 53
+- docs(ops): expand PWA section with iOS gotchas (input-zoom, cross-origin redirect) (#28)
+- docs(conventions+testing): PostgREST error-first + Tier A2 retry-budget patterns
+- fix(ak-merge-devshop): squash on feature branch via soft-reset; drop operator handoff
+- fix(ak-merge-devshop): hand off on-main commit; queue 4 ROADMAP + 4 TODOs
+- chore(ak-merge-devshop): file post-ship TODOs + Known Limitations section
+- fix(ak-merge-devshop): add ak-\* symlink for /-autocomplete discovery
+- fix(ak-merge-devshop): move skill to convention layout (devshop/merge-devshop/)
+- feat(ak-merge-devshop): new skill — audit + squash-merge + push + cleanup
+- feat(devshop): shift cheap test gates from CI-only to local pre-push (#27)
+- docs(roadmap): add /ak-merge-devshop skill entry — devshop /ak-go-live analog
+- docs(roadmap): add v1 entry for shifting cheap test gates from CI to local pre-push
+
 ## v1.25.0 (2026-05-07)
 
 - chore(post-pr-c-deferred-polish): record Audit 1 — clean
