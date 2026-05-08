@@ -252,7 +252,7 @@ Ask yourself and route learnings to **committed files** (not memory):
 - Decision log entries ("chose X over Y because Z, date") → `kit/docs/guide/ § Decision Log`
 - Confidence calibration adjustments → project `CLAUDE.md § Confidence Calibration`
 
-Commit (project repo): `docs: post-deploy reflection for <feature-name>`
+Commit (project repo): `docs: post-deploy reflection for <feature-name>`. **If the project enforces PR-only main** (branch protection / pre-push hook blocking direct pushes — most production projects do), open a small focused PR with just this docs commit (e.g., `docs/<feature>-reflection`). The reflection is small enough that the PR overhead is acceptable; merging it through the same gates the feature went through keeps main's history clean. Don't try to bundle the reflection into the original feature PR retroactively (already merged) or skip it (loses the capture moment).
 
 If nothing project-specific to capture (the bug + commit message + spec docs already carry the context), skip this sub-step. Don't add CLAUDE.md noise for self-evident lessons — see today's prompt: _"the next time this kind of issue hits, the 500 itself is the signal."_
 
