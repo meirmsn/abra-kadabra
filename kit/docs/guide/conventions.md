@@ -149,8 +149,74 @@ Both are project-agnostic — copied verbatim from the template into every proje
 3. The `supabase start` health-check retry is wired (compare against the template-shipped reference).
 4. Branch protection contexts include `slow`.
 5. The slow-job's test glob actually matches at least one staged or repo-resident integration test or E2E spec (catches the "uncommented but runs zero tests" regression).
+6. The skip-on-docs-only filter is wired (changes-job + slow-job's `needs:`/`if:` reference the runtime gate). See the next sub-section for the canonical shape.
 
 Block-on-failure with a remediation message pointing at this section's checklist.
+
+### Skip-on-docs-only filter
+
+Once the slow-job is uncommented, docs-only PRs (typo fixes, plan updates, ROADMAP edits) shouldn't burn the 8–10 min slow-job. The convention is a tiny `changes:` setup-job that classifies the diff and exposes `runtime: 'true'/'false'` as a job output; the slow-job's `needs:` includes `changes` and its `if:` consumes the runtime gate.
+
+**Shape** — single workflow file, two jobs wired together:
+
+```yaml
+changes:
+  runs-on: ubuntu-latest
+  outputs:
+    runtime: ${{ steps.classify.outputs.runtime }}
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # required for `git diff base.sha...HEAD`
+    - id: classify
+      run: |
+        set -euo pipefail
+        shopt -s globstar
+        changed_files=$(git diff --name-only "${{ github.event.pull_request.base.sha }}...HEAD" || true)
+        # Empty diff → runtime=true (safer default — run slow-job rather than silently skip).
+        [ -z "$changed_files" ] && { echo "runtime=true" >> "$GITHUB_OUTPUT"; exit 0; }
+        runtime=false
+        while IFS= read -r path; do
+          [ -z "$path" ] && continue
+          case "$path" in
+            **/*.md) ;;
+            specs/**) ;;
+            PLAN.md) ;;
+            BUILD-LOG.md) ;;
+            TODOS.md) ;;
+            .gstack/**) ;;
+            .devshop/**) ;;
+            *) runtime=true; break ;;
+          esac
+        done <<< "$changed_files"
+        echo "runtime=$runtime" >> "$GITHUB_OUTPUT"
+
+slow:
+  if: github.event_name == 'pull_request' && needs.changes.outputs.runtime == 'true'
+  runs-on: ubuntu-latest
+  needs: [fast, changes]
+  # ...
+```
+
+**Ignore list** — a diff is "docs-only" iff every changed file matches one of these globs. The list is canonical (don't rearrange without spec'ing it):
+
+- `**/*.md`
+- `specs/**`
+- `PLAN.md`
+- `BUILD-LOG.md`
+- `TODOS.md`
+- `.gstack/**`
+- `.devshop/**`
+
+`**/*.md` already structurally covers the named `*.md` files; the explicit names are kept for reader clarity and to defend against a future YAML refactor that drops the broad glob.
+
+**Why a `changes:` setup-job and not job-level `paths-ignore:`** — `paths-ignore` is invalid at job level. `actionlint v1.7.7` rejects it: `unexpected key "paths-ignore" for "job" section. expected one of "concurrency", "container", "continue-on-error", "defaults", "env", "environment", "if", "name", "needs", "outputs", "permissions", "runs-on", "secrets", "services", "steps", "strategy", "timeout-minutes", "uses", "with"`. `paths-ignore` is a workflow-trigger key only (under `on.pull_request.paths-ignore` or `on.push.paths-ignore`). The two alternatives — `dorny/paths-filter@v3` (third-party action dependency for one feature) and splitting into `ci-fast.yml` + `ci-slow.yml` (every adopting project would need to update branch-protection contexts) — both have larger blast radius than 15 lines of inline bash.
+
+**Branch-protection contract** — when the diff is docs-only, GitHub Actions reports the slow-job status as `skipped`. Per [GitHub's documented behavior](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches#require-status-checks-before-merging) on required status checks, a `skipped` status is treated as `success` for branch-protection — the PR is mergeable without operator intervention. The `changes:` job is intentionally NOT a required context (it always succeeds, in ~5s); gating happens via the slow-job's `if:`. This is the load-bearing assumption: if GitHub ever changes this behavior or branch protection is configured with the stricter "Require all jobs to be successful" mode, the fallback is `if: always() && (github.event_name != 'pull_request' || needs.changes.outputs.runtime == 'true')` — but don't pre-emptively flip; the documented behavior is the contract.
+
+**Uncomment-both ritual** — the `changes:` job ships commented out in the template, alongside the commented `slow:` stub. When the slow-job uncomment ritual fires (Phase 1c / 1g, see § Uncommenting checklist above), uncomment `changes:` in the same edit. Don't ship `changes:` live but `slow:` commented (the slow-job's `needs: [fast, changes]` would be a dangling reference at YAML-load time), and don't ship `slow:` live but `changes:` commented (same dangling-reference trap, opposite direction). The template's comment block above the stubs reminds the operator of the trap; the structural-enforcement gate (Check 6 in the list above) catches the mistake at pre-ship time.
+
+**Forward verification** — local `actionlint` only validates YAML shape, not the runtime classify behavior. The first docs-only PR landed AFTER a project adopts the filter is the live test: open the PR's checks panel and confirm the slow-job shows `skipped`. A trivial PLAN.md edit suffices.
 
 ### Codified prior art
 

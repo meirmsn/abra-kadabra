@@ -74,7 +74,20 @@ Each sub-failure produces its own finding with a remediation message pointing at
 
 ## Task 4 — `kit/docs/guide/conventions.md` sub-section
 
-**Status:** pending
+**Status:** done
+
+Inserted `### Skip-on-docs-only filter` between `### Structural enforcement` (line 143) and `### Codified prior art` (line 155+) per D5. Also extended the Structural enforcement list from 5 to 6 sub-asserts to include Check 6.
+
+The new sub-section captures:
+
+- **Shape** — full `changes:` + `slow:` job snippet with `actions/checkout@v4` + `fetch-depth: 0`, classify step writing `runtime=` to `$GITHUB_OUTPUT`, three-dot diff (`base.sha...HEAD`), `shopt -s globstar`, empty-diff → `runtime=true` (safer default).
+- **Ignore list** (D2 verbatim) — `**/*.md`, `specs/**`, `PLAN.md`, `BUILD-LOG.md`, `TODOS.md`, `.gstack/**`, `.devshop/**`.
+- **Why a `changes:` setup-job and not job-level `paths-ignore:`** — D1 rationale with the actionlint v1.7.7 rejection output verbatim. Two alternatives dismissed (third-party action + workflow split).
+- **Branch-protection contract** — `skipped`-as-success per GitHub's documented behavior; `changes:` is intentionally NOT a required context. Includes the fallback `if:` shape if GitHub changes the behavior.
+- **Uncomment-both ritual** — the dangling-needs trap in both directions; pre-ship Check 6 catches the mistake.
+- **Forward verification** — local actionlint validates shape only, not runtime; the first docs-only PR is the live test.
+
+**Commit:** Task 4 atomic.
 
 ## Task 5 — PLAN.md flip to Active
 
