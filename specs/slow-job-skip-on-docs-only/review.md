@@ -188,3 +188,79 @@ Audit invokes `/ak-docs-review` and `/ak-tests-review` against the merged tree.
 - **Docs:** pass. 2 bypass trailers in range, both resolved by Task 4's conventions.md sub-section in same PR. Per-doc audit: 1 doc affected and updated, 12 docs verified not-affected with rationale.
 - **Tests:** pass. 23 + 4 new D3 cases + 3 fixture updates = 30 changes in 2 BATS files. 715/715 suite-wide.
 - **Severity:** all findings low (noted) — no medium or high blockers.
+
+---
+
+## Audit 2
+
+<!-- audited-at: 3fb17e437829b360e51faa5c604a178b9248cfbc -->
+
+Range: `61957cf..3fb17e4` (post-pre-ship polish range — exactly 1 bookkeeping commit).
+Audit invokes `/ak-docs-review` and `/ak-tests-review` against the merged tree.
+
+Polish range contents:
+
+- `3fb17e4` `chore(build-log): record slow-job-skip-on-docs-only` — pure bookkeeping. Three files: `PLAN.md` (-4/+1, Active row removed, placeholder restored), `BUILD-LOG.md` (+9/-0, slow-job-skip-on-docs-only entry prepended most-recent-first), `kit/ROADMAP.md` (+1/-58, deleted the standalone entry; revised the "CI slow-job lifecycle convention" gate-asserts list from 5 to 6 with cross-link). No code, no tests, no runtime.
+
+### [domain: docs]
+
+**Finding 1 — BUILD-LOG entry follows adjacent-entry convention.** severity: low (noted)
+
+- Compared the new `### slow-job-skip-on-docs-only (2026-05-08)` entry against its two immediate neighbors (`postgrest-null-and-tier-a2-retry-docs (2026-05-08)`, `cheap-test-gates-local (2026-05-06)`):
+  - All three use the `### <feature> (YYYY-MM-DD)` heading shape.
+  - All three carry the same bullet schema: **Branch** / **PR** / **Spec** / **Summary** / **Commits** / **Quality gates**.
+  - Most-recent-first ordering preserved (new entry inserted at top under the file preamble, before `postgrest-null-and-tier-a2-retry-docs`).
+  - Summary length proportional to scope (single paragraph; cites the empirical `paths-ignore`-at-job-level rejection that justified the chosen shape).
+  - Quality gates row uses the same numeric-rollup convention as adjacent entries (`8 pass + 0 findings_pending + 6 n/a + 0 blocked. Audit 1 clean.`).
+- **Action:** noted; no fix required.
+
+**Finding 2 — Deleted ROADMAP entry has no surviving cross-references outside the spec/tasks files.** severity: low (noted)
+
+- Repo-wide sweep for the deleted entry's distinctive title `Slow-job skip-on-docs-only via CI workflow paths-ignore`:
+  - `specs/slow-job-skip-on-docs-only/tasks.md:103` — references the entry as the planned-deletion target. **Expected** — the spec itself documents the cleanup.
+  - `specs/slow-job-skip-on-docs-only/spec.md:10,157` — same. **Expected** — the spec records ROADMAP cross-references as audit trail.
+  - No hits in `CLAUDE.md`, `README.md`, `kit/docs/guide/*.md`, or any other top-level doc.
+- Repo-wide sweep for `paths-ignore` (the deleted entry's distinctive technical term):
+  - `BUILD-LOG.md:12` — the new entry's prose, citing the shape rejection. **Expected.**
+  - `specs/cheap-test-gates-local/spec.md:282` — historical "Out of scope" item from a previously-shipped feature; was the original promotion source for what became the now-shipped slow-job-skip-on-docs-only entry. **Expected** — historical audit trail.
+  - `kit/docs/guide/conventions.md:213` — the "alternatives-dismissed" paragraph in the new sub-section, citing the actionlint rejection. **Expected.**
+  - `kit/ROADMAP.md` — only the new Check 6 cross-link. **Expected.**
+- **Action:** noted; no fix required.
+
+**Finding 3 — ROADMAP "CI slow-job lifecycle convention" gate-asserts list reads coherently with Check 6 inline; cross-link target resolves.** severity: low (noted)
+
+- Inspected the revised list at `kit/ROADMAP.md:909–917`:
+  - Numbering is contiguous (1–6); structural parallel preserved (each sub-bullet states a declarative property the gate asserts).
+  - Check 6's parenthetical "(Shipped via #29; see `kit/docs/guide/conventions.md § Slow-Job Lifecycle § Skip-on-docs-only filter`.)" is the only past-tense entry in a forward-looking list. That asymmetry is intentional and matches the existing convention used elsewhere in the ROADMAP for "this part of a v0 entry has already shipped" — clarifies that the gate already knows how to assert this without needing the rest of the v0 entry to ship.
+  - Block-on-failure remediation message at the end of the list ("uncomment + add to branch protection") is unchanged. Adding Check 6 doesn't break the remediation framing.
+- Cross-link target verification: `grep -n "Skip-on-docs-only filter" /devshop/kit/docs/guide/conventions.md` → line 156, heading `### Skip-on-docs-only filter`. Anchor exists.
+- Outer section header verification: `## Slow-Job Lifecycle` exists in the same file (the parent heading). Cross-link's `§ Slow-Job Lifecycle § Skip-on-docs-only filter` chain is fully resolvable.
+- **Action:** noted; no fix required.
+
+**Finding 4 — PLAN.md placeholder restored to the canonical empty-state.** severity: low (noted)
+
+- The Active row removal restores `_No work in progress._` — the same placeholder used by adjacent merged-feature post-states across the devshop's lifecycle. Visual diff is two-line table → one-line italic placeholder. No structural drift.
+- No "next-up" feature is queued in the Active row, which matches PLAN's convention (Active is for in-flight work; Planned is the next-up queue, untouched by this commit).
+- **Action:** noted; no fix required.
+
+**Per-doc audit (13 catalog guides + top-level):**
+
+- AFFECTED + UPDATED in polish range: `BUILD-LOG.md` (entry prepended), `PLAN.md` (Active row removed, placeholder restored), `kit/ROADMAP.md` (entry deleted, gate-asserts list grown 5→6).
+- NOT-AFFECTED (with reason): `CLAUDE.md` (no orientation/instruction change — pure devshop-internal bookkeeping), `README.md` (no surface change), `kit/docs/guide/conventions.md` (already updated in Audit 1 range; the polish commit's ROADMAP cross-link points _at_ this file but doesn't modify it), `architecture.md` / `security.md` / `ops.md` / `hooks.md` / `workflow.md` / `testing.md` / `latency-feedback.md` / `local-supabase-compose-isolation.md` / `macos-host-setup.md` / `notifications.md` / `supabase-ssr-boilerplate.md` (none of these surfaces are bookkeeping-relevant).
+
+### [domain: tests]
+
+**Finding 1 — Polish range contains zero test changes.** severity: low (noted)
+
+- Polish range diff scope: `BUILD-LOG.md`, `PLAN.md`, `kit/ROADMAP.md`. All three are markdown bookkeeping files.
+- No new test files. No edits to existing test files. No edits to fixtures, helpers, or test infrastructure.
+- BATS suite total unchanged from Audit 1's 715/715. No re-run required for a markdown-only polish range.
+- **Action:** noted; no fix required. Trivial pass — there is no test surface to audit.
+
+### Summary
+
+- **Docs:** pass. 4 low-severity findings, all noted. BUILD-LOG entry follows adjacent-entry convention; deleted ROADMAP entry has no surviving cross-refs outside the spec; revised gate-asserts list is coherent with the new Check 6; PLAN.md placeholder restored canonically. Cross-link from `kit/ROADMAP.md` Check 6 → `kit/docs/guide/conventions.md § Slow-Job Lifecycle § Skip-on-docs-only filter` resolves at line 156.
+- **Tests:** pass. Trivial — polish range is markdown-only.
+- **Severity:** all findings low (noted) — no medium or high blockers.
+
+findings: high=0 medium=0 low=5
