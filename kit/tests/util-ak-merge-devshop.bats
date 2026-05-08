@@ -39,7 +39,10 @@
 
 setup() {
   load helpers/setup
-  SKILL_FILE="/devshop/.claude/skills/ak-merge-devshop/SKILL.md"
+  # Canonical location: /devshop/.claude/skills/devshop/<short-name>/SKILL.md
+  # (symlinked to /devshop/.claude/skills/ak-<short-name> for /-autocomplete
+  # discovery via kit/scripts/sync/create-devshop-symlinks.sh).
+  SKILL_FILE="/devshop/.claude/skills/devshop/merge-devshop/SKILL.md"
   # Do NOT defensively skip when SKILL.md is missing — a rename/move/delete is
   # precisely the regression this file exists to catch (peer pattern from
   # util-build-phase58-audit-parser.bats).

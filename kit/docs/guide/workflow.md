@@ -388,3 +388,20 @@ For the full pipeline detail, see Steps 1–6 above.
 > **Skill autocomplete**: The `name` field in SKILL.md frontmatter drives `/` autocomplete,
 > not the directory or symlink name. When adding or renaming a skill, set `name: ak-<skill>`
 > in the frontmatter to match the desired slash command.
+>
+> **Skill layout convention** (load-bearing — required for autocomplete discovery):
+> a new devshop skill has TWO entries on disk —
+>
+> 1. Real content at `/devshop/.claude/skills/devshop/<short-name>/SKILL.md`
+>    (no `ak-` prefix in the directory name).
+> 2. Symlink at `/devshop/.claude/skills/ak-<short-name>` →
+>    `devshop/<short-name>` (relative target, matches peer pattern).
+>
+> The sync script `kit/scripts/sync/create-devshop-symlinks.sh` walks
+> `/devshop/.claude/skills/*` looking for **symlinks only** (`if [ -L ]`),
+> then propagates each one to `/workspace/.claude/skills/`. Real
+> directories at the top level of `/devshop/.claude/skills/` are
+> silently ignored — a real-dir skill works in `/devshop` sessions
+> but never reaches `/workspace`. After adding a new skill, run
+> `bash kit/scripts/sync/create-devshop-symlinks.sh /workspace` (or
+> restart the container) to populate the workspace-side symlink.
