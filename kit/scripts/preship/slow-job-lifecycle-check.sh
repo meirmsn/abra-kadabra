@@ -86,6 +86,55 @@ if [ "$SLOW_LIVE" = "1" ]; then
   if [ -n "$HAS_E2E" ] && ! grep -qiE 'playwright' "$CI_YML"; then
     findings+=("repo has apps/*/e2e/*.spec.ts files but slow-job doesn't invoke playwright — uncommented job will run zero E2E specs")
   fi
+
+  # --- Check 6: skip-on-docs-only filter wired (D3 of slow-job-skip-on-docs-only) ---
+  # The convention is: a `changes:` setup-job classifies the diff and exposes
+  # `runtime: 'true'/'false'` as a job output; the `slow:` job's `needs:` includes
+  # `changes` and its `if:` references `needs.changes.outputs.runtime == 'true'`.
+  # Once the slow-job is uncommented (SLOW_LIVE=1), all four sub-asserts must hold
+  # — otherwise docs-only PRs burn the 8-10 min slow-job needlessly. Without this
+  # check, the convention propagates to new projects via the template stub but
+  # degrades to operator-memory once the slow-job is uncommented.
+  #
+  # We ONLY look for the live (uncommented) `changes:` job + wiring — the template
+  # ships them all commented, and the existing Check 1 already enforces that the
+  # slow-job is uncommented when SLOW_LIVE=1; the same uncomment-both ritual
+  # applies to changes:.
+  CHANGES_LIVE=0
+  if grep -qE '^[[:space:]]+changes:[[:space:]]*$' "$CI_YML"; then
+    CHANGES_LIVE=1
+  fi
+  CHANGES_HAS_RUNTIME_OUTPUT=0
+  if [ "$CHANGES_LIVE" = "1" ] && grep -qE '^[[:space:]]+runtime:[[:space:]]+\$\{\{[[:space:]]*steps\.[a-zA-Z0-9_-]+\.outputs\.runtime[[:space:]]*\}\}' "$CI_YML"; then
+    CHANGES_HAS_RUNTIME_OUTPUT=1
+  fi
+  SLOW_NEEDS_CHANGES=0
+  # Match either `needs: [fast, changes]` (list form, comma-separated) or a YAML
+  # block list (`needs:\n  - fast\n  - changes`). `grep` doesn't span lines, so
+  # check the inline-list form first; the block-list form fires the second branch.
+  if grep -qE '^[[:space:]]+needs:[[:space:]]*\[[^]]*\bchanges\b[^]]*\]' "$CI_YML"; then
+    SLOW_NEEDS_CHANGES=1
+  elif awk '/^[[:space:]]+needs:[[:space:]]*$/{block=1; next} block && /^[[:space:]]+- /{if ($0 ~ /\bchanges\b/) found=1} block && /^[^[:space:]-]/{block=0} END{exit !found}' "$CI_YML"; then
+    SLOW_NEEDS_CHANGES=1
+  fi
+  SLOW_IF_REFERENCES_RUNTIME=0
+  if grep -qE 'needs\.changes\.outputs\.runtime' "$CI_YML"; then
+    SLOW_IF_REFERENCES_RUNTIME=1
+  fi
+
+  if [ "$CHANGES_LIVE" = "0" ]; then
+    findings+=("slow-job missing skip-on-docs-only filter — no live 'changes:' setup job in .github/workflows/ci.yml. Docs-only PRs will burn the 8-10 min slow-job; see kit/docs/guide/conventions.md § Slow-Job Lifecycle § Skip-on-docs-only filter for the canonical shape (changes: job + slow-job's needs/if wiring)")
+  else
+    if [ "$CHANGES_HAS_RUNTIME_OUTPUT" = "0" ]; then
+      findings+=("'changes:' job present but missing 'runtime' output (expected 'runtime: \${{ steps.<id>.outputs.runtime }}'); slow-job's if-predicate will resolve to empty — see kit/docs/guide/conventions.md § Slow-Job Lifecycle § Skip-on-docs-only filter")
+    fi
+    if [ "$SLOW_NEEDS_CHANGES" = "0" ]; then
+      findings+=("slow-job's 'needs:' does not include 'changes' — the changes: job runs but the slow-job doesn't depend on it; gating won't fire. Expected 'needs: [fast, changes]' (or block-list form). See kit/docs/guide/conventions.md § Slow-Job Lifecycle § Skip-on-docs-only filter")
+    fi
+    if [ "$SLOW_IF_REFERENCES_RUNTIME" = "0" ]; then
+      findings+=("slow-job's 'if:' does not reference 'needs.changes.outputs.runtime' — the runtime gate is not wired and the slow-job will run on every PR regardless of diff. Expected 'if: github.event_name == \"pull_request\" && needs.changes.outputs.runtime == \"true\"'. See kit/docs/guide/conventions.md § Slow-Job Lifecycle § Skip-on-docs-only filter")
+    fi
+  fi
 fi
 
 # --- Check 4 (soft): branch protection on main includes 'slow' ---

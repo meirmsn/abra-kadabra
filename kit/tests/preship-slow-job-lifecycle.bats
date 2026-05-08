@@ -57,16 +57,24 @@ YML
 
 # --- pass outcome ---
 
-@test "pass when slow-job is correctly configured (integration tests + canonical predicate + retry + invocation)" {
+@test "pass when slow-job is correctly configured (integration tests + canonical predicate + retry + invocation + skip-filter)" {
   add_integration_test
   write_ci_yml <<'YML'
 name: CI
 jobs:
   fast:
     runs-on: ubuntu-latest
-  slow:
-    if: github.event_name == 'pull_request'
+  changes:
     runs-on: ubuntu-latest
+    outputs:
+      runtime: ${{ steps.classify.outputs.runtime }}
+    steps:
+      - id: classify
+        run: echo "runtime=true" >> "$GITHUB_OUTPUT"
+  slow:
+    if: github.event_name == 'pull_request' && needs.changes.outputs.runtime == 'true'
+    runs-on: ubuntu-latest
+    needs: [fast, changes]
     steps:
       - name: Verify edge runtime healthy
         run: |
@@ -80,14 +88,22 @@ YML
   assert_output "pass"
 }
 
-@test "pass when E2E specs trigger threshold and slow-job invokes playwright" {
+@test "pass when E2E specs trigger threshold and slow-job invokes playwright (with skip-filter)" {
   add_e2e_spec
   write_ci_yml <<'YML'
 name: CI
 jobs:
-  slow:
-    if: github.event_name == 'pull_request'
+  changes:
     runs-on: ubuntu-latest
+    outputs:
+      runtime: ${{ steps.classify.outputs.runtime }}
+    steps:
+      - id: classify
+        run: echo "runtime=true" >> "$GITHUB_OUTPUT"
+  slow:
+    if: github.event_name == 'pull_request' && needs.changes.outputs.runtime == 'true'
+    runs-on: ubuntu-latest
+    needs: [fast, changes]
     steps:
       - run: echo "Edge runtime probe loop"
       - run: pnpm exec playwright test
@@ -203,12 +219,22 @@ YML
 
 @test "findings: multiple gaps reported together" {
   add_integration_test
+  # Includes the canonical skip-on-docs-only filter wiring so Check 6 stays
+  # silent — this fixture is intentionally testing the legacy 3-gap shape.
   write_ci_yml <<'YML'
 name: CI
 jobs:
-  slow:
-    if: always()
+  changes:
     runs-on: ubuntu-latest
+    outputs:
+      runtime: ${{ steps.classify.outputs.runtime }}
+    steps:
+      - id: classify
+        run: echo "runtime=true" >> "$GITHUB_OUTPUT"
+  slow:
+    if: always() && needs.changes.outputs.runtime == 'true'
+    runs-on: ubuntu-latest
+    needs: [fast, changes]
     steps:
       - run: echo "no retry pattern here"
       - run: pnpm test:unit
@@ -219,6 +245,113 @@ YML
   assert_output --partial "predicate doesn't match canonical"
   assert_output --partial "missing edge-runtime health-check retry"
   assert_output --partial "doesn't invoke them"
+}
+
+# --- D3: skip-on-docs-only filter (Check 6) ---
+
+@test "pass when slow-job has skip-on-docs-only filter present in canonical shape" {
+  add_integration_test
+  write_ci_yml <<'YML'
+name: CI
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      runtime: ${{ steps.classify.outputs.runtime }}
+    steps:
+      - id: classify
+        run: echo "runtime=true" >> "$GITHUB_OUTPUT"
+  slow:
+    if: github.event_name == 'pull_request' && needs.changes.outputs.runtime == 'true'
+    runs-on: ubuntu-latest
+    needs: [fast, changes]
+    steps:
+      - run: echo "Edge runtime probe loop"
+      - run: pnpm test:integration
+YML
+  run_script
+  assert_success
+  assert_output "pass"
+}
+
+@test "findings: filter absent on uncommented slow-job (no changes: job)" {
+  add_integration_test
+  write_ci_yml <<'YML'
+name: CI
+jobs:
+  slow:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Edge runtime probe loop"
+      - run: pnpm test:integration
+YML
+  run_script
+  assert_success
+  assert_output --partial "findings"
+  assert_output --partial "missing skip-on-docs-only filter"
+  # Remediation message points at the conventions.md sub-section.
+  assert_output --partial "Skip-on-docs-only filter"
+}
+
+@test "findings: changes: job exists but slow-job's needs: not wired" {
+  add_integration_test
+  # Partial wire — changes: job is live with runtime output, slow-job's `if:`
+  # references the runtime gate, but `needs:` lacks `changes`. The classify
+  # job runs but the slow-job doesn't depend on it, so docs-only PRs won't
+  # get the skip behavior even though the predicate is in place.
+  write_ci_yml <<'YML'
+name: CI
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      runtime: ${{ steps.classify.outputs.runtime }}
+    steps:
+      - id: classify
+        run: echo "runtime=true" >> "$GITHUB_OUTPUT"
+  slow:
+    if: github.event_name == 'pull_request' && needs.changes.outputs.runtime == 'true'
+    runs-on: ubuntu-latest
+    needs: fast
+    steps:
+      - run: echo "Edge runtime probe loop"
+      - run: pnpm test:integration
+YML
+  run_script
+  assert_success
+  assert_output --partial "findings"
+  assert_output --partial "needs:' does not include 'changes'"
+}
+
+@test "findings: changes: job exists but slow-job's if: does not reference runtime" {
+  add_integration_test
+  # Partial wire — changes: job is live, needs: includes changes, but the
+  # slow-job's `if:` predicate doesn't reference the runtime gate. The
+  # changes-job runs and the slow-job depends on it (so it waits for changes
+  # to finish), but the gating is silently bypassed.
+  write_ci_yml <<'YML'
+name: CI
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      runtime: ${{ steps.classify.outputs.runtime }}
+    steps:
+      - id: classify
+        run: echo "runtime=true" >> "$GITHUB_OUTPUT"
+  slow:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    needs: [fast, changes]
+    steps:
+      - run: echo "Edge runtime probe loop"
+      - run: pnpm test:integration
+YML
+  run_script
+  assert_success
+  assert_output --partial "findings"
+  assert_output --partial "if:' does not reference 'needs.changes.outputs.runtime'"
 }
 
 # --- threshold detection edge cases ---
@@ -260,15 +393,24 @@ YML
 # Stub responds to both call shapes; the test repo doesn't need to be a github clone.
 
 # Helper: write a well-formed slow-job ci.yml so the only finding source under
-# test is the branch-protection sub-check.
+# test is the branch-protection sub-check. Includes the canonical skip-on-docs-
+# only filter (changes: job + slow-job's needs/if wiring) so Check 6 doesn't fire.
 write_good_slow_job_yml() {
   add_integration_test
   write_ci_yml <<'YML'
 name: CI
 jobs:
-  slow:
-    if: github.event_name == 'pull_request'
+  changes:
     runs-on: ubuntu-latest
+    outputs:
+      runtime: ${{ steps.classify.outputs.runtime }}
+    steps:
+      - id: classify
+        run: echo "runtime=true" >> "$GITHUB_OUTPUT"
+  slow:
+    if: github.event_name == 'pull_request' && needs.changes.outputs.runtime == 'true'
+    runs-on: ubuntu-latest
+    needs: [fast, changes]
     steps:
       - run: echo "Edge runtime probe loop"
       - run: pnpm test:integration

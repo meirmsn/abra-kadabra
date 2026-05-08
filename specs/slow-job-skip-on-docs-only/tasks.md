@@ -42,7 +42,35 @@ New BATS file pinning the literal commented-out shape of the `changes:` setup-jo
 
 ## Task 3 — Extend slow-job-lifecycle gate + BATS
 
-**Status:** pending
+**Status:** done
+
+### Gate code (`kit/scripts/preship/slow-job-lifecycle-check.sh`)
+
+Added Check 6 inside the existing `if [ "$SLOW_LIVE" = "1" ]` block (after Check 5). Asserts four sub-conditions:
+
+1. A live `changes:` job (not commented).
+2. The `changes:` job declares `runtime:` as an output referencing `${{ steps.<id>.outputs.runtime }}`.
+3. The slow-job's `needs:` includes `changes` (matches both inline-list `[fast, changes]` and YAML block-list `- changes`).
+4. The slow-job's `if:` references `needs.changes.outputs.runtime`.
+
+Each sub-failure produces its own finding with a remediation message pointing at `kit/docs/guide/conventions.md § Slow-Job Lifecycle § Skip-on-docs-only filter`. The four findings are independent — a fully missing filter fires only one (the live-changes-job check); a partial-wire fires one per misalignment.
+
+### BATS (`kit/tests/preship-slow-job-lifecycle.bats`)
+
+- **Updated 3 existing pass fixtures** so they include the canonical filter shape (otherwise they'd regress under Check 6):
+  - "pass when slow-job is correctly configured …" — added `changes:` job + `needs: [fast, changes]` + runtime gate to `if:`.
+  - "pass when E2E specs trigger threshold and slow-job invokes playwright" — same.
+  - "findings: multiple gaps reported together" — added the filter wiring so the fixture intentionally tests the legacy 3-gap shape (predicate + retry + invocation), not Check 6.
+  - `write_good_slow_job_yml` helper — same.
+- **Added 3 new D3 cases**:
+  - `pass when slow-job has skip-on-docs-only filter present in canonical shape`.
+  - `findings: filter absent on uncommented slow-job (no changes: job)` — asserts both `missing skip-on-docs-only filter` and the `Skip-on-docs-only filter` remediation phrase.
+  - `findings: changes: job exists but slow-job's needs: not wired` — partial-wire variant.
+  - `findings: changes: job exists but slow-job's if: does not reference runtime` — second partial-wire variant.
+
+22/22 BATS pass; combined with template-ci-yml-shape.bats: 45/45.
+
+**Commit:** Task 3 atomic (gate code + tests must land together).
 
 ## Task 4 — `kit/docs/guide/conventions.md` sub-section
 
