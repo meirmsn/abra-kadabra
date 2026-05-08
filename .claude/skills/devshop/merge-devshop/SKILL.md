@@ -544,6 +544,61 @@ chain into it.
 
 ---
 
+## Known limitations
+
+### Rename + symlink-at-old-path combo blocks `git merge --squash`
+
+When the squashed diff contains BOTH (a) a rename `R OLD/file -> NEW/file` AND
+(b) a new symlink at the `OLD` path, the pre-commit hook's `lint-staged` stash
+backup chokes with `error: 'OLD/file' is beyond a symbolic link`. This is a
+git-plumbing limitation surfacing through `git stash`, NOT a real conflict —
+the repo content is fine, but the staging machinery refuses.
+
+**How to detect**: after `git merge --squash <branch>` stages changes, run:
+
+```bash
+RENAME_SRCS=$(git diff --cached --name-status --diff-filter=R \
+  | awk '{print $2}')
+ADDED_PATHS=$(git diff --cached --name-status --diff-filter=A \
+  | awk '{print $2}')
+COLLISIONS=$(comm -12 <(echo "$RENAME_SRCS" | sort) <(echo "$ADDED_PATHS" | sort))
+[ -n "$COLLISIONS" ] && echo "✖ rename-plus-symlink combo: $COLLISIONS"
+```
+
+**Workaround**: fall back to `git merge --ff-only <branch>` instead of squash.
+This lands the constituent commits as-is on `main` (loses the squash's
+1-commit shape, gains 2 separate commits — same file-system end state). Each
+constituent commit was already validated by `lint-staged` when authored on
+the feature branch, so the per-commit hook fires cleanly.
+
+**Operator recovery if Phase 2 fails on this**:
+
+```bash
+# 1. Confirm not mid-merge
+[ -f .git/MERGE_HEAD ] && echo "abort first: git merge --abort"
+# 2. Unstage the failed squash (no working-tree change)
+git reset
+rm -f .git/SQUASH_MSG
+# 3. Stash any tracked-file edits (DCG-friendly; the dirty bits match the
+#    commits we're about to land, so dropping the stash post-merge is safe)
+git stash push -m "pre-ff-merge cleanup"
+# 4. ff-merge instead
+git merge --ff-only <branch>
+git push origin main
+git stash drop
+# 5. Phase 4 cleanup as usual
+git branch -D <branch>
+git push origin --delete <branch>
+```
+
+The detect-and-suggest behavior is tracked as a TODO (see `kit/TODOS.md`
+entry "/ak-merge-devshop Phase 2: detect rename-plus-symlink-at-old-path
+combo and fallback to ff-merge"). The underlying lint-staged stash bug is
+also tracked separately. Until those land, the operator does the dance
+manually per the recipe above.
+
+---
+
 ## Idempotence + resume
 
 Every phase is idempotent on re-invocation:
