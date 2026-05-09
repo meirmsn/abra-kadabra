@@ -433,3 +433,48 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
   **Edit targets**: `BUILD-LOG.md` (write ~12 entries), `kit/ROADMAP.md` (delete sections), `kit/TODOS.md` (delete `[x]` entries), `kit/notes/roadmap/lalista-launch.md` (refresh), plus any `kit/docs/guide/*.md` / `.claude/skills/devshop/*/SKILL.md` that need rationale-lift per the wrinkle above.
 
   [v0, convention-drift, surfaced-by 2026-05-07-roadmap-audit, 2026-05-07]
+
+- [ ] **Lift db-hardening conventions to template (Supabase projects).** [v0]
+      Source: lalista PR #58 (`feature/db-hardening`, migration `014_advisor_findings.sql`).
+      Full 5-diff proposal at `meirmsn-lalista:specs/db-hardening/devshop-lift-proposal.md` —
+      pull from there when picking up; don't re-derive.
+
+  **What ships**:
+  1. Day-1 SQL conventions in `template/CLAUDE.md § Migration Workflow` —
+     every `SECURITY DEFINER` function gets `set search_path = public, pg_temp`,
+     every RLS policy uses `(select auth.uid())` (never bare `auth.uid()`),
+     every FK has a backing index OR an inline-comment justification.
+  2. New `template/scripts/advisor-probe.mjs` — Node + `pg` script replicating 9
+     advisor lints against `pg_catalog` (function search_path, auth_rls_initplan,
+     unindexed FKs, multiple permissives, security_definer views, RLS disabled,
+     RLS no policy, extension_in_public, duplicate index). Wire to `pnpm db:advisor`.
+  3. New `/ak-pre-ship` `advisor-clean` gate that runs the probe post-`db:reset`
+     and fails on any new finding (with `git config devshop.advisorBypassReason`
+     escape hatch for explicit deferrals like "extension-in-public per project D4").
+  4. `template/README.md` Local URLs section (Studio at 54323, Mailpit at 54324,
+     API at 54321, dev server at 3000) plus the "run Advisor before shipping a
+     DB change" + "`pnpm db:reset` first so Studio sees the latest migration"
+     discipline. Already shipped to lalista's README in the same PR.
+  5. Paired `kit/ROADMAP.md § v0` entry "DB hardening conventions for Supabase
+     projects" — when this TODO promotes to active work, transcribe the proposal's
+     Diff 5 entry into ROADMAP.
+
+  **Why v0 — blocks next-project adoption.** Lalista PR #58's audit-time review
+  named 8 RLS policies for `auth.uid()` rewrap; a re-probe at PR-58 dogfood
+  surfaced 2 more the original audit missed. Pre-ship `/cso` separately caught
+  a privilege regression where migration 005's `with check (auth.uid() is not null)`
+  would have been reverted to migration 001's `with check (true)`. The next
+  Supabase-backed project hits the same gaps without the day-1 conventions +
+  the `advisor-clean` gate.
+
+  **Three structural lessons** (full prose at lalista's `BUILD-LOG.md § db-hardening § Notes`):
+  (a) Audit-as-snapshot vs audit-as-source-of-truth — re-probe at PR build time,
+  not just stop at the audit's named list.
+  (b) Drop+recreate-policy migrations need migration-history tracing — find the
+  LATEST policy body, not migration-001's.
+  (c) `pnpm db:reset` discipline before trusting Studio's advisor output (Studio
+  caches advisor state across runs).
+
+  **Edit targets**: `template/CLAUDE.md` (§ Migration Workflow append), `template/scripts/advisor-probe.mjs` (new), `template/package.json` (`db:advisor` script), `.claude/skills/devshop/pre-ship/SKILL.md` (new gate), `template/README.md` (Local URLs section), `kit/ROADMAP.md § v0` (paired entry).
+
+  [v0, supabase, surfaced-by lalista-PR-58, 2026-05-08]
