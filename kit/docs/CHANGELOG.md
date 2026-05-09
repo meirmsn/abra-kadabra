@@ -2,6 +2,14 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.27.0 (2026-05-08)
+
+- feat(template-ci): skip slow-job on docs-only diffs
+- docs(testing): land Audit 1 polish — testing.md cross-ref accurate at HEAD
+- docs(roadmap+plan): file context-aware-guideline-routing entry
+- chore(go-live): Step 5a — handle PR-only main projects
+- docs(guide): add latency-feedback.md — skeleton handoff + sizing-primitive override
+
 ## v1.26.0 (2026-05-08)
 
 - feat(roadmap+plan): add pr-body-img-merge-sha-survival entry (v0)
