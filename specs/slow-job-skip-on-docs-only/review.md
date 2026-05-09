@@ -264,3 +264,32 @@ Polish range contents:
 - **Severity:** all findings low (noted) — no medium or high blockers.
 
 findings: high=0 medium=0 low=5
+
+---
+
+## Audit 3: manual (2026-05-08)
+
+<!-- audited-at: c4e58d5b8337333b2ad1c33eed555509122178d6 -->
+<!-- range: 3fb17e4..c4e58d5 -->
+
+findings: high=0 medium=0 low=0
+
+Pre-merge audit invoked by `/ak-merge-devshop` Phase 1. Range is exactly the
+`docs(slow-job-skip-on-docs-only): post-pre-ship review.md (Audit 2)` commit
+itself — by construction, an audit-stamp commit cannot stamp its own SHA, so
+this recursive "audit the audit" trivial pass is the expected structural
+state. Diff scope: `specs/slow-job-skip-on-docs-only/review.md` only
+(+76/-0). No code, no tests, no runtime, no reference docs, no bypass
+trailers.
+
+### Docs findings
+
+- (none)
+
+### Tests findings
+
+- (none)
+
+### Bypass trailer audit
+
+- (none)
