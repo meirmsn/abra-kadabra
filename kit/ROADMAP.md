@@ -913,34 +913,10 @@ Lalista's slow job got uncommented when Phase 1c shipped, but the wiring quality
   3. `supabase start` health-check retry is wired (the codified PR-26 pattern, comparable against a checksum of the template's commented reference).
   4. Branch protection contexts include `slow` (via `gh api repos/{owner}/{repo}/branches/main/protection` query).
   5. The slow job's test glob actually matches at least one staged or repo-resident integration test file (catches "uncommented slow job that runs zero tests" silent regression).
+  6. The skip-on-docs-only filter is wired — `changes:` setup-job exists, declares a `runtime` output, and the `slow:` job's `needs:` + `if:` reference it. (Shipped via #29; see `kit/docs/guide/conventions.md § Slow-Job Lifecycle § Skip-on-docs-only filter`.)
      Block-on-failure with a clear "uncomment + add to branch protection" remediation message.
 - **Convention doc** in `guide/conventions.md § Slow-Job Lifecycle`: documents the Phase 1c / 1g threshold, the uncommenting checklist, and the cross-link to branch protection.
 - **Template improvement**: convert the commented `slow:` block in `/devshop/template/.github/workflows/ci.yml` to a separate `template/.github/workflows/ci-slow.yml.template` file that `/ak-new-project § Step 1c` (or wherever the integration-test setup lives) renames into place when the threshold is crossed. Cleaner than uncommenting, and the rename itself is a structural signal the pre-ship gate can detect.
-- **Path filter on slow-job trigger** — the slow job is expensive (~6–8 min cold) and shouldn't run on docs-only PRs. The naive filter `paths-ignore: ['**/*.md']` is _wrong_: a markdown file CAN be production-bearing (system prompt loaded by an edge function at runtime, agent instructions imported by the build). The convention should default the ignore list to **explicitly-named doc trees**, not a glob over all `.md`. Lalista shape:
-  ```yaml
-  paths-ignore:
-    - 'BUILD-LOG.md'
-    - 'PLAN.md'
-    - 'PRODUCT-ROADMAP.md'
-    - 'TODOS.md'
-    - 'CLAUDE.md'
-    - '**/README.md'
-    - 'specs/**'
-    - 'apps/web/screenshots/**'
-  ```
-  Or the inverse `paths` allowlist (more conservative — forgetting a new dir keeps CI running, fail-safe direction):
-  ```yaml
-  paths:
-    - 'apps/**'
-    - 'packages/**'
-    - 'supabase/**'
-    - '.github/workflows/**'
-    - 'pnpm-lock.yaml'
-    - 'package.json'
-    - 'turbo.json'
-    - 'tsconfig.base.json'
-  ```
-  Convention should pick one shape (allowlist preferred for safety) and enforce it in the same `/ak-pre-ship` gate that asserts uncommenting + branch-protection (item above) — i.e., when `*.integration.test.ts` / `*.spec.ts` is present, ALSO assert the slow-job has a `paths`-include or `paths-ignore`-explicit-doc-trees filter. Surfaced 2026-04-27 when lalista PRs #29, #30, #33 (all docs-heavy or workflow-only) all triggered full slow-job runs that didn't need to. PR #33 specifically failed on a transient `supabase/setup-cli` 502 — failure surface that wouldn't have existed if the slow-job hadn't run for a docs-only PR.
 
 **Why v0 — blocks next-project adoption:**
 
@@ -1985,38 +1961,6 @@ The new match logic ORs with stage 1 (smoke set) and stage 2 (path-pattern map) 
 **Shape.** Devshop pull, then a deliberately stack-needing PR (e.g. minor UI change in `apps/web/components/`) with the local stack stopped, observe the preflight emit `blocked:` for the stack-needing diff, fix recipe surfaces, restart the stack, the gate passes. Then a docs-only PR to verify the same degraded stack does NOT block (legacy `pass-with-note:` advisory). Add a short note to the project's CLAUDE.md or ROADMAP about adoption status. ~30 min once the devshop merge has propagated to the project.
 
 **Cost/risk.** Pure validation — no code changes in the project. The risk is the gate firing falsely on a real diff (false positive caught by the validation PR; correctable in devshop if needed). The benefit is empirical confirmation that the convention-based smoke set + the D6 promotion both behave as specified.
-
-### Slow-job skip-on-docs-only via CI workflow `paths-ignore`
-
-**Problem.** A `/ak-build` pipeline produces multiple bookkeeping pushes per PR (Phase 5.6 PLAN/BUILD-LOG, Phase 5.8 review.md Audit 2 record, sometimes the /document-release doc-sync). All are docs-only — they touch `specs/**/*.md`, `PLAN.md`, `BUILD-LOG.md`, `TODOS.md`, plus other `*.md` files. None affect runtime, integration tests, or E2E specs. Yet each push triggers the project's full CI cycle, including the slow-job's runner-side Supabase + integration tests + Playwright × 2 viewports — 8–10 minutes of CI per push, on a diff that mathematically cannot affect the test outcome. Lalista PR #52 (disambig-sheet symmetry fix, 2026-05-06) burned three full slow-job cycles back-to-back for one logical change. abra-kadabra PR #27 (cheap-test-gates-local) added Phase 5.8 Audit 2 + bookkeeping commits that compound this further.
-
-**Shape.** Add a `paths-ignore:` filter to the slow-job in project `.github/workflows/ci.yml`:
-
-```yaml
-slow:
-  if: github.event_name == 'pull_request'
-  paths-ignore:
-    - '**/*.md'
-    - 'specs/**'
-    - 'PLAN.md'
-    - 'BUILD-LOG.md'
-    - 'TODOS.md'
-    - '.gstack/**'
-    - '.devshop/**'
-```
-
-The fast-job keeps running — it's seconds, and the lint/typecheck/test:unit/build chain catches type-drift if a doc-only PR somehow includes a `.ts` change too. Slow-job is the expensive one and the only one that needs skipping.
-
-Implementation surface:
-
-- `/devshop/template/.github/workflows/ci.yml` — the project template's slow-job gets the `paths-ignore` block (new projects inherit it via `/ak-new-project`).
-- Documentation: `kit/docs/guide/conventions.md § Deploy Boundaries` or a sibling note explaining the convention.
-- BATS test in `kit/tests/` validating that the template's workflow file parses + has the expected ignore list.
-- Existing projects (lalista) need a one-line PR to adopt — same pattern as the cheap-test-gates lalista-adoption entry.
-
-**Cost/risk.** ~1h (template edit + BATS coverage + lalista adoption PR). Backward-compatible — projects without the `paths-ignore` block run unchanged. False positives (non-docs change accidentally matching the glob): only `*.md` could be affected if someone names a runtime file `*.md`, which is structurally implausible. False negatives (docs-only change that DOES need slow-job): zero — by construction, slow-job only runs the integration + Playwright suites, both of which are gated on `apps/**` / `packages/**` source. No runtime → no test outcome can change.
-
-Source: queued by abra-kadabra PR #27 (was an "out of scope" bullet on the cheap-test-gates source v1 entry that PR #27 deletes; promoted here to a standalone entry).
 
 ### Tightening `/qa`'s `n/a` criteria — require a verifiable file:line claim
 
