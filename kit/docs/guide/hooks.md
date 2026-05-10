@@ -234,6 +234,19 @@ The targeted bypass flags work identically for humans and Claude. Two flavors:
 
 Full list in [§ 2](#2-husky-pre-commit-during-git-commit) and [§ 3](#3-husky-pre-push-during-git-push). The trailer mechanism is documented in `kit/docs/guide/conventions.md § Bypass trailers`.
 
+**Pre-ship-time additions to the adversarial-review surface.** One check-type
+runs at pre-ship time rather than commit-time, so it has no `git -c devshop.<key>`
+flag — the rationale lives in the spec body itself:
+
+- `coreUserStoryNaReason` — invoked from `kit/scripts/preship/verify-story.sh`
+  when a spec's `## Core user story` body declares `N/A — <reason>` and Gate 9's
+  per-verb artifact assertion is being skipped. The reviewer judges whether the
+  rationale names a verifiable file/path claim (`no .tsx files modified`,
+  `diff is supabase/migrations/** only`) — PASS — or interpretive prose (`no
+visible UI change`, `cosmetic only`) — FAIL. Routes to Sonnet (interpretive
+  judgment is not Haiku-tier). On reject, the verdict propagates to stdout and
+  lands in `review.md § Gate 9` as the fix recipe.
+
 Performance notes:
 
 - Pre-commit typecheck runs against the whole repo. On a cold turbo cache it's slow — warm it once with `pnpm turbo run typecheck` before a commit-heavy session and subsequent commits are near-instant.
