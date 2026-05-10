@@ -285,6 +285,33 @@ None
 
 None
 
+## Audit 2: post-polish (2026-05-10)
+
+<!-- audited-at: f2ccdf7 -->
+<!-- range: 3a29d07..f2ccdf7 -->
+
+findings: high=0 medium=0 low=0
+
+Range contents (3 commits):
+
+- `0c96193` `chore(qa-na-tightening): pre-ship review (gates pass)` — review.md only
+- `f44ec18` `chore(qa-na-tightening): BUILD-LOG entry` — BUILD-LOG.md only
+- `f2ccdf7` `chore(roadmap): close Tightening /qa's n/a criteria (shipped via PR #31)` — PLAN.md + kit/ROADMAP.md
+
+All three commits are pure bookkeeping artifacts — they record what shipped earlier in the same PR (already audited at Audit 1, stamp `3a29d07`). No new runtime code, no new behavior, no new test surface, no new code branches. The artifacts themselves are the audit trail.
+
+### Docs findings
+
+- (none — bookkeeping artifacts only)
+
+### Tests findings
+
+- (none — no source-code changes in range)
+
+### Bypass trailer audit
+
+- (none in range)
+
 ## Gate tally
 
 passed: 6
