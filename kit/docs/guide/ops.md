@@ -260,6 +260,10 @@ For single-project-family operators, compose isolation is a clean ergonomics win
 
 Debugging compose isolation ("which container am I in", "is the relay reachable", "did supabase start fail"): see [`local-supabase-compose-isolation.md § Debugging tree`](./local-supabase-compose-isolation.md).
 
+### gstack runtime state
+
+`containerEnv` in `template/.devcontainer/devcontainer.json` sets BOTH `GSTACK_HOME` and `GSTACK_STATE_DIR` to `/workspace/.gstack` — gstack has a split-brain where its CLI binaries (e.g. `gstack-config`) honor `GSTACK_STATE_DIR` while SKILL.md preamble bash blocks honor `GSTACK_HOME`. Setting both ensures `projects/`, `sessions/`, `analytics/`, and `learnings.jsonl` all land under the workspace alongside `config.yaml` instead of split across `$HOME` and the project tree. `template/.gitignore` ships `.gstack/*` with explicit re-includes for `.gstack/projects/**/*.md` so design docs, office-hours plans, and eng-review history stay version-tracked while runtime state, logs, analytics, and `config.yaml` (which gstack rewrites on every run) are filtered out. Don't blanket-ignore `.gstack/` without the re-include pattern — that loses the plans.
+
 ---
 
 ## Persistent Storage

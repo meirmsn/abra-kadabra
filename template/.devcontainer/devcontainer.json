@@ -64,8 +64,12 @@
   "containerEnv": {
     // Heap size of node. Increased to handle claude code projects
     "NODE_OPTIONS": "--max-old-space-size=4096",
-    // Store gstack artifacts inside the project so they survive container rebuilds and are version-trackable
+    // Store gstack artifacts inside the project so they survive container rebuilds and are version-trackable.
+    // gstack has split-brain: CLI binaries (gstack-config) honor GSTACK_STATE_DIR; SKILL.md preamble bash
+    // blocks honor GSTACK_HOME. Set both so projects/, sessions/, analytics/, learnings.jsonl all land in
+    // /workspace/.gstack alongside config.yaml. The .gitignore filters out non-.md noise from version control.
     "GSTACK_STATE_DIR": "/workspace/.gstack",
+    "GSTACK_HOME": "/workspace/.gstack",
     "CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD": "1",
     // Disable turbo telemetry — opt-out file lives in ~/.config outside the volume mount, so it'd reset on every rebuild otherwise
     "TURBO_TELEMETRY_DISABLED": "1",

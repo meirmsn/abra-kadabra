@@ -26,9 +26,14 @@ dist/
 .hooks/
 
 
-# gstack runtime state (transient) — design docs, plans, and review history are version-tracked; logs/state are not
-.gstack/browse.json
-.gstack/browse-*.log
+# gstack runtime state — only .md artifacts (design docs, plans) under projects/ are version-tracked.
+# Verbose because gitignore re-includes don't reach into excluded directories — must re-include each level.
+.gstack/*
+!.gstack/projects/
+.gstack/projects/*
+!.gstack/projects/*/
+.gstack/projects/*/*
+!.gstack/projects/*/*.md
 
 # OS
 .DS_Store

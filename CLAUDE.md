@@ -206,7 +206,7 @@ gstack is installed at `.claude/skills/gstack/` and provides a suite of skills f
 cd .claude/skills/gstack && ./setup
 ```
 
-**Do NOT add `.gstack/` to .gitignore.** The `.gstack/projects/` directory contains gstack-generated plans (office-hours, eng-review, etc.) that should be tracked in git. If ignoring specific subfolders is needed (e.g. analytics or sessions), ignore those specifically — never the whole `.gstack/` folder.
+**`.gstack/projects/**/_.md`must stay tracked.** Plans, office-hours docs, eng-review history are first-class artifacts that belong in git. The template's`.gitignore`uses`.gstack/_`with explicit re-includes for`.gstack/projects/\*_/_.md`to filter out runtime noise (logs, analytics,`sessions/`, `config.yaml`— which gstack rewrites on every run) while preserving the plans. Don't blanket-ignore`.gstack/`without that re-include pattern — that loses the plans. The container's`containerEnv`sets BOTH`GSTACK_HOME`and`GSTACK_STATE_DIR`to`/workspace/.gstack`because gstack has split-brain: CLI binaries honor`GSTACK_STATE_DIR`, SKILL.md preamble bash blocks honor `GSTACK_HOME`. Setting both keeps every artifact under one tree.
 
 ### Design System
 
