@@ -1962,28 +1962,6 @@ The new match logic ORs with stage 1 (smoke set) and stage 2 (path-pattern map) 
 
 **Cost/risk.** Pure validation — no code changes in the project. The risk is the gate firing falsely on a real diff (false positive caught by the validation PR; correctable in devshop if needed). The benefit is empirical confirmation that the convention-based smoke set + the D6 promotion both behave as specified.
 
-### Tightening `/qa`'s `n/a` criteria — require a verifiable file:line claim
-
-**Problem.** Today the operator can mark Gate 9 (`/qa`) `n/a` with prose like "no visible UI change" and the pipeline accepts it. The rationale is self-attested — the operator types it, no reviewer checks it. That mirrors a class of failure mode the rest of the pipeline already guards against: `git config devshop.testReviewSkipReason` is judged by an adversarial reviewer; gate Dismissals trigger adversarial review of any non-`None` body; `git config devshop.dirtyPushReason` is judged. The `/qa` `n/a` decision sits outside this mechanism — a documented gap.
-
-The shape of the gap is precise. A correct `n/a` reason is a fact the reviewer can verify: "no `.tsx` files modified in this diff" can be checked against `git diff --name-only origin/main...HEAD`. A wrong-shape `n/a` reason is a vibe: "no visible UI change" requires the reviewer to interpret what's visible — and an adversarial reviewer judging interpretive prose is exactly what the audit-time architecture moved Sonnet calls AWAY from. The fix is to require the cheap-side first.
-
-**Shape of the fix.** Reuse the bypass-flag adversarial-review channel `kit/scripts/adversarial-review.sh` already has. Add a new check-type `qaNaReason` (or extend the existing dismissal-log path with a stricter prompt for the `qa` gate's `n/a` outcome). The prompt:
-
-- ACCEPT: positive, file/path-based claims that grep against the diff verify (`no .tsx files modified`, `diff is supabase/migrations/** only`, `apps/web/components/** untouched`).
-- REJECT: interpretive prose (`no visible UI change`, `nothing user-facing changed`, `cosmetic only`).
-
-Implementation surface:
-
-- `/devshop/.claude/skills/devshop/pre-ship/SKILL.md § Gate 9` — add the `n/a` outcome contract: "Gate 9 may emit `n/a` only if the dismissal reason is a positive file/path claim verifiable against the diff. The adversarial reviewer judges; weak reasons fail."
-- `kit/scripts/adversarial-review.sh` — new check-type `qaNaReason` (or stricter prompt branch on the existing `dismissalLog` path when the gate is `qa` and the body declares `n/a`).
-- BATS test in `kit/tests/` — covers the accept/reject vocabulary above; mirrors `util-adversarial-review-localTestSkipReason.bats`.
-- Documentation: `kit/docs/guide/hooks.md § Bypass mechanism table` — add `qaNaReason` row.
-
-**Cost/risk.** ~2h (script branch + BATS + docs). Risk: false rejection of legitimate `n/a` reasons that happen to be phrased interpretively (e.g. "migration-only PR — no `apps/**` files in diff" is fine, but "migration only" alone isn't). Mitigation — the adversarial-review prompt asks for the positive file claim; rejections include a fix recipe ("Re-run with reason like 'no apps/** or packages/{core,ui}/** files in the diff'").
-
-Source: queued by abra-kadabra PR #27 (was an "out of scope" bullet on the cheap-test-gates source v1 entry that PR #27 deletes; promoted here to a standalone entry). Adjacent to Gate 9's existing outcome contract (`pass | findings (N) [fixed|pending] | blocked | n/a`); this entry tightens the `n/a` rung.
-
 ### Persona-axis pre-ship gates (designer / backend-eng / frontend-eng / security / data)
 
 **Problem.** Today the "hat" the pipeline reviews under is hardcoded into the gstack skill that runs the gate — `/review` carries the staff-engineer mindset, `/cso` the security mindset, `/design-review` the visual mindset. The operator has no surface for layering opinionated, project-specific philosophies on top: "we always prefer SECURITY DEFINER RPCs over service-role escalation," "our designer never uses centered headlines on long-form pages," "our backend convention is repository pattern, not active record." There's nowhere for those to live and be enforced. Putting them in `CLAUDE.md` (the Phase 1 fallback) makes them background context every skill sees, but doesn't enforce them — gstack's `/review` won't fail a PR for violating a project convention buried in a CLAUDE.md section unless the convention happens to overlap with what `/review` already checks for.

@@ -10,9 +10,7 @@ Forward-looking plan at the feature/PR grain.
 
 ## Active
 
-| Branch                     | Spec                             | Notes                                                                                                                                                                                                                                                                                                                                                                                                        |
-| -------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `feature/qa-na-tightening` | `specs/qa-na-tightening/spec.md` | Tighten the residual self-attestation rung in Gate 9 — `verify-story.sh`'s `## Core user story: N/A — <reason>` body now flows through `adversarial-review.sh` (new check-type `coreUserStoryNaReason`). Scope reframed in Phase 0 from the original PLAN row's "Gate 9 `n/a` outcome" framing (no longer reachable post-`408b007`); see spec § D0. ~2h (script branch + verify-story wiring + BATS + docs). |
+_No work in progress._
 
 ## Planned
 
