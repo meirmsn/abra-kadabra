@@ -54,19 +54,7 @@ echo "HTTP $HTTP"
 
 **If `HTTP` is 2xx or 3xx**: production is healthy. Continue to Step 2.
 
-**If `HTTP` is 000** (connection failed — typically firewall-IP-rotation, not a prod issue): the devcontainer's `init-firewall.sh` resolved the prod URL's IPs at container start, but the CDN (Vercel/Netlify/Cloudflare) has rotated to fresh IPs that aren't in the allowlist. **Do NOT treat this as a pre-existing prod issue** — it's an in-container connectivity issue, prod is probably fine. Surface the same 3 fallback paths as Step 3's canary fallback (in order of friction, lowest first):
-
-1. **Operator-side curl via shell escape** — emit a single `!`-prefixed line the user can paste into their terminal:
-
-   ```
-   ! curl -sI <PROD_URL>/ | head -5
-   ```
-
-   Output lands in the conversation; you can read the HTTP status + headers and complete the pre-merge probe from there. If 2xx/3xx, continue to Step 2. If 4xx/5xx, treat as a real pre-existing prod issue (path below).
-
-2. **Browser open** — ask the user to open `<PROD_URL>` in their browser and tell you what they see (200 + expected content vs 4xx/5xx error page).
-
-3. **Devcontainer rebuild** — the heavy option. Re-runs `init-firewall.sh` and re-resolves CDN IPs. Higher friction than paths 1 + 2; only suggest if those don't work.
+**If `HTTP` is 000** (connection failed): in-container connectivity issue, not a pre-existing prod issue — see `/devshop/CLAUDE.md § Known Footguns § Firewall IP rotation` for the refresh-script recovery. **Do NOT** treat as a pre-existing prod issue or auto-roll back; if the recovery there doesn't reach prod (rare), produce an operator-side `! curl` paste / browser-check ad hoc to complete the probe.
 
 **If `HTTP` is 4xx or 5xx** (a real response from the server): production has a pre-existing issue. Surface to the user via AskUserQuestion:
 
@@ -187,23 +175,9 @@ Invoke `/canary` via Skill tool.
 
 ### Firewall-IP-rotation fallback (if canary can't reach prod)
 
-If `/canary`'s curl reports `HTTP 000` with `Failed to connect ... No route to host`, the devcontainer's `init-firewall.sh` resolved the prod URL's IPs at container start, but the CDN (Vercel/Netlify/Cloudflare) has rotated to fresh IPs that aren't in the allowlist. This is a known footgun documented in `kit/docs/guide/ops.md § Known Footguns § Firewall IP rotation` — but `/canary` doesn't currently detect-and-recover.
+If `/canary`'s curl reports `HTTP 000` with `Failed to connect ... No route to host`, this is an in-container firewall issue, not a prod issue — see `/devshop/CLAUDE.md § Known Footguns § Firewall IP rotation` for the refresh-script recovery. If the recovery there doesn't reach prod, produce an operator-side `! curl <PROD_URL>` paste or a "open in browser and tell me what you see" ad-hoc to complete canary verification.
 
-When this happens, surface the 3 fallback paths to the user (in order of friction, lowest first):
-
-1. **Operator-side curl via shell escape** — emit a single `!`-prefixed line the user can paste into their terminal:
-
-   ```
-   ! curl -sI <PROD_URL>/ | head -5
-   ```
-
-   Output lands in the conversation; you can read the HTTP status + headers and complete canary verification from there.
-
-2. **Browser open** — ask the user to open `<PROD_URL>` in their browser and tell you what they see (200 + expected content vs 4xx/5xx error page).
-
-3. **Devcontainer rebuild** — the heavy option. Re-runs `init-firewall.sh` and re-resolves CDN IPs. User pastes a "verify prod after deploy" prompt in a fresh session; the merge state on main + BUILD-LOG entry are durable, so resumption is cheap.
-
-Codified from lalista PR 26 (2026-04-26): `/ak-go-live` Step 3 hit `No route to host` on `lalista-ten.vercel.app` because Vercel rotated edge IPs since container start. User chose option 2 (browser-confirmed prod healthy in 5 seconds), pipeline closed out cleanly.
+Codified from lalista PR 26 (2026-04-26): `/ak-go-live` Step 3 hit `No route to host` on `lalista-ten.vercel.app` because Vercel rotated edge IPs since container start. The refresh-script recovery (added 2026-05-09) closes this gap in-session; the operator-side fallback above is the escape hatch if the script can't help.
 
 **If canary fails**: STOP. Do NOT auto-rollback. Post rollback info and notify user:
 

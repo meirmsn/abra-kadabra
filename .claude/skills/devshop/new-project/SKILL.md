@@ -401,6 +401,14 @@ SENTRY_AUTH_TOKEN=<auth-token>
 # PostHog
 NEXT_PUBLIC_POSTHOG_KEY=<project-api-key>
 
+# Devcontainer firewall — volatile-IP refresh (fill in Step 13 once your
+# Vercel domain is known; until then leave empty and the refresh script no-ops).
+# Bare hostname ONLY — no scheme, no path, no port. Same name as the GitHub
+# Variable PRODUCTION_URL set in Step 13 but format differs (the GH Variable
+# holds the full URL form `https://<host>`; this is just `<host>`). See Step 6
+# for what this enables (post-deploy refresh-allowed-ips.sh).
+PRODUCTION_URL=
+
 # Claude Code notifications (optional)
 # Same topic across all your projects — generate once per user, reuse everywhere.
 # See kit/docs/guide/notifications.md
@@ -649,6 +657,36 @@ Under compose isolation (the template default) the workspace doesn't fetch Docke
 itself — the supabase-runner sibling does, but it doesn't run this firewall script — so
 no Docker Hub allowlist entry is needed in workspace init-firewall.sh.
 
+**Volatile-IP prod URL (CDN-fronted)** — `init-firewall.sh` resolves domains to IPs
+once at container start, but Vercel/Cloudflare CDN edges rotate IPs during the day,
+so the cached ipset goes stale (most visibly: post-deploy `EHOSTUNREACH` to your prod
+URL). The template ships `refresh-allowed-ips.sh` (root-owned at `/usr/local/bin/`,
+NOPASSWD sudo) which re-resolves the prod hostname and `ipset add`s fresh IPs
+without flushing. Set the value in `.devcontainer/.env` as a bare hostname (no
+scheme, no path, no port):
+
+```
+PRODUCTION_URL=<your-app>.com
+```
+
+> **Note**: same name as the GitHub Variable `PRODUCTION_URL` (consumed by
+> `keepalive.yml`), but the format differs — the GH Variable holds the full URL
+> (`https://<your-app>.com`); this `.env` value is the bare hostname. Surface this
+> divergence in your project's `CLAUDE.md` so an operator copy/pasting between
+> surfaces doesn't trip on it.
+
+`.env` is root-owned 644 — workspace user (or a compromised npm dep) cannot mutate
+the value at runtime. The script validates against a strict DNS-label regex, rejects
+any argv, and exits no-op if `PRODUCTION_URL` is unset/empty — keeping the on-demand
+sudo entry-point a small hole. When prod becomes unreachable, run
+`sudo /usr/local/bin/refresh-allowed-ips.sh`. (Don't re-run
+`sudo /usr/local/bin/init-firewall.sh` — full ipset/iptables rebuild is known to
+hang the Claude session.)
+
+If a project ever needs multiple volatile-IP domains (e.g. main site + admin on a
+separate CDN), generalize then — introduce a comma-separated list (`EXTRA_VOLATILE_DOMAINS=...`)
+without changing the `PRODUCTION_URL` semantics. YAGNI today.
+
 ### Step 7: [HUMAN] Rebuild devcontainer (conditional on Step 2b)
 
 **Skip this step if you picked Compose isolation (the template default) at Step 2b** — that choice doesn't modify devcontainer config, so no rebuild is needed for Step 2b's effects to take hold. (You may still want to rebuild here to pick up any changes from Steps 4–6, e.g., `.devcontainer/.env` or `init-firewall.sh` edits.)
@@ -858,6 +896,18 @@ Or check Vercel dashboard → Project → Settings → Domains. Show the value t
 Add it at: repo on github.com → **Settings** → **Secrets and variables** → **Actions** → **Variables** tab → **New repository variable**.
 
 Used by `.github/workflows/keepalive.yml` to prevent Supabase auto-pause.
+
+**Also paste the bare-hostname form into `.devcontainer/.env`** (the line was left empty
+in Step 4):
+
+```bash
+sudo sed -i 's|^PRODUCTION_URL=$|PRODUCTION_URL=<bare-hostname>|' .devcontainer/.env
+```
+
+(Strip `https://` and any trailing `/path` from the GH Variable value — `.env` wants
+`<your-app>.com`, the GH Variable wants `https://<your-app>.com`. The bare hostname
+is what `dig` resolves; `refresh-allowed-ips.sh` reads this on every invocation.)
+Rebuild the devcontainer afterwards so `.env` is re-sourced into the shell.
 
 #### Step 13b: Generate `apps/web/.env.local` for local dev
 

@@ -275,7 +275,22 @@ These volumes are **not** on the host filesystem and are **lost on machine migra
 
 ## Known Footguns
 
-- **Firewall IP rotation**: CDN domains like `fonts.gstatic.com` rotate IPs. Firewall resolves at container start. If a build fails on a network error for an allowed domain hours later, restart the container to re-resolve.
+- **Firewall IP rotation**: CDN domains rotate IPs throughout the day; `init-firewall.sh` resolves them once at container start, so the cached `ipset` goes stale within hours. Most common bite: post-deploy `EHOSTUNREACH` to your prod URL.
+
+  **Recovery for the prod URL specifically**: `sudo /usr/local/bin/refresh-allowed-ips.sh` — re-resolves the project's `PRODUCTION_URL` and `ipset add`s fresh IPs without flushing or restarting the container. Additive only; safe mid-session.
+
+  **Setup**: operator sets `PRODUCTION_URL=your-app.com` (bare hostname; no scheme/path/port) in `.devcontainer/.env` and rebuilds the container. At each container start, `init-firewall.sh` invokes the boot-only `init-prod-url.sh` which validates the `.env` value and writes it to `/etc/refresh-allowed-ips/production_url` (overlay-fs, root-only — kernel-enforced). `refresh-allowed-ips.sh` reads from the locked file at runtime.
+
+  **Why two files**: `.devcontainer/.env` sits on Docker Desktop's `fakeowner` virtiofs where root-ownership is advisory — a compromised npm dep can rewrite it despite its 644 root-owned mode. `/etc` is overlay-fs where the kernel enforces perms, so the locked file is genuinely tamper-resistant. `init-prod-url.sh` deliberately has NO NOPASSWD sudoers entry — it only fires from `init-firewall.sh`'s root context at container start. Mid-session edits to `.env` take effect on next container rebuild — by design.
+
+  **Format divergence**: same name as the GitHub Variable `PRODUCTION_URL` (used by `keepalive.yml`) but format differs — the GH Variable holds `https://your-app.com`, the `.env` value is just `your-app.com`. Empty/unset → script no-ops.
+
+  **For other rotating allowlist entries** (`fonts.gstatic.com`, etc., that aren't the prod URL): rebuilding the container is still the path until the refresh script's domain list is generalized. Chromium is exempt — apt-installed by the template `Dockerfile` so Playwright never reaches its CDN.
+
+  **Don't** re-run `sudo /usr/local/bin/init-firewall.sh` mid-session to fix either case — full iptables/ipset rebuild is known to hang the Claude session (`kit/TODOS.md`).
+
+  Scripts ship from `template/.devcontainer/{refresh-allowed-ips,init-prod-url}.sh` as `[locked]` manifest entries. Inherited by every new project as a `template/CLAUDE.md § Gotchas` entry.
+
 - **GH Actions artifact access on pre-2026-04-24 projects**: projects scaffolded from the template before 2026-04-24 don't have `productionresultssa*.blob.core.windows.net` (Azure Blob storage where GH Actions stashes workflow artifacts — Playwright traces, screenshots, coverage reports) in their `.devcontainer/init-firewall.sh`. Symptom: `gh run download` from inside the devcontainer fails with `no route to host`, not an IP-rotation stale-ipset problem — the host is absent from the allowlist entirely. Fix: diff the project's `.devcontainer/init-firewall.sh` against `/devshop/template/.devcontainer/init-firewall.sh` and bring in the artifact-host loop (insert after the existing project-domain `for domain in ... ; do ... done` block). The artifact-host loop reuses `$gh_ranges` which the script already fetches for GitHub CIDR resolution — no additional setup needed if the project's script still has the standard CIDR fetch section. Then rebuild the devcontainer. Projects scaffolded on or after 2026-04-24 inherit this from the template. Required for `/ak-build` Phase 5.4 artifact-pull on attempt #2.
 - **Never commit directly to main**: branch protection requires PRs. Always create a feature branch first, even for small fixes.
 - **Workflow push requires human**: the devcontainer PAT lacks `workflow` scope intentionally. If `git push` fails because a commit touches `.github/workflows/`, ask the human to push: `git -c credential.helper= push https://<github-user>@github.com/<owner>/<repo>.git <branch>` (GitHub will prompt for their PAT with workflow scope).

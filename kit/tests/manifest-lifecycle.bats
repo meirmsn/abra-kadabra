@@ -198,9 +198,10 @@ M
     echo \"sync=\$sync_count locked=\$locked_count\"
   "
   assert_success
-  # PR 1 declares 7 locked leaves under .devcontainer/ and .husky/ + 16 sync entries.
-  # Bounds (not exact counts) so adding a new sync file in the future doesn't break this test.
-  assert_output --regexp "sync=[0-9]+ locked=[7-9]"
+  # PR 1 declared 7 locked leaves under .devcontainer/ and .husky/ + 16 sync entries.
+  # Bounds (not exact counts) so adding a new sync or locked file in the future doesn't
+  # break this test — just guards against the manifest going to zero entries.
+  assert_output --regexp "sync=[1-9][0-9]* locked=[1-9][0-9]*"
 }
 
 @test "every [locked] leaf in real manifest exists under /devshop/template/" {

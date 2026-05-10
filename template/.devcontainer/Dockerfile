@@ -148,6 +148,22 @@ RUN chmod +x /usr/local/bin/init-devshop.sh && \
   echo "node ALL=(root) NOPASSWD: /usr/local/bin/init-devshop.sh" >> /etc/sudoers.d/node-firewall && \
   chmod 0440 /etc/sudoers.d/node-firewall
 
+COPY refresh-allowed-ips.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/refresh-allowed-ips.sh && \
+  echo "node ALL=(root) NOPASSWD: /usr/local/bin/refresh-allowed-ips.sh" >> /etc/sudoers.d/node-firewall && \
+  chmod 0440 /etc/sudoers.d/node-firewall
+
+# init-prod-url.sh — boot-time bootstrap that writes /etc/refresh-allowed-ips/
+# production_url from the operator's PRODUCTION_URL in .devcontainer/.env.
+# Deliberately NO NOPASSWD entry: invoked only from init-firewall.sh's root
+# context. node-user direct invocation no-ops because the writes go to /etc
+# (overlay-fs root-only). See script header for the threat model.
+RUN mkdir -p /etc/refresh-allowed-ips && \
+  chown root:root /etc/refresh-allowed-ips && \
+  chmod 0755 /etc/refresh-allowed-ips
+COPY init-prod-url.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/init-prod-url.sh
+
 # No init-docker-socket.sh under compose isolation — the workspace has no docker
 # socket to align (the docker socket lives on supabase-runner only).
 

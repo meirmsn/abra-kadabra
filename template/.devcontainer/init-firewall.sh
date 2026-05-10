@@ -244,3 +244,15 @@ if [ ${#SKIPPED_DOMAINS[@]} -gt 0 ]; then
     printf '#  remove it from .devcontainer/init-firewall.sh and rebuild.\n' >&2
     printf '################################################################\033[0m\n\n' >&2
 fi
+
+# Bootstrap the locked PRODUCTION_URL file used by refresh-allowed-ips.sh.
+# init-prod-url.sh reads /workspace/.devcontainer/.env once, validates,
+# writes /etc/refresh-allowed-ips/production_url. Runs in this script's
+# root context — no separate sudo entry needed, intentionally not exposed
+# to node-user invocation. See init-prod-url.sh header for the threat model.
+if [ -x /usr/local/bin/init-prod-url.sh ]; then
+    /usr/local/bin/init-prod-url.sh \
+        || echo "warn: init-prod-url.sh failed; refresh-allowed-ips.sh will no-op until next rebuild" >&2
+else
+    echo "warn: /usr/local/bin/init-prod-url.sh missing; refresh-allowed-ips.sh will no-op" >&2
+fi
