@@ -681,6 +681,14 @@ assertion for that PR. Example: a migration-only PR with body
 `N/A — database migration only; no user flow added or modified.` → Gate 9
 emits `pass` (or `n/a`) without artifact requirement.
 
+The N/A rationale is adversarially reviewed (`coreUserStoryNaReason`) —
+interpretive prose ("no visible UI change", "cosmetic only") fails;
+verifiable file/path claims ("diff is `supabase/migrations/**` only", "no
+`.tsx` files modified") pass. On reject, `verify-story.sh` propagates the
+reviewer's `FAIL: …` verdict on stdout and returns non-zero, so Gate 9
+surfaces `blocked` with the rejection text as the fix recipe in
+`review.md § Gate 9`.
+
 **Outcome mapping** (adds to the Outcome contract above):
 
 | State                                                                                         | Gate 9 outcome                                               |

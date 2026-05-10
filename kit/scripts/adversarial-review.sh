@@ -26,6 +26,10 @@
 #   localTestSkipReason   — `changed-tests-local` gate bypass review (sub-fix 1 of
 #                           cheap-test-gates-local; judges per-category engagement
 #                           on a skip of changed E2E / changed integration / smoke set)
+#   coreUserStoryNaReason — Gate 9 N/A rationale review (Sonnet); judges the body
+#                           of `## Core user story: N/A — <reason>` in a spec at
+#                           pre-ship time (invoked from preship/verify-story.sh,
+#                           NOT from a commit-time bypass flag)
 #   dismissalLog          — pre-ship gate-dismissal rationale review
 #
 # Usage: adversarial-review.sh <check-type> <reason> [context...]
@@ -49,7 +53,7 @@
 # Per-check-type model routing (Haiku 4.5 for deterministic rule-application,
 # Sonnet 4.6 for judgment-heavy or high-blast-radius checks):
 #   Haiku:  dirtyTreeReason, dirtyPushReason, manifestReviewed
-#   Sonnet: prDescStaleReason, testReviewSkipReason, localTestSkipReason, dismissalLog, hookBypass, exemptAddition
+#   Sonnet: prDescStaleReason, testReviewSkipReason, localTestSkipReason, coreUserStoryNaReason, dismissalLog, hookBypass, exemptAddition
 # Rationale: PR descriptions are the canonical reviewer-facing record; hookBypass
 # can leak secrets via gitleaks bypass; testReviewSkipReason judges audit-time
 # halt overrides; dismissalLog weighs spec scope. Dirty-tree / manifest checks
@@ -226,6 +230,45 @@ $DIFF_PATHS
 The reviewer judges whether the bypass reason addresses each test category that
 would otherwise have run, against the diff above."
     ;;
+  coreUserStoryNaReason)
+    # Called by kit/scripts/preship/verify-story.sh when the spec's
+    # `## Core user story` body declares `N/A — <reason>` and Gate 9's
+    # artifact assertion is being skipped. The reviewer judges whether the
+    # rationale names a verifiable file/path claim (PASS) or interpretive
+    # prose (FAIL). Unlike commit-time bypass flags, this fires at pre-ship
+    # time on the spec body itself — there is no `git -c devshop.<key>` flag.
+    BRANCH=$(git branch --show-current 2>/dev/null || true)
+    HEAD_SHA=$(git rev-parse HEAD 2>/dev/null || echo "(unknown)")
+    # Surface the diff so the reviewer can judge the rationale against actual
+    # file paths in the diff. `origin/main` is the canonical base; fall back
+    # to HEAD~1 if origin isn't reachable (test fixtures, fresh clones).
+    DIFF_PATHS=""
+    if DIFF_PATHS=$(git diff --name-only --diff-filter=AM origin/main...HEAD 2>/dev/null); then
+      :
+    else
+      DIFF_PATHS=$(git diff --name-only --diff-filter=AM HEAD~1..HEAD 2>/dev/null || true)
+    fi
+    DIFF_PATHS="${DIFF_PATHS:-(no diff or origin/main unreachable)}"
+    CONTEXT="The user is skipping Gate 9's Core-user-story artifact assertion by
+declaring \`## Core user story: N/A — <reason>\` in the spec.
+
+Gate 9 normally requires that every imperative verb in the Core user story
+has a matching artifact at \`specs/<feature>/qa-walk/verb-<N>-<slug>.{png,json}\`
+proving the action completed. The N/A path bypasses that requirement when
+the PR is non-user-facing (migration-only, internal refactor, kit-only edit).
+
+The reason given is the rationale text for that bypass. Judge whether it
+names a verifiable file/path claim (PASS) or interpretive prose (FAIL).
+
+Branch: $BRANCH
+HEAD SHA: $HEAD_SHA
+
+Diff paths (origin/main...HEAD, added/modified):
+$DIFF_PATHS
+
+The reviewer judges whether the rationale's file/path claim is verifiable
+against the diff above."
+    ;;
   prDescStaleReason)
     # Called by .husky/pre-push. Gathers PR title/body vs commits on branch.
     BRANCH=$(git branch --show-current 2>/dev/null || true)
@@ -321,7 +364,7 @@ ${SPEC_IN_SCOPE:-(not available)}"
     # moved to audit-time `/ak-check-docs-and-tests`. A stale caller hits this
     # branch and surfaces immediately rather than silently no-op'ing.
     echo "FAIL: unknown check type: $CHECK_TYPE" >&2
-    echo "  Surviving check-types: prDescStaleReason | dirtyTreeReason | dirtyPushReason | manifestReviewed | hookBypass | exemptAddition | testReviewSkipReason | localTestSkipReason | dismissalLog"
+    echo "  Surviving check-types: prDescStaleReason | dirtyTreeReason | dirtyPushReason | manifestReviewed | hookBypass | exemptAddition | testReviewSkipReason | localTestSkipReason | coreUserStoryNaReason | dismissalLog"
     echo "  Coverage reviews (docsReviewed / testCoverage / testCoverageProject / docsFreshnessProject) moved to audit-time /ak-check-docs-and-tests in PR-C — see kit/ROADMAP.md."
     exit 1
     ;;
@@ -345,6 +388,23 @@ extract_convention_section() {
     $0 == ("## " h) { in_s=1; print; next }
     in_s && /^## / { exit }
     in_s { print }
+  ' "$file"
+}
+
+# Extract a bolded sub-section from a markdown file. Used by
+# coreUserStoryNaReason to pull `**New (Phase 1-B landing — <heading>)**:`-style
+# sub-sections out of workflow.md (which uses bolded markers instead of `##`
+# headings for its sub-conventions). Reads from the line containing the
+# heading marker to the next blank-line-followed-by-bold-marker (or `## `).
+extract_bold_section() {
+  local file="$1"
+  local heading="$2"
+  awk -v h="$heading" '
+    index($0, h) > 0 && !in_s { in_s=1; print; next }
+    in_s && /^## / { exit }
+    in_s && prev_blank && /^\*\*/ { exit }
+    in_s { print }
+    { prev_blank = ($0 ~ /^[[:space:]]*$/) }
   ' "$file"
 }
 
@@ -383,6 +443,23 @@ get_conventions_to_inline() {
   esac
 }
 
+# coreUserStoryNaReason inlines a section of `kit/docs/guide/workflow.md`
+# (NOT conventions.md) — the Core user story requirement contract is the
+# load-bearing definition for what a valid N/A body looks like. The helper
+# above assumes conventions.md for every other surviving check-type; this
+# is the single per-file extension. Returns a `file:section` pair, or empty.
+get_workflow_to_inline() {
+  local check_type="$1"
+  case "$check_type" in
+    coreUserStoryNaReason)
+      echo "kit/docs/guide/workflow.md|Core user story requirement"
+      ;;
+    *)
+      echo ""
+      ;;
+  esac
+}
+
 CONVENTIONS_FILE="$GIT_ROOT/kit/docs/guide/conventions.md"
 SECTIONS_TO_INCLUDE=$(get_conventions_to_inline "$CHECK_TYPE" "$GATE_NAME")
 if [ -n "$SECTIONS_TO_INCLUDE" ] && [ -f "$CONVENTIONS_FILE" ]; then
@@ -404,6 +481,30 @@ The diff / dismissal must be consistent with the rules below. A change that
 violates an explicit rule should fail unless the bypass reason explicitly
 justifies the deviation against the rule's stated rationale.
 $INLINED_CONVENTIONS"
+  fi
+fi
+
+# --- Workflow-doc inlining (single-purpose extension for coreUserStoryNaReason) ---
+# coreUserStoryNaReason inlines a section of `kit/docs/guide/workflow.md`
+# (NOT conventions.md) — the Core user story requirement contract is a
+# bolded sub-section of `## Step 4: /ak-build`, not a top-level `##`. The
+# inlining helper above resolves `## <heading>` slices; this branch resolves
+# bolded-marker slices via extract_bold_section().
+WORKFLOW_TO_INCLUDE=$(get_workflow_to_inline "$CHECK_TYPE")
+if [ -n "$WORKFLOW_TO_INCLUDE" ]; then
+  IFS='|' read -r WORKFLOW_RELPATH WORKFLOW_HEADING <<< "$WORKFLOW_TO_INCLUDE"
+  WORKFLOW_FILE="$GIT_ROOT/$WORKFLOW_RELPATH"
+  if [ -f "$WORKFLOW_FILE" ]; then
+    WORKFLOW_BODY=$(extract_bold_section "$WORKFLOW_FILE" "$WORKFLOW_HEADING")
+    if [ -n "$WORKFLOW_BODY" ]; then
+      CONTEXT="$CONTEXT
+
+=== Relevant workflow contract ($WORKFLOW_RELPATH § $WORKFLOW_HEADING) ===
+The rationale must be consistent with the contract below. A rationale that
+contradicts the contract — or names a claim the contract calls out as a
+bypass surface rather than a verifiable file-system fact — should fail.
+$WORKFLOW_BODY"
+    fi
   fi
 fi
 
@@ -445,7 +546,7 @@ get_model_for_check_type() {
     return
   fi
   case "$1" in
-    prDescStaleReason|testReviewSkipReason|localTestSkipReason|dismissalLog|hookBypass|exemptAddition)
+    prDescStaleReason|testReviewSkipReason|localTestSkipReason|coreUserStoryNaReason|dismissalLog|hookBypass|exemptAddition)
       echo "sonnet"
       ;;
     dirtyTreeReason|dirtyPushReason|manifestReviewed)
@@ -526,6 +627,34 @@ Per-check-type rules:
         a concrete recipe the operator already tried.
     Default: REJECT. Generic \"ran out of time\" / \"I'll fix later\" / \"low risk\"
     FAIL.
+11. For coreUserStoryNaReason (Gate 9 N/A rationale): the Reason is the body
+    of \`## Core user story: N/A — <reason>\` in a spec; the operator is
+    skipping Gate 9's per-verb artifact assertion. The shape of a correct
+    rationale is a fact a reader can re-verify against \`git diff --name-only\`
+    — not interpretive prose about user impact. PASS requires ALL of:
+    (a) **Verifiable file/path claim**. ACCEPT vocabulary (positive, file/path-
+        based; checkable via the diff-paths block above): \`no .tsx files
+        modified\`, \`diff is supabase/migrations/** only\`, \`apps/web/components/**
+        untouched\`. The claim must name a file extension, glob, or path that
+        the reviewer can grep against the diff list above and confirm.
+    (b) **No interpretive prose**. REJECT vocabulary (vibes about user impact;
+        not file-system facts): \`no visible UI change\`, \`nothing user-facing
+        changed\`, \`cosmetic only\`. These describe the operator's mental model
+        of impact, not what's in the diff. A future reviewer cannot re-verify
+        them without re-doing the same interpretation. FAIL.
+    (c) **No bare 'migration only' / 'refactor only' / similar shorthand**.
+        Worked example contrast — \"diff is \`supabase/migrations/**\` only\"
+        PASSES (a path glob a reviewer can re-verify against the diff list);
+        \"migration only\" alone FAILS (interpretive shorthand for the
+        operator's mental model, not a file-system fact). The first names a
+        glob that grep-checks; the second names a category. The Sonnet
+        reviewer's job is to refuse to bridge that gap.
+    (d) **Missing rationale entirely**. If the Reason is empty (the spec body
+        was just bare \`N/A\` with nothing after it), automatic FAIL — no
+        rationale to verify.
+    Default: REJECT. Generic / interpretive / categorical-shorthand reasons
+    FAIL even if they sound plausible. The verifiable-file-claim shape exists
+    precisely so that the Gate 9 audit-trail surfaces a fact, not a vibe.
 
 Respond with EXACTLY one line:
 PASS - only if the reason is genuinely legitimate and specific

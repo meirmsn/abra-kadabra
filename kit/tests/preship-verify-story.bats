@@ -184,11 +184,45 @@ EOF
   assert_output --partial "verb 2"
 }
 
-@test "verify-all: skips assertion when Core user story is N/A" {
-  write_spec "N/A — migration only"
+@test "verify-all: skips assertion when Core user story is N/A and reviewer accepts" {
+  # Mock `claude` so the adversarial review of the N/A rationale returns PASS
+  # without making a real API call. Use a verifiable file/path claim that the
+  # ACCEPT vocabulary in Rule #11 of `adversarial-review.sh` would normally
+  # accept.
+  cat > "$MOCK_BIN/claude" <<'EOF'
+#!/bin/bash
+# Drain stdin (the prompt) and return PASS verdict
+cat > /dev/null
+echo "PASS"
+exit 0
+EOF
+  chmod +x "$MOCK_BIN/claude"
+
+  write_spec "N/A — diff is supabase/migrations/** only; no apps/** or packages/** files"
   run bash "$SCRIPT" verify-all --feature feature --spec "$SPEC"
   assert_success
   assert_output --partial "skipped"
+}
+
+@test "verify-all: blocks when N/A rationale is rejected by adversarial review" {
+  # Mock `claude` so the reviewer returns FAIL — the rationale is interpretive
+  # prose ("no visible UI change"), which Rule #11 (b) rejects. verify-story.sh
+  # must propagate the FAIL verdict on stdout so it lands in review.md as the
+  # fix recipe.
+  cat > "$MOCK_BIN/claude" <<'EOF'
+#!/bin/bash
+cat > /dev/null
+echo "FAIL: 'no visible UI change' is interpretive — name a verifiable file/path claim"
+exit 0
+EOF
+  chmod +x "$MOCK_BIN/claude"
+
+  write_spec "N/A — no visible UI change"
+  run bash "$SCRIPT" verify-all --feature feature --spec "$SPEC"
+  assert_failure 1
+  assert_output --partial "blocked: Core user story N/A rationale rejected"
+  assert_output --partial "FAIL"
+  assert_output --partial "interpretive"
 }
 
 @test "verify-all: blocked when spec lacks Core user story section" {

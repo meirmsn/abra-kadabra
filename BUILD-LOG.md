@@ -4,6 +4,15 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### qa-na-tightening (2026-05-10)
+
+- **Branch**: `feature/qa-na-tightening`
+- **PR**: TBD
+- **Spec**: `specs/qa-na-tightening/spec.md`
+- **Summary**: Tightens the residual self-attestation rung in Gate 9. When a spec declares `## Core user story: N/A — <reason>`, the rationale is now routed through `adversarial-review.sh` via a new `coreUserStoryNaReason` check-type (Sonnet 4.6, inlines `kit/docs/guide/workflow.md § Core user story requirement` + Rule #11 with verbatim ACCEPT/REJECT vocabulary from `kit/ROADMAP.md` lines 1973-1974). `kit/scripts/preship/verify-story.sh`'s `is_na_core_story` branch invokes the new check before emitting "skipped" — interpretive prose ("no visible UI change", "cosmetic only") fails; verifiable file/path claims ("diff is `supabase/migrations/**` only", "no `.tsx` files modified") pass. Closes the gap that previously let Gate 9's artifact-assertion bypass through on operator prose alone.
+- **Commits**: 6 atomic commits (Phase 0 spec skeleton + Phase 1 spec expand + 3 implementation commits + pre-ship review.md + this bookkeeping commit)
+- **Quality gates**: all passed — 6 pass + 0 findings_pending + 10 n/a + 0 blocked. Eat-your-own-dogfood live signal: this spec's own `## Core user story: N/A — devshop pipeline tightening; touches kit/scripts/adversarial-review.sh, kit/scripts/preship/verify-story.sh, kit/tests/, kit/docs/guide/hooks.md, .claude/skills/devshop/pre-ship/SKILL.md only; no apps/** or packages/** files in diff.` PASSed adversarial review (AC #6).
+
 ### slow-job-skip-on-docs-only (2026-05-08)
 
 - **Branch**: `feature/slow-job-skip-on-docs-only` (merging via #29)
