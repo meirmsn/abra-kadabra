@@ -432,7 +432,7 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
   **Suggested PR split**:
   1. **PR 1** — ROADMAP sweep + BUILD-LOG reconstruction. Most visible drift; mostly mechanical.
-  2. **PR 2** — TODOS sweep + `kit/notes/roadmap/lalista-launch.md` refresh (the `Devshop v0 — pending` table shrinks to the 4 genuinely-open v0 entries: `/ak-go-live` post-merge sync, Generalize PR #43 E2E lessons, Auth UX conventions, Latency feedback framework).
+  2. **PR 2** — TODOS sweep + `kit/notes/roadmap/lalista-launch.md` refresh (the `Devshop v0 — pending` table shrinks to the 4 genuinely-open v0 entries: `/ak-go-live` post-merge sync (Arm B — automation core; Arm A shipped 2026-05-10 via PR #32), Generalize PR #43 E2E lessons, Auth UX conventions, Latency feedback framework).
 
   **Why v0 — blocks next-project adoption.** A second project scaffolding today inherits a ROADMAP that reads as if v1.22.0–v1.25.0 work is still pending, plus a TODOS file where shipped items are indistinguishable at a glance from open work. The convention says "git log + PR description are the audit trail" — but that contract only works if the live trackers stay current. The drift was costless during single-project use; it becomes onboarding friction the moment a second project arrives.
 
