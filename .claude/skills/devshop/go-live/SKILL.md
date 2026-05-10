@@ -1,6 +1,6 @@
 ---
 name: ak-go-live
-version: 1.2.0
+version: 1.3.0
 description: |
   Autonomous deploy pipeline: merge → deploy → canary → reflect → notify.
   Runs after user approves PR. Chains /land-and-deploy → /canary → reflection.
@@ -128,6 +128,101 @@ If the spec or PR body references auth-config changes, surface to the user befor
 > The PR references auth-config changes that don't auto-deploy with the merge. Apply them via the Supabase dashboard or Management API now, ideally **before** the app deploy if the new code relies on new redirect URLs / CAPTCHA / password policy. Auth-config changes are cheap to roll back (re-PATCH), so ordering is flexible — but they must ship manually.
 
 Rollback is reverse-order across all surfaces with the same backwards-compatibility caveats: revert the app first to pull traffic off the new schema/functions, then roll back migrations (if the migration's `-- ROLLBACK` block supports it) and edge functions. Full surface table + rollback semantics: `kit/docs/guide/conventions.md § Deploy Boundaries`.
+
+## Step 1.8: Pending tasks pre-flight surface
+
+`/ak-build`'s PR body convention reserves specific section headers for tasks the deploy needs to be aware of:
+
+- `## Out-of-band deploy items` — work that doesn't auto-deploy with the merge (e.g., `supabase functions deploy <name>`, paste email templates into the dashboard, run `terraform apply`, update an auth allow-list). These are **deploy prereqs** — the deploy is not "live" until they're done.
+- `### Manual review` — visual / spec / intent items for the human PR reviewer. Already-approved by the time `/ak-go-live` runs; surface as a reminder, not a gate.
+- `## Operator follow-up` (when present) — post-deploy reminders (e.g., "monitor the metric dashboard for 24h", "follow up with the legal team on copy"). Surface as a reminder, not a gate.
+- `## Test plan` `[ ]` items — checkboxes `/ak-build` Phase 5.3's auto-marker should have flipped on CI green. A leftover `[ ]` here usually means the bookkeeping was skipped (legacy build, hotfix PR, or Phase 5.3 silently failed) — surface as a sanity-check signal.
+
+This step pulls every `[ ]` checkbox from the merging PR's body + the latest audit / ready-for-review comments, groups them by section, annotates each (`[manual]` / `[deferred]` / `[!]`), and prints a single "Pending tasks before live" view so the operator sees at a glance what they own. The deploy then blocks (via `AskUserQuestion`) only on `[manual]` items under `## Out-of-band deploy items` — the other categories are non-blocking reminders.
+
+```bash
+PR=${PR:-$(gh pr list --head "$(git branch --show-current)" --json number --jq '.[0].number')}
+[ -z "$PR" ] && echo "No open PR found — skipping pending-tasks surface" && exit 0
+
+# Pull body + relevant comments. Scan only comments matching the canonical
+# /ak-build Phase 6 / Phase 7 headers — don't accidentally parse a reviewer's
+# casual comment that happens to contain `[ ]` markdown.
+gh pr view "$PR" --json body --jq .body > /tmp/pending-pr-body.md
+gh pr view "$PR" --json comments --jq '
+  [.comments[] | select(.body | test("^## (Pre-ship audit trail|Ready for review)"; "m"))]
+  | .[].body' > /tmp/pending-pr-comments.md
+```
+
+Parse the combined input. The classifier groups items by their nearest-enclosing recognized header (h3 wins over h2 when items live under both, since `### Manual review` is nested inside `## Test plan`):
+
+```bash
+awk '
+  BEGIN { section = "Other"; in_comment = 0 }
+  /^## (Out-of-band deploy items|Operator follow-up|Test plan)/ { section = $0; sub(/^## */, "", section); next }
+  /^### (Manual review|CI gates)/ { section = $0; sub(/^### */, "", section); next }
+  /^## / { section = "Other"; next }
+  /^- \[ \] / {
+    item = $0; sub(/^- \[ \] */, "", item)
+    print (in_comment ? "(comment) " : "") section "\t" item
+  }
+' /tmp/pending-pr-body.md > /tmp/pending-items.tsv
+
+awk '
+  BEGIN { section = "Other"; in_comment = 1 }
+  /^## (Out-of-band deploy items|Operator follow-up|Test plan)/ { section = $0; sub(/^## */, "", section); next }
+  /^### (Manual review|CI gates)/ { section = $0; sub(/^### */, "", section); next }
+  /^## / { section = "Other"; next }
+  /^- \[ \] / {
+    item = $0; sub(/^- \[ \] */, "", item)
+    print "(comment) " section "\t" item
+  }
+' /tmp/pending-pr-comments.md >> /tmp/pending-items.tsv
+```
+
+Annotate by section, then print:
+
+| Section                    | Annotation   | Blocks merge?             |
+| -------------------------- | ------------ | ------------------------- |
+| `Out-of-band deploy items` | `[manual]`   | **Yes**                   |
+| `Operator follow-up`       | `[manual]`   | No                        |
+| `Manual review`            | `[deferred]` | No                        |
+| `Test plan` / `CI gates`   | `[!]`        | No (sanity-check only)    |
+| `Other`                    | `[manual]`   | No (default conservative) |
+
+Anything the future Arm B automates flips from `[manual]` to `[auto]` — Arm A surfaces only `[manual]` / `[deferred]` / `[!]` because no automation core exists yet.
+
+If `/tmp/pending-items.tsv` is empty (PR doesn't follow `/ak-build`'s convention — e.g., a hotfix opened by hand), print "No structured pending tasks found in PR body — proceeding" and continue without blocking. Operator can manually verify out-of-band steps.
+
+Otherwise print the grouped output and gate on the prereq bucket:
+
+```
+Pending tasks before live (PR #<N>):
+
+[manual] (blocks — Out-of-band deploy items):
+  - <item 1>
+  - <item 2>
+
+[manual] (Operator follow-up — non-blocking, surfaced as reminder):
+  - <item>
+
+[deferred] (Manual review — for PR reviewer; non-blocking):
+  - <item>
+
+[!] (Test plan checkboxes auto-marker should have flipped — sanity check):
+  - <item>
+```
+
+If the `[manual]` blocking bucket is non-empty, surface via `AskUserQuestion`:
+
+> **Pending out-of-band deploy items** — these need to be done for the deploy to be considered live. `/ak-go-live` cannot do them automatically (the automation core is scoped at `kit/ROADMAP.md § /ak-go-live post-merge prod-config sync (Arm B — automation core)` — Management API integration + `SUPABASE_ACCESS_TOKEN` credential surface — and remains deferred). Pick:
+>
+> - **Done — proceed** — operator confirms the items above are already complete or will be done as part of this deploy session; continue to Step 2.
+> - **Pause** — pause `/ak-go-live` so the operator can complete the items first, then resume by re-invoking `/ak-go-live`.
+> - **Skip — accept the gap** — proceed without the items; deploy lands but is not fully live until the operator catches up. Use only if the items are post-merge in nature (e.g., "re-run the prod advisor" — informational) and don't gate user-facing functionality.
+
+If empty, print "No blocking pending tasks — proceeding" and continue to Step 2.
+
+**Codified from**: `kit/ROADMAP.md § /ak-go-live post-merge prod-config sync (Arm B — automation core)` — that entry's "Status" line points back here for Arm A. Arm B (Management API integration that converts most `[manual]` items to `[auto]` — email-template push, allow-list verify, asset reachability check) is scoped in the same ROADMAP entry but remains deferred; until it ships, every `[ ]` item in `Out-of-band deploy items` is `[manual]` and the operator sees them all.
 
 ## Step 2: Land and deploy
 

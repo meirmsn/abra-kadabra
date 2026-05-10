@@ -10,7 +10,9 @@ Forward-looking plan at the feature/PR grain.
 
 ## Active
 
-_No work in progress._
+| Feature                    | Branch                            | Spec                                       | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| -------------------------- | --------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ak-go-live-arm-a-preflight | `feat/ak-go-live-arm-a-preflight` | `specs/ak-go-live-arm-a-preflight/spec.md` | Arm A only of `kit/ROADMAP.md § /ak-go-live post-merge prod-config sync (Arm B — automation core)` — pure SKILL.md prose change adding Step 1.8 (PR-body checkbox parser + "Pending tasks before live" surface). Blocks merge only on `## Out-of-band deploy items` items. Paired one-paragraph note in `kit/docs/guide/workflow.md`. Arm B (Management API integration + `SUPABASE_ACCESS_TOKEN` credential surface) deferred. ~1–2h scope. Source: 2026-05-10 user request. |
 
 ## Planned
 
