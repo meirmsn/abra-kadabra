@@ -9,12 +9,12 @@ implementation-time judgment calls that didn't appear in the spec.
 
 ## Task status
 
-| #     | Task                                                                                                                | Status      |
-| ----- | ------------------------------------------------------------------------------------------------------------------- | ----------- |
-| 1     | Add `coreUserStoryNaReason` check-type to `kit/scripts/adversarial-review.sh` (+ `kit/docs/guide/hooks.md` doc row) | done        |
-| 2     | Wire `verify-story.sh`'s N/A branch (+ `pre-ship/SKILL.md` Gate 9 § N/A note)                                       | in_progress |
-| 3     | BATS suite at `kit/tests/util-adversarial-review-coreUserStoryNaReason.bats`                                        | pending     |
-| ~~4~~ | ~~Doc updates~~ — split across Tasks 1 + 2 to satisfy commit-time docs-coverage hook (see § Decisions)              | folded      |
+| #     | Task                                                                                                                | Status |
+| ----- | ------------------------------------------------------------------------------------------------------------------- | ------ |
+| 1     | Add `coreUserStoryNaReason` check-type to `kit/scripts/adversarial-review.sh` (+ `kit/docs/guide/hooks.md` doc row) | done   |
+| 2     | Wire `verify-story.sh`'s N/A branch (+ `pre-ship/SKILL.md` Gate 9 § N/A note + `workflow.md` Core user story note)  | done   |
+| 3     | BATS suite at `kit/tests/util-adversarial-review-coreUserStoryNaReason.bats`                                        | done   |
+| ~~4~~ | ~~Doc updates~~ — split across Tasks 1 + 2 to satisfy commit-time docs-coverage hook (see § Decisions)              | folded |
 
 ## Decisions
 
