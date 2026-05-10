@@ -185,10 +185,14 @@ literal body `N/A — <reason>` for non-user-facing PRs (migration-only,
 internal refactor). Gate 9 enforces that every verb has a matching artifact
 at `specs/<feature>/qa-walk/verb-<N>-<slug>.{png,json}` proving the action
 completed — missing / empty artifact blocks Gate 9 with a per-verb
-diagnostic. See `/devshop/.claude/skills/devshop/spec/SKILL.md § Core user
-story` for the template + examples, and
-`/devshop/.claude/skills/devshop/pre-ship/SKILL.md § Gate 9` for the
-enforcement contract.
+diagnostic. The `N/A — <reason>` rationale is itself adversarially reviewed
+at pre-ship time (`coreUserStoryNaReason` check-type): interpretive prose
+("no visible UI change", "cosmetic only") fails; verifiable file/path
+claims ("diff is `supabase/migrations/**` only", "no `.tsx` files modified")
+pass — bare `N/A` with no rationale auto-fails. See
+`/devshop/.claude/skills/devshop/spec/SKILL.md § Core user story` for the
+template + examples, and `/devshop/.claude/skills/devshop/pre-ship/SKILL.md
+§ Gate 9` for the enforcement contract.
 
 **Body-consistency check between /ship and Phase 6.** Each post-/ship
 commit that lands while CI is green runs a body-consistency sub-step

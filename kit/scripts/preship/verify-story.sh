@@ -122,10 +122,34 @@ verify_all() {
     return 1
   fi
 
-  # N/A body → skip assertion
+  # N/A body → skip artifact assertion AFTER adversarial review of the rationale.
+  # The N/A path is a self-attestation rung: the operator declares the PR is
+  # non-user-facing and Gate 9's per-verb artifact requirement is bypassed.
+  # Route the rationale through `adversarial-review.sh coreUserStoryNaReason`
+  # so an interpretive vibe ("no visible UI change") fails and a verifiable
+  # file/path claim ("diff is supabase/migrations/** only") passes.
   if is_na_core_story "$spec"; then
-    echo "Core user story is N/A — artifact assertion skipped for this PR"
-    return 0
+    local body rationale
+    body=$(extract_core_user_story "$spec")
+    # Take the first non-empty line, strip the leading N/A marker plus any of
+    # the separators is_na_core_story() recognizes (em dash, hyphen, colon,
+    # whitespace) per the regex ^[Nn]/?[Aa]([[:space:]:—-]|$). Empty after
+    # stripping → empty rationale → reviewer's Rule #11 (d) auto-FAILs.
+    rationale=$(echo "$body" \
+      | grep -m1 -v '^[[:space:]]*$' \
+      | sed -E 's/^[[:space:]]+//' \
+      | sed -E 's/^[Nn]\/?[Aa]([[:space:]:—-]+|$)//' \
+      | sed -E 's/^[[:space:]]+//;s/[[:space:]]+$//')
+
+    local verdict
+    if verdict=$(bash "$(dirname "$0")/../adversarial-review.sh" coreUserStoryNaReason "$rationale" 2>&1); then
+      echo "Core user story is N/A — artifact assertion skipped for this PR"
+      return 0
+    else
+      echo "blocked: Core user story N/A rationale rejected by adversarial review"
+      echo "$verdict"
+      return 1
+    fi
   fi
 
   # Section must exist (extract returns empty if missing)

@@ -11,8 +11,8 @@ implementation-time judgment calls that didn't appear in the spec.
 
 | #     | Task                                                                                                                | Status      |
 | ----- | ------------------------------------------------------------------------------------------------------------------- | ----------- |
-| 1     | Add `coreUserStoryNaReason` check-type to `kit/scripts/adversarial-review.sh` (+ `kit/docs/guide/hooks.md` doc row) | in_progress |
-| 2     | Wire `verify-story.sh`'s N/A branch (+ `pre-ship/SKILL.md` Gate 9 § N/A note)                                       | pending     |
+| 1     | Add `coreUserStoryNaReason` check-type to `kit/scripts/adversarial-review.sh` (+ `kit/docs/guide/hooks.md` doc row) | done        |
+| 2     | Wire `verify-story.sh`'s N/A branch (+ `pre-ship/SKILL.md` Gate 9 § N/A note)                                       | in_progress |
 | 3     | BATS suite at `kit/tests/util-adversarial-review-coreUserStoryNaReason.bats`                                        | pending     |
 | ~~4~~ | ~~Doc updates~~ — split across Tasks 1 + 2 to satisfy commit-time docs-coverage hook (see § Decisions)              | folded      |
 
@@ -82,6 +82,53 @@ Alternative considered: extend `extract_convention_section()` to fall back to
 substring-on-bold when strict-equality fails. Rejected because it widens the
 existing helper's contract for one caller — every other caller would have to
 prove the substring fallback doesn't false-match on their headings.
+
+### Task 2 — extend Task 4's doc fold with `kit/docs/guide/workflow.md`
+
+`.claude/skills/devshop/pre-ship/SKILL.md` is itself a triggering surface in
+`check-docs-coverage-devshop.sh` (line 86: `.claude/skills/*/SKILL.md` →
+needs `workflow.md OR CLAUDE.md` staged). The Task 2 commit including
+SKILL.md but not workflow.md tripped that rule.
+
+**Decision.** Extend the Task 1+2 fold to also include a one-paragraph update
+to `kit/docs/guide/workflow.md § Step 4 — Core user story requirement`,
+reflecting the new adversarial review of the N/A rationale. This is
+substantive (workflow.md is the canonical contract for what a valid Core
+user story looks like; saying "N/A is also adversarially reviewed" belongs
+there) and satisfies the docs-coverage hook for `.claude/skills/**/SKILL.md`
+changes.
+
+The triple is now: `verify-story.sh` change + `SKILL.md` Gate 9 N/A note +
+`workflow.md` Core user story requirement note — all describing the same
+shipped behavior, landing together. Bisect history stays clean.
+
+### Task 2 — update existing `verify-all: skips assertion when Core user story is N/A` BATS test
+
+**Background.** The pre-existing test at `kit/tests/preship-verify-story.bats:187`
+called `verify-all` with `N/A — migration only` and asserted `assert_success`.
+That test passed against the legacy unconditional-`return 0` shape. Now that
+`verify-story.sh` invokes `adversarial-review.sh` on the rationale, the test
+either (a) makes a real API call (slow, flaky, costs money), or (b) needs a
+mock. (b) — the legacy assertion would also break: Sonnet correctly rejects
+"migration only" as bare categorical shorthand, which is the entire point
+of this PR's tightening.
+
+**Decision.** Refactor the existing test into two paired tests covering the
+PASS and FAIL paths, mocking `claude` directly (not `adversarial-review.sh`,
+because verify-story.sh invokes it via `$(dirname "$0")/../adversarial-review.sh`
+— absolute path, not PATH-resolved):
+
+- `verify-all: skips assertion when Core user story is N/A and reviewer
+accepts` — uses a verifiable file/path claim ("diff is `supabase/migrations/**`
+  only") and a mock that returns PASS, asserts `success` + "skipped".
+- `verify-all: blocks when N/A rationale is rejected by adversarial review` —
+  uses interpretive prose ("no visible UI change") and a mock that returns
+  the FAIL verdict, asserts `failure 1` + "blocked: …rejected" + "FAIL" +
+  "interpretive".
+
+The pair confirms both branches of the new wiring (accept → success,
+reject → blocked-with-verdict-on-stdout). Same mock-claude shape as the new
+BATS suite added in Task 3.
 
 ### Task 1 — bare `N/A` (no rationale) handling
 
