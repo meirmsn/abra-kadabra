@@ -1369,72 +1369,54 @@ Every devshop project needs an orientation doc that loads at session start. With
 
 ---
 
-### `/ak-go-live` post-merge prod-config sync + pre-flight surface
+### `/ak-go-live` post-merge prod-config sync (Arm B — automation core)
 
-**Problem.** `/ak-go-live` today does merge → wait-for-Vercel → canary-check, then stops. Anything Vercel doesn't auto-deploy is left as "operator runs the manual step" — and right now that includes:
+**Status:** Arm A (pre-flight surface) shipped 2026-05-10 via the devshop `feat/ak-go-live-arm-a-preflight` branch — `/ak-go-live` Step 1.8 reads the PR body + latest audit/ready-for-review comments, parses every `[ ]` checkbox grouped by section, annotates `[manual]` / `[deferred]` / `[!]`, and blocks on `## Out-of-band deploy items` only. Arm B (Management API integration that converts most `[manual]` items into `[auto]`) is scoped below and remains pending. The problem statement now narrows to the items Arm A surfaces but doesn't automate: the operator still pastes email templates, still verifies the auth allow-list, and still curls absolute-URL assets by hand.
 
-- **Hosted Supabase email templates** (`[auth.email.template.confirmation]` + `[auth.email.template.recovery]` from `supabase/config.toml` only auto-apply to the LOCAL stack; the prod project reads from its own dashboard). When chapter 1l ships, the operator has to log into supabase.com/dashboard, navigate to Auth → Email Templates, paste subject + body for both templates by hand. Easy to forget; trivial to typo.
-- **Hosted Supabase auth allow-list** (`additional_redirect_urls`). Local-stack glob patterns from `supabase/config.toml` are dev-only; prod's allow-list is configured separately on the dashboard. When a chapter changes the redirect surface (chapter 1l added `/auth/callback`), the operator has to verify or update the prod allow-list manually.
-- **Static asset reachability** (`lalista-email-logo.png` referenced by absolute prod URL inside the email templates). Vercel deploys it, but until verified the email might render with a broken image. A single curl confirms.
+**Problem.** Even with Arm A's pre-flight surface listing every pending item, the operator still types into the Supabase dashboard for each one. The recurring set:
 
-These surface in two places today — the PR body's "Out-of-band deploy items (after merge)" section AND the audit-trail comment from Phase 6. The user has to mentally cross-reference both right at the moment they're invoking `/ak-go-live`. The split surfaces sometimes overlap (logo verification appears in both), sometimes don't (allow-list update only in the audit comment), and the user can't tell at a glance which the skill will handle automatically vs which need their hands.
+- **Hosted Supabase email templates** (`[auth.email.template.confirmation]` + `[auth.email.template.recovery]` + `[auth.email.notification.password_changed]` from `supabase/config.toml` only auto-apply to the LOCAL stack; the prod project reads from its own dashboard). The operator logs into supabase.com/dashboard, navigates to Auth → Email Templates, pastes subject + body for each affected template by hand. Easy to forget; trivial to typo.
+- **Hosted Supabase auth allow-list** (`additional_redirect_urls`). Local-stack glob patterns from `supabase/config.toml` are dev-only; prod's allow-list is configured separately on the dashboard. When a chapter changes the redirect surface (chapter 1l added `/auth/callback`), the operator verifies or updates the prod allow-list manually.
+- **Static asset reachability** (e.g., `lalista-email-logo.png` referenced by absolute prod URL inside email templates). Vercel deploys it, but until verified the email might render with a broken image. A single curl confirms.
 
-**Sibling to 5.8 + 5.9 because same family — "automate the gap between Phase 6 and a fully-deployed prod state."** 5.8 catches test-coverage drift before merge; 5.9 refreshes visual evidence before merge; this one closes the gap AFTER merge, so the operator's `/ak-go-live` invocation results in a fully-deployed-and-verified state without manual paste-and-curl steps.
+**Sibling to /ak-build Phase 5.8 + 5.9 — same family.** 5.8 catches test-coverage drift before merge; 5.9 refreshes visual evidence before merge; Arm B closes the gap AFTER merge so `/ak-go-live`'s output is a fully-deployed-and-verified state without manual paste-and-curl steps.
 
-**Shape of the convention.**
+**Shape of the automation core.**
 
-The convention has two arms — a **pre-flight surface** (so the operator sees what's pending) and an **automation core** (so most of those pending items aren't pending anymore).
-
-**Arm A — Pre-flight surface** (the thing the user feels first):
-
-- Before invoking the canary/deploy logic, `/ak-go-live` reads the merging PR's body via `gh pr view --json body` AND the latest audit/ready-for-review comment via `gh pr view --json comments`. Pulls every `[ ]` checkbox grouped by section ("Out-of-band deploy items", "Manual review", "Operator follow-up").
-- Prints a "Pending tasks before live" section to the user, with each item annotated:
-  - `[auto]` — `/ak-go-live` itself will do this in Arm B's automation core; no operator action needed.
-  - `[manual]` — the operator must do it; show the SPECIFIC steps inline (e.g., for "paste email templates": which Supabase dashboard URL, which fields, where to copy from).
-  - `[deferred]` — long-horizon (v1 chapter) items; mention briefly so they're not surprised.
-- Then proceeds with the merge → deploy → canary flow. The skill blocks on `[manual]` items only when they're prerequisites (e.g., email templates must be pasted BEFORE the canary tests an auth flow that depends on them); otherwise surfaces them as a post-deploy reminder.
-
-**Arm B — Automation core** (so most `[manual]` items become `[auto]`):
-
-- **Email templates push** via Supabase Management API (`PATCH /v1/projects/<ref>/config/auth` with `mailer_subjects_*` and `mailer_templates_*` fields). Triggered when the merged PR's diff touches `supabase/templates/**` or `[auth.email.template.*]` in `supabase/config.toml`. Reads the local files, posts the Management API call. Requires a Supabase Personal Access Token — new credential surface, separate from the service-role key used for ad-hoc admin queries.
-- **Auth allow-list verification** via the same Management API (`GET /v1/projects/<ref>/config/auth`). Reads the prod allow-list, compares against the GLOB patterns in local `supabase/config.toml`'s `additional_redirect_urls` block (substituting the prod URL for `localhost`/`127.0.0.1`), warns or auto-updates depending on policy. The "auto-update" path requires user confirmation per the auto-mode-not-license-to-destroy rule — same shape as the existing `/ak-go-live` rollback path (no auto-rollback because human judgment).
+- **Email templates push** via Supabase Management API (`PATCH /v1/projects/<ref>/config/auth` with `mailer_subjects_*` and `mailer_templates_*` fields). Fires when the merged PR's diff touches `supabase/templates/**` or `[auth.email.template.*]` / `[auth.email.notification.*]` in `supabase/config.toml`. Reads the local files, posts the Management API call. Requires a Supabase Personal Access Token — new credential surface, separate from the service-role key used for ad-hoc admin queries.
+- **Auth allow-list verification** via the same Management API (`GET /v1/projects/<ref>/config/auth`). Reads the prod allow-list, compares against the GLOB patterns in local `supabase/config.toml`'s `additional_redirect_urls` block (substituting the prod URL for `localhost` / `127.0.0.1`), warns or auto-updates depending on policy. The "auto-update" path requires user confirmation per the auto-mode-not-license-to-destroy rule — same shape as `/ak-go-live`'s existing rollback path (no auto-rollback because human judgment).
 - **Static asset reachability check** via `curl -fsS https://<prod-domain>/<asset>` after Vercel reports deploy-ready. Specific to assets referenced by absolute URLs in places Vercel can't serve (email templates, third-party redirects). Reads which assets to check from a new `[ak-go-live.verify-assets]` block in the project's CLAUDE.md or `.devshop-deploy.toml` — explicit allow-list, not auto-discovery.
 
-**Persistence**: `/ak-go-live` writes a per-run report to `specs/<feature>/go-live.md` with what ran, what passed/failed, and what's still pending. Reviewer of a future incident can `git log specs/*/go-live.md` to reconstruct what the deploy did.
+**Persistence**: `/ak-go-live` writes a per-run report to `specs/<feature>/go-live.md` with what ran, what passed/failed, and what's still pending. Reviewer of a future incident `git log`s `specs/*/go-live.md` to reconstruct what the deploy did.
 
-**New credentials surface**: the Supabase Personal Access Token (`SUPABASE_ACCESS_TOKEN` env var convention) needs to live somewhere the skill can read at runtime. Two paths: (a) GH Secret + workflow-only access (skill reads via `gh secret get`); (b) operator's local `.devcontainer/.env` for local invocations + a CI run for merged-PR triggers. The convention recommends (a) because `/ak-go-live` IS a deploy action and deploy actions belong in CI; locally it's "show me what would happen" mode without the actual prod-write authority. Same shape as how `ANTHROPIC_API_KEY_PROD` is handled today (CLAUDE.md § Anthropic API key split).
+**New credentials surface**: the Supabase Personal Access Token (`SUPABASE_ACCESS_TOKEN` env var convention) needs to live somewhere the skill reads at runtime. Two paths: (a) GH Secret + workflow-only access (skill reads via `gh secret get`); (b) operator's local `.devcontainer/.env` for local invocations + a CI run for merged-PR triggers. Recommend (a): `/ak-go-live` IS a deploy action and deploy actions belong in CI; locally it's "show me what would happen" mode without the actual prod-write authority. Same shape as `ANTHROPIC_API_KEY_PROD` today (CLAUDE.md § Anthropic API key split).
 
 **Why this beats the obvious alternatives.**
 
-- **"Just have the user paste the templates"** — the current default. Reliable in the literal sense (it works) but brittle in practice (the operator forgets, or pastes the wrong template, or skips the allow-list update because it's not in the PR body). The pre-flight surface alone (Arm A) closes ~70% of that risk; Arm B closes the rest.
-- **"Use a generic `supabase config push` flow"** — Supabase CLI doesn't have a clean equivalent for hosted projects (it's local-stack-focused). The Management API is the right shape; Arm B uses it directly.
+- **"Keep pasting templates"** — Arm A's pre-flight surface already closes ~70% of forget-or-typo risk by listing the items unmissably; Arm B closes the rest by removing the manual step entirely.
+- **"Use a generic `supabase config push` flow"** — the Supabase CLI doesn't have a clean equivalent for hosted projects (it's local-stack-focused). The Management API is the right shape.
 - **"Roll into /ak-build Phase 7 instead of /ak-go-live"** — Phase 7 fires before the merge happens; the prod-config sync needs to happen AFTER. /ak-go-live is the correct skill.
 
 **Why v0 — blocks next-project adoption.**
 
-Every devshop project that ships a feature touching email templates / auth allow-list / absolute-URL-referenced assets hits this gap. Lalista is the worked example for chapter 1l (auth UX rework: 4 new email templates + new redirect URL + new logo asset). Once a second project shows up, both projects pay the manual-paste tax until this lands. Closing it before that second project arrives means future projects inherit the protection.
-
-The pre-flight surface (Arm A) alone is high-value and low-risk — even if Arm B (Management API integration) takes longer to design, ship Arm A first as a behavior-change-only update to `/ak-go-live`'s SKILL.md.
+Every devshop project shipping features that touch email templates / auth allow-list / absolute-URL-referenced assets pays the manual-paste tax. Once a second project shows up, both projects pay until this lands. Closing it before that second project arrives means future projects inherit the protection.
 
 **Trigger:**
 
-- Lalista PR #43 (this auth-ux-rework PR) is the immediate motivation — the operator has 3 manual items (paste templates × 2 + verify allow-list + curl logo) at merge time. Shipping Arm A before that merge happens means the user sees the pre-flight surface on this very deploy.
-- OR: a second devshop project shows up and starts /ak-go-live flows — ship at that moment.
-- Recommend shipping **Arm A as part of the same `1.6.0` cluster as 5.8 + 5.9** (small SKILL.md edit, no new credentials); **Arm B as `1.7.0`** (separate scope, requires Management API integration + credential surface).
+- A second devshop project starts using `/ak-go-live` and hits the same paste-and-curl tax.
+- OR: lalista chapter touches email templates / allow-list / absolute-URL assets again and the user asks to close the loop now that Arm A is shipped.
 
 **Cross-ref:**
 
-- `lalista PR #43` — the worked example. PR body currently has 2 out-of-band items + the audit comment has 3, with overlap; user explicitly asked for a unified pre-flight surface 2026-05-04.
-- The existing Phase 6 audit-comment template (`/ak-build` SKILL.md) — names the same items but at a different moment in the lifecycle (just-shipped, not just-going-live).
-- `/devshop/.claude/skills/ak-go-live/SKILL.md` — the skill that gets the new prose for Arm A and the new automation steps for Arm B.
+- `/devshop/.claude/skills/ak-go-live/SKILL.md § Step 1.8` — Arm A's surface; Arm B converts `[manual]` items it lists into `[auto]`.
+- `/devshop/.claude/skills/ak-build/SKILL.md § Phase 6 § audit-comment template` — names the same items at a different lifecycle moment (just-shipped, not just-going-live); Arm B reads from this same convention.
 
 **Cost/risk:**
 
-- Arm A implementation: ~1–2 hours — pure SKILL.md prose, no new code, no new credential.
-- Arm B implementation: ~6–10 hours — Management API integration (3 endpoints), credential plumbing, error handling, the per-run `go-live.md` report shape, bats tests for the auto-update confirmation flow.
-- New-credential risk (Arm B only): the Supabase Personal Access Token has broad scope (project config write); leaking it = ability to misconfigure auth on the prod project. Same blast radius as today's `ANTHROPIC_API_KEY_PROD` (per chapter 1l's existing split convention) — manageable with the same CI-only + 1Password discipline.
-- False-positive risk on Arm B's allow-list compare: `additional_redirect_urls` glob pattern matching is fuzzy; the safer default is "warn, don't auto-update" until the convention is exercised on a few real chapters and the failure modes are known.
-- Pipeline-time risk: Arm A adds ~5 seconds wall-time (one `gh pr view` call). Arm B adds ~10–30 seconds for the Management API round-trips plus the curl check. Negligible.
+- Implementation: ~6–10 hours — Management API integration (3 endpoints), credential plumbing, error handling, the per-run `go-live.md` report shape, bats tests for the auto-update confirmation flow.
+- New-credential risk: the Supabase Personal Access Token has broad scope (project config write); leaking it = ability to misconfigure auth on the prod project. Same blast radius as today's `ANTHROPIC_API_KEY_PROD` (per the existing split convention) — manageable with the same CI-only + 1Password discipline.
+- False-positive risk on the allow-list compare: `additional_redirect_urls` glob pattern matching is fuzzy; the safer default is "warn, don't auto-update" until the convention is exercised on a few real chapters and the failure modes are known.
+- Pipeline-time risk: ~10–30 seconds for the Management API round-trips plus the curl check. Negligible.
 
 ---
 

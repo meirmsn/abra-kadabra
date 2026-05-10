@@ -4,6 +4,15 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### ak-go-live-arm-a-preflight (2026-05-10)
+
+- **Branch**: `feat/ak-go-live-arm-a-preflight`
+- **PR**: TBD
+- **Spec**: `specs/ak-go-live-arm-a-preflight/spec.md`
+- **Summary**: Adds `/ak-go-live` Step 1.8 — pending-tasks pre-flight surface. Reads the merging PR's body + latest `## Pre-ship audit trail` and `## Ready for review` comments via `gh pr view`, parses every `[ ]` checkbox grouped by section, annotates each `[manual]` (operator-action needed) / `[deferred]` (PR-review concern, post-merge) / `[!]` (CI checkbox `/ak-build` Phase 5.3's auto-marker should have flipped — bookkeeping skipped), and prints a "Pending tasks before live" view. Blocks the merge via `AskUserQuestion` only when `## Out-of-band deploy items` has unchecked items (deploy prereqs by definition); other surfaces are non-blocking reminders. Closes Arm A of `kit/ROADMAP.md § /ak-go-live post-merge prod-config sync` — the entry now narrows to "(Arm B — automation core)" and remains scoped (Management API integration + `SUPABASE_ACCESS_TOKEN` credential surface, deferred).
+- **Commits**: 3 atomic commits (Phase 0 spec skeleton + Arm A bundle + pre-ship review.md + this bookkeeping commit)
+- **Quality gates**: all passed — 4 pass + 0 findings_pending + 10 n/a + 0 blocked.
+
 ### qa-na-tightening (2026-05-10)
 
 - **Branch**: `feature/qa-na-tightening`
