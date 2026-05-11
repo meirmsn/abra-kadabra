@@ -10,9 +10,7 @@ Forward-looking plan at the feature/PR grain.
 
 ## Active
 
-| Feature                         | Branch                                  | Spec                                          |
-| ------------------------------- | --------------------------------------- | --------------------------------------------- |
-| context-aware-guideline-routing | feature/context-aware-guideline-routing | specs/context-aware-guideline-routing/spec.md |
+_No work in progress._
 
 ## Planned
 

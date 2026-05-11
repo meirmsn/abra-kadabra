@@ -4,6 +4,15 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### context-aware-guideline-routing (2026-05-11)
+
+- **Branch**: `feature/context-aware-guideline-routing` (merging via #33)
+- **PR**: [#33](https://github.com/meirmsn/abra-kadabra/pull/33)
+- **Spec**: `specs/context-aware-guideline-routing/spec.md`
+- **Summary**: Promotes `kit/docs/guide/README.md` from flat ToC to a Hybrid routing index — logical groups (Data / Auth + security / Frontend + UI / Ops + deploy / Dev + meta) in the index, flat filesystem on disk. Splits `conventions.md` (943→750 lines) into 3 new topic guides (`migrations.md`, `database-queries.md`, `wrapper-boundaries.md`) per audit-gated D3 proportionality; left-behind pointers preserve external links. Per-file ToCs added to every guide (Layer 2). Layer 3 sub-ToCs adaptively on `conventions.md § Slow-Job Lifecycle` + `§ Non-Negotiables` (the two long-section + independently-routable cases the audit surfaced). Patches `/ak-spec` (new Step 1.5: spec-time routing-index consultation) + `/ak-implement` (Step 1 swaps to routing lookup with `conventions.md` fallback for pre-adoption projects). 3 new BATS invariants (link-resolution, completeness, real-world-grounding-against-lalista-specs; cross-boundary skip-with-reason). 12 routing rows shipped on the audit's proposed initial set + 10 expansion. Closes `kit/ROADMAP.md § Context-aware guideline routing for /ak-spec and /ak-implement`; files PR-B follow-on entry for lalista CLAUDE.md gotcha audit + lift into the new routing system.
+- **Commits**: 18 atomic commits (Phase 0 spec skeleton + Phase 1 spec expand + 2 user-gate steps + 3 split commits + 9 implementation commits + Phase 2 tasks.md ledger + Phase 3 pre-ship review.md). Final SHA: `90d6baa`.
+- **Quality gates**: all passed — 5 pass + 0 findings_pending + 10 n/a + 0 blocked. Audit 1 clean at HEAD. 745 BATS green (732 existing + 13 new routing tests).
+
 ### ak-go-live-arm-a-preflight (2026-05-10)
 
 - **Branch**: `feat/ak-go-live-arm-a-preflight`
