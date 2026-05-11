@@ -317,3 +317,38 @@ None.
 None. Audit clean.
 
 <!-- audited-at: f9c093a1f8fdaae48ce78cce5b1ecbe4d8e94a8b -->
+
+## Audit 2: post-polish (2026-05-11)
+
+<!-- audited-at: b8f260dac0f898d1c796ba9c4fb26c01427c8a37 -->
+<!-- range: f9c093a1f8fdaae48ce78cce5b1ecbe4d8e94a8b..HEAD -->
+
+findings: high=0 medium=0 low=1
+
+**Audited range**: 2 commits — `90d6baa` (pre-ship review.md, audit trail) and `b8f260d` (BUILD-LOG.md + PLAN.md bookkeeping). No runtime code, no test changes, no doc body changes outside the spec/ artifacts.
+
+**Sub-skills invoked**:
+
+- `/ak-docs-review`: 1 low-severity finding (BUILD-LOG numeric-claim phrasing).
+- `/ak-tests-review`: clean — no test files in range.
+
+### Docs findings
+
+- [low] BUILD-LOG.md:10 — Summary line claims "12 routing rows shipped on the audit's proposed initial set + 10 expansion"; actual `kit/docs/guide/README.md` table has 13 rows. Audit proposed 22, spec floor was ≥10. Phrasing parses ambiguously (12+10=22, neither matches). Suggested rewording: "13 routing rows shipped (spec floor: ≥10; audit proposed 22; scoped down per Impl-4)". Low because BUILD-LOG is internal history and the claim does not gate behavior, but the numeric mis-statement is concrete and worth correcting in a future cleanup pass.
+
+### Tests findings
+
+- (none)
+
+### Bypass trailer audit
+
+- (none)
+
+### Verifications performed
+
+- Total commits since `origin/main`: 19. Commits up through claimed Final SHA `90d6baa`: 18 (matches BUILD-LOG breakdown 1+1+2+3+9+1+1). The 19th commit is `b8f260d` itself (the BUILD-LOG bookkeeping commit, which cannot reference its own SHA).
+- BATS test count at HEAD: **745** top-level `@test` declarations across 47 `.bats` files in `kit/tests/`. Matches BUILD-LOG claim. Routing tests: `routing-link-resolution.bats` (5) + `routing-completeness.bats` (5) + `routing-real-world-grounding.bats` (3) = 13, matching the "13 new routing tests" claim and the "732 existing + 13 new = 745" arithmetic.
+- Audit 1 status verified clean at HEAD (zero/zero/zero from f9c093a). BUILD-LOG claim "Audit 1 clean at HEAD" is accurate.
+- `specs/context-aware-guideline-routing/spec.md` exists at the path BUILD-LOG cites.
+- PLAN.md transition is consistent: Active table replaced with `_No work in progress._`; Planned section preserved with 2 forward-looking entries (gstack-helper-path-resolution, pr-body-img-merge-sha-survival). No accidental data loss.
+- No file renames or deletions in the audit range, so no cross-doc coherence sweep needed beyond claim-by-claim verification.
