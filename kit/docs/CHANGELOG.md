@@ -2,6 +2,14 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.28.0 (2026-05-11)
+
+- feat(routing): context-aware guideline routing
+- feat(ak-go-live): Step 1.8 pending-tasks pre-flight surface (Arm A)
+- feat(verify-story): adversarially review Core user story N/A rationale
+- chore(gstack): set GSTACK_HOME alongside GSTACK_STATE_DIR; tighten .gitignore
+- feat(devcontainer): refresh-allowed-ips firewall recovery + virtiofs hardening
+
 ## v1.27.0 (2026-05-08)
 
 - feat(template-ci): skip slow-job on docs-only diffs
