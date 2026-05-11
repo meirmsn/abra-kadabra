@@ -16,6 +16,12 @@ and the rollback fired silently" data loss is impossible.
 > **The rules below apply now, before the framework lifts** — they surfaced as
 > soak findings and would otherwise rot inside a project's CLAUDE.md gotchas.
 
+## Contents
+
+- [Tier C: a route's `loading.tsx` and its client component's own load skeleton must paint identically](#tier-c-a-routes-loadingtsx-and-its-client-components-own-load-skeleton-must-paint-identically)
+- [Sizing primitives that accept a `className` override must not bake conflicting CSS properties](#sizing-primitives-that-accept-a-classname-override-must-not-bake-conflicting-css-properties)
+- [Application](#application)
+
 ---
 
 ## Tier C: a route's `loading.tsx` and its client component's own load skeleton must paint identically
@@ -107,6 +113,8 @@ the resolution step.
 Grep new primitives for `min-h-*`, `max-h-*`, `min-w-*`, `max-w-*` baked into
 their base classes. If the primitive accepts `className`, the baked dimension
 is a trap.
+
+**See also:** [`supabase-ssr-boilerplate.md § Pattern 5`](./supabase-ssr-boilerplate.md#pattern-5-webkit-form-state-hydration-race-in-playwright-mobile-tests) — same shape of trap ("primitive accepts an override but encodes a conflicting platform default"); the principle generalizes beyond CSS to mobile WebKit's pre-hydration form-state.
 
 ---
 

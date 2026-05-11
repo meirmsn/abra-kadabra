@@ -1,6 +1,6 @@
 ---
 name: ak-implement
-version: 2.2.0
+version: 2.3.0
 description: |
   Run the implementation loop for the active spec. Reads spec from specs/<name>/ →
   traces the gstack plan → checks tasks (new vs resume) → implements each task with tests → runs stuck
@@ -22,8 +22,28 @@ allowed-tools:
 
 Run the implementation loop for the active spec.
 
-**Before starting**: read `kit/docs/guide/conventions.md` for testing philosophy,
-backlog routing, and metrics lifecycle. These are referenced throughout, not duplicated here.
+**Before starting** — read two layers, both:
+
+1. **Baseline (always-read)** — `kit/docs/guide/conventions.md` for the
+   cross-cutting non-negotiables that fire on every PR regardless of topic:
+   Test Presence, Non-Negotiables (Testing / Test Assertion Depth /
+   Responsive + Theme / PWA / Code Structure), Bypass trailers, Project
+   Docs Coverage, Backlog Routing, Confidence Calibration. Conventions.md
+   is the substrate; topical guidance layers on top.
+
+2. **Topical (additive)** — parse the spec's `## Files` + `## Decisions`
+   sections, look up matching routing rows in `kit/docs/guide/README.md`,
+   read the matched `(file, anchor)` targets, and follow `**See also:**`
+   footers where scope-relevant. The routing index points at the guide
+   sections that govern the specific patterns this change touches — see
+   the SKILL.md for `/ak-spec` Step 1.5 for the parsing shape (file-globs
+   - keyword tokens).
+
+The two layers are complementary, not alternatives: conventions.md's
+non-negotiables apply universally; the routing matches sharpen the read to
+exactly the topics this PR touches. **Pre-adoption projects** (whose
+`kit/docs/guide/README.md` isn't yet a routing index) get the baseline
+only — equivalent to the pre-routing behavior, with zero regression.
 
 ## Step 1: Gather context
 
@@ -129,7 +149,7 @@ Pre-write checks restated here so they fire before code lands, not after. Full t
 - **Code structure** — every non-trivial `.ts`/`.tsx` file under `src/` or `app/` starts with a 3-line header (`// What:` / `// Why:` / `// Does NOT:`); every exported function has a 1-2 sentence JSDoc. Shared packages export TypeScript source directly (`"main": "src/index.ts"`); each package has a `src/index.ts` barrel; no deep path imports across package boundaries. Default to the boring solution. See `conventions.md § Non-Negotiables — Code Structure`.
 - **Migrations referencing `auth.users(id)`** — every FK MUST specify `ON DELETE` explicitly (`CASCADE` for tight-ownership columns / `SET NULL` for nullable audit columns / `RESTRICT` for must-keep-row). Implicit `NO ACTION` silently blocks user deletion. See `conventions.md § ON DELETE on auth.users FK references`.
 - **Realtime helpers** — when adding a `subscribeTo<X>` wrapper or `postgres_changes` listener, add the matching `alter publication supabase_realtime add table <name>;` migration in the same PR with a `-- ROLLBACK:` block. Without it, cross-session delivery silently no-ops. See `conventions.md § Realtime publication setup`.
-- **LLM / edge-function response boundaries** — parse with Zod at the wrapper boundary in `packages/core/src/api/<feature>.ts` for any LLM-backed edge function call or third-party HTTP fetch with a hand-written response shape. Use `.safeParse()` (never `.parse()`); throw a feature-named `{Feature}ValidationError`; capture to Sentry with a scrubbed payload excerpt before throwing. Do NOT add Zod to PostgREST results, form input, or app-internal function args (TypeScript already proves those). See `conventions.md § Runtime Validation at LLM / Edge-Function Boundaries`.
+- **LLM / edge-function response boundaries** — parse with Zod at the wrapper boundary in `packages/core/src/api/<feature>.ts` for any LLM-backed edge function call or third-party HTTP fetch with a hand-written response shape. Use `.safeParse()` (never `.parse()`); throw a feature-named `{Feature}ValidationError`; capture to Sentry with a scrubbed payload excerpt before throwing. Do NOT add Zod to PostgREST results, form input, or app-internal function args (TypeScript already proves those). See `wrapper-boundaries.md § Runtime Validation at LLM / Edge-Function Boundaries`.
 
 ## Step 3: Implementation loop
 

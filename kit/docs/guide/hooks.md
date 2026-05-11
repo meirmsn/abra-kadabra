@@ -1,5 +1,18 @@
 # Hooks & Commit Flow
 
+How git hooks, husky chains, and Claude Code's PreToolUse hooks compose to guard the workflow. Pre-commit fires first (Layer 1 quick checks), then pre-push (Layer 2 audit), then `/ak-pre-ship` (Layer 3 gate-time adversarial review). This guide is the canonical reference for the full chain.
+
+## Contents
+
+- [Claude Code Hooks](#claude-code-hooks)
+- [Commit Flow](#commit-flow)
+- [Full Hook Chain Detail](#full-hook-chain-detail)
+- [Practical recipes](#practical-recipes)
+- [Why workflow nudges live at the git layer](#why-workflow-nudges-live-at-the-git-layer)
+- [Commit Convention](#commit-convention)
+- [On Push](#on-push)
+- [Dismissal Log (pre-ship gate-time adversarial review)](#dismissal-log-pre-ship-gate-time-adversarial-review)
+
 ## Claude Code Hooks
 
 Hooks in `.claude/settings.json` guard the development workflow:
@@ -293,6 +306,8 @@ The `.husky/pre-push` hook runs at the git layer on every `git push`. The wrappe
 ## Dismissal Log (pre-ship gate-time adversarial review)
 
 Commit-time guards check that the developer explained bypasses. The pre-ship layer has a parallel concern: each quality gate (`simplify`, `docs-and-tests-review` (ak), `review`, `cso`, `design-review`, `design-conformance` (ak), `qa`, `benchmark`, etc. — `(ak)` marks devshop-native gates, bare names wrap gstack skills) produces an advisory report, and the pipeline used to rubber-stamp "gate said pass" without checking whether the gate silently dismissed findings it surfaced. The Dismissal Log closes that hole.
+
+**See also:** [`conventions.md § Bypass trailers`](./conventions.md#bypass-trailers) — the commit-time Layer 1 sibling of this gate-time mechanism; both surface a "skipped a finding" decision into the auditable history, one at git-commit time and one at pre-ship time.
 
 ### Contract (every gate)
 

@@ -1,5 +1,21 @@
 # Operations
 
+Day-to-day operational reference. Auth, data flow, design system, CI/CD, observability, PWA — where each lives in the codebase. Env-var naming, stack inventory, local dev recipes, troubleshooting tree, and the decision log for irreversible past calls.
+
+## Contents
+
+- [Where Things Happen](#where-things-happen)
+- [Env Var Naming Convention](#env-var-naming-convention)
+- [Stack](#stack)
+- [Local Development](#local-development)
+- [Service Quotas](#service-quotas)
+- [Dev Container](#dev-container)
+- [Persistent Storage](#persistent-storage)
+- [Known Footguns](#known-footguns)
+- [When Things Go Wrong](#when-things-go-wrong)
+- [Troubleshooting](#troubleshooting)
+- [Decision Log](#decision-log)
+
 ## Where Things Happen
 
 ### Auth
@@ -74,6 +90,8 @@ supabase gen types typescript --project-id <ref> > packages/core/src/supabase.ty
 - **iOS input-zoom rule.** Every focusable form control (`<input>`, `<textarea>`, `<select>`) must render at font-size ≥ 16px on small screens. Below 16px, Safari zooms the viewport on focus and doesn't reliably zoom back out — looks like a layout bug after submit. Enforce in shared input primitives (e.g. `packages/ui/src/Input.tsx`), not per-call-site, and add a snapshot test pinning the floor.
 - **Cross-origin redirect breaks standalone.** If a PWA is installed from origin A and A redirects to origin B (custom-domain swap, vercel preview → prod), iOS launches it in Safari chrome on next open. There is no in-app fix; users must remove the home-screen icon and re-add from the canonical origin. When swapping domains, surface this in release notes.
 - Service worker caching (`@serwist/next`) deferred to `PRODUCT-ROADMAP.md` — added after core screens are stable
+
+**See also:** [`latency-feedback.md`](./latency-feedback.md) — the iOS input-zoom rule above applies to every Tier B submit-button form; the floor pins inside shared input primitives, the framework lives in latency-feedback.
 
 _This section grows as code is added. `/ak-implement` updates it when introducing new paths._
 
@@ -298,7 +316,7 @@ These volumes are **not** on the host filesystem and are **lost on machine migra
 - **GH Actions artifact access on pre-2026-04-24 projects**: projects scaffolded from the template before 2026-04-24 don't have `productionresultssa*.blob.core.windows.net` (Azure Blob storage where GH Actions stashes workflow artifacts — Playwright traces, screenshots, coverage reports) in their `.devcontainer/init-firewall.sh`. Symptom: `gh run download` from inside the devcontainer fails with `no route to host`, not an IP-rotation stale-ipset problem — the host is absent from the allowlist entirely. Fix: diff the project's `.devcontainer/init-firewall.sh` against `/devshop/template/.devcontainer/init-firewall.sh` and bring in the artifact-host loop (insert after the existing project-domain `for domain in ... ; do ... done` block). The artifact-host loop reuses `$gh_ranges` which the script already fetches for GitHub CIDR resolution — no additional setup needed if the project's script still has the standard CIDR fetch section. Then rebuild the devcontainer. Projects scaffolded on or after 2026-04-24 inherit this from the template. Required for `/ak-build` Phase 5.4 artifact-pull on attempt #2.
 - **Never commit directly to main**: branch protection requires PRs. Always create a feature branch first, even for small fixes.
 - **Workflow push requires human**: the devcontainer PAT lacks `workflow` scope intentionally. If `git push` fails because a commit touches `.github/workflows/`, ask the human to push: `git -c credential.helper= push https://<github-user>@github.com/<owner>/<repo>.git <branch>` (GitHub will prompt for their PAT with workflow scope).
-- **PostgREST null-deref masks column typos**: a Playwright/integration test that crashes with `TypeError: Cannot read properties of null (reading '<field>')` after a recent `.select()` change is almost always a column-name typo (or a stale generated-types cast), not a missing-data bug. PostgREST returns `data: null` + populated `error` on a non-existent column; downstream code that destructures `data` swallows the diagnostic. Re-read the `.select()` call against the current schema before chasing null-handling. Convention: `kit/docs/guide/conventions.md § Database queries`. Inherited by every new project as a `template/CLAUDE.md § Gotchas` entry.
+- **PostgREST null-deref masks column typos**: a Playwright/integration test that crashes with `TypeError: Cannot read properties of null (reading '<field>')` after a recent `.select()` change is almost always a column-name typo (or a stale generated-types cast), not a missing-data bug. PostgREST returns `data: null` + populated `error` on a non-existent column; downstream code that destructures `data` swallows the diagnostic. Re-read the `.select()` call against the current schema before chasing null-handling. Convention: `kit/docs/guide/database-queries.md`. Inherited by every new project as a `template/CLAUDE.md § Gotchas` entry.
 
 ---
 

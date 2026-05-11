@@ -4,6 +4,16 @@ Canonical code patterns for any devshop project using Supabase + Next.js + Playw
 
 Each pattern was codified from a real lalista incident (most from PR 26, 2026-04-26). Don't paraphrase the patterns; copy them verbatim and adapt the project-specific names. The behaviors they encode are subtle — drift breaks production silently.
 
+## Contents
+
+- [Pattern 1: `.trim()` defense at every `process.env.NEXT_PUBLIC_*` read site](#pattern-1-trim-defense-at-every-processenvnext_public_-read-site)
+- [Pattern 2: CSP `connect-src` builder handles BOTH `https→wss` and `http→ws`](#pattern-2-csp-connect-src-builder-handles-both-httpswss-and-httpws)
+- [Pattern 3: E2E helpers — `helpers/admin-client.ts` with the 5 canonical exports](#pattern-3-e2e-helpers--helpersadmin-clientts-with-the-5-canonical-exports)
+- [Pattern 4: Realtime publication setup migration](#pattern-4-realtime-publication-setup-migration)
+- [Pattern 5: WebKit form-state hydration race in Playwright `mobile` tests](#pattern-5-webkit-form-state-hydration-race-in-playwright-mobile-tests)
+- [Pattern 6: Testing realtime WebSocket failures with `page.routeWebSocket`, not `page.route().fulfill(503)`](#pattern-6-testing-realtime-websocket-failures-with-pageroutewebsocket-not-pageroutefulfill503)
+- [Cross-references](#cross-references)
+
 ---
 
 ## Pattern 1: `.trim()` defense at every `process.env.NEXT_PUBLIC_*` read site
@@ -254,6 +264,8 @@ supabase db inspect-sql "SELECT pubname, schemaname, tablename FROM pg_publicati
 
 The result should list every table your `subscribeTo*` helpers reference.
 
+**See also:** [`migrations.md § Realtime publication setup`](./migrations.md#realtime-publication-setup) — the convention layer that restates this rule and ties it to FK-cascade discipline; Pattern 4 here is the migration template, migrations.md is the convention-doc target.
+
 ---
 
 ## Pattern 5: WebKit form-state hydration race in Playwright `mobile` tests
@@ -292,7 +304,7 @@ This applies to ANY controlled-input form on the WebKit project, not just sign-i
 
 **Why:** When E2E-testing "what happens when the realtime WebSocket fails?" (e.g. asserting a sync-error banner renders on `'CHANNEL_ERROR'`), the **wrong** API is `page.route('**/realtime/v1/websocket**', route => route.fulfill({status: 503}))`. supabase-js's realtime client absorbs the HTTP-503-on-WS-upgrade into its `onerror → onclose → silent-retry` loop without emitting `'CHANNEL_ERROR'` within any reasonable test budget — the banner never fires; the test either times out or (worse) silently passes when shaped as "no banner". The **right** API is `page.routeWebSocket(pattern, ws => ws.close())` (Playwright 1.48+), purpose-built for WebSocket interception. It triggers a deterministic close that supabase-js converts to `'CHANNEL_ERROR'` via the subscribe-status callback.
 
-Lalista PR 26's `realtime.spec.ts` originally used the 503-fulfill shape; the test stayed `test.skip(true, ...)` for an entire PR cycle while diagnosis ran. PR 27 fixed both halves: switched to `routeWebSocket` AND extended `subscribeToList(..., callback, onError?)` to actually pass a status callback to `.subscribe()` — without the wrapper-side fix, the close fires but the banner-trigger path never gets the signal (see `conventions.md § Wrapper API design`).
+Lalista PR 26's `realtime.spec.ts` originally used the 503-fulfill shape; the test stayed `test.skip(true, ...)` for an entire PR cycle while diagnosis ran. PR 27 fixed both halves: switched to `routeWebSocket` AND extended `subscribeToList(..., callback, onError?)` to actually pass a status callback to `.subscribe()` — without the wrapper-side fix, the close fires but the banner-trigger path never gets the signal (see `wrapper-boundaries.md § Wrapper API design`).
 
 ### The pattern
 
@@ -320,7 +332,7 @@ test('sync-error banner renders when realtime WebSocket fails', async ({
 ### Prereqs
 
 1. **Playwright ≥ 1.48** — `page.routeWebSocket` was added in 1.48. Check `apps/web/package.json`'s `@playwright/test` pin and bump if needed.
-2. **Wrapper exposes lifecycle events** — the close fires regardless, but the banner-trigger path is wired through the wrapper's status callback. If your wrapper around `supabase.channel(...).subscribe()` only exposes the data callback and swallows status, the close has no path to the banner. See `kit/docs/guide/conventions.md § Wrapper API design`.
+2. **Wrapper exposes lifecycle events** — the close fires regardless, but the banner-trigger path is wired through the wrapper's status callback. If your wrapper around `supabase.channel(...).subscribe()` only exposes the data callback and swallows status, the close has no path to the banner. See `kit/docs/guide/wrapper-boundaries.md § Wrapper API design`.
 
 ### Assertion shape
 
@@ -335,7 +347,7 @@ Cited prior art: lalista PR 26 (the original 503-fulfill shape + test.skip durin
 - `/ak-new-project § Step 12 (Scaffold apps/web)` — the entry point that should apply Patterns 1, 2, 3 at scaffold time
 - `/ak-implement` — when adding a new env-var read site (Pattern 1), Realtime-using table (Pattern 4), or E2E test (Patterns 5 + 6)
 - `/ak-tests-review` — when reviewing E2E specs, flag direct-goto on WebKit (Pattern 5), missing realtime publication migration (Pattern 4), and `route().fulfill(503)` on realtime WS endpoints (Pattern 6)
-- `kit/docs/guide/conventions.md § Supabase Hardening Defaults` — high-level rule pointing at this guide
-- `kit/docs/guide/conventions.md § Wrapper API design` — companion rule that makes Pattern 6's banner-trigger path reachable
+- `kit/docs/guide/migrations.md § Supabase Hardening Defaults` — high-level rule pointing at this guide
+- `kit/docs/guide/wrapper-boundaries.md § Wrapper API design` — companion rule that makes Pattern 6's banner-trigger path reachable
 - Lalista PR 26 (2026-04-26) — the source incident for Patterns 1, 2, 3, 4 (carry-forward), 5, and Pattern 6 (initial 503-fulfill shape)
 - Lalista PR 27 (2026-04-27) — Pattern 6 fix shipped (`routeWebSocket` switch + wrapper-side `onError` extension)

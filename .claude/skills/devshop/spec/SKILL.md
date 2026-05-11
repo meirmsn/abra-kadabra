@@ -1,6 +1,6 @@
 ---
 name: ak-spec
-version: 2.1.0
+version: 2.2.0
 description: |
   Convert the latest gstack plan into an implementation-ready spec.
   Run after /autoplan (and optionally /design-shotgun + /design-html) has locked
@@ -35,6 +35,84 @@ in architecture, edge cases, and design direction.
   - Error: "METRICS.md not found — create it before running /ak-spec. See kit/docs/guide/ new-project checklist."
   - Stop.
 - If `METRICS.md` exists: continue.
+
+## Step 1.5: Consult routing index
+
+After Step 1 and before reading the gstack plan sources (Step 2), consult the
+devshop routing index at `kit/docs/guide/README.md`. The index is keyed by
+trigger signals — file-globs touched, keywords in the spec's tentative
+Decisions, primitive imports — and points at the guide sections (`(file, anchor)`
+tuples, skill invocations, or full-file pointers per spec D4) that govern those
+patterns. The goal is to encode the matched gotchas as explicit Decisions in
+the new spec, so the implementer reads a spec that already names the rule
+instead of discovering it mid-task.
+
+**Heuristic**: forgiving by design. The spec's `## Files` section is the
+author's best guess at implementation surface — actual implementation often
+touches different files. File-globs match better than exact paths, and
+keyword matches against the Decisions block catch concept-touched-via-different-path
+cases. Don't tighten the heuristic; false-positive guidance is cheap, missed
+guidance is expensive.
+
+```bash
+# Resolve the latest gstack plan dir (same probe Step 2 uses, hoisted up).
+GSTACK_PROJECT_DIR=$(ls -d .gstack/projects/*/ 2>/dev/null | head -1)
+DESIGN_DOC=$(ls -t "$GSTACK_PROJECT_DIR"*-design-*.md 2>/dev/null | head -1)
+TEST_PLAN=$(ls -t "$GSTACK_PROJECT_DIR"*-test-plan-*.md 2>/dev/null | head -1)
+
+# Build the lookup corpus: file-glob tokens + keyword tokens drawn from the
+# gstack plan. We're parsing prose, not structured fields, so be liberal —
+# every plausible token that could match a routing-row trigger goes in.
+ROUTING_INDEX="kit/docs/guide/README.md"
+[ -f "$ROUTING_INDEX" ] || { echo "No routing index at $ROUTING_INDEX — fallback: read conventions.md directly."; }
+
+# 1. File-globs the plan hints at (apps/web/**, supabase/migrations/**, etc.).
+#    Pull from any code-fenced glob, any path-like literal.
+GLOB_TOKENS=$(grep -oE '`(apps|packages|supabase|\.github|\.devcontainer|\.claude|\.husky|kit)/[A-Za-z0-9_./*-]+' \
+  "$DESIGN_DOC" "$TEST_PLAN" 2>/dev/null | sort -u)
+
+# 2. Keyword tokens — distinctive nouns/phrases the routing-row Notes name
+#    (RLS, PostgREST, realtime, PWA, Zod, optimistic mutation, latency, etc.).
+KEYWORD_TOKENS=$(grep -oE '\b(RLS|PostgREST|realtime|PWA|Zod|optimistic mutation|input zoom|CSP|edge function|migration|auth\.users|Realtime|standalone|iOS|WebKit)\b' \
+  "$DESIGN_DOC" "$TEST_PLAN" 2>/dev/null | sort -u)
+
+# 3. For each (glob, keyword) token, find routing rows whose Trigger column
+#    references it. Routing rows are markdown table rows under the grouped
+#    `### Data` / `### Auth + security` / etc. headers — match by row content.
+echo "=== Routing rows triggered by this spec's surface ==="
+for tok in $GLOB_TOKENS $KEYWORD_TOKENS; do
+  grep -F "$tok" "$ROUTING_INDEX" | grep -E '^\|' || true
+done | sort -u
+
+# 4. Read the matched rows' `(file, anchor)` targets — the canonical guide
+#    sections to inline-cite in the new spec's Decisions block.
+```
+
+**Encoding the matches as Decisions**: when a routing-row fires, add a row to
+the new spec's `## Decisions` section with an explicit citation:
+
+```markdown
+### D<N>: <one-line decision>
+
+**Decision:** <what to do>
+
+**Rationale:** <why> (per `kit/docs/guide/<file>.md § <section>`)
+```
+
+The `per kit/docs/guide/<file>.md § <section>` citation is load-bearing — it's
+the audit trail that lets a reviewer (or `/ak-pre-ship`) verify the spec
+followed the routing-system contract.
+
+**Baseline pairing**: the routing index is **additive on top of**
+`kit/docs/guide/conventions.md`, not a replacement for it. Conventions.md
+carries the cross-cutting non-negotiables (Test Presence, Non-Negotiables,
+Bypass trailers, Project Docs Coverage, Backlog Routing, Confidence
+Calibration) that fire on every PR regardless of topic — the spec author
+should read it to know which baseline gotchas always apply, then layer the
+routing-matched gotchas on top. The two layers are complementary, not
+alternatives. **Pre-adoption projects** (whose `kit/docs/guide/README.md`
+isn't yet a routing index) get the baseline only — equivalent to the
+pre-routing behavior, with zero regression.
 
 ## Step 2: Discover and read the gstack plan sources
 

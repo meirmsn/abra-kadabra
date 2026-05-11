@@ -1,5 +1,25 @@
 # Workflow: Idea to Deployed
 
+The end-to-end devshop pipeline, from rough notes to production. Six steps wrap five skills (`/office-hours`, `/autoplan`, `/ak-spec`, `/ak-build`, `/ak-go-live`); the user gate sits between steps 5 and 6. This guide is operator-facing — for the in-feature implementation contracts the steps invoke, see the routing index at [`README.md`](./README.md).
+
+## Contents
+
+- [Pipeline at a Glance](#pipeline-at-a-glance)
+- [Step 1: Write rough notes](#step-1-write-rough-notes)
+- [Step 2: `/office-hours` (gstack)](#step-2-office-hours-gstack)
+- [Step 3: `/autoplan` (gstack)](#step-3-autoplan-gstack)
+- [Step 4: `/ak-build` (devshop skill) — autonomous pipeline](#step-4-ak-build-devshop-skill--autonomous-pipeline)
+- [Step 5: You review the PR](#step-5-you-review-the-pr)
+- [Step 6: `/ak-go-live` (devshop skill) — autonomous deploy](#step-6-ak-go-live-devshop-skill--autonomous-deploy)
+- [Feature tracking: PLAN.md, BUILD-LOG.md, tasks.md](#feature-tracking-planmd-build-logmd-tasksmd)
+- [Plan-level changes (rescope, reorder, drop)](#plan-level-changes-rescope-reorder-drop)
+- [Workflow variants](#workflow-variants)
+- [Structured Reflection](#structured-reflection)
+- [Starting a New Project](#starting-a-new-project)
+- [Build and Deploy Quick Reference](#build-and-deploy-quick-reference)
+- [gstack Skill Map](#gstack-skill-map)
+- [Devshop Skill Map](#devshop-skill-map)
+
 ## Pipeline at a Glance
 
 ```
@@ -400,6 +420,14 @@ For the full pipeline detail, see Steps 1–6 above.
 | `/retro`               | Weekly or after milestone              | Commit history            | Retrospective with metrics                                                                                           |
 
 ## Devshop Skill Map
+
+**Context-aware guideline routing** (added 2026-05-11). `/ak-spec` Step 1.5 and `/ak-implement` Step 1 consult the routing index at [`kit/docs/guide/README.md`](./README.md) — a table keyed by trigger signals (file-globs, Decisions keywords, primitive imports) that points at the guide sections governing each pattern. When a spec touches a routed surface (RLS, PostgREST, optimistic mutation, PWA, custom-domain swap, etc.), the matched gotcha is encoded as an explicit Decision in the new spec with a `per kit/docs/guide/<file>.md § <section>` citation. The canonical contract lives in the SKILL.md files for `/ak-spec` and `/ak-implement`; this paragraph is a discovery hook for operators reading the workflow guide.
+
+**Two-layer read shape (refined 2026-05-11)**: routing matches are **additive on top of** `conventions.md`, not a replacement for it. Both skills read `conventions.md` as a baseline on every invocation — it carries the cross-cutting non-negotiables (Test Presence, Non-Negotiables, Bypass trailers, Project Docs Coverage, Backlog Routing, Confidence Calibration) that fire on every PR regardless of topic. The routing index then sharpens the read to topic-specific guidance for the patterns this particular change touches. The two layers are complementary, not alternatives. The earlier "fallback only on zero matches" framing silently dropped the baseline whenever routing matches DID fire — exact regression on the always-applicable rules; the post-refinement shape closes the gap.
+
+**Pre-adoption projects** (whose `kit/docs/guide/README.md` isn't yet a routing index) get the baseline only — equivalent to the pre-routing behavior, with zero regression. The routing system is the precision improvement; the conventions.md baseline is the universal floor.
+
+The skill files `.claude/skills/devshop/{new-project,tests-review,implement}/SKILL.md` cite `wrapper-boundaries.md` (the split from `conventions.md`) directly when prompting the implementer about LLM-boundary runtime validation or wrapper-API lifecycle events — the citations resolve under the post-split filesystem layout and reflect the canonical guide section names.
 
 | Skill                      | When to use                                                | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | -------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

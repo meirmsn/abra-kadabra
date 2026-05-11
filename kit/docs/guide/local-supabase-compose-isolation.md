@@ -4,6 +4,19 @@ How a project's dev container runs `supabase start` for local-dev integration te
 
 For the threat-model + decision matrix that picked this architecture over four alternatives, see [`/devshop/kit/notes/security/local-supabase-isolation-options.md`](../../notes/security/local-supabase-isolation-options.md). Adopted in lalista PR 34 (`devcontainer-compose-isolated`, 2026-04-28); pattern reference for `/ak-new-project` template work captured in `kit/TODOS.md § lalista-option3-template-variant`.
 
+## Contents
+
+- [TL;DR architecture](#tldr-architecture)
+- [Host-side touchpoints](#host-side-touchpoints)
+- [URL routing — workspace POV](#url-routing--workspace-pov)
+- [The socat workaround in supabase-runner](#the-socat-workaround-in-supabase-runner)
+- [Container lifecycle](#container-lifecycle)
+- [Smoke-test commands](#smoke-test-commands)
+- [Running integration tests locally](#running-integration-tests-locally)
+- [Debugging tree](#debugging-tree)
+- [CI / prod isolation](#ci--prod-isolation)
+- [Cross-references](#cross-references)
+
 ## TL;DR architecture
 
 ```
@@ -293,3 +306,5 @@ Changing local-dev compose / firewall / env-block does not touch CI or prod surf
 - Threat-model + alternatives matrix: [`/devshop/kit/notes/security/local-supabase-isolation-options.md`](../../notes/security/local-supabase-isolation-options.md)
 - Pattern reference (real diff, real failure modes, real fixes): lalista PR 34 (`devcontainer-compose-isolated`, 2026-04-28), commits `75a02f6` → `7231cb9` → `3d4ef2d` → `cf71aad` → `a76b5f8`.
 - Template + `/ak-new-project` integration: shipped in devshop v1.23.0 (template port) + v1.23.1 (semantic-name cleanup) on 2026-04-28. `/ak-new-project § Step 2b` lets the operator pick at scaffold time (host-supabase / compose-isolation [default] / skip). See `kit/TODOS.md § lalista-option3-template-variant` for the closing summary.
+
+**See also:** [`security.md § Local Supabase Isolation (devcontainer)`](./security.md#local-supabase-isolation-devcontainer) — the threat-model framing of what this architecture defends against; read both for architecture (how) + threat model (why) context.

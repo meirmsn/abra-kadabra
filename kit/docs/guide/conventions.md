@@ -2,6 +2,46 @@
 
 Single source of truth for conventions referenced by multiple skills. Skills point here, not copy.
 
+## Contents
+
+- [Metrics Lifecycle](#metrics-lifecycle)
+- [Events](#events)
+- [Feature Flags](#feature-flags)
+- [TASKS.md Format](#tasksmd-format)
+- [SPEC.md Quality Checklist](#specmd-quality-checklist)
+- [DESIGN.md as Contract](#designmd-as-contract-design-conformance-ak-gate)
+- [Screenshot Routing](#screenshot-routing)
+- [Deploy Boundaries](#deploy-boundaries)
+- [Slow-Job Lifecycle](#slow-job-lifecycle)
+  - [Uncommenting checklist](#uncommenting-checklist)
+  - [Helper scripts](#helper-scripts)
+  - [Structural enforcement](#structural-enforcement)
+  - [Skip-on-docs-only filter](#skip-on-docs-only-filter)
+  - [Codified prior art](#codified-prior-art)
+  - [Cross-reference: Local Pre-Push Test Gates](#cross-reference-local-pre-push-test-gates)
+- [Local Pre-Push Test Gates](#local-pre-push-test-gates)
+- [Supabase Hardening Defaults](#supabase-hardening-defaults) — _moved to [`migrations.md`](./migrations.md)_
+- [Runtime Validation at LLM / Edge-Function Boundaries](#runtime-validation-at-llm--edge-function-boundaries) — _moved to [`wrapper-boundaries.md`](./wrapper-boundaries.md)_
+- [Wrapper API design](#wrapper-api-design) — _moved to [`wrapper-boundaries.md`](./wrapper-boundaries.md)_
+- [Database queries](#database-queries) — _moved to [`database-queries.md`](./database-queries.md)_
+- [Confidence Calibration](#confidence-calibration)
+- [TODO Protocol](#todo-protocol)
+- [Backlog Routing Guide](#backlog-routing-guide)
+- [Non-Negotiables](#non-negotiables)
+  - [Testing](#testing)
+  - [Test Assertion Depth](#test-assertion-depth)
+  - [Testing Lifecycle](#testing-lifecycle)
+  - [Kit Testing (devshop infrastructure)](#kit-testing-devshop-infrastructure)
+  - [Metrics](#metrics-1)
+  - [Responsive + Theme](#responsive--theme)
+  - [PWA](#pwa)
+  - [Code Structure](#code-structure)
+- [Test Presence](#test-presence)
+- [Project Docs Coverage](#project-docs-coverage)
+- [Bypass trailers](#bypass-trailers)
+- [Exempt-File Additions](#exempt-file-additions)
+- [Project Docs Hierarchy](#project-docs-hierarchy)
+
 ## Metrics Lifecycle
 
 Metrics flow through the devshop at four points:
@@ -312,275 +352,19 @@ Fail-safe: if the classifier is missing OR git can't resolve the base ref, the p
 
 ## Supabase Hardening Defaults
 
-What `/ak-new-project` Step 17b applies to every new Supabase project, and why:
-
-| Setting                    | Default (free-tier)     | Hardened                           | Rationale                                                                                                                                                |
-| -------------------------- | ----------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `password_min_length`      | 6                       | 8                                  | 6 is below published password-policy floors (NIST 800-63B minimum is 8). Non-breaking for new projects; existing users are grandfathered.                |
-| `security_captcha_enabled` | `false`                 | `true` (if secret provided)        | CAPTCHA blocks automated signup abuse (credential stuffing, spam-account creation). Interactive because it needs an hCaptcha secret per project.         |
-| `site_url`                 | `http://localhost:3000` | production URL                     | Every email-based auth flow (password recovery, magic link, email change, signup confirm) redirects via `site_url`. Stale `localhost` = silent breakage. |
-| `uri_allow_list`           | empty                   | prod + Vercel wildcard + localhost | Supabase rejects auth redirects outside this list. Must include the Vercel preview-deploy wildcard so PR previews can exercise the full auth flow.       |
-
-Not touched (intentional):
-
-- `rate_limit_email_sent` stays at the free-tier default (2/hour). Raising requires custom SMTP (per-project decision, production-launch concern).
-- `disable_signup` stays `false`. Invite-code alternative is a separate roadmap item (`kit/ROADMAP.md § v1 § Invite-code signup control`).
-
-### ON DELETE on `auth.users` FK references
-
-Any schema table that references `auth.users(id)` MUST specify the `ON DELETE` action explicitly — `CASCADE`, `SET NULL` (column must be nullable), or `RESTRICT`. Never leave it implicit.
-
-Postgres defaults to `NO ACTION`, which silently blocks user deletion as soon as any dependent row exists. Supabase's Authentication UI surfaces this as the opaque "Database error deleting user" — the operator's only recourse is to go hunt down every FK and delete the dependent rows manually, or change the constraint (which requires DDL, which requires another migration).
-
-Recommended defaults by column meaning:
-
-- **`added_by` / audit columns** → `ON DELETE SET NULL` (preserve history, lose attribution).
-- **Tight ownership columns** (row doesn't make sense without the user) → `ON DELETE CASCADE`.
-- **Rare case: must keep row AND must have a user** → `ON DELETE RESTRICT` (forces an explicit decision at user-deletion time; worst UX but most explicit).
-
-Every schema reviewer and `/ak-pre-ship` migration gate should reject a migration where a `references auth.users(id)` lacks an explicit `ON DELETE` clause — it's a latent bug, not a design choice.
-
-### Realtime publication setup
-
-Any table that needs cross-session Realtime delivery (`subscribeTo<X>` helpers, `postgres_changes` events) MUST be added to the `supabase_realtime` publication explicitly via a migration:
-
-```sql
-alter publication supabase_realtime add table <table_name>;
--- ROLLBACK:
--- alter publication supabase_realtime drop table <table_name>;
-```
-
-Older Supabase CLI versions auto-included `FOR ALL TABLES`; newer versions don't always. Without the explicit migration, subscribers stay connected but never receive INSERT/UPDATE/DELETE events from other sessions — the cross-session feature looks like it's working until you actually test it from a second browser/session and notice nothing arrives. Lalista PR 26 surfaced this gap; codified pattern in `kit/docs/guide/supabase-ssr-boilerplate.md § Pattern 4`.
-
-### SSR + E2E boilerplate canonical patterns
-
-For projects scaffolded by `/ak-new-project` with Supabase + Next.js + Playwright, **5 canonical patterns** live in `kit/docs/guide/supabase-ssr-boilerplate.md`. Apply verbatim at scaffold time (Step 12) — each was codified from a real production incident; paraphrasing the patterns silently breaks them. Patterns covered:
-
-1. `.trim()` defense at every `process.env.NEXT_PUBLIC_*` read site (Vercel/GitHub/`.env` whitespace fat-finger defense)
-2. CSP `connect-src` builder with `^http(s?)://` → `ws$1://` (handles prod + local-stack symmetrically)
-3. E2E `helpers/admin-client.ts` with the 5 canonical exports (`adminClient`, `anonClient`, `userIdFromSignIn`, `isLocalSupabase`, `localSupabaseSkipReason`)
-4. Realtime publication setup migration (the rule directly above)
-5. WebKit form-state hydration race workaround for Playwright `mobile` E2E tests
+_See [`migrations.md`](./migrations.md) for the canonical text._
 
 ## Runtime Validation at LLM / Edge-Function Boundaries
 
-TypeScript's `client.functions.invoke<T>(...)` generic and `(await fetch()).json() as T` are compile-time assertions, not runtime checks — whatever the server returns flows through untyped. For most endpoints, generated types + CI drift check are enough; the values are mechanically derived from the same schema. **LLM-backed endpoints are the genuine exception**: a prompt tweak, model swap, or function refactor changes the output shape with zero compile-time signal, and the bug surfaces as `response.foo.bar is undefined` at the use site instead of a clear "the boundary returned an unexpected shape" error at the seam.
-
-The convention: parse with [Zod](https://zod.dev/) at every LLM / edge-function boundary that returns structured data.
-
-### Where to add it (and where not to)
-
-| Boundary                                                                | Add Zod?                                    | Why                                                                                                |
-| ----------------------------------------------------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| LLM-backed edge function response (e.g. `add-item` returning `entries`) | **Yes**                                     | Output shape is implicit in the prompt; one prompt edit can change it silently.                    |
-| Other Supabase Edge Function with hand-written response shape           | **Yes**                                     | Same boundary, same drift risk; the function's JSON-shape contract isn't enforced by the database. |
-| Generic external HTTP API call (`fetch().json()`)                       | **Yes** if the API isn't under your control | Third-party shape drift is the original use case for runtime validation.                           |
-| PostgREST query result (Supabase `.from(...).select(...)`)              | No                                          | `supabase gen types` + the CI type-drift check already enforce shape against the schema.           |
-| Form input                                                              | No                                          | HTML5 attributes + platform validation cover this layer; Zod here adds bundle weight without ROI.  |
-| App-internal function arguments / class methods                         | No                                          | TypeScript already proves these. Zod in this layer is paranoia, not validation.                    |
-
-### Schema module pattern
-
-- Schemas live in `packages/core/src/schemas/<feature>.ts` next to the API wrappers that call them.
-- Use `z.infer<typeof Schema>` for the TypeScript type so one source produces both the runtime schema and the compile-time type — `models/index.ts` (or whatever the type-only module is called) re-exports the inferred type so call sites import the type from where they always have.
-- Default to `.passthrough()` on object schemas: extra fields don't throw, so a future server-side addition (new field `confidence`, new field `entries[].brand`) doesn't crash old clients. Only require explicit shape; never require closed-set unknown fields.
-- Use `.safeParse()` — never `.parse()`. The thrown-exception form skips the observability hook below; structured-result + branch lets the wrapper report cleanly to Sentry before throwing a typed error.
-
-```ts
-// packages/core/src/schemas/add-item.ts
-import { z } from 'zod';
-
-export const AddItemEntrySchema = z
-  .object({
-    name_canonical: z.string(),
-    quantity: z.number().nullable().optional(),
-    unit: z.string().nullable().optional(),
-  })
-  .passthrough();
-
-export const AddItemResponseSchema = z
-  .object({
-    entries: z.array(AddItemEntrySchema),
-    needs_followup: z.boolean().optional(),
-    followup_options: z.array(z.string()).optional(),
-  })
-  .passthrough();
-
-export type AddItemResponse = z.infer<typeof AddItemResponseSchema>;
-```
-
-### Wrapper boundary parse + typed error
-
-The API wrapper (in `packages/core/src/api/<feature>.ts`) is the parse site — never inside a React component or a server action. Wrappers are the seam.
-
-```ts
-// packages/core/src/api/add-item.ts
-import {
-  AddItemResponseSchema,
-  type AddItemResponse,
-} from '../schemas/add-item';
-
-export class AddItemValidationError extends Error {
-  constructor(
-    public readonly raw: unknown,
-    public readonly issues: string
-  ) {
-    super(`add-item response failed validation: ${issues}`);
-    this.name = 'AddItemValidationError';
-  }
-}
-
-export async function invokeAddItem(
-  client: SupabaseClient,
-  payload: AddItemPayload
-): Promise<AddItemResponse> {
-  const { data, error } = await client.functions.invoke<unknown>('add-item', {
-    body: payload,
-  });
-  if (error) throw error;
-
-  const result = AddItemResponseSchema.safeParse(data);
-  if (!result.success) {
-    // Sentry capture BEFORE throw — gives observability a chance even if the
-    // throw path is caught and silenced upstream. Scrub the raw payload of
-    // anything user-identifying before sending; treat it as untrusted.
-    Sentry?.captureException(new Error('add-item validation failed'), {
-      extra: { issues: result.error.issues, raw_excerpt: scrubExcerpt(data) },
-    });
-    throw new AddItemValidationError(data, result.error.toString());
-  }
-  return result.data;
-}
-```
-
-### How errors should surface
-
-- **Sentry first**, with the issue list and a scrubbed payload excerpt. Untransformed payload is untrusted — it might contain user-typed text or LLM-paraphrased PII. Scrub before sending.
-- **Throw a feature-named error class** (`{Feature}ValidationError`) so the existing app-level error boundary can render the right user-facing message ("we couldn't read the response — try again"), separate from a network error or an auth error.
-- **Don't fall back to `as`-cast** when validation fails. The whole point of the gate is to refuse silently-broken data; coercing it back into the type system defeats the design.
-
-### Template scaffold
-
-`/ak-new-project` adds Zod to `packages/core/package.json` at scaffold time and creates `packages/core/src/schemas/` with a `README.md` pointing at this section. New projects inherit the convention; existing projects adopt it the first time they ship an LLM-backed endpoint (lalista PR 6, `feature/zod-validation`, is the canonical first-adopter — see `lalista/PRODUCT-ROADMAP.md § v0 § 1j`).
+_See [`wrapper-boundaries.md § Runtime Validation`](./wrapper-boundaries.md#runtime-validation-at-llm--edge-function-boundaries) for the canonical text._
 
 ## Wrapper API design
 
-When wrapping an event-emitter-style library — Supabase Realtime channel, EventEmitter, MQTT client, SSE source, raw WebSocket — the wrapper's signature must include a way for consumers to receive **error / lifecycle events**, not only the data event. If the wrapped library exposes a status callback (e.g. supabase-js's `.subscribe(statusCallback)`), pass it through. Consumers may choose to ignore it; the wrapper must not foreclose the option.
-
-The failure mode this rule prevents is silent UX degradation: the data callback gets wired to a banner / sync indicator / error toast, but the path that should fire on async failure (`'CHANNEL_ERROR'`, `'TIMED_OUT'`, `onerror`, etc.) never receives the signal. Synchronous-throw paths (the WebSocket constructor failing immediately) are usually handled by a `try/catch` around the wrapper invocation; the async-failure path is the common one in production and the easy one to miss.
-
-### Worked example: `subscribeToList` (lalista PR 27)
-
-Before — only the data callback exposed; status events swallowed:
-
-```ts
-export function subscribeToList(
-  client: SupabaseClient,
-  householdId: string,
-  callback: (entry: HydratedListEntry) => void
-) {
-  return client
-    .channel(`list:${householdId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'list_entries',
-        filter: `household_id=eq.${householdId}`,
-      },
-      callback
-    )
-    .subscribe(); // ← no status callback; CHANNEL_ERROR / TIMED_OUT never reach the consumer
-}
-```
-
-After — `onError?` exposed; status callback wired:
-
-```ts
-export function subscribeToList(
-  client: SupabaseClient,
-  householdId: string,
-  callback: (entry: HydratedListEntry) => void,
-  onError?: (status: 'CHANNEL_ERROR' | 'TIMED_OUT') => void
-) {
-  return client
-    .channel(`list:${householdId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'list_entries',
-        filter: `household_id=eq.${householdId}`,
-      },
-      callback
-    )
-    .subscribe((status) => {
-      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT')
-        onError?.(status);
-    });
-}
-```
-
-The consumer (`ListClient.tsx`) wires `onError` to a sync-error banner. Without the wrapper change, the banner had no trigger path on real WS failures — the only way to fire it was a synchronous WebSocket-constructor throw (a near-zero-frequency path). Real production failures silently no-op'd the banner that was supposed to fire.
-
-### Test-time enforcement
-
-`/ak-tests-review` runs a deterministic check on PR diffs adding new wrappers in `packages/core/src/api/**`: any new exported function whose body calls `.subscribe(`, `.on(`, or `addEventListener(` and whose signature does NOT accept an `onError`-shaped parameter is flagged as a **critical** finding. The check is heuristic — false positives are negotiated at review time (e.g., a fire-and-forget wrapper that intentionally swallows lifecycle events) — but the default is "expose the lifecycle event."
-
-### Cross-references
-
-- `kit/docs/guide/supabase-ssr-boilerplate.md § Pattern 6` — the E2E recipe that exercises this rule (close the WS, assert the banner)
-- `.claude/skills/devshop/tests-review/SKILL.md § Wrapper API design — lifecycle events not just data` — the deterministic check
-- Lalista PR 27 (2026-04-26 → 2026-04-27) — surfaced the gap; closed both halves (wrapper signature + E2E recipe)
+_See [`wrapper-boundaries.md § Wrapper API design`](./wrapper-boundaries.md#wrapper-api-design) for the canonical text._
 
 ## Database queries
 
-When a Supabase / PostgREST query selects a column that doesn't exist (typo, stale type cache, deliberately-unmapped FK), the response is `{ data: null, error: { message: 'column "<x>" does not exist', ... } }` — both fields populated. Most call sites destructure `data` and ignore `error`, so the next line crashes with a generic `TypeError: Cannot read properties of null (reading '<field>')` and the actual root cause (the column-name typo) is swallowed. The bug looks like a null-data bug; debugging starts down the wrong path.
-
-The convention: at every `.from(...).select(...)` call site, **check `error` first** and surface it before consuming `data`. Either inline the check or wrap the call in a helper that throws on `error` regardless of `data` shape.
-
-### The pattern
-
-```ts
-// ❌ Swallows the column-typo error:
-const { data } = await supabase
-  .from('items')
-  .select('id, name') // `items.name` doesn't exist — `name_canonical` does
-  .single();
-return data.id; // → TypeError: Cannot read properties of null (reading 'id')
-
-// ✅ Surfaces the typo immediately:
-const { data, error } = await supabase
-  .from('items')
-  .select('id, name_canonical')
-  .single();
-if (error) throw new Error(`items.select failed: ${error.message}`);
-return data.id;
-```
-
-Two non-obvious shapes that hit the same trap:
-
-1. **Typo'd column** — `from('table').select('id, nonexistent')` — the typo is in the SELECT list itself.
-2. **Deliberately-unmapped FK** — `from('purchase_history').select('list_entry_id, ...')` when `purchase_history.list_entry_id` was intentionally not added at migration time. The `select` looks plausible against a casual reading of the schema; the error message is the only signal that the FK isn't there.
-
-Both surface as `data: null`; both crash one frame later with a generic null-deref.
-
-### Where to apply it
-
-- **Every `.select()` call site** in API wrappers (`packages/core/src/api/**`) and any direct call elsewhere.
-- **Both `.single()` and array selects** — `.single()` populates `error` on column-not-found AND on PGRST116 (zero-rows-when-one-expected); the array form populates `error` on column-not-found and returns `data: []` on zero rows. Both shapes need the `error`-first check.
-- **Don't lean on `<T>` generics for safety** — `client.from<Row>('...')` is a compile-time cast against the generated types. If the generated types are stale (post-migration before `pnpm db:gen-types`), the cast lies; only the runtime `error` check catches it.
-
-### Why we don't ship a typed wrapper (yet)
-
-A `select()` helper that throws on `error` regardless of `data` would enforce this at the type-system level. We've deferred that until a third project hits the same bug — the call-site convention is cheap to land and lets each project apply it in the shape that fits their wrapper layer. If the convention drifts, the typed-wrapper option is `kit/TODOS.md` v1 candidate fodder.
-
-### Cross-references
-
-- `template/CLAUDE.md § Gotchas` — preemptive entry inherited by every new project explaining the failure mode + the `error`-first pattern (so the trap is documented before the project's first PostgREST query is written, not after the first incident).
-- Lalista PR #49 (2026-05-07) — hit this twice in one PR (`items.name` typo + `purchase_history.list_entry_id` deliberately-unmapped FK), each surfacing as a generic null-deref in Playwright; root cause was found by re-reading the query against the schema, not by reading the swallowed error message.
+_See [`database-queries.md`](./database-queries.md) for the canonical text._
 
 ## Confidence Calibration
 

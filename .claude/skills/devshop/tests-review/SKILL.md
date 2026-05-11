@@ -124,7 +124,7 @@ For each match, locate the enclosing exported function (the wrapper). If the wra
 ### packages/core/src/api/<wrapper>.ts:<line> — critical
 **What**: wrapper calls `.subscribe(...)` / `.on(...)` but exposes only the data callback to consumers.
 **Why**: async lifecycle events (e.g. supabase-js's `'CHANNEL_ERROR'`, `'TIMED_OUT'`) cannot reach consumer code. UX surfaces depending on these events (sync banners, error toasts) silently no-op in production.
-**Fix**: extend the signature with an optional `onError?` (or `onStatus?`) parameter and wire it to the underlying status callback. See `kit/docs/guide/conventions.md § Wrapper API design` for the worked example.
+**Fix**: extend the signature with an optional `onError?` (or `onStatus?`) parameter and wire it to the underlying status callback. See `kit/docs/guide/wrapper-boundaries.md § Wrapper API design` for the worked example.
 ```
 
 Two false-positive escape hatches accepted at review time:
@@ -158,7 +158,7 @@ If any are missing, flag as **critical**:
 ### packages/core/src/api/<wrapper>.ts:<line> — critical
 **What**: wrapper invokes an LLM-backed edge function (or hand-written-shape fetch) but doesn't parse the response with Zod.
 **Why**: TypeScript generics + `as`-cast are compile-time only. A prompt tweak / model swap / function refactor changes the shape silently; bugs surface deep in the call site, not at the seam.
-**Fix**: add a schema to `packages/core/src/schemas/<feature>.ts` (use `.passthrough()` so server-side additions don't break old clients), parse with `.safeParse()`, throw `{Feature}ValidationError`, capture to Sentry with a scrubbed payload excerpt before throwing. See `kit/docs/guide/conventions.md § Runtime Validation at LLM / Edge-Function Boundaries` for the full pattern + worked example.
+**Fix**: add a schema to `packages/core/src/schemas/<feature>.ts` (use `.passthrough()` so server-side additions don't break old clients), parse with `.safeParse()`, throw `{Feature}ValidationError`, capture to Sentry with a scrubbed payload excerpt before throwing. See `kit/docs/guide/wrapper-boundaries.md § Runtime Validation at LLM / Edge-Function Boundaries` for the full pattern + worked example.
 ```
 
 Acceptable bypasses (don't flag):
