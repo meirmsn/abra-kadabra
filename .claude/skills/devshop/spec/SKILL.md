@@ -103,11 +103,16 @@ The `per kit/docs/guide/<file>.md § <section>` citation is load-bearing — it'
 the audit trail that lets a reviewer (or `/ak-pre-ship`) verify the spec
 followed the routing-system contract.
 
-**Fallback path**: if `kit/docs/guide/README.md` is missing OR yields zero
-matches (e.g., a project hasn't yet adopted the routing convention), fall
-back to reading `kit/docs/guide/conventions.md` as before — preserves
-behavior on pre-adoption projects. The fallback is the runtime safety net;
-the routing system is the precision improvement.
+**Baseline pairing**: the routing index is **additive on top of**
+`kit/docs/guide/conventions.md`, not a replacement for it. Conventions.md
+carries the cross-cutting non-negotiables (Test Presence, Non-Negotiables,
+Bypass trailers, Project Docs Coverage, Backlog Routing, Confidence
+Calibration) that fire on every PR regardless of topic — the spec author
+should read it to know which baseline gotchas always apply, then layer the
+routing-matched gotchas on top. The two layers are complementary, not
+alternatives. **Pre-adoption projects** (whose `kit/docs/guide/README.md`
+isn't yet a routing index) get the baseline only — equivalent to the
+pre-routing behavior, with zero regression.
 
 ## Step 2: Discover and read the gstack plan sources
 

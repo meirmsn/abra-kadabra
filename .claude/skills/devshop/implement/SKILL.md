@@ -22,16 +22,28 @@ allowed-tools:
 
 Run the implementation loop for the active spec.
 
-**Before starting**: parse the spec's `## Files` + `## Decisions` sections,
-look up matching routing rows in `kit/docs/guide/README.md`, read the
-matched `(file, anchor)` targets, and follow `**See also:**` footers where
-scope-relevant. The routing index is the single source for which guide
-sections govern which patterns — see the SKILL.md for `/ak-spec` Step 1.5 for
-the parsing shape (file-globs + keyword tokens). **Fallback**: if
-routing-lookup yields zero matches (e.g., a project hasn't yet adopted the
-routing convention or its README.md is missing the index), fall back to
-reading `kit/docs/guide/conventions.md` as before — preserves behavior on
-pre-adoption projects.
+**Before starting** — read two layers, both:
+
+1. **Baseline (always-read)** — `kit/docs/guide/conventions.md` for the
+   cross-cutting non-negotiables that fire on every PR regardless of topic:
+   Test Presence, Non-Negotiables (Testing / Test Assertion Depth /
+   Responsive + Theme / PWA / Code Structure), Bypass trailers, Project
+   Docs Coverage, Backlog Routing, Confidence Calibration. Conventions.md
+   is the substrate; topical guidance layers on top.
+
+2. **Topical (additive)** — parse the spec's `## Files` + `## Decisions`
+   sections, look up matching routing rows in `kit/docs/guide/README.md`,
+   read the matched `(file, anchor)` targets, and follow `**See also:**`
+   footers where scope-relevant. The routing index points at the guide
+   sections that govern the specific patterns this change touches — see
+   the SKILL.md for `/ak-spec` Step 1.5 for the parsing shape (file-globs
+   - keyword tokens).
+
+The two layers are complementary, not alternatives: conventions.md's
+non-negotiables apply universally; the routing matches sharpen the read to
+exactly the topics this PR touches. **Pre-adoption projects** (whose
+`kit/docs/guide/README.md` isn't yet a routing index) get the baseline
+only — equivalent to the pre-routing behavior, with zero regression.
 
 ## Step 1: Gather context
 

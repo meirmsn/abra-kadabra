@@ -106,7 +106,7 @@ Container Workspace (/workspace)
 │   │   │   └── notify/          claude-{cancel,done,request}
 │   │   ├── hooks/pre-commit.sh  Orchestrates the 5-step + 4-guard chain
 │   │   ├── tests/               BATS test suite (guards, routing, goals, structural invariants)
-│   │   └── docs/                OVERVIEW (with § Concept), guide/ (6 files), FAQ
+│   │   └── docs/                OVERVIEW (with § Concept), guide/ (~16 files, README is the context-aware routing index), FAQ
 │   ├── .claude/
 │   │   ├── skills/ ──symlink──→ /devshop/.claude/skills/
 │   │   │   ├── devshop/         ak-build, ak-spec, ak-implement, ak-pre-ship...
@@ -260,7 +260,10 @@ These topics span multiple skills, so the guide (`./guide/`) owns them:
 - **Notifications** (`guide/notifications.md`) — push alerts to iPhone/Watch/Mac via ntfy.sh, 30s debounce, privacy, rotation
 - **Rollback procedures** (`guide/ops.md § When Things Go Wrong`) — Vercel rollback, migration rollback SQL, canary failure response
 - **Supabase SSR + E2E patterns** (`guide/supabase-ssr-boilerplate.md`) — 5 canonical patterns for Supabase + Next.js + Playwright projects (env-var trim, CSP scheme handling, E2E helpers, Realtime publication, WebKit hydration race), each codified from a real production incident with verbatim copy-paste-ready snippets
-- **Runtime validation at LLM / edge-function boundaries** (`guide/conventions.md § Runtime Validation at LLM / Edge-Function Boundaries`) — when to add Zod (LLM-backed boundaries, third-party APIs not under your control) vs. when not (PostgREST, forms, internal calls); the `packages/core/src/schemas/<feature>.ts` schema-module pattern with `.safeParse()` + Sentry-scrubbed payload + typed `{Feature}ValidationError`
+- **Runtime validation at LLM / edge-function boundaries** (`guide/wrapper-boundaries.md`) — when to add Zod (LLM-backed boundaries, third-party APIs not under your control) vs. when not (PostgREST, forms, internal calls); the `packages/core/src/schemas/<feature>.ts` schema-module pattern with `.safeParse()` + Sentry-scrubbed payload + typed `{Feature}ValidationError`. Paired with `guide/wrapper-boundaries.md § Wrapper API design` for the lifecycle-event return shape that surfaces wrapper subscription failures distinctly from synchronous errors.
+- **Database query patterns** (`guide/database-queries.md`) — PostgREST `.select()` error-first checks at every call site (PostgREST returns `data: null` + populated `error` on non-existent column; downstream null-deref masks the typo). Why we don't ship a typed wrapper (yet).
+- **Migration sequencing + Supabase hardening** (`guide/migrations.md`) — `/ak-new-project` Step 17b hardened defaults (password_min_length, captcha, site_url, uri_allow_list), mandatory `ON DELETE` on every `auth.users` FK, Realtime publication setup migration shape.
+- **Context-aware guideline routing** (`guide/README.md`) — the index Claude consults (via `/ak-implement` Step 1 + `/ak-spec` Step 1.5) to pick which guide sections fire for this PR's change shape. Routing rows are grouped by domain (Data / Auth + security / Frontend + UI / Ops + deploy / Dev + meta). conventions.md remains the cross-cutting baseline; routing is the topical sharpener.
 
 CI slow job expansion plans are in ROADMAP.md § v+.
 
@@ -275,7 +278,7 @@ CI slow job expansion plans are in ROADMAP.md § v+.
 
 ## Further Reading
 
-- `./guide/README.md` — full operational reference (table of contents; per-doc summaries for workflow, conventions, hooks, security, architecture, ops)
+- `./guide/README.md` — **context-aware routing index** (file-glob + keyword triggers → guide-section targets, grouped by domain); also lists out-of-routing guides + an alphabetical orientation ToC of every file under `guide/`
 - `./FAQ.md` — design rationale and architecture decisions
 - `../TODOS.md` — devshop tactical backlog (friction, bugs, small fixes)
 - `../ROADMAP.md` — devshop strategic backlog (capabilities, major improvements)
