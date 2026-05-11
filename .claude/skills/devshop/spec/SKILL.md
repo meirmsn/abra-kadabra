@@ -73,7 +73,7 @@ GLOB_TOKENS=$(grep -oE '`(apps|packages|supabase|\.github|\.devcontainer|\.claud
 
 # 2. Keyword tokens — distinctive nouns/phrases the routing-row Notes name
 #    (RLS, PostgREST, realtime, PWA, Zod, optimistic mutation, latency, etc.).
-KEYWORD_TOKENS=$(grep -oE '\b(RLS|PostgREST|realtime|PWA|Zod|optimistic mutation|input zoom|CSP|edge function|migration|auth\.users|Realtime|standalone|iOS|WebKit)\b' \
+KEYWORD_TOKENS=$(grep -oE '\b(RLS|PostgREST|realtime|PWA|Zod|optimistic mutation|input zoom|CSP|edge function|migration|auth\.users|Realtime|standalone|iOS|WebKit|latency|skeleton|loading\.tsx|useEffect|Tier A|Tier B|Tier C)\b' \
   "$DESIGN_DOC" "$TEST_PLAN" 2>/dev/null | sort -u)
 
 # 3. For each (glob, keyword) token, find routing rows whose Trigger column

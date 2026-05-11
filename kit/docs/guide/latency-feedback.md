@@ -18,9 +18,89 @@ and the rollback fired silently" data loss is impossible.
 
 ## Contents
 
+- [Tier C is the navigation boundary, not the data-fetch boundary — in-page client `useEffect` fetches need their own affordance](#tier-c-is-the-navigation-boundary-not-the-data-fetch-boundary--in-page-client-useeffect-fetches-need-their-own-affordance)
 - [Tier C: a route's `loading.tsx` and its client component's own load skeleton must paint identically](#tier-c-a-routes-loadingtsx-and-its-client-components-own-load-skeleton-must-paint-identically)
 - [Sizing primitives that accept a `className` override must not bake conflicting CSS properties](#sizing-primitives-that-accept-a-classname-override-must-not-bake-conflicting-css-properties)
 - [Application](#application)
+
+---
+
+## Tier C is the navigation boundary, not the data-fetch boundary — in-page client `useEffect` fetches need their own affordance
+
+### The trap
+
+`loading.tsx` covers the **navigation boundary**: it renders while the server
+component (auth, top-level data fetches) runs, then unmounts the moment the
+server returns and the page shell hydrates. It does **not** cover a follow-up
+client-side `useEffect` data fetch inside that shell.
+
+If a client component on a Tier-C-mapped route fetches its own data in `useEffect`
+(e.g., a settings sub-section that pulls its rows after the page renders, because
+the data isn't cheap to fetch SSR or has its own freshness contract), the user
+sees three frames:
+
+1. **Frame 1** (RSC stream): `loading.tsx` paints.
+2. **Frame 2** (client hydrate): page shell + the client component's content
+   slot, **empty** — its fetch round-trip is in flight, but `loading.tsx` is
+   already gone. The page looks "done loading" but sits silent for the round-trip
+   duration (~50–500ms typical, longer on real mobile networks).
+3. **Frame 3**: real content arrives, content slot populates.
+
+Frame 2 is the gap. The user perceives "the app loaded but this part is broken"
+rather than "still loading" — there's no affordance distinguishing the two.
+
+This is a **different failure mode** from the "two skeletons must paint
+identically" rule below. There, two skeletons exist but mismatch (a snap).
+Here, the second skeleton is missing entirely (a stall).
+
+First incidence in lalista: PR #61 (settings/Members section). The household-
+collaborators PR mapped `/settings` to Tier C, assuming `loading.tsx` would
+cover the full load. `MembersSection` then fetched members + pending invites
+in `useEffect` per the spec's "page-load freshness, no realtime" contract.
+On local Supabase the fetch was <50ms — invisible. On real iOS the round-trip
+was perceptible and the section sat empty after `loading.tsx` cleared.
+
+### The fix (pick one)
+
+1. **Add a section-scoped skeleton in the client component's loading state.**
+   Cheapest fix: a couple of `animate-pulse` bars or a `LoadingArea` sized to
+   match the real content slot, rendered until the fetch resolves. Combine with
+   the "must paint identically" rule below — if both `loading.tsx` and this new
+   skeleton render the same primitive at the same height, the user sees one
+   continuous loading affordance across frames 1 and 2, then real content at
+   frame 3. No gap, no snap.
+2. **Hoist the data fetch into the server component (RSC) and pass as a prop.**
+   The client mounts with `loadState === 'ready'` — no second loading state,
+   no Frame 2 gap. Costs one extra round-trip on the SSR path; right answer
+   when the data is cheap to fetch server-side and doesn't need a separate
+   freshness contract.
+3. **Wrap the client component in a `<Suspense>` boundary in the page** so
+   `loading.tsx`'s fallback covers it too. Only works when the component is
+   itself a Server Component (the `useEffect` fetch you're hiding has to be
+   movable to the server). Architecturally cleanest when feasible.
+
+### Don't
+
+- Rely on `loading.tsx` alone for a route whose primary content comes from a
+  client `useEffect` fetch. `loading.tsx` is the **page-navigation** affordance,
+  not the **first-paint-to-data-ready** affordance.
+- Assume "the fetch is fast, no skeleton needed." Local-dev round-trips are
+  not real-mobile round-trips; the assumption only survives until the first
+  iOS soak. Add the affordance regardless; remove only when measured to be
+  imperceptible (<16ms) on production traffic.
+
+### Detection at QA / design-review / pre-ship time
+
+Cold-navigate to a route under Tier C on a throttled connection (Slow 3G works;
+real iPhone over LTE is the gold standard). Watch the content area after
+`loading.tsx` clears. If it goes blank/empty for any perceptible duration
+before populating, the route has a missing in-page affordance — apply fix (1),
+(2), or (3) above.
+
+For static checking: in any client component file that does
+`useEffect(() => { fetch... })` for content data, grep for an early-return
+skeleton branch (`if (!loaded) return <...>` or equivalent). Absent → flag
+for review.
 
 ---
 
