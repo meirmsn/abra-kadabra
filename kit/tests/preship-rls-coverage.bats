@@ -3,7 +3,7 @@
 # Pre-ship gate that verifies every client write to an RLS-enabled table has a
 # matching CREATE POLICY. Catches the silent class of failures where the write
 # succeeds as zero rows because no policy permits it. See lalista PR 5 for the
-# motivating incident; conventions.md § Supabase Hardening Defaults for the rule.
+# motivating incident; migrations.md § Supabase Hardening Defaults for the rule.
 
 setup() {
   load helpers/setup
