@@ -14,6 +14,7 @@ Layered defenses that prevent Claude from weakening its own guardrails: root-own
 - [Guard Script Editing](#guard-script-editing)
 - [`.claude/` Allow vs settings.json Deny](#claude-allow-vs-settingsjson-deny)
 - [Memory Write Protection](#memory-write-protection)
+- [Runtime Validation at Trust Boundaries](#runtime-validation-at-trust-boundaries)
 - [Known Gaps](#known-gaps)
 
 ## Core Principle
@@ -109,6 +110,10 @@ Memory files (`.claude/memory/`, `.claude/projects/*/memory/`) are protected at 
 2. **Bash deny rules** — blocks Bash commands that redirect output to memory paths (`cat >`, `>>`, `tee`). Prevents bypassing the classification hook via shell redirects.
 
 `MEMORY.md` (the index file) is exempt from the Write/Edit hook — it's updated alongside memory files to maintain the index.
+
+## Runtime Validation at Trust Boundaries
+
+LLM-backed edge functions and third-party HTTP APIs are trust boundaries: their response shapes are not provable at compile time and can drift silently. Every Supabase / third-party edge-fn response with a hand-written shape must be parsed with Zod at the wrapper boundary (in `packages/core/src/api/<feature>.ts`) — never inside a React component or server action. Schemas live in `packages/core/src/schemas/<feature>.ts` (the template ships this directory with a placeholder README). The full pattern + worked examples are at [`wrapper-boundaries.md § Runtime Validation`](./wrapper-boundaries.md#runtime-validation-at-llm--edge-function-boundaries). This section names runtime validation as a security control to keep the cross-skill view ("auth + boundary + validation") cohesive — substance lives in `wrapper-boundaries.md`.
 
 ## Known Gaps
 

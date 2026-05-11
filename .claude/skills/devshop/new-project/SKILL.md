@@ -811,7 +811,7 @@ mkdir -p packages/core/src/schemas
 cat > packages/core/src/schemas/README.md <<'MD'
 # Schemas
 
-Runtime validation schemas for trust boundaries — LLM-backed edge functions and third-party HTTP APIs with hand-written response shapes. See `kit/docs/guide/conventions.md § Runtime Validation at LLM / Edge-Function Boundaries` for: where to add Zod (and where not — PostgREST results, form input, app-internal args are excluded); the schema-module pattern (`z.infer<typeof Schema>` for the type); the wrapper-boundary parse with `.safeParse()` (never `.parse()`); the feature-named `{Feature}ValidationError` shape; the scrub-payload-then-Sentry-then-throw discipline.
+Runtime validation schemas for trust boundaries — LLM-backed edge functions and third-party HTTP APIs with hand-written response shapes. See `kit/docs/guide/wrapper-boundaries.md § Runtime Validation at LLM / Edge-Function Boundaries` for: where to add Zod (and where not — PostgREST results, form input, app-internal args are excluded); the schema-module pattern (`z.infer<typeof Schema>` for the type); the wrapper-boundary parse with `.safeParse()` (never `.parse()`); the feature-named `{Feature}ValidationError` shape; the scrub-payload-then-Sentry-then-throw discipline.
 MD
 ```
 

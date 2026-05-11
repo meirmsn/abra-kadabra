@@ -10,4 +10,4 @@ Defaults:
 - `.safeParse()`, never `.parse()` (gives observability a chance before the throw).
 - `.optional()` / `.nullable()` only when the boundary genuinely permits absence — don't paper over server bugs by making everything optional.
 
-When NOT to add a schema here: PostgREST queries (generated types + CI drift check cover them), form inputs (HTML5 + platform validation cover them), app-internal function arguments (TypeScript already proves these). Full rationale + worked examples: `/devshop/kit/docs/guide/conventions.md § Runtime Validation at LLM / Edge-Function Boundaries`.
+When NOT to add a schema here: PostgREST queries (generated types + CI drift check cover them), form inputs (HTML5 + platform validation cover them), app-internal function arguments (TypeScript already proves these). Full rationale + worked examples: `/devshop/kit/docs/guide/wrapper-boundaries.md § Runtime Validation at LLM / Edge-Function Boundaries`.

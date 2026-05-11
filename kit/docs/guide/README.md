@@ -88,7 +88,7 @@ These guides are NOT routed by `/ak-spec` Step 1.5 or `/ak-implement` Step 1 —
 
 - [`architecture.md`](./architecture.md) — devshop-vs-project separation, init-devshop.sh, file lifecycle. Read on first project setup or when first navigating the codebase.
 - [`macos-host-setup.md`](./macos-host-setup.md) — one-time per-Mac config (Docker Desktop hardening, `/etc/hosts`).
-- [`workflow.md`](./workflow.md) — pipeline / skill maps. Operator-facing; read when picking the next skill. Out-of-routing for feature implementation work, but Task 12 of `feature/context-aware-guideline-routing` adds a one-paragraph reference back at the routing system from this guide so operators can discover the routing surface from the workflow side.
+- [`workflow.md`](./workflow.md) — pipeline / skill maps. Operator-facing; read when picking the next skill. Out-of-routing for feature implementation work, but § Devshop Skill Map carries a paired one-paragraph reference back at the routing system so operators can discover the routing surface from the workflow side.
 
 BATS Test 2 (`kit/tests/routing-completeness.bats`) asserts every guide in `kit/docs/guide/*.md` is listed either in a routing group above OR in this out-of-routing list — never both, never neither.
 
