@@ -241,9 +241,16 @@ The rewrite logic lives in a tiny sourceable helper at `/devshop/kit/scripts/lib
 # shellcheck source=/devshop/kit/scripts/lib/rewrite-pr-body-urls.sh
 source /devshop/kit/scripts/lib/rewrite-pr-body-urls.sh
 
-PR=${PR:-$(gh pr list --state merged --head "$(git branch --show-current)" --json number --jq '.[0].number')}
+if [ -z "${PR:-}" ]; then
+  # Step 1's pre-flight populates $PR; only enter this fallback when this
+  # step is invoked directly (e.g., resume mid-pipeline). Re-derive it from
+  # the latest merged PR pointing at this commit, NOT from the local
+  # working-tree branch — matches D2's "PR-derived is the canonical source
+  # of truth" rule applied below to HEAD_REF.
+  PR=$(gh pr list --state merged --search "$(git rev-parse HEAD)" --json number --jq '.[0].number // empty')
+fi
 if [ -z "$PR" ]; then
-  echo "Step 2.5: no merged PR found for branch $(git branch --show-current) — skipping body rewrite"
+  echo "Step 2.5: no merged PR found for current commit — skipping body rewrite"
 else
   # PR-derived branch name is the canonical source of truth (D2) — robust
   # against working-tree state if any prior step accidentally checked out main.

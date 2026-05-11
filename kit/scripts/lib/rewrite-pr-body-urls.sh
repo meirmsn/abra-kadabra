@@ -67,9 +67,11 @@ rewrite_pr_body_urls() {
   local replacement="https://github.com/${owner_repo}/raw/${merge_sha}/"
 
   # Count matches first so the stderr summary is accurate even when
-  # body_in == body_out (in-place rewrite).
+  # body_in == body_out (in-place rewrite). Use perl's m{} regex delimiter
+  # form so the embedded `/` characters in the URL pattern aren't mistaken
+  # for regex terminators.
   local n
-  n=$(perl -ne "BEGIN { \$c = 0 } \$c += () = /${pattern}/g; END { print \$c }" "$body_in")
+  n=$(perl -ne "BEGIN { \$c = 0 } \$c += () = m{${pattern}}g; END { print \$c }" "$body_in")
   n=${n:-0}
 
   local short_sha
@@ -92,8 +94,10 @@ rewrite_pr_body_urls() {
   tmp=$(mktemp)
   # perl -pe is preferred over sed here — sed's BRE/ERE differences across
   # platforms have bitten us elsewhere (see kit/scripts/populate-playwright-cache.sh
-  # which standardized on perl for the same reason).
-  perl -pe "s|${pattern}|${replacement}|g" "$body_in" > "$tmp"
+  # which standardized on perl for the same reason). Use the s{}{} delimiter
+  # form so the embedded `/` characters in the URL pattern + replacement
+  # don't collide with the regex terminator.
+  perl -pe "s{${pattern}}{${replacement}}g" "$body_in" > "$tmp"
   mv -- "$tmp" "$body_out"
 
   echo "rewrote ${n} URL(s) (head=${head_ref} sha=${short_sha})" >&2
