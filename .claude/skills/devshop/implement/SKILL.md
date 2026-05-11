@@ -1,6 +1,6 @@
 ---
 name: ak-implement
-version: 2.2.0
+version: 2.3.0
 description: |
   Run the implementation loop for the active spec. Reads spec from specs/<name>/ →
   traces the gstack plan → checks tasks (new vs resume) → implements each task with tests → runs stuck
@@ -22,8 +22,16 @@ allowed-tools:
 
 Run the implementation loop for the active spec.
 
-**Before starting**: read `kit/docs/guide/conventions.md` for testing philosophy,
-backlog routing, and metrics lifecycle. These are referenced throughout, not duplicated here.
+**Before starting**: parse the spec's `## Files` + `## Decisions` sections,
+look up matching routing rows in `kit/docs/guide/README.md`, read the
+matched `(file, anchor)` targets, and follow `**See also:**` footers where
+scope-relevant. The routing index is the single source for which guide
+sections govern which patterns — see the SKILL.md for `/ak-spec` Step 1.5 for
+the parsing shape (file-globs + keyword tokens). **Fallback**: if
+routing-lookup yields zero matches (e.g., a project hasn't yet adopted the
+routing convention or its README.md is missing the index), fall back to
+reading `kit/docs/guide/conventions.md` as before — preserves behavior on
+pre-adoption projects.
 
 ## Step 1: Gather context
 
