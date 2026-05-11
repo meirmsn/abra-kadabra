@@ -328,16 +328,25 @@ If 0 candidates: state "0 Layer 3 candidates — adaptive depth keeps us at Laye
 
 ---
 
-## Approvals (filled in at Task 2 user gate)
+## Approvals (resolved at Task 2 user gate, 2026-05-11)
 
-| #   | Item (split \| relocation \| Layer 3 ToC)                                                                | User decision    | Notes |
-| --- | -------------------------------------------------------------------------------------------------------- | ---------------- | ----- |
-| 1   | Split: `migrations.md` from `conventions.md § Supabase Hardening Defaults` (+ Deploy-Boundaries excerpt) | (pending Task 2) |       |
-| 2   | Split: `database-queries.md` from `conventions.md § Database queries`                                    | (pending Task 2) |       |
-| 3   | Split: `wrapper-boundaries.md` from `conventions.md § Runtime Validation + § Wrapper API design`         | (pending Task 2) |       |
-| 4   | Relocation: `ops.md § Known Footguns § PostgREST null-deref` — borderline, **default: leave in place**   | (pending Task 2) |       |
-| 5   | Relocation: `conventions.md § DESIGN.md as Contract` — borderline, **default: leave in place**           | (pending Task 2) |       |
-| 6   | Layer 3 ToC: `conventions.md § Slow-Job Lifecycle`                                                       | (pending Task 2) |       |
-| 7   | Layer 3 ToC: `conventions.md § Non-Negotiables`                                                          | (pending Task 2) |       |
+| #   | Item (split \| relocation \| Layer 3 ToC)                                                                | User decision | Notes                                                                                                                                                         |
+| --- | -------------------------------------------------------------------------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Split: `migrations.md` from `conventions.md § Supabase Hardening Defaults` (+ Deploy-Boundaries excerpt) | **APPROVED**  | Pass per D3 proportionality. Left-behind one-line pointer in conventions.md.                                                                                  |
+| 2   | Split: `database-queries.md` from `conventions.md § Database queries`                                    | **APPROVED**  | Pass per D3.                                                                                                                                                  |
+| 3   | Split: `wrapper-boundaries.md` from `conventions.md § Runtime Validation + § Wrapper API design`         | **APPROVED**  | User reasoning: "narrow trigger means it shouldn't pollute the context, so separate file is fine." Combined target name: `wrapper-boundaries.md` (172 lines). |
+| 4   | Relocation: `ops.md § Known Footguns § PostgREST null-deref` — default: leave in place                   | **LEAVE**     | Symptom-first vs rule-first complementary surfaces. Mutual See-also links handle cross-ref.                                                                   |
+| 5   | Relocation: `conventions.md § DESIGN.md as Contract` — default: leave in place                           | **LEAVE**     | Section validated as substantive (15 lines: gate mechanism, claim types, caching, complementarity to /design-review). Real convention prose, not a stub.      |
+| 6   | Layer 3 ToC: `conventions.md § Slow-Job Lifecycle`                                                       | **APPROVED**  | 116 lines, 8 H3s, 3+ routing-row consumers.                                                                                                                   |
+| 7   | Layer 3 ToC: `conventions.md § Non-Negotiables`                                                          | **APPROVED**  | 109 lines, 7 H3s including independently-routable `Test Assertion Depth` + `Responsive + Theme` + `PWA`.                                                      |
+
+## Routing-index structure decision (Task 2 user gate, 2026-05-11)
+
+**Design Hybrid: logical groups in the routing index, flat filesystem (Design X), with a documented "promote-to-subdirectory" rule for future migration.**
+
+- The routing index in `kit/docs/guide/README.md` groups routing rows under `### Data`, `### Auth + security`, `### Frontend + UI`, `### Ops + deploy`, `### Dev + meta` (or similar — Task 5 finalizes the exact group names from the audit's per-guide fires-on signals).
+- Filesystem remains flat: `kit/docs/guide/*.md` (no subdirectories created in this PR).
+- The README's preamble documents the future migration rule: "A logical group is promoted to its own subdirectory when ≥3 files sustainedly belong to it AND cross-refs within the group outnumber cross-refs to outside it. Today no group meets the bar; this is a deferred structural option."
+- This decision refines D2 — Layer 1 of the recursive ToC is now itself grouped, not a flat table. Each domain group has its own intra-group ToC of routing rows.
 
 (Task 2 fills in.)
