@@ -114,6 +114,8 @@ Grep new primitives for `min-h-*`, `max-h-*`, `min-w-*`, `max-w-*` baked into
 their base classes. If the primitive accepts `className`, the baked dimension
 is a trap.
 
+**See also:** [`supabase-ssr-boilerplate.md § Pattern 5`](./supabase-ssr-boilerplate.md#pattern-5-webkit-form-state-hydration-race-in-playwright-mobile-tests) — same shape of trap ("primitive accepts an override but encodes a conflicting platform default"); the principle generalizes beyond CSS to mobile WebKit's pre-hydration form-state.
+
 ---
 
 ## Application

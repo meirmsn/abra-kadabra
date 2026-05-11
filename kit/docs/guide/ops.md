@@ -91,6 +91,8 @@ supabase gen types typescript --project-id <ref> > packages/core/src/supabase.ty
 - **Cross-origin redirect breaks standalone.** If a PWA is installed from origin A and A redirects to origin B (custom-domain swap, vercel preview → prod), iOS launches it in Safari chrome on next open. There is no in-app fix; users must remove the home-screen icon and re-add from the canonical origin. When swapping domains, surface this in release notes.
 - Service worker caching (`@serwist/next`) deferred to `PRODUCT-ROADMAP.md` — added after core screens are stable
 
+**See also:** [`latency-feedback.md`](./latency-feedback.md) — the iOS input-zoom rule above applies to every Tier B submit-button form; the floor pins inside shared input primitives, the framework lives in latency-feedback.
+
 _This section grows as code is added. `/ak-implement` updates it when introducing new paths._
 
 ---

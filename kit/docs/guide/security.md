@@ -57,6 +57,8 @@ The `**` recursive glob is load-bearing — single-segment `*` would not match `
 
 Edge functions always validate auth server-side — `getUser()` to verify against auth server, even with gateway JWT verification.
 
+**See also:** [`supabase-ssr-boilerplate.md § Pattern 3`](./supabase-ssr-boilerplate.md#pattern-3-e2e-helpers--helpersadmin-clientts-with-the-5-canonical-exports) — the E2E side of the same defense (admin-client structural URL guard); auth-validation at the edge fn and test-time admin-client URL guard are complementary structural defenses.
+
 ## Local Supabase Isolation (devcontainer)
 
 Projects that run a local Supabase stack pick a reachability shape at scaffold time via `/ak-new-project § Step 2b`. The **template default is compose isolation** — workspace dev container has no docker socket or docker CLI; a sibling `supabase-runner` compose service holds the socket and runs `supabase start` against the host engine. A compromised devtool / npm transitive dep in the workspace cannot spawn `docker run -v /Users:/h alpine` to read the macOS home via Docker Desktop's File Sharing, even though the host has File Sharing enabled.

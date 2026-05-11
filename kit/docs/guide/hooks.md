@@ -307,6 +307,8 @@ The `.husky/pre-push` hook runs at the git layer on every `git push`. The wrappe
 
 Commit-time guards check that the developer explained bypasses. The pre-ship layer has a parallel concern: each quality gate (`simplify`, `docs-and-tests-review` (ak), `review`, `cso`, `design-review`, `design-conformance` (ak), `qa`, `benchmark`, etc. — `(ak)` marks devshop-native gates, bare names wrap gstack skills) produces an advisory report, and the pipeline used to rubber-stamp "gate said pass" without checking whether the gate silently dismissed findings it surfaced. The Dismissal Log closes that hole.
 
+**See also:** [`conventions.md § Bypass trailers`](./conventions.md#bypass-trailers) — the commit-time Layer 1 sibling of this gate-time mechanism; both surface a "skipped a finding" decision into the auditable history, one at git-commit time and one at pre-ship time.
+
 ### Contract (every gate)
 
 Every gate's output MUST include a `## Dismissals` section with exactly one of:

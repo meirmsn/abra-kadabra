@@ -264,6 +264,8 @@ supabase db inspect-sql "SELECT pubname, schemaname, tablename FROM pg_publicati
 
 The result should list every table your `subscribeTo*` helpers reference.
 
+**See also:** [`migrations.md § Realtime publication setup`](./migrations.md#realtime-publication-setup) — the convention layer that restates this rule and ties it to FK-cascade discipline; Pattern 4 here is the migration template, migrations.md is the convention-doc target.
+
 ---
 
 ## Pattern 5: WebKit form-state hydration race in Playwright `mobile` tests
