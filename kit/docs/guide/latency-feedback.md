@@ -16,6 +16,12 @@ and the rollback fired silently" data loss is impossible.
 > **The rules below apply now, before the framework lifts** — they surfaced as
 > soak findings and would otherwise rot inside a project's CLAUDE.md gotchas.
 
+## Contents
+
+- [Tier C: a route's `loading.tsx` and its client component's own load skeleton must paint identically](#tier-c-a-routes-loadingtsx-and-its-client-components-own-load-skeleton-must-paint-identically)
+- [Sizing primitives that accept a `className` override must not bake conflicting CSS properties](#sizing-primitives-that-accept-a-classname-override-must-not-bake-conflicting-css-properties)
+- [Application](#application)
+
 ---
 
 ## Tier C: a route's `loading.tsx` and its client component's own load skeleton must paint identically

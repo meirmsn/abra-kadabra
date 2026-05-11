@@ -1,5 +1,21 @@
 # Security + Quality
 
+Layered defenses that prevent Claude from weakening its own guardrails: root-owned guard scripts, the DCG manifest, structural memory protection, edge-function auth, secrets isolation, and the supply-chain controls around third-party binaries.
+
+## Contents
+
+- [Core Principle](#core-principle)
+- [Security-Critical Files](#security-critical-files)
+- [Edge Function Auth](#edge-function-auth)
+- [Local Supabase Isolation (devcontainer)](#local-supabase-isolation-devcontainer)
+- [Secrets in CI](#secrets-in-ci)
+- [CI Credential Isolation](#ci-credential-isolation)
+- [Third-Party Binaries](#third-party-binaries)
+- [Guard Script Editing](#guard-script-editing)
+- [`.claude/` Allow vs settings.json Deny](#claude-allow-vs-settingsjson-deny)
+- [Memory Write Protection](#memory-write-protection)
+- [Known Gaps](#known-gaps)
+
 ## Core Principle
 
 **Claude cannot weaken its own guardrails.** Six layers of protection enforce this:

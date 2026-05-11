@@ -1,10 +1,19 @@
 # macOS host setup for devshop projects
 
+> **Out of routing index** — read on first project setup or new Mac, not per-feature work.
+
 One-time, per-Mac. Outside the dev container, on the macOS host. Apply once before your **first** devshop project on this machine; every subsequent project inherits the same host config.
 
 The devshop's Option 3 compose isolation (workspace has no docker socket; sibling `supabase-runner` holds it with a narrow `<host>/supabase` bind) reduces but does NOT eliminate the bind-mount escape vector. The load-bearing mitigation lives on macOS, not inside the container — a compromised npm dep with docker-socket access can still `docker run -v /Users:/h alpine` against whatever Docker Desktop's File Sharing list permits. Steps 1+2 close the security model. Step 3 is mechanically required for `pnpm dev` and the macOS browser to reach the local supabase stack at all.
 
 Threat model + decision matrix: [`/devshop/kit/notes/security/local-supabase-isolation-options.md`](../../notes/security/local-supabase-isolation-options.md). Architecture detail: [`local-supabase-compose-isolation.md`](./local-supabase-compose-isolation.md).
+
+## Contents
+
+- [The four steps](#the-four-steps)
+- [Verifying it stuck](#verifying-it-stuck)
+- [What's per-project, not per-host](#whats-per-project-not-per-host)
+- [When to revisit](#when-to-revisit)
 
 ## The four steps
 

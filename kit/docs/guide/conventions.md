@@ -2,6 +2,46 @@
 
 Single source of truth for conventions referenced by multiple skills. Skills point here, not copy.
 
+## Contents
+
+- [Metrics Lifecycle](#metrics-lifecycle)
+- [Events](#events)
+- [Feature Flags](#feature-flags)
+- [TASKS.md Format](#tasksmd-format)
+- [SPEC.md Quality Checklist](#specmd-quality-checklist)
+- [DESIGN.md as Contract](#designmd-as-contract-design-conformance-ak-gate)
+- [Screenshot Routing](#screenshot-routing)
+- [Deploy Boundaries](#deploy-boundaries)
+- [Slow-Job Lifecycle](#slow-job-lifecycle)
+  - [Uncommenting checklist](#uncommenting-checklist)
+  - [Helper scripts](#helper-scripts)
+  - [Structural enforcement](#structural-enforcement)
+  - [Skip-on-docs-only filter](#skip-on-docs-only-filter)
+  - [Codified prior art](#codified-prior-art)
+  - [Cross-reference: Local Pre-Push Test Gates](#cross-reference-local-pre-push-test-gates)
+- [Local Pre-Push Test Gates](#local-pre-push-test-gates)
+- [Supabase Hardening Defaults](#supabase-hardening-defaults) — _moved to [`migrations.md`](./migrations.md)_
+- [Runtime Validation at LLM / Edge-Function Boundaries](#runtime-validation-at-llm--edge-function-boundaries) — _moved to [`wrapper-boundaries.md`](./wrapper-boundaries.md)_
+- [Wrapper API design](#wrapper-api-design) — _moved to [`wrapper-boundaries.md`](./wrapper-boundaries.md)_
+- [Database queries](#database-queries) — _moved to [`database-queries.md`](./database-queries.md)_
+- [Confidence Calibration](#confidence-calibration)
+- [TODO Protocol](#todo-protocol)
+- [Backlog Routing Guide](#backlog-routing-guide)
+- [Non-Negotiables](#non-negotiables)
+  - [Testing](#testing)
+  - [Test Assertion Depth](#test-assertion-depth)
+  - [Testing Lifecycle](#testing-lifecycle)
+  - [Kit Testing (devshop infrastructure)](#kit-testing-devshop-infrastructure)
+  - [Metrics](#metrics-1)
+  - [Responsive + Theme](#responsive--theme)
+  - [PWA](#pwa)
+  - [Code Structure](#code-structure)
+- [Test Presence](#test-presence)
+- [Project Docs Coverage](#project-docs-coverage)
+- [Bypass trailers](#bypass-trailers)
+- [Exempt-File Additions](#exempt-file-additions)
+- [Project Docs Hierarchy](#project-docs-hierarchy)
+
 ## Metrics Lifecycle
 
 Metrics flow through the devshop at four points:

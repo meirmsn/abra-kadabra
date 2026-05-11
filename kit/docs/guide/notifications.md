@@ -2,6 +2,17 @@
 
 Claude Code pushes to your iPhone, Apple Watch, and Mac via [ntfy.sh](https://ntfy.sh) when it needs input or finishes a task. Wiring ships with every project — you configure once (per user, per project's `.devcontainer/.env`).
 
+## Contents
+
+- [What fires](#what-fires)
+- [Debounce (30s)](#debounce-30s)
+- [One-time user setup](#one-time-user-setup)
+- [How it works](#how-it-works)
+- [Privacy](#privacy)
+- [Disabling](#disabling)
+- [Rotating the topic](#rotating-the-topic)
+- [Multi-project differentiation](#multi-project-differentiation)
+
 ## What fires
 
 | Event               | Banner                                         | Priority |

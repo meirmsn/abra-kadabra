@@ -1,5 +1,21 @@
 # Operations
 
+Day-to-day operational reference. Auth, data flow, design system, CI/CD, observability, PWA — where each lives in the codebase. Env-var naming, stack inventory, local dev recipes, troubleshooting tree, and the decision log for irreversible past calls.
+
+## Contents
+
+- [Where Things Happen](#where-things-happen)
+- [Env Var Naming Convention](#env-var-naming-convention)
+- [Stack](#stack)
+- [Local Development](#local-development)
+- [Service Quotas](#service-quotas)
+- [Dev Container](#dev-container)
+- [Persistent Storage](#persistent-storage)
+- [Known Footguns](#known-footguns)
+- [When Things Go Wrong](#when-things-go-wrong)
+- [Troubleshooting](#troubleshooting)
+- [Decision Log](#decision-log)
+
 ## Where Things Happen
 
 ### Auth

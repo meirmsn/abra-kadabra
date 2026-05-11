@@ -4,6 +4,19 @@ How a project's dev container runs `supabase start` for local-dev integration te
 
 For the threat-model + decision matrix that picked this architecture over four alternatives, see [`/devshop/kit/notes/security/local-supabase-isolation-options.md`](../../notes/security/local-supabase-isolation-options.md). Adopted in lalista PR 34 (`devcontainer-compose-isolated`, 2026-04-28); pattern reference for `/ak-new-project` template work captured in `kit/TODOS.md § lalista-option3-template-variant`.
 
+## Contents
+
+- [TL;DR architecture](#tldr-architecture)
+- [Host-side touchpoints](#host-side-touchpoints)
+- [URL routing — workspace POV](#url-routing--workspace-pov)
+- [The socat workaround in supabase-runner](#the-socat-workaround-in-supabase-runner)
+- [Container lifecycle](#container-lifecycle)
+- [Smoke-test commands](#smoke-test-commands)
+- [Running integration tests locally](#running-integration-tests-locally)
+- [Debugging tree](#debugging-tree)
+- [CI / prod isolation](#ci--prod-isolation)
+- [Cross-references](#cross-references)
+
 ## TL;DR architecture
 
 ```

@@ -1,5 +1,25 @@
 # Workflow: Idea to Deployed
 
+The end-to-end devshop pipeline, from rough notes to production. Six steps wrap five skills (`/office-hours`, `/autoplan`, `/ak-spec`, `/ak-build`, `/ak-go-live`); the user gate sits between steps 5 and 6. This guide is operator-facing — for the in-feature implementation contracts the steps invoke, see the routing index at [`README.md`](./README.md).
+
+## Contents
+
+- [Pipeline at a Glance](#pipeline-at-a-glance)
+- [Step 1: Write rough notes](#step-1-write-rough-notes)
+- [Step 2: `/office-hours` (gstack)](#step-2-office-hours-gstack)
+- [Step 3: `/autoplan` (gstack)](#step-3-autoplan-gstack)
+- [Step 4: `/ak-build` (devshop skill) — autonomous pipeline](#step-4-ak-build-devshop-skill--autonomous-pipeline)
+- [Step 5: You review the PR](#step-5-you-review-the-pr)
+- [Step 6: `/ak-go-live` (devshop skill) — autonomous deploy](#step-6-ak-go-live-devshop-skill--autonomous-deploy)
+- [Feature tracking: PLAN.md, BUILD-LOG.md, tasks.md](#feature-tracking-planmd-build-logmd-tasksmd)
+- [Plan-level changes (rescope, reorder, drop)](#plan-level-changes-rescope-reorder-drop)
+- [Workflow variants](#workflow-variants)
+- [Structured Reflection](#structured-reflection)
+- [Starting a New Project](#starting-a-new-project)
+- [Build and Deploy Quick Reference](#build-and-deploy-quick-reference)
+- [gstack Skill Map](#gstack-skill-map)
+- [Devshop Skill Map](#devshop-skill-map)
+
 ## Pipeline at a Glance
 
 ```

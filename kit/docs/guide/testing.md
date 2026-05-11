@@ -4,6 +4,10 @@ Canonical test-shape patterns that aren't tied to a specific stack surface. For 
 
 Each pattern below was codified from a real project incident. Don't paraphrase the recipe; copy it and adapt the project-specific names. The behaviors they encode are subtle — the wrong shape passes locally and fails (or drifts past CI's wall-clock budget) in subtle, intermittent ways.
 
+## Contents
+
+- [Pattern 1: Tier A2 retry-budget tests use `page.clock.fastForward()`, not bumped per-test timeouts](#pattern-1-tier-a2-retry-budget-tests-use-pageclockfastforward-not-bumped-per-test-timeouts)
+
 ---
 
 ## Pattern 1: Tier A2 retry-budget tests use `page.clock.fastForward()`, not bumped per-test timeouts

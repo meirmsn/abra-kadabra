@@ -1,8 +1,25 @@
 # Devshop Separation Architecture
 
+> **Out of routing index** — read on first project setup or when first navigating the codebase, not per-feature work.
+
 The devshop (abra-kadabra) and the project repo are separate git repositories. The project repo is clean and publishable — it contains only project code, build config, and CI. All devshop infrastructure gets **injected at container start** via symlinks.
 
 For the conceptual model (layers, pipeline, file lifecycle): see [`../OVERVIEW.md § Concept`](../OVERVIEW.md#concept)
+
+## Contents
+
+- [Two repos, one workspace](#two-repos-one-workspace)
+- [What lives where](#what-lives-where)
+- [How init-devshop.sh works](#how-init-devshopsh-works)
+- [File lifecycle](#file-lifecycle)
+- [Doing project work](#doing-project-work)
+- [Doing devshop work](#doing-devshop-work)
+- [When devshop changes take effect](#when-devshop-changes-take-effect)
+- [Propagating build tooling updates](#propagating-build-tooling-updates)
+- [Public contributors (without devshop)](#public-contributors-without-devshop)
+- [Devshop Repo Layout](#devshop-repo-layout)
+- [Known gotchas](#known-gotchas)
+- [Documentation Structure](#documentation-structure)
 
 ## Two repos, one workspace
 

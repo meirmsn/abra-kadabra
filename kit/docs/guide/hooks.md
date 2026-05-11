@@ -1,5 +1,18 @@
 # Hooks & Commit Flow
 
+How git hooks, husky chains, and Claude Code's PreToolUse hooks compose to guard the workflow. Pre-commit fires first (Layer 1 quick checks), then pre-push (Layer 2 audit), then `/ak-pre-ship` (Layer 3 gate-time adversarial review). This guide is the canonical reference for the full chain.
+
+## Contents
+
+- [Claude Code Hooks](#claude-code-hooks)
+- [Commit Flow](#commit-flow)
+- [Full Hook Chain Detail](#full-hook-chain-detail)
+- [Practical recipes](#practical-recipes)
+- [Why workflow nudges live at the git layer](#why-workflow-nudges-live-at-the-git-layer)
+- [Commit Convention](#commit-convention)
+- [On Push](#on-push)
+- [Dismissal Log (pre-ship gate-time adversarial review)](#dismissal-log-pre-ship-gate-time-adversarial-review)
+
 ## Claude Code Hooks
 
 Hooks in `.claude/settings.json` guard the development workflow:

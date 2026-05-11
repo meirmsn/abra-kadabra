@@ -4,6 +4,16 @@ Canonical code patterns for any devshop project using Supabase + Next.js + Playw
 
 Each pattern was codified from a real lalista incident (most from PR 26, 2026-04-26). Don't paraphrase the patterns; copy them verbatim and adapt the project-specific names. The behaviors they encode are subtle — drift breaks production silently.
 
+## Contents
+
+- [Pattern 1: `.trim()` defense at every `process.env.NEXT_PUBLIC_*` read site](#pattern-1-trim-defense-at-every-processenvnext_public_-read-site)
+- [Pattern 2: CSP `connect-src` builder handles BOTH `https→wss` and `http→ws`](#pattern-2-csp-connect-src-builder-handles-both-httpswss-and-httpws)
+- [Pattern 3: E2E helpers — `helpers/admin-client.ts` with the 5 canonical exports](#pattern-3-e2e-helpers--helpersadmin-clientts-with-the-5-canonical-exports)
+- [Pattern 4: Realtime publication setup migration](#pattern-4-realtime-publication-setup-migration)
+- [Pattern 5: WebKit form-state hydration race in Playwright `mobile` tests](#pattern-5-webkit-form-state-hydration-race-in-playwright-mobile-tests)
+- [Pattern 6: Testing realtime WebSocket failures with `page.routeWebSocket`, not `page.route().fulfill(503)`](#pattern-6-testing-realtime-websocket-failures-with-pageroutewebsocket-not-pageroutefulfill503)
+- [Cross-references](#cross-references)
+
 ---
 
 ## Pattern 1: `.trim()` defense at every `process.env.NEXT_PUBLIC_*` read site
