@@ -1,6 +1,6 @@
 ---
 name: ak-go-live
-version: 1.3.0
+version: 1.4.0
 description: |
   Autonomous deploy pipeline: merge → deploy → canary → reflect → notify.
   Runs after user approves PR. Chains /land-and-deploy → /canary → reflection.
@@ -230,6 +230,66 @@ Invoke `/land-and-deploy` via Skill tool.
 
 gstack's `/land-and-deploy`: checks CI green, merges PR, waits for deploy, verifies
 production health. If CI is failing, it stops (does not merge).
+
+## Step 2.5: Rewrite PR-body image URLs to merge SHA
+
+PR body image embeds use the form `https://github.com/<owner>/<repo>/raw/<feature-branch>/<path>` per `/ak-build § PR body conventions § Image embeds — private-repo safe`. The `<feature-branch>` ref renders fine at PR-review time, then 404s the moment Step 2b runs `git push origin --delete` / `gh pr merge --delete-branch` removes the branch ref. This step rewrites every such URL in the PR body to repoint at the squash-merge commit SHA — a **permanent** ref that survives branch deletion. Order is load-bearing: this step runs **after** Step 2's merge produces a SHA but **before** Step 2b's branch cleanup so the URLs in the body are re-anchored before the branch they currently point at goes away.
+
+The rewrite logic lives in a tiny sourceable helper at `/devshop/kit/scripts/lib/rewrite-pr-body-urls.sh` so the same `rewrite_pr_body_urls()` function is shared with `kit/scripts/backfill-pr-image-urls.sh` (the one-time per-project backfill that catches up the existing surface) — single source of truth, no behavior drift.
+
+```bash
+# shellcheck source=/devshop/kit/scripts/lib/rewrite-pr-body-urls.sh
+source /devshop/kit/scripts/lib/rewrite-pr-body-urls.sh
+
+PR=${PR:-$(gh pr list --state merged --head "$(git branch --show-current)" --json number --jq '.[0].number')}
+if [ -z "$PR" ]; then
+  echo "Step 2.5: no merged PR found for branch $(git branch --show-current) — skipping body rewrite"
+else
+  # PR-derived branch name is the canonical source of truth (D2) — robust
+  # against working-tree state if any prior step accidentally checked out main.
+  HEAD_REF=$(gh pr view "$PR" --json headRefName --jq .headRefName)
+
+  # mergeCommit.oid is the canonical permanent reference (D3). Squash merge
+  # produces a single new commit on main; branch-tip SHAs may be GC'd after
+  # --delete-branch.
+  MERGE_SHA=$(gh pr view "$PR" --json mergeCommit --jq '.mergeCommit.oid // empty')
+
+  OWNER_REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+
+  if [ -z "$MERGE_SHA" ]; then
+    # D5: null mergeCommit.oid means the operator did something out-of-band
+    # (rebase merge, manual). Don't halt their flow; just don't rewrite URLs
+    # we can't anchor to a permanent SHA.
+    echo "⚠ Step 2.5: no mergeCommit.oid — skipping body rewrite"
+  else
+    BODY_TMP=$(mktemp)
+    BODY_REWRITTEN=$(mktemp)
+    gh pr view "$PR" --json body --jq .body > "$BODY_TMP"
+
+    # Exact-match on /raw/<HEAD_REF>/ scoped to OWNER_REPO (D4). Other
+    # /raw/<x>/ URLs (other branches, tags, main, third-party repos) are
+    # preserved verbatim — the helper regex-escapes HEAD_REF so slashed
+    # branch names like `feat/foo` work without spurious matches on
+    # sibling URLs like `/raw/featXfoo/`.
+    rewrite_pr_body_urls "$BODY_TMP" "$BODY_REWRITTEN" "$OWNER_REPO" "$HEAD_REF" "$MERGE_SHA"
+
+    # If zero matches, helper printed `no /raw/${HEAD_REF}/ URLs in body —
+    # nothing to rewrite` to stderr (D6 silent attesting pass) and copied
+    # the body verbatim. Skip the gh pr edit call in that case so we don't
+    # bump updatedAt without a real change.
+    if ! cmp -s "$BODY_TMP" "$BODY_REWRITTEN"; then
+      # Use --body-file (file on disk) not --body (shell-arg, which adds a
+      # trailing newline) so byte-identical whitespace is preserved EXCEPT
+      # for the URL substitutions.
+      gh pr edit "$PR" --body-file "$BODY_REWRITTEN"
+    fi
+
+    rm -f "$BODY_TMP" "$BODY_REWRITTEN"
+  fi
+fi
+```
+
+This step is purely additive in the pipeline — failure paths warn-and-continue, never halt the deploy. Track B's one-time backfill (`kit/scripts/backfill-pr-image-urls.sh`) catches up existing closed PRs that pre-date Step 2.5; per-PR Track A coverage applies forward from this version.
 
 ## Step 2b: Branch cleanup + PLAN.md / BUILD-LOG sanity check
 
