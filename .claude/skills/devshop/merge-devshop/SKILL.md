@@ -162,9 +162,12 @@ Then compose a message in this exact shape:
 ```
 <type>(<scope>): <subject ≤ 72 chars>
 
-**<Lead-in topic 1, e.g. "Adds:" or "Lands:">** <one-paragraph statement
-of what this branch shipped, then drops into a sub-bullet list when the
-detail benefits from being scannable>:
+**<Lead-in topic 1, e.g. "Adds:" or "Lands:">** 3-7 bullets — each one a
+concrete user-meaningful unit that shipped on this branch. A reader who
+opens this commit message should be able to scan these bullets in 10
+seconds and know what landed. Bullets first; if a non-obvious decision
+needs framing, lead with one sentence of prose, then drop into bullets.
+Don't write a paragraph and then re-summarize it as bullets — pick one.
 - <sub-bullet — concrete user-meaningful unit>
 - <sub-bullet>
 
@@ -257,6 +260,41 @@ mirrors `/ak-release-devshop`'s bump-level math:
 Scope (`(<scope>)`) — pick from the most-touched area: skill name (e.g.
 `ak-merge-devshop`), guide section, or path segment. Skip the scope if
 the change is genuinely cross-cutting.
+
+#### Subject style
+
+The subject is the line a reader sees in `git log --oneline`, in the
+GitHub PR list, and in release notes. Write it so a teammate who hasn't
+seen the diff can decode what behavior changed in the codebase — not
+which file or variable was edited.
+
+Rules:
+
+1. **Describe the observable change**, not the implementation detail.
+   "skip CI when only root markdown changes" beats "docs-only skip filter
+   matches root-level markdown" — the reader cares about the new CI
+   behavior, not which filter variable holds the change.
+2. **Lead with a verb** when there's one verb-y change (`skip`, `add`,
+   `fix`, `tighten`, `extract`, `rename`, `move`, `replace`). Noun-lists
+   are fine when the commit ships multiple independent units that don't
+   share a verb (e.g. `feat: invite link + member mgmt + audit feed`).
+3. **No internal jargon**. Words that only make sense if you've read the
+   spec ("polish", "soak findings", "Phase 2 expansion", "Tier B") are
+   meta-narrative, not change description — drop them or replace with
+   the underlying user- or code-facing fact.
+4. **≤ 72 chars**, but err shorter — a tight subject is read faster.
+
+Examples (drawn from real commits):
+
+| Bad — terse but opaque                                                                             | Good — verb-led, behavior-described                                                 |
+| -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `fix(ci): docs-only skip filter matches root-level markdown`                                       | `fix(ci): skip CI when only root markdown changes`                                  |
+| `fix(settings): household-collaborators polish — typography, skeleton, disclosure (soak findings)` | `fix(settings): tighten household-collaborators typography + skeleton + disclosure` |
+| `feat(household-collaborators): invite link + member mgmt + audit feed`                            | (keep — noun-list is the natural shape for a multi-unit feature PR)                 |
+| `chore(build-log): record cheap-test-gates-local`                                                  | (keep — subject is self-describing for a build-log chore)                           |
+
+When in doubt: would a teammate scrolling `git log` two months from now
+know what behavior shipped without opening the diff? If not, rewrite.
 
 #### Generating the compressed bullet list
 
