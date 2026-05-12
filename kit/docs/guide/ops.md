@@ -14,6 +14,7 @@ Day-to-day operational reference. Auth, data flow, design system, CI/CD, observa
 - [Known Footguns](#known-footguns)
 - [When Things Go Wrong](#when-things-go-wrong)
 - [Troubleshooting](#troubleshooting)
+- [Out-of-band dashboard surfaces](#out-of-band-dashboard-surfaces)
 - [Decision Log](#decision-log)
 
 ## Where Things Happen
@@ -384,6 +385,25 @@ LATEST_HS=$(ls -d /home/node/.cache/ms-playwright/chromium_headless_shell-* | so
 **Upstream resolution** (tracked in `kit/TODOS.md`): the `browse` daemon should autodetect the highest-version dir under `~/.cache/ms-playwright/` instead of hard-coding a version. When that ships, drop the symlink workaround.
 
 **Root cause fix** (shipped 2026-04-23): the template Dockerfile now apt-installs `chromium + chromium-driver` and `template/.devcontainer/devcontainer.json` sets `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium` in `containerEnv`. Eliminates the Playwright-CDN firewall-stale-ipset problem entirely. **Note**: this fixes the _download_ layer but does not by itself fix the daemon's pinned-version path lookup — the symlink autoheal above is still required because the compiled `browse` binary expects `/home/node/.cache/ms-playwright/chromium-1208/chrome-linux/chrome` regardless of `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`. Until the daemon is updated to autodetect the highest-version dir (or honor the env var), pre-ship's symlink workaround creates `chromium-1208` pointing at the apt-installed binary's location.
+
+---
+
+## Out-of-band dashboard surfaces
+
+CI deploys the app, the database migrations, and the edge functions on push:main (per `conventions.md § Deploy Boundaries`). Several adjacent surfaces do NOT auto-deploy and need manual dashboard work — failing to do so means "the PR shipped but the user-facing change is invisible":
+
+| Surface                                       | Where it lives                                            | When it ships                                                                                                          |
+| --------------------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Custom domain + DNS                           | Vercel project → Domains; A/AAAA + CNAME at the registrar | Manual, once per domain                                                                                                |
+| Transactional email provider                  | Provider's dashboard (Resend, Postmark, etc.) + SPF/DKIM  | Manual, once per project; rotate on provider switch                                                                    |
+| Supabase Auth → SMTP Settings                 | Supabase dashboard → Auth → SMTP                          | Manual paste; never deploys from CI                                                                                    |
+| Supabase Auth → Templates                     | Supabase dashboard → Auth → Templates (per-template tab)  | Manual paste; `supabase/templates/*.html` in the repo is the source of truth but does NOT auto-deploy                  |
+| Supabase Auth → URL Configuration             | Supabase dashboard → Auth → URL Configuration             | Manual; covers the redirect allow-list for `emailRedirectTo`                                                           |
+| Supabase Auth → Password Changed notification | Supabase dashboard → Auth → Templates → Password Changed  | Manual paste; the `[auth.email.notification.password_changed]` block in `supabase/config.toml` enables it locally only |
+
+When a PR edits any of `supabase/templates/*.html`, `supabase/config.toml`'s auth/email blocks, or introduces a new redirect URL, the PR description MUST include the dashboard-paste step in the test plan. `/ak-go-live` does not handle out-of-band surfaces.
+
+The `[auth.email.smtp]` block in `supabase/config.toml` is typically kept commented intentionally so local-dev mail flows to a sandbox (mailpit) instead of burning the provider's free tier — toggling it on locally costs real sends.
 
 ---
 

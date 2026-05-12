@@ -8,6 +8,7 @@ PostgREST's response shape on a failed query is the trap this guide closes: a no
 - [Where to apply it](#where-to-apply-it)
 - [Why we don't ship a typed wrapper (yet)](#why-we-dont-ship-a-typed-wrapper-yet)
 - [Cross-references](#cross-references)
+- [PostgREST relationship inference does not chain through `auth.*`](#postgrest-relationship-inference-does-not-chain-through-auth)
 
 When a Supabase / PostgREST query selects a column that doesn't exist (typo, stale type cache, deliberately-unmapped FK), the response is `{ data: null, error: { message: 'column "<x>" does not exist', ... } }` — both fields populated. Most call sites destructure `data` and ignore `error`, so the next line crashes with a generic `TypeError: Cannot read properties of null (reading '<field>')` and the actual root cause (the column-name typo) is swallowed. The bug looks like a null-data bug; debugging starts down the wrong path.
 
@@ -54,3 +55,11 @@ A `select()` helper that throws on `error` regardless of `data` would enforce th
 - `template/CLAUDE.md § Gotchas` — preemptive entry inherited by every new project explaining the failure mode + the `error`-first pattern (so the trap is documented before the project's first PostgREST query is written, not after the first incident).
 - Lalista PR #49 (2026-05-07) — hit this twice in one PR (`items.name` typo + `purchase_history.list_entry_id` deliberately-unmapped FK), each surfacing as a generic null-deref in Playwright; root cause was found by re-reading the query against the schema, not by reading the swallowed error message.
 - `kit/docs/guide/ops.md § Known Footguns § PostgREST null-deref masks column typos` — symptom-first surface of this rule (same trap, two phrasings).
+
+## PostgREST relationship inference does not chain through `auth.*`
+
+PostgREST's natural-join syntax — `from('child').select('parent!fk_name(col)')` — relies on a FK pointing directly at a table in a PostgREST-reachable schema (default `public`). It does NOT chain through `auth.*`: a FK from `public.child(user_id)` to `auth.users(id)` does not let you join through to `public.profiles(user_id)` via shared FK target.
+
+The fix is a two-query read — first select the child rows, union the `user_id`s into a unique set, then issue a second `profiles.select('user_id, display_name').in('user_id', uniqueIds)` and dedupe + map. The two-query shape is load-bearing — don't "simplify" it back to a single join without also adding a direct `child.user_id → profiles.user_id` FK, which would conflict with any `ON DELETE SET NULL` semantics on the `auth.users` reference (see `migrations.md § ON DELETE on auth.users FK references`).
+
+Render a graceful fallback in the UI when either side is null: the `auth.users` row may have been deleted (`SET NULL` clears the column), or the `profiles` row may be unreadable under RLS. A null-safe display string ("someone" / "deleted user") avoids a UI crash and matches the soft-delete semantics of `ON DELETE SET NULL`.

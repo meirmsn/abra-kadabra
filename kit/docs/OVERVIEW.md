@@ -106,7 +106,7 @@ Container Workspace (/workspace)
 │   │   │   └── notify/          claude-{cancel,done,request}
 │   │   ├── hooks/pre-commit.sh  Orchestrates the 5-step + 4-guard chain
 │   │   ├── tests/               BATS test suite (guards, routing, goals, structural invariants)
-│   │   └── docs/                OVERVIEW (with § Concept), guide/ (~16 files, README is the context-aware routing index), FAQ
+│   │   └── docs/                OVERVIEW (with § Concept), guide/ (~17 files, README is the context-aware routing index), FAQ
 │   ├── .claude/
 │   │   ├── skills/ ──symlink──→ /devshop/.claude/skills/
 │   │   │   ├── devshop/         ak-build, ak-spec, ak-implement, ak-pre-ship...

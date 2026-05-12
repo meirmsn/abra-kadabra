@@ -8,6 +8,10 @@ Schema-mutating changes to a Supabase project ride two boundaries: the migration
   - [ON DELETE on `auth.users` FK references](#on-delete-on-authusers-fk-references)
   - [Realtime publication setup](#realtime-publication-setup)
   - [SSR + E2E boilerplate canonical patterns](#ssr--e2e-boilerplate-canonical-patterns)
+- [Load-bearing SQL invariants and sentinel comments](#load-bearing-sql-invariants-and-sentinel-comments)
+  - [Why `for update` matters here — Postgres EvaluatePlanQual (EPQ) semantics](#why-for-update-matters-here--postgres-evaluateplanqual-epq-semantics)
+- [DB constraint as loud structural backstop for application-layer business rules](#db-constraint-as-loud-structural-backstop-for-application-layer-business-rules)
+- [seed.sql gotrue compatibility — required text columns + matching auth.identities](#seedsql-gotrue-compatibility--required-text-columns--matching-authidentities)
 
 ## Supabase Hardening Defaults
 
@@ -62,3 +66,87 @@ For projects scaffolded by `/ak-new-project` with Supabase + Next.js + Playwrigh
 5. WebKit form-state hydration race workaround for Playwright `mobile` E2E tests
 
 **See also:** `kit/docs/guide/conventions.md § Deploy Boundaries` for the migration-vs-app deploy race and the schema-additive-vs-schema-mutating split.
+
+## Load-bearing SQL invariants and sentinel comments
+
+When a SQL block's correctness depends on a specific clause that's easy to remove during a "simplifying" cleanup (an explicit `for update`, a `where used_at is null`, a `select … into strict`, an `on conflict do nothing`), pair the clause with a sentinel comment AND a pure-file grep test that asserts both are present.
+
+```sql
+-- LOAD-BEARING(do-not-remove): FOR UPDATE — Postgres EPQ semantics back the single-use guarantee
+update tokens set used_at = now()
+  where id = (
+    select id from tokens
+      where token = p_token and used_at is null
+      for update
+  )
+  returning id;
+```
+
+The grep test lives next to the migration's integration test and asserts the sentinel comment + the load-bearing clause both still appear in the migration file. The integration test validates the runtime semantic (concurrent-write race, FK enforcement under load); the pure-file test catches the upstream code-change risk where a reviewer or formatter strips the clause without re-running integration.
+
+Sentinel format: `LOAD-BEARING(do-not-remove)` followed by `—` and a one-line explanation of why removing the clause silently breaks the invariant. The explanation is the part future-you reads when re-encountering the comment cold.
+
+### Why `for update` matters here — Postgres EvaluatePlanQual (EPQ) semantics
+
+Single-use-token guarantees under READ COMMITTED rely on EPQ. When T2 blocks on T1's row lock and T1 commits (setting `used_at = now()`), T2's EPQ re-applies the WHERE clause (including `used_at IS NULL`) to the now-updated row. The predicate fails, T2 returns zero rows, and the wrapper's `not found` branch fires — exactly the desired outcome.
+
+Removing the `for update` would silently break this: T1 and T2 both see `used_at IS NULL` at SELECT time, both commit, and the token grants access twice. The pure-file grep test catches the textual removal; the integration test (two concurrent transactions racing the same token) catches the runtime regression if the test gets stripped too.
+
+## DB constraint as loud structural backstop for application-layer business rules
+
+When an application-layer rule ("a user can only be in one household") needs to hold even under concurrent two-tab races, the application check is necessary but not sufficient. Add a DB-level UNIQUE / CHECK / EXCLUDE constraint as the loud-over-silent structural backstop, and map its error code at the wrapper boundary back to the same typed error the application check raises.
+
+```sql
+-- application check fires the typed error in the common case (P0001 raise)
+-- DB constraint catches the two-tab race
+alter table household_members
+  add constraint household_members_one_per_user_v0 unique (user_id);
+```
+
+```ts
+// wrapper boundary maps both signals to the same typed error
+if (err.code === 'P0001' && err.message.includes('already in a household')) {
+  throw new AlreadyInHouseholdError();
+}
+if (
+  err.code === '23505' &&
+  err.message.includes('household_members_one_per_user_v0')
+) {
+  throw new AlreadyInHouseholdError();
+}
+```
+
+Reserve the unique-violation errcode (`23505`) exclusively for the literal DB constraint signal — don't use it as a generic "already exists" check at the application layer. Mixing the two collapses the distinction the two-layer defense is built to preserve.
+
+## seed.sql gotrue compatibility — required text columns + matching auth.identities
+
+Recent gotrue versions (v2.188+) scan four `auth.users` text columns into Go `string` (not `*string` / `sql.NullString`):
+
+- `email_change`
+- `recovery_token`
+- `confirmation_token`
+- `email_change_token_new`
+
+Any seed row that leaves these NULL trips a driver scan error on every read — `auth.admin.listUsers()` and `/auth/v1/token` both return 500 `Database error querying schema`. gotrue's own signup path inserts `''` for these; seed rows must match.
+
+Additionally, gotrue's `listUsers` + token endpoints expect every user to have at least one row in `auth.identities` with `provider = 'email'` and `provider_id = user.id::text`. A user row without a paired identity row fails the same endpoints with the same shape.
+
+Canonical seed row shape:
+
+```sql
+insert into auth.users (id, email, encrypted_password, email_confirmed_at,
+  email_change, recovery_token, confirmation_token, email_change_token_new, ...)
+values (
+  '...', 'alice@example.com', crypt('password', gen_salt('bf')), now(),
+  '', '', '', '', ...
+);
+
+insert into auth.identities (id, user_id, provider, provider_id, identity_data, last_sign_in_at)
+values (
+  gen_random_uuid(), '<user_id>', 'email', '<user_id>',
+  jsonb_build_object('sub', '<user_id>', 'email', 'alice@example.com'),
+  now()
+);
+```
+
+Verify after any seed change with `pnpm db:reset && curl <auth-url>/auth/v1/admin/users -H 'Authorization: Bearer <service-role>'` — must return a JSON users array, not 500. The constraint is enforced at runtime by the auth server, not by Postgres — the only forcing function is the smoke check.

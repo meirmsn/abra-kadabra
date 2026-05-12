@@ -12,6 +12,8 @@ Each pattern was codified from a real lalista incident (most from PR 26, 2026-04
 - [Pattern 4: Realtime publication setup migration](#pattern-4-realtime-publication-setup-migration)
 - [Pattern 5: WebKit form-state hydration race in Playwright `mobile` tests](#pattern-5-webkit-form-state-hydration-race-in-playwright-mobile-tests)
 - [Pattern 6: Testing realtime WebSocket failures with `page.routeWebSocket`, not `page.route().fulfill(503)`](#pattern-6-testing-realtime-websocket-failures-with-pageroutewebsocket-not-pageroutefulfill503)
+- [Pattern 7: `emailRedirectTo` origin resolution + query-string survival](#pattern-7-emailredirectto-origin-resolution--query-string-survival)
+- [Pattern 8: Middleware allow-list authed-bypass carve-out for recovery flows](#pattern-8-middleware-allow-list-authed-bypass-carve-out-for-recovery-flows)
 - [Cross-references](#cross-references)
 
 ---
@@ -339,6 +341,55 @@ test('sync-error banner renders when realtime WebSocket fails', async ({
 Prefer `getByRole('alert')` + text-content match over a data-testid — keeps the test stable against small copy edits and forces the banner to be accessible to screen readers (real users with broken connectivity benefit). The text regex absorbs banner-copy variants ("Connection lost", "Sync error — reconnecting", etc.) without per-project tuning.
 
 Cited prior art: lalista PR 26 (the original 503-fulfill shape + test.skip during diagnosis); lalista PR 27 (`routeWebSocket` switch + the `subscribeToList(..., onError?)` wrapper extension).
+
+---
+
+## Pattern 7: `emailRedirectTo` origin resolution + query-string survival
+
+Two coupled rules for any `signUp` / `signInWithOtp` / `resetPasswordForEmail` call site that passes `emailRedirectTo`.
+
+**Origin resolution prefers an env var, falls back to `window.location.origin`:**
+
+```ts
+const origin = process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin;
+await supabase.auth.signUp({
+  email,
+  password,
+  options: { emailRedirectTo: `${origin}/auth/callback?invite=${token}` },
+});
+```
+
+Set `NEXT_PUBLIC_SITE_URL` on **Production** Vercel to pin the canonical URL even if the call ever runs from an unusual origin (CDN proxy, iframe). Leave it **unset on Preview** so previews self-route via `window.location.origin` — preview-to-preview testing works without a per-deploy env-var update.
+
+**Query strings on `emailRedirectTo` survive Supabase's redirect-URL allow-list, but verify empirically before relying on it.** Supabase's Auth → URL Configuration matches by path, not query — an entry for `https://<host>/auth/callback` covers `?invite=<token>`, `?reset=<id>`, etc., automatically. Pre-merge manual test: trigger a real `signUp` against the prod Supabase project with `emailRedirectTo: <site>/auth/callback?test=42`, fetch the resulting email, confirm the link in the email body still contains `?test=42`. If not, add a wildcarded entry to Auth → URL Configuration. Make this a HARD BLOCKER on the PR test plan for any feature whose mechanism depends on the query-string surviving.
+
+---
+
+## Pattern 8: Middleware allow-list authed-bypass carve-out for recovery flows
+
+Most marketing/auth-screen routes (`/sign-in`, `/sign-up`, `/forgot-password`) should bounce authed users away — visiting them mid-session is a confused state. Recovery routes (`/reset-password`, `/auth/callback`) are different: they arrive WITH a session because the route handler created one (magic-link exchange, recovery-token exchange).
+
+```ts
+// apps/web/middleware.ts
+const PUBLIC_PATHS = [
+  '/',
+  '/sign-in',
+  '/sign-up',
+  '/forgot-password',
+  '/reset-password',
+  '/auth/callback',
+];
+const AUTHED_BOUNCE_PATHS = ['/sign-in', '/sign-up', '/forgot-password'];
+// NOT in AUTHED_BOUNCE_PATHS: '/reset-password', '/auth/callback'
+
+if (session && AUTHED_BOUNCE_PATHS.includes(path)) {
+  return NextResponse.redirect(new URL('/list', req.url));
+}
+```
+
+Bouncing authed users away from `/reset-password` would break recovery — the user arrives with the session the route handler just minted and immediately gets redirected away from the password form. Same for `/auth/callback` — the exchange happens inside that handler.
+
+PWA `start_url` should point at the authed landing route (e.g. `/list`) so installed users skip the marketing screen on launch.
 
 ---
 

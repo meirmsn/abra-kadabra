@@ -1292,14 +1292,6 @@ Same playbook as Auth UX conventions above. Every project with interactive UI hi
 
 ---
 
-### PR-B: lalista CLAUDE.md gotcha audit + lift into routing system
-
-Audit lalista's ~25 CLAUDE.md gotchas. For each: classify as (a) generalizable → lift to a routed devshop guide section with a paired routing-row trigger, or (b) project-specific → leave in lalista CLAUDE.md as project-local. Validates the routing system shipped in `feature/context-aware-guideline-routing` (the routing PR; merge SHA filled in when PR-B opens) by exercising it on the canonical gotcha list it was built to absorb.
-
-[v0, follow-on, 2026-05-11]
-
----
-
 ## v1 (after v0 is validated on the first project)
 
 ### JIT DB password entry for prod migration deploys via `/ak-go-live`

@@ -14,6 +14,7 @@ Two paired conventions that govern the seam between an external surface (LLM, ed
   - [Worked example: `subscribeToList` (lalista PR 27)](#worked-example-subscribetolist-lalista-pr-27)
   - [Test-time enforcement](#test-time-enforcement)
   - [Cross-references](#cross-references)
+- [Removed-member realtime leak — thread invariant data back from the wrapper](#removed-member-realtime-leak--thread-invariant-data-back-from-the-wrapper)
 
 ## Runtime Validation at LLM / Edge-Function Boundaries
 
@@ -187,3 +188,29 @@ The consumer (`ListClient.tsx`) wires `onError` to a sync-error banner. Without 
 - `kit/docs/guide/supabase-ssr-boilerplate.md § Pattern 6` — the E2E recipe that exercises this rule (close the WS, assert the banner)
 - `.claude/skills/devshop/tests-review/SKILL.md § Wrapper API design — lifecycle events not just data` — the deterministic check
 - Lalista PR 27 (2026-04-26 → 2026-04-27) — surfaced the gap; closed both halves (wrapper signature + E2E recipe)
+
+## Removed-member realtime leak — thread invariant data back from the wrapper
+
+When a wrapper pairs a list query (REST) with a realtime subscription (WebSocket) on the same data, REST and Realtime tear down asymmetrically when membership changes. RLS on the REST side enforces "must be a member" on the next request — instant. The Realtime channel keeps emitting until the JWT refreshes — up to one JWT-refresh round-trip of leaked events to a removed member.
+
+Mitigate by threading the membership invariant back through the wrapper's return shape, so the consumer can self-heal on every realtime tick:
+
+```ts
+// Before — bare array; consumer has no way to detect membership revocation
+export async function fetchListEntries(client, householdId): Promise<Entry[]> { ... }
+
+// After — return shape carries the membership signal
+export async function fetchListEntries(client): Promise<{
+  entries: Entry[];
+  currentHouseholdId: string;
+}> {
+  const { data: hh } = await client.rpc('current_household_id');
+  if (!hh) throw new RemovedFromHouseholdError();
+  const { data: entries } = await client.from('list_entries').select('*');
+  return { entries, currentHouseholdId: hh };
+}
+```
+
+Consumers debounce-refetch on every realtime event; when the wrapper throws `RemovedFromHouseholdError`, the consumer tears down the subscription and routes the user to a "you've been removed" screen. Bounds the leak to ~1 round-trip.
+
+Don't "simplify" the wrapper back to a bare array — the membership signal is the recovery path; collapsing the shape resurrects the leak.

@@ -15,6 +15,8 @@ Layered defenses that prevent Claude from weakening its own guardrails: root-own
 - [`.claude/` Allow vs settings.json Deny](#claude-allow-vs-settingsjson-deny)
 - [Memory Write Protection](#memory-write-protection)
 - [Runtime Validation at Trust Boundaries](#runtime-validation-at-trust-boundaries)
+- [RLS-bypass write fallback ladder](#rls-bypass-write-fallback-ladder)
+- [Per-environment secret split with canonical inner name](#per-environment-secret-split-with-canonical-inner-name)
 - [Known Gaps](#known-gaps)
 
 ## Core Principle
@@ -114,6 +116,31 @@ Memory files (`.claude/memory/`, `.claude/projects/*/memory/`) are protected at 
 ## Runtime Validation at Trust Boundaries
 
 LLM-backed edge functions and third-party HTTP APIs are trust boundaries: their response shapes are not provable at compile time and can drift silently. Every Supabase / third-party edge-fn response with a hand-written shape must be parsed with Zod at the wrapper boundary (in `packages/core/src/api/<feature>.ts`) — never inside a React component or server action. Schemas live in `packages/core/src/schemas/<feature>.ts` (the template ships this directory with a placeholder README). The full pattern + worked examples are at [`wrapper-boundaries.md § Runtime Validation`](./wrapper-boundaries.md#runtime-validation-at-llm--edge-function-boundaries). This section names runtime validation as a security control to keep the cross-skill view ("auth + boundary + validation") cohesive — substance lives in `wrapper-boundaries.md`.
+
+## RLS-bypass write fallback ladder
+
+When a code path needs to write a table its caller's role can't, prefer the narrower fix in this order:
+
+1. **Table-level RLS policy** scoped to `authenticated` (or stricter) with the specific predicate the write needs — narrowest possible widening of the trust boundary.
+2. **`SECURITY DEFINER` RPC** with an explicit `auth.uid()` check inside the function body — bypasses RLS for the duration of the function only; the auth check is the gate.
+3. **Service-role escalation in an edge function** — the admin client can write ANY table; only acceptable when (1) and (2) are infeasible (e.g., the write must touch tables across multiple users and the auth check is multi-actor).
+
+Service-role is the last resort because the admin client's blast radius is "any row in any table," not "this specific operation." It also moves the security boundary from auditable SQL (RLS policy + RPC body) into application code, where review discipline and observability are weaker. Default to (1); reach for (2) when the operation needs cross-row state the policy can't express; reserve (3) for the genuinely-cross-user cases.
+
+## Per-environment secret split with canonical inner name
+
+For third-party paid APIs with per-environment billing scopes (e.g. an LLM API), split the secret on the outer surface — CI/local-dev gets one secret-store name, production gets another — and translate to a single canonical name at the consumption boundary. Two reasons:
+
+1. **Blast-radius separation.** A leaked QA key can't drain prod billing; prod rate-limit pressure from real users can't break CI.
+2. **SDK alignment without per-environment branching.** The consumer (edge function, server-side runtime) reads `process.env.<CANONICAL_NAME>` — the name the SDK expects — and the surfaces around it (workflow steps, devcontainer env, deploy workflow) translate. The function body never sees the per-environment names; no `if (env === 'prod')` branch.
+
+Concrete shape:
+
+- GH Secret `<NAME>_QA` is re-exported as `<NAME>` inside `ci.yml`'s test steps.
+- `.devcontainer/.env` carries the QA value under the `_QA` suffix (deliberately suffixed so any Claude Code instance running in the devcontainer doesn't mis-detect it as its own credential and prompt). A gitignored bridge file (e.g. `supabase/functions/.env`) re-names it to the canonical inside the local function-serve process.
+- GH Secret `<NAME>_PROD` is pushed to the production runtime's secret store as `<NAME>` automatically by the deploy workflow — never lands on a local disk.
+
+Operator setup is a checklist: create both GH Secrets; mint a separate prod-only key from the vendor's console; set the QA value in `.devcontainer/.env`; create the gitignored bridge file. First deploy after the prod secret exists auto-pushes it to the runtime.
 
 ## Known Gaps
 

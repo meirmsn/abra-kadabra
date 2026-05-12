@@ -7,6 +7,7 @@ Each pattern below was codified from a real project incident. Don't paraphrase t
 ## Contents
 
 - [Pattern 1: Tier A2 retry-budget tests use `page.clock.fastForward()`, not bumped per-test timeouts](#pattern-1-tier-a2-retry-budget-tests-use-pageclockfastforward-not-bumped-per-test-timeouts)
+- [Pattern 2: enable_confirmations flip per-test](#pattern-2-enable_confirmations-flip-per-test)
 
 ---
 
@@ -71,3 +72,32 @@ Those fake the test process's clock. Playwright tests run in two processes (test
 - `kit/TODOS.md` — `/ak-pre-ship` Gate 9 fault-injected QA pass (the runtime companion to this test pattern; together they cover the "happy-path crawl + retry-budget assertion" matrix for Tier A2 surfaces)
 - Lalista PR #49 (2026-05-07) — `add-item-banner.spec.ts` as the don't-do-this prior art (`test.setTimeout(60000)` + `toBeVisible({ timeout: 25000 })`)
 - Playwright `page.clock` docs: https://playwright.dev/docs/clock
+
+---
+
+## Pattern 2: enable_confirmations flip per-test
+
+Local Supabase dev typically runs with `auth.email.enable_confirmations = false` so sign-ups auto-confirm and the inner-loop test feedback stays fast. The trade-off: any code path that depends on the email-confirmation step (recovery flows, invite-token transport via `emailRedirectTo`, signup confirmation URL handling) never exercises end-to-end in the default config.
+
+Per-test flip pattern:
+
+```ts
+beforeAll(async () => {
+  await flipAuthConfig({ enable_confirmations: true });
+});
+afterAll(async () => {
+  await flipAuthConfig({ enable_confirmations: false });
+});
+
+test('confirmation email link carries query-string params', async () => {
+  await signUpWithRedirect({
+    emailRedirectTo: `${url}/auth/callback?invite=${token}`,
+  });
+  const link = await fetchLatestEmailLink(); // mailpit / inbucket / similar
+  expect(link).toContain(`?invite=${token}`);
+});
+```
+
+The flip is per-suite; reset in `afterAll` so the next suite running against the same stack inherits the default config. If the local config endpoint doesn't expose a runtime flip, the fallback is to edit `supabase/config.toml`'s `[auth.email]` block and restart the auth service via whatever lifecycle channel exists for the project (a relay command, a `supabase stop && supabase start`).
+
+This pattern lifts the "false-default for inner-loop speed; opt-in for the end-to-end test" trade-off out of the project's gotchas and into the testing convention. New projects inherit the toggle option; existing projects add the flip the first time they ship a feature whose mechanism depends on the email contents (not just the email being sent).
