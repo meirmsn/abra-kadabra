@@ -17,6 +17,10 @@ setup() {
   WORKFLOW_FILE="/devshop/kit/docs/guide/workflow.md"
   HELPER_FILE="/devshop/kit/scripts/lib/rewrite-pr-body-urls.sh"
   BACKFILL_SCRIPT="/devshop/kit/scripts/backfill-pr-image-urls.sh"
+  # NOTE: scripts in kit/scripts/ are tracked as 644 (init-devshop.sh handles
+  # exec); structural-invariants.bats § "wiring: all kit/scripts/*.sh tracked
+  # as 644" enforces this. Tests therefore invoke via `bash "$BACKFILL_SCRIPT"`
+  # instead of executing directly.
 }
 
 # =============================================================================
@@ -258,7 +262,7 @@ write_fixture() {
 }
 
 @test "backfill: --help prints usage and exits 0" {
-  run "$BACKFILL_SCRIPT" --help
+  run bash "$BACKFILL_SCRIPT" --help
   [ "$status" -eq 0 ]
   echo "$output" | grep -q -- '--owner'
   echo "$output" | grep -q -- '--repo'
@@ -267,19 +271,19 @@ write_fixture() {
 }
 
 @test "backfill: missing --owner exits 1" {
-  run "$BACKFILL_SCRIPT" --repo lalista
+  run bash "$BACKFILL_SCRIPT" --repo lalista
   [ "$status" -eq 1 ]
   echo "$output" | grep -q -- '--owner'
 }
 
 @test "backfill: missing --repo exits 1" {
-  run "$BACKFILL_SCRIPT" --owner meirmsn
+  run bash "$BACKFILL_SCRIPT" --owner meirmsn
   [ "$status" -eq 1 ]
   echo "$output" | grep -q -- '--repo'
 }
 
 @test "backfill: --dry-run + --accept-history-rewrite together exit 1" {
-  run "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --accept-history-rewrite
+  run bash "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --accept-history-rewrite
   [ "$status" -eq 1 ]
   echo "$output" | grep -qiE 'mutually exclusive|conflict'
 }
@@ -293,7 +297,7 @@ write_fixture() {
     '{"number":1,"headRefName":"feat-x","mergeCommit":{"oid":"abc1234"},"body":"![hero](https://github.com/o/r/raw/feat-x/h.png)","mergedAt":"2026-05-08T14:22:00Z","updatedAt":"2026-05-08T14:22:01Z"}'
 
   _FAKE_GH=1 _FAKE_GH_FIXTURE="$fixture" _FAKE_GH_CAPTURE="$capture" \
-    run "$BACKFILL_SCRIPT" --owner o --repo r --audit-dir "$audit_dir"
+    run bash "$BACKFILL_SCRIPT" --owner o --repo r --audit-dir "$audit_dir"
   [ "$status" -eq 0 ]
   # No `gh pr edit` invocation — capture file empty.
   [ ! -s "$capture" ]
@@ -313,7 +317,7 @@ write_fixture() {
     '{"number":7,"headRefName":"feat-x","mergeCommit":{"oid":"deadbeefcafe1234"},"body":"![hero](https://github.com/o/r/raw/feat-x/h.png)","mergedAt":"2026-05-08T14:22:00Z","updatedAt":"2026-05-08T14:22:01Z"}'
 
   _FAKE_GH=1 _FAKE_GH_FIXTURE="$fixture" _FAKE_GH_CAPTURE="$capture" \
-    run "$BACKFILL_SCRIPT" --owner o --repo r --accept-history-rewrite --audit-dir "$audit_dir"
+    run bash "$BACKFILL_SCRIPT" --owner o --repo r --accept-history-rewrite --audit-dir "$audit_dir"
   [ "$status" -eq 0 ]
   # Capture file recorded one gh pr edit invocation containing the rewritten body.
   grep -q 'gh pr edit 7' "$capture"
@@ -332,7 +336,7 @@ write_fixture() {
     '{"number":2,"headRefName":"","mergeCommit":{"oid":"abc"},"body":"x","mergedAt":"2026-05-08T14:22:00Z","updatedAt":"2026-05-08T14:22:01Z"}'
 
   _FAKE_GH=1 _FAKE_GH_FIXTURE="$fixture" \
-    run "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --audit-dir "$audit_dir"
+    run bash "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --audit-dir "$audit_dir"
   [ "$status" -eq 0 ]
   cat "$audit_dir"/*.jsonl | grep -q '"reason":"no-head-ref"'
 }
@@ -344,7 +348,7 @@ write_fixture() {
     '{"number":3,"headRefName":"feat-x","mergeCommit":null,"body":"x","mergedAt":"2026-05-08T14:22:00Z","updatedAt":"2026-05-08T14:22:01Z"}'
 
   _FAKE_GH=1 _FAKE_GH_FIXTURE="$fixture" \
-    run "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --audit-dir "$audit_dir"
+    run bash "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --audit-dir "$audit_dir"
   [ "$status" -eq 0 ]
   cat "$audit_dir"/*.jsonl | grep -q '"reason":"no-merge-sha"'
 }
@@ -356,7 +360,7 @@ write_fixture() {
     '{"number":4,"headRefName":"feat-x","mergeCommit":{"oid":"abc"},"body":"![](https://github.com/o/r/raw/feat-x/h.png)","mergedAt":"2026-05-08T14:22:00Z","updatedAt":"2026-05-08T14:28:01Z"}'
 
   _FAKE_GH=1 _FAKE_GH_FIXTURE="$fixture" \
-    run "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --audit-dir "$audit_dir"
+    run bash "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --audit-dir "$audit_dir"
   [ "$status" -eq 0 ]
   cat "$audit_dir"/*.jsonl | grep -q '"reason":"body-edited-post-merge"'
 }
@@ -368,7 +372,7 @@ write_fixture() {
     '{"number":5,"headRefName":"feat-x","mergeCommit":{"oid":"abc1234"},"body":"![](https://github.com/o/r/raw/feat-x/h.png)","mergedAt":"2026-05-08T14:22:00Z","updatedAt":"2026-05-08T14:26:00Z"}'
 
   _FAKE_GH=1 _FAKE_GH_FIXTURE="$fixture" \
-    run "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --audit-dir "$audit_dir"
+    run bash "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --audit-dir "$audit_dir"
   [ "$status" -eq 0 ]
   # Should produce a dry-run-would-rewrite row, NOT a body-edited-post-merge skip.
   cat "$audit_dir"/*.jsonl | grep -q '"outcome":"dry-run-would-rewrite"'
@@ -382,7 +386,7 @@ write_fixture() {
     '{"number":6,"headRefName":"feat-x","mergeCommit":{"oid":"abc"},"body":"no images here at all","mergedAt":"2026-05-08T14:22:00Z","updatedAt":"2026-05-08T14:22:01Z"}'
 
   _FAKE_GH=1 _FAKE_GH_FIXTURE="$fixture" \
-    run "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --audit-dir "$audit_dir"
+    run bash "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --audit-dir "$audit_dir"
   [ "$status" -eq 0 ]
   cat "$audit_dir"/*.jsonl | grep -q '"reason":"no-matching-urls"'
 }
@@ -399,7 +403,7 @@ write_fixture() {
     '{"number":11,"headRefName":"feat-b","mergeCommit":{"oid":"b"},"body":"![](https://github.com/o/r/raw/feat-b/h.png)","mergedAt":"2026-05-08T14:22:00Z","updatedAt":"2026-05-08T14:22:01Z"}'
 
   _FAKE_GH=1 _FAKE_GH_FIXTURE="$fixture" \
-    run "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --limit 2 --audit-dir "$audit_dir"
+    run bash "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --limit 2 --audit-dir "$audit_dir"
   [ "$status" -eq 0 ]
   local count
   count=$(wc -l < "$audit_dir"/*.jsonl | tr -d ' ')
@@ -417,7 +421,7 @@ write_fixture() {
     '{"number":22,"headRefName":"feat-may2","mergeCommit":{"oid":"c"},"body":"x","mergedAt":"2026-05-08T00:00:00Z","updatedAt":"2026-05-08T00:00:01Z"}'
 
   _FAKE_GH=1 _FAKE_GH_FIXTURE="$fixture" \
-    run "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --since 2026-05-01 --audit-dir "$audit_dir"
+    run bash "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --since 2026-05-01 --audit-dir "$audit_dir"
   [ "$status" -eq 0 ]
   ! cat "$audit_dir"/*.jsonl | grep -q '"pr":20'
   cat "$audit_dir"/*.jsonl | grep -q '"pr":21'
@@ -433,7 +437,7 @@ write_fixture() {
     '{"number":30,"headRefName":"feat-x","mergeCommit":{"oid":"deadbeefcafe1234"},"body":"![](https://github.com/o/r/raw/deadbeefcafe1234/h.png)","mergedAt":"2026-05-08T14:22:00Z","updatedAt":"2026-05-08T14:22:01Z"}'
 
   _FAKE_GH=1 _FAKE_GH_FIXTURE="$fixture" \
-    run "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --audit-dir "$audit_dir"
+    run bash "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --audit-dir "$audit_dir"
   [ "$status" -eq 0 ]
   cat "$audit_dir"/*.jsonl | grep -q '"reason":"no-matching-urls"'
 }
@@ -445,7 +449,7 @@ write_fixture() {
     '{"number":40,"headRefName":"feat-x","mergeCommit":{"oid":"abc1234"},"body":"![](https://github.com/o/r/raw/feat-x/h.png)","mergedAt":"2026-05-08T14:22:00Z","updatedAt":"2026-05-08T14:22:01Z"}'
 
   _FAKE_GH=1 _FAKE_GH_FIXTURE="$fixture" \
-    run "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --audit-dir "$audit_dir"
+    run bash "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --audit-dir "$audit_dir"
   [ "$status" -eq 0 ]
   # Each line is valid JSON; required keys present.
   while IFS= read -r line; do
