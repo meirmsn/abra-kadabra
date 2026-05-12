@@ -1075,7 +1075,7 @@ After the devshop side lands on a feature branch (NOT ff-merged yet — per the 
 - Lalista PR 18 D8 (CI URL/anon rotation to local stack) — already shipped, this entry generalizes the pattern to template
 - Lalista PR 18 D22 (`assertNotProdUrlInTestEnv` URL guard) — already shipped, this entry generalizes to template
 - `kit/docs/guide/conventions.md` § Deploy Boundaries — context for the parallel-deploy model
-- `kit/ROADMAP.md` § "Pre-commit test-presence hook (project repo)" below — sibling project-repo convention propagation
+- The pre-commit test-presence hook for project repos (sibling convention propagation pattern) shipped 2026-04-28 as `kit/scripts/commit-hooks/check-tests-coverage-project.sh`; see `kit/docs/guide/hooks.md` for the current contract
 
 **Cost/risk**:
 
