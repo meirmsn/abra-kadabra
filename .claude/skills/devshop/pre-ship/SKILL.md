@@ -5,8 +5,9 @@ description: |
   Quality gates before shipping. Pauses on findings, auto-advances on clean passes.
   After each code-changing gate, verifies tests still pass (stuck protocol if not).
   Does NOT ship or create a PR — use /ak-build for the full pipeline, or /ship after this.
-  Runs: preflight → docs → metrics → responsive → /simplify → /ak-check-docs-and-tests → /review
-  → /cso → /design-review → /qa → /benchmark → convention check → capture hero shots.
+  Runs: preflight → docs → metrics → fast-job-local → changed-tests-local → responsive →
+  /simplify → /ak-check-docs-and-tests → /review → /cso → /design-review → /qa → /benchmark →
+  /preflight (final) → convention check → capture hero shots.
   Preflight blocks if required tooling (e.g. Chromium for browser gates) is missing,
   so gates can never silently turn a missing-tool into a cheerful "skipped", and
   auto-creates Playwright Chromium symlinks for the gstack browse daemon.
@@ -197,23 +198,25 @@ devshop-native check or a devshop-authored skill like `/ak-check-docs-and-tests`
 prose elsewhere in the devshop renders the same split inline as `docs-and-tests-review (ak)`
 vs `review` so readers can tell at a glance which gates come from where.
 
-| #   | Name                    | Owner | Title                                            | Scope                                                                                                                                           |
-| --- | ----------------------- | ----- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | `docs-check`            | ak    | Devshop docs diff review                         | when `kit/` or reference docs touched                                                                                                           |
-| 2   | `metrics-check`         | ak    | Metrics coverage                                 | user-facing code PRs                                                                                                                            |
-| 2b  | `rls-coverage`          | ak    | RLS policy coverage for client writes            | when `supabase/migrations/**` or client API touched                                                                                             |
-| 2c  | `slow-job-lifecycle`    | ak    | Slow-job CI enabled past Phase 1c/1g             | when `*.integration.test.ts` or `apps/web/e2e/*.spec.ts` files exist                                                                            |
-| 2d  | `changed-tests-local`   | ak    | Cheap local test gates (parse + changed + smoke) | when diff includes `apps/**`, `packages/{core,ui}/**`, `*.integration.test.ts`, `apps/*/e2e/*.spec.ts`, or `supabase/{migrations,functions}/**` |
-| 3   | `responsive-theme`      | ak    | Responsive + theme capture                       | UI PRs only                                                                                                                                     |
-| 4   | `simplify`              | —     | `/simplify` pass                                 | always                                                                                                                                          |
-| 5   | `docs-and-tests-review` | ak    | `/ak-check-docs-and-tests`                       | always                                                                                                                                          |
-| 6   | `review`                | —     | `/review` (+ Greptile triage)                    | always                                                                                                                                          |
-| 7   | `cso`                   | —     | `/cso` (security)                                | always                                                                                                                                          |
-| 8   | `design-review`         | —     | `/design-review`                                 | UI PRs only                                                                                                                                     |
-| 8b  | `design-conformance`    | ak    | `/ak-design-conformance`                         | runs regardless of UI scope                                                                                                                     |
-| 9   | `qa`                    | —     | `/qa` (functional walk)                          | always                                                                                                                                          |
-| 10  | `benchmark`             | —     | `/benchmark`                                     | UI PRs only                                                                                                                                     |
-| 11  | `convention`            | ak    | Convention headers + hook-coverage               | always                                                                                                                                          |
+| #   | Name                    | Owner | Title                                             | Scope                                                                                                                                           |
+| --- | ----------------------- | ----- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `docs-check`            | ak    | Devshop docs diff review                          | when `kit/` or reference docs touched                                                                                                           |
+| 2   | `metrics-check`         | ak    | Metrics coverage                                  | user-facing code PRs                                                                                                                            |
+| 2b  | `rls-coverage`          | ak    | RLS policy coverage for client writes             | when `supabase/migrations/**` or client API touched                                                                                             |
+| 2c  | `slow-job-lifecycle`    | ak    | Slow-job CI enabled past Phase 1c/1g              | when `*.integration.test.ts` or `apps/web/e2e/*.spec.ts` files exist                                                                            |
+| 2d  | `fast-job-local`        | ak    | CI fast-job equivalent (lint + tc + unit + build) | when `turbo.json` exists                                                                                                                        |
+| 2e  | `changed-tests-local`   | ak    | Cheap local test gates (parse + changed + smoke)  | when diff includes `apps/**`, `packages/{core,ui}/**`, `*.integration.test.ts`, `apps/*/e2e/*.spec.ts`, or `supabase/{migrations,functions}/**` |
+| 3   | `responsive-theme`      | ak    | Responsive + theme capture                        | UI PRs only                                                                                                                                     |
+| 4   | `simplify`              | —     | `/simplify` pass                                  | always                                                                                                                                          |
+| 5   | `docs-and-tests-review` | ak    | `/ak-check-docs-and-tests`                        | always                                                                                                                                          |
+| 6   | `review`                | —     | `/review` (+ Greptile triage)                     | always                                                                                                                                          |
+| 7   | `cso`                   | —     | `/cso` (security)                                 | always                                                                                                                                          |
+| 8   | `design-review`         | —     | `/design-review`                                  | UI PRs only                                                                                                                                     |
+| 8b  | `design-conformance`    | ak    | `/ak-design-conformance`                          | runs regardless of UI scope                                                                                                                     |
+| 9   | `qa`                    | —     | `/qa` (functional walk)                           | always                                                                                                                                          |
+| 10  | `benchmark`             | —     | `/benchmark`                                      | UI PRs only                                                                                                                                     |
+| 10b | `preflight-final`       | ak    | `/preflight` re-run (final attestation)           | when Gate 2d ran (same scope predicate)                                                                                                         |
+| 11  | `convention`            | ak    | Convention headers + hook-coverage                | always                                                                                                                                          |
 
 ## Dismissal Log (every gate, mandatory)
 
@@ -349,6 +352,41 @@ Outcomes:
 - `n/a (no integration tests or E2E specs — Phase 1c/1g threshold not crossed)` — pre-Phase-1c projects.
 
 **⚠ Branch-protection check is best-effort.** When `gh` CLI auth is missing or the repo isn't on GitHub yet, the protection check silently degrades (no finding emitted for that sub-check). Operators on a fresh devcontainer should re-run the gate after `gh auth login` to surface a real protection-state finding if any.
+
+## Gate fast-job-local (ak): CI fast-job equivalent (lint + typecheck + unit + build)
+
+Runs the project's CI fast-job locally so deterministic failures (a type error, a broken unit test, a lint regression) surface in the iterate-fix loop instead of after a CI round-trip. Pairs with `changed-tests-local` (next gate) — together they are the two layers of the standalone `/preflight` skill.
+
+Position rationale: runs before `changed-tests-local` because lint/typecheck/unit are the cheapest deterministic checks; if they're red, no point spending another 5 min running Playwright. Runs before all LLM-mediated gates (`/simplify` onward) so 5 min of cheap fail-fast checks don't get hidden behind 25 min of ceremony.
+
+- Scope: runs when `turbo.json` exists at the project root. Otherwise `n/a (no turbo.json — fast-job script assumes a turbo monorepo)`. Stack assumption (pnpm + turbo) matches the rest of the pre-ship infra.
+- Out of scope: integration tests, E2E specs, dev-server lifecycle, or the slow-job matrix. Deferred to `changed-tests-local` (Layer 2) and CI.
+
+Invocation:
+
+```bash
+bash /devshop/kit/scripts/preship/fast-job-local.sh "$(git rev-parse --show-toplevel)"
+```
+
+The gate runs four turbo tasks in sequence, each wallclock-bounded via `timeout --kill-after=10s`:
+
+1. **lint** (cap: 120s) — `pnpm turbo run lint`
+2. **typecheck** (cap: 120s) — `pnpm turbo run typecheck`
+3. **test:unit** (cap: 180s) — `pnpm turbo run test:unit`
+4. **build** (cap: 300s) — `pnpm turbo run build`
+
+Combined floor cap: ~12 min wallclock total. In practice turbo's cache + parallelism shrinks this to ~1–3 min on warm caches.
+
+Outcomes:
+
+- `pass` — every step ran cleanly within budget.
+- `findings (N)` — N steps surfaced failures. Each step's failure appears as a bullet with the canonical re-run command (`pnpm turbo run <task>`).
+- `findings (N) [budget exceeded]` — at least one step hit its wallclock cap; CI fast-job will exercise it.
+- `n/a (no turbo.json …)` — non-turbo project; pre-Phase-1 stub repos.
+- `pass (skipped — adversarially reviewed)` — `git config devshop.fastJobSkipReason "<reason>"` is set and adversarial review (check-type `fastJobSkipReason`, Sonnet-routed) accepted the reason.
+- `findings (1) pending` — bypass flag set but adversarial review FAILed the reason.
+
+**Bypass:** `git config devshop.fastJobSkipReason "<why these are OK to skip locally>"` short-circuits the gate after adversarial review. Default REJECT — symmetric with `changed-tests-local`'s `devshop.localTestSkipReason`.
 
 ## Gate changed-tests-local (ak): Cheap local test gates (parse + changed + smoke)
 
@@ -744,6 +782,31 @@ Phase 6's final sweep (Fix D) cross-checks these artifacts against any Gate-9-re
 
 Invoke `/benchmark` via Skill tool.
 Performance regression check (Core Web Vitals + load time). Report only.
+
+## Gate preflight-final (ak): /preflight re-run as end-of-chain attestation
+
+Runs `/preflight` (= `fast-job-local` Gate 2d + `changed-tests-local` Gate 2e) one more time, after all code-changing gates (`/simplify`, `/review`, `/cso`, `/design-review`, `/qa`) have finished editing.
+
+**Why a second run is needed.** Each code-changing gate already self-verifies via the stuck protocol (`pnpm turbo run test:unit` after the gate's edits — see "Stuck protocol" below). That covers unit-test breakage from the gate's own changes. What it doesn't cover:
+
+- **Integration / E2E regressions.** Stuck-protocol unit re-checks don't run integration or Playwright specs; a `/design-review` tweak that breaks an E2E spec wouldn't surface until CI's slow-job.
+- **Cross-gate interaction breakage.** `/simplify` change A may individually pass; `/design-review` change B may individually pass; A+B together may break a test neither gate verified.
+
+The end-of-chain `/preflight` closes both gaps with one ~5–10 min run against the final composed state.
+
+- Scope: runs when Gate 2d (`fast-job-local`) ran — same predicate (`turbo.json` exists). Otherwise `n/a`.
+- Out of scope: introducing new findings unrelated to test status (covered by earlier gates); replacing CI's slow-job.
+
+Invocation: invoke `/preflight` via the Skill tool. The skill emits an aggregated outcome across both underlying scripts and a combined `## Dismissals` body.
+
+Outcomes:
+
+- `pass` — final-state attestation succeeded.
+- `findings (N)` — N findings; pipeline pauses. Operator decides whether to fix-in-place (then re-run /preflight) or revert the offending code-changing-gate commit.
+- `findings (N) [budget exceeded]` — deferred to CI; emits the same triage line as Gate 2e.
+- `n/a` — Gate 2d was `n/a`; this gate is symmetric.
+
+**No bypass at this gate.** The earlier `fast-job-local` and `changed-tests-local` gates accept `devshop.fastJobSkipReason` / `devshop.localTestSkipReason` for the front-of-chain runs; the final attestation is non-skippable because it's the last deterministic safety net before convention check + hero shots. If you must bypass, do so at the earlier gates — both bypasses also suppress this gate's re-run (Layer 1 or Layer 2 skipped → /preflight reports `pass (skipped — adversarially reviewed)` for the matching layer here).
 
 ## Gate 11: Convention check
 

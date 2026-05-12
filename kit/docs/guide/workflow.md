@@ -75,13 +75,15 @@ The end-to-end devshop pipeline, from rough notes to production. Six steps wrap 
 │  └──────────────────────────────────────────────────────────────────┘   │
 │                    │                                                    │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │ Phase 3 · /ak-pre-ship  (15 gates, re-run tests after each)      │   │
+│  │ Phase 3 · /ak-pre-ship  (17 gates, re-run tests after each)      │   │
 │  │   gate naming: (ak) = devshop-native; bare = wraps gstack skill  │   │
 │  │   1.  docs-check (ak)                                            │   │
 │  │   2.  metrics-check (ak)                                         │   │
 │  │   2b. rls-coverage (ak)         (migrations + client API)        │   │
 │  │   2c. slow-job-lifecycle (ak)   (integration/E2E threshold)      │   │
-│  │   2d. changed-tests-local (ak)  (cheap local floor: parse +      │   │
+│  │   2d. fast-job-local (ak)       (Layer 1 of /preflight: lint +   │   │
+│  │                                  typecheck + test:unit + build)  │   │
+│  │   2e. changed-tests-local (ak)  (Layer 2 of /preflight: parse +  │   │
 │  │                                  changed E2E + smoke set)        │   │
 │  │   3.  responsive-theme (ak)     (UI)                             │   │
 │  │   4.  simplify                  ──▶ test:unit                   │   │
@@ -92,6 +94,8 @@ The end-to-end devshop pipeline, from rough notes to production. Six steps wrap 
 │  │   8b. design-conformance (ak)   (DESIGN.md contract)             │   │
 │  │   9.  qa                        (own fix loop)                   │   │
 │  │   10. benchmark                 (UI)                             │   │
+│  │   10b. preflight-final (ak)     (/preflight re-run: end-of-chain │   │
+│  │                                  attestation across all gates)   │   │
 │  │   11. convention (ak)                                            │   │
 │  └──────────────────────────────────────────────────────────────────┘   │
 │                    │                                                    │
@@ -236,13 +240,16 @@ low-risk diffs uses `git config devshop.requireHealthyLocalStack never`.
 
 **Phase 2: `/ak-implement`** — reads spec, decomposes into tasks, implements with tests. Confirms active branch against `PLAN.md § Active`. Stuck protocol: try fix → `/investigate` → ask user. Logs judgment calls in `specs/<name>/tasks.md` § Decisions.
 
-**Phase 3: `/ak-pre-ship`** — quality gates only (no shipping). A Phase 0 preflight runs first: verifies required tooling (Chromium for browser gates) and aborts the whole pre-ship with a `blocked` status if tooling is missing, so gates can't silently turn a missing tool into a cheerful "skipped". After preflight passes, 15 gates run in canonical order. Gate naming: `(ak)` marks devshop-native gates (either a devshop-owned check or a devshop-authored skill like `/ak-tests-review`); bare names wrap gstack skills invoked verbatim. The canonical source of truth for gate ordering + scope is `pre-ship/SKILL.md § Gates (canonical order + named IDs)`.
+**Phase 3: `/ak-pre-ship`** — quality gates only (no shipping). A Phase 0 preflight runs first: verifies required tooling (Chromium for browser gates) and aborts the whole pre-ship with a `blocked` status if tooling is missing, so gates can't silently turn a missing tool into a cheerful "skipped". After preflight passes, 17 gates run in canonical order. Gate naming: `(ak)` marks devshop-native gates (either a devshop-owned check or a devshop-authored skill like `/ak-tests-review`); bare names wrap gstack skills invoked verbatim. The canonical source of truth for gate ordering + scope is `pre-ship/SKILL.md § Gates (canonical order + named IDs)`.
+
+Gates 2d + 2e together are equivalent to the standalone `/preflight` skill — they form the front-of-chain fast-fail floor (lint/typecheck/unit/build + targeted integration/E2E) so 5 min of deterministic checks don't get hidden behind 25 min of LLM ceremony. Gate 10b is the same `/preflight` re-run at end-of-chain, catching cross-gate interaction breakage that per-gate `test:unit` checkpoints miss (each code-changing gate self-verifies its own edits via unit tests, but integration/E2E regressions and `/simplify`+`/review`+`/cso`+`/design-review`+`/qa` composition breakage only surface in the final attestation).
 
 1. `docs-check` (ak)
 2. `metrics-check` (ak)
    2b. `rls-coverage` (ak) — when `supabase/migrations/**` or client API touched; mechanical check that every RLS-enabled table written by client code has a matching `CREATE POLICY` for the operation in use (catches the silent-zero-row class lalista PR 5 hit)
    2c. `slow-job-lifecycle` (ak) — when `*.integration.test.ts` or `apps/web/e2e/*.spec.ts` files exist; verifies the slow-job CI is uncommented, has the right `if:` predicate + retry pattern, and that branch protection includes the `slow` context
-   2d. `changed-tests-local` (ak) — when diff includes `apps/**`, `packages/{core,ui}/**`, `*.integration.test.ts`, `apps/*/e2e/*.spec.ts`, or `supabase/{migrations,functions}/**`; cheap local checks: Playwright `--list` parse-check, changed E2E + integration specs (bounded wallclock), convention-based smoke set (`*-qa-walk.spec.ts`)
+   2d. `fast-job-local` (ak) — when `turbo.json` exists; runs `pnpm turbo run lint typecheck test:unit build` with per-step wallclock budgets (Layer 1 of `/preflight`). Mirrors CI's fast-job verbatim so deterministic failures (type errors, broken unit tests, lint regressions) surface here in ~1–3 min instead of after a CI round-trip
+   2e. `changed-tests-local` (ak) — when diff includes `apps/**`, `packages/{core,ui}/**`, `*.integration.test.ts`, `apps/*/e2e/*.spec.ts`, or `supabase/{migrations,functions}/**`; cheap local checks: Playwright `--list` parse-check, changed E2E + integration specs (bounded wallclock), convention-based smoke set (`*-qa-walk.spec.ts`) (Layer 2 of `/preflight`)
 3. `responsive-theme` (ak) — UI PRs only; captures 4-combo evidence screenshots
 4. `simplify` → test:unit checkpoint
 5. `test-review` (ak)
@@ -252,6 +259,7 @@ low-risk diffs uses `git config devshop.requireHealthyLocalStack never`.
    8b. `design-conformance` (ak) — DESIGN.md contract check (runs regardless of UI scope)
 9. `qa` (has own fix loop)
 10. `benchmark` — UI PRs only
+    10b. `preflight-final` (ak) — when Gate 2d ran; re-invokes `/preflight` against the post-ceremony composed state. Catches integration/E2E regressions and cross-gate interaction breakage the per-gate `test:unit` checkpoints would miss
 11. `convention` (ak)
 
 After all gates pass, hero screenshots are captured to `specs/<name>/hero/` (committed) for the PR audit comment — see `FAQ.md § How are specs and pipeline artifacts organized?` for the hero vs evidence split.
@@ -438,7 +446,8 @@ The skill files `.claude/skills/devshop/{new-project,tests-review,implement}/SKI
 | `/ak-go-live`              | After PR review — "land it"                                | Autonomous deploy: merge → deploy → canary → reflect → notify.                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `/ak-spec`                 | Standalone or inside /ak-build                             | Converts gstack plan to implementation-ready spec + METRICS.md                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `/ak-implement`            | Standalone or inside /ak-build                             | Implements tasks with tests, stuck protocol, decisions log                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `/ak-pre-ship`             | Standalone or inside /ak-build                             | Quality gates only (15 gates incl. rls-coverage, slow-job-lifecycle, changed-tests-local, design-conformance). Does not ship.                                                                                                                                                                                                                                                                                                                                                                               |
+| `/ak-pre-ship`             | Standalone or inside /ak-build                             | Quality gates only (17 gates incl. rls-coverage, slow-job-lifecycle, fast-job-local, changed-tests-local, design-conformance, preflight-final). Does not ship.                                                                                                                                                                                                                                                                                                                                              |
+| `/preflight`               | Iterate-fix loop, between commits, before `/ak-pre-ship`   | Cheap deterministic test gate (~5–10 min): Layer 1 = lint + typecheck + test:unit + build via turbo; Layer 2 = parse-check + changed E2E + changed integration + qa-walk smoke. Bundles `/ak-pre-ship` Gates 2d + 2e for standalone use; the same two scripts are re-invoked as Gate 10b (`preflight-final`) at end-of-chain.                                                                                                                                                                               |
 | `/ak-design-conformance`   | Inside /ak-pre-ship Gate design-conformance                | Extracts normative claims from DESIGN.md, verifies each against implementation. Complements /design-review (different axes).                                                                                                                                                                                                                                                                                                                                                                                |
 | `/ak-check-docs-and-tests` | Inside /ak-pre-ship Gate 5 (and PR-B: /ak-build Phase 5.8) | Audit-time docs + tests review orchestrator. Computes commit range from latest `<!-- audited-at: SHA -->` in `specs/<feature>/review.md`, invokes the two sub-skills sequentially, appends a `## Audit N` section. Idempotent on unchanged HEAD.                                                                                                                                                                                                                                                            |
 | `/ak-docs-review`          | Inside /ak-check-docs-and-tests                            | Sub-skill: coverage + adequacy + cross-doc coherence + bypass-trailer audit of docs in a commit range. Repo-aware (devshop self-mode vs project mode). Replaces the per-commit `docsReviewed` adversarial check (removed in PR-C of the audit-time migration); the audit-time prompt is a four-section frame adapted from the historical per-commit version.                                                                                                                                                |
