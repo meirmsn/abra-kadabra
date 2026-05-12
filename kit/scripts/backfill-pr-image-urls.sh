@@ -49,6 +49,13 @@ Optional:
   --since <YYYY-MM-DD>         Only consider PRs merged on or after this date.
   --audit-dir <path>           Override audit-log dir.
                                Default: ${GSTACK_HOME:-$HOME/.gstack}/backfill-pr-image-urls/
+  --skip-edited                Skip PRs whose body was edited >5min after merge
+                               (conservative — assumes the operator may have
+                               manually fixed URLs). Default OFF: post-merge
+                               edits are typically pipeline auto-edits (CI
+                               checkbox marks, audit comments) that don't
+                               touch image URLs, so suppressing rewrites on
+                               that signal mis-skips real targets.
   --help, -h                   Print this message and exit.
 
 Exit codes:
@@ -66,6 +73,7 @@ ACCEPT_HISTORY_REWRITE=""
 LIMIT="100"
 SINCE=""
 AUDIT_DIR=""
+SKIP_EDITED=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -83,6 +91,8 @@ while [ $# -gt 0 ]; do
       SINCE="${2:-}"; shift 2 ;;
     --audit-dir)
       AUDIT_DIR="${2:-}"; shift 2 ;;
+    --skip-edited)
+      SKIP_EDITED="1"; shift ;;
     --help|-h)
       usage; exit 0 ;;
     *)
@@ -287,18 +297,15 @@ echo "$PRS_JSON" | jq -c '.[]' | while IFS= read -r pr_json; do
     continue
   fi
 
-  if post_merge_edit "$MERGED_AT" "$UPDATED_AT"; then
-    emit_audit_row "$PR_NUMBER" "$HEAD_REF" "$MERGE_SHA" "$MERGED_AT" "$UPDATED_AT" 0 0 "skip" "body-edited-post-merge"
-    echo "  PR #$PR_NUMBER: skip (body-edited-post-merge)" >&2
-    continue
-  fi
-
   # Materialize the body to a tmpfile, run the helper.
   BODY_IN=$(mktemp)
   BODY_OUT=$(mktemp)
   printf '%s' "$BODY" > "$BODY_IN"
 
-  # Count matching URLs to decide between rewrote / no-matching-urls.
+  # Count matching URLs first — the post-merge-edit conservatism only
+  # protects against clobbering URLs the operator may have already fixed
+  # by hand. With zero matches there is nothing to clobber, so the edit
+  # timing is irrelevant; report the truthful "no-matching-urls" reason.
   HEAD_REF_ESC=$(printf '%s' "$HEAD_REF" | perl -pe 's/([\/.+*?\[\]{}()^\$|\\])/\\$1/g')
   OWNER_REPO_ESC=$(printf '%s' "$OWNER/$REPO" | perl -pe 's/([\/.+*?\[\]{}()^\$|\\])/\\$1/g')
   PATTERN="https://github\\.com/${OWNER_REPO_ESC}/raw/${HEAD_REF_ESC}/"
@@ -310,6 +317,13 @@ echo "$PRS_JSON" | jq -c '.[]' | while IFS= read -r pr_json; do
   if [ "$N" -eq 0 ]; then
     emit_audit_row "$PR_NUMBER" "$HEAD_REF" "$MERGE_SHA" "$MERGED_AT" "$UPDATED_AT" 0 0 "skip" "no-matching-urls"
     echo "  PR #$PR_NUMBER: skip (no-matching-urls)" >&2
+    rm -f "$BODY_IN" "$BODY_OUT"
+    continue
+  fi
+
+  if [ -n "$SKIP_EDITED" ] && post_merge_edit "$MERGED_AT" "$UPDATED_AT"; then
+    emit_audit_row "$PR_NUMBER" "$HEAD_REF" "$MERGE_SHA" "$MERGED_AT" "$UPDATED_AT" "$N" 0 "skip" "body-edited-post-merge"
+    echo "  PR #$PR_NUMBER: skip (body-edited-post-merge, $N URL(s) at risk)" >&2
     rm -f "$BODY_IN" "$BODY_OUT"
     continue
   fi

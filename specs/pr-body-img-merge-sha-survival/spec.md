@@ -80,9 +80,11 @@ re-asking.
 
 ### D7c: Safety flags on the script
 
-**Decision:** Per ROADMAP § Track B: `--dry-run` (default), `--accept-history-rewrite` (required to mutate), `--owner` / `--repo`, `--limit N`, `--since <date>`. JSONL audit log per-run. Skip PRs where `headRefName` is empty. Skip PRs whose body was edited post-merge (heuristic: `updatedAt > mergedAt + 5min`).
+**Decision:** Per ROADMAP § Track B: `--dry-run` (default), `--accept-history-rewrite` (required to mutate), `--owner` / `--repo`, `--limit N`, `--since <date>`. JSONL audit log per-run. Skip PRs where `headRefName` is empty. **Post-merge-edit conservatism is opt-in via `--skip-edited`, NOT default.** When enabled, skips PRs where `updatedAt > mergedAt + 5min`.
 
-**Rationale:** ROADMAP § Track B § Safety notes; explicit `--accept-history-rewrite` forces operator acknowledgement; post-merge-edit heuristic avoids clobbering manual fixes the operator already applied.
+**Rationale:** ROADMAP § Track B § Safety notes; explicit `--accept-history-rewrite` forces operator acknowledgement.
+
+**Polish update (Phase 5.5 lalista backfill, 2026-05-11)**: D7c originally had post-merge-edit conservatism on by default. The lalista backfill surfaced the actual failure mode — `/ak-build` Phase 5.3 routinely edits PR bodies post-merge to mark CI checkboxes (and Phase 6 posts audit comments, etc.), which the 5min heuristic mis-reads as "operator manually fixed something." Result: PRs #60 / #61 (with 3 and 7 hero shot URLs respectively) were silently skipped on the conservative run, and only got rewritten when the heuristic was flipped to opt-in. The asymmetry is severe: false skips are concretely happening on every UI-touching PR that passes through the pipeline; false rewrites are essentially hypothetical (the script's idempotence + the fact that any prior URL-fix would itself eliminate `/raw/<branch>/` matches means a re-rewrite is at worst a no-op). New default: rewrite when `/raw/<branch>/` matches exist, period. Operators who want the conservatism (e.g., for repos where they routinely hand-edit post-merge URL fixes to non-merge-SHA refs) can opt in with `--skip-edited`. Post-polish run on lalista: 9 PRs / 45 URLs total rewritten across both runs (3 PRs / 11 URLs from the conservative pass + 6 PRs / 34 URLs from the aggressive default that the original D7c would have skipped).
 
 ### D7d: BATS coverage for Track B
 

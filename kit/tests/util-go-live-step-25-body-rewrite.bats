@@ -353,26 +353,45 @@ write_fixture() {
   cat "$audit_dir"/*.jsonl | grep -q '"reason":"no-merge-sha"'
 }
 
-@test "backfill: skips PR edited >5min after merge, audit reason=body-edited-post-merge" {
+@test "backfill: skips PR edited >5min after merge ONLY with --skip-edited opt-in" {
+  # --skip-edited mode: PR was edited post-merge → skip with conservative reason.
   local fixture="$BATS_TEST_TMPDIR/fixture.json"
   local audit_dir="$BATS_TEST_TMPDIR/audit"
   write_fixture "$fixture" \
     '{"number":4,"headRefName":"feat-x","mergeCommit":{"oid":"abc"},"body":"![](https://github.com/o/r/raw/feat-x/h.png)","mergedAt":"2026-05-08T14:22:00Z","updatedAt":"2026-05-08T14:28:01Z"}'
 
   _FAKE_GH=1 _FAKE_GH_FIXTURE="$fixture" \
-    run bash "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --audit-dir "$audit_dir"
+    run bash "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --skip-edited --audit-dir "$audit_dir"
   [ "$status" -eq 0 ]
   cat "$audit_dir"/*.jsonl | grep -q '"reason":"body-edited-post-merge"'
 }
 
-@test "backfill: does NOT skip PR edited within 5min grace" {
+@test "backfill: WITHOUT --skip-edited, post-merge-edited PR is rewritten when matches exist" {
+  # Default (aggressive) mode: post-merge edit is not a skip signal. Codified
+  # after lalista backfill mis-suppressed PRs #60 / #61 — pipeline auto-edits
+  # (Phase 5.3 CI checkbox marks, audit comments) trigger the 5min heuristic
+  # but never touch image URLs, so the conservatism mis-targets the actual
+  # rewrites it was supposed to protect.
+  local fixture="$BATS_TEST_TMPDIR/fixture.json"
+  local audit_dir="$BATS_TEST_TMPDIR/audit"
+  write_fixture "$fixture" \
+    '{"number":40,"headRefName":"feat-x","mergeCommit":{"oid":"abc"},"body":"![](https://github.com/o/r/raw/feat-x/h.png)","mergedAt":"2026-05-08T14:22:00Z","updatedAt":"2026-05-08T15:00:00Z"}'
+
+  _FAKE_GH=1 _FAKE_GH_FIXTURE="$fixture" \
+    run bash "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --audit-dir "$audit_dir"
+  [ "$status" -eq 0 ]
+  cat "$audit_dir"/*.jsonl | grep -q '"outcome":"dry-run-would-rewrite"'
+  ! cat "$audit_dir"/*.jsonl | grep -q '"reason":"body-edited-post-merge"'
+}
+
+@test "backfill: does NOT skip PR edited within 5min grace, even with --skip-edited" {
   local fixture="$BATS_TEST_TMPDIR/fixture.json"
   local audit_dir="$BATS_TEST_TMPDIR/audit"
   write_fixture "$fixture" \
     '{"number":5,"headRefName":"feat-x","mergeCommit":{"oid":"abc1234"},"body":"![](https://github.com/o/r/raw/feat-x/h.png)","mergedAt":"2026-05-08T14:22:00Z","updatedAt":"2026-05-08T14:26:00Z"}'
 
   _FAKE_GH=1 _FAKE_GH_FIXTURE="$fixture" \
-    run bash "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --audit-dir "$audit_dir"
+    run bash "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --skip-edited --audit-dir "$audit_dir"
   [ "$status" -eq 0 ]
   # Should produce a dry-run-would-rewrite row, NOT a body-edited-post-merge skip.
   cat "$audit_dir"/*.jsonl | grep -q '"outcome":"dry-run-would-rewrite"'
@@ -389,6 +408,23 @@ write_fixture() {
     run bash "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --audit-dir "$audit_dir"
   [ "$status" -eq 0 ]
   cat "$audit_dir"/*.jsonl | grep -q '"reason":"no-matching-urls"'
+}
+
+@test "backfill: --skip-edited + no matching URLs → no-matching-urls (precedence)" {
+  # Skip precedence even in conservative mode: count matches first. The
+  # post-merge-edit conservatism only protects against clobbering URLs the
+  # operator may have already fixed by hand; with zero matches there's
+  # nothing to clobber, so the truthful label is no-matching-urls.
+  local fixture="$BATS_TEST_TMPDIR/fixture.json"
+  local audit_dir="$BATS_TEST_TMPDIR/audit"
+  write_fixture "$fixture" \
+    '{"number":7,"headRefName":"feat-x","mergeCommit":{"oid":"abc"},"body":"text-only PR description","mergedAt":"2026-05-08T14:22:00Z","updatedAt":"2026-05-08T14:28:01Z"}'
+
+  _FAKE_GH=1 _FAKE_GH_FIXTURE="$fixture" \
+    run bash "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --skip-edited --audit-dir "$audit_dir"
+  [ "$status" -eq 0 ]
+  cat "$audit_dir"/*.jsonl | grep -q '"reason":"no-matching-urls"'
+  ! cat "$audit_dir"/*.jsonl | grep -q '"reason":"body-edited-post-merge"'
 }
 
 @test "backfill: --limit caps PR scan" {
