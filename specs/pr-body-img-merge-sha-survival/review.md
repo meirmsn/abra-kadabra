@@ -294,3 +294,38 @@ Outcome: **pass**.
 - `dismissals_llm_reviewed`: **0** (DEVSHOP_SKIP_ADVERSARIAL not set; this is a fully autonomous run with operator-equivalent reasoning per the no-clarifying-questions directive)
 
 **All gates green. Ready to ship.**
+
+---
+
+## Audit 2: manual (2026-05-11)
+
+<!-- audited-at: 4b805ae7a288439da6ebf7f9f81845da3c520e3e -->
+<!-- range: da0c21d600bcc24800a28bdd637bedc40f1d6bf0..4b805ae7a288439da6ebf7f9f81845da3c520e3e -->
+
+findings: high=0 medium=0 low=4
+
+Triggered by `/ak-merge-devshop` Phase 1 over the post-Audit-1 polish range
+(`cafe74f` --skip-edited flip, `a3a77cd` --bodies-only + comments coverage,
+`3905203` BUILD-LOG record, `68155f3` Audit 1 record, `4b805ae` BUILD-LOG
+post-polish refresh per docs-review medium → resolved to low). Two-pass:
+the first pass found a medium on BUILD-LOG entry staleness; operator
+fixed via `4b805ae` and re-invoked. This second pass at `4b805ae` is
+clean except for one low-priority off-by-one on the entry's commit count
+(documents 11 atomic, actual is 12 including this BUILD-LOG fix; prior
+entries follow the same at-write-time convention so this is consistent
+with house style).
+
+### Docs findings
+
+- [low] kit/scripts/backfill-pr-image-urls.sh:0 — Section A coverage: workflow.md is staged for the script change. Pass.
+- [low] BUILD-LOG.md:14 — Section B adequacy: entry cites `Commits: 11 atomic` but `4b805ae` makes it 12; off-by-one numerical drift inherent to writing a stat-bearing entry inside the same range it counts. Every technical claim grep-resolves correctly (BATS 785, both new flags in `--help`, `not-our-comment` in script, lalista 17 surfaces / 73 URLs match audit logs). Optional reword: `≈12 atomic commits (+ audit bookkeeping)` or drop the explicit count.
+- [low] kit/docs/guide/workflow.md:288 — Section C coherence: workflow.md, BUILD-LOG.md, and spec D7c polish notes are now mutually consistent after the BUILD-LOG refresh.
+- [low] (none) — Section D: zero `Docs-Coverage-Bypass:` trailers in range.
+
+### Tests findings
+
+- (none)
+
+### Bypass trailer audit
+
+- (none)
