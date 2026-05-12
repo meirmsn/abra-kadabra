@@ -211,15 +211,18 @@ changes:
     - id: classify
       run: |
         set -euo pipefail
-        shopt -s globstar
         changed_files=$(git diff --name-only "${{ github.event.pull_request.base.sha }}...HEAD" || true)
         # Empty diff → runtime=true (safer default — run slow-job rather than silently skip).
         [ -z "$changed_files" ] && { echo "runtime=true" >> "$GITHUB_OUTPUT"; exit 0; }
+        # `*.md` (not `**/*.md`): inside `case`, `*` already matches `/`, so
+        # `*.md` covers both root (`CLAUDE.md`) and nested (`apps/web/README.md`).
+        # `**/*.md` in `case` behaves like `*/*.md` and misses root files —
+        # `shopt -s globstar` only affects pathname expansion, not `case`.
         runtime=false
         while IFS= read -r path; do
           [ -z "$path" ] && continue
           case "$path" in
-            **/*.md) ;;
+            *.md) ;;
             specs/**) ;;
             PLAN.md) ;;
             BUILD-LOG.md) ;;
@@ -238,9 +241,9 @@ slow:
   # ...
 ```
 
-**Ignore list** — a diff is "docs-only" iff every changed file matches one of these globs. The list is canonical (don't rearrange without spec'ing it):
+**Ignore list** — a diff is "docs-only" iff every changed file matches one of these patterns (bash `case` patterns, NOT shell globs). The list is canonical (don't rearrange without spec'ing it):
 
-- `**/*.md`
+- `*.md`
 - `specs/**`
 - `PLAN.md`
 - `BUILD-LOG.md`
@@ -248,7 +251,9 @@ slow:
 - `.gstack/**`
 - `.devshop/**`
 
-`**/*.md` already structurally covers the named `*.md` files; the explicit names are kept for reader clarity and to defend against a future YAML refactor that drops the broad glob.
+`*.md` already structurally covers the named `*.md` files (in `case`, `*` matches `/`); the explicit names are kept for reader clarity and to defend against a future YAML refactor that drops the broad pattern.
+
+**Do not "tidy up" the markdown arm into a doublestar pattern.** Bash `case` is pattern matching, not pathname expansion: `*` already matches `/` inside `case`, so `*.md` covers both `CLAUDE.md` and `apps/web/README.md`. `**/*.md` in `case` behaves like `*/*.md` and fails to match root-level markdown — `shopt -s globstar` only affects globbing for filename expansion, not `case` semantics. Lalista hit this regression on PR #63 (2026-05-12): a `CLAUDE.md`-only PR ran the full slow-job because the root file fell through to the default arm. (Why this sentence is split off as its own paragraph and why the bold span contains no asterisks: prettier's emphasis tokenizer disambiguates by rewriting nested `*` to `_` when a paragraph contains both a `**…**` bold span AND an inline-code fragment like `**/*.md`. Keeping the bold span asterisk-free + putting the asterisk-rich prose in its own paragraph is the only durable defense — see commit `289e6ef` for what happens otherwise.)
 
 **Why a `changes:` setup-job and not job-level `paths-ignore:`** — `paths-ignore` is invalid at job level. `actionlint v1.7.7` rejects it: `unexpected key "paths-ignore" for "job" section. expected one of "concurrency", "container", "continue-on-error", "defaults", "env", "environment", "if", "name", "needs", "outputs", "permissions", "runs-on", "secrets", "services", "steps", "strategy", "timeout-minutes", "uses", "with"`. `paths-ignore` is a workflow-trigger key only (under `on.pull_request.paths-ignore` or `on.push.paths-ignore`). The two alternatives — `dorny/paths-filter@v3` (third-party action dependency for one feature) and splitting into `ci-fast.yml` + `ci-slow.yml` (every adopting project would need to update branch-protection contexts) — both have larger blast radius than 15 lines of inline bash.
 

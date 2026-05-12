@@ -81,11 +81,19 @@ setup() {
   assert_success
 }
 
-@test "changes: classify enables shopt -s globstar" {
-  # bash's `**` requires globstar enabled — the classify step toggles it
-  # at the top of the inline bash before the `case` match.
-  run grep -E 'shopt -s globstar' "$CI_YML"
-  assert_success
+@test "changes: classify does NOT enable shopt -s globstar (as a bash directive)" {
+  # globstar only affects pathname expansion, not `case` semantics — it was
+  # cargo-culted into the original step and gave a false sense that `**/*.md`
+  # would match nested paths. Inside `case`, `*` already matches `/`, so plain
+  # `*.md` works for both root + nested. Lalista PR #63 (2026-05-12) was the
+  # regression that surfaced the trap.
+  #
+  # The match is anchored to a directive-shaped line (yaml `#` + whitespace +
+  # `shopt`) so the comment in the template that NAMES the trap doesn't
+  # itself trigger a false positive — those lines have an extra `#` (yaml
+  # comment + bash comment) so they look like `# # `shopt -s globstar`…`.
+  run grep -E '^[[:space:]]+#[[:space:]]+shopt -s globstar[[:space:]]*$' "$CI_YML"
+  assert_failure
 }
 
 @test "changes: empty-diff defaults to runtime=true (safer default)" {
@@ -99,9 +107,22 @@ setup() {
 # D2 ignore list — every glob present in canonical order
 # =============================================================================
 
-@test "ignore list: **/*.md present" {
-  run grep -E '\*\*/\*\.md\)' "$CI_YML"
+@test "ignore list: *.md present (covers root + nested in bash case)" {
+  # Plain `*.md` — NOT `**/*.md`. `case` patterns aren't globs: `*` already
+  # matches `/`, so `*.md` covers `CLAUDE.md` AND `apps/web/README.md`.
+  # `**/*.md` in `case` collapses to `*/*.md` and silently misses root-level
+  # files — see Lalista PR #63 (2026-05-12). Match must be the bare `*.md)`
+  # case-arm, not a stray substring inside `apps/**/*.md` elsewhere.
+  run grep -E '^[[:space:]]+#[[:space:]]+\*\.md\)' "$CI_YML"
   assert_success
+}
+
+@test "ignore list: **/*.md must NOT appear (regression guard)" {
+  # Belt-and-braces: forbid the buggy pattern so a future "tidy-up" PR can't
+  # re-introduce `**/*.md` thinking it's a stricter form. See PR #63 / the
+  # negative-assertion above on `shopt -s globstar` for the full story.
+  run grep -E '\*\*/\*\.md\)' "$CI_YML"
+  assert_failure
 }
 
 @test "ignore list: specs/** present" {
@@ -134,12 +155,12 @@ setup() {
   assert_success
 }
 
-@test "ignore list: canonical order (**/*.md → specs/** → PLAN.md → BUILD-LOG.md → TODOS.md → .gstack/** → .devshop/**)" {
+@test "ignore list: canonical order (*.md → specs/** → PLAN.md → BUILD-LOG.md → TODOS.md → .gstack/** → .devshop/**)" {
   # Pin the canonical order so a future refactor that reshuffles the list
   # still preserves the documented reading order. Capture the line numbers
   # of each pattern's case-arm and assert ascending.
   local md specs plan buildlog todos gstack devshop
-  md=$(grep -nE '^\s+#\s+\*\*/\*\.md\)' "$CI_YML" | head -1 | cut -d: -f1)
+  md=$(grep -nE '^\s+#\s+\*\.md\)' "$CI_YML" | head -1 | cut -d: -f1)
   specs=$(grep -nE '^\s+#\s+specs/\*\*\)' "$CI_YML" | head -1 | cut -d: -f1)
   plan=$(grep -nE '^\s+#\s+PLAN\.md\)' "$CI_YML" | head -1 | cut -d: -f1)
   buildlog=$(grep -nE '^\s+#\s+BUILD-LOG\.md\)' "$CI_YML" | head -1 | cut -d: -f1)

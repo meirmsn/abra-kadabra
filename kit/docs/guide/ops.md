@@ -67,7 +67,7 @@ supabase gen types typescript --project-id <ref> > packages/core/src/supabase.ty
 
 ### CI/CD
 
-- **PR-time gates**: `.github/workflows/ci.yml` (lint, typecheck, test:unit, build on every push; integration + Playwright E2E + edge-fn deploy proof on PRs to main per the slow-job)
+- **PR-time gates**: `.github/workflows/ci.yml` (lint, typecheck, test:unit, build on every push; integration + Playwright E2E + edge-fn deploy proof on PRs to main per the slow-job). The slow-job skips on docs-only diffs via a `changes:` setup-job that classifies the diff in inline bash — see `guide/conventions.md § Skip-on-docs-only filter` for shape. **Operational gotcha**: the classify step is bash `case` (pattern matching), not pathname expansion — `*` already matches `/` inside `case`, so the markdown arm is `*.md`, NOT `**/*.md`. The latter behaves like `*/*.md` and silently misses root-level files (`CLAUDE.md`, `README.md`); lalista PR #63 (2026-05-12) was the regression that surfaced this. `shopt -s globstar` does NOT change `case` behavior — don't add it back thinking it helps. The structural enforcement is `kit/tests/template-ci-yml-shape.bats` (assertions both forbid the buggy form and pin the correct one).
 - **Push:main auto-deploy** (post-merge):
   - `.github/workflows/deploy-migrations.yml` — path-filtered to `supabase/migrations/**`; runs `supabase db push --include-roles` against the linked project. Concurrency-grouped so back-to-back merges serialize.
   - `.github/workflows/deploy-functions.yml` — path-filtered to `supabase/functions/**`; deploys every non-underscore-prefixed function dir via the management API.

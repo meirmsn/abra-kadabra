@@ -86,7 +86,7 @@ jobs:
   # kit/docs/guide/conventions.md § Slow-Job Lifecycle § Skip-on-docs-only
   # filter for the full rationale (D1: job-level `paths-ignore:` is
   # invalid YAML; D2: ignore list; branch-protection `skipped`-as-success
-  # contract). Docs-only diffs (matching `**/*.md`, `specs/**`, `PLAN.md`,
+  # contract). Docs-only diffs (matching `*.md`, `specs/**`, `PLAN.md`,
   # `BUILD-LOG.md`, `TODOS.md`, `.gstack/**`, `.devshop/**`) skip the
   # ~8–10min slow-job; `changes:` always succeeds (~5s) so it stays a
   # non-required context.
@@ -103,7 +103,6 @@ jobs:
   #       name: Classify diff (docs-only → runtime=false)
   #       run: |
   #         set -euo pipefail
-  #         shopt -s globstar
   #         # Three-dot diff = merge-base diff (the changes the PR introduces).
   #         # Two-dot would diff against base's current tip and pick up unrelated commits.
   #         changed_files=$(git diff --name-only "${{ github.event.pull_request.base.sha }}...HEAD" || true)
@@ -113,11 +112,19 @@ jobs:
   #           echo "runtime=true" >> "$GITHUB_OUTPUT"
   #           exit 0
   #         fi
+  #         # `*.md` (not `**/*.md`): bash `case` is pattern matching, not
+  #         # pathname expansion — inside `case`, `*` already matches `/`,
+  #         # so `*.md` covers both `CLAUDE.md` and `apps/web/README.md`.
+  #         # `shopt -s globstar` only affects globbing for filename
+  #         # expansion, NOT `case` semantics. `**/*.md` in `case` behaves
+  #         # like `*/*.md` and silently fails to match root-level markdown.
+  #         # Lalista hit this regression on PR #63 (2026-05-12). Do NOT
+  #         # "fix" this back to `**/*.md`.
   #         runtime=false
   #         while IFS= read -r path; do
   #           [ -z "$path" ] && continue
   #           case "$path" in
-  #             **/*.md) ;;
+  #             *.md) ;;
   #             specs/**) ;;
   #             PLAN.md) ;;
   #             BUILD-LOG.md) ;;
