@@ -4,6 +4,15 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### pr-body-img-merge-sha-survival (2026-05-11)
+
+- **Branch**: `feat/pr-body-img-merge-sha-survival` (merging via #34)
+- **PR**: [#34](https://github.com/meirmsn/abra-kadabra/pull/34)
+- **Spec**: `specs/pr-body-img-merge-sha-survival/spec.md`
+- **Summary**: Two-track fix for the broken-image-on-closed-PR bug. **Track A** — new `## Step 2.5: Rewrite PR-body image URLs to merge SHA` in `/ak-go-live` between `/land-and-deploy` (Step 2) and branch cleanup (Step 2b). Rewrites `/raw/${headRefName}/` URL slices in the PR body to `/raw/${mergeCommit.oid}/` so embedded hero / qa-walk / design evidence survives `--delete-branch`. Branch-name regex-escaped (slashes-in-branch handled). Skip-with-warning on null `mergeCommit.oid`; silent no-op on zero matches. Bumps `/ak-go-live` `version: 1.3.0 → 1.4.0`. **Track B** — new one-shot `kit/scripts/backfill-pr-image-urls.sh` for retroactive cleanup of historic closed PRs. `--dry-run` default; `--accept-history-rewrite` required for live mutation. Per-run JSONL audit log; skips empty `headRefName` + post-merge-edit heuristic (`updatedAt > mergedAt + 5min`). Both call sites share one source of truth via extracted helper at `kit/scripts/lib/rewrite-pr-body-urls.sh`. Closes `kit/ROADMAP.md § PR-body image URLs survive branch deletion` (deleted entirely — both tracks shipped).
+- **Commits**: 7 atomic commits (carry-over scoping `ca6131f` + Phase 0 spec skeleton + Phase 1 spec expand + 4 implementation commits + Phase 2 tasks.md ledger). Final SHA: `da0c21d`.
+- **Quality gates**: all passed — 6 pass + 0 findings_pending + 9 n/a + 0 blocked. Audit 1 clean at HEAD. 779/779 BATS green (745 existing + 34 new tests across SKILL.md content + helper behavior + backfill script behavior).
+
 ### context-aware-guideline-routing (2026-05-11)
 
 - **Branch**: `feature/context-aware-guideline-routing` (merging via #33)
