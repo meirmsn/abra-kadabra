@@ -56,6 +56,14 @@ Optional:
                                checkbox marks, audit comments) that don't
                                touch image URLs, so suppressing rewrites on
                                that signal mis-skips real targets.
+  --bodies-only                Only rewrite PR bodies; skip comment bodies.
+                               Default is to ALSO rewrite issue comments
+                               authored by the gh-cli authenticated user
+                               (typically the operator) — Phase 6 audit
+                               trail comments routinely embed hero shots
+                               whose URLs go stale on --delete-branch too.
+                               Comments authored by other users (reviewers,
+                               bots) are skipped regardless.
   --help, -h                   Print this message and exit.
 
 Exit codes:
@@ -74,6 +82,7 @@ LIMIT="100"
 SINCE=""
 AUDIT_DIR=""
 SKIP_EDITED=""
+BODIES_ONLY=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -93,6 +102,8 @@ while [ $# -gt 0 ]; do
       AUDIT_DIR="${2:-}"; shift 2 ;;
     --skip-edited)
       SKIP_EDITED="1"; shift ;;
+    --bodies-only)
+      BODIES_ONLY="1"; shift ;;
     --help|-h)
       usage; exit 0 ;;
     *)
@@ -164,6 +175,68 @@ if [ "${_FAKE_GH:-}" = "1" ]; then
       } >> "$capture"
       return 0
     fi
+    if [ "${1:-}" = "api" ]; then
+      # `gh api` — used for: (a) `user --jq .login` to discover the
+      # authenticated user; (b) `/repos/<o>/<r>/issues/<n>/comments` to
+      # list comments; (c) `-X PATCH /repos/<o>/<r>/issues/comments/<id>`
+      # to edit a single comment.
+      local target=""
+      local method="GET"
+      local body_path=""
+      local prev=""
+      for arg in "$@"; do
+        if [ "$prev" = "-X" ] || [ "$prev" = "--method" ]; then
+          method="$arg"
+        fi
+        if [ "$prev" = "-F" ] || [ "$prev" = "--field" ]; then
+          # -F body=@/path — extract the file
+          if [[ "$arg" == body=@* ]]; then
+            body_path="${arg#body=@}"
+          fi
+        fi
+        if [ "$prev" = "api" ] || [[ "$prev" == */* && -z "$target" ]]; then
+          if [[ "$arg" == /* ]] || [[ "$arg" == repos/* ]]; then
+            target="$arg"
+          fi
+        fi
+        prev="$arg"
+      done
+      # Find the URL arg even if -X flags came first.
+      for arg in "$@"; do
+        if [[ "$arg" == /repos/* ]] || [ "$arg" = "user" ]; then
+          target="$arg"
+          break
+        fi
+      done
+
+      if [ "$target" = "user" ]; then
+        # Whoami — return the configured fake user (default 'tester').
+        echo "${_FAKE_GH_USER:-tester}"
+        return 0
+      fi
+      if [[ "$target" == /repos/*/issues/*/comments ]] && [ "$method" = "GET" ]; then
+        # List comments for a PR. Fixture per PR via _FAKE_GH_COMMENTS_FIXTURE
+        # which is a JSON array; the same fixture is served for every PR in
+        # the test (tests typically run with one PR at a time).
+        cat "${_FAKE_GH_COMMENTS_FIXTURE:-/dev/null}"
+        return 0
+      fi
+      if [[ "$target" == /repos/*/issues/comments/* ]] && [ "$method" = "PATCH" ]; then
+        # Edit a single comment. Same capture pattern as `gh pr edit`.
+        local capture="${_FAKE_GH_CAPTURE:-/dev/null}"
+        {
+          echo "gh $*"
+          if [ -n "$body_path" ] && [ -f "$body_path" ]; then
+            echo "--- body ---"
+            cat "$body_path"
+            echo "--- end ---"
+          fi
+        } >> "$capture"
+        return 0
+      fi
+      # Unknown api call in the fake — pretend success with empty stdout.
+      return 0
+    fi
     # Anything else (e.g. `gh auth status`) — pretend success.
     return 0
   }
@@ -224,9 +297,12 @@ fi
 
 # emit_audit_row <pr> <head_ref> <merge_sha> <merged_at> <updated_at>
 #                <url_count_before> <url_count_after> <outcome> <reason>
+#                [target]   # optional 10th arg: defaults to "body";
+#                           # comment rewrites pass "comment:<id>".
 emit_audit_row() {
   local pr="$1" head_ref="$2" merge_sha="$3" merged_at="$4" updated_at="$5"
   local before="$6" after="$7" outcome="$8" reason="$9"
+  local target="${10:-body}"
   local dry_run="false"
   [ -n "$DRY_RUN" ] && dry_run="true"
 
@@ -241,10 +317,12 @@ emit_audit_row() {
     --argjson url_count_after "${after:-0}" \
     --arg outcome "$outcome" \
     --arg reason "$reason" \
+    --arg target "$target" \
     --argjson dry_run "$dry_run" \
     '{
       ts: $ts,
       pr: $pr,
+      target: $target,
       head_ref: (if $head_ref == "" then null else $head_ref end),
       merge_sha: (if $merge_sha == "" then null else $merge_sha end),
       merged_at: (if $merged_at == "" then null else $merged_at end),
@@ -274,6 +352,18 @@ post_merge_edit() {
   [ "$delta" -gt 300 ]
 }
 
+# Cache the authenticated gh user — only comments authored by us are editable.
+# The `--bodies-only` flag short-circuits this; in --bodies-only mode the
+# user-lookup is skipped entirely.
+GH_USER=""
+if [ -z "$BODIES_ONLY" ]; then
+  GH_USER=$(gh api user --jq .login 2>/dev/null || true)
+  if [ -z "$GH_USER" ]; then
+    echo "⚠ Could not resolve gh-cli authenticated user — skipping comment rewrites" >&2
+    BODIES_ONLY="1"
+  fi
+fi
+
 PROCESSED=0
 echo "$PRS_JSON" | jq -c '.[]' | while IFS= read -r pr_json; do
   PR_NUMBER=$(echo "$pr_json" | jq -r '.number')
@@ -297,6 +387,12 @@ echo "$PRS_JSON" | jq -c '.[]' | while IFS= read -r pr_json; do
     continue
   fi
 
+  # Pre-compute the URL-match pattern once per PR; both the body and the
+  # comments loop reuse it.
+  HEAD_REF_ESC=$(printf '%s' "$HEAD_REF" | perl -pe 's/([\/.+*?\[\]{}()^\$|\\])/\\$1/g')
+  OWNER_REPO_ESC=$(printf '%s' "$OWNER/$REPO" | perl -pe 's/([\/.+*?\[\]{}()^\$|\\])/\\$1/g')
+  PATTERN="https://github\\.com/${OWNER_REPO_ESC}/raw/${HEAD_REF_ESC}/"
+
   # Materialize the body to a tmpfile, run the helper.
   BODY_IN=$(mktemp)
   BODY_OUT=$(mktemp)
@@ -306,44 +402,96 @@ echo "$PRS_JSON" | jq -c '.[]' | while IFS= read -r pr_json; do
   # protects against clobbering URLs the operator may have already fixed
   # by hand. With zero matches there is nothing to clobber, so the edit
   # timing is irrelevant; report the truthful "no-matching-urls" reason.
-  HEAD_REF_ESC=$(printf '%s' "$HEAD_REF" | perl -pe 's/([\/.+*?\[\]{}()^\$|\\])/\\$1/g')
-  OWNER_REPO_ESC=$(printf '%s' "$OWNER/$REPO" | perl -pe 's/([\/.+*?\[\]{}()^\$|\\])/\\$1/g')
-  PATTERN="https://github\\.com/${OWNER_REPO_ESC}/raw/${HEAD_REF_ESC}/"
   # m{} delimiter form — the embedded `/` in the URL would otherwise act
   # as the regex terminator and trip a perl syntax error.
   N=$(perl -ne "BEGIN{\$c=0}\$c+=()=m{${PATTERN}}g;END{print \$c}" "$BODY_IN")
   N=${N:-0}
 
   if [ "$N" -eq 0 ]; then
-    emit_audit_row "$PR_NUMBER" "$HEAD_REF" "$MERGE_SHA" "$MERGED_AT" "$UPDATED_AT" 0 0 "skip" "no-matching-urls"
-    echo "  PR #$PR_NUMBER: skip (no-matching-urls)" >&2
-    rm -f "$BODY_IN" "$BODY_OUT"
-    continue
-  fi
-
-  if [ -n "$SKIP_EDITED" ] && post_merge_edit "$MERGED_AT" "$UPDATED_AT"; then
-    emit_audit_row "$PR_NUMBER" "$HEAD_REF" "$MERGE_SHA" "$MERGED_AT" "$UPDATED_AT" "$N" 0 "skip" "body-edited-post-merge"
-    echo "  PR #$PR_NUMBER: skip (body-edited-post-merge, $N URL(s) at risk)" >&2
-    rm -f "$BODY_IN" "$BODY_OUT"
-    continue
-  fi
-
-  rewrite_pr_body_urls "$BODY_IN" "$BODY_OUT" "$OWNER/$REPO" "$HEAD_REF" "$MERGE_SHA"
-
-  if [ -n "$DRY_RUN" ]; then
-    emit_audit_row "$PR_NUMBER" "$HEAD_REF" "$MERGE_SHA" "$MERGED_AT" "$UPDATED_AT" "$N" "$N" "dry-run-would-rewrite" ""
-    echo "  PR #$PR_NUMBER: would rewrite $N URL(s)" >&2
+    emit_audit_row "$PR_NUMBER" "$HEAD_REF" "$MERGE_SHA" "$MERGED_AT" "$UPDATED_AT" 0 0 "skip" "no-matching-urls" "body"
+    echo "  PR #$PR_NUMBER (body): skip (no-matching-urls)" >&2
+  elif [ -n "$SKIP_EDITED" ] && post_merge_edit "$MERGED_AT" "$UPDATED_AT"; then
+    emit_audit_row "$PR_NUMBER" "$HEAD_REF" "$MERGE_SHA" "$MERGED_AT" "$UPDATED_AT" "$N" 0 "skip" "body-edited-post-merge" "body"
+    echo "  PR #$PR_NUMBER (body): skip (body-edited-post-merge, $N URL(s) at risk)" >&2
   else
-    if gh pr edit "$PR_NUMBER" --repo "$OWNER/$REPO" --body-file "$BODY_OUT" >/dev/null 2>&1; then
-      emit_audit_row "$PR_NUMBER" "$HEAD_REF" "$MERGE_SHA" "$MERGED_AT" "$UPDATED_AT" "$N" "$N" "rewrote" ""
-      echo "  PR #$PR_NUMBER: rewrote $N URL(s)" >&2
+    rewrite_pr_body_urls "$BODY_IN" "$BODY_OUT" "$OWNER/$REPO" "$HEAD_REF" "$MERGE_SHA"
+
+    if [ -n "$DRY_RUN" ]; then
+      emit_audit_row "$PR_NUMBER" "$HEAD_REF" "$MERGE_SHA" "$MERGED_AT" "$UPDATED_AT" "$N" "$N" "dry-run-would-rewrite" "" "body"
+      echo "  PR #$PR_NUMBER (body): would rewrite $N URL(s)" >&2
     else
-      emit_audit_row "$PR_NUMBER" "$HEAD_REF" "$MERGE_SHA" "$MERGED_AT" "$UPDATED_AT" "$N" "$N" "error" "gh-pr-edit-failed"
-      echo "  PR #$PR_NUMBER: ERROR (gh pr edit failed)" >&2
+      if gh pr edit "$PR_NUMBER" --repo "$OWNER/$REPO" --body-file "$BODY_OUT" >/dev/null 2>&1; then
+        emit_audit_row "$PR_NUMBER" "$HEAD_REF" "$MERGE_SHA" "$MERGED_AT" "$UPDATED_AT" "$N" "$N" "rewrote" "" "body"
+        echo "  PR #$PR_NUMBER (body): rewrote $N URL(s)" >&2
+      else
+        emit_audit_row "$PR_NUMBER" "$HEAD_REF" "$MERGE_SHA" "$MERGED_AT" "$UPDATED_AT" "$N" "$N" "error" "gh-pr-edit-failed" "body"
+        echo "  PR #$PR_NUMBER (body): ERROR (gh pr edit failed)" >&2
+      fi
     fi
   fi
 
   rm -f "$BODY_IN" "$BODY_OUT"
+
+  # ---------------------------------------------------------------------------
+  # Comments — Phase 6 audit trail comments routinely embed hero shots whose
+  # URLs go stale on --delete-branch too. Default ON; --bodies-only opts out.
+  # Only comments authored by the gh-cli authenticated user are editable.
+  # ---------------------------------------------------------------------------
+  if [ -z "$BODIES_ONLY" ]; then
+    COMMENTS_JSON=$(gh api "/repos/$OWNER/$REPO/issues/$PR_NUMBER/comments" --paginate 2>/dev/null || echo '[]')
+    # When --paginate stitches multiple pages, jq normalizes them.
+    COMMENTS_JSON=$(echo "$COMMENTS_JSON" | jq -s 'add // []' 2>/dev/null || echo '[]')
+
+    echo "$COMMENTS_JSON" | jq -c '.[]' | while IFS= read -r comment_json; do
+      C_ID=$(echo "$comment_json" | jq -r '.id')
+      C_AUTHOR=$(echo "$comment_json" | jq -r '.user.login // ""')
+      C_BODY=$(echo "$comment_json" | jq -r '.body // ""')
+
+      if [ "$C_AUTHOR" != "$GH_USER" ]; then
+        # Can't edit comments we didn't author. Silent skip in stdout
+        # (would be too noisy for typical bot/reviewer comments); audit
+        # log records the decision so it's traceable.
+        emit_audit_row "$PR_NUMBER" "$HEAD_REF" "$MERGE_SHA" "$MERGED_AT" "$UPDATED_AT" 0 0 "skip" "not-our-comment" "comment:$C_ID"
+        continue
+      fi
+
+      C_BODY_IN=$(mktemp)
+      C_BODY_OUT=$(mktemp)
+      printf '%s' "$C_BODY" > "$C_BODY_IN"
+
+      C_N=$(perl -ne "BEGIN{\$c=0}\$c+=()=m{${PATTERN}}g;END{print \$c}" "$C_BODY_IN")
+      C_N=${C_N:-0}
+
+      if [ "$C_N" -eq 0 ]; then
+        emit_audit_row "$PR_NUMBER" "$HEAD_REF" "$MERGE_SHA" "$MERGED_AT" "$UPDATED_AT" 0 0 "skip" "no-matching-urls" "comment:$C_ID"
+        rm -f "$C_BODY_IN" "$C_BODY_OUT"
+        continue
+      fi
+
+      if [ -n "$SKIP_EDITED" ] && post_merge_edit "$MERGED_AT" "$UPDATED_AT"; then
+        emit_audit_row "$PR_NUMBER" "$HEAD_REF" "$MERGE_SHA" "$MERGED_AT" "$UPDATED_AT" "$C_N" 0 "skip" "body-edited-post-merge" "comment:$C_ID"
+        rm -f "$C_BODY_IN" "$C_BODY_OUT"
+        continue
+      fi
+
+      rewrite_pr_body_urls "$C_BODY_IN" "$C_BODY_OUT" "$OWNER/$REPO" "$HEAD_REF" "$MERGE_SHA"
+
+      if [ -n "$DRY_RUN" ]; then
+        emit_audit_row "$PR_NUMBER" "$HEAD_REF" "$MERGE_SHA" "$MERGED_AT" "$UPDATED_AT" "$C_N" "$C_N" "dry-run-would-rewrite" "" "comment:$C_ID"
+        echo "  PR #$PR_NUMBER (comment $C_ID): would rewrite $C_N URL(s)" >&2
+      else
+        if gh api -X PATCH "/repos/$OWNER/$REPO/issues/comments/$C_ID" -F "body=@$C_BODY_OUT" >/dev/null 2>&1; then
+          emit_audit_row "$PR_NUMBER" "$HEAD_REF" "$MERGE_SHA" "$MERGED_AT" "$UPDATED_AT" "$C_N" "$C_N" "rewrote" "" "comment:$C_ID"
+          echo "  PR #$PR_NUMBER (comment $C_ID): rewrote $C_N URL(s)" >&2
+        else
+          emit_audit_row "$PR_NUMBER" "$HEAD_REF" "$MERGE_SHA" "$MERGED_AT" "$UPDATED_AT" "$C_N" "$C_N" "error" "gh-api-patch-failed" "comment:$C_ID"
+          echo "  PR #$PR_NUMBER (comment $C_ID): ERROR (gh api patch failed)" >&2
+        fi
+      fi
+
+      rm -f "$C_BODY_IN" "$C_BODY_OUT"
+    done
+  fi
 done
 
 echo "Done. Audit log: $AUDIT_LOG" >&2

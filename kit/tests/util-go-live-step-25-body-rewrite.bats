@@ -490,6 +490,98 @@ write_fixture() {
   # Each line is valid JSON; required keys present.
   while IFS= read -r line; do
     [ -n "$line" ] || continue
-    echo "$line" | jq -e '.ts and .pr and (.outcome|type=="string") and (.dry_run|type=="boolean")' >/dev/null
+    echo "$line" | jq -e '.ts and .pr and (.outcome|type=="string") and (.dry_run|type=="boolean") and (.target|type=="string")' >/dev/null
   done < "$audit_dir"/*.jsonl
+}
+
+# === Comments — default mode rewrites comments authored by us ===
+
+@test "backfill: default mode rewrites our comments alongside body" {
+  local fixture="$BATS_TEST_TMPDIR/fixture.json"
+  local comments_fixture="$BATS_TEST_TMPDIR/comments.json"
+  local audit_dir="$BATS_TEST_TMPDIR/audit"
+  local capture="$BATS_TEST_TMPDIR/capture.txt"
+  write_fixture "$fixture" \
+    '{"number":50,"headRefName":"feat-x","mergeCommit":{"oid":"deadbeef"},"body":"text","mergedAt":"2026-05-08T14:22:00Z","updatedAt":"2026-05-08T14:22:01Z"}'
+  cat > "$comments_fixture" <<'JSON'
+[
+  {"id":12345,"user":{"login":"tester"},"body":"Audit ![](https://github.com/o/r/raw/feat-x/hero.png)"}
+]
+JSON
+
+  _FAKE_GH=1 _FAKE_GH_FIXTURE="$fixture" _FAKE_GH_USER=tester \
+    _FAKE_GH_COMMENTS_FIXTURE="$comments_fixture" _FAKE_GH_CAPTURE="$capture" \
+    run bash "$BACKFILL_SCRIPT" --owner o --repo r --accept-history-rewrite --audit-dir "$audit_dir"
+  [ "$status" -eq 0 ]
+  # Audit log contains a comment-target row.
+  cat "$audit_dir"/*.jsonl | grep -q '"target":"comment:12345"'
+  cat "$audit_dir"/*.jsonl | grep -q '"outcome":"rewrote"'
+  # Capture shows the gh api PATCH call with the rewritten body.
+  grep -q "gh api -X PATCH /repos/o/r/issues/comments/12345" "$capture"
+  grep -q "raw/deadbeef/hero.png" "$capture"
+}
+
+@test "backfill: --bodies-only suppresses comment processing" {
+  local fixture="$BATS_TEST_TMPDIR/fixture.json"
+  local comments_fixture="$BATS_TEST_TMPDIR/comments.json"
+  local audit_dir="$BATS_TEST_TMPDIR/audit"
+  write_fixture "$fixture" \
+    '{"number":51,"headRefName":"feat-x","mergeCommit":{"oid":"abc"},"body":"![](https://github.com/o/r/raw/feat-x/h.png)","mergedAt":"2026-05-08T14:22:00Z","updatedAt":"2026-05-08T14:22:01Z"}'
+  cat > "$comments_fixture" <<'JSON'
+[
+  {"id":99999,"user":{"login":"tester"},"body":"Audit ![](https://github.com/o/r/raw/feat-x/hero.png)"}
+]
+JSON
+
+  _FAKE_GH=1 _FAKE_GH_FIXTURE="$fixture" _FAKE_GH_USER=tester \
+    _FAKE_GH_COMMENTS_FIXTURE="$comments_fixture" \
+    run bash "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --bodies-only --audit-dir "$audit_dir"
+  [ "$status" -eq 0 ]
+  # Body row present; no comment row.
+  cat "$audit_dir"/*.jsonl | grep -q '"target":"body"'
+  ! cat "$audit_dir"/*.jsonl | grep -q '"target":"comment:'
+}
+
+@test "backfill: skips comment authored by another user (not-our-comment)" {
+  local fixture="$BATS_TEST_TMPDIR/fixture.json"
+  local comments_fixture="$BATS_TEST_TMPDIR/comments.json"
+  local audit_dir="$BATS_TEST_TMPDIR/audit"
+  write_fixture "$fixture" \
+    '{"number":52,"headRefName":"feat-x","mergeCommit":{"oid":"abc"},"body":"text","mergedAt":"2026-05-08T14:22:00Z","updatedAt":"2026-05-08T14:22:01Z"}'
+  cat > "$comments_fixture" <<'JSON'
+[
+  {"id":77777,"user":{"login":"vercel[bot]"},"body":"![](https://github.com/o/r/raw/feat-x/h.png)"},
+  {"id":77778,"user":{"login":"reviewer-foo"},"body":"![](https://github.com/o/r/raw/feat-x/h.png)"}
+]
+JSON
+
+  _FAKE_GH=1 _FAKE_GH_FIXTURE="$fixture" _FAKE_GH_USER=tester \
+    _FAKE_GH_COMMENTS_FIXTURE="$comments_fixture" \
+    run bash "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --audit-dir "$audit_dir"
+  [ "$status" -eq 0 ]
+  cat "$audit_dir"/*.jsonl | grep -q '"target":"comment:77777"'
+  cat "$audit_dir"/*.jsonl | grep -q '"target":"comment:77778"'
+  # Both should be skip+not-our-comment.
+  local skip_count
+  skip_count=$(grep -c '"reason":"not-our-comment"' "$audit_dir"/*.jsonl)
+  [ "$skip_count" -eq 2 ]
+}
+
+@test "backfill: silently skips our comment with no matching URLs" {
+  local fixture="$BATS_TEST_TMPDIR/fixture.json"
+  local comments_fixture="$BATS_TEST_TMPDIR/comments.json"
+  local audit_dir="$BATS_TEST_TMPDIR/audit"
+  write_fixture "$fixture" \
+    '{"number":53,"headRefName":"feat-x","mergeCommit":{"oid":"abc"},"body":"text","mergedAt":"2026-05-08T14:22:00Z","updatedAt":"2026-05-08T14:22:01Z"}'
+  cat > "$comments_fixture" <<'JSON'
+[
+  {"id":11111,"user":{"login":"tester"},"body":"thanks for review"}
+]
+JSON
+
+  _FAKE_GH=1 _FAKE_GH_FIXTURE="$fixture" _FAKE_GH_USER=tester \
+    _FAKE_GH_COMMENTS_FIXTURE="$comments_fixture" \
+    run bash "$BACKFILL_SCRIPT" --owner o --repo r --dry-run --audit-dir "$audit_dir"
+  [ "$status" -eq 0 ]
+  cat "$audit_dir"/*.jsonl | grep -E '"target":"comment:11111".*"reason":"no-matching-urls"' >/dev/null
 }
