@@ -134,6 +134,37 @@ Two false-positive escape hatches accepted at review time:
 
 Lalista PR 27 is the prior art — `subscribeToList(client, householdId, callback)` was extended to `subscribeToList(client, householdId, callback, onError?)` after the E2E test caught silent no-op of the sync-error banner. The test caught it because Pattern 6's `routeWebSocket` triggered `'CHANNEL_ERROR'` deterministically; the wrapper had been swallowing it.
 
+### `routeWebSocket` after initial subscribe is a dead test
+
+`page.routeWebSocket(pattern, handler)` only intercepts new WebSocket **upgrade** requests. supabase-js maintains **one WebSocket per `RealtimeClient`** and reuses it across all channel lifecycles — `client.removeChannel(c)` + `client.channel('...').subscribe()` does NOT trigger a new WS upgrade; the new channel rides on the existing socket. This invalidates the common-looking test design "install `routeWebSocket` AFTER initial subscribe succeeds, then trigger an action that rebuilds the channel, expect CHANNEL_ERROR." The route handler has nothing to intercept; CHANNEL_ERROR never fires; the assertion times out.
+
+Flag any new E2E test that does:
+
+```ts
+// Sign in / land on the page so initial subscribe succeeds.
+await page.goto('/...');
+// ...wait for subscribe...
+
+// THEN install the route handler.
+await page.routeWebSocket('**/realtime/v1/websocket**', (ws) => ws.close());
+
+// Then trigger an action that calls removeChannel + .subscribe again
+// (e.g. dispatching visibilitychange, network drop simulation, household switch).
+// Expect: CHANNEL_ERROR → banner. Actual: nothing fires.
+```
+
+**Why it fails**: the new channel reuses the existing live WS; the close handler never runs because no new upgrade request is made.
+
+**Workable test designs** (pick the one that matches what you're verifying):
+
+1. **Test broken-connection-at-load.** Install `routeWebSocket(..., ws => ws.close())` BEFORE `page.goto(...)`. The initial subscribe's upgrade fires through the route handler, supabase-js emits CHANNEL_ERROR, banner appears. This is the deterministic shape used by lalista's pre-existing `sync-error banner appears when WebSocket connection fails` test (`apps/web/e2e/realtime.spec.ts:168`).
+2. **Test healthy-wake (no broken state).** Drive the wake/reconnect action, assert the banner does NOT appear. Verifies that the new rebuild succeeds and `onSubscribed` fires (or whatever positive-path signal the suppress mechanism keys off).
+3. **Defer the "WS dies mid-session" case to manual smoke.** This is the case `routeWebSocket` cannot deterministically simulate without exposing supabase-js internals to `window` (test-pollution). Land an explicit test-plan checkbox in the PR body and verify post-deploy on the target device/browser.
+
+**Anti-pattern to reject** (4): exposing `supabase.realtime` (or the channel) to `window` so the test can call `disconnect()` mid-session. This pollutes runtime code with test-only globals and breaks the production / test separation. If the case truly needs deterministic coverage, refactor the production code to support an explicit "force-disconnect" entry point (used by a debug surface AND the test) — not a window-stuffed escape hatch.
+
+Lalista PR #65 (2026-05-12) is the prior art: the `broken-wake` E2E was written to install `routeWebSocket` after the initial subscribe and expected the banner to appear after the suppress window. It failed deterministically on two consecutive CI runs (one with a probe-and-skip wake handler, one with always-rebuild) because the rebuilt channel reused the existing WS that routeWebSocket had no leverage over. The test was retired in favor of `healthy-wake` (which works fine) + manual iOS PWA smoke for the dying-WS case.
+
 ### Runtime validation at LLM / edge-function boundaries
 
 When a PR adds a wrapper in `packages/core/src/api/**` around `client.functions.invoke<T>(...)` or a `fetch(...).then(r => r.json()) as T` returning a hand-written response shape (LLM-backed edge function, third-party HTTP API with hand-written contract), the wrapper MUST parse with Zod at the boundary. TypeScript generics and `as`-casts are compile-time assertions only; a prompt edit, model swap, or function refactor changes the shape silently, surfacing as `response.foo.bar is undefined` deep in the call site instead of a clear "boundary returned unexpected shape" error at the seam.

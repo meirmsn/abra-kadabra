@@ -8,11 +8,18 @@ set -euo pipefail
 DEVSHOP="${DEVSHOP:-/devshop}"
 SCRIPTS_DIR="$DEVSHOP/kit/scripts"
 
+# Source via $DEVSHOP (not $SCRIPTS_DIR) so test wrappers that sed-rewrite
+# SCRIPTS_DIR to point at a mock-bin (pre-commit-router.bats) don't break
+# the lib resolution — the lib lives under the real /devshop tree even when
+# the rest of the script is calling mocked commit-hooks.
+# shellcheck source=/devshop/kit/scripts/sync/lib/detect-mode.sh
+source "$DEVSHOP/kit/scripts/sync/lib/detect-mode.sh"
+
 GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
 
-# Detect devshop-self mode: workspace IS the devshop repo (opened directly in VS Code).
-# kit/ is a real directory in the devshop repo but always a symlink (.devshopkit) in projects.
-if [ -d "$GIT_ROOT/kit" ] && [ ! -L "$GIT_ROOT/kit" ]; then
+# Devshop-self mode (workspace IS the devshop repo) → same checks as a /devshop
+# session. Tests can force this branch via DEVSHOP_FORCE_MODE=devshop-self.
+if is_devshop_self_mode "$GIT_ROOT"; then
   # Devshop-self mode: same checks as devshop repo
   bash "$SCRIPTS_DIR/commit-hooks/check-clean-tree.sh"
   bash "$SCRIPTS_DIR/commit-hooks/check-manifest.sh"

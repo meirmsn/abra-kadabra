@@ -454,15 +454,67 @@ check will pick up at Phase 3 and rerun pre-ship from the start.
 
 ## Phase 4: Ship
 
+### 4.1: Pre-compose PR title + Summary body
+
+Before invoking `/ship`, compose the PR title and the `## Summary` section
+of the PR body in this skill — `/ak-build` owns the convention and has
+`kit/docs/guide/conventions.md § Commit + PR Text Style` reliably
+available; `/ship` is upstream-owned (gstack) and would re-compose to
+its own taste otherwise. The split:
+
+- **PR title** — one line, ≤ 72 chars, verb-led where natural,
+  describes the **observable change** (no internal jargon like "polish",
+  "soak findings", "Phase N"). Noun-lists are fine for multi-unit
+  features (`feat: invite link + member mgmt + audit feed`).
+- **`## Summary` body** — one-sentence TL;DR followed by 3-7 bullets.
+  Bullets first; prose only when a non-obvious decision needs framing
+  (1-2 sentences max). Enumerate from `git log <base>..HEAD --oneline`,
+  exclude the VERSION/CHANGELOG bookkeeping commit, then every remaining
+  substantive commit must appear in at least one bullet. Group into
+  themed sub-sections (`**Performance**`, `**Infrastructure**`, etc.)
+  when there are 2+ themes.
+
+Compose both, then stash them at `/tmp/ship-title.txt` and
+`/tmp/ship-summary.md` so the next step can pass them in by path.
+
+### 4.2: Invoke `/ship` with the pre-composed directives
+
 Launch **Agent** with prompt:
 > Run /ship to push the branch and create a PR.
 > /ship will run tests, code review, bump VERSION, push, create PR,
 > and auto-invoke /document-release.
+>
+> Use the pre-composed title + Summary from /ak-build — do NOT
+> re-compose. The title is at /tmp/ship-title.txt (one line). The
+> Summary body is at /tmp/ship-summary.md (use it verbatim as the
+> `## Summary` section of the PR body; /ship still fills in
+> `## Test plan` and the other sections per its template). If /ship
+> composes its own title/Summary first, overwrite via
+> `gh pr edit "$PR" --title "$(cat /tmp/ship-title.txt)"` and replace
+> the `## Summary` section of the PR body with /tmp/ship-summary.md
+> before returning.
+>
 > Return: PR number and URL.
 
-After `/ship` completes, a PR exists on GitHub. Verify the PR title and description
-reflect all commits. Title: under 70 chars, summarizes the feature/fix. Description:
-`## Summary` (bullets), `## Test plan` (checklist), attribution line.
+This shape moves composition into the devshop-owned skill so the
+convention fires reliably regardless of `gstack/ship/SKILL.md` state;
+`/ship` becomes a pure executor (push + bump + PR creation) for this
+step. Codified after a `gstack` sync clobbered local edits to
+`gstack/ship/SKILL.md` (2026-05-13) and exposed the wrong-side-of-the-
+boundary placement.
+
+### 4.3: Verify
+
+After `/ship` completes, a PR exists on GitHub. Verify the PR title and
+description match what 4.1 composed and what `kit/docs/guide/conventions.md
+§ Commit + PR Text Style` requires. If the body's `## Summary` section
+doesn't match `/tmp/ship-summary.md`, rewrite:
+
+```bash
+gh pr view "$PR" --json body --jq .body > /tmp/pr-body.md
+# splice /tmp/ship-summary.md into the ## Summary section of /tmp/pr-body.md
+gh pr edit "$PR" --body-file /tmp/pr-body.md
+```
 
 Apply the **PR body conventions** (see § "PR body conventions" near the end of this
 skill) — in particular:
@@ -511,11 +563,27 @@ API, which is what this devshop uses.
 BRANCH=$(git branch --show-current)
 RUN_ID=$(gh run list --branch "$BRANCH" --limit 1 --json databaseId --jq '.[0].databaseId')
 gh run watch "$RUN_ID" --exit-status
+
+# Cross-check: gh run watch --exit-status reports exit 0 even when the run's
+# actual conclusion is `failure`. Verify conclusion before trusting the exit
+# code. Codified from lalista PR #65 (2026-05-12) where two consecutive watch
+# calls reported exit 0 but the runs had conclusion=failure; the regression
+# was caught only because the operator looked at the GitHub Actions UI.
+CONCLUSION=$(gh run view "$RUN_ID" --json conclusion --jq .conclusion)
+if [ "$CONCLUSION" != "success" ]; then
+  echo "✖ Run $RUN_ID conclusion=$CONCLUSION (watch reported success but the API disagrees)"
+  # Route to Phase 5.4 fix loop with this run's failed step.
+  exit 1
+fi
 ```
 
 This blocks until the most-recent workflow run on the branch completes.
 Non-zero exit on failure. If it times out, re-run. Cap total wait at 30
-minutes.
+minutes. **The `gh run view --json conclusion` cross-check is load-bearing**
+— without it, a run that ended in `failure` can silently pass this gate
+because `gh run watch --exit-status`'s exit code disagrees with the actual
+conclusion in some scenarios (root cause unconfirmed; reproducibly seen
+2026-05-12 across two consecutive runs on different SHAs).
 
 If a project uses third-party CIs that only publish commit statuses (not
 Actions workflow runs), `gh pr checks` works if the PAT has
@@ -895,6 +963,14 @@ shortcut.
    RUN_ID=$(gh run list --branch "$BRANCH" --limit 1 \
      --json databaseId --jq '.[0].databaseId')
    gh run watch "$RUN_ID" --exit-status
+
+   # Same conclusion cross-check as 5.2 — see that section for the
+   # codification + rationale.
+   CONCLUSION=$(gh run view "$RUN_ID" --json conclusion --jq .conclusion)
+   if [ "$CONCLUSION" != "success" ]; then
+     echo "✖ Re-watched run $RUN_ID conclusion=$CONCLUSION; route to 5.4"
+     exit 1
+   fi
    ```
 
    This blocks until the bookkeeping run completes. Same 30-minute cap

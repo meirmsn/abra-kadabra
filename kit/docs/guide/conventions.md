@@ -27,6 +27,7 @@ Single source of truth for conventions referenced by multiple skills. Skills poi
 - [Confidence Calibration](#confidence-calibration)
 - [TODO Protocol](#todo-protocol)
 - [Backlog Routing Guide](#backlog-routing-guide)
+- [Commit + PR Text Style](#commit--pr-text-style)
 - [Non-Negotiables](#non-negotiables)
   - [Testing](#testing)
   - [Test Assertion Depth](#test-assertion-depth)
@@ -415,6 +416,57 @@ Two questions decide where deferred work goes:
 TODO items can be scheduled into versions defined in their corresponding ROADMAP (e.g., `[v0.2]`, `[v2]`). Project files never reference devshop files.
 
 **When a roadmap item ships**: remove it from the roadmap entirely and log the completion in `BUILD-LOG.md`. Roadmaps only show what's ahead — `BUILD-LOG.md` is the record of what was done. The full closure protocol (delete entry, rewrite conditional prose to present tense, unwind cross-references) lives in `/devshop/CLAUDE.md § Closing TODO / ROADMAP entries when a fix ships` (always loaded) and `/ak-build § Phase 5.6` (loaded when the action fires).
+
+---
+
+## Commit + PR Text Style
+
+Canonical readability rules for every text artifact the pipeline produces: per-commit messages (direct git commits, `/ship`-authored commits), squash-commit messages (`/ak-merge-devshop`), and PR titles + `## Summary` bodies. The rules are identical across surfaces — only the docs / skills that _invoke_ the rule differ.
+
+**Devshop owns this convention** (lives here, not in `gstack/ship/SKILL.md`) so it survives `gstack` upgrades. When a devshop skill or hook needs to enforce or remind, it points here.
+
+### Subject + title style
+
+The subject is the line a reader sees in `git log --oneline`, the GitHub PR list, and release notes. Write it so a teammate who hasn't seen the diff can decode **what behavior changed in the codebase** — not which file or variable was edited.
+
+1. **Describe the observable change**, not the implementation detail.
+   "skip CI when only root markdown changes" beats "docs-only skip filter matches root-level markdown" — the reader cares about the new CI behavior, not which filter variable holds the change.
+2. **Lead with a verb** when there's one verb-y change (`skip`, `add`, `fix`, `tighten`, `extract`, `rename`, `move`, `replace`). Noun-lists are fine when the commit ships multiple independent units that don't share a verb (e.g. `feat: invite link + member mgmt + audit feed`).
+3. **No internal jargon**. Words that only make sense if you've read the spec ("polish", "soak findings", "Phase 2 expansion", "Tier B") are meta-narrative, not change description — drop them or replace with the underlying user- or code-facing fact.
+4. **≤ 72 chars**, but err shorter — a tight subject is read faster.
+
+Examples (drawn from real commits):
+
+| Bad — terse but opaque                                                                             | Good — verb-led, behavior-described                                                 |
+| -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `fix(ci): docs-only skip filter matches root-level markdown`                                       | `fix(ci): skip CI when only root markdown changes`                                  |
+| `fix(settings): household-collaborators polish — typography, skeleton, disclosure (soak findings)` | `fix(settings): tighten household-collaborators typography + skeleton + disclosure` |
+| `feat(household-collaborators): invite link + member mgmt + audit feed`                            | (keep — noun-list is the natural shape for a multi-unit feature PR)                 |
+| `chore(build-log): record cheap-test-gates-local`                                                  | (keep — subject is self-describing for a build-log chore)                           |
+
+Self-test: would a teammate scrolling `git log` two months from now know what behavior shipped without opening the diff? If not, rewrite.
+
+### Body / Summary style
+
+Commit bodies and PR `## Summary` sections share one shape: **bullets first**, prose only when a non-obvious decision needs framing.
+
+1. **Open with one sentence of TL;DR**, then drop into 3-7 bullets — each one a concrete user-meaningful unit. A reader should be able to scan the TL;DR + bullets in 10 seconds and know what landed.
+2. **Do NOT lead with a prose paragraph** that re-summarizes what the bullets will say. Pick one shape — paragraph OR bullets — not both. Earlier shape (multi-paragraph prose) forced readers to consume the whole block to track what landed; bullet-led shape gives scannable anchors.
+3. **Group bullets into logical sections** when there are 2+ themes (e.g. `**Performance**`, `**Dead Code Removal**`, `**Infrastructure**`) — one theme needs no sub-heading.
+4. **Enumerate from `git log <base>..HEAD --oneline`**: exclude the `VERSION` / `CHANGELOG` bookkeeping commit, then every remaining substantive commit must appear in at least one bullet. If a commit's work isn't reflected, you missed it.
+5. **Follow-up prose**, if any, is 1-2 sentences — for context the bullets can't carry (a trade-off, a why-now, a smoke-test finding).
+
+The squash-message variant (`/ak-merge-devshop`) uses bold-text lead-in labels (`**Adds:**`, `**Trade-off:**`, `**Doc updates:**`, `**Migration:**`, `**Smoke-test finding:**`) instead of theme sub-headings, but the underlying rule is the same: bullets carry the load, labels are scannable anchors.
+
+### Where the rule fires
+
+| Surface                                     | Owner                                                                                                                                       | Inlined where                                                                                                |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Per-commit messages (any commit)            | the agent composing the commit                                                                                                              | Restated by `/ak-build` Phase 4 + `/ak-merge-devshop` Phase 0.3                                              |
+| PR title + `## Summary` (Phase 4)           | `/ship` (gstack) composes; `/ak-build` Phase 4 verifies                                                                                     | `/ak-build` SKILL.md § Phase 4 points here                                                                   |
+| Squash subject + body (`/ak-merge-devshop`) | `/ak-merge-devshop` Phase 0.3 composes; `merge-devshop/SKILL.md § Subject style + Why bullet-led summary` restates this convention verbatim | `merge-devshop/SKILL.md` is the canonical inlining (since the skill itself does the composition end-to-end). |
+
+The convention is **discoverable** at the workflow level (`workflow.md § Phase 4`) and **applied** at the skill level (`merge-devshop/SKILL.md`, `build/SKILL.md`). It is intentionally NOT inlined into `gstack/ship/SKILL.md` — gstack syncs would clobber the addition. When `/ship` is invoked from `/ak-build`, Phase 4's wrapper handoff carries the reminder.
 
 ---
 

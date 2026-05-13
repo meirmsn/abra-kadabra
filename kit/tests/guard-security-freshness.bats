@@ -8,11 +8,12 @@ setup() {
 
   # Create a fake devshop with source security files
   FAKE_DS="$BATS_TEST_TMPDIR/devshop"
-  mkdir -p "$FAKE_DS/.claude" "$FAKE_DS/kit/scripts/sync"
+  mkdir -p "$FAKE_DS/.claude" "$FAKE_DS/kit/scripts/sync/lib"
   echo '{"permissions": {"allow": ["Read"]}}' > "$FAKE_DS/.claude/settings.json"
   echo '[packs]' > "$FAKE_DS/.dcg.toml"
-  # Copy normalize script so the freshness check can call it
+  # Copy normalize script + detect-mode lib so the freshness check can source/call them.
   cp "$SCRIPTS_DIR/sync/normalize-devshop-paths.sh" "$FAKE_DS/kit/scripts/sync/"
+  cp "$SCRIPTS_DIR/sync/lib/detect-mode.sh" "$FAKE_DS/kit/scripts/sync/lib/"
 
   # Create a fake workspace
   FAKE_WS="$BATS_TEST_TMPDIR/workspace"
@@ -38,6 +39,32 @@ run_check() {
   # No devshop dir
   run bash -c "DEVSHOP='$BATS_TEST_TMPDIR/nonexistent' WS='$FAKE_WS' bash '$CHECK'"
   assert_success
+}
+
+@test "skips in devshop-self mode (workspace has real kit/ dir)" {
+  # Devshop-self mode: $WS/kit exists as a real directory (in projects it's
+  # always a symlink). Without the skip, the script would compare devshop's
+  # own infra against template/ and report spurious staleness — the bug
+  # surfaced in the devshop devcontainer's session-start warnings.
+  mkdir -p "$FAKE_WS/kit"
+  # Stale state that WOULD fail without the short-circuit: missing settings.json.
+  rm -f "$FAKE_WS/.claude/settings.json"
+  run_check
+  assert_success
+  refute_output --partial "MISSING"
+  refute_output --partial "stale"
+}
+
+@test "still blocks when workspace kit/ is a symlink (project mode)" {
+  # Project mode: $WS/kit is a symlink to /devshop/kit. Skip MUST NOT fire —
+  # projects need the freshness check to run. Pair with the previous test
+  # to lock down the symlink-vs-realdir distinction.
+  ln -s "$FAKE_DS/kit" "$FAKE_WS/kit"
+  rm -f "$FAKE_WS/.claude/settings.json"
+  cp "$FAKE_DS/.dcg.toml" "$FAKE_WS/.dcg.toml"
+  run_check
+  assert_failure 1
+  assert_output --partial "MISSING"
 }
 
 # --- settings.json ---

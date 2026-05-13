@@ -77,10 +77,13 @@ setup() {
 @test "guardrails: missing settings.json blocks commit" {
   local ds="$BATS_TEST_TMPDIR/devshop"
   local ws="$BATS_TEST_TMPDIR/workspace"
-  mkdir -p "$ds/.claude" "$ds/kit/scripts" "$ws/.claude"
+  mkdir -p "$ds/.claude" "$ds/kit/scripts/sync/lib" "$ws/.claude"
   echo '{}' > "$ds/.claude/settings.json"
   echo '[packs]' > "$ds/.dcg.toml"
   cp "$SCRIPTS_DIR/sync/normalize-devshop-paths.sh" "$ds/kit/scripts/"
+  # detect-mode.sh is sourced by check-security-files-freshness.sh — copy it
+  # into the fake DS at the path the freshness check sources from.
+  cp "$SCRIPTS_DIR/sync/lib/detect-mode.sh" "$ds/kit/scripts/sync/lib/"
   # Don't create settings.json in workspace
   cp "$ds/.dcg.toml" "$ws/.dcg.toml"
   run bash -c "DEVSHOP='$ds' WS='$ws' bash '$SCRIPTS_DIR/commit-hooks/check-security-files-freshness.sh'"
@@ -91,10 +94,11 @@ setup() {
 @test "guardrails: symlinked settings.json blocks commit" {
   local ds="$BATS_TEST_TMPDIR/devshop"
   local ws="$BATS_TEST_TMPDIR/workspace"
-  mkdir -p "$ds/.claude" "$ds/kit/scripts" "$ws/.claude"
+  mkdir -p "$ds/.claude" "$ds/kit/scripts/sync/lib" "$ws/.claude"
   echo '{}' > "$ds/.claude/settings.json"
   echo '[packs]' > "$ds/.dcg.toml"
   cp "$SCRIPTS_DIR/sync/normalize-devshop-paths.sh" "$ds/kit/scripts/"
+  cp "$SCRIPTS_DIR/sync/lib/detect-mode.sh" "$ds/kit/scripts/sync/lib/"
   ln -s "$ds/.claude/settings.json" "$ws/.claude/settings.json"
   cp "$ds/.dcg.toml" "$ws/.dcg.toml"
   run bash -c "DEVSHOP='$ds' WS='$ws' bash '$SCRIPTS_DIR/commit-hooks/check-security-files-freshness.sh'"

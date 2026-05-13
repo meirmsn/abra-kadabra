@@ -367,6 +367,10 @@ _Grows as issues are encountered. Add entries with date, symptom, cause, fix._
 **Cause**: init-devshop.sh didn't run (password setup is in that script)
 **Fix**: Run `sudo /usr/local/bin/init-devshop.sh` (NOPASSWD rule covers this path). If that also fails, the thin forwarder may be broken — check `/workspace/.devcontainer/init-devshop.sh` content.
 
+**Symptom**: `postStartCommand from devcontainer.json failed with exit code 1` and the log shows `init-devshop.sh FAILED at line 21 (exit 1):   ROOT_PASSWORD=$(grep '^DEVCONTAINER_ROOT_PASSWORD=' "$WS/.devcontainer/.env" | cut -d= -f2)` (or similar from the password-setup block).
+**Cause**: `.devcontainer/.env` exists but doesn't contain a `DEVCONTAINER_ROOT_PASSWORD=` line. Under `set -euo pipefail` the `grep` returns 1 and the pipeline aborts before the devshop-self guard runs.
+**Fix**: From v1.29+ this is non-fatal — the password block prints a yellow `⚠ DEVCONTAINER_ROOT_PASSWORD not set ...` advisory and degrades to the Dockerfile default (node has NOPASSWD only on `init-firewall.sh` and `init-devshop.sh`). To restore full `sudo nano`-style access, add `DEVCONTAINER_ROOT_PASSWORD=<pick-something>` to `.devcontainer/.env` and rebuild (or `sudo /usr/local/bin/init-devshop.sh`). On older versions, the same `.env` edit is the unblock.
+
 ### Chromium symlink autoheal (2026-04-20)
 
 **Symptom**: `/ak-pre-ship` gates that use the gstack `browse` daemon fail with `Executable doesn't exist at .../chromium-1208/chrome-linux/chrome` (or similar version number).

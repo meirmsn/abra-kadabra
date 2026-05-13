@@ -263,6 +263,12 @@ the change is genuinely cross-cutting.
 
 #### Subject style
 
+Canonical rules: `kit/docs/guide/conventions.md § Commit + PR Text Style`
+(devshop-owned, single source of truth — applies identically to
+per-commit messages, `/ship`-authored commits, and these squash subjects).
+The rules below restate the convention in the squash-message context;
+keep them in sync with `conventions.md` if either side moves.
+
 The subject is the line a reader sees in `git log --oneline`, in the
 GitHub PR list, and in release notes. Write it so a teammate who hasn't
 seen the diff can decode what behavior changed in the codebase — not

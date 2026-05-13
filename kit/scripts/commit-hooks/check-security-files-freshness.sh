@@ -11,8 +11,20 @@ DEVSHOP="${DEVSHOP:-/devshop}"
 WS="${WS:-/workspace}"
 STALE=false
 
-# Skip if devshop isn't mounted
+# Skip if devshop isn't mounted (and short-circuit BEFORE sourcing the lib —
+# in test environments that point DEVSHOP at a nonexistent dir, sourcing
+# would fail loudly instead of falling through to the silent no-op).
 [ -d "$DEVSHOP/.claude" ] || exit 0
+
+# shellcheck source=/devshop/kit/scripts/sync/lib/detect-mode.sh
+source "$DEVSHOP/kit/scripts/sync/lib/detect-mode.sh"
+
+# Skip in devshop-self mode: workspace IS the devshop repo, so comparing
+# /workspace files to /devshop sources is comparing the dir to itself
+# (devshop devcontainer scenario) — and devshop's own infra (single-container
+# devcontainer.json/Dockerfile, devshop-shaped .husky hooks) intentionally
+# differs from template/ (which is what projects scaffold from).
+is_devshop_self_mode "$WS" && exit 0
 
 # --- settings.json (devshop-self-derived; not in manifest) ---
 WS_FILE="$WS/.claude/settings.json"

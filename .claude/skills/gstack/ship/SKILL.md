@@ -1997,14 +1997,6 @@ Save this summary — it goes into the PR body in Step 8.
 
 5. Compose each commit message:
    - First line: `<type>: <summary>` (type = feat/fix/chore/refactor/docs)
-   - **Subject style** — the summary describes the **observable change**, not the implementation detail.
-     Lead with a verb when there's one verb-y change (`skip`, `add`, `fix`, `tighten`, `rename`); noun-lists
-     are fine for multi-unit commits (`feat: invite link + member mgmt + audit feed`). No internal jargon
-     ("polish", "soak findings", "Phase 2 expansion") — drop the meta-narrative and name the underlying
-     user/code-facing fact. ≤ 72 chars.
-     - Bad: `fix(ci): docs-only skip filter matches root-level markdown`
-     - Good: `fix(ci): skip CI when only root markdown changes`
-     - Test: would a teammate scrolling `git log` two months later know what shipped without opening the diff?
    - Body: brief description of what this commit contains
    - Only the **final commit** (VERSION + CHANGELOG) gets the version tag and co-author trailer:
 
@@ -2083,18 +2075,12 @@ The PR/MR body should contain these sections:
 
 ```
 ## Summary
-<One-sentence TL;DR of what this PR ships, then 3-7 bullets — each one a concrete
-user-meaningful unit. A reader should be able to scan the TL;DR + bullets in 10
-seconds and know what landed. Do NOT lead with a prose paragraph; bullets first.
-Group bullets into logical sections when there are 2+ themes (e.g.,
-"**Performance**", "**Dead Code Removal**", "**Infrastructure**") — one theme
-needs no sub-heading.
-
-Enumerate via `git log <base>..HEAD --oneline`, then exclude the VERSION/CHANGELOG
-metadata commit (this PR's bookkeeping, not a substantive change). Every remaining
-substantive commit must appear in at least one bullet. If a commit's work isn't
-reflected, you missed it. Only add follow-up prose if a non-obvious decision needs
-framing — and keep it to 1-2 sentences.>
+<Summarize ALL changes being shipped. Run `git log <base>..HEAD --oneline` to enumerate
+every commit. Exclude the VERSION/CHANGELOG metadata commit (that's this PR's bookkeeping,
+not a substantive change). Group the remaining commits into logical sections (e.g.,
+"**Performance**", "**Dead Code Removal**", "**Infrastructure**"). Every substantive commit
+must appear in at least one section. If a commit's work isn't reflected in the summary,
+you missed it.>
 
 ## Test Coverage
 <coverage diagram from Step 3.4, or "All new code paths have test coverage.">
@@ -2141,12 +2127,6 @@ framing — and keep it to 1-2 sentences.>
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 ```
-
-**Title style** — same rule as commit subjects (Step 6): describe the observable
-change, lead with a verb when there's one verb-y change, no internal jargon,
-≤ 72 chars. The PR title is what shows up in the GitHub PR list, release notes,
-and `gh pr list` — a teammate two months later should know what shipped without
-opening the diff.
 
 **If GitHub:**
 

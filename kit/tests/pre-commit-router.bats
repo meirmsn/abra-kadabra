@@ -43,8 +43,10 @@ scripts_called() {
   create_test_repo
   # Override git rev-parse in the wrapper to return /workspace
   sed -i 's|GIT_ROOT=$(git rev-parse.*|GIT_ROOT="/workspace"|' "$WRAPPER"
-  # No kit/ dir → not devshop-self
-  run bash -c "cd '$TEST_REPO' && bash '$WRAPPER'"
+  # Force project mode: when this suite runs from the devshop devcontainer,
+  # /workspace/kit is a real bind-mounted dir → auto detect-mode would say
+  # devshop-self and skip the project-mode branch this test wants to exercise.
+  run bash -c "cd '$TEST_REPO' && DEVSHOP_FORCE_MODE=project bash '$WRAPPER'"
   assert_success
 
   # Verify correct scripts were called
@@ -103,7 +105,8 @@ scripts_called() {
   sed -i 's|GIT_ROOT=$(git rev-parse.*|GIT_ROOT="/workspace"|' "$WRAPPER"
   # Make security-freshness fail
   create_capturing_stub "commit-hooks/check-security-files-freshness.sh" "FAIL: stale" 1
-  run bash -c "cd '$TEST_REPO' && bash '$WRAPPER'"
+  # Force project mode (see "project repo" test above for rationale).
+  run bash -c "cd '$TEST_REPO' && DEVSHOP_FORCE_MODE=project bash '$WRAPPER'"
   assert_failure 1
 
   # clean-tree and commit-guard should NOT have been called (set -e stops)

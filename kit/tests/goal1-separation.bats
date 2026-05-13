@@ -71,7 +71,10 @@ setup() {
 
   stage_file ".claude/skills/new-skill.md" "skill"
   stage_file "src/index.ts" "code"
-  run bash -c "cd '$TEST_REPO' && bash '$wrapper'"
+  # Force project-mode detection: this suite runs from the devshop devcontainer
+  # where /workspace/kit (sed-targeted GIT_ROOT) is a real bind-mounted dir, so
+  # auto detection in detect-mode.sh would otherwise flip into devshop-self.
+  run bash -c "cd '$TEST_REPO' && DEVSHOP_FORCE_MODE=project bash '$wrapper'"
   assert_failure 1
   assert_output --partial "Mixed commit"
 }

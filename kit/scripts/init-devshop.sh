@@ -17,13 +17,18 @@ DEVSHOP=/devshop
 WS=/workspace
 
 # --- Password setup ---
+# Tolerant of a missing key: without DEVCONTAINER_ROOT_PASSWORD the script
+# falls back to the Dockerfile's default (node has NOPASSWD only on the two
+# whitelisted init scripts). cut -f2- preserves '=' chars inside the password.
 if [ -f "$WS/.devcontainer/.env" ]; then
-  ROOT_PASSWORD=$(grep '^DEVCONTAINER_ROOT_PASSWORD=' "$WS/.devcontainer/.env" | cut -d= -f2)
+  ROOT_PASSWORD=$(grep '^DEVCONTAINER_ROOT_PASSWORD=' "$WS/.devcontainer/.env" 2>/dev/null | cut -d= -f2- || true)
   if [ -n "$ROOT_PASSWORD" ]; then
     echo "root:$ROOT_PASSWORD" | chpasswd
     echo "node:$ROOT_PASSWORD" | chpasswd
     echo "node ALL=(ALL:ALL) ALL" > /etc/sudoers.d/node
     chmod 0440 /etc/sudoers.d/node
+  else
+    printf '\033[1;33m⚠ DEVCONTAINER_ROOT_PASSWORD not set in %s — sudo limited to init-firewall.sh + init-devshop.sh. Add DEVCONTAINER_ROOT_PASSWORD=<value> to enable full sudo.\033[0m\n' "$WS/.devcontainer/.env" >&2
   fi
 fi
 
@@ -47,7 +52,13 @@ fi
 # a symlink (.devshopkit) in project repos. Without this guard, symlink creation
 # would replace the real kit/ directory with a self-referential symlink (destructive).
 if [ -d "$WS/kit" ] && [ ! -L "$WS/kit" ]; then
-  (cd "$DEVSHOP" && su node -c 'pnpm install --frozen-lockfile 2>/dev/null || pnpm install') || true
+  # cwd must be $WS, not $DEVSHOP. In devshop-self mode both paths bind to the
+  # same host folder but are distinct Linux mounts; pnpm derives storeDir from
+  # the cwd's mount point and records it in node_modules/.modules.yaml. Running
+  # from $DEVSHOP records /devshop/.pnpm-store/v10; postCreateCommand later runs
+  # from $WS and records /workspace/.pnpm-store/v10. The mismatch triggers the
+  # "modules directory will be removed and reinstalled" prompt on every rebuild.
+  (cd "$WS" && su node -c 'pnpm install --frozen-lockfile 2>/dev/null || pnpm install') || true
   # Lock essentials even in devshop-self mode (prevents security freshness warnings)
   for f in "$WS/.claude/settings.json" "$WS/.dcg.toml"; do
     [ -e "$f" ] && chown root:root "$f" && chmod 644 "$f"

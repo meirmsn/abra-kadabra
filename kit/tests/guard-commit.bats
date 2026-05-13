@@ -38,9 +38,19 @@ setup_project_repo() {
   git -C "$TEST_REPO" add .
   git -C "$TEST_REPO" commit -q -m "initial"
   make_wrapper "/workspace"
+  # Force project-mode detection in detect-mode.sh: sed-rewriting GIT_ROOT to
+  # /workspace isn't enough on its own when this suite runs from the devshop
+  # devcontainer (where /workspace/kit is a real bind-mounted dir → auto
+  # detection would say devshop-self). The override is the test-only escape
+  # hatch documented in kit/scripts/sync/lib/detect-mode.sh.
+  export DEVSHOP_FORCE_MODE=project
 }
 
 setup_devshop_repo() {
+  # Devshop-mode tests rely on auto detection (the test repo's kit/ is created
+  # below as a real dir), but make the intent explicit via override so the
+  # test isn't environment-coupled — same pattern as setup_project_repo.
+  export DEVSHOP_FORCE_MODE=devshop-self
   TEST_REPO="$BATS_TEST_TMPDIR/devshop"
   mkdir -p "$TEST_REPO/kit/scripts" "$TEST_REPO/kit/docs/guide"
   git -C "$TEST_REPO" init -q

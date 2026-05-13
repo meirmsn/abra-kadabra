@@ -27,12 +27,18 @@
 # heads-up" advisory remains and is the better fit for the current shape.)
 set -euo pipefail
 
+DEVSHOP="${DEVSHOP:-/devshop}"
+# shellcheck source=/devshop/kit/scripts/sync/lib/detect-mode.sh
+source "$DEVSHOP/kit/scripts/sync/lib/detect-mode.sh"
+
 # --- Repo detection ---
 GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
-# Detect devshop-self mode: workspace IS the devshop repo (opened directly in VS Code).
-# kit/ is a real directory in the devshop repo but .devshopkit/ is always a symlink in projects.
-if [ "$GIT_ROOT" != "/devshop" ] && [ -d "$GIT_ROOT/kit" ] && [ ! -L "$GIT_ROOT/kit" ]; then
-  # Devshop-self mode: devshop opened directly as workspace
+# Devshop-self mode (workspace IS the devshop repo, e.g. /devshop OR
+# /workspace bind-mounted to the devshop repo in the devshop devcontainer)
+# → CURRENT_REPO=devshop. Tests force this via DEVSHOP_FORCE_MODE=devshop-self
+# or DEVSHOP_FORCE_MODE=project to exercise the project branch without the
+# filesystem trickery the inline check would otherwise require.
+if is_devshop_self_mode "$GIT_ROOT"; then
   CURRENT_REPO=devshop
 else
   case "$GIT_ROOT" in
