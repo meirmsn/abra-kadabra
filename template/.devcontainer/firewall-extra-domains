@@ -1,0 +1,49 @@
+# What: Project-specific firewall allowlist additions, read at container
+#       start by init-firewall.sh.
+# Why:  init-firewall.sh itself is [locked] in kit/manifest.txt — the
+#       devshop overwrites the workspace copy with the template version
+#       on every container start, so edits to init-firewall.sh's static
+#       list silently revert. This file is [scaffold-once]: the template
+#       seeds it once, then the project owns it. init-devshop.sh chmods
+#       it root:root 644 on every start so node (Claude / npm) cannot
+#       modify; only the operator with `sudo nano` can edit.
+# Does NOT: Replace the static template list in init-firewall.sh (which
+#       covers npm / GitHub / Anthropic / Sentry / Vercel / VS Code /
+#       common CDNs). Add ONLY project-specific external services here:
+#       your Supabase project URL, Sentry org ingest, PostHog region,
+#       Vercel app URL — anything that varies per project.
+#
+# Format:
+#   - One bare hostname per line (no scheme, no path, no port).
+#   - Lines starting with `#` and blank lines are ignored.
+#   - Each line is validated against a strict DNS-label regex before
+#     it's resolved + added to the firewall ipset. Malformed entries
+#     are logged and skipped, not silently included.
+#
+# Examples (uncomment + customize per project):
+#   <ref>.supabase.co                           — your Supabase project URL
+#   api.supabase.com                            — Supabase control plane (needed for `supabase link`)
+#   o<org-id>.ingest.us.sentry.io               — your Sentry org ingest (or .eu.sentry.io)
+#   us.i.posthog.com                            — PostHog ingest (us or eu)
+#   us-assets.i.posthog.com                     — PostHog client assets (us or eu)
+#   <your-app>.vercel.app                       — your Vercel production URL
+#
+# After editing this file, additions take effect on next container rebuild.
+#
+# In-session shortcut WITHOUT rebuild — additive `ipset add` (same
+# mechanism as refresh-allowed-ips.sh; safe mid-session, no flush):
+#     dig +short A <hostname> | while read ip; do
+#       sudo ipset add allowed-domains "$ip" 2>/dev/null || true
+#     done
+#
+# DON'T re-run `sudo /usr/local/bin/init-firewall.sh` to refresh —
+# observed twice (2026-04-20, pre-refresh-allowed-ips.sh) to stall
+# the Claude session. The triggering use-case (refresh stale prod-URL
+# IPs) no longer applies, but the underlying iptables/mangle flush +
+# ipset destroy code path is unchanged so the conntrack-invalidation
+# risk plausibly remains. With both current refresh use-cases now
+# additive-only (refresh-allowed-ips.sh + the ipset add shortcut
+# above), there's no reason to invoke init-firewall.sh mid-session
+# anyway. See kit/TODOS.md "init-firewall.sh hangs the Claude Code
+# session" + kit/docs/guide/ops.md § Known Footguns § Firewall IP
+# rotation.

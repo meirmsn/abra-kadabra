@@ -392,6 +392,8 @@ The skill tracks progress in `/devshop/kit/notes/projects/<name>.md` (not in
 the project repo — keeps project history clean). See
 `.claude/skills/devshop/new-project/SKILL.md` for the full step-by-step process.
 
+**Project-specific firewall domains** (Step 6) go in `.devcontainer/firewall-extra-domains` — a `[scaffold-once]` overlay file seeded from the template and locked to `root:root 644` on every container start so only the operator (with `sudo nano`) can edit. Editing `init-firewall.sh` directly is a silent-revert trap: it's `[locked]` template-managed and reverts on every start. See `guide/architecture.md § File lifecycle § Hybrid lifecycle`.
+
 To adopt the devshop on an existing project, run `/ak-migrate-project` (skeleton —
 see `kit/ROADMAP.md`).
 

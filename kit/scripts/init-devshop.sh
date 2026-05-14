@@ -130,6 +130,18 @@ while IFS= read -r path; do
   fi
 done < <(manifest_paths_by locked)
 
+# Project-firewall-extras seed + lock (bespoke; not via manifest annotation).
+# Seed from /devshop/template/.devcontainer/firewall-extra-domains if missing
+# in workspace (operator-owned thereafter; init-firewall.sh reads it at runtime).
+# chown root:root 644 on every start so node (Claude / npm) cannot modify;
+# operator with sudo can edit.
+FWE_SRC="$DEVSHOP/template/.devcontainer/firewall-extra-domains"
+FWE_DST="$WS/.devcontainer/firewall-extra-domains"
+if [ -f "$FWE_SRC" ] && [ ! -e "$FWE_DST" ]; then
+  install -D -m 644 -o root -g root "$FWE_SRC" "$FWE_DST"
+fi
+[ -e "$FWE_DST" ] && chown root:root "$FWE_DST" && chmod 644 "$FWE_DST"
+
 # Manifest-driven [locked-dir]s: sticky bit on workspace dirs.
 while IFS= read -r d; do
   [ -z "$d" ] && continue
@@ -163,6 +175,7 @@ for f in \
   "$DEVSHOP/template/.devcontainer/init-firewall.sh" \
   "$DEVSHOP/template/.devcontainer/Dockerfile" \
   "$DEVSHOP/template/.devcontainer/checksums.sha256" \
+  "$DEVSHOP/template/.devcontainer/firewall-extra-domains" \
   "$DEVSHOP/template/.husky/pre-commit" \
   "$DEVSHOP/template/.husky/pre-push" \
   "$DEVSHOP/template/.husky/prepare-commit-msg" \

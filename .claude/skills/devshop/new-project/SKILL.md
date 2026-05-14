@@ -650,42 +650,28 @@ Common confusion: **`supabase db push` uses neither.** It opens a direct Postgre
 
 ### Step 6: [HUMAN] Add firewall domains
 
-Add project-specific domains to `.devcontainer/init-firewall.sh`. Find the `for domain in \`
-block and add lines before the closing `; do`. See placeholder comments in the file for
-which domains to add (Vercel app URL, Supabase project ref, Sentry org ingest, PostHog).
-Under compose isolation (the template default) the workspace doesn't fetch Docker images
-itself — the supabase-runner sibling does, but it doesn't run this firewall script — so
-no Docker Hub allowlist entry is needed in workspace init-firewall.sh.
+Project-specific external services (your Supabase project URL, Sentry org ingest, PostHog region, Vercel app URL) go in **`.devcontainer/firewall-extra-domains`** — a project-owned text file seeded by `init-devshop.sh` from the devshop template. The file is root-owned 644 (only the operator with `sudo` can edit; node / Claude / npm cannot). One bare hostname per line; lines starting with `#` and blank lines are ignored.
 
-**Volatile-IP prod URL (CDN-fronted)** — `init-firewall.sh` resolves domains to IPs
-once at container start, but Vercel/Cloudflare CDN edges rotate IPs during the day,
-so the cached ipset goes stale (most visibly: post-deploy `EHOSTUNREACH` to your prod
-URL). The template ships `refresh-allowed-ips.sh` (root-owned at `/usr/local/bin/`,
-NOPASSWD sudo) which re-resolves the prod hostname and `ipset add`s fresh IPs
-without flushing. Set the value in `.devcontainer/.env` as a bare hostname (no
-scheme, no path, no port):
+Why this and not `.devcontainer/init-firewall.sh` directly: `init-firewall.sh` is `[locked]` in `kit/manifest.txt` — every container start overwrites the workspace copy with the devshop template, silently reverting any project additions. `firewall-extra-domains` is `[scaffold-once]`, so project edits persist across rebuilds.
+
+```bash
+sudo nano /workspace/.devcontainer/firewall-extra-domains
+# uncomment + customize the example entries
+```
+
+The new entries take effect on **next container rebuild** (Step 7). Don't re-run `sudo /usr/local/bin/init-firewall.sh` to apply on the fly — full ipset/iptables rebuild is known to hang the Claude session (see `kit/TODOS.md`). If you need to add an entry mid-session without a rebuild, manually `sudo ipset add allowed-domains <ip>` for each resolved IP — but prefer rebuild for anything more than a one-off.
+
+Strict DNS-label regex validates each line at `init-firewall.sh` runtime; malformed entries are warned-and-skipped, not silently included. Under compose isolation (template default) the workspace doesn't fetch Docker images itself — the supabase-runner sibling does, but it doesn't run this firewall script — so no Docker Hub allowlist entry is needed.
+
+**Volatile-IP prod URL (CDN-fronted)** — `init-firewall.sh` resolves domains to IPs once at container start, but Vercel/Cloudflare CDN edges rotate IPs during the day, so the cached ipset goes stale (most visibly: post-deploy `EHOSTUNREACH` to your prod URL). The template ships `refresh-allowed-ips.sh` (root-owned at `/usr/local/bin/`, NOPASSWD sudo) which re-resolves the prod hostname and `ipset add`s fresh IPs without flushing. Set the value in `.devcontainer/.env` as a bare hostname (no scheme, no path, no port):
 
 ```
 PRODUCTION_URL=<your-app>.com
 ```
 
-> **Note**: same name as the GitHub Variable `PRODUCTION_URL` (consumed by
-> `keepalive.yml`), but the format differs — the GH Variable holds the full URL
-> (`https://<your-app>.com`); this `.env` value is the bare hostname. Surface this
-> divergence in your project's `CLAUDE.md` so an operator copy/pasting between
-> surfaces doesn't trip on it.
+> **Note**: same name as the GitHub Variable `PRODUCTION_URL` (consumed by `keepalive.yml`), but the format differs — the GH Variable holds the full URL (`https://<your-app>.com`); this `.env` value is the bare hostname. Surface this divergence in your project's `CLAUDE.md` so an operator copy/pasting between surfaces doesn't trip on it.
 
-`.env` is root-owned 644 — workspace user (or a compromised npm dep) cannot mutate
-the value at runtime. The script validates against a strict DNS-label regex, rejects
-any argv, and exits no-op if `PRODUCTION_URL` is unset/empty — keeping the on-demand
-sudo entry-point a small hole. When prod becomes unreachable, run
-`sudo /usr/local/bin/refresh-allowed-ips.sh`. (Don't re-run
-`sudo /usr/local/bin/init-firewall.sh` — full ipset/iptables rebuild is known to
-hang the Claude session.)
-
-If a project ever needs multiple volatile-IP domains (e.g. main site + admin on a
-separate CDN), generalize then — introduce a comma-separated list (`EXTRA_VOLATILE_DOMAINS=...`)
-without changing the `PRODUCTION_URL` semantics. YAGNI today.
+`.env` is root-owned 644 — workspace user (or a compromised npm dep) cannot mutate the value at runtime. The `refresh-allowed-ips.sh` script validates against a strict DNS-label regex, rejects any argv, and exits no-op if `PRODUCTION_URL` is unset/empty — keeping the on-demand sudo entry-point a small hole. When prod becomes unreachable post-deploy, run `sudo /usr/local/bin/refresh-allowed-ips.sh`.
 
 ### Step 7: [HUMAN] Rebuild devcontainer (conditional on Step 2b)
 
@@ -958,6 +944,12 @@ Create `playwright.config.ts` with mobile (375px) and desktop (1440px) projects.
 
 ```bash
 supabase init    # if supabase/config.toml doesn't exist
+# `supabase init` defaults `project_id` to the basename of $PWD — inside the
+# workspace container that is always "workspace", so every project would share
+# the same supabase_*_workspace container names on the host docker engine,
+# colliding across projects + masking ownership in `docker ps`. Substitute the
+# real project name so the stack containers become supabase_*_<project-name>.
+sed -i 's/^project_id = .*/project_id = "<project-name>"/' supabase/config.toml
 supabase link --project-ref <project-ref>
 ```
 

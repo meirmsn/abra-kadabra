@@ -56,9 +56,9 @@
   // belongs in compose.yml.
   "mounts": [
     // Shell history survives container rebuilds (zsh/bash)
-    "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
+    "source=claude-code-bashhistory-${localWorkspaceFolderBasename},target=/commandhistory,type=volume",
     // Claude Code config, sessions, and API key survive container rebuilds
-    "source=claude-code-config-${devcontainerId},target=/home/node/.claude,type=volume",
+    "source=claude-code-config-${localWorkspaceFolderBasename},target=/home/node/.claude,type=volume",
     "source=${localWorkspaceFolder}/../abra-kadabra,target=/devshop,type=bind,consistency=delegated"
   ],
   "containerEnv": {

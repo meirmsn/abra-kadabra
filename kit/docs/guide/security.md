@@ -38,7 +38,7 @@ Root-owned copies (not symlinks), verified fresh on every commit. Project-worksp
 
 - `.claude/settings.json` — permissions, hooks, deny rules
 - `.dcg.toml` — destructive command patterns
-- `.devcontainer/*` — container config (Dockerfile, init-devshop.sh, init-firewall.sh, devcontainer.json, checksums.sha256), firewall, secrets
+- `.devcontainer/*` — container config (Dockerfile, init-devshop.sh, init-firewall.sh, devcontainer.json, checksums.sha256, firewall-extra-domains [scaffold-once project overlay; root:root 644]), firewall, secrets
 - `.husky/pre-commit` — gates commit-time guards (gitleaks, mixed-commit, Layer 1 docs/tests-coverage hooks); tampering silently disables them
 - `.husky/prepare-commit-msg` — appends `Tests-Coverage-Bypass:` / `Docs-Coverage-Bypass:` trailers when bypass flags are set; tampering hides bypass evidence from audit-time review
 - `.husky/pre-push` — gates push-time guards (no-direct-push-to-main, dirty-tree adversarial review); tampering silently disables them

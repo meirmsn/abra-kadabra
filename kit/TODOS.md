@@ -7,6 +7,38 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
 <!-- Items discovered during use. Tag with [v0.2], [v1] etc. to schedule into ROADMAP versions. -->
 
+- [ ] **Migrate lalista's local Supabase stack off `project_id = "workspace"`.** Surfaced 2026-05-13 while inspecting `docker ps` for home-os: lalista's stack containers are named `supabase_*_workspace` rather than `supabase_*_lalista`, because `supabase init` defaults `project_id` to the basename of `$PWD` — which is `/workspace` inside the container. Lalista's `supabase/config.toml` was never substituted at scaffold time (the bug `/ak-new-project § Step 15` fix in this same commit closes for future projects). Symptom is mostly cosmetic (Docker Desktop UI groups the lalista stack under "workspace" — misleading when multiple projects run on the same host) but **becomes a real container-name collision the moment a second project is also stuck on `project_id = "workspace"`** (only one such project can run a local stack at a time). Home-os was scaffolded correctly with `project_id = "home-os"` only because the operator noticed and edited it manually — the template still ships the bug pre-Step-15-fix.
+
+  **Migration recipe (run from inside lalista's workspace container, on a clean tree)**:
+
+  ```bash
+  # 1. Stop the current stack (frees container names + host port 54321/54322)
+  curl -X POST http://supabase-runner:9000/stop
+  #    or, if not using compose isolation:
+  #    supabase stop
+
+  # 2. Rename project_id in the committed config
+  sed -i 's/^project_id = "workspace"$/project_id = "lalista"/' supabase/config.toml
+  git add supabase/config.toml
+  git commit -m "fix(supabase): rename project_id from workspace to lalista"
+
+  # 3. Bring the stack back up under the new name
+  curl -X POST http://supabase-runner:9000/start
+  #    or: supabase start
+
+  # 4. Verify (from the host) — new names appear, no stale workspace orphans persist
+  docker ps --format '{{.Names}}' | grep '^supabase_.*_lalista$'   # expect 10 containers
+  docker ps -a --format '{{.Names}}' | grep '^supabase_.*_workspace$'   # expect empty after step 1's stop
+
+  # 5. If step 4 shows lingering `supabase_*_workspace` containers (the stop call only
+  #    pauses, doesn't remove), force-delete them — their data is reproducible from
+  #    `supabase/migrations/` + `supabase/seed.sql` so no dump/restore is needed for
+  #    a local dev stack:
+  docker rm -f $(docker ps -aq --filter "name=^supabase_.*_workspace$")
+  ```
+
+  No project code references `project_id` directly (it's a Supabase-CLI-internal namespace), so no source-file or `.env` updates are needed beyond the one-line `supabase/config.toml` edit. After step 3, `pnpm db:reset` + `pnpm db:gen-types` continue to work unchanged because the relay address (`supabase-runner:9000`) and the host-bound REST/Postgres ports (54321/54322) don't depend on `project_id`. Delete this entry from `kit/TODOS.md` in the same commit that lands step 2.
+
 - [ ] **Migrate remaining 10 inline `[ -d "$X/kit" ] && [ ! -L "$X/kit" ]` detections to `kit/scripts/sync/lib/detect-mode.sh`'s `is_devshop_self_mode`.** The lib + `DEVSHOP_FORCE_MODE` env override shipped in `fix/init-devshop-tolerate-missing-password` (2026-05-12) but only the 3 surfaces with currently-broken bats tests were migrated: `kit/hooks/pre-commit.sh`, `kit/scripts/commit-hooks/commit-guard.sh`, `kit/scripts/commit-hooks/check-security-files-freshness.sh`. The other 10 callers still inline the check: `kit/hooks/pre-push.sh`, `kit/scripts/init-devshop.sh`, `kit/scripts/sync/create-devshop-symlinks.sh`, `kit/scripts/adversarial-review.sh`, `kit/scripts/commit-hooks/{check-docs-coverage-project,check-docs-coverage-devshop,check-tests-coverage-project,check-tests-coverage-devshop,check-manifest,check-exempt-additions}.sh`. Their tests aren't currently broken in the devshop devcontainer (none try to simulate project mode while running there), but any future test that does will hit the same trap. Migrate incrementally — each script is a single-line replacement (source the lib, swap the inline conditional for `is_devshop_self_mode "$X"`). `adversarial-review.sh:88` has an explicit `[ "$GIT_ROOT" = "/devshop" ] || ...` short-circuit that the lib's auto branch already covers (when `GIT_ROOT=/devshop`, `/devshop/kit` IS a real dir in production); preserve the simplification but verify against `kit/tests/adversarial-review-*.bats`. `commit-guard.sh` already had a `!= "/devshop"` guard removed in this fix — same pattern in others, safe to drop.
 
 - [ ] **`sudo /usr/local/bin/init-firewall.sh` hangs the Claude Code session when re-run mid-session.** Observed twice during lalista PR 2 close-out (2026-04-20). Container rebuild is the only known recovery. Root-cause hypothesis (unconfirmed): iptables/ipset rebuild drops the session's own established API connection; when Claude Code reconnects against the new network state, commands stall indefinitely.
@@ -390,3 +422,59 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
   **Edit targets**: `template/CLAUDE.md` (§ Migration Workflow append), `template/scripts/advisor-probe.mjs` (new), `template/package.json` (`db:advisor` script), `.claude/skills/devshop/pre-ship/SKILL.md` (new gate), `template/README.md` (Local URLs section), `kit/ROADMAP.md § v0` (paired entry).
 
   [v0, supabase, surfaced-by lalista-PR-58, 2026-05-08]
+
+- [ ] **Port the `tap-feedback` press-state contract from lalista into the template's `globals.css`.** Lalista PR (2026-05-13, polish bundle) added a low-specificity `:where(button, a[href], [role="button"]):active` rule that scales 0.97 + drops brightness to 0.9 within `--duration-micro` (75ms), with `touch-action: manipulation` to kill iOS's 300ms tap delay. Without it, taps on iOS PWA give no native press cue and users assume the app froze (or double-tap). Every devshop-generated project should ship this on day one.
+
+  **Why generalize**: this is a stack-wide pattern (touch-input UX on PWA), not lalista-specific — it should live in the kit so new projects don't have to discover the iOS PWA "feels frozen" problem from a soak. The CSS is ~12 lines and depends only on a `--duration-micro` token, which template projects already ship via the design-system token CSS layer.
+
+  **Edit targets**:
+  - `template/apps/web/app/globals.css` (or wherever the template puts its global stylesheet) — copy the `Tap feedback` block verbatim from `lalista/apps/web/app/globals.css`. Keep the `:where(...)` wrapper (zero-specificity, easy to override per component) and the `.no-tap-feedback` escape hatch class.
+  - `kit/docs/guide/` — short guide entry "Touch feedback" under the design-system / UX section explaining the contract (scale + brightness drop on press, fires within one frame, inherited by every `<button>` / `<a href>` / `[role="button"]`, opt-out via `.no-tap-feedback`). Reference DESIGN.md analog in lalista if useful.
+  - `kit/CHANGELOG.md` — note the new template baseline.
+
+  **Validation**: after porting, a fresh `/ak-new-project` should produce a project where every button/link visibly presses in on tap with no per-component opt-in needed. Lalista's `tap-feedback` rule has been dogfooded for the duration of the polish bundle — promote it to standard once it's been stable for one full lalista release cycle.
+
+  [ui, design-system, touch-input, surfaced-by lalista-polish-2026-05-13]
+
+- [ ] **`/ak-check-docs-and-tests` orchestrator appends `## Audit N` to `review.md` but never commits the change.** Surfaced 2026-05-13 during home-os auth-magic-link PR #10 deploy. `/ak-build § Phase 5.8` spawned the orchestrator subagent which read the prior audit-range stamp from `review.md`, ran `/ak-docs-review` + `/ak-tests-review` over the polish range, and appended a `## Audit 2: post-polish (...)` section with `<!-- audited-at: <SHA> -->` stamp + `findings: high=0 medium=0 low=0` summary. The append landed as a working-tree change but no `git add` + `git commit` followed — the orchestrator returns the findings counts and stops. The uncommitted file then blocked the post-merge `gh pr merge --delete-branch`'s local `git checkout main`, forcing an operator decision: discard the audit-trail append (what I did — the same finding was already captured in PR #10's Phase 6 audit comment publicly) OR stash + recover. In-repo audit history loses a record-keeping artifact the spec said should persist.
+
+  **Fix shape**: add a final step to `/devshop/.claude/skills/ak-check-docs-and-tests/SKILL.md` that stages + commits the `review.md` modification atomically per audit. Suggested commit message: `docs(<feature>): Audit N (<label>) — findings: high=H medium=M low=L`. Body names the audited range (`<base-SHA>..HEAD`) for traceability. The commit must respect the dirty-tree pre-commit rail (only stage `specs/<feature>/review.md`; refuse if there's anything else uncommitted, since that would mean the orchestrator inherited a contaminated working tree from the parent and silently capturing those would be the wrong shape).
+
+  **Edit target**: `/devshop/.claude/skills/ak-check-docs-and-tests/SKILL.md` — add a "Step 7: commit the appended section" at end. `/ak-build § Phase 5.8` and `/ak-pre-ship § Gate 5` (the two callers) need no change — both invoke the orchestrator via Skill tool and will inherit the new commit automatically.
+
+  **Validation**: after the fix, `/ak-build § Step 0 § Resume check § rung 1a` (idempotence: skip Phase 5.8 if latest `audited-at: <SHA>` == HEAD) holds correctly because the commit advances HEAD AND records the stamp at the new HEAD; no working-tree drift survives the audit. Today's behavior: HEAD stays at the bookkeeping commit while `review.md` is uncommitted, so rung 1a sees a missing-stamp mismatch and re-runs the audit unnecessarily.
+
+  [v0, ak-orchestrator, orchestrator-commit-gap, surfaced-by home-os-PR10-go-live, 2026-05-13]
+
+- [ ] **`gh pr merge --delete-branch` silently swallows local-side cleanup failures (exit 0 even when `git checkout` aborts).** Surfaced 2026-05-13 during home-os auth-magic-link PR #10 deploy. Server-side merge succeeded (PR state → MERGED, `mergeCommit.oid` populated), but the local-side cleanup `git checkout` of the base branch aborted because the orchestrator-from-`/ak-build`-Phase-5.8 had left an uncommitted modification to `specs/auth-magic-link/review.md` in the working tree (paired bug above). `gh pr merge` exited 0 anyway, reporting the error inline (`failed to run git: error: Your local changes... would be overwritten by checkout`) but not propagating it as a non-zero exit. A naive caller would treat exit 0 as "fully clean merge" and advance to the next pipeline step, leaving the local clone in a half-cleaned state (feature branch still present, main not updated). I noticed because the next step's `git log` output showed I was still on `feat/auth-magic-link`, not the expected `main`.
+
+  **Fix shape**: add a `git status --porcelain` pre-flight check before the merge call in `/ak-go-live § Step 2` (or equivalently inside `/land-and-deploy`'s Step 4). If non-empty, surface via `AskUserQuestion`:
+  - **commit** — operator commits the dirty change with a brief message (good when the change is intentional audit-trail output that just didn't get committed by an orchestrator).
+  - **stash** — `git stash push -u -m "ak-go-live pre-merge stash"`; restore post-deploy.
+  - **discard** — `git checkout -- <files>` with explicit confirmation (destructive — only when the change is known-safe-to-lose).
+
+  Don't lump this into the existing Step 3.5 readiness gate. By Step 3.5 the operator has already approved the merge in principle; surprising them with "wait, you have uncommitted changes" right before the actual merge is bad UX. Surface earlier in pre-flight so the gate-of-approval is on a clean tree.
+
+  **Edit target**: `/devshop/.claude/skills/ak-go-live/SKILL.md` § Step 2 — add a "Pre-merge working-tree check" sub-step before invoking `/land-and-deploy`. Mention the failure-mode-on-success behavior so future agents understand why the check is load-bearing (a `gh pr merge` exit 0 isn't a "merge fully succeeded" guarantee).
+
+  **Validation**: after the fix, any session where Phase 5.8's orchestrator (or anything else) leaves a working-tree change pre-merge hits the prompt before merge, not after. The L1 fix above also closes this from the orchestrator side — but defense in depth at the deploy boundary is worth the few lines.
+
+  [v0, ak-go-live, gh-cli-quirk, surfaced-by home-os-PR10-go-live, 2026-05-13]
+
+- [ ] **`/ak-build` Phase 0's branch-prefix text drifts from the prevailing `feat/` project convention.** Surfaced 2026-05-13 during home-os auth-magic-link PR #10. `/ak-build § Step 0 § Derive feature name` says "Pick the branch prefix: `feature/` for new functionality, `fix/` for bug fixes" and creates the branch via `git checkout -b feature/<name>`. Home-os's project conventions enforce `feat/` (matches the conventional-commit type prefix `feat:`), so my `feature/auth-magic-link` was renamed to `feat/auth-magic-link` mid-session via some project-side mechanism (post-checkout hook? operator manual edit? exact trigger unclear from session reflog — only seen as `0b46264 HEAD@{0}: checkout: moving from feature/auth-magic-link to feat/auth-magic-link` between my branch creation and my first commit). The rename was transparent at the time but left orphan branches needing cleanup (`git branch -d feature/auth-magic-link`) — a real convention drift between the skill default and the project enforcement.
+
+  **Fix shape**: `/ak-build § Step 0 § Derive feature name` should detect the project's prevailing convention from existing branches before picking a prefix. Heuristic:
+
+  ```bash
+  FEAT_COUNT=$(git branch --list --all 'feat/*' '*/feat/*' 2>/dev/null | wc -l)
+  FEATURE_COUNT=$(git branch --list --all 'feature/*' '*/feature/*' 2>/dev/null | wc -l)
+  if [ "$FEAT_COUNT" -gt "$FEATURE_COUNT" ]; then PREFIX=feat/; else PREFIX=feature/; fi
+  ```
+
+  Default to `feat/` when both counts are zero (greenfield project). It's the shorter form, matches the conventional-commit type prefix (`feat:` / `fix:` / `chore:` already use the short form everywhere), and lalista observed the same pattern. PR #9's `feature/supabase-schema-and-rls` was a vestige from the very first project commit — most subsequent home-os and lalista branches are `feat/...`.
+
+  **Edit target**: `/devshop/.claude/skills/ak-build/SKILL.md § Step 0 § Derive feature name and ensure branch` — replace the hardcoded "`feature/` for new functionality" text with the heuristic above. Mirror in `template/.claude/skills/devshop/ak-build/SKILL.md` (or wherever the template's ak-build scaffold lives) so a fresh `/ak-new-project` inherits the same logic.
+
+  **Validation**: a fresh `/ak-new-project` followed by `/ak-build` should create `feat/<name>` (not `feature/<name>`). Existing projects with `feature/*` history (none currently — both lalista and home-os settled on `feat/*` quickly) keep using `feature/` automatically because the heuristic detects the convention from their branch list. No migration of existing branches needed; the heuristic is forward-looking only.
+
+  [v0, ak-build, branch-naming-convention, surfaced-by home-os-PR10-go-live, 2026-05-13]

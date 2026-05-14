@@ -70,27 +70,27 @@ SKIPPED_DOMAINS=()
 
 # Resolve and add other allowed domains
 # === PROJECT-SPECIFIC DOMAINS ===
-# /ak-new-project will guide you to add your project-specific domains here.
-# Examples of what to add:
-#   "<your-app>.vercel.app"            — your Vercel production URL
-#   "<ref>.supabase.co"                — your Supabase project URL
-#   "o<org-id>.ingest.sentry.io"       — your Sentry ingest endpoint
-#   "us.i.posthog.com"                 — PostHog ingest (us or eu)
+# Static template list below covers stack-common services (npm / GitHub /
+# Anthropic / Sentry / Vercel / VS Code / common CDNs / ntfy). Project-
+# specific domains (your Supabase project URL, Sentry org ingest, PostHog
+# region, Vercel app URL) go in .devcontainer/firewall-extra-domains —
+# a project-owned [scaffold-once] file that init-devshop.sh seeds and
+# locks (root:root 644). Edits there persist across container starts.
+# init-firewall.sh itself is [locked] — edits below revert on next start.
 #
 # Note on Supabase egress (deliberately omitted under compose
 # isolation):
 # `api.supabase.com` (control plane) and `aws-0-us-west-2.pooler.supabase.com`
-# (connection pooler) are NOT in this allowlist. Migrations + functions
-# deploy from CI on push-to-main (see .github/workflows/deploy-{migrations,
+# (connection pooler) are NOT in this allowlist by default. Migrations +
+# functions deploy from CI on push-to-main (see .github/workflows/deploy-{migrations,
 # functions}.yml), never from this devcontainer. The local stack runs in
 # the sibling `supabase-runner` compose service; the workspace reaches the
 # data plane via host.docker.internal:54321 (REST) / :54322 (Postgres) —
 # explicitly allowed by the host-gateway rule below — and reaches the
 # cmd-relay via `supabase-runner:9000` over the compose-internal
-# `supabase-net` bridge (allowed by the HOST_NETWORK ACCEPT rule). The
-# project's `<ref>.supabase.co` data-plane URL stays in the allowlist
-# (anon-key data-plane only — never the service-role JWT). Removing the
-# control-plane + pooler entries shrinks the dev-side prod blast radius.
+# `supabase-net` bridge (allowed by the HOST_NETWORK ACCEPT rule). If your
+# project needs `supabase link` / `supabase db push` from this devcontainer,
+# add `api.supabase.com` to .devcontainer/firewall-extra-domains.
 # See /devshop/kit/notes/security/local-supabase-isolation-options.md.
 #
 # Also no `download.docker.com` / `registry-1.docker.io` / `auth.docker.io`
@@ -142,6 +142,42 @@ for domain in \
         ipset add allowed-domains "$ip" 2>/dev/null || true
     done < <(echo "$ips")
 done
+
+# Project-specific extras — read /workspace/.devcontainer/firewall-extra-domains
+# (scaffold-once: seeded by init-devshop.sh from /devshop/template/, then owned
+# by the project). One bare hostname per line; lines beginning with # are
+# ignored. Each line is validated against a strict DNS-label regex before being
+# resolved + added to the allowed-domains ipset. The file is root-owned 644 so
+# only the operator (with sudo) can edit it.
+EXTRAS_FILE="/workspace/.devcontainer/firewall-extra-domains"
+if [ -f "$EXTRAS_FILE" ]; then
+    echo "Reading project-specific extras from $EXTRAS_FILE..."
+    while IFS= read -r raw || [ -n "$raw" ]; do
+        line="${raw%%#*}"
+        line="$(echo -n "$line" | tr -d '[:space:]')"
+        [ -z "$line" ] && continue
+        if [[ ! "$line" =~ ^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$ ]]; then
+            printf '\n\033[1;33mWARN: firewall-extra-domains line %q is not a valid hostname — skipping\033[0m\n' "$line" >&2
+            SKIPPED_DOMAINS+=("$line")
+            continue
+        fi
+        echo "Resolving extra $line..."
+        ips=$(dig +noall +answer A "$line" 2>/dev/null | awk '$4 == "A" {print $5}')
+        if [ -z "$ips" ]; then
+            printf '\n\033[1;33mWARN: Failed to resolve extra %s — skipping\033[0m\n' "$line" >&2
+            SKIPPED_DOMAINS+=("$line")
+            continue
+        fi
+        while read -r ip; do
+            if [[ ! "$ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+                echo "ERROR: Invalid IP from DNS for extra $line: $ip"
+                exit 1
+            fi
+            echo "Adding $ip for extra $line"
+            ipset add allowed-domains "$ip" 2>/dev/null || true
+        done < <(echo "$ips")
+    done < "$EXTRAS_FILE"
+fi
 
 # GitHub Actions artifact storage — Azure Blob shards published in
 # api.github.com/meta § domains.actions (currently productionresultssa0-19;

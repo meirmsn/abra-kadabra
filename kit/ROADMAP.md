@@ -654,6 +654,297 @@ Cost saving is non-trivial (Sonnet calls per ship: 5–15× → 1–2×). More i
 
 ---
 
+### Docs-coverage hook exempts audit-prose paths (`specs/<feature>/review.md` and similar)
+
+**Problem.** `kit/scripts/commit-hooks/check-docs-freshness-project.sh` greps every staged file for `posthog.capture(`, `Sentry.captureException(`, and similar analytics-call regex. When `specs/<feature>/review.md` (the audit-trail file written by `/ak-pre-ship` Gate 8 and `/ak-check-docs-and-tests` § Audit N) contains an audit bullet attesting "this PR adds zero `posthog.capture()` calls", the literal string `posthog.capture()` is the **subject** of the audit prose, not a new call site. The hook fires `BLOCKING: New analytics event call sites added without METRICS.md update`, the operator pays a `Docs-Coverage-Bypass:` trailer to commit, and audit-time's bypass-trailer review then VERIFIES the trailer as "yes, false positive in audit prose" — the system pays Sonnet to confirm what the hook already knew but couldn't express.
+
+**Concrete numbers from home-os PR #9** (2026-05-13, the foundation supabase-schema-and-rls PR):
+
+- 3 commits in this PR carried `Docs-Coverage-Bypass:` trailers: `97bb365`, `8e88ca0`, `9580061`.
+- Each trailer cited the same fact pattern: "literal `posthog.capture()` in `specs/supabase-schema-and-rls/review.md` § Gate 3 / § Audit N as audit prose, not a new call site."
+- Audit 2's bypass-trailer-audit (Sonnet, ~30s × 3 trailers = ~90s) VERIFIED every one.
+- Net cost: 3 hook fires, 3 bypass-reason drafts, 3 commit re-runs, ~$0.15–0.30 of Sonnet API spend, and one PR comment exchange explaining the recurring false-positive — for **zero signal**.
+
+The pattern recurs every PR that does any non-trivial pre-ship audit work. Every audit-prose mention of `posthog.capture` or `Sentry.captureException` (in a Gate-N findings list, Audit-N tests-findings bullet, bypass-trailer-review note) triggers the same useless cycle.
+
+**Codified from** home-os PR #9 (2026-05-13). 3 bypass trailers within a single PR cycle for identical fact patterns, plus 1 more in the `/devshop` commit (`feat/firewall-extras-overlay` § 1e779da) that just landed for the CI dual-trigger entry. Lalista exhibited the same pattern with smaller frequency (~1 per multi-gate PR); home-os surfaced it concentrated because the foundation PR ran Audit 1 + Audit 2 with detailed findings prose.
+
+**Shape of the fix — two-stage:**
+
+**Stage A (cheap):** Exempt the canonical audit-prose paths from the hook's analytics-event grep:
+
+```bash
+# kit/scripts/commit-hooks/check-docs-freshness-project.sh
+# Inside the loop that greps staged files for new `posthog.capture(` / `Sentry.captureException(` call sites:
+
+case "$file" in
+  specs/*/review.md|specs/*/tasks.md)
+    # Audit-trail / task-decision prose. The literal string mentioning an
+    # analytics function is the SUBJECT of the prose, not a new call site.
+    continue
+    ;;
+esac
+```
+
+The exemption is path-shaped, not regex-content-shaped, so it can't be gamed by an actual `posthog.capture(` call landing in the middle of an audit file (the hook still catches when the literal lives in `apps/`, `packages/`, `supabase/functions/` — the actual call-site surfaces).
+
+**Stage B (defense in depth):** When the hook _does_ fire on a non-exempt path, run a cheap **context check** before blocking:
+
+````bash
+# Is the `posthog.capture(` match inside a fenced code block (``` … ```) or
+# inline code (`...`)? Markdown rendering and audit-trail prose use both.
+# A `posthog.capture(` mention inside code-formatting is documentation, not
+# a new call site.
+if grep -nE 'posthog\.capture\(' "$file" | \
+   while read -r match; do
+     line=${match%%:*}
+     # Check if the match line is inside a fenced or inline code block.
+     # ...
+   done | grep -q "in-prose"; then
+  continue
+fi
+````
+
+Stage B is more work; Stage A alone closes 95% of the pain.
+
+**Why v0 — blocks next-project adoption:**
+
+Every project that runs `/ak-pre-ship` (which is every project on the devshop) hits this on every PR that produces a `review.md` with detailed findings prose. The bypass-trailer cost compounds: per-PR operator attention to draft the reason, per-PR Sonnet call to verify, per-PR rebuild cycle. Stage A is a 5-line case-statement add in one shell script; saves operator + Sonnet time on every devshop PR going forward.
+
+**Trigger:**
+
+- home-os PR #9 — 3 bypasses in one PR (worst case observed so far)
+- lalista PRs running `/ak-check-docs-and-tests` — same pattern at lower frequency (PRs that don't write detailed audit prose don't trip it)
+- Every future project: identical fact pattern guaranteed
+
+**Cross-ref:**
+
+- `/devshop/kit/scripts/commit-hooks/check-docs-freshness-project.sh` — the grep loop to patch
+- `/devshop/kit/scripts/commit-hooks/check-tests-coverage-project.sh` — symmetric exemption may apply (audit prose can also mention test-file paths in passing)
+- home-os PR #9 — concrete bypass-trailer audit trail at `97bb365`, `8e88ca0`, `9580061`
+- `/devshop/.claude/skills/ak-check-docs-and-tests/SKILL.md § Step 5 bypass trailer audit` — downstream consumer of bypass trailers
+
+**Cost/risk:**
+
+- Implementation: ~1 hour (Stage A: 5-line patch + bats test that exercises the exemption; Stage B optional follow-up).
+- Risk: low. The exemption is path-scoped to `specs/*/review.md` and `specs/*/tasks.md` — neither path can legitimately contain runtime app code. Worst case if abused: an operator hides an actual analytics call site inside a review file (which would be obvious in code review and gets caught by `/review` Gate 9 on the next PR anyway).
+- Benefit: zero false-positive bypass trailers on audit-prose files; ~$0.10–0.30 saved per PR on the deferred Sonnet round-trip; operator attention freed for real reviews.
+
+[v0, surfaced-by home-os PR #9 § 5b reflection on 2026-05-13]
+
+---
+
+### `PRODUCTION_URL` onboarding gap — fill `.env` + rebuild container + verify (`/ak-new-project` Phase B + `/ak-go-live` Step 1.5 tri-state diagnostic)
+
+**Problem.** `/ak-new-project` scaffolds `.devcontainer/.env` with an empty `PRODUCTION_URL=` slot. The Vercel URL isn't known until after `vercel link` + first deploy land, so scaffold-time population is impossible. By the time the URL is known (end of Phase B, when `CLAUDE.md § Deploy Configuration` gets written), the skill **doesn't prompt the operator to do anything with `.env`** — the gap silently propagates.
+
+The downstream cost: `/usr/local/bin/refresh-allowed-ips.sh` reads `/etc/refresh-allowed-ips/production_url` (a tiny file populated by `init-firewall.sh` at container start from `.env`), no-ops on empty input, the firewall never allowlists the prod hostname, and **every post-deploy curl from inside the container returns HTTP 000** — including `/ak-go-live § Step 1.5` (pre-flight prod health probe), `/ak-go-live § Step 3`, and `/canary`. The disambiguation paragraph in `/ak-go-live § Step 1.5` catches the false positive correctly ("HTTP 000 = in-container, not pre-existing prod issue"), but at the cost of **disabling the prod probe for the project's lifetime** until the gap is closed.
+
+**Two distinct failure modes** — the prior version of this entry only modelled the first; home-os auth-magic-link session (2026-05-13, immediately after home-os PR #9 deploy) surfaced the second:
+
+| Mode  | `.devcontainer/.env` has `PRODUCTION_URL=` line? | `/etc/refresh-allowed-ips/production_url` populated? | Cause                                                                                                                                                                           |
+| ----- | ------------------------------------------------ | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A** | No                                               | No (0 bytes)                                         | Operator never pasted the URL into `.env` after first deploy.                                                                                                                   |
+| **B** | **Yes**                                          | **No (0 bytes)**                                     | Operator pasted into `.env` AFTER container creation, but didn't rebuild. `init-firewall.sh` only runs at container start; mid-session `.env` edits don't propagate to `/etc/`. |
+| **C** | Yes                                              | Yes                                                  | Working state. HTTP 000 from the container is unrelated (Vercel IP rotation — recovered via `sudo refresh-allowed-ips.sh` per `/devshop/CLAUDE.md § Known Footguns`).           |
+
+Modes A and B both manifest as "HTTP 000 with empty `/etc/...` file" — the current Step 1.5 disambiguation can't distinguish them, so it gives identical generic advice ("set PRODUCTION_URL in `.env` and rebuild"). That's wrong-half-the-time: Mode A operators need both steps; Mode B operators have already done step one and just need rebuild.
+
+**Concrete from home-os**:
+
+- `/ak-go-live` for PR #9 (2026-05-13) ran with HTTP 000 on both Step 1.5 and Step 3 → **Mode A** at that time. The deploy completed on indirect signals (Vercel `state=READY`, `deploy-migrations.yml` green).
+- Same session, post-deploy, operator pasted `PRODUCTION_URL=home-os-nu-two.vercel.app` into `.devcontainer/.env`. Did NOT rebuild → **Mode B**.
+- Diagnostic confirming Mode B: `sudo cat /etc/refresh-allowed-ips/production_url` returns 0 bytes; file's mtime is `May 13 05:18` (container creation), not the time the operator pasted into `.env`. The /etc file IS the firewall's source of truth, and it's frozen at container-start state.
+
+**Shape of the fix — three coordinated changes, all on the skill side:**
+
+**Fix 1 (`/ak-new-project` Phase B): Explicit rebuild prompt at the moment `.env` is updated.** The natural spot is the existing step that writes `CLAUDE.md § Deploy Configuration` — that's when the URL becomes known. Add a structured operator-action block:
+
+```markdown
+After writing CLAUDE.md § Deploy Configuration, emit this verbatim to the operator:
+
+Three side-effects to apply before the next session:
+
+1. ! echo 'PRODUCTION_URL=<bare-hostname>' >> /workspace/.devcontainer/.env
+   (bare hostname per CLAUDE.md § Gotchas — `.env` wants `<x>.vercel.app`,
+   not `https://<x>.vercel.app`)
+
+2. VS Code → Cmd+Shift+P → "Dev Containers: Rebuild Container"
+   (init-firewall.sh runs at container start, reads .env, populates
+   /etc/refresh-allowed-ips/production_url. Without this rebuild,
+   every post-deploy curl from inside the container returns HTTP 000.)
+
+3. After rebuild: ! sudo cat /etc/refresh-allowed-ips/production_url
+   should print the bare hostname (proves init-firewall ran with the new .env).
+```
+
+Three steps because **all three are necessary** — operators who skip step 2 land in Mode B; operators who skip step 3 don't know whether they're in Mode B or genuinely-broken-prod.
+
+**Fix 2 (`/ak-go-live § Step 1.5`): Tri-state diagnostic.** On HTTP 000, replace the current binary "in-container vs prod" disambiguation with a Mode A / B / C classifier:
+
+```bash
+# /ak-go-live § Step 1.5 — HTTP 000 branch
+ETC_FILE=/etc/refresh-allowed-ips/production_url
+HAVE_ETC=$(sudo cat "$ETC_FILE" 2>/dev/null | tr -d '[:space:]')
+# Can't read .env directly (permission-denied). Ask the operator via ! grep.
+
+if [ -z "$HAVE_ETC" ]; then
+  cat <<MSG
+HTTP 000 + /etc/refresh-allowed-ips/production_url is empty.
+
+Either the .env line is missing (Mode A) or .env has it but rebuild is needed
+(Mode B). To distinguish, run:
+
+  ! grep '^PRODUCTION_URL=' /workspace/.devcontainer/.env
+
+  - If the line prints with a value → Mode B (rebuild the container; the
+    /etc file will populate at startup).
+  - If empty / no line → Mode A (append the line, then rebuild):
+      ! echo 'PRODUCTION_URL=<bare-host>' >> /workspace/.devcontainer/.env
+      then VS Code → Cmd+Shift+P → "Dev Containers: Rebuild Container"
+
+After rebuild: ! sudo cat /etc/refresh-allowed-ips/production_url
+(should print the bare host).
+MSG
+  # Continue the pipeline — this is a probe-availability gap, not a prod issue.
+else
+  # Mode C: /etc has value but curl still 000 → Vercel IP rotation.
+  echo "HTTP 000 with /etc populated — likely Vercel IP rotation."
+  echo "Run: sudo /usr/local/bin/refresh-allowed-ips.sh"
+fi
+```
+
+**Fix 3 (`/ak-go-live § Step 1.5`): Optional in-session shortcut for Mode A only.** When `CLAUDE.md § Deploy Configuration § Production URL` has a known value AND `/etc/...` is empty, offer to write the bare hostname directly to `/etc/refresh-allowed-ips/production_url` (sudo) and re-run `refresh-allowed-ips.sh`. **Ephemeral** — survives this session only; lost on next rebuild. Surface explicitly: "this is a session-only patch; for permanent fix, apply Fix 1's three-step procedure." Closes the gap for the current `/ak-go-live` run without requiring a rebuild mid-deploy.
+
+**Why three coordinated changes, not one:** Fix 1 closes the gap **at the moment it's created** (best leverage; operators only configure once). Fix 2 catches **operators who skipped Fix 1** (the audit-time safety net; required because Fix 1 only ships to projects created after this lands). Fix 3 is the **session-recovery escape hatch** (lets a single deploy proceed even when Fix 1 + 2 haven't been applied).
+
+**Why v0 — blocks next-project adoption:**
+
+Every devshop project's first `/ak-go-live` lands in Mode A. Every project's first post-onboarding session at minimum tries the operator-side `! curl` path because the in-container probe is broken. For projects that ship UI early, the gap silently weakens canary coverage from "automated curl + screenshot diff" to "open-in-browser-by-hand if I remember." Fix 1 alone closes Mode A for all future projects; Fix 2 catches existing projects on next `/ak-go-live` run; Fix 3 keeps any individual deploy moving regardless.
+
+**Trigger:**
+
+- home-os `/ak-go-live` PR #9 (2026-05-13) — Mode A on the deploy; indirect signals carried it.
+- home-os auth-magic-link session (same date, ~30 min later) — operator noticed the gap, pasted `PRODUCTION_URL` into `.env`, did NOT rebuild → **Mode B**. Confirmed via `sudo cat /etc/refresh-allowed-ips/production_url` returning 0 bytes with mtime = container creation. The prior version of this entry didn't model Mode B, so its Option A (auto-derive at Step 1.5) would have hit the same `.devcontainer/.env` permission-block AND still required a rebuild — not actually a fix.
+- Lalista didn't surface this because `PRODUCTION_URL=lalista.app` was filled in `.env` BEFORE the first container creation (lucky timing), so Mode A and Mode B both bypassed.
+- Every future project: identical default state, identical silent gap.
+
+**Cross-ref:**
+
+- `/workspace/CLAUDE.md § Gotchas § PRODUCTION_URL lives in two places` — the format-divergence warning (bare host in `.env`, full URL in GH Variable)
+- `/devshop/CLAUDE.md § Known Footguns § Firewall IP rotation` — Mode C recovery path (refresh script, additive)
+- `/devshop/.claude/skills/ak-go-live/SKILL.md § Step 1.5` — primary consumer; tri-state diagnostic patch lands here (Fix 2 + Fix 3)
+- `/devshop/.claude/skills/ak-go-live/SKILL.md § Step 3` — secondary consumer; canary fallback inherits the tri-state diagnostic
+- `/devshop/.claude/skills/ak-new-project/SKILL.md` — the Phase B step that writes `CLAUDE.md § Deploy Configuration` is where Fix 1's structured prompt belongs (exact step number TBD at implementation time — Phase B has ~25 steps; pick the one that produces the URL)
+- `.devcontainer/init-firewall.sh` — the script that copies `.env`'s `PRODUCTION_URL` into `/etc/refresh-allowed-ips/production_url` at container start. Source of the Mode B gap (only runs at container start, not on `.env` change).
+- `/usr/local/bin/refresh-allowed-ips.sh` — the runtime allowlist-refresh script that reads from `/etc/`
+- `/etc/refresh-allowed-ips/production_url` — the runtime file; Mode B distinguisher
+- home-os PR #9 (Mode A example) + home-os auth-magic-link session (Mode B example) — concrete prior art
+
+**Cost/risk:**
+
+- Implementation: ~30 min for Fix 1 (skill prose addition at one Phase B step); ~45 min for Fix 2 (tri-state diagnostic + bats coverage); ~20 min for Fix 3 (in-session shortcut + the "ephemeral" disclosure). Total ~1.5 hours. Recommend shipping all three together — Fix 1 alone leaves Mode B uncovered; Fix 2 alone leaves the Mode A default in place; Fix 3 alone doesn't propagate.
+- Risk: low. Skill prose changes (Fix 1) are markdown-only. The Step 1.5 sudo-write (Fix 3) requires the already-documented sudo path to `/etc/refresh-allowed-ips/production_url` (Claude can't write to `.devcontainer/`, deliberately — that's where the operator action via `!` lives). Worst case for Fix 2 is a misclassification (Mode B routed to Mode A path or vice versa) — both paths surface the rebuild action prominently, so the misclassification adds at most ~30s of operator reading time.
+- Benefit: every devshop project gets working in-container prod probes from first `/ak-go-live` onward. The HTTP 000 disambiguation paragraph in the skill becomes the rare-edge-case path it was meant to be, not the every-deploy default. Audit-time signal that the gap is closed: Step 1.5 produces a clean HTTP 200/3xx; the operator never sees the tri-state diagnostic message.
+
+[v0, surfaced-by home-os PR #9 § 5b reflection on 2026-05-13; refined by home-os auth-magic-link session same day to add Mode B + tri-state Fix 2 + Fix 3]
+
+---
+
+### Template `ci.yml` — dedupe duplicate CI runs from overlapping `push` + `pull_request` triggers
+
+**Problem.** `/devshop/template/.github/workflows/ci.yml:1-6` ships the workflow with two overlapping event triggers:
+
+```yaml
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches-ignore: [main]
+```
+
+Both fire for every commit pushed to a PR branch — `push` (because the branch isn't `main`) and `pull_request: synchronize` (because the PR's base is `main`) — and GitHub does not de-duplicate. The result is exactly two identical runs against exactly the same SHA every time a developer pushes during PR work.
+
+The first push on a new feature branch also fires twice, asymmetrically: the `push` event fires immediately, then `gh pr create` opens a PR seconds later and fires `pull_request: opened` against the same SHA. So even the "PR open" moment costs 2 runs.
+
+**Concrete numbers from home-os PR #9** (2026-05-13, the foundation supabase-schema-and-rls PR — a typical /ak-build cycle, nothing pathological about the flow):
+
+- 3 SHAs landed on the branch (`/ship` commit, 5.6 BUILD-LOG bookkeeping commit, 5.8 Audit 2 commit).
+- 6 CI runs fired (`gh run list --branch feature/... --json event` shows `event=push` and `event=pull_request` alternating for each SHA, all 6 conclusion `success`).
+- Cost: 6 × `ubuntu-latest` minute, ~1 min each = ~6 GitHub-Actions-minutes burned for 3 logical checks. At Vercel preview + lint + typecheck + unit + build, each run is non-trivial.
+
+Scaled across the v0 Phase 1 roadmap for home-os (15 features, ≥3 SHAs per PR typical given Phase 5.6 + 5.8 commits) the cost is ~90 extra runner-minutes per project per Phase 1, and the duplication compounds for every devshop project that inherits the template.
+
+A secondary annoyance: dual runs confuse `/ak-build`'s Phase 5.8.1 polish-loop enumeration (`gh run list --limit 50 | select(.createdAt >= PR_OPENED_AT)`) — operators reading the audit-trail comment see "5 runs" or "6 runs" for a clean polish loop and have to mentally divide by 2 to get the actual SHA count. Phase 6's audit comment needs prose explaining the doubling. The duplicate runs are not informative — the second run tests literally the same SHA as the first and is guaranteed to produce the same answer (unless GitHub-runner flake, which is its own problem).
+
+**Codified from** home-os PR #9 (2026-05-13). The /ak-build Phase 6 final audit-comment composition surfaced the doubling when the operator asked "why were there 5 CI runs?" — `gh run list --json event` exposed the dual-trigger pattern. No prior project had asked the question because nobody looked closely at the run count; the cost had been silently doubling on every project from day one.
+
+**Shape of the fix — one of two patterns, both single-line edits to `template/.github/workflows/ci.yml`:**
+
+**Option A (simplest — preferred):** Drop the `push` trigger entirely. Only `pull_request` fires.
+
+```yaml
+on:
+  pull_request:
+    branches: [main]
+```
+
+- **Catches**: every commit landed via a PR. Devshop's `/ak-build` flow always opens a PR before any non-trivial commit (per `/devshop/CLAUDE.md § Devshop shipping flow` — "Branch for anything beyond trivial"), so this covers 100% of real cycles.
+- **Misses**: pushes to feature branches without a PR yet (rare; only if the operator pushes before `/ship` runs). On the `/ak-build` path, the first push and PR-open happen seconds apart in the same Phase 4 step — `pull_request: opened` will fire on PR creation, so even the first SHA gets CI.
+- **Cost**: ~50% reduction in runner-minutes per project.
+
+**Option B (preserves push-without-PR coverage):** Use GitHub's recommended `if:` guard on the push trigger:
+
+```yaml
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches-ignore: [main]
+
+jobs:
+  fast:
+    # Skip the push run if a PR exists for this branch — pull_request: synchronize covers it.
+    if: github.event_name == 'pull_request' || github.event.pull_request == null
+    runs-on: ubuntu-latest
+```
+
+- The `if:` is **at the job level**, not the workflow level (GitHub doesn't support workflow-level `if:` on triggers). So the workflow still queues a run on every event, but the run no-ops to "skipped" instantly if the duplicate condition holds. UI shows the skipped run; minutes-burn is ~0 seconds.
+- **Catches**: pushes to feature branches without a PR (run as `push`); pushes to branches with PRs (run as `pull_request: synchronize`, the `push` run is auto-skipped).
+- **Slight UI cost**: skipped runs still show in `gh run list` output, so Phase 5.8.1's enumeration query needs to filter by `conclusion != "skipped"` to count "real" runs. One extra `.jq` clause.
+
+**Recommendation:** ship Option A. Devshop's discipline is "PR-first for anything non-trivial," so the edge case Option B preserves doesn't exist in practice. If a project decides it needs push-coverage later, Option B is a one-line revisit.
+
+**Other edits that may want to follow:**
+
+- `/ak-build § Phase 5.8.1` — the polish-loop enumeration query parses `displayTitle` to identify runs. The displayTitle for `push` events is the commit message; for `pull_request` it's the PR title. Today's filter accidentally relies on this distinction. Once Option A lands the enumeration becomes single-event uniform; simplify the surrounding prose.
+- `/ak-build § Phase 5.2 / 5.7` watch-loop — `gh run list --limit 1` returns the latest run on the branch; with Option A there's no ambiguity. With Option B the operator may need `gh run list --event pull_request --limit 1` if the synchronize run hasn't started yet.
+
+**Why v0 — blocks next-project adoption:**
+
+Every new project from this template inherits the dual-trigger workflow. Each project's GitHub-Actions-minute bill silently doubles. The bigger cost: every devshop project's CI logs are 2x noisier than they should be, every audit comment has to explain the doubling, every `/ak-build` watch-loop has to handle the asymmetric first-push-vs-subsequent-pushes case. Fix once at the template; every future project ships with the right shape. No project-level migration needed for already-onboarded projects (they can `cp template/.github/workflows/ci.yml apps/web/.github/workflows/ci.yml` once and pick up the dedupe).
+
+**Trigger:**
+
+- home-os PR #9 surfaced it (and home-os is currently the only second template-validation project — same dual-trigger pattern as lalista, just nobody asked at lalista).
+- Next project that adopts the template will inherit the same doubling. The bill scales linearly with project count, not per-project work.
+
+**Cross-ref:**
+
+- `/devshop/template/.github/workflows/ci.yml:1-6` — the dual-trigger block to edit
+- home-os `feature/supabase-schema-and-rls` PR #9 — concrete 6-run example
+- `/devshop/.claude/skills/ak-build/SKILL.md § Phase 5.8.1` — polish-loop enumeration consumer
+- `/devshop/.claude/skills/ak-build/SKILL.md § Phase 5.2` — watch-loop consumer
+- GitHub Actions docs on overlapping `push` + `pull_request` — https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#using-events-to-trigger-workflows
+
+**Cost/risk:**
+
+- Implementation: ~15 minutes (one-line edit + a /ak-pre-ship dry-run + propagation note in the changelog).
+- Risk: low. Option A loses CI coverage for the edge case "push to branch without PR" — but the devshop flow never produces that state for substantive commits. If a project's operator does push directly without a PR, the next push that creates the PR will fire `pull_request: opened` and run CI on the latest SHA, which is the same coverage with one-extra-cycle latency.
+- Benefit: ~50% reduction in CI minutes per devshop project, ongoing.
+
+---
+
 ### `/ak-pre-ship` LLM-mediated gate contract — prohibit `n/a` outcomes
 
 **Problem.** Gates 6 `/review`, 7 `/cso`, 8 `/design-review`, 9 `/qa` are documented as "MUST emit `pass | findings | blocked` — never `skipped`" (see `ak-pre-ship/SKILL.md:640-648` for the `/qa` codification, traced to lalista PR #10's false-positive Gate 9 and PR #53's synthetic-harness substitution). The contract is enforced **by reading-comprehension only** — there is no parser, no grep, no Phase-3→4 refusal check. A subagent that writes `Result: n/a` for one of these gates produces a `review.md` that literally violates the SKILL.md prose, and nothing in the pipeline catches it.
@@ -1324,9 +1615,256 @@ Same playbook as Auth UX conventions above. Every project with interactive UI hi
 
 [v0, surfaced-by lalista-PR49, 2026-05-07]
 
+### Template PWA service worker baseline
+
+The template ships a PWA manifest + meta tags out of the box (apple-touch-icon, viewport-fit=cover, standalone, start_url), which is enough to install — but it does NOT ship a service worker. Every PWA-shaped project will hit the same soak finding: iOS cold-launch feels slow because every fresh WebView process pays the full server-roundtrip cost (middleware token refresh + RSC fetches + client mount + realtime handshake) before first paint. Lalista's polish PR #68 (2026-05-13) parallelized the two server fetches in `/list/page.tsx` via `Promise.all` — the largest cheap win without a SW — but the user can still feel the difference between "warm WebView" and "cold WebView." From here the next lever is HTML caching via SW, and that pattern is general (every PWA-shaped project will want it).
+
+**The pattern** — same shape as Auth UX conventions / Latency feedback framework: lalista soaks the implementation first, devshop extracts the convention once the edges are known. Lalista's `PRODUCT-ROADMAP.md § PWA service worker caching` carries the project-side row; this row is the template-side counterpart.
+
+**Shape of the fix:**
+
+- **Implementation library**: `@serwist/next` (the de-facto Next.js 15 PWA SW story). Add to `template/apps/web/package.json` as a dep; wire `next.config.ts` per the serwist docs.
+- **Default caching strategy**: stale-while-revalidate for HTML (so cold-launch paints last-known content immediately + refetches in background), cache-first for static assets, network-only for `/api/**` + Supabase calls. The HTML SWR is the cold-launch lever.
+- **Versioning**: serwist's `precacheManifest` regenerates on each build; updates propagate on next page nav after the new SW activates. Document the "tab close + reopen" worst-case staleness window in the convention so operators understand it.
+- **Dev-mode behavior**: SW disabled in dev (or self-unregistering) — cached assets during HMR cycles is its own footgun.
+- **Real-device validation**: a CI gate can't fully prove the win (headless Chromium doesn't model iOS WebView-process-reap cold-launch); the convention should require post-merge `/canary` to hit the production PWA from a real device and confirm.
+
+**Implementation surface:**
+
+- `kit/docs/guide/pwa-service-worker.md` (new) — full convention prose: caching strategies per asset class, versioning behavior, dev disable, real-device validation requirement, "what NOT to cache" list (Supabase calls, edge functions, `/auth/callback`).
+- `template/apps/web/next.config.ts` + `template/apps/web/app/sw.ts` (new) — the serwist registration + precache manifest config, parameterized so projects can override the cache lists.
+- `template/CLAUDE.md` — short pointer: "PWAs ship with a default SW per `kit/docs/guide/pwa-service-worker.md`; customize cache lists in `apps/web/sw.ts`." So new projects inherit by default.
+- `.claude/skills/devshop/new-project/SKILL.md` — `/ak-new-project` Step N: ask "is this a PWA?" If yes, scaffold the SW config from the template; if no, skip (CLI tools / pure SPAs / SSR sites that aren't installed).
+- `.claude/skills/devshop/pre-ship/SKILL.md` — pre-ship gate that lints the SW config for known footguns (e.g., caching `/auth/callback` would break magic-link flows; caching `/api/**` would hide DB writes from the user).
+
+**Why v1 — soak-extract pattern, not blocking:**
+
+Same playbook as Auth UX conventions / Latency feedback framework. The pattern needs lalista's SW implementation to ship first so the convention extracts from real lessons rather than aspirational design. Lalista's polish #68 parallelization is the last cheap win pre-SW; the next lalista PR that adds SW is the trigger to extract the convention here. Until then, projects that need a SW point at lalista's eventual implementation.
+
+**Trigger:**
+
+- Lalista clears its `PRODUCT-ROADMAP.md § PWA service worker caching` row by shipping a serwist-based SW.
+- OR: a second devshop project adopts the template + is a PWA + hits the same cold-launch soak finding (which is the natural verification step).
+
+**Cross-ref:**
+
+- `lalista/PRODUCT-ROADMAP.md § PWA service worker caching` — the project-side counterpart with the cold-load context surfaced by polish PR #68.
+- `lalista/apps/web/public/manifest.json` + `lalista/apps/web/app/layout.tsx` — the installability scaffolding that's already template-level; the SW lives one layer up.
+- `lalista/apps/web/middleware.ts` + `lalista/apps/web/app/list/page.tsx` — the boot-path roundtrips a SW would short-circuit.
+
+**Cost/risk:**
+
+- Implementation: ~1h for the convention doc + ~1h for the template wiring + ~30 min for the `/ak-new-project` branch. Total ~2-3 focused hours, plus the upstream lalista SW PR (~half a day for caching strategy + real-device validation).
+- Risk of premature extraction is the main cost of NOT waiting for the soak; cache invalidation is a classic footgun and the wrong default lasts forever (users keep stale HTML after deploys; the realtime channel + cached page disagree on the truth; etc.). Lalista's soak surfaces those edges before they become a template default.
+
+[v1, surfaced-by lalista-polish-PR68-2026-05-13]
+
+---
+
+### Post-home-os onboarding learnings — skill / template / convention polish batch
+
+Home-os was the SECOND project to bootstrap from the devshop template via `/ak-new-project` (lalista was first). Steps 0–25 ran across two sessions (2026-05-12 + 2026-05-13). 12 generalizations surfaced beyond the four critical template fixes already tracked in `PLAN.md § #4 (home-os-onboarding-template-patches)` + `#5 (firewall-extras-overlay-merge)`. Each generalization is small (15–60 min). They're grouped here as one ROADMAP entry so a single focused session can pick three or four at a time without context-switching across surfaces. Order is roughly "blast radius descending" — the first few hit every new scaffold; the last few are niche.
+
+**Source detail:** `kit/notes/projects/home-os.md § "2026-05-13 session — devshop generalizations to surface"` carries the per-incident narrative for each item (#19–#30). When in doubt, read the tracker entry — it has the exact symptoms + the moment the generalization surfaced.
+
+#### A. Skill text fixes (`/ak-new-project § Step <N>`) — sub-hour, one PR per sub-bundle
+
+- **(A1) Step 13 `--token` echoes its value in CLI error JSON (gen #20)** — `vercel link --token $VERCEL_TOKEN` and `vercel env add --token $VERCEL_TOKEN` echo the resolved token in JSON error responses (e.g., when `--scope` is ambiguous). The token reaches stdout, then conversation log, then potentially session transcripts. `VERCEL_TOKEN` blast radius is "deploys to any of your Vercel projects." **Fix**: skill's Step 13 example loop sets `export VERCEL_TOKEN=…` once at the top instead of passing `--token` on every line; OR every example pipes through `sed 's/vcp_[A-Za-z0-9]*/vcp_***/g'`. Prefer export-once — eliminates the surface entirely. **Where**: `/devshop/.claude/skills/ak-new-project/SKILL.md § Step 13`.
+- **(A2) Step 14 `sudo apt-get install-deps chromium` is unnecessary (gen #22)** — the template's `.devcontainer/Dockerfile` already installs Chromium runtime deps. After `pnpm exec playwright install chromium`, a smoke test (`chromium.launch()` against `about:blank`) succeeds without sudo. The skill's prescribed `sudo npx playwright install-deps chromium` line wastes a sudo prompt and the apt-get cycle. **Fix**: change Step 14 from "run install-deps" to "verify chromium.launch succeeds via a one-liner smoke test; if it fails, run install-deps as fallback". **Where**: `/devshop/.claude/skills/ak-new-project/SKILL.md § Step 14`.
+- **(A3) Step 3 should include Vercel GitHub Login Connection sub-bullet (gen #25 + #29)** — `vercel link --yes --project home-os` succeeded writing `.vercel/project.json` but emitted `Error: Failed to link meirmsn/home-os. You need to add a Login Connection to your GitHub account first.` even though the GH App was installed at org level. Until the operator visits `vercel.com/account/login-connections` and adds GitHub, auto-deploy on push:main does NOT fire (the API-level link exists, but the per-account Login Connection that bridges Vercel → GH personal account doesn't). Additionally (#29), Vercel team default for new orgs is `ssoProtection.deploymentType = all_except_custom_domains` — the team-canonical `<project>-<org>.vercel.app` alias gets SSO-gated by default; only the auto-allocated nu-two-style aliases stay public. **Fix**: skill Step 3 (Vercel account creation) gets two new sub-bullets: (i) "Add GitHub at `vercel.com/account/login-connections` BEFORE you proceed to Step 13's `vercel link` — otherwise that command warns and auto-deploy won't fire." (ii) "Check `vercel.com/{team}/{project}/settings/deployment-protection` — if SSO Protection is set to `all_except_custom_domains` (the team default), the canonical alias will sign-in-gate; for a public-facing PWA either disable SSO on production or treat the auto-allocated nu-two-style alias as the public URL (the latter is what home-os shipped with)." **Where**: `/devshop/.claude/skills/ak-new-project/SKILL.md § Step 3`.
+- **(A4) Step 17 prefix `gstack-config set` defaults before invoking `/setup-deploy` (gen #27)** — `/setup-deploy` (and every gstack skill) has a 5-prompt preamble: gstack-upgrade check, Boil-the-Lake intro, telemetry, proactive, routing rules. Five interruptions before the skill does deploy config. For `/ak-new-project` use, sensible defaults are: telemetry=off (privacy), proactive=true (default), routing_declined=true (project CLAUDE.md design principle: no devshop cross-refs), lake intro marked seen, gstack-upgrade snoozed (major-version jumps deserve isolated sessions). **Fix**: skill Step 17 prepends a `gstack-config` batch that pre-answers those five prompts so the operator/agent never sees them. Idempotent (touch the marker files + set the configs). Where the binary lives matters — see (A5) below. **Where**: `/devshop/.claude/skills/ak-new-project/SKILL.md § Step 17`.
+- **(A5) gstack binary path: `~/.claude/skills/gstack/bin/...` vs project-local `/workspace/.claude/skills/gstack/bin/...` mismatch (gen #28)** — gstack-init in Step 9 clones to `.claude/skills/gstack/` (project-local), but every gstack SKILL.md hardcodes `~/.claude/skills/gstack/bin/<binary>`. The home dir path doesn't exist; the SKILL.md preambles call `gstack-config`, `gstack-update-check`, `gstack-timeline-log`, etc. and they all silently no-op. Daily use isn't affected (the skill survives the no-ops) but anything that DEPENDS on the helpers misfires. **Fix candidates** (pick one): (i) symlink `~/.claude/skills/gstack` → project-local during Step 9 init (cheap; ~3 lines in the setup script); (ii) update gstack's setup to install to `~/.claude/skills/` by default (changes gstack-side, affects upgrade path); (iii) SKILL.md preambles resolve via `$_ROOT/.claude/skills/gstack/...` first with `~/...` fallback (this is what the `browse` SETUP block already does; pattern is `B=""; [ -x "$_ROOT/.claude/skills/gstack/browse/dist/browse" ] && B="$_ROOT/..."; [ -z "$B" ] && B=~/...`). **Note**: this overlaps with `PLAN.md § #2 (gstack-helper-path-resolution)` and `#3 (gstack-artifact-path-resolution)`. If those land first, this is closed. Otherwise: ship the symlink-on-Step-9 fix as a one-line workaround that doesn't depend on gstack-side changes. **Where**: `/devshop/.claude/skills/ak-new-project/SKILL.md § Step 9` for the symlink fix; the deeper SKILL.md preamble fix is in `PLAN.md § #2 / #3`.
+
+**Sub-bundle A acceptance**: shipped as one PR (`fix/ak-new-project-skill-polish`) with 5 commits, one per A1..A5. Each is a SKILL.md edit + (optional) skill-tests bats expectation. ~45–60 min.
+
+#### B. Convention / template fixes — sub-hour, one PR each
+
+- **(B1) Pre-commit clean-tree guard forbids stashes too (gen #21)** — when splitting commits via `git stash push <subset>` + `git commit` + `git stash pop`, the second commit step fails with `Stashed changes on current branch — address them before committing`. The hook treats stashes as "uncommitted work." Workaround used in home-os: combine the logical groups into one atomic commit with sectioned message, OR use `git -c devshop.dirtyTreeReason="..." commit`. **Severity: low** — friction more than correctness — but the clean-tree-no-stash invariant is non-obvious and operators learn it the hard way. **Fix**: document in `/devshop/CLAUDE.md § Two repos, two commit flows` (and project CLAUDE.md scaffold templates) that "atomic commits MUST be one transition each — stash-then-commit will trip the guard. To split: combine into one commit with sectioned message, OR use the `devshop.dirtyTreeReason` opt-out with a real justification." **Where**: `/devshop/CLAUDE.md`. ~10 min.
+- **(B2) Next 16 `middleware.ts` → `proxy.ts` deprecation (gen #24)** — `pnpm build` in apps/web emits `⚠ The "middleware" file convention is deprecated. Please use "proxy" instead.` (https://nextjs.org/docs/messages/middleware-to-proxy). The Supabase SSR boilerplate guide at `kit/docs/guide/supabase-ssr-boilerplate.md § Pattern 1` AND the template's `apps/web/middleware.ts` scaffold still use the deprecated name. Functional in Next 16 (warning only) but will harden into an error in Next 17. **Fix candidates**: (i) proactively rename the template + the supabase-ssr-boilerplate.md § Pattern 1 from `middleware.ts` to `proxy.ts` now, so new projects start on the supported convention; (ii) defer until Next 17 release, then rename. Prefer (i) — the rename is mechanical (one file move + one SSR boilerplate text change) and stops accumulating projects on the deprecated convention. **Where**: `template/apps/web/middleware.ts` → `template/apps/web/proxy.ts` (file move) + `kit/docs/guide/supabase-ssr-boilerplate.md § Pattern 1`. ~15 min.
+- **(B3) Pre-commit clean-tree guard's PR-desc-stale check is sensitive to bypass reason quality (gen — observed this session)** — when the PR body genuinely matches the commits and the reviewer is asked to PASS via path (a) of the prompt, the reviewer can still FAIL the bypass if `BYPASS_REASON` is `"no reason given"` (the default when no `devshop.prDescStaleReason` config is set). The reviewer's prompt says "Default position: REJECT bypass reasons" — so an empty reason gets penalized even when the description is current. **Fix**: when the operator goes through `gh pr edit` and the PR body now covers all commits, the pre-push hook should re-run a fast path-(a) check (compare PR body's commit-SHA enumerations against `origin/main..HEAD` SHAs) and short-circuit-PASS before invoking the adversarial reviewer. OR: the reviewer prompt should explicitly score on path-(a) FIRST (description match) and only consult `REASON` on path-(b) (structural-delay justification). Current state: the operator has to write a specific bypass reason ("PR body just updated via gh pr edit; commits X, Y, Z are at lines N, M, P") every time, which is friction. **Where**: `/devshop/kit/scripts/adversarial-review.sh` + `/devshop/kit/hooks/pre-push.sh` § "Check 2: PR description staleness". ~20 min. **Severity: low** — friction more than correctness.
+
+#### C. Template / manifest fixes — sub-hour, one PR
+
+- **(C1) CI Node 20 vs pnpm-11 Node-22 requirement (gen #30)** — `template/.github/workflows/ci.yml` pins `node-version: '20'` but `pnpm/action-setup@v3 with version: latest` resolves to pnpm 11.x at the runner, which imports `node:sqlite` — a Node-22-only builtin. Result: `actions/setup-node@v4`'s pnpm-cache restore step crashes with `Error [ERR_UNKNOWN_BUILTIN_MODULE]: No such built-in module: node:sqlite` and CI fast-job fails in 12-23s. Home-os shipped a 2-line fix on its own branch (bump `node-version` to `'22'` + `.nvmrc` `20` → `22`). **Fix**: same 2-line patch in `template/.github/workflows/ci.yml` + `template/.nvmrc`. **Where**: `template/.github/workflows/ci.yml` line 22 (or wherever node-version pin lives) + `template/.nvmrc`. ~5 min. **Severity: blocks every new project's first CI run** — fast-job fails immediately on first push to a feature branch.
+- **(C2) Manifest gap: compose-isolation files not in `kit/manifest.txt` `[locked]` list (gen #26)** — `init-devshop.sh`'s [locked]-manifest enforcement at container start chowns `devcontainer.json`, `init-firewall.sh`, `Dockerfile`, `checksums.sha256`, `.env`, `firewall-extra-domains`, etc. to root:root 644 on every start. BUT the compose-isolation set (`compose.yml`, `init-host-env.sh`, `supabase-runner/Dockerfile`, `supabase-runner/cmd-relay.mjs`) is NOT in the manifest. Step 21 of `/ak-new-project` carries a conditional sudo block for these 4 files; if the operator skips that block, the files stay node:node and a compromised npm transitive can rewrite them. **Fix**: extend `kit/manifest.txt`'s [locked] list to include the four compose-isolation files; then `/ak-new-project § Step 21` simplifies to "verify all `.devcontainer/*` files are root:root; if not, rebuild devcontainer (init-devshop.sh re-applies on start)." Mind execute-bits — `init-host-env.sh` and `cmd-relay.mjs` are 755 (executed scripts); manifest enforcement should preserve mode per-file. **Where**: `kit/manifest.txt` + `kit/scripts/init-devshop.sh` (the [locked] processor — confirm mode-per-file support) + `/devshop/.claude/skills/ak-new-project/SKILL.md § Step 21` (simplification after manifest extension). **Bundle with**: `PLAN.md § #5 (firewall-extras-overlay-merge)` PR — same surface, same shape. ~30 min if the manifest mode-per-file support is already there; ~1h if not. **Severity**: low (Step 21 currently catches the gap via the conditional sudo block) but the manifest is the right home for this.
+
+#### D. SUPABASE_PORT_OFFSET template knob (gen #1 from earlier session)
+
+- Already documented separately under earlier home-os tracker generalization #1: when running 2+ projects concurrently, the template needs either a `SUPABASE_PORT_OFFSET` env knob propagated through `compose.yml` + `supabase-runner/Dockerfile` + `init-firewall.sh` allowlist + `supabase/config.toml` ports, OR an inline recipe in `/ak-new-project § Step 2b` for "second project rebind." Home-os manually rebound to +100 (api 54421, db 54422, studio 54423, inbucket 54424, realtime/analytics 54427). **Fix candidates**: (i) make the knob; (ii) bake the recipe inline. Knob is structurally cleaner but harder; recipe is fast. Probably ship recipe now and revisit knob when 3rd project hits the rebind. **Defer until 3rd project — for 2-project case (lalista + home-os), the manual recipe in `kit/notes/projects/home-os.md` is enough.**
+
+#### E. First-session generalizations (2026-05-12 — surfaced before the Step-12.5/13/14/15/17 marathon)
+
+Each is small and ships as a SKILL.md text edit, a template patch, or a docs note. Bundle into one PR with one commit per item, OR roll into sub-bundle A above if scope feels right. Same per-incident detail in `kit/notes/projects/home-os.md § Devshop generalizations § #2–#16` if you need the full narrative.
+
+- **(E1) gen #2 — Sentry platform = Next.js, not React.** `/ak-new-project § Step 3` (account creation) currently says "Sentry: create account at sentry.io, create a project (platform: **React**, slug: `<project-name>`)". The template is Next.js-only; Sentry's Next.js SDK does SSR + Route Handler + Server Action error capture (the React-only SDK doesn't). **Fix**: change Step 3 platform to `Next.js`. **Where**: `/devshop/.claude/skills/ak-new-project/SKILL.md § Step 3`. ~2 min. **Severity: low (operator can change post-hoc in the Sentry UI) but documenting the right default avoids confusion.**
+- **(E2) gen #3 — Pre-burn `SUPABASE_SERVICE_ROLE_KEY` published local-stack JWT into `template/.devcontainer/.env`.** The value is identical across every Supabase install (published default, signed with a hardcoded supabase-cli secret). Currently the operator has to either run `supabase start` to discover it, or ask Claude. Pre-filling it in the template eliminates a friction point and reinforces "this is public, not prod-sensitive." Keep the `# NOT the prod admin key` comment inline. **Where**: `template/.devcontainer/.env` (this is the example/seed file the operator copies; or rename `.env.example` if that's the template pattern — verify against current template shape). **Caveat**: don't drift if Supabase ever rotates the local-stack default (rare; the value has been stable since supabase-cli 1.x). ~5 min.
+- **(E3) gen #4 — Sentry DSN UI navigation guidance is stale.** `/ak-new-project § Step 4` points at "Project Settings → Client Keys" which doesn't match current Sentry UI (multiple reorgs since the original skill text). The reliable path is the direct URL `https://sentry.io/settings/<org-slug>/projects/<project-slug>/keys/`. **Fix**: replace the navigation paragraph with the direct-URL form, OR replace with a `sentry-cli` invocation that fetches the DSN non-interactively. Prefer direct-URL — `sentry-cli` requires a separate auth setup. **Where**: `/devshop/.claude/skills/ak-new-project/SKILL.md § Step 4` (Sentry credentials sub-bullet). ~5 min.
+- **(E4) gen #5 — Drop `SUPABASE_DB_PASSWORD` from `.devcontainer/.env`.** Same blast radius as the prod service-role key (direct DB connection, bypasses RLS) — but the skill currently persists it locally while telling operators NOT to persist the service-role prod key. The `.env` line isn't what CI consumes (CI reads the GH Secret). The only operator-side use is rare ad-hoc prod DB ops, which can follow the same paste-from-password-manager-then-clear pattern as the prod service-role key. Asymmetric treatment is skill drift, not deliberate design. **Fix**: remove `SUPABASE_DB_PASSWORD=` from `template/.devcontainer/.env` (or the example shape in skill Step 4); update Step 4's "Three non-obvious things" + Security Posture surface matrix to mark it `❌ NEVER` in the `.devcontainer/.env` column with a "paste from PW manager for ad-hoc" note. Pairs with the existing service-role guidance — consistent narrative: prod-DB-admin credentials don't live on operator disks. **Where**: `template/.devcontainer/.env` + `/devshop/.claude/skills/ak-new-project/SKILL.md § Step 4` (+ § Security Posture surface matrix). ~15 min.
+- **(E5) gen #10 — Step 10 sed substitution misses `packages/core/vitest.config.ts` placeholder.** Skill's sed runs on `src/supabase.ts src/supabase.test.ts` (PROJECT_REF) + `package.json src/index.ts` (PROJECT_NAME), but `vitest.config.ts` has a `// @PROJECT_NAME_PLACEHOLDER/core` comment header that stays unsubstituted. Cosmetic for tests (comment only), but it shows in `grep -r PROJECT_NAME_PLACEHOLDER` audits and confuses future readers. **Fix**: extend Step 10's PROJECT_NAME sed list to include `vitest.config.ts`, OR change the template comment to a placeholder-free phrasing (e.g., `// Vitest config for packages/core` — no project name). Prefer the second — less brittle. **Where**: `template/packages/core/vitest.config.ts` (comment rewrite) — no skill change needed. ~3 min.
+- **(E6) gen #11 — Docs-freshness hook fires at Step 12 before Step 18 fills the skeletons.** `kit/scripts/commit-hooks/check-docs-freshness-project.sh` blocks the apps/web scaffold commit because new `app/page.tsx` / `app/layout.tsx` / `middleware.ts` are user-visible-flow / module-map surfaces that require CLAUDE.md + OVERVIEW.md + ARCHITECTURE.md staging. The three docs all exist at HEAD (skeleton from template), so the hook is active — but their content is still placeholder until Step 18 of the skill. Two consequences: (a) the operator either bypasses with `devshop.docsCoverageReason` at Step 12 and re-bypasses at every subsequent app-modifying commit until Step 18; OR (b) brings Step 18's doc-fill forward to Step 12, which is what home-os did. **Fix candidates**: (i) reorder the skill so Step 18 moves to ~Step 12.5 (after apps/web scaffold lands, before Sentry/PostHog); (ii) drop Step 18 entirely and bake "fill docs from design review (if present) or capture-as-you-go" into Step 12 itself. Lalista's pattern (CLAUDE.md filled gradually as features ship) is the alternative — but home-os benefited from front-loading because the design review existed. Prefer (i): reorder. **Where**: `/devshop/.claude/skills/ak-new-project/SKILL.md` — re-number Step 18 → Step 12.5; renumber subsequent steps as needed. ~30 min (the renumbering touches multiple cross-refs).
+- **(E7) gen #12 — Root + create-next-app build-script approval conflict.** `create-next-app --use-pnpm` writes `apps/web/pnpm-workspace.yaml` with `ignoredBuiltDependencies: [sharp, unrs-resolver]`. The template's root `package.json` `pnpm.onlyBuiltDependencies` includes the same two packages. pnpm 10 surfaces this as conflicting policy. **Clean reconciliation**: drop sharp + unrs-resolver from root `onlyBuiltDependencies`, move them to root `ignoredBuiltDependencies`, delete apps/web/pnpm-workspace.yaml (the file create-next-app wrote). Single source of truth. **Where**: `template/package.json` (rename `onlyBuiltDependencies` entries for sharp + unrs-resolver) + add `/ak-new-project § Step 12` sub-step note: "after `pnpm create next-app`, `rm apps/web/pnpm-workspace.yaml` — root manages build-script policy for the workspace." ~10 min. **Severity: low** — discovery cost is one search + reconcile, but documenting prevents the next operator from re-experiencing it.
+- **(E8) gen #13 — `pnpm create next-app` writes files even when interrupted.** apps/web/ partially exists from an interrupted invocation; on second invocation, the tool refuses with "directory contains files that could conflict." Recovery requires manual cleanup OR live with the partial scaffold (workable if `package.json`, `app/`, `tsconfig.json` exist). **Fix**: skill Step 12 gets a sub-step note: "If `pnpm create next-app` was interrupted, inspect `apps/web/` — if `package.json`, `app/`, and `tsconfig.json` exist, proceed with customization; if anything's missing, `rm -rf apps/web/` and rerun. Don't try to merge the partial state with a second create-next-app run — it'll refuse." ~5 min. **Severity: low** — interruption is rare — but the symptom is opaque enough to warrant a note.
+- **(E9) gen #14 — Step 6 tracker mark `[x]` without verifying file state — multiple downstream steps silently failed.** The home-os tracker had `[x]` on Step 6, but `.devcontainer/init-firewall.sh` showed none of the project-specific entries actually added (only the static template list). Discovered when Step 15 `supabase link` failed with `EHOSTUNREACH` and Step 14 chromium install failed similarly. Root cause: the operator marked the step done prematurely OR (more likely after gen #17 surfaced) the additions were rolled back by the [locked]-file refresh. With the firewall-extras-overlay fix (PLAN.md § #5), this specific failure mode is closed — but the tracker-verification gap remains. **Fix**: Step 6 ends with a verification command — `grep -E "supabase\\.co|ingest\\.sentry|posthog\\.com" .devcontainer/firewall-extra-domains` — that the operator runs before marking [x]. Same pattern would catch similar slips at other tracker checkpoints (could be generalized to a "verify step before [x]" rule on every Step that touches non-source files). **Where**: `/devshop/.claude/skills/ak-new-project/SKILL.md § Step 6`. ~5 min.
+- **(E10) gen #15 — Claude can't edit `.devcontainer/*` files; firewall + compose.yml fixes are operator-only.** `.claude/settings.json` has `Edit(/workspace/.devcontainer/*)` in the deny list (good security posture: prevents accidental modification of attack-surface-critical files). But it means the firewall additions (Step 6) AND any future compose.yml mount-addition AND the Step 21 chown block are BOTH operator-only edits. Two consequences: (a) the rebuild that fixes both is operator-driven, which becomes a natural batching moment — fix everything `.devcontainer/`-shaped at once, rebuild once; (b) skills that depend on `.devcontainer/*` (Step 6, Step 7, Step 21) MUST be explicit about the operator-only constraint so Claude doesn't try-and-fail then mark partial-progress. **Fix**: skill text should explicitly say "STOP and ask the operator to apply the following diff to `.devcontainer/...`" rather than implying Claude can patch. Affected steps: Step 6, Step 7, Step 21 (and any future `.devcontainer/`-touching step). Add the framing at the top of each as "**[OPERATOR-ONLY]**" prefix on the Step header. **Where**: `/devshop/.claude/skills/ak-new-project/SKILL.md § Step 6 / Step 7 / Step 21`. ~10 min.
+- **(E11) gen #16 — Steps blocked on firewall additions form a natural [HUMAN] batching moment.** Step 14 (chromium install), Step 15 (`supabase link`), Step 17b (auth hardening) all share the same root cause: missing firewall entries for project-specific external services. A single operator-side action (edit firewall-extra-domains + rebuild) unblocks ALL three. The skill currently spreads the discovery across Steps 14/15/17b individually. **Fix**: Step 6 ends with a "smoke test the additions" sub-step that curls the project-specific endpoints (`api.supabase.com`, the project's `<ref>.supabase.co`, `*.ingest.us.sentry.io`, `us.i.posthog.com`, `playwright.download.prss.microsoft.com`) and surfaces failures BEFORE proceeding to Step 7's rebuild. So Step 6 either fully unblocks downstream OR surfaces the gap immediately rather than at Step 14 / 15 / 17b. **Pairs with E9 (verification command)** and PLAN.md § #5 (firewall-extras-overlay-merge). **Where**: `/devshop/.claude/skills/ak-new-project/SKILL.md § Step 6` (sub-step at end). ~10 min.
+
+**Sub-bundle E acceptance**: shipped as one PR (`fix/ak-new-project-first-session-polish`) with up to 11 atomic commits (E1..E11), OR bundled into sub-bundle A above as one combined skill-polish PR. Both A + E are pure SKILL.md / template-text edits and they share a surface; bundling is probably faster (~90 min total) but creates one larger diff to review. The B + C bundles touch different surfaces and should stay separate.
+
+**Total estimate for the whole entry (A + B + C + D + E)**: ~3-4 focused hours, split across 3-4 PRs. Half-day session covers everything.
+
+#### Acceptance — sub-bundle level
+
+- **A bundle**: one PR, five commits, ~45–60 min. Tests-side: bats expectations for the SKILL.md text changes (where they exist; A2/A3 are pure prose so visual review is the gate).
+- **B bundle**: three independent PRs (B1 + B2 + B3 each ~10–20 min). Could bundle as one if scope feels right, but they touch different surfaces (CLAUDE.md / template / hook).
+- **C bundle**: one PR (C1 + C2 together, both touch templates / manifest). ~30–45 min. C1 should ship FIRST because it unblocks every new project's CI.
+
+#### Verification — whole entry
+
+- Fresh `/ak-new-project` from scratch (Phase A clone of template into `/tmp/<fresh>`) should produce: (i) `apps/web` build with no Sentry deprecation warnings; (ii) `pnpm --filter @<fresh>/core test:unit` 5/5 with prod-URL guard tests not skipping; (iii) `pnpm --filter @<fresh>/web test:unit` clean with `@/` alias resolving; (iv) CI fast-job green on Node 22 + pnpm 11; (v) `.devcontainer/` 14 files all root:root after rebuild without any manual `sudo chown` from the operator.
+
+[v0, surfaced-by home-os-onboarding-2026-05-13]
+
+---
+
+### Strip devshop-meta seed content from template tracker stubs; audit all template/\*.md skeletons
+
+**Problem.** `template/PRODUCT-ROADMAP.md` ships with **three pre-populated v1 entries** — PWA service worker caching, visual regression testing, performance baselines for API. None of these are project-deferred work: they're devshop-meta concerns (template-level capabilities the devshop hasn't built yet) that leaked into the per-project "deferred/long-term" doc when the template was authored. Two of the three are already correctly filed in this same `kit/ROADMAP.md` (`§ Template PWA service worker baseline` v0; `§ Visual regression testing` v1). The third (API perf baselines) is unfiled. Every project scaffolded from `/ak-new-project` starts life with a `PRODUCT-ROADMAP.md` claiming three deferred items the project never opted into.
+
+Every other template tracker stub ships the right shape — empty placeholders with HTML-comment scaffolding showing how to fill: `template/PLAN.md` ("_No work in progress._"), `template/TODOS.md` ("_No pre-ship items._"), `template/BUILD-LOG.md` ("_No builds yet._"), `template/DEPS-WATCH.md` ("_No parked dependencies._"). `PRODUCT-ROADMAP.md` is the outlier.
+
+The principle: **a fresh project's tracker docs should start empty.** Per-project deferred work accumulates as the project ships features, not at scaffold time. Devshop-meta concerns belong in `kit/ROADMAP.md`.
+
+**Scope.**
+
+- (1) Strip the three sample entries from `template/PRODUCT-ROADMAP.md`. Replace the body with the same empty-placeholder + HTML-comment-scaffolding shape `template/TODOS.md` uses, so an operator sees the structure but no pre-seeded content.
+- (2) File the orphan into `kit/ROADMAP.md`: a new entry "API performance baselines for `/benchmark`" (the existing `/benchmark` skill checks Core Web Vitals frontend-side; an API-side companion checking key query response-times-vs-data-volume is the natural extension). v1 unless there's a forcing project incident.
+- (3) **Audit every other `template/*.md` and `template/<path>/*.md` skeleton for the same smell.** Each stub should answer "does this content describe THIS project's state, or some devshop-meta concern that leaked in?" — if devshop-meta, route it. Files in scope: `template/{README,CLAUDE,OVERVIEW,ARCHITECTURE,METRICS,DEPS-WATCH,BUILD-LOG,PLAN,TODOS,PRODUCT-ROADMAP}.md`, plus any per-package skeletons (`template/apps/*/README.md`, `template/packages/*/README.md`, `template/supabase/functions/README.md` if/when they get added). The smell to look for: pre-populated rows / entries / examples that name specific capabilities, libraries, or behaviors a fresh project hasn't chosen yet. Scaffolding HTML comments + empty-placeholder language are fine; pre-seeded specifics are not.
+
+**Why this is v0.** Same forcing function as the home-os onboarding batch: every fresh `/ak-new-project` scaffold ships the bug. Lalista already has the contaminated `PRODUCT-ROADMAP.md` (and may have copy-paste-edited the three sample entries into something project-shaped, which would need to be checked). Home-os just got scaffolded; either it inherited the same three entries (then needs the same cleanup) or the operator manually pruned them.
+
+**Fix shape.**
+
+- One PR, three commits: (a) `template/PRODUCT-ROADMAP.md` strip; (b) `kit/ROADMAP.md` add "API performance baselines for `/benchmark`" (v1 section, sized like the existing visual-regression entry); (c) audit results from sweeping the other stubs — either confirm "no other leaks found" in the commit message, or fix found leaks in the same commit. Estimate: 30–45 min including the audit sweep.
+- Migration for existing projects (lalista + home-os): diff each project's `PRODUCT-ROADMAP.md` against the cleaned template. If the three sample entries are still verbatim, delete them; if they've been edited into something project-shaped, leave them (the project owns its own roadmap once it's started shipping). Quick check per project; no risky migration.
+
+**Verification.**
+
+- Fresh `/ak-new-project` from a post-fix template: `cat /tmp/<fresh>/PRODUCT-ROADMAP.md` should show only the header + sectioning + HTML-comment scaffolding + an "_No deferred work yet._" placeholder. Zero specific capability names.
+- `grep -lE 'service worker|visual regression|response time'` against `template/PRODUCT-ROADMAP.md` returns nothing.
+- `kit/ROADMAP.md` contains entries for all three of the previously-seeded concerns (the existing two + new API perf baselines).
+- Audit sweep of every `template/*.md` stub completes; either no further leaks found (recorded in the commit message) or all found leaks fixed in the same commit.
+
+[v0, surfaced-by home-os-onboarding-2026-05-13]
+
 ---
 
 ## v1 (after v0 is validated on the first project)
+
+### Test-coverage hook scope: extend to template/.devcontainer/\*.sh + reframe EXEMPT_SCRIPTS as warn-not-block
+
+**Problem.** `kit/scripts/commit-hooks/check-tests-coverage-devshop.sh` only scopes to `kit/scripts/*.sh` (line 51-52: `git diff --cached --name-only --diff-filter=A | grep '^kit/scripts/.*\.sh$'`). Template-side devcontainer scripts (`template/.devcontainer/init-firewall.sh`, `init-prod-url.sh`, `refresh-allowed-ips.sh`, `init-host-env.sh`, `init-devshop.sh`) are outside the scope — additions or non-trivial behavior changes there ship without any test-coverage check.
+
+Audit-time `/ak-tests-review` catches the gap (it did during the firewall-extras-overlay merge, 2026-05-14), but the Layer 1 hook misses two surfaces today:
+
+- `template/.devcontainer/init-prod-url.sh` (added 2026-05-09, `f94a121`) — zero bats coverage.
+- `template/.devcontainer/refresh-allowed-ips.sh` (same commit) — zero bats coverage.
+
+Both are security-relevant scripts (they govern firewall allowlist updates). The pattern: when a template-script feature ships, the same author often forgets the bats — exactly the case the hook should catch.
+
+Separately, `EXEMPT_SCRIPTS` (line 32-40) is over-broad. It exempts `init-devshop.sh`, `session-start.sh`, etc. with the rationale "runs as root — needs integration test environment" — true for **runtime** integration tests, but **static-grep tests** (the pattern used by `structural-invariants.bats` and `template-compose-isolation.bats`) work without root. In practice operators add static tests anyway: `init-devshop.sh` has 5 bats files referencing it, `adversarial-review.sh` has 14 — the exemption is honored in the breach. The exemption should distinguish "no runtime test feasible" (still warn for static gaps) from "no test of any kind possible" (truly exempt).
+
+**Shape of the fix:**
+
+1. Extend the hook's path filter from `^kit/scripts/.*\.sh$` to also match `^template/\.devcontainer/.*\.sh$`. Template-side devcontainer scripts get the same "added → block" / "modified → warn" treatment.
+
+2. Reframe `EXEMPT_SCRIPTS` semantics. Either (a) split into two lists — `RUNTIME_EXEMPT_SCRIPTS` (no execution-test required, static-grep still warned-on) vs `FULLY_EXEMPT_SCRIPTS` (no test of any kind required) — or (b) keep one list but downgrade the exemption to warn-only for added scripts. Option (b) is the smaller change.
+
+3. Update the hook's bypass message to direct operators to static-grep tests as the cheap path.
+
+**Cost.** ~30 minutes. Pure script edit + 2-3 new bats assertions in `kit/tests/guard-tests-coverage-devshop.bats` to pin the new behavior. No semver impact.
+
+**Why v1 not v0.** Layer 2 audit catches this — there's no silent-coverage-gap ship today. The cost of the gap is "Layer 2 surfaces a finding that Layer 1 should have blocked" — paper-cut, not silent miss. Promote to v0 if a third missed-coverage incident surfaces.
+
+### Pre-push reviewer recognises canonical Phase 5.6 / 5.8 / 5.9 bookkeeping commits
+
+**Problem.** `/ak-build` Phase 5.6 (BUILD-LOG bookkeeping), Phase 5.8 (post-pre-ship docs+tests audit append), and Phase 5.9 (visual evidence refresh) each produce a commit that the project's pre-push reviewer flags as "PR description appears stale relative to commits — N additional commits without justification." The reviewer is correctly conservative by default. But the canonical phase commits are **defined to be additive** to whatever the PR body already says:
+
+- **Phase 5.6** message pattern: `chore(build-log): record <feature>`. Edits PLAN.md + BUILD-LOG.md + PRODUCT-ROADMAP.md. The PR body's `**Docs**` paragraph already names "BUILD-LOG.md gains the canonical ship entry" — the commit IS the fulfillment of an already-described claim.
+- **Phase 5.8** message pattern: `docs(<feature>): Phase 5.8 Audit 2 (post-pre-ship <findings-summary>)`. Edits only `specs/<feature>/review.md`, appending one `## Audit N` section. The PR body's `## Pre-ship audit trail` already attests Audit 1; Audit 2 is the documented Phase 5.8 step.
+- **Phase 5.9** message pattern: `chore(<feature>): refresh visual evidence at HEAD (Phase 5.9)`. Edits only `specs/<feature>/{hero,screenshots}/*.png`. The PR body's `### Evidence` section already embeds those exact paths.
+
+Each push after these commits triggers the reviewer, and each requires `git -c devshop.prDescStaleReason="..."` with a 2–4 line justification. The justification is **identical every PR** ("Phase N fulfills the already-described claim"). Sonnet adversarially reviews, accepts, push goes through. Net cost: one round-trip of operator + reviewer attention per Phase 5.6/5.8/5.9 commit per PR.
+
+**Concrete from home-os PR #9** (2026-05-13):
+
+- `00e614f` (Phase 5.6): blocked by pre-push reviewer; bypassed with `prDescStaleReason="The Phase 5.6 bookkeeping commit is the canonical /ak-build BUILD-LOG record for this PR..."`. Adversarial reviewer accepted (Sonnet ~30s).
+- `9580061` (Phase 5.8): blocked; bypassed with `prDescStaleReason="Phase 5.8 audit commit only appends a clean Audit 2 section..."`. Adversarial reviewer accepted.
+
+Both reasons collapse to the same pattern: **this is a known canonical phase commit, recognised by message prefix; the PR body's narrative covers it by reference.**
+
+**Shape of the fix:**
+
+Teach `check-pr-desc-staleness.sh` to **recognise** the canonical phase-commit patterns and auto-accept them WITHOUT requiring a bypass reason. Detection is regex-only on the commit message subject + the touched-file set; sub-millisecond compared to the Sonnet adversarial round-trip.
+
+```bash
+# kit/scripts/preship/check-pr-desc-staleness.sh — proposed addition
+
+# Canonical /ak-build phase-commit patterns. Each pairs a subject regex
+# with a file-touch allowlist. A commit matching BOTH is auto-accepted.
+declare -a PHASE_PATTERNS=(
+  '^chore\(build-log\): record [a-z0-9-]+$|^(PLAN\.md|BUILD-LOG\.md|PRODUCT-ROADMAP\.md|TODOS\.md)$'
+  '^docs\([a-z0-9-]+\): Phase 5\.8 Audit 2|^specs/[a-z0-9-]+/review\.md$'
+  '^chore\([a-z0-9-]+\): refresh visual evidence at HEAD \(Phase 5\.9\)$|^specs/[a-z0-9-]+/(hero|screenshots)/.+\.png$'
+)
+
+for pattern in "${PHASE_PATTERNS[@]}"; do
+  subject_re="${pattern%%|*}"
+  paths_re="${pattern#*|}"
+  if echo "$LATEST_COMMIT_SUBJECT" | grep -qE "$subject_re"; then
+    bad_files=$(git diff --name-only "$RANGE" | grep -vE "$paths_re" || true)
+    if [ -z "$bad_files" ]; then
+      echo "Phase commit pattern matched (subject + path allowlist); auto-accepting"
+      exit 0
+    fi
+  fi
+done
+```
+
+Three guards make this safe:
+
+1. **Subject + path conjunction**: a `chore(build-log): record foo` commit that ALSO edits `apps/web/...` does NOT auto-accept (the path-allowlist catches scope creep).
+2. **Exact-match regex on subject**: `chore(build-log): record foo BREAKING CHANGE` won't match.
+3. **Range scope**: only the latest-commit subject matches, but the path-allowlist runs over the full range — catches bundling a Phase 5.6 commit on top of unrelated changes.
+
+**Why v1 — not v0:**
+
+- The cost is real (operator drafts the same recurring bypass reason every PR + Sonnet round-trip, ~30s × 2–3 phase commits per PR), but scales linearly with phase commits, not catastrophically.
+- The bypass mechanism works correctly today; failure mode is paper cut, not silent risk.
+- The v0 entries above this one (docs-coverage hook, PRODUCTION_URL onboarding) are higher-priority structurally — they cause silent gaps where this one only adds friction.
+
+Promote to v0 if friction becomes load-bearing: e.g., if a future automation phase requires Claude to push without operator drafting bypass reasons.
+
+**Trigger:**
+
+- home-os PR #9 — 2 bypasses for canonical phase commits
+- lalista PRs running `/ak-build` — same pattern at every Phase 5.6/5.8 commit
+- Every future project: identical fact pattern guaranteed
+
+**Cross-ref:**
+
+- `/devshop/kit/scripts/preship/check-pr-desc-staleness.sh` — the reviewer to teach
+- `/devshop/.claude/skills/ak-build/SKILL.md § Phase 5.6 / 5.8.3 / 5.9.2` — phase commit-message specifications
+- home-os PR #9 — concrete bypass-trailer evidence at `00e614f` (5.6) and `9580061` (5.8)
+
+**Cost/risk:**
+
+- Implementation: ~1 hour (regex matrix + bats coverage for happy path + the "phase-commit subject + scope-creep file" failure case).
+- Risk: low. Three guards layer; worst case is a benign scope-creep auto-accepts (caught by the next `/ak-pre-ship` audit or code review).
+- Benefit: zero adversarial-reviewer round-trips for canonical phase commits; ~$0.05–0.10 saved per PR; operator attention freed from drafting the same justification every push.
+
+[v1, surfaced-by home-os PR #9 § 5b reflection on 2026-05-13]
+
+---
 
 ### JIT DB password entry for prod migration deploys via `/ak-go-live`
 
