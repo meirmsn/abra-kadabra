@@ -1223,47 +1223,47 @@ If the project's migration cadence is mostly additive (typical for early-stage p
 
 ---
 
-### CI slow-job lifecycle convention
+### CI slow-job lifecycle convention — ship active from day one
 
-Today `/devshop/template/.github/workflows/ci.yml` ships the `slow:` job entirely commented out (lines 75-113, including the lalista-PR-26 edge-runtime health-check retry pattern). `/ak-new-project` Step 24 explicitly defers slow-job adoption to "after Phase 1c (integration tests + supabase start) or Phase 1g (Playwright E2E)" with branch-protection contexts updated from `["fast"]` to `["fast","slow"]`. That deferral is correct — there's no point running a slow job when there's nothing to run. But once a project crosses the threshold, **nothing structural enforces that the slow job actually gets uncommented, that branch protection gets updated, or that subsequent integration/E2E specs get included in its globs**. Maintenance is operator-memory only.
+Today `/devshop/template/.github/workflows/ci.yml` ships the `slow:` + `changes:` jobs entirely commented out (lines 75-113 + 142+, including the lalista-PR-26 edge-runtime health-check retry pattern). `/ak-new-project` Step 24 explicitly defers slow-job adoption to "after Phase 1c (integration tests + supabase start) or Phase 1g (Playwright E2E)" with branch-protection contexts updated from `["fast"]` to `["fast","slow"]`.
 
-Lalista's slow job got uncommented when Phase 1c shipped, but the wiring quality is hand-maintained — PR 26 surfaced an edge-runtime startup flake the operator had to debug + retry-loop manually. Future projects will hit the same class of issue without the lalista-codified retry pattern unless the convention enforces it.
+The deferral model is structurally flawed in practice: home-os PR #9 (rls-isolation.spec.ts) and PR #10 (magic-link.spec.ts) both crossed the Phase 1c/1g threshold without flipping the slow-job stub — each pre-ship raised `Gate 2c findings_pending`, each PR shipped with the finding as "infra carry-over," each next PR inherited the same gap. Home-os PR #15 (capture-flow) is now the third PR in a row with slow-job specs that aren't actually gated by CI. The deferred-until-threshold model created a structural drift loophole that operator memory cannot patch over.
 
-**Shape of the convention:**
+**Revised shape — ship slow-job ACTIVE from `/ak-new-project` scaffold:**
 
-- **`/ak-spec` migration-scoping prompt extension**: when a spec includes the project's first integration test or Playwright spec, the spec subagent must surface "this is the Phase 1c / 1g threshold — uncommenting the slow job is part of the spec's scope, not a follow-up" as an explicit decision row. Today this is implicit in `/ak-new-project § Step 24`; making it spec-time-explicit means the slow-job ship lands in the same PR as the test that needs it.
-- **`/ak-pre-ship` gate**: new check that runs when `*.integration.test.ts` or `apps/web/e2e/*.spec.ts` files are present in the repo. Asserts:
-  1. The `slow:` job in `.github/workflows/ci.yml` is uncommented.
-  2. Its `if:` predicate matches the canonical `github.event_name == 'pull_request'` shape.
-  3. `supabase start` health-check retry is wired (the codified PR-26 pattern, comparable against a checksum of the template's commented reference).
-  4. Branch protection contexts include `slow` (via `gh api repos/{owner}/{repo}/branches/main/protection` query).
-  5. The slow job's test glob actually matches at least one staged or repo-resident integration test file (catches "uncommented slow job that runs zero tests" silent regression).
-  6. The skip-on-docs-only filter is wired — `changes:` setup-job exists, declares a `runtime` output, and the `slow:` job's `needs:` + `if:` reference it. (Shipped via #29; see `kit/docs/guide/conventions.md § Slow-Job Lifecycle § Skip-on-docs-only filter`.)
-     Block-on-failure with a clear "uncomment + add to branch protection" remediation message.
-- **Convention doc** in `guide/conventions.md § Slow-Job Lifecycle`: documents the Phase 1c / 1g threshold, the uncommenting checklist, and the cross-link to branch protection.
-- **Template improvement**: convert the commented `slow:` block in `/devshop/template/.github/workflows/ci.yml` to a separate `template/.github/workflows/ci-slow.yml.template` file that `/ak-new-project § Step 1c` (or wherever the integration-test setup lives) renames into place when the threshold is crossed. Cleaner than uncommenting, and the rename itself is a structural signal the pre-ship gate can detect.
+The template + `/ak-new-project` should produce a working slow-job from day one, even when the project has zero integration / E2E specs to run. The slow-job is part of the new-project blocker contract alongside the fast-job, not an opt-in-later layer.
+
+- **Template change**: uncomment the `slow:` + `changes:` jobs in `/devshop/template/.github/workflows/ci.yml`. They ship live from day one. Empty test-glob scenarios pass cleanly (no tests = no failures) — the lalista-PR-26 retry shell stays scoped to the `supabase start` step which only fires when tests actually exist.
+  - The `changes:` setup-job (skip-on-docs-only filter) stays as-is per PR #29's design — a docs-only diff causes `changes.outputs.runtime=false`, the slow job's `if:` short-circuits, and the job reports `skipped` (which branch protection accepts as success). So docs-only PRs still cost ~5s for the `changes:` job, not ~8-10min for a full slow-job run.
+  - The slow-job's test glob should be permissive (`apps/*/e2e/*.spec.ts`, `**/*.integration.test.ts`) so the first integration spec a project lands is automatically picked up — no glob update PR required.
+- **`/ak-new-project` change**: Step 24's branch-protection setup must include `slow` (and the `changes:` job's check name, if branch protection enumerates the setup job) in the required-contexts list from day one. The current "add slow when Phase 1c crosses threshold" instruction is removed.
+- **Empty-state semantics**: a brand-new project with zero E2E + zero integration tests should still see the slow-job run on every PR. It spins up Supabase, finds zero specs, reports "no tests matched glob — passed." That's intentional — the active job catches regressions when the FIRST spec lands (no manual flip), and the operator sees the job's health on every PR as ambient feedback that Supabase startup still works.
+- **Convention doc** in `guide/conventions.md § Slow-Job Lifecycle`: rewrite to document the day-one-active model + the skip-on-docs-only filter contract + how to extend the test glob if the project's structure diverges from the template.
+- **`/ak-pre-ship` gate** (Gate 2c): retained for projects that adopted the devshop before this convention shipped. Asserts (1) `slow:` job is uncommented, (2) `if:` references `needs.changes.outputs.runtime == 'true'`, (3) `supabase start` health-check retry is wired, (4) branch-protection contexts include `slow`. Block-on-failure with a clear remediation message. Once every active project is on the new template, this gate becomes obsolete — but keep it through the migration window so existing projects (lalista, home-os) get nudged forward.
+- **Backfill PRs for existing projects**: home-os already has a TODOS row (`TODOS.md § ci-slow-job-activation`) tracking the manual flip. Lalista already has its slow-job uncommented. Once the template change ships, both projects can rebase onto the new template's CI shape (or just keep their hand-uncommented variants — the gate logic is the same).
 
 **Why v0 — blocks next-project adoption:**
 
-Every devshop project that adopts integration tests or E2E will hit this lifecycle question. Without enforcement: (a) the slow job lives commented out indefinitely while integration tests run only locally, masking environment-specific failures, (b) branch protection drifts from CI reality, letting PRs merge without the slow check actually gating, (c) the lalista-codified edge-runtime retry pattern doesn't propagate, so each project re-invents it after their own PR-26-style incident.
+Every devshop project will adopt integration tests or E2E eventually — auth flows, Playwright happy-paths, RLS isolation specs. Three consecutive home-os PRs proved the deferred-until-threshold model doesn't survive contact with the build loop: each PR's author (Claude) cannot push `.github/workflows/**` changes because the devcontainer PAT lacks `workflow` scope, so the "uncomment slow-job" task gets routed to the human operator, who often hasn't been notified or is mid-other-work, and the gap persists. Shipping slow-job active from day one removes the routing problem entirely.
 
 **Trigger:**
 
-- Lalista is the prior art — its slow job is already uncommented and includes the retry pattern. The convention extracts that shape into the template + adds the pre-ship gate.
-- Second project crosses Phase 1c / 1g without this in place → slow-job uncommenting becomes operator-memory and the lifecycle gap reproduces
+- Home-os PR #15 (capture-flow, 2026-05-13) is the third consecutive PR with slow-job specs gated on activation — the deferred model demonstrably doesn't survive a project's growth.
+- Lalista's slow job is already active and includes the retry pattern. The template change extracts that shape as the default.
 
 **Cross-ref:**
 
-- `/devshop/template/.github/workflows/ci.yml:75-113` — the commented-out slow-job stub
-- `/devshop/.claude/skills/ak-new-project/SKILL.md:967-989` — the current Step 24 deferral language
+- `/devshop/template/.github/workflows/ci.yml:75-113 + 142+` — the commented-out slow-job + changes-job stubs
+- `/devshop/.claude/skills/ak-new-project/SKILL.md:967-989` — the current Step 24 deferral language to remove
 - `lalista/.github/workflows/ci.yml § slow:` — the live shape this convention codifies (especially the edge-runtime health-check retry)
+- `home-os/TODOS.md § ci-slow-job-activation` — the recurring backlog item that this template change removes the need for
 - `### Migration sequencing safety nets for the Vercel-preview window` above — adjacent CI/migration territory; both are about making CI behavior structural rather than operator-maintained
 
 **Cost/risk:**
 
-- Implementation: ~3–5 focused hours (`.yml.template` extraction + `/ak-new-project` Step 1c edit + `/ak-pre-ship` new gate + branch-protection check + conventions doc)
-- Risk: low — all changes are CI/template surface, no prod data path
-- Benefit: the slow job becomes a structural gate that every integration-test-shipping project gets correctly, with the lalista-PR-26 hard-won retry pattern propagated by default rather than re-discovered per project
+- Implementation: ~2–3 focused hours (uncomment template blocks + `/ak-new-project` Step 24 edit + branch-protection wiring + conventions doc rewrite + retain Gate 2c during migration window)
+- Risk: low — all changes are CI/template surface, no prod data path. New projects spend ~3-5 min per PR on Supabase startup even with zero specs (cost of ambient feedback).
+- Benefit: every new devshop project gets a working slow-job from PR #1 with no operator-memory dependency. The class of bug "I forgot to activate the slow-job" disappears from the failure modes.
 
 ---
 
