@@ -136,10 +136,10 @@ Reason: $REASON"
     # The reviewer judges whether the override is load-bearing against the
     # actual findings — not against a generic "tests look fine" claim.
     #
-    # Post-PR-B: findings live in specs/<feature>/review.md as appended
-    # `## Audit N` sections (collapsed two-file model — no separate
-    # test-review-followup.md). The latest `## Audit N` section is the
-    # one whose halt is being overridden; harvest it from there.
+    # Findings live in specs/<feature>/review.md as appended `## Audit N`
+    # sections (single-file model — no separate test-review-followup.md).
+    # The latest `## Audit N` section is the one whose halt is being
+    # overridden; harvest it from there.
     BRANCH=$(git branch --show-current 2>/dev/null || true)
     FEATURE=$(echo "$BRANCH" | sed 's|^feature/||;s|^feat/||;s|^fix/||')
     REVIEW="specs/$FEATURE/review.md"

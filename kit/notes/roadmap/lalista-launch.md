@@ -137,8 +137,9 @@ section below) · v1 = deferred to v1, captured in `kit/ROADMAP.md`.
 **Security (mostly already in flight):**
 
 - ✅ **Security-posture cleanup sweep** — verified 2026-04-29: all 8
-  project-side items from `kit/ROADMAP.md § Security-posture cleanup` are
-  in place. Both deploy workflows sed-derive ref from `SUPABASE_PROD_URL`
+  project-side items from the security-posture cleanup (devshop commit
+  `631dc7e`; entry closed and removed from `kit/ROADMAP.md` per the
+  closing-entries rule) are in place. Both deploy workflows sed-derive ref from `SUPABASE_PROD_URL`
   (no `SUPABASE_PROJECT_REF` references anywhere); CI service-role comes
   from `supabase status -o env` with explicit JWT-decode guard at
   `ci.yml:206` verifying `iss=supabase-demo` + `role=service_role`

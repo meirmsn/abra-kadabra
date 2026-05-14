@@ -34,9 +34,9 @@ the range from the latest `## Audit N` section in `review.md`, invokes
 Adversarial Layer 2 fires here, not per-commit. Per-commit fires only Layer 1
 (deterministic file-existence math) — Sonnet judgment is concentrated at named
 audit moments where docs and tests have actually been written, producing
-higher-signal findings at lower cost. See `/devshop/kit/ROADMAP.md § Move
-adversarial Layer 2 reviews from per-commit to audit-time` for the full
-rationale.
+higher-signal findings at lower cost. See `CLAUDE.md § Non-Negotiables` —
+"Adversarial Layer 2 reviews fire at audit moments, not per commit" — for
+the steady-state convention.
 
 ## When to invoke
 
@@ -166,9 +166,9 @@ checks whether the latest `## Audit N` section's `<!-- audited-at -->`
 SHA equals HEAD; if so, print `✓ already audited at <SHA>` and exit 0
 WITHOUT invoking sub-skills or appending a section.
 
-This is the same idempotence shape `/ak-build` Phase 5.8.5 uses today on
-`test-review-followup.md`; the model is preserved on the new single-file
-`review.md` `## Audit N` parser.
+Same idempotence shape as `/ak-build` Phase 5.8.5: read the latest
+`## Audit N` section's `<!-- audited-at -->` stamp from `review.md`
+(single-file model).
 
 ## Audit section format spec
 

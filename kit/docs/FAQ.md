@@ -122,9 +122,8 @@ Per-feature (specs/<name>/)
                       stamp (the parse contract /ak-build Phase 5.8 reads to
                       derive the post-pre-ship range and Phase 6 reads to
                       surface the findings in the audit comment). Single
-                      file — no separate test-review-followup.md (the
-                      pre-PR-B two-file model collapsed into Audit N
-                      sections in this same file)
+                      file — every audit appends a new `## Audit N` section
+                      here; no separate test-review-followup.md.
   hero/             — committed: 1–2 durable screenshots per key screen
   screenshots/      — gitignored: per-gate evidence (4 viewport/theme combos)
   design-claims.json            — gitignored: normative claims extracted

@@ -13,647 +13,6 @@ Priority tiers:
 
 ## v0 — blocks next-project adoption
 
-### Move adversarial Layer 2 reviews from per-commit to audit-time (`/ak-check-docs-and-tests`)
-
-**Problem.** Every devshop commit fires `docsReviewed` (Sonnet, 30–90s, ~$0.05–0.15 of API spend). Every project commit touching source can fire `testCoverageProject` Layer 2 + `docsFreshnessProject` Layer 2. A typical PR cycle has 5–15 commits past `/ak-implement`; collapsing to one Sonnet call per audit moment saves 5–14× the cost and time per ship.
-
-The deeper structural critique: per-commit adversarial review **asks the wrong question at the wrong moment.** While a developer is iterating on code, docs and tests aren't ready yet — they're explicitly batched for an end-of-work pass. The hook fires asking "where are the docs?", the developer correctly answers "I'll write them later," and a Sonnet call judges a not-yet-written artifact. The right shape: per-commit is **deterministic Layer 1 only** (cheap, file-existence math); Sonnet judgment fires at named **audit moments** when docs and tests have actually been written.
-
-A second problem: today `/ak-test-review` (a skill) and `testCoverageProject` (a check-type) judge overlapping concerns from different homes. The skill judges quality (assertion strength, RLS auth boundaries, skip audits); the check-type judges coverage (does the diff have paired tests). Operators have to know which is which. Unifying coverage + quality per domain into one Layer 2 skill (one for docs, one for tests) makes the surface obvious.
-
-**Audit moments (canonical):**
-
-- **First audit** — work is done, before polish/review begins. This is when docs and tests get _written_ for the change. The reviewer judges thoroughness as input to the human reviewer (project) or self-review (devshop).
-- **Second audit** — polish is done, immediately before merge. The reviewer audits the diff between the first audit and HEAD; anything that changed must be reflected in updated docs/tests.
-
-Both audits append to a single `specs/<feature>/review.md`. Each audit appends a new `## Audit N` section with its own `<!-- audited-at: <SHA> -->` HTML-comment stamp, range, findings counts, per-finding bullets, and bypass-trailer review. Audit history is visible in one file; idempotence reads the latest audit section's stamp. Replaces the previous two-file model (`review.md` + `test-review-followup.md`).
-
-Audit section shape:
-
-```markdown
-## Audit 1: pre-polish (2026-05-06)
-
-<!-- audited-at: a3b9c2f1 -->
-<!-- range: origin/main..a3b9c2f1 -->
-
-findings: high=0 medium=2 low=3
-
-### Docs findings
-
-- [med] apps/web/.../<file>:<line> — <one-line summary>
-
-### Tests findings
-
-- [med] apps/web/e2e/<file>:<line> — <one-line summary>
-
-### Bypass trailer audit
-
-- <commit SHA> Docs-Coverage-Bypass: "<reason>" — VERIFIED
-- <commit SHA> Tests-Coverage-Bypass: "<reason>" — DEFER (revisit at next audit)
-
-## Audit 2: post-polish (2026-05-08)
-
-<!-- audited-at: f4e8d129 -->
-<!-- range: a3b9c2f1..f4e8d129 -->
-
-findings: high=0 medium=1 low=0
-[...]
-```
-
-The HTML-comment markers (`<!-- audited-at: ... -->`) render invisibly in any Markdown view but provide an unambiguous, greppable parser contract. Phase 5.8 already uses this pattern on `test-review-followup.md`; this RFC extends it.
-
-**Trigger map (per repo / per surface):**
-
-| Repo                        | First audit                                                        | Second audit                                                     |
-| --------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------- |
-| Project, inside `/ak-build` | Phase 3 (`/ak-pre-ship` Gate 5 invokes `/ak-check-docs-and-tests`) | Phase 5.8 (re-runs `/ak-check-docs-and-tests` over polish range) |
-| Project, manual flow        | Operator invokes `/ak-check-docs-and-tests` when work is done      | Operator invokes `/ak-check-docs-and-tests` again before merge   |
-| Devshop                     | Operator invokes `/ak-check-docs-and-tests` before ff-merge        | Re-invokes if iterating; idempotent                              |
-
-Devshop has no PR review surface, so its "polish round" is informal local iteration. Re-running `/ak-check-docs-and-tests` before each merge attempt covers it; idempotent on unchanged HEAD.
-
-#### End-state architecture
-
-```
-                  ┌───────────────────────────────┬───────────────────────────────┐
-                  │  PER-COMMIT (bash hooks)      │  AUDIT-TIME (agent skills)    │
-                  │  Caller: kit/hooks/pre-       │  Caller: /ak-check-docs-      │
-                  │    commit.sh + .husky/*       │    and-tests (skill)          │
-                  ├───────────────────────────────┼───────────────────────────────┤
-                  │                               │                               │
-  LAYER 1         │  4 bash scripts in 2×2 grid:  │  ✗ N/A                        │
-  (deterministic, │                               │                               │
-   file-existence │  ┌──────────┬──────────────┐  │  Layer 1 is per-commit only.  │
-   math)          │  │ tests    │ docs         │  │                               │
-                  │  │          │              │  │                               │
-                  │  │ -project │ -project     │  │                               │
-                  │  │ -devshop │ -devshop     │  │                               │
-                  │  └──────────┴──────────────┘  │                               │
-                  │                               │                               │
-                  │  Block on FAIL. Bypass via    │                               │
-                  │  `git -c <flag>=<reason>`     │                               │
-                  │  → emits commit trailer via   │                               │
-                  │  prepare-commit-msg hook.     │                               │
-                  │                               │                               │
-                  ├───────────────────────────────┼───────────────────────────────┤
-                  │                               │                               │
-  LAYER 2         │  ✗ REMOVED                    │  Two domain skills:           │
-  (LLM judgment   │                               │                               │
-   over a range)  │  This is the entire point     │  /ak-docs-review              │
-                  │  of the migration. Per-commit │   coverage + quality of docs  │
-                  │  was the wrong moment for     │                               │
-                  │  Layer 2.                     │  /ak-tests-review             │
-                  │                               │   coverage + quality of tests │
-                  │                               │                               │
-                  │                               │  Both repo-aware, both read   │
-                  │                               │  bypass trailers from range,  │
-                  │                               │  both emit structured findings│
-                  │                               │                               │
-                  └───────────────────────────────┴───────────────────────────────┘
-
-  ORCHESTRATOR (audit-time, skill):
-    /ak-check-docs-and-tests
-      ├─ compute commit range from review.md
-      ├─ /ak-docs-review
-      ├─ /ak-tests-review
-      └─ append `## Audit N` to specs/<feature>/review.md
-
-  BYPASS-REASON ENGINE (per-commit, narrowed):
-    kit/scripts/adversarial-review.sh
-      Surface narrows to bypass-reason check-types only:
-        prDescStaleReason, dirtyTreeReason, manifestReviewed,
-        hookBypass, exemptAddition, testReviewSkipReason, dismissalLog
-      All artifact-adequacy check-types removed in PR-C.
-```
-
-Why this shape:
-
-- **Layer 1 = "check," Layer 2 = "review."** Different verbs in the names, different roles. Layer 1 is deterministic file-presence math; Layer 2 is rubric-driven LLM judgment.
-- **Symmetric across domains.** Both docs and tests get one Layer 1 script per repo and one Layer 2 review skill. No leftover asymmetry.
-- **Symmetric across repos.** Both `/devshop` and `/workspace` get the full 2×2 Layer 1 grid. Today devshop is missing a docs Layer 1 (Sonnet `docsReviewed` fires unconditionally per-commit instead) — that gap closes here.
-- **Skills own their prompts.** Each Layer 2 skill's SKILL.md is the source of truth for what it judges. No central CHECK_TYPE switch with a 100-line per-type case branch.
-- **adversarial-review.sh shrinks to its actual job.** After PR-C it carries only bypass-reason judgment — fired by bash hooks, exit-0/exit-1 contract, narrow surface. Its complexity matches its role.
-- **Bypass at commit time stays cheap, expensive to fake.** Operators waving past Layer 1 don't pay an LLM call. But they DO pay later: audit harvests their bypass trailers from the commit range and adversarially re-judges every one with full diff context.
-
-#### Component design
-
-##### A. Layer 1 scripts (per-commit, bash, file-existence math)
-
-Four scripts in `kit/scripts/commit-hooks/`:
-
-|             | tests                             | docs                             |
-| ----------- | --------------------------------- | -------------------------------- |
-| **project** | `check-tests-coverage-project.sh` | `check-docs-coverage-project.sh` |
-| **devshop** | `check-tests-coverage-devshop.sh` | `check-docs-coverage-devshop.sh` |
-
-**Renames** (PR-C, atomic with the new-script add; use `git mv` to preserve history):
-
-- `check-test-coverage-project.sh` → `check-tests-coverage-project.sh` (pluralize for symmetry with docs)
-- `check-test-coverage.sh` → `check-tests-coverage-devshop.sh` (add explicit `-devshop` suffix; was implicit)
-- `check-docs-freshness-project.sh` → `check-docs-coverage-project.sh` (drop "freshness," use universal "coverage" for file-pairing)
-
-**New script** (PR-C):
-
-- `check-docs-coverage-devshop.sh` — implements the surface→doc mapping below. Surfaces and required staged docs:
-
-| Surface path touched                                 | Required staged doc (at least one)                               |
-| ---------------------------------------------------- | ---------------------------------------------------------------- |
-| `kit/scripts/**.sh`                                  | any `kit/docs/guide/*.md` OR `CLAUDE.md`                         |
-| `kit/scripts/commit-hooks/**`                        | `kit/docs/guide/hooks.md`                                        |
-| `kit/scripts/preship/**`                             | `.claude/skills/devshop/pre-ship/SKILL.md` OR `kit/docs/guide/*` |
-| `kit/hooks/**`                                       | `kit/docs/guide/hooks.md` OR `CLAUDE.md`                         |
-| `.claude/skills/**/SKILL.md`                         | `kit/docs/guide/workflow.md` OR `CLAUDE.md`                      |
-| `template/**` (excl. `template/.devcontainer/.env*`) | `kit/docs/guide/{architecture,security,ops}.md`                  |
-| `.devcontainer/**` (excl. `.env`)                    | `kit/docs/guide/{security,ops}.md`                               |
-| `kit/manifest.txt`                                   | `kit/docs/guide/architecture.md`                                 |
-
-Carve-outs (no firing): `kit/notes/**`, `kit/ROADMAP.md`, `kit/TODOS.md`, `kit/docs/CHANGELOG.md`, `kit/version`, `kit/tests/**`, `kit/docs/**` itself (audit handles guide-only commits).
-
-**Common contract for all four scripts:**
-
-- Exit 0 = pass / not applicable.
-- Exit 1 = block (missing required pairing).
-- Bypass: `git -c devshop.<flag-name>=<reason>` — accepts the commit without LLM judgment, **but** the commit gets a trailer (see § B).
-- No LLM calls. No claude CLI invocation. Pure file-presence math.
-
-**Bypass flag names** (one per domain, repo detected via `$GIT_ROOT`):
-
-| Domain         | Flag                          |
-| -------------- | ----------------------------- |
-| tests-coverage | `devshop.testsCoverageReason` |
-| docs-coverage  | `devshop.docsCoverageReason`  |
-
-Tuning items surfaced during the lalista PR #43 work (no script change needed; documented as known limits):
-
-- Component prop additions (`AwaitingConfirmationCard` + `onEdit`) don't fire Layer 1 — too costly to detect deterministically. Audit-time concern.
-- `posthog.capture(...)` / `Sentry.captureException(...)` triggers fire correctly.
-- New `apps/*/app/**/page.tsx` / `route.ts` triggers fire correctly.
-
-##### B. Bypass trailers (per-commit emission via `prepare-commit-msg`, audit-time consumption)
-
-When a Layer 1 script accepts a bypass via `git -c devshop.<flag>=<reason>`, a `prepare-commit-msg` hook appends a Git trailer to the commit message **before the commit lands**. Trailers travel with the commit (survive rebases, push to origin, visible in `git log --format=%B`).
-
-**Mechanism**:
-
-1. **`pre-commit` (existing hook)**: Layer 1 scripts read `git config devshop.<flag>` and decide pass/block. No side-files. No commit-message manipulation.
-2. **`prepare-commit-msg` (new hook in `template/.husky/prepare-commit-msg`)**: runs after pre-commit, before the commit message is finalized, with the commit-message file path as `$1`. Reads the same `git config` flags that pre-commit read (same `git commit -c <flag>=<reason>` invocation, same config visible). For each flag with a non-empty value, appends the corresponding trailer via `git interpret-trailers --in-place --trailer "<Key>: <reason>" "$1"`.
-
-The implementation is a single ~20-line script (`kit/scripts/commit-hooks/append-bypass-trailers.sh`) called from `template/.husky/prepare-commit-msg`. No state carried across hook boundaries — both hooks independently read the same per-invocation config.
-
-**Trailer keys**:
-
-| Layer 1 script                              | Trailer key              |
-| ------------------------------------------- | ------------------------ |
-| `check-tests-coverage-{project,devshop}.sh` | `Tests-Coverage-Bypass:` |
-| `check-docs-coverage-{project,devshop}.sh`  | `Docs-Coverage-Bypass:`  |
-
-**Example commit message after bypass**:
-
-```
-fix(auth): wire onEdit prop into AwaitingConfirmationCard
-
-Adds the prop and its handler. CLAUDE.md update batched with
-parent feature work; will be addressed at end-of-feature audit.
-
-Docs-Coverage-Bypass: deferring CLAUDE.md§Where Things Happen update to end of feature
-```
-
-**Audit-time consumption**:
-
-`/ak-docs-review` and `/ak-tests-review` each run:
-
-```bash
-git log --format='%H%n%B%n---' <range> | \
-  awk '/^Docs-Coverage-Bypass:/{print prev_sha, $0}/^[a-f0-9]{40}$/{prev_sha=$0}'
-```
-
-Each harvested bypass becomes an explicit `[bypass-revisit]` finding in the sub-skill's prompt — instruction to verify the bypass claim against current diff state. Possible outcomes:
-
-- **VERIFIED**: bypass was load-bearing AND remains valid given current diff. Recorded but not escalated.
-- **DEFER**: bypass remains pending (e.g., docs-update batched to end-of-feature; subsequent audit will re-check). Recorded.
-- **ESCALATE**: bypass was load-bearing at the time but the diff has shifted such that the bypass would no longer be valid. Escalated to medium or high severity.
-
-**Why trailers vs side-log**:
-
-- Trailers travel with the commit (survive rebase, push, clone). Side-log files are local-only and flaky (interruptions, container rebuilds).
-- Trailers are universally greppable via `git log`. Side-log requires custom tooling.
-- Trailers are visible to anyone reading the PR (GitHub displays the full commit body).
-- Git trailers + `prepare-commit-msg` are documented Git conventions. No new format invented.
-
-##### C. `/ak-docs-review` (Layer 2 skill, audit-time)
-
-**Path**: `.claude/skills/devshop/docs-review/SKILL.md`
-
-**Purpose**: judge whether docs in the commit range are coverage-complete AND quality-adequate.
-
-**Inputs (passed by orchestrator)**:
-
-- `--range <SHA>..HEAD` — commit range to audit.
-- `--feature-dir <path>` — `specs/<feature>/` for emitting findings.
-
-**Repo awareness** (branches on `$GIT_ROOT`):
-
-- `/devshop` → reads `/devshop/CLAUDE.md`, `/devshop/kit/docs/OVERVIEW.md`, `/devshop/kit/docs/MODEL.md`, full bodies of `kit/docs/guide/*.md`.
-- `/workspace` (or any project) → reads `/workspace/CLAUDE.md`, `/workspace/OVERVIEW.md`, `/workspace/ARCHITECTURE.md`, per-package READMEs.
-
-**Prompt structure**:
-
-```
-## Artifact
-- Range: <SHA>..HEAD
-- Diff: <git diff output>
-- Bypass trailers harvested from range:
-  - <commit SHA> Docs-Coverage-Bypass: <reason>
-
-## Reference docs (always inlined, full body)
-<top-level docs for this repo>
-
-## Reference docs (flat catalog, ## headers only)
-<deeper docs — guide/, FAQ, etc.>
-
-## Section A — Coverage
-Did the right docs get touched for what changed in this diff?
-Rubric: [surface→doc mapping rules]
-
-## Section B — Adequacy
-For docs that DID get touched, are the updates substantive?
-Rubric: [no-stub-edits, named-section claims verified by grep, etc.]
-
-## Section C — Cross-doc coherence
-Do the docs touched contradict any reference doc not in the diff?
-Rubric: [check named claims survive against current state]
-
-## Section D — Bypass trailer audit
-For each harvested trailer: VERIFIED / DEFER / ESCALATE based on full diff context.
-
-## Output format
-For each finding: severity (high/medium/low) + section tag + file:line + fix.
-0/0/0 → "Clean" entry.
-```
-
-**Source content for prompt**: built primarily by adapting the existing `docsReviewed` prompt in `adversarial-review.sh` (lines 84-228 today), restructured into the four sections above. The existing `CONVENTIONS_TO_INCLUDE` map content for `docsReviewed` ports directly into Section A's "Reference docs" and Section B's rubric.
-
-**Output**: structured findings written to a tempfile read by orchestrator. Format consistent with how orchestrator builds the `## Audit N` section.
-
-**Severity rules** (mirror current `/ak-test-review` scheme):
-
-- `high` → halt audit. Operator must fix before ship.
-- `medium` → surface in Phase 6 audit comment.
-- `low` → noted in review.md, not surfaced elsewhere.
-
-##### D. `/ak-tests-review` (Layer 2 skill, audit-time)
-
-**Path**: `.claude/skills/devshop/tests-review/SKILL.md`
-
-**Purpose**: judge whether tests in the commit range are coverage-complete AND quality-adequate.
-
-**Critical**: this skill **absorbs the existing `/ak-test-review`** — all 150 lines of test-quality rubric content survive the rebuild via delete-and-rebuild. Specifically:
-
-- Weak assertions section
-- Missing error/invalid input tests section
-- Untested auth boundaries (RLS) section
-- Implementation detail tests section
-- Missing boundary conditions section
-- Shape-only assertions section
-- WebKit form-state hydration race section
-- Realtime test missing publication migration section
-- Wrapper API design — lifecycle events not just data section
-- Runtime validation at LLM / edge-function boundaries section
-- Skipped tests audit section
-
-These all become **Section B (Quality)** content in the rebuilt skill. The bats coverage in PR-A explicitly enumerates these 11 sub-sections and asserts they exist in the prompt — see § Bats coverage plan.
-
-**Inputs**: same as `/ak-docs-review`.
-
-**Repo awareness**:
-
-- `/devshop` → tests = `kit/tests/**.bats`, source = `kit/scripts/**.sh`, `kit/hooks/**`, `.claude/skills/**`.
-- `/workspace` → tests = `apps/*/**/*.test.ts`, `apps/*/**/*.spec.ts`, `packages/*/**/*.test.ts`, `apps/web/e2e/**`; source = corresponding non-test files.
-
-**Prompt structure**:
-
-```
-## Artifact
-- Range: <SHA>..HEAD
-- Diff: <git diff output>
-- Bypass trailers harvested:
-  - <commit SHA> Tests-Coverage-Bypass: <reason>
-
-## Reference rules (always inlined)
-- Testing philosophy from kit/docs/guide/conventions.md § Non-Negotiables — Testing
-- For project repos: § Test Presence + § Test Assertion Depth
-
-## Section A — Coverage of new behavior
-For each source change in the diff, verify a corresponding test
-exercises the NEW behavior (not just file-pairing).
-Rubric:
-- New API wrapper → test for happy path AND invalid input AND unauthorized access
-- New page.tsx / route.ts → e2e spec exercising the primary verb
-- New RPC function → integration test
-- ...
-
-## Section B — Test quality
-[All 150 lines from the prior /ak-test-review skill — restructured
-into clear sub-sections but content unchanged.]
-
-## Section C — Bypass trailer audit
-Same shape as docs-review § D.
-
-## Output format
-Same as docs-review.
-```
-
-**Severity rules**: same as `/ak-docs-review`.
-
-##### E. `/ak-check-docs-and-tests` (orchestrator, audit-time)
-
-**Path**: `.claude/skills/devshop/check-docs-and-tests/SKILL.md`
-
-**Purpose**: single operator entry point for the audit moment. Computes the commit range, invokes the two domain skills in sequence, appends `## Audit N` section to `specs/<feature>/review.md`.
-
-**Inputs**:
-
-- (none required) — defaults to feature-dir auto-detection.
-- `--feature-dir <path>` — explicit override.
-- `--range <SHA>..HEAD` — explicit range (rare; usually auto-computed).
-
-**Behavior**:
-
-1. **Resolve feature dir** (in order of preference):
-   - If invoked from `/ak-build` Phase 3 or 5.8, the parent skill passes feature dir as arg.
-   - Else: derive from current branch name (`feat/auth-improvements` → `specs/auth-improvements/`).
-   - Else: ask operator (last resort).
-   - If feature dir doesn't exist: scaffold `specs/<branch>/review.md` empty stub.
-   - If branch is `main`: error out — audit is feature-level.
-
-2. **Compute range**:
-   - Read all `## Audit N:` section headers from review.md.
-   - If none → range = `origin/main..HEAD`, audit_n = 1.
-   - Else → latest section's `<!-- audited-at: <SHA> -->` → range = `<SHA>..HEAD`, audit_n = N+1.
-   - If `<SHA>` doesn't exist (rebase) → fall back to `origin/main..HEAD`, add `<!-- rebased: prior audit at <missing-SHA> invalidated -->` note in the new section.
-   - If `<SHA>` == HEAD → no-op with `✓ already audited at <SHA>`.
-
-   Parser one-liner:
-
-   ```bash
-   grep -oP '(?<=<!-- audited-at: )[a-f0-9]+' "$FEATURE_DIR/review.md" | tail -1
-   ```
-
-3. **Invoke sub-skills**:
-   - Call `/ak-docs-review` with range + feature dir.
-   - Call `/ak-tests-review` with range + feature dir.
-   - Each emits structured findings to a tempfile.
-   - Both run sequentially (not parallel) — keeps logs readable, simpler error handling.
-
-4. **Append `## Audit N` section** to `review.md` — see file-format spec above.
-
-5. **Halt-or-continue**:
-   - If any high-severity findings: print them to stdout, exit non-zero. Caller (`/ak-pre-ship` Gate 5 or operator) decides next steps.
-   - If only medium/low: exit 0. Findings are recorded; no halt.
-
-6. **Idempotence**: latest `## Audit N` section's audited-at SHA == HEAD → skill no-ops with `✓ already audited at <SHA>`. Phase 5.8.5 already uses this pattern (just on `<!-- audited-at -->` frontmatter on `test-review-followup.md`); the shape is preserved.
-
-##### F. `adversarial-review.sh` narrowing
-
-After PR-C, the script's CHECK_TYPE switch carries only bypass-reason check-types:
-
-| Check-type             | Caller                | Job                                               |
-| ---------------------- | --------------------- | ------------------------------------------------- |
-| `prDescStaleReason`    | `.husky/pre-push`     | Judge "PR description matches commits" claim      |
-| `dirtyTreeReason`      | `.husky/pre-commit`   | Judge "uncommitted changes are intentional" claim |
-| `manifestReviewed`     | `commit-guard.sh`     | Judge `kit/manifest.txt` review claim             |
-| `hookBypass`           | `commit-guard.sh`     | Judge generic hook-bypass reason                  |
-| `exemptAddition`       | `commit-guard.sh`     | Judge addition to an exempt list                  |
-| `testReviewSkipReason` | `/ak-build` Phase 5.8 | Judge "test-review skip" claim                    |
-| `dismissalLog`         | `/ak-pre-ship`        | Judge Phase 6 dismissal rationale                 |
-
-**Removed in PR-C**:
-
-- `docsReviewed` (replaced by `/ak-docs-review` skill)
-- `testCoverageProject` (replaced by `/ak-tests-review` skill)
-- `docsFreshnessProject` (replaced by `/ak-docs-review` skill on project side)
-- `testCoverage` (release-time devshop check; replaced by `/ak-tests-review` running per-merge)
-
-CONVENTIONS_TO_INCLUDE map narrows correspondingly. Repo-mode detection (devshop vs project) stays — used by surviving check-types like `dismissalLog`. Model routing (Sonnet vs Haiku) stays — surviving check-types still use it.
-
-##### G. Wiring into `/ak-pre-ship` and `/ak-build`
-
-**`/ak-pre-ship` Gate 5** (`.claude/skills/devshop/pre-ship/SKILL.md`):
-
-- Today: invokes `/ak-test-review`. Findings to `specs/<feature>/review.md § Gate 5`.
-- After PR-A: invokes `/ak-check-docs-and-tests` (which calls both sub-skills). Findings flow into `## Audit 1` section instead of `## Gate 5` section.
-- Gate name in the gate table → "Gate 5: docs + tests review" (was "Gate 5: test-review").
-- All other Gate 5 references in the file get updated to point at the new orchestrator.
-
-**`/ak-build` Phase 3** (`.claude/skills/devshop/build/SKILL.md`):
-
-- Today: calls `/ak-pre-ship`, which in turn runs Gate 5 (`/ak-test-review`).
-- After PR-A: same call shape, but Gate 5 now invokes `/ak-check-docs-and-tests`. The first audit's `## Audit 1` section gets appended to `review.md` as part of pre-ship.
-
-**`/ak-build` Phase 5.8** (`.claude/skills/devshop/build/SKILL.md`):
-
-- Today: invokes `/ak-test-review` over `<pre-ship-sha>..HEAD`, writes findings to `specs/<feature>/test-review-followup.md`.
-- After PR-B: invokes `/ak-check-docs-and-tests` over the same range (auto-detected from latest `## Audit N` section's audited-at), appends `## Audit 2` section to `review.md`.
-- Step 0 resume rung 1a: today reads `test-review-followup.md` to decide whether 5.8 already ran. After PR-B: reads `review.md`'s latest `## Audit N` section's audited-at.
-- Phase 6 audit comment generation: today reads `review.md` + `test-review-followup.md`. After PR-B: reads `review.md` only (which now contains both `## Gate N` and `## Audit N` sections).
-
-**Manual operator flow** (devshop):
-
-- Operator runs `/ak-check-docs-and-tests` directly before ff-merge. Audit mechanic identical to the /ak-build path.
-
-#### CLAUDE.md convention (added in PR-C)
-
-Add to `/devshop/CLAUDE.md`:
-
-> **Adversarial Layer 2 reviews fire at audit moments, not per commit.**
->
-> Per-commit hooks run only Layer 1: deterministic file-existence math via `check-{tests,docs}-coverage-{project,devshop}.sh`. If a Layer 1 check is bypassed via `git -c devshop.<flag>=<reason>`, the `prepare-commit-msg` hook appends a `Tests-Coverage-Bypass:` or `Docs-Coverage-Bypass:` trailer to the commit message — recorded for audit-time review.
->
-> Layer 2 (Sonnet judgment over the diff — `/ak-docs-review`, `/ak-tests-review`) fires when `/ak-check-docs-and-tests` is invoked:
->
-> - **First audit**: when working code is done, before polish/review begins. Inside `/ak-build`, this is Phase 3. Manually, the operator invokes `/ak-check-docs-and-tests`.
-> - **Second audit**: when polish is done, immediately before merge. Inside `/ak-build`, this is Phase 5.8. Manually, the operator re-invokes `/ak-check-docs-and-tests`.
->
-> Devshop has no PR review surface — its audit moment is **before each ff-merge to main**. If the operator iterates locally between attempts, the audit is re-invoked. Idempotent.
->
-> Both audits append to a single `specs/<feature>/review.md` (one `## Audit N` section per audit, each with its own `<!-- audited-at: <SHA> -->` HTML-comment stamp). The file is the historical record. The reviewer judges the _actual_ docs (CLAUDE.md, OVERVIEW.md, guide/\*) and _actual_ tests (.test.ts / .bats files), not the audit log itself.
-
-#### Phased rollout
-
-##### PR-A — audit mechanics, no removals
-
-**Goal**: ship the orchestrator + both Layer 2 skills, wire them into `/ak-pre-ship` Gate 5. Validate the first-audit path on the project side. Per-commit Layer 2 still fires; nothing removed yet.
-
-**Files created**:
-
-- `.claude/skills/devshop/check-docs-and-tests/SKILL.md` (orchestrator)
-- `.claude/skills/devshop/docs-review/SKILL.md` (new sub-skill)
-- `.claude/skills/devshop/tests-review/SKILL.md` (rebuild — fully replaces existing `/ak-test-review` content; absorbs all 150 lines of quality rubric, adds new Section A coverage rubric)
-- `kit/tests/util-check-docs-and-tests.bats` (orchestrator behavior tests)
-- `kit/tests/util-docs-review.bats` (sub-skill smoke + range-detection tests)
-- `kit/tests/util-tests-review.bats` (sub-skill smoke + range-detection tests + the 11-sub-section content-survival assertions)
-
-**Files modified**:
-
-- `.claude/skills/devshop/pre-ship/SKILL.md` — Gate 5 invokes `/ak-check-docs-and-tests` instead of `/ak-test-review`. Rename gate label. Update gate table.
-- All references to `/ak-test-review` in `.claude/skills/devshop/**/SKILL.md`, `kit/docs/guide/*.md`, root `CLAUDE.md` — mechanical rename to `/ak-tests-review`.
-
-**Files deleted**:
-
-- The old `test-review/` skill directory (the rename to `tests-review/` is a delete + rebuild). The bats test docstring for `util-tests-review.bats` includes a pointer like:
-  > If you need to recover the original `/ak-test-review` content for reference: it was at commit `<SHA>` in `.claude/skills/devshop/test-review/SKILL.md` (renamed to `tests-review/` and rebuilt in PR-A on `<date>`).
-
-**No-ops in PR-A**:
-
-- Per-commit `docsReviewed` still fires.
-- `testCoverageProject` and `docsFreshnessProject` Layer 2 still fire from their respective hooks.
-- `testCoverage` still fires at release time.
-- Layer 1 scripts retain their current names (renames in PR-C).
-- Bypass trailer mechanic NOT YET active.
-
-**Validation criteria**: a `/ak-build` cycle on a real PR produces a `## Audit 1` section in `review.md` with non-zero findings that match what `/ak-test-review` would have caught + adds new docs-coverage findings the old skill couldn't surface.
-
-**Estimated effort**: 5–7 hours.
-
-##### PR-B — Phase 5.8 wiring + collapse two-file model
-
-**Goal**: wire `/ak-check-docs-and-tests` into `/ak-build` Phase 5.8. Collapse `test-review-followup.md` into the single-file `review.md` `## Audit N` model. Validate the second-audit path.
-
-**Files modified**:
-
-- `.claude/skills/devshop/build/SKILL.md`:
-  - Phase 5.8 invokes `/ak-check-docs-and-tests` over the latest-audit-to-HEAD range.
-  - Step 0 resume rung 1a: read latest `## Audit N` section's audited-at instead of `test-review-followup.md` frontmatter.
-  - Phase 5.8.5 idempotence: same shift.
-  - Phase 6 audit comment generation: read only `review.md` (which now contains both Gate N and Audit N sections); remove `test-review-followup.md` references.
-
-**Convention removed**:
-
-- Writing to `test-review-followup.md`. The path is no longer referenced.
-- Existing `specs/*/test-review-followup.md` files are NOT deleted (historical record); just not produced anew.
-
-**Validation criteria**: a `/ak-build` Phase 5.8 invocation produces a `## Audit 2` section appended to `review.md`. Phase 6 audit comment surfaces both audit findings. No `test-review-followup.md` produced.
-
-**Estimated effort**: 4–6 hours.
-
-##### PR-C — remove per-commit Layer 2, add devshop docs Layer 1, symmetry rename, bypass trailers
-
-**Goal**: cost savings land. Per-commit Layer 2 invocations removed. Devshop docs Layer 1 added. All Layer 1 scripts renamed for symmetry. Bypass trailer emission active.
-
-**Files created**:
-
-- `kit/scripts/commit-hooks/check-docs-coverage-devshop.sh` (NEW; surface→doc mapping per § A)
-- `kit/scripts/commit-hooks/append-bypass-trailers.sh` (NEW; ~20 lines, called from `prepare-commit-msg`)
-- `template/.husky/prepare-commit-msg` (NEW; calls `append-bypass-trailers.sh`)
-- `kit/tests/guard-docs-coverage-devshop.bats` (bats coverage)
-- `kit/tests/util-bypass-trailers.bats` (trailer emission + round-trip)
-
-**Files renamed** (`git mv` to preserve history):
-
-- `check-test-coverage-project.sh` → `check-tests-coverage-project.sh`
-- `check-test-coverage.sh` → `check-tests-coverage-devshop.sh`
-- `check-docs-freshness-project.sh` → `check-docs-coverage-project.sh`
-
-**Files modified**:
-
-- All four `check-*-coverage-*.sh` scripts: read the bypass flag without LLM judgment (just accept/block based on flag presence). Trailer emission lives in the new `prepare-commit-msg` hook, not in pre-commit scripts.
-- `kit/scripts/commit-hooks/commit-guard.sh`:
-  - Remove `docsReviewed` invocation (used to fire after Layer 1; now nothing fires there).
-- `kit/scripts/adversarial-review.sh`:
-  - Remove `docsReviewed`, `testCoverageProject`, `docsFreshnessProject`, `testCoverage` check-type cases.
-  - Remove their CONVENTIONS_TO_INCLUDE entries.
-  - Verify remaining check-types still pass their bats coverage.
-- `kit/scripts/release.sh`:
-  - Remove `release-coverage` adversarial-review.sh `testCoverage` invocation.
-  - Reduce release flow to: bump version + write semantic tag-description summary.
-- `kit/hooks/pre-commit.sh`:
-  - Update Layer 1 script invocations to renamed paths.
-  - Add invocation of new `check-docs-coverage-devshop.sh`.
-- `/devshop/CLAUDE.md`: add convention block above.
-- `kit/docs/guide/hooks.md`:
-  - Update Layer 1 ↔ Layer 2 description to reflect new architecture.
-  - Document bypass trailer mechanic + `prepare-commit-msg` hook.
-- `kit/docs/guide/conventions.md`:
-  - Add `§ Bypass trailers` documenting trailer keys and their meanings.
-  - Update `§ Test Presence` and `§ Project Docs Freshness` (rename → `§ Project Docs Coverage`) to reflect new layer split.
-- All bats files referencing renamed scripts: update paths.
-
-**Validation criteria**:
-
-- A devshop commit that touches `kit/scripts/**.sh` without staging any guide doc → `check-docs-coverage-devshop.sh` blocks (Layer 1).
-- Bypass via `git -c devshop.docsCoverageReason="<why>"` accepts the commit AND the resulting commit has a `Docs-Coverage-Bypass: <why>` trailer (validated via `git log --format=%B`).
-- A subsequent `/ak-check-docs-and-tests` over a range containing such a commit harvests the trailer and surfaces a `[bypass-revisit]` finding.
-- A devshop merge to main no longer triggers any per-commit Layer 2 calls. Cost-comparison: 5–15 commits × $0.10 → 0 per-commit + 1–2 audit × $0.10–0.30.
-- `release.sh` runs without invoking `testCoverage`; release output is a tag with semantic summary.
-
-**Estimated effort**: 3–5 hours.
-
-##### PR ordering rationale
-
-PR-A and PR-B prove the audit mechanic on real `/ak-build` cycles before PR-C removes the per-commit safety net. Each PR is independently revertible:
-
-- Revert PR-C → per-commit Layer 2 returns; audits still work; no lost data.
-- Revert PR-B → Phase 5.8 returns to its old `test-review-followup.md` shape; first-audit + pre-ship Gate 5 still works.
-- Revert PR-A → full pre-change state.
-
-PR-C is the load-bearing cost-savings step. If audits prove unreliable on real cycles, hold PR-C indefinitely and operate in dual-mode (per-commit + audit both fire).
-
-#### Bats coverage plan
-
-| File                                               | What it tests                                                                                                                                                                                                                                                                                                                  |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `kit/tests/util-check-docs-and-tests.bats`         | Orchestrator: range computation, idempotence (same SHA → no-op), feature-dir auto-detection, missing-feature-dir scaffolding, rebase detection (missing audited-at SHA), branch=main rejection, Audit N numbering, halt-on-high.                                                                                               |
-| `kit/tests/util-docs-review.bats`                  | Sub-skill: prompt structure (4 sections present), repo branching (devshop vs workspace), bypass trailer harvesting from range, finding format, severity grading, output file format.                                                                                                                                           |
-| `kit/tests/util-tests-review.bats`                 | Sub-skill: same structure as docs-review but tests-domain. **Critical**: includes assertions confirming all 11 sub-sections from the prior `/ak-test-review` skill survived the rebuild (test the prompt content, not just structure). Docstring includes commit-pointer to original `/ak-test-review` SKILL.md for debugging. |
-| `kit/tests/guard-docs-coverage-devshop.bats`       | Layer 1: surface→doc mapping rules from § A, all carve-outs honored, bypass via flag accepts (does not block). ~20 cases mirroring existing `guard-docs-freshness-project.bats`.                                                                                                                                               |
-| `kit/tests/util-bypass-trailers.bats`              | `prepare-commit-msg` hook: trailer emission given flag set, no trailer when flag unset, correct key per domain (Tests-Coverage-Bypass / Docs-Coverage-Bypass), `git interpret-trailers --in-place` round-trip preserves message body.                                                                                          |
-| `kit/tests/guard-tests-coverage-devshop.bats`      | Existing `guard-test-coverage.bats` renamed; verify rename didn't break anything; flag-presence behavior.                                                                                                                                                                                                                      |
-| `kit/tests/guard-docs-coverage-project.bats`       | Existing `guard-docs-freshness-project.bats` renamed; flag-presence behavior.                                                                                                                                                                                                                                                  |
-| `kit/tests/guard-tests-coverage-project.bats`      | Existing `guard-test-coverage-project.bats` renamed; flag-presence behavior.                                                                                                                                                                                                                                                   |
-| `kit/tests/util-adversarial-review-narrowing.bats` | After PR-C: verify removed check-types fail with `unknown check type` rather than firing the old code path. Verify surviving check-types still pass.                                                                                                                                                                           |
-
-Existing `kit/tests/util-adversarial-review*.bats` files: PR-C updates them to remove cases for the deleted check-types.
-
-#### Risks & mitigations
-
-| Risk                                                                                                                                                      | Severity                 | Mitigation                                                                                                                                                                                                                                                                                         |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Lost fast-feedback during iteration: today operators get an LLM check at commit time pointing out missing docs while context is fresh; audit defers that. | Medium                   | Layer 1 still blocks obvious gaps deterministically (added a `route.ts` without staging CLAUDE.md → block). Audit judgment moves to a moment where it has the full diff and the docs HAVE been written, producing higher-signal findings.                                                          |
-| Bypass trailer mechanic adds complexity (new hook).                                                                                                       | Low                      | `prepare-commit-msg` is a documented git hook, not an invented mechanism. ~20 lines of bash. Bats coverage validates emission and round-trip.                                                                                                                                                      |
-| `/ak-tests-review` rebuild loses content from prior `/ak-test-review`.                                                                                    | **High** (if it happens) | Bats test in `util-tests-review.bats` enumerates the 11 required sub-sections and asserts they exist in the prompt. Test fails if any are dropped. Docstring points at the commit where original lives in git history for recovery. **This is the highest-risk piece of PR-A** — must not regress. |
-| Audit produces noisy `[bypass-revisit]` findings even when bypass was load-bearing.                                                                       | Medium                   | Reviewer prompt is explicit: VERIFIED bypasses are a separate finding category, not noise. Findings list shows bypass→outcome explicitly so operators can grep VERIFIED to ignore.                                                                                                                 |
-| Phase 5.8.5's idempotence regresses on the new `## Audit N` parser.                                                                                       | Low                      | Bats coverage in `util-check-docs-and-tests.bats` covers idempotence. PR-B includes a parser-stability test.                                                                                                                                                                                       |
-| `/ak-build` Phase 6 audit comment regresses on collapsed two-file model.                                                                                  | Low                      | PR-B adds bats coverage for Phase 6 reading both Gate N and Audit N sections from a single file.                                                                                                                                                                                                   |
-| Cost savings don't materialize because operators don't run audit.                                                                                         | Low                      | `/ak-build` Phase 3 + 5.8 invoke audit automatically. Manual flow documented in CLAUDE.md convention block. Nothing relies on operator memory.                                                                                                                                                     |
-
-#### Why v0
-
-Cost saving is non-trivial (Sonnet calls per ship: 5–15× → 1–2×). More importantly, the per-commit Sonnet model produces low-signal reviews (asks for docs that aren't ready yet), pushing developers toward generic bypass reasons. Concentrating the review at audit moments produces higher-signal output and matches how docs/tests actually get written.
-
-#### Trigger
-
-- Lalista chapter 1m or 1k is the next `/ak-build` invocation. PR-A could land before that ships, validating the first-audit path on a real PR.
-- OR: a second devshop project shows up — the per-commit cost compounds across projects.
-
-#### Cross-references
-
-- `/ak-build § Phase 5.8` (shipped 2026-05-05) — the second-audit path that PR-B extends.
-- `/ak-pre-ship § Gate 5` — currently runs `/ak-test-review`; PR-A switches to `/ak-check-docs-and-tests`.
-- `kit/scripts/adversarial-review.sh § CONVENTIONS_TO_INCLUDE` — the inlining map; narrowed in PR-C.
-- `kit/scripts/commit-hooks/check-{test-coverage,docs-freshness}-project.sh` — Layer 1 stays; renamed + Layer 2 invocation removed in PR-C.
-- `kit/scripts/commit-hooks/commit-guard.sh § docsReviewed` — removed in PR-C.
-- `kit/scripts/release.sh § release-coverage` — removed in PR-C. Release flow simplifies to: bump version + semantic tag-description summary.
-- `kit/notes/roadmap/adversarial-review-doc-inlining.md` — prior architectural work on the same engine; this RFC builds on its convention-inlining model.
-
-#### Cost & reversibility summary
-
-- PR-A: 5–7 hours. Adds skills + bats coverage. No removals. Lowest risk; highest content load (the `/ak-tests-review` rebuild).
-- PR-B: 4–6 hours. Phase 5.8 wiring + two-file collapse. Validates second-audit path.
-- PR-C: 3–5 hours. Removes per-commit Layer 2, adds devshop docs Layer 1, renames for symmetry, activates bypass trailers, adds CLAUDE.md convention. Cost savings land here.
-- **Reversibility**: each PR is independently revertible. PR-C is the load-bearing cost-saving step; if it bites harder than expected, reverting it alone keeps PR-A + PR-B's audit mechanics in place.
-
----
-
 ### Docs-coverage hook exempts audit-prose paths (`specs/<feature>/review.md` and similar)
 
 **Problem.** `kit/scripts/commit-hooks/check-docs-freshness-project.sh` greps every staged file for `posthog.capture(`, `Sentry.captureException(`, and similar analytics-call regex. When `specs/<feature>/review.md` (the audit-trail file written by `/ak-pre-ship` Gate 8 and `/ak-check-docs-and-tests` § Audit N) contains an audit bullet attesting "this PR adds zero `posthog.capture()` calls", the literal string `posthog.capture()` is the **subject** of the audit prose, not a new call site. The hook fires `BLOCKING: New analytics event call sites added without METRICS.md update`, the operator pays a `Docs-Coverage-Bypass:` trailer to commit, and audit-time's bypass-trailer review then VERIFIES the trailer as "yes, false positive in audit prose" — the system pays Sonnet to confirm what the hook already knew but couldn't express.
@@ -981,6 +340,23 @@ Compounded by a related failure mode at the orchestrator layer: `/ak-build` Phas
 
 ### Audit `kit/docs/guide/conventions.md` → distribute operational copy into the skills that fire
 
+**Pre-implementation findings (verified 2026-05-14):** **PARTIAL.** Several destinations are already populated and the worked example (closure rule) shipped to `/devshop/CLAUDE.md` + `/ak-build § Phase 5.6`. What did NOT ship is the **deduplication** half of the audit — the table calls out 4+ sections that should drop from `conventions.md` but they're still there. Before reopening the full multi-skill audit, confirm what's actually left vs scoped-down:
+
+- **Duplicates to delete from `conventions.md`** (CLAUDE.md is canonical):
+  - `## Confidence Calibration` at `conventions.md:375-395` (table row says "Move to CLAUDE.md (Tier 1)" — already in `CLAUDE.md:130`)
+  - `## TODO Protocol` at `conventions.md:397-403` (already in `CLAUDE.md:152`)
+- **Lift-vs-cross-ref decision needed** for these sections — bodies are in `conventions.md`, skills only cross-ref:
+  - `## Test Assertion Depth` (`conventions.md:491`, ak-tests-review only cross-refs)
+  - `## SPEC.md Quality Checklist` (`conventions.md:85`, ak-spec only cross-refs)
+  - `## DESIGN.md as Contract` (`conventions.md:89`, ak-pre-ship only cross-refs)
+  - `## Screenshot Routing` (`conventions.md:106`, ak-pre-ship only cross-refs)
+  - Pick one pattern (lift into skill OR canonical-Tier-3-with-cross-ref) and document the chosen rule.
+- **Untouched rows** worth checking before scope: Backlog Routing Guide, Deploy Boundaries, Supabase Hardening Defaults, Testing Lifecycle (table rows 1006/1007/1010/1012 had non-deterministic "Verify; canonical home is the skill" actions).
+
+**Realistic scope**: ~1 hr to land deduplication + decision, not 3-5 hr per skill. Spec below preserved for full original context.
+
+---
+
 **Problem.** `kit/docs/guide/` (including `conventions.md`) is loaded **on demand only** — never at session start. Skills load their own `SKILL.md` content when invoked. So a convention placed only in `conventions.md` is a paper rule: it never enters my context unless I happen to grep for it. The session that surfaced this (2026-04-26) read `/ak-build` SKILL.md's "Without this, gh run download fails" prereq line, decided artifact-pull was blocked, and never opened `conventions.md` to find the routing rule that would have told it otherwise.
 
 **Tier model** (from the 2026-04-26 audit):
@@ -1042,6 +418,17 @@ The first project that scaffolds the devshop today inherits a guide-conventions 
 
 ### Adversarial reviewer reads `guide/` for convention checks
 
+**Pre-implementation findings (verified 2026-05-14):** **PARTIAL — the main mechanism shipped, the optional standalone gate didn't.** Before reopening this entry, confirm scope is still meaningful:
+
+- **SHIPPED via `953e9a1`**: `CONVENTIONS_TO_INCLUDE` map at `kit/scripts/adversarial-review.sh:373-449` with `extract_convention_section()` helper + `get_conventions_to_inline()` dispatch + inlining loop. Currently routes `testReviewSkipReason`, `exemptAddition`, `dismissalLog` (gate-routed). Plus `WORKFLOW_TO_INCLUDE` for `coreUserStoryNaReason`. `/devshop/CLAUDE.md` documents this in present tense.
+- **NOT SHIPPED**: optional standalone `kit/scripts/preship/check-conventions.sh` gate.
+- **Scope shift**: the original RFC scope listed `docsReviewed` as a primary inlining target, but PR-C (the audit-time migration) REMOVED `docsReviewed` and other coverage check-types entirely — they're now `/ak-docs-review` + `/ak-tests-review` skills, which read their own guide content directly. So inlining them into adversarial-review is no longer the right shape; their convention exposure is via skill prompts, not commit-time hooks.
+- **Decision needed**: either (a) close this entry — the inlining map shipped and the coverage check-types it would have wrapped have moved to a different layer; or (b) keep it open scoped ONLY to the optional standalone gate, sized at ~1 hr.
+
+Spec below preserved for full original context.
+
+---
+
 **Problem.** The current pre-commit adversarial reviewers (`commit-guard.sh` + `adversarial-review.sh`) check whether **bypass reasons** are valid (e.g., is the docsReviewed note thorough? is the dirtyTreeReason load-bearing?). They don't check whether the **commit itself** follows the project's documented conventions. So a commit that adds a feature without a test, or adds a metric event without registering it in `METRICS.md`, or skips a doc update that conventions require, sails through the reviewer because the bypass-reason gate is the only checkpoint.
 
 The agent often forgets convention X (especially one buried in conventions.md per the sibling audit above), and the reviewer doesn't catch it because it doesn't know X exists.
@@ -1094,6 +481,17 @@ Order matters. Audit first, reviewer-check second. Reasons:
 ---
 
 ### Migration sequencing safety nets for the Vercel-preview window
+
+**Pre-implementation findings (verified 2026-05-14):** **PARTIAL — Track B shipped, Tracks A + C pending. ⚠️ Orphan reference exists.**
+
+- **SHIPPED**: **Track B** (highest-leverage) at `.claude/skills/ak-go-live/SKILL.md:76-120` — Step 1.6 migration sequencing pre-flight with classification heuristic (`MIGRATIONS_TOUCHED` grep for additive vs mutating) + AskUserQuestion surface. Attributed via "Codified from kit/ROADMAP.md § Migration sequencing safety nets for the Vercel-preview window (Track B)".
+- **NOT SHIPPED**: **Track A** (`/ak-spec` migration scoping prompt) and **Track C** (`kit/docs/guide/ops.md § Migration Sequencing` doc section). `grep "Migration Sequencing"` against `ops.md` returns zero matches.
+- **⚠️ Orphan reference to fix**: `ak-go-live/SKILL.md:88` says "Track A of the migration-sequencing convention plants this at spec time" — but `ak-spec/SKILL.md:333` only has a "Deploy boundaries" bullet covering similar ground under a different name, with no `## Migration Sequencing` section. Step 1.6's look-for-spec-section logic will fall through silently on most projects. **Implementer must either** (a) ship Track A planting `## Migration Sequencing` under that exact name in ak-spec's section template, OR (b) rephrase ak-go-live:88 to be honest ("if `specs/<feature>/spec.md` happens to have a `## Migration Sequencing` section…").
+- **Scope going forward**: Tracks A + C + the orphan-ref fix. Per the entry's own sequencing recommendation, A + C were always conditional on B firing often enough to warrant the doc/spec investment — re-check whether real cycles since 2026-05-08 ever exercised Step 1.6 before deepening.
+
+Spec below preserved for full original context.
+
+---
 
 **Problem.** The lalista-style architecture pipes the same `NEXT_PUBLIC_SUPABASE_URL` (= prod) into all three Vercel envs (Production, Preview, Development) per `/ak-new-project § Step 13`, so **Vercel previews dial prod Supabase**. `deploy-migrations.yml` runs `on: push: main` — migrations apply only at merge-time, not when the PR opens. That creates a window between PR-open and PR-merge where:
 
@@ -1267,149 +665,6 @@ Every devshop project will adopt integration tests or E2E eventually — auth fl
 
 ---
 
-### Security-posture cleanup: CI/prod credential separation + URL guard + classification
-
-Audit of `/ak-new-project`'s credential surface (2026-04-25, after the auto-deploy-backend ship) surfaced four issues that compound:
-
-1. **Real duplication**: `SUPABASE_PROJECT_REF` is the subdomain slice of `SUPABASE_URL` (the URL is `https://<ref>.supabase.co`). We added it as a GH Variable when the deploy workflows landed; it can be derived inline. Single source of truth = `SUPABASE_URL`. Eliminate the Variable.
-
-2. **Public values stored as Secrets**: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `NEXT_PUBLIC_POSTHOG_KEY` are public by design — baked into the front-end JS bundle, visible to every browser. Storing as GH Secrets is symmetric with the rest but technically a misclassification. Doesn't leak (Secrets and Variables share the same UI) but confuses readers about what's actually sensitive. Move to Variables.
-
-3. **Real security risk: `SUPABASE_SERVICE_ROLE_KEY` ambiguity**. The skill says `SUPABASE_SERVICE_ROLE_KEY=<secret-key>` without specifying which project. A reader will paste their **prod** service-role key — full DB admin access via REST, no RLS. If it leaks (CI logs, container image, misconfigured workflow), prod is **totally compromised**. Lalista's PR 18 D8 + D22 already worked around this (CI's `SUPABASE_URL` rotated to local stack `http://127.0.0.1:54321`; CI's service-role key is the local stack's published default JWT, not sensitive); plus a runtime URL guard `assertNotProdUrlInTestEnv` that throws if test-env code ever instantiates a Supabase client pointing at prod. The template + skill need to ship this discipline by default.
-
-4. **Documentation gaps**: each credential has "where to find it" but no blast-radius callout, no CI-vs-prod separation guidance, no rotation cadence, no explanation of why some are stored as Secrets vs Variables.
-
-**Shape of the fix** (5 tracks; do them as one coordinated change because they cross-reference each other):
-
-**Track A — Eliminate `SUPABASE_PROJECT_REF`**:
-
-- `template/.github/workflows/deploy-migrations.yml` + `deploy-functions.yml`: replace `--project-ref ${{ vars.SUPABASE_PROJECT_REF }}` with a sed-derive from `SUPABASE_PROD_URL`:
-  ```bash
-  PROJECT_REF=$(echo "$SUPABASE_PROD_URL" | sed -E 's|https://([^.]+)\.supabase\.co|\1|')
-  supabase link --project-ref "$PROJECT_REF"
-  ```
-- `/ak-new-project` Step 5 Variables: drop `SUPABASE_PROJECT_REF`; add `SUPABASE_PROD_URL` instead (this is the prod URL the deploy workflows target — distinct from CI's `SUPABASE_URL` which points at local stack).
-- Lalista mirrors the same change (its workflows also derive ref from `SUPABASE_PROD_URL`).
-
-**Track B — Reclassify public values + add CI-vs-prod naming distinction**:
-
-- `/ak-new-project` Step 5 reorganized:
-  - **Variables tab** (public):
-    - `SUPABASE_URL` = local stack URL `http://127.0.0.1:54321` (used by CI fast/slow jobs against `supabase start`)
-    - `SUPABASE_ANON_KEY` = local stack's published default anon JWT
-    - `SUPABASE_SERVICE_ROLE_KEY` = local stack's published default service-role JWT (still admin, but on a sandboxed local instance — not prod)
-    - `SUPABASE_PROD_URL` = real prod URL (used by deploy-migrations + deploy-functions only)
-    - `NEXT_PUBLIC_POSTHOG_KEY` = PostHog key (public via NEXT*PUBLIC* convention)
-  - **Secrets tab** (genuinely sensitive):
-    - `SUPABASE_DB_PASSWORD` = prod DB password (used by deploy-migrations)
-    - `SUPABASE_ACCESS_TOKEN` = account-wide Supabase token (used by both deploy workflows)
-    - `ANTHROPIC_API_KEY_QA` = if edge functions call Claude (used by slow-job; re-exported as `ANTHROPIC_API_KEY` inside the test step's env block)
-    - `ANTHROPIC_API_KEY_PROD` = if edge functions call Claude in prod (pushed by `deploy-functions.yml` to the prod Supabase project's edge-function secrets as `ANTHROPIC_API_KEY`; never on local disk)
-    - `SENTRY_DSN` + `SENTRY_AUTH_TOKEN`
-    - `VERCEL_TOKEN`
-- Vercel env (separate surface from GH) keeps prod values: `NEXT_PUBLIC_SUPABASE_URL` = prod, `NEXT_PUBLIC_SUPABASE_ANON_KEY` = prod anon. Skill should explicitly note Vercel and GH are different env surfaces with different values.
-
-**Track C — Local-stack defaults documented in skill**:
-
-- `/ak-new-project` Step 5 Variables sub-section gains the **literal values** for local-stack defaults:
-  - `SUPABASE_URL` value: `http://127.0.0.1:54321`
-  - `SUPABASE_ANON_KEY` value: the published JWT (currently `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9...` — implementer should source the current published value from `supabase start` output or Supabase docs)
-  - `SUPABASE_SERVICE_ROLE_KEY` value: same shape, role: service_role
-- Note that these are public hardcoded values across every Supabase local-stack install, so no per-project copying from `.env` is needed for these three.
-
-**Track D — Ship the URL guard helper in the template**:
-
-- New file `template/packages/core/src/supabase.ts` (or similar — match the template's existing structure) exporting `assertNotProdUrlInTestEnv` per lalista's PR 18 D22 implementation.
-- Helper logic: when `process.env.NODE_ENV === 'test'` AND the URL passed to `createClient` matches a prod-shaped pattern (`*.supabase.co` and NOT the configured project's CI-allowed values), throw with a clear message.
-- Tests for the helper (mirror lalista's 5 unit tests in `packages/core/src/supabase.test.ts`).
-- Wire into the template's `createClient` call sites so it fires on every client instantiation in test env.
-
-**Track E — Add § Security Posture to `/ak-new-project`**:
-
-New section after Step 5 (or as part of Step 5) with:
-
-- **Blast-radius table** per credential — what an attacker can do if it leaks:
-
-  | Credential                                    | Blast radius if leaked                                                                                       |
-  | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-  | `SUPABASE_DB_PASSWORD`                        | Direct DB connection (no RLS); read/write any table                                                          |
-  | `SUPABASE_ACCESS_TOKEN`                       | Account-wide: all projects on this Supabase account, manage settings, drop projects                          |
-  | `ANTHROPIC_API_KEY_QA`                        | Spend rate-limit on the CI/local-dev key only — cannot affect prod billing or rate limits                    |
-  | `ANTHROPIC_API_KEY_PROD`                      | Spend rate-limit on the prod-traffic key only — cannot pollute CI rate limits; rotate same-day               |
-  | `SENTRY_AUTH_TOKEN`                           | Upload sourcemaps, manage org                                                                                |
-  | `VERCEL_TOKEN`                                | Deploy to any of your Vercel projects                                                                        |
-  | `SUPABASE_SERVICE_ROLE_KEY` (prod, NOT in CI) | Full DB admin via REST; no RLS — if it gets in CI accidentally, that's the highest-blast-radius failure mode |
-  | Local-stack defaults (Variables)              | None — published constants                                                                                   |
-
-- **CI-vs-prod credential separation** — explicit rule: CI never holds prod Supabase credentials except `SUPABASE_PROD_URL` (used only by deploy workflows), `SUPABASE_DB_PASSWORD`, `SUPABASE_ACCESS_TOKEN`. Everything else CI uses is the local-stack default.
-
-- **Rotation cadence**: rotate `SUPABASE_ACCESS_TOKEN` quarterly (account-wide blast radius); `SUPABASE_DB_PASSWORD` after any team-member departure or suspected compromise; sourcemaps tokens annually.
-
-- **URL guard reminder**: the structural defense (assertNotProdUrlInTestEnv) is in the template by default — Track D — and projects should keep it active.
-
-**Track F — Cleanup step in `/ak-new-project` for upgrading existing projects**:
-
-For projects that already went through the OLD `/ak-new-project` flow (lalista is one), add a "Migration to new credential layout" step OR a one-off cleanup section in the skill:
-
-- List of GH Secrets to delete that no longer apply (e.g., legacy `SUPABASE_PROJECT_REF` Variable if previously set)
-- List of values to add (e.g., `SUPABASE_PROD_URL` Variable if not present)
-- List of Secrets to convert to Variables
-- Rotation prompt for any potentially-mixed credentials
-
-This step is `[HUMAN]` — Claude can list what to do but can't manage GH Secrets via the devcontainer PAT.
-
-**Doc propagation** (after Tracks A–E land):
-
-- `OVERVIEW.md` — workspace-layout file map gains the URL guard helper file at `packages/core/src/supabase.ts` (already there for lalista; needs template parity)
-- `kit/docs/guide/conventions.md` — § Deploy Boundaries already updated for auto-deploy; gains a callout about CI-vs-prod credential separation as the structural enforcement of the boundary
-- `kit/docs/guide/security.md` — gains a § "CI credential isolation" subsection summarizing the URL guard + local-stack-defaults pattern
-- `kit/docs/guide/ops.md` § CI/CD — already updated; verify the prod-URL-vs-local-URL distinction is noted
-- `CLAUDE.md` § Known Footguns — gains an entry about the prod-service-role-in-CI risk + URL guard remediation
-
-**Project-side changes (lalista — first adopter)**:
-
-After the devshop side lands on a feature branch (NOT ff-merged yet — per the new "hold ff-merge until project validates" convention from CLAUDE.md § Devshop shipping flow):
-
-1. **Workflow files**: update `.github/workflows/deploy-migrations.yml` + `deploy-functions.yml` to derive ref from `SUPABASE_PROD_URL` instead of `vars.SUPABASE_PROJECT_REF`. Drop the `SUPABASE_PROJECT_REF` Variable.
-2. **GH Variables additions**:
-   - Add `SUPABASE_PROD_URL` = `https://nzfdfjctpotjyuxdfcpw.supabase.co`
-3. **GH Secrets → Variables migrations** (delete from Secrets after confirming Variables tab has them):
-   - `SUPABASE_URL` (value already = local stack URL per D8) → Variables
-   - `SUPABASE_ANON_KEY` (value already = local stack default) → Variables
-   - `SUPABASE_SERVICE_ROLE_KEY` (value already = local stack default) → Variables
-   - `NEXT_PUBLIC_POSTHOG_KEY` → Variables
-4. **GH Secrets to keep as Secrets**: `SUPABASE_DB_PASSWORD`, `SUPABASE_ACCESS_TOKEN`, `ANTHROPIC_API_KEY_QA`, `ANTHROPIC_API_KEY_PROD`, `SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `VERCEL_TOKEN`.
-5. **GH Variable to delete**: `SUPABASE_PROJECT_REF` (added today; superseded by `SUPABASE_PROD_URL` + sed-derive).
-6. **URL guard already present**: lalista already has D22's `assertNotProdUrlInTestEnv` in `packages/core/src/supabase.ts` — verify it's wired into all `createClient` call sites.
-7. **CI verification**: re-run slow-job CI on `feat/auto-deploy-backend` to confirm both deploy workflows still run green after the parameterization change.
-8. **Once CI green on lalista, ff-merge devshop-side feature branch to devshop main**.
-
-**Why v0**:
-
-- Track A: trivial debt that compounds with every future project — fix while it's fresh.
-- Track B–E: closes a real security gap. The prod-service-role-in-CI footgun is the highest-blast-radius failure mode in the current `/ak-new-project` flow. Every project scaffolded today has it; fixing now means the second project starts in the secure-by-default state.
-- Track F: existing projects need a migration path; without it, the cleanup is ambiguous.
-
-**Trigger**:
-
-- Lalista PR 18 retro (2026-04-25) surfaced the audit — concrete case study + first adopter ready.
-- Coordinated devshop+project change: implement on devshop feature branch, validate on lalista, ff-merge devshop after lalista CI green (per the convention from CLAUDE.md § Devshop shipping flow step 2 added 2026-04-25).
-
-**Cross-ref**:
-
-- Lalista PR 18 D8 (CI URL/anon rotation to local stack) — already shipped, this entry generalizes the pattern to template
-- Lalista PR 18 D22 (`assertNotProdUrlInTestEnv` URL guard) — already shipped, this entry generalizes to template
-- `kit/docs/guide/conventions.md` § Deploy Boundaries — context for the parallel-deploy model
-- The pre-commit test-presence hook for project repos (sibling convention propagation pattern) shipped 2026-04-28 as `kit/scripts/commit-hooks/check-tests-coverage-project.sh`; see `kit/docs/guide/hooks.md` for the current contract
-
-**Cost/risk**:
-
-- Implementation: ~3-4 focused hours (template helper + tests, skill rewrite of Step 4/5, doc propagation across 5+ files, lalista mirror, CI re-run + verification). Adversarial review will require 2-3 doc enumeration cycles per commit; budget for that.
-- Risk during rollout: lalista's deploy workflows briefly need `SUPABASE_PROD_URL` Variable BEFORE the workflow file change merges (or the parameter substitution will fail). Set the Variable first; merge second. Same for any future project adopting from template.
-- Benefit: closes the prod-service-role-in-CI risk by default; eliminates the `SUPABASE_PROJECT_REF` redundancy; documents what's actually sensitive vs symmetric-but-public; provides migration recipe for existing projects.
-
----
-
 ### `/ak-go-live` post-merge prod-config sync (Arm B — automation core)
 
 **Status:** Arm A (pre-flight surface) shipped 2026-05-10 via the devshop `feat/ak-go-live-arm-a-preflight` branch — `/ak-go-live` Step 1.8 reads the PR body + latest audit/ready-for-review comments, parses every `[ ]` checkbox grouped by section, annotates `[manual]` / `[deferred]` / `[!]`, and blocks on `## Out-of-band deploy items` only. Arm B (Management API integration that converts most `[manual]` items into `[auto]`) is scoped below and remains pending. The problem statement now narrows to the items Arm A surfaces but doesn't automate: the operator still pastes email templates, still verifies the auth allow-list, and still curls absolute-URL assets by hand.
@@ -1568,6 +823,17 @@ Combined with the auth-hardening step (password_min_length: 8, landed in v1.11.0
 ---
 
 ### Latency feedback framework — 4-tier decision rule + primitives
+
+**Pre-implementation findings (verified 2026-05-14):** **PARTIAL — skeleton doc shipped, rest pending.**
+
+- **SHIPPED via `a9f364d`**: `kit/docs/guide/latency-feedback.md` exists (212 lines). Self-described as "focused stub; full 4-tier framework scheduled to lift post-soak."
+- **NOT SHIPPED**: full 4-tier framework prose (the canonical content still lives in `lalista/specs/app-snappiness/spec.md § D1`); `template/CLAUDE.md` pointer to the guide; `/ak-spec` consultation step in `.claude/skills/ak-spec/SKILL.md`; primitives extraction (`useSubmitFeedback` / `SubmitButton` / `LoadingArea` / `useOptimisticMutation`) to a `@devshop-template/ui` package.
+- **Blocked by**: primitives extraction is blocked by the missing `template/apps/web/` baseline (see new ROADMAP entry below) — there's no `template/packages/ui/` either; both need the template app scaffold first.
+- **Realistic next step**: lift the 4-tier prose from lalista's spec into the existing `latency-feedback.md` (~30 min) + add `template/CLAUDE.md` pointer (~5 min) — these are pure doc, no scaffold dependency. Primitives extraction waits on the template baseline.
+
+Spec below preserved for full original context.
+
+---
 
 Projects keep re-solving the same UX gap: how snappy to make a button / a route nav / an optimistic mutation. Defaults skew either too eager (spinner everywhere, including <250ms ops where it's noise) or too lazy (no feedback, user double-taps). Lalista chapter 1m (`feat/app-snappiness`, PR #49, shipped 2026-05-07) co-developed a 4-tier framework with the user that matches the affordance to the operation's actual latency. Every next project with interactive UI will hit the same decision tree.
 
@@ -1758,6 +1024,66 @@ The principle: **a fresh project's tracker docs should start empty.** Per-projec
 
 ---
 
+### Scaffold `template/apps/web/` baseline — landing zone for soak-extract entries
+
+**Problem.** `/devshop/template/apps/web/` does not exist as a tracked tree at HEAD. `/devshop/template/` contains only `packages/core/`, `.devcontainer/`, `.github/`, `screenshots/`, `scripts/`, `.husky/`. The convention today: `/ak-new-project` Phase B Step 12 runs `pnpm create next-app` per-project, then layers in Sentry / PostHog / Supabase SSR / etc. via subsequent steps. Each new project recapitulates the same wiring; nothing accretes back to template.
+
+This blocks five separately-tracked v0 entries that all need a place to ship code into:
+
+| Entry                                          | What it needs `template/apps/web/` for                                                            |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| **R12** Lalista PR #43 E2E lessons             | `template/apps/web/e2e/helpers/inbucket.ts` (Mailpit + bare-/verify rewrite) + e2e spec skeletons |
+| **R13** Auth UX conventions                    | `template/apps/web/app/auth/callback/` route, `app/reset-password/` route, sign-in page pattern   |
+| **R14** Latency feedback primitives extraction | `template/packages/ui/` package (which depends on having `apps/web/` to consume it)               |
+| **R15** PWA service worker baseline            | `template/apps/web/next.config.ts` serwist wiring + `app/sw.ts`                                   |
+| **T5** Tap-feedback CSS contract               | `template/apps/web/app/globals.css` (file doesn't exist anywhere under template/)                 |
+
+The five entries above are each individually-sized at 15 min – 4 hr, but ALL of them are gated on this single missing surface. Currently they sit in the v0 backlog without an obvious unblocker — implementers picking them up have to choose between "scaffold the surface inline first" (mixing scope) or "skip these v0 entries indefinitely."
+
+**Shape of the fix.** Scaffold a minimal `template/apps/web/` that mirrors what `/ak-new-project` Phase B produces from `pnpm create next-app` + the canonical wirings, then point `/ak-new-project` at the template tree (copy-and-substitute) instead of re-running create-next-app per-project.
+
+Minimum tracked tree:
+
+- `template/apps/web/package.json` (Next.js + React + minimum deps; project name placeholder)
+- `template/apps/web/next.config.ts` (Sentry wrapper, PostHog instrument, env validation — placeholders for project-specific values)
+- `template/apps/web/tsconfig.json` (with `@/*` alias matching create-next-app convention)
+- `template/apps/web/app/{layout.tsx,page.tsx,globals.css}` (minimal landing-page shell; design-system tokens go in globals.css)
+- `template/apps/web/middleware.ts` (or `proxy.ts` post-Next-16 rename per R16-B2 — see also)
+- `template/apps/web/e2e/` (Playwright config + helpers/ stub directory)
+- `template/apps/web/vitest.config.ts` + `vitest.setup.ts` (per PLAN.md § #4 generalization #9 — WebSocketStub) + `@/` alias (per generalization #23)
+- `template/apps/web/instrumentation.ts` + Sentry server/edge files
+
+**Why v0 — blocks next-project adoption + unblocks 5 other v0 entries.** Five v0 entries are structurally stalled waiting on this surface. Without it, the "second project adopts and surfaces the lift trigger" path is hollow — there's no template tree to lift INTO. Ship this once; each blocked entry becomes a small targeted PR after.
+
+**Sequencing recommendation:**
+
+1. **Scaffold first** (~half-day): produce the minimum tracked tree above. Validate by running `/ak-new-project` Phase B copying from template instead of generating with create-next-app — fresh project should still produce a buildable, testable app.
+2. **Then unblock the five v0 entries** (each as its own PR): T5 (15 min CSS), R12 (1 hr helper file lift), R15 (~2 hr serwist wiring), R13 (~4 hr auth UX scaffold), R14 primitives (~2 hr after framework prose lifts).
+
+**Cross-ref:**
+
+- `/devshop/.claude/skills/ak-new-project/SKILL.md § Step 12` — the current `pnpm create next-app` path; post-scaffold this step shifts to "copy template/apps/web/ + sed-substitute project name."
+- `kit/ROADMAP.md § v0 § Generalize lalista PR #43 E2E + Supabase test-infra lessons` (R12) — blocked dependent
+- `kit/ROADMAP.md § v0 § Auth UX conventions — shared error-surface + state patterns` (R13) — blocked dependent
+- `kit/ROADMAP.md § v0 § Latency feedback framework — 4-tier decision rule + primitives` (R14) — blocked dependent
+- `kit/ROADMAP.md § v0 § Template PWA service worker baseline` (R15) — blocked dependent
+- `kit/TODOS.md § Port the tap-feedback press-state contract` (T5) — blocked dependent
+- `lalista/apps/web/` + `home-os/apps/web/` — concrete shapes that exist post-scaffold to mine for the template tree
+
+**Cost/risk:**
+
+- Implementation: ~4-6 hr for the scaffold (initial tracked tree + sed-substitute logic in Step 12 + validation on a fresh `/ak-new-project` run). Plus an additional ~1 hr of cross-project diff work to pick which canonical shape to ship (lalista's vs home-os's are close-but-not-identical post-onboarding; need to choose one as the template canonical or extract common shape).
+- Risk: medium. Template drift is the failure mode — if the template's app shape doesn't match what create-next-app produces in 6 months, projects that copy from template will diverge from upstream Next.js conventions. Mitigation: pin the template's Next.js version explicitly and refresh the template every Next.js minor.
+- Benefit: closes the unblocker for five v0 entries; reduces `/ak-new-project` runtime (no more 90s `pnpm create next-app` round-trip per scaffold); creates a single canonical "what does a devshop project look like" reference.
+
+**Trigger:**
+
+- Verified 2026-05-14 during v0 triage that R12, R13, R14, R15, T5 all share this blocker. Originally each entry was filed as "soak-extract from lalista" with the assumption the destination would obviously exist — turns out the destination is the missing piece.
+
+[v0, surfaced-by 2026-05-14 v0-triage verification pass]
+
+---
+
 ## v1 (after v0 is validated on the first project)
 
 ### Test-coverage hook scope: extend to template/.devcontainer/\*.sh + reframe EXEMPT_SCRIPTS as warn-not-block
@@ -1931,7 +1257,7 @@ Demoted to v1 because: (a) lalista v0 GA depends on PR 7 + launch-day seed, neit
 
 **Cross-ref**:
 
-- `kit/ROADMAP.md § Security-posture cleanup` (shipped on `feat/security-posture-cleanup`) — the structural enabler this entry completes.
+- Security-posture cleanup (shipped via `631dc7e` on `feat/security-posture-cleanup`; entry closed and removed from `kit/ROADMAP.md` per the closing-entries rule) — the structural enabler this entry completes.
 - `lalista/.github/workflows/deploy-migrations.yml` (5b248d9) — the file to delete project-side.
 - `/devshop/.claude/skills/devshop/go-live/SKILL.md` — the skill to extend with the JIT phase.
 - 1Password CLI: `op read` docs ([1password.com/downloads/command-line](https://1password.com/downloads/command-line)).
@@ -2229,7 +1555,7 @@ The PR-A+B+C inaugural devshop run (2026-05-07) made the gap concrete: the opera
 - `/ak-go-live` (project-side analog).
 - `/ak-release-devshop` (chained from this skill's step 5).
 - `/devshop/CLAUDE.md § Devshop shipping flow` (the convention the skill enforces).
-- `kit/ROADMAP.md § Move adversarial Layer 2 reviews from per-commit to audit-time` § PR-C convention block (the "before each ff-merge" rule the skill operationalizes).
+- `CLAUDE.md § Non-Negotiables` — "Adversarial Layer 2 reviews fire at audit moments, not per commit" (the "before each merge to main" rule the skill operationalizes; structural migration shipped via PR-A/B/C `b02d531`/`a0f1705`/`a2e1f34`).
 
 ### Devshop self-build pipeline
 

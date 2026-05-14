@@ -523,8 +523,8 @@ If tests fail → stuck protocol (see below).
 Invoke `/ak-check-docs-and-tests` via the Skill tool. Audit-time docs + tests review.
 
 This gate is the **first audit moment** in the canonical two-audit model
-(see `kit/ROADMAP.md § Move adversarial Layer 2 reviews from per-commit
-to audit-time`). The orchestrator computes the commit range from
+(per `CLAUDE.md § Non-Negotiables` — "Adversarial Layer 2 reviews fire at
+audit moments, not per commit"). The orchestrator computes the commit range from
 `specs/<feature>/review.md`'s latest `## Audit N` section's
 `<!-- audited-at: <SHA> -->` stamp, invokes `/ak-docs-review` and
 `/ak-tests-review` sequentially, and appends a new `## Audit N` section
