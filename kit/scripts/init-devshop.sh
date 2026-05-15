@@ -92,6 +92,7 @@ bash "$DEVSHOP/kit/scripts/sync/normalize-devshop-paths.sh" < "$DEVSHOP/.claude/
 MEMORY_DIR="$WS/.claude/memory"
 MEMORY_LINK="/home/node/.claude/projects/-workspace/memory"
 mkdir -p "$MEMORY_DIR" "$(dirname "$MEMORY_LINK")"
+chown -R node:node /home/node/.claude/projects
 ln -sfn "$MEMORY_DIR" "$MEMORY_LINK"
 chown -h node:node "$MEMORY_LINK"
 

@@ -39,6 +39,9 @@ else
       bash "$SCRIPTS_DIR/commit-hooks/check-tests-coverage-project.sh"
       bash "$SCRIPTS_DIR/commit-hooks/check-docs-coverage-project.sh"
       bash "$SCRIPTS_DIR/commit-hooks/commit-guard.sh"
+      # Soft nudge — never blocks. Runs after commit-guard so the nudge is
+      # the last thing the operator sees before the commit succeeds.
+      bash "$SCRIPTS_DIR/commit-hooks/check-template-propagation.sh"
       ;;
     /devshop)
       # Devshop repo: clean tree + manifest sync + Layer 1 docs/tests coverage + commit guards

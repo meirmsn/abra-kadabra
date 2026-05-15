@@ -223,3 +223,84 @@ setup() {
   run grep -iE 'dangling.*needs|needs.*dangling' "$CI_YML"
   assert_success
 }
+
+# =============================================================================
+# Baked-in fixes — the 5 home-os PR #15 / lalista PR #26 fixes propagated into
+# the commented slow-job stub so projects scaffolded post-2026-05-14 inherit
+# them ambiently. The whole premise of the propagate-home-os-pr15-patterns
+# branch is "uncomment ritual is 'strip every leading # ', not 'fill in the
+# blanks'" — so a future tidy-up PR must not silently drop these lines from
+# the stub. See:
+#   kit/docs/guide/ops.md § CI/CD § "Template slow-job stub carries the
+#                                    canonical shape, fully baked"
+# Each assertion mirrors the existing "must NOT appear" regression-guard
+# pattern (e.g. `**/*.md`) so the test surfaces clearly when a line is lost.
+# =============================================================================
+
+@test "baked-in fix: playwright install --with-deps chromium webkit (mobile project needs both)" {
+  # devices['iPhone N'] defaults to WebKit; chromium-only installs fail every
+  # [mobile] spec at browser launch. Match either the commented stub install
+  # step or any other invocation of the canonical pair in the file.
+  run grep -E 'playwright install --with-deps chromium webkit' "$CI_YML"
+  assert_success
+}
+
+@test "baked-in fix: step-level \${{ env.* }} mapping (job-level env: would shadow GITHUB_ENV writes)" {
+  # The slow-job's test steps source the real Supabase values via
+  # supabase-status export written to \$GITHUB_ENV, then map them into the
+  # process env at step-level. Job-level env: would PIN the GH-Variables
+  # value and shadow $GITHUB_ENV writes; the supabase-status export emits
+  # unprefixed names that SUPABASE_*-prefixed reads can't see otherwise.
+  # Pin presence of at least one step-level env-mapping for ANON_KEY (the
+  # canonical example in the stub).
+  run grep -E '\$\{\{ env\.ANON_KEY \}\}' "$CI_YML"
+  assert_success
+}
+
+@test "baked-in fix: sed -E quote-strip before >> \$GITHUB_ENV (supabase status -o env wraps values in literal quotes)" {
+  # supabase status -o env wraps every value in "..." literals; without
+  # stripping, GITHUB_ENV stores the quotes verbatim and every consumer
+  # parses it as an invalid URL. Use grep -F for the literal sed pattern
+  # to avoid regex-escape juggling.
+  run grep -F "sed -E 's/=\"(.*)\"\$/=\\1/'" "$CI_YML"
+  assert_success
+}
+
+@test "baked-in fix: artifact upload path includes apps/web/test-results (playwright-report/ is empty under reporter: 'github')" {
+  # Under reporter: 'github', the HTML report (playwright-report/) is empty
+  # because the github reporter doesn't write to disk. Videos / traces /
+  # error-context.md live in test-results/. The upload step must include it.
+  run grep -E 'apps/web/test-results' "$CI_YML"
+  assert_success
+}
+
+@test "baked-in fix: supabase_edge_runtime cold-start retry (probe + restart once)" {
+  # supabase_edge_runtime_workspace container occasionally cold-starts to
+  # 502 on GH-Actions runners. Codified from lalista PR #26 — probe
+  # /functions/v1/ and restart once on 502/timeout. Match either the probe
+  # path or the restart warning string.
+  run grep -E 'supabase_edge_runtime.*restart|restarting once' "$CI_YML"
+  assert_success
+  run grep -E '/functions/v1/' "$CI_YML"
+  assert_success
+}
+
+@test "baked-in fix: workflow-level push trigger uses branches: [main] (NOT branches-ignore: [main])" {
+  # branches-ignore: [main] triggered a redundant fast run on every PR-branch
+  # push because pull_request already fires for the same event. Corrected
+  # shape keeps push as a post-merge canary on trunk only; pre-merge CI
+  # rides pull_request exclusively. Source: home-os PR #15 dup-runs
+  # investigation. Positive pin AND a regression guard on the buggy shape.
+  run grep -E '^[[:space:]]+branches:[[:space:]]+\[main\]' "$CI_YML"
+  assert_success
+}
+
+@test "baked-in fix: branches-ignore: [main] must NOT appear as an active YAML directive (regression guard)" {
+  # Forbid the buggy shape — comments referencing it in prose ("NOT
+  # branches-ignore: [main]") are fine because they're prefixed with `#`,
+  # but a directive-shaped line (no `#` after leading whitespace) is the
+  # regression. Belt-and-braces sibling to the `**/*.md` negative-assert
+  # on the ignore-list pattern.
+  run grep -E '^[[:space:]]+branches-ignore:[[:space:]]+\[main\]' "$CI_YML"
+  assert_failure
+}

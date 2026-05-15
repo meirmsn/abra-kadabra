@@ -268,6 +268,12 @@ slow:
 
 Lalista is the prior art — its slow-job carries the edge-runtime retry pattern that PR 26 (2026-04-26) hard-won during a real CI flake. Without the retry, the `supabase_edge_runtime_workspace` container's occasional cold-start 502 fails the entire run on a transient infra issue. The retry adds ~30s in the unhappy path and zero in the happy path. The convention propagates this pattern by default to every devshop project rather than letting each one re-discover it after their own PR-26-style incident.
 
+### Template propagation nudge
+
+Project commits that touch `[sync]`-tagged manifest entries (`.github/workflows/`, `.husky/`, `turbo.json`, `eslint.config.mjs`, `.gitleaks.toml`, etc.) get a one-line per-file nudge after all blocking guards pass, surfacing the matching `template/<path>` and suggesting `to-devshop.sh` for the propagation. Soft nudge only — never blocks, since `[sync]` is explicitly "may diverge." The home-os PR #15 ci.yml fixes are the case study: they lived in lalista pre-existing and home-os newly-debugged for a month before getting back to the devshop template. The manifest already encodes the bidirectional intent; the nudge surfaces it at the moment the operator could actually act on it. See `kit/docs/guide/hooks.md § Full Hook Chain Detail` — the `check-template-propagation.sh` row — for the mechanic.
+
+The nudge fires on `[sync]` only, never on `[scaffold-once]` (intentionally project-owned after first scaffold — e.g. `CLAUDE.md`, `PLAN.md`, `BUILD-LOG.md`), never on `[symlink]` (auto-propagates by definition), never on `[locked]` (project can't stage edits to root-owned files). Honors `!`-exclusions like `.devcontainer/.env`.
+
 ### Cross-reference: Local Pre-Push Test Gates
 
 The slow-job is the upper layer of the test discipline. The lower layer is the local-floor gate `changed-tests-local` (#2e in `/ak-pre-ship`, Layer 2 of `/preflight`) — see the next section for the convention. The two layers are complementary, not redundant: local fires on a strict subset (parse-check + changed specs + smoke set, ~5 min total) so a developer discovers the cheap failures 30s before pushing. CI's slow-job runs the full multi-viewport / multi-project matrix, on which the local floor depends for everything outside the cheap subset. Set `git config devshop.requireHealthyLocalStack never` to opt out of the local floor's degraded-stack promotion if a project legitimately can't run a local stack.

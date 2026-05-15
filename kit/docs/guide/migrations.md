@@ -12,6 +12,7 @@ Schema-mutating changes to a Supabase project ride two boundaries: the migration
   - [Why `for update` matters here — Postgres EvaluatePlanQual (EPQ) semantics](#why-for-update-matters-here--postgres-evaluateplanqual-epq-semantics)
 - [DB constraint as loud structural backstop for application-layer business rules](#db-constraint-as-loud-structural-backstop-for-application-layer-business-rules)
 - [seed.sql gotrue compatibility — required text columns + matching auth.identities](#seedsql-gotrue-compatibility--required-text-columns--matching-authidentities)
+- [Postgres enum extension — DROP+CREATE pattern (NOT `ALTER TYPE ADD VALUE`)](#postgres-enum-extension--dropcreate-pattern-not-alter-type-add-value)
 
 ## Supabase Hardening Defaults
 
@@ -150,3 +151,74 @@ values (
 ```
 
 Verify after any seed change with `pnpm db:reset && curl <auth-url>/auth/v1/admin/users -H 'Authorization: Bearer <service-role>'` — must return a JSON users array, not 500. The constraint is enforced at runtime by the auth server, not by Postgres — the only forcing function is the smoke check.
+
+## Postgres enum extension — DROP+CREATE pattern (NOT `ALTER TYPE ADD VALUE`)
+
+**Don't use `alter type <enum> add value <new>` in a Supabase migration.** The statement is rejected by Postgres when executed inside a transaction block, and **the Supabase migration applier wraps each `.sql` file in an implicit transaction during `supabase start` / `supabase db reset` / `supabase migration up`**. The failure is silent — the `Applying migration X` log line emits regardless, and `supabase gen types --local` reflects whatever the apply step _intended_ (so the schema-type-drift gate still passes) — but `pg_enum` doesn't actually contain the new value. The first runtime `INSERT` with the new value fails with:
+
+```
+22P02 invalid input value for enum <type>: "<new-value>"
+```
+
+…with no breadcrumb back to the migration that should have added it.
+
+Home-os hit this on PR #15 during slow-job rollout. The author had isolated the `ADD VALUE` into its own file 006a, assuming the per-file transaction wrapping was the gotcha. It wasn't — even alone in a file, the applier wraps in a transaction.
+
+### Canonical pattern: rename → recreate → recast → drop
+
+```sql
+-- Migration NNN — extend <enum> with the '<new>' value.
+--
+-- `ALTER TYPE ... ADD VALUE` cannot run in a transaction (Postgres
+-- restriction), and the Supabase migration applier wraps each .sql file
+-- in an implicit transaction. Use the standard rename + recreate +
+-- recast workaround — every statement is transaction-safe and the column
+-- data round-trips cleanly because the new type is a superset of the
+-- old in matching order.
+
+alter type public.<enum> rename to <enum>_old;
+
+create type public.<enum> as enum (
+  -- Original values from the prior enum definition, IN ORDER.
+  '<existing-1>',
+  '<existing-2>',
+  -- New value(s):
+  '<new>'
+);
+
+-- ALTER COLUMN TYPE rejects columns with a DEFAULT that references the
+-- old type — drop the default, recast, then restore the default against
+-- the new type. Repeat per (table, column) using the enum.
+alter table public.<table> alter column <col> drop default;
+alter table public.<table>
+  alter column <col> type public.<enum>
+  using <col>::text::public.<enum>;
+alter table public.<table>
+  alter column <col> set default '<original-default>'::public.<enum>;
+
+drop type public.<enum>_old;
+
+-- ROLLBACK:
+-- alter type public.<enum> rename to <enum>_new;
+-- create type public.<enum> as enum (
+--   '<existing-1>', '<existing-2>'   -- without the new value
+-- );
+-- alter table public.<table> alter column <col> drop default;
+-- alter table public.<table>
+--   alter column <col> type public.<enum>
+--   using <col>::text::public.<enum>;
+-- alter table public.<table> alter column <col> set default '<original-default>'::public.<enum>;
+-- drop type public.<enum>_new;
+```
+
+### Pre-merge verification (do not skip)
+
+The CI schema-type-drift gate is **not** a forcing function here — it can pass on a stale enum because `gen types --local` reflects intent rather than `pg_enum` truth in some CLI versions. The forcing function is an actual `INSERT` of the new value in the slow-job E2E. **Add the new-value insert assertion to the same PR** that adds the migration so the failure surfaces immediately rather than waiting for downstream code to trigger it.
+
+### Dependencies — function-resolution timing
+
+PL/pgSQL is lazy-compiled. Functions that reference the enum by literal value (`'<existing-1>'::public.<enum>` in a function body) re-bind at first call after the recreate — they work without redefinition. Functions that reference the enum by name as a parameter type (`function_name(p public.<enum>)`) MAY need redefinition; check by listing dependent functions via `pg_depend` before running the recreate in a prod-shaped DB.
+
+### Why not just edit the original `create type` migration?
+
+If the project is pre-launch and the original `create type` migration hasn't been deployed to any environment that retains state (no prod, no preview branches with persistent DBs), editing the original migration to include the new value is simpler — there's no need for a recreate dance. The DROP+CREATE pattern is for the common case where the original migration has already been applied somewhere and can't be retroactively changed.

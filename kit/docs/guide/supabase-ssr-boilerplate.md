@@ -14,6 +14,8 @@ Each pattern was codified from a real lalista incident (most from PR 26, 2026-04
 - [Pattern 6: Testing realtime WebSocket failures with `page.routeWebSocket`, not `page.route().fulfill(503)`](#pattern-6-testing-realtime-websocket-failures-with-pageroutewebsocket-not-pageroutefulfill503)
 - [Pattern 7: `emailRedirectTo` origin resolution + query-string survival](#pattern-7-emailredirectto-origin-resolution--query-string-survival)
 - [Pattern 8: Middleware allow-list authed-bypass carve-out for recovery flows](#pattern-8-middleware-allow-list-authed-bypass-carve-out-for-recovery-flows)
+- [Pattern 9: E2E mail helper for Mailpit (post-CLI-v2.x rename from Inbucket)](#pattern-9-e2e-mail-helper-for-mailpit-post-cli-v2x-rename-from-inbucket)
+- [Pattern 10: Host-anchored redirect in `/auth/*` route handlers](#pattern-10-host-anchored-redirect-in-auth-route-handlers)
 - [Cross-references](#cross-references)
 
 ---
@@ -393,6 +395,336 @@ PWA `start_url` should point at the authed landing route (e.g. `/list`) so insta
 
 ---
 
+## Pattern 9: E2E mail helper for Mailpit (post-CLI-v2.x rename from Inbucket)
+
+Supabase CLI v2.x swapped the local-stack mail catcher from **Inbucket** to **Mailpit** but kept the env-var name `INBUCKET_URL` (the `supabase status -o env` output emits both `INBUCKET_URL` and `MAILPIT_URL` pointing at the same port). The two services share a port but expose **incompatible REST APIs**: an Inbucket-shaped helper hitting `/api/v1/mailbox/<addr>` against Mailpit returns nothing — and the magic-link E2E spec times out at the poll without a clear failure signal.
+
+Lalista hit this on slow-job rollout; home-os hit it on PR #15 magic-link spec. Canonical helper below — keep the filename `helpers/inbucket.ts` for grep-continuity with old specs, but rename the comments to reflect Mailpit:
+
+### `apps/web/e2e/helpers/inbucket.ts`
+
+```ts
+// What: Tiny helper for fetching emails from the local Supabase mail relay
+//       (Mailpit; previously Inbucket pre-CLI v2.x) and parsing the most
+//       recent magic-link URL out of the message body.
+// Why: Sign-up confirmation, forgot-password, magic-link, and invite E2Es
+//      need to follow the magic-link the way a real user would. Mailpit
+//      exposes a JSON API at port 54324 (default) that we poll until the
+//      message lands.
+// Does NOT: Talk to hosted Supabase (email-template rendering happens on
+//           Supabase's mail relay there; specs gate on the local stack
+//           via isLocalSupabase()).
+//
+// Naming: file is `inbucket.ts` for historical reasons — Supabase CLI swapped
+// inbucket for mailpit in v2.x and never updated the env var name (it still
+// surfaces as INBUCKET_URL in `supabase status -o env`). The relay is mailpit;
+// the helper name preserves the env-var naming for grep continuity.
+
+/**
+ * Derive mailpit's host from SUPABASE_URL so the helper works in both:
+ *   - Workspace devcontainer (test SKIPS here — `isLocalSupabase()` only
+ *     trues for 127.0.0.1/localhost shapes, not the workspace's
+ *     `host.docker.internal` URL).
+ *   - GitHub Actions slow-job: SUPABASE_URL=http://127.0.0.1:54321 (Supabase
+ *     binds directly to the runner's localhost; mailpit listens on 54324
+ *     on the same host).
+ */
+function deriveMailpitBase(): string {
+  const supabaseUrl = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
+  try {
+    const host = new URL(supabaseUrl).hostname;
+    return `http://${host}:54324`;
+  } catch {
+    return 'http://127.0.0.1:54324';
+  }
+}
+
+const MAILPIT_BASE = deriveMailpitBase();
+
+interface MailpitSummary {
+  ID: string;
+  From: { Name: string; Address: string };
+  To: { Name: string; Address: string }[];
+  Subject: string;
+  Snippet: string;
+  Created: string;
+}
+
+interface MailpitListResponse {
+  total: number;
+  messages_count: number;
+  start: number;
+  messages: MailpitSummary[];
+}
+
+interface MailpitMessage {
+  HTML?: string;
+  Text?: string;
+}
+
+export interface EmailSummary {
+  id: string;
+  subject: string;
+  to: string;
+  date: string;
+}
+
+/**
+ * Wait until mailpit has at least `minCount` messages addressed to `address`,
+ * then return the latest summary. Polls every 500ms up to the given timeout.
+ *
+ * We use mailpit's search endpoint (`/api/v1/search?query=to:<addr>`) so
+ * cross-test mailbox pollution from other parallel specs doesn't trip us up.
+ */
+export async function waitForLatestEmail(
+  address: string,
+  options: { minCount?: number; timeoutMs?: number } = {}
+): Promise<EmailSummary> {
+  const minCount = options.minCount ?? 1;
+  const timeoutMs = options.timeoutMs ?? 30_000;
+  const start = Date.now();
+  let lastErr: unknown = null;
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const res = await fetch(
+        `${MAILPIT_BASE}/api/v1/search?query=${encodeURIComponent(`to:${address}`)}&limit=50`
+      );
+      if (res.ok) {
+        const data = (await res.json()) as MailpitListResponse;
+        if (data.messages.length >= minCount) {
+          const m = data.messages[0]!;
+          return {
+            id: m.ID,
+            subject: m.Subject,
+            to: m.To[0]?.Address ?? address,
+            date: m.Created,
+          };
+        }
+      }
+    } catch (err) {
+      lastErr = err;
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  throw new Error(
+    `mailpit: no message for ${address} after ${timeoutMs}ms (expected at least ${minCount}; base=${MAILPIT_BASE}; lastErr=${lastErr instanceof Error ? lastErr.message : String(lastErr)})`
+  );
+}
+
+/** Fetch the full body for a given mailpit message. */
+export async function fetchEmailBody(
+  _address: string,
+  id: string
+): Promise<{ body?: { html?: string; text?: string } }> {
+  const res = await fetch(`${MAILPIT_BASE}/api/v1/message/${id}`);
+  if (!res.ok) {
+    throw new Error(
+      `mailpit: failed to fetch message ${id} (status ${res.status}; base=${MAILPIT_BASE})`
+    );
+  }
+  const data = (await res.json()) as MailpitMessage;
+  return { body: { html: data.HTML, text: data.Text } };
+}
+
+/**
+ * Pull the magic-link URL out of an email body. HTML body carries the
+ * rendered template (anchor href); text body carries the plain-text link.
+ * Try HTML first, fall back to text.
+ *
+ * Link path shape depends on Supabase's flow:
+ *   - Token-hash flow (default `{{ .ConfirmationURL }}`):
+ *     `{SiteURL}/auth/v1/verify?token=<hash>&type=<type>&redirect_to=<...>`
+ *   - Direct PKCE flow: link points at redirect_to with `?code=<...>` appended.
+ * Either is fine for E2E — `page.goto(link)` follows redirects — so the
+ * regex matches both.
+ */
+export function extractMagicLink(message: {
+  body?: { html?: string; text?: string };
+}): string {
+  const html = message.body?.html ?? '';
+  const text = message.body?.text ?? '';
+  const re =
+    /https?:\/\/[^\s"'<>]*(?:\/auth\/v1\/verify|\/verify|\/auth\/callback|[?&](?:code|token|token_hash)=)[^\s"'<>]*/i;
+  const fromHtml = html.match(re)?.[0];
+  if (fromHtml) return rewriteBareVerify(decodeHtmlEntities(fromHtml));
+  const fromText = text.match(re)?.[0];
+  if (fromText) return rewriteBareVerify(decodeHtmlEntities(fromText));
+  throw new Error(
+    `mailpit: no auth-flow URL found in email body (html=${html.slice(0, 400)}…, text=${text.slice(0, 400)}…)`
+  );
+}
+
+/**
+ * Some Supabase CLI versions render `{{ .ConfirmationURL }}` with a bare
+ * `/verify?...` path on the auth host (`http://127.0.0.1:54321/verify?...`)
+ * instead of the Kong-prefixed `/auth/v1/verify?...`. The bare path 404s
+ * because Kong only proxies `/auth/v1/*`. We rewrite to the Kong path so
+ * the recovery flow exercises end-to-end. Production hosted Supabase
+ * doesn't have this issue (the external URL includes /auth/v1 by default).
+ */
+function rewriteBareVerify(url: string): string {
+  return url.replace(
+    /^(https?:\/\/[^/]+)\/verify(\?|$)/,
+    '$1/auth/v1/verify$2'
+  );
+}
+
+/**
+ * Decode the handful of HTML entities that show up in an `href`. Supabase's
+ * email template renders `{{ .ConfirmationURL }}` into an HTML-escaped href,
+ * so `?token=foo&type=recovery` becomes `?token=foo&amp;type=recovery`.
+ * Passing that to `page.goto` would treat `&amp;` as a literal query
+ * separator and Supabase 400s with "Verify requires a verification type."
+ */
+function decodeHtmlEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, '&')
+    .replace(/&#x2F;/gi, '/')
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
+```
+
+### Why each block is load-bearing
+
+| Block                                               | Why                                                                                                                                                                                                         |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `deriveMailpitBase()` parses SUPABASE_URL hostname  | Works in CI (`127.0.0.1`) AND any future devcontainer setup where the local stack lives at `host.docker.internal` — no env-var fork.                                                                        |
+| `rewriteBareVerify()`                               | Defensive — some CLI versions emit `<host>/verify?...` (bare) instead of `<host>/auth/v1/verify?...`. The bare path 404s because Kong only proxies `/auth/v1/*`. A no-op if the URL already has the prefix. |
+| `decodeHtmlEntities()`                              | Supabase's email template HTML-escapes `&` → `&amp;`. Without decoding, `page.goto(url)` parses `&amp;type=recovery` as `amp;type=recovery` and the verify endpoint 400s with "missing type parameter".     |
+| Wider regex (`?code=` / `?token=` / `?token_hash=`) | Covers both PKCE (`?code=`) and implicit (`?token=`) flow shapes; works even when Supabase tweaks the template URL path.                                                                                    |
+| Three-function split (wait / fetch / extract)       | Lets specs assert subject/recipient before extracting the link (useful for sign-up vs reset-password discrimination); single-function shape works for one spec but doesn't compose.                         |
+| 30s timeout / 500ms poll / `minCount` parameter     | Slow-job runner cold-starts the Mailpit container; 10s default flakes. `minCount > 1` covers "wait for resend" patterns.                                                                                    |
+
+### How port is sourced
+
+Helper hardcodes **54324** (Supabase default mailpit port). Projects that rebound ports (e.g., the home-os +100 rebound shift: db 54422, mailpit 54424) must update the constant accordingly — there is no env var that surfaces only the mailpit port from `supabase status -o env`, so the helper can't derive it dynamically. If you rebound the supabase ports in `supabase/config.toml`, also update `deriveMailpitBase()`'s port constant.
+
+---
+
+## Pattern 10: Host-anchored redirect in `/auth/*` route handlers
+
+Don't use `new URL(path, request.url)` in `/auth/callback` or `/auth/signout` route handlers. **Next.js 16 normalizes `request.url`'s hostname to whatever Next is configured for (defaults to `localhost`), regardless of the actual Host header on the incoming request.** Combined with browser-side cookies that scope by request host and CSP `form-action 'self'` enforcement on the final redirect target, this produces two distinct failure modes:
+
+1. **`/auth/callback` (GET):** Client visits `http://127.0.0.1:3000/auth/callback?code=...`. Handler sets session cookies on `127.0.0.1` (via `@supabase/ssr` setAll, no Domain= attribute → host-scoped). Handler then `new URL('/home', request.url)` → emits `http://localhost:3000/home`. Browser follows redirect to `localhost` — cookies on `127.0.0.1` are NOT sent. Middleware on `/home` sees an anonymous request → bounces to `/login?next=/home`. The user never reaches the authed area.
+
+2. **`/auth/signout` (POST):** Form on `http://127.0.0.1:3000/home` POSTs to `/auth/signout` (resolves to `127.0.0.1:3000/auth/signout`). Handler returns `303 Location: http://localhost:3000/login`. The page's CSP `form-action 'self'` evaluates the final redirect target (browsers MUST check the redirect chain, not just the initial action) — `localhost:3000` is a different origin from `127.0.0.1:3000`. The browser silently aborts the redirect. Form submit POST shows status `-1` in network traces; page stays on `/home`; sign-out never completes.
+
+Home-os PR #15 hit both during slow-job rollout. Fix: anchor the redirect on the actual request Host header, not the normalized `request.url`.
+
+### The helper
+
+```ts
+// apps/web/app/auth/_lib/same-origin-url.ts (or inline per route)
+import type { NextRequest } from 'next/server';
+
+/** Build a same-origin redirect URL anchored on the request's Host header
+ *  rather than `request.url`'s host. See kit/docs/guide/supabase-ssr-boilerplate.md
+ *  § Pattern 10 for the failure modes this defends against.
+ *
+ *  Security: callers MUST sanitize `path` to a same-origin relative URL
+ *  (start with `/`, NOT `//`) — see `safeNext` below. A spoofed Host
+ *  header otherwise opens an open-redirect class.
+ */
+export function sameOriginUrl(request: NextRequest, path: string): string {
+  const host = request.headers.get('host') ?? new URL(request.url).host;
+  const proto =
+    request.headers.get('x-forwarded-proto') ??
+    new URL(request.url).protocol.replace(':', '');
+  return `${proto}://${host}${path}`;
+}
+```
+
+### `apps/web/app/auth/callback/route.ts` shape
+
+```ts
+import { NextResponse, type NextRequest } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { sameOriginUrl } from '../_lib/same-origin-url';
+
+export const dynamic = 'force-dynamic';
+
+/** Same-origin redirect target. Accept only paths that begin with `/` and
+ *  are NOT protocol-relative (`//evil.example`). Closes the open-redirect
+ *  class. */
+function safeNext(raw: string | null): string {
+  if (!raw) return '/home';
+  if (!raw.startsWith('/') || raw.startsWith('//')) return '/home';
+  return raw;
+}
+
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url);
+  const code = url.searchParams.get('code');
+  const next = safeNext(url.searchParams.get('next'));
+
+  if (!code) {
+    return NextResponse.redirect(
+      sameOriginUrl(request, '/login?error=callback_failed'),
+      { status: 303 }
+    );
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+  if (error) {
+    return NextResponse.redirect(
+      sameOriginUrl(request, '/login?error=callback_failed'),
+      { status: 303 }
+    );
+  }
+
+  return NextResponse.redirect(sameOriginUrl(request, next), { status: 303 });
+}
+```
+
+### `apps/web/app/auth/signout/route.ts` shape
+
+```ts
+import { NextResponse, type NextRequest } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { sameOriginUrl } from '../_lib/same-origin-url';
+
+export const dynamic = 'force-dynamic';
+
+export async function POST(request: NextRequest) {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  return NextResponse.redirect(sameOriginUrl(request, '/login'), {
+    status: 303,
+  });
+}
+
+function methodNotAllowed() {
+  return new Response(null, { status: 405, headers: { Allow: 'POST' } });
+}
+export const GET = methodNotAllowed;
+export const PUT = methodNotAllowed;
+export const PATCH = methodNotAllowed;
+export const DELETE = methodNotAllowed;
+```
+
+### Unit-test mock shape
+
+The handlers read `request.headers.get('host')` AND `request.url`. The test's `mockRequest()` must stub both:
+
+```ts
+function mockRequest(url: string): NextRequest {
+  const parsed = new URL(url);
+  const headers = new Headers({ host: parsed.host });
+  return { url, headers } as unknown as NextRequest;
+}
+```
+
+### When this isn't a problem in production
+
+Vercel (and most managed hosts) terminate TLS upstream and forward requests with the canonical Host header in `x-forwarded-host` + the public hostname in `host`. `request.url` is then constructed correctly because the host matches the configured `NEXT_PUBLIC_SITE_URL` / project domain. The bug only surfaces locally and in CI where multiple loopback aliases (`127.0.0.1` vs `localhost`) are reachable on the same Next process — the symptom looks like "cookies aren't being set" but is actually "cookies are being set on the wrong host".
+
+---
+
 ## Cross-references
 
 - `/ak-new-project § Step 12 (Scaffold apps/web)` — the entry point that should apply Patterns 1, 2, 3 at scaffold time
@@ -402,3 +734,4 @@ PWA `start_url` should point at the authed landing route (e.g. `/list`) so insta
 - `kit/docs/guide/wrapper-boundaries.md § Wrapper API design` — companion rule that makes Pattern 6's banner-trigger path reachable
 - Lalista PR 26 (2026-04-26) — the source incident for Patterns 1, 2, 3, 4 (carry-forward), 5, and Pattern 6 (initial 503-fulfill shape)
 - Lalista PR 27 (2026-04-27) — Pattern 6 fix shipped (`routeWebSocket` switch + wrapper-side `onError` extension)
+- Home-os PR #15 (2026-05-14) — sources of Patterns 9 (lifted verbatim from lalista's mature helper) and 10 (host-anchored redirect debugged on slow-job)
