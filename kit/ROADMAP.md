@@ -322,13 +322,22 @@ Compounded by a related failure mode at the orchestrator layer: `/ak-build` Phas
 
 **Coverage matrix:**
 
-| Failure mode                                                                       | Caught by                                                                                                                                                                           |
-| ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Subagent writes `Result: n/a` for an LLM-mediated gate                             | Fix A makes it a contract violation; Fix B halts the pipeline at Phase 3 → 4                                                                                                        |
-| Orchestrator pre-classifies gates in the Phase 3 prompt                            | Fix C explicitly forbids it; even if Fix C is missed by a future caller, Fix A + B still catch the downstream violation                                                             |
-| Genuine scope exemption (`/design-review` on a non-UI PR, `/qa` on a docs-only PR) | Fix A allows `blocked (n/a per scope: <reason>)`; the existing adversarial-review chain judges whether the reason holds; review.md retains the audit trail (reason + chain verdict) |
+| Failure mode                                                                                                         | Caught by                                                                                                                                                                           |
+| -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Subagent writes `Result: n/a` for an LLM-mediated gate                                                               | Fix A makes it a contract violation; Fix B halts the pipeline at Phase 3 → 4                                                                                                        |
+| Orchestrator pre-classifies gates in the Phase 3 prompt                                                              | Fix C explicitly forbids it; even if Fix C is missed by a future caller, Fix A + B still catch the downstream violation                                                             |
+| Genuine scope exemption (`/design-review` on a non-UI PR, `/qa` on a docs-only PR)                                   | Fix A allows `blocked (n/a per scope: <reason>)`; the existing adversarial-review chain judges whether the reason holds; review.md retains the audit trail (reason + chain verdict) |
+| Subagent emits `blocked` legitimately but `dismissalLog` / shim-map dismisses it without LLM review (home-os PR #15) | **NOT yet covered.** See Fix D below.                                                                                                                                               |
 
-**Why this lives in v0** — every project using `/ak-pre-ship` can hit this exact failure mode. Every PR that runs the gauntlet through an orchestrator subagent (which is every `/ak-build` invocation) is exposed today. The fix is small enough to ship without restructuring the pipeline; large enough that getting it wrong silently lets PRs ship without `/qa` evidence. The lalista PR #65 incident is the canonical worked example — the structural fix prevents the recurrence; the worked example is the codification artifact.
+**Fix D — `blocked` outcomes cannot be shim-mapped past LLM review (added 2026-05-15 after home-os PR #15):**
+
+| Fix | File                                                                                                               | Shape                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| --- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D   | `kit/scripts/adversarial-review.sh` + `/ak-pre-ship § Outcome semantics` + `/ak-build § Phase 3 → Phase 4 handoff` | Two parts. **(D.1) Dismissal-log policy**: `dismissalLog` adversarial-reviewer must REJECT any dismissal whose underlying outcome is `blocked` — `blocked` is a tooling-gap signal, not a reviewable finding. Add a fast-path check before the LLM prompt: if the dismissed outcome is `blocked`, the dismissal is invalid and the reviewer returns FAIL with rationale "blocked outcomes cannot be dismissed via shim-map; resolve the tooling gap or report the gate as `blocked` to the caller." **(D.2) Phase 3 → 4 halt is unconditional on `blocked`**: confirm via test fixture that `blocked > 0` in the agent's return halts the pipeline regardless of whether matching dismissals exist in `review.md § Dismissals`. The two safety nets (per-gate `blocked` emission AND orchestrator-level halt count) must each independently work. |
+
+**Verification task (high priority — feeds the fix):** home-os PR #15 (2026-05-14, feature/capture-flow) shipped with `blocked: 1` for Gate 9 `/qa` (Supabase Kong unreachable from container — pre-existing infra carry-over). The `/ak-build § Phase 3 → Phase 4 handoff` SKILL section explicitly says "If `blocked > 0` → **do NOT advance to Phase 4**." But the PR shipped — three anon-bounce placeholder hero shots embedded in the PR body in lieu of the actual feature captures, and the user only discovered post-creation when they noticed the screenshots showed the sign-in flow instead of the new features. Reproduce the failure mode: either (a) the halt path runs but the operator overrode without warning (in which case the SKILL says "Stop the pipeline. The user decides how to proceed" — the operator's continue-anyway decision was made silently), or (b) the halt path was bypassed by the `dismissalLog` / shim-map machinery treating `blocked` like a `findings` dismissal. Either is a contract gap. Fix D.1 addresses (b); a SKILL.md edit hardening the operator-override path to require explicit acknowledgement before continuing addresses (a).
+
+**Why this lives in v0** — every project using `/ak-pre-ship` can hit this exact failure mode. Every PR that runs the gauntlet through an orchestrator subagent (which is every `/ak-build` invocation) is exposed today. The fix is small enough to ship without restructuring the pipeline; large enough that getting it wrong silently lets PRs ship without `/qa` evidence. The lalista PR #65 incident is the canonical worked example for Fixes A/B/C; the home-os PR #15 incident is the canonical worked example for Fix D. Both are codified by the structural fixes.
 
 **Cost** — ~30 min. Three markdown edits in two SKILL.md files; one grep in the Phase 3 → 4 handoff; no script changes; no BATS tests strictly required (the new check is a single grep with anchored regex; structural-invariants.bats can be extended with one optional case asserting the grep matches a synthesized violating fixture).
 
@@ -948,15 +957,81 @@ Home-os was the SECOND project to bootstrap from the devshop template via `/ak-n
 - **(B1) Pre-commit clean-tree guard forbids stashes too (gen #21)** — when splitting commits via `git stash push <subset>` + `git commit` + `git stash pop`, the second commit step fails with `Stashed changes on current branch — address them before committing`. The hook treats stashes as "uncommitted work." Workaround used in home-os: combine the logical groups into one atomic commit with sectioned message, OR use `git -c devshop.dirtyTreeReason="..." commit`. **Severity: low** — friction more than correctness — but the clean-tree-no-stash invariant is non-obvious and operators learn it the hard way. **Fix**: document in `/devshop/CLAUDE.md § Two repos, two commit flows` (and project CLAUDE.md scaffold templates) that "atomic commits MUST be one transition each — stash-then-commit will trip the guard. To split: combine into one commit with sectioned message, OR use the `devshop.dirtyTreeReason` opt-out with a real justification." **Where**: `/devshop/CLAUDE.md`. ~10 min.
 - **(B2) Next 16 `middleware.ts` → `proxy.ts` deprecation (gen #24)** — `pnpm build` in apps/web emits `⚠ The "middleware" file convention is deprecated. Please use "proxy" instead.` (https://nextjs.org/docs/messages/middleware-to-proxy). The Supabase SSR boilerplate guide at `kit/docs/guide/supabase-ssr-boilerplate.md § Pattern 1` AND the template's `apps/web/middleware.ts` scaffold still use the deprecated name. Functional in Next 16 (warning only) but will harden into an error in Next 17. **Fix candidates**: (i) proactively rename the template + the supabase-ssr-boilerplate.md § Pattern 1 from `middleware.ts` to `proxy.ts` now, so new projects start on the supported convention; (ii) defer until Next 17 release, then rename. Prefer (i) — the rename is mechanical (one file move + one SSR boilerplate text change) and stops accumulating projects on the deprecated convention. **Where**: `template/apps/web/middleware.ts` → `template/apps/web/proxy.ts` (file move) + `kit/docs/guide/supabase-ssr-boilerplate.md § Pattern 1`. ~15 min.
 - **(B3) Pre-commit clean-tree guard's PR-desc-stale check is sensitive to bypass reason quality (gen — observed this session)** — when the PR body genuinely matches the commits and the reviewer is asked to PASS via path (a) of the prompt, the reviewer can still FAIL the bypass if `BYPASS_REASON` is `"no reason given"` (the default when no `devshop.prDescStaleReason` config is set). The reviewer's prompt says "Default position: REJECT bypass reasons" — so an empty reason gets penalized even when the description is current. **Fix**: when the operator goes through `gh pr edit` and the PR body now covers all commits, the pre-push hook should re-run a fast path-(a) check (compare PR body's commit-SHA enumerations against `origin/main..HEAD` SHAs) and short-circuit-PASS before invoking the adversarial reviewer. OR: the reviewer prompt should explicitly score on path-(a) FIRST (description match) and only consult `REASON` on path-(b) (structural-delay justification). Current state: the operator has to write a specific bypass reason ("PR body just updated via gh pr edit; commits X, Y, Z are at lines N, M, P") every time, which is friction. **Where**: `/devshop/kit/scripts/adversarial-review.sh` + `/devshop/kit/hooks/pre-push.sh` § "Check 2: PR description staleness". ~20 min. **Severity: low** — friction more than correctness.
+- **(B4) Next 16 `allowedDevOrigins` template default — required for Playwright / `/qa` driving via either `localhost` or `127.0.0.1` (added 2026-05-15 after home-os PR #15)** — Next 16 blocks cross-origin HMR + dev-resource fetches by default. The dev server prints its "Local" URL as `http://localhost:3000`, so a Playwright / `/qa` script driving via `http://127.0.0.1:3000` (or vice versa) gets HMR-blocked. Symptom: static HTML renders fine, but React hydration never fires — interactive elements (form `onSubmit` handlers, click handlers) never attach. Home-os PR #15 hit this debugging the magic-link round trip: the `/login` form submitted as plain `GET` because `onSubmit` was never bound. Surface error message is the dev-log warning `⚠ Blocked cross-origin request to Next.js dev resource /_next/webpack-hmr from "127.0.0.1"` — easy to overlook. **Fix**: template's `apps/web/next.config.ts` defaults to `allowedDevOrigins: ['localhost', '127.0.0.1']` so Playwright / `/qa` driving via either hostname passes. Document the rationale inline: Supabase auth issues URLs rooted at `127.0.0.1` per `site_url`, while Next 16 prefers `localhost` for HMR — both must be allowed so the round-trip flow doesn't drop hydration. **Where**: `template/apps/web/next.config.ts` (after the template-apps-web-baseline scaffold lands; until then, document in `kit/docs/guide/supabase-ssr-boilerplate.md § Pattern 10` as a corollary to the localhost-vs-127.0.0.1 narrative). ~10 min for the template edit + ~5 for the boilerplate cross-ref. **Severity: medium** — every Playwright-driven gate on a project that doesn't ship this default trips on it; the symptom (form submits as GET) takes a while to diagnose without the cross-origin block being top-of-mind.
 
 #### C. Template / manifest fixes — sub-hour, one PR
 
 - **(C1) CI Node 20 vs pnpm-11 Node-22 requirement (gen #30)** — `template/.github/workflows/ci.yml` pins `node-version: '20'` but `pnpm/action-setup@v3 with version: latest` resolves to pnpm 11.x at the runner, which imports `node:sqlite` — a Node-22-only builtin. Result: `actions/setup-node@v4`'s pnpm-cache restore step crashes with `Error [ERR_UNKNOWN_BUILTIN_MODULE]: No such built-in module: node:sqlite` and CI fast-job fails in 12-23s. Home-os shipped a 2-line fix on its own branch (bump `node-version` to `'22'` + `.nvmrc` `20` → `22`). **Fix**: same 2-line patch in `template/.github/workflows/ci.yml` + `template/.nvmrc`. **Where**: `template/.github/workflows/ci.yml` line 22 (or wherever node-version pin lives) + `template/.nvmrc`. ~5 min. **Severity: blocks every new project's first CI run** — fast-job fails immediately on first push to a feature branch.
 - **(C2) Manifest gap: compose-isolation files not in `kit/manifest.txt` `[locked]` list (gen #26)** — `init-devshop.sh`'s [locked]-manifest enforcement at container start chowns `devcontainer.json`, `init-firewall.sh`, `Dockerfile`, `checksums.sha256`, `.env`, `firewall-extra-domains`, etc. to root:root 644 on every start. BUT the compose-isolation set (`compose.yml`, `init-host-env.sh`, `supabase-runner/Dockerfile`, `supabase-runner/cmd-relay.mjs`) is NOT in the manifest. Step 21 of `/ak-new-project` carries a conditional sudo block for these 4 files; if the operator skips that block, the files stay node:node and a compromised npm transitive can rewrite them. **Fix**: extend `kit/manifest.txt`'s [locked] list to include the four compose-isolation files; then `/ak-new-project § Step 21` simplifies to "verify all `.devcontainer/*` files are root:root; if not, rebuild devcontainer (init-devshop.sh re-applies on start)." Mind execute-bits — `init-host-env.sh` and `cmd-relay.mjs` are 755 (executed scripts); manifest enforcement should preserve mode per-file. **Where**: `kit/manifest.txt` + `kit/scripts/init-devshop.sh` (the [locked] processor — confirm mode-per-file support) + `/devshop/.claude/skills/ak-new-project/SKILL.md § Step 21` (simplification after manifest extension). **Bundle with**: `PLAN.md § #5 (firewall-extras-overlay-merge)` PR — same surface, same shape. ~30 min if the manifest mode-per-file support is already there; ~1h if not. **Severity**: low (Step 21 currently catches the gap via the conditional sudo block) but the manifest is the right home for this.
 
-#### D. SUPABASE_PORT_OFFSET template knob (gen #1 from earlier session)
+#### D. Devshop-registry-driven Supabase port offsets (gen #1 from earlier session; redesigned 2026-05-15)
 
-- Already documented separately under earlier home-os tracker generalization #1: when running 2+ projects concurrently, the template needs either a `SUPABASE_PORT_OFFSET` env knob propagated through `compose.yml` + `supabase-runner/Dockerfile` + `init-firewall.sh` allowlist + `supabase/config.toml` ports, OR an inline recipe in `/ak-new-project § Step 2b` for "second project rebind." Home-os manually rebound to +100 (api 54421, db 54422, studio 54423, inbucket 54424, realtime/analytics 54427). **Fix candidates**: (i) make the knob; (ii) bake the recipe inline. Knob is structurally cleaner but harder; recipe is fast. Probably ship recipe now and revisit knob when 3rd project hits the rebind. **Defer until 3rd project — for 2-project case (lalista + home-os), the manual recipe in `kit/notes/projects/home-os.md` is enough.**
+**Problem**: when 2+ projects run concurrently on the same host, the supabase local stack collides on ports 54321/54322/54323/54324/54327. Today lalista holds the default block; home-os manually rebound to +100 (api 54421, db 54422, studio 54423, inbucket 54424, realtime/analytics 54427) with the recipe captured in `kit/notes/projects/home-os.md`. The earlier framing offered two fix candidates — (i) a `SUPABASE_PORT_OFFSET` env knob with runtime templating across `compose.yml` + `supabase-runner/Dockerfile` + `init-firewall.sh` + `supabase/config.toml`, or (ii) an inline manual recipe in `/ak-new-project § Step 2b` — and deferred both pending a third project. A third design is simpler than either: bake the numbers in at scaffold time, source-of-truth in the devshop.
+
+**Design — devshop-side port registry**:
+
+1. **Registry** lives in `kit/notes/projects/<name>.md` frontmatter as `supabase_port_offset: <N>` (N = multiple of 100). The notes file already exists per project and tracks bootstrap lifecycle — no new artifact, no new index file.
+2. **Auto-assign at scaffold time**. `/ak-new-project` Phase A bash block: `grep -h "^supabase_port_offset:" /devshop/kit/notes/projects/*.md | sort -u`, picks the lowest unused 100-block, writes it into the new project's notes frontmatter, writes `SUPABASE_PORT_OFFSET=N` into the scaffold's `.devcontainer/.env`, runs a sed pass over the freshly-generated `supabase/config.toml` (post-`supabase init`) to substitute the port numbers.
+3. **Standalone fallback** for public contributors cloning the project repo without `/devshop` bind-mount: one conditional at the top of `/ak-new-project` Phase A — `if [[ ! -d /devshop/kit/notes/projects ]]; then OFFSET=0; fi`. They get default ports, exactly what they expect.
+4. **Backfill** existing projects: write `supabase_port_offset: 0` into `kit/notes/projects/lalista.md`, `supabase_port_offset: 100` into `kit/notes/projects/home-os.md`. Same commit as the skill change.
+
+**Files that actually need to move (template side, ~3 files)**:
+
+- `template/.devcontainer/compose.yml` — replace hardcoded `54321`/`54322` in the socat lines + `SUPABASE_URL` env with compose env interpolation (`${SUPABASE_PORT_API:-54321}` etc.; compose supports this natively).
+- `template/.devcontainer/init-firewall.sh` — read the port pair from `.devcontainer/.env` rather than hardcoding `54321`/`54322` in the `iptables -A OUTPUT ... --dport` lines.
+- `template/.devcontainer/supabase-runner/Dockerfile` — `EXPOSE 54321 54322 9000` either takes a build arg or stays (EXPOSE is metadata-only; the actual binding happens in compose.yml).
+
+**Files that stay hardcoded** (the 33 grep hits are misleading — most don't need to move):
+
+- `template/.github/workflows/{ci,deploy-migrations}.yml` + `template/scripts/ci-rollback-explain.sh` — CI runs one project per job, no host-port collision possible. Defaults are correct.
+- `template/packages/core/src/supabase.ts` + `.test.ts` — the `assertNotProdUrlInTestEnv` guard's error string and test assertions reference `127.0.0.1:54321` as the canonical local URL; not behavior-affecting.
+- `template/.devcontainer/README.md` — doc-only; rephrase to "default block + offset" rather than parameterize.
+
+**Skill change** (one file): `/ak-new-project § Step 2/Phase A` gets ~30 lines of bash for the registry lookup + assignment + scaffold-time sed. Plus a one-line update to Step 16 to sed `supabase/config.toml` ports after `supabase init`.
+
+**Optional follow-on**: `kit/scripts/rebind-supabase-ports.sh <project> <new-offset>` for collision recovery (multi-file sed + container rebuild prompt). Not required for v1 — the registry's "pick next free" rule means collisions only happen via manual override, which is rare enough to handle by hand.
+
+**Gotchas to document**:
+
+- Re-running `supabase init` later resets `config.toml` to default ports. Document in `kit/docs/guide/architecture.md` or the project's CLAUDE.md scaffold: "ports are baked at scaffold time; if you re-run `supabase init`, re-apply the offset from `.devcontainer/.env`."
+- Deleting a project doesn't reclaim its slot unless the notes file is also deleted. Probably fine (slots cheap, notes file is the audit trail); document the lifecycle rule "delete `kit/notes/projects/<name>.md` when the project repo is gone."
+
+**Size**: ~1–2 focused hours, one PR (`feat/supabase-port-registry`), ~5-7 files touched in the devshop:
+
+- 3 template files (compose.yml, init-firewall.sh, Dockerfile)
+- 1 skill (`/ak-new-project`)
+- 2 backfilled notes files (lalista, home-os)
+- 1 docs note in architecture.md or CLAUDE.md scaffold
+
+**Severity**: medium — current state has lalista on defaults, home-os rebound, no live collision. But the moment a third project bootstraps, the manual recipe ages out (someone has to remember which offset is taken). Ship before the third project rather than during.
+
+[v0, redesigned 2026-05-15 — replaces the earlier "env knob vs inline recipe" framing with a registry-driven approach that's simpler than both]
+
+##### Additional scope discovered during home-os PR #15 hero-shot backfill (2026-05-15)
+
+The registry design above covers API + DB ports (54321/54322 → rebound). Three additional gaps surfaced when home-os's magic-link `/qa` flow exercised the full Supabase surface for the first time on a rebound-port project. None invalidate the registry design — they expand its scope.
+
+**1. `init-firewall.sh` allow-list must cover the full rebound port set, not just api + db.** Today the template's `init-firewall.sh:232-234` allows `host.docker.internal` on `54321` + `54322` only. Studio (54323), Mailpit (54324), and Realtime/Analytics (54327) are silently REJECTed. The gap had never surfaced because lalista uses password-shortcut auth in E2E (`admin.createUser` + `signInWithPassword`, no email round trip — touches only Kong on `54321`). Home-os is the first project to adopt magic-link auth as the canonical shape, so its E2E + `/qa` flow needs Mailpit reachable to retrieve the magic-link URL. Session-only workaround applied during home-os PR #15: `sudo iptables -I OUTPUT 1 -d 192.168.65.254 -p tcp -m multiport --dports 54421,54422,54423,54424,54427 -j ACCEPT`. The durable fix: when the registry parameterizes the iptables rules, parameterize all five ports, not two. Same `.devcontainer/.env` source.
+
+**2. `kit/scripts/preship/supabase-bootstrap.sh` hardcodes the upstream-default port pair throughout.** Lines `104`, `154`, `162`, `192`, `207`, `210`, `220`, `225` all reference `54321` / `54322` literally. On home-os (offset +100), every Gate 9 preflight reported `degraded: no local Supabase reachable` even with the stack fully healthy — the probe was looking at the wrong port. This is a kit-side script (not in `template/`), but the parameterization shape is the same: read `SUPABASE_PORT_API` + `SUPABASE_PORT_DB` (or whatever names the registry settles on) from `.devcontainer/.env` once at the top, substitute throughout. Add to the "Files that actually need to move" list — extends scope from 3 template files to 3 template + 1 kit script.
+
+**3. `supabase init` writes `additional_redirect_urls` with two bugs that the registry's Step-16 post-`supabase init` sed pass should also fix.** The Supabase CLI default emits `additional_redirect_urls = ["https://127.0.0.1:3000"]` — `https` typo (Next dev is HTTP-only) and exact-string match with no `/**` wildcard. The exact-match policy rejects `emailRedirectTo` values that include any path (e.g., the canonical `${origin}/auth/callback?next=/home` from the SSR boilerplate's `LoginForm.tsx`), so GoTrue falls back to bare `site_url` and the `/auth/callback` PKCE-exchange handler never runs — magic-link arrives, navigates to `<site_url>?code=...`, the home page doesn't handle the code, user lands authless. Home-os fix applied at `90b8aaf`: `additional_redirect_urls = ["http://127.0.0.1:3000/**", "http://localhost:3000/**"]` (both hosts because Next 16 HMR/hydration requires `localhost` for client-side JS — see Pattern 10 in `kit/docs/guide/supabase-ssr-boilerplate.md` for the localhost-vs-127.0.0.1 failure narrative). The Step-16 sed pass already substitutes ports; one additional `sed -i` line over `[auth]` block lands this fix for free on every fresh scaffold.
+
+**Updated scope** (replaces "Files that actually need to move" — same items, expanded coverage):
+
+- `template/.devcontainer/compose.yml` — env-interpolation for **all 5** rebound ports (api/db/studio/mailpit/realtime), not just api/db. Compose supports this natively (`${SUPABASE_PORT_STUDIO:-54323}` etc.).
+- `template/.devcontainer/init-firewall.sh` — `iptables -A OUTPUT ... --dport` lines parameterized for **all 5 rebound ports**, not just the api/db pair. Read all five from `.devcontainer/.env`.
+- `template/.devcontainer/supabase-runner/Dockerfile` — `EXPOSE` either takes build args for all 5 ports or stays static (metadata-only).
+- `kit/scripts/preship/supabase-bootstrap.sh` — parameterize the 8 hardcoded port references from `.devcontainer/.env`. Same source-of-truth as the template scripts; different repo (kit), different invocation context (host-side script reaching into project's stack).
+
+**Updated Step-16 sed pass** (replaces "one-line update to Step 16"):
+
+- Port substitution across the `[api] / [db] / [studio] / [inbucket] / [analytics]` blocks of the freshly-`supabase init`'d `supabase/config.toml`.
+- `additional_redirect_urls` fix in the `[auth]` block: substitute the buggy default with `["http://127.0.0.1:3000/**", "http://localhost:3000/**"]`. Two-line sed extension.
+
+**Updated severity rationale**: the registry's "ship before a third project bootstraps" framing stands — but the Mailpit-port gap actually fires today on home-os (Gate 9 silently degraded; PR #15 shipped with anon-bounce placeholder hero shots because authenticated routes were unreachable to the local browser). Closing the gap requires shipping the full 5-port parameterization, not the 2-port version. The home-os escape hatch (session-only `iptables -I OUTPUT 1`) reverts on every container rebuild, so home-os contributors will repeat the manual recipe until the durable fix lands.
+
+[2026-05-15 — extends the registry design with the home-os-PR-#15-surfaced gaps]
 
 #### E. First-session generalizations (2026-05-12 — surfaced before the Step-12.5/13/14/15/17 marathon)
 
@@ -1045,11 +1120,11 @@ The five entries above are each individually-sized at 15 min – 4 hr, but ALL o
 Minimum tracked tree:
 
 - `template/apps/web/package.json` (Next.js + React + minimum deps; project name placeholder)
-- `template/apps/web/next.config.ts` (Sentry wrapper, PostHog instrument, env validation — placeholders for project-specific values)
+- `template/apps/web/next.config.ts` (Sentry wrapper, PostHog instrument, env validation — placeholders for project-specific values, **plus `allowedDevOrigins: ['localhost', '127.0.0.1']`** per R16-B4 — Next 16 blocks cross-origin HMR by default, both hosts needed because Supabase auth issues URLs rooted at `127.0.0.1` while Next 16 prefers `localhost` for HMR)
 - `template/apps/web/tsconfig.json` (with `@/*` alias matching create-next-app convention)
 - `template/apps/web/app/{layout.tsx,page.tsx,globals.css}` (minimal landing-page shell; design-system tokens go in globals.css)
 - `template/apps/web/middleware.ts` (or `proxy.ts` post-Next-16 rename per R16-B2 — see also)
-- `template/apps/web/e2e/` (Playwright config + helpers/ stub directory)
+- `template/apps/web/e2e/` (Playwright config + helpers/ stub directory). **`playwright.config.ts` MUST include a `webServer: { command: 'pnpm dev', port: 3000, reuseExistingServer: !process.env.CI, timeout: 120_000 }` block** so `pnpm test:e2e` boots the dev server itself rather than requiring out-of-band `pnpm dev` in another shell. Home-os PR #15 hit this — Gate 9 `/qa` couldn't run locally without the operator manually managing the dev server lifecycle; `webServer` closes that friction.
 - `template/apps/web/vitest.config.ts` + `vitest.setup.ts` (per PLAN.md § #4 generalization #9 — WebSocketStub) + `@/` alias (per generalization #23)
 - `template/apps/web/instrumentation.ts` + Sentry server/edge files
 
@@ -1081,6 +1156,160 @@ Minimum tracked tree:
 - Verified 2026-05-14 during v0 triage that R12, R13, R14, R15, T5 all share this blocker. Originally each entry was filed as "soak-extract from lalista" with the assumption the destination would obviously exist — turns out the destination is the missing piece.
 
 [v0, surfaced-by 2026-05-14 v0-triage verification pass]
+
+---
+
+### Home-os PR #15 hero-shot backfill — devshop fixes (2026-05-15)
+
+Five gaps surfaced during the home-os PR #15 hero-shot backfill session that don't fit into any existing ROADMAP entry — orthogonal to the supabase-port-registry redesign (which absorbed D3/D4/D6 from this batch), the LLM-mediated gate contract entry (which absorbed D2), and Sub-bundle B (which absorbed D7/D8). Each item below is independently shipped — no shared surface.
+
+**Context.** Home-os PR #15 (`feature/capture-flow`, 2026-05-14) shipped with anon-bounce placeholder hero shots because Gate 9 `/qa` was `blocked` (Supabase Kong unreachable from container — pre-existing infra carry-over). The post-ship hero-shot backfill session (2026-05-14 → 2026-05-15) found four stacked root causes — `supabase-bootstrap.sh` port hardcode, `.env.local` pointing at prod, Google Fonts blocked by firewall, Mailpit port blocked by firewall — and the discovery process surfaced these additional five devshop-side fixes that aren't covered by existing roadmap entries.
+
+#### `/ak-new-project § Step 13b` — `.env.local` default values (safety bug)
+
+**Problem.** `/ak-new-project § Step 13b` generates `apps/web/.env.local` with **production** Supabase / PostHog / Sentry values (`SUPABASE_PROD_URL`, `SUPABASE_PROD_ANON_KEY`, prod PostHog key, prod Sentry DSN). The rationale documented in the SKILL.md is "`pnpm dev` should mirror prod-runtime behavior (consistent SSR data, no migration drift)" — a deliberate design choice. But the choice conflicts with `/ak-pre-ship` Gate 9 `/qa`, every Playwright E2E, every `/qa` invocation, and every operator dev session that needs a working local Supabase round trip: they all need to dial the local stack, not prod.
+
+The conflict manifests as **silent prod pollution**: any form submission during local dev / `/qa` hits the prod Supabase project. Home-os PR #15's hero-shot Playwright run created a real auth.users row on the prod project under a fake `@test.local` email before the operator caught it. The same configuration would have hit Supabase's per-email OTP rate limit on retry, leaving the operator confused about why magic links stop arriving locally.
+
+Lalista's `.env.local` already uses local-stack values (URL = `http://host.docker.internal:54321`, anon JWT = published demo) — the operator manually fixed it. Home-os was operator-fixed mid-PR-#15. Every new project ships with the prod-default until manually corrected. The same gen #3 (E2) entry pre-burns the local-stack JWT into `template/.devcontainer/.env` — the asymmetry is that Step 13b still wires prod into the BROWSER bundle even though E2 wires local into the shell env.
+
+**Fix.** Flip the Step 13b default to **local-stack values**:
+
+```bash
+cat > apps/web/.env.local <<EOF
+NEXT_PUBLIC_SUPABASE_URL=http://host.docker.internal:54321
+NEXT_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY  # local-stack default JWT from .devcontainer/.env
+EOF
+```
+
+Omit `NEXT_PUBLIC_POSTHOG_KEY` + `NEXT_PUBLIC_SENTRY_DSN` from the default seed — both libs silently no-op when keys are missing. Operators who want local-dev telemetry firing should opt in explicitly with a separate dev project (NOT prod). Document the explicit override gesture for the rare case of needing prod-data SSR via `pnpm dev`:
+
+```bash
+# Temporarily dial prod from local dev (be aware: form submits hit prod Supabase):
+NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_PROD_URL pnpm dev
+```
+
+**Where.** `/devshop/.claude/skills/ak-new-project/SKILL.md § Step 13b`. Rewrite the heredoc + the "Why prod by default" rationale paragraph. The rest of Step 13b (gitignore verification + "Without this step, every browser-dependent gate breaks" warning) stays.
+
+**Cost.** ~15 min — single SKILL.md edit + rewrite of the rationale block. Cross-link to home-os PR #15 + lalista's already-correct pattern.
+
+**Severity.** **High (safety).** Every new project ships polluting prod by default. Every `/qa` invocation, every Playwright form submit, every `pnpm dev` form submit on a fresh project goes to prod. Discovery happens during the FIRST QA-style debug — too late.
+
+#### `template/.devcontainer/firewall-extra-domains` — seed Google Fonts hostnames
+
+**Problem.** Template's `apps/web/app/layout.tsx` imports `Inter` from `next/font/google` (the canonical Next.js font pattern). At dev-server request time, Next fetches `fonts.googleapis.com` + `fonts.gstatic.com`. The container's default-DROP firewall REJECTs both hosts, the font fetch hangs indefinitely (no timeout in the framework path), the dev server's request handler stalls then exits silently with NO error in the log — only `[?25h` (cursor-show terminal escape) as last output.
+
+The symptom looks like "Next dev silently dies under load" — took multiple debug cycles on home-os PR #15 to trace because the dev process re-spawns from systemd-like supervision and the failure happens between "✓ Ready in <N>ms" log lines.
+
+**Fix.** Seed both hostnames in the template's `firewall-extra-domains`:
+
+```diff
++# next/font/google fetches these at request time. Without them, the
++# dev server hangs serving the first request (font fetch never returns)
++# and exits silently with no error logged.
++fonts.googleapis.com
++fonts.gstatic.com
+```
+
+**Where.** `template/.devcontainer/firewall-extra-domains` — currently this file is scaffold-once + project-owns after, so the template adds the seed and existing projects (lalista, home-os) backfill manually.
+
+**Cost.** ~5 min — two-line template edit + a comment block explaining the load-bearing nature. Plus a backfill check on lalista (home-os already has them — landed on PR #15 in `90b8aaf`).
+
+**Severity.** **Medium.** Every new project using the canonical `next/font/google` pattern hits this on first dev-server boot. Symptom is opaque (silent exit, no error). One-time cost per project is high (~hours of debugging without prior knowledge).
+
+#### Browse daemon — fall back to system Chromium when Playwright's binary is missing
+
+**Problem.** `/devshop/.claude/skills/gstack/browse/src/browser-manager.ts:172` calls `chromium.launch({ headless, chromiumSandbox })` without specifying `executablePath`. Playwright then looks for its own downloaded Chromium at `~/.cache/ms-playwright/chromium_headless_shell-<rev>/chrome-linux/headless_shell`. In container environments where Playwright's Chromium isn't installed (auto-mode classifier rejects external downloads, fresh container without `npx playwright install`), the launch fails with `Executable doesn't exist at ...`.
+
+System Chromium is usually available at `/usr/bin/chromium` (Debian/Ubuntu container base). Empirically verified during home-os PR #15: `chromium.launch({ executablePath: '/usr/bin/chromium' })` works with Playwright's launch API (system Chromium 147 + Playwright 1.60). Today's manual workaround is symlinking `/usr/bin/chromium` to the Playwright-expected path — session-only, reverts on container rebuild.
+
+**Fix.** At launch time, check if Playwright's expected binary exists; if not, probe for system Chromium and use `executablePath`:
+
+```ts
+async launch() {
+  // ...existing launchArgs setup...
+
+  // Detect Playwright-vs-system Chromium availability. Playwright's downloaded
+  // binary is the default; system Chromium is the fallback for container
+  // environments where the operator hasn't / can't run `npx playwright install`.
+  let executablePath: string | undefined;
+  const playwrightDefault = await fs.promises
+    .access(chromium.executablePath())
+    .then(() => true)
+    .catch(() => false);
+  if (!playwrightDefault) {
+    for (const candidate of ['/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/google-chrome']) {
+      if (await fs.promises.access(candidate).then(() => true).catch(() => false)) {
+        executablePath = candidate;
+        console.log(`[browse] Playwright Chromium not found; falling back to system: ${candidate}`);
+        break;
+      }
+    }
+  }
+
+  this.browser = await chromium.launch({
+    headless: useHeadless,
+    chromiumSandbox: process.platform !== 'win32',
+    ...(launchArgs.length > 0 ? { args: launchArgs } : {}),
+    ...(executablePath ? { executablePath } : {}),
+  });
+}
+```
+
+**Where.** `/devshop/.claude/skills/gstack/browse/src/browser-manager.ts § launch()`. Add a fallback block; preserve the existing behavior when Playwright's binary is available.
+
+**Cost.** ~30 min — code edit + bun-test addition stubbing the file-existence check + visual verification on a container without Playwright's Chromium.
+
+**Severity.** **Medium.** Affects every `/qa`, `/design-review`, `/benchmark`, and `/canary` invocation on a container without Playwright's Chromium. Today's workaround (symlink) requires sudo + reverts on rebuild — not durable.
+
+#### Browse daemon — extend screenshot path allow-list to include `.gstack/` outputs
+
+**Problem.** `/devshop/.claude/skills/gstack/browse/src/...` enforces a path allow-list on screenshot output: today only `/tmp/**` and `/workspace/apps/web/**` are accepted. Standard `/qa` skill output goes to `<git-root>/.gstack/qa-reports/screenshots/` per the skill's own template. The path-allow-list rejects writes there with `Path must be within: /tmp, /workspace/apps/web`. Today's workaround is a 2-step copy: browse writes to `/tmp/qa-shots/<name>.png`, then a `cp` to `.gstack/qa-reports/screenshots/`.
+
+**Fix.** Extend the allow-list to include `<git-root>/.gstack/**` (any sub-path) and `<git-root>/specs/**/hero/**` + `<git-root>/specs/**/screenshots/**` (per the `/ak-pre-ship` Phase 7 hero-shot convention):
+
+```ts
+const ALLOWED_SCREENSHOT_ROOTS = [
+  '/tmp',
+  '/workspace/apps/web',
+  resolveGitRoot('.gstack'),
+  resolveGitRoot('specs'), // sub-paths matching /hero/ or /screenshots/
+];
+```
+
+**Where.** Wherever the path allow-list lives in `/devshop/.claude/skills/gstack/browse/src/`. Search for the literal error string `"Path must be within"`.
+
+**Cost.** ~15 min — extend the allow-list + bun-test addition asserting the new paths pass and unrelated paths still reject.
+
+**Severity.** **Low.** Friction, not correctness — the 2-step copy works. But it's a papercut every `/qa` run pays.
+
+#### Convention — daemon-survival shell pattern in Claude Code harness
+
+**Problem.** Long-running processes spawned via `command &` or `run_in_background=true` in the Claude Code harness get reaped when the foreground Bash tool call exits. Several `/qa` / `/design-review` / debugging workflows need a dev server (Next, Vite, etc.) alive across multiple browse / Playwright invocations. Today the harness silently kills the server between tool calls, producing opaque `ERR_CONNECTION_REFUSED` errors with no log trail.
+
+The pattern that empirically survives in the harness (proven during home-os PR #15 hero-shot capture):
+
+```bash
+(nohup <long-running-command> </dev/null > /tmp/output.log 2>&1 &)
+```
+
+The outer parens spawn a subshell; `&` puts the command in that subshell's background; the subshell exits immediately; the command's parent reparents to PID 1 (init); `nohup` ignores SIGHUP. The harness's bg-reap mechanism (which terminates background jobs when the parent shell exits) doesn't follow the reparented process to init. Confirmed survives across multiple subsequent Bash tool calls in the same harness session.
+
+A second corollary discovered alongside: `next dev` must be spawned with the correct `cwd` (the project's `apps/web/` directory), not the workspace root. Running from `cwd=/workspace` produces the cryptic error `Couldn't find any pages or app directory. Please create one under the project root` even though the directory clearly exists at `apps/web/app/`. The pattern when used with `next dev` (or any other Next-discovery-aware tool) is:
+
+```bash
+(cd /workspace/apps/web && nohup ./node_modules/.bin/next dev </dev/null > /tmp/output.log 2>&1 &)
+```
+
+**Fix.** Document the pattern in `kit/docs/guide/conventions.md § Long-running processes in the Claude Code harness` (new section). Cross-link from `/qa`, `/design-review`, `/benchmark`, and any other skill that spawns a dev server. Worth a worked example with the home-os hero-shots script as the canonical reference.
+
+**Where.** `kit/docs/guide/conventions.md` — new section + cross-refs from the four skills that need it.
+
+**Cost.** ~30 min — write the convention prose + the worked example + add four cross-ref lines to the skill SKILL.md files.
+
+**Severity.** **Low.** Pattern is non-obvious enough that operators (and Claude) discover it via debugging, not docs. Documenting saves the same debug arc from being repeated each session.
+
+[v0, surfaced-by home-os-PR-15-hero-shot-backfill-2026-05-15]
 
 ---
 
