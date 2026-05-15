@@ -2,6 +2,21 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.29.0 (2026-05-14)
+
+- feat(propagate): port home-os PR #15 + add template-propagation nudge
+- docs(v0): close shipped entries, annotate partials, append PLAN rows
+- docs(roadmap): rewrite slow-job lifecycle v0 — ship active from day one
+- feat(firewall): unblock per-project allowlist edits + onboarding fixes
+- feat(devshop): detect-mode lib + init hardening + skill durability
+- feat(pre-ship): /preflight skill + fail-fast + end-of-chain test gates
+- docs(skills): require verb-led commit subjects + bullet-first summaries
+- fix(ci): docs-only skip filter matches root-level markdown
+- docs(guide): PR-B — lift lalista CLAUDE.md gotchas into devshop guides
+- chore(history): backfill BUILD-LOG; sweep shipped ROADMAP/TODOS entries
+- feat(ak-go-live): Step 2.5 PR-body image-URL rewrite + Track B backfill
+- docs(latency-feedback): Tier C is the navigation boundary, not the data-fetch boundary
+
 ## v1.28.0 (2026-05-11)
 
 - feat(routing): context-aware guideline routing
