@@ -17,6 +17,20 @@ ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo /workspace)"
 BRANCH="$(git -C "$ROOT" branch --show-current 2>/dev/null || echo "(detached)")"
 PROJECT_NAME="$(git -C "$ROOT" remote get-url origin 2>/dev/null | sed 's#.*/##; s/\.git$//' || echo "Project")"
 
+# Devshop-session detection — true for /devshop AND any linked worktree under
+# /devshop/.worktrees/. Linked worktrees have $ROOT pointing at the worktree
+# path, but --git-common-dir always resolves back to /devshop/.git, so we use
+# that as the canonical signal.
+GIT_COMMON_DIR="$(git -C "$ROOT" rev-parse --git-common-dir 2>/dev/null || true)"
+case "$GIT_COMMON_DIR" in
+  /*) ;;                                          # absolute (linked worktree)
+  *)  GIT_COMMON_DIR="$ROOT/$GIT_COMMON_DIR" ;;   # relative ".git" (main worktree)
+esac
+IS_DEVSHOP=false
+if [ "$ROOT" = "/devshop" ] || [ "$GIT_COMMON_DIR" = "/devshop/.git" ]; then
+  IS_DEVSHOP=true
+fi
+
 # --- Context for Claude (not shown to user) ---
 
 CONTEXT=""
@@ -29,7 +43,7 @@ CONTEXT+="$(cat "$ROOT/README.md" 2>/dev/null || echo "(README.md not found)")
 #   Project sessions: BUILD-LOG.md (shipped history) + PLAN.md (Active + Planned).
 #   Devshop sessions: kit/docs/CHANGELOG.md (release history). No PLAN.md yet —
 #     devshop uses kit/TODOS.md + kit/ROADMAP.md for forward-looking work.
-if [ "$ROOT" = "/devshop" ]; then
+if [ "$IS_DEVSHOP" = true ]; then
   CONTEXT+="
 === kit/docs/CHANGELOG.md (head 25) ===
 "
@@ -54,9 +68,10 @@ $BRANCH"
 
 # Workaround for anthropics/claude-code#22583: CLAUDE.md from additionalDirectories
 # not loaded despite CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1.
-# Only force-load when the session cwd is NOT /devshop — on devshop sessions
-# it's already loaded natively via the session cwd's CLAUDE.md discovery.
-if [ "$ROOT" != "/devshop" ] && [ -f /devshop/CLAUDE.md ]; then
+# Only force-load when the session is NOT on the devshop repo (main worktree
+# or a linked worktree of it) — devshop sessions already have CLAUDE.md via
+# the session cwd's native discovery.
+if [ "$IS_DEVSHOP" != true ] && [ -f /devshop/CLAUDE.md ]; then
   CONTEXT+="
 
 === /devshop/CLAUDE.md ===
@@ -126,7 +141,7 @@ NEXT_PLAN=""         # project: top-priority Planned row (Feature + first clause
 RELEASE_VERSION=""   # devshop: kit/version
 COMMITS_SINCE_TAG="" # devshop: commits on main since the latest tag
 
-if [ "$ROOT" = "/devshop" ]; then
+if [ "$IS_DEVSHOP" = true ]; then
   # Devshop session — release-oriented briefing.
   RELEASE_VERSION="$(cat "$ROOT/kit/version" 2>/dev/null || true)"
   LAST_TAG="$(git -C "$ROOT" describe --tags --abbrev=0 2>/dev/null || true)"
