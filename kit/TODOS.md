@@ -524,3 +524,100 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
   **Severity**: low (the stubs are untracked and harmless, never reach `main`) — but the noise compounds (one orphan per doc-only `/ak-merge-devshop` run), the pattern is invisible to anyone who doesn't check `git status` post-merge, and the short-circuit is a few lines.
 
   [low, skill-improvement, ak-check-docs-and-tests, surfaced-by ak-merge-devshop-doc-only-runs-2026-05-15, 2026-05-15]
+
+- [ ] **`/ak-pre-ship` + Phase 5.9 visual-evidence deferrals get rubber-stamped with hand-wave rationales instead of verified causes.** Surfaced 2026-05-15 on home-os PR #19 (`triage-route-handler`): Gate 4 (responsive + theme) and Gate 13 (hero shots) deferred capture of the new `/cards/[id]` screen citing "Node 20 + `@supabase/realtime-js` ws() interop blocks programmatic seed". The rationale was **factually wrong** — the actual blocker was the firewall rebound-port mismatch (a known, separately-tracked issue at `kit/ROADMAP.md:1014`). Worse, the same workspace's E2E spec for the same feature successfully seeds users + cards via `adminClient()` (the rationale claimed it couldn't), so a 30-second cross-check would have falsified the claim. Phase 5.9 then read the deferral as settled and recorded a no-op without re-verifying. Phase 6 evidence-on-disk sweep doesn't trigger when there are no `[x]` checkboxes pointing at missing files — it has no signal for "new screens shipped without any visual evidence." Net: home-os shipped three consecutive PRs (capture-flow #15, landing-redirect #18, triage-route-handler #19) where the same constraint was hand-waved away rather than fixed or flagged.
+
+  **Pattern this exposes**: pre-ship subagents are too willing to accept a deferral when the rationale sounds plausible-and-technical. The orchestrator (`/ak-build`) doesn't push back because the audit comment surfaces it as "findings (1) deferred" rather than "this PR shipped without evidence of a load-bearing claim." Three places to fix in tandem:
+
+  **Fix 1 — `/ak-pre-ship` Gate 4 / Gate 13 deferral must verify the rationale.** When the gate decides to defer screenshot capture, the recorded rationale must include either (a) a successful capture attempt that hit a specific error message (paste it into review.md), OR (b) a documented infrastructure blocker that's referenced by tracker entry (e.g. `kit/ROADMAP.md:<line>`). Hand-wave rationales like "Node 20 + X interop" without a stack trace, repro command, or tracker citation fail the gate as `findings_pending`, not `deferred`. The Layer-2 adversarial reviewer should treat "ws() interop", "harness blocked", "auth-gated screen" as red flags requiring evidence.
+
+  **Fix 2 — Phase 5.9 should detect "new public screens, zero hero shots" as a halt signal.** Current idempotence guard skips when `specs/<feature>/hero/` is unchanged at HEAD — but if it's empty AND the diff added new public screens (regex: `^apps/[^/]+/app/\(.+\)/[^/]+/page\.tsx$` not under `_components/`), that's not idempotent, that's deferred-and-forgotten. Phase 5.9 should re-attempt capture (re-spawning the subagent without the deferral excuse) when this pattern fires, OR halt with a loud "no visual evidence on a UI-bearing PR — operator must explicitly acknowledge in review.md" message.
+
+  **Fix 3 — Phase 6 audit comment should surface "shipped without visuals" as a top-line concern, not buried under Gate 4.** The current Evidence section says "Hero shots deferred" if `specs/<feature>/hero/` is empty. For PRs that added new public screens, this should escalate to a dedicated `### ⚠ No visual evidence for new screens` section above Evidence, listing the screens that lack captures so reviewers see it before scrolling.
+
+  **Edit targets**:
+  - `/devshop/.claude/skills/ak-pre-ship/SKILL.md` § Gate 4 + Gate 13 (deferral-rationale validation rules)
+  - `/devshop/.claude/skills/ak-build/SKILL.md` § Phase 5.9 (new-screen-without-evidence detection + halt path) + § Phase 6 (top-level Evidence escalation)
+  - `/devshop/kit/docs/guide/adversarial-review.md` if it has a list of "rationale categories that get extra scrutiny" — add "screenshot/E2E deferrals" to the list
+
+  **Severity**: medium — silent visual-evidence drift across 3 home-os PRs already; if not fixed, the pattern continues every UI-bearing PR while the home-os firewall fix is pending. Reviewer trust degrades when "I read the PR, no screenshots, must've been hard to capture" becomes the default mental model.
+
+  [medium, skill-improvement, ak-pre-ship + ak-build, surfaced-by home-os-pr-19-2026-05-15, 2026-05-15]
+
+- [ ] **PR-body composition adds "Run `supabase db push`" as a manual out-of-band item even when `deploy-migrations.yml` exists.** Surfaced 2026-05-15 on home-os PR #19. `/ak-build` Phase 4.1 pre-composes the PR title + Summary, and the SKILL's § "Out-of-band deploy items" section unconditionally adds a `supabase db push` reminder whenever the diff touches `supabase/migrations/**`. Home-os has `.github/workflows/deploy-migrations.yml` which auto-applies migrations on push to main — making the manual step unnecessary AND misleading (a reviewer sees the checkbox, runs `supabase db push` manually after merge, and either no-ops because the workflow already ran or fights the workflow's lock). The same SKILL also has a fall-through for `supabase/functions/**` (also auto-deployed via `deploy-functions.yml`) and `terraform/**`, `k8s/**`. All of these need a "check whether a workflow already handles this" gate before adding the manual reminder.
+
+  **Fix shape**: in `/ak-build` Phase 4.1's "Out-of-band deploy items" detection block, before adding a `supabase db push` reminder, grep `.github/workflows/*.yml` for a workflow whose `on:` trigger matches `push: [main]` AND whose body contains `supabase db push` or `supabase migration up`. If found, **skip** the manual reminder entirely and instead add a positive note: `Migration auto-deploys via .github/workflows/<workflow>.yml on merge to main`. Apply the same logic for the other auto-deployable paths (`functions/**` → check for `supabase functions deploy`; `terraform/**` → check for `terraform apply`; `k8s/**` → check for `kubectl apply`).
+
+  **Edit targets**:
+  - `/devshop/.claude/skills/ak-build/SKILL.md` § "PR body conventions" § "Out-of-band deploy items" — add the auto-deploy detection logic before the manual-reminder generation
+  - `/devshop/.claude/skills/ship/SKILL.md` (or its checklist template) — same logic if /ship composes a body without going through /ak-build
+
+  **Concrete repro from this session**: home-os PR #19's pre-composed PR body listed `Run supabase db push to apply migration 20260515181530_007_triage_route_handler.sql against production` as `[ ]` under "Out-of-band deploy items (post-merge)". The repo has `.github/workflows/deploy-migrations.yml` triggering on `push: [main]` with a body that includes `supabase db push`. The detection would have flipped the item to "auto-deployed; no manual step needed."
+
+  **Severity**: low-medium — misleading PR copy that wastes reviewer attention. Doesn't break anything functionally because the workflow runs regardless, but trains the operator to verify auto-deploy claims, eroding the audit-trail's signal value.
+
+  [low-medium, skill-improvement, ak-build + ship, surfaced-by home-os-pr-19-2026-05-15, 2026-05-15]
+
+- [ ] **`/ak-go-live` Step 1.7 (Auth-config deploy reminder) doesn't fire on first-prod-deploy of an auth-touching feature.** Surfaced 2026-05-15 on home-os PR #19. The SKILL's Step 1.7 only triggers "if the spec or PR body references auth-config changes" — but on a fresh production deploy of a project where auth has been live for several PRs but **no one has actually signed in on prod yet**, the auth-config gaps (or auth-flow runtime bugs like PKCE-cookie loss in Safari Private Browsing) don't surface until the first real invitee tries to sign in. On home-os, that was 30min post-PR-19-deploy with a friend's failed sign-in — well after `/ak-go-live` completed and printed "Deployed to production." There was no pre-deploy beat where an actual end-to-end sign-in was exercised; the production-curl probe in Step 1.5 only checks anon `/` returns 2xx/3xx, which it does correctly (middleware bounces anon to `/login`). The bug shape was invisible from the public surface.
+
+  **Pattern**: every project's first production deploy of an auth-touching feature has this same shape. The current `/ak-go-live` flow is great at "did the deploy land?" and "is canary healthy?" but doesn't have a "did a real user successfully complete the most-affected user flow?" gate. The implicit assumption is that the operator will manually invite/test someone post-deploy — which is what happened on home-os, except the failure cost an invite and surfaced anxiety that "the new deploy broke things" before the operator could diagnose (it actually was a pre-existing PKCE-flow issue that just hadn't been exercised on prod yet).
+
+  **Fix shape**: extend `/ak-go-live` with a new step between Step 5 (reflection) and Step 6 (notify) — call it Step 5.5 (post-deploy smoke). The step asks the operator (via `AskUserQuestion`):
+
+  > Has this deploy touched any user-facing flow that hasn't been exercised on prod yet (e.g. first auth flow, first payment, first invite)? If yes, complete an end-to-end test with a real user account NOW, before notifying. Options:
+  >
+  > - **Done — flow works** (proceed to notify)
+  > - **Tested — found issue X** (pause; surface for triage)
+  > - **Will test post-merge** (proceed; operator commits to following up)
+  > - **Not applicable** (proceed)
+
+  Detection of "first user-facing flow exercise" needs heuristics: check `BUILD-LOG.md` for prior auth/payment/invite mentions, check whether the PR touched `app/api/auth/` or `app/login/` or middleware auth predicates, check whether the PR's spec mentions "first" or "initial" or "v0" of a user-flow surface. Imperfect but better than the current zero-gate state. The operator can always answer "Not applicable" if the heuristic over-fires.
+
+  Optionally: invent a `kit/scripts/post-deploy-smoke/` directory where projects can drop a `<feature>.sh` script that drives the actual end-to-end flow (e.g., a Playwright spec that signs up + signs in against the prod URL using a throwaway email). `/ak-go-live` Step 5.5 looks for `kit/scripts/post-deploy-smoke/auth.sh` matching the deploy's surface and runs it automatically. Cleaner but bigger lift.
+
+  **Why this generalizes**: home-os, lalista, and every Next.js + Supabase project follow the same shape — auth lands in one of the first 3 PRs, then no one signs in on prod until the first real invitee. The gap is universal. Once Supabase Auth (or any auth provider) gets a first-prod-deploy smoke gate, every future project inherits it.
+
+  **Edit targets**:
+  - `/devshop/.claude/skills/ak-go-live/SKILL.md` — add Step 5.5 (post-deploy user-flow smoke) between Step 5 (reflection) and Step 6 (notify)
+  - Optionally: `kit/scripts/post-deploy-smoke/` directory + project-side template entry in `kit/notes/projects/` showing the smoke-script convention
+
+  **Severity**: medium — every auth project has been silently relying on operator manual testing here; when the operator forgets or delegates to a friend, failures surface late and look like deploy regressions. The home-os incident cost ~1hr of triage to confirm the failure was pre-existing not deploy-introduced.
+
+  [medium, skill-improvement, ak-go-live, surfaced-by home-os-pr-19-2026-05-15, 2026-05-15]
+
+- [ ] **Convention: any server-side auth-callback handler must `Sentry.captureException` on error.** Surfaced 2026-05-15: home-os `apps/web/app/auth/callback/route.ts:80` returned 303 to `/login?error=callback_failed` on `exchangeCodeForSession` failure with **no Sentry capture**. When the first prod invitee's sign-in failed (Safari Private Browsing + PKCE cookie isolation), Sentry had zero record — `@sentry/nextjs` was correctly wired everywhere else but this specific route's error path was silent. The bug shape ("auth callback silently swallows the exchange error") is a pattern, not a one-off: any project scaffolded against Supabase Auth (or any OAuth-style provider) ends up with a `/auth/callback`-shape handler that has an exception-swallowing else-branch, because the canonical pattern from the Supabase docs only redirects on error without logging.
+
+  **Pattern**: every server-side auth-callback handler has this shape:
+
+  ```
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  if (error) {
+    return redirect('/login?error=callback_failed');  // silent — bug
+  }
+  ```
+
+  The correct shape:
+
+  ```
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  if (error) {
+    Sentry.captureException(error, { tags: { route: 'GET /auth/callback', stage: 'exchange_code' } });
+    return redirect('/login?error=callback_failed&reason=' + classify(error));
+  }
+  ```
+
+  **Fix shape**: codify this in two places:
+  1. **Convention doc** at `kit/docs/guide/conventions.md` (likely under § Error Observability or a new § Auth Boundaries section): "server-side OAuth/PKCE/magic-link callback handlers must `Sentry.captureException` before any error redirect; redirect URL must include a coarse `reason=<class>` query so the receiving page can render specific copy." Pair with an example.
+  2. **Pre-ship gate** at `/devshop/.claude/skills/ak-pre-ship/SKILL.md`: a new pattern-check gate that greps for `auth.(exchangeCodeForSession|signInWithPassword|signInWithOtp|verifyOtp)` call sites and flags any that don't have `captureException` on their error branch within ±10 lines. Low false-positive, high catch rate. Integrates with the existing `/review` gate.
+  3. **Template scaffold** in `template/apps/web/app/auth/callback/route.ts` (if it exists in the template; otherwise add it): the canonical example handler with the Sentry + reason-passthrough shape baked in so every project that scaffolds from the template inherits the right pattern from day one.
+
+  **Edit targets**:
+  - `kit/docs/guide/conventions.md` (new § or existing observability section)
+  - `/devshop/.claude/skills/ak-pre-ship/SKILL.md` § Gate (pattern check)
+  - `template/apps/web/app/auth/callback/route.ts` (if applicable)
+
+  **Why this generalizes**: auth callbacks are universal across web apps; opaque error swallowing is the default pattern most folks copy from official docs; the cost of the gap is invisible in dev (everything works on localhost) and catastrophic in prod (first invitee fails, no telemetry, hours of triage to confirm it's a pre-existing app bug not a deploy regression).
+
+  **Severity**: medium — same pattern will recur in every new auth-touching project until codified.
+
+  [medium, convention + skill + template, surfaced-by home-os-pr-19-2026-05-15, 2026-05-15]
