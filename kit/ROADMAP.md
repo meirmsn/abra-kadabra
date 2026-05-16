@@ -489,6 +489,44 @@ Order matters. Audit first, reviewer-check second. Reasons:
 
 ---
 
+### Fold PR-title readability check into the pre-push prDescStale reviewer
+
+**Problem.** The `/devshop/CLAUDE.md § Commit + PR Text Style` rule (titles describe the **observable change**, not the implementation mechanism; ≤72 chars; no jargon) is enforced today only at `/ak-build § Phase 4.1` composition time. Manually-opened PRs that bypass `/ak-build` (one-off hotfixes via `gh pr create`) never see Phase 4's compose-and-verify gate, so titles like `fix(cards/[id]): explicit auth check + Sentry diagnostics on 404 path` and `fix(migrations): qualify column refs in start_triage + complete_triage (closes /api/triage 500)` slip onto `main` despite leading with implementation mechanism (`add diagnostics`, `qualify column refs`, file paths, function names) rather than the user-visible thing (`404 after save card`, `"Read this for me" trigger no longer 500s`).
+
+Codified from home-os PRs #22, #23, #24 (2026-05-16) — all three were prod hotfixes opened manually with `gh pr create`. All three titles read too in-the-weeds; one (#24) was caught and edited mid-`/ak-go-live` by the operator pointing at the project's CLAUDE.md rule. The other two are immutable in `git log` now.
+
+**Why this is the right fork.** The pre-push hook (`/devshop/kit/hooks/pre-push.sh § Check 2: PR description staleness`) already runs an adversarial LLM review on every push that has non-trivial commits. The shared engine (`/devshop/kit/scripts/adversarial-review.sh § prDescStaleReason`) already gathers PR title + body + commits as context for that call. Extending the prompt to evaluate title readability AS WELL as description-vs-commits sync is a prompt-edit, not a new invocation — zero extra Sonnet cost per push. Adding a separate hook gate would double the per-push LLM spend for a check that has all its inputs already in context.
+
+**Fix.**
+
+1. Extend the `prDescStaleReason` prompt rule (currently at `kit/scripts/adversarial-review.sh:586`) to evaluate two independent dimensions and FAIL on either:
+   - (a) **PR description sync** — existing rule, unchanged: "does the PR title/body accurately describe ALL commits on origin/main..HEAD?"
+   - (b) **PR title readability** — new criterion: per `/devshop/CLAUDE.md § Commit + PR Text Style`, titles must describe the observable change (not mechanism), be ≤72 chars, contain no internal jargon ("polish", "soak findings", "Phase N", file paths, function names, mechanism verbs like "qualify", "rewrite", "refactor", "rename" UNLESS those words describe what users experience). Worked example PASS: `fix: 404 after save card`. Worked example FAIL: `fix(cards/[id]): explicit auth check + Sentry diagnostics on 404 path` — leads with mechanism. PASS requires both (a) AND (b) clean.
+2. The hook's existing "Reviewer assessment:" surfacing path (`pre-push.sh` lines 128-138) already prints whatever the engine emits, so no hook-side change needed beyond the bypass-flag name.
+
+**Open question — bypass-flag rename.** Today the gate is gated by `devshop.prDescStaleReason`. After this change, the flag's name no longer reflects the gate's full scope (it also covers title readability). Options:
+
+- (a) **Keep the name as-is** — backwards-compatible. Operators who muscle-memory typed `git -c devshop.prDescStaleReason="..."` for prior gate failures continue to work. Cost: name lies about scope.
+- (b) **Rename to `prGoodTitleOrDescStaleReason`** (or similar — `prCommitTextStyleReason`, `prTextHygieneReason`). Honest naming. Cost: touches the SKILL.md cross-refs (search `prDescStaleReason` across `/devshop/kit/`), the `surviving-check-types` echo in `adversarial-review.sh:367`, the bypass-flag case in `adversarial-review.sh:549`, the hook-side flag read in `pre-push.sh:121`, plus any documentation that names the flag. Maybe 6-10 call sites; mechanical. Existing bypass commits in git history that used the old name remain searchable.
+- (c) **Alias** — accept both names at the engine level (`git config --get devshop.prDescStaleReason || git config --get devshop.prGoodTitleOrDescStaleReason`). Operators get a deprecation hint in the new gate-fail output. Compromise; defers the cleanup.
+
+Recommendation at implementation time: pick (b) for honest naming if the rename is the only blocker; pick (c) if there are external scripts/docs referencing the old name we can't update synchronously.
+
+**Implementation surface:**
+
+- `/devshop/kit/scripts/adversarial-review.sh` — prompt edit at the `prDescStaleReason` rule (line 586); decision (a/b/c) on flag-name handling at lines 367 + 549.
+- `/devshop/kit/hooks/pre-push.sh` — bypass-flag read at line 121 (no-op if option (a); update if (b); union if (c)).
+- `/devshop/.claude/skills/devshop/build/SKILL.md § Phase 4.1` — add a one-line cross-reference pointing at this enforcement layer ("the readability rule is composed at Phase 4.1 AND independently verified at pre-push by the prDescStale reviewer"), so a future reader knows the gate is duplicated by design.
+- Bats coverage (if devshop has it) for the new failure mode — feed a synthetic implementation-leading title + matching commits, assert FAIL.
+
+**Effort:** ~30 min (prompt edit + flag-name decision + cross-ref update) for option (a) or (c); ~60 min for option (b) if the rename touches 8-10 call sites.
+
+**Severity: medium.** Active leak today on every manually-opened PR. The /ak-build path is covered; the hotfix path isn't. Lands at the boundary where mechanism-leading titles get the most attention (just before push, when the operator can still fix it cheaply).
+
+**PLAN row:** #27.
+
+---
+
 ### Migration sequencing safety nets for the Vercel-preview window
 
 **Pre-implementation findings (verified 2026-05-14):** **PARTIAL — Track B shipped, Tracks A + C pending. ⚠️ Orphan reference exists.**
