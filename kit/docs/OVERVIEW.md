@@ -210,7 +210,7 @@ See `guide/workflow.md` for the full pipeline diagram and per-step detail.
 
 `main` (production) — always deployable. No `develop` branch.
 
-- `/ak-build` creates a `feature/<name>` or `fix/<name>` branch, implements, pushes, opens PR
+- `/ak-build` creates a `feat/<name>` or `fix/<name>` branch (detects project convention from existing branches; defaults to `feat/` on greenfield), implements, pushes, opens PR
 - You review the PR (preview URL + audit trail + CI green)
 - `/ak-go-live` merges the PR, deploys, runs canary, reflects
 

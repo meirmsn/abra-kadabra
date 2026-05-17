@@ -177,7 +177,9 @@ simulation) for user approval. On approval, writes `specs/<name>/spec.md` as a
 skeleton — provenance header, Sources list, and a fully-populated Decisions
 section — and commits it on the feature branch so the user's judgment calls
 survive a crash. Starts a live `TaskCreate` tracker mirroring the preview's
-hierarchy (phases as rows, Phase 2 expanded into per-task sub-rows). Finally,
+hierarchy (phases as rows; sub-units — Phase 2 tasks, Phase 3 findings,
+Phase 5 fix-loop attempts — prefix their parent phase as `<Phase X> /
+<sub-unit>` since the harness's task list is flat). Finally,
 emits a remote-control nudge ("type `/remote-control` now if you want
 phone/watch monitoring") right before spawning the first subagent — the last
 main-context beat before autonomous work begins. On resume paths that skip
@@ -196,8 +198,10 @@ into a full spec (Core user story, In scope, Screens, Data model, API
 contracts, Tests, Task order, Gotchas, Acceptance plan). Preserves the
 skeleton's Decisions section verbatim — does NOT re-resolve. Creates the
 feature branch (`feat/<slug>` or `fix/<slug>`) if currently on main
-(inherited from Step 0), and flips the `PLAN.md` Planned row for this
-feature into `## Active`. The `## Task order` section is the discriminator
+(inherited from Step 0 — Step 0 picks the prefix by counting existing
+`feat/*` vs `feature/*` branches; greenfield projects default to `feat/`
+to match the conventional-commit short form), and flips the `PLAN.md`
+Planned row for this feature into `## Active`. The `## Task order` section is the discriminator
 the resume check uses to tell "skeleton" from "complete spec." METRICS.md
 confirmation only fires when the Phase 0 skeleton didn't cover events
 (rare — only on manually-seeded feature branches).

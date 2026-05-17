@@ -13,7 +13,62 @@ Priority tiers:
 
 ## v0 — blocks next-project adoption
 
-### `/ak-build` pipeline — per-gate sub-agent decomposition + tracker-prefix convention
+### `/ak-pre-ship` — add migration-rollback-roundtrip gate (local, not CI-only)
+
+**Problem.** Every project's `scripts/ci-rollback-explain.sh` validates that each migration's `-- ROLLBACK:` comment block applies cleanly and round-trips back to the forward-state. The script is wired into `.github/workflows/ci.yml` slow-job, but **not** into `/ak-pre-ship`'s local gauntlet. The local gates that touch migrations (`fast-job-local`, `changed-tests-local`, `rls-coverage`, `slow-job-lifecycle`) all run `pnpm db:reset` which applies forward migrations cleanly — they never exercise the rollback comment block. Result: every migration-touching PR ships to CI to discover rollback bugs that a 30-second local check would have caught.
+
+**Pattern observed — two PRs in a row.**
+
+- **home-os PR #26 (`feature/triage-conversation`, 2026-05-16)**: initial CI run `25961551869` failed on "Migration rollback round-trip" with `ERROR: column "tool_name" does not exist` in migration 010's rollback (stray non-idempotent UPDATE before column-drop). Fixed in one cycle (`2691a07`), re-watched green. Documented in the triage-conversation BUILD-LOG entry.
+- **home-os PR #27 (`feature/decide-state`, 2026-05-17)**: initial CI run `25999328826` failed on the **same step** with `ERROR: invalid input value for enum card_state: "decide"` in migration 011's rollback (enum literal cast `'decide'::public.card_state` doesn't survive the script's iterative rollback+reapply ordering, which leaves card_state narrowed back to its 6-value form by the time migration 011's rollback runs). Fixed in one cycle (`d0d2135`), re-watched green.
+
+Both PRs ran `/ak-pre-ship` locally with 13/13 gates pass / findings-fixed before the push. Neither gauntlet caught the rollback bug because no local gate exercises the rollback comment block. Both fixes were one-line, mechanical, and easily catchable by `bash scripts/ci-rollback-explain.sh` if it had been wired into the gauntlet.
+
+The fix-shape is also predictable: rollback statements need to be defensive against the iterative-rollback-and-reapply ordering the script uses (cascades from prior-migration rollbacks change the schema shape under your feet). A local gate catches this in 30 seconds; CI catches it in a full ~10-min slow-job cycle that has to push, queue, runner-warm, db:reset, apply, run.
+
+**Fix shape:**
+
+Add a new gate to `/devshop/.claude/skills/ak-pre-ship/SKILL.md`:
+
+- **Gate name**: `migration-rollback-roundtrip`
+- **When it runs**: diff touches `supabase/migrations/**` (detect via `git diff --name-only origin/<base>...HEAD | grep -qE '^supabase/migrations/'` or the existing `gstack-diff-scope` if it exposes a `SCOPE_MIGRATIONS` variable).
+- **What it does**: invoke `scripts/ci-rollback-explain.sh` (or the project-side variant if `scripts/` is per-project). The script is already on the project — no new infra.
+- **Position in sequence**: alongside the existing migration-related gates (`rls-coverage`, `slow-job-lifecycle`) which sit between `fast-job-local` and `changed-tests-local`. The rollback gate should fire BEFORE `changed-tests-local` so a rollback bug doesn't poison the test database mid-walkthrough.
+- **Outcome semantics**: non-LLM-mediated, so legitimate `n/a` is fine (e.g., `n/a — diff doesn't touch supabase/migrations/`). Otherwise `pass` / `findings (N) fixed`.
+
+**Workspace-relay variation**: home-os and lalista both run their local Supabase stack through the devcontainer's `cmd-relay` + `supabase-runner` container, not direct `supabase` CLI. The CI script uses `supabase status -o env` to extract DB_URL — that won't work in the workspace. Two options:
+
+1. Add a project-side wrapper script `scripts/pre-ship-rollback-roundtrip.sh` that detects the relay model and substitutes the DB_URL extraction (the canonical local-stack ports are documented in each project's `CLAUDE.md § Local Supabase ports`). Then the gate invokes the project-side wrapper.
+2. Make the CI script itself relay-aware: detect `cmd-relay` presence, fall back to a hard-coded local DB_URL from a known env var.
+
+Option 1 keeps `scripts/ci-rollback-explain.sh` simple and CI-focused; the project-side wrapper handles the workspace-relay translation. The gate calls the wrapper if it exists, else the canonical script.
+
+**Why v0:** every devshop project that runs migrations is exposed. Two consecutive PRs proved the gap is recurring, not a one-off. The structural fix is small (one new gate, no new infra) and pays back every migration-touching PR going forward.
+
+**Trigger:**
+
+- home-os PR #26 (2026-05-16) — rollback caught at CI, one-cycle fix.
+- home-os PR #27 (2026-05-17) — rollback caught at CI, one-cycle fix.
+- Every future migration-touching PR is exposed until the gate ships.
+
+**Cross-ref:**
+
+- `/workspace/scripts/ci-rollback-explain.sh` — the canonical project-side script (also lives in lalista).
+- `/devshop/.claude/skills/ak-pre-ship/SKILL.md § Gates` — destination for the new gate.
+- home-os PR #26 BUILD-LOG entry — concrete details on the first occurrence.
+- home-os PR #27 commit `d0d2135` — concrete details on the second occurrence.
+
+**Cost/risk:**
+
+- Implementation: ~1 hr. Add the gate to `/ak-pre-ship` SKILL.md (orchestration + outcome semantics) + add the project-side wrapper script to bridge the workspace-relay model. Both projects (home-os, lalista) need the wrapper, but it's the same shape — one script, copied per project (or absorbed into `template/scripts/`).
+- Risk: low. The CI script already exists and is proven correct; this just runs it locally. The diff predicate (touch `supabase/migrations/`) is mechanical. Failure mode if the gate breaks: gauntlet halts on the rollback step, operator fixes the migration, re-runs — same UX as fixing any other gate finding.
+- Benefit: closes a known recurring failure class. Two PRs in a row paid the CI-cycle tax (one full ~10-min slow-job round-trip per occurrence) for a bug that a 30-second local gate would have caught. Saves ~10 min wallclock + operator-attention for context switching on every migration-touching PR.
+
+[v0, surfaced-by home-os PR #26 + #27 consecutive CI failures on rollback round-trip 2026-05-16 / 2026-05-17]
+
+---
+
+### `/ak-build` pipeline — per-gate sub-agent decomposition
 
 **Problem.** `/ak-build § Phase 3` invokes `/ak-pre-ship` as a single subagent that runs the entire 13-gate gauntlet (preflight → docs → metrics → fast-job-local → changed-tests-local → responsive → `/simplify` → `/ak-check-docs-and-tests` → `/review` → `/cso` → `/design-review` → `/qa` → `/benchmark` → final preflight → convention check → hero shots) in one continuous agent context. Two structural failure modes:
 
@@ -22,22 +77,9 @@ Priority tiers:
 
 **Where it bit.** home-os PR #N (feature/decide-state, 2026-05-17). Phase 3 subagent crashed at Gate 6/13 after ~2h / 207 tool uses. Recovery spawned three parallel read-only sub-agents (Audit 1, `/cso`, convention check) that completed in ~5.5 min combined wall-time, all returning `pass`. The contrast — monolith 2h → 0 returns vs sharded 5.5 min → 3/3 returns — surfaces the structural argument: per-gate granularity isolates failure, enables parallelism, and gives the tracker something to render. The crashed agent's prior 2h represented analysis the orchestrator couldn't recover programmatically; sub-agent shards write back to `review.md` (or a per-gate sink) atomically per gate, so any one drop loses at most one gate.
 
-**Two deliverables — ship the small one first.**
+**Four deliverables (B–E)** — per-gate decomposition, fix-loop fresh-agent-per-attempt, audit parallelization, and stuck-protocol refinement.
 
-**(A) Tracker-prefix convention** (small — ~30 min, ships as a `/ak-build` Phase 0.4 doc patch). Already proven this session.
-
-When a phase decomposes into sub-units (sub-tasks, gates, fix-loop attempts), each sub-task's `TaskCreate` subject must prefix its parent phase: `Phase 3 / Gate 7: /cso`, `Phase 5 / Fix attempt 2: lint failure on PathCard.tsx`, etc. The harness's task list is flat (no real parent field), so the prefix is what makes the parent-child relationship visible to the operator. Without the prefix, sub-tasks appear as flat peers of the phase rows and the hierarchy is illegible.
-
-The convention applies to:
-
-- `/ak-build` Phase 0.4 — add explicit "prefix every sub-task with `<Phase X> / `" rule to the existing "Phase 2's sub-rows indented (or prefixed)" wording. The "(or prefixed)" parenthetical is currently treated as fallback; flip it to canonical.
-- `/ak-implement` — sub-tasks for each `T1..TN` item already follow this naturally as task subjects; document it.
-- `/ak-pre-ship` (when (B) ships) — sub-tasks per gate.
-- Phase 5 fix loop — sub-tasks per fix attempt.
-
-Operator-facing benefit: a `Phase 3` row that sits `in_progress` for 2 hours becomes a stream of `Phase 3 / Gate N: <gate>` rows that flip `completed` as each gate returns, so the live tracker reflects real motion through the gauntlet.
-
-**(B) Per-gate sub-agent decomposition for `/ak-pre-ship`** (larger — ~3-5 hr, touches `/ak-pre-ship` SKILL.md gate-sequencing semantics + `/ak-build` Phase 3 orchestration). Ships after (A).
+**(B) Per-gate sub-agent decomposition for `/ak-pre-ship`** (larger — ~3-5 hr, touches `/ak-pre-ship` SKILL.md gate-sequencing semantics + `/ak-build` Phase 3 orchestration).
 
 `/ak-pre-ship` decomposes into two ordered passes:
 
@@ -56,7 +98,6 @@ This shape is the standard, not the exception — every `/ak-build` runs through
 
 **Where it goes (mechanical).**
 
-- `/devshop/.claude/skills/ak-build/SKILL.md § Phase 0.4` — codify tracker-prefix convention (deliverable A).
 - `/devshop/.claude/skills/ak-build/SKILL.md § Phase 3` — rewrite to dispatch per-gate sub-agents; document the stabilize-pass / analysis-pass split + per-gate-file sink (deliverable B).
 - `/devshop/.claude/skills/ak-pre-ship/SKILL.md § Outcome semantics` — add "each gate sub-agent writes to its own `specs/<feature>/gates/<gate-name>.md`; the orchestrator concatenates" (deliverable B).
 - `/devshop/.claude/skills/ak-pre-ship/SKILL.md § Stuck protocol` — clarify scope (stuck protocol stays inside each gate sub-agent; test:unit checkpoints are orchestrator-level).
@@ -113,7 +154,7 @@ The meta-checks at attempt 3 only fire when natural inference has demonstrably f
 - Phase 5.9 visual refresh uses a shared browse daemon; captures are serial anyway. Leave monolithic.
 - Phase 0 / 4 / 6 / 7 are orchestrator-side, not subagents — no decomposition story.
 
-**Why v0:** `/ak-build` is the canonical "build it and ship it" pipeline every devshop project runs. The monolith failure mode hit on the first real cross-context Phase 3 run on home-os (2026-05-17); it will recur on every `/ak-pre-ship` invocation that pushes against the agent's context/runtime envelope. Lalista hasn't surfaced it yet because lalista's PRs tend to be smaller, but the structural risk is the same — only the firing rate differs. Tracker-prefix (deliverable A) is small enough to ship same-day and pays back every `/ak-build` going forward.
+**Why v0:** `/ak-build` is the canonical "build it and ship it" pipeline every devshop project runs. The monolith failure mode hit on the first real cross-context Phase 3 run on home-os (2026-05-17); it will recur on every `/ak-pre-ship` invocation that pushes against the agent's context/runtime envelope. Lalista hasn't surfaced it yet because lalista's PRs tend to be smaller, but the structural risk is the same — only the firing rate differs.
 
 **Trigger:**
 
@@ -129,8 +170,8 @@ The meta-checks at attempt 3 only fire when natural inference has demonstrably f
 
 **Cost/risk:**
 
-- Implementation: ~30 min for (A) — single-file doc patch in `/ak-build § Phase 0.4`; no behavior change beyond a stronger statement of intent. ~3–5 hr for (B) — orchestrator rewrite in `/ak-build § Phase 3` + per-gate-file convention in `/ak-pre-ship § Outcome semantics` + Phase 6 reader update to source from `specs/<feature>/gates/*.md`. ~2 hr for (C) — fresh-agent-per-attempt + `fix-attempts.md` artifact in `/ak-build § Phase 5.4`. ~1 hr for (D) — parallelize the two sub-skills in `/ak-check-docs-and-tests` with per-file sinks. ~2 hr for (E) — refine stuck-protocol in `/ak-implement` (attempt 2 = fresh + log; attempt 3 = fresh + log + spec re-read + devil's-advocate critic).
-- Risk: low across the board. (A) is doc-only. (B) preserves existing gate semantics. (C) preserves existing 3-attempt cap + escalation; only changes per-attempt context isolation. (D) preserves existing audit findings shape; only changes how `/ak-check-docs-and-tests` invokes its two sub-skills. (E) preserves existing escalation-after-3-attempts behavior; only refines the 2nd and 3rd attempts' shape.
+- Implementation: ~3–5 hr for (B) — orchestrator rewrite in `/ak-build § Phase 3` + per-gate-file convention in `/ak-pre-ship § Outcome semantics` + Phase 6 reader update to source from `specs/<feature>/gates/*.md`. ~2 hr for (C) — fresh-agent-per-attempt + `fix-attempts.md` artifact in `/ak-build § Phase 5.4`. ~1 hr for (D) — parallelize the two sub-skills in `/ak-check-docs-and-tests` with per-file sinks. ~2 hr for (E) — refine stuck-protocol in `/ak-implement` (attempt 2 = fresh + log; attempt 3 = fresh + log + spec re-read + devil's-advocate critic).
+- Risk: low across the board. (B) preserves existing gate semantics. (C) preserves existing 3-attempt cap + escalation; only changes per-attempt context isolation. (D) preserves existing audit findings shape; only changes how `/ak-check-docs-and-tests` invokes its two sub-skills. (E) preserves existing escalation-after-3-attempts behavior; only refines the 2nd and 3rd attempts' shape.
 - Benefit: failure isolation (one gate / one attempt's drop ≠ all-gates / all-attempts' drop), parallelism on read-only analysis (~10–15 min wall-time saved on every Phase 3; ~half saved on every Phase 5.8), live-tracker visibility (operator can see which gate / attempt is firing without polling logs), better stuck-task recovery (Phase 2 attempt 3 considers structural + tactical meta-checks before escalating).
 
 [v0, surfaced-by home-os feature/decide-state Phase 3 monolith crash on 2026-05-17]
@@ -859,6 +900,98 @@ Every devshop project shipping features that touch email templates / auth allow-
 - New-credential risk: the Supabase Personal Access Token has broad scope (project config write); leaking it = ability to misconfigure auth on the prod project. Same blast radius as today's `ANTHROPIC_API_KEY_PROD` (per the existing split convention) — manageable with the same CI-only + 1Password discipline.
 - False-positive risk on the allow-list compare: `additional_redirect_urls` glob pattern matching is fuzzy; the safer default is "warn, don't auto-update" until the convention is exercised on a few real chapters and the failure modes are known.
 - Pipeline-time risk: ~10–30 seconds for the Management API round-trips plus the curl check. Negligible.
+
+---
+
+### Canonical product-update blurb across PR body / BUILD-LOG / deploy comments
+
+**Problem.** Every PR ships with the same user-facing story implicit in four places, none coordinated:
+
+1. `spec.md`'s feature one-liner (authored at Phase 0, e.g. home-os PR #27: _"PR N delivers the dual-path DIY/Contractor exploration surface on top of PR #26's confirmed assessment..."_) — mixed with eng jargon (`card_state`, `confirm_triage`) and cross-PR references.
+2. PR body `## Summary` first paragraph (composed fresh at `/ak-build` Phase 4.1 from `git log`) — often product-shaped by accident (PR #27's first paragraph was clean: _"After a card is diagnosed, the user can now choose a path forward..."_) but unlabeled, no length contract, prone to drift on the next polish commit.
+3. `BUILD-LOG.md` `Summary:` line (composed at Phase 5.6, supposed to be 1 line from spec) — in practice becomes a 400-word eng braindump that opens with product story and pivots straight into schema-and-routes detail.
+4. `/ak-build` Phase 7 "Ready for review" comment + `/ak-go-live` Step 6 "Deployed to production" comment — both currently eng-flavored, no product-shaped lede.
+
+Result: the future-me reader scanning `BUILD-LOG.md`, the reviewer landing on a PR cold, and the operator-customer wanting a changelog all read three slightly different stories — and the stories drift from each other because nothing makes them copy from the same source.
+
+The first paragraph of `Summary` is often the right shape already (PR #27's read perfectly when extracted in isolation post-deploy). The gap isn't authoring — it's **single-source-of-truth + verification that the blurb still describes what shipped at merge time**.
+
+**Pattern observed — home-os PR #27 (decide-state, 2026-05-17).**
+
+The PR shipped a substantial user-visible feature (DIY/Contractor/Monitor/Dismiss path commitment). The PR body's eng-shaped Summary, the BUILD-LOG entry's 400-word paragraph, and the audit-trail comment's "Quality gates" table all served the eng audience well — but when the operator asked "what went live, product-wise, short description?" the answer had to be re-derived from scratch by reading the spec + the diff + the user-visible affordances. The product blurb existed implicitly across four artifacts; it took ~30 seconds of re-derivation to surface it cleanly. Multiply by every PR going forward.
+
+Two specific consequences:
+
+- **No changelog primitive** — if/when this project (or any future project) needs a "what's new in v0.X" surface, there's nothing to aggregate. Every BUILD-LOG entry would need re-parsing.
+- **Drift between scoped intent and shipped reality is invisible** — the spec's one-liner is authored at Phase 0 _describing the intended outcome_. The polish loop can subtly change what actually shipped (e.g. home-os ISSUE-002 fix added a user-visible disclosure to PlannedView that wasn't called out in the original blurb). Nothing today verifies the blurb still describes the shipped diff at merge time.
+
+**Fix shape — two audiences, one source-of-truth, audience-routed downstream copies, two verification gates.**
+
+Two distinct audiences read the product story today, and the contract serves both. They live as sibling sub-sections under one canonical `## Product update` section in `spec.md` (single source-of-truth) — different rendering targets, same underlying claims, authored at the same Phase 0 moment.
+
+- **Headline (user-facing).** For the end-user / prospect / changelog reader. 1–2 sentences, snappy, zero eng terms. No mention of states, routes, components, or internal architecture; talks about what the user can now do in plain English. Example (decide-state): _"Pick a path for every issue — get DIY instructions, see what a contractor would charge, set a reminder, or dismiss. Your decision is saved and revisable."_
+- **Detail (team-facing).** For the future-me reader / cold reviewer / BUILD-LOG scanner. 1–4 sentences, light eng context allowed (state names, feature areas — but explained, not jargoned). Builds on the headline with context the team needs. Example (decide-state): _"After a card is diagnosed, the user can now commit to a path forward (DIY / Contractor / Monitor / Dismiss) and the card transitions to a `planned` state. Choosing 'Monitor' sets a check-back cadence; choosing anything else flips the card to the chosen path with a 'Change decision' link to re-open. The AI's cost estimates remain visible alongside any user override."_
+
+Same atomic claims (the verbs and nouns the diff actually shipped), two different verbalizations. Authoring cost is low because the second flows naturally from the first; verification cost is shared because both are checked against the same diff.
+
+| Surface                                       | Today                                                                 | Proposed                                                                                                                                                                                                                                                                                                                                                                                       | Blurb used                             |
+| --------------------------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `spec.md`                                     | Feature one-liner buried after `Sources` block, mixed with eng jargon | Named `## Product update` section with two named sub-sections — `### Headline (user-facing)` (1–2 sentences, zero eng terms) and `### Detail (team-facing)` (1–4 sentences, light eng OK). Authored at Phase 0 alongside Decisions / Scope / Tracker. Contract: no enum names / RPC names / migration numbers in Headline; no cross-PR references in either; imperative present from user POV. | Both (source)                          |
+| `/ak-build` Phase 0 preview                   | Shows Decisions + Scope + Tracker                                     | Both blurbs surface as the first lines of Scope (not a 4th preview section — operator already approves 3 things). Operator approves both inline.                                                                                                                                                                                                                                               | Both (authoring)                       |
+| PR body Phase 4.1                             | `## Summary` (mixed product + eng)                                    | New `## Product update` section with both sub-sections copied verbatim from spec — Headline first, Detail right below — as the first content after the H1. Existing Summary contents rename to `## Engineering details`.                                                                                                                                                                       | Both                                   |
+| `BUILD-LOG.md` Phase 5.6                      | 400-word Summary line                                                 | `Summary:` line uses the Detail blurb verbalum (team-facing matches the BUILD-LOG audience); eng minutiae live in the existing `Schema` / `Routes` / `UI` / `Tests` / `CI` sub-bullets. A new `Headline:` line (sibling to `Summary:`) uses the Headline blurb verbatim — gives future changelog aggregators a clean string to copy.                                                           | Detail = Summary, Headline = new field |
+| `/ak-build` Phase 7 ready-for-review          | "Summary: \<feature name\>"                                           | Uses the Detail blurb verbatim (reviewers want the eng-aware version).                                                                                                                                                                                                                                                                                                                         | Detail                                 |
+| `/ak-go-live` Step 6 deployed-to-prod comment | No product lede                                                       | Uses the Headline blurb as the lede (this is the celebration moment; operator may copy-paste / screenshot the comment to share with stakeholders / Slack / Twitter — Headline is the right voice). Detail follows as a second paragraph for the on-PR reader who wants context.                                                                                                                | Headline (lede) + Detail (context)     |
+| Future CHANGELOG.md / release notes (v1+)     | Doesn't exist                                                         | Aggregates Headline blurbs across merged PRs in a release window.                                                                                                                                                                                                                                                                                                                              | Headline                               |
+
+**Verification gates (the load-bearing part — "are we sure, or just assuming?")**
+
+Without verification, both blurbs are claims authored at Phase 0 that propagate downstream rubber-stamped at every hop. Two gates in v0 scope:
+
+- **Gate A — operator confirmation at Phase 6 (final sweep)**. Phase 6 already runs three reconciliation parts (state-based, evidence-on-disk, manual-review classification). Add a Part D that surfaces both blurbs side-by-side: "Here's the `## Product update` section as authored at Phase 0 (Headline + Detail). Here's the diff that's about to merge. Does each blurb still describe what shipped?" Operator answers yes/edit per blurb. ~30s of attention total since the second blurb derives from the same claims as the first; leverages attention already at the PR pre-merge.
+- **Gate B — automated claim-vs-diff cross-check at Phase 6 (assist for Gate A)**. Parse the _Detail_ blurb into atomic claims (verb + noun-phrase: "choose DIY/Contractor/Monitor/Dismiss"; "transitions to planned"; "Change decision link"). For each claim, look for grep-evidence in the diff (component file mentioning the noun, test file asserting the verb, new route handling the affordance). Surface unevidenced claims as "this claim has no obvious diff evidence — verify". Then cross-check the _Headline_: does it cover the same claim set at a lower fidelity? Flag claims present in Detail but absent from Headline (or vice versa) as "audience-shape mismatch — Headline may be missing X / Detail may be over-claiming Y." Doesn't block, just informs Gate A.
+
+Gate C (live post-deploy attestation via browse daemon at `/ak-go-live` Step 3 canary) — bulletproof but expensive (browse the deployed product, assert blurb-derived user-visible strings render). Defers to a v1 sibling ROADMAP entry; reuse the canary skill's existing browse-daemon usage when scoped.
+
+**Edge cases the contract handles.**
+
+- **Pure infra PR with no user-visible change.** Headline reads "Infrastructure update — no user-visible change in this PR." (literal, honest). Detail reads "\<one-line eng what + why this PR matters internally\>." Same fields, infra-shape; honest about the audience asymmetry (Headline has nothing to celebrate; Detail has eng-team value).
+- **Hotfix PR.** Headline: "Fixes \<user-visible symptom\>." Detail: "Fixes \<symptom\> in \<user-flow\> — root cause was \<plain-English summary\>." Same shape, fix-flavored.
+- **Multi-feature PR.** Headline names each in one short sentence (bullets allowed within the 1–2 sentence cap; cap may stretch to 3 for two-feature PRs). Detail expands per-feature.
+- **Operator-supplied vs AI-drafted at Phase 0.** Phase 0 spec agent drafts both blurbs from the roadmap row + the feature one-liner from sources; operator approves or rewrites inline. Spec agent's first draft tends to over-include eng terms in Headline — operator's first edit pass usually strips those. Same shape as how Decisions are handled today.
+- **Headline = Detail.** If a PR is small enough that the two blurbs would be identical, the spec can collapse them: `### Headline + Detail (combined)`. Downstream surfaces still route correctly (BUILD-LOG `Headline:` and `Summary:` repeat; deploy comment renders once).
+
+**Why this beats the obvious alternatives.**
+
+- **"Just leave Summary's first paragraph as-is, treat it as the blurb."** It works by accident today; that's exactly the drift surface. No named contract = no length cap, no audience contract, no verification hook, no canonical place to copy from. The next polish commit silently drifts it. Also: one blurb can't serve two audiences without compromise.
+- **"One blurb for both audiences."** Either you ship eng-flavored copy in the changelog (loses the marketing audience) or you ship marketing-flavored copy in the PR body (loses precision for reviewers). The cost of authoring two is ~30 seconds at Phase 0 since they share the same atomic claims; the cost of compromise is paid every time someone reads either surface.
+- **"Skip verification (Gates A/B), trust the operator to keep both accurate."** Without a named gate the blurbs decay to stale claims — same failure mode as PR titles today (which Phase 5.3.5 already drift-checks for the same reason). With two blurbs and no verification, the drift risk doubles.
+- **"Defer entirely to a CHANGELOG.md skill (`/document-release` exists in gstack)."** Wrong layer — `/document-release` is a post-ship batch job that needs blurbs as inputs. This entry creates the inputs (Headline specifically); CHANGELOG aggregation is downstream and v1+.
+
+**Why v0 — blocks next-project adoption.**
+
+Every devshop project running `/ak-build` + `/ak-go-live` pays the same audience-mismatch tax. A second project arrives and inherits the same eng-shaped BUILD-LOG entries + the same buried-in-Summary product story. Closing it before the second project arrives means future projects inherit the discipline + the verification gate from day one. Shipping both audiences at v0 also means future CHANGELOG/release-notes automation has clean Headline strings to aggregate without rewriting.
+
+**Trigger:**
+
+- The next project starts using `/ak-build` and the operator asks "what shipped product-wise" mid-PR or post-deploy.
+- OR: home-os accumulates 5+ entries in `BUILD-LOG.md` and the user wants a clean `what's new in v0` surface, which needs Headline aggregation.
+
+**Cross-ref:**
+
+- `/devshop/.claude/skills/ak-spec/SKILL.md` — spec.md template; new `## Product update` section with two named sub-sections.
+- `/devshop/.claude/skills/ak-build/SKILL.md § Phase 0` (3-section preview becomes 3-section preview + both blurbs as first lines of Scope), `§ Phase 4.1` (composition includes new section with both sub-sections), `§ Phase 5.3.5` (drift-signal #5 = product-blurb stale check on both), `§ Phase 5.6 step 3` (BUILD-LOG `Summary:` ← Detail, new `Headline:` field ← Headline), `§ Phase 6` (new Part D — operator confirms both), `§ Phase 7` (ready-for-review comment uses Detail).
+- `/devshop/.claude/skills/ak-go-live/SKILL.md § Step 6` — deployed-to-prod comment uses Headline as lede + Detail as context paragraph.
+- `/devshop/template/` — `template/BUILD-LOG.md` + `template/PLAN.md` + `template/specs/` skeletons reference the new section convention (both sub-sections).
+- Future v1 sibling entry: "Gate C — live post-deploy product-blurb attestation via browse daemon" — defer until canary-skill scope is settled. The Headline is the natural anchor for Gate C's user-visible-string assertions.
+
+**Cost/risk:**
+
+- Implementation: ~4–5 hours. 9 surface touches × small per-touch (1–3 lines of skill text) + routing logic for which blurb goes where + the Phase 6 Gate A double-blurb confirmation shape + Gate B's atomic-claim parser (parses Detail, cross-checks against Headline). Bats tests for the claim parser + the Headline/Detail audience-shape mismatch rule. Drop Gate B to a stretch if scope grows.
+- Audience-drift risk between Headline and Detail: the two can drift from each other if operator edits one and forgets the other. Mitigated by Gate B's audience-shape mismatch check — flags claims present in one but not the other. Operator decides whether the asymmetry is intentional (e.g. Headline elides a behind-the-scenes detail by design).
+- Phase 0 friction: adds one operator-attention beat at Phase 0 ("approve both product blurbs"). Mitigated by surfacing both as the first lines of Scope (not a separate section) — operator already reads Scope; the blurbs just become the named first bullets. Marginal cost ~15 seconds since Detail flows naturally from Headline.
+- False-positive risk on Gate B's claim parser: noun-phrase-grep is fuzzy; the audience-shape mismatch rule between Headline and Detail is fuzzier still (Headline is intentionally lower-fidelity). Default to "warn, don't block" — Gate A is the actual decision; Gate B is the assist. Tunable as the parser matures.
+- Voice-drift risk on Headline: the spec agent's first draft tends to leak eng terms into the marketing-grade copy ("the `monitor` state", "the new RPC"). Mitigated by a Phase 0 lint that flags forbidden-vocabulary in Headline (enum names from migrations, RPC suffixes, component PascalCase names) so the operator catches it before approval rather than at Phase 6.
 
 ---
 

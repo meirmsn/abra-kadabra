@@ -471,24 +471,6 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
   [v0, ak-go-live, gh-cli-quirk, surfaced-by home-os-PR10-go-live, 2026-05-13]
 
-- [ ] **`/ak-build` Phase 0's branch-prefix text drifts from the prevailing `feat/` project convention.** Surfaced 2026-05-13 during home-os auth-magic-link PR #10. `/ak-build § Step 0 § Derive feature name` says "Pick the branch prefix: `feature/` for new functionality, `fix/` for bug fixes" and creates the branch via `git checkout -b feature/<name>`. Home-os's project conventions enforce `feat/` (matches the conventional-commit type prefix `feat:`), so my `feature/auth-magic-link` was renamed to `feat/auth-magic-link` mid-session via some project-side mechanism (post-checkout hook? operator manual edit? exact trigger unclear from session reflog — only seen as `0b46264 HEAD@{0}: checkout: moving from feature/auth-magic-link to feat/auth-magic-link` between my branch creation and my first commit). The rename was transparent at the time but left orphan branches needing cleanup (`git branch -d feature/auth-magic-link`) — a real convention drift between the skill default and the project enforcement.
-
-  **Fix shape**: `/ak-build § Step 0 § Derive feature name` should detect the project's prevailing convention from existing branches before picking a prefix. Heuristic:
-
-  ```bash
-  FEAT_COUNT=$(git branch --list --all 'feat/*' '*/feat/*' 2>/dev/null | wc -l)
-  FEATURE_COUNT=$(git branch --list --all 'feature/*' '*/feature/*' 2>/dev/null | wc -l)
-  if [ "$FEAT_COUNT" -gt "$FEATURE_COUNT" ]; then PREFIX=feat/; else PREFIX=feature/; fi
-  ```
-
-  Default to `feat/` when both counts are zero (greenfield project). It's the shorter form, matches the conventional-commit type prefix (`feat:` / `fix:` / `chore:` already use the short form everywhere), and lalista observed the same pattern. PR #9's `feature/supabase-schema-and-rls` was a vestige from the very first project commit — most subsequent home-os and lalista branches are `feat/...`.
-
-  **Edit target**: `/devshop/.claude/skills/ak-build/SKILL.md § Step 0 § Derive feature name and ensure branch` — replace the hardcoded "`feature/` for new functionality" text with the heuristic above. Mirror in `template/.claude/skills/devshop/ak-build/SKILL.md` (or wherever the template's ak-build scaffold lives) so a fresh `/ak-new-project` inherits the same logic.
-
-  **Validation**: a fresh `/ak-new-project` followed by `/ak-build` should create `feat/<name>` (not `feature/<name>`). Existing projects with `feature/*` history (none currently — both lalista and home-os settled on `feat/*` quickly) keep using `feature/` automatically because the heuristic detects the convention from their branch list. No migration of existing branches needed; the heuristic is forward-looking only.
-
-  [v0, ak-build, branch-naming-convention, surfaced-by home-os-PR10-go-live, 2026-05-13]
-
 - [ ] **Fold Phase 5.6 BUILD-LOG + PLAN bookkeeping into the original `/ship` push to eliminate the per-PR extra CI cycle.** Surfaced 2026-05-15 during home-os landing-redirect PR #18 timeline post-mortem. Today's `/ak-build` Phase 5.6 composes the BUILD-LOG entry + removes the Active PLAN row AFTER CI is confirmed green at 5.3, then commits + pushes — triggering a fresh CI cycle that Phase 5.7 must re-watch before advancing. That cycle costs ~5 min wall clock per PR (fast-job ~1m30s + slow-job ~4m45s on home-os; varies per project). **The cost is fixed per push regardless of diff size** — a 15-LOC runtime PR pays the same 5 min as a 1500-LOC PR. PR #18's polish-loop CI history shows the shape: 3 CI runs since PR open (initial ship → 5.6 bookkeeping push → 5.8 audit-fix push), where the 5.6 cycle was structurally redundant (BUILD-LOG.md + PLAN.md changes can't affect lint, typecheck, test, or build outcomes — they're pure markdown). For a small-PR cadence (multiple PRs/day), this 5-min tax compounds.
 
   **Fix shape**: move BUILD-LOG composition into Phase 4 so the original `/ship` push carries the bookkeeping atomically. Concretely:

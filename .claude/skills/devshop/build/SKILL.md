@@ -80,31 +80,45 @@ If on `main`, find or create the right branch:
 
 1. **Check for in-progress work** — look for open PRs or local feature/fix branches:
    ```bash
-   # Open PRs from feature/fix branches
+   # Open PRs from feat/feature/fix branches
    gh pr list --state open --json headRefName --jq '.[].headRefName' 2>/dev/null
-   # Local feature/fix branches
-   git branch --list 'feature/*' 'fix/*'
+   # Local feat/feature/fix branches
+   git branch --list 'feat/*' 'feature/*' 'fix/*'
    ```
 2. **If existing branch found** → ask the user which one to resume, switch to it:
    ```bash
-   git checkout feature/<name>
+   git checkout <prefix>/<name>
    ```
 3. **If no existing branch** → determine the feature name from `PLAN.md § Planned`
    (top-ranked row) or from the gstack plan artifacts under `.gstack/projects/<slug>/`.
-   Pick the branch prefix: `feature/` for new functionality, `fix/` for bug fixes.
-   Create and switch:
+   Pick the feat-vs-feature prefix by detecting the project's prevailing
+   convention from existing branches (count `feat/*` vs `feature/*` across
+   local + remote refs); default to `feat/` on greenfield projects (both
+   counts zero) — it's the shorter form and matches the conventional-commit
+   type prefix (`feat:` / `fix:` / `chore:` already use the short form
+   everywhere). Use `fix/` instead when the work is a bug fix.
+
    ```bash
-   git checkout -b feature/<name>   # or fix/<name>
+   FEAT_COUNT=$(git branch --list --all 'feat/*' '*/feat/*' 2>/dev/null | wc -l)
+   FEATURE_COUNT=$(git branch --list --all 'feature/*' '*/feature/*' 2>/dev/null | wc -l)
+   if [ "$FEATURE_COUNT" -gt "$FEAT_COUNT" ]; then
+     PREFIX="feature/"   # project history favors the long form
+   else
+     PREFIX="feat/"      # greenfield default OR project favors the short form
+   fi
+   # Override to fix/ if the work is a bug fix:
+   # PREFIX="fix/"
+   git checkout -b "${PREFIX}<name>"
    ```
 
 Re-read the branch after switching:
 ```bash
 BRANCH=$(git branch --show-current)
-FEATURE=$(echo "$BRANCH" | sed 's|^feature/||;s|^feat/||;s|^fix/||')
+FEATURE=$(echo "$BRANCH" | sed 's|^feat/||;s|^feature/||;s|^fix/||')
 FEATURE_DIR="specs/$FEATURE"
 ```
 
-If already on a `feature/*` or `fix/*` branch, skip straight to the resume check.
+If already on a `feat/*`, `feature/*`, or `fix/*` branch, skip straight to the resume check.
 
 ### Resume check
 
@@ -197,15 +211,18 @@ test coverage matrices (spec owns), rollout/rollback plans (spec owns). The
 preview is "what would you object to?", not "here's the spec."
 
 **3. Tracker (the live view you'll see come alive)** — hierarchical, mirroring
-exactly what Phase 0.4 will instantiate via `TaskCreate`:
+exactly what Phase 0.4 will instantiate via `TaskCreate`. The harness's task
+list is flat (no real parent field), so sub-tasks **prefix their parent phase
+in the subject** — that prefix is what makes the parent-child relationship
+visible:
 
 ```
 Phase 1: Spec
 Phase 2: Implement
-  - Task 1: <first implementation task>
-  - Task 2: <second>
-  - …
-  - Task N: <last>
+Phase 2 / Task 1: <first implementation task>
+Phase 2 / Task 2: <second>
+…
+Phase 2 / Task N: <last>
 Phase 3: Pre-ship
 Phase 4: Ship
 Phase 5: CI watch + BUILD-LOG
@@ -339,16 +356,37 @@ session crash + restart finds the skeleton via Step 0's resume check.
 ### 0.4: Start the live tracker
 
 Call `TaskCreate` to instantiate the hierarchical tracker from §0.2 item 3 —
-one task per row, with Phase 2's sub-rows indented (or prefixed "Phase 2 /
-Task N:" if the harness's task list is flat). Mark Phase 1 `in_progress` the
-moment you spawn its subagent; mark `completed` when it returns. Expand /
-correct Phase 2 sub-rows against `spec.md § Task order` once Phase 1 finishes
-— if the spec's tasks shifted from the preview, update the tracker rows to
-match. Add new rows dynamically for:
+one task per row. Mark Phase 1 `in_progress` the moment you spawn its
+subagent; mark `completed` when it returns. Expand / correct Phase 2
+sub-rows against `spec.md § Task order` once Phase 1 finishes — if the
+spec's tasks shifted from the preview, update the tracker rows to match.
+Add new rows dynamically for:
 
-- Phase 3 findings as they're surfaced (e.g., "CSP fix", "dead ternary fix").
-- Ad-hoc user corrections mid-flight (e.g., "D7 flip" added after the user
-  objects to a Phase 1 decision).
+- Phase 3 findings as they're surfaced — prefixed with their parent phase
+  (e.g., `Phase 3 / Finding: CSP fix on PathCard.tsx`).
+- Phase 5 CI fix-loop attempts when the loop fires — one row per attempt
+  (e.g., `Phase 5 / Fix attempt 2: lint failure on PathCard.tsx`).
+- Ad-hoc user corrections mid-flight — also prefixed (e.g., `Phase 1 / D7
+  flip: revisit decision after operator objects`).
+
+**Subject-prefix convention** (load-bearing for the live view): when a
+phase decomposes into sub-units, every sub-task's `TaskCreate` subject
+**must** prefix its parent phase as `<Phase X> / <sub-unit>`. The harness's
+task list is flat — no real parent field — so the prefix is the only
+signal that makes the parent-child relationship visible. Without it,
+sub-tasks render as flat peers of the phase rows and an operator watching
+from `/remote-control` can't tell whether `Phase 3: in_progress` means
+the gauntlet is at Gate 1 or Gate 12.
+
+The convention applies to every sub-task this skill (or its subagents)
+creates:
+
+- Phase 2 implementation tasks: `Phase 2 / Task N: <subject from spec>`
+  (`/ak-implement` emits these naturally as task subjects; document it).
+- Phase 3 gate findings and ad-hoc fixes during pre-ship.
+- Phase 5 CI fix-loop attempts and the bookkeeping push.
+- Phase 5.8 / 5.9 sub-jobs when those fire (`Phase 5.8 / Audit N`,
+  `Phase 5.9 / Visual refresh`).
 
 If `TaskCreate` is not available in the current harness, narrate progress in
 text instead — the tracker is a visibility aid, not a correctness requirement.
