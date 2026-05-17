@@ -329,6 +329,49 @@ ${STASH_LIST:-(none)}"
       ' "$GATE_REPORT_PATH" | head -150)
     fi
 
+    # Fast-path: dismissals on a `blocked` gate are categorically invalid.
+    # `blocked` is a tooling-gap signal, not a reviewable finding — dismissing
+    # it via the per-gate `## Dismissals` shim short-circuits the orchestrator's
+    # `blocked > 0` halt path.
+    #
+    # The `blocked (n/a per scope: <reason>)` shape IS a legitimate dismissal
+    # target — the gate didn't run because of scope, not tooling, and the
+    # rationale is what this reviewer normally judges. The fast-path rejects
+    # `blocked` ONLY when the parenthetical is missing or is NOT an
+    # `n/a per scope:` claim.
+    #
+    # Codified from home-os PR #15 (2026-05-14): Gate 9 /qa reported
+    # `blocked: 1` (Supabase Kong unreachable), the dismissal-shim cascaded
+    # the blocked past review, and the PR shipped with placeholder hero
+    # shots from the sign-in flow instead of the actual feature.
+    if [ -n "$GATE_SECTION" ]; then
+      BLOCKED_RESULT_LINE=$(echo "$GATE_SECTION" \
+        | grep -E '^(- *)?\*{0,2}Result:\*{0,2} *blocked' \
+        | head -1 || true)
+      if [ -n "$BLOCKED_RESULT_LINE" ] \
+         && ! echo "$BLOCKED_RESULT_LINE" | grep -qE 'n/a per scope:'; then
+        cat <<EOF
+FAIL: dismissals on a blocked gate are invalid — blocked is a tooling-gap signal, not a reviewable finding.
+
+  Gate: $GATE_NAME
+  Result line in review.md: $(echo "$BLOCKED_RESULT_LINE" | sed 's/^- *//')
+
+  Dismissals can be applied to findings the gate produced while running;
+  they cannot wave away the gate's own inability to run. Resolve the
+  tooling gap (recover the local stack / install the missing tool / clear
+  whatever the gate's preflight cited) and re-run /ak-pre-ship so the
+  gate emits a real outcome (pass / findings / or — if scope-exempt —
+  'blocked (n/a per scope: <specific reason>)', which is a separate
+  shape this fast-path explicitly accepts).
+
+  Codified from home-os PR #15 (2026-05-14) where this exact path
+  cascaded a Gate 9 blocked past review and shipped placeholder hero
+  shots in the PR body.
+EOF
+        exit 1
+      fi
+    fi
+
     # Spec § In scope (what's on the menu for this PR) — helps reviewer judge
     # "dismissed as out-of-scope" claims against the actual scope declaration.
     FEATURE_DIR=$(dirname "$GATE_REPORT_PATH" 2>/dev/null || true)
@@ -593,6 +636,7 @@ Per-check-type rules:
     - Punts to 'TODOS' or 'follow-up' without a specific tag, issue number, or existing entry to point at
     - Claims 'user-acceptable' or 'product decision' without attributing to a specific approved spec line or design doc
     PASS only when every rationale is: specific (names what was considered and why deferred), consistent with the PR scope (doesn't cross the core user story, doesn't dismiss committed scope), and actionable (a later reviewer could find the rationale plausible given the evidence).
+    NOTE: a \`blocked\` outcome on the gate is rejected by a fast-path BEFORE this prompt fires — blocked is a tooling-gap signal, not a reviewable finding, and the only legitimate dismissable shape on a blocked gate is \`blocked (n/a per scope: <reason>)\`.
 5. **Convention adherence** (when '=== Relevant conventions ===' appears in the context): the diff/dismissal must follow the inlined conventions. A change that violates an explicit rule (e.g. a dismissal that punts on an RLS-coverage finding when § Supabase Hardening Defaults marks it non-negotiable; a slow-job stripped of the edge-runtime retry when § Slow-Job Lifecycle's checklist requires it) must FAIL unless the reason explicitly engages the rule's stated rationale. Generic 'this convention doesn't apply here' WITHOUT naming why is NOT acceptable.
 6. For exemptAddition (project-repo pre-commit, lines added to .devshop-test-coverage-exempt or .devshop-docs-freshness-exempt): the Reason is the staged additions PLUS the list of cited paths verified to exist on disk. Each entry has the format \`path  # inline reason\`. Judge each entry's inline reason individually. REJECT the WHOLE bypass if ANY entry exhibits:
     - Missing inline reason (a path with no \`#\` comment after it)

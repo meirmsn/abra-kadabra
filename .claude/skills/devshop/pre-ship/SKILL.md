@@ -47,7 +47,8 @@ at the end. For each gate, record:
 - **`findings (N)`** — gate ran and surfaced N issues that still need action. Pipeline
   usually pauses here.
 - **`n/a`** — gate does not apply to this PR (e.g. docs check when no docs changed,
-  design-review on a non-UI PR). An expected no-op; does not indicate a problem.
+  benchmark on a non-UI PR). An expected no-op; does not indicate a problem. **Not legal
+  for LLM-mediated gates — see next subsection.**
 - **`blocked`** — gate could NOT run because required tooling was missing or misconfigured
   (e.g. Chromium unavailable for design-review). This is a failure mode, not a no-op.
   `/ak-pre-ship` MUST report blocked gates explicitly to the caller. `/ak-build` MUST
@@ -55,6 +56,33 @@ at the end. For each gate, record:
 
 Never use `blocked` when you mean `n/a`, and never use `n/a` when the real reason is
 missing tooling. The orchestrator relies on this distinction.
+
+#### `n/a` is not legal for LLM-mediated gates
+
+Gates 6 `/review`, 7 `/cso`, 8 `/design-review`, 9 `/qa` MUST emit one of `pass`,
+`findings (N)`, or `blocked (reason)` — never `n/a`. These gates produce the
+judgment evidence the caller relies on; an `n/a` outcome on any of them looks like
+"the gate ran and decided nothing applied" when the actual semantics are "the gate
+didn't run." That ambiguity is what lalista PR #65 shipped on: the orchestrator
+pre-classified `/qa` and `/design-review` as `n/a` for a logic-only PR; the
+subagent obeyed; the live walk never ran; adjacent-flow regression risk shipped
+without evidence.
+
+Scope exemptions still exist — a non-UI PR genuinely doesn't need `/design-review`,
+a docs-only PR genuinely doesn't need `/qa`. The correct outcome for that case is:
+
+```
+Result: blocked (n/a per scope: <specific file-path reason>)
+```
+
+`blocked` is the literal outcome string. The `n/a per scope:` rationale is the
+audit trail. The adversarial-review chain (`dismissalLog` check-type) judges
+whether the rationale is credible. The Phase 3 → 4 handoff parser counts this as
+`blocked` for halt purposes, which is the right thing: a `blocked (n/a per scope:
+...)` rationale that doesn't hold up is exactly what the caller needs to halt on.
+
+Gates with a documented `n/a` path that fall under this rule must use the
+`blocked (n/a per scope: ...)` shape — see Gate 8 `/design-review` below.
 
 ## Phase 0: Preflight
 
@@ -568,8 +596,14 @@ If tests fail → stuck protocol (see below).
 
 ## Gate 8: /design-review (UI PRs only)
 
-- If PR doesn't touch UI files → `n/a (no UI changes)`.
-- If Phase 0 preflight flagged Chromium as unavailable → `blocked`.
+- If PR doesn't touch UI files → `blocked (n/a per scope: no UI files in diff —
+apps/**, packages/ui/**, components/** all untouched)`. The `blocked` outcome is
+  load-bearing — see § Outcome semantics § `n/a` is not legal for LLM-mediated
+  gates. The rationale is checked by `dismissalLog` adversarial review when the
+  caller dismisses the resulting `blocked` count; generic "logic-only PR" without
+  a path-glob claim FAILs.
+- If Phase 0 preflight flagged Chromium as unavailable → `blocked (Chromium not
+available — see preflight recovery)`.
 
 Invoke `/design-review` via Skill tool.
 Visual audit with fix loop — finds issues, fixes in source, commits atomically.

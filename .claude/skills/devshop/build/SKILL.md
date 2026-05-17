@@ -428,28 +428,84 @@ Launch **Agent** with prompt:
 > Return these counts explicitly (not buried in prose):
 > `passed`, `findings_pending`, `n_a`, `blocked`.
 > If `blocked > 0`, include the preflight fix recipe verbatim in the return.
+>
+> **Do NOT pre-classify gates as `n/a` in your prompt or reasoning.** Gate
+> disposition belongs to the gate runner per its SKILL.md, not to this
+> orchestrator. If you find yourself thinking "this gate doesn't apply
+> because <reason>," let the gate runner make that call and emit the
+> correct outcome shape — `blocked (n/a per scope: <reason>)` for the
+> LLM-mediated gates (6 `/review`, 7 `/cso`, 8 `/design-review`, 9 `/qa`),
+> or `n/a (<reason>)` for non-LLM-mediated gates that legitimately
+> support it. The orchestrator's job is to run the gauntlet; the gate
+> runner's job is to decide what each gate's outcome should be.
+> Pre-classifying in this prompt is what shipped lalista PR #65 without
+> `/qa` evidence — don't repeat it.
 
 `/ak-pre-ship` does NOT ship or create a PR. If findings require fixes, the agent
 handles them within its context.
 
-### Phase 3 → Phase 4 handoff: refuse to advance on blocked
+### Phase 3 → Phase 4 handoff: refuse to advance on blocked, findings, or LLM-mediated n/a
 
-After the agent returns, parse the counts. The only acceptable state to advance to
-`/ship` is: `findings_pending == 0` **and** `blocked == 0`.
+After the agent returns, parse the counts AND grep `review.md` for the
+LLM-mediated-gate `n/a` violation. The only acceptable state to advance to
+`/ship` is: `findings_pending == 0` AND `blocked == 0` AND no LLM-mediated
+gate marked `n/a`.
 
-- If `findings_pending > 0` → pause and escalate to the user (findings need fixes).
-- If `blocked > 0` → **do NOT advance to Phase 4**. The PR is not shippable until the
-  tooling gap is closed. Take these actions:
+**Rung 1 — `findings_pending > 0`**: pause and escalate to the user (findings
+need fixes).
+
+**Rung 2 — `blocked > 0`**: **do NOT advance to Phase 4**. The PR is not
+shippable until the tooling gap is closed. Take these actions:
 
   1. Emit a clear message to the user with the preflight fix recipe from the agent's return.
   2. Post a PR comment (if a PR exists for this branch already — unusual in Phase 3,
      but possible on resume) describing which gates are blocked and why.
-  3. Stop the pipeline. The user decides how to proceed (rebuild devcontainer, install
-     tooling, or re-scope the PR so the blocked gates no longer apply).
-  4. Do NOT treat `blocked` as `n/a`. A cheerful advance past blocked gates is the
-     exact failure mode this workflow exists to prevent.
+  3. **Require explicit operator acknowledgement before continuing past blocked.**
+     Do not advance autonomously. Pause the pipeline and surface the halt
+     reason verbatim. Continuing past `blocked > 0` requires the operator to
+     re-invoke `/ak-build` with either (a) the tooling gap resolved (Step 0's
+     resume check re-runs Phase 3 cleanly), or (b) an explicit override that
+     names the gate, the reason, and a follow-up tracker entry — never a
+     silent autonomous continue. Home-os PR #15 (2026-05-14) shipped past
+     `blocked: 1` because the halt happened but the override was silent;
+     reviewers received placeholder hero shots from the sign-in flow
+     instead of the actual feature.
+  4. Do NOT treat `blocked` as `n/a`. A cheerful advance past blocked gates
+     is the exact failure mode this workflow exists to prevent.
 
-Once the user has resolved the tooling issue, re-run `/ak-build` — Step 0's resume
+**Rung 3 — LLM-mediated gate marked `n/a`** (codified from lalista PR #65,
+2026-05-12): even when the agent returns `findings_pending == 0` and
+`blocked == 0`, grep `review.md` for the four LLM-mediated gates emitting
+the forbidden `n/a` outcome:
+
+```bash
+FORBIDDEN_NA=$(awk '
+  /^## Gate [0-9]+: \/(review|cso|design-review|qa)($|[^a-z-])/ { in_section=1; gate=$0; next }
+  in_section && /^## Gate / { in_section=0 }
+  in_section && /^- Result: *n\/a/ { print gate }
+  in_section && /^\*?\*?Result:\*?\*? *n\/a/ { print gate }
+' "$FEATURE_DIR/review.md")
+
+if [ -n "$FORBIDDEN_NA" ]; then
+  echo "✖ Phase 3 → 4 halt: LLM-mediated gate(s) emitted n/a (forbidden per"
+  echo "  ak-pre-ship § Outcome semantics § n/a is not legal for LLM-mediated gates):"
+  echo "$FORBIDDEN_NA" | sed 's/^/    /'
+  echo ""
+  echo "  Scope exemptions must use 'blocked (n/a per scope: <reason>)' so the"
+  echo "  dismissalLog adversarial reviewer judges the rationale. Re-run"
+  echo "  /ak-pre-ship after the gate runner emits the correct outcome shape,"
+  echo "  or — if the gate runner pre-classified per orchestrator instruction"
+  echo "  — re-examine the Phase 3 prompt for pre-classification (which is"
+  echo "  forbidden — see § Phase 3: Pre-ship)."
+  exit 1
+fi
+```
+
+The grep is anchored on the LLM-mediated gate names (`review|cso|design-review|qa`)
+so legitimate `n/a` outcomes from non-LLM-mediated gates (Gate 3 responsive,
+Gate 10 benchmark, Gate 1 docs-check) don't false-positive.
+
+Once the user has resolved the violation, re-run `/ak-build` — Step 0's resume
 check will pick up at Phase 3 and rerun pre-ship from the start.
 
 ## Phase 4: Ship

@@ -330,6 +330,16 @@ When a gate's `## Dismissals` body is non-`None` (scoped parse — `kit/scripts/
 
 Rejection fails the gate with outcome `findings (N) pending` — the pipeline pauses like any other unresolved finding. The reviewer has the full `review.md` entry + the spec's scope sections as context, so "this is consistent with our scope" claims get checked against the actual scope.
 
+### Fast-path: dismissals on a `blocked` gate are rejected before the LLM call
+
+A `blocked` outcome is a **tooling-gap signal**, not a reviewable finding. The gate didn't run (Chromium unavailable, Supabase Kong unreachable, etc.); dismissing whatever the gate would have found is meaningless because the gate found nothing. The dismissal-shim would otherwise short-circuit the orchestrator's `blocked > 0` halt path by cascading the blocked through review.
+
+`adversarial-review.sh dismissalLog` matches the gate section's `Result:` line **before** invoking the LLM. If the result is `blocked` AND the parenthetical does NOT carry `n/a per scope:`, the check returns FAIL immediately with rationale "blocked outcomes cannot be dismissed via shim-map; resolve the tooling gap or report the gate as blocked to the caller." This holds across formatting variants (`- Result: blocked (...)`, `Result: blocked`, `**Result:** blocked`).
+
+The `blocked (n/a per scope: <reason>)` shape IS a legitimate dismissal target — the gate didn't run because of scope, not tooling, and the rationale is what this reviewer normally judges (the LLM call proceeds and applies the per-gate convention inlining). Other outcomes (`pass`, `findings (N)`) are also pass-through: the fast-path only fires on a literal `blocked` Result line.
+
+Codified from home-os PR #15 (2026-05-14) where Gate 9 `/qa` reported `blocked: 1` (Supabase Kong unreachable), the dismissal-shim cascaded the blocked past review, and the PR shipped with placeholder hero shots from the sign-in flow instead of the actual feature. Coverage: `kit/tests/util-adversarial-review-blocked-dismissal.bats`.
+
 ### Convention adherence (CONVENTIONS_TO_INCLUDE inlining)
 
 `adversarial-review.sh` additionally inlines relevant sections of `kit/docs/guide/conventions.md` into the reviewer's context block, keyed by `(check-type, gate-name)`. Bypass-reason authors must demonstrate that the diff or dismissal is **consistent with the inlined rules** — a change that violates an explicit convention rule fails unless the reason explicitly engages that rule's stated rationale.
