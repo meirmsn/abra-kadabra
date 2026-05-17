@@ -13,6 +13,83 @@ Priority tiers:
 
 ## v0 — blocks next-project adoption
 
+### `/ak-build` pipeline — per-gate sub-agent decomposition + tracker-prefix convention
+
+**Problem.** `/ak-build § Phase 3` invokes `/ak-pre-ship` as a single subagent that runs the entire 13-gate gauntlet (preflight → docs → metrics → fast-job-local → changed-tests-local → responsive → `/simplify` → `/ak-check-docs-and-tests` → `/review` → `/cso` → `/design-review` → `/qa` → `/benchmark` → final preflight → convention check → hero shots) in one continuous agent context. Two structural failure modes:
+
+1. **Single point of failure for the whole gauntlet.** When the agent's socket / context / runtime fails partway through, ALL completed gate work is at risk and the orchestrator can't easily resume from the failed gate — the next invocation either re-runs everything or has to hand-stitch state. Concretely: on home-os feature/decide-state (2026-05-17), the Phase 3 subagent ran for ~2 hours and 207 tool uses, completed Gates 0–6 of 13 (including writing partial `review.md` + uncommitted fix-loop edits across 5 files), then dropped its socket. Recovery required: (a) inspecting working tree to reconstruct what the agent had done, (b) committing in-flight fixes by hand with manual gate-attribution in the commit body, (c) spawning 3 fresh sub-agents to finish the remaining gates. Net cost: ~2h burned + ~30min recovery.
+2. **The tracker is opaque while the gauntlet runs.** `/ak-build` Phase 0.4 calls `TaskCreate` for the phase rows but typically nothing nested below Phase 3, so the live UI shows `Phase 3: in_progress` for the entire 2-hour-or-more run with no signal about which gate is firing. The operator who steps away to watch from `/remote-control` (the Phase 0.5 nudge) sees a static spinner regardless of whether the gauntlet is at Gate 1 or Gate 12.
+
+**Where it bit.** home-os PR #N (feature/decide-state, 2026-05-17). Phase 3 subagent crashed at Gate 6/13 after ~2h / 207 tool uses. Recovery spawned three parallel read-only sub-agents (Audit 1, `/cso`, convention check) that completed in ~5.5 min combined wall-time, all returning `pass`. The contrast — monolith 2h → 0 returns vs sharded 5.5 min → 3/3 returns — surfaces the structural argument: per-gate granularity isolates failure, enables parallelism, and gives the tracker something to render. The crashed agent's prior 2h represented analysis the orchestrator couldn't recover programmatically; sub-agent shards write back to `review.md` (or a per-gate sink) atomically per gate, so any one drop loses at most one gate.
+
+**Two deliverables — ship the small one first.**
+
+**(A) Tracker-prefix convention** (small — ~30 min, ships as a `/ak-build` Phase 0.4 doc patch). Already proven this session.
+
+When a phase decomposes into sub-units (sub-tasks, gates, fix-loop attempts), each sub-task's `TaskCreate` subject must prefix its parent phase: `Phase 3 / Gate 7: /cso`, `Phase 5 / Fix attempt 2: lint failure on PathCard.tsx`, etc. The harness's task list is flat (no real parent field), so the prefix is what makes the parent-child relationship visible to the operator. Without the prefix, sub-tasks appear as flat peers of the phase rows and the hierarchy is illegible.
+
+The convention applies to:
+
+- `/ak-build` Phase 0.4 — add explicit "prefix every sub-task with `<Phase X> / `" rule to the existing "Phase 2's sub-rows indented (or prefixed)" wording. The "(or prefixed)" parenthetical is currently treated as fallback; flip it to canonical.
+- `/ak-implement` — sub-tasks for each `T1..TN` item already follow this naturally as task subjects; document it.
+- `/ak-pre-ship` (when (B) ships) — sub-tasks per gate.
+- Phase 5 fix loop — sub-tasks per fix attempt.
+
+Operator-facing benefit: a `Phase 3` row that sits `in_progress` for 2 hours becomes a stream of `Phase 3 / Gate N: <gate>` rows that flip `completed` as each gate returns, so the live tracker reflects real motion through the gauntlet.
+
+**(B) Per-gate sub-agent decomposition for `/ak-pre-ship`** (larger — ~3-5 hr, touches `/ak-pre-ship` SKILL.md gate-sequencing semantics + `/ak-build` Phase 3 orchestration). Ships after (A).
+
+`/ak-pre-ship` decomposes into two ordered passes:
+
+- **Stabilize-HEAD pass** (sequential — each gate may commit fixes that mutate HEAD; later gates audit the new HEAD): preflight → docs-check → metrics-check → fast-job-local → changed-tests-local → responsive → `/simplify` → `/design-review` → `/qa` → hero shots. Each fires as its own sub-agent, returns when its gate completes (`pass` / `findings (N) fixed` / `findings (N) pending` / `blocked`). Orchestrator marks the corresponding `Phase 3 / Gate N` task `completed`, then spawns the next.
+
+  Stuck-protocol semantics stay inside each gate sub-agent (try-fix × 2 → `/investigate` → escalate). Test:unit checkpoints between code-changing gates happen at the orchestrator boundary (~1s with turbo cache), not inside the sub-agent — keeps the per-gate sub-agent context bounded to its own scope.
+
+- **Analysis pass** (parallel — read-only; all four run against the stabilized HEAD): `/ak-check-docs-and-tests` (Audit 1) || `/review` || `/cso` || convention check. To prevent the race we just observed (three parallel agents all writing to `specs/<feature>/review.md`), each gate sub-agent writes to its own file under `specs/<feature>/gates/<gate-name>.md`. Orchestrator concatenates into `review.md` (or leaves them separate and Phase 6 reads from both) after all four return.
+
+This shape is the standard, not the exception — every `/ak-build` runs through both passes. The per-gate-file sink isn't a niche bug fix; it's the structural unlock that makes the analysis pass parallel-safe.
+
+**Halt-on-find vs iterative-fix dispatch.** Two categories of gate determine who fixes findings:
+
+- **Iterative-fix gates** (`/simplify`, `/design-review`, `/qa`, convention check, `/benchmark` when surfaceable): sub-agent finds AND fixes AND commits atomically per fix. Same posture as today's monolithic `/ak-pre-ship`.
+- **Halt-on-find gates** (`/review`, `/cso`, `/ak-check-docs-and-tests` Audit 1): sub-agent surfaces findings, returns. Orchestrator routes by severity — high → escalate to operator; medium → list in Phase 6 audit comment; low → note + proceed; mechanical/obvious → orchestrator dispatches a focused fix sub-agent. Preserves the existing trust boundary on security/SQL-critical findings (don't auto-fix without operator read).
+
+**Where it goes (mechanical).**
+
+- `/devshop/.claude/skills/ak-build/SKILL.md § Phase 0.4` — codify tracker-prefix convention (deliverable A).
+- `/devshop/.claude/skills/ak-build/SKILL.md § Phase 3` — rewrite to dispatch per-gate sub-agents; document the stabilize-pass / analysis-pass split + per-gate-file sink (deliverable B).
+- `/devshop/.claude/skills/ak-pre-ship/SKILL.md § Outcome semantics` — add "each gate sub-agent writes to its own `specs/<feature>/gates/<gate-name>.md`; the orchestrator concatenates" (deliverable B).
+- `/devshop/.claude/skills/ak-pre-ship/SKILL.md § Stuck protocol` — clarify scope (stuck protocol stays inside each gate sub-agent; test:unit checkpoints are orchestrator-level).
+
+**Generalization questions** (call out, don't scope here):
+
+- Phase 5 fix loop currently runs 3 attempts in one agent; a fresh agent per attempt would give each attempt clean context (no inherited inference from a failed attempt). Worth scoping if/when Phase 5 also produces a recoverable-state failure mode.
+- Phase 2 (`/ak-implement`) currently loops T1..TN inside one agent; continuity may help more than fragmentation hurts (agent learns the codebase as it goes). Leave monolithic unless a concrete failure surfaces.
+
+**Why v0:** `/ak-build` is the canonical "build it and ship it" pipeline every devshop project runs. The monolith failure mode hit on the first real cross-context Phase 3 run on home-os (2026-05-17); it will recur on every `/ak-pre-ship` invocation that pushes against the agent's context/runtime envelope. Lalista hasn't surfaced it yet because lalista's PRs tend to be smaller, but the structural risk is the same — only the firing rate differs. Tracker-prefix (deliverable A) is small enough to ship same-day and pays back every `/ak-build` going forward.
+
+**Trigger:**
+
+- home-os feature/decide-state (2026-05-17) — Phase 3 monolith crashed at Gate 6/13 after ~2h / 207 tool uses; sharded recovery 3/3 in ~5.5 min wall-time.
+- Every future `/ak-build` with a non-trivial diff (the failure surface scales with gauntlet duration, which scales with diff size).
+
+**Cross-ref:**
+
+- `/devshop/.claude/skills/ak-build/SKILL.md § Phase 3` — current monolithic invocation pattern.
+- `/devshop/.claude/skills/ak-build/SKILL.md § Phase 0.4` — current "Phase 2's sub-rows indented (or prefixed)" wording.
+- `/devshop/.claude/skills/ak-pre-ship/SKILL.md` — the gate gauntlet that needs to know about per-gate-file sink.
+- home-os `specs/decide-state/review.md` — concrete example of the per-gate sections (today written by one agent; under (B) each section is written by its own sub-agent into its own file).
+
+**Cost/risk:**
+
+- Implementation: ~30 min for (A) — single-file doc patch in `/ak-build § Phase 0.4`; no behavior change beyond a stronger statement of intent. ~3–5 hr for (B) — orchestrator rewrite in `/ak-build § Phase 3` + per-gate-file convention in `/ak-pre-ship § Outcome semantics` + Phase 6 reader update to source from `specs/<feature>/gates/*.md`.
+- Risk: low. (A) is doc-only. (B) preserves existing gate semantics (each gate skill is unchanged) and only changes how `/ak-build` invokes them; the failure mode (one gate's sub-agent crashes) is strictly better than the current "the whole gauntlet's sub-agent crashes".
+- Benefit: failure isolation (one gate's drop ≠ all-gates' drop), parallelism on the analysis pass (~10–15 min wall-time saved on every Phase 3), live-tracker visibility (operator can see which gate is firing without polling logs).
+
+[v0, surfaced-by home-os feature/decide-state Phase 3 monolith crash on 2026-05-17]
+
+---
+
 ### `template/.devcontainer/init-firewall.sh` — env-aware Supabase port allowance
 
 **Problem.** Lines 232-234 hard-code outbound TCP allow rules for `host.docker.internal:54321` + `54322` (upstream Supabase defaults). Projects that rebind +100 to avoid port collisions on the host (e.g. home-os: `54421/54422`, documented in CLAUDE.md § Local Supabase ports as the canonical rebind escape hatch) get **silent EHOSTUNREACH** from the workspace to their actually-listening Supabase stack. The script keeps running with the wrong rule, so the failure mode is "everything looks healthy until you try to admin-seed via Playwright" — at which point Node fetch returns `EHOSTUNREACH` from inside the devcontainer.
