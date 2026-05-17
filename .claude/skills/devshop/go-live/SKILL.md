@@ -226,6 +226,32 @@ If empty, print "No blocking pending tasks — proceeding" and continue to Step 
 
 ## Step 2: Land and deploy
 
+### Step 2.0: Working-tree cleanliness gate
+
+Before invoking `/land-and-deploy`, verify the working tree is clean. `gh pr merge --squash --delete-branch` runs `git checkout <base>` under the hood after the squash; if local changes exist that would be overwritten, the merge fails mid-flight — but on the GitHub side it has often already merged the PR + deleted the remote branch (irrecoverable state if you weren't expecting it). The local error message `failed to run git: error: Your local changes to the following files would be overwritten by checkout` is confusing because it sounds like nothing happened; the user has to inspect GitHub to discover the merge already shipped.
+
+```bash
+DIRTY=$(git status --porcelain)
+if [ -n "$DIRTY" ]; then
+  echo "✖ Step 2.0: working tree is dirty — would corrupt mid-merge."
+  echo "$DIRTY" | head -10
+  # Surface to operator via AskUserQuestion with three options:
+  #   A) commit the changes on the feature branch (if they're feature-related)
+  #   B) stash them (if they're unrelated session noise)
+  #   C) abort /ak-go-live so the operator can sort it out
+fi
+```
+
+Common offenders the agent should recognize:
+
+- **Subagent artifact left uncommitted** — e.g., Phase 5.8's `## Audit N` section in `review.md` (codified in `/ak-build` Phase 5.8.3's commit-or-surface rule, but a stale skill version may have shipped without it). If the dirty file is a `specs/<feature>/review.md` or similar feature artifact, option A (commit on the feature branch) is the right call — the file belongs in the PR.
+- **Editor / session noise** — e.g., `.vscode/settings.json` from a different session. Option B (stash) keeps the merge clean.
+- **Actual in-progress work** — option C (abort) lets the operator finish or roll back deliberately.
+
+**Codified from**: home-os PR #26 (2026-05-16). Phase 5.8 subagent wrote Audit-2 to `review.md` but didn't commit; `/ak-go-live` Step 2's `gh pr merge --squash --delete-branch` failed mid-checkout AFTER the GitHub-side merge + branch deletion already shipped. The local error message read like the merge hadn't happened. Two-fix combo: `/ak-build` Phase 5.8.3 now commit-or-surfaces (be0535d on devshop), AND this step now pre-checks the tree before invoking `gh pr merge` so the next class of leftover-artifact never reaches the failure path.
+
+### Step 2.1: Invoke `/land-and-deploy`
+
 Invoke `/land-and-deploy` via Skill tool.
 
 gstack's `/land-and-deploy`: checks CI green, merges PR, waits for deploy, verifies

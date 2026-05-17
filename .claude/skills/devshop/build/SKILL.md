@@ -1132,9 +1132,24 @@ Agent({
   /ak-docs-review and /ak-tests-review in sequence, and appends a new
   '## Audit N' section with structured findings (docs + tests) and
   bypass-trailer review. Do NOT write any docs or tests yourself —
-  your job is to audit and recommend, not implement. Return the
-  findings summary line ('findings: high=N medium=N low=N') from the
-  appended section."
+  your job is to audit and recommend, not implement.
+
+  **COMMIT-OR-SURFACE RULE** (codified from home-os PR #26 — the
+  Audit-2 section was written to ${FEATURE_DIR}/review.md but never
+  committed; it was lost when the squash-merge happened mid-flight):
+  After appending the section, either (a) commit it on the current
+  branch with message 'docs(${FEATURE}): Phase 5.8 review.md Audit N
+  section' using the dirtyTreeReason bypass if needed, OR (b) leave
+  the file dirty in the working tree AND return the line 'UNCOMMITTED:
+  ${FEATURE_DIR}/review.md' in your response so the orchestrator can
+  decide what to do. Default to (a) — committing is the right call
+  unless something specific blocks it. Never return success without
+  one of these two outcomes; a clean working tree with no commit
+  means the audit was silently lost.
+
+  Return: the findings summary line ('findings: high=N medium=N
+  low=N') from the appended section, plus 'committed: <SHA>' or
+  'UNCOMMITTED: <path>'."
 })
 ```
 

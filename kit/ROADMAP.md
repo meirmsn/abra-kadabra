@@ -13,6 +13,24 @@ Priority tiers:
 
 ## v0 — blocks next-project adoption
 
+### `template/.devcontainer/init-firewall.sh` — env-aware Supabase port allowance
+
+**Problem.** Lines 232-234 hard-code outbound TCP allow rules for `host.docker.internal:54321` + `54322` (upstream Supabase defaults). Projects that rebind +100 to avoid port collisions on the host (e.g. home-os: `54421/54422`, documented in CLAUDE.md § Local Supabase ports as the canonical rebind escape hatch) get **silent EHOSTUNREACH** from the workspace to their actually-listening Supabase stack. The script keeps running with the wrong rule, so the failure mode is "everything looks healthy until you try to admin-seed via Playwright" — at which point Node fetch returns `EHOSTUNREACH` from inside the devcontainer.
+
+**Where it bit.** home-os PR #26 (2026-05-16) Phase 5.9 (hero shots via seeded fixture). The subagent successfully wrote the spec, set up Chromium symlinks, prepared the seed payload — then `adminClient.auth.admin.createUser({...})` returned `AuthRetryableFetchError: fetch failed` against `http://host.docker.internal:54421/auth/v1/admin/users`. Diagnosed at Phase 5.9.failure: `getent ahostsv4 host.docker.internal` resolved fine (192.168.65.254), but iptables had no ACCEPT rule for that destination on port 54421 (only 54321), so the SYN packets were silently DROPped by the default policy below. Worked around with a session-ephemeral `sudo iptables -I OUTPUT -p tcp -d 192.168.65.254 --dport 54421 -j ACCEPT` (lost on container restart).
+
+**Fix shape:**
+
+- `template/.devcontainer/init-firewall.sh` lines 230-237: source ports from `SUPABASE_API_PORT` + `SUPABASE_DB_PORT` env vars (read from `.devcontainer/.env`), defaulting to `54321/54322` when unset.
+- Update the surrounding comment block (lines 213-229) to drop the hard-coded port references and explain the env-var override path.
+- For projects already in the wild: cherry-pick or re-sync the file from `template/`. The fix is backwards-compatible — projects that never rebound keep the defaults.
+
+**Why this entry sits in v0:** new projects that rebind ports get silent failures with no good signal — `pnpm db:start` succeeds, the stack is reachable from inside the supabase-runner container, the operator's macOS browser reaches it via Docker Desktop's port forward; only the workspace's iptables-mediated outbound traffic gets DROPped. The class of failure ("everything works except admin-side seeds from the workspace") is hard to debug if you haven't seen it before.
+
+**Why not a Track-A inline fix:** `template/.devcontainer/init-firewall.sh` is on the `[locked]` manifest list AND the project settings.json `deny` list at `Edit(/devshop/template/**)`. Agent can't edit it directly; this entry surfaces it for the next devshop-side maintenance window with `sudo` access.
+
+**Operator path while this entry is open:** workspace runs into EHOSTUNREACH on rebound-port projects → run `sudo iptables -I OUTPUT -p tcp -d $(getent ahostsv4 host.docker.internal | awk '{print $1}' | head -1) --dport <project-supabase-port> -j ACCEPT` to unblock. Add to project CLAUDE.md § Gotchas as the temporary patch. Drops automatically when this entry ships.
+
 ### Docs-coverage hook exempts audit-prose paths (`specs/<feature>/review.md` and similar)
 
 **Problem.** `kit/scripts/commit-hooks/check-docs-freshness-project.sh` greps every staged file for `posthog.capture(`, `Sentry.captureException(`, and similar analytics-call regex. When `specs/<feature>/review.md` (the audit-trail file written by `/ak-pre-ship` Gate 8 and `/ak-check-docs-and-tests` § Audit N) contains an audit bullet attesting "this PR adds zero `posthog.capture()` calls", the literal string `posthog.capture()` is the **subject** of the audit prose, not a new call site. The hook fires `BLOCKING: New analytics event call sites added without METRICS.md update`, the operator pays a `Docs-Coverage-Bypass:` trailer to commit, and audit-time's bypass-trailer review then VERIFIES the trailer as "yes, false positive in audit prose" — the system pays Sonnet to confirm what the hook already knew but couldn't express.
