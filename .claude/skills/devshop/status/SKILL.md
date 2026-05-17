@@ -50,7 +50,7 @@ cat "$FEATURE_DIR/review.md" 2>/dev/null || echo "No review yet"
 Also check for in-progress state:
 
 - `PLAN.md § Active` rows (what branches are alive and what they're building)
-- `PLAN.md § Planned` rows (what's next, ordered)
+- `PLAN.md § Planned` rows (what's next, sorted by Leverage descending)
 - Any `in_progress` tasks in `$FEATURE_DIR/tasks.md`
 - Any uncommitted changes
 - Any stashed changes
@@ -67,7 +67,7 @@ Use this exact format — no prose, no paragraphs:
 Phase:    <init / implementing / pre-ship / between features / devshop>
 Branch:   <current branch name>
 Active:   <active branches from PLAN.md § Active with their Notes, or "none">
-Planned:  <top 1–3 rows from PLAN.md § Planned with their #, or "none">
+Planned:  <top 1–3 rows from PLAN.md § Planned with their Feature slug, or "none">
 Recent:   <last 1–2 ship entries from BUILD-LOG.md (feature + PR#), or "none">
 Done:     <completed tasks on current branch, recent commits summary>
 Next:     <next task, next workflow step, or next init step>
@@ -103,7 +103,7 @@ Keep each line to one sentence. Do not modify any files.
 
 4. Synthesize 2–4 lines describing:
    - Command to invoke: `` `/ak-build <feature>` ``
-   - What it flips: `PLAN.md § Planned` row #N → `## Active`
+   - What it flips: the matching `PLAN.md § Planned` row → `## Active`
    - What `/ak-spec` consumes: the pointer source + discovered gstack files + `DESIGN.md`
    - What pauses for human confirmation: open-decisions / METRICS events / scope questions — with a rough count
    - If the feature's scope source references migrations, tests, or specific components, mention them by name

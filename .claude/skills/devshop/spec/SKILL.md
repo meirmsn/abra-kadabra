@@ -184,13 +184,13 @@ If `PLAN.md` doesn't exist, create it from `/devshop/template/PLAN.md`.
 
 Find the row in `PLAN.md § Planned` whose Feature cell matches `$FEATURE`:
 
-- **Row exists**: move it from `## Planned` to `## Active` with this format, preserving the Notes content:
+- **Row exists**: move it from `## Planned` to `## Active` with this format, preserving the Hook content:
 
   ```markdown
-  | feat/$FEATURE | specs/$FEATURE/spec.md | <Notes from the Planned row> |
+  | feat/$FEATURE | specs/$FEATURE/spec.md | <Hook from the Planned row> |
   ```
 
-  Renumber remaining Planned rows so their `#` values stay dense (no gaps).
+  Planned rows are sorted by Leverage descending and identified by Feature slug — no row numbers to renumber.
 
 - **Row doesn't exist** (feature kickstarted without a prior Planned entry): add a new row directly to `## Active`. Ask the user for a one-line Notes pointer identifying the scope source (e.g. `PRODUCT-ROADMAP.md § v0 § Xa`, or a gstack plan section reference).
 
