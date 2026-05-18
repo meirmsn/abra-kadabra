@@ -43,15 +43,32 @@ not a task-grain stream.
 
 Do NOT invoke when:
 
-- Already on `main` — there's nothing to merge.
-- Working tree dirty — commit or stash first.
+- Working tree dirty (on `/devshop` OR in the target worktree) — commit or stash first.
 - This is a project (lalista) repo, not `/devshop` — projects use PRs +
   `/ship` + `/ak-go-live`, not this flow.
 
+The skill auto-detects feature work in three shapes:
+
+- **`/devshop` is on the feature branch directly** (operator checked it out
+  in the main worktree). Skill runs the squash + ff-merge in place.
+- **`/devshop` is on `main`, a linked worktree is on the feature branch**
+  (`.worktrees/<topic>/`). Skill detects the worktree, routes Phase 2's
+  squash there via `git -C $WORKTREE_PATH`, and tears the worktree down
+  in Phase 4.2 after the ff-merge succeeds.
+- **Multiple linked worktrees ahead of `origin/main`** — skill refuses with
+  the candidate list and requires `--branch <name>` to disambiguate.
+
+`/devshop` on `main` with NO feature worktree ahead of `origin/main` is the
+only legitimate refusal — there is genuinely nothing to merge.
+
 ## Inputs
 
-- (none required) — the skill auto-detects from the current branch.
-- The current branch must be the feature branch to merge.
+- **(none, common case)** — the skill auto-detects from `git branch
+--show-current` on `/devshop` plus a `git worktree list --porcelain` scan
+  for linked feature worktrees.
+- **`--branch <name>`** — disambiguates when multiple linked worktrees are
+  ahead of `origin/main`. The name matches a branch ref (e.g.
+  `feat/foo` or `fix/bar`), not the worktree directory name.
 
 ---
 
@@ -63,40 +80,119 @@ once pushed, fixing it requires a force-push (which this devshop's
 history with a "fix the previous commit message" entry). Phase 0 catches this
 before anything is destructive.
 
-### 0.1: Hard preconditions
+### 0.1: Hard preconditions + worktree detection
 
-Run from `/devshop`. Refuse early on any of these:
+Run from `/devshop`. Two paths converge on the same downstream variables
+(`BRANCH`, `WORKTREE_PATH`): direct-checkout (legacy) and worktree-detected
+(default). `WORKTREE_PATH` is empty when the feature branch is checked out
+in `/devshop` itself; non-empty when detection located a linked worktree.
 
 ```bash
 cd /devshop
 
-BRANCH=$(git branch --show-current)
-if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
-  echo "✖ on main — checkout the feature branch first"; exit 1
-fi
-if [ -n "$(git status --porcelain)" ]; then
-  echo "✖ working tree dirty — commit or stash first"; exit 1
-fi
-
 git fetch origin
 
-# Refuse if branch == origin/main (nothing to merge). Divergent branches are
-# OK — Phase 2's rebase reconciles them with origin/main before squashing.
-if [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ]; then
-  echo "✖ $BRANCH is at origin/main — nothing to merge"; exit 1
+CURRENT=$(git branch --show-current)
+WORKTREE_PATH=""
+
+if [ "$CURRENT" = "main" ] || [ "$CURRENT" = "master" ]; then
+  # /devshop is on main — scan for a linked worktree on a feature-typed
+  # branch ahead of origin/main. `git worktree list --porcelain` is the
+  # canonical inventory (matches both linked worktrees and the main worktree
+  # itself; filter the main worktree out by skipping the entry whose
+  # `worktree` path equals /devshop).
+  CANDIDATES=$(git worktree list --porcelain | awk '
+    /^worktree / { wt=$2 }
+    /^branch refs\/heads\// {
+      ref=$2
+      sub(/^refs\/heads\//, "", ref)
+      if (wt != "/devshop" && ref ~ /^(feat|feature|fix|docs|chore|refactor)\//) {
+        print wt "\t" ref
+      }
+    }
+  ')
+
+  # Filter to branches actually ahead of origin/main (a worktree at origin/main
+  # has nothing to merge — same exclusion as the legacy at-origin-main check).
+  FILTERED=""
+  while IFS=$'\t' read -r wt ref; do
+    [ -z "$wt" ] && continue
+    AHEAD=$(git rev-list --count "origin/main..$ref" 2>/dev/null || echo 0)
+    if [ "$AHEAD" -gt 0 ]; then
+      FILTERED="${FILTERED}${wt}\t${ref}\n"
+    fi
+  done <<< "$CANDIDATES"
+
+  N=$(printf "$FILTERED" | grep -c '^.' || echo 0)
+
+  if [ "$N" -eq 0 ]; then
+    echo "✖ /devshop is on main with no feature worktree ahead of origin/main"
+    echo "  Either checkout the feature branch first, or develop it in a"
+    echo "  linked worktree (.worktrees/<topic>/) and re-invoke."
+    exit 1
+  fi
+
+  if [ -n "$BRANCH_ARG" ]; then
+    # Operator disambiguated via --branch
+    WORKTREE_PATH=$(printf "$FILTERED" | awk -F'\t' -v b="$BRANCH_ARG" '$2==b {print $1; exit}')
+    if [ -z "$WORKTREE_PATH" ]; then
+      echo "✖ --branch $BRANCH_ARG not found among feature worktrees ahead of origin/main"
+      echo "  Available:"
+      printf "$FILTERED" | awk -F'\t' 'NF{print "    " $2 " (" $1 ")"}'
+      exit 1
+    fi
+    BRANCH="$BRANCH_ARG"
+  elif [ "$N" -eq 1 ]; then
+    WORKTREE_PATH=$(printf "$FILTERED" | awk -F'\t' 'NF{print $1; exit}')
+    BRANCH=$(printf "$FILTERED" | awk -F'\t' 'NF{print $2; exit}')
+  else
+    echo "✖ multiple feature worktrees ahead of origin/main; pass --branch <name>:"
+    printf "$FILTERED" | awk -F'\t' 'NF{print "    " $2 " (" $1 ")"}'
+    exit 1
+  fi
+
+  echo "ℹ detected worktree: $WORKTREE_PATH (branch: $BRANCH)"
+else
+  # /devshop is already on the feature branch (legacy path — operator did the
+  # manual dance or never used worktrees).
+  BRANCH="$CURRENT"
 fi
 
-# Verify branch has at least one commit ahead of merge-base (otherwise nothing
-# to squash). `git rev-list --count <merge-base>..HEAD` returns the ahead count.
-MERGE_BASE=$(git merge-base origin/main HEAD)
-if [ "$(git rev-list --count ${MERGE_BASE}..HEAD)" = "0" ]; then
-  echo "✖ $BRANCH has no commits ahead of origin/main — nothing to squash"; exit 1
+# Dirty-tree check: applies to whichever working tree owns the feature branch.
+TARGET=${WORKTREE_PATH:-/devshop}
+if [ -n "$(git -C "$TARGET" status --porcelain)" ]; then
+  echo "✖ working tree dirty at $TARGET — commit or stash first"
+  exit 1
+fi
+
+# Verify branch has at least one commit ahead of merge-base (defense in depth
+# even though detection already filtered for this; the legacy direct-checkout
+# path hasn't been through that filter).
+MERGE_BASE=$(git merge-base origin/main "$BRANCH")
+if [ "$(git rev-list --count ${MERGE_BASE}..${BRANCH})" = "0" ]; then
+  echo "✖ $BRANCH has no commits ahead of origin/main — nothing to squash"
+  exit 1
 fi
 ```
 
-If any fails, surface the diagnostic and stop. The operator fixes and re-invokes.
+If any check fails, surface the diagnostic and stop. The operator fixes
+and re-invokes. After 0.1, two variables are set: `BRANCH` (the feature
+branch ref, no `refs/heads/` prefix) and `WORKTREE_PATH` (the linked
+worktree dir if detected, empty otherwise). All subsequent phases consult
+`WORKTREE_PATH` to decide whether to route git commands via `-C
+"$WORKTREE_PATH"`.
 
 ### 0.2: Read state needed for the preview
+
+All git commands in this phase MUST address the branch by name (`$BRANCH`)
+rather than implicitly using `HEAD`, because when `WORKTREE_PATH` is set,
+`/devshop`'s HEAD is on `main` — not the feature branch we're reading
+state for. `git log origin/main..$BRANCH` works from any worktree.
+
+`$FEATURE_DIR` resolution is a parallel concern: `specs/<name>/` lives in
+whichever working tree owns the branch's checkout. Use
+`${WORKTREE_PATH:-/devshop}/specs/$FEATURE` when reading the audit file,
+since that's where Phase 1 will write the new `## Audit N` section.
 
 ```bash
 FEATURE=$(echo "$BRANCH" | sed -E 's#^(feat|feature|fix|docs|chore|refactor)/##')
@@ -106,17 +202,19 @@ if [ -z "$FEATURE" ] || [ "$FEATURE" = "$BRANCH" ]; then
   echo "  branch: $BRANCH"
   exit 1
 fi
-FEATURE_DIR="specs/$FEATURE"
+TARGET=${WORKTREE_PATH:-/devshop}
+FEATURE_DIR="${TARGET}/specs/$FEATURE"
 
-# Range of commits being merged
-COMMITS=$(git log --reverse --format='%h %s' origin/main..HEAD)
+# Range of commits being merged (use $BRANCH explicitly — works regardless
+# of which worktree we're standing in).
+COMMITS=$(git log --reverse --format='%h %s' "origin/main..$BRANCH")
 N_COMMITS=$(echo "$COMMITS" | grep -c '^' || echo 0)
 
 # Diff shape
-DIFFSTAT=$(git diff --stat origin/main...HEAD | tail -1)        # one-line summary
-DIFFFILES=$(git diff --name-only origin/main...HEAD | head -50) # file list (capped)
+DIFFSTAT=$(git diff --stat "origin/main...$BRANCH" | tail -1)
+DIFFFILES=$(git diff --name-only "origin/main...$BRANCH" | head -50)
 
-# Audit state
+# Audit state — read review.md from whichever worktree owns the branch.
 if [ -f "$FEATURE_DIR/review.md" ]; then
   LATEST_AUDIT_SHA=$(grep -oP '(?<=<!-- audited-at: )[a-f0-9]+' \
     "$FEATURE_DIR/review.md" 2>/dev/null | tail -1)
@@ -125,7 +223,7 @@ else
   LATEST_AUDIT_SHA=""
   AUDIT_COUNT=0
 fi
-HEAD_SHA=$(git rev-parse HEAD)
+HEAD_SHA=$(git rev-parse "$BRANCH")
 ```
 
 Audit-status display logic:
@@ -142,12 +240,14 @@ This is the load-bearing step — once squashed, the per-commit pointer chain is
 gone, and the message body is the only durable record of detail. The composer
 (you) reads:
 
-1. `git log --reverse --format='%H%n%s%n%n%b%n----%n' origin/main..HEAD` — full
-   subject + body for each commit, separator-delimited. This is the composer's
+1. `git log --reverse --format='%H%n%s%n%n%b%n----%n' "origin/main..$BRANCH"` —
+   full subject + body for each commit, separator-delimited. Use `$BRANCH`
+   rather than `HEAD` so this works when `WORKTREE_PATH` is set
+   (`/devshop`'s HEAD is on `main` in that case). This is the composer's
    reference input for distilling each commit into a 1-3-bullet entry under
    the `## Squashed commits` section (the section itself is compressed, not
    verbatim — see § "Why compressed bullets, not verbatim bodies" below).
-2. `git diff --stat origin/main...HEAD` — shape of the change.
+2. `git diff --stat "origin/main...$BRANCH"` — shape of the change.
 3. Selected file diffs for files the diffstat flags as central (e.g. the new
    skill file, the largest changed file, files whose names suggest the
    feature's core — not the whole diff; use judgment, target ~3-5 files).
@@ -312,11 +412,11 @@ For mechanical input:
 
 ```bash
 # subject + body for composer reference
-git log --reverse --format='%h %s%n%n%b%n----' origin/main..HEAD
+git log --reverse --format='%h %s%n%n%b%n----' "origin/main..$BRANCH"
 
 # diff per commit, scoped to the commit's actual changes (helps when the
 # body and the diff disagree — trust the diff)
-git log --reverse --format='%h %s' origin/main..HEAD | while read sha _; do
+git log --reverse --format='%h %s' "origin/main..$BRANCH" | while read sha _; do
   echo "=== $sha ==="
   git show --stat "$sha"
 done
@@ -432,11 +532,22 @@ reasons this is the right shape:
    the source side, fast-forward to the destination. Phase 3 then becomes
    a pointer move with no new commit.
 
+Route every git invocation in this phase via `$GIT_CMD`, which expands to
+`git` when the feature branch is checked out on `/devshop` (legacy direct-
+checkout) or `git -C "$WORKTREE_PATH"` when detection in Phase 0.1 found a
+linked worktree. The worktree-routed path also sidesteps the virtiofs
+stat-cache phantom rebase error: the bug only fires in `/devshop`'s
+main-worktree index after a manual `worktree remove --force`, and the
+new flow does no such removal before Phase 2 (the worktree teardown
+happens in Phase 4.2, after the squash is already on a different ref).
+
 ```bash
-# Already on the feature branch from Phase 0.
-git rebase origin/main          # incorporate origin/main's commits; resolve conflicts inline
-git reset --soft origin/main    # collapse all of $BRANCH's commits to a single staged delta
-git commit -F "/tmp/squash-message-${FEATURE}.txt"
+GIT_CMD="git"
+[ -n "$WORKTREE_PATH" ] && GIT_CMD="git -C $WORKTREE_PATH"
+
+$GIT_CMD rebase origin/main          # incorporate origin/main's commits; resolve conflicts inline
+$GIT_CMD reset --soft origin/main    # collapse all of $BRANCH's commits to a single staged delta
+$GIT_CMD commit -F "/tmp/squash-message-${FEATURE}.txt"
 ```
 
 Why `--soft`: `git reset --soft <commit>` moves HEAD to `<commit>` while
@@ -451,17 +562,20 @@ correct squash only if the working tree already contains origin/main's
 content. Without the rebase, the soft-reset would create a commit that
 appears to _revert_ any origin/main changes the branch hadn't picked up.
 The rebase merges them in first; conflicts are resolved at rebase time
-(operator-visible, recoverable via `git rebase --abort`).
+(operator-visible, recoverable via `$GIT_CMD rebase --abort`).
 
-If `git rebase origin/main` reports conflicts: resolve them (mechanical
-resolutions inline, ambiguous ones via the operator), `git add`, then
-`git rebase --continue`. Repeat until rebase finishes.
+If `$GIT_CMD rebase origin/main` reports conflicts: resolve them
+(mechanical resolutions inline, ambiguous ones via the operator),
+`$GIT_CMD add`, then `$GIT_CMD rebase --continue`. Repeat until rebase
+finishes. When `$GIT_CMD` includes `-C "$WORKTREE_PATH"`, the conflict
+files live under `"$WORKTREE_PATH"`, not `/devshop` — use the Edit tool
+with the worktree-prefixed absolute path.
 
-If `git commit` fails (pre-commit hook block — Layer 1 docs/tests-coverage,
-gitleaks, lint, typecheck, test suite): halt and surface the hook output.
-The fix lives in the branch content; resolve, re-stage if needed, retry
-the commit. The branch is still valid for re-invocation — Phase 0's
-ff-mergeability check is the only thing that needs to re-pass.
+If `$GIT_CMD commit` fails (pre-commit hook block — Layer 1 docs/tests-
+coverage, gitleaks, lint, typecheck, test suite): halt and surface the
+hook output. The fix lives in the branch content; resolve, re-stage if
+needed, retry the commit. The branch is still valid for re-invocation —
+Phase 0's ff-mergeability check is the only thing that needs to re-pass.
 
 If the rename+symlink-at-old-path combo from § Known limitations fires
 during the rebase or commit: switch to the documented ff-only fallback
@@ -554,7 +668,31 @@ After the squash, the feature branch's commits are NOT in main's ancestry —
 git's `branch -d` (lowercase) safety check will refuse. With 4.1's tree-
 equality check passing, force-delete is safe.
 
+Cleanup ordering matters when `WORKTREE_PATH` is set: the linked worktree
+must be torn down BEFORE `git branch -D` (git refuses to delete a branch
+that's still checked out in any worktree, and `-D` doesn't override that).
+Submodules in the worktree need a two-command teardown (`submodule deinit
+-f --all` clears working dirs but leaves git's per-worktree submodule
+registry, which then trips `git worktree remove`; the `--force` flag is
+required to override that registry check). Skip the worktree-teardown
+block entirely on the legacy direct-checkout path.
+
 ```bash
+# Worktree teardown (only when detection set WORKTREE_PATH).
+if [ -n "$WORKTREE_PATH" ]; then
+  # Step 1: deinit submodules in the worktree. Per-worktree-checkout-dir;
+  # /devshop's submodules are untouched (separate working trees of the same
+  # submodule registry).
+  git -C "$WORKTREE_PATH" submodule deinit -f --all 2>&1 | tail -5
+
+  # Step 2: remove the worktree. --force is REQUIRED even after deinit:
+  # git's per-worktree submodule registry still trips the safety check
+  # ("working trees containing submodules cannot be moved or removed")
+  # independently of working-dir content.
+  git worktree remove --force "$WORKTREE_PATH"
+fi
+
+# Branch cleanup — fires after the worktree (if any) is gone.
 git branch -D "$BRANCH"
 
 # Remote branch — best-effort. The branch may not have a remote.
@@ -567,9 +705,19 @@ rm -f "/tmp/squash-message-${FEATURE}.txt"
 ```
 
 If `git branch -D` fails for any reason (extremely unlikely at this point —
-HEAD is on main, branch exists locally, force-delete should always work):
-surface the error and continue. The merge has already shipped; a stale local
-branch is a cosmetic problem the operator can clean up by hand.
+HEAD is on main, branch exists locally, force-delete should always work,
+worktree has been torn down if it existed): surface the error and continue.
+The merge has already shipped; a stale local branch is a cosmetic problem
+the operator can clean up by hand.
+
+If `git worktree remove --force` fails (filesystem permission, in-flight
+submodule update racing the deinit): surface the error, leave the worktree
+in place, and continue to `git branch -D` (which will then fail with
+"branch is checked out at <worktree>"). The operator inspects, repairs
+manually (`rm -rf .worktrees/<topic>` is the nuclear option; `git worktree
+prune` reconciles registry), and re-runs Phase 4.2's commands. The merge
+is durable on main at this point — failure here is cosmetic, not
+data-losing.
 
 ---
 
