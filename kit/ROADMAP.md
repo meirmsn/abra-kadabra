@@ -13,61 +13,6 @@ Priority tiers:
 
 ## v0 — blocks next-project adoption
 
-### `/ak-pre-ship` — add migration-rollback-roundtrip gate (local, not CI-only)
-
-**Problem.** Every project's `scripts/ci-rollback-explain.sh` validates that each migration's `-- ROLLBACK:` comment block applies cleanly and round-trips back to the forward-state. The script is wired into `.github/workflows/ci.yml` slow-job, but **not** into `/ak-pre-ship`'s local gauntlet. The local gates that touch migrations (`fast-job-local`, `changed-tests-local`, `rls-coverage`, `slow-job-lifecycle`) all run `pnpm db:reset` which applies forward migrations cleanly — they never exercise the rollback comment block. Result: every migration-touching PR ships to CI to discover rollback bugs that a 30-second local check would have caught.
-
-**Pattern observed — two PRs in a row.**
-
-- **home-os PR #26 (`feature/triage-conversation`, 2026-05-16)**: initial CI run `25961551869` failed on "Migration rollback round-trip" with `ERROR: column "tool_name" does not exist` in migration 010's rollback (stray non-idempotent UPDATE before column-drop). Fixed in one cycle (`2691a07`), re-watched green. Documented in the triage-conversation BUILD-LOG entry.
-- **home-os PR #27 (`feature/decide-state`, 2026-05-17)**: initial CI run `25999328826` failed on the **same step** with `ERROR: invalid input value for enum card_state: "decide"` in migration 011's rollback (enum literal cast `'decide'::public.card_state` doesn't survive the script's iterative rollback+reapply ordering, which leaves card_state narrowed back to its 6-value form by the time migration 011's rollback runs). Fixed in one cycle (`d0d2135`), re-watched green.
-
-Both PRs ran `/ak-pre-ship` locally with 13/13 gates pass / findings-fixed before the push. Neither gauntlet caught the rollback bug because no local gate exercises the rollback comment block. Both fixes were one-line, mechanical, and easily catchable by `bash scripts/ci-rollback-explain.sh` if it had been wired into the gauntlet.
-
-The fix-shape is also predictable: rollback statements need to be defensive against the iterative-rollback-and-reapply ordering the script uses (cascades from prior-migration rollbacks change the schema shape under your feet). A local gate catches this in 30 seconds; CI catches it in a full ~10-min slow-job cycle that has to push, queue, runner-warm, db:reset, apply, run.
-
-**Fix shape:**
-
-Add a new gate to `/devshop/.claude/skills/ak-pre-ship/SKILL.md`:
-
-- **Gate name**: `migration-rollback-roundtrip`
-- **When it runs**: diff touches `supabase/migrations/**` (detect via `git diff --name-only origin/<base>...HEAD | grep -qE '^supabase/migrations/'` or the existing `gstack-diff-scope` if it exposes a `SCOPE_MIGRATIONS` variable).
-- **What it does**: invoke `scripts/ci-rollback-explain.sh` (or the project-side variant if `scripts/` is per-project). The script is already on the project — no new infra.
-- **Position in sequence**: alongside the existing migration-related gates (`rls-coverage`, `slow-job-lifecycle`) which sit between `fast-job-local` and `changed-tests-local`. The rollback gate should fire BEFORE `changed-tests-local` so a rollback bug doesn't poison the test database mid-walkthrough.
-- **Outcome semantics**: non-LLM-mediated, so legitimate `n/a` is fine (e.g., `n/a — diff doesn't touch supabase/migrations/`). Otherwise `pass` / `findings (N) fixed`.
-
-**Workspace-relay variation**: home-os and lalista both run their local Supabase stack through the devcontainer's `cmd-relay` + `supabase-runner` container, not direct `supabase` CLI. The CI script uses `supabase status -o env` to extract DB_URL — that won't work in the workspace. Two options:
-
-1. Add a project-side wrapper script `scripts/pre-ship-rollback-roundtrip.sh` that detects the relay model and substitutes the DB_URL extraction (the canonical local-stack ports are documented in each project's `CLAUDE.md § Local Supabase ports`). Then the gate invokes the project-side wrapper.
-2. Make the CI script itself relay-aware: detect `cmd-relay` presence, fall back to a hard-coded local DB_URL from a known env var.
-
-Option 1 keeps `scripts/ci-rollback-explain.sh` simple and CI-focused; the project-side wrapper handles the workspace-relay translation. The gate calls the wrapper if it exists, else the canonical script.
-
-**Why v0:** every devshop project that runs migrations is exposed. Two consecutive PRs proved the gap is recurring, not a one-off. The structural fix is small (one new gate, no new infra) and pays back every migration-touching PR going forward.
-
-**Trigger:**
-
-- home-os PR #26 (2026-05-16) — rollback caught at CI, one-cycle fix.
-- home-os PR #27 (2026-05-17) — rollback caught at CI, one-cycle fix.
-- Every future migration-touching PR is exposed until the gate ships.
-
-**Cross-ref:**
-
-- `/workspace/scripts/ci-rollback-explain.sh` — the canonical project-side script (also lives in lalista).
-- `/devshop/.claude/skills/ak-pre-ship/SKILL.md § Gates` — destination for the new gate.
-- home-os PR #26 BUILD-LOG entry — concrete details on the first occurrence.
-- home-os PR #27 commit `d0d2135` — concrete details on the second occurrence.
-
-**Cost/risk:**
-
-- Implementation: ~1 hr. Add the gate to `/ak-pre-ship` SKILL.md (orchestration + outcome semantics) + add the project-side wrapper script to bridge the workspace-relay model. Both projects (home-os, lalista) need the wrapper, but it's the same shape — one script, copied per project (or absorbed into `template/scripts/`).
-- Risk: low. The CI script already exists and is proven correct; this just runs it locally. The diff predicate (touch `supabase/migrations/`) is mechanical. Failure mode if the gate breaks: gauntlet halts on the rollback step, operator fixes the migration, re-runs — same UX as fixing any other gate finding.
-- Benefit: closes a known recurring failure class. Two PRs in a row paid the CI-cycle tax (one full ~10-min slow-job round-trip per occurrence) for a bug that a 30-second local gate would have caught. Saves ~10 min wallclock + operator-attention for context switching on every migration-touching PR.
-
-[v0, surfaced-by home-os PR #26 + #27 consecutive CI failures on rollback round-trip 2026-05-16 / 2026-05-17]
-
----
-
 ### `/ak-build` pipeline — per-gate sub-agent decomposition
 
 **Problem.** `/ak-build § Phase 3` invokes `/ak-pre-ship` as a single subagent that runs the entire 13-gate gauntlet (preflight → docs → metrics → fast-job-local → changed-tests-local → responsive → `/simplify` → `/ak-check-docs-and-tests` → `/review` → `/cso` → `/design-review` → `/qa` → `/benchmark` → final preflight → convention check → hero shots) in one continuous agent context. Two structural failure modes:

@@ -226,25 +226,26 @@ devshop-native check or a devshop-authored skill like `/ak-check-docs-and-tests`
 prose elsewhere in the devshop renders the same split inline as `docs-and-tests-review (ak)`
 vs `review` so readers can tell at a glance which gates come from where.
 
-| #   | Name                    | Owner | Title                                             | Scope                                                                                                                                           |
-| --- | ----------------------- | ----- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | `docs-check`            | ak    | Devshop docs diff review                          | when `kit/` or reference docs touched                                                                                                           |
-| 2   | `metrics-check`         | ak    | Metrics coverage                                  | user-facing code PRs                                                                                                                            |
-| 2b  | `rls-coverage`          | ak    | RLS policy coverage for client writes             | when `supabase/migrations/**` or client API touched                                                                                             |
-| 2c  | `slow-job-lifecycle`    | ak    | Slow-job CI enabled past Phase 1c/1g              | when `*.integration.test.ts` or `apps/web/e2e/*.spec.ts` files exist                                                                            |
-| 2d  | `fast-job-local`        | ak    | CI fast-job equivalent (lint + tc + unit + build) | when `turbo.json` exists                                                                                                                        |
-| 2e  | `changed-tests-local`   | ak    | Cheap local test gates (parse + changed + smoke)  | when diff includes `apps/**`, `packages/{core,ui}/**`, `*.integration.test.ts`, `apps/*/e2e/*.spec.ts`, or `supabase/{migrations,functions}/**` |
-| 3   | `responsive-theme`      | ak    | Responsive + theme capture                        | UI PRs only                                                                                                                                     |
-| 4   | `simplify`              | —     | `/simplify` pass                                  | always                                                                                                                                          |
-| 5   | `docs-and-tests-review` | ak    | `/ak-check-docs-and-tests`                        | always                                                                                                                                          |
-| 6   | `review`                | —     | `/review` (+ Greptile triage)                     | always                                                                                                                                          |
-| 7   | `cso`                   | —     | `/cso` (security)                                 | always                                                                                                                                          |
-| 8   | `design-review`         | —     | `/design-review`                                  | UI PRs only                                                                                                                                     |
-| 8b  | `design-conformance`    | ak    | `/ak-design-conformance`                          | runs regardless of UI scope                                                                                                                     |
-| 9   | `qa`                    | —     | `/qa` (functional walk)                           | always                                                                                                                                          |
-| 10  | `benchmark`             | —     | `/benchmark`                                      | UI PRs only                                                                                                                                     |
-| 10b | `preflight-final`       | ak    | `/preflight` re-run (final attestation)           | when Gate 2d ran (same scope predicate)                                                                                                         |
-| 11  | `convention`            | ak    | Convention headers + hook-coverage                | always                                                                                                                                          |
+| #   | Name                           | Owner | Title                                             | Scope                                                                                                                                           |
+| --- | ------------------------------ | ----- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `docs-check`                   | ak    | Devshop docs diff review                          | when `kit/` or reference docs touched                                                                                                           |
+| 2   | `metrics-check`                | ak    | Metrics coverage                                  | user-facing code PRs                                                                                                                            |
+| 2b  | `rls-coverage`                 | ak    | RLS policy coverage for client writes             | when `supabase/migrations/**` or client API touched                                                                                             |
+| 2c  | `slow-job-lifecycle`           | ak    | Slow-job CI enabled past Phase 1c/1g              | when `*.integration.test.ts` or `apps/web/e2e/*.spec.ts` files exist                                                                            |
+| 2d  | `fast-job-local`               | ak    | CI fast-job equivalent (lint + tc + unit + build) | when `turbo.json` exists                                                                                                                        |
+| 2e  | `migration-rollback-roundtrip` | ak    | Migration rollback round-trip                     | when diff touches `supabase/migrations/**`                                                                                                      |
+| 2f  | `changed-tests-local`          | ak    | Cheap local test gates (parse + changed + smoke)  | when diff includes `apps/**`, `packages/{core,ui}/**`, `*.integration.test.ts`, `apps/*/e2e/*.spec.ts`, or `supabase/{migrations,functions}/**` |
+| 3   | `responsive-theme`             | ak    | Responsive + theme capture                        | UI PRs only                                                                                                                                     |
+| 4   | `simplify`                     | —     | `/simplify` pass                                  | always                                                                                                                                          |
+| 5   | `docs-and-tests-review`        | ak    | `/ak-check-docs-and-tests`                        | always                                                                                                                                          |
+| 6   | `review`                       | —     | `/review` (+ Greptile triage)                     | always                                                                                                                                          |
+| 7   | `cso`                          | —     | `/cso` (security)                                 | always                                                                                                                                          |
+| 8   | `design-review`                | —     | `/design-review`                                  | UI PRs only                                                                                                                                     |
+| 8b  | `design-conformance`           | ak    | `/ak-design-conformance`                          | runs regardless of UI scope                                                                                                                     |
+| 9   | `qa`                           | —     | `/qa` (functional walk)                           | always                                                                                                                                          |
+| 10  | `benchmark`                    | —     | `/benchmark`                                      | UI PRs only                                                                                                                                     |
+| 10b | `preflight-final`              | ak    | `/preflight` re-run (final attestation)           | when Gate 2d ran (same scope predicate)                                                                                                         |
+| 11  | `convention`                   | ak    | Convention headers + hook-coverage                | always                                                                                                                                          |
 
 ## Dismissal Log (every gate, mandatory)
 
@@ -415,6 +416,41 @@ Outcomes:
 - `findings (1) pending` — bypass flag set but adversarial review FAILed the reason.
 
 **Bypass:** `git config devshop.fastJobSkipReason "<why these are OK to skip locally>"` short-circuits the gate after adversarial review. Default REJECT — symmetric with `changed-tests-local`'s `devshop.localTestSkipReason`.
+
+## Gate migration-rollback-roundtrip (ak): Migration rollback round-trip against local Supabase
+
+Mechanical check that every migration's `-- ROLLBACK:` block applies cleanly against the local Postgres AND the forward migration re-applies on top of the rolled-back state. Catches the silent class home-os PR #26 (2026-05-16, migration 010 `tool_name` stray UPDATE) + #27 (2026-05-17, migration 011 `'decide'::card_state` cast against narrowed enum) both hit: rollback bugs invisible to `pnpm db:reset` / forward-apply gates because those don't exercise the rollback comment block. CI's slow-job catches them at ~10 min; this gate catches them in ~30s locally.
+
+Position rationale: runs after `fast-job-local` (deterministic lint/typecheck/unit/build are cheaper fail-fast checks) and BEFORE `changed-tests-local`, so a rollback bug doesn't poison the test database mid-walk (changed-tests-local's E2E + integration specs read from the same local Postgres this gate round-trips).
+
+- Scope: runs when `git diff --name-only --diff-filter=AM origin/main...HEAD` touches `supabase/migrations/**`. Otherwise `n/a (no migration changes in diff)`. Also `n/a` when no `supabase/migrations/` directory exists, when the directory is empty, or when no migration ships a `-- ROLLBACK:` comment block (rollback convention not adopted yet — Gate 11's convention check is the right place to enforce adoption).
+- Out of scope: validating `WHERE` / `WITH CHECK` predicate semantics (integration tests do that), running against a remote DB, installing or starting the local stack (Phase 0's `supabase-bootstrap.sh` handles that — this gate assumes the stack is up).
+
+Invocation:
+
+```bash
+bash /devshop/kit/scripts/preship/migration-rollback-roundtrip.sh "$(git rev-parse --show-toplevel)"
+```
+
+The gate probes both candidate DB endpoints — `host.docker.internal:54322` (compose isolation + host Supabase shapes) and `localhost:54322` (docker-bind legacy shape) — and uses the first that responds. Then, for each migration in lexicographic apply-order:
+
+1. Skip migrations without a `-- ROLLBACK:` block (mirrors `template/scripts/ci-rollback-explain.sh`).
+2. Apply the rollback SQL via `psql -v ON_ERROR_STOP=1` against the discovered DB URL.
+3. Re-apply the forward migration via `psql -f` to verify the rollback is a true inverse.
+
+Failures are collected (not short-circuited) so the operator sees every broken rollback in one pass.
+
+Outcomes:
+
+- `pass` — every migration with a rollback block round-tripped cleanly.
+- `findings (N) — migration rollback round-trip failed` — N migrations have broken rollback or non-invertible state. Stdout enumerates each failure (`<file> rollback FAILED: <psql ERROR line>` or `<file> forward re-apply FAILED after rollback: <psql ERROR line>`) plus the fix recipe (make rollback defensive against iterative-rollback-and-reapply cascades; use `IF EXISTS`; survive narrowed enums; etc.).
+- `n/a (no supabase/migrations directory)` — projects without Supabase.
+- `n/a (no migration changes in diff)` — diff doesn't touch `supabase/migrations/**`.
+- `n/a (no migration files in supabase/migrations/)` — empty migrations directory.
+- `n/a (no -- ROLLBACK: blocks in any migration — rollback convention not adopted)` — project hasn't adopted the rollback convention; Gate 11 surfaces adoption gaps.
+- `blocked (local Supabase Postgres unreachable …)` — Phase 0 should have started the stack; fix recipe: re-run `supabase-bootstrap.sh up` or restart the supabase-runner container from a macOS terminal.
+
+**⚠ Read-only against the DB across the round-trip.** Each migration's rollback + reapply leaves the schema in the same state it started in (modulo Postgres txn isolation). No bypass flag — the gate is a 30-second deterministic check and rollback bugs are a known recurring class; resolving findings means editing the migration's `-- ROLLBACK:` block, not skipping the gate.
 
 ## Gate changed-tests-local (ak): Cheap local test gates (parse + changed + smoke)
 
@@ -819,7 +855,7 @@ Performance regression check (Core Web Vitals + load time). Report only.
 
 ## Gate preflight-final (ak): /preflight re-run as end-of-chain attestation
 
-Runs `/preflight` (= `fast-job-local` Gate 2d + `changed-tests-local` Gate 2e) one more time, after all code-changing gates (`/simplify`, `/review`, `/cso`, `/design-review`, `/qa`) have finished editing.
+Runs `/preflight` (= `fast-job-local` Gate 2d + `changed-tests-local` Gate 2f) one more time, after all code-changing gates (`/simplify`, `/review`, `/cso`, `/design-review`, `/qa`) have finished editing.
 
 **Why a second run is needed.** Each code-changing gate already self-verifies via the stuck protocol (`pnpm turbo run test:unit` after the gate's edits — see "Stuck protocol" below). That covers unit-test breakage from the gate's own changes. What it doesn't cover:
 
@@ -837,7 +873,7 @@ Outcomes:
 
 - `pass` — final-state attestation succeeded.
 - `findings (N)` — N findings; pipeline pauses. Operator decides whether to fix-in-place (then re-run /preflight) or revert the offending code-changing-gate commit.
-- `findings (N) [budget exceeded]` — deferred to CI; emits the same triage line as Gate 2e.
+- `findings (N) [budget exceeded]` — deferred to CI; emits the same triage line as Gate 2f.
 - `n/a` — Gate 2d was `n/a`; this gate is symmetric.
 
 **No bypass at this gate.** The earlier `fast-job-local` and `changed-tests-local` gates accept `devshop.fastJobSkipReason` / `devshop.localTestSkipReason` for the front-of-chain runs; the final attestation is non-skippable because it's the last deterministic safety net before convention check + hero shots. If you must bypass, do so at the earlier gates — both bypasses also suppress this gate's re-run (Layer 1 or Layer 2 skipped → /preflight reports `pass (skipped — adversarially reviewed)` for the matching layer here).

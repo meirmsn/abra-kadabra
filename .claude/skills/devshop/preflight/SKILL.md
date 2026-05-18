@@ -18,7 +18,7 @@ allowed-tools:
 
 # Preflight
 
-The lightweight standalone twin of `/ak-pre-ship`'s `fast-job-local` (Gate 2d) and `changed-tests-local` (Gate 2e) gates. Run it as many times as you need during the iterate-fix loop; run `/ak-pre-ship` once at the end for the full LLM-mediated ceremony.
+The lightweight standalone twin of `/ak-pre-ship`'s `fast-job-local` (Gate 2d) and `changed-tests-local` (Gate 2f) gates. Run it as many times as you need during the iterate-fix loop; run `/ak-pre-ship` once at the end for the full LLM-mediated ceremony.
 
 ## When to use
 
@@ -70,7 +70,7 @@ Use sparingly. Default REJECT — adversarial review requires specific, time-bou
 
 ## Relationship to /ak-pre-ship
 
-`/ak-pre-ship` invokes the same two scripts as its `fast-job-local` (Gate 2d) and `changed-tests-local` (Gate 2e) front-side gates — running them at the start of the pipeline so 5 min of deterministic checks fail fast instead of after 25 min of LLM ceremony.
+`/ak-pre-ship` invokes the same two scripts as its `fast-job-local` (Gate 2d) and `changed-tests-local` (Gate 2f) front-side gates — running them at the start of the pipeline so 5 min of deterministic checks fail fast instead of after 25 min of LLM ceremony.
 
 It also re-invokes `/preflight` as `preflight-final` (Gate 10b) after the heavy ceremony, before convention check and hero shots. That end-of-chain run catches cross-gate interaction breakage that the per-gate stuck-protocol unit re-checks (`pnpm turbo run test:unit` after each code-changing gate) would miss — namely, integration or E2E regressions introduced by the composition of `/simplify` + `/review` + `/cso` + `/design-review` + `/qa` edits.
 
