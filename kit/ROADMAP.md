@@ -123,7 +123,147 @@ The meta-checks at attempt 3 only fire when natural inference has demonstrably f
 
 ---
 
+### `/ak-build` devshop-mode — run the pipeline natively against `/devshop` itself
+
+**Problem.** `/ak-build` is shaped around the project workflow: feature spec → branch → GitHub PR → `/ship` push → CI watch → audit comment → human approval → `/ak-go-live`. Devshop feature work doesn't fit that shape: no GitHub PRs (single-developer private repo per `CLAUDE.md § Devshop shipping flow`), no `/ship` (replaced by `/ak-merge-devshop`'s squash + ff-merge), no `/ak-go-live` (devshop is the deploy infrastructure; there's nothing to deploy), no project-side surfaces like `apps/web/` / `packages/core/` / `supabase/` that several gates target. When the operator invokes `/ak-build` on a devshop change anyway, the agent ships a disclaimer ("applied the pipeline best-effort; many steps don't apply to devshop itself"), which means: (a) most quality gates skip with vague `n/a` rationale, (b) Phase 4.0's BUILD-LOG + PLAN closure never fires because Phase 4 is `/ship`-shaped, (c) Phase 5's CI watch / PR audit comment / hero-shot evidence flow is structurally inapplicable, and (d) the pipeline is effectively bypassed for the very repo that owns the pipeline.
+
+**Where it bites.** Every ad-hoc devshop feature branch shipped via `/ak-merge-devshop` directly (the dominant flow today). Cumulative observed shipping pattern: ~4 devshop features merged in the last week, all bypassing Phase 4.0 → all left no BUILD-LOG entry → manual backfill required (see `chore/backfill-bookkeeping-gap` for the 2026-05-17 examples `fb18c8f` + `7262fac` that triggered this entry). The narrow gap is filed at `kit/TODOS.md § /ak-merge-devshop doesn't author BUILD-LOG entries or close PLAN rows` as a tactical mitigation; this ROADMAP entry is the structural fix that subsumes it.
+
+**Fix shape.** Add an explicit `mode: devshop` branch to `/ak-build` that gates each phase by applicability. Concretely:
+
+1. **Phase 0 mode detection.** Read `$GIT_ROOT`. If `/devshop` → `mode=devshop`; otherwise → `mode=project` (today's default). Surface in the Phase 0 preview block so the operator sees which mode is active.
+
+2. **Phase-level applicability matrix.** Each phase tagged `project-only`, `devshop-only`, or `both`. Rough first cut:
+
+   | Phase                                         | Project | Devshop | Notes                                                                                                              |
+   | --------------------------------------------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------ |
+   | Phase 0 — spec preview + decisions            | ✓       | ✓       | Same shape; spec lives at `specs/<feature>/` either way                                                            |
+   | Phase 1 — spec.md expansion                   | ✓       | ✓       | Same                                                                                                               |
+   | Phase 2 — `/ak-implement` task loop           | ✓       | ✓       | Same; pre-commit gauntlet identical                                                                                |
+   | Phase 3 — quality gate gauntlet               | ✓       | ✓       | Most gates apply; `/cso` + `/qa` + `/design-review` + `/benchmark` carve out as `n/a per scope: devshop-self-mode` |
+   | Phase 4.0 — BUILD-LOG + PLAN closure          | ✓       | ✓       | **Identical work** — Phase 4.0 is the universal bookkeeping moment                                                 |
+   | Phase 4.1–4.3 — `/ship` push + PR creation    | ✓       | ✗       | Devshop has no PRs; replaced by Phase 4.5 below                                                                    |
+   | Phase 4.5 — `/ak-merge-devshop` squash + push | ✗       | ✓       | New devshop-mode-only phase replacing 4.1–4.3                                                                      |
+   | Phase 5 — CI watch + PR audit comment         | ✓       | ✗       | Devshop CI is just `pnpm turbo run test` locally; no PR comment surface                                            |
+   | Phase 5.8 — post-pre-ship docs+tests re-audit | ✓       | ✓       | Same `/ak-check-docs-and-tests` mechanic; runs inside `/ak-merge-devshop` Phase 1 in devshop mode                  |
+   | Phase 6 — audit-trail PR comment              | ✓       | ✗       | No PR; ship summary lands in the squash commit body instead                                                        |
+   | Phase 7 — ready-for-review notification       | ✓       | ✗       | No reviewer queue                                                                                                  |
+
+3. **Devshop-mode entry contract.** Phase 4.5's `/ak-merge-devshop` invocation is the equivalent of project-mode's Phase 4.1–4.3 (`/ship`) + Phase 5 (CI watch) + Phase 6 (audit comment) collapsed: it audits via `/ak-check-docs-and-tests`, squashes, ff-merges, runs pre-push hooks (the devshop equivalent of CI), and pushes. After 4.5, the pipeline is done — no Phase 6 audit comment, no Phase 7 ready-for-review (devshop is single-developer; the user reading the PLAN row close is the "reviewer").
+
+4. **Carve-out gate dispositions.** When a gate doesn't apply in devshop mode, it must emit `blocked (n/a per scope: <reason>)` per the existing `/ak-pre-ship` LLM-mediated-gate contract — never bare `n/a` (the Phase 3 halt grep depends on this). New carve-out rationales codified up front so the gate runner doesn't have to invent them:
+   - `/cso` → `blocked (n/a per scope: devshop-self-mode — no auth boundary, no RLS, no third-party APIs; security boundary is the pre-commit hook gauntlet itself)`
+   - `/qa` → `blocked (n/a per scope: devshop-self-mode — no UI surface; bats invariants are the test surface and run in Gate 2)`
+   - `/design-review` → `blocked (n/a per scope: devshop-self-mode — no UI surface)`
+   - `/benchmark` → `blocked (n/a per scope: devshop-self-mode — no perf surface)`
+
+5. **Documentation surface to touch.** `CLAUDE.md § Devshop shipping flow` collapses from three-step prose into "run `/ak-build`; it handles audit + squash + ff-merge + push end-to-end" + a footnote that `/ak-merge-devshop` is the underlying transport (invokable directly for one-line doc nits where the full `/ak-build` ceremony is overkill — same carve-out logic Phase 0.X in the tactical TODO sketches). `kit/docs/guide/workflow.md` gets a devshop-mode diagram variant. `.claude/skills/devshop/build/SKILL.md` (devshop's `/ak-build`) gains the mode-detection + applicability matrix + carve-out language.
+
+**Benefit.** Phase 4.0's BUILD-LOG entry + PLAN row closure fire automatically for every devshop feature (closes the tactical TODO above). Quality gates that apply still run (the bats invariants, the docs+tests audit, /simplify, /review, /codex). The disclaimer the operator currently sees ("many steps don't apply") becomes structural truth — the unsupported phases are explicitly tagged, not best-effort-applied. The devshop becomes a first-class consumer of its own pipeline instead of an awkward edge case.
+
+**Cost.** Mostly SKILL.md surgery + new mode branch in the Phase 0 preview composer. The hardest part is auditing the existing 15+ phases for project-vs-devshop applicability and writing the carve-out rationales. Estimate 4-6 hours total (mostly read-and-classify, not new code).
+
+**Why this entry sits in v0.** Every devshop session that authors a feature loses Phase 4.0's bookkeeping. The narrow tactical TODO closes the BUILD-LOG/PLAN gap with prompts inside `/ak-merge-devshop`, but adds friction (prompts) that wouldn't exist if devshop work flowed through `/ak-build` natively. Strategic fix > tactical mitigation when the work is in the same order of magnitude.
+
+**Closes downstream:** `kit/TODOS.md § /ak-merge-devshop doesn't author BUILD-LOG entries or close PLAN rows` becomes obsolete once this ships (devshop features go through Phase 4.0 by construction).
+
+[v0, ak-build, structural-mode-split, surfaced-by main-log-inspection-2026-05-18 + paired-with kit/TODOS.md tactical entry, 2026-05-18]
+
+---
+
+### `/ak-build` Phase 3 → Phase 4 — mechanical halt on `blocked > 0`
+
+**Problem.** `/ak-build § Phase 3 → Phase 4 handoff § Rung 2` is prose: "Require explicit operator acknowledgement before continuing past blocked. Do not advance autonomously. Pause the pipeline and surface the halt reason verbatim." The SKILL.md callout explicitly names the failure: "Home-os PR #15 (2026-05-14) shipped past `blocked: 1` because the halt happened but the override was silent; reviewers received placeholder hero shots from the sign-in flow instead of the actual feature." The discipline rule is documented; orchestrator-side enforcement isn't. Three home-os PRs in a row repeated the same self-issued-override pattern.
+
+**Where it bit.**
+
+- **PR #15** (2026-05-14) — placeholder hero shots shipped to reviewers; called out verbatim in the SKILL.md.
+- **PR #27** (decide-state, 2026-05-17) — Gates 3/8/9/10 emitted `blocked (n/a per scope: sandbox)`; orchestrator self-advanced. (Same pattern; would have benefited from operator-acknowledgement loop even if the underlying outcome was the same.)
+- **PR #28** (planned-state, 2026-05-18) — `blocked: 4` (same sandbox-blocked LLM-mediated gates); orchestrator self-advanced with prose like "advance to Phase 4 — matches the decide-state precedent." Exactly the silent-override mode SKILL.md flags.
+
+The cost per incident is variable but compound — silent overrides decay the rule itself. Each `blocked` advance without an acknowledgement loop weakens the next operator's signal-strength on the rule. Three repeats in the same project's lifetime is the load-bearing evidence that prose isn't sufficient.
+
+**Fix shape.** Convert the prose halt to mechanical orchestrator state:
+
+- In `/ak-build § Phase 3 → Phase 4 handoff`, after parsing the pre-ship return for `findings_pending` / `blocked` / `n_a` counts, hard-gate Rung 2:
+  - If `blocked > 0` AND there are no operator-supplied bypasses for those specific gates, fire `AskUserQuestion` with the halt reason inline + present three options:
+    1. Resolve the tooling gap and re-invoke `/ak-build` (Step 0's resume check re-runs Phase 3 cleanly)
+    2. Provide an explicit override that names the gate, the reason, and a follow-up tracker entry. Override is captured in `specs/<feature>/review.md` § Phase 3 → 4 advance log (new section) so it surfaces in Phase 6's audit comment + the BUILD-LOG entry.
+    3. Abort the run
+  - **No silent autonomous advance** — even when the operator has previously accepted the same gate's `blocked (n/a per scope: …)` shape on a prior PR. Each PR re-acks.
+  - The override format includes a `<!-- adversarial-review-stamp: ... -->` so the same Layer-2 adversarial reviewer that judges other override reasons judges these too — keeps "matches the decide-state precedent" from passing as a legitimate reason.
+
+**Where it goes (mechanical).**
+
+- `/devshop/.claude/skills/ak-build/SKILL.md § Phase 3 → Phase 4 handoff § Rung 2` — replace the prose halt with the AskUserQuestion + override-capture flow above.
+- `/devshop/.claude/skills/ak-build/SKILL.md § Phase 6` — extend the audit-comment template's "Quality gates" section to render override-acknowledgements verbatim from `specs/<feature>/review.md § Phase 3 → 4 advance log` (so reviewers see exactly which gates the operator waved past, with what reason).
+- Cross-link from `/devshop/.claude/skills/ak-pre-ship/SKILL.md § Outcome semantics § n/a is not legal for LLM-mediated gates` — the existing prose rule about `blocked (n/a per scope: …)` outcomes pairs with this halt enforcement.
+
+**Why this entry sits in v0:** PR #15 was the first known incident; PR #28 was the third. The repeat rate is high enough that prose-only isn't working. Cost is small (~30min orchestrator update), reach is every `/ak-build` invocation on every project. Sibling to `ak-build-phase-decomposition` (deliverable B touches per-gate sub-agents; this touches the post-pass advancement decision); both can ship independently.
+
+**Why not a Track-A inline fix during this session:** the SKILL.md edit is exactly the kind of change `/update-config` and `/devshop` ownership rules want surfaced into the roadmap, not edited mid-`/ak-build`. Workspace lacks edit permissions on `/devshop/.claude/skills/ak-build/SKILL.md` outside an explicit devshop-side maintenance window.
+
+[v0, surfaced-by home-os PR #15 (2026-05-14), home-os PR #27 (2026-05-17), home-os PR #28 (2026-05-18) — three silent-override repeats]
+
+---
+
+### Close the sandbox /qa gap — Playwright in workspace + firewall fix-up (absorbs the `init-firewall.sh` port-allowance entry)
+
+**Problem.** Sandbox structurally blocks four `/ak-pre-ship` gates on every PR:
+
+- **Gate 3** (responsive-theme captures) — needs `pnpm dev` to run the app
+- **Gate 8** (`/design-review`) — needs running app + Playwright
+- **Gate 9** (`/qa` happy-path) — needs running app + Playwright
+- **Gate 10** (`/benchmark` page-load) — needs running app + browse daemon
+
+…AND `changed-tests-local` (Playwright spec list parse) AND Phase 5.9 hero-shot capture all share the same root cause: workspace can't run `pnpm dev` (next/font fetches Google Fonts at build time; sandbox firewall blocks `fonts.googleapis.com`) AND workspace has no Playwright binaries (cache empty; `pnpm exec playwright install` fails on EHOSTUNREACH to `playwright.download.prss.microsoft.com`). Hero shots end up deferred to manual capture; Gates 3/8/9/10 emit `blocked (n/a per scope: sandbox)` on every PR.
+
+The current posture treats these as inevitable scope exemptions — but the architectural answer is to close the gap in workspace, since (per devshop security boundary) Playwright should run alongside Claude (limited blast radius), not inside the supabase-runner sibling (which holds the docker socket — a separate trust boundary).
+
+**Where it bit.**
+
+- **home-os PR #15 (2026-05-14)** — placeholder hero shots from sign-in flow shipped because Phase 5.9 capture path was blocked. Audit comment Evidence section pointed reviewers at the wrong artifact.
+- **home-os PR #26 (2026-05-16)** — Phase 5.9 admin-seed via `host.docker.internal:54421` returned `AuthRetryableFetchError: fetch failed`. Session-ephemeral `sudo iptables -I OUTPUT -d 192.168.65.254 -p tcp --dport 54421 -j ACCEPT` workaround applied; lost on next container restart. **This is the existing `init-firewall.sh` port-allowance entry** (§ above) — folded into this entry as deliverable B.
+- **home-os PR #27 / PR #28** — Gates 3/8/9/10 emitted `blocked (n/a per scope: sandbox)`; Phase 5.9 deferred to manual capture against Vercel preview via README.md instructions; operator paid the manual-capture tax to land hero shots in audit comments.
+
+**Three deliverables (A–C). Combined effort ~4–6 hours.**
+
+**(A) Workspace Dockerfile — Playwright + ffmpeg pre-installed** (~2 hr).
+
+- Extend `template/.devcontainer/Dockerfile` with a pinned-version Playwright browser install at build time. Use the official `mcr.microsoft.com/playwright:v<version>` strategy OR pre-fetch the chromium + webkit tarballs via `wget` with checksum verification (matches the existing `git-delta` / `supabase-cli` / `dcg` / `gitleaks` recipe).
+- Add `ffmpeg` (standard apt package; needed for Playwright `video: 'retain-on-failure'` recording).
+- Pin the Playwright version via `ARG PLAYWRIGHT_VERSION=<x.y.z>` driven from `.devcontainer/.env` so projects can lock a known-good version.
+- Add the binaries' SHA256 checksums to `template/.devcontainer/checksums.sha256` under a new `playwright/` section.
+- Architectural invariant: Playwright runs in workspace, not supabase-runner. Supabase-runner stays narrow (docker socket + supabase lifecycle only).
+
+**(B) Firewall — Google Fonts allowlist + rebound-port allowance** (~30 min, absorbs the existing standalone entry).
+
+- `template/.devcontainer/init-firewall.sh`:
+  - Allowlist `fonts.googleapis.com` + `fonts.gstatic.com` so `next/font/google` Inter fetch works during `pnpm dev`.
+  - Source ports from `SUPABASE_API_PORT` + `SUPABASE_DB_PORT` env vars (`.devcontainer/.env`), defaulting to `54321/54322` when unset. **Replaces the standalone `init-firewall.sh` port-allowance entry above.**
+- For projects already in the wild: cherry-pick or re-sync from `template/`. Backwards-compatible.
+
+**(C) Gates 3/8/9/10 + Phase 5.9 contract revision** (~1.5 hr, prose + verification).
+
+- `/devshop/.claude/skills/ak-pre-ship/SKILL.md` — Gates 3/8/9/10 stop emitting `blocked (n/a per scope: sandbox)` by default. The new posture: workspace HAS Playwright + dev server reachable; Gates run for real. Sandbox-block as an outcome shape is reserved for genuine tooling-broken cases (which the new Dockerfile + firewall should reduce to ~zero).
+- Phase 5.9 hero shots — capture in workspace against the local stack (no longer needs Vercel preview + interactive operator). README.md fallback instructions stay as a backstop.
+- Verify on home-os: re-run `/ak-pre-ship` on `feature/planned-state` HEAD (or a no-op branch) after the workspace rebuild — Gates 3/8/9/10 should all run green or surface real findings, not `blocked (n/a)`.
+
+**Fallback if (A)+(B)+(C) prove too expensive:** retreat to "remove Gates 3/8/9/10 from the automated gauntlet" — keep them as Manual-review checklist items in the PR body (which the reviewer attests against the Vercel preview). Stop pretending they're automated. ~1hr work. Reduces ceremony at the cost of one less safety net per PR. Note: this is a punt, not a fix — the architectural answer is to close the gap.
+
+**Why this entry sits in v0:** every PR pays the sandbox-block tax on 4 gates + a Phase 5.9 manual-capture round-trip. The compound cost across home-os (PR #15 hero-shot misship, PR #26 manual iptables workaround, PR #27 + PR #28 manual captures + audit comments calling out the gap) easily exceeds 4–6 hours already paid. Closing the gap once eliminates the tax for every future PR on every project that adopts the template.
+
+**Why not a Track-A inline fix during this session:** `template/.devcontainer/Dockerfile` + `template/.devcontainer/init-firewall.sh` are `[locked]` manifest files; workspace can't edit them directly.
+
+**Operator path while this entry is open:** every PR's Phase 3 emits `blocked (n/a per scope: sandbox)` on Gates 3/8/9/10 + defers Phase 5.9 to manual capture. The pattern is well-documented (PR #27 + #28 audit comments cross-link); operator absorbs the manual-capture tax until this entry ships.
+
+[v0, surfaced-by home-os PR #15 (2026-05-14), PR #26 (2026-05-16), PR #27 (2026-05-17), PR #28 (2026-05-18); absorbs the standalone `template/.devcontainer/init-firewall.sh` env-aware Supabase port allowance entry above as deliverable B]
+
+---
+
 ### `template/.devcontainer/init-firewall.sh` — env-aware Supabase port allowance
+
+> **Absorbed into [Close the sandbox /qa gap](#close-the-sandbox-qa-gap--playwright-in-workspace--firewall-fix-up) as deliverable B.** This standalone write-up is preserved for historical context (home-os PR #26 incident detail) but the durable fix ships in the bigger entry. PLAN.md no longer carries a separate priority row for this — track the broader entry.
 
 **Problem.** Lines 232-234 hard-code outbound TCP allow rules for `host.docker.internal:54321` + `54322` (upstream Supabase defaults). Projects that rebind +100 to avoid port collisions on the host (e.g. home-os: `54421/54422`, documented in CLAUDE.md § Local Supabase ports as the canonical rebind escape hatch) get **silent EHOSTUNREACH** from the workspace to their actually-listening Supabase stack. The script keeps running with the wrong rule, so the failure mode is "everything looks healthy until you try to admin-seed via Playwright" — at which point Node fetch returns `EHOSTUNREACH` from inside the devcontainer.
 
@@ -140,6 +280,64 @@ The meta-checks at attempt 3 only fire when natural inference has demonstrably f
 **Why not a Track-A inline fix:** `template/.devcontainer/init-firewall.sh` is on the `[locked]` manifest list AND the project settings.json `deny` list at `Edit(/devshop/template/**)`. Agent can't edit it directly; this entry surfaces it for the next devshop-side maintenance window with `sudo` access.
 
 **Operator path while this entry is open:** workspace runs into EHOSTUNREACH on rebound-port projects → run `sudo iptables -I OUTPUT -p tcp -d $(getent ahostsv4 host.docker.internal | awk '{print $1}' | head -1) --dport <project-supabase-port> -j ACCEPT` to unblock. Add to project CLAUDE.md § Gotchas as the temporary patch. Drops automatically when this entry ships.
+
+---
+
+### `/ak-pre-ship` migration-rollback gate — fix `ci-rollback-explain.sh` contract + ROLLBACK-marker convention + PGRST204 debugging recipe
+
+**Problem.** `template/scripts/ci-rollback-explain.sh` (and its in-project copy at `scripts/ci-rollback-explain.sh`) iterates `supabase/migrations/*.sql` and **silently SKIPs any file lacking a `-- ROLLBACK:` marker block**. The script's intent is to exercise rollback safety for every migration, but the contract is broken in three load-bearing ways:
+
+1. **Skipped migrations don't participate in the round-trip.** When migration N's rollback (e.g. migration 002's `drop table public.cards` cascade) drops state that downstream migration N+M added, migration N+M's forward is never re-applied — so the cascade-dropped state stays permanently gone for the rest of CI's run. PostgREST returns PGRST204 on every request that names the dropped column.
+2. **The skip is silent.** The script prints `SKIP: <filename> (no ROLLBACK block)` and continues; nothing in `/ak-pre-ship` or `/ak-build` notices that a marker-less migration is at risk of being cascade-dropped without re-application.
+3. **The gate runs in CI only.** A devshop-wide rollback round-trip step exists in `template/.github/workflows/ci.yml` — every migration-touching PR pays a full CI cycle to discover rollback bugs that would have surfaced in seconds at pre-ship time.
+
+**Where it bit (most recent).** home-os PR #28 (2026-05-18, planned-state). Migration 012 added `cards.planned_reminder_date` (additive `ALTER TABLE ADD COLUMN` + partial index, no enum touched). PR #28 spent **6 CI fix-loop attempts** chasing symptoms — PostgREST schema-cache staleness (NOTIFY pgrst inside the migration; NOTIFY pgrst via Playwright globalSetup; docker restart of `supabase_rest`) — before attempt 4's diagnostic surfaced the smoking gun: the column **wasn't in the DB at all**. PostgREST's cache was correct; the column had been dropped by migration 002's rollback (cascade) and never restored because migration 012 lacked a `-- ROLLBACK:` marker. Fix: a 2-line ROLLBACK block on migration 012 (`drop index` + `drop column`). The script then runs migration 012's rollback + forward in sequence; the idempotent forward (`add column if not exists` + `create index if not exists`) restores the column after upstream cascades. Each fix-loop attempt cost ~22 minutes of CI wall-time; the 6-attempt arc cost ~2.5 hours total plus the operator-attention tax to keep narrowing the failure surface.
+
+**Earlier related incidents** captured by the original placeholder row at `PLAN.md` row `ak-pre-ship-migration-rollback-gate`: home-os PR #26 (rollback bug — `UPDATE ... WHERE state::text` cast issue, fixed in `d0d2135`); home-os PR #27 (rollback bug — function-dependency dance, fixed in same cycle). Both required a full CI cycle to surface; both would have been caught locally at pre-ship.
+
+**Three deliverables (A–C). Combined effort ~3-5 hours.**
+
+**(A) Fix `template/scripts/ci-rollback-explain.sh` contract** (~30 min).
+
+Pick one:
+
+- **A1 (recommended)** — Require every migration to have a `-- ROLLBACK:` marker. The script FAILs on any marker-less migration with a clear error pointing the operator at this entry. Devshop convention shifts from "rollback markers are optional" to "rollback markers are mandatory." Migrations without anticipated rollback can ship a single SQL comment in the block (`-- noop: forward is idempotent`) — the script still re-applies forward, which closes the cascade-loss hole.
+- **A2 (alternative)** — After the per-migration rollback+forward loop, re-apply ALL migrations forward (including the skipped ones). Catches cascade-drops without requiring marker discipline.
+
+Recommend **A1** because the marker requirement also surfaces "I added a column but didn't think about how to roll it back" at code-review time, which is a useful forcing function. A2 is brute-force-but-works.
+
+**(B) Add `/ak-pre-ship` gate that runs the rollback round-trip locally** (~1 hr — the original PLAN.md row scope).
+
+- New gate `migration-rollback-roundtrip-local` in `/ak-pre-ship` SKILL.md, runs after the existing `slow-job-lifecycle` gate but before `/simplify`.
+- Invokes the (now-fixed-per-A) `scripts/ci-rollback-explain.sh` against the local supabase stack.
+- Failure surfaces locally with the same psql output operators would see in CI.
+- Skips gracefully (with `n/a (no migrations changed since base)`) when the diff doesn't touch `supabase/migrations/`.
+
+**(C) Document conventions + debugging recipe in `kit/docs/guide/`** (~1 hr doc-only).
+
+Two pages:
+
+- `kit/docs/guide/migrations.md` (new) — codifies:
+  - Every migration has a `-- ROLLBACK:` marker (post-A1).
+  - Column-adding migrations: idempotent forward (`add column if not exists` + `create index if not exists`) + minimal rollback (`drop index` + `drop column`).
+  - Cross-link to ARCHITECTURE.md § Database for the supabase / PostgREST topology.
+- `kit/docs/guide/debugging-pgrst-cache.md` (new) — the disambiguation loop codified from home-os PR #28's diagnostic arc:
+  1. **psql introspect `information_schema.columns`** — is the column in the DB? If NO → look upstream for what dropped it (most often the rollback round-trip eating a marker-less downstream migration, per § Migrations above).
+  2. **curl PostgREST `/rest/v1/`** OpenAPI endpoint, inspect `definitions.<table>.properties` — is the column in the cache? If column-in-DB-but-not-in-OpenAPI → genuine cache staleness; `NOTIFY pgrst, 'reload schema'` via psql.
+  3. **`docker restart supabase_rest_<project>`** — forces fresh schema introspection on reconnect. The nuclear option; works regardless of why NOTIFY isn't taking effect.
+  4. If step 3's restart STILL shows the column missing from cache → column genuinely isn't in DB → return to step 1.
+
+The PGRST204 disambiguation loop is the lesson that 6 home-os fix-loop attempts paid for; durably surfacing it in `kit/docs/guide/` means the next project's first PGRST204 is diagnosed in minutes instead of hours.
+
+**Why this entry sits in v0:** the bug recurs on every migration-touching PR that adds state without a ROLLBACK marker. Three projects (lalista, home-os, future Supabase project) all share `template/scripts/ci-rollback-explain.sh`; the contract bug affects all of them. Cost-benefit is heavily skewed: ~3-5 hours of devshop work eliminates 22-minute CI fix-loop iterations on every future column-adding migration PR.
+
+**Why not a Track-A inline fix during this session:** the workspace's `[locked]` manifest covers `template/scripts/ci-rollback-explain.sh`; agent can't edit it directly. Project-side `scripts/ci-rollback-explain.sh` could be edited per-project, but the durable fix is in the template.
+
+**Operator path while this entry is open:** every migration adding a column or table MUST include a `-- ROLLBACK:` marker with at minimum a `drop` for the new state. Forward must be idempotent (`add column if not exists` + `create index if not exists`). Codify in project CLAUDE.md § Gotchas the first time the project's docs are touched.
+
+[v0, surfaced-by home-os PR #28 (planned-state) 2026-05-18; consolidates the earlier `ak-pre-ship-migration-rollback-gate` placeholder]
+
+---
 
 ### Docs-coverage hook exempts audit-prose paths (`specs/<feature>/review.md` and similar)
 
