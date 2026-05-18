@@ -326,7 +326,7 @@ This step is purely additive in the pipeline — failure paths warn-and-continue
 
 ## Step 2b: Branch cleanup + PLAN.md / BUILD-LOG sanity check
 
-After merge, clean up the feature branch locally and prune stale remote refs. `PLAN.md` + `BUILD-LOG.md` are closed by `/ak-build` Phase 5.6 on the feature branch **before merge**, so by this point main already has the ship entry in `BUILD-LOG.md` and no longer references `$FEATURE_BRANCH` in `PLAN.md § Active`. This step is branch hygiene only — no commits on main, no second PR.
+After merge, clean up the feature branch locally and prune stale remote refs. `PLAN.md` + `BUILD-LOG.md` are closed by `/ak-build` Phase 4.0 on the feature branch **before `/ship` pushes** (with Phase 5.6 as a verify-only fallback), so by this point main already has the ship entry in `BUILD-LOG.md` and no longer references `$FEATURE_BRANCH` in `PLAN.md § Active`. This step is branch hygiene only — no commits on main, no second PR.
 
 ```bash
 FEATURE_BRANCH=$(git branch --show-current)
@@ -336,14 +336,14 @@ git branch -D "$FEATURE_BRANCH"
 git remote prune origin
 ```
 
-### Sanity check — did Phase 5.6 run?
+### Sanity check — did Phase 4.0 / 5.6 fallback run?
 
-Verify that `PLAN.md § Active` no longer references `$FEATURE_BRANCH`. If it does, Phase 5.6 was skipped (legacy build, manual PR that didn't use `/ak-build`, or Phase 5.6 silently failed). Do NOT auto-commit the close-out — Claude can't commit to main, and the whole point of Phase 5.6 was to avoid a second PR.
+Verify that `PLAN.md § Active` no longer references `$FEATURE_BRANCH`. If it does, both Phase 4.0 (the common path) and Phase 5.6's verify-only fallback were skipped — legacy build, manual PR that didn't use `/ak-build`, or both phases silently failed. Do NOT auto-commit the close-out — Claude can't commit to main, and the whole point of the feature-branch bookkeeping is to avoid a second PR.
 
 ```bash
 if awk '/^## Active/,/^## Planned/' PLAN.md | grep -qF "$FEATURE_BRANCH"; then
   echo "⚠  PLAN.md still shows $FEATURE_BRANCH under ## Active."
-  echo "   /ak-build Phase 5.6 appears to have skipped."
+  echo "   /ak-build Phase 4.0 (and 5.6 fallback) appears to have skipped."
   echo "   Ask the user to manually:"
   echo "     1. Edit PLAN.md — remove the $FEATURE_BRANCH row from ## Active"
   echo "     2. Edit BUILD-LOG.md — add the ship entry for $FEATURE"
@@ -353,7 +353,7 @@ if awk '/^## Active/,/^## Planned/' PLAN.md | grep -qF "$FEATURE_BRANCH"; then
 fi
 ```
 
-The sanity check surfaces the issue; it does not block or auto-fix. Clean Phase 5.6 runs leave this check a silent pass.
+The sanity check surfaces the issue; it does not block or auto-fix. A clean Phase 4.0 run leaves this check a silent pass.
 
 ## Step 3: Canary monitoring
 
@@ -434,7 +434,7 @@ If nothing this session, just say so — explicitly. Don't fish for lessons; mos
 
 **Don't wait to be prompted.** Surfacing devshop-generalizable lessons is the agent's job, not the user's. Lalista PR 26 produced 8 generalizations (firewall closure rule, trace.zip discipline, conventions audit + reviewer-reads-conventions ROADMAP entries, prod-curl probe, firewall-IP-rotation fallback, .trim() defense convention, CSP scheme handling, Realtime publication, WebKit hydration race, edge-runtime retry — all shipped to devshop within the same session). Without this prompt earlier in the session, only 0-1 would have surfaced via ad-hoc memory or a follow-up "anything else?" from the user.
 
-Commit (devshop repo, separate from project commit): per-concept atomic commits per `/devshop/CLAUDE.md § Closing TODO / ROADMAP entries when a fix ships` and `/ak-build § Phase 5.6 step 4` (if any tracker entries close as part of the lessons surfaced).
+Commit (devshop repo, separate from project commit): per-concept atomic commits per `/devshop/CLAUDE.md § Closing TODO / ROADMAP entries when a fix ships` and `/ak-build § Phase 4.0 step 4` (if any tracker entries close as part of the lessons surfaced).
 
 ## Step 6: Notify
 

@@ -77,7 +77,7 @@ Run these in the project repo (`/workspace`) on a feature branch (e.g. `feat/pla
    - Remove the `## In Flight` heading + placeholder (`_No work in progress._`)
    - Remove the `## Log` heading
    - Keep the intro paragraph; keep all shipped entries as-is, newest-first.
-   - Update the intro to say "One entry per merged PR, most-recent first. Written by `/ak-build` Phase 5.6 on the feature branch before merge."
+   - Update the intro to say "One entry per merged PR, most-recent first. Written by `/ak-build` Phase 4.0 on the feature branch before `/ship` pushes, so the entry ships in the original CI cycle. Phase 5.6 is a verify-only fallback for resume rungs where 4.0 didn't fire."
 
 3. **Update project `CLAUDE.md § "Where Things Happen"`** to reference `PLAN.md` alongside `BUILD-LOG.md` (e.g. add a "Forward plan" row).
 
@@ -105,7 +105,7 @@ On a project still carrying `## In Flight`, the new skills will:
 
 - `/ak-spec` tries to write an Active row into a non-existent `PLAN.md` (it will create PLAN.md from the template at that point, automatically).
 - `/ak-implement` fails to resolve the spec because it looks in `PLAN.md § Active` and finds nothing — falls back to branch-name derivation (still works, but less informative).
-- `/ak-build` Phase 5.6 cleans the PLAN.md Active row and appends to BUILD-LOG; the old `## In Flight` stub sits untouched and the old `## Log` section accumulates a new peer (the Phase 5.6 entry appears above `## In Flight`).
+- `/ak-build` Phase 4.0 cleans the PLAN.md Active row and appends to BUILD-LOG on the feature branch (Phase 5.6 is a verify-only fallback); the old `## In Flight` stub sits untouched and the old `## Log` section accumulates a new peer (the Phase 4.0 entry appears above `## In Flight`).
 
 In short: the migration is safe to defer but surfaces as messy history in BUILD-LOG until done. Run the steps above at a lull between features.
 

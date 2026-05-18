@@ -21,8 +21,11 @@
 
 setup() {
   load helpers/setup
-  SKILL_FILE="/devshop/.claude/skills/devshop/build/SKILL.md"
-  WORKFLOW_FILE="/devshop/kit/docs/guide/workflow.md"
+  # Derive from TESTS_DIR so tests fire against the actual worktree, not the
+  # hardcoded `/devshop/...` path (which would silently bypass linked-worktree
+  # edits).
+  SKILL_FILE="$TESTS_DIR/../../.claude/skills/devshop/build/SKILL.md"
+  WORKFLOW_FILE="$TESTS_DIR/../docs/guide/workflow.md"
   # Do NOT defensively skip when files are missing — a delete/move is
   # precisely the regression these tests exist to catch.
 }
@@ -214,3 +217,55 @@ make_fixture() {
   result="$(run_heuristic_in "$repo")"
   [ "$result" = "feature/" ]
 }
+
+# === Section D — Pipeline correctness: Phase 4.0 + 5.6 verify-only + 5.7 deleted ===
+
+@test "Phase 4.0 exists — compose+commit BUILD-LOG before /ship" {
+  grep -qE '^### 4\.0: Compose .{1,4} commit BUILD-LOG' "$SKILL_FILE"
+}
+
+@test "Phase 4.0 commits BUILD-LOG without pushing (push lives in /ship at 4.2)" {
+  awk '/^### 4\.0:/,/^### 4\.1:/' "$SKILL_FILE" > /tmp/phase40-section.txt
+  grep -qE 'git commit -m "chore\(build-log\): record' /tmp/phase40-section.txt
+  grep -qiE 'No .git push' /tmp/phase40-section.txt
+}
+
+@test "Phase 4.0 new BUILD-LOG entry shape omits explicit PR row" {
+  awk '/^### 4\.0:/,/^### 4\.1:/' "$SKILL_FILE" > /tmp/phase40-section.txt
+  grep -qiE 'No PR row in new entries' /tmp/phase40-section.txt
+}
+
+@test "Phase 5.6 is verify-only (no longer the canonical compose path)" {
+  grep -qE '^### 5\.6: Verify Phase 4\.0' "$SKILL_FILE"
+}
+
+@test "Phase 5.6 looks for the chore(build-log) commit via git log --grep" {
+  awk '/^### 5\.6:/,/^## Phase 5\.8:/' "$SKILL_FILE" > /tmp/phase56-section.txt
+  grep -qE 'git log .*origin/\$\{BASE\}\.\.HEAD' /tmp/phase56-section.txt
+  grep -qE 'grep="\^chore\(build-log\): record"' /tmp/phase56-section.txt
+}
+
+@test "Phase 5.6 fallback path re-watches CI (preserved from old 5.7 logic)" {
+  awk '/^### 5\.6:/,/^## Phase 5\.8:/' "$SKILL_FILE" > /tmp/phase56-section.txt
+  grep -qE 'gh run watch' /tmp/phase56-section.txt
+}
+
+@test "Phase 5.7 section header is deleted (no '### 5.7:' subsection)" {
+  ! grep -qE '^### 5\.7:' "$SKILL_FILE"
+}
+
+@test "Phase 5.7 has no top-level heading either (no '## Phase 5.7:')" {
+  ! grep -qE '^## Phase 5\.7:' "$SKILL_FILE"
+}
+
+@test "Phase 5.3 carries the watch-every-push guarantee folded in from 5.7" {
+  awk '/^### 5\.3:/,/^### 5\.3\.5:/' "$SKILL_FILE" > /tmp/phase53-section.txt
+  grep -qiE 'watch.every.push guarantee' /tmp/phase53-section.txt
+  grep -qiE 'folded in from defunct Phase 5\.7' /tmp/phase53-section.txt
+}
+
+@test "workflow.md diagram reflects 4.0 + dropped 5.7" {
+  grep -qE '4\.0 .{0,10}compose .{0,5} commit BUILD-LOG' "$WORKFLOW_FILE"
+  ! grep -qE '5\.7\s+re-watch CI after the 5\.6 push' "$WORKFLOW_FILE"
+}
+

@@ -178,7 +178,7 @@ FEATURE_DIR="specs/$FEATURE"
 
 ## Step 4: Flip PLAN.md row from Planned → Active
 
-`PLAN.md` is the single source of truth for planned + active features. `/ak-implement` resolves the active spec via `PLAN.md § Active`; `/ak-status` surfaces both sections; `/ak-build` Phase 5.6 removes the Active row and appends a full entry to `BUILD-LOG.md` on the feature branch (before merge); `/ak-go-live` Step 2b sanity-checks that Phase 5.6 ran.
+`PLAN.md` is the single source of truth for planned + active features. `/ak-implement` resolves the active spec via `PLAN.md § Active`; `/ak-status` surfaces both sections; `/ak-build` Phase 4.0 removes the Active row and appends a full entry to `BUILD-LOG.md` on the feature branch before `/ship` pushes (Phase 5.6 is a verify-only fallback); `/ak-go-live` Step 2b sanity-checks that the close-out ran.
 
 If `PLAN.md` doesn't exist, create it from `/devshop/template/PLAN.md`.
 

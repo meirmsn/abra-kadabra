@@ -1,6 +1,6 @@
 # Build Log
 
-Devshop build history. One entry per merged feature branch, most-recent first. Written by `/ak-build` Phase 5.6 on the feature branch before merge, so the entry ships as part of its own commit.
+Devshop build history. One entry per merged feature branch, most-recent first. Written by `/ak-build` Phase 4.0 on the feature branch before `/ship` pushes, so the entry ships in the original CI cycle. Phase 5.6 is a verify-only fallback for resume rungs where 4.0 didn't fire.
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 

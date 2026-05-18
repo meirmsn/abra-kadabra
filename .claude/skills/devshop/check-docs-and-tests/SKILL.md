@@ -146,7 +146,65 @@ The "pre-polish" / "post-polish" / "manual" subhead text comes from
 
 Audit date is today's date (`date +%Y-%m-%d`).
 
-### Step 5: Halt-or-continue
+### Step 5: Commit the appended section
+
+The audit record must land as a git commit so future runs see the
+`<!-- audited-at: <SHA> -->` stamp at HEAD (Step 7's idempotence
+contract depends on it) and so post-merge `git checkout main` doesn't
+trip on a dirty working tree. Codified from home-os PR #10 (2026-05-13)
+where the appended section sat uncommitted, blocked `gh pr merge
+--delete-branch`'s local cleanup, and the operator had to discard the
+audit-trail append to recover.
+
+Procedure:
+
+1. **Dirty-tree refusal.** Run `git status --porcelain` and inspect.
+   The orchestrator may have inherited an unrelated dirty tree from
+   the parent — silently capturing those changes would corrupt the
+   audit commit. The only paths legal in the working tree at this
+   step are `$FEATURE_DIR/review.md` (which Step 4 just appended to)
+   plus the empty-stub scaffold from Step 1 if it was just created.
+   If `git status --porcelain` reports any other path: surface a
+   `UNCOMMITTED:` line listing each foreign path, skip the commit,
+   and exit 0. The caller routes the recovery (`/ak-build § Phase
+5.8` halts on it; manual operators clean by hand). Do NOT
+   `git stash` or `git restore` — both destroy operator work
+   silently. Mirrors Phase 5.9's commit-or-no-op rule.
+2. **Stage only the audit file.** `git add "$FEATURE_DIR/review.md"`
+   — never `git add -A` / `git add .`. The scope of this commit is
+   exactly one file.
+3. **Compose the message.** Subject:
+   `docs(<feature>): Audit N (<label>) — findings: high=H medium=M low=L`
+   (single line, ≤ 72 chars; truncate `<feature>` if needed to stay
+   under). Body:
+
+   ```
+   Range: <RANGE>
+   Stamp: <HEAD_SHA>
+   ```
+
+   No further prose — the appended `## Audit N` section in
+   `review.md` is the audit-trail; the commit message only needs
+   pointer metadata.
+
+4. **Commit.** `git commit -F /tmp/audit-commit-message.txt`. Do not
+   pass `--no-verify`; the file-pairing pre-commit hooks (Layer 1)
+   have no surface match for `specs/<feature>/review.md` so they
+   carve out automatically, and committing under the gauntlet keeps
+   audit commits indistinguishable from any other commit in
+   pre-commit telemetry.
+5. **Print the SHA.** Echo `✓ audit committed at <new HEAD SHA>` so
+   the caller and tracker can record the bump.
+
+If the commit fails (pre-commit hook rejects, network glitch, etc.):
+print the hook output verbatim, leave the staged file staged, and
+exit non-zero. The caller surfaces the failure; the operator either
+fixes the underlying issue and re-runs, or discards (`git restore
+--staged`). Do NOT loop or retry — a failure here means something
+the orchestrator can't reason about happened, and silent retry would
+mask the signal.
+
+### Step 6: Halt-or-continue
 
 Inspect the totals across both domains:
 
@@ -159,12 +217,19 @@ Inspect the totals across both domains:
 
 The orchestrator does NOT auto-fix findings. Sub-skills don't either.
 
-### Step 6: Idempotence
+### Step 7: Idempotence
 
 Re-running the skill before HEAD changes is a no-op. Specifically: Step 2
 checks whether the latest `## Audit N` section's `<!-- audited-at -->`
 SHA equals HEAD; if so, print `✓ already audited at <SHA>` and exit 0
-WITHOUT invoking sub-skills or appending a section.
+WITHOUT invoking sub-skills, appending a section, or committing.
+
+Because Step 5 commits the section under the same HEAD it stamped,
+idempotence holds tightly: the freshly-committed `audited-at: <SHA>`
+equals the new HEAD. If Step 5 was skipped (dirty-tree refusal), the
+stamp points at a SHA _behind_ HEAD on disk — the next run treats
+that as a fresh range and re-audits from the prior stamp. This is
+the intended recovery path.
 
 Same idempotence shape as `/ak-build` Phase 5.8.5: read the latest
 `## Audit N` section's `<!-- audited-at -->` stamp from `review.md`
@@ -233,5 +298,10 @@ Notes on the template:
 
 - **Idempotent**: same HEAD → same audit. Re-runs are safe.
 - The orchestrator does NOT auto-fix findings. Sub-skills don't either.
+- The orchestrator DOES commit the appended `## Audit N` section
+  (Step 5). The audit-trail is a first-class repo artifact.
+- Dirty-tree refusal in Step 5: if the working tree contains anything
+  beyond the audit file, skip the commit and emit `UNCOMMITTED:` so
+  the caller routes recovery — never `git stash` or `git restore`.
 - Halt only on high-severity. Medium and low surface but don't block.
 - Caller decides what happens after halt — this skill exits and reports.

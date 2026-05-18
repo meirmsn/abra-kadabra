@@ -7,7 +7,10 @@
 
 setup() {
   load helpers/setup
-  SKILL_FILE="/devshop/.claude/skills/devshop/check-docs-and-tests/SKILL.md"
+  # Derive from TESTS_DIR (set by helpers/setup) so the tests pass from any
+  # checkout — main worktree OR a linked worktree under .worktrees/<topic>.
+  # Hardcoding `/devshop/...` made these tests silently bypass worktree edits.
+  SKILL_FILE="$TESTS_DIR/../../.claude/skills/devshop/check-docs-and-tests/SKILL.md"
   # Do NOT defensively skip when SKILL.md is missing — a rename/move/delete is
   # precisely the regression this file exists to catch. Let per-test assertions
   # fail naturally so the report says "SKILL.md exists at the expected path"
@@ -95,4 +98,52 @@ setup() {
 
 @test "0/0/0 clean case is documented" {
   grep -qE '0/0/0|clean.*no findings' "$SKILL_FILE"
+}
+
+# === Step 5: commit appended section (audit-trail persistence) ===
+
+@test "Step 5 commits the appended review.md section" {
+  grep -qE '^### Step 5: Commit the appended section' "$SKILL_FILE"
+}
+
+@test "Step 5 refuses on dirty tree containing paths other than review.md" {
+  grep -qiE 'dirty.tree refusal' "$SKILL_FILE"
+  grep -qE 'git status --porcelain' "$SKILL_FILE"
+  grep -qE 'UNCOMMITTED:' "$SKILL_FILE"
+}
+
+@test "Step 5 never stashes / restores (would destroy operator work)" {
+  grep -qE 'never .git stash' "$SKILL_FILE"
+  grep -qE 'git restore' "$SKILL_FILE"
+}
+
+@test "Step 5 stages only the audit file (no add -A / add .)" {
+  grep -qE 'git add "\$FEATURE_DIR/review.md"' "$SKILL_FILE"
+  grep -qE 'never .git add -A' "$SKILL_FILE"
+}
+
+@test "Step 5 commit subject shape documented (feature + Audit N + findings counts)" {
+  grep -qE 'docs\(<feature>\): Audit N.*findings: high=H medium=M low=L' "$SKILL_FILE"
+}
+
+@test "Step 5 commit body carries Range + Stamp metadata" {
+  grep -qE '^   Range: <RANGE>' "$SKILL_FILE"
+  grep -qE '^   Stamp: <HEAD_SHA>' "$SKILL_FILE"
+}
+
+@test "Step 5 does NOT use --no-verify (commits under the gauntlet)" {
+  # 'Do not\n pass `--no-verify`' wraps across two lines, so use tr+grep.
+  tr '\n' ' ' < "$SKILL_FILE" | grep -qE 'Do not[[:space:]]+pass[[:space:]]+.--no-verify'
+}
+
+@test "Step 6 is the halt-or-continue step (renumbered from old Step 5)" {
+  grep -qE '^### Step 6: Halt-or-continue' "$SKILL_FILE"
+}
+
+@test "Step 7 is idempotence (renumbered from old Step 6)" {
+  grep -qE '^### Step 7: Idempotence' "$SKILL_FILE"
+}
+
+@test "Behavior summary mentions orchestrator commits the audit section" {
+  grep -qiE 'orchestrator DOES commit' "$SKILL_FILE"
 }

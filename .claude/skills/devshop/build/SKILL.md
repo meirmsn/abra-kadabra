@@ -57,7 +57,7 @@ clean for orchestration and user communication.
   ├─ Agent → /ak-pre-ship    → writes specs/<name>/review.md (Gate 5
   │                             appends `## Audit 1` via /ak-check-docs-and-tests)
   ├─ Agent → /ship           → pushes, creates PR
-  ├─ CI watch (main ctx)     → fix-loop, bookkeeping, re-watch (Phase 5.1–5.7)
+  ├─ CI watch (main ctx)     → fix-loop, post-CI-green PR-body edits (Phase 5.1–5.6)
   ├─ Agent → /ak-check-docs-and-tests → re-audit over post-pre-ship range
   │                             (Phase 5.8 — appends `## Audit 2` to
   │                             specs/<name>/review.md; halts on high-severity
@@ -384,7 +384,8 @@ creates:
 - Phase 2 implementation tasks: `Phase 2 / Task N: <subject from spec>`
   (`/ak-implement` emits these naturally as task subjects; document it).
 - Phase 3 gate findings and ad-hoc fixes during pre-ship.
-- Phase 5 CI fix-loop attempts and the bookkeeping push.
+- Phase 5 CI fix-loop attempts (the bookkeeping commit now lands at
+  Phase 4.0, before `/ship` pushes — no separate Phase 5 tracker row).
 - Phase 5.8 / 5.9 sub-jobs when those fire (`Phase 5.8 / Audit N`,
   `Phase 5.9 / Visual refresh`).
 
@@ -548,6 +549,92 @@ check will pick up at Phase 3 and rerun pre-ship from the start.
 
 ## Phase 4: Ship
 
+### 4.0: Compose + commit BUILD-LOG entry + PLAN row removal
+
+**Why this runs before `/ship`.** The historical shape ran BUILD-LOG +
+PLAN bookkeeping at Phase 5.6 — after the first CI green — and triggered
+a fresh ~5-minute CI cycle for a docs-only push (Phase 5.7 watched it).
+That cycle is fixed-cost per PR regardless of diff size: a 15-LOC PR
+paid the same 5 min as a 1500-LOC PR. Folding the bookkeeping commit
+into the original `/ship` push eliminates the extra cycle entirely;
+`/ship`'s push at 4.2 now carries the bookkeeping atomically.
+
+**Risk acknowledged.** A BUILD-LOG entry composed here lands on the
+feature branch BEFORE any CI run. If the operator abandons the PR
+post-`/ak-build` (CI never goes green; no merge), the entry sits on a
+dead branch and is deleted with it. Net effect on shipped history is
+unchanged from the prior order (5.6's entries also lived only on the
+feature branch until merge; abandoned branches always carried their
+unmerged BUILD-LOG entries down with them).
+
+**Inputs**:
+
+- `$FEATURE` — feature name (from Phase 0 / Phase 1)
+- `$FEATURE_BRANCH` — branch name (from Phase 0's branch creation)
+- `$FEATURE_DIR` — `specs/$FEATURE/`
+- `PLAN.md` at repo root (Phase 1's `/ak-spec` flipped the Planned row into `## Active`)
+- `BUILD-LOG.md` at repo root (append-only ship log)
+
+**Steps**:
+
+1. If `BUILD-LOG.md` doesn't exist, copy from `/devshop/template/BUILD-LOG.md`. If `PLAN.md` doesn't exist, copy from `/devshop/template/PLAN.md`.
+
+2. **Remove the Active row from `PLAN.md`**: find the row in `## Active` whose Branch column matches `$FEATURE_BRANCH`, delete it. If `## Active` is now empty (no remaining rows), restore the placeholder `_No work in progress._` under the `## Active` heading.
+
+3. **Append the ship entry to `BUILD-LOG.md`**, most-recent-first (top of the entry list, after the intro paragraph and the `_No builds yet._` placeholder if present — remove the placeholder on first real entry):
+
+   ```markdown
+   ### <FEATURE> (YYYY-MM-DD)
+
+   - **Branch**: `<FEATURE_BRANCH>`
+   - **Spec**: `specs/<FEATURE>/spec.md`
+   - **Summary**: <1-line summary from $FEATURE_DIR/spec.md>
+   - **Commits**: <N> (<brief list if ≤ 5, else "N atomic commits per /ak-implement">)
+   - **Quality gates**: <summary from audit — "all passed" / "N findings fixed during pre-ship" / etc>
+   ```
+
+   **No PR row in new entries.** Phase 4.0 runs before `/ship` creates
+   the PR, so the number isn't known yet. The squash-merge subject on
+   `main` carries the PR number automatically (`feat(<topic>): … (#42)`
+   from GitHub's default squash format), so `git log --grep=<FEATURE>`
+   on main resolves the PR pointer without the explicit row. Older
+   entries retain their `**PR**:` row — no migration; they're history.
+
+   **Commits count caveat.** `<N>` is the count BEFORE `/ship`'s
+   potential VERSION/CHANGELOG bump (`git log origin/$BASE..HEAD |
+   wc -l`). `/ship` typically adds 1 commit. The Audit 2 pass at
+   Phase 5.8 catches the discrepancy as a low-severity finding and the
+   polish loop fixes it; this is the same path PR #18 followed when it
+   was the post-CI-green design.
+
+4. **Retire any tracker entry the PR closes.** If the PR shipped a fix that resolves a tracker entry living in any of:
+
+   - `TODOS.md` (project)
+   - `PRODUCT-ROADMAP.md` (project, e.g. a v0 chapter)
+   - `/devshop/kit/TODOS.md`
+   - `/devshop/kit/ROADMAP.md`
+
+   …the same commit that runs step 4 also (a) **deletes** the entry — no "shipped 2026-04-26" footnote, no strikethrough, just delete; git log + the PR description are the audit trail; (b) **rewrites any docs that described the prior constraint** from conditional preflight prose ("Without this, X fails", "verify X before assuming blocked") to imperative present tense ("Do X." / "X works."), since "Without this" framing reads identically whether the prereq is met or not and trips future sessions into false beliefs; and (c) **unwinds every cross-reference to the deleted entry** in the same commit — orphan citations elsewhere respawn the false belief.
+
+   How to enumerate the cross-refs cheaply: `grep -rE "<dropped-entry-name>|<dropped-entry-section-id>" /workspace/ /devshop/kit/docs/ /devshop/CLAUDE.md` — every hit needs to be either rewritten or removed. Don't trust that "the entry is just in v0" — a sibling entry (or a SKILL.md, or another guide doc) may cite it as a prereq.
+
+   Worked example: this convention was codified after a session read `/ak-build` SKILL.md Phase 5.4's "Without this, `gh run download` fails" line as "still blocked" and skipped artifact-pull on a CI failure that had artifacts waiting. The firewall fix had shipped weeks earlier; the v0 entry tracking it never moved out of `kit/ROADMAP.md` v0; the SKILL.md prereq prose never moved to imperative present. See devshop commits `7e03f6a` (cleanup of the specific incident) + `f3ec42b` (the convention itself). Full statement: `/devshop/CLAUDE.md § Closing TODO / ROADMAP entries when a fix ships`.
+
+5. Commit on the feature branch:
+
+   ```bash
+   git add PLAN.md BUILD-LOG.md  # plus any deleted/rewritten files from step 4
+   git commit -m "chore(build-log): record <FEATURE>"
+   ```
+
+   No `git push` — Phase 4.2's `/ship` invocation pushes this commit
+   together with `/ship`'s own VERSION/CHANGELOG bump (if any) in a
+   single cycle. That's the elision.
+
+   If step 4 retired a tracker entry, prefer a separate commit on the feature branch with message `chore(roadmap): close <entry-name> (shipped via PR #<PR>)` — keeps the bookkeeping atomic. The PR# in this message can also be `(shipped from this feature branch — PR pending)` since 4.0 predates PR creation.
+
+**Idempotence**: if Phase 4.0 has already run for this feature (no Active row for `$FEATURE_BRANCH` in `PLAN.md` AND a `BUILD-LOG.md` entry referencing `$FEATURE` exists, AND no PR-closed tracker entry remains in any roadmap), skip — don't duplicate. Phase 5.6 (verification-only) catches the un-run case as a fallback.
+
 ### 4.1: Pre-compose PR title + Summary body
 
 Before invoking `/ship`, compose the PR title and the `## Summary` section
@@ -689,6 +776,20 @@ When GitHub re-enables the fine-grained Checks permission, swap back to
 `gh pr checks "$PR" --watch --fail-fast` — tracked in `kit/TODOS.md`.
 
 ### 5.3: On CI green → update PR body checkboxes, then continue to 5.6
+
+**Watch-every-push guarantee (folded in from defunct Phase 5.7).** After
+this CI-green attestation, treat every subsequent push on the branch as
+its own watch-then-advance unit before Phase 6's audit comment can post
+its `CI is green` claim. Polish-loop fixes, post-`/ak-build` operator
+edits, and audit-fix commits all trigger their own CI runs; each must be
+re-watched and confirmed `success` at the SHA being audited. The Phase 5.6
+elision removed one structural source of post-CI-green pushes (the
+BUILD-LOG bookkeeping cycle) but did not remove the general requirement.
+Codified from lalista PR 18 (2026-04-25) — audit + ready-for-review
+comments posted while a bookkeeping push's CI was still `in_progress`;
+that run failed on a WebKit system-libs flake, forcing a public
+retraction comment. Phase 6's `Part B` evidence sweep enforces this
+check at posting time.
 
 Once the CI run completes successfully, mark the relevant `## Test plan` /
 `### CI gates` checkboxes as `[x]` with the short attestation inline
@@ -967,132 +1068,68 @@ gh pr comment "$PR" --body "## CI failing — help needed
 
 Stop and wait. The user gets a GitHub notification.
 
-### 5.6: Finalize PLAN.md + BUILD-LOG.md on the feature branch
+### 5.6: Verify Phase 4.0's BUILD-LOG commit shipped (fallback if not)
 
-Runs on CI green (after 5.3), before advancing to Phase 5.7. Closes out this feature's history **on the feature branch** so it ships as part of this PR — not as a separate post-merge cleanup PR.
-
-**Why here, not post-merge**: the prior design landed a second `chore: close <feature> in BUILD-LOG` PR on main after merge. That's an extra PR for pure history, and fails on projects with a main-is-PR-only guard that blocks Claude from committing to main directly. Writing on the feature branch eliminates both problems — the PR carries its own history entry, and merge-to-main brings it along.
-
-**Inputs**:
-
-- `$FEATURE` — feature name (from Phase 0 / Phase 1)
-- `$PR` — PR number (from 5.1)
-- `$FEATURE_DIR` — `specs/$FEATURE/`
-- `PLAN.md` at repo root (Phase 1's `/ak-spec` flipped the Planned row into `## Active`)
-- `BUILD-LOG.md` at repo root (append-only ship log)
+Phase 4.0 composes + commits BUILD-LOG.md + PLAN.md row removal on the
+feature branch before `/ship` runs, so `/ship`'s push at Phase 4.2
+carries the bookkeeping atomically — no second CI cycle. 5.6 is the
+verification rung that catches resume paths or out-of-order invocations
+where 4.0 didn't run.
 
 **Steps**:
 
-1. If `BUILD-LOG.md` doesn't exist, copy from `/devshop/template/BUILD-LOG.md`. If `PLAN.md` doesn't exist, copy from `/devshop/template/PLAN.md`.
-
-2. **Remove the Active row from `PLAN.md`**: find the row in `## Active` whose Branch column matches `$FEATURE_BRANCH`, delete it. If `## Active` is now empty (no remaining rows), restore the placeholder `_No work in progress._` under the `## Active` heading.
-
-3. **Append the ship entry to `BUILD-LOG.md`**, most-recent-first (top of the entry list, after the intro paragraph and the `_No builds yet._` placeholder if present — remove the placeholder on first real entry):
-
-   ```markdown
-   ### <FEATURE> (YYYY-MM-DD)
-
-   - **Branch**: `<FEATURE_BRANCH>` (merging via #<PR>)
-   - **PR**: [#<PR>](https://github.com/<owner>/<repo>/pull/<PR>)
-   - **Spec**: `specs/<FEATURE>/spec.md`
-   - **Summary**: <1-line summary from $FEATURE_DIR/spec.md>
-   - **Commits**: <N> (<brief list if ≤ 5, else "N atomic commits per /ak-implement">)
-   - **Quality gates**: <summary from audit — "all passed" / "N findings fixed during pre-ship" / etc>
-   ```
-
-4. **Retire any tracker entry the PR closes.** If the PR shipped a fix that resolves a tracker entry living in any of:
-
-   - `TODOS.md` (project)
-   - `PRODUCT-ROADMAP.md` (project, e.g. a v0 chapter)
-   - `/devshop/kit/TODOS.md`
-   - `/devshop/kit/ROADMAP.md`
-
-   …the same commit that runs step 4 also (a) **deletes** the entry — no "shipped 2026-04-26" footnote, no strikethrough, just delete; git log + the PR description are the audit trail; (b) **rewrites any docs that described the prior constraint** from conditional preflight prose ("Without this, X fails", "verify X before assuming blocked") to imperative present tense ("Do X." / "X works."), since "Without this" framing reads identically whether the prereq is met or not and trips future sessions into false beliefs; and (c) **unwinds every cross-reference to the deleted entry** in the same commit — orphan citations elsewhere respawn the false belief.
-
-   How to enumerate the cross-refs cheaply: `grep -rE "<dropped-entry-name>|<dropped-entry-section-id>" /workspace/ /devshop/kit/docs/ /devshop/CLAUDE.md` — every hit needs to be either rewritten or removed. Don't trust that "the entry is just in v0" — a sibling entry (or a SKILL.md, or another guide doc) may cite it as a prereq.
-
-   Worked example: this convention was codified after a session read `/ak-build` SKILL.md Phase 5.4's "Without this, `gh run download` fails" line as "still blocked" and skipped artifact-pull on a CI failure that had artifacts waiting. The firewall fix had shipped weeks earlier; the v0 entry tracking it never moved out of `kit/ROADMAP.md` v0; the SKILL.md prereq prose never moved to imperative present. See devshop commits `7e03f6a` (cleanup of the specific incident) + `f3ec42b` (the convention itself). Full statement: `/devshop/CLAUDE.md § Closing TODO / ROADMAP entries when a fix ships`.
-
-5. Commit on the feature branch:
+1. Look for the bookkeeping commit on this branch:
 
    ```bash
-   git add PLAN.md BUILD-LOG.md  # plus any deleted/rewritten files from step 4
+   BUILD_LOG_COMMIT=$(git log "origin/${BASE}..HEAD" \
+     --grep="^chore(build-log): record" --format=%H -1)
+   ```
+
+2. **If present** (the common path — 4.0 ran): no-op. Print
+   `✓ 5.6: build-log already recorded at $BUILD_LOG_COMMIT`. Advance to
+   Phase 5.8 (Phase 5.7 was deleted; no re-watch cycle).
+
+3. **If absent** (resume rung where 4.0 was skipped, or 4.0 itself was
+   skipped via Phase 0 resume): run the full Phase 4.0 procedure here
+   (steps 1–4 of § 4.0), then commit + push:
+
+   ```bash
+   git add PLAN.md BUILD-LOG.md  # plus any deleted/rewritten files from § 4.0 step 4
    git commit -m "chore(build-log): record <FEATURE>"
    git push
    ```
 
-   If step 4 retired a tracker entry, prefer a separate commit on the feature branch with message `chore(roadmap): close <entry-name> (shipped via PR #<PR>)` — keeps the bookkeeping atomic.
+   This push triggers a new CI run. Watch it via the same loop as 5.2
+   (set `RUN_ID = gh run list --branch "$BRANCH" --limit 1 …`, then
+   `gh run watch "$RUN_ID" --exit-status`, cross-check conclusion). On
+   green, re-run 5.3 to update PR body checkboxes for the new SHA, then
+   advance to Phase 5.8. On red, route to 5.4's fix loop. This is the
+   pre-elision behavior; it's the right shape for the fallback even
+   though it incurs the CI cycle the elision exists to avoid.
 
-6. Re-fetch the PR body. If it carries a commit count that's now stale (e.g., `Commits: N`), update via `gh pr edit "$PR" --body-file`.
+**Idempotence**: 5.6 either no-ops (commit present) or runs once (commit
+absent and 4.0 didn't fire). The check is a single `git log --grep` —
+no race window with 4.0.
 
-**Idempotence**: if 5.6 has already run for this feature (no Active row for `$FEATURE_BRANCH` in `PLAN.md` AND a `BUILD-LOG.md` entry referencing `$PR` exists, AND no PR-closed tracker entry remains in any roadmap), skip — don't duplicate.
-
-**Fallback for CI-timeout**: if `$PR` is not yet set (5.1 hasn't run — edge case where Phase 5 was entered out-of-band), 5.6 is a no-op; it will fire next time CI is green with a known PR.
-
-### 5.7: Re-watch CI after the 5.6 bookkeeping push
-
-The 5.6 commit triggers a fresh CI run on the latest SHA. Even though
-the diff is docs-only (PLAN.md + BUILD-LOG.md), the new run can fail on
-environmental flakes (runner-image variance, browser-cache hits that
-skip system-deps install, CDN IP rotation, etc.) that the prior run got
-lucky on. Phase 6's audit comment claims "CI is green" — that claim
-must be true for the SHA the comment is being posted against, not for
-an earlier SHA whose CI passed.
-
-**Codified from**: lalista PR 18 audit-trail correction (2026-04-25) —
-audit + ready-for-review comments were posted while the bookkeeping
-commit's CI was still `in_progress`; that run failed on a WebKit
-system-libs flake (`libwoff2dec.so.1.0.2` not on this runner image),
-forcing a public retraction comment. Phase 5.6's push has the same
-shape as any other push and deserves the same watch-then-advance
-discipline; collapsing the watch was a load-bearing oversight, not a
-shortcut.
-
-**Steps**:
-
-1. Re-read the latest run on the feature branch. The 5.6 push triggers
-   a new run; that run is now the canonical CI signal:
-
-   ```bash
-   RUN_ID=$(gh run list --branch "$BRANCH" --limit 1 \
-     --json databaseId --jq '.[0].databaseId')
-   gh run watch "$RUN_ID" --exit-status
-
-   # Same conclusion cross-check as 5.2 — see that section for the
-   # codification + rationale.
-   CONCLUSION=$(gh run view "$RUN_ID" --json conclusion --jq .conclusion)
-   if [ "$CONCLUSION" != "success" ]; then
-     echo "✖ Re-watched run $RUN_ID conclusion=$CONCLUSION; route to 5.4"
-     exit 1
-   fi
-   ```
-
-   This blocks until the bookkeeping run completes. Same 30-minute cap
-   as 5.2.
-
-2. **If green**: re-run 5.3 to repoint the PR body's CI checkboxes at
-   this latest run (the prior CI attestation now references a stale
-   SHA — leaving it points reviewers at an older run that doesn't
-   reflect the latest commit). Then advance to Phase 6.
-
-3. **If red**: re-enter Phase 5.4's fix loop. The bookkeeping commit's
-   failure is a CI failure like any other; the same observability-tiered
-   cadence applies (attempt #1 from logs; attempt #2+ pulls artifacts).
-   Do NOT advance to Phase 6 with a red latest run — the audit and
-   ready-for-review comments are public artifacts, and overclaiming
-   ("CI is green") in them costs trust.
-
-**Idempotence**: 5.7 fires once per 5.6 push. If 5.6 was a no-op (e.g.,
-PLAN.md was already empty and BUILD-LOG entry already existed), there
-is no new run to watch and 5.7 is a no-op too.
+**Why 5.7 was deleted**: the historic 5.7 re-watched CI after 5.6's
+unconditional bookkeeping push. With 4.0 making the bookkeeping commit
+part of `/ship`'s push, the common path has no 5.6 push to re-watch and
+Phase 6 can post against the original `/ship` CI run. The "watch every
+push" guarantee (the load-bearing piece 5.7 enforced) is folded into
+5.3's preamble: every subsequent push on the branch — polish-loop fixes,
+audit-fix commits, out-of-band operator edits, OR a 5.6-fallback push —
+must be re-watched before Phase 6 posts. Phase 5.8.1's polish-loop CI
+sanity check is the enforcement point on entry to 5.8 (it enumerates
+every run since PR open and halts if the latest isn't green).
 
 ## Phase 5.8: Post-pre-ship docs + tests re-audit
 
 `/ak-pre-ship` runs `/ak-check-docs-and-tests` as Gate 5 once, against the
 spec snapshot — that audit appends `## Audit 1` to `review.md`. Every commit
-landed AFTER that audit — `/ship`'s `Suspense`-fix commit, the entire CI
-fix-loop, the 5.6 bookkeeping commit, and any post-Phase-3 polish
-iterations the user asks for during local dogfood — bypasses docs +
+landed AFTER that audit — Phase 4.0's `chore(build-log)` commit, `/ship`'s
+`Suspense`-fix commit, the entire CI fix-loop, a 5.6-fallback bookkeeping
+commit if one fired, and any post-Phase-3 polish iterations the user asks
+for during local dogfood — bypasses docs +
 test-coverage review entirely. The pre-push reviewer covers PR-description
 coverage, the Layer-1 test-presence hook covers "did you touch a test file
 at all," and the freshness hook covers docs — but none check **whether the
