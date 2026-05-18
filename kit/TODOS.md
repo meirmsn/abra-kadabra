@@ -558,3 +558,28 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
   **Severity**: medium — same pattern will recur in every new auth-touching project until codified.
 
   [medium, convention + skill + template, surfaced-by home-os-pr-19-2026-05-15, 2026-05-15]
+
+- [ ] **`/ak-merge-devshop` is not worktree-aware — Phase 0.1 hard-cds to `/devshop` and reads `git branch --show-current` from there, so a branch developed in a linked worktree (`.worktrees/<topic>/`) can't be merged in-place.** Surfaced 2026-05-17 while landing `feat/pipeline-correctness` from `.worktrees/pipeline-correctness/`. The skill's Phase 0.1 does `cd /devshop` then reads the current branch — which on /devshop is `main` — and refuses. The operator's workaround is a three-step dance: (1) `git worktree remove .worktrees/<topic>` from /devshop, (2) `git checkout feat/<topic>`, (3) invoke `/ak-merge-devshop`. Two layers of friction on top of the dance: (a) `git worktree remove` refuses outright when the worktree contains initialized submodules (`fatal: working trees containing submodules cannot be moved or removed`) — common because pre-commit hooks / bats tests require `git submodule update --init` inside the worktree, so any worktree that actually ran the gauntlet is now "submodule-contaminated"; (b) `CLAUDE.md § Parallel work via linked worktrees` says "switch back to /devshop, run /ak-merge-devshop, then `git worktree remove .worktrees/<topic>`" — implying remove happens AFTER merge, which contradicts the skill's actual requirement (remove must happen BEFORE merge so the branch is free to check out). Doc and skill drift past each other.
+
+  **Fix shape**: make `/ak-merge-devshop` worktree-aware so the CLAUDE.md flow actually works without manual unwinding:
+  1. **Phase 0.1 detection**. Before refusing on `BRANCH=main`, run `git worktree list --porcelain` and find a single worktree with a `feat/*`/`fix/*`/`docs/*`/`chore/*` branch that is ahead of `origin/main`. If exactly one match, that's the target. If zero or two-plus, fall through to today's behavior (error / ask). The skill needs an explicit `--branch <name>` arg for the two-plus case.
+
+  2. **Phase 2 squash from the linked worktree**. Phase 2 today does `git rebase origin/main` + `git reset --soft origin/main` + `git commit` ON the feature branch. With worktrees, run these `git` invocations with `-C "$WORKTREE_PATH"` so they fire in the worktree without checking out the branch on /devshop. The pre-commit hook chain works identically there (verified by today's session — 893 bats green in `.worktrees/pipeline-correctness/`).
+
+  3. **Phase 3 ff-main from /devshop**. The fast-forward step (`git checkout main && git merge --ff-only "$BRANCH" && git push origin main`) must run on /devshop because main is checked out there. This is the same shape as today — no change needed once Phase 2 is worktree-routed.
+
+  4. **Phase 4 cleanup includes the worktree**. After tree-equality verify, add `git worktree remove .worktrees/<topic>` to Phase 4.2's cleanup chain. The remove is safe at this point because the squash + ff is complete; the worktree's contents are reflected in main. The submodule-refusal issue is solved by `git submodule deinit -f -- kit/tests/lib/bats-*` inside the worktree BEFORE remove (deinit is per-worktree-checkout-dir and doesn't touch /devshop's submodules at all — they're separate working trees of the same submodule registry).
+
+  5. **CLAUDE.md update**: rewrite `§ Parallel work via linked worktrees` to either (a) match the new skill behavior ("run `/ak-merge-devshop` from /devshop — it handles worktree teardown") or (b) drop the manual `git worktree remove` line that's wrong-order today.
+
+  **Edit targets**:
+  - `/devshop/.claude/skills/devshop/merge-devshop/SKILL.md` § Phase 0.1 (detection), § Phase 2 (worktree-routed squash), § Phase 4.2 (cleanup includes worktree remove + submodule deinit).
+  - `/devshop/CLAUDE.md` § Parallel work via linked worktrees (sync with the new skill flow).
+  - `/devshop/kit/docs/guide/workflow.md` if it documents the merge flow.
+  - New bats invariants in `kit/tests/util-ak-merge-devshop.bats`: skill prose declares worktree-aware detection; submodule-deinit-before-remove language present; Phase 4.2 cleanup chain includes `git worktree remove`.
+
+  **Why this generalizes**: every multi-feature-in-flight session is exposed. The devshop is increasingly likely to have 2+ branches simultaneously (today's session had 2 worktrees active — `feat/pipeline-correctness` + `feat/ak-pre-ship-migration-rollback-gate`), and once worktrees are the workflow, the merge skill must be worktree-aware or the operator pays the dance tax every time. The dance is also error-prone: today's user hit the submodule refusal on first try, then had to choose between a surgical `rm -rf` and a nuclear one — neither is friction the skill should leave to the operator.
+
+  **Severity**: medium — workaround exists (the dance), but the dance is invisible to first-time users and surfaces as an error only at merge time. CLAUDE.md's prose contradicting the skill is the higher-severity piece: doc-drift erodes trust in the broader rule set.
+
+  [medium, skill-improvement, ak-merge-devshop + worktree-awareness, surfaced-by feat/pipeline-correctness merge attempt 2026-05-17, 2026-05-17]
