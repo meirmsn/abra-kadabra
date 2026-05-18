@@ -704,72 +704,6 @@ The first project that scaffolds the devshop today inherits a guide-conventions 
 - Risk: low — non-functional doc shuffling. Worst case: a temporary duplication that gets resolved on the next audit pass. No production code changes.
 - Benefit: rules actually fire. Closes the "paper rule" footgun for every future devshop project.
 
-**Adjacent v0 entry**: § Adversarial reviewer reads guide/ for convention checks (below) — the same audit's other half. They can ship as one PR (sweep skills + amend reviewer prompts in the same change) or as two — the latter is cleaner because the skill audit is more text-heavy and the reviewer change is more structural.
-
----
-
-### Adversarial reviewer reads `guide/` for convention checks
-
-**Pre-implementation findings (verified 2026-05-14):** **PARTIAL — the main mechanism shipped, the optional standalone gate didn't.** Before reopening this entry, confirm scope is still meaningful:
-
-- **SHIPPED via `953e9a1`**: `CONVENTIONS_TO_INCLUDE` map at `kit/scripts/adversarial-review.sh:373-449` with `extract_convention_section()` helper + `get_conventions_to_inline()` dispatch + inlining loop. Currently routes `testReviewSkipReason`, `exemptAddition`, `dismissalLog` (gate-routed). Plus `WORKFLOW_TO_INCLUDE` for `coreUserStoryNaReason`. `/devshop/CLAUDE.md` documents this in present tense.
-- **NOT SHIPPED**: optional standalone `kit/scripts/preship/check-conventions.sh` gate.
-- **Scope shift**: the original RFC scope listed `docsReviewed` as a primary inlining target, but PR-C (the audit-time migration) REMOVED `docsReviewed` and other coverage check-types entirely — they're now `/ak-docs-review` + `/ak-tests-review` skills, which read their own guide content directly. So inlining them into adversarial-review is no longer the right shape; their convention exposure is via skill prompts, not commit-time hooks.
-- **Decision needed**: either (a) close this entry — the inlining map shipped and the coverage check-types it would have wrapped have moved to a different layer; or (b) keep it open scoped ONLY to the optional standalone gate, sized at ~1 hr.
-
-Spec below preserved for full original context.
-
----
-
-**Problem.** The current pre-commit adversarial reviewers (`commit-guard.sh` + `adversarial-review.sh`) check whether **bypass reasons** are valid (e.g., is the docsReviewed note thorough? is the dirtyTreeReason load-bearing?). They don't check whether the **commit itself** follows the project's documented conventions. So a commit that adds a feature without a test, or adds a metric event without registering it in `METRICS.md`, or skips a doc update that conventions require, sails through the reviewer because the bypass-reason gate is the only checkpoint.
-
-The agent often forgets convention X (especially one buried in conventions.md per the sibling audit above), and the reviewer doesn't catch it because it doesn't know X exists.
-
-**Shape of the fix:**
-
-Extend the adversarial-review prompt construction to **inline relevant `kit/docs/guide/` sections** as context the reviewer uses to flag convention violations. Two modes:
-
-1. **Inline conventions in the existing per-flag reviewers** (cheap, additive). Each existing review (`docsReviewed`, `prDescStaleReason`, etc.) gets the relevant conventions appended to its prompt: "These are the documented conventions for this concern; flag the commit if it violates them." E.g., the `docsReviewed` reviewer gets `conventions.md § Metrics Lifecycle` and `§ Non-Negotiables → Testing`; the `prDescStaleReason` reviewer gets nothing (no relevant convention).
-
-2. **A new "convention check" gate** that runs unconditionally on every commit (no bypass flag). Reads the diff, reads the conventions, asks the reviewer: "Does this diff follow them?" Cheaper path: only fire on commits that touch `apps/**` / `packages/**` / `supabase/**` (real code), skip on docs-only.
-
-**Implementation surface:**
-
-- `kit/scripts/adversarial-review.sh` — extend the prompt builder to inline guide sections by topic. Add a `CONVENTIONS_TO_INCLUDE` map keyed by review topic.
-- `kit/scripts/commit-hooks/commit-guard.sh` — add a `convention-check` gate (or fold into existing gates per option #1 above).
-- `kit/scripts/preship/check-conventions.sh` (new) — option #2's standalone check, invoked from pre-commit.
-- `kit/tests/<corresponding>.bats` — coverage tests using fixture commits that violate / follow each convention.
-
-**Why v0 — blocks next-project adoption:**
-
-The whole reason `kit/docs/guide/conventions.md` exists is to encode "how this devshop wants you to work." Without an automated check, the conventions are aspirational — agents follow them when convenient and skip them when not, with no mechanism to catch the skip. New projects bring new convention pressure (mobile devshop adds touch-target rules, etc.); each new convention adds maintenance burden if it's only enforced by future-Claude-remembering. Codifying convention-check at commit-time means each documented rule is also enforced.
-
-**Sequencing with the conventions audit (above):**
-
-Order matters. Audit first, reviewer-check second. Reasons:
-
-1. The audit moves operational rules out of conventions.md into skills. Once rules are in skills, the reviewer can prompt against the SKILL.md content directly (no need to inline guide/conventions.md). Conventions.md becomes pure reference (taxonomies, examples).
-2. Without the audit first, the reviewer prompt would inline content that's also being moved — risky doc drift during the convention-check ship.
-3. Audit also surfaces which conventions are operational (worth enforcing) vs aspirational (reference-only) — the reviewer should only enforce the former.
-
-**Trigger:**
-
-- Conventions audit (above) lands on devshop main.
-- OR: a real "convention violation slipped through review" incident that costs an hour+ of debugging.
-
-**Cross-ref:**
-
-- `/devshop/kit/scripts/adversarial-review.sh` — the prompt builder to extend.
-- `/devshop/kit/scripts/commit-hooks/commit-guard.sh` — the gate-orchestration point.
-- `/devshop/kit/docs/guide/hooks.md` — documents the existing adversarial-review pattern; will need updates when this ships.
-- Sibling entry above (conventions audit) — load-bearing prereq.
-
-**Cost/risk:**
-
-- Implementation: ~2-3 focused hours (prompt builder changes + new gate + bats coverage).
-- Risk: false positives if the reviewer misreads convention scope (e.g., flags a "missing test" for a doc-only PR). Mitigate via narrow prompts + diff-aware filtering before invoking the reviewer.
-- Benefit: documented conventions become enforced conventions, end-to-end. Closes the gap between "we wrote it down" and "the agent follows it."
-
 ---
 
 ### Fold PR-title readability check into the pre-push prDescStale reviewer
@@ -1285,7 +1219,7 @@ Home-os was the SECOND project to bootstrap from the devshop template via `/ak-n
 #### C. Template / manifest fixes — sub-hour, one PR
 
 - **(C1) CI Node 20 vs pnpm-11 Node-22 requirement (gen #30)** — `template/.github/workflows/ci.yml` pins `node-version: '20'` but `pnpm/action-setup@v3 with version: latest` resolves to pnpm 11.x at the runner, which imports `node:sqlite` — a Node-22-only builtin. Result: `actions/setup-node@v4`'s pnpm-cache restore step crashes with `Error [ERR_UNKNOWN_BUILTIN_MODULE]: No such built-in module: node:sqlite` and CI fast-job fails in 12-23s. Home-os shipped a 2-line fix on its own branch (bump `node-version` to `'22'` + `.nvmrc` `20` → `22`). **Fix**: same 2-line patch in `template/.github/workflows/ci.yml` + `template/.nvmrc`. **Where**: `template/.github/workflows/ci.yml` line 22 (or wherever node-version pin lives) + `template/.nvmrc`. ~5 min. **Severity: blocks every new project's first CI run** — fast-job fails immediately on first push to a feature branch.
-- **(C2) Manifest gap: compose-isolation files not in `kit/manifest.txt` `[locked]` list (gen #26)** — `init-devshop.sh`'s [locked]-manifest enforcement at container start chowns `devcontainer.json`, `init-firewall.sh`, `Dockerfile`, `checksums.sha256`, `.env`, `firewall-extra-domains`, etc. to root:root 644 on every start. BUT the compose-isolation set (`compose.yml`, `init-host-env.sh`, `supabase-runner/Dockerfile`, `supabase-runner/cmd-relay.mjs`) is NOT in the manifest. Step 21 of `/ak-new-project` carries a conditional sudo block for these 4 files; if the operator skips that block, the files stay node:node and a compromised npm transitive can rewrite them. **Fix**: extend `kit/manifest.txt`'s [locked] list to include the four compose-isolation files; then `/ak-new-project § Step 21` simplifies to "verify all `.devcontainer/*` files are root:root; if not, rebuild devcontainer (init-devshop.sh re-applies on start)." Mind execute-bits — `init-host-env.sh` and `cmd-relay.mjs` are 755 (executed scripts); manifest enforcement should preserve mode per-file. **Where**: `kit/manifest.txt` + `kit/scripts/init-devshop.sh` (the [locked] processor — confirm mode-per-file support) + `/devshop/.claude/skills/ak-new-project/SKILL.md § Step 21` (simplification after manifest extension). **Status**: originally slated to ship inside the firewall-extras-overlay PR; that PR shipped 2026-05-14 as `43baffb` without C2 included (only `firewall-extra-domains [scaffold-once]` was added to the manifest). Re-filed as standalone `PLAN.md § compose-isolation-manifest-locked`; recommended bundle there is "convention housekeeping" alongside `docs-coverage-audit-prose-exemption` / `template-tracker-seed-strip` / `conventions-deduplication` / `reviewer-reads-guide-decision`. ~30 min if the manifest mode-per-file support is already there; ~1h if not. **Severity**: low (Step 21 currently catches the gap via the conditional sudo block) but the manifest is the right home for this.
+- **(C2) Manifest gap: compose-isolation files not in `kit/manifest.txt` `[locked]` list (gen #26)** — `init-devshop.sh`'s [locked]-manifest enforcement at container start chowns `devcontainer.json`, `init-firewall.sh`, `Dockerfile`, `checksums.sha256`, `.env`, `firewall-extra-domains`, etc. to root:root 644 on every start. BUT the compose-isolation set (`compose.yml`, `init-host-env.sh`, `supabase-runner/Dockerfile`, `supabase-runner/cmd-relay.mjs`) is NOT in the manifest. Step 21 of `/ak-new-project` carries a conditional sudo block for these 4 files; if the operator skips that block, the files stay node:node and a compromised npm transitive can rewrite them. **Fix**: extend `kit/manifest.txt`'s [locked] list to include the four compose-isolation files; then `/ak-new-project § Step 21` simplifies to "verify all `.devcontainer/*` files are root:root; if not, rebuild devcontainer (init-devshop.sh re-applies on start)." Mind execute-bits — `init-host-env.sh` and `cmd-relay.mjs` are 755 (executed scripts); manifest enforcement should preserve mode per-file. **Where**: `kit/manifest.txt` + `kit/scripts/init-devshop.sh` (the [locked] processor — confirm mode-per-file support) + `/devshop/.claude/skills/ak-new-project/SKILL.md § Step 21` (simplification after manifest extension). **Status**: originally slated to ship inside the firewall-extras-overlay PR; that PR shipped 2026-05-14 as `43baffb` without C2 included (only `firewall-extra-domains [scaffold-once]` was added to the manifest). Re-filed as standalone `PLAN.md § compose-isolation-manifest-locked`; recommended bundle there is "convention housekeeping" alongside `docs-coverage-audit-prose-exemption` / `template-tracker-seed-strip` / `conventions-deduplication`. ~30 min if the manifest mode-per-file support is already there; ~1h if not. **Severity**: low (Step 21 currently catches the gap via the conditional sudo block) but the manifest is the right home for this.
 
 #### D. Devshop-registry-driven Supabase port offsets (gen #1 from earlier session; redesigned 2026-05-15)
 
