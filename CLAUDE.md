@@ -177,14 +177,15 @@ Future sessions trust the docs. Trust is only earned by keeping them honest at f
 
 ### Commit + PR text style
 
-Every commit subject, PR title, and PR `## Summary` body follows the same readability rule:
+Every commit subject, PR title, and PR body section follows the same readability rule:
 
 - **Subjects + titles** describe the **observable change**, not the implementation detail. Verb-led when there's one verb-y change (`skip`, `add`, `fix`, `tighten`, `rename`); noun-lists for multi-unit commits (`feat: invite link + member mgmt + audit feed`). No internal jargon ("polish", "soak findings", "Phase 2 expansion"). ≤ 72 chars, err shorter.
-- **`## Summary` bodies + commit bodies** open with a one-sentence TL;DR + 3-7 bullets — each one a concrete user-meaningful unit. Bullets first; prose only when a non-obvious decision needs framing (1-2 sentences). Don't paragraph-then-re-summarize-as-bullets — pick one shape.
+- **PR body leads with `## Product update`** (first content after H1), then `## Engineering details`. Product update carries `### Headline (user-facing)` (1–2 sentences, zero eng terms) and `### Detail (team-facing)` (1–4 sentences, light eng OK), both copied verbatim from `spec.md § Product update`. Engineering details is the historical `## Summary` shape, renamed — bullet-led TL;DR + 3-7 bullets at the eng grain.
+- **Commit bodies + `## Engineering details`** open with a one-sentence TL;DR + 3-7 bullets — each one a concrete user-meaningful unit. Bullets first; prose only when a non-obvious decision needs framing (1-2 sentences). Don't paragraph-then-re-summarize-as-bullets — pick one shape.
 
 Self-test: would a teammate scrolling `git log` two months from now know what shipped without opening the diff?
 
-Full rules + examples + routing table: `kit/docs/guide/conventions.md § Commit + PR Text Style`. Squash-specific shape: `.claude/skills/devshop/merge-devshop/SKILL.md § Subject style + § Why bullet-led summary, not paragraphs`. Pipeline path: `/ak-build` Phase 4 pre-composes title + body and hands them to `/ship` as directives — `/ship`'s upstream gstack SKILL.md is intentionally not patched (would be clobbered on sync).
+Full rules + examples + routing table: `kit/docs/guide/conventions.md § Commit + PR Text Style`. Product-update authoring contract + downstream routing (PR body, BUILD-LOG `Headline:`/`Summary:`, Phase 7 ready-for-review, `/ak-go-live` Step 6 deployed-to-prod, future CHANGELOG aggregation): `.claude/skills/ak-spec/SKILL.md § Product update`. Squash-specific shape: `.claude/skills/devshop/merge-devshop/SKILL.md § Subject style + § Why bullet-led summary, not paragraphs`. Pipeline path: `/ak-build` Phase 4.1 pre-composes title + both lead sections and hands them to `/ship` as directives — `/ship`'s upstream gstack SKILL.md is intentionally not patched (would be clobbered on sync). Phase 6 Part D (Gate A operator confirmation + Gate B automated claim-vs-diff cross-check) verifies both blurbs against the diff before merge.
 
 ### Naming Convention
 

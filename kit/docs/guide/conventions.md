@@ -427,7 +427,12 @@ TODO items can be scheduled into versions defined in their corresponding ROADMAP
 
 ## Commit + PR Text Style
 
-Canonical readability rules for every text artifact the pipeline produces: per-commit messages (direct git commits, `/ship`-authored commits), squash-commit messages (`/ak-merge-devshop`), and PR titles + `## Summary` bodies. The rules are identical across surfaces — only the docs / skills that _invoke_ the rule differ.
+Canonical readability rules for every text artifact the pipeline produces: per-commit messages (direct git commits, `/ship`-authored commits), squash-commit messages (`/ak-merge-devshop`), and PR title + body sections (`## Product update` + `## Engineering details`). The rules are identical across surfaces — only the docs / skills that _invoke_ the rule differ.
+
+**PR body structure** (post-product-update-pr-section, 2026-05-17): every PR's body leads with two H2 sections in this order:
+
+1. **`## Product update`** — first content after the H1 title. Carries `### Headline (user-facing)` (1–2 sentences, marketing-grade, zero eng vocabulary) and `### Detail (team-facing)` (1–4 sentences, light eng OK). Both sub-sections copied verbatim from `spec.md § Product update`; `/ak-build` Phase 4.1 routes them. Single source-of-truth — Phase 5.6's BUILD-LOG `Headline:` + `Summary:` fields, Phase 7 ready-for-review comment, and `/ak-go-live` Step 6 deployed-to-prod comment all copy from the spec, not from the PR body. Operator verifies at Phase 6 Gate A; automated Gate B cross-checks claim-vs-diff. Authoring contract: `/devshop/.claude/skills/ak-spec/SKILL.md § Product update`.
+2. **`## Engineering details`** — historical `## Summary` shape, renamed. Bullet-led TL;DR + 3-7 bullets at the eng grain (schema, routes, components, tests, CI). Reviewers want this; end-users don't read it.
 
 **Devshop owns this convention** (lives here, not in `gstack/ship/SKILL.md`) so it survives `gstack` upgrades. When a devshop skill or hook needs to enforce or remind, it points here.
 
@@ -452,9 +457,9 @@ Examples (drawn from real commits):
 
 Self-test: would a teammate scrolling `git log` two months from now know what behavior shipped without opening the diff? If not, rewrite.
 
-### Body / Summary style
+### Body / Engineering details style
 
-Commit bodies and PR `## Summary` sections share one shape: **bullets first**, prose only when a non-obvious decision needs framing.
+Commit bodies and PR `## Engineering details` sections (the historical `## Summary`, renamed when `## Product update` took the lead-section slot) share one shape: **bullets first**, prose only when a non-obvious decision needs framing.
 
 1. **Open with one sentence of TL;DR**, then drop into 3-7 bullets — each one a concrete user-meaningful unit. A reader should be able to scan the TL;DR + bullets in 10 seconds and know what landed.
 2. **Do NOT lead with a prose paragraph** that re-summarizes what the bullets will say. Pick one shape — paragraph OR bullets — not both. Earlier shape (multi-paragraph prose) forced readers to consume the whole block to track what landed; bullet-led shape gives scannable anchors.
@@ -462,15 +467,35 @@ Commit bodies and PR `## Summary` sections share one shape: **bullets first**, p
 4. **Enumerate from `git log <base>..HEAD --oneline`**: exclude the `VERSION` / `CHANGELOG` bookkeeping commit, then every remaining substantive commit must appear in at least one bullet. If a commit's work isn't reflected, you missed it.
 5. **Follow-up prose**, if any, is 1-2 sentences — for context the bullets can't carry (a trade-off, a why-now, a smoke-test finding).
 
+### Product update style (Headline + Detail)
+
+`## Product update` (PR body, leading section) carries two named sub-sections drawn verbatim from `spec.md § Product update`:
+
+- **`### Headline (user-facing)`** — 1–2 sentences for the end-user / prospect / changelog reader. Marketing-grade, **zero eng vocabulary**: no enum names, no RPC names, no migration numbers, no PascalCase component names, no route paths, no cross-PR references. Talks about what the user can now do in plain English. Phase 0.2.6 lint flags forbidden patterns before the operator approves at preview time.
+- **`### Detail (team-facing)`** — 1–4 sentences for the future-me reader / cold reviewer / BUILD-LOG scanner. Light eng context allowed (state names, feature areas — explained, not jargoned). Builds on Headline with the context the team needs.
+
+Same atomic claims, two audiences. Authored once at `/ak-spec` Phase 0, approved at `/ak-build` Phase 0.2, verified at Phase 6 Gate A (operator) + Gate B (automated claim-vs-diff cross-check). When the two would be word-for-word identical, collapse under `### Headline + Detail (combined)`. For pure infra PRs Headline reads `Infrastructure update — no user-visible change in this PR.` (honest about the audience asymmetry, no fabricated marketing voice).
+
+Routing downstream (single source-of-truth = `spec.md § Product update`):
+
+| Surface                                       | Blurb used                                    |
+| --------------------------------------------- | --------------------------------------------- |
+| PR body `## Product update` (Phase 4.1)       | Both, Headline first                          |
+| BUILD-LOG `Headline:` (Phase 5.6 / 4.0)       | Headline                                      |
+| BUILD-LOG `Summary:` (Phase 5.6 / 4.0)        | Detail                                        |
+| Phase 7 ready-for-review comment              | Detail (reviewers want the eng-aware version) |
+| `/ak-go-live` Step 6 deployed-to-prod comment | Headline (lede) + Detail (context)            |
+| Future CHANGELOG / release notes aggregation  | Headline                                      |
+
 The squash-message variant (`/ak-merge-devshop`) uses bold-text lead-in labels (`**Adds:**`, `**Trade-off:**`, `**Doc updates:**`, `**Migration:**`, `**Smoke-test finding:**`) instead of theme sub-headings, but the underlying rule is the same: bullets carry the load, labels are scannable anchors.
 
 ### Where the rule fires
 
-| Surface                                     | Owner                                                                                                                                       | Inlined where                                                                                                |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Per-commit messages (any commit)            | the agent composing the commit                                                                                                              | Restated by `/ak-build` Phase 4 + `/ak-merge-devshop` Phase 0.3                                              |
-| PR title + `## Summary` (Phase 4)           | `/ship` (gstack) composes; `/ak-build` Phase 4 verifies                                                                                     | `/ak-build` SKILL.md § Phase 4 points here                                                                   |
-| Squash subject + body (`/ak-merge-devshop`) | `/ak-merge-devshop` Phase 0.3 composes; `merge-devshop/SKILL.md § Subject style + Why bullet-led summary` restates this convention verbatim | `merge-devshop/SKILL.md` is the canonical inlining (since the skill itself does the composition end-to-end). |
+| Surface                                                               | Owner                                                                                                                                       | Inlined where                                                                                                |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Per-commit messages (any commit)                                      | the agent composing the commit                                                                                                              | Restated by `/ak-build` Phase 4 + `/ak-merge-devshop` Phase 0.3                                              |
+| PR title + `## Product update` + `## Engineering details` (Phase 4.1) | `/ak-build` Phase 4.1 pre-composes title + both sections; `/ship` is the pure executor; Phase 4.3 verifies                                  | `/ak-build` SKILL.md § Phase 4.1 points here                                                                 |
+| Squash subject + body (`/ak-merge-devshop`)                           | `/ak-merge-devshop` Phase 0.3 composes; `merge-devshop/SKILL.md § Subject style + Why bullet-led summary` restates this convention verbatim | `merge-devshop/SKILL.md` is the canonical inlining (since the skill itself does the composition end-to-end). |
 
 The convention is **discoverable** at the workflow level (`workflow.md § Phase 4`) and **applied** at the skill level (`merge-devshop/SKILL.md`, `build/SKILL.md`). It is intentionally NOT inlined into `gstack/ship/SKILL.md` — gstack syncs would clobber the addition. When `/ship` is invoked from `/ak-build`, Phase 4's wrapper handoff carries the reminder.
 

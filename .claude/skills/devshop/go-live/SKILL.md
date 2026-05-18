@@ -438,15 +438,45 @@ Commit (devshop repo, separate from project commit): per-concept atomic commits 
 
 ## Step 6: Notify
 
+The deployed-to-prod comment is the celebration moment — the operator
+may copy-paste / screenshot it to share with stakeholders, Slack, or a
+customer-facing changelog. Lead with the **Headline blurb** from
+`spec.md § Product update § Headline` verbatim (marketing-grade, zero
+eng terms — the right voice for that audience). Follow with the
+**Detail blurb** as a second paragraph for the on-PR reader who wants
+team-facing context.
+
 ```bash
 GITHUB_USER=$(gh api user --jq .login 2>/dev/null || git config user.name)
 PR=$(gh pr list --state merged --head "$(git branch --show-current)" --json number --jq '.[0].number')
+
+# Resolve the merged PR's feature dir — Step 2 keeps $FEATURE_DIR in scope.
+FEATURE_DIR="${FEATURE_DIR:-specs/$(git branch --show-current | sed 's|^feat/||;s|^fix/||;s|^docs/||;s|^chore/||')}"
+
+# Pull both blurbs from spec.md verbatim. Falls back to the combined
+# shape if the spec used `### Headline + Detail (combined)`.
+HEADLINE_BLURB=$(awk '/^### Headline \(user-facing\)/,/^###|^## /' "$FEATURE_DIR/spec.md" 2>/dev/null | sed '1d;$d')
+DETAIL_BLURB=$(awk '/^### Detail \(team-facing\)/,/^###|^## /' "$FEATURE_DIR/spec.md" 2>/dev/null | sed '1d;$d')
+if [ -z "$HEADLINE_BLURB" ] && [ -z "$DETAIL_BLURB" ]; then
+  COMBINED=$(awk '/^### Headline \+ Detail \(combined\)/,/^###|^## /' "$FEATURE_DIR/spec.md" 2>/dev/null | sed '1d;$d')
+  HEADLINE_BLURB="$COMBINED"
+  DETAIL_BLURB="$COMBINED"
+fi
 
 gh pr comment "$PR" --body "## Deployed to production
 
 @${GITHUB_USER} Deploy complete. Canary passed.
 
+${HEADLINE_BLURB}
+
+${DETAIL_BLURB}
+
 **Production URL:** <from deploy config>
 **Rollback SHA:** $(git rev-parse HEAD)
 **Reflection:** committed in $(git log --oneline -1)"
 ```
+
+If `spec.md § Product update` is missing (pre-convention spec), fall
+back to a minimal `Deploy complete. Canary passed.` shape with no
+product blurbs and emit a one-line warning that the spec predates the
+Product update convention — don't halt; older specs ship as-is.

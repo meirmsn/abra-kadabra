@@ -210,6 +210,31 @@ NOT include: full per-decision rationale (§1), file-level diffs (spec owns),
 test coverage matrices (spec owns), rollout/rollback plans (spec owns). The
 preview is "what would you object to?", not "here's the spec."
 
+The **first two named bullets of Scope** are the canonical product blurbs
+the spec's `## Product update` section will carry — both audiences,
+authored here at Phase 0 so the operator approves them inline alongside
+the rest of Scope rather than as a fourth preview section. Same shape both
+times, drawn from the roadmap row's Hook + sources read at §0.1:
+
+- **Headline (user-facing, 1–2 sentences, zero eng terms)**: <one-line
+  marketing-grade copy for end-user / changelog audience>. No enum names,
+  no RPC names, no migration numbers, no component PascalCase, no route
+  paths, no cross-PR references. Phase 0.2.6 lints for these patterns
+  before the operator sees the preview — if the lint fires, rewrite the
+  bullet to plain English and re-run before printing.
+- **Detail (team-facing, 1–4 sentences, light eng OK)**: <expanded copy
+  for the future-me reader / cold reviewer / BUILD-LOG scanner>. Explain
+  the eng vocabulary the Headline elided.
+
+After those two named bullets, list the remaining scope items normally
+(screens, migrations, events, files-in-broad-strokes). Operator approves
+both blurbs as part of approving Scope. If a PR is small enough that the
+two blurbs would be word-for-word identical, collapse them under a single
+`Headline + Detail (combined)` bullet — downstream surfaces route correctly.
+For pure infra PRs the Headline literally reads
+`Infrastructure update — no user-visible change in this PR.`; same shape,
+infra-flavored — don't fabricate marketing copy for an infra change.
+
 **3. Tracker (the live view you'll see come alive)** — hierarchical, mirroring
 exactly what Phase 0.4 will instantiate via `TaskCreate`. The harness's task
 list is flat (no real parent field), so sub-tasks **prefix their parent phase
@@ -238,6 +263,82 @@ but doesn't change the overall shape.
 End the preview with: **"Proceed? or flip any decision / trim scope / add task?"**
 
 Wait for the user's response. Do NOT proceed to 0.3 without explicit approval.
+
+### 0.2.6: Headline forbidden-vocabulary lint (auto-flip eng leaks before preview)
+
+Before printing §0.2's preview, scan the drafted Headline bullet for
+eng-vocabulary patterns the marketing-grade copy must not contain. The
+spec agent's first draft tends to leak eng terms ("the `monitor` state",
+"the new RPC", "DecideCard component"); catching them here means the
+operator sees a clean Headline at preview time rather than re-litigating
+the lint at Phase 6.
+
+Forbidden patterns (each is a soft signal — the lint warns + suggests a
+rewrite, not a hard fail):
+
+- **Backtick-fenced identifiers** (`` `card_state` ``, `` `confirm_triage` ``)
+  — anything in inline code is by definition eng vocabulary. Rewrite to
+  plain English (`the card's path`, `the confirm step`).
+- **snake_case tokens** outside backticks (`card_state`, `confirm_triage`)
+  — same shape, no backticks. Same rewrite.
+- **PascalCase component names** (`DecideCard`, `PathCard`, `AwaitingConfirmationCard`)
+  — TSX component identifiers. Rewrite to the UI element ("the decide
+  card", "the path card", "the confirmation card") or omit.
+- **RPC / function suffix patterns** (`*_rpc`, `*Rpc`, `*RPC`,
+  `.invoke(`, names ending in `()`) — backend call references. Rewrite
+  to user-action verb ("save", "submit").
+- **Migration numbers** (`migration 011`, `0042_<name>`, `supabase/migrations/...`) —
+  internal schema references. Omit entirely (the user doesn't read these).
+- **Route paths** (`/app/...`, `/api/...`, route segments with brackets) —
+  routing internals. Rewrite to the screen name in plain English.
+- **Cross-PR references** (`PR #N`, `PR N`, `#42`) — drift surface; Headline
+  is per-PR, not a release-aggregate.
+
+Implementation:
+
+```bash
+HEADLINE="$1"  # the drafted Headline string from §0.2
+
+LINT_FINDINGS=""
+echo "$HEADLINE" | grep -oE '`[^`]+`' | while read -r m; do
+  LINT_FINDINGS+="  • backticked identifier: $m\n"
+done
+echo "$HEADLINE" | grep -oE '\b[a-z]+_[a-z_]+\b' | while read -r m; do
+  LINT_FINDINGS+="  • snake_case token: $m\n"
+done
+echo "$HEADLINE" | grep -oE '\b[A-Z][a-z]+([A-Z][a-z]+)+\b' | while read -r m; do
+  LINT_FINDINGS+="  • PascalCase component: $m\n"
+done
+echo "$HEADLINE" | grep -oE '\b\S+_rpc\b|\b\S+Rpc\b|\b\S+RPC\b|\.invoke\(' | while read -r m; do
+  LINT_FINDINGS+="  • RPC/function pattern: $m\n"
+done
+echo "$HEADLINE" | grep -oE 'migration [0-9]+|\b[0-9]{4}_[a-z_]+\b|supabase/migrations/' | while read -r m; do
+  LINT_FINDINGS+="  • migration reference: $m\n"
+done
+echo "$HEADLINE" | grep -oE '/[a-z]+(/[a-z\[\]\-]+)+' | while read -r m; do
+  LINT_FINDINGS+="  • route path: $m\n"
+done
+echo "$HEADLINE" | grep -oE '\bPR ?#?[0-9]+\b|#[0-9]+\b' | while read -r m; do
+  LINT_FINDINGS+="  • cross-PR reference: $m\n"
+done
+```
+
+If `$LINT_FINDINGS` is empty → continue to §0.2 / §0.2.5. The Headline is
+already audience-shaped.
+
+If non-empty → rewrite the Headline bullet to plain English (drop the
+flagged tokens, replace with user-facing equivalents) BEFORE printing the
+§0.2 preview. Print a one-line note in the preview noting the rewrite
+happened so the operator sees the spec agent's first-pass voice was
+corrected ("Headline auto-rewrote to strip eng vocabulary — operator can
+revert at preview time if a flagged term was intentional"). Detail is
+NOT linted — light eng context is allowed there by contract.
+
+The lint is **advisory at Phase 0** (rewrite + note, don't halt) because
+audience-shape is a judgment call the operator owns. The same patterns
+are checked at Phase 5.3.5 drift-signal #5 and Phase 6 Gate B as
+audience-mismatch warnings — three rungs, increasing the cost of leaking
+eng vocabulary at each step.
 
 ### 0.2.5: Empirical-verify load-bearing decisions before locking
 
@@ -294,10 +395,11 @@ the test artifact lives. Loud verification beats silent extrapolation.
 
 Once the user approves (or after any flips they request), write
 `$FEATURE_DIR/spec.md` as a **skeleton** — provenance header + Sources list +
-feature one-liner + fully-populated Decisions section. Phase 1's spec agent
-reads this same file, preserves the Decisions section verbatim, and expands
-everything below into the full spec. One file, one source of truth, no
-second artifact to keep in sync.
+feature one-liner + the canonical `## Product update` section (both blurbs
+verbatim from the §0.2 preview) + fully-populated Decisions section. Phase
+1's spec agent reads this same file, preserves the Product update and
+Decisions sections verbatim, and expands everything below into the full
+spec. One file, one source of truth, no second artifact to keep in sync.
 
 ```markdown
 <!-- generated-by: /ak-build Phase 0 (skeleton — /ak-spec will expand) -->
@@ -315,6 +417,30 @@ second artifact to keep in sync.
 - Prior spec `specs/<prior>/spec.md` — style + structure reference
 
 (Feature one-liner — what PR N turns into at the user level.)
+
+---
+
+## Product update
+
+Both blurbs as approved at Phase 0.2. Single source-of-truth — `/ak-build`
+Phase 4.1 copies them verbatim into the PR body's `## Product update`
+section, Phase 5.6 copies Headline into BUILD-LOG `Headline:` and Detail
+into `Summary:`, Phase 7 uses Detail in the ready-for-review comment, and
+`/ak-go-live` Step 6 uses Headline as the deployed-to-prod lede. Verified
+against the diff at Phase 6 Gate A (operator confirmation) + Gate B
+(automated claim-vs-diff cross-check). Collapse to
+`### Headline + Detail (combined)` if the two would be word-for-word
+identical.
+
+### Headline (user-facing)
+
+<1–2 sentences, zero eng terms — see /ak-spec § Product update for the
+forbidden-vocabulary list>
+
+### Detail (team-facing)
+
+<1–4 sentences, light eng context OK — see /ak-spec § Product update for
+the contract>
 
 ---
 
@@ -337,7 +463,8 @@ re-asking.
 <!-- /ak-spec (Phase 1) expands the file from here: In scope, Screens, Data
      model changes, API contracts, Offline behavior, Metrics, Files to
      create/modify, Tests, Dependencies, Task order, Gotchas, Acceptance /
-     rollout / rollback. The Decisions section above stays verbatim. -->
+     rollout / rollback. The Product update + Decisions sections above
+     stay verbatim. -->
 ```
 
 Commit this file immediately on the feature branch so it survives a crash:
@@ -588,10 +715,30 @@ unmerged BUILD-LOG entries down with them).
 
    - **Branch**: `<FEATURE_BRANCH>`
    - **Spec**: `specs/<FEATURE>/spec.md`
-   - **Summary**: <1-line summary from $FEATURE_DIR/spec.md>
+   - **Headline**: <verbatim copy of $FEATURE_DIR/spec.md § Product update § Headline>
+   - **Summary**: <verbatim copy of $FEATURE_DIR/spec.md § Product update § Detail>
    - **Commits**: <N> (<brief list if ≤ 5, else "N atomic commits per /ak-implement">)
    - **Quality gates**: <summary from audit — "all passed" / "N findings fixed during pre-ship" / etc>
    ```
+
+   **Headline + Summary routing**: both fields draw from spec.md §
+   Product update verbatim — `Headline:` carries the Headline blurb
+   (user-facing, marketing-grade), `Summary:` carries the Detail blurb
+   (team-facing, future-me grain). Two reasons for two fields rather
+   than one rich Summary:
+   1. Future CHANGELOG / release-notes aggregation reads `Headline:` —
+      a clean single-line string per shipped PR.
+   2. BUILD-LOG scanners are typically future-me asking "what shipped?"
+      — Detail (the team-facing blurb) is the right grain for that
+      audience. Headline is the changelog primitive; Summary is the
+      operational record.
+
+   When the spec used the collapsed shape (`### Headline + Detail
+   (combined)`), copy the same body verbatim into both fields. Schema /
+   routes / UI / tests / CI minutiae stay in additional sub-bullets if
+   needed; do not mix them into `Summary:` (that's the post-fix shape —
+   pre-fix BUILD-LOG entries shipped as 400-word eng paragraphs that
+   buried the product story).
 
    **No PR row in new entries.** Phase 4.0 runs before `/ship` creates
    the PR, so the number isn't known yet. The squash-merge subject on
@@ -635,28 +782,63 @@ unmerged BUILD-LOG entries down with them).
 
 **Idempotence**: if Phase 4.0 has already run for this feature (no Active row for `$FEATURE_BRANCH` in `PLAN.md` AND a `BUILD-LOG.md` entry referencing `$FEATURE` exists, AND no PR-closed tracker entry remains in any roadmap), skip — don't duplicate. Phase 5.6 (verification-only) catches the un-run case as a fallback.
 
-### 4.1: Pre-compose PR title + Summary body
+### 4.1: Pre-compose PR title + Product update + Engineering details body
 
-Before invoking `/ship`, compose the PR title and the `## Summary` section
-of the PR body in this skill — `/ak-build` owns the convention and has
-`kit/docs/guide/conventions.md § Commit + PR Text Style` reliably
-available; `/ship` is upstream-owned (gstack) and would re-compose to
-its own taste otherwise. The split:
+Before invoking `/ship`, compose the PR title and the two leading body
+sections (`## Product update` + `## Engineering details`) in this skill —
+`/ak-build` owns the convention and has `kit/docs/guide/conventions.md §
+Commit + PR Text Style` reliably available; `/ship` is upstream-owned
+(gstack) and would re-compose to its own taste otherwise. The split:
 
 - **PR title** — one line, ≤ 72 chars, verb-led where natural,
   describes the **observable change** (no internal jargon like "polish",
   "soak findings", "Phase N"). Noun-lists are fine for multi-unit
   features (`feat: invite link + member mgmt + audit feed`).
-- **`## Summary` body** — one-sentence TL;DR followed by 3-7 bullets.
+- **`## Product update` section** — copied verbatim from
+  `$FEATURE_DIR/spec.md § Product update`. Both `### Headline
+  (user-facing)` and `### Detail (team-facing)` sub-sections, Headline
+  first. Placed as the **first content after the H1 title** so a
+  reviewer (or anyone reading the PR cold) sees the product story
+  before the eng narrative. When the spec uses the collapsed shape
+  (`### Headline + Detail (combined)`), copy that heading verbatim too
+  — the PR body inherits the collapse.
+- **`## Engineering details` section** — the historical `## Summary`
+  contents, renamed. One-sentence TL;DR followed by 3-7 bullets.
   Bullets first; prose only when a non-obvious decision needs framing
   (1-2 sentences max). Enumerate from `git log <base>..HEAD --oneline`,
   exclude the VERSION/CHANGELOG bookkeeping commit, then every remaining
   substantive commit must appear in at least one bullet. Group into
   themed sub-sections (`**Performance**`, `**Infrastructure**`, etc.)
-  when there are 2+ themes.
+  when there are 2+ themes. The Product update section above already
+  carries the product story — Engineering details is for schema /
+  routes / components / tests / CI / migration details that reviewers
+  need but end-users don't read.
 
-Compose both, then stash them at `/tmp/ship-title.txt` and
-`/tmp/ship-summary.md` so the next step can pass them in by path.
+Compose all three artifacts, then stash them at:
+
+- `/tmp/ship-title.txt` (one line)
+- `/tmp/ship-product-update.md` (the `## Product update` section verbatim
+  from spec.md, including the H2 heading and both sub-section headings)
+- `/tmp/ship-engineering-details.md` (the renamed `## Summary` →
+  `## Engineering details` body, including the `## Engineering details`
+  H2 heading)
+
+The next step (§4.2) hands `/ship` the title + an explicit ordering
+directive: write `## Product update` first (from
+`/tmp/ship-product-update.md`), then `## Engineering details` (from
+`/tmp/ship-engineering-details.md`), then the remaining body sections
+(`## Test plan`, `## Evidence`, etc.) per `/ship`'s template. Phase 4.3
+verifies the ordering and rewrites the body if `/ship` composed its
+own.
+
+**Why Product update goes first, not Summary**: a reviewer landing on a
+PR cold reads top-down; the product story is what they're orienting on
+("what does this change for the user?") before they scan the eng
+details ("how was it built?"). Inverting that order makes reviewers
+re-derive the product story from eng nouns. Codified from the
+home-os PR #27 case where the eng-shaped Summary worked for reviewers
+but the product story had to be re-derived post-deploy when the
+operator asked "what went live, product-wise?"
 
 ### 4.2: Invoke `/ship` with the pre-composed directives
 
@@ -665,14 +847,27 @@ Launch **Agent** with prompt:
 > /ship will run tests, code review, bump VERSION, push, create PR,
 > and auto-invoke /document-release.
 >
-> Use the pre-composed title + Summary from /ak-build — do NOT
-> re-compose. The title is at /tmp/ship-title.txt (one line). The
-> Summary body is at /tmp/ship-summary.md (use it verbatim as the
-> `## Summary` section of the PR body; /ship still fills in
-> `## Test plan` and the other sections per its template). If /ship
-> composes its own title/Summary first, overwrite via
-> `gh pr edit "$PR" --title "$(cat /tmp/ship-title.txt)"` and replace
-> the `## Summary` section of the PR body with /tmp/ship-summary.md
+> Use the pre-composed title + body sections from /ak-build — do NOT
+> re-compose. The title is at /tmp/ship-title.txt (one line). The PR
+> body must lead with two sections in this exact order:
+>
+>   1. /tmp/ship-product-update.md (the `## Product update` H2 +
+>      both sub-section headings + bodies, verbatim) — placed as
+>      the first content after the H1 title.
+>   2. /tmp/ship-engineering-details.md (the `## Engineering details`
+>      H2 + body, verbatim).
+>
+> /ship still fills in `## Test plan`, `## Evidence`, and the other
+> body sections per its template — those follow the two pre-composed
+> sections. If /ship composes its own title or omits/reorders the
+> Product update + Engineering details sections, overwrite via:
+>
+>   gh pr edit "$PR" --title "$(cat /tmp/ship-title.txt)"
+>   gh pr view "$PR" --json body --jq .body > /tmp/pr-body.md
+>   # splice the two pre-composed sections at the top of the body
+>   # (after the H1) and replace any old `## Summary` content
+>   gh pr edit "$PR" --body-file /tmp/pr-body.md
+>
 > before returning.
 >
 > Return: PR number and URL.
@@ -688,12 +883,33 @@ boundary placement.
 
 After `/ship` completes, a PR exists on GitHub. Verify the PR title and
 description match what 4.1 composed and what `kit/docs/guide/conventions.md
-§ Commit + PR Text Style` requires. If the body's `## Summary` section
-doesn't match `/tmp/ship-summary.md`, rewrite:
+§ Commit + PR Text Style` requires.
+
+**Required body shape** (top-down, first H1 onward):
+
+1. `# <title>` (H1 — `/ship` writes this from the title file)
+2. `## Product update` (H2) + `### Headline (user-facing)` + `### Detail
+   (team-facing)` — both verbatim from `/tmp/ship-product-update.md`. Or
+   the collapsed `### Headline + Detail (combined)` when the spec
+   collapsed them.
+3. `## Engineering details` (H2) — verbatim from
+   `/tmp/ship-engineering-details.md`.
+4. `## Test plan` / `## Evidence` / `## Manual review` / etc. — per
+   `/ship`'s template.
+
+If `/ship` produced a body with a `## Summary` heading (the historical
+shape), rename it to `## Engineering details` and splice
+`## Product update` above it. If the body's `## Product update` or
+`## Engineering details` sections don't match the pre-composed
+artifacts, rewrite:
 
 ```bash
 gh pr view "$PR" --json body --jq .body > /tmp/pr-body.md
-# splice /tmp/ship-summary.md into the ## Summary section of /tmp/pr-body.md
+# Ensure the body leads with `## Product update` (from
+# /tmp/ship-product-update.md) immediately after the H1, followed by
+# `## Engineering details` (from /tmp/ship-engineering-details.md).
+# If a `## Summary` section exists, rename to `## Engineering details`
+# and splice `## Product update` above it.
 gh pr edit "$PR" --body-file /tmp/pr-body.md
 ```
 
@@ -846,6 +1062,67 @@ NEW_RUNTIME=$(git diff --diff-filter=A --name-only "$DRIFT_RANGE" | \
   grep -E '^(apps/[^/]+/(app|components|lib)/.+\.(ts|tsx)|packages/[^/]+/src/.+\.(ts|tsx))$' | \
   grep -vE '\.(test|spec)\.' || true)
 [ -n "$NEW_RUNTIME" ] && DRIFT_SIGNALS+="  new runtime files added since /ship:\n$(echo "$NEW_RUNTIME" | sed 's/^/    /')\n"
+
+# Signal 5: product-blurb stale check — does the spec.md § Product update
+# (Headline + Detail) still describe what shipped? Two sub-checks:
+#   (a) noun-coverage: new runtime / test files added since /ship may
+#       have introduced user-visible affordances the blurbs don't name
+#       (a polish-loop fix added a disclosure; Headline elides it).
+#       Extract distinctive nouns from $NEW_RUNTIME + $NEW_TESTS and
+#       check whether either blurb mentions them.
+#   (b) audience-shape: does Headline cover the same claim set as Detail
+#       at a lower fidelity? Claims present in Detail but absent from
+#       Headline (or vice versa) warn — operator decides at Phase 6
+#       whether the asymmetry is intentional.
+# Both sub-checks read $FEATURE_DIR/spec.md § Product update. Inlined
+# here (rather than a separate script) so the convention stays
+# self-contained — kit/tests/util-product-update-blurb.bats validates
+# this block.
+HEADLINE_BODY=$(awk '/^### Headline \(user-facing\)/{flag=1; next} /^###|^## /{flag=0} flag' \
+  "$FEATURE_DIR/spec.md" 2>/dev/null)
+DETAIL_BODY=$(awk '/^### Detail \(team-facing\)/{flag=1; next} /^###|^## /{flag=0} flag' \
+  "$FEATURE_DIR/spec.md" 2>/dev/null)
+# Collapsed case: pull from `### Headline + Detail (combined)`.
+if [ -z "$HEADLINE_BODY" ] && [ -z "$DETAIL_BODY" ]; then
+  COMBINED_BODY=$(awk '/^### Headline \+ Detail \(combined\)/{flag=1; next} /^###|^## /{flag=0} flag' \
+    "$FEATURE_DIR/spec.md" 2>/dev/null)
+  HEADLINE_BODY="$COMBINED_BODY"
+  DETAIL_BODY="$COMBINED_BODY"
+fi
+
+PRODUCT_BLURB_FINDINGS=""
+if [ -n "$HEADLINE_BODY" ] || [ -n "$DETAIL_BODY" ]; then
+  # Distinctive nouns from each blurb (PascalCase + 4+char lowercase, minus stopwords).
+  STOPWORDS='with|this|that|than|from|when|will|have|here|each|just|only|some|then|they|been|were|into|over|same|more|like|much|where|after|other|user|users|page|view|flow|able|make|made|need|want|allow|shows|adds|added|fixes|fixed|onto|down|both|along|your|saved|sets|see|set|via|now|out|but|and|the|for|its|any|all|new|can'
+  nouns() {
+    { echo "$1" | grep -oE '\b[A-Z][a-zA-Z]+\b' || true
+      echo "$1" | grep -oE '\b[a-z]{4,}\b' | grep -vwE "$STOPWORDS" || true
+    } | tr '[:upper:]' '[:lower:]' | sort -u
+  }
+  HEADLINE_NOUNS=$(nouns "$HEADLINE_BODY")
+  DETAIL_NOUNS=$(nouns "$DETAIL_BODY")
+  # (a) Noun-coverage: did any new file's path introduce a noun neither
+  # blurb names? Scan $NEW_RUNTIME + $NEW_TESTS file paths for
+  # distinctive tokens.
+  NEW_FILE_NOUNS=$(echo "${NEW_RUNTIME:-}"$'\n'"${NEW_TESTS:-}" \
+    | grep -oE '[A-Za-z][A-Za-z0-9-]+' | tr '[:upper:]' '[:lower:]' | sort -u || true)
+  while IFS= read -r tok; do
+    [ -z "$tok" ] && continue
+    if ! echo "$HEADLINE_NOUNS"$'\n'"$DETAIL_NOUNS" | grep -qiwF "$tok"; then
+      PRODUCT_BLURB_FINDINGS+="  noun-coverage: '$tok' appears in a new file but in neither blurb"$'\n'
+    fi
+  done <<< "$NEW_FILE_NOUNS"
+  # (b) Audience-shape: claims in Detail not in Headline, and vice versa.
+  while IFS= read -r tok; do
+    [ -z "$tok" ] && continue
+    PRODUCT_BLURB_FINDINGS+="  headline-missing: '$tok' (Detail mentions; Headline does not)"$'\n'
+  done < <(comm -23 <(echo "$DETAIL_NOUNS") <(echo "$HEADLINE_NOUNS") | head -5)
+  while IFS= read -r tok; do
+    [ -z "$tok" ] && continue
+    PRODUCT_BLURB_FINDINGS+="  detail-overclaim: '$tok' (Headline mentions; Detail does not)"$'\n'
+  done < <(comm -23 <(echo "$HEADLINE_NOUNS") <(echo "$DETAIL_NOUNS") | head -5)
+fi
+[ -n "$PRODUCT_BLURB_FINDINGS" ] && DRIFT_SIGNALS+="  product-blurb drift since /ship:\n${PRODUCT_BLURB_FINDINGS}"
 ```
 
 If `$DRIFT_SIGNALS` is empty → continue. The body's narrative still matches
@@ -854,8 +1131,17 @@ what's in the diff.
 If `$DRIFT_SIGNALS` is non-empty → **read the current PR body** and judge
 whether the signals invalidate any specific claim:
 
-- Summary section names the bug + fix. New runtime / test files often mean
-  there's a "scope expansion" angle the Summary should mention.
+- **Product update section** (`## Product update` — first body section
+  after H1, both Headline + Detail) is the canonical product story.
+  Signal 5 fires when the spec.md blurbs don't mention nouns/verbs the
+  diff added since /ship, OR Headline lags Detail in coverage. Both
+  signals warrant a body edit: rewrite the Headline / Detail to reflect
+  what actually shipped, then re-stamp spec.md so the source-of-truth
+  stays in sync (the next surface — BUILD-LOG at 5.6, Phase 7 comment,
+  /ak-go-live Step 6 — all copy from spec.md, not from the PR body).
+- Engineering details section names the bug + fix at the eng grain. New
+  runtime / test files often mean there's a "scope expansion" angle
+  Engineering details should mention.
 - Evidence section embeds hero shots. If hero shots were replaced with a
   different methodology (synthetic → live, single-viewport → multi-viewport,
   injected DOM → real flow), the Evidence caption must reflect that —
@@ -1686,6 +1972,124 @@ done < /tmp/manual-review-items.txt
 
 Codified from lalista PR 27 (2026-04-27) — the PR shipped with 4 Manual-review items; 3 of 4 were factually verifiable by reading specific files. Phase 6 should have auto-attested those rather than leaving them as `[ ]` for the operator's eyes.
 
+**Part D — Product update verification (Gate A + Gate B):**
+
+The `## Product update` section was authored at Phase 0 from intent — the polish loop may have subtly changed what shipped (a fix added a user-visible disclosure, a feature was trimmed for scope). Without a verification rung, both blurbs decay to stale claims that propagate verbatim into BUILD-LOG / Phase 7 / `/ak-go-live` Step 6 / future CHANGELOG aggregation. Part D pairs an automated cross-check (Gate B) with an operator-attention beat (Gate A) at the final-sweep moment when the operator is already reviewing the PR.
+
+**Gate B — automated claim-vs-diff cross-check (runs first, informs Gate A):**
+
+```bash
+BASE=$(gh pr view "$PR" --json baseRefName --jq .baseRefName)
+DIFF_RANGE="origin/${BASE}...HEAD"
+
+# Pull both blurbs from spec.md verbatim.
+HEADLINE_BODY=$(awk '/^### Headline \(user-facing\)/{flag=1; next} /^###|^## /{flag=0} flag' \
+  "$FEATURE_DIR/spec.md")
+DETAIL_BODY=$(awk '/^### Detail \(team-facing\)/{flag=1; next} /^###|^## /{flag=0} flag' \
+  "$FEATURE_DIR/spec.md")
+if [ -z "$HEADLINE_BODY" ] && [ -z "$DETAIL_BODY" ]; then
+  COMBINED_BODY=$(awk '/^### Headline \+ Detail \(combined\)/{flag=1; next} /^###|^## /{flag=0} flag' \
+    "$FEATURE_DIR/spec.md")
+  HEADLINE_BODY="$COMBINED_BODY"
+  DETAIL_BODY="$COMBINED_BODY"
+fi
+
+# Extract distinctive nouns from each blurb (same heuristic as Phase 5.3.5).
+STOPWORDS='with|this|that|than|from|when|will|have|here|each|just|only|some|then|they|been|were|into|over|same|more|like|much|where|after|other|user|users|page|view|flow|able|make|made|need|want|allow|shows|adds|added|fixes|fixed|onto|down|both|along|your|saved|sets|see|set|via|now|out|but|and|the|for|its|any|all|new|can'
+nouns() {
+  { echo "$1" | grep -oE '\b[A-Z][a-zA-Z]+\b' || true
+    echo "$1" | grep -oE '\b[a-z]{4,}\b' | grep -vwE "$STOPWORDS" || true
+  } | tr '[:upper:]' '[:lower:]' | sort -u
+}
+HEADLINE_NOUNS=$(nouns "$HEADLINE_BODY")
+DETAIL_NOUNS=$(nouns "$DETAIL_BODY")
+
+GATE_B_FINDINGS=""
+# (a) Unevidenced claims — Detail nouns absent from the diff.
+while IFS= read -r tok; do
+  [ -z "$tok" ] && continue
+  if ! git diff --name-only "$DIFF_RANGE" 2>/dev/null | grep -qiF "$tok" \
+     && ! git diff "$DIFF_RANGE" -- 2>/dev/null | grep -qiF "$tok"; then
+    GATE_B_FINDINGS+="unevidenced-claim: $tok"$'\n'
+    GATE_B_FINDINGS+="  reason: no diff evidence (Detail mentions; diff does not)"$'\n'
+  fi
+done <<< "$DETAIL_NOUNS"
+# (b) Audience-shape mismatch — Detail vs Headline noun-set delta.
+while IFS= read -r tok; do
+  [ -z "$tok" ] && continue
+  GATE_B_FINDINGS+="headline-missing: $tok"$'\n'
+  GATE_B_FINDINGS+="  reason: audience-shape mismatch — Headline may be missing this affordance"$'\n'
+done < <(comm -23 <(echo "$DETAIL_NOUNS") <(echo "$HEADLINE_NOUNS") | head -5)
+while IFS= read -r tok; do
+  [ -z "$tok" ] && continue
+  GATE_B_FINDINGS+="detail-overclaim: $tok"$'\n'
+  GATE_B_FINDINGS+="  reason: audience-shape mismatch — Detail may be missing the eng context"$'\n'
+done < <(comm -23 <(echo "$HEADLINE_NOUNS") <(echo "$DETAIL_NOUNS") | head -5)
+```
+
+Gate B is **warn-not-block** — the noun-phrase grep is fuzzy, and the Headline/Detail audience-shape rule has a legitimate asymmetry (Headline is intentionally lower-fidelity than Detail). False positives are likely; the operator at Gate A decides whether each finding is real. The heuristic is intentionally simple (sort-uniq noun comparison + grep against the diff); the LLM running Gate A can read both blurbs against the actual diff with full context, so Gate B's job is to *surface candidate concerns*, not adjudicate them.
+
+**Gate A — operator confirmation (the load-bearing decision):**
+
+After Gate B produces findings, surface both blurbs side-by-side with the diff and ask the operator to confirm each blurb still describes what shipped:
+
+```bash
+# Pull spec.md's Product update section verbatim.
+SPEC_HEADLINE=$(awk '/^### Headline \(user-facing\)/,/^###|^## /' "$FEATURE_DIR/spec.md" | sed '1d;$d')
+SPEC_DETAIL=$(awk '/^### Detail \(team-facing\)/,/^###|^## /' "$FEATURE_DIR/spec.md" | sed '1d;$d')
+# Collapsed case:
+if [ -z "$SPEC_HEADLINE" ] && [ -z "$SPEC_DETAIL" ]; then
+  SPEC_COMBINED=$(awk '/^### Headline \+ Detail \(combined\)/,/^###|^## /' "$FEATURE_DIR/spec.md" | sed '1d;$d')
+  SPEC_HEADLINE="$SPEC_COMBINED"
+  SPEC_DETAIL="$SPEC_COMBINED"
+fi
+
+# Build the diff summary — one line per substantive file changed since
+# /ship's first commit, with a 3-line context window of the new code per
+# file (so the operator can scan "did the blurb name this?" without
+# clicking into the PR).
+git diff --name-only "$DIFF_RANGE" | grep -vE '^(specs/|BUILD-LOG\.md$|PLAN\.md$|kit/version|.*CHANGELOG\.md$)' > /tmp/product-update-diff-files.txt
+```
+
+Surface the comparison to the operator via `AskUserQuestion` (or
+narration when the harness doesn't support it):
+
+```
+Product update verification — does each blurb still describe what shipped?
+
+Headline (user-facing, will land in CHANGELOG + /ak-go-live Step 6):
+  <SPEC_HEADLINE>
+
+Detail (team-facing, will land in BUILD-LOG Summary + Phase 7 comment):
+  <SPEC_DETAIL>
+
+Diff summary (substantive files changed since /ship):
+  <one line per file in /tmp/product-update-diff-files.txt>
+
+Gate B findings (automated cross-check — warn-not-block; judgment yours):
+  <GATE_B_FINDINGS — empty if clean, otherwise one bullet per unevidenced
+   claim / audience-shape mismatch>
+
+Confirm or edit per blurb. Both blurbs are the single source-of-truth for
+BUILD-LOG + Phase 7 + /ak-go-live Step 6; any edit here must also be
+saved back to spec.md § Product update so downstream surfaces stay in
+sync.
+```
+
+Three operator answers:
+
+| Answer | Action |
+|--------|--------|
+| `Both blurbs still describe what shipped` | Continue Phase 6 — no edit needed. Log a one-line attestation in `review.md § Product update verification`: `Gate A confirmed at <SHA>: both blurbs intact.` |
+| `Edit Headline:` / `Edit Detail:` with new text | Rewrite the named blurb in `$FEATURE_DIR/spec.md § Product update`, then re-splice the PR body's `## Product update` section with the new text, then commit on the feature branch (`chore(<feature>): refine product blurb post-Gate-A`). Loop back to Gate B with the edited blurbs once. After two loops, accept and continue — Gate A is for judgment, not negotiation. |
+| `Both blurbs need a rewrite` | Same as above for both. |
+
+Why operator attention rather than auto-attest: Headline / Detail accuracy is a product-judgment call the operator owns (does the blurb describe the right user-facing change? does Detail give the team the right eng context?). Phase 6's other Parts (A/B/C) auto-attest factual gates; Part D is the one rung where the operator's eyes are load-bearing because the gate is about communication shape, not artifact existence.
+
+Why ~30s of operator attention is the right cost: the operator is already attending to the PR at Phase 6 (reviewing the audit comment that's about to post). Surfacing both blurbs + diff summary + Gate B findings inline adds ~30s of attention vs ~5-10min of post-deploy rework if a stale blurb lands and gets caught later. The marginal cost is low; the alternative is the home-os PR #27 failure mode (blurb derived from scratch post-deploy when operator asked "what shipped product-wise?").
+
+If `$EVIDENCE_MISSING` is empty (Parts A-C clean) **and** Gate A confirmed → continue to the audit-comment post. If any halt fires, the audit comment does NOT post.
+
 ## Phase 7: Notify
 
 ### 7.1: Detect diff type (runtime vs docs-only)
@@ -1717,20 +2121,41 @@ The branch is explicit rather than silent: on docs-only PRs, the user should SEE
 
 ### 7.2: Post ready-for-review comment
 
+The comment leads with the **Detail blurb** from `spec.md § Product
+update § Detail` verbatim — reviewers want the eng-aware version (state
+names, internal nouns, the team-facing voice). Headline is for the
+deploy comment (`/ak-go-live` Step 6) where the marketing-grade lede
+fits; Phase 7's audience is the cold reviewer landing on the PR via
+GitHub notification.
+
 ```bash
 GITHUB_USER=$(gh api user --jq .login 2>/dev/null || git config user.name)
+
+# Pull the Detail blurb from spec.md verbatim. Falls back to combined
+# shape if the spec used `### Headline + Detail (combined)`.
+DETAIL_BLURB=$(awk '/^### Detail \(team-facing\)/,/^###|^## /' "$FEATURE_DIR/spec.md" | sed '1d;$d')
+if [ -z "$DETAIL_BLURB" ]; then
+  DETAIL_BLURB=$(awk '/^### Headline \+ Detail \(combined\)/,/^###|^## /' "$FEATURE_DIR/spec.md" | sed '1d;$d')
+fi
 
 gh pr comment "$PR" --body "## Ready for review
 
 @${GITHUB_USER} This PR is ready for your review.
 
-**Summary:** <feature name from spec>
+${DETAIL_BLURB}
+
 **Commits:** <N>
 **Quality gates:** all passed
 **CI:** green <after N fix attempts if any>
 
 ${NEXT_STEP_LINE}"
 ```
+
+If `spec.md § Product update § Detail` is missing (pre-convention
+spec), fall back to the historical shape (`**Summary:** <feature name
+from spec>`) and emit a one-line warning that the spec predates the
+Product update convention — don't halt; older specs are read-only
+history.
 
 ### 7.3: Print the handoff to the terminal
 

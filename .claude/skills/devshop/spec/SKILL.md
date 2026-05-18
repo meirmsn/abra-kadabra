@@ -229,6 +229,7 @@ context chain:
 
 Then fill only the gaps the gstack plan left — the missing detail only, not a rewrite:
 
+- **`## Product update`** (REQUIRED — see below) — two named sub-sections `### Headline (user-facing)` and `### Detail (team-facing)` that carry the canonical product story for this PR. Single source-of-truth for the PR body's `## Product update` section, BUILD-LOG `Headline:` + `Summary:` fields, `/ak-build` Phase 7 ready-for-review comment, and `/ak-go-live` Step 6 deployed-to-prod comment. Authored here at Phase 0; verified against the diff at `/ak-build` Phase 6 Gate A.
 - **`## Core user story`** (REQUIRED — see below) — 2–4 imperative verbs, one per line, describing the product's primary observable flow end-to-end. `/ak-pre-ship` Gate 9 (qa-walk) enforces that every verb in this section produces a verifiable artifact.
 - User-facing behaviors not yet specified (happy path + all error states)
 - **`## Render conditions`** (REQUIRED for any feature introducing or modifying a UI element with conditional visibility — see below). One row per element, every state combination resolved to `shown` / `hidden`. Default for an unmentioned combination is implicit `hidden`; never leave the matrix sparse.
@@ -325,6 +326,54 @@ Four rows × four states × explicit `shown` / `hidden` / `n/a` — the `add-new
 
 **When to skip**: backend-only PRs, schema-only migrations, refactors that don't change rendered output. If the diff doesn't add or change a `if (…)` / `&& <Element>` / `?:` inside JSX/TSX, the section may be omitted. When in doubt, write the matrix — it's a few minutes; missing one is hours of QA-discovered bugs.
 
+### Product update (required — verified at `/ak-build` Phase 6 Gate A)
+
+Every spec MUST include a `## Product update` section with two sub-sections — `### Headline (user-facing)` and `### Detail (team-facing)`. They carry the canonical product story for this PR. The same blurbs are routed downstream (PR body, BUILD-LOG, Phase 7 ready-for-review comment, `/ak-go-live` Step 6 deployed-to-prod comment, future CHANGELOG aggregation) verbatim — this section is the **single source of truth**, no surface composes its own copy.
+
+The contract serves two distinct audiences, both grounded in the same atomic claims (the verbs + nouns the diff actually shipped):
+
+- **`### Headline (user-facing)`** — 1–2 sentences for the end-user / prospect / changelog reader. Snappy, marketing-grade, **zero eng terms**: no state names, no enum names, no RPC names, no migration numbers, no component PascalCase, no route paths, no cross-PR references. Talks about what the user can now do in plain English.
+- **`### Detail (team-facing)`** — 1–4 sentences for the future-me reader / cold reviewer / BUILD-LOG scanner. Light eng context allowed (state names, feature areas, internal nouns — but explained, not jargoned). Builds on Headline with the context the team needs to understand what actually shipped.
+
+**Good example** (decide-state feature):
+
+```markdown
+## Product update
+
+### Headline (user-facing)
+
+Pick a path for every issue — get DIY instructions, see what a contractor would charge, set a reminder, or dismiss. Your decision is saved and revisable.
+
+### Detail (team-facing)
+
+After a card is diagnosed, the user can now commit to a path forward (DIY / Contractor / Monitor / Dismiss) and the card transitions to a `planned` state. Choosing Monitor sets a check-back cadence; choosing anything else flips the card to the chosen path with a "Change decision" link to re-open. The AI's cost estimates remain visible alongside any user override.
+```
+
+Same atomic claims (commit-to-path, transition-to-planned, change-decision link, cost-estimate visibility), two different verbalizations. Authoring cost is low because Detail flows naturally from Headline; verification cost is shared because both are checked against the same diff at Phase 6.
+
+**Bad example — eng terms leaking into Headline**:
+
+```markdown
+### Headline (user-facing)
+
+Adds the `card_state` machine with a `confirm_triage` RPC; users transition from `diagnosed` to `planned` via the new DecideCard component.
+```
+
+Six eng-vocabulary leaks (`card_state`, `confirm_triage`, `RPC`, `diagnosed`, `planned`, `DecideCard`) in one sentence. Phase 0 lint flags this; the operator's first edit pass usually strips them.
+
+**Edge cases the contract handles**:
+
+- **Pure infra PR with no user-visible change.** Headline reads `Infrastructure update — no user-visible change in this PR.` (literal, honest). Detail reads `<one-line eng what + why this PR matters internally>.` Same fields, infra-shape. Honest about the audience asymmetry rather than fabricating a marketing voice.
+- **Hotfix PR.** Headline: `Fixes <user-visible symptom>.` Detail: `Fixes <symptom> in <user-flow> — root cause was <plain-English summary>.` Same shape, fix-flavored.
+- **Multi-feature PR.** Headline names each in one short sentence (bullets allowed within the 1–2 sentence cap; cap may stretch to 3 for two-feature PRs). Detail expands per-feature.
+- **Headline = Detail.** If a PR is small enough that the two blurbs would be word-for-word identical, collapse them under a single `### Headline + Detail (combined)` heading. Downstream surfaces route correctly (BUILD-LOG `Headline:` and `Summary:` repeat; deploy comment renders once).
+
+**Why two blurbs instead of one**: a single blurb that tries to serve both audiences either ships eng-flavored copy in the changelog (loses the marketing audience) or ships marketing-flavored copy in the PR body (loses precision for reviewers). Two blurbs share atomic claims, so authoring cost is ~30 seconds at Phase 0 — and the cost of compromise is paid every time someone reads either surface.
+
+**Authoring at Phase 0**: when `/ak-build` Phase 0 runs the spec-skeleton step, it surfaces both blurbs as the first named bullets of the Scope preview so the operator approves them alongside Decisions / Scope / Tracker. The spec agent's first draft tends to over-include eng terms in Headline — operator's first edit pass usually strips them. Same shape as how Decisions are handled today (AI drafts, operator approves or rewrites inline).
+
+**Verification at Phase 6**: `/ak-build` Phase 6 Part D presents both blurbs side-by-side with the diff and asks the operator "does each blurb still describe what shipped?" Yes/edit per blurb. Phase 6 Gate B additionally runs an automated claim-vs-diff cross-check (parses Detail into atomic claims, grep-evidence in diff, flags audience-shape mismatch between Headline and Detail) as an assist for Gate A — warn-not-block. Together they prevent the Phase 0 blurb from silently drifting away from what actually shipped (a polish-loop fix adds a user-visible disclosure; the original blurb didn't call it out).
+
 ### Spec-time conventions and decision rows
 
 Several conventions shape what the spec must contain or surface for user sign-off before `/ak-implement` runs. Full text + rationale: `kit/docs/guide/conventions.md`.
@@ -354,6 +403,7 @@ Confirm `$FEATURE_DIR/spec.md` was written. No pointer file needed —
 
 Every spec must have:
 
+- [ ] **`## Product update` section — both `### Headline (user-facing)` and `### Detail (team-facing)` sub-sections (or `### Headline + Detail (combined)` when collapsed)**. Headline has zero eng vocabulary (no enum names, no RPC names, no migration numbers, no PascalCase component names, no route paths, no cross-PR references); Detail is team-facing with explained eng context. Both blurbs surface as named bullets in `/ak-build` Phase 0 Scope preview and are verified against the diff at Phase 6 Gate A.
 - [ ] **`## Core user story` section — 2–4 imperative verbs OR `N/A — <reason>`** (Gate 9 enforces artifact coverage for each verb)
 - [ ] All user-facing behaviors described (happy path + error states)
 - [ ] **`## Render conditions` matrix — every state combination resolved to `shown` / `hidden` / `n/a` for every new or visibility-modified UI element** (omit if PR is pure backend / migration / refactor; see Render conditions section above)
