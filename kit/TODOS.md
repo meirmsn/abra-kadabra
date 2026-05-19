@@ -7,6 +7,22 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
 <!-- Items discovered during use. Tag with [v0.2], [v1] etc. to schedule into ROADMAP versions. -->
 
+- [ ] **Investigate Mac host-resource constraints as the real cause of home-os PR #27 / #28 `blocked` outcomes.** Codified 2026-05-19 during `sandbox-qa-close-gap` PR. The original ROADMAP framing of those incidents attributed `blocked (n/a per scope: sandbox)` outcomes to workspace tooling gaps. Operator pushback flagged a different hypothesis: "QA was working on many PRs on lalista and home-os until it didn't, and it seemed to be about resource constraints on my host Mac." If the hypothesis is right, the workspace-tooling fixes (Chromium apt-bake 2026-04-23, env-aware Supabase ports 2026-05-19) don't address the actual recurring failure mode.
+
+  **What to investigate**:
+  1. Re-read home-os PR #27 + PR #28 audit comments. Was the `blocked` reason "Chromium failed to launch" / OOM signals / "Playwright timeout waiting for browser" — i.e. resource pressure? Or was it tooling-not-installed?
+  2. Cross-correlate failure timestamps with Docker Desktop's Resource Saver activity, macOS swap usage (`vm_stat`), and any heavy host apps running (Chrome with many tabs, Slack, Spotify, etc.).
+  3. Test under controlled conditions: rebuild home-os's devcontainer with all gates intact, close every other macOS app, then run `/ak-pre-ship` on a no-op branch. If gates pass clean, host-resource hypothesis is confirmed.
+
+  **Likely fixes if confirmed** (mutually exclusive — pick one):
+  - **(a) Docker Desktop resource allocation bump** — increase the VM's memory cap (Settings → Resources). Cheapest, but caps at host's available RAM.
+  - **(b) Concurrency cap inside the devcontainer** — `pnpm test:unit --max-workers=2`, Playwright `workers: 1` in `playwright.config.ts`. Trades wall-clock for stability.
+  - **(c) `/ak-pre-ship` preflight resource check** — emit a `findings (1)` (not `blocked`) when free memory < threshold, with operator guidance to close heavy apps before re-running. Most surgical, but `/ak-pre-ship` doesn't currently introspect host resources.
+
+  **Why this is a TODO and not a v0 ROADMAP entry**: needs investigation before fix-shaping. Once the hypothesis is confirmed (or refuted), promote to ROADMAP with concrete fix shape. Until then, this is a debugging breadcrumb so future sessions don't re-discover the question.
+
+  Cross-ref: `sandbox-qa-close-gap` shipped 2026-05-19 (only addressed the iptables port issue, NOT this resource hypothesis); `kit/notes/projects/home-os.md` for PR #27 / #28 details.
+
 - [ ] **Apply CLAUDE.md architecture migration to lalista.** Codified 2026-05-19 after the home-os migration shipped (8 commits across `feature/claude-md-architecture` in `/workspace` and `/devshop`; final state in `kit/notes/claude-md-migration.md`). Lalista's CLAUDE.md was not touched by the home-os migration; it remains pre-migration shape and will benefit from the same trim. Run from inside lalista's workspace container, on a fresh `feature/claude-md-architecture` branch.
 
   **Pre-reading** (do these in order, all in `/devshop/kit/`):

@@ -953,7 +953,7 @@ Never write gate-produced screenshots to repo root; `/Screenshot*.png` is gitign
 
 **Defaults:** `1440×light` for each key user-facing screen in the PR (sign-in, onboarding, list view, etc.). Filename convention: `<screen>.png` (no viewport/theme suffix — they're all 1440×light by default; deviate with a suffix when needed, e.g. `list-dark.png` if dark mode is the feature).
 
-**When to skip:** non-UI PRs (API-only, infrastructure, docs), and UI PRs where the happy-path can't be reached in this sandbox (e.g. Supabase rate-limits a signup flow). Document the reason in `review.md` instead of leaving a gap.
+**When to skip:** non-UI PRs (API-only, infrastructure, docs), and UI PRs where the happy-path can't be reached from the workspace because of a real external constraint (e.g. hosted Supabase rate-limits a signup flow when the local stack is unavailable, or the screen requires a third-party redirect the firewall blocks). Document the reason in `review.md` instead of leaving a gap. "Workspace can't run Playwright / `pnpm dev`" is no longer a valid skip reason — Chromium ships baked-in via apt (`/usr/bin/chromium`, set as `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`) and `fonts.googleapis.com` is firewall-allowlisted. Treat browser-gate blocks as real tooling-broken signals worth fixing, not expected outcomes.
 
 **Capture mechanics** (via the gstack `browse` skill):
 

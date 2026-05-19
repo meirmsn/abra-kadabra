@@ -207,82 +207,6 @@ The cost per incident is variable but compound — silent overrides decay the ru
 
 ---
 
-### Close the sandbox /qa gap — Playwright in workspace + firewall fix-up (absorbs the `init-firewall.sh` port-allowance entry)
-
-**Problem.** Sandbox structurally blocks four `/ak-pre-ship` gates on every PR:
-
-- **Gate 3** (responsive-theme captures) — needs `pnpm dev` to run the app
-- **Gate 8** (`/design-review`) — needs running app + Playwright
-- **Gate 9** (`/qa` happy-path) — needs running app + Playwright
-- **Gate 10** (`/benchmark` page-load) — needs running app + browse daemon
-
-…AND `changed-tests-local` (Playwright spec list parse) AND Phase 5.9 hero-shot capture all share the same root cause: workspace can't run `pnpm dev` (next/font fetches Google Fonts at build time; sandbox firewall blocks `fonts.googleapis.com`) AND workspace has no Playwright binaries (cache empty; `pnpm exec playwright install` fails on EHOSTUNREACH to `playwright.download.prss.microsoft.com`). Hero shots end up deferred to manual capture; Gates 3/8/9/10 emit `blocked (n/a per scope: sandbox)` on every PR.
-
-The current posture treats these as inevitable scope exemptions — but the architectural answer is to close the gap in workspace, since (per devshop security boundary) Playwright should run alongside Claude (limited blast radius), not inside the supabase-runner sibling (which holds the docker socket — a separate trust boundary).
-
-**Where it bit.**
-
-- **home-os PR #15 (2026-05-14)** — placeholder hero shots from sign-in flow shipped because Phase 5.9 capture path was blocked. Audit comment Evidence section pointed reviewers at the wrong artifact.
-- **home-os PR #26 (2026-05-16)** — Phase 5.9 admin-seed via `host.docker.internal:54421` returned `AuthRetryableFetchError: fetch failed`. Session-ephemeral `sudo iptables -I OUTPUT -d 192.168.65.254 -p tcp --dport 54421 -j ACCEPT` workaround applied; lost on next container restart. **This is the existing `init-firewall.sh` port-allowance entry** (§ above) — folded into this entry as deliverable B.
-- **home-os PR #27 / PR #28** — Gates 3/8/9/10 emitted `blocked (n/a per scope: sandbox)`; Phase 5.9 deferred to manual capture against Vercel preview via README.md instructions; operator paid the manual-capture tax to land hero shots in audit comments.
-
-**Three deliverables (A–C). Combined effort ~4–6 hours.**
-
-**(A) Workspace Dockerfile — Playwright + ffmpeg pre-installed** (~2 hr).
-
-- Extend `template/.devcontainer/Dockerfile` with a pinned-version Playwright browser install at build time. Use the official `mcr.microsoft.com/playwright:v<version>` strategy OR pre-fetch the chromium + webkit tarballs via `wget` with checksum verification (matches the existing `git-delta` / `supabase-cli` / `dcg` / `gitleaks` recipe).
-- Add `ffmpeg` (standard apt package; needed for Playwright `video: 'retain-on-failure'` recording).
-- Pin the Playwright version via `ARG PLAYWRIGHT_VERSION=<x.y.z>` driven from `.devcontainer/.env` so projects can lock a known-good version.
-- Add the binaries' SHA256 checksums to `template/.devcontainer/checksums.sha256` under a new `playwright/` section.
-- Architectural invariant: Playwright runs in workspace, not supabase-runner. Supabase-runner stays narrow (docker socket + supabase lifecycle only).
-
-**(B) Firewall — Google Fonts allowlist + rebound-port allowance** (~30 min, absorbs the existing standalone entry).
-
-- `template/.devcontainer/init-firewall.sh`:
-  - Allowlist `fonts.googleapis.com` + `fonts.gstatic.com` so `next/font/google` Inter fetch works during `pnpm dev`.
-  - Source ports from `SUPABASE_API_PORT` + `SUPABASE_DB_PORT` env vars (`.devcontainer/.env`), defaulting to `54321/54322` when unset. **Replaces the standalone `init-firewall.sh` port-allowance entry above.**
-- For projects already in the wild: cherry-pick or re-sync from `template/`. Backwards-compatible.
-
-**(C) Gates 3/8/9/10 + Phase 5.9 contract revision** (~1.5 hr, prose + verification).
-
-- `/devshop/.claude/skills/ak-pre-ship/SKILL.md` — Gates 3/8/9/10 stop emitting `blocked (n/a per scope: sandbox)` by default. The new posture: workspace HAS Playwright + dev server reachable; Gates run for real. Sandbox-block as an outcome shape is reserved for genuine tooling-broken cases (which the new Dockerfile + firewall should reduce to ~zero).
-- Phase 5.9 hero shots — capture in workspace against the local stack (no longer needs Vercel preview + interactive operator). README.md fallback instructions stay as a backstop.
-- Verify on home-os: re-run `/ak-pre-ship` on `feature/planned-state` HEAD (or a no-op branch) after the workspace rebuild — Gates 3/8/9/10 should all run green or surface real findings, not `blocked (n/a)`.
-
-**Fallback if (A)+(B)+(C) prove too expensive:** retreat to "remove Gates 3/8/9/10 from the automated gauntlet" — keep them as Manual-review checklist items in the PR body (which the reviewer attests against the Vercel preview). Stop pretending they're automated. ~1hr work. Reduces ceremony at the cost of one less safety net per PR. Note: this is a punt, not a fix — the architectural answer is to close the gap.
-
-**Why this entry sits in v0:** every PR pays the sandbox-block tax on 4 gates + a Phase 5.9 manual-capture round-trip. The compound cost across home-os (PR #15 hero-shot misship, PR #26 manual iptables workaround, PR #27 + PR #28 manual captures + audit comments calling out the gap) easily exceeds 4–6 hours already paid. Closing the gap once eliminates the tax for every future PR on every project that adopts the template.
-
-**Why not a Track-A inline fix during this session:** `template/.devcontainer/Dockerfile` + `template/.devcontainer/init-firewall.sh` are `[locked]` manifest files; workspace can't edit them directly.
-
-**Operator path while this entry is open:** every PR's Phase 3 emits `blocked (n/a per scope: sandbox)` on Gates 3/8/9/10 + defers Phase 5.9 to manual capture. The pattern is well-documented (PR #27 + #28 audit comments cross-link); operator absorbs the manual-capture tax until this entry ships.
-
-[v0, surfaced-by home-os PR #15 (2026-05-14), PR #26 (2026-05-16), PR #27 (2026-05-17), PR #28 (2026-05-18); absorbs the standalone `template/.devcontainer/init-firewall.sh` env-aware Supabase port allowance entry above as deliverable B]
-
----
-
-### `template/.devcontainer/init-firewall.sh` — env-aware Supabase port allowance
-
-> **Absorbed into [Close the sandbox /qa gap](#close-the-sandbox-qa-gap--playwright-in-workspace--firewall-fix-up) as deliverable B.** This standalone write-up is preserved for historical context (home-os PR #26 incident detail) but the durable fix ships in the bigger entry. PLAN.md no longer carries a separate priority row for this — track the broader entry.
-
-**Problem.** Lines 232-234 hard-code outbound TCP allow rules for `host.docker.internal:54321` + `54322` (upstream Supabase defaults). Projects that rebind +100 to avoid port collisions on the host (e.g. home-os: `54421/54422`, documented in CLAUDE.md § Local Supabase ports as the canonical rebind escape hatch) get **silent EHOSTUNREACH** from the workspace to their actually-listening Supabase stack. The script keeps running with the wrong rule, so the failure mode is "everything looks healthy until you try to admin-seed via Playwright" — at which point Node fetch returns `EHOSTUNREACH` from inside the devcontainer.
-
-**Where it bit.** home-os PR #26 (2026-05-16) Phase 5.9 (hero shots via seeded fixture). The subagent successfully wrote the spec, set up Chromium symlinks, prepared the seed payload — then `adminClient.auth.admin.createUser({...})` returned `AuthRetryableFetchError: fetch failed` against `http://host.docker.internal:54421/auth/v1/admin/users`. Diagnosed at Phase 5.9.failure: `getent ahostsv4 host.docker.internal` resolved fine (192.168.65.254), but iptables had no ACCEPT rule for that destination on port 54421 (only 54321), so the SYN packets were silently DROPped by the default policy below. Worked around with a session-ephemeral `sudo iptables -I OUTPUT -p tcp -d 192.168.65.254 --dport 54421 -j ACCEPT` (lost on container restart).
-
-**Fix shape:**
-
-- `template/.devcontainer/init-firewall.sh` lines 230-237: source ports from `SUPABASE_API_PORT` + `SUPABASE_DB_PORT` env vars (read from `.devcontainer/.env`), defaulting to `54321/54322` when unset.
-- Update the surrounding comment block (lines 213-229) to drop the hard-coded port references and explain the env-var override path.
-- For projects already in the wild: cherry-pick or re-sync the file from `template/`. The fix is backwards-compatible — projects that never rebound keep the defaults.
-
-**Why this entry sits in v0:** new projects that rebind ports get silent failures with no good signal — `pnpm db:start` succeeds, the stack is reachable from inside the supabase-runner container, the operator's macOS browser reaches it via Docker Desktop's port forward; only the workspace's iptables-mediated outbound traffic gets DROPped. The class of failure ("everything works except admin-side seeds from the workspace") is hard to debug if you haven't seen it before.
-
-**Why not a Track-A inline fix:** `template/.devcontainer/init-firewall.sh` is on the `[locked]` manifest list AND the project settings.json `deny` list at `Edit(/devshop/template/**)`. Agent can't edit it directly; this entry surfaces it for the next devshop-side maintenance window with `sudo` access.
-
-**Operator path while this entry is open:** workspace runs into EHOSTUNREACH on rebound-port projects → run `sudo iptables -I OUTPUT -p tcp -d $(getent ahostsv4 host.docker.internal | awk '{print $1}' | head -1) --dport <project-supabase-port> -j ACCEPT` to unblock. Add to project CLAUDE.md § Gotchas as the temporary patch. Drops automatically when this entry ships.
-
----
-
 ### `/ak-pre-ship` migration-rollback gate — fix `ci-rollback-explain.sh` contract + ROLLBACK-marker convention + PGRST204 debugging recipe
 
 **Problem.** `template/scripts/ci-rollback-explain.sh` (and its in-project copy at `scripts/ci-rollback-explain.sh`) iterates `supabase/migrations/*.sql` and **silently SKIPs any file lacking a `-- ROLLBACK:` marker block**. The script's intent is to exercise rollback safety for every migration, but the contract is broken in three load-bearing ways:
@@ -2224,6 +2148,110 @@ A second problem: there's no ambient pressure to propagate devshop improvements 
 ---
 
 ## v+ (future — when the need is felt)
+
+### Playwright video recording — ffmpeg + `playwright.config.ts` wiring + WebM→GIF for PR embedding
+
+**What this is** — durably capture video evidence of E2E test runs as Playwright artifacts, surface them in CI failure investigation, and (downstream) embed GIFs in PR bodies for visual debugging context. Three coupled pieces that should ship together as one PR (not three).
+
+**Current state (verified 2026-05-19 during the `sandbox-qa-close-gap` PR)**
+
+- **Chromium**: ✅ apt-baked in `template/.devcontainer/Dockerfile` lines 43-60 (commit `1df36b0`, 2026-04-23). `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium` in `devcontainer.json` containerEnv (line 76-77). Playwright launches against this binary, bypassing the CDN-IP-rotation problem entirely.
+- **ffmpeg**: ❌ NOT in any image — neither `template/.devcontainer/Dockerfile` nor the devshop's own devcontainer ships it.
+- **Playwright `video:` config**: ❌ Not wired anywhere. `grep -rE "video:.*on|video:.*retain-on-failure|recordVideo" .claude/skills/ template/ kit/docs/` returns zero hits. No project (lalista, home-os) uses it.
+- **WebM→GIF**: ❌ No pipeline. GitHub PR bodies render GIFs but not WebM (see `.claude/skills/gstack/TODOS.md:428` — already on the gstack roadmap).
+- **Test artifact upload**: ⚠ `apps/web/test-results/` is already included in the upload artifact path per `kit/docs/guide/ops.md:75` ("videos / traces / `error-context.md` live in `test-results/`") — so the upload glob is correct; the videos just aren't produced.
+
+**Why this is deferred from `sandbox-qa-close-gap` (2026-05-19)**
+
+That PR considered adding ffmpeg alone, but operator review (correctly) flagged it as YAGNI: shipping the binary without a consumer is image-bloat for tooling capability nobody currently uses. The architectural sequence is wrong if we ship ffmpeg first — `apt-get install` runs every container rebuild, costing build time / bandwidth, for a binary that produces zero bytes of value until step (B) wires it up. Ship all three together when the trigger condition fires.
+
+**Trigger condition to ship**
+
+The first time a debugging session would have benefited from a recorded video — typically a flaky E2E that reproduces visually but not in CI logs, or a UI regression that's hard to describe in prose. Until that happens, write the entry, don't ship the code.
+
+**Three deliverables (~2-3 hr combined)**
+
+**(A) Workspace Dockerfile — add `ffmpeg` to the apt-install block** (~5 min, locked-file recipe).
+
+Add `ffmpeg` to the existing `RUN apt-get install` block at `template/.devcontainer/Dockerfile` lines 43-60, alongside the Chromium libs. The exact diff (drafted + verified working in the 2026-05-19 session, dropped from the PR but preserved here verbatim):
+
+```dockerfile
+# In the existing comment block above the chromium RUN, append:
+#
+# ffmpeg is required for Playwright's `video: 'on' | 'retain-on-failure'`
+# recording option. Without it, Playwright silently produces zero-byte video
+# artifacts on test failure (no error surfaced; the CI artifact is present
+# but useless). Baking it here keeps recording-on-failure working out of the
+# box for every project's E2E suite.
+
+# In the RUN apt-get install block, add ffmpeg between chromium-driver and libnspr4:
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  chromium \
+  chromium-driver \
+  ffmpeg \
+  libnspr4 \
+  ...
+```
+
+No `checksums.sha256` entry needed (apt repo signing covers it). Locked-file recipe: write to `/tmp/staging/Dockerfile.new`, then `sudo install -m 644 -o root -g root /tmp/staging/Dockerfile.new <worktree-path>` per `kit/docs/guide/security.md § Authoring locked files`.
+
+**(B) `playwright.config.ts` — wire video recording per project** (~10 min, in each project's `apps/web/playwright.config.ts`).
+
+The minimal config:
+
+```ts
+// apps/web/playwright.config.ts (project-side; lives in apps/web, not template)
+export default defineConfig({
+  use: {
+    video: 'retain-on-failure',  // captures every test; drops on success
+    // or 'on' for always-capture during heavy debugging
+    trace: 'retain-on-failure',  // already common; keep
+  },
+  // ...
+});
+```
+
+Choose `retain-on-failure` (not `on`) by default — `on` produces a WebM per test even on green runs, blowing up artifact size for no value. The trace artifact already covers green-run debugging.
+
+Generalization to template: when this entry ships, the same config snippet lands in `template/apps/web/playwright.config.ts` (which is itself blocked on the `template-apps-web-baseline` PLAN row — see deps below).
+
+**(C) WebM→GIF for PR embedding** (~1.5 hr, the bulk of the work).
+
+WebM is what Playwright produces; GitHub PR bodies render `.gif` inline but `.mp4`/`.webm` only as download links. The conversion needs:
+
+- A post-test step that finds every `test-results/**/video.webm`, converts to `.gif` (ffmpeg one-liner: `ffmpeg -i video.webm -vf "fps=10,scale=720:-1" -y out.gif`), trims to <10 seconds (last N seconds before failure are usually the useful ones), and uploads alongside the WebM.
+- A PR-body templating decision: where do video links go? `/ak-build § Phase 6 § Evidence section` is the natural home (alongside hero shots). The image-embed must use the `https://github.com/<owner>/<repo>/raw/<branch>/<path>` URL form per `/ak-build § PR body conventions § Image embeds` (private-repo safe).
+- Size budget: target <5MB per GIF after conversion. GIFs >25MB hit GitHub's upload limit silently.
+
+Existing gstack TODOs already track parts of this:
+
+- `.claude/skills/gstack/TODOS.md:71` — Playwright browser context isolation (prerequisite for video recording)
+- `.claude/skills/gstack/TODOS.md:82` — Playwright supports video recording per context + WebM→GIF for PR embedding
+- `.claude/skills/gstack/TODOS.md:428` — GitHub PR bodies render GIFs but not WebM
+
+When this entry ships, those gstack TODOs cross-resolve.
+
+**Dependencies**
+
+- ⛔ `template-apps-web-baseline` (PLAN row, Lev 6.25) — that's where `template/apps/web/playwright.config.ts` lands; this entry is a follow-on patch to that baseline, not a precursor.
+- ⓘ Lalista's existing `apps/web/playwright.config.ts` already has the file shape, so (B) can ship to lalista in this entry's PR and template-side in `template-apps-web-baseline`'s PR.
+
+**Why this stays v+ for now**
+
+No project has hit "I wish I had a video of that test failure" in the soak window covering lalista (>50 PRs) + home-os (28 PRs as of 2026-05-19). Error-context.md + trace.zip + screenshots have been sufficient for every CI failure investigation to date — and the `/ak-build § Phase 5.4` artifact-pull recipe already routes operators to those artifacts. Promote to v0/v1 when the trigger condition fires.
+
+**Cross-ref**
+
+- `template/.devcontainer/Dockerfile` lines 43-60 — the apt-install target for (A)
+- `template/.devcontainer/devcontainer.json` lines 76-77 — `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium` (already shipped)
+- `kit/docs/guide/security.md § Authoring locked files` — the recipe for (A)
+- `.claude/skills/gstack/TODOS.md:71, 82, 428` — gstack-side prerequisites that resolve when this lands
+- `.claude/skills/ak-build/SKILL.md § PR body conventions § Image embeds` — the URL form for (C)
+- `kit/docs/guide/ops.md:75` — the existing CI artifact-upload glob (`test-results/`) already covers videos
+
+[v+, deferred from `sandbox-qa-close-gap` 2026-05-19 after operator review; trigger: first session where a video artifact would have shortened a debugging arc]
+
+---
 
 ### Full Finding Router — structured `disposition:` per gate dismissal
 

@@ -212,11 +212,29 @@ iptables -A OUTPUT -d "$HOST_NETWORK" -j ACCEPT
 
 # Allow workspace → host.docker.internal on supabase data-plane ports.
 # Under compose isolation, supabase's spawned sibling containers
-# (supabase_kong_*, supabase_db_*) bind host ports 54321 (REST/kong) +
-# 54322 (Postgres) directly. Workspace reaches them via
-# host.docker.internal which Docker Desktop maps to the host gateway.
-# Without this rule the default DROP policy below would block the
-# connection, since host.docker.internal's IP is outside HOST_NETWORK.
+# (supabase_kong_*, supabase_db_*) bind host ports (REST/kong + Postgres)
+# directly. Workspace reaches them via host.docker.internal which Docker
+# Desktop maps to the host gateway. Without this rule the default DROP
+# policy below would block the connection, since host.docker.internal's
+# IP is outside HOST_NETWORK.
+#
+# Port sourcing: SUPABASE_API_PORT + SUPABASE_DB_PORT are read directly
+# from /workspace/.devcontainer/.env (root-readable; this script runs as
+# root via sudo in postStartCommand). Compose's env_file: .env directive
+# puts the vars into the workspace's process environment, but sudo strips
+# env vars by default (no env_keep / no --preserve-env on the
+# postStartCommand sudo invocation), so we can't rely on inherited vars
+# inside this script. Reading .env directly is self-contained and works
+# regardless of how the script is invoked.
+#
+# Defaults: 54321 (REST/kong) + 54322 (Postgres) — Supabase's upstream
+# defaults. Projects that rebind to avoid host-port collisions (e.g.
+# home-os uses 54421/54422 — see project CLAUDE.md § Local Supabase ports)
+# declare the rebind by adding SUPABASE_API_PORT= + SUPABASE_DB_PORT=
+# lines to .devcontainer/.env; the workspace's outbound ACCEPT rule
+# tracks automatically; no edit to this script required. Numeric
+# validation below catches typos before iptables emits an opaque "invalid
+# argument" error.
 #
 # Use `getent ahostsv4` (NOT `getent hosts`) — Docker Desktop's
 # host.docker.internal can resolve to either an IPv4 or IPv6 address
@@ -226,12 +244,29 @@ iptables -A OUTPUT -d "$HOST_NETWORK" -j ACCEPT
 # an IPv6 address fails with "host/network not found" and the script
 # aborts. ahostsv4 explicitly returns the IPv4 form, which is also the
 # one that actually works for our case (supabase's spawned siblings bind
-# 0.0.0.0:54321 + 0.0.0.0:54322 IPv4 host ports).
+# 0.0.0.0:<api> + 0.0.0.0:<db> IPv4 host ports).
+ENV_FILE="/workspace/.devcontainer/.env"
+if [ -f "$ENV_FILE" ]; then
+    api_line=$(grep -E '^SUPABASE_API_PORT=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '[:space:]"'"'"'')
+    db_line=$(grep -E '^SUPABASE_DB_PORT=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '[:space:]"'"'"'')
+    [ -n "$api_line" ] && SUPABASE_API_PORT="$api_line"
+    [ -n "$db_line" ] && SUPABASE_DB_PORT="$db_line"
+fi
+SUPABASE_API_PORT="${SUPABASE_API_PORT:-54321}"
+SUPABASE_DB_PORT="${SUPABASE_DB_PORT:-54322}"
+for port_name in SUPABASE_API_PORT SUPABASE_DB_PORT; do
+    port_val=$(eval echo "\$$port_name")
+    if [[ ! "$port_val" =~ ^[0-9]+$ ]] || [ "$port_val" -lt 1 ] || [ "$port_val" -gt 65535 ]; then
+        echo "ERROR: $port_name=$port_val is not a valid TCP port (must be 1-65535)"
+        echo "       Source: $ENV_FILE"
+        exit 1
+    fi
+done
 HOST_DOCKER_INTERNAL=$(getent ahostsv4 host.docker.internal 2>/dev/null | awk '{print $1}' | head -1)
 if [ -n "$HOST_DOCKER_INTERNAL" ]; then
-    echo "Allowing host.docker.internal ($HOST_DOCKER_INTERNAL) on supabase ports 54321 + 54322"
-    iptables -A OUTPUT -d "$HOST_DOCKER_INTERNAL" -p tcp --dport 54321 -j ACCEPT
-    iptables -A OUTPUT -d "$HOST_DOCKER_INTERNAL" -p tcp --dport 54322 -j ACCEPT
+    echo "Allowing host.docker.internal ($HOST_DOCKER_INTERNAL) on supabase ports $SUPABASE_API_PORT + $SUPABASE_DB_PORT"
+    iptables -A OUTPUT -d "$HOST_DOCKER_INTERNAL" -p tcp --dport "$SUPABASE_API_PORT" -j ACCEPT
+    iptables -A OUTPUT -d "$HOST_DOCKER_INTERNAL" -p tcp --dport "$SUPABASE_DB_PORT" -j ACCEPT
 else
     echo "warn: host.docker.internal did not resolve to IPv4; supabase reachability from workspace will fail"
 fi
