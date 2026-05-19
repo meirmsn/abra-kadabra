@@ -775,8 +775,9 @@ dependency is now real), then verify the tests:
 
 ```bash
 pnpm --filter @<project-name>/core test:unit
-# Expected: 5 tests pass. If guardActive=false (placeholder still present)
-# the prod-URL tests are skipped — re-check the sed substitution.
+# Expected: 5 tests pass unconditionally. If a guard test fails, the sed
+# substitution likely did not hit PROD_REF in supabase.test.ts — re-run
+# the substitution and verify PROD_REF holds your real project ref.
 ```
 
 **Sub-step 2: add models + smoke**
