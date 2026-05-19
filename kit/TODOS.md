@@ -453,7 +453,7 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
   **Why v0 — blocks next-project adoption**: pattern is reusable for any Tier A2 surface; lalista PR #49 paid 3 CI fix-loop iterations worth of cycles on bugs this gate would have caught pre-ship. Every next project that ships optimistic UI will hit the same class of bug (overlay z-index, focus management, banner accessibility under failure). The convention has to exist before a second project onboards or each project re-pays the same iteration cost.
 
-  **Cross-ref**: depends on the latency-feedback framework (`kit/ROADMAP.md § Latency feedback framework — 4-tier decision rule + primitives`) for the "which surfaces are Tier A2?" lookup. Either ships first; if this lands first, the lookup is a manual spec annotation; once the framework ships, the lookup is automatic via `useOptimisticMutation` call-site detection.
+  **Cross-ref**: depends on the latency-feedback framework (`kit/ROADMAP.md § Latency feedback framework — 5-tier decision rule + primitives`) for the "which surfaces are Tier A2?" lookup. Either ships first; if this lands first, the lookup is a manual spec annotation; once the framework ships, the lookup is automatic via `useOptimisticMutation` call-site detection.
 
   [v0, pre-ship-gate, surfaced-by lalista-PR49-fix-loop, 2026-05-07]
 

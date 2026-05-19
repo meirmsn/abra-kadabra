@@ -68,7 +68,7 @@ Those fake the test process's clock. Playwright tests run in two processes (test
 
 ### Cross-references
 
-- `kit/docs/guide/latency-feedback.md` (focused stub today — Tier C + sizing-primitive override only) + `lalista/specs/app-snappiness/spec.md § D1` (canonical for the full 4-tier framework until the post-soak lift). Together they define which surfaces are Tier A2 and what `useOptimisticMutation({ failureMode: 'banner' })` guarantees. Lift tracked in `kit/ROADMAP.md § Latency feedback framework`; once the framework lands in `latency-feedback.md`, this bullet collapses to a one-line pointer at that guide.
+- [`latency-feedback.md`](./latency-feedback.md) — the canonical guide for the 5-tier framework, including the Tier A2 retry-budget tokens (`RETRY_BUDGET_MS`, `RETRY_BACKOFF_MS`) and the `useOptimisticMutation({ failureMode: 'banner' })` contract that this test pattern exercises. `lalista/specs/app-snappiness/spec.md § D1` carries the worked example of a project-specific surface mapping.
 - `kit/TODOS.md` — `/ak-pre-ship` Gate 9 fault-injected QA pass (the runtime companion to this test pattern; together they cover the "happy-path crawl + retry-budget assertion" matrix for Tier A2 surfaces)
 - Lalista PR #49 (2026-05-07) — `add-item-banner.spec.ts` as the don't-do-this prior art (`test.setTimeout(60000)` + `toBeVisible({ timeout: 25000 })`)
 - Playwright `page.clock` docs: https://playwright.dev/docs/clock

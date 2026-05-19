@@ -808,20 +808,21 @@ Combined with the auth-hardening step (password_min_length: 8, landed in v1.11.0
 
 ---
 
-### Latency feedback framework — 4-tier decision rule + primitives
+### Latency feedback framework — 5-tier decision rule + primitives
 
-**Pre-implementation findings (verified 2026-05-14):** **PARTIAL — skeleton doc shipped, rest pending.**
+**Pre-implementation findings (verified 2026-05-19):** **PARTIAL — framework doc + routing shipped, primitives extraction + `/ak-spec` consult pending.**
 
-- **SHIPPED via `a9f364d`**: `kit/docs/guide/latency-feedback.md` exists (212 lines). Self-described as "focused stub; full 4-tier framework scheduled to lift post-soak."
-- **NOT SHIPPED**: full 4-tier framework prose (the canonical content still lives in `lalista/specs/app-snappiness/spec.md § D1`); `template/CLAUDE.md` pointer to the guide; `/ak-spec` consultation step in `.claude/skills/ak-spec/SKILL.md`; primitives extraction (`useSubmitFeedback` / `SubmitButton` / `LoadingArea` / `useOptimisticMutation`) to a `@devshop-template/ui` package.
+- **SHIPPED via `a9f364d`** (stub) **+ prose-lift on `docs/latency-feedback-doc`**: `kit/docs/guide/latency-feedback.md` now carries the full 5-tier framework — table, decision rule, tokens (`FEEDBACK_THRESHOLD_MS` / `RETRY_BUDGET_MS` / `RETRY_BACKOFF_MS`), primitive contracts (`useOptimisticMutation` / `useSubmitFeedback` / `SubmitButton` / `LoadingArea`), the load-bearing queueMicrotask gotcha (verbatim from lalista with code snippet), test patterns to reproduce, and a surface-mapping template for project specs. Existing Tier C corner-case sections preserved as "within-the-framework" addenda.
+- **SHIPPED via context-aware guideline routing**: discovery from project sessions is wired through `kit/docs/guide/README.md:68-69` — `useOptimisticMutation` / `SubmitButton` / `LoadingArea` / `loading.tsx` / client `useEffect` fetches / `"Tier A2"` / `"Tier C"` / `"skeleton"` / `"latency"` keywords all route to `latency-feedback.md`. No `template/CLAUDE.md` pointer needed (and would violate the "project CLAUDE.md is self-sufficient" principle codified in `/devshop/CLAUDE.md § Session Start`).
+- **NOT SHIPPED**: `/ak-spec` consultation step in `.claude/skills/devshop/spec/SKILL.md` (when the spec involves interactive UI / async ops, prompt the spec author to produce the surface-mapping table per `latency-feedback.md § Applying the framework to your project`); primitives extraction (`useSubmitFeedback` / `SubmitButton` / `LoadingArea` / `useOptimisticMutation`) to a `@devshop-template/ui` package; lalista CLAUDE.md trim (delete the 5-tier table + decision rule that pre-trim lived at `git show ee87881^:CLAUDE.md L64-L78`; keep only the lalista-specific surface mapping table — and fix the stranded `Tier B of the latency-feedback framework; see Gotchas` pointer at lalista CLAUDE.md L14).
 - **Blocked by**: primitives extraction is blocked by the missing `template/apps/web/` baseline (see new ROADMAP entry below) — there's no `template/packages/ui/` either; both need the template app scaffold first.
-- **Realistic next step**: lift the 4-tier prose from lalista's spec into the existing `latency-feedback.md` (~30 min) + add `template/CLAUDE.md` pointer (~5 min) — these are pure doc, no scaffold dependency. Primitives extraction waits on the template baseline.
+- **Realistic next step**: `/ak-spec` consult step (~15 min, no scaffold dependency) + lalista-side CLAUDE.md trim (lalista session, ~10 min). Primitives extraction waits on the template baseline.
 
 Spec below preserved for full original context.
 
 ---
 
-Projects keep re-solving the same UX gap: how snappy to make a button / a route nav / an optimistic mutation. Defaults skew either too eager (spinner everywhere, including <250ms ops where it's noise) or too lazy (no feedback, user double-taps). Lalista chapter 1m (`feat/app-snappiness`, PR #49, shipped 2026-05-07) co-developed a 4-tier framework with the user that matches the affordance to the operation's actual latency. Every next project with interactive UI will hit the same decision tree.
+Projects keep re-solving the same UX gap: how snappy to make a button / a route nav / an optimistic mutation. Defaults skew either too eager (spinner everywhere, including <250ms ops where it's noise) or too lazy (no feedback, user double-taps). Lalista chapter 1m (`feat/app-snappiness`, PR #49, shipped 2026-05-07) co-developed a 5-tier framework with the user that matches the affordance to the operation's actual latency. Every next project with interactive UI will hit the same decision tree.
 
 **The framework** (lalista's `specs/app-snappiness/spec.md § D1` is canonical until this lifts):
 
@@ -837,8 +838,8 @@ Projects keep re-solving the same UX gap: how snappy to make a button / a route 
 
 **Implementation surface:**
 
-- `kit/docs/guide/latency-feedback.md` (new) — full framework prose: 5 tiers, decision rule, retry-budget shape, queueMicrotask gotcha, worked examples (generic surfaces, not lalista-specific). Becomes the ground truth.
-- `template/CLAUDE.md` — short pointer: "when adding a surface with feedback needs, see `kit/docs/guide/latency-feedback.md`." So new projects inherit by default.
+- `kit/docs/guide/latency-feedback.md` (lift into existing stub) — full framework prose: 5 tiers, decision rule, retry-budget shape, queueMicrotask gotcha, worked examples (generic surfaces, not lalista-specific). Becomes the ground truth.
+- Discovery from project sessions: already wired via context-aware guideline routing in `kit/docs/guide/README.md:68-69` (keyword + primitive-import + file-glob triggers). No `template/CLAUDE.md` pointer — `/devshop/CLAUDE.md § Session Start` forbids `/devshop/...` cross-refs in project CLAUDE.md (the hook delivers devshop context at runtime; the routing table delivers the guide on relevant edits).
 - `.claude/skills/devshop/spec/SKILL.md` — `/ak-spec` consults the guide when the spec involves interactive UI or async ops; spec author produces a project-specific surface tier mapping table as part of `## Decisions` (same shape as PR #49's spec § D1, just systematic).
 - **Primitives extraction** (separate PR after the framework doc lands and lalista soaks): lift `useSubmitFeedback` / `SubmitButton` / `LoadingArea` / `useOptimisticMutation` from `lalista/packages/ui/` to a `@devshop-template/ui` package. Lalista refactors to import from the package, deletes the inline copies.
 
@@ -855,7 +856,7 @@ Same playbook as Auth UX conventions above. Every project with interactive UI hi
 **Cross-ref:**
 
 - `lalista/specs/app-snappiness/spec.md § D1` — canonical framework + decision rule until this lift makes the devshop guide canonical. Source for the 5-tier table.
-- `lalista/CLAUDE.md § Latency feedback tiers` — currently carries the 5-tier table, decision rule, and a lalista-specific surface mapping. After this lifts, lalista CLAUDE.md trims to just the surface mapping with a pointer to `kit/docs/guide/latency-feedback.md`.
+- `lalista/CLAUDE.md § Latency feedback tiers` — currently carries the 5-tier table, decision rule, and a lalista-specific surface mapping. After this lifts, lalista CLAUDE.md trims to just the lalista-specific surface mapping (5-tier table + decision rule delete entirely — context-aware routing surfaces the devshop guide automatically when the relevant primitives are touched). No `/devshop/...` cross-ref in lalista CLAUDE.md per the "project CLAUDE.md is self-sufficient" principle.
 - `lalista/DESIGN.md § Motion + feedback` — token values; lifts alongside the components.
 - `lalista/PRODUCT-ROADMAP.md § v1 § Devshop extraction of validated UX patterns` (line 347) — the soak-reminder counterpart on the lalista side.
 - `lalista/packages/ui/src/{useSubmitFeedback,SubmitButton,LoadingArea,useOptimisticMutation}.{ts,tsx}` — concrete prior art ready to lift.
@@ -885,7 +886,7 @@ The template ships a PWA manifest + meta tags out of the box (apple-touch-icon, 
 
 - `kit/docs/guide/pwa-service-worker.md` (new) — full convention prose: caching strategies per asset class, versioning behavior, dev disable, real-device validation requirement, "what NOT to cache" list (Supabase calls, edge functions, `/auth/callback`).
 - `template/apps/web/next.config.ts` + `template/apps/web/app/sw.ts` (new) — the serwist registration + precache manifest config, parameterized so projects can override the cache lists.
-- `template/CLAUDE.md` — short pointer: "PWAs ship with a default SW per `kit/docs/guide/pwa-service-worker.md`; customize cache lists in `apps/web/sw.ts`." So new projects inherit by default.
+- Discovery from project sessions: add a row to `kit/docs/guide/README.md` routing index keying on `apps/web/app/sw.ts`, `next.config.ts` serwist edits, `"PWA"` / `"service worker"` / `"@serwist/next"` keywords → target `pwa-service-worker.md`. No `template/CLAUDE.md` pointer — `/devshop/CLAUDE.md § Session Start` forbids `/devshop/...` cross-refs in project CLAUDE.md.
 - `.claude/skills/devshop/new-project/SKILL.md` — `/ak-new-project` Step N: ask "is this a PWA?" If yes, scaffold the SW config from the template; if no, skip (CLI tools / pure SPAs / SSR sites that aren't installed).
 - `.claude/skills/devshop/pre-ship/SKILL.md` — pre-ship gate that lints the SW config for known footguns (e.g., caching `/auth/callback` would break magic-link flows; caching `/api/**` would hide DB writes from the user).
 
@@ -1119,7 +1120,7 @@ Minimum tracked tree:
 - `/devshop/.claude/skills/ak-new-project/SKILL.md § Step 12` — the current `pnpm create next-app` path; post-scaffold this step shifts to "copy template/apps/web/ + sed-substitute project name."
 - `kit/ROADMAP.md § v0 § Generalize lalista PR #43 E2E + Supabase test-infra lessons` (R12) — blocked dependent
 - `kit/ROADMAP.md § v0 § Auth UX conventions — shared error-surface + state patterns` (R13) — blocked dependent
-- `kit/ROADMAP.md § v0 § Latency feedback framework — 4-tier decision rule + primitives` (R14) — blocked dependent
+- `kit/ROADMAP.md § v0 § Latency feedback framework — 5-tier decision rule + primitives` (R14) — blocked dependent
 - `kit/ROADMAP.md § v0 § Template PWA service worker baseline` (R15) — blocked dependent
 - `kit/TODOS.md § Port the tap-feedback press-state contract` (T5) — blocked dependent
 - `lalista/apps/web/` + `home-os/apps/web/` — concrete shapes that exist post-scaffold to mine for the template tree
