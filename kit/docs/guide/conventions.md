@@ -20,6 +20,7 @@ Single source of truth for conventions referenced by multiple skills. Skills poi
   - [Codified prior art](#codified-prior-art)
   - [Cross-reference: Local Pre-Push Test Gates](#cross-reference-local-pre-push-test-gates)
 - [Local Pre-Push Test Gates](#local-pre-push-test-gates)
+- [Long-running processes in the Claude Code harness](#long-running-processes-in-the-claude-code-harness)
 - [Supabase Hardening Defaults](#supabase-hardening-defaults) — _moved to [`migrations.md`](./migrations.md)_
 - [Runtime Validation at LLM / Edge-Function Boundaries](#runtime-validation-at-llm--edge-function-boundaries) — _moved to [`wrapper-boundaries.md`](./wrapper-boundaries.md)_
 - [Wrapper API design](#wrapper-api-design) — _moved to [`wrapper-boundaries.md`](./wrapper-boundaries.md)_
@@ -361,6 +362,36 @@ The preflight emits one of two stdout tokens:
 - `pass-with-note: <reason>` — orchestrator continues with the message as advisory.
 
 Fail-safe: if the classifier is missing OR git can't resolve the base ref, the preflight emits `blocked:` (the safer default — better strict than lax when the tool can't decide).
+
+## Long-running processes in the Claude Code harness
+
+Long-running processes spawned via plain `command &` or with `run_in_background=true` get reaped when the foreground Bash tool call exits. Several workflows — `/qa`, `/design-review`, `/benchmark`, `/canary`, multi-call Playwright debugging — need a dev server (Next, Vite, etc.) alive across multiple subsequent Bash / browse / Playwright invocations. The harness's silent reap produces opaque `ERR_CONNECTION_REFUSED` errors with no log trail.
+
+### The pattern that survives
+
+```bash
+(nohup <long-running-command> </dev/null > /tmp/output.log 2>&1 &)
+```
+
+The outer parens spawn a subshell; `&` puts the command in that subshell's background; the subshell exits immediately; the command's parent reparents to PID 1 (init); `nohup` ignores SIGHUP. The harness's bg-reap mechanism (which terminates background jobs when the parent shell exits) doesn't follow the reparented process to init. Empirically confirmed to survive across multiple subsequent Bash tool calls in the same harness session — proven during home-os PR #15 hero-shot capture (2026-05-15).
+
+### Next.js dev-server worked example
+
+`next dev` is doubly fussy: in addition to the subshell-reparent dance, it must be spawned with the correct `cwd` (the project's `apps/web/` directory), not the workspace root. Spawning from `cwd=/workspace` produces the cryptic error `Couldn't find any pages or app directory. Please create one under the project root` even though the directory clearly exists at `apps/web/app/`. The combined recipe:
+
+```bash
+(cd /workspace/apps/web && nohup ./node_modules/.bin/next dev </dev/null > /tmp/output.log 2>&1 &)
+```
+
+After spawning, tail `/tmp/output.log` from a separate Bash call to see the `✓ Ready in <N>ms` line before making the first request — there's a 1–3s warmup window.
+
+### Cross-references
+
+Skills that commonly need a long-lived dev server: `.claude/skills/gstack/qa/`, `.claude/skills/gstack/design-review/`, `.claude/skills/gstack/benchmark/`, `.claude/skills/gstack/canary/`. Each may invoke this convention by reference when its own SKILL.md needs to spawn a server across multiple bash blocks. The home-os hero-shot capture script (referenced in `kit/notes/projects/home-os.md § 2026-05-14 PR #15 hero-shot backfill`) is the canonical worked example.
+
+### When to NOT use this pattern
+
+For one-shot commands that finish in a single Bash call (`pnpm test`, `pnpm build`, `pnpm exec playwright test`), this dance is unnecessary — the foreground process completes before the Bash tool returns. Use plain commands. The reparent pattern is only for processes that must stay alive ACROSS subsequent tool calls.
 
 ## Supabase Hardening Defaults
 

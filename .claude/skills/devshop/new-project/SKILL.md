@@ -826,6 +826,37 @@ placeholder icons — service worker via `@serwist/next` is deferred to
 `kit/docs/guide/conventions.md § Non-Negotiables — PWA`), security headers,
 vercel.json, remove placeholders, approve build scripts in onlyBuiltDependencies.
 
+#### Step 12.5: Wire `@/` alias into vitest
+
+Next's `--import-alias "@/*"` sets up `tsconfig.json paths` so `import "@/lib/foo"`
+resolves at compile time, but vitest **does not** consume tsconfig paths by default.
+The first test that imports anything via `@/...` fails with `Failed to load url
+@/lib/...`. Ship `apps/web/vitest.config.ts` with the alias wired through
+`resolve.alias`:
+
+```ts
+// apps/web/vitest.config.ts
+import path from 'node:path';
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './'),
+    },
+  },
+  test: {
+    environment: 'jsdom',
+    include: ['**/*.test.{ts,tsx}'],
+    exclude: ['node_modules', '.next', 'e2e/**'],
+  },
+});
+```
+
+`path.resolve(__dirname, './')` matches the tsconfig `paths: { "@/*": ["./*"] }` setup
+(both anchor at `apps/web/`). `environment: 'jsdom'` is required for React component
+tests; `exclude: ['e2e/**']` keeps Playwright specs out of the unit run.
+
 **Apply the Supabase SSR boilerplate patterns from `kit/docs/guide/supabase-ssr-boilerplate.md`** — five canonical patterns codified from real production incidents (lalista PR 26, 2026-04-26). Don't paraphrase; copy verbatim:
 
 - **Pattern 1**: `.trim()` defense at every `process.env.NEXT_PUBLIC_*` read site in `lib/supabase/{server,client}.ts` + `middleware.ts`. Trailing-whitespace env vars from copy-paste fat-fingers silently 500 SSR routes; trim makes runtime bulletproof.
@@ -846,17 +877,28 @@ pnpm exec vercel link --yes --project <project-name> --token $VERCEL_TOKEN
 ```bash
 # All five vars below get the same value across all three environments.
 # `--value` requires Vercel CLI v50+ (pinned in template's package.json).
+#
+# Preview-iteration quirk: Vercel CLI 50.x in non-interactive (agent) mode
+# rejects `vercel env add NAME preview --value ...` with
+# `git_branch_required`. The fix is an explicit empty `""` 3rd positional,
+# which applies the value to ALL preview branches (the documented default).
+# Production + development don't need the positional. The bash-array idiom
+# below splats `""` only for the `preview` iteration.
 for env in production preview development; do
-  pnpm exec vercel env add NEXT_PUBLIC_SUPABASE_URL "$env" --value "$SUPABASE_PROD_URL" --token $VERCEL_TOKEN --yes
-  pnpm exec vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY "$env" --value "$SUPABASE_PROD_ANON_KEY" --token $VERCEL_TOKEN --yes
-  pnpm exec vercel env add NEXT_PUBLIC_POSTHOG_KEY "$env" --value "$NEXT_PUBLIC_POSTHOG_KEY" --token $VERCEL_TOKEN --yes
-  pnpm exec vercel env add NEXT_PUBLIC_SENTRY_DSN "$env" --value "$SENTRY_DSN" --token $VERCEL_TOKEN --yes
+  preview_branch=()
+  [ "$env" = "preview" ] && preview_branch=("")
+  pnpm exec vercel env add NEXT_PUBLIC_SUPABASE_URL "$env" "${preview_branch[@]}" --value "$SUPABASE_PROD_URL" --token $VERCEL_TOKEN --yes
+  pnpm exec vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY "$env" "${preview_branch[@]}" --value "$SUPABASE_PROD_ANON_KEY" --token $VERCEL_TOKEN --yes
+  pnpm exec vercel env add NEXT_PUBLIC_POSTHOG_KEY "$env" "${preview_branch[@]}" --value "$NEXT_PUBLIC_POSTHOG_KEY" --token $VERCEL_TOKEN --yes
+  pnpm exec vercel env add NEXT_PUBLIC_SENTRY_DSN "$env" "${preview_branch[@]}" --value "$SENTRY_DSN" --token $VERCEL_TOKEN --yes
 done
 
 # SENTRY_AUTH_TOKEN goes only to environments that build (Preview + Production);
-# Development doesn't run a sourcemap upload.
+# Development doesn't run a sourcemap upload. Same preview-positional quirk.
 for env in production preview; do
-  pnpm exec vercel env add SENTRY_AUTH_TOKEN "$env" --value "$SENTRY_AUTH_TOKEN" --token $VERCEL_TOKEN --yes
+  preview_branch=()
+  [ "$env" = "preview" ] && preview_branch=("")
+  pnpm exec vercel env add SENTRY_AUTH_TOKEN "$env" "${preview_branch[@]}" --value "$SENTRY_AUTH_TOKEN" --token $VERCEL_TOKEN --yes
 done
 
 # Verify
@@ -897,21 +939,33 @@ Rebuild the devcontainer afterwards so `.env` is re-sourced into the shell.
 
 #### Step 13b: Generate `apps/web/.env.local` for local dev
 
-The devcontainer loads `.devcontainer/.env` as shell env (which holds prod URLs/keys under `SUPABASE_PROD_*` names — see Step 4). Next.js only exposes env vars to the browser when they are prefixed `NEXT_PUBLIC_*`. Vercel has already been piped the prefixed names above; **local** `pnpm dev` still needs them — generate a `.env.local` that maps the prod shell vars to the prefixed names so the local dev server dials prod Supabase by default (matching what Vercel does at runtime).
+The devcontainer loads `.devcontainer/.env` as shell env (which holds local-stack URLs/keys under `SUPABASE_*` names + prod URLs/keys under `SUPABASE_PROD_*` names — see Step 4). Next.js only exposes env vars to the browser when they are prefixed `NEXT_PUBLIC_*`. Vercel has already been piped the prefixed names above; **local** `pnpm dev` still needs them — generate a `.env.local` that maps the **local-stack** shell vars to the prefixed names so the local dev server dials the local Supabase by default (avoiding prod pollution from `/qa`, Playwright form submits, and ad-hoc `pnpm dev` testing).
 
-**Why prod by default**: `pnpm dev` should mirror prod-runtime behavior (consistent SSR data, no migration drift). For ad-hoc testing against a local stack, see `kit/docs/guide/ops.md § Local Supabase — manual ad-hoc QA flow` (which walks through temporarily overriding the URL/key — back up first since `.env.local` is gitignored either way).
+**Why local-stack by default (SAFETY).** Pointing local dev at prod by default created a silent prod-pollution bug discovered during home-os PR #15: a Playwright form-submit during hero-shot capture created a real `auth.users` row on the prod project under a fake `@test.local` email before the operator caught it. The same configuration would have tripped Supabase's per-email OTP rate limit on retry, leaving the operator confused about why magic links stop arriving locally. The local-stack default makes every form-submit / `/qa` / `pnpm dev` round-trip safe by default; operators who genuinely need prod-data SSR opt in explicitly (recipe below).
 
-**`SUPABASE_PROD_*` (prod values), not `SUPABASE_*` (auto-set by compose isolation)**: under compose isolation, the workspace's `$SUPABASE_URL` / `$SUPABASE_ANON_KEY` env vars are auto-set by `compose.yml` to the local-stack values (`http://host.docker.internal:54321` + the published local-stack JWTs). Using those here would silently make `pnpm dev` dial the local stack instead of prod, which (a) breaks if the local stack isn't running, (b) hides prod-data SSR bugs. Use `$SUPABASE_PROD_URL` / `$SUPABASE_PROD_ANON_KEY` from `.devcontainer/.env`.
+**Omit `NEXT_PUBLIC_POSTHOG_KEY` + `NEXT_PUBLIC_SENTRY_DSN` from the local-stack seed.** Both libs silently no-op when their keys are missing — local-dev telemetry should never co-mingle with prod telemetry by default. Operators who want local-dev analytics firing should opt in explicitly with a **separate** local-dev project (NOT the prod PostHog/Sentry project) to keep dev events out of prod dashboards + alerting.
 
 ```bash
 mkdir -p apps/web
 cat > apps/web/.env.local <<EOF
-NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_PROD_URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_PROD_ANON_KEY
-NEXT_PUBLIC_POSTHOG_KEY=$NEXT_PUBLIC_POSTHOG_KEY
-NEXT_PUBLIC_SENTRY_DSN=$SENTRY_DSN
+# Local Supabase stack — published demo JWT (NOT a secret).
+# Override locally via `NEXT_PUBLIC_SUPABASE_URL=\$SUPABASE_PROD_URL pnpm dev`
+# when you genuinely need prod-data SSR; see opt-in recipe below.
+NEXT_PUBLIC_SUPABASE_URL=http://host.docker.internal:54321
+NEXT_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
 EOF
 ```
+
+**Opt-in: dial prod from local dev** (use sparingly — form submits hit prod):
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_PROD_URL \
+NEXT_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_PROD_ANON_KEY \
+  pnpm dev
+```
+
+For ad-hoc QA against the local stack with seeded data, see
+`kit/docs/guide/ops.md § Local Supabase — manual ad-hoc QA flow`.
 
 Verify Next.js's default `.gitignore` covers `apps/web/.env*.local` (it does for
 `create-next-app` output, but double-check). If not, append:

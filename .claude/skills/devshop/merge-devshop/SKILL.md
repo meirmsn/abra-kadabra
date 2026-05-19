@@ -478,6 +478,39 @@ On **Cancel**: print `✖ /ak-merge-devshop cancelled. Nothing merged.` and exit
 
 ## Phase 1: Audit
 
+**Cwd routing — required when `WORKTREE_PATH` is set.** The sub-skill
+(`/ak-check-docs-and-tests`) reads the current branch via
+`git branch --show-current` for its Step 1 #5 main-refusal guard. From
+`/devshop` (on `main` whenever the feature lives in a worktree) the
+sub-skill refuses with "audit is feature-level; check out the feature
+branch first." Switch cwd into the worktree before the Skill call so
+the sub-skill sees the feature branch:
+
+```bash
+[ -n "$WORKTREE_PATH" ] && cd "$WORKTREE_PATH"
+```
+
+The `--feature-dir` arg is a path resolved against the sub-skill's cwd —
+once cwd is the worktree, `specs/${FEATURE}` correctly anchors at
+`${WORKTREE_PATH}/specs/${FEATURE}` (where the sub-skill's scaffold
+step, idempotence stamp, and commit step all need to land — and where
+the resulting `## Audit N` content rides into Phase 2's squash range
+without needing a separate path-rewrite). After Phase 1 returns, the
+orchestrator may `cd /devshop` again or continue from the worktree;
+Phase 2's squash machinery routes via `$GIT_CMD` / `git -C` so it
+doesn't depend on cwd. Phase 4.2's worktree teardown also works from
+either cwd (it operates on `$WORKTREE_PATH` explicitly).
+
+Legacy direct-checkout path (`WORKTREE_PATH` empty, feature branch
+checked out in `/devshop`): the cd is a no-op; the Skill call runs from
+`/devshop`, which IS on the feature branch, and Step 1 #5 passes.
+
+Worked trip-up this rule prevents: feat/home-os-onboarding-template-patches
+merge (2026-05-19) — the orchestrator initially invoked the Skill without
+the cd, then read `/ak-check-docs-and-tests § Step 1 #5` and concluded the
+audit couldn't run. Recovery required an explicit cd to the worktree and
+re-invoking. The rule above eliminates that path entirely.
+
 Invoke `/ak-check-docs-and-tests` via the Skill tool:
 
 ```

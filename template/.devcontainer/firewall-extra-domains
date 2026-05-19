@@ -28,6 +28,16 @@
 #   us-assets.i.posthog.com                     — PostHog client assets (us or eu)
 #   <your-app>.vercel.app                       — your Vercel production URL
 #
+# Pre-seeded (do NOT remove unless you replace next/font/google with another
+# font source). next/font/google fetches these at request time; without
+# them, the dev server hangs serving the first request (the font fetch
+# never returns) and exits silently with no error logged. Symptom:
+# `next dev` produces "✓ Ready in <N>ms" then dies mid-request with only
+# `[?25h` (cursor-show terminal escape) as final output. Took multiple
+# debug cycles on home-os PR #15 to trace.
+fonts.googleapis.com
+fonts.gstatic.com
+#
 # After editing this file, additions take effect on next container rebuild.
 #
 # In-session shortcut WITHOUT rebuild — additive `ipset add` (same

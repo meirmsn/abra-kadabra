@@ -19,8 +19,17 @@ export interface CoreConfig {
  * Substituted at scaffold time by /ak-new-project Step 10 from $SUPABASE_URL
  * in .devcontainer/.env. Matched by `assertNotProdUrlInTestEnv` to catch
  * tests that would dial prod.
+ *
+ * Two distinct literals on purpose: the assignment string below gets
+ * substituted by Step 10; the self-disable check compares against the
+ * sentinel `UN` + `SCAFFOLDED` (written so the placeholder regex never
+ * matches it). If both literals matched the substitution pattern, the
+ * global sed would rewrite the check into `if (<ref> === <ref>) return;`
+ * — silently disabling the guard in every scaffolded project. Widening to
+ * `: string` keeps the post-substitution comparison legal under TS
+ * literal-type narrowing.
  */
-const PRODUCTION_PROJECT_REF = 'PROJECT_REF_PLACEHOLDER';
+const PRODUCTION_PROJECT_REF: string = 'PROJECT_REF_PLACEHOLDER';
 
 /**
  * Throw when a test-env caller would instantiate a Supabase client pointing
@@ -32,7 +41,7 @@ const PRODUCTION_PROJECT_REF = 'PROJECT_REF_PLACEHOLDER';
  */
 export function assertNotProdUrlInTestEnv(url: string): void {
   if (process.env.NODE_ENV !== 'test') return;
-  if (PRODUCTION_PROJECT_REF === 'PROJECT_REF_PLACEHOLDER') return;
+  if (PRODUCTION_PROJECT_REF === 'UNSCAFFOLDED') return;
   if (!url.includes(`${PRODUCTION_PROJECT_REF}.supabase.co`)) return;
   throw new Error(
     `Refusing to instantiate a Supabase client pointing at the production ` +

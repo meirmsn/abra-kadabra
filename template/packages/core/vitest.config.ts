@@ -9,6 +9,7 @@ const includeIntegration = process.env.VITEST_INTEGRATION === '1';
 
 export default defineConfig({
   test: {
+    setupFiles: ['./vitest.setup.ts'],
     include: includeIntegration
       ? ['src/**/*.test.ts', 'src/**/*.integration.test.ts']
       : ['src/**/*.test.ts'],

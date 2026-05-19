@@ -915,9 +915,9 @@ Same playbook as Auth UX conventions / Latency feedback framework. The pattern n
 
 ### Post-home-os onboarding learnings — skill / template / convention polish batch
 
-Home-os was the SECOND project to bootstrap from the devshop template via `/ak-new-project` (lalista was first). Steps 0–25 ran across two sessions (2026-05-12 + 2026-05-13). 12 generalizations surfaced beyond the four critical template fixes already tracked in `PLAN.md § home-os-onboarding-template-patches` and the firewall-extras-overlay (shipped 2026-05-14 as `43baffb`). Each generalization is small (15–60 min). They're grouped here as one ROADMAP entry so a single focused session can pick three or four at a time without context-switching across surfaces. Order is roughly "blast radius descending" — the first few hit every new scaffold; the last few are niche.
+Home-os was the SECOND project to bootstrap from the devshop template via `/ak-new-project` (lalista was first). Steps 0–25 ran across two sessions (2026-05-12 + 2026-05-13). 12 generalizations surfaced beyond the four critical template fixes (sed sentinel, WebSocket stub, `@/` alias, vercel preview env-add — shipped 2026-05-19 as `home-os-onboarding-template-patches`) and the firewall-extras-overlay (shipped 2026-05-14 as `43baffb`). Each generalization is small (15–60 min). They're grouped here as one ROADMAP entry so a single focused session can pick three or four at a time without context-switching across surfaces. Order is roughly "blast radius descending" — the first few hit every new scaffold; the last few are niche.
 
-**Ordering**: this entry MUST ship after `PLAN.md § home-os-onboarding-template-patches` (and the `Template ci.yml` entry below should too). Sub-bundle E touches `template/.devcontainer/.env` (E4 drops SUPABASE_DB_PASSWORD; E2 pre-burns local-stack JWT) and `template/packages/core/` (E5 vitest.config.ts placeholder) — the same surface as `home-os-onboarding-template-patches`'s sed sentinel + WebSocket stub + `@/` alias fixes. Shipping this entry first would either conflict in the diff or land the patched files on the pre-fix sentinel (`'PROJECT_REF_PLACEHOLDER'`) and have to re-edit once `home-os-onboarding-template-patches` changes it to `'UNSCAFFOLDED'`. Same logic applies to the CI overhaul: if `slow:` uncomments before `home-os-onboarding-template-patches` lands, every new project's CI fails on the WebSocket stub crash + the silently-skipped guard tests.
+**Ordering**: now that `home-os-onboarding-template-patches` has landed, this entry no longer has a hard predecessor — Sub-bundle E and the `Template ci.yml` entry below can ship in any order. The previous concern (`template/packages/core/` would land on the pre-fix sentinel and need re-edit) is gone — the template ships with the distinct `UNSCAFFOLDED` sentinel + the WebSocket stub at `template/packages/core/vitest.setup.ts`.
 
 **Source detail:** `kit/notes/projects/home-os.md § "2026-05-13 session — devshop generalizations to surface"` carries the per-incident narrative for each item (#19–#30). When in doubt, read the tracker entry — it has the exact symptoms + the moment the generalization surfaced.
 
@@ -1104,7 +1104,7 @@ Minimum tracked tree:
 - `template/apps/web/app/{layout.tsx,page.tsx,globals.css}` (minimal landing-page shell; design-system tokens go in globals.css)
 - `template/apps/web/middleware.ts` (or `proxy.ts` post-Next-16 rename per R16-B2 — see also)
 - `template/apps/web/e2e/` (Playwright config + helpers/ stub directory). **`playwright.config.ts` MUST include a `webServer: { command: 'pnpm dev', port: 3000, reuseExistingServer: !process.env.CI, timeout: 120_000 }` block** so `pnpm test:e2e` boots the dev server itself rather than requiring out-of-band `pnpm dev` in another shell. Home-os PR #15 hit this — Gate 9 `/qa` couldn't run locally without the operator manually managing the dev server lifecycle; `webServer` closes that friction.
-- `template/apps/web/vitest.config.ts` + `vitest.setup.ts` (per `PLAN.md § home-os-onboarding-template-patches` generalization #9 — WebSocketStub) + `@/` alias (per generalization #23)
+- `template/apps/web/vitest.config.ts` with the `@/` alias wired through `resolve.alias` (already codified in `/ak-new-project § Step 12.5` since `home-os-onboarding-template-patches` shipped; promote to a checked-in `template/apps/web/vitest.config.ts` here rather than re-deriving in the skill body). The `vitest.setup.ts` WebSocketStub already ships under `template/packages/core/` — `apps/web` only needs the alias config, not the stub (the stub is `packages/core`-specific since that's where `createClient` constructs RealtimeClient).
 - `template/apps/web/instrumentation.ts` + Sentry server/edge files
 
 **Why v0 — blocks next-project adoption + unblocks 5 other v0 entries.** Five v0 entries are structurally stalled waiting on this surface. Without it, the "second project adopts and surfaces the lift trigger" path is hollow — there's no template tree to lift INTO. Ship this once; each blocked entry becomes a small targeted PR after.
@@ -1138,157 +1138,43 @@ Minimum tracked tree:
 
 ---
 
-### Home-os PR #15 hero-shot backfill — devshop fixes (2026-05-15)
+### Gstack-symptom workarounds — Chromium fallback + screenshot allow-list (devshop-side wrappers)
 
-Five gaps surfaced during the home-os PR #15 hero-shot backfill session that don't fit into any existing ROADMAP entry — orthogonal to the supabase-port-registry redesign (which absorbed D3/D4/D6 from this batch), the shipped LLM-mediated gate contract enforcement (which absorbed D2), and Sub-bundle B (which absorbed D7/D8). Each item below is independently shipped — no shared surface.
+**Context.** Two real friction points originally surfaced as home-os PR #15 D3 + D4 (see `git log` for the dropped `home-os-pr15-backfill-fixes` ROADMAP entry — deleted in `2e417db`, with D3+D4 reverted in `dc18aa3`). Both shipped as commits inside `.claude/skills/gstack/browse/src/`, then got reverted once we realized gstack is upstream-owned and `/gstack-upgrade § Step 4` silently wipes local edits on the next upgrade. The underlying friction is still real — every fresh-container `/qa` / `/design-review` / `/benchmark` / `/canary` hits one or both. The constraint: any fix MUST live outside the `.claude/skills/gstack/**` tree. Worked drop + constraint codified at `CLAUDE.md § gstack` + Known Footguns "Never edit `.claude/skills/gstack/**`".
 
-**Context.** Home-os PR #15 (`feature/capture-flow`, 2026-05-14) shipped with anon-bounce placeholder hero shots because Gate 9 `/qa` was `blocked` (Supabase Kong unreachable from container — pre-existing infra carry-over). The post-ship hero-shot backfill session (2026-05-14 → 2026-05-15) found four stacked root causes — `supabase-bootstrap.sh` port hardcode, `.env.local` pointing at prod, Google Fonts blocked by firewall, Mailpit port blocked by firewall — and the discovery process surfaced these additional five devshop-side fixes that aren't covered by existing roadmap entries.
+#### Sub-A — Browse daemon fails on containers without Playwright's bundled Chromium
 
-#### `/ak-new-project § Step 13b` — `.env.local` default values (safety bug)
+**Symptom.** `chromium.launch()` inside gstack's browse daemon defaults to looking for Playwright's bundled binary at `~/.cache/ms-playwright/chromium_headless_shell-<rev>/chrome-linux/headless_shell`. Containers without `npx playwright install` (auto-mode classifier rejects external downloads, fresh-rebuild loops) crash with `Executable doesn't exist at ...`. System Chromium is usually at `/usr/bin/chromium` (Debian/Ubuntu base). Today's manual workaround is a sudo symlink that reverts on every container rebuild.
 
-**Problem.** `/ak-new-project § Step 13b` generates `apps/web/.env.local` with **production** Supabase / PostHog / Sentry values (`SUPABASE_PROD_URL`, `SUPABASE_PROD_ANON_KEY`, prod PostHog key, prod Sentry DSN). The rationale documented in the SKILL.md is "`pnpm dev` should mirror prod-runtime behavior (consistent SSR data, no migration drift)" — a deliberate design choice. But the choice conflicts with `/ak-pre-ship` Gate 9 `/qa`, every Playwright E2E, every `/qa` invocation, and every operator dev session that needs a working local Supabase round trip: they all need to dial the local stack, not prod.
+**Wrapper-pattern candidates** (pick one; all sit outside gstack):
 
-The conflict manifests as **silent prod pollution**: any form submission during local dev / `/qa` hits the prod Supabase project. Home-os PR #15's hero-shot Playwright run created a real auth.users row on the prod project under a fake `@test.local` email before the operator caught it. The same configuration would have hit Supabase's per-email OTP rate limit on retry, leaving the operator confused about why magic links stop arriving locally.
+- **(A1) Auto-symlink at container start.** Extend `kit/scripts/populate-playwright-cache.sh` (already exists per `CLAUDE.md § Known Footguns § "Browse binary + Playwright browsers"`) to detect missing Playwright binary + auto-symlink `/usr/bin/chromium` → the expected path. Make `init-devshop.sh` invoke the script. Effort: ~45 min.
+- **(A2) Container-env `PLAYWRIGHT_BROWSERS_PATH=0` + system-channel detection.** Set the env var so Playwright uses system binaries; pair with a kit/script preflight that verifies `/usr/bin/chromium` exists before any browse-daemon-dependent skill fires. Effort: ~30 min — but needs Playwright API verification because `PLAYWRIGHT_BROWSERS_PATH=0` semantics changed between versions.
+- **(A3) Wrap browse-daemon-launching skills with a preflight.** Add a `kit/scripts/preflight-browse-chromium.sh` invoked by `/ak-pre-ship` preflight + `/qa` / `/design-review` / `/benchmark` / `/canary` SKILL.md preambles. If Playwright binary missing AND system Chromium present, symlink before invoking. Effort: ~1 hr (multi-skill touch).
 
-Lalista's `.env.local` already uses local-stack values (URL = `http://host.docker.internal:54321`, anon JWT = published demo) — the operator manually fixed it. Home-os was operator-fixed mid-PR-#15. Every new project ships with the prod-default until manually corrected. The same gen #3 (E2) entry pre-burns the local-stack JWT into `template/.devcontainer/.env` — the asymmetry is that Step 13b still wires prod into the BROWSER bundle even though E2 wires local into the shell env.
+A1 is the simplest + most durable (one-time install, no per-skill change). A3 is the most contained (only fires for skills that need it).
 
-**Fix.** Flip the Step 13b default to **local-stack values**:
+**Severity.** Medium. Affects every `/qa`, `/design-review`, `/benchmark`, `/canary` invocation on a container without Playwright's bundled Chromium. The 2026-05-19 revert of the gstack-source fix means projects still hit this until a wrapper ships.
 
-```bash
-cat > apps/web/.env.local <<EOF
-NEXT_PUBLIC_SUPABASE_URL=http://host.docker.internal:54321
-NEXT_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY  # local-stack default JWT from .devcontainer/.env
-EOF
-```
+**Source detail.** Original ROADMAP entry "Home-os PR #15 hero-shot backfill — devshop fixes (2026-05-15) § Browse daemon — fall back to system Chromium when Playwright's binary is missing" (deleted in `2e417db`; recoverable via `git show 2e417db~1:kit/ROADMAP.md`). Reverted source patch lives at `git show bdb818b` for the candidate-list ordering (`/usr/bin/chromium`, `/usr/bin/chromium-browser`, `/usr/bin/google-chrome`).
 
-Omit `NEXT_PUBLIC_POSTHOG_KEY` + `NEXT_PUBLIC_SENTRY_DSN` from the default seed — both libs silently no-op when keys are missing. Operators who want local-dev telemetry firing should opt in explicitly with a separate dev project (NOT prod). Document the explicit override gesture for the rare case of needing prod-data SSR via `pnpm dev`:
+#### Sub-B — Browse daemon screenshot allow-list rejects `.gstack/` + `specs/` writes
 
-```bash
-# Temporarily dial prod from local dev (be aware: form submits hit prod Supabase):
-NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_PROD_URL pnpm dev
-```
+**Symptom.** gstack's browse daemon validates screenshot output paths against `[TEMP_DIR, process.cwd()]`. `/qa` skill output goes to `<git-root>/.gstack/qa-reports/screenshots/`; `/ak-pre-ship` Phase 7 hero shots go to `<git-root>/specs/<feature>/hero/`. Both rejected with `Path must be within: /tmp, /workspace/apps/web` unless the daemon's cwd happens to be a parent. Today's workaround is a 2-step copy (browse writes `/tmp/qa-shots/<name>.png`, then `cp` to `.gstack/qa-reports/screenshots/`).
 
-**Where.** `/devshop/.claude/skills/ak-new-project/SKILL.md § Step 13b`. Rewrite the heredoc + the "Why prod by default" rationale paragraph. The rest of Step 13b (gitignore verification + "Without this step, every browser-dependent gate breaks" warning) stays.
+**Wrapper-pattern candidates** (pick one; all sit outside gstack):
 
-**Cost.** ~15 min — single SKILL.md edit + rewrite of the rationale block. Cross-link to home-os PR #15 + lalista's already-correct pattern.
+- **(B1) Launch daemon from git root, not `apps/web/`.** The daemon's `process.cwd()` becomes one of the safe directories. If skills launch from `<git-root>` instead of `<git-root>/apps/web/`, `.gstack/` and `specs/` are automatically under cwd → allowed. Audit each skill that launches the browse daemon, add a `cd <git-root>` to the launch block, and verify the daemon's other cwd-dependent paths still work. Effort: ~1 hr (multi-skill audit) — but risky because some skills genuinely need cwd at `apps/web/` for next-dev discovery.
+- **(B2) Kit-script wrapper `kit/scripts/capture-screenshot.sh`.** A bash one-shot that takes the desired final path, screenshots to `/tmp` via browse, then `cp` to the final path. Skills + CLAUDE.md instruction: "use this wrapper, not `browse screenshot` directly, when writing to `.gstack/` or `specs/`." Effort: ~30 min. Friction: every screenshot call needs the wrapper or skills accidentally hit the original failure.
+- **(B3) Codify the 2-step convention.** Don't add a wrapper. Update `/qa`, `/design-review`, `/benchmark`, `/canary` SKILL.md.tmpl preambles to write to `/tmp/<name>.png` then `cp` as the documented convention. Pure prose change. Effort: ~30 min including the `bun run gen:skill-docs` regen. (NOTE: this contradicts the "don't edit gstack" rule — the .tmpl files are inside `.claude/skills/gstack/`. So B3 is NOT a valid candidate. Listed here only to mark it as ruled out.)
 
-**Severity.** **High (safety).** Every new project ships polluting prod by default. Every `/qa` invocation, every Playwright form submit, every `pnpm dev` form submit on a fresh project goes to prod. Discovery happens during the FIRST QA-style debug — too late.
+B1 is the cleanest IF the cwd swap doesn't break anything else. B2 is the safer fallback.
 
-#### `template/.devcontainer/firewall-extra-domains` — seed Google Fonts hostnames
+**Severity.** Low. Friction, not correctness — the 2-step copy works. But it's a papercut every `/qa` run pays, and the workaround isn't documented today.
 
-**Problem.** Template's `apps/web/app/layout.tsx` imports `Inter` from `next/font/google` (the canonical Next.js font pattern). At dev-server request time, Next fetches `fonts.googleapis.com` + `fonts.gstatic.com`. The container's default-DROP firewall REJECTs both hosts, the font fetch hangs indefinitely (no timeout in the framework path), the dev server's request handler stalls then exits silently with NO error in the log — only `[?25h` (cursor-show terminal escape) as last output.
+**Source detail.** Original ROADMAP entry "Home-os PR #15 hero-shot backfill — devshop fixes (2026-05-15) § Browse daemon — extend screenshot path allow-list" (deleted in `2e417db`; recoverable via `git show 2e417db~1:kit/ROADMAP.md`). Reverted source patch lives at `git show 3680582` for the original config-helper shape.
 
-The symptom looks like "Next dev silently dies under load" — took multiple debug cycles on home-os PR #15 to trace because the dev process re-spawns from systemd-like supervision and the failure happens between "✓ Ready in <N>ms" log lines.
-
-**Fix.** Seed both hostnames in the template's `firewall-extra-domains`:
-
-```diff
-+# next/font/google fetches these at request time. Without them, the
-+# dev server hangs serving the first request (font fetch never returns)
-+# and exits silently with no error logged.
-+fonts.googleapis.com
-+fonts.gstatic.com
-```
-
-**Where.** `template/.devcontainer/firewall-extra-domains` — currently this file is scaffold-once + project-owns after, so the template adds the seed and existing projects (lalista, home-os) backfill manually.
-
-**Cost.** ~5 min — two-line template edit + a comment block explaining the load-bearing nature. Plus a backfill check on lalista (home-os already has them — landed on PR #15 in `90b8aaf`).
-
-**Severity.** **Medium.** Every new project using the canonical `next/font/google` pattern hits this on first dev-server boot. Symptom is opaque (silent exit, no error). One-time cost per project is high (~hours of debugging without prior knowledge).
-
-#### Browse daemon — fall back to system Chromium when Playwright's binary is missing
-
-**Problem.** `/devshop/.claude/skills/gstack/browse/src/browser-manager.ts:172` calls `chromium.launch({ headless, chromiumSandbox })` without specifying `executablePath`. Playwright then looks for its own downloaded Chromium at `~/.cache/ms-playwright/chromium_headless_shell-<rev>/chrome-linux/headless_shell`. In container environments where Playwright's Chromium isn't installed (auto-mode classifier rejects external downloads, fresh container without `npx playwright install`), the launch fails with `Executable doesn't exist at ...`.
-
-System Chromium is usually available at `/usr/bin/chromium` (Debian/Ubuntu container base). Empirically verified during home-os PR #15: `chromium.launch({ executablePath: '/usr/bin/chromium' })` works with Playwright's launch API (system Chromium 147 + Playwright 1.60). Today's manual workaround is symlinking `/usr/bin/chromium` to the Playwright-expected path — session-only, reverts on container rebuild.
-
-**Fix.** At launch time, check if Playwright's expected binary exists; if not, probe for system Chromium and use `executablePath`:
-
-```ts
-async launch() {
-  // ...existing launchArgs setup...
-
-  // Detect Playwright-vs-system Chromium availability. Playwright's downloaded
-  // binary is the default; system Chromium is the fallback for container
-  // environments where the operator hasn't / can't run `npx playwright install`.
-  let executablePath: string | undefined;
-  const playwrightDefault = await fs.promises
-    .access(chromium.executablePath())
-    .then(() => true)
-    .catch(() => false);
-  if (!playwrightDefault) {
-    for (const candidate of ['/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/google-chrome']) {
-      if (await fs.promises.access(candidate).then(() => true).catch(() => false)) {
-        executablePath = candidate;
-        console.log(`[browse] Playwright Chromium not found; falling back to system: ${candidate}`);
-        break;
-      }
-    }
-  }
-
-  this.browser = await chromium.launch({
-    headless: useHeadless,
-    chromiumSandbox: process.platform !== 'win32',
-    ...(launchArgs.length > 0 ? { args: launchArgs } : {}),
-    ...(executablePath ? { executablePath } : {}),
-  });
-}
-```
-
-**Where.** `/devshop/.claude/skills/gstack/browse/src/browser-manager.ts § launch()`. Add a fallback block; preserve the existing behavior when Playwright's binary is available.
-
-**Cost.** ~30 min — code edit + bun-test addition stubbing the file-existence check + visual verification on a container without Playwright's Chromium.
-
-**Severity.** **Medium.** Affects every `/qa`, `/design-review`, `/benchmark`, and `/canary` invocation on a container without Playwright's Chromium. Today's workaround (symlink) requires sudo + reverts on rebuild — not durable.
-
-#### Browse daemon — extend screenshot path allow-list to include `.gstack/` outputs
-
-**Problem.** `/devshop/.claude/skills/gstack/browse/src/...` enforces a path allow-list on screenshot output: today only `/tmp/**` and `/workspace/apps/web/**` are accepted. Standard `/qa` skill output goes to `<git-root>/.gstack/qa-reports/screenshots/` per the skill's own template. The path-allow-list rejects writes there with `Path must be within: /tmp, /workspace/apps/web`. Today's workaround is a 2-step copy: browse writes to `/tmp/qa-shots/<name>.png`, then a `cp` to `.gstack/qa-reports/screenshots/`.
-
-**Fix.** Extend the allow-list to include `<git-root>/.gstack/**` (any sub-path) and `<git-root>/specs/**/hero/**` + `<git-root>/specs/**/screenshots/**` (per the `/ak-pre-ship` Phase 7 hero-shot convention):
-
-```ts
-const ALLOWED_SCREENSHOT_ROOTS = [
-  '/tmp',
-  '/workspace/apps/web',
-  resolveGitRoot('.gstack'),
-  resolveGitRoot('specs'), // sub-paths matching /hero/ or /screenshots/
-];
-```
-
-**Where.** Wherever the path allow-list lives in `/devshop/.claude/skills/gstack/browse/src/`. Search for the literal error string `"Path must be within"`.
-
-**Cost.** ~15 min — extend the allow-list + bun-test addition asserting the new paths pass and unrelated paths still reject.
-
-**Severity.** **Low.** Friction, not correctness — the 2-step copy works. But it's a papercut every `/qa` run pays.
-
-#### Convention — daemon-survival shell pattern in Claude Code harness
-
-**Problem.** Long-running processes spawned via `command &` or `run_in_background=true` in the Claude Code harness get reaped when the foreground Bash tool call exits. Several `/qa` / `/design-review` / debugging workflows need a dev server (Next, Vite, etc.) alive across multiple browse / Playwright invocations. Today the harness silently kills the server between tool calls, producing opaque `ERR_CONNECTION_REFUSED` errors with no log trail.
-
-The pattern that empirically survives in the harness (proven during home-os PR #15 hero-shot capture):
-
-```bash
-(nohup <long-running-command> </dev/null > /tmp/output.log 2>&1 &)
-```
-
-The outer parens spawn a subshell; `&` puts the command in that subshell's background; the subshell exits immediately; the command's parent reparents to PID 1 (init); `nohup` ignores SIGHUP. The harness's bg-reap mechanism (which terminates background jobs when the parent shell exits) doesn't follow the reparented process to init. Confirmed survives across multiple subsequent Bash tool calls in the same harness session.
-
-A second corollary discovered alongside: `next dev` must be spawned with the correct `cwd` (the project's `apps/web/` directory), not the workspace root. Running from `cwd=/workspace` produces the cryptic error `Couldn't find any pages or app directory. Please create one under the project root` even though the directory clearly exists at `apps/web/app/`. The pattern when used with `next dev` (or any other Next-discovery-aware tool) is:
-
-```bash
-(cd /workspace/apps/web && nohup ./node_modules/.bin/next dev </dev/null > /tmp/output.log 2>&1 &)
-```
-
-**Fix.** Document the pattern in `kit/docs/guide/conventions.md § Long-running processes in the Claude Code harness` (new section). Cross-link from `/qa`, `/design-review`, `/benchmark`, and any other skill that spawns a dev server. Worth a worked example with the home-os hero-shots script as the canonical reference.
-
-**Where.** `kit/docs/guide/conventions.md` — new section + cross-refs from the four skills that need it.
-
-**Cost.** ~30 min — write the convention prose + the worked example + add four cross-ref lines to the skill SKILL.md files.
-
-**Severity.** **Low.** Pattern is non-obvious enough that operators (and Claude) discover it via debugging, not docs. Documenting saves the same debug arc from being repeated each session.
-
-[v0, surfaced-by home-os-PR-15-hero-shot-backfill-2026-05-15]
+[v0, surfaced-by home-os-PR-15-hero-shot-backfill-2026-05-15; dropped from inline-edit path 2026-05-19 per CLAUDE.md § gstack rule]
 
 ---
 

@@ -9,11 +9,16 @@ import { createClient, assertNotProdUrlInTestEnv } from './supabase';
 import type { CoreConfig } from './supabase';
 
 // Substituted at scaffold time by /ak-new-project Step 10 alongside the
-// PRODUCTION_PROJECT_REF constant in supabase.ts. While the placeholder is
-// unsubstituted, the guard self-disables (see supabase.ts), so the
-// "throws on prod URL" tests are skipped.
-const PROD_REF = 'PROJECT_REF_PLACEHOLDER';
-const guardActive = PROD_REF !== 'PROJECT_REF_PLACEHOLDER';
+// PRODUCTION_PROJECT_REF constant in supabase.ts. Two distinct literals on
+// purpose: PROD_REF below gets sed-substituted; `guardActive` compares
+// against the sentinel `UN` + `SCAFFOLDED` (written so the placeholder
+// regex never matches it). If both literals matched the substitution
+// pattern, the global sed would collapse `guardActive` to `false` and
+// silently skip every guard test in every scaffolded project. Widening to
+// `: string` keeps the post-substitution comparison legal under TS
+// literal-type narrowing.
+const PROD_REF: string = 'PROJECT_REF_PLACEHOLDER';
+const guardActive = PROD_REF !== 'UNSCAFFOLDED';
 const PROD_URL = `https://${PROD_REF}.supabase.co`;
 
 describe('createClient', () => {
