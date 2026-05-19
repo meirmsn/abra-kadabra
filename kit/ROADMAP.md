@@ -13,116 +13,6 @@ Priority tiers:
 
 ## v0 — blocks next-project adoption
 
-### `/ak-build` pipeline — per-gate sub-agent decomposition
-
-**Problem.** `/ak-build § Phase 3` invokes `/ak-pre-ship` as a single subagent that runs the entire 13-gate gauntlet (preflight → docs → metrics → fast-job-local → changed-tests-local → responsive → `/simplify` → `/ak-check-docs-and-tests` → `/review` → `/cso` → `/design-review` → `/qa` → `/benchmark` → final preflight → convention check → hero shots) in one continuous agent context. Two structural failure modes:
-
-1. **Single point of failure for the whole gauntlet.** When the agent's socket / context / runtime fails partway through, ALL completed gate work is at risk and the orchestrator can't easily resume from the failed gate — the next invocation either re-runs everything or has to hand-stitch state. Concretely: on home-os feature/decide-state (2026-05-17), the Phase 3 subagent ran for ~2 hours and 207 tool uses, completed Gates 0–6 of 13 (including writing partial `review.md` + uncommitted fix-loop edits across 5 files), then dropped its socket. Recovery required: (a) inspecting working tree to reconstruct what the agent had done, (b) committing in-flight fixes by hand with manual gate-attribution in the commit body, (c) spawning 3 fresh sub-agents to finish the remaining gates. Net cost: ~2h burned + ~30min recovery.
-2. **The tracker is opaque while the gauntlet runs.** `/ak-build` Phase 0.4 calls `TaskCreate` for the phase rows but typically nothing nested below Phase 3, so the live UI shows `Phase 3: in_progress` for the entire 2-hour-or-more run with no signal about which gate is firing. The operator who steps away to watch from `/remote-control` (the Phase 0.5 nudge) sees a static spinner regardless of whether the gauntlet is at Gate 1 or Gate 12.
-
-**Where it bit.** home-os PR #N (feature/decide-state, 2026-05-17). Phase 3 subagent crashed at Gate 6/13 after ~2h / 207 tool uses. Recovery spawned three parallel read-only sub-agents (Audit 1, `/cso`, convention check) that completed in ~5.5 min combined wall-time, all returning `pass`. The contrast — monolith 2h → 0 returns vs sharded 5.5 min → 3/3 returns — surfaces the structural argument: per-gate granularity isolates failure, enables parallelism, and gives the tracker something to render. The crashed agent's prior 2h represented analysis the orchestrator couldn't recover programmatically; sub-agent shards write back to `review.md` (or a per-gate sink) atomically per gate, so any one drop loses at most one gate.
-
-**Four deliverables (B–E)** — per-gate decomposition, fix-loop fresh-agent-per-attempt, audit parallelization, and stuck-protocol refinement.
-
-**(B) Per-gate sub-agent decomposition for `/ak-pre-ship`** (larger — ~3-5 hr, touches `/ak-pre-ship` SKILL.md gate-sequencing semantics + `/ak-build` Phase 3 orchestration).
-
-`/ak-pre-ship` decomposes into two ordered passes:
-
-- **Stabilize-HEAD pass** (sequential — each gate may commit fixes that mutate HEAD; later gates audit the new HEAD): preflight → docs-check → metrics-check → fast-job-local → changed-tests-local → responsive → `/simplify` → `/design-review` → `/qa` → hero shots. Each fires as its own sub-agent, returns when its gate completes (`pass` / `findings (N) fixed` / `findings (N) pending` / `blocked`). Orchestrator marks the corresponding `Phase 3 / Gate N` task `completed`, then spawns the next.
-
-  Stuck-protocol semantics stay inside each gate sub-agent (try-fix × 2 → `/investigate` → escalate). Test:unit checkpoints between code-changing gates happen at the orchestrator boundary (~1s with turbo cache), not inside the sub-agent — keeps the per-gate sub-agent context bounded to its own scope.
-
-- **Analysis pass** (parallel — read-only; all four run against the stabilized HEAD): `/ak-check-docs-and-tests` (Audit 1) || `/review` || `/cso` || convention check. To prevent the race we just observed (three parallel agents all writing to `specs/<feature>/review.md`), each gate sub-agent writes to its own file under `specs/<feature>/gates/<gate-name>.md`. Orchestrator concatenates into `review.md` (or leaves them separate and Phase 6 reads from both) after all four return.
-
-This shape is the standard, not the exception — every `/ak-build` runs through both passes. The per-gate-file sink isn't a niche bug fix; it's the structural unlock that makes the analysis pass parallel-safe.
-
-**Halt-on-find vs iterative-fix dispatch.** Two categories of gate determine who fixes findings:
-
-- **Iterative-fix gates** (`/simplify`, `/design-review`, `/qa`, convention check, `/benchmark` when surfaceable): sub-agent finds AND fixes AND commits atomically per fix. Same posture as today's monolithic `/ak-pre-ship`.
-- **Halt-on-find gates** (`/review`, `/cso`, `/ak-check-docs-and-tests` Audit 1): sub-agent surfaces findings, returns. Orchestrator routes by severity — high → escalate to operator; medium → list in Phase 6 audit comment; low → note + proceed; mechanical/obvious → orchestrator dispatches a focused fix sub-agent. Preserves the existing trust boundary on security/SQL-critical findings (don't auto-fix without operator read).
-
-**Where it goes (mechanical).**
-
-- `/devshop/.claude/skills/ak-build/SKILL.md § Phase 3` — rewrite to dispatch per-gate sub-agents; document the stabilize-pass / analysis-pass split + per-gate-file sink (deliverable B).
-- `/devshop/.claude/skills/ak-pre-ship/SKILL.md § Outcome semantics` — add "each gate sub-agent writes to its own `specs/<feature>/gates/<gate-name>.md`; the orchestrator concatenates" (deliverable B).
-- `/devshop/.claude/skills/ak-pre-ship/SKILL.md § Stuck protocol` — clarify scope (stuck protocol stays inside each gate sub-agent; test:unit checkpoints are orchestrator-level).
-
-**(C) Phase 5 CI fix loop — fresh-agent-per-attempt with already-tried log** (~2 hr).
-
-Today's Phase 5.4 loop runs 3 attempts in a single agent context. A failed attempt's reasoning (wrong diagnosis, wrong fix shape, wrong assumption about the failure class) carries over and biases attempt 2. Fresh-agent-per-attempt isolates inference, BUT must preserve learning across the context boundary — otherwise the next attempt retries the same failed approach.
-
-The fix: each failing attempt writes a structured "already-tried" briefing as its last act; the next attempt reads it before doing anything else.
-
-- File: `specs/<feature>/fix-attempts.md` (one new file per fix loop; cleared at start of each new Phase 5 run).
-- Each attempt writes one section:
-
-  ```
-  ## Attempt N — <one-line failure classification>
-
-  - Hypothesis: <what we thought was broken>
-  - Tried: <what we changed; commit SHA>
-  - Why ruled out: <what evidence shows it didn't fix it>
-  - Ruled out for next attempt: <approach class to skip>
-  ```
-
-- Next attempt's prompt reads `fix-attempts.md` first, can't repeat a ruled-out approach without explicitly justifying why the prior ruling-out was wrong.
-- After 3 attempts: today's escalation behavior (PR comment @mention) unchanged.
-
-This gives **clean inference** (no inherited bias from the failed reasoning chain) AND **persistent learning** (the what-was-tried log survives context boundaries). The same shape applies anywhere we shard across attempts.
-
-**(D) Phase 5.8 audit — parallelize sub-skills with per-file sinks** (~1 hr).
-
-`/ak-check-docs-and-tests` already orchestrates two sub-skills (`/ak-docs-review` + `/ak-tests-review`) sequentially inside one agent. Both are pure read-only analysis against the same SHA — same shape as the Phase 3 analysis pass. Apply the same per-file-sink convention:
-
-- `/ak-docs-review` sub-agent writes to `specs/<feature>/gates/audit-N-docs.md`.
-- `/ak-tests-review` sub-agent writes to `specs/<feature>/gates/audit-N-tests.md`.
-- Both fire in parallel; orchestrator concatenates into the `## Audit N` section of `review.md` after both return.
-
-Cuts Phase 5.8 wallclock roughly in half (today's sequential pass through two LLM-mediated sub-skills is the dominant cost).
-
-**(E) Phase 2 stuck-protocol shape** (~2 hr) — finer-grained per-attempt isolation when a task fights back.
-
-Today's `/ak-implement` stuck protocol is "try fix × 2 → `/investigate` → ask user if still stuck." The "step back" moment is underspecified. Refined shape:
-
-- **Attempt 1**: natural — agent does the task as planned.
-- **Attempt 2**: fresh sub-agent + already-tried log from attempt 1 (same artifact shape as (C)'s `fix-attempts.md`, scoped per-task as `specs/<feature>/task-attempts/T<N>.md`).
-- **Attempt 3**: fresh sub-agent + already-tried log + TWO meta-checks layered on:
-  - **Spec re-read** (structural): is the task right-sized? Does this T<N> actually contain 2-3 latent sub-tasks pretending to be one? If so, propose a split and surface to operator before continuing.
-  - **Devil's-advocate critic** (tactical): a separate sub-sub-agent whose only job is to enumerate "what's wrong with our current approach class?" — forcing the stuck agent to consider fundamentally different tactics, not just variations of what already failed.
-- **Attempt 3 fail**: today's escalation behavior unchanged (block + surface to operator post-pipeline).
-
-The meta-checks at attempt 3 only fire when natural inference has demonstrably failed (attempts 1 and 2 both failed) — bounded cost.
-
-**Generalization questions** (call out, don't scope here):
-
-- Phase 1 (`/ak-spec`) is single-narrative; decomposition would fragment the spec. Leave monolithic.
-- Phase 5.9 visual refresh uses a shared browse daemon; captures are serial anyway. Leave monolithic.
-- Phase 0 / 4 / 6 / 7 are orchestrator-side, not subagents — no decomposition story.
-
-**Why v0:** `/ak-build` is the canonical "build it and ship it" pipeline every devshop project runs. The monolith failure mode hit on the first real cross-context Phase 3 run on home-os (2026-05-17); it will recur on every `/ak-pre-ship` invocation that pushes against the agent's context/runtime envelope. Lalista hasn't surfaced it yet because lalista's PRs tend to be smaller, but the structural risk is the same — only the firing rate differs.
-
-**Trigger:**
-
-- home-os feature/decide-state (2026-05-17) — Phase 3 monolith crashed at Gate 6/13 after ~2h / 207 tool uses; sharded recovery 3/3 in ~5.5 min wall-time.
-- Every future `/ak-build` with a non-trivial diff (the failure surface scales with gauntlet duration, which scales with diff size).
-
-**Cross-ref:**
-
-- `/devshop/.claude/skills/ak-build/SKILL.md § Phase 3` — current monolithic invocation pattern.
-- `/devshop/.claude/skills/ak-build/SKILL.md § Phase 0.4` — current "Phase 2's sub-rows indented (or prefixed)" wording.
-- `/devshop/.claude/skills/ak-pre-ship/SKILL.md` — the gate gauntlet that needs to know about per-gate-file sink.
-- home-os `specs/decide-state/review.md` — concrete example of the per-gate sections (today written by one agent; under (B) each section is written by its own sub-agent into its own file).
-
-**Cost/risk:**
-
-- Implementation: ~3–5 hr for (B) — orchestrator rewrite in `/ak-build § Phase 3` + per-gate-file convention in `/ak-pre-ship § Outcome semantics` + Phase 6 reader update to source from `specs/<feature>/gates/*.md`. ~2 hr for (C) — fresh-agent-per-attempt + `fix-attempts.md` artifact in `/ak-build § Phase 5.4`. ~1 hr for (D) — parallelize the two sub-skills in `/ak-check-docs-and-tests` with per-file sinks. ~2 hr for (E) — refine stuck-protocol in `/ak-implement` (attempt 2 = fresh + log; attempt 3 = fresh + log + spec re-read + devil's-advocate critic).
-- Risk: low across the board. (B) preserves existing gate semantics. (C) preserves existing 3-attempt cap + escalation; only changes per-attempt context isolation. (D) preserves existing audit findings shape; only changes how `/ak-check-docs-and-tests` invokes its two sub-skills. (E) preserves existing escalation-after-3-attempts behavior; only refines the 2nd and 3rd attempts' shape.
-- Benefit: failure isolation (one gate / one attempt's drop ≠ all-gates / all-attempts' drop), parallelism on read-only analysis (~10–15 min wall-time saved on every Phase 3; ~half saved on every Phase 5.8), live-tracker visibility (operator can see which gate / attempt is firing without polling logs), better stuck-task recovery (Phase 2 attempt 3 considers structural + tactical meta-checks before escalating).
-
-[v0, surfaced-by home-os feature/decide-state Phase 3 monolith crash on 2026-05-17]
-
----
-
 ### `/ak-build` devshop-mode — run the pipeline natively against `/devshop` itself
 
 **Problem.** `/ak-build` is shaped around the project workflow: feature spec → branch → GitHub PR → `/ship` push → CI watch → audit comment → human approval → `/ak-go-live`. Devshop feature work doesn't fit that shape: no GitHub PRs (single-developer private repo per `CLAUDE.md § Devshop shipping flow`), no `/ship` (replaced by `/ak-merge-devshop`'s squash + ff-merge), no `/ak-go-live` (devshop is the deploy infrastructure; there's nothing to deploy), no project-side surfaces like `apps/web/` / `packages/core/` / `supabase/` that several gates target. When the operator invokes `/ak-build` on a devshop change anyway, the agent ships a disclaimer ("applied the pipeline best-effort; many steps don't apply to devshop itself"), which means: (a) most quality gates skip with vague `n/a` rationale, (b) Phase 4.0's BUILD-LOG + PLAN closure never fires because Phase 4 is `/ship`-shaped, (c) Phase 5's CI watch / PR audit comment / hero-shot evidence flow is structurally inapplicable, and (d) the pipeline is effectively bypassed for the very repo that owns the pipeline.
@@ -199,7 +89,7 @@ The cost per incident is variable but compound — silent overrides decay the ru
 - `/devshop/.claude/skills/ak-build/SKILL.md § Phase 6` — extend the audit-comment template's "Quality gates" section to render override-acknowledgements verbatim from `specs/<feature>/review.md § Phase 3 → 4 advance log` (so reviewers see exactly which gates the operator waved past, with what reason).
 - Cross-link from `/devshop/.claude/skills/ak-pre-ship/SKILL.md § Outcome semantics § n/a is not legal for LLM-mediated gates` — the existing prose rule about `blocked (n/a per scope: …)` outcomes pairs with this halt enforcement.
 
-**Why this entry sits in v0:** PR #15 was the first known incident; PR #28 was the third. The repeat rate is high enough that prose-only isn't working. Cost is small (~30min orchestrator update), reach is every `/ak-build` invocation on every project. Sibling to `ak-build-phase-decomposition` (deliverable B touches per-gate sub-agents; this touches the post-pass advancement decision); both can ship independently.
+**Why this entry sits in v0:** PR #15 was the first known incident; PR #28 was the third. The repeat rate is high enough that prose-only isn't working. Cost is small (~30min orchestrator update), reach is every `/ak-build` invocation on every project. Now that the per-gate sub-agent decomposition has shipped, this entry's post-pass advancement decision is the only remaining piece of the Phase 3 → 4 hardening surface.
 
 **Why not a Track-A inline fix during this session:** the SKILL.md edit is exactly the kind of change `/update-config` and `/devshop` ownership rules want surfaced into the roadmap, not edited mid-`/ak-build`. Workspace lacks edit permissions on `/devshop/.claude/skills/ak-build/SKILL.md` outside an explicit devshop-side maintenance window.
 

@@ -136,8 +136,10 @@ setup() {
   ! grep -q 'test-review-followup\.md' "$SKILL_FILE"
 }
 
-@test "build/SKILL.md's version was bumped to 1.7+ for the PR-B wiring" {
-  # PR-B is a meaningful behavior change (Phase 5.8 invocation surface +
-  # Phase 6 audit-comment reader); a version bump documents that.
-  grep -qE '^version: 1\.[7-9]\.' "$SKILL_FILE"
+@test "build/SKILL.md's version is at the PR-B floor (1.7+) or above" {
+  # PR-B was a meaningful behavior change (Phase 5.8 invocation surface +
+  # Phase 6 audit-comment reader); a version bump documents that. Subsequent
+  # major-shape changes (e.g. ak-build-phase-decomposition's Phase 5.4 fresh-
+  # agent fix-loop) bump to 2.x — both shapes satisfy "at the floor or above".
+  grep -qE '^version: (1\.[7-9]|[2-9])\.' "$SKILL_FILE"
 }

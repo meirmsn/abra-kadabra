@@ -1,6 +1,6 @@
 ---
 name: ak-pre-ship
-version: 3.3.0
+version: 4.0.0
 description: |
   Quality gates before shipping. Pauses on findings, auto-advances on clean passes.
   After each code-changing gate, verifies tests still pass (stuck protocol if not).
@@ -34,12 +34,29 @@ moving to the next gate. If tests fail, use the stuck protocol (see bottom of th
 
 ## Audit trail
 
-As you run each gate, accumulate results in memory. You'll need them for the PR comment
-at the end. For each gate, record:
+Each gate writes its results to a **per-gate file sink** at
+`specs/<feature>/gates/<canonical-gate-name>.md` using the canonical name from
+`§ Gates (canonical order + named IDs)` below. The shard file holds exactly one
+`## Gate <#>: <name>` section plus its mandatory `## Dismissals` block. The
+orchestrator (`/ak-build § Phase 3.3`) concatenates the shards into
+`specs/<feature>/review.md` after each pass + aggregates the `## Dismissals`
+into the single top-of-file `## Router Summary` block.
 
-- Gate name
+The per-gate sink scheme replaces the prior "accumulate results in memory and
+write `review.md` once at the end" shape. Two consequences:
+
+- A crashed-mid-run agent loses at most one gate's work (the gate it was
+  executing when the socket dropped); other gates' shards are durable.
+- A re-run of a single gate (e.g. after fixing tooling that made the original
+  invocation `blocked`) overwrites just that one shard, not the whole file.
+
+For each gate's shard, record:
+
+- Gate name + canonical # from § Gates table
 - Result: `pass` | `findings (N)` | `n/a (reason)` | `blocked (reason)`
 - If findings were found and fixed: what was found, which commit fixed it
+- `## Dismissals` sub-section (mandatory; body either `None` or a bulleted
+  list with per-bullet `rationale:` fields — see § Dismissal Log below)
 
 ### Outcome semantics (important — do not conflate)
 
@@ -590,10 +607,11 @@ This gate is the **first audit moment** in the canonical two-audit model
 (per `CLAUDE.md § Non-Negotiables` — "Adversarial Layer 2 reviews fire at
 audit moments, not per commit"). The orchestrator computes the commit range from
 `specs/<feature>/review.md`'s latest `## Audit N` section's
-`<!-- audited-at: <SHA> -->` stamp, invokes `/ak-docs-review` and
-`/ak-tests-review` sequentially, and appends a new `## Audit N` section
-with structured findings. First-time runs default to `origin/main..HEAD`
-and emit `## Audit 1`.
+`<!-- audited-at: <SHA> -->` stamp, dispatches `/ak-docs-review` and
+`/ak-tests-review` as parallel `Agent` calls with per-file sinks under
+`specs/<feature>/gates/audit-N-{docs,tests}.md`, concatenates them into a
+new `## Audit N` section with structured findings. First-time runs default
+to `origin/main..HEAD` and emit `## Audit 1`.
 
 Outcome mapping:
 
@@ -996,11 +1014,36 @@ but a pipeline-health signal worth surfacing to the human reviewer.
 
 ## Stuck protocol (for test failures between gates)
 
-When `pnpm turbo run test:unit` fails after a code-changing gate:
+**Scope split.** Two distinct stuck-protocols exist; they fire at different
+boundaries:
 
-1. **Attempt 1–2**: read the error, identify which gate's change caused it, fix, rerun
-2. **Attempt 3** (same error): invoke `/investigate` via Skill tool — wait for root-cause analysis
-3. **Still stuck**: stop, ping user with: which gate caused the regression, the error, what was tried
+- **Per-gate stuck protocol** (inside the gate sub-agent): when an
+  iterative-fix gate's fix breaks something the gate itself surfaces (e.g. a
+  `/simplify` refactor that breaks a `/qa` assertion), the gate sub-agent runs
+  its own try-fix × 2 → `/investigate` → escalate loop inside its own scope.
+  The gate's sink records the stuck-protocol outcome.
+- **Orchestrator-boundary stuck protocol** (between gates): when
+  `pnpm turbo run test:unit` fails between two code-changing gates in the
+  Stabilize-HEAD pass (i.e. a previous gate's fix regressed the unit suite),
+  the orchestrator — NOT the next gate sub-agent — runs the stuck protocol.
+  This is what this section describes.
+
+When `pnpm turbo run test:unit` fails after a code-changing gate at the
+orchestrator boundary:
+
+1. **Attempt 1–2**: read the error, identify which gate's change caused it
+   (the most recent commit's `chore`/`fix`/etc. is the likely culprit), fix,
+   rerun.
+2. **Attempt 3** (same error): invoke `/investigate` via Skill tool — wait for
+   root-cause analysis.
+3. **Still stuck**: stop, ping user with: which gate caused the regression,
+   the error, what was tried.
+
+The orchestrator-boundary stuck-protocol stays a simple in-context retry
+because the unit-suite regression is typically a narrow signal (one gate's
+fix broke one test); the per-gate stuck protocol (which is where the more
+ambiguous failures live) uses the refined fresh-agent-per-attempt shape in
+`/ak-implement § Step 3 § Stuck protocol`.
 
 ## Behavior
 

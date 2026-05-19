@@ -1,6 +1,6 @@
 ---
 name: ak-implement
-version: 2.3.0
+version: 3.0.0
 description: |
   Run the implementation loop for the active spec. Reads spec from specs/<name>/ →
   traces the gstack plan → checks tasks (new vs resume) → implements each task with tests → runs stuck
@@ -180,11 +180,125 @@ unless the check is genuinely impossible.
 - Falls under STOP AND ASK (schema, auth, security, new integrations, new metrics) → stop and ask user
 - User escalation format: which task, what the ambiguity is, options considered, your lean
 
-**Stuck protocol:**
+### Stuck protocol
 
-- Attempts 1–2: read the error, hypothesize root cause, fix, rerun
-- Attempt 3 (same error): invoke `/investigate` via Skill tool — wait for root-cause analysis
-- Still stuck after `/investigate`: mark task `blocked` in tasks.md, stop, ping user
+Today's prose underspecified the "step back" moment between attempts. The refined
+shape uses fresh-agent isolation + a persistent already-tried log to break out of
+the failure mode where a stuck agent's failed-reasoning bias carries into the
+next attempt. Per-task log path: `$FEATURE_DIR/task-attempts/T<N>.md` where `<N>`
+is the task index from `tasks.md`.
+
+- **Attempt 1** — natural. Read the error, hypothesize root cause, fix, rerun.
+  On failure, before re-running tests, append a structured section to the
+  per-task log:
+
+  ```markdown
+  ## Attempt 1 — <one-line failure classification>
+
+  - Hypothesis: <what we thought was broken>
+  - Tried: <what we changed>
+  - Why ruled out: <what evidence shows it didn't fix it>
+  - Ruled out for next attempt: <approach class to skip>
+  ```
+
+  Create `$FEATURE_DIR/task-attempts/` and the `T<N>.md` file on first failure
+  (`mkdir -p` + `>` to create empty). Subsequent attempts append.
+
+- **Attempt 2** — fresh `Agent` sub-agent invocation with the already-tried log
+  fed in. Dispatch:
+
+  ```
+  Agent {
+    description: "Stuck-task attempt 2 — T<N>",
+    subagent_type: "general-purpose",
+    prompt: """
+      Task T<N> from $FEATURE_DIR/tasks.md is stuck after one failed attempt.
+      The prior attempt's hypothesis, what was tried, and why-ruled-out are in
+      $FEATURE_DIR/task-attempts/T<N>.md — READ IT FIRST. Do not repeat any
+      approach class listed under 'Ruled out for next attempt' without
+      explicitly justifying (in writing) why the prior ruling-out was wrong.
+
+      Read the spec, the failing test, and the source code under test. Try a
+      different approach class than attempt 1. Run tests. Append your
+      `## Attempt 2 — <classification>` section to T<N>.md as your FINAL
+      action before returning.
+
+      Return: pass | findings (test name + first-line error) | unresolved.
+    """
+  }
+  ```
+
+  Why fresh-agent: an agent that has just spent its inference budget convincing
+  itself approach X is right carries that bias forward. A fresh inference
+  context reads the log as evidence ("X was tried and ruled out") rather than
+  as a defeat to overturn.
+
+- **Attempt 3** — fresh `Agent` + already-tried log + TWO meta-checks layered on:
+
+  - **Spec re-read** (structural): the agent re-reads `$FEATURE_DIR/spec.md`
+    and asks: is task T<N> right-sized? Does it actually contain 2–3 latent
+    sub-tasks pretending to be one? If yes, propose a split and surface to
+    the operator before continuing.
+  - **Devil's-advocate critic** (tactical): a separate sub-sub-`Agent`
+    invocation whose only job is to enumerate "what's structurally wrong with
+    the approach class we've been trying?". Output appends to T<N>.md as
+    `## Devil's advocate (attempt 3)` — concrete listing of 2–3 fundamentally
+    different tactics, not variations of what already failed. The attempt-3
+    agent reads this section before formulating its fix.
+
+  Dispatch:
+
+  ```
+  # First: devil's-advocate critic (writes to T<N>.md, returns synopsis)
+  Agent {
+    description: "Devil's advocate — T<N>",
+    subagent_type: "general-purpose",
+    prompt: """
+      Read $FEATURE_DIR/task-attempts/T<N>.md. Enumerate what's structurally
+      wrong with the approach class attempts 1 + 2 have been trying. Propose
+      2–3 fundamentally different tactics — not variations of what already
+      failed. Append your enumeration to T<N>.md as a
+      `## Devil's advocate (attempt 3)` section before returning.
+    """
+  }
+
+  # Then: attempt-3 agent (consumes devil's-advocate output)
+  Agent {
+    description: "Stuck-task attempt 3 — T<N>",
+    subagent_type: "general-purpose",
+    prompt: """
+      Task T<N> is on attempt 3. Read $FEATURE_DIR/spec.md AND
+      $FEATURE_DIR/task-attempts/T<N>.md (including the new
+      `## Devil's advocate (attempt 3)` section). First answer: is T<N>
+      right-sized, or does it bundle 2–3 latent sub-tasks? If yes, return
+      'PROPOSE SPLIT' with the proposed sub-tasks; do NOT attempt the fix.
+      Otherwise, pick one of the devil's-advocate tactics and try it.
+
+      Append your `## Attempt 3 — <classification>` section to T<N>.md as
+      your FINAL action before returning. Return: pass | findings | unresolved
+      | PROPOSE SPLIT.
+    """
+  }
+  ```
+
+  The meta-checks only fire at attempt 3 — bounded cost. Attempts 1 + 2 stay
+  cheap.
+
+- **Attempt 3 fail** (returns `unresolved`): existing escalation behavior —
+  mark task `blocked` in tasks.md, stop, ping user.
+
+- **Attempt 3 returns `PROPOSE SPLIT`**: surface the proposed sub-tasks to
+  the operator via `AskUserQuestion`. Operator decides: split into N tasks
+  (re-running `/ak-implement` will pick them up) or override-and-continue
+  with the original task definition (operator-supplied hypothesis appended to
+  T<N>.md, attempt-3 agent re-runs against the updated log).
+
+- The pre-`/ak-build`-phase-decomposition prose ran `/investigate` at attempt
+  3 inside the same agent context. The refined shape replaces that with the
+  spec-re-read + devil's-advocate combination — both run as fresh sub-agents
+  and write to the durable log, so the next attempt (or the user, post-block)
+  reads the structured analysis instead of having to reconstruct it from the
+  main agent's working memory.
 
 ## Step 4: Completion
 

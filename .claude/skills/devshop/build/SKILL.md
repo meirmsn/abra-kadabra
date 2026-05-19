@@ -1,6 +1,6 @@
 ---
 name: ak-build
-version: 1.7.0
+version: 2.0.0
 description: |
   Autonomous build pipeline: preview → spec → implement → quality gates → ship → CI watch → notify.
   Phase 0 produces a 3-section pre-flight preview (decisions / scope / tracker) and
@@ -584,31 +584,289 @@ Launch **Agent** with prompt:
 Wait for agent to report completion (all tasks `done`).
 If agent reports any task `blocked`, stop and escalate (see Escalation below).
 
-## Phase 3: Pre-ship (quality gates)
+## Phase 3: Pre-ship (per-gate sub-agent gauntlet)
 
-Launch **Agent** with prompt:
-> Run /devshop:pre-ship for feature "$FEATURE".
-> Read tasks and decisions from $FEATURE_DIR/tasks.md.
-> Run all quality gates (1-11) with test:unit checkpoints after code-changing gates.
-> Write gate results to $FEATURE_DIR/review.md.
-> Return these counts explicitly (not buried in prose):
-> `passed`, `findings_pending`, `n_a`, `blocked`.
-> If `blocked > 0`, include the preflight fix recipe verbatim in the return.
->
-> **Do NOT pre-classify gates as `n/a` in your prompt or reasoning.** Gate
-> disposition belongs to the gate runner per its SKILL.md, not to this
-> orchestrator. If you find yourself thinking "this gate doesn't apply
-> because <reason>," let the gate runner make that call and emit the
-> correct outcome shape — `blocked (n/a per scope: <reason>)` for the
-> LLM-mediated gates (6 `/review`, 7 `/cso`, 8 `/design-review`, 9 `/qa`),
-> or `n/a (<reason>)` for non-LLM-mediated gates that legitimately
-> support it. The orchestrator's job is to run the gauntlet; the gate
-> runner's job is to decide what each gate's outcome should be.
-> Pre-classifying in this prompt is what shipped lalista PR #65 without
-> `/qa` evidence — don't repeat it.
+Phase 3 runs the `/ak-pre-ship` gauntlet as a series of **per-gate sub-agent
+dispatches** in two ordered passes. Each gate is one `Agent` tool invocation
+with a fresh context bounded to its own scope. Each sub-agent writes its
+findings to a **per-gate file sink** under `specs/<feature>/gates/<gate-name>.md`
+using the canonical name from `pre-ship/SKILL.md § Gates (canonical order + named
+IDs)`. The orchestrator concatenates the per-gate sinks into
+`$FEATURE_DIR/review.md` after each pass.
 
-`/ak-pre-ship` does NOT ship or create a PR. If findings require fixes, the agent
-handles them within its context.
+**Why decomposed.** A single sub-agent running the full 18-gate gauntlet (the
+canonical count from `pre-ship/SKILL.md § Gates`) is one point of failure for
+the whole pass. When that agent's socket / context / runtime fails partway
+through (as happened on home-os feature/decide-state 2026-05-17 at Gate 6 of
+its run after ~2h / 207 tool uses), all completed-gate work became hard to
+resume. Per-gate dispatch isolates failure: one dropped agent loses one gate's
+work. Per-gate file sinks survive the agent boundary, so re-running picks up
+at the gate that dropped.
+
+**Phase 0 (preflight) runs first, before either pass.** `pre-ship/SKILL.md §
+Phase 0: Preflight` is a tooling verification step (Chromium available, browse
+daemon healthy, etc.), not a gate. It runs in-line in the orchestrator before
+3.1 fires its first sub-agent dispatch. On a `blocked` outcome, the orchestrator
+halts Phase 3 entirely without writing any per-gate sink.
+
+**Why two passes.** Gates split into two classes:
+
+- **Stabilize-HEAD gates** (sequential — each may commit fixes that mutate
+  HEAD; later gates audit the new HEAD), in canonical order from
+  `pre-ship/SKILL.md § Gates`:
+  - `1 docs-check` → `2 metrics-check` → `2b rls-coverage` → `2c slow-job-lifecycle`
+    → `2d fast-job-local` → `2e migration-rollback-roundtrip` → `2f changed-tests-local`
+    → `3 responsive-theme` → `4 /simplify` → `8 /design-review` (UI PRs only) →
+    `9 /qa` → `11 convention`.
+  - Hero-screenshot capture runs as an orchestrator-side step after the
+    Stabilize-HEAD pass completes — see § 3.1b below. It is NOT dispatched as
+    a per-gate sub-agent and has no `gates/<name>.md` sink (hero shots commit
+    directly to `specs/<feature>/hero/`).
+- **Analysis-pass gates** (parallel — read-only against the stabilized HEAD),
+  in canonical order:
+  - `5 docs-and-tests-review` (Audit 1) ‖ `6 /review` ‖ `7 /cso` ‖
+    `8b design-conformance` ‖ `10 /benchmark` (UI PRs only) ‖ `10b preflight-final`.
+
+The Stabilize-HEAD pass runs gates sequentially (one Agent call at a time)
+because iterative-fix gates may commit on HEAD. The Analysis pass dispatches
+all its gates in a single tool-use turn (multiple `Agent` calls in one turn),
+because every gate is read-only against the same SHA.
+
+**Per-gate file sinks.** Each gate sub-agent writes its `## Gate <#>: <name>`
+section to its own file at `specs/<feature>/gates/<canonical-gate-name>.md`
+(names from `pre-ship/SKILL.md § Gates`, e.g. `docs-check.md`, `cso.md`, `qa.md`).
+The orchestrator concatenates these into `review.md` after each pass — first
+the Stabilize-HEAD sections in canonical order, then the Analysis sections in
+canonical order. The shards are committed alongside `review.md` for durability
+(a crashed-mid-concatenate resume re-reads them; a re-run of a single gate
+overwrites just that one shard).
+
+**Halt-on-find vs iterative-fix dispatch.** Two categories of gate determine
+who fixes findings:
+
+- **Iterative-fix gates** (`/simplify`, `/design-review`, `/qa`,
+  `design-conformance`, `convention`, `/benchmark` when surfaceable): the
+  sub-agent finds AND fixes AND commits atomically per fix. Same posture as
+  the pre-decomposition gauntlet. Status on return: `pass` /
+  `findings (N) fixed` / `blocked`.
+- **Halt-on-find gates** (`/review`, `/cso`, `docs-and-tests-review`/Audit 1,
+  `rls-coverage`): the sub-agent surfaces findings, returns. The orchestrator
+  routes by severity: high → escalate to operator (Rung 1); medium → list in
+  Phase 6 audit comment; low → note + proceed; **mechanical/obvious** →
+  orchestrator dispatches a focused fix sub-agent (template at § 3.1c).
+  Preserves the existing trust boundary on security/SQL-critical findings
+  (don't auto-fix without operator read).
+
+  **What counts as "mechanical/obvious"** (the line between auto-fix and
+  escalate):
+  - Single-file diff with **no public-API change** (function signatures,
+    exported types, edge-function URLs all unchanged).
+  - No auth / RLS / migrations / `supabase/functions/**` surface touched.
+  - Fix shape names a specific line + replacement (e.g. "remove unused
+    `console.log` at `foo.ts:42`" — yes; "rethink the cache invalidation
+    strategy" — no).
+  - Re-running the affected gate after the fix would be deterministic (the
+    fix doesn't open a new can of worms the next gate would catch).
+
+  Everything else escalates to operator (Rung 1). When in doubt, escalate.
+
+- **Deterministic gates** (`docs-check`, `metrics-check`, `slow-job-lifecycle`,
+  `fast-job-local`, `migration-rollback-roundtrip`, `changed-tests-local`,
+  `responsive-theme`, `preflight-final`): sub-agent runs the deterministic
+  check; pass / findings / blocked per the check's exit status.
+
+**Test:unit checkpoints between code-changing gates.** Between every pair of
+adjacent code-changing gates in the Stabilize-HEAD pass (every iterative-fix
+gate AND every halt-on-find gate whose fixes the orchestrator dispatched), the
+orchestrator runs `pnpm turbo run test:unit` (turbo cache; typically ~1s when
+nothing changed). On failure, the orchestrator invokes `pre-ship/SKILL.md §
+Stuck protocol` at the orchestrator boundary, NOT inside the next gate
+sub-agent. Keeps the per-gate context bounded to its own scope.
+
+### 3.1: Stabilize-HEAD pass (sequential)
+
+```
+mkdir -p "$FEATURE_DIR/gates"
+
+for each gate in stabilize-head-order:
+  Agent {
+    description: "Gate <#>: <name>",
+    subagent_type: "general-purpose",
+    prompt: """
+      You are running ONE gate of /ak-pre-ship: <gate-name>.
+
+      Follow /devshop:pre-ship § <Gate section> for this gate's specific
+      contract (scope predicate, evidence requirements, outcome semantics).
+      Read $FEATURE_DIR/spec.md + $FEATURE_DIR/tasks.md for feature context.
+
+      Iterative-fix gates: find AND fix AND commit atomically per fix.
+      Halt-on-find gates: surface findings, do NOT auto-fix.
+      Deterministic gates: run the check; report pass / findings / blocked
+      per the check's exit status.
+
+      Write your section to $FEATURE_DIR/gates/<canonical-gate-name>.md
+      as your FINAL action before returning. The heading MUST use the
+      shape `## Gate <#>: <name>` (NOT `## Gate <name>` — the numbered
+      form is the parse contract Phase 3 → Phase 4's forbidden-n/a awk
+      depends on; canonical numbers from /ak-pre-ship § Gates, e.g. `8b`
+      for design-conformance, `10b` for preflight-final). Include the
+      mandatory `## Dismissals` sub-section per /ak-pre-ship § Dismissal
+      Log — body is either `None` (zero findings dismissed) or a
+      bulleted list with per-bullet `rationale:` fields.
+
+      Do NOT pre-classify the gate as `n/a`. If the gate's scope doesn't
+      apply, emit `blocked (n/a per scope: <reason>)` per the LLM-mediated-
+      gates contract (gates 6/7/8/9) or `n/a (<reason>)` for the non-LLM-
+      mediated gates that legitimately support it.
+
+      Return one line: `pass` | `findings (N) fixed` | `findings (N) pending`
+                       | `blocked: <reason>`.
+    """
+  }
+
+  Read the gate's sink and route:
+    - findings (N) pending + halt-on-find gate: classify findings by severity.
+      Mechanical/obvious → dispatch a focused fix sub-agent on this gate's
+      shard. High → halt and surface to operator (Rung 1). Medium/low →
+      note for Phase 6, advance.
+    - blocked → halt (Rung 2 below).
+    - pass | findings (N) fixed → advance.
+
+  If the gate was code-changing (iterative-fix OR halt-on-find-with-fix
+  dispatched): run `pnpm turbo run test:unit` at the orchestrator
+  boundary. On failure, invoke /ak-pre-ship § Stuck protocol; do not
+  proceed to the next gate until the unit suite is green.
+```
+
+### 3.1b: Hero-screenshot capture (post-pass orchestrator step)
+
+After the Stabilize-HEAD pass returns clean, capture hero screenshots per
+`pre-ship/SKILL.md § Capture hero screenshots`. This is NOT a gate — no
+per-file sink under `gates/`, no Agent dispatch. The orchestrator runs the
+capture inline (via the browse skill), commits the resulting PNGs under
+`specs/<feature>/hero/`, and proceeds to § 3.2. Skip when the PR is non-UI
+(per scope detection in Phase 0 preflight).
+
+### 3.1c: Focused-fix sub-agent (for mechanical/obvious findings)
+
+When a halt-on-find gate returns `findings (N) pending` AND every finding
+matches the "mechanical/obvious" criteria above, the orchestrator dispatches
+one focused fix sub-agent per gate (NOT per finding — batch by gate so the
+agent has the gate-shard findings context):
+
+```
+Agent {
+  description: "Mechanical fix for Gate <#>: <name>",
+  subagent_type: "general-purpose",
+  prompt: """
+    The /ak-pre-ship gate <gate-name> surfaced N mechanical/obvious findings
+    in $FEATURE_DIR/gates/<canonical-gate-name>.md (read it now).
+
+    For each finding:
+    1. Apply the fix exactly as the finding's "Fix:" line specifies.
+    2. Commit atomically with subject: `fix(<scope>): <one-line>` where
+       <scope> derives from the touched file.
+    3. Run `pnpm turbo run test:unit` after each commit; abort + return
+       `unresolved (test:unit failed on commit <SHA>)` if it fails.
+
+    Do NOT broaden scope beyond what each finding specifies. If a finding
+    looks larger than its "Fix:" line suggests, return
+    `escalate (finding <N>: <reason>)` for that finding without fixing.
+
+    After applying every fix, append a `## Focused fix log` sub-section
+    to $FEATURE_DIR/gates/<canonical-gate-name>.md listing each finding +
+    its commit SHA + the local test:unit result. This survives the agent
+    boundary so re-running the gate sees what was already fixed.
+
+    Return one line: `pass (N findings fixed)` | `partial (N fixed, M
+    escalated)` | `unresolved (<reason>)`.
+  """
+}
+```
+
+Orchestrator behavior on return:
+- `pass` → re-run the affected gate sub-agent to confirm `pass`. If the
+  re-run also passes, advance.
+- `partial` → halt and surface the escalated subset to the operator (Rung 1).
+- `unresolved` → halt and surface verbatim (Rung 1).
+
+### 3.2: Analysis pass (parallel, read-only)
+
+After the Stabilize-HEAD pass returns clean, dispatch every analysis gate in a
+single tool-use turn — N parallel `Agent` calls, one per gate. Each writes to
+its own sink under `$FEATURE_DIR/gates/<canonical-gate-name>.md`.
+
+```
+# Single tool-use turn — all Agent calls fire in parallel.
+Agent { description: "Gate 5: docs-and-tests-review (Audit 1)", ... }
+Agent { description: "Gate 6: /review", ... }
+Agent { description: "Gate 7: /cso", ... }
+Agent { description: "Gate 8b: design-conformance", ... }
+Agent { description: "Gate 10: /benchmark", ... }
+Agent { description: "Gate 10b: preflight-final", ... }
+Agent { description: "Gate 11: convention", ... }
+```
+
+Each agent prompt mirrors the Stabilize-HEAD-pass template (run ONE gate per
+its `/ak-pre-ship § Gate <name>` section + write to per-file sink + return one
+line). Because the pass is read-only against the stabilized HEAD, race-free
+parallel writes are guaranteed by the per-file-sink scheme: each agent's write
+target is unique.
+
+After all parallel agents return, the orchestrator routes per-gate findings
+identically to the Stabilize-HEAD pass (halt-on-find severity classification +
+focused fix dispatch for mechanical mediums).
+
+### 3.3: Concatenate sinks → review.md
+
+After both passes return, the orchestrator concatenates every
+`$FEATURE_DIR/gates/<canonical-gate-name>.md` file written this run into
+`$FEATURE_DIR/review.md` in **canonical-gate order from `pre-ship/SKILL.md §
+Gates`** — i.e. the order of rows in the gates table, which is the same as
+the Stabilize-HEAD pass's gate order followed by the Analysis pass's gate
+order (the table is already laid out for this concatenation).
+
+Concrete order (omitting gates whose sink doesn't exist — UI gates on non-UI
+PRs, etc.):
+
+```
+1 docs-check
+2 metrics-check
+2b rls-coverage
+2c slow-job-lifecycle
+2d fast-job-local
+2e migration-rollback-roundtrip
+2f changed-tests-local
+3 responsive-theme         # UI PRs only
+4 simplify
+5 docs-and-tests-review
+6 review
+7 cso
+8 design-review            # UI PRs only
+8b design-conformance
+9 qa
+10 benchmark               # UI PRs only
+10b preflight-final
+11 convention
+```
+
+The concatenation is **idempotent** — a re-run of Phase 3 reads each shard
+fresh and rewrites `review.md` from scratch, overwriting the prior
+`## Gate <#>: <name>` sections rather than duplicating them.
+
+Aggregate the per-gate `## Dismissals` blocks into the single
+`## Router Summary` block at the top of `review.md` per
+`/ak-pre-ship § Router Summary aggregation`. Stamp the file's first line
+with `<!-- audited-at: $(git rev-parse HEAD) -->` so Phase 5.8's range-
+computation has its parse contract.
+
+Return to the orchestrator: `passed`, `findings_pending`, `n_a`, `blocked`
+counts (sum across all gate sinks). If `blocked > 0`, include the preflight
+fix recipe verbatim in the return.
+
+`/ak-pre-ship` does NOT ship or create a PR. The per-gate sub-agents handle
+fixes for iterative-fix gates within their own context; the orchestrator
+handles routing for halt-on-find findings.
 
 ### Phase 3 → Phase 4 handoff: refuse to advance on blocked, findings, or LLM-mediated n/a
 
@@ -1176,7 +1434,7 @@ signals above. The body went stale across all three; the user caught it
 at audit-comment time and asked "isn't the PR description stale?" —
 which is exactly the question this check exists to answer pre-emptively.
 
-### 5.4: On CI failure → fix loop
+### 5.4: On CI failure → fix loop (fresh-agent-per-attempt)
 
 The loop is a 3-attempt decision tree that escalates observability as blind
 inference becomes less likely to work. Attempt 1 guesses from the log (cheap —
@@ -1188,11 +1446,74 @@ lalista slow-job stabilization incident, where 4 blind retries against a
 Playwright failure burned ~30 minutes because the trace artifact was
 unreachable from the devcontainer.
 
+**Fresh-agent-per-attempt with persistent already-tried log.** Each attempt
+runs as a separate `Agent` tool invocation — a fresh inference context, not a
+continuation of the prior attempt's. Without the isolation, a failed attempt's
+reasoning (wrong diagnosis, wrong fix-shape, wrong assumption about the failure
+class) carries over and biases the next attempt. Without the log, the fresh
+agent has no memory of what was tried — it can repeat the same failed approach.
+The pattern: each attempt reads `specs/<feature>/fix-attempts.md` first, writes
+its own `## Attempt N` section as its final action. Same shape as the
+`/ak-implement § Step 3` per-task stuck protocol (`task-attempts/T<N>.md`).
+
+**Artifact lifecycle**: `specs/<feature>/fix-attempts.md` is created on first
+failed attempt for this Phase 5 run; cleared (truncated to the header line) at
+the start of each new Phase 5 invocation. A new push triggers a new CI run; the
+prior attempts on prior CI failures aren't applicable diagnostics for the new
+failure.
+
 ```
 FIX_ATTEMPTS=0
 MAX_ATTEMPTS=3
 
+# Clear / initialize the already-tried log for this Phase 5 run.
+mkdir -p "$FEATURE_DIR"
+printf '# Fix attempts — %s\n\n' "$FEATURE" > "$FEATURE_DIR/fix-attempts.md"
+
 while CI is failing and FIX_ATTEMPTS < MAX_ATTEMPTS:
+  Dispatch a fresh sub-agent for this attempt. The agent prompt includes:
+
+  - the CI failure log (attempt #1) OR every artifact + unzipped trace.zip
+    (attempt #2+), per the artifact tier-escalation rules below.
+  - The contents of $FEATURE_DIR/fix-attempts.md (empty on attempt #1).
+  - The 11-step instructions below, with attempt-specific context.
+  - The instruction to append its `## Attempt N — <classification>` section
+    to fix-attempts.md as its FINAL action before returning, and to NEVER
+    repeat a ruled-out approach without explicitly justifying why the prior
+    ruling-out was wrong.
+
+  Agent {
+    description: "CI fix attempt $((FIX_ATTEMPTS+1)) — $FEATURE",
+    subagent_type: "general-purpose",
+    prompt: """
+      CI is failing on PR #$PR / run $RUN_ID. This is fix attempt $((FIX_ATTEMPTS+1)) of 3.
+
+      READ FIRST: $FEATURE_DIR/fix-attempts.md (your prior-attempts log).
+      Do not repeat any approach class listed under 'Ruled out for next
+      attempt' without explicitly justifying (in writing) why the prior
+      ruling-out was wrong.
+
+      Follow Phase 5.4 steps 1–11 (failure context tier-escalation, classify,
+      fix, locally verify or push, workflow-scope detection). Append your
+      `## Attempt $((FIX_ATTEMPTS+1)) — <classification>` section to
+      fix-attempts.md as your FINAL action before returning.
+
+      Return: pass (pushed; awaiting CI) | timeout-retry (empty-commit pushed)
+              | workflow-blocked (human push required; do NOT increment) |
+              | unresolved.
+    """
+  }
+
+  After the agent returns:
+    - workflow-blocked → exit the loop (do NOT increment FIX_ATTEMPTS);
+      surface the human-push command per step 8 below. /ak-build resumes
+      via Step 0's resume check after manual push.
+    - timeout-retry → do NOT increment FIX_ATTEMPTS (the empty commit is
+      not a fix; it's a retry). Go to 5.2 (watch CI again).
+    - pass | unresolved → FIX_ATTEMPTS += 1. Go to 5.2.
+
+  Inside-the-sub-agent steps:
+
   1. Read failure context (tier escalates with attempt count):
 
      a. Attempt #1 — log-based inference:
@@ -1324,8 +1645,21 @@ while CI is failing and FIX_ATTEMPTS < MAX_ATTEMPTS:
 
   9. After pushing, update PR title/description if the fix changes scope.
 
-  10. FIX_ATTEMPTS += 1
-  11. Go to 5.2 (watch CI again)
+  10. Append the structured already-tried section to fix-attempts.md as the
+      LAST action before returning:
+
+         ## Attempt N — <one-line failure classification>
+
+         - Hypothesis: <what we thought was broken>
+         - Tried: <what we changed; commit SHA>
+         - Why ruled out: <what evidence shows it didn't fix it>
+         - Ruled out for next attempt: <approach class to skip>
+
+      Return one of: pass | timeout-retry | workflow-blocked | unresolved
+      (semantics in the orchestrator block above).
+
+  11. (Orchestrator side, outside the sub-agent) Go to 5.2 (watch CI again)
+      OR exit on workflow-blocked.
 ```
 
 **Notes on the artifact-pull path:**
@@ -1545,11 +1879,12 @@ Agent({
   prompt: "Run /ak-check-docs-and-tests via the Skill tool with
   --feature-dir ${FEATURE_DIR} --label post-polish on branch ${BRANCH}
   of repo ${REPO_ROOT}. The orchestrator computes the range from the
-  latest '## Audit N' section in ${FEATURE_DIR}/review.md, invokes
-  /ak-docs-review and /ak-tests-review in sequence, and appends a new
-  '## Audit N' section with structured findings (docs + tests) and
-  bypass-trailer review. Do NOT write any docs or tests yourself —
-  your job is to audit and recommend, not implement.
+  latest '## Audit N' section in ${FEATURE_DIR}/review.md, dispatches
+  /ak-docs-review and /ak-tests-review as parallel Agent calls with
+  per-file sinks under specs/<feature>/gates/audit-N-{docs,tests}.md,
+  concatenates into a new '## Audit N' section with structured findings
+  (docs + tests) and bypass-trailer review. Do NOT write any docs or
+  tests yourself — your job is to audit and recommend, not implement.
 
   **COMMIT-OR-SURFACE RULE** (codified from home-os PR #26 — the
   Audit-2 section was written to ${FEATURE_DIR}/review.md but never
