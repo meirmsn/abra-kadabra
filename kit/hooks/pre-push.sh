@@ -117,15 +117,15 @@ if [ "$REPO_MODE" = "project" ]; then
     fi
 
     if [ "$ANY_COMMIT" = "true" ] && [ "$ALL_TRIVIAL" = "false" ]; then
-      # Non-trivial commits — adversarial review of PR description sync
-      BYPASS_REASON=$(git config --get devshop.prDescStaleReason 2>/dev/null || echo "")
+      # Non-trivial commits — adversarial review of PR text hygiene (accuracy + readability + body shape)
+      BYPASS_REASON=$(git config --get devshop.prTextHygieneReason 2>/dev/null || echo "")
 
       # Invoke shared adversarial engine (same as commit guards).
       # Engine gathers PR title/body/commits itself from the current branch.
       if ! REVIEW_OUTPUT=$(bash "$DEVSHOP/kit/scripts/adversarial-review.sh" \
-             prDescStaleReason \
+             prTextHygieneReason \
              "${BYPASS_REASON:-no reason given}" 2>&1); then
-        echo "❌ Pre-push: PR #${PR} description appears stale relative to commits." >&2
+        echo "❌ Pre-push: PR #${PR} title/description/body-shape fails the text-hygiene gate." >&2
         echo "" >&2
         echo "Reviewer assessment:" >&2
         echo "$REVIEW_OUTPUT" | sed 's/^/  /' >&2
@@ -134,7 +134,7 @@ if [ "$REPO_MODE" = "project" ]; then
         echo "  1. Update PR via: gh pr edit $PR --title \"...\" --body \"...\"" >&2
         echo "     then retry the push." >&2
         echo "  2. Bypass (adversarially reviewed): " >&2
-        echo "     git -c devshop.prDescStaleReason=\"<specific reason>\" push ..." >&2
+        echo "     git -c devshop.prTextHygieneReason=\"<specific reason>\" push ..." >&2
         exit 1
       fi
     fi

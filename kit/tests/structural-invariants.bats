@@ -120,7 +120,7 @@ setup() {
   grep -q "exec bash .hooks/pre-push" "$hook"
   # Wrapper must NOT contain policy markers — those belong in kit/hooks/pre-push.sh
   ! grep -q "BLOCKED: direct push to" "$hook"
-  ! grep -q "prDescStaleReason" "$hook"
+  ! grep -q "prTextHygieneReason" "$hook"
   ! grep -q "dirtyPushReason" "$hook"
 }
 
@@ -132,7 +132,7 @@ setup() {
   [ -f "$hook" ]
   grep -q "exec bash .hooks/pre-push" "$hook"
   ! grep -q "BLOCKED: direct push to" "$hook"
-  ! grep -q "prDescStaleReason" "$hook"
+  ! grep -q "prTextHygieneReason" "$hook"
   ! grep -q "dirtyPushReason" "$hook"
 }
 
@@ -146,7 +146,7 @@ setup() {
   [ -x "$script" ]
   grep -q "BLOCKED: direct push to" "$script"
   grep -q "No bypass available" "$script"
-  grep -q "prDescStaleReason" "$script"
+  grep -q "prTextHygieneReason" "$script"
   grep -q "dirtyPushReason" "$script"
 }
 

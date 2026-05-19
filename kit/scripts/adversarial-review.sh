@@ -14,7 +14,11 @@
 #
 # Surviving check-types (each judges a bypass-reason — the reason itself is the
 # auditable artifact, not coverage):
-#   prDescStaleReason     — `.husky/pre-push` PR-description staleness
+#   prTextHygieneReason   — `.husky/pre-push` PR title + description + body-shape hygiene
+#                           (three independent dimensions: title/body describes ALL commits on
+#                           the branch (accuracy); title obeys CLAUDE.md § Commit + PR Text
+#                           Style (readability); body leads with `## Product update` followed
+#                           by `## Engineering details` per spec authoring contract)
 #   dirtyTreeReason       — `.husky/pre-commit` clean-tree bypass
 #   dirtyPushReason       — `.husky/pre-push` clean-tree bypass
 #   manifestReviewed      — commit-guard.sh manifest-decision review
@@ -53,7 +57,7 @@
 # Per-check-type model routing (Haiku 4.5 for deterministic rule-application,
 # Sonnet 4.6 for judgment-heavy or high-blast-radius checks):
 #   Haiku:  dirtyTreeReason, dirtyPushReason, manifestReviewed
-#   Sonnet: prDescStaleReason, testReviewSkipReason, localTestSkipReason, coreUserStoryNaReason, dismissalLog, hookBypass, exemptAddition
+#   Sonnet: prTextHygieneReason, testReviewSkipReason, localTestSkipReason, coreUserStoryNaReason, dismissalLog, hookBypass, exemptAddition
 # Rationale: PR descriptions are the canonical reviewer-facing record; hookBypass
 # can leak secrets via gitleaks bypass; testReviewSkipReason judges audit-time
 # halt overrides; dismissalLog weighs spec scope. Dirty-tree / manifest checks
@@ -269,7 +273,7 @@ $DIFF_PATHS
 The reviewer judges whether the rationale's file/path claim is verifiable
 against the diff above."
     ;;
-  prDescStaleReason)
+  prTextHygieneReason)
     # Called by .husky/pre-push. Gathers PR title/body vs commits on branch.
     BRANCH=$(git branch --show-current 2>/dev/null || true)
     PR_NUM=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number // empty' 2>/dev/null || true)
@@ -280,19 +284,24 @@ against the diff above."
     else
       PR_DATA=$(gh pr view "$PR_NUM" --json title,body 2>/dev/null || echo "{}")
       PR_TITLE=$(echo "$PR_DATA" | jq -r '.title // "(no title)"')
-      PR_BODY=$(echo "$PR_DATA" | jq -r '.body // ""' | head -25)
+      # Full body — never truncate. Body-structure check (dimension c) needs to see the
+      # entire body to verify `## Engineering details` ends cleanly; accuracy check
+      # (dimension a) needs every commit's narrative. Sonnet 4.6's 200k-token context
+      # absorbs even a long PR (a 200-line body is ~3k tokens) without strain, and
+      # truncating silently turns missing tail content into false FAILs.
+      PR_BODY=$(echo "$PR_DATA" | jq -r '.body // ""')
       # All commits in the branch relative to main — this is what reviewers see in the PR.
-      COMMITS=$(git log --oneline origin/main..HEAD 2>/dev/null | head -30 || true)
+      COMMITS=$(git log --oneline origin/main..HEAD 2>/dev/null || true)
       COMMIT_COUNT=$(echo "$COMMITS" | grep -c . 2>/dev/null || echo 0)
       CONTEXT="PR #$PR_NUM on branch $BRANCH (${COMMIT_COUNT} commits ahead of main).
 
 Current PR title:
 $PR_TITLE
 
-Current PR body (first 25 lines):
+Current PR body (full):
 $PR_BODY
 
-All commits on this branch (origin/main..HEAD, first 30):
+All commits on this branch (origin/main..HEAD):
 $COMMITS"
     fi
     ;;
@@ -407,7 +416,7 @@ ${SPEC_IN_SCOPE:-(not available)}"
     # moved to audit-time `/ak-check-docs-and-tests`. A stale caller hits this
     # branch and surfaces immediately rather than silently no-op'ing.
     echo "FAIL: unknown check type: $CHECK_TYPE" >&2
-    echo "  Surviving check-types: prDescStaleReason | dirtyTreeReason | dirtyPushReason | manifestReviewed | hookBypass | exemptAddition | testReviewSkipReason | localTestSkipReason | coreUserStoryNaReason | dismissalLog"
+    echo "  Surviving check-types: prTextHygieneReason | dirtyTreeReason | dirtyPushReason | manifestReviewed | hookBypass | exemptAddition | testReviewSkipReason | localTestSkipReason | coreUserStoryNaReason | dismissalLog"
     echo "  Coverage reviews (docsReviewed / testCoverage / testCoverageProject / docsFreshnessProject) moved to audit-time /ak-check-docs-and-tests in PR-C — see kit/ROADMAP.md."
     exit 1
     ;;
@@ -589,7 +598,7 @@ get_model_for_check_type() {
     return
   fi
   case "$1" in
-    prDescStaleReason|testReviewSkipReason|localTestSkipReason|coreUserStoryNaReason|dismissalLog|hookBypass|exemptAddition)
+    prTextHygieneReason|testReviewSkipReason|localTestSkipReason|coreUserStoryNaReason|dismissalLog|hookBypass|exemptAddition)
       echo "sonnet"
       ;;
     dirtyTreeReason|dirtyPushReason|manifestReviewed)
@@ -626,7 +635,18 @@ The reason must be specific, factually accurate per the context, and address act
 Per-check-type rules:
 
 1. For hookBypass: is this a known legitimate scenario (migration commits with git rm --cached, binary files that break lint-staged, intermediate refactor state with type errors)? Does skipping gitleaks create a real risk for these files?
-2. For prDescStaleReason: does the PR title/body accurately describe ALL commits on the branch (origin/main..HEAD)? If the commits add a new capability, the PR description should name it. PASS requires either (a) the PR description genuinely matches the commits — the reviewer is wrong — or (b) a specific structural reason the description lags temporarily (e.g., 'batching rebases — will squash-update after final review' with a concrete next step).
+2. For prTextHygieneReason: judge THREE independent dimensions; FAIL if any fails.
+    (a) **Description accuracy** — does the PR title/body accurately describe ALL commits on the branch (origin/main..HEAD)? If the commits add a new capability, the PR description should name it. Accuracy PASSES when either the PR description genuinely matches the commits — the reviewer is wrong — or a specific structural reason the description lags temporarily (e.g. 'batching rebases — will squash-update after final review' with a concrete next step).
+    (b) **Title readability** — per /devshop/CLAUDE.md § Commit + PR Text Style, the PR title must:
+        - Describe the **observable change**, not the implementation mechanism. \`fix: 404 after save card\` PASSES; \`fix(cards/[id]): explicit auth check + Sentry diagnostics on 404 path\` FAILS (leads with mechanism). \`fix(migrations): qualify column refs in start_triage + complete_triage\` FAILS (leads with mechanism); \`fix: /api/triage 500s on Read this for me\` PASSES.
+        - Be ≤ 72 chars.
+        - Contain no internal jargon: \`polish\`, \`soak findings\`, \`Phase N\`, \`Tier B\`, raw file paths, function names, or mechanism verbs (\`qualify\`, \`rewrap\`, \`refactor\`, \`rename\`, \`extract\`) UNLESS those words describe what users experience.
+        Noun-lists are fine for multi-unit features (\`feat: invite link + member mgmt + audit feed\`). When the title fails readability, the bypass reason must explicitly engage the rule — generic 'title is fine' / 'reviewer wrong' FAILS unless the reason explains why this specific title meets the observable-change bar.
+    (c) **Body structure** — per /devshop/CLAUDE.md § Commit + PR Text Style, the PR body must lead with two H2 sections in this exact order:
+        1. \`## Product update\` as the first content after the H1 title. Carries either (i) both sub-sections \`### Headline (user-facing)\` AND \`### Detail (team-facing)\`, OR (ii) the collapsed form \`### Headline + Detail (combined)\` when the two would read word-for-word identically.
+        2. \`## Engineering details\` next. Opens with a one-sentence TL;DR followed by 3–7 bullets at the engineering grain.
+        For pure-infrastructure PRs (no user-visible change) the Headline body MAY read \`Infrastructure update — no user-visible change in this PR.\` — an honest acknowledgment, not fabricated marketing voice. FAIL when: \`## Product update\` is missing entirely; \`## Engineering details\` appears before \`## Product update\`; sub-sections are missing under \`## Product update\`; the body is a bare \`## Summary\` (legacy shape — renamed to \`## Engineering details\` 2026-05-17, and \`## Product update\` is the new lead). When body structure fails, the bypass reason must engage the missing/misordered section by name — generic 'body is fine' / 'reviewer wrong' FAILS.
+    PASS overall requires (a) AND (b) AND (c) ALL clean. A correct title doesn't excuse a missing Product update; an accurate description doesn't excuse a mechanism-leading title; etc.
 3. For dirtyPushReason: does the reason name WHICH files are intentionally dirty and WHY? PASS requires specificity: 'untracked *.log debug files from local testing, not project code' or 'stashed branch X changes to push unrelated branch Y — will resume after'. Forgotten WIP (files the developer doesn't recognize) should FAIL.
 4. For dismissalLog: the Reason is the body of a gate's '## Dismissals' section — the rationales given for NOT acting on specific findings. Judge each dismissal bullet individually. REJECT the whole bypass if ANY bullet exhibits:
     - Generic rationale: 'not critical', 'minor', 'can wait', 'won't fix for now' without specifics

@@ -115,7 +115,7 @@ setup_branch_with_commits() {
   mock_adversarial_review FAIL
   run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
   [ "$status" -eq 0 ]
-  refute_output --partial "description appears stale"
+  refute_output --partial "fails the text-hygiene gate"
 }
 
 @test "project pre-push: trivial prefix WITH source-file change DOES fire PR-desc review (PR G)" {
@@ -129,7 +129,7 @@ setup_branch_with_commits() {
   mock_adversarial_review FAIL
   run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
   [ "$status" -eq 1 ]
-  assert_output --partial "description appears stale"
+  assert_output --partial "fails the text-hygiene gate"
 }
 
 @test "project pre-push: trivial prefix WITH apps/*/src change ALSO fires PR-desc review (PR G)" {
@@ -142,7 +142,7 @@ setup_branch_with_commits() {
   mock_adversarial_review FAIL
   run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
   [ "$status" -eq 1 ]
-  assert_output --partial "description appears stale"
+  assert_output --partial "fails the text-hygiene gate"
 }
 
 @test "project pre-push: trivial-prefix + ONLY non-source files (e2e/, scripts/) still short-circuits" {
@@ -156,7 +156,7 @@ setup_branch_with_commits() {
   mock_adversarial_review FAIL
   run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
   [ "$status" -eq 0 ]
-  refute_output --partial "description appears stale"
+  refute_output --partial "fails the text-hygiene gate"
 }
 
 @test "project pre-push: non-trivial prefix (feat:) still fires PR-desc review (existing behavior)" {
@@ -168,7 +168,7 @@ setup_branch_with_commits() {
   mock_adversarial_review FAIL
   run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
   [ "$status" -eq 1 ]
-  assert_output --partial "description appears stale"
+  assert_output --partial "fails the text-hygiene gate"
 }
 
 # --- Devshop pre-push: short-circuits main, runs only dirty-tree ---
@@ -232,5 +232,5 @@ setup_branch_with_commits() {
   mock_adversarial_review PASS  # only fires for dirty-tree (clean here)
   run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
   [ "$status" -eq 0 ]
-  refute_output --partial "description appears stale"
+  refute_output --partial "fails the text-hygiene gate"
 }

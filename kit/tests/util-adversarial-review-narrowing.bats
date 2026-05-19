@@ -3,7 +3,7 @@
 # docs+tests migration — see kit/ROADMAP.md § PR-C § F).
 #
 # After PR-C, the case statement carries only bypass-reason check-types:
-#   prDescStaleReason, dirtyTreeReason, dirtyPushReason, manifestReviewed,
+#   prTextHygieneReason, dirtyTreeReason, dirtyPushReason, manifestReviewed,
 #   hookBypass, exemptAddition, dismissalLog
 # Coverage-judging check-types moved to audit-time `/ak-check-docs-and-tests`:
 #   docsReviewed, testCoverage, testCoverageProject, docsFreshnessProject
@@ -130,6 +130,32 @@ EOF
   assert_success
   [ -f "$CAPTURED_PROMPT" ]
   grep -q "Check type: dismissalLog" "$CAPTURED_PROMPT"
+}
+
+@test "surviving: prTextHygieneReason prompt carries all three dimensions (accuracy + title-readability + body-shape)" {
+  # Pins the three-dimensional rule. Title-readability + body-shape were folded
+  # into the check 2026-05-19 (kit/ROADMAP.md § Fold PR-title readability
+  # check), at which point the flag was renamed from `prDescStaleReason` to
+  # `prTextHygieneReason` to honestly reflect that the check covers accuracy
+  # (description sync), title readability, AND body shape (Product update +
+  # Engineering details). This test guards against accidental rule deletion.
+  cd "$TEST_REPO"
+  create_stub gh "" 0
+  git -C "$TEST_REPO" checkout -b feature/test-pr-text -q 2>/dev/null || true
+  run bash "$REVIEW" prTextHygieneReason "PR title + body genuinely match commits"
+  assert_success
+  [ -f "$CAPTURED_PROMPT" ]
+  grep -q "Check type: prTextHygieneReason" "$CAPTURED_PROMPT"
+  # (a) Description accuracy
+  grep -q "Description accuracy" "$CAPTURED_PROMPT"
+  # (b) Title readability
+  grep -q "Title readability" "$CAPTURED_PROMPT"
+  grep -q "observable change" "$CAPTURED_PROMPT"
+  grep -q "72 chars" "$CAPTURED_PROMPT"
+  # (c) Body structure
+  grep -q "Body structure" "$CAPTURED_PROMPT"
+  grep -q "## Product update" "$CAPTURED_PROMPT"
+  grep -q "## Engineering details" "$CAPTURED_PROMPT"
 }
 
 @test "surviving: testReviewSkipReason reaches claude (mocked PASS)" {

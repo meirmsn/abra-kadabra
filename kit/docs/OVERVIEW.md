@@ -173,11 +173,13 @@ git push
       │   ├─ refs/heads/main or refs/heads/master ── BLOCK, no bypass
       │   │                                          (deploy via PR-merge → CI → Vercel;
       │   │                                          remote enforces the same rule)
-      │   ├─ PR description staleness ────────────── vs commits on branch
-      │   │                                          (skipped only when every commit has a
+      │   ├─ PR text hygiene ────────────────────── accuracy + title readability + body shape
+      │   │                                          (vs commits, observable-change titles,
+      │   │                                          Product update + Engineering details).
+      │   │                                          Skipped only when every commit has a
       │   │                                          trivial prefix AND zero source-file
       │   │                                          changes (apps/*/src/, packages/*/src/);
-      │   │                                          bypass: devshop.prDescStaleReason)
+      │   │                                          bypass: devshop.prTextHygieneReason)
       │   └─ dirty tree / stash check ────────────── block if unclean
       │                                              (bypass: devshop.dirtyPushReason)
       └─ DEVSHOP mode (devshop repo):
