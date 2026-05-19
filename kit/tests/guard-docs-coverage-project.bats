@@ -38,42 +38,11 @@ run_script() {
 
 # --- new page/route requires CLAUDE.md update ---
 
-@test "BLOCK: new page.tsx without CLAUDE.md staged" {
-  stage_file apps/web/app/list/page.tsx "export default function P() {}"
-  run_script
-  assert_failure
-  assert_output --partial "BLOCKING: New surface added that requires CLAUDE.md"
-  assert_output --partial "apps/web/app/list/page.tsx"
-}
-
-@test "PASS: new page.tsx with CLAUDE.md also staged" {
-  stage_file apps/web/app/list/page.tsx "export default function P() {}"
-  echo "# CLAUDE.md\n## Where Things Happen\n- list at apps/web/app/list/page.tsx" > "$TEST_REPO/CLAUDE.md"
-  git -C "$TEST_REPO" add CLAUDE.md
-  run_script
-  assert_success
-}
-
-@test "BLOCK: new layout.tsx without CLAUDE.md staged" {
-  stage_file apps/web/app/auth/layout.tsx "export default function L() {}"
-  run_script
-  assert_failure
-  assert_output --partial "apps/web/app/auth/layout.tsx"
-}
-
-@test "BLOCK: new route.ts without CLAUDE.md staged" {
-  stage_file apps/web/app/api/health/route.ts "export function GET() {}"
-  run_script
-  assert_failure
-  assert_output --partial "apps/web/app/api/health/route.ts"
-}
-
-@test "BLOCK: new packages API wrapper without CLAUDE.md staged" {
-  stage_file packages/core/src/api/orders.ts "export const fetchOrders = async () => {}"
-  run_script
-  assert_failure
-  assert_output --partial "packages/core/src/api/orders.ts"
-}
+# Tests for the legacy CLAUDE.md-as-destination behavior were removed 2026-05-18
+# (CLAUDE.md architecture migration — per kit/docs/guide/claude-md.md). New
+# surfaces now demand the AREA README (apps/<x>/README.md, packages/<x>/README.md,
+# supabase/functions/README.md) instead of CLAUDE.md. Per-area README coverage
+# is tested below (search for "per-package README (opt-in by package)" section).
 
 @test "PASS: new packages API wrapper test file is NOT a trigger" {
   stage_file packages/core/src/api/orders.test.ts "test('x', () => {})"
@@ -116,17 +85,10 @@ export const handle = (e) => Sentry.captureException(e);"
 
 # --- stale reference on DELETE ---
 
-@test "BLOCK: source deleted but CLAUDE.md still references its path" {
-  stage_file apps/web/app/list/page.tsx "export default function P() {}"
-  echo "# CLAUDE.md\n- list at apps/web/app/list/page.tsx" > "$TEST_REPO/CLAUDE.md"
-  git -C "$TEST_REPO" add apps/web/app/list/page.tsx CLAUDE.md
-  git -C "$TEST_REPO" commit -q -m "add list"
-  git -C "$TEST_REPO" rm apps/web/app/list/page.tsx -q
-  # Don't update CLAUDE.md — should block on stale ref
-  run_script
-  assert_failure
-  assert_output --partial "Source paths deleted but still referenced"
-}
+# Stale-reference scan covered post-migration by the per-area-README tests below
+# (search for "stale reference now scans per-package READMEs"). CLAUDE.md is
+# still in the scan target list — pre-migration entries citing deleted source
+# paths still surface — but legacy CLAUDE.md-as-destination tests removed.
 
 @test "PASS: source deleted and CLAUDE.md ref also removed in same commit" {
   stage_file apps/web/app/list/page.tsx "export default function P() {}"
@@ -174,9 +136,12 @@ EOF
   assert_success
 }
 
-@test "no-op when modifying existing page.tsx (only ADD triggers CLAUDE.md requirement)" {
+@test "no-op when modifying existing page.tsx (only ADD triggers area README requirement)" {
+  mkdir -p "$TEST_REPO/apps/web"
+  echo "# apps/web" > "$TEST_REPO/apps/web/README.md"
+  git -C "$TEST_REPO" add apps/web/README.md
   stage_file apps/web/app/list/page.tsx "export default function P() {}"
-  git -C "$TEST_REPO" add apps/web/app/list/page.tsx
+  git -C "$TEST_REPO" add apps/web/README.md apps/web/app/list/page.tsx
   git -C "$TEST_REPO" commit -q -m "add page"
   echo 'export default function P() { return null; }' > "$TEST_REPO/apps/web/app/list/page.tsx"
   git -C "$TEST_REPO" add apps/web/app/list/page.tsx
@@ -187,6 +152,12 @@ EOF
 # --- multi-trigger ---
 
 @test "BLOCK lists all triggers when multiple surfaces added" {
+  # Seed area READMEs so the area-README triggers fire for both surfaces.
+  mkdir -p "$TEST_REPO/apps/web" "$TEST_REPO/packages/core"
+  echo "# apps/web" > "$TEST_REPO/apps/web/README.md"
+  echo "# packages/core" > "$TEST_REPO/packages/core/README.md"
+  git -C "$TEST_REPO" add apps/web/README.md packages/core/README.md
+  git -C "$TEST_REPO" commit -q -m "seed READMEs"
   stage_file apps/web/app/list/page.tsx "export default function P() {}"
   stage_file packages/core/src/api/orders.ts "export const fetchOrders = async () => {}"
   run_script
@@ -349,9 +320,9 @@ EOF
 
 # --- Layer 1 bypass: flag-presence (no LLM call) ---
 
-@test "bypass: flag presence accepts new page without CLAUDE.md (no LLM call)" {
-  stage_file apps/web/app/list/page.tsx "export default function P() {}"
-  git -C "$TEST_REPO" config devshop.docsCoverageReason "deferring CLAUDE.md§Where Things Happen update to end of feature"
+@test "bypass: flag presence accepts new posthog.capture without METRICS.md (no LLM call)" {
+  stage_file apps/web/lib/foo.ts "import { posthog } from '..'; posthog.capture('event', {});"
+  git -C "$TEST_REPO" config devshop.docsCoverageReason "deferring METRICS.md taxonomy entry to end of feature"
   run_script
   assert_success
   assert_output --partial "Docs-coverage block bypassed"
@@ -359,7 +330,7 @@ EOF
 }
 
 @test "bypass: empty flag value still blocks" {
-  stage_file apps/web/app/list/page.tsx "export default function P() {}"
+  stage_file apps/web/lib/foo.ts "import { posthog } from '..'; posthog.capture('event', {});"
   git -C "$TEST_REPO" config devshop.docsCoverageReason ""
   run_script
   assert_failure

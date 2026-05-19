@@ -329,6 +329,7 @@ These volumes are **not** on the host filesystem and are **lost on machine migra
 - **Never commit directly to main**: branch protection requires PRs. Always create a feature branch first, even for small fixes.
 - **Workflow push requires human**: the devcontainer PAT lacks `workflow` scope intentionally. If `git push` fails because a commit touches `.github/workflows/`, ask the human to push: `git -c credential.helper= push https://<github-user>@github.com/<owner>/<repo>.git <branch>` (GitHub will prompt for their PAT with workflow scope).
 - **PostgREST null-deref masks column typos**: a Playwright/integration test that crashes with `TypeError: Cannot read properties of null (reading '<field>')` after a recent `.select()` change is almost always a column-name typo (or a stale generated-types cast), not a missing-data bug. PostgREST returns `data: null` + populated `error` on a non-existent column; downstream code that destructures `data` swallows the diagnostic. Re-read the `.select()` call against the current schema before chasing null-handling. Convention: `kit/docs/guide/database-queries.md`. Inherited by every new project as a `template/CLAUDE.md § Gotchas` entry.
+- **Vercel env-var limit is 4096 bytes per variable** (per the Vercel dashboard's enforcement; not in their public docs in 2025-2026 but consistently reproducible). Matters for any operator-tunable env var that holds prose — system prompts, copy templates, base64-encoded config blobs. Common failing pattern: an operator-tunable prompt env (`TRIAGE_SYSTEM_PROMPT`, `FOO_PROMPT_OVERRIDE`) grows past 4096 bytes during iteration and the Vercel dashboard silently rejects the save (or truncates depending on the UI path), leading to a "the prompt env is set but the deploy uses the default" mystery. **Recipe**: pin a runtime cap below the Vercel cap. The `home-os` apps/web pattern is `PROMPT_MAX_CHARS = 3500` constant declared next to the resolver (`apps/web/app/api/triage/_lib/prompt.ts`), with a paired unit test asserting the default prompt + any test-supplied long prompt are both within the cap. 3500 chars leaves headroom for trailing whitespace / encoding overhead under the 4096-byte cap. Apply to every operator-tunable prompt env var; the test catches regressions before deploy. Inherited by every new project that adds a `_PROMPT` env var as a `template/CLAUDE.md § Gotchas` entry.
 
 ---
 
@@ -400,6 +401,20 @@ LATEST_HS=$(ls -d /home/node/.cache/ms-playwright/chromium_headless_shell-* | so
 **Upstream resolution** (tracked in `kit/TODOS.md`): the `browse` daemon should autodetect the highest-version dir under `~/.cache/ms-playwright/` instead of hard-coding a version. When that ships, drop the symlink workaround.
 
 **Root cause fix** (shipped 2026-04-23): the template Dockerfile now apt-installs `chromium + chromium-driver` and `template/.devcontainer/devcontainer.json` sets `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium` in `containerEnv`. Eliminates the Playwright-CDN firewall-stale-ipset problem entirely. **Note**: this fixes the _download_ layer but does not by itself fix the daemon's pinned-version path lookup — the symlink autoheal above is still required because the compiled `browse` binary expects `/home/node/.cache/ms-playwright/chromium-1208/chrome-linux/chrome` regardless of `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`. Until the daemon is updated to autodetect the highest-version dir (or honor the env var), pre-ship's symlink workaround creates `chromium-1208` pointing at the apt-installed binary's location.
+
+### Browse daemon binary drift (separate concern)
+
+When the workspace's bundled `browse` binary drifts from the current Bun runtime (e.g., after a Bun upgrade in the devcontainer base image), the daemon may fail to launch entirely — distinct from the Chromium symlink path issue above.
+
+**Fix**: `/devshop/kit/scripts/rebuild-browse.sh [TARGET_PROJECT_ROOT]` rebuilds `browse` + `find-browse` binaries and the Node server bundle from `/devshop/.claude/skills/gstack/browse/src/`, copies them into the project's `.claude/skills/gstack/browse/dist/`. Works around virtiofs by building in `/tmp`. As of 2026-04-27 the CLI also falls back to the bundled `server-node.mjs` (Node) when the source tree (`server.ts`, Bun) isn't shipped — so once the binaries are rebuilt against current source, the workspace install no longer needs the devshop source mounted at runtime. Run after a Bun upgrade or whenever `.claude/skills/gstack/browse/dist/.version` is older than `git -C /devshop/.claude/skills/gstack rev-parse HEAD`.
+
+### Playwright cache population (separate concern)
+
+When Playwright's launch path can't find a Chromium executable in `~/.cache/ms-playwright/` even with `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` set (e.g., on older project devcontainers without the post-2026-04-23 apt-baked Chromium fix):
+
+**Fix**: `/devshop/kit/scripts/populate-playwright-cache.sh [TARGET_PROJECT_ROOT]` discovers each `playwright-core/browsers.json` revision under the project + devshop and symlinks `~/.cache/ms-playwright/chromium-<rev>/chrome-linux/{chrome,headless_shell}` → `$PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` (defaults to `/usr/bin/chromium`). Idempotent. Avoids hitting Playwright's CDN, which is intentionally firewall-blocked.
+
+New scaffolds (post-2026-04-23) inherit the apt-baked Chromium and the structural CLI fix; older projects need both scripts run once after a `from-devshop.sh` sync. Strategic fix history (verifiable preflight check in `/ak-pre-ship`, env-var fallback in `browse/src/cli.ts`, migration recipe) is recorded in `BUILD-LOG.md` and the relevant skill / convention docs at HEAD.
 
 ---
 

@@ -501,6 +501,44 @@ The convention is **discoverable** at the workflow level (`workflow.md § Phase 
 
 ---
 
+## Verify state before public assertion
+
+Any `gh pr comment`, commit body, status update, audit log, or other public artifact that asserts external state (CI green, preview reachable, deploy succeeded, canary passed) MUST verify the assertion **at the moment of writing** against its **canonical source**, not a proxy.
+
+**Canonical vs proxy**:
+
+- `gh run view --json conclusion` is canonical for CI status.
+- "The prior run was green so this one must be too" is an assumption — not canonical.
+- The deploy platform's bot status comment is canonical for preview reachability.
+- `curl -sfI <preview-url>` from a locked-down devcontainer is a proxy that breaks on firewall / CDN rotation — not canonical.
+
+**Watch-every-push rule**: every subsequent push on the branch (polish-loop fixes, audit-fix commits, follow-up pushes) must be re-watched and confirmed `success` at HEAD before any public artifact asserts CI-green. A green claim against a stale SHA is the same shape as a fabrication.
+
+**Worked incident**: lalista PR 18 (2026-04-25). Audit + ready-for-review comments posted against an earlier green CI run while the latest run (for the bookkeeping commit) was still `in_progress` and ultimately failed → public retraction comment. Codified into `/ak-build` Phase 5.3's "watch-every-push" preamble + Phase 5.8.1's polish-loop CI sanity check + Phase 6 Part B's evidence-sweep posture (read the platform bot's status comment instead of curl-ing the preview URL).
+
+**The general rule**: applies beyond `/ak-build`. Any session producing a public artifact (skill output, PR comment, BUILD-LOG entry) about external state must verify against canonical signal at write-time.
+
+---
+
+## Closing TODO / ROADMAP entries when a fix ships
+
+The same PR that ships a fix MUST close the tracker entries for it. Otherwise, stale entries get cited as "still pending" in future sessions and recreate the false belief that the fix removed — wasting investigation time.
+
+Three things, all in one PR:
+
+1. **Delete the entry** from `kit/ROADMAP.md` / `kit/TODOS.md` / project `TODOS.md`. No "shipped 2026-04-25" footnote, no strikethrough — just delete. Git log + the PR description are the audit trail.
+2. **Rewrite docs that described the prior constraint** from conditional prose to imperative present tense:
+   - Anti-pattern: _"Without X, Y fails. See ROADMAP § Z."_ — reads as a precondition the reader must verify.
+   - Replacement: _"Do Y."_ / _"Y works."_ — the capability is ambient now, treat it that way.
+   - The "must be true / verify before assuming blocked" hedge is a pre-fix artifact; strip it.
+3. **Unwind every cross-reference** to the deleted entry in the same PR. An orphan citation in some other doc respawns the false belief in any session that reads it.
+
+Future sessions trust the docs. Trust is only earned by keeping them honest at fix-ship time.
+
+**Worked incident**: 2026-04-26 — a `Without this, gh run download fails` line in `/ak-build` SKILL.md survived a month past the firewall fix shipping; a session read it as "still blocked" and skipped artifact-pull on a CI failure that had artifacts waiting.
+
+---
+
 ## Non-Negotiables
 
 ### Testing

@@ -219,6 +219,48 @@ The CI schema-type-drift gate is **not** a forcing function here — it can pass
 
 PL/pgSQL is lazy-compiled. Functions that reference the enum by literal value (`'<existing-1>'::public.<enum>` in a function body) re-bind at first call after the recreate — they work without redefinition. Functions that reference the enum by name as a parameter type (`function_name(p public.<enum>)`) MAY need redefinition; check by listing dependent functions via `pg_depend` before running the recreate in a prod-shaped DB.
 
+**Return-table refs ALSO block the drop.** Functions declared as `returns table (... public.<enum>)` hold a hard dependency on the type. The `drop type public.<enum>_old` at the end of the rename-recreate dance fails with `cannot drop type public.<enum>_old because other objects depend on it` when any function has the enum in its return-table signature — independent of whether the function is ever called.
+
+The recipe when this comes up: drop the dependent functions at the TOP of the migration (before the `alter type ... rename`), then recreate them at the BOTTOM against the new (wider) enum. The pre-006a rename-recreate recipe assumes no function dependencies; this extension covers the case where one or more SECURITY DEFINER RPCs declare `returns table (... public.<enum>)`. Audit pattern when extending a recipe-relevant enum: grep `returns table (.*public\.<enum>` against `supabase/migrations/`; drop+recreate every match.
+
+Home-os PR `decide-state` (migration 011) hit this: three SECURITY DEFINER RPCs (`start_triage`, `complete_triage`, `confirm_triage`) declared `returns table (card_id uuid, state public.card_state)`. The drop failed; the migration was restructured with the function-dependency dance at top and bottom. See `supabase/migrations/20260517031335_011_decide_state.sql` for the canonical shape.
+
+## plpgsql OUT-parameter column collisions
+
+PostgreSQL's default `#variable_conflict` mode is `error`, so any bare reference to an OUT-parameter name (in `WHERE`, `RETURNING`, etc.) inside a function whose body also touches a table column with the same name fails with `42702: column reference "<name>" is ambiguous`.
+
+The trap is structural to `SECURITY DEFINER` functions declared `returns table (...)` where one of the OUT names collides with a column the function body queries. Demonstrated in home-os migration 007: `start_triage` + `complete_triage` declared `returns table (card_id uuid, state public.card_state)` and used `where cards.id = ... and state = '<value>'` — the bare `state` was ambiguous with `cards.state`, and every "Read this for me" click 500'd in prod.
+
+The local Supabase stack appears to resolve the ambiguity differently than Supabase Cloud (likely an older plpgsql or a non-default `#variable_conflict` setting), so the slow-job green claim hid the bug. Migration 009 (`triage_rpc_column_ambiguity`) fixed it by qualifying every WHERE / RETURNING reference with the table name: `cards.state`, not `state`.
+
+**Fix pattern**: qualify the column reference with the table name in WHERE / RETURNING when the OUT-parameter name overlaps with a column the function body queries.
+
+**Audit pattern when adding a `SECURITY DEFINER` RPC with a `returns table (...)` shape**: grep the function body for unqualified references to any OUT-parameter name; if any are present, qualify them with the table name. The cost is one extra qualifier per reference; the avoided cost is a prod-only 500 that local + slow-job both pass.
+
+## Supabase Cloud GRANT posture
+
+Supabase Cloud projects scaffolded by `/ak-new-project` do NOT ship the standard `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated` block — so any new public-schema table is invisible to the `authenticated` role until a migration GRANTs it explicitly. Local Supabase + Vercel preview both hit a local stack (which DOES ship the defaults via `supabase init`), so E2E + previews pass; prod 42501s on the first direct PostgREST SELECT.
+
+Every write surface that goes through a SECURITY DEFINER RPC keeps working because the function owner has the privilege, so the symptom hides until the FIRST direct table SELECT under the `authenticated` role. The lalista-style scaffolding hits this exactly once per project (it's a one-time fix), but the failure mode is hard to diagnose because the slow-job and preview deploys are green.
+
+**Project recipe** (home-os migration 008 is the canonical instance): apply the standard block project-wide AND explicit GRANTs on any existing tables:
+
+```sql
+-- Supabase Cloud doesn't ship default privileges. Apply project-wide.
+alter default privileges in schema public grant all on tables to anon, authenticated;
+alter default privileges in schema public grant all on sequences to anon, authenticated;
+alter default privileges in schema public grant all on functions to anon, authenticated;
+
+-- For tables that already exist (default privileges only affect FUTURE tables).
+grant all on table public.<table_1>, public.<table_2>, ... to anon, authenticated;
+```
+
+After this migration lands, new tables added in subsequent migrations inherit the privileges automatically. **Column-level grants inherit from the table**, so a future `ADD COLUMN` migration does NOT need to re-GRANT — `authenticated`'s SELECT on the new column comes from the table-level GRANT.
+
+But new TABLES still need either the default-privileges block being in effect at apply time (it is, once 008-equivalent lands) OR an explicit per-table GRANT. The audit pattern is `select grantee, privilege_type from information_schema.role_table_grants where table_schema = 'public'` against prod after every new-table migration.
+
+**When to skip this section**: if `/ak-new-project` adopts the GRANT posture by default (under discussion as of 2026-05-18), new projects scaffolded after that change won't need a per-project 008-equivalent. Existing projects retroactively need it once.
+
 ### Why not just edit the original `create type` migration?
 
 If the project is pre-launch and the original `create type` migration hasn't been deployed to any environment that retains state (no prod, no preview branches with persistent DBs), editing the original migration to include the new value is simpler — there's no need for a recreate dance. The DROP+CREATE pattern is for the common case where the original migration has already been applied somewhere and can't be retroactively changed.

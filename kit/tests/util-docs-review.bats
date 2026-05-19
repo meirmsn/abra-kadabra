@@ -106,8 +106,8 @@ setup() {
   grep -q '\[domain: docs\]' "$SKILL_FILE"
 }
 
-@test "output format includes [section: A|B|C|D] tag" {
-  grep -qE '\[section: A\|B\|C\|D\]' "$SKILL_FILE"
+@test "output format includes [section: A|B|C|D|E] tag" {
+  grep -qE '\[section: A\|B\|C\|D\|E\]' "$SKILL_FILE"
 }
 
 @test "output format includes [severity: high|medium|low] tag" {

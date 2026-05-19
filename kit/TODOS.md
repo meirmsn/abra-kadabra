@@ -7,6 +7,47 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
 <!-- Items discovered during use. Tag with [v0.2], [v1] etc. to schedule into ROADMAP versions. -->
 
+- [ ] **Apply CLAUDE.md architecture migration to lalista.** Codified 2026-05-19 after the home-os migration shipped (8 commits across `feature/claude-md-architecture` in `/workspace` and `/devshop`; final state in `kit/notes/claude-md-migration.md`). Lalista's CLAUDE.md was not touched by the home-os migration; it remains pre-migration shape and will benefit from the same trim. Run from inside lalista's workspace container, on a fresh `feature/claude-md-architecture` branch.
+
+  **Pre-reading** (do these in order, all in `/devshop/kit/`):
+  1. `kit/docs/guide/claude-md.md` — the convention doc that defines the inclusion rule, 3-class taxonomy, bypass mechanism, and `§ Migration recipe for an existing project` (8 numbered steps).
+  2. `kit/notes/claude-md-migration.md` — the home-os migration record. Read § Design principles + § Wave plan + § Decisions that shaped the migration. The mid-wave architecture pivots (mechanical gates dropped Wave 4; symmetric devshop trim Wave 5) carry decision-context lalista's migration may need.
+  3. `kit/notes/home-os-claude-md-classification.md` — fullest worked example. 28 gotchas + every non-Gotcha section classified.
+  4. `kit/notes/lalista-claude-md-classification.md` — earlier classification work on lalista's gotchas. **Useful as a starting point but pre-dates this migration's refinements**: some entries may now be covered by guides that didn't exist then (`llm-trust-boundaries.md`, `date-handling.md`, `conventions.md § Verify state before public assertion`, `conventions.md § Closing TODO / ROADMAP entries when a fix ships`, `security.md § Authoring locked files`, `ops.md § Browse daemon binary drift` + `§ Playwright cache population`).
+  5. `kit/notes/migration-info-loss-audit.md` — the audit format. Reproduce a similar audit for lalista at the end of the migration.
+
+  **Wave plan** (mirrors home-os's; estimated ~3-5 hours of focused work, possibly faster since lalista has a classification baseline):
+  1. **Wave 1 — Foundation docs.** Re-classify lalista's CLAUDE.md against current state (refresh `kit/notes/lalista-claude-md-classification.md`). Verify each "Lift to <guide>" target — for any entry now covered by a new guide (per item 4 above), update target. Create `/workspace/DEPLOY.md`, `/workspace/KNOWN-ISSUES.md` if not present. Lift operator TODOs to `/workspace/TODOS.md`.
+
+  2. **Wave 2 — Area READMEs + guide extensions.** Populate `apps/web/README.md`, `supabase/README.md`, `packages/*/README.md`, `supabase/functions/README.md` (as applicable) by fanning out from CLAUDE.md § Where Things Happen entries. For any "Generalizable — lift" entries whose canonical recipe isn't already in a devshop guide, extend the relevant guide BEFORE proceeding. Lalista likely has different gotchas than home-os; some may require new sections in existing guides or even new guide files.
+
+  3. **Wave 3 — Trim lalista CLAUDE.md.** Apply the classification. Move file-specific gotchas as code comments at their call sites (some may already be there from prior PRs; verify with grep). Measure final size.
+
+  4. **Wave 4 — n/a for project migration.** The enforcement layer (Layer A router via routing index → `claude-md.md` guide + Layer C audit via `/ak-docs-review § Section E`) is already devshop-wide; lalista inherits it automatically. No per-project toolchain change needed.
+
+  5. **Wave 5 — n/a for project migration.** The hook fix + devshop CLAUDE.md trim shipped with home-os's migration. Lalista benefits without additional work — the SessionStart hook delivers slim devshop CLAUDE.md (~22k) to lalista's project sessions identically.
+
+  6. **Final — Info-loss audit.** Produce `kit/notes/lalista-migration-info-loss-audit.md` mirroring the home-os audit format. Grep distinctive phrases at every lift target + every area README + every code-comment relocation + every operational-content move. Confirm no content lost.
+
+  **Why the home-os ordering doesn't quite map for lalista**:
+  - Home-os shipped Waves 1-5 because Wave 4 (enforcement) and Wave 5 (hook fix + devshop trim) had to land devshop-wide. Lalista is downstream of those — they're already in effect for every project including lalista.
+  - Lalista's "Wave 5 equivalent" is just running the migration on its own CLAUDE.md, with the toolchain + devshop CLAUDE.md already in their post-migration shape.
+
+  **Lalista-specific considerations**:
+  - Lalista is a Supabase + Next.js + lists-app stack. Some gotchas in lalista CLAUDE.md may be highly lalista-specific (specific RPC names, household-membership invariants, etc.) — those are "Project-specific stay" by default.
+  - Lalista already has well-developed wrapper-boundaries patterns (`packages/core/src/api/*`) — the codified pattern lives in `kit/docs/guide/wrapper-boundaries.md`. Verify lalista's wrapper-related gotchas point at the canonical home rather than restating.
+  - Lalista's "single-household v0 invariant" + "Realtime channel keeps delivering to removed members" are project-specific stay-class entries per the original classification — leave verbatim.
+  - The lalista classification has synthetic `S*` rows (S1: middleware allow-list bypass, S2: removed-member realtime leak, S3: DB constraint as loud backstop). Verify these have lifted to devshop guides — per the original doc they had targets like `supabase-ssr-boilerplate.md § Pattern 8`, `wrapper-boundaries.md § Removed-member realtime leak`, `migrations.md § DB constraint as loud structural backstop`. Grep to confirm.
+
+  **Bypass mechanism (informational, not gate-bypassing)**:
+  - `kit/scripts/justify-claude-md.sh "<reason>"` produces the inline marker + commit trailer when adding a CLAUDE.md entry whose home is unclear or that the reviewer might challenge. Useful for any "Project-specific stay" entry whose rationale future audits should re-examine.
+
+  **Done when**:
+  - Lalista CLAUDE.md is under ~10k chars (post-trim), with the inclusion rule applied per entry.
+  - Lalista's `apps/*/`, `supabase/`, `packages/*/` have area READMEs absorbing the Where Things Happen fan-out.
+  - The info-loss audit confirms every original entry has a documented destination.
+  - `/ak-docs-review § Section E` on the migration PR produces a clean audit (or only LOW severity findings).
+
 - [ ] **Codify regression coverage for `/ak-build` Phase 3→4 LLM-mediated-`n/a` awk halt grep.** Surfaced 2026-05-17 by `/ak-merge-devshop` Phase 1 audit on `fix/pre-ship-llm-gate-contract`. The third halt rung (`.claude/skills/devshop/build/SKILL.md:478-487`) is an inlined `awk` script that the orchestrator agent runs against `review.md` to catch forbidden `n/a` outcomes on Gates 6/7/8/9. The mid-branch commit `3ed6e8b` fixed a mawk-portability bug (`\b` is GNU-awk-only; mawk silently treats it as empty) — verified by manual smoke test against a fixture, but the smoke test was not codified. A future "simplify" or rename edit to the prose can silently re-introduce the gap and the failure only surfaces when `/ak-build` next runs against a real `n/a` violation. **Fix** (cheapest): add `kit/tests/util-ak-build-llm-mediated-na-grep.bats` exercising the inlined awk against fixture `review.md` files — plain `n/a` on Gate 8 (should print gate line, regression target for the mawk `\b` bug), `blocked (n/a per scope: ...)` (should print nothing, scope-exempt shape), non-LLM-mediated gate `n/a` (should print nothing, carve-out preserved). Run with `mawk` explicitly. Higher-scope alternative: extract the awk to `kit/scripts/preship/check-llm-mediated-na.sh` and bats-test the script directly — also makes the mechanism a first-class testable surface instead of orchestrator-prompt prose. Parallel coverage exists for the related adversarial-review.sh fast-path (`kit/tests/util-adversarial-review-blocked-dismissal.bats`); this gap closes the symmetric one.
 
 - [ ] **Migrate lalista's local Supabase stack off `project_id = "workspace"`.** Surfaced 2026-05-13 while inspecting `docker ps` for home-os: lalista's stack containers are named `supabase_*_workspace` rather than `supabase_*_lalista`, because `supabase init` defaults `project_id` to the basename of `$PWD` — which is `/workspace` inside the container. Lalista's `supabase/config.toml` was never substituted at scaffold time (the bug `/ak-new-project § Step 15` fix in this same commit closes for future projects). Symptom is mostly cosmetic (Docker Desktop UI groups the lalista stack under "workspace" — misleading when multiple projects run on the same host) but **becomes a real container-name collision the moment a second project is also stuck on `project_id = "workspace"`** (only one such project can run a local stack at a time). Home-os was scaffolded correctly with `project_id = "home-os"` only because the operator noticed and edited it manually — the template still ships the bug pre-Step-15-fix.

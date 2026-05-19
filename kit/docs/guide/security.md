@@ -142,6 +142,40 @@ Concrete shape:
 
 Operator setup is a checklist: create both GH Secrets; mint a separate prod-only key from the vendor's console; set the QA value in `.devcontainer/.env`; create the gitignored bridge file. First deploy after the prod secret exists auto-pushes it to the runtime.
 
+## Authoring locked files (denied-path recipe)
+
+Some paths are intentionally write-denied for Claude's Write/Edit/Bash tools — `.devcontainer/`, `/devshop/template/**`, root-owned `.claude/settings.json` + `.dcg.toml` (locked by `init-devshop.sh`), anything under `/etc/` or `/usr/local/bin/`. The denials are deliberate — these surfaces shouldn't be silently rewritten by a session.
+
+When Claude needs to author or update a denied path, the recipe is:
+
+1. **Write the new content to `/tmp/<flat-filename>`.** Flat — no `.devcontainer/` segments in the staging tree. The harness has intent-aware enforcement that recognizes path-staging like `/tmp/.devcontainer/...` as an attempt to bypass the deny. Use flat names: `/tmp/devcontainer.json`, NOT `/tmp/.devcontainer/devcontainer.json`. `Write` is always allowed on bare `/tmp/<file>`.
+
+2. **Hand the operator a single sudo block to paste once.** Use `install -m <mode> -o <owner> -g <group>` for root-owned destinations (mode + owner + group set atomically in one call; safer than `cp` + `chmod` + `chown`):
+
+   ```bash
+   sudo install -m 0644 -o root -g root /tmp/devcontainer.json /workspace/.devcontainer/devcontainer.json
+   sudo install -m 0644 -o root -g root /tmp/devshop-port-flat/compose.yml /devshop/template/.devcontainer/compose.yml
+   sudo install -m 0755 -o root -g root /tmp/devshop-port-flat/init-host-env.sh /devshop/template/.devcontainer/init-host-env.sh
+   ```
+
+3. **For multi-file changes, group every `install` call into ONE fenced block** so the operator pastes once. The operator can `diff /tmp/X /workspace/X` first to audit before installing.
+
+### Why `-o root -g root` is required
+
+`install` does NOT change ownership unless told to; without those flags the destination inherits the staging file's owner (which is `node`, since `/tmp/<file>` was created by Claude's Write tool), silently breaking root-ownership invariants on `.claude/settings.json`, `.dcg.toml`, and every commit-hook under `kit/scripts/commit-hooks/`.
+
+The drift is invisible at install time (the file is in place, the diff is correct) and only surfaces later when the freshness check reads `chown root:root` on a now-node-owned file. Codified 2026-05-12 after a freshness-check install silently dropped to node:node.
+
+### Trigger phrases the harness emits
+
+- `"Permission for this action has been denied"`
+- `"Permission to use Bash with command ... has been denied"`
+- `"File is in a directory that is denied by your permission settings"`
+
+Even `mkdir` / `cat > file` / `tee` via Bash is denied when the target sits under one of these path patterns. **Do NOT loop trying alternative tools** when Write returns "directory denied" or Bash returns "Permission to use Bash with command" — switch to the `/tmp + sudo install` handoff immediately.
+
+Codified 2026-04-27 after the lalista devcontainer migration repeatedly hit `.devcontainer/` denials; expanded 2026-04-28 to call out `/devshop/template/**` + Bash-also-denied + intent-aware path-staging detection.
+
 ## Known Gaps
 
 - **Fakeowner caveat** — Docker Desktop bind mounts from macOS use `fakeowner`, where `chown`/`chmod` are cosmetic (displayed but not enforced by the kernel). Root ownership only provides real protection on native Linux or Docker named volumes. See ROADMAP.md § v+ for hardening options.

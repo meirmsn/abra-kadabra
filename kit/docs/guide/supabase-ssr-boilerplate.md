@@ -725,6 +725,66 @@ Vercel (and most managed hosts) terminate TLS upstream and forward requests with
 
 ---
 
+## Pattern 11: App Router layout-vs-page render race — defense-in-depth auth re-check
+
+In Next.js App Router, the layout and the page's server-component data fetches run **in parallel** when both are server components. If both can throw, the **first throw wins** — and the order isn't deterministic across cold/warm caches or fresh-after-POST navigations.
+
+This bites authenticated routes that rely SOLELY on the layout for auth gating:
+
+```
+app/(app)/layout.tsx         — calls supabase.auth.getUser(); redirect('/login') if null
+app/(app)/cards/[id]/page.tsx — calls supabase.from('cards').select() under RLS
+```
+
+The page's RLS-scoped query can run concurrently with the layout's `getUser()` and throw `notFound()` (because the unauthenticated client sees zero rows under RLS) **before** the layout throws `redirect('/login')`. Result: a fresh-after-POST navigation that should bounce to `/login` instead produces a confusing 404. The user sees "not found" for content they could view if signed in, with no clear path forward.
+
+### The fix — re-check auth in the page
+
+Re-call `getUser()` at the top of the page and `redirect()` early before any RLS-scoped query:
+
+```tsx
+// app/(app)/cards/[id]/page.tsx
+export default async function CardDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params; // Next 16 requires await for params
+  const supabase = await createSupabaseServerClient();
+
+  // Defense in depth: layout redirects too, but the page can throw notFound() before
+  // the layout's redirect fires (server components run in parallel; first throw wins).
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect(`/login?next=/cards/${id}`);
+
+  // Now safe to do RLS-scoped queries — getUser() check ran first in this frame.
+  const { data: card, error } = await supabase
+    .from('cards')
+    .select('...')
+    .eq('id', id)
+    .single();
+  // ...
+}
+```
+
+The duplicate `getUser()` call adds ~5-15ms of latency (cookie-only check, no network round-trip when the JWT is fresh) and saves the bad-UX 404. Apply to any authenticated page that runs an RLS-scoped query — relying solely on the layout's redirect is racy.
+
+### Why not move the auth check to middleware
+
+Middleware doesn't have access to React Server Component data-fetch context — it can intercept the request and redirect based on cookies, but it can't see what the page's `select()` is about to query. Middleware redirects work for the static case (unauthenticated → `/login`) — that defense IS in place at `apps/web/middleware.ts`. The race is specifically for the moment AFTER the middleware passes (because cookies say "authenticated") but BEFORE the layout's defense-in-depth `getUser()` resolves.
+
+### Where this surfaces
+
+- Fresh-after-POST navigations where the action invalidates the auth cookie (sign-out from the (app) header, account deletion) — common path.
+- Stale session in a long-lived tab where the cookie has expired but `middleware.ts`'s `try/catch` falls through as "anonymous" (intentional — see `apps/web/middleware.ts`); the page then needs its own gate.
+- Any RLS-scoped read inside an authenticated route that doesn't have its own `getUser()` check at the top.
+
+Home-os PR `triage-route-handler` (2026-05-15) hit this exactly — `/cards/[id]` produced a 404 instead of `/login` for invitees on first-cold-load. Fixed at `apps/web/app/(app)/cards/[id]/page.tsx` by adding the `getUser()` + early redirect.
+
+---
+
 ## Cross-references
 
 - `/ak-new-project § Step 12 (Scaffold apps/web)` — the entry point that should apply Patterns 1, 2, 3 at scaffold time

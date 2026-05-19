@@ -1,10 +1,14 @@
 #!/bin/bash
 # What: Pre-commit check (project repos) — flags code changes that touch documented surfaces
 #       without a paired doc update.
-# Why: CLAUDE.md § Where Things Happen, METRICS.md, and per-package READMEs decay silently as
-#      routes, API wrappers, and analytics events land. Layer 1 catches the obvious gaps at
-#      commit time so audit-time `/ak-docs-review` can focus on substance, not paperwork.
+# Why: Area READMEs (apps/<x>/, packages/<x>/, supabase/functions/), METRICS.md, OVERVIEW.md
+#      and ARCHITECTURE.md decay silently as routes, API wrappers, and analytics events land.
+#      Layer 1 catches the obvious gaps at commit time so audit-time `/ak-docs-review` can
+#      focus on substance, not paperwork.
 # Does NOT: Verify doc quality (the audit-time reviewer does). Does NOT block changelog/version bumps.
+# Does NOT: Demand CLAUDE.md updates for new surfaces (post-2026-05-18 architecture migration —
+#      CLAUDE.md is reserved for silent-failure traps + project framing per
+#      `kit/docs/guide/claude-md.md § The inclusion rule`; surface inventory lives in area READMEs).
 #
 # Layer 1 only. Per-commit Sonnet judgment was removed alongside the audit-time
 # migration (see kit/ROADMAP.md § PR-C). Bypass via
@@ -14,19 +18,20 @@
 # and harvested at audit time by `/ak-docs-review`.
 #
 # Trigger map (staged path → required doc update):
-#   apps/*/app/**/page.tsx, layout.tsx, route.ts            → CLAUDE.md (must be staged)
-#   apps/*/middleware.ts                                    → CLAUDE.md
-#   packages/*/src/api/*.ts (NEW)                           → CLAUDE.md
-#   any new posthog.capture(...) / Sentry.captureException  → METRICS.md
 #   apps/<x>/app/**/page.tsx (NEW user-visible page/flow)   → OVERVIEW.md (if exists)
 #                                                            → ARCHITECTURE.md (if exists)
-#   apps/<x>/** (NEW)                                       → apps/<x>/README.md (if exists)
-#   packages/<x>/src/** (NEW, non-test)                     → packages/<x>/README.md (if exists)
-#   supabase/functions/** (NEW, non-test)                   → supabase/functions/README.md (if exists)
+#   apps/<x>/** (NEW non-test under app/src/lib/hooks/etc)  → apps/<x>/README.md (NOW required —
+#                                                              opt-in semantics: only when the README
+#                                                              exists at HEAD)
+#   packages/<x>/src/** (NEW, non-test)                     → packages/<x>/README.md (NOW required —
+#                                                              opt-in)
+#   supabase/functions/** (NEW, non-test)                   → supabase/functions/README.md (opt-in)
+#   any new posthog.capture(...) / Sentry.captureException  → METRICS.md
 #   removed source — doc must NOT still reference its name  → BLOCK
 #
-# Opt-in semantics: per-package and OVERVIEW/ARCHITECTURE triggers fire ONLY when the target
-# doc file exists at HEAD. Projects opt in by creating the file from the template skeleton.
+# Opt-in semantics: area-README and OVERVIEW/ARCHITECTURE triggers fire ONLY when the target
+# doc file exists at HEAD. Projects opt in by creating the file from the template skeleton or
+# during the CLAUDE.md architecture migration (`kit/docs/guide/claude-md.md § Migration recipe`).
 #
 # Per-project override: .devshop-docs-freshness-exempt at repo root (one path per line).
 
@@ -39,7 +44,6 @@ GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
 if [ -d "$GIT_ROOT/kit" ] && [ ! -L "$GIT_ROOT/kit" ]; then exit 0; fi
 [ "$GIT_ROOT" = "/devshop" ] && exit 0
 
-CLAUDE_MD="$GIT_ROOT/CLAUDE.md"
 METRICS_MD="$GIT_ROOT/METRICS.md"
 OVERVIEW_MD="$GIT_ROOT/OVERVIEW.md"
 ARCHITECTURE_MD="$GIT_ROOT/ARCHITECTURE.md"
@@ -64,11 +68,9 @@ ADDED=$(git diff --cached --name-only --diff-filter=A 2>/dev/null || true)
 DELETED=$(git diff --cached --name-only --diff-filter=D 2>/dev/null || true)
 [ -z "$STAGED" ] && exit 0
 
-CLAUDE_STAGED=false
 METRICS_STAGED=false
 OVERVIEW_STAGED=false
 ARCHITECTURE_STAGED=false
-echo "$STAGED" | grep -Fxq "CLAUDE.md" && CLAUDE_STAGED=true || true
 echo "$STAGED" | grep -Fxq "METRICS.md" && METRICS_STAGED=true || true
 echo "$STAGED" | grep -Fxq "OVERVIEW.md" && OVERVIEW_STAGED=true || true
 echo "$STAGED" | grep -Fxq "ARCHITECTURE.md" && ARCHITECTURE_STAGED=true || true
@@ -78,34 +80,18 @@ is_per_package_readme_staged() {
   echo "$STAGED" | grep -Fxq "$1"
 }
 
-# Triggers requiring CLAUDE.md update — applied to ADDED files only.
-# Also collects per-package README requirements (opt-in: only when the README
-# exists at HEAD-equivalent) and root-level OVERVIEW/ARCHITECTURE requirements
-# for user-visible additions.
-NEEDS_CLAUDE=""
+# Collects per-area README requirements (opt-in: only when the README exists at
+# HEAD-equivalent) and root-level OVERVIEW/ARCHITECTURE requirements for
+# user-visible additions. CLAUDE.md is intentionally NOT a destination here
+# (post-2026-05-18 architecture migration) — surface inventory lives in area
+# READMEs; CLAUDE.md is reserved for silent-failure traps + project framing per
+# kit/docs/guide/claude-md.md.
 NEEDS_OVERVIEW=""           # set when a new user-visible page/flow lands AND OVERVIEW.md exists
 NEEDS_ARCHITECTURE=""       # set when module-map-affecting structural change lands AND ARCHITECTURE.md exists
 declare -A NEEDS_PACKAGE_README   # key: README path; value: accumulated reasons
 while IFS= read -r f; do
   [ -z "$f" ] && continue
   is_override "$f" && continue
-
-  # CLAUDE.md (existing rules).
-  case "$f" in
-    apps/*/app/*page.tsx|apps/*/app/*layout.tsx|apps/*/app/*route.ts|apps/*/app/*middleware.ts)
-      NEEDS_CLAUDE+="    $f (new page/layout/route)"$'\n'
-      ;;
-    apps/*/middleware.ts)
-      NEEDS_CLAUDE+="    $f (new middleware)"$'\n'
-      ;;
-    packages/*/src/api/*.ts)
-      # Skip test files
-      case "$f" in *.test.ts|*.integration.test.ts) ;; *)
-        NEEDS_CLAUDE+="    $f (new API wrapper)"$'\n'
-      ;;
-      esac
-      ;;
-  esac
 
   # OVERVIEW.md (product-level): new user-visible page or layout, opt-in.
   if doc_exists "$OVERVIEW_MD"; then
@@ -177,11 +163,13 @@ fi
 # Stale-reference check on DELETE: if a source path is removed, no project-level
 # orientation doc may still mention its full path.
 STALE_REFS=""
-# Build the list of doc files to scan: always-present (CLAUDE, METRICS) + opt-in
-# (OVERVIEW, ARCHITECTURE) + every existing per-package README discovered at HEAD
-# under apps/<x>/, packages/<x>/, and supabase/functions/.
+# Build the list of doc files to scan: CLAUDE.md (still scanned for stale refs
+# even though it's no longer a coverage destination — pre-migration entries may
+# still cite source paths) + always-present (METRICS) + opt-in (OVERVIEW,
+# ARCHITECTURE) + every existing per-package README discovered at HEAD under
+# apps/<x>/, packages/<x>/, and supabase/functions/.
 STALE_TARGETS=()
-[ -f "$CLAUDE_MD" ] && STALE_TARGETS+=("$CLAUDE_MD")
+[ -f "$GIT_ROOT/CLAUDE.md" ] && STALE_TARGETS+=("$GIT_ROOT/CLAUDE.md")
 [ -f "$METRICS_MD" ] && STALE_TARGETS+=("$METRICS_MD")
 [ -f "$OVERVIEW_MD" ] && STALE_TARGETS+=("$OVERVIEW_MD")
 [ -f "$ARCHITECTURE_MD" ] && STALE_TARGETS+=("$ARCHITECTURE_MD")
@@ -204,14 +192,6 @@ done <<< "$DELETED"
 
 FAILED=false
 BLOCK_MSG=""
-
-if [ -n "$NEEDS_CLAUDE" ] && [ "$CLAUDE_STAGED" = false ]; then
-  BLOCK_MSG+="
-✖ BLOCKING: New surface added that requires CLAUDE.md § Where Things Happen update:
-${NEEDS_CLAUDE}  CLAUDE.md is NOT staged in this commit. Add a Where-Things-Happen entry
-  pointing at the new path, or add the path to .devshop-docs-freshness-exempt."
-  FAILED=true
-fi
 
 if [ -n "$NEEDS_METRICS" ] && [ "$METRICS_STAGED" = false ]; then
   BLOCK_MSG+="
