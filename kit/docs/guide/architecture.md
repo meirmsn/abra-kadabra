@@ -124,11 +124,14 @@ git checkout -b feat/<topic>                         # branch off main
 ```
 
 For parallel work in flight, develop in a linked worktree
-(`git worktree add .worktrees/<topic> -b <type>/<topic>`); invoke
-`/ak-merge-devshop` from `/devshop` on `main` and the skill auto-detects
-the worktree, runs the squash in it via `git -C`, and tears the worktree
-down in Phase 4.2 cleanup. No manual `git worktree remove` step. See
-`CLAUDE.md § Parallel work via linked worktrees` for the convention.
+(`git worktree add .worktrees/<topic> -b <type>/<topic> && git -C .worktrees/<topic> submodule update --init --recursive`);
+invoke `/ak-merge-devshop` from `/devshop` on `main` and the skill
+auto-detects the worktree, runs the squash in it via `git -C`, and
+tears the worktree down in Phase 4.2 cleanup. No manual `git worktree
+remove` step. The submodule-init step is required because `git worktree
+add` does NOT auto-checkout submodule contents into the new worktree —
+bats tests fail without it (the bats vendored libraries are submodules).
+See `CLAUDE.md § Parallel work via linked worktrees` for the convention.
 
 - Devshop commits use conventional commits (`feat:`, `fix:`, `chore:`, etc.)
 - Most injected files are symlinks — edits in `/devshop/` take effect immediately. The exceptions are `settings.json` and `.dcg.toml`, which are copies (see File Lifecycle above). The lock step (`chown root:root`) applies to both copies in `/workspace/` and the source files in `/devshop/`.
