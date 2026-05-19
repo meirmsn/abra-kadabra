@@ -423,7 +423,7 @@ Mechanical check that every migration's `-- ROLLBACK:` block applies cleanly aga
 
 Position rationale: runs after `fast-job-local` (deterministic lint/typecheck/unit/build are cheaper fail-fast checks) and BEFORE `changed-tests-local`, so a rollback bug doesn't poison the test database mid-walk (changed-tests-local's E2E + integration specs read from the same local Postgres this gate round-trips).
 
-- Scope: runs when `git diff --name-only --diff-filter=AM origin/main...HEAD` touches `supabase/migrations/**`. Otherwise `n/a (no migration changes in diff)`. Also `n/a` when no `supabase/migrations/` directory exists, when the directory is empty, or when no migration ships a `-- ROLLBACK:` comment block (rollback convention not adopted yet — Gate 11's convention check is the right place to enforce adoption).
+- Scope: runs when `git diff --name-only --diff-filter=AM origin/main...HEAD` touches `supabase/migrations/**`. Otherwise `n/a (no migration changes in diff)`. Also `n/a` when no `supabase/migrations/` directory exists or when the directory is empty. Markerless migrations are NOT an n/a path — they surface as findings (see marker mandate in the loop below) per parity with `template/scripts/ci-rollback-explain.sh` (the `n/a (rollback convention not adopted)` path was dropped 2026-05-19 once the marker convention became mandatory devshop-wide).
 - Out of scope: validating `WHERE` / `WITH CHECK` predicate semantics (integration tests do that), running against a remote DB, installing or starting the local stack (Phase 0's `supabase-bootstrap.sh` handles that — this gate assumes the stack is up).
 
 Invocation:
@@ -434,9 +434,10 @@ bash /devshop/kit/scripts/preship/migration-rollback-roundtrip.sh "$(git rev-par
 
 The gate probes both candidate DB endpoints — `host.docker.internal:54322` (compose isolation + host Supabase shapes) and `localhost:54322` (docker-bind legacy shape) — and uses the first that responds. Then, for each migration in lexicographic apply-order:
 
-1. Skip migrations without a `-- ROLLBACK:` block (mirrors `template/scripts/ci-rollback-explain.sh`).
-2. Apply the rollback SQL via `psql -v ON_ERROR_STOP=1` against the discovered DB URL.
-3. Re-apply the forward migration via `psql -f` to verify the rollback is a true inverse.
+1. Migrations without a `-- ROLLBACK:` block → finding (mirrors `template/scripts/ci-rollback-explain.sh` loud-fail contract — markerless migrations get cascade-dropped by upstream rollbacks without re-apply, breaking the rest of CI). Migrations with nothing to undo can carry a `-- noop: forward is idempotent` body; the gate detects `noop:` and skips the rollback apply step but still re-applies forward, which is what closes the cascade-loss hole.
+2. Migrations with an empty `-- ROLLBACK:` block → finding (recipe surfaces the noop escape hatch).
+3. Apply the rollback SQL via `psql -v ON_ERROR_STOP=1` against the discovered DB URL.
+4. Re-apply the forward migration via `psql -f` to verify the rollback is a true inverse.
 
 Failures are collected (not short-circuited) so the operator sees every broken rollback in one pass.
 
@@ -447,7 +448,6 @@ Outcomes:
 - `n/a (no supabase/migrations directory)` — projects without Supabase.
 - `n/a (no migration changes in diff)` — diff doesn't touch `supabase/migrations/**`.
 - `n/a (no migration files in supabase/migrations/)` — empty migrations directory.
-- `n/a (no -- ROLLBACK: blocks in any migration — rollback convention not adopted)` — project hasn't adopted the rollback convention; Gate 11 surfaces adoption gaps.
 - `blocked (local Supabase Postgres unreachable …)` — Phase 0 should have started the stack; fix recipe: re-run `supabase-bootstrap.sh up` or restart the supabase-runner container from a macOS terminal.
 
 **⚠ Read-only against the DB across the round-trip.** Each migration's rollback + reapply leaves the schema in the same state it started in (modulo Postgres txn isolation). No bypass flag — the gate is a 30-second deterministic check and rollback bugs are a known recurring class; resolving findings means editing the migration's `-- ROLLBACK:` block, not skipping the gate.

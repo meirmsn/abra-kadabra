@@ -140,14 +140,20 @@ SQL
   assert_output --partial "n/a (no migration changes in diff)"
 }
 
-@test "n/a when migrations changed but none have -- ROLLBACK: blocks" {
+@test "findings: markerless migration surfaces as a finding (parity with template ci-rollback-explain.sh)" {
+  # Markerless was an n/a path pre-2026-05-19 ("rollback convention not adopted").
+  # Now mandatory devshop-wide — markerless → finding, mirrors CI script.
   write_migration 001 <<'SQL'
 create table foo (id int);
 SQL
   commit_repo "add migration without rollback block"
+  mock_psql_all_pass
   run_script
   assert_success
-  assert_output --partial "n/a (no -- ROLLBACK: blocks"
+  assert_output --partial "findings (1)"
+  assert_output --partial "001.sql missing -- ROLLBACK: marker"
+  # Recipe surfaces the noop escape hatch so operators know the way out.
+  assert_output --partial "noop: forward is idempotent"
 }
 
 # --- blocked outcome ---
@@ -201,7 +207,7 @@ SQL
   assert_output "pass"
 }
 
-@test "pass when one migration lacks rollback block — that migration is skipped, others round-trip" {
+@test "findings: markerless migration in a mixed set surfaces, others still round-trip" {
   write_migration 001 <<'SQL'
 create table foo (id int);
 SQL
@@ -214,7 +220,51 @@ SQL
   mock_psql_all_pass
   run_script
   assert_success
+  assert_output --partial "findings (1)"
+  assert_output --partial "001.sql missing -- ROLLBACK: marker"
+  # 002 round-trips cleanly under the mock, must not appear in findings list.
+  refute_output --partial "002.sql"
+}
+
+@test "pass when migration uses the noop escape hatch — skip rollback apply, forward re-apply succeeds" {
+  write_migration 001 <<'SQL'
+create table foo (id int);
+-- ROLLBACK:
+-- noop: forward is idempotent
+SQL
+  commit_repo "add migration with noop rollback"
+  mock_psql_all_pass
+  run_script
+  assert_success
   assert_output "pass"
+}
+
+@test "findings: empty -- ROLLBACK: block surfaces as a finding" {
+  write_migration 001 <<'SQL'
+create table foo (id int);
+-- ROLLBACK:
+SQL
+  commit_repo "add migration with empty rollback block"
+  mock_psql_all_pass
+  run_script
+  assert_success
+  assert_output --partial "findings (1)"
+  assert_output --partial "001.sql empty -- ROLLBACK: block"
+  assert_output --partial "noop: forward is idempotent"
+}
+
+@test "findings: noop rollback but forward re-apply fails" {
+  write_migration 001 <<'SQL'
+create table foo (id int);
+-- ROLLBACK:
+-- noop: forward is idempotent
+SQL
+  commit_repo "noop rollback, broken forward"
+  mock_psql_reapply_fails
+  run_script
+  assert_success
+  assert_output --partial "findings (1)"
+  assert_output --partial "001.sql forward re-apply FAILED (noop rollback)"
 }
 
 # --- findings ---

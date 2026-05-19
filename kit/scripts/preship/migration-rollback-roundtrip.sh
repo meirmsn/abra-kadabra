@@ -5,11 +5,18 @@
 #       rollback-block bugs (typos, invalid column references, non-defensive
 #       ordering when the iterative rollback+reapply cascade changes schema
 #       shape mid-loop) 30 seconds locally instead of ~10 min at CI slow-job.
+#       FAILs as a finding when a migration lacks the required `-- ROLLBACK:`
+#       marker or carries an empty block — markerless migrations get cascade-
+#       dropped by upstream rollbacks without re-apply (home-os PR #28).
+#       Mirrors the loud-fail contract of `template/scripts/ci-rollback-
+#       explain.sh` so locally-green PRs don't surprise the operator at CI.
 # Why:  home-os PR #26 (2026-05-16) + #27 (2026-05-17) both shipped to CI with
 #       rollback bugs that a local check would have caught. Both gauntlets ran
 #       /ak-pre-ship green pre-push because no existing local gate exercised
-#       the rollback comment blocks — only `db:reset` / forward apply did. This
-#       gate closes that gap.
+#       the rollback comment blocks — only `db:reset` / forward apply did.
+#       home-os PR #28 (2026-05-18) added the markerless-cascade pattern to
+#       the catch list (see ci-rollback-explain.sh for the 6-attempt CI
+#       fix-loop background).
 # Does NOT: validate WHERE / WITH CHECK predicates (integration tests do that),
 #       run against a remote DB, or install / start the local Supabase stack
 #       (Phase 0 preflight's supabase-bootstrap.sh does that; this gate
@@ -53,28 +60,19 @@ if ! diff_touches_migrations; then
   exit 0
 fi
 
-# Are there any migrations with rollback blocks at all? If not, n/a — the
-# project hasn't adopted the rollback convention yet. A hard finding here
-# would surface noise on every migration PR for projects that don't ship
-# rollback blocks; the convention check (Gate 11) is the right place to
-# enforce adoption.
+# Count migrations. Empty dir → n/a. Note: markerless migrations are NOT an
+# n/a path anymore — they're a finding (see marker mandate in the round-trip
+# loop below) per parity with template/scripts/ci-rollback-explain.sh. The
+# n/a "rollback convention not adopted" path was dropped 2026-05-19 once the
+# convention became mandatory devshop-wide.
 mig_count=0
-rollback_count=0
 for migration in "$MIG_DIR"/*.sql; do
   [ -f "$migration" ] || continue
   mig_count=$((mig_count + 1))
-  if grep -q '^-- ROLLBACK:' "$migration"; then
-    rollback_count=$((rollback_count + 1))
-  fi
 done
 
 if [ "$mig_count" -eq 0 ]; then
   echo "n/a (no migration files in supabase/migrations/)"
-  exit 0
-fi
-
-if [ "$rollback_count" -eq 0 ]; then
-  echo "n/a (no -- ROLLBACK: blocks in any migration — rollback convention not adopted)"
   exit 0
 fi
 
@@ -119,26 +117,58 @@ extract_rollback() {
   ' "$file"
 }
 
+# Noop escape hatch: a rollback whose first non-blank line (after `-- ` strip)
+# starts with `noop:` is treated as "nothing to undo". Skip the rollback apply
+# step, still re-apply forward — that's what closes the cascade-loss hole for
+# column-adding migrations whose forward is idempotent. Mirrors ci-rollback-
+# explain.sh.
+is_rollback_noop() {
+  local body="$1"
+  local first
+  first=$(printf '%s\n' "$body" | grep -vE '^[[:space:]]*$' | head -1)
+  first=$(printf '%s' "$first" | sed 's/^[[:space:]]*//')
+  case "$first" in
+    [Nn]oop:*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 # --- Round-trip loop ---
 #
 # For each migration in lexicographic order (matches `supabase migration` /
 # Postgres apply order):
-#   1. If no ROLLBACK block → skip (mirrors CI script behavior).
-#   2. Apply rollback SQL via psql with ON_ERROR_STOP=1.
-#   3. Re-apply forward migration via psql -f.
+#   1. No `-- ROLLBACK:` marker → finding (mirrors ci-rollback-explain.sh
+#      loud-fail contract — markerless migrations get cascade-dropped by
+#      upstream rollbacks without re-apply, breaking the rest of CI).
+#   2. Empty `-- ROLLBACK:` block → finding.
+#   3. `-- noop: ...` body → skip rollback apply, re-apply forward only.
+#   4. Otherwise → apply rollback via psql, then re-apply forward via psql.
 # Capture per-migration failures into `findings`. Continue on failure (don't
-# short-circuit) so the operator sees every broken rollback in one shot.
+# short-circuit) so the operator sees every problem in one pass.
 findings=()
 for migration in "$MIG_DIR"/*.sql; do
   [ -f "$migration" ] || continue
   filename="$(basename "$migration")"
 
   if ! grep -q '^-- ROLLBACK:' "$migration"; then
+    findings+=("$filename missing -- ROLLBACK: marker (add SQL or '-- noop: forward is idempotent')")
     continue
   fi
 
   rollback_sql="$(extract_rollback "$migration")"
   if [ -z "$(echo "$rollback_sql" | tr -d '[:space:]')" ]; then
+    findings+=("$filename empty -- ROLLBACK: block (add SQL or '-- noop: forward is idempotent')")
+    continue
+  fi
+
+  if is_rollback_noop "$rollback_sql"; then
+    # Noop: skip rollback apply, still re-apply forward to restore state
+    # upstream cascades may have dropped.
+    reapply_err=""
+    if ! reapply_err=$(PGPASSWORD=postgres psql "$DB_URL" -v ON_ERROR_STOP=1 -f "$migration" 2>&1 >/dev/null); then
+      err_line=$(echo "$reapply_err" | grep -m1 '^ERROR' || echo "$reapply_err" | head -1)
+      findings+=("$filename forward re-apply FAILED (noop rollback): $err_line")
+    fi
     continue
   fi
 
@@ -151,8 +181,6 @@ for migration in "$MIG_DIR"/*.sql; do
 ${rollback_sql}
 ROLLBACK_EOF
   ); then
-    # Capture only the first ERROR line — psql echoes the failing statement
-    # context, which would bloat findings output.
     err_line=$(echo "$rollback_err" | grep -m1 '^ERROR' || echo "$rollback_err" | head -1)
     findings+=("$filename rollback FAILED: $err_line")
     continue
@@ -172,12 +200,16 @@ done
 # --- Report ---
 
 if [ "${#findings[@]}" -gt 0 ]; then
-  echo "findings (${#findings[@]}) — migration rollback round-trip failed:"
+  echo "findings (${#findings[@]}) — migration marker / rollback round-trip failed:"
   for f in "${findings[@]}"; do echo "  - $f"; done
   echo
-  echo "Each failure means the migration's -- ROLLBACK: block doesn't apply"
-  echo "cleanly OR doesn't restore a schema the forward migration can reapply"
-  echo "against. Common causes:"
+  echo "Missing-marker / empty-block findings: every migration MUST carry a"
+  echo "  -- ROLLBACK: block (devshop convention — see kit/docs/guide/conventions.md"
+  echo "  § ci-rollback-explain.sh). Markerless migrations get cascade-dropped by"
+  echo "  upstream rollbacks without re-apply. Add SQL rollback lines or"
+  echo "  '-- noop: forward is idempotent' if there is nothing to undo."
+  echo "Round-trip failures: the rollback block doesn't apply cleanly OR doesn't"
+  echo "  restore a schema the forward migration can reapply against. Common causes:"
   echo "  - Statement order assumes a fresh schema; cascades from earlier"
   echo "    migrations' rollbacks change column / enum / type shape under it."
   echo "    Make the rollback defensive (IF EXISTS, type casts that survive"
