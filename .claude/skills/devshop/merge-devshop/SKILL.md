@@ -535,11 +535,7 @@ reasons this is the right shape:
 Route every git invocation in this phase via `$GIT_CMD`, which expands to
 `git` when the feature branch is checked out on `/devshop` (legacy direct-
 checkout) or `git -C "$WORKTREE_PATH"` when detection in Phase 0.1 found a
-linked worktree. The worktree-routed path also sidesteps the virtiofs
-stat-cache phantom rebase error: the bug only fires in `/devshop`'s
-main-worktree index after a manual `worktree remove --force`, and the
-new flow does no such removal before Phase 2 (the worktree teardown
-happens in Phase 4.2, after the squash is already on a different ref).
+linked worktree.
 
 ```bash
 GIT_CMD="git"
@@ -570,6 +566,38 @@ If `$GIT_CMD rebase origin/main` reports conflicts: resolve them
 finishes. When `$GIT_CMD` includes `-C "$WORKTREE_PATH"`, the conflict
 files live under `"$WORKTREE_PATH"`, not `/devshop` — use the Edit tool
 with the worktree-prefixed absolute path.
+
+**Phantom "local changes would be overwritten" — fall back to merge.**
+On virtiofs (devcontainer on macOS), `git rebase origin/main` sometimes
+aborts immediately with `error: Your local changes to the following
+files would be overwritten by merge: <N files>` even though
+`git status` reports a clean tree and `git ls-files -m` returns nothing.
+This is a stat-cache / virtiofs interaction (also surfaces during
+direct `git merge --ff-only`); `git update-index --really-refresh` may
+expose a real diff or may not. When this fires, fall back to the
+merge-then-soft-reset path — same end state, different mechanics:
+
+```bash
+$GIT_CMD rebase --abort 2>/dev/null || true
+$GIT_CMD merge origin/main --no-edit   # resolve any real content conflicts
+$GIT_CMD commit -F /tmp/merge-commit-msg.txt   # transient merge commit (discarded by soft-reset)
+$GIT_CMD reset --soft origin/main      # collapse everything to a staged delta
+$GIT_CMD commit -F "/tmp/squash-message-${FEATURE}.txt"
+```
+
+`git merge` does NOT trip the phantom error (different code path inside
+git). The transient merge commit's docsReviewed trailer can describe
+itself as "transient merge of origin/main into <branch>, discarded by
+the immediately-following soft-reset" — the reviewer accepts that shape.
+After the soft-reset the merge commit is no longer reachable from
+the branch; the index contains exactly origin/main..feature-branch's
+delta, identical to the rebase path's output. Verified end-to-end on
+the `ci-rollback-explain-marker-loud` merge (2026-05-19): rebase
+phantom-failed on `PLAN.md`; merge fallback resolved 2 real content
+conflicts (PLAN.md row + kit/ROADMAP.md entry both deleted on origin/main
+AND on the branch — `git checkout --theirs` + re-applying the branch's
+deletions resolved cleanly), then soft-reset + commit produced the same
+9-file squash the rebase path would have.
 
 If `$GIT_CMD commit` fails (pre-commit hook block — Layer 1 docs/tests-
 coverage, gitleaks, lint, typecheck, test suite): halt and surface the

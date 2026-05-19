@@ -7,6 +7,18 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
 <!-- Items discovered during use. Tag with [v0.2], [v1] etc. to schedule into ROADMAP versions. -->
 
+- [ ] **`/ak-merge-devshop` Phase 2 — mechanize the virtiofs phantom-rebase fallback (auto-retry or auto-switch-to-merge).** Surfaced twice on 2026-05-19: first during `sandbox-qa-close-gap` merge (multi-commit rebase fired the error twice in one run — 4 files on `d31af1a` pick + 1 file on `9dcdd4d` pick), then again during `ci-rollback-explain-marker-loud` merge (rebase aborted on `PLAN.md` even with a clean `git status` + zero `git ls-files -m`). `git rebase origin/main` fires `error: Your local changes to the following files would be overwritten by merge` on files git itself reports clean. Root cause: virtiofs stat-cache mismatch between Docker Desktop's macOS-side view and the container's stat-cache view. Same error also surfaces during direct `git merge --ff-only` (hit during the `ci-rollback-explain-marker-loud` Phase 3 ff-merge on /devshop's main worktree).
+
+  **Current state (post-2026-05-19):** Phase 2 of the skill now documents an operator-facing fallback — fall back to `git merge origin/main` + transient commit + soft-reset + squash. Verified end-to-end on `ci-rollback-explain-marker-loud`. The fallback works but the operator (or agent) has to recognize the symptom and switch paths manually.
+
+  **Fix shape (two options, pick one):**
+  - **Auto-retry:** on rebase failure, grep stderr for the literal string `Your local changes to the following files would be overwritten by merge`; if matched AND `git status --porcelain` returns empty, run `git update-index --really-refresh` and `git rebase --continue`; cap at 2-3 retries (more suggests a real conflict). The error string is stable across git versions — anchor the grep on it.
+  - **Auto-switch:** on rebase failure matching the same symptom, abort the rebase and switch automatically to the merge-then-soft-reset fallback the skill already documents. Avoids the retry loop entirely; the merge path is unaffected by the stat-cache bug. Slightly more code (transient merge commit + docsReviewed trailer composition) but strictly more reliable than retry-until-clean.
+
+  **Value:** today the rebase failure halts the merge subagent's autonomy. The agent either bails (manual operator intervention) or burns context guessing at root causes. A mechanical resolution routes the common case to recovery without humans, leaving the halt path for genuine conflicts. Estimated cost: ~30-45 min skill edit + a bats test against a mocked rebase-failure scenario.
+
+  Cross-ref: `.claude/skills/devshop/merge-devshop/SKILL.md § Phase 2 — Phantom "local changes would be overwritten"` (the operator-facing fallback this entry mechanizes); `kit/docs/guide/architecture.md § Docker Desktop / virtiofs` for the broader stat-cache-mismatch class of bugs.
+
 - [ ] **Investigate Mac host-resource constraints as the real cause of home-os PR #27 / #28 `blocked` outcomes.** Codified 2026-05-19 during `sandbox-qa-close-gap` PR. The original ROADMAP framing of those incidents attributed `blocked (n/a per scope: sandbox)` outcomes to workspace tooling gaps. Operator pushback flagged a different hypothesis: "QA was working on many PRs on lalista and home-os until it didn't, and it seemed to be about resource constraints on my host Mac." If the hypothesis is right, the workspace-tooling fixes (Chromium apt-bake 2026-04-23, env-aware Supabase ports 2026-05-19) don't address the actual recurring failure mode.
 
   **What to investigate**:
