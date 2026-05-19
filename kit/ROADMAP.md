@@ -632,6 +632,8 @@ Every new project from this template inherits the dual-trigger workflow. Each pr
 
 ### Audit `kit/docs/guide/conventions.md` → distribute operational copy into the skills that fire
 
+**Reassess after CLAUDE.md trim (2026-05-18):** the `feature/claude-md-architecture` branch landed Waves 1–5, trimming `/devshop/CLAUDE.md` from ~44k → ~22k chars and lifting recipes into `kit/docs/guide/` (commit `d9e228c`). Before re-opening the full audit, verify whether the duplicate `## Confidence Calibration` + `## TODO Protocol` sections in `conventions.md` are still drift candidates, or whether the post-trim CLAUDE.md intentionally retained them as the canonical home (the classification doc at `kit/notes/devshop-claude-md-classification.md` marks both as "Stay (verbatim)" in CLAUDE.md). The lift-vs-cross-ref decision below may also have been answered by the wave work — re-grep `conventions.md` and the guide docs before scoping. If the duplication has resolved itself, drop this entry entirely; otherwise narrow to whatever's actually left.
+
 **Pre-implementation findings (verified 2026-05-14):** **PARTIAL.** Several destinations are already populated and the worked example (closure rule) shipped to `/devshop/CLAUDE.md` + `/ak-build § Phase 5.6`. What did NOT ship is the **deduplication** half of the audit — the table calls out 4+ sections that should drop from `conventions.md` but they're still there. Before reopening the full multi-skill audit, confirm what's actually left vs scoped-down:
 
 - **Duplicates to delete from `conventions.md`** (CLAUDE.md is canonical):
