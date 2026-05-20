@@ -2,6 +2,25 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.32.0 (2026-05-20)
+
+- chore(plan): close 2 shipped rows + fold absorbed-bundle note into home-os hook
+- docs(hooks): land silent-stash-drop recovery recipe + lint-staged config block
+- fix(skills): feature-key audit tempfile + document silent-stash-drop recovery
+- chore(notify): close 3 low findings from Audit 1
+- fix(notify): only ping when Claude is truly halted
+- fix(preship): unbreak main pre-commit — fault-injected-qa.sh mode + wiring
+- fix(skills): close PRODUCTION_URL onboarding gap end-to-end
+- feat(pre-ship): fault-inject Tier A2 surfaces to catch banner regressions
+- chore(devshop): rebase-phantom TODO + kit/scripts deny ROADMAP entry; swap PLAN columns; close 3 red tests
+- feat(devcontainer): auto-stop supabase stack on devcontainer close
+- feat(gstack-artifacts): symlink ~/.gstack/projects → workspace, widen tracked extensions
+- chore(plan): close 3 shipped Planned rows + unwind cross-refs
+- chore(plan): reshape 3 gstack rows around devshop-side fixes
+- feat(ak-build): require operator ack before advancing past blocked gates
+- feat(manifest): auto-lock compose-isolation files; mode-per-file
+- feat(db-hardening): lift advisor lints + pre-ship gate to template
+
 ## v1.31.0 (2026-05-19)
 
 - chore(tests): close 2 cosmetic findings from Audit 2
