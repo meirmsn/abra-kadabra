@@ -613,9 +613,48 @@ Behavior:
 
   Exit non-zero.
 
-- If 0/0/0 or only medium/low findings → continue to Phase 2.
+- If new audit appended with **medium-severity findings** (no high) →
+  **interactive pause** — the audit recorded the gap but didn't block.
+  This is the devshop equivalent of project `/ak-build § Phase 5.8`
+  (post-polish re-audit): on the project side, a second audit moment
+  catches "spec promised X, X wasn't actually delivered" gaps after CI
+  green; on the devshop side, the single audit moment IS this Phase 1
+  pause. The operator picks whether to polish in-branch (the recommended
+  default — re-invoking after polish is cheap) or proceed (recording
+  the gap in `review.md` for follow-up). Fire `AskUserQuestion`:
+
+  ```
+  ⚠ /ak-check-docs-and-tests reported N medium-severity finding(s).
+    No halt-on-medium path on the project side post-polish — but on the
+    devshop side this is the only audit moment, so the operator decides:
+
+      1. Fix in-branch, then re-invoke /ak-merge-devshop (Recommended)
+         — Phase 1 re-audits the new HEAD; idempotent re-runs are safe.
+      2. Proceed — record the gap in review.md, ship the squash with the
+         medium finding(s) intact. Future follow-up sessions read them
+         from review.md § Audit N.
+      3. Cancel — abort /ak-merge-devshop. Nothing merged.
+  ```
+
+  Default: option 1 (Recommended). The interactive halt is the devshop's
+  Phase 5.8 equivalent — fires only on medium findings; lows surface
+  silently and proceed. Auto-mode sessions that want to skip the prompt
+  can set `DEVSHOP_AUDIT_MEDIUM_POLICY=proceed` to take option 2
+  unconditionally (records the override in `review.md` as a bypass
+  trailer).
+
+- If 0/0/0 or only low findings → continue to Phase 2.
 
 The skill does NOT auto-fix findings. Sub-skills don't either.
+
+**Codified from** `home-os-skill-polish-batch` merge (2026-05-20). Audit 1
+reported `high=0 medium=2 low=6`. Pre-fix Phase 1 advanced silently —
+the 2 medium findings (hooks.md missing B3 short-circuit doc entry; a
+spec-promised bats grep guard for E5 not added) shipped into the squash
+unfixed and surfaced only when an operator manually re-read `review.md`
+post-merge. The interactive pause above gives the operator the polish
+window without forcing fixes on every medium (option 2 keeps the
+historical "proceed-but-record" behavior available).
 
 ---
 
@@ -639,28 +678,62 @@ Route every git invocation in this phase via `$GIT_CMD`, which expands to
 checkout) or `git -C "$WORKTREE_PATH"` when detection in Phase 0.1 found a
 linked worktree.
 
+**Anchor selection** (load-bearing when an in-flight release sits on local main).
+The soft-reset anchor MUST be reachable from the eventual main HEAD that
+Phase 3's FF-merge lands on. When `/ak-release-devshop` has run but the
+release commit (`Bump devshop version to vN.N.N`) hasn't been pushed yet,
+local `main` is one commit ahead of `origin/main`. Using `origin/main`
+as the anchor in that case strands the release commit (Phase 3's
+`git merge --ff-only "$BRANCH"` then fails because branch and local main
+have diverged). Detect and pick the right anchor:
+
 ```bash
 GIT_CMD="git"
 [ -n "$WORKTREE_PATH" ] && GIT_CMD="git -C $WORKTREE_PATH"
 
-$GIT_CMD rebase origin/main          # incorporate origin/main's commits; resolve conflicts inline
-$GIT_CMD reset --soft origin/main    # collapse all of $BRANCH's commits to a single staged delta
+# Pick the soft-reset anchor: local main when ahead of origin/main (typical
+# of an unpushed release), otherwise origin/main. The anchor MUST be
+# reachable from main's HEAD so Phase 3's FF lands cleanly.
+ANCHOR=origin/main
+LOCAL_AHEAD=$(git rev-list --count origin/main..main 2>/dev/null || echo 0)
+if [ "$LOCAL_AHEAD" -gt 0 ]; then
+  ANCHOR=main
+  echo "ℹ local main is $LOCAL_AHEAD commit(s) ahead of origin/main —"
+  echo "  anchoring squash on local main (typical of an in-flight release"
+  echo "  that hasn't been pushed). Those commits will ride along with the"
+  echo "  squash on Phase 3's \`git push origin main\`."
+fi
+
+$GIT_CMD rebase "$ANCHOR"          # incorporate $ANCHOR's commits; resolve conflicts inline
+$GIT_CMD reset --soft "$ANCHOR"    # collapse all of $BRANCH's commits to a single staged delta
 $GIT_CMD commit -F "/tmp/squash-message-${FEATURE}.txt"
 ```
 
 Why `--soft`: `git reset --soft <commit>` moves HEAD to `<commit>` while
 leaving the index AND working tree untouched. So after the soft-reset, the
 working tree still contains the rebased branch's full content; HEAD is at
-origin/main; the index has every change from the squashed commits as a
+`$ANCHOR`; the index has every change from the squashed commits as a
 single staged delta. The follow-up `git commit` produces one commit on top
-of origin/main containing exactly that delta.
+of `$ANCHOR` containing exactly that delta.
 
-Why the rebase is required first: `git reset --soft origin/main` produces a
-correct squash only if the working tree already contains origin/main's
+Why the rebase is required first: `git reset --soft "$ANCHOR"` produces a
+correct squash only if the working tree already contains `$ANCHOR`'s
 content. Without the rebase, the soft-reset would create a commit that
-appears to _revert_ any origin/main changes the branch hadn't picked up.
+appears to _revert_ any `$ANCHOR` changes the branch hadn't picked up.
 The rebase merges them in first; conflicts are resolved at rebase time
 (operator-visible, recoverable via `$GIT_CMD rebase --abort`).
+
+**Worked incident — anchor selection matters**: `home-os-skill-polish-batch`
+merge (2026-05-20). Local main carried `3f122d4 Bump devshop version to
+1.32.0` (release.sh commit; tag v1.32.0 set) but origin/main hadn't been
+pushed yet. Using `origin/main` as the anchor (the pre-fix default) put
+the squash on top of `60f64e3` (origin/main tip), diverging from local
+main which carried v1.32.0 — Phase 3's `git merge --ff-only "$BRANCH"`
+then refused because feature and main had no common path. Recovery
+required re-doing Phase 2 with `main` as the anchor, after which
+Phase 3's FF + push carried both the release commit and the squash to
+origin in one push. The anchor-detection block above eliminates the
+re-do.
 
 If `$GIT_CMD rebase origin/main` reports conflicts: resolve them
 (mechanical resolutions inline, ambiguous ones via the operator),
@@ -681,11 +754,16 @@ merge-then-soft-reset path — same end state, different mechanics:
 
 ```bash
 $GIT_CMD rebase --abort 2>/dev/null || true
-$GIT_CMD merge origin/main --no-edit   # resolve any real content conflicts
+$GIT_CMD merge "$ANCHOR" --no-edit     # resolve any real content conflicts
 $GIT_CMD commit -F /tmp/merge-commit-msg.txt   # transient merge commit (discarded by soft-reset)
-$GIT_CMD reset --soft origin/main      # collapse everything to a staged delta
+$GIT_CMD reset --soft "$ANCHOR"        # collapse everything to a staged delta
 $GIT_CMD commit -F "/tmp/squash-message-${FEATURE}.txt"
 ```
+
+Use the same `$ANCHOR` as the rebase path (either `origin/main` or local
+`main` per the detection block above). The merge fallback is anchor-agnostic
+about the mechanics; the soft-reset still has to land on the same target
+the rebase path would have.
 
 `git merge` does NOT trip the phantom error (different code path inside
 git). The transient merge commit's docsReviewed trailer can describe
@@ -848,35 +926,95 @@ Cleanup ordering matters when `WORKTREE_PATH` is set: the linked worktree
 must be torn down BEFORE `git branch -D` (git refuses to delete a branch
 that's still checked out in any worktree, and `-D` doesn't override that).
 Submodules in the worktree need a two-command teardown (`submodule deinit
--f --all` clears working dirs but leaves git's per-worktree submodule
-registry, which then trips `git worktree remove`; the `--force` flag is
-required to override that registry check). Skip the worktree-teardown
-block entirely on the legacy direct-checkout path.
+-f --all` clears working dirs but leaves git's per-worktree submodule registry,
+which then trips `git worktree remove`; the `--force` flag is required to
+override that registry check). Skip the worktree-teardown block entirely on
+the legacy direct-checkout path.
+
+**DCG `push-force-short` false-positive on chained `-f` flags.** The
+teardown uses `-f` (`submodule deinit -f`) and `--force` (`worktree
+remove --force`) — both are documented git-API requirements (per-
+worktree submodule registry + branch-checked-out safety), not
+destructive flags on shared state. The devshop's `core.git:push-force-
+short` rule SHOULD fire only on `git push -f` / `git push --force`,
+but empirically (dcg 0.4.0, verified via `dcg test`) it false-positives
+on any compound command containing BOTH a `git push` (any variant —
+including `git push origin --delete` and a benign `git push origin
+main`) AND a separate `-f` flag elsewhere in the chain (`rm -f`,
+`submodule deinit -f`, etc.). The rule's regex isn't anchored tightly
+enough — it matches `git push … -f` across the full compound. Worked
+trip-up (2026-05-20, `home-os-skill-polish-batch` teardown): the
+chained teardown ending with `rm -f /tmp/squash-message-*.txt`
+triggered `BLOCKED` even though no `git push -f` existed in the
+command. **Always run each teardown step as a SEPARATE `Bash` tool
+call** — do not chain with `&&` / `;` / pipes / heredocs. The
+step-by-step layout below is the runnable contract; do not condense
+into one block. (The underlying DCG bug is tracked separately;
+splitting the teardown is the durable workaround AND has independent
+operability benefits — Step 2 worktree-remove can fail independently
+of Step 1's submodule-deinit, and per-step Bash calls preserve the
+partial-success state for operator recovery rather than burying the
+failing step inside an opaque compound exit code.)
+
+**Worktree-vs-direct-checkout decision rule** — Steps 1 and 2 only fire when
+the feature lived in a linked worktree. Steps 3+ fire always. Evaluate
+once at the top, then run only the relevant per-step Bash calls:
 
 ```bash
-# Worktree teardown (only when detection set WORKTREE_PATH).
+# Decision rule (read-only — DO NOT chain the actual teardown after this):
 if [ -n "$WORKTREE_PATH" ]; then
-  # Step 1: deinit submodules in the worktree. Per-worktree-checkout-dir;
-  # /devshop's submodules are untouched (separate working trees of the same
-  # submodule registry).
-  git -C "$WORKTREE_PATH" submodule deinit -f --all 2>&1 | tail -5
-
-  # Step 2: remove the worktree. --force is REQUIRED even after deinit:
-  # git's per-worktree submodule registry still trips the safety check
-  # ("working trees containing submodules cannot be moved or removed")
-  # independently of working-dir content.
-  git worktree remove --force "$WORKTREE_PATH"
+  # → run Step 1 + Step 2 below as separate Bash calls
+  :
+else
+  # → skip to Step 3
+  :
 fi
+```
 
-# Branch cleanup — fires after the worktree (if any) is gone.
+```bash
+# === Step 1 (only when WORKTREE_PATH is set): deinit submodules ===
+#
+# Per-worktree-checkout-dir; /devshop's submodules are untouched (separate
+# working trees of the same submodule registry). The `-f` is required to
+# clear submodule working dirs even when they're untouched in this worktree.
+git -C "$WORKTREE_PATH" submodule deinit -f --all 2>&1 | tail -5
+```
+
+```bash
+# === Step 2 (only when WORKTREE_PATH is set): remove the worktree ===
+#
+# `--force` is REQUIRED even after deinit: git's per-worktree submodule
+# registry still trips the safety check ("working trees containing
+# submodules cannot be moved or removed") independently of working-dir
+# content. This is a git-API constraint, not destructive-on-shared-state.
+git worktree remove --force "$WORKTREE_PATH"
+```
+
+```bash
+# === Step 3: delete the local feature branch ===
+#
+# Fires after the worktree (if any) is gone — git refuses to delete a
+# branch still checked out in any worktree. `-D` (capital) is required
+# because the squash detached the constituent commits from main's
+# ancestry; lowercase `-d` would refuse.
 git branch -D "$BRANCH"
+```
 
-# Remote branch — best-effort. The branch may not have a remote.
+```bash
+# === Step 4: delete the remote feature branch (best-effort) ===
+#
+# The branch may have never been pushed (local-only feature work). When
+# `ls-remote` returns no match, skip the delete — printing "no remote
+# branch to delete" is cleaner than letting `git push --delete` error.
 if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
   git push origin --delete "$BRANCH"
+else
+  echo "✓ no remote branch to delete (was local-only)"
 fi
+```
 
-# Tempfile cleanup
+```bash
+# === Step 5: tempfile cleanup ===
 rm -f "/tmp/squash-message-${FEATURE}.txt"
 ```
 

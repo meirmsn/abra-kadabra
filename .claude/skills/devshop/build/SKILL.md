@@ -1860,6 +1860,18 @@ diff invalidated existing docs**. That's `/ak-check-docs-and-tests`'s job;
 5.8 re-runs it once over the polish range — appending `## Audit 2` to the
 same `review.md` — before Phase 6 posts the audit comment.
 
+**Devshop-side equivalent**: this phase is project-specific (assumes
+Phase 5's CI watch + post-CI-green polish window precedes it). Devshop
+branches that ride `/ak-build` go straight from Phase 3 to `/ak-merge-
+devshop` — there's no project-style polish window, so 5.8 doesn't fire
+for them. The analogous catch-rung on the devshop side lives in
+`.claude/skills/devshop/merge-devshop/SKILL.md § Phase 1 (medium
+findings)` — Phase 1's audit interactively pauses on medium-severity
+findings via `AskUserQuestion`, giving the operator the same
+"spec-vs-delivery gap" polish opportunity 5.8 provides on the project
+side. Different mechanism (interactive halt at merge time vs. dedicated
+audit phase post-CI), same intent (catch the gap before it ships).
+
 **Why a test-presence hook isn't enough**: the Layer-1 hook
 (`check-tests-coverage-project.sh`) catches "added a `.tsx` file with no
 `.test.tsx` next to it" — a file-level math check. It cannot judge:

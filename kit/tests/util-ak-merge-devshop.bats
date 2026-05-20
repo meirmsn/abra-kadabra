@@ -307,6 +307,17 @@ setup() {
     | grep -qE '[Hh]igh-severity.*halt|halt.*high'
 }
 
+@test "Phase 1 interactively pauses on medium-severity findings (devshop Phase 5.8 equivalent)" {
+  # Devshop branches don't run /ak-build Phase 5.8 (project-only). The
+  # equivalent catch-rung lives here — Phase 1 fires AskUserQuestion on
+  # medium findings so the operator can polish in-branch before the squash.
+  # Codified from home-os-skill-polish-batch merge (2026-05-20).
+  awk '/^## Phase 1:/,/^## Phase 2:/' "$SKILL_FILE" \
+    | grep -qiE 'medium-severity|interactive pause|AskUserQuestion'
+  awk '/^## Phase 1:/,/^## Phase 2:/' "$SKILL_FILE" \
+    | grep -qE 'DEVSHOP_AUDIT_MEDIUM_POLICY|Phase 5\.8'
+}
+
 # === Section G — Phase 2 worktree-routed squash ===
 
 @test "Phase 2 introduces GIT_CMD that routes via -C when WORKTREE_PATH set" {
@@ -317,12 +328,27 @@ setup() {
 }
 
 @test "Phase 2 uses \$GIT_CMD on rebase + reset --soft + commit" {
+  # The anchor can be `origin/main` (pre-fix default) OR `"$ANCHOR"` (when the
+  # detection block decides between origin/main and local main). Accept both
+  # shapes — the test name pins the $GIT_CMD invariant, not the anchor literal.
   awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE" \
-    | grep -qE '\$GIT_CMD rebase origin/main'
+    | grep -qE '\$GIT_CMD rebase (origin/main|"\$ANCHOR")'
   awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE" \
-    | grep -qE '\$GIT_CMD reset --soft origin/main'
+    | grep -qE '\$GIT_CMD reset --soft (origin/main|"\$ANCHOR")'
   awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE" \
     | grep -qE '\$GIT_CMD commit -F'
+}
+
+@test "Phase 2 anchor-selects between origin/main and local main" {
+  # When local main carries unpushed commits (release-in-flight), the squash
+  # anchor MUST be local main — otherwise Phase 3's FF-merge fails after the
+  # squash sits on the wrong base. Codified from home-os-skill-polish-batch
+  # merge (2026-05-20). The detection block uses `git rev-list --count
+  # origin/main..main` to pick the anchor.
+  awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE" \
+    | grep -qE 'git rev-list --count origin/main\.\.main'
+  awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE" \
+    | grep -qE 'ANCHOR=(origin/main|main)'
 }
 
 @test "Phase 2 explains why worktree-routing sidesteps phantom rebase error" {
@@ -400,6 +426,23 @@ setup() {
 @test "Phase 4.2 explains why --force is required after deinit" {
   awk '/^### 4\.2:/,/^---$/' "$SKILL_FILE" \
     | grep -qiE 'per-worktree submodule registry|safety check.*independently of'
+}
+
+@test "Phase 4.2 warns operators to run each teardown step as a separate Bash call (DCG push-force-short false-positive)" {
+  # The DCG core.git:push-force-short rule false-positives on compound commands
+  # containing BOTH `git push` (any variant) AND a separate `-f` flag elsewhere
+  # (rm -f, submodule deinit -f, etc.) — even when no `git push -f` exists in
+  # the command. The teardown legitimately uses both (`submodule deinit -f`,
+  # `worktree remove --force`) per git-API contract, and may follow a
+  # `git push origin --delete` — so the chained shape false-positives reliably.
+  # The skill must instruct operators to split — codified from home-os-skill-
+  # polish-batch teardown (2026-05-20) where the chained block got DCG-blocked.
+  awk '/^### 4\.2:/,/^---$/' "$SKILL_FILE" \
+    | grep -qiE 'false-positive|separate.*Bash.*tool call|do not chain'
+  # The named rule must be referenced specifically so future operators can
+  # `dcg explain` it; generic "DCG pattern-match" wording was empirically wrong.
+  awk '/^### 4\.2:/,/^---$/' "$SKILL_FILE" \
+    | grep -qE 'push-force-short'
 }
 
 @test "Phase 4.2 only runs worktree teardown when WORKTREE_PATH is set" {
