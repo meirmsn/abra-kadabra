@@ -701,6 +701,35 @@ AND on the branch — `git checkout --theirs` + re-applying the branch's
 deletions resolved cleanly), then soft-reset + commit produced the same
 9-file squash the rebase path would have.
 
+**Same flake fires in `git cherry-pick` and `git am`** when applying
+multiple patches that touch the same file in quick succession. The
+merge-then-soft-reset workaround above only covers the squash path; for
+surgical operations adjacent to the merge skill (e.g. stripping an
+accidentally-inherited commit by cherry-picking onto a clean branch from
+`origin/main`), use the **sleep + stat-refresh** unsticker between
+operations:
+
+```bash
+git cherry-pick <sha-1>
+sleep 3
+git update-index --really-refresh
+git cherry-pick <sha-2>
+sleep 3
+git update-index --really-refresh
+git cherry-pick <sha-3>
+```
+
+The first cherry-pick after a clean checkout always succeeds; subsequent
+ones touching the same file trip the phantom because virtiofs's stat
+cache hasn't settled. A 3-second sleep + explicit
+`git update-index --really-refresh` reliably unsticks it. Verified on
+the `calibration-and-task-phases` strip-and-merge (2026-05-20): without
+the unsticker, every cherry-pick after the first failed with the
+phantom "would be overwritten by merge"; with the unsticker, all three
+cherry-picks succeeded in sequence. `git apply` and `git am --3way`
+also trigger the flake on the same trigger; the sleep+refresh recipe
+covers them as well.
+
 If `$GIT_CMD commit` fails (pre-commit hook block — Layer 1 docs/tests-
 coverage, gitleaks, lint, typecheck, test suite): halt and surface the
 hook output. The fix lives in the branch content; resolve, re-stage if
@@ -718,6 +747,23 @@ squash machinery).
 
 ```bash
 git checkout main
+
+# Verify checkout succeeded — parallel work in another session can change
+# /devshop's HEAD between phases, and a silent checkout failure here
+# would land the squash on the wrong branch. Worked incident:
+# calibration-and-task-phases merge (2026-05-20) — /devshop's HEAD
+# silently switched to a parallel WIP branch (fix/init-firewall-pipefail)
+# between Phase 2 and Phase 3; the ff-merge landed on the WIP branch
+# instead of main. Recovery: re-checkout main and re-run Phase 3.
+CURRENT=$(git branch --show-current)
+if [ "$CURRENT" != "main" ]; then
+  echo "✖ Expected to be on main after checkout, got: $CURRENT"
+  echo "  Aborting Phase 3 to avoid landing the squash on the wrong branch."
+  echo "  Likely cause: parallel work changed /devshop's HEAD between phases."
+  echo "  Recovery: cd /devshop && git checkout main && re-invoke /ak-merge-devshop."
+  exit 1
+fi
+
 git merge --ff-only origin/main         # catch local-main lag
 git merge --ff-only "$BRANCH"           # ff main → squash commit (no NEW commit, no hook)
 git push origin main

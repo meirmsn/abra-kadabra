@@ -124,7 +124,7 @@ git checkout -b feat/<topic>                         # branch off main
 ```
 
 For parallel work in flight, develop in a linked worktree
-(`git worktree add .worktrees/<topic> -b <type>/<topic> && git -C .worktrees/<topic> submodule update --init --recursive`);
+(`git worktree add .worktrees/<topic> -b <type>/<topic> origin/main && git -C .worktrees/<topic> submodule update --init --recursive`);
 invoke `/ak-merge-devshop` from `/devshop` on `main` and the skill
 auto-detects the worktree, runs the squash in it via `git -C`, and
 tears the worktree down in Phase 4.2 cleanup. No manual `git worktree
