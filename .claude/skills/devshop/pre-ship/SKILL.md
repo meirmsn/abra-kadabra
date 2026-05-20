@@ -101,6 +101,15 @@ whether the rationale is credible. The Phase 3 → 4 handoff parser counts this 
 Gates with a documented `n/a` path that fall under this rule must use the
 `blocked (n/a per scope: ...)` shape — see Gate 8 `/design-review` below.
 
+When the caller is `/ak-build`, the Phase 3 → 4 handoff converts `blocked >
+0` into a mechanical halt: the orchestrator fires `AskUserQuestion` with
+three options (resolve / override / abort), captures any operator override
+to `specs/<feature>/review.md § Phase 3 → 4 advance log`, and invokes the
+`blockedGateOverride` adversarial reviewer (Sonnet) on the override
+reason. Silent autonomous advance past `blocked` is no longer reachable
+from `/ak-build`. See `.claude/skills/devshop/build/SKILL.md § Phase 3 →
+Phase 4 handoff § Rung 2` for the full protocol.
+
 ## Phase 0: Preflight
 
 Before running any gate, verify the tooling this pre-ship depends on. This exists

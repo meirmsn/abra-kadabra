@@ -35,12 +35,24 @@
 #                           pre-ship time (invoked from preship/verify-story.sh,
 #                           NOT from a commit-time bypass flag)
 #   dismissalLog          — pre-ship gate-dismissal rationale review
+#   advisorBypassReason   — DB-hardening advisor-clean Gate 2g bypass review (Sonnet);
+#                           judges per-finding rigor of `git -c devshop.advisorBypassReason`
+#                           against the 9 advisor lints from kit/docs/guide/security.md
+#                           § DB hardening.
+#   blockedGateOverride   — /ak-build Phase 3 → 4 halt override review (Sonnet);
+#                           judges operator-supplied override reason when advancing
+#                           past a `blocked` gate. Captured into
+#                           specs/<feature>/review.md § Phase 3 → 4 advance log
+#                           with an adversarial-review-stamp by the orchestrator.
 #
 # Usage: adversarial-review.sh <check-type> <reason> [context...]
 #   reason: the bypass reason provided via git -c, OR for dismissalLog the body of the
 #           `## Dismissals` section of the gate's review.md entry
 #   context: additional context (piped or as arguments)
-#     dismissalLog: $1 = gate name, $2 = path to review.md
+#     dismissalLog:        $1 = gate name, $2 = path to review.md
+#     blockedGateOverride: $1 = gate name (e.g. "Gate 8: /design-review"),
+#                          $2 = follow-up tracker pointer (path:section or URL),
+#                          $3 = path to review.md (for spec scope + advance-log context)
 #
 # Env overrides:
 #   DEVSHOP_SKIP_ADVERSARIAL=1            — bypass review entirely (dev-loop escape hatch;
@@ -57,7 +69,7 @@
 # Per-check-type model routing (Haiku 4.5 for deterministic rule-application,
 # Sonnet 4.6 for judgment-heavy or high-blast-radius checks):
 #   Haiku:  dirtyTreeReason, dirtyPushReason, manifestReviewed
-#   Sonnet: prTextHygieneReason, testReviewSkipReason, localTestSkipReason, coreUserStoryNaReason, dismissalLog, hookBypass, exemptAddition
+#   Sonnet: prTextHygieneReason, testReviewSkipReason, localTestSkipReason, coreUserStoryNaReason, dismissalLog, hookBypass, exemptAddition, advisorBypassReason, blockedGateOverride
 # Rationale: PR descriptions are the canonical reviewer-facing record; hookBypass
 # can leak secrets via gitleaks bypass; testReviewSkipReason judges audit-time
 # halt overrides; dismissalLog weighs spec scope. Dirty-tree / manifest checks
@@ -440,13 +452,71 @@ ${MIG_DIFF:-(none — bypass on a non-migration PR is itself suspicious)}
 Bypass reason (the text being judged):
 $REASON"
     ;;
+  blockedGateOverride)
+    # Called by /ak-build § Phase 3 → 4 handoff § Rung 2 when the operator picks
+    # the override option in the AskUserQuestion halt. REASON is the override
+    # rationale; extra args:
+    #   $1 = gate name (canonical, e.g. "Gate 8: /design-review")
+    #   $2 = follow-up tracker pointer (path:section or GitHub issue URL)
+    #   $3 = path to specs/<feature>/review.md (for spec scope + advance-log context)
+    [ -z "$GATE_NAME" ] && GATE_NAME="unknown-gate"
+    TRACKER="${2:-}"
+    GATE_REPORT_PATH="${3:-}"
+
+    # Pull spec scope so the reviewer can judge "override contradicts § In scope"
+    # the same way dismissalLog does. The override is a stronger claim than a
+    # finding dismissal — it waves past a gate that didn't run at all — so the
+    # spec-scope comparison is load-bearing.
+    FEATURE_DIR=$(dirname "$GATE_REPORT_PATH" 2>/dev/null || true)
+    SPEC_IN_SCOPE=""
+    SPEC_CORE_STORY=""
+    if [ -n "$FEATURE_DIR" ] && [ -f "$FEATURE_DIR/spec.md" ]; then
+      SPEC_IN_SCOPE=$(awk '/^## In scope/{f=1;next} f && /^## /{exit} f' \
+        "$FEATURE_DIR/spec.md" 2>/dev/null | head -80)
+      SPEC_CORE_STORY=$(awk '/^## Core user story/{f=1;next} f && /^## /{exit} f' \
+        "$FEATURE_DIR/spec.md" 2>/dev/null | head -30)
+    fi
+
+    # Prior advance-log entries on the same feature (precedent the operator might
+    # try to lean on). The reviewer's rule #12 (a) explicitly rejects precedent
+    # framing — inlining the prior entries gives the reviewer the surface to
+    # detect a copy-paste reason.
+    PRIOR_ADVANCE_LOG=""
+    if [ -n "$GATE_REPORT_PATH" ] && [ -f "$GATE_REPORT_PATH" ]; then
+      PRIOR_ADVANCE_LOG=$(awk '
+        /^## Phase 3 → 4 advance log/{f=1;next} f && /^## /{exit} f
+      ' "$GATE_REPORT_PATH" 2>/dev/null | head -120)
+    fi
+
+    CONTEXT="Gate being overridden: $GATE_NAME
+
+The operator picked the override option in /ak-build's Phase 3 → 4 halt
+AskUserQuestion — advancing past a 'blocked' gate. The orchestrator has
+captured the gate, reason, and follow-up tracker into review.md § Phase 3 → 4
+advance log; this reviewer judges whether the override reason holds up.
+
+=== Override reason (the rationale being audited) ===
+$REASON
+
+=== Follow-up tracker pointer (the operator claims the work is tracked here) ===
+${TRACKER:-(not provided — automatic FAIL per rule 12(c))}
+
+=== Spec § Core user story (MUST NOT be waived by override) ===
+${SPEC_CORE_STORY:-(not declared — spec lacks Core user story section)}
+
+=== Spec § In scope (what this PR committed to) ===
+${SPEC_IN_SCOPE:-(not available)}
+
+=== Prior advance-log entries on this feature (precedent surface) ===
+${PRIOR_ADVANCE_LOG:-(no prior overrides on this feature)}"
+    ;;
   *)
     # Unknown / removed check-type. PR-C narrowed the supported set —
     # docsReviewed, testCoverage, testCoverageProject, docsFreshnessProject all
     # moved to audit-time `/ak-check-docs-and-tests`. A stale caller hits this
     # branch and surfaces immediately rather than silently no-op'ing.
     echo "FAIL: unknown check type: $CHECK_TYPE" >&2
-    echo "  Surviving check-types: prTextHygieneReason | dirtyTreeReason | dirtyPushReason | manifestReviewed | hookBypass | exemptAddition | testReviewSkipReason | localTestSkipReason | coreUserStoryNaReason | dismissalLog | advisorBypassReason"
+    echo "  Surviving check-types: prTextHygieneReason | dirtyTreeReason | dirtyPushReason | manifestReviewed | hookBypass | exemptAddition | testReviewSkipReason | localTestSkipReason | coreUserStoryNaReason | dismissalLog | advisorBypassReason | blockedGateOverride"
     echo "  Coverage reviews (docsReviewed / testCoverage / testCoverageProject / docsFreshnessProject) moved to audit-time /ak-check-docs-and-tests in PR-C — see kit/ROADMAP.md."
     exit 1
     ;;
@@ -636,7 +706,7 @@ get_model_for_check_type() {
     return
   fi
   case "$1" in
-    prTextHygieneReason|testReviewSkipReason|localTestSkipReason|coreUserStoryNaReason|dismissalLog|hookBypass|exemptAddition|advisorBypassReason)
+    prTextHygieneReason|testReviewSkipReason|localTestSkipReason|coreUserStoryNaReason|dismissalLog|hookBypass|exemptAddition|advisorBypassReason|blockedGateOverride)
       echo "sonnet"
       ;;
     dirtyTreeReason|dirtyPushReason|manifestReviewed)
@@ -757,6 +827,44 @@ Per-check-type rules:
     Default: REJECT. Generic / interpretive / categorical-shorthand reasons
     FAIL even if they sound plausible. The verifiable-file-claim shape exists
     precisely so that the Gate 9 audit-trail surfaces a fact, not a vibe.
+12. For blockedGateOverride (/ak-build Phase 3 → 4 halt override): the Reason
+    is the operator's rationale for advancing past a \`blocked\` gate when
+    the AskUserQuestion halt fired. The override is a stronger claim than a
+    finding dismissal — the gate did NOT run at all — so the reviewer's bar
+    is higher than for dismissalLog. PASS requires ALL of:
+    (a) **Gate-specific reason** (not precedent). The reason must name what
+        makes THIS PR's circumstances acceptable for advancing past the
+        gate. ACCEPT: \"Chromium not installable in this devcontainer image;
+        /design-review will run in CI on a host with playwright deps (tracked
+        kit/TODOS.md § chromium-image-roll)\". REJECT: \"matches PR #27's
+        override\", \"we've done this before\", \"same as last time\", \"sandbox
+        env\" with no specifics. The Prior advance-log entries block in
+        context above is the precedent surface — if the operator's reason is
+        a near-copy of a prior entry's reason, that is the failure mode this
+        rule exists to catch.
+    (b) **No core-story crossing**. If the blocked gate covers any verb the
+        spec's § Core user story names (sign-in / add / list / equivalent
+        primary-flow assertion), the override is categorically NOT
+        acceptable — the gate's evidence is load-bearing for the spec's
+        contract, and the operator cannot wave it past. The Spec § Core
+        user story block in context above names the verbs that are
+        off-limits.
+    (c) **Verifiable follow-up tracker**. The tracker pointer must be a
+        path:section (e.g. \"kit/TODOS.md § chromium-image-roll\") or a
+        GitHub issue URL. ACCEPT: a pointer the reviewer could grep against
+        the repo's actual tracker files in 30 seconds. REJECT: \"will track
+        later\", \"see follow-up\", \"tracked\" without naming the entry,
+        empty Follow-up tracker pointer in context above.
+    (d) **No In-scope contradiction**. If the blocked gate covers behavior
+        the spec's § In scope explicitly committed to delivering, the
+        override is NOT acceptable — the PR is shipping less than it
+        promised. The Spec § In scope block in context above is the
+        contract surface.
+    Default: REJECT. The mechanical halt exists precisely because three
+    prior PRs (home-os #15 / #27 / #28) shipped past blocked gates on
+    rationale a Sonnet reviewer would have caught. The default-REJECT
+    posture is the rule's load-bearing property: a borderline-plausible
+    reason FAILS unless it visibly engages all four sub-criteria.
 
 Respond with EXACTLY one line:
 PASS - only if the reason is genuinely legitimate and specific

@@ -1,0 +1,23 @@
+### [domain: docs] [section: A] [severity: medium]
+**File**: kit/docs/guide/hooks.md:385
+**What**: New `blockedGateOverride` Sonnet check-type added to `kit/scripts/adversarial-review.sh`, but the Per-check-type model routing table in `kit/docs/guide/hooks.md § Per-check-type model routing` (line 385) was not updated. The Sonnet row still reads `prTextHygieneReason, testReviewSkipReason, localTestSkipReason, dismissalLog, hookBypass, exemptAddition` — `blockedGateOverride` is missing.
+**Why**: `kit/docs/guide/hooks.md` is the canonical operator reference for the adversarial-review surface (called out from `CLAUDE.md § Known Footguns § Devshop commits fire ONE adversarial reviewer for docs` as "Full contract + check-type matrix"). A new Sonnet check-type that's invisible in the matrix means operators looking up "what's the routing for this check-type?" get a stale answer — and Section A's surface→doc rubric (`kit/scripts/**.sh` → any `kit/docs/guide/*.md` OR `CLAUDE.md`) is unsatisfied: zero guide docs were touched in the range.
+**Fix**: Add `blockedGateOverride` to the Sonnet row of the model-routing table at `kit/docs/guide/hooks.md:385`, with a one-clause rationale matching the table's existing voice (e.g., "`blockedGateOverride` waves past a gate that didn't run at all — strongest claim in the surface"). Same commit should also touch the surrounding prose listing check-types (see Section C finding on lines 251 + 421).
+
+### [domain: docs] [section: C] [severity: medium]
+**File**: kit/docs/guide/hooks.md:251
+**What**: `kit/docs/guide/hooks.md § Pre-ship-time additions to the adversarial-review surface` opens with "**Pre-ship-time additions to the adversarial-review surface.** One check-type runs at pre-ship time rather than commit-time, so it has no `git -c devshop.<key>` flag — the rationale lives in the spec body itself: - `coreUserStoryNaReason` ...". After this PR, `blockedGateOverride` is a second non-commit-time check-type (fires inside `/ak-build` Phase 3 → 4 handoff via `AskUserQuestion`, with the rationale captured in `specs/<feature>/review.md § Phase 3 → 4 advance log` — no `git -c devshop.<key>` surface). The "One check-type" framing is now inaccurate.
+**Why**: This is a coherence break in a non-touched doc: the PR adds a new check-type that fits exactly the category this paragraph describes, but the paragraph still says "One." An operator reading hooks.md to understand the adversarial-review taxonomy will conclude only `coreUserStoryNaReason` lives outside the commit-time/pre-ship-gate surfaces, when in fact `blockedGateOverride` does too.
+**Fix**: Rewrite the opening sentence to "Two check-types run outside commit-time, so neither has a `git -c devshop.<key>` flag — the rationale lives in the spec / advance-log body itself:" then add a second bullet for `blockedGateOverride` naming its surface (`/ak-build § Phase 3 → Phase 4 handoff § Rung 2`), its capture target (`specs/<feature>/review.md § Phase 3 → 4 advance log`), and a one-line summary of the four PASS sub-criteria (rule #12 in the script). Mirror the `coreUserStoryNaReason` bullet's shape.
+
+### [domain: docs] [section: C] [severity: medium]
+**File**: kit/docs/guide/hooks.md:421
+**What**: `kit/docs/guide/hooks.md § /ak-build Phase 5.8 — testReviewSkipReason` closes with: "This is the only adversarial-review check-type whose surface isn't a git hook — it fires inside the `/ak-build` skill rather than at commit or push time." After this PR `blockedGateOverride` also fires inside `/ak-build` (Phase 3 → 4 handoff) and isn't a git-hook surface. The "only" claim is stale.
+**Why**: Coherence break in a non-touched doc — the new check-type contradicts a load-bearing identifying claim ("the only adversarial-review check-type whose surface isn't a git hook"). Reviewers and operators who land on this section to understand the non-git-hook check-type category will believe `testReviewSkipReason` is unique when it isn't.
+**Fix**: Rewrite the sentence to "Two adversarial-review check-types fire inside `/ak-build` rather than at commit or push time — `testReviewSkipReason` here (Phase 5.8 post-audit halt override) and `blockedGateOverride` (Phase 3 → 4 halt override; see `.claude/skills/devshop/build/SKILL.md § Phase 3 → Phase 4 handoff § Rung 2` for the protocol)." Then keep the existing paragraph about the bypass flag and per-check-type model routing being otherwise identical.
+
+### [domain: docs] [section: D] [severity: low]
+**File**: (range-level)
+**What**: No `Docs-Coverage-Bypass:` trailers in range.
+**Why**: Per Section D rubric — informational record, not a finding.
+**Fix**: n/a.

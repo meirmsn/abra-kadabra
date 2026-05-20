@@ -61,42 +61,6 @@ Priority tiers:
 
 ---
 
-### `/ak-build` Phase 3 → Phase 4 — mechanical halt on `blocked > 0`
-
-**Problem.** `/ak-build § Phase 3 → Phase 4 handoff § Rung 2` is prose: "Require explicit operator acknowledgement before continuing past blocked. Do not advance autonomously. Pause the pipeline and surface the halt reason verbatim." The SKILL.md callout explicitly names the failure: "Home-os PR #15 (2026-05-14) shipped past `blocked: 1` because the halt happened but the override was silent; reviewers received placeholder hero shots from the sign-in flow instead of the actual feature." The discipline rule is documented; orchestrator-side enforcement isn't. Three home-os PRs in a row repeated the same self-issued-override pattern.
-
-**Where it bit.**
-
-- **PR #15** (2026-05-14) — placeholder hero shots shipped to reviewers; called out verbatim in the SKILL.md.
-- **PR #27** (decide-state, 2026-05-17) — Gates 3/8/9/10 emitted `blocked (n/a per scope: sandbox)`; orchestrator self-advanced. (Same pattern; would have benefited from operator-acknowledgement loop even if the underlying outcome was the same.)
-- **PR #28** (planned-state, 2026-05-18) — `blocked: 4` (same sandbox-blocked LLM-mediated gates); orchestrator self-advanced with prose like "advance to Phase 4 — matches the decide-state precedent." Exactly the silent-override mode SKILL.md flags.
-
-The cost per incident is variable but compound — silent overrides decay the rule itself. Each `blocked` advance without an acknowledgement loop weakens the next operator's signal-strength on the rule. Three repeats in the same project's lifetime is the load-bearing evidence that prose isn't sufficient.
-
-**Fix shape.** Convert the prose halt to mechanical orchestrator state:
-
-- In `/ak-build § Phase 3 → Phase 4 handoff`, after parsing the pre-ship return for `findings_pending` / `blocked` / `n_a` counts, hard-gate Rung 2:
-  - If `blocked > 0` AND there are no operator-supplied bypasses for those specific gates, fire `AskUserQuestion` with the halt reason inline + present three options:
-    1. Resolve the tooling gap and re-invoke `/ak-build` (Step 0's resume check re-runs Phase 3 cleanly)
-    2. Provide an explicit override that names the gate, the reason, and a follow-up tracker entry. Override is captured in `specs/<feature>/review.md` § Phase 3 → 4 advance log (new section) so it surfaces in Phase 6's audit comment + the BUILD-LOG entry.
-    3. Abort the run
-  - **No silent autonomous advance** — even when the operator has previously accepted the same gate's `blocked (n/a per scope: …)` shape on a prior PR. Each PR re-acks.
-  - The override format includes a `<!-- adversarial-review-stamp: ... -->` so the same Layer-2 adversarial reviewer that judges other override reasons judges these too — keeps "matches the decide-state precedent" from passing as a legitimate reason.
-
-**Where it goes (mechanical).**
-
-- `/devshop/.claude/skills/ak-build/SKILL.md § Phase 3 → Phase 4 handoff § Rung 2` — replace the prose halt with the AskUserQuestion + override-capture flow above.
-- `/devshop/.claude/skills/ak-build/SKILL.md § Phase 6` — extend the audit-comment template's "Quality gates" section to render override-acknowledgements verbatim from `specs/<feature>/review.md § Phase 3 → 4 advance log` (so reviewers see exactly which gates the operator waved past, with what reason).
-- Cross-link from `/devshop/.claude/skills/ak-pre-ship/SKILL.md § Outcome semantics § n/a is not legal for LLM-mediated gates` — the existing prose rule about `blocked (n/a per scope: …)` outcomes pairs with this halt enforcement.
-
-**Why this entry sits in v0:** PR #15 was the first known incident; PR #28 was the third. The repeat rate is high enough that prose-only isn't working. Cost is small (~30min orchestrator update), reach is every `/ak-build` invocation on every project. Now that the per-gate sub-agent decomposition has shipped, this entry's post-pass advancement decision is the only remaining piece of the Phase 3 → 4 hardening surface.
-
-**Why not a Track-A inline fix during this session:** the SKILL.md edit is exactly the kind of change `/update-config` and `/devshop` ownership rules want surfaced into the roadmap, not edited mid-`/ak-build`. Workspace lacks edit permissions on `/devshop/.claude/skills/ak-build/SKILL.md` outside an explicit devshop-side maintenance window.
-
-[v0, surfaced-by home-os PR #15 (2026-05-14), home-os PR #27 (2026-05-17), home-os PR #28 (2026-05-18) — three silent-override repeats]
-
----
-
 ### `PRODUCTION_URL` onboarding gap — fill `.env` + rebuild container + verify (`/ak-new-project` Phase B + `/ak-go-live` Step 1.5 tri-state diagnostic)
 
 **Problem.** `/ak-new-project` scaffolds `.devcontainer/.env` with an empty `PRODUCTION_URL=` slot. The Vercel URL isn't known until after `vercel link` + first deploy land, so scaffold-time population is impossible. By the time the URL is known (end of Phase B, when `CLAUDE.md § Deploy Configuration` gets written), the skill **doesn't prompt the operator to do anything with `.env`** — the gap silently propagates.

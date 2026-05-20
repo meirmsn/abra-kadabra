@@ -115,7 +115,7 @@ Failure isolation, parallelism on read-only analysis (~10–15 min saved per Pha
 
 ## Out of scope
 
-- Sibling row `ak-build-phase3-blocked-halt` — independent ship per PLAN cheatsheet.
+- Sibling work `ak-build-phase3-blocked-halt` shipped on its own track (mechanical halt + AskUserQuestion + advance log) — out of scope for this spec.
 - Phase 1 (`/ak-spec`) decomposition — single-narrative, leave monolithic per ROADMAP entry's generalization-question call-out.
 - Phase 5.9 visual refresh decomposition — shared browse daemon makes captures serial; leave monolithic.
 

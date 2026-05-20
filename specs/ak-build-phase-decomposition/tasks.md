@@ -82,7 +82,6 @@ Per `CLAUDE.md § Closing TODO / ROADMAP entries when a fix ships`:
 - Delete `kit/ROADMAP.md § /ak-build pipeline — per-gate sub-agent decomposition` section in full (lines 14-122 of current ROADMAP).
 - Delete PLAN.md Active row for `ak-build-phase-decomposition`.
 - Delete bundling-cheatsheet line "`ak-build-phase-decomposition` absorbs sub-deliverables B (per-gate decomp) + …".
-- Update `ak-build-phase3-blocked-halt`'s Deps cell — remove "sibling to `ak-build-phase-decomposition`" since that sibling will have shipped.
 - Rewrite any prose elsewhere that references the "monolithic Phase 3" or "single-agent fix loop" from conditional ("would benefit from") to imperative present ("Phase 3 runs as per-gate sub-agents").
 
 ### T7: Audit + land [todo]

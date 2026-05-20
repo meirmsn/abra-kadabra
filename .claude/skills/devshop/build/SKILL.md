@@ -11,8 +11,10 @@ description: |
   The live TaskCreate tracker mirrors the preview's hierarchy as phases run.
   Delegates heavy phases to subagents to keep main context clean.
   Resumable — detects where it left off if session is interrupted.
-  If /ak-pre-ship reports any `blocked` gate (tooling missing), refuses to advance to
-  /ship and surfaces the preflight fix recipe to the user.
+  If /ak-pre-ship reports any `blocked` gate (tooling missing), fires AskUserQuestion
+  with three options (resolve / override / abort) before advance — captures any override
+  in specs/<feature>/review.md § Phase 3 → 4 advance log, adversarially reviews it via
+  the blockedGateOverride check-type, and renders the log in Phase 6's PR audit comment.
   PR body conventions codified: private-repo-safe image URLs, checkbox timing per
   phase, hero-screenshot embeds rendered correctly at Phase 6.
   Use when asked to "build it", "build this", "go", or "implement and ship". (devshop)
@@ -878,24 +880,124 @@ gate marked `n/a`.
 **Rung 1 — `findings_pending > 0`**: pause and escalate to the user (findings
 need fixes).
 
-**Rung 2 — `blocked > 0`**: **do NOT advance to Phase 4**. The PR is not
-shippable until the tooling gap is closed. Take these actions:
+**Rung 2 — `blocked > 0`**: **mechanical halt via `AskUserQuestion`. Do
+NOT advance to Phase 4.** The PR is not shippable until either the tooling
+gap is closed or the operator provides an explicit, adversarially-reviewed
+override. The halt is orchestrator state, not advisory prose — the
+orchestrator MUST fire `AskUserQuestion` and branch on its return.
 
-  1. Emit a clear message to the user with the preflight fix recipe from the agent's return.
-  2. Post a PR comment (if a PR exists for this branch already — unusual in Phase 3,
-     but possible on resume) describing which gates are blocked and why.
-  3. **Require explicit operator acknowledgement before continuing past blocked.**
-     Do not advance autonomously. Pause the pipeline and surface the halt
-     reason verbatim. Continuing past `blocked > 0` requires the operator to
-     re-invoke `/ak-build` with either (a) the tooling gap resolved (Step 0's
-     resume check re-runs Phase 3 cleanly), or (b) an explicit override that
-     names the gate, the reason, and a follow-up tracker entry — never a
-     silent autonomous continue. Home-os PR #15 (2026-05-14) shipped past
-     `blocked: 1` because the halt happened but the override was silent;
-     reviewers received placeholder hero shots from the sign-in flow
-     instead of the actual feature.
-  4. Do NOT treat `blocked` as `n/a`. A cheerful advance past blocked gates
-     is the exact failure mode this workflow exists to prevent.
+1. Emit the per-gate halt summary to the user — for each `blocked` gate,
+   render its canonical name, the blocking reason verbatim from the gate's
+   `## Dismissals` section, and the preflight fix recipe the gate runner
+   returned in its `blocked` payload.
+
+2. Post a PR comment (if a PR exists for this branch already — unusual in
+   Phase 3, but possible on resume) describing which gates are blocked and why.
+
+3. **Required: fire `AskUserQuestion`** with the halt reason inline. Three
+   options, in this order:
+
+   ```
+   header: "Phase 3 halt"
+   question: "<N> gate(s) reported `blocked` — pipeline is paused. How do you want to proceed?"
+   options:
+     1. Resolve the tooling gap and re-invoke /ak-build (Recommended)
+        — Step 0's resume check re-runs Phase 3 cleanly. Pick this when the
+          gate runner's fix recipe is doable from the operator's environment.
+     2. Override — name the gate, reason, and follow-up tracker entry
+        — Captured in specs/<feature>/review.md § Phase 3 → 4 advance log,
+          adversarially reviewed via the `blockedGateOverride` check-type
+          (Sonnet), and rendered in Phase 6's PR audit comment.
+     3. Abort the /ak-build run
+   ```
+
+   The orchestrator MUST NOT autonomously advance to Phase 4 — even when
+   the same gate-blocked shape was previously accepted on a prior PR. Each
+   PR re-acks. The mechanical halt exists precisely so "matches the
+   decide-state precedent" is not a path the orchestrator can invent.
+
+4. **Option 1 (resolve)**: emit the gate runner's fix recipe verbatim and
+   exit cleanly. The operator re-invokes /ak-build after the tooling gap is
+   closed; Step 0's resume check picks up at Phase 3 and reruns the gauntlet.
+
+5. **Option 2 (override)**: collect three fields from the operator via a
+   follow-up `AskUserQuestion` round (re-prompt if any field is empty):
+
+   - **Gate** — the canonical gate ID being waived (e.g. `Gate 8:
+     /design-review`). When `blocked > 1`, one override entry per gate.
+   - **Reason** — why shipping past this `blocked` outcome is acceptable
+     for THIS PR specifically. Not as a precedent, not as a category claim.
+   - **Follow-up tracker** — path + section to an existing entry in
+     `TODOS.md` / `PRODUCT-ROADMAP.md` / `kit/TODOS.md` / `kit/ROADMAP.md`
+     (or a GitHub issue URL) that names the work to close the tooling gap.
+
+   Append the override to `$FEATURE_DIR/review.md` under a new section,
+   then invoke the adversarial reviewer:
+
+   ```bash
+   STAMP_TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+   cat >> "$FEATURE_DIR/review.md" <<EOF
+
+   ## Phase 3 → 4 advance log
+
+   ### $STAMP_TS — $GATE
+
+   **Gate:** $GATE
+   **Reason:** $REASON
+   **Follow-up tracker:** $TRACKER
+   <!-- adversarial-review-stamp: blockedGateOverride pending @ $STAMP_TS -->
+   EOF
+
+   if bash kit/scripts/adversarial-review.sh blockedGateOverride \
+        "$REASON" "$GATE" "$TRACKER" "$FEATURE_DIR/review.md"; then
+     sed -i "s|blockedGateOverride pending @ $STAMP_TS|blockedGateOverride PASS @ $STAMP_TS|" \
+       "$FEATURE_DIR/review.md"
+     git add "$FEATURE_DIR/review.md"
+     git commit -m "chore($FEATURE): Phase 3 → 4 override on $GATE"
+     # Advance to Phase 4 with the override captured.
+   else
+     # Reviewer rejected. DO NOT advance. The `pending` stamp stays in
+     # review.md as the audit trail; the operator must either fix the
+     # reason (re-invoke /ak-build to re-prompt — Step 0's resume check
+     # re-runs the halt) or re-pick option 1 or 3.
+     echo "✖ Override rejected by adversarial review:"
+     echo "$REVIEWER_OUTPUT"
+     exit 1
+   fi
+   ```
+
+   The `<!-- adversarial-review-stamp -->` is the audit signal: a `pending`
+   stamp on a merged PR is a contract violation (the orchestrator MUST NOT
+   advance with a `pending` stamp). Phase 6's audit comment renders the
+   advance log section verbatim so reviewers see the gate + reason +
+   tracker + stamp disposition.
+
+6. **Option 3 (abort)**: exit /ak-build cleanly. Phase 4 is not entered. No
+   commits made; no PR push. Operator can re-invoke later.
+
+The override flow exists for genuine ship-now cases where the tooling gap
+can't be closed in the current session (CI-only browser available, sandbox
+env without Docker, etc.) AND the follow-up work is genuinely tracked. The
+`blockedGateOverride` adversarial reviewer rejects: generic reasons
+("seems fine", "we've done this before"); precedent-based reasons
+("matches PR #27's override"); reasons without a verifiable tracker entry;
+reasons that contradict the spec's § In scope or § Core user story.
+
+Worked incidents — three repeats in the same project's lifetime is why
+this halt is now mechanical rather than prose:
+
+- **Home-os PR #15** (2026-05-14) — shipped past `blocked: 1` because the
+  halt happened but the override was silent; reviewers received
+  placeholder hero shots from the sign-in flow instead of the actual
+  feature.
+- **Home-os PR #27** (decide-state, 2026-05-17) — Gates 3/8/9/10 emitted
+  `blocked (n/a per scope: sandbox)`; orchestrator self-advanced.
+- **Home-os PR #28** (planned-state, 2026-05-18) — `blocked: 4` (same
+  sandbox-blocked LLM-mediated gates); orchestrator self-advanced with
+  prose like "advance to Phase 4 — matches the decide-state precedent."
+
+Do NOT treat `blocked` as `n/a`. A cheerful advance past blocked gates is
+the exact failure mode this workflow exists to prevent.
 
 **Rung 3 — LLM-mediated gate marked `n/a`** (codified from lalista PR #65,
 2026-05-12): even when the agent returns `findings_pending == 0` and
@@ -2094,6 +2196,16 @@ gh pr comment "$PR" --body "$(cat <<'COMMENT'
 | /benchmark | <pass / findings (N) / n/a / blocked> |
 | Convention check | <pass / findings (N) / blocked> |
 | /ak-check-docs-and-tests (Audit 2, post-polish) | <pass / findings (N) [pending or medium-only] / n/a — empty range / skipped — testReviewSkipReason / blocked> |
+
+### Override-acknowledgements (Phase 3 → 4 advance log)
+<From $FEATURE_DIR/review.md § "Phase 3 → 4 advance log". If section is
+ absent or empty: "No overrides — every gate either passed or the tooling
+ gap was resolved before advance." Otherwise render each entry verbatim
+ (timestamp, gate, reason, follow-up tracker, and the
+ <!-- adversarial-review-stamp --> marker) so the reviewer can verify the
+ override was approved by the blockedGateOverride reviewer (Sonnet). A
+ `pending` stamp on a merged PR is a contract violation — surface it
+ prominently so the reviewer flags the merge.>
 
 ### CI fix loop
 <N attempts / 0 if CI passed first try / details of what was fixed>
