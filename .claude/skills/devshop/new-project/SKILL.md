@@ -922,17 +922,27 @@ Add it at: repo on github.com → **Settings** → **Secrets and variables** →
 
 Used by `.github/workflows/keepalive.yml` to prevent Supabase auto-pause.
 
-**Also paste the bare-hostname form into `.devcontainer/.env`** (the line was left empty
-in Step 4):
+**Also paste the bare-hostname form into `.devcontainer/.env`, rebuild, and verify** (three side-effects, all required — skipping step 2 or step 3 silently disables every in-container prod probe for the project's lifetime):
 
-```bash
-sudo sed -i 's|^PRODUCTION_URL=$|PRODUCTION_URL=<bare-hostname>|' .devcontainer/.env
-```
+1. **Paste the bare hostname into `.devcontainer/.env`** (the line was left empty in Step 4):
 
-(Strip `https://` and any trailing `/path` from the GH Variable value — `.env` wants
-`<your-app>.com`, the GH Variable wants `https://<your-app>.com`. The bare hostname
-is what `dig` resolves; `refresh-allowed-ips.sh` reads this on every invocation.)
-Rebuild the devcontainer afterwards so `.env` is re-sourced into the shell.
+   ```bash
+   sudo sed -i 's|^PRODUCTION_URL=$|PRODUCTION_URL=<bare-hostname>|' .devcontainer/.env
+   ```
+
+   Strip `https://` and any trailing `/path` from the GH Variable value — `.env` wants `<your-app>.com`, the GH Variable wants `https://<your-app>.com`. The bare hostname is what `dig` resolves; `refresh-allowed-ips.sh` reads this on every invocation.
+
+2. **Rebuild the devcontainer** — VS Code → Cmd/Ctrl+Shift+P → "Dev Containers: Rebuild Container".
+
+   Why this step matters: `.devcontainer/init-firewall.sh` runs **only at container start**, and that's the moment it copies `.env`'s `PRODUCTION_URL` value into the locked file `/etc/refresh-allowed-ips/production_url`. The `/etc/` file is the runtime source of truth for `refresh-allowed-ips.sh` (and therefore for the firewall allowlist). Editing `.env` mid-session does **not** propagate — until you rebuild, every `curl <prod>` from inside the container returns `HTTP 000` and `/ak-go-live § Step 1.5` (pre-flight prod probe) + Step 3 (post-deploy canary) silently fall through to in-container-fault disambiguation.
+
+3. **Verify after rebuild** — in the new container terminal:
+
+   ```bash
+   sudo cat /etc/refresh-allowed-ips/production_url
+   ```
+
+   Should print the bare hostname. If it prints empty, the rebuild didn't pick up the new `.env` line (most likely cause: VS Code reattached to the old container instead of building a fresh one). Re-run "Rebuild Container" — pick the explicit "Rebuild" option, not "Reopen in Container".
 
 #### Step 13b: Generate `apps/web/.env.local` for local dev
 

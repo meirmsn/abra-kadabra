@@ -45,8 +45,19 @@ If any check fails, report and stop.
 After PR readiness is confirmed but BEFORE invoking `/land-and-deploy`, curl the production URL from `CLAUDE.md § Deploy Configuration`. The goal isn't canary verification (that's Step 3 post-deploy); it's catching pre-existing production failures whose symptoms the about-to-land deploy might silently change or mask.
 
 ```bash
-PROD_URL=$(grep -i 'production.*url' CLAUDE.md 2>/dev/null | head -1 | sed 's/.*: *//' | tr -d '[:space:]')
-[ -z "$PROD_URL" ] && echo "PROD_URL not configured in CLAUDE.md § Deploy Configuration — skipping health probe" && exit 0
+# Extract value from `Production URL:` line in CLAUDE.md, tolerate the three
+# wild-seen formats (bare, backticked, https-prefixed), validate as DNS-label
+# shape, then dial with explicit https:// so the probe doesn't degrade to
+# http:// + 308-redirect on HTTPS-only hosts.
+RAW_VALUE=$(grep -i 'production.*url' CLAUDE.md 2>/dev/null | head -1 | sed -E 's/^[^:]*:[[:space:]]*//')
+BARE_HOST=$(printf '%s' "$RAW_VALUE" \
+  | sed -E 's/[`<>"'\''[:space:]]+//g' \
+  | sed -E 's|^https?://||; s|/.*$||')
+if ! printf '%s' "$BARE_HOST" | grep -qE '^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$'; then
+  echo "PROD_URL not configured (or malformed) in CLAUDE.md § Deploy Configuration (got: '$BARE_HOST') — skipping health probe"
+  exit 0
+fi
+PROD_URL="https://$BARE_HOST"
 echo "Probing production at $PROD_URL ..."
 HTTP=$(curl -s -o /tmp/prod-preflight.html -w "%{http_code}" --connect-timeout 8 "$PROD_URL/" 2>/dev/null)
 echo "HTTP $HTTP"
@@ -54,7 +65,72 @@ echo "HTTP $HTTP"
 
 **If `HTTP` is 2xx or 3xx**: production is healthy. Continue to Step 2.
 
-**If `HTTP` is 000** (connection failed): in-container connectivity issue, not a pre-existing prod issue — see `/devshop/CLAUDE.md § Known Footguns § Firewall IP rotation` for the refresh-script recovery. **Do NOT** treat as a pre-existing prod issue or auto-roll back; if the recovery there doesn't reach prod (rare), produce an operator-side `! curl` paste / browser-check ad hoc to complete the probe.
+**If `HTTP` is 000** (connection failed): in-container connectivity issue, not a pre-existing prod issue — **do NOT** treat as a pre-existing prod issue or auto-roll back. Three distinct root causes share the same `HTTP 000` symptom; the disambiguation requires one extra read of the runtime allowlist file.
+
+```bash
+# Tri-state HTTP 000 classifier — Mode A / B / C.
+ETC_FILE=/etc/refresh-allowed-ips/production_url
+HAVE_ETC=$(sudo cat "$ETC_FILE" 2>/dev/null | tr -d '[:space:]')
+
+if [ -n "$HAVE_ETC" ]; then
+  echo "Mode C: /etc/refresh-allowed-ips/production_url is populated ($HAVE_ETC)."
+  echo "HTTP 000 with /etc/ populated → Vercel rotated edge IPs since container start."
+  echo "Run: sudo /usr/local/bin/refresh-allowed-ips.sh"
+  echo "Then retry the probe. Full recipe: /devshop/CLAUDE.md § Known Footguns § Firewall IP rotation."
+else
+  echo "Mode A or B: /etc/refresh-allowed-ips/production_url is empty (0 bytes)."
+  echo "Either .env never had PRODUCTION_URL set (Mode A), or .env has it but the"
+  echo "container hasn't been rebuilt since (Mode B). To distinguish, ask the operator:"
+  echo ""
+  echo "  ! grep '^PRODUCTION_URL=' /workspace/.devcontainer/.env"
+  echo ""
+  echo "If the line prints a non-empty value → Mode B. Operator pasted into .env"
+  echo "but skipped the rebuild. init-firewall.sh only runs at container start;"
+  echo "mid-session .env edits don't propagate to /etc/. Fix:"
+  echo ""
+  echo "  VS Code → Cmd/Ctrl+Shift+P → 'Dev Containers: Rebuild Container'"
+  echo "  After rebuild: ! sudo cat /etc/refresh-allowed-ips/production_url"
+  echo "  (should print the bare host)."
+  echo ""
+  echo "If empty / line absent → Mode A. Operator never pasted the URL after first deploy."
+  echo "Fix: append the line, then rebuild (same /ak-new-project § Step 13 three-step procedure):"
+  echo ""
+  echo "  ! sudo sed -i 's|^PRODUCTION_URL=\$|PRODUCTION_URL=<bare-host>|' /workspace/.devcontainer/.env"
+  echo "    (or sudo nano /workspace/.devcontainer/.env if no empty PRODUCTION_URL= line is present)"
+  echo "  VS Code → Cmd/Ctrl+Shift+P → 'Dev Containers: Rebuild Container'"
+  echo "  After rebuild: ! sudo cat /etc/refresh-allowed-ips/production_url"
+fi
+```
+
+**Mode A in-session escape hatch** (when the deploy is already in flight and a mid-deploy rebuild isn't acceptable): if `CLAUDE.md § Deploy Configuration § Production URL` has a known value AND `/etc/refresh-allowed-ips/production_url` is empty, offer to write the bare hostname directly into the runtime file for the current session only:
+
+```bash
+# Derive bare host from CLAUDE.md. Tolerates the three formats actually seen
+# in the wild — bare hostname, backticked (`host.app`), and https-prefixed —
+# AND rejects the un-filled `<fill in>` placeholder. Splits the
+# extract-then-clean steps so the regex stays readable.
+KNOWN_VALUE=$(grep -i 'production.*url' CLAUDE.md 2>/dev/null | head -1 | sed -E 's/^[^:]*:[[:space:]]*//')
+BARE_HOST=$(printf '%s' "$KNOWN_VALUE" \
+  | sed -E 's/[`<>"'\''[:space:]]+//g' \
+  | sed -E 's|^https?://||; s|/.*$||')
+if ! printf '%s' "$BARE_HOST" | grep -qE '^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$'; then
+  echo "Could not derive a valid bare hostname from CLAUDE.md (got: '$BARE_HOST')."
+  echo "Expected format under § Deploy Configuration: 'Production URL: <your-app>.com'"
+  echo "(bare hostname, no scheme, no path). Fall back to the Mode A/B fix above."
+  exit 0
+fi
+
+# Ephemeral write — survives this session only, lost on next rebuild.
+echo "$BARE_HOST" | sudo tee /etc/refresh-allowed-ips/production_url >/dev/null
+sudo /usr/local/bin/refresh-allowed-ips.sh
+echo "Session-only patch applied. The /etc/ file will revert to empty on next container"
+echo "rebuild — for the permanent fix, apply the three-step procedure (paste into .env,"
+echo "rebuild, verify) from /ak-new-project § Step 13."
+```
+
+Surface the ephemerality explicitly to the operator — this shortcut unblocks the current `/ak-go-live` run but does not fix the underlying gap. The operator still needs to apply the permanent three-step fix before the next session, otherwise the next container start will revert `/etc/` to empty and the next deploy lands in the same broken state.
+
+**Continue the pipeline** in all three modes — the probe-availability gap is a connectivity issue, not a prod issue, and does not warrant a rollback. The disambiguation exists so the agent doesn't re-derive Mode A/B/C from first principles each session and so the operator gets the right next-action immediately.
 
 **If `HTTP` is 4xx or 5xx** (a real response from the server): production has a pre-existing issue. Surface to the user via AskUserQuestion:
 
@@ -70,6 +146,7 @@ echo "HTTP $HTTP"
 
 - The 4xx/5xx path: lalista PR 26 (2026-04-26). Prod `/` had been returning 500 since project setup (trailing newline in `NEXT_PUBLIC_SUPABASE_URL` from a copy-paste fat-finger; SSR `getUser()` fetched the malformed URL and threw uncaught). Nobody noticed because every authenticated flow goes through `/sign-in`, which worked. Caught during this Step 1.5 probe, fixed in the same PR before merge (added `.trim()` defense at every env var read site).
 - The HTTP 000 split: lalista PR 28 (2026-04-27). Pre-merge probe AND post-merge canary BOTH hit HTTP 000 within ~10 minutes of each other (Vercel rotated edge IPs since container start). The previous Step 1.5 logic lumped 000 with 4xx/5xx and asked "investigate the prod failure?" — wrong category, costing ~30 sec of disambiguation per occurrence. Step 3 already had the firewall-fallback paragraph; mirroring it here closes the gap so the agent doesn't re-derive disambiguation each session.
+- The Mode A/B split: home-os PR #9 + same-day auth-magic-link session (2026-05-13). PR #9's first `/ak-go-live` ran with `/etc/refresh-allowed-ips/production_url` empty because `.env`'s `PRODUCTION_URL=` slot was never filled (Mode A). The deploy completed on indirect signals (Vercel `state=READY`, `deploy-migrations.yml` green) but the in-container canary was disabled. Operator pasted `PRODUCTION_URL=home-os-nu-two.vercel.app` into `.env` post-deploy without rebuilding → Mode B; confirmed via `sudo cat /etc/refresh-allowed-ips/production_url` returning 0 bytes with mtime = container creation, predating the `.env` paste. The prior binary "in-container vs prod" disambiguation gave identical advice for both modes — wrong-half-the-time, since Mode B operators don't need the paste step. The tri-state classifier reads `/etc/` and routes to the right next-action immediately.
 
 The probe is a single curl; it adds <1s in the green path and saves a fix-loop on the red path.
 
@@ -363,7 +440,7 @@ Invoke `/canary` via Skill tool.
 
 ### Firewall-IP-rotation fallback (if canary can't reach prod)
 
-If `/canary`'s curl reports `HTTP 000` with `Failed to connect ... No route to host`, this is an in-container firewall issue, not a prod issue — see `/devshop/CLAUDE.md § Known Footguns § Firewall IP rotation` for the refresh-script recovery. If the recovery there doesn't reach prod, produce an operator-side `! curl <PROD_URL>` paste or a "open in browser and tell me what you see" ad-hoc to complete canary verification.
+If `/canary`'s curl reports `HTTP 000` with `Failed to connect ... No route to host`, this is an in-container firewall issue, not a prod issue. Run the **tri-state HTTP 000 classifier from Step 1.5** to route to the right next-action (Mode A: paste + rebuild; Mode B: rebuild; Mode C: `sudo /usr/local/bin/refresh-allowed-ips.sh`). The Mode A in-session escape hatch from Step 1.5 also applies here — when the canary is HTTP 000 and `CLAUDE.md` has the prod URL, the sudo-write to `/etc/refresh-allowed-ips/production_url` unblocks the current canary run. If neither the tri-state recovery nor the escape hatch reaches prod (genuinely rare), produce an operator-side `! curl <PROD_URL>` paste or a "open in browser and tell me what you see" ad-hoc to complete canary verification.
 
 Codified from lalista PR 26 (2026-04-26): `/ak-go-live` Step 3 hit `No route to host` on `lalista-ten.vercel.app` because Vercel rotated edge IPs since container start. The refresh-script recovery (added 2026-05-09) closes this gap in-session; the operator-side fallback above is the escape hatch if the script can't help.
 

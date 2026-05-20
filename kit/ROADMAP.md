@@ -96,123 +96,6 @@ Option (A) is the more conservative posture given the security framing of these 
 
 ---
 
-### `PRODUCTION_URL` onboarding gap — fill `.env` + rebuild container + verify (`/ak-new-project` Phase B + `/ak-go-live` Step 1.5 tri-state diagnostic)
-
-**Problem.** `/ak-new-project` scaffolds `.devcontainer/.env` with an empty `PRODUCTION_URL=` slot. The Vercel URL isn't known until after `vercel link` + first deploy land, so scaffold-time population is impossible. By the time the URL is known (end of Phase B, when `CLAUDE.md § Deploy Configuration` gets written), the skill **doesn't prompt the operator to do anything with `.env`** — the gap silently propagates.
-
-The downstream cost: `/usr/local/bin/refresh-allowed-ips.sh` reads `/etc/refresh-allowed-ips/production_url` (a tiny file populated by `init-firewall.sh` at container start from `.env`), no-ops on empty input, the firewall never allowlists the prod hostname, and **every post-deploy curl from inside the container returns HTTP 000** — including `/ak-go-live § Step 1.5` (pre-flight prod health probe), `/ak-go-live § Step 3`, and `/canary`. The disambiguation paragraph in `/ak-go-live § Step 1.5` catches the false positive correctly ("HTTP 000 = in-container, not pre-existing prod issue"), but at the cost of **disabling the prod probe for the project's lifetime** until the gap is closed.
-
-**Two distinct failure modes** — the prior version of this entry only modelled the first; home-os auth-magic-link session (2026-05-13, immediately after home-os PR #9 deploy) surfaced the second:
-
-| Mode  | `.devcontainer/.env` has `PRODUCTION_URL=` line? | `/etc/refresh-allowed-ips/production_url` populated? | Cause                                                                                                                                                                           |
-| ----- | ------------------------------------------------ | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **A** | No                                               | No (0 bytes)                                         | Operator never pasted the URL into `.env` after first deploy.                                                                                                                   |
-| **B** | **Yes**                                          | **No (0 bytes)**                                     | Operator pasted into `.env` AFTER container creation, but didn't rebuild. `init-firewall.sh` only runs at container start; mid-session `.env` edits don't propagate to `/etc/`. |
-| **C** | Yes                                              | Yes                                                  | Working state. HTTP 000 from the container is unrelated (Vercel IP rotation — recovered via `sudo refresh-allowed-ips.sh` per `/devshop/CLAUDE.md § Known Footguns`).           |
-
-Modes A and B both manifest as "HTTP 000 with empty `/etc/...` file" — the current Step 1.5 disambiguation can't distinguish them, so it gives identical generic advice ("set PRODUCTION_URL in `.env` and rebuild"). That's wrong-half-the-time: Mode A operators need both steps; Mode B operators have already done step one and just need rebuild.
-
-**Concrete from home-os**:
-
-- `/ak-go-live` for PR #9 (2026-05-13) ran with HTTP 000 on both Step 1.5 and Step 3 → **Mode A** at that time. The deploy completed on indirect signals (Vercel `state=READY`, `deploy-migrations.yml` green).
-- Same session, post-deploy, operator pasted `PRODUCTION_URL=home-os-nu-two.vercel.app` into `.devcontainer/.env`. Did NOT rebuild → **Mode B**.
-- Diagnostic confirming Mode B: `sudo cat /etc/refresh-allowed-ips/production_url` returns 0 bytes; file's mtime is `May 13 05:18` (container creation), not the time the operator pasted into `.env`. The /etc file IS the firewall's source of truth, and it's frozen at container-start state.
-
-**Shape of the fix — three coordinated changes, all on the skill side:**
-
-**Fix 1 (`/ak-new-project` Phase B): Explicit rebuild prompt at the moment `.env` is updated.** The natural spot is the existing step that writes `CLAUDE.md § Deploy Configuration` — that's when the URL becomes known. Add a structured operator-action block:
-
-```markdown
-After writing CLAUDE.md § Deploy Configuration, emit this verbatim to the operator:
-
-Three side-effects to apply before the next session:
-
-1. ! echo 'PRODUCTION_URL=<bare-hostname>' >> /workspace/.devcontainer/.env
-   (bare hostname per CLAUDE.md § Gotchas — `.env` wants `<x>.vercel.app`,
-   not `https://<x>.vercel.app`)
-
-2. VS Code → Cmd+Shift+P → "Dev Containers: Rebuild Container"
-   (init-firewall.sh runs at container start, reads .env, populates
-   /etc/refresh-allowed-ips/production_url. Without this rebuild,
-   every post-deploy curl from inside the container returns HTTP 000.)
-
-3. After rebuild: ! sudo cat /etc/refresh-allowed-ips/production_url
-   should print the bare hostname (proves init-firewall ran with the new .env).
-```
-
-Three steps because **all three are necessary** — operators who skip step 2 land in Mode B; operators who skip step 3 don't know whether they're in Mode B or genuinely-broken-prod.
-
-**Fix 2 (`/ak-go-live § Step 1.5`): Tri-state diagnostic.** On HTTP 000, replace the current binary "in-container vs prod" disambiguation with a Mode A / B / C classifier:
-
-```bash
-# /ak-go-live § Step 1.5 — HTTP 000 branch
-ETC_FILE=/etc/refresh-allowed-ips/production_url
-HAVE_ETC=$(sudo cat "$ETC_FILE" 2>/dev/null | tr -d '[:space:]')
-# Can't read .env directly (permission-denied). Ask the operator via ! grep.
-
-if [ -z "$HAVE_ETC" ]; then
-  cat <<MSG
-HTTP 000 + /etc/refresh-allowed-ips/production_url is empty.
-
-Either the .env line is missing (Mode A) or .env has it but rebuild is needed
-(Mode B). To distinguish, run:
-
-  ! grep '^PRODUCTION_URL=' /workspace/.devcontainer/.env
-
-  - If the line prints with a value → Mode B (rebuild the container; the
-    /etc file will populate at startup).
-  - If empty / no line → Mode A (append the line, then rebuild):
-      ! echo 'PRODUCTION_URL=<bare-host>' >> /workspace/.devcontainer/.env
-      then VS Code → Cmd+Shift+P → "Dev Containers: Rebuild Container"
-
-After rebuild: ! sudo cat /etc/refresh-allowed-ips/production_url
-(should print the bare host).
-MSG
-  # Continue the pipeline — this is a probe-availability gap, not a prod issue.
-else
-  # Mode C: /etc has value but curl still 000 → Vercel IP rotation.
-  echo "HTTP 000 with /etc populated — likely Vercel IP rotation."
-  echo "Run: sudo /usr/local/bin/refresh-allowed-ips.sh"
-fi
-```
-
-**Fix 3 (`/ak-go-live § Step 1.5`): Optional in-session shortcut for Mode A only.** When `CLAUDE.md § Deploy Configuration § Production URL` has a known value AND `/etc/...` is empty, offer to write the bare hostname directly to `/etc/refresh-allowed-ips/production_url` (sudo) and re-run `refresh-allowed-ips.sh`. **Ephemeral** — survives this session only; lost on next rebuild. Surface explicitly: "this is a session-only patch; for permanent fix, apply Fix 1's three-step procedure." Closes the gap for the current `/ak-go-live` run without requiring a rebuild mid-deploy.
-
-**Why three coordinated changes, not one:** Fix 1 closes the gap **at the moment it's created** (best leverage; operators only configure once). Fix 2 catches **operators who skipped Fix 1** (the audit-time safety net; required because Fix 1 only ships to projects created after this lands). Fix 3 is the **session-recovery escape hatch** (lets a single deploy proceed even when Fix 1 + 2 haven't been applied).
-
-**Why v0 — blocks next-project adoption:**
-
-Every devshop project's first `/ak-go-live` lands in Mode A. Every project's first post-onboarding session at minimum tries the operator-side `! curl` path because the in-container probe is broken. For projects that ship UI early, the gap silently weakens canary coverage from "automated curl + screenshot diff" to "open-in-browser-by-hand if I remember." Fix 1 alone closes Mode A for all future projects; Fix 2 catches existing projects on next `/ak-go-live` run; Fix 3 keeps any individual deploy moving regardless.
-
-**Trigger:**
-
-- home-os `/ak-go-live` PR #9 (2026-05-13) — Mode A on the deploy; indirect signals carried it.
-- home-os auth-magic-link session (same date, ~30 min later) — operator noticed the gap, pasted `PRODUCTION_URL` into `.env`, did NOT rebuild → **Mode B**. Confirmed via `sudo cat /etc/refresh-allowed-ips/production_url` returning 0 bytes with mtime = container creation. The prior version of this entry didn't model Mode B, so its Option A (auto-derive at Step 1.5) would have hit the same `.devcontainer/.env` permission-block AND still required a rebuild — not actually a fix.
-- Lalista didn't surface this because `PRODUCTION_URL=lalista.app` was filled in `.env` BEFORE the first container creation (lucky timing), so Mode A and Mode B both bypassed.
-- Every future project: identical default state, identical silent gap.
-
-**Cross-ref:**
-
-- `/workspace/CLAUDE.md § Gotchas § PRODUCTION_URL lives in two places` — the format-divergence warning (bare host in `.env`, full URL in GH Variable)
-- `/devshop/CLAUDE.md § Known Footguns § Firewall IP rotation` — Mode C recovery path (refresh script, additive)
-- `/devshop/.claude/skills/ak-go-live/SKILL.md § Step 1.5` — primary consumer; tri-state diagnostic patch lands here (Fix 2 + Fix 3)
-- `/devshop/.claude/skills/ak-go-live/SKILL.md § Step 3` — secondary consumer; canary fallback inherits the tri-state diagnostic
-- `/devshop/.claude/skills/ak-new-project/SKILL.md` — the Phase B step that writes `CLAUDE.md § Deploy Configuration` is where Fix 1's structured prompt belongs (exact step number TBD at implementation time — Phase B has ~25 steps; pick the one that produces the URL)
-- `.devcontainer/init-firewall.sh` — the script that copies `.env`'s `PRODUCTION_URL` into `/etc/refresh-allowed-ips/production_url` at container start. Source of the Mode B gap (only runs at container start, not on `.env` change).
-- `/usr/local/bin/refresh-allowed-ips.sh` — the runtime allowlist-refresh script that reads from `/etc/`
-- `/etc/refresh-allowed-ips/production_url` — the runtime file; Mode B distinguisher
-- home-os PR #9 (Mode A example) + home-os auth-magic-link session (Mode B example) — concrete prior art
-
-**Cost/risk:**
-
-- Implementation: ~30 min for Fix 1 (skill prose addition at one Phase B step); ~45 min for Fix 2 (tri-state diagnostic + bats coverage); ~20 min for Fix 3 (in-session shortcut + the "ephemeral" disclosure). Total ~1.5 hours. Recommend shipping all three together — Fix 1 alone leaves Mode B uncovered; Fix 2 alone leaves the Mode A default in place; Fix 3 alone doesn't propagate.
-- Risk: low. Skill prose changes (Fix 1) are markdown-only. The Step 1.5 sudo-write (Fix 3) requires the already-documented sudo path to `/etc/refresh-allowed-ips/production_url` (Claude can't write to `.devcontainer/`, deliberately — that's where the operator action via `!` lives). Worst case for Fix 2 is a misclassification (Mode B routed to Mode A path or vice versa) — both paths surface the rebuild action prominently, so the misclassification adds at most ~30s of operator reading time.
-- Benefit: every devshop project gets working in-container prod probes from first `/ak-go-live` onward. The HTTP 000 disambiguation paragraph in the skill becomes the rare-edge-case path it was meant to be, not the every-deploy default. Audit-time signal that the gap is closed: Step 1.5 produces a clean HTTP 200/3xx; the operator never sees the tri-state diagnostic message.
-
-[v0, surfaced-by home-os PR #9 § 5b reflection on 2026-05-13; refined by home-os auth-magic-link session same day to add Mode B + tri-state Fix 2 + Fix 3]
-
----
-
 ### Audit `kit/docs/guide/conventions.md` → distribute operational copy into the skills that fire
 
 **Status (2026-05-19):** **Dedup half SHIPPED.** The two `conventions.md` duplicates (`## Confidence Calibration`, `## TODO Protocol`) shipped as deletions in the `chore/convention-housekeeping` bundle; the two skill cross-refs (`/devshop/.claude/skills/devshop/spec/SKILL.md:381`, `/devshop/.claude/skills/devshop/implement/SKILL.md:146`) were updated to point at `/devshop/CLAUDE.md § Confidence Calibration` in the same commit. CLAUDE.md is now the canonical Tier-1 home for both. What remains open is the **lift-vs-cross-ref decision** for a handful of sections whose bodies still live in `conventions.md` while their consumer skills only cross-ref:
@@ -804,8 +687,7 @@ B1 is the cleanest IF the cwd swap doesn't break anything else. B2 is the safer 
 
 Audit-time `/ak-tests-review` catches the gap (it did during the firewall-extras-overlay merge, 2026-05-14), but the Layer 1 hook misses two surfaces today:
 
-- `template/.devcontainer/init-prod-url.sh` (added 2026-05-09, `f94a121`) — zero bats coverage.
-- `template/.devcontainer/refresh-allowed-ips.sh` (same commit) — zero bats coverage.
+- `template/.devcontainer/init-prod-url.sh` + `template/.devcontainer/refresh-allowed-ips.sh` (both added 2026-05-09, `f94a121`) shipped with zero bats coverage; retroactive coverage landed via `kit/tests/template-production-url-firewall.bats` (2026-05-20, as part of the `feat/production-url-onboarding-gap` close-out). The hook-scope gap that allowed the original miss is still open — these were the codification trigger, not the only at-risk surface.
 
 Both are security-relevant scripts (they govern firewall allowlist updates). The pattern: when a template-script feature ships, the same author often forgets the bats — exactly the case the hook should catch.
 
