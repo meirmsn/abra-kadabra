@@ -169,7 +169,7 @@ Claude Code auto-loads both: the project's via natural CLAUDE.md discovery in th
 
 **Design principle: project `CLAUDE.md` is self-sufficient for public contributors.** Because the SessionStart hook delivers devshop context at runtime, the project's committed `CLAUDE.md` does **not** need to mention devshop conventions, point at `/devshop/...` paths, or otherwise reference the devshop side. A public contributor cloning the project on GitHub sees only project-relevant content (stack, paths, env vars, gotchas, deploy config) — nothing pointing into the private `/devshop` bind mount they can't navigate. The hook bridges the two layers at runtime; the file does not. When tempted to add a `/devshop/CLAUDE.md § X` cross-reference to project `CLAUDE.md`, the rule is: **don't**. Either lift the convention into project-side guidance (if it applies project-side) or trust the hook.
 
-Edit devshop conventions in the devshop repo's `CLAUDE.md`. Edit project context in the project's `CLAUDE.md`. The hook handles the rest. See `/devshop/CLAUDE.md § Session Start` for the mechanism and `/ak-new-project § Step 18` for what goes in (and what does NOT go in) project `CLAUDE.md` at scaffold time.
+Edit devshop conventions in the devshop repo's `CLAUDE.md`. Edit project context in the project's `CLAUDE.md`. The hook handles the rest. See `/devshop/CLAUDE.md § Session Start` for the mechanism and `/ak-new-project § Step 12.6` for what goes in (and what does NOT go in) project `CLAUDE.md` at scaffold time.
 
 ---
 

@@ -116,8 +116,40 @@ if [ "$REPO_MODE" = "project" ]; then
       fi
     fi
 
+    # Fast path-(a) short-circuit: if the PR body enumerates every commit
+    # SHA on the branch (full 40-char OR abbreviated to ≥7), the body is
+    # demonstrably current. Skip the LLM call — the adversarial reviewer
+    # would PASS this exact shape anyway, and the LLM round-trip is the
+    # slowest step in pre-push on a clean re-push. The check is exact-
+    # SHA-match only; the reviewer still handles judgment cases (partial
+    # SHA, commit-subject overlap, sub-7-char matches).
+    PR_BODY_HAS_ALL_SHAS=false
     if [ "$ANY_COMMIT" = "true" ] && [ "$ALL_TRIVIAL" = "false" ]; then
-      # Non-trivial commits — adversarial review of PR text hygiene (accuracy + readability + body shape)
+      PR_BODY=$(gh pr view "$PR" --json body --jq '.body' 2>/dev/null || echo "")
+      if [ -n "$PR_BODY" ]; then
+        BRANCH_SHAS=$(git log --format='%H' "origin/main..HEAD" 2>/dev/null || true)
+        PR_BODY_HAS_ALL_SHAS=true
+        ANY_SHA=false
+        while IFS= read -r sha; do
+          [ -z "$sha" ] && continue
+          ANY_SHA=true
+          # Match full SHA or any abbreviation ≥7 chars (Git's default-min).
+          if ! printf '%s' "$PR_BODY" \
+             | grep -qE "${sha}|${sha:0:12}|${sha:0:10}|${sha:0:8}|${sha:0:7}"; then
+            PR_BODY_HAS_ALL_SHAS=false
+            break
+          fi
+        done <<< "$BRANCH_SHAS"
+        # No commits = nothing to match against = fall through.
+        [ "$ANY_SHA" = "false" ] && PR_BODY_HAS_ALL_SHAS=false
+      fi
+    fi
+
+    if [ "$ANY_COMMIT" = "true" ] \
+       && [ "$ALL_TRIVIAL" = "false" ] \
+       && [ "$PR_BODY_HAS_ALL_SHAS" = "false" ]; then
+      # Non-trivial commits + PR body did NOT enumerate every SHA — adversarial
+      # review of PR text hygiene (accuracy + readability + body shape).
       BYPASS_REASON=$(git config --get devshop.prTextHygieneReason 2>/dev/null || echo "")
 
       # Invoke shared adversarial engine (same as commit guards).

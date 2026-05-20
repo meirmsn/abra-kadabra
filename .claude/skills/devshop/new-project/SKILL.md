@@ -350,7 +350,22 @@ After the per-choice strip, update `/devshop/kit/notes/projects/<name>.md`'s Ste
 - **Vercel**: create account at vercel.com, install the Vercel GitHub App (enables auto-deploy
   and preview URLs on PRs). Do NOT import the repo yet — import happens in Step 12 after
   `apps/web` is scaffolded (importing now would fail with no app to build).
-- **Sentry**: create account at sentry.io, create a project (platform: React, slug: `<project-name>`)
+  - **Add GitHub as a Login Connection BEFORE Step 13's `vercel link`** —
+    visit `vercel.com/account/login-connections` and link the GitHub
+    account the project repo lives under. Without this, `vercel link` at
+    Step 13 fails with an opaque "the repository is not connected to your
+    Vercel account" error and the agent can't recover without operator
+    eyes on the web UI.
+  - **Check `vercel.com/<team>/<project>/settings/deployment-protection`** —
+    teams created on the modern plan default `SSO Protection = all
+    deployments except production custom domains`. That setting sign-in-gates
+    the canonical alias (`<project>-<hash>.vercel.app`), so every public
+    URL you'd share or that `/canary` probes asks for a Vercel login. For
+    a public-facing PWA, either set SSO Protection = `none` on production
+    OR treat the auto-allocated `nu-two-` style alias (which IS public)
+    as the public URL and accept that the canonical alias is private. The
+    decision shapes `PRODUCTION_URL` later in Steps 13 + 5.
+- **Sentry**: create account at sentry.io, create a project (platform: Next.js, slug: `<project-name>`)
 - **PostHog**: create account at posthog.com, create a project (name: `<project-name>`)
 - **Supabase** (if using): project should already exist.
 - **Apple Developer** (if using Sign in with Apple): enroll at developer.apple.com ($99/yr,
@@ -366,7 +381,7 @@ The file holds the operator's local source-of-truth values. Three non-obvious th
 
 - `SUPABASE_PROD_URL` is the prod Supabase URL — used by the auto-deploy workflows + piped to Vercel as `NEXT_PUBLIC_SUPABASE_URL`. The variable name says "PROD" so it's never confused with CI's local-stack `SUPABASE_URL` (Step 5).
 - `SUPABASE_SERVICE_ROLE_KEY` is the **local-stack default JWT** — NOT the prod service-role key. Local edge function dev (`supabase functions serve`) needs a service-role JWT; the local stack ships one that's safe to persist (admin on a sandbox the operator's `supabase start` spins up). Get the value by running `supabase start` in any devcontainer and copying the `service_role key:` line from the output (or `supabase status -o env | grep SERVICE_ROLE_KEY`). The same JWT ships with every Supabase install — it's the published default. The **prod** service-role key (full DB admin via REST, no RLS) MUST NOT live on disk in this file — paste it temporarily from your password manager when an ad-hoc prod admin operation genuinely needs it, then clear. See § Security Posture for blast-radius detail.
-- `SUPABASE_DB_PASSWORD` IS the prod DB password — not a local-stack equivalent. The auto-deploy migrations workflow needs it. Justified persistence because rotating it on every devcontainer rebuild would be noisy; mitigate via `.devcontainer/.env`'s gitignore + `.claude/settings.json` Read-deny rules + root-owned filesystem perms.
+- `SUPABASE_DB_PASSWORD` does NOT live in `.devcontainer/.env`. It's the prod DB password (direct Postgres connection — bypasses RLS), consumed only by the `deploy-migrations.yml` workflow which reads it from the GH Secret. Local devcontainer use is rare (occasional `supabase db push` from a developer machine); when an operator genuinely needs it, paste it from a password manager into the shell for the single command, then clear. Persisting it on disk in `.devcontainer/.env` adds prod-DB blast radius for zero recurring benefit — the GH Secret is the source of truth.
 
 ```
 # Devcontainer
@@ -381,9 +396,14 @@ VERCEL_TOKEN=<personal-access-token>
 # Supabase
 SUPABASE_PROD_URL=https://<project-ref>.supabase.co
 SUPABASE_PROD_ANON_KEY=<publishable-key — prod>
-SUPABASE_SERVICE_ROLE_KEY=<local-stack default JWT — `supabase start` output's `service_role key:` line>
+# NOT the prod admin key — this is the published local-stack default JWT.
+# Stable since supabase-cli 1.x, signed with a hardcoded secret; admin only
+# on the ephemeral local stack `supabase start` spins up. Same string ships
+# in every Supabase install, so it's safe to inline here.
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
 SUPABASE_ACCESS_TOKEN=<personal-access-token — account-wide>
-SUPABASE_DB_PASSWORD=<prod-db-password>
+# SUPABASE_DB_PASSWORD intentionally NOT here — paste from PW manager for ad-hoc
+# `supabase db push` from a developer machine. CI gets it from the GH Secret.
 
 # Anthropic (only if the project's edge functions call Claude at runtime).
 # Prefix is deliberate: Claude Code in the devcontainer auto-detects
@@ -446,7 +466,9 @@ Where to find each:
   radius — see § Security Posture for the rotation cadence.
 - Supabase DB password: Project Settings → Database → Connection string (the password
   shown when you copy a connection string). Used by the migration auto-deploy workflow
-  to authenticate `supabase db push` non-interactively.
+  to authenticate `supabase db push` non-interactively — stored as a GH Secret, NOT
+  in `.devcontainer/.env`. Paste from your password manager when you need it locally
+  for an ad-hoc `supabase db push`, then clear from shell history.
 - Anthropic API key — TWO keys, not one: console.anthropic.com → Settings → API Keys.
   Required only if the project's edge functions call Claude. Mint two separate keys with
   identical scope: one for **QA** (CI integration tests + local dev — stored as the GH
@@ -456,7 +478,9 @@ Where to find each:
   by `deploy-functions.yml`; never on disk). Slow-job CI integration tests will fail loudly
   without `ANTHROPIC_API_KEY_QA`. Splitting the keys keeps QA rate-limit pressure off prod
   and isolates billing/blast-radius. See § Security Posture for the full rationale.
-- Sentry DSN: Project Settings → Client Keys. Auth token: Org Settings → Auth Tokens.
+- Sentry DSN: `https://sentry.io/settings/<org-slug>/projects/<project-slug>/keys/`
+  (direct URL — bypasses the multi-click "Project Settings → Client Keys"
+  walk-through). Auth token: Org Settings → Auth Tokens.
 - PostHog: Project Settings → Project API key
 - NTFY_URL: one-time per user. Generate a topic: `openssl rand -hex 32` (ntfy caps topics at 64 chars; 64 hex = exactly 64).
   Reuse the same URL across every project — banner differentiates by project name via the
@@ -619,7 +643,7 @@ unit test crashes loudly instead of silently mutating prod data.
 | `SUPABASE_PROD_ANON_KEY`      | ✅ prod anon         | —                           | —               | piped → `NEXT_PUBLIC_SUPABASE_ANON_KEY` | (auto)                                                  |
 | `SUPABASE_ANON_KEY`           | —                    | ✅ local-stack default JWT  | —               | —                                       | (auto)                                                  |
 | `SUPABASE_SERVICE_ROLE_KEY`   | ✅ local-stack JWT   | ✅ local-stack default JWT  | —               | —                                       | ✅ prod service-role (auto)                             |
-| `SUPABASE_DB_PASSWORD`        | ✅ prod              | —                           | ✅ prod         | —                                       | —                                                       |
+| `SUPABASE_DB_PASSWORD`        | ❌ NEVER (paste from PW mgr for ad-hoc) | —       | ✅ prod         | —                                       | —                                                       |
 | `SUPABASE_ACCESS_TOKEN`       | ✅ operator's        | —                           | ✅              | —                                       | —                                                       |
 | `ANTHROPIC_API_KEY_QA`        | ✅ operator's        | —                           | ✅              | —                                       | —                                                       |
 | `ANTHROPIC_API_KEY_PROD`      | ❌ NEVER             | —                           | ✅              | —                                       | pushed by `deploy-functions.yml` as `ANTHROPIC_API_KEY` |
@@ -648,7 +672,14 @@ Common confusion: **`supabase db push` uses neither.** It opens a direct Postgre
 
 **Mental shorthand**: service_role = "admin of this DB" (data plane); access_token = "owner of these projects" (control plane). Leak service_role → one project's data is gone. Leak access_token → your whole Supabase account is gone.
 
-### Step 6: [HUMAN] Add firewall domains
+### Step 6: **[OPERATOR-ONLY]** [HUMAN] Add firewall domains
+
+**STOP and ask the operator to apply the following edits to
+`.devcontainer/firewall-extra-domains`.** Claude cannot patch this file —
+it's root-owned 644 with `sudo`-only write access (locked by
+`.claude/settings.json` Write-deny rules + the on-disk perms), so the
+agent's Edit / Write / `tee` invocations are blocked. The operator opens
+the file in a sudo'd editor and applies the diff by hand.
 
 Project-specific external services (your Supabase project URL, Sentry org ingest, PostHog region, Vercel app URL) go in **`.devcontainer/firewall-extra-domains`** — a project-owned text file seeded by `init-devshop.sh` from the devshop template. The file is root-owned 644 (only the operator with `sudo` can edit; node / Claude / npm cannot). One bare hostname per line; lines starting with `#` and blank lines are ignored.
 
@@ -658,6 +689,22 @@ Why this and not `.devcontainer/init-firewall.sh` directly: `init-firewall.sh` i
 sudo nano /workspace/.devcontainer/firewall-extra-domains
 # uncomment + customize the example entries
 ```
+
+**Verify before marking the step `[x]`** — at minimum the four project-specific
+external services need entries (Supabase project URL, Sentry org ingest,
+PostHog region, Playwright Microsoft CDN; the Vercel URL is added later at
+Step 13's bare-hostname paste):
+
+```bash
+grep -E "supabase\.co|ingest\.sentry|posthog\.com" .devcontainer/firewall-extra-domains
+```
+
+Three matching lines = all three of (Supabase / Sentry / PostHog) are
+present. If the grep returns fewer lines, re-open the file and add the
+missing entry — Step 6 stays `pending` until the grep shows all three.
+The Playwright Microsoft CDN line is verified separately at Step 14's
+chromium smoke-test fallback (if `chromium.launch()` works, the CDN host
+is allowed; if not, add `playwright.download.prss.microsoft.com`).
 
 The new entries take effect on **next container rebuild** (Step 7). Don't re-run `sudo /usr/local/bin/init-firewall.sh` to apply on the fly — full ipset/iptables rebuild is known to hang the Claude session (see `kit/TODOS.md`). If you need to add an entry mid-session without a rebuild, manually `sudo ipset add allowed-domains <ip>` for each resolved IP — but prefer rebuild for anything more than a one-off.
 
@@ -673,7 +720,41 @@ PRODUCTION_URL=<your-app>.com
 
 `.env` is root-owned 644 — workspace user (or a compromised npm dep) cannot mutate the value at runtime. The `refresh-allowed-ips.sh` script validates against a strict DNS-label regex, rejects any argv, and exits no-op if `PRODUCTION_URL` is unset/empty — keeping the on-demand sudo entry-point a small hole. When prod becomes unreachable post-deploy, run `sudo /usr/local/bin/refresh-allowed-ips.sh`.
 
-### Step 7: [HUMAN] Rebuild devcontainer (conditional on Step 2b)
+**Smoke-test the firewall from inside the container** — after the
+rebuild at Step 7, before Steps 14 / 15 / 17b run anything against the
+external services, curl the 5 canonical project-specific endpoints. Any
+that return a non-2xx exit need their hostname added to
+`firewall-extra-domains` (back to Step 6 for the operator's sudo'd
+edit). The smoke test itself is curl-from-the-container — it does not
+need sudo, just network reachability:
+
+```bash
+# Replace <ref>, <org-slug>, <region> with project-specific values.
+for url in \
+    https://api.supabase.com \
+    https://<ref>.supabase.co \
+    https://o0.ingest.us.sentry.io \
+    https://us.i.posthog.com \
+    https://playwright.download.prss.microsoft.com ; do
+  printf '%-60s ' "$url"
+  curl -fsS -o /dev/null -w "%{http_code}\n" --max-time 5 "$url" \
+    || echo "BLOCKED (firewall or DNS)"
+done
+```
+
+All five should return a 2xx / 3xx / 4xx (any of those means the host
+resolved + the firewall let the packet through; 4xx is fine — the
+endpoint just didn't like the bare path). A `BLOCKED` row means the
+hostname needs to land in `firewall-extra-domains` + a rebuild.
+
+### Step 7: **[OPERATOR-ONLY]** [HUMAN] Rebuild devcontainer (conditional on Step 2b)
+
+**STOP and ask the operator to rebuild the devcontainer from the VS
+Code host.** Claude cannot trigger a devcontainer rebuild — the command
+runs against the VS Code Dev Containers extension on the host, outside
+the running container. The operator performs the rebuild interactively
+(Cmd/Ctrl+Shift+P → "Dev Containers: Rebuild Container") and reports
+back when the new container is up.
 
 **Skip this step if you picked Compose isolation (the template default) at Step 2b** — that choice doesn't modify devcontainer config, so no rebuild is needed for Step 2b's effects to take hold. (You may still want to rebuild here to pick up any changes from Steps 4–6, e.g., `.devcontainer/.env` or `init-firewall.sh` edits.)
 
@@ -738,7 +819,14 @@ pnpm turbo telemetry disable
 
 ```bash
 git clone https://github.com/garrytan/gstack.git .claude/skills/gstack
-cd .claude/skills/gstack && ./setup
+(cd .claude/skills/gstack && ./setup)
+# Mirror init-devshop.sh's ~/.gstack/projects symlink pattern: several
+# gstack SKILL.md preambles bash-block-resolve their bin/* helpers via
+# `~/.claude/skills/gstack/bin/<x>` (hardcoded $HOME). The clone landed
+# at $PWD/.claude/skills/gstack; symlink the home-dir path to it so
+# every preamble resolves on the first try.
+mkdir -p ~/.claude/skills
+ln -sfn "$PWD/.claude/skills/gstack" ~/.claude/skills/gstack
 ```
 
 If `./setup` fails due to virtiofs mount, build from `/tmp` — see project memory.
@@ -835,6 +923,41 @@ cd ../..
 pnpm install
 ```
 
+**Sub-step 1a: hygiene — drop the create-next-app workspace artifact**
+
+If at any point `pnpm create next-app` ran inside `apps/web` (template
+recovery, partial scaffold restart), it drops an `apps/web/pnpm-workspace.yaml`
+that conflicts with the root workspace's build-script policy.
+
+```bash
+rm -f apps/web/pnpm-workspace.yaml
+```
+
+The root `package.json` owns `pnpm.onlyBuiltDependencies` +
+`pnpm.ignoredBuiltDependencies` for the entire workspace; per-app
+workspace files override those policies silently and re-introduce the
+"approve build scripts for sharp / unrs-resolver" prompts on every
+`pnpm install`. Removing the file lets the root policy take effect.
+
+**Sub-step 1b: partial-scaffold recovery — interrupted `pnpm create next-app`**
+
+If `pnpm create next-app` was interrupted (Ctrl-C, network drop, accidental
+container rebuild) and left `apps/web/` in a half-scaffolded state — some
+files from the template, some half-written by `create-next-app`, `pnpm
+install` failing with cryptic peer-dep / lockfile-mismatch errors — the
+recovery is destructive but safe (no committed work yet):
+
+```bash
+git -C "$(git rev-parse --show-toplevel)" status apps/web   # confirm nothing committed
+rm -rf apps/web
+rsync -a /devshop/template/apps/web/ apps/web/              # restore from template
+# Re-run Sub-step 1 + Sub-step 1a above.
+```
+
+Don't try to merge half-state in place — the failure modes after a partial
+`create-next-app` are too varied (broken next.config.ts, missing barrel files,
+phantom devDeps in the wrong package.json) to reason about per-case.
+
 **Sub-step 2: layer in project-specific wirings**
 
 - Import on Vercel (`Step 13` runs this).
@@ -862,11 +985,79 @@ rename of `middleware.ts`) and Pattern 9 (Mailpit helper at
 
 If the project uses Realtime cross-session, also apply **Pattern 4** (publication migration) at `Step 15: Supabase init` time. **WebKit form-fill** (Pattern 5 historically; now `kit/docs/guide/conventions.md § Playwright + controlled inputs on WebKit`) — the spec skeletons that ship in `apps/web/e2e/` already demonstrate the `pressSequentially + toHaveValue` pattern, so projects inherit it on day 1.
 
+#### Step 12.6: Fill project CLAUDE.md skeleton
+
+(Front-loaded — previously Step 18. Filling project `CLAUDE.md` here, right
+after `apps/web` lands but before Sentry/PostHog wiring at Step 13, gives
+the docs-coverage hook the populated skeleton it expects on every
+subsequent commit. Leaving it until Step 18 caused the home-os pattern of
+firing the hook on every Step 12+ apps/web-modifying commit.)
+
+The template ships a `CLAUDE.md` skeleton — open the scaffolded file and replace the placeholder values (project name, one-line description, deploy configuration block populated by `/setup-deploy` at Step 17). The structural sections (`§ Where Things Happen`, `§ Gotchas`, `§ Testing`, `§ Stack`, `§ Env Var Naming`, `§ Migration Workflow`, `§ Deploy Configuration`) are pre-laid; do not invent your own structure.
+
+Project-specific Claude guidance. Tracked in git. Devshop conventions are NOT in
+this file — they reach Claude sessions at runtime via the SessionStart hook
+(per `/devshop/CLAUDE.md § Session Start`), which injects `/devshop/CLAUDE.md`
+as ambient context whenever a project session starts.
+
+**Design principle: project `CLAUDE.md` is self-sufficient for public contributors.**
+A public contributor cloning the repo on GitHub sees only project-relevant content
+in `CLAUDE.md` — no `/devshop/...` paths (which point at a private bind mount the
+public repo can't see), no devshop conventions duplicated from the devshop side.
+The hook bridges the two layers at runtime; the file does not.
+
+What goes in project `CLAUDE.md`:
+
+- **Project description** — one-paragraph "what is this app, what stack, what's the
+  current migration target if any."
+- **Where Things Happen** — file-map pointers (auth lives in `lib/auth.ts`, schema
+  in `supabase/migrations/`, etc.). Grows as code is added; `/ak-implement` updates
+  it when introducing new paths.
+- **Gotchas** — non-obvious project-specific rules surfaced by shipping work
+  (e.g., "Tailwind v4 `@source` directive needed for `packages/ui/**`," "RLS-bypass
+  writes prefer table-level policy over service-role escalation"). Each gotcha
+  should stand on its own as project guidance — no devshop cross-refs needed.
+- **Stack** — one-line summary of frameworks/libs in use.
+- **Env Var Naming** — short reference table of base names and their per-surface
+  prefixes (e.g., `SUPABASE_URL` → `NEXT_PUBLIC_SUPABASE_URL` on Vercel). Detail
+  about the structural rationale lives in devshop docs and arrives via the hook;
+  this file is the at-a-glance shorthand.
+- **Migration Workflow** — short command reference.
+
+What does NOT go in project `CLAUDE.md`:
+
+- Devshop conventions (always-loaded via the hook from `/devshop/CLAUDE.md`)
+- `/devshop/...` paths (private bind mount; public contributors can't navigate them)
+- Cross-references to `kit/docs/guide/*.md` files (devshop-internal)
+- Skill names like `/ak-new-project` (devshop-internal)
+- The blast-radius table, surface matrix, or other devshop-side reference content
+  (lives in `/ak-new-project § Security Posture`; reaches Claude via the hook)
+
+When tempted to add a `/devshop/CLAUDE.md § X` cross-reference to project
+`CLAUDE.md`, the rule is: **don't**. Either lift the relevant convention into
+project-side guidance (if it applies project-side) or trust the SessionStart hook
+to deliver the devshop context.
+
+The template's `CLAUDE.md` skeleton starts in this shape; new projects scaffolded
+from the template inherit it. Existing projects that drifted (e.g., accumulated
+`/devshop/...` cross-refs over time) should clean up by stripping those refs back
+to project-only content. Lalista's PR 25 (2026-04-26) is the case study.
+
+The template also scaffolds `TODOS.md` and (alongside `PLAN.md` / `BUILD-LOG.md` / `PRODUCT-ROADMAP.md` / `METRICS.md` / `README.md`) completes the **Operational** doc set described in `guide/conventions.md § Project Docs Hierarchy`. No interactive creation step exists for `TODOS.md` — the skeleton is enough; rows land as tactical work surfaces.
+
+The template additionally scaffolds **Foundational** repo-root docs: `OVERVIEW.md` (product-level) and `ARCHITECTURE.md` (system-level). Both ship as skeleton files with section headers + authoring prompts and cross-link to each other at the top. Populate them as the project's product framing and system shape solidify — `/ak-build` Phase 0 surfaces them as candidate documentation surfaces during spec creation. The pre-commit docs-freshness hook fires on these only when the file exists at HEAD (which it does once you commit the scaffold), so retention is opt-in: keep the scaffold to enforce updates on user-visible-flow / module-map changes, or `git rm` the file if the project genuinely doesn't need them yet (rare). Per-package READMEs (at `apps/<x>/`, `packages/<x>/`, `supabase/functions/`) are NOT scaffolded by the template — operator-driven creation when content warrants. Per-package skeleton lives in `guide/conventions.md § Project Docs Hierarchy § Foundational (on-demand)`.
+
 ### Step 13: Add Vercel CLI + link + pipe env vars
 
+Export `VERCEL_TOKEN` once at the top of the block — the Vercel CLI picks it
+up from the environment, so per-invocation `--token $VERCEL_TOKEN` flags are
+redundant AND leak the token into the shell-history / process-listing surface
+on every call. Export-once is the lowest-blast-radius shape.
+
 ```bash
+export VERCEL_TOKEN="$VERCEL_TOKEN"  # picked up by every `vercel` call below
 pnpm add -D -w vercel
-pnpm exec vercel link --yes --project <project-name> --token $VERCEL_TOKEN
+pnpm exec vercel link --yes --project <project-name>
 ```
 
 **Pipe env vars to all three Vercel environments** (Preview / Development / Production). Vercel's runtime needs `NEXT_PUBLIC_*` values to dial prod Supabase + PostHog + Sentry — this is a different surface from CI's GH Variables (which point at the local stack). See § Security Posture for the surface-vs-credential matrix.
@@ -884,10 +1075,10 @@ pnpm exec vercel link --yes --project <project-name> --token $VERCEL_TOKEN
 for env in production preview development; do
   preview_branch=()
   [ "$env" = "preview" ] && preview_branch=("")
-  pnpm exec vercel env add NEXT_PUBLIC_SUPABASE_URL "$env" "${preview_branch[@]}" --value "$SUPABASE_PROD_URL" --token $VERCEL_TOKEN --yes
-  pnpm exec vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY "$env" "${preview_branch[@]}" --value "$SUPABASE_PROD_ANON_KEY" --token $VERCEL_TOKEN --yes
-  pnpm exec vercel env add NEXT_PUBLIC_POSTHOG_KEY "$env" "${preview_branch[@]}" --value "$NEXT_PUBLIC_POSTHOG_KEY" --token $VERCEL_TOKEN --yes
-  pnpm exec vercel env add NEXT_PUBLIC_SENTRY_DSN "$env" "${preview_branch[@]}" --value "$SENTRY_DSN" --token $VERCEL_TOKEN --yes
+  pnpm exec vercel env add NEXT_PUBLIC_SUPABASE_URL "$env" "${preview_branch[@]}" --value "$SUPABASE_PROD_URL" --yes
+  pnpm exec vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY "$env" "${preview_branch[@]}" --value "$SUPABASE_PROD_ANON_KEY" --yes
+  pnpm exec vercel env add NEXT_PUBLIC_POSTHOG_KEY "$env" "${preview_branch[@]}" --value "$NEXT_PUBLIC_POSTHOG_KEY" --yes
+  pnpm exec vercel env add NEXT_PUBLIC_SENTRY_DSN "$env" "${preview_branch[@]}" --value "$SENTRY_DSN" --yes
 done
 
 # SENTRY_AUTH_TOKEN goes only to environments that build (Preview + Production);
@@ -895,11 +1086,11 @@ done
 for env in production preview; do
   preview_branch=()
   [ "$env" = "preview" ] && preview_branch=("")
-  pnpm exec vercel env add SENTRY_AUTH_TOKEN "$env" "${preview_branch[@]}" --value "$SENTRY_AUTH_TOKEN" --token $VERCEL_TOKEN --yes
+  pnpm exec vercel env add SENTRY_AUTH_TOKEN "$env" "${preview_branch[@]}" --value "$SENTRY_AUTH_TOKEN" --yes
 done
 
 # Verify
-pnpm exec vercel env ls --token $VERCEL_TOKEN
+pnpm exec vercel env ls
 ```
 
 The `for env in production preview development` loop is intentional: the front-end behaves the same way in all three environments (always dials prod Supabase). If you ever want a preview-only or dev-only override (e.g., a staging Supabase project), set that single var explicitly and remove it from the loop.
@@ -913,7 +1104,7 @@ or your custom domain).
 To fetch the value, run:
 
 ```bash
-pnpm exec vercel inspect <project-name> --token $VERCEL_TOKEN 2>&1 | grep -i 'production\|domain' | head -5
+pnpm exec vercel inspect <project-name> 2>&1 | grep -i 'production\|domain' | head -5
 ```
 
 Or check Vercel dashboard → Project → Settings → Domains. Show the value to the user.
@@ -995,8 +1186,14 @@ the unprefixed shell env at build time.
 
 ```bash
 pnpm add -D @playwright/test --filter apps/web
-npx playwright install chromium
-sudo apt-get update && sudo npx playwright install-deps chromium
+pnpm exec playwright install chromium
+# Smoke-test that chromium.launch() actually works before assuming the OS
+# packages are missing. On the current devcontainer image (Ubuntu 24 +
+# Playwright 1.5x) the bundled chromium runs without `install-deps` — calling
+# `install-deps` unconditionally inflates the build by ~150MB of apt packages
+# the project never needs.
+node -e "import('playwright').then(({chromium}) => chromium.launch().then(b => b.close()).catch(e => { console.error(e); process.exit(1) }))" \
+  || sudo apt-get update && sudo pnpm exec playwright install-deps chromium
 ```
 
 Create `playwright.config.ts` with mobile (375px) and desktop (1440px) projects.
@@ -1022,7 +1219,39 @@ Per `guide/conventions.md § Project Docs Coverage`, this file is one of six in 
 
 ### Step 17: Run /setup-deploy
 
-Run gstack `/setup-deploy` to configure deploy settings.
+**Pre-answer the gstack first-prompt questionnaire** before invoking
+`/setup-deploy`. Every fresh gstack install fires three one-time prompts
+on the first skill run (telemetry, proactive routing, the
+"Completeness Principle" lake intro) plus a per-version upgrade nag. On
+a brand-new scaffold those prompts derail the first `/setup-deploy`
+into a five-minute interactive dialogue the operator has already made
+the same decision on across every other project. Set the configs +
+touch the marker files up-front so `/setup-deploy` runs end-to-end.
+
+The batch below is idempotent — `gstack-config set` overwrites silently,
+`mkdir -p` is no-op on existing dirs, `touch` is no-op on existing
+markers. Re-running during a partial-scaffold recovery (Step 12 territory)
+is safe.
+
+```bash
+# Idempotent: gstack first-prompt questionnaire pre-answers
+mkdir -p ~/.gstack
+.claude/skills/gstack/bin/gstack-config set telemetry off
+.claude/skills/gstack/bin/gstack-config set proactive true
+.claude/skills/gstack/bin/gstack-config set routing_declined true
+touch ~/.gstack/.telemetry-prompted
+touch ~/.gstack/.proactive-prompted
+touch ~/.gstack/.completeness-intro-seen        # lake_intro_seen
+# Snooze the gstack-upgrade nag at level 0 for ~1 year (epoch + 31536000s).
+# Format: "<current-version> <level> <expiry-epoch>". Current version comes
+# from the installed gstack VERSION file; level 0 = "patch+", expiry one
+# year out keeps the nag silent until next /gstack-upgrade run.
+_GSTACK_VER="$(cat .claude/skills/gstack/VERSION 2>/dev/null || echo 0.0.0)"
+printf '%s 0 %s\n' "$_GSTACK_VER" "$(( $(date +%s) + 31536000 ))" \
+  > ~/.gstack/update-snoozed
+```
+
+Then run gstack `/setup-deploy` to configure deploy settings.
 
 ### Step 17b: Harden Supabase auth defaults
 
@@ -1163,62 +1392,6 @@ If the user says no, iterate with them to correct before advancing. Misconfigure
 - `disable_signup` — stays `false`. Invite-code alternative is a separate roadmap item tracked in `kit/ROADMAP.md § v1 § Invite-code signup control`.
 
 See `kit/docs/guide/conventions.md § Supabase Hardening Defaults` for the full rationale + FK-cascade convention that pairs with this step.
-
-### Step 18: Fill project CLAUDE.md skeleton
-
-The template ships a `CLAUDE.md` skeleton — open the scaffolded file and replace the placeholder values (project name, one-line description, deploy configuration block populated by `/setup-deploy` at Step 17). The structural sections (`§ Where Things Happen`, `§ Gotchas`, `§ Testing`, `§ Stack`, `§ Env Var Naming`, `§ Migration Workflow`, `§ Deploy Configuration`) are pre-laid; do not invent your own structure.
-
-Project-specific Claude guidance. Tracked in git. Devshop conventions are NOT in
-this file — they reach Claude sessions at runtime via the SessionStart hook
-(per `/devshop/CLAUDE.md § Session Start`), which injects `/devshop/CLAUDE.md`
-as ambient context whenever a project session starts.
-
-**Design principle: project `CLAUDE.md` is self-sufficient for public contributors.**
-A public contributor cloning the repo on GitHub sees only project-relevant content
-in `CLAUDE.md` — no `/devshop/...` paths (which point at a private bind mount the
-public repo can't see), no devshop conventions duplicated from the devshop side.
-The hook bridges the two layers at runtime; the file does not.
-
-What goes in project `CLAUDE.md`:
-
-- **Project description** — one-paragraph "what is this app, what stack, what's the
-  current migration target if any."
-- **Where Things Happen** — file-map pointers (auth lives in `lib/auth.ts`, schema
-  in `supabase/migrations/`, etc.). Grows as code is added; `/ak-implement` updates
-  it when introducing new paths.
-- **Gotchas** — non-obvious project-specific rules surfaced by shipping work
-  (e.g., "Tailwind v4 `@source` directive needed for `packages/ui/**`," "RLS-bypass
-  writes prefer table-level policy over service-role escalation"). Each gotcha
-  should stand on its own as project guidance — no devshop cross-refs needed.
-- **Stack** — one-line summary of frameworks/libs in use.
-- **Env Var Naming** — short reference table of base names and their per-surface
-  prefixes (e.g., `SUPABASE_URL` → `NEXT_PUBLIC_SUPABASE_URL` on Vercel). Detail
-  about the structural rationale lives in devshop docs and arrives via the hook;
-  this file is the at-a-glance shorthand.
-- **Migration Workflow** — short command reference.
-
-What does NOT go in project `CLAUDE.md`:
-
-- Devshop conventions (always-loaded via the hook from `/devshop/CLAUDE.md`)
-- `/devshop/...` paths (private bind mount; public contributors can't navigate them)
-- Cross-references to `kit/docs/guide/*.md` files (devshop-internal)
-- Skill names like `/ak-new-project` (devshop-internal)
-- The blast-radius table, surface matrix, or other devshop-side reference content
-  (lives in `/ak-new-project § Security Posture`; reaches Claude via the hook)
-
-When tempted to add a `/devshop/CLAUDE.md § X` cross-reference to project
-`CLAUDE.md`, the rule is: **don't**. Either lift the relevant convention into
-project-side guidance (if it applies project-side) or trust the SessionStart hook
-to deliver the devshop context.
-
-The template's `CLAUDE.md` skeleton starts in this shape; new projects scaffolded
-from the template inherit it. Existing projects that drifted (e.g., accumulated
-`/devshop/...` cross-refs over time) should clean up by stripping those refs back
-to project-only content. Lalista's PR 25 (2026-04-26) is the case study.
-
-The template also scaffolds `TODOS.md` and (alongside `PLAN.md` / `BUILD-LOG.md` / `PRODUCT-ROADMAP.md` / `METRICS.md` / `README.md`) completes the **Operational** doc set described in `guide/conventions.md § Project Docs Hierarchy`. No interactive creation step exists for `TODOS.md` — the skeleton is enough; rows land as tactical work surfaces.
-
-The template additionally scaffolds **Foundational** repo-root docs: `OVERVIEW.md` (product-level) and `ARCHITECTURE.md` (system-level). Both ship as skeleton files with section headers + authoring prompts and cross-link to each other at the top. Populate them as the project's product framing and system shape solidify — `/ak-build` Phase 0 surfaces them as candidate documentation surfaces during spec creation. The pre-commit docs-freshness hook fires on these only when the file exists at HEAD (which it does once you commit the scaffold), so retention is opt-in: keep the scaffold to enforce updates on user-visible-flow / module-map changes, or `git rm` the file if the project genuinely doesn't need them yet (rare). Per-package READMEs (at `apps/<x>/`, `packages/<x>/`, `supabase/functions/`) are NOT scaffolded by the template — operator-driven creation when content warrants. Per-package skeleton lives in `guide/conventions.md § Project Docs Hierarchy § Foundational (on-demand)`.
 
 ### Step 19: Enable doc enforcement hooks
 

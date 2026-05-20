@@ -234,3 +234,82 @@ setup_branch_with_commits() {
   [ "$status" -eq 0 ]
   refute_output --partial "fails the text-hygiene gate"
 }
+
+# --- Project pre-push: PR-desc SHA-enumeration short-circuit (B3) ---
+# Helper: install a `gh` stub that returns the PR number for `gh pr list ...`
+# AND the body text for `gh pr view ... --json body --jq .body`. Single stub
+# distinguishes by the second positional arg (`list` vs `view`).
+gh_stub_with_pr_body() {
+  local pr_number="$1" pr_body="$2"
+  cat > "$MOCK_BIN/gh" <<STUB
+#!/bin/bash
+case "\$2" in
+  list) echo "$pr_number" ;;
+  view) cat <<'BODY'
+$pr_body
+BODY
+    ;;
+  *) echo "" ;;
+esac
+exit 0
+STUB
+  chmod +x "$MOCK_BIN/gh"
+}
+
+@test "project pre-push: B3 short-circuit — PR body enumerates every SHA → PASS, no LLM call" {
+  setup_branch_with_commits
+  # Land a feat: commit (non-trivial, would normally invoke the reviewer).
+  echo "feat" > "$TEST_REPO/feat.txt"
+  git add feat.txt
+  git -c user.email=test@test.com -c user.name=Test commit -q -m "feat: add login"
+  local sha
+  sha=$(git rev-parse HEAD)
+  # PR body names the full SHA — short-circuit should fire.
+  gh_stub_with_pr_body "42" "Fresh PR body referencing commit $sha verbatim."
+  # adversarial-review.sh stub would FAIL if invoked. Short-circuit prevents
+  # the invocation entirely.
+  mock_adversarial_review FAIL
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  [ "$status" -eq 0 ]
+  refute_output --partial "fails the text-hygiene gate"
+}
+
+@test "project pre-push: B3 short-circuit — PR body uses 7-char abbrev SHA → PASS" {
+  setup_branch_with_commits
+  echo "feat" > "$TEST_REPO/feat.txt"
+  git add feat.txt
+  git -c user.email=test@test.com -c user.name=Test commit -q -m "feat: add signup"
+  local sha short
+  sha=$(git rev-parse HEAD)
+  short="${sha:0:7}"
+  gh_stub_with_pr_body "42" "PR body uses short SHA $short — should still match."
+  mock_adversarial_review FAIL
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  [ "$status" -eq 0 ]
+  refute_output --partial "fails the text-hygiene gate"
+}
+
+@test "project pre-push: B3 fall-through — PR body missing the commit SHA → adversarial reviewer fires" {
+  setup_branch_with_commits
+  echo "feat" > "$TEST_REPO/feat.txt"
+  git add feat.txt
+  git -c user.email=test@test.com -c user.name=Test commit -q -m "feat: add password reset"
+  # PR body is stale (no SHAs at all). Should fall through to reviewer.
+  gh_stub_with_pr_body "42" "Stale body without any commit references."
+  mock_adversarial_review FAIL
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  [ "$status" -eq 1 ]
+  assert_output --partial "fails the text-hygiene gate"
+}
+
+@test "project pre-push: B3 fall-through — empty PR body → adversarial reviewer fires" {
+  setup_branch_with_commits
+  echo "feat" > "$TEST_REPO/feat.txt"
+  git add feat.txt
+  git -c user.email=test@test.com -c user.name=Test commit -q -m "feat: add magic link"
+  gh_stub_with_pr_body "42" ""
+  mock_adversarial_review FAIL
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  [ "$status" -eq 1 ]
+  assert_output --partial "fails the text-hygiene gate"
+}

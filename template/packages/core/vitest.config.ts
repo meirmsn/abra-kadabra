@@ -1,4 +1,4 @@
-// What: Vitest config for @PROJECT_NAME_PLACEHOLDER/core
+// What: Vitest config for packages/core
 // Why: Toggle between unit tests (default) and unit+integration tests via the
 //      VITEST_INTEGRATION env var; the slow-job CI sets the flag.
 // Does NOT: Run E2E tests (those live in apps/web/e2e/ + use Playwright).
