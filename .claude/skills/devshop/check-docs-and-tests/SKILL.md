@@ -258,12 +258,18 @@ Procedure:
    `review.md` is the audit-trail; the commit message only needs
    pointer metadata.
 
-4. **Commit.** `git commit -F /tmp/audit-commit-message.txt`. Do not
-   pass `--no-verify`; the file-pairing pre-commit hooks (Layer 1)
-   have no surface match for `specs/<feature>/review.md` so they
-   carve out automatically, and committing under the gauntlet keeps
-   audit commits indistinguishable from any other commit in
-   pre-commit telemetry.
+4. **Commit.** Write the composed message to a feature-keyed tempfile
+   `/tmp/audit-commit-message-$(basename "$FEATURE_DIR").txt`, then
+   `git commit -F` that path. The feature-keyed suffix is load-bearing:
+   reusing a fixed `/tmp/audit-commit-message.txt` lets a stale message
+   from a prior session's audit on a different feature bleed into the
+   current commit (worked incident 2026-05-20: gstack-artifact-symlink-
+   redirect Audit 1 picked up a stale compose-isolation-manifest-locked
+   Audit 2 subject). Do not pass `--no-verify`; the file-pairing
+   pre-commit hooks (Layer 1) have no surface match for
+   `specs/<feature>/review.md` so they carve out automatically, and
+   committing under the gauntlet keeps audit commits indistinguishable
+   from any other commit in pre-commit telemetry.
 5. **Print the SHA.** Echo `✓ audit committed at <new HEAD SHA>` so
    the caller and tracker can record the bump.
 

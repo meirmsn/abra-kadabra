@@ -877,6 +877,65 @@ combo and fallback to ff-merge"). The underlying lint-staged stash bug is
 also tracked separately. Until those land, the operator does the dance
 manually per the recipe above.
 
+### Operator stashes can vanish silently mid-merge
+
+`git stash push` calls made by the operator (or by a well-meaning Claude
+autostash) before/during this skill's run can disappear from `git stash
+list` without an explicit `git stash pop` or `git stash drop` ever firing.
+Hypothesis: the `.husky/pre-commit` hook's `lint-staged` step uses
+`git stash` for its own backup, and certain failure / interrupt modes
+drop the operator's named stash along with lint-staged's transient one.
+Worked incident: `feat/gstack-artifact-symlink-redirect` merge
+(2026-05-20) — Claude autostashed 4 dirty files on `chore/devshop-
+friction-todos` before the merge; the stash was gone by the time the
+merge completed; a second autostash on `main` also vanished after the
+ff-merge + push.
+
+**The data is NEVER lost** — only the named ref. `git stash` writes
+real commits to the object database; `git stash drop` removes the ref
+but not the commit objects. They become "dangling" commits, recoverable
+via `git fsck`.
+
+**Recovery recipe**:
+
+```bash
+# 1. Find dangling commits with stash-shaped subjects.
+git fsck --no-reflogs 2>/dev/null \
+  | grep '^dangling commit' | awk '{print $3}' \
+  | while read c; do
+      msg=$(git log -1 --format='%s' "$c" 2>/dev/null)
+      # Filter to stash-shaped subjects (operator stashes typically use a
+      # named -m message; lint-staged transient stashes start with
+      # "lint-staged automatic backup")
+      case "$msg" in
+        "On "*|"WIP on "*|"index on "*|"untracked files on "*)
+          echo "$c: $msg"
+          ;;
+      esac
+    done
+
+# 2. Identify yours by the -m label (or by branch context if you used
+#    git stash push without -m).
+
+# 3. Apply with git stash apply <full-SHA>. The tree, index, and
+#    untracked-files components reconstruct identically to a fresh
+#    stash pop.
+git stash apply <full-SHA>
+```
+
+**Prevention**: respect this skill's pre-flight refusal at Phase 0.1:
+"working tree dirty at $TARGET — commit or stash first". Do NOT
+autostash from inside this skill's orchestrator path. Operator stashes
+made BEFORE invoking the skill are still at risk if lint-staged fires
+during the merge — operators with critical WIP should commit (even to
+a throwaway branch) rather than stash.
+
+This is filed in `kit/TODOS.md` for root-cause investigation: which
+hook drops which stash, and whether the bug lives in `lint-staged`'s
+stash machinery (upstream) or in our `.husky/pre-commit` wrapper (fixable
+here). Until that lands, the dangling-commit recovery is the durable
+backstop.
+
 ---
 
 ## Idempotence + resume
