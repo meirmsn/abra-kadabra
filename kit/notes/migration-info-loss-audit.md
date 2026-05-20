@@ -83,7 +83,7 @@
 | Worktree-aware merging detail (`--branch <name>`, `Merging is worktree-aware`)                                                                           | Kept verbatim — bats Section K cross-doc coherence tests require these phrases                                                      |
 | For-coordinated-devshop+project-changes rule                                                                                                             | Kept as one-sentence inline note (the long worked example dropped; the rule preserved)                                              |
 | § Confidence Calibration / § TODO Protocol / § Naming Convention / § Quick Reference / § Claude Code Configuration / § Design System                     | Kept verbatim — small + load-bearing posture                                                                                        |
-| § gstack                                                                                                                                                 | Condensed (rebuild recipe pointer + `.gstack/projects/**/*.md` tracking rule + `GSTACK_HOME` / `GSTACK_STATE_DIR` split-brain note) |
+| § gstack                                                                                                                                                 | Condensed (rebuild recipe pointer + `.gstack/projects/**/*.md` tracking rule (later widened to 4 extensions — `.md` / `.html` / `.png` / `.json` — in `feat(gstack-artifacts)` 2026-05-20, which also added the `~/.gstack/projects → /workspace/.gstack/projects` symlink-redirect mechanism) + `GSTACK_HOME` / `GSTACK_STATE_DIR` split-brain note) |
 
 ## Open observations
 

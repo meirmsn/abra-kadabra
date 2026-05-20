@@ -403,29 +403,15 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
   [v0+, skill-improvement, surfaced-by ak-merge-devshop-smoke-test, 2026-05-07]
 
-- [ ] **Operator stashes vanish silently during `/ak-merge-devshop` (separate failure mode from the rename+symlink combo above).** [v0+] Operator stashes (and Claude autostash attempts) made before / during a merge can disappear from `git stash list` without any explicit `git stash pop` or `git stash drop` ever firing. The data is NEVER lost — stash commits live in the object database as dangling commits, recoverable via `git fsck --no-reflogs | grep 'dangling commit'` — but the named ref is gone. Worked incident 2026-05-20 (`feat/gstack-artifact-symlink-redirect` merge): autostash on `chore/devshop-friction-todos` before checkout-to-main was gone by the time the merge completed; a second autostash on `main` after the ff-merge was gone after `git push`. Both recovered from dangling commits.
+- [ ] **Root-cause investigation: operator stashes vanish silently during `/ak-merge-devshop` flows.** [v0+] Symptom and recovery recipe are documented (recovery: `kit/docs/guide/hooks.md § Practical recipes § Recovering a vanished stash`; symptom + worked incident: `.claude/skills/devshop/merge-devshop/SKILL.md § Known limitations § Operator stashes can vanish silently mid-merge`; footgun pointer: `CLAUDE.md § Known Footguns`). What's still pending: confirming the actual mechanism so the upstream fix can land.
 
-  **Distinct from the rename+symlink combo entry above**: that one fails LOUDLY at commit time with `error: 'OLD/file' is beyond a symbolic link`. This one fails SILENTLY — `git stash push` succeeds, `git stash list` shows the entry, then later it just isn't there. No error message, no indication the drop happened.
+  **Why the hypothesis is unsettled**: lint-staged is the leading suspect — it's the only routine `git stash` caller on the pre-commit path (config in `package.json` `"lint-staged"`, invoked from `.husky/pre-commit:5`) — but the simple "lint-staged drops operator stash by index confusion" theory doesn't fit because lint-staged v15 stores its backup under a separate `refs/lint-staged/*` namespace, not `refs/stash`. The two ref namespaces don't directly collide. Some interaction (perhaps during pop-on-failure, or via a hook that runs `git stash drop` against the wrong ref) is the working assumption.
 
-  **Hypothesis**: lint-staged's pre-commit-hook stash backup interacts badly with the operator's named stash — possibly drops the wrong ref on its post-hook cleanup, or pops both transient-backup and operator stashes when only one was intended. Needs reproduction with `GIT_TRACE=1` + `lint-staged --debug` to confirm.
+  **First action to reproduce**: `GIT_TRACE=1 git stash push -m "test"` immediately before a known-to-trigger operation (`git checkout main && git merge --ff-only origin/main` while a pre-commit hook fires elsewhere), then `git stash list` after. If the named stash is gone, capture the GIT_TRACE log around the disappearance — should show whether `git stash drop` / `git update-ref -d` fired and what called it. Pair with `pnpm exec lint-staged --debug` if the trigger involves a commit; the lint-staged debug log enumerates its own stash operations.
 
-  **First action when reproducing**: `GIT_TRACE=1 git stash push -m "test"` immediately before a known-to-trigger operation (e.g. `git checkout main && git merge --ff-only origin/main` while a hook fires), then `git stash list` after. If the named stash is gone, capture the GIT_TRACE log around the disappearance — should show whether `git stash drop` fired and what called it.
-
-  **Recovery recipe** (already documented in `.claude/skills/devshop/merge-devshop/SKILL.md § Known limitations § Operator stashes can vanish`): `git fsck --no-reflogs` + case-filter for stash-shaped subjects (`On *` / `WIP on *` / `index on *` / `untracked files on *`) → `git stash apply <full-SHA>`.
-
-  **Workaround until root cause is fixed**: respect the skill's pre-flight refusal — commit WIP (even to a throwaway branch) rather than stash, when ship-relevant.
-
-  **Edit targets**: depends on root cause. Likely candidates: `package.json` lint-staged `stash: false` config, OR a thin wrapper script under `kit/scripts/` that replaces lint-staged's stash with `git diff > /tmp/backup.patch`. Both are also options on the rename+symlink entry above — fixing either may close both at once.
+  **Candidate fixes once root cause is known**: `package.json` lint-staged `"stash": false` config (suppresses the backup mechanism entirely — loses the rollback-on-failure safety net but eliminates the suspect path), OR a thin `kit/scripts/` wrapper that replaces lint-staged's stash with `git diff > /tmp/backup.patch` (preserves rollback, dodges the ref-machinery interaction). Both candidates also apply to the rename+symlink lint-staged entry above — fixing either may close both.
 
   [v0+, hook-bug, surfaced-by feat/gstack-artifact-symlink-redirect-merge, 2026-05-20]
-
-- [ ] **Refresh `kit/notes/migration-info-loss-audit.md:86` row description after gstack four-extension widening.** [v1] Row currently describes post-trim CLAUDE.md § gstack as containing `.gstack/projects/**/*.md` tracking rule — stale after `feat/gstack-artifact-symlink-redirect` (2026-05-20) widened to four extensions (`.md` / `.html` / `.png` / `.json`) and added the symlink-redirect mechanism. Either annotate inline (`"(later widened to 4 extensions in feat(gstack-artifacts) 2026-05-20)"`) or refresh the description to match current shape. Low-priority hygiene — the notes file is historical/audit-trail, drifting from current state is tolerable; future migration audits will catch and fix in passing.
-
-  Surfaced as Audit 1 docs finding #2 from `specs/gstack-artifact-symlink-redirect/review.md`. Deferred per the audit's own assessment.
-
-  **Edit target**: `kit/notes/migration-info-loss-audit.md:86`.
-
-  [v1, hygiene, surfaced-by gstack-artifact-symlink-redirect Audit 1, 2026-05-20]
 
 - [ ] **Port the `tap-feedback` press-state contract from lalista into the template's `globals.css`.** Lalista PR (2026-05-13, polish bundle) added a low-specificity `:where(button, a[href], [role="button"]):active` rule that scales 0.97 + drops brightness to 0.9 within `--duration-micro` (75ms), with `touch-action: manipulation` to kill iOS's 300ms tap delay. Without it, taps on iOS PWA give no native press cue and users assume the app froze (or double-tap). Every devshop-generated project should ship this on day one.
 

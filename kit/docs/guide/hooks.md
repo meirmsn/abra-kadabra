@@ -136,6 +136,17 @@ Configured in `.husky/pre-commit`.
 
 `.hooks/pre-commit` is gitignored, symlinked to `kit/hooks/pre-commit.sh` (created by `sync/create-devshop-symlinks.sh` for both repos). It detects which repo it's in and calls the appropriate guards.
 
+**lint-staged config** lives in `package.json` under the top-level `"lint-staged"` key (lint-staged v15+, `^15.0.0` per `devDependencies`):
+
+```json
+"lint-staged": {
+  "*.{ts,tsx,js,jsx}": ["eslint --fix", "prettier --write"],
+  "*.{json,md,css}":   ["prettier --write"]
+}
+```
+
+Both tasks modify files, so lint-staged's default `stash: true` behavior fires on every pre-commit: a backup of staged + unstaged state is created via `git stash create` and stored under a `refs/lint-staged/*` namespace (lint-staged v15 — distinct from `refs/stash`), then dropped after task success or popped on failure. This backup mechanic is hypothesized to interact with operator stashes — see [§ Practical recipes § Recovering a vanished stash](#recovering-a-vanished-stash).
+
 Guards are split into **deterministic** (auto-pass when condition is met) and **semantic** (always require a review explanation). All bypass reasons are verified by `adversarial-review.sh` — an agent that actively tries to reject the reason. On API error, the review **fails closed** (blocks the commit). Human fallback: `devshop.humanReviewed` flag, but blocked for Claude via PreToolUse hook — only reachable when the human runs the commit directly in the terminal.
 
 | Guard                               | Type                     | What                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Bypass                                                                                                                               |
@@ -287,6 +298,37 @@ Hardening Defaults` as convention context for the judgment. The bypass flag
   IS a `git config` key (unlike `coreUserStoryNaReason` and
   `blockedGateOverride`) — the rationale belongs at the migration-author level,
   not in the spec.
+
+### Recovering a vanished stash
+
+Goal: get a named operator stash back when `git stash list` no longer shows it, even though no explicit `git stash pop` / `git stash drop` was run.
+
+**When this fires**: most commonly during an `/ak-merge-devshop` session where the operator (or Claude) stashed dirty WIP before invoking the skill, then later finds the stash entry gone from `git stash list` after the merge / push completed. The pre-commit lint-staged backup mechanic ([§ 2 — lint-staged config](#2-husky-pre-commit-during-git-commit)) is the leading suspect — it uses `git stash create` machinery for its own backup and runs on every commit — though lint-staged v15's separate `refs/lint-staged/*` namespace argues against simple index confusion. Root cause is still open ([`kit/TODOS.md` — "Operator stashes vanish silently"](../../TODOS.md)).
+
+**The data is NEVER lost.** `git stash` writes real commit objects to the object database; `git stash drop` removes the named ref but not the commit. Lost stashes become "dangling commits" that `git fsck` enumerates.
+
+**Recovery**:
+
+```bash
+# 1. List dangling stash-shaped commits.
+git fsck --no-reflogs 2>/dev/null \
+  | grep '^dangling commit' | awk '{print $3}' \
+  | while read c; do
+      msg=$(git log -1 --format='%s' "$c" 2>/dev/null)
+      case "$msg" in
+        "On "*|"WIP on "*|"index on "*|"untracked files on "*)
+          echo "$c: $msg"
+          ;;
+      esac
+    done
+
+# 2. Identify yours by the -m label (or by branch context if you didn't use -m).
+
+# 3. Apply by full SHA. Reconstructs identically to git stash pop.
+git stash apply <full-SHA>
+```
+
+**Prevention**: when `/ak-merge-devshop` halts at its Phase 0.1 pre-flight refusal (`✖ working tree dirty at $TARGET`), respect it — commit WIP to a throwaway branch rather than stashing. Operator stashes made BEFORE invoking the skill are still at risk if lint-staged fires during the merge. See `.claude/skills/devshop/merge-devshop/SKILL.md § Known limitations § Operator stashes can vanish silently mid-merge` for the worked incident.
 
 Performance notes:
 

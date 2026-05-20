@@ -882,10 +882,24 @@ manually per the recipe above.
 `git stash push` calls made by the operator (or by a well-meaning Claude
 autostash) before/during this skill's run can disappear from `git stash
 list` without an explicit `git stash pop` or `git stash drop` ever firing.
-Hypothesis: the `.husky/pre-commit` hook's `lint-staged` step uses
-`git stash` for its own backup, and certain failure / interrupt modes
-drop the operator's named stash along with lint-staged's transient one.
-Worked incident: `feat/gstack-artifact-symlink-redirect` merge
+
+**Hypothesis** — lint-staged (`package.json:"lint-staged": "^15.0.0"`,
+invoked from `.husky/pre-commit:5` via `pnpm exec lint-staged`) creates
+a backup stash via `git stash create` on every commit where its
+ESLint/Prettier tasks touch files. The mechanism is genuinely suspicious
+— lint-staged is the only routine `git stash` caller on the pre-commit
+path — but the simple "lint-staged drops operator stash by index
+confusion" theory doesn't fit: lint-staged v15 stores its backup under
+a separate `refs/lint-staged/*` namespace, not `refs/stash`, so the
+two ref namespaces don't collide directly. Some interaction (perhaps
+during pop-on-failure, or via a hook that runs `git stash drop` against
+the wrong ref) is the working assumption; root cause is genuinely open
+and waits on `GIT_TRACE=1` + `lint-staged --debug` reproduction (filed
+as a `kit/TODOS.md` entry — "Operator stashes vanish silently"). Full
+lint-staged config block + interaction notes:
+`kit/docs/guide/hooks.md § 2 — Husky pre-commit`.
+
+**Worked incident**: `feat/gstack-artifact-symlink-redirect` merge
 (2026-05-20) — Claude autostashed 4 dirty files on `chore/devshop-
 friction-todos` before the merge; the stash was gone by the time the
 merge completed; a second autostash on `main` also vanished after the
