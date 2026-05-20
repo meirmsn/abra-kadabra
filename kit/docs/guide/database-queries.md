@@ -52,7 +52,6 @@ A `select()` helper that throws on `error` regardless of `data` would enforce th
 
 ## Cross-references
 
-- `template/CLAUDE.md § Gotchas` — preemptive entry inherited by every new project explaining the failure mode + the `error`-first pattern (so the trap is documented before the project's first PostgREST query is written, not after the first incident).
 - Lalista PR #49 (2026-05-07) — hit this twice in one PR (`items.name` typo + `purchase_history.list_entry_id` deliberately-unmapped FK), each surfacing as a generic null-deref in Playwright; root cause was found by re-reading the query against the schema, not by reading the swallowed error message.
 - `kit/docs/guide/ops.md § Known Footguns § PostgREST null-deref masks column typos` — symptom-first surface of this rule (same trap, two phrasings).
 

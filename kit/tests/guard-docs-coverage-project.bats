@@ -83,6 +83,35 @@ export const handle = (e) => Sentry.captureException(e);"
   assert_output --partial "METRICS.md"
 }
 
+# --- audit-prose exemption: specs/<feature>/{review,tasks}.md ---
+
+@test "PASS: posthog.capture mention inside specs/<feature>/review.md is exempt (audit prose, not a call site)" {
+  mkdir -p "$TEST_REPO/specs/foo"
+  stage_file specs/foo/review.md "## Audit 1
+Findings: zero new posthog.capture() call sites added in this range."
+  run_script
+  assert_success
+}
+
+@test "PASS: Sentry.captureException mention inside specs/<feature>/tasks.md is exempt" {
+  mkdir -p "$TEST_REPO/specs/foo"
+  stage_file specs/foo/tasks.md "## T-3
+Verify Sentry.captureException wiring (descriptive only — no new call site)."
+  run_script
+  assert_success
+}
+
+@test "BLOCK: actual call site in apps/ still fires when matching prose also exists in specs/" {
+  mkdir -p "$TEST_REPO/specs/foo"
+  stage_file specs/foo/review.md "## Audit 1
+posthog.capture mentioned as audit prose."
+  stage_file apps/web/lib/foo.ts "import { posthog } from '..';
+posthog.capture('event', {});"
+  run_script
+  assert_failure
+  assert_output --partial "METRICS.md"
+}
+
 # --- stale reference on DELETE ---
 
 # Stale-reference scan covered post-migration by the per-area-README tests below

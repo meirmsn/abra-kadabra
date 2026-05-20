@@ -27,8 +27,8 @@ Single source of truth for conventions referenced by multiple skills. Skills poi
 - [Runtime Validation at LLM / Edge-Function Boundaries](#runtime-validation-at-llm--edge-function-boundaries) — _moved to [`wrapper-boundaries.md`](./wrapper-boundaries.md)_
 - [Wrapper API design](#wrapper-api-design) — _moved to [`wrapper-boundaries.md`](./wrapper-boundaries.md)_
 - [Database queries](#database-queries) — _moved to [`database-queries.md`](./database-queries.md)_
-- [Confidence Calibration](#confidence-calibration)
-- [TODO Protocol](#todo-protocol)
+- [Confidence Calibration](#confidence-calibration) — _moved to [`/devshop/CLAUDE.md § Confidence Calibration`](../../../CLAUDE.md#confidence-calibration)_
+- [TODO Protocol](#todo-protocol) — _moved to [`/devshop/CLAUDE.md § TODO Protocol`](../../../CLAUDE.md#todo-protocol)_
 - [Backlog Routing Guide](#backlog-routing-guide)
 - [Commit + PR Text Style](#commit--pr-text-style)
 - [Non-Negotiables](#non-negotiables)
@@ -424,32 +424,11 @@ _See [`database-queries.md`](./database-queries.md) for the canonical text._
 
 ## Confidence Calibration
 
-### Proceed autonomously
-
-- UI components + their tests
-- Extending existing API endpoints
-- Bug fixes with clear root cause + confirming test
-- Styling / design token changes
-- Documentation updates
-- Adding new Supabase queries (no schema changes)
-- Instrumenting metrics for events already defined in METRICS.md
-
-### Stop and ask (before implementing)
-
-- New database columns/tables (migrations are hard to reverse)
-- Auth flow changes
-- New third-party API integrations not yet in codebase
-- Performance-sensitive code paths
-- Security-related logic — stop before writing, get human sign-off; `/cso` still runs after
-- Anything requiring deletion of existing tests
-- New metric event definitions (add to METRICS.md requires review)
+_See [`/devshop/CLAUDE.md § Confidence Calibration`](../../../CLAUDE.md#confidence-calibration) for the canonical text._
 
 ## TODO Protocol
 
-- **Blocker** (can't complete task without human input) → stop, add to `TODOS.md` with `[blocked]` tag, mark task `blocked` in tasks.md, ping user
-- **Out-of-scope discovery** (real bug or feature, but not in current spec) → route per backlog guide below, skip, continue
-- **Minor issue** (< 5 min to fix) → fix in current task's commit, note in commit message
-- **Minor issue** (> 5 min to fix) → add to `TODOS.md` with `[minor]` tag, continue
+_See [`/devshop/CLAUDE.md § TODO Protocol`](../../../CLAUDE.md#todo-protocol) for the canonical text._
 
 ## Backlog Routing Guide
 
@@ -757,7 +736,7 @@ The project's hierarchical doc set decays silently as routes get added, API wrap
 | New `apps/*/app/**/page.tsx`, `layout.tsx`, `route.ts`                  | `CLAUDE.md` (must also be staged)                                                          |
 | New `apps/*/middleware.ts`                                              | `CLAUDE.md`                                                                                |
 | New `packages/*/src/api/*.ts` (wrapper module)                          | `CLAUDE.md`                                                                                |
-| New `posthog.capture(...)` or `Sentry.captureException(...)` call site  | `METRICS.md` (must also be staged)                                                         |
+| New `posthog.capture(...)` or `Sentry.captureException(...)` call site  | `METRICS.md` (must also be staged) — except in `specs/*/review.md` / `specs/*/tasks.md` (audit-prose paths are pathspec-excluded; real call sites in `apps/`, `packages/`, `supabase/functions/` still trigger) |
 | New `apps/*/app/**/page.tsx` or `layout.tsx` (user-visible flow)        | `OVERVIEW.md` (opt-in: only if file exists at HEAD)                                        |
 | New `apps/*/app/**/page.tsx`, `route.ts`, middleware, or function entry | `ARCHITECTURE.md` (opt-in: only if file exists at HEAD)                                    |
 | New file under `apps/<x>/`                                              | `apps/<x>/README.md` (opt-in: only if file exists at HEAD)                                 |

@@ -1,4 +1,4 @@
-# Project-side override for kit/scripts/commit-hooks/check-docs-freshness-project.sh.
+# Project-side override for kit/scripts/commit-hooks/check-docs-coverage-project.sh.
 # One repo-relative path per line. `#` comments + blank lines are stripped.
 # See guide/conventions.md § Project Docs Freshness for the convention.
 #

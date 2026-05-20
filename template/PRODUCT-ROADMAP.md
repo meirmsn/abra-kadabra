@@ -1,56 +1,29 @@
 # Product Roadmap
 
 Deferred items — things the app will eventually want, intentionally skipped
-in v0 to avoid premature complexity.
+in v0 to avoid premature complexity. Add an entry only when the project has
+identified the deferred work; do not pre-seed with devshop-level concerns
+(those belong on `kit/ROADMAP.md`).
 
 ---
 
 ## v1 (after core features are stable and in users' hands)
 
-### PWA service worker caching
+_No deferred items._
 
-Phase 0b scaffolds the manifest + meta tags (installability), but defers
-`@serwist/next` service worker registration until the app is stable.
+<!--
+Each entry:
 
-When adding:
+### <short title>
 
-- Define a cache invalidation strategy (what's cached, TTL, how realtime data
-  interacts with cached state)
-- Service worker versioning — how updates propagate to users
-- Development mode that disables caching (or unregister SW in dev)
-- Test: deploy a change, verify users see the new version within [X] seconds
+<one-paragraph description of what's being deferred and why this version>
 
-### Visual regression testing
-
-Playwright screenshot comparison for key screens.
-
-- Store baseline screenshots in `tests/screenshots/`
-- CI step: compare current vs baseline, fail if diff > threshold
-- Cover: light/dark, mobile/desktop (4 combos per screen)
-
-### Performance baselines for API
-
-`/benchmark` checks frontend Core Web Vitals but not API performance.
-Add:
-
-- Baseline response times for key queries
-- Alert when queries degrade as data grows
-- Consider: load test with realistic data volume
+- <implementation note or constraint>
+- <test / acceptance criterion>
+-->
 
 ---
 
 ## v+ (future)
 
-### Changesets for automated changelogs
-
-`@changesets/cli` + `.changeset/config.json` — automated changelog entries in PRs.
-
-### Offline support
-
-Options to evaluate when the time comes:
-
-- React Query with `persistQueryClient` (read + write offline)
-- Read-only offline (cached list visible, adds require network)
-- Full local cache with background sync
-
-Design the strategy based on actual user behavior data from PostHog.
+_No long-term items._

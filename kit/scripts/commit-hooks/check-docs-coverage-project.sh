@@ -148,9 +148,13 @@ done <<< "$ADDED"
 
 # Triggers requiring METRICS.md update — fires on any staged file (added or modified)
 # whose diff introduces a new posthog.capture(...) or Sentry.captureException(...) call.
+# Audit-prose paths (specs/<feature>/review.md + specs/<feature>/tasks.md) are
+# exempt: those files quote analytics function names as the SUBJECT of audit
+# prose, not as new call sites. Path-scoped exemption — an actual call landing
+# in apps/, packages/, or supabase/functions/ is still caught.
 NEEDS_METRICS=""
 # Fetch the staged diff once and grep added lines for new event call-sites.
-DIFF_FULL=$(git diff --cached 2>/dev/null || true)
+DIFF_FULL=$(git diff --cached -- ':!specs/*/review.md' ':!specs/*/tasks.md' 2>/dev/null || true)
 # Match lines starting with '+' (added) that contain the analytics calls.
 NEW_EVENT_LINES=$(echo "$DIFF_FULL" \
   | grep -E '^\+[^+]' \

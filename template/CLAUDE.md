@@ -11,7 +11,7 @@
 
 ### Where Things Happen
 
-Path map of every documented surface. Update this section when introducing a new page, API wrapper, edge function, design token surface, or CI/CD workflow — `kit/scripts/commit-hooks/check-docs-freshness-project.sh` blocks PRs that add a triggering surface without updating this section.
+Path map of every documented surface. Update this section when introducing a new page, API wrapper, edge function, design token surface, or CI/CD workflow — `kit/scripts/commit-hooks/check-docs-coverage-project.sh` blocks PRs that add a triggering surface without updating this section.
 
 - **<surface name>**: <one-sentence pointer to the file path(s) where it lives>
 
@@ -21,7 +21,7 @@ _This section grows as code is added. Update it when introducing new paths._
 
 Non-obvious rules surfaced by shipping work. Read before touching the relevant area. Add an entry only when a real gotcha bit a session — not preemptively.
 
-- **PostgREST returns `data: null` + populated `error` on a non-existent column; downstream code typically swallows the error.** Any `.from(...).select(...)` that names a column that doesn't exist (typo, stale generated types, or a FK that was deliberately not added) responds with `{ data: null, error: { message: 'column "<x>" does not exist', ... } }`. The next line that touches `data.<field>` crashes with `TypeError: Cannot read properties of null (reading '<field>')` — a generic null-deref that looks like missing-data, not a column typo. **Always check `error` before consuming `data`** at every `.select()` call site (single-row AND array form). Don't rely on the `<Row>` generic — that's a compile-time cast against generated types, which can be stale post-migration. See `kit/docs/guide/database-queries.md` for the canonical pattern. Source: lalista PR #49 hit this twice (`items.name` typo + `purchase_history.list_entry_id` unmapped FK).
+_No gotchas yet — add the first one when a real session surfaces it._
 
 ### Testing
 

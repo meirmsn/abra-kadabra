@@ -1,6 +1,6 @@
 # Metrics
 
-Event taxonomy and feature flags. Updated alongside every new `posthog.capture(...)` or `Sentry.captureException(...)` call site — `kit/scripts/commit-hooks/check-docs-freshness-project.sh` enforces this on pre-commit.
+Event taxonomy and feature flags. Updated alongside every new `posthog.capture(...)` or `Sentry.captureException(...)` call site — `kit/scripts/commit-hooks/check-docs-coverage-project.sh` enforces this on pre-commit.
 
 ## Events
 

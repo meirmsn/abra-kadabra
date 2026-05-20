@@ -97,86 +97,6 @@ The cost per incident is variable but compound — silent overrides decay the ru
 
 ---
 
-### Docs-coverage hook exempts audit-prose paths (`specs/<feature>/review.md` and similar)
-
-**Problem.** `kit/scripts/commit-hooks/check-docs-freshness-project.sh` greps every staged file for `posthog.capture(`, `Sentry.captureException(`, and similar analytics-call regex. When `specs/<feature>/review.md` (the audit-trail file written by `/ak-pre-ship` Gate 8 and `/ak-check-docs-and-tests` § Audit N) contains an audit bullet attesting "this PR adds zero `posthog.capture()` calls", the literal string `posthog.capture()` is the **subject** of the audit prose, not a new call site. The hook fires `BLOCKING: New analytics event call sites added without METRICS.md update`, the operator pays a `Docs-Coverage-Bypass:` trailer to commit, and audit-time's bypass-trailer review then VERIFIES the trailer as "yes, false positive in audit prose" — the system pays Sonnet to confirm what the hook already knew but couldn't express.
-
-**Concrete numbers from home-os PR #9** (2026-05-13, the foundation supabase-schema-and-rls PR):
-
-- 3 commits in this PR carried `Docs-Coverage-Bypass:` trailers: `97bb365`, `8e88ca0`, `9580061`.
-- Each trailer cited the same fact pattern: "literal `posthog.capture()` in `specs/supabase-schema-and-rls/review.md` § Gate 3 / § Audit N as audit prose, not a new call site."
-- Audit 2's bypass-trailer-audit (Sonnet, ~30s × 3 trailers = ~90s) VERIFIED every one.
-- Net cost: 3 hook fires, 3 bypass-reason drafts, 3 commit re-runs, ~$0.15–0.30 of Sonnet API spend, and one PR comment exchange explaining the recurring false-positive — for **zero signal**.
-
-The pattern recurs every PR that does any non-trivial pre-ship audit work. Every audit-prose mention of `posthog.capture` or `Sentry.captureException` (in a Gate-N findings list, Audit-N tests-findings bullet, bypass-trailer-review note) triggers the same useless cycle.
-
-**Codified from** home-os PR #9 (2026-05-13). 3 bypass trailers within a single PR cycle for identical fact patterns, plus 1 more in the `/devshop` commit (`feat/firewall-extras-overlay` § 1e779da) that just landed for the CI dual-trigger entry. Lalista exhibited the same pattern with smaller frequency (~1 per multi-gate PR); home-os surfaced it concentrated because the foundation PR ran Audit 1 + Audit 2 with detailed findings prose.
-
-**Shape of the fix — two-stage:**
-
-**Stage A (cheap):** Exempt the canonical audit-prose paths from the hook's analytics-event grep:
-
-```bash
-# kit/scripts/commit-hooks/check-docs-freshness-project.sh
-# Inside the loop that greps staged files for new `posthog.capture(` / `Sentry.captureException(` call sites:
-
-case "$file" in
-  specs/*/review.md|specs/*/tasks.md)
-    # Audit-trail / task-decision prose. The literal string mentioning an
-    # analytics function is the SUBJECT of the prose, not a new call site.
-    continue
-    ;;
-esac
-```
-
-The exemption is path-shaped, not regex-content-shaped, so it can't be gamed by an actual `posthog.capture(` call landing in the middle of an audit file (the hook still catches when the literal lives in `apps/`, `packages/`, `supabase/functions/` — the actual call-site surfaces).
-
-**Stage B (defense in depth):** When the hook _does_ fire on a non-exempt path, run a cheap **context check** before blocking:
-
-````bash
-# Is the `posthog.capture(` match inside a fenced code block (``` … ```) or
-# inline code (`...`)? Markdown rendering and audit-trail prose use both.
-# A `posthog.capture(` mention inside code-formatting is documentation, not
-# a new call site.
-if grep -nE 'posthog\.capture\(' "$file" | \
-   while read -r match; do
-     line=${match%%:*}
-     # Check if the match line is inside a fenced or inline code block.
-     # ...
-   done | grep -q "in-prose"; then
-  continue
-fi
-````
-
-Stage B is more work; Stage A alone closes 95% of the pain.
-
-**Why v0 — blocks next-project adoption:**
-
-Every project that runs `/ak-pre-ship` (which is every project on the devshop) hits this on every PR that produces a `review.md` with detailed findings prose. The bypass-trailer cost compounds: per-PR operator attention to draft the reason, per-PR Sonnet call to verify, per-PR rebuild cycle. Stage A is a 5-line case-statement add in one shell script; saves operator + Sonnet time on every devshop PR going forward.
-
-**Trigger:**
-
-- home-os PR #9 — 3 bypasses in one PR (worst case observed so far)
-- lalista PRs running `/ak-check-docs-and-tests` — same pattern at lower frequency (PRs that don't write detailed audit prose don't trip it)
-- Every future project: identical fact pattern guaranteed
-
-**Cross-ref:**
-
-- `/devshop/kit/scripts/commit-hooks/check-docs-freshness-project.sh` — the grep loop to patch
-- `/devshop/kit/scripts/commit-hooks/check-tests-coverage-project.sh` — symmetric exemption may apply (audit prose can also mention test-file paths in passing)
-- home-os PR #9 — concrete bypass-trailer audit trail at `97bb365`, `8e88ca0`, `9580061`
-- `/devshop/.claude/skills/ak-check-docs-and-tests/SKILL.md § Step 5 bypass trailer audit` — downstream consumer of bypass trailers
-
-**Cost/risk:**
-
-- Implementation: ~1 hour (Stage A: 5-line patch + bats test that exercises the exemption; Stage B optional follow-up).
-- Risk: low. The exemption is path-scoped to `specs/*/review.md` and `specs/*/tasks.md` — neither path can legitimately contain runtime app code. Worst case if abused: an operator hides an actual analytics call site inside a review file (which would be obvious in code review and gets caught by `/review` Gate 9 on the next PR anyway).
-- Benefit: zero false-positive bypass trailers on audit-prose files; ~$0.10–0.30 saved per PR on the deferred Sonnet round-trip; operator attention freed for real reviews.
-
-[v0, surfaced-by home-os PR #9 § 5b reflection on 2026-05-13]
-
----
-
 ### `PRODUCTION_URL` onboarding gap — fill `.env` + rebuild container + verify (`/ak-new-project` Phase B + `/ak-go-live` Step 1.5 tri-state diagnostic)
 
 **Problem.** `/ak-new-project` scaffolds `.devcontainer/.env` with an empty `PRODUCTION_URL=` slot. The Vercel URL isn't known until after `vercel link` + first deploy land, so scaffold-time population is impossible. By the time the URL is known (end of Phase B, when `CLAUDE.md § Deploy Configuration` gets written), the skill **doesn't prompt the operator to do anything with `.env`** — the gap silently propagates.
@@ -296,22 +216,16 @@ Every devshop project's first `/ak-go-live` lands in Mode A. Every project's fir
 
 ### Audit `kit/docs/guide/conventions.md` → distribute operational copy into the skills that fire
 
-**Reassess after CLAUDE.md trim (2026-05-18):** the `feature/claude-md-architecture` branch landed Waves 1–5, trimming `/devshop/CLAUDE.md` from ~44k → ~22k chars and lifting recipes into `kit/docs/guide/` (commit `d9e228c`). Before re-opening the full audit, verify whether the duplicate `## Confidence Calibration` + `## TODO Protocol` sections in `conventions.md` are still drift candidates, or whether the post-trim CLAUDE.md intentionally retained them as the canonical home (the classification doc at `kit/notes/devshop-claude-md-classification.md` marks both as "Stay (verbatim)" in CLAUDE.md). The lift-vs-cross-ref decision below may also have been answered by the wave work — re-grep `conventions.md` and the guide docs before scoping. If the duplication has resolved itself, drop this entry entirely; otherwise narrow to whatever's actually left.
+**Status (2026-05-19):** **Dedup half SHIPPED.** The two `conventions.md` duplicates (`## Confidence Calibration`, `## TODO Protocol`) shipped as deletions in the `chore/convention-housekeeping` bundle; the two skill cross-refs (`/devshop/.claude/skills/devshop/spec/SKILL.md:381`, `/devshop/.claude/skills/devshop/implement/SKILL.md:146`) were updated to point at `/devshop/CLAUDE.md § Confidence Calibration` in the same commit. CLAUDE.md is now the canonical Tier-1 home for both. What remains open is the **lift-vs-cross-ref decision** for a handful of sections whose bodies still live in `conventions.md` while their consumer skills only cross-ref:
 
-**Pre-implementation findings (verified 2026-05-14):** **PARTIAL.** Several destinations are already populated and the worked example (closure rule) shipped to `/devshop/CLAUDE.md` + `/ak-build § Phase 5.6`. What did NOT ship is the **deduplication** half of the audit — the table calls out 4+ sections that should drop from `conventions.md` but they're still there. Before reopening the full multi-skill audit, confirm what's actually left vs scoped-down:
+- `## Test Assertion Depth` — `ak-tests-review` only cross-refs
+- `## SPEC.md Quality Checklist` — `ak-spec` only cross-refs
+- `## DESIGN.md as Contract` — `ak-pre-ship` only cross-refs
+- `## Screenshot Routing` — `ak-pre-ship` only cross-refs
 
-- **Duplicates to delete from `conventions.md`** (CLAUDE.md is canonical):
-  - `## Confidence Calibration` at `conventions.md:375-395` (table row says "Move to CLAUDE.md (Tier 1)" — already in `CLAUDE.md:130`)
-  - `## TODO Protocol` at `conventions.md:397-403` (already in `CLAUDE.md:152`)
-- **Lift-vs-cross-ref decision needed** for these sections — bodies are in `conventions.md`, skills only cross-ref:
-  - `## Test Assertion Depth` (`conventions.md:491`, ak-tests-review only cross-refs)
-  - `## SPEC.md Quality Checklist` (`conventions.md:85`, ak-spec only cross-refs)
-  - `## DESIGN.md as Contract` (`conventions.md:89`, ak-pre-ship only cross-refs)
-  - `## Screenshot Routing` (`conventions.md:106`, ak-pre-ship only cross-refs)
-  - Pick one pattern (lift into skill OR canonical-Tier-3-with-cross-ref) and document the chosen rule.
-- **Untouched rows** worth checking before scope: Backlog Routing Guide, Deploy Boundaries, Supabase Hardening Defaults, Testing Lifecycle (table rows 1006/1007/1010/1012 had non-deterministic "Verify; canonical home is the skill" actions).
+Pick one pattern (lift into skill OR canonical-Tier-3-with-cross-ref) and document the chosen rule. Plus check the remaining "verify; canonical home is the skill" rows in the audit table below: Backlog Routing Guide, Deploy Boundaries, Supabase Hardening Defaults, Testing Lifecycle.
 
-**Realistic scope**: ~1 hr to land deduplication + decision, not 3-5 hr per skill. Spec below preserved for full original context.
+**Realistic scope**: ~1 hr for the lift-vs-cross-ref decision + sweep. Spec below preserved for full original context.
 
 ---
 
@@ -827,7 +741,7 @@ Each is small and ships as a SKILL.md text edit, a template patch, or a docs not
 - **(E3) gen #4 — Sentry DSN UI navigation guidance is stale.** `/ak-new-project § Step 4` points at "Project Settings → Client Keys" which doesn't match current Sentry UI (multiple reorgs since the original skill text). The reliable path is the direct URL `https://sentry.io/settings/<org-slug>/projects/<project-slug>/keys/`. **Fix**: replace the navigation paragraph with the direct-URL form, OR replace with a `sentry-cli` invocation that fetches the DSN non-interactively. Prefer direct-URL — `sentry-cli` requires a separate auth setup. **Where**: `/devshop/.claude/skills/ak-new-project/SKILL.md § Step 4` (Sentry credentials sub-bullet). ~5 min.
 - **(E4) gen #5 — Drop `SUPABASE_DB_PASSWORD` from `.devcontainer/.env`.** Same blast radius as the prod service-role key (direct DB connection, bypasses RLS) — but the skill currently persists it locally while telling operators NOT to persist the service-role prod key. The `.env` line isn't what CI consumes (CI reads the GH Secret). The only operator-side use is rare ad-hoc prod DB ops, which can follow the same paste-from-password-manager-then-clear pattern as the prod service-role key. Asymmetric treatment is skill drift, not deliberate design. **Fix**: remove `SUPABASE_DB_PASSWORD=` from `template/.devcontainer/.env` (or the example shape in skill Step 4); update Step 4's "Three non-obvious things" + Security Posture surface matrix to mark it `❌ NEVER` in the `.devcontainer/.env` column with a "paste from PW manager for ad-hoc" note. Pairs with the existing service-role guidance — consistent narrative: prod-DB-admin credentials don't live on operator disks. **Where**: `template/.devcontainer/.env` + `/devshop/.claude/skills/ak-new-project/SKILL.md § Step 4` (+ § Security Posture surface matrix). ~15 min.
 - **(E5) gen #10 — Step 10 sed substitution misses `packages/core/vitest.config.ts` placeholder.** Skill's sed runs on `src/supabase.ts src/supabase.test.ts` (PROJECT_REF) + `package.json src/index.ts` (PROJECT_NAME), but `vitest.config.ts` has a `// @PROJECT_NAME_PLACEHOLDER/core` comment header that stays unsubstituted. Cosmetic for tests (comment only), but it shows in `grep -r PROJECT_NAME_PLACEHOLDER` audits and confuses future readers. **Fix**: extend Step 10's PROJECT_NAME sed list to include `vitest.config.ts`, OR change the template comment to a placeholder-free phrasing (e.g., `// Vitest config for packages/core` — no project name). Prefer the second — less brittle. **Where**: `template/packages/core/vitest.config.ts` (comment rewrite) — no skill change needed. ~3 min.
-- **(E6) gen #11 — Docs-freshness hook fires at Step 12 before Step 18 fills the skeletons.** `kit/scripts/commit-hooks/check-docs-freshness-project.sh` blocks the apps/web scaffold commit because new `app/page.tsx` / `app/layout.tsx` / `middleware.ts` are user-visible-flow / module-map surfaces that require CLAUDE.md + OVERVIEW.md + ARCHITECTURE.md staging. The three docs all exist at HEAD (skeleton from template), so the hook is active — but their content is still placeholder until Step 18 of the skill. Two consequences: (a) the operator either bypasses with `devshop.docsCoverageReason` at Step 12 and re-bypasses at every subsequent app-modifying commit until Step 18; OR (b) brings Step 18's doc-fill forward to Step 12, which is what home-os did. **Fix candidates**: (i) reorder the skill so Step 18 moves to ~Step 12.5 (after apps/web scaffold lands, before Sentry/PostHog); (ii) drop Step 18 entirely and bake "fill docs from design review (if present) or capture-as-you-go" into Step 12 itself. Lalista's pattern (CLAUDE.md filled gradually as features ship) is the alternative — but home-os benefited from front-loading because the design review existed. Prefer (i): reorder. **Where**: `/devshop/.claude/skills/ak-new-project/SKILL.md` — re-number Step 18 → Step 12.5; renumber subsequent steps as needed. ~30 min (the renumbering touches multiple cross-refs).
+- **(E6) gen #11 — Docs-coverage hook fires at Step 12 before Step 18 fills the skeletons.** `kit/scripts/commit-hooks/check-docs-coverage-project.sh` blocks the apps/web scaffold commit because new `app/page.tsx` / `app/layout.tsx` / `middleware.ts` are user-visible-flow / module-map surfaces that require CLAUDE.md + OVERVIEW.md + ARCHITECTURE.md staging. The three docs all exist at HEAD (skeleton from template), so the hook is active — but their content is still placeholder until Step 18 of the skill. Two consequences: (a) the operator either bypasses with `devshop.docsCoverageReason` at Step 12 and re-bypasses at every subsequent app-modifying commit until Step 18; OR (b) brings Step 18's doc-fill forward to Step 12, which is what home-os did. **Fix candidates**: (i) reorder the skill so Step 18 moves to ~Step 12.5 (after apps/web scaffold lands, before Sentry/PostHog); (ii) drop Step 18 entirely and bake "fill docs from design review (if present) or capture-as-you-go" into Step 12 itself. Lalista's pattern (CLAUDE.md filled gradually as features ship) is the alternative — but home-os benefited from front-loading because the design review existed. Prefer (i): reorder. **Where**: `/devshop/.claude/skills/ak-new-project/SKILL.md` — re-number Step 18 → Step 12.5; renumber subsequent steps as needed. ~30 min (the renumbering touches multiple cross-refs).
 - **(E7) gen #12 — Root + create-next-app build-script approval conflict.** `create-next-app --use-pnpm` writes `apps/web/pnpm-workspace.yaml` with `ignoredBuiltDependencies: [sharp, unrs-resolver]`. The template's root `package.json` `pnpm.onlyBuiltDependencies` includes the same two packages. pnpm 10 surfaces this as conflicting policy. **Clean reconciliation**: drop sharp + unrs-resolver from root `onlyBuiltDependencies`, move them to root `ignoredBuiltDependencies`, delete apps/web/pnpm-workspace.yaml (the file create-next-app wrote). Single source of truth. **Where**: `template/package.json` (rename `onlyBuiltDependencies` entries for sharp + unrs-resolver) + add `/ak-new-project § Step 12` sub-step note: "after `pnpm create next-app`, `rm apps/web/pnpm-workspace.yaml` — root manages build-script policy for the workspace." ~10 min. **Severity: low** — discovery cost is one search + reconcile, but documenting prevents the next operator from re-experiencing it.
 - **(E8) gen #13 — `pnpm create next-app` writes files even when interrupted.** apps/web/ partially exists from an interrupted invocation; on second invocation, the tool refuses with "directory contains files that could conflict." Recovery requires manual cleanup OR live with the partial scaffold (workable if `package.json`, `app/`, `tsconfig.json` exist). **Fix**: skill Step 12 gets a sub-step note: "If `pnpm create next-app` was interrupted, inspect `apps/web/` — if `package.json`, `app/`, and `tsconfig.json` exist, proceed with customization; if anything's missing, `rm -rf apps/web/` and rerun. Don't try to merge the partial state with a second create-next-app run — it'll refuse." ~5 min. **Severity: low** — interruption is rare — but the symptom is opaque enough to warrant a note.
 - **(E9) gen #14 — Step 6 tracker mark `[x]` without verifying file state — multiple downstream steps silently failed.** The home-os tracker had `[x]` on Step 6, but `.devcontainer/init-firewall.sh` showed none of the project-specific entries actually added (only the static template list). Discovered when Step 15 `supabase link` failed with `EHOSTUNREACH` and Step 14 chromium install failed similarly. Root cause: the operator marked the step done prematurely OR (more likely after gen #17 surfaced) the additions were rolled back by the [locked]-file refresh. With the firewall-extras-overlay fix shipped 2026-05-14 as `43baffb`, this specific failure mode is closed — but the tracker-verification gap remains. **Fix**: Step 6 ends with a verification command — `grep -E "supabase\\.co|ingest\\.sentry|posthog\\.com" .devcontainer/firewall-extra-domains` — that the operator runs before marking [x]. Same pattern would catch similar slips at other tracker checkpoints (could be generalized to a "verify step before [x]" rule on every Step that touches non-source files). **Where**: `/devshop/.claude/skills/ak-new-project/SKILL.md § Step 6`. ~5 min.
@@ -847,38 +761,6 @@ Each is small and ships as a SKILL.md text edit, a template patch, or a docs not
 #### Verification — whole entry
 
 - Fresh `/ak-new-project` from scratch (Phase A clone of template into `/tmp/<fresh>`) should produce: (i) `apps/web` build with no Sentry deprecation warnings; (ii) `pnpm --filter @<fresh>/core test:unit` 5/5 with prod-URL guard tests not skipping; (iii) `pnpm --filter @<fresh>/web test:unit` clean with `@/` alias resolving; (iv) CI fast-job green on Node 22 + pnpm 11; (v) `.devcontainer/` 14 files all root:root after rebuild without any manual `sudo chown` from the operator.
-
-[v0, surfaced-by home-os-onboarding-2026-05-13]
-
----
-
-### Strip devshop-meta seed content from template tracker stubs; audit all template/\*.md skeletons
-
-**Problem.** `template/PRODUCT-ROADMAP.md` ships with **three pre-populated v1 entries** — PWA service worker caching, visual regression testing, performance baselines for API. None of these are project-deferred work: they're devshop-meta concerns (template-level capabilities the devshop hasn't built yet) that leaked into the per-project "deferred/long-term" doc when the template was authored. Two of the three are already correctly filed in this same `kit/ROADMAP.md` (`§ Template PWA service worker baseline` v0; `§ Visual regression testing` v1). The third (API perf baselines) is unfiled. Every project scaffolded from `/ak-new-project` starts life with a `PRODUCT-ROADMAP.md` claiming three deferred items the project never opted into.
-
-Every other template tracker stub ships the right shape — empty placeholders with HTML-comment scaffolding showing how to fill: `template/PLAN.md` ("_No work in progress._"), `template/TODOS.md` ("_No pre-ship items._"), `template/BUILD-LOG.md` ("_No builds yet._"), `template/DEPS-WATCH.md` ("_No parked dependencies._"). `PRODUCT-ROADMAP.md` is the outlier.
-
-The principle: **a fresh project's tracker docs should start empty.** Per-project deferred work accumulates as the project ships features, not at scaffold time. Devshop-meta concerns belong in `kit/ROADMAP.md`.
-
-**Scope.**
-
-- (1) Strip the three sample entries from `template/PRODUCT-ROADMAP.md`. Replace the body with the same empty-placeholder + HTML-comment-scaffolding shape `template/TODOS.md` uses, so an operator sees the structure but no pre-seeded content.
-- (2) File the orphan into `kit/ROADMAP.md`: a new entry "API performance baselines for `/benchmark`" (the existing `/benchmark` skill checks Core Web Vitals frontend-side; an API-side companion checking key query response-times-vs-data-volume is the natural extension). v1 unless there's a forcing project incident.
-- (3) **Audit every other `template/*.md` and `template/<path>/*.md` skeleton for the same smell.** Each stub should answer "does this content describe THIS project's state, or some devshop-meta concern that leaked in?" — if devshop-meta, route it. Files in scope: `template/{README,CLAUDE,OVERVIEW,ARCHITECTURE,METRICS,DEPS-WATCH,BUILD-LOG,PLAN,TODOS,PRODUCT-ROADMAP}.md`, plus any per-package skeletons (`template/apps/*/README.md`, `template/packages/*/README.md`, `template/supabase/functions/README.md` if/when they get added). The smell to look for: pre-populated rows / entries / examples that name specific capabilities, libraries, or behaviors a fresh project hasn't chosen yet. Scaffolding HTML comments + empty-placeholder language are fine; pre-seeded specifics are not.
-
-**Why this is v0.** Same forcing function as the home-os onboarding batch: every fresh `/ak-new-project` scaffold ships the bug. Lalista already has the contaminated `PRODUCT-ROADMAP.md` (and may have copy-paste-edited the three sample entries into something project-shaped, which would need to be checked). Home-os just got scaffolded; either it inherited the same three entries (then needs the same cleanup) or the operator manually pruned them.
-
-**Fix shape.**
-
-- One PR, three commits: (a) `template/PRODUCT-ROADMAP.md` strip; (b) `kit/ROADMAP.md` add "API performance baselines for `/benchmark`" (v1 section, sized like the existing visual-regression entry); (c) audit results from sweeping the other stubs — either confirm "no other leaks found" in the commit message, or fix found leaks in the same commit. Estimate: 30–45 min including the audit sweep.
-- Migration for existing projects (lalista + home-os): diff each project's `PRODUCT-ROADMAP.md` against the cleaned template. If the three sample entries are still verbatim, delete them; if they've been edited into something project-shaped, leave them (the project owns its own roadmap once it's started shipping). Quick check per project; no risky migration.
-
-**Verification.**
-
-- Fresh `/ak-new-project` from a post-fix template: `cat /tmp/<fresh>/PRODUCT-ROADMAP.md` should show only the header + sectioning + HTML-comment scaffolding + an "_No deferred work yet._" placeholder. Zero specific capability names.
-- `grep -lE 'service worker|visual regression|response time'` against `template/PRODUCT-ROADMAP.md` returns nothing.
-- `kit/ROADMAP.md` contains entries for all three of the previously-seeded concerns (the existing two + new API perf baselines).
-- Audit sweep of every `template/*.md` stub completes; either no further leaks found (recorded in the commit message) or all found leaks fixed in the same commit.
 
 [v0, surfaced-by home-os-onboarding-2026-05-13]
 
@@ -1976,6 +1858,14 @@ first production incident and know what the workflow should actually be.
 Playwright screenshot comparison for key screens. Store baseline screenshots in
 `tests/screenshots/`. CI step compares current vs baseline, fails if diff exceeds
 threshold. Catches unintended visual changes that unit tests miss.
+
+### API performance baselines for `/benchmark`
+
+The current `/benchmark` skill measures frontend Core Web Vitals; an API-side
+companion would measure key query response-times against representative data
+volumes and alert when they degrade. Build when a project ships a query whose
+performance degrades silently as data grows — load-test with realistic data
+volume, record baselines, surface drift in `/benchmark` reports.
 
 ### Test-impact analysis (TIA) — runtime-instrumented test selection
 

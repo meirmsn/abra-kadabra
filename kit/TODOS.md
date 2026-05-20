@@ -7,6 +7,18 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
 <!-- Items discovered during use. Tag with [v0.2], [v1] etc. to schedule into ROADMAP versions. -->
 
+- [ ] **Existing-project migration: strip pre-seeded PRODUCT-ROADMAP + CLAUDE.md gotcha content from lalista and home-os.** The `chore/convention-housekeeping` bundle (2026-05-19, devshop commit `3633daa`) stripped 3 pre-seeded entries from `template/PRODUCT-ROADMAP.md` (PWA SW caching, visual regression testing, API perf baselines) and the pre-seeded PostgREST `data: null` gotcha from `template/CLAUDE.md § Gotchas`. Both files are `[scaffold-once]` in `kit/manifest.txt` — sync-from-devshop skips them on purpose (projects own their CLAUDE.md / roadmap content), so existing projects don't get the strip automatically.
+
+  **Per-project recipe** (run inside each project's container, on a feature branch):
+
+  1. `diff PRODUCT-ROADMAP.md <(cat /devshop/template/PRODUCT-ROADMAP.md)` — if the 3 sample entries are still verbatim, delete them; if the project has edited any of them into project-shaped content, leave that one and delete only the verbatim ones.
+  2. `diff CLAUDE.md <(cat /devshop/template/CLAUDE.md)` against the § Gotchas section — if the PostgREST entry is still verbatim, delete it (the recipe still lives at `kit/docs/guide/database-queries.md`); if the project has added real gotchas alongside it, leave the project's entries and delete only the verbatim seed.
+  3. Commit per project on its own feature branch with subject `chore: strip devshop-meta seed content from PRODUCT-ROADMAP + CLAUDE.md`.
+
+  **Why this is a TODO and not auto-applied**: scaffold-once is the correct classification (projects own these files); a sync-script that overwrites them would clobber any project-specific edits. The cleanup needs to be a one-time per-project pass with diff-and-decide judgment.
+
+  Cross-ref: `/devshop` commit `3633daa` (template strip); `kit/notes/projects/lalista.md` + `kit/notes/projects/home-os.md` for per-project pre-state.
+
 - [ ] **`/ak-merge-devshop` Phase 2 — mechanize the virtiofs phantom-rebase fallback (auto-retry or auto-switch-to-merge).** Surfaced twice on 2026-05-19: first during `sandbox-qa-close-gap` merge (multi-commit rebase fired the error twice in one run — 4 files on `d31af1a` pick + 1 file on `9dcdd4d` pick), then again during `ci-rollback-explain-marker-loud` merge (rebase aborted on `PLAN.md` even with a clean `git status` + zero `git ls-files -m`). `git rebase origin/main` fires `error: Your local changes to the following files would be overwritten by merge` on files git itself reports clean. Root cause: virtiofs stat-cache mismatch between Docker Desktop's macOS-side view and the container's stat-cache view. Same error also surfaces during direct `git merge --ff-only` (hit during the `ci-rollback-explain-marker-loud` Phase 3 ff-merge on /devshop's main worktree).
 
   **Current state (post-2026-05-19):** Phase 2 of the skill now documents an operator-facing fallback — fall back to `git merge origin/main` + transient commit + soft-reset + squash. Verified end-to-end on `ci-rollback-explain-marker-loud`. The fallback works but the operator (or agent) has to recognize the symptom and switch paths manually.
