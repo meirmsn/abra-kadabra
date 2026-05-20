@@ -141,6 +141,20 @@ _dead_or_zombie() {
   [ ! -f "$CLAUDE_NOTIFY_PID_FILE" ]
 }
 
+@test "notify-claude-done: suppresses when last turn used run_in_background Agent" {
+  # Mirrors the Bash-background case but with the Agent tool (subagent
+  # dispatched to run autonomously). The script's jq predicate accepts
+  # both Bash and Agent under run_in_background:true — both are tested
+  # so a future predicate narrowing can't silently regress either path.
+  create_capturing_stub curl ""
+  export NTFY_URL="https://ntfy.sh/test-topic"
+  transcript="$BATS_TEST_TMPDIR/t.jsonl"
+  echo '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Agent","input":{"description":"long-running task","subagent_type":"general-purpose","prompt":"do work","run_in_background":true}}]}}' > "$transcript"
+  run bash "$DONE_SCRIPT" <<<"{\"transcript_path\":\"$transcript\"}"
+  assert_success
+  [ ! -f "$CLAUDE_NOTIFY_PID_FILE" ]
+}
+
 @test "notify-claude-done: suppresses when last turn used CronCreate" {
   create_capturing_stub curl ""
   export NTFY_URL="https://ntfy.sh/test-topic"
@@ -220,6 +234,19 @@ _dead_or_zombie() {
   create_capturing_stub curl ""
   export NTFY_URL="https://ntfy.sh/test-topic"
   run bash "$DONE_SCRIPT" <<<'{}'
+  assert_success
+  [ -f "$CLAUDE_NOTIFY_PID_FILE" ]
+}
+
+@test "notify-claude-done: unreadable transcript_path falls through to schedule" {
+  # The script's `[ -r "$transcript" ]` guard short-circuits when the
+  # path is present in the JSON payload but the file is missing /
+  # unreadable. Functionally equivalent to the JSON-key-absent case
+  # today, but the two paths go through different early-exit logic — a
+  # future change to either branch shouldn't silently regress the other.
+  create_capturing_stub curl ""
+  export NTFY_URL="https://ntfy.sh/test-topic"
+  run bash "$DONE_SCRIPT" <<<'{"transcript_path":"/does/not/exist.jsonl"}'
   assert_success
   [ -f "$CLAUDE_NOTIFY_PID_FILE" ]
 }

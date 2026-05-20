@@ -259,7 +259,7 @@ These topics span multiple skills, so the guide (`./guide/`) owns them:
 - **Testing layers** (`guide/conventions.md § Testing`) — unit vs integration vs E2E, RLS boundary tests, seed.sql, CI mirrors runtime
 - **Security + Quality** (`guide/security.md`) — pre-commit steps, security-critical file list, fakeowner caveat, known gaps
 - **Hooks table + Commit Flow** (`guide/hooks.md`) — what fires on commit/push/session-start and in what order
-- **Notifications** (`guide/notifications.md`) — push alerts to iPhone/Watch/Mac via ntfy.sh, 30s debounce, privacy, rotation
+- **Notifications** (`guide/notifications.md`) — push alerts to iPhone/Watch/Mac via ntfy.sh, 30s debounce, deferred-work suppression, privacy, rotation
 - **Rollback procedures** (`guide/ops.md § When Things Go Wrong`) — Vercel rollback, migration rollback SQL, canary failure response
 - **Supabase SSR + E2E patterns** (`guide/supabase-ssr-boilerplate.md`) — 5 canonical patterns for Supabase + Next.js + Playwright projects (env-var trim, CSP scheme handling, E2E helpers, Realtime publication, WebKit hydration race), each codified from a real production incident with verbatim copy-paste-ready snippets
 - **Runtime validation at LLM / edge-function boundaries** (`guide/wrapper-boundaries.md`) — when to add Zod (LLM-backed boundaries, third-party APIs not under your control) vs. when not (PostgREST, forms, internal calls); the `packages/core/src/schemas/<feature>.ts` schema-module pattern with `.safeParse()` + Sentry-scrubbed payload + typed `{Feature}ValidationError`. Paired with `guide/wrapper-boundaries.md § Wrapper API design` for the lifecycle-event return shape that surfaces wrapper subscription failures distinctly from synchronous errors.
