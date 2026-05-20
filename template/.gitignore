@@ -26,14 +26,27 @@ dist/
 .hooks/
 
 
-# gstack runtime state — only .md artifacts (design docs, plans) under projects/ are version-tracked.
-# Verbose because gitignore re-includes don't reach into excluded directories — must re-include each level.
+# gstack runtime state — review artifacts under projects/ are version-tracked
+# at any depth; transient state (browse logs, sessions, JSONL learnings, eval
+# fingerprints) stays ignored. Four extensions cover every reviewable artifact
+# type the skill audit surfaced: .md (design docs + ceo-plans), .html
+# (design-shotgun + finalized HTML), .png (screenshots + variant previews),
+# .json (approved.json + plan-eng outputs). The ** traversal handles deep
+# subdirs like designs/<screen>-YYYYMMDD/ and tolerates branch-with-slash
+# stray subdirs (fix/foo/*.md still matches). init-devshop.sh symlinks
+# /home/node/.gstack/projects → /workspace/.gstack/projects so the five
+# gstack skills that hardcode ~/.gstack/projects (canary, ship,
+# land-and-deploy, plan-ceo-review, plan-design-review) also land here.
 .gstack/*
 !.gstack/projects/
-.gstack/projects/*
-!.gstack/projects/*/
-.gstack/projects/*/*
-!.gstack/projects/*/*.md
+.gstack/projects/**
+
+# Re-include reviewable artifacts at any depth under projects/.
+!.gstack/projects/**/
+!.gstack/projects/**/*.md
+!.gstack/projects/**/*.html
+!.gstack/projects/**/*.png
+!.gstack/projects/**/*.json
 
 # OS
 .DS_Store

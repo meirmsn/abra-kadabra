@@ -385,58 +385,6 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
   [v0+, skill-improvement, surfaced-by ak-merge-devshop-smoke-test, 2026-05-07]
 
-- [ ] **Gstack artifact symlink redirect — devshop-side.** [v0] Five gstack skills hardcode `~/.gstack/projects/$SLUG/...` for their artifact writes (`canary`, `land-and-deploy`, `plan-ceo-review`, `plan-design-review`, `ship`) instead of honoring `${GSTACK_HOME}`. Template's `containerEnv` already sets `GSTACK_HOME=/workspace/.gstack` for the skills that DO honor it; the 5 holdouts bypass the redirect → artifacts land outside the repo and outside version control. Editing the .tmpl files in-tree gets wiped on every `/gstack-upgrade` (per `CLAUDE.md § gstack`), so the fix has to live outside `.claude/skills/gstack/**`.
-
-  **Fix**: symlink `~/.gstack/projects` → `/workspace/.gstack/projects` in `init-devshop.sh`. Skills that honor `$GSTACK_HOME` write directly to `/workspace/.gstack/...`; skills that hardcode `~/.gstack/projects/...` follow the symlink to the same destination. Both paths converge on one git-tracked tree.
-
-  **Setup block for `template/.devcontainer/init-devshop.sh`** (root-runs on container init):
-
-  ```bash
-  # Pre-create the redirect target inside the workspace bind mount.
-  mkdir -p /workspace/.gstack/projects
-
-  # One-time migration if a prior session created a real ~/.gstack/projects dir.
-  if [ -d ~/.gstack/projects ] && [ ! -L ~/.gstack/projects ]; then
-    mv ~/.gstack/projects/* /workspace/.gstack/projects/ 2>/dev/null || true
-    rmdir ~/.gstack/projects 2>/dev/null || true
-  fi
-
-  # Symlink projects/ (NOT ~/.gstack itself — gstack-upgrade still mkdir's ~/.gstack).
-  mkdir -p ~/.gstack
-  ln -sfn /workspace/.gstack/projects ~/.gstack/projects
-  ```
-
-  **Widen template `.gitignore`** (current `!.gstack/projects/*/*.md` only matches one level deep, misses `ceo-plans/` + `designs/<screen>-YYYYMMDD/...` subdirs + the slash-in-branch stray subdirs):
-
-  ```gitignore
-  .gstack/*
-  !.gstack/projects/
-  .gstack/projects/**
-
-  # Re-include reviewable artifacts at any depth.
-  !.gstack/projects/**/
-  !.gstack/projects/**/*.md
-  !.gstack/projects/**/*.html
-  !.gstack/projects/**/*.png
-  !.gstack/projects/**/*.json
-  ```
-
-  The `**` traversal tolerates branch-with-slash stray subdirs (`fix/foo/...md` still matches). Four extensions cover every reviewable artifact type the skill audit surfaced (design docs, ceo-plans, plan-eng outputs, design HTML/PNG/JSON). JSONL logs / fingerprints / sessions are intentionally NOT re-included → ignored.
-
-  **Backfill recipe for existing projects** (`kit/docs/guide/ops.md § Gstack projects symlink`): same setup block as a one-off sudo install. Existing `~/.gstack/projects/$SLUG/` content migrates into `/workspace/.gstack/projects/`.
-
-  **Bats test**: assert (a) symlink lands at `~/.gstack/projects` pointing at `/workspace/.gstack/projects`, (b) a write to `~/.gstack/projects/$SLUG/foo.md` resolves to `/workspace/.gstack/projects/$SLUG/foo.md`, (c) the gitignore re-include patterns match `*.md`/`*.html`/`*.png`/`*.json` at any depth.
-
-  **Why devshop-side, not upstream**: the in-tree fix would also need slash-sanitization (`BRANCH_SAFE=${BRANCH//\//-}`) for the ~100% of real-world branches with `/` in their names. Symlink redirect doesn't fix Bug 2 (stray subdirs still get created when `${BRANCH}` is in the filename), but the gitignore `**` traversal tolerates them — file gets tracked regardless. Aesthetic-only residual; file as a separate low-priority upstream issue if desired.
-
-  **Why v0 — blocks artifact preservation today**: every lalista `/plan-ceo-review` + `/plan-design-review` session writes design audits and ceo-plans to `~/.gstack/projects/$SLUG/...` which is not volume-backed; container rebuilds wipe them. Symlink lands them in `/workspace/` instead, where the gitignore re-includes preserve them in git.
-
-  **Scope check (per "skip telemetry" rule, 2026-05-20)**: of the 5 hardcoded-path skills, only `plan-ceo-review` + `plan-design-review` produce review artifacts. `canary` writes its report to project-relative `.gstack/canary-reports/` natively; only its JSONL log hits `~/`. `land-and-deploy` + `ship` write only JSONL logs / fingerprints. The symlink fix is class-wide — all 5 skills benefit, but only 2 are blocking the user's "preserve review artifacts in repo" goal.
-
-  **Edit targets**: `template/.devcontainer/init-devshop.sh`, `template/.gitignore`, `kit/docs/guide/ops.md` (new section), new bats file `kit/tests/gstack-projects-symlink.bats`.
-
-  [v0, surfaced-by 2026-05-20 plan-review session; supersedes 2026-05-11 in-tree-sweep framing]
-
 - [ ] **`/ak-pre-ship` Gate 9 (`/qa`) doesn't run fault-injected scenarios — happy-path crawl misses banner / error-state UI bugs.** [v0] UI flows pass under happy-path QA conditions but break under fault-injected ones (network failure, RPC abort, timeout). PR #49's `AddItemSheet` overlay-intercepts-Undo bug only surfaced when CI ran `page.route().abort()` to simulate a network failure — `/qa`'s happy-path crawl never tickled the failing-mutation banner state, so the overlay-z-index bug shipped past pre-ship and only got caught by Playwright's slow-job CI run.
 
   **Shape**: extend `/ak-pre-ship` Gate 9 with a "fault-injected QA pass" sub-step. For each Tier A2 surface (looked up via spec or convention — the new `kit/docs/guide/latency-feedback.md` will tell us which surfaces are Tier A2; until that ships, parse the diff for `useOptimisticMutation({ failureMode: 'banner' })` call sites), abort the relevant edge-function/RPC route via `page.route().abort()` and assert the banner Retry/Undo affordances render and are clickable (no overlay intercept, no z-index regression).

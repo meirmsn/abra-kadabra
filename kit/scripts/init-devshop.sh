@@ -96,6 +96,31 @@ chown -R node:node /home/node/.claude/projects
 ln -sfn "$MEMORY_DIR" "$MEMORY_LINK"
 chown -h node:node "$MEMORY_LINK"
 
+# --- Gstack projects symlink ---
+# containerEnv sets GSTACK_HOME=/workspace/.gstack so skills that honor it write
+# to the volume-mounted, git-tracked tree. Five gstack skills (canary, ship,
+# land-and-deploy, plan-ceo-review, plan-design-review) hardcode
+# ~/.gstack/projects/$SLUG/... instead. Without a redirect their artifacts
+# (design docs, ceo-plans, review HTML/PNG/JSON) land in /home/node/.gstack/
+# which is NOT volume-mounted — wiped on every container rebuild.
+# Editing the in-tree gstack SKILL.md.tmpl files is forbidden (CLAUDE.md §
+# gstack — /gstack-upgrade wipes local edits with no warning), so the fix
+# lives here: symlink /home/node/.gstack/projects → /workspace/.gstack/projects
+# so both write paths converge on one git-tracked location.
+GSTACK_PROJECTS_DIR="$WS/.gstack/projects"
+GSTACK_PROJECTS_LINK="/home/node/.gstack/projects"
+mkdir -p "$GSTACK_PROJECTS_DIR"
+chown -R node:node "$WS/.gstack"
+# One-time migration if a prior session created a real ~/.gstack/projects dir.
+if [ -d "$GSTACK_PROJECTS_LINK" ] && [ ! -L "$GSTACK_PROJECTS_LINK" ]; then
+  cp -an "$GSTACK_PROJECTS_LINK"/. "$GSTACK_PROJECTS_DIR"/ 2>/dev/null || true
+  rm -rf "$GSTACK_PROJECTS_LINK"
+fi
+mkdir -p "$(dirname "$GSTACK_PROJECTS_LINK")"
+ln -sfn "$GSTACK_PROJECTS_DIR" "$GSTACK_PROJECTS_LINK"
+chown -h node:node "$GSTACK_PROJECTS_LINK"
+chown -R node:node /home/node/.gstack
+
 # --- Install devshop dependencies (husky, lint-staged, prettier, eslint, etc.) ---
 # Runs on every start so deps stay current when devshop is updated from another project.
 # Fast no-op when lockfile and node_modules are in sync.

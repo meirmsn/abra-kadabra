@@ -290,7 +290,39 @@ Debugging compose isolation ("which container am I in", "is the relay reachable"
 
 ### gstack runtime state
 
-`containerEnv` in `template/.devcontainer/devcontainer.json` sets BOTH `GSTACK_HOME` and `GSTACK_STATE_DIR` to `/workspace/.gstack` — gstack has a split-brain where its CLI binaries (e.g. `gstack-config`) honor `GSTACK_STATE_DIR` while SKILL.md preamble bash blocks honor `GSTACK_HOME`. Setting both ensures `projects/`, `sessions/`, `analytics/`, and `learnings.jsonl` all land under the workspace alongside `config.yaml` instead of split across `$HOME` and the project tree. `template/.gitignore` ships `.gstack/*` with explicit re-includes for `.gstack/projects/**/*.md` so design docs, office-hours plans, and eng-review history stay version-tracked while runtime state, logs, analytics, and `config.yaml` (which gstack rewrites on every run) are filtered out. Don't blanket-ignore `.gstack/` without the re-include pattern — that loses the plans.
+`containerEnv` in `template/.devcontainer/devcontainer.json` sets BOTH `GSTACK_HOME` and `GSTACK_STATE_DIR` to `/workspace/.gstack` — gstack has a split-brain where its CLI binaries (e.g. `gstack-config`) honor `GSTACK_STATE_DIR` while SKILL.md preamble bash blocks honor `GSTACK_HOME`. Setting both ensures `projects/`, `sessions/`, `analytics/`, and `learnings.jsonl` all land under the workspace alongside `config.yaml` instead of split across `$HOME` and the project tree.
+
+**Hardcoded-path holdouts — symlink redirect.** Five gstack skills bypass `$GSTACK_HOME` entirely and hardcode `~/.gstack/projects/$SLUG/...` for their artifact writes: `canary`, `ship`, `land-and-deploy`, `plan-ceo-review`, `plan-design-review`. Editing the SKILL.md.tmpl files in-tree is forbidden (per `CLAUDE.md § gstack` — `/gstack-upgrade` wipes local edits with no warning), so `kit/scripts/init-devshop.sh` runs at container start and drops a symlink: `/home/node/.gstack/projects → /workspace/.gstack/projects`. Skills that honor `$GSTACK_HOME` write directly to `/workspace/.gstack/projects/...`; skills that hardcode `~/.gstack/projects/...` follow the symlink to the same destination. Both paths converge on one git-tracked tree.
+
+`template/.gitignore` ships `.gstack/projects/**` with re-includes for `.md` (design docs, ceo-plans, office-hours notes), `.html` (design-shotgun + finalized HTML), `.png` (variants + screenshots), and `.json` (approved.json, plan-eng outputs) at any depth — so the four reviewable artifact types from all five hardcoded-path skills plus every `$GSTACK_HOME`-honoring skill stay version-tracked. JSONL logs, session state, analytics, and `config.yaml` (rewritten on every run) stay filtered out. Don't blanket-ignore `.gstack/` without the re-include pattern — that loses the plans.
+
+**Backfill recipe (existing project before 2026-05-20).** If the devshop's `kit/scripts/init-devshop.sh` on this host predates the symlink block (no `GSTACK_PROJECTS_LINK` declaration), add it manually so the next container start picks it up. The file the operator edits is the devshop-canonical script, not the project's thin forwarder at `.devcontainer/init-devshop.sh`:
+
+```bash
+# Run from the project workspace, NOT the devshop:
+sudo nano /devshop/kit/scripts/init-devshop.sh
+# Insert the "Gstack projects symlink" block after the "Claude memory symlink" block
+# (search for "MEMORY_LINK"). Copy from the current devshop main.
+
+# Then rebuild the container (Command Palette → Dev Containers: Rebuild Container)
+# OR run the block manually with sudo if you don't want to rebuild:
+sudo bash -c '
+  mkdir -p /workspace/.gstack/projects
+  chown -R node:node /workspace/.gstack
+  if [ -d /home/node/.gstack/projects ] && [ ! -L /home/node/.gstack/projects ]; then
+    cp -an /home/node/.gstack/projects/. /workspace/.gstack/projects/ 2>/dev/null || true
+    rm -rf /home/node/.gstack/projects
+  fi
+  mkdir -p /home/node/.gstack
+  ln -sfn /workspace/.gstack/projects /home/node/.gstack/projects
+  chown -h node:node /home/node/.gstack/projects
+  chown -R node:node /home/node/.gstack
+'
+# Also widen template/.gitignore to the four-extension pattern (copy from current
+# template main). Then commit the migrated artifacts that survived the move.
+```
+
+Verify with `ls -la /home/node/.gstack/projects` — it should show as a symlink to `/workspace/.gstack/projects`. New `/plan-ceo-review` / `/plan-design-review` runs will write through the symlink into the workspace, where git tracks them under the widened gitignore.
 
 ---
 
