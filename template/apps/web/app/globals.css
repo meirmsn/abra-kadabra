@@ -1,0 +1,54 @@
+/*
+ * Global stylesheet — Tailwind v4 `@theme` tokens + light/dark color
+ * variables. Tokens here are placeholders; replace during the
+ * design-consultation step with your project's `DESIGN.md` palette.
+ *
+ * Light/dark from day one per the Responsive + Theme convention
+ * (`kit/docs/guide/conventions.md`). Theme follows `prefers-color-scheme`;
+ * projects that ship a manual toggle can override the `[data-theme]`
+ * selector below.
+ */
+
+@import 'tailwindcss';
+
+@theme {
+  --color-fg: oklch(0.18 0 0);
+  --color-fg-muted: oklch(0.45 0 0);
+  --color-bg: oklch(1 0 0);
+  --color-bg-elevated: oklch(0.98 0 0);
+  --color-accent: oklch(0.55 0.18 260);
+  --color-border: oklch(0.92 0 0);
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  @theme {
+    --color-fg: oklch(0.95 0 0);
+    --color-fg-muted: oklch(0.65 0 0);
+    --color-bg: oklch(0.14 0 0);
+    --color-bg-elevated: oklch(0.18 0 0);
+    --color-accent: oklch(0.7 0.18 260);
+    --color-border: oklch(0.28 0 0);
+  }
+}
+
+html,
+body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  margin: 0;
+  padding: 0;
+}
+
+.page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+  gap: 1rem;
+}

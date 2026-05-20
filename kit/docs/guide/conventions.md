@@ -32,6 +32,8 @@ Single source of truth for conventions referenced by multiple skills. Skills poi
 - [Non-Negotiables](#non-negotiables)
   - [Testing](#testing)
   - [Test Assertion Depth](#test-assertion-depth)
+  - [Playwright + controlled inputs on WebKit](#playwright--controlled-inputs-on-webkit)
+  - [Supabase auth E2E patterns](#supabase-auth-e2e-patterns)
   - [Testing Lifecycle](#testing-lifecycle)
   - [Kit Testing (devshop infrastructure)](#kit-testing-devshop-infrastructure)
   - [Metrics](#metrics-1)
@@ -606,6 +608,37 @@ The comment must name the absence of user-visible output. Generic bypasses (`// 
 **Scope** — `/ak-tests-review` enforces this only on tests added or modified in the current PR's diff. Grandfathered tests in untouched files are not retroactively flagged; conversion of legacy shape-only tests is tracked in `TODOS.md` if it ever becomes worth the churn.
 
 **Why this exists** — Phase 1's Gate 9 artifact assertion (qa-walk per-verb evidence) catches missing-DOM-output bugs _if_ the harness captures DOM state. This rule moves the catch one level up so even unit tests fail fast when "code did a thing" diverges from "user sees the right thing." See `.claude/skills/devshop/tests-review/SKILL.md § Shape-only assertions`.
+
+### Playwright + controlled inputs on WebKit
+
+For forms with **controlled inputs** whose values are read at submit time (login, sign-up, password-reset — anything with `<input value={state} onChange=…>`), **use `pressSequentially` instead of `fill` on WebKit**. The pattern:
+
+```ts
+const input = page.locator('#email');
+await input.click();
+await input.pressSequentially(value, { delay: 10 });
+await expect(input).toHaveValue(value);
+```
+
+**Why** — `page.locator('#input').fill(value)` can resolve before React's state syncs back to the DOM `value` attribute on a freshly hydrated controlled input. The result: `fill` reports "value set", the next interaction observes the field as empty, the form submits with missing data. Lalista PR #43 reproduced this identically across three WebKit CI runs (25258858879 / 25259626169 / 25260400981) before the fix landed; the symptom reads as flake because Chromium passes. `pressSequentially` delivers real keystrokes — React has time to settle between them — and the `toHaveValue` assert auto-retries so a slow hydration doesn't false-fail.
+
+**How to apply** — anywhere a Playwright spec runs against a WebKit project AND the field is controlled. Uncontrolled inputs (raw `<input>` with no React state) are unaffected; `fill` is fine there. Worked examples ship in `template/apps/web/e2e/sign-up.spec.ts` + `template/apps/web/e2e/forgot-password.spec.ts` (the `fillControlled` helper). `/ak-pre-ship` Gate 9 walks must use this pattern on WebKit; `/ak-tests-review` flags new specs that use bare `.fill()` against controlled inputs.
+
+### Supabase auth E2E patterns
+
+Supabase's sign-up behavior changes shape depending on `[auth.email].enable_confirmations`:
+
+- **`enable_confirmations: true`** (typical prod posture): existing-account second-signup returns `{ user: { identities: [] }, session: null }` — the no-enumeration shape. The app's `/sign-up` page can branch into `AwaitingConfirmationCard`, indistinguishable from a fresh signup. **Test this at the unit level** with a mocked Supabase response — mock the `identities: []` + null-session shape and assert the UI renders the awaiting-confirmation copy.
+- **`enable_confirmations: false`** (local stack's auto-confirm default): Supabase returns an explicit `User already registered` error. **Test this at the E2E level** against the local stack — the friendly-error mapping renders "already registered, try signing in instead."
+
+**Why both layers** — prod and local diverge intentionally. E2E exercises the auto-confirm error path (what local-stack returns); unit pins the no-enumeration shape (what prod returns). Without the unit-level mock, projects ship the wrong copy under the prod-shape branch and only catch it post-deploy. Without the E2E, the friendly-error mapping rots silently.
+
+**How to apply** — any project using `supabase.auth.signUp` ships both layers:
+
+1. Unit test at `apps/web/app/sign-up/page.test.tsx` (or wherever the sign-up logic lives) mocking the no-enumeration return shape.
+2. E2E at `apps/web/e2e/sign-up.spec.ts` exercising the auto-confirm path (real `signUp`, real Mailpit link follow). Skeleton ships in `template/apps/web/e2e/sign-up.spec.ts`.
+
+`kit/docs/guide/supabase-ssr-boilerplate.md § Pattern 9` carries the canonical Mailpit helper shape; `template/apps/web/e2e/helpers/inbucket.ts` is a verbatim copy so fresh scaffolds inherit it on day 1.
 
 ### Testing Lifecycle
 

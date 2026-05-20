@@ -725,6 +725,8 @@ Invoke `/qa` via Skill tool. Browser-based QA — discovers bugs, fixes source c
 
 Runs AFTER /design-review so it browser-tests the visually polished code. This is the final "does this actually work in a browser" pass before /ship.
 
+**Form-fill technique on WebKit**: when the walk targets a WebKit project AND fills a controlled input (login, sign-up, password reset — anything `<input value={state} onChange=…>`), use `pressSequentially + toHaveValue` instead of `fill` — bare `fill` resolves before React syncs the DOM value and the form submits empty on WebKit. Full pattern + rationale: `kit/docs/guide/conventions.md § Playwright + controlled inputs on WebKit`. `/ak-tests-review` flags new specs that use bare `.fill()` against controlled inputs.
+
 ### Outcome contract (three outcomes — `skipped` is not one of them)
 
 Gate 9 MUST emit exactly one of:

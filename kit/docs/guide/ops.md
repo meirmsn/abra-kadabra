@@ -23,7 +23,7 @@ Day-to-day operational reference. Auth, data flow, design system, CI/CD, observa
 
 - Logic: `packages/core/src/api/auth.ts`
 - Screens: `apps/web/app/(auth)/sign-in/`, `apps/web/app/(auth)/onboarding/`
-- Route protection: `apps/web/middleware.ts` (Supabase SSR session check)
+- Route protection: `apps/web/proxy.ts` (Supabase SSR session check; renamed from `middleware.ts` in Next 16)
 - Config: Supabase Auth dashboard, Apple Developer portal (Service ID + domain verification)
 
 ### Data Flow

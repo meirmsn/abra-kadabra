@@ -816,55 +816,51 @@ No `tailwind.config.js` — Tailwind v4 uses CSS `@theme`.
 
 ### Step 12: Scaffold apps/web
 
+Phase A already rsync'd `/devshop/template/` into the project, so `apps/web/`
+is on disk. The tree ships a Next.js 16 App Router shell with Sentry init
+across all three runtimes (`instrumentation.ts` + `sentry.{client,server,edge}.config.ts`),
+Supabase SSR middleware with Pattern 1 `.trim()` defense, Playwright +
+Vitest configs (`webServer` block + `@/` alias pre-wired), and the canonical
+Mailpit E2E helper (`e2e/helpers/inbucket.ts` — Pattern 9 verbatim) plus
+sign-up / forgot-password spec skeletons. `allowedDevOrigins` includes both
+`localhost` AND `127.0.0.1` so Next 16's cross-origin HMR check doesn't fire
+on Supabase-issued auth URLs.
+
+**Sub-step 1: substitute placeholders + install**
+
 ```bash
-pnpm create next-app apps/web --typescript --tailwind --app --no-src-dir --import-alias "@/*" --no-git
+cd apps/web
+sed -i "s/PROJECT_NAME_PLACEHOLDER/<project-name>/g" package.json README.md app/layout.tsx app/page.tsx next.config.ts
+cd ../..
+pnpm install
 ```
 
-Then: import on Vercel, Tailwind v4 tokens in globals.css, transpilePackages,
-workspace deps, Sentry, PostHog, PWA scaffold (`manifest.json`, Apple meta tags,
-placeholder icons — service worker via `@serwist/next` is deferred to
-`PRODUCT-ROADMAP.md` to avoid stale-data bugs during active development; see
-`kit/docs/guide/conventions.md § Non-Negotiables — PWA`), security headers,
-vercel.json, remove placeholders, approve build scripts in onlyBuiltDependencies.
+**Sub-step 2: layer in project-specific wirings**
 
-#### Step 12.5: Wire `@/` alias into vitest
+- Import on Vercel (`Step 13` runs this).
+- Design-token replacement in `app/globals.css` — placeholders ship in the
+  template; replace during the `/design-consultation` step with your
+  project's `DESIGN.md` palette (Tailwind v4 `@theme` block).
+- PostHog wiring (instrumentation hook + provider).
+- PWA scaffold (`manifest.json`, Apple meta tags, placeholder icons —
+  service worker via `@serwist/next` is deferred to `PRODUCT-ROADMAP.md`
+  to avoid stale-data bugs during active development; see
+  `kit/docs/guide/conventions.md § Non-Negotiables — PWA`).
+- Security headers + `vercel.json`.
+- Approve build scripts in `onlyBuiltDependencies` (root `package.json`).
 
-Next's `--import-alias "@/*"` sets up `tsconfig.json paths` so `import "@/lib/foo"`
-resolves at compile time, but vitest **does not** consume tsconfig paths by default.
-The first test that imports anything via `@/...` fails with `Failed to load url
-@/lib/...`. Ship `apps/web/vitest.config.ts` with the alias wired through
-`resolve.alias`:
+#### Step 12.5: Supabase SSR boilerplate patterns
 
-```ts
-// apps/web/vitest.config.ts
-import path from 'node:path';
-import { defineConfig } from 'vitest/config';
+The template ships Pattern 1 (`.trim()` defense in `proxy.ts` — the Next 16
+rename of `middleware.ts`) and Pattern 9 (Mailpit helper at
+`e2e/helpers/inbucket.ts`) already. Apply the remaining patterns from
+`kit/docs/guide/supabase-ssr-boilerplate.md`:
 
-export default defineConfig({
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './'),
-    },
-  },
-  test: {
-    environment: 'jsdom',
-    include: ['**/*.test.{ts,tsx}'],
-    exclude: ['node_modules', '.next', 'e2e/**'],
-  },
-});
-```
-
-`path.resolve(__dirname, './')` matches the tsconfig `paths: { "@/*": ["./*"] }` setup
-(both anchor at `apps/web/`). `environment: 'jsdom'` is required for React component
-tests; `exclude: ['e2e/**']` keeps Playwright specs out of the unit run.
-
-**Apply the Supabase SSR boilerplate patterns from `kit/docs/guide/supabase-ssr-boilerplate.md`** — five canonical patterns codified from real production incidents (lalista PR 26, 2026-04-26). Don't paraphrase; copy verbatim:
-
-- **Pattern 1**: `.trim()` defense at every `process.env.NEXT_PUBLIC_*` read site in `lib/supabase/{server,client}.ts` + `middleware.ts`. Trailing-whitespace env vars from copy-paste fat-fingers silently 500 SSR routes; trim makes runtime bulletproof.
 - **Pattern 2**: CSP `connect-src` builder uses `^http(s?)://` → `ws$1://` regex (handles BOTH prod `https→wss` AND local-stack `http→ws`). Missing the http→ws case silently breaks Realtime in dev mode.
 - **Pattern 3**: `apps/web/e2e/helpers/admin-client.ts` with the 5 canonical exports (`adminClient`, `anonClient`, `userIdFromSignIn`, `isLocalSupabase`, `localSupabaseSkipReason`). Don't reinvent; copy.
+- **Pattern 10**: host-anchored redirects in any `/auth/*` route handlers you add.
 
-If the project also uses Realtime cross-session, also apply **Pattern 4** (publication migration) at `Step 15: Supabase init` time. If it has E2E tests on the WebKit `mobile` project, **Pattern 5** (WebKit form-state hydration race workaround) belongs in your E2E test conventions.
+If the project uses Realtime cross-session, also apply **Pattern 4** (publication migration) at `Step 15: Supabase init` time. **WebKit form-fill** (Pattern 5 historically; now `kit/docs/guide/conventions.md § Playwright + controlled inputs on WebKit`) — the spec skeletons that ship in `apps/web/e2e/` already demonstrate the `pressSequentially + toHaveValue` pattern, so projects inherit it on day 1.
 
 ### Step 13: Add Vercel CLI + link + pipe env vars
 
@@ -1390,8 +1386,9 @@ truth: `SUPABASE_PROD_URL`.
 If the project's `packages/core/src/supabase.ts` doesn't yet export
 `assertNotProdUrlInTestEnv`, port it from the template (see Step 10). Wire
 into every `createClient` call site — `apps/web/lib/supabase/client.ts`,
-`apps/web/lib/supabase/server.ts`, `apps/web/middleware.ts`, any others. Add
-the matching unit tests under `packages/core/src/supabase.test.ts`.
+`apps/web/lib/supabase/server.ts`, `apps/web/proxy.ts` (or legacy
+`apps/web/middleware.ts`), any others. Add the matching unit tests under
+`packages/core/src/supabase.test.ts`.
 
 This is the structural defense that lets you safely point CI at the local
 stack — without it, a future drift could re-introduce the prod-service-role-

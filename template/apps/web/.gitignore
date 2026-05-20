@@ -1,0 +1,15 @@
+# Local env (never commit)
+.env*.local
+
+# Build output
+.next/
+out/
+build/
+
+# Playwright runtime artifacts
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Sentry config artifact
+.sentryclirc

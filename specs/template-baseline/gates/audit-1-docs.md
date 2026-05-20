@@ -1,0 +1,59 @@
+### [domain: docs] [section: C] [severity: high]
+**File**: kit/docs/guide/ops.md:26
+**What**: Stale `apps/web/middleware.ts` reference in `§ Where Things Happen § Auth § Route protection` — the file no longer exists under that name in the template (renamed to `proxy.ts` by 5da8cec / R16-B2).
+**Why**: ops.md `Where Things Happen` is one of the load-bearing project-orientation surfaces (cited from `kit/docs/guide/README.md` Auth-routing row as the destination doc for any auth-touching PR). A new project scaffolding from the just-landed template will have `proxy.ts`, so an operator following the ops.md cross-ref will look for a file that doesn't exist. The closure-protocol convention (`conventions.md § Closing TODO / ROADMAP entries when a fix ships`) explicitly mandates unwinding every cross-reference in the same PR the rename ships — that obligation was missed for the entries outside `supabase-ssr-boilerplate.md`.
+**Fix**: Replace `apps/web/middleware.ts (Supabase SSR session check)` with `apps/web/proxy.ts (Supabase SSR session check; renamed from middleware.ts in Next 16)` — or just `apps/web/proxy.ts` if you want to keep the row tight.
+
+### [domain: docs] [section: C] [severity: high]
+**File**: kit/docs/guide/README.md:51, 55, 73, 106
+**What**: Four stale `apps/web/middleware.ts` references in the context-aware routing index: line 51 (Auth-domain trigger prose), line 55 (Auth routing row trigger), line 73 (Pattern 8 routing row trigger), line 106 (project-docs-coverage trigger map row). README.md is the routing index `/ak-implement` Step 1 + `/ak-spec` Step 1.5 consult to pick which guide sections fire for a PR's change shape.
+**Why**: A new project's auth-touching PR will not match `apps/web/middleware.ts` as a trigger because the file is now `proxy.ts` — the routing rows silently miss-fire on the very projects the baseline targets. Same closure-protocol violation as ops.md:26.
+**Fix**: Add `apps/web/proxy.ts` to each trigger expression (replace or `proxy.ts` OR `middleware.ts` — both for transition projects). Line 73's row title also names Pattern 8 by its pre-rename label (`Pattern 8: Middleware allow-list authed-bypass…`); supabase-ssr-boilerplate.md now titles it `Pattern 8: Proxy allow-list authed-bypass…` so the anchor link `pattern-8-middleware-allow-list-authed-bypass-carve-out-for-recovery-flows` in the URL fragment is broken too. Regenerate the anchor.
+
+### [domain: docs] [section: C] [severity: high]
+**File**: .claude/skills/devshop/new-project/SKILL.md:854, 1388
+**What**: Two stale `middleware.ts` references inside the very skill that operates the template baseline. Line 854 ("The template ships Pattern 1 (`.trim()` defense in `middleware.ts`)") contradicts the file actually shipped at `template/apps/web/proxy.ts`. Line 1388 (Security Posture section listing `createClient` call sites) names `apps/web/middleware.ts` as a `assertNotProdUrlInTestEnv` wiring target, but the template's proxy file is now `proxy.ts`.
+**Why**: `/ak-new-project` is the consumer of the template baseline shipped in this branch. The operator opening this skill to scaffold from the new template will be told `Pattern 1 lives in middleware.ts` then find `proxy.ts` on disk — undermines trust in the skill the moment the baseline lands. High severity because the skill is the user-facing onboarding flow and the contradiction lives in the same range as the rename.
+**Fix**: 854 → `Pattern 1 (.trim() defense in proxy.ts)`. 1388 → `apps/web/proxy.ts`. Consider also adding a one-line note at Step 12 that the proxy file is named `proxy.ts` post-Next-16 so operators ramping on older docs don't grep for the old name.
+
+### [domain: docs] [section: B] [severity: high]
+**File**: template/apps/web/next.config.ts:10
+**What**: The newly shipped `next.config.ts` file's own `// Does NOT:` header points at `middleware.ts` for CSP headers per "Pattern 2 of supabase-ssr-boilerplate" — but (a) the file is `proxy.ts`, not `middleware.ts`, and (b) Pattern 2 in supabase-ssr-boilerplate.md actually puts the CSP `connect-src` builder in `apps/web/next.config.ts` (the same file the header is in), NOT in middleware/proxy.
+**Why**: Doubly stale — wrong filename AND wrong file role. A reader following the header pointer will look in `proxy.ts` for CSP code that the convention explicitly says belongs in `next.config.ts`. Pattern 2 in supabase-ssr-boilerplate.md (line 119 + reference excerpt at line 132) is unambiguous: `### apps/web/next.config.ts (CSP builder excerpt)`. The misdirection is inside a brand-new file shipped by this PR — worst-case provenance.
+**Fix**: Rewrite the `// Does NOT:` line to: `Define env vars (they live in .env.local per /ak-new-project § Step 13b) or set CSP headers (those live in this file via the Pattern 2 connect-src builder — add when Realtime/Supabase wiring lands).` Or drop the CSP clause entirely if the template intentionally defers CSP wiring to per-project work.
+
+### [domain: docs] [section: A] [severity: medium]
+**File**: kit/docs/guide/conventions.md:747
+**What**: Section `## Project Docs Coverage` trigger-map row still reads `New apps/*/middleware.ts → CLAUDE.md`. The same row should now fire on `apps/*/proxy.ts` for projects scaffolded from the post-rename template.
+**Why**: The Layer-1 docs-coverage hook (`check-docs-coverage-project.sh`) consults this trigger map indirectly via the `kit/scripts/commit-hooks/check-docs-coverage-project.sh` source code. The script-side likely still keys on `middleware.ts` too — but the conventions doc is the source of truth operators read; leaving it stale either masks a Layer-1 gap (proxy.ts files don't trigger CLAUDE.md coverage at all) or rewards a stale-script behavior that will silently miss the proxy.ts surface on new projects. Either way the doc claim and the script behavior need to agree, and the rename PR did not propagate.
+**Fix**: Replace `apps/*/middleware.ts` with `apps/*/proxy.ts` (or accept both). Cross-check `kit/scripts/commit-hooks/check-docs-coverage-project.sh` (not staged in this range) for a matching glob update — if it only matches `middleware.ts`, file the script fix in the same PR per the same closure-protocol.
+
+### [domain: docs] [section: A] [severity: medium]
+**File**: kit/docs/guide/conventions.md:726
+**What**: `## Test Presence` "Exempt by filename" list adds `middleware.ts` but not `proxy.ts`. The paired script change `kit/scripts/commit-hooks/check-tests-coverage-project.sh` (staged in 8611f0b) DID add `proxy.ts` to EXEMPT_FILENAMES — so doc and script diverge.
+**Why**: Test-presence exemption is enforced from the script's `EXEMPT_FILENAMES` array. The conventions.md prose is the operator-facing source of truth; when the script grows an exemption, the doc must list it too or the operator reads conventions.md and concludes proxy.ts requires a paired test (which would BLOCK at pre-commit otherwise — but doesn't, because the script-side exemption fires first).
+**Fix**: Add `proxy.ts` next to `middleware.ts` in the exempt-by-filename list. One-word edit.
+
+### [domain: docs] [section: A] [severity: medium]
+**File**: (missing — no edits to kit/docs/guide/architecture.md, security.md, or ops.md beyond the Section-C finding above)
+**What**: Per coverage rubric `template/**` (excluding `template/.devcontainer/.env*`) surface change requires at least one of `kit/docs/guide/{architecture,security,ops}.md` to be staged. The branch ships ~16 new `template/apps/web/` files (Next.js shell + Sentry + Supabase SSR proxy + Playwright + Vitest + E2E helper + spec skeletons) — the largest single template addition in the branch's history — and touches none of those three guides.
+**Why**: The convention rubric exists because template additions change what a fresh project "is" — `architecture.md § What lives where`, `security.md § Security-Critical Files`, and `ops.md § Where Things Happen` all describe the project tree as the operator sees it. With `apps/web/` now landing pre-scaffolded (not via `pnpm create next-app`), the architecture guide should note the shift; the security guide should confirm the proxy/middleware surface is unchanged from the security perspective; the ops guide should update the `§ Where Things Happen § Auth` row anyway (covered by the C-finding above, but the broader "this is now template-derived" framing is missing). No `Docs-Coverage-Bypass:` trailer was found in the range, so the rubric fires.
+**Fix**: At minimum, ops.md `§ Where Things Happen § Auth` updated (which closes the C-finding too). Optional: a one-line note in architecture.md `§ What lives where` that template/apps/web/ now ships as a tracked tree (rather than being scaffolded via create-next-app per-project) — this is the biggest devshop-side architectural shift in the range and warrants a sentence somewhere durable. If the operator decides this is genuinely already covered by the new-project skill edit, append `git -c devshop.docsCoverageReason="<per-doc enumeration>"` on the next devshop commit to record the rationale as an audit-time trailer.
+
+### [domain: docs] [section: A] [severity: medium]
+**File**: (missing — no edit to kit/docs/guide/workflow.md)
+**What**: Coverage rubric: `.claude/skills/**/SKILL.md` changes require `kit/docs/guide/workflow.md` OR `CLAUDE.md` to be staged. The branch rewrites `/ak-new-project § Step 12` from "run pnpm create next-app" to "copy from template/apps/web/" — a non-trivial workflow shift in how new projects come into being. Neither workflow.md nor CLAUDE.md is staged.
+**Why**: `workflow.md § Starting a New Project` is the operator-facing description of how `/ak-new-project` flows; it likely describes Step 12 as the create-next-app step (or generically as "scaffold apps/web"). With the rewrite, the doc may be silently stale. CLAUDE.md is fine to leave alone if untouched — but workflow.md is the cross-reference the operator consults when re-reading the pipeline.
+**Fix**: Read `workflow.md § Starting a New Project` and confirm whether the Step-12 description still reads correctly post-rewrite. If it says "create-next-app", update to "copy from template/apps/web/ + sed-substitute placeholders." If it's already abstract enough not to mention the mechanism, no edit needed and the rubric-trigger can be dismissed via `Docs-Coverage-Bypass:` on the next devshop commit.
+
+### [domain: docs] [section: B] [severity: low]
+**File**: kit/docs/guide/supabase-ssr-boilerplate.md:79, 375
+**What**: Two Pattern-1 + Pattern-8 file-path headers now read `apps/web/proxy.ts (excerpt — only the env-var read part; renamed from middleware.ts in Next 16)` and `apps/web/proxy.ts (renamed from middleware.ts in Next 16)`. The rename-context parenthetical is helpful for the transition window but reads as long-tail debris in a doc that's otherwise punchy. The closure-protocol convention (`conventions.md § Closing TODO / ROADMAP entries when a fix ships`) prefers imperative-present prose: "Y works." rather than "Y now works (used to be X)."
+**Why**: Tracker-closure convention violation, soft form. Acceptable mid-transition; surface as a low-severity nudge to revisit when Next 17 lands (or sooner if no transition projects are tracked).
+**Fix**: Optional — when comfortable, drop the `(renamed from middleware.ts in Next 16)` parenthetical from both headers. Git log is the audit trail; pre-rename references in `kit/ROADMAP.md § Post-home-os onboarding learnings § (B2)` already record the migration story.
+
+### [domain: docs] [section: D] [severity: low]
+**File**: (range-wide bypass trailer harvest)
+**What**: No Docs-Coverage-Bypass trailers in range.
+**Why**: The bypass mechanism IS active (per `conventions.md § Bypass trailers`) but the operator did not invoke it. Recorded for completeness.
+**Fix**: None — the absence is expected for a branch the operator intends to ship in full-coverage shape.

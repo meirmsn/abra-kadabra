@@ -702,62 +702,6 @@ Every devshop project shipping features that touch email templates / auth allow-
 
 ---
 
-### Generalize lalista PR #43's E2E + Supabase test-infra lessons to template + conventions
-
-**Problem.** Four discrete testing-infrastructure lessons surfaced during chapter 1l's CI fix-loop are inline-documented in lalista's own files (forgot-password helper, auth-edge-cases spec) but not extracted to devshop. Every future devshop project that ships a Supabase auth flow + Playwright E2Es will rediscover all four from first principles. They cost lalista 9 CI fix-loop iterations + ~2 hours of debugging across two sessions; codifying them upstream cuts that to zero on the next project.
-
-**The four lessons.** Each is reproducibly generic (not lalista-specific):
-
-1. **Mailpit replaced Inbucket but Supabase CLI keeps the legacy `INBUCKET_URL` env var name.** Any devshop project using Supabase local stack with E2E helpers that need to read the mail relay hits this on Supabase CLI ≥ 2.x. The wire-level API differs (mailpit uses `/api/v1/search?query=to:<addr>`; inbucket used `/api/v1/mailbox/<addr>`). Inline doc lives at `lalista/apps/web/e2e/helpers/inbucket.ts:1-22`.
-
-2. **Supabase's `{{ .ConfirmationURL }}` template variable renders with a bare `/verify` path on the auth host (port 54321) instead of the Kong-prefixed `/auth/v1/verify`.** Browsers follow the bare URL fine because they handle Kong's redirects, but `page.goto(link)` in Playwright 404s with "no Route matched." Affects any project that drives Supabase recovery/confirmation links via Playwright. Inline doc + the `rewriteBareVerify` function lives at `lalista/apps/web/e2e/helpers/inbucket.ts:108-128`.
-
-3. **WebKit React-hydration race on controlled inputs.** `page.locator('#input').fill(value)` can resolve before React's state syncs back to the DOM `value` attribute on a freshly hydrated controlled input. The result: `fill` reports "value set", the next interaction observes the field as empty, the form submits with missing data. Reproduced identically across three CI runs in PR #43 (25258858879 / 25259626169 / 25260400981) before the fix landed. Robust pattern: `click + pressSequentially(value, { delay: 10 }) + expect().toHaveValue(value)` — real keystrokes give React time to settle, the value-equality assert auto-retries. Affects any Playwright + React project, not Supabase-specific. Inline doc at `lalista/apps/web/e2e/forgot-password.spec.ts:73-89`.
-
-4. **Two-shape signup behavior depending on `[auth.email].enable_confirmations`.** When TRUE (prod's typical posture): Supabase returns `{ user: { identities: [] }, session: null }` for an existing-account second-signup — the no-enumeration shape. The app's /sign-up page can branch into AwaitingConfirmationCard, indistinguishable from a fresh signup. When FALSE (auto-confirm; CI's typical posture): Supabase returns an explicit `User already registered` error and the app's friendly-error mapping renders "already registered, try signing in instead." E2E tests on local stack (auto-confirm) exercise the visible-error path; unit tests should mock the prod shape to pin the no-enumeration parity. Inline doc at `lalista/apps/web/e2e/auth-edge-cases.spec.ts:155-174`.
-
-**Shape of the convention.**
-
-- **Lessons 1 + 2 → template helper file.** Ship `template/apps/web/e2e/helpers/inbucket.ts` (or whatever the canonical mail-relay helper is named for new projects — "inbucket.ts" preserves Supabase's env-var name; fine to keep) as part of the standard E2E scaffold. New projects scaffolding from the template inherit a working helper on day 1. The file's own docstring explains why the name is misleading + the bare-/verify rewrite. Pure code; no convention prose needed beyond what's in the file. **Canonical implementation now lives at `kit/docs/guide/supabase-ssr-boilerplate.md § Pattern 9`** (lifted verbatim from lalista's mature helper during home-os PR #15 — adds `deriveMailpitBase()`, wider regex, 6-entity decode, three-function API). When the `template/apps/web/` baseline lands, copy that pattern body into `template/apps/web/e2e/helpers/inbucket.ts` verbatim.
-
-- **Lesson 3 → convention + skill amendment.** Convention prose lives at `kit/docs/guide/conventions.md § Playwright + controlled inputs on WebKit`. The rule: for forms with controlled inputs whose values are read at submit time (login, password reset, anything with `<input value={state} onChange=...>`), prefer `pressSequentially` over `fill` when targeting WebKit. One-line callout in `/ak-pre-ship` Gate 9 (QA walks) so it fires at the right moment.
-
-- **Lesson 4 → convention + (optionally) template scaffold.** Convention prose at `kit/docs/guide/conventions.md § Supabase auth E2E patterns` covering: how to test the no-enumeration shape (mock at the unit level with `identities: []` + null session), how to test the auto-confirm shape (E2E against local stack), why the test-layer split is correct. If template ships any auth E2E examples, mirror this dual-layer pattern.
-
-- **Cross-link from `kit/ROADMAP.md § Auth UX conventions`** (the existing v0 entry that extracts `AwaitingConfirmationCard` + `friendlyAuthError`). That entry is about UX components; this one is about test infrastructure. They pair naturally — UX work without test-infra produces flaky lessons-by-rediscovery loops.
-
-- **Implementation order:** ship the template helper file FIRST (lessons 1 + 2 are pure code, easiest to verify), then the conventions (lessons 3 + 4 are prose, easier when there's a template helper to reference). One PR per lesson keeps the diff small; or one PR for the helper file + one for the conventions.
-
-**Why this beats the obvious alternatives.**
-
-- **"Just leave it inline in lalista"** — works for lalista (we wrote it; we'll find it), fails for the next project (they'll rediscover all 4 from first principles, costing ~2 hours each). The whole point of the template + conventions is to compound learning across projects.
-- **"Wait for a second project to surface the gap"** — the Auth UX conventions entry already has this exact sequencing (extract after lalista soaks). Lessons 1-3 are technical and don't benefit from soak; the helper either works or doesn't. Lesson 4 might benefit from soak (the no-enumeration UX trade-off has UI implications worth seeing in production), but the convention prose can ship now and refine later.
-
-**Why v0 — blocks next-project adoption.**
-
-A second project shipping Supabase auth without these four lessons in template + conventions will hit them. Lessons 1 + 2 cost ~30 minutes each to debug from scratch (you need the trace.zip to see the URL form). Lesson 3 cost lalista a 9-iteration CI fix-loop because the symptom (test fails on WebKit, passes on Chromium) reads as flake. Lesson 4 is design-trade-off shaped (you need to KNOW about the two shapes to test correctly); without the convention, projects ship the wrong test layer and miss bugs.
-
-**Trigger:**
-
-- Lalista PR #43 just landed (2026-05-05); lessons are fresh. Ship the template helper this week.
-- Conventions can be drafted alongside; pair-review with a future devshop project's auth flow as the validation pass.
-
-**Cross-ref:**
-
-- `lalista PR #43` (chapter 1l, merged 2026-05-05). The four files where the lessons currently live.
-- `kit/ROADMAP.md § Auth UX conventions` — UX-side companion entry; pair these two to ship.
-- `/ak-build` Phase 5.8 (shipped 2026-05-05) — the post-pre-ship audit re-runs `/ak-test-review` over the polish range; that's the gate where the "did you remember to use pressSequentially?" question fires (the WebKit convention below should be inlined into `/ak-test-review` so the audit catches violations).
-- `kit/scripts/commit-hooks/check-test-coverage-project.sh` — the Layer-1 test-presence hook; the Layer-2 conventions ride on top.
-
-**Cost/risk.**
-
-- Template helper file: ~1 hour — copy lalista's file verbatim, generalize the comments, drop in `template/apps/web/e2e/helpers/`. Mirror in `template/apps/web/e2e/sign-up.spec.ts` + `forgot-password.spec.ts` skeletons that consume it.
-- WebKit conventions: ~1 hour — prose in `kit/docs/guide/conventions.md` + the one-line callout in `/ak-pre-ship` SKILL.md.
-- Two-shape signup convention: ~1 hour — prose + a small worked example in conventions.md.
-- Total: ~3 hours for all four lessons. False-positive risk: zero (these are well-validated patterns from a 9-iteration debug loop).
-
----
-
 ### Auth UX conventions — shared error-surface + state patterns
 
 Projects using Supabase auth keep re-solving the same UX gaps because there's no shared convention. Lalista surfaced two that every hosted-Supabase auth flow hits:
@@ -815,8 +759,8 @@ Combined with the auth-hardening step (password_min_length: 8, landed in v1.11.0
 - **SHIPPED via `a9f364d`** (stub) **+ prose-lift on `docs/latency-feedback-doc`**: `kit/docs/guide/latency-feedback.md` now carries the full 5-tier framework — table, decision rule, tokens (`FEEDBACK_THRESHOLD_MS` / `RETRY_BUDGET_MS` / `RETRY_BACKOFF_MS`), primitive contracts (`useOptimisticMutation` / `useSubmitFeedback` / `SubmitButton` / `LoadingArea`), the load-bearing queueMicrotask gotcha (verbatim from lalista with code snippet), test patterns to reproduce, and a surface-mapping template for project specs. Existing Tier C corner-case sections preserved as "within-the-framework" addenda.
 - **SHIPPED via context-aware guideline routing**: discovery from project sessions is wired through `kit/docs/guide/README.md:68-69` — `useOptimisticMutation` / `SubmitButton` / `LoadingArea` / `loading.tsx` / client `useEffect` fetches / `"Tier A2"` / `"Tier C"` / `"skeleton"` / `"latency"` keywords all route to `latency-feedback.md`. No `template/CLAUDE.md` pointer needed (and would violate the "project CLAUDE.md is self-sufficient" principle codified in `/devshop/CLAUDE.md § Session Start`).
 - **NOT SHIPPED**: `/ak-spec` consultation step in `.claude/skills/devshop/spec/SKILL.md` (when the spec involves interactive UI / async ops, prompt the spec author to produce the surface-mapping table per `latency-feedback.md § Applying the framework to your project`); primitives extraction (`useSubmitFeedback` / `SubmitButton` / `LoadingArea` / `useOptimisticMutation`) to a `@devshop-template/ui` package; lalista CLAUDE.md trim (delete the 5-tier table + decision rule that pre-trim lived at `git show ee87881^:CLAUDE.md L64-L78`; keep only the lalista-specific surface mapping table — and fix the stranded `Tier B of the latency-feedback framework; see Gotchas` pointer at lalista CLAUDE.md L14).
-- **Blocked by**: primitives extraction is blocked by the missing `template/apps/web/` baseline (see new ROADMAP entry below) — there's no `template/packages/ui/` either; both need the template app scaffold first.
-- **Realistic next step**: `/ak-spec` consult step (~15 min, no scaffold dependency) + lalista-side CLAUDE.md trim (lalista session, ~10 min). Primitives extraction waits on the template baseline.
+- **Unblocker shipped**: the `template/apps/web/` baseline landed 2026-05-19, so primitives extraction is no longer scaffold-blocked. `template/packages/ui/` still needs to be scaffolded as part of the primitives PR itself.
+- **Realistic next step**: `/ak-spec` consult step (~15 min) + lalista-side CLAUDE.md trim (lalista session, ~10 min) + primitives extraction (~1.5–2 hr per the `latency-feedback-primitives` PLAN row).
 
 Spec below preserved for full original context.
 
@@ -935,9 +879,9 @@ Home-os was the SECOND project to bootstrap from the devshop template via `/ak-n
 #### B. Convention / template fixes — sub-hour, one PR each
 
 - **(B1) Pre-commit clean-tree guard forbids stashes too (gen #21)** — when splitting commits via `git stash push <subset>` + `git commit` + `git stash pop`, the second commit step fails with `Stashed changes on current branch — address them before committing`. The hook treats stashes as "uncommitted work." Workaround used in home-os: combine the logical groups into one atomic commit with sectioned message, OR use `git -c devshop.dirtyTreeReason="..." commit`. **Severity: low** — friction more than correctness — but the clean-tree-no-stash invariant is non-obvious and operators learn it the hard way. **Fix**: document in `/devshop/CLAUDE.md § Two repos, two commit flows` (and project CLAUDE.md scaffold templates) that "atomic commits MUST be one transition each — stash-then-commit will trip the guard. To split: combine into one commit with sectioned message, OR use the `devshop.dirtyTreeReason` opt-out with a real justification." **Where**: `/devshop/CLAUDE.md`. ~10 min.
-- **(B2) Next 16 `middleware.ts` → `proxy.ts` deprecation (gen #24)** — `pnpm build` in apps/web emits `⚠ The "middleware" file convention is deprecated. Please use "proxy" instead.` (https://nextjs.org/docs/messages/middleware-to-proxy). The Supabase SSR boilerplate guide at `kit/docs/guide/supabase-ssr-boilerplate.md § Pattern 1` AND the template's `apps/web/middleware.ts` scaffold still use the deprecated name. Functional in Next 16 (warning only) but will harden into an error in Next 17. **Fix candidates**: (i) proactively rename the template + the supabase-ssr-boilerplate.md § Pattern 1 from `middleware.ts` to `proxy.ts` now, so new projects start on the supported convention; (ii) defer until Next 17 release, then rename. Prefer (i) — the rename is mechanical (one file move + one SSR boilerplate text change) and stops accumulating projects on the deprecated convention. **Where**: `template/apps/web/middleware.ts` → `template/apps/web/proxy.ts` (file move) + `kit/docs/guide/supabase-ssr-boilerplate.md § Pattern 1`. ~15 min.
+- **(B2) Next 16 `middleware.ts` → `proxy.ts` deprecation (gen #24; shipped 2026-05-19)** — `pnpm build` emitted `⚠ The "middleware" file convention is deprecated. Please use "proxy" instead.` (https://nextjs.org/docs/messages/middleware-to-proxy). **Shipped**: `template/apps/web/middleware.ts` renamed to `template/apps/web/proxy.ts`; `kit/docs/guide/supabase-ssr-boilerplate.md § Pattern 1` + Pattern 8 + Pattern 11 file-path references updated; `check-tests-coverage-project.sh` adds `proxy.ts` to the exempt-filename list.
 - **(B3) Pre-commit clean-tree guard's PR-desc-stale check is sensitive to bypass reason quality (gen — observed this session)** — when the PR body genuinely matches the commits and the reviewer is asked to PASS via path (a) of the prompt, the reviewer can still FAIL the bypass if `BYPASS_REASON` is `"no reason given"` (the default when no `devshop.prDescStaleReason` config is set). The reviewer's prompt says "Default position: REJECT bypass reasons" — so an empty reason gets penalized even when the description is current. **Fix**: when the operator goes through `gh pr edit` and the PR body now covers all commits, the pre-push hook should re-run a fast path-(a) check (compare PR body's commit-SHA enumerations against `origin/main..HEAD` SHAs) and short-circuit-PASS before invoking the adversarial reviewer. OR: the reviewer prompt should explicitly score on path-(a) FIRST (description match) and only consult `REASON` on path-(b) (structural-delay justification). Current state: the operator has to write a specific bypass reason ("PR body just updated via gh pr edit; commits X, Y, Z are at lines N, M, P") every time, which is friction. **Where**: `/devshop/kit/scripts/adversarial-review.sh` + `/devshop/kit/hooks/pre-push.sh` § "Check 2: PR description staleness". ~20 min. **Severity: low** — friction more than correctness.
-- **(B4) Next 16 `allowedDevOrigins` template default — required for Playwright / `/qa` driving via either `localhost` or `127.0.0.1` (added 2026-05-15 after home-os PR #15)** — Next 16 blocks cross-origin HMR + dev-resource fetches by default. The dev server prints its "Local" URL as `http://localhost:3000`, so a Playwright / `/qa` script driving via `http://127.0.0.1:3000` (or vice versa) gets HMR-blocked. Symptom: static HTML renders fine, but React hydration never fires — interactive elements (form `onSubmit` handlers, click handlers) never attach. Home-os PR #15 hit this debugging the magic-link round trip: the `/login` form submitted as plain `GET` because `onSubmit` was never bound. Surface error message is the dev-log warning `⚠ Blocked cross-origin request to Next.js dev resource /_next/webpack-hmr from "127.0.0.1"` — easy to overlook. **Fix**: template's `apps/web/next.config.ts` defaults to `allowedDevOrigins: ['localhost', '127.0.0.1']` so Playwright / `/qa` driving via either hostname passes. Document the rationale inline: Supabase auth issues URLs rooted at `127.0.0.1` per `site_url`, while Next 16 prefers `localhost` for HMR — both must be allowed so the round-trip flow doesn't drop hydration. **Where**: `template/apps/web/next.config.ts` (after the template-apps-web-baseline scaffold lands; until then, document in `kit/docs/guide/supabase-ssr-boilerplate.md § Pattern 10` as a corollary to the localhost-vs-127.0.0.1 narrative). ~10 min for the template edit + ~5 for the boilerplate cross-ref. **Severity: medium** — every Playwright-driven gate on a project that doesn't ship this default trips on it; the symptom (form submits as GET) takes a while to diagnose without the cross-origin block being top-of-mind.
+- **(B4) Next 16 `allowedDevOrigins` template default — required for Playwright / `/qa` driving via either `localhost` or `127.0.0.1` (added 2026-05-15 after home-os PR #15; shipped to template 2026-05-19)** — Next 16 blocks cross-origin HMR + dev-resource fetches by default. The dev server prints its "Local" URL as `http://localhost:3000`, so a Playwright / `/qa` script driving via `http://127.0.0.1:3000` (or vice versa) gets HMR-blocked. Symptom: static HTML renders fine, but React hydration never fires — interactive elements (form `onSubmit` handlers, click handlers) never attach. Home-os PR #15 hit this debugging the magic-link round trip: the `/login` form submitted as plain `GET` because `onSubmit` was never bound. Surface error message is the dev-log warning `⚠ Blocked cross-origin request to Next.js dev resource /_next/webpack-hmr from "127.0.0.1"` — easy to overlook. **Shipped**: `template/apps/web/next.config.ts` defaults `allowedDevOrigins: ['localhost', '127.0.0.1']` so Playwright / `/qa` driving via either hostname passes. Rationale inlined in the file's `// Why:` header: Supabase auth issues URLs rooted at `127.0.0.1` per `site_url`, while Next 16 prefers `localhost` for HMR — both must be allowed so the round-trip flow doesn't drop hydration.
 
 #### C. Template / manifest fixes — sub-hour, one PR
 
@@ -1076,66 +1020,6 @@ The principle: **a fresh project's tracker docs should start empty.** Per-projec
 - Audit sweep of every `template/*.md` stub completes; either no further leaks found (recorded in the commit message) or all found leaks fixed in the same commit.
 
 [v0, surfaced-by home-os-onboarding-2026-05-13]
-
----
-
-### Scaffold `template/apps/web/` baseline — landing zone for soak-extract entries
-
-**Problem.** `/devshop/template/apps/web/` does not exist as a tracked tree at HEAD. `/devshop/template/` contains only `packages/core/`, `.devcontainer/`, `.github/`, `screenshots/`, `scripts/`, `.husky/`. The convention today: `/ak-new-project` Phase B Step 12 runs `pnpm create next-app` per-project, then layers in Sentry / PostHog / Supabase SSR / etc. via subsequent steps. Each new project recapitulates the same wiring; nothing accretes back to template.
-
-This blocks five separately-tracked v0 entries that all need a place to ship code into:
-
-| Entry                                          | What it needs `template/apps/web/` for                                                            |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| **R12** Lalista PR #43 E2E lessons             | `template/apps/web/e2e/helpers/inbucket.ts` (Mailpit + bare-/verify rewrite) + e2e spec skeletons |
-| **R13** Auth UX conventions                    | `template/apps/web/app/auth/callback/` route, `app/reset-password/` route, sign-in page pattern   |
-| **R14** Latency feedback primitives extraction | `template/packages/ui/` package (which depends on having `apps/web/` to consume it)               |
-| **R15** PWA service worker baseline            | `template/apps/web/next.config.ts` serwist wiring + `app/sw.ts`                                   |
-| **T5** Tap-feedback CSS contract               | `template/apps/web/app/globals.css` (file doesn't exist anywhere under template/)                 |
-
-The five entries above are each individually-sized at 15 min – 4 hr, but ALL of them are gated on this single missing surface. Currently they sit in the v0 backlog without an obvious unblocker — implementers picking them up have to choose between "scaffold the surface inline first" (mixing scope) or "skip these v0 entries indefinitely."
-
-**Shape of the fix.** Scaffold a minimal `template/apps/web/` that mirrors what `/ak-new-project` Phase B produces from `pnpm create next-app` + the canonical wirings, then point `/ak-new-project` at the template tree (copy-and-substitute) instead of re-running create-next-app per-project.
-
-Minimum tracked tree:
-
-- `template/apps/web/package.json` (Next.js + React + minimum deps; project name placeholder)
-- `template/apps/web/next.config.ts` (Sentry wrapper, PostHog instrument, env validation — placeholders for project-specific values, **plus `allowedDevOrigins: ['localhost', '127.0.0.1']`** per R16-B4 — Next 16 blocks cross-origin HMR by default, both hosts needed because Supabase auth issues URLs rooted at `127.0.0.1` while Next 16 prefers `localhost` for HMR)
-- `template/apps/web/tsconfig.json` (with `@/*` alias matching create-next-app convention)
-- `template/apps/web/app/{layout.tsx,page.tsx,globals.css}` (minimal landing-page shell; design-system tokens go in globals.css)
-- `template/apps/web/middleware.ts` (or `proxy.ts` post-Next-16 rename per R16-B2 — see also)
-- `template/apps/web/e2e/` (Playwright config + helpers/ stub directory). **`playwright.config.ts` MUST include a `webServer: { command: 'pnpm dev', port: 3000, reuseExistingServer: !process.env.CI, timeout: 120_000 }` block** so `pnpm test:e2e` boots the dev server itself rather than requiring out-of-band `pnpm dev` in another shell. Home-os PR #15 hit this — Gate 9 `/qa` couldn't run locally without the operator manually managing the dev server lifecycle; `webServer` closes that friction.
-- `template/apps/web/vitest.config.ts` with the `@/` alias wired through `resolve.alias` (already codified in `/ak-new-project § Step 12.5` since `home-os-onboarding-template-patches` shipped; promote to a checked-in `template/apps/web/vitest.config.ts` here rather than re-deriving in the skill body). The `vitest.setup.ts` WebSocketStub already ships under `template/packages/core/` — `apps/web` only needs the alias config, not the stub (the stub is `packages/core`-specific since that's where `createClient` constructs RealtimeClient).
-- `template/apps/web/instrumentation.ts` + Sentry server/edge files
-
-**Why v0 — blocks next-project adoption + unblocks 5 other v0 entries.** Five v0 entries are structurally stalled waiting on this surface. Without it, the "second project adopts and surfaces the lift trigger" path is hollow — there's no template tree to lift INTO. Ship this once; each blocked entry becomes a small targeted PR after.
-
-**Sequencing recommendation:**
-
-1. **Scaffold first** (~half-day): produce the minimum tracked tree above. Validate by running `/ak-new-project` Phase B copying from template instead of generating with create-next-app — fresh project should still produce a buildable, testable app.
-2. **Then unblock the five v0 entries** (each as its own PR): T5 (15 min CSS), R12 (1 hr helper file lift), R15 (~2 hr serwist wiring), R13 (~4 hr auth UX scaffold), R14 primitives (~2 hr after framework prose lifts).
-
-**Cross-ref:**
-
-- `/devshop/.claude/skills/ak-new-project/SKILL.md § Step 12` — the current `pnpm create next-app` path; post-scaffold this step shifts to "copy template/apps/web/ + sed-substitute project name."
-- `kit/ROADMAP.md § v0 § Generalize lalista PR #43 E2E + Supabase test-infra lessons` (R12) — blocked dependent
-- `kit/ROADMAP.md § v0 § Auth UX conventions — shared error-surface + state patterns` (R13) — blocked dependent
-- `kit/ROADMAP.md § v0 § Latency feedback framework — 5-tier decision rule + primitives` (R14) — blocked dependent
-- `kit/ROADMAP.md § v0 § Template PWA service worker baseline` (R15) — blocked dependent
-- `kit/TODOS.md § Port the tap-feedback press-state contract` (T5) — blocked dependent
-- `lalista/apps/web/` + `home-os/apps/web/` — concrete shapes that exist post-scaffold to mine for the template tree
-
-**Cost/risk:**
-
-- Implementation: ~4-6 hr for the scaffold (initial tracked tree + sed-substitute logic in Step 12 + validation on a fresh `/ak-new-project` run). Plus an additional ~1 hr of cross-project diff work to pick which canonical shape to ship (lalista's vs home-os's are close-but-not-identical post-onboarding; need to choose one as the template canonical or extract common shape).
-- Risk: medium. Template drift is the failure mode — if the template's app shape doesn't match what create-next-app produces in 6 months, projects that copy from template will diverge from upstream Next.js conventions. Mitigation: pin the template's Next.js version explicitly and refresh the template every Next.js minor.
-- Benefit: closes the unblocker for five v0 entries; reduces `/ak-new-project` runtime (no more 90s `pnpm create next-app` round-trip per scaffold); creates a single canonical "what does a devshop project look like" reference.
-
-**Trigger:**
-
-- Verified 2026-05-14 during v0 triage that R12, R13, R14, R15, T5 all share this blocker. Originally each entry was filed as "soak-extract from lalista" with the assumption the destination would obviously exist — turns out the destination is the missing piece.
-
-[v0, surfaced-by 2026-05-14 v0-triage verification pass]
 
 ---
 
@@ -1934,7 +1818,7 @@ export default defineConfig({
 
 Choose `retain-on-failure` (not `on`) by default — `on` produces a WebM per test even on green runs, blowing up artifact size for no value. The trace artifact already covers green-run debugging.
 
-Generalization to template: when this entry ships, the same config snippet lands in `template/apps/web/playwright.config.ts` (which is itself blocked on the `template-apps-web-baseline` PLAN row — see deps below).
+Generalization to template: when this entry ships, the same config snippet lands in `template/apps/web/playwright.config.ts` (the file ships from the baseline as of 2026-05-19 — patch over what's already there).
 
 **(C) WebM→GIF for PR embedding** (~1.5 hr, the bulk of the work).
 
@@ -1954,8 +1838,8 @@ When this entry ships, those gstack TODOs cross-resolve.
 
 **Dependencies**
 
-- ⛔ `template-apps-web-baseline` (PLAN row, Lev 6.25) — that's where `template/apps/web/playwright.config.ts` lands; this entry is a follow-on patch to that baseline, not a precursor.
-- ⓘ Lalista's existing `apps/web/playwright.config.ts` already has the file shape, so (B) can ship to lalista in this entry's PR and template-side in `template-apps-web-baseline`'s PR.
+- ⓘ `template/apps/web/playwright.config.ts` exists as of the 2026-05-19 baseline — this entry is a follow-on patch.
+- ⓘ Lalista's existing `apps/web/playwright.config.ts` already has the file shape, so (B) can ship to lalista in this entry's PR and template-side in the same PR.
 
 **Why this stays v+ for now**
 

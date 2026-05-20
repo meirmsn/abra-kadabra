@@ -47,6 +47,7 @@ EXEMPT_FILENAMES=(
   "sitemap.ts"
   "manifest.ts"
   "middleware.ts"
+  "proxy.ts"
   "instrumentation.ts"
   "instrumentation-client.ts"
   "vitest.setup.ts"

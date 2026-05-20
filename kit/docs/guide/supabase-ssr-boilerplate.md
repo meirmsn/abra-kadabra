@@ -76,7 +76,7 @@ export function createClient() {
 }
 ```
 
-### `apps/web/middleware.ts` (excerpt — only the env-var read part)
+### `apps/web/proxy.ts` (excerpt — only the env-var read part; renamed from `middleware.ts` in Next 16)
 
 ```ts
 const url = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').trim();
@@ -367,12 +367,12 @@ Set `NEXT_PUBLIC_SITE_URL` on **Production** Vercel to pin the canonical URL eve
 
 ---
 
-## Pattern 8: Middleware allow-list authed-bypass carve-out for recovery flows
+## Pattern 8: Proxy allow-list authed-bypass carve-out for recovery flows
 
 Most marketing/auth-screen routes (`/sign-in`, `/sign-up`, `/forgot-password`) should bounce authed users away — visiting them mid-session is a confused state. Recovery routes (`/reset-password`, `/auth/callback`) are different: they arrive WITH a session because the route handler created one (magic-link exchange, recovery-token exchange).
 
 ```ts
-// apps/web/middleware.ts
+// apps/web/proxy.ts (renamed from middleware.ts in Next 16)
 const PUBLIC_PATHS = [
   '/',
   '/sign-in',
@@ -773,12 +773,12 @@ The duplicate `getUser()` call adds ~5-15ms of latency (cookie-only check, no ne
 
 ### Why not move the auth check to middleware
 
-Middleware doesn't have access to React Server Component data-fetch context — it can intercept the request and redirect based on cookies, but it can't see what the page's `select()` is about to query. Middleware redirects work for the static case (unauthenticated → `/login`) — that defense IS in place at `apps/web/middleware.ts`. The race is specifically for the moment AFTER the middleware passes (because cookies say "authenticated") but BEFORE the layout's defense-in-depth `getUser()` resolves.
+Middleware doesn't have access to React Server Component data-fetch context — it can intercept the request and redirect based on cookies, but it can't see what the page's `select()` is about to query. Middleware redirects work for the static case (unauthenticated → `/login`) — that defense IS in place at `apps/web/proxy.ts`. The race is specifically for the moment AFTER the middleware passes (because cookies say "authenticated") but BEFORE the layout's defense-in-depth `getUser()` resolves.
 
 ### Where this surfaces
 
 - Fresh-after-POST navigations where the action invalidates the auth cookie (sign-out from the (app) header, account deletion) — common path.
-- Stale session in a long-lived tab where the cookie has expired but `middleware.ts`'s `try/catch` falls through as "anonymous" (intentional — see `apps/web/middleware.ts`); the page then needs its own gate.
+- Stale session in a long-lived tab where the cookie has expired but `proxy.ts`'s `try/catch` falls through as "anonymous" (intentional — see `apps/web/proxy.ts`); the page then needs its own gate.
 - Any RLS-scoped read inside an authenticated route that doesn't have its own `getUser()` check at the top.
 
 Home-os PR `triage-route-handler` (2026-05-15) hit this exactly — `/cards/[id]` produced a 404 instead of `/login` for invitees on first-cold-load. Fixed at `apps/web/app/(app)/cards/[id]/page.tsx` by adding the `getUser()` + early redirect.
