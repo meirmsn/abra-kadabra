@@ -863,6 +863,90 @@ surfaces `blocked` with the rejection text as the fix recipe in
 | Spec's `## Core user story` is `N/A — <reason>`                                               | Skip artifact assertion; outcome follows the normal contract |
 | Spec declares N verbs but the qa-walk log doesn't mention any of them by name (narrative gap) | Gate 9 surfaces as `findings (1)` to flag the mismatch       |
 
+### Fault-injection sub-step (Tier A2 surfaces)
+
+Happy-path `/qa` only exercises the success path. Banner / Retry / Undo
+affordances that render under failure (Tier A2 surfaces per
+[`kit/docs/guide/latency-feedback.md`](../../../../kit/docs/guide/latency-feedback.md))
+can have overlay-intercept, z-index, or focus regressions that ship past
+this gate. Worked incident: lalista PR #49's `AddItemSheet` overlay
+intercepted the Undo button under banner state — invisible to `/qa`'s
+happy-path walk, only caught by Playwright slow-job CI after merge.
+
+For each detected Tier A2 surface, force the target network call to fail
+via `page.route(<pattern>, r => r.abort())` and assert the banner +
+Retry + Undo render and are clickable. Implementation lives at
+`kit/scripts/preship/fault-injected-qa.sh`; bats coverage at
+`kit/tests/preship-fault-injected-qa.bats`.
+
+**Detection** (two-tier):
+
+1. **Primary** — parse the spec's `## Surface mapping` table (per
+   `latency-feedback.md § Applying the framework to your project`) for rows where
+   `Tier == A2`. Use this whenever the spec is convention-compliant.
+2. **Fallback** — when the spec table is absent or has zero A2 rows,
+   heuristic-grep the diff (or `apps/**` + `packages/**`) for
+   `useOptimisticMutation({ failureMode: 'banner', … })` call sites.
+   Each call site becomes one detected surface; slug derived from
+   filename.
+
+Spec-table presence suppresses the fallback (spec is authoritative).
+
+**Harness convention** — each detected slug expects a Playwright spec at
+`apps/web/e2e/fault-injected/<slug>.spec.ts`. Recipe (drop-in template,
+adapt selectors + route per surface):
+
+```ts
+// What: Fault-injected coverage for <surface-name> (Tier A2).
+// Why: happy-path /qa never exercises the banner state — overlay /
+//      z-index regressions ship past Gate 9 without this.
+import { expect, test } from "@playwright/test";
+
+test("<surface> shows banner + clickable Retry/Undo on RPC abort", async ({ page }) => {
+  // Sign in / navigate to the surface as the QA walk would.
+  await page.goto("/...");
+
+  // Abort the target route BEFORE triggering the mutation.
+  await page.route("**/<route-from-spec-Notes-column>", (r) => r.abort());
+
+  // Trigger the optimistic mutation (form submit, button click, etc.).
+  await page.getByRole("button", { name: "Save" }).click();
+
+  // Banner renders.
+  const banner = page.getByRole("alert").filter({ hasText: /could not save/i });
+  await expect(banner).toBeVisible();
+
+  // Retry + Undo are CLICKABLE (not just visible — `.click()` would throw
+  // if an overlay intercepted; `trial: true` is the safest assertion).
+  await banner.getByRole("button", { name: /retry/i }).click({ trial: true });
+  await banner.getByRole("button", { name: /undo/i }).click({ trial: true });
+});
+```
+
+The `trial: true` assertion is the load-bearing check — Playwright runs
+the full actionability cascade (visible, stable, receives events) and
+throws if anything intercepts the click. That's the lalista PR #49 bug
+detector.
+
+**Outcome mapping** (additive to the Outcome contract above):
+
+| Sub-step result                          | Gate 9 effect                                                                |
+| ---------------------------------------- | ---------------------------------------------------------------------------- |
+| `pass (no Tier A2 surfaces in scope)`    | No effect — Gate 9 outcome stands on the happy-path walk                     |
+| `blocked (missing harness: <slug-list>)` | Gate 9 escalates to `blocked` with the harness recipe in `review.md § Gate 9` |
+| `pass`                                   | No effect — Gate 9 outcome stands                                            |
+| `findings (N) — failed: <slug-list>`     | Gate 9 outcome at least `findings`, count adds to any existing findings      |
+
+The `pass (no Tier A2 surfaces in scope)` outcome is deterministically
+computed (spec-table parse + grep yield zero rows) — it's not operator
+prose. The convention forbidding `n/a` on LLM-mediated gates applies to
+Gate 9 itself; this sub-step's scope-exempt `pass` rolls up cleanly to
+the parent gate's contract.
+
+There is no bypass flag. If a Tier A2 surface is in the diff and no
+harness exists yet, the right move is to write the harness (15-line
+recipe above) — `blocked` is the correct outcome until then.
+
 ### User-state matrix (mandatory for auth-touching PRs)
 
 A walk that only exercises one user-state (existing-confirmed-user with correct password) hides every other failure mode real users hit. For PRs touching auth (`apps/web/app/(auth)/`, sign-in/sign-up/onboarding code paths, Supabase auth config), Gate 9 MUST exercise all five rows below — or document in `review.md § Gate 9` why a specific row is deferred to a later PR.

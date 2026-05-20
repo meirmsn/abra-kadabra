@@ -385,6 +385,14 @@ table that walks every interactive surface in the feature through the
 | <nav from list → detail page> | C | `loading.tsx` + `LoadingArea` |
 | <theme toggle> | D | CSS only |
 
+Place the table under a `## Surface mapping` heading (top-level) or a
+`### Surface mapping` heading nested in `## Decisions` — `/ak-pre-ship`
+Gate 9's fault-injected sub-step
+([`kit/scripts/preship/fault-injected-qa.sh`](../../scripts/preship/fault-injected-qa.sh))
+greps for one of those headings to locate the Tier A2 rows. A table
+without the heading silently falls through to the heuristic-grep
+fallback.
+
 A worked example with real surfaces lives in
 `lalista/specs/app-snappiness/spec.md § D1`. The mapping is the
 artifact; it documents the tier decision for every interactive surface
@@ -398,8 +406,11 @@ The mapping is reviewed at:
 - **Implementation time** by per-commit grep — any new
   `useOptimisticMutation` / `useSubmitFeedback` / `SubmitButton` call
   site should map to a row in the spec's surface mapping.
-- **Pre-ship time** by `/ak-pre-ship` Gate 9's fault-injection pass on
-  Tier A2 surfaces (per `kit/TODOS.md § fault-injected-qa-gate`).
+- **Pre-ship time** by `/ak-pre-ship` Gate 9's fault-injection
+  sub-step on Tier A2 surfaces — implemented by
+  [`kit/scripts/preship/fault-injected-qa.sh`](../../scripts/preship/fault-injected-qa.sh),
+  documented in
+  [`.claude/skills/devshop/pre-ship/SKILL.md § Fault-injection sub-step`](../../../.claude/skills/devshop/pre-ship/SKILL.md).
 
 The framework is portable across React projects; the primitives are not
 yet extracted to a shared package. Tracked in `kit/ROADMAP.md § Latency
@@ -593,5 +604,5 @@ is a trap.
 - [`ops.md § PWA`](./ops.md#pwa) — the iOS input-zoom rule applies to every Tier B submit-button form (`font-size ≥ 16px` floor on focusable input primitives prevents WebKit's auto-zoom).
 - [`README.md`](./README.md) — the routing index that fires this guide on `useOptimisticMutation` / `SubmitButton` / `LoadingArea` / `loading.tsx` / client `useEffect` fetches / `"Tier A2"` / `"Tier C"` / `"skeleton"` / `"latency"` triggers.
 - `kit/ROADMAP.md § Latency feedback framework` — the primitives extraction to a shared `@devshop-template/ui` package and `/ak-spec` consultation step (both open work).
-- `kit/TODOS.md § fault-injected-qa-gate` — the `/ak-pre-ship` Gate 9 extension that fault-injects Tier A2 surfaces.
+- [`kit/scripts/preship/fault-injected-qa.sh`](../../scripts/preship/fault-injected-qa.sh) — the Gate 9 fault-injection sub-step that aborts the target route per Tier A2 surface and asserts banner + Retry + Undo render and are clickable.
 - `lalista/specs/app-snappiness/spec.md § D1` — the original spec where the framework was first written down, plus the canonical worked example of a project-specific surface mapping.
