@@ -27,7 +27,7 @@ Single source of truth for conventions referenced by multiple skills. Skills poi
 - [Runtime Validation at LLM / Edge-Function Boundaries](#runtime-validation-at-llm--edge-function-boundaries) — _moved to [`wrapper-boundaries.md`](./wrapper-boundaries.md)_
 - [Wrapper API design](#wrapper-api-design) — _moved to [`wrapper-boundaries.md`](./wrapper-boundaries.md)_
 - [Database queries](#database-queries) — _moved to [`database-queries.md`](./database-queries.md)_
-- [Confidence Calibration](#confidence-calibration) — _moved to [`/devshop/CLAUDE.md § Confidence Calibration`](../../../CLAUDE.md#confidence-calibration)_
+- [Confidence Calibration](#confidence-calibration)
 - [TODO Protocol](#todo-protocol) — _moved to [`/devshop/CLAUDE.md § TODO Protocol`](../../../CLAUDE.md#todo-protocol)_
 - [Backlog Routing Guide](#backlog-routing-guide)
 - [Commit + PR Text Style](#commit--pr-text-style)
@@ -424,7 +424,40 @@ _See [`database-queries.md`](./database-queries.md) for the canonical text._
 
 ## Confidence Calibration
 
-_See [`/devshop/CLAUDE.md § Confidence Calibration`](../../../CLAUDE.md#confidence-calibration) for the canonical text._
+The decision rubric every implementation task consults: is this safe to do autonomously, or does it require human sign-off first? The short list lives at `/devshop/CLAUDE.md § Confidence Calibration` (always loaded, no rationale). This section carries the per-category rationale.
+
+### Why the two lists exist
+
+Autonomous work shouldn't be gated — operator sign-off on every task would be exhausting and add no signal. Stop-and-ask work shouldn't be skipped — reversing a bad migration / a leaked secret / an accidental auth bypass costs hours-to-days. The lists draw the line where the human's marginal value is highest: irreversible / cross-cutting / security-bearing decisions get the human; bounded-blast-radius work gets autonomy.
+
+### Per-category rationale — Proceed autonomously
+
+- **UI components + their tests** — bounded blast radius; tests catch regressions; visual diff is operator-reviewable.
+- **Extending existing API endpoints** — pattern is established by the existing endpoint; no contract change to negotiate.
+- **Bug fixes with clear root cause + confirming test** — root cause is known, test prevents regression. (If root cause is unclear, use `/investigate` first — that IS the stop-and-ask path.)
+- **Styling / design token changes** — visual diff is reviewable; `DESIGN.md` is authoritative on direction.
+- **Documentation updates** — text only; reviewer catches drift; no runtime impact.
+- **Adding new Supabase queries (no schema changes)** — read shapes are recoverable; the fragile dimension is schema, not query shape.
+- **Instrumenting metrics for events already defined in METRICS.md** — event taxonomy already approved; instrumentation is mechanical.
+
+### Per-category rationale — Stop and ask
+
+- **New database columns/tables** — migrations are hard to reverse; operator must approve schema shape before code locks it in.
+- **Auth flow changes** — security-critical; downstream route-protection middleware must land in the same PR (silent-failure rule per `/devshop/CLAUDE.md § Non-Negotiables`).
+- **New third-party API integrations not yet in codebase** — vendor selection, key management, error semantics, rate-limit posture all need a decision before code commits to one shape.
+- **Performance-sensitive code paths** — optimization tradeoffs (latency vs memory vs DX) need operator priority; "fast" isn't free and the wrong dimension can regress UX.
+- **Security-related logic** — stop before writing, get human sign-off; `/cso` still runs after as defense-in-depth, but pre-write approval is the load-bearing gate.
+- **Deletion of existing tests** — tests embody contracts; deleting one is admitting the contract is wrong, which needs explicit acknowledgment (not "this test is flaky, delete it").
+- **New METRICS.md event definitions** — taxonomy growth needs review to prevent metric sprawl; events added to `METRICS.md` are operator-approved, never auto-added.
+- **Behavior edge cases on new input-handling paths** — what happens with empty / malformed / oversized / concurrent / rate-limited input. Default behavior is often the silent bug; pick deliberately and document in a Decision row.
+- **Accessibility + i18n posture for new UI surfaces** — WCAG-AA conformance + i18n string externalization. Retrofitting after ship is expensive; choose at design time.
+- **New error / observability surface** — where new error paths land (toast / log / Sentry / silent) and what triggers each. Never decide implicitly — silent error paths become silent prod outages.
+
+### Where this list is consulted
+
+- `/ak-spec § Step 6 § Confidence calibration` — spec author surfaces every stop-and-ask category as a Decision row for operator approval before `/ak-implement` runs.
+- `/ak-implement § Conventions to honor § Confidence calibration` — re-verifies stop-and-ask items have user approval before writing code.
+- `/ak-implement § Clarification escalation` — short-form list for the mid-implementation "is this stop-and-ask?" check.
 
 ## TODO Protocol
 

@@ -142,13 +142,18 @@ Silent-failure devshop-development traps. Recipe-heavy entries point at the guid
 
 **Stop and ask (before implementing):**
 
-- New database columns/tables (migrations are hard to reverse)
+- New database columns/tables
 - Auth flow changes
 - New third-party API integrations not yet in codebase
 - Performance-sensitive code paths
-- Security-related logic — stop before writing, get human sign-off; `/cso` still runs after
-- Anything requiring deletion of existing tests
-- New metric event definitions (add to METRICS.md requires review)
+- Security-related logic
+- Deletion of existing tests
+- New METRICS.md event definitions
+- Behavior edge cases on new input-handling paths
+- Accessibility + i18n posture for new UI surfaces
+- New error / observability surface
+
+Full per-category rationale: `kit/docs/guide/conventions.md § Confidence Calibration`.
 
 ### TODO Protocol
 

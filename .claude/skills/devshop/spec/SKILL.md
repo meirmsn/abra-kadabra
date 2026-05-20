@@ -239,6 +239,7 @@ Then fill only the gaps the gstack plan left — the missing detail only, not a 
 - Explicit out-of-scope items
 - **Offline behavior**: every feature with remote data must declare: (a) online-only with error state, (b) read-only cache, (c) full offline with sync. Default to (a) unless explicitly upgraded.
 - **Metrics** section — reference specific events from `METRICS.md` that this feature touches (existing events to instrument + new events to define)
+- **`## Task order`** (REQUIRED — see below) — enumerates the tasks `/ak-implement` will execute. Flat for ≤15 tasks; phase-grouped (Setup / Foundational / per-story / Polish) for >15. The section's presence is `/ak-build`'s Phase-1-complete discriminator.
 
 Do not rewrite what the plan already said. If something is genuinely ambiguous after
 reading the full plan, ask. Otherwise fill the gap from what the plan implies.
@@ -374,11 +375,46 @@ Six eng-vocabulary leaks (`card_state`, `confirm_triage`, `RPC`, `diagnosed`, `p
 
 **Verification at Phase 6**: `/ak-build` Phase 6 Part D presents both blurbs side-by-side with the diff and asks the operator "does each blurb still describe what shipped?" Yes/edit per blurb. Phase 6 Gate B additionally runs an automated claim-vs-diff cross-check (parses Detail into atomic claims, grep-evidence in diff, flags audience-shape mismatch between Headline and Detail) as an assist for Gate A — warn-not-block. Together they prevent the Phase 0 blurb from silently drifting away from what actually shipped (a polish-loop fix adds a user-visible disclosure; the original blurb didn't call it out).
 
+### Task order (flat for ≤15 tasks, phase-grouped for >15)
+
+Every spec ends with a `## Task order` section the spec agent writes during Phase 1 — its presence is what `/ak-build` checks to confirm Phase 1 ran to completion (the discriminator between skeleton and complete; see `/ak-build` SKILL.md). The section enumerates the implementation tasks `/ak-implement` will execute.
+
+**≤15 tasks**: flat numbered list. Order itself carries the structure; phasing is overhead at this size.
+
+**>15 tasks**: group into named phases — Setup → Foundational → per-story → Polish.
+
+```markdown
+## Task order
+
+### Setup
+1. Scaffold ...
+2. Add ...
+
+### Foundational  (blocks every story phase below)
+3. Migration: ...
+4. Shared util: ...
+
+### Story: <verb from Core user story>
+5. ...
+
+### Story: <next verb from Core user story>
+N. ...
+
+### Polish
+N+1. A11y sweep, i18n extraction, edge-case follow-ups from Decision rows
+```
+
+Setup = file creation + dependency installs. Foundational = shared infra any story phase depends on (a migration, a shared helper, a new type). Per-story = a vertical slice of one verb from `## Core user story`. Polish = a11y, i18n, edge-case follow-ups raised in Decision rows.
+
+**Why phase groups for big features**: at 30+ tasks a flat list buries dependency structure — an operator scanning `tasks.md` mid-feature can't distinguish "halfway done" from "foundation not in yet." Phase grouping makes that legible. Below 15 the legibility win doesn't earn the structural overhead.
+
+**Exception (skip phasing despite size)**: genuinely flat work — e.g., a bulk-refactor PR touching 20 similar files — where phasing collapses to a single "Story" phase, defeating the point. Keep flat.
+
 ### Spec-time conventions and decision rows
 
 Several conventions shape what the spec must contain or surface for user sign-off before `/ak-implement` runs. Full text + rationale: `kit/docs/guide/conventions.md`.
 
-- **Confidence calibration** — classify spec items as proceed-autonomously vs stop-and-ask using the calibration list. The seven stop-and-ask categories — new DB columns/tables, auth flow changes, new third-party API integrations, performance-sensitive code paths, security-related logic, deletion of existing tests, new METRICS.md events — become **Decision rows** the user signs off on before `/ak-implement` runs. See `/devshop/CLAUDE.md § Confidence Calibration`.
+- **Confidence calibration** — classify spec items as proceed-autonomously vs stop-and-ask using the calibration list. The ten stop-and-ask categories — new DB columns/tables, auth flow changes, new third-party API integrations, performance-sensitive code paths, security-related logic, deletion of existing tests, new METRICS.md events, behavior edge cases on new input-handling paths, accessibility + i18n posture for new UI surfaces, new error / observability surface — become **Decision rows** the user signs off on before `/ak-implement` runs. See `/devshop/CLAUDE.md § Confidence Calibration`.
 - **Deploy boundaries** — if the spec includes a schema-mutating migration (rename, drop, NOT NULL without default, type change), the test plan MUST either (a) flag the migration as backwards-incompatible and gate `/ak-go-live` on the deploy-migrations workflow finishing before the app deploy, or (b) split into two PRs — additive PR with dual-shape code paths first, mutating PR after. Default to (b) for prod-impact migrations. Edge function changes need a slow-job E2E or an explicit deploy-verification step in the test plan. See `conventions.md § Deploy Boundaries`.
 - **Screenshot paths** — when the spec references screenshot paths, use canonical locations only: `specs/<feature>/hero/` (durable PR-body shots), `specs/<feature>/screenshots/` (per-gate evidence), `specs/<feature>/qa-walk/` (per-verb artifacts proving each Core user story verb). Never invent new paths. See `conventions.md § Screenshot Routing`.
 - **Slow-job content gates** — projects scaffolded from the post-2026-05-19 template ship the slow-job active from day one with per-step `hashFiles()` empty-state guards (Playwright steps gate on `apps/web/e2e/**/*.spec.ts`; type-drift + rollback gate on `supabase/migrations/*.sql`). The first integration test or Playwright spec a spec adds is gated by CI automatically — no Decision row, no skill-prose handoff. Pre-2026-05-19 projects (those with a still-commented `slow:` stub) DO need a Decision row capturing the activation + branch-protection update — surface that conditionally. See `conventions.md § Slow-Job Lifecycle`.
@@ -413,7 +449,7 @@ Every spec must have:
 - [ ] Offline behavior declared for any feature with remote data: (a) online-only with error state, (b) read-only cache, (c) full offline with sync. Default to (a) unless explicitly upgraded.
 - [ ] Metrics section referencing events from `METRICS.md`
 - [ ] Provenance header linking to gstack plan
-- [ ] **Decision rows** capture every stop-and-ask item from Confidence Calibration (new schema, auth changes, new third-party APIs, perf-sensitive paths, security logic, test deletions, new metric events) for user sign-off before `/ak-implement` runs
+- [ ] **Decision rows** capture every stop-and-ask item from Confidence Calibration (new schema, auth changes, new third-party APIs, perf-sensitive paths, security logic, test deletions, new metric events, behavior edge cases on new input paths, a11y + i18n posture for new UI, new error/observability surface) for user sign-off before `/ak-implement` runs
 - [ ] If the spec includes a **schema-mutating migration**, test plan flags it backwards-incompatible OR proposes a split-PR plan (Deploy Boundaries)
 - [ ] If the project's `.github/workflows/ci.yml` still ships a commented-out `slow:` stub (pre-2026-05-19 scaffolds), a Decision row captures the slow-job activation landing in the same PR. Post-2026-05-19 scaffolds need no row — the active stub gates new content automatically.
 - [ ] Screenshot paths reference canonical `specs/<feature>/{hero,screenshots,qa-walk}/` locations only
