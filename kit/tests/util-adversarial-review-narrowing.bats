@@ -158,6 +158,105 @@ EOF
   grep -q "## Engineering details" "$CAPTURED_PROMPT"
 }
 
+@test "prTextHygieneReason squash-surface: reads from DEVSHOP_HYGIENE_MESSAGE_FILE + reaches claude" {
+  # Verifies the squash surface short-circuits the gh pr view path and reads
+  # subject (line 1) + body (lines 2+) from the tempfile. Drives the
+  # /ak-merge-devshop Phase 0.4.5 integration — same reviewer engine, different
+  # data source, selected via DEVSHOP_HYGIENE_SURFACE=squash.
+  cd "$TEST_REPO"
+  create_stub gh "" 0  # gh must not be reached on the squash path; stub it anyway
+  git -C "$TEST_REPO" checkout -b feat/squash-surface-test -q 2>/dev/null || true
+
+  MSG_FILE="$BATS_TEST_TMPDIR/squash-message.txt"
+  cat > "$MSG_FILE" <<'EOF'
+feat(squash): make commit subjects describe the observable change
+
+**Adds:** a squash-time hygiene reviewer so subjects don't read like internal jargon.
+
+Key details:
+- reuses the same prTextHygieneReason engine as project pre-push
+- skips rule (c) body structure because devshop squashes use bullets, not H2s
+
+---
+
+## Squashed commits
+
+- `abc1234` test subject
+  - test sub-bullet
+EOF
+
+  DEVSHOP_HYGIENE_SURFACE=squash \
+    DEVSHOP_HYGIENE_MESSAGE_FILE="$MSG_FILE" \
+    DEVSHOP_HYGIENE_BRANCH="feat/squash-surface-test" \
+    run bash "$REVIEW" prTextHygieneReason "auto-check at compose time"
+  assert_success
+  [ -f "$CAPTURED_PROMPT" ]
+  grep -q "Check type: prTextHygieneReason" "$CAPTURED_PROMPT"
+  # CONTEXT identifies the surface
+  grep -q "Devshop squash commit" "$CAPTURED_PROMPT"
+  grep -q "feat/squash-surface-test" "$CAPTURED_PROMPT"
+  # Subject + body both carried
+  grep -q "feat(squash): make commit subjects describe the observable change" "$CAPTURED_PROMPT"
+  grep -q "Adds:" "$CAPTURED_PROMPT"
+  # NOTE telling reviewer to skip rule (c) is inlined
+  grep -q "SKIP rule (c) Body" "$CAPTURED_PROMPT"
+  grep -q "bold-led-bullet" "$CAPTURED_PROMPT"
+  # Rules (a) accuracy and (b) readability still apply
+  grep -q "Description accuracy" "$CAPTURED_PROMPT"
+  grep -q "Title readability" "$CAPTURED_PROMPT"
+}
+
+@test "prTextHygieneReason squash-surface: FAIL fast when MESSAGE_FILE missing (no LLM call)" {
+  # The squash surface depends on a tempfile composed by /ak-merge-devshop Phase
+  # 0.3. If the env var points at a non-existent path (operator deleted the
+  # tempfile mid-flight; tempfile cleanup from a prior crash), the engine must
+  # FAIL fast — running an LLM on an empty/missing message wastes a Sonnet
+  # call AND would emit a nonsense verdict the operator might trust.
+  cd "$TEST_REPO"
+  git -C "$TEST_REPO" checkout -b feat/squash-surface-missing-file -q 2>/dev/null || true
+
+  DEVSHOP_HYGIENE_SURFACE=squash \
+    DEVSHOP_HYGIENE_MESSAGE_FILE="/tmp/definitely-does-not-exist-$$.txt" \
+    DEVSHOP_HYGIENE_BRANCH="feat/squash-surface-missing-file" \
+    run bash "$REVIEW" prTextHygieneReason "auto-check at compose time"
+  assert_failure
+  assert_output --partial "FAIL: surface=squash requires DEVSHOP_HYGIENE_MESSAGE_FILE"
+  # Claude must NOT have been invoked on the missing-file path
+  [ ! -f "$CAPTURED_PROMPT" ]
+}
+
+@test "prTextHygieneReason squash-surface: empty DEVSHOP_HYGIENE_MESSAGE_FILE also FAILs fast" {
+  # Belt-and-suspenders: an explicit empty string is an even-more-broken
+  # invocation than a missing file, but the same FAIL path must catch it.
+  cd "$TEST_REPO"
+  git -C "$TEST_REPO" checkout -b feat/squash-surface-empty-env -q 2>/dev/null || true
+
+  DEVSHOP_HYGIENE_SURFACE=squash \
+    DEVSHOP_HYGIENE_MESSAGE_FILE="" \
+    DEVSHOP_HYGIENE_BRANCH="feat/squash-surface-empty-env" \
+    run bash "$REVIEW" prTextHygieneReason "auto-check at compose time"
+  assert_failure
+  assert_output --partial "FAIL: surface=squash requires DEVSHOP_HYGIENE_MESSAGE_FILE"
+  [ ! -f "$CAPTURED_PROMPT" ]
+}
+
+@test "prTextHygieneReason default surface (no env var) still goes through the PR path" {
+  # Regression guard: the squash branch is opt-in via DEVSHOP_HYGIENE_SURFACE.
+  # When unset, the engine MUST fall through to the existing PR path
+  # (`gh pr list` etc.) so the .husky/pre-push contract is unchanged.
+  cd "$TEST_REPO"
+  create_stub gh "" 0
+  git -C "$TEST_REPO" checkout -b feature/pr-surface-default -q 2>/dev/null || true
+
+  run bash "$REVIEW" prTextHygieneReason "PR title + body genuinely match commits"
+  assert_success
+  [ -f "$CAPTURED_PROMPT" ]
+  grep -q "Check type: prTextHygieneReason" "$CAPTURED_PROMPT"
+  # Default surface — PR-path CONTEXT (NOT the squash-specific NOTE)
+  ! grep -q "Devshop squash commit" "$CAPTURED_PROMPT"
+  ! grep -q "SKIP rule (c)" "$CAPTURED_PROMPT"
+}
+
 @test "surviving: testReviewSkipReason reaches claude (mocked PASS)" {
   # Audit-time halt-override review — used by /ak-build Phase 5.8.
   # PR-C explicitly KEPT this check-type even while removing testCoverage*.

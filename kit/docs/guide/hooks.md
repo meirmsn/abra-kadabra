@@ -94,7 +94,9 @@ Three enforcement levels: PreToolUse (Claude Code), pre-commit (husky), and pre-
    └─ DEVSHOP mode (`/devshop` itself):
        ├─ push to main/master short-circuits (release.sh territory)
        └─ dirty tree / stash (devshop.dirtyPushReason)
-      (PR-desc check skipped — devshop has no PRs)
+      (PR-desc check skipped — devshop has no PRs; text-hygiene fires at
+       squash time inside /ak-merge-devshop Phase 0.4.5 instead, via the
+       same adversarial-review.sh engine with DEVSHOP_HYGIENE_SURFACE=squash)
 ```
 
 Step 1 is a Claude Code hook (runs before the tool executes). Step 2 is the git pre-commit hook (runs during commit). Step 4 is the git pre-push hook (runs during `git push`, independent of commit). Steps 2a-2d and 4 are all blocking (fail = operation aborted).
@@ -194,6 +196,8 @@ Single unified policy at `kit/hooks/pre-push.sh`, symlinked into both repos as `
 | Dirty tree / stash | Is the working tree clean? Zero stash entries? | Yes — `devshop.dirtyPushReason` adversarially reviewed |
 
 The PR-description check used to be inlined in `/devshop/.husky/pre-push` as dead code — devshop has no PRs (`release.sh` tags + pushes direct to main), so `gh pr list --head <branch>` always returned empty and the check no-op'd. Under the unified script the PR-desc branch is gated behind project-mode detection; in devshop mode it's skipped entirely (no `gh` invocation at all). The check still lives where PRs actually exist (project mode).
+
+**Devshop text-hygiene fires at squash time, not push time.** Devshop commits collapse to squash commits inside `/ak-merge-devshop`'s Phase 0.4.5; the same `adversarial-review.sh prTextHygieneReason` engine that judges project PR titles at pre-push time judges the squash subject + body before the operator's approval gate. Selection is via the `DEVSHOP_HYGIENE_SURFACE=squash` env switch — the squash surface reads subject + body from `DEVSHOP_HYGIENE_MESSAGE_FILE` (the tempfile Phase 0.3 composed) and constituent commits from `origin/main..$DEVSHOP_HYGIENE_BRANCH`; it judges rules (a) accuracy and (b) title readability but SKIPS rule (c) body-structure because devshop squashes use the bold-led-bullet + `## Squashed commits` shape from `.claude/skills/devshop/merge-devshop/SKILL.md § 0.3`, not the project-PR `## Product update` + `## Engineering details` H2 shape. The reviewer's verdict is surfaced in Phase 0.5's approval gate, where "Approve anyway" is the explicit override (logged as a `Hygiene-Override:` trailer in the squash commit body).
 
 Short-circuits (no review, exit 0):
 
@@ -454,6 +458,19 @@ The `GUIDES_TO_INCLUDE` map fired only for `docsReviewed`, which moved to audit-
 | Sonnet 4.6 | `prTextHygieneReason`, `testReviewSkipReason`, `localTestSkipReason`, `dismissalLog`, `hookBypass`, `exemptAddition`, `coreUserStoryNaReason`, `advisorBypassReason`, `blockedGateOverride` | PR titles + descriptions + body shape are the canonical reviewer-facing record; `testReviewSkipReason` ships unaudited polish-loop coverage gaps to merge; `localTestSkipReason` skips the cheap-test-gates-local floor on a stack-needing diff; `dismissalLog` weighs spec scope; `hookBypass` can leak secrets via gitleaks bypass; an unreviewed exempt entry silently disables the upstream gate forever; `coreUserStoryNaReason` decides whether a spec's "no user story" claim is a verifiable file-system fact or interpretive cover; `advisorBypassReason` decides whether a DB-hardening lint deferral is per-finding rigor or a generic dismissal — a false-pass would ship an un-pinned `SECURITY DEFINER` or unwrapped RLS policy past the `advisor-clean` (Gate 2g); `blockedGateOverride` waves past a gate that didn't run at all — strongest claim in the surface. (The `docsReviewed` / `testCoverage` / `testCoverageProject` entries moved to audit-time in PR-C.) |
 
 Routing lives in `get_model_for_check_type` near the bottom of `adversarial-review.sh`. Override via `DEVSHOP_ADVERSARIAL_MODEL_OVERRIDE=sonnet` to upgrade a Haiku check for a high-stakes commit. Operator pattern: ask Claude to "use the upgraded adversarial review" and Claude prepends the env var.
+
+#### Dual-surface check-types
+
+A single check-type may serve more than one caller via env-var selection — the reviewer's rules live in one place, but the data source varies per surface. Currently one such check-type exists; the pattern is documented here so future additions follow it.
+
+| Check-type            | Surface  | Caller                                       | Data source                                                                                                  | Rules applied                                                              |
+| --------------------- | -------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| `prTextHygieneReason` | `pr`     | `.husky/pre-push` (project mode)             | `gh pr view --json title,body` + `origin/main..HEAD`                                                         | (a) accuracy + (b) readability + (c) `## Product update` / eng-details H2s |
+| `prTextHygieneReason` | `squash` | `/ak-merge-devshop` Phase 0.4.5              | `DEVSHOP_HYGIENE_MESSAGE_FILE` (head-1 = subject, tail-2+ = body) + `origin/main..$DEVSHOP_HYGIENE_BRANCH`   | (a) accuracy + (b) readability; (c) skipped (squashes use bullet shape)    |
+
+Surface selection is via `DEVSHOP_HYGIENE_SURFACE` (defaults to `pr` when unset). The squash surface reads from `DEVSHOP_HYGIENE_MESSAGE_FILE` (mandatory; FAIL if missing or not a file) and `DEVSHOP_HYGIENE_BRANCH` (defaults to current branch — required when called from `/devshop` while the feature lives in a linked worktree, since `/devshop`'s `HEAD` is on `main` in that case and `git log origin/main..HEAD` would be empty). The reviewer's prompt block is unchanged across surfaces; per-surface behavior diverges only in the `CONTEXT` block (which body to judge, which constituent commits to compare against) and in an inlined `NOTE:` that tells the reviewer to skip rule (c) on the squash surface.
+
+Why one check-type instead of two: rules (a) and (b) are universal per `kit/docs/guide/conventions.md § Commit + PR Text Style`. Duplicating them would let the two surfaces drift — a change to the readability convention would move one surface and miss the other. The env-var split keeps the rule definitions in lockstep.
 
 ### Shim: structured-output gates
 

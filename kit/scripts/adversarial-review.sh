@@ -14,11 +14,25 @@
 #
 # Surviving check-types (each judges a bypass-reason — the reason itself is the
 # auditable artifact, not coverage):
-#   prTextHygieneReason   — `.husky/pre-push` PR title + description + body-shape hygiene
-#                           (three independent dimensions: title/body describes ALL commits on
-#                           the branch (accuracy); title obeys CLAUDE.md § Commit + PR Text
-#                           Style (readability); body leads with `## Product update` followed
-#                           by `## Engineering details` per spec authoring contract)
+#   prTextHygieneReason   — title + description + body-shape hygiene across two
+#                           surfaces (selected by DEVSHOP_HYGIENE_SURFACE env var):
+#                             surface=pr     (default) — `.husky/pre-push` invokes
+#                                            on project PRs; reads PR title/body via
+#                                            `gh pr view`; judges all three dimensions.
+#                             surface=squash — `/ak-merge-devshop` Phase 0.4.5 invokes
+#                                            on devshop squash commits before they
+#                                            land on main; reads proposed subject/body
+#                                            from DEVSHOP_HYGIENE_MESSAGE_FILE; judges
+#                                            (a) accuracy + (b) title readability, but
+#                                            SKIPS (c) body structure (devshop squashes
+#                                            use the bold-led-bullet + `## Squashed
+#                                            commits` shape from ak-merge-devshop § 0.3,
+#                                            not the project-PR H2 shape).
+#                           Three independent dimensions: title/body describes ALL commits
+#                           on the branch (accuracy); title obeys CLAUDE.md § Commit + PR
+#                           Text Style (readability); body leads with `## Product update`
+#                           followed by `## Engineering details` per spec authoring
+#                           contract (PR-surface only).
 #   dirtyTreeReason       — `.husky/pre-commit` clean-tree bypass
 #   dirtyPushReason       — `.husky/pre-push` clean-tree bypass
 #   manifestReviewed      — commit-guard.sh manifest-decision review
@@ -286,26 +300,78 @@ The reviewer judges whether the rationale's file/path claim is verifiable
 against the diff above."
     ;;
   prTextHygieneReason)
-    # Called by .husky/pre-push. Gathers PR title/body vs commits on branch.
-    BRANCH=$(git branch --show-current 2>/dev/null || true)
-    PR_NUM=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number // empty' 2>/dev/null || true)
+    # Two surfaces, one reviewer engine. Rules (a) accuracy and (b) title
+    # readability are universal per kit/docs/guide/conventions.md § Commit + PR
+    # Text Style; only the data source and rule (c) body-structure differ.
+    #
+    #   surface=pr     (default; called by .husky/pre-push)  — gathers PR
+    #                  title/body via `gh pr view` and constituent commits
+    #                  via `origin/main..HEAD`. Rule (c) judges the
+    #                  `## Product update` + `## Engineering details` shape.
+    #
+    #   surface=squash (called by /ak-merge-devshop Phase 0.4.5) — gathers
+    #                  proposed squash subject/body from a tempfile composed
+    #                  by Phase 0.3 and constituent commits via
+    #                  `origin/main..$DEVSHOP_HYGIENE_BRANCH` (worktree-safe
+    #                  — the squash composer's working tree may be a linked
+    #                  worktree, not /devshop). Rule (c) is skipped via an
+    #                  inlined NOTE: devshop squashes use bold-led bullets
+    #                  + `Key details:` + `## Squashed commits`, not the
+    #                  project-PR H2 shape.
+    SURFACE="${DEVSHOP_HYGIENE_SURFACE:-pr}"
 
-    if [ -z "$PR_NUM" ]; then
-      # Shouldn't happen — pre-push checks for PR existence before invoking — but fail safe.
-      CONTEXT="No open PR for branch $BRANCH. This check should not have been invoked."
-    else
-      PR_DATA=$(gh pr view "$PR_NUM" --json title,body 2>/dev/null || echo "{}")
-      PR_TITLE=$(echo "$PR_DATA" | jq -r '.title // "(no title)"')
-      # Full body — never truncate. Body-structure check (dimension c) needs to see the
-      # entire body to verify `## Engineering details` ends cleanly; accuracy check
-      # (dimension a) needs every commit's narrative. Sonnet 4.6's 200k-token context
-      # absorbs even a long PR (a 200-line body is ~3k tokens) without strain, and
-      # truncating silently turns missing tail content into false FAILs.
-      PR_BODY=$(echo "$PR_DATA" | jq -r '.body // ""')
-      # All commits in the branch relative to main — this is what reviewers see in the PR.
-      COMMITS=$(git log --oneline origin/main..HEAD 2>/dev/null || true)
+    if [ "$SURFACE" = "squash" ]; then
+      MSG_FILE="${DEVSHOP_HYGIENE_MESSAGE_FILE:-}"
+      HYG_BRANCH="${DEVSHOP_HYGIENE_BRANCH:-$(git branch --show-current 2>/dev/null || true)}"
+      if [ -z "$MSG_FILE" ] || [ ! -f "$MSG_FILE" ]; then
+        echo "FAIL: surface=squash requires DEVSHOP_HYGIENE_MESSAGE_FILE pointing to an existing file (got: '${MSG_FILE}')"
+        exit 1
+      fi
+      SQ_SUBJECT=$(head -1 "$MSG_FILE")
+      SQ_BODY=$(tail -n +2 "$MSG_FILE")
+      COMMITS=$(git log --oneline "origin/main..$HYG_BRANCH" 2>/dev/null || true)
       COMMIT_COUNT=$(echo "$COMMITS" | grep -c . 2>/dev/null || echo 0)
-      CONTEXT="PR #$PR_NUM on branch $BRANCH (${COMMIT_COUNT} commits ahead of main).
+      CONTEXT="Devshop squash commit composed for branch $HYG_BRANCH (${COMMIT_COUNT} constituent commits about to collapse into one).
+
+Proposed squash subject (line 1 of the commit message — judge as you would a PR title):
+$SQ_SUBJECT
+
+Proposed squash body (everything after line 1):
+$SQ_BODY
+
+Constituent commits being squashed (origin/main..$HYG_BRANCH):
+$COMMITS
+
+NOTE: This is a devshop squash, NOT a project PR. Apply rules (a) Description
+accuracy and (b) Title readability normally — they are universal per
+kit/docs/guide/conventions.md § Commit + PR Text Style. SKIP rule (c) Body
+structure: devshop squashes use the bold-led-bullet shape from
+/devshop/.claude/skills/ak-merge-devshop/SKILL.md § 0.3 (e.g. \`**Adds:**\`,
+\`**Trade-off:**\`, \`Key details:\`, \`## Squashed commits\`), NOT the
+project-PR \`## Product update\` + \`## Engineering details\` H2 shape.
+Rule (a) accuracy still applies — judge whether the subject + body
+accurately describe ALL constituent commits."
+    else
+      # Called by .husky/pre-push. Gathers PR title/body vs commits on branch.
+      BRANCH=$(git branch --show-current 2>/dev/null || true)
+      PR_NUM=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number // empty' 2>/dev/null || true)
+
+      if [ -z "$PR_NUM" ]; then
+        # Shouldn't happen — pre-push checks for PR existence before invoking — but fail safe.
+        CONTEXT="No open PR for branch $BRANCH. This check should not have been invoked."
+      else
+        PR_DATA=$(gh pr view "$PR_NUM" --json title,body 2>/dev/null || echo "{}")
+        PR_TITLE=$(echo "$PR_DATA" | jq -r '.title // "(no title)"')
+        # Full body — never truncate. Body-structure check (dimension c) needs to see the
+        # entire body to verify `## Engineering details` ends cleanly; accuracy check
+        # (dimension a) needs every commit's narrative. Sonnet 4.6's 200k-token context
+        # absorbs even a long PR (a 200-line body is ~3k tokens) without strain, and
+        # truncating silently turns missing tail content into false FAILs.
+        PR_BODY=$(echo "$PR_DATA" | jq -r '.body // ""')
+        # All commits in the branch relative to main — this is what reviewers see in the PR.
+        COMMITS=$(git log --oneline origin/main..HEAD 2>/dev/null || true)
+        COMMIT_COUNT=$(echo "$COMMITS" | grep -c . 2>/dev/null || echo 0)
+        CONTEXT="PR #$PR_NUM on branch $BRANCH (${COMMIT_COUNT} commits ahead of main).
 
 Current PR title:
 $PR_TITLE
@@ -315,6 +381,7 @@ $PR_BODY
 
 All commits on this branch (origin/main..HEAD):
 $COMMITS"
+      fi
     fi
     ;;
   dirtyPushReason)

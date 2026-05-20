@@ -454,9 +454,54 @@ Audit: <per the table in 0.2>
 <full contents of /tmp/squash-message-${FEATURE}.txt>
 ```
 
+### 0.4.5: Adversarial readability check
+
+The composer (you) wrote the squash subject + body following the § 0.3 style
+rules — but a self-graded composer is a noisy signal. Phase 0.4.5 invokes the
+shared `adversarial-review.sh prTextHygieneReason` engine — the same Sonnet-
+routed reviewer that judges project PR titles at pre-push time — on the
+composed message. This catches title/body that drift from the
+`kit/docs/guide/conventions.md § Commit + PR Text Style` rules (mechanism-led
+subjects, internal jargon like "polish" / "Tier B" / "Phase N", >72-char
+subjects, body that doesn't describe what shipped) BEFORE the operator's
+approval gate, so the verdict informs the operator's choice.
+
+The engine is shared via the `DEVSHOP_HYGIENE_SURFACE=squash` env switch — no
+duplicated logic. The PR-surface judges rules (a) accuracy + (b) readability +
+(c) `## Product update` / `## Engineering details` body shape; the squash-
+surface judges (a) + (b) and skips (c) because devshop squashes use the bold-
+led-bullet + `## Squashed commits` shape from § 0.3 instead. Rule wording lives
+in one place (`adversarial-review.sh`'s prompt block), so when the convention
+moves, both surfaces move in lockstep.
+
+```bash
+HYGIENE_VERDICT="PASS"
+HYGIENE_OUTPUT=""
+if ! HYGIENE_OUTPUT=$(DEVSHOP_HYGIENE_SURFACE=squash \
+       DEVSHOP_HYGIENE_MESSAGE_FILE="/tmp/squash-message-${FEATURE}.txt" \
+       DEVSHOP_HYGIENE_BRANCH="$BRANCH" \
+       bash /devshop/kit/scripts/adversarial-review.sh \
+         prTextHygieneReason \
+         "auto-check at compose time" 2>&1); then
+  HYGIENE_VERDICT="FAIL"
+fi
+```
+
+`HYGIENE_OUTPUT` carries the reviewer's `FAIL: <what's wrong>` line on FAIL
+and is empty on PASS. Both feed Phase 0.5's approval-gate framing.
+
+If `adversarial-review.sh` itself errors (API timeout after backoff, missing
+tempfile from a previous-session crash that never composed), surface the
+underlying message and treat the check as PASS — the operator's approval gate
+is still the final human authority, and a missing-API check should not block
+a working composer. The check is advisory in spirit (operator's the gate);
+its job is to surface signal, not to short-circuit.
+
 ### 0.5: Approval gate
 
-Use `AskUserQuestion`:
+Use `AskUserQuestion`. Frame the question based on the hygiene verdict:
+
+**On `HYGIENE_VERDICT=PASS`** — the message reads cleanly per the convention:
 
 > **Approve this squash commit message?**
 >
@@ -464,13 +509,37 @@ Use `AskUserQuestion`:
 > - **Edit** — describe the change you want, or open `/tmp/squash-message-${FEATURE}.txt` directly. After your edit, the skill recomposes from the file and shows the preview again.
 > - **Cancel** — abort. Nothing has been merged or pushed.
 
+**On `HYGIENE_VERDICT=FAIL`** — surface the reviewer's verdict prominently so
+the operator's choice is informed. "Approve anyway" is the explicit override;
+"Edit" (recommended) is the normal path:
+
+> **The readability reviewer flagged the composed message:**
+>
+> ```
+> <HYGIENE_OUTPUT verbatim — the reviewer's FAIL: <reason> line>
+> ```
+>
+> **Approve this squash commit message?**
+>
+> - **Edit (recommended)** — fix the flagged issue. Describe the change you want, or open `/tmp/squash-message-${FEATURE}.txt` directly. After your edit, the skill recomposes from the file, re-runs the hygiene check, and shows the preview again.
+> - **Approve anyway** — ship the message despite the verdict. Use only when the reviewer is genuinely wrong (the title IS observable, the body IS accurate, etc.) — the bypass is logged in the commit's body as `Hygiene-Override: <one-line reason you give here>`.
+> - **Cancel** — abort. Nothing has been merged or pushed.
+
+On **Approve anyway**: append the override reason as a `Hygiene-Override:`
+trailer to `/tmp/squash-message-${FEATURE}.txt` before continuing to Phase 1.
+This makes the explicit-override visible in `git log` on main alongside the
+`Co-Authored-By:` trailer, so future-you scanning history sees that the
+message shipped past a flagged readability concern AND why.
+
 On **Edit**:
 
 - Small change requested in chat → edit `/tmp/squash-message-${FEATURE}.txt`
-  via `Edit` tool, re-print the preview, re-ask. Loop until **Approve**.
+  via `Edit` tool, re-run Phase 0.4.5's hygiene check (the verdict may flip
+  to PASS, FAIL with a different reason, or stay FAIL), re-print the preview,
+  re-ask. Loop until **Approve** / **Approve anyway** / **Cancel**.
 - "I'll edit it myself" → instruct the user to open
   `/tmp/squash-message-${FEATURE}.txt`, save, and reply "ready". Re-read,
-  re-print, re-ask.
+  re-run Phase 0.4.5, re-print, re-ask.
 
 On **Cancel**: print `✖ /ak-merge-devshop cancelled. Nothing merged.` and exit 0.
 

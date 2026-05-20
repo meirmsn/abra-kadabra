@@ -225,6 +225,77 @@ setup() {
   awk '/### 0\.5:/,/^---$|^## /' "$SKILL_FILE" | grep -qE '\*\*Cancel\*\*'
 }
 
+# === Section E0 — Phase 0.4.5 adversarial readability check ===
+
+@test "Phase 0.4.5 exists as a sub-phase header between 0.4 and 0.5" {
+  grep -qE '^### 0\.4\.5: .*[Aa]dversarial.*readability' "$SKILL_FILE"
+  # Ordering: 0.4.5 must appear after 0.4 and before 0.5
+  local h45 h5
+  h45=$(grep -nE '^### 0\.4\.5:' "$SKILL_FILE" | head -1 | cut -d: -f1)
+  h5=$(grep -nE '^### 0\.5:' "$SKILL_FILE" | head -1 | cut -d: -f1)
+  [ -n "$h45" ]
+  [ -n "$h5" ]
+  [ "$h45" -lt "$h5" ]
+}
+
+@test "Phase 0.4.5 invokes the SHARED adversarial-review.sh engine (no duplicated logic)" {
+  awk '/^### 0\.4\.5:/,/^### 0\.5:/' "$SKILL_FILE" \
+    | grep -qE 'adversarial-review\.sh'
+  awk '/^### 0\.4\.5:/,/^### 0\.5:/' "$SKILL_FILE" \
+    | grep -qE 'prTextHygieneReason'
+}
+
+@test "Phase 0.4.5 selects the squash surface via DEVSHOP_HYGIENE_SURFACE=squash env var" {
+  awk '/^### 0\.4\.5:/,/^### 0\.5:/' "$SKILL_FILE" \
+    | grep -qE 'DEVSHOP_HYGIENE_SURFACE=squash'
+}
+
+@test "Phase 0.4.5 passes the tempfile + branch via DEVSHOP_HYGIENE_MESSAGE_FILE + DEVSHOP_HYGIENE_BRANCH" {
+  awk '/^### 0\.4\.5:/,/^### 0\.5:/' "$SKILL_FILE" \
+    | grep -qE 'DEVSHOP_HYGIENE_MESSAGE_FILE=.*squash-message-\$\{FEATURE\}\.txt'
+  awk '/^### 0\.4\.5:/,/^### 0\.5:/' "$SKILL_FILE" \
+    | grep -qE 'DEVSHOP_HYGIENE_BRANCH=.*BRANCH'
+}
+
+@test "Phase 0.4.5 captures verdict into HYGIENE_VERDICT (PASS/FAIL) for Phase 0.5" {
+  awk '/^### 0\.4\.5:/,/^### 0\.5:/' "$SKILL_FILE" \
+    | grep -qE 'HYGIENE_VERDICT'
+  awk '/^### 0\.4\.5:/,/^### 0\.5:/' "$SKILL_FILE" \
+    | grep -qE 'HYGIENE_OUTPUT'
+}
+
+@test "Phase 0.4.5 explains WHY (one place, no duplication) — and names what it catches" {
+  # Surfaces jargon (Tier B / Phase N / polish) + >72 chars + mechanism-led
+  # subjects as the specific failure modes; explains the shared-engine
+  # rationale so a future editor doesn't fork the rule into a second engine.
+  awk '/^### 0\.4\.5:/,/^### 0\.5:/' "$SKILL_FILE" \
+    | grep -qiE 'mechanism-led|internal jargon|72.?char'
+  awk '/^### 0\.4\.5:/,/^### 0\.5:/' "$SKILL_FILE" \
+    | grep -qiE 'shared|same.*engine|one place'
+}
+
+@test "Phase 0.5 routes on HYGIENE_VERDICT (PASS vs FAIL framing)" {
+  awk '/### 0\.5:/,/^---$|^## Phase 1/' "$SKILL_FILE" \
+    | grep -qE 'HYGIENE_VERDICT.*PASS|`HYGIENE_VERDICT=PASS`'
+  awk '/### 0\.5:/,/^---$|^## Phase 1/' "$SKILL_FILE" \
+    | grep -qE 'HYGIENE_VERDICT.*FAIL|`HYGIENE_VERDICT=FAIL`'
+}
+
+@test "Phase 0.5 FAIL branch offers 'Approve anyway' as the explicit override" {
+  awk '/### 0\.5:/,/^---$|^## Phase 1/' "$SKILL_FILE" \
+    | grep -qE 'Approve anyway'
+}
+
+@test "Phase 0.5 'Approve anyway' lands a Hygiene-Override trailer in the commit body" {
+  awk '/### 0\.5:/,/^---$|^## Phase 1/' "$SKILL_FILE" \
+    | grep -qE 'Hygiene-Override:'
+}
+
+@test "Phase 0.5 Edit loop re-runs Phase 0.4.5 after each edit (verdict can flip)" {
+  awk '/### 0\.5:/,/^---$|^## Phase 1/' "$SKILL_FILE" \
+    | grep -qE 're-run.*0\.4\.5|re-runs the hygiene check'
+}
+
 # === Section F — Phase 1 audit ===
 
 @test "Phase 1 invokes /ak-check-docs-and-tests (orchestrator, not /ak-tests-review directly)" {

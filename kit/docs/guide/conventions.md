@@ -547,13 +547,15 @@ The squash-message variant (`/ak-merge-devshop`) uses bold-text lead-in labels (
 
 ### Where the rule fires
 
-| Surface                                                               | Owner                                                                                                                                       | Inlined where                                                                                                |
-| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Per-commit messages (any commit)                                      | the agent composing the commit                                                                                                              | Restated by `/ak-build` Phase 4 + `/ak-merge-devshop` Phase 0.3                                              |
-| PR title + `## Product update` + `## Engineering details` (Phase 4.1) | `/ak-build` Phase 4.1 pre-composes title + both sections; `/ship` is the pure executor; Phase 4.3 verifies                                  | `/ak-build` SKILL.md § Phase 4.1 points here                                                                 |
-| Squash subject + body (`/ak-merge-devshop`)                           | `/ak-merge-devshop` Phase 0.3 composes; `merge-devshop/SKILL.md § Subject style + Why bullet-led summary` restates this convention verbatim | `merge-devshop/SKILL.md` is the canonical inlining (since the skill itself does the composition end-to-end). |
+| Surface                                                               | Owner                                                                                                                                       | Inlined where                                                                                                | Enforced where                                                                                                |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| Per-commit messages (any commit)                                      | the agent composing the commit                                                                                                              | Restated by `/ak-build` Phase 4 + `/ak-merge-devshop` Phase 0.3                                              | (not enforced per-commit — judged at squash/PR-push time on the rolled-up surface)                            |
+| PR title + `## Product update` + `## Engineering details` (Phase 4.1) | `/ak-build` Phase 4.1 pre-composes title + both sections; `/ship` is the pure executor; Phase 4.3 verifies                                  | `/ak-build` SKILL.md § Phase 4.1 points here                                                                 | `.husky/pre-push` → `adversarial-review.sh prTextHygieneReason` (surface=pr) — `hooks.md § Project mode`      |
+| Squash subject + body (`/ak-merge-devshop`)                           | `/ak-merge-devshop` Phase 0.3 composes; `merge-devshop/SKILL.md § Subject style + Why bullet-led summary` restates this convention verbatim | `merge-devshop/SKILL.md` is the canonical inlining (since the skill itself does the composition end-to-end). | `/ak-merge-devshop` Phase 0.4.5 → same engine with `DEVSHOP_HYGIENE_SURFACE=squash` — `hooks.md § Dual-surface check-types` |
 
 The convention is **discoverable** at the workflow level (`workflow.md § Phase 4`) and **applied** at the skill level (`merge-devshop/SKILL.md`, `build/SKILL.md`). It is intentionally NOT inlined into `gstack/ship/SKILL.md` — gstack syncs would clobber the addition. When `/ship` is invoked from `/ak-build`, Phase 4's wrapper handoff carries the reminder.
+
+Both enforced surfaces share a single reviewer engine (`adversarial-review.sh prTextHygieneReason`) via env-var-selected surfaces — when the readability rules above shift, both surfaces shift in lockstep. See `kit/docs/guide/hooks.md § Dual-surface check-types` for the per-surface data sources + which sub-rules apply per surface.
 
 ---
 
@@ -823,6 +825,24 @@ Docs-Coverage-Bypass: deferring CLAUDE.md§Where Things Happen update to end of 
 **Why trailers vs side-log**: trailers travel with the commit (survive rebase, push, clone) and are universally greppable via `git log`. Side-log files are local-only and flaky (interruptions, container rebuilds). Trailers are visible to anyone reading the PR (GitHub displays the full commit body). Git trailers + `prepare-commit-msg` are documented Git conventions — no new format invented.
 
 **What the trailer mechanic does NOT do**: it does NOT judge whether the bypass is reasonable. That judgment moves to audit time, where the reviewer has the full diff and the docs HAVE been written. Generic bypass reasons (`later`, `WIP`, `low risk`) still get recorded as trailers — but the audit-time `[bypass-revisit]` pass over them produces high-severity findings if the diff shows the work wasn't actually done.
+
+### Approval-gate trailers
+
+A different family of trailer lives on commit bodies authored by skill-driven approval gates, NOT by Layer 1 pre-commit scripts. The reviewer judgment fires at the approval gate (AskUserQuestion), and the operator's "Approve anyway" override lands as a trailer for durable audit-trail. There is no `git -c devshop.<flag>` invocation — the trailer is written by the skill into the composed commit message file before `git commit -F`.
+
+**Trailer keys**:
+
+| Author skill                           | Approval-gate context                                                                                                                          | Trailer key          |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| `/ak-merge-devshop` Phase 0.4.5 + 0.5  | Squash subject + body failed `adversarial-review.sh prTextHygieneReason` (`DEVSHOP_HYGIENE_SURFACE=squash`); operator picked "Approve anyway". | `Hygiene-Override:`  |
+
+**How `Hygiene-Override:` works**:
+
+1. Phase 0.4.5 invokes the shared `prTextHygieneReason` engine on the composed squash message; the verdict is captured into `HYGIENE_VERDICT` + `HYGIENE_OUTPUT`.
+2. Phase 0.5's approval gate, when `HYGIENE_VERDICT=FAIL`, surfaces the verdict prominently and offers Edit (recommended) / Approve anyway / Cancel.
+3. On "Approve anyway", the skill appends `Hygiene-Override: <one-line reason>` to `/tmp/squash-message-${FEATURE}.txt` before the Phase 2 `git commit -F`, so the override is visible alongside `Co-Authored-By:` in `git log` on main.
+
+There is no audit-time `[hygiene-revisit]` pass — the override is informational signal, not a coverage-deferral that needs re-judging. Future surfacing of overrides (e.g., a quarterly retrospective grep) is operator-initiated, not skill-driven. Full mechanism + dual-surface model: `kit/docs/guide/hooks.md § Dual-surface check-types`.
 
 ---
 
