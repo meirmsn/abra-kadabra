@@ -2,6 +2,42 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.30.0 (2026-05-19)
+
+- fix(bats): unblock release — close 2 post-v1.29.0 regressions + 1 test infra bug
+- fix(scaffold): drop dead guardActive + close stale Step 10 verify ref
+- docs(latency-feedback): land 5-tier framework guide
+- fix(scaffold): close 7 fresh-scaffold gaps + ak-merge-devshop audit-cwd
+- feat(ak-build): per-gate sub-agents + fresh-agent stuck/fix protocols
+- docs(merge-devshop): merge fallback for virtiofs phantom rebase
+- feat(rollback-gates): fail loud on markerless migrations
+- feat(sandbox-qa): env-aware Supabase ports in init-firewall.sh
+- docs(worktree): chain submodule init into the worktree-add recipe
+- feat(pre-push): enforce PR text hygiene — title + body + structure
+- chore(plan): close shipped rows + rescope rollback + re-sort + bundle
+- feat(claude-md): hierarchical CLAUDE.md architecture + audit-time hygiene gate
+- feat(ak-merge-devshop): auto-detect + tear down linked worktrees
+- docs(plan): tighten 4 deps, split latency-feedback row, close 1 row
+- docs(conventions): codify ROLLBACK-marker mandate + PGRST204-disambiguation rule
+- docs(todos): refine /ak-merge-devshop worktree-awareness gap — friction (c) + --force recipe
+- feat(pipeline): canonical Product update PR section across spec → ship
+- chore(bookkeeping): backfill BUILD-LOG + file devshop-mode gap
+- docs(todos): file /ak-merge-devshop worktree-awareness gap
+- feat(pre-ship): add migration-rollback-roundtrip gate (Gate 2e)
+- feat(pipeline): commit audit section + BUILD-LOG inside the pre-/ship phase
+- docs(ak-build): canonical task prefix + feat/-default branch heuristic
+- docs(plan): preserve heading backticks + full titles in Source column
+- docs(plan): restructure as rated-column table with slug ids
+- docs(roadmap): extend PLAN #1 with (C) fix-loop + (D) Phase 5.8 + (E) Phase 2 stuck-protocol
+- docs(roadmap): file ak-build per-gate sub-agent decomposition + tracker prefix (PLAN #1)
+- feat(pre-ship): forbid n/a outcomes on LLM-mediated gates
+- fix(post-home-os-26): Phase 5.8 commit gate + Step 2.0 dirty-tree guard + port-aware firewall ROADMAP entry
+- feat: support linked worktrees at .worktrees/<topic>
+- docs(roadmap): fold PR-title readability into pre-push reviewer
+- docs: close shipped PLAN row #5 + file home-os PR #19 post-deploy followups
+- docs(plan): codify v0 triage — priority table + landing order + skill-bug TODO
+- docs(roadmap): supabase port registry + home-os PR #15 backfill
+
 ## v1.29.0 (2026-05-14)
 
 - feat(propagate): port home-os PR #15 + add template-propagation nudge
