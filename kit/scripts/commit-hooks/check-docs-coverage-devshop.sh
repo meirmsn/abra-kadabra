@@ -19,6 +19,7 @@
 #   kit/scripts/commit-hooks/**                             → kit/docs/guide/hooks.md
 #   kit/scripts/preship/**                                  → .claude/skills/devshop/pre-ship/SKILL.md
 #                                                             OR kit/docs/guide/*
+#   kit/scripts/notify/**                                   → kit/docs/guide/notifications.md
 #   kit/hooks/**                                            → kit/docs/guide/hooks.md OR CLAUDE.md
 #   .claude/skills/**/SKILL.md                              → kit/docs/guide/workflow.md OR CLAUDE.md
 #   template/**  (excl. template/.devcontainer/.env*)       → kit/docs/guide/{architecture,security,ops}.md
@@ -74,7 +75,11 @@ while IFS= read -r f; do
       NEEDS_DOCS["preship"]=".claude/skills/devshop/pre-ship/SKILL.md|kit/docs/guide/workflow.md|kit/docs/guide/conventions.md|kit/docs/guide/hooks.md|kit/docs/guide/architecture.md|kit/docs/guide/security.md|kit/docs/guide/ops.md|kit/docs/guide/supabase-ssr-boilerplate.md"
       SURFACE_HITS+="    $f → pre-ship SKILL.md OR any guide/*.md"$'\n'
       ;;
-    kit/scripts/*.sh|kit/scripts/sync/*|kit/scripts/notify/*)
+    kit/scripts/notify/*)
+      NEEDS_DOCS["notify"]="kit/docs/guide/notifications.md"
+      SURFACE_HITS+="    $f → guide/notifications.md"$'\n'
+      ;;
+    kit/scripts/*.sh|kit/scripts/sync/*)
       NEEDS_DOCS["scripts"]="CLAUDE.md|kit/docs/guide/workflow.md|kit/docs/guide/conventions.md|kit/docs/guide/hooks.md|kit/docs/guide/architecture.md|kit/docs/guide/security.md|kit/docs/guide/ops.md|kit/docs/guide/supabase-ssr-boilerplate.md"
       SURFACE_HITS+="    $f → CLAUDE.md OR any guide/*.md"$'\n'
       ;;

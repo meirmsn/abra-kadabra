@@ -2,6 +2,11 @@
 # Fires on Claude Code Stop event (task finished).
 # Schedules a notification after $DELAY seconds; any activity signal cancels.
 #
+# Suppresses the ping when the just-ended turn scheduled deferred work
+# (ScheduleWakeup / CronCreate / run_in_background tool) — Stop fires in
+# those cases too, but Claude isn't actually waiting on the human. Reads
+# the transcript path from the Stop hook's stdin JSON payload.
+#
 # Testability: CLAUDE_NOTIFY_PID_FILE + CLAUDE_NOTIFY_DELAY env vars allow
 # BATS tests to override the shared /tmp path and 30s sleep.
 
@@ -10,6 +15,36 @@ set +e
 
 PID_FILE="${CLAUDE_NOTIFY_PID_FILE:-/tmp/claude-notify-pending.pid}"
 DELAY="${CLAUDE_NOTIFY_DELAY:-30}"
+
+# Stop hook payload arrives on stdin as JSON. Capture it without blocking
+# if no payload is provided (manual invocation, tests).
+payload=""
+if [ ! -t 0 ]; then
+  payload=$(cat 2>/dev/null)
+fi
+transcript=$(echo "$payload" | jq -r '.transcript_path // empty' 2>/dev/null)
+
+# If the just-ended assistant turn scheduled future work, Claude will
+# resume on its own — don't ping. Cancel any pending ping and exit.
+if [ -n "$transcript" ] && [ -r "$transcript" ]; then
+  if grep '"type":"assistant"' "$transcript" 2>/dev/null | tail -1 | jq -e '
+    .message.content // [] | any(
+      .type == "tool_use" and (
+        .name == "ScheduleWakeup" or
+        .name == "CronCreate" or
+        ((.name == "Bash" or .name == "Agent") and (.input.run_in_background == true))
+      )
+    )
+  ' >/dev/null 2>&1; then
+    if [ -f "$PID_FILE" ]; then
+      _prev=$(cat "$PID_FILE")
+      pkill -P "$_prev" 2>/dev/null
+      kill "$_prev" 2>/dev/null
+    fi
+    rm -f "$PID_FILE"
+    exit 0
+  fi
+fi
 
 proj=$(jq -r '.name // empty' package.json 2>/dev/null)
 proj=${proj:-$(basename "$PWD")}

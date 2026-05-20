@@ -112,6 +112,118 @@ _dead_or_zombie() {
   kill -0 "$second_pid" 2>/dev/null     # new pending alive
 }
 
+# --- Deferred-work suppression ---
+#
+# claude-done reads the Stop hook payload from stdin and inspects the
+# last `type:"assistant"` line of the transcript. If the just-ended turn
+# scheduled future work, the ping is suppressed because Claude will
+# resume on its own.
+
+@test "notify-claude-done: suppresses when last turn used ScheduleWakeup" {
+  create_capturing_stub curl ""
+  export NTFY_URL="https://ntfy.sh/test-topic"
+  transcript="$BATS_TEST_TMPDIR/t.jsonl"
+  echo '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"ScheduleWakeup","input":{}}]}}' > "$transcript"
+  run bash "$DONE_SCRIPT" <<<"{\"transcript_path\":\"$transcript\"}"
+  assert_success
+  [ ! -f "$CLAUDE_NOTIFY_PID_FILE" ]
+  sleep 0.4
+  [ ! -f "$MOCK_BIN/curl.args" ]
+}
+
+@test "notify-claude-done: suppresses when last turn used run_in_background Bash" {
+  create_capturing_stub curl ""
+  export NTFY_URL="https://ntfy.sh/test-topic"
+  transcript="$BATS_TEST_TMPDIR/t.jsonl"
+  echo '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"sleep 60","run_in_background":true}}]}}' > "$transcript"
+  run bash "$DONE_SCRIPT" <<<"{\"transcript_path\":\"$transcript\"}"
+  assert_success
+  [ ! -f "$CLAUDE_NOTIFY_PID_FILE" ]
+}
+
+@test "notify-claude-done: suppresses when last turn used CronCreate" {
+  create_capturing_stub curl ""
+  export NTFY_URL="https://ntfy.sh/test-topic"
+  transcript="$BATS_TEST_TMPDIR/t.jsonl"
+  echo '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"CronCreate","input":{}}]}}' > "$transcript"
+  run bash "$DONE_SCRIPT" <<<"{\"transcript_path\":\"$transcript\"}"
+  assert_success
+  [ ! -f "$CLAUDE_NOTIFY_PID_FILE" ]
+}
+
+@test "notify-claude-done: still schedules when last turn was plain text" {
+  create_capturing_stub curl ""
+  export NTFY_URL="https://ntfy.sh/test-topic"
+  transcript="$BATS_TEST_TMPDIR/t.jsonl"
+  echo '{"type":"assistant","message":{"content":[{"type":"text","text":"all done"}]}}' > "$transcript"
+  run bash "$DONE_SCRIPT" <<<"{\"transcript_path\":\"$transcript\"}"
+  assert_success
+  [ -f "$CLAUDE_NOTIFY_PID_FILE" ]
+  sleep 0.4
+  [ -f "$MOCK_BIN/curl.args" ]
+  grep -q 'Task finished' "$MOCK_BIN/curl.args"
+}
+
+@test "notify-claude-done: foreground bash tool_use in last turn does not suppress" {
+  # run_in_background:false (or absent) means Claude waited on the tool
+  # inline — once the tool returned, the turn ended naturally. Genuinely
+  # halted, should ping.
+  create_capturing_stub curl ""
+  export NTFY_URL="https://ntfy.sh/test-topic"
+  transcript="$BATS_TEST_TMPDIR/t.jsonl"
+  echo '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"ls"}}]}}' > "$transcript"
+  run bash "$DONE_SCRIPT" <<<"{\"transcript_path\":\"$transcript\"}"
+  assert_success
+  [ -f "$CLAUDE_NOTIFY_PID_FILE" ]
+}
+
+@test "notify-claude-done: suppression looks at the LAST assistant turn only" {
+  # Earlier turn used ScheduleWakeup, but the just-ended turn is plain
+  # text — ping should fire (suppression only applies to the most recent
+  # turn end).
+  create_capturing_stub curl ""
+  export NTFY_URL="https://ntfy.sh/test-topic"
+  transcript="$BATS_TEST_TMPDIR/t.jsonl"
+  {
+    echo '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"ScheduleWakeup","input":{}}]}}'
+    echo '{"type":"user","message":{"content":[{"type":"text","text":"resumed"}]}}'
+    echo '{"type":"assistant","message":{"content":[{"type":"text","text":"truly done"}]}}'
+  } > "$transcript"
+  run bash "$DONE_SCRIPT" <<<"{\"transcript_path\":\"$transcript\"}"
+  assert_success
+  [ -f "$CLAUDE_NOTIFY_PID_FILE" ]
+}
+
+@test "notify-claude-done: suppression cancels any prior pending ping" {
+  # Prior turn scheduled a ping (Request hook). The next turn ends with
+  # ScheduleWakeup — Done hook fires + sees deferred work + must kill the
+  # prior pending so the now-stale "Needs your input" doesn't escape.
+  create_capturing_stub curl ""
+  export NTFY_URL="https://ntfy.sh/test-topic"
+  export CLAUDE_NOTIFY_DELAY="5"  # long enough to survive the cancel test
+  bash "$REQUEST"
+  [ -f "$CLAUDE_NOTIFY_PID_FILE" ]
+  pid=$(cat "$CLAUDE_NOTIFY_PID_FILE")
+  transcript="$BATS_TEST_TMPDIR/t.jsonl"
+  echo '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"ScheduleWakeup","input":{}}]}}' > "$transcript"
+  run bash "$DONE_SCRIPT" <<<"{\"transcript_path\":\"$transcript\"}"
+  assert_success
+  [ ! -f "$CLAUDE_NOTIFY_PID_FILE" ]
+  sleep 0.1
+  _dead_or_zombie "$pid"
+}
+
+@test "notify-claude-done: missing transcript_path falls through to schedule" {
+  # Backward-compat: if the Stop hook payload lacks a transcript_path
+  # (older harness, manual invocation), the script should still schedule
+  # the ping rather than silently no-op.
+  create_capturing_stub curl ""
+  export NTFY_URL="https://ntfy.sh/test-topic"
+  run bash "$DONE_SCRIPT" <<<'{}'
+  assert_success
+  [ -f "$CLAUDE_NOTIFY_PID_FILE" ]
+}
+
 # --- Project label detection ---
 
 @test "notify-claude-request: labels banner with package.json name" {

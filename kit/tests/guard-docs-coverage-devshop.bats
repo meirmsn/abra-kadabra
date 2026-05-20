@@ -26,7 +26,7 @@ setup() {
   git -C "$TEST_REPO" config user.email "test@test.com"
   git -C "$TEST_REPO" config user.name "Test"
   # Seed reference docs so they exist (not staged in each test).
-  for g in workflow conventions hooks architecture security ops supabase-ssr-boilerplate; do
+  for g in workflow conventions hooks architecture security ops supabase-ssr-boilerplate notifications; do
     echo "# $g" > "$TEST_REPO/kit/docs/guide/$g.md"
   done
   echo "# CLAUDE.md" > "$TEST_REPO/CLAUDE.md"
@@ -93,6 +93,35 @@ stage() {
   git -C "$TEST_REPO" add kit/docs/guide/workflow.md
   run_script
   assert_success
+}
+
+# --- Surface: kit/scripts/notify/** → guide/notifications.md ---
+
+@test "BLOCK: kit/scripts/notify/** without guide/notifications.md staged" {
+  stage kit/scripts/notify/new-hook
+  run_script
+  assert_failure
+  assert_output --partial "BLOCKING"
+  assert_output --partial "guide/notifications.md"
+}
+
+@test "PASS: kit/scripts/notify/** with guide/notifications.md staged" {
+  stage kit/scripts/notify/new-hook
+  echo "# updated" > "$TEST_REPO/kit/docs/guide/notifications.md"
+  git -C "$TEST_REPO" add kit/docs/guide/notifications.md
+  run_script
+  assert_success
+}
+
+@test "BLOCK: kit/scripts/notify/** with only a generic guide staged (not notifications.md)" {
+  # The notify surface is intentionally narrow — a workflow.md edit doesn't
+  # satisfy it. Forces the writer to update the canonical notify doc.
+  stage kit/scripts/notify/new-hook
+  echo "# updated" > "$TEST_REPO/kit/docs/guide/workflow.md"
+  git -C "$TEST_REPO" add kit/docs/guide/workflow.md
+  run_script
+  assert_failure
+  assert_output --partial "guide/notifications.md"
 }
 
 # --- Surface: kit/scripts/**.sh → CLAUDE.md OR any guide ---
