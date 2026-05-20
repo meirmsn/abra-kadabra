@@ -126,6 +126,21 @@ chown -R node:node /home/node/.gstack
 # Fast no-op when lockfile and node_modules are in sync.
 (cd "$DEVSHOP" && su node -c 'pnpm install --frozen-lockfile 2>/dev/null || pnpm install') || true
 
+# --- Populate Playwright cache stubs (Chromium symlinks) ---
+# Devcontainers apt-install /usr/bin/chromium and export PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
+# but Playwright's launch path checks ~/.cache/ms-playwright/<rev>/ BEFORE honoring the env
+# override — an empty cache produces "Please run `npx playwright install`" even with a
+# system Chromium present. Stub the cache so headless-browser skills (/qa, /design-review,
+# /benchmark, /canary, /ak-pre-ship Phase 0) work on first invocation without operators
+# having to know to run the script manually.
+#
+# Must run as node (cache lives under /home/node/.cache/). Idempotent: re-running on
+# every container start is a fast no-op once stubs exist. Discovers required revisions
+# from each playwright-core/browsers.json under $WS and $DEVSHOP/.claude/skills/gstack;
+# warns and exits 0 when no browsers.json is found yet (first container start before
+# project pnpm install) — next start picks them up automatically.
+(cd "$WS" && su node -c 'bash /devshop/kit/scripts/populate-playwright-cache.sh' 2>/dev/null) || true
+
 # --- Lock security-critical files (root-owned, world-readable, not writable by node) ---
 # Two layers: (1) deny rules in settings.json block Edit/Write tools,
 # (2) chown root:root + chmod 644 blocks Bash workarounds.

@@ -1095,16 +1095,24 @@ Never write gate-produced screenshots to repo root; `/Screenshot*.png` is gitign
 
 **When to skip:** non-UI PRs (API-only, infrastructure, docs), and UI PRs where the happy-path can't be reached from the workspace because of a real external constraint (e.g. hosted Supabase rate-limits a signup flow when the local stack is unavailable, or the screen requires a third-party redirect the firewall blocks). Document the reason in `review.md` instead of leaving a gap. "Workspace can't run Playwright / `pnpm dev`" is no longer a valid skip reason — Chromium ships baked-in via apt (`/usr/bin/chromium`, set as `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`) and `fonts.googleapis.com` is firewall-allowlisted. Treat browser-gate blocks as real tooling-broken signals worth fixing, not expected outcomes.
 
-**Capture mechanics** (via the gstack `browse` skill):
+**Capture mechanics** (via the gstack `browse` skill + the `capture-screenshot.sh` wrapper):
 
 ```bash
-# Ensure the hero dir exists
-mkdir -p /workspace/specs/<feature>/hero
-
-# Navigate, capture — repeat per screen
+# Navigate, capture — repeat per screen. Wrapper creates the hero dir.
 browse goto http://localhost:3000/<path>
-browse screenshot /workspace/specs/<feature>/hero/<screen>.png --full-page
+bash /devshop/kit/scripts/capture-screenshot.sh \
+  /workspace/specs/<feature>/hero/<screen>.png --full-page
 ```
+
+**Why the wrapper, not `browse screenshot` directly:** the gstack browse daemon
+validates screenshot output paths against `[TEMP_DIR, process.cwd()]` and
+rejects writes to `<git-root>/specs/<feature>/hero/` unless its cwd happens to
+be a parent. The wrapper screenshots to `/tmp/` (always inside the allow-list),
+then `cp`s to the final path. Devshop cannot extend the daemon's allow-list at
+source because gstack is upstream-owned (`.claude/skills/gstack/**` — see
+CLAUDE.md § gstack); the wrapper is the devshop-side fix that sits outside that
+tree. Wrapper also creates the destination dir, so no separate `mkdir -p` is
+needed.
 
 Add the paths to the pre-ship audit trail under Gate 3 / 8. `/ak-build` Phase 6 embeds them into the audit PR comment via repo-relative markdown (GitHub renders them inline).
 

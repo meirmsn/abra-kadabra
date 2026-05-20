@@ -222,23 +222,25 @@ When done: revert `.env.local` to hosted, run `supabase stop`.
 
 ### Hero screenshot — manual capture
 
-`/ak-pre-ship` end-of-run captures hero shots automatically. For ad-hoc captures between gates (e.g., documenting a design iteration), use the gstack `browse` daemon directly:
+`/ak-pre-ship` end-of-run captures hero shots automatically. For ad-hoc captures between gates (e.g., documenting a design iteration), drive the gstack `browse` daemon for navigation + state, but use the `capture-screenshot.sh` wrapper for the screenshot step itself — `browse screenshot` writing into `specs/` hits the daemon's path allow-list (rejects anything outside `[TEMP_DIR, process.cwd()]`):
 
 ```bash
 cd /workspace/.claude/skills/gstack/browse/dist && ./browse status   # ensure daemon is up
 
 ./browse goto http://localhost:3000/sign-in
-./browse screenshot /workspace/specs/<feature>/hero/signin.png --full-page
+bash /devshop/kit/scripts/capture-screenshot.sh \
+  /workspace/specs/<feature>/hero/signin.png --full-page
 ```
 
 For dark-mode captures when the app hasn't yet wired a theme bootstrap (CSS vars respond to `.dark` on `<html>`):
 
 ```bash
 ./browse exec "document.documentElement.classList.add('dark')"
-./browse screenshot /workspace/specs/<feature>/hero/signin-dark.png --full-page
+bash /devshop/kit/scripts/capture-screenshot.sh \
+  /workspace/specs/<feature>/hero/signin-dark.png --full-page
 ```
 
-Put shots under `specs/<feature>/hero/` (committed per `guide/conventions.md § Screenshot Routing`).
+Put shots under `specs/<feature>/hero/` (committed per `guide/conventions.md § Screenshot Routing`). The wrapper handles the 2-step (`browse screenshot` to `/tmp/`, then `cp` to the final path) and creates the destination dir.
 
 ---
 
@@ -457,9 +459,11 @@ When the workspace's bundled `browse` binary drifts from the current Bun runtime
 
 When Playwright's launch path can't find a Chromium executable in `~/.cache/ms-playwright/` even with `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` set (e.g., on older project devcontainers without the post-2026-04-23 apt-baked Chromium fix):
 
-**Fix**: `/devshop/kit/scripts/populate-playwright-cache.sh [TARGET_PROJECT_ROOT]` discovers each `playwright-core/browsers.json` revision under the project + devshop and symlinks `~/.cache/ms-playwright/chromium-<rev>/chrome-linux/{chrome,headless_shell}` → `$PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` (defaults to `/usr/bin/chromium`). Idempotent. Avoids hitting Playwright's CDN, which is intentionally firewall-blocked.
+**Auto-wired (post-2026-05-20)**: `init-devshop.sh` runs `populate-playwright-cache.sh` on every container start, after `pnpm install`. Fresh containers get the Chromium cache stubs without any manual operator step — first `/qa`, `/design-review`, `/benchmark`, `/canary`, and `/ak-pre-ship` Phase 0 all "just work". The auto-run is tolerant of missing `playwright-core/browsers.json` (warns + exits 0); next container start picks the stubs up automatically once `pnpm install` populates `node_modules/`.
 
-New scaffolds (post-2026-04-23) inherit the apt-baked Chromium and the structural CLI fix; older projects need both scripts run once after a `from-devshop.sh` sync. Strategic fix history (verifiable preflight check in `/ak-pre-ship`, env-var fallback in `browse/src/cli.ts`, migration recipe) is recorded in `BUILD-LOG.md` and the relevant skill / convention docs at HEAD.
+**Manual fallback**: `/devshop/kit/scripts/populate-playwright-cache.sh [TARGET_PROJECT_ROOT]` is still operator-invokable. Discovers each `playwright-core/browsers.json` revision under the project + devshop and symlinks `~/.cache/ms-playwright/chromium-<rev>/chrome-linux/{chrome,headless_shell}` → `$PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` (defaults to `/usr/bin/chromium`). Idempotent. Avoids hitting Playwright's CDN, which is intentionally firewall-blocked. Run it manually only if `node_modules/` was repopulated mid-session (e.g., after a `pnpm install` in a long-running container).
+
+New scaffolds (post-2026-04-23) inherit the apt-baked Chromium and the structural CLI fix; older projects no longer need either script run by hand — the `init-devshop.sh` wire-up covers them on next container start. Strategic fix history (verifiable preflight check in `/ak-pre-ship`, env-var fallback in `browse/src/cli.ts`, migration recipe) is recorded in `BUILD-LOG.md` and the relevant skill / convention docs at HEAD.
 
 ---
 

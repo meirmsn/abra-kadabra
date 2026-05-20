@@ -587,42 +587,6 @@ The registry design above covers API + DB ports (54321/54322 → rebound). Three
 
 ---
 
-### Gstack-symptom workarounds — Chromium fallback + screenshot allow-list (devshop-side wrappers)
-
-**Context.** Two real friction points originally surfaced as home-os PR #15 D3 + D4 (see `git log` for the dropped `home-os-pr15-backfill-fixes` ROADMAP entry — deleted in `2e417db`, with D3+D4 reverted in `dc18aa3`). Both shipped as commits inside `.claude/skills/gstack/browse/src/`, then got reverted once we realized gstack is upstream-owned and `/gstack-upgrade § Step 4` silently wipes local edits on the next upgrade. The underlying friction is still real — every fresh-container `/qa` / `/design-review` / `/benchmark` / `/canary` hits one or both. The constraint: any fix MUST live outside the `.claude/skills/gstack/**` tree. Worked drop + constraint codified at `CLAUDE.md § gstack` + Known Footguns "Never edit `.claude/skills/gstack/**`".
-
-#### Sub-A — Wire `populate-playwright-cache.sh` into `init-devshop.sh`
-
-**Symptom.** `chromium.launch()` inside gstack's browse daemon defaults to looking for Playwright's bundled binary at `~/.cache/ms-playwright/chromium_headless_shell-<rev>/chrome-linux/headless_shell`. Containers without `npx playwright install` (auto-mode classifier rejects external downloads, fresh-rebuild loops) crash with `Executable doesn't exist at ...`. System Chromium is at `/usr/bin/chromium` (Debian/Ubuntu base, apt-installed via devcontainer Dockerfile).
-
-**Status (verified 2026-05-20).** `kit/scripts/populate-playwright-cache.sh` already exists (Apr 27) and does the right thing — discovers required Chromium revisions from each `playwright-core/browsers.json` and symlinks them to `/usr/bin/chromium`. Idempotent; handles multi-`playwright-core` installs (workspace + nested + gstack). What's missing is the auto-invocation hook: operators still have to run it manually after a fresh container rebuild. The `/ak-pre-ship` Phase 0 preflight separately auto-symlinks `chromium-1208` for the gstack-daemon-pinned-revision mismatch, but that fires only at pre-ship time, not at container start, so first-`/qa` on a fresh container still crashes.
-
-**Fix.** Add an `init-devshop.sh` block that runs `populate-playwright-cache.sh` after the devcontainer's apt-install Chromium completes. The script is idempotent, so re-running it on container restart is safe. Effort: ~10 min.
-
-**Severity.** Medium. Affects every `/qa`, `/design-review`, `/benchmark`, `/canary` invocation on a container that hasn't manually run the script. The 2026-05-19 revert of the gstack-source fix means projects still hit this until the wire-up ships.
-
-**Source detail.** Original ROADMAP entry "Home-os PR #15 hero-shot backfill — devshop fixes (2026-05-15) § Browse daemon — fall back to system Chromium when Playwright's binary is missing" (deleted in `2e417db`; recoverable via `git show 2e417db~1:kit/ROADMAP.md`). Reverted source patch lives at `git show bdb818b` for the candidate-list ordering (`/usr/bin/chromium`, `/usr/bin/chromium-browser`, `/usr/bin/google-chrome`).
-
-#### Sub-B — Browse daemon screenshot allow-list rejects `.gstack/` + `specs/` writes
-
-**Symptom.** gstack's browse daemon validates screenshot output paths against `[TEMP_DIR, process.cwd()]`. `/qa` skill output goes to `<git-root>/.gstack/qa-reports/screenshots/`; `/ak-pre-ship` Phase 7 hero shots go to `<git-root>/specs/<feature>/hero/`. Both rejected with `Path must be within: /tmp, /workspace/apps/web` unless the daemon's cwd happens to be a parent. Today's workaround is a 2-step copy (browse writes `/tmp/qa-shots/<name>.png`, then `cp` to `.gstack/qa-reports/screenshots/`).
-
-**Wrapper-pattern candidates** (pick one; all sit outside gstack):
-
-- **(B1) Launch daemon from git root, not `apps/web/`.** The daemon's `process.cwd()` becomes one of the safe directories. If skills launch from `<git-root>` instead of `<git-root>/apps/web/`, `.gstack/` and `specs/` are automatically under cwd → allowed. Audit each skill that launches the browse daemon, add a `cd <git-root>` to the launch block, and verify the daemon's other cwd-dependent paths still work. Effort: ~1 hr (multi-skill audit) — but risky because some skills genuinely need cwd at `apps/web/` for next-dev discovery.
-- **(B2) Kit-script wrapper `kit/scripts/capture-screenshot.sh`.** A bash one-shot that takes the desired final path, screenshots to `/tmp` via browse, then `cp` to the final path. Skills + CLAUDE.md instruction: "use this wrapper, not `browse screenshot` directly, when writing to `.gstack/` or `specs/`." Effort: ~30 min. Friction: every screenshot call needs the wrapper or skills accidentally hit the original failure.
-- **(B3) Codify the 2-step convention.** Don't add a wrapper. Update `/qa`, `/design-review`, `/benchmark`, `/canary` SKILL.md.tmpl preambles to write to `/tmp/<name>.png` then `cp` as the documented convention. Pure prose change. Effort: ~30 min including the `bun run gen:skill-docs` regen. (NOTE: this contradicts the "don't edit gstack" rule — the .tmpl files are inside `.claude/skills/gstack/`. So B3 is NOT a valid candidate. Listed here only to mark it as ruled out.)
-
-B1 is the cleanest IF the cwd swap doesn't break anything else. B2 is the safer fallback.
-
-**Severity.** Low. Friction, not correctness — the 2-step copy works. But it's a papercut every `/qa` run pays, and the workaround isn't documented today.
-
-**Source detail.** Original ROADMAP entry "Home-os PR #15 hero-shot backfill — devshop fixes (2026-05-15) § Browse daemon — extend screenshot path allow-list" (deleted in `2e417db`; recoverable via `git show 2e417db~1:kit/ROADMAP.md`). Reverted source patch lives at `git show 3680582` for the original config-helper shape.
-
-[v0, surfaced-by home-os-PR-15-hero-shot-backfill-2026-05-15; dropped from inline-edit path 2026-05-19 per CLAUDE.md § gstack rule]
-
----
-
 ## v1 (after v0 is validated on the first project)
 
 ### Test-coverage hook scope: extend to template/.devcontainer/\*.sh + reframe EXEMPT_SCRIPTS as warn-not-block
