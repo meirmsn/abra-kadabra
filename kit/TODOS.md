@@ -385,79 +385,57 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
   [v0+, skill-improvement, surfaced-by ak-merge-devshop-smoke-test, 2026-05-07]
 
-- [ ] **SKILL.md gstack-helper path resolution falls through silently when user-global gstack is auto-pruned.** [v0] When a SKILL.md preamble hardcodes `~/.claude/skills/gstack/bin/<helper>` (or any path under `~/.claude/skills/gstack/`), the helper goes silently no-op when Claude Code's settings-file maintenance prunes the user-global gstack folder (sometimes happens on devcontainer rebuilds or settings refreshes). Telemetry, timeline, and learnings have been silently no-op'ing across multiple deploy cycles on lalista. Only `gstack-slug` failed visibly, because `/land-and-deploy` depends on its output — every other helper that "fires and forgets" silently degraded.
+- [ ] **Gstack artifact symlink redirect — devshop-side.** [v0] Five gstack skills hardcode `~/.gstack/projects/$SLUG/...` for their artifact writes (`canary`, `land-and-deploy`, `plan-ceo-review`, `plan-design-review`, `ship`) instead of honoring `${GSTACK_HOME}`. Template's `containerEnv` already sets `GSTACK_HOME=/workspace/.gstack` for the skills that DO honor it; the 5 holdouts bypass the redirect → artifacts land outside the repo and outside version control. Editing the .tmpl files in-tree gets wiped on every `/gstack-upgrade` (per `CLAUDE.md § gstack`), so the fix has to live outside `.claude/skills/gstack/**`.
 
-  **Fix**: SKILL.md preambles should resolve the helper path via the same fallback the `browse` SETUP block uses (`/devshop/.claude/skills/gstack/browse/SKILL.md` lines 358-361) — try `$_ROOT/.claude/skills/gstack/<helper>` (project-local, survives Claude Code prune) first, fall back to `~/.claude/skills/gstack/<helper>`. Either inline as a `B=` resolver pattern in every SKILL.md preamble, OR factor into a single helper `bin/gstack-resolve-bin <helper-name>` and call that from each SKILL.md preamble.
+  **Fix**: symlink `~/.gstack/projects` → `/workspace/.gstack/projects` in `init-devshop.sh`. Skills that honor `$GSTACK_HOME` write directly to `/workspace/.gstack/...`; skills that hardcode `~/.gstack/projects/...` follow the symlink to the same destination. Both paths converge on one git-tracked tree.
 
-  Reference shape from `browse` SETUP:
-
-  ```bash
-  _ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
-  B=""
-  [ -n "$_ROOT" ] && [ -x "$_ROOT/.claude/skills/gstack/<helper>" ] && B="$_ROOT/.claude/skills/gstack/<helper>"
-  [ -z "$B" ] && B=~/.claude/skills/gstack/<helper>
-  ```
-
-  **Edit targets**: enumerate all SKILL.md files in `/devshop/.claude/skills/` that hardcode a `~/.claude/skills/gstack/...` path (telemetry, timeline, learnings emitters at minimum) + their lalista counterparts in `/workspace/.claude/skills/`. Apply the resolver pattern (or factor into `bin/gstack-resolve-bin`). Lalista has a project-local `.claude/skills/gstack/` (per `MEMORY.md § gstack Setup — virtiofs Build Workaround`); that's the structural defense the fallback pattern leans on.
-
-  **Why v0 — blocks next-project adoption**: affected EVERY skill silently for an entire deploy cycle on lalista. The next project that scaffolds inherits the same bug — and worse, the next project may not have a project-local `.claude/skills/gstack/` yet (lalista does because of the virtiofs rebuild workaround). Defending against it now costs ~20 min; the next debugging session that surfaces "why did my telemetry never log?" will cost more.
-
-  [v0, surfaced-by lalista-PR49-deploy-cycle, 2026-05-07]
-
-- [ ] **SKILL.md artifact-write paths hardcode `~/.gstack/projects/$SLUG`, bypassing `$GSTACK_HOME` — and don't sanitize `/` in branch names.** [v0]
-
-  **Pre-implementation findings (verified 2026-05-14):** **PARTIAL — partial fix landed via `814ead6` but didn't sweep skill bodies.**
-  - **PARTIALLY SHIPPED**: `office-hours/SKILL.md.tmpl` lines 642, 719 now use `${GSTACK_HOME:-$HOME/.gstack}/projects/${SLUG:-unknown}/...` — for the resources-shown log path only.
-  - **STILL HARDCODED**: ~20 other SKILL.md / SKILL.md.tmpl files still contain `~/.gstack/projects` (office-hours other lines 54/287/294/434/438, checkpoint, plan-ceo-review, plan-design-review, autoplan, design-html, design-shotgun, design-consultation, health, qa, qa-only, canary, land-and-deploy).
-  - **SLASH SANITIZATION ZERO MATCHES**: `grep "BRANCH_SAFE"` against `.claude/skills/gstack/` returns nothing — Bug 2 entirely unaddressed.
-  - **Implementer note**: don't redo the office-hours-tmpl-lines-642-719 subset; sweep the remaining ~20 sites + add `BRANCH_SAFE=${BRANCH//\//-}` everywhere a filename concatenates `${BRANCH}`.
-
-  Original two compounding bugs in every gstack skill that writes a per-project artifact (design doc, checkpoint, ceo-plan, qa-report, canary-report, design mockup, health snapshot, deploy-report). Surfaced 2026-05-11 by lalista `/office-hours` session for the stores-management design: the design doc landed at `/home/node/.gstack/projects/meirmsn-lalista/node-fix/settings-collab-polish-design-20260511-121125.md` — wrong root (user home, not `/workspace/.gstack/` per the env vars), AND unintended `node-fix/` subdir from the `/` in the branch name `fix/settings-collab-polish`. Result: lalista's "gstack md files are git-tracked" wiring (`/workspace/.gitignore` lines 37-44 + `GSTACK_HOME=/workspace/.gstack` env var) is fully bypassed; artifacts continue to land outside the repo and outside version control.
-
-  **Bug 1 (hardcoded root)**: every artifact-write block uses literal `~/.gstack/projects/$SLUG` instead of `${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG`. Other parts of the SAME SKILL.md files DO honor `$GSTACK_HOME` (e.g., `_LEARN_FILE="${GSTACK_HOME:-$HOME/.gstack}/projects/${SLUG:-unknown}/learnings.jsonl"` in office-hours line 74) — so this is an inconsistency, not a missing feature. Affected SKILL.md files (grep `mkdir -p ~/.gstack/projects` against `/devshop/.claude/skills/gstack/*/SKILL.md.tmpl`):
-  - `office-hours/SKILL.md` line 1211 (design doc write)
-  - `checkpoint/SKILL.md` lines 493, 550, 617, 679 (4 sites — different artifact kinds)
-  - `plan-ceo-review/SKILL.md` lines 873, 879
-  - `health/SKILL.md` lines 640, 666
-  - `qa/SKILL.md` line 1282
-  - `qa-only/SKILL.md` line 884
-  - `autoplan/SKILL.md` line 711
-  - `canary/SKILL.md` line 707
-  - `land-and-deploy/SKILL.md` lines 835, 1472
-  - `plan-design-review/SKILL.md` line 712 (in docstring — `design/` subdir convention)
-
-  Plus the `.tmpl` source files in `/devshop/.claude/skills/gstack/*/SKILL.md.tmpl` (same lines).
-
-  **Bug 2 (slash-in-branch)**: artifact filenames concatenate `${BRANCH}` directly into the filename component (e.g., office-hours: `${USER}-${BRANCH}-design-${DATETIME}.md`). For branches like `fix/foo` or `feat/bar`, the `/` is interpreted as a path separator and creates an unintended subdirectory. Same applies to checkpoint, ceo-plans, and any skill where `BRANCH` is part of a filename. Branches with slashes are the conventional shape (`feat/x`, `fix/y`, `chore/z`) — this hits ~100% of real-world usage.
-
-  **Fix** (per occurrence):
+  **Setup block for `template/.devcontainer/init-devshop.sh`** (root-runs on container init):
 
   ```bash
-  # Before:
-  eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p ~/.gstack/projects/$SLUG
-  USER=$(whoami)
-  DATETIME=$(date +%Y%m%d-%H%M%S)
-  # ... later: ~/.gstack/projects/$SLUG/${USER}-${BRANCH}-design-${DATETIME}.md
+  # Pre-create the redirect target inside the workspace bind mount.
+  mkdir -p /workspace/.gstack/projects
 
-  # After:
-  eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)"
-  GSTACK_PROJ_DIR="${GSTACK_HOME:-$HOME/.gstack}/projects/$SLUG"
-  mkdir -p "$GSTACK_PROJ_DIR"
-  USER=$(whoami)
-  BRANCH_SAFE=${BRANCH//\//-}
-  DATETIME=$(date +%Y%m%d-%H%M%S)
-  # ... later: $GSTACK_PROJ_DIR/${USER}-${BRANCH_SAFE}-design-${DATETIME}.md
+  # One-time migration if a prior session created a real ~/.gstack/projects dir.
+  if [ -d ~/.gstack/projects ] && [ ! -L ~/.gstack/projects ]; then
+    mv ~/.gstack/projects/* /workspace/.gstack/projects/ 2>/dev/null || true
+    rmdir ~/.gstack/projects 2>/dev/null || true
+  fi
+
+  # Symlink projects/ (NOT ~/.gstack itself — gstack-upgrade still mkdir's ~/.gstack).
+  mkdir -p ~/.gstack
+  ln -sfn /workspace/.gstack/projects ~/.gstack/projects
   ```
 
-  Two-line addition per skill (env-var-honoring root + slash-sanitized branch). Roughly 20 line-edits across 11 SKILL.md.tmpl files + 11 generated SKILL.md files (the `bun run gen:skill-docs` regeneration handles half automatically).
+  **Widen template `.gitignore`** (current `!.gstack/projects/*/*.md` only matches one level deep, misses `ceo-plans/` + `designs/<screen>-YYYYMMDD/...` subdirs + the slash-in-branch stray subdirs):
 
-  **Distinct from `gstack-helper-path-resolution`** (line 385 above): that issue is about helper _binaries_ under `~/.claude/skills/gstack/bin/` going silently no-op when Claude Code prunes them; this issue is about artifact _output paths_ under `~/.gstack/projects/` not honoring `$GSTACK_HOME`. Same surface (SKILL.md preambles), different bug. Both should be addressed together as a single SKILL.md preamble sweep.
+  ```gitignore
+  .gstack/*
+  !.gstack/projects/
+  .gstack/projects/**
 
-  **Why v0**: every lalista session that produces a design doc, checkpoint, or ceo-plan is silently writing to the wrong location AND creating unintended subdirs for any non-flat branch name. The user-visible symptom is "I can't see the file the skill said it created" — happened today on the stores design. Cost is real: artifacts disappear from version control even though the gitignore + env vars are correctly configured.
+  # Re-include reviewable artifacts at any depth.
+  !.gstack/projects/**/
+  !.gstack/projects/**/*.md
+  !.gstack/projects/**/*.html
+  !.gstack/projects/**/*.png
+  !.gstack/projects/**/*.json
+  ```
 
-  **Edit targets**: all 11 SKILL.md.tmpl files listed above. Regenerate the built SKILL.md files via `bun run gen:skill-docs`. Pair with a BATS test that asserts artifact paths land under `${GSTACK_HOME:-$HOME/.gstack}/projects/<slug>/` (not nested) for a branch name containing `/`.
+  The `**` traversal tolerates branch-with-slash stray subdirs (`fix/foo/...md` still matches). Four extensions cover every reviewable artifact type the skill audit surfaced (design docs, ceo-plans, plan-eng outputs, design HTML/PNG/JSON). JSONL logs / fingerprints / sessions are intentionally NOT re-included → ignored.
 
-  [v0, surfaced-by lalista-office-hours-stores-design, 2026-05-11]
+  **Backfill recipe for existing projects** (`kit/docs/guide/ops.md § Gstack projects symlink`): same setup block as a one-off sudo install. Existing `~/.gstack/projects/$SLUG/` content migrates into `/workspace/.gstack/projects/`.
+
+  **Bats test**: assert (a) symlink lands at `~/.gstack/projects` pointing at `/workspace/.gstack/projects`, (b) a write to `~/.gstack/projects/$SLUG/foo.md` resolves to `/workspace/.gstack/projects/$SLUG/foo.md`, (c) the gitignore re-include patterns match `*.md`/`*.html`/`*.png`/`*.json` at any depth.
+
+  **Why devshop-side, not upstream**: the in-tree fix would also need slash-sanitization (`BRANCH_SAFE=${BRANCH//\//-}`) for the ~100% of real-world branches with `/` in their names. Symlink redirect doesn't fix Bug 2 (stray subdirs still get created when `${BRANCH}` is in the filename), but the gitignore `**` traversal tolerates them — file gets tracked regardless. Aesthetic-only residual; file as a separate low-priority upstream issue if desired.
+
+  **Why v0 — blocks artifact preservation today**: every lalista `/plan-ceo-review` + `/plan-design-review` session writes design audits and ceo-plans to `~/.gstack/projects/$SLUG/...` which is not volume-backed; container rebuilds wipe them. Symlink lands them in `/workspace/` instead, where the gitignore re-includes preserve them in git.
+
+  **Scope check (per "skip telemetry" rule, 2026-05-20)**: of the 5 hardcoded-path skills, only `plan-ceo-review` + `plan-design-review` produce review artifacts. `canary` writes its report to project-relative `.gstack/canary-reports/` natively; only its JSONL log hits `~/`. `land-and-deploy` + `ship` write only JSONL logs / fingerprints. The symlink fix is class-wide — all 5 skills benefit, but only 2 are blocking the user's "preserve review artifacts in repo" goal.
+
+  **Edit targets**: `template/.devcontainer/init-devshop.sh`, `template/.gitignore`, `kit/docs/guide/ops.md` (new section), new bats file `kit/tests/gstack-projects-symlink.bats`.
+
+  [v0, surfaced-by 2026-05-20 plan-review session; supersedes 2026-05-11 in-tree-sweep framing]
 
 - [ ] **`/ak-pre-ship` Gate 9 (`/qa`) doesn't run fault-injected scenarios — happy-path crawl misses banner / error-state UI bugs.** [v0] UI flows pass under happy-path QA conditions but break under fault-injected ones (network failure, RPC abort, timeout). PR #49's `AddItemSheet` overlay-intercepts-Undo bug only surfaced when CI ran `page.route().abort()` to simulate a network failure — `/qa`'s happy-path crawl never tickled the failing-mutation banner state, so the overlay-z-index bug shipped past pre-ship and only got caught by Playwright's slow-job CI run.
 
