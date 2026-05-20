@@ -589,10 +589,16 @@ YML
 
 # --- Multi-gap: confirm multiple findings surface together ---
 
-@test "findings: multiple gaps reported together (retry stripped + test glob missing on integration-tests + content-less Playwright guard)" {
-  # Content-less project + slow-job missing the retry pattern + integration
-  # tests exist but invocation is missing + Playwright guard missing. Three
-  # findings should fire under the new check set.
+@test "findings: multiple gaps reported together (retry stripped + integration-glob missing + content-less hashFiles guards)" {
+  # Content-less project (no e2e specs, no migrations) + slow-job missing the
+  # retry pattern + integration tests exist but invocation is missing + both
+  # hashFiles guards absent. Four findings fire under the new check set:
+  # Check 3 (retry pattern stripped), Check 5 (integration tests exist but
+  # not invoked), Check 4 (Playwright guard missing — HAS_E2E empty),
+  # Check 4 again (migration guard missing — HAS_MIGRATIONS empty). The
+  # `empty-state guard` partial-match assertion covers the latter two as a
+  # pair; no count assertion so this stays robust against future Check
+  # additions.
   add_integration_test
   write_ci_yml <<'YML'
 name: CI

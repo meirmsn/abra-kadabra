@@ -57,10 +57,9 @@ job_body() {
 @test "changes: job uses actions/checkout@v4" {
   # Pinned to v4 (matches fast-job; same constraint). Job-scoped so a
   # malformed changes-job that drops checkout entirely can't pass via the
-  # fast-job's checkout matching the bare grep.
-  run bash -c "echo \"\$(job_body changes)\" | grep -E '^[[:space:]]+- uses: actions/checkout@v4'"
-  # The above subshell call doesn't see the job_body function. Inline
-  # extract instead.
+  # fast-job's checkout matching the bare grep. Inline extract because a
+  # `bash -c` subshell wouldn't see the `job_body` shell function defined
+  # in setup().
   local body
   body=$(job_body changes)
   echo "$body" | grep -qE '^[[:space:]]+- uses: actions/checkout@v4'
