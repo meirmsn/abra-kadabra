@@ -56,11 +56,25 @@
 #   later `pnpm db:reset` etc. (issued via the relay) hit healthy
 #   forwards too.
 #
-# Does NOT persist supabase stack data — the spawned supabase_* sibling
-# containers manage their own volumes on the host docker engine. A
-# `docker compose down -v` here only removes this compose's volumes
-# (none currently); reset the supabase stack with `curl -X POST
-# http://supabase-runner:9000/stop` first if needed.
+# Why supabase-runner has stop_grace_period: 30s:
+#   On `docker compose stop` (what VS Code Dev Containers runs when you
+#   close the window or Stop Container), tini forwards SIGTERM to the
+#   cmd-relay node process. The relay traps SIGTERM and runs
+#   `supabase stop` before exiting, so the spawned supabase_* sibling
+#   containers on the host engine go down with the devcontainer instead
+#   of orphan-running forever. `supabase stop` typically takes 5-15s to
+#   stop ~10 sibling containers; the default 10s grace_period would
+#   SIGKILL us mid-teardown. 30s leaves comfortable headroom + 5s slack
+#   that the relay's own 25s budget timer uses to force-exit cleanly.
+#   See supabase-runner/cmd-relay.mjs § Shutdown.
+#
+# Persistence model: data volumes live on the host docker engine and
+# survive `docker compose stop` (the relay's `supabase stop` only stops
+# containers; volumes are preserved). To wipe local state, exec into the
+# runner and run `supabase stop --no-backup` (wipes data, keeps config)
+# or `supabase stop --all` (wipes everything). `docker compose down -v`
+# here only removes THIS compose's volumes (none currently) — it does
+# NOT touch the sibling supabase_* containers' host-managed volumes.
 
 services:
   workspace:
@@ -114,6 +128,9 @@ services:
     networks:
       - supabase-net
     working_dir: ${LOCAL_WORKSPACE_FOLDER}/supabase
+    # 30s: cmd-relay traps SIGTERM and runs `supabase stop` before exit.
+    # See header comment block § Why supabase-runner has stop_grace_period.
+    stop_grace_period: 30s
     command:
       - sh
       - -c

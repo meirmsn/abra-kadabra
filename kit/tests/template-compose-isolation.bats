@@ -100,6 +100,36 @@ setup() {
   assert_success
 }
 
+@test "compose-isolation: cmd-relay.mjs traps SIGTERM + SIGINT and runs supabase stop" {
+  # The trap is what makes VS Code "Stop Container" / window-close stop the
+  # spawned supabase_* sibling containers on the host engine. Without these
+  # handlers + the spawn of `supabase stop`, the siblings orphan-run after
+  # the devcontainer goes down (the original symptom this guard prevents).
+  # Also pins the 25s force-exit budget (must stay 5s under compose's 30s
+  # stop_grace_period — see asserter below) and the shuttingDown
+  # re-entrancy guard that keeps a SIGTERM-then-SIGINT race from
+  # double-spawning `supabase stop`.
+  local f="$DC/supabase-runner/cmd-relay.mjs"
+  run grep -q "process.on(\"SIGTERM\"" "$f"
+  assert_success
+  run grep -q "process.on(\"SIGINT\"" "$f"
+  assert_success
+  run grep -q 'spawn("supabase", \["stop"\]' "$f"
+  assert_success
+  run grep -q '25_000' "$f"
+  assert_success
+  run grep -q 'if (shuttingDown) return' "$f"
+  assert_success
+}
+
+@test "compose-isolation: compose.yml sets stop_grace_period on supabase-runner" {
+  # supabase stop tears down ~10 sibling containers; default 10s grace is
+  # too tight. The relay's internal 25s budget leaves 5s slack against
+  # this 30s ceiling — keep them in lockstep when tuning.
+  run grep -E '^    stop_grace_period: 30s$' "$DC/compose.yml"
+  assert_success
+}
+
 # =============================================================================
 # devcontainer.json — compose-based, with initializeCommand
 # =============================================================================

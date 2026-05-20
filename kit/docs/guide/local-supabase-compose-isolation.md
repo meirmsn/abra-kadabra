@@ -90,30 +90,26 @@ GitHub Actions slow-job doesn't need socat because the supabase CLI runs **nativ
 
 ## Container lifecycle
 
-| Action                                                           | workspace | supabase-runner | spawned `supabase_*_workspace` siblings     | Data                                            |
-| ---------------------------------------------------------------- | --------- | --------------- | ------------------------------------------- | ----------------------------------------------- |
-| `Reopen Folder Locally`                                          | running   | running         | running                                     | preserved                                       |
-| `Stop Container` (VS Code)                                       | stopped   | stopped         | running (independent restart: always)       | preserved                                       |
-| `Rebuild Container` (VS Code)                                    | recreated | recreated       | preserved (reused by next `supabase start`) | preserved                                       |
-| `pnpm db:stop` (relay → `supabase stop`)                         | running   | running         | stopped                                     | preserved                                       |
-| `pnpm db:stop` then `Stop Container`                             | stopped   | stopped         | stopped                                     | preserved                                       |
-| `pnpm db:reset` (relay → `supabase db reset`)                    | running   | running         | running                                     | **wiped + reseeded from migrations + seed.sql** |
-| Docker Desktop restart                                           | stopped   | stopped         | restarted (`restart: always`)               | preserved                                       |
-| `docker compose --project-name lalista_devcontainer ... down -v` | stopped   | stopped         | running (different compose project)         | preserved                                       |
+| Action                                                           | workspace | supabase-runner | spawned `supabase_*_workspace` siblings        | Data                                            |
+| ---------------------------------------------------------------- | --------- | --------------- | ---------------------------------------------- | ----------------------------------------------- |
+| `Reopen Folder Locally`                                          | running   | running         | running                                        | preserved                                       |
+| `Stop Container` (VS Code)                                       | stopped   | stopped         | stopped (runner SIGTERM trap → `supabase stop`) | preserved                                       |
+| `Rebuild Container` (VS Code)                                    | recreated | recreated       | preserved (reused by next `supabase start`)    | preserved                                       |
+| `pnpm db:stop` (relay → `supabase stop`)                         | running   | running         | stopped                                        | preserved                                       |
+| `pnpm db:reset` (relay → `supabase db reset`)                    | running   | running         | running                                        | **wiped + reseeded from migrations + seed.sql** |
+| Docker Desktop restart                                           | stopped   | stopped         | restarted (`restart: always`)                  | preserved                                       |
+| `docker compose --project-name lalista_devcontainer ... down -v` | stopped   | stopped         | running (different compose project)            | preserved                                       |
 
-To **fully stop everything** (e.g., closing the lid, freeing battery / RAM):
+Closing the VS Code window or "Stop Container" is the everyday tear-down path — the runner traps SIGTERM and runs `supabase stop` inline before exiting (`template/.devcontainer/supabase-runner/cmd-relay.mjs` § Shutdown), so the sibling `supabase_*` containers on the host engine go down with the devcontainer instead of orphan-running. `compose.yml` bumps `stop_grace_period: 30s` so `supabase stop` has time to tear down ~10 sibling containers before docker SIGKILLs the runner. Data survives — next `Reopen in Container` warm-restarts the stack from the same host volumes in ~30s.
+
+To **wipe state** (reset to a clean slate, not just stop), use one of the `supabase stop` variants — runs directly against the runner, bypassing the relay:
 
 ```bash
-# Inside workspace, before stopping the dev container:
-pnpm db:stop                     # relay → supabase stop, tears down all supabase_* siblings
-
-# Then from VS Code Command Palette:
-#   Dev Containers: Stop Container
-# OR from a macOS terminal:
-docker compose --project-name lalista_devcontainer -f .devcontainer/compose.yml stop
+docker exec -it <project>_devcontainer-supabase-runner-1 supabase stop --no-backup   # stop + wipe data volumes, keep config
+docker exec -it <project>_devcontainer-supabase-runner-1 supabase stop --all         # stop EVERY supabase project on the host, not just this one
 ```
 
-Supabase data still persists across this (only `supabase stop --no-backup` wipes it). Resuming later via `Reopen in Container` brings everything back; the next `supabase start` from-scratch takes ~30-60s on first restart (image instantiation, schema reapply via migrations + seed.sql).
+`--no-backup` is an alternative to `pnpm db:reset` when you also want to drop unmigrated ad-hoc schema; `--all` is for the multi-project-stacks-on-one-host case.
 
 ## Smoke-test commands
 

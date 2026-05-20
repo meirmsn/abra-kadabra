@@ -170,6 +170,17 @@ pnpm db:stop                # tear down (host docker engine reclaims sibling con
 
 `SUPABASE_URL` + `SUPABASE_ANON_KEY` + `SUPABASE_SERVICE_ROLE_KEY` are auto-set on every workspace start by `compose.yml` (env-block on the workspace service), pointing at `host.docker.internal:54321` + the published local-stack default JWTs — so vitest / supabase-js scripts / integration tests work without any manual env-prefix.
 
+**Auto-stop on devcontainer close.** Closing the VS Code window or "Stop Container" runs `docker compose stop`, which SIGTERMs `supabase-runner`. The relay traps it and runs `supabase stop` before exit, so the sibling `supabase_*` containers on the host engine go down with the devcontainer instead of orphan-running until you notice them in Docker Desktop. Data survives. Re-attach via Reopen in Container → relay re-runs `supabase start` → existing volumes are reused (~30s warm restart vs ~45s cold). Wired in `template/.devcontainer/supabase-runner/cmd-relay.mjs` § Shutdown + `compose.yml` § `stop_grace_period: 30s`.
+
+**Stop variants — when you need to wipe state.** `pnpm db:stop` and the auto-stop hook both run `supabase stop` (containers down, volumes preserved — next `db:start` reuses the same data). To wipe state, exec into the runner and run a variant directly:
+
+```bash
+docker exec -it <project>_devcontainer-supabase-runner-1 supabase stop --no-backup   # stop + wipe data volumes, keep config (next start is from-scratch)
+docker exec -it <project>_devcontainer-supabase-runner-1 supabase stop --all         # stop EVERY supabase project on the host, not just this one
+```
+
+Use `--no-backup` to reset the local DB to a clean slate (alternative to `pnpm db:reset` when you also want to drop unmigrated ad-hoc schema). Use `--all` only when juggling multiple project local stacks on one host and you want a full sweep.
+
 ### Host Supabase (supabase CLI on macOS host)
 
 Workspace has no docker access; supabase runs natively on macOS. `pnpm db:*` scripts don't apply (relay isn't installed under this option). From a macOS host terminal:

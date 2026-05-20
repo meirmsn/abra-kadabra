@@ -15,6 +15,15 @@
 //       on the runner side via `docker logs supabase-runner -f`.
 //       Stderr always goes to the runner's process.stderr (visible via
 //       `docker logs`) so it never corrupts stdout-only response bodies.
+//
+// Shutdown: on SIGTERM / SIGINT (fired by `docker compose stop`, which is
+//       what VS Code Dev Containers runs when you close the window or
+//       Stop Container), runs `supabase stop` before exiting. Without
+//       this, the spawned supabase_* sibling containers — owned by the
+//       host docker engine, NOT by this compose project — stay running
+//       after the devcontainer goes down. compose.yml bumps
+//       stop_grace_period to 30s so the stop has room to finish before
+//       docker SIGKILLs us.
 
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
@@ -26,6 +35,28 @@ const ALLOWED = {
   "stop":      ["supabase", "stop"],
   "gen-types": ["supabase", "gen", "types", "typescript", "--local"],
 };
+
+let shuttingDown = false;
+function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[relay] ${signal} — running 'supabase stop' before exit`);
+  const p = spawn("supabase", ["stop"], { stdio: "inherit" });
+  // 25s budget — compose's stop_grace_period is 30s; leave 5s slack so the
+  // process exits cleanly instead of getting SIGKILL'd mid-teardown.
+  const kill = setTimeout(() => {
+    console.error("[relay] supabase stop exceeded 25s; forcing exit");
+    process.exit(1);
+  }, 25_000);
+  kill.unref();
+  p.on("close", (code) => {
+    clearTimeout(kill);
+    console.log(`[relay] supabase stop exit ${code}; relay exiting`);
+    process.exit(code ?? 0);
+  });
+}
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT",  () => shutdown("SIGINT"));
 
 createServer((req, res) => {
   const key = req.url.replace(/^\//, "").split("?")[0];
