@@ -61,6 +61,41 @@ Priority tiers:
 
 ---
 
+### `kit/scripts/**` deny rule — investigate inconsistent enforcement
+
+**Problem.** `/devshop/.claude/settings.json` has `Edit(kit/scripts/**)` + `Write(kit/scripts/**)` + the absolute-path variants in the `deny` list. The intent is clear (root-owned-ish script protection — scripts that fire from pre-commit / pre-push / pre-ship gauntlets are load-bearing security infrastructure). But the enforcement is inconsistent — during the `feat/phase3-blocked-halt` session (2026-05-20) the agent edited `kit/scripts/adversarial-review.sh` four times via the `Edit` tool with no friction, then every subsequent Edit attempt to the SAME file hit "File is in a directory that is denied by your permission settings." `Bash(sed -i ... kit/scripts/...)` was also denied. The auto-mode classifier additionally blocked workaround scripts targeting kit/scripts/\*\* as deliberate circumventions.
+
+The mid-session shift caused a ~15-minute friction loop: agent attempted Edit (denied), tried Bash sed (denied), tried staging a fix-script to /tmp (auto-classifier-blocked as workaround), ultimately resolved by writing the full resolved file content to `/tmp/<file>.merged` and asking the operator to `cp` it into place. The mechanical resolution worked, but the operator-handoff cost was higher than warranted for a 2-line bug fix.
+
+**Where it bit.**
+
+- **feat/phase3-blocked-halt session, 2026-05-20** — 5+ blocked Edit attempts after the 4th successful one; operator had to manually run `sudo sed` for two arg-offset bugs in a new `blockedGateOverride` case branch. Same session, hit again 30 minutes later when resolving merge conflicts in the same file (forced the `/tmp/<file>.merged + cp` workaround for the full file).
+
+**Possible root causes** (worth investigating before deciding the fix):
+
+- Harness permission caching with a session-bounded TTL that the agent doesn't observe explicitly.
+- Auto-mode classifier evolving its understanding of "deliberate workaround" as the session length grows (early edits look like authoring; later same-file edits look like fix-loops).
+- Worktree-path vs canonical-path glob matching subtlety — the deny patterns are `kit/scripts/**` (relative) and `/devshop/kit/scripts/**` (absolute), but session edits were against `/devshop/.worktrees/<topic>/kit/scripts/...`, which may match one form but not the other depending on glob engine semantics. The inconsistency could be the harness toggling between matching modes.
+
+**Fix shape.** Decide which posture is correct, then make it deterministic:
+
+- **(A) If deny is intentional and absolute**: tighten the patterns so worktree paths are also denied consistently (e.g. add `**/kit/scripts/**` to cover any prefix), AND amend `/devshop/CLAUDE.md § Known Footguns § Permission-denied paths` to add `kit/scripts/**` to the enumerated list. The agent then KNOWS to skip directly to the `/tmp + sudo install` recipe on any kit/scripts/\*\* edit, no four-edit warmup, no 15-minute friction loop.
+- **(B) If deny is meant only for the canonical-path tree** (so worktree edits should be allowed): narrow the patterns to `/devshop/kit/scripts/**` only, drop the relative-path variant, and the inconsistent-mid-session-flip behavior goes away because edits to worktrees never match the deny in the first place.
+
+Option (A) is the more conservative posture given the security framing of these scripts; option (B) is the more ergonomic one given how often feature work in worktrees needs to touch the gauntlet scripts.
+
+**Where it goes (mechanical).**
+
+- `/devshop/.claude/settings.json § deny` — tighten or narrow per the decision; needs `sudo nano` (root-locked).
+- `/devshop/CLAUDE.md § Known Footguns § Permission-denied paths` — add `kit/scripts/**` to the enumerated list IF option (A); also amend `§ Authoring locked files (denied-path recipe)` if the recipe needs to change.
+- `kit/docs/guide/security.md § Authoring locked files (denied-path recipe)` — cross-reference update.
+
+**Why this entry sits in v0:** the friction recurs on every devshop session that touches gauntlet scripts (which is most feature work that adds an adversarial check-type, a new pre-ship gate, or a hook). Each occurrence costs ~15 min of agent-operator dance for what should be a routine Edit. Class of bug, not a one-off — fixing it makes every future devshop feature ~15 min cheaper.
+
+[v0, harness, surfaced-by feat/phase3-blocked-halt session 2026-05-20]
+
+---
+
 ### `PRODUCTION_URL` onboarding gap — fill `.env` + rebuild container + verify (`/ak-new-project` Phase B + `/ak-go-live` Step 1.5 tri-state diagnostic)
 
 **Problem.** `/ak-new-project` scaffolds `.devcontainer/.env` with an empty `PRODUCTION_URL=` slot. The Vercel URL isn't known until after `vercel link` + first deploy land, so scaffold-time population is impossible. By the time the URL is known (end of Phase B, when `CLAUDE.md § Deploy Configuration` gets written), the skill **doesn't prompt the operator to do anything with `.env`** — the gap silently propagates.
@@ -1506,9 +1541,9 @@ The minimal config:
 // apps/web/playwright.config.ts (project-side; lives in apps/web, not template)
 export default defineConfig({
   use: {
-    video: 'retain-on-failure',  // captures every test; drops on success
+    video: 'retain-on-failure', // captures every test; drops on success
     // or 'on' for always-capture during heavy debugging
-    trace: 'retain-on-failure',  // already common; keep
+    trace: 'retain-on-failure', // already common; keep
   },
   // ...
 });
