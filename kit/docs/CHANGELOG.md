@@ -2,6 +2,13 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.31.0 (2026-05-19)
+
+- chore(tests): close 2 cosmetic findings from Audit 2
+- fix(housekeeping): hook exemption + template strip + conventions dedup
+- feat(template): slow-job active from day one + Node 22 bump
+- feat(template): ship apps/web baseline + WebKit/E2E conventions
+
 ## v1.30.0 (2026-05-19)
 
 - fix(bats): unblock release — close 2 post-v1.29.0 regressions + 1 test infra bug
