@@ -234,13 +234,72 @@ M
   assert_success
 }
 
-@test "init-devshop.sh refreshes [locked] content via install -D -m 644 -o root -g root" {
-  local script="$DEVSHOP/kit/scripts/init-devshop.sh"
+@test "init-devshop.sh refreshes [locked] content via mode-deriving install" {
+  # Read the script from the same git tree as this test (SCRIPTS_DIR) so the
+  # assertion holds in worktrees too — pre-push needs to verify the
+  # mode-deriving pattern on the branch, not the deployed copy at /devshop.
+  local script="$SCRIPTS_DIR/init-devshop.sh"
   [ -f "$script" ] || skip "init-devshop.sh not found"
   # The whole point of manifest-driven init is content refresh — chown alone
   # would not have fixed .husky/pre-push (the file didn't exist locally to chown).
-  run grep -q 'install -D -m 644 -o root -g root' "$script"
+  # Mode is derived per-file from the template source so executable [locked]
+  # entries (e.g., compose-isolation init-host-env.sh + cmd-relay.mjs, 755 in
+  # template/) keep their exec bit. Hardcoded `-m 644` would silently strip it.
+  run grep -q 'src_mode=$(stat -c .%a. "$src")' "$script"
   assert_success
+  run grep -q 'install -D -m "$src_mode" -o root -g root' "$script"
+  assert_success
+  # [ -f "$src" ] absent-source guard is newly load-bearing — host-supabase /
+  # skip projects don't carry the compose-isolation files in template/, so the
+  # install loop MUST skip them silently. A future refactor that drops or
+  # inverts this guard would surface only when those projects rebuild — pin
+  # the pattern statically.
+  run grep -qE 'if \[ -f "\$src" \]; then' "$script"
+  assert_success
+}
+
+@test "regression: .devcontainer/supabase-runner is [locked-dir] in manifest" {
+  # The supabase-runner subdir needs the sticky-bit lock so node can't delete
+  # its [locked] leaves (the same defense .husky + .devcontainer get). A
+  # silent downgrade to [locked] (or drop) would leave the leaves orphan-able
+  # — Test 8 (line ~233) confirms init-devshop.sh iterates locked-dir, but
+  # nothing else pins the manifest content for this specific dir.
+  run bash -c "
+    source '$PARSE_LIB'
+    parse_manifest '$MANIFEST'
+    manifest_paths_by locked-dir
+  "
+  assert_success
+  assert_line ".devcontainer/supabase-runner"
+}
+
+@test "regression: compose-isolation files are [locked] in manifest with template sources present" {
+  # Closes ROADMAP § (C2) / PLAN.md compose-isolation-manifest-locked.
+  # Operator-skip used to leave these node:node; now the manifest loop locks
+  # them on every container start. Skipping when the four files don't exist
+  # under /devshop/template/ (host-supabase / skip projects) is intentional —
+  # the install loop's [ -f "$src" ] guard handles absence.
+  run bash -c "
+    source '$PARSE_LIB'
+    parse_manifest '$MANIFEST'
+    manifest_paths_by locked
+  "
+  assert_success
+  assert_line ".devcontainer/compose.yml"
+  assert_line ".devcontainer/init-host-env.sh"
+  assert_line ".devcontainer/supabase-runner/Dockerfile"
+  assert_line ".devcontainer/supabase-runner/cmd-relay.mjs"
+}
+
+@test "regression: compose-isolation executable sources keep 755 in template/" {
+  # init-host-env.sh + cmd-relay.mjs are 755 in template/ — the mode-deriving
+  # install loop preserves this. If a future commit accidentally drops the
+  # exec bit on the template source, the workspace copy silently loses it
+  # too — and `pnpm db:start` (which execs cmd-relay.mjs) breaks.
+  for f in .devcontainer/init-host-env.sh .devcontainer/supabase-runner/cmd-relay.mjs; do
+    [ -f "/devshop/template/$f" ] || skip "template source missing: $f"
+    [ -x "/devshop/template/$f" ] || { echo "not executable: /devshop/template/$f"; return 1; }
+  done
 }
 
 # ---------------------------------------------------------------------------

@@ -108,9 +108,12 @@ chown -h node:node "$MEMORY_LINK"
 #
 # Workspace [locked] files (template-derived) are sourced from kit/manifest.txt
 # via the shared parser at kit/scripts/sync/lib/parse-manifest.sh — single source
-# of truth. install -m 644 -o root -g root atomically refreshes content + chowns
-# + chmods, so a new template/<file> propagates on the next container start
-# without a parallel hardcoded list (this is the .husky/pre-push fix).
+# of truth. install -m <src_mode> -o root -g root atomically refreshes content +
+# chowns + chmods per-file. Mode comes from the template source so executable
+# entries (compose-isolation init-host-env.sh + supabase-runner/cmd-relay.mjs,
+# both 755 in template/) keep their exec bit while config files (644) stay 644.
+# A new template/<file> propagates on the next container start without a
+# parallel hardcoded list (this is the .husky/pre-push fix).
 #
 # Devshop-self locks (the $DEVSHOP/... and $DEVSHOP/template/... lists below) and
 # project-only locks (settings.json, settings.local.json, .dcg.toml, .env,
@@ -120,6 +123,9 @@ chown -h node:node "$MEMORY_LINK"
 # See kit/docs/guide/architecture.md § File lifecycle for the model.
 
 # Manifest-driven [locked] files: refresh content from template/ + chown root.
+# Skips entries whose template source is absent — host-supabase / skip projects
+# don't carry the compose-isolation files and the missing-source guard keeps
+# the loop silent.
 source "$DEVSHOP/kit/scripts/sync/lib/parse-manifest.sh"
 parse_manifest "$DEVSHOP/kit/manifest.txt"
 while IFS= read -r path; do
@@ -127,7 +133,8 @@ while IFS= read -r path; do
   src="$DEVSHOP/template/$path"
   dst="$WS/$path"
   if [ -f "$src" ]; then
-    install -D -m 644 -o root -g root "$src" "$dst"
+    src_mode=$(stat -c '%a' "$src")
+    install -D -m "$src_mode" -o root -g root "$src" "$dst"
   fi
 done < <(manifest_paths_by locked)
 

@@ -1220,19 +1220,18 @@ Add project-specific public key patterns (Supabase anon key, PostHog key).
 
 ### Step 21: [HUMAN] Lock security-critical files
 
-The chown/chmod set depends on the Step-2b choice — compose isolation has additional `.devcontainer/` files (compose.yml, init-host-env.sh, supabase-runner/) that need locking too. The `[ -f ]` guards on the compose-isolation files make the block silently skip them under host-supabase / skip (where they were stripped at Step 2b).
+`init-devshop.sh`'s manifest loop re-locks every `[locked]` entry on every container start — that covers the always-present `.devcontainer/*` files AND the compose-isolation siblings (`compose.yml`, `init-host-env.sh`, `supabase-runner/Dockerfile`, `supabase-runner/cmd-relay.mjs`). The Step-2b choice no longer leaks into Step 21: missing template sources are silently skipped by the lock loop's `[ -f "$src" ]` guard, so host-supabase / skip projects stay clean.
+
+`.devcontainer/.env` is created by the operator AFTER the first container start, so a one-shot lock is the only thing that has to happen by hand. (`init-devshop.sh` does lock it on every subsequent start, but the file might still be `node:node` in the current session.) Then verify:
 
 ```bash
-# Always-present (every choice):
-sudo chown root:root .devcontainer/devcontainer.json .devcontainer/init-firewall.sh .devcontainer/Dockerfile .devcontainer/checksums.sha256 .devcontainer/.env
-sudo chmod 644 .devcontainer/devcontainer.json .devcontainer/init-firewall.sh .devcontainer/Dockerfile .devcontainer/checksums.sha256 .devcontainer/.env
+sudo chown root:root .devcontainer/.env && sudo chmod 644 .devcontainer/.env
 
-# Compose-isolation only (silently skipped under host-supabase / skip):
-for f in .devcontainer/compose.yml .devcontainer/init-host-env.sh \
-         .devcontainer/supabase-runner/Dockerfile .devcontainer/supabase-runner/cmd-relay.mjs; do
-  [ -f "$f" ] && sudo chown root:root "$f" && sudo chmod 644 "$f"
-done
+# Verify every .devcontainer/* file is root-owned (should print nothing):
+find .devcontainer -maxdepth 3 -type f ! -user root
 ```
+
+If `find` reports any leaks, rebuild the devcontainer — `init-devshop.sh` re-applies the manifest on start.
 
 ### Step 22: Create keepalive.yml
 

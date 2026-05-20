@@ -25,7 +25,7 @@ Layered defenses that prevent Claude from weakening its own guardrails: root-own
 
 **Claude cannot weaken its own guardrails.** Six layers of protection enforce this:
 
-1. **Root ownership + sticky bit** — security-critical files are `root:root 644`; sticky bit on `.claude/` and `.devcontainer/` in both repos (plus `template/.devcontainer/`) prevents node from deleting root-owned files
+1. **Root ownership + sticky bit** — security-critical files are `root:root`; mode is 644 for config and 755 for executables (the `[locked]` lock loop derives mode per-file from the template source — e.g., `init-host-env.sh` + `supabase-runner/cmd-relay.mjs` stay 755 because `pnpm db:start` execs them); sticky bit on `.claude/` and `.devcontainer/` in both repos (plus `template/.devcontainer/`) prevents node from deleting root-owned files
 2. **Deny rules** — `settings.json` denies Edit/Write on itself, `.dcg.toml`, `.devcontainer/*`, guard scripts, and Bash writes to memory paths
 3. **DCG** — compiled binary blocks 49+ destructive Bash patterns (rm -rf, git reset --hard, DROP TABLE, etc.)
 4. **Git hooks** — pre-commit guards enforce clean tree, doc consistency, secret scanning
@@ -40,7 +40,8 @@ Root-owned copies (not symlinks), verified fresh on every commit. Project-worksp
 
 - `.claude/settings.json` — permissions, hooks, deny rules
 - `.dcg.toml` — destructive command patterns
-- `.devcontainer/*` — container config (Dockerfile, init-devshop.sh, init-firewall.sh, devcontainer.json, checksums.sha256, firewall-extra-domains [scaffold-once project overlay; root:root 644]), firewall, secrets
+- `.devcontainer/*` — container config (Dockerfile, init-devshop.sh, init-firewall.sh, devcontainer.json, checksums.sha256, refresh-allowed-ips.sh, init-prod-url.sh, firewall-extra-domains [scaffold-once project overlay; root:root 644]), firewall, secrets
+- `.devcontainer/compose.yml` + `.devcontainer/init-host-env.sh` + `.devcontainer/supabase-runner/{Dockerfile,cmd-relay.mjs}` — compose-isolation siblings (only present when `/ak-new-project § Step 2b` chose compose isolation; lock loop skips entries whose template source is absent). Modes: `compose.yml` + `supabase-runner/Dockerfile` = 644; `init-host-env.sh` + `supabase-runner/cmd-relay.mjs` = 755 (executed by `pnpm db:start` via the cmd-relay socat path).
 - `.husky/pre-commit` — gates commit-time guards (gitleaks, mixed-commit, Layer 1 docs/tests-coverage hooks); tampering silently disables them
 - `.husky/prepare-commit-msg` — appends `Tests-Coverage-Bypass:` / `Docs-Coverage-Bypass:` trailers when bypass flags are set; tampering hides bypass evidence from audit-time review
 - `.husky/pre-push` — gates push-time guards (no-direct-push-to-main, dirty-tree adversarial review); tampering silently disables them

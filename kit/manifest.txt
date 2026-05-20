@@ -8,7 +8,8 @@
 #   [sync]          — manual bidirectional sync via sync/from-devshop.sh +
 #                     sync/to-devshop.sh; project owns its copy and may diverge
 #   [locked]        — root-owned copy, refreshed every container start by
-#                     init-devshop.sh; project cannot edit (chown root + chmod 644)
+#                     init-devshop.sh; project cannot edit (chown root + chmod
+#                     matches template source — 644 for config, 755 for exec)
 #   [locked-dir]    — sticky-bit dir holding [locked] files (chmod 1755);
 #                     prevents node from deleting locked leaves
 #   [symlink]       — node-owned symlink to devshop, always matches devshop;
@@ -81,6 +82,16 @@ package.json [sync]
 .devcontainer/init-prod-url.sh [locked]
 .devcontainer/checksums.sha256 [locked]
 .devcontainer/firewall-extra-domains [scaffold-once]
+# Compose-isolation siblings (only present when /ak-new-project Step 2b chose
+# compose isolation; init-devshop.sh's lock loop skips entries whose template
+# source is absent, so host-supabase / skip projects stay clean). The exec
+# bit on init-host-env.sh + cmd-relay.mjs is preserved because the lock loop
+# derives mode from the template source per file.
+.devcontainer/compose.yml [locked]
+.devcontainer/init-host-env.sh [locked]
+.devcontainer/supabase-runner [locked-dir]
+.devcontainer/supabase-runner/Dockerfile [locked]
+.devcontainer/supabase-runner/cmd-relay.mjs [locked]
 .husky/ [sync]
 .husky [locked-dir]
 .husky/pre-commit [locked]
