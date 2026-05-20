@@ -176,10 +176,22 @@ setup() {
   local f="$DC/init-firewall.sh"
   run grep -q 'getent ahostsv4 host.docker.internal' "$f"
   assert_success
-  # Both supabase data-plane ports must be ACCEPTed
-  run grep -E -- '--dport 54321 -j ACCEPT' "$f"
+  # Both supabase data-plane ports must be ACCEPTed. Since 94de8d7
+  # (feat(sandbox-qa): env-aware Supabase ports), the dport literals
+  # are interpolated from $SUPABASE_API_PORT / $SUPABASE_DB_PORT (read
+  # from .devcontainer/.env, defaulting to 54321/54322). Match the
+  # quoted env-var form rather than the historical literals.
+  run grep -E -- '--dport "\$SUPABASE_API_PORT" -j ACCEPT' "$f"
   assert_success
-  run grep -E -- '--dport 54322 -j ACCEPT' "$f"
+  run grep -E -- '--dport "\$SUPABASE_DB_PORT" -j ACCEPT' "$f"
+  assert_success
+  # The env vars themselves must default to 54321/54322 if not set
+  # (Supabase upstream defaults) — guard against silent rename. The
+  # actual file may wrap the expansion in quotes (current shape) or
+  # not — relaxed regex accepts both.
+  run grep -E 'SUPABASE_API_PORT="?\$\{SUPABASE_API_PORT:-54321\}"?' "$f"
+  assert_success
+  run grep -E 'SUPABASE_DB_PORT="?\$\{SUPABASE_DB_PORT:-54322\}"?' "$f"
   assert_success
 }
 

@@ -608,6 +608,15 @@ setup() {
 # =============================================================================
 
 @test "wiring: all kit/scripts/*.sh tracked as 644 (not 755)" {
+  # Query the CURRENT git repo's index, not the hardcoded /devshop tree —
+  # otherwise feature branches in a linked worktree can't validate their
+  # own chmod fixes (the test would always reflect /devshop main's state,
+  # making it impossible to land a fix on a feature branch and have bats
+  # confirm the fix before /ak-merge-devshop runs). The current-repo
+  # resolution gracefully no-ops when bats runs from a project repo
+  # (kit/scripts isn't tracked by /workspace; ls-files returns empty).
+  local repo_root
+  repo_root=$(git rev-parse --show-toplevel 2>/dev/null || echo "$DEVSHOP")
   local wrong_mode=""
   while IFS= read -r line; do
     local mode file
@@ -616,7 +625,7 @@ setup() {
     if [ "$mode" != "100644" ]; then
       wrong_mode+="  $file (tracked as $mode, should be 100644)\n"
     fi
-  done < <(git -C "$DEVSHOP" ls-files -s 'kit/scripts/**/*.sh' 'kit/scripts/*.sh')
+  done < <(git -C "$repo_root" ls-files -s 'kit/scripts/**/*.sh' 'kit/scripts/*.sh')
 
   if [ -n "$wrong_mode" ]; then
     echo "Scripts tracked with wrong mode (init-devshop.sh locks all to 644):"
