@@ -14,14 +14,17 @@
     "db:reset": "curl -fsS -X POST http://supabase-runner:9000/db-reset",
     "db:status": "curl -fsS http://supabase-runner:9000/status",
     "db:gen-types": "curl -fsS http://supabase-runner:9000/gen-types -o packages/core/src/supabase.types.ts",
+    "db:advisor": "node scripts/advisor-probe.mjs",
     "prepare": "husky"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@types/pg": "^8.15.0",
     "eslint": "^9.39.4",
     "eslint-plugin-jsdoc": "^62.9.0",
     "husky": "^9.0.0",
     "lint-staged": "^15.0.0",
+    "pg": "^8.13.0",
     "prettier": "^3.8.1",
     "turbo": "^2.0.0",
     "typescript": "^6.0.2",

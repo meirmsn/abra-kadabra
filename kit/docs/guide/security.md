@@ -16,7 +16,9 @@ Layered defenses that prevent Claude from weakening its own guardrails: root-own
 - [Memory Write Protection](#memory-write-protection)
 - [Runtime Validation at Trust Boundaries](#runtime-validation-at-trust-boundaries)
 - [RLS-bypass write fallback ladder](#rls-bypass-write-fallback-ladder)
+- [DB hardening — SQL conventions for Supabase projects](#db-hardening--sql-conventions-for-supabase-projects)
 - [Per-environment secret split with canonical inner name](#per-environment-secret-split-with-canonical-inner-name)
+- [Authoring locked files (denied-path recipe)](#authoring-locked-files-denied-path-recipe)
 - [Known Gaps](#known-gaps)
 
 ## Core Principle
@@ -126,6 +128,78 @@ When a code path needs to write a table its caller's role can't, prefer the narr
 3. **Service-role escalation in an edge function** — the admin client can write ANY table; only acceptable when (1) and (2) are infeasible (e.g., the write must touch tables across multiple users and the auth check is multi-actor).
 
 Service-role is the last resort because the admin client's blast radius is "any row in any table," not "this specific operation." It also moves the security boundary from auditable SQL (RLS policy + RPC body) into application code, where review discipline and observability are weaker. Default to (1); reach for (2) when the operation needs cross-row state the policy can't express; reserve (3) for the genuinely-cross-user cases.
+
+## DB hardening — SQL conventions for Supabase projects
+
+Three day-1 SQL rules for every Supabase-backed project. The pre-ship gate `advisor-clean` (Gate 2g) enforces them mechanically by replicating Supabase's published Advisor lints against `pg_catalog`; this section is the authoring contract those lints encode.
+
+### 1. `SECURITY DEFINER` functions must pin `search_path`
+
+Every `create function ... language plpgsql security definer` (or `language sql security definer`) MUST include `set search_path = public, pg_temp` in its declaration. A `SECURITY DEFINER` function runs with the OWNER's privileges, not the caller's — so if a hostile schema lands earlier in the function's resolved `search_path`, an unqualified `select foo()` inside the body resolves to attacker-controlled code with owner authority. Pinning to `public, pg_temp` (and ONLY those, no leading `,` or `"$user"`) closes that hole.
+
+```sql
+-- Bad:
+create function public.mark_item_bought(item uuid)
+returns void language plpgsql security definer as $$
+begin
+  update items set bought = true where id = item;
+end;
+$$;
+
+-- Good:
+create function public.mark_item_bought(item uuid)
+returns void language plpgsql security definer
+set search_path = public, pg_temp
+as $$
+begin
+  update items set bought = true where id = item;
+end;
+$$;
+```
+
+When the function genuinely needs a different schema (e.g., `extensions` for `gen_random_uuid()`), name it explicitly: `set search_path = public, extensions, pg_temp`. Never leave it inherited.
+
+### 2. RLS policies use `(select auth.uid())`, not bare `auth.uid()`
+
+Inside a `create policy` `USING` / `WITH CHECK` predicate, wrap `auth.uid()` (and `auth.jwt()`, `auth.role()`) in a subquery so Postgres can initplan it once per statement instead of re-evaluating per row. For a 10k-row scan, the unwrapped form runs `auth.uid()` 10k times; the wrapped form runs it once. The advisor lint `auth_rls_initplan` catches this; the gate is `findings`-loud until every policy is rewrapped.
+
+```sql
+-- Bad: re-evaluates auth.uid() per row.
+create policy items_select_own on public.items
+  for select using (owner_id = auth.uid());
+
+-- Good: initplans auth.uid() once per statement.
+create policy items_select_own on public.items
+  for select using (owner_id = (select auth.uid()));
+```
+
+The rule extends to any `auth.*` SECURITY DEFINER helper Postgres can't otherwise hoist (`(select auth.jwt() ->> 'role')`, etc.). It does NOT apply to constants, plain column refs, or arithmetic — only function calls whose result is constant across the statement.
+
+### 3. Every foreign key has a backing index (or a justification comment)
+
+`foreign key (parent_id) references public.parent(id)` does NOT auto-create an index on `child.parent_id`. Deletes / updates on the parent then scan the child table linearly for every row touched. Either add an explicit index:
+
+```sql
+create index items_owner_id_idx on public.items (owner_id);
+```
+
+or inline-comment the migration to record the deliberate exception:
+
+```sql
+-- ADVISOR-EXEMPT(unindexed_foreign_key): items.owner_id —
+-- table is row-bounded (<= 50 rows per owner) and reads dominate writes;
+-- backing index would double write amplification for no measurable gain.
+alter table public.items add constraint items_owner_id_fkey
+  foreign key (owner_id) references auth.users(id) on delete cascade;
+```
+
+The gate scans for `ADVISOR-EXEMPT(<lint_name>)` markers on the same migration file and ignores findings the marker names. If the comment doesn't match the lint name, the gate treats the FK as unjustified and fails.
+
+### How this gets enforced
+
+- **Authoring time**: this section + `template/CLAUDE.md § Migration Workflow` callout. Authors are expected to write each new `create function` / `create policy` / `foreign key` with the rule in mind.
+- **Pre-ship time**: `pnpm db:advisor` runs `template/scripts/advisor-probe.mjs` against the local Supabase stack, surfacing every gap. `/ak-pre-ship § Gate advisor-clean (2g)` runs it automatically on every migration-touching PR.
+- **Bypass**: `git config devshop.advisorBypassReason "<per-finding rationale>"` short-circuits the gate after adversarial review (check-type `advisorBypassReason`, Sonnet-routed). Reserved for legitimate deferrals like "extension-in-public per project D4 — moving `pgcrypto` out of `public` would break existing call sites; tracked at TODOS.md L<n>."
 
 ## Per-environment secret split with canonical inner name
 

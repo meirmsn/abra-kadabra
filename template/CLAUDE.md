@@ -52,10 +52,19 @@ Per devshop convention, GitHub Secrets use the base name; each surface adds its 
 supabase migration new <name>   # create migration (workspace — fs only, no docker)
 pnpm db:reset                   # apply locally (relay → supabase-runner)
 pnpm db:gen-types               # regen types from local stack (relay → supabase-runner)
+pnpm db:advisor                 # DB hardening lints (run before shipping a migration)
 # Migrations deploy via CI on push-to-main
 # (.github/workflows/deploy-migrations.yml; project ref is sed-derived from
 # the SUPABASE_PROD_URL Variable).
 ```
+
+**SQL conventions** (every migration enforces these; `pnpm db:advisor` checks mechanically):
+
+1. **`SECURITY DEFINER` functions pin `search_path`**: `create function ... security definer set search_path = public, pg_temp as $$ ... $$;`. Without the pin, an unqualified call inside the body resolves through the caller's search path → schema-injection vector.
+2. **RLS policies wrap `auth.uid()` in a subquery**: `using (owner_id = (select auth.uid()))`. Bare `auth.uid()` re-evaluates per row (10× slower at scale); the subquery lets Postgres initplan it once per statement.
+3. **Every foreign key has a backing index** (or an `-- ADVISOR-EXEMPT(unindexed_foreign_key): <reason>` comment on the migration). Unindexed FKs scan the child table linearly on parent delete/update.
+
+When a finding is intentional, annotate the migration with `-- ADVISOR-EXEMPT(<lint_name>): <reason>` to scope the exemption to that lint.
 
 ## Deploy Configuration (configured by /setup-deploy)
 

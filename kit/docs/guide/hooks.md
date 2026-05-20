@@ -248,9 +248,8 @@ The targeted bypass flags work identically for humans and Claude. Two flavors:
 
 Full list in [§ 2](#2-husky-pre-commit-during-git-commit) and [§ 3](#3-husky-pre-push-during-git-push). The trailer mechanism is documented in `kit/docs/guide/conventions.md § Bypass trailers`.
 
-**Pre-ship-time additions to the adversarial-review surface.** One check-type
-runs at pre-ship time rather than commit-time, so it has no `git -c devshop.<key>`
-flag — the rationale lives in the spec body itself:
+**Pre-ship-time additions to the adversarial-review surface.** Two check-types
+run at pre-ship time rather than commit-time:
 
 - `coreUserStoryNaReason` — invoked from `kit/scripts/preship/verify-story.sh`
   when a spec's `## Core user story` body declares `N/A — <reason>` and Gate 9's
@@ -258,8 +257,20 @@ flag — the rationale lives in the spec body itself:
   rationale names a verifiable file/path claim (`no .tsx files modified`,
   `diff is supabase/migrations/** only`) — PASS — or interpretive prose (`no
 visible UI change`, `cosmetic only`) — FAIL. Routes to Sonnet (interpretive
-  judgment is not Haiku-tier). On reject, the verdict propagates to stdout and
-  lands in `review.md § Gate 9` as the fix recipe.
+  judgment is not Haiku-tier). No `git -c devshop.<key>` flag — the rationale
+  lives in the spec body itself. On reject, the verdict propagates to stdout
+  and lands in `review.md § Gate 9` as the fix recipe.
+- `advisorBypassReason` — invoked from `kit/scripts/preship/advisor-clean.sh`
+  (Gate 2g) when the operator has set `git config devshop.advisorBypassReason
+"<reason>"` to short-circuit the DB-hardening advisor probe (`pnpm db:advisor`,
+  9 lints against `pg_catalog` — see `kit/docs/guide/security.md § DB
+hardening`). The reviewer judges per-finding rigor (which lint, which object,
+  why the deviation is intentional, where the deferral is tracked) — PASS — vs
+  generic dismissal (`extension-in-public is fine`, `we'll fix it later`) —
+  FAIL. Routes to Sonnet; inlines `kit/docs/guide/conventions.md § Supabase
+Hardening Defaults` as convention context for the judgment. The bypass flag
+  IS a `git config` key (unlike `coreUserStoryNaReason`) — the rationale
+  belongs at the migration-author level, not in the spec.
 
 Performance notes:
 
@@ -382,7 +393,7 @@ The `GUIDES_TO_INCLUDE` map fired only for `docsReviewed`, which moved to audit-
 | Model      | Check-types                                                                                                        | Rationale                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ---------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Haiku 4.5  | `dirtyTreeReason`, `dirtyPushReason`, `manifestReviewed`                                                           | Pure rule-application: does the reason name specific files? does the manifest decision reasoning hold? False-passes are recoverable (operator notices via downstream symptoms).                                                                                                                                                                                                                                                                                                            |
-| Sonnet 4.6 | `prTextHygieneReason`, `testReviewSkipReason`, `localTestSkipReason`, `dismissalLog`, `hookBypass`, `exemptAddition` | PR titles + descriptions + body shape are the canonical reviewer-facing record; `testReviewSkipReason` ships unaudited polish-loop coverage gaps to merge; `localTestSkipReason` skips the cheap-test-gates-local floor on a stack-needing diff; `dismissalLog` weighs spec scope; `hookBypass` can leak secrets via gitleaks bypass; an unreviewed exempt entry silently disables the upstream gate forever. (The `docsReviewed` / `testCoverage` / `testCoverageProject` entries moved to audit-time in PR-C.) |
+| Sonnet 4.6 | `prTextHygieneReason`, `testReviewSkipReason`, `localTestSkipReason`, `dismissalLog`, `hookBypass`, `exemptAddition`, `coreUserStoryNaReason`, `advisorBypassReason` | PR titles + descriptions + body shape are the canonical reviewer-facing record; `testReviewSkipReason` ships unaudited polish-loop coverage gaps to merge; `localTestSkipReason` skips the cheap-test-gates-local floor on a stack-needing diff; `dismissalLog` weighs spec scope; `hookBypass` can leak secrets via gitleaks bypass; an unreviewed exempt entry silently disables the upstream gate forever; `coreUserStoryNaReason` decides whether a spec's "no user story" claim is a verifiable file-system fact or interpretive cover; `advisorBypassReason` decides whether a DB-hardening lint deferral is per-finding rigor or a generic dismissal — a false-pass would ship an un-pinned `SECURITY DEFINER` or unwrapped RLS policy past the `advisor-clean` (Gate 2g). (The `docsReviewed` / `testCoverage` / `testCoverageProject` entries moved to audit-time in PR-C.) |
 
 Routing lives in `get_model_for_check_type` near the bottom of `adversarial-review.sh`. Override via `DEVSHOP_ADVERSARIAL_MODEL_OVERRIDE=sonnet` to upgrade a Haiku check for a high-stakes commit. Operator pattern: ask Claude to "use the upgraded adversarial review" and Claude prepends the env var.
 
@@ -418,4 +429,4 @@ git config devshop.testReviewSkipReason "<per-finding rationale>"
 
 The default is REJECT — the audit already weighed signal vs noise; high-severity findings reflect real gaps. The override exists for genuinely-justified ship-now cases (e.g., the test fixture is blocked on infrastructure that lands next week and is tracked in TODOS).
 
-This is the only adversarial-review check-type whose surface isn't a git hook — it fires inside the `/ak-build` skill rather than at commit or push time. The bypass flag and per-check-type model routing are otherwise identical to the rest.
+`testReviewSkipReason` is invoked from `/ak-build` Phase 5.8 rather than from a git hook — like `coreUserStoryNaReason` (pre-ship Gate 9 via `verify-story.sh`), `advisorBypassReason` (pre-ship Gate 2g via `advisor-clean.sh`), and `dismissalLog` (pre-ship per-gate via `router-shim.sh`), it extends the adversarial-review surface beyond commit/push. The bypass flag and per-check-type model routing are otherwise identical to the rest.

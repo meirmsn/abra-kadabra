@@ -20,5 +20,16 @@
 - `pnpm turbo run test` — full test suite
 - `pnpm turbo run build` — production build
 - `pnpm turbo run dev` — dev server
+- `pnpm db:reset` — apply migrations against the local Supabase stack
+- `pnpm db:advisor` — run DB hardening lints (search_path, RLS initplan wrap, FK index discipline, etc.) — run this before shipping a migration
 
 > Without the devcontainer: `pnpm install && pnpm turbo run dev`
+
+### Local URLs
+
+When the devcontainer is up:
+
+- **App**: <http://localhost:3000>
+- **Supabase Studio**: <http://localhost:54323>
+- **Mailpit** (auth emails): <http://localhost:54324>
+- **Supabase API**: <http://localhost:54321>

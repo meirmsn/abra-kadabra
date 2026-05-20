@@ -252,6 +252,7 @@ vs `review` so readers can tell at a glance which gates come from where.
 | 2d  | `fast-job-local`               | ak    | CI fast-job equivalent (lint + tc + unit + build) | when `turbo.json` exists                                                                                                                        |
 | 2e  | `migration-rollback-roundtrip` | ak    | Migration rollback round-trip                     | when diff touches `supabase/migrations/**`                                                                                                      |
 | 2f  | `changed-tests-local`          | ak    | Cheap local test gates (parse + changed + smoke)  | when diff includes `apps/**`, `packages/{core,ui}/**`, `*.integration.test.ts`, `apps/*/e2e/*.spec.ts`, or `supabase/{migrations,functions}/**` |
+| 2g  | `advisor-clean`                | ak    | DB hardening advisor lints (9 lints, pg_catalog probe) | when diff touches `supabase/migrations/**` or `supabase/functions/**`; requires project's `pnpm db:advisor` script (template-shipped 2026-05-20) |
 | 3   | `responsive-theme`             | ak    | Responsive + theme capture                        | UI PRs only                                                                                                                                     |
 | 4   | `simplify`                     | —     | `/simplify` pass                                  | always                                                                                                                                          |
 | 5   | `docs-and-tests-review`        | ak    | `/ak-check-docs-and-tests`                        | always                                                                                                                                          |
@@ -502,6 +503,33 @@ Outcomes:
 **Bypass:** `git config devshop.localTestSkipReason "<why these are OK to skip locally>"` short-circuits the gate after invoking adversarial review on the reason. Same shape as `devshop.testReviewSkipReason` / `devshop.dirtyPushReason`. Default REJECT — passes require per-category engagement, no core-flow dismissal, plausible follow-up commitment, no security-boundary skips.
 
 **Preflight contract:** the preflight Supabase bootstrap (`kit/scripts/preship/supabase-bootstrap.sh up`) reads the same path-classifier and `git config devshop.requireHealthyLocalStack` (default `when-relevant`) — when the diff is stack-needing AND the local stack is degraded, preflight promotes the legacy `pass-with-note` outcome to `blocked`, which halts the pipeline before this gate runs. Set `devshop.requireHealthyLocalStack never` to opt out (legacy `pass-with-note` behavior preserved).
+
+## Gate advisor-clean (ak): DB hardening advisor lints
+
+Mechanical replica of 9 Supabase Advisor lints against `pg_catalog` on the local stack. Catches the class of DB-hardening gaps codified in `kit/docs/guide/security.md § DB hardening — SQL conventions for Supabase projects`: `SECURITY DEFINER` functions without pinned `search_path`, RLS policies that call bare `auth.uid()` (per-row evaluation instead of initplan), unindexed foreign keys, multiple permissive policies for the same {role, op}, security-definer views, RLS-enabled tables with zero policies, RLS-disabled tables in `public`, extensions installed in `public`, and duplicate indexes.
+
+Position rationale: runs after `changed-tests-local` (2f) — the slow-job preview gates already exercised the DB; the advisor probe is the last mechanical check before the LLM-mediated ceremony. Probing pg_catalog is cheap (~1s wall-clock vs the ~5 min tests above it); the slight ordering inefficiency vs running earlier is outweighed by the smaller table-renumber blast radius on insertion.
+
+- Scope: runs when `git diff --name-only --diff-filter=AM origin/main...HEAD` touches `supabase/migrations/**` or `supabase/functions/**`. Otherwise `n/a (no migration or function changes in diff)`. Also `n/a` when the project has no `supabase/migrations/` directory, no `package.json`, or no `db:advisor` script (pre-2026-05-20 projects need the backfill recipe in `kit/docs/guide/security.md § DB hardening`).
+- Out of scope: replicating Supabase's hosted-advisor billing/usage lints; validating data-shape constraints (integration tests do that); running against remote DB; installing or starting the local stack (Phase 0's `supabase-bootstrap.sh` handles that — this gate assumes the stack is up).
+
+Invocation:
+
+```bash
+bash /devshop/kit/scripts/preship/advisor-clean.sh "$(git rev-parse --show-toplevel)"
+```
+
+Outcomes:
+
+- `pass` — every lint returned zero findings (or the finding's lint name is annotated as `ADVISOR-EXEMPT(<lint_name>)` somewhere under `supabase/migrations/`).
+- `findings (N)` — N gaps. Stdout enumerates each lint, the object(s) it flagged, and the canonical fix hint. Below the findings, a fix recipe pointer to `kit/docs/guide/security.md § DB hardening`.
+- `n/a (no supabase/migrations directory)` / `n/a (no db:advisor script in package.json — backfill from template per ...)` / `n/a (no migration or function changes in diff)` — scope short-circuits.
+- `blocked (local Supabase Postgres unreachable on ...)` — preflight's stack bootstrap didn't bring Postgres up. Fix: re-run `bash /devshop/kit/scripts/preship/supabase-bootstrap.sh up` or restart `supabase-runner` from a macOS terminal.
+- `blocked (advisor-probe failed): ...` — the probe itself errored (e.g. `pg` not installed in `node_modules`, or pg_catalog query syntax error against an unexpectedly-old Postgres). Fix: re-run `pnpm install` to restore the `pg` devDep; if it still fails, surface the probe error to the operator.
+- `pass (skipped — adversarially reviewed)` — `git config devshop.advisorBypassReason "<reason>"` is set and adversarial review (check-type `advisorBypassReason`, Sonnet-routed) accepted the reason.
+- `findings (1) pending` — bypass flag set but adversarial review FAILed the reason; gate emits the reviewer's verdict.
+
+**Bypass:** `git config devshop.advisorBypassReason "<per-finding rationale + TODOS pointer>"` short-circuits the gate after adversarial review. Default REJECT — passes require per-finding engagement (which lint, which object, why the deviation is intentional, where the deferral is tracked). Generic "extension-in-public is fine" or "we'll fix it later" reasons fail. For per-migration exemptions, annotate the migration directly with `-- ADVISOR-EXEMPT(<lint_name>): <reason>` (markers are scanned from `supabase/migrations/**`) — that scopes the exemption to one lint instead of the whole repo.
 
 ## Gate 3: Responsive + theme check (UI PRs only)
 

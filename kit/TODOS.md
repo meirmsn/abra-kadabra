@@ -7,6 +7,10 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
 <!-- Items discovered during use. Tag with [v0.2], [v1] etc. to schedule into ROADMAP versions. -->
 
+- [ ] **advisor-probe.mjs: live-Postgres integration coverage.** The 9 `pg_catalog` SQL queries in `template/scripts/advisor-probe.mjs` (function_search_path_mutable, auth_rls_initplan, unindexed_foreign_key, multiple_permissive_policies, security_definer_view, rls_disabled_in_public, rls_enabled_no_policy, extension_in_public, duplicate_index) are not exercised against any Postgres instance today. The bats spec is source-grep only; the pre-ship `advisor-clean` gate stubs both `psql` and `pnpm` in tests. A typo in any lint's WHERE clause (e.g. `pg_policy` vs `pg_policies`, missing schema filter, wrong column type cast) ships invisibly. Manual smoke against a project devcontainer's supabase-runner is the current dogfood path but not regression coverage. Add an integration spec under `kit/tests/` that either boots a throwaway Postgres via `pg-mem` / one-shot `docker run postgres` (gated on docker-daemon reachability in the devshop's own devcontainer) or runs against `supabase-runner:54322` when reachable. Per-lint fixtures: seed a known-buggy schema for each lint and assert the probe flags the expected object. Blocks: today's devshop devcontainer has no Postgres binary and no Docker daemon — needs either a setup step that brings one of those in, or CI-side coverage with a Postgres service. [tests, db-hardening, blocked-by-environment, surfaced-by audit-1 of db-hardening-template-lift, 2026-05-20]
+
+- [ ] **advisor-probe.mjs: behavior-test `loadExemptions()` instead of source-grep.** The bats test for ADVISOR-EXEMPT marker parsing greps the source for the regex literal and the `exemptions.has(...)` call site. A regression where `loadExemptions()` returns an empty Set unconditionally (broken readdir loop, case-mismatched regex flag, typo in the marker scan) passes the test cleanly — operators would see findings on a lint they had annotated and have no signal that the exemption mechanism is dead. Refactor `loadExemptions` into an exported helper; unit-test it by writing fixture migrations under a temp dir and asserting the returned Set contains expected lint names (and rejects unknown ones). Small change (extract function + 3-4 bats); deferred only because v0 ships and the medium-blast-radius live-Postgres gap above is the bigger lever. [tests, db-hardening, surfaced-by audit-1 of db-hardening-template-lift, 2026-05-20]
+
 - [ ] **Existing-project migration: strip pre-seeded PRODUCT-ROADMAP + CLAUDE.md gotcha content from lalista and home-os.** The `chore/convention-housekeeping` bundle (2026-05-19, devshop commit `3633daa`) stripped 3 pre-seeded entries from `template/PRODUCT-ROADMAP.md` (PWA SW caching, visual regression testing, API perf baselines) and the pre-seeded PostgREST `data: null` gotcha from `template/CLAUDE.md § Gotchas`. Both files are `[scaffold-once]` in `kit/manifest.txt` — sync-from-devshop skips them on purpose (projects own their CLAUDE.md / roadmap content), so existing projects don't get the strip automatically.
 
   **Per-project recipe** (run inside each project's container, on a feature branch):
@@ -468,51 +472,6 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
   **Cross-ref**: depends on the latency-feedback framework (`kit/ROADMAP.md § Latency feedback framework — 5-tier decision rule + primitives`) for the "which surfaces are Tier A2?" lookup. Either ships first; if this lands first, the lookup is a manual spec annotation; once the framework ships, the lookup is automatic via `useOptimisticMutation` call-site detection.
 
   [v0, pre-ship-gate, surfaced-by lalista-PR49-fix-loop, 2026-05-07]
-
-- [ ] **Lift db-hardening conventions to template (Supabase projects).** [v0]
-      Source: lalista PR #58 (`feature/db-hardening`, migration `014_advisor_findings.sql`).
-      Full 5-diff proposal at `meirmsn-lalista:specs/db-hardening/devshop-lift-proposal.md` —
-      pull from there when picking up; don't re-derive.
-
-  **What ships**:
-  1. Day-1 SQL conventions in `template/CLAUDE.md § Migration Workflow` —
-     every `SECURITY DEFINER` function gets `set search_path = public, pg_temp`,
-     every RLS policy uses `(select auth.uid())` (never bare `auth.uid()`),
-     every FK has a backing index OR an inline-comment justification.
-  2. New `template/scripts/advisor-probe.mjs` — Node + `pg` script replicating 9
-     advisor lints against `pg_catalog` (function search_path, auth_rls_initplan,
-     unindexed FKs, multiple permissives, security_definer views, RLS disabled,
-     RLS no policy, extension_in_public, duplicate index). Wire to `pnpm db:advisor`.
-  3. New `/ak-pre-ship` `advisor-clean` gate that runs the probe post-`db:reset`
-     and fails on any new finding (with `git config devshop.advisorBypassReason`
-     escape hatch for explicit deferrals like "extension-in-public per project D4").
-  4. `template/README.md` Local URLs section (Studio at 54323, Mailpit at 54324,
-     API at 54321, dev server at 3000) plus the "run Advisor before shipping a
-     DB change" + "`pnpm db:reset` first so Studio sees the latest migration"
-     discipline. Already shipped to lalista's README in the same PR.
-  5. Paired `kit/ROADMAP.md § v0` entry "DB hardening conventions for Supabase
-     projects" — when this TODO promotes to active work, transcribe the proposal's
-     Diff 5 entry into ROADMAP.
-
-  **Why v0 — blocks next-project adoption.** Lalista PR #58's audit-time review
-  named 8 RLS policies for `auth.uid()` rewrap; a re-probe at PR-58 dogfood
-  surfaced 2 more the original audit missed. Pre-ship `/cso` separately caught
-  a privilege regression where migration 005's `with check (auth.uid() is not null)`
-  would have been reverted to migration 001's `with check (true)`. The next
-  Supabase-backed project hits the same gaps without the day-1 conventions +
-  the `advisor-clean` gate.
-
-  **Three structural lessons** (full prose at lalista's `BUILD-LOG.md § db-hardening § Notes`):
-  (a) Audit-as-snapshot vs audit-as-source-of-truth — re-probe at PR build time,
-  not just stop at the audit's named list.
-  (b) Drop+recreate-policy migrations need migration-history tracing — find the
-  LATEST policy body, not migration-001's.
-  (c) `pnpm db:reset` discipline before trusting Studio's advisor output (Studio
-  caches advisor state across runs).
-
-  **Edit targets**: `template/CLAUDE.md` (§ Migration Workflow append), `template/scripts/advisor-probe.mjs` (new), `template/package.json` (`db:advisor` script), `.claude/skills/devshop/pre-ship/SKILL.md` (new gate), `template/README.md` (Local URLs section), `kit/ROADMAP.md § v0` (paired entry).
-
-  [v0, supabase, surfaced-by lalista-PR-58, 2026-05-08]
 
 - [ ] **Port the `tap-feedback` press-state contract from lalista into the template's `globals.css`.** Lalista PR (2026-05-13, polish bundle) added a low-specificity `:where(button, a[href], [role="button"]):active` rule that scales 0.97 + drops brightness to 0.9 within `--duration-micro` (75ms), with `touch-action: manipulation` to kill iOS's 300ms tap delay. Without it, taps on iOS PWA give no native press cue and users assume the app froze (or double-tap). Every devshop-generated project should ship this on day one.
 

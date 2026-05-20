@@ -410,13 +410,43 @@ ${SPEC_CORE_STORY:-(not declared — spec lacks Core user story section)}
 === Spec § In scope (what's committed for this PR) ===
 ${SPEC_IN_SCOPE:-(not available)}"
     ;;
+  advisorBypassReason)
+    # Called by kit/scripts/preship/advisor-clean.sh when the user has set
+    # `git config devshop.advisorBypassReason "..."` to short-circuit the
+    # DB-hardening advisor gate. The reviewer judges whether the reason is
+    # load-bearing (per-finding rationale + TODOS pointer) against the actual
+    # advisor findings — not against a generic "extension-in-public is fine"
+    # claim.
+    BRANCH=$(git branch --show-current 2>/dev/null || true)
+    HEAD_SHA=$(git rev-parse HEAD 2>/dev/null || echo "(unknown)")
+    MIG_DIFF=$(git diff --name-only --diff-filter=AM origin/main...HEAD 2>/dev/null \
+      | grep -E '^supabase/(migrations|functions)/' \
+      | head -20 || true)
+    CONTEXT="The user is bypassing the advisor-clean pre-ship gate (Gate 2g).
+
+The gate runs 9 advisor lints (function search_path, auth_rls_initplan,
+unindexed FKs, multiple permissives, security_definer views, RLS
+disabled / no-policy, extension_in_public, duplicate indexes) — each
+encodes a DB-hardening rule from kit/docs/guide/security.md § DB
+hardening. The bypass claims one or more findings are acceptable to
+ship despite the lint flag.
+
+Branch: $BRANCH
+HEAD SHA: $HEAD_SHA
+
+Migration / function files in this diff:
+${MIG_DIFF:-(none — bypass on a non-migration PR is itself suspicious)}
+
+Bypass reason (the text being judged):
+$REASON"
+    ;;
   *)
     # Unknown / removed check-type. PR-C narrowed the supported set —
     # docsReviewed, testCoverage, testCoverageProject, docsFreshnessProject all
     # moved to audit-time `/ak-check-docs-and-tests`. A stale caller hits this
     # branch and surfaces immediately rather than silently no-op'ing.
     echo "FAIL: unknown check type: $CHECK_TYPE" >&2
-    echo "  Surviving check-types: prTextHygieneReason | dirtyTreeReason | dirtyPushReason | manifestReviewed | hookBypass | exemptAddition | testReviewSkipReason | localTestSkipReason | coreUserStoryNaReason | dismissalLog"
+    echo "  Surviving check-types: prTextHygieneReason | dirtyTreeReason | dirtyPushReason | manifestReviewed | hookBypass | exemptAddition | testReviewSkipReason | localTestSkipReason | coreUserStoryNaReason | dismissalLog | advisorBypassReason"
     echo "  Coverage reviews (docsReviewed / testCoverage / testCoverageProject / docsFreshnessProject) moved to audit-time /ak-check-docs-and-tests in PR-C — see kit/ROADMAP.md."
     exit 1
     ;;
@@ -476,6 +506,14 @@ get_conventions_to_inline() {
       # the reviewer should judge new exempt entries against the same rules
       # the gates themselves enforce.
       echo "Test Presence|Project Docs Coverage|Project Docs Hierarchy"
+      ;;
+    advisorBypassReason)
+      # DB-hardening advisor bypass — the reviewer judges per-finding rationale
+      # against the Supabase hardening conventions and the security-side
+      # SQL rules. Inlining Supabase Hardening Defaults gives the reviewer
+      # the migration-time policy + ON DELETE context that the lint rules
+      # are themselves enforcing.
+      echo "Supabase Hardening Defaults"
       ;;
     dismissalLog)
       case "$gate_name" in
@@ -598,7 +636,7 @@ get_model_for_check_type() {
     return
   fi
   case "$1" in
-    prTextHygieneReason|testReviewSkipReason|localTestSkipReason|coreUserStoryNaReason|dismissalLog|hookBypass|exemptAddition)
+    prTextHygieneReason|testReviewSkipReason|localTestSkipReason|coreUserStoryNaReason|dismissalLog|hookBypass|exemptAddition|advisorBypassReason)
       echo "sonnet"
       ;;
     dirtyTreeReason|dirtyPushReason|manifestReviewed)

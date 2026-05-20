@@ -16,6 +16,8 @@ Schema-mutating changes to a Supabase project ride two boundaries: the migration
 
 ## Supabase Hardening Defaults
 
+> **See also:** `kit/docs/guide/security.md § DB hardening — SQL conventions for Supabase projects` for the three SQL-shape rules every migration ships with (`search_path` pin on `SECURITY DEFINER`, `(select auth.uid())` rewrap in RLS policies, FK backing-index discipline). Those rules are enforced by the pre-ship `advisor-clean` gate via `pnpm db:advisor`.
+
 What `/ak-new-project` Step 17b applies to every new Supabase project, and why:
 
 | Setting                    | Default (free-tier)     | Hardened                           | Rationale                                                                                                                                                |
