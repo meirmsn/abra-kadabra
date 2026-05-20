@@ -248,7 +248,7 @@ vs `review` so readers can tell at a glance which gates come from where.
 | 1   | `docs-check`                   | ak    | Devshop docs diff review                          | when `kit/` or reference docs touched                                                                                                           |
 | 2   | `metrics-check`                | ak    | Metrics coverage                                  | user-facing code PRs                                                                                                                            |
 | 2b  | `rls-coverage`                 | ak    | RLS policy coverage for client writes             | when `supabase/migrations/**` or client API touched                                                                                             |
-| 2c  | `slow-job-lifecycle`           | ak    | Slow-job CI enabled past Phase 1c/1g              | when `*.integration.test.ts` or `apps/web/e2e/*.spec.ts` files exist                                                                            |
+| 2c  | `slow-job-lifecycle`           | ak    | Slow-job CI active + structurally intact          | always (regression guard; slow-job ships active from day one per template-ci-overhaul, 2026-05-19)                                              |
 | 2d  | `fast-job-local`               | ak    | CI fast-job equivalent (lint + tc + unit + build) | when `turbo.json` exists                                                                                                                        |
 | 2e  | `migration-rollback-roundtrip` | ak    | Migration rollback round-trip                     | when diff touches `supabase/migrations/**`                                                                                                      |
 | 2f  | `changed-tests-local`          | ak    | Cheap local test gates (parse + changed + smoke)  | when diff includes `apps/**`, `packages/{core,ui}/**`, `*.integration.test.ts`, `apps/*/e2e/*.spec.ts`, or `supabase/{migrations,functions}/**` |
@@ -377,11 +377,11 @@ Outcomes:
 
 **⚠ May change code (operator-applied fix in a new migration).** If the gate emits findings and the operator adds a migration, run `pnpm turbo run test:unit` after; if any integration tests exist they should be re-run too. The gate itself is read-only.
 
-## Gate slow-job-lifecycle (ak): Slow-job CI is enabled past the Phase 1c/1g threshold
+## Gate slow-job-lifecycle (ak): Slow-job CI active + structurally intact
 
-Mechanical check that the project's `.github/workflows/ci.yml` slow-job is correctly configured once the project ships integration tests (`*.integration.test.ts`) or Playwright E2E specs (`apps/web/e2e/*.spec.ts`). Catches the failure mode where a project crosses the Phase 1c / 1g threshold but leaves the slow-job stub commented out (uncommented but with the wrong `if:` predicate, or stripped of the lalista-PR-26 edge-runtime retry pattern, or branch protection still gating only on `fast`). See `kit/docs/guide/conventions.md § Slow-Job Lifecycle` for the convention this gate enforces.
+Regression guard for the day-one-active slow-job (since `template-ci-overhaul`, 2026-05-19). Mechanical check that the project's `.github/workflows/ci.yml` slow-job hasn't been re-commented or hollowed out, and that the per-step empty-state guards / unguarded ambient signal / changes-job wiring stay in canonical shape. See `kit/docs/guide/conventions.md § Slow-Job Lifecycle` for the convention this gate enforces.
 
-- Scope: runs when `find packages/ apps/ -name '*.integration.test.ts'` finds any file, OR `find apps -path '*/e2e/*.spec.ts'` finds any file. Otherwise `n/a (no integration tests or E2E specs — Phase 1c/1g threshold not crossed)`.
+- Scope: always runs (no gating on threshold). The slow-job ships active from the template, so the invariant — and this gate — applies to every project that has a `.github/workflows/ci.yml`.
 - Out of scope: actually running the slow job, validating test content, repairing the workflow YAML. Read-only check; operator applies fixes.
 
 Invocation:
@@ -392,10 +392,9 @@ bash /devshop/kit/scripts/preship/slow-job-lifecycle-check.sh "$(git rev-parse -
 
 Outcomes:
 
-- `pass` — slow-job is uncommented, `if:` predicate is `pull_request`, edge-runtime retry pattern is wired, branch protection includes `slow`, and the test glob matches at least one repo-resident file.
-- `findings (N)` — N misconfigurations. Stdout enumerates each gap with the canonical fix recipe inline. Common gaps: stub still commented out, `if:` predicate wrong shape, retry pattern stripped, branch protection missing `slow` context, integration/E2E files exist but the slow job doesn't invoke them.
+- `pass` — slow-job is active (uncommented); `if:` predicate carries both `github.event_name == 'pull_request'` and the `needs.changes.outputs.runtime == 'true'` gate; edge-runtime retry pattern wired; per-step `hashFiles()` guards present on Playwright + migration steps when the matching content is missing; `Start local Supabase` is unguarded (ambient health signal); `changes:` job wired with the `runtime` output + slow-job's `needs:` + `if:` consuming it; branch protection includes `slow`.
+- `findings (N)` — N misconfigurations. Stdout enumerates each gap with the canonical fix recipe inline. Common gaps: stub re-commented, `if:` predicate missing the pull_request gate (rescoped Check 2 detects this even when the `changes:` job's `if:` matches elsewhere), retry pattern stripped, hashFiles guard absent on a content-less project (Check 4 — content-scoped), hashFiles guard accidentally added to `Start local Supabase` (Check 4b), `changes:` job missing or its `runtime` output not wired (Check 6), branch protection missing `slow` (Check 7).
 - `n/a (no .github/workflows/ci.yml)` — projects without GitHub Actions CI.
-- `n/a (no integration tests or E2E specs — Phase 1c/1g threshold not crossed)` — pre-Phase-1c projects.
 
 **⚠ Branch-protection check is best-effort.** When `gh` CLI auth is missing or the repo isn't on GitHub yet, the protection check silently degrades (no finding emitted for that sub-check). Operators on a fresh devcontainer should re-run the gate after `gh auth login` to surface a real protection-state finding if any.
 

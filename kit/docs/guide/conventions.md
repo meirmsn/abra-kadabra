@@ -13,9 +13,11 @@ Single source of truth for conventions referenced by multiple skills. Skills poi
 - [Screenshot Routing](#screenshot-routing)
 - [Deploy Boundaries](#deploy-boundaries)
 - [Slow-Job Lifecycle](#slow-job-lifecycle)
-  - [Uncommenting checklist](#uncommenting-checklist)
+  - [Why active from day one](#why-active-from-day-one)
+  - [Per-step empty-state guards](#per-step-empty-state-guards)
   - [Helper scripts](#helper-scripts)
-  - [Structural enforcement](#structural-enforcement)
+  - [Extending the active stub](#extending-the-active-stub)
+  - [Structural enforcement (regression guard)](#structural-enforcement-regression-guard)
   - [Skip-on-docs-only filter](#skip-on-docs-only-filter)
   - [Codified prior art](#codified-prior-art)
   - [Cross-reference: Local Pre-Push Test Gates](#cross-reference-local-pre-push-test-gates)
@@ -157,23 +159,25 @@ Default to option 2 for production-impact mutating migrations; option 1 is fine 
 
 CI's `slow:` job is the home for tests that need a real Supabase stack: integration tests (`*.integration.test.ts` reading the local stack via `VITEST_INTEGRATION=1`), Playwright E2E specs (`apps/web/e2e/*.spec.ts`), type-drift validation (`scripts/ci-type-drift.sh`), rollback round-trip checks (`scripts/ci-rollback-explain.sh`), and edge-function deploys against the local stack. The `fast:` job is unit tests + lint + typecheck + build — no DB, no functions, no headless browser.
 
-Templates ship the slow job **commented out**, with a Phase 1c / 1g threshold:
+**Slow-job ships ACTIVE from day one** (since the template-ci-overhaul branch, 2026-05-19). Brand-new projects with zero migrations and zero E2E specs short-circuit via per-step `if: hashFiles(...) != ''` guards: no `supabase/migrations/*.sql` → skip type-drift + rollback round-trip; no `apps/web/e2e/**/*.spec.ts` → skip Playwright install + build + run. The `Start local Supabase` step runs unconditionally as ambient health signal, so the slow-job completes in ~30s on a fresh scaffold and grows naturally as content lands — no Phase 1c / 1g threshold flip, no operator-memory dependency, no skill-prose handoff.
 
-- **Phase 1c** — first integration test arrives (`*.integration.test.ts` exists in any package). Trigger: a feature requiring DB-state assertions (RLS coverage, two-user race conditions, schema-dependent shape).
-- **Phase 1g** — first Playwright E2E spec arrives (`apps/web/e2e/*.spec.ts`). Trigger: a feature whose primary verb needs an end-to-end browser walk (auth flows, multi-screen interactions).
+### Why active from day one
 
-When a project crosses either threshold, the spec that adds the test must include the slow-job uncomment in the same PR — not as a follow-up — so coverage and gating land together. `/ak-spec` surfaces the threshold-crossing as an explicit decision row when a spec includes the project's first integration test or Playwright spec.
+The pre-2026-05-19 model shipped the slow-job commented out and required the spec adding the project's first integration test or Playwright spec to uncomment it. The model didn't survive contact with the build loop: three consecutive home-os PRs (PR #9 RLS-isolation, PR #10 magic-link, PR #15 capture-flow) crossed the threshold without flipping the stub. Each pre-ship raised `Gate 2c findings_pending`, each PR shipped with the finding as "infra carry-over," each next PR inherited the gap. Root cause: the devcontainer PAT lacks `workflow` scope, so the agent cannot push `.github/workflows/**` changes; the task gets routed to the human operator and persists. Shipping the slow-job active from the template removes the routing problem entirely — the first PR that lands an integration test or E2E spec is gated by CI automatically, no operator action.
 
-### Uncommenting checklist
+### Per-step empty-state guards
 
-When the threshold is crossed:
+The slow-job's heavy steps gate on file existence via GitHub Actions' `hashFiles(<glob>) != ''` predicate:
 
-1. **Uncomment the `slow:` block** in `.github/workflows/ci.yml`. The template stub already includes the lalista-PR-26-codified `supabase_edge_runtime` health-check retry — preserve it; don't strip the retry loop.
-2. **Verify the `if:` predicate** matches `github.event_name == 'pull_request'` (not `push`). Slow-job runs on PRs only — pushing to a feature branch shouldn't burn CI minutes on the slow path until the PR opens.
-3. **Wire env vars from the live local stack**, not from CI Variables/Secrets directly: `supabase status -o env >> $GITHUB_ENV` after `supabase start` resolves `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` to the actual just-spun-up stack. The Variables shadow these for the fast-job (build-only) but the slow-job needs the live values.
-4. **Re-export `ANTHROPIC_API_KEY_QA` as `ANTHROPIC_API_KEY`** for any test step exercising an edge function that calls Claude. Never wire `ANTHROPIC_API_KEY_PROD` here — CI runs against the local stack and must not burn prod billing. See `/ak-new-project § Security Posture` for the QA/PROD rationale.
-5. **Update branch protection** to require the `slow` check: `gh api repos/{owner}/{repo}/branches/main/protection` and add `slow` to `required_status_checks.contexts`. Without this step, CI runs the slow job but PRs can merge red — the structural gate is incomplete.
-6. **Add the test glob** to the slow-job's vitest / Playwright invocation if it differs from the template default. Catches the silent regression of "uncommented slow job that runs zero tests."
+| Step                              | Guard                                                  | Why                                                                                                                                                                            |
+| --------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Install Playwright browsers       | `hashFiles('apps/web/e2e/**/*.spec.ts') != ''`         | Brand-new projects with zero E2E specs don't need Playwright browsers (saves ~3 min on the first PR).                                                                          |
+| Schema type-drift check           | `hashFiles('supabase/migrations/*.sql') != ''`         | `scripts/ci-type-drift.sh` diffs `packages/core/src/supabase.types.ts` against the live schema; the template ships a placeholder types file that diff-fails against an empty schema until the first migration lands.    |
+| Migration rollback round-trip     | `hashFiles('supabase/migrations/*.sql') != ''`         | `scripts/ci-rollback-explain.sh` errors when `supabase/migrations/` doesn't exist as a directory; brand-new projects don't have one.                                          |
+| Build web app for E2E             | `hashFiles('apps/web/e2e/**/*.spec.ts') != ''`         | No specs → no need to build the production bundle. Same gate as the Playwright install + run steps so the trio fires together.                                                |
+| Start next + run Playwright E2E   | `hashFiles('apps/web/e2e/**/*.spec.ts') != ''`         | The actual run step.                                                                                                                                                           |
+| Upload Playwright traces          | `failure() && hashFiles('apps/web/e2e/**/*.spec.ts') != ''` | Belt-and-braces; traces only exist when Playwright ran.                                                                                                                       |
+| **Start local Supabase**          | **(unguarded — ambient signal)**                       | Heartbeat that proves CI plumbing is wired (firewall, supabase/setup-cli, networking, edge-runtime container) on every PR — even before the project has any real content.   |
 
 ### Helper scripts
 
@@ -182,24 +186,33 @@ The slow-job invokes two helpers from `scripts/` that the template ships:
 - **`scripts/ci-type-drift.sh`** — regenerates `packages/core/src/supabase.types.ts` against the local stack and fails on drift. Catches the failure mode where a migration changes column nullability / FKs / RPC signatures and the committed types weren't regenerated.
 - **`scripts/ci-rollback-explain.sh`** — for every migration, applies the rollback against the local DB then re-applies the forward migration. Catches rollback-block syntax errors before they bite during a real outage. **Every migration MUST carry a `-- ROLLBACK:` marker** — the script FAILs loudly on any markerless or empty-bodied migration with a recipe pointing the operator at this entry. The mandate exists because earlier migrations' rollbacks (notably the `drop table` rollback of the foundational `002_tables.sql`) cascade-drop columns added by markerless downstream migrations; without a marker the script previously SKIPped and the cascade-dropped column stayed gone for the rest of CI. Net effect after a silent skip: the DB no longer has the column, `supabase gen types` introspects fresh-from-DB and silently removes the property, and PostgREST returns PGRST204 on every request that names it. The forward must be idempotent (`add column if not exists` + `create index if not exists`) so the rollback+forward cycle restores the column after upstream cascades. Migrations with nothing to undo (data-only, idempotent forward) can carry a single body line `-- noop: forward is idempotent`; the script detects `noop:` and skips the rollback apply step but still re-applies forward, which is what closes the cascade-loss hole. Codified after a 6-attempt CI fix-loop where every speculative fix targeted "PostgREST cache staleness" while the root cause was a missing marker. PGRST204 in CI is almost always a downstream symptom of a missing column, NOT a cache issue — disambiguate by querying `information_schema.columns` via psql before reaching for `notify pgrst`.
 
-Both are project-agnostic — copied verbatim from the template into every project; no per-project tuning expected.
+Both helpers gate on `hashFiles('supabase/migrations/*.sql') != ''` so they're skipped cleanly on brand-new projects. Both are project-agnostic — copied verbatim from the template into every project; no per-project tuning expected.
 
-### Structural enforcement
+### Extending the active stub
 
-`/ak-pre-ship` runs a `slow-job-lifecycle` gate when the repo contains `*.integration.test.ts` or `apps/web/e2e/*.spec.ts` files. The gate asserts:
+When a project adds its first integration test or Playwright E2E spec, the slow-job picks it up automatically — no operator action required. Things that DO require an explicit edit:
 
-1. The `slow:` job in `.github/workflows/ci.yml` is uncommented.
-2. Its `if:` predicate matches the `pull_request` shape.
-3. The `supabase start` health-check retry is wired (compare against the template-shipped reference).
-4. Branch protection contexts include `slow`.
-5. The slow-job's test glob actually matches at least one staged or repo-resident integration test or E2E spec (catches the "uncommented but runs zero tests" regression).
-6. The skip-on-docs-only filter is wired (changes-job + slow-job's `needs:`/`if:` reference the runtime gate). See the next sub-section for the canonical shape.
+- **New env vars** — if a slow-job step needs a credential not currently in the slow-job's `env:` block (e.g., `ANTHROPIC_API_KEY_QA` re-exported as `ANTHROPIC_API_KEY` for an edge function that calls Claude), add it at step level. Never wire `ANTHROPIC_API_KEY_PROD` — CI runs against the local stack and must not burn prod billing. See `/ak-new-project § Security Posture` for the QA/PROD rationale.
+- **Test glob diverges from `apps/web/test:e2e`** — the template stub invokes `pnpm --filter apps/web test:e2e`. If a project's E2E entry point differs (different package, different script name), update the invocation.
+- **New helper script** — if the spec adds a new `scripts/ci-*.sh` helper, register it as a slow-job step. Match the existing pattern (`hashFiles()` guard if it's content-dependent; unguarded if it's pure CI plumbing).
 
-Block-on-failure with a remediation message pointing at this section's checklist.
+### Structural enforcement (regression guard)
+
+`/ak-pre-ship` runs a `slow-job-lifecycle` gate to verify the active stub didn't get re-commented or hollowed out. Unlike the pre-2026-05-19 conditional gate, this fires on **every** project — the active stub IS the invariant, not "must-flip-once-threshold-crossed." The gate asserts:
+
+1. The `slow:` job in `.github/workflows/ci.yml` is active (uncommented).
+2. The `changes:` job is also active (the slow-job's `needs: [fast, changes]` would dangle otherwise).
+3. The slow-job's `if:` predicate matches `github.event_name == 'pull_request' && needs.changes.outputs.runtime == 'true'`.
+4. The `supabase start` health-check retry is wired (compare against the template-shipped reference).
+5. The per-step empty-state guards are present: `hashFiles('apps/web/e2e/**/*.spec.ts') != ''` on the Playwright steps, `hashFiles('supabase/migrations/*.sql') != ''` on type-drift + rollback.
+6. The `Start local Supabase` step has NO `hashFiles` guard (it's the ambient health signal — if a future tidy-up PR adds one, brand-new projects lose the heartbeat).
+7. Branch protection contexts include `slow` (so a PR can't merge with the slow-job red).
+
+Block-on-failure with a remediation message pointing at this section.
 
 ### Skip-on-docs-only filter
 
-Once the slow-job is uncommented, docs-only PRs (typo fixes, plan updates, ROADMAP edits) shouldn't burn the 8–10 min slow-job. The convention is a tiny `changes:` setup-job that classifies the diff and exposes `runtime: 'true'/'false'` as a job output; the slow-job's `needs:` includes `changes` and its `if:` consumes the runtime gate.
+Docs-only PRs (typo fixes, plan updates, ROADMAP edits) shouldn't burn the 8–10 min slow-job. The convention is a tiny `changes:` setup-job that classifies the diff and exposes `runtime: 'true'/'false'` as a job output; the slow-job's `needs:` includes `changes` and its `if:` consumes the runtime gate. Both jobs ship active in the template; the wiring is part of the day-one shape, not a flip-on-threshold add-on.
 
 **Shape** — single workflow file, two jobs wired together:
 
@@ -263,9 +276,7 @@ slow:
 
 **Branch-protection contract** — when the diff is docs-only, GitHub Actions reports the slow-job status as `skipped`. Per [GitHub's documented behavior](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches#require-status-checks-before-merging) on required status checks, a `skipped` status is treated as `success` for branch-protection — the PR is mergeable without operator intervention. The `changes:` job is intentionally NOT a required context (it always succeeds, in ~5s); gating happens via the slow-job's `if:`. This is the load-bearing assumption: if GitHub ever changes this behavior or branch protection is configured with the stricter "Require all jobs to be successful" mode, the fallback is `if: always() && (github.event_name != 'pull_request' || needs.changes.outputs.runtime == 'true')` — but don't pre-emptively flip; the documented behavior is the contract.
 
-**Uncomment-both ritual** — the `changes:` job ships commented out in the template, alongside the commented `slow:` stub. When the slow-job uncomment ritual fires (Phase 1c / 1g, see § Uncommenting checklist above), uncomment `changes:` in the same edit. Don't ship `changes:` live but `slow:` commented (the slow-job's `needs: [fast, changes]` would be a dangling reference at YAML-load time), and don't ship `slow:` live but `changes:` commented (same dangling-reference trap, opposite direction). The template's comment block above the stubs reminds the operator of the trap; the structural-enforcement gate (Check 6 in the list above) catches the mistake at pre-ship time.
-
-**Forward verification** — local `actionlint` only validates YAML shape, not the runtime classify behavior. The first docs-only PR landed AFTER a project adopts the filter is the live test: open the PR's checks panel and confirm the slow-job shows `skipped`. A trivial PLAN.md edit suffices.
+**Forward verification** — local `actionlint` only validates YAML shape, not the runtime classify behavior. The first docs-only PR on a fresh project is the live test: open the PR's checks panel and confirm the slow-job shows `skipped`. A trivial PLAN.md edit suffices.
 
 ### Codified prior art
 

@@ -294,100 +294,6 @@ Every devshop project's first `/ak-go-live` lands in Mode A. Every project's fir
 
 ---
 
-### Template `ci.yml` — dedupe duplicate CI runs from overlapping `push` + `pull_request` triggers
-
-**Problem.** `/devshop/template/.github/workflows/ci.yml:1-6` ships the workflow with two overlapping event triggers:
-
-```yaml
-on:
-  pull_request:
-    branches: [main]
-  push:
-    branches-ignore: [main]
-```
-
-Both fire for every commit pushed to a PR branch — `push` (because the branch isn't `main`) and `pull_request: synchronize` (because the PR's base is `main`) — and GitHub does not de-duplicate. The result is exactly two identical runs against exactly the same SHA every time a developer pushes during PR work.
-
-The first push on a new feature branch also fires twice, asymmetrically: the `push` event fires immediately, then `gh pr create` opens a PR seconds later and fires `pull_request: opened` against the same SHA. So even the "PR open" moment costs 2 runs.
-
-**Concrete numbers from home-os PR #9** (2026-05-13, the foundation supabase-schema-and-rls PR — a typical /ak-build cycle, nothing pathological about the flow):
-
-- 3 SHAs landed on the branch (`/ship` commit, 5.6 BUILD-LOG bookkeeping commit, 5.8 Audit 2 commit).
-- 6 CI runs fired (`gh run list --branch feature/... --json event` shows `event=push` and `event=pull_request` alternating for each SHA, all 6 conclusion `success`).
-- Cost: 6 × `ubuntu-latest` minute, ~1 min each = ~6 GitHub-Actions-minutes burned for 3 logical checks. At Vercel preview + lint + typecheck + unit + build, each run is non-trivial.
-
-Scaled across the v0 Phase 1 roadmap for home-os (15 features, ≥3 SHAs per PR typical given Phase 5.6 + 5.8 commits) the cost is ~90 extra runner-minutes per project per Phase 1, and the duplication compounds for every devshop project that inherits the template.
-
-A secondary annoyance: dual runs confuse `/ak-build`'s Phase 5.8.1 polish-loop enumeration (`gh run list --limit 50 | select(.createdAt >= PR_OPENED_AT)`) — operators reading the audit-trail comment see "5 runs" or "6 runs" for a clean polish loop and have to mentally divide by 2 to get the actual SHA count. Phase 6's audit comment needs prose explaining the doubling. The duplicate runs are not informative — the second run tests literally the same SHA as the first and is guaranteed to produce the same answer (unless GitHub-runner flake, which is its own problem).
-
-**Codified from** home-os PR #9 (2026-05-13). The /ak-build Phase 6 final audit-comment composition surfaced the doubling when the operator asked "why were there 5 CI runs?" — `gh run list --json event` exposed the dual-trigger pattern. No prior project had asked the question because nobody looked closely at the run count; the cost had been silently doubling on every project from day one.
-
-**Shape of the fix — one of two patterns, both single-line edits to `template/.github/workflows/ci.yml`:**
-
-**Option A (simplest — preferred):** Drop the `push` trigger entirely. Only `pull_request` fires.
-
-```yaml
-on:
-  pull_request:
-    branches: [main]
-```
-
-- **Catches**: every commit landed via a PR. Devshop's `/ak-build` flow always opens a PR before any non-trivial commit (per `/devshop/CLAUDE.md § Devshop shipping flow` — "Branch for anything beyond trivial"), so this covers 100% of real cycles.
-- **Misses**: pushes to feature branches without a PR yet (rare; only if the operator pushes before `/ship` runs). On the `/ak-build` path, the first push and PR-open happen seconds apart in the same Phase 4 step — `pull_request: opened` will fire on PR creation, so even the first SHA gets CI.
-- **Cost**: ~50% reduction in runner-minutes per project.
-
-**Option B (preserves push-without-PR coverage):** Use GitHub's recommended `if:` guard on the push trigger:
-
-```yaml
-on:
-  pull_request:
-    branches: [main]
-  push:
-    branches-ignore: [main]
-
-jobs:
-  fast:
-    # Skip the push run if a PR exists for this branch — pull_request: synchronize covers it.
-    if: github.event_name == 'pull_request' || github.event.pull_request == null
-    runs-on: ubuntu-latest
-```
-
-- The `if:` is **at the job level**, not the workflow level (GitHub doesn't support workflow-level `if:` on triggers). So the workflow still queues a run on every event, but the run no-ops to "skipped" instantly if the duplicate condition holds. UI shows the skipped run; minutes-burn is ~0 seconds.
-- **Catches**: pushes to feature branches without a PR (run as `push`); pushes to branches with PRs (run as `pull_request: synchronize`, the `push` run is auto-skipped).
-- **Slight UI cost**: skipped runs still show in `gh run list` output, so Phase 5.8.1's enumeration query needs to filter by `conclusion != "skipped"` to count "real" runs. One extra `.jq` clause.
-
-**Recommendation:** ship Option A. Devshop's discipline is "PR-first for anything non-trivial," so the edge case Option B preserves doesn't exist in practice. If a project decides it needs push-coverage later, Option B is a one-line revisit.
-
-**Other edits that may want to follow:**
-
-- `/ak-build § Phase 5.8.1` — the polish-loop enumeration query parses `displayTitle` to identify runs. The displayTitle for `push` events is the commit message; for `pull_request` it's the PR title. Today's filter accidentally relies on this distinction. Once Option A lands the enumeration becomes single-event uniform; simplify the surrounding prose.
-- `/ak-build § Phase 5.2 / 5.7` watch-loop — `gh run list --limit 1` returns the latest run on the branch; with Option A there's no ambiguity. With Option B the operator may need `gh run list --event pull_request --limit 1` if the synchronize run hasn't started yet.
-
-**Why v0 — blocks next-project adoption:**
-
-Every new project from this template inherits the dual-trigger workflow. Each project's GitHub-Actions-minute bill silently doubles. The bigger cost: every devshop project's CI logs are 2x noisier than they should be, every audit comment has to explain the doubling, every `/ak-build` watch-loop has to handle the asymmetric first-push-vs-subsequent-pushes case. Fix once at the template; every future project ships with the right shape. No project-level migration needed for already-onboarded projects (they can `cp template/.github/workflows/ci.yml apps/web/.github/workflows/ci.yml` once and pick up the dedupe).
-
-**Trigger:**
-
-- home-os PR #9 surfaced it (and home-os is currently the only second template-validation project — same dual-trigger pattern as lalista, just nobody asked at lalista).
-- Next project that adopts the template will inherit the same doubling. The bill scales linearly with project count, not per-project work.
-
-**Cross-ref:**
-
-- `/devshop/template/.github/workflows/ci.yml:1-6` — the dual-trigger block to edit
-- home-os `feature/supabase-schema-and-rls` PR #9 — concrete 6-run example
-- `/devshop/.claude/skills/ak-build/SKILL.md § Phase 5.8.1` — polish-loop enumeration consumer
-- `/devshop/.claude/skills/ak-build/SKILL.md § Phase 5.2` — watch-loop consumer
-- GitHub Actions docs on overlapping `push` + `pull_request` — https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#using-events-to-trigger-workflows
-
-**Cost/risk:**
-
-- Implementation: ~15 minutes (one-line edit + a /ak-pre-ship dry-run + propagation note in the changelog).
-- Risk: low. Option A loses CI coverage for the edge case "push to branch without PR" — but the devshop flow never produces that state for substantive commits. If a project's operator does push directly without a PR, the next push that creates the PR will fire `pull_request: opened` and run CI on the latest SHA, which is the same coverage with one-extra-cycle latency.
-- Benefit: ~50% reduction in CI minutes per devshop project, ongoing.
-
----
-
 ### Audit `kit/docs/guide/conventions.md` → distribute operational copy into the skills that fire
 
 **Reassess after CLAUDE.md trim (2026-05-18):** the `feature/claude-md-architecture` branch landed Waves 1–5, trimming `/devshop/CLAUDE.md` from ~44k → ~22k chars and lifting recipes into `kit/docs/guide/` (commit `d9e228c`). Before re-opening the full audit, verify whether the duplicate `## Confidence Calibration` + `## TODO Protocol` sections in `conventions.md` are still drift candidates, or whether the post-trim CLAUDE.md intentionally retained them as the canonical home (the classification doc at `kit/notes/devshop-claude-md-classification.md` marks both as "Stay (verbatim)" in CLAUDE.md). The lift-vs-cross-ref decision below may also have been answered by the wave work — re-grep `conventions.md` and the guide docs before scoping. If the duplication has resolved itself, drop this entry entirely; otherwise narrow to whatever's actually left.
@@ -607,50 +513,6 @@ If the project's migration cadence is mostly additive (typical for early-stage p
 
 ---
 
-### CI slow-job lifecycle convention — ship active from day one
-
-Today `/devshop/template/.github/workflows/ci.yml` ships the `slow:` + `changes:` jobs entirely commented out (lines 75-113 + 142+, including the lalista-PR-26 edge-runtime health-check retry pattern). `/ak-new-project` Step 24 explicitly defers slow-job adoption to "after Phase 1c (integration tests + supabase start) or Phase 1g (Playwright E2E)" with branch-protection contexts updated from `["fast"]` to `["fast","slow"]`.
-
-The deferral model is structurally flawed in practice: home-os PR #9 (rls-isolation.spec.ts) and PR #10 (magic-link.spec.ts) both crossed the Phase 1c/1g threshold without flipping the slow-job stub — each pre-ship raised `Gate 2c findings_pending`, each PR shipped with the finding as "infra carry-over," each next PR inherited the same gap. Home-os PR #15 (capture-flow) is now the third PR in a row with slow-job specs that aren't actually gated by CI. The deferred-until-threshold model created a structural drift loophole that operator memory cannot patch over.
-
-**Revised shape — ship slow-job ACTIVE from `/ak-new-project` scaffold:**
-
-The template + `/ak-new-project` should produce a working slow-job from day one, even when the project has zero integration / E2E specs to run. The slow-job is part of the new-project blocker contract alongside the fast-job, not an opt-in-later layer.
-
-- **Template change**: uncomment the `slow:` + `changes:` jobs in `/devshop/template/.github/workflows/ci.yml`. They ship live from day one. Empty test-glob scenarios pass cleanly (no tests = no failures) — the lalista-PR-26 retry shell stays scoped to the `supabase start` step which only fires when tests actually exist.
-  - The `changes:` setup-job (skip-on-docs-only filter) stays as-is per PR #29's design — a docs-only diff causes `changes.outputs.runtime=false`, the slow job's `if:` short-circuits, and the job reports `skipped` (which branch protection accepts as success). So docs-only PRs still cost ~5s for the `changes:` job, not ~8-10min for a full slow-job run.
-  - The slow-job's test glob should be permissive (`apps/*/e2e/*.spec.ts`, `**/*.integration.test.ts`) so the first integration spec a project lands is automatically picked up — no glob update PR required.
-- **`/ak-new-project` change**: Step 24's branch-protection setup must include `slow` (and the `changes:` job's check name, if branch protection enumerates the setup job) in the required-contexts list from day one. The current "add slow when Phase 1c crosses threshold" instruction is removed.
-- **Empty-state semantics**: a brand-new project with zero E2E + zero integration tests should still see the slow-job run on every PR. It spins up Supabase, finds zero specs, reports "no tests matched glob — passed." That's intentional — the active job catches regressions when the FIRST spec lands (no manual flip), and the operator sees the job's health on every PR as ambient feedback that Supabase startup still works.
-- **Convention doc** in `guide/conventions.md § Slow-Job Lifecycle`: rewrite to document the day-one-active model + the skip-on-docs-only filter contract + how to extend the test glob if the project's structure diverges from the template.
-- **`/ak-pre-ship` gate** (Gate 2c): retained for projects that adopted the devshop before this convention shipped. Asserts (1) `slow:` job is uncommented, (2) `if:` references `needs.changes.outputs.runtime == 'true'`, (3) `supabase start` health-check retry is wired, (4) branch-protection contexts include `slow`. Block-on-failure with a clear remediation message. Once every active project is on the new template, this gate becomes obsolete — but keep it through the migration window so existing projects (lalista, home-os) get nudged forward.
-- **Backfill PRs for existing projects**: home-os already has a TODOS row (`TODOS.md § ci-slow-job-activation`) tracking the manual flip. Lalista already has its slow-job uncommented. Once the template change ships, both projects can rebase onto the new template's CI shape (or just keep their hand-uncommented variants — the gate logic is the same).
-
-**Why v0 — blocks next-project adoption:**
-
-Every devshop project will adopt integration tests or E2E eventually — auth flows, Playwright happy-paths, RLS isolation specs. Three consecutive home-os PRs proved the deferred-until-threshold model doesn't survive contact with the build loop: each PR's author (Claude) cannot push `.github/workflows/**` changes because the devcontainer PAT lacks `workflow` scope, so the "uncomment slow-job" task gets routed to the human operator, who often hasn't been notified or is mid-other-work, and the gap persists. Shipping slow-job active from day one removes the routing problem entirely.
-
-**Trigger:**
-
-- Home-os PR #15 (capture-flow, 2026-05-13) is the third consecutive PR with slow-job specs gated on activation — the deferred model demonstrably doesn't survive a project's growth.
-- Lalista's slow job is already active and includes the retry pattern. The template change extracts that shape as the default.
-
-**Cross-ref:**
-
-- `/devshop/template/.github/workflows/ci.yml:75-113 + 142+` — the commented-out slow-job + changes-job stubs
-- `/devshop/.claude/skills/ak-new-project/SKILL.md:967-989` — the current Step 24 deferral language to remove
-- `lalista/.github/workflows/ci.yml § slow:` — the live shape this convention codifies (especially the edge-runtime health-check retry)
-- `home-os/TODOS.md § ci-slow-job-activation` — the recurring backlog item that this template change removes the need for
-- `### Migration sequencing safety nets for the Vercel-preview window` above — adjacent CI/migration territory; both are about making CI behavior structural rather than operator-maintained
-
-**Cost/risk:**
-
-- Implementation: ~2–3 focused hours (uncomment template blocks + `/ak-new-project` Step 24 edit + branch-protection wiring + conventions doc rewrite + retain Gate 2c during migration window)
-- Risk: low — all changes are CI/template surface, no prod data path. New projects spend ~3-5 min per PR on Supabase startup even with zero specs (cost of ambient feedback).
-- Benefit: every new devshop project gets a working slow-job from PR #1 with no operator-memory dependency. The class of bug "I forgot to activate the slow-job" disappears from the failure modes.
-
----
-
 ### `/ak-go-live` post-merge prod-config sync (Arm B — automation core)
 
 **Status:** Arm A (pre-flight surface) shipped 2026-05-10 via the devshop `feat/ak-go-live-arm-a-preflight` branch — `/ak-go-live` Step 1.8 reads the PR body + latest audit/ready-for-review comments, parses every `[ ]` checkbox grouped by section, annotates `[manual]` / `[deferred]` / `[!]`, and blocks on `## Out-of-band deploy items` only. Arm B (Management API integration that converts most `[manual]` items into `[auto]`) is scoped below and remains pending. The problem statement now narrows to the items Arm A surfaces but doesn't automate: the operator still pastes email templates, still verifies the auth allow-list, and still curls absolute-URL assets by hand.
@@ -862,7 +724,7 @@ Same playbook as Auth UX conventions / Latency feedback framework. The pattern n
 
 Home-os was the SECOND project to bootstrap from the devshop template via `/ak-new-project` (lalista was first). Steps 0–25 ran across two sessions (2026-05-12 + 2026-05-13). 12 generalizations surfaced beyond the four critical template fixes (sed sentinel, WebSocket stub, `@/` alias, vercel preview env-add — shipped 2026-05-19 as `home-os-onboarding-template-patches`) and the firewall-extras-overlay (shipped 2026-05-14 as `43baffb`). Each generalization is small (15–60 min). They're grouped here as one ROADMAP entry so a single focused session can pick three or four at a time without context-switching across surfaces. Order is roughly "blast radius descending" — the first few hit every new scaffold; the last few are niche.
 
-**Ordering**: now that `home-os-onboarding-template-patches` has landed, this entry no longer has a hard predecessor — Sub-bundle E and the `Template ci.yml` entry below can ship in any order. The previous concern (`template/packages/core/` would land on the pre-fix sentinel and need re-edit) is gone — the template ships with the distinct `UNSCAFFOLDED` sentinel + the WebSocket stub at `template/packages/core/vitest.setup.ts`.
+**Ordering**: now that `home-os-onboarding-template-patches` has landed, this entry no longer has a hard predecessor. The Template `ci.yml` work shipped 2026-05-19 via `template-ci-overhaul` (Node 22 + slow-job activation + dual-trigger dedupe). The previous concern (`template/packages/core/` would land on the pre-fix sentinel and need re-edit) is gone — the template ships with the distinct `UNSCAFFOLDED` sentinel + the WebSocket stub at `template/packages/core/vitest.setup.ts`.
 
 **Source detail:** `kit/notes/projects/home-os.md § "2026-05-13 session — devshop generalizations to surface"` carries the per-incident narrative for each item (#19–#30). When in doubt, read the tracker entry — it has the exact symptoms + the moment the generalization surfaced.
 
@@ -885,7 +747,6 @@ Home-os was the SECOND project to bootstrap from the devshop template via `/ak-n
 
 #### C. Template / manifest fixes — sub-hour, one PR
 
-- **(C1) CI Node 20 vs pnpm-11 Node-22 requirement (gen #30)** — `template/.github/workflows/ci.yml` pins `node-version: '20'` but `pnpm/action-setup@v3 with version: latest` resolves to pnpm 11.x at the runner, which imports `node:sqlite` — a Node-22-only builtin. Result: `actions/setup-node@v4`'s pnpm-cache restore step crashes with `Error [ERR_UNKNOWN_BUILTIN_MODULE]: No such built-in module: node:sqlite` and CI fast-job fails in 12-23s. Home-os shipped a 2-line fix on its own branch (bump `node-version` to `'22'` + `.nvmrc` `20` → `22`). **Fix**: same 2-line patch in `template/.github/workflows/ci.yml` + `template/.nvmrc`. **Where**: `template/.github/workflows/ci.yml` line 22 (or wherever node-version pin lives) + `template/.nvmrc`. ~5 min. **Severity: blocks every new project's first CI run** — fast-job fails immediately on first push to a feature branch.
 - **(C2) Manifest gap: compose-isolation files not in `kit/manifest.txt` `[locked]` list (gen #26)** — `init-devshop.sh`'s [locked]-manifest enforcement at container start chowns `devcontainer.json`, `init-firewall.sh`, `Dockerfile`, `checksums.sha256`, `.env`, `firewall-extra-domains`, etc. to root:root 644 on every start. BUT the compose-isolation set (`compose.yml`, `init-host-env.sh`, `supabase-runner/Dockerfile`, `supabase-runner/cmd-relay.mjs`) is NOT in the manifest. Step 21 of `/ak-new-project` carries a conditional sudo block for these 4 files; if the operator skips that block, the files stay node:node and a compromised npm transitive can rewrite them. **Fix**: extend `kit/manifest.txt`'s [locked] list to include the four compose-isolation files; then `/ak-new-project § Step 21` simplifies to "verify all `.devcontainer/*` files are root:root; if not, rebuild devcontainer (init-devshop.sh re-applies on start)." Mind execute-bits — `init-host-env.sh` and `cmd-relay.mjs` are 755 (executed scripts); manifest enforcement should preserve mode per-file. **Where**: `kit/manifest.txt` + `kit/scripts/init-devshop.sh` (the [locked] processor — confirm mode-per-file support) + `/devshop/.claude/skills/ak-new-project/SKILL.md § Step 21` (simplification after manifest extension). **Status**: originally slated to ship inside the firewall-extras-overlay PR; that PR shipped 2026-05-14 as `43baffb` without C2 included (only `firewall-extra-domains [scaffold-once]` was added to the manifest). Re-filed as standalone `PLAN.md § compose-isolation-manifest-locked`; recommended bundle there is "convention housekeeping" alongside `docs-coverage-audit-prose-exemption` / `template-tracker-seed-strip` / `conventions-deduplication`. ~30 min if the manifest mode-per-file support is already there; ~1h if not. **Severity**: low (Step 21 currently catches the gap via the conditional sudo block) but the manifest is the right home for this.
 
 #### D. Devshop-registry-driven Supabase port offsets (gen #1 from earlier session; redesigned 2026-05-15)
@@ -2054,13 +1915,11 @@ hardening the Bash bypass gap (above) — both share the same attack surface.
 
 ### CI slow job expansion
 
-The `slow` job in `.github/workflows/ci.yml` is commented out at scaffold time. It gets
-built incrementally, tied to feature milestones. Each expansion lands in the same PR as the
-code it tests — no gap between "tests exist" and "CI runs them."
+The `slow` job in `.github/workflows/ci.yml` ships ACTIVE at scaffold time (since `template-ci-overhaul`, 2026-05-19) with empty-state guards. It gates new content automatically — the first integration test or E2E spec a project lands is gated by CI immediately, no operator action. Per-project wiring still happens as features land, but never as a "must uncomment the stub" step.
 
 **Trigger 1: First DB-backed feature** (e.g., auth, data queries):
 
-Uncomment the `slow:` job in `.github/workflows/ci.yml`. The template stub already ships the canonical shape:
+The template stub already includes the canonical shape — no uncomment ritual:
 
 - `supabase/setup-cli` step + `supabase start` (GitHub Actions has native Docker — no DinD)
 - The lalista-PR-26 `supabase_edge_runtime` health-check retry loop (preserve it; don't strip)
@@ -2073,7 +1932,7 @@ Per-project wiring (the only operator-facing work):
 - Add `ANTHROPIC_API_KEY_QA` to CI Secrets if edge functions call Claude — re-exported as `ANTHROPIC_API_KEY` inside the test step's env block. `ANTHROPIC_API_KEY_PROD` is unrelated to CI; it's pushed to Supabase by `deploy-functions.yml`.
 - Update branch protection to require `slow` alongside `fast`.
 
-Full lifecycle convention (when the threshold is crossed, structural enforcement, codified prior art): `kit/docs/guide/conventions.md § Slow-Job Lifecycle`. The `/ak-pre-ship` gate `slow-job-lifecycle` (fires when `*.integration.test.ts` or `apps/web/e2e/*.spec.ts` exists) catches misconfigurations: stub still commented, wrong `if:` predicate, retry pattern stripped, branch protection missing, slow-job runs zero tests.
+Full lifecycle convention (day-one-active model, structural enforcement, codified prior art): `kit/docs/guide/conventions.md § Slow-Job Lifecycle`. The `/ak-pre-ship` gate `slow-job-lifecycle` is the regression guard — catches if the active stub gets re-commented, the `if:` predicate broken, retry pattern stripped, empty-state guards dropped, or the unguarded `Start local Supabase` accidentally gated.
 
 **Trigger 2: First E2E-testable flow** (e.g., sign-in → core action → verify):
 

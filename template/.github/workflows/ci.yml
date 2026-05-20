@@ -25,7 +25,12 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # Node 22+ required: pnpm 11.x (pnpm/action-setup@v3 with
+          # version: latest) imports `node:sqlite`, a Node-22-only
+          # builtin. setup-node's pnpm-cache restore step crashes on
+          # Node 20 with ERR_UNKNOWN_BUILTIN_MODULE. Keep in lockstep
+          # with the repo's .nvmrc (also 22).
+          node-version: '22'
           cache: 'pnpm'
 
       - run: pnpm install --frozen-lockfile
@@ -58,28 +63,21 @@ jobs:
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
   # =====================================================================
-  # SLOW JOB — UNCOMMENT WHEN THE PROJECT CROSSES THE SLOW-JOB THRESHOLD
+  # SLOW JOB — ACTIVE FROM DAY ONE
   # =====================================================================
-  # Per kit/docs/guide/conventions.md § Slow-Job Lifecycle, the threshold
-  # is "the project has its first integration test (*.integration.test.ts)
-  # or Playwright E2E (apps/web/e2e/*.spec.ts)". The spec that adds the
-  # first such test must include the uncomment in the same PR.
+  # Per kit/docs/guide/conventions.md § Slow-Job Lifecycle, the slow-job
+  # ships active alongside the fast-job. On a brand-new project with zero
+  # integration tests and zero E2E specs, the heavy steps short-circuit
+  # via `if: hashFiles(...) != ''` guards: no migrations → skip type-drift
+  # + rollback round-trip; no e2e specs → skip Playwright install + build
+  # + run. `supabase start` runs unconditionally as ambient health signal,
+  # and the first PR that lands an integration test or E2E spec is gated
+  # by CI immediately — no operator action, no Step 24 branch-protection
+  # flip, no skill-prose dependency.
   #
-  # Uncomment-ritual: strip the leading `# ` from every line in the
-  # `changes:` and `slow:` blocks below. Both jobs must be uncommented
-  # together — the slow-job's `needs: [fast, changes]` produces a
-  # dangling `needs:` reference that fails at YAML-load time if
-  # `changes:` stays commented. See
-  # kit/docs/guide/conventions.md § Slow-Job Lifecycle § Skip-on-docs-only
-  # filter for the full rationale (D1: job-level `paths-ignore:` is
-  # invalid YAML; D2: ignore list; branch-protection contract). The
-  # structural-enforcement gate (Check 6) catches that mistake at
-  # /ak-pre-ship time.
-  #
-  # The commented stub is the FULL canonical shape — every fix codified
-  # by lalista CI runs and home-os PR #15 is baked in. Don't condense
-  # when uncommenting; the shape exists in this form because every block
-  # was earned by a CI failure:
+  # The shape below carries every fix codified by lalista CI runs and
+  # home-os PR #15 — don't condense; each block was earned by a CI
+  # failure:
   #
   #  - `chromium webkit` both installed: `devices['iPhone N']` defaults
   #    to WebKit; installing only Chromium leaves every mobile test
@@ -107,209 +105,233 @@ jobs:
   # (~5s) so it stays a non-required context; gating happens via the
   # slow-job's `if:`. Branch-protection contract: `skipped` is treated as
   # `success` for required checks (GitHub documented behavior).
-  #
-  # changes:
-  #   runs-on: ubuntu-latest
-  #   if: github.event_name == 'pull_request'
-  #   outputs:
-  #     runtime: ${{ steps.classify.outputs.runtime }}
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 0 # required for `git diff base.sha...HEAD` (default depth-1 errors)
-  #     - id: classify
-  #       name: Classify diff (docs-only → runtime=false)
-  #       run: |
-  #         set -euo pipefail
-  #         # Three-dot diff = merge-base diff (the changes the PR introduces).
-  #         # Two-dot would diff against base's current tip and pick up unrelated commits.
-  #         changed_files=$(git diff --name-only "${{ github.event.pull_request.base.sha }}...HEAD" || true)
-  #         # Empty diff → runtime=true (safer default — run slow-job rather than silently skip).
-  #         if [ -z "$changed_files" ]; then
-  #           echo "Empty diff; defaulting runtime=true"
-  #           echo "runtime=true" >> "$GITHUB_OUTPUT"
-  #           exit 0
-  #         fi
-  #         # `*.md` (not `**/*.md`): bash `case` is pattern matching, not pathname
-  #         # expansion — inside `case`, `*` already matches `/`, so `*.md` covers
-  #         # both `CLAUDE.md` and `apps/web/README.md`. `shopt -s globstar` only
-  #         # affects globbing for filename expansion, NOT `case` semantics.
-  #         # `**/*.md` in `case` behaves like `*/*.md` and misses root-level
-  #         # markdown. Lalista hit this regression on PR #63 (2026-05-12).
-  #         # Do NOT "fix" this back to `**/*.md`.
-  #         runtime=false
-  #         while IFS= read -r path; do
-  #           [ -z "$path" ] && continue
-  #           case "$path" in
-  #             *.md) ;;
-  #             specs/**) ;;
-  #             PLAN.md) ;;
-  #             BUILD-LOG.md) ;;
-  #             TODOS.md) ;;
-  #             .gstack/**) ;;
-  #             .devshop/**) ;;
-  #             *)
-  #               runtime=true
-  #               break
-  #               ;;
-  #           esac
-  #         done <<< "$changed_files"
-  #         echo "runtime=$runtime" >> "$GITHUB_OUTPUT"
-  #
-  # slow:
-  #   runs-on: ubuntu-latest
-  #   needs: [fast, changes]
-  #   if: github.event_name == 'pull_request' && needs.changes.outputs.runtime == 'true'
-  #   timeout-minutes: 30
-  #   env:
-  #     # NO job-level SUPABASE_URL / SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY:
-  #     # those would PIN the GH-Variables value and SHADOW any `$GITHUB_ENV` write
-  #     # from a later step (Actions resolves job-level `env:` AFTER each step's
-  #     # `$GITHUB_ENV` writes for `process.env.*`). The slow-job sources the real
-  #     # values from `supabase status -o env` via `$GITHUB_ENV`; the steps that
-  #     # need them map at step level via `${{ env.API_URL }}` / `env.SERVICE_ROLE_KEY`.
-  #     NEXT_PUBLIC_POSTHOG_KEY: ${{ vars.NEXT_PUBLIC_POSTHOG_KEY }}
-  #     SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
-  #     SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 0
-  #
-  #     - uses: pnpm/action-setup@v3
-  #       with:
-  #         version: latest
-  #
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: '20'
-  #         cache: 'pnpm'
-  #
-  #     - run: pnpm install --frozen-lockfile
-  #
-  #     - name: Install Playwright browsers with deps (chromium + webkit)
-  #       # `desktop` Playwright project uses Chromium; `mobile` project
-  #       # inherits `devices['iPhone N']` which defaults to WebKit. Install
-  #       # both — only Chromium fails every `[mobile]` spec at browser launch
-  #       # with `Executable doesn't exist at .../webkit-XXXX/pw_run.sh`.
-  #       run: pnpm --filter <YOUR-WEB-PACKAGE> exec playwright install --with-deps chromium webkit
-  #
-  #     - uses: supabase/setup-cli@v1
-  #       with:
-  #         version: latest
-  #
-  #     - name: Start local Supabase (with edge-runtime health-check retry)
-  #       run: |
-  #         set -e
-  #         start_supabase() {
-  #           supabase start --ignore-health-check
-  #           # Probe functions endpoint at the configured API port (read from
-  #           # supabase/config.toml — projects that rebound ports need to update
-  #           # the URL below to match). 401/404 = service is up; 502 = edge-runtime
-  #           # cold-start flake; we retry once on that.
-  #           for i in $(seq 1 10); do
-  #             code=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 \
-  #               "http://127.0.0.1:54321/functions/v1/" 2>/dev/null || echo "000")
-  #             if [ "$code" = "401" ] || [ "$code" = "404" ]; then
-  #               echo "Edge runtime healthy (HTTP $code)"
-  #               return 0
-  #             fi
-  #             echo "Edge runtime probe $i/10 returned HTTP $code; waiting..."
-  #             sleep 3
-  #           done
-  #           echo "Edge runtime didn't pass health-check"
-  #           return 1
-  #         }
-  #         if ! start_supabase; then
-  #           echo "::warning::supabase_edge_runtime_* failed first health-check; restarting once"
-  #           supabase stop || true
-  #           start_supabase
-  #         fi
-  #         # Export the live local-stack URL + JWTs into the job env.
-  #         # `supabase status -o env` emits unprefixed names (API_URL, ANON_KEY,
-  #         # SERVICE_ROLE_KEY, INBUCKET_URL, MAILPIT_URL, ...) — NOT the
-  #         # SUPABASE_*-prefixed names the test helpers read. Strategy:
-  #         #  - strip the surrounding double quotes that `supabase status -o env`
-  #         #    wraps every value in (otherwise GITHUB_ENV stores the literal
-  #         #    `"..."`, which then poisons every consumer as an invalid URL);
-  #         #  - push the unprefixed names to `$GITHUB_ENV` so later steps can
-  #         #    map them via `${{ env.API_URL }}` / `env.SERVICE_ROLE_KEY` etc.
-  #         #  - additionally bridge `API_URL` -> `NEXT_PUBLIC_SUPABASE_URL` and
-  #         #    `ANON_KEY` -> `NEXT_PUBLIC_SUPABASE_ANON_KEY` so `next build`
-  #         #    bakes the right values into the bundle and the browser client
-  #         #    doesn't crash with "Your project's URL and Key are required to
-  #         #    create a Supabase client!".
-  #         SB_ENV="$(supabase status -o env | sed -E 's/="(.*)"$/=\1/')"
-  #         echo "$SB_ENV" >> "$GITHUB_ENV"
-  #         SB_URL="$(echo "$SB_ENV" | sed -n 's/^API_URL=//p')"
-  #         SB_KEY="$(echo "$SB_ENV" | sed -n 's/^ANON_KEY=//p')"
-  #         {
-  #           echo "NEXT_PUBLIC_SUPABASE_URL=$SB_URL"
-  #           echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$SB_KEY"
-  #         } >> "$GITHUB_ENV"
-  #
-  #     - name: Schema type-drift check
-  #       run: bash scripts/ci-type-drift.sh
-  #
-  #     - name: Migration rollback round-trip
-  #       run: bash scripts/ci-rollback-explain.sh
-  #
-  #     - name: Build web app for E2E
-  #       env:
-  #         # Step-level mapping from the local-stack values exported by the
-  #         # "Start local Supabase" step. Necessary at BUILD time so `next build`
-  #         # bakes the right Supabase URL + anon key into the client bundle
-  #         # (these are NEXT_PUBLIC_* on purpose; the values are public local-stack
-  #         # defaults).
-  #         NEXT_PUBLIC_SUPABASE_URL: ${{ env.API_URL }}
-  #         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ env.ANON_KEY }}
-  #       run: pnpm turbo run build --filter=<YOUR-WEB-PACKAGE>
-  #
-  #     - name: Start next + run Playwright E2E
-  #       env:
-  #         # Step-level mapping is the canonical way to bridge `supabase status
-  #         # -o env`'s unprefixed output (API_URL / ANON_KEY / SERVICE_ROLE_KEY)
-  #         # to the SUPABASE_*-prefixed names the test helpers read
-  #         # (apps/web/e2e/helpers/admin-client.ts). Job-level `env:` would shadow
-  #         # `$GITHUB_ENV` writes; step-level `env:` resolves AFTER `$GITHUB_ENV`,
-  #         # so `${{ env.API_URL }}` picks up the live value the previous step wrote.
-  #         NEXT_PUBLIC_SUPABASE_URL: ${{ env.API_URL }}
-  #         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ env.ANON_KEY }}
-  #         SUPABASE_URL: ${{ env.API_URL }}
-  #         SUPABASE_ANON_KEY: ${{ env.ANON_KEY }}
-  #         SUPABASE_SERVICE_ROLE_KEY: ${{ env.SERVICE_ROLE_KEY }}
-  #       run: |
-  #         set -e
-  #         # Boot next in the background; wait for the port to open before
-  #         # invoking Playwright. The `nohup` + `&` shape keeps the process
-  #         # alive after the script step ends (Playwright owns the foreground).
-  #         (cd apps/web && nohup pnpm exec next start -p 3000 >/tmp/next.log 2>&1 &)
-  #         for i in $(seq 1 30); do
-  #           if curl -fsS http://127.0.0.1:3000/ -o /dev/null 2>&1; then
-  #             echo "next ready on :3000"
-  #             break
-  #           fi
-  #           sleep 1
-  #         done
-  #         if ! curl -fsS http://127.0.0.1:3000/ -o /dev/null 2>&1; then
-  #           echo "::error::next failed to start within 30s"
-  #           cat /tmp/next.log
-  #           exit 1
-  #         fi
-  #         pnpm --filter <YOUR-WEB-PACKAGE> test:e2e
-  #
-  #     - name: Upload Playwright traces on failure
-  #       if: failure()
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: playwright-trace
-  #         # `playwright-report/` is empty under `reporter: 'github'` (the
-  #         # github reporter doesn't write a report file). The actual
-  #         # debugging surface — videos, traces, error-context.md — lives
-  #         # under `test-results/`. Including both makes the artifact useful
-  #         # whether the reporter shape changes in the future.
-  #         path: |
-  #           apps/web/playwright-report
-  #           apps/web/test-results
-  #         retention-days: 7
-  #         if-no-files-found: ignore
+
+  changes:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    outputs:
+      runtime: ${{ steps.classify.outputs.runtime }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # required for `git diff base.sha...HEAD` (default depth-1 errors)
+      - id: classify
+        name: Classify diff (docs-only → runtime=false)
+        run: |
+          set -euo pipefail
+          # Three-dot diff = merge-base diff (the changes the PR introduces).
+          # Two-dot would diff against base's current tip and pick up unrelated commits.
+          changed_files=$(git diff --name-only "${{ github.event.pull_request.base.sha }}...HEAD" || true)
+          # Empty diff → runtime=true (safer default — run slow-job rather than silently skip).
+          if [ -z "$changed_files" ]; then
+            echo "Empty diff; defaulting runtime=true"
+            echo "runtime=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # `*.md` (not `**/*.md`): bash `case` is pattern matching, not pathname
+          # expansion — inside `case`, `*` already matches `/`, so `*.md` covers
+          # both `CLAUDE.md` and `apps/web/README.md`. `shopt -s globstar` only
+          # affects globbing for filename expansion, NOT `case` semantics.
+          # `**/*.md` in `case` behaves like `*/*.md` and misses root-level
+          # markdown. Lalista hit this regression on PR #63 (2026-05-12).
+          # Do NOT "fix" this back to `**/*.md`.
+          runtime=false
+          while IFS= read -r path; do
+            [ -z "$path" ] && continue
+            case "$path" in
+              *.md) ;;
+              specs/**) ;;
+              PLAN.md) ;;
+              BUILD-LOG.md) ;;
+              TODOS.md) ;;
+              .gstack/**) ;;
+              .devshop/**) ;;
+              *)
+                runtime=true
+                break
+                ;;
+            esac
+          done <<< "$changed_files"
+          echo "runtime=$runtime" >> "$GITHUB_OUTPUT"
+
+  slow:
+    runs-on: ubuntu-latest
+    needs: [fast, changes]
+    if: github.event_name == 'pull_request' && needs.changes.outputs.runtime == 'true'
+    timeout-minutes: 30
+    env:
+      # NO job-level SUPABASE_URL / SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY:
+      # those would PIN the GH-Variables value and SHADOW any `$GITHUB_ENV` write
+      # from a later step (Actions resolves job-level `env:` AFTER each step's
+      # `$GITHUB_ENV` writes for `process.env.*`). The slow-job sources the real
+      # values from `supabase status -o env` via `$GITHUB_ENV`; the steps that
+      # need them map at step level via `${{ env.API_URL }}` / `env.SERVICE_ROLE_KEY`.
+      NEXT_PUBLIC_POSTHOG_KEY: ${{ vars.NEXT_PUBLIC_POSTHOG_KEY }}
+      SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          # Match fast-job pin; see /devshop/template/.nvmrc for the
+          # source-of-truth (Node 22 — pnpm 11.x needs `node:sqlite`).
+          node-version: '22'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers with deps (chromium + webkit)
+        # `desktop` Playwright project uses Chromium; `mobile` project
+        # inherits `devices['iPhone N']` which defaults to WebKit. Install
+        # both — only Chromium fails every `[mobile]` spec at browser launch
+        # with `Executable doesn't exist at .../webkit-XXXX/pw_run.sh`.
+        # Empty-state guard: brand-new projects with zero e2e specs don't
+        # need Playwright browsers (saves ~3 min); the step short-circuits
+        # until the first apps/web/e2e/*.spec.ts lands.
+        if: hashFiles('apps/web/e2e/**/*.spec.ts') != ''
+        run: pnpm --filter apps/web exec playwright install --with-deps chromium webkit
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase (with edge-runtime health-check retry)
+        # Runs unconditionally — ambient signal that supabase start still
+        # works even on brand-new projects with zero migrations / specs.
+        # Downstream content-dependent steps (type-drift, rollback round-
+        # trip, Playwright) gate on repo content; this one is the heartbeat
+        # that proves CI plumbing is wired.
+        run: |
+          set -e
+          start_supabase() {
+            supabase start --ignore-health-check
+            # Probe functions endpoint at the configured API port (read from
+            # supabase/config.toml — projects that rebound ports need to update
+            # the URL below to match). 401/404 = service is up; 502 = edge-runtime
+            # cold-start flake; we retry once on that.
+            for i in $(seq 1 10); do
+              code=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 \
+                "http://127.0.0.1:54321/functions/v1/" 2>/dev/null || echo "000")
+              if [ "$code" = "401" ] || [ "$code" = "404" ]; then
+                echo "Edge runtime healthy (HTTP $code)"
+                return 0
+              fi
+              echo "Edge runtime probe $i/10 returned HTTP $code; waiting..."
+              sleep 3
+            done
+            echo "Edge runtime didn't pass health-check"
+            return 1
+          }
+          if ! start_supabase; then
+            echo "::warning::supabase_edge_runtime_* failed first health-check; restarting once"
+            supabase stop || true
+            start_supabase
+          fi
+          # Export the live local-stack URL + JWTs into the job env.
+          # `supabase status -o env` emits unprefixed names (API_URL, ANON_KEY,
+          # SERVICE_ROLE_KEY, INBUCKET_URL, MAILPIT_URL, ...) — NOT the
+          # SUPABASE_*-prefixed names the test helpers read. Strategy:
+          #  - strip the surrounding double quotes that `supabase status -o env`
+          #    wraps every value in (otherwise GITHUB_ENV stores the literal
+          #    `"..."`, which then poisons every consumer as an invalid URL);
+          #  - push the unprefixed names to `$GITHUB_ENV` so later steps can
+          #    map them via `${{ env.API_URL }}` / `env.SERVICE_ROLE_KEY` etc.
+          #  - additionally bridge `API_URL` -> `NEXT_PUBLIC_SUPABASE_URL` and
+          #    `ANON_KEY` -> `NEXT_PUBLIC_SUPABASE_ANON_KEY` so `next build`
+          #    bakes the right values into the bundle and the browser client
+          #    doesn't crash with "Your project's URL and Key are required to
+          #    create a Supabase client!".
+          SB_ENV="$(supabase status -o env | sed -E 's/="(.*)"$/=\1/')"
+          echo "$SB_ENV" >> "$GITHUB_ENV"
+          SB_URL="$(echo "$SB_ENV" | sed -n 's/^API_URL=//p')"
+          SB_KEY="$(echo "$SB_ENV" | sed -n 's/^ANON_KEY=//p')"
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$SB_URL"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$SB_KEY"
+          } >> "$GITHUB_ENV"
+
+      - name: Schema type-drift check
+        # Empty-state guard: skip when no migrations exist. The template
+        # ships a placeholder supabase.types.ts that diff-fails against an
+        # empty live schema; once the first migration lands, the placeholder
+        # is regenerated and drift detection becomes meaningful.
+        if: hashFiles('supabase/migrations/*.sql') != ''
+        run: bash scripts/ci-type-drift.sh
+
+      - name: Migration rollback round-trip
+        # Empty-state guard: nothing to round-trip until first migration.
+        # Also: scripts/ci-rollback-explain.sh requires supabase/migrations/
+        # to exist as a directory; brand-new projects don't have it.
+        if: hashFiles('supabase/migrations/*.sql') != ''
+        run: bash scripts/ci-rollback-explain.sh
+
+      - name: Build web app for E2E
+        # Empty-state guard: only build when there's something to run
+        # against. Same gating as the Playwright install + run steps.
+        if: hashFiles('apps/web/e2e/**/*.spec.ts') != ''
+        env:
+          # Step-level mapping from the local-stack values exported by the
+          # "Start local Supabase" step. Necessary at BUILD time so `next build`
+          # bakes the right Supabase URL + anon key into the client bundle
+          # (these are NEXT_PUBLIC_* on purpose; the values are public local-stack
+          # defaults).
+          NEXT_PUBLIC_SUPABASE_URL: ${{ env.API_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ env.ANON_KEY }}
+        run: pnpm turbo run build --filter=apps/web
+
+      - name: Start next + run Playwright E2E
+        if: hashFiles('apps/web/e2e/**/*.spec.ts') != ''
+        env:
+          # Step-level mapping is the canonical way to bridge `supabase status
+          # -o env`'s unprefixed output (API_URL / ANON_KEY / SERVICE_ROLE_KEY)
+          # to the SUPABASE_*-prefixed names the test helpers read
+          # (apps/web/e2e/helpers/admin-client.ts). Job-level `env:` would shadow
+          # `$GITHUB_ENV` writes; step-level `env:` resolves AFTER `$GITHUB_ENV`,
+          # so `${{ env.API_URL }}` picks up the live value the previous step wrote.
+          NEXT_PUBLIC_SUPABASE_URL: ${{ env.API_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ env.ANON_KEY }}
+          SUPABASE_URL: ${{ env.API_URL }}
+          SUPABASE_ANON_KEY: ${{ env.ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ env.SERVICE_ROLE_KEY }}
+        run: |
+          set -e
+          # Boot next in the background; wait for the port to open before
+          # invoking Playwright. The `nohup` + `&` shape keeps the process
+          # alive after the script step ends (Playwright owns the foreground).
+          (cd apps/web && nohup pnpm exec next start -p 3000 >/tmp/next.log 2>&1 &)
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3000/ -o /dev/null 2>&1; then
+              echo "next ready on :3000"
+              break
+            fi
+            sleep 1
+          done
+          if ! curl -fsS http://127.0.0.1:3000/ -o /dev/null 2>&1; then
+            echo "::error::next failed to start within 30s"
+            cat /tmp/next.log
+            exit 1
+          fi
+          pnpm --filter apps/web test:e2e
+
+      - name: Upload Playwright traces on failure
+        if: failure() && hashFiles('apps/web/e2e/**/*.spec.ts') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-trace
+          # `playwright-report/` is empty under `reporter: 'github'` (the
+          # github reporter doesn't write a report file). The actual
+          # debugging surface — videos, traces, error-context.md — lives
+          # under `test-results/`. Including both makes the artifact useful
+          # whether the reporter shape changes in the future.
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7
+          if-no-files-found: ignore

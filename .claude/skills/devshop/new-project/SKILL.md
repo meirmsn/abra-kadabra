@@ -1249,16 +1249,18 @@ Set up in each service's dashboard: Sentry (80% alert), PostHog (usage), Vercel 
 After first CI run produces a green check (triggered by a PR, since the workflow doesn't run on direct pushes to main):
 
 ```bash
-# Default: project ships only fast-job. Use this contexts list:
-#   "contexts":["fast"]
-# If slow-job is enabled in ci.yml (uncommented after Phase 1c — integration
-# tests + supabase start, OR Phase 1g — Playwright E2E), require it too:
-#   "contexts":["fast","slow"]
-# Slow-job is path-/event-filtered to PRs against main, so requiring it on
-# branch protection only adds a check where it's actually expected to run.
+# Required status contexts: fast AND slow. Both jobs ship active from the
+# template (see kit/docs/guide/conventions.md § Slow-Job Lifecycle).
+# - fast: lint + typecheck + test:unit + build (~1 min)
+# - slow: supabase start + (gated on content) type-drift + rollback round-
+#         trip + Playwright E2E. Brand-new projects with no migrations and
+#         no e2e specs short-circuit to ~30s of ambient health signal.
+# The slow-job's job-level `if:` only fires on pull_request events, so
+# direct push-to-main runs only fast — branch protection allows that
+# because GitHub treats skipped required contexts as success.
 gh api repos/{owner}/{repo}/branches/main/protection \
   --method PUT \
-  --field 'required_status_checks={"strict":true,"contexts":["fast"]}' \
+  --field 'required_status_checks={"strict":true,"contexts":["fast","slow"]}' \
   --field enforce_admins=true \
   --field 'required_pull_request_reviews={"dismiss_stale_reviews":true,"required_approving_review_count":0}' \
   --field required_linear_history=true \
@@ -1267,12 +1269,12 @@ gh api repos/{owner}/{repo}/branches/main/protection \
   --field restrictions=null
 ```
 
-**Structural enforcement (post-2026-04-27):** when the project crosses the Phase 1c / 1g threshold and `*.integration.test.ts` or `apps/web/e2e/*.spec.ts` files exist, `/ak-pre-ship` runs gate `slow-job-lifecycle` (gate 2c, conditional). It asserts the slow-job stub is uncommented, the `if:` predicate matches `github.event_name == 'pull_request'`, the edge-runtime retry pattern is wired, branch protection includes `slow`, and the slow-job's test glob matches at least one repo-resident integration test or E2E spec. Misconfigurations surface as findings with remediation messages pointing back at this section. See `kit/docs/guide/conventions.md § Slow-Job Lifecycle § Uncommenting checklist` for the full convention this gate enforces.
+**Structural enforcement (gate 2c, regression guard):** `/ak-pre-ship` runs gate `slow-job-lifecycle` to verify the active stub didn't get re-commented or hollowed out. It asserts the slow-job is active, the `if:` predicate matches `github.event_name == 'pull_request' && needs.changes.outputs.runtime == 'true'`, the edge-runtime retry pattern is wired, the per-step empty-state guards are present (`hashFiles('apps/web/e2e/**/*.spec.ts') != ''` for Playwright steps, `hashFiles('supabase/migrations/*.sql') != ''` for type-drift + rollback), and branch protection includes `slow`. Findings surface remediation messages pointing back at this section. See `kit/docs/guide/conventions.md § Slow-Job Lifecycle` for the full convention this gate enforces.
 
 This requires:
 
 - PRs for all merges (no required approvals, but stale approvals dismissed on new pushes)
-- `fast` status check must pass + branch must be up-to-date before merge (and `slow` too if enabled)
+- `fast` and `slow` status checks must pass + branch must be up-to-date before merge
 - Linear history (works with repo-level squash-only merges)
 - No force pushes, no branch deletion, no admin bypass
 
