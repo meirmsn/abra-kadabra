@@ -15,18 +15,28 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
   - `git push origin main && rm -f /tmp/x.txt` — **BLOCKED on `push-force-short`** (minimal reproducer; benign push + `rm -f` is enough to false-positive)
   - The rule also false-positives when the `git -c devshop.docsReviewed="<reason>" commit ...` reason TEXT mentions `git push -f` as a literal string discussing the rule itself, even though the command being run is a `git commit` with no push at all.
 
-  **Investigation goal**: read the DCG pack source for `core.git:push-force-short` to understand the regex. Determine whether the false-positive is fixable in the DCG pack itself (tighten the anchor so it matches `git push` adjacent to `-f`/`--force`, not anywhere-in-compound) or whether the devshop should ship a wrapper.
+  **Investigation (completed 2026-05-20)**: extracted regexes from the dcg 0.4.0 binary via `strings /usr/local/bin/dcg`. The `core.git:push-force-short` pattern is approximately:
+
+  ```
+  git\s+(?:\S+\s+)*push\s+.*-f\b
+  ```
+
+  (sibling `push-force-long` is `git\s+(?:\S+\s+)*push\s+.*--force(?![-a-z])`; the strict-git pack's `push-force-any` is `git\s+(?:\S+\s+)*push\s+.*(?:--force|--force-with-lease|-f\b)` — same shape, all three share the same greedy-`.*` bug.) **Root cause: the unanchored `.*`.** Once the regex matches `git ... push`, `.*` greedily consumes anything up to the next `-f` literal, INCLUDING shell separators (`&&`, `;`, `|`, newlines). So `git push origin main && rm -f /tmp/x.txt` matches because `.*` swallows ` origin main && rm `.
+
+  **Fix shape (upstream)**: change `.*` → `[^;&|\n]*` so the match stops at the nearest shell-command separator. Same fix applies to all three rules. The 5 test cases above become the verification matrix — all currently BLOCKED would flip to ALLOWED post-patch (except `git push -f origin main` and `git push --force origin main`, which would correctly stay BLOCKED).
+
+  **Upstream repo**: `https://github.com/Dicklesworthstone/destructive_command_guard` (confirmed via `strings` against the embedded reference URL inside the dcg binary). DCG ships as a stripped ARM ELF; in-place patching the binary is not viable.
 
   **Current workarounds** (already shipped):
   - `/ak-merge-devshop § Phase 4.2` instructs operators to run each teardown step as a SEPARATE Bash tool call (no chaining). Documented empirically-verified false-positive shape inline.
   - When `git -c devshop.docsReviewed="$REASON" commit ...` is needed AND the reason text would mention `git push -f`, sanitize the reason (use phrases like "force-shortcut variant" / "push command + a separate short-dash-f flag" instead of literal `git push -f`).
 
-  **Fix candidates** (post-investigation):
-  - (a) Upstream patch to the DCG pack (third-party — `github.com/foo/dcg`? need to find the repo). Tighten the regex anchor.
-  - (b) Devshop-side wrapper script `kit/scripts/dcg-test-strict.sh` that pre-flights compound commands via per-component decomposition and reports per-component verdicts.
-  - (c) Operator documentation only (current state — workarounds shipped, root cause tracked here).
+  **Path forward** (post-investigation, in order of preference):
+  - (a) **File upstream issue + PR** at `Dicklesworthstone/destructive_command_guard` proposing the `.*` → `[^;&|\n]*` patch on `push-force-short`, `push-force-long`, and `strict_git:push-force-any`. Include the 5 empirical test cases as the verification matrix. **Recommended first step** — single-line regex change with high signal-to-noise ratio.
+  - (b) **Devshop-side wrapper** `kit/scripts/dcg-pre-check.sh <command>` that decomposes a compound command into per-shell-separator atoms, runs each through `dcg test` independently, and pre-filters false-positives before the harness hook fires. Tracked here because the wrapper would need to be a real PreToolUse hook upstream of dcg, which requires restructuring `.claude/settings.json`'s hook chain. Deferred unless upstream-patch is rejected.
+  - (c) **Operator documentation only** (current state — workarounds shipped, root cause tracked here). Acceptable interim posture; revisit if a fourth false-positive event surfaces.
 
-  Codified from `home-os-skill-polish-batch` + `ak-merge-devshop-hardening` sessions (2026-05-20). Three false-positive events in one session — the workarounds work but the underlying rule should be fixed at source.
+  Codified from `home-os-skill-polish-batch` + `ak-merge-devshop-hardening` + `session-followups` sessions (2026-05-20). Three false-positive events in one session, all empirically verified; root cause confirmed via binary inspection. Upstream patch is the canonical fix path.
 
 - [ ] **`check-branch-not-main.sh` PreToolUse hook didn't block a `git commit` on main during a multi-session interleaving.** Surfaced 2026-05-20 during `fix/notify-suppress-deferred-work` work. Created `fix/structural-invariants-fault-injected-qa` branch, ran `Edit` + `git update-index --chmod=-x` + bats verification + commit — the commit landed on `main` (`ef6db18`), not on the fix branch. Two possible root causes:
   - (a) **Hook didn't fire / silently allowed.** The hook is filtered via `Bash(*git*commit*)` in `.claude/settings.json`. The commit invocation was `git -c devshop.docsReviewed='…' -c devshop.docsCoverageReason='…' commit -m '…'` — the `-c` flags may or may not interact with the matcher. Verify by simulating the exact invocation and observing hook stdin/stdout.
