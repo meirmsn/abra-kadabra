@@ -2,6 +2,20 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.33.0 (2026-05-20)
+
+- chore(plan): promote 4 v0 ROADMAP entries to Planned rows
+- fix(init-firewall): survive missing .env keys + unresolved getent
+- fix(adversarial-review): stop FAILing clean titles on the squash surface
+- docs(todos): record DCG push-force-short investigation findings + upstream path
+- fix(devshop): close session-audit leftovers + skill enhancements + DCG TODO
+- fix(ak-merge-devshop): anchor selection + medium halt + DCG-safe teardown
+- feat(gstack): /qa + screenshot capture work first try on fresh containers
+- fix(devshop): worktrees default to main + merge fails fast on wrong HEAD
+- fix(ak-new-project): close 18 home-os-surfaced onboarding papercuts
+- fix(merge-devshop): flag hard-to-read squash subjects before approval
+- chore(spec): widen calibration to 10 + add task phasing + lift rationale
+
 ## v1.32.0 (2026-05-20)
 
 - chore(plan): close 2 shipped rows + fold absorbed-bundle note into home-os hook
