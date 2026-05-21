@@ -246,9 +246,16 @@ iptables -A OUTPUT -d "$HOST_NETWORK" -j ACCEPT
 # one that actually works for our case (supabase's spawned siblings bind
 # 0.0.0.0:<api> + 0.0.0.0:<db> IPv4 host ports).
 ENV_FILE="/workspace/.devcontainer/.env"
+# `|| true` on every pipeline below: grep exits 1 when the key is absent
+# and getent exits non-zero when host.docker.internal does not resolve.
+# Without the suffix, `set -euo pipefail` + pipefail propagates the non-zero
+# through the pipe, kills the assignment under set -e, and the script exits
+# silently — leaving the [ -n "$var" ] guards and the `else: warn:` branch
+# below unreachable. The neutering is intentional: the empty-result case is
+# the documented fallback path, not an error.
 if [ -f "$ENV_FILE" ]; then
-    api_line=$(grep -E '^SUPABASE_API_PORT=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '[:space:]"'"'"'')
-    db_line=$(grep -E '^SUPABASE_DB_PORT=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '[:space:]"'"'"'')
+    api_line=$(grep -E '^SUPABASE_API_PORT=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '[:space:]"'"'"'' || true)
+    db_line=$(grep -E '^SUPABASE_DB_PORT=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '[:space:]"'"'"'' || true)
     [ -n "$api_line" ] && SUPABASE_API_PORT="$api_line"
     [ -n "$db_line" ] && SUPABASE_DB_PORT="$db_line"
 fi
@@ -262,7 +269,7 @@ for port_name in SUPABASE_API_PORT SUPABASE_DB_PORT; do
         exit 1
     fi
 done
-HOST_DOCKER_INTERNAL=$(getent ahostsv4 host.docker.internal 2>/dev/null | awk '{print $1}' | head -1)
+HOST_DOCKER_INTERNAL=$(getent ahostsv4 host.docker.internal 2>/dev/null | awk '{print $1}' | head -1 || true)
 if [ -n "$HOST_DOCKER_INTERNAL" ]; then
     echo "Allowing host.docker.internal ($HOST_DOCKER_INTERNAL) on supabase ports $SUPABASE_API_PORT + $SUPABASE_DB_PORT"
     iptables -A OUTPUT -d "$HOST_DOCKER_INTERNAL" -p tcp --dport "$SUPABASE_API_PORT" -j ACCEPT

@@ -16,12 +16,31 @@
 #      via awk and exercise it with synthetic .env fixtures. Pure-bash
 #      execution; never touches iptables / ipset / sudo / host state.
 #
+# Two runners — preserves the production execution context.
+# Per `kit/docs/guide/conventions.md § Kit Testing § Preserve the production
+# execution context`, bats tests that exec extracted snippets must replicate
+# the source script's `set` options so pipefail-driven silent failures are
+# visible:
+#   - run_snippet            — plain bash, for behavior assertions where
+#                              pipefail death is not in scope (resolved
+#                              ports, error messages, etc).
+#   - run_snippet_pipefail   — wraps the runner in `set -euo pipefail` +
+#                              IFS=$'\n\t' + a sentinel echo at the end,
+#                              replicating the production script header.
+#                              Used by the regression block at the bottom
+#                              of this file.
+#
 # Background:
 #   Spec: specs/sandbox-qa-close-gap/spec.md
 #   Footgun: home-os PR #26 (2026-05-16) — silent EHOSTUNREACH on
 #            rebound-port projects because workspace iptables ACCEPT
 #            rule hardcoded 54321/54322 instead of reading the project's
 #            .env override.
+#   Regression: lalista devcontainer rebuild 2026-05-20 — pipefail
+#            killed init-firewall.sh on `.env` missing SUPABASE_*_PORT
+#            keys. Test suite was 15/15 green pre-incident because the
+#            extracted snippet ran in plain bash, bypassing the
+#            production `set -euo pipefail` header.
 
 setup() {
   load helpers/setup
@@ -228,4 +247,100 @@ EOF
   run_snippet "$FIXTURE_DIR/dup.env"
   assert_success
   assert_output --partial "RESOLVED_API=54421"
+}
+
+# =============================================================================
+# Regression — `set -euo pipefail` must not silently kill the script when:
+#   (a) .env exists but lacks SUPABASE_*_PORT keys (grep no-match → exit 1)
+#   (b) host.docker.internal does not resolve (getent exit non-zero)
+# Both pipelines need a trailing `|| true` so the empty-result branch stays
+# reachable. Without it pipefail propagates the non-zero through the pipe,
+# set -e kills the assignment, and the script exits silently — bypassing the
+# [ -n "$var" ] guard and the `else: warn:` branch. Worked incident: lalista
+# devcontainer rebuild 2026-05-20 (regression introduced 2026-05-19 commit
+# `94de8d7 feat(sandbox-qa): env-aware Supabase ports in init-firewall.sh`).
+#
+# Why this could not be caught by behavior tests above: run_snippet executes
+# the extracted block under plain bash (no pipefail), which masks the
+# regression — production init-firewall.sh runs the same block inside
+# `set -euo pipefail` (script header).
+# =============================================================================
+
+# Same shape as run_snippet but wraps the runner in `set -euo pipefail` to
+# replicate the production execution context. A sentinel echo at the end
+# distinguishes "exited cleanly with empty resolution" from "died silently".
+run_snippet_pipefail() {
+  local env_file="$1"
+  local runner="$FIXTURE_DIR/runner-pipefail.sh"
+  {
+    printf '#!/bin/bash\nset -euo pipefail\nIFS=$'"'"'\\n\\t'"'"'\n'
+    sed "s|ENV_FILE=\"/workspace/.devcontainer/.env\"|ENV_FILE=\"$env_file\"|" "$SNIPPET"
+    printf 'echo "RESOLVED_API=$SUPABASE_API_PORT"\necho "RESOLVED_DB=$SUPABASE_DB_PORT"\necho "DID_NOT_DIE_SILENTLY"\n'
+  } > "$runner"
+  run bash "$runner"
+}
+
+@test "regression: .env without SUPABASE_*_PORT keys does not silently kill under set -euo pipefail" {
+  # Common case: project uses Supabase's default ports and has a .env with
+  # other vars (PRODUCTION_URL, GITHUB_TOKEN, etc.) but no port overrides.
+  # Pre-fix, grep -E '^SUPABASE_API_PORT=' returns no match → exit 1 → pipefail
+  # → set -e kills the assignment silently → script dies before "Allowing
+  # host.docker.internal" prints. Sentinel verifies the script ran to
+  # completion, not just that no error was raised.
+  cat > "$FIXTURE_DIR/no-keys.env" <<EOF
+# .env without SUPABASE port overrides (the common case)
+PRODUCTION_URL=example.vercel.app
+GITHUB_TOKEN=ghp_test
+EOF
+  run_snippet_pipefail "$FIXTURE_DIR/no-keys.env"
+  assert_success
+  assert_output --partial "RESOLVED_API=54321"
+  assert_output --partial "RESOLVED_DB=54322"
+  assert_output --partial "DID_NOT_DIE_SILENTLY"
+}
+
+@test "regression: partial-key .env (API_PORT set, DB_PORT missing) does not silently kill under set -euo pipefail" {
+  # The grep for the missing key still exits 1; the grep for the present key
+  # exits 0. Without `|| true` on both pipelines the missing-key one kills
+  # the script before the present-key one's value is even applied.
+  cat > "$FIXTURE_DIR/partial-pipefail.env" <<EOF
+SUPABASE_API_PORT=54421
+EOF
+  run_snippet_pipefail "$FIXTURE_DIR/partial-pipefail.env"
+  assert_success
+  assert_output --partial "RESOLVED_API=54421"
+  assert_output --partial "RESOLVED_DB=54322"
+  assert_output --partial "DID_NOT_DIE_SILENTLY"
+}
+
+@test "regression: HOST_DOCKER_INTERNAL pipeline survives unresolved host.docker.internal under set -euo pipefail" {
+  # Extract just the getent assignment line and run it in a synthetic context
+  # where `getent` is stubbed to mimic NSS failure (exit 2, no output) —
+  # replicates docker-desktop configurations where host.docker.internal
+  # doesn't resolve or resolves IPv6-only. Without `|| true` on the pipeline,
+  # set -e + pipefail kills the assignment silently; with the fix the var
+  # ends up empty and the else-branch warn message is reachable.
+  local getent_line
+  getent_line=$(grep '^HOST_DOCKER_INTERNAL=' "$INIT_FIREWALL")
+  [ -n "$getent_line" ] || fail "could not locate HOST_DOCKER_INTERNAL assignment in init-firewall.sh — refactor renamed the var? Update the grep pattern."
+
+  local runner="$FIXTURE_DIR/getent-runner.sh"
+  cat > "$runner" <<EOF
+#!/bin/bash
+set -euo pipefail
+IFS=\$'\n\t'
+# Stub getent to simulate NSS failure (exit 2, no stdout).
+getent() { return 2; }
+$getent_line
+if [ -n "\$HOST_DOCKER_INTERNAL" ]; then
+  echo "RESOLVED=\$HOST_DOCKER_INTERNAL"
+else
+  echo "warn: host.docker.internal did not resolve to IPv4"
+fi
+echo "DID_NOT_DIE_SILENTLY"
+EOF
+  run bash "$runner"
+  assert_success
+  assert_output --partial "warn: host.docker.internal did not resolve"
+  assert_output --partial "DID_NOT_DIE_SILENTLY"
 }
