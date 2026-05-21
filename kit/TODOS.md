@@ -7,6 +7,27 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
 <!-- Items discovered during use. Tag with [v0.2], [v1] etc. to schedule into ROADMAP versions. -->
 
+- [ ] **DCG `core.git:push-force-short` rule false-positives on compound commands containing `git push` + any `-f` flag.** Surfaced 2026-05-20 during `home-os-skill-polish-batch` teardown. Empirically verified via `dcg test`:
+  - `git push -f origin main` — BLOCKED (correct behavior; this is what the rule is for)
+  - `git push origin --delete fix/x` — ALLOWED (correct; `--delete` is not force-push)
+  - `git submodule deinit -f --all && git worktree remove --force /tmp/x` — ALLOWED (no `git push` present)
+  - `git submodule deinit -f --all && git worktree remove --force /tmp/x && git branch -D fix/x && git push origin --delete fix/x && rm -f /tmp/x.txt` — **BLOCKED on `push-force-short`** (FALSE POSITIVE — no `git push -f` exists, but the rule fires because `git push` + `-f` both appear in the compound command)
+  - `git push origin main && rm -f /tmp/x.txt` — **BLOCKED on `push-force-short`** (minimal reproducer; benign push + `rm -f` is enough to false-positive)
+  - The rule also false-positives when the `git -c devshop.docsReviewed="<reason>" commit ...` reason TEXT mentions `git push -f` as a literal string discussing the rule itself, even though the command being run is a `git commit` with no push at all.
+
+  **Investigation goal**: read the DCG pack source for `core.git:push-force-short` to understand the regex. Determine whether the false-positive is fixable in the DCG pack itself (tighten the anchor so it matches `git push` adjacent to `-f`/`--force`, not anywhere-in-compound) or whether the devshop should ship a wrapper.
+
+  **Current workarounds** (already shipped):
+  - `/ak-merge-devshop § Phase 4.2` instructs operators to run each teardown step as a SEPARATE Bash tool call (no chaining). Documented empirically-verified false-positive shape inline.
+  - When `git -c devshop.docsReviewed="$REASON" commit ...` is needed AND the reason text would mention `git push -f`, sanitize the reason (use phrases like "force-shortcut variant" / "push command + a separate short-dash-f flag" instead of literal `git push -f`).
+
+  **Fix candidates** (post-investigation):
+  - (a) Upstream patch to the DCG pack (third-party — `github.com/foo/dcg`? need to find the repo). Tighten the regex anchor.
+  - (b) Devshop-side wrapper script `kit/scripts/dcg-test-strict.sh` that pre-flights compound commands via per-component decomposition and reports per-component verdicts.
+  - (c) Operator documentation only (current state — workarounds shipped, root cause tracked here).
+
+  Codified from `home-os-skill-polish-batch` + `ak-merge-devshop-hardening` sessions (2026-05-20). Three false-positive events in one session — the workarounds work but the underlying rule should be fixed at source.
+
 - [ ] **`check-branch-not-main.sh` PreToolUse hook didn't block a `git commit` on main during a multi-session interleaving.** Surfaced 2026-05-20 during `fix/notify-suppress-deferred-work` work. Created `fix/structural-invariants-fault-injected-qa` branch, ran `Edit` + `git update-index --chmod=-x` + bats verification + commit — the commit landed on `main` (`ef6db18`), not on the fix branch. Two possible root causes:
   - (a) **Hook didn't fire / silently allowed.** The hook is filtered via `Bash(*git*commit*)` in `.claude/settings.json`. The commit invocation was `git -c devshop.docsReviewed='…' -c devshop.docsCoverageReason='…' commit -m '…'` — the `-c` flags may or may not interact with the matcher. Verify by simulating the exact invocation and observing hook stdin/stdout.
   - (b) **Parallel session ran `git checkout main` on /devshop between commands.** The same 2026-05-20 session had a second Claude in a worktree (`feat/skill-tempfile-stash-fixes`) explicitly asking the operator for `git checkout main` on /devshop. If the user ran that mid-session, the checkout would switch /devshop to main between my `git checkout -b` and the subsequent `git commit`, bypassing any branch-state check the hook performed.

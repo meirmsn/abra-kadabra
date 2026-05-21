@@ -45,7 +45,7 @@ enumerates every commit on the branch), and 11 first-session
 generalizations (E1–E11: Sentry platform → Next.js; pre-fill local-stack
 `SUPABASE_SERVICE_ROLE_KEY`; Sentry DSN direct-URL form; drop
 `SUPABASE_DB_PASSWORD` from `.env` + security matrix update;
-`vitest.config.ts` placeholder rewrite; Step 18 → Step 12.5 reorder;
+`vitest.config.ts` placeholder rewrite; Step 18 → Step 12.6 reorder;
 sharp/unrs-resolver build-script reconciliation; partial-scaffold
 recovery note; tracker-verification grep at Step 6; `[OPERATOR-ONLY]`
 headers on Steps 6/7; firewall smoke-test sub-step). Sub-bundle D
@@ -94,9 +94,9 @@ pattern is already in production for `~/.gstack/projects →
 /workspace/.gstack/projects` (shipped 2026-05-20 in
 `gstack-artifact-symlink-redirect`).
 
-### D3: E6 implementation — reorder Step 18 → Step 12.5, not drop
+### D3: E6 implementation — reorder Step 18 → Step 12.6, not drop
 
-**Decision:** Move the docs-fill step from Step 18 to a new Step 12.5
+**Decision:** Move the docs-fill step from Step 18 to a new Step 12.6
 (after `apps/web` scaffold lands, before Sentry/PostHog at Step 13).
 Renumber subsequent steps and unwind every cross-reference.
 
@@ -199,7 +199,7 @@ Per-item; full per-fix surface from ROADMAP § A / § B / § E. Path-prefix all 
 | E3 | `.claude/skills/ak-new-project/SKILL.md` § Step 4 (Sentry DSN sub-bullet) | Replace "Project Settings → Client Keys" navigation prose with direct URL `https://sentry.io/settings/{org-slug}/projects/{project-slug}/keys/`. |
 | E4 | `.claude/skills/ak-new-project/SKILL.md` § Step 4 (`.env` body + § Security Posture surface matrix) | Remove `SUPABASE_DB_PASSWORD=` from emitted `.env`; update matrix to ❌ NEVER for `.devcontainer/.env` column with "paste from PW manager for ad-hoc" note. |
 | E5 | `template/packages/core/vitest.config.ts` | Rewrite comment header from `// @PROJECT_NAME_PLACEHOLDER/core` to `// Vitest config for packages/core` (placeholder-free). |
-| E6 | `.claude/skills/ak-new-project/SKILL.md` | Renumber Step 18 → Step 12.5; renumber Steps 13–17 → 13–17 (no shift; 12.5 is a "half-step" so following steps keep their numbers — verify cross-refs unaffected). Unwind cross-refs via `grep -n "Step 18"` audit. |
+| E6 | `.claude/skills/ak-new-project/SKILL.md` | Renumber Step 18 → Step 12.6; renumber Steps 13–17 → 13–17 (no shift; 12.5 is a "half-step" so following steps keep their numbers — verify cross-refs unaffected). Unwind cross-refs via `grep -n "Step 18"` audit. |
 | E7 | `template/package.json` + `.claude/skills/ak-new-project/SKILL.md` § Step 12 | Move `sharp` + `unrs-resolver` from `pnpm.onlyBuiltDependencies` → `pnpm.ignoredBuiltDependencies`; add Step 12 sub-step "rm `apps/web/pnpm-workspace.yaml` after `pnpm create next-app` — root owns build-script policy". |
 | E8 | `.claude/skills/ak-new-project/SKILL.md` § Step 12 | Sub-step note: interrupted-`pnpm create next-app` recovery rule. |
 | E9 | `.claude/skills/ak-new-project/SKILL.md` § Step 6 | Append a verification grep before [x] is marked: `grep -E "supabase\.co\|ingest\.sentry\|posthog\.com" .devcontainer/firewall-extra-domains`. |
@@ -240,7 +240,7 @@ Numbered to match the tracker (Phase 2 / Task N). Inside each: read current file
 7. **E4** — Step 4 drop `SUPABASE_DB_PASSWORD` + § Security Posture surface matrix.
 8. **A4** — Step 17 gstack-config preamble.
 9. **A5** — Step 9 `~/.claude/skills/gstack` symlink.
-10. **E6** — Step 18 → Step 12.5 renumber + cross-ref sweep.
+10. **E6** — Step 18 → Step 12.6 renumber + cross-ref sweep.
 11. **E7** — Step 12 build-script reconciliation + `template/package.json`.
 12. **E8** — Step 12 partial-scaffold recovery note.
 13. **E9** — Step 6 verification grep.
@@ -253,7 +253,7 @@ Numbered to match the tracker (Phase 2 / Task N). Inside each: read current file
 
 ## Gotchas
 
-- **`Step 18 → 12.5` renumber is the only multi-file cross-ref sweep.** Old `Step 18` references in the same SKILL.md (preamble / step preview / footer summary) + any external skill that points at "see `/ak-new-project § Step 18`" need to flip to `Step 12.5`. Run `grep -rn "Step 18" /devshop/.claude/skills/ /devshop/kit/ /devshop/CLAUDE.md` after the edit and triage every hit.
+- **`Step 18 → 12.5` renumber is the only multi-file cross-ref sweep.** Old `Step 18` references in the same SKILL.md (preamble / step preview / footer summary) + any external skill that points at "see `/ak-new-project § Step 18`" need to flip to `Step 12.6`. Run `grep -rn "Step 18" /devshop/.claude/skills/ /devshop/kit/ /devshop/CLAUDE.md` after the edit and triage every hit.
 - **Step 6 / Step 7 are `[OPERATOR-ONLY]`-prefixed by E10.** The smoke-test sub-step E11 adds is operator-runnable (curl from inside the container), so the `[OPERATOR-ONLY]` marker still fits — clarify in E11's text that the smoke test runs from the container, not from the host.
 - **B3's path-(a) detection is exact-SHA-match.** Don't try to be clever about partial SHAs or commit-subject overlap — the adversarial reviewer already handles those judgment cases. The hook short-circuit fires only when every commit SHA in `origin/main..HEAD` literally appears as a string in the PR body.
 - **A4's `gstack-config set` batch must be idempotent.** A re-run during a partial-scaffold recovery (E8 territory) must not error if the marker files already exist.
@@ -266,7 +266,7 @@ Numbered to match the tracker (Phase 2 / Task N). Inside each: read current file
 - All 18 fix items implemented as separate commits + 1 tracker-closure commit = 19 commits on `fix/home-os-skill-polish-batch`.
 - `/ak-pre-ship` gauntlet runs to green: docs-check / fast-job-local / changed-tests-local / Audit 1 / `/simplify` / `/review` / `/cso` / preflight-final / convention check all `pass` or `n/a (per scope)`. UI gates (`responsive-theme`, `/design-review`, `/qa`, `/benchmark`) and database gates (`rls-coverage`, `migration-rollback-roundtrip`, `slow-job-lifecycle`) emit `n/a` per scope — no UI, no DB, no slow job touched by this branch.
 - B3 bats spec green: 3 cases pass.
-- `grep -rn "Step 18" /devshop/.claude/skills/ /devshop/kit/ /devshop/CLAUDE.md` returns zero unwanted hits (all converted to `Step 12.5` or removed).
+- `grep -rn "Step 18" /devshop/.claude/skills/ /devshop/kit/ /devshop/CLAUDE.md` returns zero unwanted hits (all converted to `Step 12.6` or removed).
 - `grep -rn "home-os-skill-polish-batch" /devshop/` after tracker-closure returns only the spec-dir / hook stamps / git-internal hits (no remaining `PLAN.md` / `kit/ROADMAP.md` / `kit/docs/` / `CLAUDE.md` hits).
 - `/ak-merge-devshop` lands the squash on `main` with a bullet-led `## Squashed commits` section preserving per-item visibility.
 

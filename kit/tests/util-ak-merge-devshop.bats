@@ -78,6 +78,80 @@ setup() {
   awk '/^## Inputs/,/^---/' "$SKILL_FILE" | grep -qiE 'multiple|disambiguat'
 }
 
+@test "Inputs section documents --source-worktree <path> flag" {
+  awk '/^## Inputs/,/^---/' "$SKILL_FILE" | grep -qE '\*\*`--source-worktree <path>`\*\*'
+}
+
+@test "Inputs --source-worktree names the bypass scenario (parallel WIP blocks branch-switch)" {
+  awk '/^## Inputs/,/^---/' "$SKILL_FILE" | grep -qiE 'parallel.*session|WIP.*blocks|cannot be.*cleanly switched'
+}
+
+@test "Phase 0.1 implements --source-worktree short-circuit (BRANCH derives from worktree HEAD)" {
+  awk '/^### 0\.1:/,/^### 0\.2:/' "$SKILL_FILE" \
+    | grep -qE '\$SOURCE_WORKTREE_ARG'
+  awk '/^### 0\.1:/,/^### 0\.2:/' "$SKILL_FILE" \
+    | grep -qE 'git -C "?\$WORKTREE_PATH"? branch --show-current'
+}
+
+@test "Phase 0.1 --source-worktree refuses when path is not a registered worktree" {
+  awk '/^### 0\.1:/,/^### 0\.2:/' "$SKILL_FILE" \
+    | grep -qiE 'not a registered git worktree|worktree list --porcelain'
+}
+
+@test "Phase 0.1 --source-worktree refuses when path does not exist on disk" {
+  # First of three guard predicates — the path must exist as a directory
+  # before any other check runs. Otherwise downstream `git -C` calls would
+  # silently no-op against the wrong working tree.
+  awk '/^### 0\.1:/,/^### 0\.2:/' "$SKILL_FILE" \
+    | grep -qiE '! -d "\$SOURCE_WORKTREE_ARG"|path does not exist'
+}
+
+@test "Phase 0.1 --source-worktree refuses when the worktree is on main/master/detached HEAD" {
+  # Second guard — the worktree must be on a feature branch (NOT main, NOT
+  # master, NOT detached HEAD). Auditing the worktree's HEAD via `git -C
+  # branch --show-current` and refusing on empty/main/master.
+  awk '/^### 0\.1:/,/^### 0\.2:/' "$SKILL_FILE" \
+    | grep -qiE 'must be on a feature branch|"\$BRANCH" = "main"|detached HEAD'
+}
+
+@test "Phase 0.1 --source-worktree refuses when the worktree has no commits ahead of origin/main" {
+  # Third guard — refuse when nothing to merge. Defense-in-depth even though
+  # the operator presumably wouldn't pass --source-worktree on an unchanged
+  # branch; the empty-range check is cheap.
+  awk '/^### 0\.1:/,/^### 0\.2:/' "$SKILL_FILE" \
+    | grep -qiE 'no commits ahead of origin/main|rev-list --count "origin/main\.\.\$BRANCH"'
+}
+
+@test "Phase 3 has a --source-worktree branch that pushes via git -C WORKTREE_PATH push origin HEAD:main" {
+  awk '/^## Phase 3:/,/^## Phase 4:/' "$SKILL_FILE" \
+    | grep -qE 'git -C "?\$WORKTREE_PATH"? push origin HEAD:main'
+}
+
+@test "Phase 3 --source-worktree path skips the /devshop checkout main + ff-merge" {
+  # The default path runs `git checkout main` + `git merge --ff-only`. The
+  # --source-worktree path must NOT do that — /devshop's branch stays
+  # untouched. Verify the Phase 3 narrative names this contract explicitly.
+  # Three independent `grep -q` calls (NOT a single OR) so any missing
+  # dimension fails the test — mirrors the Phase 4.2 test's shape and avoids
+  # the same loose-OR anti-pattern the same commit refactored away from.
+  # `tr -d '\n'` to collapse multi-line markdown prose into a single line
+  # so multi-line phrases like "never touch\n  /devshop" still match.
+  local section
+  section=$(awk '/^## Phase 3:/,/^## Phase 4:/' "$SKILL_FILE" | tr -d '\n')
+
+  # Dimension 1: explicit promise that /devshop's branch stays untouched.
+  echo "$section" | grep -qiE 'never touch.*devshop|stays untouched|won.t touch' \
+    || { echo "Phase 3 missing '/devshop never touched' guarantee"; false; }
+
+  # Dimension 2: explicit description of the direct-push mechanism.
+  echo "$section" | grep -qiE 'push.*directly.*from.*worktree|push origin HEAD:main' \
+    || { echo "Phase 3 missing 'push directly from worktree' mechanism"; false; }
+
+  # Dimension 3: explicit skip-the-checkout-and-ff branching.
+  echo "$section" | grep -qiE 'skip the checkout|skip.*ff-merge|two-path' \
+    || { echo "Phase 3 missing 'skip checkout + ff-merge' branching"; false; }
+}
+
 @test "When-to-invoke describes three auto-detection shapes" {
   # /devshop on the feature branch directly (legacy direct-checkout)
   awk '/^## When to invoke/,/^## Inputs/' "$SKILL_FILE" \
@@ -437,12 +511,25 @@ setup() {
   # `git push origin --delete` — so the chained shape false-positives reliably.
   # The skill must instruct operators to split — codified from home-os-skill-
   # polish-batch teardown (2026-05-20) where the chained block got DCG-blocked.
-  awk '/^### 4\.2:/,/^---$/' "$SKILL_FILE" \
-    | grep -qiE 'false-positive|separate.*Bash.*tool call|do not chain'
-  # The named rule must be referenced specifically so future operators can
-  # `dcg explain` it; generic "DCG pattern-match" wording was empirically wrong.
-  awk '/^### 4\.2:/,/^---$/' "$SKILL_FILE" \
-    | grep -qE 'push-force-short'
+  #
+  # Three independent `grep -q` calls (NOT a single OR) so any missing dimension
+  # of the contract fails the test. The previous OR-shape would pass when only
+  # one keyword survived a doc rewrite. Codified from ak-merge-devshop-hardening
+  # Audit 2 low finding (2026-05-20).
+  local section
+  section=$(awk '/^### 4\.2:/,/^---$/' "$SKILL_FILE")
+
+  # Dimension 1: the false-positive framing (not generic "pattern-match").
+  echo "$section" | grep -qiE 'false-positive' \
+    || { echo "Phase 4.2 missing 'false-positive' framing"; false; }
+
+  # Dimension 2: the named DCG rule (so `dcg explain` resolves it).
+  echo "$section" | grep -qE 'push-force-short' \
+    || { echo "Phase 4.2 missing 'push-force-short' rule name"; false; }
+
+  # Dimension 3: the separation-of-Bash-calls operator instruction.
+  echo "$section" | grep -qiE 'separate.*Bash.*tool call|do not chain' \
+    || { echo "Phase 4.2 missing 'separate Bash tool call'/'do not chain' instruction"; false; }
 }
 
 @test "Phase 4.2 only runs worktree teardown when WORKTREE_PATH is set" {

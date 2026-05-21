@@ -726,3 +726,69 @@ setup() {
   run grep -q 'chmod 1755' "$script"
   assert_success
 }
+
+# =============================================================================
+# Scaffold-time shape guards (close home-os-skill-polish-batch Audit 1 leftovers)
+# =============================================================================
+#
+# Spec at specs/home-os-skill-polish-batch/spec.md § Tests promised 4
+# grep-based regression guards over /ak-new-project SKILL text + template/.
+# The polish branch shipped without adding them (Audit 1 flagged as medium/low
+# findings). These three assertions close that gap.
+#
+# IMPORTANT: these tests resolve paths via `git rev-parse --show-toplevel`
+# (the worktree root they're running in) rather than the bats setup's
+# `DEVSHOP=/devshop` literal. The bats suite runs from arbitrary worktrees
+# during pre-ship gates, and /devshop's main worktree may be on a feature
+# branch with stale content during parallel-session work. Anchoring to the
+# current worktree means the test always tests the source being shipped,
+# not whatever /devshop happens to have checked out.
+
+@test "scaffold: template/packages/core/vitest.config.ts header is placeholder-free" {
+  # E5 — `template/packages/core/vitest.config.ts` comment header was
+  # rewritten to be placeholder-free in commit c810c39 (2026-05-20).
+  # OTHER files in template/packages/core/ legitimately keep the
+  # @PROJECT_NAME_PLACEHOLDER/core token: package.json's "name", and
+  # src/index.ts's barrel-export header — both substituted at scaffold
+  # time by /ak-new-project § Step 10's sed (`PROJECT_NAME` substitution
+  # runs against package.json + src/index.ts; vitest.config.ts is NOT
+  # in that sed list, which is why the placeholder there is a leak risk).
+  # Guard: vitest.config.ts's comment header must not contain the
+  # placeholder token.
+  local root header
+  root=$(git rev-parse --show-toplevel)
+  header=$(head -3 "$root/template/packages/core/vitest.config.ts")
+  if echo "$header" | grep -q 'PROJECT_NAME_PLACEHOLDER'; then
+    echo "Placeholder leak in template/packages/core/vitest.config.ts header (lines 1-3):"
+    echo "$header"
+    false
+  fi
+}
+
+@test "scaffold: /ak-new-project Steps 6 + 7 carry [OPERATOR-ONLY] markers" {
+  # E10 — Step 6 (firewall-extra-domains edit) and Step 7 (devcontainer rebuild)
+  # are operator-only because Claude can't edit .devcontainer/* or trigger a
+  # rebuild from inside the container. The markers are load-bearing so future
+  # SKILL.md edits don't silently drop the operator-handoff framing.
+  local root skill
+  root=$(git rev-parse --show-toplevel)
+  skill="$root/.claude/skills/devshop/new-project/SKILL.md"
+  grep -qE '^### Step 6.*\[OPERATOR-ONLY\]' "$skill" \
+    || { echo "Step 6 missing [OPERATOR-ONLY] marker in $skill"; false; }
+  grep -qE '^### Step 7.*\[OPERATOR-ONLY\]' "$skill" \
+    || { echo "Step 7 missing [OPERATOR-ONLY] marker in $skill"; false; }
+}
+
+@test "scaffold: /ak-new-project Step 9 documents the ~/.claude/skills/gstack symlink" {
+  # A5 — Step 9 creates the symlink that makes gstack's hardcoded
+  # ~/.claude/skills/gstack/bin/* preamble paths resolve (commit dd317d2,
+  # 2026-05-20). A regression dropping the symlink instruction would silently
+  # re-introduce the no-op gstack-helper-binary path on every new scaffold.
+  local root skill
+  root=$(git rev-parse --show-toplevel)
+  skill="$root/.claude/skills/devshop/new-project/SKILL.md"
+  # Accept either the explicit ln-s command shape or the symlink-arrow prose.
+  grep -qE 'ln -sfn.*\.claude/skills/gstack' "$skill" \
+    || grep -qE '~/\.claude/skills/gstack.*->.*\.claude/skills/gstack' "$skill" \
+    || { echo "Step 9 symlink invariant missing from $skill"; false; }
+}

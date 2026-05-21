@@ -239,6 +239,13 @@ setup_branch_with_commits() {
 # Helper: install a `gh` stub that returns the PR number for `gh pr list ...`
 # AND the body text for `gh pr view ... --json body --jq .body`. Single stub
 # distinguishes by the second positional arg (`list` vs `view`).
+#
+# CONSTRAINT: $pr_body must not contain literal `$` characters. The outer
+# heredoc below is unquoted (<<STUB) so $pr_body is expanded into the stub
+# script at stub-creation time. Any embedded `$VAR` interpolations in
+# pr_body would be evaluated then (typically silently yielding wrong text).
+# Pass plain ASCII bodies or pre-interpolated strings only. Codified from
+# home-os-skill-polish-batch Audit 1 low-severity finding (2026-05-20).
 gh_stub_with_pr_body() {
   local pr_number="$1" pr_body="$2"
   cat > "$MOCK_BIN/gh" <<STUB
@@ -308,6 +315,30 @@ STUB
   git add feat.txt
   git -c user.email=test@test.com -c user.name=Test commit -q -m "feat: add magic link"
   gh_stub_with_pr_body "42" ""
+  mock_adversarial_review FAIL
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  [ "$status" -eq 1 ]
+  assert_output --partial "fails the text-hygiene gate"
+}
+
+@test "project pre-push: B3 fall-through — PR body names FIRST SHA but not SECOND (partial-match) → adversarial reviewer fires" {
+  # Multi-commit fixture. The earlier B3 tests all used single-commit branches,
+  # which meant the short-circuit loop's `break` on first-non-match was
+  # exercised only via "all match" or "none match" cases — the partial-match
+  # fall-through codepath at kit/hooks/pre-push.sh:133-142 was dead. This case
+  # exercises it: two commits, PR body names the first but not the second →
+  # reviewer must fire.
+  setup_branch_with_commits
+  echo "feat1" > "$TEST_REPO/feat1.txt"
+  git add feat1.txt
+  git -c user.email=test@test.com -c user.name=Test commit -q -m "feat: first half"
+  local sha1
+  sha1=$(git rev-parse HEAD)
+  echo "feat2" > "$TEST_REPO/feat2.txt"
+  git add feat2.txt
+  git -c user.email=test@test.com -c user.name=Test commit -q -m "feat: second half"
+  # PR body names the first SHA; the second commit is unreferenced.
+  gh_stub_with_pr_body "42" "PR body references first commit $sha1 verbatim but does not mention the second."
   mock_adversarial_review FAIL
   run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
   [ "$status" -eq 1 ]

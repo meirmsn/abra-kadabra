@@ -69,6 +69,17 @@ only legitimate refusal — there is genuinely nothing to merge.
 - **`--branch <name>`** — disambiguates when multiple linked worktrees are
   ahead of `origin/main`. The name matches a branch ref (e.g.
   `feat/foo` or `fix/bar`), not the worktree directory name.
+- **`--source-worktree <path>`** — bypass the "`/devshop` must be on main"
+  precondition. Use when a parallel session has `/devshop` checked out on
+  an unrelated feature branch with WIP that can't be cleanly switched.
+  The skill operates entirely against the named worktree (rebase + soft-
+  reset + commit), then pushes the squash directly to `origin/main` via
+  `git -C <worktree> push origin HEAD:main` (no `git checkout main` in
+  `/devshop`). Phase 4.2 still cleans up the named worktree. Local `main`
+  ref in `/devshop` may lag origin/main after this flow — re-fetch +
+  resync when convenient. Codified from the 2026-05-20 session where
+  `/ak-merge-devshop` had to be executed manually because parallel
+  `fix/init-firewall-pipefail` WIP blocked the branch-switch.
 
 ---
 
@@ -95,7 +106,40 @@ git fetch origin
 CURRENT=$(git branch --show-current)
 WORKTREE_PATH=""
 
-if [ "$CURRENT" = "main" ] || [ "$CURRENT" = "master" ]; then
+# --source-worktree short-circuit: when the operator names a worktree
+# explicitly, skip the "/devshop must be on main" precondition entirely.
+# Derive BRANCH from the named worktree's HEAD instead of /devshop's, and
+# downstream Phase 3 pushes via `git -C "$WORKTREE_PATH" push origin
+# HEAD:main` so /devshop's branch state stays untouched. Use case:
+# parallel-session WIP on /devshop's main worktree blocks the otherwise-
+# required branch-switch.
+if [ -n "$SOURCE_WORKTREE_ARG" ]; then
+  if [ ! -d "$SOURCE_WORKTREE_ARG" ]; then
+    echo "✖ --source-worktree path does not exist: $SOURCE_WORKTREE_ARG"
+    exit 1
+  fi
+  # Verify the path IS a registered worktree (not an arbitrary dir).
+  if ! git worktree list --porcelain | grep -qxF "worktree $SOURCE_WORKTREE_ARG"; then
+    echo "✖ --source-worktree path is not a registered git worktree: $SOURCE_WORKTREE_ARG"
+    echo "  Registered worktrees:"
+    git worktree list --porcelain | awk '/^worktree / {print "    "$2}'
+    exit 1
+  fi
+  WORKTREE_PATH="$SOURCE_WORKTREE_ARG"
+  BRANCH=$(git -C "$WORKTREE_PATH" branch --show-current)
+  if [ -z "$BRANCH" ] || [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
+    echo "✖ --source-worktree must be on a feature branch (currently: ${BRANCH:-detached HEAD})"
+    exit 1
+  fi
+  AHEAD=$(git rev-list --count "origin/main..$BRANCH" 2>/dev/null || echo 0)
+  if [ "$AHEAD" -eq 0 ]; then
+    echo "✖ --source-worktree branch $BRANCH has no commits ahead of origin/main"
+    exit 1
+  fi
+  echo "ℹ --source-worktree mode: $WORKTREE_PATH (branch: $BRANCH, $AHEAD commits ahead)"
+  echo "  /devshop's branch state ($CURRENT) will not be touched."
+  # Skip the rest of Phase 0.1's path-selection logic.
+elif [ "$CURRENT" = "main" ] || [ "$CURRENT" = "master" ]; then
   # /devshop is on main — scan for a linked worktree on a feature-typed
   # branch ahead of origin/main. `git worktree list --porcelain` is the
   # canonical inventory (matches both linked worktrees and the main worktree
@@ -823,28 +867,49 @@ squash machinery).
 
 ## Phase 3: Fast-forward main + push
 
+**Two paths** depending on whether `--source-worktree` was passed:
+
+- **Default path** (`SOURCE_WORKTREE_ARG` empty): checkout main in
+  `/devshop`, ff-merge, push. Sequence below.
+- **`--source-worktree` path** (`SOURCE_WORKTREE_ARG` set): never touch
+  `/devshop`'s branch state; push the squash directly from the named
+  worktree via `git -C "$WORKTREE_PATH" push origin HEAD:main`. Skip
+  the checkout + ff-merge entirely. `/devshop`'s local `main` ref will
+  lag origin/main after; the operator re-syncs on next session.
+
 ```bash
-git checkout main
+if [ -n "$SOURCE_WORKTREE_ARG" ]; then
+  # --source-worktree path: direct push from the worktree, no /devshop
+  # branch switching. The squash commit on $BRANCH IS what gets pushed
+  # to origin/main; the FF-merge that the default path does is unnecessary
+  # because we're pushing the worktree's HEAD as if it were main.
+  git -C "$WORKTREE_PATH" push origin HEAD:main
+else
+  # Default path: checkout main + ff-merge in /devshop.
+  git checkout main
 
-# Verify checkout succeeded — parallel work in another session can change
-# /devshop's HEAD between phases, and a silent checkout failure here
-# would land the squash on the wrong branch. Worked incident:
-# calibration-and-task-phases merge (2026-05-20) — /devshop's HEAD
-# silently switched to a parallel WIP branch (fix/init-firewall-pipefail)
-# between Phase 2 and Phase 3; the ff-merge landed on the WIP branch
-# instead of main. Recovery: re-checkout main and re-run Phase 3.
-CURRENT=$(git branch --show-current)
-if [ "$CURRENT" != "main" ]; then
-  echo "✖ Expected to be on main after checkout, got: $CURRENT"
-  echo "  Aborting Phase 3 to avoid landing the squash on the wrong branch."
-  echo "  Likely cause: parallel work changed /devshop's HEAD between phases."
-  echo "  Recovery: cd /devshop && git checkout main && re-invoke /ak-merge-devshop."
-  exit 1
+  # Verify checkout succeeded — parallel work in another session can change
+  # /devshop's HEAD between phases, and a silent checkout failure here
+  # would land the squash on the wrong branch. Worked incident:
+  # calibration-and-task-phases merge (2026-05-20) — /devshop's HEAD
+  # silently switched to a parallel WIP branch (fix/init-firewall-pipefail)
+  # between Phase 2 and Phase 3; the ff-merge landed on the WIP branch
+  # instead of main. Recovery: re-checkout main and re-run Phase 3.
+  CURRENT=$(git branch --show-current)
+  if [ "$CURRENT" != "main" ]; then
+    echo "✖ Expected to be on main after checkout, got: $CURRENT"
+    echo "  Aborting Phase 3 to avoid landing the squash on the wrong branch."
+    echo "  Likely cause: parallel work changed /devshop's HEAD between phases."
+    echo "  Recovery: cd /devshop && git checkout main && re-invoke /ak-merge-devshop."
+    echo "  Alternative: re-invoke with --source-worktree $WORKTREE_PATH"
+    echo "    to skip the /devshop branch-switch entirely (won't touch your WIP)."
+    exit 1
+  fi
+
+  git merge --ff-only origin/main         # catch local-main lag
+  git merge --ff-only "$BRANCH"           # ff main → squash commit (no NEW commit, no hook)
+  git push origin main
 fi
-
-git merge --ff-only origin/main         # catch local-main lag
-git merge --ff-only "$BRANCH"           # ff main → squash commit (no NEW commit, no hook)
-git push origin main
 ```
 
 `git merge --ff-only` does not create a new commit — it just moves main's

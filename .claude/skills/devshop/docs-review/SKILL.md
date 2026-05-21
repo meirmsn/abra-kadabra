@@ -193,10 +193,26 @@ Read each touched reference doc's diff hunks and check:
   files must exist at HEAD. `Read` one or two cited paths from each new entry
   to verify. (Pre-migration, this check was scoped to `CLAUDE.md § Where Things
 Happen` — same check, different destination.)
+- **Named-mechanism empirical verification**: when a doc asserts behavior of
+  a named external mechanism — a rule name (`core.git:push-force-short`), a
+  config flag (`--no-verify`), a hook output, a CLI exit code, a regex —
+  AND the verification is cheap (under one minute via a single command like
+  `dcg test '<sample>'`, `git config --get`, `gh api`, `node -e`), run the
+  verification and confirm the doc's claim matches the actual behavior.
+  Cite the verification command + expected output. **Wrong-but-cheap-to-verify
+  claims are high-severity**, NOT medium — they internalize a wrong mental
+  model in every future reader. Skip when verification is genuinely
+  expensive (requires fresh container, prod side-effect, multi-step setup).
+  Codified from `home-os-skill-polish-batch` Audit 1 (2026-05-20): a
+  `/ak-merge-devshop § Phase 4.2` paragraph asserted DCG `push-force-short`
+  matched `-f`/`--force` substrings generically; a 30-second `dcg test`
+  invocation disproved the claim, and the audit flipped from "shipped as
+  written" to "rewritten with verified shape" mid-flight.
 
 **Adequacy findings**: stub edits, dangling references, missing actionable
 guidance. Severity = **medium**; **high** if a load-bearing surface (auth, RLS,
-deploy) is mis-described.
+deploy) is mis-described OR if a named external mechanism is mis-described
+in a way a cheap empirical check would have caught.
 
 ## Section C — Cross-doc coherence
 
