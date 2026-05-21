@@ -342,14 +342,27 @@ $SQ_BODY
 Constituent commits being squashed (origin/main..$HYG_BRANCH):
 $COMMITS
 
-NOTE: This is a devshop squash, NOT a project PR. Apply rules (a) Description
-accuracy and (b) Title readability normally — they are universal per
-kit/docs/guide/conventions.md § Commit + PR Text Style. SKIP rule (c) Body
-structure: devshop squashes use the bold-led-bullet shape from
-/devshop/.claude/skills/ak-merge-devshop/SKILL.md § 0.3 (e.g. \`**Adds:**\`,
-\`**Trade-off:**\`, \`Key details:\`, \`## Squashed commits\`), NOT the
-project-PR \`## Product update\` + \`## Engineering details\` H2 shape.
-Rule (a) accuracy still applies — judge whether the subject + body
+NOTE 1 — Primary judgment, NOT a bypass review. This invocation fires from
+\`/ak-merge-devshop\` Phase 0.4.5 at compose time as a CONTENT CHECK on the
+proposed squash subject + body. The operator has NOT supplied a bypass
+defense — the 'Reason given' field above is a procedural marker the skill
+passes for telemetry (e.g. 'auto-check at compose time'), NOT an operator
+rationale that needs to engage with the rules. Judge the subject + body
+content directly against rules (a) and (b) below. Do NOT apply the generic
+'reason must be specific / generic placeholders FAIL' criterion to the
+'Reason given' field — that criterion exists for actual bypass-defense
+invocations (PR surface at pre-push time) where the operator IS claiming
+the rules don't apply. Here, there is no such claim. A clean subject + body
+should PASS regardless of how procedural the 'Reason given' field reads.
+
+NOTE 2 — Surface shape. This is a devshop squash, NOT a project PR. Apply
+rules (a) Description accuracy and (b) Title readability normally — they
+are universal per kit/docs/guide/conventions.md § Commit + PR Text Style.
+SKIP rule (c) Body structure: devshop squashes use the bold-led-bullet
+shape from /devshop/.claude/skills/ak-merge-devshop/SKILL.md § 0.3 (e.g.
+\`**Adds:**\`, \`**Trade-off:**\`, \`Key details:\`, \`## Squashed commits\`),
+NOT the project-PR \`## Product update\` + \`## Engineering details\` H2
+shape. Rule (a) accuracy still applies — judge whether the subject + body
 accurately describe ALL constituent commits."
     else
       # Called by .husky/pre-push. Gathers PR title/body vs commits on branch.

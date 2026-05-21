@@ -198,9 +198,17 @@ EOF
   # Subject + body both carried
   grep -q "feat(squash): make commit subjects describe the observable change" "$CAPTURED_PROMPT"
   grep -q "Adds:" "$CAPTURED_PROMPT"
-  # NOTE telling reviewer to skip rule (c) is inlined
+  # NOTE 2 telling reviewer to skip rule (c) is inlined
   grep -q "SKIP rule (c) Body" "$CAPTURED_PROMPT"
   grep -q "bold-led-bullet" "$CAPTURED_PROMPT"
+  # NOTE 1 telling reviewer this is a primary judgment, NOT a bypass review,
+  # is inlined. Without this, the reviewer's default-REJECT-generic-reason
+  # rule would FAIL clean titles whenever the caller (Phase 0.4.5) passes a
+  # procedural marker like "auto-check at compose time" as the reason arg.
+  grep -q "Primary judgment" "$CAPTURED_PROMPT"
+  grep -q "operator has NOT supplied a bypass" "$CAPTURED_PROMPT"
+  grep -q "procedural marker" "$CAPTURED_PROMPT"
+  grep -q "Do NOT apply the generic" "$CAPTURED_PROMPT"
   # Rules (a) accuracy and (b) readability still apply
   grep -q "Description accuracy" "$CAPTURED_PROMPT"
   grep -q "Title readability" "$CAPTURED_PROMPT"

@@ -531,6 +531,19 @@ if ! HYGIENE_OUTPUT=$(DEVSHOP_HYGIENE_SURFACE=squash \
 fi
 ```
 
+The literal `"auto-check at compose time"` string passed as the engine's
+second positional arg is a **procedural telemetry marker, not an operator
+bypass-defense rationale**. The engine's `prTextHygieneReason` squash-surface
+`NOTE 1` (in `kit/scripts/adversarial-review.sh`) instructs the reviewer to
+treat this field as procedural — to ignore its content when judging — and
+focus its verdict on the proposed subject + body. Don't "tighten" this
+string to something more specific in a behavior-preserving refactor; the
+NOTE 1 contract on the script side is the canonical anchor, and the literal
+value here is what the reviewer's prompt explicitly names as "e.g.
+`'auto-check at compose time'`". A refactor that strips this value or makes
+it operator-supplied would silently flip the surface back into bypass-review
+mode and start FAILing clean titles again.
+
 `HYGIENE_OUTPUT` carries the reviewer's `FAIL: <what's wrong>` line on FAIL
 and is empty on PASS. Both feed Phase 0.5's approval-gate framing.
 
