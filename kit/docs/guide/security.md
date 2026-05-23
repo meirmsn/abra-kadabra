@@ -46,16 +46,16 @@ Root-owned copies (not symlinks), verified fresh on every commit. Project-worksp
 - `.husky/prepare-commit-msg` — appends `Tests-Coverage-Bypass:` / `Docs-Coverage-Bypass:` trailers when bypass flags are set; tampering hides bypass evidence from audit-time review
 - `.husky/pre-push` — gates push-time guards (no-direct-push-to-main, dirty-tree adversarial review); tampering silently disables them
 
-All scripts under `kit/scripts/` (recursive — covers `commit-hooks/`, `preship/`, `notify/`, `sync/`, etc.) are also root-locked — `init-devshop.sh` runs `find $DEVSHOP/kit/scripts/ -type f -name '*.sh'` at container start and chowns each to `root:root 644`. This breaks the circularity where the scripts that watch `settings.json` were themselves only protected by `settings.json`. The two-layer model (Layer 1 = settings.json deny rules, Layer 2 = filesystem ownership) is documented inline in `.claude/settings.json` permission rules:
+All scripts under `kit/scripts/` (recursive — covers `commit-hooks/`, `preship/`, `notify/`, `sync/`, etc.) are also root-locked — `init-devshop.sh` runs `find $DEVSHOP/kit/scripts/ -type f -name '*.sh'` at container start and chowns each to `root:root 644`. This breaks the circularity where the scripts that watch `settings.json` were themselves only protected by `settings.json`. The two-layer model (Layer 1 = settings.json deny rules, Layer 2 = filesystem ownership) uses absolute-path deny patterns in `.claude/settings.json`:
 
 ```json
-"Edit(kit/scripts/**)",          // matches subdirectories too
-"Write(kit/scripts/**)",
-"Edit(/devshop/kit/scripts/**)", // absolute-path variant
+"Edit(/devshop/kit/scripts/**)",  // absolute — protects canonical copy
 "Write(/devshop/kit/scripts/**)",
 ```
 
 The `**` recursive glob is load-bearing — single-segment `*` would not match `kit/scripts/commit-hooks/commit-guard.sh` and would let Claude bypass Layer 1 by editing subdirectory scripts. (Layer 1 widening from `*` → `**` shipped in v1.20.0 after the gap was exploited unintentionally during the cross-repo check removal session — the file was Layer-2-eroded by prior git activity AND Layer-1-uncovered by the single-segment glob.)
+
+**Worktree copies are intentionally editable.** The deny patterns use absolute paths (`/devshop/kit/scripts/**`) which protect only the canonical tree. Git worktree copies at `.worktrees/<topic>/kit/scripts/` are not denied — feature work regularly modifies scripts like `adversarial-review.sh` and `commit-guard.sh`. Pre-commit hooks fire identically in worktrees, so the guard gauntlet is not weakened. Previously, relative `kit/scripts/**` patterns caused inconsistent mid-session behavior: early Edit calls using full worktree absolute paths bypassed the deny, while later calls using relative paths triggered it — the flip trained the agent to attempt workarounds instead of the `/tmp + sudo install` recipe. Removing the relative patterns and keeping only absolute ones makes enforcement deterministic. Investigation: `specs/kit-scripts-deny-rule-investigation/spec.md`.
 
 **Layer 2 erosion via git operations** is a known defense-in-depth gap tracked in `kit/TODOS.md` (v1): when git modifies a locked file (`checkout`, `merge`, `pull`, `rebase`), the rewritten file inherits node ownership from the running user, breaking the root lock until the next container restart. Layer 1 (the settings.json deny rules) is the load-bearing protection now that its glob is correct; Layer 2 erosion makes the model degrade defense-in-depth-wise but doesn't expose any one file unless Layer 1 also has a hole.
 
@@ -101,7 +101,7 @@ Pinned to specific version + SHA256 checksum. Never "latest." Update version + c
 
 ## Guard Script Editing
 
-Guard script deny rules are easy to toggle — when the user wants Claude to edit guard scripts, uncomment the four `kit/scripts/**` deny lines in settings.json (relative + absolute path variants for both `Edit` and `Write`). The `**` recursive glob covers subdirectory scripts too (`commit-hooks/`, `preship/`, etc.); a previous single-segment `*` glob shipped briefly through v1.19.x and was tightened in v1.20.0.
+Guard script deny rules protect the canonical `/devshop/kit/scripts/` tree via two absolute-path deny patterns (`Edit(/devshop/kit/scripts/**)` + `Write(/devshop/kit/scripts/**)`). Worktree copies (`.worktrees/<topic>/kit/scripts/`) are intentionally not denied — feature work edits these directly. To toggle deny on the canonical tree, comment/uncomment the two absolute-path lines in settings.json. The `**` recursive glob covers subdirectory scripts too (`commit-hooks/`, `preship/`, etc.); a previous single-segment `*` glob shipped briefly through v1.19.x and was tightened in v1.20.0.
 
 ## `.claude/` Allow vs settings.json Deny
 
@@ -219,7 +219,7 @@ Operator setup is a checklist: create both GH Secrets; mint a separate prod-only
 
 ## Authoring locked files (denied-path recipe)
 
-Some paths are intentionally write-denied for Claude's Write/Edit/Bash tools — `.devcontainer/`, `/devshop/template/**`, root-owned `.claude/settings.json` + `.dcg.toml` (locked by `init-devshop.sh`), anything under `/etc/` or `/usr/local/bin/`. The denials are deliberate — these surfaces shouldn't be silently rewritten by a session.
+Some paths are intentionally write-denied for Claude's Write/Edit/Bash tools — `.devcontainer/`, `/devshop/template/**`, `/devshop/kit/scripts/**` (canonical tree only — worktree copies are editable), root-owned `.claude/settings.json` + `.dcg.toml` (locked by `init-devshop.sh`), anything under `/etc/` or `/usr/local/bin/`. The denials are deliberate — these surfaces shouldn't be silently rewritten by a session.
 
 When Claude needs to author or update a denied path, the recipe is:
 

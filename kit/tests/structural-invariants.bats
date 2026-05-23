@@ -684,6 +684,26 @@ setup() {
   }
 }
 
+@test "wiring: kit/scripts deny rules use absolute paths only" {
+  local settings="$DEVSHOP/.claude/settings.json"
+  [ -f "$settings" ] || skip "settings.json not found"
+  local denies
+  denies=$(jq -r '.permissions.deny[]?' "$settings")
+  echo "$denies" | grep -qF 'Edit(/devshop/kit/scripts/**)' || {
+    echo "Missing: Edit(/devshop/kit/scripts/**)"
+    false
+  }
+  echo "$denies" | grep -qF 'Write(/devshop/kit/scripts/**)' || {
+    echo "Missing: Write(/devshop/kit/scripts/**)"
+    false
+  }
+  if echo "$denies" | grep -qE '^(Edit|Write)\(kit/scripts/'; then
+    echo "Found relative kit/scripts deny pattern — must use absolute /devshop/kit/scripts/** only"
+    echo "See specs/kit-scripts-deny-rule-investigation/spec.md for rationale"
+    false
+  fi
+}
+
 # =============================================================================
 # Filesystem hardening — init-devshop.sh applies sticky bits to security dirs
 # (sticky bit is what keeps chown root:root effective against node's ability

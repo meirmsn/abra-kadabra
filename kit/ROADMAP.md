@@ -61,38 +61,75 @@ Priority tiers:
 
 ---
 
-### `kit/scripts/**` deny rule — investigate inconsistent enforcement
+### Audit `kit/docs/guide/conventions.md` → distribute operational copy into the skills that fire
 
-**Problem.** `/devshop/.claude/settings.json` has `Edit(kit/scripts/**)` + `Write(kit/scripts/**)` + the absolute-path variants in the `deny` list. The intent is clear (root-owned-ish script protection — scripts that fire from pre-commit / pre-push / pre-ship gauntlets are load-bearing security infrastructure). But the enforcement is inconsistent — during the `feat/phase3-blocked-halt` session (2026-05-20) the agent edited `kit/scripts/adversarial-review.sh` four times via the `Edit` tool with no friction, then every subsequent Edit attempt to the SAME file hit "File is in a directory that is denied by your permission settings." `Bash(sed -i ... kit/scripts/...)` was also denied. The auto-mode classifier additionally blocked workaround scripts targeting kit/scripts/\*\* as deliberate circumventions.
+**Status (2026-05-19):** **Dedup half SHIPPED.** The two `conventions.md` duplicates (`## Confidence Calibration`, `## TODO Protocol`) shipped as deletions in the `chore/convention-housekeeping` bundle; the two skill cross-refs (`/devshop/.claude/skills/devshop/spec/SKILL.md:381`, `/devshop/.claude/skills/devshop/implement/SKILL.md:146`) were updated to point at `/devshop/CLAUDE.md § Confidence Calibration` in the same commit. CLAUDE.md is now the canonical Tier-1 home for both. What remains open is the **lift-vs-cross-ref decision** for a handful of sections whose bodies still live in `conventions.md` while their consumer skills only cross-ref:
 
-The mid-session shift caused a ~15-minute friction loop: agent attempted Edit (denied), tried Bash sed (denied), tried staging a fix-script to /tmp (auto-classifier-blocked as workaround), ultimately resolved by writing the full resolved file content to `/tmp/<file>.merged` and asking the operator to `cp` it into place. The mechanical resolution worked, but the operator-handoff cost was higher than warranted for a 2-line bug fix.
+- `## Test Assertion Depth` — `ak-tests-review` only cross-refs
+- `## SPEC.md Quality Checklist` — `ak-spec` only cross-refs
+- `## DESIGN.md as Contract` — `ak-pre-ship` only cross-refs
+- `## Screenshot Routing` — `ak-pre-ship` only cross-refs
 
-**Where it bit.**
+Pick one pattern (lift into skill OR canonical-Tier-3-with-cross-ref) and document the chosen rule. Plus check the remaining "verify; canonical home is the skill" rows in the audit table below: Backlog Routing Guide, Deploy Boundaries, Supabase Hardening Defaults, Testing Lifecycle.
 
-- **feat/phase3-blocked-halt session, 2026-05-20** — 5+ blocked Edit attempts after the 4th successful one; operator had to manually run `sudo sed` for two arg-offset bugs in a new `blockedGateOverride` case branch. Same session, hit again 30 minutes later when resolving merge conflicts in the same file (forced the `/tmp/<file>.merged + cp` workaround for the full file).
+**Realistic scope**: ~1 hr for the lift-vs-cross-ref decision + sweep. Spec below preserved for full original context.
 
-**Possible root causes** (worth investigating before deciding the fix):
+---
 
-- Harness permission caching with a session-bounded TTL that the agent doesn't observe explicitly.
-- Auto-mode classifier evolving its understanding of "deliberate workaround" as the session length grows (early edits look like authoring; later same-file edits look like fix-loops).
-- Worktree-path vs canonical-path glob matching subtlety — the deny patterns are `kit/scripts/**` (relative) and `/devshop/kit/scripts/**` (absolute), but session edits were against `/devshop/.worktrees/<topic>/kit/scripts/...`, which may match one form but not the other depending on glob engine semantics. The inconsistency could be the harness toggling between matching modes.
+**Problem.** `kit/docs/guide/` (including `conventions.md`) is loaded **on demand only** — never at session start. Skills load their own `SKILL.md` content when invoked. So a convention placed only in `conventions.md` is a paper rule: it never enters my context unless I happen to grep for it. The session that surfaced this (2026-04-26) read `/ak-build` SKILL.md's "Without this, gh run download fails" prereq line, decided artifact-pull was blocked, and never opened `conventions.md` to find the routing rule that would have told it otherwise.
 
-**Fix shape.** Decide which posture is correct, then make it deterministic:
+**Tier model** (from the 2026-04-26 audit):
 
-- **(A) If deny is intentional and absolute**: tighten the patterns so worktree paths are also denied consistently (e.g. add `**/kit/scripts/**` to cover any prefix), AND amend `/devshop/CLAUDE.md § Known Footguns § Permission-denied paths` to add `kit/scripts/**` to the enumerated list. The agent then KNOWS to skip directly to the `/tmp + sudo install` recipe on any kit/scripts/\*\* edit, no four-edit warmup, no 15-minute friction loop.
-- **(B) If deny is meant only for the canonical-path tree** (so worktree edits should be allowed): narrow the patterns to `/devshop/kit/scripts/**` only, drop the relative-path variant, and the inconsistent-mid-session-flip behavior goes away because edits to worktrees never match the deny in the first place.
+| Tier | Content                                                                        | Loaded when                                |
+| ---- | ------------------------------------------------------------------------------ | ------------------------------------------ |
+| 1    | `/devshop/CLAUDE.md` (+ project `CLAUDE.md` per session via SessionStart hook) | Every session start                        |
+| 2    | Skill `SKILL.md` files                                                         | Only when the matching slash command fires |
+| 3    | `kit/docs/guide/**`, `kit/docs/OVERVIEW.md` (incl. § Concept), `FAQ.md`        | Only when explicitly read or grep'd        |
 
-Option (A) is the more conservative posture given the security framing of these scripts; option (B) is the more ergonomic one given how often feature work in worktrees needs to touch the gauntlet scripts.
+Operational rules belong in Tier 1 (cross-cutting principles) or Tier 2 (skill-specific actions). Tier 3 is the human-browseable encyclopedia + cross-reference index.
 
-**Where it goes (mechanical).**
+**Audit (mapping each `conventions.md` section to its action skill, surfaced 2026-04-26):**
 
-- `/devshop/.claude/settings.json § deny` — tighten or narrow per the decision; needs `sudo nano` (root-locked).
-- `/devshop/CLAUDE.md § Known Footguns § Permission-denied paths` — add `kit/scripts/**` to the enumerated list IF option (A); also amend `§ Authoring locked files (denied-path recipe)` if the recipe needs to change.
-- `kit/docs/guide/security.md § Authoring locked files (denied-path recipe)` — cross-reference update.
+| Section in `conventions.md`                                           | Where it actually fires                                                                 | Current state                               | Action                                                                                                                               |
+| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Metrics Lifecycle                                                     | `/ak-spec` (event-add gate at decision time), `/ak-build` Phase 0.2 (decisions preview) | Likely already in `/ak-spec`; verify        | Verify replication; remove from conventions.md if duplicated, OR keep conventions.md as reference + ensure skill copy is canonical   |
+| Events / Feature Flags taxonomy                                       | reference taxonomy (no specific skill)                                                  | Reference-only                              | Keep in conventions.md as Tier 3 reference                                                                                           |
+| TASKS.md Format                                                       | `/ak-implement` (writes the file)                                                       | Likely in `/ak-implement` SKILL.md; verify  | Verify; canonical home is the skill                                                                                                  |
+| SPEC.md Quality Checklist                                             | `/ak-spec`                                                                              | Likely in `/ak-spec` SKILL.md; verify       | Verify; canonical home is the skill                                                                                                  |
+| DESIGN.md as Contract (`design-conformance` (ak) gate)                | `/ak-pre-ship` Gate 3                                                                   | Likely in `/ak-pre-ship` SKILL.md; verify   | Verify; canonical home is the skill                                                                                                  |
+| Screenshot Routing                                                    | `/ak-pre-ship` (screenshot capture)                                                     | Likely in `/ak-pre-ship` SKILL.md; verify   | Verify; canonical home is the skill                                                                                                  |
+| Deploy Boundaries                                                     | `/ak-go-live`                                                                           | Possibly in `/ak-go-live` SKILL.md; verify  | Verify; canonical home is the skill                                                                                                  |
+| Supabase Hardening Defaults (incl. `ON DELETE on auth.users` rule)    | migration time (no dedicated skill)                                                     | Reference-only                              | Lift the principles to `/devshop/CLAUDE.md § Implementation Approach`; keep details in conventions.md as reference                   |
+| Confidence Calibration                                                | every decision the agent makes                                                          | Tier 3 only — paper rule                    | **Move to `/devshop/CLAUDE.md` (Tier 1)** — cross-cutting; affects every action                                                      |
+| TODO Protocol                                                         | every out-of-scope discovery                                                            | In CLAUDE.md ✓ + conventions.md (duplicate) | Drop conventions.md copy; CLAUDE.md is canonical                                                                                     |
+| Backlog Routing Guide                                                 | every TODO filing                                                                       | In CLAUDE.md (paraphrased) + conventions.md | Either lift the table verbatim into CLAUDE.md, or keep table in conventions.md and ensure CLAUDE.md cross-refs it                    |
+| Test Assertion Depth                                                  | `/ak-test-review`                                                                       | Likely in `/ak-test-review` SKILL.md ✓      | Verify; canonical home is the skill                                                                                                  |
+| Testing Lifecycle                                                     | `/ak-implement` (test-after-task discipline)                                            | Likely already there; verify                | Verify; canonical home is the skill                                                                                                  |
+| Kit Testing                                                           | bash test authoring (no dedicated skill)                                                | Reference-only                              | Keep in conventions.md as Tier 3 reference                                                                                           |
+| Non-Negotiables → Testing                                             | every commit                                                                            | Tier 3 only — but rule is cross-cutting     | **Lift to `/devshop/CLAUDE.md` § Non-Negotiables** (already exists there) — verify match + drop the conventions.md copy if redundant |
+| Non-Negotiables → Metrics / Responsive + Theme / PWA / Code Structure | per-action gates                                                                        | Skill-resident                              | Verify each is in the right gate's skill copy                                                                                        |
 
-**Why this entry sits in v0:** the friction recurs on every devshop session that touches gauntlet scripts (which is most feature work that adds an adversarial check-type, a new pre-ship gate, or a hook). Each occurrence costs ~15 min of agent-operator dance for what should be a routine Edit. Class of bug, not a one-off — fixing it makes every future devshop feature ~15 min cheaper.
+**Why v0 — blocks next-project adoption:**
 
-[v0, harness, surfaced-by feat/phase3-blocked-halt session 2026-05-20]
+The first project that scaffolds the devshop today inherits a guide-conventions tree that looks authoritative but isn't load-bearing. Their first `/ak-build` run reads SKILL.md (good) and `/devshop/CLAUDE.md` (good) and never opens `conventions.md` (oops). Conventions written-but-never-followed are worse than no conventions, because they create the illusion that the agent will respect them. Fixing the placement once means future projects start with a tier model that actually fires.
+
+**Trigger:**
+
+- Lalista PR 26 (e2e-audit-fill-gaps) ships with the "closure rule" already moved correctly (`/ak-build` Phase 5.6 + CLAUDE.md + a one-line pointer in conventions.md). That's the worked example; the audit + sweep is the generalization.
+- OR: a second project surfaces a "convention not followed" issue traceable to a conventions.md-only rule.
+
+**Cross-ref:**
+
+- `/ak-build § Phase 5.6` — the destination skill for the closure rule (worked example shipped 2026-04-26).
+- `/devshop/CLAUDE.md § Closing TODO / ROADMAP entries when a fix ships` — Tier 1 home for the closure rule.
+- `/devshop/CLAUDE.md § Context Loading` — describes the load tiers but doesn't yet name the implication ("rules in Tier 3 don't fire").
+- `/devshop/kit/docs/guide/conventions.md` — the file being audited.
+
+**Cost/risk:**
+
+- Implementation: ~3-5 focused hours per skill (read each skill's `SKILL.md`, identify operational rules, ensure each is restated where it fires; cross-ref conventions.md sections to confirm). Adversarial-review docs-drift will check each skill change carefully — budget review-cycle time accordingly.
+- Risk: low — non-functional doc shuffling. Worst case: a temporary duplication that gets resolved on the next audit pass. No production code changes.
+- Benefit: rules actually fire. Closes the "paper rule" footgun for every future devshop project.
 
 ---
 

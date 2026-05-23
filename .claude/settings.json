@@ -76,8 +76,6 @@
       "Write(/devshop/.dcg.toml)",
       "Edit(.husky/pre-commit)",
       "Write(.husky/pre-commit)",
-      "Edit(kit/scripts/**)",
-      "Write(kit/scripts/**)",
       "Edit(/devshop/kit/scripts/**)",
       "Write(/devshop/kit/scripts/**)",
       "Edit(/devshop/template/**)",

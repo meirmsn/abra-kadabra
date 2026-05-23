@@ -318,7 +318,7 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
   - `Edit(/devshop/.devcontainer/*)` + `Write(/devshop/.devcontainer/*)`
   - `Edit(/devshop/.claude/settings.json)` + `Write(/devshop/.claude/settings.json)`
   - `Edit(/devshop/.dcg.toml)` + `Write(/devshop/.dcg.toml)`
-  - `Edit(/devshop/kit/scripts/*)` + `Write(/devshop/kit/scripts/*)`
+  - `Edit(/devshop/kit/scripts/**)` + `Write(/devshop/kit/scripts/**)` (relative `kit/scripts/**` variants removed in `fix/kit-scripts-deny-rule-investigation` — see `specs/kit-scripts-deny-rule-investigation/spec.md`)
   - `Edit(/devshop/template/**)` + `Write(/devshop/template/**)`
   - `Read(/devshop/.devcontainer/.env)` + `Read(/workspace/.devcontainer/.env)`
 
