@@ -204,7 +204,35 @@ If the spec or PR body references auth-config changes, surface to the user befor
 
 > The PR references auth-config changes that don't auto-deploy with the merge. Apply them via the Supabase dashboard or Management API now, ideally **before** the app deploy if the new code relies on new redirect URLs / CAPTCHA / password policy. Auth-config changes are cheap to roll back (re-PATCH), so ordering is flexible — but they must ship manually.
 
-Rollback is reverse-order across all surfaces with the same backwards-compatibility caveats: revert the app first to pull traffic off the new schema/functions, then roll back migrations (if the migration's `-- ROLLBACK` block supports it) and edge functions. Full surface table + rollback semantics: `kit/docs/guide/conventions.md § Deploy Boundaries`.
+### Deploy surfaces
+
+Every Supabase-backed project has multiple deploy surfaces; deploying one does NOT deploy the others. `git push` / PR merge only triggers the Next.js app deploy — Supabase migrations, edge functions, and auth config stay untouched unless the corresponding workflow fires or you run the command explicitly.
+
+| Surface                 | How it deploys                                                                                                              | Trigger                                  | `/ak-go-live` covers? |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- | --------------------- |
+| Next.js app (Vercel)    | Automatic on push — preview on PR, production on merge                                                                      | `git push` / PR merge                    | Yes                   |
+| Supabase migrations     | `.github/workflows/deploy-migrations.yml` runs `supabase db push --include-roles` (path-filtered to `supabase/migrations/`) | Auto on push:main when migrations change | Yes (via the merge)   |
+| Supabase edge functions | `.github/workflows/deploy-functions.yml` runs `supabase functions deploy` per dir (path-filtered to `supabase/functions/`)  | Auto on push:main when functions change  | Yes (via the merge)   |
+| Supabase auth config    | Management API `/v1/projects/{ref}/config/auth` or dashboard                                                                | Manual, per change                       | No (manual)           |
+
+### Schema-mutating migration safety
+
+Schema-mutating migrations (renames, drops, NOT NULL without default, type changes) need extra care because migrations + Vercel deploy race in parallel on push:main. Schema-additive migrations (new columns/tables, defaults, NOT NULL only on backfilled columns) are safe — old code keeps working on the new schema.
+
+For schema-mutating migrations, two options:
+
+1. **Mark as backwards-incompatible in the PR description** and gate merge on the deploy-migrations workflow finishing first. Brief window where old code sees new schema.
+2. **Split into two PRs**: PR 1 ships additive migration + dual-shape code paths. PR 2 ships the mutating migration + cleanup. Slower but window-free.
+
+Default to option 2 for prod-impact mutations; option 1 is fine for low-traffic windows on solo-dev projects. The functions-vs-app race is symmetric and follows the same remedy.
+
+### Rollback
+
+Rollback is reverse-order across all surfaces with the same backwards-compatibility caveats: revert the app first to pull traffic off the new schema/functions, then roll back migrations (if the migration's `-- ROLLBACK` block supports it) and edge functions.
+
+### CI-vs-prod credential separation
+
+CI-vs-prod credential separation is the structural enforcement of the deploy boundary. Deploy workflows hold prod-grade Supabase credentials; fast-job + slow-job CI use the local-stack defaults. The `assertNotProdUrlInTestEnv` helper in `packages/core/src/supabase.ts` throws if `NODE_ENV=test` ever passes the prod URL. Full detail: `/ak-new-project § Security Posture`.
 
 ## Step 1.8: Pending tasks pre-flight surface
 
@@ -499,9 +527,9 @@ If nothing project-specific to capture (the bug + commit message + spec docs alr
 
 Did this PR's investigation surface anything that would generalize **beyond this project**? Most sessions produce 0; some produce many. Examples in order of typical leverage:
 
-- **Skill amendment** — a rule that should fire in `/ak-build` / `/ak-go-live` / `/ak-spec` / `/ak-implement` / `/ak-tests-review` / `/ak-pre-ship`. Add to the SKILL.md where the action happens, not just to a guide doc — guide docs are Tier 3 and don't auto-load (see `kit/docs/guide/conventions.md § SSR + E2E boilerplate canonical patterns` for the layout pattern of "operational copy in skill, brief reference pointer in guide").
+- **Skill amendment** — a rule that should fire in `/ak-build` / `/ak-go-live` / `/ak-spec` / `/ak-implement` / `/ak-tests-review` / `/ak-pre-ship`. Add to the SKILL.md where the action happens, not just to a guide doc — guide docs are Tier 3 and don't auto-load. Pattern: operational copy in the skill, one-line stub in the guide.
 - **Template fix** — boilerplate in `template/` (or referenced from `/ak-new-project Step <N>` if scaffolded inline). Other projects scaffolding from the template inherit on next setup.
-- **New convention or extension to an existing one** — `kit/docs/guide/conventions.md` (per the audit, this is Tier 3 reference; pair with a skill amendment that actually fires the rule).
+- **New convention or extension to an existing one** — `kit/docs/guide/conventions.md` (Tier 3 reference; pair with a skill amendment that actually fires the rule).
 - **`/devshop/CLAUDE.md` Tier 1 entry** — for cross-cutting principles that need to be always-loaded.
 - **`kit/ROADMAP.md § v0 / v1`** — work that's bigger than an inline edit and worth filing for later, OR an audit/sweep that needs a focused session.
 

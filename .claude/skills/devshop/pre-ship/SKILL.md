@@ -234,7 +234,7 @@ If `git diff --name-only origin/main...HEAD` shows changes under `supabase/migra
 - **Edge function changes** auto-deploy on push:main but the local-vs-deployed function code can diverge if the slow-job didn't exercise the path. The test plan must include either a slow-job E2E exercising the new path, or an explicit deploy-verification step.
 - **Auth config changes** still need manual deploy via Management API or dashboard. Not auto-triggered by `git push`.
 
-Full surface table + rollback semantics: `kit/docs/guide/conventions.md § Deploy Boundaries`. This is a reminder, not a gate — the structural enforcement lives in `/ak-spec` (which decides the test plan) and `/ak-go-live` (which orchestrates the merge).
+Full surface table + rollback semantics: `.claude/skills/devshop/go-live/SKILL.md § Deploy surfaces`. This is a reminder, not a gate — the structural enforcement lives in `/ak-spec` (which decides the test plan) and `/ak-go-live` (which orchestrates the merge).
 
 If preflight passes, proceed to the gate sequence (canonical list below).
 
@@ -708,7 +708,7 @@ If tests fail → stuck protocol (see below).
 
 ## Gate design-conformance (ak): DESIGN.md contract check
 
-**Rule** (see `kit/docs/guide/conventions.md § DESIGN.md as Contract`): treat DESIGN.md as a contract. Extraction failure (no normative claims surfaced because DESIGN.md is absent or purely aspirational) is **non-blocking** and resolves to `n/a`. A claim violated by the implementation is **blocking** and resolves to `findings (N) pending`. Extraction is cached by `sha256(DESIGN.md)` in `specs/<feature>/design-claims.json.sha256`; when DESIGN.md changes, re-extract and adversarially review the diff so claim drift stays auditable.
+**Rule**: treat DESIGN.md as a contract. Extraction failure (no normative claims surfaced because DESIGN.md is absent or purely aspirational) is **non-blocking** and resolves to `n/a`. A claim violated by the implementation is **blocking** and resolves to `findings (N) pending`. Extraction is cached by `sha256(DESIGN.md)` in `specs/<feature>/design-claims.json.sha256`; when DESIGN.md changes, re-extract and adversarially review the diff so claim drift stays auditable.
 
 - If no `DESIGN.md` at project root → `n/a (no DESIGN.md)`.
 - Runs regardless of `$TOUCHES_UI` — a non-UI PR can still contradict a
@@ -1080,7 +1080,7 @@ and its reasoning.
 
 After all gates pass (or findings fixed), capture 1–2 **hero** screenshots per primary screen to `specs/<feature>/hero/`. These are committed with the feature and surface in the PR body + `BUILD-LOG.md` as the durable visual record.
 
-**Screenshot Routing** (see `kit/docs/guide/conventions.md § Screenshot Routing` for the full decision flow):
+**Screenshot Routing**:
 
 | Location                       | Tracked? | Who writes       | Purpose                                                     |
 | ------------------------------ | -------- | ---------------- | ----------------------------------------------------------- |

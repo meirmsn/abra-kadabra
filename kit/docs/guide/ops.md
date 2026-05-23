@@ -78,7 +78,7 @@ supabase gen types typescript --project-id <ref> > packages/core/src/supabase.ty
 - **Push:main auto-deploy** (post-merge):
   - `.github/workflows/deploy-migrations.yml` — path-filtered to `supabase/migrations/**`; runs `supabase db push --include-roles` against the linked project. Concurrency-grouped so back-to-back merges serialize.
   - `.github/workflows/deploy-functions.yml` — path-filtered to `supabase/functions/**`; deploys every non-underscore-prefixed function dir via the management API.
-  - Vercel auto-deploys the Next.js app via its own webhook on push:main. All three surfaces (migrations, functions, app) fire in parallel — see `guide/conventions.md § Deploy Boundaries` for the backwards-compatibility constraints that follow from the parallel-deploy race.
+  - Vercel auto-deploys the Next.js app via its own webhook on push:main. All three surfaces (migrations, functions, app) fire in parallel — see `.claude/skills/devshop/go-live/SKILL.md § Deploy surfaces` for the backwards-compatibility constraints that follow from the parallel-deploy race.
 - Vercel config: `apps/web/vercel.json` (monorepo-aware install/build commands)
 - Branch protection: `main` requires PR + CI green before merge
 - Branch strategy: `main` (production), `feature/*`, `fix/*` — no `develop` branch
@@ -240,7 +240,7 @@ bash /devshop/kit/scripts/capture-screenshot.sh \
   /workspace/specs/<feature>/hero/signin-dark.png --full-page
 ```
 
-Put shots under `specs/<feature>/hero/` (committed per `guide/conventions.md § Screenshot Routing`). The wrapper handles the 2-step (`browse screenshot` to `/tmp/`, then `cp` to the final path) and creates the destination dir.
+Put shots under `specs/<feature>/hero/` (committed per `.claude/skills/devshop/pre-ship/SKILL.md § Screenshot Routing`). The wrapper handles the 2-step (`browse screenshot` to `/tmp/`, then `cp` to the final path) and creates the destination dir.
 
 ---
 
@@ -505,7 +505,7 @@ New scaffolds (post-2026-04-23) inherit the apt-baked Chromium and the structura
 
 ## Out-of-band dashboard surfaces
 
-CI deploys the app, the database migrations, and the edge functions on push:main (per `conventions.md § Deploy Boundaries`). Several adjacent surfaces do NOT auto-deploy and need manual dashboard work — failing to do so means "the PR shipped but the user-facing change is invisible":
+CI deploys the app, the database migrations, and the edge functions on push:main (per `.claude/skills/devshop/go-live/SKILL.md § Deploy surfaces`). Several adjacent surfaces do NOT auto-deploy and need manual dashboard work — failing to do so means "the PR shipped but the user-facing change is invisible":
 
 | Surface                                       | Where it lives                                            | When it ships                                                                                                          |
 | --------------------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |

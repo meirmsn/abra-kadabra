@@ -68,7 +68,7 @@ For projects scaffolded by `/ak-new-project` with Supabase + Next.js + Playwrigh
 4. Realtime publication setup migration (the rule directly above)
 5. WebKit form-state hydration race workaround for Playwright `mobile` E2E tests
 
-**See also:** `kit/docs/guide/conventions.md § Deploy Boundaries` for the migration-vs-app deploy race and the schema-additive-vs-schema-mutating split.
+**See also:** `.claude/skills/devshop/go-live/SKILL.md § Deploy surfaces` for the migration-vs-app deploy race and the schema-additive-vs-schema-mutating split.
 
 ## Load-bearing SQL invariants and sentinel comments
 

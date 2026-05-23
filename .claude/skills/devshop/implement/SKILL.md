@@ -141,7 +141,7 @@ A task can involve multiple hats; the primary hat sets the quality bar.
 
 ## Conventions to honor (every task)
 
-Pre-write checks restated here so they fire before code lands, not after. Full text + rationale: `kit/docs/guide/conventions.md`.
+Pre-write checks restated here so they fire before code lands, not after. Background rationale for reference items: `kit/docs/guide/conventions.md`.
 
 - **Confidence calibration** — before implementing, re-verify the spec's stop-and-ask items (new DB columns/tables, auth flow changes, new third-party APIs, performance-sensitive paths, security logic, deletion of existing tests, new METRICS.md events, behavior edge cases on new input paths, a11y + i18n posture for new UI, new error/observability surface) have user approval. Adding a new metric event mid-implementation triggers a pause. See `/devshop/CLAUDE.md § Confidence Calibration`.
 - **Testing** — tests alongside code, never after. Three layers: unit (`*.test.ts`, no DB), integration (`*.integration.test.ts`, real local DB — bring up via `pnpm db:start` on the template-default compose-isolation shape, or `supabase start` from macOS host on the Host Supabase shape; see `kit/docs/guide/local-supabase-compose-isolation.md` for the architecture), E2E (Playwright at 375px + 1440px — both must pass). Auth-boundary RLS test required for every RLS-policied table (User A creates → User B can't see). See `conventions.md § Non-Negotiables — Testing`.
@@ -150,6 +150,20 @@ Pre-write checks restated here so they fire before code lands, not after. Full t
 - **Migrations referencing `auth.users(id)`** — every FK MUST specify `ON DELETE` explicitly (`CASCADE` for tight-ownership columns / `SET NULL` for nullable audit columns / `RESTRICT` for must-keep-row). Implicit `NO ACTION` silently blocks user deletion. See `conventions.md § ON DELETE on auth.users FK references`.
 - **Realtime helpers** — when adding a `subscribeTo<X>` wrapper or `postgres_changes` listener, add the matching `alter publication supabase_realtime add table <name>;` migration in the same PR with a `-- ROLLBACK:` block. Without it, cross-session delivery silently no-ops. See `conventions.md § Realtime publication setup`.
 - **LLM / edge-function response boundaries** — parse with Zod at the wrapper boundary in `packages/core/src/api/<feature>.ts` for any LLM-backed edge function call or third-party HTTP fetch with a hand-written response shape. Use `.safeParse()` (never `.parse()`); throw a feature-named `{Feature}ValidationError`; capture to Sentry with a scrubbed payload excerpt before throwing. Do NOT add Zod to PostgREST results, form input, or app-internal function args (TypeScript already proves those). See `wrapper-boundaries.md § Runtime Validation at LLM / Edge-Function Boundaries`.
+
+### Testing lifecycle
+
+Unit tests are the fast inner loop (local + CI fast). Integration + E2E are the outer gate (CI slow). No env var needed — the command you run is the mode.
+
+| Stage                | What runs                                           | Needs DB?          | Blocking?                             |
+| -------------------- | --------------------------------------------------- | ------------------ | ------------------------------------- |
+| Per-task (local)     | `test:unit`                                         | No                 | Yes — task not done until green       |
+| Pre-commit (husky)   | lint-staged + typecheck + gitleaks + devshop guards | No                 | Yes — commit blocked                  |
+| Pre-tool (Claude)    | DCG only (shell hooks can't block Bash calls)       | No                 | Yes — DCG blocks destructive commands |
+| Post-commit (Claude) | dirty-tree + cross-repo reminder                    | No                 | No — advisory context                 |
+| CI fast (every push) | Lint + types + `test:unit` + build                  | No                 | Yes — shows red on PR                 |
+| CI slow (PR to main) | `test` (unit+integration) + E2E + type drift        | Yes (CI starts it) | Yes — merge blocked                   |
+| `/ak-pre-ship`       | `/ak-tests-review` (reads tests) + `/qa` (browser)  | App running        | Pauses on findings                    |
 
 ## Step 3: Implementation loop
 

@@ -1,17 +1,29 @@
 # Conventions
 
-Single source of truth for conventions referenced by multiple skills. Skills point here, not copy.
+Tier 3 reference for the devshop's operational conventions. Human-browseable encyclopedia and cross-reference index.
+
+### Convention placement rule
+
+Operational rules live where they fire:
+
+| Tier | Home | Loaded when | Content shape |
+| ---- | ---- | ----------- | ------------- |
+| 1 | `/devshop/CLAUDE.md` | Every session start | Cross-cutting principles (confidence calibration, TODO protocol, non-negotiables) |
+| 2 | Skill `SKILL.md` files | Skill invocation | Skill-specific actions (spec checklist, test assertion depth, deploy surface table) |
+| 3 | `kit/docs/guide/**` (this file) | On-demand read/grep | Multi-skill reference, rationale, worked examples, background |
+
+When a section here has a single consuming skill that replicates its content, the **skill copy is canonical**. This file keeps a one-line stub pointing there. When no single skill owns the content (multi-skill lifecycle, reference taxonomy, background rationale), this file is the canonical home.
 
 ## Contents
 
 - [Metrics Lifecycle](#metrics-lifecycle)
 - [Events](#events)
 - [Feature Flags](#feature-flags)
-- [TASKS.md Format](#tasksmd-format)
-- [SPEC.md Quality Checklist](#specmd-quality-checklist)
-- [DESIGN.md as Contract](#designmd-as-contract-design-conformance-ak-gate)
-- [Screenshot Routing](#screenshot-routing)
-- [Deploy Boundaries](#deploy-boundaries)
+- [TASKS.md Format](#tasksmd-format) — _stub → implement/SKILL.md_
+- [SPEC.md Quality Checklist](#specmd-quality-checklist) — _stub → spec/SKILL.md_
+- [DESIGN.md as Contract](#designmd-as-contract-design-conformance-ak-gate) — _stub → pre-ship + design-conformance/SKILL.md_
+- [Screenshot Routing](#screenshot-routing) — _stub → pre-ship/SKILL.md_
+- [Deploy Boundaries](#deploy-boundaries) — _stub → go-live/SKILL.md_
 - [Slow-Job Lifecycle](#slow-job-lifecycle)
   - [Why active from day one](#why-active-from-day-one)
   - [Per-step empty-state guards](#per-step-empty-state-guards)
@@ -28,15 +40,15 @@ Single source of truth for conventions referenced by multiple skills. Skills poi
 - [Wrapper API design](#wrapper-api-design) — _moved to [`wrapper-boundaries.md`](./wrapper-boundaries.md)_
 - [Database queries](#database-queries) — _moved to [`database-queries.md`](./database-queries.md)_
 - [Confidence Calibration](#confidence-calibration)
-- [TODO Protocol](#todo-protocol) — _moved to [`/devshop/CLAUDE.md § TODO Protocol`](../../../CLAUDE.md#todo-protocol)_
-- [Backlog Routing Guide](#backlog-routing-guide)
+- [TODO Protocol](#todo-protocol) — _stub → CLAUDE.md_
+- [Backlog Routing Guide](#backlog-routing-guide) — _stub → CLAUDE.md § TODO Protocol_
 - [Commit + PR Text Style](#commit--pr-text-style)
 - [Non-Negotiables](#non-negotiables)
   - [Testing](#testing)
-  - [Test Assertion Depth](#test-assertion-depth)
+  - [Test Assertion Depth](#test-assertion-depth) — _stub → tests-review/SKILL.md_
   - [Playwright + controlled inputs on WebKit](#playwright--controlled-inputs-on-webkit)
   - [Supabase auth E2E patterns](#supabase-auth-e2e-patterns)
-  - [Testing Lifecycle](#testing-lifecycle)
+  - [Testing Lifecycle](#testing-lifecycle) — _stub → implement/SKILL.md_
   - [Kit Testing (devshop infrastructure)](#kit-testing-devshop-infrastructure)
   - [Metrics](#metrics-1)
   - [Responsive + Theme](#responsive--theme)
@@ -93,69 +105,17 @@ Owned by `/ak-spec` — see `.claude/skills/devshop/spec/SKILL.md § Quality che
 
 ## DESIGN.md as Contract (`design-conformance` (ak) gate)
 
-`/ak-pre-ship` runs a `design-conformance` (ak) gate (between `design-review` and `qa`). The gate treats `DESIGN.md` as a contract: it LLM-extracts normative claims (explicit values, canonical examples, imperative rules, component contracts) and verifies each against the implementation. Complementary to `/design-review` (gstack), which covers visual hierarchy / spacing / AI-slop; this gate covers the orthogonal axes `/design-review` skips.
-
-**Claim types** (see `.claude/skills/devshop/design-conformance/SKILL.md` for the extraction prompt):
-
-- `explicit_value` — exact values: hex colors, pixel sizes, durations. Verified via `grep` across source roots.
-- `canonical_example` — literal text the doc names as archetypal. Surfaces for human / LLM-judgment review.
-- `imperative_rule` — "must / should / always / never" claims. Surfaces for judgment review.
-- `component_contract` — declared props / classes / attributes. Surfaces for review.
-
-**When the extractor returns zero claims** (DESIGN.md absent or purely aspirational), the gate emits `n/a` and the pipeline advances.
-
-**Extraction is cached** by `sha256(DESIGN.md)` in `specs/<feature>/design-claims.json.sha256`. Changing DESIGN.md triggers re-extraction; the diff to the claims file requires adversarial review per the Phase 3 Dismissal Log contract so claim drift stays auditable.
-
-**Authoring DESIGN.md for the gate**: no project-side markers required. If extraction over-produces noise, tune the skill's extraction prompt on the devshop side. Project DESIGN.md files stay framework-neutral.
+Owned by `/ak-pre-ship` — see `.claude/skills/devshop/pre-ship/SKILL.md § Gate design-conformance` and `.claude/skills/devshop/design-conformance/SKILL.md` for claim types, caching, extraction prompt, and outcome semantics.
 
 ## Screenshot Routing
 
-Projects have three tracked locations for screenshots plus one gitignored sink. Each has a distinct purpose; routing matters because gate tooling and PR bodies assume these paths.
-
-| Location                       | Tracked? | Who writes            | Purpose                                                                                       |
-| ------------------------------ | -------- | --------------------- | --------------------------------------------------------------------------------------------- |
-| `specs/<name>/hero/`           | ✅       | `/ak-pre-ship`, human | Durable product shots embedded in PR body + BUILD-LOG; one matrix per PR                      |
-| `specs/<name>/screenshots/`    | ❌       | `/ak-pre-ship` gates  | Per-gate evidence (responsive check, design-review diffs); regenerable                        |
-| `specs/<name>/qa-walk/`        | ❌       | `/ak-pre-ship` Gate 9 | Per-verb artifacts (`verb-<N>-<slug>.{png,json}`) proving each Core user story verb completed |
-| `/screenshots/` (repo root)    | ❌       | human                 | Dev-context shots shared in a conversation / Slack / bug report; ephemeral                    |
-| `/Screenshot*.png` (repo root) | ❌       | macOS                 | Caught by `.gitignore` so default-named drops don't pollute `git status`                      |
-
-**When choosing where to put a shot, ask:**
-
-1. Is it evidence for a specific PR, committed as part of the review package? → `specs/<name>/hero/`
-2. Is it produced by a `/ak-pre-ship` gate (responsive, design-review, benchmark)? → `specs/<name>/screenshots/` (gate tooling writes here)
-3. Is it context I'm sharing with Claude or a teammate right now, not tied to a PR? → `/screenshots/`
-4. Is it README-banner / marketing / landing-page imagery? → **Not yet established** as a convention; surface when the first project needs one.
-
-New projects get the `/screenshots/` folder + README template automatically via `/ak-new-project`. Existing projects inherit the `.gitignore` rules via `sync/from-devshop.sh` (manifest-tracked) but not the folder; copy from `template/screenshots/README.md` manually if you want it.
+Owned by `/ak-pre-ship` — see `.claude/skills/devshop/pre-ship/SKILL.md § Screenshot Routing` for the location table and decision flow.
 
 **Gitignore enforcement of the table.** `template/.gitignore` ships both `specs/*/screenshots/` and `specs/*/qa-walk/` as exclusion patterns — the table's "❌ Tracked?" rows are enforced at the file-system level, not just documented. `kit/tests/structural-invariants.bats § wiring: template .gitignore matches Screenshot Routing convention` asserts both lines are present so a future template refactor can't silently drop the exclusion. Regression context: `specs/*/screenshots/` was missing from the template through 2026-05-22 — projects added it locally and lost it on first `from-devshop.sh` sync.
 
 ## Deploy Boundaries
 
-Every Supabase-backed project has multiple deploy surfaces; deploying one does NOT deploy the others. This matters because `git push` / PR merge only triggers the Next.js app deploy — Supabase migrations, edge functions, and auth config stay untouched unless you run the corresponding command explicitly.
-
-| Surface                 | How it deploys                                                                                                              | Trigger                                  | `/ak-go-live` covers? |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- | --------------------- |
-| Next.js app (Vercel)    | Automatic on push — preview on PR, production on merge                                                                      | `git push` / PR merge                    | ✅                    |
-| Supabase migrations     | `.github/workflows/deploy-migrations.yml` runs `supabase db push --include-roles` (path-filtered to `supabase/migrations/`) | Auto on push:main when migrations change | ✅ (via the merge)    |
-| Supabase edge functions | `.github/workflows/deploy-functions.yml` runs `supabase functions deploy` per dir (path-filtered to `supabase/functions/`)  | Auto on push:main when functions change  | ✅ (via the merge)    |
-| Supabase auth config    | Management API `/v1/projects/{ref}/config/auth` or dashboard                                                                | Manual, per change                       | ❌ (manual)           |
-
-**Schema-mutating migrations need extra care.** The migrations + Vercel deploys race in parallel on push:main — fine for **schema-additive** migrations (new columns/tables, defaults, NOT NULL only on backfilled columns) because old code keeps working on the new schema. For **schema-mutating** migrations (renames, drops, NOT NULL without default, type changes), old code breaks the moment the migration lands and stays broken until the new code deploys. Two options:
-
-1. **Mark the migration as backwards-incompatible in the PR description**, and gate merge on the deploy-migrations workflow finishing before approving the PR for `/ak-go-live`. The window where old code sees new schema is brief but non-zero — accept it, or
-2. **Split the change into two PRs**: PR 1 ships an additive migration (new column/table) + new code paths that handle BOTH shapes. PR 2 ships the mutating migration + cleanup of the old paths. Slower but window-free.
-
-Default to option 2 for production-impact mutating migrations; option 1 is fine for low-traffic windows on solo-dev projects.
-
-**Surfaces that auto-deploy on push:main** (Next.js app, migrations, edge functions) all fire in parallel — there's no sequential ordering between them anymore. The schema-additive guidance above covers the migrations-vs-app race; the functions-vs-app race is symmetric (old app calling new function or vice versa) and follows the same backwards-compatibility-or-split-PR remedy.
-
-**Auth config still needs to ship manually**, ideally before the app deploy if the new code relies on new redirect URLs / CAPTCHA / password policy. PATCH `/v1/projects/{ref}/config/auth` or use the dashboard. Auth-config changes are cheap to roll back (re-PATCH) so ordering is flexible.
-
-**Rollback** is reverse-order with the same backwards-compatibility caveats: revert the app first to pull traffic off the new surfaces, then roll back migrations (if the migration's `-- ROLLBACK` block supports it) and edge functions.
-
-**CI-vs-prod credential separation is the structural enforcement of the Deploy Boundary.** The deploy workflows are the only CI paths that hold prod-grade Supabase credentials (`SUPABASE_PROD_URL` Variable, `SUPABASE_DB_PASSWORD` Secret, `SUPABASE_ACCESS_TOKEN` Secret). Fast-job + slow-job CI use the local-stack default `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` — published JWTs that ship with every Supabase install, admin on a sandbox the runner spins up fresh per job. The `assertNotProdUrlInTestEnv` helper in `packages/core/src/supabase.ts` throws if a `NODE_ENV=test` caller ever passes the prod URL anyway. Full detail: `/ak-new-project § Security Posture`. The cleanup recipe for projects that scaffolded under the older mixed-credential layout: `/ak-new-project § Migration: existing project to current credential layout`.
+Owned by `/ak-go-live` — see `.claude/skills/devshop/go-live/SKILL.md § Deploy surfaces` for the surface table, schema-mutation safety, rollback semantics, and CI-vs-prod credential separation.
 
 ## Slow-Job Lifecycle
 
@@ -467,19 +427,7 @@ _See [`/devshop/CLAUDE.md § TODO Protocol`](../../../CLAUDE.md#todo-protocol) f
 
 ## Backlog Routing Guide
 
-Two questions decide where deferred work goes:
-
-1. **Who cares?** App user → project row. Dev using the devshop → devshop row.
-2. **When?** Fix/do soon → TODO. Build eventually → ROADMAP.
-
-|             | Tactical       | Strategic            |
-| ----------- | -------------- | -------------------- |
-| **Project** | `TODOS.md`     | `PRODUCT-ROADMAP.md` |
-| **Devshop** | `kit/TODOS.md` | `kit/ROADMAP.md`     |
-
-TODO items can be scheduled into versions defined in their corresponding ROADMAP (e.g., `[v0.2]`, `[v2]`). Project files never reference devshop files.
-
-**When a roadmap item ships**: remove it from the roadmap entirely and log the completion in `BUILD-LOG.md`. Roadmaps only show what's ahead — `BUILD-LOG.md` is the record of what was done. The full closure protocol (delete entry, rewrite conditional prose to present tense, unwind cross-references) lives in `/devshop/CLAUDE.md § Closing TODO / ROADMAP entries when a fix ships` (always loaded) and `/ak-build § Phase 4.0 step 4` (loaded when the action fires).
+Covered by `/devshop/CLAUDE.md § TODO Protocol` (routing table) and `/devshop/CLAUDE.md § Closing TODO / ROADMAP entries when a fix ships` (closure protocol). Both are Tier 1, always loaded.
 
 ---
 
@@ -619,22 +567,7 @@ Future sessions trust the docs. Trust is only earned by keeping them honest at f
 
 ### Test Assertion Depth
 
-Every test that asserts on **state shape, array length, mock-call count, or internal reducer output** must also assert on **user-visible rendered output** — text content (`getByText`, `toHaveTextContent`), role (`getByRole`), or accessibility attributes (`getByLabelText`, `toHaveAccessibleName`). Shape assertion without a matching DOM assertion is a class-of-bugs anti-pattern: the state machine reports success while the user sees a broken UI (the lalista core-flows blank-row race — `entries.length === 1` passed, the user saw an empty row).
-
-**Escape hatch** — for genuinely-no-render code (pure-state reducers, internal data transforms, utility functions), a test-file comment stating the rationale bypasses the rule:
-
-```ts
-// shape-only: pure reducer, no render path
-test('addItem appends to entries', () => {
-  expect(reducer(state, addItem('milk')).entries).toHaveLength(1);
-});
-```
-
-The comment must name the absence of user-visible output. Generic bypasses (`// shape-only: test simple state`, `// shape-only: obvious from context`) are rejected by `/ak-tests-review` (Gate 5).
-
-**Scope** — `/ak-tests-review` enforces this only on tests added or modified in the current PR's diff. Grandfathered tests in untouched files are not retroactively flagged; conversion of legacy shape-only tests is tracked in `TODOS.md` if it ever becomes worth the churn.
-
-**Why this exists** — Phase 1's Gate 9 artifact assertion (qa-walk per-verb evidence) catches missing-DOM-output bugs _if_ the harness captures DOM state. This rule moves the catch one level up so even unit tests fail fast when "code did a thing" diverges from "user sees the right thing." See `.claude/skills/devshop/tests-review/SKILL.md § Shape-only assertions`.
+Owned by `/ak-tests-review` — see `.claude/skills/devshop/tests-review/SKILL.md § Shape-only assertions` for the rule, escape hatch (`// shape-only:` comment), and scope (diff-only, not retroactive).
 
 ### Playwright + controlled inputs on WebKit
 
@@ -669,17 +602,7 @@ Supabase's sign-up behavior changes shape depending on `[auth.email].enable_conf
 
 ### Testing Lifecycle
 
-| Stage                | What runs                                           | Needs DB?          | Blocking?                             |
-| -------------------- | --------------------------------------------------- | ------------------ | ------------------------------------- |
-| Per-task (local)     | `test:unit`                                         | No                 | Yes — task not done until green       |
-| Pre-commit (husky)   | lint-staged + typecheck + gitleaks + devshop guards | No                 | Yes — commit blocked                  |
-| Pre-tool (Claude)    | DCG only (shell hooks can't block Bash calls)       | No                 | Yes — DCG blocks destructive commands |
-| Post-commit (Claude) | dirty-tree + cross-repo reminder                    | No                 | No — advisory context                 |
-| CI fast (every push) | Lint + types + `test:unit` + build                  | No                 | Yes — shows red on PR                 |
-| CI slow (PR to main) | `test` (unit+integration) + E2E + type drift        | Yes (CI starts it) | Yes — merge blocked                   |
-| `/ak-pre-ship`       | `/ak-tests-review` (reads tests) + `/qa` (browser)  | App running        | Pauses on findings                    |
-
-Unit tests are the fast inner loop (local + CI fast). Integration + E2E are the outer gate (CI slow). No env var needed — the command you run is the mode.
+Owned by `/ak-implement` — see `.claude/skills/devshop/implement/SKILL.md § Testing lifecycle` for the per-stage table (local → pre-commit → CI fast → CI slow → pre-ship).
 
 ### Kit Testing (devshop infrastructure)
 

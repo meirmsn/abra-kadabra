@@ -86,7 +86,7 @@ For every test that asserts on state shape, array length, mock-call count, or in
 
 **Escape hatch**: if the code genuinely has no user-visible output (pure-state reducer, internal data transform, utility function), a test-file comment stating the rationale (`// shape-only: pure reducer, no render path`) is sufficient to bypass. ACCEPT bypass comments that name the absence of user-visible output; REJECT generic / boilerplate bypass comments ("test simple state", "obvious from context").
 
-Scope: only flag tests added or modified in this PR's diff. Do not re-flag grandfathered tests in untouched files. See `kit/docs/guide/conventions.md § Test Assertion Depth`.
+Scope: only flag tests added or modified in this PR's diff. Do not re-flag grandfathered tests in untouched files.
 
 ### WebKit form-state hydration race (Playwright `mobile` project only)
 

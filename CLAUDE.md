@@ -92,7 +92,7 @@ Silent-failure rules (no toolchain catches; must be known upfront):
 
 **Adversarial Layer 2 reviews fire at audit moments**, not per commit. Per-commit hooks run only Layer 1 (deterministic file-existence math). Layer 2 (Sonnet judgment over the diff) fires when `/ak-check-docs-and-tests` is invoked: first audit when working code is done, second audit before merge. Devshop's audit moment is before each merge to main (inside `/ak-merge-devshop` Phase 1). Both audits append to a single `specs/<feature>/review.md`. Full contract: `kit/docs/guide/hooks.md § Adversarial review` + `kit/docs/guide/hooks.md § Audit moments` + `kit/docs/guide/conventions.md § Bypass trailers`.
 
-For full detail on testing philosophy, metrics lifecycle, and backlog routing: see `kit/docs/guide/conventions.md`.
+For full detail on testing philosophy and metrics lifecycle: see `kit/docs/guide/conventions.md`. Backlog routing is covered above in § TODO Protocol.
 
 ### Known Footguns
 
