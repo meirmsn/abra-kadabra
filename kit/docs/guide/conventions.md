@@ -129,6 +129,8 @@ Projects have three tracked locations for screenshots plus one gitignored sink. 
 
 New projects get the `/screenshots/` folder + README template automatically via `/ak-new-project`. Existing projects inherit the `.gitignore` rules via `sync/from-devshop.sh` (manifest-tracked) but not the folder; copy from `template/screenshots/README.md` manually if you want it.
 
+**Gitignore enforcement of the table.** `template/.gitignore` ships both `specs/*/screenshots/` and `specs/*/qa-walk/` as exclusion patterns — the table's "❌ Tracked?" rows are enforced at the file-system level, not just documented. `kit/tests/structural-invariants.bats § wiring: template .gitignore matches Screenshot Routing convention` asserts both lines are present so a future template refactor can't silently drop the exclusion. Regression context: `specs/*/screenshots/` was missing from the template through 2026-05-22 — projects added it locally and lost it on first `from-devshop.sh` sync.
+
 ## Deploy Boundaries
 
 Every Supabase-backed project has multiple deploy surfaces; deploying one does NOT deploy the others. This matters because `git push` / PR merge only triggers the Next.js app deploy — Supabase migrations, edge functions, and auth config stay untouched unless you run the corresponding command explicitly.

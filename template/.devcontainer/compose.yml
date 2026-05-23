@@ -22,19 +22,29 @@
 #   shape produces that mirroring. Without it, the function container
 #   start fails with "no such file or directory" on the bind path.
 #
-# Why supabase-runner does NOT forward 54321 / 54322 to the host:
+# Why supabase-runner does NOT forward the supabase ports to the host:
 #   `supabase start` spawns sibling containers (supabase_kong_*,
 #   supabase_db_*, ...) on the HOST docker engine — outside this compose
-#   project. Those siblings bind 54321 (REST/kong) and 54322 (Postgres)
-#   to the host themselves. If supabase-runner ALSO declared
-#   `ports: ["54321:54321"]`, the host port allocation conflicts and
-#   `supabase start` fails with "Bind for 0.0.0.0:54322 failed: port is
-#   already allocated". Workspace + macOS browser reach the supabase
-#   data plane via http://host.docker.internal:54321 (Docker Desktop
-#   maps host.docker.internal to the host gateway from any container,
-#   and the operator adds `127.0.0.1 host.docker.internal` to macOS
-#   /etc/hosts so the browser resolves it too — see template README §
-#   Operator setup, and project CLAUDE.md § Gotchas after scaffold).
+#   project. Those siblings bind the API port (REST/kong, default 54321)
+#   and DB port (Postgres, default 54322) to the host themselves. If
+#   supabase-runner ALSO declared `ports: ["54321:54321"]`, the host port
+#   allocation conflicts and `supabase start` fails with "Bind for
+#   0.0.0.0:54322 failed: port is already allocated". Workspace + macOS
+#   browser reach the supabase data plane via host.docker.internal on
+#   those same ports (Docker Desktop maps host.docker.internal to the
+#   host gateway from any container, and the operator adds
+#   `127.0.0.1 host.docker.internal` to macOS /etc/hosts so the browser
+#   resolves it too — see template README § Operator setup, and project
+#   CLAUDE.md § Gotchas after scaffold).
+#
+#   Per-project port override: all 5 Supabase ports (API, DB, Studio,
+#   Mailpit, Analytics) are derived from supabase/config.toml into
+#   .devcontainer/.env by derive-ports-from-config.sh on every container
+#   start. compose.yml, init-firewall.sh, preship scripts, and the
+#   supabase-runner's socat tunnels all read from the same env vars, so
+#   config.toml is the single source of truth. Needed when multiple
+#   projects' local stacks run side-by-side on the same host (e.g.
+#   home-os uses +100 offset to avoid colliding with lalista).
 #   Only port 9000 (the cmd-relay) belongs to this compose project, and
 #   it stays as compose-internal (workspace reaches it via DNS as
 #   `supabase-runner:9000`); no host forwarding is needed.
@@ -44,10 +54,10 @@
 #   own healthcheck connections to the spawned db / kong containers,
 #   but those containers are siblings on the HOST docker engine — their
 #   ports are bound to the host, NOT to the runner's loopback. Without
-#   forwarding, the healthcheck fails with "dial tcp 127.0.0.1:54322:
+#   forwarding, the healthcheck fails with "dial tcp 127.0.0.1:<db port>:
 #   connect: connection refused" and supabase tears the stack down.
-#   The two `socat` lines forward 127.0.0.1:54321 / :54322 inside the
-#   runner to host.docker.internal:54321 / :54322 (where the spawned
+#   The two `socat` lines forward 127.0.0.1:<api> / :<db> inside the
+#   runner to host.docker.internal:<api> / :<db> (where the spawned
 #   siblings' host-bound ports actually live). socat's lazy-connect
 #   behavior + supabase's healthcheck retry loop handle the brief
 #   window where the spawned db isn't yet up — by the time supabase's
@@ -85,7 +95,7 @@ services:
         TZ: ${TZ:-America/Los_Angeles}
         CLAUDE_CODE_VERSION: latest
         GIT_DELTA_VERSION: 0.19.2
-        SUPABASE_CLI_VERSION: 2.84.2
+        SUPABASE_CLI_VERSION: ${SUPABASE_CLI_VERSION:-2.84.2}
         DCG_VERSION: 0.4.0
         GITLEAKS_VERSION: 8.30.1
     cap_add:
@@ -100,7 +110,7 @@ services:
       # supabase-demo defaults (same string across every Supabase install)
       # — safe to commit. Prod values live on a separate surface (Vercel
       # for NEXT_PUBLIC_*, never on this devcontainer's local-dev surface).
-      SUPABASE_URL: http://host.docker.internal:54321
+      SUPABASE_URL: http://host.docker.internal:${SUPABASE_API_PORT:?required from .devcontainer/.env}
       SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
       SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
       CONTAINER: '1'
@@ -119,7 +129,7 @@ services:
       context: ./supabase-runner
       dockerfile: Dockerfile
       args:
-        SUPABASE_CLI_VERSION: 2.84.2
+        SUPABASE_CLI_VERSION: ${SUPABASE_CLI_VERSION:-2.84.2}
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     volumes:
@@ -135,8 +145,8 @@ services:
       - sh
       - -c
       - |
-        socat -d TCP-LISTEN:54321,fork,reuseaddr,bind=127.0.0.1 TCP:host.docker.internal:54321 &
-        socat -d TCP-LISTEN:54322,fork,reuseaddr,bind=127.0.0.1 TCP:host.docker.internal:54322 &
+        socat -d TCP-LISTEN:${SUPABASE_API_PORT:?required from .devcontainer/.env},fork,reuseaddr,bind=127.0.0.1 TCP:host.docker.internal:${SUPABASE_API_PORT:?required from .devcontainer/.env} &
+        socat -d TCP-LISTEN:${SUPABASE_DB_PORT:?required from .devcontainer/.env},fork,reuseaddr,bind=127.0.0.1 TCP:host.docker.internal:${SUPABASE_DB_PORT:?required from .devcontainer/.env} &
         sleep 0.5
         supabase start
         exec /usr/local/bin/cmd-relay.mjs

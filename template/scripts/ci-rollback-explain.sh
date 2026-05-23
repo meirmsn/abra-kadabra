@@ -31,11 +31,11 @@ if [ ! -d "$MIGRATIONS_DIR" ]; then
   exit 1
 fi
 
-# Get the local DB URL from `supabase status`. Falls back to the stock
-# connection string if `supabase status -o env` shape changes.
+# Get the local DB URL from `supabase status`. Falls back to a connection
+# string using SUPABASE_DB_PORT (env-derived from config.toml).
 DB_URL="$(supabase status -o env 2>/dev/null | awk -F= '/^DB_URL=/{print $2}' | tr -d '"')"
 if [ -z "$DB_URL" ]; then
-  DB_URL='postgresql://postgres:postgres@127.0.0.1:54322/postgres'
+  DB_URL="postgresql://postgres:postgres@127.0.0.1:${SUPABASE_DB_PORT:-54322}/postgres"
   echo "WARN: falling back to default DB_URL $DB_URL" >&2
 fi
 

@@ -9,16 +9,16 @@
   "dockerComposeFile": "compose.yml",
   "service": "workspace",
   "workspaceFolder": "/workspace",
-  // Runs on the HOST before compose-up. Writes LOCAL_WORKSPACE_FOLDER
-  // into .devcontainer/.env so compose can interpolate the supabase-
-  // runner's host-path-mirrored bind. See init-host-env.sh for full
-  // rationale; without this, compose-up fails with "path /supabase is
-  // not shared from the host" because the bind interpolates to empty.
-  "initializeCommand": [
-    "bash",
-    "${localWorkspaceFolder}/.devcontainer/init-host-env.sh",
-    "${localWorkspaceFolder}"
-  ],
+  // Runs on the HOST before compose-up. Two chained scripts:
+  //   1. init-host-env.sh — writes LOCAL_WORKSPACE_FOLDER into
+  //      .devcontainer/.env so compose can interpolate the supabase-
+  //      runner's host-path-mirrored bind.
+  //   2. derive-ports-from-config.sh — reads supabase/config.toml and
+  //      upserts SUPABASE_*_PORT keys into .devcontainer/.env so
+  //      config.toml is the single source of truth for port numbers.
+  //      Falls back to upstream defaults when config.toml doesn't exist
+  //      yet (fresh template before `supabase init`).
+  "initializeCommand": "bash '${localWorkspaceFolder}/.devcontainer/init-host-env.sh' '${localWorkspaceFolder}' && bash '${localWorkspaceFolder}/.devcontainer/derive-ports-from-config.sh' '${localWorkspaceFolder}'",
   "customizations": {
     "vscode": {
       "extensions": [

@@ -23,6 +23,7 @@ if is_devshop_self_mode "$GIT_ROOT"; then
   # Devshop-self mode: same checks as devshop repo
   bash "$SCRIPTS_DIR/commit-hooks/check-clean-tree.sh"
   bash "$SCRIPTS_DIR/commit-hooks/check-manifest.sh"
+  bash "$SCRIPTS_DIR/commit-hooks/check-port-offset-unique.sh"
   bash "$SCRIPTS_DIR/commit-hooks/check-tests-coverage-devshop.sh"
   bash "$SCRIPTS_DIR/commit-hooks/check-docs-coverage-devshop.sh"
   bash "$SCRIPTS_DIR/commit-hooks/commit-guard.sh"
@@ -44,9 +45,10 @@ else
       bash "$SCRIPTS_DIR/commit-hooks/check-template-propagation.sh"
       ;;
     /devshop)
-      # Devshop repo: clean tree + manifest sync + Layer 1 docs/tests coverage + commit guards
+      # Devshop repo: clean tree + manifest sync + port-offset uniqueness + Layer 1 docs/tests coverage + commit guards
       bash "$SCRIPTS_DIR/commit-hooks/check-clean-tree.sh"
       bash "$SCRIPTS_DIR/commit-hooks/check-manifest.sh"
+      bash "$SCRIPTS_DIR/commit-hooks/check-port-offset-unique.sh"
       bash "$SCRIPTS_DIR/commit-hooks/check-tests-coverage-devshop.sh"
       bash "$SCRIPTS_DIR/commit-hooks/check-docs-coverage-devshop.sh"
       bash "$SCRIPTS_DIR/commit-hooks/commit-guard.sh"

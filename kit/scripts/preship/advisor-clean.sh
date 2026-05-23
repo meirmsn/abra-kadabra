@@ -90,13 +90,21 @@ fi
 
 # --- Probe ---
 
+# Resolve DB port from environment or .devcontainer/.env, falling back to
+# upstream default for legacy projects without derive-ports-from-config.sh.
+DC_ENV="$PROJECT_ROOT/.devcontainer/.env"
+if [ -z "${SUPABASE_DB_PORT:-}" ] && [ -f "$DC_ENV" ]; then
+  SUPABASE_DB_PORT=$(grep -E '^SUPABASE_DB_PORT=' "$DC_ENV" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '[:space:]"'"'"'' || true)
+fi
+SUPABASE_DB_PORT="${SUPABASE_DB_PORT:-54322}"
+
 # Pre-flight Postgres reachability - surface a clear `blocked` rather than
 # letting `pnpm db:advisor` produce an opaque connection error.
 PG_OK=false
 for candidate in \
-    "postgresql://postgres:postgres@host.docker.internal:54322/postgres" \
-    "postgresql://postgres:postgres@localhost:54322/postgres" \
-    "postgresql://postgres:postgres@supabase-runner:54322/postgres"; do
+    "postgresql://postgres:postgres@host.docker.internal:$SUPABASE_DB_PORT/postgres" \
+    "postgresql://postgres:postgres@localhost:$SUPABASE_DB_PORT/postgres" \
+    "postgresql://postgres:postgres@supabase-runner:$SUPABASE_DB_PORT/postgres"; do
   if PGPASSWORD=postgres psql "$candidate" -tAc 'SELECT 1' >/dev/null 2>&1; then
     PG_OK=true
     export DATABASE_URL="$candidate"
@@ -105,7 +113,7 @@ for candidate in \
 done
 
 if [ "$PG_OK" = false ]; then
-  echo "blocked (local Supabase Postgres unreachable on host.docker.internal / localhost / supabase-runner :54322 - Phase 0 supabase-bootstrap.sh should have started it; fix: re-run bash /devshop/kit/scripts/preship/supabase-bootstrap.sh up or restart the supabase-runner container)"
+  echo "blocked (local Supabase Postgres unreachable on host.docker.internal / localhost / supabase-runner :$SUPABASE_DB_PORT - Phase 0 supabase-bootstrap.sh should have started it; fix: re-run bash /devshop/kit/scripts/preship/supabase-bootstrap.sh up or restart the supabase-runner container)"
   exit 0
 fi
 

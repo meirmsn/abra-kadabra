@@ -516,7 +516,17 @@ Same playbook as Auth UX conventions / Latency feedback framework. The pattern n
 
 ---
 
-### Devshop-registry-driven Supabase port offsets (gen #1 from earlier session; redesigned 2026-05-15)
+### Devshop-registry-driven Supabase port offsets (gen #1 from earlier session; redesigned 2026-05-15; superseded 2026-05-23 by three sub-entries)
+
+**Superseded.** This umbrella entry is now a pointer. The full scope decomposes into three top-level entries — each ships independently as its own PR:
+
+1. **§ Supabase config.toml as single source of truth (Option C inversion)** — **SHIPPED** (2026-05-23). Derives `.devcontainer/.env` ports from `supabase/config.toml` at host-side via `initializeCommand`.
+2. **§ Supabase five-port parameterization (compose + firewall + preship + template scripts)** — **SHIPPED** (2026-05-23). Extended all port references across 8 scripts to env-driven 5-port shape. Closes home-os Mailpit firewall-REJECT + Gate 9 false-`degraded` bites.
+3. **§ /ak-new-project Supabase port registry + Phase A auto-assign + Step 15 sed pass** — **SHIPPED** (2026-05-23). Scaffold-time port-offset assignment so new projects never hit collisions.
+
+The three sub-entries inherit the design's core idea (devshop-side registry; `kit/notes/projects/<name>.md` frontmatter; backfill home-os to +100 / lalista to +0) but invert the propagation model: `supabase/config.toml` becomes the single source, `.env` is derived. Partial fix shipped 2026-05-21 in commits `87107fe` + `86c29c1` on `fix/pnpm-modules-purge-ci-bypass` (compose.yml API/DB + CLI version only); the three sub-entries close the remainder.
+
+#### Prior framing (2026-05-12 → 2026-05-21) — preserved for design history
 
 **Problem**: when 2+ projects run concurrently on the same host, the supabase local stack collides on ports 54321/54322/54323/54324/54327. Today lalista holds the default block; home-os manually rebound to +100 (api 54421, db 54422, studio 54423, inbucket 54424, realtime/analytics 54427) with the recipe captured in `kit/notes/projects/home-os.md`. The earlier framing offered two fix candidates — (i) a `SUPABASE_PORT_OFFSET` env knob with runtime templating across `compose.yml` + `supabase-runner/Dockerfile` + `init-firewall.sh` + `supabase/config.toml`, or (ii) an inline manual recipe in `/ak-new-project § Step 2b` — and deferred both pending a third project. A third design is simpler than either: bake the numbers in at scaffold time, source-of-truth in the devshop.
 
@@ -584,6 +594,58 @@ The registry design above covers API + DB ports (54321/54322 → rebound). Three
 **Updated severity rationale**: the registry's "ship before a third project bootstraps" framing stands — but the Mailpit-port gap actually fires today on home-os (Gate 9 silently degraded; PR #15 shipped with anon-bounce placeholder hero shots because authenticated routes were unreachable to the local browser). Closing the gap requires shipping the full 5-port parameterization, not the 2-port version. The home-os escape hatch (session-only `iptables -I OUTPUT 1`) reverts on every container rebuild, so home-os contributors will repeat the manual recipe until the durable fix lands.
 
 [2026-05-15 — extends the registry design with the home-os-PR-#15-surfaced gaps]
+
+#### Status as of 2026-05-21 — half-migration regression + partial close
+
+**What broke in production**. The 2026-05-19 template refresh landed env-driven port reading in `init-firewall.sh` (commit on devshop main; ships to projects on next `init-devshop.sh` template-propagation cycle), but the same refresh left `template/.devcontainer/compose.yml` with hardcoded `54321/54322` + `SUPABASE_URL` + socat tunnels + a hardcoded `SUPABASE_CLI_VERSION: 2.84.2` build arg. compose.yml is `[locked]` in `kit/manifest.txt`, so on every container rebuild `init-devshop.sh`'s `install -D -m … -o root -g root` loop overwrites the project's local copy from the template — and any project that had rebound ports in compose.yml (or bumped the Supabase CLI version) lost those choices silently.
+
+Concrete bite at home-os 2026-05-21 rebuild:
+
+- compose.yml port references all reset from 54421/54422 (correct for home-os) → 54321/54322 (would collide with lalista on next `pnpm db:start`).
+- `SUPABASE_CLI_VERSION` reset from 2.98.2 → 2.84.2 (silent CLI downgrade).
+- `SUPABASE_URL` env var in workspace flipped to point at the wrong port.
+- init-firewall.sh's NEW env-driven behavior worked correctly — but compose.yml's hardcoded ports meant the workspace was pointing at the wrong port anyway. Net effect: rebuild appeared to succeed, but `pnpm db:start` would have failed on host-port allocation + workspace wouldn't have reached the stack even if start succeeded.
+
+**Partial fix landed in `fix/pnpm-modules-purge-ci-bypass` (commit `87107fe`)**. Closed the half-migration for the API + DB ports + CLI version:
+
+- `template/.devcontainer/compose.yml`: `SUPABASE_URL: http://host.docker.internal:${SUPABASE_API_PORT:-54321}`, both socat tunnels use `${SUPABASE_API_PORT:-54321}` / `${SUPABASE_DB_PORT:-54322}`, both `SUPABASE_CLI_VERSION` build args use `${SUPABASE_CLI_VERSION:-2.84.2}`.
+- Header comment block + `ops.md § Compose isolation § Port rebinding` updated to document the partial state honestly — explicitly enumerates what's still NOT covered and points at this ROADMAP entry for the full lift.
+- `template-compose-isolation.bats` SUPABASE_URL test relaxed to accept either literal or `${VAR:-default}` interpolation.
+
+**What the partial fix did NOT cover** (closed by § Supabase five-port parameterization, shipped 2026-05-23, except where noted):
+
+- ~~`supabase/config.toml` remains an independent source of truth~~ → **SHIPPED** (§ config.toml as single source of truth).
+- ~~Only API + DB are env-driven; Studio + Mailpit + Analytics still hardcoded~~ → **SHIPPED** (§ five-port parameterization).
+- ~~`/ak-new-project` still doesn't know about ports.~~ → **SHIPPED** (§ /ak-new-project Supabase port registry).
+- ~~`kit/scripts/preship/supabase-bootstrap.sh` hardcodes ports~~ → **SHIPPED**.
+- ~~`template/scripts/{advisor-probe.mjs,ci-rollback-explain.sh}` hardcode `54322`~~ → **SHIPPED**.
+- **`SUPABASE_CLI_VERSION` ${VAR:-default}** is now overridable but undocumented — low priority, no operator has needed it.
+
+**Updated severity rationale**: the partial fix closes today's home-os rebuild break — `git checkout -- .devcontainer/compose.yml` + add `SUPABASE_API_PORT=54421` + `SUPABASE_DB_PORT=54422` to `.devcontainer/.env`, and home-os boots cleanly. But the original "ship before a third project" framing still holds — the registry is the only durable single-source-of-truth design. The partial fix specifically does NOT mark this entry as closeable; it raises the floor (no more silent compose.yml clobber) but leaves the full scope intact.
+
+[2026-05-21 — half-migration regression caught during home-os rebuild; partial compose.yml fix shipped in `fix/pnpm-modules-purge-ci-bypass`; registry design + full 5-port scope still pending]
+
+[2026-05-23 — umbrella decomposed into three sub-entries; design history (2026-05-12 → 2026-05-21) preserved as Prior framing subsection above; new entries appended below]
+
+### Supabase config.toml as single source of truth (Option C inversion) — SHIPPED
+
+**Shipped** on `fix/pnpm-modules-purge-ci-bypass` (2026-05-23). `derive-ports-from-config.sh` reads `supabase/config.toml` and upserts all 5 `SUPABASE_*_PORT` keys into `.devcontainer/.env`. Chained in `devcontainer.json`'s `initializeCommand` (host-side) + backstop in `init-devshop.sh` (container-side). Frontmatter backfill in `kit/notes/projects/{home-os,lalista}.md`. Docs updated in `ops.md § Port rebinding` + `architecture.md § File lifecycle`. Test coverage: `kit/tests/derive-ports-from-config.bats` (11 cases). Soft pre-commit `.env`-edit nudge deferred (`.env` is gitignored so the hook would never fire).
+
+**Project-side prerequisite (still required):** home-os must commit `supabase/config.toml` with rebound port literals before the derive script produces correct values for that project.
+
+[2026-05-23 — shipped; design history preserved in § Prior framing above]
+
+### Supabase five-port parameterization (compose + firewall + preship + template scripts) — SHIPPED
+
+**Shipped** on `fix/pnpm-modules-purge-ci-bypass` (2026-05-23). Extended all hardcoded 54321/54322/54324 port references across 8 scripts + compose.yml + init-firewall.sh to env-driven shape reading from `SUPABASE_API_PORT`, `SUPABASE_DB_PORT`, `SUPABASE_STUDIO_PORT`, `SUPABASE_MAILPIT_PORT`, `SUPABASE_ANALYTICS_PORT`. init-firewall.sh opens all 5 ports with `:?required` (fails loud on missing .env keys). Preship scripts (supabase-bootstrap.sh, advisor-clean.sh, migration-rollback-roundtrip.sh) use `:-default` fallback so n/a scope checks don't crash on missing .env. Template scripts (advisor-probe.mjs, inbucket.ts) assert port env vars at startup. ci-rollback-explain.sh keeps `:-default` for CI backward compat. ops.md rewritten to complete 5-port shape. 1253/1253 bats green. Closes home-os Mailpit firewall-REJECT + Gate 9 false-`degraded` bites.
+
+[2026-05-23 — shipped; closes PLAN.md row `supabase-five-port-extend`]
+
+### /ak-new-project Supabase port registry + Phase A auto-assign + Step 15 sed pass — SHIPPED
+
+**Shipped** on `fix/pnpm-modules-purge-ci-bypass` (2026-05-23). `/ak-new-project` Phase A auto-assigns the next-free 100-block from `kit/notes/projects/*.md` frontmatter via `next-port-offset.sh`, runs `supabase init` + 5-port sed pass + `additional_redirect_urls` fix + `derive-ports-from-config.sh`, and records the offset in the project's notes file. Step 15 (Phase B) links to remote + documents recovery via `apply-port-offset.sh`. Duplicate-offset pre-commit guard (`check-port-offset-unique.sh`) wired into both devshop and devshop-self mode. `.env.example` template added as `[scaffold-once]`. 12 bats tests (5 registry scanning, 4 apply-offset, 3 duplicate guard). Docs updated in `ops.md § Port rebinding` + `architecture.md § File lifecycle`.
+
+[2026-05-23 — shipped; closes scaffold-time port-collision risk]
 
 ---
 

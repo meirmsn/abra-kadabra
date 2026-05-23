@@ -58,7 +58,13 @@ if [ -d "$WS/kit" ] && [ ! -L "$WS/kit" ]; then
   # from $DEVSHOP records /devshop/.pnpm-store/v10; postCreateCommand later runs
   # from $WS and records /workspace/.pnpm-store/v10. The mismatch triggers the
   # "modules directory will be removed and reinstalled" prompt on every rebuild.
-  (cd "$WS" && su node -c 'pnpm install --frozen-lockfile 2>/dev/null || pnpm install') || true
+  #
+  # CI=true also bypasses the prompt entirely as a belt-and-braces guard:
+  # pnpm 10.16.0+ (PR #9960) enforces a real keypress for the modules-purge
+  # confirmation, but `su node -c` calls setsid() and strips the controlling
+  # terminal — raw-mode keypresses can't reach pnpm even though stdin's fd
+  # looks like a TTY, so Enter never registers and the rebuild hangs.
+  (cd "$WS" && su node -c 'CI=true pnpm install --frozen-lockfile 2>/dev/null || CI=true pnpm install') || true
   # Lock essentials even in devshop-self mode (prevents security freshness warnings)
   for f in "$WS/.claude/settings.json" "$WS/.dcg.toml"; do
     [ -e "$f" ] && chown root:root "$f" && chmod 644 "$f"
@@ -124,7 +130,10 @@ chown -R node:node /home/node/.gstack
 # --- Install devshop dependencies (husky, lint-staged, prettier, eslint, etc.) ---
 # Runs on every start so deps stay current when devshop is updated from another project.
 # Fast no-op when lockfile and node_modules are in sync.
-(cd "$DEVSHOP" && su node -c 'pnpm install --frozen-lockfile 2>/dev/null || pnpm install') || true
+# CI=true bypasses pnpm's interactive modules-purge prompt — `su node -c` strips
+# the controlling terminal, so raw-mode keypresses can't reach pnpm. See the
+# devshop-self branch above for the full rationale + pnpm PR #9960 reference.
+(cd "$DEVSHOP" && su node -c 'CI=true pnpm install --frozen-lockfile 2>/dev/null || CI=true pnpm install') || true
 
 # --- Populate Playwright cache stubs (Chromium symlinks) ---
 # Devcontainers apt-install /usr/bin/chromium and export PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
@@ -253,3 +262,14 @@ for d in \
   ; do
   [ -d "$d" ] && chmod 1755 "$d"
 done
+
+# --- Derive Supabase ports from config.toml (backstop) ---
+# initializeCommand runs derive-ports-from-config.sh on the HOST before
+# compose-up. This backstop re-runs it inside the container so mid-session
+# edits to supabase/config.toml are picked up on the next container start
+# without relying solely on the host-side pass. Runs as root (this script's
+# context) so it can write to the locked .devcontainer/.env.
+DERIVE_SCRIPT=$WS/.devcontainer/derive-ports-from-config.sh
+if [ -f "$DERIVE_SCRIPT" ]; then
+  bash "$DERIVE_SCRIPT" "$WS" || true
+fi

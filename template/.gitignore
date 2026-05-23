@@ -61,6 +61,13 @@ dist/
 # macOS drops screenshots at repo root by default — ignore those too.
 /Screenshot*.png
 
+# Pre-ship per-gate screenshot evidence — viewport/theme captures from the
+# responsive gate, error/state captures from /qa, design-review diffs.
+# Regenerable on every pre-ship run; not committed. Hero shots in
+# specs/<feature>/hero/ ARE tracked. See kit/docs/guide/conventions.md
+# § Screenshot Routing.
+specs/*/screenshots/
+
 # Pre-ship qa-walk artifacts — per-verb screenshots / state captures from
 # Gate 9 proving each Core user story verb completed. Regenerable on every
 # pre-ship run; not committed. See kit/docs/guide/workflow.md § Phase 1

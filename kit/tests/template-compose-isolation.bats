@@ -42,7 +42,10 @@ setup() {
 }
 
 @test "compose-isolation: compose.yml pins SUPABASE_URL to host.docker.internal" {
-  run grep -q 'SUPABASE_URL: http://host.docker.internal:54321' "$DC/compose.yml"
+  # Port portion uses ${SUPABASE_API_PORT:?required from .devcontainer/.env}
+  # for per-project port rebinding via .devcontainer/.env. The
+  # pin-to-host.docker.internal intent is what matters.
+  run grep -qE 'SUPABASE_URL: http://host\.docker\.internal:.*SUPABASE_API_PORT' "$DC/compose.yml"
   assert_success
 }
 
@@ -141,10 +144,12 @@ setup() {
   assert_success
 }
 
-@test "compose-isolation: devcontainer.json has initializeCommand calling init-host-env.sh" {
+@test "compose-isolation: devcontainer.json has initializeCommand calling init-host-env.sh + derive-ports-from-config.sh" {
   run grep -q '"initializeCommand"' "$DC/devcontainer.json"
   assert_success
   run grep -q 'init-host-env.sh' "$DC/devcontainer.json"
+  assert_success
+  run grep -q 'derive-ports-from-config.sh' "$DC/devcontainer.json"
   assert_success
 }
 
@@ -206,22 +211,21 @@ setup() {
   local f="$DC/init-firewall.sh"
   run grep -q 'getent ahostsv4 host.docker.internal' "$f"
   assert_success
-  # Both supabase data-plane ports must be ACCEPTed. Since 94de8d7
-  # (feat(sandbox-qa): env-aware Supabase ports), the dport literals
-  # are interpolated from $SUPABASE_API_PORT / $SUPABASE_DB_PORT (read
-  # from .devcontainer/.env, defaulting to 54321/54322). Match the
-  # quoted env-var form rather than the historical literals.
+  # All 5 supabase data-plane ports must be ACCEPTed. The dport literals
+  # are interpolated from env vars read from .devcontainer/.env.
   run grep -E -- '--dport "\$SUPABASE_API_PORT" -j ACCEPT' "$f"
   assert_success
   run grep -E -- '--dport "\$SUPABASE_DB_PORT" -j ACCEPT' "$f"
   assert_success
-  # The env vars themselves must default to 54321/54322 if not set
-  # (Supabase upstream defaults) — guard against silent rename. The
-  # actual file may wrap the expansion in quotes (current shape) or
-  # not — relaxed regex accepts both.
-  run grep -E 'SUPABASE_API_PORT="?\$\{SUPABASE_API_PORT:-54321\}"?' "$f"
+  run grep -E -- '--dport "\$SUPABASE_STUDIO_PORT" -j ACCEPT' "$f"
   assert_success
-  run grep -E 'SUPABASE_DB_PORT="?\$\{SUPABASE_DB_PORT:-54322\}"?' "$f"
+  run grep -E -- '--dport "\$SUPABASE_MAILPIT_PORT" -j ACCEPT' "$f"
+  assert_success
+  run grep -E -- '--dport "\$SUPABASE_ANALYTICS_PORT" -j ACCEPT' "$f"
+  assert_success
+  # The env vars use :?required (no fallback defaults) — guard against
+  # accidental reintroduction of :-default shape.
+  run grep -E 'SUPABASE_API_PORT=.*:?' "$f"
   assert_success
 }
 

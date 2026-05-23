@@ -78,18 +78,26 @@ fi
 
 # --- DB URL discovery ---
 #
+# Resolve DB port from environment or .devcontainer/.env, falling back to
+# upstream default for legacy projects without derive-ports-from-config.sh.
+DC_ENV="$PROJECT_ROOT/.devcontainer/.env"
+if [ -z "${SUPABASE_DB_PORT:-}" ] && [ -f "$DC_ENV" ]; then
+  SUPABASE_DB_PORT=$(grep -E '^SUPABASE_DB_PORT=' "$DC_ENV" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '[:space:]"'"'"'' || true)
+fi
+SUPABASE_DB_PORT="${SUPABASE_DB_PORT:-54322}"
+
 # Three reachability shapes (see supabase-bootstrap.sh `detect_shape`):
-#   - compose isolation (template default since v1.23.0) → host.docker.internal:54322
-#   - host Supabase (lifecycle on macOS host)            → host.docker.internal:54322
-#   - docker-bind (legacy single-container)              → localhost:54322
+#   - compose isolation (template default since v1.23.0) → host.docker.internal:$SUPABASE_DB_PORT
+#   - host Supabase (lifecycle on macOS host)            → host.docker.internal:$SUPABASE_DB_PORT
+#   - docker-bind (legacy single-container)              → localhost:$SUPABASE_DB_PORT
 #
 # Phase 0 preflight runs supabase-bootstrap.sh up before this gate fires, so
 # the stack is already running on one of these endpoints. Probe each in order;
 # first one that responds is canonical.
 DB_URL=""
 for candidate in \
-    "postgresql://postgres:postgres@host.docker.internal:54322/postgres" \
-    "postgresql://postgres:postgres@localhost:54322/postgres"; do
+    "postgresql://postgres:postgres@host.docker.internal:$SUPABASE_DB_PORT/postgres" \
+    "postgresql://postgres:postgres@localhost:$SUPABASE_DB_PORT/postgres"; do
   if PGPASSWORD=postgres psql "$candidate" -tAc 'SELECT 1' >/dev/null 2>&1; then
     DB_URL="$candidate"
     break
@@ -97,7 +105,7 @@ for candidate in \
 done
 
 if [ -z "$DB_URL" ]; then
-  echo "blocked (local Supabase Postgres unreachable on host.docker.internal:54322 or localhost:54322 — Phase 0 supabase-bootstrap.sh should have started it; fix: re-run \`bash /devshop/kit/scripts/preship/supabase-bootstrap.sh up\` or restart the supabase-runner container from a macOS terminal)"
+  echo "blocked (local Supabase Postgres unreachable on host.docker.internal:$SUPABASE_DB_PORT or localhost:$SUPABASE_DB_PORT — Phase 0 supabase-bootstrap.sh should have started it; fix: re-run \`bash /devshop/kit/scripts/preship/supabase-bootstrap.sh up\` or restart the supabase-runner container from a macOS terminal)"
   exit 0
 fi
 

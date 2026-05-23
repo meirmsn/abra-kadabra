@@ -13,6 +13,7 @@ setup() {
   mkdir -p "$MOCK_BIN/commit-hooks"
   for script in commit-hooks/check-security-files-freshness.sh commit-hooks/check-clean-tree.sh \
                 commit-hooks/check-manifest.sh \
+                commit-hooks/check-port-offset-unique.sh \
                 commit-hooks/check-tests-coverage-devshop.sh \
                 commit-hooks/check-docs-coverage-devshop.sh \
                 commit-hooks/check-exempt-additions.sh \
@@ -58,8 +59,9 @@ scripts_called() {
   [ -f "$MOCK_BIN/commit-hooks/check-docs-coverage-project.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/commit-guard.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-template-propagation.sh.args" ]
-  # Manifest and devshop-side coverage scripts should NOT be called for project repos
+  # Manifest, port-offset, and devshop-side coverage scripts should NOT be called for project repos
   [ ! -f "$MOCK_BIN/commit-hooks/check-manifest.sh.args" ]
+  [ ! -f "$MOCK_BIN/commit-hooks/check-port-offset-unique.sh.args" ]
   [ ! -f "$MOCK_BIN/commit-hooks/check-tests-coverage-devshop.sh.args" ]
   [ ! -f "$MOCK_BIN/commit-hooks/check-docs-coverage-devshop.sh.args" ]
 }
@@ -72,6 +74,7 @@ scripts_called() {
 
   [ -f "$MOCK_BIN/commit-hooks/check-clean-tree.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-manifest.sh.args" ]
+  [ -f "$MOCK_BIN/commit-hooks/check-port-offset-unique.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-tests-coverage-devshop.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-docs-coverage-devshop.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/commit-guard.sh.args" ]
@@ -80,7 +83,7 @@ scripts_called() {
   [ ! -f "$MOCK_BIN/commit-hooks/check-template-propagation.sh.args" ]
 }
 
-@test "devshop-self mode (kit/ is real dir): calls clean-tree + manifest + tests-coverage-devshop + docs-coverage-devshop + commit-guard" {
+@test "devshop-self mode (kit/ is real dir): calls clean-tree + manifest + port-offset-unique + tests-coverage-devshop + docs-coverage-devshop + commit-guard" {
   create_test_repo
   # Create a real kit/ dir to trigger devshop-self detection
   mkdir -p "$TEST_REPO/kit"
@@ -89,6 +92,7 @@ scripts_called() {
 
   [ -f "$MOCK_BIN/commit-hooks/check-clean-tree.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-manifest.sh.args" ]
+  [ -f "$MOCK_BIN/commit-hooks/check-port-offset-unique.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-tests-coverage-devshop.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-docs-coverage-devshop.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/commit-guard.sh.args" ]

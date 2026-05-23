@@ -231,7 +231,7 @@ setup() {
   exempts=$(grep -oP '^\s+"[a-z-]+\.sh"' "$coverage_script" | tr -d '" ')
 
   # Scripts called by other scripts or skills (not directly by hooks/pre-commit)
-  local infra_scripts="create-devshop-symlinks.sh normalize-devshop-paths.sh changelog-entry.sh check-file-headers.sh supabase-bootstrap.sh router-shim.sh verify-story.sh design-conformance.sh rls-coverage-check.sh slow-job-lifecycle-check.sh rebuild-browse.sh populate-playwright-cache.sh parse-manifest.sh changed-tests-local.sh fast-job-local.sh migration-rollback-roundtrip.sh path-classifier.sh rewrite-pr-body-urls.sh backfill-pr-image-urls.sh justify-claude-md.sh advisor-clean.sh fault-injected-qa.sh capture-screenshot.sh"
+  local infra_scripts="create-devshop-symlinks.sh normalize-devshop-paths.sh changelog-entry.sh check-file-headers.sh supabase-bootstrap.sh router-shim.sh verify-story.sh design-conformance.sh rls-coverage-check.sh slow-job-lifecycle-check.sh rebuild-browse.sh populate-playwright-cache.sh parse-manifest.sh changed-tests-local.sh fast-job-local.sh migration-rollback-roundtrip.sh path-classifier.sh rewrite-pr-body-urls.sh backfill-pr-image-urls.sh justify-claude-md.sh advisor-clean.sh fault-injected-qa.sh capture-screenshot.sh apply-port-offset.sh next-port-offset.sh"
 
   # Combine hook references and pre-commit references (match paths-with-slashes).
   # Also include prepare-commit-msg (devshop + template) which calls
@@ -389,6 +389,23 @@ setup() {
     echo "These will leak into project git history without gitignore entries."
     false
   fi
+}
+
+@test "wiring: template .gitignore matches Screenshot Routing convention" {
+  local gitignore="$DEVSHOP/template/.gitignore"
+  [ -f "$gitignore" ] || skip "template .gitignore not found"
+
+  # kit/docs/guide/conventions.md § Screenshot Routing declares
+  # specs/<name>/screenshots/ as the regenerable per-gate evidence sink
+  # (NOT tracked) and specs/<name>/qa-walk/ as the Gate 9 per-verb sink
+  # (NOT tracked). Both must be in the template's .gitignore — otherwise
+  # every project that runs from-devshop.sh loses the exclusion (.gitignore
+  # is [sync], so the template overrides the project's copy).
+  # Regression: 2026-05-22 home-os sync surfaced specs/*/screenshots/
+  # missing from template/.gitignore — projects had to add it locally and
+  # lost it on first sync from devshop.
+  grep -qF 'specs/*/screenshots/' "$gitignore"
+  grep -qF 'specs/*/qa-walk/' "$gitignore"
 }
 
 @test "wiring: template .gitignore preserves .claude/memory/ from ignore" {

@@ -85,7 +85,7 @@ SKIPPED_DOMAINS=()
 # functions deploy from CI on push-to-main (see .github/workflows/deploy-{migrations,
 # functions}.yml), never from this devcontainer. The local stack runs in
 # the sibling `supabase-runner` compose service; the workspace reaches the
-# data plane via host.docker.internal:54321 (REST) / :54322 (Postgres) —
+# data plane via host.docker.internal on the configured ports —
 # explicitly allowed by the host-gateway rule below — and reaches the
 # cmd-relay via `supabase-runner:9000` over the compose-internal
 # `supabase-net` bridge (allowed by the HOST_NETWORK ACCEPT rule). If your
@@ -210,31 +210,28 @@ echo "Host network detected as: $HOST_NETWORK"
 iptables -A INPUT -s "$HOST_NETWORK" -j ACCEPT
 iptables -A OUTPUT -d "$HOST_NETWORK" -j ACCEPT
 
-# Allow workspace → host.docker.internal on supabase data-plane ports.
-# Under compose isolation, supabase's spawned sibling containers
-# (supabase_kong_*, supabase_db_*) bind host ports (REST/kong + Postgres)
-# directly. Workspace reaches them via host.docker.internal which Docker
-# Desktop maps to the host gateway. Without this rule the default DROP
-# policy below would block the connection, since host.docker.internal's
-# IP is outside HOST_NETWORK.
+# Allow workspace → host.docker.internal on all 5 Supabase data-plane ports.
+# Under compose isolation, supabase's spawned sibling containers bind host
+# ports directly. Workspace reaches them via host.docker.internal which
+# Docker Desktop maps to the host gateway. Without this rule the default
+# DROP policy below would block the connection, since
+# host.docker.internal's IP is outside HOST_NETWORK.
 #
-# Port sourcing: SUPABASE_API_PORT + SUPABASE_DB_PORT are read directly
-# from /workspace/.devcontainer/.env (root-readable; this script runs as
-# root via sudo in postStartCommand). Compose's env_file: .env directive
-# puts the vars into the workspace's process environment, but sudo strips
-# env vars by default (no env_keep / no --preserve-env on the
+# Port sourcing: all 5 Supabase port env vars are read directly from
+# /workspace/.devcontainer/.env (root-readable; this script runs as root
+# via sudo in postStartCommand). Compose's env_file: .env directive puts
+# the vars into the workspace's process environment, but sudo strips env
+# vars by default (no env_keep / no --preserve-env on the
 # postStartCommand sudo invocation), so we can't rely on inherited vars
 # inside this script. Reading .env directly is self-contained and works
 # regardless of how the script is invoked.
 #
-# Defaults: 54321 (REST/kong) + 54322 (Postgres) — Supabase's upstream
-# defaults. Projects that rebind to avoid host-port collisions (e.g.
-# home-os uses 54421/54422 — see project CLAUDE.md § Local Supabase ports)
-# declare the rebind by adding SUPABASE_API_PORT= + SUPABASE_DB_PORT=
-# lines to .devcontainer/.env; the workspace's outbound ACCEPT rule
-# tracks automatically; no edit to this script required. Numeric
-# validation below catches typos before iptables emits an opaque "invalid
-# argument" error.
+# All 5 ports (API, DB, Studio, Mailpit, Analytics) are derived from
+# supabase/config.toml by derive-ports-from-config.sh on every container
+# start. Projects that rebind to avoid host-port collisions (e.g. home-os
+# uses +100 offset) declare the rebind in config.toml; .env tracks
+# automatically. Numeric validation below catches typos before iptables
+# emits an opaque "invalid argument" error.
 #
 # Use `getent ahostsv4` (NOT `getent hosts`) — Docker Desktop's
 # host.docker.internal can resolve to either an IPv4 or IPv6 address
@@ -244,7 +241,7 @@ iptables -A OUTPUT -d "$HOST_NETWORK" -j ACCEPT
 # an IPv6 address fails with "host/network not found" and the script
 # aborts. ahostsv4 explicitly returns the IPv4 form, which is also the
 # one that actually works for our case (supabase's spawned siblings bind
-# 0.0.0.0:<api> + 0.0.0.0:<db> IPv4 host ports).
+# 0.0.0.0:<port> IPv4 host ports).
 ENV_FILE="/workspace/.devcontainer/.env"
 # `|| true` on every pipeline below: grep exits 1 when the key is absent
 # and getent exits non-zero when host.docker.internal does not resolve.
@@ -256,12 +253,21 @@ ENV_FILE="/workspace/.devcontainer/.env"
 if [ -f "$ENV_FILE" ]; then
     api_line=$(grep -E '^SUPABASE_API_PORT=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '[:space:]"'"'"'' || true)
     db_line=$(grep -E '^SUPABASE_DB_PORT=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '[:space:]"'"'"'' || true)
+    studio_line=$(grep -E '^SUPABASE_STUDIO_PORT=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '[:space:]"'"'"'' || true)
+    mailpit_line=$(grep -E '^SUPABASE_MAILPIT_PORT=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '[:space:]"'"'"'' || true)
+    analytics_line=$(grep -E '^SUPABASE_ANALYTICS_PORT=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '[:space:]"'"'"'' || true)
     [ -n "$api_line" ] && SUPABASE_API_PORT="$api_line"
     [ -n "$db_line" ] && SUPABASE_DB_PORT="$db_line"
+    [ -n "$studio_line" ] && SUPABASE_STUDIO_PORT="$studio_line"
+    [ -n "$mailpit_line" ] && SUPABASE_MAILPIT_PORT="$mailpit_line"
+    [ -n "$analytics_line" ] && SUPABASE_ANALYTICS_PORT="$analytics_line"
 fi
-SUPABASE_API_PORT="${SUPABASE_API_PORT:-54321}"
-SUPABASE_DB_PORT="${SUPABASE_DB_PORT:-54322}"
-for port_name in SUPABASE_API_PORT SUPABASE_DB_PORT; do
+SUPABASE_API_PORT="${SUPABASE_API_PORT:?required from .devcontainer/.env — run derive-ports-from-config.sh}"
+SUPABASE_DB_PORT="${SUPABASE_DB_PORT:?required from .devcontainer/.env — run derive-ports-from-config.sh}"
+SUPABASE_STUDIO_PORT="${SUPABASE_STUDIO_PORT:?required from .devcontainer/.env — run derive-ports-from-config.sh}"
+SUPABASE_MAILPIT_PORT="${SUPABASE_MAILPIT_PORT:?required from .devcontainer/.env — run derive-ports-from-config.sh}"
+SUPABASE_ANALYTICS_PORT="${SUPABASE_ANALYTICS_PORT:?required from .devcontainer/.env — run derive-ports-from-config.sh}"
+for port_name in SUPABASE_API_PORT SUPABASE_DB_PORT SUPABASE_STUDIO_PORT SUPABASE_MAILPIT_PORT SUPABASE_ANALYTICS_PORT; do
     port_val=$(eval echo "\$$port_name")
     if [[ ! "$port_val" =~ ^[0-9]+$ ]] || [ "$port_val" -lt 1 ] || [ "$port_val" -gt 65535 ]; then
         echo "ERROR: $port_name=$port_val is not a valid TCP port (must be 1-65535)"
@@ -271,9 +277,12 @@ for port_name in SUPABASE_API_PORT SUPABASE_DB_PORT; do
 done
 HOST_DOCKER_INTERNAL=$(getent ahostsv4 host.docker.internal 2>/dev/null | awk '{print $1}' | head -1 || true)
 if [ -n "$HOST_DOCKER_INTERNAL" ]; then
-    echo "Allowing host.docker.internal ($HOST_DOCKER_INTERNAL) on supabase ports $SUPABASE_API_PORT + $SUPABASE_DB_PORT"
+    echo "Allowing host.docker.internal ($HOST_DOCKER_INTERNAL) on supabase ports $SUPABASE_API_PORT + $SUPABASE_DB_PORT + $SUPABASE_STUDIO_PORT + $SUPABASE_MAILPIT_PORT + $SUPABASE_ANALYTICS_PORT"
     iptables -A OUTPUT -d "$HOST_DOCKER_INTERNAL" -p tcp --dport "$SUPABASE_API_PORT" -j ACCEPT
     iptables -A OUTPUT -d "$HOST_DOCKER_INTERNAL" -p tcp --dport "$SUPABASE_DB_PORT" -j ACCEPT
+    iptables -A OUTPUT -d "$HOST_DOCKER_INTERNAL" -p tcp --dport "$SUPABASE_STUDIO_PORT" -j ACCEPT
+    iptables -A OUTPUT -d "$HOST_DOCKER_INTERNAL" -p tcp --dport "$SUPABASE_MAILPIT_PORT" -j ACCEPT
+    iptables -A OUTPUT -d "$HOST_DOCKER_INTERNAL" -p tcp --dport "$SUPABASE_ANALYTICS_PORT" -j ACCEPT
 else
     echo "warn: host.docker.internal did not resolve to IPv4; supabase reachability from workspace will fail"
 fi

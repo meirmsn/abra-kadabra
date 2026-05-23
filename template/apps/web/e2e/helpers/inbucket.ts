@@ -3,8 +3,8 @@
 //       recent magic-link URL out of the message body.
 // Why: Sign-up confirmation, forgot-password, magic-link, and invite E2Es
 //      need to follow the magic-link the way a real user would. Mailpit
-//      exposes a JSON API at port 54324 (default) that we poll until the
-//      message lands.
+//      exposes a JSON API at the configured Mailpit port (default 54324)
+//      that we poll until the message lands.
 // Does NOT: Talk to hosted Supabase (email-template rendering happens on
 //           Supabase's mail relay there; specs gate on the local stack
 //           via isLocalSupabase()).
@@ -19,21 +19,29 @@
 // the latest shape verbatim.
 
 /**
- * Derive mailpit's host from SUPABASE_URL so the helper works in both:
+ * Derive mailpit's base URL from SUPABASE_MAILPIT_PORT (preferred) or by
+ * extracting the host from SUPABASE_URL and appending SUPABASE_MAILPIT_PORT.
+ * Works in both:
  *   - Workspace devcontainer (test SKIPS here — `isLocalSupabase()` only
  *     trues for 127.0.0.1/localhost shapes, not the workspace's
  *     `host.docker.internal` URL).
  *   - GitHub Actions slow-job: SUPABASE_URL=http://127.0.0.1:54321 (Supabase
- *     binds directly to the runner's localhost; mailpit listens on 54324
- *     on the same host).
+ *     binds directly to the runner's localhost; mailpit listens on the
+ *     configured port on the same host).
  */
 function deriveMailpitBase(): string {
+  const mailpitPort = process.env.SUPABASE_MAILPIT_PORT;
+  if (!mailpitPort) {
+    throw new Error(
+      'SUPABASE_MAILPIT_PORT not set — run derive-ports-from-config.sh or rebuild the devcontainer'
+    );
+  }
   const supabaseUrl = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
   try {
     const host = new URL(supabaseUrl).hostname;
-    return `http://${host}:54324`;
+    return `http://${host}:${mailpitPort}`;
   } catch {
-    return 'http://127.0.0.1:54324';
+    return `http://127.0.0.1:${mailpitPort}`;
   }
 }
 

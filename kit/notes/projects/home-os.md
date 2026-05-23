@@ -1,3 +1,7 @@
+---
+supabase_port_offset: 100
+---
+
 # Init Tracker — home-os
 
 Created by `/ak-new-project` on 2026-05-12.

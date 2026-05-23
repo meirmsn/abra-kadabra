@@ -1,13 +1,14 @@
 #!/usr/bin/env bats
 # Env-aware Supabase port allowance in template/.devcontainer/init-firewall.sh.
 #
-# The HOST_DOCKER_INTERNAL ACCEPT-rule block reads SUPABASE_API_PORT +
-# SUPABASE_DB_PORT directly from /workspace/.devcontainer/.env (script
-# runs as root via sudo in postStartCommand; sudo strips env vars by
-# default so we can't rely on inherited vars). Defaults: 54321 + 54322 —
-# Supabase's upstream defaults. Projects that rebind to avoid host-port
-# collisions (e.g. home-os uses 54421/54422) declare the rebind in
-# .devcontainer/.env without editing this script.
+# The HOST_DOCKER_INTERNAL ACCEPT-rule block reads all 5 Supabase port vars
+# (API, DB, Studio, Mailpit, Analytics) directly from
+# /workspace/.devcontainer/.env (script runs as root via sudo in
+# postStartCommand; sudo strips env vars by default so we can't rely on
+# inherited vars). All 5 are required (:?required) — no fallback defaults.
+# The derive-ports-from-config.sh script populates .env from config.toml on
+# every container start. Projects that rebind to avoid host-port collisions
+# (e.g. home-os uses +100 offset) declare the rebind in config.toml.
 #
 # Two layers:
 #   1. Structure — grep over template/.devcontainer/init-firewall.sh
@@ -80,7 +81,7 @@ setup() {
 # Run the extracted snippet against a synthetic .env at $1; capture exit
 # code + resulting port values into BATS variables.
 #   run_snippet "/path/to/fake/.env"
-# Sets: status, output, SUPABASE_API_PORT, SUPABASE_DB_PORT
+# Sets: status, output, SUPABASE_*_PORT values
 run_snippet() {
   local env_file="$1"
   # The snippet uses `ENV_FILE="/workspace/.devcontainer/.env"` — override
@@ -94,6 +95,9 @@ run_snippet() {
   cat >> "$runner" <<'TAIL'
 echo "RESOLVED_API=$SUPABASE_API_PORT"
 echo "RESOLVED_DB=$SUPABASE_DB_PORT"
+echo "RESOLVED_STUDIO=$SUPABASE_STUDIO_PORT"
+echo "RESOLVED_MAILPIT=$SUPABASE_MAILPIT_PORT"
+echo "RESOLVED_ANALYTICS=$SUPABASE_ANALYTICS_PORT"
 TAIL
   run bash "$runner"
 }
@@ -102,22 +106,31 @@ TAIL
 # Structure — the env-aware port pattern is present in the real script
 # =============================================================================
 
-@test "structure: init-firewall reads SUPABASE_API_PORT from /workspace/.devcontainer/.env" {
+@test "structure: init-firewall reads all 5 port vars from /workspace/.devcontainer/.env" {
   run grep -qE 'ENV_FILE="/workspace/\.devcontainer/\.env"' "$INIT_FIREWALL"
   assert_success
   run grep -qE 'SUPABASE_API_PORT=' "$INIT_FIREWALL"
   assert_success
-}
-
-@test "structure: init-firewall reads SUPABASE_DB_PORT from .env" {
   run grep -qE 'SUPABASE_DB_PORT=' "$INIT_FIREWALL"
   assert_success
+  run grep -qE 'SUPABASE_STUDIO_PORT=' "$INIT_FIREWALL"
+  assert_success
+  run grep -qE 'SUPABASE_MAILPIT_PORT=' "$INIT_FIREWALL"
+  assert_success
+  run grep -qE 'SUPABASE_ANALYTICS_PORT=' "$INIT_FIREWALL"
+  assert_success
 }
 
-@test "structure: init-firewall defaults to 54321 / 54322 when env vars absent" {
-  run grep -qE 'SUPABASE_API_PORT="\$\{SUPABASE_API_PORT:-54321\}"' "$INIT_FIREWALL"
+@test "structure: init-firewall uses :?required (no :-default fallbacks)" {
+  run grep -qE 'SUPABASE_API_PORT=.*:\?required' "$INIT_FIREWALL"
   assert_success
-  run grep -qE 'SUPABASE_DB_PORT="\$\{SUPABASE_DB_PORT:-54322\}"' "$INIT_FIREWALL"
+  run grep -qE 'SUPABASE_DB_PORT=.*:\?required' "$INIT_FIREWALL"
+  assert_success
+  run grep -qE 'SUPABASE_STUDIO_PORT=.*:\?required' "$INIT_FIREWALL"
+  assert_success
+  run grep -qE 'SUPABASE_MAILPIT_PORT=.*:\?required' "$INIT_FIREWALL"
+  assert_success
+  run grep -qE 'SUPABASE_ANALYTICS_PORT=.*:\?required' "$INIT_FIREWALL"
   assert_success
 }
 
@@ -130,69 +143,77 @@ TAIL
   assert_success
 }
 
-@test "structure: init-firewall iptables --dport lines reference the env-driven port vars, not hardcoded literals" {
-  # The two ACCEPT rules must use "$SUPABASE_API_PORT" / "$SUPABASE_DB_PORT".
-  # Use grep -qE -- '...' to terminate option parsing so the literal "--dport"
-  # in the pattern doesn't get interpreted as a grep flag.
+@test "structure: init-firewall iptables --dport lines reference all 5 env-driven port vars" {
   run grep -qE -- '--dport "\$SUPABASE_API_PORT"' "$INIT_FIREWALL"
   assert_success
   run grep -qE -- '--dport "\$SUPABASE_DB_PORT"' "$INIT_FIREWALL"
   assert_success
-  # And the hardcoded 54321 / 54322 literals must NOT appear in the
-  # iptables ACCEPT lines (defaults are in the ${VAR:-DEFAULT} fallback,
-  # which is the only legitimate reference).
+  run grep -qE -- '--dport "\$SUPABASE_STUDIO_PORT"' "$INIT_FIREWALL"
+  assert_success
+  run grep -qE -- '--dport "\$SUPABASE_MAILPIT_PORT"' "$INIT_FIREWALL"
+  assert_success
+  run grep -qE -- '--dport "\$SUPABASE_ANALYTICS_PORT"' "$INIT_FIREWALL"
+  assert_success
+  # Hardcoded port literals must NOT appear in iptables ACCEPT lines.
   ! grep -qE -- '^\s+iptables -A OUTPUT.*--dport 54321 -j ACCEPT' "$INIT_FIREWALL"
   ! grep -qE -- '^\s+iptables -A OUTPUT.*--dport 54322 -j ACCEPT' "$INIT_FIREWALL"
+  ! grep -qE -- '^\s+iptables -A OUTPUT.*--dport 54323 -j ACCEPT' "$INIT_FIREWALL"
+  ! grep -qE -- '^\s+iptables -A OUTPUT.*--dport 54324 -j ACCEPT' "$INIT_FIREWALL"
+  ! grep -qE -- '^\s+iptables -A OUTPUT.*--dport 54327 -j ACCEPT' "$INIT_FIREWALL"
 }
 
 # =============================================================================
 # Behavior — extracted snippet resolves ports per .env contents
 # =============================================================================
 
-@test "behavior: defaults to 54321 / 54322 when .env is missing" {
+@test "behavior: fails when .env is missing (all 5 ports are required)" {
   run_snippet "$FIXTURE_DIR/does-not-exist.env"
-  assert_success
-  assert_output --partial "RESOLVED_API=54321"
-  assert_output --partial "RESOLVED_DB=54322"
+  assert_failure
 }
 
-@test "behavior: defaults when .env exists but has no SUPABASE_*_PORT lines" {
+@test "behavior: fails when .env exists but has no SUPABASE_*_PORT lines" {
   cat > "$FIXTURE_DIR/empty.env" <<EOF
 # .env with no port overrides
 PRODUCTION_URL=example.vercel.app
 GITHUB_TOKEN=ghp_test
 EOF
   run_snippet "$FIXTURE_DIR/empty.env"
-  assert_success
-  assert_output --partial "RESOLVED_API=54321"
-  assert_output --partial "RESOLVED_DB=54322"
+  assert_failure
 }
 
-@test "behavior: honors SUPABASE_API_PORT override + SUPABASE_DB_PORT override" {
-  cat > "$FIXTURE_DIR/rebound.env" <<EOF
+@test "behavior: resolves all 5 ports from .env" {
+  cat > "$FIXTURE_DIR/full.env" <<EOF
 SUPABASE_API_PORT=54421
 SUPABASE_DB_PORT=54422
+SUPABASE_STUDIO_PORT=54423
+SUPABASE_MAILPIT_PORT=54424
+SUPABASE_ANALYTICS_PORT=54427
 EOF
-  run_snippet "$FIXTURE_DIR/rebound.env"
+  run_snippet "$FIXTURE_DIR/full.env"
   assert_success
   assert_output --partial "RESOLVED_API=54421"
   assert_output --partial "RESOLVED_DB=54422"
+  assert_output --partial "RESOLVED_STUDIO=54423"
+  assert_output --partial "RESOLVED_MAILPIT=54424"
+  assert_output --partial "RESOLVED_ANALYTICS=54427"
 }
 
-@test "behavior: partial override — only API_PORT set; DB_PORT falls back" {
+@test "behavior: fails when only API_PORT + DB_PORT set (Studio/Mailpit/Analytics missing)" {
   cat > "$FIXTURE_DIR/partial.env" <<EOF
 SUPABASE_API_PORT=54421
+SUPABASE_DB_PORT=54422
 EOF
   run_snippet "$FIXTURE_DIR/partial.env"
-  assert_success
-  assert_output --partial "RESOLVED_API=54421"
-  assert_output --partial "RESOLVED_DB=54322"
+  assert_failure
 }
 
 @test "behavior: strips surrounding double-quotes from .env values" {
   cat > "$FIXTURE_DIR/quoted.env" <<EOF
 SUPABASE_API_PORT="54421"
 SUPABASE_DB_PORT='54422'
+SUPABASE_STUDIO_PORT=54423
+SUPABASE_MAILPIT_PORT=54424
+SUPABASE_ANALYTICS_PORT=54427
 EOF
   run_snippet "$FIXTURE_DIR/quoted.env"
   assert_success
@@ -204,6 +225,9 @@ EOF
   cat > "$FIXTURE_DIR/typo.env" <<EOF
 SUPABASE_API_PORT=abc
 SUPABASE_DB_PORT=54322
+SUPABASE_STUDIO_PORT=54323
+SUPABASE_MAILPIT_PORT=54324
+SUPABASE_ANALYTICS_PORT=54327
 EOF
   run_snippet "$FIXTURE_DIR/typo.env"
   assert_failure
@@ -213,6 +237,10 @@ EOF
 @test "behavior: rejects out-of-range port (0)" {
   cat > "$FIXTURE_DIR/zero.env" <<EOF
 SUPABASE_API_PORT=0
+SUPABASE_DB_PORT=54322
+SUPABASE_STUDIO_PORT=54323
+SUPABASE_MAILPIT_PORT=54324
+SUPABASE_ANALYTICS_PORT=54327
 EOF
   run_snippet "$FIXTURE_DIR/zero.env"
   assert_failure
@@ -221,7 +249,11 @@ EOF
 
 @test "behavior: rejects out-of-range port (65536)" {
   cat > "$FIXTURE_DIR/overflow.env" <<EOF
+SUPABASE_API_PORT=54321
 SUPABASE_DB_PORT=65536
+SUPABASE_STUDIO_PORT=54323
+SUPABASE_MAILPIT_PORT=54324
+SUPABASE_ANALYTICS_PORT=54327
 EOF
   run_snippet "$FIXTURE_DIR/overflow.env"
   assert_failure
@@ -231,11 +263,13 @@ EOF
 @test "behavior: error message names .env as the source (operator hint)" {
   cat > "$FIXTURE_DIR/bad.env" <<EOF
 SUPABASE_API_PORT=xyz
+SUPABASE_DB_PORT=54322
+SUPABASE_STUDIO_PORT=54323
+SUPABASE_MAILPIT_PORT=54324
+SUPABASE_ANALYTICS_PORT=54327
 EOF
   run_snippet "$FIXTURE_DIR/bad.env"
   assert_failure
-  # Source line points at the actual .env path (fixture path in the test
-  # context, /workspace/.devcontainer/.env in production).
   assert_output --partial "Source:"
 }
 
@@ -243,6 +277,10 @@ EOF
   cat > "$FIXTURE_DIR/dup.env" <<EOF
 SUPABASE_API_PORT=54321
 SUPABASE_API_PORT=54421
+SUPABASE_DB_PORT=54322
+SUPABASE_STUDIO_PORT=54323
+SUPABASE_MAILPIT_PORT=54324
+SUPABASE_ANALYTICS_PORT=54327
 EOF
   run_snippet "$FIXTURE_DIR/dup.env"
   assert_success
@@ -280,37 +318,29 @@ run_snippet_pipefail() {
   run bash "$runner"
 }
 
-@test "regression: .env without SUPABASE_*_PORT keys does not silently kill under set -euo pipefail" {
-  # Common case: project uses Supabase's default ports and has a .env with
-  # other vars (PRODUCTION_URL, GITHUB_TOKEN, etc.) but no port overrides.
-  # Pre-fix, grep -E '^SUPABASE_API_PORT=' returns no match → exit 1 → pipefail
-  # → set -e kills the assignment silently → script dies before "Allowing
-  # host.docker.internal" prints. Sentinel verifies the script ran to
-  # completion, not just that no error was raised.
+@test "regression: full .env does not silently kill under set -euo pipefail" {
+  cat > "$FIXTURE_DIR/full-pipefail.env" <<EOF
+SUPABASE_API_PORT=54421
+SUPABASE_DB_PORT=54422
+SUPABASE_STUDIO_PORT=54423
+SUPABASE_MAILPIT_PORT=54424
+SUPABASE_ANALYTICS_PORT=54427
+EOF
+  run_snippet_pipefail "$FIXTURE_DIR/full-pipefail.env"
+  assert_success
+  assert_output --partial "RESOLVED_API=54421"
+  assert_output --partial "RESOLVED_DB=54422"
+  assert_output --partial "DID_NOT_DIE_SILENTLY"
+}
+
+@test "regression: .env without SUPABASE_*_PORT keys fails loudly under set -euo pipefail" {
   cat > "$FIXTURE_DIR/no-keys.env" <<EOF
-# .env without SUPABASE port overrides (the common case)
+# .env without SUPABASE port overrides
 PRODUCTION_URL=example.vercel.app
 GITHUB_TOKEN=ghp_test
 EOF
   run_snippet_pipefail "$FIXTURE_DIR/no-keys.env"
-  assert_success
-  assert_output --partial "RESOLVED_API=54321"
-  assert_output --partial "RESOLVED_DB=54322"
-  assert_output --partial "DID_NOT_DIE_SILENTLY"
-}
-
-@test "regression: partial-key .env (API_PORT set, DB_PORT missing) does not silently kill under set -euo pipefail" {
-  # The grep for the missing key still exits 1; the grep for the present key
-  # exits 0. Without `|| true` on both pipelines the missing-key one kills
-  # the script before the present-key one's value is even applied.
-  cat > "$FIXTURE_DIR/partial-pipefail.env" <<EOF
-SUPABASE_API_PORT=54421
-EOF
-  run_snippet_pipefail "$FIXTURE_DIR/partial-pipefail.env"
-  assert_success
-  assert_output --partial "RESOLVED_API=54421"
-  assert_output --partial "RESOLVED_DB=54322"
-  assert_output --partial "DID_NOT_DIE_SILENTLY"
+  assert_failure
 }
 
 @test "regression: HOST_DOCKER_INTERNAL pipeline survives unresolved host.docker.internal under set -euo pipefail" {

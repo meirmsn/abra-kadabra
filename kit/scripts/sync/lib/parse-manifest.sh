@@ -17,8 +17,9 @@
 # Public API (call parse_manifest first; subsequent calls populate globals):
 #   parse_manifest <path>          → parses; populates MANIFEST_CATEGORY/PATHS/EXCLUDES
 #   manifest_paths_by <category>   → prints declared paths matching <category>, one per line
-#   manifest_locked_under <dir>    → prints [locked] leaves under <dir> (relative, no prefix)
-#   manifest_strip_annotation <s>  → utility: strip [tag] + trailing whitespace from a string
+#   manifest_locked_under <dir>          → prints [locked] leaves under <dir> (relative, no prefix)
+#   manifest_scaffold_once_under <dir>   → prints [scaffold-once] leaves under <dir> (relative, no prefix)
+#   manifest_strip_annotation <s>        → utility: strip [tag] + trailing whitespace from a string
 
 # Valid annotations. Keep in sync with manifest.txt header and architecture.md.
 MANIFEST_VALID_CATEGORIES=(symlink locked locked-dir sync scaffold-once)
@@ -91,6 +92,27 @@ manifest_locked_under() {
   for p in "${MANIFEST_PATHS[@]:-}"; do
     [ -n "$p" ] || continue
     [ "${MANIFEST_CATEGORY[$p]:-}" = "locked" ] || continue
+    [[ "$p" == "$prefix"* ]] || continue
+    rel="${p#$prefix}"
+    printf '%s\n' "$rel"
+  done
+  return 0
+}
+
+# manifest_scaffold_once_under <dir>
+# Mirrors manifest_locked_under, but for [scaffold-once] leaves. Same use case
+# (build rsync --exclude list when a [sync] directory contains leaves owned by
+# another lifecycle), different category. Sync scripts must exclude these
+# leaves from the parent dir's rsync — clobbering a [scaffold-once] file
+# (project narrative — CLAUDE.md, firewall-extra-domains, etc.) would
+# round-trip project content over the template's seed value or vice versa.
+manifest_scaffold_once_under() {
+  local dir="${1:?usage: manifest_scaffold_once_under <dir>}"
+  local prefix="${dir%/}/"
+  local p rel
+  for p in "${MANIFEST_PATHS[@]:-}"; do
+    [ -n "$p" ] || continue
+    [ "${MANIFEST_CATEGORY[$p]:-}" = "scaffold-once" ] || continue
     [[ "$p" == "$prefix"* ]] || continue
     rel="${p#$prefix}"
     printf '%s\n' "$rel"

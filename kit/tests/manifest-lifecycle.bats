@@ -162,6 +162,24 @@ M
   refute_line "pre-commit"
 }
 
+@test "manifest_scaffold_once_under .devcontainer returns scaffold-once leaves under .devcontainer/" {
+  cat > "$FIXTURE_DIR/scaffold-under.txt" <<'M'
+.devcontainer/ [sync]
+.devcontainer/firewall-extra-domains [scaffold-once]
+.devcontainer/Dockerfile [locked]
+CLAUDE.md [scaffold-once]
+M
+  run bash -c "
+    source '$PARSE_LIB'
+    parse_manifest '$FIXTURE_DIR/scaffold-under.txt'
+    manifest_scaffold_once_under .devcontainer
+  "
+  assert_success
+  assert_line "firewall-extra-domains"
+  refute_line "Dockerfile"
+  refute_line "CLAUDE.md"
+}
+
 # ---------------------------------------------------------------------------
 # Test 7 — manifest_strip_annotation utility
 # ---------------------------------------------------------------------------
@@ -381,6 +399,21 @@ M
   refute_output --partial 'sed.*\[\.\*\]'
 }
 
+@test "from-devshop.sh excludes [locked] + [scaffold-once] leaves + ! exclusions under [sync] dirs" {
+  local script="$DEVSHOP/kit/scripts/sync/from-devshop.sh"
+  [ -f "$script" ] || skip "from-devshop.sh not found"
+  # Must wire all three exclude sources into the rsync command — otherwise
+  # rsync -a --delete clobbers .env (gitignored, invisible in `git status`),
+  # [locked] devcontainer leaves (init-devshop.sh owns), and scaffold-once
+  # narrative files (firewall-extra-domains, project CLAUDE.md).
+  run grep -q 'MANIFEST_EXCLUDES' "$script"
+  assert_success
+  run grep -q 'manifest_locked_under' "$script"
+  assert_success
+  run grep -q 'manifest_scaffold_once_under' "$script"
+  assert_success
+}
+
 @test "to-devshop.sh sources the parser and pushes only [sync] entries" {
   local script="$DEVSHOP/kit/scripts/sync/to-devshop.sh"
   [ -f "$script" ] || skip "to-devshop.sh not found"
@@ -389,6 +422,10 @@ M
   run grep -q 'manifest_paths_by sync' "$script"
   assert_success
   run grep -q 'manifest_locked_under' "$script"
+  assert_success
+  # Symmetry with from-devshop.sh — pushing project's [scaffold-once] copy
+  # back into template/ would round-trip per-project drift over the seed.
+  run grep -q 'manifest_scaffold_once_under' "$script"
   assert_success
 }
 

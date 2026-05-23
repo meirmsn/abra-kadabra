@@ -12,7 +12,7 @@
 //       handle non-Postgres dialects.
 //
 // Usage: node template/scripts/advisor-probe.mjs
-//        DATABASE_URL=postgresql://postgres:postgres@supabase-runner:54322/postgres
+//        DATABASE_URL defaults to supabase-runner on $SUPABASE_DB_PORT
 //
 // Conventions: see kit/docs/guide/security.md § DB hardening — SQL conventions
 // for Supabase projects (the authoring contract these lints encode).
@@ -32,9 +32,17 @@ try {
   process.exit(2);
 }
 
+const SUPABASE_DB_PORT = process.env.SUPABASE_DB_PORT;
+if (!SUPABASE_DB_PORT) {
+  console.error(
+    "blocked: SUPABASE_DB_PORT not set — run derive-ports-from-config.sh or rebuild the devcontainer",
+  );
+  process.exit(2);
+}
+
 const DATABASE_URL =
   process.env.DATABASE_URL ||
-  "postgresql://postgres:postgres@supabase-runner:54322/postgres";
+  `postgresql://postgres:postgres@supabase-runner:${SUPABASE_DB_PORT}/postgres`;
 
 const MIGRATIONS_DIR = process.env.MIGRATIONS_DIR ||
   join(process.cwd(), "supabase", "migrations");

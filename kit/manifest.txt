@@ -82,6 +82,7 @@ package.json [sync]
 .devcontainer/init-prod-url.sh [locked]
 .devcontainer/checksums.sha256 [locked]
 .devcontainer/firewall-extra-domains [scaffold-once]
+.devcontainer/.env.example [scaffold-once]
 # Compose-isolation siblings (only present when /ak-new-project Step 2b chose
 # compose isolation; init-devshop.sh's lock loop skips entries whose template
 # source is absent, so host-supabase / skip projects stay clean). The exec
@@ -89,6 +90,7 @@ package.json [sync]
 # derives mode from the template source per file.
 .devcontainer/compose.yml [locked]
 .devcontainer/init-host-env.sh [locked]
+.devcontainer/derive-ports-from-config.sh [locked]
 .devcontainer/supabase-runner [locked-dir]
 .devcontainer/supabase-runner/Dockerfile [locked]
 .devcontainer/supabase-runner/cmd-relay.mjs [locked]

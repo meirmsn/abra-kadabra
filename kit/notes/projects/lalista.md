@@ -1,3 +1,7 @@
+---
+supabase_port_offset: 0
+---
+
 # Init Tracker — lalista
 
 Created by manual migration on 2026-04-16.

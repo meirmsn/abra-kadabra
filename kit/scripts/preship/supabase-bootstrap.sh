@@ -12,16 +12,16 @@
 # Reachability shape detection (auto):
 #   - "compose"     : project ships .devcontainer/compose.yml + supabase-runner/. Workspace has
 #                     no docker CLI; lifecycle drives through the cmd-relay on supabase-runner:9000.
-#                     Data plane reached via host.docker.internal:54321/54322. (Template default
-#                     since v1.23.0.)
+#                     Data plane reached via host.docker.internal on the configured ports. (Template
+#                     default since v1.23.0.)
 #   - "docker-bind" : workspace has docker CLI + daemon access (legacy host-docker-socket bind-
 #                     mount shape, no longer offered to new projects but supported here for
 #                     existing projects scaffolded pre-v1.23.0).
 #   - "host"        : workspace has neither docker CLI nor compose.yml, but the data plane is
-#                     reachable at host.docker.internal:54321 — Host Supabase shape, where the
-#                     operator runs `supabase start` from a macOS host terminal. This script
-#                     can verify reachability + rewrite .env.local but cannot start/stop the
-#                     stack (lifecycle lives on the macOS host).
+#                     reachable at host.docker.internal:$SUPABASE_API_PORT — Host Supabase shape,
+#                     where the operator runs `supabase start` from a macOS host terminal. This
+#                     script can verify reachability + rewrite .env.local but cannot start/stop
+#                     the stack (lifecycle lives on the macOS host).
 #   - "none"        : nothing reachable. Report `blocked` with shape-specific fix recipe.
 
 set -euo pipefail
@@ -30,6 +30,22 @@ DEVSHOP="${DEVSHOP:-/devshop}"
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 ENV_FILE="$PROJECT_ROOT/apps/web/.env.local"
 BACKUP_FILE="$ENV_FILE.preship-backup"
+
+# Resolve Supabase ports from environment (set by compose.yml env_file) or
+# .devcontainer/.env (for docker-bind / host shapes), falling back to
+# upstream Supabase defaults (54321/54322) for legacy projects without
+# derive-ports-from-config.sh.
+DC_ENV="$PROJECT_ROOT/.devcontainer/.env"
+_read_port() {
+  local key="$1" default="$2"
+  local val="${!key:-}"
+  if [ -z "$val" ] && [ -f "$DC_ENV" ]; then
+    val=$(grep -E "^${key}=" "$DC_ENV" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '[:space:]"'"'"'' || true)
+  fi
+  printf '%s' "${val:-$default}"
+}
+SUPABASE_API_PORT=$(_read_port SUPABASE_API_PORT 54321)
+SUPABASE_DB_PORT=$(_read_port SUPABASE_DB_PORT 54322)
 
 MODE="${1:-up}"
 
@@ -98,10 +114,10 @@ detect_shape() {
     echo "docker-bind"
     return
   fi
-  # Host Supabase: data plane reachable at host.docker.internal:54321 even though workspace
-  # has no docker tooling. -fsS exits 22 on HTTP 4xx (kong returns 401 on bare /), which
-  # confirms the listener is up. exit 7 (couldn't connect) → not reachable.
-  if curl -sS -m 2 "http://host.docker.internal:54321" -o /dev/null 2>/dev/null; then
+  # Host Supabase: data plane reachable at host.docker.internal:$SUPABASE_API_PORT even though
+  # workspace has no docker tooling. -fsS exits 22 on HTTP 4xx (kong returns 401 on bare /),
+  # which confirms the listener is up. exit 7 (couldn't connected) → not reachable.
+  if curl -sS -m 2 "http://host.docker.internal:$SUPABASE_API_PORT" -o /dev/null 2>/dev/null; then
     echo "host"
     return
   fi
@@ -150,8 +166,8 @@ case "$MODE" in
           exit 0
         fi
 
-        # Verify seed fixtures via Postgres (data plane at host.docker.internal:54322 under compose).
-        if ! PGPASSWORD=postgres psql -h host.docker.internal -p 54322 -U postgres -d postgres \
+        # Verify seed fixtures via Postgres (data plane at host.docker.internal:$SUPABASE_DB_PORT under compose).
+        if ! PGPASSWORD=postgres psql -h host.docker.internal -p "$SUPABASE_DB_PORT" -U postgres -d postgres \
              -tAc "SELECT count(*) FROM auth.users WHERE email IN ('alice@test.local', 'bob@test.local')" \
              2>/dev/null | grep -q '^2$'; then
           echo "error: seed fixtures missing (expected alice@test.local + bob@test.local in auth.users) — check supabase/seed.sql, then re-run \`pnpm db:reset\`" >&2
@@ -159,7 +175,7 @@ case "$MODE" in
         fi
 
         # Under compose isolation, compose.yml's environment block already exposes
-        # SUPABASE_URL=http://host.docker.internal:54321 + the published local-stack JWTs as
+        # SUPABASE_URL via compose env + the published local-stack JWTs as
         # SUPABASE_ANON_KEY. Use those rather than re-extracting via the relay.
         if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ]; then
           echo "error: SUPABASE_URL or SUPABASE_ANON_KEY not in workspace env — compose.yml's services.workspace.environment block should set both" >&2
@@ -182,14 +198,14 @@ case "$MODE" in
           fi
         fi
 
-        if ! PGPASSWORD=postgres psql -h localhost -p 54322 -U postgres -d postgres \
+        if ! PGPASSWORD=postgres psql -h localhost -p "$SUPABASE_DB_PORT" -U postgres -d postgres \
              -tAc "SELECT count(*) FROM auth.users WHERE email IN ('alice@test.local', 'bob@test.local')" \
              2>/dev/null | grep -q '^2$'; then
           echo "error: seed fixtures missing (expected alice@test.local + bob@test.local in auth.users) — check supabase/seed.sql" >&2
           exit 4
         fi
 
-        _LOCAL_URL="http://localhost:54321"
+        _LOCAL_URL="http://localhost:$SUPABASE_API_PORT"
         _LOCAL_ANON_KEY=$(supabase status --output env 2>/dev/null | grep '^ANON_KEY=' | cut -d= -f2- | tr -d '"' || true)
         if [ -z "$_LOCAL_ANON_KEY" ]; then
           # Fallback to --output pretty parsing for older CLI versions.
@@ -206,8 +222,8 @@ case "$MODE" in
         # Treat as reused — Phase 0 doesn't try to manage start/stop.
         echo "reused: local Supabase reachable at host.docker.internal (Host Supabase shape — lifecycle managed from macOS terminal)"
 
-        # Verify seed via Postgres on host.docker.internal:54322.
-        if ! PGPASSWORD=postgres psql -h host.docker.internal -p 54322 -U postgres -d postgres \
+        # Verify seed via Postgres on host.docker.internal:$SUPABASE_DB_PORT.
+        if ! PGPASSWORD=postgres psql -h host.docker.internal -p "$SUPABASE_DB_PORT" -U postgres -d postgres \
              -tAc "SELECT count(*) FROM auth.users WHERE email IN ('alice@test.local', 'bob@test.local')" \
              2>/dev/null | grep -q '^2$'; then
           echo "error: seed fixtures missing (expected alice@test.local + bob@test.local in auth.users) — check supabase/seed.sql, then run \`supabase db reset\` from your macOS host terminal" >&2
@@ -217,12 +233,12 @@ case "$MODE" in
         # ANON_KEY: published well-known supabase-local default JWT (same across every install).
         # Hardcoded here to avoid forcing the workspace to shell out to a CLI it can't run under
         # Host Supabase (no docker daemon access).
-        _LOCAL_URL="http://host.docker.internal:54321"
+        _LOCAL_URL="http://host.docker.internal:$SUPABASE_API_PORT"
         _LOCAL_ANON_KEY="${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0}"
         ;;
 
       none)
-        emit_degraded_outcome "no local Supabase reachable. Detection fell through (no compose.yml + supabase-runner/, no docker daemon, no listener at host.docker.internal:54321). Refusing hosted-Supabase fallback (would pollute prod). Fix: rebuild the devcontainer with one of the supported shapes — compose isolation (template default; see /devshop/kit/docs/guide/local-supabase-compose-isolation.md), Host Supabase (\`brew install supabase/tap/supabase\` on macOS host + \`supabase start\` from host terminal), or run on a machine with Docker."
+        emit_degraded_outcome "no local Supabase reachable. Detection fell through (no compose.yml + supabase-runner/, no docker daemon, no listener at host.docker.internal:$SUPABASE_API_PORT). Refusing hosted-Supabase fallback (would pollute prod). Fix: rebuild the devcontainer with one of the supported shapes — compose isolation (template default; see /devshop/kit/docs/guide/local-supabase-compose-isolation.md), Host Supabase (\`brew install supabase/tap/supabase\` on macOS host + \`supabase start\` from host terminal), or run on a machine with Docker."
         exit 0
         ;;
     esac

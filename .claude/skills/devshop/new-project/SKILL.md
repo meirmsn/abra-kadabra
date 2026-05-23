@@ -65,10 +65,60 @@ Creates a GitHub repo populated with the devshop template.
    rsync -a /devshop/template/ /tmp/<name>/
    ```
 
-4. **Fill basic placeholders in README.md**:
+4. **Assign Supabase port offset (auto)**:
+
+   ```bash
+   OFFSET=$(bash /devshop/kit/scripts/next-port-offset.sh)
+
+   API_PORT=$((54321 + OFFSET))
+   DB_PORT=$((54322 + OFFSET))
+   STUDIO_PORT=$((54323 + OFFSET))
+   MAILPIT_PORT=$((54324 + OFFSET))
+   ANALYTICS_PORT=$((54327 + OFFSET))
+   ```
+
+   Override: set `SUPABASE_PORT_OFFSET_OVERRIDE=<N>` before running Phase A.
+
+   Run `supabase init` in the scaffolded repo, then apply the port offset + redirect fix:
+
+   ```bash
+   cd /tmp/<name>
+   supabase init
+   # Set project_id to the project name (not the default "workspace")
+   sed -i 's/^project_id = .*/project_id = "<name>"/' supabase/config.toml
+   # Apply port offset to all 5 Supabase sections
+   sed -i "/^\[api\]/,/^\[/{s/^port = .*/port = $API_PORT/}" supabase/config.toml
+   sed -i "/^\[db\]/,/^\[/{s/^port = .*/port = $DB_PORT/}" supabase/config.toml
+   sed -i "/^\[studio\]/,/^\[/{s/^port = .*/port = $STUDIO_PORT/}" supabase/config.toml
+   sed -i "/^\[inbucket\]/,/^\[/{s/^port = .*/port = $MAILPIT_PORT/}" supabase/config.toml
+   sed -i "/^\[analytics\]/,/^\[/{s/^port = .*/port = $ANALYTICS_PORT/}" supabase/config.toml
+   # Fix additional_redirect_urls (supabase init writes buggy https + no-wildcard default)
+   sed -i 's|additional_redirect_urls = \["https://127.0.0.1:3000"\]|additional_redirect_urls = ["http://127.0.0.1:3000/**", "http://localhost:3000/**"]|' supabase/config.toml
+   # Derive .env ports from the just-written config.toml
+   bash .devcontainer/derive-ports-from-config.sh /tmp/<name>
+   ```
+
+   Register the offset in the devshop notes file:
+
+   ```bash
+   # Append port offset to the notes file frontmatter (created later in Phase B,
+   # but the frontmatter line goes in now so the registry is complete).
+   NOTES_FILE="$DEVSHOP/kit/notes/projects/<name>.md"
+   if [ -f "$NOTES_FILE" ]; then
+     # Notes file already exists (re-run) — update the frontmatter
+     sed -i "s/^supabase_port_offset:.*/supabase_port_offset: $OFFSET/" "$NOTES_FILE"
+   else
+     # Create minimal frontmatter — Phase B fills the rest
+     printf -- '---\nsupabase_port_offset: %s\n---\n' "$OFFSET" > "$NOTES_FILE"
+   fi
+   ```
+
+   Print the assignment: `Port offset $OFFSET assigned → API=$API_PORT DB=$DB_PORT Studio=$STUDIO_PORT Mailpit=$MAILPIT_PORT Analytics=$ANALYTICS_PORT`
+
+5. **Fill basic placeholders in README.md**:
    Replace `<project-name>` and `<one-line description>` in `/tmp/<name>/README.md`.
 
-5. **Commit and push**:
+6. **Commit and push**:
 
    ```bash
    cd /tmp/<name>
@@ -77,10 +127,11 @@ Creates a GitHub repo populated with the devshop template.
    git push
    ```
 
-6. **Print next steps**:
+7. **Print next steps**:
 
    ```
    Project created: <repo-url>
+   Port offset: <OFFSET> (API=<API_PORT> DB=<DB_PORT> Studio=<STUDIO_PORT> Mailpit=<MAILPIT_PORT> Analytics=<ANALYTICS_PORT>)
 
    Next:
      1. On your host, clone the repo next to abra-kadabra:
@@ -358,7 +409,7 @@ After the per-choice strip, update `/devshop/kit/notes/projects/<name>.md`'s Ste
     eyes on the web UI.
   - **Check `vercel.com/<team>/<project>/settings/deployment-protection`** —
     teams created on the modern plan default `SSO Protection = all
-    deployments except production custom domains`. That setting sign-in-gates
+deployments except production custom domains`. That setting sign-in-gates
     the canonical alias (`<project>-<hash>.vercel.app`), so every public
     URL you'd share or that `/canary` probes asks for a Vercel login. For
     a public-facing PWA, either set SSO Protection = `none` on production
@@ -636,24 +687,24 @@ unit test crashes loudly instead of silently mutating prod data.
 
 **Surface matrix** — where each credential lives across the four surfaces:
 
-| Credential                    | `.devcontainer/.env` | GH Variable                 | GH Secret       | Vercel                                  | Supabase auto-inject (edge runtime)                     |
-| ----------------------------- | -------------------- | --------------------------- | --------------- | --------------------------------------- | ------------------------------------------------------- |
-| `SUPABASE_PROD_URL`           | ✅ prod URL          | ✅ prod URL                 | —               | piped → `NEXT_PUBLIC_SUPABASE_URL`      | (auto)                                                  |
-| `SUPABASE_URL`                | (alias of PROD_URL)  | ✅ `http://127.0.0.1:54321` | —               | —                                       | (auto)                                                  |
-| `SUPABASE_PROD_ANON_KEY`      | ✅ prod anon         | —                           | —               | piped → `NEXT_PUBLIC_SUPABASE_ANON_KEY` | (auto)                                                  |
-| `SUPABASE_ANON_KEY`           | —                    | ✅ local-stack default JWT  | —               | —                                       | (auto)                                                  |
-| `SUPABASE_SERVICE_ROLE_KEY`   | ✅ local-stack JWT   | ✅ local-stack default JWT  | —               | —                                       | ✅ prod service-role (auto)                             |
-| `SUPABASE_DB_PASSWORD`        | ❌ NEVER (paste from PW mgr for ad-hoc) | —       | ✅ prod         | —                                       | —                                                       |
-| `SUPABASE_ACCESS_TOKEN`       | ✅ operator's        | —                           | ✅              | —                                       | —                                                       |
-| `ANTHROPIC_API_KEY_QA`        | ✅ operator's        | —                           | ✅              | —                                       | —                                                       |
-| `ANTHROPIC_API_KEY_PROD`      | ❌ NEVER             | —                           | ✅              | —                                       | pushed by `deploy-functions.yml` as `ANTHROPIC_API_KEY` |
-| `NEXT_PUBLIC_POSTHOG_KEY`     | ✅                   | ✅                          | —               | ✅                                      | —                                                       |
-| `SENTRY_DSN`                  | ✅                   | —                           | ✅              | piped → `NEXT_PUBLIC_SENTRY_DSN`        | —                                                       |
-| `SENTRY_AUTH_TOKEN`           | ✅                   | —                           | ✅              | ✅ (build env, Preview + Production)    | —                                                       |
-| `VERCEL_TOKEN`                | ✅                   | —                           | ✅              | —                                       | —                                                       |
-| `GITHUB_TOKEN` (operator PAT) | ✅                   | —                           | (auto-provided) | —                                       | —                                                       |
-| `NTFY_URL`                    | ✅                   | —                           | —               | —                                       | —                                                       |
-| `DEVCONTAINER_ROOT_PASSWORD`  | ✅                   | —                           | —               | —                                       | —                                                       |
+| Credential                    | `.devcontainer/.env`                    | GH Variable                 | GH Secret       | Vercel                                  | Supabase auto-inject (edge runtime)                     |
+| ----------------------------- | --------------------------------------- | --------------------------- | --------------- | --------------------------------------- | ------------------------------------------------------- |
+| `SUPABASE_PROD_URL`           | ✅ prod URL                             | ✅ prod URL                 | —               | piped → `NEXT_PUBLIC_SUPABASE_URL`      | (auto)                                                  |
+| `SUPABASE_URL`                | (alias of PROD_URL)                     | ✅ `http://127.0.0.1:54321` | —               | —                                       | (auto)                                                  |
+| `SUPABASE_PROD_ANON_KEY`      | ✅ prod anon                            | —                           | —               | piped → `NEXT_PUBLIC_SUPABASE_ANON_KEY` | (auto)                                                  |
+| `SUPABASE_ANON_KEY`           | —                                       | ✅ local-stack default JWT  | —               | —                                       | (auto)                                                  |
+| `SUPABASE_SERVICE_ROLE_KEY`   | ✅ local-stack JWT                      | ✅ local-stack default JWT  | —               | —                                       | ✅ prod service-role (auto)                             |
+| `SUPABASE_DB_PASSWORD`        | ❌ NEVER (paste from PW mgr for ad-hoc) | —                           | ✅ prod         | —                                       | —                                                       |
+| `SUPABASE_ACCESS_TOKEN`       | ✅ operator's                           | —                           | ✅              | —                                       | —                                                       |
+| `ANTHROPIC_API_KEY_QA`        | ✅ operator's                           | —                           | ✅              | —                                       | —                                                       |
+| `ANTHROPIC_API_KEY_PROD`      | ❌ NEVER                                | —                           | ✅              | —                                       | pushed by `deploy-functions.yml` as `ANTHROPIC_API_KEY` |
+| `NEXT_PUBLIC_POSTHOG_KEY`     | ✅                                      | ✅                          | —               | ✅                                      | —                                                       |
+| `SENTRY_DSN`                  | ✅                                      | —                           | ✅              | piped → `NEXT_PUBLIC_SENTRY_DSN`        | —                                                       |
+| `SENTRY_AUTH_TOKEN`           | ✅                                      | —                           | ✅              | ✅ (build env, Preview + Production)    | —                                                       |
+| `VERCEL_TOKEN`                | ✅                                      | —                           | ✅              | —                                       | —                                                       |
+| `GITHUB_TOKEN` (operator PAT) | ✅                                      | —                           | (auto-provided) | —                                       | —                                                       |
+| `NTFY_URL`                    | ✅                                      | —                           | —               | —                                       | —                                                       |
+| `DEVCONTAINER_ROOT_PASSWORD`  | ✅                                      | —                           | —               | —                                       | —                                                       |
 
 **Reading the matrix:** every row's checkmarks tell you "where this value lives." Most credentials live on two surfaces (operator local + one runtime); the Supabase URL/anon pair is the only one with **different values for the same name** across surfaces (`SUPABASE_URL` Variable on GH = local stack; `NEXT_PUBLIC_SUPABASE_URL` on Vercel = prod). That's not a bug — that's the structural defense the cleanup makes explicit. Don't reuse a value across surfaces without checking which side you're on.
 
@@ -1198,18 +1249,30 @@ node -e "import('playwright').then(({chromium}) => chromium.launch().then(b => b
 
 Create `playwright.config.ts` with mobile (375px) and desktop (1440px) projects.
 
-### Step 15: Supabase init + link (if using)
+### Step 15: Supabase link (if using)
+
+Phase A already ran `supabase init`, set `project_id`, applied the port offset to all 5 sections of `config.toml`, fixed `additional_redirect_urls`, and derived `.env` ports. Verify the config is intact:
 
 ```bash
-supabase init    # if supabase/config.toml doesn't exist
-# `supabase init` defaults `project_id` to the basename of $PWD — inside the
-# workspace container that is always "workspace", so every project would share
-# the same supabase_*_workspace container names on the host docker engine,
-# colliding across projects + masking ownership in `docker ps`. Substitute the
-# real project name so the stack containers become supabase_*_<project-name>.
-sed -i 's/^project_id = .*/project_id = "<project-name>"/' supabase/config.toml
+# Verify port offset is applied (should show rebound ports, not defaults)
+grep '^port = ' supabase/config.toml
+# Verify redirect URLs are correct
+grep 'additional_redirect_urls' supabase/config.toml
+```
+
+If `supabase/config.toml` was reset (e.g., by re-running `supabase init`), restore the offset:
+
+```bash
+bash .devshopkit/scripts/apply-port-offset.sh /workspace
+```
+
+Link to the remote Supabase project:
+
+```bash
 supabase link --project-ref <project-ref>
 ```
+
+**Gotcha:** re-running `supabase init` resets `config.toml` to default ports + the buggy `additional_redirect_urls`. Run `bash .devshopkit/scripts/apply-port-offset.sh /workspace` to restore, or restart the container so `derive-ports-from-config.sh` picks up the change (the derive script reads whatever's in `config.toml` — if ports were reset to defaults, `.env` will reflect defaults too, so the offset must be re-applied to `config.toml` first).
 
 ### Step 16: Fill METRICS.md skeleton
 

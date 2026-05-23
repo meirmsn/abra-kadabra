@@ -14,7 +14,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# Three levels up: see sibling from-devshop.sh for the rationale. Same bug
+# pattern, same fix.
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 MANIFEST="$PROJECT_ROOT/.devshopkit/manifest.txt"
 VERSION_FILE="$PROJECT_ROOT/.devshopkit/version"
 DEVSHOP_DIR="${DEVSHOP_DIR:-/devshop}"
@@ -127,6 +129,12 @@ for path in "${PATHS[@]}"; do
     while IFS= read -r locked_rel; do
       [ -n "$locked_rel" ] && RSYNC_EXCLUDES+=(--exclude "$locked_rel")
     done < <(manifest_locked_under "$path")
+    # [scaffold-once] leaves are project narrative — pushing the project's
+    # local content back into template/ would propagate per-project drift
+    # (e.g. home-os's CLAUDE.md content) over the canonical scaffold seed.
+    while IFS= read -r scaffold_rel; do
+      [ -n "$scaffold_rel" ] && RSYNC_EXCLUDES+=(--exclude "$scaffold_rel")
+    done < <(manifest_scaffold_once_under "$path")
     mkdir -p "$dst"
     rsync -a --delete "${RSYNC_EXCLUDES[@]}" "$src/" "$dst/"
   elif [ -f "$src" ]; then
