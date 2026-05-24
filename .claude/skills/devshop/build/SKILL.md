@@ -3,6 +3,10 @@ name: ak-build
 version: 2.0.0
 description: |
   Autonomous build pipeline: preview → spec → implement → quality gates → ship → CI watch → notify.
+  Two modes: **project** (default — PR-based, CI watch, audit comment, /ak-go-live) and
+  **devshop** (auto-detected when GIT_ROOT=/devshop — reduced gate set, /ak-merge-devshop
+  transport, no PR/CI/deploy). See `devshop-mode.md` in this directory for devshop-specific
+  phases (Phase 3 gate matrix, Phase 4.5, terminal handoff).
   Phase 0 produces a 3-section pre-flight preview (decisions / scope / tracker) and
   persists user-approved decisions as a `specs/<feature>/spec.md` skeleton (provenance
   + Sources + Decisions) — one file, no parallel artifact. Phase 1's spec agent
@@ -37,8 +41,16 @@ allowed-tools:
 
 Autonomous pipeline: spec → implement → quality gates → ship → CI watch → notify.
 
-After this completes, the user has a PR ready for review with all quality gates passed,
-CI green, and an audit trail comment. The user's only action: review and say `/ak-go-live`.
+**Two modes** — auto-detected at Step 0:
+
+- **Project mode** (default): PR-based. After this completes, the user has a PR
+  ready for review with all quality gates passed, CI green, and an audit trail
+  comment. The user's only action: review and say `/ak-go-live`.
+- **Devshop mode** (`GIT_ROOT=/devshop`): no PRs, no CI watch, no deploy.
+  Runs Phases 0–2 identically, Phase 3 with a reduced gate set, Phase 4.0
+  bookkeeping, then Phase 4.5 invokes `/ak-merge-devshop` (squash + ff-merge
+  + push). After this completes, the feature is on main. Read
+  `devshop-mode.md` in this directory for devshop-specific phases.
 
 ## Architecture: subagent delegation
 
@@ -73,6 +85,23 @@ clean for orchestration and user communication.
 
 ## Step 0: Determine feature and resume state
 
+### Mode detection
+
+```bash
+GIT_ROOT=$(git rev-parse --show-toplevel)
+if [ "$GIT_ROOT" = "/devshop" ]; then
+  MODE="devshop"
+else
+  MODE="project"
+fi
+```
+
+Surface the mode in terminal output: `"Mode: $MODE"`.
+
+When `MODE=devshop`, read `devshop-mode.md` in this skill's directory for
+devshop-specific phase behavior. The sections below note `(devshop: ...)` at
+decision points where the modes diverge.
+
 ### Derive feature name and ensure branch
 ```bash
 BRANCH=$(git branch --show-current)
@@ -82,9 +111,9 @@ If on `main`, find or create the right branch:
 
 1. **Check for in-progress work** — look for open PRs or local feature/fix branches:
    ```bash
-   # Open PRs from feat/feature/fix branches
-   gh pr list --state open --json headRefName --jq '.[].headRefName' 2>/dev/null
-   # Local feat/feature/fix branches
+   # Open PRs from feat/feature/fix branches (project mode only)
+   [ "$MODE" = "project" ] && gh pr list --state open --json headRefName --jq '.[].headRefName' 2>/dev/null
+   # Local feat/feature/fix branches (both modes)
    git branch --list 'feat/*' 'feature/*' 'fix/*'
    ```
 2. **If existing branch found** → ask the user which one to resume, switch to it:
@@ -92,7 +121,8 @@ If on `main`, find or create the right branch:
    git checkout <prefix>/<name>
    ```
 3. **If no existing branch** → determine the feature name from `PLAN.md § Planned`
-   (top-ranked row) or from the gstack plan artifacts under `.gstack/projects/<slug>/`.
+   (top-ranked row) or (project mode only) from the gstack plan artifacts
+   under `.gstack/projects/<slug>/`.
    Pick the feat-vs-feature prefix by detecting the project's prevailing
    convention from existing branches (count `feat/*` vs `feature/*` across
    local + remote refs); default to `feat/` on greenfield projects (both
@@ -126,7 +156,21 @@ If already on a `feat/*`, `feature/*`, or `fix/*` branch, skip straight to the r
 
 Detect where a previous run left off. Evaluate top-to-bottom; the first match wins:
 
-1. **Open PR for this branch?** → skip to Phase 5 (CI watch)
+**(Devshop mode — rungs 1d, 2d replace rung 1)**
+
+1d. **(devshop only) Already merged to main?** — `$FEATURE` appears in a
+   commit on `main` AND no local feature branch exists → "Feature already
+   shipped. Nothing to do." Exit cleanly.
+
+2d. **(devshop only) Phase 3 + 4.0 ran, merge pending?** —
+   `$FEATURE_DIR/review.md` exists AND `$FEATURE_DIR/tasks.md` has all
+   tasks `done` AND `BUILD-LOG.md` contains an entry for `$FEATURE` →
+   skip to Phase 4.5 (`/ak-merge-devshop`). See `devshop-mode.md §
+   Resume check adaptations`.
+
+**(Project mode — rung 1)**
+
+1. **(project only) Open PR for this branch?** → skip to Phase 5 (CI watch)
    ```bash
    PR=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number // empty')
    ```
@@ -146,6 +190,9 @@ Detect where a previous run left off. Evaluate top-to-bottom; the first match wi
      time — the latest section is the bottommost stamp in the file.
    - **1b.** Open PR + `git status --porcelain -- "$FEATURE_DIR/screenshots" "$FEATURE_DIR/hero" 2>/dev/null` is empty AND the latest commit touching either dir is at HEAD → skip Phase 5.9 specifically (jump to Phase 6).
    - Both sub-rungs satisfied → skip 5.8 + 5.9 entirely → Phase 6.
+
+**(Both modes — rungs 2–6)**
+
 2. **`$FEATURE_DIR/tasks.md` exists with all tasks `done`?** → skip to Phase 3 (pre-ship)
 3. **`$FEATURE_DIR/tasks.md` exists with some tasks `done`?** → skip to Phase 2 (implement resumes internally)
 4. **`$FEATURE_DIR/spec.md` exists and contains `## Task order`?** → full spec written by Phase 1 → skip to Phase 2 (implement)
@@ -185,7 +232,9 @@ the decisions it contains.
 
 ### 0.1: Read sources
 
-Read enough context to produce the preview accurately. Typical inputs:
+Read enough context to produce the preview accurately.
+
+**Project mode** inputs:
 
 - `PRODUCT-ROADMAP.md` section for this feature (e.g., `§ v0 § 1e`) — primary
   scope and the enumerated `/ak-spec`-time decisions.
@@ -194,6 +243,16 @@ Read enough context to produce the preview accurately. Typical inputs:
 - `.gstack/projects/<slug>/*-design-*.md` (newest by mtime), if present.
 - `.gstack/projects/<slug>/*-test-plan-*.md` (newest by mtime), if present.
 - Prior PR's spec (`specs/<prior-feature>/spec.md`) as a style/structure reference.
+
+**Devshop mode** inputs (see `devshop-mode.md § Phase 0 source routing`):
+
+- `kit/ROADMAP.md` section for this feature (matched via Source column in
+  `PLAN.md`) — primary scope and decisions.
+- `kit/TODOS.md` entries the feature closes, if any.
+- `PLAN.md` row for this feature — scope summary and source pointer.
+- Prior shipped spec (`specs/<prior-feature>/spec.md`) as a
+  style/structure reference.
+- Do NOT read: `PRODUCT-ROADMAP.md`, `DESIGN.md`, `.gstack/projects/`.
 
 ### 0.2: Produce the 3-section preview
 
@@ -243,6 +302,8 @@ list is flat (no real parent field), so sub-tasks **prefix their parent phase
 in the subject** — that prefix is what makes the parent-child relationship
 visible:
 
+**Project mode:**
+
 ```
 Phase 1: Spec
 Phase 2: Implement
@@ -255,6 +316,19 @@ Phase 4: Ship
 Phase 5: CI watch + BUILD-LOG
 Phase 6: Audit comment
 Phase 7: Notify
+```
+
+**Devshop mode** (see `devshop-mode.md § Tracker hierarchy`):
+
+```
+Phase 1: Spec
+Phase 2: Implement
+Phase 2 / Task 1: <first implementation task>
+…
+Phase 2 / Task N: <last>
+Phase 3: Pre-ship (devshop gate set)
+Phase 4.0: BUILD-LOG + PLAN closure
+Phase 4.5: /ak-merge-devshop
 ```
 
 Derive the Phase 2 sub-tasks from the roadmap's numbered subsections + any
@@ -545,6 +619,23 @@ visibility aid — do NOT gate the pipeline on whether `/remote-control` is
 active (we can't detect that from inside the skill, and the user may
 legitimately not want it enabled).
 
+### 0.6: Staleness check (both modes)
+
+Before spending tokens on spec expansion and implementation, verify the
+PLAN row's Source entry still applies. See `devshop-mode.md § Phase 0.5:
+Staleness check` for the full procedure.
+
+1. Read the Source column from the PLAN row for `$FEATURE`.
+2. Follow the pointer to the source file (project: `PRODUCT-ROADMAP.md`;
+   devshop: `kit/ROADMAP.md` or `kit/TODOS.md`).
+3. Compare key assertions against recent git history and current codebase.
+4. Surface concerns via `AskUserQuestion` if high-confidence. Advisory, not
+   blocking — "Proceed anyway" is the recommended default.
+
+Skip when the resume check landed at rung 5+ (spec skeleton exists from a
+prior run — user already approved the decisions it contains and the staleness
+context hasn't changed since then).
+
 ---
 
 ## Phase 1: Spec
@@ -569,6 +660,10 @@ METRICS-confirmation fallback above only fires when the skeleton is missing
 those decisions — rare, and only happens if the user manually seeded the
 feature branch without going through `/ak-build` Phase 0.
 
+**(Devshop mode)**: add to the spec subagent prompt: `"This is
+devshop-self-mode. There is no METRICS.md; skip the metrics-confirmation
+step. The test surface is bats (kit/tests/), not vitest/Playwright."`
+
 ## Phase 2: Implement
 
 Launch **Agent** with prompt:
@@ -587,6 +682,13 @@ Wait for agent to report completion (all tasks `done`).
 If agent reports any task `blocked`, stop and escalate (see Escalation below).
 
 ## Phase 3: Pre-ship (per-gate sub-agent gauntlet)
+
+**(Devshop mode)**: read `devshop-mode.md § Phase 3: Pre-ship — devshop gate
+set` for the reduced gate set (7 dispatched, 12 pre-composed carve-outs)
+and the structural carve-out advance-log handling. The two-pass structure
+(Stabilize-HEAD + Analysis) is the same; only the gate roster differs.
+
+**Project mode** (below):
 
 Phase 3 runs the `/ak-pre-ship` gauntlet as a series of **per-gate sub-agent
 dispatches** in two ordered passes. Each gate is one `Agent` tool invocation
@@ -1140,7 +1242,15 @@ unmerged BUILD-LOG entries down with them).
 
    If step 4 retired a tracker entry, prefer a separate commit on the feature branch with message `chore(roadmap): close <entry-name> (shipped via PR #<PR>)` — keeps the bookkeeping atomic. The PR# in this message can also be `(shipped from this feature branch — PR pending)` since 4.0 predates PR creation.
 
-**Idempotence**: if Phase 4.0 has already run for this feature (no Active row for `$FEATURE_BRANCH` in `PLAN.md` AND a `BUILD-LOG.md` entry referencing `$FEATURE` exists, AND no PR-closed tracker entry remains in any roadmap), skip — don't duplicate. Phase 5.6 (verification-only) catches the un-run case as a fallback.
+**Idempotence**: if Phase 4.0 has already run for this feature (no Active row for `$FEATURE_BRANCH` in `PLAN.md` AND a `BUILD-LOG.md` entry referencing `$FEATURE` exists, AND no PR-closed tracker entry remains in any roadmap), skip — don't duplicate. Phase 5.6 (verification-only, project mode) catches the un-run case as a fallback.
+
+### Mode fork after Phase 4.0
+
+- **Devshop mode** → skip to Phase 4.5 (`/ak-merge-devshop`). Read
+  `devshop-mode.md § Phase 4.5` for the full procedure. After Phase 4.5
+  completes, print the terminal handoff (`devshop-mode.md § Terminal
+  handoff`) and exit. **Do NOT continue to Phase 4.1 or any later phase.**
+- **Project mode** → continue to Phase 4.1 below.
 
 ### 4.1: Pre-compose PR title + Product update + Engineering details body
 
