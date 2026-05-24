@@ -154,8 +154,8 @@ if [ "$IS_DEVSHOP" = true ]; then
   fi
   if [ -f "$ROOT/PLAN.md" ]; then
     # Devshop PLAN.md format: `| Feature | Hook | ... |` — Feature has backtick-wrapped slug.
-    # First data row under ## Planned (skip heading, header, separator rows).
-    NEXT_ROW="$(awk '/^## Planned/{f=1;next} /^## /{f=0} f && /^\| `/' "$ROOT/PLAN.md" 2>/dev/null | head -1 || true)"
+    # First data row under ## Planned (skip heading, header, separator, comment rows).
+    NEXT_ROW="$(awk '/^## Planned/{f=1;next} /^## |^<!--/{f=0} f && /^\| `/' "$ROOT/PLAN.md" 2>/dev/null | head -1 || true)"
     if [ -n "$NEXT_ROW" ]; then
       NEXT_FEATURE="$(echo "$NEXT_ROW" | awk -F'|' '{gsub(/^ +| +$/, "", $2); print $2}')"
       NEXT_HOOK="$(echo "$NEXT_ROW" | awk -F'|' '{gsub(/^ +| +$/, "", $3); print $3}')"
@@ -168,15 +168,12 @@ else
     LAST_BUILD="$(grep -m1 '^### ' "$ROOT/BUILD-LOG.md" | sed 's/^### //' || true)"
   fi
   if [ -f "$ROOT/PLAN.md" ]; then
-    # First data row under ## Planned, format `| N | <feature> | <notes> |`
-    NEXT_ROW="$(awk '/^## Planned/,/^<!--/' "$ROOT/PLAN.md" 2>/dev/null | grep -m1 '^| [0-9]' || true)"
+    # Rich schema: `| `feature-slug` | Hook | ... |` — Feature has backtick-wrapped slug.
+    NEXT_ROW="$(awk '/^## Planned/{f=1;next} /^## |^<!--/{f=0} f && /^\| `/' "$ROOT/PLAN.md" 2>/dev/null | head -1 || true)"
     if [ -n "$NEXT_ROW" ]; then
-      NEXT_FEATURE="$(echo "$NEXT_ROW" | awk -F'|' '{gsub(/^ +| +$/, "", $3); print $3}')"
-      # First two sentences of Notes (split on LITERAL ". ", not regex ". ")
-      # — gives enough orientation without dumping the full scope blurb.
-      NEXT_NOTE="$(echo "$NEXT_ROW" | awk -F'|' '{gsub(/^ +| +$/, "", $4); print $4}' \
-        | awk -F'\\. ' '{ if (NF >= 2) print $1 ". " $2 "."; else print $1 }')"
-      NEXT_PLAN="${NEXT_FEATURE} — ${NEXT_NOTE}"
+      NEXT_FEATURE="$(echo "$NEXT_ROW" | awk -F'|' '{gsub(/^ +| +$/, "", $2); print $2}')"
+      NEXT_HOOK="$(echo "$NEXT_ROW" | awk -F'|' '{gsub(/^ +| +$/, "", $3); print $3}')"
+      NEXT_PLAN="${NEXT_FEATURE} — ${NEXT_HOOK}"
     fi
   fi
 fi

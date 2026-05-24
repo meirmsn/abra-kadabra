@@ -4,6 +4,15 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### template-plan-md-schema-uplift (2026-05-24)
+
+- **Branch**: `feat/template-plan-md-schema-uplift`
+- **Spec**: `specs/template-plan-md-schema-uplift/spec.md`
+- **Headline**: New projects get the full priority-scored planning table out of the box — leverage formula, dependency tracking, and source pointers included.
+- **Summary**: Rewrite `template/PLAN.md` from the old 3-column simple schema (`# / Feature / Notes`) to the devshop's rich 8-column Lev-scored schema (`Feature / Hook / Impact / Risk / Cost / Lev / Deps / Source`). Adds `## How to add entries` prose block with column definitions, rating scale table, Deps glyphs, lifecycle rules. Adapts Source pointers to project-side files (`PRODUCT-ROADMAP.md` / `TODOS.md`). Drops `## Bundling cheatsheet` (overkill for project-side planning). Fixes `session-start.sh` project-session parser to handle the new backtick-slug schema (old parser expected numbered rows). Both devshop and project Planned-row parsers now stop at HTML comments to avoid matching example rows inside `<!-- -->` blocks. `/ak-spec § Step 4` verified compatible — Active table stays 3-column; rich Planned columns dropped on transition.
+- **Commits**: 3 (spec skeleton + template rewrite with tracker cleanup + session-start.sh parser fix).
+- **Quality gates**: 1266/1266 bats pass. Pre-commit guards pass on all commits.
+
 ### existing-projects-commit-convention (2026-05-24)
 
 - **Branch**: `feat/existing-projects-commit-convention` (squashed to 1 commit on `main` via `/ak-merge-devshop`)
