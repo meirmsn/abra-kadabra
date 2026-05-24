@@ -12,6 +12,7 @@ For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.m
 - **Summary**: Template `keepalive.yml` gains a second step that hits the Supabase PostgREST health endpoint (`/rest/v1/`) with the anon key, registering as API activity. Cron bumped from weekly to twice-weekly (Mon + Thu) for margin against Supabase's 7-day inactivity window. Existing Vercel ping retained. Uses prod-specific variable names (`SUPABASE_PROD_URL`, `SUPABASE_PROD_ANON_KEY`) to avoid collision with CI's localhost-scoped variables.
 - **Commits**: 7 (squashed to 1 on main via /ak-merge-devshop)
 - **Quality gates**: 9 new bats tests in `template-keepalive-yml-shape.bats`. All 1325 bats pass. Gate 1 caught CI credential collision (fixed: prod-specific variable names). Gate 5 caught missing ops.md GH Variables entry (fixed).
+- **Existing projects**: `keepalive.yml` is `[sync]` — `from-devshop.sh` delivers the file change automatically on next container rebuild or manual sync run. Operator must also add two GitHub Variables manually: `SUPABASE_PROD_URL` (project's Supabase URL, e.g. `https://xyz.supabase.co`) and `SUPABASE_PROD_ANON_KEY` (project's anon key — public/anon-tier, not secret). Currently affects: home-os, lalista.
 
 ### ak-build-devshop-mode (2026-05-24)
 
