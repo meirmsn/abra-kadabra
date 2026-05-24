@@ -43,8 +43,9 @@ setup() {
   grep -q 'REJECT' "$SKILL_MD"
 }
 
-@test "skill: cross-ref to conventions § Test Assertion Depth" {
-  grep -q 'conventions.md § Test Assertion Depth' "$SKILL_MD"
+@test "skill: Test Assertion Depth rules inlined in Section B" {
+  grep -q 'Weak assertions' "$SKILL_MD"
+  grep -q 'Shape-only assertions' "$SKILL_MD"
 }
 
 @test "conventions: § Test Assertion Depth section exists" {
