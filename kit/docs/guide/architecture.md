@@ -153,20 +153,22 @@ Build tooling files (`turbo.json`, `eslint.config.mjs`, `.husky/`, etc.) are tra
 To pull devshop updates into a project:
 
 ```bash
-.devshopkit/scripts/sync/from-devshop.sh    # diffs + applies; you review
+.devshopkit/scripts/sync/from-devshop.sh          # previews diff, applies on confirm
+.devshopkit/scripts/sync/from-devshop.sh --yes    # skip prompt (CI / scripted use)
 ```
 
 To push project improvements back to the devshop:
 
 ```bash
-.devshopkit/scripts/sync/to-devshop.sh      # copies to abra-kadabra; you review + push
+.devshopkit/scripts/sync/to-devshop.sh             # previews diff, applies on confirm
+.devshopkit/scripts/sync/to-devshop.sh --yes       # skip prompt (CI / scripted use)
 ```
 
 `manifest.txt` defines which files the sync scripts operate on. See `kit/manifest.txt`.
 
 **Invocation pattern.** Both sync scripts must be invoked from the project root via the `.devshopkit/...` symlink path (`bash .devshopkit/scripts/sync/from-devshop.sh`), not via the canonical `/devshop/kit/scripts/sync/...` path. The scripts compute `PROJECT_ROOT` as 3 path components up from `SCRIPT_DIR` — i.e. `<project>/.devshopkit/scripts/sync/` → `<project>` — and look up `manifest.txt` at `$PROJECT_ROOT/.devshopkit/manifest.txt` (which resolves via the same `.devshopkit` symlink). Invoking via the canonical path lands `PROJECT_ROOT` at `/devshop`, and `MANIFEST=/devshop/.devshopkit/manifest.txt` doesn't exist. If the `.devshopkit` symlink is missing (lost by a git op), recreate it first with `bash /devshop/kit/scripts/sync/create-devshop-symlinks.sh` — that script IS safe to invoke via the canonical path because it doesn't need the symlink it's about to create.
 
-**Apply-first-show-after semantics.** Both sync scripts copy files to disk before showing the diff — there is no preview / approval step. The closing message ("Review the changes above. If they look good: git add -A && git commit ...") is post-hoc; the working tree is already in its new state. Quitting the `git diff` pager (typically `less`, exit with `q`) does NOT roll anything back. Recovery is `git checkout -- <path>` for tracked files; gitignored content deleted by `rsync -a --delete` is not recoverable from git history. The `apply-first-then-diff` shape is intentional (operator reviews the actual outcome, not a hypothetical), but operators should treat invocation as committing to the apply.
+**Show-first-confirm-then-apply semantics.** Both sync scripts stage proposed changes to a temp directory, display a unified diff with a summary (`N files would change (M modified, K added, L deleted)`), then prompt `y/N/diff` via `/dev/tty`. Only on `y` does the script apply changes to the working tree. Aborting (`N` or empty input) is a clean no-op — nothing is modified. The `--yes` / `-y` flag bypasses the prompt for CI or scripted invocations.
 
 **Three-source exclude model under `[sync]` directories.** When a `[sync]` entry in `kit/manifest.txt` is a directory, the `rsync -a --delete` that copies it must NOT touch leaves owned by other lifecycles. Both sync scripts build `--exclude` args from three manifest sources:
 

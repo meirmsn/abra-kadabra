@@ -4,6 +4,15 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### sync-show-first-confirm (2026-05-24)
+
+- **Branch**: `feat/sync-show-first-confirm` (squashed to main via `/ak-merge-devshop`)
+- **Spec**: `specs/sync-show-first-confirm/spec.md`
+- **Headline**: Sync scripts now show a preview of proposed changes and ask for confirmation before modifying any files — no more silent overwrites.
+- **Summary**: `from-devshop.sh` and `to-devshop.sh` gain a two-pass dry-run-then-apply flow: stage proposed changes to `/tmp/sync-preview-$$/`, display a unified diff with file-count summary, then prompt `y/N/diff` via `/dev/tty`. `--yes`/`-y` flag bypasses the prompt for CI. Architecture doc rewritten from "apply-first-show-after" to "show-first-confirm-then-apply". Smoke-test finding: rsync `-a` skips same-size files with matching mtime — added `-c` (checksum) flag; also fixed false "deleted" entries in preview for excluded files.
+- **Commits**: 5 atomic commits per `/ak-build`
+- **Quality gates**: 17 new bats tests in `sync-preview-confirm.bats`. All 1283 bats pass.
+
 ### template-plan-md-schema-uplift (2026-05-24)
 
 - **Branch**: `feat/template-plan-md-schema-uplift`

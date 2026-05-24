@@ -1,10 +1,13 @@
 #!/bin/bash
 # sync-from-devshop.sh — pull build tooling updates from the devshop repo into this project.
 #
+# Show-first-confirm-then-apply: previews proposed changes via a dry-run diff,
+# then applies only after operator confirmation. --yes / -y bypasses the prompt.
+#
 # The devshop repo (abra-kadabra) is bind-mounted at /devshop. This script copies
-# files listed in manifest.txt from the devshop's template/ directory and shows a
-# diff for review. Injected files (skills, settings, etc.) are handled by
-# init-devshop.sh — this script only syncs build tooling (turbo.json, eslint, etc.).
+# files listed in manifest.txt from the devshop's template/ directory. Injected
+# files (skills, settings, etc.) are handled by init-devshop.sh — this script only
+# syncs build tooling (turbo.json, eslint, etc.).
 #
 # Before running: make sure the devshop repo is up to date on the host side
 # (git pull in the abra-kadabra directory).
@@ -13,12 +16,15 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # Three levels up: the script is invoked via the .devshopkit symlink, so its
 # logical path is <project>/.devshopkit/scripts/sync/from-devshop.sh — 3 path
-# components stand between scripts/sync/ and the project root, not 2. Bug from
-# the 2026-04-30 manifest-driven refactor (commit 0cb378b) — undetected for 3
-# weeks because no bats coverage; surfaced today on a home-os sync attempt.
+# components stand between scripts/sync/ and the project root, not 2.
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 MANIFEST="$PROJECT_ROOT/.devshopkit/manifest.txt"
 DEVSHOP_DIR="${DEVSHOP_DIR:-/devshop}"
+
+# --- Parse args (--yes / -y extracted by preview-confirm lib) ---
+source "$SCRIPT_DIR/lib/preview-confirm.sh"
+preview_confirm_parse_args "$@"
+set -- "${PREVIEW_CONFIRM_REMAINING_ARGS[@]}"
 
 # --- Guards ---
 if [ ! -d "$DEVSHOP_DIR" ]; then
@@ -58,57 +64,68 @@ for excl in "${MANIFEST_EXCLUDES[@]:-}"; do
   [ -n "$excl" ] && EXCLUDES+=("$excl")
 done
 
-# --- Copy files from devshop to project ---
-echo "Syncing ${#PATHS[@]} paths from devshop to project..."
+# --- Build rsync exclude args for a directory (three-source model) ---
+build_rsync_excludes() {
+  local path="$1"
+  RSYNC_EXCLUDES=()
+  for excl in "${EXCLUDES[@]:-}"; do
+    [ -z "$excl" ] && continue
+    if [[ "$excl" == "$path"* ]]; then
+      local rel="${excl#$path}"
+      RSYNC_EXCLUDES+=(--exclude "$rel")
+    fi
+  done
+  while IFS= read -r locked_rel; do
+    [ -n "$locked_rel" ] && RSYNC_EXCLUDES+=(--exclude "$locked_rel")
+  done < <(manifest_locked_under "$path")
+  while IFS= read -r scaffold_rel; do
+    [ -n "$scaffold_rel" ] && RSYNC_EXCLUDES+=(--exclude "$scaffold_rel")
+  done < <(manifest_scaffold_once_under "$path")
+}
+
+# --- Dry-run: stage proposed changes to temp dir ---
+preview_confirm_init
+echo "Preparing sync preview (${#PATHS[@]} paths from devshop to project)..."
+
 for path in "${PATHS[@]}"; do
   src="$DEVSHOP_DIR/template/$path"
-  dst="$PROJECT_ROOT/$path"
 
   if [ -d "$src" ]; then
-    # Build rsync exclude args for this directory. Three exclusion sources,
-    # all derived from the manifest — mirrors sync/to-devshop.sh:
-    #  - explicit !path entries (e.g. !.devcontainer/.env, !.husky/_)
-    #  - [locked] leaves under this dir (owned by init-devshop.sh; rsyncing the
-    #    template's copy over the project's would round-trip a template->live
-    #    refresh that init-devshop.sh already handles on every container start)
-    #  - [scaffold-once] leaves under this dir (project narrative, e.g.
-    #    .devcontainer/firewall-extra-domains; clobbering loses the project's
-    #    customizations)
-    # Without these excludes, rsync -a --delete would also wipe gitignored
-    # project state living under a [sync] directory (e.g. .devcontainer/.env,
-    # which carries LOCAL_WORKSPACE_FOLDER + per-project port overrides).
-    RSYNC_EXCLUDES=()
-    for excl in "${EXCLUDES[@]:-}"; do
-      [ -z "$excl" ] && continue
-      if [[ "$excl" == "$path"* ]]; then
-        rel="${excl#$path}"
-        RSYNC_EXCLUDES+=(--exclude "$rel")
-      fi
-    done
-    while IFS= read -r locked_rel; do
-      [ -n "$locked_rel" ] && RSYNC_EXCLUDES+=(--exclude "$locked_rel")
-    done < <(manifest_locked_under "$path")
-    while IFS= read -r scaffold_rel; do
-      [ -n "$scaffold_rel" ] && RSYNC_EXCLUDES+=(--exclude "$scaffold_rel")
-    done < <(manifest_scaffold_once_under "$path")
-    mkdir -p "$dst"
-    rsync -a --delete "${RSYNC_EXCLUDES[@]}" "$src/" "$dst/"
+    build_rsync_excludes "$path"
+    preview_confirm_stage_dir "$src" "$PROJECT_ROOT/$path" "$path" "${RSYNC_EXCLUDES[@]}"
   elif [ -f "$src" ]; then
-    mkdir -p "$(dirname "$dst")"
-    cp "$src" "$dst"
+    preview_confirm_stage_file "$src" "proposed/$path"
+    if [ -f "$PROJECT_ROOT/$path" ]; then
+      preview_confirm_stage_file "$PROJECT_ROOT/$path" "current/$path"
+    fi
   else
     echo "WARNING: $path not found in devshop, skipping"
   fi
 done
 
+# --- Show preview and prompt ---
+if ! preview_confirm_show_and_ask "$PROJECT_ROOT"; then
+  exit 0
+fi
 
-# --- Show what changed ---
+# --- Apply: copy files from devshop to project ---
 echo ""
-echo "=== Changes from devshop sync ==="
-cd "$PROJECT_ROOT"
-git diff
+echo "Applying changes..."
+for path in "${PATHS[@]}"; do
+  src="$DEVSHOP_DIR/template/$path"
+  dst="$PROJECT_ROOT/$path"
+
+  if [ -d "$src" ]; then
+    build_rsync_excludes "$path"
+    mkdir -p "$dst"
+    rsync -ac --delete "${RSYNC_EXCLUDES[@]}" "$src/" "$dst/"
+  elif [ -f "$src" ]; then
+    mkdir -p "$(dirname "$dst")"
+    cp "$src" "$dst"
+  fi
+done
 
 DEVSHOP_VERSION=$(cat "$DEVSHOP_DIR/kit/version" 2>/dev/null | tr -d '[:space:]' || echo "unknown")
 echo ""
-echo "Review the changes above. If they look good:"
+echo "Changes applied. To commit:"
 echo "  git add -A && git commit -m 'chore: sync from devshop v$DEVSHOP_VERSION'"

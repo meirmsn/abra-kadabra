@@ -1,6 +1,9 @@
 #!/bin/bash
 # sync-to-devshop.sh — push build tooling changes from this project to the devshop repo.
 #
+# Show-first-confirm-then-apply: previews proposed changes via a dry-run diff,
+# then applies only after operator confirmation. --yes / -y bypasses the prompt.
+#
 # The devshop repo (abra-kadabra) is bind-mounted at /devshop. This script copies
 # files listed in manifest.txt into the devshop's template/ directory, commits in
 # the devshop repo, and prints push instructions for the human operator.
@@ -11,17 +14,21 @@
 #   sync-to-devshop.sh --bump minor     # force minor bump
 #   sync-to-devshop.sh --bump major     # force major bump
 #   sync-to-devshop.sh --seed           # initial seed (first push to empty repo)
+#   sync-to-devshop.sh --yes            # skip confirmation prompt
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-# Three levels up: see sibling from-devshop.sh for the rationale. Same bug
-# pattern, same fix.
+# Three levels up: see sibling from-devshop.sh for the rationale.
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 MANIFEST="$PROJECT_ROOT/.devshopkit/manifest.txt"
 VERSION_FILE="$PROJECT_ROOT/.devshopkit/version"
 DEVSHOP_DIR="${DEVSHOP_DIR:-/devshop}"
 
-# --- Parse args ---
+# --- Parse args (--yes / -y extracted by preview-confirm lib, rest passed through) ---
+source "$SCRIPT_DIR/lib/preview-confirm.sh"
+preview_confirm_parse_args "$@"
+set -- "${PREVIEW_CONFIRM_REMAINING_ARGS[@]}"
+
 BUMP=""
 SEED=false
 while [[ $# -gt 0 ]]; do
@@ -75,10 +82,26 @@ for excl in "${MANIFEST_EXCLUDES[@]:-}"; do
   [ -n "$excl" ] && EXCLUDES+=("$excl")
 done
 
+# --- Build rsync exclude args for a directory (three-source model) ---
+build_rsync_excludes() {
+  local path="$1"
+  RSYNC_EXCLUDES=()
+  for excl in "${EXCLUDES[@]:-}"; do
+    [ -z "$excl" ] && continue
+    if [[ "$excl" == "$path"* ]]; then
+      local rel="${excl#$path}"
+      RSYNC_EXCLUDES+=(--exclude "$rel")
+    fi
+  done
+  while IFS= read -r locked_rel; do
+    [ -n "$locked_rel" ] && RSYNC_EXCLUDES+=(--exclude "$locked_rel")
+  done < <(manifest_locked_under "$path")
+  while IFS= read -r scaffold_rel; do
+    [ -n "$scaffold_rel" ] && RSYNC_EXCLUDES+=(--exclude "$scaffold_rel")
+  done < <(manifest_scaffold_once_under "$path")
+}
+
 check_file_locks() {
-  # LOCK_FILES is derived from the manifest's [locked] entries (their template/
-  # mirror under devshop) plus settings.json (devshop-self-derived, not in
-  # manifest). Operator gets a clear chown command if any drift loose.
   UNLOCKED=""
   while IFS= read -r p; do
     [ -n "$p" ] || continue
@@ -99,44 +122,53 @@ check_file_locks() {
   done
   if [ -n "$UNLOCKED" ]; then
     echo ""
-    echo "⚠ Security-critical files not locked in devshop repo:"
+    echo "Warning: Security-critical files not locked in devshop repo:"
     echo "  cd <path-to-devshop-repo>"
     echo "  sudo chown root:root$UNLOCKED"
     echo "  sudo chmod 644$UNLOCKED"
   fi
 }
 
-# --- Copy files from project to devshop ---
-echo "Syncing ${#PATHS[@]} paths from project to devshop..."
+# --- Dry-run: stage proposed changes to temp dir ---
+preview_confirm_init
+echo "Preparing sync preview (${#PATHS[@]} paths from project to devshop)..."
+
+for path in "${PATHS[@]}"; do
+  src="$PROJECT_ROOT/$path"
+
+  if [ -d "$src" ]; then
+    build_rsync_excludes "$path"
+    preview_confirm_stage_dir "$src" "$DEVSHOP_DIR/template/$path" "$path" "${RSYNC_EXCLUDES[@]}"
+  elif [ -f "$src" ]; then
+    preview_confirm_stage_file "$src" "proposed/$path"
+    if [ -f "$DEVSHOP_DIR/template/$path" ]; then
+      preview_confirm_stage_file "$DEVSHOP_DIR/template/$path" "current/$path"
+    fi
+  else
+    echo "WARNING: $path not found in project, skipping"
+  fi
+done
+
+# --- Show preview and prompt (skip for --seed with no prior state) ---
+if [ "$SEED" = true ]; then
+  _PC_AUTO_YES=true
+fi
+
+if ! preview_confirm_show_and_ask "$DEVSHOP_DIR/template"; then
+  exit 0
+fi
+
+# --- Apply: copy files from project to devshop ---
+echo ""
+echo "Applying changes..."
 for path in "${PATHS[@]}"; do
   src="$PROJECT_ROOT/$path"
   dst="$DEVSHOP_DIR/template/$path"
 
   if [ -d "$src" ]; then
-    # Build rsync exclude args for this directory:
-    #  - explicit !path entries from the manifest (e.g. !.devcontainer/.env)
-    #  - manifest [locked] leaves under this dir (init-devshop.sh owns those;
-    #    rsync'ing the project's local copy back to template/ would round-trip
-    #    a node-owned drift over the canonical template content)
-    RSYNC_EXCLUDES=()
-    for excl in "${EXCLUDES[@]:-}"; do
-      [ -z "$excl" ] && continue
-      if [[ "$excl" == "$path"* ]]; then
-        rel="${excl#$path}"
-        RSYNC_EXCLUDES+=(--exclude "$rel")
-      fi
-    done
-    while IFS= read -r locked_rel; do
-      [ -n "$locked_rel" ] && RSYNC_EXCLUDES+=(--exclude "$locked_rel")
-    done < <(manifest_locked_under "$path")
-    # [scaffold-once] leaves are project narrative — pushing the project's
-    # local content back into template/ would propagate per-project drift
-    # (e.g. home-os's CLAUDE.md content) over the canonical scaffold seed.
-    while IFS= read -r scaffold_rel; do
-      [ -n "$scaffold_rel" ] && RSYNC_EXCLUDES+=(--exclude "$scaffold_rel")
-    done < <(manifest_scaffold_once_under "$path")
+    build_rsync_excludes "$path"
     mkdir -p "$dst"
-    rsync -a --delete "${RSYNC_EXCLUDES[@]}" "$src/" "$dst/"
+    rsync -ac --delete "${RSYNC_EXCLUDES[@]}" "$src/" "$dst/"
   elif [ -f "$src" ]; then
     mkdir -p "$(dirname "$dst")"
     cp "$src" "$dst"
