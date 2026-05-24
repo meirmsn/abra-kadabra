@@ -23,11 +23,14 @@ Priority tiers:
 
 1. **Phase 0 mode detection.** Read `$GIT_ROOT`. If `/devshop` → `mode=devshop`; otherwise → `mode=project` (today's default). Surface in the Phase 0 preview block so the operator sees which mode is active.
 
+1b. **Phase 0.5 staleness check (both modes).** Before speccing or implementing, read the PLAN row's Source entry, compare against recent git history and current codebase state, and surface concerns if the entry no longer applies (context shifted, earlier work subsumed the need, the constraint that motivated it disappeared). Cheap read-only check — saves an implementation cycle when it fires.
+
 2. **Phase-level applicability matrix.** Each phase tagged `project-only`, `devshop-only`, or `both`. Rough first cut:
 
    | Phase                                         | Project | Devshop | Notes                                                                                                              |
    | --------------------------------------------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------ |
    | Phase 0 — spec preview + decisions            | ✓       | ✓       | Same shape; spec lives at `specs/<feature>/` either way                                                            |
+   | Phase 0.5 — staleness check                   | ✓       | ✓       | Read Source entry, compare against codebase; surface concerns before coding                                        |
    | Phase 1 — spec.md expansion                   | ✓       | ✓       | Same                                                                                                               |
    | Phase 2 — `/ak-implement` task loop           | ✓       | ✓       | Same; pre-commit gauntlet identical                                                                                |
    | Phase 3 — quality gate gauntlet               | ✓       | ✓       | Most gates apply; `/cso` + `/qa` + `/design-review` + `/benchmark` carve out as `n/a per scope: devshop-self-mode` |

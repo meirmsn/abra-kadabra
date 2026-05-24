@@ -41,13 +41,17 @@ CONTEXT+="$(cat "$ROOT/README.md" 2>/dev/null || echo "(README.md not found)")
 
 # Backward / forward context — artifacts differ per repo kind.
 #   Project sessions: BUILD-LOG.md (shipped history) + PLAN.md (Active + Planned).
-#   Devshop sessions: kit/docs/CHANGELOG.md (release history). No PLAN.md yet —
-#     devshop uses kit/TODOS.md + kit/ROADMAP.md for forward-looking work.
+#   Devshop sessions: kit/docs/CHANGELOG.md (release history) + PLAN.md (Active + Planned).
 if [ "$IS_DEVSHOP" = true ]; then
   CONTEXT+="
 === kit/docs/CHANGELOG.md (head 25) ===
 "
   CONTEXT+="$(head -25 "$ROOT/kit/docs/CHANGELOG.md" 2>/dev/null || echo "(CHANGELOG.md not found)")
+"
+  CONTEXT+="
+=== PLAN.md (Active + Planned) ===
+"
+  CONTEXT+="$(awk '/^## Active/{flag=1} /^<!--/{flag=0} flag' "$ROOT/PLAN.md" 2>/dev/null || echo "(PLAN.md not found)")
 "
 else
   CONTEXT+="
@@ -137,16 +141,26 @@ fi
 # --- Parse forward/backward orientation signals (per-repo) ---
 
 LAST_BUILD=""        # project: most recent BUILD-LOG.md entry header
-NEXT_PLAN=""         # project: top-priority Planned row (Feature + first clause of Notes)
+NEXT_PLAN=""         # both: top-priority Planned row
 RELEASE_VERSION=""   # devshop: kit/version
 COMMITS_SINCE_TAG="" # devshop: commits on main since the latest tag
 
 if [ "$IS_DEVSHOP" = true ]; then
-  # Devshop session — release-oriented briefing.
+  # Devshop session — release-oriented briefing + PLAN.md next-up.
   RELEASE_VERSION="$(cat "$ROOT/kit/version" 2>/dev/null || true)"
   LAST_TAG="$(git -C "$ROOT" describe --tags --abbrev=0 2>/dev/null || true)"
   if [ -n "$LAST_TAG" ]; then
     COMMITS_SINCE_TAG="$(git -C "$ROOT" rev-list --count "$LAST_TAG..HEAD" 2>/dev/null || echo 0)"
+  fi
+  if [ -f "$ROOT/PLAN.md" ]; then
+    # Devshop PLAN.md format: `| Feature | Hook | ... |` — Feature has backtick-wrapped slug.
+    # First data row under ## Planned (skip heading, header, separator rows).
+    NEXT_ROW="$(awk '/^## Planned/{f=1;next} /^## /{f=0} f && /^\| `/' "$ROOT/PLAN.md" 2>/dev/null | head -1 || true)"
+    if [ -n "$NEXT_ROW" ]; then
+      NEXT_FEATURE="$(echo "$NEXT_ROW" | awk -F'|' '{gsub(/^ +| +$/, "", $2); print $2}')"
+      NEXT_HOOK="$(echo "$NEXT_ROW" | awk -F'|' '{gsub(/^ +| +$/, "", $3); print $3}')"
+      NEXT_PLAN="${NEXT_FEATURE} — ${NEXT_HOOK}"
+    fi
   fi
 else
   # Project session — BUILD-LOG last entry + PLAN.md top Planned row.
@@ -207,7 +221,7 @@ if [ "$INIT_DONE" = false ] && [ -n "$INIT_STEP" ]; then
  Init:    ${INIT_STEP}"
 fi
 
-# Project: Build (most recent ship) + Next (top-priority planned row)
+# Build (most recent ship, project only) + Next (top-priority planned row, both repos)
 if [ -n "$LAST_BUILD" ]; then
   BRIEFING+="
  Build:   ${LAST_BUILD}"

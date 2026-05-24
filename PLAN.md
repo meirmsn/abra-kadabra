@@ -1,7 +1,8 @@
 # Plan
 
-Forward-looking plan at the feature/PR grain.
+Forward-looking plan at the feature/PR grain, scoped to one version at a time.
 
+- **Current version**: the `## Planned` header declares which ROADMAP tier is active (e.g., `v0`). Only items from that tier (and relevant TODOS) belong in Planned. Higher tiers stay in ROADMAP/TODOS until the current version ships.
 - Pipeline phase per active branch: each feature's `specs/<name>/tasks.md`
 - Shipped (rich history): `BUILD-LOG.md`
 - Long-form context per row: `kit/ROADMAP.md` / `kit/TODOS.md` (linked from each row)
@@ -47,24 +48,28 @@ Each Planned row is one feature / one PR. Long-form context (problem statement, 
 **Lifecycle**:
 
 - A Planned row becomes Active when `/ak-spec` runs (add `Branch` + `Spec` columns to the Active table).
-- A row ships → delete it. `BUILD-LOG.md` + `git log` carry the audit trail.
+- **Before implementing**: validate the entry still applies — context shifts, earlier work subsumes the need, constraints disappear. Surface concerns before coding. Cheap check, occasionally saves an entire implementation cycle.
+- A row ships → delete from Planned/Active, close the source ROADMAP/TODOS entry, append a BUILD-LOG entry (eng summary + product summary when the change has a user/project-facing impact). The BUILD-LOG entry is the durable record; the PR body or squash commit body is the delivery mechanism.
 - A row is dropped (rescope, dead) → delete it. Commit message carries the rationale.
 - "Not now, maybe later" work belongs in `kit/ROADMAP.md`, not Planned.
+- **Version transitions**: when every Planned row for the current version has shipped or been dropped, bump the `## Planned` header to the next tier (e.g., `v0` → `v1`), pull in items from that ROADMAP tier, and score/sort them.
 
 <!--
 Maintenance conventions:
 - Status lives in section membership (Active vs Planned) — no status column.
+- Planned header carries the current version tier in parens: `## Planned (v0)`.
 - Planned ordered by Leverage descending; ties on dependencies (Deps column).
 - Feature slug is the row's identifier — used in all cross-references. Never rename in place; if a row's scope changes meaningfully, delete + add a new row.
 - Hook stays ≤ 120 chars. Long-form context goes to ROADMAP/TODOS, not the table cell.
 - Source column splits the file path into its own code span so inline-code backticks inside the heading text (e.g. `/ak-build`, `template/apps/web/`) render correctly — markdown can't nest code spans, so a single outer wrap eats the inner backticks.
+- Version transitions: bump the parens when every row for the current tier has shipped or been dropped. Pull in items from the next ROADMAP tier, score, sort.
 -->
 
 ## Active
 
 _No work in progress._
 
-## Planned
+## Planned (v0)
 
 | Feature                               | Hook                                                                                                                                                                       | Impact if shipped                                                                          | Risk if skipped                                                                                                 | Cost               | Lev     | Deps                   | Source                                                                                  |
 | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- | ------------------ | ------- | ---------------------- | --------------------------------------------------------------------------------------- |
