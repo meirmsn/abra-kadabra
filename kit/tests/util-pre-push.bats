@@ -203,6 +203,46 @@ setup_branch_with_commits() {
   [ "$status" -eq 0 ]
 }
 
+# --- Devshop pre-push: feature-branch-to-main guard ---
+
+@test "devshop pre-push: blocks feature branch push to main without pushToMainApproved" {
+  setup_devshop_mode
+  cd "$TEST_REPO" && git checkout -q -b feat/my-feature
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feat/my-feature abc123 refs/heads/main def456"
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "BLOCKED: push to refs/heads/main from feature branch" ]]
+  [[ "$output" =~ "devshop.pushToMainApproved" ]]
+}
+
+@test "devshop pre-push: passes feature branch push to main with matching pushToMainApproved" {
+  setup_devshop_mode
+  cd "$TEST_REPO" && git checkout -q -b feat/my-feature
+  mock_adversarial_review PASS
+  GIT_CONFIG_PARAMETERS="'devshop.pushToMainApproved=feat/my-feature'" \
+    run bash "$PRE_PUSH" origin <<< "refs/heads/feat/my-feature abc123 refs/heads/main def456"
+  [ "$status" -eq 0 ]
+  refute_output --partial "BLOCKED"
+}
+
+@test "devshop pre-push: blocks feature branch push to main with wrong pushToMainApproved" {
+  setup_devshop_mode
+  cd "$TEST_REPO" && git checkout -q -b feat/my-feature
+  # Set a mismatched approval — the flag value doesn't match the branch
+  GIT_CONFIG_PARAMETERS="'devshop.pushToMainApproved=feat/other-branch'" \
+    run bash "$PRE_PUSH" origin <<< "refs/heads/feat/my-feature abc123 refs/heads/main def456"
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "BLOCKED: push to refs/heads/main from feature branch" ]]
+}
+
+@test "devshop pre-push: feature branch push to feature remote is not blocked" {
+  setup_devshop_mode
+  cd "$TEST_REPO" && git checkout -q -b feat/my-feature
+  mock_adversarial_review PASS
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feat/my-feature abc123 refs/heads/feat/my-feature def456"
+  [ "$status" -eq 0 ]
+  refute_output --partial "BLOCKED"
+}
+
 # --- Devshop pre-push: project-only checks must NOT fire under devshop mode ---
 
 @test "devshop pre-push: does NOT block push to refs/heads/main from devshop repo" {

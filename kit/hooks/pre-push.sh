@@ -43,9 +43,32 @@ fi
 
 # --- Check 1: main/master push behavior (per-repo) ---
 if [ "$REPO_MODE" = "devshop" ]; then
-  # Devshop releases push direct to main with tags (release.sh territory) — short-circuit.
+  # On main already: release.sh territory — short-circuit.
   [ "$BRANCH" = "main" ] && exit 0
   [ "$BRANCH" = "master" ] && exit 0
+
+  # On a feature branch pushing to main: require devshop.pushToMainApproved
+  # matching the branch name. /ak-merge-devshop Phase 3 sets this via
+  # `git -c devshop.pushToMainApproved="$BRANCH" push origin HEAD:main`.
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    remote_ref=$(echo "$line" | awk '{print $3}')
+    case "$remote_ref" in
+      refs/heads/main|refs/heads/master)
+        APPROVED=$(git config --get devshop.pushToMainApproved 2>/dev/null || echo "")
+        if [ "$APPROVED" != "$BRANCH" ]; then
+          echo "❌ BLOCKED: push to $remote_ref from feature branch '$BRANCH'." >&2
+          echo "" >&2
+          echo "  Devshop pushes to main go through /ak-merge-devshop, which sets" >&2
+          echo "  devshop.pushToMainApproved as part of the merge ceremony." >&2
+          echo "" >&2
+          echo "  If you need to push manually (recovery, release.sh):" >&2
+          echo "    git -c devshop.pushToMainApproved=\"$BRANCH\" push origin HEAD:main" >&2
+          exit 1
+        fi
+        ;;
+    esac
+  done <<< "$INPUT"
 else
   # Project: BLOCK direct push to main/master. No bypass — projects deploy via
   # PR-merge → CI → Vercel and the remote enforces the same rule via branch

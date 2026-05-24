@@ -902,7 +902,7 @@ if [ -n "$SOURCE_WORKTREE_ARG" ]; then
   # branch switching. The squash commit on $BRANCH IS what gets pushed
   # to origin/main; the FF-merge that the default path does is unnecessary
   # because we're pushing the worktree's HEAD as if it were main.
-  git -C "$WORKTREE_PATH" push origin HEAD:main
+  git -C "$WORKTREE_PATH" -c devshop.pushToMainApproved="$BRANCH" push origin HEAD:main
 else
   # Default path: checkout main + ff-merge in /devshop.
   git checkout main
