@@ -43,6 +43,7 @@ When a section here has a single consuming skill that replicates its content, th
 - [TODO Protocol](#todo-protocol) — _stub → CLAUDE.md_
 - [Backlog Routing Guide](#backlog-routing-guide) — _stub → CLAUDE.md § TODO Protocol_
 - [Commit + PR Text Style](#commit--pr-text-style)
+- [Existing-Project Migration Block](#existing-project-migration-block)
 - [Non-Negotiables](#non-negotiables)
   - [Testing](#testing)
   - [Test Assertion Depth](#test-assertion-depth) — _stub → tests-review/SKILL.md_
@@ -506,6 +507,64 @@ The squash-message variant (`/ak-merge-devshop`) uses bold-text lead-in labels (
 The convention is **discoverable** at the workflow level (`workflow.md § Phase 4`) and **applied** at the skill level (`merge-devshop/SKILL.md`, `build/SKILL.md`). It is intentionally NOT inlined into `gstack/ship/SKILL.md` — gstack syncs would clobber the addition. When `/ship` is invoked from `/ak-build`, Phase 4's wrapper handoff carries the reminder.
 
 Both enforced surfaces share a single reviewer engine (`adversarial-review.sh prTextHygieneReason`) via env-var-selected surfaces — when the readability rules above shift, both surfaces shift in lockstep. See `kit/docs/guide/hooks.md § Dual-surface check-types` for the per-surface data sources + which sub-rules apply per surface.
+
+---
+
+## Existing-Project Migration Block
+
+Every devshop commit whose diff requires a per-project follow-up MUST include an `**Existing projects:**` bold-label block in the commit body. The block tells future sessions — and the operator doing the next project catch-up — exactly what each project needs to do (or explicitly that nothing is needed).
+
+### When the block is required
+
+The trigger is: the commit touches a surface that affects project repos AND the change requires a per-project step that `from-devshop.sh` / `init-devshop.sh` won't handle automatically. Concretely:
+
+| Diff touches | Auto-handled? | Block required? |
+| --- | --- | --- |
+| `[locked]` file in `kit/manifest.txt` (e.g. `.claude/settings.json`, `.dcg.toml`, `.husky/pre-push`) | Yes — `init-devshop.sh` refreshes on rebuild | **Yes, but state "no migration needed"** — the "no migration" variant is important so the reader knows the author considered the question |
+| `[symlink]` file in `kit/manifest.txt` | Yes — symlink target changes automatically | Same — state "no migration needed" |
+| `[sync]` file in `kit/manifest.txt` (e.g. `template/.github/workflows/ci.yml`) | Partially — `from-devshop.sh` syncs, but may need manual review | **Yes** — describe what the operator should verify after sync |
+| `[scaffold-once]` file (e.g. `template/CLAUDE.md`, `template/PLAN.md`, `template/PRODUCT-ROADMAP.md`) | No — `from-devshop.sh` skips these by design | **Yes** — per-project migration recipe with concrete steps |
+| `template/**` file not in manifest | Depends on lifecycle tag | **Yes** if the change needs per-project action |
+| `kit/scripts/**`, `kit/hooks/**`, `.devcontainer/**` | Varies | **Yes** if behavior changes require project-side follow-up (env var, config, rebuild) |
+
+### Required shape
+
+```
+**Existing projects:** <one of the two variants below>
+```
+
+**Variant A — no migration needed** (the auto-sync mechanism handles it):
+
+```
+**Existing projects:** `compose.yml` + `supabase-runner/cmd-relay.mjs` are `[locked]`
+files in `kit/manifest.txt`; `init-devshop.sh`'s lock loop refreshes them in each
+project workspace on the next devcontainer rebuild. No project-side migration needed.
+```
+
+**Variant B — per-project recipe** (manual steps required):
+
+```
+**Existing projects:** `template/PLAN.md` is `[scaffold-once]` in `kit/manifest.txt`
+so `from-devshop.sh` won't auto-propagate. Per-project: rewrite each project's
+PLAN.md to the new schema as a one-time conversion. Each existing project gets a
+one-time cleanup commit.
+```
+
+The block names: (1) which manifest lifecycle tag applies, (2) why auto-sync does or doesn't cover it, and (3) concrete steps when manual action is needed.
+
+### Placement in the commit body
+
+The block goes under a `**Existing projects:**` bold-label lead-in, following the same lead-in convention as `**Lands:**`, `**Doc updates:**`, `**Migration:**` (see § Commit + PR Text Style above). In `/ak-merge-devshop` squash messages, it appears as one of the lead-in topics alongside the others.
+
+### Enforcement
+
+Not enforced per-commit by a hook (the convention is judgment-heavy — "does this change need a project follow-up?" is not mechanically decidable). Enforced at audit time: `/ak-docs-review` Section A flags devshop commits that touch propagation-relevant surfaces without an `**Existing projects:**` block as a **medium** coverage finding.
+
+### Precedents
+
+- `44e53fc` — `**Existing projects:**` block explaining `[locked]` files auto-refresh on rebuild (no migration needed)
+- `4ec8cdd` — `**Existing projects:**` block implicit in the CI yml propagation commit (the `check-template-propagation.sh` nudge was the structural fix)
+- `87107fe` — supabase port partial fix with per-project catch-up steps
 
 ---
 

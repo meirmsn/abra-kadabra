@@ -4,6 +4,15 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### existing-projects-commit-convention (2026-05-24)
+
+- **Branch**: `feat/existing-projects-commit-convention` (squashed to 1 commit on `main` via `/ak-merge-devshop`)
+- **Spec**: none — small devshop convention codification, ad-hoc.
+- **Headline**: Devshop commits that affect existing projects now require an explicit migration-impact block in the commit body.
+- **Summary**: Codifies the `**Existing projects:**` commit-body block as a required convention for any devshop change with a per-project migration step. New `## Existing-Project Migration Block` section in `conventions.md` with trigger table (by manifest lifecycle tag), two shape variants (no-migration-needed vs per-project recipe), and three worked precedent commits. Audit-time enforcement via `/ak-docs-review` Section A (medium coverage finding). `/ak-merge-devshop` § 0.3 lead-in labels updated with the new label. Closes PLAN row `existing-projects-commit-convention` and Part 2 of `kit/TODOS.md § Per-project catch-up workflow`.
+- **Commits**: 1 atomic commit on `feat/existing-projects-commit-convention`.
+- **Quality gates**: 6 structural invariant assertions pinning convention doc structure and cross-references. All 1272 bats pass.
+
 ### kit-scripts-deny-rule-investigation (2026-05-23)
 
 - **Branch**: `fix/kit-scripts-deny-rule-investigation` (squashed to `c74d2db` on main via `/ak-merge-devshop`)

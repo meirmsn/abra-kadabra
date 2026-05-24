@@ -165,6 +165,17 @@ README by default, NOT CLAUDE.md):
   entries may still exist (the trim was incremental); they're acceptable to leave
   until the next CLAUDE.md hygiene audit (Section E below) judges them.
 
+**Existing-project migration block** (devshop rubric only): when a commit in
+the range touches a propagation-relevant surface (`template/**`,
+`kit/scripts/**`, `kit/hooks/**`, `.devcontainer/**`, `kit/manifest.txt`, or
+any `[locked]`/`[sync]`/`[scaffold-once]` file) AND the commit body lacks an
+`**Existing projects:**` block, flag as a **medium** coverage finding. The
+block is required even when no migration is needed — the "no migration needed"
+variant (`**Existing projects:** <file> is [locked]; init-devshop.sh refreshes
+on rebuild. No project-side migration needed.`) tells the reader the author
+considered the question. Full convention + shape + trigger table:
+`kit/docs/guide/conventions.md § Existing-Project Migration Block`.
+
 **Coverage findings**: source change with NO matching doc edit AND no
 `Docs-Coverage-Bypass:` trailer in the range → finding. Severity = **medium**
 by default; **high** if the surface is load-bearing (auth, RLS, edge function

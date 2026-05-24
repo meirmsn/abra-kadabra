@@ -368,6 +368,12 @@ Pick the lead-in labels that fit the change. Common ones:
 - **Smoke-test finding:** — bug found while running the change against
   itself or against a real branch (this is exactly the kind of detail
   worth foregrounding when it surfaces)
+- **Existing projects:** — per-project migration recipe, or explicit
+  "no migration needed" when auto-sync handles it. Required when the
+  diff touches propagation-relevant surfaces (`template/**`,
+  `kit/scripts/**`, `[locked]`/`[sync]`/`[scaffold-once]` files).
+  Convention: `kit/docs/guide/conventions.md § Existing-Project
+  Migration Block`.
 
 Skip the prose paragraphs entirely when the bullet structure says it all.
 The sections aren't load-bearing — `Key details:` (lower) is the only

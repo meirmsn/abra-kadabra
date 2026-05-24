@@ -829,3 +829,56 @@ setup() {
     || grep -qE '~/\.claude/skills/gstack.*->.*\.claude/skills/gstack' "$skill" \
     || { echo "Step 9 symlink invariant missing from $skill"; false; }
 }
+
+# =============================================================================
+# Existing-project migration block convention — structural assertions
+# =============================================================================
+
+@test "convention: existing-project migration block section exists in conventions.md" {
+  local root conventions
+  root=$(git rev-parse --show-toplevel)
+  conventions="$root/kit/docs/guide/conventions.md"
+  grep -q '^## Existing-Project Migration Block' "$conventions"
+}
+
+@test "convention: existing-project migration block section has trigger table" {
+  local root conventions
+  root=$(git rev-parse --show-toplevel)
+  conventions="$root/kit/docs/guide/conventions.md"
+  # The section must contain the trigger table with lifecycle tags
+  grep -q '\[locked\]' "$conventions"
+  grep -q '\[scaffold-once\]' "$conventions"
+  grep -q '\[sync\]' "$conventions"
+}
+
+@test "convention: existing-project migration block section has both variants" {
+  local root conventions
+  root=$(git rev-parse --show-toplevel)
+  conventions="$root/kit/docs/guide/conventions.md"
+  grep -q 'Variant A.*no migration needed' "$conventions"
+  grep -q 'Variant B.*per-project recipe' "$conventions"
+}
+
+@test "convention: existing-project migration block referenced in docs-review skill" {
+  local root skill
+  root=$(git rev-parse --show-toplevel)
+  skill="$root/.claude/skills/devshop/docs-review/SKILL.md"
+  grep -q 'Existing-Project Migration Block' "$skill"
+  grep -q 'Existing projects' "$skill"
+}
+
+@test "convention: existing-project migration block referenced in merge-devshop skill" {
+  local root skill
+  root=$(git rev-parse --show-toplevel)
+  skill="$root/.claude/skills/devshop/merge-devshop/SKILL.md"
+  grep -q 'Existing projects' "$skill"
+  # Reference may span lines in the skill file; check for the anchor fragment
+  grep -q 'Existing-Project' "$skill"
+}
+
+@test "convention: existing-project migration block listed in conventions.md TOC" {
+  local root conventions
+  root=$(git rev-parse --show-toplevel)
+  conventions="$root/kit/docs/guide/conventions.md"
+  grep -q 'existing-project-migration-block' "$conventions"
+}
