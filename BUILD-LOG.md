@@ -4,6 +4,15 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### keepalive-supabase-ping (2026-05-24)
+
+- **Branch**: `feat/keepalive-supabase-ping`
+- **Spec**: `specs/keepalive-supabase-ping/spec.md`
+- **Headline**: Keepalive workflow now pings Supabase directly and runs twice weekly, preventing auto-pause on quiet projects.
+- **Summary**: Template `keepalive.yml` gains a second step that hits the Supabase PostgREST health endpoint (`/rest/v1/`) with the anon key, registering as API activity. Cron bumped from weekly to twice-weekly (Mon + Thu) for margin against Supabase's 7-day inactivity window. Existing Vercel ping retained. Uses prod-specific variable names (`SUPABASE_PROD_URL`, `SUPABASE_PROD_ANON_KEY`) to avoid collision with CI's localhost-scoped variables.
+- **Commits**: 7 (squashed to 1 on main via /ak-merge-devshop)
+- **Quality gates**: 9 new bats tests in `template-keepalive-yml-shape.bats`. All 1325 bats pass. Gate 1 caught CI credential collision (fixed: prod-specific variable names). Gate 5 caught missing ops.md GH Variables entry (fixed).
+
 ### sync-show-first-confirm (2026-05-24)
 
 - **Branch**: `feat/sync-show-first-confirm` (squashed to main via `/ak-merge-devshop`)

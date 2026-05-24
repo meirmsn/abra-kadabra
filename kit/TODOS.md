@@ -7,6 +7,7 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
 <!-- Items discovered during use. Tag with [v0.2], [v1] etc. to schedule into ROADMAP versions. -->
 
+
 - [ ] **Per-project catch-up workflow doc.** Rebuild devcontainer → `bash .devshopkit/scripts/sync/from-devshop.sh` → review diff + commit → verify symlinks exist + check key locked files refreshed (e.g. `ls -la ~/.gstack/projects`, `cat .nvmrc`, check `.github/workflows/ci.yml` slow-job shape). Same dance every time. Belongs as a one-page doc under `kit/docs/guide/workflow.md § Per-project catch-up` rather than a skill — skill ceremony isn't justified for a 5-step mechanical recipe. Deferred — surface when next-project catch-up surfaces friction worth doc-ifying. (Part 2 of this entry — the `**Existing projects:**` commit-body convention — shipped as `conventions.md § Existing-Project Migration Block`.) [convention, workflow, ergonomics, references `kit/docs/guide/workflow.md`, surfaced-by 2026-05-23]
 
 
