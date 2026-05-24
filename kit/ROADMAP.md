@@ -13,57 +13,6 @@ Priority tiers:
 
 ## v0 — blocks next-project adoption
 
-### `/ak-build` devshop-mode — run the pipeline natively against `/devshop` itself
-
-**Problem.** `/ak-build` is shaped around the project workflow: feature spec → branch → GitHub PR → `/ship` push → CI watch → audit comment → human approval → `/ak-go-live`. Devshop feature work doesn't fit that shape: no GitHub PRs (single-developer private repo per `CLAUDE.md § Devshop shipping flow`), no `/ship` (replaced by `/ak-merge-devshop`'s squash + ff-merge), no `/ak-go-live` (devshop is the deploy infrastructure; there's nothing to deploy), no project-side surfaces like `apps/web/` / `packages/core/` / `supabase/` that several gates target. When the operator invokes `/ak-build` on a devshop change anyway, the agent ships a disclaimer ("applied the pipeline best-effort; many steps don't apply to devshop itself"), which means: (a) most quality gates skip with vague `n/a` rationale, (b) Phase 4.0's BUILD-LOG + PLAN closure never fires because Phase 4 is `/ship`-shaped, (c) Phase 5's CI watch / PR audit comment / hero-shot evidence flow is structurally inapplicable, and (d) the pipeline is effectively bypassed for the very repo that owns the pipeline.
-
-**Where it bites.** Every ad-hoc devshop feature branch shipped via `/ak-merge-devshop` directly (the dominant flow today). Cumulative observed shipping pattern: ~4 devshop features merged in the last week, all bypassing Phase 4.0 → all left no BUILD-LOG entry → manual backfill required (see `chore/backfill-bookkeeping-gap` for the 2026-05-17 examples `fb18c8f` + `7262fac` that triggered this entry). The narrow gap is filed at `kit/TODOS.md § /ak-merge-devshop doesn't author BUILD-LOG entries or close PLAN rows` as a tactical mitigation; this ROADMAP entry is the structural fix that subsumes it.
-
-**Fix shape.** Add an explicit `mode: devshop` branch to `/ak-build` that gates each phase by applicability. Concretely:
-
-1. **Phase 0 mode detection.** Read `$GIT_ROOT`. If `/devshop` → `mode=devshop`; otherwise → `mode=project` (today's default). Surface in the Phase 0 preview block so the operator sees which mode is active.
-
-1b. **Phase 0.5 staleness check (both modes).** Before speccing or implementing, read the PLAN row's Source entry, compare against recent git history and current codebase state, and surface concerns if the entry no longer applies (context shifted, earlier work subsumed the need, the constraint that motivated it disappeared). Cheap read-only check — saves an implementation cycle when it fires.
-
-2. **Phase-level applicability matrix.** Each phase tagged `project-only`, `devshop-only`, or `both`. Rough first cut:
-
-   | Phase                                         | Project | Devshop | Notes                                                                                                              |
-   | --------------------------------------------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------ |
-   | Phase 0 — spec preview + decisions            | ✓       | ✓       | Same shape; spec lives at `specs/<feature>/` either way                                                            |
-   | Phase 0.5 — staleness check                   | ✓       | ✓       | Read Source entry, compare against codebase; surface concerns before coding                                        |
-   | Phase 1 — spec.md expansion                   | ✓       | ✓       | Same                                                                                                               |
-   | Phase 2 — `/ak-implement` task loop           | ✓       | ✓       | Same; pre-commit gauntlet identical                                                                                |
-   | Phase 3 — quality gate gauntlet               | ✓       | ✓       | Most gates apply; `/cso` + `/qa` + `/design-review` + `/benchmark` carve out as `n/a per scope: devshop-self-mode` |
-   | Phase 4.0 — BUILD-LOG + PLAN closure          | ✓       | ✓       | **Identical work** — Phase 4.0 is the universal bookkeeping moment                                                 |
-   | Phase 4.1–4.3 — `/ship` push + PR creation    | ✓       | ✗       | Devshop has no PRs; replaced by Phase 4.5 below                                                                    |
-   | Phase 4.5 — `/ak-merge-devshop` squash + push | ✗       | ✓       | New devshop-mode-only phase replacing 4.1–4.3                                                                      |
-   | Phase 5 — CI watch + PR audit comment         | ✓       | ✗       | Devshop CI is just `pnpm turbo run test` locally; no PR comment surface                                            |
-   | Phase 5.8 — post-pre-ship docs+tests re-audit | ✓       | ✓       | Same `/ak-check-docs-and-tests` mechanic; runs inside `/ak-merge-devshop` Phase 1 in devshop mode                  |
-   | Phase 6 — audit-trail PR comment              | ✓       | ✗       | No PR; ship summary lands in the squash commit body instead                                                        |
-   | Phase 7 — ready-for-review notification       | ✓       | ✗       | No reviewer queue                                                                                                  |
-
-3. **Devshop-mode entry contract.** Phase 4.5's `/ak-merge-devshop` invocation is the equivalent of project-mode's Phase 4.1–4.3 (`/ship`) + Phase 5 (CI watch) + Phase 6 (audit comment) collapsed: it audits via `/ak-check-docs-and-tests`, squashes, ff-merges, runs pre-push hooks (the devshop equivalent of CI), and pushes. After 4.5, the pipeline is done — no Phase 6 audit comment, no Phase 7 ready-for-review (devshop is single-developer; the user reading the PLAN row close is the "reviewer").
-
-4. **Carve-out gate dispositions.** When a gate doesn't apply in devshop mode, it must emit `blocked (n/a per scope: <reason>)` per the existing `/ak-pre-ship` LLM-mediated-gate contract — never bare `n/a` (the Phase 3 halt grep depends on this). New carve-out rationales codified up front so the gate runner doesn't have to invent them:
-   - `/cso` → `blocked (n/a per scope: devshop-self-mode — no auth boundary, no RLS, no third-party APIs; security boundary is the pre-commit hook gauntlet itself)`
-   - `/qa` → `blocked (n/a per scope: devshop-self-mode — no UI surface; bats invariants are the test surface and run in Gate 2)`
-   - `/design-review` → `blocked (n/a per scope: devshop-self-mode — no UI surface)`
-   - `/benchmark` → `blocked (n/a per scope: devshop-self-mode — no perf surface)`
-
-5. **Documentation surface to touch.** `CLAUDE.md § Devshop shipping flow` collapses from three-step prose into "run `/ak-build`; it handles audit + squash + ff-merge + push end-to-end" + a footnote that `/ak-merge-devshop` is the underlying transport (invokable directly for one-line doc nits where the full `/ak-build` ceremony is overkill — same carve-out logic Phase 0.X in the tactical TODO sketches). `kit/docs/guide/workflow.md` gets a devshop-mode diagram variant. `.claude/skills/devshop/build/SKILL.md` (devshop's `/ak-build`) gains the mode-detection + applicability matrix + carve-out language.
-
-**Benefit.** Phase 4.0's BUILD-LOG entry + PLAN row closure fire automatically for every devshop feature (closes the tactical TODO above). Quality gates that apply still run (the bats invariants, the docs+tests audit, /simplify, /review, /codex). The disclaimer the operator currently sees ("many steps don't apply") becomes structural truth — the unsupported phases are explicitly tagged, not best-effort-applied. The devshop becomes a first-class consumer of its own pipeline instead of an awkward edge case.
-
-**Cost.** Mostly SKILL.md surgery + new mode branch in the Phase 0 preview composer. The hardest part is auditing the existing 15+ phases for project-vs-devshop applicability and writing the carve-out rationales. Estimate 4-6 hours total (mostly read-and-classify, not new code).
-
-**Why this entry sits in v0.** Every devshop session that authors a feature loses Phase 4.0's bookkeeping. The narrow tactical TODO closes the BUILD-LOG/PLAN gap with prompts inside `/ak-merge-devshop`, but adds friction (prompts) that wouldn't exist if devshop work flowed through `/ak-build` natively. Strategic fix > tactical mitigation when the work is in the same order of magnitude.
-
-**Closes downstream:** `kit/TODOS.md § /ak-merge-devshop doesn't author BUILD-LOG entries or close PLAN rows` becomes obsolete once this ships (devshop features go through Phase 4.0 by construction).
-
-[v0, ak-build, structural-mode-split, surfaced-by main-log-inspection-2026-05-18 + paired-with kit/TODOS.md tactical entry, 2026-05-18]
-
----
-
 ### Migration sequencing safety nets for the Vercel-preview window
 
 **Pre-implementation findings (verified 2026-05-14):** **PARTIAL — Track B shipped, Tracks A + C pending. ⚠️ Orphan reference exists.**

@@ -13,6 +13,15 @@ For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.m
 - **Commits**: 7 (squashed to 1 on main via /ak-merge-devshop)
 - **Quality gates**: 9 new bats tests in `template-keepalive-yml-shape.bats`. All 1325 bats pass. Gate 1 caught CI credential collision (fixed: prod-specific variable names). Gate 5 caught missing ops.md GH Variables entry (fixed).
 
+### ak-build-devshop-mode (2026-05-24)
+
+- **Branch**: `feat/ak-build-devshop-mode`
+- **Spec**: `specs/ak-build-devshop-mode/spec.md`
+- **Headline**: Infrastructure update — /ak-build now auto-detects devshop mode.
+- **Summary**: /ak-build detects GIT_ROOT=/devshop and adapts: reduced gate set (6/19), /ak-merge-devshop transport, no Phase 5-7. Phase 4.0 BUILD-LOG + PLAN closure fires by construction, closing the ad-hoc bookkeeping gap. Implemented as a sub-file (devshop-mode.md) referenced from SKILL.md.
+- **Commits**: 5 (squashed to 1 on main via /ak-merge-devshop)
+- **Quality gates**: Audit 1 (manual): high=0 medium=6 low=1 — all 6 medium findings fixed in-branch (3 docs fixes + 27 bats tests added)
+
 ### sync-show-first-confirm (2026-05-24)
 
 - **Branch**: `feat/sync-show-first-confirm` (squashed to main via `/ak-merge-devshop`)

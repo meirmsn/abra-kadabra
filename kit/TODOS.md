@@ -7,9 +7,7 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
 <!-- Items discovered during use. Tag with [v0.2], [v1] etc. to schedule into ROADMAP versions. -->
 
-
 - [ ] **Per-project catch-up workflow doc.** Rebuild devcontainer → `bash .devshopkit/scripts/sync/from-devshop.sh` → review diff + commit → verify symlinks exist + check key locked files refreshed (e.g. `ls -la ~/.gstack/projects`, `cat .nvmrc`, check `.github/workflows/ci.yml` slow-job shape). Same dance every time. Belongs as a one-page doc under `kit/docs/guide/workflow.md § Per-project catch-up` rather than a skill — skill ceremony isn't justified for a 5-step mechanical recipe. Deferred — surface when next-project catch-up surfaces friction worth doc-ifying. (Part 2 of this entry — the `**Existing projects:**` commit-body convention — shipped as `conventions.md § Existing-Project Migration Block`.) [convention, workflow, ergonomics, references `kit/docs/guide/workflow.md`, surfaced-by 2026-05-23]
-
 
 - [ ] **Skip bats on docs-only devshop commits.** `.husky/pre-commit` runs all 1240 bats on every commit (~30s, measured 2026-05-23 on docs-only commit `20ca68b`). On pure-docs changes the suite is guaranteed-noop — wasted wallclock on every PLAN/ROADMAP/TODOS/BUILD-LOG/`*.md` commit.
 
@@ -83,7 +81,6 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
   **Why this is a TODO and not auto-applied**: scaffold-once is the correct classification (projects own these files). With show-first-confirm-then-apply now shipped on both sync scripts, the operator sees proposed changes per-file and accepts or declines — the "diff-and-decide judgment" this entry calls for is now structurally available via `from-devshop.sh`. However, scaffold-once files are still excluded from sync by default; a one-time per-project pass remains the cleanest path.
 
   Cross-ref: `/devshop` commit `3633daa` (template strip); `kit/notes/projects/lalista.md` + `kit/notes/projects/home-os.md` for per-project pre-state.
-
 
 - [ ] **`/ak-merge-devshop` Phase 2 — mechanize the virtiofs phantom-rebase fallback (auto-retry or auto-switch-to-merge).** Surfaced twice on 2026-05-19: first during `sandbox-qa-close-gap` merge (multi-commit rebase fired the error twice in one run — 4 files on `d31af1a` pick + 1 file on `9dcdd4d` pick), then again during `ci-rollback-explain-marker-loud` merge (rebase aborted on `PLAN.md` even with a clean `git status` + zero `git ls-files -m`). `git rebase origin/main` fires `error: Your local changes to the following files would be overwritten by merge` on files git itself reports clean. Root cause: virtiofs stat-cache mismatch between Docker Desktop's macOS-side view and the container's stat-cache view. Same error also surfaces during direct `git merge --ff-only` (hit during the `ci-rollback-explain-marker-loud` Phase 3 ff-merge on /devshop's main worktree).
 
@@ -582,25 +579,3 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
   **Severity**: medium — same pattern will recur in every new auth-touching project until codified.
 
   [medium, convention + skill + template, surfaced-by home-os-pr-19-2026-05-15, 2026-05-15]
-
-- [ ] **`/ak-merge-devshop` doesn't author BUILD-LOG entries or close PLAN rows — the Phase 4.0 bookkeeping discipline only fires inside `/ak-build`, so ad-hoc devshop feature branches land on `main` with missing audit-trail.** Surfaced 2026-05-18 while inspecting `git log` on main and noticing that the last 2 ship-commits (`fb18c8f` pipeline-correctness, `7262fac` migration-rollback-gate) had no BUILD-LOG entries, and `7262fac` additionally left its `PLAN.md ## Planned` row unchanged despite shipping sub-fix B of the three-deliverable feature. Root cause: `/ak-merge-devshop` is a transport layer — it squashes whatever's on the branch + ff-merges to main. The BUILD-LOG entry + PLAN row closure are owned by `/ak-build` Phase 4.0 (which composes them on the feature branch BEFORE `/ship` pushes, so they ride in the original CI cycle). When devshop feature work is authored ad-hoc (operator branches off main, edits + commits, invokes `/ak-merge-devshop` directly), `/ak-build` never runs and Phase 4.0 never fires — so the feature lands on main with no canonical record in BUILD-LOG and no PLAN closure. Backfill at `chore/backfill-bookkeeping-gap` patches the two missing entries + the `7262fac` PLAN row staleness, but the structural gap remains.
-
-  **Why this is a TODO not a one-off:** every ad-hoc devshop feature branch goes through `/ak-merge-devshop` directly (the convention pre-this-PR was "`/ak-build` is for projects; `/ak-merge-devshop` is for devshop"). With 4+ recent devshop features shipping in the last week alone, the gap recurs on every single one. The `kit/ROADMAP.md § /ak-build devshop-mode` entry (paired with this TODO) is the strategic fix — once devshop work flows through `/ak-build` natively, Phase 4.0 fires by construction and this TODO closes automatically. Until then, the tactical fix below mitigates.
-
-  **Tactical fix shape** (close before the ROADMAP entry ships if it'll take a while):
-  1. **`/ak-merge-devshop` Phase 0.X — feature-shape detection.** Heuristics that flag a branch as "feature-like" (vs pure docs/TODO): (a) diffstat touches source surfaces (`.claude/skills/**/SKILL.md` content beyond a one-line edit, `kit/scripts/**.sh`, `template/**` excluding pointer fixes); (b) branch name matches `feat/*` or `fix/*` (not `docs/*` or `chore/*`); (c) `PLAN.md ## Active` or `## Planned` has a row whose slug matches the branch (case-insensitive, slug-strip the `feat/`/`fix/` prefix).
-
-  2. **`/ak-merge-devshop` Phase 0.Y — bookkeeping prompt.** If feature-shape detected AND no `chore(build-log):` commit exists on the branch (`git log --grep '^chore(build-log)' origin/main..HEAD`), surface via `AskUserQuestion`:
-     - **Compose the BUILD-LOG entry now** — agent drafts an entry from the branch's commit bodies + spec/review.md + diffstat; operator approves/edits; commit lands as a new commit on the branch before squash.
-     - **Skip — this branch genuinely doesn't warrant a BUILD-LOG entry** — operator explains why; reason recorded as a `Bookkeeping-Skip-Reason:` trailer on the squash commit (adversarially reviewed via `adversarial-review.sh`, new check-type `bookkeepingSkipReason`).
-     - **Abort the merge** — operator goes back, runs `/ak-build` properly, comes back.
-
-  3. **PLAN row closure prompt.** Mirror the same pattern — if a Planned/Active row matches the branch slug AND the row's "deliverables" list is fully covered by the branch's diff (heuristic: every `(A)`/`(B)`/`(C)`-style sub-bullet in the Hook column is implemented by the diff), prompt to remove the row. If only SOME sub-bullets are covered (the `7262fac` shape: shipped B alone, A+C pending), prompt the operator to **reword** the row to reflect remaining scope rather than delete.
-
-  4. **Edit targets**: `.claude/skills/devshop/merge-devshop/SKILL.md` § Phase 0 (add 0.X detection + 0.Y prompt + 0.Z PLAN-row closure prompt); `kit/scripts/adversarial-review.sh` (new `bookkeepingSkipReason` check-type, Sonnet-routed); new bats `kit/tests/util-ak-merge-devshop-bookkeeping.bats` pinning detection heuristics + prompt + skip-reason adversarial-review acceptance criteria.
-
-  **Why this generalizes**: the gap exists for every devshop project that uses `/ak-merge-devshop` (today: just `/devshop` itself, but the skill is part of the kit and could be used by any future devshop-of-devshops scenario). Closing it ensures BUILD-LOG remains a canonical record of every shipped feature — which downstream consumers like `/ak-release-devshop`'s categorization, future CHANGELOG aggregators, and retrospectives all depend on.
-
-  **Severity**: medium — backfill works for missed entries; the gap is recoverable but invisible-by-default; pairs with the strategic ROADMAP entry which fully closes it.
-
-  [medium, skill-improvement, ak-merge-devshop + bookkeeping-discipline, paired-with-roadmap ak-build-devshop-mode, surfaced-by main-log-inspection 2026-05-18, 2026-05-18]
