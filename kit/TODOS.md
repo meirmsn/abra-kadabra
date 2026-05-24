@@ -7,6 +7,27 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
 <!-- Items discovered during use. Tag with [v0.2], [v1] etc. to schedule into ROADMAP versions. -->
 
+- [ ] **Per-project catch-up workflow after devshop changes — two-part design split.** No tracked artifact today captures how project repos catch up to recent devshop changes. The workflow naturally splits into two parts with materially different shapes that resist being skill-ified together:
+
+  **Part 1 (mechanical, repeatable):** rebuild devcontainer → `bash .devshopkit/scripts/sync/from-devshop.sh` → review diff + commit → verify symlinks exist + check key locked files refreshed (e.g. `ls -la ~/.gstack/projects`, `cat .nvmrc`, check `.github/workflows/ci.yml` slow-job shape). Same dance every time. Probably belongs as a one-page doc under `kit/docs/guide/workflow.md § Per-project catch-up` rather than a skill — skill ceremony isn't justified for a 5-step mechanical recipe.
+
+  **Part 2 (per-change one-shots, non-generic):** every devshop change that requires per-project follow-up has its own migration recipe. Examples: CLAUDE.md L1/L2 architecture migration (per-project 8-step recipe in `kit/docs/guide/claude-md.md`); `supabase/config.toml` backfill for rebound projects post-Option-C inversion (one-time commit per project); ad-hoc `.env` additions when new keys ship. These don't generalize — the recipe is specific to what shipped.
+
+  **Proposed durable design:**
+  - Part 1 → doc in `kit/docs/guide/workflow.md`. Cheap, ~30 min. Deferred (no PLAN row yet — surface when next-project catch-up surfaces friction worth doc-ifying).
+  - Part 2 → convention. Codify the `**Existing projects:**` commit-body block as required for any devshop change with a per-project migration step. Precedents already exist (`44e53fc` supabase auto-stop, `4ec8cdd` ci.yml propagation, `87107fe` supabase port partial fix). **Filed as PLAN row `existing-projects-commit-convention`.**
+
+  Separating into TODO (Part 1) + PLAN row (Part 2) reflects the divergent costs and timing: convention codification ships in ~30 min and immediately tightens the discipline going forward; the mechanical doc waits until a next-project catch-up genuinely needs it. [convention, workflow, ergonomics, references `kit/docs/guide/conventions.md § Commit + PR Text Style` + `kit/docs/guide/workflow.md`, surfaced-by 2026-05-23 session reflection on supabase-port-backlog merge catch-up]
+
+- [ ] **[v0] Update `template/PLAN.md` schema to match devshop's rich Lev-scored shape, then propagate to existing projects.** Devshop's `PLAN.md` evolved from the simple `# | Feature | Notes` schema into a rich Lev-scored table (Feature | Hook | Impact | Risk | Cost | Lev | Deps | Source with glyph rating scale + numeric formula + Bundling cheatsheet + lifecycle conventions) — but `template/PLAN.md` (42 lines) still ships the old simple schema. New projects scaffolded today get the old shape; existing projects (lalista, home-os) likely on the old shape too unless manually upgraded.
+
+  **Scope:**
+  - **Template rewrite:** rewrite `template/PLAN.md` to mirror the rich devshop schema. Drop the devshop-specific `## Bundling cheatsheet` (overkill for project-side planning), keep Lev formula + glyphs + Deps + Source columns + Active/Planned section split + lifecycle rules. Keep the project-friendly tone (e.g. project Source pointers go to `PRODUCT-ROADMAP.md` / `TODOS.md` rather than `kit/ROADMAP.md`).
+  - **Skill alignment:** verify `/ak-spec § Step 4` (which flips Planned → Active by adding `Branch` + `Spec` columns) still makes sense with the new schema. The Lev/Deps/Source columns likely stay through the Active transition.
+  - **Existing-project migration:** `template/PLAN.md` is `[scaffold-once]` in `kit/manifest.txt` so `from-devshop.sh` won't auto-propagate. Per-project: rewrite each project's PLAN.md to the new schema as a one-time conversion (manual or scripted). Each existing project gets a one-time cleanup commit. Captured in the change's `**Existing projects:**` block per the per-project catch-up convention (separately filed above).
+
+  **Why v0:** every new project that's about to scaffold gets the wrong schema, and our shipping discipline depends on Lev sorting + Deps tracking + Source pointers that don't exist in the old shape. The richer schema is what's working for devshop-side tracking; projects should benefit from the same. **Filed as PLAN row `template-plan-md-schema-uplift`.** [v0, template, scaffold-once, convention, references `kit/manifest.txt` + `.claude/skills/ak-spec/SKILL.md § Step 4`, surfaced-by 2026-05-23 session reflection on devshop-PLAN-rich-vs-template-simple gap]
+
 - [ ] **Skip bats on docs-only devshop commits.** `.husky/pre-commit` runs all 1240 bats on every commit (~30s, measured 2026-05-23 on docs-only commit `20ca68b`). On pure-docs changes the suite is guaranteed-noop — wasted wallclock on every PLAN/ROADMAP/TODOS/BUILD-LOG/`*.md` commit.
 
   **First pass (cheap, ~15 min)**: inline ~15 lines of bash in `.husky/pre-commit`, inserted between the `gitleaks` line and the `bats` block, that early-exits the bats run when `git diff --cached --name-only` matches ONLY `*.md`, `PLAN.md`, `kit/ROADMAP.md`, `kit/TODOS.md`, `BUILD-LOG.md`, and `kit/docs/**`. Print a one-line "✓ Kit tests: skipped (docs-only diff)" so the operator sees signal, not silence.
