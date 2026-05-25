@@ -211,27 +211,29 @@ setup_branch_with_commits() {
   run bash "$PRE_PUSH" origin <<< "refs/heads/feat/my-feature abc123 refs/heads/main def456"
   [ "$status" -eq 1 ]
   [[ "$output" =~ "BLOCKED: push to refs/heads/main from feature branch" ]]
-  [[ "$output" =~ "devshop.pushToMainApproved" ]]
+  [[ "$output" =~ "/ak-merge-devshop" ]]
+  # Error message must NOT print the bypass flag name (option 2: no self-serve)
+  refute_output --partial "git -c devshop.pushToMainApproved"
 }
 
-@test "devshop pre-push: passes feature branch push to main with matching pushToMainApproved" {
+@test "devshop pre-push: passes feature branch push to main when adversarial approves reason" {
   setup_devshop_mode
   cd "$TEST_REPO" && git checkout -q -b feat/my-feature
   mock_adversarial_review PASS
-  GIT_CONFIG_PARAMETERS="'devshop.pushToMainApproved=feat/my-feature'" \
+  GIT_CONFIG_PARAMETERS="'devshop.pushToMainApproved=/ak-merge-devshop Phase 3 — audit passed'" \
     run bash "$PRE_PUSH" origin <<< "refs/heads/feat/my-feature abc123 refs/heads/main def456"
   [ "$status" -eq 0 ]
   refute_output --partial "BLOCKED"
 }
 
-@test "devshop pre-push: blocks feature branch push to main with wrong pushToMainApproved" {
+@test "devshop pre-push: blocks feature branch push to main when adversarial rejects reason" {
   setup_devshop_mode
   cd "$TEST_REPO" && git checkout -q -b feat/my-feature
-  # Set a mismatched approval — the flag value doesn't match the branch
-  GIT_CONFIG_PARAMETERS="'devshop.pushToMainApproved=feat/other-branch'" \
+  mock_adversarial_review FAIL "FAIL: reason does not name the /ak-merge-devshop ceremony"
+  GIT_CONFIG_PARAMETERS="'devshop.pushToMainApproved=just a small doc fix'" \
     run bash "$PRE_PUSH" origin <<< "refs/heads/feat/my-feature abc123 refs/heads/main def456"
   [ "$status" -eq 1 ]
-  [[ "$output" =~ "BLOCKED: push to refs/heads/main from feature branch" ]]
+  [[ "$output" =~ "pushToMainApproved reason rejected" ]]
 }
 
 @test "devshop pre-push: feature branch push to feature remote is not blocked" {

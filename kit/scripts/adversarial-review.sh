@@ -58,6 +58,10 @@
 #                           past a `blocked` gate. Captured into
 #                           specs/<feature>/review.md § Phase 3 → 4 advance log
 #                           with an adversarial-review-stamp by the orchestrator.
+#   pushToMainApproved    — pre-push guard for feature-branch pushes targeting
+#                           refs/heads/main in devshop mode (Sonnet); judges whether
+#                           the push came through the /ak-merge-devshop ceremony.
+#                           Only legitimate reason: /ak-merge-devshop Phase 3.
 #
 # Usage: adversarial-review.sh <check-type> <reason> [context...]
 #   reason: the bypass reason provided via git -c, OR for dismissalLog the body of the
@@ -83,7 +87,7 @@
 # Per-check-type model routing (Haiku 4.5 for deterministic rule-application,
 # Sonnet 4.6 for judgment-heavy or high-blast-radius checks):
 #   Haiku:  dirtyTreeReason, dirtyPushReason, manifestReviewed
-#   Sonnet: prTextHygieneReason, testReviewSkipReason, localTestSkipReason, coreUserStoryNaReason, dismissalLog, hookBypass, exemptAddition, advisorBypassReason, blockedGateOverride
+#   Sonnet: prTextHygieneReason, testReviewSkipReason, localTestSkipReason, coreUserStoryNaReason, dismissalLog, hookBypass, exemptAddition, advisorBypassReason, blockedGateOverride, pushToMainApproved
 # Rationale: PR descriptions are the canonical reviewer-facing record; hookBypass
 # can leak secrets via gitleaks bypass; testReviewSkipReason judges audit-time
 # halt overrides; dismissalLog weighs spec scope. Dirty-tree / manifest checks
@@ -786,7 +790,7 @@ get_model_for_check_type() {
     return
   fi
   case "$1" in
-    prTextHygieneReason|testReviewSkipReason|localTestSkipReason|coreUserStoryNaReason|dismissalLog|hookBypass|exemptAddition|advisorBypassReason|blockedGateOverride)
+    prTextHygieneReason|testReviewSkipReason|localTestSkipReason|coreUserStoryNaReason|dismissalLog|hookBypass|exemptAddition|advisorBypassReason|blockedGateOverride|pushToMainApproved)
       echo "sonnet"
       ;;
     dirtyTreeReason|dirtyPushReason|manifestReviewed)
@@ -945,6 +949,19 @@ Per-check-type rules:
     rationale a Sonnet reviewer would have caught. The default-REJECT
     posture is the rule's load-bearing property: a borderline-plausible
     reason FAILS unless it visibly engages all four sub-criteria.
+13. For pushToMainApproved: the Reason justifies pushing from a feature
+    branch directly to refs/heads/main in the devshop repo. The ONLY
+    legitimate path is /ak-merge-devshop Phase 3 after the full merge
+    ceremony (audit + squash message composition + operator approval).
+    PASS requires the reason to name the /ak-merge-devshop ceremony
+    explicitly (e.g. \"/ak-merge-devshop Phase 3 — audit passed, squash
+    approved\"). REJECT: \"small change\", \"doc fix\", \"single commit\",
+    \"already reviewed\", \"trivial\", \"just a build-log update\", or any
+    rationale that shortcuts the ceremony. The ceremony exists because
+    the squash message is irreversible once pushed (force-push is blocked
+    by check-not-force-push.sh). Manual recovery scenarios (the operator
+    typing git -c in a raw terminal) are the only legitimate non-ceremony
+    path — and even those should name the recovery context, not hand-wave.
 
 Respond with EXACTLY one line:
 PASS - only if the reason is genuinely legitimate and specific

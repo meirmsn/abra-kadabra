@@ -48,22 +48,32 @@ if [ "$REPO_MODE" = "devshop" ]; then
   [ "$BRANCH" = "master" ] && exit 0
 
   # On a feature branch pushing to main: require devshop.pushToMainApproved
-  # matching the branch name. /ak-merge-devshop Phase 3 sets this via
-  # `git -c devshop.pushToMainApproved="$BRANCH" push origin HEAD:main`.
+  # with an adversarially-reviewed reason. /ak-merge-devshop Phase 3 sets
+  # this as part of the merge ceremony.
   while IFS= read -r line; do
     [ -z "$line" ] && continue
     remote_ref=$(echo "$line" | awk '{print $3}')
     case "$remote_ref" in
       refs/heads/main|refs/heads/master)
-        APPROVED=$(git config --get devshop.pushToMainApproved 2>/dev/null || echo "")
-        if [ "$APPROVED" != "$BRANCH" ]; then
+        BYPASS_REASON=$(git config --get devshop.pushToMainApproved 2>/dev/null || echo "")
+        if [ -z "$BYPASS_REASON" ]; then
           echo "❌ BLOCKED: push to $remote_ref from feature branch '$BRANCH'." >&2
           echo "" >&2
           echo "  Devshop pushes to main go through /ak-merge-devshop, which sets" >&2
           echo "  devshop.pushToMainApproved as part of the merge ceremony." >&2
           echo "" >&2
-          echo "  If you need to push manually (recovery, release.sh):" >&2
-          echo "    git -c devshop.pushToMainApproved=\"$BRANCH\" push origin HEAD:main" >&2
+          echo "  Run /ak-merge-devshop to land this branch on main." >&2
+          exit 1
+        fi
+        if ! REVIEW_OUTPUT=$(bash "$DEVSHOP/kit/scripts/adversarial-review.sh" \
+               pushToMainApproved \
+               "$BYPASS_REASON" 2>&1); then
+          echo "❌ BLOCKED: push to $remote_ref — pushToMainApproved reason rejected." >&2
+          echo "" >&2
+          echo "Reviewer assessment:" >&2
+          echo "$REVIEW_OUTPUT" | sed 's/^/  /' >&2
+          echo "" >&2
+          echo "  Run /ak-merge-devshop to land this branch on main." >&2
           exit 1
         fi
         ;;
