@@ -75,9 +75,9 @@ only legitimate refusal — there is genuinely nothing to merge.
   The skill operates entirely against the named worktree (rebase + soft-
   reset + commit), then pushes the squash directly to `origin/main` via
   `git -C <worktree> push origin HEAD:main` (no `git checkout main` in
-  `/devshop`). Phase 4.2 still cleans up the named worktree. Local `main`
-  ref in `/devshop` may lag origin/main after this flow — re-fetch +
-  resync when convenient. Codified from the 2026-05-20 session where
+  `/devshop`). Phase 4.2 still cleans up the named worktree. After the
+  push, `git fetch origin main:main` syncs the local `main` ref without
+  switching branches. Codified from the 2026-05-20 session where
   `/ak-merge-devshop` had to be executed manually because parallel
   `fix/init-firewall-pipefail` WIP blocked the branch-switch.
 
@@ -373,7 +373,7 @@ Pick the lead-in labels that fit the change. Common ones:
   diff touches propagation-relevant surfaces (`template/**`,
   `kit/scripts/**`, `[locked]`/`[sync]`/`[scaffold-once]` files).
   Convention: `kit/docs/guide/conventions.md § Existing-Project
-  Migration Block`.
+Migration Block`.
 
 Skip the prose paragraphs entirely when the bullet structure says it all.
 The sections aren't load-bearing — `Key details:` (lower) is the only
@@ -893,8 +893,8 @@ squash machinery).
 - **`--source-worktree` path** (`SOURCE_WORKTREE_ARG` set): never touch
   `/devshop`'s branch state; push the squash directly from the named
   worktree via `git -C "$WORKTREE_PATH" push origin HEAD:main`. Skip
-  the checkout + ff-merge entirely. `/devshop`'s local `main` ref will
-  lag origin/main after; the operator re-syncs on next session.
+  the checkout + ff-merge entirely. After the push, `git fetch origin
+main:main` syncs the local `main` ref without switching branches.
 
 ```bash
 if [ -n "$SOURCE_WORKTREE_ARG" ]; then
@@ -903,6 +903,11 @@ if [ -n "$SOURCE_WORKTREE_ARG" ]; then
   # to origin/main; the FF-merge that the default path does is unnecessary
   # because we're pushing the worktree's HEAD as if it were main.
   git -C "$WORKTREE_PATH" -c devshop.pushToMainApproved="/ak-merge-devshop Phase 3 — audit passed, squash approved by operator at Phase 0.5" push origin HEAD:main
+
+  # Sync local main to match origin/main so the operator doesn't need to
+  # pull manually. Safe from any branch — ff-only fails (no-op) if local
+  # main has diverged, which shouldn't happen in a single-developer devshop.
+  git fetch origin main:main 2>/dev/null || true
 else
   # Default path: checkout main + ff-merge in /devshop.
   git checkout main
