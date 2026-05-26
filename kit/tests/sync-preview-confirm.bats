@@ -181,7 +181,7 @@ M
   # It should show the preview and auto-confirm.
   assert_success
   assert_output --partial "auto-confirming"
-  assert_output --partial "Changes applied"
+  assert_output --partial "Synced to devshop v"
 
   # Verify the file was actually updated
   run cat "$FIXTURE_PROJECT/turbo.json"
@@ -238,7 +238,7 @@ M
   # Preview said 1 file would change
   assert_output --partial "1 file(s) would change"
   # Apply actually changed the file
-  assert_output --partial "Changes applied"
+  assert_output --partial "Synced to devshop v"
   # The file in the working tree matches the proposed content
   run cat "$FIXTURE_PROJECT/turbo.json"
   assert_output '{"pipeline": {"build": {}, "test": {}}}'

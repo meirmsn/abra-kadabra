@@ -126,6 +126,7 @@ for path in "${PATHS[@]}"; do
 done
 
 DEVSHOP_VERSION=$(cat "$DEVSHOP_DIR/kit/version" 2>/dev/null | tr -d '[:space:]' || echo "unknown")
+cp "$DEVSHOP_DIR/kit/version" "$PROJECT_ROOT/.devshop-version"
 echo ""
-echo "Changes applied. To commit:"
+echo "Synced to devshop v$DEVSHOP_VERSION. To commit:"
 echo "  git add -A && git commit -m 'chore: sync from devshop v$DEVSHOP_VERSION'"

@@ -178,6 +178,22 @@ else
   fi
 fi
 
+# --- Devshop version drift check (project sessions only) ---
+DEVSHOP_DRIFT=""
+if [ "$IS_DEVSHOP" != true ]; then
+  DEVSHOP_CURRENT="$(cat /devshop/kit/version 2>/dev/null | tr -d '[:space:]' || true)"
+  if [ -f "$ROOT/.devshop-version" ]; then
+    PROJECT_SYNCED="$(cat "$ROOT/.devshop-version" 2>/dev/null | tr -d '[:space:]' || true)"
+    if [ -n "$DEVSHOP_CURRENT" ] && [ -n "$PROJECT_SYNCED" ] && [ "$DEVSHOP_CURRENT" != "$PROJECT_SYNCED" ]; then
+      DEVSHOP_DRIFT="synced at v${PROJECT_SYNCED}, devshop is v${DEVSHOP_CURRENT} — run: bash .devshopkit/scripts/sync/from-devshop.sh"
+    fi
+  else
+    if [ -n "$DEVSHOP_CURRENT" ]; then
+      DEVSHOP_DRIFT="no .devshop-version found — run: bash .devshopkit/scripts/sync/from-devshop.sh"
+    fi
+  fi
+fi
+
 # --- Cross-repo WIP heads-up (warning only) ---
 # Catches uncommitted or stashed work left in either repo from a previous session,
 # so Claude doesn't start editing over it. Non-blocking — the user may legitimately
@@ -236,6 +252,12 @@ fi
 if [ -n "$COMMITS_SINCE_TAG" ] && [ "$COMMITS_SINCE_TAG" -gt 0 ]; then
   BRIEFING+="
  Queue:   ${COMMITS_SINCE_TAG} commit(s) on main since last tag — /ak-release-devshop to cut"
+fi
+
+# Devshop sync drift (project sessions only)
+if [ -n "$DEVSHOP_DRIFT" ]; then
+  BRIEFING+="
+ Sync:    ${DEVSHOP_DRIFT}"
 fi
 
 # Open PRs
