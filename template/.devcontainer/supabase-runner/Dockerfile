@@ -1,6 +1,6 @@
 FROM debian:trixie-slim
 
-ARG SUPABASE_CLI_VERSION=2.84.2
+ARG SUPABASE_CLI_VERSION=2.98.2
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -43,11 +43,15 @@ RUN install -m 0755 -d /etc/apt/keyrings \
 # Supabase CLI — fetched from GitHub releases. Version pinned via build arg
 # from compose.yml so workspace + runner stay in lockstep with the
 # canonical version in the workspace Dockerfile (SUPABASE_CLI_VERSION).
+# Checksum is self-verifying: fetched from the same GitHub release.
 RUN ARCH=$(dpkg --print-architecture) \
-    && wget -q "https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_linux_${ARCH}.tar.gz" \
-    && tar xzf "supabase_linux_${ARCH}.tar.gz" supabase \
+    && FILE="supabase_linux_${ARCH}.tar.gz" \
+    && wget -q "https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/${FILE}" \
+    && wget -qO /tmp/supabase_checksums.txt "https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_${SUPABASE_CLI_VERSION}_checksums.txt" \
+    && grep "${FILE}" /tmp/supabase_checksums.txt | sha256sum -c - \
+    && tar xzf "$FILE" supabase \
     && mv supabase /usr/local/bin/supabase \
-    && rm "supabase_linux_${ARCH}.tar.gz"
+    && rm "$FILE" /tmp/supabase_checksums.txt
 
 COPY cmd-relay.mjs /usr/local/bin/cmd-relay.mjs
 RUN chmod +x /usr/local/bin/cmd-relay.mjs

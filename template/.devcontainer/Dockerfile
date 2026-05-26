@@ -109,13 +109,17 @@ RUN ARCH=$(dpkg --print-architecture) && \
   rm "$FILE"
 
 # Supabase CLI — managing migrations and edge functions
+# Checksum is self-verifying: fetched from the same GitHub release as the binary.
+# This lets projects pin any version via SUPABASE_CLI_VERSION in .devcontainer/.env
+# without requiring a devshop-side checksum update.
 RUN ARCH=$(dpkg --print-architecture) && \
   FILE="supabase_linux_${ARCH}.tar.gz" && \
   wget -q "https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/${FILE}" && \
-  grep "supabase/${FILE}" /checksums.sha256 | sed 's|supabase/||' | sha256sum -c - && \
+  wget -qO /tmp/supabase_checksums.txt "https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_${SUPABASE_CLI_VERSION}_checksums.txt" && \
+  grep "${FILE}" /tmp/supabase_checksums.txt | sha256sum -c - && \
   tar xzf "$FILE" supabase && \
   mv supabase /usr/local/bin/supabase && \
-  rm "$FILE"
+  rm "$FILE" /tmp/supabase_checksums.txt
 
 # DCG (Destructive Command Guard) — PreToolUse safety hook for Claude Code
 # Blocks git reset --hard, force push, rm -rf outside /tmp, DROP TABLE, and 49+ other

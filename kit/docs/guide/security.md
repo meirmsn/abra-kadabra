@@ -97,7 +97,10 @@ The full credential blast-radius table + rotation cadence + Variables-vs-Secrets
 
 ## Third-Party Binaries
 
-Pinned to specific version + SHA256 checksum. Never "latest." Update version + checksum in same commit.
+Pinned to specific version + SHA256 checksum. Never "latest."
+
+- **git-delta, dcg, gitleaks**: checksums hardcoded in `.devcontainer/checksums.sha256`. Update version + checksum in the same commit.
+- **Supabase CLI**: checksum is self-verifying — fetched from the same GitHub release as the binary (`supabase_${VERSION}_checksums.txt`). This lets projects pin any version via `SUPABASE_CLI_VERSION` in `.devcontainer/.env` without a devshop-side checksum update. The trust model is equivalent to HTTPS-fetched package installs (npm, pip).
 
 ## Guard Script Editing
 

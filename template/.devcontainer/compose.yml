@@ -95,7 +95,7 @@ services:
         TZ: ${TZ:-America/Los_Angeles}
         CLAUDE_CODE_VERSION: latest
         GIT_DELTA_VERSION: 0.19.2
-        SUPABASE_CLI_VERSION: ${SUPABASE_CLI_VERSION:-2.84.2}
+        SUPABASE_CLI_VERSION: ${SUPABASE_CLI_VERSION:-2.98.2}
         DCG_VERSION: 0.4.0
         GITLEAKS_VERSION: 8.30.1
     cap_add:
@@ -129,7 +129,7 @@ services:
       context: ./supabase-runner
       dockerfile: Dockerfile
       args:
-        SUPABASE_CLI_VERSION: ${SUPABASE_CLI_VERSION:-2.84.2}
+        SUPABASE_CLI_VERSION: ${SUPABASE_CLI_VERSION:-2.98.2}
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     volumes:

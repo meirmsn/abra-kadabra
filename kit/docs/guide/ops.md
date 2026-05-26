@@ -307,7 +307,9 @@ When `supabase/config.toml` doesn't exist yet (fresh template before `supabase i
 - **`template/scripts/ci-rollback-explain.sh`** uses `${SUPABASE_DB_PORT:-54322}` as fallback when `supabase status` doesn't return a DB_URL. CI environments get the var from `.env` via the workflow.
 - **`template/apps/web/e2e/helpers/inbucket.ts`** reads `SUPABASE_MAILPIT_PORT` to construct the Mailpit base URL. Derives the host from `SUPABASE_URL`.
 
-All port vars use `${VAR:?required}` (strict — fails loud if missing) except `ci-rollback-explain.sh` which keeps a `:-default` fallback for CI backward compat. `SUPABASE_CLI_VERSION` follows the same `${VAR:-default}` pattern for projects that need a newer Supabase CLI.
+All port vars use `${VAR:?required}` (strict — fails loud if missing) except `ci-rollback-explain.sh` which keeps a `:-default` fallback for CI backward compat.
+
+**Supabase CLI version pinning.** `compose.yml` declares `SUPABASE_CLI_VERSION: ${SUPABASE_CLI_VERSION:-2.98.2}` — projects inherit the devshop default unless they override. To pin a different version, add `SUPABASE_CLI_VERSION=X.Y.Z` to `.devcontainer/.env` (project-owned, not stomped by `init-devshop.sh`). The Dockerfile verifies the binary against the release's published checksum file (`supabase_${VERSION}_checksums.txt`), so any version works without devshop-side checksum updates. Both workspace and supabase-runner receive the same version via compose build args.
 
 **Auto-assignment at scaffold time.** `/ak-new-project` Phase A scans `kit/notes/projects/*.md` for existing `supabase_port_offset:` values, picks the lowest unused 100-block, applies it to `supabase/config.toml`'s 5 port sections, fixes `additional_redirect_urls`, and runs `derive-ports-from-config.sh` to populate `.env`. The offset is recorded in the new project's notes file frontmatter. Override via `SUPABASE_PORT_OFFSET_OVERRIDE` env var. Standalone fallback: if `/devshop/kit/notes/projects/` is absent, offset defaults to 0.
 
