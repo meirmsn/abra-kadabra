@@ -361,6 +361,68 @@ Same playbook as Auth UX conventions / Latency feedback framework. The pattern n
 
 ---
 
+### `from-devshop.sh` sync safety — field preservation, port awareness, checklist gaps
+
+**Surfaced 2026-05-26** during home-os devshop propagation (container rebuild + `from-devshop.sh --yes`). Six issues found, all affecting every project that syncs from devshop.
+
+**Issue 1 — CI health-check hardcodes port 54321 (High).**
+`template/.github/workflows/ci.yml:221` probes `http://127.0.0.1:54321/functions/v1/` for edge-runtime health. Projects with `config.toml` port offsets (home-os: +100 → 54421) get a broken health-check after sync — the probe hits connection refused for 30 seconds, then `supabase stop && start_supabase` retries on the wrong port again. The template comment acknowledges this ("projects that rebound ports need to update the URL below to match") but the sync has no mechanism to preserve or template the port.
+
+_Fix shape_: read the API port dynamically from `supabase status -o env` (already runs in the same step, a few lines later) instead of hardcoding it in the probe URL. Move the `SB_ENV` export block above the health-check function, or extract the port from `config.toml` inline: `API_PORT=$(grep -A5 '^\[api\]' supabase/config.toml | grep 'port' | head -1 | awk '{print $3}')`.
+
+**Issue 2 — `from-devshop.sh` overwrites `package.json` name (High).**
+`package.json` is `[sync]` in `kit/manifest.txt`. The sync copies the template verbatim, replacing the project's `"name"` field with `"project-name"`. No JSON merge logic exists in `kit/scripts/sync/lib/`. Same issue applies to `"packageManager"` if versions differ.
+
+_Fix shape (3 options, increasing sophistication)_:
+
+- (A) Reclassify `package.json` as `[scaffold-once]` — simplest, but prevents syncing new devDeps/scripts.
+- (B) Add a JSON merge step to `from-devshop.sh`: preserve `name`, `version`, `packageManager`; sync `scripts`, `devDependencies`, `pnpm`, `lint-staged`. ~50 LOC with `jq`.
+- (C) Split `package.json` into synced structural fields and scaffold-once identity fields via a `.package-overrides.json` pattern. Over-engineered for 3 fields.
+  Option B is the sweet spot.
+
+**Issue 3 — `SUPABASE_PROD_ANON_KEY` missing from `/ak-new-project` Step 5 (Medium).**
+`keepalive.yml` uses `${{ vars.SUPABASE_PROD_ANON_KEY }}` to ping the production Supabase REST API. Step 5's GitHub Variables checklist (SKILL.md lines 559-579) doesn't include it. The credential matrix at line 694 shows it should be a GH Variable, but there's no actionable "run `gh variable set SUPABASE_PROD_ANON_KEY`" instruction. Every new project silently fails the keepalive Supabase ping.
+
+_Fix_: add `SUPABASE_PROD_ANON_KEY` to Step 5's Variables checklist with the instruction to get it from Supabase dashboard → Settings → API → `anon` `public` key.
+
+**Issue 4 — `/ak-new-project` SKILL.md has redundant inline `.env` template (Medium).**
+Lines 437–487 embed a full `.env` template that's now redundant with `template/.devcontainer/.env.example` (added in the same devshop version). Dual-maintenance risk: the inline template has fields the `.env.example` doesn't, and vice versa.
+
+_Fix_: replace the inline block in Step 4 with a directive to copy `.env.example` to `.env` and fill in the values. Keep Step 4's explanatory prose about where to find each credential — just remove the duplicated key list.
+
+**Issue 5 — `SUPABASE_CLI_VERSION` 2.84.2 stale in template (Low).**
+Six files in `template/.devcontainer/` reference 2.84.2: `README.md` (×2), `compose.yml` (×2), `supabase-runner/Dockerfile` (×1), `checksums.sha256` (×1). Projects have independently upgraded to 2.98.2. The new `${SUPABASE_CLI_VERSION:-2.84.2}` env-var pattern in `compose.yml` makes the default non-blocking (projects override via `.env`), but the stale default + README references cause confusion on sync.
+
+_Fix_: bump default to 2.98.2 across all 6 files + update checksums.
+
+**Issue 6 — Stale `check-docs-freshness-project.sh` in `kit/notes/roadmap/` (Low).**
+Three references in `kit/notes/roadmap/adversarial-review-doc-inlining.md` (lines 84, 310, 420) still use the old script name. The template and commit-hook script were renamed to `check-docs-coverage-project.sh` but these planning notes weren't updated.
+
+_Fix_: find-and-replace in the 3 files. ~5 min.
+
+**Issue 7 — Sync overwrites package-name `--filter` with template directory path (High).**
+`template/.github/workflows/ci.yml` uses `--filter=apps/web` (bare directory path) in 3 places: Playwright install, build, and E2E run. After scaffold, the project's web package has a real name (e.g., `@home-os/web`). `pnpm --filter apps/web` works (pnpm resolves directory paths), but `pnpm turbo run --filter=apps/web` fails — turbo treats bare paths as package names and rejects them with "No package found with name 'apps/web'". The sync overwrites the project's correct `--filter=@home-os/web` with the template's `apps/web`, breaking the slow-job build step. Same root cause as issue #2 (verbatim file copy with no project-aware substitution).
+
+_Fix shape_: couple with issue #2's `jq` merge for `package.json` — the sync needs a post-copy sed step for `ci.yml` that reads the project's `apps/web/package.json` name field and substitutes it into `--filter` arguments. Alternatively, `from-devshop.sh` could maintain a `[sync-with-subs]` classification in `manifest.txt` for files that need project-specific token replacement after copy, with a substitution map derived from the project's package names.
+
+**Cross-refs:**
+
+- Home-os `chore/devshop-propagation` branch — the session that surfaced all 7
+- Home-os PR #31 commit `b57cd61` — the CI fix for issue #7
+- `kit/manifest.txt` — sync classifications (`[sync]`, `[locked]`, `[scaffold-once]`)
+- `kit/scripts/sync/from-devshop.sh` + `lib/` — the sync machinery (issues #1, #2, #7)
+- `.claude/skills/devshop/new-project/SKILL.md` — the new-project skill (issues #3, #4)
+- `kit/notes/roadmap/adversarial-review-doc-inlining.md` — stale references (issue #6)
+
+**Cost/risk:**
+
+- Issues #1 + #2 + #7: ~3–4 hr combined. #1 is a targeted ci.yml fix. #2 + #7 need a substitution-aware sync step in `from-devshop.sh` (JSON merge for package.json + sed for ci.yml filter paths) + tests.
+- Issues #3 + #4: ~30 min combined. Checklist addition + inline block replacement.
+- Issues #5 + #6: ~30 min combined. Version bump + find-replace.
+- Total: ~4–5 hr. All issues are independently shippable; #1, #2, and #7 are the highest leverage (they silently break CI and project identity on every sync).
+
+---
+
 ## v1 (after v0 is validated on the first project)
 
 ### Test-coverage hook scope: extend to template/.devcontainer/\*.sh + reframe EXEMPT_SCRIPTS as warn-not-block
