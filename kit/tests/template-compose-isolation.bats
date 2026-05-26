@@ -307,6 +307,38 @@ setup() {
   assert_success
 }
 
+# =============================================================================
+# Supabase CLI version + checksum consistency
+# =============================================================================
+
+@test "compose-isolation: SUPABASE_CLI_VERSION default is consistent across compose.yml + runner Dockerfile" {
+  local compose_ws compose_runner runner_df
+  compose_ws=$(grep -oP 'SUPABASE_CLI_VERSION:-\K[0-9.]+' "$DC/compose.yml" | head -1)
+  compose_runner=$(grep -oP 'SUPABASE_CLI_VERSION:-\K[0-9.]+' "$DC/compose.yml" | tail -1)
+  runner_df=$(grep -oP 'SUPABASE_CLI_VERSION=\K[0-9.]+' "$DC/supabase-runner/Dockerfile")
+  [ -n "$compose_ws" ]
+  [ "$compose_ws" = "$compose_runner" ]
+  [ "$compose_ws" = "$runner_df" ]
+}
+
+@test "compose-isolation: all Supabase CLI install blocks use self-verifying checksums" {
+  for f in "$DC/Dockerfile" "$DC/supabase-runner/Dockerfile"; do
+    run grep -q 'supabase_checksums.txt' "$f"
+    assert_success
+    run grep -q 'sha256sum -c' "$f"
+    assert_success
+  done
+}
+
+@test "compose-isolation: checksums.sha256 does NOT contain supabase entries (self-verifying)" {
+  run grep -q 'supabase/' "$DC/checksums.sha256"
+  assert_failure
+}
+
+# =============================================================================
+# /ak-new-project SKILL.md — has the Step 2b prompt
+# =============================================================================
+
 @test "compose-isolation: new-project SKILL.md does NOT offer host-docker-socket-bind-mount as a /ak-new-project choice" {
   # Regression guard: if the rejected shape ever returns to the prompt, fail
   # loudly so the threat-model rejection is explicit. Match plausible re-add
