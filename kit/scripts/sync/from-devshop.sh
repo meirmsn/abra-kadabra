@@ -108,6 +108,12 @@ if ! preview_confirm_show_and_ask "$PROJECT_ROOT"; then
   exit 0
 fi
 
+# --- Read old version before apply (for propagation hint) ---
+OLD_DEVSHOP_VERSION=""
+if [ -f "$PROJECT_ROOT/.devshop-version" ]; then
+  OLD_DEVSHOP_VERSION=$(cat "$PROJECT_ROOT/.devshop-version" | tr -d '[:space:]')
+fi
+
 # --- Apply: copy files from devshop to project ---
 echo ""
 echo "Applying changes..."
@@ -130,3 +136,10 @@ cp "$DEVSHOP_DIR/kit/version" "$PROJECT_ROOT/.devshop-version"
 echo ""
 echo "Synced to devshop v$DEVSHOP_VERSION. To commit:"
 echo "  git add -A && git commit -m 'chore: sync from devshop v$DEVSHOP_VERSION'"
+
+PROPAGATION="$DEVSHOP_DIR/kit/docs/PROPAGATION.md"
+if [ -n "$OLD_DEVSHOP_VERSION" ] && [ "$OLD_DEVSHOP_VERSION" != "$DEVSHOP_VERSION" ] \
+   && [ -f "$PROPAGATION" ]; then
+  echo ""
+  echo "Check .devshopkit/docs/PROPAGATION.md for manual steps since v$OLD_DEVSHOP_VERSION"
+fi
