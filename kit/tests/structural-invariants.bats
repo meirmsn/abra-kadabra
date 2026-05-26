@@ -231,7 +231,7 @@ setup() {
   exempts=$(grep -oP '^\s+"[a-z-]+\.sh"' "$coverage_script" | tr -d '" ')
 
   # Scripts called by other scripts or skills (not directly by hooks/pre-commit)
-  local infra_scripts="create-devshop-symlinks.sh normalize-devshop-paths.sh changelog-entry.sh check-file-headers.sh supabase-bootstrap.sh router-shim.sh verify-story.sh design-conformance.sh rls-coverage-check.sh slow-job-lifecycle-check.sh rebuild-browse.sh populate-playwright-cache.sh parse-manifest.sh preview-confirm.sh changed-tests-local.sh fast-job-local.sh migration-rollback-roundtrip.sh path-classifier.sh rewrite-pr-body-urls.sh backfill-pr-image-urls.sh justify-claude-md.sh advisor-clean.sh fault-injected-qa.sh capture-screenshot.sh apply-port-offset.sh next-port-offset.sh"
+  local infra_scripts="create-devshop-symlinks.sh normalize-devshop-paths.sh changelog-entry.sh check-file-headers.sh supabase-bootstrap.sh router-shim.sh verify-story.sh design-conformance.sh rls-coverage-check.sh slow-job-lifecycle-check.sh rebuild-browse.sh populate-playwright-cache.sh parse-manifest.sh preview-confirm.sh changed-tests-local.sh fast-job-local.sh migration-rollback-roundtrip.sh path-classifier.sh rewrite-pr-body-urls.sh backfill-pr-image-urls.sh justify-claude-md.sh advisor-clean.sh fault-injected-qa.sh capture-screenshot.sh apply-port-offset.sh next-port-offset.sh propagation-entry.sh"
 
   # Combine hook references and pre-commit references (match paths-with-slashes).
   # Also include prepare-commit-msg (devshop + template) which calls
@@ -881,4 +881,48 @@ setup() {
   root=$(git rev-parse --show-toplevel)
   conventions="$root/kit/docs/guide/conventions.md"
   grep -q 'existing-project-migration-block' "$conventions"
+}
+
+# =============================================================================
+# Adversarial bypass wiring — batsSkipReason
+# =============================================================================
+
+@test "wiring: batsSkipReason adversarial bypass is wired in check-bats-devshop.sh" {
+  local check="$DEVSHOP/kit/scripts/commit-hooks/check-bats-devshop.sh"
+  [ -f "$check" ] || skip "check-bats-devshop.sh not found"
+  # Must read the git config flag
+  grep -q 'devshop.batsSkipReason' "$check"
+  # Must invoke adversarial-review.sh with batsSkipReason check-type
+  grep -q 'adversarial-review.sh' "$check"
+  grep -q 'batsSkipReason' "$check"
+}
+
+@test "wiring: batsSkipReason adversarial bypass is wired in .husky/pre-commit" {
+  local precommit="$DEVSHOP/.husky/pre-commit"
+  [ -f "$precommit" ] || skip ".husky/pre-commit not found"
+  # Must read the git config flag
+  grep -q 'devshop.batsSkipReason' "$precommit"
+  # Must invoke adversarial-review.sh with batsSkipReason
+  grep -q 'adversarial-review.sh' "$precommit"
+  grep -q 'batsSkipReason' "$precommit"
+}
+
+@test "wiring: batsSkipReason is a recognized check-type in adversarial-review.sh" {
+  local review="$DEVSHOP/kit/scripts/adversarial-review.sh"
+  [ -f "$review" ] || skip "adversarial-review.sh not found"
+  # Must have a context-gathering case branch
+  grep -q 'batsSkipReason)' "$review"
+  # Must be in the Sonnet routing list
+  grep -q 'batsSkipReason' "$review" | head -1
+  # Must have review criteria (rule 14)
+  grep -q 'For batsSkipReason' "$review"
+}
+
+@test "wiring: batsSkipReason trailer is emitted by append-bypass-trailers.sh" {
+  local trailers="$DEVSHOP/kit/scripts/commit-hooks/append-bypass-trailers.sh"
+  [ -f "$trailers" ] || skip "append-bypass-trailers.sh not found"
+  # Must read devshop.batsSkipReason
+  grep -q 'devshop.batsSkipReason' "$trailers"
+  # Must emit Bats-Skip-Reason: trailer
+  grep -q 'Bats-Skip-Reason' "$trailers"
 }

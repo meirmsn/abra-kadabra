@@ -36,6 +36,7 @@ git rev-parse --show-toplevel >/dev/null 2>&1 || exit 0
 
 DOCS_REASON=$(git config --get devshop.docsCoverageReason 2>/dev/null || true)
 TESTS_REASON=$(git config --get devshop.testsCoverageReason 2>/dev/null || true)
+BATS_REASON=$(git config --get devshop.batsSkipReason 2>/dev/null || true)
 
 if [ -n "$DOCS_REASON" ]; then
   git interpret-trailers --in-place \
@@ -46,6 +47,12 @@ fi
 if [ -n "$TESTS_REASON" ]; then
   git interpret-trailers --in-place \
     --trailer "Tests-Coverage-Bypass: $TESTS_REASON" \
+    "$MSG_FILE"
+fi
+
+if [ -n "$BATS_REASON" ]; then
+  git interpret-trailers --in-place \
+    --trailer "Bats-Skip-Reason: $BATS_REASON" \
     "$MSG_FILE"
 fi
 

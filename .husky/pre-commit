@@ -43,7 +43,30 @@ if [ "$_current_branch" = "main" ] || [ "$_current_branch" = "master" ]; then
       echo "✓ Kit tests: ${_bats_total}/${_bats_total} pass (${_bats_time})"
     else
       echo "✖ Kit tests: $((_bats_total + _bats_failed)) total, ${_bats_failed} failed (${_bats_time})"
-      exit 1
+      # Bypass: adversarial-reviewed batsSkipReason
+      _bats_skip_reason=$(git config --get devshop.batsSkipReason 2>/dev/null || true)
+      if [ -n "$_bats_skip_reason" ]; then
+        echo "⏳ Bats skip: reviewing reason with adversarial agent..."
+        _bats_failures=$(echo "$_bats_output" | grep '^not ok ' | head -20 || true)
+        _bats_review_result=$(bash /devshop/kit/scripts/adversarial-review.sh \
+          batsSkipReason "$_bats_skip_reason" "$_bats_failures" 2>&1) || {
+          echo ""
+          echo "✖ ADVERSARIAL REVIEW REJECTED your bats skip reason."
+          echo "  $_bats_review_result"
+          echo ""
+          echo "  Address the finding above, then update your reason and retry."
+          exit 1
+        }
+        echo "✓ Bats skip: adversarial review accepted."
+        echo "  → recorded as Bats-Skip-Reason: trailer."
+      else
+        echo ""
+        echo "  Options:"
+        echo "    1. Fix the failing tests"
+        echo "    2. Bypass for this commit (adversarial-reviewed, recorded as a Bats-Skip-Reason: trailer):"
+        echo "       git -c devshop.batsSkipReason=\"<name failing tests + why skipping is safe>\" commit ..."
+        exit 1
+      fi
     fi
   fi
 fi

@@ -16,6 +16,7 @@ setup() {
                 commit-hooks/check-port-offset-unique.sh \
                 commit-hooks/check-tests-coverage-devshop.sh \
                 commit-hooks/check-docs-coverage-devshop.sh \
+                commit-hooks/check-bats-devshop.sh \
                 commit-hooks/check-exempt-additions.sh \
                 commit-hooks/check-tests-coverage-project.sh \
                 commit-hooks/check-docs-coverage-project.sh \
@@ -66,7 +67,7 @@ scripts_called() {
   [ ! -f "$MOCK_BIN/commit-hooks/check-docs-coverage-devshop.sh.args" ]
 }
 
-@test "devshop repo (/devshop): calls clean-tree + manifest + tests-coverage-devshop + docs-coverage-devshop + commit-guard" {
+@test "devshop repo (/devshop): calls clean-tree + manifest + tests-coverage-devshop + docs-coverage-devshop + bats + commit-guard" {
   create_test_repo
   sed -i 's|GIT_ROOT=$(git rev-parse.*|GIT_ROOT="/devshop"|' "$WRAPPER"
   run bash -c "cd '$TEST_REPO' && bash '$WRAPPER'"
@@ -77,13 +78,14 @@ scripts_called() {
   [ -f "$MOCK_BIN/commit-hooks/check-port-offset-unique.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-tests-coverage-devshop.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-docs-coverage-devshop.sh.args" ]
+  [ -f "$MOCK_BIN/commit-hooks/check-bats-devshop.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/commit-guard.sh.args" ]
   # Security freshness + template-propagation should NOT be called for devshop repo
   [ ! -f "$MOCK_BIN/commit-hooks/check-security-files-freshness.sh.args" ]
   [ ! -f "$MOCK_BIN/commit-hooks/check-template-propagation.sh.args" ]
 }
 
-@test "devshop-self mode (kit/ is real dir): calls clean-tree + manifest + port-offset-unique + tests-coverage-devshop + docs-coverage-devshop + commit-guard" {
+@test "devshop-self mode (kit/ is real dir): calls clean-tree + manifest + port-offset-unique + tests-coverage-devshop + docs-coverage-devshop + bats + commit-guard" {
   create_test_repo
   # Create a real kit/ dir to trigger devshop-self detection
   mkdir -p "$TEST_REPO/kit"
@@ -95,6 +97,7 @@ scripts_called() {
   [ -f "$MOCK_BIN/commit-hooks/check-port-offset-unique.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-tests-coverage-devshop.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-docs-coverage-devshop.sh.args" ]
+  [ -f "$MOCK_BIN/commit-hooks/check-bats-devshop.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/commit-guard.sh.args" ]
   [ ! -f "$MOCK_BIN/commit-hooks/check-security-files-freshness.sh.args" ]
   [ ! -f "$MOCK_BIN/commit-hooks/check-template-propagation.sh.args" ]

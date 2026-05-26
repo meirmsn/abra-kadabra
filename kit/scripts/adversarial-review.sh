@@ -58,6 +58,12 @@
 #                           past a `blocked` gate. Captured into
 #                           specs/<feature>/review.md § Phase 3 → 4 advance log
 #                           with an adversarial-review-stamp by the orchestrator.
+#   batsSkipReason        — `.husky/pre-commit` (main, full suite) and
+#                           `check-bats-devshop.sh` (branch, affected-only) bats
+#                           failure bypass (Sonnet); judgment-heavy, high-blast-radius
+#                           — skipping tests is always a judgment call. Reject generic
+#                           reasons; require the operator to name the specific failing
+#                           tests and explain why skipping is safe for THIS commit.
 #   pushToMainApproved    — pre-push guard for feature-branch pushes targeting
 #                           refs/heads/main in devshop mode (Sonnet); judges whether
 #                           the push came through the /ak-merge-devshop ceremony.
@@ -87,7 +93,7 @@
 # Per-check-type model routing (Haiku 4.5 for deterministic rule-application,
 # Sonnet 4.6 for judgment-heavy or high-blast-radius checks):
 #   Haiku:  dirtyTreeReason, dirtyPushReason, manifestReviewed
-#   Sonnet: prTextHygieneReason, testReviewSkipReason, localTestSkipReason, coreUserStoryNaReason, dismissalLog, hookBypass, exemptAddition, advisorBypassReason, blockedGateOverride, pushToMainApproved
+#   Sonnet: prTextHygieneReason, testReviewSkipReason, localTestSkipReason, coreUserStoryNaReason, dismissalLog, hookBypass, exemptAddition, advisorBypassReason, blockedGateOverride, pushToMainApproved, batsSkipReason
 # Rationale: PR descriptions are the canonical reviewer-facing record; hookBypass
 # can leak secrets via gitleaks bypass; testReviewSkipReason judges audit-time
 # halt overrides; dismissalLog weighs spec scope. Dirty-tree / manifest checks
@@ -594,13 +600,40 @@ ${SPEC_IN_SCOPE:-(not available)}
 === Prior advance-log entries on this feature (precedent surface) ===
 ${PRIOR_ADVANCE_LOG:-(no prior overrides on this feature)}"
     ;;
+  batsSkipReason)
+    # Called by .husky/pre-commit (main, full suite) and check-bats-devshop.sh
+    # (branch, affected-only) when bats tests fail and the operator has set
+    # `git config devshop.batsSkipReason "..."` to bypass the failure.
+    BRANCH=$(git branch --show-current 2>/dev/null || true)
+    HEAD_SHA=$(git rev-parse HEAD 2>/dev/null || echo "(unknown)")
+    STAGED=$(git diff --cached --stat 2>/dev/null || true)
+    # $1 carries the failing test lines (grep '^not ok') from the caller
+    BATS_FAILURES="${1:-}"
+    CONTEXT="The user is bypassing bats test failures at commit time.
+
+Bats tests are the devshop's structural integrity suite — they verify that
+hooks, scripts, and wiring invariants hold. Skipping them means shipping a
+commit that may break the enforcement chain for future commits.
+
+Branch: $BRANCH
+HEAD SHA: $HEAD_SHA
+
+Failing test lines:
+${BATS_FAILURES:-(not captured — caller did not pass failure lines)}
+
+Staged files:
+$STAGED
+
+The reviewer judges whether the bypass reason names the specific failing
+tests AND explains why skipping is safe for THIS commit."
+    ;;
   *)
     # Unknown / removed check-type. PR-C narrowed the supported set —
     # docsReviewed, testCoverage, testCoverageProject, docsFreshnessProject all
     # moved to audit-time `/ak-check-docs-and-tests`. A stale caller hits this
     # branch and surfaces immediately rather than silently no-op'ing.
     echo "FAIL: unknown check type: $CHECK_TYPE" >&2
-    echo "  Surviving check-types: prTextHygieneReason | dirtyTreeReason | dirtyPushReason | manifestReviewed | hookBypass | exemptAddition | testReviewSkipReason | localTestSkipReason | coreUserStoryNaReason | dismissalLog | advisorBypassReason | blockedGateOverride"
+    echo "  Surviving check-types: prTextHygieneReason | dirtyTreeReason | dirtyPushReason | manifestReviewed | hookBypass | exemptAddition | testReviewSkipReason | localTestSkipReason | coreUserStoryNaReason | dismissalLog | advisorBypassReason | blockedGateOverride | batsSkipReason"
     echo "  Coverage reviews (docsReviewed / testCoverage / testCoverageProject / docsFreshnessProject) moved to audit-time /ak-check-docs-and-tests in PR-C — see kit/ROADMAP.md."
     exit 1
     ;;
@@ -790,7 +823,7 @@ get_model_for_check_type() {
     return
   fi
   case "$1" in
-    prTextHygieneReason|testReviewSkipReason|localTestSkipReason|coreUserStoryNaReason|dismissalLog|hookBypass|exemptAddition|advisorBypassReason|blockedGateOverride|pushToMainApproved)
+    prTextHygieneReason|testReviewSkipReason|localTestSkipReason|coreUserStoryNaReason|dismissalLog|hookBypass|exemptAddition|advisorBypassReason|blockedGateOverride|pushToMainApproved|batsSkipReason)
       echo "sonnet"
       ;;
     dirtyTreeReason|dirtyPushReason|manifestReviewed)
@@ -962,6 +995,37 @@ Per-check-type rules:
     by check-not-force-push.sh). Manual recovery scenarios (the operator
     typing git -c in a raw terminal) are the only legitimate non-ceremony
     path — and even those should name the recovery context, not hand-wave.
+14. For batsSkipReason: the Reason justifies committing despite bats test
+    failures. Bats tests are the devshop's structural integrity suite —
+    hooks, scripts, wiring invariants. Skipping them risks breaking the
+    enforcement chain for future commits. PASS requires ALL of:
+    (a) **Name the failing tests**. The reason must name the specific
+        failing test(s) from the 'Failing test lines' block in context
+        (e.g. \"test 629 'wiring: every non-exempt kit script is wired'
+        fails because the new script isn't in infra_scripts yet\").
+        REJECT: \"some tests fail\", \"a few failures\", \"pre-existing
+        failures\" without naming which tests.
+    (b) **Explain why skipping is safe for THIS commit**. The reason must
+        explain why the specific failures don't undermine the commit's
+        correctness (e.g. \"the failing test checks template sync which
+        this commit doesn't touch — the failure is pre-existing from
+        commit abc123\"). REJECT: \"will fix later\", \"not related to my
+        changes\" without naming the test or the pre-existing cause,
+        \"low risk\", \"minor\".
+    (c) **No enforcement-chain breaks**. If the failing test is a wiring
+        invariant (e.g. \"every non-exempt kit script is wired\") or a
+        hook-correctness test (e.g. \"pre-commit blocks dirty tree\"),
+        skipping it means the enforcement chain itself is compromised.
+        The reason must acknowledge this and explain the recovery plan
+        (e.g. \"will wire the new script in the next commit\" with a
+        specific TODOS.md entry).
+    (d) **No blanket skips**. A reason that justifies skipping ALL bats
+        failures (\"the suite is flaky\", \"bats tests are slow\", \"will
+        fix the suite later\") is categorically NOT acceptable. Each
+        failure must be addressed individually.
+    Default: REJECT. Generic reasons FAIL. The bats suite is the
+    devshop's immune system — skipping it is a judgment call that
+    requires per-test specificity.
 
 Respond with EXACTLY one line:
 PASS - only if the reason is genuinely legitimate and specific
