@@ -156,7 +156,7 @@ Both helpers gate on `hashFiles('supabase/migrations/*.sql') != ''` so they're s
 When a project adds its first integration test or Playwright E2E spec, the slow-job picks it up automatically — no operator action required. Things that DO require an explicit edit:
 
 - **New env vars** — if a slow-job step needs a credential not currently in the slow-job's `env:` block (e.g., `ANTHROPIC_API_KEY_QA` re-exported as `ANTHROPIC_API_KEY` for an edge function that calls Claude), add it at step level. Never wire `ANTHROPIC_API_KEY_PROD` — CI runs against the local stack and must not burn prod billing. See `/ak-new-project § Security Posture` for the QA/PROD rationale.
-- **Test glob diverges from `apps/web/test:e2e`** — the template stub invokes `pnpm --filter apps/web test:e2e`. If a project's E2E entry point differs (different package, different script name), update the invocation.
+- **Test glob diverges from `apps/web/test:e2e`** — the template stub invokes `pnpm --filter ./apps/web test:e2e`. If a project's E2E entry point differs (different package, different script name), update the invocation.
 - **New helper script** — if the spec adds a new `scripts/ci-*.sh` helper, register it as a slow-job step. Match the existing pattern (`hashFiles()` guard if it's content-dependent; unguarded if it's pure CI plumbing).
 
 ### Structural enforcement (regression guard)

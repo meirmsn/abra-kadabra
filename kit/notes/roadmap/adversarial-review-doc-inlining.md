@@ -81,7 +81,7 @@ Plus the `GUIDES_TO_INCLUDE` map (added in `953e9a1`) selectively expands `kit/d
 | `/workspace/ARCHITECTURE.md` | head 150 lines (opt-in)     | 14.7 KB total — most               |
 | Per-package READMEs          | head 80 lines each (opt-in) | variable                           |
 
-Trigger fires only on specific code surfaces (new `page.tsx`, new `posthog.capture()`, etc. — see `check-docs-freshness-project.sh` for the full trigger map). Doesn't review on arbitrary devshop changes the way `docsReviewed` does for devshop.
+Trigger fires only on specific code surfaces (new `page.tsx`, new `posthog.capture()`, etc. — see `check-docs-coverage-project.sh` for the full trigger map). Doesn't review on arbitrary devshop changes the way `docsReviewed` does for devshop.
 
 ### Asymmetries identified
 
@@ -307,7 +307,7 @@ Deliverables on a single PR:
 
 2. Refactor `adversarial-review.sh` to have one `case "$GIT_ROOT" in /devshop) ... ;; /workspace) ... ;; esac` block inside the `docsReviewed` arm, replacing the current two separate `case "$CHECK_TYPE"` arms.
 
-3. Update `commit-guard.sh` (devshop) and `check-docs-freshness-project.sh` (project) to call the unified check-type.
+3. Update `commit-guard.sh` (devshop) and `check-docs-coverage-project.sh` (project) to call the unified check-type.
 
 4. Update `kit/docs/guide/hooks.md`'s § 2 bypass table to reflect the unified check-type names.
 
@@ -417,5 +417,5 @@ Cite the RFC: kit/notes/roadmap/adversarial-review-doc-inlining.md § Phase 1.
 - The script: `/devshop/kit/scripts/adversarial-review.sh`
 - The hook docs: `/devshop/kit/docs/guide/hooks.md` (§ 2 for the bypass table; § "Convention adherence (CONVENTIONS_TO_INCLUDE inlining)" / "Guide-body inlining (GUIDES_TO_INCLUDE)" for the parallel inlining-mechanism docs)
 - Tests: `/devshop/kit/tests/util-adversarial-review.bats` + `/devshop/kit/tests/util-adversarial-review-guides.bats`
-- Trigger: `/devshop/kit/scripts/commit-hooks/commit-guard.sh:139` (where `docsReviewed` is invoked) and `/devshop/kit/scripts/commit-hooks/check-docs-freshness-project.sh` (where `docsFreshnessProject` is invoked)
+- Trigger: `/devshop/kit/scripts/commit-hooks/commit-guard.sh:139` (where `docsReviewed` is invoked) and `/devshop/kit/scripts/commit-hooks/check-docs-coverage-project.sh` (where `docsFreshnessProject` is invoked)
 - Recent commits: `953e9a1` (rule 4(e) + GUIDES_TO_INCLUDE), `3694dc3` (timeout fix + project Tier 2/3 hierarchy + reviewer context extension)

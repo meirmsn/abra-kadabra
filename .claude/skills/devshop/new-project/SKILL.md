@@ -434,57 +434,12 @@ The file holds the operator's local source-of-truth values. Three non-obvious th
 - `SUPABASE_SERVICE_ROLE_KEY` is the **local-stack default JWT** — NOT the prod service-role key. Local edge function dev (`supabase functions serve`) needs a service-role JWT; the local stack ships one that's safe to persist (admin on a sandbox the operator's `supabase start` spins up). Get the value by running `supabase start` in any devcontainer and copying the `service_role key:` line from the output (or `supabase status -o env | grep SERVICE_ROLE_KEY`). The same JWT ships with every Supabase install — it's the published default. The **prod** service-role key (full DB admin via REST, no RLS) MUST NOT live on disk in this file — paste it temporarily from your password manager when an ad-hoc prod admin operation genuinely needs it, then clear. See § Security Posture for blast-radius detail.
 - `SUPABASE_DB_PASSWORD` does NOT live in `.devcontainer/.env`. It's the prod DB password (direct Postgres connection — bypasses RLS), consumed only by the `deploy-migrations.yml` workflow which reads it from the GH Secret. Local devcontainer use is rare (occasional `supabase db push` from a developer machine); when an operator genuinely needs it, paste it from a password manager into the shell for the single command, then clear. Persisting it on disk in `.devcontainer/.env` adds prod-DB blast radius for zero recurring benefit — the GH Secret is the source of truth.
 
+```bash
+cp .devcontainer/.env.example .devcontainer/.env
 ```
-# Devcontainer
-DEVCONTAINER_ROOT_PASSWORD=<pick-something>
 
-# GitHub
-GITHUB_TOKEN=<fine-grained-pat>
-
-# Vercel
-VERCEL_TOKEN=<personal-access-token>
-
-# Supabase
-SUPABASE_PROD_URL=https://<project-ref>.supabase.co
-SUPABASE_PROD_ANON_KEY=<publishable-key — prod>
-# NOT the prod admin key — this is the published local-stack default JWT.
-# Stable since supabase-cli 1.x, signed with a hardcoded secret; admin only
-# on the ephemeral local stack `supabase start` spins up. Same string ships
-# in every Supabase install, so it's safe to inline here.
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
-SUPABASE_ACCESS_TOKEN=<personal-access-token — account-wide>
-# SUPABASE_DB_PASSWORD intentionally NOT here — paste from PW manager for ad-hoc
-# `supabase db push` from a developer machine. CI gets it from the GH Secret.
-
-# Anthropic (only if the project's edge functions call Claude at runtime).
-# Prefix is deliberate: Claude Code in the devcontainer auto-detects
-# `ANTHROPIC_API_KEY` as its own auth credential and prompts the operator
-# at every start. `QA_*` dodges that detection and is bridged back to
-# `ANTHROPIC_API_KEY` only inside the Supabase function runtime via
-# `supabase/functions/.env`. NEVER put the prod key here — see § Security
-# Posture for the QA/PROD split rationale.
-ANTHROPIC_API_KEY_QA=<api-key — same value used in the ANTHROPIC_API_KEY_QA GH Secret>
-
-# Sentry
-SENTRY_DSN=https://<key>@o<org-id>.ingest.sentry.io/<project-id>
-SENTRY_AUTH_TOKEN=<auth-token>
-
-# PostHog
-NEXT_PUBLIC_POSTHOG_KEY=<project-api-key>
-
-# Devcontainer firewall — volatile-IP refresh (fill in Step 13 once your
-# Vercel domain is known; until then leave empty and the refresh script no-ops).
-# Bare hostname ONLY — no scheme, no path, no port. Same name as the GitHub
-# Variable PRODUCTION_URL set in Step 13 but format differs (the GH Variable
-# holds the full URL form `https://<host>`; this is just `<host>`). See Step 6
-# for what this enables (post-deploy refresh-allowed-ips.sh).
-PRODUCTION_URL=
-
-# Claude Code notifications (optional)
-# Same topic across all your projects — generate once per user, reuse everywhere.
-# See kit/docs/guide/notifications.md
-NTFY_URL=https://ntfy.sh/<your-topic>
-```
+Then fill in each value. The `.env.example` file documents every key with inline
+comments. The credential sources are listed below (§ Where to find each).
 
 Where to find each:
 
@@ -575,6 +530,10 @@ secret-leak alerts):
   Project ref is sed-derived inline — no separate `SUPABASE_PROJECT_REF` Variable.
 - `NEXT_PUBLIC_POSTHOG_KEY` = PostHog project API key (public via `NEXT_PUBLIC_*`
   convention — baked into the front-end bundle).
+- `SUPABASE_PROD_ANON_KEY` = prod Supabase anon key (Supabase dashboard → Settings →
+  API → `anon` `public` key). Used by `keepalive.yml` to ping the prod REST API
+  and confirm the project is active. Public (baked into the front-end bundle via
+  Vercel as `NEXT_PUBLIC_SUPABASE_ANON_KEY`); the `_PROD_` infix is naming hygiene.
 - `PRODUCTION_URL` (added later in Step 13 after the Vercel domain is known) = Vercel
   prod URL, used by `keepalive.yml`.
 

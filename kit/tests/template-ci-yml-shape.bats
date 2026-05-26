@@ -360,6 +360,58 @@ job_body() {
 # branch, 2026-05-19.
 # =============================================================================
 
+# =============================================================================
+# Dynamic API port — health-check reads from config.toml, not hardcoded 54321
+# =============================================================================
+
+@test "health-check: API_PORT extracted from supabase/config.toml (no hardcoded 54321 in probe URL)" {
+  # The Start local Supabase step must derive the API port from config.toml
+  # so projects with port offsets (e.g. home-os +100 → 54421) don't break.
+  local body
+  body=$(job_body slow)
+  echo "$body" | grep -qE 'API_PORT=\$\(grep.*config\.toml'
+  echo "$body" | grep -qE '\$\{API_PORT\}'
+}
+
+@test "health-check: hardcoded 54321 must NOT appear in the probe URL (regression guard)" {
+  # The probe URL must use $API_PORT, not the literal 54321. Prose comments
+  # mentioning 54321 are fine; a curl URL with the literal is the regression.
+  local body
+  body=$(job_body slow)
+  # Negative match: no `curl ... 127.0.0.1:54321/functions` pattern
+  ! echo "$body" | grep -qE 'curl.*127\.0\.0\.1:54321/functions'
+}
+
+# =============================================================================
+# Directory-based --filter — ./apps/web (turbo-compatible)
+# =============================================================================
+
+@test "filter paths: all --filter args use ./apps/web (directory-based, turbo-compatible)" {
+  # turbo --filter=apps/web fails: turbo interprets bare paths as package
+  # names. ./apps/web uses directory-based filtering (works for both pnpm
+  # and turbo). Regression: from-devshop.sh sync overwrites project's
+  # @scope/web filter with the template's bare apps/web.
+  run grep -c '\-\-filter[= ]apps/web' "$CI_YML"
+  assert_failure  # zero matches of bare apps/web
+
+  run grep -c '\-\-filter[= ]\./apps/web' "$CI_YML"
+  assert_success
+  [ "$output" -ge 3 ]  # Playwright install + build + E2E
+}
+
+@test "filter paths: bare --filter=apps/web must NOT appear (regression guard)" {
+  # Forbid the bare form that breaks turbo. The ./apps/web form is the
+  # canonical shape. Match filter followed by apps/web NOT preceded by ./
+  run grep -E '\-\-filter[= ]apps/web[^/]' "$CI_YML"
+  assert_failure
+}
+
+# =============================================================================
+# Node version pin — Node 22 required (pnpm 11.x imports node:sqlite, a
+# Node-22-only builtin). Source: home-os C1 finding, template-ci-overhaul
+# branch, 2026-05-19.
+# =============================================================================
+
 @test "node-version pin: fast + slow jobs use Node 22" {
   # Match the active YAML directive `node-version: '22'` (no leading `#`).
   # Both fast + slow set this, so at least one match must appear.

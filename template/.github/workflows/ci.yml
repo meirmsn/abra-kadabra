@@ -196,7 +196,7 @@ jobs:
         # need Playwright browsers (saves ~3 min); the step short-circuits
         # until the first apps/web/e2e/*.spec.ts lands.
         if: hashFiles('apps/web/e2e/**/*.spec.ts') != ''
-        run: pnpm --filter apps/web exec playwright install --with-deps chromium webkit
+        run: pnpm --filter ./apps/web exec playwright install --with-deps chromium webkit
 
       - uses: supabase/setup-cli@v1
         with:
@@ -210,15 +210,13 @@ jobs:
         # that proves CI plumbing is wired.
         run: |
           set -e
+          API_PORT=$(grep -A5 '^\[api\]' supabase/config.toml | grep '^port' | head -1 | awk '{print $3}' 2>/dev/null || echo "")
+          [ -z "$API_PORT" ] && API_PORT=54321
           start_supabase() {
             supabase start --ignore-health-check
-            # Probe functions endpoint at the configured API port (read from
-            # supabase/config.toml — projects that rebound ports need to update
-            # the URL below to match). 401/404 = service is up; 502 = edge-runtime
-            # cold-start flake; we retry once on that.
             for i in $(seq 1 10); do
               code=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 \
-                "http://127.0.0.1:54321/functions/v1/" 2>/dev/null || echo "000")
+                "http://127.0.0.1:${API_PORT}/functions/v1/" 2>/dev/null || echo "000")
               if [ "$code" = "401" ] || [ "$code" = "404" ]; then
                 echo "Edge runtime healthy (HTTP $code)"
                 return 0
@@ -284,7 +282,7 @@ jobs:
           # defaults).
           NEXT_PUBLIC_SUPABASE_URL: ${{ env.API_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ env.ANON_KEY }}
-        run: pnpm turbo run build --filter=apps/web
+        run: pnpm turbo run build --filter=./apps/web
 
       - name: Start next + run Playwright E2E
         if: hashFiles('apps/web/e2e/**/*.spec.ts') != ''
@@ -318,7 +316,7 @@ jobs:
             cat /tmp/next.log
             exit 1
           fi
-          pnpm --filter apps/web test:e2e
+          pnpm --filter ./apps/web test:e2e
 
       - name: Upload Playwright traces on failure
         if: failure() && hashFiles('apps/web/e2e/**/*.spec.ts') != ''

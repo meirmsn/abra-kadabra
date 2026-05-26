@@ -64,6 +64,25 @@ for excl in "${MANIFEST_EXCLUDES[@]:-}"; do
   [ -n "$excl" ] && EXCLUDES+=("$excl")
 done
 
+# --- package.json merge: preserve project identity fields across sync ---
+# The template's package.json carries canonical scripts/devDependencies/pnpm/
+# lint-staged fields. The project's name/version/packageManager must survive.
+merge_package_json() {
+  local template="$1" project="$2" output="$3"
+  if [ ! -f "$project" ] || ! echo '{}' | jq '.' &>/dev/null; then
+    cp "$template" "$output"
+    return
+  fi
+  jq -s '
+    .[0] as $tmpl | .[1] as $proj |
+    $tmpl + {
+      name: $proj.name,
+      version: ($proj.version // $tmpl.version),
+      packageManager: ($proj.packageManager // $tmpl.packageManager)
+    }
+  ' "$template" "$project" > "$output"
+}
+
 # --- Build rsync exclude args for a directory (three-source model) ---
 build_rsync_excludes() {
   local path="$1"
@@ -94,7 +113,12 @@ for path in "${PATHS[@]}"; do
     build_rsync_excludes "$path"
     preview_confirm_stage_dir "$src" "$PROJECT_ROOT/$path" "$path" "${RSYNC_EXCLUDES[@]}"
   elif [ -f "$src" ]; then
-    preview_confirm_stage_file "$src" "proposed/$path"
+    if [ "$path" = "package.json" ] && [ -f "$PROJECT_ROOT/$path" ]; then
+      merge_package_json "$src" "$PROJECT_ROOT/$path" "$_PC_STAGING_DIR/merged-pkg.json"
+      preview_confirm_stage_file "$_PC_STAGING_DIR/merged-pkg.json" "proposed/$path"
+    else
+      preview_confirm_stage_file "$src" "proposed/$path"
+    fi
     if [ -f "$PROJECT_ROOT/$path" ]; then
       preview_confirm_stage_file "$PROJECT_ROOT/$path" "current/$path"
     fi
@@ -127,7 +151,12 @@ for path in "${PATHS[@]}"; do
     rsync -ac --delete "${RSYNC_EXCLUDES[@]}" "$src/" "$dst/"
   elif [ -f "$src" ]; then
     mkdir -p "$(dirname "$dst")"
-    cp "$src" "$dst"
+    if [ "$path" = "package.json" ] && [ -f "$dst" ]; then
+      merge_package_json "$src" "$dst" "$dst.tmp"
+      mv "$dst.tmp" "$dst"
+    else
+      cp "$src" "$dst"
+    fi
   fi
 done
 
