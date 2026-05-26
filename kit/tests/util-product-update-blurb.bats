@@ -118,9 +118,9 @@ setup() {
   awk '/^### 4\.1:/,/^### 4\.2:/' "$AK_BUILD" | grep -qE 'renamed|Summary.*rename|rename.*Summary'
 }
 
-@test "Phase 4.1 stashes pre-composed sections at /tmp/ship-product-update.md + /tmp/ship-engineering-details.md" {
-  awk '/^### 4\.1:/,/^### 4\.2:/' "$AK_BUILD" | grep -q '/tmp/ship-product-update.md'
-  awk '/^### 4\.1:/,/^### 4\.2:/' "$AK_BUILD" | grep -q '/tmp/ship-engineering-details.md'
+@test "Phase 4.1 stashes full PR body at /tmp/ship-body.md with required section check" {
+  awk '/^### 4\.1:/,/^### 4\.2:/' "$AK_BUILD" | grep -q '/tmp/ship-body.md'
+  awk '/^### 4\.1:/,/^### 4\.2:/' "$AK_BUILD" | grep -q 'BODY_MISSING'
 }
 
 @test "Phase 4.1 mandates Product update placed first after H1, before Engineering details" {

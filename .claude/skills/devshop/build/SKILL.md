@@ -83,6 +83,35 @@ clean for orchestration and user communication.
                                 tasks.md for audit comment
 ```
 
+## Phase exit artifact registry
+
+**Every phase must produce its listed artifacts before advancing.** Mechanical
+checks at each boundary verify the artifacts exist; missing artifacts halt the
+pipeline with the same shape as the Phase 3 → 4 `blocked > 0` halt. The checks
+reference this table by row — it is the single source of truth.
+
+| Phase | Required artifact | Producer | Checked at | Check shape |
+|-------|-------------------|----------|------------|-------------|
+| 0 | `$FEATURE_DIR/spec.md` (skeleton with provenance + Decisions) | Phase 0.3 | Step 0 resume check | file exists |
+| 1 | `$FEATURE_DIR/spec.md` contains `## Task order` | Phase 1 (spec agent) | Step 0 resume check | `grep -q '## Task order'` |
+| 2 | `$FEATURE_DIR/tasks.md` with all tasks `done` | Phase 2 (implement agent) | Step 0 resume check | awk parse |
+| 3-preflight | `$FEATURE_DIR/gates/preflight.md` with scope vars + tooling status | Phase 3.0 | before 3.1 gate loop | file exists + result not `blocked` |
+| 3-gates | `$FEATURE_DIR/gates/<name>.md` for every scope-expected gate | Phase 3.1 + 3.2 | § 3.3.1 roster check | expected-set minus found-set is empty |
+| 3-hero | `$FEATURE_DIR/hero/*.png` OR `$FEATURE_DIR/hero/SKIP.md` | Phase 3.1b | § 3.3.1 roster check | one of the two exists |
+| 3 | `$FEATURE_DIR/review.md` with `blocked==0`, `findings_pending==0`, no forbidden n/a | Phase 3.3 | § Phase 3 → 4 handoff | awk + grep (existing) |
+| 4.1 | `/tmp/ship-body.md` (full PR body with all required sections) | Phase 4.1 | § 4.1 exit check | grep for required `##`/`###` headings |
+| 5.3.5 | `$FEATURE_DIR/body-consistency.log` | Phase 5.3.5 | § 5.10 exit checklist | file exists |
+| 5.8 | `$FEATURE_DIR/review.md` latest `## Audit N` stamp at HEAD (or empty-range / skip logged) | Phase 5.8 | § 5.10 exit checklist | `tail -1` stamp == HEAD |
+| 5.9 | `$FEATURE_DIR/visual-refresh.log` | Phase 5.9 | § 5.10 exit checklist | file exists |
+| 6-A | `/tmp/phase6-partA.done` | Phase 6 Part A | § Phase 6 exit checklist | file exists |
+| 6-B | `/tmp/phase6-partB.done` | Phase 6 Part B | § Phase 6 exit checklist | file exists |
+| 6-C | `/tmp/phase6-partC.done` | Phase 6 Part C | § Phase 6 exit checklist | file exists |
+| 6-D | `/tmp/phase6-partD.done` | Phase 6 Part D | § Phase 6 exit checklist | file exists |
+
+Phase 6 markers use `/tmp/` (ephemeral — Parts re-run from scratch on
+resume). All other artifacts use `$FEATURE_DIR/` (durable — survive
+session crashes and inform Step 0's resume check).
+
 ## Step 0: Determine feature and resume state
 
 ### Mode detection
@@ -720,8 +749,8 @@ halts Phase 3 entirely without writing any per-gate sink.
   `pre-ship/SKILL.md § Gates`:
   - `1 docs-check` → `2 metrics-check` → `2b rls-coverage` → `2c slow-job-lifecycle`
     → `2d fast-job-local` → `2e migration-rollback-roundtrip` → `2f changed-tests-local`
-    → `3 responsive-theme` → `4 /simplify` → `8 /design-review` (UI PRs only) →
-    `9 /qa` → `11 convention`.
+    → `2g advisor-clean` → `3 responsive-theme` → `4 /simplify` →
+    `8 /design-review` (UI PRs only) → `9 /qa` → `11 convention`.
   - Hero-screenshot capture runs as an orchestrator-side step after the
     Stabilize-HEAD pass completes — see § 3.1b below. It is NOT dispatched as
     a per-gate sub-agent and has no `gates/<name>.md` sink (hero shots commit
@@ -787,11 +816,84 @@ nothing changed). On failure, the orchestrator invokes `pre-ship/SKILL.md §
 Stuck protocol` at the orchestrator boundary, NOT inside the next gate
 sub-agent. Keeps the per-gate context bounded to its own scope.
 
+### 3.0: Preflight (explicit orchestrator step — runs BEFORE any gate dispatch)
+
+Run `pre-ship/SKILL.md § Phase 0: Preflight` inline in the orchestrator.
+Write the outcome to `$FEATURE_DIR/gates/preflight.md` so the roster
+completeness check (§ 3.3.1) can verify preflight ran, and downstream
+steps can read scope variables without re-running `git diff`.
+
+```bash
+mkdir -p "$FEATURE_DIR/gates"
+
+git diff --name-only origin/main...HEAD > /tmp/preship-changed.txt
+TOUCHES_UI=$(grep -E '^(apps/|packages/ui/|components/)' /tmp/preship-changed.txt | head -1)
+TOUCHES_MIGRATIONS=$(grep -E '^supabase/migrations/' /tmp/preship-changed.txt | head -1)
+TOUCHES_FUNCTIONS=$(grep -E '^supabase/functions/' /tmp/preship-changed.txt | head -1)
+TOUCHES_KIT=$(grep -E '^kit/' /tmp/preship-changed.txt | head -1)
+TOUCHES_CODE=$(grep -E '^(apps/|packages/(core|ui)/|.*\.(integration\.)?test\.(ts|tsx)$|apps/.*/e2e/.*\.spec\.(ts|tsx)$|supabase/(migrations|functions)/)' /tmp/preship-changed.txt | head -1)
+TOUCHES_USER_CODE=$(grep -E '^(apps/|packages/)' /tmp/preship-changed.txt | head -1)
+HAS_TURBO=$([ -f turbo.json ] && echo "yes" || echo "")
+
+# Chromium check (blocking only when TOUCHES_UI is non-empty).
+CHROMIUM_AVAILABLE=""
+if [ -n "$TOUCHES_UI" ]; then
+  CHROMIUM=$(ls /home/node/.cache/ms-playwright/chromium-*/chrome-linux/chrome 2>/dev/null | head -1)
+  CHROMIUM=${CHROMIUM:-$(which chromium 2>/dev/null)}
+  CHROMIUM=${CHROMIUM:-$(which chrome 2>/dev/null)}
+  if "$CHROMIUM" --version >/dev/null 2>&1; then
+    CHROMIUM_AVAILABLE="yes"
+  fi
+fi
+
+# Supabase check (blocking for Gate 9 /qa).
+SUPABASE_STATUS=$(bash /devshop/kit/scripts/preship/supabase-bootstrap.sh up 2>&1 | tail -1)
+
+# Determine overall preflight result.
+PREFLIGHT_RESULT="pass"
+BLOCK_REASON=""
+if [ -n "$TOUCHES_UI" ] && [ -z "$CHROMIUM_AVAILABLE" ]; then
+  PREFLIGHT_RESULT="blocked"
+  BLOCK_REASON="Chromium not available (UI PR requires browser for Gates 3, 8, 9, 10)"
+elif echo "$SUPABASE_STATUS" | grep -q "^blocked:"; then
+  PREFLIGHT_RESULT="blocked"
+  BLOCK_REASON="$SUPABASE_STATUS"
+fi
+
+cat > "$FEATURE_DIR/gates/preflight.md" <<EOF
+## Preflight
+
+- TOUCHES_UI=$TOUCHES_UI
+- TOUCHES_MIGRATIONS=$TOUCHES_MIGRATIONS
+- TOUCHES_FUNCTIONS=$TOUCHES_FUNCTIONS
+- TOUCHES_KIT=$TOUCHES_KIT
+- TOUCHES_CODE=$TOUCHES_CODE
+- TOUCHES_USER_CODE=$TOUCHES_USER_CODE
+- HAS_TURBO=$HAS_TURBO
+- Chromium: ${CHROMIUM_AVAILABLE:-not available}
+- Supabase: $SUPABASE_STATUS
+- Result: $PREFLIGHT_RESULT ${BLOCK_REASON:+(reason: $BLOCK_REASON)}
+EOF
+
+if [ "$PREFLIGHT_RESULT" = "blocked" ]; then
+  echo "✖ Phase 3 preflight blocked: $BLOCK_REASON"
+  echo "  Phase 3 will NOT proceed. Fix the tooling gap and re-invoke"
+  echo "  /ak-build (Step 0's resume check re-enters Phase 3)."
+  # Route to the Phase 3 → 4 Rung 2 halt (AskUserQuestion with
+  # resolve / override / abort options).
+  exit 1
+fi
+```
+
+On `pass`, the scope variables are available in the preflight sink for
+§ 3.3.1's roster derivation (read them back via `grep`). On `blocked`,
+the halt fires before any gate dispatch — per the existing prose at
+lines 710-714, now enforced as a file-based gate per § Phase exit
+artifact registry.
+
 ### 3.1: Stabilize-HEAD pass (sequential)
 
 ```
-mkdir -p "$FEATURE_DIR/gates"
-
 for each gate in stabilize-head-order:
   Agent {
     description: "Gate <#>: <name>",
@@ -848,8 +950,50 @@ After the Stabilize-HEAD pass returns clean, capture hero screenshots per
 `pre-ship/SKILL.md § Capture hero screenshots`. This is NOT a gate — no
 per-file sink under `gates/`, no Agent dispatch. The orchestrator runs the
 capture inline (via the browse skill), commits the resulting PNGs under
-`specs/<feature>/hero/`, and proceeds to § 3.2. Skip when the PR is non-UI
-(per scope detection in Phase 0 preflight).
+`specs/<feature>/hero/`, and proceeds to § 3.2.
+
+**Artifact contract** (enforced by § 3.3.1 roster completeness check —
+see § Phase exit artifact registry row `3-hero`): one of two outcomes
+MUST be produced. No third option (silently doing nothing) is valid.
+
+```bash
+mkdir -p "$FEATURE_DIR/hero"
+
+# Read scope from preflight sink (§ 3.0 wrote it).
+TOUCHES_UI=$(grep 'TOUCHES_UI=' "$FEATURE_DIR/gates/preflight.md" | sed 's/.*=//')
+
+if [ -n "$TOUCHES_UI" ]; then
+  # UI PR → capture heroes via browse skill. The browse skill writes
+  # PNGs under $FEATURE_DIR/hero/. After capture, verify at least one
+  # file was produced.
+  # <capture logic per pre-ship/SKILL.md § Capture hero screenshots>
+
+  if [ -z "$(ls "$FEATURE_DIR/hero/"*.png 2>/dev/null)" ]; then
+    echo "✖ 3.1b: hero capture ran for UI PR but produced no PNGs."
+    echo "  Browse skill may have failed silently. Check Chromium"
+    echo "  availability (§ 3.0 preflight) and retry."
+    exit 1
+  fi
+  git add "$FEATURE_DIR/hero/"
+  git commit -m "chore($FEATURE): hero screenshots (Phase 3.1b)"
+else
+  # Non-UI PR → write skip marker with reason.
+  cat > "$FEATURE_DIR/hero/SKIP.md" <<EOF
+# Hero capture skipped
+
+- Reason: non-UI PR (TOUCHES_UI empty — diff does not touch apps/, packages/ui/, or components/)
+- Date: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+- SHA: $(git rev-parse HEAD)
+EOF
+  git add "$FEATURE_DIR/hero/SKIP.md"
+  git commit -m "chore($FEATURE): skip hero capture (non-UI)"
+fi
+```
+
+The roster completeness check at § 3.3.1 verifies that
+`$FEATURE_DIR/hero/` contains either `*.png` files or `SKIP.md`. If
+neither exists, the check halts — preventing the silent-skip failure
+mode where hero capture was never attempted.
 
 ### 3.1c: Focused-fix sub-agent (for mechanical/obvious findings)
 
@@ -971,6 +1115,79 @@ fix recipe verbatim in the return.
 `/ak-pre-ship` does NOT ship or create a PR. The per-gate sub-agents handle
 fixes for iterative-fix gates within their own context; the orchestrator
 handles routing for halt-on-find findings.
+
+### 3.3.1: Gate roster completeness check
+
+Before computing the aggregate counts for the Phase 3 → 4 handoff, verify
+that every expected gate produced a sink file. A missing sink means the
+gate was never dispatched — the orchestrator silently skipped it, which is
+the exact failure mode the per-gate decomposition exists to prevent.
+
+See § Phase exit artifact registry rows `3-gates` and `3-hero`.
+
+**Step 1 — Derive the expected roster from preflight scope variables.**
+
+Read scope variables back from the preflight sink (§ 3.0 wrote them):
+
+```bash
+TOUCHES_UI=$(grep 'TOUCHES_UI=' "$FEATURE_DIR/gates/preflight.md" | sed 's/.*=//')
+TOUCHES_MIGRATIONS=$(grep 'TOUCHES_MIGRATIONS=' "$FEATURE_DIR/gates/preflight.md" | sed 's/.*=//')
+TOUCHES_FUNCTIONS=$(grep 'TOUCHES_FUNCTIONS=' "$FEATURE_DIR/gates/preflight.md" | sed 's/.*=//')
+TOUCHES_KIT=$(grep 'TOUCHES_KIT=' "$FEATURE_DIR/gates/preflight.md" | sed 's/.*=//')
+TOUCHES_CODE=$(grep 'TOUCHES_CODE=' "$FEATURE_DIR/gates/preflight.md" | sed 's/.*=//')
+TOUCHES_USER_CODE=$(grep 'TOUCHES_USER_CODE=' "$FEATURE_DIR/gates/preflight.md" | sed 's/.*=//')
+HAS_TURBO=$(grep 'HAS_TURBO=' "$FEATURE_DIR/gates/preflight.md" | sed 's/.*=//')
+
+# Build expected gate list from pre-ship/SKILL.md § Gates scope predicates.
+EXPECTED_GATES=""
+
+# Always-run:
+EXPECTED_GATES+=" simplify docs-and-tests-review review cso qa convention"
+EXPECTED_GATES+=" slow-job-lifecycle design-conformance"
+
+# Conditional:
+[ -n "$TOUCHES_UI" ] && EXPECTED_GATES+=" responsive-theme design-review benchmark"
+[ -n "$HAS_TURBO" ] && EXPECTED_GATES+=" fast-job-local preflight-final"
+[ -n "$TOUCHES_KIT" ] && EXPECTED_GATES+=" docs-check"
+[ -n "$TOUCHES_MIGRATIONS" ] && EXPECTED_GATES+=" rls-coverage migration-rollback-roundtrip"
+([ -n "$TOUCHES_MIGRATIONS" ] || [ -n "$TOUCHES_FUNCTIONS" ]) && EXPECTED_GATES+=" advisor-clean"
+[ -n "$TOUCHES_CODE" ] && EXPECTED_GATES+=" changed-tests-local"
+[ -n "$TOUCHES_USER_CODE" ] && EXPECTED_GATES+=" metrics-check"
+```
+
+**Step 2 — Check each expected gate's sink exists.**
+
+```bash
+MISSING_GATES=""
+for gate in $EXPECTED_GATES; do
+  if [ ! -f "$FEATURE_DIR/gates/${gate}.md" ]; then
+    MISSING_GATES+="  $gate\n"
+  fi
+done
+
+# Hero capture check (§ Phase exit artifact registry row 3-hero):
+if [ -z "$(ls "$FEATURE_DIR/hero/"*.png 2>/dev/null)" ] \
+   && [ ! -f "$FEATURE_DIR/hero/SKIP.md" ]; then
+  MISSING_GATES+="  hero-capture (no PNGs and no SKIP.md)\n"
+fi
+```
+
+**Step 3 — Halt if any expected gate is missing.**
+
+If `$MISSING_GATES` is non-empty, halt — same shape as Rung 2 of the
+Phase 3 → 4 handoff:
+
+```bash
+if [ -n "$MISSING_GATES" ]; then
+  echo "✖ Phase 3 gate roster incomplete — expected gate(s) never dispatched:"
+  echo -e "$MISSING_GATES"
+  echo ""
+  echo "  A missing sink means the orchestrator skipped the gate dispatch."
+  echo "  Re-invoke /ak-build to re-enter Phase 3; the resume check picks"
+  echo "  up at Phase 3 and re-dispatches all gates."
+  exit 1
+fi
+```
 
 ### Phase 3 → Phase 4 handoff: refuse to advance on blocked, findings, or LLM-mediated n/a
 
@@ -1284,22 +1501,83 @@ Commit + PR Text Style` reliably available; `/ship` is upstream-owned
   routes / components / tests / CI / migration details that reviewers
   need but end-users don't read.
 
-Compose all three artifacts, then stash them at:
+Compose all artifacts, then assemble the **FULL** PR body as a single
+file (see § Phase exit artifact registry row `4.1`):
 
 - `/tmp/ship-title.txt` (one line)
-- `/tmp/ship-product-update.md` (the `## Product update` section verbatim
-  from spec.md, including the H2 heading and both sub-section headings)
-- `/tmp/ship-engineering-details.md` (the renamed `## Summary` →
-  `## Engineering details` body, including the `## Engineering details`
-  H2 heading)
+- `/tmp/ship-body.md` (the complete PR body — all sections below)
 
-The next step (§4.2) hands `/ship` the title + an explicit ordering
-directive: write `## Product update` first (from
-`/tmp/ship-product-update.md`), then `## Engineering details` (from
-`/tmp/ship-engineering-details.md`), then the remaining body sections
-(`## Test plan`, `## Evidence`, etc.) per `/ship`'s template. Phase 4.3
-verifies the ordering and rewrites the body if `/ship` composed its
-own.
+The body template, assembled in this order:
+
+```markdown
+## Product update
+
+<verbatim from $FEATURE_DIR/spec.md § Product update — both sub-sections>
+
+## Engineering details
+
+<composed per the rules above>
+
+## Test plan
+
+### Pre-push automated gates
+- [x] `pnpm turbo run lint typecheck test:unit build` — green
+- [x] Playwright spec parse via `playwright test --list` (if applicable)
+
+### CI jobs
+- [ ] Fast-job CI green
+- [ ] Slow-job CI green (or ~~struck through~~ with "not enabled" if repo lacks slow job)
+- [ ] Vercel / Netlify / Fly preview deployed
+
+### Gates summary
+<One row per gate from $FEATURE_DIR/review.md. Read each gate's
+ `## Gate <#>: <name>` heading + Result line from the shards under
+ $FEATURE_DIR/gates/. Format as a markdown table:
+ | Gate | Result |
+ Each gate in the canonical order from § 3.3.>
+
+### Manual review
+- [ ] Spec / intent match — does the PR do what was specified?
+- [ ] Visual / design audit — hierarchy, spacing, dark-mode parity
+- [ ] Live QA walkthrough — does the user flow work end-to-end?
+- [ ] Post-deploy metrics — p95 latency, error rate, event volume
+<Add out-of-band deploy items per § Out-of-band deploy items if diff
+ touches supabase/functions/, supabase/migrations/, terraform/, k8s/.>
+
+### Hero shots
+<If $FEATURE_DIR/hero/*.png exists: one image embed per file using
+ https://github.com/<owner>/<repo>/raw/<branch>/<rel-path> URL form.
+ If $FEATURE_DIR/hero/SKIP.md exists: "Hero shots skipped — non-UI PR."
+ If neither: "⚠ No hero shots — capture was not attempted.">
+
+### Evidence
+<Placeholder — Phase 6 splices the audit trail link here.>
+```
+
+**Mechanical check** — verify the body before proceeding to § 4.2 (see
+§ Phase exit artifact registry row `4.1`):
+
+```bash
+BODY_MISSING=""
+for section in "## Product update" "## Engineering details" "## Test plan" \
+               "### Pre-push automated gates" "### CI jobs" "### Gates summary" \
+               "### Manual review" "### Hero shots"; do
+  if ! grep -qF "$section" /tmp/ship-body.md; then
+    BODY_MISSING+="  $section\n"
+  fi
+done
+if [ -n "$BODY_MISSING" ]; then
+  echo "✖ Phase 4.1: /tmp/ship-body.md missing required sections:"
+  echo -e "$BODY_MISSING"
+  exit 1
+fi
+```
+
+The next step (§4.2) hands `/ship` the title via `/tmp/ship-title.txt`
+and the **entire body** via `--body-file /tmp/ship-body.md`. `/ship`
+does NOT compose its own body sections — it receives the complete
+artifact and uses it verbatim. Phase 4.3's verify step confirms the PR
+body on GitHub matches the file.
 
 **Why Product update goes first, not Summary**: a reviewer landing on a
 PR cold reads top-down; the product story is what they're orienting on
@@ -1317,37 +1595,26 @@ Launch **Agent** with prompt:
 > /ship will run tests, code review, bump VERSION, push, create PR,
 > and auto-invoke /document-release.
 >
-> Use the pre-composed title + body sections from /ak-build — do NOT
-> re-compose. The title is at /tmp/ship-title.txt (one line). The PR
-> body must lead with two sections in this exact order:
+> Use the pre-composed title and FULL body from /ak-build — do NOT
+> compose your own body sections. The title is at /tmp/ship-title.txt
+> (one line). The ENTIRE PR body is at /tmp/ship-body.md — use it
+> verbatim via `--body-file /tmp/ship-body.md` when creating the PR.
 >
->   1. /tmp/ship-product-update.md (the `## Product update` H2 +
->      both sub-section headings + bodies, verbatim) — placed as
->      the first content after the H1 title.
->   2. /tmp/ship-engineering-details.md (the `## Engineering details`
->      H2 + body, verbatim).
->
-> /ship still fills in `## Test plan`, `## Evidence`, and the other
-> body sections per its template — those follow the two pre-composed
-> sections. If /ship composes its own title or omits/reorders the
-> Product update + Engineering details sections, overwrite via:
+> If /ship's PR creation uses a different body, overwrite immediately:
 >
 >   gh pr edit "$PR" --title "$(cat /tmp/ship-title.txt)"
->   gh pr view "$PR" --json body --jq .body > /tmp/pr-body.md
->   # splice the two pre-composed sections at the top of the body
->   # (after the H1) and replace any old `## Summary` content
->   gh pr edit "$PR" --body-file /tmp/pr-body.md
->
-> before returning.
+>   gh pr edit "$PR" --body-file /tmp/ship-body.md
 >
 > Return: PR number and URL.
 
-This shape moves composition into the devshop-owned skill so the
-convention fires reliably regardless of `gstack/ship/SKILL.md` state;
-`/ship` becomes a pure executor (push + bump + PR creation) for this
-step. Codified after a `gstack` sync clobbered local edits to
-`gstack/ship/SKILL.md` (2026-05-13) and exposed the wrong-side-of-the-
-boundary placement.
+This shape moves ALL composition into the devshop-owned skill; `/ship`
+becomes a pure executor (push + bump + PR creation). The full body is
+pre-composed at § 4.1 with structured checkboxes, gates summary, hero
+shots, and manual-review items — `/ship` has no latitude to produce a
+different shape. Codified after a `gstack` sync clobbered local edits
+to `gstack/ship/SKILL.md` (2026-05-13), and after close-flow PR #34
+(2026-05-26) where delegating body composition to `/ship` produced a
+flat Test plan without the structured checkbox categories.
 
 ### 4.3: Verify
 
@@ -1645,6 +1912,20 @@ captures via `b52d22f`), and a bundled CI workflow fix
 signals above. The body went stale across all three; the user caught it
 at audit-comment time and asked "isn't the PR description stale?" —
 which is exactly the question this check exists to answer pre-emptively.
+
+**Exit artifact** (§ Phase exit artifact registry row `5.3.5`): as the
+final action of 5.3.5, write the outcome to `$FEATURE_DIR/body-consistency.log`
+so § 5.10's exit checklist can verify 5.3.5 ran:
+
+```bash
+if [ -n "$DRIFT_SIGNALS" ]; then
+  echo "drift-signals-found: edited PR body at $(git rev-parse HEAD)" \
+    > "$FEATURE_DIR/body-consistency.log"
+else
+  echo "clean: no drift signals at $(git rev-parse HEAD)" \
+    > "$FEATURE_DIR/body-consistency.log"
+fi
+```
 
 ### 5.4: On CI failure → fix loop (fresh-agent-per-attempt)
 
@@ -2290,6 +2571,63 @@ push triggers a fresh CI run. 5.8's polish-loop CI sanity check (§5.8.1)
 catches any failure on the next /ak-build invocation; do not advance to
 Phase 6 until that run is green.
 
+**Exit artifact** (§ Phase exit artifact registry row `5.9`): as the
+final action of 5.9 (after the subagent returns or after the idempotence
+skip at § 5.9.4), write the outcome:
+
+```bash
+if [ -n "$SKIP_5_9" ]; then
+  echo "skipped: idempotence — visual evidence already at HEAD" \
+    > "$FEATURE_DIR/visual-refresh.log"
+else
+  echo "$SUBAGENT_RESULT at $(git rev-parse HEAD)" \
+    > "$FEATURE_DIR/visual-refresh.log"
+fi
+```
+
+### 5.10: Phase 5 exit checklist
+
+Before advancing to Phase 6, verify that every Phase 5 sub-step produced
+its required artifact. See § Phase exit artifact registry for the
+canonical list. A missing artifact means the sub-step was silently
+skipped — halt and surface, same shape as § Phase 3 → 4 handoff.
+
+```bash
+EXIT_MISSING=""
+
+# 1. Body-consistency log (5.3.5)
+if [ ! -f "$FEATURE_DIR/body-consistency.log" ]; then
+  EXIT_MISSING+="  body-consistency.log (Phase 5.3.5 never ran)\n"
+fi
+
+# 2. Post-pre-ship audit (5.8): review.md Audit N at HEAD or skip logged
+if [ -z "$SKIP_5_8" ]; then
+  LATEST_AUDIT_SHA=$(grep -oP '(?<=<!-- audited-at: )[a-f0-9]+' \
+    "$FEATURE_DIR/review.md" 2>/dev/null | tail -1)
+  HEAD_SHA=$(git rev-parse HEAD)
+  if [ "$LATEST_AUDIT_SHA" != "$HEAD_SHA" ]; then
+    EXIT_MISSING+="  review.md Audit N stamp not at HEAD (5.8 did not audit; latest=$LATEST_AUDIT_SHA, HEAD=$HEAD_SHA)\n"
+  fi
+fi
+
+# 3. Visual refresh log (5.9)
+if [ ! -f "$FEATURE_DIR/visual-refresh.log" ]; then
+  EXIT_MISSING+="  visual-refresh.log (Phase 5.9 never ran)\n"
+fi
+
+if [ -n "$EXIT_MISSING" ]; then
+  echo "✖ Phase 5 exit checklist: required artifact(s) missing."
+  echo -e "$EXIT_MISSING"
+  echo ""
+  echo "  Phase 6 will NOT run. Re-invoke /ak-build to re-enter Phase 5;"
+  echo "  the resume check picks up at the PR's current state and"
+  echo "  re-runs the missing sub-steps."
+  exit 1
+fi
+
+echo "✓ Phase 5 exit checklist: all artifacts present."
+```
+
 ## Phase 6: Post audit trail comment
 
 After CI is green, read `$FEATURE_DIR/review.md` and `$FEATURE_DIR/tasks.md` for the
@@ -2410,6 +2748,8 @@ Before leaving Phase 6, re-read the PR body one more time and reconcile the `## 
 
 If any box is in the wrong state when Phase 6 runs, fix it with `gh pr edit "$PR" --body-file` before posting the audit comment.
 
+**Part A exit marker**: `echo "reconciled at $(git rev-parse HEAD)" > /tmp/phase6-partA.done`
+
 **Part B — Evidence-on-disk sweep** (does every `[x]` that maps to an artifact actually have that artifact?):
 
 A `[x]` claim is only credible when the artifact exists. Phase 6 verifies this for every checkbox that maps to a file or URL-resolvable resource:
@@ -2493,6 +2833,8 @@ Do NOT ship a PR with [x] claims that don't match reality. The reviewer trusts t
 
 This extension pairs with Gate 3's evidence-matrix enforcement (Fix B) and Gate 9's happy-path evidence requirement (Fix C) — both gates produce the artifacts; Phase 6 verifies the PR body tells the truth about them.
 
+**Part B exit marker**: `echo "swept at $(git rev-parse HEAD)" > /tmp/phase6-partB.done`
+
 **Part C — Manual-review classification sweep** (does each `[ ]` under "Manual review" actually need a human?):
 
 For every `[ ]` line under a `### Manual review` (or "Live QA" / "Reviewer-only") heading in the PR body, classify as `factual` (resolvable by file/symbol/value lookup) or `judgmental` (spec/design/UX/intent). See `## PR body conventions § What belongs in "Manual review"` for the canonical set the body should have followed.
@@ -2540,6 +2882,8 @@ done < /tmp/manual-review-items.txt
 **Why Phase 6 auto-attests rather than surfacing**: Phase 6's existing Parts A and B already do autonomous closure (state-based reconciliation marks CI/preview `[x]`; evidence sweep halts only on missing artifacts). The factual-checkbox case is symmetric to Part A — auto-attest when verifiable, halt only when something is genuinely wrong. Surfacing a factual item to the operator just to do the verification I could have done myself wastes their attention; surfacing only on real failure preserves it.
 
 Codified from lalista PR 27 (2026-04-27) — the PR shipped with 4 Manual-review items; 3 of 4 were factually verifiable by reading specific files. Phase 6 should have auto-attested those rather than leaving them as `[ ]` for the operator's eyes.
+
+**Part C exit marker**: `echo "classified at $(git rev-parse HEAD)" > /tmp/phase6-partC.done`
 
 **Part D — Product update verification (Gate A + Gate B):**
 
@@ -2658,6 +3002,39 @@ Why operator attention rather than auto-attest: Headline / Detail accuracy is a 
 Why ~30s of operator attention is the right cost: the operator is already attending to the PR at Phase 6 (reviewing the audit comment that's about to post). Surfacing both blurbs + diff summary + Gate B findings inline adds ~30s of attention vs ~5-10min of post-deploy rework if a stale blurb lands and gets caught later. The marginal cost is low; the alternative is the home-os PR #27 failure mode (blurb derived from scratch post-deploy when operator asked "what shipped product-wise?").
 
 If `$EVIDENCE_MISSING` is empty (Parts A-C clean) **and** Gate A confirmed → continue to the audit-comment post. If any halt fires, the audit comment does NOT post.
+
+**Part D exit marker**: `echo "verified at $(git rev-parse HEAD)" > /tmp/phase6-partD.done`
+
+### Phase 6 exit checklist
+
+Before posting the audit-trail comment (the `gh pr comment` call), verify
+that all four verification sweeps (Parts A-D) completed. Each Part wrote
+its marker file as its final action (see § Phase exit artifact registry
+rows `6-A` through `6-D`). Phase 6 markers use `/tmp/` — they're
+ephemeral because Parts re-run from scratch on resume; the PR body is
+re-fetched, evidence is re-checked. Stale `/tmp/` markers from a prior
+session are gone.
+
+```bash
+P6_MISSING=""
+for part in A B C D; do
+  if [ ! -f "/tmp/phase6-part${part}.done" ]; then
+    P6_MISSING+="  Part $part\n"
+  fi
+done
+
+if [ -n "$P6_MISSING" ]; then
+  echo "✖ Phase 6 exit checklist: verification sweep(s) did not complete."
+  echo -e "$P6_MISSING"
+  echo ""
+  echo "  The audit-trail comment will NOT post. Re-run the missing"
+  echo "  Part(s) before posting — the PR body may contain stale claims."
+  exit 1
+fi
+
+echo "✓ Phase 6 exit checklist: all Parts (A-D) verified."
+# NOW post the audit-trail comment (the gh pr comment call below).
+```
 
 ## Phase 7: Notify
 
