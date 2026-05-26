@@ -585,3 +585,40 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
   **Severity**: medium — same pattern will recur in every new auth-touching project until codified.
 
   [medium, convention + skill + template, surfaced-by home-os-pr-19-2026-05-15, 2026-05-15]
+
+- [ ] **Strip devshop process artifacts from PR descriptions and comments.** `/ak-build` Phase 4.1 pre-composes a `### Gates summary` table (19-row gate roster) into the PR body, and Phase 6 posts a "Pre-ship audit trail" comment (quality-gates table + override log + implementation decisions + findings-fixed narrative) plus a "Ready for review" comment. All three are devshop-internal process artifacts that leak into the public-facing PR. Home-os PR #34 required manual cleanup: PR body stripped of `### Gates summary`, `### Pre-push automated gates` (gate attestation references), `### Hero shots` (specs/ image URLs), `### Evidence` (specs/ cross-ref); three comments deleted (two "Pre-ship audit trail" + one "Ready for review").
+
+  **What to remove from PR body** (Phase 4.1):
+  - `### Gates summary` table — gate results already persist in `specs/<feature>/review.md` (repo-side audit trail); duplicating in the PR body is noise for external reviewers.
+  - `### Pre-push automated gates` — gate attestation cross-refs (`attested by /ship + Gate 10b preflight-final`) are devshop jargon.
+  - `### Evidence` section's `specs/` cross-ref (`Full gate audit at specs/close-flow/review.md`) — meaningless to non-devshop readers.
+  - Gate-specific language in `### CI jobs` checkboxes (e.g., `attested by /ship + Gate 10b preflight-final`).
+
+  **What to remove from PR comments** (Phase 6):
+  - "Pre-ship audit trail" comment (quality gates table + override-acknowledgements + CI fix loop + implementation decisions + findings-fixed narrative). The audit trail lives in `specs/<feature>/review.md`; posting it as a comment duplicates information and clutters the PR timeline.
+  - "Ready for review" comment — devshop-generated notification that adds no value beyond the PR itself being open.
+
+  **What to keep**:
+  - `## Product update` (headline + detail) — user/team-facing summary.
+  - `## Engineering details` — technical summary.
+  - `## Test plan` — CI status + manual review checklist (but without gate attestation language).
+  - `### Hero shots` — keep if image URLs work (see companion TODO `hero-upload-private-repos`); remove if broken.
+
+  **Edit targets**:
+  - `/devshop/.claude/skills/devshop/build/SKILL.md` § Phase 4.1 (PR body template) — remove `### Gates summary`, `### Pre-push automated gates`, `### Evidence` section, gate-attestation language from CI checkboxes.
+  - `/devshop/.claude/skills/devshop/build/SKILL.md` § Phase 6 (audit comment posting) — remove the "Pre-ship audit trail" comment and "Ready for review" comment generation blocks.
+  - `/devshop/.claude/skills/devshop/ship/SKILL.md` — if /ship independently composes a body with gate artifacts, strip there too.
+
+  [low-medium, skill-improvement, ak-build + ship, surfaced-by home-os-pr-34-cleanup-2026-05-26, 2026-05-26]
+
+- [ ] **Hero screenshot URLs break in PR descriptions for private repos.** `/ak-build` Phase 6 embeds hero shots in the PR body as `![alt](https://github.com/{owner}/{repo}/raw/{sha}/specs/{feature}/hero/{file}.png)`. This renders correctly for public repos but shows broken-image blue squares on private repos — GitHub's `raw` endpoint requires authentication and the PR description renderer doesn't pass it through.
+
+  **Root cause**: GitHub markdown in PR descriptions fetches images via its Camo proxy (`https://camo.githubusercontent.com/...`), which cannot authenticate against private repo raw URLs. The `github.com/{owner}/{repo}/raw/{sha}/...` pattern (used in PRs #26–28) and `raw.githubusercontent.com/{owner}/{repo}/{sha}/...` (equivalent) both fail for the same reason.
+
+  **Fix shape**: at Phase 6 (PR body assembly), detect `gh api repos/:owner/:repo --jq '.private'`. If private, upload each hero PNG to GitHub's user-content CDN via the markdown image upload API (the mechanism the web UI uses on drag-and-drop — returns a `https://github.com/user-attachments/assets/{uuid}` URL that renders for any repo-member without auth). Fall back to the current `raw` URL pattern for public repos. The upload step belongs in a helper (`kit/scripts/preship/upload-hero-to-github.sh` or inline in the PR-body-assembly phase of `/ak-build`).
+
+  **Workaround (current)**: operator manually drags PNGs into the PR description via the GitHub web UI after `/ak-build` posts it. Works but defeats the "autonomous build pipeline" goal.
+
+  **Affected skills**: `/ak-build` Phase 6 (PR body assembly), `/ship` (hero shots section). Any skill that embeds repo-local images in PR descriptions.
+
+  [medium, /ak-build + /ship, surfaced-by home-os-pr-34-close-flow 2026-05-26]

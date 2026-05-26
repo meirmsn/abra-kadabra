@@ -16,14 +16,17 @@ gitleaks protect --staged --redact
 # On main: full suite (manual commits go straight to main, need full coverage).
 # On branches: affected-only subset via check-bats-devshop.sh (called from
 # kit/hooks/pre-commit.sh below), skipped here for speed.
+# NOTE: </dev/null on bats invocations prevents stdin-inheritance deadlock —
+# during a real `git commit`, inherited FDs from git/lint-staged can cause
+# bats to hang indefinitely waiting on stdin.
 _current_branch=$(git branch --show-current 2>/dev/null || echo "")
 if [ "$_current_branch" = "main" ] || [ "$_current_branch" = "master" ]; then
   if [ -d kit/tests ] && [ -x kit/tests/lib/bats-core/bin/bats ]; then
-    _bats_cases=$(kit/tests/lib/bats-core/bin/bats kit/tests/ --count 2>/dev/null | tail -1)
+    _bats_cases=$(kit/tests/lib/bats-core/bin/bats kit/tests/ --count </dev/null 2>/dev/null | tail -1)
     echo "⏳ Running full kit bats suite (main branch): ${_bats_cases:-?} tests..."
     _bats_start=$(date +%s%N 2>/dev/null || date +%s)
     _bats_tmpfile=$(mktemp)
-    kit/tests/lib/bats-core/bin/bats kit/tests/ --print-output-on-failure 2>&1 \
+    kit/tests/lib/bats-core/bin/bats kit/tests/ --print-output-on-failure </dev/null 2>&1 \
       | awk -v out="$_bats_tmpfile" '{ print >> out } /^(ok|not ok) /{ n++; if(n%100==0){ printf "  ...%d tests completed\n", n; fflush() } }'
     _bats_exit=${PIPESTATUS[0]}
     _bats_output=$(cat "$_bats_tmpfile")

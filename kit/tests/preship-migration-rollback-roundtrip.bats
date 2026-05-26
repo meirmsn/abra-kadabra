@@ -14,7 +14,8 @@ setup() {
 
 # Run with isolated PATH so no real psql leaks in from the host environment.
 run_script() {
-  run env PATH="$MOCK_BIN:/usr/bin:/bin" \
+  run env -u SUPABASE_DB_PORT \
+      PATH="$MOCK_BIN:/usr/bin:/bin" \
       LOCAL_TESTS_BASE_REF="${LOCAL_TESTS_BASE_REF:-HEAD~1}" \
       bash "$SCRIPT" "$TEST_REPO"
 }

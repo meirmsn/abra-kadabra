@@ -1648,3 +1648,34 @@ with reason" to "regenerate + confirm if substantive").
 
 Related: `kit/notes/roadmap/hook-migration-plan.md` § "Architectural shift" for the
 why-not-now rationale.
+
+---
+
+### Gitignore `specs/` in project repos — stop tracking devshop process artifacts
+
+**Problem.** `/ak-build` creates `specs/<feature>/` directories in the project repo containing spec files (`spec.md`), task checklists (`tasks.md`), gate review logs (`review.md`), per-gate shard files (`gates/*.md`), hero screenshots (`hero/*.png`), and QA walk logs. These are devshop process artifacts — they serve the build pipeline during implementation but have no value post-merge. They currently get committed and pushed to the project's remote, mixing devshop scaffolding with project code. Home-os has 10 features' worth of specs (~7.8 MB, 115 screenshots) tracked in git — none referenced by runtime code, CI, or tests.
+
+**Why not just gitignore now.** The `/ak-build` Step 0 resume logic reads `spec.md`, `tasks.md`, and `review.md` from disk to determine where a crashed build left off. The pipeline also explicitly `git add` + `git commit` spec artifacts at Phase 0, Phase 3.1b, and Phase 3.3. These mechanics need updating.
+
+**What gitignoring means for resume.** Gitignored files still exist on disk — they survive container restarts and session crashes. The resume logic reads from the filesystem, not git history, so resume still works. Only a catastrophic volume loss would wipe in-flight specs, and the worst case is re-running `/ak-build` from Phase 0.
+
+**Shape of the fix:**
+
+1. Add `specs/` to project `.gitignore` (template + existing projects).
+2. `git rm -r --cached specs/` in each project (files stay on disk, just untracked).
+3. Remove `git add specs/...` + `git commit` calls from `/ak-build` Phase 0, Phase 3.1b, Phase 3.3.
+4. Update `/ak-merge-devshop` to compose squash-commit messages from commit messages and PR body instead of reading `spec.md` / `review.md`.
+5. Re-point any E2E test that writes into `specs/` to a different output directory.
+6. Optionally strip `-- Source: specs/...` comments from migration convention (commit messages carry the same provenance).
+
+**What you lose:** git-tracked spec history (old commits still have it), `-- Source:` comments in migrations, `specs/` visible on GitHub after merge. **What you gain:** clean separation of devshop process from project code, ~7.8 MB removed from repo, no devshop jargon in the project file tree.
+
+**Trigger:** after `strip-pr-process-artifacts` ships (the lower-cost PR-surface cleanup), when the operator confirms the trade-off (ephemeral specs, re-run-from-scratch on catastrophic loss) is acceptable.
+
+**Cross-ref:**
+
+- `kit/TODOS.md` § Strip devshop process artifacts from PR descriptions and comments (companion)
+- `/devshop/.claude/skills/devshop/build/SKILL.md` § Step 0 (resume logic), lines 111-113 ("durable vs ephemeral" contract)
+- home-os PR #34 cleanup (2026-05-26)
+
+**Cost/risk:** ~2–3 hours. Risk: in-flight specs lost on catastrophic volume loss → re-run `/ak-build` from scratch.

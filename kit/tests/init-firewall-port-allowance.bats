@@ -99,7 +99,9 @@ echo "RESOLVED_STUDIO=$SUPABASE_STUDIO_PORT"
 echo "RESOLVED_MAILPIT=$SUPABASE_MAILPIT_PORT"
 echo "RESOLVED_ANALYTICS=$SUPABASE_ANALYTICS_PORT"
 TAIL
-  run bash "$runner"
+  run env -u SUPABASE_API_PORT -u SUPABASE_DB_PORT -u SUPABASE_STUDIO_PORT \
+          -u SUPABASE_MAILPIT_PORT -u SUPABASE_ANALYTICS_PORT \
+          bash "$runner"
 }
 
 # =============================================================================
@@ -315,7 +317,9 @@ run_snippet_pipefail() {
     sed "s|ENV_FILE=\"/workspace/.devcontainer/.env\"|ENV_FILE=\"$env_file\"|" "$SNIPPET"
     printf 'echo "RESOLVED_API=$SUPABASE_API_PORT"\necho "RESOLVED_DB=$SUPABASE_DB_PORT"\necho "DID_NOT_DIE_SILENTLY"\n'
   } > "$runner"
-  run bash "$runner"
+  run env -u SUPABASE_API_PORT -u SUPABASE_DB_PORT -u SUPABASE_STUDIO_PORT \
+          -u SUPABASE_MAILPIT_PORT -u SUPABASE_ANALYTICS_PORT \
+          bash "$runner"
 }
 
 @test "regression: full .env does not silently kill under set -euo pipefail" {
