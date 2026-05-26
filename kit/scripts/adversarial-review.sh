@@ -977,11 +977,12 @@ ATTEMPT=0
 MAX_ATTEMPTS=$(( ${#BACKOFF_DELAYS[@]} + 1 ))
 
 while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+  echo "⏳ Adversarial review ($CHECK_TYPE) — attempt $((ATTEMPT + 1))/$MAX_ATTEMPTS, ${TIMEOUT}s timeout, model=$MODEL"
   REVIEW=$(timeout "$TIMEOUT" claude -p --model "$MODEL" < "$PROMPT_FILE" 2>/dev/null) && break
   ATTEMPT=$((ATTEMPT + 1))
   if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
     DELAY=${BACKOFF_DELAYS[$((ATTEMPT - 1))]}
-    echo "⚠ Adversarial review attempt $ATTEMPT failed. Retrying in ${DELAY}s..."
+    echo "⚠ Attempt $ATTEMPT failed. Retrying in ${DELAY}s..."
     sleep "$DELAY"
   fi
 done

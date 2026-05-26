@@ -1,3 +1,9 @@
+# Husky runs hooks with `sh -e` which is dash on Debian — re-exec under bash
+# so we get PIPESTATUS, arrays, and other bash features.
+if [ -z "$BASH_VERSION" ]; then
+  exec bash "$0" "$@"
+fi
+
 # Recreate devshop symlinks if missing (git ops can lose untracked symlinks).
 # Uses the lightweight symlink-only script, not full init-devshop.sh (no root needed).
 [ ! -L .devshopkit ] && [ -d /devshop/kit ] && bash /devshop/kit/scripts/sync/create-devshop-symlinks.sh 2>/dev/null || true
@@ -6,28 +12,39 @@ pnpm exec lint-staged
 [ -f turbo.json ] && pnpm turbo run typecheck
 gitleaks protect --staged --redact
 
-# Run kit tests (devshop repo only — kit/tests/ doesn't exist in projects)
-if [ -d kit/tests ] && [ -x kit/tests/lib/bats-core/bin/bats ]; then
-  _bats_start=$(date +%s%N 2>/dev/null || date +%s)
-  _bats_output=$(kit/tests/lib/bats-core/bin/bats kit/tests/ --print-output-on-failure 2>&1)
-  _bats_exit=$?
-  echo "$_bats_output"
-  _bats_total=$(echo "$_bats_output" | grep -c '^ok ' || true)
-  _bats_failed=$(echo "$_bats_output" | grep -c '^not ok ' || true)
-  _bats_end=$(date +%s%N 2>/dev/null || date +%s)
-  if [ ${#_bats_start} -gt 10 ]; then
-    _bats_ms=$(( (_bats_end - _bats_start) / 1000000 ))
-    _bats_secs=$(( _bats_ms / 1000 ))
-    _bats_frac=$(( _bats_ms % 1000 ))
-    _bats_time=$(printf '%d.%03ds' "$_bats_secs" "$_bats_frac")
-  else
-    _bats_time="$(( _bats_end - _bats_start ))s"
-  fi
-  if [ "$_bats_exit" -eq 0 ]; then
-    echo "✓ Kit tests: ${_bats_total}/${_bats_total} pass (${_bats_time})"
-  else
-    echo "✖ Kit tests: $((_bats_total + _bats_failed)) total, ${_bats_failed} failed (${_bats_time})"
-    exit 1
+# Run kit tests (devshop repo only — kit/tests/ doesn't exist in projects).
+# On main: full suite (manual commits go straight to main, need full coverage).
+# On branches: affected-only subset via check-bats-devshop.sh (called from
+# kit/hooks/pre-commit.sh below), skipped here for speed.
+_current_branch=$(git branch --show-current 2>/dev/null || echo "")
+if [ "$_current_branch" = "main" ] || [ "$_current_branch" = "master" ]; then
+  if [ -d kit/tests ] && [ -x kit/tests/lib/bats-core/bin/bats ]; then
+    _bats_cases=$(kit/tests/lib/bats-core/bin/bats kit/tests/ --count 2>/dev/null | tail -1)
+    echo "⏳ Running full kit bats suite (main branch): ${_bats_cases:-?} tests..."
+    _bats_start=$(date +%s%N 2>/dev/null || date +%s)
+    _bats_tmpfile=$(mktemp)
+    kit/tests/lib/bats-core/bin/bats kit/tests/ --print-output-on-failure 2>&1 \
+      | awk -v out="$_bats_tmpfile" '{ print >> out } /^(ok|not ok) /{ n++; if(n%100==0){ printf "  ...%d tests completed\n", n; fflush() } }'
+    _bats_exit=${PIPESTATUS[0]}
+    _bats_output=$(cat "$_bats_tmpfile")
+    rm -f "$_bats_tmpfile"
+    _bats_total=$(echo "$_bats_output" | grep -c '^ok ' || true)
+    _bats_failed=$(echo "$_bats_output" | grep -c '^not ok ' || true)
+    _bats_end=$(date +%s%N 2>/dev/null || date +%s)
+    if [ ${#_bats_start} -gt 10 ]; then
+      _bats_ms=$(( (_bats_end - _bats_start) / 1000000 ))
+      _bats_secs=$(( _bats_ms / 1000 ))
+      _bats_frac=$(( _bats_ms % 1000 ))
+      _bats_time=$(printf '%d.%03ds' "$_bats_secs" "$_bats_frac")
+    else
+      _bats_time="$(( _bats_end - _bats_start ))s"
+    fi
+    if [ "$_bats_exit" -eq 0 ]; then
+      echo "✓ Kit tests: ${_bats_total}/${_bats_total} pass (${_bats_time})"
+    else
+      echo "✖ Kit tests: $((_bats_total + _bats_failed)) total, ${_bats_failed} failed (${_bats_time})"
+      exit 1
+    fi
   fi
 fi
 
