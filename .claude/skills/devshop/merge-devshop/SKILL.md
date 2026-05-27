@@ -1257,10 +1257,10 @@ git branch -D <branch>
 git push origin --delete <branch>
 ```
 
-The underlying lint-staged stash bug is tracked separately (see
-`kit/TODOS.md` entry "lint-staged stash backup chokes on rename +
-new-symlink-at-old-path"). The recovery recipe below remains as a
-fallback reference for edge cases where the inline detection doesn't
+The underlying lint-staged stash bug is fixed — `--no-stash` disables
+lint-staged's `git stash` backup in both pre-commit hooks (shipped via
+`fix/lint-staged-rename-symlink`). The recovery recipe below remains as
+a fallback reference for edge cases where the inline detection doesn't
 fire (e.g., manual squash outside the skill).
 
 ### Operator stashes can vanish silently mid-merge

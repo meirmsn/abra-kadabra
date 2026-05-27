@@ -214,7 +214,7 @@ Root `.devcontainer/` and `template/.devcontainer/` are identical — both conta
 - **`.devcontainer/` files are root-owned**: Cannot edit inside the container without sudo. Edit from the host filesystem or use `sudo nano <file>`.
 - **`[ -e ]` not `[ -f ]` for symlinks**: `[ -f ]` tests for regular files and may return false for symlinks. Use `[ -e ]` (exists) for symlinked paths.
 - **gitignore patterns for symlinks**: Use `.devshopkit` and `.claude` (no trailing `/`). A trailing slash only matches directories, but symlinks to directories may not match.
-- **Migration commits (one-time)**: `git rm --cached` combined with lint-staged's stash/restore can delete files from disk if they're gitignored. Use `--no-verify` for one-time migration commits that bulk-remove tracked files.
+- **Migration commits (one-time)**: `git rm --cached` on gitignored files can behave unexpectedly during pre-commit hooks. Use `--no-verify` for one-time migration commits that bulk-remove tracked files.
 - **Heredoc terminal indentation**: Pasting heredocs in the terminal may add leading whitespace. Use `sed -i 's/^  //' file` to strip, or write from a script.
 
 ---

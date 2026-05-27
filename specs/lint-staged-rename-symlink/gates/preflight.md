@@ -3,11 +3,10 @@
 - TOUCHES_UI=
 - TOUCHES_MIGRATIONS=
 - TOUCHES_FUNCTIONS=
-- TOUCHES_KIT=yes
+- TOUCHES_KIT=kit/TODOS.md
 - TOUCHES_CODE=
 - TOUCHES_USER_CODE=
 - HAS_TURBO=
-- Chromium: not needed
-- Supabase: not needed
-- Supabase healthy: n/a
+- Chromium: not needed (non-UI)
+- Supabase: not needed (non-migration)
 - Result: pass

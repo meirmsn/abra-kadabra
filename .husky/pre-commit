@@ -24,7 +24,7 @@ fi
 # Uses the lightweight symlink-only script, not full init-devshop.sh (no root needed).
 [ ! -L .devshopkit ] && [ -d /devshop/kit ] && bash /devshop/kit/scripts/sync/create-devshop-symlinks.sh 2>/dev/null || true
 
-pnpm exec lint-staged
+pnpm exec lint-staged --no-stash
 [ -f turbo.json ] && pnpm turbo run typecheck
 gitleaks protect --staged --redact
 

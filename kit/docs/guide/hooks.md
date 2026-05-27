@@ -52,7 +52,7 @@ Three enforcement levels: PreToolUse (Claude Code), pre-commit (husky), and pre-
    │       Backstop for 1c — closes TOCTOU race (parallel session can switch branch
    │       between PreToolUse "allow" and git commit). Humans pass through.
    ├─ 2b. create-devshop-symlinks.sh   → recreate symlinks if lost by git ops
-   ├─ 2c. pnpm exec lint-staged        → ESLint + Prettier on staged files
+   ├─ 2c. pnpm exec lint-staged --no-stash → ESLint + Prettier on staged files (stash backup disabled)
    ├─ 2d. pnpm turbo run typecheck     → TypeScript check all packages
    ├─ 2e. gitleaks protect --staged    → Secret scan
    ├─ 2f. bats kit/tests/              → kit tests (devshop only; full suite on main, affected-only on branches)
@@ -138,7 +138,7 @@ Configured in `.husky/pre-commit`.
 | Hook                        | What                                                                                                                                                     | Blocking?                   |
 | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
 | Claude branch guard         | Blocks Claude (`$CLAUDECODE=1`) from committing on main/master — backstop for PreToolUse `check-branch-not-main.sh`, closes TOCTOU race                 | Yes — Claude only           |
-| `pnpm exec lint-staged`     | ESLint + Prettier on staged files                                                                                                                        | Yes — both repos            |
+| `pnpm exec lint-staged --no-stash` | ESLint + Prettier on staged files (stash backup disabled)                                                                                          | Yes — both repos            |
 | `pnpm turbo run typecheck`  | TypeScript type checking                                                                                                                                 | Yes — both repos            |
 | `gitleaks protect --staged` | Secret scanning                                                                                                                                          | Yes — both repos            |
 | `bats kit/tests/`           | Kit tests: scripts + structural invariants (custom progress formatter `kit/hooks/bats-format-progress` + `--report-formatter tap` for pass/fail parsing) | Yes — devshop only          |
@@ -156,7 +156,7 @@ Configured in `.husky/pre-commit`.
 }
 ```
 
-Both tasks modify files, so lint-staged's default `stash: true` behavior fires on every pre-commit: a backup of staged + unstaged state is created via `git stash create` and stored under a `refs/lint-staged/*` namespace (lint-staged v15 — distinct from `refs/stash`), then dropped after task success or popped on failure. This backup mechanic is hypothesized to interact with operator stashes — see [§ Practical recipes § Recovering a vanished stash](#recovering-a-vanished-stash).
+Both tasks modify files. lint-staged's default behavior would create a stash backup via `git stash create` under `refs/lint-staged/*`, but both pre-commit hooks pass `--no-stash` to disable this — the stash backup was the source of `error: 'OLD/file' is beyond a symbolic link` failures on rename+new-symlink diffs. With `--no-stash`, lint-staged no longer calls `git stash` at all. The tradeoff: if a linter fails mid-run, partially modified files remain in the working tree (recoverable via `git checkout .`).
 
 Guards are split into **deterministic** (auto-pass when condition is met) and **semantic** (always require a review explanation). All bypass reasons are verified by `adversarial-review.sh` — an agent that actively tries to reject the reason. On API error, the review **fails closed** (blocks the commit). Human fallback: `devshop.humanReviewed` flag, but blocked for Claude via PreToolUse hook — only reachable when the human runs the commit directly in the terminal.
 
@@ -217,7 +217,6 @@ Short-circuits (no review, exit 0):
 - **Devshop only:** push to `main`/`master` **from the `main` branch** (release.sh territory). Feature-branch pushes targeting main require the `devshop.pushToMainApproved` flag.
 - **Project only:** push from a feature branch where remote-ref ≠ main/master AND every branch commit has a trivial conventional-prefix (`chore:`/`docs:`/`style:`/`test:`/`ci:`/`build:`/`perf:`) AND zero source-file changes (`apps/*/src/`, `packages/*/src/`). The PR-desc check skips; the dirty-tree check still fires. The source-file requirement closes the mis-prefix exploit (a substantive commit labeled `chore:` would otherwise bypass the PR-desc check).
 - **Project only — SHA-enumeration fast path:** PR-desc check skips when every commit SHA in `origin/main..HEAD` appears as a literal string in the PR body (full SHA OR any ≥7-char abbreviation; Git's default minimum). The body is up-to-date by construction in this case, so the LLM reviewer would PASS — short-circuit saves the round-trip. Reviewer still fires on judgment cases (partial-SHA matches, commit-subject-overlap, missing SHAs, empty body). Codified into `kit/hooks/pre-push.sh § Check 2` Check 2 by the `home-os-skill-polish-batch § B3` ship (2026-05-20); test coverage at `kit/tests/util-pre-push.bats § B3`.
-- **Project only — hash-cache fast path:** After the first successful `prTextHygieneReason` review, the hook writes a SHA-256 hash of `$PR_TITLE$PR_BODY` to `$(git rev-parse --git-dir)/pr-hygiene-hash`. On subsequent pushes it re-fetches the PR text from GitHub, recomputes the hash, and skips the LLM call when the hash matches. The hash file lives inside the git directory (worktree-safe, never committed, invisible to `git status`). Invalidates naturally on any `gh pr edit` between pushes — the re-fetched text yields a different hash. Saves ~30s per redundant push on the same branch. Test coverage at `kit/tests/util-pre-push.bats § hash-cache`.
 
 Bypass flags run through the same shared engine as commit-time guards (`kit/scripts/adversarial-review.sh`). Generic reasons (`WIP`, `later`, `fine`) fail; specific structural reasons (`intentionally batching updates until post-rebase — will squash-update after final review`, `stashed feature X to push hotfix Y on unrelated branch`) pass.
 
@@ -321,7 +320,7 @@ Hardening Defaults` as convention context for the judgment. The bypass flag
 
 Goal: get a named operator stash back when `git stash list` no longer shows it, even though no explicit `git stash pop` / `git stash drop` was run.
 
-**When this fires**: most commonly during an `/ak-merge-devshop` session where the operator (or Claude) stashed dirty WIP before invoking the skill, then later finds the stash entry gone from `git stash list` after the merge / push completed. The pre-commit lint-staged backup mechanic ([§ 2 — lint-staged config](#2-husky-pre-commit-during-git-commit)) is the leading suspect — it uses `git stash create` machinery for its own backup and runs on every commit — though lint-staged v15's separate `refs/lint-staged/*` namespace argues against simple index confusion. Root cause is still open ([`kit/TODOS.md` — "Operator stashes vanish silently"](../../TODOS.md)).
+**When this fires**: most commonly during an `/ak-merge-devshop` session where the operator (or Claude) stashed dirty WIP before invoking the skill, then later finds the stash entry gone from `git stash list` after the merge / push completed. Lint-staged's stash-backup machinery was the leading suspect, but `--no-stash` now disables it entirely — lint-staged no longer calls `git stash` during pre-commit. The vanishing-stash bug may still occur via another mechanism; root cause is still open ([`kit/TODOS.md` — "Operator stashes vanish silently"](../../TODOS.md)).
 
 **The data is NEVER lost.** `git stash` writes real commit objects to the object database; `git stash drop` removes the named ref but not the commit. Lost stashes become "dangling commits" that `git fsck` enumerates.
 
@@ -346,7 +345,7 @@ git fsck --no-reflogs 2>/dev/null \
 git stash apply <full-SHA>
 ```
 
-**Prevention**: when `/ak-merge-devshop` halts at its Phase 0.1 pre-flight refusal (`✖ working tree dirty at $TARGET`), respect it — commit WIP to a throwaway branch rather than stashing. Operator stashes made BEFORE invoking the skill are still at risk if lint-staged fires during the merge. See `.claude/skills/devshop/merge-devshop/SKILL.md § Known limitations § Operator stashes can vanish silently mid-merge` for the worked incident.
+**Prevention**: when `/ak-merge-devshop` halts at its Phase 0.1 pre-flight refusal (`✖ working tree dirty at $TARGET`), respect it — commit WIP to a throwaway branch rather than stashing. With `--no-stash`, lint-staged no longer touches `git stash`, which eliminates it as a suspect — but the vanishing-stash root cause is unconfirmed, so the commit-WIP prevention still applies. See `.claude/skills/devshop/merge-devshop/SKILL.md § Known limitations § Operator stashes can vanish silently mid-merge` for the worked incident.
 
 Performance notes:
 

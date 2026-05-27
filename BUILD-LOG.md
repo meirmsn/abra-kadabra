@@ -4,14 +4,14 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
-### pr-hygiene-hash-cache (2026-05-27)
+### lint-staged-rename-symlink (2026-05-27)
 
-- **Branch**: `feat/pr-hygiene-hash-cache`
-- **Spec**: `specs/pr-hygiene-hash-cache/spec.md`
-- **Headline**: Repeat pushes on the same branch skip the ~30-second PR text-hygiene review when neither the PR title nor body has changed since the last successful review.
-- **Summary**: After the first successful `prTextHygieneReason` adversarial review, the pre-push hook writes a SHA-256 hash of `$PR_TITLE$PR_BODY` to `$(git rev-parse --git-dir)/pr-hygiene-hash`. On subsequent pushes it re-fetches the PR text from GitHub, recomputes the hash, and short-circuits the LLM call when the hash matches. The hash file lives inside the git directory (worktree-safe, never committed, invisible to `git status`). Saves ~60s per typical `/ak-build` run (2-3 redundant reviews eliminated).
-- **Commits**: 7 (squashed to 1 on main via /ak-merge-devshop)
-- **Quality gates**: 4 new bats tests (T1-T4) in `util-pre-push.bats`. All bats pass. Gate 5 noted 1 medium (bypass-assisted caching — intentional per design decision D3). Gate 6 noted 1 medium (hash doesn't include commit range — intentional per design decision; text currency is Phase 5.3.5's job, not the hook's).
+- **Branch**: `fix/lint-staged-rename-symlink`
+- **Spec**: `specs/lint-staged-rename-symlink/spec.md`
+- **Headline**: Pre-commit hooks no longer fail on rename-plus-symlink diffs — lint-staged's stash backup is disabled, unblocking squash-merge on these combos.
+- **Summary**: Add `--no-stash` flag to `pnpm exec lint-staged` in both devshop and template pre-commit hooks. This disables lint-staged's `git stash` backup (the source of the `error: 'OLD/file' is beyond a symbolic link` failure on rename+new-symlink diffs). Side effect: also disables `hidePartiallyStaged` (acceptable — partial staging is uncommon). Bats convention test guards the flag against hook regeneration. 7 stale doc references updated (hooks.md, CLAUDE.md, architecture.md).
+- **Commits**: 8 (squashed to 1 on main via /ak-merge-devshop)
+- **Quality gates**: 1406 bats pass (4 new convention tests). Gate 1 caught 7 stale doc references to lint-staged stash behavior (fixed). Gates 4, 5, 6, 11 clean.
 
 ### rollback-prose-lint (2026-05-27)
 

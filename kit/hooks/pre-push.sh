@@ -157,12 +157,8 @@ if [ "$REPO_MODE" = "project" ]; then
     # SHA-match only; the reviewer still handles judgment cases (partial
     # SHA, commit-subject overlap, sub-7-char matches).
     PR_BODY_HAS_ALL_SHAS=false
-    PR_TEXT_UNCHANGED=false
     if [ "$ANY_COMMIT" = "true" ] && [ "$ALL_TRIVIAL" = "false" ]; then
-      # Fetch PR title + body for SHA-enumeration fast-path AND hash-cache check.
-      PR_DATA=$(gh pr view "$PR" --json title,body 2>/dev/null || echo "{}")
-      PR_TITLE=$(echo "$PR_DATA" | jq -r '.title // "(no title)"')
-      PR_BODY=$(echo "$PR_DATA" | jq -r '.body // ""')
+      PR_BODY=$(gh pr view "$PR" --json body --jq '.body' 2>/dev/null || echo "")
       if [ -n "$PR_BODY" ]; then
         BRANCH_SHAS=$(git log --format='%H' "origin/main..HEAD" 2>/dev/null || true)
         PR_BODY_HAS_ALL_SHAS=true
@@ -180,22 +176,13 @@ if [ "$REPO_MODE" = "project" ]; then
         # No commits = nothing to match against = fall through.
         [ "$ANY_SHA" = "false" ] && PR_BODY_HAS_ALL_SHAS=false
       fi
-
-      # Hash-cache: skip LLM if PR text unchanged since last successful review.
-      HASH_FILE="$(git rev-parse --git-dir)/pr-hygiene-hash"
-      CURRENT_HASH=$(printf '%s%s' "$PR_TITLE" "$PR_BODY" | sha256sum | cut -d' ' -f1)
-      if [ -f "$HASH_FILE" ] && [ "$(cat "$HASH_FILE")" = "$CURRENT_HASH" ]; then
-        PR_TEXT_UNCHANGED=true
-      fi
     fi
 
     if [ "$ANY_COMMIT" = "true" ] \
        && [ "$ALL_TRIVIAL" = "false" ] \
-       && [ "$PR_BODY_HAS_ALL_SHAS" = "false" ] \
-       && [ "$PR_TEXT_UNCHANGED" != "true" ]; then
-      # Non-trivial commits + PR body did NOT enumerate every SHA + text changed
-      # since last successful review — adversarial review of PR text hygiene
-      # (accuracy + readability + body shape).
+       && [ "$PR_BODY_HAS_ALL_SHAS" = "false" ]; then
+      # Non-trivial commits + PR body did NOT enumerate every SHA — adversarial
+      # review of PR text hygiene (accuracy + readability + body shape).
       BYPASS_REASON=$(git config --get devshop.prTextHygieneReason 2>/dev/null || echo "")
 
       # Invoke shared adversarial engine (same as commit guards).
@@ -215,8 +202,6 @@ if [ "$REPO_MODE" = "project" ]; then
         echo "     git -c devshop.prTextHygieneReason=\"<specific reason>\" push ..." >&2
         exit 1
       fi
-      # Cache successful review hash for future short-circuit.
-      printf '%s' "$CURRENT_HASH" > "$HASH_FILE"
     fi
   fi
 fi

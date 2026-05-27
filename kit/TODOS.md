@@ -401,30 +401,13 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
   [v1, kit-script-generalization, surfaced-by lalista-PR46-review, 2026-05-05]
 
-- [ ] **lint-staged stash backup chokes on rename + new-symlink-at-old-path.** Surfaced 2026-05-07 during `/ak-merge-devshop`'s post-ship layout fix. When a single staging round combines (a) `git mv OLD/file -> NEW/file` AND (b) a new symlink at OLD pointing to NEW, the pre-commit hook's lint-staged backup fails with `error: 'OLD/file' is beyond a symbolic link` from `git stash` itself. This is a git-plumbing limitation, not strictly a lint-staged bug — but lint-staged unconditionally runs `git stash` for backup, so the failure surfaces as a hook block.
-
-  **Blast radius**: blocks `git merge --squash` whenever the squashed diff has this combination. Any future skill with a "move to canonical layout + symlink-at-old-path-for-back-compat" diff hits this. Caught during the `/ak-merge-devshop` layout-fix's failed squash; fallback was a 2-commit ff-merge of the fix branch (loses the squash convention).
-
-  **Implementation options**:
-  1. **lint-staged config tweak** — set `stash: false` (suppresses the stash backup entirely; loses the rollback-on-failure safety net but unblocks the rename+symlink combo).
-  2. **Custom backup strategy** — replace lint-staged's default with a thin wrapper that uses `git diff > /tmp/backup.patch` instead of `git stash`. Preserves the rollback safety, dodges the symbolic-link limitation.
-  3. **Detect-and-defer in /ak-merge-devshop** — Phase 2 detects the rename+symlink-at-old-path combo in the staged diff before invoking commit; suggests the ff-merge fallback automatically. See companion entry below.
-
-  Option (1) is fastest but reduces safety; option (2) is the cleanest long-term fix; option (3) is complementary (fixes the user-visible blast at the skill level even if the hook stays as-is).
-
-  **Update (2026-05-26):** the detect-and-defer companion (option 3) has shipped — `/ak-merge-devshop` Phase 2 now auto-detects the rename+symlink combo before committing and offers an ff-merge fallback. The root-cause lint-staged stash bug remains open.
-
-  **Edit targets** (option 1): `package.json` lint-staged config OR `.lintstagedrc` (whichever the repo uses). **Edit targets** (option 2): replace lint-staged with a thin wrapper script under `kit/scripts/`.
-
-  [v0+, hook-bug, surfaced-by ak-merge-devshop-smoke-test, 2026-05-07]
-
 - [ ] **Root-cause investigation: operator stashes vanish silently during `/ak-merge-devshop` flows.** [v0+] Symptom and recovery recipe are documented (recovery: `kit/docs/guide/hooks.md § Practical recipes § Recovering a vanished stash`; symptom + worked incident: `.claude/skills/devshop/merge-devshop/SKILL.md § Known limitations § Operator stashes can vanish silently mid-merge`; footgun pointer: `CLAUDE.md § Known Footguns`). What's still pending: confirming the actual mechanism so the upstream fix can land.
 
   **Why the hypothesis is unsettled**: lint-staged is the leading suspect — it's the only routine `git stash` caller on the pre-commit path (config in `package.json` `"lint-staged"`, invoked from `.husky/pre-commit:5`) — but the simple "lint-staged drops operator stash by index confusion" theory doesn't fit because lint-staged v15 stores its backup under a separate `refs/lint-staged/*` namespace, not `refs/stash`. The two ref namespaces don't directly collide. Some interaction (perhaps during pop-on-failure, or via a hook that runs `git stash drop` against the wrong ref) is the working assumption.
 
   **First action to reproduce**: `GIT_TRACE=1 git stash push -m "test"` immediately before a known-to-trigger operation (`git checkout main && git merge --ff-only origin/main` while a pre-commit hook fires elsewhere), then `git stash list` after. If the named stash is gone, capture the GIT_TRACE log around the disappearance — should show whether `git stash drop` / `git update-ref -d` fired and what called it. Pair with `pnpm exec lint-staged --debug` if the trigger involves a commit; the lint-staged debug log enumerates its own stash operations.
 
-  **Candidate fixes once root cause is known**: `package.json` lint-staged `"stash": false` config (suppresses the backup mechanism entirely — loses the rollback-on-failure safety net but eliminates the suspect path), OR a thin `kit/scripts/` wrapper that replaces lint-staged's stash with `git diff > /tmp/backup.patch` (preserves rollback, dodges the ref-machinery interaction). Both candidates also apply to the rename+symlink lint-staged entry above — fixing either may close both.
+  **Candidate fixes once root cause is known**: `package.json` lint-staged `"stash": false` config (suppresses the backup mechanism entirely — loses the rollback-on-failure safety net but eliminates the suspect path), OR a thin `kit/scripts/` wrapper that replaces lint-staged's stash with `git diff > /tmp/backup.patch` (preserves rollback, dodges the ref-machinery interaction). Note: `--no-stash` is already applied to both pre-commit hooks (shipped via `fix/lint-staged-rename-symlink`), so lint-staged no longer calls `git stash` at all — this reduces the suspect surface for the vanishing-stash bug.
 
   [v0+, hook-bug, surfaced-by feat/gstack-artifact-symlink-redirect-merge, 2026-05-20]
 
@@ -554,15 +537,11 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
   [medium, convention + skill + template, surfaced-by home-os-pr-19-2026-05-15, 2026-05-15]
 
-- [ ] **Hero screenshot URLs break in PR descriptions for private repos.** `/ak-build` Phase 6 embeds hero shots in the PR body as `![alt](https://github.com/{owner}/{repo}/raw/{sha}/specs/{feature}/hero/{file}.png)`. This renders correctly for public repos but shows broken-image blue squares on private repos — GitHub's `raw` endpoint requires authentication and the PR description renderer doesn't pass it through.
+- [ ] **`prTextHygiene` pre-push hook re-evaluates on every push even when the PR body hasn't changed.** Each `git push` spends ~30s on an adversarial LLM review (Sonnet) of the PR title + body, even when neither has changed since the last push. On a typical `/ak-build` run with 3–4 pushes (initial + CI fix + Phase 5 docs + hero shots), that's ~2 min of pure ceremony on identical content.
 
-  **Root cause**: GitHub markdown in PR descriptions fetches images via its Camo proxy (`https://camo.githubusercontent.com/...`), which cannot authenticate against private repo raw URLs. The `github.com/{owner}/{repo}/raw/{sha}/...` pattern (used in PRs #26–28) and `raw.githubusercontent.com/{owner}/{repo}/{sha}/...` (equivalent) both fail for the same reason.
+  **Fix shape**: hash the PR body + title after the first successful review (`sha256sum <<< "$TITLE$BODY"`), write the hash to a branch-local file (`.git/pr-hygiene-hash` or similar — not committed). On subsequent pushes, re-fetch the PR body, hash it, compare. Skip the adversarial review if the hash matches. Clear the hash file on `gh pr edit` (or just let the next push re-hash — the mismatch will trigger a fresh review).
 
-  **Fix shape**: at Phase 6 (PR body assembly), detect `gh api repos/:owner/:repo --jq '.private'`. If private, upload each hero PNG to GitHub's user-content CDN via the markdown image upload API (the mechanism the web UI uses on drag-and-drop — returns a `https://github.com/user-attachments/assets/{uuid}` URL that renders for any repo-member without auth). Fall back to the current `raw` URL pattern for public repos. The upload step belongs in a helper (`kit/scripts/preship/upload-hero-to-github.sh` or inline in the PR-body-assembly phase of `/ak-build`).
+  **Where**: `kit/hooks/pre-push.sh` § prTextHygiene block.
 
-  **Workaround (current)**: operator manually drags PNGs into the PR description via the GitHub web UI after `/ak-build` posts it. Works but defeats the "autonomous build pipeline" goal.
-
-  **Affected skills**: `/ak-build` Phase 6 (PR body assembly), `/ship` (hero shots section). Any skill that embeds repo-local images in PR descriptions.
-
-  [medium, /ak-build + /ship, surfaced-by home-os-pr-34-close-flow 2026-05-26]
+  [low, hook-improvement, surfaced-by home-os-pr-35-usage-counters-and-byok 2026-05-27]
 
