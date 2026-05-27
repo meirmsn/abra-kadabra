@@ -219,6 +219,36 @@ M
   git -C "$FIXTURE_PROJECT" commit -q -m "initial"
 }
 
+@test "release.sh supports --no-push flag" {
+  grep -q 'no-push\|NO_PUSH' "$RELEASE_SCRIPT"
+}
+
+@test "release.sh --no-push exits before commit" {
+  # Match the actual CLAUDECODE= git invocation (not echo instructions)
+  local no_push_exit commit_line
+  no_push_exit=$(sed -n '/NO_PUSH.*=.*true.*then/,/^fi$/{ /exit 0/= }' "$RELEASE_SCRIPT" | head -1)
+  commit_line=$(grep -n '^CLAUDECODE= git' "$RELEASE_SCRIPT" | grep -v echo | head -1 | cut -d: -f1)
+  [ -n "$no_push_exit" ]
+  [ -n "$commit_line" ]
+  [ "$no_push_exit" -lt "$commit_line" ]
+}
+
+@test "release.sh supports --finalize flag" {
+  grep -q 'finalize\|FINALIZE' "$RELEASE_SCRIPT"
+}
+
+@test "release.sh --finalize re-stages PROPAGATION.md" {
+  grep -A20 'FINALIZE.*true' "$RELEASE_SCRIPT" | grep -q 'git add.*PROPAGATION'
+}
+
+@test "release.sh --finalize commits with CLAUDECODE unset" {
+  sed -n '/^if.*FINALIZE.*true/,/^fi$/p' "$RELEASE_SCRIPT" | grep -q 'CLAUDECODE= git'
+}
+
+@test "release.sh --finalize guards against missing staged files" {
+  sed -n '/^if.*FINALIZE.*true/,/^fi$/p' "$RELEASE_SCRIPT" | grep -q 'run --no-push first'
+}
+
 @test "from-devshop.sh prints propagation hint when version changes" {
   setup_sync_fixture
   echo "1.0.0" > "$FIXTURE_PROJECT/.devshop-version"

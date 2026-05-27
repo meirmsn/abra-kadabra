@@ -78,20 +78,56 @@ Only after explicit confirmation:
 
 ```bash
 cd /devshop
-bash kit/scripts/release.sh --bump <level>
+bash kit/scripts/release.sh --bump <level> --no-push
 ```
 
-`release.sh` handles:
+`release.sh --no-push` generates all release files and stages them, then
+stops **before committing**:
 
-1. Writing new version to `kit/version`
+1. Writing new version to `kit/version` + `template/.devshop-version`
 2. Generating a changelog entry from `$LAST_TAG..HEAD` commits
-3. Creating a bump commit. (Per-release adversarial test-coverage review was removed in PR-C of the audit-time docs+tests migration — `kit/ROADMAP.md § PR-C`. Coverage is now judged at audit time by `/ak-check-docs-and-tests` before each ff-merge to main; the bump commit itself runs only the standard Layer 1 hooks.)
-4. Tagging `v<new>`
-5. Pushing to origin + creating a GitHub release (if `DEVSHOP_GITHUB_TOKEN` is set in `/etc/devshop-env`)
+3. Auto-generating `PROPAGATION.md` entry from `**Existing projects:**` blocks in commit messages
+4. Staging all four files
 
-If a Layer 1 hook blocks (e.g., missing test-pairing for a new script that should have been caught earlier), surface the reason to the user — don't bypass at release time. Coverage gaps belong in the merge-time audit, not the bump commit.
+The skill owns the commit, tag, push, and GitHub release from here.
 
-## Phase 3 — Confirm
+## Phase 2.5 — Review PROPAGATION.md
+
+Before committing, review the generated `PROPAGATION.md` entry for the
+new version. The auto-generated entry only captures changes documented
+in `**Existing projects:**` blocks in commit messages — commits that
+omitted the block produce `(no manual steps)` even when propagation steps
+are needed.
+
+1. Read `kit/docs/PROPAGATION.md` — find the new `## v<new>` section.
+2. Read the diff of all commits since the last tag:
+   `git diff $LAST_TAG..HEAD -- template/ kit/scripts/ kit/docs/guide/`
+   Look for changes that affect existing projects: template files, scripts,
+   guide docs with new rules/conventions.
+3. If the generated entry says `(no manual steps)` but propagation-relevant
+   changes exist, compose the missing entry, edit `PROPAGATION.md`, and
+   re-stage it (`git add kit/docs/PROPAGATION.md`).
+4. If the generated entry is correct (either has real steps or genuinely
+   has no propagation-relevant changes), proceed as-is.
+
+## Phase 3 — Commit, tag, push, confirm
+
+After PROPAGATION.md is finalized, commit + tag + push in one step:
+
+```bash
+cd /devshop
+bash kit/scripts/release.sh --finalize
+```
+
+`release.sh --finalize` re-stages PROPAGATION.md (in case it was edited),
+commits with `CLAUDECODE=` unset (bypasses the main branch guard), tags,
+pushes, and creates the GitHub release. Fully autonomous — no human input
+needed.
+
+If a Layer 1 hook blocks the commit (e.g., missing test-pairing for a
+new script that should have been caught earlier), surface the reason to
+the user — don't bypass at release time. Coverage gaps belong in the
+merge-time audit, not the bump commit.
 
 Verify the release landed:
 
