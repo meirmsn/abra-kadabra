@@ -4,6 +4,15 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### pr-hygiene-hash-cache (2026-05-27)
+
+- **Branch**: `feat/pr-hygiene-hash-cache`
+- **Spec**: `specs/pr-hygiene-hash-cache/spec.md`
+- **Headline**: Repeat pushes on the same branch skip the ~30-second PR text-hygiene review when neither the PR title nor body has changed since the last successful review.
+- **Summary**: After the first successful `prTextHygieneReason` adversarial review, the pre-push hook writes a SHA-256 hash of `$PR_TITLE$PR_BODY` to `$(git rev-parse --git-dir)/pr-hygiene-hash`. On subsequent pushes it re-fetches the PR text from GitHub, recomputes the hash, and short-circuits the LLM call when the hash matches. The hash file lives inside the git directory (worktree-safe, never committed, invisible to `git status`). Saves ~60s per typical `/ak-build` run (2-3 redundant reviews eliminated).
+- **Commits**: 7 (squashed to 1 on main via /ak-merge-devshop)
+- **Quality gates**: 4 new bats tests (T1-T4) in `util-pre-push.bats`. All bats pass. Gate 5 noted 1 medium (bypass-assisted caching — intentional per design decision D3). Gate 6 noted 1 medium (hash doesn't include commit range — intentional per design decision; text currency is Phase 5.3.5's job, not the hook's).
+
 ### rollback-prose-lint (2026-05-27)
 
 - **Branch**: `feat/rollback-prose-lint`

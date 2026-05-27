@@ -125,7 +125,7 @@ setup_branch_with_commits() {
   echo "export const x = 1;" > "$TEST_REPO/packages/core/src/foo.ts"
   git add packages/core/src/foo.ts
   git -c user.email=test@test.com -c user.name=Test commit -q -m "chore: tidy"
-  create_stub gh "42"
+  gh_stub_with_pr_body "42" "Stale body without SHAs."
   mock_adversarial_review FAIL
   run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
   [ "$status" -eq 1 ]
@@ -138,7 +138,7 @@ setup_branch_with_commits() {
   echo "export const y = 2;" > "$TEST_REPO/apps/web/src/bar.ts"
   git add apps/web/src/bar.ts
   git -c user.email=test@test.com -c user.name=Test commit -q -m "docs: oops actually code"
-  create_stub gh "99"
+  gh_stub_with_pr_body "99" "Stale body without SHAs."
   mock_adversarial_review FAIL
   run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
   [ "$status" -eq 1 ]
@@ -164,7 +164,7 @@ setup_branch_with_commits() {
   echo "doc" > "$TEST_REPO/README.md"
   git add README.md
   git -c user.email=test@test.com -c user.name=Test commit -q -m "feat: add login"
-  create_stub gh "42"
+  gh_stub_with_pr_body "42" "Stale body without SHAs."
   mock_adversarial_review FAIL
   run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
   [ "$status" -eq 1 ]
@@ -279,24 +279,23 @@ setup_branch_with_commits() {
 
 # --- Project pre-push: PR-desc SHA-enumeration short-circuit (B3) ---
 # Helper: install a `gh` stub that returns the PR number for `gh pr list ...`
-# AND the body text for `gh pr view ... --json body --jq .body`. Single stub
-# distinguishes by the second positional arg (`list` vs `view`).
+# AND JSON for `gh pr view ... --json title,body`. Single stub distinguishes
+# by the second positional arg (`list` vs `view`).
 #
-# CONSTRAINT: $pr_body must not contain literal `$` characters. The outer
-# heredoc below is unquoted (<<STUB) so $pr_body is expanded into the stub
-# script at stub-creation time. Any embedded `$VAR` interpolations in
-# pr_body would be evaluated then (typically silently yielding wrong text).
-# Pass plain ASCII bodies or pre-interpolated strings only. Codified from
-# home-os-skill-polish-batch Audit 1 low-severity finding (2026-05-20).
+# CONSTRAINT: $pr_body / $pr_title must not contain literal `$` characters.
+# The outer heredoc below is unquoted (<<STUB) so values are expanded into
+# the stub script at stub-creation time. Any embedded `$VAR` interpolations
+# would be evaluated then (typically silently yielding wrong text). Pass
+# plain ASCII strings or pre-interpolated strings only.
 gh_stub_with_pr_body() {
-  local pr_number="$1" pr_body="$2"
+  local pr_number="$1" pr_body="$2" pr_title="${3:-Test PR title}"
   cat > "$MOCK_BIN/gh" <<STUB
 #!/bin/bash
 case "\$2" in
   list) echo "$pr_number" ;;
-  view) cat <<'BODY'
-$pr_body
-BODY
+  view) cat <<'JSON'
+{"title":"$pr_title","body":"$pr_body"}
+JSON
     ;;
   *) echo "" ;;
 esac
@@ -385,4 +384,80 @@ STUB
   run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
   [ "$status" -eq 1 ]
   assert_output --partial "fails the text-hygiene gate"
+}
+
+# --- Project pre-push: hash-cache for prTextHygiene ---
+
+@test "hash-cache T1: first push — no cache file, adversarial fires, hash written on PASS" {
+  setup_branch_with_commits
+  echo "feat" > "$TEST_REPO/feat.txt"
+  git add feat.txt
+  git -c user.email=test@test.com -c user.name=Test commit -q -m "feat: add feature"
+  gh_stub_with_pr_body "42" "Stale body without SHAs." "My PR title"
+  mock_adversarial_review PASS
+  local git_dir
+  git_dir=$(git rev-parse --git-dir)
+  # Ensure no pre-existing hash file.
+  [ ! -f "$git_dir/pr-hygiene-hash" ]
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  [ "$status" -eq 0 ]
+  # Hash file must exist after successful review.
+  [ -f "$git_dir/pr-hygiene-hash" ]
+  # Hash file content must match SHA-256 of title+body.
+  local expected_hash
+  expected_hash=$(printf '%s%s' "My PR title" "Stale body without SHAs." | sha256sum | cut -d' ' -f1)
+  [ "$(cat "$git_dir/pr-hygiene-hash")" = "$expected_hash" ]
+}
+
+@test "hash-cache T2: second push — unchanged PR text, cache hit, adversarial skipped" {
+  setup_branch_with_commits
+  echo "feat" > "$TEST_REPO/feat.txt"
+  git add feat.txt
+  git -c user.email=test@test.com -c user.name=Test commit -q -m "feat: add feature"
+  gh_stub_with_pr_body "42" "Stale body without SHAs." "My PR title"
+  # Pre-write the matching hash — simulates a previous successful review.
+  local git_dir expected_hash
+  git_dir=$(git rev-parse --git-dir)
+  expected_hash=$(printf '%s%s' "My PR title" "Stale body without SHAs." | sha256sum | cut -d' ' -f1)
+  printf '%s' "$expected_hash" > "$git_dir/pr-hygiene-hash"
+  # Adversarial would FAIL if invoked — cache must prevent the call.
+  mock_adversarial_review FAIL
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  [ "$status" -eq 0 ]
+  refute_output --partial "fails the text-hygiene gate"
+}
+
+@test "hash-cache T3: PR text changed — cache miss, adversarial fires" {
+  setup_branch_with_commits
+  echo "feat" > "$TEST_REPO/feat.txt"
+  git add feat.txt
+  git -c user.email=test@test.com -c user.name=Test commit -q -m "feat: add feature"
+  gh_stub_with_pr_body "42" "Updated body with new content." "New PR title"
+  # Pre-write a stale hash (from different PR text).
+  local git_dir stale_hash
+  git_dir=$(git rev-parse --git-dir)
+  stale_hash=$(printf '%s%s' "Old title" "Old body" | sha256sum | cut -d' ' -f1)
+  printf '%s' "$stale_hash" > "$git_dir/pr-hygiene-hash"
+  # Adversarial set to FAIL — should fire because hash doesn't match.
+  mock_adversarial_review FAIL
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  [ "$status" -eq 1 ]
+  assert_output --partial "fails the text-hygiene gate"
+}
+
+@test "hash-cache T4: first push — adversarial FAIL, hash NOT written" {
+  setup_branch_with_commits
+  echo "feat" > "$TEST_REPO/feat.txt"
+  git add feat.txt
+  git -c user.email=test@test.com -c user.name=Test commit -q -m "feat: add feature"
+  gh_stub_with_pr_body "42" "Stale body without SHAs." "My PR title"
+  mock_adversarial_review FAIL
+  local git_dir
+  git_dir=$(git rev-parse --git-dir)
+  [ ! -f "$git_dir/pr-hygiene-hash" ]
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  [ "$status" -eq 1 ]
+  assert_output --partial "fails the text-hygiene gate"
+  # Hash file must NOT exist after failed review.
+  [ ! -f "$git_dir/pr-hygiene-hash" ]
 }
