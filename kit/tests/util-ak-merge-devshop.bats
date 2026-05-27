@@ -583,3 +583,88 @@ setup() {
   awk '/^## Doing devshop work/,/^## When devshop changes take effect/' "$ARCHITECTURE_FILE" \
     | grep -qiE 'auto-detect|linked worktree.*git worktree add'
 }
+
+# === Section L — Phase 2 rename-plus-symlink detection ===
+
+@test "Phase 2 has a rename-plus-symlink detection block between soft-reset and commit" {
+  # The detection block must exist between `reset --soft` and `commit -F` in
+  # Phase 2. Verify ordering by line number: soft-reset < detection < commit.
+  local section soft_line detect_line commit_line
+  section=$(awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE")
+  soft_line=$(echo "$section" | grep -nE 'reset --soft' | head -1 | cut -d: -f1)
+  detect_line=$(echo "$section" | grep -nE 'Rename-plus-symlink detection' | head -1 | cut -d: -f1)
+  commit_line=$(echo "$section" | grep -nE '\$GIT_CMD commit -F' | head -1 | cut -d: -f1)
+  [ -n "$soft_line" ]
+  [ -n "$detect_line" ]
+  [ -n "$commit_line" ]
+  [ "$soft_line" -lt "$detect_line" ]
+  [ "$detect_line" -lt "$commit_line" ]
+}
+
+@test "Phase 2 detection scans git diff --cached --name-status for R (rename) entries" {
+  awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE" \
+    | grep -qE 'diff --cached --name-status --diff-filter=R'
+}
+
+@test "Phase 2 detection compares rename source paths against A (added) entries" {
+  # Both --diff-filter=R and --diff-filter=A must appear; comm -12 or similar
+  # set-intersection logic must be present.
+  awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE" \
+    | grep -qE 'diff-filter=R'
+  awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE" \
+    | grep -qE 'diff-filter=A'
+  awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE" \
+    | grep -qE 'comm -12'
+}
+
+@test "Phase 2 detection unstages on hit via git reset (not git reset --hard)" {
+  # On detection, the block runs $GIT_CMD reset (soft unstage), NOT
+  # $GIT_CMD reset --hard (which would destroy working tree).
+  local section
+  section=$(awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE")
+  # Must have $GIT_CMD reset inside the detection block
+  echo "$section" | grep -qE '\$GIT_CMD reset   # unstage'
+  # Must NOT have $GIT_CMD reset --hard in the detection block
+  # (--hard appears elsewhere in Phase 2 prose, so scope to the detection block)
+  local detect_block
+  detect_block=$(echo "$section" | awk '/Rename-plus-symlink detection/,/^fi/')
+  ! echo "$detect_block" | grep -qE '\$GIT_CMD reset --hard'
+}
+
+@test "Phase 2 detection surfaces the lint-staged stash bug explanation" {
+  local detect_block
+  detect_block=$(awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE" \
+    | awk '/Rename-plus-symlink detection/,/^fi/')
+  echo "$detect_block" | grep -qiE 'lint-staged'
+  echo "$detect_block" | grep -qE 'beyond a symbolic link'
+}
+
+@test "Phase 2 detection offers git merge --ff-only as fallback" {
+  local detect_block
+  detect_block=$(awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE" \
+    | awk '/Rename-plus-symlink detection/,/^fi/')
+  echo "$detect_block" | grep -qE 'ff-only|ff-merge'
+}
+
+@test "Phase 2 detection requires operator confirmation before ff-merge (not auto-fallback)" {
+  # AskUserQuestion or equivalent interactive prompt must appear in the
+  # detection flow (per D2: prompt the operator, not auto-fallback).
+  local detect_block
+  detect_block=$(awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE" \
+    | awk '/Rename-plus-symlink detection/,/^fi/')
+  echo "$detect_block" | grep -qiE 'AskUserQuestion'
+}
+
+@test "Known limitations section notes rename-plus-symlink is now auto-detected" {
+  awk '/^## Known limitations/,/^---/' "$SKILL_FILE" \
+    | grep -qiE 'auto-detect|detected automatically|now auto-detects'
+}
+
+@test "Known limitations section preserves the recovery recipe" {
+  # The recovery recipe with git reset + git merge --ff-only must still be
+  # present as a fallback reference for manual operations outside the skill.
+  local section
+  section=$(awk '/^## Known limitations/,/^---/' "$SKILL_FILE")
+  echo "$section" | grep -qE 'git reset'
+  echo "$section" | grep -qE 'git merge --ff-only'
+}

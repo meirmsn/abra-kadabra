@@ -769,6 +769,40 @@ fi
 
 $GIT_CMD rebase "$ANCHOR"          # incorporate $ANCHOR's commits; resolve conflicts inline
 $GIT_CMD reset --soft "$ANCHOR"    # collapse all of $BRANCH's commits to a single staged delta
+
+# Rename-plus-symlink detection: scan the staged delta for the combo that
+# crashes lint-staged's stash backup (git error: 'OLD/file' is beyond a
+# symbolic link). Detect BEFORE committing so the operator gets a clean
+# fallback instead of a mid-squash failure.
+RENAME_SRCS=$($GIT_CMD diff --cached --name-status --diff-filter=R \
+  | awk '{print $2}' | sort)
+ADDED_PATHS=$($GIT_CMD diff --cached --name-status --diff-filter=A \
+  | awk '{print $2}' | sort)
+COLLISIONS=$(comm -12 <(echo "$RENAME_SRCS") <(echo "$ADDED_PATHS"))
+
+if [ -n "$COLLISIONS" ]; then
+  $GIT_CMD reset   # unstage — no --hard, preserve working tree
+  echo "✖ Rename-plus-symlink combo detected in the staged squash delta:"
+  echo "$COLLISIONS" | sed 's/^/    /'
+  echo ""
+  echo "  These paths were renamed (R) AND a new file was added (A) at the"
+  echo "  original path. This combo crashes lint-staged's stash backup with:"
+  echo "    error: 'OLD/file' is beyond a symbolic link"
+  echo ""
+  echo "  The squash commit cannot proceed through pre-commit hooks."
+  echo "  Fallback: git merge --ff-only lands the branch's $N_COMMITS"
+  echo "  commits as-is on main (same file-system end state, different"
+  echo "  git history shape — N separate commits instead of 1 squash)."
+  echo "  The composed squash message at /tmp/squash-message-${FEATURE}.txt"
+  echo "  will not be used."
+  # AskUserQuestion: offer ff-merge fallback or cancel
+  #   Option 1: "Proceed with ff-merge (Recommended)"
+  #   Option 2: "Cancel — abort /ak-merge-devshop"
+  # On ff-merge: skip the rest of Phase 2, proceed to Phase 3's
+  #   git merge --ff-only path.
+  # On cancel: exit.
+fi
+
 $GIT_CMD commit -F "/tmp/squash-message-${FEATURE}.txt"
 ```
 
@@ -820,6 +854,9 @@ $GIT_CMD rebase --abort 2>/dev/null || true
 $GIT_CMD merge "$ANCHOR" --no-edit     # resolve any real content conflicts
 $GIT_CMD commit -F /tmp/merge-commit-msg.txt   # transient merge commit (discarded by soft-reset)
 $GIT_CMD reset --soft "$ANCHOR"        # collapse everything to a staged delta
+# Run the same rename-plus-symlink detection as the primary path (above).
+# If the staged delta contains the R+A collision, unstage and offer the
+# ff-merge fallback — same logic, same operator interaction.
 $GIT_CMD commit -F "/tmp/squash-message-${FEATURE}.txt"
 ```
 
@@ -877,10 +914,10 @@ hook output. The fix lives in the branch content; resolve, re-stage if
 needed, retry the commit. The branch is still valid for re-invocation —
 Phase 0's ff-mergeability check is the only thing that needs to re-pass.
 
-If the rename+symlink-at-old-path combo from § Known limitations fires
-during the rebase or commit: switch to the documented ff-only fallback
-(unaffected by lint-staged's stash bug because it doesn't go through the
-squash machinery).
+The rename+symlink combo is now detected inline before the commit step —
+see the detection block above. If it fires, the skill unstages and offers
+the ff-merge fallback automatically (unaffected by lint-staged's stash
+bug because it doesn't go through the squash machinery).
 
 ---
 
@@ -1170,6 +1207,13 @@ chain into it.
 
 ### Rename + symlink-at-old-path combo blocks `git merge --squash`
 
+Phase 2 now auto-detects this combo before the commit step: after the
+soft-reset stages the squash delta, the detection block scans
+`git diff --cached --name-status` for `R` (rename) entries whose source
+path also appears as an `A` (added) entry. On hit, the skill unstages
+and offers `git merge --ff-only` as a clean fallback — same file-system
+end state, N separate commits instead of 1 squash.
+
 When the squashed diff contains BOTH (a) a rename `R OLD/file -> NEW/file` AND
 (b) a new symlink at the `OLD` path, the pre-commit hook's `lint-staged` stash
 backup chokes with `error: 'OLD/file' is beyond a symbolic link`. This is a
@@ -1213,11 +1257,11 @@ git branch -D <branch>
 git push origin --delete <branch>
 ```
 
-The detect-and-suggest behavior is tracked as a TODO (see `kit/TODOS.md`
-entry "/ak-merge-devshop Phase 2: detect rename-plus-symlink-at-old-path
-combo and fallback to ff-merge"). The underlying lint-staged stash bug is
-also tracked separately. Until those land, the operator does the dance
-manually per the recipe above.
+The underlying lint-staged stash bug is tracked separately (see
+`kit/TODOS.md` entry "lint-staged stash backup chokes on rename +
+new-symlink-at-old-path"). The recovery recipe below remains as a
+fallback reference for edge cases where the inline detection doesn't
+fire (e.g., manual squash outside the skill).
 
 ### Operator stashes can vanish silently mid-merge
 

@@ -429,22 +429,11 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
   Option (1) is fastest but reduces safety; option (2) is the cleanest long-term fix; option (3) is complementary (fixes the user-visible blast at the skill level even if the hook stays as-is).
 
-  **Edit targets** (option 1): `package.json` lint-staged config OR `.lintstagedrc` (whichever the repo uses). **Edit targets** (option 2): replace lint-staged with a thin wrapper script under `kit/scripts/`. **Edit targets** (option 3): see companion entry.
+  **Update (2026-05-26):** the detect-and-defer companion (option 3) has shipped — `/ak-merge-devshop` Phase 2 now auto-detects the rename+symlink combo before committing and offers an ff-merge fallback. The root-cause lint-staged stash bug remains open.
+
+  **Edit targets** (option 1): `package.json` lint-staged config OR `.lintstagedrc` (whichever the repo uses). **Edit targets** (option 2): replace lint-staged with a thin wrapper script under `kit/scripts/`.
 
   [v0+, hook-bug, surfaced-by ak-merge-devshop-smoke-test, 2026-05-07]
-
-- [ ] **`/ak-merge-devshop` Phase 2: detect rename-plus-symlink-at-old-path combo and fallback to ff-merge.** Companion to the lint-staged stash bug above. When the skill's Phase 2 attempts `git merge --squash` and the staged diff includes both `R OLD -> NEW` and `A OLD` (a new symlink at the rename source), the squash WILL fail at commit time on the lint-staged stash bug. The skill should detect this combo BEFORE attempting the squash, surface the issue, and offer the ff-merge fallback inline.
-
-  **Behavior shape**:
-  - After `git merge --squash <branch>` stages changes, scan `git diff --cached --name-status` for matching `R<sim>` + `A` entries where the `A` path equals the `R`'s source path.
-  - On hit: abort the squash (`git reset`), print a one-screen explanation referencing this TODOS entry + the lint-staged-stash entry, AND surface ff-merge as an alternative ("the fix branch's commits will land as-is on main, preserving N separate commits instead of squashing — same end-state on the file system, different git history shape").
-  - On the operator's confirmation, run `git merge --ff-only <branch>` instead of the squash.
-
-  **Why detect-and-defer is the right shape**: the hook bug is harder to fix (option 2 from the companion entry); `/ak-merge-devshop`'s user surface is where operators feel the pain; surfacing the workaround at skill-invocation time avoids the manual recovery dance every time.
-
-  **Edit targets**: `.claude/skills/devshop/merge-devshop/SKILL.md § Phase 2` adds the detection block; new `## Known limitations` section documents the rename-plus-symlink combo; `kit/tests/util-ak-merge-devshop.bats` adds a content-validation test for the detection prose.
-
-  [v0+, skill-improvement, surfaced-by ak-merge-devshop-smoke-test, 2026-05-07]
 
 - [ ] **Root-cause investigation: operator stashes vanish silently during `/ak-merge-devshop` flows.** [v0+] Symptom and recovery recipe are documented (recovery: `kit/docs/guide/hooks.md § Practical recipes § Recovering a vanished stash`; symptom + worked incident: `.claude/skills/devshop/merge-devshop/SKILL.md § Known limitations § Operator stashes can vanish silently mid-merge`; footgun pointer: `CLAUDE.md § Known Footguns`). What's still pending: confirming the actual mechanism so the upstream fix can land.
 

@@ -4,6 +4,15 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### merge-devshop-rename-detect (2026-05-26)
+
+- **Branch**: `feat/merge-devshop-rename-detect`
+- **Spec**: `specs/merge-devshop-rename-detect/spec.md`
+- **Headline**: The devshop merge skill now auto-detects rename-plus-symlink combos that would crash lint-staged, and offers a clean ff-merge fallback instead of failing mid-squash.
+- **Summary**: `/ak-merge-devshop` Phase 2 gains a pre-commit detection step: after `git reset --soft` stages the squash delta, scan `git diff --cached --name-status` for `R<sim> OLD → NEW` + `A OLD` collisions. On hit, unstage (`git reset`), surface the issue, and offer `git merge --ff-only` as the fallback — same file-system end state, N separate commits instead of 1 squash. Known limitations section updated from "manual recovery" to "auto-detected".
+- **Commits**: 9 (squashed to 1 on main via /ak-merge-devshop)
+- **Quality gates**: 9 new bats tests (section L) in `util-ak-merge-devshop.bats`. All 1392 bats pass. Gate 6 caught missing detection guard on merge-fallback path (fixed: added prose comment referencing primary detection block).
+
 ### keepalive-supabase-ping (2026-05-24)
 
 - **Branch**: `feat/keepalive-supabase-ping`
