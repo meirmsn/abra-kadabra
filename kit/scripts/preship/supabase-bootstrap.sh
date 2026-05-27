@@ -129,6 +129,44 @@ detect_shape() {
   echo "none"
 }
 
+# Verify seed fixtures (alice + bob in auth.users).
+# Args: $1 = postgres host (e.g. host.docker.internal or localhost)
+# Tries psql first; falls back to GoTrue admin API via curl when psql is
+# unavailable (compose isolation — workspace has no postgresql-client).
+# Returns 0 on success, 1 on missing fixtures.
+verify_seed_fixtures() {
+  local pg_host="$1"
+  # Strategy 1: direct Postgres query (preferred, exact count).
+  if command -v psql >/dev/null 2>&1; then
+    if PGPASSWORD=postgres psql -h "$pg_host" -p "$SUPABASE_DB_PORT" -U postgres -d postgres \
+         -tAc "SELECT count(*) FROM auth.users WHERE email IN ('alice@test.local', 'bob@test.local')" \
+         2>/dev/null | grep -q '^2$'; then
+      return 0
+    fi
+    return 1
+  fi
+  # Strategy 2: GoTrue admin API via curl (compose isolation fallback).
+  # When psql is missing, the old code's `psql ... 2>/dev/null | grep` pipeline
+  # produced empty stdout → grep always failed → false-positive "seed missing".
+  local svc_key="${SUPABASE_SERVICE_ROLE_KEY:-}"
+  local api_url="http://${pg_host}:${SUPABASE_API_PORT}"
+  if [ -n "$svc_key" ]; then
+    local users_json
+    users_json=$(curl -sS -m 10 \
+      -H "Authorization: Bearer $svc_key" \
+      -H "apikey: ${SUPABASE_ANON_KEY:-$svc_key}" \
+      "$api_url/auth/v1/admin/users" 2>/dev/null || true)
+    if printf '%s' "$users_json" | grep -q 'alice@test.local' \
+       && printf '%s' "$users_json" | grep -q 'bob@test.local'; then
+      return 0
+    fi
+    return 1
+  fi
+  # Neither psql nor service_role key available — fail open with warning.
+  echo "warning: psql unavailable and SUPABASE_SERVICE_ROLE_KEY not set — cannot verify seed fixtures; skipping check" >&2
+  return 0
+}
+
 case "$MODE" in
   up)
     # 1. CLI check — hard block. Without the CLI, workspace can't run `supabase migration new`
@@ -166,10 +204,8 @@ case "$MODE" in
           exit 0
         fi
 
-        # Verify seed fixtures via Postgres (data plane at host.docker.internal:$SUPABASE_DB_PORT under compose).
-        if ! PGPASSWORD=postgres psql -h host.docker.internal -p "$SUPABASE_DB_PORT" -U postgres -d postgres \
-             -tAc "SELECT count(*) FROM auth.users WHERE email IN ('alice@test.local', 'bob@test.local')" \
-             2>/dev/null | grep -q '^2$'; then
+        # Verify seed fixtures (psql → GoTrue admin API fallback).
+        if ! verify_seed_fixtures host.docker.internal; then
           echo "error: seed fixtures missing (expected alice@test.local + bob@test.local in auth.users) — check supabase/seed.sql, then re-run \`pnpm db:reset\`" >&2
           exit 4
         fi
@@ -198,9 +234,8 @@ case "$MODE" in
           fi
         fi
 
-        if ! PGPASSWORD=postgres psql -h localhost -p "$SUPABASE_DB_PORT" -U postgres -d postgres \
-             -tAc "SELECT count(*) FROM auth.users WHERE email IN ('alice@test.local', 'bob@test.local')" \
-             2>/dev/null | grep -q '^2$'; then
+        # Verify seed fixtures (psql → GoTrue admin API fallback).
+        if ! verify_seed_fixtures localhost; then
           echo "error: seed fixtures missing (expected alice@test.local + bob@test.local in auth.users) — check supabase/seed.sql" >&2
           exit 4
         fi
@@ -222,10 +257,8 @@ case "$MODE" in
         # Treat as reused — Phase 0 doesn't try to manage start/stop.
         echo "reused: local Supabase reachable at host.docker.internal (Host Supabase shape — lifecycle managed from macOS terminal)"
 
-        # Verify seed via Postgres on host.docker.internal:$SUPABASE_DB_PORT.
-        if ! PGPASSWORD=postgres psql -h host.docker.internal -p "$SUPABASE_DB_PORT" -U postgres -d postgres \
-             -tAc "SELECT count(*) FROM auth.users WHERE email IN ('alice@test.local', 'bob@test.local')" \
-             2>/dev/null | grep -q '^2$'; then
+        # Verify seed fixtures (psql → GoTrue admin API fallback).
+        if ! verify_seed_fixtures host.docker.internal; then
           echo "error: seed fixtures missing (expected alice@test.local + bob@test.local in auth.users) — check supabase/seed.sql, then run \`supabase db reset\` from your macOS host terminal" >&2
           exit 4
         fi

@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+set -e
+trap '' INT
+
+source "$BATS_ROOT/$BATS_LIBDIR/bats-core/formatter.bash"
+
+count=0
+index=0
+failures=0
+skipped=0
+
+_green() { printf '\x1B[32m%s\x1B[0m' "$1"; }
+_red()   { printf '\x1B[1;31m%s\x1B[0m' "$1"; }
+_dim()   { printf '\x1B[2m%s\x1B[0m' "$1"; }
+_bold()  { printf '\x1B[1;34m%s\x1B[0m' "$1"; }
+
+bats_tap_stream_plan() {
+  count="$1"
+}
+
+bats_tap_stream_suite() {
+  _bold "$1"
+  printf '\n'
+}
+
+bats_tap_stream_begin() {
+  index="$1"
+}
+
+bats_tap_stream_ok() {
+  local pct=$(( index * 100 / count ))
+  _dim "$(printf '[%4d/%-4d %2d%%]' "$index" "$count" "$pct")"
+  _green ' ✓ '
+  printf '%s\n' "$2"
+}
+
+bats_tap_stream_not_ok() {
+  local pct=$(( index * 100 / count ))
+  ((++failures))
+  _dim "$(printf '[%4d/%-4d %2d%%]' "$index" "$count" "$pct")"
+  _red ' ✗ '
+  printf '%s\n' "$2"
+}
+
+bats_tap_stream_skipped() {
+  local pct=$(( index * 100 / count ))
+  ((++skipped))
+  _dim "$(printf '[%4d/%-4d %2d%%]' "$index" "$count" "$pct")"
+  printf ' - %s (skipped)\n' "$2"
+}
+
+bats_tap_stream_comment() {
+  printf '   # %s\n' "$1"
+}
+
+bats_tap_stream_unknown() {
+  printf '%s\n' "$1"
+}
+
+bats_parse_internal_extended_tap
+
+printf '\n'
+if [ "$failures" -eq 0 ]; then
+  _green "$(printf '%d tests, 0 failures' "$count")"
+else
+  _red "$(printf '%d tests, %d failures' "$count" "$failures")"
+fi
+if [ "$skipped" -gt 0 ]; then
+  printf ', %d skipped' "$skipped"
+fi
+printf '\n'

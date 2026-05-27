@@ -530,8 +530,8 @@ spec. One file, one source of truth, no second artifact to keep in sync.
 Both blurbs as approved at Phase 0.2. Single source-of-truth — `/ak-build`
 Phase 4.1 copies them verbatim into the PR body's `## Product update`
 section, Phase 5.6 copies Headline into BUILD-LOG `Headline:` and Detail
-into `Summary:`, Phase 7 uses Detail in the ready-for-review comment, and
-`/ak-go-live` Step 6 uses Headline as the deployed-to-prod lede. Verified
+into `Summary:`, and `/ak-go-live` Step 6 uses Headline as the
+deployed-to-prod lede. Verified
 against the diff at Phase 6 Gate A (operator confirmation) + Gate B
 (automated claim-vs-diff cross-check). Collapse to
 `### Headline + Detail (combined)` if the two would be word-for-word
@@ -846,8 +846,31 @@ if [ -n "$TOUCHES_UI" ]; then
   fi
 fi
 
-# Supabase check (blocking for Gate 9 /qa).
+# Supabase check (blocking for Gate 9 /qa). Pre-writes qa.md as blocked
+# when degraded so the roster check catches it even if the orchestrator
+# skips dispatch.
 SUPABASE_STATUS=$(bash /devshop/kit/scripts/preship/supabase-bootstrap.sh up 2>&1 | tail -1)
+
+# When Supabase is not fully healthy, pre-write a blocked gate sink for
+# Gate 9 so the § 3.3.1 roster check catches it. If the gate dispatch
+# later runs Gate 9 successfully, the sub-agent overwrites this file.
+SUPABASE_HEALTHY=""
+if echo "$SUPABASE_STATUS" | grep -qE "^(ok:|reused:)"; then
+  SUPABASE_HEALTHY="yes"
+else
+  cat > "$FEATURE_DIR/gates/qa.md" <<QEOF
+## Gate 9: /qa
+
+- Result: blocked (Supabase not available — $SUPABASE_STATUS)
+
+Gate 9 requires a healthy local Supabase with seed fixtures.
+Pre-written by preflight; will be overwritten if Gate 9 runs successfully.
+
+## Dismissals
+
+None
+QEOF
+fi
 
 # Determine overall preflight result.
 PREFLIGHT_RESULT="pass"
@@ -872,6 +895,7 @@ cat > "$FEATURE_DIR/gates/preflight.md" <<EOF
 - HAS_TURBO=$HAS_TURBO
 - Chromium: ${CHROMIUM_AVAILABLE:-not available}
 - Supabase: $SUPABASE_STATUS
+- Supabase healthy: ${SUPABASE_HEALTHY:-no}
 - Result: $PREFLIGHT_RESULT ${BLOCK_REASON:+(reason: $BLOCK_REASON)}
 EOF
 
@@ -884,6 +908,15 @@ if [ "$PREFLIGHT_RESULT" = "blocked" ]; then
   exit 1
 fi
 ```
+
+When Supabase is unavailable but the preflight as a whole passes (e.g.,
+docs-only diff with `pass-with-note:` from `emit_degraded_outcome`), a
+pre-written `blocked` sink for `qa.md` ensures the roster check at § 3.3.1
+still catches the unavailability. The Phase 3 → 4 handoff then sees
+`blocked > 0` and halts properly rather than silently shipping without QA.
+If the gate dispatch later runs Gate 9 successfully (e.g., after the
+operator fixes the Supabase issue and re-invokes), the sub-agent overwrites
+the pre-written sink with the real outcome.
 
 On `pass`, the scope variables are available in the preflight sink for
 § 3.3.1's roster derivation (read them back via `grep`). On `blocked`,
@@ -1397,7 +1430,7 @@ unmerged BUILD-LOG entries down with them).
    - **Headline**: <verbatim copy of $FEATURE_DIR/spec.md § Product update § Headline>
    - **Summary**: <verbatim copy of $FEATURE_DIR/spec.md § Product update § Detail>
    - **Commits**: <N> (<brief list if ≤ 5, else "N atomic commits per /ak-implement">)
-   - **Quality gates**: <summary from audit — "all passed" / "N findings fixed during pre-ship" / etc>
+   - **Quality gates**: <one-line summary — "all passed" / "N findings fixed" / etc>
    ```
 
    **Headline + Summary routing**: both fields draw from spec.md §
@@ -1520,21 +1553,8 @@ The body template, assembled in this order:
 
 ## Test plan
 
-### Pre-push automated gates
-- [x] `pnpm turbo run lint typecheck test:unit build` — green
-- [x] Playwright spec parse via `playwright test --list` (if applicable)
-
-### CI jobs
-- [ ] Fast-job CI green
-- [ ] Slow-job CI green (or ~~struck through~~ with "not enabled" if repo lacks slow job)
+- [ ] CI green
 - [ ] Vercel / Netlify / Fly preview deployed
-
-### Gates summary
-<One row per gate from $FEATURE_DIR/review.md. Read each gate's
- `## Gate <#>: <name>` heading + Result line from the shards under
- $FEATURE_DIR/gates/. Format as a markdown table:
- | Gate | Result |
- Each gate in the canonical order from § 3.3.>
 
 ### Manual review
 - [ ] Spec / intent match — does the PR do what was specified?
@@ -1549,10 +1569,12 @@ The body template, assembled in this order:
  https://github.com/<owner>/<repo>/raw/<branch>/<rel-path> URL form.
  If $FEATURE_DIR/hero/SKIP.md exists: "Hero shots skipped — non-UI PR."
  If neither: "⚠ No hero shots — capture was not attempted.">
-
-### Evidence
-<Placeholder — Phase 6 splices the audit trail link here.>
 ```
+
+The PR body is intentionally clean of devshop process artifacts (gate
+tables, attestation language, `specs/` cross-references). Gate results
+persist in `specs/<feature>/review.md` (committed to the repo); the PR
+body is for the reviewer, not the audit trail.
 
 **Mechanical check** — verify the body before proceeding to § 4.2 (see
 § Phase exit artifact registry row `4.1`):
@@ -1560,7 +1582,6 @@ The body template, assembled in this order:
 ```bash
 BODY_MISSING=""
 for section in "## Product update" "## Engineering details" "## Test plan" \
-               "### Pre-push automated gates" "### CI jobs" "### Gates summary" \
                "### Manual review" "### Hero shots"; do
   if ! grep -qF "$section" /tmp/ship-body.md; then
     BODY_MISSING+="  $section\n"
@@ -1744,11 +1765,10 @@ that run failed on a WebKit system-libs flake, forcing a public
 retraction comment. Phase 6's `Part B` evidence sweep enforces this
 check at posting time.
 
-Once the CI run completes successfully, mark the relevant `## Test plan` /
-`### CI gates` checkboxes as `[x]` with the short attestation inline
-(`green on <commit-sha>`, deploy URL + timestamp, etc.). Also check for
+Once the CI run completes successfully, mark the `CI green` and
+`preview deployed` checkboxes as `[x]` in `## Test plan`. Check for
 Vercel / Netlify / Fly bot comments on the PR — if a preview is deployed,
-mark the "preview deploys successfully" checkbox with the URL.
+mark the preview checkbox with the URL.
 
 ```bash
 gh pr view "$PR" --json body --jq .body > /tmp/pr-body.md
@@ -2637,99 +2657,42 @@ Use the outcome vocabulary from `/ak-pre-ship`: **`pass`**, **`findings (N) [fix
 **`n/a`** (gate didn't apply), **`blocked`** (tooling missing — should never reach
 Phase 6 because Phase 3 refuses to advance, but surface it if it somehow does).
 
+The audit comment is intentionally concise — the full gate-by-gate log
+lives in `specs/<feature>/review.md` (committed to the repo). The PR
+comment carries only the information a cold reviewer needs: overall
+gate status, any overrides, CI fix history, and hero shots.
+
 ```bash
-gh pr comment "$PR" --body "$(cat <<'COMMENT'
-## Pre-ship audit trail
+# Compute summary counts from review.md
+GATES_PASSED=$(grep -c 'Result:.*pass' "$FEATURE_DIR/review.md" || echo 0)
+FINDINGS_FIXED=$(grep -oP 'findings \(\K[0-9]+' "$FEATURE_DIR/review.md" | \
+  paste -sd+ | bc 2>/dev/null || echo 0)
+TOTAL_GATES=$((GATES_PASSED + $(grep -c 'Result:' "$FEATURE_DIR/review.md" || echo 0)))
 
-### Quality gates
-| Gate | Result |
-|------|--------|
-| Docs check | <pass / findings (N) fixed / n/a / blocked> |
-| Metrics check | <pass / findings (N) fixed / n/a / blocked> |
-| Responsive + theme | <pass / findings (N) fixed / n/a / blocked> |
-| /simplify | <pass / findings (N) fixed / blocked> |
-| /ak-check-docs-and-tests (Audit 1, pre-polish) | <pass / findings (N) / blocked> |
-| /review | <pass / findings (N) fixed / blocked> |
-| /cso | <pass / findings (N) fixed / blocked> |
-| /design-review | <pass / findings (N) fixed / n/a / blocked> |
-| /qa | <pass / findings (N) fixed / blocked> |
-| /benchmark | <pass / findings (N) / n/a / blocked> |
-| Convention check | <pass / findings (N) / blocked> |
-| /ak-check-docs-and-tests (Audit 2, post-polish) | <pass / findings (N) [pending or medium-only] / n/a — empty range / skipped — testReviewSkipReason / blocked> |
+gh pr comment "$PR" --body "$(cat <<COMMENT
+## Pre-ship audit
 
-### Override-acknowledgements (Phase 3 → 4 advance log)
-<From $FEATURE_DIR/review.md § "Phase 3 → 4 advance log". If section is
- absent or empty: "No overrides — every gate either passed or the tooling
- gap was resolved before advance." Otherwise render each entry verbatim
- (timestamp, gate, reason, follow-up tracker, and the
- <!-- adversarial-review-stamp --> marker) so the reviewer can verify the
- override was approved by the blockedGateOverride reviewer (Sonnet). A
- `pending` stamp on a merged PR is a contract violation — surface it
- prominently so the reviewer flags the merge.>
+${GATES_PASSED} gates passed, ${FINDINGS_FIXED} findings fixed during pre-ship.
+Full gate log: \`specs/${FEATURE}/review.md\`.
 
-### CI fix loop
-<N attempts / 0 if CI passed first try / details of what was fixed>
+$(# Override-acknowledgements — only if overrides exist
+if grep -q 'Phase 3 → 4 advance log' "$FEATURE_DIR/review.md" 2>/dev/null; then
+  echo '### Overrides'
+  echo ''
+  awk '/^## Phase 3 → 4 advance log/,/^## [^P]/' "$FEATURE_DIR/review.md" | \
+    sed '1d;$d'
+fi)
 
-### Polish-loop CI history
-<From 5.8.1's enumerate-on-invocation. If zero reds since PR open: "Clean —
- no transient failures during polish."
- If N reds with latest = green: "N transient failure(s) resolved during
- polish (most-recent-first, SHA + run title):" + bulleted list.
- If latest is non-success: should not reach Phase 6 — halted at 5.8.1.
- The reviewer reads this as evidence of polish-loop due diligence — red
- runs that the next push fixed are signal, not noise.>
-
-### Implementation decisions
-<From $FEATURE_DIR/tasks.md § Decisions — judgment calls made during /ak-implement>
-
-### Findings fixed during pre-ship
-<From $FEATURE_DIR/review.md § Gate N sections — one bullet per finding:
- what was found, which commit fixed it>
-
-### Post-pre-ship docs + tests audit (range: ${PRE_SHIP_SHA}..${HEAD})
-<From $FEATURE_DIR/review.md § Audit 2 (the latest `## Audit N` section
- appended by /ak-check-docs-and-tests at Phase 5.8). Surface docs + tests
- findings together — they share one severity budget.
-
- If 0/0/0: "Clean — no new gaps."
- If medium>0: list each medium verbatim from the section's
-              `### Docs findings` and `### Tests findings` subsections
-              (file:line + one-line summary).
- If low>0 (and medium=0): "(N low-severity items in review.md § Audit 2)"
- If high>0: should not reach Phase 6 — halt at 5.8.
- If skipped (testReviewSkipReason): "Skipped per <reason>; reviewer judged the
-              override (testReviewSkipReason adversarial review PASS)."
- If empty range: "Empty post-pre-ship range — no polish commits to audit.">
-
-### Evidence
-<If specs/$FEATURE/hero/*.png exists, include one markdown image-embed per
-file. Use the github.com/.../raw/... URL form per § "PR body conventions"
-(private-repo safe; raw.githubusercontent.com 404s for viewers without a
-token). Skip this section entirely when no hero shots were captured —
-do not leave placeholder text.
-
-Append a one-line freshness note based on 5.9's outcome:
-  "(Hero shots refreshed at 5.9.)"             — subagent committed new captures
-  "(Hero shots unchanged; already at HEAD.)"    — subagent ran, no diff to commit
-  "(5.9 skipped — visual evidence already at HEAD via idempotence.)"
-This gives the reviewer ground-truth on whether the embeds reflect
-the merge-target SHA.>
+$(# Hero shots — only if PNGs exist
+OWNER_REPO=\$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+BRANCH=\$(git branch --show-current)
+for shot in "$FEATURE_DIR"/hero/*.png; do
+  [ -f "\$shot" ] || continue
+  REL=\${shot#/workspace/}
+  echo "![\${shot##*/}](https://github.com/\${OWNER_REPO}/raw/\${BRANCH}/\${REL})"
+done)
 COMMENT
 )"
-```
-
-Hero screenshot embeds — generate one image-tag per file found in
-`$FEATURE_DIR/hero/`, to splice into the `### Evidence` section above.
-Use the private-repo-safe URL form:
-
-```bash
-OWNER_REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
-BRANCH=$(git branch --show-current)
-for shot in "$FEATURE_DIR"/hero/*.png; do
-  [ -f "$shot" ] || continue
-  REL=${shot#/workspace/}
-  echo "![${shot##*/}](https://github.com/${OWNER_REPO}/raw/${BRANCH}/${REL})"
-done
 ```
 
 ### Phase 6 checkbox verification (final sweep)
@@ -2738,13 +2701,11 @@ Before leaving Phase 6, re-read the PR body one more time and reconcile the `## 
 
 **Part A — State-based reconciliation** (does the box's state match its trigger signal?):
 
-| Box                                                                       | Should be `[x]` when                                                                                                                                                                                                                          |
-| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pre-push automated gates (`pnpm turbo run lint typecheck test:unit build`) | `/ship` ran them green before pushing — mark at PR creation time (Phase 4).                                                                                                                                                                   |
-| Fast-job CI green                                                         | CI run completed with `conclusion == "success"` — mark when Phase 5.3 fires.                                                                                                                                                                  |
-| Slow-job CI green                                                         | CI run's slow job completed green. **If the repo doesn't run a slow job yet**, do NOT mark `[x]` — instead strike the row through (`~~...~~`) with a short "out of scope for this PR" note, so the box reads as a known deferred gate rather than a failing one. |
-| Vercel/Netlify/Fly preview deploys successfully                           | Platform bot comment reports `Ready` / equivalent — mark with the preview URL + timestamp.                                                                                                                                                    |
-| Manual-review callouts (visual audits, QA walkthrough, post-deploy p95)   | **Never** — these are for the reviewer, not the automation.                                                                                                                                                                                   |
+| Box                                                                     | Should be `[x]` when                                                                                                                                                                                                                          |
+| ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CI green                                                                | CI run completed with `conclusion == "success"` — mark when Phase 5.3 fires.                                                                                                                                                                  |
+| Vercel/Netlify/Fly preview deployed                                     | Platform bot comment reports `Ready` / equivalent — mark with the preview URL + timestamp.                                                                                                                                                    |
+| Manual-review callouts (visual audits, QA walkthrough, post-deploy p95) | **Never** — these are for the reviewer, not the automation.                                                                                                                                                                                   |
 
 If any box is in the wrong state when Phase 6 runs, fix it with `gh pr edit "$PR" --body-file` before posting the audit comment.
 
@@ -3065,45 +3026,14 @@ fi
 
 The branch is explicit rather than silent: on docs-only PRs, the user should SEE "no deploy needed" rather than wonder whether the pipeline forgot to suggest one.
 
-### 7.2: Post ready-for-review comment
+### 7.2: Print the handoff to the terminal
 
-The comment leads with the **Detail blurb** from `spec.md § Product
-update § Detail` verbatim — reviewers want the eng-aware version (state
-names, internal nouns, the team-facing voice). Headline is for the
-deploy comment (`/ak-go-live` Step 6) where the marketing-grade lede
-fits; Phase 7's audience is the cold reviewer landing on the PR via
-GitHub notification.
+No "Ready for review" comment — the PR being open IS the notification.
+Adding a comment just clutters the PR timeline with devshop process
+noise. The reviewer sees the PR in their GitHub notifications and reads
+the body (Product update + Engineering details + Test plan).
 
-```bash
-GITHUB_USER=$(gh api user --jq .login 2>/dev/null || git config user.name)
-
-# Pull the Detail blurb from spec.md verbatim. Falls back to combined
-# shape if the spec used `### Headline + Detail (combined)`.
-DETAIL_BLURB=$(awk '/^### Detail \(team-facing\)/,/^###|^## /' "$FEATURE_DIR/spec.md" | sed '1d;$d')
-if [ -z "$DETAIL_BLURB" ]; then
-  DETAIL_BLURB=$(awk '/^### Headline \+ Detail \(combined\)/,/^###|^## /' "$FEATURE_DIR/spec.md" | sed '1d;$d')
-fi
-
-gh pr comment "$PR" --body "## Ready for review
-
-@${GITHUB_USER} This PR is ready for your review.
-
-${DETAIL_BLURB}
-
-**Commits:** <N>
-**Quality gates:** all passed
-**CI:** green <after N fix attempts if any>
-
-${NEXT_STEP_LINE}"
-```
-
-If `spec.md § Product update § Detail` is missing (pre-convention
-spec), fall back to the historical shape (`**Summary:** <feature name
-from spec>`) and emit a one-line warning that the spec predates the
-Product update convention — don't halt; older specs are read-only
-history.
-
-### 7.3: Print the handoff to the terminal
+Phase 7 prints the handoff to the terminal only:
 
 After the comment posts, echo the handoff to the session's stdout so the user sees the next step in Claude Code without having to read the PR on GitHub first:
 
@@ -3144,15 +3074,9 @@ Every `- [ ]` / `- [x]` in the Test plan has a specific moment at which it flips
 
 | Checkbox (typical wording) | Flips to `[x]` when | Where in /ak-build |
 |---|---|---|
-| `pnpm turbo run lint typecheck test:unit build` — green | `/ship` ran them clean before push | Phase 4 — mark at PR creation |
-| `Playwright spec parses via playwright test --list` | `/ak-implement` wrote the spec; `/ak-pre-ship` verified parse | Phase 4 — mark at PR creation |
-| Fast-job CI green | `gh run watch` returned `success` | Phase 5.3 |
-| Slow-job CI green | Slow-job workflow finished green | Phase 5.3 — or strike through with "out of scope" if the slow job isn't enabled yet |
-| Vercel / Netlify / Fly preview deployed | Platform bot comment reports `Ready` / equivalent | Phase 5.3 — include preview URL + timestamp |
-| Visual audit (375 / 1440 × light / dark) | — | **Never** — human reviewer only |
-| Live QA walkthrough | — | **Never** — human reviewer only |
-| Post-deploy middleware p95 / metrics | — | **Never** — runs after merge |
-| Onboarding / screen-specific hero screenshot | — | **Never** if blocked on rate-limit / env; note why in `review.md` |
+| CI green | `gh run watch` returned `success` + conclusion cross-check | Phase 5.3 |
+| Vercel / Netlify / Fly preview deployed | Platform bot comment reports `Ready` / equivalent | Phase 5.3 — include preview URL |
+| Manual-review callouts (visual, QA, post-deploy) | — | **Never** — human reviewer only |
 
 Two kinds of mistakes to avoid:
 
@@ -3173,7 +3097,7 @@ PR-body items under a `### Manual review` (or "Live QA" / "Reviewer-only") headi
 Anything resolvable by `cat <file>` / `grep <symbol>` / fixed-shape comparison is **NOT** a manual-review item — it's factual and pre-ship gates already attested it. If you draft a body with a factual item under Manual review:
 
 1. **Drop it** — the pre-ship gate already covered it; the gate's audit comment carries the attestation.
-2. **Or self-attest under "Pre-push automated gates"** with `[x]` + the file:line that grounds the claim. Example: `[x] Migration idempotent guard correct (supabase/migrations/013_realtime_publication.sql:12-20)`.
+2. **Or self-attest** with `[x]` + the file:line that grounds the claim inline in the Test plan. Example: `[x] Migration idempotent guard correct (supabase/migrations/013_realtime_publication.sql:12-20)`.
 
 Phase 6's Part C sweep auto-attests factual items the body author missed, so the rule has a structural backstop — but draft them right at Phase 4 to save the round-trip.
 
@@ -3209,7 +3133,7 @@ fi
 
 Add the items inside the existing `## Test plan` block, ideally above the manual-review callouts (visual audit, live QA walkthrough), so reviewers see them adjacent to the CI checkboxes rather than at the bottom.
 
-The handoff comment in Phase 7 should also surface these — print them in the terminal hint AND as part of the "Ready for review" comment on the PR. `/ak-go-live` does not run these for you; the user (or the slow-job CI from a future PR) does.
+The handoff in Phase 7 should surface these in the terminal hint. `/ak-go-live` does not run these for you; the user (or the slow-job CI from a future PR) does.
 
 If the project's spec template doesn't already mention this convention, the next PR that touches an out-of-band-deploy path is a good time to add it to `CLAUDE.md § Gotchas` — but Phase 4 should not block on whether the convention is documented; it should add the test-plan items unconditionally based on diff detection.
 

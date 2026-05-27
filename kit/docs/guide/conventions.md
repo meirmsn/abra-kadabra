@@ -6,11 +6,11 @@ Tier 3 reference for the devshop's operational conventions. Human-browseable enc
 
 Operational rules live where they fire:
 
-| Tier | Home | Loaded when | Content shape |
-| ---- | ---- | ----------- | ------------- |
-| 1 | `/devshop/CLAUDE.md` | Every session start | Cross-cutting principles (confidence calibration, TODO protocol, non-negotiables) |
-| 2 | Skill `SKILL.md` files | Skill invocation | Skill-specific actions (spec checklist, test assertion depth, deploy surface table) |
-| 3 | `kit/docs/guide/**` (this file) | On-demand read/grep | Multi-skill reference, rationale, worked examples, background |
+| Tier | Home                            | Loaded when         | Content shape                                                                       |
+| ---- | ------------------------------- | ------------------- | ----------------------------------------------------------------------------------- |
+| 1    | `/devshop/CLAUDE.md`            | Every session start | Cross-cutting principles (confidence calibration, TODO protocol, non-negotiables)   |
+| 2    | Skill `SKILL.md` files          | Skill invocation    | Skill-specific actions (spec checklist, test assertion depth, deploy surface table) |
+| 3    | `kit/docs/guide/**` (this file) | On-demand read/grep | Multi-skill reference, rationale, worked examples, background                       |
 
 When a section here has a single consuming skill that replicates its content, the **skill copy is canonical**. This file keeps a one-line stub pointing there. When no single skill owns the content (multi-skill lifecycle, reference taxonomy, background rationale), this file is the canonical home.
 
@@ -438,7 +438,7 @@ Canonical readability rules for every text artifact the pipeline produces: per-c
 
 **PR body structure** (post-product-update-pr-section, 2026-05-17): every PR's body leads with two H2 sections in this order:
 
-1. **`## Product update`** — first content after the H1 title. Carries `### Headline (user-facing)` (1–2 sentences, marketing-grade, zero eng vocabulary) and `### Detail (team-facing)` (1–4 sentences, light eng OK). Both sub-sections copied verbatim from `spec.md § Product update`; `/ak-build` Phase 4.1 routes them. Single source-of-truth — Phase 5.6's BUILD-LOG `Headline:` + `Summary:` fields, Phase 7 ready-for-review comment, and `/ak-go-live` Step 6 deployed-to-prod comment all copy from the spec, not from the PR body. Operator verifies at Phase 6 Gate A; automated Gate B cross-checks claim-vs-diff. Authoring contract: `/devshop/.claude/skills/ak-spec/SKILL.md § Product update`.
+1. **`## Product update`** — first content after the H1 title. Carries `### Headline (user-facing)` (1–2 sentences, marketing-grade, zero eng vocabulary) and `### Detail (team-facing)` (1–4 sentences, light eng OK). Both sub-sections copied verbatim from `spec.md § Product update`; `/ak-build` Phase 4.1 routes them. Single source-of-truth — Phase 5.6's BUILD-LOG `Headline:` + `Summary:` fields and `/ak-go-live` Step 6 deployed-to-prod comment all copy from the spec, not from the PR body. Operator verifies at Phase 6 Gate A; automated Gate B cross-checks claim-vs-diff. Authoring contract: `/devshop/.claude/skills/ak-spec/SKILL.md § Product update`.
 2. **`## Engineering details`** — historical `## Summary` shape, renamed. Bullet-led TL;DR + 3-7 bullets at the eng grain (schema, routes, components, tests, CI). Reviewers want this; end-users don't read it.
 
 **Devshop owns this convention** (lives here, not in `gstack/ship/SKILL.md`) so it survives `gstack` upgrades. When a devshop skill or hook needs to enforce or remind, it points here.
@@ -485,14 +485,13 @@ Same atomic claims, two audiences. Authored once at `/ak-spec` Phase 0, approved
 
 Routing downstream (single source-of-truth = `spec.md § Product update`):
 
-| Surface                                       | Blurb used                                    |
-| --------------------------------------------- | --------------------------------------------- |
-| PR body `## Product update` (Phase 4.1)       | Both, Headline first                          |
-| BUILD-LOG `Headline:` (Phase 5.6 / 4.0)       | Headline                                      |
-| BUILD-LOG `Summary:` (Phase 5.6 / 4.0)        | Detail                                        |
-| Phase 7 ready-for-review comment              | Detail (reviewers want the eng-aware version) |
-| `/ak-go-live` Step 6 deployed-to-prod comment | Headline (lede) + Detail (context)            |
-| Future CHANGELOG / release notes aggregation  | Headline                                      |
+| Surface                                       | Blurb used                         |
+| --------------------------------------------- | ---------------------------------- |
+| PR body `## Product update` (Phase 4.1)       | Both, Headline first               |
+| BUILD-LOG `Headline:` (Phase 5.6 / 4.0)       | Headline                           |
+| BUILD-LOG `Summary:` (Phase 5.6 / 4.0)        | Detail                             |
+| `/ak-go-live` Step 6 deployed-to-prod comment | Headline (lede) + Detail (context) |
+| Future CHANGELOG / release notes aggregation  | Headline                           |
 
 The squash-message variant (`/ak-merge-devshop`) uses bold-text lead-in labels (`**Adds:**`, `**Trade-off:**`, `**Doc updates:**`, `**Migration:**`, `**Smoke-test finding:**`) instead of theme sub-headings, but the underlying rule is the same: bullets carry the load, labels are scannable anchors.
 
@@ -518,14 +517,14 @@ Every devshop commit whose diff requires a per-project follow-up MUST include an
 
 The trigger is: the commit touches a surface that affects project repos AND the change requires a per-project step that `from-devshop.sh` / `init-devshop.sh` won't handle automatically. Concretely:
 
-| Diff touches | Auto-handled? | Block required? |
-| --- | --- | --- |
-| `[locked]` file in `kit/manifest.txt` (e.g. `.claude/settings.json`, `.dcg.toml`, `.husky/pre-push`) | Yes — `init-devshop.sh` refreshes on rebuild | **Yes, but state "no migration needed"** — the "no migration" variant is important so the reader knows the author considered the question |
-| `[symlink]` file in `kit/manifest.txt` | Yes — symlink target changes automatically | Same — state "no migration needed" |
-| `[sync]` file in `kit/manifest.txt` (e.g. `template/.github/workflows/ci.yml`) | Partially — `from-devshop.sh` syncs, but may need manual review | **Yes** — describe what the operator should verify after sync |
-| `[scaffold-once]` file (e.g. `template/CLAUDE.md`, `template/PLAN.md`, `template/PRODUCT-ROADMAP.md`) | No — `from-devshop.sh` skips these by design | **Yes** — per-project migration recipe with concrete steps |
-| `template/**` file not in manifest | Depends on lifecycle tag | **Yes** if the change needs per-project action |
-| `kit/scripts/**`, `kit/hooks/**`, `.devcontainer/**` | Varies | **Yes** if behavior changes require project-side follow-up (env var, config, rebuild) |
+| Diff touches                                                                                          | Auto-handled?                                                   | Block required?                                                                                                                           |
+| ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `[locked]` file in `kit/manifest.txt` (e.g. `.claude/settings.json`, `.dcg.toml`, `.husky/pre-push`)  | Yes — `init-devshop.sh` refreshes on rebuild                    | **Yes, but state "no migration needed"** — the "no migration" variant is important so the reader knows the author considered the question |
+| `[symlink]` file in `kit/manifest.txt`                                                                | Yes — symlink target changes automatically                      | Same — state "no migration needed"                                                                                                        |
+| `[sync]` file in `kit/manifest.txt` (e.g. `template/.github/workflows/ci.yml`)                        | Partially — `from-devshop.sh` syncs, but may need manual review | **Yes** — describe what the operator should verify after sync                                                                             |
+| `[scaffold-once]` file (e.g. `template/CLAUDE.md`, `template/PLAN.md`, `template/PRODUCT-ROADMAP.md`) | No — `from-devshop.sh` skips these by design                    | **Yes** — per-project migration recipe with concrete steps                                                                                |
+| `template/**` file not in manifest                                                                    | Depends on lifecycle tag                                        | **Yes** if the change needs per-project action                                                                                            |
+| `kit/scripts/**`, `kit/hooks/**`, `.devcontainer/**`                                                  | Varies                                                          | **Yes** if behavior changes require project-side follow-up (env var, config, rebuild)                                                     |
 
 ### Required shape
 

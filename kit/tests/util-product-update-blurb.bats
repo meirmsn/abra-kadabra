@@ -180,14 +180,16 @@ setup() {
     | grep -qE 'awk .*Detail \\\(team-facing'
 }
 
-@test "Phase 7 ready-for-review pulls Detail blurb verbatim from spec.md" {
-  awk '/^### 7\.2:/,/^### 7\.3:/' "$AK_BUILD" \
-    | grep -qE 'DETAIL_BLURB.*spec\.md|spec\.md.*Detail|Detail blurb'
+@test "Phase 7.2 prints handoff to terminal (no PR comment)" {
+  # Phase 7.2 was rewritten — no "Ready for review" comment, just terminal output.
+  awk '/^### 7\.2:/,/^## PR body/' "$AK_BUILD" \
+    | grep -qiE 'terminal|stdout|handoff|echo'
 }
 
-@test "Phase 7 explains why Detail (not Headline) goes in ready-for-review" {
-  awk '/^### 7\.2:/,/^### 7\.3:/' "$AK_BUILD" \
-    | grep -qi 'reviewers want the eng-aware version'
+@test "Phase 7.2 does not post a ready-for-review PR comment" {
+  # The ready-for-review comment was stripped as devshop process noise.
+  ! awk '/^### 7\.2:/,/^## PR body/' "$AK_BUILD" \
+    | grep -qi 'gh pr comment.*ready.for.review'
 }
 
 # === Section C — ak-go-live Step 6 ===

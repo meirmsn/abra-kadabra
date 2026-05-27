@@ -9,11 +9,7 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
 - [ ] **Per-project catch-up workflow doc.** Rebuild devcontainer → `bash .devshopkit/scripts/sync/from-devshop.sh` → review diff + commit → verify symlinks exist + check key locked files refreshed (e.g. `ls -la ~/.gstack/projects`, `cat .nvmrc`, check `.github/workflows/ci.yml` slow-job shape). Same dance every time. Belongs as a one-page doc under `kit/docs/guide/workflow.md § Per-project catch-up` rather than a skill — skill ceremony isn't justified for a 5-step mechanical recipe. Deferred — surface when next-project catch-up surfaces friction worth doc-ifying. (Part 2 of this entry — the `**Existing projects:**` commit-body convention — shipped as `conventions.md § Existing-Project Migration Block`.) [convention, workflow, ergonomics, references `kit/docs/guide/workflow.md`, surfaced-by 2026-05-23]
 
-- [ ] **Full bats suite hangs during `git commit` on main — works fine standalone.** `kit/tests/lib/bats-core/bin/bats kit/tests/` completes in ~75s when run directly, but hangs indefinitely when run inside `.husky/pre-commit` during an actual `git commit`. The branch gate (`fix/hook-progress`, commit `22f9b2b`) skips the full suite on branches, so the hang only manifests on main (manual human commits). Standalone `sh -e .husky/pre-commit` (no real commit) also completes fine — the hang requires a real `git commit` in progress. Likely cause: inherited file descriptors from lint-staged or the git commit process, or a specific bats test that interacts with `.git/index.lock` held during the commit. Corrupted git index (missing blobs from Ctrl+C'd commits) was also observed during the session and fixed via `git read-tree HEAD`.
-
-  **Next step**: binary-search which test file hangs by running bats file-by-file inside a real commit (split `kit/tests/*.bats` into halves, run each half, narrow to the hanging file). Once identified, check if the test does git operations on the real repo instead of a temp dir.
-
-  Cross-ref: `fix/hook-progress` branch; `.husky/pre-commit` bash re-exec + branch gate; `kit/scripts/adversarial-review.sh` progress indicators. [pre-commit, bats, investigation, surfaced-by 2026-05-26 manual-commit-on-main attempt]
+- [x] **Full bats suite hangs during `git commit` on main — works fine standalone.** ~~Likely cause: inherited file descriptors from lint-staged or the git commit process.~~ **Root cause found 2026-05-26**: `kit/scripts/sync/lib/preview-confirm.sh:134` reads user input via `read -r answer < /dev/tty`. The test `sync-preview-confirm.bats:206` ("dry-run does not modify working tree") relied on `/dev/tty` being unavailable to trigger the abort path — true when bats runs standalone (no controlling terminal), but FALSE inside a real `git commit` from a human terminal where `/dev/tty` IS the user's terminal. The `read` blocked waiting for input indefinitely. **Fix**: `setsid` wrapper on the test's subprocess detaches the controlling terminal so `read < /dev/tty` fails even inside a real commit. **Also shipped**: custom bats progress formatter (`kit/hooks/bats-format-progress`) showing `[N/total pct%]` per test; `.husky/pre-commit` now uses `--formatter` + `--report-formatter tap` dual-output (live progress + parseable report); `</dev/null` on bats invocations as defense-in-depth against future stdin-inheritance issues. [pre-commit, bats, fixed 2026-05-26]
 
 - [ ] **Skip bats on docs-only devshop commits.** `.husky/pre-commit` runs all 1240 bats on every commit (~30s, measured 2026-05-23 on docs-only commit `20ca68b`). On pure-docs changes the suite is guaranteed-noop — wasted wallclock on every PLAN/ROADMAP/TODOS/BUILD-LOG/`*.md` commit.
 
@@ -586,31 +582,6 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
   [medium, convention + skill + template, surfaced-by home-os-pr-19-2026-05-15, 2026-05-15]
 
-- [ ] **Strip devshop process artifacts from PR descriptions and comments.** `/ak-build` Phase 4.1 pre-composes a `### Gates summary` table (19-row gate roster) into the PR body, and Phase 6 posts a "Pre-ship audit trail" comment (quality-gates table + override log + implementation decisions + findings-fixed narrative) plus a "Ready for review" comment. All three are devshop-internal process artifacts that leak into the public-facing PR. Home-os PR #34 required manual cleanup: PR body stripped of `### Gates summary`, `### Pre-push automated gates` (gate attestation references), `### Hero shots` (specs/ image URLs), `### Evidence` (specs/ cross-ref); three comments deleted (two "Pre-ship audit trail" + one "Ready for review").
-
-  **What to remove from PR body** (Phase 4.1):
-  - `### Gates summary` table — gate results already persist in `specs/<feature>/review.md` (repo-side audit trail); duplicating in the PR body is noise for external reviewers.
-  - `### Pre-push automated gates` — gate attestation cross-refs (`attested by /ship + Gate 10b preflight-final`) are devshop jargon.
-  - `### Evidence` section's `specs/` cross-ref (`Full gate audit at specs/close-flow/review.md`) — meaningless to non-devshop readers.
-  - Gate-specific language in `### CI jobs` checkboxes (e.g., `attested by /ship + Gate 10b preflight-final`).
-
-  **What to remove from PR comments** (Phase 6):
-  - "Pre-ship audit trail" comment (quality gates table + override-acknowledgements + CI fix loop + implementation decisions + findings-fixed narrative). The audit trail lives in `specs/<feature>/review.md`; posting it as a comment duplicates information and clutters the PR timeline.
-  - "Ready for review" comment — devshop-generated notification that adds no value beyond the PR itself being open.
-
-  **What to keep**:
-  - `## Product update` (headline + detail) — user/team-facing summary.
-  - `## Engineering details` — technical summary.
-  - `## Test plan` — CI status + manual review checklist (but without gate attestation language).
-  - `### Hero shots` — keep if image URLs work (see companion TODO `hero-upload-private-repos`); remove if broken.
-
-  **Edit targets**:
-  - `/devshop/.claude/skills/devshop/build/SKILL.md` § Phase 4.1 (PR body template) — remove `### Gates summary`, `### Pre-push automated gates`, `### Evidence` section, gate-attestation language from CI checkboxes.
-  - `/devshop/.claude/skills/devshop/build/SKILL.md` § Phase 6 (audit comment posting) — remove the "Pre-ship audit trail" comment and "Ready for review" comment generation blocks.
-  - `/devshop/.claude/skills/devshop/ship/SKILL.md` — if /ship independently composes a body with gate artifacts, strip there too.
-
-  [low-medium, skill-improvement, ak-build + ship, surfaced-by home-os-pr-34-cleanup-2026-05-26, 2026-05-26]
-
 - [ ] **Hero screenshot URLs break in PR descriptions for private repos.** `/ak-build` Phase 6 embeds hero shots in the PR body as `![alt](https://github.com/{owner}/{repo}/raw/{sha}/specs/{feature}/hero/{file}.png)`. This renders correctly for public repos but shows broken-image blue squares on private repos — GitHub's `raw` endpoint requires authentication and the PR description renderer doesn't pass it through.
 
   **Root cause**: GitHub markdown in PR descriptions fetches images via its Camo proxy (`https://camo.githubusercontent.com/...`), which cannot authenticate against private repo raw URLs. The `github.com/{owner}/{repo}/raw/{sha}/...` pattern (used in PRs #26–28) and `raw.githubusercontent.com/{owner}/{repo}/{sha}/...` (equivalent) both fail for the same reason.
@@ -622,3 +593,21 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
   **Affected skills**: `/ak-build` Phase 6 (PR body assembly), `/ship` (hero shots section). Any skill that embeds repo-local images in PR descriptions.
 
   [medium, /ak-build + /ship, surfaced-by home-os-pr-34-close-flow 2026-05-26]
+
+- [ ] **`prTextHygiene` pre-push hook re-evaluates on every push even when the PR body hasn't changed.** Each `git push` spends ~30s on an adversarial LLM review (Sonnet) of the PR title + body, even when neither has changed since the last push. On a typical `/ak-build` run with 3–4 pushes (initial + CI fix + Phase 5 docs + hero shots), that's ~2 min of pure ceremony on identical content.
+
+  **Fix shape**: hash the PR body + title after the first successful review (`sha256sum <<< "$TITLE$BODY"`), write the hash to a branch-local file (`.git/pr-hygiene-hash` or similar — not committed). On subsequent pushes, re-fetch the PR body, hash it, compare. Skip the adversarial review if the hash matches. Clear the hash file on `gh pr edit` (or just let the next push re-hash — the mismatch will trigger a fresh review).
+
+  **Where**: `kit/hooks/pre-push.sh` § prTextHygiene block.
+
+  [low, hook-improvement, surfaced-by home-os-pr-35-usage-counters-and-byok 2026-05-27]
+
+- [ ] **Migration rollback prose lines break CI rollback round-trip silently.** The CI rollback test (`scripts/ci-rollback-explain.sh`) strips `-- ` prefixes from the `-- ROLLBACK:` block and runs the result as SQL. Any prose line (e.g., `-- Restore the migration 006b version:`) becomes bare text that Postgres rejects with a syntax error. The failure only surfaces in CI, not locally — Gate 2e (migration-rollback-roundtrip) catches it for migrations that exist at gate time, but not for migrations added after pre-ship runs.
+
+  **Fix shape**: add a lint to the pre-commit hook that scans every `-- ROLLBACK:` block in staged migration files. For each line after the marker, strip the `-- ` prefix and check that the remainder is either empty, a SQL keyword (`DROP`, `CREATE`, `ALTER`, `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `SET`, `RESET`, `GRANT`, `REVOKE`, `NOTIFY`), or a continuation of a multi-line statement. Flag lines that start with a capitalized English word that isn't a SQL keyword.
+
+  **Where**: `kit/scripts/commit-hooks/` (new script) + wire into `kit/hooks/pre-commit.sh`.
+
+  **Worked incident**: home-os PR #35 migration 015 — `-- Restore the migration 006b version (resets card_count only):` became `Restore the migration 006b version (resets card_count only):` after prefix stripping, causing `ERROR: syntax error at or near "Restore"` in CI.
+
+  [low, hook-improvement, surfaced-by home-os-pr-35-usage-counters-and-byok 2026-05-27]

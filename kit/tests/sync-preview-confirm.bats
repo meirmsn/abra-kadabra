@@ -210,9 +210,11 @@ M
   local before
   before=$(cat "$FIXTURE_PROJECT/turbo.json")
 
-  # Pipe 'n' to /dev/tty is not possible in test, but --yes=false (default)
-  # with no tty will cause read to fail and default to abort.
-  run bash -c "
+  # The script reads from /dev/tty, not stdin — so `< /dev/null` alone
+  # doesn't prevent blocking. `setsid` detaches the controlling terminal
+  # so `read < /dev/tty` fails even when bats runs inside a real
+  # `git commit` from a human terminal.
+  run setsid bash -c "
     DEVSHOP_DIR='$FIXTURE_DEVSHOP' \
     bash '$FIXTURE_FROM' < /dev/null 2>&1
   "

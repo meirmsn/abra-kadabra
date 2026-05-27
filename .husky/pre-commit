@@ -22,15 +22,15 @@ gitleaks protect --staged --redact
 _current_branch=$(git branch --show-current 2>/dev/null || echo "")
 if [ "$_current_branch" = "main" ] || [ "$_current_branch" = "master" ]; then
   if [ -d kit/tests ] && [ -x kit/tests/lib/bats-core/bin/bats ]; then
-    _bats_cases=$(kit/tests/lib/bats-core/bin/bats kit/tests/ --count </dev/null 2>/dev/null | tail -1)
-    echo "⏳ Running full kit bats suite (main branch): ${_bats_cases:-?} tests..."
+    echo "⏳ Running full kit bats suite (main branch)..."
     _bats_start=$(date +%s%N 2>/dev/null || date +%s)
-    _bats_tmpfile=$(mktemp)
-    kit/tests/lib/bats-core/bin/bats kit/tests/ --print-output-on-failure </dev/null 2>&1 \
-      | awk -v out="$_bats_tmpfile" '{ print >> out } /^(ok|not ok) /{ n++; if(n%100==0){ printf "  ...%d tests completed\n", n; fflush() } }'
-    _bats_exit=${PIPESTATUS[0]}
-    _bats_output=$(cat "$_bats_tmpfile")
-    rm -f "$_bats_tmpfile"
+    _bats_report_dir=$(mktemp -d)
+    _bats_formatter="$(git rev-parse --show-toplevel)/kit/hooks/bats-format-progress"
+    kit/tests/lib/bats-core/bin/bats kit/tests/ --print-output-on-failure \
+      --formatter "$_bats_formatter" --report-formatter tap -o "$_bats_report_dir" </dev/null
+    _bats_exit=$?
+    _bats_output=$(cat "$_bats_report_dir/report.tap")
+    rm -rf "$_bats_report_dir"
     _bats_total=$(echo "$_bats_output" | grep -c '^ok ' || true)
     _bats_failed=$(echo "$_bats_output" | grep -c '^not ok ' || true)
     _bats_end=$(date +%s%N 2>/dev/null || date +%s)

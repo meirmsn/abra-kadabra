@@ -52,6 +52,7 @@ README.md [scaffold-once]
 .devshop-test-coverage-exempt [scaffold-once]
 .devshop-docs-freshness-exempt [scaffold-once]
 .devshop-version [scaffold-once]
+supabase/seed.sql [scaffold-once]
 
 # Build tooling — sync via sync/from-devshop.sh / sync/to-devshop.sh
 .gitignore [sync]

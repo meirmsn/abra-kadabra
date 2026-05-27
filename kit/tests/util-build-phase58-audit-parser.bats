@@ -108,9 +108,9 @@ setup() {
 
 # === Phase 6: audit comment generation ===
 
-@test "Phase 6 audit comment reads from review.md § Audit N (collapsed two-file model)" {
+@test "Phase 6 audit comment reads from review.md" {
   awk '/## Phase 6/,/### Phase 6 checkbox/' "$SKILL_FILE" \
-    | grep -qE 'review\.md.*Audit (N|2)|Audit (N|2).*review\.md'
+    | grep -qE 'review\.md'
 }
 
 @test "Phase 6 audit comment does not reference test-review-followup.md" {
@@ -118,14 +118,17 @@ setup() {
     | grep -q 'test-review-followup'
 }
 
-@test "Phase 6 quality-gates table references /ak-check-docs-and-tests (Audit 1, pre-polish)" {
-  # Audit 1 row — replaces the prior `/ak-tests-review` row.
-  grep -q '/ak-check-docs-and-tests (Audit 1, pre-polish)' "$SKILL_FILE"
+@test "Phase 6 audit comment posts concise summary (no quality-gates table)" {
+  # The quality-gates table was stripped — Phase 6 now posts only a concise
+  # summary with gate counts, overrides, and hero shots.
+  awk '/## Phase 6/,/### Phase 6 checkbox/' "$SKILL_FILE" \
+    | grep -qE 'Pre-ship audit|gates passed'
 }
 
-@test "Phase 6 quality-gates table references /ak-check-docs-and-tests (Audit 2, post-polish)" {
-  # Audit 2 row — replaces the prior `Post-pre-ship test-coverage` row.
-  grep -q '/ak-check-docs-and-tests (Audit 2, post-polish)' "$SKILL_FILE"
+@test "build/SKILL.md references /ak-check-docs-and-tests and both Audit 1 and Audit 2" {
+  grep -q 'ak-check-docs-and-tests' "$SKILL_FILE"
+  grep -q 'Audit 1' "$SKILL_FILE"
+  grep -q 'Audit 2' "$SKILL_FILE"
 }
 
 # === File-wide invariants ===
