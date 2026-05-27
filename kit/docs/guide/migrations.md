@@ -263,6 +263,33 @@ But new TABLES still need either the default-privileges block being in effect at
 
 **When to skip this section**: if `/ak-new-project` adopts the GRANT posture by default (under discussion as of 2026-05-18), new projects scaffolded after that change won't need a per-project 008-equivalent. Existing projects retroactively need it once.
 
+### Upcoming: explicit GRANTs required on all new tables (Oct 2026)
+
+Supabase announced that starting **May 30, 2026**, new projects won't auto-expose `public` tables to the Data API. Starting **October 30, 2026**, this applies to new tables in existing projects too — any `CREATE TABLE` in `public` will be invisible to PostgREST, GraphQL, and supabase-js until an explicit `GRANT` is issued.
+
+Projects that already have the 008-equivalent `ALTER DEFAULT PRIVILEGES` block are covered IF the migration runner role matches the role that issued the block. On Supabase Cloud, this isn't always the case — the migration runner can differ from `postgres`, so `ALTER DEFAULT PRIVILEGES` silently doesn't apply.
+
+**Rule: every `CREATE TABLE` migration must include an explicit GRANT, even when `ALTER DEFAULT PRIVILEGES` is in effect.** The GRANT is a no-op when defaults apply and a safety net when they don't.
+
+```sql
+create table public.some_table (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  -- ...
+);
+
+alter table public.some_table enable row level security;
+
+-- Explicit GRANT — required after Oct 2026, defensive before then.
+-- ALTER DEFAULT PRIVILEGES may not apply on Supabase Cloud if the
+-- migration runner role differs from the role that set the defaults.
+grant all on public.some_table to authenticated;
+```
+
+The `anon` role GRANT depends on the table's access pattern — most app tables only need `authenticated`. Add `anon` only when unauthenticated access is intentional.
+
+**Audit before Oct 30, 2026**: for each existing project, run the Security Advisor in the Supabase dashboard to verify which tables are exposed to the Data API. Cross-reference with `select grantee, privilege_type from information_schema.role_table_grants where table_schema = 'public'` against prod.
+
 ### Why not just edit the original `create type` migration?
 
 If the project is pre-launch and the original `create type` migration hasn't been deployed to any environment that retains state (no prod, no preview branches with persistent DBs), editing the original migration to include the new value is simpler — there's no need for a recreate dance. The DROP+CREATE pattern is for the common case where the original migration has already been applied somewhere and can't be retroactively changed.
