@@ -91,13 +91,11 @@ Each row of the routing table is enforced by `/ak-docs-review` § Section E (CLA
 
 ## Enforcement
 
-Two layers — upstream prevention via the router, downstream judgment via the adversarial reviewer. **No mechanical size cap; no mechanical section allowlist.** Both were dropped during planning because:
+Three layers — upstream prevention via the router, commit-time classification via the pre-commit gate, and downstream judgment via the adversarial reviewer. **No mechanical size cap; no mechanical section allowlist** — those were dropped during planning (Q6). The three layers compose:
 
-1. The write-time router (Layer A) prevents the dominant source of drift (`/ak-build` writing surface inventory to CLAUDE.md by default).
-2. The adversarial reviewer (Layer C) judges every entry's fitness against the inclusion rule at every audit, with full context.
-3. Mechanical gates only catch _accidental_ drift; the router catches that upstream. They mostly produce false-positive friction at the threshold + dilute the bypass mechanism's meaning.
-
-The operator can always add a legitimately-needed section or entry; the reviewer judges its fitness afterward. Judgment-based hygiene, not gate-based.
+1. **Layer A** (write-time router) prevents the dominant source of drift (`/ak-build` writing surface inventory to CLAUDE.md by default).
+2. **Layer B** (pre-commit classification gate) blocks intentional additions that don't pass the inclusion test — every addition must be classified and reviewed.
+3. **Layer C** (adversarial audit) catches drift that slipped through both at audit time, with full context.
 
 ### Layer A — Write-time router (`/ak-build`, `/setup-deploy`)
 
@@ -111,6 +109,26 @@ Doc routing summary:
 ```
 
 Operator scans the block before approving. Misroutes are caught there.
+
+### Layer B — Pre-commit classification gate (`check-claude-md-classification.sh`)
+
+Fires on any staged CLAUDE.md edit that adds or modifies content. Pure deletions pass trivially (reducing CLAUDE.md is always good). When additions are detected, the commit is blocked unless a `claudeMdClassification` bypass flag classifies each entry.
+
+**Bypass interface:**
+
+```bash
+git -c devshop.claudeMdClassification="trap: <entry> — <why silent failure>" commit ...
+```
+
+Each addition must be classified as one of:
+
+- **trap** — causes silent wrong work if forgotten. Stays in CLAUDE.md.
+- **reference** — look-it-up information. Must be relocated to its canonical home (guide doc, area README, code comment) in the same commit.
+- **convention** — already documented in a guide. Delete the CLAUDE.md duplicate (or keep a one-liner pointer if the convention is frequently violated).
+
+The adversarial reviewer (Sonnet, `claudeMdClassification` check-type in `adversarial-review.sh`) judges: (a) classification accuracy against the inclusion rule + routing table, (b) that reference/convention relocations actually landed in the same commit (destination file staged), (c) that trap entries genuinely cause silent wrong work.
+
+**Trailer:** `Claude-MD-Classification:` appended by `prepare-commit-msg` for audit-time harvesting. Full bypass-flag and check-type documentation: `kit/docs/guide/hooks.md § Bypass flags + env hatches`.
 
 ### Layer C — Adversarial audit (`/ak-docs-review` § Section E)
 
@@ -132,16 +150,14 @@ The canonical hygiene gate. On every `/ak-docs-review` invocation (audit-time, n
 
 The reviewer doesn't block commits — it produces findings for the operator + audit log. Severity follows the existing rubric (`high` halts audit; `medium` surfaces in Phase 6 audit comment; `low` noted in `review.md`).
 
-### The bypass mechanism is now informational
+### Durable justification artifacts
 
-The `CLAUDE-MD-Bypass:` trailer + `<!-- justified: ... -->` inline marker remain — but their role is different. **There is no gate to bypass anymore.** They are durable justification artifacts:
+Two complementary trailer mechanisms exist for CLAUDE.md additions:
 
-- The trailer records, at commit time, "I'm intentionally adding to CLAUDE.md; here's why" — visible in `git log` for that commit.
-- The inline marker carries the same reason next to the entry it justifies — visible to every future reader of CLAUDE.md AND re-examined by every `/ak-docs-review` run.
+- **`Claude-MD-Classification:`** trailer — emitted by Layer B's `prepare-commit-msg` hook when the `claudeMdClassification` bypass flag is set. Records the per-entry classification (trap/reference/convention) at commit time. This is the primary mechanism for new additions.
+- **`CLAUDE-MD-Bypass:`** trailer + `<!-- justified: ... -->` inline marker — the legacy informational mechanism. The inline marker carries the justification next to the entry, re-examined by every `/ak-docs-review` run. Operator workflow: `kit/scripts/justify-claude-md.sh "<reason>"` inserts the marker and prints the trailer text.
 
-Operator workflow: when adding an entry to CLAUDE.md that's plausibly questionable (a new section; an entry whose home is unclear; anything the reviewer might challenge), run `kit/scripts/justify-claude-md.sh "<reason>"`. The helper inserts the inline marker at the right place AND prints the trailer text to paste into the commit message. Skipping the helper isn't blocked — but a future audit may CHALLENGE the entry without your reasoning recorded, and the operator will have to re-justify under audit pressure.
-
-This is the same posture as `Docs-Coverage-Bypass:` — recorded reasoning is the durable artifact; the reviewer is the canonical gate.
+Both trailers travel with the commit (survive rebase, push, clone) and are harvested at audit time.
 
 ## Rationale (design decisions captured during the planning conversation that produced this guide)
 
@@ -149,7 +165,7 @@ This is the same posture as `Docs-Coverage-Bypass:` — recorded reasoning is th
 
 **Q2 — On-demand vs front-loaded navigation.** Default lean. Reading area READMEs and `kit/docs/guide/*` is part of normal work; the navigation cost is real but bounded. No size cap enforces this — the reviewer + the operator's diff-review keep CLAUDE.md from drifting back.
 
-**Q6 — Mechanical gates dropped (decision recorded mid-Wave-4).** Initial plan had Layer B mechanical pre-commit gates: size cap + section allowlist. Both dropped in favor of pure judgment-based hygiene via Layer C. Reasoning: the write-time router (Layer A) prevents the dominant accidental-drift source; the adversarial reviewer catches everything else with full context; mechanical gates were doing redundant work AND created friction for legitimate exceptions (operator wanting to add a new entry or section in the rare case it's genuinely needed). The bypass mechanism (trailer + inline marker) remains as a durable justification artifact rather than a gate-bypass.
+**Q6 — Layer B mechanical gate added after 41% regrowth evidence.** Initial plan (Wave 4) dropped Layer B in favor of pure judgment-based hygiene. After the Wave 5 trim, devshop CLAUDE.md regrew by ~41% within weeks — proving that judgment-only enforcement (Layers A + C) was insufficient for CLAUDE.md specifically. Layer B (`check-claude-md-classification.sh`) adds a commit-time gate: every addition must be classified (trap/reference/convention) and adversarially reviewed. The gate complements Layer A (prevents accidental drift from skills) and Layer C (catches drift that slipped through both) — Layer B prevents intentional additions that don't pass the inclusion test. Size cap and section allowlist remain dropped (those catch accidental drift; the router handles that upstream).
 
 **Q3 — Interactive escalation in `/ak-build`.** No `AskUserQuestion`-style mid-task interruption. The router routes silently to its best-guess destination; the operator catches misroutes on diff review and overrides via the bypass mechanism. Mid-task interruption was nice-to-have and not foundational; removing it makes the design more uniform.
 

@@ -64,6 +64,12 @@
 #                           — skipping tests is always a judgment call. Reject generic
 #                           reasons; require the operator to name the specific failing
 #                           tests and explain why skipping is safe for THIS commit.
+#   claudeMdClassification — `check-claude-md-classification.sh` pre-commit gate
+#                           bypass (Sonnet); judges per-entry classification accuracy
+#                           (trap/reference/convention) against the inclusion rule +
+#                           routing table from kit/docs/guide/claude-md.md, and
+#                           verifies reference/convention relocations landed in the
+#                           same commit.
 #   pushToMainApproved    — pre-push guard for feature-branch pushes targeting
 #                           refs/heads/main in devshop mode (Sonnet); judges whether
 #                           the push came through the /ak-merge-devshop ceremony.
@@ -93,7 +99,7 @@
 # Per-check-type model routing (Haiku 4.5 for deterministic rule-application,
 # Sonnet 4.6 for judgment-heavy or high-blast-radius checks):
 #   Haiku:  dirtyTreeReason, dirtyPushReason, manifestReviewed
-#   Sonnet: prTextHygieneReason, testReviewSkipReason, localTestSkipReason, coreUserStoryNaReason, dismissalLog, hookBypass, exemptAddition, advisorBypassReason, blockedGateOverride, pushToMainApproved, batsSkipReason
+#   Sonnet: prTextHygieneReason, testReviewSkipReason, localTestSkipReason, coreUserStoryNaReason, dismissalLog, hookBypass, exemptAddition, advisorBypassReason, blockedGateOverride, pushToMainApproved, batsSkipReason, claudeMdClassification
 # Rationale: PR descriptions are the canonical reviewer-facing record; hookBypass
 # can leak secrets via gitleaks bypass; testReviewSkipReason judges audit-time
 # halt overrides; dismissalLog weighs spec scope. Dirty-tree / manifest checks
@@ -627,13 +633,44 @@ $STAGED
 The reviewer judges whether the bypass reason names the specific failing
 tests AND explains why skipping is safe for THIS commit."
     ;;
+  claudeMdClassification)
+    # Called by kit/scripts/commit-hooks/check-claude-md-classification.sh when
+    # the user has set `git config devshop.claudeMdClassification "..."` to
+    # classify CLAUDE.md additions. The reviewer judges whether the
+    # classification is accurate against the inclusion rule + routing table and
+    # verifies that reference/convention relocations actually landed in the
+    # same commit.
+    BRANCH=$(git branch --show-current 2>/dev/null || true)
+    HEAD_SHA=$(git rev-parse HEAD 2>/dev/null || echo "(unknown)")
+    CLAUDE_MD_DIFF=$(git diff --cached CLAUDE.md 2>/dev/null || true)
+    CLAUDE_MD_FULL=$(git show HEAD:CLAUDE.md 2>/dev/null || echo "(new file)")
+    ALL_STAGED=$(git diff --cached --name-only 2>/dev/null || true)
+    CONTEXT="The user is classifying CLAUDE.md additions at commit time.
+
+CLAUDE.md is auto-loaded into every conversation turn. The inclusion rule is:
+  Belongs in CLAUDE.md = causes SILENT wrong work if not known.
+  Belongs in toolchain / docs = causes LOUD failure if not known.
+
+Repo mode: $REPO_MODE
+Branch: $BRANCH
+HEAD SHA: $HEAD_SHA
+
+=== Staged CLAUDE.md diff (the changes being classified) ===
+$CLAUDE_MD_DIFF
+
+=== All staged files (verify relocations landed in this commit) ===
+$ALL_STAGED
+
+=== Current CLAUDE.md from HEAD (surrounding context) ===
+$CLAUDE_MD_FULL"
+    ;;
   *)
     # Unknown / removed check-type. PR-C narrowed the supported set —
     # docsReviewed, testCoverage, testCoverageProject, docsFreshnessProject all
     # moved to audit-time `/ak-check-docs-and-tests`. A stale caller hits this
     # branch and surfaces immediately rather than silently no-op'ing.
     echo "FAIL: unknown check type: $CHECK_TYPE" >&2
-    echo "  Surviving check-types: prTextHygieneReason | dirtyTreeReason | dirtyPushReason | manifestReviewed | hookBypass | exemptAddition | testReviewSkipReason | localTestSkipReason | coreUserStoryNaReason | dismissalLog | advisorBypassReason | blockedGateOverride | batsSkipReason"
+    echo "  Surviving check-types: prTextHygieneReason | dirtyTreeReason | dirtyPushReason | manifestReviewed | hookBypass | exemptAddition | testReviewSkipReason | localTestSkipReason | coreUserStoryNaReason | dismissalLog | advisorBypassReason | blockedGateOverride | batsSkipReason | claudeMdClassification"
     echo "  Coverage reviews (docsReviewed / testCoverage / testCoverageProject / docsFreshnessProject) moved to audit-time /ak-check-docs-and-tests in PR-C — see kit/ROADMAP.md."
     exit 1
     ;;
@@ -789,6 +826,39 @@ fi
 # `docsReviewed`, which moved to audit-time `/ak-docs-review` in PR-C. The map
 # moved with it; no surviving check-type needs it.)
 
+# --- claude-md.md inlining (single-purpose extension for claudeMdClassification) ---
+# claudeMdClassification inlines the routing table + inclusion rule + 3-class
+# taxonomy from kit/docs/guide/claude-md.md so the reviewer has the canonical
+# reference for judging classification accuracy.
+if [ "$CHECK_TYPE" = "claudeMdClassification" ]; then
+  CLAUDE_MD_GUIDE=""
+  if [ -f "$GIT_ROOT/kit/docs/guide/claude-md.md" ]; then
+    CLAUDE_MD_GUIDE="$GIT_ROOT/kit/docs/guide/claude-md.md"
+  elif [ -f "$GIT_ROOT/.devshopkit/docs/guide/claude-md.md" ]; then
+    CLAUDE_MD_GUIDE="$GIT_ROOT/.devshopkit/docs/guide/claude-md.md"
+  elif [ -f "/devshop/kit/docs/guide/claude-md.md" ]; then
+    CLAUDE_MD_GUIDE="/devshop/kit/docs/guide/claude-md.md"
+  fi
+  if [ -n "$CLAUDE_MD_GUIDE" ]; then
+    INCLUSION_RULE=$(extract_convention_section "$CLAUDE_MD_GUIDE" "The inclusion rule")
+    ROUTING_TABLE=$(extract_convention_section "$CLAUDE_MD_GUIDE" "Routing table for new content")
+    TAXONOMY=$(extract_convention_section "$CLAUDE_MD_GUIDE" "The 3-class taxonomy for gotchas")
+    INLINED_GUIDE=""
+    [ -n "$INCLUSION_RULE" ] && INLINED_GUIDE+="$INCLUSION_RULE"$'\n'
+    [ -n "$ROUTING_TABLE" ] && INLINED_GUIDE+="$ROUTING_TABLE"$'\n'
+    [ -n "$TAXONOMY" ] && INLINED_GUIDE+="$TAXONOMY"$'\n'
+    if [ -n "$INLINED_GUIDE" ]; then
+      CONTEXT="$CONTEXT
+
+=== CLAUDE.md hygiene convention (kit/docs/guide/claude-md.md) ===
+The classification must be consistent with the inclusion rule, routing table,
+and 3-class taxonomy below. Reference/convention entries must be relocated to
+the destination named in the routing table within the same commit.
+$INLINED_GUIDE"
+    fi
+  fi
+fi
+
 # --- Devshop-wide adversarial review bypass (tight iteration loops) ---
 # Active-human-review escape hatch for pre-ship dismissalLog calls that cascade
 # across many gates. NEVER set in CI or release — this is a dev-loop convenience.
@@ -823,7 +893,7 @@ get_model_for_check_type() {
     return
   fi
   case "$1" in
-    prTextHygieneReason|testReviewSkipReason|localTestSkipReason|coreUserStoryNaReason|dismissalLog|hookBypass|exemptAddition|advisorBypassReason|blockedGateOverride|pushToMainApproved|batsSkipReason)
+    prTextHygieneReason|testReviewSkipReason|localTestSkipReason|coreUserStoryNaReason|dismissalLog|hookBypass|exemptAddition|advisorBypassReason|blockedGateOverride|pushToMainApproved|batsSkipReason|claudeMdClassification)
       echo "sonnet"
       ;;
     dirtyTreeReason|dirtyPushReason|manifestReviewed)
@@ -1026,6 +1096,32 @@ Per-check-type rules:
     Default: REJECT. Generic reasons FAIL. The bats suite is the
     devshop's immune system — skipping it is a judgment call that
     requires per-test specificity.
+15. For claudeMdClassification: the Reason classifies each CLAUDE.md
+    addition as trap / reference / convention per the inclusion rule.
+    PASS requires ALL of:
+    (a) **Per-entry classification**. Every addition (new paragraph, new
+        bullet, new section) in the staged diff must be classified as
+        one of: trap (causes silent wrong work if forgotten — stays in
+        CLAUDE.md), reference (look-it-up information — must be
+        relocated), or convention (already documented in a guide doc —
+        must be deleted or relocated). Generic 'all entries are traps'
+        without naming each entry FAILS.
+    (b) **Classification accuracy**. Each 'trap' entry must genuinely
+        cause silent wrong work — the toolchain does NOT catch it, tests
+        do NOT catch it, and production breaks silently. If the entry
+        describes a loud failure (hook blocks, CI red, type error), it
+        is NOT a trap — classify as reference or convention.
+    (c) **Relocations landed**. Every entry classified as reference or
+        convention must have its relocation target file staged in the
+        same commit (visible in the 'All staged files' list). If the
+        routing table names a destination and that destination file is
+        NOT staged, FAIL — the relocation didn't happen.
+    (d) **No content-free classifications**. A reason that classifies
+        entries only by repeating the entry text without explaining WHY
+        it's a trap (the silent-failure scenario) FAILS. Name the
+        failure mode.
+    Default: REJECT. The gate exists because 41% regrowth proved that
+    judgment-only enforcement was insufficient for CLAUDE.md.
 
 Respond with EXACTLY one line:
 PASS - only if the reason is genuinely legitimate and specific

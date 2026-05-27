@@ -16,6 +16,7 @@ setup() {
                 commit-hooks/check-port-offset-unique.sh \
                 commit-hooks/check-tests-coverage-devshop.sh \
                 commit-hooks/check-docs-coverage-devshop.sh \
+                commit-hooks/check-claude-md-classification.sh \
                 commit-hooks/check-bats-devshop.sh \
                 commit-hooks/check-exempt-additions.sh \
                 commit-hooks/check-tests-coverage-project.sh \
@@ -59,6 +60,7 @@ scripts_called() {
   [ -f "$MOCK_BIN/commit-hooks/check-exempt-additions.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-tests-coverage-project.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-docs-coverage-project.sh.args" ]
+  [ -f "$MOCK_BIN/commit-hooks/check-claude-md-classification.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-rollback-prose.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/commit-guard.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-template-propagation.sh.args" ]
@@ -80,6 +82,7 @@ scripts_called() {
   [ -f "$MOCK_BIN/commit-hooks/check-port-offset-unique.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-tests-coverage-devshop.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-docs-coverage-devshop.sh.args" ]
+  [ -f "$MOCK_BIN/commit-hooks/check-claude-md-classification.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-bats-devshop.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/commit-guard.sh.args" ]
   # Security freshness + template-propagation + rollback-prose should NOT be called for devshop repo
@@ -100,6 +103,7 @@ scripts_called() {
   [ -f "$MOCK_BIN/commit-hooks/check-port-offset-unique.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-tests-coverage-devshop.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-docs-coverage-devshop.sh.args" ]
+  [ -f "$MOCK_BIN/commit-hooks/check-claude-md-classification.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-bats-devshop.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/commit-guard.sh.args" ]
   [ ! -f "$MOCK_BIN/commit-hooks/check-security-files-freshness.sh.args" ]

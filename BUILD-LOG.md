@@ -4,6 +4,15 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### claude-md-hygiene (2026-05-27)
+
+- **Branch**: `feat/claude-md-hygiene`
+- **Spec**: `specs/claude-md-hygiene/spec.md`
+- **Headline**: Changes to the project instructions file now go through an automated routing check — traps stay, everything else moves to its canonical home.
+- **Summary**: New pre-commit gate fires on any CLAUDE.md edit that adds or modifies content. Requires per-entry classification (trap / reference / convention) via adversarial-reviewed bypass trailer. Reference and convention content must be relocated before the commit lands. Includes audit sweep of devshop CLAUDE.md to relocate ~9k of regrowth since the May cleanup, and convention doc update documenting the new mechanical gate.
+- **Commits**: 11 (squashed to 1 on main via /ak-merge-devshop)
+- **Quality gates**: 1431 bats pass (10 new). Gate 4 found 2 cosmetic issues (fixed). Gates 5, 6 found doc inconsistencies (fixed). All 6 dispatched gates clean.
+
 ### lint-staged-rename-symlink (2026-05-27)
 
 - **Branch**: `fix/lint-staged-rename-symlink`
