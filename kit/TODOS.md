@@ -554,18 +554,6 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
   [medium, convention + skill + template, surfaced-by home-os-pr-19-2026-05-15, 2026-05-15]
 
-- [ ] **Hero screenshot URLs break in PR descriptions for private repos.** `/ak-build` Phase 6 embeds hero shots in the PR body as `![alt](https://github.com/{owner}/{repo}/raw/{sha}/specs/{feature}/hero/{file}.png)`. This renders correctly for public repos but shows broken-image blue squares on private repos — GitHub's `raw` endpoint requires authentication and the PR description renderer doesn't pass it through.
-
-  **Root cause**: GitHub markdown in PR descriptions fetches images via its Camo proxy (`https://camo.githubusercontent.com/...`), which cannot authenticate against private repo raw URLs. The `github.com/{owner}/{repo}/raw/{sha}/...` pattern (used in PRs #26–28) and `raw.githubusercontent.com/{owner}/{repo}/{sha}/...` (equivalent) both fail for the same reason.
-
-  **Fix shape**: at Phase 6 (PR body assembly), detect `gh api repos/:owner/:repo --jq '.private'`. If private, upload each hero PNG to GitHub's user-content CDN via the markdown image upload API (the mechanism the web UI uses on drag-and-drop — returns a `https://github.com/user-attachments/assets/{uuid}` URL that renders for any repo-member without auth). Fall back to the current `raw` URL pattern for public repos. The upload step belongs in a helper (`kit/scripts/preship/upload-hero-to-github.sh` or inline in the PR-body-assembly phase of `/ak-build`).
-
-  **Workaround (current)**: operator manually drags PNGs into the PR description via the GitHub web UI after `/ak-build` posts it. Works but defeats the "autonomous build pipeline" goal.
-
-  **Affected skills**: `/ak-build` Phase 6 (PR body assembly), `/ship` (hero shots section). Any skill that embeds repo-local images in PR descriptions.
-
-  [medium, /ak-build + /ship, surfaced-by home-os-pr-34-close-flow 2026-05-26]
-
 - [ ] **`prTextHygiene` pre-push hook re-evaluates on every push even when the PR body hasn't changed.** Each `git push` spends ~30s on an adversarial LLM review (Sonnet) of the PR title + body, even when neither has changed since the last push. On a typical `/ak-build` run with 3–4 pushes (initial + CI fix + Phase 5 docs + hero shots), that's ~2 min of pure ceremony on identical content.
 
   **Fix shape**: hash the PR body + title after the first successful review (`sha256sum <<< "$TITLE$BODY"`), write the hash to a branch-local file (`.git/pr-hygiene-hash` or similar — not committed). On subsequent pushes, re-fetch the PR body, hash it, compare. Skip the adversarial review if the hash matches. Clear the hash file on `gh pr edit` (or just let the next push re-hash — the mismatch will trigger a fresh review).
