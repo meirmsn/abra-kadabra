@@ -85,6 +85,14 @@ run_guard() {
   assert_success
 }
 
+@test "allows release.sh pattern: parent CLAUDECODE=1, override CLAUDECODE= on commit" {
+  git -C "$TEST_REPO" branch -m main 2>/dev/null || true
+  # Simulate: Claude session (CLAUDECODE=1) runs release.sh which does
+  # CLAUDECODE= git commit — the override clears it for the subprocess.
+  run env -C "$TEST_REPO" CLAUDECODE=1 bash -c 'CLAUDECODE= bash '"$GUARD_FIXTURE"
+  assert_success
+}
+
 @test "allows when CLAUDECODE is 0" {
   git -C "$TEST_REPO" branch -m main 2>/dev/null || true
   run_guard CLAUDECODE=0

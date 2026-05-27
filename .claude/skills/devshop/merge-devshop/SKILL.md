@@ -730,8 +730,8 @@ reasons this is the right shape:
    main.** Committing on the feature branch dodges the hook structurally —
    no operator handoff, no `!`-prefix terminal incantation, fully
    autonomous. Pre-commit hooks (gitleaks, doc-coverage, lint, typecheck,
-   test suite) still fire on the feature-branch commit, so coverage is
-   identical.
+   affected-only test subset) still fire on the feature-branch commit.
+   Phase 2.5 runs the **full** bats suite before the ff-merge to main.
 2. **It's what GitHub's "Squash and merge" does internally.** Squash on
    the source side, fast-forward to the destination. Phase 3 then becomes
    a pointer move with no new commit.
@@ -918,6 +918,31 @@ The rename+symlink combo is now detected inline before the commit step —
 see the detection block above. If it fires, the skill unstages and offers
 the ff-merge fallback automatically (unaffected by lint-staged's stash
 bug because it doesn't go through the squash machinery).
+
+---
+
+## Phase 2.5: Full bats suite
+
+Phase 2's squash commit fires the pre-commit hook on a **feature branch**,
+which runs only the affected-only bats subset (`check-bats-devshop.sh`).
+Phase 3's `git merge --ff-only` creates no new commit, so the full-suite-
+on-main path in `.husky/pre-commit` never fires. This phase closes the
+gap: run the full kit bats suite explicitly before landing on main.
+
+```bash
+if [ -d kit/tests ] && [ -x kit/tests/lib/bats-core/bin/bats ]; then
+  echo "⏳ Running full kit bats suite (pre-merge gate)..."
+  GIT_DIR=""
+  [ -n "$WORKTREE_PATH" ] && GIT_DIR="$WORKTREE_PATH"
+  BATS_CWD="${GIT_DIR:-$(git rev-parse --show-toplevel)}"
+  (cd "$BATS_CWD" && kit/tests/lib/bats-core/bin/bats kit/tests/ \
+    --print-output-on-failure </dev/null)
+fi
+```
+
+If any test fails: halt. The fix lives in the branch content — resolve,
+amend the squash commit (or add a fixup commit and re-squash via
+Phase 2), then re-invoke `/ak-merge-devshop`.
 
 ---
 
