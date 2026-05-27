@@ -173,7 +173,12 @@ git add "$VERSION_FILE" template/.devshop-version "$CHANGELOG_PATH" "$PROPAGATIO
 # Unset CLAUDECODE so the husky branch guard allows this commit on main.
 # Release commits are deliberate, human-approved — all other pre-commit
 # checks (lint-staged, typecheck, gitleaks, bats) still fire normally.
-CLAUDECODE= git commit -m "Bump devshop version to $NEW_VERSION"
+# The docsCoverageReason bypass is needed because template/.devshop-version
+# triggers the "template" surface group — but the version bump is mechanical.
+CLAUDECODE= git \
+  -c devshop.docsCoverageReason="kit/version: AFFECTED — mechanical version bump, no doc change needed. template/.devshop-version: AFFECTED — tracks kit/version for sync drift detection, no doc change needed. kit/docs/CHANGELOG.md: AFFECTED — auto-generated changelog entry. kit/docs/PROPAGATION.md: AFFECTED — auto-generated propagation entry. kit/docs/guide/architecture.md: NOT-AFFECTED — unrelated to version bump. kit/docs/guide/security.md: NOT-AFFECTED — unrelated. kit/docs/guide/ops.md: NOT-AFFECTED — unrelated. kit/docs/guide/workflow.md: NOT-AFFECTED — unrelated. kit/docs/guide/conventions.md: NOT-AFFECTED — unrelated. kit/docs/guide/hooks.md: NOT-AFFECTED — unrelated. kit/docs/guide/supabase-ssr-boilerplate.md: NOT-AFFECTED — unrelated. CLAUDE.md: NOT-AFFECTED — unrelated" \
+  -c devshop.docsReviewed="kit/version + template/.devshop-version + CHANGELOG.md + PROPAGATION.md: AFFECTED — mechanical version bump artifacts; no guide docs need updating" \
+  commit -m "Bump devshop version to $NEW_VERSION"
 PHASE="committed"
 git tag -a "v$NEW_VERSION" -m "v$NEW_VERSION"
 
