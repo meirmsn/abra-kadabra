@@ -139,13 +139,14 @@ git commit
   ├─ PreToolUse
   │   ├─ check-hook-bypass.sh ──── blocks --no-verify without documented reason
   │   └─ check-branch-not-main.sh ─ blocks Claude from committing on main/master
-  ├─ .husky/pre-commit (6 steps + devshop guards)
-  │   ├─ 1. sync/create-devshop-symlinks.sh ── recover if git ops lost them
-  │   ├─ 2. lint-staged ───────────────── ESLint + Prettier on staged files
-  │   ├─ 3. turbo typecheck ──────────── TypeScript errors
-  │   ├─ 4. gitleaks ─────────────────── secret scan on staged files
-  │   ├─ 5. bats kit/tests/ ────────────── kit tests: scripts + structural invariants (devshop only)
-  │   └─ 6. devshop guards (under commit-hooks/)
+  ├─ .husky/pre-commit (7 steps + devshop guards)
+  │   ├─ 1. Claude branch guard ───────── blocks Claude ($CLAUDECODE=1) on main/master (TOCTOU backstop)
+  │   ├─ 2. sync/create-devshop-symlinks.sh ── recover if git ops lost them
+  │   ├─ 3. lint-staged ───────────────── ESLint + Prettier on staged files
+  │   ├─ 4. turbo typecheck ──────────── TypeScript errors
+  │   ├─ 5. gitleaks ─────────────────── secret scan on staged files
+  │   ├─ 6. bats kit/tests/ ────────────── kit tests: scripts + structural invariants (devshop only)
+  │   └─ 7. devshop guards (under commit-hooks/)
   │       ├─ check-security-files-freshness.sh (project only)
   │       ├─ check-clean-tree.sh ────────── no unaddressed dirty state (both)
   │       ├─ check-manifest.sh ──────────── template/ files added/removed (devshop only)

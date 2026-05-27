@@ -4,6 +4,15 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### fix-branch-guard-on-main (2026-05-26)
+
+- **Branch**: `fix/fix-branch-guard-on-main`
+- **Spec**: `specs/fix-branch-guard-on-main/spec.md`
+- **Headline**: Prevent Claude from accidentally committing to main when parallel sessions switch branches.
+- **Summary**: Close the TOCTOU race between the PreToolUse `check-branch-not-main.sh` hook and actual `git commit` by adding a Claude-specific (`$CLAUDECODE=1`) branch guard in `.husky/pre-commit`. The PreToolUse hook stays as fast feedback; the husky guard is the backstop that runs at actual commit time with no race window. Bats tests cover both layers.
+- **Commits**: 9 (squashed to 1 on main via /ak-merge-devshop)
+- **Quality gates**: 1393 bats pass. Gate 1 caught missing docs in hooks.md + OVERVIEW.md (fixed). Gate 6 caught incorrect project-repo step count (fixed). 10 new tests across 2 files.
+
 ### merge-devshop-rename-detect (2026-05-26)
 
 - **Branch**: `feat/merge-devshop-rename-detect`

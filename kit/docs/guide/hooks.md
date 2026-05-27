@@ -47,12 +47,16 @@ Three enforcement levels: PreToolUse (Claude Code), pre-commit (husky), and pre-
     └─ Blocks Claude from committing on main/master (parses git -C and cd &&)
     └─ Humans committing from the terminal pass through (release.sh works)
 
-2. .husky/pre-commit  (git hook, runs 5 steps sequentially)
-   ├─ 2a. create-devshop-symlinks.sh   → recreate symlinks if lost by git ops
-   ├─ 2b. pnpm exec lint-staged        → ESLint + Prettier on staged files
-   ├─ 2c. pnpm turbo run typecheck     → TypeScript check all packages
-   ├─ 2d. gitleaks protect --staged    → Secret scan
-   └─ 2e. devshop pre-commit guards    → devshop guards (called by absolute path)
+2. .husky/pre-commit  (git hook, runs 7 steps sequentially)
+   ├─ 2a. Claude branch guard          → blocks Claude ($CLAUDECODE=1) on main/master
+   │       Backstop for 1c — closes TOCTOU race (parallel session can switch branch
+   │       between PreToolUse "allow" and git commit). Humans pass through.
+   ├─ 2b. create-devshop-symlinks.sh   → recreate symlinks if lost by git ops
+   ├─ 2c. pnpm exec lint-staged        → ESLint + Prettier on staged files
+   ├─ 2d. pnpm turbo run typecheck     → TypeScript check all packages
+   ├─ 2e. gitleaks protect --staged    → Secret scan
+   ├─ 2f. bats kit/tests/              → kit tests (devshop only; full suite on main, affected-only on branches)
+   └─ 2g. devshop pre-commit guards    → devshop guards (called by absolute path)
           ├─ check-security-files-freshness.sh: settings.json/.dcg.toml present + current → block
           ├─ check-clean-tree.sh: untracked/unstaged files OR stashed changes → block
           ├─ check-manifest.sh: template/ files added/removed → propose manifest update (devshop only)
@@ -130,6 +134,7 @@ Configured in `.husky/pre-commit`.
 
 | Hook                        | What                                                                                                                                                     | Blocking?                   |
 | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| Claude branch guard         | Blocks Claude (`$CLAUDECODE=1`) from committing on main/master — backstop for PreToolUse `check-branch-not-main.sh`, closes TOCTOU race                 | Yes — Claude only           |
 | `pnpm exec lint-staged`     | ESLint + Prettier on staged files                                                                                                                        | Yes — both repos            |
 | `pnpm turbo run typecheck`  | TypeScript type checking                                                                                                                                 | Yes — both repos            |
 | `gitleaks protect --staged` | Secret scanning                                                                                                                                          | Yes — both repos            |

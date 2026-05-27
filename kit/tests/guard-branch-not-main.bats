@@ -200,3 +200,26 @@ run_check() {
   assert_failure 2
   assert_output --partial "BLOCKED"
 }
+
+# --- Regression anchors for 2026-05-20 incident (ef6db18) ---
+# The incident was a TOCTOU race (parallel session switched branch), NOT a hook
+# bug — but these tests lock in that the PreToolUse hook correctly handles the
+# exact command forms that were used, so future refactors can't regress.
+
+@test "blocks exact 2026-05-20 incident form: git -c docsReviewed -c docsCoverageReason commit" {
+  git -C "$TEST_REPO" branch -m main 2>/dev/null || true
+  local json
+  json=$(jq -n --arg cmd 'git -c devshop.docsReviewed="kit/docs affected: overview pointers updated" -c devshop.docsCoverageReason="docs-only commit" commit -m "docs: update overview"' '{"tool_input": {"command": $cmd}}')
+  run bash -c "cd '$TEST_REPO' && bash '$CHECK'" <<< "$json"
+  assert_failure 2
+  assert_output --partial "BLOCKED"
+}
+
+@test "blocks git -c with env-var prefix: VAR=val git -c key=val commit" {
+  git -C "$TEST_REPO" branch -m main 2>/dev/null || true
+  local json
+  json=$(jq -n --arg cmd "GIT_AUTHOR_NAME=Test git -c devshop.docsReviewed=\"reason here\" commit -m test" '{"tool_input": {"command": $cmd}}')
+  run bash -c "cd '$TEST_REPO' && bash '$CHECK'" <<< "$json"
+  assert_failure 2
+  assert_output --partial "BLOCKED"
+}

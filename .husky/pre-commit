@@ -4,6 +4,22 @@ if [ -z "$BASH_VERSION" ]; then
   exec bash "$0" "$@"
 fi
 
+_current_branch=$(git branch --show-current 2>/dev/null || echo "")
+
+# Claude branch guard — backstop for PreToolUse check-branch-not-main.sh.
+# Closes TOCTOU race: parallel sessions can switch branches between PreToolUse
+# "allow" and git commit execution. This runs inside git's commit — no race.
+# Humans commit on main unconditionally (release.sh needs this).
+if [ "${CLAUDECODE:-}" = "1" ]; then
+  if [ "$_current_branch" = "main" ] || [ "$_current_branch" = "master" ]; then
+    echo "BLOCKED: Claude commit on main/master (husky branch guard)." >&2
+    echo "" >&2
+    echo "A parallel session may have switched branches. Create a branch first:" >&2
+    echo "  git checkout -b <type>/<topic>" >&2
+    exit 1
+  fi
+fi
+
 # Recreate devshop symlinks if missing (git ops can lose untracked symlinks).
 # Uses the lightweight symlink-only script, not full init-devshop.sh (no root needed).
 [ ! -L .devshopkit ] && [ -d /devshop/kit ] && bash /devshop/kit/scripts/sync/create-devshop-symlinks.sh 2>/dev/null || true
@@ -19,7 +35,6 @@ gitleaks protect --staged --redact
 # NOTE: </dev/null on bats invocations prevents stdin-inheritance deadlock —
 # during a real `git commit`, inherited FDs from git/lint-staged can cause
 # bats to hang indefinitely waiting on stdin.
-_current_branch=$(git branch --show-current 2>/dev/null || echo "")
 if [ "$_current_branch" = "main" ] || [ "$_current_branch" = "master" ]; then
   if [ -d kit/tests ] && [ -x kit/tests/lib/bats-core/bin/bats ]; then
     echo "⏳ Running full kit bats suite (main branch)..."
