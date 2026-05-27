@@ -2,6 +2,10 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.35.0 (2026-05-27)
+
+- feat(roadmap): two v0 roadmap entries + Supabase GRANT deadline doc
+
 ## v1.34.0 (2026-05-27)
 
 - fix(release): add docs-coverage bypass to release.sh bump commit
