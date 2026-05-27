@@ -6,7 +6,15 @@ commit messages. Newest version at top.
 
 ## v1.35.0
 
-(no manual steps)
+- **docs(migrations): explicit GRANT requirement for Supabase Oct 2026 deadline** — Supabase will stop auto-exposing `public` tables
+  to the Data API for new tables in existing projects starting **Oct 30, 2026**.
+  Every `CREATE TABLE` migration must include an explicit `GRANT`, even when
+  `ALTER DEFAULT PRIVILEGES` is in effect (the migration runner role may differ
+  from the role that set the defaults). **Audit before Oct 30**: run the Security
+  Advisor in the Supabase dashboard for each project, and cross-reference with
+  `select grantee, privilege_type from information_schema.role_table_grants where table_schema = 'public'`
+  against prod. Add missing GRANTs as a new migration. See
+  `kit/docs/guide/migrations.md § Upcoming: explicit GRANTs required`.
 
 ## v1.34.0
 
