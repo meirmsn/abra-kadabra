@@ -20,6 +20,7 @@ setup() {
                 commit-hooks/check-exempt-additions.sh \
                 commit-hooks/check-tests-coverage-project.sh \
                 commit-hooks/check-docs-coverage-project.sh \
+                commit-hooks/check-rollback-prose.sh \
                 commit-hooks/check-template-propagation.sh \
                 commit-hooks/commit-guard.sh; do
     create_capturing_stub "$script" "" 0
@@ -42,7 +43,7 @@ scripts_called() {
   echo "$called"
 }
 
-@test "project repo (/workspace): calls security-freshness + clean-tree + exempt-additions + tests-coverage-project + docs-coverage-project + commit-guard + template-propagation" {
+@test "project repo (/workspace): calls security-freshness + clean-tree + exempt-additions + tests-coverage-project + docs-coverage-project + rollback-prose + commit-guard + template-propagation" {
   create_test_repo
   # Override git rev-parse in the wrapper to return /workspace
   sed -i 's|GIT_ROOT=$(git rev-parse.*|GIT_ROOT="/workspace"|' "$WRAPPER"
@@ -58,6 +59,7 @@ scripts_called() {
   [ -f "$MOCK_BIN/commit-hooks/check-exempt-additions.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-tests-coverage-project.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-docs-coverage-project.sh.args" ]
+  [ -f "$MOCK_BIN/commit-hooks/check-rollback-prose.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/commit-guard.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-template-propagation.sh.args" ]
   # Manifest, port-offset, and devshop-side coverage scripts should NOT be called for project repos
@@ -80,9 +82,10 @@ scripts_called() {
   [ -f "$MOCK_BIN/commit-hooks/check-docs-coverage-devshop.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-bats-devshop.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/commit-guard.sh.args" ]
-  # Security freshness + template-propagation should NOT be called for devshop repo
+  # Security freshness + template-propagation + rollback-prose should NOT be called for devshop repo
   [ ! -f "$MOCK_BIN/commit-hooks/check-security-files-freshness.sh.args" ]
   [ ! -f "$MOCK_BIN/commit-hooks/check-template-propagation.sh.args" ]
+  [ ! -f "$MOCK_BIN/commit-hooks/check-rollback-prose.sh.args" ]
 }
 
 @test "devshop-self mode (kit/ is real dir): calls clean-tree + manifest + port-offset-unique + tests-coverage-devshop + docs-coverage-devshop + bats + commit-guard" {
@@ -101,6 +104,7 @@ scripts_called() {
   [ -f "$MOCK_BIN/commit-hooks/commit-guard.sh.args" ]
   [ ! -f "$MOCK_BIN/commit-hooks/check-security-files-freshness.sh.args" ]
   [ ! -f "$MOCK_BIN/commit-hooks/check-template-propagation.sh.args" ]
+  [ ! -f "$MOCK_BIN/commit-hooks/check-rollback-prose.sh.args" ]
 }
 
 @test "unknown git root: exits 1" {

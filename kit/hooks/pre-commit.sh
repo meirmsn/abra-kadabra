@@ -40,6 +40,7 @@ else
       bash "$SCRIPTS_DIR/commit-hooks/check-exempt-additions.sh"
       bash "$SCRIPTS_DIR/commit-hooks/check-tests-coverage-project.sh"
       bash "$SCRIPTS_DIR/commit-hooks/check-docs-coverage-project.sh"
+      bash "$SCRIPTS_DIR/commit-hooks/check-rollback-prose.sh"
       bash "$SCRIPTS_DIR/commit-hooks/commit-guard.sh"
       # Soft nudge — never blocks. Runs after commit-guard so the nudge is
       # the last thing the operator sees before the commit succeeds.

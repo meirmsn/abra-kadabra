@@ -562,12 +562,3 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
   [low, hook-improvement, surfaced-by home-os-pr-35-usage-counters-and-byok 2026-05-27]
 
-- [ ] **Migration rollback prose lines break CI rollback round-trip silently.** The CI rollback test (`scripts/ci-rollback-explain.sh`) strips `-- ` prefixes from the `-- ROLLBACK:` block and runs the result as SQL. Any prose line (e.g., `-- Restore the migration 006b version:`) becomes bare text that Postgres rejects with a syntax error. The failure only surfaces in CI, not locally — Gate 2e (migration-rollback-roundtrip) catches it for migrations that exist at gate time, but not for migrations added after pre-ship runs.
-
-  **Fix shape**: add a lint to the pre-commit hook that scans every `-- ROLLBACK:` block in staged migration files. For each line after the marker, strip the `-- ` prefix and check that the remainder is either empty, a SQL keyword (`DROP`, `CREATE`, `ALTER`, `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `SET`, `RESET`, `GRANT`, `REVOKE`, `NOTIFY`), or a continuation of a multi-line statement. Flag lines that start with a capitalized English word that isn't a SQL keyword.
-
-  **Where**: `kit/scripts/commit-hooks/` (new script) + wire into `kit/hooks/pre-commit.sh`.
-
-  **Worked incident**: home-os PR #35 migration 015 — `-- Restore the migration 006b version (resets card_count only):` became `Restore the migration 006b version (resets card_count only):` after prefix stripping, causing `ERROR: syntax error at or near "Restore"` in CI.
-
-  [low, hook-improvement, surfaced-by home-os-pr-35-usage-counters-and-byok 2026-05-27]

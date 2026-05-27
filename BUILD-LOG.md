@@ -4,6 +4,15 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### rollback-prose-lint (2026-05-27)
+
+- **Branch**: `feat/rollback-prose-lint`
+- **Spec**: `specs/rollback-prose-lint/spec.md`
+- **Headline**: Migration rollback blocks are now validated at commit time, not just in CI.
+- **Summary**: New pre-commit lint (`check-rollback-prose.sh`) scans `-- ROLLBACK:` blocks in staged migration files for prose lines that would break `ci-rollback-explain.sh`'s prefix-stripping logic with SQL syntax errors. Catches the home-os PR #35 failure pattern locally instead of after an 8-minute CI round-trip.
+- **Commits**: 9 (squashed to 1 on main via /ak-merge-devshop)
+- **Quality gates**: 14 bats tests in `guard-rollback-prose.bats`. All 1397 bats pass. Gate 2d caught 2 issues (router test stubs + file permissions — fixed). Gate 4 caught 1 simplification (dead code branch — fixed). Gate 5 noted 2 medium test coverage gaps (non-blocking).
+
 ### fix-branch-guard-on-main (2026-05-26)
 
 - **Branch**: `fix/fix-branch-guard-on-main`
