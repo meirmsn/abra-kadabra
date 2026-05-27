@@ -2,6 +2,47 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.34.0 (2026-05-27)
+
+- fix(release): add docs-coverage bypass to release.sh bump commit
+- fix(release): unblock release.sh from husky branch guard + close merge test gap
+- fix(devshop): task tracker wiring + session-start colors + plan cleanup + release version sync
+- fix(hooks): add --no-stash to lint-staged in pre-commit hooks
+- feat(hooks): skip redundant PR text-hygiene review on unchanged title+body
+- feat(hooks): catch prose in migration rollback blocks at commit time
+- fix(plan): close hero-upload-private-repos — not reproducible
+- fix(hooks): add husky branch guard to close TOCTOU race on main commits
+- feat(merge-devshop): auto-detect rename+symlink combo and offer ff-merge fallback
+- fix(hooks): bats hang on main + Supabase preflight + PR cleanup
+- chore(plan): track PR process artifact cleanup + specs gitignore roadmap
+- feat(hooks): batsSkipReason adversarial bypass — prevents HUSKY=0 bats circumvention
+- fix(hooks): silent hook failures on dash + missing progress indicators
+- feat(ak-build): mechanical completeness checks at every phase boundary
+- fix(sync): preserve project identity + CI port + checklist gaps
+- feat(sync): auto-generate propagation log at release time
+- test(compose-isolation): guard supabase version sync + checksums
+- docs(roadmap+plan): file sync-safety findings + propagation prompt
+- feat(sync): show devshop version drift reminder on session start
+- feat(devcontainer): self-verifying Supabase CLI checksums + version pin
+- fix(merge-devshop): sync local main after --source-worktree push
+- fix(hooks): harden push-to-main guard against self-bypass
+- fix(hooks): block feature-branch push to main without merge ceremony
+- docs(build-log): correct keepalive migration path (sync, not scaffold-once)
+- chore(build-log): record ak-build-devshop-mode + close tracker entries
+- feat(template): keepalive pings Supabase directly + runs twice weekly
+- feat(ak-build): auto-detect devshop mode and adapt pipeline
+- feat(sync): preview changes before applying in from-devshop and to-devshop
+- feat(template): ship rich Lev-scored PLAN.md schema to new projects
+- feat(conventions): require Existing projects block in devshop commits
+- chore(plan): add version scoping to PLAN.md + unify devshop session context
+- docs(todos+plan): file 2 backlog items from session reflection
+- docs(roadmap+build-log): close shipped supabase entries + backfill 3 BUILD-LOG entries
+- docs(roadmap): delete shipped conventions-md audit entry
+- chore(plan): close 2 shipped rows + fix test assertion depth cross-ref
+- fix(security): narrow kit/scripts deny rules to canonical-path-only
+- docs(conventions): lift Tier 3 sections into canonical skill homes
+- fix(supabase+sync): eliminate port collisions and sync clobber across concurrent projects
+
 ## v1.33.0 (2026-05-20)
 
 - chore(plan): promote 4 v0 ROADMAP entries to Planned rows
