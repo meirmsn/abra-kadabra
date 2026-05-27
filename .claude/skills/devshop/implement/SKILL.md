@@ -16,6 +16,8 @@ allowed-tools:
   - Grep
   - Agent
   - AskUserQuestion
+  - TaskUpdate
+  - TaskGet
 ---
 
 # Implement
@@ -167,9 +169,21 @@ Unit tests are the fast inner loop (local + CI fast). Integration + E2E are the 
 
 ## Step 3: Implementation loop
 
+### Live tracker sync
+
+When invoked by `/ak-build`, Phase 0.4 creates `TaskCreate` rows named
+`Phase 2 / Task N: <subject>`. This skill syncs those rows via `TaskUpdate`
+at the same moments it updates `tasks.md`. On first entry, call `TaskGet`
+to list existing tasks and build a map of task subject → task ID for any
+row whose subject starts with `Phase 2 / Task`. If no matching rows exist
+(standalone invocation or harness without task tools), skip tracker calls
+silently — the tracker is a visibility aid, not a correctness requirement.
+
+### Per-task loop
+
 For each `todo` task in dependency order:
 
-1. Mark `in_progress` in tasks.md
+1. Mark `in_progress` in tasks.md. If a matching `Phase 2 / Task N` tracker row exists, call `TaskUpdate` with `status: "in_progress"`.
 2. If task hits STOP AND ASK in `CLAUDE.md`: stop and ask before writing any code
 3. Read relevant existing code (Grep + Glob — do not assume file paths)
 4. Implement with tests written alongside (never after)
@@ -180,7 +194,7 @@ For each `todo` task in dependency order:
 9. **Tests fail**: enter stuck protocol
 10. **Tests pass**: commit with format `<type>(<scope>): <imperative summary>` — one task = one commit.
     Note: prettier runs automatically via lint-staged on commit.
-11. Mark task `done` in tasks.md
+11. Mark task `done` in tasks.md. If a matching tracker row exists, call `TaskUpdate` with `status: "completed"`.
 12. **If a judgment call was made** (resolved from context rather than stopping to ask):
     append a one-liner to the `## Decisions` section of tasks.md with the task name and what was decided.
 
@@ -248,7 +262,6 @@ is the task index from `tasks.md`.
   as a defeat to overturn.
 
 - **Attempt 3** — fresh `Agent` + already-tried log + TWO meta-checks layered on:
-
   - **Spec re-read** (structural): the agent re-reads `$FEATURE_DIR/spec.md`
     and asks: is task T<N> right-sized? Does it actually contain 2–3 latent
     sub-tasks pretending to be one? If yes, propose a split and surface to

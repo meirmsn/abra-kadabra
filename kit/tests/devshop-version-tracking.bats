@@ -153,7 +153,7 @@ run_drift_check() {
 }
 
 @test "session-start.sh drift check is project-sessions only" {
-  run grep -A1 'DEVSHOP_DRIFT=""' "$SESSION_SCRIPT"
+  run grep -A2 'DEVSHOP_DRIFT=""' "$SESSION_SCRIPT"
   [[ "$output" == *'IS_DEVSHOP" != true'* ]]
 }
 

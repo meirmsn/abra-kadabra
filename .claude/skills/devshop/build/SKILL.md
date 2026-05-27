@@ -614,7 +614,7 @@ The convention applies to every sub-task this skill (or its subagents)
 creates:
 
 - Phase 2 implementation tasks: `Phase 2 / Task N: <subject from spec>`
-  (`/ak-implement` emits these naturally as task subjects; document it).
+  (`/ak-implement` calls `TaskUpdate` on these rows as it progresses).
 - Phase 3 gate findings and ad-hoc fixes during pre-ship.
 - Phase 5 CI fix-loop attempts (the bookkeeping commit now lands at
   Phase 4.0, before `/ship` pushes — no separate Phase 5 tracker row).

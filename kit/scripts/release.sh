@@ -142,9 +142,9 @@ rollback() {
   case "$PHASE" in
     modifying)
       echo ""
-      echo "✖ Release failed before commit (exit $exit_code) — rolling back kit/version, CHANGELOG.md, and PROPAGATION.md to HEAD."
-      git restore --staged "$VERSION_FILE" "$CHANGELOG_PATH" "$PROPAGATION_PATH" 2>/dev/null || true
-      git restore "$VERSION_FILE" "$CHANGELOG_PATH" "$PROPAGATION_PATH" 2>/dev/null || true
+      echo "✖ Release failed before commit (exit $exit_code) — rolling back kit/version, template/.devshop-version, CHANGELOG.md, and PROPAGATION.md to HEAD."
+      git restore --staged "$VERSION_FILE" template/.devshop-version "$CHANGELOG_PATH" "$PROPAGATION_PATH" 2>/dev/null || true
+      git restore "$VERSION_FILE" template/.devshop-version "$CHANGELOG_PATH" "$PROPAGATION_PATH" 2>/dev/null || true
       ;;
     committed)
       echo ""
@@ -166,9 +166,10 @@ trap rollback EXIT
 # Write new version, update changelog, commit, tag
 PHASE="modifying"
 echo "$NEW_VERSION" > "$VERSION_FILE"
+echo "$NEW_VERSION" > template/.devshop-version
 bash "$SCRIPT_DIR/changelog-entry.sh" "$NEW_VERSION" "$CHANGELOG_MSG" "$CHANGELOG_PATH"
 bash "$SCRIPT_DIR/propagation-entry.sh" "$NEW_VERSION" "$LAST_TAG" "$PROPAGATION_PATH"
-git add "$VERSION_FILE" "$CHANGELOG_PATH" "$PROPAGATION_PATH"
+git add "$VERSION_FILE" template/.devshop-version "$CHANGELOG_PATH" "$PROPAGATION_PATH"
 git commit -m "Bump devshop version to $NEW_VERSION"
 PHASE="committed"
 git tag -a "v$NEW_VERSION" -m "v$NEW_VERSION"

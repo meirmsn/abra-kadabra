@@ -180,16 +180,19 @@ fi
 
 # --- Devshop version drift check (project sessions only) ---
 DEVSHOP_DRIFT=""
+DEVSHOP_DRIFT_SEVERITY=""  # "warn" (missing) or "error" (mismatch)
 if [ "$IS_DEVSHOP" != true ]; then
   DEVSHOP_CURRENT="$(cat /devshop/kit/version 2>/dev/null | tr -d '[:space:]' || true)"
   if [ -f "$ROOT/.devshop-version" ]; then
     PROJECT_SYNCED="$(cat "$ROOT/.devshop-version" 2>/dev/null | tr -d '[:space:]' || true)"
     if [ -n "$DEVSHOP_CURRENT" ] && [ -n "$PROJECT_SYNCED" ] && [ "$DEVSHOP_CURRENT" != "$PROJECT_SYNCED" ]; then
       DEVSHOP_DRIFT="synced at v${PROJECT_SYNCED}, devshop is v${DEVSHOP_CURRENT} — run: bash .devshopkit/scripts/sync/from-devshop.sh (then check .devshopkit/docs/PROPAGATION.md)"
+      DEVSHOP_DRIFT_SEVERITY="error"
     fi
   else
     if [ -n "$DEVSHOP_CURRENT" ]; then
       DEVSHOP_DRIFT="no .devshop-version found — run: bash .devshopkit/scripts/sync/from-devshop.sh (then check .devshopkit/docs/PROPAGATION.md)"
+      DEVSHOP_DRIFT_SEVERITY="warn"
     fi
   fi
 fi
@@ -254,10 +257,13 @@ if [ -n "$COMMITS_SINCE_TAG" ] && [ "$COMMITS_SINCE_TAG" -gt 0 ]; then
  Queue:   ${COMMITS_SINCE_TAG} commit(s) on main since last tag — /ak-release-devshop to cut"
 fi
 
-# Devshop sync drift (project sessions only)
+# Devshop sync drift (project sessions only) — yellow for missing, red for mismatch
 if [ -n "$DEVSHOP_DRIFT" ]; then
-  BRIEFING+="
- Sync:    ${DEVSHOP_DRIFT}"
+  if [ "$DEVSHOP_DRIFT_SEVERITY" = "error" ]; then
+    BRIEFING+=$'\n \033[1;31m Sync:    '"${DEVSHOP_DRIFT}"$'\033[0m'
+  else
+    BRIEFING+=$'\n \033[1;33m Sync:    '"${DEVSHOP_DRIFT}"$'\033[0m'
+  fi
 fi
 
 # Open PRs
