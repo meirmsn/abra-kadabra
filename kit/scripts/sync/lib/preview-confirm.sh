@@ -12,7 +12,8 @@
 #   preview_confirm_stage_file <src> <rel_path>  → stage a single file
 #   preview_confirm_stage_dir <src_dir> <dst_dir> <rel_path> <rsync_excludes...>
 #                                    → stage a directory via rsync dry-run
-#   preview_confirm_show_and_ask <target_root>   → show diff, prompt, return 0=apply 1=abort
+#   preview_confirm_show_and_ask <target_root>   → show diff, prompt, return
+#                                    0=apply, 1=user aborted, 2=no changes to apply
 #   preview_confirm_cleanup          → remove temp staging dir
 
 # Globals set by preview_confirm_init
@@ -61,7 +62,10 @@ preview_confirm_stage_dir() {
 
 # Show the diff between proposed changes and current state, then prompt.
 # Args: <target_root> — the live directory being synced into
-# Returns: 0 if user confirmed (apply), 1 if user aborted
+# Returns: 0 if user confirmed (apply), 1 if user aborted, 2 if no changes to
+#          apply. Callers that only gate the apply pass can treat any nonzero as
+#          "don't apply"; from-devshop.sh distinguishes 2 (still surface the
+#          post-sync devcontainer rebuild advisory) from 1 (silent abort).
 preview_confirm_show_and_ask() {
   local target_root="$1"
   local proposed_root="$_PC_STAGING_DIR/proposed"
@@ -97,7 +101,7 @@ preview_confirm_show_and_ask() {
   if [ "$total" -eq 0 ]; then
     echo ""
     echo "No changes to apply."
-    return 1
+    return 2
   fi
 
   echo ""

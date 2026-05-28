@@ -102,6 +102,43 @@ build_rsync_excludes() {
   done < <(manifest_scaffold_once_under "$path")
 }
 
+# --- Devcontainer rebuild advisory ---
+# The sync rsync excludes [locked] .devcontainer leaves — init-devshop.sh owns
+# them, refreshing each from $DEVSHOP/template/<path> via `install` on every
+# container start. So a locked .devcontainer change NEVER shows up in `git diff`
+# after a sync; only a content diff of the project's in-tree copy against the
+# template predicts what the next container start (rebuild) will apply.
+# Conditional + always-note: loud block on drift, one-line note when clean.
+report_devcontainer_rebuild() {
+  local drifted=() rel src dst
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    src="$DEVSHOP_DIR/template/.devcontainer/$rel"
+    dst="$PROJECT_ROOT/.devcontainer/$rel"
+    # Skip leaves the template lacks (host-supabase / skip projects legitimately
+    # omit some). cmp -s is non-zero when content differs OR dst is missing —
+    # both mean the next rebuild would change the project copy.
+    [ -f "$src" ] || continue
+    if ! cmp -s "$src" "$dst"; then
+      drifted+=("$rel")
+    fi
+  done < <(manifest_locked_under .devcontainer)
+
+  echo ""
+  if [ "${#drifted[@]}" -eq 0 ]; then
+    echo "No .devcontainer changes — container rebuild not needed."
+  else
+    echo "Rebuild needed — .devcontainer changed (${#drifted[@]} file(s)):"
+    for rel in "${drifted[@]}"; do
+      echo "    $rel"
+    done
+    echo "  Rebuild the devcontainer to apply them:"
+    echo "    VS Code → Cmd/Ctrl+Shift+P → \"Dev Containers: Rebuild Container\""
+    echo "  (Init scripts also refresh on any container start; image files —"
+    echo "   Dockerfile, devcontainer.json, compose.yml — strictly need a rebuild.)"
+  fi
+}
+
 # --- Dry-run: stage proposed changes to temp dir ---
 preview_confirm_init
 echo "Preparing sync preview (${#PATHS[@]} paths from devshop to project)..."
@@ -128,7 +165,17 @@ for path in "${PATHS[@]}"; do
 done
 
 # --- Show preview and prompt ---
-if ! preview_confirm_show_and_ask "$PROJECT_ROOT"; then
+# rc 0 = apply, 1 = user aborted, 2 = no synced-file changes. On rc 2 the synced
+# tooling is already current, but [locked] .devcontainer leaves (excluded from
+# the preview) may still have drifted — surface the rebuild advisory so a
+# locked-only devshop release (Dockerfile/firewall bump with no synced delta)
+# doesn't slip past silently. On rc 1 the operator declined; stay quiet.
+pc_rc=0
+preview_confirm_show_and_ask "$PROJECT_ROOT" || pc_rc=$?
+if [ "$pc_rc" -eq 2 ]; then
+  report_devcontainer_rebuild
+  exit 0
+elif [ "$pc_rc" -ne 0 ]; then
   exit 0
 fi
 
@@ -172,3 +219,5 @@ if [ -n "$OLD_DEVSHOP_VERSION" ] && [ "$OLD_DEVSHOP_VERSION" != "$DEVSHOP_VERSIO
   echo ""
   echo "Check .devshopkit/docs/PROPAGATION.md for manual steps since v$OLD_DEVSHOP_VERSION"
 fi
+
+report_devcontainer_rebuild

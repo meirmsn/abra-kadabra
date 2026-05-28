@@ -145,8 +145,9 @@ M
     preview_confirm_show_and_ask \"\$TARGET\"
   "
   assert_output --partial "No changes to apply"
-  # Return code 1 = abort (no changes to apply)
-  assert_failure
+  # Return code 2 = no changes to apply (distinct from 1 = user aborted, so
+  # from-devshop.sh can still surface the devcontainer rebuild advisory).
+  assert_failure 2
 }
 
 @test "preview_confirm_show_and_ask with --yes auto-confirms" {

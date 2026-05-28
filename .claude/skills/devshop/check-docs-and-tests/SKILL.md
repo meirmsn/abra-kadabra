@@ -126,6 +126,12 @@ context that runs one sub-skill and writes its findings to a per-file
 sink. The orchestrator concatenates the sinks into the `## Audit N`
 section in Step 4.
 
+When this skill is itself invoked from inside a subagent (e.g. as `/ak-build`
+Phase 3 Gate 5 or `/ak-merge-devshop` Phase 1.1, both of which dispatch it as a
+gate), nested `Agent` dispatch is unavailable — run both reviews inline
+(sequentially) and write the same per-file sinks. Functionally equivalent
+output; only parallelism is lost. Not a failure.
+
 **Per-file sinks** (the parse contract for Step 4):
 
 - Docs findings → `$FEATURE_DIR/gates/audit-$AUDIT_N-docs.md`

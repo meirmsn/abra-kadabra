@@ -105,6 +105,40 @@ git diff --name-only | grep -q "^package.json$"
 
 If `package.json` was modified, run `pnpm install` and note the lockfile update in the summary.
 
+### 2c. Devcontainer rebuild verdict
+
+`from-devshop.sh` ends every run with a rebuild verdict. The `[locked]`
+`.devcontainer/` leaves (`Dockerfile`, `devcontainer.json`, `init-firewall.sh`,
+the init scripts, `compose.yml`, …) are **excluded from the sync rsync** —
+`init-devshop.sh` owns them, refreshing each from `/devshop/template` on every
+container start — so they never appear in the `git diff --stat` from Phase 2.
+The script content-diffs the project's in-tree copies against the template and
+prints one of:
+
+- **drift** → a `Rebuild needed — .devcontainer changed (N file(s)):` block
+  listing the differing leaves, or
+- **clean** → `No .devcontainer changes — container rebuild not needed.`
+
+The verdict fires even when Phase 2 reported no synced-file changes — a
+locked-only devshop release (e.g. a Dockerfile or firewall bump) shows "No
+changes to apply" for the synced tooling yet still needs a rebuild.
+
+**Surface the verdict in the skill output.** Pass it through verbatim and, on
+drift, raise it to a `☐` checklist item the operator must act on:
+
+```
+### Rebuild — required
+
+  ☐ Rebuild the devcontainer to apply .devcontainer changes:
+      Dockerfile, init-firewall.sh
+    VS Code → Cmd/Ctrl+Shift+P → "Dev Containers: Rebuild Container".
+    Image files (Dockerfile, devcontainer.json, compose.yml) strictly require a
+    rebuild; init scripts also refresh on any container start.
+```
+
+On a clean verdict, show the one-line `✓ No .devcontainer changes — rebuild not
+needed.` so the operator is never left guessing whether the check ran.
+
 ## Phase 3 — Propagation review
 
 Read PROPAGATION.md and extract entries for the version range:
@@ -195,6 +229,7 @@ If commit:
 - Stage all changed files: `git add -A`
 - Commit with the message
 - If a pre-sync stash was created in Phase 1a, remind: `Note: you have a pre-sync stash — run git stash pop when ready.`
+- If Phase 2c reported drift, **repeat the rebuild reminder as the last line** of the commit handoff (`☐ Rebuild the devcontainer …`) — it's the operator's next action after committing, and burying it above the commit step means they scroll past it. A locked-only release can reach Phase 4 with nothing to commit (Phase 2 found no synced changes); in that case skip the commit prompt but still surface the rebuild reminder.
 
 If skip: remind them the working tree has unstaged sync changes.
 
