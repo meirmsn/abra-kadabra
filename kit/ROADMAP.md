@@ -13,6 +13,34 @@ Priority tiers:
 
 ## v0 — blocks next-project adoption
 
+### `/ak-build` no-silent-scope-down — run the full pipeline or AskUserQuestion, never improvise lighter
+
+**Problem.** `/ak-build` is a prescriptive pipeline (spec subagent → implement subagent → pre-ship gauntlet → Phase 4.0 bookkeeping → ship → CI watch → audit comment). But the agent can **silently improvise a lighter flow** when it judges the task "too small" or the gauntlet "disproportionate" — reading `SKILL.md` as context, then hand-rolling a direct implementation that never enters the pipeline's machinery. This drops, with no signal to the operator: the `specs/<feature>/` audit artifacts (`spec.md`, `tasks.md`, `review.md` gate log), the BUILD-LOG/PLAN bookkeeping (Phase 4.0), and the Phase 6 audit comment. The operator can't tell from the resulting PR that the process was skipped.
+
+**Why the existing mechanical checks don't catch it.** `/ak-build` already has a "Phase exit artifact registry" with per-phase checks — but those only fire _within_ a run (when the agent IS executing the pipeline and skips a phase). The silent-scope-down failure is the agent **never entering the pipeline's control flow at all** (improvising entirely outside it), so no exit check ever triggers. The fix must be a **behavioral injunction at the entry point** (Step 0 / Phase 0), not another mechanical exit check.
+
+**Trigger — home-os, 2026-05-28.** `/ak-build` was invoked for the advisor-hardening task (21 security + 20 perf advisor findings). The agent did deep investigation + a Phase-0-style decision checkpoint (`AskUserQuestion` on the INVOKER vs conservative remediation), then **hand-rolled** the migration → PR #40 → `/ak-go-live` → a follow-up PR #41, never spawning the spec/implement subagents, never running the pre-ship gauntlet, never doing Phase 4.0. Evidence: no `specs/advisor-hardening/` or `specs/rls-auto-enable-drift/` dirs exist (every other feature has one); PR #40 committed only 2 files (migration + README); PLAN.md never tracked either; no BUILD-LOG entries. The operator caught the missing bookkeeping _after the fact_ and asked "why did 40 and 41 bypass bookkeeping?" — exactly the invisibility this guard prevents.
+
+**Shape of the fix.** A short, prominent **prohibition** block near the top of `/ak-build` (Step 0 / Phase 0), framed so the default is unchanged and no bias is introduced:
+
+> When `/ak-build` is invoked you execute **every** phase as specified — including the `specs/<feature>/` artifacts and Phase 4.0 bookkeeping — **regardless of how small or focused the task looks.** A two-line migration gets the same treatment as a ten-screen feature; subagent delegation makes completeness cheap. You do NOT have discretion to decide a task is "too small for the full pipeline" and hand-roll a direct implementation — that silently drops the audit trail (`review.md`), the ship log (BUILD-LOG), and PLAN tracking. If you genuinely believe a reduced flow is right (rare), **STOP and fire an `AskUserQuestion`** making the trade-off explicit (default + recommendation: full pipeline). Never deviate silently.
+
+**The bias-avoidance constraint (operator-specified, load-bearing in the wording).** The injunction must NOT prompt the agent to evaluate "is this too small for the pipeline?" on _every_ run — that would bias toward shortcuts and add decision fatigue. So it is framed as a **prohibition with a narrow escape hatch**, not a routine checklist beat: default = run everything, no question; the `AskUserQuestion` is an _exception_ path triggered only by the agent's own deviation impulse. **Do NOT** add a "Step 0.1: assess pipeline applicability" step — that is precisely the bias to avoid. Frame as "run it all; if you're tempted to deviate, ask instead of acting."
+
+**Why v0.** It silently voids the pipeline's core guarantees (audit trail + bookkeeping + reviewer-visible process), and the operator cannot detect it from the PR. It has already happened on the first project. Unlike a paper-cut, the failure is _invisible_ — which is the worst property for a process control. Marked v0 by the operator.
+
+**Cost.** ~30–60 min. A prose injunction block in `build/SKILL.md` Step 0 / Phase 0 + a one-line restatement at the Phase 0 decision beat + (optionally) a Phase 0 `AskUserQuestion` template for the reduced-flow exception. No script changes. Consider a bats/static check that the injunction text is present (cheap regression guard), but the enforcement is behavioral.
+
+**Cross-ref:**
+
+- `/devshop/.claude/skills/devshop/build/SKILL.md § Step 0 / Phase 0` — insertion point for the injunction
+- `/devshop/.claude/skills/devshop/build/SKILL.md § Phase exit artifact registry` — the mechanical checks that _can't_ catch never-entering-the-pipeline
+- home-os 2026-05-28 — PR #40 / #41 shipped with no `specs/<feature>/` dirs, no BUILD-LOG entries, no PLAN tracking (the silent deviation)
+
+[v0, surfaced-by home-os PR #40/#41 silent-pipeline-deviation on 2026-05-28]
+
+---
+
 ### Migration sequencing safety nets for the Vercel-preview window
 
 **Pre-implementation findings (verified 2026-05-14):** **PARTIAL — Track B shipped, Tracks A + C pending. ⚠️ Orphan reference exists.**
@@ -417,6 +445,72 @@ Add a section to `kit/docs/guide/conventions.md` (or a dedicated `kit/docs/guide
 ---
 
 ## v1 (after v0 is validated on the first project)
+
+### Project-worktree setup support — propagate the `.worktrees/` convention to projects (symlink-tooling, not submodule)
+
+**Problem.** The devshop has a clean linked-worktree convention for its _own_ parallel work, but it was never propagated to projects — and the mechanism doesn't transfer as-is because **projects wire tooling via symlinks into `/devshop`, whereas the devshop wires it via git submodules.** As a result, a worktree of a _project_ repo comes up bare: no `.claude/` (it's gitignored — `.claude/*`), so a fresh `claude` session in the worktree has **no skills** (`/ak-build` unavailable), **no `settings.json`** (no SessionStart hook → no briefing, no commit/push guard hooks, default permissions). The operator sees "claude doesn't load as usual" and has to hand-wire symlinks.
+
+**Canonical devshop pattern (works for /devshop, not for projects):**
+
+```
+git worktree add .worktrees/<topic> -b <type>/<topic> origin/main \
+  && git -C .worktrees/<topic> submodule update --init --recursive
+```
+
+- `.worktrees/<topic>` lives inside the repo; `/.worktrees/` is gitignored (`/devshop/.gitignore:30`).
+- `origin/main` base is **load-bearing** — without it `git worktree add` defaults to current HEAD and silently inherits WIP commits (documented worked-bite in `/devshop/CLAUDE.md § Worktree workflow`).
+- `submodule update --init --recursive` populates the devshop's vendored tooling (bats libs etc. are submodules). **This step does nothing useful for a project**, whose `kit/` is `.devshopkit -> /devshop/kit` and whose `.claude/skills/*` are symlinks into `/devshop`.
+- `/ak-merge-devshop` auto-detects the worktree, squashes via `git -C`, ff-merges main, tears it down. `session-start.sh` detects `/devshop/.worktrees/` and routes to devshop context.
+
+**Why it doesn't reach projects (the gaps):**
+
+1. **No `/.worktrees/` in the project `.gitignore`.** The template never carried it, so projects have no convention. (home-os `.gitignore` has no worktree entry.)
+2. **No project-worktree setup flow.** `kit/scripts/sync/create-devshop-symlinks.sh` is already `WS`-parameterized (`WS="${WS:-/workspace}"`) and builds the per-skill `.claude` symlinks into `/devshop` — but it is **never auto-run for a worktree**. `session-start.sh` only auto-repairs `/workspace` (`if [ ! -L /workspace/.devshopkit ]` — hardcoded).
+3. **`settings.json` is a root-owned copy** managed by `init-devshop.sh` (deliberately a copy, not a symlink, so Claude can't edit its own permission grants). `init-devshop.sh` is `/workspace`-scoped, and `create-devshop-symlinks.sh` intentionally skips `settings.json`/`.dcg.toml`. So even after running the symlink script, a project worktree has no `settings.json` → no hooks.
+4. **Bootstrap catch.** A bare worktree has no `settings.json` → the SessionStart hook never fires → the worktree **cannot self-heal on first `claude` startup.** Wiring must happen at _creation_ time, not first-session time.
+5. **No `origin/main`-base guard for project worktrees.** The devshop rule lives only in `/devshop/CLAUDE.md` prose for devshop worktrees; nothing enforces it for projects.
+
+**Shape of the fix:**
+
+1. **Propagate `/.worktrees/` to the project `.gitignore`** (template + a propagation step for existing projects).
+2. **New `kit/scripts/sync/setup-project-worktree.sh <type>/<topic>`** that mirrors the devshop recipe but swaps `submodule update` → symlink wiring:
+   ```
+   git worktree add .worktrees/<topic> -b <type>/<topic> origin/main
+   WS="$PWD/.worktrees/<topic>" bash /devshop/kit/scripts/sync/create-devshop-symlinks.sh
+   # + settings.json (see #3)
+   ```
+3. **Extend `create-devshop-symlinks.sh`: when `WS` ≠ `/workspace`, also symlink `settings.json` (+ `.dcg.toml`) from `/workspace`'s root-owned copy.** Symlinking to the root-owned file preserves the can't-self-edit security property (Claude still can't write it) without needing `init-devshop.sh` to run as root per-worktree. Document the security note inline.
+4. **Teach `session-start.sh` to repair _project_ worktrees** under `<workspace-root>/.worktrees/`, not just `/workspace` — useful for a _partially_-wired worktree (it can't fix a fully-bare one; see bootstrap catch #4, which is why #2 must run at creation).
+5. **Add an `origin/main`-base guard** to project worktree creation: if the project repo is on a non-`main` branch at creation, `AskUserQuestion` to confirm the base (default `origin/main`). This is the exact failure that bit home-os below.
+6. **Project-mode `/ak-build` parallel-work guidance:** use `.worktrees/<topic>` with managed teardown, mirroring `build/devshop-mode.md`'s worktree handling, adapted for symlink-tooling.
+
+**Trigger — home-os, 2026-05-28.** A parallel `/ak-build photo-comparison-ui` session was run concurrently with the main session's `/ak-build` (advisor-hardening) → `/ak-go-live`. The photo-comparison worktree was created **off-convention in three ways**, each mapping to a gap above:
+
+- **Wrong location:** `/home/node/worktrees/photo-comparison-ui` (home dir), not `<repo>/.worktrees/<topic>`.
+- **Wrong base:** branched from `fix/advisor-hardening` (a WIP branch mid-`/ak-go-live`), not `origin/main` — the exact silent-WIP-inheritance the devshop doc warns about. When `fix/advisor-hardening` squash-merged (PR #40) and was deleted, the worktree's base orphaned; later a branch-checkout race caused an _unrelated_ migration PR (#41) to squash the photo-comparison spec skeleton onto `main`.
+- **Bare `.claude`:** the worktree had no skills/settings, so a fresh `claude` there "didn't load as usual." Required a manual `.claude` symlink to unblock.
+
+The branch was eventually rebased onto current `main` (resolving the base orphan) and is fully implemented, but the whole episode — race contamination + bare worktree + manual recovery — traces directly to the missing project-worktree convention.
+
+**Why v1 — not v0.** The default single-session flow is unaffected; this only bites when a project runs **concurrent** `/ak-build` sessions in worktrees, which is rare today. v0 entries block next-project adoption; this is "advanced parallel workflow has sharp edges." Promote to v0 if multi-session project work becomes common, or if a second race-contamination incident ships bad content to `main`.
+
+**Cost/risk:**
+
+- Implementation: ~2–4 hours. `.gitignore` template + propagation; new `setup-project-worktree.sh`; `create-devshop-symlinks.sh` `settings.json` branch + bats; `session-start.sh` worktree-detection extension + bats; `/ak-build` project-mode worktree prose; `origin/main` guard.
+- Risk: low — all additive; worktrees are opt-in; the symlink-to-root-owned-copy preserves the security boundary.
+- Benefit: project parallel work becomes a supported one-liner instead of a hand-wired, race-prone improvisation; eliminates the bare-worktree + wrong-base class of incident.
+
+**Cross-ref:**
+
+- `/devshop/CLAUDE.md § Worktree workflow` — the canonical devshop pattern + `origin/main` worked-bite
+- `/devshop/kit/scripts/sync/create-devshop-symlinks.sh` — the `WS`-parameterized symlink builder to extend
+- `/devshop/kit/scripts/session-start.sh:8-11,20-30` — `/workspace`-hardcoded auto-repair + devshop-worktree detection
+- `/devshop/.claude/skills/devshop/build/devshop-mode.md` — devshop-mode worktree create/teardown to mirror for project mode
+- home-os 2026-05-28 — PR #40 (advisor-hardening) / PR #41 (rls_auto_enable) `/ak-go-live` session + the concurrent `feat/photo-comparison-ui` worktree incident
+
+[v1, surfaced-by home-os photo-comparison-ui parallel-session incident on 2026-05-28]
+
+---
 
 ### Test-coverage hook scope: extend to template/.devcontainer/\*.sh + reframe EXEMPT_SCRIPTS as warn-not-block
 
