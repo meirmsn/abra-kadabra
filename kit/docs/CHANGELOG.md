@@ -2,6 +2,21 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.36.0 (2026-05-28)
+
+- docs(roadmap): ak-build no-silent-scope-down + project worktree setup
+- docs(claude-md): align worktree-merge phrasing with GIT_CMD array
+- fix(ak-merge-devshop): repair worktree merges under zsh + cwd resets
+- feat(sync): flag when a devcontainer rebuild is needed after sync
+- fix(ak-merge-devshop): rebase before the audit to kill phantom reverts
+- fix(ak-go-live): robust prod-URL extraction from CLAUDE.md
+- feat(sync): add /ak-sync-from-devshop guided sync skill
+- fix(devshop): register preship scripts + harden Phase 2.5 gate
+- feat(ak-build): add Phase 2.5 fresh-eyes verification step (devshop only)
+- feat(preship): local-env health check + gate roster enforcement scripts
+- feat(hooks): CLAUDE.md classification gate — every edit routed through inclusion test
+- feat(release): review PROPAGATION.md before bump + responsive traps
+
 ## v1.35.0 (2026-05-27)
 
 - feat(roadmap): two v0 roadmap entries + Supabase GRANT deadline doc
