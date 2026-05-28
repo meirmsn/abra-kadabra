@@ -268,15 +268,30 @@ else
   AUDIT_COUNT=0
 fi
 HEAD_SHA=$(git rev-parse "$BRANCH")
+
+# Base divergence: is origin/main an ancestor of the branch tip? When it is
+# NOT, the branch was created off an older main and Phase 1.0's rebase will
+# rewrite HEAD (and any prior audit at the current HEAD is invalidated).
+BASE_DIVERGED=""
+git merge-base --is-ancestor origin/main "$BRANCH" 2>/dev/null || BASE_DIVERGED=yes
 ```
 
 Audit-status display logic:
 
-| Condition                        | Display                                                                        |
-| -------------------------------- | ------------------------------------------------------------------------------ |
-| `$AUDIT_COUNT == 0`              | `no audit yet — Phase 1 will run /ak-check-docs-and-tests`                     |
-| `$LATEST_AUDIT_SHA == $HEAD_SHA` | `Audit $AUDIT_COUNT at HEAD (idempotent — Phase 1 no-op)`                      |
-| `$LATEST_AUDIT_SHA != $HEAD_SHA` | `$AUDIT_COUNT prior audit(s); $N commits since latest — Phase 1 will re-audit` |
+| Condition                        | Display                                                                                                                                                                 |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `$AUDIT_COUNT == 0`              | `no audit yet — Phase 1 will run /ak-check-docs-and-tests`                                                                                                              |
+| `$LATEST_AUDIT_SHA == $HEAD_SHA` | `Audit $AUDIT_COUNT at HEAD (idempotent — Phase 1 no-op)`                                                                                                               |
+| `$LATEST_AUDIT_SHA != $HEAD_SHA` | `$AUDIT_COUNT prior audit(s); $N commits since latest — Phase 1 will re-audit`                                                                                          |
+| `$BASE_DIVERGED == yes`          | `⚠ base diverged from origin/main — Phase 1.0 rebases onto the merge target (origin/main, or local main if a release is unpushed), then 1.1 re-audits the rebased HEAD` |
+
+The `$BASE_DIVERGED` row is **additive** — it can fire alongside any of the
+first three. When it does, the rebase in 1.0 rewrites HEAD, so a prior audit at
+the current HEAD is invalidated and 1.1 re-audits regardless of the
+"idempotent — Phase 1 no-op" status shown above. This is the light,
+non-blocking divergence signal (the always-rebase already resolves the
+divergence; the row just surfaces it in the preview so the operator isn't
+surprised by the rebase).
 
 ### 0.3: Compose the squash commit message
 
@@ -608,7 +623,149 @@ On **Cancel**: print `✖ /ak-merge-devshop cancelled. Nothing merged.` and exit
 
 ---
 
-## Phase 1: Audit
+## Phase 1: Rebase + audit
+
+Phase 1 has two ordered sub-steps that MUST run in this order: **1.0 rebases
+the feature branch onto its merge target**, then **1.1 audits the rebased
+branch**. The rebase comes first so the audit's commit range reflects the base
+the squash will actually land on — see "Why rebase before the audit" below.
+
+### 1.0: Rebase onto the merge target
+
+Rebase the feature branch onto the base the squash will land on, **before** the
+audit runs (1.1). This is the load-bearing ordering: the audit's commit range
+is `$ANCHOR..HEAD`, so the branch tip must already descend from `$ANCHOR` or the
+audit diffs across diverged histories and manufactures phantom reverts (see
+"Why rebase before the audit").
+
+Route every git invocation via `$GIT_CMD`, which expands to `git` when the
+feature branch is checked out on `/devshop` (legacy direct-checkout) or
+`git -C "$WORKTREE_PATH"` when Phase 0.1 detected a linked worktree.
+
+**Anchor selection** (load-bearing when an in-flight release sits on local
+main). The rebase target — and the soft-reset anchor Phase 2 reuses — MUST be
+reachable from the eventual main HEAD that Phase 3's FF-merge lands on. When
+`/ak-release-devshop` has run but the release commit (`Bump devshop version to
+vN.N.N`) hasn't been pushed yet, local `main` is one commit ahead of
+`origin/main`. Using `origin/main` as the anchor in that case strands the
+release commit (Phase 3's `git merge --ff-only "$BRANCH"` then fails because
+branch and local main have diverged). Detect and pick the right anchor:
+
+```bash
+GIT_CMD="git"
+[ -n "$WORKTREE_PATH" ] && GIT_CMD="git -C $WORKTREE_PATH"
+
+# Pick the rebase + soft-reset anchor: local main when ahead of origin/main
+# (typical of an unpushed release), otherwise origin/main. The anchor MUST be
+# reachable from main's HEAD so Phase 3's FF lands cleanly.
+ANCHOR=origin/main
+LOCAL_AHEAD=$(git rev-list --count origin/main..main 2>/dev/null || echo 0)
+if [ "$LOCAL_AHEAD" -gt 0 ]; then
+  ANCHOR=main
+  echo "ℹ local main is $LOCAL_AHEAD commit(s) ahead of origin/main —"
+  echo "  anchoring on local main (typical of an in-flight release that"
+  echo "  hasn't been pushed). Those commits ride along with the squash on"
+  echo "  Phase 3's \`git push origin main\`."
+fi
+
+$GIT_CMD rebase "$ANCHOR"          # incorporate $ANCHOR's commits; resolve conflicts inline
+```
+
+After the rebase, `$ANCHOR` is an ancestor of the branch tip, so 1.1's audit
+range `$ANCHOR..HEAD` is exactly the branch's true delta — no phantom reverts.
+Phase 2 reuses the same `$ANCHOR` for its soft-reset.
+
+If `$GIT_CMD rebase "$ANCHOR"` reports conflicts: resolve them (mechanical
+resolutions inline, ambiguous ones via the operator), `$GIT_CMD add`, then
+`$GIT_CMD rebase --continue`. Repeat until rebase finishes. When `$GIT_CMD`
+includes `-C "$WORKTREE_PATH"`, the conflict files live under
+`"$WORKTREE_PATH"`, not `/devshop` — use the Edit tool with the
+worktree-prefixed absolute path.
+
+**Worked incident — anchor selection matters**: `home-os-skill-polish-batch`
+merge (2026-05-20). Local main carried `3f122d4 Bump devshop version to
+1.32.0` (release.sh commit; tag v1.32.0 set) but origin/main hadn't been pushed
+yet. Using `origin/main` as the anchor (the pre-fix default) put the squash on
+top of `60f64e3` (origin/main tip), diverging from local main which carried
+v1.32.0 — Phase 3's `git merge --ff-only "$BRANCH"` then refused because feature
+and main had no common path. Recovery required re-anchoring on `main`, after
+which Phase 3's FF + push carried both the release commit and the squash to
+origin in one push. The anchor-detection block above eliminates the re-do.
+
+**Phantom "local changes would be overwritten" — fall back to merge.** On
+virtiofs (devcontainer on macOS), `git rebase "$ANCHOR"` sometimes aborts
+immediately with `error: Your local changes to the following files would be
+overwritten by merge: <N files>` even though `git status` reports a clean tree
+and `git ls-files -m` returns nothing. This is a stat-cache / virtiofs
+interaction; `git update-index --really-refresh` may expose a real diff or may
+not. When this fires, fall back to merge to incorporate the base — same end
+state (branch tip descends from `$ANCHOR`), different mechanics:
+
+```bash
+$GIT_CMD rebase --abort 2>/dev/null || true
+$GIT_CMD merge "$ANCHOR" --no-edit     # resolve any real content conflicts
+# If conflicts paused the merge: resolve, $GIT_CMD add, then
+# $GIT_CMD commit -F /tmp/merge-commit-msg.txt (transient merge commit —
+# discarded by Phase 2's soft-reset).
+```
+
+`git merge` does NOT trip the phantom error (different code path inside git).
+The transient merge commit's docsReviewed trailer can describe itself as
+"transient merge of `$ANCHOR` into <branch>, discarded by the following
+soft-reset" — the reviewer accepts that shape. The audit (1.1) runs against the
+merged branch; because `$ANCHOR` is now an ancestor, `$ANCHOR..HEAD` is the
+branch's true delta (the merge commit adds no phantom content). Phase 2's
+soft-reset later discards the merge commit. Verified end-to-end on the
+`ci-rollback-explain-marker-loud` merge (2026-05-19): rebase phantom-failed on
+`PLAN.md`; merge fallback resolved 2 real content conflicts cleanly, then the
+soft-reset + commit produced the same 9-file squash the rebase path would have.
+
+**Same flake fires in `git cherry-pick` and `git am`** when applying multiple
+patches that touch the same file in quick succession. For surgical operations
+adjacent to the merge skill (e.g. stripping an accidentally-inherited commit by
+cherry-picking onto a clean branch from `origin/main`), use the **sleep +
+stat-refresh** unsticker between operations:
+
+```bash
+git cherry-pick <sha-1>
+sleep 3
+git update-index --really-refresh
+git cherry-pick <sha-2>
+sleep 3
+git update-index --really-refresh
+git cherry-pick <sha-3>
+```
+
+The first cherry-pick after a clean checkout always succeeds; subsequent ones
+touching the same file trip the phantom because virtiofs's stat cache hasn't
+settled. A 3-second sleep + explicit `git update-index --really-refresh`
+reliably unsticks it. Verified on the `calibration-and-task-phases`
+strip-and-merge (2026-05-20). `git apply` and `git am --3way` trigger the same
+flake; the sleep+refresh recipe covers them too.
+
+#### Why rebase before the audit
+
+The audit (1.1, `/ak-check-docs-and-tests`) computes its commit range from the
+branch's base. Before this fix the rebase lived in Phase 2 — AFTER the audit —
+so the audit ran on the un-rebased branch. When the feature branch was created
+off an older `main` (common for a worktree that has sat through a few merges),
+`origin/main` was NOT an ancestor of the branch tip, so the two-dot range
+`origin/main..HEAD` diffed across diverged histories: everything that landed on
+`main` after the branch point surfaced as phantom **deletions/reverts**.
+Rebasing first makes `$ANCHOR` an ancestor, collapsing the two-dot range to the
+branch's true delta.
+
+**Worked incident (2026-05-28)**: the `go-live-prod-url-extraction` worktree was
+branched off `aa711e2`; by merge time `main` was at `be84c95` (the
+`/ak-sync-from-devshop` skill + a Phase 2.5 wiring fix had landed). Audit 1's
+docs review reported the single 3-file commit "reverts the
+`/ak-sync-from-devshop` skill AND the hardened Phase 2.5 gate" — a pure two-dot
+artifact. Verified false by `git show <tip> --stat` (only its 3 files) + the
+three-dot diff. Cost: one wasted audit cycle (2 agent dispatches) + operator
+confusion, since the phantom "revert" finding reads as a serious blocker.
+Rebasing before the audit (this phase) eliminates the artifact at the source.
+
+### 1.1: Audit
 
 **Cwd routing — required when `WORKTREE_PATH` is set.** The sub-skill
 (`/ak-check-docs-and-tests`) reads the current branch via
@@ -643,14 +800,26 @@ the cd, then read `/ak-check-docs-and-tests § Step 1 #5` and concluded the
 audit couldn't run. Recovery required an explicit cd to the worktree and
 re-invoking. The rule above eliminates that path entirely.
 
-Invoke `/ak-check-docs-and-tests` via the Skill tool:
+Invoke `/ak-check-docs-and-tests` via the Skill tool, passing the explicit
+range `${ANCHOR}..HEAD` (the anchor chosen in 1.0 — substitute the literal
+`origin/main` or `main`):
 
 ```
 Skill({
   skill: "ak-check-docs-and-tests",
-  args: "--feature-dir specs/${FEATURE} --label manual"
+  args: "--feature-dir specs/${FEATURE} --label manual --range ${ANCHOR}..HEAD"
 })
 ```
+
+**Why pass `--range ${ANCHOR}..HEAD` rather than rely on the default range.**
+After 1.0's rebase, `${ANCHOR}..HEAD` is exactly the delta the squash will
+introduce to main — the precise thing the audit should review. The default
+`origin/main..HEAD` would be correct in the common case (`$ANCHOR` = origin/main)
+but would pull the unpushed release commit into the range in the in-flight-release
+case (`$ANCHOR` = local main). The explicit range is correct in both. The audit
+skill honors `--range` verbatim (`/ak-check-docs-and-tests § Step 2`) and still
+applies its idempotence no-op when the latest `## Audit N` stamp already equals
+HEAD, so re-invocations stay cheap.
 
 Behavior:
 
@@ -736,38 +905,24 @@ reasons this is the right shape:
    the source side, fast-forward to the destination. Phase 3 then becomes
    a pointer move with no new commit.
 
-Route every git invocation in this phase via `$GIT_CMD`, which expands to
-`git` when the feature branch is checked out on `/devshop` (legacy direct-
-checkout) or `git -C "$WORKTREE_PATH"` when detection in Phase 0.1 found a
-linked worktree.
+Phase 1.0 already rebased the branch onto `$ANCHOR` (and 1.1 audited the
+rebased branch). Phase 2's job is only to **collapse** the rebased branch to a
+single staged delta and commit it — there is no rebase here.
 
-**Anchor selection** (load-bearing when an in-flight release sits on local main).
-The soft-reset anchor MUST be reachable from the eventual main HEAD that
-Phase 3's FF-merge lands on. When `/ak-release-devshop` has run but the
-release commit (`Bump devshop version to vN.N.N`) hasn't been pushed yet,
-local `main` is one commit ahead of `origin/main`. Using `origin/main`
-as the anchor in that case strands the release commit (Phase 3's
-`git merge --ff-only "$BRANCH"` then fails because branch and local main
-have diverged). Detect and pick the right anchor:
+Route every git invocation via `$GIT_CMD`, recomputing it and `$ANCHOR` with
+the same deterministic detection 1.0 used (these run as separate orchestrator
+steps, so the shell variables don't persist across them):
 
 ```bash
 GIT_CMD="git"
 [ -n "$WORKTREE_PATH" ] && GIT_CMD="git -C $WORKTREE_PATH"
 
-# Pick the soft-reset anchor: local main when ahead of origin/main (typical
-# of an unpushed release), otherwise origin/main. The anchor MUST be
-# reachable from main's HEAD so Phase 3's FF lands cleanly.
+# Recompute the same anchor 1.0 rebased onto (deterministic given live git
+# state). The soft-reset target MUST equal the rebase target.
 ANCHOR=origin/main
 LOCAL_AHEAD=$(git rev-list --count origin/main..main 2>/dev/null || echo 0)
-if [ "$LOCAL_AHEAD" -gt 0 ]; then
-  ANCHOR=main
-  echo "ℹ local main is $LOCAL_AHEAD commit(s) ahead of origin/main —"
-  echo "  anchoring squash on local main (typical of an in-flight release"
-  echo "  that hasn't been pushed). Those commits will ride along with the"
-  echo "  squash on Phase 3's \`git push origin main\`."
-fi
+[ "$LOCAL_AHEAD" -gt 0 ] && ANCHOR=main
 
-$GIT_CMD rebase "$ANCHOR"          # incorporate $ANCHOR's commits; resolve conflicts inline
 $GIT_CMD reset --soft "$ANCHOR"    # collapse all of $BRANCH's commits to a single staged delta
 
 # Rename-plus-symlink detection: scan the staged delta for the combo that
@@ -813,100 +968,23 @@ working tree still contains the rebased branch's full content; HEAD is at
 single staged delta. The follow-up `git commit` produces one commit on top
 of `$ANCHOR` containing exactly that delta.
 
-Why the rebase is required first: `git reset --soft "$ANCHOR"` produces a
-correct squash only if the working tree already contains `$ANCHOR`'s
-content. Without the rebase, the soft-reset would create a commit that
-appears to _revert_ any `$ANCHOR` changes the branch hadn't picked up.
-The rebase merges them in first; conflicts are resolved at rebase time
-(operator-visible, recoverable via `$GIT_CMD rebase --abort`).
+Why the soft-reset target is `$ANCHOR`: the soft-reset produces a correct
+squash only because Phase 1.0 already rebased the branch onto `$ANCHOR` — the
+working tree contains `$ANCHOR`'s content, so the staged delta is exactly
+`$ANCHOR..HEAD`. If you reach Phase 2 on a branch that was NOT rebased onto
+`$ANCHOR` (e.g. a hand-driven resume that skipped Phase 1.0), re-run Phase 1.0
+first; soft-resetting an un-rebased branch would stage a delta that appears to
+_revert_ any `$ANCHOR` changes the branch hadn't picked up. The rebase
+conflict-resolution, the virtiofs phantom-error → merge fallback, and the
+cherry-pick/`am` sleep+stat-refresh recipes all live in **Phase 1.0** now —
+`git reset --soft` never touches the working tree, so Phase 2 can't trip the
+phantom error.
 
-**Worked incident — anchor selection matters**: `home-os-skill-polish-batch`
-merge (2026-05-20). Local main carried `3f122d4 Bump devshop version to
-1.32.0` (release.sh commit; tag v1.32.0 set) but origin/main hadn't been
-pushed yet. Using `origin/main` as the anchor (the pre-fix default) put
-the squash on top of `60f64e3` (origin/main tip), diverging from local
-main which carried v1.32.0 — Phase 3's `git merge --ff-only "$BRANCH"`
-then refused because feature and main had no common path. Recovery
-required re-doing Phase 2 with `main` as the anchor, after which
-Phase 3's FF + push carried both the release commit and the squash to
-origin in one push. The anchor-detection block above eliminates the
-re-do.
-
-If `$GIT_CMD rebase origin/main` reports conflicts: resolve them
-(mechanical resolutions inline, ambiguous ones via the operator),
-`$GIT_CMD add`, then `$GIT_CMD rebase --continue`. Repeat until rebase
-finishes. When `$GIT_CMD` includes `-C "$WORKTREE_PATH"`, the conflict
-files live under `"$WORKTREE_PATH"`, not `/devshop` — use the Edit tool
-with the worktree-prefixed absolute path.
-
-**Phantom "local changes would be overwritten" — fall back to merge.**
-On virtiofs (devcontainer on macOS), `git rebase origin/main` sometimes
-aborts immediately with `error: Your local changes to the following
-files would be overwritten by merge: <N files>` even though
-`git status` reports a clean tree and `git ls-files -m` returns nothing.
-This is a stat-cache / virtiofs interaction (also surfaces during
-direct `git merge --ff-only`); `git update-index --really-refresh` may
-expose a real diff or may not. When this fires, fall back to the
-merge-then-soft-reset path — same end state, different mechanics:
-
-```bash
-$GIT_CMD rebase --abort 2>/dev/null || true
-$GIT_CMD merge "$ANCHOR" --no-edit     # resolve any real content conflicts
-$GIT_CMD commit -F /tmp/merge-commit-msg.txt   # transient merge commit (discarded by soft-reset)
-$GIT_CMD reset --soft "$ANCHOR"        # collapse everything to a staged delta
-# Run the same rename-plus-symlink detection as the primary path (above).
-# If the staged delta contains the R+A collision, unstage and offer the
-# ff-merge fallback — same logic, same operator interaction.
-$GIT_CMD commit -F "/tmp/squash-message-${FEATURE}.txt"
-```
-
-Use the same `$ANCHOR` as the rebase path (either `origin/main` or local
-`main` per the detection block above). The merge fallback is anchor-agnostic
-about the mechanics; the soft-reset still has to land on the same target
-the rebase path would have.
-
-`git merge` does NOT trip the phantom error (different code path inside
-git). The transient merge commit's docsReviewed trailer can describe
-itself as "transient merge of origin/main into <branch>, discarded by
-the immediately-following soft-reset" — the reviewer accepts that shape.
-After the soft-reset the merge commit is no longer reachable from
-the branch; the index contains exactly origin/main..feature-branch's
-delta, identical to the rebase path's output. Verified end-to-end on
-the `ci-rollback-explain-marker-loud` merge (2026-05-19): rebase
-phantom-failed on `PLAN.md`; merge fallback resolved 2 real content
-conflicts (PLAN.md row + kit/ROADMAP.md entry both deleted on origin/main
-AND on the branch — `git checkout --theirs` + re-applying the branch's
-deletions resolved cleanly), then soft-reset + commit produced the same
-9-file squash the rebase path would have.
-
-**Same flake fires in `git cherry-pick` and `git am`** when applying
-multiple patches that touch the same file in quick succession. The
-merge-then-soft-reset workaround above only covers the squash path; for
-surgical operations adjacent to the merge skill (e.g. stripping an
-accidentally-inherited commit by cherry-picking onto a clean branch from
-`origin/main`), use the **sleep + stat-refresh** unsticker between
-operations:
-
-```bash
-git cherry-pick <sha-1>
-sleep 3
-git update-index --really-refresh
-git cherry-pick <sha-2>
-sleep 3
-git update-index --really-refresh
-git cherry-pick <sha-3>
-```
-
-The first cherry-pick after a clean checkout always succeeds; subsequent
-ones touching the same file trip the phantom because virtiofs's stat
-cache hasn't settled. A 3-second sleep + explicit
-`git update-index --really-refresh` reliably unsticks it. Verified on
-the `calibration-and-task-phases` strip-and-merge (2026-05-20): without
-the unsticker, every cherry-pick after the first failed with the
-phantom "would be overwritten by merge"; with the unsticker, all three
-cherry-picks succeeded in sequence. `git apply` and `git am --3way`
-also trigger the flake on the same trigger; the sleep+refresh recipe
-covers them as well.
+**Anchor-mismatch caveat**: if `main` moved between Phase 1.0 and here (a
+parallel release push — rare on a single-developer devshop), the recomputed
+`$ANCHOR` could differ from the one 1.0 rebased onto. Phase 3's
+`git merge --ff-only` catches the divergence and refuses rather than landing a
+bad squash; recovery is to re-invoke (Phase 1.0 re-rebases onto the new main).
 
 If `$GIT_CMD commit` fails (pre-commit hook block — Layer 1 docs/tests-
 coverage, gitleaks, lint, typecheck, test suite): halt and surface the
@@ -914,7 +992,7 @@ hook output. The fix lives in the branch content; resolve, re-stage if
 needed, retry the commit. The branch is still valid for re-invocation —
 Phase 0's ff-mergeability check is the only thing that needs to re-pass.
 
-The rename+symlink combo is now detected inline before the commit step —
+The rename+symlink combo is detected inline before the commit step —
 see the detection block above. If it fires, the skill unstages and offers
 the ff-merge fallback automatically (unaffected by lint-staged's stash
 bug because it doesn't go through the squash machinery).
@@ -1404,13 +1482,18 @@ Every phase is idempotent on re-invocation:
   `/tmp/squash-message-${FEATURE}.txt` survives between invocations. On
   resume, if the file exists AND the branch SHA hasn't changed since the
   file's mtime, offer to reuse it (skip recompose). Otherwise recompose.
-- **Phase 1 audit**: idempotent via `/ak-check-docs-and-tests`'s own no-op
-  guard (latest `## Audit N` at HEAD → skip).
+- **Phase 1.0 rebase**: rebasing onto an ancestor when the branch is already
+  on top of `$ANCHOR` is a no-op (git reports "Current branch is up to date").
+  A re-invocation after `main` has moved re-rebases onto the new tip — exactly
+  what's wanted.
+- **Phase 1.1 audit**: idempotent via `/ak-check-docs-and-tests`'s own no-op
+  guard (latest `## Audit N` at HEAD → skip), even with the explicit
+  `--range` passed.
 - **Phase 2 squash**: if the feature branch's tip is already a single
   commit on top of origin/main with the expected message subject (detected
   via `git log -1 --format='%s' "$BRANCH"` matching the composed subject
-  AND `git rev-list --count origin/main..HEAD = 1`), skip the rebase +
-  soft-reset + commit — already squashed.
+  AND `git rev-list --count origin/main..HEAD = 1`), skip the soft-reset +
+  commit — already squashed. (The rebase is Phase 1.0's, also idempotent.)
 - **Phase 3 ff-merge + push**: `git merge --ff-only` is a no-op when
   already at the target; `git push` is idempotent ("Everything up-to-date"
   on re-run).

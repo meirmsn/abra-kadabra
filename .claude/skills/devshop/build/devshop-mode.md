@@ -365,10 +365,15 @@ ahead of main, clean tree after Phase 4.0's commit).
 ### What /ak-merge-devshop handles
 
 - **Phase 0**: Pre-flight + squash commit message composition + approval gate
-- **Phase 1**: Audit via `/ak-check-docs-and-tests` (equivalent of
-  project-mode Phase 5.8). **Idempotent**: if Phase 3 Gate 5 already ran
-  the audit at the current HEAD, the `<!-- audited-at: <SHA> -->` stamp
-  causes a no-op. This double-audit is correct by construction.
+- **Phase 1**: Rebase onto `$ANCHOR` (Phase 1.0), then audit via
+  `/ak-check-docs-and-tests --range "$ANCHOR..HEAD"` (Phase 1.1, equivalent of
+  project-mode Phase 5.8). **Idempotent**: if the Phase 1.0 rebase was a no-op
+  (branch already on top of `$ANCHOR`) AND Phase 3 Gate 5 already ran the audit
+  at the current HEAD, the `<!-- audited-at: <SHA> -->` stamp causes the audit
+  to no-op. If the rebase rewrote HEAD (stale-base worktree), the prior stamp no
+  longer matches and the audit re-runs against the rebased HEAD — which is the
+  point of rebasing first. Either way the double-audit is correct by
+  construction.
 - **Phase 2**: Squash on the feature branch
 - **Phase 3**: Fast-forward main + push (pre-push hooks = CI equivalent)
 - **Phase 4**: Verify + cleanup (branch deletion, worktree teardown if applicable)

@@ -392,6 +392,51 @@ setup() {
     | grep -qE 'DEVSHOP_AUDIT_MEDIUM_POLICY|Phase 5\.8'
 }
 
+# === Section F2 — Phase 1.0 rebase-before-audit (ak-merge-rebase-before-audit) ===
+
+@test "Phase 1.0 rebases onto the merge target BEFORE the audit invocation (ordering)" {
+  # Core invariant: a stale-base worktree must be rebased BEFORE
+  # /ak-check-docs-and-tests runs, or the audit's two-dot range diffs across
+  # diverged histories and reports phantom reverts. Codified from the
+  # go-live-prod-url-extraction merge (2026-05-28).
+  local rebase_line audit_line
+  rebase_line=$(grep -nE '^\$GIT_CMD rebase "\$ANCHOR"' "$SKILL_FILE" | head -1 | cut -d: -f1)
+  audit_line=$(grep -nE 'skill: "ak-check-docs-and-tests"' "$SKILL_FILE" | head -1 | cut -d: -f1)
+  [ -n "$rebase_line" ]
+  [ -n "$audit_line" ]
+  [ "$rebase_line" -lt "$audit_line" ]
+}
+
+@test "Phase 1.0 runs \$GIT_CMD rebase onto \$ANCHOR" {
+  awk '/^### 1\.0:/,/^### 1\.1:/' "$SKILL_FILE" \
+    | grep -qE '\$GIT_CMD rebase "\$ANCHOR"'
+}
+
+@test "Phase 1.0 anchor-selects between origin/main and local main" {
+  # Same anchor detection that used to live in Phase 2 — moved ahead of the
+  # audit so the rebase target is decided before the audit range is computed.
+  awk '/^### 1\.0:/,/^### 1\.1:/' "$SKILL_FILE" \
+    | grep -qE 'git rev-list --count origin/main\.\.main'
+  awk '/^### 1\.0:/,/^### 1\.1:/' "$SKILL_FILE" \
+    | grep -qE 'ANCHOR=(origin/main|main)'
+}
+
+@test "Phase 1.0 documents the virtiofs phantom-error → merge fallback" {
+  # The phantom 'local changes would be overwritten' fallback (merge instead of
+  # rebase) moved here with the rebase; git reset --soft can't trip it.
+  awk '/^### 1\.0:/,/^### 1\.1:/' "$SKILL_FILE" \
+    | grep -qiE 'phantom|virtiofs|stat-cache'
+  awk '/^### 1\.0:/,/^### 1\.1:/' "$SKILL_FILE" \
+    | grep -qE '\$GIT_CMD merge "\$ANCHOR"'
+}
+
+@test "Phase 1.1 audit passes the explicit --range \$ANCHOR..HEAD" {
+  # After the rebase, the squash delta is exactly $ANCHOR..HEAD — the audit
+  # reviews precisely that, correct for both origin/main and local-main anchors.
+  awk '/^### 1\.1:/,/^## Phase 2:/' "$SKILL_FILE" \
+    | grep -qE 'range \$\{ANCHOR\}\.\.HEAD'
+}
+
 # === Section G — Phase 2 worktree-routed squash ===
 
 @test "Phase 2 introduces GIT_CMD that routes via -C when WORKTREE_PATH set" {
@@ -401,16 +446,17 @@ setup() {
     | grep -qE 'GIT_CMD="git -C \$WORKTREE_PATH"'
 }
 
-@test "Phase 2 uses \$GIT_CMD on rebase + reset --soft + commit" {
-  # The anchor can be `origin/main` (pre-fix default) OR `"$ANCHOR"` (when the
-  # detection block decides between origin/main and local main). Accept both
-  # shapes — the test name pins the $GIT_CMD invariant, not the anchor literal.
-  awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE" \
-    | grep -qE '\$GIT_CMD rebase (origin/main|"\$ANCHOR")'
+@test "Phase 2 uses \$GIT_CMD on reset --soft + commit (no rebase — that moved to Phase 1.0)" {
+  # The rebase moved to Phase 1.0 (rebase-before-audit). Phase 2 only collapses
+  # the already-rebased branch via soft-reset + commit. The anchor can be
+  # `origin/main` or `"$ANCHOR"` — the test pins the $GIT_CMD invariant.
   awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE" \
     | grep -qE '\$GIT_CMD reset --soft (origin/main|"\$ANCHOR")'
   awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE" \
     | grep -qE '\$GIT_CMD commit -F'
+  # Regression guard: the rebase must NOT be in Phase 2 anymore.
+  ! awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE" \
+    | grep -qE '^\$GIT_CMD rebase'
 }
 
 @test "Phase 2 anchor-selects between origin/main and local main" {
@@ -425,9 +471,12 @@ setup() {
     | grep -qE 'ANCHOR=(origin/main|main)'
 }
 
-@test "Phase 2 explains why worktree-routing sidesteps phantom rebase error" {
+@test "Phase 2 documents that the rebase already ran in Phase 1.0" {
+  # Phase 2's soft-reset is correct only because Phase 1.0 rebased the branch
+  # onto $ANCHOR first. The phantom-error recipe itself lives in Phase 1.0
+  # (see Section F2); Phase 2 records the dependency.
   awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE" \
-    | grep -qiE 'phantom|virtiofs|stat-cache'
+    | grep -qiE 'already rebased the branch|rebased .* onto .ANCHOR|Phase 1\.0 already'
 }
 
 @test "Phase 2 does NOT use git merge --squash (legacy on-main approach)" {

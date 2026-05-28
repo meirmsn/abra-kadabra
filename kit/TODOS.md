@@ -542,4 +542,3 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
   **Where**: `kit/hooks/pre-push.sh` § prTextHygiene block.
 
   [low, hook-improvement, surfaced-by home-os-pr-35-usage-counters-and-byok 2026-05-27]
-

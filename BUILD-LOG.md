@@ -4,6 +4,15 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### ak-merge-rebase-before-audit (2026-05-28)
+
+- **Branch**: `fix/ak-merge-rebase-before-audit`
+- **Spec**: `specs/ak-merge-rebase-before-audit/spec.md`
+- **Headline**: Merging a devshop branch whose base has fallen behind `main` no longer produces bogus "this reverts X" findings in the pre-merge audit — the merge runs clean instead of stalling on a phantom blocker.
+- **Summary**: `/ak-merge-devshop` now rebases the feature branch onto its merge target (the same `$ANCHOR` the squash lands on) **before** the Phase 1 `/ak-check-docs-and-tests` audit, and audits the precise `$ANCHOR..HEAD` delta. Previously the audit ran on the un-rebased branch against the default `origin/main..HEAD` two-dot range; when the branch was created off an older `main` (common for a worktree that has sat through a few merges), `origin/main` was not an ancestor of the branch tip, so everything that landed on `main` since the branch point surfaced as phantom deletions/reverts — wasting an audit cycle and risking a spurious abort of a valid merge. New Phase 1.0 carries the rebase (with anchor detection + virtiofs phantom-error → merge fallback); Phase 1.1 is the audit; Phase 2 keeps only soft-reset + commit. Codified from the 2026-05-28 `go-live-prod-url-extraction` merge.
+- **Commits**: 8 (squashed to 1 on main via /ak-merge-devshop)
+- **Quality gates**: 1503 bats pass (96 in `util-ak-merge-devshop.bats`, incl. 5 new Section F2 assertions + a Phase 2 no-rebase regression guard). Phase 2.5 fresh-eyes verification caught + fixed 1 cross-doc gap (devshop-mode.md double-audit no-op claim). Gate 5 audit: high=0, medium=1 (TODOS/PLAN closure — done here), low=1 (Phase 0.2 display reword — fixed). Gates 4, 6 clean; 7/8/9/10 structural carve-outs (devshop self-mode).
+
 ### local-env-pillar (2026-05-27)
 
 - **Branch**: `feat/local-env-pillar`
