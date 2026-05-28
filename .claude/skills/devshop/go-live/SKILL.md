@@ -68,10 +68,18 @@ echo "HTTP $HTTP"
 
 **If `HTTP` is 000** (connection failed): in-container connectivity issue, not a pre-existing prod issue — **do NOT** treat as a pre-existing prod issue or auto-roll back. Three distinct root causes share the same `HTTP 000` symptom; the disambiguation requires one extra read of the runtime allowlist file.
 
+**First, just run the refresh script — then re-probe.** Before disambiguating Mode A/B/C, run `sudo /usr/local/bin/refresh-allowed-ips.sh` and re-probe. Vercel edge-IP rotation (the Mode C cause) is by far the common case, and a rotation can recur mid-pipeline (e.g. a fresh deploy served from new edge IPs after merge). The script re-resolves the prod host and re-adds the current edge IPs, so it usually clears the `000` in one shot. It reads the host from `/etc/refresh-allowed-ips/production_url` (populated at container start from `.env`'s `PRODUCTION_URL`) and is a **no-op when that file is empty** — so it fixes Mode C but cannot fix a genuine Mode A/B. Only fall through to the classifier below if the re-probe is still `000` after the refresh.
+
+**Read `$ETC_FILE` WITHOUT `sudo` to classify.** The file is world-readable (`-rw-r--r-- root root`). Do NOT `sudo cat` it: if sudo is configured `NOPASSWD` only for `refresh-allowed-ips.sh` (not for `cat`), `sudo cat "$ETC_FILE" 2>/dev/null` returns empty on the password prompt and you'll misread a **populated** file as empty — downgrading a real Mode C into a phantom Mode A/B. A plain `cat` reads the true contents.
+
 ```bash
 # Tri-state HTTP 000 classifier — Mode A / B / C.
+# NOTE: only reach here if `sudo /usr/local/bin/refresh-allowed-ips.sh` + re-probe
+# did NOT restore connectivity. Read $ETC_FILE WITHOUT sudo — it's world-readable, and
+# `sudo cat ... 2>/dev/null` silently returns empty if sudo wants a password (NOPASSWD is
+# scoped to refresh-allowed-ips.sh, not cat), which misclassifies a populated file as empty.
 ETC_FILE=/etc/refresh-allowed-ips/production_url
-HAVE_ETC=$(sudo cat "$ETC_FILE" 2>/dev/null | tr -d '[:space:]')
+HAVE_ETC=$(cat "$ETC_FILE" 2>/dev/null | tr -d '[:space:]')
 
 if [ -n "$HAVE_ETC" ]; then
   echo "Mode C: /etc/refresh-allowed-ips/production_url is populated ($HAVE_ETC)."
@@ -90,7 +98,7 @@ else
   echo "mid-session .env edits don't propagate to /etc/. Fix:"
   echo ""
   echo "  VS Code → Cmd/Ctrl+Shift+P → 'Dev Containers: Rebuild Container'"
-  echo "  After rebuild: ! sudo cat /etc/refresh-allowed-ips/production_url"
+  echo "  After rebuild: ! cat /etc/refresh-allowed-ips/production_url   (world-readable; no sudo)"
   echo "  (should print the bare host)."
   echo ""
   echo "If empty / line absent → Mode A. Operator never pasted the URL after first deploy."
@@ -99,11 +107,11 @@ else
   echo "  ! sudo sed -i 's|^PRODUCTION_URL=\$|PRODUCTION_URL=<bare-host>|' /workspace/.devcontainer/.env"
   echo "    (or sudo nano /workspace/.devcontainer/.env if no empty PRODUCTION_URL= line is present)"
   echo "  VS Code → Cmd/Ctrl+Shift+P → 'Dev Containers: Rebuild Container'"
-  echo "  After rebuild: ! sudo cat /etc/refresh-allowed-ips/production_url"
+  echo "  After rebuild: ! cat /etc/refresh-allowed-ips/production_url   (world-readable; no sudo)"
 fi
 ```
 
-**Mode A in-session escape hatch** (when the deploy is already in flight and a mid-deploy rebuild isn't acceptable): if `CLAUDE.md § Deploy Configuration § Production URL` has a known value AND `/etc/refresh-allowed-ips/production_url` is empty, offer to write the bare hostname directly into the runtime file for the current session only:
+**Mode A in-session escape hatch** (when the deploy is already in flight and a mid-deploy rebuild isn't acceptable): if `CLAUDE.md § Deploy Configuration § Production URL` has a known value AND `/etc/refresh-allowed-ips/production_url` is **genuinely empty** (confirm with a NON-sudo `cat`, not `sudo cat` — see the classifier note above), offer to write the bare hostname directly into the runtime file for the current session only. Note this hatch only works if `sudo tee` succeeds; where NOPASSWD is scoped only to the refresh script, it won't, and there's no in-session shortcut for a true Mode A:
 
 ```bash
 # Derive bare host from CLAUDE.md via the shared helper — tolerates the
@@ -121,7 +129,19 @@ if ! printf '%s' "$BARE_HOST" | grep -qE '^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z
 fi
 
 # Ephemeral write — survives this session only, lost on next rebuild.
-echo "$BARE_HOST" | sudo tee /etc/refresh-allowed-ips/production_url >/dev/null
+# WARNING: this `sudo tee` may fail with "a terminal is required to read the password"
+# when sudo has NOPASSWD scoped only to refresh-allowed-ips.sh (not to tee). Unlike the
+# refresh-first path, that failure is NOT harmless here: the refresh script READS the host
+# FROM this file, so if the tee didn't write it, the script is a no-op and the hatch
+# achieves nothing. Re-confirm the file is really empty with a NON-sudo `cat` first — a
+# populated file read via `sudo cat` looks falsely empty, in which case skip this hatch
+# entirely and just run the refresh script. For a genuine Mode A where the tee fails,
+# there is no in-session shortcut — fall back to the paste-then-rebuild fix above.
+if ! echo "$BARE_HOST" | sudo tee /etc/refresh-allowed-ips/production_url >/dev/null 2>&1; then
+  echo "sudo tee failed (no NOPASSWD for tee) — cannot write \$ETC_FILE; the refresh"
+  echo "script would be a no-op. No in-session shortcut: apply the permanent Mode A/B fix."
+  exit 0
+fi
 sudo /usr/local/bin/refresh-allowed-ips.sh
 echo "Session-only patch applied. The /etc/ file will revert to empty on next container"
 echo "rebuild — for the permanent fix, apply the three-step procedure (paste into .env,"
@@ -147,6 +167,7 @@ Surface the ephemerality explicitly to the operator — this shortcut unblocks t
 - The 4xx/5xx path: lalista PR 26 (2026-04-26). Prod `/` had been returning 500 since project setup (trailing newline in `NEXT_PUBLIC_SUPABASE_URL` from a copy-paste fat-finger; SSR `getUser()` fetched the malformed URL and threw uncaught). Nobody noticed because every authenticated flow goes through `/sign-in`, which worked. Caught during this Step 1.5 probe, fixed in the same PR before merge (added `.trim()` defense at every env var read site).
 - The HTTP 000 split: lalista PR 28 (2026-04-27). Pre-merge probe AND post-merge canary BOTH hit HTTP 000 within ~10 minutes of each other (Vercel rotated edge IPs since container start). The previous Step 1.5 logic lumped 000 with 4xx/5xx and asked "investigate the prod failure?" — wrong category, costing ~30 sec of disambiguation per occurrence. Step 3 already had the firewall-fallback paragraph; mirroring it here closes the gap so the agent doesn't re-derive disambiguation each session.
 - The Mode A/B split: home-os PR #9 + same-day auth-magic-link session (2026-05-13). PR #9's first `/ak-go-live` ran with `/etc/refresh-allowed-ips/production_url` empty because `.env`'s `PRODUCTION_URL=` slot was never filled (Mode A). The deploy completed on indirect signals (Vercel `state=READY`, `deploy-migrations.yml` green) but the in-container canary was disabled. Operator pasted `PRODUCTION_URL=home-os-nu-two.vercel.app` into `.env` post-deploy without rebuilding → Mode B; confirmed via `sudo cat /etc/refresh-allowed-ips/production_url` returning 0 bytes with mtime = container creation, predating the `.env` paste. The prior binary "in-container vs prod" disambiguation gave identical advice for both modes — wrong-half-the-time, since Mode B operators don't need the paste step. The tri-state classifier reads `/etc/` and routes to the right next-action immediately.
+- The `sudo cat` false-empty trap + refresh-first ordering: home-os PR #43 (2026-05-28). HTTP 000 hit at the Step 1.5 probe AND again post-merge (Vercel rotated edge IPs for the fresh deploy). The classifier's `HAVE_ETC=$(sudo cat "$ETC_FILE" 2>/dev/null …)` returned empty and the agent diagnosed Mode A/B — but `/etc/refresh-allowed-ips/production_url` was actually **populated** (`home-os-nu-two.vercel.app`). `sudo cat` had silently failed on the password prompt (NOPASSWD was scoped to `refresh-allowed-ips.sh`, not `cat`), and `2>/dev/null` hid it, so a populated, world-readable (`0644`) file read as empty. It was always Mode C (pure edge-IP rotation); `sudo /usr/local/bin/refresh-allowed-ips.sh` fixed it both times because the file it reads was populated all along. Fixes: (1) read `$ETC_FILE` with a plain `cat`, never `sudo cat`, so a password-gated sudo can't fake an empty result; (2) run the refresh script first + re-probe, since rotation is the common cause and recurs post-merge; (3) the refresh script reads the host FROM `$ETC_FILE` and is a no-op when it's empty, so the Mode A escape hatch's `sudo tee` failing (same NOPASSWD scope) genuinely breaks the hatch — it is not "harmless," there's just no in-session shortcut for a true Mode A.
 
 The probe is a single curl; it adds <1s in the green path and saves a fix-loop on the red path.
 
@@ -468,7 +489,7 @@ Invoke `/canary` via Skill tool.
 
 ### Firewall-IP-rotation fallback (if canary can't reach prod)
 
-If `/canary`'s curl reports `HTTP 000` with `Failed to connect ... No route to host`, this is an in-container firewall issue, not a prod issue. Run the **tri-state HTTP 000 classifier from Step 1.5** to route to the right next-action (Mode A: paste + rebuild; Mode B: rebuild; Mode C: `sudo /usr/local/bin/refresh-allowed-ips.sh`). The Mode A in-session escape hatch from Step 1.5 also applies here — when the canary is HTTP 000 and `CLAUDE.md` has the prod URL, the sudo-write to `/etc/refresh-allowed-ips/production_url` unblocks the current canary run. If neither the tri-state recovery nor the escape hatch reaches prod (genuinely rare), produce an operator-side `! curl <PROD_URL>` paste or a "open in browser and tell me what you see" ad-hoc to complete canary verification.
+If `/canary`'s curl reports `HTTP 000` with `Failed to connect ... No route to host`, this is an in-container firewall issue, not a prod issue. Run the **tri-state HTTP 000 classifier from Step 1.5** to route to the right next-action (Mode A: paste + rebuild; Mode B: rebuild; Mode C: `sudo /usr/local/bin/refresh-allowed-ips.sh`). As Step 1.5 now spells out, the first move is just `sudo /usr/local/bin/refresh-allowed-ips.sh` + re-probe — the script resolves the host on its own and usually clears the 000 in one shot (edge-IP rotation can recur post-merge when the fresh deploy is served from new IPs). The Mode A in-session escape hatch from Step 1.5 also applies, but its `/etc/` write is best-effort (the `sudo tee` can fail harmlessly) — the refresh script is what actually unblocks the canary run. If neither the tri-state recovery nor the escape hatch reaches prod (genuinely rare), produce an operator-side `! curl <PROD_URL>` paste or a "open in browser and tell me what you see" ad-hoc to complete canary verification.
 
 Codified from lalista PR 26 (2026-04-26): `/ak-go-live` Step 3 hit `No route to host` on `lalista-ten.vercel.app` because Vercel rotated edge IPs since container start. The refresh-script recovery (added 2026-05-09) closes this gap in-session; the operator-side fallback above is the escape hatch if the script can't help.
 
