@@ -95,6 +95,7 @@ reference this table by row — it is the single source of truth.
 | 0 | `$FEATURE_DIR/spec.md` (skeleton with provenance + Decisions) | Phase 0.3 | Step 0 resume check | file exists |
 | 1 | `$FEATURE_DIR/spec.md` contains `## Task order` | Phase 1 (spec agent) | Step 0 resume check | `grep -q '## Task order'` |
 | 2 | `$FEATURE_DIR/tasks.md` with all tasks `done` | Phase 2 (implement agent) | Step 0 resume check | awk parse |
+| 2.5 | `$FEATURE_DIR/verification.log` (devshop mode only) | Phase 2.5 (verification agent) | Step 0 resume check | file exists (devshop only) |
 | 3-preflight | `$FEATURE_DIR/gates/preflight.md` with scope vars + tooling status | Phase 3.0 | before 3.1 gate loop | file exists + result not `blocked` |
 | 3-gates | `$FEATURE_DIR/gates/<name>.md` for every scope-expected gate | Phase 3.1 + 3.2 | § 3.3.1 roster check | expected-set minus found-set is empty |
 | 3-hero | `$FEATURE_DIR/hero/*.png` OR `$FEATURE_DIR/hero/SKIP.md` | Phase 3.1b | § 3.3.1 roster check | one of the two exists |
@@ -222,7 +223,7 @@ Detect where a previous run left off. Evaluate top-to-bottom; the first match wi
 
 **(Both modes — rungs 2–6)**
 
-2. **`$FEATURE_DIR/tasks.md` exists with all tasks `done`?** → skip to Phase 3 (pre-ship)
+2. **`$FEATURE_DIR/tasks.md` exists with all tasks `done`?** → skip to Phase 3 (pre-ship). **(Devshop mode)**: if `$FEATURE_DIR/verification.log` does NOT exist → run Phase 2.5 first (see `devshop-mode.md § Phase 2.5`), then Phase 3.
 3. **`$FEATURE_DIR/tasks.md` exists with some tasks `done`?** → skip to Phase 2 (implement resumes internally)
 4. **`$FEATURE_DIR/spec.md` exists and contains `## Task order`?** → full spec written by Phase 1 → skip to Phase 2 (implement)
 5. **`$FEATURE_DIR/spec.md` exists but lacks `## Task order`?** → Phase 0 wrote the skeleton (provenance + Decisions only); Phase 1 hasn't completed → re-run Phase 1. Spec agent reads the existing file, preserves its Decisions section verbatim, and expands into the full spec. Do NOT re-prompt the user.

@@ -15,6 +15,7 @@ entirely — `/ak-merge-devshop` subsumes them.
   ├─ Phase 0.6 (main ctx)      → staleness check against PLAN row's Source
   ├─ Agent → /ak-spec           → expands specs/<name>/spec.md
   ├─ Agent → /ak-implement      → writes specs/<name>/tasks.md + code + tests
+  ├─ Agent → Phase 2.5          → fresh-eyes verification (devshop only)
   ├─ Phase 3 (orchestrator)     → 6 gates dispatched + 13 pre-composed
   │                               carve-outs (see § Gate applicability)
   ├─ Phase 4.0 (main ctx)      → BUILD-LOG entry + PLAN row closure
@@ -42,6 +43,12 @@ When `MODE=devshop`, replace project-mode rung 1 (open PR check) with:
 Rungs 2–6 (tasks.md all done, tasks.md partial, spec.md with/without
 `## Task order`, fresh start) are identical to project mode — no
 adaptation needed.
+
+**Phase 2.5 resume rung** (inserted between "tasks.md all done" and
+"skip to Phase 3"): when `$FEATURE_DIR/tasks.md` has all tasks `done`
+AND `$FEATURE_DIR/verification.log` does NOT exist → run Phase 2.5
+before advancing to Phase 3. When `verification.log` exists → skip
+Phase 2.5 (already ran).
 
 ## Phase 0 source routing (devshop mode)
 
@@ -91,6 +98,79 @@ Add to the spec subagent prompt:
 > This is devshop-self-mode. There is no METRICS.md; skip the metrics-
 > confirmation step. The test surface is bats (kit/tests/), not
 > vitest/Playwright.
+
+## Phase 2.5: Verification (devshop only)
+
+After Phase 2 completes (all tasks done, bats green), spawn a **fresh
+subagent** with zero implementation context to verify the changes work.
+
+**Why this exists.** Over ~10 devshop features (2026-05-17 to 2026-05-27),
+operator-prompted "test the changes" consistently caught real bugs that the
+implementation agent and its bats tests missed: stale doc cross-references
+(7 in lint-staged-rename-symlink), wrong file permissions (rollback-prose-
+lint), format mismatches between script parsers and their real inputs
+(local-env-pillar), incomplete doc updates after new check-types landed
+(phase3-blocked-halt), dead code branches (cheap-test-gates-local). The
+common thread: the implementation agent can't see its own blind spots.
+A fresh context with no implementation bias catches them.
+
+**Why devshop only.** Project mode runs 18+ gates including `/qa` (full
+app QA), `/design-review` (visual audit), `/cso` (security), and
+`changed-tests-local` (E2E against real app). The devshop's reduced
+6-gate set skips all of those — Phase 2.5 partially closes the gap.
+
+### Dispatch
+
+```
+Agent {
+  description: "Phase 2.5: verify changes",
+  subagent_type: "general-purpose",
+  prompt: """
+    You did NOT write this code. Your job is to test the changes on
+    this branch to make sure they work.
+
+    Working directory: $TARGET (the worktree or /devshop).
+    Feature: $FEATURE
+    Spec: $FEATURE_DIR/spec.md
+
+    Start by reading the spec and the diff (git diff origin/main..HEAD).
+    Then test the changes — run the scripts, check the docs, verify
+    cross-references resolve, confirm file permissions are correct,
+    make sure test fixtures match the real formats they parse.
+
+    If you find issues:
+    - Fix them and commit atomically per fix.
+    - Run `kit/tests/lib/bats-core/bin/bats kit/tests/` after each fix.
+    - Use the docsReviewed bypass as needed for commits.
+
+    If you find something you can't fix (design-level, needs operator
+    input), note it as an escalation.
+
+    Write your findings to $FEATURE_DIR/verification.log:
+      <N> findings fixed, <M> escalated
+      - fixed: <one-line per fix with commit SHA>
+      - escalated: <one-line per escalation>
+    (or "0 findings — all changes verified clean" if nothing found)
+
+    Return: the contents of verification.log.
+  """
+}
+```
+
+### Orchestrator behavior after return
+
+- **0 findings** → proceed to Phase 3.
+- **N fixed, 0 escalated** → run `bats kit/tests/` as a regression
+  check (same shape as Gate 2d between code-changing gates), then
+  proceed to Phase 3.
+- **Escalations > 0** → surface to operator via `AskUserQuestion`:
+  fix in-branch and re-invoke, or proceed with the escalation noted
+  in `verification.log` (recorded in the merge audit trail).
+
+### Exit artifact
+
+`$FEATURE_DIR/verification.log` — must exist before Phase 3 starts.
+The resume check uses its presence to skip Phase 2.5 on re-invocation.
 
 ## Phase 3: Pre-ship — devshop gate set
 

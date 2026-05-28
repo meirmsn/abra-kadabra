@@ -76,6 +76,13 @@ The end-to-end devshop pipeline, from rough notes to production. Six steps wrap 
 │  └──────────────────────────────────────────────────────────────────┘   │
 │                    │                                                    │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │ Phase 2.5 · Verification (devshop only)                          │   │
+│  │   fresh subagent, zero implementation context                    │   │
+│  │   reads diff, tests changes, fixes issues, commits per fix       │   │
+│  │   exit artifact: specs/<feature>/verification.log                │   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+│                    │                                                    │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
 │  │ Phase 3 · /ak-pre-ship  (per-gate sub-agents in two passes;      │   │
 │  │   Stabilize-HEAD sequential → Analysis parallel; per-gate sinks  │   │
 │  │   at specs/<feature>/gates/<name>.md; review.md concatenated)    │   │
@@ -250,6 +257,8 @@ that codified it lives at `/devshop/.claude/skills/devshop/pre-ship/SKILL.md
 low-risk diffs uses `git config devshop.requireHealthyLocalStack never`.
 
 **Phase 2: `/ak-implement`** — reads spec, decomposes into tasks, implements with tests. Confirms active branch against `PLAN.md § Active`. Logs judgment calls in `specs/<name>/tasks.md` § Decisions. Stuck protocol uses fresh-agent-per-attempt with a per-task `specs/<name>/task-attempts/T<N>.md` already-tried log: attempt 1 natural; attempt 2 fresh sub-agent reading the log; attempt 3 fresh sub-agent + spec re-read + devil's-advocate sub-sub-agent enumerating structurally-different tactics; PROPOSE SPLIT escape hatch routes through `AskUserQuestion` when the task is actually 2–3 latent sub-tasks. Attempt 3 fail still marks task blocked + pings user.
+
+**Phase 2.5: Verification (devshop only)** — a fresh subagent with zero implementation context reviews the diff and tests that the changes work. Catches surface-level integration gaps the implementation agent can't see: format mismatches, stale cross-references, wrong file permissions, incomplete doc updates. Finds AND fixes issues directly, committing per fix. Exit artifact: `specs/<feature>/verification.log`. See `devshop-mode.md § Phase 2.5` for the full contract.
 
 **Phase 3: `/ak-pre-ship`** — quality gates only (no shipping). A Phase 0 preflight runs first: verifies required tooling (Chromium for browser gates) and aborts the whole pre-ship with a `blocked` status if tooling is missing, so gates can't silently turn a missing tool into a cheerful "skipped". After preflight passes, the gates dispatch as **per-gate sub-agents in two ordered passes**: a Stabilize-HEAD pass (sequential — each gate may commit fixes that mutate HEAD; covers preflight + docs/metrics/rls/slow-job/fast-job-local/migration-rollback/changed-tests-local checks + responsive + `/simplify` + `/design-review` + `/qa` + hero shots), then an Analysis pass (parallel — read-only against the stabilized HEAD; covers docs-and-tests-review/`/review`/`/cso`/design-conformance/`/benchmark`/preflight-final/convention). Each gate sub-agent writes its findings to a per-file sink at `specs/<feature>/gates/<canonical-gate-name>.md`; the orchestrator concatenates the sinks into `review.md` after each pass. Per-gate dispatch isolates failure — a crashed sub-agent loses at most one gate's work — and lets the Analysis pass fire in a single tool-use turn. Gate naming: `(ak)` marks devshop-native gates (either a devshop-owned check or a devshop-authored skill like `/ak-tests-review`); bare names wrap gstack skills invoked verbatim. The canonical source of truth for gate ordering + scope is `pre-ship/SKILL.md § Gates (canonical order + named IDs)`.
 
