@@ -120,6 +120,20 @@ setup() {
   grep -qi 'feature branch' "$SKILL_FILE"
 }
 
+@test "branch=main refusal has an explicit-range carve-out (out-of-cwd driven audit)" {
+  # /ak-merge-devshop Phase 1.1 drives the audit from /devshop on main (cwd may
+  # have reset away from the worktree), so the refusal must be skipped when an
+  # explicit --range is passed. Guards Lesson 2 (cwd-reset hazard).
+  grep -qiE 'unless an explicit .--range. was passed|explicit .--range.* skip' "$SKILL_FILE"
+}
+
+@test "out-of-cwd audit resolves GIT_ROOT_AUDIT from the absolute --feature-dir" {
+  # When cwd is unreliable, every git read + the Step 5 commit must target the
+  # worktree git-root derived from --feature-dir, not cwd.
+  grep -qE 'GIT_ROOT_AUDIT=\$\(git -C "\$FEATURE_DIR" rev-parse --show-toplevel\)' "$SKILL_FILE"
+  grep -qiE 'route .*every.* git command via .git -C .\$GIT_ROOT_AUDIT' "$SKILL_FILE"
+}
+
 @test "rebase fallback documented: missing audited-at SHA → origin/main..HEAD with note" {
   grep -qi 'rebase' "$SKILL_FILE"
   grep -q 'origin/main\.\.HEAD' "$SKILL_FILE"

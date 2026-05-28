@@ -638,9 +638,17 @@ is `$ANCHOR..HEAD`, so the branch tip must already descend from `$ANCHOR` or the
 audit diffs across diverged histories and manufactures phantom reverts (see
 "Why rebase before the audit").
 
-Route every git invocation via `$GIT_CMD`, which expands to `git` when the
-feature branch is checked out on `/devshop` (legacy direct-checkout) or
-`git -C "$WORKTREE_PATH"` when Phase 0.1 detected a linked worktree.
+Route every git invocation via the `GIT_CMD` **array** (expanded as
+`"${GIT_CMD[@]}"`), which is `(git)` when the feature branch is checked out on
+`/devshop` (legacy direct-checkout) or `(git -C "$WORKTREE_PATH")` when Phase
+0.1 detected a linked worktree. **It MUST be an array, not a string** — zsh (the
+Bash tool's shell) does not word-split an unquoted string variable, so a string
+`GIT_CMD="git -C $WORKTREE_PATH"` makes `$GIT_CMD rebase` try to exec a binary
+literally named `git -C <path>` and fail with exit 127. An array expands to
+separate words in both bash and zsh. Worked incidents: `3dc73689`, `47b0ac95` —
+both failed with `no such file or directory: git -C ...`; in `3dc73689` the
+broken `$GIT_CMD diff` produced empty output, so the rename+symlink collision
+check silently false-passed ("✓ no collision" when it never actually ran).
 
 **Anchor selection** (load-bearing when an in-flight release sits on local
 main). The rebase target — and the soft-reset anchor Phase 2 reuses — MUST be
@@ -652,8 +660,8 @@ release commit (Phase 3's `git merge --ff-only "$BRANCH"` then fails because
 branch and local main have diverged). Detect and pick the right anchor:
 
 ```bash
-GIT_CMD="git"
-[ -n "$WORKTREE_PATH" ] && GIT_CMD="git -C $WORKTREE_PATH"
+GIT_CMD=(git)                                                  # array, not string (see above)
+[ -n "$WORKTREE_PATH" ] && GIT_CMD=(git -C "$WORKTREE_PATH")
 
 # Pick the rebase + soft-reset anchor: local main when ahead of origin/main
 # (typical of an unpushed release), otherwise origin/main. The anchor MUST be
@@ -668,16 +676,16 @@ if [ "$LOCAL_AHEAD" -gt 0 ]; then
   echo "  Phase 3's \`git push origin main\`."
 fi
 
-$GIT_CMD rebase "$ANCHOR"          # incorporate $ANCHOR's commits; resolve conflicts inline
+"${GIT_CMD[@]}" rebase "$ANCHOR"   # incorporate $ANCHOR's commits; resolve conflicts inline
 ```
 
 After the rebase, `$ANCHOR` is an ancestor of the branch tip, so 1.1's audit
 range `$ANCHOR..HEAD` is exactly the branch's true delta — no phantom reverts.
 Phase 2 reuses the same `$ANCHOR` for its soft-reset.
 
-If `$GIT_CMD rebase "$ANCHOR"` reports conflicts: resolve them (mechanical
-resolutions inline, ambiguous ones via the operator), `$GIT_CMD add`, then
-`$GIT_CMD rebase --continue`. Repeat until rebase finishes. When `$GIT_CMD`
+If `"${GIT_CMD[@]}" rebase "$ANCHOR"` reports conflicts: resolve them (mechanical
+resolutions inline, ambiguous ones via the operator), `"${GIT_CMD[@]}" add`, then
+`"${GIT_CMD[@]}" rebase --continue`. Repeat until rebase finishes. When `GIT_CMD`
 includes `-C "$WORKTREE_PATH"`, the conflict files live under
 `"$WORKTREE_PATH"`, not `/devshop` — use the Edit tool with the
 worktree-prefixed absolute path.
@@ -702,10 +710,10 @@ not. When this fires, fall back to merge to incorporate the base — same end
 state (branch tip descends from `$ANCHOR`), different mechanics:
 
 ```bash
-$GIT_CMD rebase --abort 2>/dev/null || true
-$GIT_CMD merge "$ANCHOR" --no-edit     # resolve any real content conflicts
-# If conflicts paused the merge: resolve, $GIT_CMD add, then
-# $GIT_CMD commit -F /tmp/merge-commit-msg.txt (transient merge commit —
+"${GIT_CMD[@]}" rebase --abort 2>/dev/null || true
+"${GIT_CMD[@]}" merge "$ANCHOR" --no-edit   # resolve any real content conflicts
+# If conflicts paused the merge: resolve, "${GIT_CMD[@]}" add, then
+# "${GIT_CMD[@]}" commit -F /tmp/merge-commit-msg.txt (transient merge commit —
 # discarded by Phase 2's soft-reset).
 ```
 
@@ -767,59 +775,59 @@ Rebasing before the audit (this phase) eliminates the artifact at the source.
 
 ### 1.1: Audit
 
-**Cwd routing — required when `WORKTREE_PATH` is set.** The sub-skill
+**Cwd-independent invocation — required when `WORKTREE_PATH` is set.** Do NOT
+rely on `cd "$WORKTREE_PATH"` carrying into the sub-skill. The sub-skill
 (`/ak-check-docs-and-tests`) reads the current branch via
-`git branch --show-current` for its Step 1 #5 main-refusal guard. From
-`/devshop` (on `main` whenever the feature lives in a worktree) the
-sub-skill refuses with "audit is feature-level; check out the feature
-branch first." Switch cwd into the worktree before the Skill call so
-the sub-skill sees the feature branch:
+`git branch --show-current` for its Step 1 #5 main-refusal and scaffolds/commits
+via relative `specs/<feature>/` paths — both of which only land in the worktree
+if the Bash tool's cwd persists. **It does not reliably persist:** in current
+Claude Code the Bash tool resets cwd to `/devshop` after every call (surfaced as
+`Shell cwd was reset to /devshop`), so a `cd` in one step is gone by the time the
+Skill runs its own bash — the sub-skill then sees `/devshop` on `main` and
+refuses with "audit is feature-level; check out the feature branch first." (This
+is a harness-behavior change: older sessions where cwd persisted DID succeed via
+a bare `cd`+Skill — e.g. the home-os-onboarding merge, 2026-05-19. Don't depend
+on that behavior.)
+
+So drive the audit by **explicit absolute paths + an explicit SHA range**, never
+cwd. Resolve them first — route the worktree read via the `GIT_CMD` array so
+`HEAD` is the rebased feature tip, not `/devshop`'s main:
 
 ```bash
-[ -n "$WORKTREE_PATH" ] && cd "$WORKTREE_PATH"
+TARGET=${WORKTREE_PATH:-/devshop}
+ANCHOR_SHA=$(git rev-parse "$ANCHOR")            # origin/main or local main (1.0's choice)
+HEAD_SHA=$(git -C "$TARGET" rev-parse HEAD)      # the rebased feature tip
+FEATURE_DIR_ABS="$TARGET/specs/$FEATURE"         # absolute — no cwd dependence
 ```
 
-The `--feature-dir` arg is a path resolved against the sub-skill's cwd —
-once cwd is the worktree, `specs/${FEATURE}` correctly anchors at
-`${WORKTREE_PATH}/specs/${FEATURE}` (where the sub-skill's scaffold
-step, idempotence stamp, and commit step all need to land — and where
-the resulting `## Audit N` content rides into Phase 2's squash range
-without needing a separate path-rewrite). After Phase 1 returns, the
-orchestrator may `cd /devshop` again or continue from the worktree;
-Phase 2's squash machinery routes via `$GIT_CMD` / `git -C` so it
-doesn't depend on cwd. Phase 4.2's worktree teardown also works from
-either cwd (it operates on `$WORKTREE_PATH` explicitly).
-
-Legacy direct-checkout path (`WORKTREE_PATH` empty, feature branch
-checked out in `/devshop`): the cd is a no-op; the Skill call runs from
-`/devshop`, which IS on the feature branch, and Step 1 #5 passes.
-
-Worked trip-up this rule prevents: feat/home-os-onboarding-template-patches
-merge (2026-05-19) — the orchestrator initially invoked the Skill without
-the cd, then read `/ak-check-docs-and-tests § Step 1 #5` and concluded the
-audit couldn't run. Recovery required an explicit cd to the worktree and
-re-invoking. The rule above eliminates that path entirely.
-
-Invoke `/ak-check-docs-and-tests` via the Skill tool, passing the explicit
-range `${ANCHOR}..HEAD` (the anchor chosen in 1.0 — substitute the literal
-`origin/main` or `main`):
+Then invoke `/ak-check-docs-and-tests` with the absolute feature-dir and the
+resolved SHA range (substitute the live values):
 
 ```
 Skill({
   skill: "ak-check-docs-and-tests",
-  args: "--feature-dir specs/${FEATURE} --label manual --range ${ANCHOR}..HEAD"
+  args: "--feature-dir ${FEATURE_DIR_ABS} --label manual --range ${ANCHOR_SHA}..${HEAD_SHA}"
 })
 ```
 
-**Why pass `--range ${ANCHOR}..HEAD` rather than rely on the default range.**
-After 1.0's rebase, `${ANCHOR}..HEAD` is exactly the delta the squash will
-introduce to main — the precise thing the audit should review. The default
-`origin/main..HEAD` would be correct in the common case (`$ANCHOR` = origin/main)
-but would pull the unpushed release commit into the range in the in-flight-release
-case (`$ANCHOR` = local main). The explicit range is correct in both. The audit
+`/ak-check-docs-and-tests` skips its Step 1 #5 main-refusal when an explicit
+`--range` is passed (the caller is driving an out-of-cwd audit), derives its
+git-root from the absolute `--feature-dir`, and hands that worktree path + the
+SHA range to the review agents it dispatches in Step 3 — so the whole audit is
+cwd-independent. The legacy direct-checkout path (`WORKTREE_PATH` empty) resolves
+`TARGET=/devshop` and the same absolute feature-dir + SHA range — identical
+mechanics, no special case.
+
+**Why a resolved SHA range, not `${ANCHOR}..HEAD`.** After 1.0's rebase the range
+is exactly the delta the squash will introduce to main — the precise thing the
+audit should review. Resolving `$ANCHOR` and the worktree `HEAD` to SHAs makes
+the range unambiguous from any cwd (the symbolic `HEAD` would resolve against
+whatever the sub-skill's cwd happens to be — `/devshop`'s main after a reset).
+The bare `origin/main..HEAD` default would also pull an unpushed release commit
+into the range in the in-flight-release case (`$ANCHOR` = local main). The audit
 skill honors `--range` verbatim (`/ak-check-docs-and-tests § Step 2`) and still
 applies its idempotence no-op when the latest `## Audit N` stamp already equals
-HEAD, so re-invocations stay cheap.
+the resolved HEAD, so re-invocations stay cheap.
 
 Behavior:
 
@@ -909,13 +917,15 @@ Phase 1.0 already rebased the branch onto `$ANCHOR` (and 1.1 audited the
 rebased branch). Phase 2's job is only to **collapse** the rebased branch to a
 single staged delta and commit it — there is no rebase here.
 
-Route every git invocation via `$GIT_CMD`, recomputing it and `$ANCHOR` with
-the same deterministic detection 1.0 used (these run as separate orchestrator
-steps, so the shell variables don't persist across them):
+Route every git invocation via the `GIT_CMD` array (`"${GIT_CMD[@]}"`),
+recomputing it and `$ANCHOR` with the same deterministic detection 1.0 used
+(these run as separate orchestrator steps, so the shell variables don't persist
+across them — and `GIT_CMD` MUST be an array, not a string; see Phase 1.0 for
+why a string breaks under zsh):
 
 ```bash
-GIT_CMD="git"
-[ -n "$WORKTREE_PATH" ] && GIT_CMD="git -C $WORKTREE_PATH"
+GIT_CMD=(git)                                                  # array, not string (see Phase 1.0)
+[ -n "$WORKTREE_PATH" ] && GIT_CMD=(git -C "$WORKTREE_PATH")
 
 # Recompute the same anchor 1.0 rebased onto (deterministic given live git
 # state). The soft-reset target MUST equal the rebase target.
@@ -923,20 +933,20 @@ ANCHOR=origin/main
 LOCAL_AHEAD=$(git rev-list --count origin/main..main 2>/dev/null || echo 0)
 [ "$LOCAL_AHEAD" -gt 0 ] && ANCHOR=main
 
-$GIT_CMD reset --soft "$ANCHOR"    # collapse all of $BRANCH's commits to a single staged delta
+"${GIT_CMD[@]}" reset --soft "$ANCHOR"   # collapse all of $BRANCH's commits to a single staged delta
 
 # Rename-plus-symlink detection: scan the staged delta for the combo that
 # crashes lint-staged's stash backup (git error: 'OLD/file' is beyond a
 # symbolic link). Detect BEFORE committing so the operator gets a clean
 # fallback instead of a mid-squash failure.
-RENAME_SRCS=$($GIT_CMD diff --cached --name-status --diff-filter=R \
+RENAME_SRCS=$("${GIT_CMD[@]}" diff --cached --name-status --diff-filter=R \
   | awk '{print $2}' | sort)
-ADDED_PATHS=$($GIT_CMD diff --cached --name-status --diff-filter=A \
+ADDED_PATHS=$("${GIT_CMD[@]}" diff --cached --name-status --diff-filter=A \
   | awk '{print $2}' | sort)
 COLLISIONS=$(comm -12 <(echo "$RENAME_SRCS") <(echo "$ADDED_PATHS"))
 
 if [ -n "$COLLISIONS" ]; then
-  $GIT_CMD reset   # unstage — no --hard, preserve working tree
+  "${GIT_CMD[@]}" reset   # unstage — no --hard, preserve working tree
   echo "✖ Rename-plus-symlink combo detected in the staged squash delta:"
   echo "$COLLISIONS" | sed 's/^/    /'
   echo ""
@@ -958,7 +968,7 @@ if [ -n "$COLLISIONS" ]; then
   # On cancel: exit.
 fi
 
-$GIT_CMD commit -F "/tmp/squash-message-${FEATURE}.txt"
+"${GIT_CMD[@]}" commit -F "/tmp/squash-message-${FEATURE}.txt"
 ```
 
 Why `--soft`: `git reset --soft <commit>` moves HEAD to `<commit>` while
@@ -986,7 +996,7 @@ parallel release push — rare on a single-developer devshop), the recomputed
 `git merge --ff-only` catches the divergence and refuses rather than landing a
 bad squash; recovery is to re-invoke (Phase 1.0 re-rebases onto the new main).
 
-If `$GIT_CMD commit` fails (pre-commit hook block — Layer 1 docs/tests-
+If `"${GIT_CMD[@]}" commit` fails (pre-commit hook block — Layer 1 docs/tests-
 coverage, gitleaks, lint, typecheck, test suite): halt and surface the
 hook output. The fix lives in the branch content; resolve, re-stage if
 needed, retry the commit. The branch is still valid for re-invocation —

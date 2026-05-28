@@ -400,16 +400,16 @@ setup() {
   # diverged histories and reports phantom reverts. Codified from the
   # go-live-prod-url-extraction merge (2026-05-28).
   local rebase_line audit_line
-  rebase_line=$(grep -nE '^\$GIT_CMD rebase "\$ANCHOR"' "$SKILL_FILE" | head -1 | cut -d: -f1)
+  rebase_line=$(grep -nE '^"\$\{GIT_CMD\[@\]\}" rebase "\$ANCHOR"' "$SKILL_FILE" | head -1 | cut -d: -f1)
   audit_line=$(grep -nE 'skill: "ak-check-docs-and-tests"' "$SKILL_FILE" | head -1 | cut -d: -f1)
   [ -n "$rebase_line" ]
   [ -n "$audit_line" ]
   [ "$rebase_line" -lt "$audit_line" ]
 }
 
-@test "Phase 1.0 runs \$GIT_CMD rebase onto \$ANCHOR" {
+@test "Phase 1.0 runs the GIT_CMD array on rebase onto \$ANCHOR" {
   awk '/^### 1\.0:/,/^### 1\.1:/' "$SKILL_FILE" \
-    | grep -qE '\$GIT_CMD rebase "\$ANCHOR"'
+    | grep -qE '"\$\{GIT_CMD\[@\]\}" rebase "\$ANCHOR"'
 }
 
 @test "Phase 1.0 anchor-selects between origin/main and local main" {
@@ -427,36 +427,69 @@ setup() {
   awk '/^### 1\.0:/,/^### 1\.1:/' "$SKILL_FILE" \
     | grep -qiE 'phantom|virtiofs|stat-cache'
   awk '/^### 1\.0:/,/^### 1\.1:/' "$SKILL_FILE" \
-    | grep -qE '\$GIT_CMD merge "\$ANCHOR"'
+    | grep -qE '"\$\{GIT_CMD\[@\]\}" merge "\$ANCHOR"'
 }
 
-@test "Phase 1.1 audit passes the explicit --range \$ANCHOR..HEAD" {
-  # After the rebase, the squash delta is exactly $ANCHOR..HEAD — the audit
-  # reviews precisely that, correct for both origin/main and local-main anchors.
+@test "Phase 1.1 audit is cwd-independent: resolved SHA range + absolute feature-dir" {
+  # The Bash tool's cwd can reset to /devshop between calls, so a bare
+  # cd-into-the-worktree does NOT persist into the sub-skill. Phase 1.1 drives
+  # the audit by explicit absolute paths + a resolved SHA range instead.
+  # Resolves $ANCHOR and the worktree HEAD to SHAs:
   awk '/^### 1\.1:/,/^## Phase 2:/' "$SKILL_FILE" \
-    | grep -qE 'range \$\{ANCHOR\}\.\.HEAD'
+    | grep -qE 'ANCHOR_SHA=\$\(git rev-parse "\$ANCHOR"\)'
+  awk '/^### 1\.1:/,/^## Phase 2:/' "$SKILL_FILE" \
+    | grep -qE 'HEAD_SHA=\$\(git -C "\$TARGET" rev-parse HEAD\)'
+  # Passes the absolute feature-dir + resolved SHA range to the audit skill
+  # (\-\- so grep doesn't read the leading dashes as options):
+  awk '/^### 1\.1:/,/^## Phase 2:/' "$SKILL_FILE" \
+    | grep -qE '\-\-feature-dir \$\{FEATURE_DIR_ABS\}'
+  awk '/^### 1\.1:/,/^## Phase 2:/' "$SKILL_FILE" \
+    | grep -qE '\-\-range \$\{ANCHOR_SHA\}\.\.\$\{HEAD_SHA\}'
+}
+
+@test "Phase 1.1 documents the cwd-reset hazard (do not rely on cd persisting)" {
+  awk '/^### 1\.1:/,/^## Phase 2:/' "$SKILL_FILE" \
+    | grep -qiE 'cwd.*reset|reset.*cwd|did NOT persist|does not reliably persist'
 }
 
 # === Section G — Phase 2 worktree-routed squash ===
 
-@test "Phase 2 introduces GIT_CMD that routes via -C when WORKTREE_PATH set" {
+@test "Phase 2 introduces the GIT_CMD array that routes via -C when WORKTREE_PATH set" {
+  # Array form (not a string) — zsh does not word-split an unquoted string var,
+  # so a string GIT_CMD="git -C path" makes "$GIT_CMD ..." exec a bogus binary
+  # (exit 127). See the regression guard below.
   awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE" \
-    | grep -qE 'GIT_CMD="git"'
+    | grep -qE 'GIT_CMD=\(git\)'
   awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE" \
-    | grep -qE 'GIT_CMD="git -C \$WORKTREE_PATH"'
+    | grep -qE 'GIT_CMD=\(git -C "\$WORKTREE_PATH"\)'
 }
 
-@test "Phase 2 uses \$GIT_CMD on reset --soft + commit (no rebase — that moved to Phase 1.0)" {
+@test "Phase 2 uses the GIT_CMD array on reset --soft + commit (no rebase — that moved to Phase 1.0)" {
   # The rebase moved to Phase 1.0 (rebase-before-audit). Phase 2 only collapses
   # the already-rebased branch via soft-reset + commit. The anchor can be
-  # `origin/main` or `"$ANCHOR"` — the test pins the $GIT_CMD invariant.
+  # `origin/main` or `"$ANCHOR"` — the test pins the GIT_CMD-array invariant.
   awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE" \
-    | grep -qE '\$GIT_CMD reset --soft (origin/main|"\$ANCHOR")'
+    | grep -qE '"\$\{GIT_CMD\[@\]\}" reset --soft (origin/main|"\$ANCHOR")'
   awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE" \
-    | grep -qE '\$GIT_CMD commit -F'
+    | grep -qE '"\$\{GIT_CMD\[@\]\}" commit -F'
   # Regression guard: the rebase must NOT be in Phase 2 anymore.
   ! awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE" \
-    | grep -qE '^\$GIT_CMD rebase'
+    | grep -qE '^"\$\{GIT_CMD\[@\]\}" rebase'
+}
+
+@test "regression: no bash code fence uses the string form \$GIT_CMD (zsh word-split bug)" {
+  # zsh — the Bash tool's shell — does NOT word-split an unquoted string var, so
+  # `GIT_CMD="git -C path"` + `$GIT_CMD rebase` execs a binary literally named
+  # "git -C path" and fails with exit 127 (worked incidents 3dc73689, 47b0ac95).
+  # Every executable usage must be the array form "${GIT_CMD[@]}". This guard
+  # scans ONLY bash code fences (prose counter-examples are allowed to mention
+  # the broken string form). The string expansion is `$GIT_CMD` (no brace); the
+  # array is `${GIT_CMD[@]}` (brace), so `\$GIT_CMD` matches only the bad form.
+  ! awk '/^```bash/{f=1;next} /^```/{f=0} f' "$SKILL_FILE" \
+    | grep -qE '\$GIT_CMD'
+  # And the broken string assignment must never reappear in a bash fence:
+  ! awk '/^```bash/{f=1;next} /^```/{f=0} f' "$SKILL_FILE" \
+    | grep -qE 'GIT_CMD="git'
 }
 
 @test "Phase 2 anchor-selects between origin/main and local main" {
@@ -666,7 +699,7 @@ setup() {
   section=$(awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE")
   soft_line=$(echo "$section" | grep -nE 'reset --soft' | head -1 | cut -d: -f1)
   detect_line=$(echo "$section" | grep -nE 'Rename-plus-symlink detection' | head -1 | cut -d: -f1)
-  commit_line=$(echo "$section" | grep -nE '\$GIT_CMD commit -F' | head -1 | cut -d: -f1)
+  commit_line=$(echo "$section" | grep -nE '"\$\{GIT_CMD\[@\]\}" commit -F' | head -1 | cut -d: -f1)
   [ -n "$soft_line" ]
   [ -n "$detect_line" ]
   [ -n "$commit_line" ]
@@ -695,13 +728,13 @@ setup() {
   # $GIT_CMD reset --hard (which would destroy working tree).
   local section
   section=$(awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE")
-  # Must have $GIT_CMD reset inside the detection block
-  echo "$section" | grep -qE '\$GIT_CMD reset   # unstage'
-  # Must NOT have $GIT_CMD reset --hard in the detection block
+  # Must have "${GIT_CMD[@]}" reset inside the detection block
+  echo "$section" | grep -qE '"\$\{GIT_CMD\[@\]\}" reset   # unstage'
+  # Must NOT have "${GIT_CMD[@]}" reset --hard in the detection block
   # (--hard appears elsewhere in Phase 2 prose, so scope to the detection block)
   local detect_block
   detect_block=$(echo "$section" | awk '/Rename-plus-symlink detection/,/^fi/')
-  ! echo "$detect_block" | grep -qE '\$GIT_CMD reset --hard'
+  ! echo "$detect_block" | grep -qE '"\$\{GIT_CMD\[@\]\}" reset --hard'
 }
 
 @test "Phase 2 detection surfaces the lint-staged stash bug explanation" {

@@ -83,7 +83,19 @@ In order of preference:
    the appender step has a target to append to.
 5. If the current branch is `main`: error out and exit non-zero with
    "audit is feature-level; check out the feature branch first." Audits
-   never run on main.
+   never run on main — **unless an explicit `--range` was passed.** An
+   explicit range means the caller is driving the audit by SHA (e.g.
+   `/ak-merge-devshop` Phase 1.1 auditing a linked worktree while
+   `/devshop` sits on `main`, where the Bash tool's cwd may have reset to
+   `/devshop` so `cd`-into-the-worktree did NOT persist). In that case
+   `git branch --show-current` is not the source of truth — skip the
+   refusal. Resolve the audit git-root from the (absolute) `--feature-dir` once:
+   `GIT_ROOT_AUDIT=$(git -C "$FEATURE_DIR" rev-parse --show-toplevel)`.
+   Then route **every** subsequent git command via `git -C "$GIT_ROOT_AUDIT"`
+   instead of relying on cwd — specifically the Step 2 range/diff + idempotence
+   `HEAD` read, and the Step 5 `status` / `add` / `commit` (so the audit record
+   lands on the worktree branch, NOT `/devshop`'s main) — and pass
+   `$GIT_ROOT_AUDIT` to the Step 3 review agents so they read the worktree too.
 
 ### Step 2: Compute range
 
@@ -138,8 +150,18 @@ output; only parallelism is lost. Not a failure.
 - Tests findings → `$FEATURE_DIR/gates/audit-$AUDIT_N-tests.md`
 
 Create the `gates/` directory if it doesn't exist: `mkdir -p
-"$FEATURE_DIR/gates"`. The directory is checked into git alongside the
-rest of `specs/<feature>/` — it carries first-class audit-trail content.
+"$FEATURE_DIR/gates"`. (When Step 1 set `$GIT_ROOT_AUDIT`, `$FEATURE_DIR` is
+already absolute, so this lands in the worktree regardless of cwd.) The directory
+is checked into git alongside the rest of `specs/<feature>/` — it carries
+first-class audit-trail content.
+
+**Out-of-cwd targeting.** When Step 1 resolved `$GIT_ROOT_AUDIT` (the
+explicit-`--range` path, where the Bash tool's cwd may have reset to `/devshop`
+instead of the worktree), each agent must read the worktree — not cwd. Include
+the `Target:` line shown in the prompts below with `$GIT_ROOT_AUDIT` substituted;
+omit it on the normal in-worktree path where cwd already is the feature branch.
+`$RANGE` is resolved SHAs, so the diff itself is cwd-independent — the `Target:`
+line only matters for review steps that read working-tree files.
 
 **Dispatch** — one tool-use turn, two `Agent` calls:
 
@@ -151,6 +173,9 @@ Agent {
     Invoke /ak-docs-review via the Skill tool with:
       --range $RANGE
       --feature-dir $FEATURE_DIR
+    Target: run all git as `git -C $GIT_ROOT_AUDIT …` and read files under
+      $GIT_ROOT_AUDIT — cwd may be /devshop, not the worktree. (Include this
+      line only when the orchestrator resolved $GIT_ROOT_AUDIT; omit otherwise.)
 
     Capture the sub-skill's structured findings (per its § Output format).
     Write them VERBATIM to $FEATURE_DIR/gates/audit-$AUDIT_N-docs.md as
@@ -167,6 +192,9 @@ Agent {
     Invoke /ak-tests-review via the Skill tool with:
       --range $RANGE
       --feature-dir $FEATURE_DIR
+    Target: run all git as `git -C $GIT_ROOT_AUDIT …` and read files under
+      $GIT_ROOT_AUDIT — cwd may be /devshop, not the worktree. (Include this
+      line only when the orchestrator resolved $GIT_ROOT_AUDIT; omit otherwise.)
 
     Capture the sub-skill's structured findings (per its § Output format).
     Write them VERBATIM to $FEATURE_DIR/gates/audit-$AUDIT_N-tests.md as
@@ -228,7 +256,9 @@ where the appended section sat uncommitted, blocked `gh pr merge
 --delete-branch`'s local cleanup, and the operator had to discard the
 audit-trail append to recover.
 
-Procedure:
+Procedure (when Step 1 set `$GIT_ROOT_AUDIT`, run every git command below as
+`git -C "$GIT_ROOT_AUDIT" …` so the commit lands on the worktree branch, not
+`/devshop`'s main):
 
 1. **Dirty-tree refusal.** Run `git status --porcelain` and inspect.
    The orchestrator may have inherited an unrelated dirty tree from
