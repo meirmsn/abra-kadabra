@@ -13,6 +13,7 @@ Schema-mutating changes to a Supabase project ride two boundaries: the migration
 - [DB constraint as loud structural backstop for application-layer business rules](#db-constraint-as-loud-structural-backstop-for-application-layer-business-rules)
 - [seed.sql gotrue compatibility — required text columns + matching auth.identities](#seedsql-gotrue-compatibility--required-text-columns--matching-authidentities)
 - [Postgres enum extension — DROP+CREATE pattern (NOT `ALTER TYPE ADD VALUE`)](#postgres-enum-extension--dropcreate-pattern-not-alter-type-add-value)
+- [Cross-migration FK rollback patterns](#cross-migration-fk-rollback-patterns)
 
 ## Supabase Hardening Defaults
 
@@ -293,3 +294,64 @@ The `anon` role GRANT depends on the table's access pattern — most app tables 
 ### Why not just edit the original `create type` migration?
 
 If the project is pre-launch and the original `create type` migration hasn't been deployed to any environment that retains state (no prod, no preview branches with persistent DBs), editing the original migration to include the new value is simpler — there's no need for a recreate dance. The DROP+CREATE pattern is for the common case where the original migration has already been applied somewhere and can't be retroactively changed.
+
+## Cross-migration FK rollback patterns
+
+When rollback scripts run in reverse order (highest migration number first), foreign key dependencies between migrations create ordering hazards. A later migration's child table references an earlier migration's parent table — but the later migration's rollback runs first, so the FK is dropped before the parent. The inverse is the problem: when an earlier migration's rollback tries to `DROP TABLE parent`, the child table's FK still exists and Postgres blocks the drop.
+
+Four patterns cover the known cases. Each was surfaced by a real rollback failure during development.
+
+### Pattern 1: Later migration's FK child — earlier rollback must DROP child first
+
+When migration 005 creates `parent_table` and migration 008 creates `child_table` with `REFERENCES parent_table(id)`, migration 005's rollback must handle the case where migration 008's rollback has NOT run yet (partial rollback) or where rollback order is non-sequential.
+
+```sql
+-- Migration 005 rollback:
+DROP TABLE IF EXISTS public.child_table;  -- from migration 008
+DROP TABLE IF EXISTS public.parent_table;
+```
+
+The `IF EXISTS` guard is load-bearing — if migration 008's rollback already ran, the child table is already gone. Without `IF EXISTS`, the rollback fails on a table that was already cleaned up.
+
+### Pattern 2: Enum rename-recreate uses migration-number-suffixed temp names
+
+When multiple migrations touch the same enum type via the rename-recreate pattern (§ Postgres enum extension above), use the migration number as the temp-name suffix — not `_old` or `_new`.
+
+```sql
+-- Migration 015 rollback:
+ALTER TYPE public.card_state RENAME TO card_state_015;
+CREATE TYPE public.card_state AS ENUM ('draft', 'active');
+-- ...recast columns...
+DROP TYPE public.card_state_015;
+```
+
+If two migrations both used `_old`, the second migration's rollback would collide with the first's temp name. Migration-number suffixes are globally unique within a project.
+
+### Pattern 3: DROP TABLE CASCADE handles policies implicitly
+
+When rolling back a table that has RLS policies, `DROP TABLE ... CASCADE` drops the policies automatically. No explicit `DROP POLICY` is needed in rollback scripts.
+
+```sql
+-- Migration 005 rollback:
+-- No need for: DROP POLICY IF EXISTS "users can read own rows" ON public.parent_table;
+DROP TABLE IF EXISTS public.parent_table CASCADE;
+```
+
+The `CASCADE` also drops dependent views, triggers, and FK constraints from other tables referencing this one. Use it deliberately — it's the right tool for rollback (which tears down everything the migration created) but dangerous in forward migrations (where you want explicit control over what gets dropped).
+
+### Pattern 4: Guard ALTER TABLE on tables that may not exist
+
+When a later migration's rollback `ALTER TABLE`s a column on a table created by an earlier migration, the earlier migration's rollback may have already dropped the table. Guard with a DO block:
+
+```sql
+-- Migration 010 rollback (adds a column to a table from migration 005):
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables
+             WHERE table_schema = 'public' AND table_name = 'parent_table') THEN
+    ALTER TABLE public.parent_table DROP COLUMN IF EXISTS new_column;
+  END IF;
+END $$;
+```
+
+The `IF EXISTS` table check prevents the `ALTER TABLE` from failing when the table was already dropped by an earlier migration's rollback running after this one.

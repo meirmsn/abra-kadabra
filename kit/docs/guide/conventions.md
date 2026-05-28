@@ -259,6 +259,10 @@ The slow-job is the upper layer of the test discipline. The lower layer is the l
 
 A devshop-side gate that runs the cheap halves of integration + E2E test execution locally so a developer discovers a broken Playwright spec or a degraded local Supabase stack 30 seconds before pushing instead of 8–10 minutes after. CI's slow-job (above) still runs the full matrix; this gate is the early-warning floor. Lives at `kit/scripts/preship/changed-tests-local.sh`, surfaced as `/ak-pre-ship` Gate `changed-tests-local (ak)` at #2f (the matching Layer 1 `fast-job-local` gate at #2d runs lint/typecheck/unit/build ahead of it; together they are the standalone `/preflight` skill).
 
+### Local environment health check (`local-env-health.sh`)
+
+`kit/scripts/preship/local-env-health.sh` runs at Phase 3.0 preflight alongside the Supabase bootstrap. It verifies 4 conditions before any browse/QA/screenshot gate dispatches: (1) dev server reachable on port 3000 or 3001, (2) Supabase healthy via `supabase-bootstrap.sh status`, (3) memory headroom >= 1GB (container-aware via cgroup v1/v2), (4) no zombie processes on monitored ports (3000, 3001, 54321, 54322). On failure, the preflight attempts auto-recovery (`local-env-health.sh recover` — kills zombies while protecting the current session's dev server) and retries once. If still unhealthy, preflight halts with diagnostics. This closes the class of silent gate skip exposed by home-os PR #36 where OOM + zombie processes caused 5 CI fix cycles.
+
 ### Smoke-set convention (`*-qa-walk.spec.ts`)
 
 The smoke set is convention-based, not config-driven. The gate runs the union of two globs at the project repo root:

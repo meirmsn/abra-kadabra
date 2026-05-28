@@ -851,6 +851,22 @@ fi
 # skips dispatch.
 SUPABASE_STATUS=$(bash /devshop/kit/scripts/preship/supabase-bootstrap.sh up 2>&1 | tail -1)
 
+# Local environment health check — verify dev server, memory, zombies.
+# On failure, attempt recovery once and retry.
+ENV_HEALTH_RC=0
+bash /devshop/kit/scripts/preship/local-env-health.sh check || ENV_HEALTH_RC=$?
+if [ "$ENV_HEALTH_RC" != "0" ]; then
+  echo "  Attempting auto-recovery..."
+  bash /devshop/kit/scripts/preship/local-env-health.sh recover || true
+  # Retry check after recovery.
+  ENV_HEALTH_RC=0
+  bash /devshop/kit/scripts/preship/local-env-health.sh check || ENV_HEALTH_RC=$?
+  if [ "$ENV_HEALTH_RC" != "0" ]; then
+    PREFLIGHT_RESULT="blocked"
+    BLOCK_REASON="Local environment unhealthy after recovery attempt — run local-env-health.sh check for diagnostics"
+  fi
+fi
+
 # When Supabase is not fully healthy, pre-write a blocked gate sink for
 # Gate 9 so the § 3.3.1 roster check catches it. If the gate dispatch
 # later runs Gate 9 successfully, the sub-agent overwrites this file.
@@ -1158,64 +1174,20 @@ the exact failure mode the per-gate decomposition exists to prevent.
 
 See § Phase exit artifact registry rows `3-gates` and `3-hero`.
 
-**Step 1 — Derive the expected roster from preflight scope variables.**
+**Steps 1-3 — Roster completeness check via `roster-check.sh`.**
 
-Read scope variables back from the preflight sink (§ 3.0 wrote them):
-
-```bash
-TOUCHES_UI=$(grep 'TOUCHES_UI=' "$FEATURE_DIR/gates/preflight.md" | sed 's/.*=//')
-TOUCHES_MIGRATIONS=$(grep 'TOUCHES_MIGRATIONS=' "$FEATURE_DIR/gates/preflight.md" | sed 's/.*=//')
-TOUCHES_FUNCTIONS=$(grep 'TOUCHES_FUNCTIONS=' "$FEATURE_DIR/gates/preflight.md" | sed 's/.*=//')
-TOUCHES_KIT=$(grep 'TOUCHES_KIT=' "$FEATURE_DIR/gates/preflight.md" | sed 's/.*=//')
-TOUCHES_CODE=$(grep 'TOUCHES_CODE=' "$FEATURE_DIR/gates/preflight.md" | sed 's/.*=//')
-TOUCHES_USER_CODE=$(grep 'TOUCHES_USER_CODE=' "$FEATURE_DIR/gates/preflight.md" | sed 's/.*=//')
-HAS_TURBO=$(grep 'HAS_TURBO=' "$FEATURE_DIR/gates/preflight.md" | sed 's/.*=//')
-
-# Build expected gate list from pre-ship/SKILL.md § Gates scope predicates.
-EXPECTED_GATES=""
-
-# Always-run:
-EXPECTED_GATES+=" simplify docs-and-tests-review review cso qa convention"
-EXPECTED_GATES+=" slow-job-lifecycle design-conformance"
-
-# Conditional:
-[ -n "$TOUCHES_UI" ] && EXPECTED_GATES+=" responsive-theme design-review benchmark"
-[ -n "$HAS_TURBO" ] && EXPECTED_GATES+=" fast-job-local preflight-final"
-[ -n "$TOUCHES_KIT" ] && EXPECTED_GATES+=" docs-check"
-[ -n "$TOUCHES_MIGRATIONS" ] && EXPECTED_GATES+=" rls-coverage migration-rollback-roundtrip"
-([ -n "$TOUCHES_MIGRATIONS" ] || [ -n "$TOUCHES_FUNCTIONS" ]) && EXPECTED_GATES+=" advisor-clean"
-[ -n "$TOUCHES_CODE" ] && EXPECTED_GATES+=" changed-tests-local"
-[ -n "$TOUCHES_USER_CODE" ] && EXPECTED_GATES+=" metrics-check"
-```
-
-**Step 2 — Check each expected gate's sink exists.**
+The scope-variable parsing, expected-roster derivation, gate-sink existence
+check, and hero capture validation are all handled by the standalone script.
+It reads the preflight sink (§ 3.0 wrote the scope vars), diffs expected vs
+produced gate sinks, and validates hero capture (PNGs or SKIP.md with a
+known-valid `Reason:` line).
 
 ```bash
-MISSING_GATES=""
-for gate in $EXPECTED_GATES; do
-  if [ ! -f "$FEATURE_DIR/gates/${gate}.md" ]; then
-    MISSING_GATES+="  $gate\n"
-  fi
-done
-
-# Hero capture check (§ Phase exit artifact registry row 3-hero):
-if [ -z "$(ls "$FEATURE_DIR/hero/"*.png 2>/dev/null)" ] \
-   && [ ! -f "$FEATURE_DIR/hero/SKIP.md" ]; then
-  MISSING_GATES+="  hero-capture (no PNGs and no SKIP.md)\n"
-fi
-```
-
-**Step 3 — Halt if any expected gate is missing.**
-
-If `$MISSING_GATES` is non-empty, halt — same shape as Rung 2 of the
-Phase 3 → 4 handoff:
-
-```bash
-if [ -n "$MISSING_GATES" ]; then
-  echo "✖ Phase 3 gate roster incomplete — expected gate(s) never dispatched:"
-  echo -e "$MISSING_GATES"
-  echo ""
-  echo "  A missing sink means the orchestrator skipped the gate dispatch."
+if ! bash /devshop/kit/scripts/preship/roster-check.sh \
+     "$FEATURE_DIR/gates/preflight.md" \
+     "$FEATURE_DIR/gates" \
+     "$FEATURE_DIR/hero"; then
+  echo "✖ Phase 3 gate roster incomplete — see output above."
   echo "  Re-invoke /ak-build to re-enter Phase 3; the resume check picks"
   echo "  up at Phase 3 and re-dispatches all gates."
   exit 1
@@ -1357,31 +1329,17 @@ the exact failure mode this workflow exists to prevent.
 the forbidden `n/a` outcome:
 
 ```bash
-FORBIDDEN_NA=$(awk '
-  /^## Gate [0-9]+: \/(review|cso|design-review|qa)($|[^a-z-])/ { in_section=1; gate=$0; next }
-  in_section && /^## Gate / { in_section=0 }
-  in_section && /^- Result: *n\/a/ { print gate }
-  in_section && /^\*?\*?Result:\*?\*? *n\/a/ { print gate }
-' "$FEATURE_DIR/review.md")
-
-if [ -n "$FORBIDDEN_NA" ]; then
-  echo "✖ Phase 3 → 4 halt: LLM-mediated gate(s) emitted n/a (forbidden per"
-  echo "  ak-pre-ship § Outcome semantics § n/a is not legal for LLM-mediated gates):"
-  echo "$FORBIDDEN_NA" | sed 's/^/    /'
-  echo ""
-  echo "  Scope exemptions must use 'blocked (n/a per scope: <reason>)' so the"
-  echo "  dismissalLog adversarial reviewer judges the rationale. Re-run"
-  echo "  /ak-pre-ship after the gate runner emits the correct outcome shape,"
-  echo "  or — if the gate runner pre-classified per orchestrator instruction"
-  echo "  — re-examine the Phase 3 prompt for pre-classification (which is"
-  echo "  forbidden — see § Phase 3: Pre-ship)."
+if ! bash /devshop/kit/scripts/preship/check-llm-mediated-na.sh "$FEATURE_DIR/review.md"; then
+  echo "✖ Phase 3 → 4 halt: see check-llm-mediated-na.sh output above."
   exit 1
 fi
 ```
 
-The grep is anchored on the LLM-mediated gate names (`review|cso|design-review|qa`)
-so legitimate `n/a` outcomes from non-LLM-mediated gates (Gate 3 responsive,
-Gate 10 benchmark, Gate 1 docs-check) don't false-positive.
+The script is mawk-portable (no `\b` — uses `[^a-z-]` anchors) and anchored
+on the LLM-mediated gate names (`review|cso|design-review|qa`) so legitimate
+`n/a` outcomes from non-LLM-mediated gates (Gate 3 responsive, Gate 10
+benchmark, Gate 1 docs-check) don't false-positive. Tested with mawk
+explicitly in `kit/tests/util-check-llm-mediated-na.bats`.
 
 Once the user has resolved the violation, re-run `/ak-build` — Step 0's resume
 check will pick up at Phase 3 and rerun pre-ship from the start.

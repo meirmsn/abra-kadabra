@@ -4,6 +4,15 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### local-env-pillar (2026-05-27)
+
+- **Branch**: `feat/local-env-pillar`
+- **Spec**: `specs/local-env-pillar/spec.md`
+- **Headline**: Local environment health checks now run automatically before every browse, QA, and screenshot operation — broken environments halt the pipeline instead of silently skipping gates.
+- **Summary**: Three coordinated fixes: (A) `local-env-health.sh` preflight script verifying dev server, Supabase, memory, and zombie processes with auto-recovery; (B) `roster-check.sh` + `check-llm-mediated-na.sh` deterministic scripts replacing prose-level gate enforcement in Phase 3; (C) migration rollback FK convention documented in `kit/docs/guide/migrations.md`. Closes the home-os PR #36 failure class where OOM + zombie processes caused silent gate skips and 5 CI fix cycles.
+- **Commits**: 16 (squashed to 1 on main via /ak-merge-devshop)
+- **Quality gates**: 1456 bats pass (35 new across 3 test files). Gate 4 found 2 simplifications (fixed). Gate 6 found 1 correctness bug in `recover` — was killing all port occupants, fixed to kill only zombies. Gates 1, 5, 11 clean.
+
 ### claude-md-hygiene (2026-05-27)
 
 - **Branch**: `feat/claude-md-hygiene`

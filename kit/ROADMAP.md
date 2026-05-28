@@ -361,58 +361,58 @@ Same playbook as Auth UX conventions / Latency feedback framework. The pattern n
 
 ---
 
-### Local environment as the single verification surface
+### CLAUDE.md hygiene — what belongs in always-loaded context vs dedicated docs
 
-**Problem.** The devshop pipeline has no enforcement that browser, QA, and test operations run against the local environment. When the local env breaks (OOM, stale cache, zombie processes, Supabase down), the pipeline either silently skips verification (hero screenshot SKIP.md), falls back to remote surfaces (Vercel preview), or defers failures to CI that could have been caught locally. Each of these wastes time and hides real issues:
+**Problem.** Both project and devshop CLAUDE.md files grow monotonically. Nobody prunes. The file mixes three categories that have different loading needs:
 
-- **home-os PR #36 (monitor-beta, 2026-05-27):** Hero screenshots were skipped via SKIP.md because the browse daemon couldn't authenticate. Root cause was zombie Next.js processes + OOM from stale lalista Supabase containers consuming ~1GB. The SKIP.md escape hatch was frictionless — 5 seconds to write vs 5 minutes to debug the actual env issue. The operator asked to "use the Vercel preview instead" before anyone debugged.
-- **Same PR:** The E2E test referenced old stub text ("Monitoring view ships in"). Phase 3 skipped Gate 9 (`/qa`), so the failure was only caught in CI — 5 CI cycles (~40 min) to fix what one local `/qa` run would have caught.
-- **Same PR:** Phase 3 dispatched 10 of the ~16 expected gates. The roster completeness check (§ 3.3.1) should have halted, but the orchestrator moved on.
+1. **Traps** — counterintuitive behaviors where the wrong assumption causes a real bug ("RPC-first ordering in check-in route, opposite of close-flow"). A future session that doesn't know this will write the code wrong. This MUST be always-loaded.
+2. **Reference** — migration surface maps, env var tables, deploy config, RPC inventories. Useful when you're working on that surface, but loading it every session wastes context tokens and dilutes the traps. Should live in dedicated docs (`supabase/README.md`, `DEPLOY.md`, `apps/web/README.md`) and be loaded on demand.
+3. **Conventions** — coding patterns, SQL rules, commit message format. Needed when writing code, but not every session writes code. Could live in `kit/docs/guide/` (devshop) or per-area READMEs (project) with CLAUDE.md carrying only a pointer.
 
-**Principle.** Local environment is a pillar of devshop. All browser, QA, screenshot, and test operations MUST run locally. If local env is unavailable, diagnose and fix. If unfixable in the current session, fail loudly. Never fall back to remote surfaces. Never silently skip.
+**Evidence of the problem:**
 
-**Shape of the fix** — three coordinated changes, with tooling approach to be determined at spec time:
+- **home-os CLAUDE.md** has 14 Gotchas entries. At least 3 are migration surface maps (migrations 013, 014, 015 — "what the migration touches"), not traps. These belong in `supabase/README.md` which already has a migration history table.
+- **home-os CLAUDE.md** has a full env var naming table (15 rows) that duplicates `apps/web/.env.example`. Loaded every session, read maybe once.
+- **devshop CLAUDE.md** has a Tier 1/2/3 system but the boundary between tiers isn't enforced — Tier 1 entries accumulate because "always-loaded" feels safer than "maybe the LLM won't read the guide doc."
+- The `## Gotchas` section header invites accumulation — every PR adds "one more gotcha" because the section exists and the pattern is easy to follow. No pruning signal.
 
-#### A: Local-env health check before browse/QA/screenshot operations
+**Principle.** CLAUDE.md is the LLM's working memory, not a knowledge base. Every line competes for attention in every session. The test for inclusion:
 
-Before any skill that needs a running app (browse, QA, design-review, benchmark, hero capture), verify:
+- **Would a future session make a WRONG DECISION without this?** → CLAUDE.md (trap)
+- **Would a future session need to LOOK THIS UP while working on a specific surface?** → Dedicated doc, loaded on demand (reference)
+- **Would a future session need to FOLLOW THIS PATTERN when writing code?** → Guide doc or per-area README, with a one-line pointer from CLAUDE.md if the pattern is frequently violated (convention)
 
-1. Dev server is alive and serving the current HEAD (not stale cache)
-2. Supabase is reachable and healthy
-3. System memory has sufficient headroom for Turbopack compilation (~1.5GB free)
-4. No zombie processes hogging ports
+**Shape of the fix** — two deliverables:
 
-If any check fails, attempt automatic recovery (kill zombies, restart dev server, warn about stale sibling-project containers). If recovery fails, halt with a diagnostic message — never skip, never fall back.
+#### A: Audit + prune both CLAUDE.md files
 
-Consider where this lives: a shared preflight function called by every skill that needs the local app, vs. inline checks in each skill, vs. a dedicated `local-env-health` module in `kit/scripts/`. The check must be fast (<5s) so it doesn't add friction to every gate dispatch.
+Walk every entry in project CLAUDE.md and devshop CLAUDE.md. For each:
 
-#### B: Gate roster enforcement in `/ak-build` Phase 3
+1. Classify: trap / reference / convention
+2. If reference → move to the right dedicated doc, delete from CLAUDE.md
+3. If convention already documented in a guide → delete the CLAUDE.md duplicate, keep a one-line pointer if the convention is frequently violated
+4. If trap → keep, but tighten the wording (one paragraph max, lead with the trap, not the context)
 
-The Phase 3 orchestrator must dispatch ALL scope-expected gates, not a subset. The roster completeness check at § 3.3.1 exists but wasn't enforced in practice — the orchestrator moved on without running it. Consider:
+Concrete moves for home-os (the first project to audit):
 
-- Making the roster check a hard-coded loop that blocks advancement (not a prose instruction the LLM can skip)
-- Emitting the expected-gate list at preflight time and diffing against produced sinks before concatenation
-- Whether the check should be a script (`kit/scripts/preship/roster-check.sh`) rather than inline LLM logic
+- Migration surface entries (013, 014, 015) → `supabase/README.md` migration history table (already exists)
+- Env var naming table → keep a one-line pointer to `apps/web/.env.example` + `DEPLOY.md`
+- Deploy config → already in `DEPLOY.md`, remove duplicate
 
-#### C: Migration rollback convention for cross-migration FK deps
+#### B: Convention for future CLAUDE.md additions
 
-Document the pattern in `kit/docs/guide/migrations.md`:
+Add a section to `kit/docs/guide/conventions.md` (or a dedicated `kit/docs/guide/claude-md.md`) that codifies the inclusion test above. The `/ak-build` Phase 2 implementation agent and Phase 3 pre-ship gates currently add entries freely — they should apply the test before writing to CLAUDE.md. Consider:
 
-- When a later migration creates a table with FK to an earlier migration's table, the earlier migration's rollback must `DROP TABLE IF EXISTS <child>` before dropping the parent
-- Enum rename-recreate must use migration-number-suffixed temp names (`_015`, not `_new`) to avoid collision when multiple migrations touch the same enum
-- `DROP TABLE CASCADE` handles policies implicitly — no explicit `DROP POLICY` needed in rollback
-- Guard `ALTER TABLE ... ALTER COLUMN` on tables that may not exist after earlier rollbacks ran
+- A pre-commit hook or advisor lint that warns when CLAUDE.md grows past a threshold (e.g., line count delta > 5 in a single PR)
+- The `/ak-spec` task template including a "CLAUDE.md additions" section where the spec author pre-classifies each proposed entry as trap/reference/convention, so the implementation agent knows where to put it
+- Whether the Gotchas section header should be renamed to something that discourages accumulation (e.g., "Silent-failure traps" with a one-line note: "Only counterintuitive behaviors that cause bugs. Reference → supabase/README.md. Conventions → kit/docs/guide/.")
 
 **Cost/risk:**
 
-- A: ~2-3 hr for the health check module + wiring into browse/QA/pre-ship skills. The hard part is making it fast and not annoying on green paths.
-- B: ~1-2 hr for the roster enforcement. Mostly a refactor of the Phase 3 orchestrator prose into a more deterministic shape.
-- C: ~30 min for the migrations guide addition. Straightforward doc.
-- Risk of over-engineering: the health check could become a slow preflight that adds 10s to every gate. Keep it under 5s or make it cache-aware (skip if last check was <60s ago).
+- A: ~1-2 hr for the audit sweep across both files. Mechanical but touches many docs. Risk: moving an entry out that a future session actually needed always-loaded — mitigated by the dedicated docs being one Read away.
+- B: ~30 min for the convention doc + lint consideration. Risk: the convention becomes one more thing to maintain. Keep it short (the inclusion test is 3 bullets).
 
 [v0, surfaced-by home-os-PR36-monitor-beta-2026-05-27]
-
----
 
 ---
 
