@@ -45,14 +45,15 @@ If any check fails, report and stop.
 After PR readiness is confirmed but BEFORE invoking `/land-and-deploy`, curl the production URL from `CLAUDE.md § Deploy Configuration`. The goal isn't canary verification (that's Step 3 post-deploy); it's catching pre-existing production failures whose symptoms the about-to-land deploy might silently change or mask.
 
 ```bash
-# Extract value from `Production URL:` line in CLAUDE.md, tolerate the three
-# wild-seen formats (bare, backticked, https-prefixed), validate as DNS-label
-# shape, then dial with explicit https:// so the probe doesn't degrade to
-# http:// + 308-redirect on HTTPS-only hosts.
-RAW_VALUE=$(grep -i 'production.*url' CLAUDE.md 2>/dev/null | head -1 | sed -E 's/^[^:]*:[[:space:]]*//')
-BARE_HOST=$(printf '%s' "$RAW_VALUE" \
-  | sed -E 's/[`<>"'\''[:space:]]+//g' \
-  | sed -E 's|^https?://||; s|/.*$||')
+# Extract the bare host from the `Production URL:` line in CLAUDE.md via the
+# shared helper, which tolerates the wild-seen formats (bare, backticked,
+# https-prefixed) AND the URL appearing mid-sentence (home-os PR #39 hit a
+# silent skip when the old inline sed glued the host to trailing prose).
+# Validate as DNS-label shape, then dial with explicit https:// so the probe
+# doesn't degrade to http:// + 308-redirect on HTTPS-only hosts.
+# shellcheck source=/devshop/kit/scripts/lib/extract-prod-url.sh
+source /devshop/kit/scripts/lib/extract-prod-url.sh
+BARE_HOST=$(extract_prod_url CLAUDE.md)
 if ! printf '%s' "$BARE_HOST" | grep -qE '^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$'; then
   echo "PROD_URL not configured (or malformed) in CLAUDE.md § Deploy Configuration (got: '$BARE_HOST') — skipping health probe"
   exit 0
@@ -105,14 +106,13 @@ fi
 **Mode A in-session escape hatch** (when the deploy is already in flight and a mid-deploy rebuild isn't acceptable): if `CLAUDE.md § Deploy Configuration § Production URL` has a known value AND `/etc/refresh-allowed-ips/production_url` is empty, offer to write the bare hostname directly into the runtime file for the current session only:
 
 ```bash
-# Derive bare host from CLAUDE.md. Tolerates the three formats actually seen
-# in the wild — bare hostname, backticked (`host.app`), and https-prefixed —
-# AND rejects the un-filled `<fill in>` placeholder. Splits the
-# extract-then-clean steps so the regex stays readable.
-KNOWN_VALUE=$(grep -i 'production.*url' CLAUDE.md 2>/dev/null | head -1 | sed -E 's/^[^:]*:[[:space:]]*//')
-BARE_HOST=$(printf '%s' "$KNOWN_VALUE" \
-  | sed -E 's/[`<>"'\''[:space:]]+//g' \
-  | sed -E 's|^https?://||; s|/.*$||')
+# Derive bare host from CLAUDE.md via the shared helper — tolerates the
+# wild-seen formats (bare, backticked, https-prefixed) AND a mid-sentence
+# URL, and yields empty for an un-filled `<fill in>` placeholder (no
+# hostname-shaped token), which the DNS-label check below rejects.
+# shellcheck source=/devshop/kit/scripts/lib/extract-prod-url.sh
+source /devshop/kit/scripts/lib/extract-prod-url.sh
+BARE_HOST=$(extract_prod_url CLAUDE.md)
 if ! printf '%s' "$BARE_HOST" | grep -qE '^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$'; then
   echo "Could not derive a valid bare hostname from CLAUDE.md (got: '$BARE_HOST')."
   echo "Expected format under § Deploy Configuration: 'Production URL: <your-app>.com'"
