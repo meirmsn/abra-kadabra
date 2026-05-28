@@ -42,8 +42,10 @@ setup() {
   grep -q 'OLD_DEVSHOP_VERSION' "$FROM_SCRIPT"
 }
 
-@test "session-start.sh drift message mentions PROPAGATION.md" {
-  grep -q 'PROPAGATION.md' "$SESSION_SCRIPT"
+@test "session-start.sh drift message points to /ak-sync-from-devshop skill" {
+  # The skill wraps from-devshop.sh and handles PROPAGATION.md review internally,
+  # so the drift line names the skill instead of the raw script + manual doc read.
+  grep -q '/ak-sync-from-devshop' "$SESSION_SCRIPT"
 }
 
 # --- propagation-entry.sh behavioral tests ---

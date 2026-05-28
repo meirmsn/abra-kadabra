@@ -83,27 +83,25 @@ M
 # --- session-start.sh drift detection ---
 
 # session-start.sh reads from $ROOT and /devshop/kit/version. We can't easily
-# run the full script (needs git repo, gh, etc.) so we test the drift-check
-# logic in isolation by extracting it into a testable snippet.
+# run the full script (needs git repo, gh, etc.), so we extract the real drift
+# block from session-start.sh and run it in isolation — substituting the
+# hardcoded /devshop/kit/version read for the test's version file. Running the
+# real block (rather than an inline copy) means these behavioral tests track
+# the script's actual drift message; a copy would silently fossilize when the
+# message changes. Codified by Audit 1 (2026-05-27): the prior inline copy
+# asserted `run: bash .devshopkit/scripts/sync/from-devshop.sh` while the
+# script had already switched to `run /ak-sync-from-devshop`, and all tests
+# stayed green against the stale copy.
 
 run_drift_check() {
   local root="$1"
   local devshop_version_file="$2"
-  bash -c "
-    IS_DEVSHOP=false
-    ROOT='$root'
-    DEVSHOP_DRIFT=''
-    DEVSHOP_CURRENT=\"\$(cat '$devshop_version_file' 2>/dev/null | tr -d '[:space:]' || true)\"
-    if [ -f \"\$ROOT/.devshop-version\" ]; then
-      PROJECT_SYNCED=\"\$(cat \"\$ROOT/.devshop-version\" 2>/dev/null | tr -d '[:space:]' || true)\"
-      if [ -n \"\$DEVSHOP_CURRENT\" ] && [ -n \"\$PROJECT_SYNCED\" ] && [ \"\$DEVSHOP_CURRENT\" != \"\$PROJECT_SYNCED\" ]; then
-        DEVSHOP_DRIFT=\"synced at v\${PROJECT_SYNCED}, devshop is v\${DEVSHOP_CURRENT} — run: bash .devshopkit/scripts/sync/from-devshop.sh\"
-      fi
-    else
-      if [ -n \"\$DEVSHOP_CURRENT\" ]; then
-        DEVSHOP_DRIFT=\"no .devshop-version found — run: bash .devshopkit/scripts/sync/from-devshop.sh\"
-      fi
-    fi
+  local block
+  block=$(awk '/^# --- Devshop version drift check/{f=1} f{print} f&&/^fi$/{exit}' "$SESSION_SCRIPT")
+  [ -n "$block" ] || { echo "could not extract drift block from session-start.sh"; return 1; }
+  block=$(echo "$block" | sed "s#/devshop/kit/version#$devshop_version_file#")
+  IS_DEVSHOP=false ROOT="$root" bash -c "
+    $block
     echo \"\$DEVSHOP_DRIFT\"
   "
 }
@@ -118,7 +116,7 @@ run_drift_check() {
   run run_drift_check "$root" "$ver_file"
   [ "$status" -eq 0 ]
   [[ "$output" == *"synced at v1.30.0, devshop is v1.33.0"* ]]
-  [[ "$output" == *"bash .devshopkit/scripts/sync/from-devshop.sh"* ]]
+  [[ "$output" == *"run /ak-sync-from-devshop"* ]]
 }
 
 @test "drift check: shows bootstrap message when file missing" {
@@ -131,7 +129,7 @@ run_drift_check() {
   run run_drift_check "$root" "$ver_file"
   [ "$status" -eq 0 ]
   [[ "$output" == *"no .devshop-version found"* ]]
-  [[ "$output" == *"bash .devshopkit/scripts/sync/from-devshop.sh"* ]]
+  [[ "$output" == *"run /ak-sync-from-devshop"* ]]
 }
 
 @test "drift check: silent when versions match" {

@@ -186,12 +186,12 @@ if [ "$IS_DEVSHOP" != true ]; then
   if [ -f "$ROOT/.devshop-version" ]; then
     PROJECT_SYNCED="$(cat "$ROOT/.devshop-version" 2>/dev/null | tr -d '[:space:]' || true)"
     if [ -n "$DEVSHOP_CURRENT" ] && [ -n "$PROJECT_SYNCED" ] && [ "$DEVSHOP_CURRENT" != "$PROJECT_SYNCED" ]; then
-      DEVSHOP_DRIFT="synced at v${PROJECT_SYNCED}, devshop is v${DEVSHOP_CURRENT} — run: bash .devshopkit/scripts/sync/from-devshop.sh (then check .devshopkit/docs/PROPAGATION.md)"
+      DEVSHOP_DRIFT="synced at v${PROJECT_SYNCED}, devshop is v${DEVSHOP_CURRENT} — run /ak-sync-from-devshop"
       DEVSHOP_DRIFT_SEVERITY="error"
     fi
   else
     if [ -n "$DEVSHOP_CURRENT" ]; then
-      DEVSHOP_DRIFT="no .devshop-version found — run: bash .devshopkit/scripts/sync/from-devshop.sh (then check .devshopkit/docs/PROPAGATION.md)"
+      DEVSHOP_DRIFT="no .devshop-version found — run /ak-sync-from-devshop"
       DEVSHOP_DRIFT_SEVERITY="warn"
     fi
   fi

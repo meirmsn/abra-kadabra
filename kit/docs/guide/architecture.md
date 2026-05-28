@@ -150,7 +150,7 @@ See `CLAUDE.md § Parallel work via linked worktrees` for the convention.
 
 Build tooling files (`turbo.json`, `eslint.config.mjs`, `.husky/`, etc.) are tracked in both repos — abra-kadabra has the base version, the project has its copy. They can diverge.
 
-To pull devshop updates into a project:
+To pull devshop updates into a project, operators normally run `/ak-sync-from-devshop` — it wraps the script below, filters `kit/docs/PROPAGATION.md` to the synced version range, and runs automatable propagation audits inline. The bare-script invocations below are the underlying mechanism (scripted / CI use):
 
 ```bash
 .devshopkit/scripts/sync/from-devshop.sh          # previews diff, applies on confirm
