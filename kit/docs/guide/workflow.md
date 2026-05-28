@@ -182,7 +182,7 @@ Runs CEO, design, and engineering review sequentially. Locks in architecture, ed
 
 ## Step 4: `/ak-build` (devshop skill) — autonomous pipeline
 
-One command after autoplan. Chains everything through PR creation, CI verification, and notification. Resumable if the session is interrupted.
+One command after autoplan. Chains everything through PR creation, CI verification, and notification. Resumable if the session is interrupted. The pipeline runs in full by default — every phase, every task, no matter how small — and `/ak-build` asks via `AskUserQuestion` before deviating to a lighter flow rather than silently scoping itself down.
 
 **Phase 0: Preview + decisions checkpoint** — the one interactive beat before
 token-heavy work. Reads the roadmap section, design doc, and test plan for this

@@ -4,6 +4,15 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### ak-build-no-silent-scope-down (2026-05-28)
+
+- **Branch**: `feat/ak-build-no-silent-scope-down`
+- **Spec**: `specs/ak-build-no-silent-scope-down/spec.md`
+- **Headline**: `/ak-build` now always runs its complete pipeline — spec, implement, quality gates, bookkeeping, and audit trail — for every task no matter how small. If a lighter flow ever genuinely seems warranted, it stops and asks you first instead of silently improvising one.
+- **Summary**: Adds a prominent prohibition block at the top of `build/SKILL.md` (Step 0 / Phase 0) that removes the agent's discretion to hand-roll a reduced flow; the only escape is an explicit `AskUserQuestion` with full-pipeline as the recommended default. Backed by a one-line restatement at the Phase 0 decision beat and a bats regression guard. No script changes, no behavior change to any phase's mechanics. Closes the home-os PR #40/#41 failure class (2026-05-28) where `/ak-build` silently hand-rolled a direct implementation — dropping `specs/<feature>/`, BUILD-LOG, PLAN tracking, and the audit comment with no operator signal.
+- **Commits**: 8 (squashed to 1 on main via /ak-merge-devshop)
+- **Quality gates**: 1525 bats pass (6 new Section E tests in `util-ak-build-skill.bats`, incl. the load-bearing anti-bias absence-assertions). Phase 2.5 fresh-eyes verification clean (0 findings, 120 tests across 3 suites). Gate 5 audit: high=0, medium=0, low=1 (prose-grep coverage ceiling — acceptable). Gate 6 /review: low=1 (test-precision nit — fixed: anchored the AskUserQuestion grep to the block region). Gates 1/2d/4/11 clean; 7/8/9/10 structural carve-outs (devshop self-mode); 9 non-LLM carve-outs n/a.
+
 ### ak-merge-rebase-before-audit (2026-05-28)
 
 - **Branch**: `fix/ak-merge-rebase-before-audit`

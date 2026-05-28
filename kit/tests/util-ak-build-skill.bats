@@ -269,3 +269,61 @@ make_fixture() {
   ! grep -qE '5\.7\s+re-watch CI after the 5\.6 push' "$WORKFLOW_FILE"
 }
 
+# === Section E — no-silent-scope-down prohibition block ===
+#
+# Guards the `## Non-negotiable: run the full pipeline` block (+ its Phase 0
+# one-liner + the workflow.md coherence line) against a future edit silently
+# deleting or weakening it. The load-bearing test is the anti-bias pair: the
+# block must frame deviation as an EXCEPTION (positive grep) while the forbidden
+# routine per-run applicability beat stays ABSENT (negative greps). All greps
+# are pinned to the exact prose committed in Tasks 1 + 2.
+
+@test "Section E: prohibition block header present" {
+  grep -qE '^## Non-negotiable: run the full pipeline' "$SKILL_FILE"
+}
+
+@test "Section E: no-discretion phrasing present" {
+  # The block removes the agent's discretion to hand-roll a lighter flow and
+  # states the unconditional run-everything default.
+  grep -qiE 'no discretion to hand-roll a lighter flow' "$SKILL_FILE"
+  grep -qiE 'every phase, every task' "$SKILL_FILE"
+  grep -qiE 'no matter how small' "$SKILL_FILE"
+}
+
+@test "Section E: anti-bias phrasing present AND forbidden step absent" {
+  # Positive: deviation is framed strictly as an exception routed through
+  # AskUserQuestion, never a routine gate.
+  grep -qiE 'single exception' "$SKILL_FILE"
+  grep -qiE 'ask, never act' "$SKILL_FILE"
+  # Anchored to the block region — AskUserQuestion appears elsewhere in the
+  # skill (Phase 3 halt etc.), so a file-wide grep would be trivially true.
+  awk '/^## Non-negotiable: run the full pipeline/,/^## Architecture/' "$SKILL_FILE" \
+    | grep -q 'AskUserQuestion'
+  # Negative (load-bearing — D2/D5): no routine per-run applicability beat.
+  ! grep -qiE 'assess pipeline applicability' "$SKILL_FILE"
+  ! grep -qiE 'Step 0\.1' "$SKILL_FILE"
+}
+
+@test "Section E: AskUserQuestion template options present" {
+  # All three ordered escape-hatch options must exist.
+  grep -qE 'Run the full pipeline \(Recommended\)' "$SKILL_FILE"
+  grep -qE 'Run a reduced flow' "$SKILL_FILE"
+  # Option 2 requires enumerating exactly what gets dropped + why.
+  grep -qiE 'enumerate.*EXACTLY which' "$SKILL_FILE"
+  grep -qiE 'would be dropped and WHY' "$SKILL_FILE"
+  grep -qE '^  3\. Abort' "$SKILL_FILE"
+}
+
+@test "Section E: Phase 0 one-liner restatement present" {
+  # A line in the Phase 0 region cross-references the top-of-file block.
+  awk '/^## Phase 0/,/^### 0\.1/' "$SKILL_FILE" \
+    | grep -qE 'Non-negotiable: run the full pipeline'
+}
+
+@test "Section E: workflow.md notes full-pipeline-by-default + asks before deviating" {
+  # Newlines collapsed so the regex can span wrapped lines (matches the
+  # existing Section A/B workflow.md test pattern).
+  tr '\n' ' ' < "$WORKFLOW_FILE" \
+    | grep -qiE 'pipeline runs in full by default.*asks .*before deviating to a lighter flow'
+}
+

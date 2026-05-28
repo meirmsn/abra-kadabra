@@ -52,6 +52,55 @@ Autonomous pipeline: spec → implement → quality gates → ship → CI watch 
   + push). After this completes, the feature is on main. Read
   `devshop-mode.md` in this directory for devshop-specific phases.
 
+## Non-negotiable: run the full pipeline
+
+**Default, unconditionally: run the WHOLE pipeline — every phase, every task —
+no matter how small the change seems.** Spec → implement → quality gates →
+bookkeeping → ship/merge all run, top to bottom. There is no size threshold
+below which the pipeline shrinks. Subagent delegation (below) makes running it
+all cheap, so completeness costs almost nothing — that is the whole point of the
+architecture.
+
+**You have no discretion to hand-roll a lighter flow.** You do NOT decide a task
+is "too small" for the pipeline, skip a phase to save time, or quietly drop a
+step you judge unnecessary. There is **no** routine applicability check, no
+per-run "is this big enough to deserve the full pipeline?" gate, and no
+preliminary work-sizing beat — introducing any such routine pre-run assessment
+would be the exact bias this rule exists to kill. The default is unconditional;
+you run it all without asking.
+
+**What silently disappears when you improvise a reduced flow:** the
+`specs/<feature>/` artifacts (spec.md, tasks.md, and especially `review.md`'s
+audit log), the `BUILD-LOG.md` ship entry, `PLAN.md` tracker movement, and the
+Phase 6 PR audit comment (project mode) / squash-message detail (devshop mode).
+These are not ceremony — they are the audit trail. Dropping a phase to "save
+time" deletes them with no warning to the operator.
+
+**The single exception — ask, never act.** If you ever feel a genuine impulse to
+deviate (the change truly seems to not warrant some phase), you do NOT act on it.
+You STOP and fire `AskUserQuestion`, with the full pipeline as the recommended
+default. The reduced-flow option is selectable only by the operator, never by
+you, and only after you have enumerated exactly what it drops:
+
+```
+header: "Pipeline shape"
+question: "Run the full /ak-build pipeline, or deviate? The default is the full pipeline."
+options:
+  1. Run the full pipeline (Recommended)
+     — Every phase, every artifact, the complete audit trail. This is the
+       default; pick it unless the operator has a specific reason not to.
+  2. Run a reduced flow
+     — REQUIRES you to first enumerate, in the question text, EXACTLY which
+       phases and which specs/<feature>/ + BUILD-LOG + PLAN + audit-comment
+       artifacts would be dropped and WHY each is safe to skip for THIS change.
+       Not selectable without that enumeration.
+  3. Abort
+     — Stop /ak-build entirely; make no changes.
+```
+
+This is the ONLY path to anything but the full pipeline. Absent an explicit
+operator pick of option 2, you run every phase.
+
 ## Architecture: subagent delegation
 
 Heavy phases run as **subagents** via the Agent tool. Each writes results to
@@ -250,6 +299,10 @@ that section (it's the dependency-ordered task list `/ak-implement` consumes).
 Phase 0 never writes it; Phase 1 always does.
 
 ## Phase 0: Preview + decisions checkpoint
+
+This pre-flight previews the build; it never decides whether to run it — the full
+pipeline runs by default per `§ Non-negotiable: run the full pipeline`, and any
+deviation goes through that section's `AskUserQuestion`, never a silent scope-down.
 
 Before spawning any subagent, produce a pre-flight preview so the user can flag
 scope or decision issues before token-heavy work begins. Catching a mis-shaped
