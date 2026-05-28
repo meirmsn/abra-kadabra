@@ -278,3 +278,46 @@ M
   assert_success
   [[ "$output" != *"PROPAGATION.md"* ]]
 }
+
+# --- propagation-entry.sh missing-block WARN (release-time layer) ---
+
+@test "warns to stderr when a commit touches a propagation surface but has no block" {
+  setup_git_fixture
+  mkdir -p "$FIXTURE_DIR/kit/scripts"
+  echo "echo hi" > "$FIXTURE_DIR/kit/scripts/foo.sh"
+  git -C "$FIXTURE_DIR" add .
+  git -C "$FIXTURE_DIR" commit -q -m "feat(scripts): add foo helper"   # no Existing-projects block
+
+  run bash -c "cd '$FIXTURE_DIR' && bash '$PROP_SCRIPT' '1.1.0' 'v1.0.0' '$FIXTURE_PROP' 2>&1"
+  assert_success
+  [[ "$output" == *"WARN"* ]]
+  [[ "$output" == *"kit/scripts/foo.sh"* ]]
+  [[ "$output" == *"no **Existing projects:** block"* ]]
+  # The block is the only generator input — the commit is (silently) absent
+  # from the entry; the WARN is what makes that silent drop visible.
+  run cat "$FIXTURE_PROP"
+  [[ "$output" == *"(no manual steps)"* ]]
+}
+
+@test "no warn when a propagation-surface commit HAS an Existing-projects block" {
+  setup_git_fixture
+  mkdir -p "$FIXTURE_DIR/kit/scripts"
+  echo "echo hi" > "$FIXTURE_DIR/kit/scripts/foo.sh"
+  git -C "$FIXTURE_DIR" add .
+  git -C "$FIXTURE_DIR" commit -q -m "feat(scripts): add foo helper" -m "**Existing projects:** none — devshop-only script, consumed via the .devshopkit symlink."
+
+  run bash -c "cd '$FIXTURE_DIR' && bash '$PROP_SCRIPT' '1.1.0' 'v1.0.0' '$FIXTURE_PROP' 2>&1"
+  assert_success
+  [[ "$output" != *"WARN"* ]]
+}
+
+@test "no warn when a non-propagation commit lacks a block (docs-only)" {
+  setup_git_fixture
+  echo "doc" > "$FIXTURE_DIR/README.md"
+  git -C "$FIXTURE_DIR" add .
+  git -C "$FIXTURE_DIR" commit -q -m "docs: tweak readme"
+
+  run bash -c "cd '$FIXTURE_DIR' && bash '$PROP_SCRIPT' '1.1.0' 'v1.0.0' '$FIXTURE_PROP' 2>&1"
+  assert_success
+  [[ "$output" != *"WARN"* ]]
+}

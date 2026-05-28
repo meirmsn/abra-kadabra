@@ -534,10 +534,15 @@ approval gate, so the verdict informs the operator's choice.
 The engine is shared via the `DEVSHOP_HYGIENE_SURFACE=squash` env switch — no
 duplicated logic. The PR-surface judges rules (a) accuracy + (b) readability +
 (c) `## Product update` / `## Engineering details` body shape; the squash-
-surface judges (a) + (b) and skips (c) because devshop squashes use the bold-
-led-bullet + `## Squashed commits` shape from § 0.3 instead. Rule wording lives
-in one place (`adversarial-review.sh`'s prompt block), so when the convention
-moves, both surfaces move in lockstep.
+surface judges (a) + (b), skips (c) (devshop squashes use the bold-led-bullet +
+`## Squashed commits` shape from § 0.3 instead), AND adds (d) propagation-block
+presence — squash-surface-only: it FAILs when the squash diff touches
+`template/**` / `kit/scripts/**` / `kit/hooks/**` / `.devcontainer/**` /
+`manifest.txt` and the body carries no `**Existing projects:**` block (see
+`kit/docs/guide/conventions.md § Existing-Project Migration Block § Enforcement`
+layer 1). The shared (a)/(b) rule wording lives in one place
+(`adversarial-review.sh`'s prompt block), so those dimensions move in lockstep
+across both surfaces; (c) is PR-only and (d) is squash-only.
 
 ```bash
 HYGIENE_VERDICT="PASS"

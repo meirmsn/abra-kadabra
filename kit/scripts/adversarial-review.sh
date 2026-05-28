@@ -347,6 +347,20 @@ against the diff above."
       SQ_BODY=$(tail -n +2 "$MSG_FILE")
       COMMITS=$(git log --oneline "origin/main..$HYG_BRANCH" 2>/dev/null || true)
       COMMIT_COUNT=$(echo "$COMMITS" | grep -c . 2>/dev/null || echo 0)
+      # Propagation-block dimension (d): if the squash diff touches a
+      # propagation-relevant surface, the body MUST carry an **Existing
+      # projects:** block (even "none — <why>") so release.sh can populate
+      # PROPAGATION.md. Precompute the touched surfaces + block-presence so the
+      # reviewer judges against data, not a guess. Marker matches
+      # propagation-entry.sh's extractor exactly (`^**Existing projects:**`).
+      PROP_SURFACES=$(git diff --name-only "origin/main..$HYG_BRANCH" 2>/dev/null \
+        | grep -E '^(template/|kit/scripts/|kit/hooks/|\.devcontainer/)|(^|/)manifest\.txt$' \
+        | head -20 || true)
+      if echo "$SQ_BODY" | grep -qE '^\*\*Existing projects:\*\*'; then
+        HAS_PROP_BLOCK=yes
+      else
+        HAS_PROP_BLOCK=no
+      fi
       CONTEXT="Devshop squash commit composed for branch $HYG_BRANCH (${COMMIT_COUNT} constituent commits about to collapse into one).
 
 Proposed squash subject (line 1 of the commit message — judge as you would a PR title):
@@ -357,6 +371,11 @@ $SQ_BODY
 
 Constituent commits being squashed (origin/main..$HYG_BRANCH):
 $COMMITS
+
+Propagation-relevant files changed in this squash (template/** | kit/scripts/** | kit/hooks/** | .devcontainer/** | manifest.txt) — empty means none:
+$PROP_SURFACES
+
+Squash body contains an **Existing projects:** block: $HAS_PROP_BLOCK
 
 NOTE 1 — Primary judgment, NOT a bypass review. This invocation fires from
 \`/ak-merge-devshop\` Phase 0.4.5 at compose time as a CONTENT CHECK on the
@@ -379,7 +398,20 @@ shape from /devshop/.claude/skills/ak-merge-devshop/SKILL.md § 0.3 (e.g.
 \`**Adds:**\`, \`**Trade-off:**\`, \`Key details:\`, \`## Squashed commits\`),
 NOT the project-PR \`## Product update\` + \`## Engineering details\` H2
 shape. Rule (a) accuracy still applies — judge whether the subject + body
-accurately describe ALL constituent commits."
+accurately describe ALL constituent commits.
+
+NOTE 3 — Dimension (d): Existing-projects propagation block. Look at the
+'Propagation-relevant files changed' list above. If it is NON-EMPTY and
+'contains an **Existing projects:** block' is 'no', FAIL with a line naming the
+touched surface and 'no Existing-projects block': a squash whose diff touches
+template/**, kit/scripts/**, kit/hooks/**, .devcontainer/**, or manifest.txt
+MUST carry an \`**Existing projects:**\` block in the body — even the explicit
+'**Existing projects:** none — <why>' form — because release.sh's
+propagation-entry.sh extracts ONLY that marker to build kit/docs/PROPAGATION.md,
+so an omitted block silently drops the change from the migration log for
+existing projects. Per kit/docs/guide/conventions.md § Existing-Project
+Migration Block. If the list is EMPTY, dimension (d) is N/A — do NOT invent a
+need for the block, and do NOT let its absence affect the verdict."
     else
       # Called by .husky/pre-push. Gathers PR title/body vs commits on branch.
       BRANCH=$(git branch --show-current 2>/dev/null || true)

@@ -41,6 +41,21 @@ while IFS= read -r sha; do
   if [ -n "$BLOCK" ]; then
     ENTRIES="${ENTRIES}- **${SUBJECT}** — ${BLOCK}
 "
+  else
+    # No block. If this commit touched a propagation-relevant surface, the
+    # omission silently drops it from PROPAGATION (this generator's only input
+    # is the **Existing projects:** block). Warn loudly to stderr — non-fatal —
+    # so the release-time PROPAGATION review (/ak-release-devshop Phase 2.5)
+    # catches the gap instead of an existing-project step vanishing unnoticed.
+    SURFACE=$(git show --name-only --format= "$sha" 2>/dev/null \
+      | grep -E '^(template/|kit/scripts/|kit/hooks/|\.devcontainer/)|(^|/)manifest\.txt$' \
+      | head -5 || true)
+    if [ -n "$SURFACE" ]; then
+      {
+        echo "WARN: ${sha:0:9} '${SUBJECT}' touches a propagation-relevant surface but has no **Existing projects:** block — silently dropped from PROPAGATION:"
+        echo "$SURFACE" | sed 's/^/    /'
+      } >&2
+    fi
   fi
 done < <(git log --format='%H' --reverse "${LAST_TAG}..HEAD" 2>/dev/null)
 

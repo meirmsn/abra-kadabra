@@ -561,7 +561,13 @@ The block goes under a `**Existing projects:**` bold-label lead-in, following th
 
 ### Enforcement
 
-Not enforced per-commit by a hook (the convention is judgment-heavy — "does this change need a project follow-up?" is not mechanically decidable). Enforced at audit time: `/ak-docs-review` Section A flags devshop commits that touch propagation-relevant surfaces without an `**Existing projects:**` block as a **medium** coverage finding.
+Three layers catch a **missing** block (even the explicit `**Existing projects:** none — <why>` form) when a commit/squash diff touches a propagation-relevant surface — `template/**`, `kit/scripts/**`, `kit/hooks/**`, `.devcontainer/**`, or `manifest.txt`. None of them decides the judgment-heavy "does this change need a project follow-up?" question for you; they only ensure the block is *present* so it can't be silently forgotten:
+
+1. **Squash time** (`/ak-merge-devshop` Phase 0.4.5) — the `prTextHygieneReason` reviewer's dimension (d) FAILs the squash when its diff touches a propagation surface and the body carries no `**Existing projects:**` block. The verdict surfaces in the Phase 0.5 approval gate, before the squash lands on `main`.
+2. **Release time** (`release.sh` → `propagation-entry.sh`) — every commit since the last tag that touches a propagation surface without a block prints a non-fatal `WARN: <sha> … silently dropped from PROPAGATION` to stderr, so `/ak-release-devshop` Phase 2.5's PROPAGATION review catches what the auto-generator (which extracts only the `**Existing projects:**` marker) would otherwise drop with no signal.
+3. **Audit time** (`/ak-docs-review` Section A) — flags missing blocks as a **medium** coverage finding.
+
+Per-commit pre-commit hooks deliberately do NOT enforce this (the need-vs-no-need call is not mechanically decidable, and squash time is the real gate since devshop history is squash-per-feature). The three layers catch *absence*; they never decide *need*.
 
 ### Precedents
 

@@ -214,6 +214,99 @@ EOF
   grep -q "Title readability" "$CAPTURED_PROMPT"
 }
 
+@test "prTextHygieneReason squash-surface: surfaces missing Existing-projects block when diff touches kit/scripts (dimension d)" {
+  # When the squash diff touches a propagation surface (template/**, kit/scripts/**,
+  # kit/hooks/**, .devcontainer/**, manifest.txt) the body MUST carry an
+  # **Existing projects:** block, else release.sh's propagation-entry.sh silently
+  # drops the change from PROPAGATION.md. The reviewer is handed the touched
+  # surfaces + block-presence as data, plus NOTE 3 to judge dimension (d).
+  cd "$TEST_REPO"
+  create_stub gh "" 0
+  git -C "$TEST_REPO" update-ref refs/remotes/origin/main HEAD   # origin/main = initial commit
+  git -C "$TEST_REPO" checkout -b feat/prop-surface -q 2>/dev/null || true
+  mkdir -p "$TEST_REPO/kit/scripts"
+  echo "echo hi" > "$TEST_REPO/kit/scripts/foo.sh"
+  git -C "$TEST_REPO" add kit/scripts/foo.sh
+  git -C "$TEST_REPO" commit -q -m "feat(scripts): add foo helper"
+
+  MSG_FILE="$BATS_TEST_TMPDIR/squash-noblock.txt"
+  cat > "$MSG_FILE" <<'EOF'
+feat(scripts): add foo helper
+
+**Adds:** a helper script. No Existing-projects block on purpose.
+EOF
+
+  DEVSHOP_HYGIENE_SURFACE=squash \
+    DEVSHOP_HYGIENE_MESSAGE_FILE="$MSG_FILE" \
+    DEVSHOP_HYGIENE_BRANCH="feat/prop-surface" \
+    run bash "$REVIEW" prTextHygieneReason "auto-check at compose time"
+  assert_success
+  [ -f "$CAPTURED_PROMPT" ]
+  # The touched propagation surface is injected as data:
+  grep -qF "kit/scripts/foo.sh" "$CAPTURED_PROMPT"
+  # Block-presence computed + reported as 'no':
+  grep -qF "contains an **Existing projects:** block: no" "$CAPTURED_PROMPT"
+  # NOTE 3 (dimension d) directive is inlined:
+  grep -qF "NOTE 3" "$CAPTURED_PROMPT"
+  grep -qiF "Existing-projects propagation block" "$CAPTURED_PROMPT"
+}
+
+@test "prTextHygieneReason squash-surface: dimension d is N/A when diff touches no propagation surface" {
+  cd "$TEST_REPO"
+  create_stub gh "" 0
+  git -C "$TEST_REPO" update-ref refs/remotes/origin/main HEAD
+  git -C "$TEST_REPO" checkout -b docs/no-surface -q 2>/dev/null || true
+  echo "doc" > "$TEST_REPO/README.md"
+  git -C "$TEST_REPO" add README.md
+  git -C "$TEST_REPO" commit -q -m "docs: tweak readme"
+
+  MSG_FILE="$BATS_TEST_TMPDIR/squash-docs.txt"
+  printf 'docs: tweak readme\n\n**Doc updates:** readme wording.\n' > "$MSG_FILE"
+
+  DEVSHOP_HYGIENE_SURFACE=squash \
+    DEVSHOP_HYGIENE_MESSAGE_FILE="$MSG_FILE" \
+    DEVSHOP_HYGIENE_BRANCH="docs/no-surface" \
+    run bash "$REVIEW" prTextHygieneReason "auto-check at compose time"
+  assert_success
+  # NOTE 3 still present, with the N/A guidance so an absent block on a
+  # non-propagation squash does NOT affect the verdict.
+  grep -qF "NOTE 3" "$CAPTURED_PROMPT"
+  grep -qiF "If the list is EMPTY" "$CAPTURED_PROMPT"
+}
+
+@test "prTextHygieneReason squash-surface: dimension d reports block: yes when surface touched AND block present" {
+  # Pins the HAS_PROP_BLOCK=yes branch — proves the marker regex
+  # (^**Existing projects:**) matches a real block on the squash precompute
+  # path. A regression that broke the marker would mis-report 'no' on a squash
+  # that carries a block and steer NOTE 3 toward a false FAIL.
+  cd "$TEST_REPO"
+  create_stub gh "" 0
+  git -C "$TEST_REPO" update-ref refs/remotes/origin/main HEAD
+  git -C "$TEST_REPO" checkout -b feat/prop-surface-blocked -q 2>/dev/null || true
+  mkdir -p "$TEST_REPO/kit/scripts"
+  echo "echo hi" > "$TEST_REPO/kit/scripts/foo.sh"
+  git -C "$TEST_REPO" add kit/scripts/foo.sh
+  git -C "$TEST_REPO" commit -q -m "feat(scripts): add foo helper"
+
+  MSG_FILE="$BATS_TEST_TMPDIR/squash-withblock.txt"
+  cat > "$MSG_FILE" <<'EOF'
+feat(scripts): add foo helper
+
+**Adds:** a helper script.
+
+**Existing projects:** none — devshop-side script, consumed via the .devshopkit symlink.
+EOF
+
+  DEVSHOP_HYGIENE_SURFACE=squash \
+    DEVSHOP_HYGIENE_MESSAGE_FILE="$MSG_FILE" \
+    DEVSHOP_HYGIENE_BRANCH="feat/prop-surface-blocked" \
+    run bash "$REVIEW" prTextHygieneReason "auto-check at compose time"
+  assert_success
+  # Surface touched AND a real block present → reported 'yes' (NOTE 3 won't FAIL):
+  grep -qF "contains an **Existing projects:** block: yes" "$CAPTURED_PROMPT"
+  grep -qF "kit/scripts/foo.sh" "$CAPTURED_PROMPT"
+}
+
 @test "prTextHygieneReason squash-surface: FAIL fast when MESSAGE_FILE missing (no LLM call)" {
   # The squash surface depends on a tempfile composed by /ak-merge-devshop Phase
   # 0.3. If the env var points at a non-existent path (operator deleted the
