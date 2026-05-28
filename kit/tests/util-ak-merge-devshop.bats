@@ -438,6 +438,30 @@ setup() {
     | grep -qE 'git merge --squash'
 }
 
+# === Section G2 — Phase 2.5 full-suite loud-failure gate ===
+
+@test "Phase 2.5 computes the verdict from a not-ok count (not eyeballed output)" {
+  # Codified from the 2026-05-27 incident: a buried `not ok` in a ~1500-line
+  # suite read as a pass because the tail was green, leaving main red. The
+  # gate must grep a count, not rely on the agent reading output.
+  local section
+  section=$(awk '/^## Phase 2\.5:/,/^## Phase 3:/' "$SKILL_FILE")
+  echo "$section" | grep -qE 'FAILED=.*grep -c'
+  echo "$section" | grep -q 'not ok'
+}
+
+@test "Phase 2.5 halts (exit 1) when any test fails" {
+  local section
+  section=$(awk '/^## Phase 2\.5:/,/^## Phase 3:/' "$SKILL_FILE")
+  echo "$section" | grep -qE 'FAILED'
+  echo "$section" | grep -qE 'exit 1'
+}
+
+@test "Phase 2.5 documents the pre-existing-failure → separate fix branch rule" {
+  awk '/^## Phase 2\.5:/,/^## Phase 3:/' "$SKILL_FILE" \
+    | grep -qiE 'pre-existing on .?origin/main|separate .?fix/.? branch'
+}
+
 # === Section H — Phase 3 ff-merge + push ===
 
 @test "Phase 3 fast-forwards main to the feature branch's squash commit" {

@@ -935,14 +935,45 @@ if [ -d kit/tests ] && [ -x kit/tests/lib/bats-core/bin/bats ]; then
   GIT_DIR=""
   [ -n "$WORKTREE_PATH" ] && GIT_DIR="$WORKTREE_PATH"
   BATS_CWD="${GIT_DIR:-$(git rev-parse --show-toplevel)}"
+
+  # Compute the verdict from a `not ok` COUNT, never from eyeballing output.
+  # Capture to a tempfile, tee for live progress, then grep the count.
+  BATS_OUT=$(mktemp)
   (cd "$BATS_CWD" && kit/tests/lib/bats-core/bin/bats kit/tests/ \
-    --print-output-on-failure </dev/null)
+    --print-output-on-failure </dev/null) | tee "$BATS_OUT"
+  FAILED=$(grep -c '^not ok' "$BATS_OUT" || true)
+  PASSED=$(grep -c '^ok' "$BATS_OUT" || true)
+
+  if [ "${FAILED:-0}" -gt 0 ]; then
+    echo ""
+    echo "✖✖✖ Phase 2.5 FAILED: $FAILED test(s) not ok — DO NOT proceed to Phase 3:"
+    grep '^not ok' "$BATS_OUT" | sed 's/^/    /'
+    rm -f "$BATS_OUT"
+    exit 1
+  fi
+  rm -f "$BATS_OUT"
+  echo "✓ Phase 2.5: full bats suite green ($PASSED passed, 0 failed)."
 fi
 ```
 
-If any test fails: halt. The fix lives in the branch content — resolve,
-amend the squash commit (or add a fixup commit and re-squash via
-Phase 2), then re-invoke `/ak-merge-devshop`.
+The gate's verdict comes from the `not ok` **count**, not from reading the
+suite output. The full suite prints ~1500 TAP lines; when the last-running
+test files pass, the tail looks green and a single `not ok` buried mid-stream
+is invisible. **Worked incident (2026-05-27):** `bebda21` added three
+`kit/scripts/preship/` scripts without registering them in
+`structural-invariants.bats`'s wiring accounting, turning a mid-stream test
+red. That merge's Phase 2.5 ran the suite but read the green tail as a pass,
+so `main` landed red and stayed red across subsequent merges until a later
+Phase 2.5 grepped the count. Always assert on the count.
+
+If any test fails (`FAILED > 0`): halt. The fix lives in the branch content
+— resolve, amend the squash commit (or add a fixup commit and re-squash via
+Phase 2), then re-invoke `/ak-merge-devshop`. **If the failing test is
+pre-existing on `origin/main`** (not caused by the feature branch — confirm
+with `git diff --name-only origin/main..HEAD` against the failing test's
+surface), fix it on a separate `fix/` branch first, land that, then resume
+the merge on green `main`. Do NOT fold an unrelated pre-existing fix into the
+feature squash — it muddies the feature's history and ships un-audited.
 
 ---
 
