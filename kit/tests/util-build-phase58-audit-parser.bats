@@ -118,10 +118,16 @@ setup() {
     | grep -q 'test-review-followup'
 }
 
-@test "Phase 6 audit comment posts concise summary (no quality-gates table)" {
-  # The quality-gates table was stripped — Phase 6 now posts only a concise
-  # summary with gate counts, overrides, and hero shots.
+@test "Phase 6 posts no PR comment (audit trail lives in review.md)" {
+  # 1d343bf dropped the Phase 6 audit-trail PR comment entirely: gate results
+  # already live in the committed specs/<feature>/review.md, and a comment would
+  # duplicate them onto the timeline against the no-clutter convention.
+  # Positive: the section states it posts nothing.
   awk '/## Phase 6/,/### Phase 6 checkbox/' "$SKILL_FILE" \
+    | grep -qiE 'posts nothing'
+  # Negative: the old gate-table comment language is gone (would re-fail if a
+  # future edit reintroduced the comment).
+  ! awk '/## Phase 6/,/### Phase 6 checkbox/' "$SKILL_FILE" \
     | grep -qE 'Pre-ship audit|gates passed'
 }
 
