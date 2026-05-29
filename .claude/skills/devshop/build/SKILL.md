@@ -4,7 +4,7 @@ version: 2.0.0
 description: |
   Autonomous build pipeline: preview → spec → implement → quality gates → ship → CI watch → notify.
   Two modes: **project** (default — PR-based, CI watch, PR-surface verification, /ak-go-live) and
-  **devshop** (auto-detected when GIT_ROOT=/devshop — reduced gate set, /ak-merge-devshop
+  **devshop** (auto-detected for the /devshop repo + its linked worktrees — reduced gate set, /ak-merge-devshop
   transport, no PR/CI/deploy). See `devshop-mode.md` in this directory for devshop-specific
   phases (Phase 3 gate matrix, Phase 4.5, terminal handoff).
   Phase 0 produces a 3-section pre-flight preview (decisions / scope / tracker) and
@@ -46,7 +46,8 @@ Autonomous pipeline: spec → implement → quality gates → ship → CI watch 
 - **Project mode** (default): PR-based. After this completes, the user has a PR
   ready for review with all quality gates passed, CI green, and an audit trail
   comment. The user's only action: review and say `/ak-go-live`.
-- **Devshop mode** (`GIT_ROOT=/devshop`): no PRs, no CI watch, no deploy.
+- **Devshop mode** (the `/devshop` repo, including its linked worktrees —
+  detected via `--git-common-dir`, see § Mode detection): no PRs, no CI watch, no deploy.
   Runs Phases 0–2 identically, Phase 3 with a reduced gate set, Phase 4.0
   bookkeeping, then Phase 4.5 invokes `/ak-merge-devshop` (squash + ff-merge
   + push). After this completes, the feature is on main. Read
@@ -168,7 +169,20 @@ session crashes and inform Step 0's resume check).
 
 ```bash
 GIT_ROOT=$(git rev-parse --show-toplevel)
-if [ "$GIT_ROOT" = "/devshop" ]; then
+# A linked worktree of /devshop (`.worktrees/<topic>/`) has its OWN
+# --show-toplevel (the worktree path, NOT /devshop), so a bare GIT_ROOT check
+# would mis-detect devshop work done in a worktree as project mode. The
+# worktree's --git-common-dir still points at /devshop/.git, which is the
+# reliable signal. Resolve it to an absolute path (it's the relative `.git`
+# from the main worktree, already absolute from a linked worktree) and treat
+# the session as devshop mode when EITHER GIT_ROOT is /devshop OR the
+# common-dir belongs to /devshop.
+GIT_COMMON=$(git rev-parse --git-common-dir)
+case "$GIT_COMMON" in
+  /*) ;;                                    # already absolute (linked worktree)
+  *) GIT_COMMON="$GIT_ROOT/$GIT_COMMON" ;;  # relative ".git" → absolutize
+esac
+if [ "$GIT_ROOT" = "/devshop" ] || [ "$GIT_COMMON" = "/devshop/.git" ]; then
   MODE="devshop"
 else
   MODE="project"
@@ -176,6 +190,15 @@ fi
 ```
 
 Surface the mode in terminal output: `"Mode: $MODE"`.
+
+The `--git-common-dir` check is load-bearing for worktree-based devshop work:
+`git worktree add .worktrees/<topic>` is the documented parallel-work flow
+(`/devshop/CLAUDE.md § Parallel work via linked worktrees`), and inside such a
+worktree `git rev-parse --show-toplevel` returns the worktree path, not
+`/devshop`. Without the common-dir fallback the orchestrator would run a
+project-mode pipeline (PRs, CI watch, deploy) against the devshop repo. The
+`session-start.sh` hook already routes worktree sessions to devshop context;
+this keeps `/ak-build`'s own mode detection consistent with it.
 
 When `MODE=devshop`, read `devshop-mode.md` in this skill's directory for
 devshop-specific phase behavior. The sections below note `(devshop: ...)` at

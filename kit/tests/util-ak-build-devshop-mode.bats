@@ -33,6 +33,22 @@ setup() {
   grep -q 'MODE="project"' "$SKILL_FILE"
 }
 
+@test "SKILL.md mode detection is worktree-aware via --git-common-dir" {
+  # A linked worktree of /devshop has its own --show-toplevel (the worktree
+  # path), so the bare GIT_ROOT check alone would mis-detect it as project
+  # mode. The fix ORs in a --git-common-dir == /devshop/.git check. Assert
+  # both the common-dir read AND the /devshop/.git comparison are present.
+  grep -q 'git rev-parse --git-common-dir' "$SKILL_FILE"
+  grep -q '/devshop/.git' "$SKILL_FILE"
+}
+
+@test "SKILL.md mode detection absolutizes a relative common-dir" {
+  # From the main worktree, --git-common-dir returns the relative ".git";
+  # the fix must absolutize it (prefix GIT_ROOT) before comparing, or the
+  # main-checkout case silently falls through to project mode.
+  grep -q 'GIT_COMMON="\$GIT_ROOT/\$GIT_COMMON"' "$SKILL_FILE"
+}
+
 @test "SKILL.md references devshop-mode.md at Phase 3 routing" {
   grep -q 'devshop-mode.md.*Phase 3' "$SKILL_FILE"
 }
