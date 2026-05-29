@@ -558,7 +558,7 @@ Did this PR's investigation surface anything that would generalize **beyond this
 - **`/devshop/CLAUDE.md` Tier 1 entry** — for cross-cutting principles that need to be always-loaded.
 - **`kit/ROADMAP.md § v0 / v1`** — work that's bigger than an inline edit and worth filing for later, OR an audit/sweep that needs a focused session.
 
-For each lesson, present: _what was learned, proposed devshop placement, effort estimate_. The user picks which to ship now vs file vs skip. **File** routes to `kit/FRICTION-LOG.md` via `/ak-record-friction-log` (the intake ledger — it scans for an existing match so recurring lessons accrue a count + session links rather than duplicating, and flags items that have grown big enough to promote into `kit/ROADMAP.md` / `kit/TODOS.md` / `PLAN.md`).
+For each lesson, present: _what was learned, proposed devshop placement, effort estimate_. The user picks which to ship now vs file vs skip. On **File**, invoke `/ak-record-friction-log` yourself (don't hand the operator the command) and report what landed — it routes to `kit/FRICTION-LOG.md` (the intake ledger — it scans for an existing match so recurring lessons accrue a count + session links rather than duplicating, and flags items that have grown big enough to promote into `kit/ROADMAP.md` / `kit/TODOS.md` / `PLAN.md`).
 
 If nothing this session, just say so — explicitly. Don't fish for lessons; most sessions don't produce them. The signal is high but the rate is low.
 
