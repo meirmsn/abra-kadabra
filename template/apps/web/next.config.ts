@@ -7,8 +7,8 @@
 //      — without both, cross-origin HMR is blocked by default in Next 16.
 // Does NOT: Define env vars (they live in `.env.local` per
 //           `/ak-new-project § Step 13b`) or set CSP headers — those
-//           belong in THIS file via the Pattern 2 `connect-src` builder
-//           (`kit/docs/guide/supabase-ssr-boilerplate.md § Pattern 2`),
+//           belong in THIS file via the Pattern 2 `connect-src` + `img-src`
+//           builders (`kit/docs/guide/supabase-ssr-boilerplate.md § Pattern 2`),
 //           added when Supabase / Realtime wiring lands.
 
 import { withSentryConfig } from '@sentry/nextjs';

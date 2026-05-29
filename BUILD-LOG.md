@@ -4,6 +4,14 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### template-csp-img-src (2026-05-28)
+
+- **Branch**: `feat/template-csp-img-src`
+- **Spec**: `specs/template-csp-img-src/spec.md`
+- **Headline**: Storage photos (avatars, card images, any signed-URL image) now render correctly in local development and browser QA out of the box — no more silently-blank image boxes the first time a project shows a Supabase Storage image.
+- **Summary**: The Pattern 2 CSP boilerplate now derives the `img-src` Supabase origin from `$NEXT_PUBLIC_SUPABASE_URL` (the same way `connect-src` already does), so the local stack's `http://host.docker.internal:<port>` Storage origin — which no `https:` token covers — is permitted in dev/QA, and the prod origin is covered too when the base omits a broad `https:` token. Folded `img-src` into the Pattern 2 inline IIFE (one trimmed origin reused for both directives, with a load-bearing don't-delete comment); added a new `### CSP` sub-section to `conventions.md`; touched up the template `next.config.ts` header pointer; repointed the Pattern 2 anchor refs (in-file TOC + routing index) after the heading rename.
+- **Commits**: 11 atomic commits (squashed to 1 on main via /ak-merge-devshop)
+- **Quality gates**: devshop gate set — Gates 1/4/6/11 pass, Gate 2d bats 1525/1526 (the 1 failure is pre-existing test 14 from `1d343bf`, filed in `kit/TODOS.md`, unrelated to this diff), Gate 5 audit high=0 medium=1 low=0 (the medium is the `template/**` `**Existing projects:**` block, deferred to the squash body per D4). 9 non-LLM carve-outs n/a; 4 LLM-mediated structural carve-outs (cso/design-review/qa/benchmark — no UI/auth/perf surface). Phase 2.5 fresh-eyes: 1 fixed (conventions TOC), 1 escalated→filed.
 ### ak-build-phase6-pr-surface (2026-05-28)
 
 - **Branch**: `feat/ak-build-phase6-pr-surface`

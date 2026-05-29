@@ -416,35 +416,6 @@ Add a section to `kit/docs/guide/conventions.md` (or a dedicated `kit/docs/guide
 
 ---
 
-### Template CSP `img-src` must include the Supabase origin (local Storage photos render in dev / browser QA)
-
-**Problem.** Supabase-backed projects that render Storage objects via signed URLs (card photos, avatars, any `createSignedUrl(s)` image) need the Supabase origin in the CSP `img-src` directive. The **local stack serves Storage over `http://host.docker.internal:<port>`** (or `http://127.0.0.1:<port>`) — an `http` origin that no `https:` token covers — so every Storage image silently fails to load in local dev and in browser-based QA (the `/qa`, `/design-review`, hero-capture gates) until `img-src` lists it explicitly. In **production** whether the Supabase `https` origin is already covered depends on the base directive: a base carrying a broad `https:` token covers it for free, but the canonical Pattern 2 `img-src` (see Cross-ref) is `'self' data: blob:` with **no** `https:` token — under that base the prod Supabase origin is load-bearing too. The failure is silent: no console error beyond a CSP report, just blank `<img>` boxes, and the gate operator can't tell "the photo query is broken" from "the photo is CSP-blocked."
-
-**Trigger — home-os photo-comparison-ui, 2026-05-28.** The compare surface renders two Storage photos side-by-side. Browser QA showed blank panels; root cause was that project's `img-src 'self' data: blob: https:` blocking the local `host.docker.internal` Storage origin (its `https:` token covers prod but not the local `http` origin). Fixed in-PR (commit 4469d99) by deriving `img-src` from `$NEXT_PUBLIC_SUPABASE_URL` — the same shape that project's `connect-src` directive already uses. Every Supabase+Storage+CSP project will hit this the first time it renders a Storage image in local QA.
-
-**Shape of the fix:**
-
-- **Template CSP block** (the Pattern 2 `connect-src` builder in `kit/docs/guide/supabase-ssr-boilerplate.md § Pattern 2`): the template's `apps/web/next.config.ts` ships **no CSP headers yet** — Pattern 2 is "added when Supabase / Realtime wiring lands" (per the file's own header comment). When that CSP block is introduced into a project's `next.config.ts`, its `img-src` directive must derive the Supabase origin from `$NEXT_PUBLIC_SUPABASE_URL` (trim it; append the bare origin), exactly as the Pattern 2 `connect-src` builder does. If the `img-src` base omits `https:` (as Pattern 2 does), the appended origin covers both dev (the `http` local origin) and prod (the `https` Supabase origin); if the base carries `https:`, only the dev `http` origin is new behavior. Block-comment which case applies inline so a future reader doesn't "tidy it away."
-- **Convention note**: one line in `kit/docs/guide/conventions.md § Responsive + Theme` (or a new "CSP" sub-section) — "any directive that must reach Supabase (`connect-src`, `img-src`, and `media-src` if you serve Storage video) derives from `$NEXT_PUBLIC_SUPABASE_URL`; the local stack's http origin is the reason `https:` alone is insufficient."
-- **Pre-ship signal (optional)**: the `/qa` / hero-capture gates could detect blank-image / CSP-report patterns and hint at `img-src`, but that's a nice-to-have; the template fix prevents it at the source.
-
-**Why v0.** Blocks next-project adoption the moment that project renders a Storage image in local QA — which is the common case for any photo/avatar app. The fix is small and belongs with the Pattern 2 `connect-src` builder (every project picks up that boilerplate when Supabase wiring lands), so it's a consistency fix as much as a new one.
-
-**Cost/risk:**
-
-- Implementation: ~30–45 min — fold the `img-src` Supabase-origin derivation into the Pattern 2 `connect-src` builder in `supabase-ssr-boilerplate.md` + a propagation step for existing projects (home-os already has the fix in `feat/photo-comparison-ui`) + the conventions.md line.
-- Risk: low — additive to the CSP directive. Behavior delta is the dev-only `http` origin always, plus the prod `https` Supabase origin whenever the base omits a broad `https:` token.
-
-**Cross-ref:**
-
-- home-os `apps/web/next.config.ts` `img-src` derivation (PR #43, commit 4469d99) — the reference implementation to lift into the Pattern 2 boilerplate
-- `kit/docs/guide/supabase-ssr-boilerplate.md § Pattern 2` — the canonical `connect-src` builder (inline IIFE) that `img-src` should mirror; this is where the template's CSP block originates when Supabase wiring lands
-- `kit/docs/guide/conventions.md § Responsive + Theme` — already carries two home-os-surfaced UI CSS conventions (mobile flex-overflow, on-surface text tokens); the CSP note is a natural neighbor
-
-[v0, surfaced-by home-os photo-comparison-ui CSP-blocked-Storage-images on 2026-05-28]
-
----
-
 ## v1 (after v0 is validated on the first project)
 
 ### Project-worktree setup support — propagate the `.worktrees/` convention to projects (symlink-tooling, not submodule)

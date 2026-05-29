@@ -53,6 +53,7 @@ When a section here has a single consuming skill that replicates its content, th
   - [Kit Testing (devshop infrastructure)](#kit-testing-devshop-infrastructure)
   - [Metrics](#metrics-1)
   - [Responsive + Theme](#responsive--theme)
+  - [CSP](#csp)
   - [PWA](#pwa)
   - [Code Structure](#code-structure)
 - [Test Presence](#test-presence)
@@ -721,6 +722,11 @@ Every script in `kit/scripts/` is either tested or explicitly exempt in `check-t
 - **Text on elevated surfaces needs the on-surface color token, not the inverse.** When the page background is dark and card/elevated surfaces are light, text inside those surfaces must use the non-inverse (dark) text token. The inverse token is for text sitting directly on the dark page ground. Mixing them up produces washed-out text that's technically visible but fails the "scan at speed" test. Rule: always match the text token to the surface it sits on, not the page background.
 - **Light/dark theme required** — both from launch. `tokens.ts` defines semantic theme tokens. Tailwind maps to CSS custom properties. Theme follows `prefers-color-scheme` with optional toggle. No hardcoded colors — always theme tokens. Snapshots include both themes.
 - **Snappiness / latency feedback** — when adding loading affordances, threshold spinners, optimistic mutations, or skeleton placeholders, see `kit/docs/guide/latency-feedback.md`. The guide owns the two-skeleton-handoff rule and the sizing-primitive override gotcha — both silently degrade UI without throwing errors.
+
+### CSP
+
+- **Every CSP directive that must reach Supabase derives from `$NEXT_PUBLIC_SUPABASE_URL`** — `connect-src` (REST + Realtime `ws/wss`), `img-src` (Storage images), and `media-src` (only if you serve Storage video). Compute the trimmed origin once and reuse it across directives so they never drift.
+- **A `https:` token alone is insufficient** — the local Supabase stack serves over an `http` origin (`http://host.docker.internal:<port>` / `http://127.0.0.1:<port>`) that no `https:` scheme token covers. The bare `${supabaseUrl}` origin is what makes dev/QA traffic (including Storage `<img>` loads) pass; CSP scheme matching is strict, and a missed origin fails silently (blank `<img>`, CSP report only — no thrown error). Canonical builder + worked excerpt: `kit/docs/guide/supabase-ssr-boilerplate.md § Pattern 2`.
 
 ### PWA
 

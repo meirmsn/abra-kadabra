@@ -7,7 +7,7 @@ Each pattern was codified from a real lalista incident (most from PR 26, 2026-04
 ## Contents
 
 - [Pattern 1: `.trim()` defense at every `process.env.NEXT_PUBLIC_*` read site](#pattern-1-trim-defense-at-every-processenvnext_public_-read-site)
-- [Pattern 2: CSP `connect-src` builder handles BOTH `https→wss` and `http→ws`](#pattern-2-csp-connect-src-builder-handles-both-httpswss-and-httpws)
+- [Pattern 2: CSP `connect-src` and `img-src` builders derive from the Supabase origin](#pattern-2-csp-connect-src-and-img-src-builders-derive-from-the-supabase-origin)
 - [Pattern 3: E2E helpers — `helpers/admin-client.ts` with the 5 canonical exports](#pattern-3-e2e-helpers--helpersadmin-clientts-with-the-5-canonical-exports)
 - [Pattern 4: Realtime publication setup migration](#pattern-4-realtime-publication-setup-migration)
 - [Pattern 5: WebKit form-state hydration race in Playwright `mobile` tests](#pattern-5-webkit-form-state-hydration-race-in-playwright-mobile-tests)
@@ -110,9 +110,11 @@ it('trims whitespace from URL + ANON_KEY env vars (Vercel fat-finger defense)', 
 
 ---
 
-## Pattern 2: CSP `connect-src` builder handles BOTH `https→wss` and `http→ws`
+## Pattern 2: CSP `connect-src` and `img-src` builders derive from the Supabase origin
 
 **Why:** CSP scheme matching is strict — listing `https://<host>` does NOT permit `wss://<host>`. Supabase Realtime requires the `ws/wss` entry. The replace must handle both prod (https → wss) and local-stack (http → ws) cases; the http→ws case silently breaks Realtime against local Supabase in dev mode + `realtime.spec.ts` tests if missed.
+
+The same strictness bites `img-src` for Supabase Storage. The local stack serves Storage over an `http` origin (`http://host.docker.internal:<port>` / `http://127.0.0.1:<port>`) that no `https:` token covers, so a `<img>` pointing at a Storage object is silently CSP-blocked — the browser renders a blank box and emits a CSP report, with no thrown error and no app-looking failure. Both directives derive from the same trimmed `supabaseUrl`, so the origin stays in lockstep and the `.trim()` whitespace defense (Pattern 1) lands once.
 
 Lalista PR 26 caught this: the test surfaced the bug. The original regex was `^https://` which was a no-op for `http://127.0.0.1:54321`, so the CSP allowed `http://` but not `ws://` and the realtime WebSocket was silently CSP-blocked.
 
@@ -129,15 +131,24 @@ Lalista PR 26 caught this: the test surfaced the bug. The original regex was `^h
     // CSP treats schemes strictly. The replace handles both prod (https→wss)
     // and local-stack (http→ws). Missing http→ws silently breaks Realtime in
     // dev mode. .trim() defends against whitespace-contaminated env vars
-    // (codified in supabase-ssr-boilerplate.md § Pattern 1).
-    ((): string => {
+    // (codified in supabase-ssr-boilerplate.md § Pattern 1). Computed once and
+    // reused below for img-src so the Supabase origin stays in lockstep.
+    ...((): string[] => {
       const supabaseUrl = (
         process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
       ).trim();
       const supabaseWs = supabaseUrl.replace(/^http(s?):\/\//, 'ws$1://');
-      return `connect-src 'self' ${supabaseUrl} ${supabaseWs} <other-connect-hosts>`;
+      return [
+        `connect-src 'self' ${supabaseUrl} ${supabaseWs} <other-connect-hosts>`,
+        // Supabase Storage images. The appended ${supabaseUrl} is load-bearing
+        // under this no-`https:` base: it's the ONLY token permitting BOTH the
+        // dev http local-stack origin AND the prod https Supabase origin. Do
+        // NOT delete it as redundant. (If a project's base instead carries a
+        // broad `https:` token, only the dev http origin is new behavior — but
+        // the canonical base stays no-`https:`.)
+        `img-src 'self' data: blob: ${supabaseUrl}`,
+      ];
     })(),
-    "img-src 'self' data: blob:",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
