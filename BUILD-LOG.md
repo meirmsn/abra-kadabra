@@ -4,6 +4,15 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### triage-todos-to-friction-log (2026-05-29)
+
+- **Branch**: `chore/triage-todos-to-friction-log`
+- **Spec**: `specs/triage-todos-to-friction-log/spec.md`
+- **Headline**: Infrastructure update — no user-visible change in this PR.
+- **Summary**: First real population of `kit/FRICTION-LOG.md` — 7 premature/single-sighting TODOs demoted into the counted intake ledger (3 explicitly-investigation items: subagent-drift instrumentation, Mac host-resource hypothesis, Layer-B squash-boundary gap; 4 single-observation items: prTextHygiene false-reject, visual-evidence rubber-stamp, doc/test silent-drift, ls-remote garbled output), each with the full ledger schema and sorted by impact×count. The proven virtiofs phantom-rebase fallback graduated past friction to a scored `PLAN.md § Planned (v0)` row (`virtiofs-rebase-auto-switch`, Lev 8.0, sorts top) while keeping its `kit/TODOS.md` entry as the long-form Source. Every remaining untagged `kit/TODOS.md` open entry received a `[v0]`/`[v1]`/`[v+]` schedule tag per the triage buckets (sudo-scoping kept at `[v0]`; gstack-volume-wipe retagged `[v+]`→`[v0]`), so future sessions stop reading unscheduled debt as "still pending". The driver triage entry was deleted as its own resolution. No tooling/code touched — pure tracker hygiene.
+- **Commits**: branch baseline (intake + gitignore) + spec skeleton/expansion, seed 7 friction-log entries, delete 7 moved + driver entries, promote virtiofs to PLAN, version-tag remaining entries, tasks.md, Phase 2.5 verification, Phase 3 review.md + Gate 5 Audit 1 + gate sinks, BUILD-LOG; squashed to 1 on main via /ak-merge-devshop.
+- **Quality gates**: devshop gate set — Gates 1/4/6 pass; Gate 11 convention findings(1) LOW (two intermediate commit subjects >72 chars — squash-moot); Gate 2d full bats suite green (1568 passed, 0 failed); Gate 5 docs+tests audit (Audit 1) high=0 medium=0 low=0. 9 non-LLM carve-outs n/a; 4 LLM-mediated structural carve-outs (cso/design-review/qa/benchmark — no UI/auth/perf surface). Phase 2.5 fresh-eyes: 0 findings.
+
 ### merge-rebase-racy-git-remedy (2026-05-29)
 
 - **Branch**: `fix/merge-rebase-racy-git-remedy`
@@ -54,7 +63,7 @@ For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.m
 - **Branch**: `feat/hygiene-threedot-polish`
 - **Spec**: `specs/hygiene-threedot-polish/spec.md`
 - **Headline**: Infrastructure update — no user-visible change.
-- **Summary**: Hardens the shipped dimension-(d) three-dot phantom-surface fix (`b174a11`) by closing the two non-blocking lows its Audit 1 flagged: (1) a cross-ref clause in `workflow.md` (and a complementary NOTE 3 description in `hooks.md § Dual-surface check-types`) so a reader doesn't infer the `/ak-merge-devshop` Phase 1.0 rebase alone is the remedy for all base-divergence phantoms — the Phase 0.4.5 dimension-(d) precompute fires BEFORE the rebase and got its own three-dot fix; (2) a positive bats assertion in `util-adversarial-review-narrowing.bats` test 18 that the rendered propagation-surface list is empty, so a differently-broken three-dot producing a *different* phantom path can't slip past the existing one-filename absence check. The suggested `grep "If the list is EMPTY"` assertion was rejected (empirically verified static NOTE 3 boilerplate — zero discriminating power); the region-empty awk check replaced it. No script/behavior change — `adversarial-review.sh` untouched.
+- **Summary**: Hardens the shipped dimension-(d) three-dot phantom-surface fix (`b174a11`) by closing the two non-blocking lows its Audit 1 flagged: (1) a cross-ref clause in `workflow.md` (and a complementary NOTE 3 description in `hooks.md § Dual-surface check-types`) so a reader doesn't infer the `/ak-merge-devshop` Phase 1.0 rebase alone is the remedy for all base-divergence phantoms — the Phase 0.4.5 dimension-(d) precompute fires BEFORE the rebase and got its own three-dot fix; (2) a positive bats assertion in `util-adversarial-review-narrowing.bats` test 18 that the rendered propagation-surface list is empty, so a differently-broken three-dot producing a _different_ phantom path can't slip past the existing one-filename absence check. The suggested `grep "If the list is EMPTY"` assertion was rejected (empirically verified static NOTE 3 boilerplate — zero discriminating power); the region-empty awk check replaced it. No script/behavior change — `adversarial-review.sh` untouched.
 - **Commits**: 3 substantive (workflow.md cross-ref, hooks.md NOTE 3, bats test 18) + Phase 2.5 NOTE-count fix; squashed to 1 on merge.
 - **Quality gates**: all passed (6 dispatched + 13 carve-outs; full bats suite green). Pre-existing unrelated failure (stale Phase 6 test 14 from `1d343bf`) fixed first on a separate `fix/` branch and landed to main before this feature's gates ran.
 
@@ -66,6 +75,7 @@ For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.m
 - **Summary**: The Pattern 2 CSP boilerplate now derives the `img-src` Supabase origin from `$NEXT_PUBLIC_SUPABASE_URL` (the same way `connect-src` already does), so the local stack's `http://host.docker.internal:<port>` Storage origin — which no `https:` token covers — is permitted in dev/QA, and the prod origin is covered too when the base omits a broad `https:` token. Folded `img-src` into the Pattern 2 inline IIFE (one trimmed origin reused for both directives, with a load-bearing don't-delete comment); added a new `### CSP` sub-section to `conventions.md`; touched up the template `next.config.ts` header pointer; repointed the Pattern 2 anchor refs (in-file TOC + routing index) after the heading rename.
 - **Commits**: 11 atomic commits (squashed to 1 on main via /ak-merge-devshop)
 - **Quality gates**: devshop gate set — Gates 1/4/6/11 pass, Gate 2d bats 1525/1526 (the 1 failure is pre-existing test 14 from `1d343bf`, filed in `kit/TODOS.md`, unrelated to this diff), Gate 5 audit high=0 medium=1 low=0 (the medium is the `template/**` `**Existing projects:**` block, deferred to the squash body per D4). 9 non-LLM carve-outs n/a; 4 LLM-mediated structural carve-outs (cso/design-review/qa/benchmark — no UI/auth/perf surface). Phase 2.5 fresh-eyes: 1 fixed (conventions TOC), 1 escalated→filed.
+
 ### ak-build-phase6-pr-surface (2026-05-28)
 
 - **Branch**: `feat/ak-build-phase6-pr-surface`
