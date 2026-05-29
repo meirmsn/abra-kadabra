@@ -353,7 +353,21 @@ against the diff above."
       # PROPAGATION.md. Precompute the touched surfaces + block-presence so the
       # reviewer judges against data, not a guess. Marker matches
       # propagation-entry.sh's extractor exactly (`^**Existing projects:**`).
-      PROP_SURFACES=$(git diff --name-only "origin/main..$HYG_BRANCH" 2>/dev/null \
+      #
+      # THREE-dot (merge-base) diff, NOT two-dot. The squash lands the branch's
+      # own delta on main, so the surface set must be
+      # merge-base(origin/main, branch)..branch. A two-dot
+      # `origin/main..$HYG_BRANCH` is a raw tree comparison that, on a branch
+      # whose base has fallen behind origin/main, reports every
+      # propagation-surface file origin/main changed since the fork point as a
+      # phantom "touched" path — false-FAILing dimension (d) on a branch that
+      # never touched those surfaces (worked incident: docs/csp-img-src merge,
+      # 2026-05-28, phantom-FAILed on template/.gitignore). Three-dot matches
+      # the sibling dimensions above (`origin/main...HEAD`) and the skill's own
+      # Phase 0.2 preview (`git diff origin/main...$BRANCH`). The
+      # constituent-commit `git log` above stays two-dot — that IS the right
+      # basis for listing a branch's commits.
+      PROP_SURFACES=$(git diff --name-only "origin/main...$HYG_BRANCH" 2>/dev/null \
         | grep -E '^(template/|kit/scripts/|kit/hooks/|\.devcontainer/)|(^|/)manifest\.txt$' \
         | head -20 || true)
       if echo "$SQ_BODY" | grep -qE '^\*\*Existing projects:\*\*'; then

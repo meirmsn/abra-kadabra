@@ -307,6 +307,51 @@ EOF
   grep -qF "kit/scripts/foo.sh" "$CAPTURED_PROMPT"
 }
 
+@test "prTextHygieneReason squash-surface: dimension d uses three-dot diff — no phantom surface on base-diverged branch" {
+  # Regression: dimension (d)'s surface precompute must diff the branch's OWN
+  # delta (merge-base..branch, three-dot), NOT a raw two-dot tree comparison
+  # against origin/main. On a branch whose base fell behind origin/main, a
+  # two-dot diff reports every propagation-surface file origin/main changed
+  # since the fork point as a phantom "touched" path — false-FAILing dimension
+  # (d) for a branch that never touched a propagation surface. Worked incident:
+  # docs/csp-img-src merge (2026-05-28) phantom-FAILed on template/.gitignore.
+  cd "$TEST_REPO"
+  create_stub gh "" 0
+
+  BASE=$(git -C "$TEST_REPO" rev-parse HEAD)   # fork point = merge-base
+
+  # origin/main moves AHEAD with a propagation-surface change the branch lacks.
+  mkdir -p "$TEST_REPO/template"
+  echo "node_modules" > "$TEST_REPO/template/.gitignore"
+  git -C "$TEST_REPO" add template/.gitignore
+  git -C "$TEST_REPO" commit -q -m "feat(template): add gitignore"
+  git -C "$TEST_REPO" update-ref refs/remotes/origin/main HEAD
+
+  # Feature branch forks from BASE (behind origin/main) and touches NO
+  # propagation surface — just a doc.
+  git -C "$TEST_REPO" checkout -b docs/base-diverged "$BASE" -q
+  echo "doc" > "$TEST_REPO/README.md"
+  git -C "$TEST_REPO" add README.md
+  git -C "$TEST_REPO" commit -q -m "docs: tweak readme"
+
+  MSG_FILE="$BATS_TEST_TMPDIR/squash-diverged.txt"
+  printf 'docs: tweak readme\n\n**Doc updates:** readme wording.\n' > "$MSG_FILE"
+
+  DEVSHOP_HYGIENE_SURFACE=squash \
+    DEVSHOP_HYGIENE_MESSAGE_FILE="$MSG_FILE" \
+    DEVSHOP_HYGIENE_BRANCH="docs/base-diverged" \
+    run bash "$REVIEW" prTextHygieneReason "auto-check at compose time"
+  assert_success
+  [ -f "$CAPTURED_PROMPT" ]
+  # The phantom origin/main-only file must NOT be reported as a touched surface.
+  # Pre-fix (two-dot) it appeared in PROP_SURFACES → grep would succeed here.
+  run grep -qF "template/.gitignore" "$CAPTURED_PROMPT"
+  assert_failure
+  # NOTE 3 still present so the reviewer treats the absent block as N/A (the
+  # branch's real delta is README only — no propagation surface touched).
+  grep -qF "NOTE 3" "$CAPTURED_PROMPT"
+}
+
 @test "prTextHygieneReason squash-surface: FAIL fast when MESSAGE_FILE missing (no LLM call)" {
   # The squash surface depends on a tempfile composed by /ak-merge-devshop Phase
   # 0.3. If the env var points at a non-existent path (operator deleted the
