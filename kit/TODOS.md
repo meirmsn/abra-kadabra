@@ -536,16 +536,6 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
   [medium, convention + skill + template, surfaced-by home-os-pr-19-2026-05-15, 2026-05-15]
 
-- [ ] **`/ak-build` Phase 1 doesn't commit the expanded `spec.md`.** The Phase 1 spec agent expands `specs/<feature>/spec.md` from the Phase 0 skeleton (adding In scope, Files, Tests, `## Task order`, etc.) but the pipeline never commits that expansion — only the Phase 0 skeleton commit and (later) `tasks.md` land. The expansion sits uncommitted in the working tree until some later commit happens to sweep it in. Worked observation: hygiene-threedot-polish (2026-05-29) — the spec expansion was dangling uncommitted after Phase 1; caught and committed by hand (`6401f53`) only because the orchestrator noticed `git status` was dirty before Phase 2.5.
-
-  **Why it matters**: a session crash between Phase 1's return and the next sweeping commit loses the expansion. On restart, Step 0's resume check reads _committed_ state — it sees a `spec.md` with no `## Task order` (the skeleton) and re-runs Phase 1. So the consequence is mild (idempotent re-run regenerates), but it's silent work-loss + an unnecessary re-spec round-trip, and it muddies which commit "owns" the spec.
-
-  **Fix shape**: add an explicit "commit the expanded spec" step to `/ak-build` SKILL.md Phase 1 — after the spec subagent returns, `git add specs/<feature>/spec.md && git commit -m "docs(<feature>): expand spec (Phase 1)"` (devshop-mode and project-mode alike). Alternatively have the Phase 2 implement agent commit it as its first action. Optionally add a Phase-exit-artifact check (the registry already lists "spec.md contains `## Task order`" for Phase 1 — extend it to assert the `## Task order` is in a _commit_, not just the working tree).
-
-  **Where**: `/ak-build` SKILL.md § Phase 1 (+ the Phase exit artifact registry row for Phase 1).
-
-  [low, skill-robustness, surfaced-by hygiene-threedot-polish /ak-build 2026-05-29]
-
 - [ ] **`/ak-merge-devshop` Phase 2.5 can test the wrong tree under parallel merges (HEAD race).** Phase 2.5 runs the full bats suite before the ff-push, computing its working dir as `BATS_CWD="${WORKTREE_PATH:-$(git rev-parse --show-toplevel)}"`. When a _parallel_ `/ak-merge-devshop` session flips `/devshop`'s `HEAD` between Phase 2 (squash) and Phase 2.5, the bats run can execute against the wrong checkout and read a false green — letting a genuinely-red branch ff-push to `main`. Same race class the skill already guards against in Phase 3 (the calibration-and-task-phases checkout-verification, 2026-05-20) and warns about in Phase 1.1 (cwd doesn't persist across Bash calls).
 
   **Worked observation**: `1d343bf` (2026-05-28) shipped a red bats suite to `main`. Test 14 in `util-build-phase58-audit-parser.bats` (a stale Phase 6 audit-comment assertion introduced by `486a57d`, an ancestor) was red in `1d343bf`'s OWN tree once its SKILL.md edit removed the asserted "Pre-ship audit | gates passed" text — a correctly-targeted Phase 2.5 would have caught it, but it landed during a batch of parallel `/ak-merge-devshop` runs. Caught downstream by template-csp-img-src + hygiene-threedot-polish Phase 2.5 / Gate 2d, forcing a `fix/` branch detour (2026-05-29).

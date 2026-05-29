@@ -11,7 +11,9 @@ description: |
   persists user-approved decisions as a `specs/<feature>/spec.md` skeleton (provenance
   + Sources + Decisions) — one file, no parallel artifact. Phase 1's spec agent
   preserves the Decisions section verbatim and expands the rest. On crash-restart,
-  a spec.md lacking `## Task order` signals Phase 0 finished but Phase 1 didn't.
+  a committed spec.md lacking `## Task order` signals Phase 0 finished but Phase 1
+  didn't (Step 0 reads the discriminator from committed state — Phase 1.1 commits
+  the expansion).
   The live TaskCreate tracker mirrors the preview's hierarchy as phases run.
   Delegates heavy phases to subagents to keep main context clean.
   Resumable — detects where it left off if session is interrupted.
@@ -143,7 +145,7 @@ reference this table by row — it is the single source of truth.
 | Phase | Required artifact | Producer | Checked at | Check shape |
 |-------|-------------------|----------|------------|-------------|
 | 0 | `$FEATURE_DIR/spec.md` (skeleton with provenance + Decisions) | Phase 0.3 | Step 0 resume check | file exists |
-| 1 | `$FEATURE_DIR/spec.md` contains `## Task order` | Phase 1 (spec agent) | Step 0 resume check | `grep -q '## Task order'` |
+| 1 | `$FEATURE_DIR/spec.md` committed with `## Task order` | Phase 1.1 (commit step) | Step 0 resume check | `git show HEAD:$FEATURE_DIR/spec.md \| grep -q '## Task order'` |
 | 2 | `$FEATURE_DIR/tasks.md` with all tasks `done` | Phase 2 (implement agent) | Step 0 resume check | awk parse + `reconcile-task-commits.sh` (clean tree + impl-commit-count ≥ done-count) |
 | 2.5 | `$FEATURE_DIR/verification.log` (devshop mode only) | Phase 2.5 (verification agent) | Step 0 resume check | file exists (devshop only) |
 | 3-preflight | `$FEATURE_DIR/gates/preflight.md` with scope vars + tooling status | Phase 3.0 | before 3.1 gate loop | file exists + result not `blocked` |
@@ -303,8 +305,8 @@ Detect where a previous run left off. Evaluate top-to-bottom; the first match wi
    - **Exit 0** (trustworthy — clean tree AND impl-commit-count ≥ done-count) → skip to Phase 3 (pre-ship). **(Devshop mode)**: if `$FEATURE_DIR/verification.log` does NOT exist → run Phase 2.5 first (see `devshop-mode.md § Phase 2.5`), then Phase 3.
    - **Non-zero** (dirty tree, or fewer implementation commits than `done` tasks — a `done` marker with no matching commit) → **do NOT skip to Phase 3.** Fall through to rung 3's destination (**re-enter Phase 2**, which resumes internally and re-verifies per-task), and print the helper's diagnostic loudly to the terminal: `Resume reconcile FAILED: <diag> — re-entering Phase 2`. The count heuristic is rebase-/amend-robust and a false-fail is cheap (Phase 2 re-verifies and no-ops if work is genuinely complete), so the safe action on any non-zero exit is always re-enter Phase 2, never skip ahead. See `kit/scripts/reconcile-task-commits.sh` for the contract; the helper is bats-covered in `kit/tests/util-reconcile-task-commits.bats`.
 3. **`$FEATURE_DIR/tasks.md` exists with some tasks `done`?** → skip to Phase 2 (implement resumes internally). This is also where rung 2 lands when its reconcile fails — same destination (re-enter Phase 2), and the rung-2 reconcile diagnostic is surfaced so the operator sees *why* an "all done" file did not skip.
-4. **`$FEATURE_DIR/spec.md` exists and contains `## Task order`?** → full spec written by Phase 1 → skip to Phase 2 (implement)
-5. **`$FEATURE_DIR/spec.md` exists but lacks `## Task order`?** → Phase 0 wrote the skeleton (provenance + Decisions only); Phase 1 hasn't completed → re-run Phase 1. Spec agent reads the existing file, preserves its Decisions section verbatim, and expands into the full spec. Do NOT re-prompt the user.
+4. **`$FEATURE_DIR/spec.md` committed at HEAD with `## Task order`?** (`git show HEAD:$FEATURE_DIR/spec.md | grep -q '## Task order'`) → full spec written AND committed by Phase 1 → skip to Phase 2 (implement)
+5. **`$FEATURE_DIR/spec.md` committed at HEAD but lacks `## Task order`?** → Phase 0.3 committed the skeleton (provenance + Decisions only); Phase 1 hasn't completed (or crashed before its 1.1 commit) → re-run Phase 1. Spec agent reads the existing file, preserves its Decisions section verbatim, and expands into the full spec; Phase 1.1 commits it. Do NOT re-prompt the user.
 6. **None of the above** → start from Phase 0 (preview + spec skeleton)
 
 Log resume point: "Resuming from Phase N: <reason>"
@@ -325,7 +327,9 @@ which artifacts already exist so earlier phases can be skipped.
 The `## Task order` header is the discriminator between a Phase 0 skeleton and
 a Phase 1 completed spec, because every spec produced by `/ak-spec` contains
 that section (it's the dependency-ordered task list `/ak-implement` consumes).
-Phase 0 never writes it; Phase 1 always does.
+Phase 0 never writes it; Phase 1 always does, and Phase 1.1 commits it, so Step 0
+reads the discriminator from the committed `spec.md` (`git show HEAD:…`), not the
+working tree.
 
 ## Phase 0: Preview + decisions checkpoint
 
@@ -775,6 +779,34 @@ feature branch without going through `/ak-build` Phase 0.
 **(Devshop mode)**: add to the spec subagent prompt: `"This is
 devshop-self-mode. There is no METRICS.md; skip the metrics-confirmation
 step. The test surface is bats (kit/tests/), not vitest/Playwright."`
+
+### 1.1: Commit the expanded spec
+
+When the spec subagent returns, the expanded `spec.md` is sitting uncommitted
+in the working tree — only the Phase 0.3 skeleton commit and (later)
+`tasks.md` have landed. Commit the expansion now so a crash between here and
+the next sweeping commit can't silently lose it (and so Step 0's resume
+check, which reads committed state, sees a complete spec rather than
+re-running Phase 1):
+
+```bash
+git add "$FEATURE_DIR/spec.md"
+# Idempotence guard: skip the commit if spec.md is already committed at HEAD
+# (Phase 1 is an atomic re-run on resume — same inputs, same output, so a
+# re-entry where the spec is already committed must no-op, not error with
+# "nothing to commit").
+if ! git diff --cached --quiet -- "$FEATURE_DIR/spec.md"; then
+  git commit -m "docs($FEATURE): expand spec (Phase 1)"
+fi
+```
+
+No push yet — the feature-branch push happens in Phase 4 / 4.5 along with the
+rest of the implementation. This commit just needs to exist locally so a
+session crash + restart finds the full spec via Step 0's resume check
+(rung 4). This step applies to **both modes** — Phase 1 is the shared
+section; the `(Devshop mode)` note above is only a prompt addendum, not a
+separate Phase 1. Mirrors the Phase 0.3 skeleton commit
+(`chore($FEATURE): Phase 0 spec skeleton`).
 
 ## Phase 2: Implement
 

@@ -4,6 +4,15 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### ak-build-commit-spec-expansion (2026-05-29)
+
+- **Branch**: `feat/ak-build-commit-spec-expansion`
+- **Spec**: `specs/ak-build-commit-spec-expansion/spec.md`
+- **Headline**: Infrastructure update — no user-visible change in this PR.
+- **Summary**: `/ak-build` now commits the expanded `spec.md` at the end of Phase 1 (a guarded, idempotent `docs(<feature>): expand spec (Phase 1)` commit), so a crash between Phase 1 and the next sweeping commit can't silently lose the spec expansion or trigger an unnecessary re-spec on resume. The Phase-exit artifact registry row for Phase 1 and Step 0's resume rungs 4/5 (plus the preamble + discriminator note) are tightened to read committed state (`git show HEAD:$FEATURE_DIR/spec.md`), so the durable signal a resume reads is the committed spec, not the working tree — closing the loop against a torn-down worktree, clean-tree guard, or stray stash. Single production file (`.claude/skills/devshop/build/SKILL.md`); covered by four new structural assertions (Section G) in `kit/tests/util-ak-build-skill.bats`.
+- **Commits**: 8 atomic commits (squashed to 1 on main via /ak-merge-devshop)
+- **Quality gates**: devshop gate set — Gates 1/4/6 pass, Gate 11 convention surfaced + fixed 1 finding (the source kit/TODOS.md entry was still open; closed with the PLAN row in `c64de2c`), Gate 2d bats targeted 46/46 + full sweep green (the one pre-existing `structural-invariants.bats` reconcile-task-commits wiring failure was fixed upstream in `bb3e13c` and merged in at merge time; the branch's stale TODOS-routing entry was dropped accordingly). Gate 5 audit high=0 medium=0 low=1 (preamble committed-state clause, fixed at `26233da`). 9 non-LLM carve-outs n/a; 4 LLM-mediated structural carve-outs (cso/design-review/qa/benchmark — no UI/auth/perf surface). Phase 2.5 fresh-eyes: 0 findings across 6 checks.
+
 ### implement-resume-reconcile (2026-05-29)
 
 - **Branch**: `feat/implement-resume-reconcile`

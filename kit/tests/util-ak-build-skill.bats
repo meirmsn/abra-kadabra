@@ -375,3 +375,40 @@ make_fixture() {
     | grep -qE 'reconcile-task-commits\.sh'
 }
 
+# === Section G — Phase 1 spec-commit + committed-state resume ===
+#
+# Guards the new Phase 1.1 commit step (commit the expanded spec.md so a crash
+# between Phase 1 and the next sweeping commit can't lose it) and the matching
+# tightening of the Phase-exit registry row 1 + Step 0 resume rungs 4/5 to read
+# COMMITTED state (`git show HEAD:…`) rather than the working tree. Without these
+# guards a future edit could silently drop the commit step (re-opening the
+# data-loss window) or revert the resume discriminator to the working tree.
+
+@test "Section G: G1 — Phase 1.1 commit subsection present" {
+  grep -qE '^### 1\.1: Commit the expanded spec' "$SKILL_FILE"
+}
+
+@test "Section G: G2 — Phase 1 commit step uses canonical message + idempotence guard, no push" {
+  # Scope to the Phase 1 region so a stray match elsewhere can't pass this.
+  awk '/^## Phase 1: Spec/,/^## Phase 2:/' "$SKILL_FILE" > /tmp/phase1-section.txt
+  grep -qF 'git add "$FEATURE_DIR/spec.md"' /tmp/phase1-section.txt
+  grep -qF 'git diff --cached --quiet' /tmp/phase1-section.txt
+  grep -qF 'docs($FEATURE): expand spec (Phase 1)' /tmp/phase1-section.txt
+  # No push in Phase 1 — the feature-branch push stays in Phase 4 / 4.5.
+  ! grep -q 'git push' /tmp/phase1-section.txt
+}
+
+@test "Section G: G3 — Phase-exit registry row 1 asserts committed state" {
+  # Single row-1 line: committed + ## Task order + git show HEAD: (pipe-escaped
+  # inside the markdown table cell).
+  grep -qE '\| 1 \|.*committed.*## Task order.*git show HEAD:' "$SKILL_FILE"
+}
+
+@test "Section G: G4 — resume rungs 4 + 5 read committed state" {
+  # Scope to the resume-check region (rungs 2–6), same boundary Section F uses.
+  awk '/^### Resume check/,/^## Phase 0/' "$SKILL_FILE" > /tmp/resume-section.txt
+  # Both rungs phrase the discriminator against committed state.
+  [ "$(grep -c 'committed at HEAD' /tmp/resume-section.txt)" -ge 2 ]
+  grep -qF 'git show HEAD:$FEATURE_DIR/spec.md | grep -q' /tmp/resume-section.txt
+}
+
