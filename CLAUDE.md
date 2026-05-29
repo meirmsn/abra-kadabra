@@ -20,7 +20,7 @@ Build blueprints (historical after execution):
 - When bootstrapping or modifying devshop: `kit/notes/bootstrap/v0-web.md`
 - When adding native/mobile: `kit/notes/bootstrap/v+-native.md`
 
-Backlogs: `kit/TODOS.md` (tactical) + `kit/ROADMAP.md` (strategic). Project backlogs: `TODOS.md` + `PRODUCT-ROADMAP.md`.
+Backlogs: `kit/TODOS.md` (tactical) + `kit/ROADMAP.md` (strategic). Project backlogs: `TODOS.md` + `PRODUCT-ROADMAP.md`. Friction intake (upstream of the backlogs): `kit/FRICTION-LOG.md` — recurring trip-ups/lessons land here first (deduped + counted), then the operator promotes the worthwhile ones into ROADMAP/TODOS/PLAN. File via `/ak-record-friction-log`.
 
 ### Session Start
 
@@ -45,7 +45,7 @@ Default to simple. Pick the boring solution. Tried-and-true over clever. Readabl
 
 Depth over speed. When a step or task hits friction, stop and think about what consequences it has for the project or the devshop. Solve the problem and update docs/skills so it doesn't recur. Don't suggest skipping or deferring unless the user asks.
 
-**Surface devshop-generalizable lessons proactively, before the session ends.** When a session produces non-obvious learnings — skill bug, convention gap, infra flake recipe, template patch, doc-drift the agent caught itself in — name them with proposed devshop placement (skill amendment / template fix / new convention / `kit/ROADMAP.md § v0`/`v1` entry) and let the user pick which to ship now vs file. Don't wait to be prompted. Most sessions produce zero such lessons; that's fine — explicitly say "nothing to surface" rather than trawl. Codified into `/ak-go-live § Step 5b` as the canonical reflection moment for ship-ending sessions; the rule applies to any non-trivial session.
+**Surface devshop-generalizable lessons proactively, before the session ends.** When a session produces non-obvious learnings — skill bug, convention gap, infra flake recipe, template patch, doc-drift the agent caught itself in — name them with proposed devshop placement (skill amendment / template fix / new convention / `kit/ROADMAP.md § v0`/`v1` entry) and let the user pick which to ship now vs file. **File each lesson the user doesn't ship now into `kit/FRICTION-LOG.md` via `/ak-record-friction-log`** — the skill scans for an existing match first (so recurring issues accrue a count + session links instead of duplicating), re-sorts by impact × count, and flags any entry that has grown big/urgent/impactful as a promotion candidate. Don't wait to be prompted. Most sessions produce zero such lessons; that's fine — explicitly say "nothing to surface" rather than trawl. Codified into `/ak-go-live § Step 5b` as the canonical reflection moment for ship-ending sessions; the rule applies to any non-trivial session.
 
 Flag concerns not covered by existing docs or conventions — wait for confirmation before proceeding. Commit per logical change (one task, one fix, one devshop improvement).
 
@@ -159,6 +159,7 @@ Full per-category rationale: `kit/docs/guide/conventions.md § Confidence Calibr
   - Project, build later → `PRODUCT-ROADMAP.md`
   - Devshop, fix soon → `kit/TODOS.md`
   - Devshop, build later → `kit/ROADMAP.md`
+  - Recurring friction / trip-up / lesson (not yet a committed to-do) → `kit/FRICTION-LOG.md` via `/ak-record-friction-log` (intake; dedups + counts; promote to a tracker above when it earns it)
 - **Minor issue** (< 5 min to fix) — fix in current task's commit, note in commit message
 - **Minor issue** (> 5 min to fix) — add to `TODOS.md` with `[minor]` tag, continue
 

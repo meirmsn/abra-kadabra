@@ -42,7 +42,8 @@ Short version: you write rough notes, `/office-hours` turns them into a product 
 
 ## Improving the devshop
 
-- `kit/TODOS.md` — tactical: friction, bugs, small fixes
+- `kit/FRICTION-LOG.md` — intake: recurring trip-ups / lessons, deduped + counted (promote to the backlogs below when an item earns it); file via `/ak-record-friction-log`
+- `kit/TODOS.md` — tactical: committed bugs + small fixes
 - `kit/ROADMAP.md` — strategic: new capabilities, major improvements
 - `kit/notes/` — research, design notes, build blueprints
 - `kit/docs/guide/` — full operational reference (update when changing conventions)
