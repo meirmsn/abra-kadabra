@@ -230,8 +230,11 @@ setup() {
   local exempts
   exempts=$(grep -oP '^\s+"[a-z-]+\.sh"' "$coverage_script" | tr -d '" ')
 
-  # Scripts called by other scripts or skills (not directly by hooks/pre-commit)
-  local infra_scripts="create-devshop-symlinks.sh normalize-devshop-paths.sh changelog-entry.sh check-file-headers.sh supabase-bootstrap.sh router-shim.sh verify-story.sh design-conformance.sh rls-coverage-check.sh slow-job-lifecycle-check.sh rebuild-browse.sh populate-playwright-cache.sh parse-manifest.sh preview-confirm.sh changed-tests-local.sh fast-job-local.sh migration-rollback-roundtrip.sh path-classifier.sh rewrite-pr-body-urls.sh backfill-pr-image-urls.sh justify-claude-md.sh advisor-clean.sh fault-injected-qa.sh capture-screenshot.sh apply-port-offset.sh next-port-offset.sh propagation-entry.sh roster-check.sh local-env-health.sh check-llm-mediated-na.sh extract-prod-url.sh"
+  # Scripts called by other scripts or skills (not directly by hooks/pre-commit).
+  # reconcile-task-commits.sh is invoked from /ak-build SKILL.md Step 0 (resume
+  # reconcile) and /ak-implement — a skill prompt, not a hook — so it is
+  # legitimately not hook-wired.
+  local infra_scripts="create-devshop-symlinks.sh normalize-devshop-paths.sh changelog-entry.sh check-file-headers.sh supabase-bootstrap.sh router-shim.sh verify-story.sh design-conformance.sh rls-coverage-check.sh slow-job-lifecycle-check.sh rebuild-browse.sh populate-playwright-cache.sh parse-manifest.sh preview-confirm.sh changed-tests-local.sh fast-job-local.sh migration-rollback-roundtrip.sh path-classifier.sh rewrite-pr-body-urls.sh backfill-pr-image-urls.sh justify-claude-md.sh advisor-clean.sh fault-injected-qa.sh capture-screenshot.sh apply-port-offset.sh next-port-offset.sh propagation-entry.sh roster-check.sh local-env-health.sh check-llm-mediated-na.sh extract-prod-url.sh reconcile-task-commits.sh"
 
   # Combine hook references and pre-commit references (match paths-with-slashes).
   # Also include prepare-commit-msg (devshop + template) which calls
