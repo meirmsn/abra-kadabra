@@ -350,6 +350,16 @@ EOF
   # NOTE 3 still present so the reviewer treats the absent block as N/A (the
   # branch's real delta is README only — no propagation surface touched).
   grep -qF "NOTE 3" "$CAPTURED_PROMPT"
+  # Positively assert dimension (d) is genuinely N/A: the rendered $PROP_SURFACES
+  # region is EMPTY, not merely that the one known phantom filename is absent. A
+  # differently-broken three-dot could emit a DIFFERENT phantom path the
+  # filename-absence grep above would miss — an empty rendered region catches all.
+  # Do NOT substitute grep "If the list is EMPTY": that literal is static NOTE 3
+  # boilerplate (adversarial-review.sh:427), emitted unconditionally regardless of
+  # the surface list, so it has zero discriminating power. Extract the region
+  # between the surface-list header and the next prompt line, assert whitespace-only.
+  SURFACE_REGION=$(awk '/empty means none:/{f=1;next} /^Squash body contains an/{f=0} f' "$CAPTURED_PROMPT")
+  [ -z "$(printf '%s' "$SURFACE_REGION" | tr -d '[:space:]')" ]
 }
 
 @test "prTextHygieneReason squash-surface: FAIL fast when MESSAGE_FILE missing (no LLM call)" {

@@ -4,6 +4,15 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### hygiene-threedot-polish (2026-05-28)
+
+- **Branch**: `feat/hygiene-threedot-polish`
+- **Spec**: `specs/hygiene-threedot-polish/spec.md`
+- **Headline**: Infrastructure update — no user-visible change.
+- **Summary**: Hardens the shipped dimension-(d) three-dot phantom-surface fix (`b174a11`) by closing the two non-blocking lows its Audit 1 flagged: (1) a cross-ref clause in `workflow.md` (and a complementary NOTE 3 description in `hooks.md § Dual-surface check-types`) so a reader doesn't infer the `/ak-merge-devshop` Phase 1.0 rebase alone is the remedy for all base-divergence phantoms — the Phase 0.4.5 dimension-(d) precompute fires BEFORE the rebase and got its own three-dot fix; (2) a positive bats assertion in `util-adversarial-review-narrowing.bats` test 18 that the rendered propagation-surface list is empty, so a differently-broken three-dot producing a *different* phantom path can't slip past the existing one-filename absence check. The suggested `grep "If the list is EMPTY"` assertion was rejected (empirically verified static NOTE 3 boilerplate — zero discriminating power); the region-empty awk check replaced it. No script/behavior change — `adversarial-review.sh` untouched.
+- **Commits**: 3 substantive (workflow.md cross-ref, hooks.md NOTE 3, bats test 18) + Phase 2.5 NOTE-count fix; squashed to 1 on merge.
+- **Quality gates**: all passed (6 dispatched + 13 carve-outs; full bats suite green). Pre-existing unrelated failure (stale Phase 6 test 14 from `1d343bf`) fixed first on a separate `fix/` branch and landed to main before this feature's gates ran.
+
 ### template-csp-img-src (2026-05-28)
 
 - **Branch**: `feat/template-csp-img-src`
