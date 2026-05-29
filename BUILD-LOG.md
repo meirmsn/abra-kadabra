@@ -4,6 +4,15 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### merge-devshop-phase25-tree-pin (2026-05-29)
+
+- **Branch**: `fix/merge-devshop-phase25-tree-pin`
+- **Spec**: `specs/merge-devshop-phase25-tree-pin/spec.md`
+- **Headline**: Infrastructure update — no user-visible change in this PR.
+- **Summary**: Hardens `/ak-merge-devshop`'s pre-merge bats gate (Phase 2.5) so a parallel merge running at the same time can't trick it into reading a green result from the wrong checkout and fast-forwarding a red test suite onto `main`. The gate now resolves `$BATS_CWD` to an absolute path, pins `EXPECTED_SHA` to the squash commit (`$BRANCH` tip), and asserts the tested `HEAD` equals it both before and after the suite — halting if a sibling session moved the checkout mid-flow. Mirrors the existing Phase 3 checkout-verification guard. Closes the `kit/TODOS.md` HEAD-race entry (worked incident `1d343bf`, 2026-05-28) and adds 5 content-validation bats tests in `util-ak-merge-devshop.bats § Section G2`; workflow.md's `/ak-merge-devshop` row now documents the new guard.
+- **Commits**: squashed to 1 on main via /ak-merge-devshop (spec skeleton + expansion, guard + tests + TODO closure, Phase 2.5 verification, Phase 3 review.md + workflow.md doc note; two `origin/main` merge commits collapsed by the squash).
+- **Quality gates**: devshop gate set — Gates 1/4/6/11 pass; Gate 2d full bats suite green (1567 passed, 0 failed); Gate 5 docs+tests audit high=0 medium=1 (workflow.md Phase 2.5 doc-coverage — fixed in-branch) low=0. 9 non-LLM carve-outs n/a; 4 LLM-mediated structural carve-outs (cso/design-review/qa/benchmark — no UI/auth/perf surface). Phase 2.5 fresh-eyes: 0 findings (dry-ran the guard against a scratch repo — confirmed it catches a mid-flow HEAD flip). Side-effect: surfaced + fixed a pre-existing red (`reconcile-task-commits.sh` unwired since `ca4bc76`) on a separate `fix/` branch landed first (`bb3e13c`).
+
 ### claude-md-regrowth-prune (2026-05-29)
 
 - **Branch**: `feat/claude-md-regrowth-prune`

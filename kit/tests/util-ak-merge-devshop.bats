@@ -544,6 +544,55 @@ setup() {
     | grep -qiE 'pre-existing on .?origin/main|separate .?fix/.? branch'
 }
 
+@test "Phase 2.5 resolves \$BATS_CWD to an absolute path when WORKTREE_PATH is set" {
+  # HEAD-pin guard half 1: never let `--show-toplevel` re-resolve implicitly
+  # at run time (it would follow whatever /devshop currently points at under a
+  # parallel merge). `pwd -P` resolves symlinks so the SHA comparison is
+  # tree-exact.
+  awk '/^## Phase 2\.5:/,/^## Phase 3:/' "$SKILL_FILE" \
+    | grep -qE 'cd "\$WORKTREE_PATH" && pwd -P'
+}
+
+@test "Phase 2.5 pins EXPECTED_SHA to the \$BRANCH squash commit" {
+  # HEAD-pin guard half 2: the squash Phase 2 created IS the branch tip;
+  # `git rev-parse <branch>` resolves the ref regardless of current checkout.
+  awk '/^## Phase 2\.5:/,/^## Phase 3:/' "$SKILL_FILE" \
+    | grep -qE 'EXPECTED_SHA=\$\(git -C "\$BATS_CWD" rev-parse "\$BRANCH"\)'
+}
+
+@test "Phase 2.5 asserts HEAD == EXPECTED_SHA BEFORE the suite" {
+  # A wrong checkout should never run at all. The before-assertion lives above
+  # the bats invocation (BATS_OUT=$(mktemp)).
+  local section before_line bats_line
+  section=$(awk '/^## Phase 2\.5:/,/^## Phase 3:/' "$SKILL_FILE")
+  before_line=$(echo "$section" | grep -nE 'HEAD_NOW=\$\(git -C "\$BATS_CWD" rev-parse HEAD\)' | head -1 | cut -d: -f1)
+  bats_line=$(echo "$section" | grep -nE 'kit/tests/lib/bats-core/bin/bats kit/tests/' | head -1 | cut -d: -f1)
+  [ -n "$before_line" ]
+  [ -n "$bats_line" ]
+  [ "$before_line" -lt "$bats_line" ]
+}
+
+@test "Phase 2.5 re-asserts HEAD == EXPECTED_SHA AFTER the suite (mid-flow flip)" {
+  # The ~60-90s suite is the largest race window; a before-only check misses a
+  # flip that lands during the run. The after-assertion lives below the bats
+  # invocation and halts on mismatch ("verdict untrustworthy" / "HEAD moved").
+  local section after_line bats_line
+  section=$(awk '/^## Phase 2\.5:/,/^## Phase 3:/' "$SKILL_FILE")
+  bats_line=$(echo "$section" | grep -nE 'kit/tests/lib/bats-core/bin/bats kit/tests/' | head -1 | cut -d: -f1)
+  after_line=$(echo "$section" | grep -nE 'HEAD_AFTER=\$\(git -C "\$BATS_CWD" rev-parse HEAD\)' | head -1 | cut -d: -f1)
+  [ -n "$after_line" ]
+  [ -n "$bats_line" ]
+  [ "$after_line" -gt "$bats_line" ]
+  echo "$section" | grep -qiE 'HEAD moved during the suite|verdict untrustworthy'
+}
+
+@test "Phase 2.5 documents the parallel-merge HEAD-flip race rationale" {
+  # Names the race and points at a worked incident (1d343bf, 2026-05-28) +
+  # the Phase 3 mirror (calibration-and-task-phases, 2026-05-20).
+  awk '/^## Phase 2\.5:/,/^## Phase 3:/' "$SKILL_FILE" \
+    | grep -qiE 'parallel.merge|1d343bf|calibration-and-task-phases'
+}
+
 # === Section H — Phase 3 ff-merge + push ===
 
 @test "Phase 3 fast-forwards main to the feature branch's squash commit" {

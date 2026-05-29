@@ -1022,12 +1022,66 @@ Phase 3's `git merge --ff-only` creates no new commit, so the full-suite-
 on-main path in `.husky/pre-commit` never fires. This phase closes the
 gap: run the full kit bats suite explicitly before landing on main.
 
+The gate pins itself to the commit it is supposed to be testing. It resolves
+`$BATS_CWD` to an absolute path (the resolved `$WORKTREE_PATH` when set, else
+`git rev-parse --show-toplevel`), pins `EXPECTED_SHA` to the `$BRANCH` tip
+(the squash commit Phase 2 created), and asserts `git -C "$BATS_CWD" rev-parse
+HEAD == EXPECTED_SHA` **both before and after** the suite. A parallel
+`/ak-merge-devshop` session can flip the tested checkout's HEAD during the
+~60-90s window between Phase 2 and the end of this gate; without the pin, the
+gate would read a green verdict from the wrong tree and Phase 3 would
+ff-push a genuinely-red suite onto main (worked incident `1d343bf`,
+2026-05-28). Either mismatch halts (`exit 1`) with a recovery hint. This is
+the symmetric sibling of the Phase 3 checkout-verification guard
+(calibration-and-task-phases, 2026-05-20), which catches the same race at
+checkout time.
+
 ```bash
 if [ -d kit/tests ] && [ -x kit/tests/lib/bats-core/bin/bats ]; then
   echo "⏳ Running full kit bats suite (pre-merge gate)..."
-  GIT_DIR=""
-  [ -n "$WORKTREE_PATH" ] && GIT_DIR="$WORKTREE_PATH"
-  BATS_CWD="${GIT_DIR:-$(git rev-parse --show-toplevel)}"
+
+  # Resolve the tested tree to an ABSOLUTE path, then pin the commit we
+  # expect it to hold. This is the symmetric sibling of the Phase 3
+  # checkout-verification guard — both defend the same parallel-merge race:
+  # a concurrent /ak-merge-devshop session can flip /devshop's HEAD (and,
+  # in the legacy on-feature-branch path, the very checkout this gate runs
+  # against) between Phase 2's squash and this gate, making the suite read
+  # a green verdict from the WRONG tree and fast-forwarding a genuinely-red
+  # suite onto main. Phase 3's guard (the calibration-and-task-phases
+  # incident, 2026-05-20) catches the flip at checkout time; this guard
+  # catches it at test time. Worked incident: `1d343bf` (2026-05-28) — a
+  # red suite was ff-pushed to main during parallel merges precisely
+  # because Phase 2.5 never asserted which commit it tested.
+  #
+  # Absolute-path resolution removes the implicit `--show-toplevel`
+  # re-resolution that would otherwise follow whatever /devshop currently
+  # points at. `pwd -P` resolves symlinks so the SHA comparison is
+  # tree-exact rather than path-string-exact.
+  if [ -n "$WORKTREE_PATH" ]; then
+    BATS_CWD=$(cd "$WORKTREE_PATH" && pwd -P)
+  else
+    BATS_CWD=$(git rev-parse --show-toplevel)
+  fi
+  # EXPECTED_SHA is the squash commit Phase 2 created = the branch tip.
+  # `git rev-parse <branch>` resolves the ref regardless of which branch
+  # the checkout currently has, so this is correct even if a sibling
+  # session has already flipped the checkout's HEAD.
+  EXPECTED_SHA=$(git -C "$BATS_CWD" rev-parse "$BRANCH")
+
+  # BEFORE the suite: a wrong checkout should never run at all.
+  HEAD_NOW=$(git -C "$BATS_CWD" rev-parse HEAD)
+  if [ "$HEAD_NOW" != "$EXPECTED_SHA" ]; then
+    echo ""
+    echo "✖✖✖ Phase 2.5 ABORT: tested tree is NOT at the squash commit."
+    echo "    Expected HEAD ($BRANCH): $EXPECTED_SHA"
+    echo "    Actual HEAD ($BATS_CWD): $HEAD_NOW"
+    echo "    Likely cause: a parallel /ak-merge-devshop session flipped the"
+    echo "    checkout between Phase 2 (squash) and Phase 2.5 (this gate)."
+    echo "    Recovery: re-checkout $BRANCH in $BATS_CWD, or re-invoke"
+    echo "    /ak-merge-devshop with --source-worktree $WORKTREE_PATH so the"
+    echo "    gate runs against the worktree's own HEAD."
+    exit 1
+  fi
 
   # Compute the verdict from a `not ok` COUNT, never from eyeballing output.
   # Capture to a tempfile, tee for live progress, then grep the count.
@@ -1044,8 +1098,27 @@ if [ -d kit/tests ] && [ -x kit/tests/lib/bats-core/bin/bats ]; then
     rm -f "$BATS_OUT"
     exit 1
   fi
+
+  # AFTER the suite: the ~60-90s run is the largest race window in the flow.
+  # A before-only check misses a flip that lands DURING the run — re-assert
+  # so a green just read against a mid-flow-flipped tree is rejected as
+  # untrustworthy rather than ff-pushed onto main (the `1d343bf` failure).
+  HEAD_AFTER=$(git -C "$BATS_CWD" rev-parse HEAD)
+  if [ "$HEAD_AFTER" != "$EXPECTED_SHA" ]; then
+    echo ""
+    echo "✖✖✖ Phase 2.5 ABORT: HEAD moved during the suite — verdict untrustworthy."
+    echo "    Expected HEAD ($BRANCH): $EXPECTED_SHA"
+    echo "    Actual HEAD ($BATS_CWD): $HEAD_AFTER"
+    echo "    A parallel session flipped the checkout mid-run, so the green"
+    echo "    just read is NOT a verdict on the squash commit. Do NOT proceed."
+    echo "    Recovery: re-checkout $BRANCH in $BATS_CWD and re-invoke, or"
+    echo "    re-invoke with --source-worktree $WORKTREE_PATH."
+    rm -f "$BATS_OUT"
+    exit 1
+  fi
+
   rm -f "$BATS_OUT"
-  echo "✓ Phase 2.5: full bats suite green ($PASSED passed, 0 failed)."
+  echo "✓ Phase 2.5: full bats suite green ($PASSED passed, 0 failed) on $EXPECTED_SHA."
 fi
 ```
 
