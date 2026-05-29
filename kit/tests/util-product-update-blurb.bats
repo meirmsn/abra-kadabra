@@ -4,16 +4,16 @@
 # section convention. Two blurbs (Headline + Detail) live in spec.md as
 # the single source-of-truth, routed verbatim to the PR body's
 # `## Product update` section, BUILD-LOG `Headline:` + `Summary:` fields,
-# Phase 7 ready-for-review comment (Detail), `/ak-go-live` Step 6
-# deployed-to-prod lede (Headline) + context (Detail), and future
-# CHANGELOG aggregation (Headline).
+# `/ak-go-live` Step 6 deployed-to-prod lede (Headline) + context
+# (Detail), and future CHANGELOG aggregation (Headline). (Phase 7 prints
+# a terminal handoff, not a PR comment — see the Phase 7.2 assertions.)
 #
 # Sections:
 #   A — Content validation: ak-spec SKILL.md carries the contract.
 #   B — Content validation: ak-build SKILL.md carries Phase 0.2.6 lint,
 #       Phase 4.1 PR body composition, Phase 5.3.5 drift signal #5,
-#       Phase 5.6 BUILD-LOG entry shape, Phase 6 Gate A + Gate B, and
-#       Phase 7 ready-for-review comment.
+#       Phase 5.6 BUILD-LOG entry shape, Phase 6 Gate A + Gate B (and
+#       no audit-trail comment), and Phase 7 terminal handoff (no comment).
 #   C — Content validation: ak-go-live SKILL.md Step 6 carries Headline
 #       lede + Detail context.
 #   D — Behavioral: extract Phase 0.2.6 lint logic from ak-build SKILL.md
@@ -48,9 +48,10 @@ setup() {
 }
 
 @test "ak-spec Product update sub-section names the downstream surfaces" {
-  # PR body / BUILD-LOG / Phase 7 / Step 6 / future CHANGELOG.
+  # PR body / BUILD-LOG / Step 6 / future CHANGELOG. (Phase 7 is NOT a
+  # surface — it prints a terminal handoff, not a comment; the blurbs do
+  # not route through it.)
   grep -q 'BUILD-LOG' "$AK_SPEC"
-  grep -q 'Phase 7' "$AK_SPEC"
   grep -qE 'Step 6|deployed-to-prod' "$AK_SPEC"
   grep -qi 'CHANGELOG' "$AK_SPEC"
 }
@@ -161,11 +162,38 @@ setup() {
     | grep -qE 'Part D.*Product update'
 }
 
-@test "Phase 6 Part D names Gate A (operator confirmation) and Gate B (automated cross-check)" {
+@test "Phase 6 Part D Gate A is autonomous; Gate B is the automated cross-check" {
+  # Gate A no longer always asks the operator to confirm the blurbs — it
+  # reviews them autonomously against the diff + Gate B findings, mirroring
+  # Part C's factual-checkbox closure. Three outcomes; escalation is the
+  # only operator prompt.
   awk '/Part D.*Product update/,/^## Phase 7/' "$AK_BUILD" \
-    | grep -qE 'Gate A.*operator confirmation'
+    | grep -qE 'Gate A.*autonomous'
+  awk '/Part D.*Product update/,/^## Phase 7/' "$AK_BUILD" \
+    | grep -qE '\*\*Accurate\*\*'
+  awk '/Part D.*Product update/,/^## Phase 7/' "$AK_BUILD" \
+    | grep -qE '\*\*Edit-and-self-resolve\*\*'
+  awk '/Part D.*Product update/,/^## Phase 7/' "$AK_BUILD" \
+    | grep -qE '\*\*Escalate\*\*'
   awk '/Part D.*Product update/,/^## Phase 7/' "$AK_BUILD" \
     | grep -qE 'Gate B.*automated.*cross-check'
+}
+
+@test "Phase 6 Gate A escalation is the only operator prompt" {
+  # AskUserQuestion fires only on the Escalate rung — a genuine
+  # claim-vs-diff product-judgment mismatch the diff can't settle.
+  awk '/Gate A — autonomous/,/^## Phase 7/' "$AK_BUILD" \
+    | grep -qiE 'ONLY operator prompt'
+}
+
+@test "Phase 6 posts no audit-trail PR comment (gate results live in review.md)" {
+  # The Phase 6 gate-table audit comment was dropped — gate results live in
+  # the committed specs/<feature>/review.md, not on the PR timeline. Parts
+  # A/B still use `gh pr edit --body-file` for legitimate body fixes; only
+  # the `gh pr comment` post is gone. (The sole `gh pr comment` in the
+  # skill is the unrelated Phase 5.5 CI-failure escalation, before Phase 6.)
+  ! awk '/^## Phase 6/,/^## Phase 7/' "$AK_BUILD" \
+    | grep -qE 'gh pr comment'
 }
 
 @test "Phase 6 Gate B is warn-not-block, informs Gate A" {

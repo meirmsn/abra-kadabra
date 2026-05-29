@@ -4,6 +4,15 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### ak-build-phase6-pr-surface (2026-05-28)
+
+- **Branch**: `feat/ak-build-phase6-pr-surface`
+- **Spec**: `specs/ak-build-phase6-pr-surface/spec.md`
+- **Headline**: `/ak-build` no longer drops a gate-status comment on your PRs, and it now reviews the PR description itself instead of pausing to ask you to confirm it.
+- **Summary**: Phase 6 stops posting the audit-trail comment — gate results stay in the committed `review.md`. Part D's Gate A now reviews the Product-update blurbs against the diff autonomously (mirroring Parts A/B/C), escalating to the operator only when a real claim-vs-diff mismatch needs a product-judgment call the diff can't settle. Completes a partial cleanup: the PR body + Phase 7 comment were stripped in a prior PR but Phase 6 was missed. The consistency sweep extended across 9 files (build/SKILL.md + 6 sibling skills + workflow.md/FAQ.md/conventions.md) so no doc still frames Phase 6 as posting a comment or Gate A as always asking.
+- **Commits**: 11 atomic commits (squashed to 1 on main via /ak-merge-devshop)
+- **Quality gates**: 1527 bats pass (3 new/rewritten Phase 6 assertions in `util-product-update-blurb.bats`: Gate A autonomous, escalation-only prompt, Phase 6 posts no audit comment). Phase 2.5 fresh-eyes verification caught + fixed 12 dangling cross-references across 8 files (the comment-removal half). Gate 1 docs-check: 3 more residual Gate-A-autonomy refs fixed (conventions.md, spec/SKILL.md, build/SKILL.md). Gate 5 audit: high=0 medium=0 low=1 (fixed: stale Phase-7-comment surface ref). Gate 6 /review: low=1 (tracker-closure timing note — closed here). Gates 2d/4/11 clean; 7/8/9/10 structural carve-outs (devshop self-mode); 9 non-LLM carve-outs n/a.
+
 ### ak-build-no-silent-scope-down (2026-05-28)
 
 - **Branch**: `feat/ak-build-no-silent-scope-down`

@@ -402,9 +402,9 @@ Mirror `/ak-tests-review`:
 - **high** → halt audit. Operator must fix before ship. Load-bearing
   contradiction, missing doc for a new auth/RLS/deploy surface, mis-described
   security boundary.
-- **medium** → surface in the orchestrator's Phase 6 audit comment. Stub edits,
-  dangling references, missing-but-recoverable coverage on non-load-bearing
-  surfaces.
+- **medium** → recorded in `review.md`; the orchestrator's Phase 6 verifies the
+  PR surface against it. Stub edits, dangling references,
+  missing-but-recoverable coverage on non-load-bearing surfaces.
 - **low** → noted in `review.md`'s audit section, not surfaced elsewhere.
   Style nits, formatting churn, "could be tighter" suggestions.
 

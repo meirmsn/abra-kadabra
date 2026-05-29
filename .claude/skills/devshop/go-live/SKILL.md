@@ -264,7 +264,7 @@ CI-vs-prod credential separation is the structural enforcement of the deploy bou
 - `## Operator follow-up` (when present) — post-deploy reminders (e.g., "monitor the metric dashboard for 24h", "follow up with the legal team on copy"). Surface as a reminder, not a gate.
 - `## Test plan` `[ ]` items — checkboxes `/ak-build` Phase 5.3's auto-marker should have flipped on CI green. A leftover `[ ]` here usually means the bookkeeping was skipped (legacy build, hotfix PR, or Phase 5.3 silently failed) — surface as a sanity-check signal.
 
-This step pulls every `[ ]` checkbox from the merging PR's body + the latest audit / ready-for-review comments, groups them by section, annotates each (`[manual]` / `[deferred]` / `[!]`), and prints a single "Pending tasks before live" view so the operator sees at a glance what they own. The deploy then blocks (via `AskUserQuestion`) only on `[manual]` items under `## Out-of-band deploy items` — the other categories are non-blocking reminders.
+This step pulls every `[ ]` checkbox from the merging PR's body (plus any legacy audit / ready-for-review comments on PRs that pre-date their removal from `/ak-build`), groups them by section, annotates each (`[manual]` / `[deferred]` / `[!]`), and prints a single "Pending tasks before live" view so the operator sees at a glance what they own. The deploy then blocks (via `AskUserQuestion`) only on `[manual]` items under `## Out-of-band deploy items` — the other categories are non-blocking reminders.
 
 ```bash
 PR=${PR:-$(gh pr list --head "$(git branch --show-current)" --json number --jq '.[0].number')}

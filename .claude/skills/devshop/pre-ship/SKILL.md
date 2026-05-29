@@ -1114,7 +1114,7 @@ CLAUDE.md § gstack); the wrapper is the devshop-side fix that sits outside that
 tree. Wrapper also creates the destination dir, so no separate `mkdir -p` is
 needed.
 
-Add the paths to the pre-ship audit trail under Gate 3 / 8. `/ak-build` Phase 6 embeds them into the audit PR comment via repo-relative markdown (GitHub renders them inline).
+Add the paths to the pre-ship audit trail under Gate 3 / 8. `/ak-build` Phase 4.1 embeds them into the PR body via repo-relative markdown (GitHub renders them inline); Phase 6's evidence sweep verifies each embedded path exists on disk.
 
 ## Output
 
@@ -1139,7 +1139,7 @@ The caller uses `blocked` as a hard signal. If `blocked > 0`, `/ak-build` must N
 advance to `/ship`. Emit the preflight fix recipe verbatim so the user can copy it
 out of the orchestrator's report.
 
-`dismissals_*` are informational for the `/ak-build` audit comment — not a hard gate,
+`dismissals_*` are informational for the `/ak-build` audit trail in `review.md` — not a hard gate,
 but a pipeline-health signal worth surfacing to the human reviewer.
 
 ## Stuck protocol (for test failures between gates)

@@ -253,7 +253,7 @@ If 0/0/0 findings: "Tests look solid — no findings."
 ## Severity rules
 
 - `high` → halt audit. Operator must fix before ship.
-- `medium` → surface in Phase 6 audit comment.
+- `medium` → recorded in `review.md`; Phase 6 verifies the PR surface against it.
 - `low` → noted in `review.md`, not surfaced elsewhere.
 
 ## Behavior

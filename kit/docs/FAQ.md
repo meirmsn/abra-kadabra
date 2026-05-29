@@ -121,7 +121,7 @@ Per-feature (specs/<name>/)
                       starts with an `<!-- audited-at: <SHA> -->` HTML-comment
                       stamp (the parse contract /ak-build Phase 5.8 reads to
                       derive the post-pre-ship range and Phase 6 reads to
-                      surface the findings in the audit comment). Single
+                      verify the PR surface against the findings). Single
                       file — every audit appends a new `## Audit N` section
                       here; no separate test-review-followup.md.
   hero/             — committed: 1–2 durable screenshots per key screen
@@ -140,7 +140,7 @@ Each feature directory is immutable after merge — a permanent record of the fu
 
 **Hero vs evidence screenshots:**
 
-- `specs/<name>/hero/` is **committed**. 1–2 files per key user-facing screen, default 1440×light (`signin.png`, `onboarding.png`). Embedded in the `/ak-build` audit comment and referenced from `BUILD-LOG.md` as the durable visual record of what shipped. Captured after all gates pass.
+- `specs/<name>/hero/` is **committed**. 1–2 files per key user-facing screen, default 1440×light (`signin.png`, `onboarding.png`). Embedded in the `/ak-build` PR body (Phase 4.1) and referenced from `BUILD-LOG.md` as the durable visual record of what shipped. Captured after all gates pass.
 - `specs/<name>/screenshots/` is **gitignored** via the root `.gitignore` pattern `specs/*/screenshots/`. Holds the 4 viewport/theme combos (375 × light/dark, 1440 × light/dark) captured during Gate 3 as per-run evidence. Regenerable; never committed.
 
 The split exists so durable documentation (hero) doesn't bloat the repo with every pre-ship run's full 4-combo grid, while the grid itself is still available locally for audit.

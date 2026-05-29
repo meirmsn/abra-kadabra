@@ -229,7 +229,7 @@ context chain:
 
 Then fill only the gaps the gstack plan left — the missing detail only, not a rewrite:
 
-- **`## Product update`** (REQUIRED — see below) — two named sub-sections `### Headline (user-facing)` and `### Detail (team-facing)` that carry the canonical product story for this PR. Single source-of-truth for the PR body's `## Product update` section, BUILD-LOG `Headline:` + `Summary:` fields, `/ak-build` Phase 7 ready-for-review comment, and `/ak-go-live` Step 6 deployed-to-prod comment. Authored here at Phase 0; verified against the diff at `/ak-build` Phase 6 Gate A.
+- **`## Product update`** (REQUIRED — see below) — two named sub-sections `### Headline (user-facing)` and `### Detail (team-facing)` that carry the canonical product story for this PR. Single source-of-truth for the PR body's `## Product update` section, BUILD-LOG `Headline:` + `Summary:` fields, and `/ak-go-live` Step 6 deployed-to-prod comment. Authored here at Phase 0; verified against the diff at `/ak-build` Phase 6 Gate A.
 - **`## Core user story`** (REQUIRED — see below) — 2–4 imperative verbs, one per line, describing the product's primary observable flow end-to-end. `/ak-pre-ship` Gate 9 (qa-walk) enforces that every verb in this section produces a verifiable artifact.
 - User-facing behaviors not yet specified (happy path + all error states)
 - **`## Render conditions`** (REQUIRED for any feature introducing or modifying a UI element with conditional visibility — see below). One row per element, every state combination resolved to `shown` / `hidden`. Default for an unmentioned combination is implicit `hidden`; never leave the matrix sparse.
@@ -329,7 +329,7 @@ Four rows × four states × explicit `shown` / `hidden` / `n/a` — the `add-new
 
 ### Product update (required — verified at `/ak-build` Phase 6 Gate A)
 
-Every spec MUST include a `## Product update` section with two sub-sections — `### Headline (user-facing)` and `### Detail (team-facing)`. They carry the canonical product story for this PR. The same blurbs are routed downstream (PR body, BUILD-LOG, Phase 7 ready-for-review comment, `/ak-go-live` Step 6 deployed-to-prod comment, future CHANGELOG aggregation) verbatim — this section is the **single source of truth**, no surface composes its own copy.
+Every spec MUST include a `## Product update` section with two sub-sections — `### Headline (user-facing)` and `### Detail (team-facing)`. They carry the canonical product story for this PR. The same blurbs are routed downstream (PR body, BUILD-LOG, `/ak-go-live` Step 6 deployed-to-prod comment, future CHANGELOG aggregation) verbatim — this section is the **single source of truth**, no surface composes its own copy.
 
 The contract serves two distinct audiences, both grounded in the same atomic claims (the verbs + nouns the diff actually shipped):
 
@@ -373,7 +373,7 @@ Six eng-vocabulary leaks (`card_state`, `confirm_triage`, `RPC`, `diagnosed`, `p
 
 **Authoring at Phase 0**: when `/ak-build` Phase 0 runs the spec-skeleton step, it surfaces both blurbs as the first named bullets of the Scope preview so the operator approves them alongside Decisions / Scope / Tracker. The spec agent's first draft tends to over-include eng terms in Headline — operator's first edit pass usually strips them. Same shape as how Decisions are handled today (AI drafts, operator approves or rewrites inline).
 
-**Verification at Phase 6**: `/ak-build` Phase 6 Part D presents both blurbs side-by-side with the diff and asks the operator "does each blurb still describe what shipped?" Yes/edit per blurb. Phase 6 Gate B additionally runs an automated claim-vs-diff cross-check (parses Detail into atomic claims, grep-evidence in diff, flags audience-shape mismatch between Headline and Detail) as an assist for Gate A — warn-not-block. Together they prevent the Phase 0 blurb from silently drifting away from what actually shipped (a polish-loop fix adds a user-visible disclosure; the original blurb didn't call it out).
+**Verification at Phase 6**: `/ak-build` Phase 6 Part D reviews both blurbs against the diff autonomously (Gate A) — classifying each into Accurate / Edit-and-self-resolve / Escalate, and prompting the operator only on a genuine claim-vs-diff product-judgment mismatch the diff can't settle. Phase 6 Gate B additionally runs an automated claim-vs-diff cross-check (parses Detail into atomic claims, grep-evidence in diff, flags audience-shape mismatch between Headline and Detail) as an assist for Gate A — warn-not-block. Together they prevent the Phase 0 blurb from silently drifting away from what actually shipped (a polish-loop fix adds a user-visible disclosure; the original blurb didn't call it out).
 
 ### Task order (flat for ≤15 tasks, phase-grouped for >15)
 

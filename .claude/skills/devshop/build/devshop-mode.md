@@ -24,7 +24,7 @@ entirely — `/ak-merge-devshop` subsumes them.
 ```
 
 After Phase 4.5, the pipeline is done. No Phase 5 (CI watch), no Phase 6
-(audit comment), no Phase 7 (notification). `/ak-merge-devshop` handles the
+(PR-surface verification), no Phase 7 (notification). `/ak-merge-devshop` handles the
 audit (its Phase 1), the squash commit body (the audit trail), the pre-push
 hooks (the devshop's CI equivalent), and the push.
 

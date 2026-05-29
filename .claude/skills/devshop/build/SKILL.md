@@ -3,7 +3,7 @@ name: ak-build
 version: 2.0.0
 description: |
   Autonomous build pipeline: preview → spec → implement → quality gates → ship → CI watch → notify.
-  Two modes: **project** (default — PR-based, CI watch, audit comment, /ak-go-live) and
+  Two modes: **project** (default — PR-based, CI watch, PR-surface verification, /ak-go-live) and
   **devshop** (auto-detected when GIT_ROOT=/devshop — reduced gate set, /ak-merge-devshop
   transport, no PR/CI/deploy). See `devshop-mode.md` in this directory for devshop-specific
   phases (Phase 3 gate matrix, Phase 4.5, terminal handoff).
@@ -18,7 +18,7 @@ description: |
   If /ak-pre-ship reports any `blocked` gate (tooling missing), fires AskUserQuestion
   with three options (resolve / override / abort) before advance — captures any override
   in specs/<feature>/review.md § Phase 3 → 4 advance log, adversarially reviews it via
-  the blockedGateOverride check-type, and renders the log in Phase 6's PR audit comment.
+  the blockedGateOverride check-type — the committed review.md is the durable audit trail.
   PR body conventions codified: private-repo-safe image URLs, checkbox timing per
   phase, hero-screenshot embeds rendered correctly at Phase 6.
   Use when asked to "build it", "build this", "go", or "implement and ship". (devshop)
@@ -72,7 +72,7 @@ you run it all without asking.
 **What silently disappears when you improvise a reduced flow:** the
 `specs/<feature>/` artifacts (spec.md, tasks.md, and especially `review.md`'s
 audit log), the `BUILD-LOG.md` ship entry, `PLAN.md` tracker movement, and the
-Phase 6 PR audit comment (project mode) / squash-message detail (devshop mode).
+Phase 6 PR-surface verification (project mode) / squash-message detail (devshop mode).
 These are not ceremony — they are the audit trail. Dropping a phase to "save
 time" deletes them with no warning to the operator.
 
@@ -91,8 +91,8 @@ options:
        default; pick it unless the operator has a specific reason not to.
   2. Run a reduced flow
      — REQUIRES you to first enumerate, in the question text, EXACTLY which
-       phases and which specs/<feature>/ + BUILD-LOG + PLAN + audit-comment
-       artifacts would be dropped and WHY each is safe to skip for THIS change.
+       phases and which specs/<feature>/ + BUILD-LOG + PLAN + PR-surface
+       verification would be dropped and WHY each is safe to skip for THIS change.
        Not selectable without that enumeration.
   3. Abort
      — Stop /ak-build entirely; make no changes.
@@ -129,7 +129,7 @@ clean for orchestration and user communication.
   │                             (Phase 5.9 — overwrites stale screenshots/
   │                             hero shots; freshness-only, no halt path)
   └─ Phase 6 (main ctx)      → reads review.md (Gate N + Audit N sections) +
-                                tasks.md for audit comment
+                                tasks.md to verify the PR surface
 ```
 
 ## Phase exit artifact registry
@@ -397,7 +397,7 @@ Phase 2 / Task N: <last>
 Phase 3: Pre-ship
 Phase 4: Ship
 Phase 5: CI watch + BUILD-LOG
-Phase 6: Audit comment
+Phase 6: Verify PR surface
 Phase 7: Notify
 ```
 
@@ -586,7 +586,7 @@ Phase 4.1 copies them verbatim into the PR body's `## Product update`
 section, Phase 5.6 copies Headline into BUILD-LOG `Headline:` and Detail
 into `Summary:`, and `/ak-go-live` Step 6 uses Headline as the
 deployed-to-prod lede. Verified
-against the diff at Phase 6 Gate A (operator confirmation) + Gate B
+against the diff at Phase 6 Gate A (autonomous claim-vs-diff review) + Gate B
 (automated claim-vs-diff cross-check). Collapse to
 `### Headline + Detail (combined)` if the two would be word-for-word
 identical.
@@ -838,8 +838,8 @@ who fixes findings:
   `findings (N) fixed` / `blocked`.
 - **Halt-on-find gates** (`/review`, `/cso`, `docs-and-tests-review`/Audit 1,
   `rls-coverage`): the sub-agent surfaces findings, returns. The orchestrator
-  routes by severity: high → escalate to operator (Rung 1); medium → list in
-  Phase 6 audit comment; low → note + proceed; **mechanical/obvious** →
+  routes by severity: high → escalate to operator (Rung 1); medium → record in
+  `review.md`; low → note + proceed; **mechanical/obvious** →
   orchestrator dispatches a focused fix sub-agent (template at § 3.1c).
   Preserves the existing trust boundary on security/SQL-critical findings
   (don't auto-fix without operator read).
@@ -1285,7 +1285,7 @@ orchestrator MUST fire `AskUserQuestion` and branch on its return.
      2. Override — name the gate, reason, and follow-up tracker entry
         — Captured in specs/<feature>/review.md § Phase 3 → 4 advance log,
           adversarially reviewed via the `blockedGateOverride` check-type
-          (Sonnet), and rendered in Phase 6's PR audit comment.
+          (Sonnet) — the committed review.md is the durable audit record.
      3. Abort the /ak-build run
    ```
 
@@ -1346,9 +1346,9 @@ orchestrator MUST fire `AskUserQuestion` and branch on its return.
 
    The `<!-- adversarial-review-stamp -->` is the audit signal: a `pending`
    stamp on a merged PR is a contract violation (the orchestrator MUST NOT
-   advance with a `pending` stamp). Phase 6's audit comment renders the
-   advance log section verbatim so reviewers see the gate + reason +
-   tracker + stamp disposition.
+   advance with a `pending` stamp). The advance log section in the
+   committed `review.md` records the gate + reason + tracker + stamp
+   disposition verbatim so reviewers can audit it.
 
 6. **Option 3 (abort)**: exit /ak-build cleanly. Phase 4 is not entered. No
    commits made; no PR push. Operator can re-invoke later.
@@ -1765,8 +1765,8 @@ When GitHub re-enables the fine-grained Checks permission, swap back to
 
 **Watch-every-push guarantee (folded in from defunct Phase 5.7).** After
 this CI-green attestation, treat every subsequent push on the branch as
-its own watch-then-advance unit before Phase 6's audit comment can post
-its `CI is green` claim. Polish-loop fixes, post-`/ak-build` operator
+its own watch-then-advance unit before Phase 6 marks the `CI green`
+checkbox `[x]` in the PR body. Polish-loop fixes, post-`/ak-build` operator
 edits, and audit-fix commits all trigger their own CI runs; each must be
 re-watched and confirmed `success` at the SHA being audited. The Phase 5.6
 elision removed one structural source of post-CI-green pushes (the
@@ -1775,7 +1775,7 @@ Codified from lalista PR 18 (2026-04-25) — audit + ready-for-review
 comments posted while a bookkeeping push's CI was still `in_progress`;
 that run failed on a WebKit system-libs flake, forcing a public
 retraction comment. Phase 6's `Part B` evidence sweep enforces this
-check at posting time.
+check before it attests the PR body's `[x]` claims.
 
 Once the CI run completes successfully, mark the `CI green` and
 `preview deployed` checkboxes as `[x]` in `## Test plan`. Check for
@@ -1906,7 +1906,7 @@ whether the signals invalidate any specific claim:
   diff added since /ship, OR Headline lags Detail in coverage. Both
   signals warrant a body edit: rewrite the Headline / Detail to reflect
   what actually shipped, then re-stamp spec.md so the source-of-truth
-  stays in sync (the next surface — BUILD-LOG at 5.6, Phase 7 comment,
+  stays in sync (the next surface — BUILD-LOG at 5.6, Phase 7 notify,
   /ak-go-live Step 6 — all copy from spec.md, not from the PR body).
 - Engineering details section names the bug + fix at the eng grain. New
   runtime / test files often mean there's a "scope expansion" angle
@@ -1942,7 +1942,7 @@ replacement (synthetic DOM-injection captures swapped for live /list
 captures via `b52d22f`), and a bundled CI workflow fix
 (`.github/workflows/ci.yml` at 3d1546c). All three would have fired the
 signals above. The body went stale across all three; the user caught it
-at audit-comment time and asked "isn't the PR description stale?" —
+at Phase 6 PR-surface review time and asked "isn't the PR description stale?" —
 which is exactly the question this check exists to answer pre-emptively.
 
 **Exit artifact** (§ Phase exit artifact registry row `5.3.5`): as the
@@ -2259,11 +2259,11 @@ no race window with 4.0.
 **Why 5.7 was deleted**: the historic 5.7 re-watched CI after 5.6's
 unconditional bookkeeping push. With 4.0 making the bookkeeping commit
 part of `/ship`'s push, the common path has no 5.6 push to re-watch and
-Phase 6 can post against the original `/ship` CI run. The "watch every
+Phase 6 can verify the PR surface against the original `/ship` CI run. The "watch every
 push" guarantee (the load-bearing piece 5.7 enforced) is folded into
 5.3's preamble: every subsequent push on the branch — polish-loop fixes,
 audit-fix commits, out-of-band operator edits, OR a 5.6-fallback push —
-must be re-watched before Phase 6 posts. Phase 5.8.1's polish-loop CI
+must be re-watched before Phase 6 attests the PR body. Phase 5.8.1's polish-loop CI
 sanity check is the enforcement point on entry to 5.8 (it enumerates
 every run since PR open and halts if the latest isn't green).
 
@@ -2281,7 +2281,7 @@ at all," and the freshness hook covers docs — but none check **whether the
 new behavior is actually pinned by an assertion** or **whether the polish
 diff invalidated existing docs**. That's `/ak-check-docs-and-tests`'s job;
 5.8 re-runs it once over the polish range — appending `## Audit 2` to the
-same `review.md` — before Phase 6 posts the audit comment.
+same `review.md` — before Phase 6 verifies the PR surface.
 
 **Devshop-side equivalent**: this phase is project-specific (assumes
 Phase 5's CI watch + post-CI-green polish window precedes it). Devshop
@@ -2358,8 +2358,8 @@ fi
 ```
 
 **Reading the output**: a transient red→green sequence (push broke
-something, next push fixed it) is informational. The audit comment in
-Phase 6 records the count for reviewer due-diligence — it's evidence
+something, next push fixed it) is informational. The `review.md` audit
+section records the count for reviewer due-diligence — it's evidence
 the polish loop hit and resolved real failures, not a problem. A
 sustained-red latest run is the halt path.
 
@@ -2451,9 +2451,9 @@ N` section's `findings: high=H medium=M low=L` summary line:
 | Severity     | Action                                                                                                                                                                                      |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `high>0`     | **Halt** at 5.8. Surface the findings to the user in the same shape as `findings_pending`. Phase 6 does NOT run. User options: (a) close findings with new commits (docs and/or tests) and re-invoke `/ak-build` (resumes via Step 0 — 5.8 re-runs over the new HEAD; the orchestrator's idempotence guard skips if HEAD didn't move); (b) override via `git config devshop.testReviewSkipReason "<specific reason>"` (then re-invoke). The Layer-2 adversarial reviewer judges the override. |
-| `medium>0`   | **Proceed**. Phase 6's audit comment includes a `### Post-pre-ship docs + tests findings` section listing them so the human reviewer sees them inline. Mediums are recommendations, not blockers.                                          |
-| `low>0`      | Audit comment notes `(N low-severity items in review.md § Audit N)` without listing.                                                                                                        |
-| `0/0/0`      | Audit comment notes `Post-pre-ship audit: clean.`                                                                                                                                           |
+| `medium>0`   | **Proceed**. The `review.md` audit section lists them under `### Post-pre-ship docs + tests findings` so a reviewer reading the committed audit trail sees them. Mediums are recommendations, not blockers.                                          |
+| `low>0`      | `review.md` notes `(N low-severity items in § Audit N)` without listing.                                                                                                        |
+| `0/0/0`      | `review.md` notes `Post-pre-ship audit: clean.`                                                                                                                                           |
 
 **Halt-path output**:
 
@@ -2465,7 +2465,7 @@ Findings (full report at ${FEATURE_DIR}/review.md § Audit N):
   - <finding 1: file:line + one-line summary>
   - <finding 2: ...>
 
-Phase 6 will not post the audit comment until findings are closed.
+Phase 6 will not run until findings are closed.
 
 Options:
   1. Close findings with new commits (docs and/or tests), then re-run
@@ -2574,8 +2574,8 @@ reach a commit.
 
 5.9 is freshness-only. There is no "high-severity finding" concept and
 no escalation. The subagent either produces a commit (UI did change
-during polish) or a no-op (UI is unchanged). Phase 6's audit comment
-records which.
+during polish) or a no-op (UI is unchanged). The `review.md` audit
+section records which.
 
 ### 5.9.4: Idempotence
 
@@ -2660,52 +2660,18 @@ fi
 echo "✓ Phase 5 exit checklist: all artifacts present."
 ```
 
-## Phase 6: Post audit trail comment
+## Phase 6: Verify the PR surface
 
 After CI is green, read `$FEATURE_DIR/review.md` and `$FEATURE_DIR/tasks.md` for the
-audit data. Post the audit trail on the PR.
+audit data. Phase 6 validates that the PR body tells the truth (Parts A–D below); it
+posts nothing. The gate-by-gate audit trail already lives in the committed
+`specs/<feature>/review.md` — a PR comment would only duplicate it onto the timeline,
+contradicting the no-clutter convention (Phase 4.1 "body … clean of devshop process
+artifacts"; Phase 7 "the PR being open IS the notification").
 
 Use the outcome vocabulary from `/ak-pre-ship`: **`pass`**, **`findings (N) [fixed | pending]`**,
 **`n/a`** (gate didn't apply), **`blocked`** (tooling missing — should never reach
 Phase 6 because Phase 3 refuses to advance, but surface it if it somehow does).
-
-The audit comment is intentionally concise — the full gate-by-gate log
-lives in `specs/<feature>/review.md` (committed to the repo). The PR
-comment carries only the information a cold reviewer needs: overall
-gate status, any overrides, CI fix history, and hero shots.
-
-```bash
-# Compute summary counts from review.md
-GATES_PASSED=$(grep -c 'Result:.*pass' "$FEATURE_DIR/review.md" || echo 0)
-FINDINGS_FIXED=$(grep -oP 'findings \(\K[0-9]+' "$FEATURE_DIR/review.md" | \
-  paste -sd+ | bc 2>/dev/null || echo 0)
-TOTAL_GATES=$((GATES_PASSED + $(grep -c 'Result:' "$FEATURE_DIR/review.md" || echo 0)))
-
-gh pr comment "$PR" --body "$(cat <<COMMENT
-## Pre-ship audit
-
-${GATES_PASSED} gates passed, ${FINDINGS_FIXED} findings fixed during pre-ship.
-Full gate log: \`specs/${FEATURE}/review.md\`.
-
-$(# Override-acknowledgements — only if overrides exist
-if grep -q 'Phase 3 → 4 advance log' "$FEATURE_DIR/review.md" 2>/dev/null; then
-  echo '### Overrides'
-  echo ''
-  awk '/^## Phase 3 → 4 advance log/,/^## [^P]/' "$FEATURE_DIR/review.md" | \
-    sed '1d;$d'
-fi)
-
-$(# Hero shots — only if PNGs exist
-OWNER_REPO=\$(gh repo view --json nameWithOwner --jq .nameWithOwner)
-BRANCH=\$(git branch --show-current)
-for shot in "$FEATURE_DIR"/hero/*.png; do
-  [ -f "\$shot" ] || continue
-  REL=\${shot#/workspace/}
-  echo "![\${shot##*/}](https://github.com/\${OWNER_REPO}/raw/\${BRANCH}/\${REL})"
-done)
-COMMENT
-)"
-```
 
 ### Phase 6 checkbox verification (final sweep)
 
@@ -2719,7 +2685,7 @@ Before leaving Phase 6, re-read the PR body one more time and reconcile the `## 
 | Vercel/Netlify/Fly preview deployed                                     | Platform bot comment reports `Ready` / equivalent — mark with the preview URL + timestamp.                                                                                                                                                    |
 | Manual-review callouts (visual audits, QA walkthrough, post-deploy p95) | **Never** — these are for the reviewer, not the automation.                                                                                                                                                                                   |
 
-If any box is in the wrong state when Phase 6 runs, fix it with `gh pr edit "$PR" --body-file` before posting the audit comment.
+If any box is in the wrong state when Phase 6 runs, fix it with `gh pr edit "$PR" --body-file`.
 
 **Part A exit marker**: `echo "reconciled at $(git rev-parse HEAD)" > /tmp/phase6-partA.done`
 
@@ -2788,7 +2754,7 @@ fi
 [ -n "$(ls specs/$FEATURE/hero/ 2>/dev/null)" ] || EVIDENCE_MISSING+="  specs/$FEATURE/hero/ (no hero shots captured)\n"
 ```
 
-If `$EVIDENCE_MISSING` is non-empty → **halt Phase 6**. Do NOT post the audit-trail comment. Surface the discrepancy to the operator:
+If `$EVIDENCE_MISSING` is non-empty → **halt Phase 6**. The PR body carries an `[x]` claim with no backing artifact — surface the discrepancy to the operator:
 
 ```
 ✖ Phase 6 evidence-on-disk sweep: N [x] checkbox(es) reference missing evidence.
@@ -2860,7 +2826,7 @@ Codified from lalista PR 27 (2026-04-27) — the PR shipped with 4 Manual-review
 
 **Part D — Product update verification (Gate A + Gate B):**
 
-The `## Product update` section was authored at Phase 0 from intent — the polish loop may have subtly changed what shipped (a fix added a user-visible disclosure, a feature was trimmed for scope). Without a verification rung, both blurbs decay to stale claims that propagate verbatim into BUILD-LOG / Phase 7 / `/ak-go-live` Step 6 / future CHANGELOG aggregation. Part D pairs an automated cross-check (Gate B) with an operator-attention beat (Gate A) at the final-sweep moment when the operator is already reviewing the PR.
+The `## Product update` section was authored at Phase 0 from intent — the polish loop may have subtly changed what shipped (a fix added a user-visible disclosure, a feature was trimmed for scope). Without a verification rung, both blurbs decay to stale claims that propagate verbatim into BUILD-LOG / Phase 7 / `/ak-go-live` Step 6 / future CHANGELOG aggregation. Part D pairs an automated cross-check (Gate B) with an autonomous review (Gate A) at the final-sweep moment — Gate A reads both blurbs against the diff and self-resolves, escalating to the operator only on a genuine claim-vs-diff product-judgment mismatch the diff can't settle.
 
 **Gate B — automated claim-vs-diff cross-check (runs first, informs Gate A):**
 
@@ -2915,9 +2881,14 @@ done < <(comm -23 <(echo "$HEADLINE_NOUNS") <(echo "$DETAIL_NOUNS") | head -5)
 
 Gate B is **warn-not-block** — the noun-phrase grep is fuzzy, and the Headline/Detail audience-shape rule has a legitimate asymmetry (Headline is intentionally lower-fidelity than Detail). False positives are likely; the operator at Gate A decides whether each finding is real. The heuristic is intentionally simple (sort-uniq noun comparison + grep against the diff); the LLM running Gate A can read both blurbs against the actual diff with full context, so Gate B's job is to *surface candidate concerns*, not adjudicate them.
 
-**Gate A — operator confirmation (the load-bearing decision):**
+**Gate A — autonomous claim-vs-diff review (mirrors Part C's factual-checkbox closure):**
 
-After Gate B produces findings, surface both blurbs side-by-side with the diff and ask the operator to confirm each blurb still describes what shipped:
+After Gate B produces findings, read both blurbs against the diff +
+`$GATE_B_FINDINGS` and classify the result into one of three outcomes —
+no operator prompt unless a genuine claim-vs-diff mismatch's correct
+wording is a product-judgment call the diff can't settle. The
+orchestrator already has every input it needs: the spec blurbs, the full
+diff, and Gate B's automated cross-check.
 
 ```bash
 # Pull spec.md's Product update section verbatim.
@@ -2932,61 +2903,49 @@ fi
 
 # Build the diff summary — one line per substantive file changed since
 # /ship's first commit, with a 3-line context window of the new code per
-# file (so the operator can scan "did the blurb name this?" without
+# file (so the review can answer "did the blurb name this?" without
 # clicking into the PR).
 git diff --name-only "$DIFF_RANGE" | grep -vE '^(specs/|BUILD-LOG\.md$|PLAN\.md$|kit/version|.*CHANGELOG\.md$)' > /tmp/product-update-diff-files.txt
 ```
 
-Surface the comparison to the operator via `AskUserQuestion` (or
-narration when the harness doesn't support it):
+Read both blurbs against the diff summary (`/tmp/product-update-diff-files.txt`
++ the actual `git diff "$DIFF_RANGE"`) and `$GATE_B_FINDINGS`, then classify:
 
-```
-Product update verification — does each blurb still describe what shipped?
+| Outcome | Trigger | Action |
+|---------|---------|--------|
+| **Accurate** | Both blurbs match the diff; Gate B findings (if any) are false positives the diff disproves. | Log a one-line attestation in `review.md § Product update verification`: `Gate A reviewed at <SHA>: both blurbs match the diff.` Continue. No operator prompt. |
+| **Edit-and-self-resolve** | A fixable drift — stale wording, a missing claim the diff supports, or an audience-shape leak Gate B flagged that the diff confirms. | Rewrite the named blurb in `$FEATURE_DIR/spec.md § Product update`, re-splice the PR body's `## Product update` section with the new text, commit on the feature branch (`chore(<feature>): refine product blurb post-Gate-A`), then re-run Gate B once over the edited blurbs. Log the edit in `review.md § Product update verification`. After two loops, accept and continue — Gate A is for accuracy, not infinite polish. |
+| **Escalate** | A genuine claim-vs-diff mismatch whose correct wording is a product-judgment call the diff can't settle (e.g. the diff supports two equally-defensible framings and which is "right" depends on product intent the diff doesn't encode). | `AskUserQuestion` with both blurbs, the diff summary, and the specific mismatch. Apply the operator's wording via the Edit-and-self-resolve path, then log. This is the ONLY operator prompt in Gate A. |
 
-Headline (user-facing, will land in CHANGELOG + /ak-go-live Step 6):
-  <SPEC_HEADLINE>
+Both blurbs are the single source-of-truth for BUILD-LOG + Phase 7 +
+`/ak-go-live` Step 6; any Edit-and-self-resolve or Escalate rewrite MUST
+be saved back to `spec.md § Product update` so downstream surfaces stay
+in sync.
 
-Detail (team-facing, will land in BUILD-LOG Summary + Phase 7 comment):
-  <SPEC_DETAIL>
+Why autonomous: Phase 6's other Parts (A/B/C) auto-attest factual gates
+and halt only on a real problem; Part C's factual-checkbox closure is the
+direct precedent — the orchestrator verifies what it can verify and
+surfaces only the genuine judgment call. Gate A has the same shape: the
+spec blurbs + full diff + Gate B cross-check are enough to confirm an
+accurate blurb or self-resolve a fixable drift. Surfacing an accurate
+blurb to the operator just to rubber-stamp it wastes their attention;
+the Escalate rung preserves the operator's eyes for the one case the diff
+can't settle.
 
-Diff summary (substantive files changed since /ship):
-  <one line per file in /tmp/product-update-diff-files.txt>
-
-Gate B findings (automated cross-check — warn-not-block; judgment yours):
-  <GATE_B_FINDINGS — empty if clean, otherwise one bullet per unevidenced
-   claim / audience-shape mismatch>
-
-Confirm or edit per blurb. Both blurbs are the single source-of-truth for
-BUILD-LOG + Phase 7 + /ak-go-live Step 6; any edit here must also be
-saved back to spec.md § Product update so downstream surfaces stay in
-sync.
-```
-
-Three operator answers:
-
-| Answer | Action |
-|--------|--------|
-| `Both blurbs still describe what shipped` | Continue Phase 6 — no edit needed. Log a one-line attestation in `review.md § Product update verification`: `Gate A confirmed at <SHA>: both blurbs intact.` |
-| `Edit Headline:` / `Edit Detail:` with new text | Rewrite the named blurb in `$FEATURE_DIR/spec.md § Product update`, then re-splice the PR body's `## Product update` section with the new text, then commit on the feature branch (`chore(<feature>): refine product blurb post-Gate-A`). Loop back to Gate B with the edited blurbs once. After two loops, accept and continue — Gate A is for judgment, not negotiation. |
-| `Both blurbs need a rewrite` | Same as above for both. |
-
-Why operator attention rather than auto-attest: Headline / Detail accuracy is a product-judgment call the operator owns (does the blurb describe the right user-facing change? does Detail give the team the right eng context?). Phase 6's other Parts (A/B/C) auto-attest factual gates; Part D is the one rung where the operator's eyes are load-bearing because the gate is about communication shape, not artifact existence.
-
-Why ~30s of operator attention is the right cost: the operator is already attending to the PR at Phase 6 (reviewing the audit comment that's about to post). Surfacing both blurbs + diff summary + Gate B findings inline adds ~30s of attention vs ~5-10min of post-deploy rework if a stale blurb lands and gets caught later. The marginal cost is low; the alternative is the home-os PR #27 failure mode (blurb derived from scratch post-deploy when operator asked "what shipped product-wise?").
-
-If `$EVIDENCE_MISSING` is empty (Parts A-C clean) **and** Gate A confirmed → continue to the audit-comment post. If any halt fires, the audit comment does NOT post.
+If `$EVIDENCE_MISSING` is empty (Parts A-C clean) **and** Gate A resolved
+(Accurate, or self-resolved/escalated-and-applied) → Phase 6's verification
+sweeps are complete. If any halt fires, Phase 6 does not exit clean.
 
 **Part D exit marker**: `echo "verified at $(git rev-parse HEAD)" > /tmp/phase6-partD.done`
 
 ### Phase 6 exit checklist
 
-Before posting the audit-trail comment (the `gh pr comment` call), verify
-that all four verification sweeps (Parts A-D) completed. Each Part wrote
-its marker file as its final action (see § Phase exit artifact registry
-rows `6-A` through `6-D`). Phase 6 markers use `/tmp/` — they're
-ephemeral because Parts re-run from scratch on resume; the PR body is
-re-fetched, evidence is re-checked. Stale `/tmp/` markers from a prior
-session are gone.
+Before leaving Phase 6, verify that all four verification sweeps (Parts
+A-D) completed. Each Part wrote its marker file as its final action (see
+§ Phase exit artifact registry rows `6-A` through `6-D`). Phase 6 markers
+use `/tmp/` — they're ephemeral because Parts re-run from scratch on
+resume; the PR body is re-fetched, evidence is re-checked. Stale `/tmp/`
+markers from a prior session are gone.
 
 ```bash
 P6_MISSING=""
@@ -3000,13 +2959,11 @@ if [ -n "$P6_MISSING" ]; then
   echo "✖ Phase 6 exit checklist: verification sweep(s) did not complete."
   echo -e "$P6_MISSING"
   echo ""
-  echo "  The audit-trail comment will NOT post. Re-run the missing"
-  echo "  Part(s) before posting — the PR body may contain stale claims."
+  echo "  Re-run the missing Part(s) — the PR body may contain stale claims."
   exit 1
 fi
 
-echo "✓ Phase 6 exit checklist: all Parts (A-D) verified."
-# NOW post the audit-trail comment (the gh pr comment call below).
+echo "✓ Phase 6 exit checklist: all Parts (A-D) verified. The PR body is trustworthy."
 ```
 
 ## Phase 7: Notify
@@ -3108,7 +3065,7 @@ PR-body items under a `### Manual review` (or "Live QA" / "Reviewer-only") headi
 
 Anything resolvable by `cat <file>` / `grep <symbol>` / fixed-shape comparison is **NOT** a manual-review item — it's factual and pre-ship gates already attested it. If you draft a body with a factual item under Manual review:
 
-1. **Drop it** — the pre-ship gate already covered it; the gate's audit comment carries the attestation.
+1. **Drop it** — the pre-ship gate already covered it; the gate's entry in `review.md` carries the attestation.
 2. **Or self-attest** with `[x]` + the file:line that grounds the claim inline in the Test plan. Example: `[x] Migration idempotent guard correct (supabase/migrations/013_realtime_publication.sql:12-20)`.
 
 Phase 6's Part C sweep auto-attests factual items the body author missed, so the rule has a structural backstop — but draft them right at Phase 4 to save the round-trip.

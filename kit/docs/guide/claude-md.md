@@ -148,7 +148,7 @@ The canonical hygiene gate. On every `/ak-docs-review` invocation (audit-time, n
 
 **Size trend** — reports current size vs. the prior audit's snapshot. The reviewer doesn't enforce a threshold but flags growth rate (e.g., "CLAUDE.md grew by 3k chars across 5 entries since last audit; here are the 5 entries").
 
-The reviewer doesn't block commits — it produces findings for the operator + audit log. Severity follows the existing rubric (`high` halts audit; `medium` surfaces in Phase 6 audit comment; `low` noted in `review.md`).
+The reviewer doesn't block commits — it produces findings for the operator + audit log. Severity follows the existing rubric (`high` halts audit; `medium` recorded in `review.md` at Phase 6; `low` noted in `review.md`).
 
 ### Durable justification artifacts
 
