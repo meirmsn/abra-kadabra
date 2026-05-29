@@ -4,6 +4,15 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### claude-md-regrowth-prune (2026-05-29)
+
+- **Branch**: `feat/claude-md-regrowth-prune`
+- **Spec**: `specs/claude-md-regrowth-prune/spec.md`
+- **Headline**: Infrastructure update — no user-visible change in this PR.
+- **Summary**: Completes the devshop `CLAUDE.md` regrowth prune the 2026-05-27 hygiene build under-delivered. Trims four sections (Session Start hook internals, two-repos shipping procedure, locked-file mechanics, the now-loud-caught commit-to-main footgun) to pointers at the guide docs that already own the detail — conservatively keeping every project-bridging convention and silent-failure trap, since the SessionStart hook delivers devshop `CLAUDE.md` to project sessions and guides aren't auto-loaded there (CLAUDE.md 30008 → 28432 chars). Closes the stale `claude-md-hygiene` ROADMAP/PLAN trackers (both deliverables shipped 2026-05-27, squash `f875263`) and files a Layer-B classification-gate squash-boundary coverage gap to `kit/TODOS.md`.
+- **Commits**: 9 atomic commits (squashed to 1 on main via /ak-merge-devshop)
+- **Quality gates**: devshop gate set — Gates 1/4/6/11 pass; Gate 2d bats full suite green; Gate 5 docs+tests audit high=0 medium=0 low=2 (advisory). 9 non-LLM carve-outs n/a; 4 LLM-mediated structural carve-outs (cso/design-review/qa/benchmark — no UI/auth/perf surface). Phase 2.5 fresh-eyes: 0 prune findings. (Phase 2.5 also surfaced a pre-existing red bats test 729 — `reconcile-task-commits.sh` unwired since `ca4bc76`; a parallel branch fixed it independently on `main` via `bb3e13c` before this merge, so the redundant in-branch fix nets out at rebase.)
+
 ### ak-build-commit-spec-expansion (2026-05-29)
 
 - **Branch**: `feat/ak-build-commit-spec-expansion`
