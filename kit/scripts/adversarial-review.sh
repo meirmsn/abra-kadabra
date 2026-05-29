@@ -455,7 +455,23 @@ Current PR body (full):
 $PR_BODY
 
 All commits on this branch (origin/main..HEAD):
-$COMMITS"
+$COMMITS
+
+NOTE — Primary content check first; bypass review only on failure. This
+invocation fires from .husky/pre-push as a CONTENT CHECK on the PR title +
+body + commit set against rules (a) accuracy, (b) title readability, and
+(c) body structure below. When 'Reason given' reads 'no reason given', the
+operator is simply pushing — they have NOT claimed the rules don't apply, so
+there is no bypass to review. Judge the three dimensions directly: if all
+three are clean, PASS — do NOT fail on the empty 'Reason given' field, and do
+NOT apply the generic 'reason must be specific / placeholders FAIL' criterion
+to it (that criterion is for actual bypass defenses). A self-contradictory
+verdict — asserting all dimensions pass, then returning FAIL citing 'no reason
+given' — is the specific bug this NOTE exists to prevent. The reason-
+specificity criterion engages ONLY when (i) at least one dimension genuinely
+fails AND (ii) 'Reason given' is a real operator rationale (not 'no reason
+given') attempting to justify shipping despite that failure — then judge
+whether the reason engages the failing rule by name per rule 2 below."
       fi
     fi
     ;;

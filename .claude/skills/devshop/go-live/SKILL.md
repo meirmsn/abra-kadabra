@@ -47,8 +47,10 @@ After PR readiness is confirmed but BEFORE invoking `/land-and-deploy`, curl the
 ```bash
 # Extract the bare host from the `Production URL:` line in CLAUDE.md via the
 # shared helper, which tolerates the wild-seen formats (bare, backticked,
-# https-prefixed) AND the URL appearing mid-sentence (home-os PR #39 hit a
-# silent skip when the old inline sed glued the host to trailing prose).
+# https-prefixed), the URL appearing mid-sentence (home-os PR #39 hit a
+# silent skip when the old inline sed glued the host to trailing prose), AND
+# the `Production URL:` label itself appearing mid-sentence after a `. `
+# boundary rather than at line start (home-os PR #44).
 # Validate as DNS-label shape, then dial with explicit https:// so the probe
 # doesn't degrade to http:// + 308-redirect on HTTPS-only hosts.
 # shellcheck source=/devshop/kit/scripts/lib/extract-prod-url.sh
@@ -115,8 +117,10 @@ fi
 
 ```bash
 # Derive bare host from CLAUDE.md via the shared helper — tolerates the
-# wild-seen formats (bare, backticked, https-prefixed) AND a mid-sentence
-# URL, and yields empty for an un-filled `<fill in>` placeholder (no
+# wild-seen formats (bare, backticked, https-prefixed), a mid-sentence URL,
+# and a mid-sentence `Production URL:` label (after a `. ` boundary, not just
+# line start — home-os PR #44), and yields empty for an un-filled `<fill in>`
+# placeholder (no
 # hostname-shaped token), which the DNS-label check below rejects.
 # shellcheck source=/devshop/kit/scripts/lib/extract-prod-url.sh
 source /devshop/kit/scripts/lib/extract-prod-url.sh

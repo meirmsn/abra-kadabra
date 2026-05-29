@@ -157,10 +157,14 @@ if [ "$REPO_MODE" = "project" ]; then
     # SHA-match only; the reviewer still handles judgment cases (partial
     # SHA, commit-subject overlap, sub-7-char matches).
     PR_BODY_HAS_ALL_SHAS=false
+    PR_TITLE=""
+    PR_BODY=""
+    BRANCH_SHAS=""
     if [ "$ANY_COMMIT" = "true" ] && [ "$ALL_TRIVIAL" = "false" ]; then
+      PR_TITLE=$(gh pr view "$PR" --json title --jq '.title' 2>/dev/null || echo "")
       PR_BODY=$(gh pr view "$PR" --json body --jq '.body' 2>/dev/null || echo "")
+      BRANCH_SHAS=$(git log --format='%H' "origin/main..HEAD" 2>/dev/null || true)
       if [ -n "$PR_BODY" ]; then
-        BRANCH_SHAS=$(git log --format='%H' "origin/main..HEAD" 2>/dev/null || true)
         PR_BODY_HAS_ALL_SHAS=true
         ANY_SHA=false
         while IFS= read -r sha; do
@@ -181,26 +185,59 @@ if [ "$REPO_MODE" = "project" ]; then
     if [ "$ANY_COMMIT" = "true" ] \
        && [ "$ALL_TRIVIAL" = "false" ] \
        && [ "$PR_BODY_HAS_ALL_SHAS" = "false" ]; then
-      # Non-trivial commits + PR body did NOT enumerate every SHA — adversarial
-      # review of PR text hygiene (accuracy + readability + body shape).
-      BYPASS_REASON=$(git config --get devshop.prTextHygieneReason 2>/dev/null || echo "")
+      # Fast path-(b) short-circuit: text-hygiene verdict cache. The reviewer
+      # is a nondeterministic LLM — a borderline-but-acceptable title can land
+      # on different sides of the line across identical re-pushes (verified
+      # flake, home-os PR #44: same title + body, two pushes minutes apart,
+      # PASS then FAIL). On a multi-commit branch the SHA fast-path above
+      # rarely fires (bodies seldom enumerate every commit SHA), so each push
+      # otherwise re-rolls the LLM. Cache the PASS verdict keyed on a content
+      # hash of (PR title + body + commit-set): once this exact text has
+      # PASSED, an unchanged re-push short-circuits to PASS without re-invoking
+      # the reviewer — same philosophy as the SHA-enumeration skip above.
+      # Editing the title, body, or commit set changes the hash and forces a
+      # fresh judgment, so the cache only ever suppresses a re-roll of
+      # already-approved text — it can never mask a newly-introduced violation.
+      # Stored in $GIT_DIR (untracked, worktree-local via --git-path); one
+      # PASS-hash per line, matched whole-line. Fields joined with \037 (unit
+      # separator) so title/body/SHA boundaries can't collide.
+      VERDICT_CACHE=$(git rev-parse --git-path devshop-prtext-verdict-cache 2>/dev/null || echo "")
+      VERDICT_HASH=$(printf '%s\037%s\037%s' "$PR_TITLE" "$PR_BODY" "$BRANCH_SHAS" \
+        | git hash-object --stdin 2>/dev/null || echo "")
 
-      # Invoke shared adversarial engine (same as commit guards).
-      # Engine gathers PR title/body/commits itself from the current branch.
-      if ! REVIEW_OUTPUT=$(bash "$DEVSHOP/kit/scripts/adversarial-review.sh" \
-             prTextHygieneReason \
-             "${BYPASS_REASON:-no reason given}" 2>&1); then
-        echo "❌ Pre-push: PR #${PR} title/description/body-shape fails the text-hygiene gate." >&2
-        echo "" >&2
-        echo "Reviewer assessment:" >&2
-        echo "$REVIEW_OUTPUT" | sed 's/^/  /' >&2
-        echo "" >&2
-        echo "Options:" >&2
-        echo "  1. Update PR via: gh pr edit $PR --title \"...\" --body \"...\"" >&2
-        echo "     then retry the push." >&2
-        echo "  2. Bypass (adversarially reviewed): " >&2
-        echo "     git -c devshop.prTextHygieneReason=\"<specific reason>\" push ..." >&2
-        exit 1
+      if [ -n "$VERDICT_HASH" ] && [ -n "$VERDICT_CACHE" ] \
+         && [ -f "$VERDICT_CACHE" ] \
+         && grep -qxF "$VERDICT_HASH" "$VERDICT_CACHE" 2>/dev/null; then
+        echo "✓ Pre-push: PR #${PR} text-hygiene PASSED (cached — title/body/commits unchanged since last PASS)."
+      else
+        # Non-trivial commits + PR body did NOT enumerate every SHA + no cached
+        # PASS — adversarial review of PR text hygiene (accuracy + readability
+        # + body shape).
+        BYPASS_REASON=$(git config --get devshop.prTextHygieneReason 2>/dev/null || echo "")
+
+        # Invoke shared adversarial engine (same as commit guards).
+        # Engine gathers PR title/body/commits itself from the current branch.
+        if ! REVIEW_OUTPUT=$(bash "$DEVSHOP/kit/scripts/adversarial-review.sh" \
+               prTextHygieneReason \
+               "${BYPASS_REASON:-no reason given}" 2>&1); then
+          echo "❌ Pre-push: PR #${PR} title/description/body-shape fails the text-hygiene gate." >&2
+          echo "" >&2
+          echo "Reviewer assessment:" >&2
+          echo "$REVIEW_OUTPUT" | sed 's/^/  /' >&2
+          echo "" >&2
+          echo "Options:" >&2
+          echo "  1. Update PR via: gh pr edit $PR --title \"...\" --body \"...\"" >&2
+          echo "     then retry the push." >&2
+          echo "  2. Bypass (adversarially reviewed): " >&2
+          echo "     git -c devshop.prTextHygieneReason=\"<specific reason>\" push ..." >&2
+          exit 1
+        fi
+        # PASSED — record the content hash so an identical re-push skips the
+        # re-roll. Append-only + dedup so repeated PASSes don't bloat the file.
+        if [ -n "$VERDICT_HASH" ] && [ -n "$VERDICT_CACHE" ] \
+           && ! grep -qxF "$VERDICT_HASH" "$VERDICT_CACHE" 2>/dev/null; then
+          printf '%s\n' "$VERDICT_HASH" >> "$VERDICT_CACHE" 2>/dev/null || true
+        fi
       fi
     fi
   fi

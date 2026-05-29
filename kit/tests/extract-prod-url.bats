@@ -28,6 +28,28 @@ extract() {
   assert_output "home-os-nu-two.vercel.app"
 }
 
+@test "mid-sentence label after a sentence boundary (home-os PR #44)" {
+  extract 'Vercel auto-on-push from `main` (no manual step). Production URL: `https://home-os-nu-two.vercel.app`. Full deploy config: [DEPLOY.md](./DEPLOY.md).'
+  assert_success
+  assert_output "home-os-nu-two.vercel.app"
+}
+
+@test "stray URL before the mid-sentence label does not win" {
+  extract 'See https://docs.example.com for setup. Production URL: https://real.vercel.app.'
+  assert_success
+  assert_output "real.vercel.app"
+}
+
+@test "colon-less prose mention on the same line as the label does not win (colon guard)" {
+  # The new (^|sentence-boundary) alternation makes mid-line label matching
+  # possible; this pins the trailing-`:` guard against that new branch — a
+  # colon-less "production url" mention earlier in the SAME sentence must not
+  # match, only the real `Production URL:` label.
+  extract 'Done. See production url docs first. Production URL: https://real.vercel.app.'
+  assert_success
+  assert_output "real.vercel.app"
+}
+
 @test "bare https URL on its own line" {
   extract 'Production URL: https://app.vercel.app'
   assert_success

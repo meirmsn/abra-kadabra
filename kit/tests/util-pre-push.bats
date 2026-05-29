@@ -171,6 +171,143 @@ setup_branch_with_commits() {
   assert_output --partial "fails the text-hygiene gate"
 }
 
+# --- Project pre-push: text-hygiene verdict cache (fast path-(b)) ---
+
+@test "project pre-push: first PASS records a verdict-cache entry" {
+  setup_branch_with_commits
+  echo "doc" > "$TEST_REPO/README.md"
+  git add README.md
+  git -c user.email=test@test.com -c user.name=Test commit -q -m "feat: add login"
+  create_stub gh "42"
+  mock_adversarial_review PASS
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  [ "$status" -eq 0 ]
+  # A PASS must leave exactly one hash line in the cache file.
+  [ -f "$TEST_REPO/.git/devshop-prtext-verdict-cache" ]
+  run wc -l < "$TEST_REPO/.git/devshop-prtext-verdict-cache"
+  [ "$output" -eq 1 ]
+}
+
+@test "project pre-push: identical re-push short-circuits to cached PASS without re-rolling the LLM" {
+  setup_branch_with_commits
+  echo "doc" > "$TEST_REPO/README.md"
+  git add README.md
+  git -c user.email=test@test.com -c user.name=Test commit -q -m "feat: add login"
+  create_stub gh "42"
+  # First push: reviewer PASSES, caches the verdict.
+  mock_adversarial_review PASS
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  [ "$status" -eq 0 ]
+  # Second push, same title/body/commits: flip the reviewer to FAIL. If the
+  # cache short-circuits, the LLM is never invoked and the push still passes.
+  mock_adversarial_review FAIL
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  [ "$status" -eq 0 ]
+  assert_output --partial "cached"
+  refute_output --partial "fails the text-hygiene gate"
+}
+
+@test "project pre-push: changing the commit set invalidates the cache and re-rolls the LLM" {
+  setup_branch_with_commits
+  echo "doc" > "$TEST_REPO/README.md"
+  git add README.md
+  git -c user.email=test@test.com -c user.name=Test commit -q -m "feat: add login"
+  create_stub gh "42"
+  mock_adversarial_review PASS
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  [ "$status" -eq 0 ]
+  # New commit → different commit-set → different hash → cache miss.
+  echo "more" >> "$TEST_REPO/README.md"
+  git add README.md
+  git -c user.email=test@test.com -c user.name=Test commit -q -m "feat: add logout"
+  mock_adversarial_review FAIL
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  [ "$status" -eq 1 ]
+  assert_output --partial "fails the text-hygiene gate"
+}
+
+@test "project pre-push: a FAILed verdict is not cached (no false short-circuit)" {
+  setup_branch_with_commits
+  echo "doc" > "$TEST_REPO/README.md"
+  git add README.md
+  git -c user.email=test@test.com -c user.name=Test commit -q -m "feat: add login"
+  create_stub gh "42"
+  mock_adversarial_review FAIL
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  [ "$status" -eq 1 ]
+  # No cache file should be written on a FAIL (or, if created, no matching line).
+  if [ -f "$TEST_REPO/.git/devshop-prtext-verdict-cache" ]; then
+    run wc -l < "$TEST_REPO/.git/devshop-prtext-verdict-cache"
+    [ "$output" -eq 0 ]
+  fi
+  # Re-push still fails (the FAIL was never cached as a PASS).
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  [ "$status" -eq 1 ]
+  assert_output --partial "fails the text-hygiene gate"
+}
+
+# Arg-aware gh stub: distinct stdout per `gh` subcommand so PR_TITLE and
+# PR_BODY are no longer conflated (the generic `create_stub gh "42"` returns
+# "42" for every call, making title==body). Lets the title/body cache-key legs
+# be exercised independently of the commit-set leg.
+#   make_gh_stub <title> <body>
+make_gh_stub() {
+  cat > "$MOCK_BIN/gh" <<STUB
+#!/bin/bash
+case "\$*" in
+  *"pr list"*)        echo "42" ;;
+  *"--json title"*)   echo "$1" ;;
+  *"--json body"*)    echo "$2" ;;
+  *)                  echo "42" ;;
+esac
+STUB
+  chmod +x "$MOCK_BIN/gh"
+}
+
+@test "project pre-push: changing ONLY the PR title invalidates the cache and re-rolls the LLM" {
+  setup_branch_with_commits
+  echo "doc" > "$TEST_REPO/README.md"
+  git add README.md
+  git -c user.email=test@test.com -c user.name=Test commit -q -m "feat: add login"
+  make_gh_stub "Title A" "Body A"
+  mock_adversarial_review PASS
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  [ "$status" -eq 0 ]
+  # Same commits + body, edited title → different hash → cache miss → LLM fires.
+  make_gh_stub "Title B" "Body A"
+  mock_adversarial_review FAIL
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  [ "$status" -eq 1 ]
+  assert_output --partial "fails the text-hygiene gate"
+}
+
+@test "project pre-push: changing ONLY the PR body invalidates the cache and re-rolls the LLM" {
+  setup_branch_with_commits
+  echo "doc" > "$TEST_REPO/README.md"
+  git add README.md
+  git -c user.email=test@test.com -c user.name=Test commit -q -m "feat: add login"
+  make_gh_stub "Title A" "Body A"
+  mock_adversarial_review PASS
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  [ "$status" -eq 0 ]
+  # Same commits + title, edited body → different hash → cache miss → LLM fires.
+  make_gh_stub "Title A" "Body B"
+  mock_adversarial_review FAIL
+  run bash "$PRE_PUSH" origin <<< "refs/heads/feature-x abc123 refs/heads/feature-x def456"
+  [ "$status" -eq 1 ]
+  assert_output --partial "fails the text-hygiene gate"
+}
+
+# The pr-surface primary-judgment NOTE in adversarial-review.sh governs LLM
+# judgment (untestable at the bats layer), but its presence is load-bearing:
+# delete it and clean PR text starts FAILing on "no reason given" again. Pin
+# the phrase so an accidental deletion fails CI — mirrors extract-prod-url.bats's
+# "go-live SKILL.md sources the helper" structural-anchor test.
+@test "adversarial-review.sh keeps the pr-surface primary-judgment NOTE" {
+  run grep -qF "do NOT fail on the empty" "$SCRIPTS_DIR/adversarial-review.sh"
+  [ "$status" -eq 0 ]
+}
+
 # --- Devshop pre-push: short-circuits main, runs only dirty-tree ---
 
 @test "devshop pre-push: short-circuits on push from main (release.sh territory)" {
