@@ -705,14 +705,35 @@ and main had no common path. Recovery required re-anchoring on `main`, after
 which Phase 3's FF + push carried both the release commit and the squash to
 origin in one push. The anchor-detection block above eliminates the re-do.
 
-**Phantom "local changes would be overwritten" — fall back to merge.** On
-virtiofs (devcontainer on macOS), `git rebase "$ANCHOR"` sometimes aborts
+**Phantom "local changes would be overwritten" — retry with `core.checkStat=minimal`, then fall back to merge.** On
+virtiofs (devcontainer on macOS / linuxkit), `git rebase "$ANCHOR"` sometimes aborts
 immediately with `error: Your local changes to the following files would be
 overwritten by merge: <N files>` even though `git status` reports a clean tree
 and `git ls-files -m` returns nothing. This is a stat-cache / virtiofs
-interaction; `git update-index --really-refresh` may expose a real diff or may
-not. When this fires, fall back to merge to incorporate the base — same end
-state (branch tip descends from `$ANCHOR`), different mechanics:
+interaction, not a real diff; `git update-index --really-refresh` may expose a
+real diff or may not.
+
+**First remedy — retry the rebase with a reduced stat comparison.** The phantom
+is a stat-cache race; `core.checkStat=minimal` (compare only size + mtime, not
+ctime/ino/uid/gid) plus `core.trustctime=false` sidesteps it and **preserves
+the rebase** — no transient merge commit for Phase 2's soft-reset to discard,
+same code path a clean run takes:
+
+```bash
+"${GIT_CMD[@]}" rebase --abort 2>/dev/null || true
+"${GIT_CMD[@]}" -c core.checkStat=minimal -c core.trustctime=false rebase "$ANCHOR"
+```
+
+Keep the `-c` flags **inline** (per-command scope) — never `git config` them
+repo-global, so the reduced stat comparison can't leak into unrelated git
+operations. (`-c` after a `-C "$WORKTREE_PATH"` in the `GIT_CMD` array is
+valid; git parses `-C` then `-c`.) This resolved the flake first-try every time
+during the `implement-resume-reconcile` build (2026-05-29), where every rebase
+in the session false-failed this way.
+
+**Second remedy — fall back to merge.** If the `core.checkStat=minimal` retry
+*still* aborts with the phantom, fall back to merge to incorporate the base —
+same end state (branch tip descends from `$ANCHOR`), different mechanics:
 
 ```bash
 "${GIT_CMD[@]}" rebase --abort 2>/dev/null || true
@@ -736,25 +757,31 @@ soft-reset + commit produced the same 9-file squash the rebase path would have.
 **Same flake fires in `git cherry-pick` and `git am`** when applying multiple
 patches that touch the same file in quick succession. For surgical operations
 adjacent to the merge skill (e.g. stripping an accidentally-inherited commit by
-cherry-picking onto a clean branch from `origin/main`), use the **sleep +
-stat-refresh** unsticker between operations:
+cherry-picking onto a clean branch from `origin/main`), apply the same
+inline `core.checkStat=minimal -c core.trustctime=false` reduced-stat form
+first; keep the **sleep + stat-refresh** unsticker as the deeper fallback
+between operations:
 
 ```bash
-git cherry-pick <sha-1>
+git -c core.checkStat=minimal -c core.trustctime=false cherry-pick <sha-1>
+# If a subsequent pick still trips the phantom, add the sleep + stat-refresh:
 sleep 3
 git update-index --really-refresh
-git cherry-pick <sha-2>
+git -c core.checkStat=minimal -c core.trustctime=false cherry-pick <sha-2>
 sleep 3
 git update-index --really-refresh
-git cherry-pick <sha-3>
+git -c core.checkStat=minimal -c core.trustctime=false cherry-pick <sha-3>
 ```
 
 The first cherry-pick after a clean checkout always succeeds; subsequent ones
 touching the same file trip the phantom because virtiofs's stat cache hasn't
-settled. A 3-second sleep + explicit `git update-index --really-refresh`
-reliably unsticks it. Verified on the `calibration-and-task-phases`
-strip-and-merge (2026-05-20). `git apply` and `git am --3way` trigger the same
-flake; the sleep+refresh recipe covers them too.
+settled. The inline `core.checkStat=minimal -c core.trustctime=false` form is
+the lead unsticker (same per-command scope rule as the rebase above — never
+`git config` it repo-global); a 3-second sleep + explicit `git update-index
+--really-refresh` is the deeper fallback. Verified on the
+`calibration-and-task-phases` strip-and-merge (2026-05-20). `git apply` and
+`git am --3way` trigger the same flake; the same `-c` form + sleep+refresh
+recipe covers them too.
 
 #### Why rebase before the audit
 

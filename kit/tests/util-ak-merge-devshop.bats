@@ -430,6 +430,27 @@ setup() {
     | grep -qE '"\$\{GIT_CMD\[@\]\}" merge "\$ANCHOR"'
 }
 
+@test "Phase 1.0 promotes core.checkStat=minimal rebase retry ABOVE the merge fallback" {
+  # The checkStat=minimal -c core.trustctime=false rebase retry is the FIRST
+  # remedy for the virtiofs phantom 'local changes would be overwritten' flake;
+  # the merge fallback is demoted to second (it leaves a transient commit the
+  # soft-reset must discard; the retry preserves the rebase). Inline -c form
+  # only — never repo-global config. Codified from merge-rebase-racy-git-remedy
+  # (2026-05-29).
+  awk '/^### 1\.0:/,/^### 1\.1:/' "$SKILL_FILE" \
+    | grep -qE 'core\.checkStat=minimal -c core\.trustctime=false rebase "\$ANCHOR"'
+  # Ordering invariant: the checkStat retry precedes the merge fallback.
+  local checkstat_line merge_line
+  checkstat_line=$(awk '/^### 1\.0:/,/^### 1\.1:/' "$SKILL_FILE" \
+    | grep -nE 'core\.checkStat=minimal -c core\.trustctime=false rebase "\$ANCHOR"' \
+    | head -1 | cut -d: -f1)
+  merge_line=$(awk '/^### 1\.0:/,/^### 1\.1:/' "$SKILL_FILE" \
+    | grep -nE '"\$\{GIT_CMD\[@\]\}" merge "\$ANCHOR"' | head -1 | cut -d: -f1)
+  [ -n "$checkstat_line" ]
+  [ -n "$merge_line" ]
+  [ "$checkstat_line" -lt "$merge_line" ]
+}
+
 @test "Phase 1.1 audit is cwd-independent: resolved SHA range + absolute feature-dir" {
   # The Bash tool's cwd can reset to /devshop between calls, so a bare
   # cd-into-the-worktree does NOT persist into the sub-skill. Phase 1.1 drives

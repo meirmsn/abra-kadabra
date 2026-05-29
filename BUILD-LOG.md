@@ -4,6 +4,15 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### merge-rebase-racy-git-remedy (2026-05-29)
+
+- **Branch**: `fix/merge-rebase-racy-git-remedy`
+- **Spec**: `specs/merge-rebase-racy-git-remedy/spec.md`
+- **Headline**: Infrastructure update — no user-visible change in this PR.
+- **Summary**: `/ak-merge-devshop § Phase 1.0` now retries a flaky rebase with `git -c core.checkStat=minimal -c core.trustctime=false rebase "$ANCHOR"` before dropping to the merge fallback. On virtiofs/overlay devcontainers (macOS / linuxkit) `git rebase` intermittently false-aborts with `Your local changes to the following files would be overwritten by merge` on a verifiably clean tree — a stat-cache race, not a real diff. The checkStat-minimal retry sidesteps it while **preserving the rebase** (no transient merge commit for Phase 2's soft-reset to discard), so the merge fallback is demoted to the second rung. The same inline `-c` form is added to the adjacent cherry-pick/`am` recipe, and a one-line `CLAUDE.md § Known Footguns` entry points operators at the remedy. Inline `-c` only (per-command scope) — never repo-global config.
+- **Commits**: spec skeleton + expansion, skill reorder + cherry-pick recipe + bats guard, CLAUDE.md footgun, tasks.md, Phase 3 review.md + gate sinks, BUILD-LOG/PLAN + tracker closure; squashed to 1 on main via /ak-merge-devshop.
+- **Quality gates**: devshop gate set — Gates 1/4/5/6/11 pass; Gate 2d full bats suite green (1568 passed, 0 failed, incl. the new checkStat-ordering assertion in `util-ak-merge-devshop.bats § Section F2`); Gate 5 docs+tests audit (Audit 1) high=0 medium=0 low=0. 9 non-LLM carve-outs n/a; 4 LLM-mediated structural carve-outs (cso/design-review/qa/benchmark — no UI/auth/perf surface). Phase 2.5 fresh-eyes: 0 findings.
+
 ### merge-devshop-phase25-tree-pin (2026-05-29)
 
 - **Branch**: `fix/merge-devshop-phase25-tree-pin`
