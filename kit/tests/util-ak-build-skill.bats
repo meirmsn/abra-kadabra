@@ -327,3 +327,51 @@ make_fixture() {
     | grep -qiE 'pipeline runs in full by default.*asks .*before deviating to a lighter flow'
 }
 
+# === Section F — resume-reconcile gate wiring (implement-resume-reconcile) ===
+#
+# Guards the Step 0 rung-2 reconcile wiring + the Phase 2 subagent-non-clean-
+# return note against a future edit that silently drops either. The load-bearing
+# pair: rung 2 must CALL the helper before skipping, and on mismatch must
+# re-enter Phase 2 rather than skip to Phase 3. All greps pinned to the prose
+# committed in Task 2.
+
+@test "Section F: Step 0 rung 2 calls reconcile-task-commits.sh before skipping" {
+  # The helper invocation must be present, scoped to the resume-check region
+  # (rungs 2–6), not just mentioned somewhere in the file.
+  awk '/^### Resume check/,/^## Phase 0/' "$SKILL_FILE" > /tmp/resume-section.txt
+  grep -qE 'reconcile-task-commits\.sh "\$FEATURE_DIR"' /tmp/resume-section.txt
+}
+
+@test "Section F: rung 2 re-enters Phase 2 on mismatch (does NOT skip to Phase 3)" {
+  awk '/^### Resume check/,/^## Phase 0/' "$SKILL_FILE" > /tmp/resume-section.txt
+  # Exit 0 → skip to Phase 3; non-zero → do NOT skip, re-enter Phase 2.
+  grep -qiE 'do NOT skip to Phase 3' /tmp/resume-section.txt
+  grep -qiE 're-enter Phase 2' /tmp/resume-section.txt
+  # The loud-surface diagnostic the operator sees.
+  grep -qE 'Resume reconcile FAILED' /tmp/resume-section.txt
+}
+
+@test "Section F: reconcile trustworthy condition is clean-tree + impl-count >= done-count" {
+  awk '/^### Resume check/,/^## Phase 0/' "$SKILL_FILE" > /tmp/resume-section.txt
+  grep -qiE 'clean tree.*impl-commit-count|impl-commit-count.*done-count' /tmp/resume-section.txt
+}
+
+@test "Section F: Phase 2 note references the next-resume reconcile gate" {
+  awk '/^## Phase 2: Implement/,/^## Phase 3:/' "$SKILL_FILE" > /tmp/phase2-section.txt
+  # The note must name the gate + explain it lives at Step 0, not the live return.
+  grep -qE 'reconcile-task-commits\.sh' /tmp/phase2-section.txt
+  grep -qiE 'next.*/ak-build.*resume|next.*invocation.*Step 0|Step 0 rung 2' /tmp/phase2-section.txt
+}
+
+@test "Section F: resume-state table row 2 names the reconcile check shape" {
+  grep -qE '\| 2 \|.*tasks\.md.*all tasks .done.*reconcile-task-commits\.sh' "$SKILL_FILE"
+}
+
+@test "Section F: workflow.md no longer claims tasks.md carries commit SHAs" {
+  # The false "per-task status with commit SHAs" claim must be gone, and the
+  # reconcile-on-resume behavior mentioned in its place.
+  ! grep -qE 'per-task status with commit SHAs' "$WORKFLOW_FILE"
+  tr '\n' ' ' < "$WORKFLOW_FILE" \
+    | grep -qE 'reconcile-task-commits\.sh'
+}
+

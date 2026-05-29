@@ -144,7 +144,7 @@ reference this table by row — it is the single source of truth.
 |-------|-------------------|----------|------------|-------------|
 | 0 | `$FEATURE_DIR/spec.md` (skeleton with provenance + Decisions) | Phase 0.3 | Step 0 resume check | file exists |
 | 1 | `$FEATURE_DIR/spec.md` contains `## Task order` | Phase 1 (spec agent) | Step 0 resume check | `grep -q '## Task order'` |
-| 2 | `$FEATURE_DIR/tasks.md` with all tasks `done` | Phase 2 (implement agent) | Step 0 resume check | awk parse |
+| 2 | `$FEATURE_DIR/tasks.md` with all tasks `done` | Phase 2 (implement agent) | Step 0 resume check | awk parse + `reconcile-task-commits.sh` (clean tree + impl-commit-count ≥ done-count) |
 | 2.5 | `$FEATURE_DIR/verification.log` (devshop mode only) | Phase 2.5 (verification agent) | Step 0 resume check | file exists (devshop only) |
 | 3-preflight | `$FEATURE_DIR/gates/preflight.md` with scope vars + tooling status | Phase 3.0 | before 3.1 gate loop | file exists + result not `blocked` |
 | 3-gates | `$FEATURE_DIR/gates/<name>.md` for every scope-expected gate | Phase 3.1 + 3.2 | § 3.3.1 roster check | expected-set minus found-set is empty |
@@ -295,8 +295,14 @@ Detect where a previous run left off. Evaluate top-to-bottom; the first match wi
 
 **(Both modes — rungs 2–6)**
 
-2. **`$FEATURE_DIR/tasks.md` exists with all tasks `done`?** → skip to Phase 3 (pre-ship). **(Devshop mode)**: if `$FEATURE_DIR/verification.log` does NOT exist → run Phase 2.5 first (see `devshop-mode.md § Phase 2.5`), then Phase 3.
-3. **`$FEATURE_DIR/tasks.md` exists with some tasks `done`?** → skip to Phase 2 (implement resumes internally)
+2. **`$FEATURE_DIR/tasks.md` exists with all tasks `done`?** → **reconcile before trusting it.** A dropped `/ak-implement` subagent can mark tasks `done` before committing (or leave work uncommitted), so an "all done" file is not sufficient on its own. Run:
+   ```bash
+   bash kit/scripts/reconcile-task-commits.sh "$FEATURE_DIR" "origin/${BASE:-main}"
+   ```
+   (`$BASE` is the PR base, set later in Phase 5/6; at Step 0 it is usually unset, so default to `main` — the base every devshop feature branch targets.)
+   - **Exit 0** (trustworthy — clean tree AND impl-commit-count ≥ done-count) → skip to Phase 3 (pre-ship). **(Devshop mode)**: if `$FEATURE_DIR/verification.log` does NOT exist → run Phase 2.5 first (see `devshop-mode.md § Phase 2.5`), then Phase 3.
+   - **Non-zero** (dirty tree, or fewer implementation commits than `done` tasks — a `done` marker with no matching commit) → **do NOT skip to Phase 3.** Fall through to rung 3's destination (**re-enter Phase 2**, which resumes internally and re-verifies per-task), and print the helper's diagnostic loudly to the terminal: `Resume reconcile FAILED: <diag> — re-entering Phase 2`. The count heuristic is rebase-/amend-robust and a false-fail is cheap (Phase 2 re-verifies and no-ops if work is genuinely complete), so the safe action on any non-zero exit is always re-enter Phase 2, never skip ahead. See `kit/scripts/reconcile-task-commits.sh` for the contract; the helper is bats-covered in `kit/tests/util-reconcile-task-commits.bats`.
+3. **`$FEATURE_DIR/tasks.md` exists with some tasks `done`?** → skip to Phase 2 (implement resumes internally). This is also where rung 2 lands when its reconcile fails — same destination (re-enter Phase 2), and the rung-2 reconcile diagnostic is surfaced so the operator sees *why* an "all done" file did not skip.
 4. **`$FEATURE_DIR/spec.md` exists and contains `## Task order`?** → full spec written by Phase 1 → skip to Phase 2 (implement)
 5. **`$FEATURE_DIR/spec.md` exists but lacks `## Task order`?** → Phase 0 wrote the skeleton (provenance + Decisions only); Phase 1 hasn't completed → re-run Phase 1. Spec agent reads the existing file, preserves its Decisions section verbatim, and expands into the full spec. Do NOT re-prompt the user.
 6. **None of the above** → start from Phase 0 (preview + spec skeleton)
@@ -786,6 +792,18 @@ Launch **Agent** with prompt:
 
 Wait for agent to report completion (all tasks `done`).
 If agent reports any task `blocked`, stop and escalate (see Escalation below).
+
+**On a non-clean subagent return (socket drop / context exhaustion — no
+all-tasks-`done` signal):** the *current* invocation already halts here — it
+never receives the clean completion signal, so it cannot advance. The silent-skip
+risk is on the **next** `/ak-build` invocation's Step 0 resume check, where an
+"all done" `tasks.md` written just before the drop (or with uncommitted task
+work) could otherwise skip Phase 2. That is exactly why the reconcile gate lives
+at **Step 0 rung 2** (`kit/scripts/reconcile-task-commits.sh`), not at this live
+Phase 2 return: it re-checks the `done` markers against actual git state — clean
+tree + enough implementation commits — before the next resume trusts them. See
+Step 0 rung 2 for the gate; `/ak-implement` Step 3/4 reaffirms that a task is
+`done` only once its work is committed and the tree is clean.
 
 ## Phase 3: Pre-ship (per-gate sub-agent gauntlet)
 

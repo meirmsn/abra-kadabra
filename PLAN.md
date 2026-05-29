@@ -67,9 +67,6 @@ Maintenance conventions:
 
 ## Active
 
-| Feature | Branch | Spec | Hook | Source |
-| ------- | ------ | ---- | ---- | ------ |
-
 _No work in progress._
 
 ## Planned (v0)

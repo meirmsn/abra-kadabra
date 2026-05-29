@@ -194,7 +194,7 @@ For each `todo` task in dependency order:
 9. **Tests fail**: enter stuck protocol
 10. **Tests pass**: commit with format `<type>(<scope>): <imperative summary>` — one task = one commit.
     Note: prettier runs automatically via lint-staged on commit.
-11. Mark task `done` in tasks.md. If a matching tracker row exists, call `TaskUpdate` with `status: "completed"`.
+11. Mark task `done` in tasks.md. If a matching tracker row exists, call `TaskUpdate` with `status: "completed"`. **A task is `done` only when its work is committed (the atomic per-task commit in step 10) AND the working tree is clean.** Never mark `done` before committing, and never leave task work uncommitted in the tree — that is the exact failure mode `/ak-build` Step 0's reconcile gate (`kit/scripts/reconcile-task-commits.sh`) now catches on the next resume (clean tree + impl-commit-count ≥ done-count). `/ak-implement` must never produce a `done`-without-commit state in the first place; this is a reaffirmation of the step-10-then-step-11 ordering, not a new mechanic.
 12. **If a judgment call was made** (resolved from context rather than stopping to ask):
     append a one-liner to the `## Decisions` section of tasks.md with the task name and what was decided.
 
@@ -328,6 +328,16 @@ is the task index from `tasks.md`.
   main agent's working memory.
 
 ## Step 4: Completion
+
+**Before printing the summary, confirm the done-means-committed invariant holds
+for the whole feature:** every task marked `done` has its work in a commit and
+`git status --porcelain` is empty. The completion summary's "all tasks `done`"
+signal is what `/ak-build` Step 0 trusts on the next resume — and reconciles via
+`kit/scripts/reconcile-task-commits.sh` (clean tree + impl-commit-count ≥
+done-count). A summary reporting all-done over a dirty tree or with uncommitted
+task work is the failure mode that gate exists to catch; do not emit it. If the
+tree is dirty, commit the outstanding task work (or, if it is unrelated WIP, stop
+and surface it) before reporting completion.
 
 Run the full unit suite:
 

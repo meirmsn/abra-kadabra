@@ -4,6 +4,15 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### implement-resume-reconcile (2026-05-29)
+
+- **Branch**: `feat/implement-resume-reconcile`
+- **Spec**: `specs/implement-resume-reconcile/spec.md`
+- **Headline**: A build interrupted mid-implementation now re-checks its own progress against git on resume instead of trusting a checklist — so an unfinished step can't silently slip through as "done".
+- **Summary**: `/ak-build` Phase 2 resume reconciles the `done` markers in `tasks.md` against actual git state (a clean working tree plus at least as many implementation commits as `done` tasks) before skipping the implement phase. A dropped `/ak-implement` subagent that marked tasks done-before-commit no longer causes the orchestrator to advance to pre-ship with uncommitted or never-started work. A new bats-covered `kit/scripts/reconcile-task-commits.sh` does the check (rebase- and amend-robust — it counts commits and inspects the tree rather than pinning SHAs); the `done`-means-`committed` contract is reaffirmed in `/ak-implement`.
+- **Commits**: 13 atomic commits (squashed to 1 on main via /ak-merge-devshop)
+- **Quality gates**: devshop gate set — Gates 1/4/6/11 pass (Gate 6 surfaced 1 low CRLF finding, fixed at `a793b1b` + regression case 9), Gate 2d bats 1546/1546, Gate 5 audit high=0 medium=0 low=1 (informational; tests exceed spec). 9 non-LLM carve-outs n/a; 4 LLM-mediated structural carve-outs (cso/design-review/qa/benchmark — no UI/auth/perf surface). Phase 2.5 fresh-eyes: 1 fixed (restored a workflow.md sentence a doc-sweep dropped).
+
 ### hygiene-threedot-polish (2026-05-28)
 
 - **Branch**: `feat/hygiene-threedot-polish`
