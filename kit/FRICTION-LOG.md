@@ -187,6 +187,32 @@ entries sink to a `## Resolved` section at the bottom (kept for the history).
 - **Detail**: When no bypass reason is set, the reviewer short-circuits to FAIL even though adversarial prompt item 2(a) says _"PR description genuinely matches the commits — the reviewer is wrong"_ should PASS. (A `pr`-surface primary-judgment NOTE was later added to `adversarial-review.sh` to PASS clean text on the `no reason given` placeholder — verify whether this still reproduces before promoting; the count is the signal.) Full alternatives A–E + decision trigger: `kit/ROADMAP.md § "PR-description staleness check — layer + approach decision"`. Trigger to act: post-PR-3 (`/ak-build core-flows`) data on the false-positive rate of the always-fires implementation.
 - **Promotion target**: `kit/ROADMAP.md § PR-description staleness check` (layer + approach decision).
 
+### `init-firewall.sh` re-run mid-session hangs the Claude session
+
+- **Score**: 3 (impact 3 × count 1)
+- **Impact**: 3 (M) — a mid-session firewall refresh (to pick up a rotated CDN IP or a new domain) can hang the session, and the only known recovery is a full container rebuild; recurs whenever a domain/IP change forces a re-run.
+- **Count**: 1
+- **Status**: open
+- **First seen**: 2026-04-20 (lalista PR 2 close-out, observed twice in one session)
+- **Sessions**:
+  - 2026-04-20 — `sudo /usr/local/bin/init-firewall.sh` re-run mid-session hung indefinitely (twice during lalista PR 2 close-out); container rebuild was the only recovery.
+- **Symptom**: re-running `init-firewall.sh` mid-session stalls the Claude session indefinitely — subsequent commands never return.
+- **Detail**: Root cause **unconfirmed** (hypothesis: the iptables/ipset rebuild drops the session's own established API connection; when Claude Code reconnects against the new network state, commands stall). **Demoted from `PLAN § Planned (v0)`** (was `init-firewall-mid-session-hang`, Lev 1.8) to the ledger because the fix is a guess — the committed entry proposed a connection-preserving atomic ipset swap / netns approach (L-cost, "investigation-heavy") against an _unconfirmed_ root cause. Root-cause it before committing build time. Detailed note: `kit/TODOS.md § sudo /usr/local/bin/init-firewall.sh hangs the session when re-run`.
+- **Promotion target**: `kit/TODOS.md` / `kit/ROADMAP.md` once the connection-drop hypothesis is confirmed and a fix shape is validated.
+
+### Operator stashes vanish silently during `/ak-merge-devshop` flows
+
+- **Score**: 3 (impact 3 × count 1)
+- **Impact**: 3 (M) — a stash ref disappears mid-merge with no explicit pop/drop; the data is recoverable (dangling commit via `git fsck`) but only if the operator knows to look, so WIP can appear lost.
+- **Count**: 1
+- **Status**: open
+- **First seen**: 2026-05-20 (`feat/gstack-artifact-symlink-redirect` merge)
+- **Sessions**:
+  - 2026-05-20 — `/ak-merge-devshop` flow; a Claude-autostash (4 files) vanished from `git stash list` after the merge completed, with no explicit pop/drop firing.
+- **Symptom**: a `git stash` made before/during an `/ak-merge-devshop` run disappears from `git stash list` after the merge/push, with no `git stash pop`/`drop` ever run.
+- **Detail**: Root cause **unconfirmed**. `--no-stash` on lint-staged (shipped) removed the leading suspect, but the mechanism is still open. The data is never lost — stash commits are durable dangling commits (recovery: `git fsck --no-reflogs | grep 'dangling commit'` → `git stash apply <SHA>`). **Demoted from `PLAN § Planned (v0)`** (was `stash-vanish-root-cause`, Lev 2.4) to the ledger because it's framed as a root-cause _investigation_ with an uncertain outcome — observation belongs here until the mechanism is confirmed. Full symptom + recovery: `.claude/skills/devshop/merge-devshop/SKILL.md § Operator stashes can vanish silently` + `kit/TODOS.md § Root-cause investigation: operator stashes vanish`.
+- **Promotion target**: `kit/TODOS.md` once the dropping mechanism is confirmed (then a concrete fix can land).
+
 ### Devshop `/ak-build` from a dirty tree trips the clean-tree guard at the Phase 0.3 skeleton commit
 
 - **Score**: 2 (impact 2 × count 1)
