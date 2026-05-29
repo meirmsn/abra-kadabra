@@ -416,6 +416,20 @@ Add a section to `kit/docs/guide/conventions.md` (or a dedicated `kit/docs/guide
 
 ---
 
+### Merge-rebase racy-git remedy — `core.checkStat=minimal` as the first Phase 1.0 fix
+
+**Problem.** On virtiofs/overlay filesystems (devcontainer on macOS / linuxkit), `git rebase` — inside `/ak-merge-devshop § Phase 1.0` and in standalone worktree rebases — intermittently aborts with `error: Your local changes to the following files would be overwritten by merge` on a verifiably clean tree (`git status` clean, `git ls-files -m` empty, `git update-index --really-refresh` doesn't clear it). It's a stat-cache race, not a real diff. `/ak-merge-devshop § Phase 1.0` currently documents only a **merge fallback** (abort rebase → `git merge "$ANCHOR"`), which reaches the same end state but produces a transient merge commit and a different code path the soft-reset then has to discard.
+
+**Fix.** Promote `git -c core.checkStat=minimal -c core.trustctime=false rebase "$ANCHOR"` to the **first** remedy in `/ak-merge-devshop § Phase 1.0` (demote the merge fallback to second), and add it to the adjacent cherry-pick/`am` recipe. Add a one-line `CLAUDE.md § Known Footguns` entry pointing at it. Keep the `-c` inline form (per-command scope) rather than repo-global config so `checkStat=minimal`'s reduced stat comparison can't have a global side effect.
+
+**Cost/risk.** 🟢🟢 XS — ~15–30 min, doc/skill amendment only. Risk: negligible — the inline `-c` flags scope to the single rebase invocation; no behavior change outside it.
+
+**Worked incident.** During the `implement-resume-reconcile` build (2026-05-29), every `git rebase` in the session false-failed this way (the merge's Phase 1.0 + three re-rebases chasing a fast-moving `origin/main`); the `core.checkStat=minimal -c core.trustctime=false` form resolved it cleanly on the first try each time, preserving the rebase.
+
+[v0, surfaced-by implement-resume-reconcile-2026-05-29]
+
+---
+
 ## v1 (after v0 is validated on the first project)
 
 ### Project-worktree setup support — propagate the `.worktrees/` convention to projects (symlink-tooling, not submodule)
