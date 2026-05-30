@@ -74,6 +74,20 @@ entries sink to a `## Resolved` section at the bottom (kept for the history).
 - **Detail**: The wiring test enumerates every `kit/scripts/**.sh` and requires each to be hook-wired OR in the `exempts` list OR in the in-test `infra_scripts` string. Skill-invoked helpers (called from a SKILL.md prompt, not a hook) must be hand-added to `infra_scripts` or the test red-flags them. Two instances so far (`bebda21`, `ca4bc76`); the closely-related asserted-text-drift flavor is logged separately ("A doc/SKILL.md edit can silently drift a `grep`-based bats test"). **Candidate fix**: make the wiring test auto-detect skill invocation — grep `.claude/skills/**/SKILL.md` for the script's basename and treat a hit as "wired (skill-invoked)" — so a new skill-helper is covered without an allow-list edit. **Defense-in-depth already shipped**: `/ak-merge-devshop` Phase 2.5 now derives its verdict from a `grep -c '^not ok'` count (not the green tail), so a mid-stream red can't false-pass; that catches the red but doesn't prevent it landing via a direct commit.
 - **Promotion target**: `kit/ROADMAP.md` (auto-detect skill-invocation in the wiring test) or `kit/TODOS.md`.
 
+### A doc/SKILL.md edit can silently drift a `grep`-based bats test
+
+- **Score**: 6 (impact 3 × count 2)
+- **Impact**: 3 (M) — grep-based bats tests are brittle against the prose they assert, in BOTH directions: an edit that changes asserted text turns the suite red silently (until the next full-suite run), and a test that _under_-asserts lets a future edit silently drop the very coverage it was meant to pin and ship green. Recurs on the common doc/prompt-editing path.
+- **Count**: 2
+- **Status**: open
+- **First seen**: 2026-05-28 (`1d343bf`, surfaced via parallel `/ak-merge-devshop` runs)
+- **Sessions**:
+  - 2026-05-28 — `1d343bf` updated 9 docs but missed the asserting test; a red suite reached main.
+  - 2026-05-30 — `claude-md-condense` Audit 1 (tests, low): the capture-the-prompt test (`util-adversarial-review-narrowing.bats`) pins the `CLAUDE_MD_SECTIONS` section list + forwarded reason but does NOT assert the rubric prose body reaches the assembled prompt — so a future CLAUDE.md-condense pass could silently drop the new rubric (f) "Reachability split" lines and ship green. Inverse flavor of the 2026-05-28 instance (under-assertion → silent drop, vs assertion-drift → red).
+- **Symptom**: a `grep`-based bats test and the prose it asserts drift apart with no mechanism linking them — either an edit removes/rewrites asserted text (test goes red, ships silently until the next full-suite run) OR the test under-asserts so a later edit silently drops the pinned content and ships green.
+- **Detail**: Layer-1 test-presence hooks catch _missing_ tests, not _stale_ or _under-scoped_ ones. Worked observations: (a) `1d343bf` (2026-05-28) updated 9 docs but missed the asserting test — test 14 in `util-build-phase58-audit-parser.bats` (a stale Phase 6 audit-comment assertion from ancestor `486a57d`) went red once `1d343bf` removed the asserted "Pre-ship audit | gates passed" text, and a red suite reached `main`. (b) `claude-md-condense` (2026-05-30) — the capture-the-prompt test asserts the section-list + reason but not the rubric prose body, leaving rubric (f) unpinned. **Cheap per-case fix (b)**: add one `grep -q "Reachability split"` assertion to the existing capture test. **Structural fix shape**: a `structural-invariants.bats` check that maps SKILL/prompt-asserting tests to their source files, OR a `conventions.md` note requiring co-update of a doc and any test asserting its content.
+- **Promotion target**: `kit/TODOS.md` (structural-invariants mapping check or conventions.md co-update note; plus the one-line `grep -q "Reachability split"` assertion).
+
 ### Pre-commit hooks don't fire in linked worktrees (husky uninstalled), silently skipping every gate
 
 - **Score**: 4 (impact 4 × count 1)
@@ -160,19 +174,6 @@ entries sink to a `## Resolved` section at the bottom (kept for the history).
 - **Symptom**: a squash-merge commit that modified devshop `CLAUDE.md` lands on `main` with no `Claude-MD-Classification:` trailer, even though `check-claude-md-classification.sh` should block any staged CLAUDE.md `+` line without a bypass.
 - **Detail**: Observed 2026-05-29: `412f20b` (worktree devshop-mode clause) and `8cdda99` (propagation clause) each `+1/-1`'d CLAUDE.md and merged clean. Layer-B contract fires on any staged CLAUDE.md edit with `+` lines and BLOCKS without a `devshop.claudeMdClassification` bypass — so the squash `git commit` should have blocked. **Hypothesis**: `/ak-merge-devshop`'s squash (`git reset --soft $ANCHOR && git commit -F`) either runs with `--no-verify` (structural blind spot — every squash-merged CLAUDE.md change skips the gate) OR the per-commit classification fired on the feature branch but doesn't surface on the squashed commit's trailer (gate working; only audit-time harvest incomplete). **To resolve**: (1) confirm whether the `/ak-merge-devshop` squash runs pre-commit at all; (2) if `--no-verify`, decide whether Layer B should re-gate the net CLAUDE.md delta at squash time, or rely on per-commit classification pre-squash and document the squash-trailer absence as expected; (3) wire the `Claude-MD-Classification:` trailer into `/ak-docs-review § Section E` harvest (`f875263`'s own body flagged this "not yet wired"). NOT a Layer-B rewrite — a coverage/harvest gap. **Third hypothesis (2026-05-29)**: if `412f20b`/`8cdda99` were authored in a linked worktree, no pre-commit hook fired at all (husky is uninstalled in worktrees — see "Pre-commit hooks don't fire in linked worktrees") — which would explain the absent trailer with neither a `--no-verify` squash nor a harvest gap. Check the authoring path before assuming a squash-time bypass. References `kit/scripts/commit-hooks/check-claude-md-classification.sh` + `.claude/skills/devshop/merge-devshop/SKILL.md` + `kit/docs/guide/claude-md.md § Enforcement`.
 - **Promotion target**: `kit/TODOS.md` (confirm squash pre-commit behavior + wire trailer harvest) or `kit/ROADMAP.md` if it becomes a Layer-B re-gate.
-
-### A doc/SKILL.md edit can silently drift a `grep`-based bats test
-
-- **Score**: 3 (impact 3 × count 1)
-- **Impact**: 3 (M) — a red suite can reach `main` when a doc edit changes text a content-validation test asserts and nothing forces them to co-update; recurs on the common doc-editing path and the failure is silent until the next full-suite run.
-- **Count**: 1
-- **Status**: open
-- **First seen**: 2026-05-28 (`1d343bf`, surfaced via parallel `/ak-merge-devshop` runs)
-- **Sessions**:
-  - 2026-05-28 — `1d343bf` updated 9 docs but missed the asserting test; a red suite reached main.
-- **Symptom**: a SKILL.md/doc edit removes or rewrites text that a `grep`-based bats test asserts; the test goes red but nothing in the Layer-1 test-presence hooks links the edit to the test, so the drift ships silently.
-- **Detail**: Layer-1 test-presence hooks catch _missing_ tests, not _stale_ ones. Worked observation: `1d343bf` (2026-05-28) updated 9 docs but missed the asserting test — test 14 in `util-build-phase58-audit-parser.bats` (a stale Phase 6 audit-comment assertion from ancestor `486a57d`) went red once `1d343bf` removed the asserted "Pre-ship audit | gates passed" text, and a red suite reached `main`. **Fix shape**: a `structural-invariants.bats` check that maps SKILL-asserting tests to their source files, OR a `conventions.md` note requiring co-update of a doc and any test asserting its content.
-- **Promotion target**: `kit/TODOS.md` (structural-invariants mapping check or conventions.md co-update note).
 
 ### `/ak-pre-ship` + Phase 5.9 visual-evidence deferrals get rubber-stamped with hand-wave rationales
 
