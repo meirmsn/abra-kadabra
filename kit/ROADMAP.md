@@ -315,6 +315,10 @@ Same playbook as Auth UX conventions above. Every project with interactive UI hi
 
 [v0, surfaced-by lalista-PR49, 2026-05-07]
 
+---
+
+## v1 (after v0 is validated on the first project)
+
 ### Template PWA service worker baseline
 
 The template ships a PWA manifest + meta tags out of the box (apple-touch-icon, viewport-fit=cover, standalone, start_url), which is enough to install — but it does NOT ship a service worker. Every PWA-shaped project will hit the same soak finding: iOS cold-launch feels slow because every fresh WebView process pays the full server-roundtrip cost (middleware token refresh + RSC fetches + client mount + realtime handshake) before first paint. Lalista's polish PR #68 (2026-05-13) parallelized the two server fetches in `/list/page.tsx` via `Promise.all` — the largest cheap win without a SW — but the user can still feel the difference between "warm WebView" and "cold WebView." From here the next lever is HTML caching via SW, and that pattern is general (every PWA-shaped project will want it).
@@ -360,8 +364,6 @@ Same playbook as Auth UX conventions / Latency feedback framework. The pattern n
 [v1, surfaced-by lalista-polish-PR68-2026-05-13]
 
 ---
-
-## v1 (after v0 is validated on the first project)
 
 ### Project-worktree setup support — propagate the `.worktrees/` convention to projects (symlink-tooling, not submodule)
 

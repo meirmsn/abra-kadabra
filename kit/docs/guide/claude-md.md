@@ -14,6 +14,15 @@ Loud failures are self-teaching — the toolchain catches the violation, the ope
 
 Silent failures are different — wrong work passes every gate and lands in production. The only defense is upfront knowledge. That's what CLAUDE.md is for.
 
+### Reachability split — what stays inline vs what relocates
+
+Passing the inclusion rule earns an entry a *place* in CLAUDE.md — not unlimited *length*. CLAUDE.md is loaded into **every** turn; guides and skills are loaded **on reference**. So within a kept entry, split by when the detail actually bites:
+
+- **Symptom + first-action stay inline.** These bite *ambiently* — at unpredictable moments, before you know which skill or guide to open. (e.g. "pre-commit hooks don't fire in a fresh worktree → don't trust an in-worktree commit as gate-verified.")
+- **Recipe / mechanism / rationale / worked-bites relocate.** They're only needed once you're already acting on the problem — inside a skill run, or reading the guide. Leave a pointer. A full recipe is **`reference`** content (per the 3-class taxonomy below) even when it sits under a `trap` headline.
+
+The test: **would this detail bite me before I'd opened the relevant skill or guide?** If no, it's reference — relocate it and keep the one-line trap. This is *why* `§ Known Footguns` entries are "symptom + first-action + pointer" and not full recipes: the recipe lives in the guide that owns it, loaded exactly when the operator follows the pointer.
+
 **Worked examples**:
 
 | Gotcha shape                                                                   | Inclusion rule verdict                                                           | Why                                                                            |

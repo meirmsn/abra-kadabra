@@ -1209,11 +1209,25 @@ Per-check-type rules:
           missing justification FAILS.
         A reason that classifies entries as traps but says nothing about
         placement FAILS — placement is not optional.
+    (f) **Reachability split** (see claude-md.md § Reachability split).
+        CLAUDE.md is loaded every turn; guides/skills load on reference.
+        A 'trap' entry must keep only the part that bites AMBIENTLY —
+        symptom + first-action + pointer — inline. A full recipe /
+        mechanism / rationale / worked-bite is only needed once the
+        operator is already acting on the problem (inside a skill run or
+        reading the guide), so it is 'reference' content even under a
+        'trap' headline and must relocate to the guide/skill that owns
+        it. FAIL a 'trap' addition whose body inlines a recipe a guide
+        already owns (or should own); the fix is symptom + first-action +
+        pointer, with the recipe relocated in the same commit. Test:
+        would this detail bite before the operator opened the relevant
+        skill/guide? If no, it relocates.
     Default: REJECT. The gate exists because 41% regrowth proved that
     judgment-only enforcement was insufficient for CLAUDE.md. Per-entry
     classification keeps miscategorized content out; placement fit keeps
     well-formed-but-marginal entries and unjustified new sections from
-    accreting one line at a time.
+    accreting one line at a time; the reachability split keeps kept
+    entries from re-growing into inline recipes.
 
 Respond with EXACTLY one line:
 PASS - only if the reason is genuinely legitimate and specific
