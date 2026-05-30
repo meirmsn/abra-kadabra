@@ -461,3 +461,51 @@ EOF
   echo "$CONVS_BLOCK" | grep -qv "out-of-map content here" || true
   ! echo "$CONVS_BLOCK" | grep -q "out-of-map content here"
 }
+
+# === claudeMdClassification: placement-targets section list is assembled ===
+# Pins the CLAUDE_MD_SECTIONS plumbing (awk header extraction from HEAD:CLAUDE.md
+# + heredoc interpolation into the "Existing CLAUDE.md sections at HEAD" block)
+# that the placement dimension (e) judges against. Without this, a regression
+# that breaks the extraction ships green: the reviewer would judge "new section
+# vs existing" against an empty list, silently degrading the gate's core new
+# behavior to a no-op. The seeded-header assertion is scoped to the section
+# BLOCK, not the whole prompt — the full CLAUDE.md (also in the prompt) contains
+# the same headers, so a whole-prompt grep would false-pass on an empty block.
+
+@test "claudeMdClassification: prompt carries the existing-section list + forwards the reason" {
+  cd "$TEST_REPO"
+  # Seed a committed CLAUDE.md with known ## / ### headers so HEAD:CLAUDE.md
+  # gives the awk extraction a section list to find.
+  cat > "$TEST_REPO/CLAUDE.md" <<'MD'
+# CLAUDE.md
+## Devshop Conventions
+### Known Footguns
+- existing trap
+### Naming Convention
+naming body
+MD
+  git -C "$TEST_REPO" add CLAUDE.md
+  git -C "$TEST_REPO" commit -q -m "seed CLAUDE.md"
+  # Stage an addition so the classified change is realistic.
+  printf -- '- a new trap entry\n' >> "$TEST_REPO/CLAUDE.md"
+  git -C "$TEST_REPO" add CLAUDE.md
+
+  run bash "$REVIEW" claudeMdClassification \
+    "trap → § Known Footguns: new trap — silent wrong work; placement: extends — closest home"
+  assert_success
+  [ -f "$CAPTURED_PROMPT" ]
+
+  # The new placement-targets block header is present in the prompt.
+  grep -q "Existing CLAUDE.md sections at HEAD (placement targets)" "$CAPTURED_PROMPT"
+
+  # The awk extraction actually surfaced the seeded headers — assert against the
+  # SECTION BLOCK only (between its header and the "Current CLAUDE.md from HEAD"
+  # block), so an empty extraction can't false-pass on the full-file copy below.
+  SECTIONS_BLOCK=$(awk '/^=== Existing CLAUDE.md sections at HEAD/{flag=1; next} /^=== Current CLAUDE.md from HEAD/{flag=0} flag' "$CAPTURED_PROMPT")
+  echo "$SECTIONS_BLOCK" | grep -q "### Known Footguns"
+  echo "$SECTIONS_BLOCK" | grep -q "### Naming Convention"
+
+  # The operator's placement reason forwarded into the prompt intact (closes the
+  # PASS-path dispatch-forwarding gap — the reason reaches the reviewer verbatim).
+  grep -q "placement: extends — closest home" "$CAPTURED_PROMPT"
+}

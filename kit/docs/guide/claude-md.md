@@ -1,6 +1,6 @@
 # CLAUDE.md — what belongs where, and how it stays sustainable
 
-> **What this guide covers**: the inclusion rule that decides whether content belongs in `CLAUDE.md` or somewhere else, the section allowlist that bounds its shape, the routing table for new content surfaces, and the bypass mechanism that lets legitimate exceptions land with audit trail. Applies to **both** the project-level `/<workspace>/CLAUDE.md` and the devshop-level `/devshop/CLAUDE.md`.
+> **What this guide covers**: the inclusion rule that decides whether content belongs in `CLAUDE.md` or somewhere else, the adversarial placement judgment that keeps its section set from sprawling, the routing table for new content surfaces, and the bypass mechanism that lets legitimate exceptions land with audit trail. Applies to **both** the project-level `/<workspace>/CLAUDE.md` and the devshop-level `/devshop/CLAUDE.md`.
 >
 > **Why it exists**: CLAUDE.md is auto-loaded into every conversation turn. Unbounded growth taxes every turn's context budget and (above ~40k chars) trips a Claude Code warning. Tooling that writes to CLAUDE.md by default drove `/workspace/CLAUDE.md` to 79k chars / 33k tokens on home-os before this convention landed. This guide flips the default — area READMEs are the new home for surface inventory; CLAUDE.md is reserved for content that fails the silent-failure test below.
 
@@ -91,10 +91,10 @@ Each row of the routing table is enforced by `/ak-docs-review` § Section E (CLA
 
 ## Enforcement
 
-Three layers — upstream prevention via the router, commit-time classification via the pre-commit gate, and downstream judgment via the adversarial reviewer. **No mechanical size cap; no mechanical section allowlist** — those were dropped during planning (Q6). The three layers compose:
+Three layers — upstream prevention via the router, commit-time classification + placement via the pre-commit gate, and downstream judgment via the adversarial reviewer. **No mechanical size cap and no mechanical section allowlist** — a hard allowlist was rejected in planning (Q6) because it would block a legitimately-needed new section (e.g. `## Capability flags`). Section discipline is instead enforced as an **adversarial placement judgment** at Layer B: a new section is allowed, but only when the reason proves no existing section fits. This revives the *intent* of the dropped allowlist (stop section sprawl) without its rigidity, after evidence that per-entry classification alone let CLAUDE.md regrow one well-formed entry at a time. The three layers compose:
 
 1. **Layer A** (write-time router) prevents the dominant source of drift (`/ak-build` writing surface inventory to CLAUDE.md by default).
-2. **Layer B** (pre-commit classification gate) blocks intentional additions that don't pass the inclusion test — every addition must be classified and reviewed.
+2. **Layer B** (pre-commit classification + placement gate) blocks intentional additions that don't pass the inclusion test — every addition must be classified, *placed*, and reviewed.
 3. **Layer C** (adversarial audit) catches drift that slipped through both at audit time, with full context.
 
 ### Layer A — Write-time router (`/ak-build`, `/setup-deploy`)
@@ -117,16 +117,21 @@ Fires on any staged CLAUDE.md edit that adds or modifies content. Pure deletions
 **Bypass interface:**
 
 ```bash
-git -c devshop.claudeMdClassification="trap: <entry> — <why silent failure>" commit ...
+git -c devshop.claudeMdClassification="trap → § <section>: <entry> — <why silent failure>; placement: <extends|NEW> — <why>" commit ...
 ```
 
 Each addition must be classified as one of:
 
-- **trap** — causes silent wrong work if forgotten. Stays in CLAUDE.md.
+- **trap** — causes silent wrong work if forgotten. Stays in CLAUDE.md. Must also declare its **placement** (see below).
 - **reference** — look-it-up information. Must be relocated to its canonical home (guide doc, area README, code comment) in the same commit.
 - **convention** — already documented in a guide. Delete the CLAUDE.md duplicate (or keep a one-liner pointer if the convention is frequently violated).
 
-The adversarial reviewer (Sonnet, `claudeMdClassification` check-type in `adversarial-review.sh`) judges: (a) classification accuracy against the inclusion rule + routing table, (b) that reference/convention relocations actually landed in the same commit (destination file staged), (c) that trap entries genuinely cause silent wrong work.
+Each **trap** must additionally declare *where it lands* — classification alone is no longer enough, because a well-formed trap can still be marginal or spawn a needless section. Placement is one of:
+
+- **extends an existing section** — name the section. PASS only if it is the genuinely-closest home AND the entry is materially distinct from the entries already there (not a near-duplicate, not a sub-case an existing entry already implies). A marginal entry folds into its neighbor instead of standing alone.
+- **NEW section** — a `## ` / `### ` header the diff introduces. PASS only if the reason names why *no* existing section fits. New sections are the dominant regrowth vector, so the bar is high — default REJECT.
+
+The adversarial reviewer (Sonnet, `claudeMdClassification` check-type in `adversarial-review.sh`) judges: (a) classification accuracy against the inclusion rule + routing table, (b) that reference/convention relocations actually landed in the same commit (destination file staged), (c) that trap entries genuinely cause silent wrong work, (d) no content-free classifications, and (e) **placement fit** — each trap's target section holds up against the existing-section list and surrounding entries; a new section is justified only when no existing section fits.
 
 **Trailer:** `Claude-MD-Classification:` appended by `prepare-commit-msg` for audit-time harvesting. Full bypass-flag and check-type documentation: `kit/docs/guide/hooks.md § Bypass flags + env hatches`.
 

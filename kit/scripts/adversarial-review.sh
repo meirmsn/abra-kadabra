@@ -707,6 +707,11 @@ tests AND explains why skipping is safe for THIS commit."
     CLAUDE_MD_DIFF=$(git diff --cached CLAUDE.md 2>/dev/null || true)
     CLAUDE_MD_FULL=$(git show HEAD:CLAUDE.md 2>/dev/null || echo "(new file)")
     ALL_STAGED=$(git diff --cached --name-only 2>/dev/null || true)
+    # Section list from HEAD — the placement dimension judges whether each new
+    # trap lands in an existing section or spawns a NEW one (which must justify
+    # itself). A `+## ` / `+### ` line in the diff is a new section header.
+    CLAUDE_MD_SECTIONS=$(git show HEAD:CLAUDE.md 2>/dev/null \
+      | awk '/^#{2,3} /' || echo "(new file — no sections yet)")
     CONTEXT="The user is classifying CLAUDE.md additions at commit time.
 
 CLAUDE.md is auto-loaded into every conversation turn. The inclusion rule is:
@@ -722,6 +727,9 @@ $CLAUDE_MD_DIFF
 
 === All staged files (verify relocations landed in this commit) ===
 $ALL_STAGED
+
+=== Existing CLAUDE.md sections at HEAD (placement targets) ===
+$CLAUDE_MD_SECTIONS
 
 === Current CLAUDE.md from HEAD (surrounding context) ===
 $CLAUDE_MD_FULL"
@@ -1182,8 +1190,30 @@ Per-check-type rules:
         entries only by repeating the entry text without explaining WHY
         it's a trap (the silent-failure scenario) FAILS. Name the
         failure mode.
+    (e) **Placement fit**. Every entry that stays as a 'trap' must
+        declare WHERE it lands — the target section — and that placement
+        must hold up against the 'Existing CLAUDE.md sections at HEAD'
+        list and the surrounding entries:
+        - **Extends an existing section** → PASS only if the named
+          section is the genuinely-closest home AND the entry is
+          materially distinct from the entries already in it. REJECT a
+          near-duplicate of a neighboring entry, or a marginal sub-case
+          that an existing entry already implies (it dilutes the section
+          without adding silent-failure coverage) — fold it into the
+          existing entry instead.
+        - **New section** (a '+## ' or '+### ' header appears in the
+          diff) → PASS only if the reason names why NO existing section
+          fits. New sections are the dominant regrowth vector, so the
+          bar is high: a trap that fits under any existing section must
+          go there, not spawn its own. A new section with a generic or
+          missing justification FAILS.
+        A reason that classifies entries as traps but says nothing about
+        placement FAILS — placement is not optional.
     Default: REJECT. The gate exists because 41% regrowth proved that
-    judgment-only enforcement was insufficient for CLAUDE.md.
+    judgment-only enforcement was insufficient for CLAUDE.md. Per-entry
+    classification keeps miscategorized content out; placement fit keeps
+    well-formed-but-marginal entries and unjustified new sections from
+    accreting one line at a time.
 
 Respond with EXACTLY one line:
 PASS - only if the reason is genuinely legitimate and specific

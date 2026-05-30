@@ -73,6 +73,22 @@ run_script() {
   assert_output --partial "claudeMdClassification"
 }
 
+# --- Test 3b: BLOCK message surfaces the placement requirement ---
+
+@test "BLOCK: guidance instructs declaring placement (section / new-section)" {
+  echo "## New Footgun" >> "$TEST_REPO/CLAUDE.md"
+  echo "This is a new trap entry." >> "$TEST_REPO/CLAUDE.md"
+  git -C "$TEST_REPO" add CLAUDE.md
+  run_script
+  assert_failure
+  assert_output --partial "placement"
+  assert_output --partial "NEW section"
+  # Pin the operator-facing usage string to the new placement-aware shape, so a
+  # regression back to the old `trap: <entry>` format can't pass on the word
+  # "placement" appearing elsewhere in the guidance.
+  assert_output --partial "placement: <extends|NEW>"
+}
+
 # --- Test 4: PASS — bypass flag + adversarial PASS ---
 
 @test "PASS: bypass flag + adversarial PASS accepts commit" {
@@ -87,7 +103,7 @@ run_script() {
   mkdir -p "$TEST_REPO/kit/scripts"
   cp "$MOCK_BIN/adversarial-review.sh" "$TEST_REPO/kit/scripts/adversarial-review.sh"
 
-  git -C "$TEST_REPO" config devshop.claudeMdClassification "trap: New Trap — silent wrong work if forgotten"
+  git -C "$TEST_REPO" config devshop.claudeMdClassification "trap → § Known Footguns: New Trap — silent wrong work if forgotten; placement: extends — closest home, distinct from neighbors"
   run_script
   assert_success
   assert_output --partial "PASS"

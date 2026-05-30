@@ -3,18 +3,21 @@
 #       `claudeMdClassification` bypass flag classifies each entry as
 #       trap / reference / convention per the inclusion rule.
 # Why: Mechanical gate (Layer B) that prevents CLAUDE.md regrowth by requiring
-#      per-entry classification at commit time. Reference and convention content
-#      must be relocated to its canonical home in the same commit.
+#      per-entry classification + placement at commit time. Reference and
+#      convention content must be relocated to its canonical home in the same
+#      commit; trap entries must declare and justify their target section.
 # Does NOT: Judge classification quality (the adversarial reviewer does that).
 #           Fire on pure deletions (removing content is unconditionally good).
 #
 # Fires in BOTH devshop and project repos — CLAUDE.md exists in both, and the
 # routing table in kit/docs/guide/claude-md.md handles destination differences.
 #
-# Bypass via `git -c devshop.claudeMdClassification="trap: <entry> — <why>"`.
+# Bypass via `git -c devshop.claudeMdClassification="trap → § <section>: <entry> — <why>"`.
 # The adversarial reviewer (Sonnet) judges classification accuracy against the
-# inclusion rule + routing table and verifies relocations landed in the same
-# commit. The bypass is recorded as a `Claude-MD-Classification:` trailer by
+# inclusion rule + routing table, placement fit (the entry earns its spot in the
+# named section; a NEW section must justify why no existing section fits), and
+# verifies relocations landed in the same commit. The bypass is recorded as a
+# `Claude-MD-Classification:` trailer by
 # the prepare-commit-msg hook (kit/scripts/commit-hooks/append-bypass-trailers.sh)
 # and harvested at audit time by `/ak-docs-review`.
 
@@ -86,8 +89,13 @@ echo "    - trap:       silent wrong work if forgotten → stays in CLAUDE.md"
 echo "    - reference:  look-it-up information → relocate to canonical home"
 echo "    - convention: already documented in a guide → delete the duplicate"
 echo ""
+echo "  Each trap must also declare its placement — which section it lands in,"
+echo "  and (if it needs a NEW section) why no existing section fits:"
+echo "    - extends existing section → name the section; it must be the closest home"
+echo "    - NEW section              → justify why no existing section fits (high bar)"
+echo ""
 echo "  Usage:"
-echo "    git -c devshop.claudeMdClassification=\"trap: <entry> — <why silent failure>\" commit ..."
+echo "    git -c devshop.claudeMdClassification=\"trap → § <section>: <entry> — <why silent>; placement: <extends|NEW> — <why>\" commit ..."
 echo ""
 echo "  Reference/convention entries must be relocated to their canonical home"
 echo "  (guide doc, area README, code comment) in the same commit."
