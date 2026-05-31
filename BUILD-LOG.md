@@ -4,6 +4,15 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### merge-devshop-worktree-hooks (2026-05-30)
+
+- **Branch**: `feat/merge-devshop-worktree-hooks`
+- **Spec**: `specs/merge-devshop-worktree-hooks/spec.md`
+- **Headline**: Parallel-work worktrees now run the same safety checks as the main repo, and the merge step double-checks for leaked secrets before any change lands.
+- **Summary**: The worktree-add recipe now runs `pnpm install` so husky pre-commit hooks (gitleaks, doc/test coverage, branch guard, CLAUDE.md gates) fire in-worktree instead of silently no-opping — closing a silent gate-skip on the default parallel-work path. As a belt-and-suspenders net, `/ak-merge-devshop` now runs a gitleaks scan on **every** path that lands a branch on `main`: `gitleaks protect --staged` on the squash delta (Phase 2), and a `gitleaks git --log-opts "$ANCHOR..$BRANCH"` commit-range history scan on the rename-symlink ff-merge fallback (Phase 3) — so a secret can't reach `main` even from an off-convention worktree where the install step was skipped. Three stale false-safety-net doc claims were corrected to the install-dependent + merge-time-net posture (`CLAUDE.md § Parallel work`, `merge-devshop SKILL.md § Phase 2`, `kit/docs/guide/security.md` — the last of which load-bearingly justified worktree script-edit safety on the now-corrected "hooks fire identically" claim). Shipped fix options (b) + (d); option (c) (a `session-start.sh` empty-`.husky/_` warning) stays as an optional follow-up in `kit/FRICTION-LOG.md`.
+- **Commits**: 12 (Phase 0 skeleton + Phase 1 spec expand; (b) recipe install step; (d) squash-delta gitleaks gate + bats; tracker correction + closure; Gate 5 Audit 1; Phase 3 ff-merge gitleaks gate + 3 bats; Phase 3 gate evidence; incidental prettier-stability repair on two gstack `CLAUDE.md` bullets) — squashed to 1 on main via `/ak-merge-devshop`.
+- **Quality gates**: devshop gate set — Gates 1/4/6/11 pass; Gate 2d full bats suite green (1575 passed, 0 failed, incl. 5 new `util-ak-merge-devshop.bats § Section G` tests pinning the gitleaks gates + cwd-pin + ordering); Gate 5 docs+tests audit (Audit 1) high=0 medium=0 low=4. Gate 6 `/review` surfaced 1 MEDIUM (ff-merge fallback bypassed the gate — the off-convention-worktree secret-bypass the feature exists to close) + 2 LOW; the MEDIUM + 1 LOW were fixed in-branch (`a7058e4`, empirically verified), 2 LOWs noted-and-proceed. 9 non-LLM carve-outs n/a; 4 LLM-mediated structural carve-outs (cso/design-review/qa/benchmark — no UI/auth/perf surface). Phase 2.5 fresh-eyes: 1 incidental finding fixed (prettier-stability), 0 escalated; empirically confirmed the gitleaks gate's exit-1-on-finding contract with real gitleaks 8.30.1.
+
 ### triage-todos-to-friction-log (2026-05-29)
 
 - **Branch**: `chore/triage-todos-to-friction-log`

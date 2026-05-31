@@ -16,12 +16,12 @@ Silent failures are different — wrong work passes every gate and lands in prod
 
 ### Reachability split — what stays inline vs what relocates
 
-Passing the inclusion rule earns an entry a *place* in CLAUDE.md — not unlimited *length*. CLAUDE.md is loaded into **every** turn; guides and skills are loaded **on reference**. So within a kept entry, split by when the detail actually bites:
+Passing the inclusion rule earns an entry a _place_ in CLAUDE.md — not unlimited _length_. CLAUDE.md is loaded into **every** turn; guides and skills are loaded **on reference**. So within a kept entry, split by when the detail actually bites:
 
-- **Symptom + first-action stay inline.** These bite *ambiently* — at unpredictable moments, before you know which skill or guide to open. (e.g. "pre-commit hooks don't fire in a fresh worktree → don't trust an in-worktree commit as gate-verified.")
+- **Symptom + first-action stay inline.** These bite _ambiently_ — at unpredictable moments, before you know which skill or guide to open. (e.g. "pre-commit hooks fire in-worktree only after the recipe's `pnpm install` → run the full worktree-add recipe before trusting an in-worktree commit as gate-verified.")
 - **Recipe / mechanism / rationale / worked-bites relocate.** They're only needed once you're already acting on the problem — inside a skill run, or reading the guide. Leave a pointer. A full recipe is **`reference`** content (per the 3-class taxonomy below) even when it sits under a `trap` headline.
 
-The test: **would this detail bite me before I'd opened the relevant skill or guide?** If no, it's reference — relocate it and keep the one-line trap. This is *why* `§ Known Footguns` entries are "symptom + first-action + pointer" and not full recipes: the recipe lives in the guide that owns it, loaded exactly when the operator follows the pointer.
+The test: **would this detail bite me before I'd opened the relevant skill or guide?** If no, it's reference — relocate it and keep the one-line trap. This is _why_ `§ Known Footguns` entries are "symptom + first-action + pointer" and not full recipes: the recipe lives in the guide that owns it, loaded exactly when the operator follows the pointer.
 
 **Worked examples**:
 
@@ -100,10 +100,10 @@ Each row of the routing table is enforced by `/ak-docs-review` § Section E (CLA
 
 ## Enforcement
 
-Three layers — upstream prevention via the router, commit-time classification + placement via the pre-commit gate, and downstream judgment via the adversarial reviewer. **No mechanical size cap and no mechanical section allowlist** — a hard allowlist was rejected in planning (Q6) because it would block a legitimately-needed new section (e.g. `## Capability flags`). Section discipline is instead enforced as an **adversarial placement judgment** at Layer B: a new section is allowed, but only when the reason proves no existing section fits. This revives the *intent* of the dropped allowlist (stop section sprawl) without its rigidity, after evidence that per-entry classification alone let CLAUDE.md regrow one well-formed entry at a time. The three layers compose:
+Three layers — upstream prevention via the router, commit-time classification + placement via the pre-commit gate, and downstream judgment via the adversarial reviewer. **No mechanical size cap and no mechanical section allowlist** — a hard allowlist was rejected in planning (Q6) because it would block a legitimately-needed new section (e.g. `## Capability flags`). Section discipline is instead enforced as an **adversarial placement judgment** at Layer B: a new section is allowed, but only when the reason proves no existing section fits. This revives the _intent_ of the dropped allowlist (stop section sprawl) without its rigidity, after evidence that per-entry classification alone let CLAUDE.md regrow one well-formed entry at a time. The three layers compose:
 
 1. **Layer A** (write-time router) prevents the dominant source of drift (`/ak-build` writing surface inventory to CLAUDE.md by default).
-2. **Layer B** (pre-commit classification + placement gate) blocks intentional additions that don't pass the inclusion test — every addition must be classified, *placed*, and reviewed.
+2. **Layer B** (pre-commit classification + placement gate) blocks intentional additions that don't pass the inclusion test — every addition must be classified, _placed_, and reviewed.
 3. **Layer C** (adversarial audit) catches drift that slipped through both at audit time, with full context.
 
 ### Layer A — Write-time router (`/ak-build`, `/setup-deploy`)
@@ -135,10 +135,10 @@ Each addition must be classified as one of:
 - **reference** — look-it-up information. Must be relocated to its canonical home (guide doc, area README, code comment) in the same commit.
 - **convention** — already documented in a guide. Delete the CLAUDE.md duplicate (or keep a one-liner pointer if the convention is frequently violated).
 
-Each **trap** must additionally declare *where it lands* — classification alone is no longer enough, because a well-formed trap can still be marginal or spawn a needless section. Placement is one of:
+Each **trap** must additionally declare _where it lands_ — classification alone is no longer enough, because a well-formed trap can still be marginal or spawn a needless section. Placement is one of:
 
 - **extends an existing section** — name the section. PASS only if it is the genuinely-closest home AND the entry is materially distinct from the entries already there (not a near-duplicate, not a sub-case an existing entry already implies). A marginal entry folds into its neighbor instead of standing alone.
-- **NEW section** — a `## ` / `### ` header the diff introduces. PASS only if the reason names why *no* existing section fits. New sections are the dominant regrowth vector, so the bar is high — default REJECT.
+- **NEW section** — a `## ` / `### ` header the diff introduces. PASS only if the reason names why _no_ existing section fits. New sections are the dominant regrowth vector, so the bar is high — default REJECT.
 
 The adversarial reviewer (Sonnet, `claudeMdClassification` check-type in `adversarial-review.sh`) judges: (a) classification accuracy against the inclusion rule + routing table, (b) that reference/convention relocations actually landed in the same commit (destination file staged), (c) that trap entries genuinely cause silent wrong work, (d) no content-free classifications, and (e) **placement fit** — each trap's target section holds up against the existing-section list and surrounding entries; a new section is justified only when no existing section fits.
 

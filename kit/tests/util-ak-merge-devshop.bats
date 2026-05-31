@@ -831,6 +831,61 @@ setup() {
   echo "$detect_block" | grep -qiE 'AskUserQuestion'
 }
 
+@test "Phase 2 runs a gitleaks compensating gate on the staged squash delta before commit" {
+  # (d) defense-in-depth: even an off-convention worktree that skipped `pnpm
+  # install` (so in-worktree hooks never armed) can't land a secret on main —
+  # Phase 2 scans the staged delta with gitleaks before creating the squash
+  # commit. Mirrors .husky/pre-commit's `gitleaks protect --staged --redact`.
+  awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE" \
+    | grep -qE 'gitleaks protect --staged'
+}
+
+@test "Phase 2 gitleaks gate is ordered before the commit -F (halt-before-commit)" {
+  # The gate must run AFTER `reset --soft` stages the delta and BEFORE `commit
+  # -F`, so a finding halts the merge with nothing committed. Assert line order
+  # within the Phase 2 range: the gitleaks line precedes the commit -F line.
+  local block gitleaks_line commit_line
+  block=$(awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE")
+  gitleaks_line=$(printf '%s\n' "$block" | grep -nE 'gitleaks protect --staged' | head -1 | cut -d: -f1)
+  commit_line=$(printf '%s\n' "$block" | grep -nE '"\$\{GIT_CMD\[@\]\}" commit -F' | head -1 | cut -d: -f1)
+  [ -n "$gitleaks_line" ]
+  [ -n "$commit_line" ]
+  [ "$gitleaks_line" -lt "$commit_line" ]
+}
+
+@test "Phase 2 squash gitleaks gate is cwd-pinned to \$WORKTREE_PATH via a cd subshell" {
+  # Regression guard for the Gate 5 low finding: a future edit that drops the
+  # `( cd "$WORKTREE_PATH" && gitleaks protect --staged` subshell would make
+  # the scan read /devshop's (empty, on-main) index and false-pass when the
+  # squash lives in a worktree. Pin the exact cwd-subshell form so that's
+  # caught. The literal must contain the cd-into-worktree + the protect call.
+  awk '/^## Phase 2:/,/^## Phase 3:/' "$SKILL_FILE" \
+    | grep -qE '\( cd "\$WORKTREE_PATH" && gitleaks protect --staged'
+}
+
+@test "Phase 3 ff-merge fallback runs a gitleaks history scan over the constituent range" {
+  # The rename-plus-symlink collision corner routes Phase 2 to Phase 3's
+  # ff-merge, which lands the branch's commits WITHOUT staging them — so
+  # `protect --staged` can't cover it. Phase 3 must scan the commit RANGE
+  # ($ANCHOR..$BRANCH) with `gitleaks git --log-opts` before the ff-merge, so
+  # the secret net stays unconditional even on this path. Pin the history-scan
+  # invocation in the Phase 3 range.
+  awk '/^## Phase 3:/,/^## Phase 4:/' "$SKILL_FILE" \
+    | grep -qE 'gitleaks git --redact --log-opts "\$ANCHOR\.\.\$BRANCH"'
+}
+
+@test "Phase 3 ff-merge gitleaks scan is ordered before the git merge --ff-only \$BRANCH" {
+  # A finding must HALT the ff-merge — assert the scan line precedes the
+  # `git merge --ff-only "$BRANCH"` line within the Phase 3 range.
+  local block gitleaks_line ffmerge_line
+  block=$(awk '/^## Phase 3:/,/^## Phase 4:/' "$SKILL_FILE")
+  gitleaks_line=$(printf '%s\n' "$block" | grep -nE 'gitleaks git --redact --log-opts' | head -1 | cut -d: -f1)
+  ffmerge_line=$(printf '%s\n' "$block" | grep -nE 'git merge --ff-only "\$BRANCH"' | head -1 | cut -d: -f1)
+  [ -n "$gitleaks_line" ]
+  [ -n "$ffmerge_line" ]
+  [ "$gitleaks_line" -lt "$ffmerge_line" ]
+}
+
 @test "Known limitations section notes rename-plus-symlink is now auto-detected" {
   awk '/^## Known limitations/,/^---/' "$SKILL_FILE" \
     | grep -qiE 'auto-detect|detected automatically|now auto-detects'

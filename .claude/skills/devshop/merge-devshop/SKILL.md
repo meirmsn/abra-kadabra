@@ -732,7 +732,7 @@ during the `implement-resume-reconcile` build (2026-05-29), where every rebase
 in the session false-failed this way.
 
 **Second remedy — fall back to merge.** If the `core.checkStat=minimal` retry
-*still* aborts with the phantom, fall back to merge to incorporate the base —
+_still_ aborts with the phantom, fall back to merge to incorporate the base —
 same end state (branch tip descends from `$ANCHOR`), different mechanics:
 
 ```bash
@@ -939,8 +939,12 @@ reasons this is the right shape:
    main.** Committing on the feature branch dodges the hook structurally —
    no operator handoff, no `!`-prefix terminal incantation, fully
    autonomous. Pre-commit hooks (gitleaks, doc-coverage, lint, typecheck,
-   affected-only test subset) still fire on the feature-branch commit.
-   Phase 2.5 runs the **full** bats suite before the ff-merge to main.
+   affected-only test subset) fire on the feature-branch commit **where husky
+   is installed** — `/devshop`, or a worktree after the recipe's `pnpm
+install`. An off-convention worktree that skipped that install never armed
+   them, which is exactly why Phase 2's gitleaks gate (below) scans the staged
+   squash delta unconditionally regardless. Phase 2.5 runs the **full** bats
+   suite before the ff-merge to main.
 2. **It's what GitHub's "Squash and merge" does internally.** Squash on
    the source side, fast-forward to the destination. Phase 3 then becomes
    a pointer move with no new commit.
@@ -995,13 +999,61 @@ if [ -n "$COLLISIONS" ]; then
   # AskUserQuestion: offer ff-merge fallback or cancel
   #   Option 1: "Proceed with ff-merge (Recommended)"
   #   Option 2: "Cancel — abort /ak-merge-devshop"
-  # On ff-merge: skip the rest of Phase 2, proceed to Phase 3's
-  #   git merge --ff-only path.
+  # On ff-merge: skip the rest of Phase 2 (the staged-delta gitleaks gate
+  #   below never runs because the soft-reset is unstaged), proceed to Phase
+  #   3's git merge --ff-only path. THAT path runs its own gitleaks scan over
+  #   the constituent commit range ($ANCHOR..$BRANCH) before the ff-merge —
+  #   see Phase 3's "ff-merge gitleaks gate" — so the secret net stays
+  #   unconditional even on this collision corner.
   # On cancel: exit.
 fi
 
+# (d) compensating gitleaks gate — mirrors .husky/pre-commit:29 verbatim.
+# Scans the staged index (== the squash delta after the soft-reset), from the
+# squash cwd: the worktree when WORKTREE_PATH is set, else /devshop. Runs
+# UNCONDITIONALLY (belt-and-suspenders) so an off-convention worktree that
+# skipped `pnpm install` (so in-worktree hooks never armed) still can't land a
+# secret on main.
+if [ -n "$WORKTREE_PATH" ]; then
+  ( cd "$WORKTREE_PATH" && gitleaks protect --staged --redact )
+else
+  gitleaks protect --staged --redact
+fi
+# On non-zero exit (a finding): HALT — do NOT run the commit below. Surface the
+# redacted finding, tell the operator to scrub the secret from the staged delta
+# (`git -C "$WORKTREE_PATH" rm --cached <path>` / edit + re-stage), then re-run
+# Phase 2. The gate is idempotent: a clean re-scan after the scrub passes.
+
 "${GIT_CMD[@]}" commit -F "/tmp/squash-message-${FEATURE}.txt"
 ```
+
+The gitleaks gate above mirrors `.husky/pre-commit:29`'s `gitleaks protect
+--staged --redact` verbatim (same binary, same `.gitleaks.toml` — the worktree
+shares the parent's config via the common git dir). After `reset --soft
+"$ANCHOR"` the index holds exactly the squash delta, so `--staged` scans exactly
+the range that will become the squash commit. It runs **unconditionally** — an
+on-convention worktree already ran the same scan at its own pre-commit hooks, so
+this re-scan is cheap belt-and-suspenders; but an off-convention worktree that
+skipped the recipe's `pnpm install` (empty `core.hooksPath`, no hooks armed)
+relies on this gate as its only secret-scan before the delta reaches `main`. The
+cwd pin is load-bearing: from `/devshop` while the squash lives in a worktree,
+`--staged` would scan `/devshop`'s index (on `main`, empty) and false-pass — the
+`( cd "$WORKTREE_PATH" && … )` subshell keeps the scan on the index the
+soft-reset just staged.
+
+**Both merge paths scan — the net is genuinely unconditional.** The gate
+above covers the **squash path** (the dominant path) via `gitleaks protect
+--staged` on the staged delta. The **ff-merge fallback** (reachable when the
+rename-plus-symlink collision block above routes to Phase 3's
+`git merge --ff-only`, which lands the branch's constituent commits as-is
+with no staged delta) is covered by a sibling **history-scanning** gate in
+Phase 3 — `gitleaks git --redact --log-opts "$ANCHOR..$BRANCH"` over the exact
+commit range about to land on main. `protect --staged` is the wrong subcommand
+on that path (nothing is staged), so the ff-merge path uses the range form
+instead; both halt on a finding with the same contract. So a secret can't
+reach `main` even from an off-convention worktree that skipped the recipe's
+`pnpm install` — whichever path the merge takes, the constituent content is
+secret-scanned before it lands.
 
 Why `--soft`: `git reset --soft <commit>` moves HEAD to `<commit>` while
 leaving the index AND working tree untouched. So after the soft-reset, the
@@ -1196,6 +1248,14 @@ if [ -n "$SOURCE_WORKTREE_ARG" ]; then
   git fetch origin main:main 2>/dev/null || true
 else
   # Default path: checkout main + ff-merge in /devshop.
+  # Recompute the same anchor Phase 1.0/2 used (deterministic given live git
+  # state) so the ff-merge gitleaks gate below scans the exact constituent
+  # range. Resolve it BEFORE `git checkout main` — afterwards origin/main..main
+  # is empty, which would silently narrow the scan range.
+  ANCHOR=origin/main
+  LOCAL_AHEAD=$(git rev-list --count origin/main..main 2>/dev/null || echo 0)
+  [ "$LOCAL_AHEAD" -gt 0 ] && ANCHOR=main
+
   git checkout main
 
   # Verify checkout succeeded — parallel work in another session can change
@@ -1217,6 +1277,26 @@ else
   fi
 
   git merge --ff-only origin/main         # catch local-main lag
+
+  # ff-merge gitleaks gate — sibling of Phase 2's staged-delta gate, for the
+  # path that lands commits WITHOUT staging them. When Phase 2's
+  # rename-plus-symlink collision block routed here, the constituent commits
+  # ($ANCHOR..$BRANCH) are about to ff onto main as-is — and an off-convention
+  # worktree that skipped `pnpm install` never armed its in-worktree gitleaks
+  # hook, so those commits may NEVER have been secret-scanned. `protect
+  # --staged` is the wrong subcommand (nothing is staged on this path); scan
+  # the commit RANGE with `gitleaks git --log-opts` instead. cwd-pinned to the
+  # worktree when WORKTREE_PATH is set (else /devshop) via the path arg —
+  # mirrors the squash gate's cwd discipline. Same flag style as
+  # .husky/pre-commit:29 (`--redact`). Runs UNCONDITIONALLY before the ff-merge
+  # so the secret net is genuinely path-independent.
+  GLEAK_TARGET=${WORKTREE_PATH:-/devshop}
+  gitleaks git --redact --log-opts "$ANCHOR..$BRANCH" "$GLEAK_TARGET"
+  # On non-zero exit (a finding): HALT — do NOT run the ff-merge below. Surface
+  # the redacted finding, tell the operator to scrub the secret from the
+  # offending commit on $BRANCH (interactive-rebase / amend + re-stage), then
+  # re-invoke /ak-merge-devshop. Same halt contract as Phase 2's staged gate.
+
   git merge --ff-only "$BRANCH"           # ff main → squash commit (no NEW commit, no hook)
   git push origin main
 fi
