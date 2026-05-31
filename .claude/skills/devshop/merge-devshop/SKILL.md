@@ -686,19 +686,48 @@ if [ "$LOCAL_AHEAD" -gt 0 ]; then
   echo "  Phase 3's \`git push origin main\`."
 fi
 
-"${GIT_CMD[@]}" rebase "$ANCHOR"   # incorporate $ANCHOR's commits; resolve conflicts inline
+# Mechanized phantom-rebase ladder: rebase → checkStat-retry → merge-fallback.
+# The helper auto-detects the virtiofs phantom false-failure and walks the
+# recovery ladder; it returns genuine conflicts (and only genuine conflicts) to
+# this caller via distinct exit codes. WORKTREE_PATH (empty when merging from
+# /devshop, set when merging a linked worktree) routes all git via -C; the
+# helper treats an empty arg2 as "run git in cwd".
+rc=0
+bash /devshop/kit/scripts/virtiofs-rebase.sh "$ANCHOR" "$WORKTREE_PATH" || rc=$?
+case "$rc" in
+  0)
+    # RESULT: rebased | rebased-checkstat | merged-fallback — all proceed.
+    : ;;
+  10)
+    # RESULT: conflict-rebase — genuine rebase conflict, rebase in progress.
+    # Resolve conflicts (mechanical inline, ambiguous via operator), then:
+    "${GIT_CMD[@]}" add <resolved-paths>
+    "${GIT_CMD[@]}" rebase --continue
+    # Repeat resolve→add→continue until the rebase finishes.
+    ;;
+  11)
+    # RESULT: conflict-merge — genuine conflict in the merge fallback, merge in
+    # progress. Resolve conflicts, then commit the transient merge (discarded by
+    # Phase 2's soft-reset; the docsReviewed trailer may name it as such):
+    "${GIT_CMD[@]}" add <resolved-paths>
+    "${GIT_CMD[@]}" commit -F /tmp/merge-commit-msg.txt
+    ;;
+  *)
+    # RESULT: error: <msg> (exit 1) or usage (exit 64) — surface to operator, halt.
+    echo "virtiofs-rebase.sh failed (exit $rc) — surface to operator, do not proceed." >&2
+    exit "$rc"
+    ;;
+esac
 ```
 
-After the rebase, `$ANCHOR` is an ancestor of the branch tip, so 1.1's audit
-range `$ANCHOR..HEAD` is exactly the branch's true delta — no phantom reverts.
-Phase 2 reuses the same `$ANCHOR` for its soft-reset.
+After the helper returns 0, `$ANCHOR` is an ancestor of the branch tip, so 1.1's
+audit range `$ANCHOR..HEAD` is exactly the branch's true delta — no phantom
+reverts. Phase 2 reuses the same `$ANCHOR` for its soft-reset.
 
-If `"${GIT_CMD[@]}" rebase "$ANCHOR"` reports conflicts: resolve them (mechanical
-resolutions inline, ambiguous ones via the operator), `"${GIT_CMD[@]}" add`, then
-`"${GIT_CMD[@]}" rebase --continue`. Repeat until rebase finishes. When `GIT_CMD`
-includes `-C "$WORKTREE_PATH"`, the conflict files live under
-`"$WORKTREE_PATH"`, not `/devshop` — use the Edit tool with the
-worktree-prefixed absolute path.
+When `GIT_CMD` includes `-C "$WORKTREE_PATH"`, conflict files (exit 10 / 11)
+live under `"$WORKTREE_PATH"`, not `/devshop` — use the Edit tool with the
+worktree-prefixed absolute path. The helper leaves the rebase (exit 10) or merge
+(exit 11) in progress for exactly this inline resolution.
 
 **Worked incident — anchor selection matters**: `home-os-skill-polish-batch`
 merge (2026-05-20). Local main carried `3f122d4 Bump devshop version to
@@ -710,54 +739,34 @@ and main had no common path. Recovery required re-anchoring on `main`, after
 which Phase 3's FF + push carried both the release commit and the squash to
 origin in one push. The anchor-detection block above eliminates the re-do.
 
-**Phantom "local changes would be overwritten" — retry with `core.checkStat=minimal`, then fall back to merge.** On
-virtiofs (devcontainer on macOS / linuxkit), `git rebase "$ANCHOR"` sometimes aborts
-immediately with `error: Your local changes to the following files would be
-overwritten by merge: <N files>` even though `git status` reports a clean tree
-and `git ls-files -m` returns nothing. This is a stat-cache / virtiofs
-interaction, not a real diff; `git update-index --really-refresh` may expose a
-real diff or may not.
+**Phantom "local changes would be overwritten" — mechanized by `virtiofs-rebase.sh`.**
+On virtiofs (devcontainer on macOS / linuxkit), `git rebase "$ANCHOR"` sometimes
+aborts immediately with `error: Your local changes to the following files would
+be overwritten by merge: <N files>` even though `git status` reports a clean
+tree and `git ls-files -m` returns nothing — a stat-cache / virtiofs
+interaction, not a real diff. The helper called above handles this automatically:
+it retries the rebase with a reduced stat comparison
+(`-c core.checkStat=minimal -c core.trustctime=false`, inline per-command —
+never `git config`-ed repo-global, so it can't leak into unrelated git
+operations; `-c` after a `-C "$WORKTREE_PATH"` is valid since git parses `-C`
+then `-c`), preserving the rebase (no transient merge commit, same code path a
+clean run takes). If that retry still phantom-fails, it falls back to
+`git merge "$ANCHOR" --no-edit` — `git merge` does NOT trip the phantom (different
+code path inside git); the transient merge commit is discarded by Phase 2's
+soft-reset (its docsReviewed trailer may name it "transient merge of `$ANCHOR`
+into <branch>, discarded by the following soft-reset" — the reviewer accepts
+that shape).
 
-**First remedy — retry the rebase with a reduced stat comparison.** The phantom
-is a stat-cache race; `core.checkStat=minimal` (compare only size + mtime, not
-ctime/ino/uid/gid) plus `core.trustctime=false` sidesteps it and **preserves
-the rebase** — no transient merge commit for Phase 2's soft-reset to discard,
-same code path a clean run takes:
-
-```bash
-"${GIT_CMD[@]}" rebase --abort 2>/dev/null || true
-"${GIT_CMD[@]}" -c core.checkStat=minimal -c core.trustctime=false rebase "$ANCHOR"
-```
-
-Keep the `-c` flags **inline** (per-command scope) — never `git config` them
-repo-global, so the reduced stat comparison can't leak into unrelated git
-operations. (`-c` after a `-C "$WORKTREE_PATH"` in the `GIT_CMD` array is
-valid; git parses `-C` then `-c`.) This resolved the flake first-try every time
-during the `implement-resume-reconcile` build (2026-05-29), where every rebase
-in the session false-failed this way.
-
-**Second remedy — fall back to merge.** If the `core.checkStat=minimal` retry
-_still_ aborts with the phantom, fall back to merge to incorporate the base —
-same end state (branch tip descends from `$ANCHOR`), different mechanics:
-
-```bash
-"${GIT_CMD[@]}" rebase --abort 2>/dev/null || true
-"${GIT_CMD[@]}" merge "$ANCHOR" --no-edit   # resolve any real content conflicts
-# If conflicts paused the merge: resolve, "${GIT_CMD[@]}" add, then
-# "${GIT_CMD[@]}" commit -F /tmp/merge-commit-msg.txt (transient merge commit —
-# discarded by Phase 2's soft-reset).
-```
-
-`git merge` does NOT trip the phantom error (different code path inside git).
-The transient merge commit's docsReviewed trailer can describe itself as
-"transient merge of `$ANCHOR` into <branch>, discarded by the following
-soft-reset" — the reviewer accepts that shape. The audit (1.1) runs against the
-merged branch; because `$ANCHOR` is now an ancestor, `$ANCHOR..HEAD` is the
-branch's true delta (the merge commit adds no phantom content). Phase 2's
-soft-reset later discards the merge commit. Verified end-to-end on the
-`ci-rollback-explain-marker-loud` merge (2026-05-19): rebase phantom-failed on
-`PLAN.md`; merge fallback resolved 2 real content conflicts cleanly, then the
-soft-reset + commit produced the same 9-file squash the rebase path would have.
+The helper discriminates phantom from genuine conflict by **unmerged-path
+presence**, not the stderr string, so both phantom flavors (the "would be
+overwritten" abort and the rescheduled-pick stall) route into the recovery
+ladder while a real conflict surfaces as exit 10 / 11 for the inline resolution
+above. Worked incidents the helper subsumes: `implement-resume-reconcile`
+(2026-05-29, every rebase phantom-failed — checkStat retry resolved each
+first-try) and `ci-rollback-explain-marker-loud` (2026-05-19, rebase
+phantom-failed on `PLAN.md`; merge fallback resolved 2 real content conflicts,
+soft-reset produced the same 9-file squash the rebase path would have). Full
+exit-code + RESULT contract: `kit/scripts/virtiofs-rebase.sh` header.
 
 **Same flake fires in `git cherry-pick` and `git am`** when applying multiple
 patches that touch the same file in quick succession. For surgical operations

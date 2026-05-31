@@ -156,6 +156,19 @@ no `resolved`/archive section here.
 - **Promotion target**: `kit/ROADMAP.md` (harden `/ak-merge-devshop` Phase 2
   anchor-drift guard) or `kit/TODOS.md`.
 
+### Interrupted `git commit` on virtiofs corrupts the shared object DB
+
+- **Score**: 4 (impact 4 × count 1)
+- **Impact**: 4 (L) — an interrupted commit can poison the SHARED `/devshop/.git` object store, so EVERY later git command (in the worktree and the main checkout) throws `fatal: unable to read <sha>`; recovery is non-obvious and the instinctive `rm .git/.../index` is (rightly) auto-denied. Recurs on the common commit path under the virtiofs instability already documented for rebase.
+- **Count**: 1
+- **Status**: open
+- **First seen**: 2026-05-31 (virtiofs-rebase-auto-switch fresh-eyes verification)
+- **Sessions**:
+  - 2026-05-31 — virtiofs-rebase-auto-switch verification; three aborted commit attempts (a parallel-tool abort during the hook, a tests-coverage block, a rejected classification reason) left ~339 missing-blob refs; recovered with `git read-tree --reset HEAD` then re-committed clean (`c419797`).
+- **Symptom**: after an aborted/interrupted `git commit`, every git command throws `fatal: unable to read <sha>` and `git fsck` shows hundreds of "missing blob" refs — including blobs for pre-existing files that were only ever in the uncommitted index.
+- **Detail**: On a virtiofs-backed devcontainer, an in-flight `git commit` that is aborted/interrupted (a PreToolUse parallel-abort during the pre-commit hook run, or chaining `cd <worktree>` before `git commit` which trips check-hook-bypass mid-commit) can lose just-written loose objects to a partial fsync, corrupting the SHARED `/devshop/.git` object DB the index references — and because linked worktrees share that store, a worktree commit can poison the main checkout too. **Key insight**: committed history (`HEAD^{tree}`) survives — only the half-written UNCOMMITTED staged objects are lost. **Non-destructive recovery**: `git read-tree --reset HEAD` rebuilds the worktree index from the intact HEAD (do NOT `rm .git/.../index` by hand — correctly auto-denied as .git-internals surgery; read-tree is the safe equivalent), then re-stage + recommit; fsck clean afterward. **Prevention**: run a commit as a single atomic Bash call; never chain `cd <worktree>` before `git commit`; don't interrupt an in-flight commit on virtiofs. Sibling to the documented virtiofs rebase phantom (same stat-cache/fsync root cause, different surface).
+- **Promotion target**: `CLAUDE.md § Known Footguns` (recovery recipe) or `kit/docs/guide/hooks.md § Practical recipes` (sibling to the vanished-stash recipe).
+
 ### `/ak-build` Step 0 doesn't detect a feature-name collision with an already-shipped `specs/<feature>/`
 
 - **Score**: 3 (impact 3 × count 1)
@@ -246,19 +259,6 @@ no `resolved`/archive section here.
 - **Symptom**: `/ak-build` (devshop mode) Phase 0.3 / 1.1 try to commit only `specs/<feature>/spec.md`, but the devshop pre-commit clean-tree guard refuses ("✖ Working tree not clean before commit") because unrelated working-tree files are dirty/untracked (the uncommitted driver edit, a runtime lock, etc.).
 - **Detail**: `/ak-build` Phase 0.3 commits the spec skeleton (and 1.1 the expansion) assuming a partial `git add specs/…` is fine. Devshop's pre-commit clean-tree check counts ALL dirty/untracked entries, so the partial commit is blocked whenever the feature is driven by an uncommitted change — common when an operator hand-authors a tracker entry and then runs `/ak-build` on it. Workaround used this session: commit the dirty driver as a squash-invisible branch baseline first (devshop squash-merges, so the add-then-resolve churn never reaches `main`), and gitignore any untracked runtime noise. **Candidate fix**: an `ak-build/devshop-mode.md` Phase 0.3 note — when the tree is dirty at branch creation, baseline-commit the driver before the skeleton commit (or document the `git -c devshop.dirtyTreeReason=…` bypass as the alternative). References `.claude/skills/ak-build/SKILL.md § Phase 0.3` + the clean-tree pre-commit guard.
 - **Promotion target**: `kit/TODOS.md` (Phase 0.3 dirty-tree handling note in `devshop-mode.md`).
-
-### Virtiofs phantom rebase also surfaces as a "rescheduled pick" stall on a clean tree
-
-- **Score**: 2 (impact 2 × count 1)
-- **Impact**: 2 (S) — the `core.checkStat=minimal` retry remedy already shipped (`8aa012c`) and the merge fallback always works, so recovery is mechanical; the residual risk is recognition time — an operator who hits this _variant_ may not connect it to the documented phantom (which only names the "local changes would be overwritten" message) and burn cycles before reaching the remedy. Recurs on the common merge path.
-- **Count**: 1
-- **Status**: open
-- **First seen**: 2026-05-29 (`merge-devshop-phase25-tree-pin` /ak-build, this session)
-- **Sessions**:
-  - 2026-05-29 — `/ak-build` of `merge-devshop-phase25-tree-pin`; Phase 1.0 rebase + two mid-pipeline rebases each flaked this way; resolved via the `git merge` fallback (the checkStat retry remedy landed mid-session via `8aa012c`, after the loaded skill version, so it wasn't tried first).
-- **Symptom**: `git rebase <anchor>` (in `/ak-merge-devshop § Phase 1.0` or a standalone worktree rebase) stalls on a verifiably **clean** tree with `git rebase --edit-todo` / `--continue` hints and a "rescheduled" pick (often the SAME pick listed as both done and next-to-do), "currently editing a commit" — NOT the documented `error: Your local changes ... would be overwritten by merge` string.
-- **Detail**: Same virtiofs stat-cache root cause as the documented phantom (`CLAUDE.md § Known Footguns` + `merge-devshop/SKILL.md § Phase 1.0`), but a different surface form — so a grep/recognition match on the documented "local changes would be overwritten" message misses it. The `core.checkStat=minimal -c core.trustctime=false rebase` first-remedy almost certainly covers this variant too (same root cause); the `git merge` fallback definitely does (verified 3× this session). **Candidate fix**: add one clause to the `§ Phase 1.0` phantom note + the CLAUDE.md footgun — _"also surfaces as a rescheduled-pick / 'editing a commit' stall on a clean tree (with `git rebase --edit-todo`/`--continue` hints); same root cause, same checkStat retry → merge fallback ladder."_ References `.claude/skills/devshop/merge-devshop/SKILL.md § Phase 1.0` + `CLAUDE.md § Known Footguns`.
-- **Promotion target**: `kit/TODOS.md` (one-clause symptom-variant addition to the Phase 1.0 phantom note + CLAUDE.md footgun).
 
 ### zsh doesn't word-split unquoted `$STRING` in orchestrator-authored loops (e.g. Phase 3.3 concat)
 

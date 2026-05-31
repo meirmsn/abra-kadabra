@@ -398,18 +398,23 @@ setup() {
   # Core invariant: a stale-base worktree must be rebased BEFORE
   # /ak-check-docs-and-tests runs, or the audit's two-dot range diffs across
   # diverged histories and reports phantom reverts. Codified from the
-  # go-live-prod-url-extraction merge (2026-05-28).
+  # go-live-prod-url-extraction merge (2026-05-28). The rebase is now driven by
+  # the virtiofs-rebase.sh helper call (mechanized ladder); assert the helper
+  # call precedes the audit.
   local rebase_line audit_line
-  rebase_line=$(grep -nE '^"\$\{GIT_CMD\[@\]\}" rebase "\$ANCHOR"' "$SKILL_FILE" | head -1 | cut -d: -f1)
+  rebase_line=$(grep -nE 'virtiofs-rebase\.sh "\$ANCHOR" "\$WORKTREE_PATH"' "$SKILL_FILE" | head -1 | cut -d: -f1)
   audit_line=$(grep -nE 'skill: "ak-check-docs-and-tests"' "$SKILL_FILE" | head -1 | cut -d: -f1)
   [ -n "$rebase_line" ]
   [ -n "$audit_line" ]
   [ "$rebase_line" -lt "$audit_line" ]
 }
 
-@test "Phase 1.0 runs the GIT_CMD array on rebase onto \$ANCHOR" {
+@test "Phase 1.0 invokes the virtiofs-rebase.sh helper with \$ANCHOR + \$WORKTREE_PATH" {
+  # The mechanized ladder (rebase → checkStat-retry → merge-fallback) lives in
+  # kit/scripts/virtiofs-rebase.sh; Phase 1.0 calls it with the pre-selected
+  # anchor (arg1) and the worktree path (arg2, empty → git runs in cwd).
   awk '/^### 1\.0:/,/^### 1\.1:/' "$SKILL_FILE" \
-    | grep -qE '"\$\{GIT_CMD\[@\]\}" rebase "\$ANCHOR"'
+    | grep -qE 'bash /devshop/kit/scripts/virtiofs-rebase\.sh "\$ANCHOR" "\$WORKTREE_PATH"'
 }
 
 @test "Phase 1.0 anchor-selects between origin/main and local main" {
@@ -421,31 +426,43 @@ setup() {
     | grep -qE 'ANCHOR=(origin/main|main)'
 }
 
-@test "Phase 1.0 documents the virtiofs phantom-error → merge fallback" {
-  # The phantom 'local changes would be overwritten' fallback (merge instead of
-  # rebase) moved here with the rebase; git reset --soft can't trip it.
+@test "Phase 1.0 documents the virtiofs phantom-error → mechanized merge fallback" {
+  # The phantom 'local changes would be overwritten' recovery (checkStat retry →
+  # merge fallback) is now mechanized in virtiofs-rebase.sh; Phase 1.0 still
+  # documents the flake + names the merge fallback as part of the helper's ladder.
   awk '/^### 1\.0:/,/^### 1\.1:/' "$SKILL_FILE" \
     | grep -qiE 'phantom|virtiofs|stat-cache'
   awk '/^### 1\.0:/,/^### 1\.1:/' "$SKILL_FILE" \
-    | grep -qE '"\$\{GIT_CMD\[@\]\}" merge "\$ANCHOR"'
+    | grep -qE 'git merge "\$ANCHOR" --no-edit'
 }
 
-@test "Phase 1.0 promotes core.checkStat=minimal rebase retry ABOVE the merge fallback" {
-  # The checkStat=minimal -c core.trustctime=false rebase retry is the FIRST
-  # remedy for the virtiofs phantom 'local changes would be overwritten' flake;
-  # the merge fallback is demoted to second (it leaves a transient commit the
-  # soft-reset must discard; the retry preserves the rebase). Inline -c form
-  # only — never repo-global config. Codified from merge-rebase-racy-git-remedy
-  # (2026-05-29).
+@test "Phase 1.0 handles the helper's conflict exit codes (10 rebase / 11 merge)" {
+  # The helper returns genuine conflicts to the caller: exit 10 = rebase
+  # conflict (resolve → add → rebase --continue); exit 11 = merge-fallback
+  # conflict (resolve → add → commit -F merge-msg). Assert both branches exist
+  # so a future edit can't silently drop the caller-side resolution path.
   awk '/^### 1\.0:/,/^### 1\.1:/' "$SKILL_FILE" \
-    | grep -qE 'core\.checkStat=minimal -c core\.trustctime=false rebase "\$ANCHOR"'
-  # Ordering invariant: the checkStat retry precedes the merge fallback.
+    | grep -qE '"\$\{GIT_CMD\[@\]\}" rebase --continue'
+  awk '/^### 1\.0:/,/^### 1\.1:/' "$SKILL_FILE" \
+    | grep -qE '"\$\{GIT_CMD\[@\]\}" commit -F /tmp/merge-commit-msg\.txt'
+}
+
+@test "Phase 1.0 documents the inline checkStat=minimal retry as part of the helper ladder" {
+  # The checkStat=minimal -c core.trustctime=false rebase retry is the FIRST
+  # rung of the helper's recovery ladder for the virtiofs phantom flake; the
+  # merge fallback is the second. Inline -c form only — never repo-global config.
+  # Codified from merge-rebase-racy-git-remedy (2026-05-29), mechanized in
+  # virtiofs-rebase-auto-switch.
+  awk '/^### 1\.0:/,/^### 1\.1:/' "$SKILL_FILE" \
+    | grep -qE 'core\.checkStat=minimal -c core\.trustctime=false'
+  # Ordering invariant: the checkStat retry precedes the merge fallback in the
+  # prose describing the helper's ladder.
   local checkstat_line merge_line
   checkstat_line=$(awk '/^### 1\.0:/,/^### 1\.1:/' "$SKILL_FILE" \
-    | grep -nE 'core\.checkStat=minimal -c core\.trustctime=false rebase "\$ANCHOR"' \
+    | grep -nE 'core\.checkStat=minimal -c core\.trustctime=false' \
     | head -1 | cut -d: -f1)
   merge_line=$(awk '/^### 1\.0:/,/^### 1\.1:/' "$SKILL_FILE" \
-    | grep -nE '"\$\{GIT_CMD\[@\]\}" merge "\$ANCHOR"' | head -1 | cut -d: -f1)
+    | grep -nE 'git merge "\$ANCHOR" --no-edit' | head -1 | cut -d: -f1)
   [ -n "$checkstat_line" ]
   [ -n "$merge_line" ]
   [ "$checkstat_line" -lt "$merge_line" ]

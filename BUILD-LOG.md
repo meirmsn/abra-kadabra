@@ -4,6 +4,15 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### virtiofs-rebase-auto-switch (2026-05-31)
+
+- **Branch**: `feat/virtiofs-rebase-auto-switch`
+- **Spec**: `specs/virtiofs-rebase-auto-switch/spec.md`
+- **Headline**: Infrastructure update — no user-visible change in this PR.
+- **Summary**: Devshop merges stop stalling on the virtiofs phantom-rebase flake — `/ak-merge-devshop` Phase 1.0 now auto-detects the false-failure and walks the recovery ladder (reduced-stat retry → merge fallback) via `kit/scripts/virtiofs-rebase.sh`, without operator hand-driving, while genuine conflicts still surface for manual resolution. The helper discriminates phantom-vs-real-conflict by unmerged-path presence (not stderr-string match), so the rescheduled-pick variant is auto-covered. 18-case bats suite + structural-invariants registration; CLAUDE.md footgun + workflow.md row rewritten to point at the helper; `kit/TODOS.md` mechanize-entry deleted and the FRICTION-LOG rescheduled-pick variant deleted (delete-on-ship — no `## Resolved` archive).
+- **Commits**: helper (T1) + 18-case bats (T2) + structural-invariants registration (T3) + merge-devshop Phase 1.0 wiring (T4) + docs closing-convention (T5) + Phase 3 review.md + Phase 4.0 bookkeeping — squashed to 1 on main via `/ak-merge-devshop`.
+- **Quality gates**: devshop gate set — Gates 1/4/6/11 pass; Gate 2d full bats suite green (1594 passed, 0 failed, incl. the new 18-case `util-virtiofs-rebase.bats`); Gate 5 docs+tests audit (Audit 1) high=0 medium=1 low=1 (both test-robustness recommendations, not blockers — exit-11 real-repo companion + checkStat flag-position pin). Gate 6 `/review` surfaced 1 MEDIUM (rerere/exec/empty-stop edge case where a real rebase conflict leaves a clean index — out of scope for plain `rebase <anchor>`, noted) + 3 LOW. 9 non-LLM carve-outs n/a; 4 LLM-mediated structural carve-outs (cso/design-review/qa/benchmark — no UI/auth/perf surface). Phase 2.5 fresh-eyes: 1 finding fixed (helper tracked 755 → 644).
+
 ### propagation-skip-noop (2026-05-31)
 
 - **Branch**: `feat/propagation-skip-noop`
