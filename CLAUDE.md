@@ -167,7 +167,7 @@ Full per-category rationale: `kit/docs/guide/conventions.md § Confidence Calibr
 
 ### Closing TODO / ROADMAP entries when a fix ships
 
-The same PR that ships a fix MUST close the tracker entries for it — delete from `kit/ROADMAP.md` / `kit/TODOS.md` / project `TODOS.md`; rewrite docs that described the prior constraint from conditional prose to imperative present tense; unwind every cross-reference in the same PR. Otherwise stale entries get cited as "still pending" in future sessions and recreate the false belief the fix removed. Full convention + worked incident: `kit/docs/guide/conventions.md § Closing TODO / ROADMAP entries when a fix ships`.
+The same PR that ships a fix MUST close the tracker entries for it — delete from `kit/ROADMAP.md` / `kit/TODOS.md` / project `TODOS.md`; rewrite docs that described the prior constraint from conditional prose to imperative present tense; unwind every cross-reference in the same PR; and delete any `kit/FRICTION-LOG.md` entry promoted into that tracker, folding its recurrence history into the `BUILD-LOG.md` entry (the friction log keeps only live observations — no `## Resolved` archive). Otherwise stale entries get cited as "still pending" in future sessions and recreate the false belief the fix removed. Full convention + worked incident: `kit/docs/guide/conventions.md § Closing TODO / ROADMAP entries when a fix ships`.
 
 ### Commit + PR text style
 

@@ -47,13 +47,14 @@ BRANCH=$(git branch --show-current)
 
 If `kit/FRICTION-LOG.md` does not exist (it normally does — it ships with the
 devshop), scaffold it: write the `# Friction Log` header, the schema/scoring/
-ordering description, and empty `## Open` and `## Resolved` sections, then add
-the entry. Don't block on a missing file.
+ordering description, and an empty `## Open` section, then add
+the entry. Don't block on a missing file. (No `## Resolved` section — when a
+fix ships its entry is deleted and its history folds into `BUILD-LOG.md`.)
 
 The **session ref** is a short `YYYY-MM-DD — <one-line of what the session was
 doing>` string (e.g. `2026-05-29 — /ak-build merge of foo; caught pre-push`).
 The date is the same-session dedup key together with the symptom: if an entry's
-Sessions list already contains a line for *this* session's work, do NOT bump the
+Sessions list already contains a line for _this_ session's work, do NOT bump the
 count again (a single session hitting the same issue twice is still count 1).
 
 ## Step 1: Read the whole ledger
@@ -104,7 +105,7 @@ Create a new `### <title>` entry under `## Open` with every schema field:
 - **Title**: names the skill/script/phase + the failure mode, observable-change
   style (same readability bar as commit subjects — no internal jargon).
 - **Impact**: 1–5 on the `PLAN.md` scale (XS=1, S=2, M=3, L=4, XL=5) — the
-  severity *if it recurs*. Assign it yourself from the evidence; the escalation
+  severity _if it recurs_. Assign it yourself from the evidence; the escalation
   notice (Step 5) is what surfaces big ones for the operator, so you don't need
   to ask unless the rating is a genuine coin-flip between, say, M and XL.
 - **Count**: 1. **Score**: Impact × 1.
@@ -118,9 +119,11 @@ Create a new `### <title>` entry under `## Open` with every schema field:
 ## Step 4: Re-sort `## Open` by score descending
 
 Rewrite the `## Open` section so entries are ordered by **Score desc**,
-tie-broken by **Impact desc**, then most-recently-seen. `resolved` entries (if
-any were just marked) move to `## Resolved` at the bottom. The file must stay
-valid Markdown with exactly one `### ` heading per entry.
+tie-broken by **Impact desc**, then most-recently-seen. There is no `## Resolved`
+section — when a fix ships its entry is deleted from this log and folded into the
+`BUILD-LOG.md` entry, so the log holds only live (`open` / in-flight `promoted →`)
+observations. The file must stay valid Markdown with exactly one `### ` heading
+per entry.
 
 ## Step 5: Escalation notice + handoff
 

@@ -25,37 +25,6 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
   **Saves**: ~30s per docs-only devshop commit. Rough git-log sample suggests ~30–50% of devshop commits are docs-only (ROADMAP/PLAN/TODOS/BUILD-LOG hygiene). Net: ~10–20s amortized per commit, plus the ergonomic improvement of "instant docs commit". [pre-commit, performance, ergonomics, references `kit/scripts/preship/path-classifier.sh` + `kit/ROADMAP.md § Cheap-test-gates-local sub-fix 2 stage 2`, surfaced-by 2026-05-23 reflection on the supabase-port-backlog-entries commit] [v0]
 
-- [ ] **DCG `core.git:push-force-short` rule false-positives on compound commands containing `git push` + any `-f` flag.** Surfaced 2026-05-20 during `home-os-skill-polish-batch` teardown. Empirically verified via `dcg test`:
-  - `git push -f origin main` — BLOCKED (correct behavior; this is what the rule is for)
-  - `git push origin --delete fix/x` — ALLOWED (correct; `--delete` is not force-push)
-  - `git submodule deinit -f --all && git worktree remove --force /tmp/x` — ALLOWED (no `git push` present)
-  - `git submodule deinit -f --all && git worktree remove --force /tmp/x && git branch -D fix/x && git push origin --delete fix/x && rm -f /tmp/x.txt` — **BLOCKED on `push-force-short`** (FALSE POSITIVE — no `git push -f` exists, but the rule fires because `git push` + `-f` both appear in the compound command)
-  - `git push origin main && rm -f /tmp/x.txt` — **BLOCKED on `push-force-short`** (minimal reproducer; benign push + `rm -f` is enough to false-positive)
-  - The rule also false-positives when the `git -c devshop.docsReviewed="<reason>" commit ...` reason TEXT mentions `git push -f` as a literal string discussing the rule itself, even though the command being run is a `git commit` with no push at all.
-
-  **Investigation (completed 2026-05-20)**: extracted regexes from the dcg 0.4.0 binary via `strings /usr/local/bin/dcg`. The `core.git:push-force-short` pattern is approximately:
-
-  ```
-  git\s+(?:\S+\s+)*push\s+.*-f\b
-  ```
-
-  (sibling `push-force-long` is `git\s+(?:\S+\s+)*push\s+.*--force(?![-a-z])`; the strict-git pack's `push-force-any` is `git\s+(?:\S+\s+)*push\s+.*(?:--force|--force-with-lease|-f\b)` — same shape, all three share the same greedy-`.*` bug.) **Root cause: the unanchored `.*`.** Once the regex matches `git ... push`, `.*` greedily consumes anything up to the next `-f` literal, INCLUDING shell separators (`&&`, `;`, `|`, newlines). So `git push origin main && rm -f /tmp/x.txt` matches because `.*` swallows `origin main && rm`.
-
-  **Fix shape (upstream)**: change `.*` → `[^;&|\n]*` so the match stops at the nearest shell-command separator. Same fix applies to all three rules. The 5 test cases above become the verification matrix — all currently BLOCKED would flip to ALLOWED post-patch (except `git push -f origin main` and `git push --force origin main`, which would correctly stay BLOCKED).
-
-  **Upstream repo**: `https://github.com/Dicklesworthstone/destructive_command_guard` (confirmed via `strings` against the embedded reference URL inside the dcg binary). DCG ships as a stripped ARM ELF; in-place patching the binary is not viable.
-
-  **Current workarounds** (already shipped):
-  - `/ak-merge-devshop § Phase 4.2` instructs operators to run each teardown step as a SEPARATE Bash tool call (no chaining). Documented empirically-verified false-positive shape inline.
-  - When `git -c devshop.docsReviewed="$REASON" commit ...` is needed AND the reason text would mention `git push -f`, sanitize the reason (use phrases like "force-shortcut variant" / "push command + a separate short-dash-f flag" instead of literal `git push -f`).
-
-  **Path forward** (post-investigation, in order of preference):
-  - (a) **File upstream issue + PR** at `Dicklesworthstone/destructive_command_guard` proposing the `.*` → `[^;&|\n]*` patch on `push-force-short`, `push-force-long`, and `strict_git:push-force-any`. Include the 5 empirical test cases as the verification matrix. **Recommended first step** — single-line regex change with high signal-to-noise ratio.
-  - (b) **Devshop-side wrapper** `kit/scripts/dcg-pre-check.sh <command>` that decomposes a compound command into per-shell-separator atoms, runs each through `dcg test` independently, and pre-filters false-positives before the harness hook fires. Tracked here because the wrapper would need to be a real PreToolUse hook upstream of dcg, which requires restructuring `.claude/settings.json`'s hook chain. Deferred unless upstream-patch is rejected.
-  - (c) **Operator documentation only** (current state — workarounds shipped, root cause tracked here). Acceptable interim posture; revisit if a fourth false-positive event surfaces.
-
-  Codified from `home-os-skill-polish-batch` + `ak-merge-devshop-hardening` + `session-followups` sessions (2026-05-20). Three false-positive events in one session, all empirically verified; root cause confirmed via binary inspection. Upstream patch is the canonical fix path. [v0]
-
 - [ ] **`/ak-merge-devshop` Phase 2 / Phase 1.0 — mechanize the virtiofs phantom-rebase fallback (auto-detect + auto-switch-to-merge).** On virtiofs/overlay filesystems `git rebase` (and direct `git merge --ff-only`) intermittently aborts with `error: Your local changes to the following files would be overwritten by merge` on a verifiably clean tree (`git status` clean, `git ls-files -m` empty) — a stat-cache race between Docker Desktop's macOS-side view and the container's, not a real diff. Recurs constantly: 2026-05-19 (`sandbox-qa-close-gap` fired it twice in one multi-commit rebase — 4 files on `d31af1a`, 1 on `9dcdd4d`; `ci-rollback-explain-marker-loud` aborted on `PLAN.md`), 2026-05-20 (`feat/phase3-blocked-halt` + `chore/plan-hygiene-shipped-rows`), 2026-05-29 (every rebase in the `implement-resume-reconcile` build). Detection-and-recovery is still operator-mediated: the agent must recognize the signature (`Aborting` / `It has been rescheduled` / `currently editing a commit while rebasing` / the "would be overwritten" string) and manually switch to the documented merge-fallback (`git merge "$ANCHOR"` + transient commit + soft-reset + squash), each costing a `git rebase --abort` + recovery loop.
 
   **Current state:** the operator-facing merge-fallback is documented in the skill (Phase 2 callout, verified end-to-end on `ci-rollback-explain-marker-loud`). The `core.checkStat=minimal -c core.trustctime=false rebase` _stopgap_ — which stops the rebase itself from false-failing — **shipped** (2026-05-29, `merge-rebase-racy-git-remedy`): it's the first remedy in `/ak-merge-devshop § Phase 1.0` (merge fallback demoted to second), also in the cherry-pick/`am` recipe, with a `CLAUDE.md § Known Footguns` pointer. This entry is the deeper, orchestrator-side mechanization that remains: pick the recovery path automatically instead of halting the merge subagent's autonomy.
@@ -377,16 +346,6 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
   **Edit targets**: `template/scripts/ci/{rollback-explain,type-drift}.sh` (new), `template/.github/workflows/ci.yml` (path updates), `.claude/skills/devshop/new-project/SKILL.md` (Step 17 — sync these alongside `/setup-deploy`'s output).
 
   [v1, kit-script-generalization, surfaced-by lalista-PR46-review, 2026-05-05]
-
-- [ ] **Root-cause investigation: operator stashes vanish silently during `/ak-merge-devshop` flows.** [v0] Symptom and recovery recipe are documented (recovery: `kit/docs/guide/hooks.md § Practical recipes § Recovering a vanished stash`; symptom + worked incident: `.claude/skills/devshop/merge-devshop/SKILL.md § Known limitations § Operator stashes can vanish silently mid-merge`; footgun pointer: `CLAUDE.md § Known Footguns`). What's still pending: confirming the actual mechanism so the upstream fix can land.
-
-  **Why the hypothesis is unsettled**: lint-staged is the leading suspect — it's the only routine `git stash` caller on the pre-commit path (config in `package.json` `"lint-staged"`, invoked from `.husky/pre-commit:5`) — but the simple "lint-staged drops operator stash by index confusion" theory doesn't fit because lint-staged v15 stores its backup under a separate `refs/lint-staged/*` namespace, not `refs/stash`. The two ref namespaces don't directly collide. Some interaction (perhaps during pop-on-failure, or via a hook that runs `git stash drop` against the wrong ref) is the working assumption.
-
-  **First action to reproduce**: `GIT_TRACE=1 git stash push -m "test"` immediately before a known-to-trigger operation (`git checkout main && git merge --ff-only origin/main` while a pre-commit hook fires elsewhere), then `git stash list` after. If the named stash is gone, capture the GIT_TRACE log around the disappearance — should show whether `git stash drop` / `git update-ref -d` fired and what called it. Pair with `pnpm exec lint-staged --debug` if the trigger involves a commit; the lint-staged debug log enumerates its own stash operations.
-
-  **Candidate fixes once root cause is known**: `package.json` lint-staged `"stash": false` config (suppresses the backup mechanism entirely — loses the rollback-on-failure safety net but eliminates the suspect path), OR a thin `kit/scripts/` wrapper that replaces lint-staged's stash with `git diff > /tmp/backup.patch` (preserves rollback, dodges the ref-machinery interaction). Note: `--no-stash` is already applied to both pre-commit hooks (shipped via `fix/lint-staged-rename-symlink`), so lint-staged no longer calls `git stash` at all — this reduces the suspect surface for the vanishing-stash bug.
-
-  [v0, hook-bug, surfaced-by feat/gstack-artifact-symlink-redirect-merge, 2026-05-20]
 
 - [ ] **Port the `tap-feedback` press-state contract from lalista into the template's `globals.css`.** Lalista PR (2026-05-13, polish bundle) added a low-specificity `:where(button, a[href], [role="button"]):active` rule that scales 0.97 + drops brightness to 0.9 within `--duration-micro` (75ms), with `touch-action: manipulation` to kill iOS's 300ms tap delay. Without it, taps on iOS PWA give no native press cue and users assume the app froze (or double-tap). Every devshop-generated project should ship this on day one.
 

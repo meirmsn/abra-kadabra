@@ -24,9 +24,12 @@ filling with noise and stops real recurring pain from being forgotten.
 - **Promotion is the operator's call.** When you decide an item is worth acting
   on, move it into `kit/ROADMAP.md` / `kit/TODOS.md` / `PLAN.md`, then set this
   entry's **Status** to `promoted → <tracker>` (keep the entry as the
-  observation record; don't delete it — the count history is the evidence the
-  promotion was earned). When the underlying fix actually ships, set Status to
-  `resolved (<commit/PR>)` and unwind it per
+  observation record _while the work is in flight_ — the count history is the
+  evidence the promotion was earned). When the underlying fix actually ships,
+  **delete the entry from this log** and fold its unique recurrence info (the
+  count + any notable per-session detail worth keeping) into the `BUILD-LOG.md`
+  entry for the fix — the BUILD-LOG becomes the permanent history home. This
+  keeps the friction log to live observations only. Unwind per
   `CLAUDE.md § Closing TODO / ROADMAP entries when a fix ships`.
 
 ## Entry schema
@@ -53,8 +56,10 @@ Each entry is one `### ` heading. Fields:
 ## Ordering
 
 Sorted by **Score descending** (impact × count), tie-broken by Impact desc, then
-most-recently-seen. Highest-scoring friction is always at the top. `resolved`
-entries sink to a `## Resolved` section at the bottom (kept for the history).
+most-recently-seen. Highest-scoring friction is always at the top. The log holds
+only live observations — `open` and in-flight `promoted →` entries. When a fix
+ships, its entry is deleted (its history folds into `BUILD-LOG.md`), so there is
+no `resolved`/archive section here.
 
 <!-- entries below, highest score first -->
 
@@ -208,7 +213,7 @@ entries sink to a `## Resolved` section at the bottom (kept for the history).
 - **Score**: 3 (impact 3 × count 1)
 - **Impact**: 3 (M) — a mid-session firewall refresh (to pick up a rotated CDN IP or a new domain) can hang the session, and the only known recovery is a full container rebuild; recurs whenever a domain/IP change forces a re-run.
 - **Count**: 1
-- **Status**: open
+- **Status**: promoted → `PLAN.md § Planned (v0)` (`init-firewall-connection-preserving`, re-promoted 2026-05-31)
 - **First seen**: 2026-04-20 (lalista PR 2 close-out, observed twice in one session)
 - **Sessions**:
   - 2026-04-20 — `sudo /usr/local/bin/init-firewall.sh` re-run mid-session hung indefinitely (twice during lalista PR 2 close-out); container rebuild was the only recovery.
@@ -226,7 +231,7 @@ entries sink to a `## Resolved` section at the bottom (kept for the history).
 - **Sessions**:
   - 2026-05-20 — `/ak-merge-devshop` flow; a Claude-autostash (4 files) vanished from `git stash list` after the merge completed, with no explicit pop/drop firing.
 - **Symptom**: a `git stash` made before/during an `/ak-merge-devshop` run disappears from `git stash list` after the merge/push, with no `git stash pop`/`drop` ever run.
-- **Detail**: Root cause **unconfirmed**. `--no-stash` on lint-staged (shipped) removed the leading suspect, but the mechanism is still open. The data is never lost — stash commits are durable dangling commits (recovery: `git fsck --no-reflogs | grep 'dangling commit'` → `git stash apply <SHA>`). **Demoted from `PLAN § Planned (v0)`** (was `stash-vanish-root-cause`, Lev 2.4) to the ledger because it's framed as a root-cause _investigation_ with an uncertain outcome — observation belongs here until the mechanism is confirmed. Full symptom + recovery: `.claude/skills/devshop/merge-devshop/SKILL.md § Operator stashes can vanish silently` + `kit/TODOS.md § Root-cause investigation: operator stashes vanish`.
+- **Detail**: Root cause **unconfirmed**. `--no-stash` on lint-staged (shipped) removed the leading suspect, but the mechanism is still open. The data is never lost — stash commits are durable dangling commits (recovery: `git fsck --no-reflogs | grep 'dangling commit'` → `git stash apply <SHA>`). **Demoted from `PLAN § Planned (v0)`** (was `stash-vanish-root-cause`, Lev 2.4) to the ledger because it's framed as a root-cause _investigation_ with an uncertain outcome — observation belongs here until the mechanism is confirmed. Full symptom + recovery: `.claude/skills/devshop/merge-devshop/SKILL.md § Operator stashes can vanish silently`. **This ledger entry is now the single home** — the duplicate `PLAN.md § Planned (v0)` row (`merge-devshop-stash-vanish-rootcause`) and `kit/TODOS.md § Root-cause investigation` entry were removed 2026-05-31 (deprioritized: trigger reduced by the shipped `--no-stash`). Promote back to `kit/TODOS.md` only when the count rises or the mechanism is confirmed.
 - **Promotion target**: `kit/TODOS.md` once the dropping mechanism is confirmed (then a concrete fix can land).
 
 ### Devshop `/ak-build` from a dirty tree trips the clean-tree guard at the Phase 0.3 skeleton commit
@@ -307,7 +312,3 @@ entries sink to a `## Resolved` section at the bottom (kept for the history).
 - **Symptom**: `git ls-remote "https://x-access-token:${TOKEN}@github.com/…"` returns broken fragments ("Permission", "Could", "make", "the" — one word per line) instead of `<sha>\trefs/heads/<branch>` rows; `git fetch` with the same URL works fine.
 - **Detail**: `/ak-clean-branches` Phase 1 enumerates remote branches via `git ls-remote` over the HTTPS-token URL; only ls-remote broke, fetch was fine. **Workaround (shipped)**: swap to `gh api repos/meirmsn/abra-kadabra/branches --paginate --jq '.[].name'`. **Hypothesis**: token contains a special character (`$` / newline / URL-reserved) interpreted by the shell or git's URL parser, mangling argv (`/etc/devshop-env` is `echo DEVSHOP_GITHUB_TOKEN=$TOKEN` into a file). Low-effort fix: switch the skill to `gh api` unconditionally. Edit target: `.claude/commands/ak-clean-branches.md` (Phase 1 remote enumeration).
 - **Promotion target**: `kit/TODOS.md` (swap clean-branches Phase 1 to `gh api`) — low priority.
-
-## Resolved
-
-_None yet._

@@ -627,7 +627,7 @@ Any `gh pr comment`, commit body, status update, audit log, or other public arti
 
 The same PR that ships a fix MUST close the tracker entries for it. Otherwise, stale entries get cited as "still pending" in future sessions and recreate the false belief that the fix removed — wasting investigation time.
 
-Three things, all in one PR:
+Four things, all in one PR:
 
 1. **Delete the entry** from `kit/ROADMAP.md` / `kit/TODOS.md` / project `TODOS.md`. No "shipped 2026-04-25" footnote, no strikethrough — just delete. Git log + the PR description are the audit trail.
 2. **Rewrite docs that described the prior constraint** from conditional prose to imperative present tense:
@@ -635,6 +635,7 @@ Three things, all in one PR:
    - Replacement: _"Do Y."_ / _"Y works."_ — the capability is ambient now, treat it that way.
    - The "must be true / verify before assuming blocked" hedge is a pre-fix artifact; strip it.
 3. **Unwind every cross-reference** to the deleted entry in the same PR. An orphan citation in some other doc respawns the false belief in any session that reads it.
+4. **Delete the matching `kit/FRICTION-LOG.md` entry**, if one was promoted into the tracker you just closed (match by the `promoted →` slug or the symptom). Fold its unique recurrence info — the count + any notable per-session detail worth keeping — into the `BUILD-LOG.md` entry for the fix first; the BUILD-LOG is the permanent history home. The friction log holds only live observations, so a shipped item leaves no trace there (there is no `## Resolved` archive).
 
 Future sessions trust the docs. Trust is only earned by keeping them honest at fix-ship time.
 
