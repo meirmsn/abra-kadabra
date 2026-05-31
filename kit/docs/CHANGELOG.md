@@ -2,6 +2,38 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.37.0 (2026-05-30)
+
+- docs(friction-log): bump bats-drift to count 3 + log gate evidence
+- feat: arm worktree pre-commit hooks + scan every merge path for secrets
+- docs(friction-log): bump bats-test-drift entry to count 2 + re-sort
+- docs(claude-md): codify the reachability split + condense grown sections
+- feat(claude-md): gate entry placement + prune regrown footguns
+- docs(trackers): demote 3 v0 guesses — 2 to friction log, pwa to v1
+- docs(trackers): populate v0 PLAN queue + friction-log intake + session friction
+- chore(trackers): seed friction log + version-tag the TODOS backlog
+- fix(ak-merge-devshop): checkStat rebase retry before merge fallback
+- docs(friction-log): auto-file lessons at the reflection beat
+- feat(friction-log): collect recurring trip-ups in a counted ledger
+- fix(ak-merge-devshop): pin Phase 2.5 bats gate to the tested commit
+- docs(claude-md): prune devshop CLAUDE.md regrowth + close stale trackers
+- docs(ak-build): commit the expanded spec so a crash can't lose it
+- fix(tests): exempt skill-invoked reconcile-task-commits.sh from wiring
+- docs(trackers): reconcile v0 PLAN rows and prune stale/duplicate TODOs
+- feat(ak-build): reconcile tasks.md done markers against git on resume
+- fix(ak-build): detect devshop mode in linked worktrees, not just /devshop
+- fix: reliable prod-URL probe + non-flaky text-hygiene gate
+- docs(hygiene): cross-ref three-dot precompute + strengthen its test
+- docs(csp): derive Pattern 2 img-src from the Supabase origin
+- test(ak-build): update Phase 6 test to assert no audit comment
+- feat(ak-build): drop PR gate comment + autonomous description review
+- fix(hygiene): no phantom propagation-block flag on diverged squashes
+- docs(roadmap): add CSP img-src v0 entry + worktree wipe recovery
+- fix(template): gitignore husky's .husky/\_/ runtime dir
+- docs(go-live): read $ETC_FILE without sudo on HTTP 000; refresh-first; fix escape-hatch
+- feat(ak-build): always run the full pipeline; ask before any shortcut
+- fix(propagation): warn + adversarial-flag missing Existing-projects block
+
 ## v1.36.0 (2026-05-28)
 
 - docs(roadmap): ak-build no-silent-scope-down + project worktree setup
