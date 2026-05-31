@@ -534,25 +534,51 @@ The trigger is: the commit touches a surface that affects project repos AND the 
 ### Required shape
 
 ```
-**Existing projects:** <one of the two variants below>
+**Existing projects:** [auto|manual|conditional] — <one of the two variants below>
 ```
 
-**Variant A — no migration needed** (the auto-sync mechanism handles it):
+The block opens with a **disposition tag** in square brackets. The tag is how
+`propagation-entry.sh` decides what reaches `PROPAGATION.md` — the prose alone
+can't reliably encode it (no-op and actionable openers are textually
+indistinguishable). The tag drives both the generator and the squash-time
+hygiene gate (§ Enforcement layer 1):
+
+- **`[auto]`** — the change auto-propagates (a `[locked]`/`[symlink]`/`[sync]`
+  manifest file, a symlinked skill/doc, a kit/script consumed via `.devshopkit`).
+  The generator **drops** `[auto]` blocks from `PROPAGATION.md` — the audit
+  trail stays in the commit message. **Still write the block** (the gate
+  requires one), it just doesn't reach the migration log.
+- **`[manual]`** — the operator must take a step **now** (a `[scaffold-once]`
+  rewrite, a config/env change, a one-time migration). Rendered plain in
+  `PROPAGATION.md`.
+- **`[conditional]`** — the operator acts only **on a named trigger** (e.g.
+  "when you next add a CSP block, derive img-src from the Supabase origin").
+  Rendered with a `(conditional)` label so it isn't mistaken for a do-now step.
+
+An untagged block is **kept and warned** by the generator (silently dropping a
+real step is the dangerous failure mode), but the squash-time gate FAILs a
+present-but-untagged block — so every block authored going forward carries one
+of the three tags.
+
+**Variant A — `[auto]`, no migration needed** (the auto-sync mechanism handles it):
 
 ```
-**Existing projects:** `compose.yml` + `supabase-runner/cmd-relay.mjs` are `[locked]`
+**Existing projects:** [auto] — `compose.yml` + `supabase-runner/cmd-relay.mjs` are `[locked]`
 files in `kit/manifest.txt`; `init-devshop.sh`'s lock loop refreshes them in each
 project workspace on the next devcontainer rebuild. No project-side migration needed.
 ```
 
-**Variant B — per-project recipe** (manual steps required):
+**Variant B — `[manual]`, per-project recipe** (steps required now):
 
 ```
-**Existing projects:** `template/PLAN.md` is `[scaffold-once]` in `kit/manifest.txt`
+**Existing projects:** [manual] — `template/PLAN.md` is `[scaffold-once]` in `kit/manifest.txt`
 so `from-devshop.sh` won't auto-propagate. Per-project: rewrite each project's
 PLAN.md to the new schema as a one-time conversion. Each existing project gets a
 one-time cleanup commit.
 ```
+
+(A `[conditional]` block follows Variant B's shape but names the trigger the
+operator waits for instead of a do-now step.)
 
 The block names: (1) which manifest lifecycle tag applies, (2) why auto-sync does or doesn't cover it, and (3) concrete steps when manual action is needed.
 
@@ -562,13 +588,13 @@ The block goes under a `**Existing projects:**` bold-label lead-in, following th
 
 ### Enforcement
 
-Three layers catch a **missing** block (even the explicit `**Existing projects:** none — <why>` form) when a commit/squash diff touches a propagation-relevant surface — `template/**`, `kit/scripts/**`, `kit/hooks/**`, `.devcontainer/**`, or `manifest.txt`. None of them decides the judgment-heavy "does this change need a project follow-up?" question for you; they only ensure the block is *present* so it can't be silently forgotten:
+Three layers catch a **missing** block (even the explicit `**Existing projects:** [auto] — none — <why>` no-op form) when a commit/squash diff touches a propagation-relevant surface — `template/**`, `kit/scripts/**`, `kit/hooks/**`, `.devcontainer/**`, or `manifest.txt`. None of them decides the judgment-heavy "does this change need a project follow-up?" question for you; they only ensure the block is _present_ so it can't be silently forgotten:
 
-1. **Squash time** (`/ak-merge-devshop` Phase 0.4.5) — the `prTextHygieneReason` reviewer's dimension (d) FAILs the squash when its diff touches a propagation surface and the body carries no `**Existing projects:**` block. The verdict surfaces in the Phase 0.5 approval gate, before the squash lands on `main`.
-2. **Release time** (`release.sh` → `propagation-entry.sh`) — every commit since the last tag that touches a propagation surface without a block prints a non-fatal `WARN: <sha> … silently dropped from PROPAGATION` to stderr, so `/ak-release-devshop` Phase 2.5's PROPAGATION review catches what the auto-generator (which extracts only the `**Existing projects:**` marker) would otherwise drop with no signal.
+1. **Squash time** (`/ak-merge-devshop` Phase 0.4.5) — the `prTextHygieneReason` reviewer's dimension (d) FAILs the squash when its diff touches a propagation surface and the body carries no `**Existing projects:**` block. It **also** FAILs a block that IS present but carries no recognized `[auto]`/`[manual]`/`[conditional]` disposition tag — without the tag the generator falls back to keep-and-warn and re-admits no-op noise. The verdict surfaces in the Phase 0.5 approval gate, before the squash lands on `main`.
+2. **Release time** (`release.sh` → `propagation-entry.sh`) — every commit since the last tag that touches a propagation surface without a block prints a non-fatal `WARN: <sha> … silently dropped from PROPAGATION` to stderr, so `/ak-release-devshop` Phase 2.5's PROPAGATION review catches what the auto-generator (which extracts only the `**Existing projects:**` marker) would otherwise drop with no signal. The generator processes **one block per commit** — the body convention is exactly one `**Existing projects:**` block. If a commit body carries more than one marker, it warns `WARN: <sha> … has N **Existing projects:** blocks — only the first is processed; consolidate into one block.` and processes only the first (so a real step in a second block can never vanish without a signal — consolidate the blocks).
 3. **Audit time** (`/ak-docs-review` Section A) — flags missing blocks as a **medium** coverage finding.
 
-Per-commit pre-commit hooks deliberately do NOT enforce this (the need-vs-no-need call is not mechanically decidable, and squash time is the real gate since devshop history is squash-per-feature). The three layers catch *absence*; they never decide *need*.
+Per-commit pre-commit hooks deliberately do NOT enforce this (the need-vs-no-need call is not mechanically decidable, and squash time is the real gate since devshop history is squash-per-feature). The three layers catch _absence_; they never decide _need_.
 
 ### Precedents
 

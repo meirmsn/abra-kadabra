@@ -386,8 +386,13 @@ Pick the lead-in labels that fit the change. Common ones:
 - **Existing projects:** — per-project migration recipe, or explicit
   "no migration needed" when auto-sync handles it. Required when the
   diff touches propagation-relevant surfaces (`template/**`,
-  `kit/scripts/**`, `[locked]`/`[sync]`/`[scaffold-once]` files).
-  Convention: `kit/docs/guide/conventions.md § Existing-Project
+  `kit/scripts/**`, `[locked]`/`[sync]`/`[scaffold-once]` files). The
+  block MUST open with a disposition tag — `[auto]` (auto-propagates;
+  the generator drops it from `PROPAGATION.md`, but still write the
+  block so the audit trail stays in the commit), `[manual]` (operator
+  acts now), or `[conditional]` (operator acts on a named trigger).
+  The squash hygiene gate (Phase 0.4.5) FAILs a present-but-untagged
+  block. Convention: `kit/docs/guide/conventions.md § Existing-Project
 Migration Block`.
 
 Skip the prose paragraphs entirely when the bullet structure says it all.

@@ -94,21 +94,37 @@ The skill owns the commit, tag, push, and GitHub release from here.
 ## Phase 2.5 — Review PROPAGATION.md
 
 Before committing, review the generated `PROPAGATION.md` entry for the
-new version. The auto-generated entry only captures changes documented
-in `**Existing projects:**` blocks in commit messages — commits that
-omitted the block produce `(no manual steps)` even when propagation steps
-are needed.
+new version. The generator reads the `[auto]`/`[manual]`/`[conditional]`
+disposition tag on each commit's `**Existing projects:**` block: `[auto]`
+blocks are deliberately dropped (they auto-propagate; the audit trail stays
+in the commit), `[manual]`/`[conditional]` blocks are kept. So `(no manual
+steps)` is a **valid, correct end state** when every propagation-relevant
+change in the range carries an `[auto]` block — the version genuinely needs
+no project-side action. Do NOT re-add entries for `[auto]`-tagged changes;
+that would fight the filter and re-admit no-op noise the tags exist to drop.
+
+The only genuine gap is a propagation-relevant change with **no
+`**Existing projects:**` block at all** — the block is the generator's only
+input, so a missing block drops the change from the log with no signal
+(`propagation-entry.sh` warns to stderr at generate time; this review is the
+backstop).
 
 1. Read `kit/docs/PROPAGATION.md` — find the new `## v<new>` section.
 2. Read the diff of all commits since the last tag:
    `git diff $LAST_TAG..HEAD -- template/ kit/scripts/ kit/docs/guide/`
    Look for changes that affect existing projects: template files, scripts,
    guide docs with new rules/conventions.
-3. If the generated entry says `(no manual steps)` but propagation-relevant
-   changes exist, compose the missing entry, edit `PROPAGATION.md`, and
-   re-stage it (`git add kit/docs/PROPAGATION.md`).
-4. If the generated entry is correct (either has real steps or genuinely
-   has no propagation-relevant changes), proceed as-is.
+3. For each propagation-relevant change, check it carried an
+   `**Existing projects:**` block in its commit body
+   (`git log $LAST_TAG..HEAD --format='%H %s%n%b' -- <path>`). If a change has
+   **no block at all** (the genuine omission), compose the missing entry, edit
+   `PROPAGATION.md`, and re-stage it (`git add kit/docs/PROPAGATION.md`). A
+   change that DID carry a block is already handled by the generator per its
+   tag — leave it alone even when the result is `(no manual steps)`.
+4. If every propagation-relevant change carried a block (all-`[auto]` → a
+   correct `(no manual steps)`, or real `[manual]`/`[conditional]` steps
+   present), or there are genuinely no propagation-relevant changes, proceed
+   as-is.
 
 ## Phase 3 — Commit, tag, push, confirm
 

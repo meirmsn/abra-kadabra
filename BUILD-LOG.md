@@ -4,6 +4,15 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### propagation-skip-noop (2026-05-31)
+
+- **Branch**: `feat/propagation-skip-noop`
+- **Spec**: `specs/propagation-skip-noop/spec.md`
+- **Headline**: Release propagation logs now list only the steps you actually need to take, instead of a wall of "nothing to do" entries.
+- **Summary**: `propagation-entry.sh` now reads a `[auto]`/`[manual]`/`[conditional]` disposition tag at the head of each commit's `**Existing projects:**` block and emits only the actionable (`manual`/`conditional`) ones into `PROPAGATION.md` — `[auto]` blocks drop out (the audit trail stays in the commit), and a version whose changes all auto-propagate collapses to a single `(no manual steps)` line. The design flipped from auto-classify to an author tag because a Phase-0.2.5 empirical test over all 21 historical blocks proved no regex can separate no-op from actionable (the CSP "no migration forced [+conditional step]" and gitignore "no manual step" blocks are textually indistinguishable). The squash-surface hygiene gate (`adversarial-review.sh` NOTE-3) now FAILs a present-but-untagged block; `conventions.md`, `merge-devshop SKILL.md § 0.3`, `hooks.md`, and the `docs-review` example all document the tag; the v1.37.0 `PROPAGATION.md` section was backfilled from 11 no-op bullets to the one conditional CSP entry.
+- **Commits**: 14 (Phase 0 skeleton + Phase 1 spec; generator tag parse/filter/render; all-[auto] collapse; hygiene-gate tag requirement; 7 bats; tag docs; v1.37.0 backfill; Gate-5 Audit 1; focused-fix FIX A multi-block-warn + multi-line-render, FIX B/C/D doc-contradiction repairs, FIX E n/a alignment; Phase 3 gate evidence) — squashed to 1 on main via `/ak-merge-devshop`.
+- **Quality gates**: devshop gate set — Gates 1/4/6/11 pass (Gate 11: 1 low, squash-moot subject length); Gate 2d full bats green (1586 passed, 0 failed, incl. 7 new tag-filter/gate-precompute + the focused-fix multi-block/render cases); Gate 5 docs+tests audit high=0 medium=3 low=3. Gate 6 `/review` surfaced 4 findings (1 medium = multi-block silent-drop — the D2 dangerous-drop mode; 3 low) + Gate 5's 3 mediums (multi-block untested; `hooks.md`/`release-devshop SKILL.md` stale-contradiction with the feature) — ALL fixed in-branch via the focused fix, empirically verified against real behavior. 9 non-LLM carve-outs n/a; 4 LLM-mediated structural carve-outs. Phase 2.5 fresh-eyes: 0 findings. **Mid-build incident**: a sibling worktree's `git submodule update` injected `core.worktree` into the shared `/devshop/.git/config`, hijacking `/devshop`'s working-tree pointer (symptom: phantom git status + GitHub Desktop "can't find repo"); fixed in-place via `git config --local --unset core.worktree`, no restart — friction-log + CLAUDE.md footgun pending.
+
 ### merge-devshop-worktree-hooks (2026-05-30)
 
 - **Branch**: `feat/merge-devshop-worktree-hooks`

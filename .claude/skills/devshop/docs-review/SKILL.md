@@ -171,9 +171,11 @@ the range touches a propagation-relevant surface (`template/**`,
 any `[locked]`/`[sync]`/`[scaffold-once]` file) AND the commit body lacks an
 `**Existing projects:**` block, flag as a **medium** coverage finding. The
 block is required even when no migration is needed — the "no migration needed"
-variant (`**Existing projects:** <file> is [locked]; init-devshop.sh refreshes
-on rebuild. No project-side migration needed.`) tells the reader the author
-considered the question. Full convention + shape + trigger table:
+variant (`**Existing projects:** [auto] — <file> is [locked]; init-devshop.sh
+refreshes on rebuild. No project-side migration needed.`) tells the reader the
+author considered the question. The block must carry a recognized
+`[auto]`/`[manual]`/`[conditional]` disposition tag — an untagged block FAILs the
+squash gate. Full convention + shape + trigger table:
 `kit/docs/guide/conventions.md § Existing-Project Migration Block`.
 
 **Coverage findings**: source change with NO matching doc edit AND no

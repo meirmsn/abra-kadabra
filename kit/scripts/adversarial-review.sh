@@ -375,6 +375,23 @@ against the diff above."
       else
         HAS_PROP_BLOCK=no
       fi
+      # Deterministic tag check: when a block IS present, does its first
+      # `**Existing projects:**` line open with a recognized
+      # [auto]/[manual]/[conditional] disposition tag? propagation-entry.sh
+      # reads that tag to decide what reaches PROPAGATION.md; an untagged block
+      # falls back to keep-and-warn and re-admits no-op noise. Feed the result
+      # to the reviewer as data (NOTE 3 renders the FAIL), matching how
+      # block-presence already drives dimension (d) — no separate exit 1.
+      if [ "$HAS_PROP_BLOCK" = yes ]; then
+        if echo "$SQ_BODY" | grep -E '^\*\*Existing projects:\*\*' | head -1 \
+             | grep -qE '^\*\*Existing projects:\*\* \[(auto|manual|conditional)\]'; then
+          PROP_BLOCK_TAGGED=yes
+        else
+          PROP_BLOCK_TAGGED=no
+        fi
+      else
+        PROP_BLOCK_TAGGED=n/a
+      fi
       CONTEXT="Devshop squash commit composed for branch $HYG_BRANCH (${COMMIT_COUNT} constituent commits about to collapse into one).
 
 Proposed squash subject (line 1 of the commit message — judge as you would a PR title):
@@ -390,6 +407,7 @@ Propagation-relevant files changed in this squash (template/** | kit/scripts/** 
 $PROP_SURFACES
 
 Squash body contains an **Existing projects:** block: $HAS_PROP_BLOCK
+Existing-projects block carries a recognized [auto]/[manual]/[conditional] tag: $PROP_BLOCK_TAGGED
 
 NOTE 1 — Primary judgment, NOT a bypass review. This invocation fires from
 \`/ak-merge-devshop\` Phase 0.4.5 at compose time as a CONTENT CHECK on the
@@ -423,9 +441,17 @@ MUST carry an \`**Existing projects:**\` block in the body — even the explicit
 '**Existing projects:** none — <why>' form — because release.sh's
 propagation-entry.sh extracts ONLY that marker to build kit/docs/PROPAGATION.md,
 so an omitted block silently drops the change from the migration log for
-existing projects. Per kit/docs/guide/conventions.md § Existing-Project
-Migration Block. If the list is EMPTY, dimension (d) is N/A — do NOT invent a
-need for the block, and do NOT let its absence affect the verdict."
+existing projects. If 'contains a block' is 'yes' but 'carries a recognized
+[auto]/[manual]/[conditional] tag' is 'no', ALSO FAIL with a line naming the
+block and 'no disposition tag': every \`**Existing projects:**\` block MUST
+open with \`[auto]\` (auto-propagates — dropped from PROPAGATION.md, but still
+write the block so the audit trail stays in the commit), \`[manual]\` (act
+now), or \`[conditional]\` (act on a named trigger), because
+propagation-entry.sh reads that tag to decide what reaches the migration log;
+an untagged block falls back to keep-and-warn and re-admits no-op noise. Per
+kit/docs/guide/conventions.md § Existing-Project Migration Block.
+If the list is EMPTY, dimension (d) is N/A — do NOT invent a need for the
+block, and do NOT let its absence affect the verdict."
     else
       # Called by .husky/pre-push. Gathers PR title/body vs commits on branch.
       BRANCH=$(git branch --show-current 2>/dev/null || true)

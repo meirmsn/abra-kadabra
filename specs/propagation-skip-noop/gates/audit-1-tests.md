@@ -1,0 +1,24 @@
+### [domain: tests] [section: A] [severity: medium]
+
+**File**: kit/tests/propagation-entry.bats (multi-block coverage gap)
+**What**: No test pins the generator's behavior when a single commit body carries TWO `**Existing projects:**` blocks. Verified empirically: a body with a first `[auto]` block followed (after intervening prose) by a second `[manual]` block is read by the tag-parse on line 1 only (`sed -n '1s/^\[...\]/'`), the awk extractor concatenates BOTH blocks into `$BLOCK`, and the whole concatenation — including the second `[manual]` step — is DROPPED with no warning. The migration log silently loses a real manual step.
+**Why**: This is exactly the D2 "dangerous failure mode — silently dropping a real step" the design names as the thing to avoid, yet it is reachable and untested. The squash-time gate does not catch it either (its precompute greps `... | head -1`, inspecting only the first block, so a multi-block squash with a tagged first block + untagged/actionable second block passes the gate). Blast radius is bounded — devshop's one-block-per-commit convention makes multi-block bodies uncommon — which keeps this medium rather than high, but the failure is silent and the test suite gives false confidence that "untagged/actionable blocks are never dropped."
+**Fix**: Add a bats case for a two-block body (first `[auto]`, second `[manual]`/untagged) asserting the second block's text survives into PROPAGATION.md (or, if multi-block is declared out of scope, a test asserting the generator WARNs rather than silently drops). If the chosen behavior is "only the first block is authoritative," document that limitation in the generator header + conventions.md so authors know not to stack blocks. Either way, pin the decision with a test so a future reader can't regress it unknowingly.
+
+### [domain: tests] [section: A] [severity: low]
+
+**File**: kit/tests/propagation-entry.bats + kit/tests/util-adversarial-review-narrowing.bats (case-sensitivity not pinned)
+**What**: Neither suite pins the case-sensitivity of the recognized-tag match. Verified empirically: an uppercase `[AUTO]` tag is treated as untagged by the generator (kept + warned) AND would FAIL the gate (regex `\[(auto|manual|conditional)\]` is case-sensitive in both places). The two sides agree today, but nothing locks that agreement. A future "be lenient, accept `[Auto]`" change to one regex and not the other would split the contract — the gate would pass a block the generator then treats as untagged (re-admitting noise), or vice versa — with no failing test.
+**Why**: The generator's `sed -n '1s/^\[\(auto\|manual\|conditional\)\]...` and the gate's `grep -qE '^\*\*Existing projects:\*\* \[(auto|manual|conditional)\]'` are two independent copies of the same vocabulary. Coverage that pins case-sensitivity on at least one side (ideally both) guards the gate↔generator agreement that the whole feature rests on.
+**Fix**: Add one case (generator side) asserting `[AUTO]`/`[Manual]` is treated as untagged (kept + WARN), and one (gate side) asserting an uppercase-tag block reports `tag: no`. Low severity — current behavior is internally consistent; this is regression-pinning insurance, not a present bug.
+
+### [domain: tests] [section: A] [severity: low]
+
+**File**: kit/tests/propagation-entry.bats (bare-space separator only partially pinned)
+**What**: Case (d)'s second commit uses the bare-space separator (`[auto] picks up on next sync`, no em-dash) and passes, which exercises the generator's bare-space `BLOCK_NOTAG` strip for the dropped `[auto]` path. But no kept-and-rendered case (manual/conditional) uses the bare-space form — cases (b)/(c) both use the `[tag] — text` em-dash. The em-dash vs bare-space strip is a named Gotcha in the spec; the render path with bare-space isn't pinned.
+**Why**: `BLOCK_NOTAG`'s strip handles `— `, `-`, and bare whitespace separators. The kept-render path (manual/conditional) with a bare-space separator would surface any strip bug (e.g. a leftover leading space) in the user-visible PROPAGATION.md line; only the dropped path covers bare-space today.
+**Fix**: Add (or extend an existing) case where a `[manual]` block uses `[manual] run X` (bare space, no dash) and assert the rendered entry reads `— run X` with no stray bracket or leading space. Low — the sed strip is robust; this closes a small render-path gap.
+
+### Bypass trailer audit (tests)
+
+- No `Tests-Coverage-Bypass:` trailers in range. The four `Docs-Coverage-Bypass:` trailers (cd80ecc, baa92ed, 7942a2d, fe297dc) each assert the bats cases are the test surface for their code change; the 5 generator cases (a-e) + 2 gate cases (f-g) land in Tasks 4, and all 55 tests across both suites pass at HEAD (29 + 26). Test surface for the in-scope behavior is adequate; the gaps above are edge-case pins, not missing core coverage.

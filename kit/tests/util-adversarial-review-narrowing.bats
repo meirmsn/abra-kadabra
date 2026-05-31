@@ -307,6 +307,68 @@ EOF
   grep -qF "kit/scripts/foo.sh" "$CAPTURED_PROMPT"
 }
 
+@test "(f) prTextHygieneReason squash-surface: present + untagged block → precompute reports tag: no + NOTE-3 untagged-FAIL directive inlined" {
+  # A present-but-untagged **Existing projects:** block must steer NOTE 3 toward
+  # a FAIL: propagation-entry.sh needs a recognized [auto]/[manual]/[conditional]
+  # tag to filter no-op steps; an untagged block falls back to keep-and-warn.
+  cd "$TEST_REPO"
+  create_stub gh "" 0
+  git -C "$TEST_REPO" update-ref refs/remotes/origin/main HEAD
+  git -C "$TEST_REPO" checkout -b feat/prop-untagged -q 2>/dev/null || true
+  mkdir -p "$TEST_REPO/kit/scripts"
+  echo "echo hi" > "$TEST_REPO/kit/scripts/foo.sh"
+  git -C "$TEST_REPO" add kit/scripts/foo.sh
+  git -C "$TEST_REPO" commit -q -m "feat(scripts): add foo helper"
+
+  MSG_FILE="$BATS_TEST_TMPDIR/squash-untagged.txt"
+  cat > "$MSG_FILE" <<'EOF'
+feat(scripts): add foo helper
+
+**Existing projects:** none — devshop-side script.
+EOF
+
+  DEVSHOP_HYGIENE_SURFACE=squash \
+    DEVSHOP_HYGIENE_MESSAGE_FILE="$MSG_FILE" \
+    DEVSHOP_HYGIENE_BRANCH="feat/prop-untagged" \
+    run bash "$REVIEW" prTextHygieneReason "auto-check at compose time"
+  assert_success
+  [ -f "$CAPTURED_PROMPT" ]
+  # Block present:
+  grep -qF "contains an **Existing projects:** block: yes" "$CAPTURED_PROMPT"
+  # Deterministic tag precompute reports 'no':
+  grep -qF "carries a recognized [auto]/[manual]/[conditional] tag: no" "$CAPTURED_PROMPT"
+  # NOTE 3 untagged-FAIL directive is inlined:
+  grep -qF "no disposition tag" "$CAPTURED_PROMPT"
+}
+
+@test "(g) prTextHygieneReason squash-surface: present + tagged block → precompute reports tag: yes" {
+  # Pins the recognized-tag regex so a regression that broke it doesn't silently
+  # false-FAIL every properly tagged squash.
+  cd "$TEST_REPO"
+  create_stub gh "" 0
+  git -C "$TEST_REPO" update-ref refs/remotes/origin/main HEAD
+  git -C "$TEST_REPO" checkout -b feat/prop-tagged -q 2>/dev/null || true
+  mkdir -p "$TEST_REPO/kit/scripts"
+  echo "echo hi" > "$TEST_REPO/kit/scripts/foo.sh"
+  git -C "$TEST_REPO" add kit/scripts/foo.sh
+  git -C "$TEST_REPO" commit -q -m "feat(scripts): add foo helper"
+
+  MSG_FILE="$BATS_TEST_TMPDIR/squash-tagged.txt"
+  cat > "$MSG_FILE" <<'EOF'
+feat(scripts): add foo helper
+
+**Existing projects:** [auto] — devshop-side script, picks up on sync.
+EOF
+
+  DEVSHOP_HYGIENE_SURFACE=squash \
+    DEVSHOP_HYGIENE_MESSAGE_FILE="$MSG_FILE" \
+    DEVSHOP_HYGIENE_BRANCH="feat/prop-tagged" \
+    run bash "$REVIEW" prTextHygieneReason "auto-check at compose time"
+  assert_success
+  [ -f "$CAPTURED_PROMPT" ]
+  grep -qF "carries a recognized [auto]/[manual]/[conditional] tag: yes" "$CAPTURED_PROMPT"
+}
+
 @test "prTextHygieneReason squash-surface: dimension d uses three-dot diff — no phantom surface on base-diverged branch" {
   # Regression: dimension (d)'s surface precompute must diff the branch's OWN
   # delta (merge-base..branch, three-dot), NOT a raw two-dot tree comparison
