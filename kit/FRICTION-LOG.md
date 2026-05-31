@@ -62,15 +62,16 @@ entries sink to a `## Resolved` section at the bottom (kept for the history).
 
 ### A doc/SKILL.md edit can silently drift a `grep`-based bats test
 
-- **Score**: 9 (impact 3 × count 3)
+- **Score**: 12 (impact 3 × count 4)
 - **Impact**: 3 (M) — grep-based bats tests are brittle against the prose they assert, in BOTH directions: an edit that changes asserted text turns the suite red silently (until the next full-suite run), and a test that _under_-asserts lets a future edit silently drop the very coverage it was meant to pin and ship green. Recurs on the common doc/prompt-editing path.
-- **Count**: 3
+- **Count**: 4
 - **Status**: open
 - **First seen**: 2026-05-28 (`1d343bf`, surfaced via parallel `/ak-merge-devshop` runs)
 - **Sessions**:
   - 2026-05-28 — `1d343bf` updated 9 docs but missed the asserting test; a red suite reached main.
   - 2026-05-30 — `claude-md-condense` Audit 1 (tests, low): the capture-the-prompt test (`util-adversarial-review-narrowing.bats`) pins the `CLAUDE_MD_SECTIONS` section list + forwarded reason but does NOT assert the rubric prose body reaches the assembled prompt — so a future CLAUDE.md-condense pass could silently drop the new rubric (f) "Reachability split" lines and ship green. Inverse flavor of the 2026-05-28 instance (under-assertion → silent drop, vs assertion-drift → red).
   - 2026-05-30 — `merge-devshop-worktree-hooks` build, Audit 2 (tests, low): the new Phase 3 ordering test in `util-ak-merge-devshop.bats` (~l.877–887) anchors the ff-merge gitleaks line with `grep … | head -1`, but the anchor matches TWICE in the Phase 3 range (the real code line AND a recovery-prose sentence). Correct at HEAD (code line sorts first), but if the code line were removed the prose line still matches → silent pass (under-assertion flavor again). Shipped as a noted-LOW (squash `4085ec6`); suggested tightening: anchor on a unique code-form token.
+  - 2026-05-31 — `propagation-skip-noop` focused fix: inserting the new NOTE-3 tag-FAIL paragraph into `adversarial-review.sh`'s prompt wrapped the literal phrase `"If the list is EMPTY"` (grepped by test 16 in `util-adversarial-review-narrowing.bats`) across a line break → test went red. Worked around by keeping the phrase on one line; the brittle literal-grep-against-prose coupling is the recurring root. Assertion-drift flavor.
 - **Symptom**: a `grep`-based bats test and the prose it asserts drift apart with no mechanism linking them — either an edit removes/rewrites asserted text (test goes red, ships silently until the next full-suite run) OR the test under-asserts so a later edit silently drops the pinned content and ships green.
 - **Detail**: Layer-1 test-presence hooks catch _missing_ tests, not _stale_ or _under-scoped_ ones. Worked observations: (a) `1d343bf` (2026-05-28) updated 9 docs but missed the asserting test — test 14 in `util-build-phase58-audit-parser.bats` (a stale Phase 6 audit-comment assertion from ancestor `486a57d`) went red once `1d343bf` removed the asserted "Pre-ship audit | gates passed" text, and a red suite reached `main`. (b) `claude-md-condense` (2026-05-30) — the capture-the-prompt test asserts the section-list + reason but not the rubric prose body, leaving rubric (f) unpinned. **Cheap per-case fix (b)**: add one `grep -q "Reachability split"` assertion to the existing capture test. **Structural fix shape**: a `structural-invariants.bats` check that maps SKILL/prompt-asserting tests to their source files, OR a `conventions.md` note requiring co-update of a doc and any test asserting its content.
 - **Promotion target**: `kit/TODOS.md` (structural-invariants mapping check or conventions.md co-update note; plus the one-line `grep -q "Reachability split"` assertion).

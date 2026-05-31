@@ -319,6 +319,44 @@ Same playbook as Auth UX conventions above. Every project with interactive UI hi
 
 ## v1 (after v0 is validated on the first project)
 
+### Visual design richness (MVP) — art-direction layer + template SVG decorative kit + a richness gate
+
+**Problem.** Devshop pages come out slick-but-plain: good typography, color, spacing, borders — and nothing else. No illustration, no texture, no decorative motif, no imagery. The root cause is **upstream of implementation, not a Claude taste failure**. The design phase produces exactly one durable artifact, `DESIGN.md`, and `DESIGN.md` captures **tokens and rules** (fonts, colors, spacing, motion) but never **visual assets or an art-direction language**. The implementation agent faithfully follows the contract it's given; the contract never asks for richness, no asset exists to import, and no gate fails a page for being visually flat. So plainness is the guaranteed output of the current pipeline, on every project, by construction.
+
+**gstack-ownership constraint (load-bearing — shapes the whole design).** Every existing design skill is gstack-owned and MUST NOT be edited: `design-consultation`, `design-shotgun`, `design-html`, `design-review`, `plan-design-review` (per `CLAUDE.md § gstack` + `kit/ROADMAP.md § v+ Never edit gstack`). This entry therefore adds **zero** gstack edits. Everything is devshop-side: new `ak-` skill steps, template files, `DESIGN.md`/`CLAUDE.md` conventions, and our own pre-ship gate that **invokes** gstack skills unmodified and layers our checks around them. The rule clarifies rather than constrains the design: gstack is a black box we orchestrate; the new artifacts + gate are ours.
+
+**Shape of the fix — the design phase emits an art-direction layer + a reusable asset kit, and a gate enforces both:**
+
+1. **`DESIGN.md` "Art direction" section** — a **devshop step appended AFTER** gstack `/design-consultation` runs (we do not change what the gstack skill writes; we augment its output). Captures the richness dimension the token layer omits: **imagery direction** (photography style / none / illustration-instead), **illustration & graphic style** (flat-vector / organic / textured), **decorative motif language** (dividers, background textures, grain, gradient meshes), **shape language** (radii, line weight, geometric vs organic), **depth / material** (flat / shadow / glass / grain), and **reference + anti-reference** (moodboard "look like this" + explicit "don't look like generic AI slop"). Voice-and-tone stays in `DESIGN.md` but is a separate copy lane, not part of this gate.
+2. **Template SVG decorative kit** — themeable SVG primitives (section dividers, blobs, silhouettes, geometric motifs, gradient meshes) bound to `DESIGN.md` tokens so they recolor light/dark for free. Claude-native (SVG/CSS is squarely in-lane), version-controlled, zero external dependency, no licensing surface. Lives under `template/` (`packages/ui` or `apps/web`).
+3. **`/ak-spec` (ours) names richness per screen** — for each screen the spec declares which motifs / kit assets that screen must use, carried forward as an implementation requirement rather than left to chance.
+4. **`/ak-implement` (ours) imports from the kit** — plain-CSS fallback is not an acceptable output when the spec named assets.
+5. **`/ak-pre-ship` (ours) richness gate** — invokes gstack `/design-review` unmodified, then adds **our** check: does the rendered page actually wire the art-direction assets the spec named, or did it silently go flat? Fail-if-flat. This is the gate that would have caught every plain page shipped to date.
+
+**Why v1 — quality elevation, not an adoption blocker.** Products ship and function without it, so it doesn't block next-project adoption — but every from-scratch project inherits the plainness by construction, so the quality ceiling stays capped until it lands. The MVP closes most of the gap, is entirely Claude-native (no image model, no licensing/provenance headaches), and proves the "art-direction layer + asset kit + richness gate" shape cheaply before the heavier image-gen pipeline (v+ below) is justified.
+
+**Scope boundary.** Vector / decorative richness only — no photographs, no illustrated scenes, no bespoke imagery, and no binding of pixel mockups forward. That ceiling is the full pipeline in `### Visual design pipeline (full)` under v+.
+
+**Trigger.**
+
+- The next from-scratch project reaches the design phase and wants more than plain CSS; OR
+- the operator pushes back on plain output again (already surfaced 2026-05-31 in the visual-design design conversation that produced this entry).
+
+**Cross-ref.**
+
+- `CLAUDE.md § gstack` + `CLAUDE.md § Design System` (read `DESIGN.md` before any visual decision) — the wrapper rule + the contract this entry extends.
+- gstack `/design-consultation` → `DESIGN.md` — the upstream the new "Art direction" step augments.
+- gstack `/design-review` — invoked unmodified by the new richness gate.
+- `.claude/skills/ak-spec` + `.claude/skills/ak-pre-ship` — the devshop skills that grow the per-screen richness requirement and the gate.
+- `kit/ROADMAP.md § v+ § Visual design pipeline (full)` — the image-gen + mockup-binding escalation this MVP precedes.
+- `kit/ROADMAP.md § v1 § /ak-collateral` — adjacent (marketing-collateral composition), different surface (in-product richness vs README/social assets).
+
+**Cost/risk.** ~1–1.5 focused days across a few commits: `DESIGN.md` "Art direction" convention + the devshop augment step (~1h), template SVG decorative kit (~3–4h, the bulk), `/ak-spec` + `/ak-implement` prompt amendments (~1h), the `/ak-pre-ship` richness gate (~2–3h). Main risk is the richness gate's subjectivity — "is this page rich enough?" is judgment, not a deterministic check; mitigate by gating on the **objective** signal first (did it import/render the spec-named kit assets at all?) before any taste judgment.
+
+[v1, surfaced-by visual-design-conversation-2026-05-31]
+
+---
+
 ### Template PWA service worker baseline
 
 The template ships a PWA manifest + meta tags out of the box (apple-touch-icon, viewport-fit=cover, standalone, start_url), which is enough to install — but it does NOT ship a service worker. Every PWA-shaped project will hit the same soak finding: iOS cold-launch feels slow because every fresh WebView process pays the full server-roundtrip cost (middleware token refresh + RSC fetches + client mount + realtime handshake) before first paint. Lalista's polish PR #68 (2026-05-13) parallelized the two server fetches in `/list/page.tsx` via `Promise.all` — the largest cheap win without a SW — but the user can still feel the difference between "warm WebView" and "cold WebView." From here the next lever is HTML caching via SW, and that pattern is general (every PWA-shaped project will want it).
@@ -1127,7 +1165,54 @@ A second problem: there's no ambient pressure to propagate devshop improvements 
 
 ---
 
+### Native/mobile devshop support
+
+Extend the devshop to support React Native (Expo) apps alongside web. Adds `apps/mobile/`,
+EAS CLI, Maestro E2E, mobile Sentry/PostHog, App Store/Play Store deployment.
+Full build blueprint: `kit/notes/bootstrap/v+-native.md`.
+
+**Why v1.** The largest single capability expansion the devshop can take on — a whole second platform. Not blocking next-project adoption (every project to date is web), so it sits below the web-hardening v1 items; promoted out of v+ once native became a concrete near-term direction rather than a someday-maybe.
+
+[v1, promoted-from-v+ 2026-05-31]
+
+---
+
 ## v+ (future — when the need is felt)
+
+### Visual design pipeline (full) — image-gen mockups as committed acceptance targets + production asset generation + a visual-diff gate
+
+**Builds on** `kit/ROADMAP.md § v1 § Visual design richness (MVP)`. The MVP gives every project a Claude-native vector/decorative layer + a richness gate. This entry raises the ceiling to **raster artwork (photography, illustrated scenes, bespoke imagery)** and closes the **mockup-binding** gap the MVP deliberately leaves open.
+
+**Problem.** Two gaps survive the MVP. (1) **No raster path** — the SVG kit can't produce a photograph, an illustrated empty-state scene, or a bespoke hero illustration; those need an image model or a human. (2) **Mockups don't bind forward** — gstack `/design-shotgun` already generates image-gen variant mockups in a browser comparison board, but after a winner is picked the mockup is **thrown away**; implementation re-derives the screen from `DESIGN.md` tokens and loses the specific visual fidelity the mockup had. The result is "we explored a rich design, then shipped a plainer re-derivation of it."
+
+**gstack-ownership constraint (restated).** `design-shotgun` and `design-html` are gstack-owned and unmodifiable (`CLAUDE.md § gstack`). This entry **invokes** them unmodified and does all the new work devshop-side: a step that **commits** the chosen mockup, a new asset-generation skill, and a new pre-ship **diff** gate. No gstack edits.
+
+**Shape of the fix — three additions on top of the MVP's art-direction layer + asset kit:**
+
+1. **Pixel mockups become committed acceptance targets.** Invoke gstack `/design-shotgun` for direction/screen exploration → a **devshop step commits the winning mockup(s)** as reference targets under `specs/<feature>/design/` (same artifact-preservation discipline as the `.gstack/projects/**` re-include rule in `CLAUDE.md § gstack`). The mockup is now an acceptance contract, not a discarded exploration — this is the "respect the mockup" mechanism.
+2. **Production asset generation** — a new devshop skill (working name `/ak-assets`) bridges to an image model for production illustrations / imagery, then **optimizes** (sharp / svgo), **commits**, **writes alt text** (doubles as the a11y win — Claude is genuinely good at alt text), and **records license / provenance** (the liability the boring-infra layer must own). Scoped to _production-shippable_ assets, distinct from gstack's _throwaway exploration_ mockups.
+3. **Scaffold binding + visual-diff gate.** `/ak-spec` (ours) invokes gstack `/design-html` on the winning mockup → its reflowing production HTML/CSS **seeds** implementation instead of a from-scratch re-derivation. `/ak-pre-ship` (ours) gains a gate that **screenshots the built screen and diffs it against the committed reference mockup** (via the browse daemon / `capture-screenshot.sh`), layered on top of the MVP richness check.
+
+**Why v+, not v1.** It takes on an **image-model dependency** plus real failure modes the MVP avoids: mockups that can't actually be built, flaky visual diffs, asset licensing / provenance, and a new credential surface. It should land only after the MVP proves the "art-direction + asset kit + gate" shape on a real project — the MVP tells us where the ceiling actually pinches before we pay for the heavy machinery.
+
+**Trigger.**
+
+- The MVP (v1) has shipped and soaked on one project, AND a project needs raster artwork / photography or wants pixel-mockup fidelity carried into implementation; OR
+- the operator asks to bind explored mockups forward rather than re-deriving screens.
+
+**Cross-ref.**
+
+- `kit/ROADMAP.md § v1 § Visual design richness (MVP)` — the prerequisite this builds on.
+- gstack `/design-shotgun` (image-gen variant board) + `/design-html` (mockup → production HTML/CSS) — invoked unmodified; the asset-commit + scaffold steps wrap them.
+- `CLAUDE.md § gstack` (`.gstack/projects/**` artifact-preservation) — the precedent for committing gstack-produced artifacts to git.
+- `kit/scripts/capture-screenshot.sh` + the browse daemon — the screenshot infra the visual-diff gate reuses (note the `specs/` write-path footgun the script already works around).
+- `kit/ROADMAP.md § v1 § /ak-collateral` — shares an image-composition lineage; could share the asset pipeline.
+
+**Cost/risk.** Several focused days across multiple PRs: the mockup-commit step (~half day), the `/ak-assets` generation + optimization + provenance skill (the bulk — image-model integration, credential plumbing, license tracking), the `/design-html` scaffold wiring (~half day), and the visual-diff gate (~1 day, plus tuning for flakiness). Principal risks: visual diffs are inherently flaky (anti-aliasing, font rendering, dynamic content) → gate on a generous threshold + human override, never hard-fail on small deltas; image-gen licensing/provenance must be tracked at generation time, not retrofitted; and a mockup the model can't realistically build wastes a cycle → keep `/design-html` scaffold as the reality check before committing a mockup as an acceptance target.
+
+[v+, surfaced-by visual-design-conversation-2026-05-31]
+
+---
 
 ### Playwright video recording — ffmpeg + `playwright.config.ts` wiring + WebM→GIF for PR embedding
 
@@ -1350,12 +1435,6 @@ symlinks are restored immediately after `git checkout`, `git merge`, and
 
 Trigger: after the symlink fragility TODO is resolved (settings.json copy
 vs symlink decision), reassess whether proactive recovery is still needed.
-
-### Native/mobile devshop support
-
-Extend the devshop to support React Native (Expo) apps alongside web. Adds `apps/mobile/`,
-EAS CLI, Maestro E2E, mobile Sentry/PostHog, App Store/Play Store deployment.
-Full build blueprint: `kit/notes/bootstrap/v+-native.md`.
 
 ### Fakeowner + Bash bypass hardening
 
