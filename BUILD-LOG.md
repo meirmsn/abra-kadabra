@@ -4,6 +4,16 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### skip-bats-docs-only (2026-05-31)
+
+- **Branch**: `feat/skip-bats-docs-only`
+- **Spec**: `specs/skip-bats-docs-only/spec.md`
+- **Headline**: Docs-only commits to the devshop repo now finish instantly — the ~30s kit test suite is skipped when a commit touches only Markdown, with a clear "skipped (docs-only diff)" line so it's never silent.
+- **Summary**: `.husky/pre-commit` gains a guard between the gitleaks scan and the `main`-branch full bats block: when every staged path ends in `.md`, it prints `✓ Kit tests: skipped (docs-only diff)` and bypasses the suite. The check is mechanical (no adversarial review) — a false-negative just runs bats unnecessarily, and the next non-docs commit re-covers. Only the redundant bats no-op is skipped; lint-staged, gitleaks, the branch guard, and the Layer-1 coverage hooks still run on every commit. Covered by `kit/tests/guard-bats-docs-only.bats` (predicate behavior + a parity test pinning the production block to the fixture); `kit/docs/guide/hooks.md` updated; the `kit/TODOS.md` entry rewritten to track only the remaining `path-classifier --mode=devshop` refactor.
+- **Commits**: 7 (Phase 0 skeleton + Phase 1 spec; `perf(pre-commit)` hook predicate + bats test [T1+T2, test alongside code]; `kit/TODOS.md` first-pass closure [T3]; tasks.md; `hooks.md` doc-drift fix; Phase 2.5 + Phase 3 review) — squashed to 1 on main via `/ak-merge-devshop`.
+- **Quality gates**: devshop gate set — Gates 1/4/6/11 pass; Gate 2d full bats green (1611 passed, 0 failed, incl. the 6 new `guard-bats-docs-only.bats` cases); Gate 5 docs+tests audit (Audit 1) high=0 medium=0 low=0 — 1 doc-drift finding (`hooks.md` 2f description stale) found + fixed in-branch during Phase 2.5. Gate 6 `/review`: 1 non-blocking observation (git-quoted-path conservative fall-through — by design, runs bats unnecessarily). 9 non-LLM carve-outs n/a; 4 LLM-mediated structural carve-outs (cso/design-review/qa/benchmark — no auth/UI/perf surface). Phase 2.5 fresh-eyes: 1 finding fixed, verified via an integration dogfood of the real hook decision block (docs-only → skip + no bats; code → bats runs). LLM-mediated dispatched gates ran orchestrator-inline (subagent transport dropped 3×); `/ak-merge-devshop` Phase 1.1 re-audits the delta independently at merge.
+- **Worktree footgun**: built in `.worktrees/skip-bats-docs-only`; `core.worktree` checked after `submodule update` (not injected this run — /devshop tree stayed intact).
+
 ### virtiofs-rebase-auto-switch (2026-05-31)
 
 - **Branch**: `feat/virtiofs-rebase-auto-switch`

@@ -55,7 +55,7 @@ Three enforcement levels: PreToolUse (Claude Code), pre-commit (husky), and pre-
    ├─ 2c. pnpm exec lint-staged --no-stash → ESLint + Prettier on staged files (stash backup disabled)
    ├─ 2d. pnpm turbo run typecheck     → TypeScript check all packages
    ├─ 2e. gitleaks protect --staged    → Secret scan
-   ├─ 2f. bats kit/tests/              → kit tests (devshop only; full suite on main, affected-only on branches)
+   ├─ 2f. bats kit/tests/              → kit tests (devshop only; full suite on main — skipped on docs-only diffs — affected-only on branches)
    └─ 2g. devshop pre-commit guards    → devshop guards (called by absolute path)
           ├─ check-security-files-freshness.sh: settings.json/.dcg.toml present + current → block
           ├─ check-clean-tree.sh: untracked/unstaged files OR stashed changes → block
@@ -144,15 +144,15 @@ The outer `if: Bash(*git*commit*)` matcher uses substring globbing, so it fires 
 
 Configured in `.husky/pre-commit`.
 
-| Hook                               | What                                                                                                                                                     | Blocking?                   |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
-| Claude branch guard                | Blocks Claude (`$CLAUDECODE=1`) from committing on main/master — backstop for PreToolUse `check-branch-not-main.sh`, closes TOCTOU race                  | Yes — Claude only           |
-| `pnpm exec lint-staged --no-stash` | ESLint + Prettier on staged files (stash backup disabled)                                                                                                | Yes — both repos            |
-| `pnpm turbo run typecheck`         | TypeScript type checking                                                                                                                                 | Yes — both repos            |
-| `gitleaks protect --staged`        | Secret scanning                                                                                                                                          | Yes — both repos            |
-| `bats kit/tests/`                  | Kit tests: scripts + structural invariants (custom progress formatter `kit/hooks/bats-format-progress` + `--report-formatter tap` for pass/fail parsing) | Yes — devshop only          |
-| `.hooks/pre-commit`                | Devshop guards (see below)                                                                                                                               | Yes — no-op without devshop |
-| `.husky/prepare-commit-msg`        | Append bypass trailers when Layer 1 bypass flag set (after pre-commit)                                                                                   | No — message hook           |
+| Hook                               | What                                                                                                                                                                                                                                                                                     | Blocking?                   |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| Claude branch guard                | Blocks Claude (`$CLAUDECODE=1`) from committing on main/master — backstop for PreToolUse `check-branch-not-main.sh`, closes TOCTOU race                                                                                                                                                  | Yes — Claude only           |
+| `pnpm exec lint-staged --no-stash` | ESLint + Prettier on staged files (stash backup disabled)                                                                                                                                                                                                                                | Yes — both repos            |
+| `pnpm turbo run typecheck`         | TypeScript type checking                                                                                                                                                                                                                                                                 | Yes — both repos            |
+| `gitleaks protect --staged`        | Secret scanning                                                                                                                                                                                                                                                                          | Yes — both repos            |
+| `bats kit/tests/`                  | Kit tests: scripts + structural invariants (custom progress formatter `kit/hooks/bats-format-progress` + `--report-formatter tap` for pass/fail parsing). On `main`, skipped when the staged diff is docs-only (every path ends in `.md`) — the suite is a guaranteed no-op on Markdown. | Yes — devshop only          |
+| `.hooks/pre-commit`                | Devshop guards (see below)                                                                                                                                                                                                                                                               | Yes — no-op without devshop |
+| `.husky/prepare-commit-msg`        | Append bypass trailers when Layer 1 bypass flag set (after pre-commit)                                                                                                                                                                                                                   | No — message hook           |
 
 `.hooks/pre-commit` is gitignored, symlinked to `kit/hooks/pre-commit.sh` (created by `sync/create-devshop-symlinks.sh` for both repos). It detects which repo it's in and calls the appropriate guards.
 

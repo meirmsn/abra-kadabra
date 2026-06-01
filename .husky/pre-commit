@@ -28,6 +28,17 @@ pnpm exec lint-staged --no-stash
 [ -f turbo.json ] && pnpm turbo run typecheck
 gitleaks protect --staged --redact
 
+# Skip the full kit bats suite on docs-only commits (guaranteed no-op — the
+# suite tests scripts/hooks/templates, never Markdown). Every staged path must
+# end in .md (covers PLAN.md, kit/ROADMAP.md, kit/TODOS.md, BUILD-LOG.md,
+# kit/docs/**, any *.md). An empty staged set is NOT docs-only. False-negative
+# just runs bats unnecessarily; the next non-docs commit re-covers.
+_docs_only_diff=0
+_staged_files=$(git diff --cached --name-only)
+if [ -n "$_staged_files" ] && ! printf '%s\n' "$_staged_files" | grep -qvE '\.md$'; then
+  _docs_only_diff=1
+fi
+
 # Run kit tests (devshop repo only — kit/tests/ doesn't exist in projects).
 # On main: full suite (manual commits go straight to main, need full coverage).
 # On branches: affected-only subset via check-bats-devshop.sh (called from
@@ -36,7 +47,9 @@ gitleaks protect --staged --redact
 # during a real `git commit`, inherited FDs from git/lint-staged can cause
 # bats to hang indefinitely waiting on stdin.
 if [ "$_current_branch" = "main" ] || [ "$_current_branch" = "master" ]; then
-  if [ -d kit/tests ] && [ -x kit/tests/lib/bats-core/bin/bats ]; then
+  if [ "$_docs_only_diff" = "1" ]; then
+    echo "✓ Kit tests: skipped (docs-only diff)"
+  elif [ -d kit/tests ] && [ -x kit/tests/lib/bats-core/bin/bats ]; then
     echo "⏳ Running full kit bats suite (main branch)..."
     _bats_start=$(date +%s%N 2>/dev/null || date +%s)
     _bats_report_dir=$(mktemp -d)
