@@ -274,6 +274,19 @@ no `resolved`/archive section here.
 - **Detail**: When no bypass reason is set, the reviewer short-circuits to FAIL even though adversarial prompt item 2(a) says _"PR description genuinely matches the commits — the reviewer is wrong"_ should PASS. (A `pr`-surface primary-judgment NOTE was later added to `adversarial-review.sh` to PASS clean text on the `no reason given` placeholder — verify whether this still reproduces before promoting; the count is the signal.) Full alternatives A–E + decision trigger: `kit/ROADMAP.md § "PR-description staleness check — layer + approach decision"`. Trigger to act: post-PR-3 (`/ak-build core-flows`) data on the false-positive rate of the always-fires implementation.
 - **Promotion target**: `kit/ROADMAP.md § PR-description staleness check` (layer + approach decision).
 
+### Audit reviewers flag prettier/eslint-owned formatting, triggering a futile hand-edit the commit hook reverts (and a commit message that then lies)
+
+- **Score**: 3 (impact 3 × count 1)
+- **Impact**: 3 (M) — a silent misleading commit message reaches `main` (subject + bypass trailer claim a change that never landed), caught only by a downstream re-audit. Not data-losing, but it corrupts `git log` as a source of truth.
+- **Count**: 1
+- **Status**: open
+- **First seen**: 2026-06-01 (`ak-check-docs-orphan-stubs` /ak-build merge)
+- **Sessions**:
+  - 2026-06-01 — `/ak-merge-devshop` Phase 1.1 Audit 2 flagged a markdown list-continuation indentation in `check-docs-and-tests/SKILL.md` as a "regression"; I hand-re-indented to 3 spaces and committed claiming the fix. `lint-staged` ran `prettier --write` on the `*.md`, normalized it back to column-0, and re-staged — net-zero SKILL.md diff, so the commit recorded only the (unrelated) bats file while its subject + `Docs-Coverage-Bypass` trailer asserted a SKILL.md fix. Audit 3's docs re-review caught the divergence via `git show --stat`.
+- **Symptom**: an audit reviewer raises a formatting finding (indentation, wrapping, spacing) on a prettier/eslint-owned file; the resulting hand-edit is silently reverted by `lint-staged` at commit time, producing a net-zero diff while the commit message / status still claims the edit landed.
+- **Detail**: Two compounding failures. (1) ROOT — Layer-2 audit reviewers (`/ak-docs-review` Section B adequacy, analogues in `/ak-tests-review`) treat formatting as a finding surface, but `package.json`'s `lint-staged` runs `prettier --write` on `*.{json,md,css}` and eslint+prettier on `*.{ts,tsx,js,jsx}`, so those tools OWN that formatting (CLAUDE.md non-negotiable "Prettier owns all formatting"). A formatting "finding" is therefore noise that prettier will always revert — acting on it is futile. (2) GENERAL — the orchestrator wrote a commit subject + bypass trailer asserting the edit without verifying it survived the hook; `prettier --write` on a 3-space copy reverts to column-0 (verified this session), so the claim was false. **Candidate fix**: (a) carve prettier/eslint-owned formatting out of `/ak-docs-review` Section B (and tests-review analogue) — don't raise findings a formatter owns; (b) add a "verify the staged diff (`git show --stat`) before asserting an edit landed in a commit message / status" note where orchestrators compose commit messages (`/ak-build`, `/ak-merge-devshop`, this skill). (b) is the general guard — also catches partial-staging and other hook-rewrite causes. References `.claude/skills/ak-docs-review/SKILL.md § Section B` + `package.json § lint-staged`.
+- **Promotion target**: `kit/TODOS.md` (reviewer formatting carve-out + verify-the-diff note), or fold (a) into `/ak-docs-review` directly if it earns it.
+
 ### `init-firewall.sh` re-run mid-session hangs the Claude session
 
 - **Score**: 3 (impact 3 × count 1)
