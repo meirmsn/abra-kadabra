@@ -500,3 +500,51 @@ M
   "
   assert_success
 }
+
+@test "init-devshop.sh refreshes [locked] content only on a cmp -s difference" {
+  # Read from the same git tree as this test (SCRIPTS_DIR) so the assertion
+  # holds in worktrees too — pre-push verifies the branch, not /devshop.
+  local script="$SCRIPTS_DIR/init-devshop.sh"
+  [ -f "$script" ] || skip "init-devshop.sh not found"
+  # The mtime-bump fix: the manifest [locked] refresh install is the script's
+  # only content rewrite (hence only mtime bump), and an unconditional install
+  # re-mtimes every [locked] file on every container boot — which re-arms VS
+  # Code's "Configuration file(s) changed — Rebuild?" prompt on a quiet rebuild,
+  # training operators to reflexively dismiss a signal that matters for real
+  # changes. The cmp -s guard makes a content-match boot a true filesystem
+  # no-op. A revert that drops the guard regresses the bug SILENTLY (only
+  # visible by rebuilding a container), so pin the guard statically here.
+  run grep -qE 'cmp -s "\$src" "\$dst"' "$script"
+  assert_success
+}
+
+@test "init-devshop.sh gates chown/chmod on a stat ownership tuple (idempotent lock)" {
+  local script="$SCRIPTS_DIR/init-devshop.sh"
+  [ -f "$script" ] || skip "init-devshop.sh not found"
+  # chown/chmod bump ctime (not mtime), so they don't trigger the VS Code
+  # rebuild prompt — but an unconditional re-lock chowns every locked file on
+  # every boot (notably the recursive find over every kit script). The
+  # stat -c '%U:%G %a' guard skips the write when ownership/mode already match,
+  # eliminating redundant per-boot metadata churn while preserving the security
+  # re-lock (a git op that erodes ownership makes the tuple mismatch → re-lock
+  # fires). A revert to unconditional chown/chmod is a churn regression, not a
+  # correctness one — pin it statically so it's caught at gate time.
+  run grep -qE "stat -c .%U:%G %a." "$script"
+  assert_success
+}
+
+@test "init-devshop.sh re-locks ownership on the content-match path (security re-lock survives a no-op refresh)" {
+  local script="$SCRIPTS_DIR/init-devshop.sh"
+  [ -f "$script" ] || skip "init-devshop.sh not found"
+  # The cmp -s guard skips the install when content already matches — but a git
+  # op can still have eroded the file's ownership to node:node (the exact attack
+  # the [locked] model defends against). The content-match else-branch MUST
+  # therefore re-lock on a stat-tuple mismatch, or the no-op-refresh path would
+  # silently leave an eroded file editable by node until the next CONTENT change.
+  # The generic stat-tuple grep above matches all six lock sites, so it stays
+  # green even if THIS branch's re-lock were dropped; pin it specifically via the
+  # per-file-mode chmod (`chmod "$src_mode" "$dst"`) that ONLY the content-match
+  # branch carries — every other lock site uses a literal `chmod 644`.
+  run grep -qF 'chown root:root "$dst" && chmod "$src_mode" "$dst"' "$script"
+  assert_success
+}

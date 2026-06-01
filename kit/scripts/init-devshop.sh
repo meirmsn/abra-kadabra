@@ -67,7 +67,9 @@ if [ -d "$WS/kit" ] && [ ! -L "$WS/kit" ]; then
   (cd "$WS" && su node -c 'CI=true pnpm install --frozen-lockfile 2>/dev/null || CI=true pnpm install') || true
   # Lock essentials even in devshop-self mode (prevents security freshness warnings)
   for f in "$WS/.claude/settings.json" "$WS/.dcg.toml"; do
-    [ -e "$f" ] && chown root:root "$f" && chmod 644 "$f"
+    if [ -e "$f" ] && [ "$(stat -c '%U:%G %a' "$f")" != "root:root 644" ]; then
+      chown root:root "$f" && chmod 644 "$f"
+    fi
   done
   exit 0
 fi
@@ -164,6 +166,17 @@ chown -R node:node /home/node/.gstack
 # A new template/<file> propagates on the next container start without a
 # parallel hardcoded list (this is the .husky/pre-push fix).
 #
+# The refresh + lock steps are content/ownership-conditional, not unconditional.
+# The install runs only when cmp -s reports the destination differs (or is
+# missing) — the install is the script's only mtime-bumping write, so gating it
+# stops VS Code's spurious "Configuration file(s) changed — Rebuild?" prompt
+# from re-arming on every container start. Every chown/chmod lock step below
+# (the manifest content-match branch, the firewall-extras lock, the devshop-self
+# for-loop, and the recursive find over every kit script) runs only when the
+# stat -c '%U:%G %a' tuple has drifted from the desired root:root <mode>; an
+# already-locked file is skipped, eliminating redundant per-boot ctime churn
+# while still recovering ownership a git op eroded.
+#
 # Devshop-self locks (the $DEVSHOP/... and $DEVSHOP/template/... lists below) and
 # project-only locks (settings.json, settings.local.json, .dcg.toml, .env,
 # .claude dir) stay hardcoded — they're devshop-bootstrap or operator-secret
@@ -183,7 +196,19 @@ while IFS= read -r path; do
   dst="$WS/$path"
   if [ -f "$src" ]; then
     src_mode=$(stat -c '%a' "$src")
-    install -D -m "$src_mode" -o root -g root "$src" "$dst"
+    if ! cmp -s "$src" "$dst"; then
+      # Content differs (or dst missing — cmp -s exits 2). Full refresh:
+      # rewrites content + sets owner/mode atomically. This is the only
+      # mtime-bumping write in the script, so gating it stops VS Code's
+      # spurious "Configuration file(s) changed" rebuild prompt re-arming.
+      install -D -m "$src_mode" -o root -g root "$src" "$dst"
+    else
+      # Content already matches — skip the install (no mtime bump). Still
+      # recover ownership/mode if a git op eroded them (the security re-lock).
+      if [ "$(stat -c '%U:%G %a' "$dst")" != "root:root $src_mode" ]; then
+        chown root:root "$dst" && chmod "$src_mode" "$dst"
+      fi
+    fi
   fi
 done < <(manifest_paths_by locked)
 
@@ -197,7 +222,9 @@ FWE_DST="$WS/.devcontainer/firewall-extra-domains"
 if [ -f "$FWE_SRC" ] && [ ! -e "$FWE_DST" ]; then
   install -D -m 644 -o root -g root "$FWE_SRC" "$FWE_DST"
 fi
-[ -e "$FWE_DST" ] && chown root:root "$FWE_DST" && chmod 644 "$FWE_DST"
+if [ -e "$FWE_DST" ] && [ "$(stat -c '%U:%G %a' "$FWE_DST")" != "root:root 644" ]; then
+  chown root:root "$FWE_DST" && chmod 644 "$FWE_DST"
+fi
 
 # Manifest-driven [locked-dir]s: sticky bit on workspace dirs.
 while IFS= read -r d; do
@@ -239,13 +266,17 @@ for f in \
   "$DEVSHOP/.claude/settings.json" \
   "$DEVSHOP/.dcg.toml" \
   ; do
-  [ -e "$f" ] && chown root:root "$f" && chmod 644 "$f"
+  if [ -e "$f" ] && [ "$(stat -c '%U:%G %a' "$f")" != "root:root 644" ]; then
+    chown root:root "$f" && chmod 644 "$f"
+  fi
 done
 # Lock all devshop scripts (recursive — covers root + subfolders like
 # preship/, commit-hooks/, sync/; future scripts are auto-protected)
 find "$DEVSHOP/kit/scripts/" -type f -name '*.sh' -print0 | \
   while IFS= read -r -d '' f; do
-    chown root:root "$f" && chmod 644 "$f"
+    if [ "$(stat -c '%U:%G %a' "$f")" != "root:root 644" ]; then
+      chown root:root "$f" && chmod 644 "$f"
+    fi
   done
 
 # Sticky bit on dirs not covered by manifest [locked-dir] (devshop-self + .claude).

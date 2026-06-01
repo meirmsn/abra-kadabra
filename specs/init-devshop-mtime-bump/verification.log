@@ -1,0 +1,40 @@
+0 findings — all changes verified clean
+
+Independent verification of fix/init-devshop-mtime-bump (2026-06-01):
+
+1. Syntax: `bash -n kit/scripts/init-devshop.sh` parses OK. shellcheck not
+   installed in this container — no new lint warnings assessable (none
+   introduced by inspection; the added constructs are plain POSIX-test guards).
+
+2. cmp -s guard logic (standalone /tmp harness, non-root owner, no sudo):
+   - Case A (missing dst): cmp -s exits 2 → INSTALL fires, dst created. OK
+   - Case B (identical content): SKIP install, mtime UNCHANGED
+     (before==after captured via stat -c %Y), NO_RELOCK. OK
+   - Case B2 (identical content, drifted mode): SKIP install but ownership
+     guard RELOCKs mode → security re-lock preserved on a content no-op. OK
+   - Case C (differing content): INSTALL fires, dst content updated. OK
+
+3. set -e safety: `set -euo pipefail` snippet with `if [ -e ] && [ "$(stat
+   ...)" != ... ]` where the condition is FALSE reaches end and exits 0 —
+   the guards cannot abort the script when the tuple already matches. OK
+
+4. Test efficacy:
+   - manifest-lifecycle.bats: new tests #29 (cmp -s guard) and #30 (stat
+     tuple guard) PASS; preserved Test-8 #15 (mode-deriving install grep)
+     PASS.
+   - Revert sanity-check (throwaway /tmp copy, real file untouched): with
+     the `if ! cmp -s "$src" "$dst"; then` line removed, the test's
+     `grep -qE 'cmp -s "\$src" "\$dst"'` returns exit 1 → test FAILS on a
+     genuine revert. (An initial exit-0 was a false alarm from my own
+     `grep -v` using an unescaped `$` regex, not a test weakness; redone
+     with `grep -vF` confirmed exit 1.) Likewise the stat-tuple test fails
+     when all `stat -c '%U:%G %a'` guards are stripped.
+
+5. Test-preservation: all three pinned substrings present in
+   kit/scripts/init-devshop.sh:
+     - src_mode=$(stat -c '%a' "$src")
+     - install -D -m "$src_mode" -o root -g root
+     - if [ -f "$src" ]; then
+
+6. Full suite: `kit/tests/lib/bats-core/bin/bats kit/tests/` → 1628 tests,
+   1628 ok, 0 not ok, exit 0.

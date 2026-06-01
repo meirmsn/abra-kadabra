@@ -4,6 +4,16 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### init-devshop-mtime-bump (2026-06-01)
+
+- **Branch**: `fix/init-devshop-mtime-bump`
+- **Spec**: `specs/init-devshop-mtime-bump/spec.md`
+- **Headline**: Infrastructure update — no user-visible change in this PR.
+- **Summary**: `init-devshop.sh` now refreshes its root-owned `[locked]` files content-aware: it rewrites a file only when the template source actually differs (`cmp -s`), instead of unconditionally `install`-ing every file on every container start. The `install` is the script's only mtime-bumping write, so gating it stops VS Code's "Configuration file(s) changed — Rebuild?" prompt from re-arming on every boot after a clean rebuild — behavior that had been training operators to reflexively dismiss a rebuild signal that matters for real changes. The five chown/chmod lock steps are likewise made idempotent (skip when the `stat -c '%U:%G %a'` tuple already matches `root:root <mode>`), eliminating redundant per-boot metadata churn while preserving the security re-lock that recovers from git-op ownership erosion (including on the content-match path). Closes the `kit/TODOS.md` "mtime-bumps `[locked]` files" entry; the source TODO pointed at `template/.devcontainer/init-devshop.sh`, but the locking logic had since moved to `kit/scripts/init-devshop.sh` (template is now a forwarder) — the fix retargeted accordingly.
+- **Commits**: 10 (Phase 0 skeleton + Phase 1 spec; `fix(init-devshop)` cmp -s content guard [T1]; `fix(init-devshop)` stat-tuple idempotent locks [T2]; `test(init-devshop)` pin both guards [T3]; tasks.md; fresh-eyes verification log; Gate 5 audit; `fix(init-devshop)` content-match re-lock pin + manifest/architecture legend sync [Phase 3 Gate 5 medium]; Phase 3 review.md + gate sinks) — squashed to 1 on main via `/ak-merge-devshop`.
+- **Quality gates**: devshop gate set — Gates 1/4/6/11 pass; Gate 2d full bats green (1628 passed, 0 failed, incl. 3 new `manifest-lifecycle.bats` regression tests: cmp -s guard, stat-tuple idempotence, content-match re-lock pin); Gate 5 docs+tests audit (Audit 1) high=0 medium=3 low=2 — 2 mediums fixed in-branch (manifest.txt+architecture.md legend still said "refreshed every container start"; content-match re-lock not independently pinned), remainder advisory (static-grep tests are revert-detectors by design per D3). 9 non-LLM carve-outs n/a; 4 LLM-mediated structural carve-outs (cso/design-review/qa/benchmark — no auth/UI/perf surface). Phase 2.5 fresh-eyes: 0 findings — independently re-verified the cmp -s branch behavior (missing/identical/differ), mtime-unchanged-on-noop, security re-lock on drift, `set -e` safety, and test-fails-on-revert. Gate 5 audit stamp (2b0e60b) is one commit behind HEAD (the medium-finding fix); `/ak-merge-devshop` Phase 1.1 re-audits the delta by construction.
+- **Worktree**: built in `.worktrees/init-devshop-mtime-bump` (base `origin/main`); /devshop stayed on `main` throughout. `verification.log` required `git add -f` (caught by the global `*.log` gitignore).
+
 ### ak-check-docs-orphan-stubs (2026-05-31)
 
 - **Branch**: `feat/ak-check-docs-orphan-stubs`

@@ -7,9 +7,11 @@
 #
 #   [sync]          — manual bidirectional sync via sync/from-devshop.sh +
 #                     sync/to-devshop.sh; project owns its copy and may diverge
-#   [locked]        — root-owned copy, refreshed every container start by
-#                     init-devshop.sh; project cannot edit (chown root + chmod
-#                     matches template source — 644 for config, 755 for exec)
+#   [locked]        — root-owned copy; init-devshop.sh refreshes content only
+#                     when it differs from the template source (cmp -s) and
+#                     re-locks owner/mode only on drift, so a quiet boot is a
+#                     no-op; project cannot edit (chown root + chmod matches
+#                     template source — 644 for config, 755 for exec)
 #   [locked-dir]    — sticky-bit dir holding [locked] files (chmod 1755);
 #                     prevents node from deleting locked leaves
 #   [symlink]       — node-owned symlink to devshop, always matches devshop;
