@@ -339,22 +339,6 @@ Strategic capabilities go in `ROADMAP.md`. Project issues go in root `TODOS.md`.
 
   [ui, design-system, touch-input, surfaced-by lalista-polish-2026-05-13] [v1]
 
-- [ ] **`/ak-check-docs-and-tests` Step 1 scaffolds `specs/<feature>/review.md` even for doc-only commits with no source surface — leaves orphan stubs.** Witnessed twice in two sessions:
-  - `/ak-merge-devshop` for devshop `aa0b498` (roadmap-supabase-port-registry, doc-only) → left `specs/roadmap-supabase-port-registry/` empty dir.
-  - `/ak-merge-devshop` for devshop `0b49682` (plan-synthesis, doc-only) → left `specs/plan-synthesis/review.md` 28-byte stub (`# Review — plan-synthesis`).
-
-  Both runs triggered Phase 1 audit. The orchestrator's Step 1 says "If the resolved feature dir doesn't exist: scaffold an empty stub so the appender has a target." Then Step 4's appender writes the `## Audit N` section. But when the appender runs (after `/ak-docs-review` + `/ak-tests-review`), Step 4 also doesn't commit — and the operator typically discards the working-tree change to clear `gh pr merge --delete-branch`'s `git checkout main` (per the separate TODOS entry "/ak-check-docs-and-tests orchestrator appends `## Audit N` to `review.md` but never commits the change"). For devshop merges that path is shorter — the audit may not run to completion at all if the diff is purely tracker-shaped (PLAN/TODOS/ROADMAP), since both sub-skills emit "clean — no findings" trivially.
-
-  **Fix shape**: short-circuit Step 1 when the diff has zero non-tracker / non-doc surfaces. Detection: `git diff --name-only "$RANGE"` returns ONLY paths matching `^(PLAN|TODOS|BUILD-LOG|PRODUCT-ROADMAP|DEPS-WATCH)\.md$|^kit/(TODOS|ROADMAP|notes|version)|^kit/docs/CHANGELOG\.md$` (or the devshop-self analogues). If so, skip scaffold + skip sub-skill invocation + print "✓ audit short-circuited: diff is tracker-only, no source surface to audit." This is consistent with the existing carve-outs in `/ak-docs-review § Section A` and `kit/scripts/commit-hooks/check-docs-coverage-{project,devshop}.sh` — the audit machinery already knows these paths don't trigger coverage, so the meta-audit should follow suit.
-
-  **Edit target**: `/devshop/.claude/skills/ak-check-docs-and-tests/SKILL.md § Step 1` (add the short-circuit clause near "If the resolved feature dir doesn't exist").
-
-  **Cleanup**: existing orphan dirs (`specs/roadmap-supabase-port-registry/`, `specs/plan-synthesis/`) — both deleted at the `/ak-merge-devshop` boundary for plan-synthesis (this session).
-
-  **Severity**: low (the stubs are untracked and harmless, never reach `main`) — but the noise compounds (one orphan per doc-only `/ak-merge-devshop` run), the pattern is invisible to anyone who doesn't check `git status` post-merge, and the short-circuit is a few lines.
-
-  [low, skill-improvement, ak-check-docs-and-tests, surfaced-by ak-merge-devshop-doc-only-runs-2026-05-15, 2026-05-15] [v0]
-
 - [ ] **PR-body composition adds "Run `supabase db push`" as a manual out-of-band item even when `deploy-migrations.yml` exists.** Surfaced 2026-05-15 on home-os PR #19. `/ak-build` Phase 4.1 pre-composes the PR title + Summary, and the SKILL's § "Out-of-band deploy items" section unconditionally adds a `supabase db push` reminder whenever the diff touches `supabase/migrations/**`. Home-os has `.github/workflows/deploy-migrations.yml` which auto-applies migrations on push to main — making the manual step unnecessary AND misleading (a reviewer sees the checkbox, runs `supabase db push` manually after merge, and either no-ops because the workflow already ran or fights the workflow's lock). The same SKILL also has a fall-through for `supabase/functions/**` (also auto-deployed via `deploy-functions.yml`) and `terraform/**`, `k8s/**`. All of these need a "check whether a workflow already handles this" gate before adding the manual reminder.
 
   **Fix shape**: in `/ak-build` Phase 4.1's "Out-of-band deploy items" detection block, before adding a `supabase db push` reminder, grep `.github/workflows/*.yml` for a workflow whose `on:` trigger matches `push: [main]` AND whose body contains `supabase db push` or `supabase migration up`. If found, **skip** the manual reminder entirely and instead add a positive note: `Migration auto-deploys via .github/workflows/<workflow>.yml on merge to main`. Apply the same logic for the other auto-deployable paths (`functions/**` → check for `supabase functions deploy`; `terraform/**` → check for `terraform apply`; `k8s/**` → check for `kubectl apply`).

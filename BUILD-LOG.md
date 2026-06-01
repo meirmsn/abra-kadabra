@@ -4,6 +4,16 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### ak-check-docs-orphan-stubs (2026-05-31)
+
+- **Branch**: `feat/ak-check-docs-orphan-stubs`
+- **Spec**: `specs/ak-check-docs-orphan-stubs/spec.md`
+- **Headline**: Infrastructure update — no user-visible change in this PR.
+- **Summary**: Doc-only / tracker-only devshop merges no longer leave orphan `specs/<feature>/review.md` stubs behind. `/ak-check-docs-and-tests` Step 1 now runs a new classifier — `kit/scripts/preship/audit-tracker-only.sh` — over the audit range BEFORE scaffolding the stub: if every changed path is a pure tracker (`PLAN`/`TODOS`/`ROADMAP`/`BUILD-LOG`/`PRODUCT-ROADMAP`/`DEPS-WATCH`/`kit/notes/`/`kit/version`/`kit/docs/CHANGELOG.md`/`kit/FRICTION-LOG.md`), it prints `✓ audit short-circuited: diff is tracker-only` and exits without scaffolding, invoking sub-skills, or appending a section. `kit/docs/guide/**` and `kit/tests/**` are deliberately NOT trackers — they remain auditable. The helper exits 1 (audit) on an unresolvable range so a rewritten-history SHA can never false-short-circuit a real audit. File trackers are exact-anchored (not prefix) so a future `kit/versioning.md` / `kit/ROADMAPER` is not falsely swept. Closes the `kit/TODOS.md` orphan-stub entry.
+- **Commits**: Phase 0 skeleton + Phase 1 spec; `feat(preship)` helper + 12-case bats [T1]; `feat(audit)` SKILL.md Step-1 short-circuit + grep test [T2]; `docs(audit)` TODO closure + `docs(friction-log)` [T3]; `fix(preship)` exit-1-on-unresolvable-range [Phase 2.5 fresh-eyes]; `fix(preship)` track 644 (script lock); `fix(preship)` exact-anchor file trackers [Phase 3 finding]; Phase 3 review.md + gate sinks — squashed to 1 on main via `/ak-merge-devshop`.
+- **Quality gates**: devshop gate set — Gates 1/4/11 pass; Gate 2d full bats green (1623 passed, 0 failed, incl. the new 12-case `util-audit-tracker-only.bats`); Gate 5 docs+tests audit (Audit 1) high=0 medium=0 low=1 (tracker prefix over-match — fixed); Gate 6 `/review` 1 finding fixed (same prefix over-match, cross-confirmed). 9 non-LLM carve-outs n/a; 4 LLM-mediated structural carve-outs (cso/design-review/qa/benchmark — no auth/UI/perf surface). Phase 2.5 fresh-eyes caught + fixed a real `set -e` swallow-of-`$(git diff)` bug that false-short-circuited on unresolvable ranges. Branch rebased onto `origin/main` mid-flight after a sibling feature (`skip-bats-docs-only`) landed.
+- **Worktree footgun**: built in `.worktrees/ak-check-docs-orphan-stubs`; the implement subagent hit the worktree-blind `check-tests-coverage-devshop.sh` (hardcoded `TESTS_DIR=/devshop/kit/tests`) + a `DEVSHOP=`-override fixture-corruption trap, both recovered non-destructively and logged to FRICTION-LOG.
+
 ### skip-bats-docs-only (2026-05-31)
 
 - **Branch**: `feat/skip-bats-docs-only`

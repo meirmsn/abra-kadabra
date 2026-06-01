@@ -208,3 +208,16 @@ setup() {
 @test "Behavior summary mentions orchestrator commits the audit section" {
   grep -qiE 'orchestrator DOES commit' "$SKILL_FILE"
 }
+
+@test "Step 1 documents the tracker-only short-circuit (helper + exit-0 / no-scaffold)" {
+  # The short-circuit must name the classifier helper, the short-circuit
+  # message, and the no-scaffold (WITHOUT ... scaffold) behavior — and it
+  # must precede the stub scaffold (orphan-stub fix, spec D3).
+  grep -q 'audit-tracker-only\.sh' "$SKILL_FILE"
+  grep -qi 'audit short-circuited' "$SKILL_FILE"
+  # No-scaffold assertion: 'WITHOUT' near 'scaffolding' (markdown ** bolding +
+  # possible line wrap between them → tr newlines, allow non-letters in between).
+  tr '\n' ' ' < "$SKILL_FILE" | grep -qE 'WITHOUT[^A-Za-z]+scaffolding'
+  # Ordering guard: the short-circuit fires BEFORE the scaffold substep.
+  grep -qiE 'BEFORE the substep-6 scaffold' "$SKILL_FILE"
+}

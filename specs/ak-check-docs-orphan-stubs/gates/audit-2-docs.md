@@ -1,0 +1,18 @@
+### [domain: docs] [section: B] [severity: low]
+
+**File**: .claude/skills/devshop/check-docs-and-tests/SKILL.md:302-304, 426-427
+**What**: Incidental indentation regression — the `git add` continuation lines in Step 5 substep 2 and the "Audit N § Tests findings" continuation in the Notes section lost their 3-space leading indent (now at column 0), breaking their association with the surrounding numbered/bulleted list item.
+**Why**: Formatting churn introduced by this range, not the intended change. In `66f5fa6` (base) these continuation lines were indented `   "$FEATURE_DIR/...` to stay inside list item `2.`; the diff hunks (`-   "$FEATURE_DIR/...` → `+"$FEATURE_DIR/...`) dedented them to column 0, which a Markdown renderer reads as a list-item break. Cosmetic stub-edit churn co-staged with the substantive short-circuit edit; no behavior impact.
+**Fix**: Re-indent the three continuation lines (`"$FEATURE_DIR/review.md" ...`, `"$FEATURE_DIR/gates/audit-$AUDIT_N-tests.md"`, and `Audit N § Tests findings`) back to their list-item indentation (3 spaces for the numbered item, 2 for the bullet) to match the unchanged sibling lines.
+
+---
+
+Coverage (Section A): clean. Source surfaces in range — new `kit/scripts/preship/audit-tracker-only.sh` (rubric: `kit/scripts/preship/**` → pre-ship SKILL.md OR `kit/docs/guide/*`; satisfied by `kit/docs/guide/workflow.md` Phase 5.8 prose + skill-map row) and `.claude/skills/devshop/check-docs-and-tests/SKILL.md` (rubric: `.claude/skills/**/SKILL.md` → `workflow.md` OR `CLAUDE.md`; satisfied by workflow.md). `kit/tests/**`, `kit/FRICTION-LOG.md`, `kit/TODOS.md`, `BUILD-LOG.md`, and `specs/**` are all carve-outs. No missing-doc coverage findings.
+
+Adequacy (Section B): workflow.md edits are substantive (skill-map row gains a "Tracker-only short-circuit" clause naming the helper + the exact tracker set + the `✓ audit short-circuited` message; Phase 5.8 prose names the Step 1 short-circuit). SKILL.md Step 1 substep 5 is a substantive new clause (preliminary-range computation, classifier invocation from `$GIT_ROOT_AUDIT`, exit-0/exit-1 branches, ordering-before-scaffold guarantee). Named-mechanism empirical verification (cheap): ran `audit-tracker-only.sh` against a temp two-commit fixture — tracker-only→exit 0, guide-doc change→exit 1, `kit/versioning.md` over-match guard→exit 1, unresolvable range→exit 1 (does NOT false short-circuit), no-arg→exit 64. All five documented exit-code claims match actual behavior. Cited paths verified to exist at HEAD: `kit/scripts/preship/audit-tracker-only.sh` (mode 644, matching the `34c7d55` mode-fix bypass). The workflow.md tracker list matches the script's `case` arms exactly.
+
+Coherence (Section C): clean. No renamed/deleted files in range (`--diff-filter=DR` empty), so no stale-reference sweep triggered. workflow.md edits do not contradict OVERVIEW.md/FAQ.md.
+
+Bypass trailers (Section D): 3 `Docs-Coverage-Bypass:` trailers harvested (664602f exact-anchor tightening, bcfd847 exit-1-on-unresolvable-range, 34c7d55 644 mode-fix). All three VERIFIED — each is a behavior-tightening / bug-fix / mode-fix on the helper whose documentation (workflow.md skill-map note + Phase 5.8 prose) already shipped paired in `411a3c1` within this same branch; no new doc surface. `grep 'audit-tracker-only'` confirms the helper is referenced only in workflow.md + check-docs-and-tests SKILL.md, matching the per-doc NOT-AFFECTED claims in the bypass rationales. No `CLAUDE-MD-Bypass:` trailers in range.
+
+Section E (CLAUDE.md hygiene): skipped — devshop self-mode (`$GIT_ROOT` is a worktree of `/devshop`); Section E is project-mode only.

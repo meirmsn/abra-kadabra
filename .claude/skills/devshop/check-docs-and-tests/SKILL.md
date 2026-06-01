@@ -78,10 +78,7 @@ In order of preference:
    (`feat/`, `fix/`, `chore/`, etc.) and map to `specs/<name>/`.
    Example: `feat/auth-improvements` → `specs/auth-improvements/`.
 3. Else: use `AskUserQuestion` to ask the operator for the feature dir.
-4. If the resolved feature dir doesn't exist: scaffold an empty
-   `specs/<name>/review.md` stub (just the title `# Review — <name>`) so
-   the appender step has a target to append to.
-5. If the current branch is `main`: error out and exit non-zero with
+4. If the current branch is `main`: error out and exit non-zero with
    "audit is feature-level; check out the feature branch first." Audits
    never run on main — **unless an explicit `--range` was passed.** An
    explicit range means the caller is driving the audit by SHA (e.g.
@@ -96,6 +93,34 @@ In order of preference:
    `HEAD` read, and the Step 5 `status` / `add` / `commit` (so the audit record
    lands on the worktree branch, NOT `/devshop`'s main) — and pass
    `$GIT_ROOT_AUDIT` to the Step 3 review agents so they read the worktree too.
+5. **Tracker-only short-circuit (run this BEFORE the substep-6 scaffold).**
+   A doc-only / tracker-only diff carries no auditable source surface, so
+   scaffolding a `review.md` stub for it just leaves an orphan that never
+   reaches `main`. Classify the diff up front and exit cleanly when there is
+   nothing to audit:
+   - **Compute a preliminary range** consistently with the explicit-`--range` /
+     `<!-- audited-at -->` handling Step 2 uses:
+     1. If `--range` was passed → use it verbatim.
+     2. Else if `review.md` exists and has a `<!-- audited-at: <SHA> -->`
+        marker → use `<SHA>..HEAD` (the latest stamp, same parse as Step 2).
+     3. Else → `origin/main..HEAD`.
+   - **Run the classifier** from the audit git-root so it reads the worktree's
+     commit graph (the range is resolved SHAs, but they must exist in the
+     audited repo): `bash kit/scripts/preship/audit-tracker-only.sh "$RANGE"`,
+     invoked from `$GIT_ROOT_AUDIT` when Step 1 substep 4 resolved one (the
+     `/ak-merge-devshop` Phase 1.1 / explicit-`--range` path where cwd may be
+     `/devshop`, not the worktree).
+   - **On exit 0 (tracker-only / no source surface):** print
+     `✓ audit short-circuited: diff is tracker-only, no source surface to audit.`
+     and exit 0 **WITHOUT** scaffolding the stub (substep 6), invoking the
+     sub-skills (Step 3), or appending a `## Audit N` section / committing
+     (Step 4 / Step 5). The orphan stub IS the substep-6 scaffold, so this gate
+     MUST precede it.
+   - **On exit 1 (has source surface):** fall through to substep 6 → Step 2 →
+     the normal flow, unchanged.
+6. If the resolved feature dir doesn't exist: scaffold an empty
+   `specs/<name>/review.md` stub (just the title `# Review — <name>`) so
+   the appender step has a target to append to.
 
 ### Step 2: Compute range
 
@@ -275,8 +300,8 @@ Procedure (when Step 1 set `$GIT_ROOT_AUDIT`, run every git command below as
    `git stash` or `git restore` — both destroy operator work
    silently. Mirrors Phase 5.9's commit-or-no-op rule.
 2. **Stage the audit file + the per-domain sinks.** `git add
-   "$FEATURE_DIR/review.md" "$FEATURE_DIR/gates/audit-$AUDIT_N-docs.md"
-   "$FEATURE_DIR/gates/audit-$AUDIT_N-tests.md"` — never `git add -A` /
+"$FEATURE_DIR/review.md" "$FEATURE_DIR/gates/audit-$AUDIT_N-docs.md"
+"$FEATURE_DIR/gates/audit-$AUDIT_N-tests.md"` — never `git add -A` /
    `git add .`. The scope of this commit is exactly three paths:
    `review.md` (the appended `## Audit N` section) plus the two
    per-domain sinks that Step 3's Agent dispatch wrote.
@@ -401,7 +426,7 @@ Notes on the template:
   tool-use turn. Each writes its findings to a per-file sink under
   `$FEATURE_DIR/gates/audit-$AUDIT_N-{docs,tests}.md`; the orchestrator
   concatenates the sinks into `## Audit N § Docs findings` and `##
-  Audit N § Tests findings` in stable docs-then-tests order during
+Audit N § Tests findings` in stable docs-then-tests order during
   Step 4. Sub-skill ordering is enforced by the concatenation step,
   not by sequential dispatch.
 - The HTML-comment markers `<!-- audited-at: ... -->` and
