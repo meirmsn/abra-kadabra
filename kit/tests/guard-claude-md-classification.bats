@@ -89,6 +89,21 @@ run_script() {
   assert_output --partial "placement: <extends|NEW>"
 }
 
+# --- Test 3c: BLOCK message names the skill-operational relocation destination ---
+
+@test "BLOCK: guidance routes skill-operational logic to the owning skill's SKILL.md" {
+  echo "## New Footgun" >> "$TEST_REPO/CLAUDE.md"
+  echo "When you run /ak-build, always assess the fix." >> "$TEST_REPO/CLAUDE.md"
+  git -C "$TEST_REPO" add CLAUDE.md
+  run_script
+  assert_failure
+  # The skill-operational routing rule must surface in the block guidance, so a
+  # future edit that drops it from the gate reds this test (it's the LOUD pin on
+  # the routing destination added 2026-06-02).
+  assert_output --partial "Skill-operational"
+  assert_output --partial "SKILL.md"
+}
+
 # --- Test 4: PASS — bypass flag + adversarial PASS ---
 
 @test "PASS: bypass flag + adversarial PASS accepts commit" {

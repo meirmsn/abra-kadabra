@@ -646,10 +646,13 @@ failure class):
 
 Bias to (4). Reach for (1)–(3) only when (4) is disproportionately large or
 genuinely doesn't make sense for the payoff — and when you do, **say so**: label
-the proposal as mitigation, name what the true root cause is, and (in `/ak-build`)
-surface the root-cause option alongside it via the Phase 0 decisions
-`AskUserQuestion` so the operator picks the depth. Don't silently ship a bandaid
-under a root-fix headline.
+the proposal as mitigation, name what the true root cause is, and surface the
+root-cause option alongside it so the operator picks the depth. Don't silently
+ship a bandaid under a root-fix headline. `/ak-build` owns the operational
+mechanic that applies this — it raises the root-cause-vs-mitigation choice as a
+Phase 0 decision row (`.claude/skills/ak-build/devshop-mode.md § Phase 0
+fix-assessment`); `CLAUDE.md § Implementation Approach` carries the one-line
+ambient value that points here.
 
 Two corollaries:
 

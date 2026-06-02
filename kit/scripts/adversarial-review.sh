@@ -1242,7 +1242,11 @@ Per-check-type rules:
         convention must have its relocation target file staged in the
         same commit (visible in the 'All staged files' list). If the
         routing table names a destination and that destination file is
-        NOT staged, FAIL — the relocation didn't happen.
+        NOT staged, FAIL — the relocation didn't happen. The destination
+        for skill-operational logic (a step/check/gate/decision a named
+        skill performs) is that skill's SKILL.md (or a file in the skill's
+        dir, e.g. .claude/skills/devshop/build/devshop-mode.md) — a
+        relocation reason naming the skill MUST have that skill file staged.
     (d) **No content-free classifications**. A reason that classifies
         entries only by repeating the entry text without explaining WHY
         it's a trap (the silent-failure scenario) FAILS. Name the
@@ -1279,6 +1283,17 @@ Per-check-type rules:
         pointer, with the recipe relocated in the same commit. Test:
         would this detail bite before the operator opened the relevant
         skill/guide? If no, it relocates.
+        **Skill-operational sub-test**: a 'trap' whose body is operational
+        logic for a NAMED skill — a step / check / gate / decision that
+        only fires once you are inside that skill's run — FAILS even when
+        phrased as an ambient directive ('when you do X, always Y'), because
+        it cannot bite before the skill is opened. The phrasing disguises it
+        as inline-worthy; the test cuts through it. The fix: keep at most a
+        one-line ambient VALUE + pointer inline, and relocate the mechanic
+        to the owning skill's SKILL.md in the same commit (see the
+        skill-operational routing-table row in claude-md.md). A near-tell:
+        the entry names a specific skill / phase / gate ('/ak-build Phase 0',
+        'pre-ship Gate N') as the place the behavior happens.
     Default: REJECT. The gate exists because 41% regrowth proved that
     judgment-only enforcement was insufficient for CLAUDE.md. Per-entry
     classification keeps miscategorized content out; placement fit keeps

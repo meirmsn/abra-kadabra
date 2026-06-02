@@ -5,7 +5,10 @@
 # Why: Mechanical gate (Layer B) that prevents CLAUDE.md regrowth by requiring
 #      per-entry classification + placement at commit time. Reference and
 #      convention content must be relocated to its canonical home in the same
-#      commit; trap entries must declare and justify their target section.
+#      commit (for skill-operational logic — a step/check/gate a named skill
+#      performs — that home is the owning skill's SKILL.md, per the
+#      skill-operational routing row in kit/docs/guide/claude-md.md); trap
+#      entries must declare and justify their target section.
 # Does NOT: Judge classification quality (the adversarial reviewer does that).
 #           Fire on pure deletions (removing content is unconditionally good).
 #
@@ -89,6 +92,12 @@ echo "    - trap:       silent wrong work if forgotten → stays in CLAUDE.md"
 echo "    - reference:  look-it-up information → relocate to canonical home"
 echo "    - convention: already documented in a guide → delete the duplicate"
 echo ""
+echo "  Skill-operational logic (a step / check / gate / decision a NAMED skill"
+echo "  performs — only bites once you're inside that skill's run) is reference"
+echo "  content whose canonical home is that skill's SKILL.md, NOT CLAUDE.md —"
+echo "  even when phrased as an ambient directive. Keep at most a one-line value"
+echo "  + pointer inline; relocate the mechanic to the skill in the same commit."
+echo ""
 echo "  Each trap must also declare its placement — which section it lands in,"
 echo "  and (if it needs a NEW section) why no existing section fits:"
 echo "    - extends existing section → name the section; it must be the closest home"
@@ -98,7 +107,8 @@ echo "  Usage:"
 echo "    git -c devshop.claudeMdClassification=\"trap → § <section>: <entry> — <why silent>; placement: <extends|NEW> — <why>\" commit ..."
 echo ""
 echo "  Reference/convention entries must be relocated to their canonical home"
-echo "  (guide doc, area README, code comment) in the same commit."
+echo "  (guide doc, area README, code comment, or owning skill's SKILL.md for"
+echo "  skill-operational logic) in the same commit."
 echo ""
 echo "  See kit/docs/guide/claude-md.md for the routing table + inclusion rule."
 exit 1

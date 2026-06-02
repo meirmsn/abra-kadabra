@@ -4,6 +4,16 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### skill-operational-claude-md-routing (2026-06-02)
+
+- **Branch**: `fix/skill-operational-claude-md-routing`
+- **Spec**: `specs/skill-operational-claude-md-routing/spec.md`
+- **Headline**: Infrastructure update — no user-visible change in this PR.
+- **Summary**: Relocates the root-cause-vs-bandaid _operational_ directive out of always-loaded CLAUDE.md into the `/ak-build` skill where it actually fires, and teaches the CLAUDE.md classification gate to route skill-operational logic into the owning `SKILL.md` so the mis-homing class becomes structurally catchable. Origin: the bandaid-vs-root-cause directive had been over-generalized into `CLAUDE.md § Implementation Approach` (commit `f2c1e34`, same day) — the classification gate _ran and approved it_ because the router had no "skill-operational" destination and the entry was phrased as a generic ambient directive. (1) **Relocation**: CLAUDE.md keeps a one-line ambient value ("bias fixes toward root cause; label honestly which a proposal is") + pointers; the operational mechanic (classify on the bandaid spectrum, surface root-cause-vs-mitigation as a Phase 0 decision) moves to `devshop-mode.md § Phase 0 fix-assessment`; `conventions.md § Root-cause over bandaid` repoints at the skill. (2) **Root-cause gate fix**: a new "skill-operational" routing-table row + reachability-split callout + worked-examples row in `claude-md.md`; the gate hook's BLOCK guidance names the skill destination; the adversarial reviewer gains rule 15(c) (a skill-naming relocation reason must stage that skill file) + a 15(f) skill-operational sub-test (a trap whose body is operational logic for a named skill fails even when phrased as ambient posture). bats Test 5 pins the guidance.
+- **Scope (honest)**: the gate fix catches the **assertion surface it can** — the hook's BLOCK guidance text (bats-pinned) — and sharpens the **live adversarial reviewer's** rule 15 prose (not unit-testable; the reviewer is a `claude -p` call). The discriminating "relocate-to-skill PASSES / inline-the-mechanic FAILS" judgment lives in that live reviewer, so the structural catch is judgment-assisted, not purely deterministic. Dogfood: the _existing_ reviewer already PASSED the kernel-shrink commit (it accepted "relocated to the owning skill"), confirming the relocation reads correctly to the gate.
+- **Commits**: 8 atomic (Phase 0 skeleton; Phase 1 spec; relocation; routing rule; gate enforcement + test; Phase 2.5 verification log; tasks.md; Phase 3 Gate-5 coherence fixes + review artifacts) — landed via `/ak-merge-devshop`.
+- **Quality gates**: full kit bats suite green (1647 passed / 0 failed) at Phase 2.5; Phase 2.5 fresh-eyes verified clean (cross-refs resolve, relocation complete, reviewer coherent); Phase 3 devshop gate set pass — Gate 6 /review + Gate 11 convention clean, Gate 5 docs-and-tests surfaced 2 medium + 4 low coherence findings (3 fixed: worked-examples row, SKILL.md-dir wording, project-mode overclaim; 3 accepted with rationale in `review.md`).
+
 ### bats-drift-guards (2026-06-02)
 
 - **Branch**: `feat/bats-drift-guards`

@@ -64,6 +64,37 @@ When `MODE=devshop`, section 0.1 reads:
 Do NOT read: `PRODUCT-ROADMAP.md` (project-side), `DESIGN.md` (no UI),
 `.gstack/projects/` artifacts (no gstack plan for devshop features).
 
+### Phase 0 fix-assessment — root-cause vs bandaid
+
+When the feature is a **fix** (a `fix/` branch, or any feature whose Source
+blurb in `kit/ROADMAP.md` / `kit/TODOS.md` / `kit/FRICTION-LOG.md` describes a
+bug, corruption, or failure class), the Phase 0.2 Decisions table MUST carry an
+explicit **root-cause-vs-bandaid** row before the operator approves:
+
+1. Read the tracker blurb's *described* remedy and the codebase. Classify the
+   in-flight approach on the bandaid spectrum
+   (`kit/docs/guide/conventions.md § Root-cause over bandaid`):
+   avoid-the-blast-radius / detect-and-repair / containment (tiers 1–3,
+   mitigation) vs. source-elimination (tier 4, root cause). The blurb itself is
+   often written as a tier-1–3 mitigation — do not inherit its framing; assess
+   the *actual* trigger.
+2. Bias to the root-cause fix (remove the trigger so the bug class becomes
+   structurally impossible), **unless** it is disproportionately large or
+   nonsensical for the payoff.
+3. When the root-cause fix is materially bigger than a mitigation, surface
+   **both** — with their cost/risk tradeoff — as a Decisions-table row (mark it
+   `[USER MUST DECIDE]` in the Proposed-answer column) so the operator picks the
+   depth at the Phase 0 `AskUserQuestion`. Do not silently default to the
+   bandaid, and label honestly which tier each option is.
+
+This is the operational home of the ambient "bias fixes toward root cause" value
+kept in `CLAUDE.md § Implementation Approach` — the kernel states the value; this
+step is where `/ak-build` actually applies it. The bandaid spectrum + worked
+example live in the shared guide (`kit/docs/guide/conventions.md § Root-cause over
+bandaid`), so a project-mode fix can apply the same assessment via its Phase 0.2
+Decisions table; the explicit step is documented here (devshop mode) because the
+devshop is where fixes-to-fixes most often originate.
+
 ### Tracker hierarchy (devshop mode)
 
 The Phase 0.2 tracker omits project-only phases:

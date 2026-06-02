@@ -1,0 +1,23 @@
+### [domain: tests] [section: A] [severity: low]
+
+**File**: `kit/tests/guard-claude-md-classification.bats:94`
+**What**: Test 3c ("BLOCK: guidance routes skill-operational logic to the owning skill's SKILL.md") asserts only on the static block-guidance copy (`assert_output --partial "Skill-operational"` / `"SKILL.md"`). Those echo lines (check-claude-md-classification.sh:95-99, 110-111) are emitted on the no-bypass block path **unconditionally** — independent of staged content. The staged fixture (`When you run /ak-build, always assess the fix.`) has zero bearing on whether the assertion passes; the identical assertion would hold if the test staged the generic `## New Footgun\nThis is a new trap entry` used by test 3/3b. The test therefore pins the _presence of guidance text_, not _routing behavior_. The test name and comment ("routes skill-operational logic", "LOUD pin on the routing destination") overclaim relative to what is verified.
+**Why**: A reader trusts the green test as evidence that skill-operational content is detected and routed to SKILL.md. It is not — it only proves the guidance paragraph hasn't been deleted from the BLOCK message. The actual discriminating judgment (is this entry skill-operational? is its relocation target staged?) lives in adversarial-review.sh rule 15(c)/(f), which this suite mocks out (helpers/setup.bash `mock_adversarial_review` returns canned PASS/FAIL). No automated test exercises the new reviewer sub-test.
+**Fix**: Adequate as a regression pin for the guidance copy — keep it, but tighten the framing: rename to something like "BLOCK guidance includes the skill-operational SKILL.md routing pointer" and adjust the comment to say it pins the guidance _string_, not detection. No behavioral assertion is feasible here (see note below). Optionally drop the skill-operational-shaped fixture in favor of the generic one to make explicit that content does not drive the assertion.
+
+### [domain: tests] [section: A] [severity: low]
+
+**File**: `kit/scripts/adversarial-review.sh:1245` (rule 15(c) skill-operational destination) + `:1286` (rule 15(f) skill-operational sub-test)
+**What**: The behavioral core of this change — teaching the reviewer to (c) require the named skill's SKILL.md staged when a relocation reason names a skill, and (f) FAIL a "trap" whose body is operational logic for a named skill even when phrased as an ambient directive — has **no test exercising the real judgment**. The bats suite mocks the reviewer entirely. A PASS-path test for a correctly-relocated entry would collapse into the existing test 6 (canned-PASS mock), which proves only that the hook forwards exit 0 — not that the live reviewer distinguishes a correctly-relocated entry from a mis-placed one.
+**Why**: A future edit to the rule-15 prompt that weakens or removes the skill-operational sub-test would not red any test. The enforcement guarantee rests entirely on a live `claude -p` call.
+**Fix**: Not feasibly pinnable in bats — the reviewer is a live model call, mocked by design, so there is no deterministic PASS/FAIL fixture for the prompt's discrimination. This is an accepted structural gap, not an actionable miss: the hook-side string pin (test 3c) is the only deterministic surface available, and it is present. Record the gap; do not add a bats test that would only re-assert the mock. If deterministic coverage of reviewer prompt rules is ever wanted, that is a separate devshop capability (prompt-eval harness), not in-scope here.
+
+---
+
+**Section A (coverage)**: The one source-side behavior that is deterministically testable — the new unconditional BLOCK-guidance lines in check-claude-md-classification.sh — IS pinned (test 3c, run order #5, passing; full suite 12/12 green via vendored bats). The reviewer-side judgment (adversarial-review.sh rule 15) is mocked and structurally not bats-pinnable. No missing script→bats pairing: the only `kit/scripts/**.sh` touched in the range is adversarial-review.sh (covered by its own suite for the harness; the per-rule prompt content is not unit-testable) and the hook, which has matching `guard-` coverage.
+
+**Section B (quality)**: Assertions are exact `--partial` string matches, not weak `toBeDefined`-style checks. No RLS/auth/realtime/wrapper surface in range (devshop bats, not project TS). No skipped tests / `.only` in the diff. No shape-only-without-render concern (shell hook, no DOM).
+
+**Section C (bypass trailers)**: No `Tests-Coverage-Bypass:` trailers in the range. Zero rows.
+
+Tests look solid for the deterministic surface; the two findings are both `low` and both reflect the same structural fact — the discriminating logic lives in a mocked live-model call, so the bats layer can only pin the guidance string, which it does.
