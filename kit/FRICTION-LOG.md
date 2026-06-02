@@ -364,6 +364,19 @@ no `resolved`/archive section here.
 - **Detail**: `devshop-mode.md § Phase 2.5 § Exit artifact` says "verification.log must exist before Phase 3 starts. The resume check uses its presence to skip Phase 2.5 on re-invocation." Within a session that holds (the file is in the working tree), but `*.log` in `.gitignore` means it never lands in the squash / `main` / a fresh clone — so a clean-checkout resume wouldn't see it. Mismatch between the "durable artifact" framing and the actual ignore rule. **Candidate fix**: rename the artifact to `verification.md` (the sibling `review.md` / `tasks.md` / `spec.md` are all `.md` and tracked) — cleaner than adding a `!specs/**/verification.log` re-include. References `.claude/skills/ak-build/devshop-mode.md § Phase 2.5` + `.gitignore`.
 - **Promotion target**: `kit/TODOS.md` (rename Phase 2.5 artifact to `verification.md`, or re-include in `.gitignore`).
 
+### Devshop-mode `/ak-build` Phase 3 Gate 5 writes a gate sink, not a `## Audit N` stamp — so `/ak-merge-devshop` Phase 1.1 re-audits and the squash message's commit list goes stale
+
+- **Score**: 2 (impact 2 × count 1)
+- **Impact**: 2 (S) — low, recoverable: the re-audit is a clean no-op-grade re-run and `git reflog` recovers every SHA, but it recurs on every devshop `/ak-build`→`/ak-merge-devshop` where Gate 5 ran, adds an avoidable feature-branch commit, and silently leaves the Phase-0.3-composed `## Squashed commits` list one entry short (the operator must hand-patch it or ship an inaccurate list).
+- **Count**: 1
+- **Status**: open
+- **First seen**: 2026-06-02 (`bats-drift-guards` /ak-build → /ak-merge-devshop)
+- **Sessions**:
+  - 2026-06-02 — `bats-drift-guards` devshop build. Phase 3 Gate 5 (docs-and-tests-review) was dispatched as a findings-to-sink gate (wrote `gates/docs-and-tests-review.md`, explicitly NOT touching `review.md`), so `review.md` carried no `## Audit N` stamp at HEAD. `/ak-merge-devshop` Phase 1.1's idempotence check (greps `review.md` for the latest `## Audit N` `<!-- audited-at -->` stamp) found none, re-ran the full `/ak-check-docs-and-tests` audit (clean, 0/0/0), and committed a `docs(...): Audit 1` commit — which the squash message composed at Phase 0.3 (before that commit existed) did not list. Hand-patched the `## Squashed commits` section.
+- **Symptom**: after a devshop `/ak-build`, `/ak-merge-devshop` Phase 1.1 runs a _fresh_ `/ak-check-docs-and-tests` (rather than no-opping idempotently) and appends a `## Audit N` commit the already-composed squash message doesn't mention.
+- **Detail**: `/ak-build` devshop-mode Phase 3 Gate 5 is specced to "invoke /ak-check-docs-and-tests" (which appends + commits a `## Audit N` section to `review.md`), but the per-gate-sink decomposition runs it as a findings-to-sink gate that deliberately does NOT modify `review.md`. So the audit-stamp the merge's idempotence guard keys on never lands, and Phase 1.1 (the intentional re-audit, devshop's Phase-5.8 equivalent) re-runs every time and adds a commit after the squash message is already composed. **Candidate fix** (needs a design call): either (a) devshop Phase 3 Gate 5 runs the full `/ak-check-docs-and-tests` so it appends + commits a `## Audit N` stamp at HEAD (then Phase 1.1 no-ops idempotently and no late commit appears), or (b) `/ak-merge-devshop` Phase 1.1 accepts a Phase-3 `gates/docs-and-tests-review.md` sink as a valid prior-audit signal and skips the re-audit. References `.claude/skills/ak-build/devshop-mode.md § Phase 3 Gate 5`, `.claude/skills/ak-merge-devshop/SKILL.md § Phase 1.1`, `.claude/skills/ak-check-docs-and-tests/SKILL.md`.
+- **Promotion target**: `kit/TODOS.md` (reconcile devshop Gate 5's audit-stamp behavior with the merge's Phase 1.1 idempotence guard).
+
 ### A shipped feature's `PLAN.md § Planned` row is left orphaned even though its `kit/TODOS.md` source + `BUILD-LOG.md` entry were closed
 
 - **Score**: 2 (impact 2 × count 1)
