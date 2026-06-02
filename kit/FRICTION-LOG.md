@@ -70,7 +70,7 @@ no `resolved`/archive section here.
 - **Score**: 15 (impact 3 × count 5)
 - **Impact**: 3 (M) — grep-based bats tests are brittle against the text they assert (doc prose OR source code), in BOTH directions: an edit that changes asserted text turns the suite red silently (until the next full-suite run), and a test that _under_-asserts lets a future edit silently drop the very coverage it was meant to pin and ship green. Recurs on the common doc/prompt/script-editing path.
 - **Count**: 5
-- **Status**: open
+- **Status**: promoted → `kit/TODOS.md` ("Guard against `grep`-based bats tests drifting…") + `PLAN.md § Planned (v0)` (`grep-test-drift-guard`), 2026-06-02. Kept here as the recurrence record while the fix is in flight.
 - **First seen**: 2026-05-28 (`1d343bf`, surfaced via parallel `/ak-merge-devshop` runs)
 - **Sessions**:
   - 2026-05-28 — `1d343bf` updated 9 docs but missed the asserting test; a red suite reached main.
@@ -87,7 +87,7 @@ no `resolved`/archive section here.
 - **Score**: 8 (impact 4 × count 2)
 - **Impact**: 4 (L) — a red `structural-invariants.bats` wiring test on `main` blocks the Phase 2.5 / Gate 2d full-suite gate of _every_ in-flight merge until someone fixes it; recurs whenever a new skill-invoked (not hook-wired) kit script lands without being registered.
 - **Count**: 2
-- **Status**: open
+- **Status**: promoted → `kit/TODOS.md` ("Auto-detect skill-invoked kit scripts in the wiring test…") + `PLAN.md § Planned (v0)` (`wiring-test-skill-autodetect`), 2026-06-02. Kept here as the recurrence record while the fix is in flight.
 - **First seen**: 2026-05-27 (`bebda21`, three `kit/scripts/preship/` scripts)
 - **Sessions**:
   - 2026-05-27 — `bebda21` added three `kit/scripts/preship/` scripts without registering them in the wiring accounting; the full suite went red mid-stream and reached `main`.
@@ -101,7 +101,7 @@ no `resolved`/archive section here.
 - **Score**: 8 (impact 4 × count 2)
 - **Impact**: 4 (L) — silently corrupts the shared `/devshop/.git/config` so the canonical `/ak-merge-devshop` Phase 3 (`git checkout main` / `git merge --ff-only`) fails mid-merge with a misleading `fatal: this operation must be run in a work tree`; read-only git ops keep working, so it masquerades as a partial-git failure far from its cause. Sibling of the already-[HIGH] `core.worktree`-injection footgun (same root-cause family).
 - **Count**: 2
-- **Status**: open
+- **Status**: promoted → enriched [HIGH] `kit/TODOS.md` entry ("Worktree submodule-update injects `core.worktree`…", now also covers `core.bare` + the HEAD-race face) + `PLAN.md § Planned (v0)` (`worktree-shared-config-corruption`), 2026-06-02. Kept here as the recurrence record while the fix is in flight.
 - **First seen**: 2026-05-31 (`skip-bats-docs-only` /ak-build, worktree-based)
 - **Sessions**:
   - 2026-05-31 — `skip-bats-docs-only` build in `.worktrees/skip-bats-docs-only`; surfaced only at `/ak-merge-devshop` Phase 3, where `git checkout main` / `git merge --ff-only` failed with "must be run in a work tree"; `git config --local --get core.bare` returned `true`; fixed in-place with `git config --local core.bare false` (no restart), merge then completed cleanly.
