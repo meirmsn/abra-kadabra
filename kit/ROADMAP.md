@@ -317,6 +317,51 @@ Same playbook as Auth UX conventions above. Every project with interactive UI hi
 
 ---
 
+### gstack vendored upgrade (0.15.1.0 → 1.55.0.0)
+
+**Problem.** The vendored gstack at `.claude/skills/gstack/` is pinned at **v0.15.1.0 (2026-04-01)**; upstream is **v1.55.0.0** — ~110 releases / two months behind, and the gap widens weekly (gstack bumps a version per shipped branch). Every project clones gstack independently, so the debt compounds per project. Two costs are already being paid: (1) the **browser-daemon memory / CDP-leak** class behind the home-os zombie-process incident (~34k zombie processes forced a container rebuild that wiped a worktree) is fixed upstream (v1.51 closed four CDP-leak classes; v1.55 fixed the headed-browser crash-loop) but absent locally; (2) the **persistent design daemon** (v1.45) and the maturing **`design` image-gen binary** (v1.42–1.43.2, `gpt-image-2`) that the v1 visual-design MVP and the v+ full pipeline build on don't exist in the pinned copy — so visual-design work is effectively blocked on this upgrade.
+
+**Delta verified (2026-06-01).** Full changelog read end-to-end (0.15.2.0 → 1.55.0.0, ~110 entries) plus a direct file-level diff of the load-bearing parse contracts between the live 0.15.1.0 tree and a 1.55.0.0 clone:
+
+- **Empirically stable contracts (safe):** `/cso` severity enum (`CRITICAL/HIGH/MEDIUM/LOW/TENTATIVE` — identical, incl. the `TENTATIVE` token `router-shim.sh` keys on); `/qa` artifact paths (`.gstack/qa-reports/`, `screenshots/`, `qa-report-*` — byte-identical); `.gstack/projects/<slug>/` filenames `/ak-spec` globs (`*-design-*.md`, `*-test-plan-*.md`, `ceo-plans/*.md`). The HIGH-risk parse couplings do **not** move.
+- **Pre-existing bug (not an upgrade regression):** `/ak-spec` (`spec/SKILL.md:136`) globs `design-html/*.html`, but gstack writes finalized HTML to `designs/*/finalized.html` in _both_ versions — so `DESIGN_HTML` is already a silent no-op today. Track/fix separately.
+
+**Upgrade-mechanics hazards (the real risk lives here, not in skill contracts):**
+
+1. **`./setup` now installs Claude hooks + has consent prompts.** v1.48 added `--plan-tune-hooks`/`--no-plan-tune-hooks` (else interactive-prompt → timeout auto-skip); v1.52 installs PostToolUse/PreToolUse hooks behind a `./setup` consent prompt. The vendored-upgrade flow runs `./setup` — against our **root-owned, locked `~/.claude/settings.json`**. Run with `--no-plan-tune-hooks`; if it attempts a settings.json write, that's a denied path needing the `/tmp + sudo install` handoff or an explicit opt-out. **Must run non-interactively or it hangs.**
+2. **gbrain auto-wiring (v1.40):** `buildGbrainEnv` seeds `DATABASE_URL` from gbrain config, overriding `.env.local` by default (escape `GSTACK_RESPECT_ENV_DATABASE_URL=1`); `.gbrain-source` auto-added to consumer `.gitignore`. Low risk for us (projects use `SUPABASE_*`, not `DATABASE_URL`; gbrain only activates if configured) — but new surface. Don't enable gbrain blindly.
+3. **Browse binary must rebuild from source** (`rebuild-browse.sh`): server export refactors (v1.34/v1.39) break only _programmatic embedders_ — we shell out, so fine; Apple-Silicon codesigning is handled by `./setup`. Covered by the smoke test.
+
+Skill renames/restructures that do **NOT** bite (devshop invokes gstack skills by name via the Skill tool; it never greps their SKILL.md internals): `/ship` section-carve (v1.54), `description:` frontmatter trim (v1.46), `/checkpoint`→`/context-save` (v1.1.3), `/debug`→`/investigate` (v1.24 — we already use `/investigate`), `/ship` step renumber (v0.18.2), `gbrain_sync_mode`→`artifacts_sync_mode` config rename (v1.27 — we don't read it; gbrain post-dates our version).
+
+**Benefits, mapped to documented pain:** browse CDP/memory-leak fixes (v1.51) + headed crash-loop fix (v1.55) → the Playwright-zombie / destructive-rebuild footgun; screenshot 2000px downscale guard (v1.42) → vision-API bricking on full-page shots; persistent design daemon (v1.45) → **prerequisite for `visual-design-richness-mvp`**; redaction engine, 33 patterns (v1.53) in `/cso`+`/spec`+`/ship` → defense-in-depth on the prod-service-role-key footgun; `/review` file:line+verbatim-quote requirement (v1.43.2) → higher-signal Gate 6.
+
+**New capabilities that reshape the v1 roadmap:**
+
+- **Native iOS QA suite (v1.43): `/ios-qa`, `/ios-fix`, `/ios-design-review`, `/ios-clean`, `/ios-sync`** — HTTP-driven real-iPhone QA, no simulator / XCTest / WebDriverAgent. Intersects `native-mobile-support`'s unresolved "Mobile E2E in CI" / Maestro assumption (`v+-native.md`). Re-evaluate before committing the mobile-QA approach.
+- **`design` image-gen binary (`gpt-image-2`, v1.43.2)** — the exact dependency the v+ "Visual design pipeline (full)" / `/ak-assets` entry anticipates; already exists upstream behind this upgrade.
+- **`/spec` skill (v1.47)** — five-phase spec with a codex quality gate; conceptual overlap with `/ak-spec`. Deliberate "adopt the quality gate vs keep ours" call when next touching `/ak-spec` (not urgent).
+
+**Strategy.** Devshop worktree off `origin/main` (never on a live project mid-feature; gstack is per-project, so the devshop copy upgrades independently and validates first). (1) baseline snapshot — done: cso/qa/design contracts verified stable; (2) upgrade the vendored copy via `gstack-upgrade/SKILL.md § Step 4`, `./setup --no-plan-tune-hooks`, watch for settings.json writes; (3) smoke: `rebuild-browse.sh` → `browse --help` + screenshot → `populate-playwright-cache.sh` → one throwaway `/ak-pre-ship` dry run exercising `/cso`+`/qa`+`/design-review`+`/benchmark` to confirm `router-shim.sh` + `verify-story.sh` parse end-to-end; (4) roll to projects independently afterward.
+
+**Why v0.** The browse-daemon leak class hits _current_ projects' QA / pre-ship runs now (already caused a destructive rebuild), and upgrade debt compounds weekly — both are "before the next project adopts" concerns. It also unblocks the two largest v1 bets (`visual-design-richness-mvp` needs the design daemon; `native-mobile-support` should weigh gstack's new iOS-QA skills). Sequence it **before** `visual-design-richness-mvp`.
+
+**Trigger.** Operator-requested 2026-06-01 (this session). Hard prerequisite once visual-design v1 work starts.
+
+**Cross-ref.**
+
+- `.claude/skills/gstack/gstack-upgrade/SKILL.md § Step 4` (vendored path) + `CLAUDE.md § gstack` (never-edit + silent `rm -rf` rule).
+- `kit/scripts/preship/router-shim.sh` (cso `TENTATIVE` parse — verified stable) + `verify-story.sh` (qa artifacts — verified stable).
+- `kit/scripts/{rebuild-browse,populate-playwright-cache,capture-screenshot}.sh` — browse wrappers exercised by the smoke test.
+- `kit/ROADMAP.md § Visual design richness (MVP)` + `§ Visual design pipeline (full)` (design daemon + image-gen unblocked) + `§ Native/mobile devshop support` (iOS-QA skills).
+- Home-os 2026-05-28 zombie-process / worktree-wipe incident (the leak class this closes).
+
+**Cost/risk.** Devshop vendored copy: ~1.5–3 hr (swap + `./setup` hazard + smoke + throwaway `/ak-pre-ship`). Project rollout separate (each via `/gstack-upgrade`). Residual risk **low** — the parse contracts are empirically unchanged; the live hazards are the `./setup`/settings.json interaction and not enabling gbrain blindly, both handled in the strategy. Benefit: closes the browse-daemon leak class + unblocks visual-design and native QA.
+
+[v0, surfaced-by gstack-delta-analysis-2026-06-01]
+
+---
+
 ## v1 (after v0 is validated on the first project)
 
 ### Visual design richness (MVP) — art-direction layer + template SVG decorative kit + a richness gate
@@ -1170,6 +1215,15 @@ A second problem: there's no ambient pressure to propagate devshop improvements 
 Extend the devshop to support React Native (Expo) apps alongside web. Adds `apps/mobile/`,
 EAS CLI, Maestro E2E, mobile Sentry/PostHog, App Store/Play Store deployment.
 Full build blueprint: `kit/notes/bootstrap/v+-native.md`.
+
+**Open decision — macOS desktop architecture (added 2026-06-01).** Two incompatible paths, deliberately unresolved until native work actually starts:
+
+- **Expo Mac Catalyst** — reuse the React Native codebase as a Mac build target (`v+-native.md` §2d). One codebase spans iOS + macOS.
+- **Electron** — wrap the existing Next.js web app in Chromium. Reuses the _web_ code; a separate surface from the RN tree.
+
+The choice determines whether macOS shares the mobile codebase or the web codebase — resolve at native-kickoff via `AskUserQuestion`. (The committed `v+-native.md` plan currently assumes Catalyst; Electron is the operator-raised alternative.)
+
+**Tooling note — gstack now ships a native iOS QA suite (added 2026-06-01).** gstack v1.43 added `/ios-qa`, `/ios-fix`, `/ios-design-review`, `/ios-clean`, `/ios-sync` — HTTP-driven real-iPhone QA with no simulator / XCTest / WebDriverAgent. Re-evaluate `v+-native.md`'s "Maestro for mobile E2E" decision against these before committing the mobile-QA approach — gstack may already cover the surface that plan budgets for. Available only after the gstack upgrade (vendored gstack is v0.15.1.0 as of 2026-06-01; upstream is v1.55.0.0).
 
 **Why v1.** The largest single capability expansion the devshop can take on — a whole second platform. Not blocking next-project adoption (every project to date is web), so it sits below the web-hardening v1 items; promoted out of v+ once native became a concrete near-term direction rather than a someday-maybe.
 

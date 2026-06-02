@@ -381,6 +381,19 @@ no `resolved`/archive section here.
 - **Detail**: The "close all trackers when a fix ships" convention is enforced unevenly across the PLAN tables. `/ak-build` Phase 4.0 bookkeeping (and the `/ak-merge-devshop` close-out) remove the PLAN.md **Active** row, but a feature that shipped straight from **Planned** — never promoted to Active via `/ak-spec`, common for tiny tracker/skill fixes — has no Active row to remove, so its Planned row is never swept. Compounded when the build ran in a worktree cut from an older `main`, where the row's table region had drifted, making a clean removal-diff harder to land. **Candidate fix**: (1) the ship/merge close-out sweeps BOTH the Active AND Planned tables for a row whose slug matches the shipped feature; (2) `/ak-docs-review` (or the `/ak-merge-devshop` Phase 1 audit) flags a new BUILD-LOG entry whose feature slug still appears anywhere in `PLAN.md` as a likely-unclosed tracker row. References `kit/docs/guide/conventions.md § Closing TODO / ROADMAP entries when a fix ships`, `.claude/skills/ak-build/devshop-mode.md § Phase 4.0`, `.claude/skills/ak-merge-devshop/SKILL.md`.
 - **Promotion target**: `kit/TODOS.md` (sweep Planned + Active on ship-close; add a BUILD-LOG-slug-still-in-PLAN audit check).
 
+### `/ak-spec` silently drops the `/design-html` UI reference (globs `design-html/`, gstack writes `designs/`)
+
+- **Score**: 2 (impact 2 × count 1)
+- **Impact**: 2 (S) — silent: the spec's optional `DESIGN_HTML` reference is always empty because the glob path never matches gstack's actual output dir, so every UI feature that ran `/design-html` loses the production-HTML reference the spec means to carry into implementation. Low individual cost, but recurs on the UI-spec path and matters more once visual-design work lands.
+- **Count**: 1
+- **Status**: open
+- **First seen**: 2026-06-01 (gstack 0.15→1.55 delta analysis)
+- **Sessions**:
+  - 2026-06-01 — gstack delta analysis; verified by file-level diff of BOTH the vendored 0.15.1.0 and upstream 1.55.0.0 that gstack writes finalized design HTML to `$GSTACK_PROJECT_DIR/designs/*/finalized.html`, while `.claude/skills/devshop/spec/SKILL.md:136` globs `$GSTACK_PROJECT_DIR/design-html/*.html`. So the glob has never matched (not an upgrade regression — stale in both versions).
+- **Symptom**: `/ak-spec`'s context-load line `DESIGN_HTML=$(ls -t "$GSTACK_PROJECT_DIR"design-html/*.html 2>/dev/null | head -1)` is always empty — the `2>/dev/null` swallows the no-match, so the spec silently omits the `/design-html` UI reference it intends to cat as an implementation reference.
+- **Detail**: `spec/SKILL.md` (~line 134–146) loads optional planning artifacts from `$GSTACK_PROJECT_DIR`; the `DESIGN_HTML` line globs a `design-html/` subdirectory, but gstack's `/design-html` + `/design-consultation` skills write finalized HTML to `projects/$SLUG/designs/<screen>-YYYYMMDD/finalized.html` (and `finalized.{tsx,svelte,vue}` for non-HTML targets) — confirmed identical across 0.15.1.0 and 1.55.0.0, so this is a long-standing devshop-side path mismatch, not gstack drift. The `2>/dev/null | head -1` makes the miss silent: `$DESIGN_HTML` stays empty and the `[ -n "$DESIGN_HTML" ] && cat …` no-ops, so the spec ships without the UI reference on every project that ran `/design-html`. **Devshop-side fix only** (do NOT edit gstack): change the glob to `designs/*/finalized.html` (and likely `designs/*/finalized.{tsx,svelte,vue}`), matching how `/design-consultation`/`/design-html` actually write. References `.claude/skills/devshop/spec/SKILL.md:136`.
+- **Promotion target**: `kit/TODOS.md` (fix the `/ak-spec` `design-html` glob to read `designs/*/finalized.*`).
+
 ### Devshop `/ak-build` from a dirty tree trips the clean-tree guard at the Phase 0.3 skeleton commit
 
 - **Score**: 2 (impact 2 × count 1)
