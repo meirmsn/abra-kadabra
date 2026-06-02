@@ -623,6 +623,63 @@ Any `gh pr comment`, commit body, status update, audit log, or other public arti
 
 ---
 
+## Root-cause over bandaid
+
+The behavioral rule lives in `CLAUDE.md § Implementation Approach` ("Root-cause
+over bandaid"): when doing a fix, weigh whether the approach removes the _cause_
+or merely mitigates the _symptom_, and bias toward the root cause unless that fix
+is disproportionately large or nonsensical for the payoff. This section is the
+expanded taxonomy + the worked example the rule points at.
+
+**The bandaid spectrum** (most-bandaid → most-root, for a recurring corruption /
+failure class):
+
+1. **Avoid-the-blast-radius** — isolate so the failure can't hit you (works, but
+   the trigger still fires elsewhere).
+2. **Detect-and-repair** — a guard notices the bad state and fixes it after the
+   fact (scrub-after, session-start auto-clear, self-healing hook). The cause
+   still fires every time; you just clean up faster.
+3. **Containment** — redirect the bad output somewhere harmless (e.g. move a
+   poisoned key to a per-scope config). Partial; depends on the write path.
+4. **Source elimination (root cause)** — remove the trigger so the failure class
+   becomes _structurally impossible_, not merely repaired.
+
+Bias to (4). Reach for (1)–(3) only when (4) is disproportionately large or
+genuinely doesn't make sense for the payoff — and when you do, **say so**: label
+the proposal as mitigation, name what the true root cause is, and (in `/ak-build`)
+surface the root-cause option alongside it via the Phase 0 decisions
+`AskUserQuestion` so the operator picks the depth. Don't silently ship a bandaid
+under a root-fix headline.
+
+Two corollaries:
+
+- **Drop mitigations the root fix makes moot.** Once the trigger is gone, a guard
+  that watched for it is cargo-cult — delete it rather than ship dead defense.
+- **Split unrelated faces.** If a "bug" is really two root causes wearing one
+  tracker entry (e.g. a config-injection face _and_ a separate shared-state race),
+  root-fix the one in scope and re-file the other as its own entry — don't bolt a
+  weak directive onto a root-fix PR just to claim you "covered" it.
+
+**Worked example — `worktree-shared-config-corruption` (2026-06-02).** Parallel
+linked-worktree sessions intermittently corrupted the shared `/devshop/.git/config`
+(`core.worktree`/`core.bare`), traced to the `git submodule update --init
+--recursive` step in the worktree-add recipe. The initial plan was **a+b+d**:
+(a) scrub the injected keys right after the submodule step, (b) a `session-start.sh`
+guard that auto-detects + clears the keys, (d) a CLAUDE.md directive to work in an
+own-HEAD worktree — all of which are detect-and-repair / avoid-the-blast-radius
+(tiers 1–2). The operator asked "is this a bandaid or a root-cause fix?", and the
+honest answer was "mostly bandaid for the config-injection face." The PR flipped to
+**de-submoduling the bats libs entirely** (vendor them as plain checked-in files),
+which removes the `submodule update` step — the trigger — so the corruption class
+became structurally impossible (tier 4). Both corollaries applied: (b) was dropped
+(nothing writes those keys once the submodule op is gone), and the HEAD-race face
+(a separate shared-working-tree root cause, not a submodule one) was split out and
+re-filed as its own `kit/TODOS.md` entry rather than getting the weak (d) directive.
+Shipped on `main` as `build(tests): vendor bats libs as plain files, drop git
+submodules`.
+
+---
+
 ## Closing TODO / ROADMAP entries when a fix ships
 
 The same PR that ships a fix MUST close the tracker entries for it. Otherwise, stale entries get cited as "still pending" in future sessions and recreate the false belief that the fix removed — wasting investigation time.
