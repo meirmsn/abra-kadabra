@@ -4,6 +4,15 @@ Devshop build history. One entry per merged feature branch, most-recent first. W
 
 For forward-looking plan: `PLAN.md`. For deferred/long-term work: `kit/ROADMAP.md`.
 
+### pushtomain-dispatch-arm (2026-06-02)
+
+- **Branch**: `fix/pushtomain-dispatch-arm`
+- **Headline**: Infrastructure update — no user-visible change in this PR.
+- **Summary**: Restores the feature-branch→main push path in the devshop, which was 100% broken. `adversarial-review.sh` was missing the `pushToMainApproved)` dispatch arm: the check-type was referenced by `kit/hooks/pre-push.sh`, `get_model_for_check_type()`, the header docs, and the rule-13 prompt block, but had no `case` arm to assemble its `$CONTEXT` — so every invocation fell through to the `*)` default and returned `FAIL: unknown check type: pushToMainApproved`. No reason string could pass it, so `/ak-merge-devshop`'s `--source-worktree` path and any direct `git push origin <branch>:main` were dead. The dominant merge path (checkout main → ff-merge → push FROM main) structurally never calls the check — the pre-push hook short-circuits at `[ "$BRANCH" = "main" ] && exit 0` — which is why a total dead path survived the PR-C "coverage reviews moved to audit-time" refactor invisibly. Fix: add the dispatch arm (assembles branch + HEAD + `origin/main..HEAD` range context; rule 13 does the ceremony judging unchanged), and add `pushToMainApproved` to the `*)`-default `Surviving check-types:` list so the diagnostic is accurate. Regression coverage: a new `surviving: pushToMainApproved reaches claude` case in `util-adversarial-review-narrowing.bats` asserts the real reviewer recognizes the check-type — the gap was that `util-pre-push.bats` _mocks_ `adversarial-review.sh`, so the hook tests passed while the real dispatch was broken.
+- **Folded friction history** (FRICTION-LOG entry deleted on ship per close-on-ship convention): observed once — 2026-06-02, landing the gstack-volume-TODO closure, when a parallel session held `/devshop`'s main checkout and forced the ref-push path, surfacing `FAIL: unknown check type`. Worked around at the time by freeing main and using the default push path. Impact rated M (the broken escape hatch bites precisely during parallel-session windows, the one time the default path isn't available). Also an instance of the score-15 "grep-based test drift" family — no test pinned the dispatch arm's presence, so its removal shipped green.
+- **Commits**: `fix(adversarial-review)` dispatch arm + surviving-types list + recognition bats test; `docs` FRICTION-LOG delete + BUILD-LOG fold — landed via `/ak-merge-devshop`.
+- **Quality gates**: full kit bats suite green; `util-adversarial-review-narrowing.bats` (new pushToMainApproved recognition case) + all 61 `util-pre-push.bats` cases pass.
+
 ### init-devshop-mtime-bump (2026-06-01)
 
 - **Branch**: `fix/init-devshop-mtime-bump`

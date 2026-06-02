@@ -760,13 +760,44 @@ $CLAUDE_MD_SECTIONS
 === Current CLAUDE.md from HEAD (surrounding context) ===
 $CLAUDE_MD_FULL"
     ;;
+  pushToMainApproved)
+    # Called by kit/hooks/pre-push.sh (devshop-self mode, feature-branch arm)
+    # when a push targets refs/heads/main from a feature branch and the operator
+    # has set `git config devshop.pushToMainApproved "..."`. The ONLY legitimate
+    # path is /ak-merge-devshop Phase 3 after the full merge ceremony (audit +
+    # squash-message composition + operator approval); rule 13 (in the PROMPT
+    # below) does the judging. This arm only assembles context.
+    BRANCH=$(git branch --show-current 2>/dev/null || true)
+    HEAD_SHA=$(git rev-parse HEAD 2>/dev/null || echo "(unknown)")
+    # Commits the push would land on main. The squash ceremony normally
+    # collapses these to one; a multi-commit range from a raw push is a signal
+    # the ceremony was skipped. `|| true` so an unavailable origin/main (fresh
+    # clone, test repo) degrades to an empty range rather than aborting.
+    PUSH_RANGE=$(git log --oneline origin/main..HEAD 2>/dev/null | head -20 || true)
+    CONTEXT="A push from feature branch '$BRANCH' targets refs/heads/main in the
+devshop repo. Direct pushes to main bypass the /ak-merge-devshop merge ceremony
+(rebase + audit + squash-message composition + operator approval gate), which is
+the ONLY legitimate way a feature branch's work reaches main — because the squash
+message is irreversible once pushed (force-push is blocked by
+check-not-force-push.sh).
+
+Branch: $BRANCH
+HEAD SHA: $HEAD_SHA
+
+Commits that would land on main (origin/main..HEAD):
+${PUSH_RANGE:-(none resolved — origin/main unavailable in this context)}
+
+The reviewer judges (rule 13) whether the reason names the /ak-merge-devshop
+ceremony explicitly, or a legitimate manual-recovery context. Generic shortcuts
+('small change', 'doc fix', 'single commit', 'trivial', 'already reviewed') FAIL."
+    ;;
   *)
     # Unknown / removed check-type. PR-C narrowed the supported set —
     # docsReviewed, testCoverage, testCoverageProject, docsFreshnessProject all
     # moved to audit-time `/ak-check-docs-and-tests`. A stale caller hits this
     # branch and surfaces immediately rather than silently no-op'ing.
     echo "FAIL: unknown check type: $CHECK_TYPE" >&2
-    echo "  Surviving check-types: prTextHygieneReason | dirtyTreeReason | dirtyPushReason | manifestReviewed | hookBypass | exemptAddition | testReviewSkipReason | localTestSkipReason | coreUserStoryNaReason | dismissalLog | advisorBypassReason | blockedGateOverride | batsSkipReason | claudeMdClassification"
+    echo "  Surviving check-types: prTextHygieneReason | dirtyTreeReason | dirtyPushReason | manifestReviewed | hookBypass | exemptAddition | testReviewSkipReason | localTestSkipReason | coreUserStoryNaReason | dismissalLog | advisorBypassReason | blockedGateOverride | pushToMainApproved | batsSkipReason | claudeMdClassification"
     echo "  Coverage reviews (docsReviewed / testCoverage / testCoverageProject / docsFreshnessProject) moved to audit-time /ak-check-docs-and-tests in PR-C — see kit/ROADMAP.md."
     exit 1
     ;;

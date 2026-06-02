@@ -132,6 +132,28 @@ EOF
   grep -q "Check type: dismissalLog" "$CAPTURED_PROMPT"
 }
 
+@test "surviving: pushToMainApproved reaches claude (mocked PASS)" {
+  # Regression guard for the half-wired bug (FRICTION-LOG 2026-06-02): the
+  # check-type was referenced by kit/hooks/pre-push.sh, get_model_for_check_type,
+  # and the rule-13 prompt block, but had NO dispatch arm — so it fell through to
+  # the `*)` default and returned "unknown check type", blocking every
+  # feature-branch→main push (the --source-worktree / ref-push paths). This test
+  # pins that the real reviewer RECOGNIZES the check-type (the pre-push bats tests
+  # mock adversarial-review.sh, so they never exercised the real dispatch).
+  cd "$TEST_REPO"
+  git -C "$TEST_REPO" checkout -b feat/push-to-main-test -q 2>/dev/null || true
+  run bash "$REVIEW" pushToMainApproved "/ak-merge-devshop Phase 3 — audit passed, squash approved"
+  assert_success
+  refute_output --partial "unknown check type"
+  [ -f "$CAPTURED_PROMPT" ]
+  grep -q "Check type: pushToMainApproved" "$CAPTURED_PROMPT"
+  # Context framing reaches the prompt
+  grep -q "refs/heads/main" "$CAPTURED_PROMPT"
+  # Rule 13 (the ceremony judging logic) is present — guards against its deletion
+  grep -q "For pushToMainApproved" "$CAPTURED_PROMPT"
+  grep -q "/ak-merge-devshop Phase 3" "$CAPTURED_PROMPT"
+}
+
 @test "surviving: prTextHygieneReason prompt carries all three dimensions (accuracy + title-readability + body-shape)" {
   # Pins the three-dimensional rule. Title-readability + body-shape were folded
   # into the check 2026-05-19 (kit/ROADMAP.md § Fold PR-title readability
