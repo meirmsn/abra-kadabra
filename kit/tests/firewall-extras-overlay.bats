@@ -139,12 +139,17 @@ setup() {
   assert_success
 }
 
-@test "init-devshop: re-chowns firewall-extra-domains root:root 644 unconditionally on every start" {
-  # The unconditional re-chown is the defense-in-depth: even if a
-  # `node`-user write somehow created the file (or a process changed
-  # its perms mid-session), the next container start restores the
-  # locked state. Must NOT be guarded by the `! -e` check.
-  run grep -qE '\[ -e "\$FWE_DST" \] && chown root:root "\$FWE_DST" && chmod 644 "\$FWE_DST"' "$INIT_DEVSHOP"
+@test "init-devshop: re-locks firewall-extra-domains to root:root 644 on a stat-tuple drift" {
+  # Defense-in-depth re-lock: if a `node`-user write created the file or
+  # changed its perms mid-session, the next container start restores the
+  # locked state. The `stat -c '%U:%G %a'` guard (added with the mtime-bump
+  # fix, c6be31e) skips the chown/chmod ONLY when ownership+mode already
+  # match root:root 644 — a drifted tuple (node-created or perm-changed
+  # file) still mismatches, so the re-lock fires. Conditional-on-drift
+  # preserves the security property while dropping the redundant per-boot
+  # write; a revert to unconditional chown/chmod is a churn regression, not
+  # a correctness one. Pin the guarded form statically.
+  run grep -qE '\[ -e "\$FWE_DST" \] && \[ "\$\(stat -c .%U:%G %a. "\$FWE_DST"\)" != "root:root 644" \]' "$INIT_DEVSHOP"
   assert_success
 }
 
