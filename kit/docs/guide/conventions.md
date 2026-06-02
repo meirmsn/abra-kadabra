@@ -797,6 +797,22 @@ Every script in `kit/scripts/` is either tested or explicitly exempt in `check-t
 
 **Preserve the production execution context.** When a bats test extracts a snippet from a real script (via `awk` / `sed`) and re-executes it under `bash $runner`, the runner shell starts with default bash options — NOT the source script's options. If the source has `set -euo pipefail` at the top, the test must replicate that header in the runner; otherwise a whole class of pipefail-driven silent failures is invisible to the test. Worked incident: `init-firewall-port-allowance.bats` (2026-05-20) shipped with 15 passing tests but missed a pipefail-killed-the-script regression because the runner ran outside `set -euo pipefail`; the bug shipped to template and bricked a project rebuild before the gap was caught. Mitigation: bats tests that exec extracted snippets MUST either (a) prepend the source script's `set` options to the runner before sourcing the snippet, or (b) explicitly assert the test scope excludes the source's shell-options context (rare — only when the snippet is provably pipe-free and never reads from commands that exit non-zero). The `init-firewall-port-allowance.bats § Regression` block shows the canonical shape: a `run_snippet_pipefail` helper that wraps the runner in `set -euo pipefail` + `IFS=$'\n\t'` + a sentinel echo at the end, so the test distinguishes "exited cleanly with empty resolution" from "died silently". `/ak-tests-review` reviewer surfaces this gap when reviewing new bats tests that introduce a `bash "$runner"` pattern.
 
+**Pin a grep assertion to its target with a `# pins:` annotation.** A `grep`-based bats test asserts that some literal lives in a doc / source / SKILL.md file. When a later edit reword or removes that literal, the assertion silently drifts: the editing commit's affected-subset hook never runs the asserting test (it lives in a _different_ file), so the broken assertion reaches `main`. Close that gap by annotating the grep line with a declarative comment of the form:
+
+```
+# pins: <repo-relative-path> :: <exact literal>
+grep -q '<exact literal>' "$TARGET"
+```
+
+The grep-drift guard in `structural-invariants.bats` scans every `kit/tests/*.bats` for these annotations and, for each, asserts (`grep -qF`, fixed-string) that `<exact literal>` still appears in `<repo-relative-path>` (resolved against the worktree root). Because `structural-invariants.bats` runs on **every** commit (not just the affected subset), the guard fires at the _editing_ commit that removes the literal — the exact moment the drift is introduced. Rules:
+
+- The separator is `::` (space-colon-colon-space). Everything after the **first** `::` is the literal, so the literal may itself contain colons.
+- Pick a **stable** literal — a skill/command name (`/ak-check-docs-and-tests`), a flag, a structural token (`[scaffold-once]`) — not volatile prose that gets reworded for unrelated reasons.
+- The literal must currently appear (`grep -qF`) in the target file, or the guard ships red. Write `<repo-relative-path>` relative to the repo root; the guard resolves it against the worktree root (`git rev-parse --show-toplevel`) — i.e. the tree being shipped, so the pin tracks the file as it lands. (Note: a test's own `grep` may read the canonical `$DEVSHOP` copy rather than the worktree copy — at HEAD the two coincide; the worktree-blind `$DEVSHOP` read is separately tracked.)
+- The literal must be non-empty — a trailing `::` with nothing after it is flagged malformed, not silently passed — and `<…>` placeholder paths are skipped as documentation examples.
+- **Scope (honest):** the guard catches **assertion-drift** only — an asserted literal removed from the pinned file goes red. It does **NOT** catch **under-assertion** (a test that pins too little, letting a later edit silently drop coverage and ship green) — that is a judgment problem no mechanical check solves; `/ak-tests-review` (audit-time) is the backstop for assertion adequacy.
+- Adoption is incremental — annotate grep tests as you touch them; no big-bang retrofit is required.
+
 ### Metrics
 
 - **No code without metrics** — every user-facing feature must have events in `METRICS.md`, instrumented in the same PR.

@@ -36,6 +36,7 @@ setup() {
 @test "architecture diagram references /ak-check-docs-and-tests for Phase 5.8" {
   # The ASCII pipeline diagram should call out the orchestrator, not
   # /ak-tests-review directly.
+  # pins: .claude/skills/devshop/build/SKILL.md :: /ak-check-docs-and-tests
   grep -q '/ak-check-docs-and-tests' "$SKILL_FILE"
 }
 

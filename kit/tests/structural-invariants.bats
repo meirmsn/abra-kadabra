@@ -230,16 +230,31 @@ setup() {
   local exempts
   exempts=$(grep -oP '^\s+"[a-z-]+\.sh"' "$coverage_script" | tr -d '" ')
 
-  # Scripts called by other scripts or skills (not directly by hooks/pre-commit).
-  # reconcile-task-commits.sh is invoked from /ak-build SKILL.md Step 0 (resume
-  # reconcile) and /ak-implement — a skill prompt, not a hook — so it is
-  # legitimately not hook-wired. virtiofs-rebase.sh is invoked from
-  # /ak-merge-devshop § Phase 1.0 (the mechanized phantom-rebase ladder) — a
-  # skill prompt, not a hook — so it is legitimately not hook-wired.
+  # Scripts called by other scripts (not directly by hooks/pre-commit, and not
+  # invoked from a SKILL.md prompt — those are auto-detected separately below).
   # vendor-bats-libs.sh is the manual re-vendor path for the bats libs (run by
-  # an operator bumping an upstream SHA), not a hook — so it is legitimately not
-  # hook-wired.
-  local infra_scripts="create-devshop-symlinks.sh normalize-devshop-paths.sh changelog-entry.sh check-file-headers.sh supabase-bootstrap.sh router-shim.sh verify-story.sh design-conformance.sh rls-coverage-check.sh slow-job-lifecycle-check.sh rebuild-browse.sh populate-playwright-cache.sh parse-manifest.sh preview-confirm.sh changed-tests-local.sh fast-job-local.sh migration-rollback-roundtrip.sh path-classifier.sh rewrite-pr-body-urls.sh backfill-pr-image-urls.sh justify-claude-md.sh advisor-clean.sh fault-injected-qa.sh capture-screenshot.sh apply-port-offset.sh next-port-offset.sh propagation-entry.sh roster-check.sh local-env-health.sh check-llm-mediated-na.sh audit-tracker-only.sh extract-prod-url.sh reconcile-task-commits.sh virtiofs-rebase.sh vendor-bats-libs.sh"
+  # an operator bumping an upstream SHA), not a hook and not named in any
+  # SKILL.md — so it is legitimately not hook-wired and stays here.
+  #
+  # NOTE: reconcile-task-commits.sh and virtiofs-rebase.sh USED to live here, but
+  # they are now caught by the skill-autodetect branch below (a script whose
+  # basename appears as a whole token in any .claude/skills/**/SKILL.md is treated
+  # as "wired (skill-invoked)"). reconcile-task-commits.sh is named in the
+  # /ak-implement + /ak-build SKILL.md prompts; virtiofs-rebase.sh in the
+  # /ak-merge-devshop SKILL.md prompt. They were pruned from this list so the
+  # autodetect path is the single source of truth for skill-invoked scripts —
+  # pruning them is itself the validation that the autodetect grep actually
+  # catches them (if it didn't, they'd flip to red on the next run).
+  local infra_scripts="create-devshop-symlinks.sh normalize-devshop-paths.sh changelog-entry.sh check-file-headers.sh supabase-bootstrap.sh router-shim.sh verify-story.sh design-conformance.sh rls-coverage-check.sh slow-job-lifecycle-check.sh rebuild-browse.sh populate-playwright-cache.sh parse-manifest.sh preview-confirm.sh changed-tests-local.sh fast-job-local.sh migration-rollback-roundtrip.sh path-classifier.sh rewrite-pr-body-urls.sh backfill-pr-image-urls.sh justify-claude-md.sh advisor-clean.sh fault-injected-qa.sh capture-screenshot.sh apply-port-offset.sh next-port-offset.sh propagation-entry.sh roster-check.sh local-env-health.sh check-llm-mediated-na.sh audit-tracker-only.sh extract-prod-url.sh vendor-bats-libs.sh"
+
+  # Scripts invoked from a SKILL.md prompt (a skill step, not a hook) are
+  # "wired (skill-invoked)" — detected here so a new skill-invoked script no
+  # longer needs a hand-edit to infra_scripts to keep main green. Recursive over
+  # .claude/skills/**/SKILL.md (skills nest under devshop/, gstack/, etc.); the
+  # basename is matched as a whole FILENAME token (bounded by [^A-Za-z0-9._-],
+  # see the grep below) so a short basename like url.sh does not false-match a
+  # longer one like extract-prod-url.sh.
+  local skills_dir="$DEVSHOP/.claude/skills"
 
   # Combine hook references and pre-commit references (match paths-with-slashes).
   # Also include prepare-commit-msg (devshop + template) which calls
@@ -262,6 +277,19 @@ setup() {
     echo "$exempts" | grep -q "^${script}$" && continue
     # Skip infrastructure scripts (called by other scripts)
     echo "$infra_scripts" | grep -q "$script" && continue
+    # Skip scripts invoked from a SKILL.md prompt (skill-invoked, not hook-wired).
+    # Recursive, whole-FILENAME-token match: the basename must be bounded by a
+    # non-filename character (or start/end of line). `grep -wF` is NOT enough —
+    # its word chars are [A-Za-z0-9_], so `-` and `.` read as boundaries and a
+    # short basename (`url.sh`) would false-match a `-`-delimited tail of a
+    # longer one (`extract-prod-url.sh`). Filename chars are [A-Za-z0-9._-], so
+    # we anchor on [^A-Za-z0-9._-] instead. Escape the basename's regex metachar
+    # (`.`) for the ERE.
+    local script_re
+    script_re=$(printf '%s' "$script" | sed 's/[.[\*^$]/\\&/g')
+    if [ -d "$skills_dir" ] && grep -rqE "(^|[^A-Za-z0-9._-])${script_re}([^A-Za-z0-9._-]|\$)" "$skills_dir" --include=SKILL.md 2>/dev/null; then
+      continue
+    fi
     # Check if wired
     if ! echo "$wired" | grep -q "^${script}$"; then
       unwired+="  $script\n"
@@ -946,4 +974,83 @@ setup() {
   grep -q 'devshop.batsSkipReason' "$trailers"
   # Must emit Bats-Skip-Reason: trailer
   grep -q 'Bats-Skip-Reason' "$trailers"
+}
+
+# =============================================================================
+# Grep-drift guard — `# pins:` annotations must still resolve in their target
+# =============================================================================
+#
+# A `grep`-based bats test pins a literal that lives in some doc/source/SKILL
+# file. When that literal is later reworded or deleted, the assertion silently
+# drifts: the editing commit's affected-subset hook never runs the asserting
+# test (it lives in a different file), so the broken assertion reaches main.
+#
+# This guard closes the assertion-drift direction. A grep-asserting test
+# carries a declarative annotation comment of the form:
+#
+#     # pins: <repo-relative-path> :: <exact literal>
+#
+# The guard scans every kit/tests/*.bats for these annotations and asserts
+# (grep -qF, fixed-string) that <exact literal> still appears in <path>.
+# Because structural-invariants.bats runs on EVERY commit (not just the
+# affected subset), this fires at the editing commit that removes the literal
+# — the exact moment the drift is introduced.
+#
+# Scope (honest): catches assertion-drift only (an asserted literal removed
+# from the pinned file → red). Does NOT catch under-assertion (a test that
+# pins too little, letting a later edit silently drop coverage and ship green)
+# — that is a judgment problem no mechanical check solves. See
+# kit/docs/guide/conventions.md § Kit Testing for the full convention.
+
+@test "grep-drift: every '# pins:' annotation still resolves in its target file" {
+  local root tests_dir
+  root=$(git rev-parse --show-toplevel)
+  tests_dir="$root/kit/tests"
+  [ -d "$tests_dir" ] || skip "kit/tests not found"
+
+  local drifted=""
+  # Collect every annotation across all bats test files (file:line:text).
+  # Anchor to lines whose comment content STARTS with `# pins: ` (after optional
+  # indentation) so prose/code that merely mentions the marker — including this
+  # guard's own documentation and the echoed failure message — is not scanned.
+  local hits
+  hits=$(grep -rHnE '^[[:space:]]*# pins: ' "$tests_dir" --include='*.bats' 2>/dev/null || true)
+
+  local line
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    # line is "<file>:<lineno>:<...># pins: <path> :: <literal>"
+    local where annotation
+    where="${line%%:*}"                       # source .bats file (path before first colon)
+    annotation="${line#*# pins: }"            # everything after the marker
+    # Split on the FIRST ' :: ' only (literal may itself contain colons).
+    local path literal
+    path="${annotation%% :: *}"
+    literal="${annotation#* :: }"
+    # Skip documentation/placeholder forms (e.g. the convention's own example
+    # `# pins: <repo-relative-path> :: <exact literal>`): a real annotation's
+    # path is a concrete repo-relative path, never a <placeholder> token.
+    case "$path" in *'<'*|*'>'*) continue ;; esac
+    # Guard against a malformed annotation: no ' :: ' separator, or an empty
+    # path/literal. The empty-literal case is load-bearing — `grep -qF "" file`
+    # matches any non-empty file, so an annotation like `# pins: foo.md :: `
+    # (trailing separator, nothing after) would otherwise SILENTLY PASS and
+    # defeat the guard for that pin.
+    if [ "$path" = "$annotation" ] || [ "$literal" = "$annotation" ] \
+       || [ -z "$path" ] || [ -z "$literal" ]; then
+      drifted+="  $where: malformed '# pins:' annotation (need '<path> :: <non-empty literal>'): $annotation\n"
+      continue
+    fi
+    if ! grep -qF "$literal" "$root/$path" 2>/dev/null; then
+      drifted+="  $where: pinned literal no longer in $path:\n      $literal\n"
+    fi
+  done <<< "$hits"
+
+  if [ -n "$drifted" ]; then
+    echo "grep-based bats assertions have drifted from their pinned targets:"
+    echo -e "$drifted"
+    echo "Either restore the literal in the target file, or update the '# pins:'"
+    echo "annotation and its grep assertion together."
+    false
+  fi
 }

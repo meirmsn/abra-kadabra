@@ -37,6 +37,7 @@ setup() {
 }
 
 @test "overlay: template overlay header documents one-bare-hostname-per-line format" {
+  # pins: template/.devcontainer/firewall-extra-domains :: One bare hostname per line
   run grep -qE 'One bare hostname per line' "$TEMPLATE_OVERLAY"
   assert_success
 }
@@ -158,6 +159,7 @@ setup() {
 # =============================================================================
 
 @test "manifest: declares .devcontainer/firewall-extra-domains [scaffold-once]" {
+  # pins: kit/manifest.txt :: .devcontainer/firewall-extra-domains [scaffold-once]
   run grep -qE '^\.devcontainer/firewall-extra-domains \[scaffold-once\]$' "$MANIFEST"
   assert_success
 }

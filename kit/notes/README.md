@@ -47,7 +47,7 @@ Self-contained implementation plans for devshop changes — both ROADMAP-entry-a
 ### `security/` — Security model and hardening
 
 - [`security-model.md`](security/security-model.md) — 6-layer permissions model: root ownership, sticky bits, deny rules, DCG, git hooks, PreToolUse hooks
-- [`sudo-hardening.md`](security/sudo-hardening.md) — analysis of node user sudo access security risks
+- [`sudo-hardening.md`](security/sudo-hardening.md) — the shipped scoped-NOPASSWD model for the node user's sudo access
 
 ### `design/` — Devshop design decisions
 

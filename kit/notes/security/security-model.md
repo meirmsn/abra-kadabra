@@ -137,5 +137,8 @@ at runtime.
 - **Bash bypasses deny rules** — Edit/Write deny rules don't prevent Bash commands from
   modifying files (e.g., `python3 -c "open('file','w')"`). DCG catches common patterns
   but can't cover everything.
-- **Sudo scoping** — see `sudo-hardening.md` for analysis. Current model relies on
-  password requirement + user approval prompt for `sudo` commands.
+- **Sudo scoping** — the `node` user's sudo is scoped to exactly two NOPASSWD
+  scripts (`init-firewall.sh`, `init-devshop.sh`); the base image's blanket
+  `NOPASSWD:ALL` is removed, so general `sudo` requires a password node lacks
+  (`sudo -n true` → "a password is required"). This closes the `sudo chown`-bypass
+  of root-owned file locks. See `sudo-hardening.md` for the shipped model.
