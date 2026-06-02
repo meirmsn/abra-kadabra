@@ -2,6 +2,40 @@
 
 Auto-appended by `sync-to-devshop.sh` and `release.sh` on version bumps.
 
+## v1.38.0 (2026-06-02)
+
+- fix(claude-md): route skill-operational logic to its owning skill
+- docs(friction-log): record devshop Gate-5-sink vs merge Phase-1.1 double-audit
+- test(structural-invariants): auto-detect skill scripts + guard grep-drift
+- docs(claude-md): bias fixes toward root-cause over bandaid
+- docs(friction-log): record worktree-merge session lessons
+- build(tests): vendor bats libs as plain files, drop git submodules
+- docs(plan): remove stale gstack-state-volume-backed v0 row
+- docs(roadmap): record gstack 0.15→1.55 upgrade + macOS open decision
+- docs(friction-log): record denied-path sudo-install + 755-mode recipe gaps
+- feat(hooks): block commits stamped with the test fixture identity
+- chore(plan): promote 3 above-threshold frictions to v0
+- fix(adversarial-review): wire pushToMainApproved so feature→main pushes work
+- docs(friction-log): enrich pushToMainApproved entry with cold-path survival reason
+- docs(friction-log): record pushToMainApproved check-type half-wired (blocks feature→main push)
+- docs: close stale gstack-not-volume-backed TODO (fixed by workspace redirect)
+- docs(friction-log): enrich core.bare entry with HEAD-race manifestation
+- docs(friction-log): bump grep-test-drift entry to count 5 (source-edit instance)
+- docs: trim v0 plan to live rows + log merge/tracker friction
+- fix(tests): align firewall-extras re-lock assertion with the stat-drift guard
+- fix(init-devshop): stop spurious VS Code rebuild prompts each boot
+- docs(friction-log): record $DEVSHOP-worktree-blindness as Impact-L (false-pass masks red main)
+- docs(friction-log): record audit-reviewer prettier-fmt false-positive
+- fix(tests): wire audit-tracker-only.sh into the infra-scripts allow-list
+- feat(audit): skip orphan review.md stubs on tracker-only diffs
+- docs(friction-log): record core.bare injection on worktree submodule-update
+- perf(pre-commit): skip kit bats suite on docs-only devshop commits
+- docs(friction-log): record squash bypass-trailer carry-forward gap
+- feat(virtiofs-rebase): auto-recover the phantom-rebase flake in merges
+- docs: triage PLAN v0 + rework friction-log lifecycle to delete-on-ship
+- docs: re-tier visual-design roadmap entries + log worktree footgun
+- feat(propagation): drop no-op entries from the release migration log
+
 ## v1.37.0 (2026-05-30)
 
 - docs(friction-log): bump bats-drift to count 3 + log gate evidence

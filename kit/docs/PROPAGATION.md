@@ -9,6 +9,12 @@ message). `[conditional]` entries carry a `(conditional)` label. A version
 whose changes all auto-propagate shows `(no manual steps)`. Newest version
 at top.
 
+## v1.38.0
+
+- **feat(propagation): drop no-op entries from the release migration log** — (conditional) when a project next authors a `/ak-merge-devshop` squash whose diff touches a propagation surface (`template/**`, `kit/scripts/**`, `kit/hooks/**`, `.devcontainer/**`, `manifest.txt`), its `**Existing projects:**` block must now open with a `[auto]`/`[manual]`/`[conditional]` tag or the hygiene gate FAILs. Delivered via the symlinked skill + gate; no migration of existing state. **Doc updates:** - `conventions.md § Existing-Project Migration Block` — tag vocabulary + shape - `merge-devshop SKILL.md § 0.3` + `hooks.md` NOTE-3 + `docs-review` example - `PROPAGATION.md` header + v1.37.0 backfill
+- **fix(init-devshop): stop spurious VS Code rebuild prompts each boot** — `[auto]` — projects run this script via their `.devcontainer/init-devshop.sh` forwarder, which `exec`s `/devshop/kit/scripts/init-devshop.sh` directly. The fix applies on the next container start with no per-project action; the rebuild prompt clears after the first post-update rebuild and never returns.
+- **build(tests): vendor bats libs as plain files, drop git submodules** — `[auto]` — no project action needed. Projects never used bats submodules (the template ships none; projects symlink `.devshopkit` → `/devshop/kit` and run their own vitest/Playwright stacks, never `kit/tests/`). The de-submodule auto-propagates via the existing symlink; nothing to migrate.
+
 ## v1.37.0
 
 - **docs(csp): derive Pattern 2 img-src from the Supabase origin** — (conditional) the template
