@@ -450,18 +450,17 @@ Same playbook as Auth UX conventions / Latency feedback framework. The pattern n
 
 ### Project-worktree setup support — propagate the `.worktrees/` convention to projects (symlink-tooling, not submodule)
 
-**Problem.** The devshop has a clean linked-worktree convention for its _own_ parallel work, but it was never propagated to projects — and the mechanism doesn't transfer as-is because **projects wire tooling via symlinks into `/devshop`, whereas the devshop wires it via git submodules.** As a result, a worktree of a _project_ repo comes up bare: no `.claude/` (it's gitignored — `.claude/*`), so a fresh `claude` session in the worktree has **no skills** (`/ak-build` unavailable), **no `settings.json`** (no SessionStart hook → no briefing, no commit/push guard hooks, default permissions). The operator sees "claude doesn't load as usual" and has to hand-wire symlinks.
+**Problem.** The devshop has a clean linked-worktree convention for its _own_ parallel work, but it was never propagated to projects — and the mechanism doesn't transfer as-is because **projects wire tooling via symlinks into `/devshop`, whereas the devshop's tooling is in-tree (skills, scripts, and the vendored bats libs are all checked-in files that ride along with the worktree checkout).** As a result, a worktree of a _project_ repo comes up bare: no `.claude/` (it's gitignored — `.claude/*`), so a fresh `claude` session in the worktree has **no skills** (`/ak-build` unavailable), **no `settings.json`** (no SessionStart hook → no briefing, no commit/push guard hooks, default permissions). The operator sees "claude doesn't load as usual" and has to hand-wire symlinks.
 
 **Canonical devshop pattern (works for /devshop, not for projects):**
 
 ```
-git worktree add .worktrees/<topic> -b <type>/<topic> origin/main \
-  && git -C .worktrees/<topic> submodule update --init --recursive
+git worktree add .worktrees/<topic> -b <type>/<topic> origin/main
 ```
 
 - `.worktrees/<topic>` lives inside the repo; `/.worktrees/` is gitignored (`/devshop/.gitignore:30`).
 - `origin/main` base is **load-bearing** — without it `git worktree add` defaults to current HEAD and silently inherits WIP commits (documented worked-bite in `/devshop/CLAUDE.md § Worktree workflow`).
-- `submodule update --init --recursive` populates the devshop's vendored tooling (bats libs etc. are submodules). **This step does nothing useful for a project**, whose `kit/` is `.devshopkit -> /devshop/kit` and whose `.claude/skills/*` are symlinks into `/devshop`.
+- The devshop's vendored tooling (bats libs) are plain checked-in files, not submodules, so `git worktree add` checks them out with the rest of the tree — no submodule-init step needed.
 - `/ak-merge-devshop` auto-detects the worktree, squashes via `git -C`, ff-merges main, tears it down. `session-start.sh` detects `/devshop/.worktrees/` and routes to devshop context.
 
 **Why it doesn't reach projects (the gaps):**
@@ -475,7 +474,7 @@ git worktree add .worktrees/<topic> -b <type>/<topic> origin/main \
 **Shape of the fix:**
 
 1. **Propagate `/.worktrees/` to the project `.gitignore`** (template + a propagation step for existing projects).
-2. **New `kit/scripts/sync/setup-project-worktree.sh <type>/<topic>`** that mirrors the devshop recipe but swaps `submodule update` → symlink wiring:
+2. **New `kit/scripts/sync/setup-project-worktree.sh <type>/<topic>`** that mirrors the devshop recipe but adds symlink wiring (the step a project needs that the devshop's in-tree tooling does not):
    ```
    git worktree add .worktrees/<topic> -b <type>/<topic> origin/main
    WS="$PWD/.worktrees/<topic>" bash /devshop/kit/scripts/sync/create-devshop-symlinks.sh

@@ -236,7 +236,10 @@ setup() {
   # legitimately not hook-wired. virtiofs-rebase.sh is invoked from
   # /ak-merge-devshop § Phase 1.0 (the mechanized phantom-rebase ladder) — a
   # skill prompt, not a hook — so it is legitimately not hook-wired.
-  local infra_scripts="create-devshop-symlinks.sh normalize-devshop-paths.sh changelog-entry.sh check-file-headers.sh supabase-bootstrap.sh router-shim.sh verify-story.sh design-conformance.sh rls-coverage-check.sh slow-job-lifecycle-check.sh rebuild-browse.sh populate-playwright-cache.sh parse-manifest.sh preview-confirm.sh changed-tests-local.sh fast-job-local.sh migration-rollback-roundtrip.sh path-classifier.sh rewrite-pr-body-urls.sh backfill-pr-image-urls.sh justify-claude-md.sh advisor-clean.sh fault-injected-qa.sh capture-screenshot.sh apply-port-offset.sh next-port-offset.sh propagation-entry.sh roster-check.sh local-env-health.sh check-llm-mediated-na.sh audit-tracker-only.sh extract-prod-url.sh reconcile-task-commits.sh virtiofs-rebase.sh"
+  # vendor-bats-libs.sh is the manual re-vendor path for the bats libs (run by
+  # an operator bumping an upstream SHA), not a hook — so it is legitimately not
+  # hook-wired.
+  local infra_scripts="create-devshop-symlinks.sh normalize-devshop-paths.sh changelog-entry.sh check-file-headers.sh supabase-bootstrap.sh router-shim.sh verify-story.sh design-conformance.sh rls-coverage-check.sh slow-job-lifecycle-check.sh rebuild-browse.sh populate-playwright-cache.sh parse-manifest.sh preview-confirm.sh changed-tests-local.sh fast-job-local.sh migration-rollback-roundtrip.sh path-classifier.sh rewrite-pr-body-urls.sh backfill-pr-image-urls.sh justify-claude-md.sh advisor-clean.sh fault-injected-qa.sh capture-screenshot.sh apply-port-offset.sh next-port-offset.sh propagation-entry.sh roster-check.sh local-env-health.sh check-llm-mediated-na.sh audit-tracker-only.sh extract-prod-url.sh reconcile-task-commits.sh virtiofs-rebase.sh vendor-bats-libs.sh"
 
   # Combine hook references and pre-commit references (match paths-with-slashes).
   # Also include prepare-commit-msg (devshop + template) which calls
@@ -658,14 +661,27 @@ setup() {
 }
 
 # =============================================================================
-# BATS submodules initialized
+# BATS runtime files present (vendored as plain checked-in files, not submodules)
 # =============================================================================
 
-@test "wiring: BATS submodules are initialized" {
-  [ -x "$DEVSHOP/kit/tests/lib/bats-core/bin/bats" ] || {
-    echo "BATS not initialized. Run: git submodule update --init --recursive"
+@test "wiring: BATS runtime files are present" {
+  local lib="$DEVSHOP/kit/tests/lib"
+  local fail=""
+
+  # bats-core: the runner must be executable.
+  [ -x "$lib/bats-core/bin/bats" ] || fail+="  missing/non-exec: bats-core/bin/bats\n"
+  # bats-support + bats-assert: each must expose its load entry.
+  [ -f "$lib/bats-support/load.bash" ] || fail+="  missing: bats-support/load.bash\n"
+  [ -f "$lib/bats-assert/load.bash" ] || fail+="  missing: bats-assert/load.bash\n"
+
+  if [ -n "$fail" ]; then
+    echo "BATS runtime files missing. The bats libs are vendored as plain"
+    echo "checked-in files under kit/tests/lib/ (NOT submodules) — they are"
+    echo "present immediately after 'git worktree add'. To re-vendor/repair,"
+    echo "run: bash kit/scripts/vendor-bats-libs.sh"
+    echo -e "$fail"
     false
-  }
+  fi
 }
 
 # =============================================================================

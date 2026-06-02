@@ -1394,73 +1394,64 @@ equality check passing, force-delete is safe.
 Cleanup ordering matters when `WORKTREE_PATH` is set: the linked worktree
 must be torn down BEFORE `git branch -D` (git refuses to delete a branch
 that's still checked out in any worktree, and `-D` doesn't override that).
-Submodules in the worktree need a two-command teardown (`submodule deinit
--f --all` clears working dirs but leaves git's per-worktree submodule registry,
-which then trips `git worktree remove`; the `--force` flag is required to
-override that registry check). Skip the worktree-teardown block entirely on
-the legacy direct-checkout path.
+A plain `git worktree remove --force` tears the worktree down in one
+command — the vendored bats libs are plain checked-in files, not
+submodules, so there is no per-worktree submodule registry to deinit
+first. (`--force` overrides git's safety check for a worktree with
+uncommitted/untracked content — e.g. the worktree's `node_modules` from
+`pnpm install`.) Skip the worktree-teardown step entirely on the legacy
+direct-checkout path.
 
 **DCG `push-force-short` false-positive on chained `-f` flags.** The
-teardown uses `-f` (`submodule deinit -f`) and `--force` (`worktree
-remove --force`) — both are documented git-API requirements (per-
-worktree submodule registry + branch-checked-out safety), not
-destructive flags on shared state. The devshop's `core.git:push-force-
-short` rule SHOULD fire only on `git push -f` / `git push --force`,
-but empirically (dcg 0.4.0, verified via `dcg test`) it false-positives
-on any compound command containing BOTH a `git push` (any variant —
-including `git push origin --delete` and a benign `git push origin
-main`) AND a separate `-f` flag elsewhere in the chain (`rm -f`,
-`submodule deinit -f`, etc.). The rule's regex isn't anchored tightly
-enough — it matches `git push … -f` across the full compound. Worked
-trip-up (2026-05-20, `home-os-skill-polish-batch` teardown): the
-chained teardown ending with `rm -f /tmp/squash-message-*.txt`
-triggered `BLOCKED` even though no `git push -f` existed in the
-command. **Always run each teardown step as a SEPARATE `Bash` tool
-call** — do not chain with `&&` / `;` / pipes / heredocs. The
-step-by-step layout below is the runnable contract; do not condense
-into one block. (The underlying DCG bug is tracked separately;
+teardown uses `--force` (`worktree remove --force`) — a documented
+git-API requirement (branch-checked-out safety), not a destructive flag
+on shared state. The devshop's `core.git:push-force-short` rule SHOULD
+fire only on `git push -f` / `git push --force`, but empirically (dcg
+0.4.0, verified via `dcg test`) it false-positives on any compound
+command containing BOTH a `git push` (any variant — including `git push
+origin --delete` and a benign `git push origin main`) AND a separate
+`-f` flag elsewhere in the chain (`rm -f`, `worktree remove --force`,
+etc.). The rule's regex isn't anchored tightly enough — it matches
+`git push … -f` across the full compound. Worked trip-up (2026-05-20,
+`home-os-skill-polish-batch` teardown): the chained teardown ending with
+`rm -f /tmp/squash-message-*.txt` triggered `BLOCKED` even though no
+`git push -f` existed in the command. **Always run each teardown step as
+a SEPARATE `Bash` tool call** — do not chain with `&&` / `;` / pipes /
+heredocs. The step-by-step layout below is the runnable contract; do not
+condense into one block. (The underlying DCG bug is tracked separately;
 splitting the teardown is the durable workaround AND has independent
-operability benefits — Step 2 worktree-remove can fail independently
-of Step 1's submodule-deinit, and per-step Bash calls preserve the
-partial-success state for operator recovery rather than burying the
-failing step inside an opaque compound exit code.)
+operability benefits — each step can fail independently, and per-step
+Bash calls preserve the partial-success state for operator recovery
+rather than burying the failing step inside an opaque compound exit
+code.)
 
-**Worktree-vs-direct-checkout decision rule** — Steps 1 and 2 only fire when
-the feature lived in a linked worktree. Steps 3+ fire always. Evaluate
+**Worktree-vs-direct-checkout decision rule** — Step 1 only fires when
+the feature lived in a linked worktree. Steps 2+ fire always. Evaluate
 once at the top, then run only the relevant per-step Bash calls:
 
 ```bash
 # Decision rule (read-only — DO NOT chain the actual teardown after this):
 if [ -n "$WORKTREE_PATH" ]; then
-  # → run Step 1 + Step 2 below as separate Bash calls
+  # → run Step 1 below as a separate Bash call
   :
 else
-  # → skip to Step 3
+  # → skip to Step 2
   :
 fi
 ```
 
 ```bash
-# === Step 1 (only when WORKTREE_PATH is set): deinit submodules ===
+# === Step 1 (only when WORKTREE_PATH is set): remove the worktree ===
 #
-# Per-worktree-checkout-dir; /devshop's submodules are untouched (separate
-# working trees of the same submodule registry). The `-f` is required to
-# clear submodule working dirs even when they're untouched in this worktree.
-git -C "$WORKTREE_PATH" submodule deinit -f --all 2>&1 | tail -5
-```
-
-```bash
-# === Step 2 (only when WORKTREE_PATH is set): remove the worktree ===
-#
-# `--force` is REQUIRED even after deinit: git's per-worktree submodule
-# registry still trips the safety check ("working trees containing
-# submodules cannot be moved or removed") independently of working-dir
-# content. This is a git-API constraint, not destructive-on-shared-state.
+# A plain `git worktree remove --force` suffices — no submodule deinit
+# needed (the bats libs are plain checked-in files, not submodules).
+# `--force` overrides git's safety check for a worktree carrying
+# uncommitted/untracked content (e.g. the worktree's node_modules).
 git worktree remove --force "$WORKTREE_PATH"
 ```
 
 ```bash
-# === Step 3: delete the local feature branch ===
+# === Step 2: delete the local feature branch ===
 #
 # Fires after the worktree (if any) is gone — git refuses to delete a
 # branch still checked out in any worktree. `-D` (capital) is required
@@ -1470,7 +1461,7 @@ git branch -D "$BRANCH"
 ```
 
 ```bash
-# === Step 4: delete the remote feature branch (best-effort) ===
+# === Step 3: delete the remote feature branch (best-effort) ===
 #
 # The branch may have never been pushed (local-only feature work). When
 # `ls-remote` returns no match, skip the delete — printing "no remote
@@ -1483,7 +1474,7 @@ fi
 ```
 
 ```bash
-# === Step 5: tempfile cleanup ===
+# === Step 4: tempfile cleanup ===
 rm -f "/tmp/squash-message-${FEATURE}.txt"
 ```
 
@@ -1493,8 +1484,8 @@ worktree has been torn down if it existed): surface the error and continue.
 The merge has already shipped; a stale local branch is a cosmetic problem
 the operator can clean up by hand.
 
-If `git worktree remove --force` fails (filesystem permission, in-flight
-submodule update racing the deinit): surface the error, leave the worktree
+If `git worktree remove --force` fails (filesystem permission, an open
+file handle holding the worktree busy): surface the error, leave the worktree
 in place, and continue to `git branch -D` (which will then fail with
 "branch is checked out at <worktree>"). The operator inspects, repairs
 manually (`rm -rf .worktrees/<topic>` is the nuclear option; `git worktree

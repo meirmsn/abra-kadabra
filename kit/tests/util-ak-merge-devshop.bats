@@ -22,8 +22,9 @@
 #   G — Phase 2 squash routed via $GIT_CMD ($WORKTREE_PATH-aware); NOT
 #       legacy `git merge --squash` on main.
 #   H — Phase 3 ff-merges + pushes + workflow-scope detection.
-#   I — Phase 4.1 tree-equality + 4.2 worktree teardown ORDERED before
-#       branch -D, --force required after deinit.
+#   I — Phase 4.1 tree-equality + 4.2 single-command worktree teardown
+#       (no submodule deinit — bats libs are plain files) ORDERED before
+#       branch -D.
 #   J — Phase 5 release-hint handoff.
 #   K — Cross-doc coherence: CLAUDE.md / workflow.md / architecture.md
 #       reflect the worktree-aware flow.
@@ -662,27 +663,26 @@ setup() {
   # Locate canonical code-block commands and assert ordering. Filter out
   # backticked prose mentions (which appear inline as `git branch -D`) so
   # only actual bash invocations match. Pattern: line begins with optional
-  # whitespace followed by `git ` (no leading backtick).
-  local section deinit_line worktree_remove_line branch_d_line
+  # whitespace followed by `git ` (no leading backtick). Since the bats libs
+  # are plain files (not submodules), the teardown is a single
+  # `git worktree remove --force` — no submodule-deinit step precedes it.
+  local section worktree_remove_line branch_d_line
   section=$(awk '/^### 4\.2:/,/^---$/' "$SKILL_FILE")
-  deinit_line=$(echo "$section" | grep -nE '^[[:space:]]*git -C [^`]*submodule deinit' | head -1 | cut -d: -f1)
   worktree_remove_line=$(echo "$section" | grep -nE '^[[:space:]]*git worktree remove --force' | head -1 | cut -d: -f1)
   branch_d_line=$(echo "$section" | grep -nE '^[[:space:]]*git branch -D' | head -1 | cut -d: -f1)
-  [ -n "$deinit_line" ]
   [ -n "$worktree_remove_line" ]
   [ -n "$branch_d_line" ]
-  [ "$deinit_line" -lt "$worktree_remove_line" ]
   [ "$worktree_remove_line" -lt "$branch_d_line" ]
 }
 
-@test "Phase 4.2 uses git -C \$WORKTREE_PATH for the submodule deinit" {
-  awk '/^### 4\.2:/,/^---$/' "$SKILL_FILE" \
-    | grep -qE 'git -C "?\$WORKTREE_PATH"? submodule deinit'
-}
-
-@test "Phase 4.2 submodule deinit uses -f --all flag" {
-  awk '/^### 4\.2:/,/^---$/' "$SKILL_FILE" \
-    | grep -qE 'submodule deinit -f --all'
+@test "Phase 4.2 worktree teardown does NOT run a submodule deinit command (bats libs are plain files)" {
+  # Regression guard: the submodule-deinit step was removed when the bats libs
+  # were de-submoduled to plain checked-in files. A re-introduced deinit COMMAND
+  # would be dead code (no submodules to clear) and a doc-drift signal. Match an
+  # actual invocation (line starts with optional whitespace then `git ... submodule
+  # deinit`), NOT the explanatory prose that says deinit is no longer needed.
+  ! awk '/^### 4\.2:/,/^---$/' "$SKILL_FILE" \
+    | grep -qE '^[[:space:]]*git( -C [^`]*)? submodule deinit'
 }
 
 @test "Phase 4.2 spells out --force on worktree remove" {
@@ -690,18 +690,20 @@ setup() {
     | grep -qE 'git worktree remove --force'
 }
 
-@test "Phase 4.2 explains why --force is required after deinit" {
+@test "Phase 4.2 explains why --force is required on worktree remove" {
+  # No longer the submodule registry — --force overrides git's safety check
+  # for a worktree carrying uncommitted/untracked content (e.g. node_modules).
   awk '/^### 4\.2:/,/^---$/' "$SKILL_FILE" \
-    | grep -qiE 'per-worktree submodule registry|safety check.*independently of'
+    | grep -qiE 'safety check|uncommitted|untracked|node_modules'
 }
 
 @test "Phase 4.2 warns operators to run each teardown step as a separate Bash call (DCG push-force-short false-positive)" {
   # The DCG core.git:push-force-short rule false-positives on compound commands
   # containing BOTH `git push` (any variant) AND a separate `-f` flag elsewhere
-  # (rm -f, submodule deinit -f, etc.) — even when no `git push -f` exists in
-  # the command. The teardown legitimately uses both (`submodule deinit -f`,
-  # `worktree remove --force`) per git-API contract, and may follow a
-  # `git push origin --delete` — so the chained shape false-positives reliably.
+  # (rm -f, worktree remove --force, etc.) — even when no `git push -f` exists
+  # in the command. The teardown legitimately uses `worktree remove --force`
+  # per git-API contract, and may follow a `git push origin --delete` — so the
+  # chained shape false-positives reliably.
   # The skill must instruct operators to split — codified from home-os-skill-
   # polish-batch teardown (2026-05-20) where the chained block got DCG-blocked.
   #
