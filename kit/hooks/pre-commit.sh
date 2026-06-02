@@ -21,6 +21,7 @@ GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
 # session. Tests can force this branch via DEVSHOP_FORCE_MODE=devshop-self.
 if is_devshop_self_mode "$GIT_ROOT"; then
   # Devshop-self mode: same checks as devshop repo
+  bash "$SCRIPTS_DIR/commit-hooks/check-not-test-identity.sh"
   bash "$SCRIPTS_DIR/commit-hooks/check-clean-tree.sh"
   bash "$SCRIPTS_DIR/commit-hooks/check-manifest.sh"
   bash "$SCRIPTS_DIR/commit-hooks/check-port-offset-unique.sh"
@@ -36,6 +37,7 @@ else
       # check-tests-coverage-project / check-docs-coverage-project so that bad
       # exempt entries surface first (the operator knows to fix the exempt
       # entry, not chase the gate it would have silenced).
+      bash "$SCRIPTS_DIR/commit-hooks/check-not-test-identity.sh"
       bash "$SCRIPTS_DIR/commit-hooks/check-security-files-freshness.sh"
       bash "$SCRIPTS_DIR/commit-hooks/check-clean-tree.sh"
       bash "$SCRIPTS_DIR/commit-hooks/check-exempt-additions.sh"
@@ -50,6 +52,7 @@ else
       ;;
     /devshop)
       # Devshop repo: clean tree + manifest sync + port-offset uniqueness + Layer 1 docs/tests coverage + bats + commit guards
+      bash "$SCRIPTS_DIR/commit-hooks/check-not-test-identity.sh"
       bash "$SCRIPTS_DIR/commit-hooks/check-clean-tree.sh"
       bash "$SCRIPTS_DIR/commit-hooks/check-manifest.sh"
       bash "$SCRIPTS_DIR/commit-hooks/check-port-offset-unique.sh"

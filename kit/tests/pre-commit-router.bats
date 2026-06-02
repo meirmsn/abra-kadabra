@@ -11,7 +11,8 @@ setup() {
   # Scripts live under commit-hooks/ (post v1.19 reorg); the stub helper takes
   # the subpath relative to $MOCK_BIN.
   mkdir -p "$MOCK_BIN/commit-hooks"
-  for script in commit-hooks/check-security-files-freshness.sh commit-hooks/check-clean-tree.sh \
+  for script in commit-hooks/check-not-test-identity.sh \
+                commit-hooks/check-security-files-freshness.sh commit-hooks/check-clean-tree.sh \
                 commit-hooks/check-manifest.sh \
                 commit-hooks/check-port-offset-unique.sh \
                 commit-hooks/check-tests-coverage-devshop.sh \
@@ -55,6 +56,7 @@ scripts_called() {
   assert_success
 
   # Verify correct scripts were called
+  [ -f "$MOCK_BIN/commit-hooks/check-not-test-identity.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-security-files-freshness.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-clean-tree.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-exempt-additions.sh.args" ]
@@ -77,6 +79,7 @@ scripts_called() {
   run bash -c "cd '$TEST_REPO' && bash '$WRAPPER'"
   assert_success
 
+  [ -f "$MOCK_BIN/commit-hooks/check-not-test-identity.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-clean-tree.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-manifest.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-port-offset-unique.sh.args" ]
@@ -98,6 +101,7 @@ scripts_called() {
   run bash -c "cd '$TEST_REPO' && bash '$WRAPPER'"
   assert_success
 
+  [ -f "$MOCK_BIN/commit-hooks/check-not-test-identity.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-clean-tree.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-manifest.sh.args" ]
   [ -f "$MOCK_BIN/commit-hooks/check-port-offset-unique.sh.args" ]
