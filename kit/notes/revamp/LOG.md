@@ -85,3 +85,18 @@ significant). Each entry: **what**, **evidence** (commands + result summary),
 **Discoveries**: F-NEW-01…F-NEW-14 (see FINDINGS).
 
 **Next**: plan review session → D-14 first.
+
+---
+
+## #3 — 2026-10-08 · Continuous verification + whole-picture loop
+
+**What**: owner asked that every step be tested and that the whole picture be checked
+continuously — and noted the devshop should run this same loop when building apps.
+Added: [ASSUMPTIONS.md](ASSUMPTIONS.md) (16 load-bearing assumptions, 3 already falsified
+by REVIEW-1, each with its cheapest test); [TARGET.md](TARGET.md) (one-page target +
+north-star scenario re-run at each milestone); PROCESS § 0 "the loop" (assumptions
+first · check first · walking skeleton · whole-picture review) + codification queue;
+W3.5 walking skeleton as an M1 exit (confirms or revises D-14); W0.10 target +
+baseline run; PLAN principle 9.
+
+**Next**: plan review session.

@@ -49,15 +49,17 @@ devshop built directly, deleting early.
 
 ## Files
 
-| File                         | Purpose                                                                      |
-| ---------------------------- | ---------------------------------------------------------------------------- |
-| [REVIEW-1.md](REVIEW-1.md)   | Adversarial review: errors found, critiques accepted/deferred, new decisions |
-| [PLAN.md](PLAN.md)           | Principles, milestones + exit criteria, capacity, epics, changelog           |
-| `workstreams/Wn-*.md`        | Epics → tasks with findings, done-when, verification, **status**             |
-| [FINDINGS.md](FINDINGS.md)   | Evidence register (117 findings + 10 opportunities), each mapped to work     |
-| [DECISIONS.md](DECISIONS.md) | Owner decisions, in the order to make them                                   |
-| [PROCESS.md](PROCESS.md)     | Light process: lifecycle, done, verification, replanning, reviews            |
-| [LOG.md](LOG.md)             | Per-session journal                                                          |
+| File                             | Purpose                                                                                |
+| -------------------------------- | -------------------------------------------------------------------------------------- |
+| [REVIEW-1.md](REVIEW-1.md)       | Adversarial review: errors found, critiques accepted/deferred, new decisions           |
+| [TARGET.md](TARGET.md)           | One-page target picture + north-star scenario re-run at every milestone                |
+| [ASSUMPTIONS.md](ASSUMPTIONS.md) | Load-bearing assumptions and the cheapest test for each                                |
+| [PLAN.md](PLAN.md)               | Principles, milestones + exit criteria, capacity, epics, codification queue, changelog |
+| `workstreams/Wn-*.md`            | Epics → tasks with findings, done-when, verification, **status**                       |
+| [FINDINGS.md](FINDINGS.md)       | Evidence register (117 findings + 10 opportunities), each mapped to work               |
+| [DECISIONS.md](DECISIONS.md)     | Owner decisions, in the order to make them                                             |
+| [PROCESS.md](PROCESS.md)         | Light process: lifecycle, done, verification, replanning, reviews                      |
+| [LOG.md](LOG.md)                 | Per-session journal                                                                    |
 
 ## Next action
 

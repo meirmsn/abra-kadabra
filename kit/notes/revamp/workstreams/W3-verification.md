@@ -37,6 +37,19 @@ Done when (M0 part): fixture exists and the scenario runner runs in CI. (M1 part
 - [ ] **W3.3.4** Scenario coverage for untested critical scripts: init (non-root parts), session-start, release (dry run), sync, `adversarial-review.sh` (until deleted) (F-TEST-05) — V3
 - [ ] **W3.3.5** Dogfood checklist + prompt: patch-tier change on the fixture in a cloud session, evidence captured (used at M2/M3 exits)
 
+## W3.5 Walking skeleton — P0 · M1 · M
+
+Assumptions tested: A-06, A-08, A-15, A-16. Done when: on the fixture, in a fresh
+cloud session, the thinnest version of the target runs end-to-end — pinned install
+(crude is fine) → one skill → change → PR → required CI gate incl. acceptance→test
+check → rulesets enforce → owner merges — and the run is recorded against the
+north-star scenario ([TARGET.md](../TARGET.md)). From then on, every epic re-runs it
+before it's done.
+
+- [ ] **W3.5.1** Define the skeleton's minimal parts under the D-14 outcome (one page, reviewed)
+- [ ] **W3.5.2** Build each part at its crudest working form; run end-to-end; record gaps as tasks
+- [ ] **W3.5.3** Script the re-run (`kit/tests/scenarios/skeleton.sh` + dogfood checklist) so every epic can repeat it
+
 ## W3.4 Test-suite triage — P1 · before W6/W8 rewrites · M
 
 Findings: F-TEST-03. Moved earlier by REVIEW-1: ~1,070 prose greps would break on every skill rewrite.

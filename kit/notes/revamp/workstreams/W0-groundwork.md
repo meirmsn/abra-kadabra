@@ -75,6 +75,16 @@ Findings: REVIEW-1 E9, F-PIPE-16. Done when: CLAUDE.md states, in ≤15 lines: r
 
 - [ ] **W0.8.1** Write the section; remove/annotate contradicting lines ("do not propose a GitHub PR on devshop", "run `/ak-build` for devshop work") — V1
 
+## W0.10 Target picture + north-star scenario — P0 · M0 · S
+
+Done when: [TARGET.md](../TARGET.md) is agreed with the owner (after D-14) and the
+north-star scenario has been run once on the fixture as a baseline (most steps
+expected to fail; record which).
+
+- [ ] **W0.10.1** `[owner]` Review/adjust TARGET.md in the plan review session
+- [ ] **W0.10.2** Baseline run of the north-star scenario; results in LOG
+- [ ] **W0.10.3** Test the assumptions M1 builds on (ASSUMPTIONS.md A-05…A-08) before M1 starts
+
 ## W0.9 Triage old backlogs — P1 · M0 · S
 
 Done when: every entry in `kit/ROADMAP.md`, `kit/TODOS.md`, `kit/FRICTION-LOG.md`, and root `PLAN.md` Planned rows is mapped to a finding/task, marked "closed by revamp", or archived; the files carry a banner pointing to the revamp.

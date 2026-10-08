@@ -5,6 +5,40 @@ was **shown to work**. Kept deliberately light (REVIEW-1: the old devshop drowne
 in ceremony; the revamp process must not repeat that). If D-15 moves tracking to
 GitHub Issues, §1–§2 apply to issues instead of markdown lines.
 
+## 0. The loop — the same one the devshop should run when it builds apps
+
+We build the devshop **by hand with the process we want it to automate**, then codify
+only the steps that proved their worth. Four habits, at four scales:
+
+| Scale     | Habit                                                                                                                                  | Artifact                                             |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| Decision  | **Assumptions first** — falsify the cheapest load-bearing assumption before building on it                                             | [ASSUMPTIONS.md](ASSUMPTIONS.md)                     |
+| Task      | **Check first** — failing test / repro / attack before the change; run it after                                                        | PR evidence (§1)                                     |
+| Milestone | **Walking skeleton, then thicken** — the thinnest end-to-end slice of the target runs early; each milestone thickens it and re-runs it | W3.5; north-star scenario in [TARGET.md](TARGET.md)  |
+| Direction | **Whole-picture check** — does the system we have still lead to the target, and is the target still right?                             | Milestone review (§5) against [TARGET.md](TARGET.md) |
+
+### Assumptions first
+
+Before an epic builds on an assumption marked `untested` in ASSUMPTIONS.md, run the
+cheapest experiment that could falsify it (usually ≤ 30 min, often a doc read + one
+command in a cloud session). Falsified → replan (§4), never work around silently.
+New design choices that rest on something unobserved get a new `A-nn` row.
+
+### Walking skeleton
+
+Within M1 (W3.5), the thinnest version of the **target** devshop runs end-to-end on the
+fixture in a cloud session: pinned install (crude is fine) → one skill → a change →
+PR → required CI gate (incl. acceptance→test check) → GitHub rules enforce → you
+merge. Everything after thickens a part of that path and **re-runs the whole
+skeleton** before the epic is done. A broken skeleton blocks new work.
+
+### Codification queue
+
+When a step done by hand during the revamp proves useful (it caught a real problem,
+or it repeated ≥ 3 times), add it to [PLAN.md § Codification queue](PLAN.md#codification-queue)
+as a candidate for the devshop to automate for apps. Don't codify on the first
+occurrence — that's how today's devshop grew 90k words of skills from one-off incidents.
+
 ## 1. Task lifecycle
 
 ```
@@ -88,11 +122,15 @@ what moved, surprises, next.
 5. Claude re-plans M1+ per D-14, records outcomes in LOG + PLAN changelog, re-runs the
    scripted coverage check.
 
-### Milestone review (each M exit)
+### Milestone review (each M exit) — the whole-picture check
 
-Demo exit criteria; re-baseline metrics (W0.2); walk open findings/decisions; adjust
-the next milestone; changelog entry. Consider a fresh adversarial review (like
-REVIEW-1) before M2 and M3, when the architecture choices land.
+1. **Re-run the north-star scenario** ([TARGET.md](TARGET.md)) on the fixture in a cloud
+   session; record what worked, what broke, and owner touchpoints vs target.
+2. **Assumptions:** any still `untested` that the next milestone builds on? Test them first.
+3. **Direction:** does what we have still lead to TARGET.md? Is TARGET.md still right
+   given what we learned? Changes go to DECISIONS + PLAN changelog.
+4. Re-baseline metrics (W0.2); walk open findings; detail the next milestone.
+5. A fresh adversarial review (like REVIEW-1) before M2 and M3, when architecture lands.
 
 ## 6. Ground rules during the revamp
 
