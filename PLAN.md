@@ -68,7 +68,7 @@ Maintenance conventions:
 
 ## Active
 
-_No work in progress._
+**Devshop revamp** — multi-milestone revamp planned in [`kit/notes/revamp/`](kit/notes/revamp/README.md) (start at its README; tracker lives in `kit/notes/revamp/workstreams/`). Next step: plan review session. Rows below are frozen except security/correctness fixes until the revamp plan absorbs them (the gstack upgrade row is superseded by revamp W7).
 
 ## Planned (v0)
 
