@@ -100,3 +100,17 @@ W3.5 walking skeleton as an M1 exit (confirms or revises D-14); W0.10 target +
 baseline run; PLAN principle 9.
 
 **Next**: plan review session.
+
+---
+
+## #4 — 2026-10-08 · Advisor / model-routing proposal evaluated
+
+**What**: owner shared a "Opus advises, Sonnet builds, Haiku swarms" setup. Checked
+against docs + one live call. Real: `--advisor`, `advisorModel`, `/advisor`; advisor
+reads the full transcript; Claude chooses when to consult (no forcing setting); subagents
+inherit it; per-agent `model` frontmatter; `CLAUDE_CODE_SUBAGENT_MODEL`; effort levels.
+Not real / unverifiable: `--subagents` flag, "parallel dispatcher pool (3x workers)"
+setting, "JEV micro-fork layer … 16 ms", "340 tok/s". Live test in this cloud VM:
+`claude -p --model sonnet --advisor opus …` billed both `claude-sonnet-5-5` and
+`claude-opus-5-5` (A-17 validated).
+Added: O-11, O-12, A-17, A-18, epic W6.8 (routing + advisor, A/B before relying on it).

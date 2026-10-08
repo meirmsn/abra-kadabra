@@ -75,3 +75,13 @@ Findings: F-PIPE-13, F-PIPE-15.
 Findings: F-PIPE-07, F-PIPE-08.
 
 - [ ] **W6.7.1** `/ak-spec`: works from Phase 0 skeleton without gstack artifacts; never overwrites decisions; always emits `## Task order`; `/ak-implement`: honours devshop/recipe-specific commands instead of hardcoded pnpm/posthog — V4
+
+## W6.8 Model routing + native advisor — P1 · M3 (pilot from M1) · S
+
+Opportunities: O-11, O-12. Assumptions: A-17 (validated), A-18.
+Replaces hand-rolled parts of the stuck protocol (devil's-advocate subagent, "fix ×2 → investigate") and in-session "pre-done" reviews with the first-party advisor, and sets per-role models.
+Done when: the devshop's settings/agents define the routing below; the A/B (A-18) is recorded; the stuck protocol and pre-done checks in skills are reduced to one line ("consult the advisor") if the A/B supports it.
+
+- [ ] **W6.8.1** Routing defaults: main session Sonnet 5.5 (effort high) for execution, Opus for planning-heavy sessions; `advisorModel: opus`; search/discovery subagents `model: haiku` + read-only `tools`; **reviewer subagents stay Sonnet/Opus** (no `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` — it would downgrade adversarial reviewers). Set in project `.claude/settings.json` + `.claude/agents/*.md` (user `~/.claude` settings don't reach cloud sessions)
+- [ ] **W6.8.2** CLAUDE.md: 3 lines asking Claude to consult the advisor before locking a plan, after the same failure twice, and before declaring done (guidance — timing stays model-driven; it is **not** an enforcement point; CI remains the gate)
+- [ ] **W6.8.3** A/B on the walking skeleton + one real epic (A-18): with vs without advisor; rework, tokens, defects caught — record in LOG; keep or drop based on numbers

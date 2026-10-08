@@ -118,6 +118,7 @@ Priority is **within a milestone**: P0 first. Size: S ≤½ day · M 1–2 days 
 - **W6.5** Check taxonomy cleanup (LLM→script, dedupe) — P1 · M3 · M
 - **W6.6** Greenfield chain + `/ak-new-project` fixes — P2 · M3 · M
 - **W6.7** Resolve skill contradictions (`/ak-spec`, `/ak-implement`) — P1 · M3 · S
+- **W6.8** Model routing + native advisor (replace hand-rolled stuck/pre-done reviews if A/B supports it) — P1 · M3, pilot from M1 · S
 
 ### W7 — gstack upgrade · [workstreams/W7-gstack.md](workstreams/W7-gstack.md)
 
@@ -163,3 +164,4 @@ Add a row when a manual step caught a real problem or repeated ≥ 3 times.
 | 2026-10-08 | Plan created from analysis session                                                                                                                                                                                                                        | LOG #1                                                     |
 | 2026-10-08 | Adversarial review: M0 expanded with stop-the-bleeding items (W0.4–W0.9); M1+ provisional pending D-14; D-12/D-13/D-14/D-15 added; D-01/D-03/D-04/D-06/D-08/D-09 revised; exit criteria made testable; capacity + cut line; ⚠ throwaway filter; W5 shrunk | [REVIEW-1.md](REVIEW-1.md), LOG #2                         |
 | 2026-10-08 | Added the build-loop: ASSUMPTIONS.md, TARGET.md + north-star scenario, walking skeleton W3.5 (M1 exit), whole-picture milestone review, codification queue, principle 9                                                                                   | Owner: test continuously + check the whole picture; LOG #3 |
+| 2026-10-08 | Added W6.8 model routing + advisor (O-11/O-12, A-17 validated, A-18 A/B)                                                                                                                                                                                  | Owner proposal evaluated; LOG #4                           |
