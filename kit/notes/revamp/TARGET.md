@@ -1,33 +1,68 @@
-# Target picture (draft — finalised with D-14)
+# Target picture
 
-One page: what the devshop should be when the revamp is done, and the scenario that
-proves it. Every milestone review checks progress against this page and whether the
-page itself is still right ([PROCESS.md § 5](PROCESS.md#milestone-review-each-m-exit--the-whole-picture-check)).
+What the devshop should be when the revamp is done, agreed **top-down** with the
+owner in the plan review session (LOG #5): each level is agreed before the next one
+down is discussed. Decisions in [DECISIONS.md](DECISIONS.md) are settled at the level
+where they belong (mostly L3). Every milestone review checks progress against this
+page and whether the page itself is still right
+([PROCESS.md § 5](PROCESS.md#milestone-review-each-m-exit--the-whole-picture-check)).
 
-## What the owner experiences
+| Level | Form                     | Status                                 |
+| ----- | ------------------------ | -------------------------------------- |
+| L0    | One sentence (ish)       | **agreed** 2026-10-08                  |
+| L1    | One paragraph            | **agreed** 2026-10-08                  |
+| L2    | One line per pillar      | draft — refined pillar by pillar next  |
+| L3    | A few bullets per pillar | not started — where decisions are made |
+| L4    | Milestones + tasks       | re-derived from L0–L3 (PLAN.md)        |
 
-1. Writes rough notes (or talks through an idea) for a project.
-2. Claude turns them into product + design intent, then a spec with **decisions and
-   acceptance criteria the owner approves** (locked thereafter).
-3. Claude builds it — in a cloud session, unattended — using the right-sized tier
-   (product / fix / patch / hotfix).
-4. The PR arrives with: what changed, evidence that each acceptance item is tested,
-   an advisory conformance review, green CI.
-5. Owner reviews and merges; deploy happens via a protected environment the owner approves.
-6. Owner never has to babysit tooling, and Claude **cannot** ship around the checks.
+## L0 — where we're going
 
-## What's true underneath
+You say what you want — from a whole app to a one-line fix — and Claude helps you
+sharpen it, specs it, and builds it, iterating against adversarial review until what's
+built is verified against your intent (tested, documented, security-checked); then you
+review the PR and its preview and steer until you approve. Claude works inside walls
+it can't move — cloud by default, a scoped local Mac when the cloud can't do the job.
 
-| Property                       | How                                                                                                                                  | Decision         |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ | ---------------- |
-| Agent can't weaken guardrails  | GitHub rulesets (no bypass), required CI, main-only environment secrets, least-privilege tokens, separate agent identity if possible | D-04, D-13       |
-| Intent is checked, not assumed | Owner-locked decisions/acceptance; acceptance→test check in CI; advisory LLM conformance review (blocking only if measured ≥0.8)     | W6.1             |
-| Same everywhere                | Pinned devshop version per project; cloud sessions first, local supported                                                            | D-01, D-02, D-12 |
-| Any stack the owner picks      | Vendor code isolated; second stack added when a real project needs it                                                                | D-08             |
-| Small enough to stay coherent  | Few short skills; one-entry docs; size targets                                                                                       | D-14, W0.2.3     |
-| Learns without bloating        | Lessons → codification queue → automated only when proven                                                                            | PROCESS § 0      |
+## L1 — the end state
+
+You bring an idea of any size; Claude, using gstack, sharpens it with you into
+product, design and a spec faithful to what you agreed. One agent builds it, following
+the devshop's guidelines for the disciplines involved and the project's own; it tests
+as it goes and iterates against adversarial review until the change is verified
+against your intent, documented, and security-checked. You review a clear PR —
+hierarchical description, visuals, preview — and steer until you approve; then it
+deploys, is watched in production, and what was learned is recorded. Claude works
+under its own limited identity inside walls it can't move; the cloud is the default
+and a scoped local Mac covers what the cloud can't (native builds, simulators and
+devices, or plain cloud limits). Outputs span web, mobile, desktop and backend.
+Projects stay clean of the devshop, each pins its own devshop version, and upgrading
+is one guided step.
+
+## L2 — pillars (draft)
+
+1. **Intent** — idea → sharpened product, design and spec with gstack, faithful to what you agreed.
+2. **Build** — one agent, guidelines matched to the task, relevant tests run where it works, resumable.
+3. **Verify** — adversarial review against intent + security checks; CI runs the full suite at review time (not as the inner loop).
+4. **Review** — PR with a plain title, hierarchical description (announcement line on top when applicable), visuals, preview; you approve.
+5. **Ship** — deploy after your approval, canary, observability/metrics, logs + plan updated; rollback is your call.
+6. **Safety** — own limited identity; boundary on GitHub + credentials; no production secrets; scoped machine access.
+7. **Environments** — cloud sessions by default from any device; a scoped local Mac for native builds/simulators/devices and as fallback when the cloud falls short.
+8. **Reach** — web apps (responsive, PWA), marketing sites, backends (Cloudflare, Supabase, AWS), native Apple, Android, React Native, Electron — each added when a real project needs it.
+9. **Shape** — projects free of the devshop; pinned versions with guided upgrades/migrations; new + adopted projects; gstack as the toolbox; small, grows only from proven lessons.
+
+### Inputs parked for L3 (from the owner, 2026-10-08)
+
+- **Intent:** gstack thinking skills before the spec, deep for apps/features, light for fixes. The spec must satisfy the agreed intent first; how it's tested comes after and must not trim it.
+- **Build:** one agent pulls the relevant guidelines (frontend, backend, data, UI, UX, security…) + project guidelines; no persona-per-agent requirement. Run the tests relevant to the change in the session (cloud or Mac) rather than waiting on CI; CI is for the full suite once ready for review (today the template runs CI on every PR push).
+- **Verify:** an adversarial review at the end against intent is required; earlier checkpoints (spec ↔ discussion, slice ↔ spec) are candidates — recommendation: spec ↔ discussion standard, slice ↔ spec tested on the walking skeleton. Docs are part of the check (future agents use them as context).
+- **Review:** title style as the devshop does today; description hierarchical; announcement blurb for non-technical readers on top when applicable; screenshots/video; preview link.
+- **Safety:** prevent a rogue or prompt-injected agent from taking over; keep Claude away from sensitive data/code and from the owner's machines except scoped, walled-off environments (e.g. Supabase in its own container; a separate Mac for Apple work). "No vulnerabilities" is pursued by layered checks, not promised.
+- **Reach:** Apple builds can also use GitHub-hosted macOS runners in CI; the Mac is for interactive work.
+- **Shape:** an outside collaborator can clone and contribute without the devshop; several projects on different devshop versions at once; moving to the latest version may involve a project migration.
 
 ## North-star scenario (re-run at every milestone review)
+
+_To be revised at L3 so it exercises every pillar; current version kept as the baseline._
 
 On the fixture project, in a fresh cloud session:
 
