@@ -1,55 +1,32 @@
-# W5 — Stack-agnostic core + recipes
+# W5 — Stack isolation _(conditional — D-08; shrunk by REVIEW-1)_
 
-The core names no vendor; services are **recipes** selected by the project's
-`stack.yaml`. Depends on D-08 and W4.2 (install layout).
-Finding: F-STACK-01 (and F-TPL-06, F-PIPE-13 for migrate).
+Two projects run one stack (Next.js + Supabase + Vercel). Designing a general
+capability contract from a single example would encode that stack as "the
+abstraction". So: **isolate vendor code now; generalise only when a second stack is real.**
+Findings: F-STACK-01, F-TPL-06, F-PIPE-13 (migrate).
 Status markers: `[ ]` `[~]` `[x]` `[!]` `[-]`.
 
-Shape (to be confirmed in W5.1):
+## W5.1 Isolate vendor code — P2 · M4 · M
 
-```
-.devshop/stack.yaml            hosting: vercel | cloudflare-workers | …
-                               database: supabase-postgres | d1 | neon | …
-                               auth / frontend / e2e / analytics / errors …
-recipes/<capability>/<provider>/
-  SKILL.md   conventions (loaded on demand)     checks/   capability-contract scripts
-  setup.md   new-project steps                  template/ files it contributes
-  network.txt  domains        secrets.txt  keys (and where they live: network secret / GH env)
-```
+Done when: vendor-specific scripts/docs/template parts live under `stack/<vendor>/`
+(e.g. `stack/supabase/`, `stack/vercel/`, `stack/nextjs/`, `stack/playwright/`); the
+project selects them with one `stack:` line; a lint shows no vendor names in core;
+fixture + one real project produce identical gate results before/after (V4 + V5).
 
-## W5.1 Capability contract + `stack.yaml` + deterministic gate resolution — P2 · M4 · M
+- [ ] **W5.1.1** Move Supabase-specific gates/scripts (bootstrap, rollback round-trip, RLS coverage, advisor, local-env health) and guides under `stack/supabase/`; same for Vercel/Next/Playwright pieces — no behaviour change
+- [ ] **W5.1.2** One `stack:` selector (plain `case`), vendor-name lint for core — V2
+- [ ] **W5.1.3** Broaden the prod-URL test guard beyond `*.supabase.co` (custom domains) and route `proxy.ts` through it (F-TPL-06) — V2
 
-Done when: the gate runner selects checks purely from `stack.yaml` + recipe
-manifests; "no recipe" is reported visibly; contract tests exist per capability.
+## W5.2 Second stack — only when a real project commits to one · L
 
-- [ ] **W5.1.1** Define capabilities and their required checks (e.g. database: `migrations-reversible`, `access-control-coverage`; hosting: `preview-url`, `prod-health`; local-env: `services-up`) — design note, reviewed
-- [ ] **W5.1.2** `stack.yaml` schema + validator — V2
-- [ ] **W5.1.3** Gate resolver script: capability → recipe check → run; outputs a machine-readable result per gate — V2
-- [ ] **W5.1.4** Recipe contract test harness (each recipe must implement or explicitly n/a each check) — V2
+Done when: the second stack (likely Cloudflare Workers + D1) works on a tiny fixture,
+and the capability contract (checks every stack must provide) is extracted from the
+two real implementations, with contract tests.
 
-## W5.2 Extract existing recipes, no behaviour change — P2 · M4 · L
+- [ ] **W5.2.1** Build the second stack's scripts for the real project's needs
+- [ ] **W5.2.2** Extract the shared contract + resolver + contract tests from both implementations
+- [ ] **W5.2.3** Short "how to add a stack" guide
 
-Done when: the fixture project and one real project produce identical gate results
-before/after extraction (V4 + V5).
+## W5.3 Adopting existing (non-devshop) apps — only when needed · M
 
-- [ ] **W5.2.1** `database/supabase-postgres`: supabase-bootstrap, rollback round-trip, RLS coverage, advisor, local-env health, SSR/migrations/database-queries guides, prod-URL test guard (also broaden guard beyond `*.supabase.co`) (F-TPL-06)
-- [ ] **W5.2.2** `hosting/vercel`: preview URL, env piping, prod health, go-live checks
-- [ ] **W5.2.3** `frontend/nextjs`: lint/build conventions, SSR boilerplate, tailwind guide
-- [ ] **W5.2.4** `e2e/playwright`: changed-tests-local E2E part, Chromium handling, hero screenshots
-- [ ] **W5.2.5** Remove vendor names from core scripts/skills/hooks; bats test that core contains no vendor tokens outside an allowlist — V2
-
-## W5.3 Neutral core template + starters — P2 · M4 · M
-
-- [ ] **W5.3.1** Core template: repo hygiene, CI skeleton with recipe-contributed jobs, docs skeleton — V3
-- [ ] **W5.3.2** Starter `next-supabase-vercel` = today's template, produced from core + recipes; diff vs current template reviewed — V3
-- [ ] **W5.3.3** `/ak-new-project` asks for starter or recipes; vendor setup steps come from recipes' `setup.md` — V4
-
-## W5.4 Stack detection + real `/ak-migrate-project` — P2 · M4 · M
-
-- [ ] **W5.4.1** Detector proposes `stack.yaml` from repo files (`wrangler.toml`, `vercel.json`, `supabase/config.toml`, `next.config.*`, …) — V2
-- [ ] **W5.4.2** `/ak-migrate-project` = detect → confirm → install pinned devshop + recipes → report uncovered capabilities (F-PIPE-13) — V4 on an existing non-devshop repo
-
-## W5.5 Second recipe via contract tests — P2 · M4 · M
-
-- [ ] **W5.5.1** Write the first non-current-stack recipe when a project needs it (likely `hosting/cloudflare-workers` + `database/d1`) on a tiny fixture; passes contract tests — V4
-- [ ] **W5.5.2** Recipe authoring guide (short): how to add a provider, contract checklist — V1
+- [ ] **W5.3.1** Stack detection from repo files proposes the `stack:` selection; `/ak-migrate-project` = detect → confirm → install pinned devshop → report uncovered parts (F-PIPE-13) — V4 on an existing repo

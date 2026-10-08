@@ -53,3 +53,35 @@ significant). Each entry: **what**, **evidence** (commands + result summary),
 **Discoveries**: none beyond FINDINGS.
 
 **Next**: plan review session (W0.1.3) → decisions D-01…D-06 (W0.3) → M0.
+
+---
+
+## #2 — 2026-10-08 · Adversarial review of the plan (REVIEW-1)
+
+**What**
+
+- Four independent reviewers (fresh context): fact-check of FINDINGS, architecture
+  attack, plan-as-a-plan critique, Claude Code/cloud/GitHub feasibility (docs + live tests).
+- Orchestrator re-verified the decisive claims: git proxy branch behaviour (docs quote),
+  `.gitleaks.toml` has no rules / no `[extend]`, no LICENSE file, `ci.yml` passes
+  `SENTRY_AUTH_TOKEN` on `pull_request`, notify hooks unlocked.
+- Applied corrections: REVIEW-1.md written; DECISIONS rewritten (D-12…D-15 added; D-01,
+  D-03, D-04, D-06, D-08, D-09 revised); PLAN re-cut (M0 = stop the bleeding + groundwork;
+  M1+ provisional pending D-14; testable exit criteria; capacity + cut line); W0 gained
+  W0.4–W0.9; W1/W2 carry a live-risk ⚠ filter; W3 attack suites split in-VM/outside-VM and
+  fixture moved to M0; W4 gained spike W4.2.0 + rollback; W5 shrunk to vendor isolation;
+  W6.1 redesigned (spec lock + CI acceptance check + measured advisory reviewer);
+  FINDINGS corrected (~45 rows) + F-NEW-01…14; PROCESS lightened.
+
+**Evidence**
+
+- R1 reproduced F-SEC-20 with gitleaks 8.30.1 (repo config → "no leaks"; default → leaks found).
+- R4 ran `claude -p --bare` in this cloud VM → `Authentication error` (`is_error:true`,
+  `subtype:"success"`); non-bare locked-down variant returned `structured_output`.
+- R4: `gh api user` → owner; PR #36 author = owner; repo permission `admin:true`;
+  fetching a non-attached private repo → 403.
+- Coverage check re-run after edits (see PR): all findings mapped; all referenced IDs exist.
+
+**Discoveries**: F-NEW-01…F-NEW-14 (see FINDINGS).
+
+**Next**: plan review session → D-14 first.
