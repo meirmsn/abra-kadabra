@@ -24,38 +24,37 @@ weaken. The implementation has outgrown itself:
 - **Too heavy to stay consistent.** ~225k words of docs + ~90k words of skills that
   have drifted apart. (F-DOC-01, F-PIPE-18)
 
-## Where it's heading (pending D-14)
+## Where it's heading (agreed 2026-10-09 — [TARGET.md](TARGET.md))
 
-**Enforcement where the agent can't reach** — GitHub rulesets with no bypass,
-secrets only in main-gated environments, required CI checks, ideally a separate
-agent identity (D-13); in-VM hooks are feedback. **Owner-locked intent** (decisions +
-acceptance) checked deterministically in CI, with an LLM conformance review as
-advisory until measured. **Pinned per project** and runnable in Claude Code cloud
-sessions (mechanism after D-12 + spike). **Vendor code isolated** under
-`stack/<vendor>/`; abstraction only when a second stack is real. **Right-sized
-workflows**, **one-entry docs**, and — if D-14 picks the thin path — a much smaller
-devshop built directly, deleting early.
+> You say what you want — from a whole app to a one-line fix — and Claude helps you
+> sharpen it, specs it, and builds it, iterating against adversarial review until what's
+> built is verified against your intent (tested, documented, security-checked); then you
+> review the PR and its preview and steer until you approve. Claude works inside walls it
+> can't move — cloud by default, a scoped local Mac when the cloud can't do the job.
+
+**How we get there (D-14):** a lean rewrite in a **new runtime repo**, with frozen v1 as
+the reference and a lessons harvest first; a walking skeleton on a fixture project, then
+an explicit go/no-go; lalista is the pilot (web, then iOS).
 
 ## Milestones (status roll-up — criteria in [PLAN.md](PLAN.md))
 
-| #   | Milestone                      | Status                       |
-| --- | ------------------------------ | ---------------------------- |
-| M0  | Stop the bleeding + groundwork | not started                  |
-| M1  | Close the live holes           | provisional (re-plan @ D-14) |
-| M2  | Cloud-native & pinned          | provisional                  |
-| M3  | Verifies intent                | provisional                  |
-| M4  | Stack isolation                | conditional                  |
-| M5  | Lean & legible                 | provisional                  |
+| #   | Milestone                      | Status      |
+| --- | ------------------------------ | ----------- |
+| M0  | Stop the bleeding + groundwork | in progress |
+| M1  | Walking skeleton → go/no-go    | planned     |
+| M2  | Pilot: lalista web on v2       | coarse      |
+| M3  | iOS stack + Mac                | coarse      |
+| M4  | Complete & retire v1           | coarse      |
 
 ## Files
 
 | File                             | Purpose                                                                                |
 | -------------------------------- | -------------------------------------------------------------------------------------- |
 | [REVIEW-1.md](REVIEW-1.md)       | Adversarial review: errors found, critiques accepted/deferred, new decisions           |
-| [TARGET.md](TARGET.md)           | One-page target picture + north-star scenario re-run at every milestone                |
+| [TARGET.md](TARGET.md)           | Target picture, agreed top-down (L0 sentence → L1 paragraph → L2 pillars) + north-star |
 | [ASSUMPTIONS.md](ASSUMPTIONS.md) | Load-bearing assumptions and the cheapest test for each                                |
 | [PLAN.md](PLAN.md)               | Principles, milestones + exit criteria, capacity, epics, codification queue, changelog |
-| `workstreams/Wn-*.md`            | Epics → tasks with findings, done-when, verification, **status**                       |
+| `workstreams/Wn-*.md`            | Epics → tasks with status: W0 (M0), W10 (v2, M1+); W1–W9 superseded v1 reference       |
 | [FINDINGS.md](FINDINGS.md)       | Evidence register (117 findings + 10 opportunities), each mapped to work               |
 | [DECISIONS.md](DECISIONS.md)     | Owner decisions, in the order to make them                                             |
 | [PROCESS.md](PROCESS.md)         | Light process: lifecycle, done, verification, replanning, reviews                      |
@@ -63,7 +62,7 @@ devshop built directly, deleting early.
 
 ## Next action
 
-**Plan review session** ([PROCESS.md § 5](PROCESS.md#plan-review-session-next)):
-decide D-14 → D-12 → D-13 → D-04 → D-09 → D-15 → D-03, state capacity, green-light
-the M0 "stop the bleeding" items (freeze v1, rotate credentials, rulesets on the real
-repos, fix gitleaks) — these are worth doing under either path.
+M0 in order ([W0](workstreams/W0-groundwork.md)): **W0.5** rotate credentials (owner) →
+**W0.7** history secret scan → **W0.6** rulesets on abra-kadabra + lalista, archive home-os
+(owner) → **W0.4** tag `v1-final` → **W0.8** CLAUDE.md note. In parallel, M1 spikes
+([W10.1](workstreams/W10-v2.md)) can start.

@@ -68,7 +68,7 @@ Maintenance conventions:
 
 ## Active
 
-**Devshop revamp** — multi-milestone revamp planned in [`kit/notes/revamp/`](kit/notes/revamp/README.md) (start at its README; tracker lives in `kit/notes/revamp/workstreams/`). Next step: plan review session. Rows below are frozen except security/correctness fixes until the revamp plan absorbs them (the gstack upgrade row is superseded by revamp W7).
+**Devshop revamp** — multi-milestone revamp planned in [`kit/notes/revamp/`](kit/notes/revamp/README.md) (start at its README; tracker lives in `kit/notes/revamp/workstreams/`). Plan review held 2026-10-09: the devshop is being rewritten lean in a new repo (v1 = this repo, security fixes only); next step is M0 (credentials, history scan, rulesets). Rows below are frozen; their lessons feed the revamp's harvest (W10.3).
 
 ## Planned (v0)
 

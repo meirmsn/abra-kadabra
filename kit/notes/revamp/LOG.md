@@ -114,3 +114,52 @@ setting, "JEV micro-fork layer … 16 ms", "340 tok/s". Live test in this cloud 
 `claude -p --model sonnet --advisor opus …` billed both `claude-sonnet-5-5` and
 `claude-opus-5-5` (A-17 validated).
 Added: O-11, O-12, A-17, A-18, epic W6.8 (routing + advisor, A/B before relying on it).
+
+---
+
+## #5 — 2026-10-08/09 · Plan review session (owner)
+
+**What**
+
+- Owner redirected the session from decision-by-decision to **top-down alignment**: one
+  sentence (L0) → one paragraph (L1) → one line per pillar (L2), details (L3) later. All
+  three levels agreed and written to [TARGET.md](TARGET.md); owner inputs parked for L3.
+- Nine pillars: Intent, Build, Verify, Review, Ship, Safety, Environments, Reach, Shape.
+  Key owner calls inside them: one-screen "go" before building bigger changes; code, tests
+  and docs change together; independent adversarial reviewer before any PR, **no skip
+  knobs**, 3 rounds then ask; **PR CI plain** (no agentic jobs, so outside contributors see
+  normal CI); approval ships (web + backend auto-deploy; native per version via testing
+  tracks, owner's call); rollback manual with a revert ready; read-only production
+  observability, production data only on an explicit expiring grant; cloud-first plus a
+  **dedicated Mac**; one home per stack, added when a project needs it; lean not minimal.
+- Decisions: D-14 thin rewrite in a **new runtime repo** (v1 as reference, lessons harvest
+  first, go/no-go at the walking skeleton); D-12 new repo private for now, public-safe by
+  design; D-13 GitHub App (spike); D-04, D-02, D-06, D-08 settled by the pillars; D-09 no
+  freeze needed (lalista paused, home-os frozen; lalista = pilot); D-15 hybrid; D-03 PR flow;
+  D-11 obsolete; D-01/D-05/D-07/D-10 open with direction.
+- Re-plan: M0 reordered (credentials → history scan → rulesets + archive home-os → tag
+  `v1-final` → CLAUDE.md note); M1 = walking skeleton → go/no-go, detailed in
+  [W10-v2.md](workstreams/W10-v2.md); M2 pilot lalista web, M3 iOS + Mac, M4 retire v1
+  (coarse). W1–W9 superseded (`[-]`); findings dispositioned by W10.3.3.
+- Pacing rule instead of capacity hours: ≤ ~2 devshop PRs waiting on the owner.
+
+**Evidence**
+
+- Reviewer isolation (A-04), three `claude -p` calls in this cloud VM from inside the repo:
+  with `--setting-sources "" --tools ""` the context did **not** contain CLAUDE.md text
+  ("NO"); with `--tools "Read,Grep,Glob"` it grepped/read the repo correctly; asked to
+  write a file it could not (file absent afterwards).
+- Template CI cadence: `ci.yml` runs on every `pull_request` push (fast, then slow if
+  runtime changed) and on `main` pushes — the inner-loop cost the owner wants to avoid.
+- v1 sizes for reference: CLAUDE.md 3.3k words; 17 devshop skills 87k words (largest
+  22.8k); `kit/docs` 89k words; 64 scripts/hooks ~11k lines; `adversarial-review.sh`
+  1,349 lines with 16 check-types (11 are bypass justifications).
+- GitHub-identity docs (`read_documentation github.access`) don't cover using a non-owner
+  identity from a cloud session → A-05 stays a spike.
+
+**Commits**: checkpoint commits per agreed pillar on `claude/magical-feynman-59qltk` (PR #36), then this recording commit.
+
+**Surprises / discoveries**: top-down alignment resolved most open decisions as by-products
+(codification-queue candidate). No new F-NEW findings.
+
+**Next**: M0 in order (W0.5 owner first); M1 spikes W10.1 can start in parallel.

@@ -7,27 +7,27 @@ history) and record the plan impact in [PLAN.md § Changelog](PLAN.md#changelog)
 
 Status: `open` · `decided` · `revisited`. Order below = order to decide in.
 
-| ID   | Decision                                                | Blocks                             | Status |
-| ---- | ------------------------------------------------------- | ---------------------------------- | ------ |
-| D-14 | **Thin devshop vs incremental revamp** (strategic fork) | everything after M0                | open   |
-| D-12 | May the devshop (or parts of it) be public?             | D-01, W4.2                         | open   |
-| D-13 | Separate GitHub identity for the agent                  | D-04, W0.6, W1.5                   | open   |
-| D-04 | Where the security boundary is                          | M0 (W0.6), M1                      | open   |
-| D-09 | Live projects during the revamp (freeze v1)             | M0 (W0.4)                          | open   |
-| D-15 | Tracking system: markdown vs GitHub Issues              | M0                                 | open   |
-| D-03 | How devshop changes land                                | M0 (W0.8)                          | open   |
-| D-02 | Fate of the local devcontainer                          | W1 scope, W4.4                     | open   |
-| D-01 | Distribution model                                      | M2 (W4.2) — after spike W4.2.0     | open   |
-| D-05 | Plan tier assumptions (Pro/Max vs Team/Enterprise)      | W4.3                               | open   |
-| D-06 | Orchestration technology                                | M3 (W6.4)                          | open   |
-| D-07 | gstack install model and target version                 | W7                                 | open   |
-| D-08 | Stack abstraction scope (recipes)                       | M4 (W5)                            | open   |
-| D-10 | Revamp versioning                                       | M2                                 | open   |
-| D-11 | Deletion list                                           | M5 (W9) or earlier under D-14 thin | open   |
+| ID   | Decision                                                | Blocks                             | Status   |
+| ---- | ------------------------------------------------------- | ---------------------------------- | -------- |
+| D-14 | **Thin devshop vs incremental revamp** (strategic fork) | everything after M0                | decided  |
+| D-12 | May the devshop (or parts of it) be public?             | D-01, W4.2                         | decided  |
+| D-13 | Separate GitHub identity for the agent                  | D-04, W0.6, W1.5                   | decided  |
+| D-04 | Where the security boundary is                          | M0 (W0.6), M1                      | decided  |
+| D-09 | Live projects during the revamp (freeze v1)             | M0 (W0.4)                          | decided  |
+| D-15 | Tracking system: markdown vs GitHub Issues              | M0                                 | decided  |
+| D-03 | How devshop changes land                                | M0 (W0.8)                          | decided  |
+| D-02 | Fate of the local devcontainer                          | W1 scope, W4.4                     | decided  |
+| D-01 | Distribution model                                      | M1 (W10.4.4) — after spike W10.1.2 | open     |
+| D-05 | Plan tier assumptions (Pro/Max vs Team/Enterprise)      | spikes W10.1                       | open     |
+| D-06 | Orchestration technology                                | M3 (W6.4)                          | decided  |
+| D-07 | gstack install model and target version                 | M2 (with D-01)                     | open     |
+| D-08 | Stack abstraction scope (recipes)                       | M4 (W5)                            | decided  |
+| D-10 | Revamp versioning                                       | first v2 release (M1)              | open     |
+| D-11 | Deletion list                                           | M5 (W9) or earlier under D-14 thin | obsolete |
 
 ---
 
-## D-14 Thin devshop vs incremental revamp — `open` (added by REVIEW-1)
+## D-14 Thin devshop vs incremental revamp — `decided` (added by REVIEW-1)
 
 - **A. Incremental revamp** (the original plan): fix today's system (M1), then move
   to pinned/cloud (M2), add conformance + tiers (M3), recipes (M4), delete last (M5).
@@ -45,9 +45,9 @@ Status: `open` · `decided` · `revisited`. Order below = order to decide in.
   compare task count, effort, and risk retired per milestone (owner + Claude, in the
   review session).
 
-Outcome: —
+Outcome: **decided 2026-10-09 — thin rewrite.** Build a new, lean devshop in a **new runtime repo**, with frozen v1 (abra-kadabra) as the reference. A lessons harvest from v1 + home-os + FINDINGS comes first; an explicit **go/no-go** follows the walking skeleton (fallback: incremental path A). Agreed top-down via [TARGET.md](TARGET.md) L0–L2 (LOG #5). "Small" means no bloat, not minimum size: one hard budget (always-loaded context), other sizes are warning signals.
 
-## D-12 May the devshop be public? — `open` (added by REVIEW-1)
+## D-12 May the devshop be public? — `decided` (added by REVIEW-1)
 
 The devshop is private and has **no LICENSE** (verified). Any model that commits
 devshop files into project repos publishes them if the project is public.
@@ -60,9 +60,9 @@ devshop files into project repos publishes them if the project is public.
   devshop reaches sessions only as an attached second repo (no hooks, D-01 B) or as a
   claude.ai-level plugin/skills (D-01 C).
 
-Outcome: —
+Outcome: **decided (direction) 2026-10-09 — option B in a new form.** The new runtime repo has fresh history and no notes/project details: **private for now, public-safe by design**; flipping it public is decided after the distribution spike (A-09/A-10). abra-kadabra stays private as v1 + workshop. Concerns that ruled out publishing this repo: secrets in history (F-SEC-20), project/personal notes, a map of guardrail weaknesses, no license.
 
-## D-13 Separate GitHub identity for the agent — `open` (added by REVIEW-1)
+## D-13 Separate GitHub identity for the agent — `decided` (added by REVIEW-1)
 
 Today the agent acts as the owner: commits, PRs, approvals, merges carry the
 owner's identity with admin rights, and the session exposes merge / auto-merge /
@@ -78,9 +78,9 @@ author approve their own PR, so "owner approves" is unenforceable.
   and deletions, no bypass for admins; accept that the agent could still merge its
   own PR via the API; say so honestly in D-04.
 
-Outcome: —
+Outcome: **decided 2026-10-09 — A, a GitHub App for the agent** (owner's proposal): authors commits/PRs with contents + PR permissions only, no admin, no workflow edits; the owner approves from their own account. **Pending spike A-05** (can a cloud session push/open PRs as an App, given the proxy uses the owner's connected account?). Fallbacks in order: machine user; same identity + no-bypass rulesets (then stated honestly as a habit, not a gate).
 
-## D-04 Where the security boundary is — `open` (rewritten by REVIEW-1)
+## D-04 Where the security boundary is — `decided` (rewritten by REVIEW-1)
 
 - **Recommendation:** "The boundary is on GitHub and in credentials, not in the VM":
   - GitHub rulesets on `main` with **no bypass** (incl. admins): PR required, required
@@ -98,18 +98,18 @@ Outcome: —
 - Alternative: keep claiming in-VM guardrails as the boundary (then all of W1.1–W1.3 +
   sandboxing are mandatory, and macOS remains weak).
 
-Outcome: —
+Outcome: **decided 2026-10-09 — recommendation adopted** (TARGET L2 Safety): Claude is untrusted; enforcement lives in GitHub rules, CI, credentials and protected deploys; in-session checks are feedback. Production access = read-only observability; production data only on an explicit, time-limited owner grant enforced outside Claude's reach. PR CI contains no agentic/LLM jobs.
 
-## D-09 Live projects during the revamp — `open` (moved to M0 by REVIEW-1)
+## D-09 Live projects during the revamp — `decided` (moved to M0 by REVIEW-1)
 
 Nothing pins live projects today (F-VER-01), so devshop changes reach lalista/home-os
 immediately. Recommendation: tag `v1-frozen` + `v1` branch; live project containers
 mount a `/devshop` worktree at that ref (host-side step); only security fixes are
 cherry-picked to `v1`; projects move to the new model one at a time.
 
-Outcome: —
+Outcome: **decided 2026-10-09 — superseded by the rewrite.** lalista is paused (no devshop work now) and home-os is frozen (lessons source only), so no freeze mechanism is needed: tag `v1-final`, v1 takes security fixes only. **lalista is the pilot** of the new devshop after the go/no-go (web first, then iOS).
 
-## D-15 Tracking system — `open` (added by REVIEW-1)
+## D-15 Tracking system — `decided` (added by REVIEW-1)
 
 - **A. Markdown in repo** (current): versioned, greppable, offline; but status on an
   epic branch is invisible to other sessions until merged; drift-prone.
@@ -120,9 +120,9 @@ Outcome: —
   sessions.
 - **C. Hybrid**: markdown structure, Issues for status.
 
-Outcome: —
+Outcome: **decided 2026-10-09 — C, hybrid.** Target, decisions and plan stay markdown in the repo; tasks become GitHub Issues + milestones in the new devshop repo once it exists (phone-friendly, closed by PRs). Revamp tasks stay in `workstreams/` until then.
 
-## D-03 How devshop changes land — `open` (rationale corrected by REVIEW-1)
+## D-03 How devshop changes land — `decided` (rationale corrected by REVIEW-1)
 
 - **A. Branch → PR → CI (bats) → owner merges** _(recommended)_ — gives the devshop CI
   and review; works the same locally and in cloud. (Correction: the cloud git proxy does
@@ -132,9 +132,9 @@ Outcome: —
 
 Interim: revamp work goes through PRs on `claude/*` branches.
 
-Outcome: —
+Outcome: **decided 2026-10-09 — A, branch → PR → CI → owner merges**, for the new repo and any remaining v1 security fixes. `/ak-merge-devshop`'s push-to-main path is retired; CLAUDE.md's "no PRs on devshop" rule is replaced (W0.8). Pacing rule: at most ~2 devshop PRs waiting on the owner at once.
 
-## D-02 Fate of the local devcontainer — `open`
+## D-02 Fate of the local devcontainer — `decided`
 
 - **A. Cloud-first, local supported via the same install script** _(recommended)_ —
   one `install-tools.sh` for cloud setup script and Dockerfile; retire the
@@ -144,7 +144,7 @@ Outcome: —
 - **B. Keep local first-class with full hardening.**
 - **C. Cloud-only** — use Remote Control for macOS/iOS/offline work.
 
-Outcome: —
+Outcome: **decided 2026-10-09 — cloud-first; local = a dedicated Mac** (TARGET L2 Environments): native builds, simulators, devices, and fallback when the cloud falls short. Claude runs there as a non-admin user with only the developer accounts it needs (macOS VM only if insufficient). The v1 devcontainer + root-owned-copies model retires with v1; local services run in walled-off containers.
 
 ## D-01 Distribution model — `open` (reopened by REVIEW-1; decide after D-12 + spike W4.2.0)
 
@@ -168,7 +168,7 @@ How does a project get the devshop, and which version?
   hooks load? how do Project-level plugins pin?), decide D-12, then pick. If D-12 = A or
   B: **D** (or A for public runtime); if C: **C** for skills + template files in-project.
 
-Outcome: —
+Outcome: **open — direction set 2026-10-09:** the pinned devshop comes from the new runtime repo (D-12) with near-zero project footprint (TARGET L2 Shape). Mechanism (setup-script fetch, plugin, or user-scope install) decided after spike A-09/A-10 in M1.
 
 ## D-05 Plan tier assumptions — `open`
 
@@ -177,9 +177,9 @@ exist on Team/Enterprise only and are "a client-side control, not a security
 boundary"; Projects (plugins via Project settings) are Pro/Max beta; Workflows on all
 paid plans (Pro needs a `/config` toggle). Recommendation: design for Pro/Max.
 
-Outcome: —
+Outcome: **open — unchanged:** design for Pro/Max; revisit if a plan-tier limit blocks a spike.
 
-## D-06 Orchestration technology — `open` (recommendation changed by REVIEW-1)
+## D-06 Orchestration technology — `decided` (recommendation changed by REVIEW-1)
 
 - **A. Thin skills + deterministic gate runner as a required CI check** _(recommended)_ —
   the only place determinism is also enforcement (the agent can edit/skip in-VM scripts).
@@ -188,7 +188,7 @@ Outcome: —
   surface. Optional later.
 - **C. Agent SDK program** — most new code.
 
-Outcome: —
+Outcome: **decided 2026-10-09 — thin skills + deterministic checks in CI; agentic review in-session.** PR CI runs tests and deterministic checks only (no LLM jobs, so contributors see plain CI). The adversarial reviewer is a small script running locked-down `claude -p` with read-only repo tools, invoked by the done/open-PR check itself (TARGET L2 Verify; isolation tested — A-04). Workflow scripts / Agent SDK not used.
 
 ## D-07 gstack install model and target — `open`
 
@@ -196,29 +196,29 @@ Recommendation: pinned copy (commit SHA) delivered with the devshop (per D-01),
 upgraded to ≥ 1.91.13 in a dedicated branch with router-shim + `/ship` adaptations;
 no hourly auto-update/team mode; neutralise setup's `~/.claude/settings.json` edits.
 
-Outcome: —
+Outcome: **open — direction set 2026-10-09:** gstack used as a pinned upstream toolbox, never rebuilt or edited (TARGET L2 Shape); version/install mechanism decided with D-01.
 
-## D-08 Stack abstraction scope — `open` (recommendation changed by REVIEW-1)
+## D-08 Stack abstraction scope — `decided` (recommendation changed by REVIEW-1)
 
 Recommendation: **minimal now** — move vendor-specific scripts/docs under
 `kit/stack/<vendor>/`, select by one `stack:` line, remove vendor names from core.
 Build the capability contract / resolver / contract tests only when a real project
 commits to a second stack, from two real examples.
 
-Outcome: —
+Outcome: **decided 2026-10-09 — superseded by TARGET L2 Reach:** each stack has one home (setup, guidelines, lessons), added when a real project needs it and loaded only when a task touches it; no general capability contract up front. Second stack = iOS (lalista).
 
 ## D-10 Revamp versioning — `open`
 
 Recommendation: freeze `v1` (D-09); v1.x patches = security fixes only; v2.0.0 at the
 distribution switch.
 
-Outcome: —
+Outcome: **open:** the new runtime repo gets its own versioning from its first release; v1 ends at `v1-final`.
 
-## D-11 Deletion list — `open`
+## D-11 Deletion list — `obsolete`
 
 Candidates: CLAUDE.md-placement machinery (F-DOC-05), most `adversarial-review.sh`
 check-types (F-REV-06), per-gate n/a files (F-DOC-06), prose-pinning grep tests
 (F-TEST-03), `/ak-handoff` (F-GS-07), `/ak-merge-devshop` push-to-main path (D-03),
 manifest/symlink/lock/sync model (D-01/D-02). Under D-14 B, most move to M1.
 
-Outcome: —
+Outcome: **obsolete 2026-10-09 (D-14):** v1 is not deleted piece by piece; it is retired as a whole once the pilot has moved to the new devshop. The candidates listed above are inputs to the lessons harvest (what _not_ to rebuild).

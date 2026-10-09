@@ -11,6 +11,11 @@ re-verified (verify before acting) · **?** = plausible, unconfirmed.
 REVIEW-1 (2026-10-08) re-checked every V row and most R rows; confidence and
 wording below reflect that pass ([REVIEW-1.md](REVIEW-1.md)).
 
+> **After D-14 (2026-10-09):** most `→ Task` targets below are v1 tasks now marked `[-]`
+> (superseded by the rewrite). Their findings are not dropped: the lessons harvest
+> **W10.3.3** dispositions every row as a v2 requirement (with its pillar), not applicable
+> to v2, or won't fix — v1 retired. Live exposure is handled now by W0.5–W0.7.
+
 Paths are relative to the repo root. Line numbers are as of commit `e0f082a` (v1.38.0).
 
 New findings discovered during the revamp are appended at the bottom under

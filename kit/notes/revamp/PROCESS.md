@@ -114,6 +114,8 @@ what moved, surprises, next.
 
 ### Plan review session (next)
 
+_Held 2026-10-09 (LOG #5), run top-down through [TARGET.md](TARGET.md) instead of decision by decision — prefer that shape next time._
+
 1. Read [README.md](README.md) → [REVIEW-1.md](REVIEW-1.md) → [PLAN.md](PLAN.md).
 2. Decide **D-14** (thin vs incremental — half-day comparison), **D-12**, **D-13**,
    **D-04**, **D-09**, **D-15**, **D-03**; state owner capacity + budget (W0.2.3).
@@ -134,10 +136,10 @@ what moved, surprises, next.
 
 ## 6. Ground rules during the revamp
 
-- **Strangle, don't big-bang**; under D-14 B, delete as soon as a replacement is proven.
-- **Live projects run `v1-frozen`** (W0.4) until migrated; `v1` takes security fixes only.
+- **Rewrite beside v1, don't patch it** (D-14): v1 is the reference; v2 is proven on a fixture, then on the pilot.
+- **v1 takes security fixes only** (`v1-final`, W0.4); lalista is paused until it pilots v2 (D-09).
 - **The revamp does not run through `/ak-build`** (it's being replaced); CLAUDE.md's
   revamp-mode section (W0.8) says so.
-- **CI is the only gate whose result the agent can't change**; until W3.1 lands, local
-  and cloud hook results may differ (F-CLOUD-06).
+- **CI is the only gate whose result the agent can't change**; PR CI stays plain (D-06).
+- **Pacing:** at most ~2 devshop PRs waiting on the owner at once.
 - **Measure** before and after (W0.2).
