@@ -41,7 +41,7 @@ is one guided step.
 ## L2 — pillars (draft)
 
 1. **Intent** — every change starts as a conversation in which Claude helps you shape the idea at the depth it deserves (gstack's thinking skills for apps and features), ending in a written spec you'd recognise as exactly what you meant; for bigger changes you glance at a one-screen summary and say "go" (agreed 2026-10-09).
-2. **Build** — one agent, guidelines matched to the task, relevant tests run where it works, resumable.
+2. **Build** — one agent builds the change, updating code, tests and docs together, following the devshop's guidelines for each discipline involved plus the project's own, and runs the new and affected tests where it works (cloud or Mac) as it goes (agreed 2026-10-09).
 3. **Verify** — adversarial review against intent + security checks; CI runs the full suite at review time (not as the inner loop).
 4. **Review** — PR with a plain title, hierarchical description (announcement line on top when applicable), visuals, preview; you approve.
 5. **Ship** — deploy after your approval, canary, observability/metrics, logs + plan updated; rollback is your call.
