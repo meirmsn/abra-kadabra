@@ -40,7 +40,7 @@ is one guided step.
 
 ## L2 — pillars (draft)
 
-1. **Intent** — idea → sharpened product, design and spec with gstack, faithful to what you agreed.
+1. **Intent** — every change starts as a conversation in which Claude helps you shape the idea at the depth it deserves (gstack's thinking skills for apps and features), ending in a written spec you'd recognise as exactly what you meant; for bigger changes you glance at a one-screen summary and say "go" (agreed 2026-10-09).
 2. **Build** — one agent, guidelines matched to the task, relevant tests run where it works, resumable.
 3. **Verify** — adversarial review against intent + security checks; CI runs the full suite at review time (not as the inner loop).
 4. **Review** — PR with a plain title, hierarchical description (announcement line on top when applicable), visuals, preview; you approve.
