@@ -11,7 +11,7 @@ page and whether the page itself is still right
 | ----- | ------------------------ | -------------------------------------- |
 | L0    | One sentence (ish)       | **agreed** 2026-10-08                  |
 | L1    | One paragraph            | **agreed** 2026-10-08                  |
-| L2    | One line per pillar      | draft — refined pillar by pillar next  |
+| L2    | One line per pillar      | **agreed** 2026-10-09                  |
 | L3    | A few bullets per pillar | not started — where decisions are made |
 | L4    | Milestones + tasks       | re-derived from L0–L3 (PLAN.md)        |
 
@@ -38,7 +38,7 @@ devices, or plain cloud limits). Outputs span web, mobile, desktop and backend.
 Projects stay clean of the devshop, each pins its own devshop version, and upgrading
 is one guided step.
 
-## L2 — pillars (draft)
+## L2 — pillars
 
 1. **Intent** — every change starts as a conversation in which Claude helps you shape the idea at the depth it deserves (gstack's thinking skills for apps and features), ending in a written spec you'd recognise as exactly what you meant; for bigger changes you glance at a one-screen summary and say "go" (agreed 2026-10-09).
 2. **Build** — one agent builds the change, updating code, tests and docs together, following the devshop's guidelines for each discipline involved plus the project's own, and runs the new and affected tests where it works (cloud or Mac) as it goes (agreed 2026-10-09).
@@ -54,7 +54,9 @@ is one guided step.
    - The Mac is dedicated to this work (no personal accounts/files) → Claude runs as a non-admin user with only the developer accounts it needs; a macOS VM only if that proves insufficient. Settles D-02 direction: cloud-first, local = the Mac (plus any existing devcontainer only until projects migrate).
 8. **Reach** — the devshop can build web apps (responsive, installable as PWAs), marketing sites, backends (Cloudflare, Supabase, AWS), and native, cross-platform and desktop apps (Apple, Android, React Native, Electron). Each stack is added when a real project needs it; each stack has one home in the devshop for its setup, guidelines and lessons learned, which grows with every project that uses it and is loaded only when a task touches that stack (agreed 2026-10-09).
    - Context (not target): lalista is active (Next.js + Supabase + Vercel) with iOS next (voice input) → iOS is the second stack and the Mac is near-term. home-os is frozen — lessons source only. Today's Supabase lessons are scattered over ≥6 guide files; per-stack homes fix that.
-9. **Shape** — projects free of the devshop; pinned versions with guided upgrades/migrations; new + adopted projects; gstack as the toolbox; small, grows only from proven lessons.
+9. **Shape** — the devshop is lean, not minimal: every part earns its place, each fact lives in one home, and reliability wins over line count. Projects carry almost none of it, so anyone can clone and contribute without it. Each project pins a devshop version, several versions can run side by side, and upgrading is one guided step including any migration. gstack is used as an upstream toolbox rather than rebuilt. The devshop grows only from lessons that proved themselves (agreed 2026-10-09; settles D-14 + D-12 direction).
+   - Size: one hard budget (always-loaded context stays tight); everything else is a warning signal, not a target.
+   - Built as a rewrite in a **new runtime repo** (fresh history, no notes/project details; private for now, public-safe by design), with frozen v1 as the reference and a lessons harvest (v1 guides, footguns, friction log, home-os) before writing; explicit go/no-go at the walking skeleton.
 
 ### Inputs parked for L3 (from the owner, 2026-10-08)
 
