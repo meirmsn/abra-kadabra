@@ -211,9 +211,13 @@ schema>`, 20 runs per case, 4 in parallel. Result: seeded 20/20 `fail ["AC-4"]`,
   `git ls-remote` with bogus basic auth still listed `main` — **the proxy replaces any
   Authorization header with the owner's credential**. The App token-mint path
   (`POST /app/installations/{id}/access_tokens`) is blocked by the proxy. So an App token
-  cannot be minted or used from inside a session. Last untested route: a static token set as
-  an environment **network secret** for GitHub hosts — tested with a throwaway read-only PAT
-  before creating any identity.
+  cannot be minted or used from inside a session. Docs (cloud-environments § network secrets / GitHub
+  proxy) rule out two more routes: network secrets are **never** attached to GitHub requests, and
+  the allowlist doesn't apply to GitHub traffic. The supported route is `/web-setup`: it sends a
+  `gh` token to the Claude account and **replaces** the GitHub connection for all cloud sessions
+  → run it with `gh` logged in as a **machine user** (Write collaborator, no `workflow` scope).
+  A GitHub App can't be used this way (no in-session minting, hourly expiry), so D-13 A narrows
+  to the machine user.
 - **A-06/A-07 rulesets + workflows (W10.1.3).** This repo has 0 rulesets and no branch rules
   on `main`. The proxy 403s admin paths (`hooks`, `collaborators`, `environments`,
   `actions/permissions`), so the agent cannot create or weaken rulesets via REST — the owner
