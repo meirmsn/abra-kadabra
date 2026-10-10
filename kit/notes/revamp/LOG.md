@@ -184,3 +184,35 @@ changelog; README; TARGET Shape note; W0.7 done-when (also flag identifiers); W1
 is paused, and it must happen only after `v1-final` is tagged (W0.4).
 
 **Next**: unchanged — M0 in order, starting with W0.5 (owner).
+
+---
+
+## #7 — 2026-10-10 · M0: protection verified, abra-kadabra history scanned, rotation deferred
+
+**W0.6 (owner)**: classic branch protection on `main` of abra-kadabra and lalista (require
+PR, no force-push/deletion, no admin bypass). Verified from fresh clones with an empty
+commit: `git push origin HEAD:main` and `git push -f` both rejected with
+`GH006: Protected branch update failed … Changes must be made through a pull request`
+(lalista also: `2 of 2 required status checks are expected`). abra-kadabra has no CI
+workflows yet → no required check until W3.1.2. Ruleset conversion (approvals, PR-only
+admin bypass, auto-merge on) waits for the agent identity → W0.6.6. home-os archive in
+progress (owner); reversible, so a later cleanup just unarchives.
+
+**W0.7 (abra-kadabra only)**: gitleaks 8.30.1 (release checksum verified), scratch config
+`[extend] useDefault = true`, `--log-opts=--all --redact`, full history (unshallowed).
+616 commits, 7 hits, all false positives:
+- `template/.devcontainer/compose.yml` ×2, `.claude/skills/devshop/new-project/SKILL.md` —
+  Supabase local-stack demo JWTs (payload issuer `supabase-demo`, checked by prefix match).
+- `template/.devcontainer/.env.example` — placeholder: JWT header + `...`.
+- `.claude/skills/gstack/` ×3 — upstream test fixtures + gstack's public telemetry anon key.
+No personal details or infra identifiers flagged beyond gstack's own project URL. lalista
+and home-os not reachable from cloud sessions (Claude GitHub App not installed) → pending.
+
+**W0.5 (owner decision)**: deferred to the end of the revamp — nothing was committed, the
+apps aren't in use, old dev envs are stale, Supabase project is frozen. Key insight:
+revoking needs no dev env (dashboard delete), so the end-of-revamp task is "revoke all,
+reissue as needed" (W0.5.3). Optional now: revoke the old GitHub PAT (W0.5.2) — it's
+account-wide and not tied to the paused apps.
+
+**Next**: owner sets up the agent's GitHub App (W10.1.1/W10.4.3) and installs the Claude
+GitHub App on lalista + home-os → finish W0.7.1 → W0.6.6 ruleset → W0.4 tag.
