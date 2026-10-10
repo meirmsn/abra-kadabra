@@ -163,3 +163,24 @@ Added: O-11, O-12, A-17, A-18, epic W6.8 (routing + advisor, A/B before relying 
 (codification-queue candidate). No new F-NEW findings.
 
 **Next**: M0 in order (W0.5 owner first); M1 spikes W10.1 can start in parallel.
+
+---
+
+## #6 — 2026-10-10 · D-14/D-12 revisited: rewrite in this repo
+
+**What**: owner asked why a new repo was needed. Its only unique benefit was a clean history
+for a possible public release; the other reasons (clean slate for sessions, v1 as reference)
+are met by tagging `v1-final` and letting the first v2 PR remove v1 from `main`. Owner's
+point accepted: the revamp retires the weaknesses the notes describe, and leaked secrets are
+neutralised by the history scan + rotation (W0.7 → W0.5) — rotated secrets in history are
+harmless. Residual item for any later public call: personal details / infrastructure
+identifiers in notes, flagged by the W0.7 scan for the owner.
+
+**Changes**: DECISIONS — Revisited lines on D-14, D-12, D-01, D-03, D-10, D-15; PLAN status +
+changelog; README; TARGET Shape note; W0.7 done-when (also flag identifiers); W10.4 is now
+"v2 bootstrap in this repo" (W10.4.1 = first v2 PR removes v1 from `main`).
+
+**Note**: removing v1 from `main` changes what `/devshop` sessions load; fine while lalista
+is paused, and it must happen only after `v1-final` is tagged (W0.4).
+
+**Next**: unchanged — M0 in order, starting with W0.5 (owner).

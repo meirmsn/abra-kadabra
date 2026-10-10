@@ -28,12 +28,12 @@ Done when: plan docs exist, adversarially reviewed, owner review session held, o
 
 Done when: listed decisions have outcomes in [DECISIONS.md](../DECISIONS.md) and PLAN M1+ is re-planned per D-14.
 
-- [x] **W0.3.1** D-14 thin rewrite in a new repo; go/no-go at the walking skeleton — 2026-10-09 · PR #36
-- [x] **W0.3.2** D-12 new runtime repo, private for now, public-safe by design — 2026-10-09 · PR #36
+- [x] **W0.3.1** D-14 thin rewrite (revisited 2026-10-10: in this repo); go/no-go at the walking skeleton — 2026-10-09 · PR #36
+- [x] **W0.3.2** D-12 private for now (revisited 2026-10-10: no new repo; public later only after scan + rotation) — 2026-10-09 · PR #36
 - [x] **W0.3.3** D-13 GitHub App for the agent (spike moved to W10.1.1) — 2026-10-09 · PR #36
 - [x] **W0.3.4** D-04 boundary = GitHub + credentials; read-only production observability — 2026-10-09 · PR #36
 - [x] **W0.3.5** D-09 no freeze needed; tag `v1-final`; lalista = pilot — 2026-10-09 · PR #36
-- [x] **W0.3.6** D-15 hybrid (markdown plan, Issues for tasks in the new repo) — 2026-10-09 · PR #36
+- [x] **W0.3.6** D-15 hybrid (markdown plan, Issues for tasks in this repo) — 2026-10-09 · PR #36
 - [x] **W0.3.7** D-03 PR → CI → owner merges — 2026-10-09 · PR #36
 - [x] **W0.3.8** Re-plan M1+ per D-14 — [W10-v2.md](W10-v2.md), PLAN changelog — 2026-10-09 · PR #36
 
@@ -66,10 +66,10 @@ Done when: on abra-kadabra and lalista, a direct push to `main` and a force-push
 ## W0.7 History secret scan with a working config — P0 · M0 · S
 
 Finding: F-SEC-20 (reproduced: v1's `.gitleaks.toml` detects nothing). v1 is retiring, so v1's own config is not repaired; the scan uses a scratch config with `[extend] useDefault = true`.
-Done when: full history of abra-kadabra, lalista and home-os scanned; findings (if any) rotated via W0.5; result in LOG.
+Done when: full history of abra-kadabra, lalista and home-os scanned; findings (if any) rotated via W0.5; result in LOG. Also flag (for the owner, not rotation) personal details and infrastructure identifiers (project refs, internal URLs) — input to a later public/private call (D-12).
 
 - [ ] **W0.7.1** Scan all three histories with gitleaks defaults (scratch config) — V3; feed any hit into W0.5
-- [-] **W0.7.2** Fix `.gitleaks.toml` in v1 + template — v1 retiring; the new repo starts with a working config (W10.4.2)
+- [-] **W0.7.2** Fix `.gitleaks.toml` in v1 + template — v1 retiring; v2 starts with a working config (W10.4.1)
 - [-] **W0.7.3** Cherry-pick to v1 / propagate — not needed
 
 ## W0.8 CLAUDE.md "revamp mode" note — P0 · M0 · S

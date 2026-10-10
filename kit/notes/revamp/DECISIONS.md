@@ -47,6 +47,8 @@ Status: `open` · `decided` · `revisited`. Order below = order to decide in.
 
 Outcome: **decided 2026-10-09 — thin rewrite.** Build a new, lean devshop in a **new runtime repo**, with frozen v1 (abra-kadabra) as the reference. A lessons harvest from v1 + home-os + FINDINGS comes first; an explicit **go/no-go** follows the walking skeleton (fallback: incremental path A). Agreed top-down via [TARGET.md](TARGET.md) L0–L2 (LOG #5). "Small" means no bloat, not minimum size: one hard budget (always-loaded context), other sizes are warning signals.
 
+**Revisited 2026-10-10:** the rewrite happens **in this repo**, not a new one — tag `v1-final`, the first v2 PR removes v1 from `main`, v1 stays readable from the tag. Reason: the new repo's only unique benefit was clean history for a possible public release; the revamp retires the weaknesses the notes describe, and the history scan + rotation (W0.7 → W0.5) neutralises leaked secrets (LOG #6).
+
 ## D-12 May the devshop be public? — `decided` (added by REVIEW-1)
 
 The devshop is private and has **no LICENSE** (verified). Any model that commits
@@ -61,6 +63,8 @@ devshop files into project repos publishes them if the project is public.
   claude.ai-level plugin/skills (D-01 C).
 
 Outcome: **decided (direction) 2026-10-09 — option B in a new form.** The new runtime repo has fresh history and no notes/project details: **private for now, public-safe by design**; flipping it public is decided after the distribution spike (A-09/A-10). abra-kadabra stays private as v1 + workshop. Concerns that ruled out publishing this repo: secrets in history (F-SEC-20), project/personal notes, a map of guardrail weaknesses, no license.
+
+**Revisited 2026-10-10:** no new repo. abra-kadabra stays private for now; it may go public later once W0.7's history scan is clean, every hit is rotated (W0.5), and the owner has read the notes for personal details / infrastructure identifiers. Flipping it public is still decided after the distribution spike (W10.1.2).
 
 ## D-13 Separate GitHub identity for the agent — `decided` (added by REVIEW-1)
 
@@ -122,6 +126,8 @@ Outcome: **decided 2026-10-09 — superseded by the rewrite.** lalista is paused
 
 Outcome: **decided 2026-10-09 — C, hybrid.** Target, decisions and plan stay markdown in the repo; tasks become GitHub Issues + milestones in the new devshop repo once it exists (phone-friendly, closed by PRs). Revamp tasks stay in `workstreams/` until then.
 
+**Revisited 2026-10-10:** Issues + milestones live in this repo (no new repo); they start with M1.
+
 ## D-03 How devshop changes land — `decided` (rationale corrected by REVIEW-1)
 
 - **A. Branch → PR → CI (bats) → owner merges** _(recommended)_ — gives the devshop CI
@@ -133,6 +139,8 @@ Outcome: **decided 2026-10-09 — C, hybrid.** Target, decisions and plan stay m
 Interim: revamp work goes through PRs on `claude/*` branches.
 
 Outcome: **decided 2026-10-09 — A, branch → PR → CI → owner merges**, for the new repo and any remaining v1 security fixes. `/ak-merge-devshop`'s push-to-main path is retired; CLAUDE.md's "no PRs on devshop" rule is replaced (W0.8). Pacing rule: at most ~2 devshop PRs waiting on the owner at once.
+
+**Revisited 2026-10-10:** applies to this repo for both v1 security fixes and v2 work.
 
 ## D-02 Fate of the local devcontainer — `decided`
 
@@ -169,6 +177,8 @@ How does a project get the devshop, and which version?
   B: **D** (or A for public runtime); if C: **C** for skills + template files in-project.
 
 Outcome: **open — direction set 2026-10-09:** the pinned devshop comes from the new runtime repo (D-12) with near-zero project footprint (TARGET L2 Shape). Mechanism (setup-script fetch, plugin, or user-scope install) decided after spike A-09/A-10 in M1.
+
+**Revisited 2026-10-10:** source = this repo's tagged v2 releases (no separate runtime repo).
 
 ## D-05 Plan tier assumptions — `open`
 
@@ -213,6 +223,8 @@ Recommendation: freeze `v1` (D-09); v1.x patches = security fixes only; v2.0.0 a
 distribution switch.
 
 Outcome: **open:** the new runtime repo gets its own versioning from its first release; v1 ends at `v1-final`.
+
+**Revisited 2026-10-10:** v2 is versioned in this repo from its first release (`v2.0.0`), after `v1-final`.
 
 ## D-11 Deletion list — `obsolete`
 

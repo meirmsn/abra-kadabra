@@ -32,8 +32,8 @@ weaken. The implementation has outgrown itself:
 > review the PR and its preview and steer until you approve. Claude works inside walls it
 > can't move — cloud by default, a scoped local Mac when the cloud can't do the job.
 
-**How we get there (D-14):** a lean rewrite in a **new runtime repo**, with frozen v1 as
-the reference and a lessons harvest first; a walking skeleton on a fixture project, then
+**How we get there (D-14):** a lean rewrite **in this repo** (v1 kept at the `v1-final` tag as
+the reference) and a lessons harvest first; a walking skeleton on a fixture project, then
 an explicit go/no-go; lalista is the pilot (web, then iOS).
 
 ## Milestones (status roll-up — criteria in [PLAN.md](PLAN.md))

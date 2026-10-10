@@ -56,7 +56,7 @@ is one guided step.
    - Context (not target): lalista is active (Next.js + Supabase + Vercel) with iOS next (voice input) → iOS is the second stack and the Mac is near-term. home-os is frozen — lessons source only. Today's Supabase lessons are scattered over ≥6 guide files; per-stack homes fix that.
 9. **Shape** — the devshop is lean, not minimal: every part earns its place, each fact lives in one home, and reliability wins over line count. Projects carry almost none of it, so anyone can clone and contribute without it. Each project pins a devshop version, several versions can run side by side, and upgrading is one guided step including any migration. gstack is used as an upstream toolbox rather than rebuilt. The devshop grows only from lessons that proved themselves (agreed 2026-10-09; settles D-14 + D-12 direction).
    - Size: one hard budget (always-loaded context stays tight); everything else is a warning signal, not a target.
-   - Built as a rewrite in a **new runtime repo** (fresh history, no notes/project details; private for now, public-safe by design), with frozen v1 as the reference and a lessons harvest (v1 guides, footguns, friction log, home-os) before writing; explicit go/no-go at the walking skeleton.
+   - Built as a rewrite **in this repo** (revisited 2026-10-10): tag `v1-final`, the first v2 PR removes v1 from `main`, v1 stays readable from the tag; a lessons harvest (v1 guides, footguns, friction log, home-os) comes first; explicit go/no-go at the walking skeleton. Private for now; may go public once the history scan is clean and hits are rotated.
 
 ### Inputs parked for L3 (from the owner, 2026-10-08)
 
