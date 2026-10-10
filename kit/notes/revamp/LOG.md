@@ -206,8 +206,14 @@ schema>`, 20 runs per case, 4 in parallel. Result: seeded 20/20 `fail ["AC-4"]`,
   response header `X-Oauth-Client-Id` = a GitHub App client id (the Claude app); branch
   protection read → "Resource not accessible by integration". PR #36: author + merger = owner;
   commits authored as the owner, committer `web-flow`. `read_documentation github.access`
-  offers no other identity. Remaining route (App / machine-user token as an environment
-  secret, used by git/gh in-session) needs the owner to create the identity.
+  offers no other identity. Follow-up probe with fake credentials: a bogus
+  `Authorization: token ghs_…` on `api.github.com` still returned the private repo (200), and
+  `git ls-remote` with bogus basic auth still listed `main` — **the proxy replaces any
+  Authorization header with the owner's credential**. The App token-mint path
+  (`POST /app/installations/{id}/access_tokens`) is blocked by the proxy. So an App token
+  cannot be minted or used from inside a session. Last untested route: a static token set as
+  an environment **network secret** for GitHub hosts — tested with a throwaway read-only PAT
+  before creating any identity.
 - **A-06/A-07 rulesets + workflows (W10.1.3).** This repo has 0 rulesets and no branch rules
   on `main`. The proxy 403s admin paths (`hooks`, `collaborators`, `environments`,
   `actions/permissions`), so the agent cannot create or weaken rulesets via REST — the owner
