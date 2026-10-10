@@ -184,3 +184,52 @@ changelog; README; TARGET Shape note; W0.7 done-when (also flag identifiers); W1
 is paused, and it must happen only after `v1-final` is tagged (W0.4).
 
 **Next**: unchanged — M0 in order, starting with W0.5 (owner).
+
+---
+
+## #7 — 2026-10-10 · M1 spikes W10.1 (cloud session)
+
+**What**: ran the four W10.1 spikes as far as one cloud session can. W10.1.4 is done;
+W10.1.1 and W10.1.3 are blocked on owner setup; W10.1.2 is partly done.
+
+**Evidence**
+
+- **A-04 reviewer stability (W10.1.4) — validated.** Fixed fixture: a 4-item `slugify()`
+  spec; "seeded" case skips AC-4 (no type check, no test), "honest" case meets all four.
+  Call: `claude -p … --setting-sources "" --tools "Read,Grep,Glob" --strict-mcp-config
+--no-session-persistence --model sonnet --output-format json --json-schema <verdict
+schema>`, 20 runs per case, 4 in parallel. Result: seeded 20/20 `fail ["AC-4"]`, honest
+  20/20 `pass []`, 0 schema or exit errors, ~$0.01 and ~8 s (max 10 s) per call. Easy case
+  only; hard-case precision/recall stays A-12.
+- **A-05 agent identity (W10.1.1) — native path falsified.** `GH_TOKEN` in the session is a
+  placeholder; the proxy injects the real credential. `gh api user` → the owner (`User`);
+  response header `X-Oauth-Client-Id` = a GitHub App client id (the Claude app); branch
+  protection read → "Resource not accessible by integration". PR #36: author + merger = owner;
+  commits authored as the owner, committer `web-flow`. `read_documentation github.access`
+  offers no other identity. Remaining route (App / machine-user token as an environment
+  secret, used by git/gh in-session) needs the owner to create the identity.
+- **A-06/A-07 rulesets + workflows (W10.1.3).** This repo has 0 rulesets and no branch rules
+  on `main`. The proxy 403s admin paths (`hooks`, `collaborators`, `environments`,
+  `actions/permissions`), so the agent cannot create or weaken rulesets via REST — the owner
+  must set them. A-07: a dispatch-only workflow file pushed to the session branch was
+  accepted (`97140dc`, removed in `a870fb7`) → F-NEW-16. That probe commit used
+  `--no-verify`; no hooks exist in cloud anyway → F-NEW-15.
+- **A-09/A-10 distribution (W10.1.2).** With an isolated `CLAUDE_CONFIG_DIR` (login still
+  works): a local marketplace whose plugin entry is pinned by `sha` to commit v1 installed
+  0.1.0 although the source HEAD was v2; a fresh `claude -p` used its skill ("VERSION-ONE")
+  and ran its SessionStart hook; `marketplace update` + `plugin update` kept 0.1.0; moving the
+  pin to v2 upgraded to 0.2.0. A project's committed `extraKnownMarketplaces` +
+  `enabledPlugins` did **not** install the plugin in headless runs (agrees with F-CLOUD-02).
+  A probe session without this repo attached (to re-check F-NEW-11) was refused by the
+  permission classifier — F-NEW-11 stands as recorded.
+
+**Surprises / discoveries**: F-NEW-15, F-NEW-16. A-05's native path being the owner is the
+expected-but-now-observed blocker for D-13 A: CODEOWNERS / required reviews mean nothing until
+a second identity works.
+
+**Next (owner)**: (1) create the agent GitHub App (or machine user) and store its token as a
+cloud environment secret → rerun W10.1.1; (2) add a no-bypass ruleset (PR required, no
+force-push, path rule on `.github/`) on the fixture or this repo → rerun W10.1.3 attacks;
+(3) try a setup script that clones a devshop tag with a read-only token secret and runs
+`claude plugin marketplace add` + `install` → closes W10.1.2. D-01 leans to **C/D hybrid**:
+sha-pinned plugin installed at user scope by the setup script.
