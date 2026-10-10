@@ -1,8 +1,0 @@
-# Spike W10.1.3 / A-07: inert probe — can the agent's credential push a workflow file? Removed in the next commit.
-name: spike-a07
-on: workflow_dispatch
-jobs:
-  noop:
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo noop
