@@ -49,26 +49,30 @@ Finding: F-VER-01 (no longer live: lalista paused, home-os frozen — D-09).
 
 Findings: F-SEC-02, F-SEC-03, F-SEC-15, F-NEW-07. Done when: every token that was in `.devcontainer/.env` or `/etc/devshop-env` on any machine is rotated and re-scoped; LOG records "rotated <date>" (never values).
 
-- [ ] **W0.5.1** `[owner]` List affected credentials (GitHub PATs, Vercel, Supabase access token, Sentry, Anthropic QA key, root password) per project
-- [ ] **W0.5.2** `[owner]` Rotate; narrow scopes (least privilege; no admin; no `workflow` scope for agent-used tokens)
+Deferred (owner, 2026-10-10): nothing was committed (W0.7), the apps aren't in use and the old dev envs are stale, so rotation moves to the end of the revamp. Revoking needs no dev env — it's a delete in each provider dashboard; replacements are issued only when something needs them.
+
+- [x] **W0.5.1** List affected credentials — from `template/.devcontainer/.env.example` + `init-devshop.sh`: `GITHUB_TOKEN`/`GH_TOKEN`/`DEVSHOP_GITHUB_TOKEN`, `VERCEL_TOKEN`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY` (+ anon key), `SENTRY_AUTH_TOKEN` (+ DSN), `ANTHROPIC_API_KEY_QA`, `DEVCONTAINER_ROOT_PASSWORD`, `NTFY_URL` topic — per project + devshop — 2026-10-10 · LOG #11
+- [ ] **W0.5.2** `[owner]` Optional now: revoke the old GitHub PAT(s) (account-wide, admin + `workflow`; not tied to the paused apps)
+- [ ] **W0.5.3** `[owner]` **Once the v2 devshop works (after W10.6.4):** revoke every credential in W0.5.1 on every machine; issue new ones only as needed, least privilege (no admin; no `workflow` scope for agent-used tokens); LOG records "revoked <date>" (never values)
 
 ## W0.6 No-bypass rulesets on the real repos — P0 · M0 · M
 
 Findings: F-SEC-07, F-SEC-08, F-CLOUD-03 (corrected), F-NEW-09, F-NEW-12.
 Done when: on abra-kadabra and lalista, a direct push to `main` and a force-push are rejected; home-os is archived (read-only). Verified by attempts recorded in LOG.
 
-- [ ] **W0.6.1** `[owner]` Ruleset on `main` (abra-kadabra, lalista): require PR, block force-push/deletion, **bypass list empty (incl. admins)**; disable repo auto-merge
-- [ ] **W0.6.2** `[owner]` lalista: move secrets used by CI on `pull_request` (e.g. `SENTRY_AUTH_TOKEN`) out of repo scope into a `main`-only environment
+- [x] **W0.6.1** `[owner]` Protection on `main` (abra-kadabra, lalista): require PR, block force-push/deletion, no bypass (incl. admins) — classic branch protection for now; lalista also requires 2 status checks; abra-kadabra has no CI yet (required check comes with W3.1.2) — 2026-10-10 · LOG #11
+- [ ] **W0.6.2** `[owner]` **Before lalista resumes** (deferred 2026-10-10; lalista paused): move secrets used by CI on `pull_request` (e.g. `SENTRY_AUTH_TOKEN`) out of repo scope into a `main`-only environment
 - [ ] **W0.6.3** `[owner]` Archive home-os on GitHub (read-only)
 - [-] **W0.6.4** Agent identity + CODEOWNERS — moved to W10.1.1 / W10.4.3
-- [ ] **W0.6.5** Verification attempts (direct push, force-push) — V3 against GitHub, results in LOG
+- [x] **W0.6.5** Verification attempts (direct push, force-push) — V3 against GitHub: both rejected (`GH006 … Changes must be made through a pull request`) on both repos — 2026-10-10 · LOG #11
+- [ ] **W0.6.6** `[owner]` After the agent has its own identity (done: `meirmsn-agent`, W10.1.1): convert to a ruleset; decide together with W10.1.3 / A-20 (ruleset B, owner-only merge) — require 1 approval, dismiss stale approvals on new commits, require approval of the most recent push; bypass = Repository admin **for pull requests only** (owner can merge own PRs; nobody pushes to `main`); repo auto-merge **on** (the agent can enable it, but nothing merges without the owner's approval) — V3: agent PR with auto-merge waits for approval; agent push after approval dismisses it
 
 ## W0.7 History secret scan with a working config — P0 · M0 · S
 
 Finding: F-SEC-20 (reproduced: v1's `.gitleaks.toml` detects nothing). v1 is retiring, so v1's own config is not repaired; the scan uses a scratch config with `[extend] useDefault = true`.
 Done when: full history of abra-kadabra, lalista and home-os scanned; findings (if any) rotated via W0.5; result in LOG. Also flag (for the owner, not rotation) personal details and infrastructure identifiers (project refs, internal URLs) — input to a later public/private call (D-12).
 
-- [ ] **W0.7.1** Scan all three histories with gitleaks defaults (scratch config) — V3; feed any hit into W0.5
+- [~] **W0.7.1** Scan all three histories with gitleaks defaults (scratch config) — V3; feed any hit into W0.5. abra-kadabra done: 616 commits, 7 hits, all false positives (LOG #11). lalista + home-os pending: Claude GitHub App not installed on them
 - [-] **W0.7.2** Fix `.gitleaks.toml` in v1 + template — v1 retiring; v2 starts with a working config (W10.4.1)
 - [-] **W0.7.3** Cherry-pick to v1 / propagate — not needed
 
