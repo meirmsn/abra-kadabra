@@ -18,7 +18,7 @@ Status: `open` · `decided` · `revisited`. Order below = order to decide in.
 | D-03 | How devshop changes land                                | M0 (W0.8)                          | decided  |
 | D-02 | Fate of the local devcontainer                          | W1 scope, W4.4                     | decided  |
 | D-01 | Distribution model                                      | M1 (W10.4.4) — after spike W10.1.2 | open     |
-| D-05 | Plan tier assumptions (Pro/Max vs Team/Enterprise)      | spikes W10.1                       | open     |
+| D-05 | Plan tier assumptions (Pro/Max vs Team/Enterprise)      | spikes W10.1                       | decided  |
 | D-06 | Orchestration technology                                | M3 (W6.4)                          | decided  |
 | D-07 | gstack install model and target version                 | M2 (with D-01)                     | open     |
 | D-08 | Stack abstraction scope (recipes)                       | M4 (W5)                            | decided  |
@@ -180,7 +180,7 @@ Outcome: **open — direction set 2026-10-09:** the pinned devshop comes from th
 
 **Revisited 2026-10-10:** source = this repo's tagged v2 releases (no separate runtime repo).
 
-## D-05 Plan tier assumptions — `open`
+## D-05 Plan tier assumptions — `decided`
 
 Network secrets exist on Pro/Max (not Team/Enterprise yet); server-managed settings
 exist on Team/Enterprise only and are "a client-side control, not a security
@@ -188,6 +188,15 @@ boundary"; Projects (plugins via Project settings) are Pro/Max beta; Workflows o
 paid plans (Pro needs a `/config` toggle). Recommendation: design for Pro/Max.
 
 Outcome: **open — unchanged:** design for Pro/Max; revisit if a plan-tier limit blocks a spike.
+
+Outcome: **decided 2026-10-11 — Claude Pro/Max + GitHub Pro** (owner stated). In scope: Projects,
+Routines, Auto-fix, network secrets, `/web-setup`; GitHub rulesets, CODEOWNERS, auto-merge,
+environments with branch policies on private repos. Out of scope: Claude Code Review (managed),
+self-hosted environments, server-managed settings (Team/Ent); push rulesets, merge queue,
+environment required reviewers on private repos (GitHub org/Enterprise). Consequences in
+[PLATFORM.md § 5](PLATFORM.md): identity = machine user; deploy gate = "only the owner updates
+`main`"; devshop reaches cloud sessions via repo files, claude.ai-enabled skills, or a VM install
+at session start — no server-managed route.
 
 ## D-06 Orchestration technology — `decided` (recommendation changed by REVIEW-1)
 

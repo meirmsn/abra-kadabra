@@ -163,11 +163,12 @@ Routines/Auto-fix cover.
 
 ## 5. Decisions and checks this surfaces
 
-**Owner facts needed (cheap, decisive):**
-
-- **GitHub plan** — Free or Pro? Free means no enforceable merge controls on private repos.
-- **Claude plan** — Pro/Max (Projects, network secrets) vs Team/Ent (Code Review,
-  self-hosted, server-managed settings). The feature sets don't overlap.
+**Plan tiers — answered 2026-10-11 (D-05):** GitHub **Pro**, Claude **Pro/Max**. So:
+rulesets + CODEOWNERS + `main`-only environment secrets are available (the recipe in § 3
+Safety applies as written); Projects, Routines, Auto-fix, network secrets are available;
+Code Review (managed), self-hosted runners and server-managed settings are **not** — the
+identity is the machine user, the independent reviewer is ours (plus optional
+`ultrareview`), and the devshop must reach cloud sessions without server-managed settings.
 
 **New assumptions to test (ASSUMPTIONS A-19…A-23):** Pro rulesets as specified block the
 machine user's merge and auto-merge; Auto-fix / PR subscriptions / Projects / Routines work

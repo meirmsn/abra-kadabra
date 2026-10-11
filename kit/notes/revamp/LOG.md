@@ -266,3 +266,6 @@ TARGET Shape "platform-first" line, Verify wording, D-01/D-13 directions.
 
 **Next (owner)**: state GitHub plan and Claude plan; agree or amend the proposed changes;
 then machine-user setup (W10.1.1) continues.
+
+**Update 2026-10-11**: owner stated GitHub **Pro** and Claude **Pro/Max** → D-05 decided, A-19
+validated, PLATFORM § 5 updated.
