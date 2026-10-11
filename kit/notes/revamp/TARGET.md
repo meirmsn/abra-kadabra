@@ -7,13 +7,13 @@ where they belong (mostly L3). Every milestone review checks progress against th
 page and whether the page itself is still right
 ([PROCESS.md § 5](PROCESS.md#milestone-review-each-m-exit--the-whole-picture-check)).
 
-| Level | Form                     | Status                                                 |
-| ----- | ------------------------ | ------------------------------------------------------ |
-| L0    | One sentence (ish)       | **agreed** 2026-10-08                                  |
-| L1    | One paragraph            | **agreed** 2026-10-08                                  |
-| L2    | One line per pillar      | **agreed** 2026-10-09                                  |
-| L3    | A few bullets per pillar | in progress — Intent, Verify, Review agreed 2026-10-11 |
-| L4    | Milestones + tasks       | re-derived from L0–L3 (PLAN.md)                        |
+| Level | Form                     | Status                                                         |
+| ----- | ------------------------ | -------------------------------------------------------------- |
+| L0    | One sentence (ish)       | **agreed** 2026-10-08                                          |
+| L1    | One paragraph            | **agreed** 2026-10-08                                          |
+| L2    | One line per pillar      | **agreed** 2026-10-09                                          |
+| L3    | A few bullets per pillar | in progress — Intent, Verify, Review, Safety agreed 2026-10-11 |
+| L4    | Milestones + tasks       | re-derived from L0–L3 (PLAN.md)                                |
 
 ## L0 — where we're going
 
@@ -64,7 +64,7 @@ is one guided step.
 - **Build:** one agent pulls the relevant guidelines (frontend, backend, data, UI, UX, security…) + project guidelines; no persona-per-agent requirement. Run the tests relevant to the change in the session (cloud or Mac) rather than waiting on CI; CI is for the full suite once ready for review (today the template runs CI on every PR push).
 - ~~**Verify:**~~ folded into [L3 Verify](#verify) (2026-10-11).
 - ~~**Review:**~~ folded into [L3 Review](#review) (2026-10-11).
-- **Safety:** prevent a rogue or prompt-injected agent from taking over; keep Claude away from sensitive data/code and from the owner's machines except scoped, walled-off environments (e.g. Supabase in its own container; a separate Mac for Apple work). "No vulnerabilities" is pursued by layered checks, not promised.
+- ~~**Safety:**~~ folded into [L3 Safety](#safety) (2026-10-11).
 - **Reach:** Apple builds can also use GitHub-hosted macOS runners in CI; the Mac is for interactive work.
 - **Shape:** an outside collaborator can clone and contribute without the devshop; several projects on different devshop versions at once; moving to the latest version may involve a project migration.
 
@@ -122,6 +122,22 @@ _Agreed 2026-10-11 (LOG #19)._
 6. **Claude tells the owner in chat when a PR is ready** — link + one-line summary; the top of the PR stays short enough to judge on a phone.
 7. **Steering:** the owner comments on the PR or in chat (chat input is recorded on the PR); Claude revises through the same verify loop and answers each comment; a comment that changes the spec follows Intent bullet 7.
 8. **Approval ships by default:** once the owner approves and CI is green, Claude merges and deploy follows (Ship). Not when the approval message or the chat says to wait, or when Claude has a concrete reason to hold (then it says so and asks). Any push after approval needs approval again.
+
+### Safety
+
+_Agreed 2026-10-11 (LOG #19)._
+
+1. **Walls sit outside Claude's reach** (L-36): GitHub protection on `main` (PR only, owner approval, no force-push/delete, no bypass), plain CI as a required check, credential scopes, deploys only from `main`. Everything in the session (hooks, the reviewer) is feedback and never documented as a boundary; an air-gapped reviewer is planned [after the revamp](PLAN.md#after-the-revamp).
+2. **Identity:** Claude acts as `meirmsn-agent` — Write collaborator, not admin, can't approve its own PRs (D-13 trial until 2026-10-25).
+3. **Guardrail files are called out:** changes to `.github/`, `.claude/`, `.devshop-version` and migrations are listed under "what you should know" in the PR, and CODEOWNERS marks them (L-37).
+4. **No production secrets in Claude's reach** (L-38, L-39): no repo-level secrets; deploy secrets in a `production` environment only `main` can use; CI and local runs talk only to local/sandbox backends; test clients refuse non-local hosts (allowlist); pointing anything at production is an explicit, visible opt-in. The session holds only GitHub-as-the-agent (via the proxy), the read-only devshop token (D-01), sandbox keys and the read-only observability tokens below.
+5. **Secret scanning is a required CI check,** its config tested against planted fake secrets, covering PR refs (L-40).
+6. **Production observability is read-only** (errors, logs, analytics) via standing tokens in the cloud environment — each set up with **least privilege**: read-only, scoped to one project, no user data, expiry where the service supports it.
+7. **Production data only by the owner's explicit grant:** a short-lived read-only credential that the service expires on its own, never a standing one. Principle now; mechanism built at M4. Checked for red flags (none blocking): Postgres `VALID UNTIL` stops new logins but doesn't drop open connections (pair it with a session timeout); a credential pasted into chat stays in the transcript (short expiry makes it moot); Cloudflare API tokens support expiry and narrow scopes — confirm D1 read-only scope when that stack home is built.
+8. **Never touch work Claude didn't author** — no resetting, stashing or overwriting the owner's WIP (L-41).
+9. **Everything read from outside is data, not instructions** (web pages, issues, PR comments, tool output); the walls bound what an injected instruction could do.
+10. **The walls are tested:** the north-star scenario includes attempts GitHub must reject (direct push to `main`, force push, merge without approval, a workflow edit that tries to read a deploy secret).
+11. **Prefer the platform's own controls.** When a service we integrate offers a safety control (token scopes and expiry, branch-limited secrets, preview/promote/rollback, deployment protection), v2 uses it rather than building one, and each stack home records which ones are on and how they're configured. On today's GitHub plan with private repos, GitHub can't hold a deploy for approval, so the owner's PR approval + "only `main` deploys" is the deploy gate (approval ships). Vercel and Cloudflare both offer a manual promote-to-production step if a second click is ever wanted. Cloudflare is the likely default platform for new projects, so its stack home models these controls first.
 
 ## North-star scenario (re-run at every milestone review)
 
