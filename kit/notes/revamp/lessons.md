@@ -1,6 +1,7 @@
 # Lessons from v1
 
-What earned its place in v1 and carries into v2 (W10.3.1). Each lesson is written as a
+What earned its place in v1 and carries into v2: the devshop and its trackers (W10.3.1), then the
+frozen home-os project's own repo and PRs (W10.3.2). Each lesson is written as a
 **v2 requirement**, followed by the incident or recurrence that earned it, its source in v1,
 its [TARGET](TARGET.md) pillar, and whether it holds for any stack or only one.
 
@@ -16,8 +17,12 @@ its [TARGET](TARGET.md) pillar, and whether it holds for any stack or only one.
   home-os); devshop commits are short SHAs. Git history in the cloud clone is shallow, so most
   citations point at the incident notes v1 wrote down, not the original commits.
 - **FINDINGS** ids are cited where a lesson matches a row, to speed up W10.3.3.
-- **Out of scope:** home-os's own repo (W10.3.2). The mild single-incident project rules below are
-  marked ↻ "re-check in W10.3.2". If home-os shows a second bite, they move up.
+- **home-os (W10.3.2).** Its repo was read at its frozen `main` (`BUILD-LOG.md`, `CLAUDE.md` §
+  Gotchas, `KNOWN-ISSUES.md`, `TODOS.md`, migration headers, CI comments, `specs/*/spec.md` +
+  `review.md` + `gates/`, `.gstack/`), plus the body and comments of all 32 non-dependabot PRs.
+  "home-os PR n" and "`specs/<feature>/…`" refer to that repo. Its evidence was added to existing
+  lessons where it fit (marked **home-os:** in the Why), and L-73–L-82 are new. The ↻ rows were
+  re-checked: one moved up (L-73), three stay not carried with the reason updated.
 - **This file follows L-01.** Incidents are described by project name and shape, never by URL,
   project ref, team slug, org id, handle or email.
 
@@ -107,6 +112,51 @@ Postgres enum extension, `kit/docs/guide/tailwind.md`, `docs-review/SKILL.md` §
 
 Pillar **Intent** · Scope **any**
 
+### L-73 · Conditional UI is specified as a state table, and verification walks every row
+
+**Rule.** When a v2 UI change shows, hides or swaps elements by state, the spec lists the states and
+what each one renders as a table, not as prose. Verification exercises each row, including state
+transitions (an element that must survive a move from one state to the next).
+
+**Why.** It recurred across both projects:
+
+- lalista PR 5: two render-condition bugs in one PR (the source of v1's shown/hidden table rule).
+- home-os decide-state: the planned view dropped the "How we diagnosed this" disclosure that the
+  spec's prose required to carry forward from the decide view (`specs/decide-state/review.md` Gate
+  9, ISSUE-002).
+- home-os usage-counters-and-byok: after a valid key, "Remove key" should have replaced the validate
+  button, but the validate button always showed (`specs/usage-counters-and-byok/review.md`,
+  design-conformance).
+
+All three were caught by live QA or conformance review, never by unit tests, and each requirement
+lived in prose only. Moved up from ↻ in W10.3.2.
+
+Sources: `spec/SKILL.md` § Render conditions, the home-os review files above.
+
+Pillar **Intent** (checked at Verify) · Scope **any with a UI**
+
+### L-76 · Spec text and docs that prescribe code are checked against the code
+
+**Rule.** When a v2 spec or doc gives literal code to copy (SQL grants, function attributes, config
+values, token names), the reviewer checks it against the codebase's actual conventions before
+building from it. A wrong example is a bug that the builder will copy faithfully.
+
+**Why.** It recurred in home-os:
+
+- `CLAUDE.md` prescribed `search_path = public, pg_temp` while every migration used `pg_catalog`.
+  The close-flow review flagged it as "pre-existing", and the next feature (monitor-beta) generated
+  its RPC with the wrong value (`specs/monitor-beta/review.md`).
+- The monitor-beta spec wrote `grant all on check_ins to anon`, which the implementation copied. It
+  was caught as a medium finding by review and the security gate. The planned-state spec also
+  misdescribed which roles migration 008 granted to.
+- Two specs (contractor-question-retrieval, photo-comparison-ui) named design tokens that don't
+  exist (see L-78).
+
+Sources: home-os `specs/monitor-beta/review.md` Gate 6, `specs/close-flow/review.md` Gate 1,
+`specs/contractor-question-retrieval/tasks.md`.
+
+Pillar **Intent** · Scope **any** · Related: L-23 (docs swept when names change)
+
 ---
 
 ## Build
@@ -122,6 +172,19 @@ hasn't been confirmed.
 The owner asked "bandaid or root cause?", and the fix that came out of that question made the
 whole bug class impossible. The init-firewall hang fix went onto the plan twice and was demoted
 twice because it aimed at the wrong layer.
+
+**home-os:** the same failure, three times:
+
+- PR 22: production showed a 404 after every capture. The agent shipped a fix for a guessed
+  layout-vs-page auth race. The Sentry capture it added in the same PR showed the real cause within
+  hours: a missing table grant (PR 23). The guessed race was then kept as a documented "gotcha".
+- PR 28: about 3 CI cycles went to a PostgREST schema-cache hypothesis before it was shown that the
+  column had been dropped (L-59). The 183-line cache-reload workaround stayed in the E2E setup.
+- Nine RPCs ran as `SECURITY DEFINER` only to get around the same missing grants. The workaround
+  kept writes working and hid the bug from every write path (migration 016's header).
+
+When the cause is unknown, the first change is the diagnostic. When a hypothesis is disproved, its
+workaround and its doc go too.
 
 Sources: `kit/docs/guide/conventions.md` § Root-cause over bandaid, `CLAUDE.md` § Implementation
 Approach, `kit/FRICTION-LOG.md` § `init-firewall.sh` re-run mid-session hangs.
@@ -214,21 +277,66 @@ Sources: `kit/docs/guide/wrapper-boundaries.md` § Worked example: subscribeToLi
 
 Pillar **Build** · Scope **any** (instance: Supabase Realtime)
 
-### L-66 · Auth error paths report to error monitoring before they redirect
+### L-66 · Server error paths report to error monitoring before they redirect, 404 or fall back
 
-**Rule.** v2's server-side auth handlers (OAuth, PKCE, magic-link callbacks, sign-in actions)
-capture the error to error monitoring, with a route and stage tag, before redirecting the user with
-a coarse reason. The reviewer flags an auth call whose error branch only redirects.
+**Rule.** v2's server-side handlers capture an error to error monitoring, with a route and stage
+tag, before they redirect with a coarse reason, render "not found" or show an empty state. That
+covers auth callbacks (OAuth, PKCE, magic link, sign-in actions) and data reads. A query error is
+never folded into the "no row" branch. The reviewer flags an error branch that only redirects,
+404s or falls back.
 
 **Why.** Nasty single incident: home-os PR 19 (2026-05-15). The first production invitee's sign-in
 failed (a Safari Private Browsing PKCE failure). The callback redirected with
 `error=callback_failed` and recorded nothing, so the failure left zero telemetry and took about an
 hour to diagnose. The framework's documented pattern only redirects.
 
-Source: `kit/TODOS.md` ("Convention: any server-side auth-callback handler must
-`Sentry.captureException` on error").
+**home-os:** a second production bite, so the rule widens from auth to every server error path.
+In PR 22 the card page put the query-error branch and the empty-row branch into one `notFound()`.
+A production `42501` (permission denied) showed as a 404 after every capture until diagnostics were
+added. Later reviews found the same shape twice more (a badge and the dashboard each turned a query
+error into a calm empty state, `specs/dashboard/review.md` Gate 6).
 
-Pillar **Build** · Scope **any** (instance: Next.js + Supabase)
+Sources: `kit/TODOS.md` ("Convention: any server-side auth-callback handler must
+`Sentry.captureException` on error"), home-os `KNOWN-ISSUES.md`, `TODOS.md` §
+auth-callback-observability, migration 008's header.
+
+Pillar **Build** · Scope **any** (instance: Next.js + Supabase) · Related: L-60
+
+### L-74 · Every limit the client enforces is enforced on the server too
+
+**Rule.** v2's builder enforces each bound, length cap and allowed value in the API handler (or the
+database), not only in the client control. The reviewer checks every new input path by calling it
+directly.
+
+**Why.** It happened twice in home-os, both times before production, caught by QA or review:
+
+- decide-state: the cadence picker clamped to 7–365 days, but the API accepted 3 and 500 when called
+  directly (`specs/decide-state/review.md` Gate 9, ISSUE-001).
+- usage-counters-and-byok: the 200-character API-key cap was enforced on the validation route but
+  not on the two routes that actually use the key. Review flagged it twice and it was accepted as
+  low risk (`specs/usage-counters-and-byok/review.md` F1, F3).
+
+Pillar **Build** · Scope **any**
+
+### L-75 · One rule, one implementation
+
+**Rule.** When two code paths must apply the same rule (a reset on a shared row, a token mapping, a
+date derivation, a threshold), v2 implements it once and calls it from both. If it really must be
+duplicated, as in SQL across functions, a test pins both copies to the same behaviour.
+
+**Why.**
+
+- home-os usage-counters-and-byok: two RPCs shared one counter row, and each reset only its own
+  counter at week rollover. Whichever ran first in a new week left the other's stale count in
+  place, which would have locked free users out. Review rated it HIGH, and the fix had to land
+  twice, once per function (migration `claim_card_slot_reset_both_counters`).
+- home-os decide-state: the severity-to-token mapping drifted between components onto tokens that
+  don't exist. It was extracted into one helper with a drift test.
+- home-os `CLAUDE.md` § Gotchas carries three "this logic lives in TWO places, update both" warnings
+  (reminder-due derivation, the ≥2-photo gate, the estimate validators). Each one is a standing
+  cost on every future edit. L-07 is the validator case.
+
+Pillar **Build** · Scope **any**
 
 ---
 
@@ -257,6 +365,13 @@ could-not-run.
 - `sudo cat … 2>/dev/null` read a populated file as empty.
 - The slow-job check read a 403 as "job missing".
 - `/ak-spec`'s glob never matched in any version, hidden by `2>/dev/null`.
+- **home-os:** the database-advisor gate couldn't reach the local database and reported "pass
+  (infra-blocked — manual review clean)" or "pass (n/a)" PR after PR. Meanwhile 41 advisor warnings
+  piled up from the first migration on (20 policies with bare `auth.uid()`, 20 exposed
+  `SECURITY DEFINER` grants), found only when the upstream advisor ran (PR 40, L-82). The one run that did
+  connect reported the per-row lint as clean (a false negative, L-11).
+  `specs/usage-counters-and-byok/review.md` § Gate 2g, `specs/dashboard/review.md` § Gate 2g,
+  `specs/close-flow/review.md` § Gate 2g.
 
 Sources: `build/SKILL.md` § Phase 3 → Phase 4 handoff, `pre-ship/SKILL.md` § n/a is not legal
 for LLM-mediated gates, `kit/docs/guide/conventions.md` § Local environment health check,
@@ -295,6 +410,9 @@ explicit shell. Rare paths get the same test, or are removed.
   exposed.
 - Several hooks failed open on a missing `jq` or `dcg` or on a timeout.
 - The advisor bypass failed open on a missing `-x`.
+- **home-os PR 8:** a template `sed` overwrote the sentinel in the test-env production-URL guard,
+  which silently disabled it. home-os's custom database-advisor lint for per-row `auth.uid()` reported
+  "ok" over 20 offending policies (L-82); no test ever fed it a bad policy.
 
 Sources: `kit/docs/CHANGELOG.md`, `BUILD-LOG.md` § bats-drift-guards, `kit/docs/guide/hooks.md`
 § 3. Husky pre-push.
@@ -404,6 +522,10 @@ conditional skip to run in at least one CI job.
 - A sign-up no-enumeration change switched UI paths while the tests still pinned the old
   behaviour.
 - lalista PR 27's audit found a skip pointing at a tracker section that had moved.
+- **home-os PRs 9, 10, 15:** the E2E specs skip themselves unless a local stack is up, and the CI
+  job that would start one was commented out. The RLS-isolation and auth E2E ran nowhere for three
+  PRs while their review files called them "pending" (`specs/auth-magic-link/review.md`,
+  `specs/capture-flow/review.md`).
 
 Sources: `build/SKILL.md` § Phase 5.8, `tests-review/SKILL.md` § Skipped tests audit.
 
@@ -515,7 +637,9 @@ Pillar **Verify** · Scope **any** · FINDINGS F-DOC-02, F-DOC-03, F-DOC-04
 
 **Rule.** v2 treats the local stack as a different environment from production. A change whose
 behaviour depends on roles, grants, server settings or engine version gets written to be
-environment-independent, plus a read-only check after deploy (Ship).
+environment-independent, plus a read-only check after deploy (Ship). Production's schema is
+reproducible from the repo: a check after deploy diffs it against the migrations, and a fix applied
+to production by hand lands as a migration in the same PR.
 
 **Why.** home-os had three separate bugs that were green locally and on preview, then failed in production:
 
@@ -523,10 +647,16 @@ environment-independent, plus a read-only check after deploy (Ship).
 - an ambiguous plpgsql OUT parameter that made "every 'Read this for me' click" return 500;
 - `ALTER TYPE ADD VALUE` failing silently while the type-drift gate passed.
 
+**home-os PRs 22–24, 40–41:** the first two reached the owner on consecutive clicks. Both were
+hot-fixed by pasting SQL into the production SQL editor before their migrations merged. Later, the
+production advisor found an event-trigger function (`rls_auto_enable`) that existed only in
+production, from project setup, and in no migration. Local and CI had never had it.
+
 The Supabase recipes are L-58.
 
-Source: `kit/docs/guide/migrations.md` § Supabase Cloud GRANT posture, § plpgsql OUT-parameter
-column collisions, § Postgres enum extension.
+Sources: `kit/docs/guide/migrations.md` § Supabase Cloud GRANT posture, § plpgsql OUT-parameter
+column collisions, § Postgres enum extension. home-os `BUILD-LOG.md` § rls-auto-enable-drift,
+migration 008 and 009 headers.
 
 Pillar **Verify** · Scope **any** (instances: Supabase)
 
@@ -580,6 +710,21 @@ Source: `kit/docs/guide/conventions.md` § Slow-Job Lifecycle.
 
 Pillar **Verify** · Scope **any** · FINDINGS F-NEW-16
 
+### L-77 · Test data comes from the schema, never from hand-typed literals
+
+**Rule.** v2 E2E seeds and fixtures take enum values, allowed tags and other constrained values from
+the generated types or the schema, so a value the database would reject fails at type-check time.
+Fixture files (images, payloads) are real, valid samples of what production sees.
+
+**Why.** It happened 3 times in home-os:
+
+- PR 15: an E2E seed used an enum value that doesn't exist, and every E2E case failed.
+- PR 43: the same thing, with a different invented value.
+- PR 43: a 4-byte stub JPEG couldn't be decoded, so the image fell into its error path and broke a
+  precondition of the test.
+
+Pillar **Verify** · Scope **any** (instance: Postgres enums)
+
 ---
 
 ## Review
@@ -620,6 +765,10 @@ not a per-push gate that asks for the same justification on every push.
   landed, the body went stale, and the owner asked "isn't the PR description stale?".
 - Claude was seen pushing commits without updating the title or body.
 - The per-push gate cost home-os PR 9 two identical bypass reasons.
+- **home-os:** 4 more PRs. PR 15's body still described the slow CI job as failing after later
+  commits fixed it. PR 19's ready comment asked for a manual migration push that the body said was
+  automatic. PR 37's comment said hero shots were skipped while the body showed them. PR 28 bypassed
+  the staleness hook.
 
 Sources: `build/SKILL.md` § 5.3.5, § Phase 5.9, `kit/ROADMAP.md` § PR-description staleness check.
 
@@ -832,6 +981,9 @@ explicit, visible opt-in.
   production project.
 - An earlier lalista QA walk wrote a household to the hosted project and cleaned up only the user.
 - Hosted sign-ups are rate-limited (~30 min cooldown), which blocked QA.
+- **home-os capture-flow audit:** the generated local env file targeted the production database,
+  analytics and error monitoring. QA hit production's sign-in rate limit and left test users in
+  production auth (`specs/capture-flow/review.md` § Audit 2).
 
 Sources: `new-project/SKILL.md` § Step 13b, `kit/notes/roadmap/qa-options.md`, `pre-ship/SKILL.md` §
 Tooling checks.
@@ -944,7 +1096,8 @@ deliberately, on a schedule, with a smoke check of the behaviours known to chang
   stopped auto-including tables; Inbucket→Mailpit kept the env name but changed the API (timeouts
   in both projects); a bare `/verify` path returned 404; generated types disagreed with the
   database.
-- Node and pnpm drift across container, template and CI.
+- Node and pnpm drift across container, template and CI. home-os PR 8: CI installed pnpm
+  `version: latest`, which needed Node 22 while CI ran Node 20, and went red.
 - Vendored gstack sat ~110 releases behind while a fixed upstream bug caused a destructive rebuild.
 
 Sources: `kit/docs/guide/supabase-ssr-boilerplate.md` § Pattern 4, § Pattern 9, `kit/TODOS.md` (base
@@ -1023,6 +1176,8 @@ must act (automatic, manual, conditional), and the upgrade shows only the steps 
 - rsync skipped same-size changes.
 - Propagation logs became walls of no-op entries.
 - An untagged block silently dropped a real migration step.
+- home-os: its CI file had drifted from the template, so every push ran CI twice (PR 25), and one
+  template sync brought in 3 regressions (package name, health-check port, a filter; PR 31).
 
 Sources: `BUILD-LOG.md` § manifest-driven file lifecycle, § supabase-port-series-and-sync-safety, §
 sync-show-first-confirm, § propagation-skip-noop, `kit/docs/guide/architecture.md` § Propagating
@@ -1165,7 +1320,9 @@ clickable (Playwright `click({trial:true})`), not just visible.
 - In PR 49 an overlay covered the Undo button while the failure banner showed. The happy-path QA walk
   couldn't see it; slow-job CI caught it only after merge.
 
-It has been seen in one project only; re-check in W10.3.2.
+It has been seen in one project only. Re-checked in W10.3.2: home-os had no bite, but it avoided
+optimistic UI on purpose (events fire only after a 200) and deferred route skeletons, so it neither
+confirms nor refutes the rule.
 
 Sources: `kit/docs/guide/latency-feedback.md`, `pre-ship/SKILL.md` § Fault-injection sub-step.
 
@@ -1175,7 +1332,8 @@ Pillar **Build** · Scope **web**
 
 **Rule.** Owner requirement for every v2 UI. Each button, link or other control:
 
-1. **Looks tappable.** It has a clear affordance, so a control never reads as plain text.
+1. **Looks tappable.** It has a clear affordance, so a control never reads as plain text. Its touch
+   target is at least 44 px, set by the shared primitive, not per component.
 2. **Responds to hover** (where there is hover) with a slight change.
 3. **Shows the press immediately**, within one frame, with a clear pressed state. On touch there is
    no tap delay (`touch-action: manipulation`), and the pressed state comes from one global,
@@ -1195,12 +1353,81 @@ The reviewer's design lens checks each new control against these five states.
   the template.
 - lalista PR 49 built the threshold spinner and rollback tiers (L-56), and its Undo failure path
   was blocked by an overlay.
+- home-os had no shared button primitive, so undersized touch targets were fixed component by
+  component in 4 features (PRs 10, 15, 35, plus one accepted at 38 px in decide-state).
+- home-os PR 12's real-iPhone spike found that an implicit success signal (a storage path appearing)
+  didn't tell the user the upload had worked. An explicit "✓ Uploaded" state was required
+  (`.gstack/pwa-spike-result.md`).
 
 Sources: `kit/TODOS.md` ("Port the `tap-feedback` press-state contract"),
 `kit/docs/guide/latency-feedback.md` § Decision rule.
 
 Pillar **Build** · Scope **web** (the contract applies to any UI, native included; the CSS mechanism
 is web)
+
+#### L-78 · Every design-token reference resolves, checked in CI
+
+**Rule.** v2's web home checks deterministically that every `var(--…)` and token class used in
+components is defined in the theme, for each theme. Specs name only tokens that exist. A finding
+of an undefined token is never dismissed as "pre-existing".
+
+**Why.** It recurred in 5 or more home-os features:
+
+- In decide-state, chips used nonexistent severity tokens and rendered uncoloured. Surface, border
+  and background tokens were undefined, and the "primary text" token resolved to the dark background
+  colour, so headings and buttons were invisible. Fixing it took 28 substitutions across 6
+  components. The components had been copied from a light-theme reference.
+- close-flow and dashboard reviews flagged more undefined tokens and dismissed them as
+  pre-existing.
+- Two specs prescribed dead tokens (L-76).
+
+Unit tests never caught it. Only screenshots or live DOM inspection did.
+
+Sources: home-os `specs/decide-state/review.md` Gates 4 and 8, `specs/close-flow/review.md` Gate 8b,
+`specs/dashboard/review.md`.
+
+Pillar **Verify** · Scope **web** (CSS custom properties, Tailwind v4)
+
+#### L-79 · Playwright calls authenticated APIs through `page.request`
+
+**Rule.** v2's web E2E specs make authenticated API calls with `page.request`, which shares the
+page's cookies, never the top-level `request` fixture. A test that expects an auth-dependent status
+also asserts that it was authenticated, so a 401 can't pass for the wrong reason.
+
+**Why.** It happened twice in home-os. In PR 19 a state-guard test passed for the wrong reason:
+the unauthenticated call short-circuited at 401. PR 28 hit the same bug again, as the last failure
+of a 6-cycle CI loop.
+
+Source: home-os `BUILD-LOG.md` § triage-route-handler, § planned-state.
+
+Pillar **Verify** · Scope **web** (Playwright)
+
+#### L-80 · Async tests wait on observable state, never on a timer
+
+**Rule.** v2's component tests wait for the expected state (`waitFor`, `findBy…`) instead of a
+`setTimeout(0)` or a fixed delay after an action that resolves a promise chain.
+
+**Why.** It happened 3 times in home-os, as flaky tests: two decide-state components (rejection
+chains outran `setTimeout(0)`) and a capture-form rate-limit test. Each was fixed with `waitFor`.
+
+Source: home-os `specs/decide-state/review.md` (preflight-final), PR 15.
+
+Pillar **Verify** · Scope **web** (Testing Library)
+
+#### L-81 · Redirect targets taken from input are same-origin paths
+
+**Rule.** v2's web home validates any redirect target that comes from a query string or form (such
+as `?next=`) as a same-origin relative path. Absolute and protocol-relative URLs are rejected, and a
+test covers both.
+
+**Why.** home-os PR 10: the security review found that the auth callback's `?next=` bounced users
+to any site, through absolute and `//host` values. The fix was a small `safeNext()` helper. A
+practice that caught a real, exploitable bug in the first auth PR. Auth lands early in every
+project, so v2 ships the helper rather than relying on review to find it each time.
+
+Source: home-os `specs/auth-magic-link/review.md` Gate 7.
+
+Pillar **Safety** · Scope **web**
 
 ### Next.js
 
@@ -1268,7 +1495,8 @@ Pillar **Verify** · Scope **Next.js** (email check: web)
 - table-qualified columns in `returns table (...)` plpgsql;
 - enum changes by rename→recreate→recast→drop, never `ALTER TYPE … ADD VALUE`, with dependent
   functions dropped and recreated;
-- a test that INSERTs any new enum value.
+- a test that INSERTs any new enum value;
+- `text` plus a `CHECK` constraint, rather than an enum, for a state set expected to grow.
 
 A read-only check after deploy confirms grants on new tables (L-24).
 
@@ -1280,6 +1508,15 @@ A read-only check after deploy confirms grants on new tables (L-24).
 
 The enum trap bit twice (PR 15, and migration 011 where `drop type` failed on 3 RPCs). Supabase
 requires explicit grants on new tables from 2026-10-30.
+
+**home-os, W10.3.2:**
+
+- The rename→recreate dance ran 4 times in 10 migrations (011, 013, 015 and the 006a/006b split).
+  Each one needed dependent functions dropped and recreated and a rollback cast, and the rollback
+  side broke CI in PRs 27 and 36.
+- triage-conversation picked a boolean column specifically to avoid one more enum change.
+- The OUT-parameter rule stuck after its one bite: migrations 010, 011 and 013 applied it
+  preemptively.
 
 Source: `kit/docs/guide/migrations.md` (sections as in L-24, plus § Upcoming: explicit GRANTs required).
 
@@ -1300,6 +1537,21 @@ then forward again) and fails on a missing or malformed block instead of skippin
 
 The four cross-migration FK patterns each "surfaced by a real rollback failure".
 
+**home-os, W10.3.2:** rollback blocks were home-os's dominant CI cost, far ahead of flaky tests.
+They broke CI in 8 or more PRs, for about 20 CI cycles:
+
+- PR 15: the first real run exposed 4 broken blocks.
+- PRs 24, 34 and 35: prose inside a block ran as SQL.
+- PR 26: a stray non-idempotent `UPDATE`.
+- PR 27: an enum cast.
+- PR 28: a missing marker, 6 cycles.
+- PR 36: cross-migration ordering, 6 cycles.
+
+Reviews also caught rollbacks that dropped a function without restoring the previous version, which
+would have left a live route returning 500 after a rollback (`specs/usage-counters-and-byok/review.md`,
+`specs/monitor-beta/review.md` Gate 2e). The rule stands, and the round-trip has to be cheap to
+run before pushing, not only in CI.
+
 Sources: `BUILD-LOG.md` § ak-pre-ship-migration-rollback-gate, § ci-rollback-explain-marker-loud, §
 rollback-prose-lint, `kit/docs/guide/migrations.md` § Cross-migration FK rollback patterns.
 
@@ -1312,7 +1564,8 @@ throwing helper or an inline check. Generated types are not a safety net.
 
 **Why.** lalista PR 49 hit it twice: a typo'd column and an unmapped FK each showed up as a generic
 null dereference in Playwright, with the real error swallowed. It was called lalista's "most-hit
-gotcha class".
+gotcha class". home-os hit it in production (PR 22, a `42501` read as "no row", L-66) and twice more
+in dashboard review.
 
 Sources: `kit/docs/guide/database-queries.md`, `BUILD-LOG.md` § postgrest-null-and-tier-a2-retry-docs.
 
@@ -1415,16 +1668,69 @@ Pillar **Verify** · Scope **Supabase** · FINDINGS F-STACK-01
 
 #### L-71 · Auth defaults are hardened at project setup and read back
 
-**Rule.** v2's Supabase setup sets the auth `site_url` to production, a minimal redirect
-allow-list (production plus localhost, no wildcards by default) and a password minimum of at least 8. It reads the values back for the owner to confirm.
+**Rule.** v2's Supabase setup sets:
+
+- the auth `site_url` to production;
+- a minimal redirect allow-list: production, localhost, and the project's own preview-deploy origin
+  pattern when previews must sign in (no other wildcards);
+- a password minimum of at least 8;
+- a real SMTP provider before the first real user.
+
+It reads the values back for the owner to confirm. Each environment (local, preview, production)
+is then proven with one real magic link that lands signed in. Rate-limit messages state the real
+wait.
 
 **Why.** Nasty single incident: lalista (2026-04-20). With the free-tier default `site_url` of
 localhost, "every email-based auth flow … silently breaks" when the link comes from a real inbox.
 The minimal allow-list fixed it.
 
-Source: `new-project/SKILL.md` § Step 17b: Harden Supabase auth defaults.
+**home-os, W10.3.2:** three more silent auth-email bites, one of which reached users:
+
+- Without the preview origin in the allow-list, magic links from preview deploys fell back to
+  production (fixed by hand in the dashboard, PR 12).
+- A local `config.toml` redirect entry written as `https://127.0.0.1:…` didn't exactly match, so
+  links arrived but dropped the callback path and the code exchange never ran (capture-flow audit).
+- The built-in SMTP allows about 2 magic-link emails an hour project-wide. A real invitee hit the
+  limit while the login form said "wait a minute" (`KNOWN-ISSUES.md`).
+
+Sources: `new-project/SKILL.md` § Step 17b: Harden Supabase auth defaults, home-os `KNOWN-ISSUES.md`
+§ Supabase inbuilt-SMTP rate limit, `specs/capture-flow/review.md` § Audit 2.
 
 Pillar **Environments** · Scope **Supabase**
+
+#### L-82 · Functions run as the caller; the upstream advisor runs in CI and against production
+
+**Rule.** v2's Supabase home:
+
+- defaults RPCs to `SECURITY INVOKER`, so RLS and table grants are the trust boundary;
+- requires any `SECURITY DEFINER` function to check the caller (`p_user = auth.uid()`) inside the
+  function, pin `search_path`, and revoke `EXECUTE` from roles that never call it;
+- runs Supabase's own advisor lints (splinter) in CI against the migrated local database, failing
+  on any warning that has no annotated exemption;
+- runs the same lints against production after deploy.
+
+A custom re-implementation of the lints doesn't stand in for them.
+
+**Why.**
+
+- home-os PR 15: the security review verified a HIGH exploit. Any signed-in user could call the
+  card-quota RPC directly with another user's id and burn their weekly quota. A `SECURITY DEFINER`
+  function bypasses RLS, and its only guard was the client. The in-function check became a
+  convention for every later RPC.
+- home-os PR 40: the upstream advisor found 41 warnings that the project's custom 9-lint probe never
+  reported. In most PRs the probe couldn't connect and the gate passed anyway (L-09).
+- The one time it did run (close-flow), it reported `auth_rls_initplan: ok` while 20 policies used
+  bare `auth.uid()`. It also dismissed its 7 unindexed-FK findings as "pre-existing on main".
+- The 41 warnings were 20 per-row `auth.uid()` policies, 20 exposed `SECURITY DEFINER` grants and
+  1 unpinned `search_path`. Nine of those RPCs were `DEFINER` only as a workaround for missing
+  grants (L-04), and they moved to `INVOKER`.
+- home-os PR 41: running the advisor against production found a production-only function (L-24).
+- One generated RPC got the wrong `search_path` from a stale doc (L-76).
+
+Sources: home-os `specs/capture-flow/review.md` Gate 7, migrations 016 and 017 headers,
+`BUILD-LOG.md` § advisor-hardening, § rls-auto-enable-drift.
+
+Pillar **Safety** (checked at Verify) · Scope **Supabase** · FINDINGS F-VER-04, F-SEC-09
 
 ---
 
@@ -1483,12 +1789,12 @@ One line each: rule — source — reason.
 - Persona-axis gates, Finding Router, reviewer phases 5/6, self-correcting auto-actions —
   `kit/ROADMAP.md` — unbuilt, no incident.
 
-**One mild incident, never fired again** (project rules marked ↻ get re-checked in W10.3.2)
+**One mild incident, never fired again** (↻ = re-checked against home-os in W10.3.2. The fourth ↻ row,
+shown/hidden tables, moved up to L-73.)
 
-- ↻ Spec renders a shown/hidden table for conditional UI (lalista PR 5, two bugs in one PR) — `spec/SKILL.md` § Render conditions — a visible UI glitch, caught before release.
-- ↻ Auth redirects from the request Host header (home-os PR 15) — `supabase-ssr-boilerplate.md` § Pattern 10 — hit local and CI runs only (`127.0.0.1` vs `localhost`), not users.
-- ↻ Page-level `getUser()` before RLS queries, since the layout guard races (home-os triage route) — § Pattern 11 — a 404 instead of the login page on a cold load.
-- ↻ Shared primitives don't bake in sizes callers override (lalista `LoadingArea`) — `latency-feedback.md` — cosmetic.
+- ↻ Auth redirects from the request Host header (home-os PR 15) — `supabase-ssr-boilerplate.md` § Pattern 10 — hit local and CI runs only (`127.0.0.1` vs `localhost`), not users. home-os: no further bite. The adjacent bites (preview and local redirect allow-list) are allow-list problems, now in L-71.
+- ↻ Page-level `getUser()` before RLS queries, since the layout guard races (home-os triage route) — § Pattern 11 — **refuted**: the incident behind it (home-os PR 22) was a missing grant (PR 23), and the race was a guess that stayed documented (L-04). No evidence the race exists.
+- ↻ Shared primitives don't bake in sizes callers override (lalista `LoadingArea`) — `latency-feedback.md` — cosmetic. home-os: no bite. Its opposite problem, no shared primitive at all, is in L-72.
 - Stack guidance always loads the baseline on top of routed sections (one regression, 2026-05-11)
   — `kit/docs/guide/workflow.md` § Devshop Skill Map — input to the Reach L3 design, not a lesson.
 - Owner's manual-review list holds only judgement calls (lalista PR 27) — `build/SKILL.md` § What
@@ -1502,15 +1808,42 @@ One line each: rule — source — reason.
 - `verification.log` swallowed by `*.log` gitignore — `kit/FRICTION-LOG.md` § Phase 2.5 — per-feature gate artifacts are dropped (L-54).
 - Operator stash vanish root cause — `kit/FRICTION-LOG.md` — count 1, cause unknown. The prevention is folded into L-41.
 
+**From home-os (W10.3.2)**
+
+- Project design rules in `CLAUDE.md` § Gotchas with no incident behind them: side-channel write
+  tolerance, upload-before-terminal-state ordering, integer cents, never logging the user's API key,
+  a missing usage row counts as zero, HTTP 200 for an invalid user key. They belong in the project,
+  which is where they are, and none ever bit.
+- `notify pgrst, 'reload schema'` after `ADD COLUMN`, and the E2E cache-reload setup — PR 28 —
+  disproved: the cache was right and the column was gone (L-59). The workaround is a leftover (L-04).
+- Magic-link PKCE fails in Safari Private Browsing — `KNOWN-ISSUES.md` — a product call ("won't
+  fix"). The part that carries, capturing the error, is L-66.
+- `sessionStorage` throws in Safari Private, so once-per-session analytics re-fire — dashboard
+  review — one finding, analytics only.
+- The team's canonical deploy alias sat behind deployment SSO, so it wasn't public (PR 8) — one
+  bite, caught by the owner at setup. L-33's anonymous probe would catch it; L-47 holds the URL.
+- Turborepo's strict env mode dropped an undeclared variable, so source-map upload was silently
+  skipped (PR 8) — one bite. A Turborepo note for a stack home.
+- Real-device spike before locking a mobile feature's scope (PR 12) — it confirmed the plan rather
+  than catching a problem. The same habit as L-03, at a bigger scale.
+- Server-side locale and timezone in `toLocaleDateString`, and `new Date('2026-02-30')` rolling
+  over — date rules applied by design, no bite. `date-handling.md` stays not carried.
+- LLM eval harness and forced-tool parsing (PRs 19, 26, 44) — designed in, no incident. L-07 holds
+  the incident-backed rule.
+- 25 dependabot PRs, none merged and 9 still open — automated bumps with no owner. Evidence for
+  L-45's "upgrade on purpose, on a schedule", not a separate rule.
+- Firewall ports, the font fetch blocked at build, and port drift (PRs 9, 10, 15, 17, 26) —
+  devcontainer machinery, dropped. Principle in L-09.
+
 **No incident behind it** (reasoned rules; candidates for stack homes if v2 hits them)
 
 - Stop-and-ask category list — `CLAUDE.md` § Confidence Calibration — re-derive at L3 Intent.
 - Non-negotiables with no recorded bite (responsive 375–2560, light/dark, 3-line file headers,
   metrics per feature, TS-source packages, no ESLint formatting) — `CLAUDE.md` § Non-Negotiables —
   re-decide at L3 Build/Ship.
-- RLS-bypass least-privilege ladder, DB hardening SQL (`search_path`, `(select auth.uid())`, FK
-  indexes), two-user RLS test, type-drift check — `security.md`, `conventions.md` § Non-Negotiables —
-  Supabase home candidates. Prefer the upstream advisor over a custom probe.
+- RLS-bypass least-privilege ladder, two-user RLS test, type-drift check — `security.md`,
+  `conventions.md` § Non-Negotiables — Supabase home candidates. (The DB-hardening SQL and the
+  upstream advisor moved up to L-82 after home-os showed real bites.)
 - Migration sequencing pre-flight (expand/contract vs a parallel deploy) — `go-live/SKILL.md` §
   Step 1.6, `kit/ROADMAP.md` § Migration sequencing — the roadmap entry itself asks whether it ever fired.
 - `ON DELETE` on `auth.users` FKs, PostgREST two-query hydration, seed.sql gotrue columns,
@@ -1542,7 +1875,11 @@ One line each: rule — source — reason.
 | `BUILD-LOG.md` (`template/BUILD-LOG.md` is an empty stub)                                                 | in full        | L-02 L-06 L-11 L-12 L-15 L-16 L-22 L-23 L-28 L-30 L-32 L-38 L-40–L-42 L-48 L-49 L-53 L-54 L-57 L-59 L-60                                                                                                                   |
 | `.claude/skills/devshop/**` (17 skills), `.claude/commands/**` — incident notes only; `gstack/**` skipped | grep + context | L-01 L-03 L-05 L-06 L-09 L-10 L-12 L-13 L-17–L-22 L-25 L-28–L-33 L-35 L-39 L-42 L-47 L-50 L-52 L-63 L-64 L-68 L-69 L-71                                                                                                    |
 | Code cited by skills (`extract-prod-url.sh` + bats, `slow-job-lifecycle-check.sh`, notes)                 | targeted       | L-01 L-47                                                                                                                                                                                                                  |
+| home-os root docs: `BUILD-LOG.md`, `CLAUDE.md`, `KNOWN-ISSUES.md`, `TODOS.md`, `PLAN.md`, `DEPLOY.md`     | in full        | L-04 L-24 L-58 L-59 L-66 L-71 L-75 L-79 L-82                                                                                                                                                                               |
+| home-os `supabase/migrations/` headers, `scripts/`, `.github/workflows/ci.yml` comments                   | targeted       | L-04 L-24 L-75 L-82                                                                                                                                                                                                        |
+| home-os `specs/*/` (16 features: `spec.md` Gotchas, `review.md` findings, `gates/`), `.gstack/`           | grep + context | L-09 L-17 L-39 L-58 L-59 L-60 L-66 L-71–L-76 L-78 L-80–L-82                                                                                                                                                                |
+| home-os PRs: all 57 listed; 32 non-dependabot bodies + comments read (no issues, no human review threads) | in full        | L-04 L-11 L-24 L-29 L-45 L-49 L-59 L-71 L-72 L-77 L-79 L-81 L-82                                                                                                                                                           |
 
-**Size check.** This file is ~11k words (72 lessons plus the not-carried list), mined from ~90k
-words of v1 skills, ~70k words of guides and ~64k words of trackers, changelog and logs. The by-stack lessons
+**Size check.** This file is ~15k words (82 lessons plus the not-carried list), mined from ~90k
+words of v1 skills, ~70k words of guides, ~64k words of trackers, changelog and logs, and home-os (~11k words of root docs, 16 spec folders, 32 PRs). The by-stack lessons
 are the seed for the stack homes (M2). Nothing here is loaded at runtime.

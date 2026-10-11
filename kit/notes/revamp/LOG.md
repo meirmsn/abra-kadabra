@@ -582,3 +582,48 @@ re-check against home-os in W10.3.2).
 
 **Next**: W10.3.2 (home-os lessons; re-check the ↻ rows), then W10.3.3 (disposition every FINDINGS
 row; lessons cite FINDINGS ids to speed it up).
+
+## #18 — 2026-10-11 · W10.3.2 lessons harvest from home-os
+
+**What moved**: W10.3.2 done (PR 50). home-os was attached to the session read-only and mined in
+three passes: root docs, migration headers and CI comments by hand; `specs/` (16 features' gotchas,
+review findings and gate shards) and the PR history (all 57 PRs listed, the 32 non-dependabot
+bodies and comments read; no issues, no human review threads) by two delegated readers, with
+their key claims re-checked against the files. Result in [lessons.md](lessons.md): **10 new
+lessons** (L-73–L-82), home-os evidence added to **15** existing ones, 11 home-os rules recorded
+as not carried.
+
+- New: conditional UI as a state table (L-73, moved up from ↻), server enforces client limits
+  (L-74), one rule one implementation (L-75), code-prescribing specs checked against the code
+  (L-76), test data from the schema (L-77), design tokens resolve (L-78), Playwright `page.request`
+  (L-79), async tests wait on state (L-80), safe redirect targets (L-81), Supabase functions run as
+  the caller + upstream advisor in CI and on production (L-82).
+- Widened: L-66 from auth callbacks to every server error path (second production bite: a `42501`
+  shown as a 404); L-24 now requires production's schema to be reproducible from migrations; L-71
+  adds the preview origin, a real SMTP provider and a per-environment magic-link proof; L-72 adds a
+  44 px target owned by the shared primitive.
+- ↻ rows: shown/hidden tables moved up (L-73); page-level `getUser()` **refuted** (the race behind
+  it was a misdiagnosis, the real cause a missing grant); Host-header redirects and primitive sizes
+  stay not carried. L-56 got no new evidence either way.
+
+**Evidence**
+
+- 82 lessons, IDs 1–82 each defined once, no dangling `L-nn` references (scripted).
+- No URL, project ref, team slug, deploy or project id, handle or email from home-os in
+  `lessons.md` (grep for host, ref, slug and id shapes plus home-os's own values; the only URL-like
+  hits are generic: `*.supabase.co`, a loopback address, `http://`/`https://` as scheme words).
+- Prettier clean on the changed docs (same version as base passes).
+- Spot checks of delegated claims against the source: PR 22's body (the speculative race fix),
+  migration 016's header (41 warnings), the advisor gate results in three review files.
+
+**Surprises**
+
+- home-os's custom advisor probe was worse than "couldn't run": the one time it connected it
+  reported per-row `auth.uid()` as clean over 20 offending policies. Strong evidence for L-11 and
+  for using upstream lints (L-82). Its template copy is v1 (frozen); W10.3.3 dispositions F-VER-04.
+- Rollback blocks, not flaky tests, were home-os's dominant CI cost (~20 cycles over 8+ PRs). The
+  owner kept rollbacks in PR 47; L-59 now notes the round-trip must be cheap to run before pushing.
+- Two production bugs (PR 22, PR 24) were hot-fixed by pasting SQL into the production editor, and
+  a function existed only in production — the drift class L-24 now covers.
+
+**Next**: W10.3.3 (disposition every FINDINGS row).
