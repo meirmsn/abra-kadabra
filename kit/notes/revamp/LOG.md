@@ -526,3 +526,59 @@ from `/opt/devshop.git/config` (remote rewritten); `DEVSHOP: using HEAD (7fa3832
 environment default`; the version's hook ran **once**, at session start (priming fix confirmed);
 probe skill resolved to the same commit.
 
+---
+
+## #17 — 2026-10-11 · W10.3.1 lessons harvest from v1
+
+**What**: [lessons.md](lessons.md) — 72 lessons carried, 52 "considered, not carried" (after the owner's review; 64/62 at first draft), grouped by
+TARGET pillar plus a by-stack section (web, Next.js, Supabase; no Vercel-only lesson met the bar).
+Seed requirement L-01 (no project identifiers in the devshop) listed first with its v1
+counter-examples by path:line and kind only.
+
+**How**: six parallel read-only mining passes, each against a shared brief (bar, pillar list,
+identifier rule, FINDINGS cross-ref): core guides · ops/architecture/stack guides ·
+FRICTION-LOG + TODOS + CLAUDE.md · ROADMAP + CHANGELOG + BUILD-LOG · pipeline skills' incident
+notes · ship-side skills + identifier hunt. ~165 candidate lessons merged and re-judged against the
+bar into 64; single-incident project rules went to "not carried" (14 of them marked ↻ for a
+re-check against home-os in W10.3.2).
+
+**Evidence**
+
+- Every lesson has a pillar, a scope and a source (scripted check: 64/64, IDs sequential, no
+  dangling `L-nn` refs).
+- 169 `path § heading` citations resolve to a real heading in the cited file (scripted; the
+  three misses were a line-wrap artifact ×2 and one bold-paragraph "heading", re-cited).
+- `lessons.md` has no URL, project ref, team slug, org id or email (grep for host/ingest/email
+  patterns: only the generic words in L-01's own rule text).
+- Identifier counter-examples checked by kind without printing values: `extract-prod-url.sh` +
+  bats, go-live, new-project and four notes/trackers hold real project hosts or a project ref;
+  `kit/ROADMAP.md` uses placeholders only (its one Sentry-shaped id is a well-known placeholder
+  shared with gstack tests).
+- v1 sources are unchanged since `v1-final` (`git diff v1-final HEAD` on them is empty), so
+  path:line citations are stable.
+
+**Surprises**
+
+- The clone is shallow, so the original incident commits are mostly out of reach; citations lean on
+  the incident notes v1 wrote down. Good enough for the bar, but W10.3.3 shouldn't expect SHAs.
+- The strongest lesson by count (L-09, could-not-run is never a pass) bit 10+ times across both
+  projects and the devshop, through at least five different mechanisms; v1 kept fixing instances.
+- The identifier leaks came from the "worked incident" habit (paste the failing line verbatim into
+  code, tests and skills) plus the lack of structured project config (L-47).
+
+**Owner calls (PR 47 review)**
+
+- Supabase migrations keep rollback blocks, and CI tests them (L-59); forward-only was not chosen.
+- The bar also admits a **nasty** single incident (reached users or production, or failed silently
+  and took real time to diagnose). That moved 9 one-incident rules up: 7 new lessons (L-65–L-71:
+  realtime wrapper errors, auth error capture, first-prod smoke, env trimming, public assets + real
+  mail client, RLS policy coverage, auth defaults) and one folded into L-56 (optimistic failure
+  path). 5 mild ones stay ↻ for W10.3.2 (4 after L-72).
+- L-01 also covers **personal identifiers** (handles, emails): v1's real-identity test fixture and
+  hard-coded push URL needed neither.
+- **Interactive controls** get a full state contract (L-72, owner requirement): clear affordance,
+  hover change, immediate press state, a processing state past a threshold, restore on failure.
+  It replaces the ↻ "iOS press cue" row, which now leaves 4 ↻ rows for W10.3.2.
+
+**Next**: W10.3.2 (home-os lessons; re-check the ↻ rows), then W10.3.3 (disposition every FINDINGS
+row; lessons cite FINDINGS ids to speed it up).
