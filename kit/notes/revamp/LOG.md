@@ -502,3 +502,9 @@ spike result (option D viable with a private source). Residual for W10.4.4: conf
 session started from the cached snapshot still has the plugin. Owner: revoke the spike token
 when done with the environment.
 
+**Owner run 4, 2026-10-11 11:44 — cache reuse:** a second lalista session in the same
+environment had the plugin installed and enabled from `/opt/devshop-pin`; the hook ran again and
+injected its line; the skill ran. The hook log still held the first session's 10:45 entry, so the
+VM started from the cached filesystem rather than a clean re-run of the setup script. Residual
+closed.
+

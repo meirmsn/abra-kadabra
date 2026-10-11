@@ -53,5 +53,6 @@ Revoke the token after the runs.
   first, then pin the merge commit).
 - **Result (owner Run 1, lalista): passed** with the token written inline in the setup script
   (environment variables don't reach it): fetched via `A:git+token`, plugin installed, skill and
-  SessionStart hook loaded. Run 2 not needed.
+  SessionStart hook loaded. Run 2 not needed. A second session from the environment cache had the
+  plugin too (no re-fetch).
 
