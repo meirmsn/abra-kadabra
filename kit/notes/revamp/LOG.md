@@ -508,3 +508,14 @@ injected its line; the skill ran. The hook log still held the first session's 10
 VM started from the cached filesystem rather than a clean re-run of the setup script. Residual
 closed.
 
+**W10.1.2b, 2026-10-11 — thin, code-based install (owner: minimum UI work, version in code).**
+Local findings: a plugin installed by a SessionStart hook loads only in the *next* session; a
+stub plugin whose `skills` is a symlink switched by its SessionStart hook works in the *same*
+session, including skills present only in the new target. Per-project pin via
+`.devshop-version`, default fallback, and bad-pin handling verified locally. Owner runs: (1) no
+`ssh` in the image; (2) with `openssh-client` installed, `ssh.github.com` doesn't resolve and port
+22 times out — the network policy allows HTTPS only, so deploy keys are out; (3) HTTPS + read-only
+token → **passed**: clean clone, bootstrap from code, `DEVSHOP: using … from environment default`,
+pinned version's hook ran, skill resolved to the same commit. Bootstrap priming also ran the
+runtime hook once during setup — fixed. D-01 gets the refined design as the recommendation.
+

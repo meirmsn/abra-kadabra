@@ -46,3 +46,9 @@ installs `openssh-client` first (log: `/tmp/devshop-ssh-install.log`).
 **Owner run 2:** SSH client installed, but `ssh.github.com` does not resolve and port 22 times out —
 the network policy allows HTTPS only. Deploy keys (SSH-only) are out; `env-setup.sh` now clones over
 HTTPS with a fine-grained read-only token (the route proven in W10.1.2). The deploy key can be deleted.
+
+**Owner run 3 (2026-10-11 12:49): passed.** HTTPS + token clone clean; bootstrap from code installed
+the stub; in the lalista session the dispatcher reported `DEVSHOP: using … from environment
+default`, the pinned version's hook ran and `devshop-probe2` resolved to the same commit. The
+runtime hook also ran once during setup (bootstrap priming) — fixed: priming no longer runs it.
+

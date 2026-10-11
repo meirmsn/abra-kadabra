@@ -15,7 +15,7 @@ log "bootstrap start ref=$REF mirror-head=$(git --git-dir=$MIRROR rev-parse --sh
 rm -rf "$STUB"; mkdir -p "$STUB" "$VERSIONS"
 git --git-dir="$MIRROR" archive "$REF:$SPIKE" | tar -x -C "$STUB" 2>> "$LOG" || log "stub extract failed"
 echo "$REF" > "$VERSIONS/default-ref"
-CLAUDE_PROJECT_DIR=/nonexistent bash "$STUB/stub/hooks/dispatch.sh" >> "$LOG" 2>&1
+DEVSHOP_PRIME_ONLY=1 CLAUDE_PROJECT_DIR=/nonexistent bash "$STUB/stub/hooks/dispatch.sh" >> "$LOG" 2>&1
 claude plugin marketplace add "$STUB" --scope user >> "$LOG" 2>&1 || log "marketplace add failed"
 claude plugin install devshop@devshop-thin --scope user >> "$LOG" 2>&1 || log "plugin install failed"
 log "RESULT: bootstrap done (current -> $(readlink /opt/devshop-current))"

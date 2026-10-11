@@ -32,5 +32,5 @@ if [ ! -d "$dir" ]; then
 fi
 ln -sfn "$dir" "$CURRENT"
 echo "DEVSHOP: using $pin (${sha:0:12}) from $from"
-[ -x "$CURRENT/hooks/session-start.sh" ] && "$CURRENT/hooks/session-start.sh"
+[ -z "$DEVSHOP_PRIME_ONLY" ] && [ -x "$CURRENT/hooks/session-start.sh" ] && "$CURRENT/hooks/session-start.sh"
 exit 0
