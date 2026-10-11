@@ -454,7 +454,81 @@ W10.2 L3 design pass.
 
 ---
 
-## #16 — 2026-10-11 · W10.3.1 lessons harvest from v1
+## #16 — 2026-10-11 · W10.1.2 setup-script spike prepared
+
+**Done**: probe plugin (one skill, one SessionStart hook) + a pasteable `setup.sh` in
+`spikes/w10-1-2-install/`, with owner steps for two runs. The script fetches a pinned commit
+(routes: attached clone → git + token → REST + token → git without a token), then
+`claude plugin marketplace add` + `install` at user scope, logging to `/tmp/devshop-setup.log`.
+
+**Verified in this session** (isolated `CLAUDE_CONFIG_DIR`): routes 0 and C fetched the pin
+(this repo is attached here); install succeeded; a fresh `claude -p` ran the skill and the hook.
+The plugin is read in place from the fetched tree, so that tree must persist.
+
+**Discovery — the planned D-01 route likely fails.** The GitHub path enforces the session's
+repo scope independent of the client's Authorization header: a git fetch of the attached repo
+with a bogus token succeeded (the proxy supplies its own credentials), and a non-attached
+private repo got the proxy's 403 "GitHub access to this repository is not enabled for this
+session" via REST with and without a token header. A user token in the setup script therefore
+probably can't open abra-kadabra from a project session. Further probing of other GitHub hosts
+was stopped by the permission classifier (read as exfiltration scouting) — not pursued.
+
+**Implication for D-01** if Run 1 confirms: the remaining routes are (a) devshop attached as a
+second repo, setup script installs the pin from its clone — costs repo `settings.json` hooks
+(F-CLOUD-02) but user-scope plugin hooks may still load (Run 2 tests this); (b) claude.ai-synced
+plugins (pinning untested, A-10); (c) a public runtime part (D-12 — owner: not soon).
+
+**Next (owner)**: Run 1 and Run 2 per the spike README; revoke the token afterwards.
+
+**Owner run, 2026-10-11 10:28 (session on abra-kadabra):** `FETCH FAILED`. Three facts from the
+log: (1) the session repo is already cloned at `/home/user/<repo>` when the setup script runs;
+(2) the setup script runs **without the agent proxy** (`HTTPS_PROXY` empty) and with no GitHub
+credentials — git got GitHub's own "could not read Username", so GitHub is reached directly and
+the in-session proxy scope check does not apply there, which reopens the token route; (3)
+`DEVSHOP_READ_TOKEN` was empty in the setup script, while this session (same environment) sees it
+set — so environment variables may not reach the setup script (to confirm). Route 0 failed because
+the pin is a PR-branch commit, absent from the clone, and couldn't be fetched without credentials.
+Script fixed to log route-0 reasons and a no-auth reachability check.
+
+**Owner runs 2–3, 2026-10-11:** Run on lalista with the token as an environment variable →
+`FETCH FAILED`, `token set:` empty, `github.com reachable: 200`. Docs confirm: environment
+variables are read when Claude Code starts, after the setup script; the setup script runs once
+per environment and is snapshotted (re-run on script/network change or ~7 days). Token moved
+inline into the setup script → **passed**: `A:git+token`, plugin 0.1.0 installed at user scope
+from `/opt/devshop-pin`, SessionStart hook ran and injected its line, skill listed as
+`devshop-probe:devshop-probe` and ran. Docs had suggested only repo/server-managed hooks run in
+cloud — user-scope plugin hooks run too. **W10.1.2 done**; A-09, A-22 validated; D-01 gets the
+spike result (option D viable with a private source). Residual for W10.4.4: confirm a second
+session started from the cached snapshot still has the plugin. Owner: revoke the spike token
+when done with the environment.
+
+**Owner run 4, 2026-10-11 11:44 — cache reuse:** a second lalista session in the same
+environment had the plugin installed and enabled from `/opt/devshop-pin`; the hook ran again and
+injected its line; the skill ran. The hook log still held the first session's 10:45 entry, so the
+VM started from the cached filesystem rather than a clean re-run of the setup script. Residual
+closed.
+
+**W10.1.2b, 2026-10-11 — thin, code-based install (owner: minimum UI work, version in code).**
+Local findings: a plugin installed by a SessionStart hook loads only in the *next* session; a
+stub plugin whose `skills` is a symlink switched by its SessionStart hook works in the *same*
+session, including skills present only in the new target. Per-project pin via
+`.devshop-version`, default fallback, and bad-pin handling verified locally. Owner runs: (1) no
+`ssh` in the image; (2) with `openssh-client` installed, `ssh.github.com` doesn't resolve and port
+22 times out — the network policy allows HTTPS only, so deploy keys are out; (3) HTTPS + read-only
+token → **passed**: clean clone, bootstrap from code, `DEVSHOP: using … from environment default`,
+pinned version's hook ran, skill resolved to the same commit. Bootstrap priming also ran the
+runtime hook once during setup — fixed. D-01 gets the refined design as the recommendation.
+
+**W10.1.2b final form, 2026-10-11 13:02 (after #46 merged):** the environment setup script is two
+generic lines — clone with the token, then `show HEAD:bootstrap.sh | bash` (root entry point on
+`main`; names no branch, path or version). Owner run on lalista passed: clean clone; token absent
+from `/opt/devshop.git/config` (remote rewritten); `DEVSHOP: using HEAD (7fa3832…) from
+environment default`; the version's hook ran **once**, at session start (priming fix confirmed);
+probe skill resolved to the same commit.
+
+---
+
+## #17 — 2026-10-11 · W10.3.1 lessons harvest from v1
 
 **What**: [lessons.md](lessons.md) — 72 lessons carried, 52 "considered, not carried" (after the owner's review; 64/62 at first draft), grouped by
 TARGET pillar plus a by-stack section (web, Next.js, Supabase; no Vercel-only lesson met the bar).
