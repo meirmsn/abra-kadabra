@@ -303,3 +303,8 @@ classifier ("Git Destructive") before reaching GitHub — the soft layer works a
 After the owner approved PR #39 it showed `mergeable_state: clean` → without a "restrict updates"
 ruleset the agent can merge an owner-approved PR ("approval ships"); owner to decide whether to add
 ruleset B (A-20).
+
+**Update 2026-10-11**: owner confirmed the classic rule's approval options (A-06) and chose
+"approval ships" — ruleset B deferred, documented in PLATFORM § 3a; PR #40 was merged by the agent
+after the owner's approval. W10.1.3 and W10.4.3 done. The A-04 reviewer fixture is kept in
+[`spikes/a04-reviewer/`](spikes/a04-reviewer/) for W10.6.2.

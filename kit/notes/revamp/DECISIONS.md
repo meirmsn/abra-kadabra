@@ -84,6 +84,8 @@ author approve their own PR, so "owner approves" is unenforceable.
 
 Outcome: **decided 2026-10-09 — A, a GitHub App for the agent** (owner's proposal): authors commits/PRs with contents + PR permissions only, no admin, no workflow edits; the owner approves from their own account. **Pending spike A-05** (can a cloud session push/open PRs as an App, given the proxy uses the owner's connected account?). Fallbacks in order: machine user; same identity + no-bypass rulesets (then stated honestly as a habit, not a gate).
 
+**Revisited 2026-10-11:** a GitHub App can't be the agent's identity in Anthropic-hosted cloud sessions — the GitHub proxy swaps in the connected account's credential and blocks App token minting, and network secrets never reach GitHub (LOG #7). **Machine user `meirmsn-agent`** instead: Write collaborator, connected to claude.ai by reconnecting GitHub in the browser as the agent. Validated: PRs authored and merged by the agent only after the owner's code-owner approval; direct/force pushes and API writes to `main` refused (LOG #9, #10). Ruleset B ("only the owner merges") deferred — "approval ships" accepted ([PLATFORM.md § 3a](PLATFORM.md#3a-optional-ruleset-b--only-the-owner-merges)).
+
 ## D-04 Where the security boundary is — `decided` (rewritten by REVIEW-1)
 
 - **Recommendation:** "The boundary is on GitHub and in credentials, not in the VM":

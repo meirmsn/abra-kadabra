@@ -1,0 +1,1 @@
+{"type":"object","additionalProperties":false,"required":["verdict","unmet"],"properties":{"verdict":{"enum":["pass","fail"]},"unmet":{"type":"array","items":{"type":"string","pattern":"^AC-[0-9]+$"}},"notes":{"type":"string"}}}

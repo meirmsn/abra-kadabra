@@ -99,8 +99,9 @@ secrets in a `main`-only environment. Required reviewers appear only if the repo
 or the account moves to an org on Enterprise.
 
 **Safety** — ⚠️ **identity**: hosted cloud acts as whoever connected GitHub. Options:
-(a) machine user via `/web-setup` (supported, works on Pro/Max; makes ALL cloud work run
-as the agent); (b) self-hosted runners minting per-session bot tokens (Team/Ent, public
+(a) machine user — **chosen**: connect claude.ai → GitHub in the browser while logged in as
+the agent (`/web-setup` with the agent's `gh` token also works); makes ALL cloud work run as
+the agent; (b) self-hosted runners minting per-session bot tokens (Team/Ent, public
 beta, you run the runners); (c) GitHub Agent HQ's Claude agent (App identity + Copilot
 protections, but runs in GitHub's sandbox, not Claude Code cloud; Copilot plan).
 ✅ hard walls on GitHub Pro, all with **empty bypass**:
@@ -202,7 +203,7 @@ identity is the machine user, the independent reviewer is ours (plus optional
 
 **New assumptions to test (ASSUMPTIONS A-19…A-23):** Pro rulesets as specified block the
 machine user's merge and auto-merge; Auto-fix / PR subscriptions / Projects / Routines work
-and act as the machine user after `/web-setup`; a plugin installed by a setup script or
+and act as the machine user; a plugin installed by a setup script or
 SessionStart hook loads in a cloud session; draft-PR + ready-for-review flow works with
 subscriptions.
 
