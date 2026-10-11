@@ -1837,7 +1837,7 @@ shown/hidden tables, moved up to L-73.)
 
 **No incident behind it** (reasoned rules; candidates for stack homes if v2 hits them)
 
-- Stop-and-ask category list — `CLAUDE.md` § Confidence Calibration — re-derive at L3 Intent.
+- Stop-and-ask category list — `CLAUDE.md` § Confidence Calibration — dropped at L3 Intent (every change now needs the owner's "go"). Kept here as the starting point if specs are ever auto-approved with listed exceptions ([TARGET § L3 Intent](TARGET.md#intent)).
 - Non-negotiables with no recorded bite (responsive 375–2560, light/dark, 3-line file headers,
   metrics per feature, TS-source packages, no ESLint formatting) — `CLAUDE.md` § Non-Negotiables —
   re-decide at L3 Build/Ship.

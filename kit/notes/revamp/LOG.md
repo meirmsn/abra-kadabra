@@ -509,8 +509,8 @@ VM started from the cached filesystem rather than a clean re-run of the setup sc
 closed.
 
 **W10.1.2b, 2026-10-11 — thin, code-based install (owner: minimum UI work, version in code).**
-Local findings: a plugin installed by a SessionStart hook loads only in the *next* session; a
-stub plugin whose `skills` is a symlink switched by its SessionStart hook works in the *same*
+Local findings: a plugin installed by a SessionStart hook loads only in the _next_ session; a
+stub plugin whose `skills` is a symlink switched by its SessionStart hook works in the _same_
 session, including skills present only in the new target. Per-project pin via
 `.devshop-version`, default fallback, and bad-pin handling verified locally. Owner runs: (1) no
 `ssh` in the image; (2) with `openssh-client` installed, `ssh.github.com` doesn't resolve and port
@@ -627,3 +627,24 @@ as not carried.
   a function existed only in production — the drift class L-24 now covers.
 
 **Next**: W10.3.3 (disposition every FINDINGS row).
+
+## #19 — 2026-10-11 · W10.2 L3 design pass: Intent
+
+**What moved**: W10.2 started (`[~]`) in parallel with W10.1.2 and W10.3.1, which both landed
+mid-session (D-01 decided; `lessons.md` done) — the branch was brought up to `main` and the
+Intent bullets re-checked against the harvest. **Intent L3 agreed** with the owner in chat and
+written to [TARGET.md § L3](TARGET.md#l3--a-few-bullets-per-pillar).
+
+- Cross-pillar rule (owner): the chat surfaces things and collects answers; decisions are then
+  recorded where they belong (spec, PR, decision log) and that record is the source of truth.
+- "Go" is needed for every change except bug fixes; no-change requests (analysis, status) need none.
+- Upstream gstack `/spec` (checked at 1.91.8: an interview skill whose output is a GitHub issue
+  plus a local archive, with a Codex quality gate) is used for the interview and draft only; the
+  spec file in the project's `specs/` is the record. Our adversarial spec review replaces its
+  Codex gate.
+- New: adversarial review of the spec before the "go" (v1 had none). Harvest lessons folded in:
+  L-02, L-03, L-19, L-20, L-73, L-76.
+- v1's stop-and-ask category list dropped, kept by reference as the starting point for possible
+  future spec auto-approval.
+
+**Next**: Verify, then Review and Safety.

@@ -12,7 +12,7 @@ page and whether the page itself is still right
 | L0    | One sentence (ish)       | **agreed** 2026-10-08                  |
 | L1    | One paragraph            | **agreed** 2026-10-08                  |
 | L2    | One line per pillar      | **agreed** 2026-10-09                  |
-| L3    | A few bullets per pillar | not started — where decisions are made |
+| L3    | A few bullets per pillar | in progress — Intent agreed 2026-10-11 |
 | L4    | Milestones + tasks       | re-derived from L0–L3 (PLAN.md)        |
 
 ## L0 — where we're going
@@ -60,13 +60,40 @@ is one guided step.
 
 ### Inputs parked for L3 (from the owner, 2026-10-08)
 
-- **Intent:** gstack thinking skills before the spec, deep for apps/features, light for fixes. The spec must satisfy the agreed intent first; how it's tested comes after and must not trim it.
+- ~~**Intent:**~~ folded into [L3 Intent](#intent) (2026-10-11).
 - **Build:** one agent pulls the relevant guidelines (frontend, backend, data, UI, UX, security…) + project guidelines; no persona-per-agent requirement. Run the tests relevant to the change in the session (cloud or Mac) rather than waiting on CI; CI is for the full suite once ready for review (today the template runs CI on every PR push).
 - **Verify:** an adversarial review at the end against intent is required; earlier checkpoints (spec ↔ discussion, slice ↔ spec) are candidates — recommendation: spec ↔ discussion standard, slice ↔ spec tested on the walking skeleton. Docs are part of the check (future agents use them as context).
 - **Review:** title style as the devshop does today; description hierarchical; announcement blurb for non-technical readers on top when applicable; screenshots/video; preview link.
 - **Safety:** prevent a rogue or prompt-injected agent from taking over; keep Claude away from sensitive data/code and from the owner's machines except scoped, walled-off environments (e.g. Supabase in its own container; a separate Mac for Apple work). "No vulnerabilities" is pursued by layered checks, not promised.
 - **Reach:** Apple builds can also use GitHub-hosted macOS runners in CI; the Mac is for interactive work.
 - **Shape:** an outside collaborator can clone and contribute without the devshop; several projects on different devshop versions at once; moving to the latest version may involve a project migration.
+
+## L3 — a few bullets per pillar
+
+Agreed pillar by pillar with the owner (W10.2.1). **Across all pillars:** the chat is where
+Claude raises things and the owner answers; it is never the record. Once the owner decides,
+the decision is written where it belongs (spec, PR, decision log) and that is the source of
+truth.
+
+### Intent
+
+_Agreed 2026-10-11 (LOG #19)._
+
+1. **Kind of request, said up front** (Claude states which kind; the owner can correct it — L-02):
+   - **No change** (analysis, status, questions, investigation) → Claude just does it. No spec, no "go".
+   - **Bug fix** → Claude restates the problem and expected behaviour; the failing test is the spec. No "go". A "bug" whose fix involves a real choice (changes behaviour people rely on, or has several reasonable fixes) is treated as a change.
+   - **Any other change** → upstream gstack `/spec` interview + the gstack planning reviews that fit, then the owner's "go". Small changes get a short spec, so the "go" is quick. An analysis that ends in "we should change X" becomes a change at that point.
+   - `/office-hours` first whenever the why / who / problem isn't settled (a new product, or a big or fuzzy feature) — Claude proposes it; the owner can ask any time.
+2. **One spec file per change** in the project's `specs/`, kept after merge (future agents use it as context): **intent** (owner's words), **decisions** (each with its reason, and the rejected alternative where it matters), **acceptance items** (numbered, pass/fail), **out of scope**. Upstream `/spec` drafts it (file-only, no agent spawn); Claude writes the approved result to the file — any GitHub issue is optional, never the source of truth.
+   - **For UI changes** the spec also carries the core flow as 2–4 steps (L-20) and a state table for anything that shows or hides by state (L-73). Decisions that depend on how a tool or version behaves are proven with a quick experiment before the "go" (L-03).
+3. **Decisions are captured when the owner makes them** (after any back and forth), not turn by turn.
+4. **Acceptance items say what must be true;** how each is tested can't narrow it. Untestable or impossible → back to the owner, never reworded (L-19).
+5. **Adversarial spec review** before the owner sees the summary, by the same independent reviewer as Verify: spec vs recorded intent and decisions; ambiguity; untestable items; missing edge cases and failure modes; scope added beyond the ask; literal code in the spec checked against the codebase (L-76). Claude fixes what it can; what needs the owner comes with the summary. Replaces `/spec`'s Codex quality gate. Not for bug fixes.
+6. **The "go"** is given on a one-screen summary (intent, decisions, acceptance items, out of scope, rough size) and recorded in the spec.
+7. **Spec changes after the "go":** Claude raises them, the owner decides, the spec is updated. The final review fails on any change to decisions or acceptance items that isn't recorded as the owner's.
+8. **Too big?** Claude proposes splitting it into several changes, each with its own spec.
+
+- _Dropped:_ v1's "stop and ask" category list (`CLAUDE.md` § Confidence Calibration at `v1-final`) — every change now needs a "go", and anything new mid-build is a spec change (bullet 7). Kept as the starting point if spec review ever gets tedious and specs become auto-approved except in listed cases ([lessons.md § Considered, not carried](lessons.md#considered-not-carried)).
 
 ## North-star scenario (re-run at every milestone review)
 
