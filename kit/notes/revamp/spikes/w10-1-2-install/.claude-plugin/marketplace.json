@@ -1,0 +1,11 @@
+{
+  "name": "devshop-spike",
+  "owner": { "name": "abra-kadabra revamp" },
+  "plugins": [
+    {
+      "name": "devshop-probe",
+      "source": "./plugin",
+      "description": "W10.1.2 probe: one skill + one SessionStart hook, to show a pinned install loads in a cloud session"
+    }
+  ]
+}
