@@ -7,13 +7,13 @@ where they belong (mostly L3). Every milestone review checks progress against th
 page and whether the page itself is still right
 ([PROCESS.md § 5](PROCESS.md#milestone-review-each-m-exit--the-whole-picture-check)).
 
-| Level | Form                     | Status                                         |
-| ----- | ------------------------ | ---------------------------------------------- |
-| L0    | One sentence (ish)       | **agreed** 2026-10-08                          |
-| L1    | One paragraph            | **agreed** 2026-10-08                          |
-| L2    | One line per pillar      | **agreed** 2026-10-09                          |
-| L3    | A few bullets per pillar | in progress — Intent, Verify agreed 2026-10-11 |
-| L4    | Milestones + tasks       | re-derived from L0–L3 (PLAN.md)                |
+| Level | Form                     | Status                                                 |
+| ----- | ------------------------ | ------------------------------------------------------ |
+| L0    | One sentence (ish)       | **agreed** 2026-10-08                                  |
+| L1    | One paragraph            | **agreed** 2026-10-08                                  |
+| L2    | One line per pillar      | **agreed** 2026-10-09                                  |
+| L3    | A few bullets per pillar | in progress — Intent, Verify, Review agreed 2026-10-11 |
+| L4    | Milestones + tasks       | re-derived from L0–L3 (PLAN.md)                        |
 
 ## L0 — where we're going
 
@@ -63,7 +63,7 @@ is one guided step.
 - ~~**Intent:**~~ folded into [L3 Intent](#intent) (2026-10-11).
 - **Build:** one agent pulls the relevant guidelines (frontend, backend, data, UI, UX, security…) + project guidelines; no persona-per-agent requirement. Run the tests relevant to the change in the session (cloud or Mac) rather than waiting on CI; CI is for the full suite once ready for review (today the template runs CI on every PR push).
 - ~~**Verify:**~~ folded into [L3 Verify](#verify) (2026-10-11).
-- **Review:** title style as the devshop does today; description hierarchical; announcement blurb for non-technical readers on top when applicable; screenshots/video; preview link.
+- ~~**Review:**~~ folded into [L3 Review](#review) (2026-10-11).
 - **Safety:** prevent a rogue or prompt-injected agent from taking over; keep Claude away from sensitive data/code and from the owner's machines except scoped, walled-off environments (e.g. Supabase in its own container; a separate Mac for Apple work). "No vulnerabilities" is pursued by layered checks, not promised.
 - **Reach:** Apple builds can also use GitHub-hosted macOS runners in CI; the Mac is for interactive work.
 - **Shape:** an outside collaborator can clone and contribute without the devshop; several projects on different devshop versions at once; moving to the latest version may involve a project migration.
@@ -109,6 +109,19 @@ _Agreed 2026-10-11 (LOG #19)._
 8. **Every check is proven to fail** with a known-bad input (L-11); the reviewer's hit rate on planted spec violations is measured at the walking skeleton (A-12).
 
 - _What this protects against:_ the in-session reviewer enforces the standards consistently against an agent that cuts corners. A deliberately misbehaving (rogue or prompt-injected) agent controls its own session and could disable it; the walls against that are GitHub's rules, plain CI and the owner's approval, with a missing or stale verdict on the PR as the tripwire. An air-gapped reviewer that would also be a wall is planned [after the revamp](PLAN.md#after-the-revamp).
+
+### Review
+
+_Agreed 2026-10-11 (LOG #19)._
+
+1. **Title** describes the observable change (≤ 72 chars, no internal jargon), in today's style (L-31).
+2. **Body, top-down so the owner can stop at any level:** (1) one-line summary; (2) **announcement** — a short blurb for non-technical readers, only when user-facing; (3) **what you should know** — behaviour change in plain words, decisions (spec link), anything changed after the "go" with the owner's recorded answer; (4) **evidence** — screenshots/video of the core flow steps and the spec's state-table states, reviewer verdict per lens, CI status, low findings; (5) **engineering details**, collapsed.
+3. **Preview link:** the deploy platform's own PR comment, which updates itself on every push (Vercel's bot does this out of the box) — no hand-maintained link. Native changes get simulator screenshots/video instead (Ship).
+4. **Visuals pinned** to the exact commit or uploaded, never linked to a moving branch (L-30).
+5. **No unverified claims:** "CI green", "preview up" etc. are read from the real signal when written (L-28); before the PR goes ready, the reviewer checks title, body and screenshots match the final commit (L-29).
+6. **Claude tells the owner in chat when a PR is ready** — link + one-line summary; the top of the PR stays short enough to judge on a phone.
+7. **Steering:** the owner comments on the PR or in chat (chat input is recorded on the PR); Claude revises through the same verify loop and answers each comment; a comment that changes the spec follows Intent bullet 7.
+8. **Approval ships by default:** once the owner approves and CI is green, Claude merges and deploy follows (Ship). Not when the approval message or the chat says to wait, or when Claude has a concrete reason to hold (then it says so and asks). Any push after approval needs approval again.
 
 ## North-star scenario (re-run at every milestone review)
 
