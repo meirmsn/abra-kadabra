@@ -17,7 +17,7 @@ Status: `open` · `decided` · `revisited`. Order below = order to decide in.
 | D-15 | Tracking system: markdown vs GitHub Issues              | M0                                 | decided  |
 | D-03 | How devshop changes land                                | M0 (W0.8)                          | decided  |
 | D-02 | Fate of the local devcontainer                          | W1 scope, W4.4                     | decided  |
-| D-01 | Distribution model                                      | M1 (W10.4.4) — after spike W10.1.2 | open     |
+| D-01 | Distribution model                                      | M1 (W10.4.4) — after spike W10.1.2 | decided  |
 | D-05 | Plan tier assumptions (Pro/Max vs Team/Enterprise)      | spikes W10.1                       | decided  |
 | D-06 | Orchestration technology                                | M3 (W6.4)                          | decided  |
 | D-07 | gstack install model and target version                 | M2 (with D-01)                     | open     |
@@ -160,7 +160,7 @@ Outcome: **decided 2026-10-09 — A, branch → PR → CI → owner merges**, fo
 
 Outcome: **decided 2026-10-09 — cloud-first; local = a dedicated Mac** (TARGET L2 Environments): native builds, simulators, devices, and fallback when the cloud falls short. Claude runs there as a non-admin user with only the developer accounts it needs (macOS VM only if insufficient). The v1 devcontainer + root-owned-copies model retires with v1; local services run in walled-off containers.
 
-## D-01 Distribution model — `open` (reopened by REVIEW-1; decide after D-12 + spike W4.2.0)
+## D-01 Distribution model — `decided` (reopened by REVIEW-1; decided 2026-10-11 after spike W10.1.2)
 
 How does a project get the devshop, and which version?
 
@@ -189,6 +189,8 @@ Outcome: **open — direction set 2026-10-09:** the pinned devshop comes from th
 **Spike result 2026-10-11 (W10.1.2, LOG #16) — input for the owner's call, not a decision:** **D works with a private source.** A cloud setup script runs before the agent proxy, so it reaches GitHub directly: with a fine-grained read-only token (abra-kadabra only, Contents read) written inline in the script, it fetched a pinned commit and installed it as a user-scope plugin; the plugin's skill and SessionStart hook loaded in a lalista session. This falsifies A′'s "blocked in cloud" for setup-time fetches. Properties: zero project footprint; the pin is a SHA in the environment's setup script, and bumping it re-runs the script (environment cache rebuild); trade-offs: the token is readable by anyone using the environment, including the session (read-only, single repo — acceptable?), and the pin is per environment, not per project commit. Environment variables do not reach setup scripts, so the token can't live there.
 
 **Spike result 2026-10-11 (W10.1.2b) — the refined option D, recommended:** one cloud environment for all projects whose setup script holds only a read-only fine-grained token + one line that clones the devshop (bare, HTTPS) into `/opt/devshop.git` and runs `bootstrap.sh` from it. The bootstrap installs a **stub plugin** whose skills are a symlink to `/opt/devshop-current`; its SessionStart hook reads the project's **`.devshop-version`** and points the symlink at that version, extracted from the local copy (no network). Version per project in code; bumping is a one-line PR; nothing in the environment to keep in sync. Limits: the local copy refreshes when the environment cache rebuilds (~weekly, or on a setup-script edit) — a newer pin warns until then; the token is readable by anyone using the environment. Ruled out: deploy keys (no ssh client, and the network policy blocks SSH); installing the real plugin from the hook (loads only next session).
+
+**Decided 2026-10-11 (owner): option D** in the W10.1.2b form — one shared cloud environment whose setup script is a read-only token + `HEAD:bootstrap.sh`; stub plugin + SessionStart dispatcher; per-project `.devshop-version`. Built in W10.4.4. **Revisit trigger → D′** (private npm package fetched per session, no cache staleness; costs a paid private package + a CI publish step): move when D's limits bite in practice — sessions running on a stale devshop copy, or newer pins waiting on the environment cache to rebuild.
 
 ## D-05 Plan tier assumptions — `decided`
 

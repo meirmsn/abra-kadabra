@@ -66,7 +66,7 @@ M0 is done (review: [LOG.md](LOG.md) #15). M1 ([W10](workstreams/W10-v2.md)):
 
 - **Claude:** W10.3.1 lessons harvest — needs no owner input; confirm with the owner before
   starting, and respect the pacing rule (≤ ~2 devshop PRs waiting on the owner).
-- **Owner, when ready:** decide D-01 with the W10.1.2 spike result (setup-script install works
-  from the private repo — DECISIONS D-01); W10.2 L3 design pass (one review round per pillar).
+- **Owner, when ready:** W10.2 L3 design pass (one review round per pillar). D-01 decided
+  2026-10-11 (option D; built in W10.4.4).
 
 Tasks marked `[!]` "deferred to the M4 exit" are not raised before then.
