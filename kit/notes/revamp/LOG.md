@@ -519,3 +519,10 @@ token → **passed**: clean clone, bootstrap from code, `DEVSHOP: using … from
 pinned version's hook ran, skill resolved to the same commit. Bootstrap priming also ran the
 runtime hook once during setup — fixed. D-01 gets the refined design as the recommendation.
 
+**W10.1.2b final form, 2026-10-11 13:02 (after #46 merged):** the environment setup script is two
+generic lines — clone with the token, then `show HEAD:bootstrap.sh | bash` (root entry point on
+`main`; names no branch, path or version). Owner run on lalista passed: clean clone; token absent
+from `/opt/devshop.git/config` (remote rewritten); `DEVSHOP: using HEAD (7fa3832…) from
+environment default`; the version's hook ran **once**, at session start (priming fix confirmed);
+probe skill resolved to the same commit.
+
