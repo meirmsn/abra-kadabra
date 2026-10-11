@@ -628,7 +628,7 @@ as not carried.
 
 **Next**: W10.3.3 (disposition every FINDINGS row).
 
-## #19 — 2026-10-11 · W10.2 L3 design pass: Intent, Verify, Review, Safety
+## #19 — 2026-10-11 · W10.2 L3 design pass: Intent, Build, Verify, Review, Safety
 
 **What moved**: W10.2 started (`[~]`) in parallel with W10.1.2 and W10.3.1, which both landed
 mid-session (D-01 decided; `lessons.md` done) — the branch was brought up to `main` and the
@@ -667,4 +667,11 @@ written to [TARGET.md § L3](TARGET.md#l3--a-few-bullets-per-pillar).
   prefer the platform's own controls, recorded per stack home — Cloudflare first (likely default
   platform for new projects).
 
-**Next**: Build, Ship, Environments; then Reach + Shape.
+- **Build agreed:** one central agent writes the change (helpers read-only); guidelines loaded per
+  discipline + stack home + project; the end state of the test suite must describe the new
+  behaviour (existing tests reviewed, edited, removed, added). Verify's tests and docs lenses
+  sharpened: a test that passes against broken code is a finding; every deleted or loosened test
+  must be justified by the spec. v1 non-negotiables re-decided (headers dropped; responsive +
+  light/dark cross-platform).
+
+**Next**: Ship, Environments; then Reach + Shape.

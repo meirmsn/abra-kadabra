@@ -7,13 +7,13 @@ where they belong (mostly L3). Every milestone review checks progress against th
 page and whether the page itself is still right
 ([PROCESS.md § 5](PROCESS.md#milestone-review-each-m-exit--the-whole-picture-check)).
 
-| Level | Form                     | Status                                                         |
-| ----- | ------------------------ | -------------------------------------------------------------- |
-| L0    | One sentence (ish)       | **agreed** 2026-10-08                                          |
-| L1    | One paragraph            | **agreed** 2026-10-08                                          |
-| L2    | One line per pillar      | **agreed** 2026-10-09                                          |
-| L3    | A few bullets per pillar | in progress — Intent, Verify, Review, Safety agreed 2026-10-11 |
-| L4    | Milestones + tasks       | re-derived from L0–L3 (PLAN.md)                                |
+| Level | Form                     | Status                                                                |
+| ----- | ------------------------ | --------------------------------------------------------------------- |
+| L0    | One sentence (ish)       | **agreed** 2026-10-08                                                 |
+| L1    | One paragraph            | **agreed** 2026-10-08                                                 |
+| L2    | One line per pillar      | **agreed** 2026-10-09                                                 |
+| L3    | A few bullets per pillar | in progress — Intent, Build, Verify, Review, Safety agreed 2026-10-11 |
+| L4    | Milestones + tasks       | re-derived from L0–L3 (PLAN.md)                                       |
 
 ## L0 — where we're going
 
@@ -61,7 +61,7 @@ is one guided step.
 ### Inputs parked for L3 (from the owner, 2026-10-08)
 
 - ~~**Intent:**~~ folded into [L3 Intent](#intent) (2026-10-11).
-- **Build:** one agent pulls the relevant guidelines (frontend, backend, data, UI, UX, security…) + project guidelines; no persona-per-agent requirement. Run the tests relevant to the change in the session (cloud or Mac) rather than waiting on CI; CI is for the full suite once ready for review (today the template runs CI on every PR push).
+- ~~**Build:**~~ folded into [L3 Build](#build) (2026-10-11).
 - ~~**Verify:**~~ folded into [L3 Verify](#verify) (2026-10-11).
 - ~~**Review:**~~ folded into [L3 Review](#review) (2026-10-11).
 - ~~**Safety:**~~ folded into [L3 Safety](#safety) (2026-10-11).
@@ -95,6 +95,23 @@ _Agreed 2026-10-11 (LOG #19)._
 
 - _Dropped:_ v1's "stop and ask" category list (`CLAUDE.md` § Confidence Calibration at `v1-final`) — every change now needs a "go", and anything new mid-build is a spec change (bullet 7). Kept as the starting point if spec review ever gets tedious and specs become auto-approved except in listed cases ([lessons.md § Considered, not carried](lessons.md#considered-not-carried)).
 
+### Build
+
+_Agreed 2026-10-11 (LOG #19)._
+
+1. **One central agent** writes the whole change from the approved spec, loading the knowledge it needs; helpers only do read-only side work (e.g. searching a large codebase), never write code. Parallel builders for a large change that splits cleanly stay a later option, not the default.
+2. **Guidelines load only when relevant:** the devshop's guideline for each discipline the change touches (frontend, backend, data, UI/UX, security…), the stack's home, and the project's own rules. On conflict the project wins and Claude says so.
+3. **Code, tests and docs change together.** The builder reviews the existing tests around what it touches: edits tests whose expected behaviour changed, removes tests for behaviour the spec removed, adds tests for what's new — the end state of the suite describes the new behaviour. A bug fix starts with the failing test; each acceptance item ends up referenced by its test.
+4. **New and affected tests plus the fast checks run in the session as it goes;** the full suite runs once, in CI (L-08).
+5. **Root cause over band-aid;** a mitigation is labelled as one, with the root cause named beside it (L-04).
+6. **Mechanical steps live in tested scripts,** never as shell snippets in prose for the model to retype (L-05).
+7. **Fix loops are evidence-first and bounded:** real logs and artifacts before a second attempt, each retry fresh with a "tried" list, then ask the owner (L-06).
+8. **Guidelines start from the harvest's engineering lessons:** validate outside responses at one wrapper (L-07), the server enforces every client limit (L-74), one rule one implementation (L-75), errors reported to monitoring before any fallback (L-66), event-stream wrappers pass errors and status through (L-65). A **cross-platform UI guideline** carries responsive layout and light/dark for web and native alike; each stack home says how (screen sizes and themes on web; size classes, Dynamic Type and dark mode on iOS).
+9. **Instrumentation** is built as the spec and Ship's rules call for (product and observability metrics are decided under Ship).
+10. **Commits are small and logical,** subjects describe the observable change.
+
+- _v1 non-negotiables re-decided:_ responsive + light/dark → cross-platform UI guideline (bullet 8); TypeScript-source packages and "Prettier owns formatting" → stack-home conventions; 3-line `What/Why/Does NOT` file headers → dropped (no recorded bite); "metrics per feature" → Ship.
+
 ### Verify
 
 _Agreed 2026-10-11 (LOG #19)._
@@ -102,7 +119,9 @@ _Agreed 2026-10-11 (LOG #19)._
 1. **Spec review** (before the "go"): an adversarial check of the spec against the owner's intent and recorded decisions. Claude fixes what it is confident about; only the questions it can't settle confidently reach the owner, if any.
 2. **Final review** before the owner sees the PR: the PR stays a draft until it passes (A-23).
 3. **The reviewer** is a small script that starts a fresh, locked-down `claude -p` with none of the builder's context (L-18). It can read and run (tests, the app in a browser), never edit, commit or push. A hook starts it from the "done" / open-PR step, so the builder never chooses whether to run it or relays its verdict.
-4. **Diff vs spec and intent first:** every acceptance item has evidence (a test, or a demonstrated step for UI flows); decisions are followed; nothing trimmed, nothing added beyond the ask (L-19, L-20). Then the lenses that apply: code, security, tests (behaviour, not text; tests that run nothing fail — L-16, L-17), docs (future agents read them; renamed things swept — L-23), plus design and QA for UI.
+4. **Diff vs spec and intent first:** every acceptance item has evidence (a test, or a demonstrated step for UI flows); decisions are followed; nothing trimmed, nothing added beyond the ask (L-19, L-20). Then the lenses that apply: code, security, design and QA for UI, and two that get the same adversarial depth as the code:
+   - **Tests** — the end state of the suite describes the new behaviour: every behaviour in the spec is covered; for each test, "would this fail if the code were wrong?" (a test that passes against broken code is a finding); tests assert behaviour, not text, and tests that run nothing fail (L-16, L-17); every **deleted or loosened** test must be justified by the spec (the behaviour it guarded was intentionally changed or removed), anything else is a finding, and they are listed under "what you should know" in the PR.
+   - **Docs** — accurate against the code and the change; renamed or removed things swept (L-23); literal code in docs checked against the codebase (L-76). Future agents rely on docs, so a wrong doc is a bug.
 5. **Three outcomes — pass, fail, could-not-run;** could-not-run never passes and goes to the owner (L-09). The verdict is structured and fails closed (L-12); pass/fail comes from machine signals, not the model reading logs (L-13).
 6. **Findings at medium or above are fixed or go to the owner;** no "proceed but record" (L-21). Unsure whether medium or low → treated as medium and fixed. Low findings are listed in the PR, not blocking. Three rounds without resolving the same thing → Claude asks the owner.
 7. **Same checks, two places.** In the session for speed: tests, deterministic checks and the reviewer run where Claude works (no waiting on GitHub). On GitHub, plain CI repeats the deterministic part as the required check: full suite, deterministic checks, and **every acceptance item referenced by a test or marked "verified by review"** (the reviewer checks those marks are honest) — run against the tree being merged (L-14, L-15). No LLM jobs in CI (D-06). The reviewer's verdict is recorded on the PR per lens, tied to the commit it reviewed (L-25).
