@@ -367,3 +367,51 @@ original authors + the rebaser (but rebased commits aren't signed); squash's aut
 **Considered and dropped**: rebase/merge-commit merges (clutter `main`, need commit-count limits);
 owner opens each PR + admin-override merge (works, but awkward). **Decision**: keep the machine-user
 setup as a **trial until 2026-10-25** (or W10.6), then keep or switch back (steps in D-13; A-24).
+
+---
+
+## #14 — 2026-10-11 · M0 wrap-up: CLAUDE.md revamp note, all histories scanned, `v1-final` tagged
+
+**W0.8.1 done**: `CLAUDE.md` opens with a 10-line `## Revamp mode` section (PROCESS.md, PRs to
+`main`, v1 tooling not used, v1 frozen at `v1-final`, this section wins). The three
+contradicting v1 lines (`/ak-status` first, no-PR shipping flow, "don't propose a GitHub PR on
+devshop") are annotated as superseded.
+
+**W0.4.1 done (owner-pushed)**: `git push origin refs/tags/v1-final` from the session →
+HTTP 403 (the session's git proxy only accepts pushes to the session branch; the GitHub tools
+have no tag creation). The owner pushed the annotated tag; verified with `git ls-remote`:
+`refs/tags/v1-final^{}` = `525cd49`. Side note: the owner's local clone used an HTTPS remote
+that relied on the stale dev env's token, so the push prompted for a username; switching the
+remote to SSH fixed it. Lesson for v2: tags/releases are an owner (or CI) step, not something a cloud
+session can do.
+
+**W0.7.1 done**: once the agent had access to lalista and home-os, all three histories were
+scanned with gitleaks 8.30.1 (release checksum verified), scratch config
+`[extend] useDefault = true`, `--log-opts=--all --redact`, full clones **plus every PR head ref**
+(`refs/pull/*/head`). The PR refs matter: squash merges delete branch history, so lalista goes
+from 93 to 567 commits and home-os from 39 to 411; abra-kadabra 616 → 770 (LOG #11 missed them).
+
+| Repo         | Commits | Hits | Verdict                                                                                                        |
+| ------------ | ------- | ---- | -------------------------------------------------------------------------------------------------------------- |
+| abra-kadabra | 770     | 7    | same 7 false positives as LOG #11                                                                              |
+| lalista      | 567     | 6    | Supabase demo JWTs (`iss=supabase-demo`, anon + service_role) ×5, `.env.example` placeholder (JWT header only) |
+| home-os      | 411     | 4    | Supabase demo JWTs ×2, `.env.example` placeholder ×2                                                           |
+
+Hits were classified by decoding only the JWT payload's `iss`/`role`/`ref` (no values printed).
+Nothing to rotate. **Flagged for D-12** (not secrets): Supabase project refs for lalista (also
+3× in abra-kadabra) and home-os; Vercel production + preview URLs incl. the team slug; lalista's
+Sentry org ingest id (DSN key elided); owner email in commits/docs. Lesson for v2's scanner
+(W10.4.1): scan PR refs too, not only branches.
+
+**Owner call**: W0.5.2, W0.5.3, W0.6.2, W0.6.3 deferred to the end of the revamp; not raised
+again until then.
+
+**Owner calls on project references**: abra-kadabra's history mentions lalista/home-os in 303
+commits (174 files on `main`; ~9 hold specific identifiers). Not cleaned: if the repo goes
+public, re-scan for secrets and rotate hits only (D-12 revisited). For v2: never project identifiers
+(URLs, project refs, team slugs, Sentry ids) in the devshop; project context only where it
+explains a change (seeded into W10.3.1).
+
+**M0 tasks done** (deferred owner steps moved to M4 exit, PLAN changelog). **Next**: M0 exit
+review (PROCESS § 5, light — no skeleton to re-run yet) once this PR merges, then W10.3.1. Meanwhile
+W10.3.1 (lessons harvest from v1).

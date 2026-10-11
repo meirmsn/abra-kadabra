@@ -66,6 +66,8 @@ Outcome: **decided (direction) 2026-10-09 — option B in a new form.** The new 
 
 **Revisited 2026-10-10:** no new repo. abra-kadabra stays private for now; it may go public later once W0.7's history scan is clean, every hit is rotated (W0.5), and the owner has read the notes for personal details / infrastructure identifiers. Flipping it public is still decided after the distribution spike (W10.1.2).
 
+**Revisited 2026-10-11:** history is **not** cleaned before going public. Project names, infrastructure identifiers (Supabase project refs, Vercel URLs, team slug) and personal details already in history are accepted. The one gate: re-scan the full history for secrets (`--all` + PR refs, as in W0.7.1) right before flipping, and the owner revokes/rotates every real hit. The 2026-10-09 "owner reads the notes" step is dropped.
+
 ## D-13 Separate GitHub identity for the agent — `decided` (added by REVIEW-1)
 
 Today the agent acts as the owner: commits, PRs, approvals, merges carry the

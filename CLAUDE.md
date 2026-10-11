@@ -1,5 +1,15 @@
 # CLAUDE.md
 
+## Revamp mode (2026-Q4) — read first
+
+The devshop is being rewritten as v2 in this repo. Plan + tracker: `kit/notes/revamp/` (start at `README.md`).
+
+- **Process:** revamp work follows `kit/notes/revamp/PROCESS.md`. The next task is the first unblocked `[ ]` task in `kit/notes/revamp/workstreams/` (W0, then W10).
+- **Changes land by PR** to `main` (D-03): branch → PR → CI → owner approves. This replaces the "no PRs on devshop" flow below.
+- **Not used for revamp work:** `/ak-status`, `/ak-build`, `/ak-merge-devshop`, `release.sh` (v1 tooling being replaced).
+- **v1 is frozen** at tag `v1-final` and takes security fixes only. The rest of this file describes v1.
+- Where this section and the rest of this file disagree, this section wins.
+
 ## Devshop Conventions
 
 <!-- Auto-loaded via additionalDirectories in settings.json.
@@ -33,7 +43,7 @@ The hook also reads init progress from `/devshop/kit/notes/projects/<name>.md` i
 
 **Design principle: project `CLAUDE.md` is self-sufficient for public contributors.** Because the SessionStart hook delivers `/devshop/CLAUDE.md` to project sessions at runtime, the project's own committed `CLAUDE.md` does NOT need to mention devshop conventions, point at `/devshop/...` paths, or otherwise reference the devshop side. Project `CLAUDE.md` is **project directives only** — what a public contributor cloning the repo on GitHub sees, with no broken pointers into the private `/devshop` bind mount. The hook bridges the two layers at runtime; the file does not. When tempted to add a `/devshop/CLAUDE.md § X` cross-reference to project `CLAUDE.md`, the rule is: **don't**. Either (a) lift the convention into project-side guidance if it applies project-side, or (b) trust the hook to deliver the devshop context. Skill files (`/ak-new-project § Step 12.6`) restate this principle at scaffold time so each new project starts in the right shape.
 
-If the user asks you to implement, fix, or continue work (not just answer a question), run `/ak-status` first — it reads `PLAN.md` (forward), `BUILD-LOG.md` (backward), the active branch's `specs/<name>/tasks.md`, and git state to produce a structured briefing plus a "Next up" synthesis when phase is `between features`.
+If the user asks you to implement, fix, or continue work (not just answer a question), run `/ak-status` first — it reads `PLAN.md` (forward), `BUILD-LOG.md` (backward), the active branch's `specs/<name>/tasks.md`, and git state to produce a structured briefing plus a "Next up" synthesis when phase is `between features`. _(Revamp: superseded — see § Revamp mode.)_
 
 ### Philosophy
 
@@ -58,7 +68,7 @@ Flag concerns not covered by existing docs or conventions — wait for confirmat
 - **Project commits** go to the project repo (`/workspace`). Conventional commits. Branch protection requires PRs.
 - **Devshop commits** go to the abra-kadabra repo (`/devshop`). Conventional commits. Since `.devshopkit/` is a symlink to `/devshop/kit/`, edits are automatically in the abra-kadabra working tree — just `cd /devshop && git add && git commit`.
 
-**Devshop shipping flow (no PRs):** branch for anything beyond trivial (Claude is blocked on `main` by `check-branch-not-main.sh`); run `/ak-build` for the full pipeline — it auto-detects devshop mode for `/devshop` + its linked worktrees via `--git-common-dir`, runs a reduced gate set, then invokes `/ak-merge-devshop` as the transport (or invoke `/ak-merge-devshop` directly for one-line nits); `release.sh --bump patch|minor|major` (or `/ak-release-devshop`) when a cohesive delta lands.
+**Devshop shipping flow (no PRs):** branch for anything beyond trivial (Claude is blocked on `main` by `check-branch-not-main.sh`); run `/ak-build` for the full pipeline — it auto-detects devshop mode for `/devshop` + its linked worktrees via `--git-common-dir`, runs a reduced gate set, then invokes `/ak-merge-devshop` as the transport (or invoke `/ak-merge-devshop` directly for one-line nits); `release.sh --bump patch|minor|major` (or `/ak-release-devshop`) when a cohesive delta lands. _(Revamp: superseded — see § Revamp mode.)_
 
 - **Stash-then-commit trips the clean-tree guard.** Pre-commit's clean-tree check counts entries in `git stash list` as part of the dirty-tree signal — a `git stash push` of WIP from a previous session leaves a stash entry whose presence flips the guard to "dirty" even though the working tree itself is now clean. First action when the guard fires on a stash you intentionally left behind: bypass with `git -c devshop.dirtyTreeReason="<specific stash + scope>" commit ...` (the Sonnet-routed `dirtyTreeReason` reviewer accepts named-stash bypasses with rationale; generic "stash exists" fails). **Don't** drop the stash to satisfy the guard — that destroys WIP. See also `§ Known Footguns` "Operator stashes can vanish silently" for the recovery path if a stash disappears later.
 
@@ -104,7 +114,7 @@ Silent-failure devshop-development traps. Recipe-heavy entries point at the guid
 
 - **Verify state before stating it in a user-facing artifact** — PR comments, audit logs, and any other public output asserting "CI green / preview reachable / deploy succeeded" must verify against canonical signal at write-time, not against a proxy or stale assumption. Worked incident: lalista PR 18 (2026-04-25). Full convention + recipe + canonical-signal map: `kit/docs/guide/conventions.md § Verify state before public assertion`.
 
-- **Never commit directly to main** — loud-caught for Claude by `check-branch-not-main.sh` (PreToolUse) + the husky `$CLAUDECODE=1` branch guard (which closes the parallel-session TOCTOU race); humans commit on main unconditionally. Enforcement detail: `kit/docs/guide/hooks.md`. The residual silent trap: **do not propose creating a GitHub PR on devshop** — that's the project workflow; devshop lands via `/ak-merge-devshop`.
+- **Never commit directly to main** — loud-caught for Claude by `check-branch-not-main.sh` (PreToolUse) + the husky `$CLAUDECODE=1` branch guard (which closes the parallel-session TOCTOU race); humans commit on main unconditionally. Enforcement detail: `kit/docs/guide/hooks.md`. The residual silent trap: **do not propose creating a GitHub PR on devshop** — that's the project workflow; devshop lands via `/ak-merge-devshop`. _(Revamp: superseded — see § Revamp mode.)_
 
 - **Workflow push requires human** — the devcontainer PAT lacks `workflow` scope. If `git push` fails on a `.github/workflows/` touch, ask the human to push with their PAT.
 

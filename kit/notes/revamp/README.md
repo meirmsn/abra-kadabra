@@ -62,7 +62,6 @@ an explicit go/no-go; lalista is the pilot (web, then iOS).
 
 ## Next action
 
-M0 in order ([W0](workstreams/W0-groundwork.md)): **W0.5** rotate credentials (owner) →
-**W0.7** history secret scan → **W0.6** rulesets on abra-kadabra + lalista, archive home-os
-(owner) → **W0.4** tag `v1-final` → **W0.8** CLAUDE.md note. In parallel, M1 spikes
-([W10.1](workstreams/W10-v2.md)) can start.
+M0's tasks are done ([W0](workstreams/W0-groundwork.md)); next is the M0 exit review, then
+M1 ([W10](workstreams/W10-v2.md)) starting with the lessons harvest (**W10.3.1**), which
+needs no owner input.

@@ -4,6 +4,8 @@ Needed whatever happens next. `[owner]` = needs the owner (GitHub settings, cred
 Status markers: `[ ]` todo · `[~]` doing · `[x]` done (verified) · `[!]` blocked · `[-]` dropped.
 Done line: `- [x] **ID** text — YYYY-MM-DD · PR #n` (or commit when no PR).
 
+**Owner-deferred to the end of the revamp (2026-10-11): W0.5.2, W0.5.3, W0.6.2, W0.6.3** — not raised again until then.
+
 **M0 order (agreed 2026-10-09, most exposure first):** W0.5 rotate credentials → W0.7 history
 secret scan → W0.6 rulesets + archive home-os → W0.4 tag `v1-final` → W0.8 CLAUDE.md note.
 Context: lalista is paused and home-os frozen, so no live project needs protecting from v1 changes (D-09).
@@ -41,7 +43,8 @@ Done when: listed decisions have outcomes in [DECISIONS.md](../DECISIONS.md) and
 
 Finding: F-VER-01 (no longer live: lalista paused, home-os frozen — D-09).
 
-- [ ] **W0.4.1** Tag `v1-final` at current `main`; v1 takes security fixes only (stated in W0.8 note) — V1
+- [x] **W0.4.1** `[owner]` Tag `v1-final` at current `main`; v1 takes security fixes only (stated in W0.8 note) — V1: `git ls-remote --tags origin` shows annotated `v1-final` peeling to `525cd49` — 2026-10-11 · owner-pushed (LOG #14)
+  - The cloud session can't push tags (git proxy 403, no GitHub tool for tags) — the owner pushed it
 - [-] **W0.4.2** Host worktree mount for live projects — not needed (D-09)
 - [-] **W0.4.3** Live-project smoke check — not needed (D-09)
 
@@ -74,7 +77,7 @@ Done when: on abra-kadabra and lalista, a direct push to `main` and a force-push
 Finding: F-SEC-20 (reproduced: v1's `.gitleaks.toml` detects nothing). v1 is retiring, so v1's own config is not repaired; the scan uses a scratch config with `[extend] useDefault = true`.
 Done when: full history of abra-kadabra, lalista and home-os scanned; findings (if any) rotated via W0.5; result in LOG. Also flag (for the owner, not rotation) personal details and infrastructure identifiers (project refs, internal URLs) — input to a later public/private call (D-12).
 
-- [~] **W0.7.1** Scan all three histories with gitleaks defaults (scratch config) — V3; feed any hit into W0.5. abra-kadabra done: 616 commits, 7 hits, all false positives (LOG #11). lalista + home-os pending: Claude GitHub App not installed on them
+- [x] **W0.7.1** Scan all three histories with gitleaks defaults (scratch config) — V3; feed any hit into W0.5. Scope: `--all` plus every PR head ref (`refs/pull/*/head`) — squash merges delete branch history that only PR refs keep. abra-kadabra 770 commits / 7 hits, lalista 567 / 6, home-os 411 / 4 — **all false positives** (Supabase local-stack demo JWTs `iss=supabase-demo`, `.env.example` placeholders, gstack upstream fixtures); nothing to rotate. Flagged for D-12: Supabase project refs (lalista, home-os), Vercel prod/preview URLs incl. team slug, lalista's Sentry org ingest id, owner email — 2026-10-11 · LOG #14 · PR #44
 - [-] **W0.7.2** Fix `.gitleaks.toml` in v1 + template — v1 retiring; v2 starts with a working config (W10.4.1)
 - [-] **W0.7.3** Cherry-pick to v1 / propagate — not needed
 
@@ -82,7 +85,7 @@ Done when: full history of abra-kadabra, lalista and home-os scanned; findings (
 
 Findings: REVIEW-1 E9, F-PIPE-16. Done when: CLAUDE.md states, in ≤15 lines: revamp work follows `kit/notes/revamp/PROCESS.md`; changes land via PR (D-03); v1 takes security fixes only; `/ak-build`/`/ak-merge-devshop` are not used for revamp work; where the next task is.
 
-- [ ] **W0.8.1** Write the note; annotate contradicting lines ("do not propose a GitHub PR on devshop", "run `/ak-build` for devshop work") — V1
+- [x] **W0.8.1** Write the note; annotate contradicting lines ("do not propose a GitHub PR on devshop", "run `/ak-build` for devshop work") — V1: 10-line `## Revamp mode` section at the top of `CLAUDE.md`; `/ak-status`, devshop shipping flow and "no GitHub PR on devshop" lines annotated as superseded — 2026-10-11 · PR #44
 
 ## W0.9 Triage old backlogs — dropped
 
