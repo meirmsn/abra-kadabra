@@ -109,14 +109,44 @@ protections, but runs in GitHub's sandbox, not Claude Code cloud; Copilot plan).
   push**, **code-owner review**, conversation resolution, required checks pinned to the
   GitHub Actions app; block force-push/deletion. CODEOWNERS `* @owner`.
 - Ruleset B (main): **Restrict updates**, bypass = Repository admin _for pull requests
-  only_ → only you merge, only via PR; the agent's merge/auto-merge fails `[inferred — test]`.
-- Agent token without `workflow` scope (blocks workflow-file edits; F-NEW-16), no
-  repo-level secrets (agent can still change what workflows _run_), deploy secrets in
-  environment `production` limited to `main`.
+  only_ → only you merge, only via PR. **Optional — not applied** (2026-10-11); see
+  [§ 3a](#3a-optional-ruleset-b--only-the-owner-merges).
+- No repo-level secrets (an agent branch can edit or add workflows — the browser
+  GitHub connection carries workflow write, PR #39 — and what they run; F-NEW-16), deploy
+  secrets in environment `production` limited to `main`.
+- **As applied 2026-10-11:** classic branch protection on `main` (PR required, force-push
+  and deletion blocked) + `CODEOWNERS` `* @meirmsn`; the agent's direct push, force-push
+  and contents-API write were all refused (LOG #10). Ruleset A's remaining items (1 approval,
+  dismiss stale, code-owner review, approval of most recent push, conversation resolution)
+  can be ticked on the same classic rule — no ruleset needed.
 - Gap on Pro: no server-side path rules for `.github/ .claude/` (Team org needed) →
   CODEOWNERS review is the control.
   ✅ The classifier and GitHub proxy are useful **soft** layers; both docs say hooks /
   classifier are not security boundaries — matches D-04. 🔁 delete v1's in-VM guard hooks.
+
+### 3a. Optional: ruleset B — only the owner merges
+
+**Status:** not applied (owner, 2026-10-11). Today an approved, conflict-free PR can be merged
+by the agent (PR #39 showed `mergeable_state: clean` after approval) — "your approval ships it".
+
+**What it adds:** classic branch protection decides _whether_ a PR may merge (your approval of
+the latest push); it can't decide _who_ clicks Merge — "Restrict who can push" is org-only.
+Ruleset B adds that: only you can update `main`, and only by merging a PR. You gain:
+
+- **Timing control** — approve now, merge when you choose (e.g. after watching a preview, or
+  to batch releases); the agent can't merge or turn on auto-merge to land it early.
+- **A second hard step** — approval _and_ your own merge, in case an approval was a slip.
+- **Not gained:** protection against unreviewed code — the approval rules already block that;
+  any push after your approval dismisses it.
+
+**Cost:** you click Merge on every PR (no "approve and walk away"); one more rule to keep
+consistent with the classic one.
+
+**How to add it** (Settings → Rules → Rulesets → New branch ruleset): name `main-owner-merge`,
+Enforcement **Active**, target **Include default branch**, rule **Restrict updates** only,
+bypass list **Repository admin** set to **For pull requests only**. It layers on top of the
+classic rule (strictest wins). **Test:** approve an agent PR, have the agent try to merge it
+via the API and to enable auto-merge — both must be refused; then you merge it (A-20).
 
 **Environments** — ✅ cloud environments by default. ✅ Mac: Desktop **local** sessions
 (iOS Simulator pane is local-only) driven from phone via **Remote Control** server mode;
