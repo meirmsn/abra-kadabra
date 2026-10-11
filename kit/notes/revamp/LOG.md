@@ -269,3 +269,21 @@ then machine-user setup (W10.1.1) continues.
 
 **Update 2026-10-11**: owner stated GitHub **Pro** and Claude **Pro/Max** → D-05 decided, A-19
 validated, PLATFORM § 5 updated.
+
+---
+
+## #9 — 2026-10-11 · Agent identity working (W10.1.1 done)
+
+**What**: owner created machine user `meirmsn-agent` (Write collaborator on abra-kadabra) and,
+in a private window, disconnected claude.ai's GitHub connection and reconnected it while GitHub
+was logged in as the agent — simpler than `gh` + `/web-setup`, no CLI needed. The Claude App stays
+installed on `meirmsn` (repo owner); "Not installed" on the agent's own account is irrelevant.
+
+**Evidence** (fresh cloud session, PR #39): `gh api user` → `meirmsn-agent User`; repo permissions
+`admin:false, push:true`; branch push OK; PR #39 `user.login = meirmsn-agent`; PR activity
+subscription OK. This session also switched to the agent (`gh api user` → `meirmsn-agent`).
+**Surprise:** the workflow-file push was **accepted** — the browser connection uses the Claude
+App's user token, which has workflow write, so "no `workflow` scope" isn't available on this route
+→ F-NEW-16 controls move to CODEOWNERS + secret placement (A-07).
+
+**Next**: rulesets on abra-kadabra (W10.1.3 / A-06, A-20), tested against PR #39; then close #39.
