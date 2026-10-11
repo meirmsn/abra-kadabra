@@ -243,3 +243,26 @@ force-push, path rule on `.github/`) on the fixture or this repo → rerun W10.1
 (3) try a setup script that clones a devshop tag with a read-only token secret and runs
 `claude plugin marketplace add` + `install` → closes W10.1.2. D-01 leans to **C/D hybrid**:
 sha-pinned plugin installed at user scope by the setup script.
+
+---
+
+## #8 — 2026-10-11 · Platform analysis (Claude Code + GitHub vs devshop intent)
+
+**What**: owner asked why the devshop and Claude Code cloud seem to overlap or conflict.
+Four parallel doc-research passes (cloud/desktop, Claude-on-GitHub, packaging/distribution,
+GitHub governance) → [PLATFORM.md](PLATFORM.md).
+
+**Key findings**: Anthropic's cloud product assumes a trusted agent acting **as you**;
+GitHub's own agent model and the devshop assume a distrusted agent with its own identity —
+most conflicts follow from that. AI review on the platform is on-PR and advisory (Code
+Review's check is always neutral) → reconcile "before you see it" as "before ready for
+review" on a draft PR. GitHub **Pro** is the minimum for any enforceable merge control on
+private personal repos; private deploys can't wait for a reviewer on Pro → the gate is
+"only the owner can update `main`". Repo-declared plugins never load in cloud sessions.
+Projects (Pro/Max) and Code Review / self-hosted (Team/Ent) sit on different plan tiers.
+
+**Changes**: PLATFORM.md; ASSUMPTIONS A-19…A-23. Proposed (not applied, owner to agree):
+TARGET Shape "platform-first" line, Verify wording, D-01/D-13 directions.
+
+**Next (owner)**: state GitHub plan and Claude plan; agree or amend the proposed changes;
+then machine-user setup (W10.1.1) continues.
