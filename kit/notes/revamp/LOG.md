@@ -673,5 +673,8 @@ written to [TARGET.md § L3](TARGET.md#l3--a-few-bullets-per-pillar).
   sharpened: a test that passes against broken code is a finding; every deleted or loosened test
   must be justified by the spec. v1 non-negotiables re-decided (headers dropped; responsive +
   light/dark cross-platform).
+- Docs get the same end-state rule and adversarial depth as tests; related tests/docs are found by
+  layout + tool lookups (related-tests mode, coverage, name search) + spec→test links, not a
+  hand-kept index; the docs map is checked by CI.
 
 **Next**: Ship, Environments; then Reach + Shape.
