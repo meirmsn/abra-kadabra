@@ -62,7 +62,6 @@ an explicit go/no-go; lalista is the pilot (web, then iOS).
 
 ## Next action
 
-M0 has two steps waiting on the owner ([W0](workstreams/W0-groundwork.md)): push the
-`v1-final` tag (**W0.4.1**) and give the agent access to lalista + home-os so their history
-scan can run (**W0.7.1**). M1 ([W10](workstreams/W10-v2.md)): the lessons harvest
+M0 has one step left, waiting on the owner ([W0](workstreams/W0-groundwork.md)): push the
+`v1-final` tag (**W0.4.1**). M1 ([W10](workstreams/W10-v2.md)): the lessons harvest
 (**W10.3.1**) is next and needs no owner input.

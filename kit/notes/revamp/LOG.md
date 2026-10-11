@@ -370,7 +370,7 @@ setup as a **trial until 2026-10-25** (or W10.6), then keep or switch back (step
 
 ---
 
-## #14 — 2026-10-11 · M0 wrap-up: CLAUDE.md revamp note; tag and scans wait on access
+## #14 — 2026-10-11 · M0 wrap-up: CLAUDE.md revamp note, all histories scanned, tag waits on owner
 
 **W0.8.1 done**: `CLAUDE.md` opens with a 10-line `## Revamp mode` section (PROCESS.md, PRs to
 `main`, v1 tooling not used, v1 frozen at `v1-final`, this section wins). The three
@@ -383,13 +383,26 @@ accepts pushes to the session branch; the GitHub tools have no tag creation. The
 the tag. Lesson for v2: tags/releases are an owner (or CI) step, not something a cloud
 session can do.
 
-**W0.7.1 still pending**: owner added `meirmsn-agent` to lalista and home-os, but `add_repo`
-says "you don't have access" for both and the agent's repo list shows only abra-kadabra.
-Likely the collaborator invitations still need accepting as `meirmsn-agent`, and/or the
-Claude GitHub App isn't installed on those repos.
+**W0.7.1 done**: once the agent had access to lalista and home-os, all three histories were
+scanned with gitleaks 8.30.1 (release checksum verified), scratch config
+`[extend] useDefault = true`, `--log-opts=--all --redact`, full clones **plus every PR head ref**
+(`refs/pull/*/head`). The PR refs matter: squash merges delete branch history, so lalista goes
+from 93 to 567 commits and home-os from 39 to 411; abra-kadabra 616 → 770 (LOG #11 missed them).
+
+| Repo         | Commits | Hits | Verdict                                                                                                        |
+| ------------ | ------- | ---- | -------------------------------------------------------------------------------------------------------------- |
+| abra-kadabra | 770     | 7    | same 7 false positives as LOG #11                                                                              |
+| lalista      | 567     | 6    | Supabase demo JWTs (`iss=supabase-demo`, anon + service_role) ×5, `.env.example` placeholder (JWT header only) |
+| home-os      | 411     | 4    | Supabase demo JWTs ×2, `.env.example` placeholder ×2                                                           |
+
+Hits were classified by decoding only the JWT payload's `iss`/`role`/`ref` (no values printed).
+Nothing to rotate. **Flagged for D-12** (not secrets): Supabase project refs for lalista (also
+3× in abra-kadabra) and home-os; Vercel production + preview URLs incl. the team slug; lalista's
+Sentry org ingest id (DSN key elided); owner email in commits/docs. Lesson for v2's scanner
+(W10.4.1): scan PR refs too, not only branches.
 
 **Owner call**: W0.5.2, W0.5.3, W0.6.2, W0.6.3 deferred to the end of the revamp; not raised
 again until then.
 
-**Next**: owner pushes the tag + fixes repo access → finish W0.7.1 → M0 exit. Meanwhile
+**Next**: owner pushes the `v1-final` tag → M0 exit review. Meanwhile
 W10.3.1 (lessons harvest from v1).

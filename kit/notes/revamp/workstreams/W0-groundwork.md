@@ -77,8 +77,7 @@ Done when: on abra-kadabra and lalista, a direct push to `main` and a force-push
 Finding: F-SEC-20 (reproduced: v1's `.gitleaks.toml` detects nothing). v1 is retiring, so v1's own config is not repaired; the scan uses a scratch config with `[extend] useDefault = true`.
 Done when: full history of abra-kadabra, lalista and home-os scanned; findings (if any) rotated via W0.5; result in LOG. Also flag (for the owner, not rotation) personal details and infrastructure identifiers (project refs, internal URLs) — input to a later public/private call (D-12).
 
-- [~] **W0.7.1** Scan all three histories with gitleaks defaults (scratch config) — V3; feed any hit into W0.5. abra-kadabra done: 616 commits, 7 hits, all false positives (LOG #11). lalista + home-os pending: Claude GitHub App not installed on them
-  - 2026-10-11: owner added `meirmsn-agent` as a collaborator on both; still not reachable from the session (agent's repo list shows only abra-kadabra — likely an unaccepted invitation and/or the Claude GitHub App not installed on them; LOG #14)
+- [x] **W0.7.1** Scan all three histories with gitleaks defaults (scratch config) — V3; feed any hit into W0.5. Scope: `--all` plus every PR head ref (`refs/pull/*/head`) — squash merges delete branch history that only PR refs keep. abra-kadabra 770 commits / 7 hits, lalista 567 / 6, home-os 411 / 4 — **all false positives** (Supabase local-stack demo JWTs `iss=supabase-demo`, `.env.example` placeholders, gstack upstream fixtures); nothing to rotate. Flagged for D-12: Supabase project refs (lalista, home-os), Vercel prod/preview URLs incl. team slug, lalista's Sentry org ingest id, owner email — 2026-10-11 · LOG #14 · PR #44
 - [-] **W0.7.2** Fix `.gitleaks.toml` in v1 + template — v1 retiring; v2 starts with a working config (W10.4.1)
 - [-] **W0.7.3** Cherry-pick to v1 / propagate — not needed
 
