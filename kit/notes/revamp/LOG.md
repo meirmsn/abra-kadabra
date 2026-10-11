@@ -456,7 +456,7 @@ W10.2 L3 design pass.
 
 ## #16 — 2026-10-11 · W10.3.1 lessons harvest from v1
 
-**What**: [lessons.md](lessons.md) — 71 lessons carried, 53 "considered, not carried" (after the owner's review; 64/62 at first draft), grouped by
+**What**: [lessons.md](lessons.md) — 72 lessons carried, 52 "considered, not carried" (after the owner's review; 64/62 at first draft), grouped by
 TARGET pillar plus a by-stack section (web, Next.js, Supabase; no Vercel-only lesson met the bar).
 Seed requirement L-01 (no project identifiers in the devshop) listed first with its v1
 counter-examples by path:line and kind only.
@@ -499,9 +499,12 @@ re-check against home-os in W10.3.2).
   and took real time to diagnose). That moved 9 one-incident rules up: 7 new lessons (L-65–L-71:
   realtime wrapper errors, auth error capture, first-prod smoke, env trimming, public assets + real
   mail client, RLS policy coverage, auth defaults) and one folded into L-56 (optimistic failure
-  path). 5 mild ones stay ↻ for W10.3.2.
+  path). 5 mild ones stay ↻ for W10.3.2 (4 after L-72).
 - L-01 also covers **personal identifiers** (handles, emails): v1's real-identity test fixture and
   hard-coded push URL needed neither.
+- **Interactive controls** get a full state contract (L-72, owner requirement): clear affordance,
+  hover change, immediate press state, a processing state past a threshold, restore on failure.
+  It replaces the ↻ "iOS press cue" row, which now leaves 4 ↻ rows for W10.3.2.
 
 **Next**: W10.3.2 (home-os lessons; re-check the ↻ rows), then W10.3.3 (disposition every FINDINGS
 row; lessons cite FINDINGS ids to speed it up).

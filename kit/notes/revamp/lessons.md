@@ -1171,6 +1171,37 @@ Sources: `kit/docs/guide/latency-feedback.md`, `pre-ship/SKILL.md` § Fault-inje
 
 Pillar **Build** · Scope **web**
 
+#### L-72 · Every interactive control has a full state contract: looks tappable, reacts at once, shows work, restores on failure
+
+**Rule.** Owner requirement for every v2 UI. Each button, link or other control:
+
+1. **Looks tappable.** It has a clear affordance, so a control never reads as plain text.
+2. **Responds to hover** (where there is hover) with a slight change.
+3. **Shows the press immediately**, within one frame, with a clear pressed state. On touch there is
+   no tap delay (`touch-action: manipulation`), and the pressed state comes from one global,
+   low-specificity rule that components inherit, with an opt-out.
+4. **Shows that work is in progress** once the action outlasts a threshold, typically a backend
+   round-trip. The control disables at once ("I heard you"); a spinner or processing state appears
+   only after the threshold (v1 used 250 ms), so fast actions don't flicker.
+5. **Restores on failure** where that applies: optimistic changes roll back, the control becomes
+   usable again, and the error is shown (L-56 tiers A1/A2/B).
+
+The reviewer's design lens checks each new control against these five states.
+
+**Why.** Owner requirement (2026-10-11, PR 47 review). The v1 evidence:
+
+- lalista's polish bundle (2026-05-13): without a press cue on iOS PWAs, users assumed the app had
+  frozen, or tapped twice. A global `:active` scale + brightness rule fixed it but never reached
+  the template.
+- lalista PR 49 built the threshold spinner and rollback tiers (L-56), and its Undo failure path
+  was blocked by an overlay.
+
+Sources: `kit/TODOS.md` ("Port the `tap-feedback` press-state contract"),
+`kit/docs/guide/latency-feedback.md` § Decision rule.
+
+Pillar **Build** · Scope **web** (the contract applies to any UI, native included; the CSS mechanism
+is web)
+
 ### Next.js
 
 #### L-57 · Build CSP sources from the configured backend origin, for every scheme
@@ -1458,7 +1489,6 @@ One line each: rule — source — reason.
 - ↻ Auth redirects from the request Host header (home-os PR 15) — `supabase-ssr-boilerplate.md` § Pattern 10 — hit local and CI runs only (`127.0.0.1` vs `localhost`), not users.
 - ↻ Page-level `getUser()` before RLS queries, since the layout guard races (home-os triage route) — § Pattern 11 — a 404 instead of the login page on a cold load.
 - ↻ Shared primitives don't bake in sizes callers override (lalista `LoadingArea`) — `latency-feedback.md` — cosmetic.
-- ↻ iOS PWA press-state cue (lalista polish bundle) — `kit/TODOS.md` — UX polish, nothing broke.
 - Stack guidance always loads the baseline on top of routed sections (one regression, 2026-05-11)
   — `kit/docs/guide/workflow.md` § Devshop Skill Map — input to the Reach L3 design, not a lesson.
 - Owner's manual-review list holds only judgement calls (lalista PR 27) — `build/SKILL.md` § What
@@ -1506,13 +1536,13 @@ One line each: rule — source — reason.
 | `kit/docs/guide/` — all 19 guides + README                                                                | in full        | L-03 L-04 L-06 L-07 L-09–L-12 L-14 L-19 L-23 L-24 L-26 L-27 L-31 L-33 L-34 L-36 L-38 L-43–L-45 L-48–L-51 L-53 L-55–L-60 L-62–L-65 L-69; no lessons from `macos-host-setup`, `notifications`, `date-handling` (not carried) |
 | `CLAUDE.md` — Known Footguns (15), Non-Negotiables, Implementation Approach, TODO/close-out, text style   | in full        | carried: 6 footguns, as principle (L-28 L-36 L-37 L-38 L-41 L-52); 9 dropped as mechanism (listed above)                                                                                                                   |
 | `kit/FRICTION-LOG.md` — 26 entries                                                                        | in full        | L-04 L-05 L-08 L-14 L-21 L-28 L-32 L-35 L-36 L-41 L-53; the rest not carried                                                                                                                                               |
-| `kit/TODOS.md`                                                                                            | in full        | L-16 L-34 L-36 L-42 L-45 L-50 L-66 L-67 L-70; one ↻ rule for W10.3.2                                                                                                                                                       |
+| `kit/TODOS.md`                                                                                            | in full        | L-16 L-34 L-36 L-42 L-45 L-50 L-66 L-67 L-70 L-72                                                                                                                                                                          |
 | `kit/ROADMAP.md`                                                                                          | in full        | L-20 L-29 L-34 L-42 L-45 L-54 L-61; most entries are unbuilt ideas (not carried). Identifiers: placeholders only                                                                                                           |
 | `kit/docs/CHANGELOG.md`                                                                                   | in full        | L-09 L-11 L-15 L-20 L-33 L-41 L-46 L-47                                                                                                                                                                                    |
 | `BUILD-LOG.md` (`template/BUILD-LOG.md` is an empty stub)                                                 | in full        | L-02 L-06 L-11 L-12 L-15 L-16 L-22 L-23 L-28 L-30 L-32 L-38 L-40–L-42 L-48 L-49 L-53 L-54 L-57 L-59 L-60                                                                                                                   |
 | `.claude/skills/devshop/**` (17 skills), `.claude/commands/**` — incident notes only; `gstack/**` skipped | grep + context | L-01 L-03 L-05 L-06 L-09 L-10 L-12 L-13 L-17–L-22 L-25 L-28–L-33 L-35 L-39 L-42 L-47 L-50 L-52 L-63 L-64 L-68 L-69 L-71                                                                                                    |
 | Code cited by skills (`extract-prod-url.sh` + bats, `slow-job-lifecycle-check.sh`, notes)                 | targeted       | L-01 L-47                                                                                                                                                                                                                  |
 
-**Size check.** This file is ~11k words (71 lessons plus the not-carried list), mined from ~90k
+**Size check.** This file is ~11k words (72 lessons plus the not-carried list), mined from ~90k
 words of v1 skills, ~70k words of guides and ~64k words of trackers, changelog and logs. The by-stack lessons
 are the seed for the stack homes (M2). Nothing here is loaded at runtime.
