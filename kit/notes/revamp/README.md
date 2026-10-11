@@ -40,8 +40,8 @@ an explicit go/no-go; lalista is the pilot (web, then iOS).
 
 | #   | Milestone                      | Status      |
 | --- | ------------------------------ | ----------- |
-| M0  | Stop the bleeding + groundwork | in progress |
-| M1  | Walking skeleton → go/no-go    | planned     |
+| M0  | Stop the bleeding + groundwork | done        |
+| M1  | Walking skeleton → go/no-go    | in progress |
 | M2  | Pilot: lalista web on v2       | coarse      |
 | M3  | iOS stack + Mac                | coarse      |
 | M4  | Complete & retire v1           | coarse      |
@@ -62,6 +62,11 @@ an explicit go/no-go; lalista is the pilot (web, then iOS).
 
 ## Next action
 
-M0's tasks are done ([W0](workstreams/W0-groundwork.md)); next is the M0 exit review, then
-M1 ([W10](workstreams/W10-v2.md)) starting with the lessons harvest (**W10.3.1**), which
-needs no owner input.
+M0 is done (review: [LOG.md](LOG.md) #15). M1 ([W10](workstreams/W10-v2.md)):
+
+- **Claude:** W10.3.1 lessons harvest — needs no owner input; confirm with the owner before
+  starting, and respect the pacing rule (≤ ~2 devshop PRs waiting on the owner).
+- **Owner, when ready:** W10.1.2 setup-script spike (read-only token secret + pinned install);
+  W10.2 L3 design pass (one review round per pillar).
+
+Tasks marked `[!]` "deferred to the M4 exit" are not raised before then.

@@ -415,3 +415,39 @@ explains a change (seeded into W10.3.1).
 **M0 tasks done** (deferred owner steps moved to M4 exit, PLAN changelog). **Next**: M0 exit
 review (PROCESS § 5, light — no skeleton to re-run yet) once this PR merges, then W10.3.1. Meanwhile
 W10.3.1 (lessons harvest from v1).
+
+---
+
+## #15 — 2026-10-11 · M0 exit review
+
+Light review per PROCESS § 5 — no skeleton exists yet, so step 1 (north-star re-run) starts at M1.
+
+**Exit criteria** (PLAN, as amended in #14): review session held (W0.1.3) ✓; history scanned with
+a working config, all three repos incl. PR refs (W0.7.1) ✓; no-bypass protection on abra-kadabra
+and lalista verified by rejected pushes, also as the agent (W0.6.1/.5) ✓; `v1-final` tagged and
+verified with `git ls-remote` (W0.4.1) ✓; CLAUDE.md revamp note merged (W0.8.1, PR #44) ✓.
+Owner-deferred steps sit in the M4 exit. **M0 done.**
+
+**Assumptions M1 builds on that are still untested** — each gets its cheap test before the
+task that needs it:
+
+| Assumption                                          | Needed by             | Test where                       |
+| --------------------------------------------------- | --------------------- | -------------------------------- |
+| A-08 committed hooks/permissions apply in cloud     | W10.4.1, W10.5.2      | fixture, first cloud session     |
+| A-09/A-22 pinned install loads in a cloud session   | W10.4.4, W10.6.1      | W10.1.2 owner setup-script step  |
+| A-11 Supabase starts fast enough in cloud           | W10.5.2 (pilot stack) | `supabase start` on the fixture  |
+| A-25 (new) CI can create the tags/releases that pin | W10.4.4               | tag-on-merge workflow on fixture |
+| A-16 CI fast enough · A-23 draft→ready gate · A-15  | W10.6                 | the skeleton run itself          |
+
+A-12 (reviewer precision) and A-13 (gstack) are M2+/M4 concerns; A-24 trial runs to 2026-10-25.
+
+**Direction**: nothing learned in M0 contradicts TARGET L0–L2. Two inputs for M1 design:
+(1) a cloud session can push only its own branch — no tags, no other branches — so anything
+v2 publishes (version tags, releases) must come from CI or the owner (A-25, feeds D-01);
+(2) v2's secret scan must cover PR refs, not just branches (W10.4.1). Plus the owner's rule:
+never project identifiers in the devshop (W10.3.1). Open findings get walked as part of
+W10.3.3 (every row dispositioned), so not repeated here. Metrics re-baseline: none for v1
+(W0.2.1 dropped); v2's first numbers come from W10.6.4.
+
+**Next**: W10.3.1 lessons harvest (Claude). Owner, when ready: W10.1.2 setup-script spike,
+W10.2 L3 design pass.

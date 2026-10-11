@@ -55,8 +55,8 @@ Findings: F-SEC-02, F-SEC-03, F-SEC-15, F-NEW-07. Done when: every token that wa
 Deferred (owner, 2026-10-10): nothing was committed (W0.7), the apps aren't in use and the old dev envs are stale, so rotation moves to the end of the revamp. Revoking needs no dev env — it's a delete in each provider dashboard; replacements are issued only when something needs them.
 
 - [x] **W0.5.1** List affected credentials — from `template/.devcontainer/.env.example` + `init-devshop.sh`: `GITHUB_TOKEN`/`GH_TOKEN`/`DEVSHOP_GITHUB_TOKEN`, `VERCEL_TOKEN`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY` (+ anon key), `SENTRY_AUTH_TOKEN` (+ DSN), `ANTHROPIC_API_KEY_QA`, `DEVCONTAINER_ROOT_PASSWORD`, `NTFY_URL` topic — per project + devshop — 2026-10-10 · LOG #11
-- [ ] **W0.5.2** `[owner]` Optional now: revoke the old GitHub PAT(s) (account-wide, admin + `workflow`; not tied to the paused apps)
-- [ ] **W0.5.3** `[owner]` **Once the v2 devshop works (after W10.6.4):** revoke every credential in W0.5.1 on every machine; issue new ones only as needed, least privilege (no admin; no `workflow` scope for agent-used tokens); LOG records "revoked <date>" (never values)
+- [!] **W0.5.2** `[owner]` _Deferred to the M4 exit (owner, 2026-10-11) — don't raise before then._ Optional now: revoke the old GitHub PAT(s) (account-wide, admin + `workflow`; not tied to the paused apps)
+- [!] **W0.5.3** `[owner]` _Deferred to the M4 exit (owner, 2026-10-11) — don't raise before then._ **Once the v2 devshop works (after W10.6.4):** revoke every credential in W0.5.1 on every machine; issue new ones only as needed, least privilege (no admin; no `workflow` scope for agent-used tokens); LOG records "revoked <date>" (never values)
 
 ## W0.6 No-bypass rulesets on the real repos — P0 · M0 · M
 
@@ -64,8 +64,8 @@ Findings: F-SEC-07, F-SEC-08, F-CLOUD-03 (corrected), F-NEW-09, F-NEW-12.
 Done when: on abra-kadabra and lalista, a direct push to `main` and a force-push are rejected; home-os is archived (read-only). Verified by attempts recorded in LOG.
 
 - [x] **W0.6.1** `[owner]` Protection on `main` (abra-kadabra, lalista): require PR, block force-push/deletion, no bypass (incl. admins) — classic branch protection for now; lalista also requires 2 status checks; abra-kadabra has no CI yet (required check comes with W3.1.2) — 2026-10-10 · LOG #11
-- [ ] **W0.6.2** `[owner]` **Before lalista resumes** (deferred 2026-10-10; lalista paused): move secrets used by CI on `pull_request` (e.g. `SENTRY_AUTH_TOKEN`) out of repo scope into a `main`-only environment
-- [ ] **W0.6.3** `[owner]` Archive home-os on GitHub (read-only)
+- [!] **W0.6.2** `[owner]` _Deferred to the M4 exit (owner, 2026-10-11) — don't raise before then._ **Before lalista resumes** (deferred 2026-10-10; lalista paused): move secrets used by CI on `pull_request` (e.g. `SENTRY_AUTH_TOKEN`) out of repo scope into a `main`-only environment
+- [!] **W0.6.3** `[owner]` _Deferred to the M4 exit (owner, 2026-10-11) — don't raise before then._ Archive home-os on GitHub (read-only)
 - [-] **W0.6.4** Agent identity + CODEOWNERS — moved to W10.1.1 / W10.4.3
 - [x] **W0.6.5** Verification attempts (direct push, force-push) — V3 against GitHub: both rejected (`GH006 … Changes must be made through a pull request`) on both repos — 2026-10-10 · LOG #11
   - 2026-10-11: re-run as the agent identity (`meirmsn-agent`): direct push, force-push and contents-API write to `main` all refused (LOG #10)
