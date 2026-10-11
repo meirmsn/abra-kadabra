@@ -11,6 +11,8 @@ REF=${1:-main}
 LOG=/tmp/devshop-setup.log
 log() { echo "[$(date -u +%T)] $*" >> "$LOG"; }
 
+# The env script may clone with the token in the URL; drop it from the stored remote.
+git --git-dir="$MIRROR" remote set-url origin https://github.com/meirmsn/abra-kadabra.git 2>/dev/null
 log "bootstrap start ref=$REF mirror-head=$(git --git-dir=$MIRROR rev-parse --short "$REF" 2>&1)"
 rm -rf "$STUB"; mkdir -p "$STUB" "$VERSIONS"
 git --git-dir="$MIRROR" archive "$REF:$SPIKE" | tar -x -C "$STUB" 2>> "$LOG" || log "stub extract failed"
