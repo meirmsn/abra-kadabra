@@ -1,0 +1,11 @@
+{
+  "name": "devshop-thin",
+  "owner": { "name": "abra-kadabra revamp" },
+  "plugins": [
+    {
+      "name": "devshop",
+      "source": "./stub",
+      "description": "W10.1.2b stub: skills follow /opt/devshop-current, which the SessionStart hook points at the project's pinned devshop version"
+    }
+  ]
+}
