@@ -408,9 +408,9 @@ again until then.
 
 **Owner calls on project references**: abra-kadabra's history mentions lalista/home-os in 303
 commits (174 files on `main`; ~9 hold specific identifiers). Not cleaned: if the repo goes
-public, re-scan for secrets and rotate hits only (D-12 revisited). For v2: no project specifics
-in the devshop beyond names/general info, identifiers only when needed to explain a change
-(seeded into W10.3.1).
+public, re-scan for secrets and rotate hits only (D-12 revisited). For v2: never project identifiers
+(URLs, project refs, team slugs, Sentry ids) in the devshop; project context only where it
+explains a change (seeded into W10.3.1).
 
 **M0 tasks done** (deferred owner steps moved to M4 exit, PLAN changelog). **Next**: M0 exit
 review (PROCESS § 5, light — no skeleton to re-run yet) once this PR merges, then W10.3.1. Meanwhile
