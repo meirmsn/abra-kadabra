@@ -47,3 +47,7 @@ Revoke the token after the runs.
   repository is not enabled for this session" via REST both with no token and with a token
   header, and git asked for credentials. So a user token most likely can't open a non-attached
   repo — Run 1 confirms or refutes it with a real token.
+- Owner run (LOG #16 addendum): the setup script runs **before/without the agent proxy** and
+  without GitHub credentials, so the in-session evidence above may not apply at setup time; the
+  token was not visible to the setup script. Route 0 needs the pin on the clone's branch (merge
+  first, then pin the merge commit).

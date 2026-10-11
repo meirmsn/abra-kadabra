@@ -17,6 +17,7 @@ log "start pin=$PIN user=$(whoami) HOME=$HOME pwd=$(pwd)"
 log "cwd listing: $(ls -A 2>&1 | head -20 | tr '\n' ' ')"
 log "claude: $(command -v claude || echo MISSING) $(claude --version 2>&1 | head -1)"
 log "HTTPS_PROXY set: ${HTTPS_PROXY:+yes} · token set: ${DEVSHOP_READ_TOKEN:+yes}"
+log "github.com reachable (no auth): http=$(curl -s -o /dev/null -m 10 -w '%{http_code}' https://github.com 2>&1)"
 
 fetched=""
 rm -rf "$DEST"; mkdir -p "$DEST"
@@ -24,12 +25,20 @@ rm -rf "$DEST"; mkdir -p "$DEST"
 # Route 0: abra-kadabra attached to the session as a second repo — take the pin from its clone.
 clone=$(find /home -maxdepth 3 -type d -name abra-kadabra 2>/dev/null | head -1)
 log "attached clone: ${clone:-none}"
-if [ -n "$clone" ] && git -C "$clone" rev-parse -q --verify "$PIN^{commit}" > /dev/null 2>&1 \
-   || { [ -n "$clone" ] && git -C "$clone" fetch -q origin "$PIN" >> "$LOG" 2>&1; }; then
-  if git -C "$clone" archive "$PIN" | tar -x -C "$DEST" 2>> "$LOG"; then
+if [ -n "$clone" ]; then
+  if git -C "$clone" rev-parse -q --verify "$PIN^{commit}" > /dev/null 2>&1; then
+    log "route 0: pin already in clone"
+  elif git -C "$clone" fetch -q origin "$PIN" >> "$LOG" 2>&1; then
+    log "route 0: pin fetched into clone"
+  else
+    log "route 0: pin not in clone and fetch failed"
+  fi
+  if git -C "$clone" archive "$PIN" 2>> "$LOG" | tar -x -C "$DEST" 2>> "$LOG" \
+     && [ -d "$DEST/$PLUGIN_DIR" ]; then
     fetched="0:attached-clone"
   else
     log "route 0 (attached clone) failed"
+    rm -rf "$DEST"; mkdir -p "$DEST"
   fi
 fi
 

@@ -479,3 +479,13 @@ second repo, setup script installs the pin from its clone — costs repo `settin
 plugins (pinning untested, A-10); (c) a public runtime part (D-12 — owner: not soon).
 
 **Next (owner)**: Run 1 and Run 2 per the spike README; revoke the token afterwards.
+
+**Owner run, 2026-10-11 10:28 (session on abra-kadabra):** `FETCH FAILED`. Three facts from the
+log: (1) the session repo is already cloned at `/home/user/<repo>` when the setup script runs;
+(2) the setup script runs **without the agent proxy** (`HTTPS_PROXY` empty) and with no GitHub
+credentials — git got GitHub's own "could not read Username", so GitHub is reached directly and
+the in-session proxy scope check does not apply there, which reopens the token route; (3)
+`DEVSHOP_READ_TOKEN` was empty in the setup script, while this session (same environment) sees it
+set — so environment variables may not reach the setup script (to confirm). Route 0 failed because
+the pin is a PR-branch commit, absent from the clone, and couldn't be fetched without credentials.
+Script fixed to log route-0 reasons and a no-auth reachability check.
