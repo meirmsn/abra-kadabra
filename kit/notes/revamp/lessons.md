@@ -5,8 +5,10 @@ What earned its place in v1 and carries into v2 (W10.3.1). Each lesson is writte
 its [TARGET](TARGET.md) pillar, and whether it holds for any stack or only one.
 
 - **Bar.** A lesson is carried only if the practice **caught a real problem** or the trap
-  **kept recurring** (two or more bites, or a friction-log count of 2 or more). A rule written after
-  one incident that never fired again goes under [Considered, not carried](#considered-not-carried).
+  **kept recurring** (two or more bites, or a friction-log count of 2 or more), or the single
+  incident was **nasty**: it reached users or production, or failed silently with no error and took
+  real time to diagnose (owner call, 2026-10-11, PR 47). A rule written after one mild incident that
+  never fired again goes under [Considered, not carried](#considered-not-carried).
   Lessons tied to v1 machinery that v2 drops (devcontainer firewall, virtiofs, husky, `/devshop`
   bind mounts, sudo-locked files, the `ak-*` pipeline) keep only their principle, when one survives.
 - **Sources.** All paths are as of tag `v1-final` (v1 files are unchanged on `main` since). `§` names
@@ -14,10 +16,10 @@ its [TARGET](TARGET.md) pillar, and whether it holds for any stack or only one.
   home-os); devshop commits are short SHAs. Git history in the cloud clone is shallow, so most
   citations point at the incident notes v1 wrote down, not the original commits.
 - **FINDINGS** ids are cited where a lesson matches a row, to speed up W10.3.3.
-- **Out of scope:** home-os's own repo (W10.3.2). Several single-incident project rules below are
-  marked "re-check in W10.3.2". If home-os shows a second bite, they move up.
+- **Out of scope:** home-os's own repo (W10.3.2). The mild single-incident project rules below are
+  marked ↻ "re-check in W10.3.2". If home-os shows a second bite, they move up.
 - **This file follows L-01.** Incidents are described by project name and shape, never by URL,
-  project ref, team slug or org id.
+  project ref, team slug, org id, handle or email.
 
 Contents: [Seed](#seed-requirement) · [Intent](#intent) · [Build](#build) · [Verify](#verify) ·
 [Review](#review) · [Ship](#ship) · [Safety](#safety) · [Environments](#environments) ·
@@ -28,15 +30,18 @@ Contents: [Seed](#seed-requirement) · [Intent](#intent) · [Build](#build) · [
 
 ## Seed requirement
 
-### L-01 · The devshop never holds project identifiers
+### L-01 · The devshop never holds project or personal identifiers
 
 **Rule.** The devshop holds no project identifiers: no production or preview URLs, Supabase project
 refs, Vercel team slugs, Sentry org or ingest ids, project `owner/repo` slugs, or anything similar.
-A project's name, plus enough context to explain why a change exists, is fine. Project config lives
-in the project (see L-47). Tests use synthetic values (reserved names such as `example.com`). A
-deterministic CI scan over the devshop rejects identifier-shaped strings.
+Nor does it hold personal identifiers: no GitHub handles, account names or email addresses of the
+owner or anyone else. A project's name, plus enough context to explain why a change exists, is fine.
+Project config lives in the project (see L-47). Repo locations come from the configured git remote,
+never from a hard-coded account. Tests use synthetic values (reserved names such as `example.com`,
+made-up identities). A deterministic CI scan over the devshop rejects identifier-shaped strings.
 
-**Why.** Owner requirement (2026-10-11, LOG #14). v1 broke it in several places:
+**Why.** Owner requirement (2026-10-11, LOG #14; personal identifiers added in the PR 47 review).
+v1 broke it in several places:
 
 - `kit/scripts/lib/extract-prod-url.sh:13,16` quotes a home-os production hostname in its header
   comment, as the input that failed and the output it corrupted. `kit/tests/extract-prod-url.bats:26–34`
@@ -50,9 +55,11 @@ deterministic CI scan over the devshop rejects identifier-shaped strings.
   (production URL), `kit/notes/roadmap/qa-options.md:17` (hosted Supabase URL, which embeds the
   project ref), `kit/notes/projects/lalista.md:45` (production URL, plus per-project config kept in
   the devshop). `kit/ROADMAP.md` itself only uses placeholders (checked).
-- Borderline: a project `owner/repo` slug in a comment (`kit/scripts/preship/slow-job-lifecycle-check.sh:173`).
-  The owner's handle and email appear as a test fixture (`kit/tests/guard-fixture-identity.bats:39–40`)
-  and the handle in a push URL (`.claude/commands/ak-clean-branches.md:20`).
+- A project `owner/repo` slug in a comment (`kit/scripts/preship/slow-job-lifecycle-check.sh:173`).
+- Personal: the owner's handle and email are the "real identity" in a test
+  (`kit/tests/guard-fixture-identity.bats:39–40`), where any made-up identity tests the same thing.
+  The owner's handle is hard-coded in a push URL (`.claude/commands/ak-clean-branches.md:20`) to get
+  around the old devcontainer's SSH remote, where the configured remote would do.
 - The history scan (W0.7.1) found lalista's Supabase ref three times, Vercel URLs with the team
   slug, and a Sentry ingest id.
 
@@ -191,6 +198,37 @@ Sources: `kit/FRICTION-LOG.md` § `/ak-build` + `/ak-merge-devshop` re-run the f
 Matches TARGET Build.
 
 Pillar **Build** · Scope **any**
+
+### L-65 · Wrappers around event sources pass errors and status through, not just data
+
+**Rule.** A v2 wrapper around a realtime channel, WebSocket, SSE stream or emitter exposes an
+error and status callback to its callers, so the UI's failure state has a way to fire.
+
+**Why.** Nasty single incident: lalista PR 27. `subscribeToList` dropped `CHANNEL_ERROR` and
+`TIMED_OUT`, so real WebSocket failures in production never showed the sync-error banner. Users
+weren't told their list had stopped syncing, and only a near-impossible synchronous throw could
+trigger the banner.
+
+Sources: `kit/docs/guide/wrapper-boundaries.md` § Worked example: subscribeToList,
+`tests-review/SKILL.md` § Wrapper API design — lifecycle events not just data.
+
+Pillar **Build** · Scope **any** (instance: Supabase Realtime)
+
+### L-66 · Auth error paths report to error monitoring before they redirect
+
+**Rule.** v2's server-side auth handlers (OAuth, PKCE, magic-link callbacks, sign-in actions)
+capture the error to error monitoring, with a route and stage tag, before redirecting the user with
+a coarse reason. The reviewer flags an auth call whose error branch only redirects.
+
+**Why.** Nasty single incident: home-os PR 19 (2026-05-15). The first production invitee's sign-in
+failed (a Safari Private Browsing PKCE failure). The callback redirected with
+`error=callback_failed` and recorded nothing, so the failure left zero telemetry and took about an
+hour to diagnose. The framework's documented pattern only redirects.
+
+Source: `kit/TODOS.md` ("Convention: any server-side auth-callback handler must
+`Sentry.captureException` on error").
+
+Pillar **Build** · Scope **any** (instance: Next.js + Supabase)
 
 ---
 
@@ -700,6 +738,22 @@ Sources: `go-live/SKILL.md` § 5b, `kit/FRICTION-LOG.md` § How to use it, `reco
 Pillar **Ship** · Scope **any** · FINDINGS F-PIPE-17, F-NEW-04 (the ledger lives in the devshop,
 never in a project)
 
+### L-67 · The first production use of a critical flow gets a real-account smoke test
+
+**Rule.** When a deploy is the first time a critical flow (sign-in, invite, payment) runs in
+production, v2's ship step runs or requests an end-to-end check with a real account before it
+reports the deploy healthy. An anonymous probe returning a redirect is not evidence that the flow
+works.
+
+**Why.** Nasty single incident: home-os PR 19. Go-live reported "deployed" because anonymous `/`
+returned a redirect. The first invitee's sign-in failed 30 minutes later and looked like a deploy
+regression. Auth lands in one of a project's first few PRs, and then nobody signs in on production
+until the first real user.
+
+Source: `kit/TODOS.md` ("`/ak-go-live` Step 1.7 … doesn't fire on first-prod-deploy").
+
+Pillar **Ship** · Scope **any**
+
 ---
 
 ## Safety
@@ -1069,9 +1123,9 @@ Pillar **Shape** · Scope **any** · FINDINGS F-DOC-06
 ## By stack
 
 Lessons that hold for one stack only. They seed that stack's home (TARGET Reach) and are loaded
-only when a task touches the stack. No Vercel-only lesson met the bar: the Vercel-related bites are
-covered by L-28 (read preview status from the platform), L-34 (dashboard-only settings) and L-33
-(the production probe).
+only when a task touches the stack. No Vercel-only lesson met the bar: L-69 covers env values set in
+Vercel, and the other Vercel-related bites are covered by L-28 (read preview status from the
+platform), L-34 (dashboard-only settings) and L-33 (the production probe).
 
 ### Web (any framework)
 
@@ -1098,18 +1152,22 @@ Pillar **Verify** · Scope **web** · FINDINGS F-TPL-03
 **Rule.** v2's web home carries the feedback tiers: A1 optimistic, A2 optimistic + retry + banner, B
 threshold spinner, C route loading, D CSS-only. Specs map each interactive surface to one. Tier C
 also covers client-side fetches inside a page, and the route skeleton matches the in-page skeleton.
-Loading behaviour is judged on a throttled connection or a real device.
+Loading behaviour is judged on a throttled connection or a real device. For A2 surfaces,
+verification forces the network call to fail and asserts that the retry or undo affordance is
+clickable (Playwright `click({trial:true})`), not just visible.
 
-**Why.** It recurred 3 times in lalista:
+**Why.** It recurred 4 times in lalista:
 
 - The framework was soaked in PR 49.
 - In PR 61, a settings page fetched in `useEffect` and "sat empty after `loading.tsx` cleared" on a
   real iPhone, invisible locally at < 50 ms.
 - Two mismatched skeletons gave a visible "snap".
+- In PR 49 an overlay covered the Undo button while the failure banner showed. The happy-path QA walk
+  couldn't see it; slow-job CI caught it only after merge.
 
 It has been seen in one project only; re-check in W10.3.2.
 
-Source: `kit/docs/guide/latency-feedback.md`.
+Sources: `kit/docs/guide/latency-feedback.md`, `pre-ship/SKILL.md` § Fault-injection sub-step.
 
 Pillar **Build** · Scope **web**
 
@@ -1132,6 +1190,42 @@ Sources: `kit/docs/guide/supabase-ssr-boilerplate.md` § Pattern 2, `kit/docs/gu
 CSP, `BUILD-LOG.md` § template-csp-img-src.
 
 Pillar **Build** · Scope **Next.js** (+ Supabase)
+
+#### L-69 · Env values are trimmed and validated where they are read, and checked when they are set
+
+**Rule.** v2's Next.js home trims and validates every `NEXT_PUBLIC_*` and server env value at its
+read site, with a unit test that feeds in whitespace-contaminated values. Setting a value (in
+Vercel or in setup) checks its shape (no whitespace or newline, URL form), so a bad paste fails at
+setup, not in production.
+
+**Why.** Nasty single incident: lalista PR 26. A pasted trailing newline in the backend URL setting
+had been there "since project setup". Production `/` returned 500 on the server-side `getUser()`,
+and the `%0A` leaked into the CSP header too. It went unnoticed because every flow started at
+sign-in, until the pre-merge probe (L-33) found it.
+
+Sources: `kit/docs/guide/supabase-ssr-boilerplate.md` § Pattern 1, `go-live/SKILL.md` § Step 1.5.
+
+Pillar **Build** · Scope **Next.js + Vercel**
+
+#### L-70 · Auth middleware never gates public assets, and email changes are checked in a real mail client
+
+**Rule.** v2's Next.js home ships a middleware matcher that excludes public static assets, with a
+check that flags any file under `public/` the matcher would send to the login page. Any change to
+transactional email (templates, logos, links) needs evidence from a real sent email opened in a
+real client; browser rendering of the template is not enough.
+
+**Why.** Two email-asset bites in lalista:
+
+- PR 45 (2026-05-05): the matcher sent Gmail's image proxy the login page, so the logos in
+  confirmation and recovery emails showed as broken for ~24 h in production. The framework's
+  default matcher example has the same gap.
+- PR 43: branded templates passed code and browser review, and the broken inline logo went unseen
+  until a cutover smoke test.
+
+Source: `kit/TODOS.md` ("Pre-ship gate: middleware-matcher public-asset coverage check",
+"Email-template visual-QA gate / convention").
+
+Pillar **Verify** · Scope **Next.js** (email check: web)
 
 ### Supabase
 
@@ -1275,6 +1369,32 @@ patterns, `kit/docs/guide/testing.md` § Pattern 2.
 
 Pillar **Verify** · Scope **Supabase**
 
+#### L-68 · Every client write has an RLS policy for that operation, checked in CI
+
+**Rule.** v2's Supabase home checks deterministically in CI that every client-side
+insert/update/delete/upsert on an RLS-enabled table has a matching `CREATE POLICY` for that
+operation.
+
+**Why.** Nasty single incident: lalista PR 5. The items table had RLS on but no insert policy, so
+writes returned success while storing nothing. Unit tests and the security review both missed it.
+
+Source: `pre-ship/SKILL.md` § Gate rls-coverage.
+
+Pillar **Verify** · Scope **Supabase** · FINDINGS F-STACK-01
+
+#### L-71 · Auth defaults are hardened at project setup and read back
+
+**Rule.** v2's Supabase setup sets the auth `site_url` to production, a minimal redirect
+allow-list (production plus localhost, no wildcards by default) and a password minimum of at least 8. It reads the values back for the owner to confirm.
+
+**Why.** Nasty single incident: lalista (2026-04-20). With the free-tier default `site_url` of
+localhost, "every email-based auth flow … silently breaks" when the link comes from a real inbox.
+The minimal allow-list fixed it.
+
+Source: `new-project/SKILL.md` § Step 17b: Harden Supabase auth defaults.
+
+Pillar **Environments** · Scope **Supabase**
+
 ---
 
 ## Considered, not carried
@@ -1332,22 +1452,13 @@ One line each: rule — source — reason.
 - Persona-axis gates, Finding Router, reviewer phases 5/6, self-correcting auto-actions —
   `kit/ROADMAP.md` — unbuilt, no incident.
 
-**One incident, never fired again** (project rules marked ↻ get re-checked in W10.3.2)
+**One mild incident, never fired again** (project rules marked ↻ get re-checked in W10.3.2)
 
-- ↻ RLS insert policy for every client write (lalista PR 5: zero-row no-op writes) — `pre-ship/SKILL.md` § Gate rls-coverage.
-- ↻ Spec renders a shown/hidden table for conditional UI (lalista PR 5, two bugs in one PR) — `spec/SKILL.md` § Render conditions.
-- ↻ Trim `NEXT_PUBLIC_*` env at read time (lalista PR 26) — `supabase-ssr-boilerplate.md` § Pattern 1. The catch belongs to L-33.
-- ↻ Auth redirects from the request Host header (home-os PR 15) — `supabase-ssr-boilerplate.md` § Pattern 10.
-- ↻ Page-level `getUser()` before RLS queries, since the layout guard races (home-os triage route) — § Pattern 11.
-- ↻ Auth callback handlers report to error monitoring before redirecting (home-os PR 19) — `kit/TODOS.md`.
-- ↻ First production use of a critical flow gets a real-account smoke test (home-os PR 19) — `kit/TODOS.md`.
-- ↻ Middleware matcher excludes public assets (lalista PR 45: broken email logos) — `kit/TODOS.md`.
-- ↻ Email template changes verified in a real mail client (lalista PR 43) — `kit/TODOS.md`.
-- ↻ Wrapper passes realtime error/status callbacks through (lalista PR 27) — `wrapper-boundaries.md`. Its test half is in L-63.
-- ↻ Force the failure path of optimistic UI and assert it is clickable (lalista PR 49) — `pre-ship/SKILL.md` § Fault-injection.
-- ↻ Shared primitives don't bake in sizes callers override (lalista `LoadingArea`) — `latency-feedback.md`.
-- ↻ iOS PWA press-state cue (lalista polish bundle) — `kit/TODOS.md`.
-- ↻ Supabase auth defaults: `site_url`, minimal allow-list, password length (lalista, 2026-04-20) — `new-project/SKILL.md` § Step 17b.
+- ↻ Spec renders a shown/hidden table for conditional UI (lalista PR 5, two bugs in one PR) — `spec/SKILL.md` § Render conditions — a visible UI glitch, caught before release.
+- ↻ Auth redirects from the request Host header (home-os PR 15) — `supabase-ssr-boilerplate.md` § Pattern 10 — hit local and CI runs only (`127.0.0.1` vs `localhost`), not users.
+- ↻ Page-level `getUser()` before RLS queries, since the layout guard races (home-os triage route) — § Pattern 11 — a 404 instead of the login page on a cold load.
+- ↻ Shared primitives don't bake in sizes callers override (lalista `LoadingArea`) — `latency-feedback.md` — cosmetic.
+- ↻ iOS PWA press-state cue (lalista polish bundle) — `kit/TODOS.md` — UX polish, nothing broke.
 - Stack guidance always loads the baseline on top of routed sections (one regression, 2026-05-11)
   — `kit/docs/guide/workflow.md` § Devshop Skill Map — input to the Reach L3 design, not a lesson.
 - Owner's manual-review list holds only judgement calls (lalista PR 27) — `build/SKILL.md` § What
@@ -1390,18 +1501,18 @@ One line each: rule — source — reason.
 
 ## Sources and coverage
 
-| Source (at `v1-final`)                                                                                    | Read           | Yielded                                                                                                                                                                                                               |
-| --------------------------------------------------------------------------------------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `kit/docs/guide/` — all 19 guides + README                                                                | in full        | L-03 L-04 L-06 L-07 L-09–L-12 L-14 L-19 L-23 L-24 L-26 L-27 L-31 L-33 L-34 L-36 L-38 L-43–L-45 L-48–L-51 L-53 L-55–L-60 L-62–L-64; no lessons from `macos-host-setup`, `notifications`, `date-handling` (not carried) |
-| `CLAUDE.md` — Known Footguns (15), Non-Negotiables, Implementation Approach, TODO/close-out, text style   | in full        | carried: 6 footguns, as principle (L-28 L-36 L-37 L-38 L-41 L-52); 9 dropped as mechanism (listed above)                                                                                                              |
-| `kit/FRICTION-LOG.md` — 26 entries                                                                        | in full        | L-04 L-05 L-08 L-14 L-21 L-28 L-32 L-35 L-36 L-41 L-53; the rest not carried                                                                                                                                          |
-| `kit/TODOS.md`                                                                                            | in full        | L-16 L-34 L-36 L-42 L-45 L-50; 6 single-incident project rules → ↻ W10.3.2                                                                                                                                            |
-| `kit/ROADMAP.md`                                                                                          | in full        | L-20 L-29 L-34 L-42 L-45 L-54 L-61; most entries are unbuilt ideas (not carried). Identifiers: placeholders only                                                                                                      |
-| `kit/docs/CHANGELOG.md`                                                                                   | in full        | L-09 L-11 L-15 L-20 L-33 L-41 L-46 L-47                                                                                                                                                                               |
-| `BUILD-LOG.md` (`template/BUILD-LOG.md` is an empty stub)                                                 | in full        | L-02 L-06 L-11 L-12 L-15 L-16 L-22 L-23 L-28 L-30 L-32 L-38 L-40–L-42 L-48 L-49 L-53 L-54 L-57 L-59 L-60                                                                                                              |
-| `.claude/skills/devshop/**` (17 skills), `.claude/commands/**` — incident notes only; `gstack/**` skipped | grep + context | L-01 L-03 L-05 L-06 L-09 L-10 L-12 L-13 L-17–L-22 L-25 L-28–L-33 L-35 L-39 L-42 L-47 L-50 L-52 L-63 L-64                                                                                                              |
-| Code cited by skills (`extract-prod-url.sh` + bats, `slow-job-lifecycle-check.sh`, notes)                 | targeted       | L-01 L-47                                                                                                                                                                                                             |
+| Source (at `v1-final`)                                                                                    | Read           | Yielded                                                                                                                                                                                                                    |
+| --------------------------------------------------------------------------------------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kit/docs/guide/` — all 19 guides + README                                                                | in full        | L-03 L-04 L-06 L-07 L-09–L-12 L-14 L-19 L-23 L-24 L-26 L-27 L-31 L-33 L-34 L-36 L-38 L-43–L-45 L-48–L-51 L-53 L-55–L-60 L-62–L-65 L-69; no lessons from `macos-host-setup`, `notifications`, `date-handling` (not carried) |
+| `CLAUDE.md` — Known Footguns (15), Non-Negotiables, Implementation Approach, TODO/close-out, text style   | in full        | carried: 6 footguns, as principle (L-28 L-36 L-37 L-38 L-41 L-52); 9 dropped as mechanism (listed above)                                                                                                                   |
+| `kit/FRICTION-LOG.md` — 26 entries                                                                        | in full        | L-04 L-05 L-08 L-14 L-21 L-28 L-32 L-35 L-36 L-41 L-53; the rest not carried                                                                                                                                               |
+| `kit/TODOS.md`                                                                                            | in full        | L-16 L-34 L-36 L-42 L-45 L-50 L-66 L-67 L-70; one ↻ rule for W10.3.2                                                                                                                                                       |
+| `kit/ROADMAP.md`                                                                                          | in full        | L-20 L-29 L-34 L-42 L-45 L-54 L-61; most entries are unbuilt ideas (not carried). Identifiers: placeholders only                                                                                                           |
+| `kit/docs/CHANGELOG.md`                                                                                   | in full        | L-09 L-11 L-15 L-20 L-33 L-41 L-46 L-47                                                                                                                                                                                    |
+| `BUILD-LOG.md` (`template/BUILD-LOG.md` is an empty stub)                                                 | in full        | L-02 L-06 L-11 L-12 L-15 L-16 L-22 L-23 L-28 L-30 L-32 L-38 L-40–L-42 L-48 L-49 L-53 L-54 L-57 L-59 L-60                                                                                                                   |
+| `.claude/skills/devshop/**` (17 skills), `.claude/commands/**` — incident notes only; `gstack/**` skipped | grep + context | L-01 L-03 L-05 L-06 L-09 L-10 L-12 L-13 L-17–L-22 L-25 L-28–L-33 L-35 L-39 L-42 L-47 L-50 L-52 L-63 L-64 L-68 L-69 L-71                                                                                                    |
+| Code cited by skills (`extract-prod-url.sh` + bats, `slow-job-lifecycle-check.sh`, notes)                 | targeted       | L-01 L-47                                                                                                                                                                                                                  |
 
-**Size check.** This file is ~10k words (64 lessons plus the not-carried list), mined from ~90k
+**Size check.** This file is ~11k words (71 lessons plus the not-carried list), mined from ~90k
 words of v1 skills, ~70k words of guides and ~64k words of trackers, changelog and logs. The by-stack lessons
 are the seed for the stack homes (M2). Nothing here is loaded at runtime.
