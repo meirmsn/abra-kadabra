@@ -187,7 +187,126 @@ is paused, and it must happen only after `v1-final` is tagged (W0.4).
 
 ---
 
-## #7 — 2026-10-10 · M0: protection verified, abra-kadabra history scanned, rotation deferred
+## #7 — 2026-10-10 · M1 spikes W10.1 (cloud session)
+
+**What**: ran the four W10.1 spikes as far as one cloud session can. W10.1.4 is done;
+W10.1.1 and W10.1.3 are blocked on owner setup; W10.1.2 is partly done.
+
+**Evidence**
+
+- **A-04 reviewer stability (W10.1.4) — validated.** Fixed fixture: a 4-item `slugify()`
+  spec; "seeded" case skips AC-4 (no type check, no test), "honest" case meets all four.
+  Call: `claude -p … --setting-sources "" --tools "Read,Grep,Glob" --strict-mcp-config
+--no-session-persistence --model sonnet --output-format json --json-schema <verdict
+schema>`, 20 runs per case, 4 in parallel. Result: seeded 20/20 `fail ["AC-4"]`, honest
+  20/20 `pass []`, 0 schema or exit errors, ~$0.01 and ~8 s (max 10 s) per call. Easy case
+  only; hard-case precision/recall stays A-12.
+- **A-05 agent identity (W10.1.1) — native path falsified.** `GH_TOKEN` in the session is a
+  placeholder; the proxy injects the real credential. `gh api user` → the owner (`User`);
+  response header `X-Oauth-Client-Id` = a GitHub App client id (the Claude app); branch
+  protection read → "Resource not accessible by integration". PR #36: author + merger = owner;
+  commits authored as the owner, committer `web-flow`. `read_documentation github.access`
+  offers no other identity. Follow-up probe with fake credentials: a bogus
+  `Authorization: token ghs_…` on `api.github.com` still returned the private repo (200), and
+  `git ls-remote` with bogus basic auth still listed `main` — **the proxy replaces any
+  Authorization header with the owner's credential**. The App token-mint path
+  (`POST /app/installations/{id}/access_tokens`) is blocked by the proxy. So an App token
+  cannot be minted or used from inside a session. Docs (cloud-environments § network secrets / GitHub
+  proxy) rule out two more routes: network secrets are **never** attached to GitHub requests, and
+  the allowlist doesn't apply to GitHub traffic. The supported route is `/web-setup`: it sends a
+  `gh` token to the Claude account and **replaces** the GitHub connection for all cloud sessions
+  → run it with `gh` logged in as a **machine user** (Write collaborator, no `workflow` scope).
+  A GitHub App can't be used this way (no in-session minting, hourly expiry), so D-13 A narrows
+  to the machine user.
+- **A-06/A-07 rulesets + workflows (W10.1.3).** This repo has 0 rulesets and no branch rules
+  on `main`. The proxy 403s admin paths (`hooks`, `collaborators`, `environments`,
+  `actions/permissions`), so the agent cannot create or weaken rulesets via REST — the owner
+  must set them. A-07: a dispatch-only workflow file pushed to the session branch was
+  accepted (`97140dc`, removed in `a870fb7`) → F-NEW-16. That probe commit used
+  `--no-verify`; no hooks exist in cloud anyway → F-NEW-15.
+- **A-09/A-10 distribution (W10.1.2).** With an isolated `CLAUDE_CONFIG_DIR` (login still
+  works): a local marketplace whose plugin entry is pinned by `sha` to commit v1 installed
+  0.1.0 although the source HEAD was v2; a fresh `claude -p` used its skill ("VERSION-ONE")
+  and ran its SessionStart hook; `marketplace update` + `plugin update` kept 0.1.0; moving the
+  pin to v2 upgraded to 0.2.0. A project's committed `extraKnownMarketplaces` +
+  `enabledPlugins` did **not** install the plugin in headless runs (agrees with F-CLOUD-02).
+  A probe session without this repo attached (to re-check F-NEW-11) was refused by the
+  permission classifier — F-NEW-11 stands as recorded.
+
+**Surprises / discoveries**: F-NEW-15, F-NEW-16. A-05's native path being the owner is the
+expected-but-now-observed blocker for D-13 A: CODEOWNERS / required reviews mean nothing until
+a second identity works.
+
+**Next (owner)**: (1) create the agent GitHub App (or machine user) and store its token as a
+cloud environment secret → rerun W10.1.1; (2) add a no-bypass ruleset (PR required, no
+force-push, path rule on `.github/`) on the fixture or this repo → rerun W10.1.3 attacks;
+(3) try a setup script that clones a devshop tag with a read-only token secret and runs
+`claude plugin marketplace add` + `install` → closes W10.1.2. D-01 leans to **C/D hybrid**:
+sha-pinned plugin installed at user scope by the setup script.
+
+---
+
+## #8 — 2026-10-11 · Platform analysis (Claude Code + GitHub vs devshop intent)
+
+**What**: owner asked why the devshop and Claude Code cloud seem to overlap or conflict.
+Four parallel doc-research passes (cloud/desktop, Claude-on-GitHub, packaging/distribution,
+GitHub governance) → [PLATFORM.md](PLATFORM.md).
+
+**Key findings**: Anthropic's cloud product assumes a trusted agent acting **as you**;
+GitHub's own agent model and the devshop assume a distrusted agent with its own identity —
+most conflicts follow from that. AI review on the platform is on-PR and advisory (Code
+Review's check is always neutral) → reconcile "before you see it" as "before ready for
+review" on a draft PR. GitHub **Pro** is the minimum for any enforceable merge control on
+private personal repos; private deploys can't wait for a reviewer on Pro → the gate is
+"only the owner can update `main`". Repo-declared plugins never load in cloud sessions.
+Projects (Pro/Max) and Code Review / self-hosted (Team/Ent) sit on different plan tiers.
+
+**Changes**: PLATFORM.md; ASSUMPTIONS A-19…A-23. Proposed (not applied, owner to agree):
+TARGET Shape "platform-first" line, Verify wording, D-01/D-13 directions.
+
+**Next (owner)**: state GitHub plan and Claude plan; agree or amend the proposed changes;
+then machine-user setup (W10.1.1) continues.
+
+**Update 2026-10-11**: owner stated GitHub **Pro** and Claude **Pro/Max** → D-05 decided, A-19
+validated, PLATFORM § 5 updated.
+
+---
+
+## #9 — 2026-10-11 · Agent identity working (W10.1.1 done)
+
+**What**: owner created machine user `meirmsn-agent` (Write collaborator on abra-kadabra) and,
+in a private window, disconnected claude.ai's GitHub connection and reconnected it while GitHub
+was logged in as the agent — simpler than `gh` + `/web-setup`, no CLI needed. The Claude App stays
+installed on `meirmsn` (repo owner); "Not installed" on the agent's own account is irrelevant.
+
+**Evidence** (fresh cloud session, PR #39): `gh api user` → `meirmsn-agent User`; repo permissions
+`admin:false, push:true`; branch push OK; PR #39 `user.login = meirmsn-agent`; PR activity
+subscription OK. This session also switched to the agent (`gh api user` → `meirmsn-agent`).
+**Surprise:** the workflow-file push was **accepted** — the browser connection uses the Claude
+App's user token, which has workflow write, so "no `workflow` scope" isn't available on this route
+→ F-NEW-16 controls move to CODEOWNERS + secret placement (A-07).
+
+**Next**: rulesets on abra-kadabra (W10.1.3 / A-06, A-20), tested against PR #39; then close #39.
+
+---
+
+## #10 — 2026-10-11 · Agent can't get around `main` protection (W10.1.3)
+
+**What**: with the owner's explicit go-ahead, tried to change `main` as `meirmsn-agent` against the
+classic branch protection already on `main` (from the parallel M0 session, PR #38).
+
+**Evidence**: direct push of an empty commit → `remote rejected … Changes must be made through a
+pull request`; force-push rewinding `main` one commit → `Cannot force-push to this branch`;
+`PUT /contents` on `main` → 403 "Write access to this GitHub API path is not permitted through this
+proxy"; `main` stayed at `46f6b41`. A first attempt was refused **in-session** by the auto-mode
+classifier ("Git Destructive") before reaching GitHub — the soft layer works as documented.
+After the owner approved PR #39 it showed `mergeable_state: clean` → without a "restrict updates"
+ruleset the agent can merge an owner-approved PR ("approval ships"); owner to decide whether to add
+ruleset B (A-20).
+
+---
+
+## #11 — 2026-10-10/11 · M0: protection verified, abra-kadabra history scanned, rotation deferred
 
 **W0.6 (owner)**: classic branch protection on `main` of abra-kadabra and lalista (require
 PR, no force-push/deletion, no admin bypass). Verified from fresh clones with an empty
@@ -214,5 +333,6 @@ revoking needs no dev env (dashboard delete), so the end-of-revamp task is "revo
 reissue as needed" (W0.5.3). Optional now: revoke the old GitHub PAT (W0.5.2) — it's
 account-wide and not tied to the paused apps.
 
-**Next**: owner sets up the agent's GitHub App (W10.1.1/W10.4.3) and installs the Claude
-GitHub App on lalista + home-os → finish W0.7.1 → W0.6.6 ruleset → W0.4 tag.
+**Next**: agent identity is done (`meirmsn-agent`, LOG #9) and protection holds against it
+(LOG #10) → owner installs the Claude GitHub App on lalista + home-os → finish W0.7.1 →
+W0.6.6 ruleset (with the A-20 call) → W0.4 tag.
