@@ -43,8 +43,8 @@ Done when: listed decisions have outcomes in [DECISIONS.md](../DECISIONS.md) and
 
 Finding: F-VER-01 (no longer live: lalista paused, home-os frozen — D-09).
 
-- [!] **W0.4.1** `[owner]` Tag `v1-final` at current `main`; v1 takes security fixes only (stated in W0.8 note) — V1
-  - 2026-10-11: blocked — the cloud session's git proxy refuses any push except the session branch (HTTP 403 on `git push origin refs/tags/v1-final`), and the GitHub tools can't create tags. Unblocks when the owner pushes the annotated tag at `525cd49` (LOG #14)
+- [x] **W0.4.1** `[owner]` Tag `v1-final` at current `main`; v1 takes security fixes only (stated in W0.8 note) — V1: `git ls-remote --tags origin` shows annotated `v1-final` peeling to `525cd49` — 2026-10-11 · owner-pushed (LOG #14)
+  - The cloud session can't push tags (git proxy 403, no GitHub tool for tags) — the owner pushed it
 - [-] **W0.4.2** Host worktree mount for live projects — not needed (D-09)
 - [-] **W0.4.3** Live-project smoke check — not needed (D-09)
 

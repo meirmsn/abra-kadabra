@@ -62,6 +62,6 @@ an explicit go/no-go; lalista is the pilot (web, then iOS).
 
 ## Next action
 
-M0 has one step left, waiting on the owner ([W0](workstreams/W0-groundwork.md)): push the
-`v1-final` tag (**W0.4.1**). M1 ([W10](workstreams/W10-v2.md)): the lessons harvest
-(**W10.3.1**) is next and needs no owner input.
+M0's tasks are done ([W0](workstreams/W0-groundwork.md)); next is the M0 exit review, then
+M1 ([W10](workstreams/W10-v2.md)) starting with the lessons harvest (**W10.3.1**), which
+needs no owner input.

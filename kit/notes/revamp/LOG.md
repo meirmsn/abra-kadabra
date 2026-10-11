@@ -370,17 +370,19 @@ setup as a **trial until 2026-10-25** (or W10.6), then keep or switch back (step
 
 ---
 
-## #14 — 2026-10-11 · M0 wrap-up: CLAUDE.md revamp note, all histories scanned, tag waits on owner
+## #14 — 2026-10-11 · M0 wrap-up: CLAUDE.md revamp note, all histories scanned, `v1-final` tagged
 
 **W0.8.1 done**: `CLAUDE.md` opens with a 10-line `## Revamp mode` section (PROCESS.md, PRs to
 `main`, v1 tooling not used, v1 frozen at `v1-final`, this section wins). The three
 contradicting v1 lines (`/ak-status` first, no-PR shipping flow, "don't propose a GitHub PR on
 devshop") are annotated as superseded.
 
-**W0.4.1 blocked**: annotated tag `v1-final` created locally at `525cd49` (current `main`), but
-`git push origin refs/tags/v1-final` → HTTP 403 from the session's git proxy, which only
-accepts pushes to the session branch; the GitHub tools have no tag creation. The owner pushes
-the tag. Lesson for v2: tags/releases are an owner (or CI) step, not something a cloud
+**W0.4.1 done (owner-pushed)**: `git push origin refs/tags/v1-final` from the session →
+HTTP 403 (the session's git proxy only accepts pushes to the session branch; the GitHub tools
+have no tag creation). The owner pushed the annotated tag; verified with `git ls-remote`:
+`refs/tags/v1-final^{}` = `525cd49`. Side note: the owner's local clone used an HTTPS remote
+that relied on the stale dev env's token, so the push prompted for a username; switching the
+remote to SSH fixed it. Lesson for v2: tags/releases are an owner (or CI) step, not something a cloud
 session can do.
 
 **W0.7.1 done**: once the agent had access to lalista and home-os, all three histories were
@@ -404,5 +406,6 @@ Sentry org ingest id (DSN key elided); owner email in commits/docs. Lesson for v
 **Owner call**: W0.5.2, W0.5.3, W0.6.2, W0.6.3 deferred to the end of the revamp; not raised
 again until then.
 
-**Next**: owner pushes the `v1-final` tag → M0 exit review. Meanwhile
+**M0 tasks done** (deferred owner steps moved to M4 exit, PLAN changelog). **Next**: M0 exit
+review (PROCESS § 5, light — no skeleton to re-run yet) once this PR merges, then W10.3.1. Meanwhile
 W10.3.1 (lessons harvest from v1).
