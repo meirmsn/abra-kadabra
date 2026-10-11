@@ -320,12 +320,13 @@ progress (owner); reversible, so a later cleanup just unarchives.
 **W0.7 (abra-kadabra only)**: gitleaks 8.30.1 (release checksum verified), scratch config
 `[extend] useDefault = true`, `--log-opts=--all --redact`, full history (unshallowed).
 616 commits, 7 hits, all false positives:
+
 - `template/.devcontainer/compose.yml` ×2, `.claude/skills/devshop/new-project/SKILL.md` —
   Supabase local-stack demo JWTs (payload issuer `supabase-demo`, checked by prefix match).
 - `template/.devcontainer/.env.example` — placeholder: JWT header + `...`.
 - `.claude/skills/gstack/` ×3 — upstream test fixtures + gstack's public telemetry anon key.
-No personal details or infra identifiers flagged beyond gstack's own project URL. lalista
-and home-os not reachable from cloud sessions (Claude GitHub App not installed) → pending.
+  No personal details or infra identifiers flagged beyond gstack's own project URL. lalista
+  and home-os not reachable from cloud sessions (Claude GitHub App not installed) → pending.
 
 **W0.5 (owner decision)**: deferred to the end of the revamp — nothing was committed, the
 apps aren't in use, old dev envs are stale, Supabase project is frozen. Key insight:
@@ -336,3 +337,16 @@ account-wide and not tied to the paused apps.
 **Next**: agent identity is done (`meirmsn-agent`, LOG #9) and protection holds against it
 (LOG #10) → owner installs the Claude GitHub App on lalista + home-os → finish W0.7.1 →
 W0.6.6 ruleset (with the A-20 call) → W0.4 tag.
+
+---
+
+## #12 — 2026-10-11 · Owner calls after the identity work
+
+**What**: owner confirmed the classic rule on `main` also requires 1 approval, code-owner review,
+approval of the most recent push, dismissal of stale approvals and conversation resolution (A-06),
+and chose **"approval ships"**: ruleset B (owner-only merge) deferred, documented in
+[PLATFORM § 3a](PLATFORM.md#3a-optional-ruleset-b--only-the-owner-merges). PR #40 was merged by
+the agent after the owner's approval. → W10.1.3, W10.4.3 done; W0.6.6's ruleset conversion is
+not needed (same options on the classic rule); its remaining checks (auto-merge waits for
+approval, a push after approval dismisses it) fold into the walking-skeleton run (W10.6.4).
+The A-04 reviewer fixture is kept in [`spikes/a04-reviewer/`](spikes/a04-reviewer/) for W10.6.2.
