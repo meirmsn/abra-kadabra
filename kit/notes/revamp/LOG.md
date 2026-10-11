@@ -451,3 +451,31 @@ W10.3.3 (every row dispositioned), so not repeated here. Metrics re-baseline: no
 
 **Next**: W10.3.1 lessons harvest (Claude). Owner, when ready: W10.1.2 setup-script spike,
 W10.2 L3 design pass.
+
+---
+
+## #16 — 2026-10-11 · W10.1.2 setup-script spike prepared
+
+**Done**: probe plugin (one skill, one SessionStart hook) + a pasteable `setup.sh` in
+`spikes/w10-1-2-install/`, with owner steps for two runs. The script fetches a pinned commit
+(routes: attached clone → git + token → REST + token → git without a token), then
+`claude plugin marketplace add` + `install` at user scope, logging to `/tmp/devshop-setup.log`.
+
+**Verified in this session** (isolated `CLAUDE_CONFIG_DIR`): routes 0 and C fetched the pin
+(this repo is attached here); install succeeded; a fresh `claude -p` ran the skill and the hook.
+The plugin is read in place from the fetched tree, so that tree must persist.
+
+**Discovery — the planned D-01 route likely fails.** The GitHub path enforces the session's
+repo scope independent of the client's Authorization header: a git fetch of the attached repo
+with a bogus token succeeded (the proxy supplies its own credentials), and a non-attached
+private repo got the proxy's 403 "GitHub access to this repository is not enabled for this
+session" via REST with and without a token header. A user token in the setup script therefore
+probably can't open abra-kadabra from a project session. Further probing of other GitHub hosts
+was stopped by the permission classifier (read as exfiltration scouting) — not pursued.
+
+**Implication for D-01** if Run 1 confirms: the remaining routes are (a) devshop attached as a
+second repo, setup script installs the pin from its clone — costs repo `settings.json` hooks
+(F-CLOUD-02) but user-scope plugin hooks may still load (Run 2 tests this); (b) claude.ai-synced
+plugins (pinning untested, A-10); (c) a public runtime part (D-12 — owner: not soon).
+
+**Next (owner)**: Run 1 and Run 2 per the spike README; revoke the token afterwards.
