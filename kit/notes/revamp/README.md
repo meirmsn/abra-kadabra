@@ -59,14 +59,14 @@ an explicit go/no-go; lalista is the pilot (web, then iOS).
 | [DECISIONS.md](DECISIONS.md)     | Owner decisions, in the order to make them                                             |
 | [PROCESS.md](PROCESS.md)         | Light process: lifecycle, done, verification, replanning, reviews                      |
 | [LOG.md](LOG.md)                 | Per-session journal                                                                    |
-| [lessons.md](lessons.md)         | v1 lessons that carry into v2, by pillar and by stack (W10.3.1)                        |
+| [lessons.md](lessons.md)         | v1 + home-os lessons that carry into v2, by pillar and by stack (W10.3.1–2)            |
 
 ## Next action
 
 M0 is done (review: [LOG.md](LOG.md) #15). M1 ([W10](workstreams/W10-v2.md)):
 
-- **Claude:** W10.3.2 home-os lessons (W10.3.1 v1 harvest done: [lessons.md](lessons.md)), then
-  W10.3.3 FINDINGS disposition; respect the pacing rule (≤ ~2 devshop PRs waiting on the owner).
+- **Claude:** W10.3.3 FINDINGS disposition (W10.3.1 v1 and W10.3.2 home-os harvests done:
+  [lessons.md](lessons.md)); respect the pacing rule (≤ ~2 devshop PRs waiting on the owner).
 - **Owner, when ready:** W10.2 L3 design pass (one review round per pillar). D-01 decided
   2026-10-11 (option D; built in W10.4.4).
 
