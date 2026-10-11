@@ -628,7 +628,7 @@ as not carried.
 
 **Next**: W10.3.3 (disposition every FINDINGS row).
 
-## #19 — 2026-10-11 · W10.2 L3 design pass: Intent
+## #19 — 2026-10-11 · W10.2 L3 design pass: Intent, Verify
 
 **What moved**: W10.2 started (`[~]`) in parallel with W10.1.2 and W10.3.1, which both landed
 mid-session (D-01 decided; `lessons.md` done) — the branch was brought up to `main` and the
@@ -647,4 +647,15 @@ written to [TARGET.md § L3](TARGET.md#l3--a-few-bullets-per-pillar).
 - v1's stop-and-ask category list dropped, kept by reference as the starting point for possible
   future spec auto-approval.
 
-**Next**: Verify, then Review and Safety.
+- **Verify agreed:** one reviewer script (fresh, locked-down `claude -p`, read + run, never write)
+  for the spec review and the final review, started by a hook; diff checked against spec and intent
+  first, then the lenses; medium-or-unsure findings fixed, low listed; same checks run in the
+  session for speed, GitHub CI repeats only the deterministic part (now incl. an acceptance→test
+  mapping check). D-06 unchanged.
+- Discussed and deferred: an air-gapped reviewer (owner-only repo, GitHub runners, separate
+  identity, required check) as the wall against a rogue agent — recorded in
+  [PLAN.md § After the revamp](PLAN.md#after-the-revamp). Until then the in-session reviewer covers
+  corner-cutting; GitHub rules, plain CI and the owner's approval are the walls against a rogue
+  agent.
+
+**Next**: Review, then Safety.

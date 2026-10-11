@@ -7,13 +7,13 @@ where they belong (mostly L3). Every milestone review checks progress against th
 page and whether the page itself is still right
 ([PROCESS.md § 5](PROCESS.md#milestone-review-each-m-exit--the-whole-picture-check)).
 
-| Level | Form                     | Status                                 |
-| ----- | ------------------------ | -------------------------------------- |
-| L0    | One sentence (ish)       | **agreed** 2026-10-08                  |
-| L1    | One paragraph            | **agreed** 2026-10-08                  |
-| L2    | One line per pillar      | **agreed** 2026-10-09                  |
-| L3    | A few bullets per pillar | in progress — Intent agreed 2026-10-11 |
-| L4    | Milestones + tasks       | re-derived from L0–L3 (PLAN.md)        |
+| Level | Form                     | Status                                         |
+| ----- | ------------------------ | ---------------------------------------------- |
+| L0    | One sentence (ish)       | **agreed** 2026-10-08                          |
+| L1    | One paragraph            | **agreed** 2026-10-08                          |
+| L2    | One line per pillar      | **agreed** 2026-10-09                          |
+| L3    | A few bullets per pillar | in progress — Intent, Verify agreed 2026-10-11 |
+| L4    | Milestones + tasks       | re-derived from L0–L3 (PLAN.md)                |
 
 ## L0 — where we're going
 
@@ -62,7 +62,7 @@ is one guided step.
 
 - ~~**Intent:**~~ folded into [L3 Intent](#intent) (2026-10-11).
 - **Build:** one agent pulls the relevant guidelines (frontend, backend, data, UI, UX, security…) + project guidelines; no persona-per-agent requirement. Run the tests relevant to the change in the session (cloud or Mac) rather than waiting on CI; CI is for the full suite once ready for review (today the template runs CI on every PR push).
-- **Verify:** an adversarial review at the end against intent is required; earlier checkpoints (spec ↔ discussion, slice ↔ spec) are candidates — recommendation: spec ↔ discussion standard, slice ↔ spec tested on the walking skeleton. Docs are part of the check (future agents use them as context).
+- ~~**Verify:**~~ folded into [L3 Verify](#verify) (2026-10-11).
 - **Review:** title style as the devshop does today; description hierarchical; announcement blurb for non-technical readers on top when applicable; screenshots/video; preview link.
 - **Safety:** prevent a rogue or prompt-injected agent from taking over; keep Claude away from sensitive data/code and from the owner's machines except scoped, walled-off environments (e.g. Supabase in its own container; a separate Mac for Apple work). "No vulnerabilities" is pursued by layered checks, not promised.
 - **Reach:** Apple builds can also use GitHub-hosted macOS runners in CI; the Mac is for interactive work.
@@ -94,6 +94,21 @@ _Agreed 2026-10-11 (LOG #19)._
 8. **Too big?** Claude proposes splitting it into several changes, each with its own spec.
 
 - _Dropped:_ v1's "stop and ask" category list (`CLAUDE.md` § Confidence Calibration at `v1-final`) — every change now needs a "go", and anything new mid-build is a spec change (bullet 7). Kept as the starting point if spec review ever gets tedious and specs become auto-approved except in listed cases ([lessons.md § Considered, not carried](lessons.md#considered-not-carried)).
+
+### Verify
+
+_Agreed 2026-10-11 (LOG #19)._
+
+1. **Spec review** (before the "go"): an adversarial check of the spec against the owner's intent and recorded decisions. Claude fixes what it is confident about; only the questions it can't settle confidently reach the owner, if any.
+2. **Final review** before the owner sees the PR: the PR stays a draft until it passes (A-23).
+3. **The reviewer** is a small script that starts a fresh, locked-down `claude -p` with none of the builder's context (L-18). It can read and run (tests, the app in a browser), never edit, commit or push. A hook starts it from the "done" / open-PR step, so the builder never chooses whether to run it or relays its verdict.
+4. **Diff vs spec and intent first:** every acceptance item has evidence (a test, or a demonstrated step for UI flows); decisions are followed; nothing trimmed, nothing added beyond the ask (L-19, L-20). Then the lenses that apply: code, security, tests (behaviour, not text; tests that run nothing fail — L-16, L-17), docs (future agents read them; renamed things swept — L-23), plus design and QA for UI.
+5. **Three outcomes — pass, fail, could-not-run;** could-not-run never passes and goes to the owner (L-09). The verdict is structured and fails closed (L-12); pass/fail comes from machine signals, not the model reading logs (L-13).
+6. **Findings at medium or above are fixed or go to the owner;** no "proceed but record" (L-21). Unsure whether medium or low → treated as medium and fixed. Low findings are listed in the PR, not blocking. Three rounds without resolving the same thing → Claude asks the owner.
+7. **Same checks, two places.** In the session for speed: tests, deterministic checks and the reviewer run where Claude works (no waiting on GitHub). On GitHub, plain CI repeats the deterministic part as the required check: full suite, deterministic checks, and **every acceptance item referenced by a test or marked "verified by review"** (the reviewer checks those marks are honest) — run against the tree being merged (L-14, L-15). No LLM jobs in CI (D-06). The reviewer's verdict is recorded on the PR per lens, tied to the commit it reviewed (L-25).
+8. **Every check is proven to fail** with a known-bad input (L-11); the reviewer's hit rate on planted spec violations is measured at the walking skeleton (A-12).
+
+- _What this protects against:_ the in-session reviewer enforces the standards consistently against an agent that cuts corners. A deliberately misbehaving (rogue or prompt-injected) agent controls its own session and could disable it; the walls against that are GitHub's rules, plain CI and the owner's approval, with a missing or stale verdict on the PR as the tripwire. An air-gapped reviewer that would also be a wall is planned [after the revamp](PLAN.md#after-the-revamp).
 
 ## North-star scenario (re-run at every milestone review)
 
