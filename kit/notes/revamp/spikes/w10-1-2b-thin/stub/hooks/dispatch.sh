@@ -20,7 +20,15 @@ if [ -z "$sha" ]; then
 fi
 dir="$VERSIONS/$sha"
 if [ ! -d "$dir" ]; then
-  mkdir -p "$dir.tmp" && git --git-dir="$MIRROR" archive "$sha:$RUNTIME" | tar -x -C "$dir.tmp" && mv "$dir.tmp" "$dir"
+  rm -rf "$dir.tmp"; mkdir -p "$dir.tmp"
+  if git --git-dir="$MIRROR" archive "$sha:$RUNTIME" 2>/dev/null | tar -x -C "$dir.tmp" 2>/dev/null \
+     && [ -d "$dir.tmp/skills" ]; then
+    mv "$dir.tmp" "$dir"
+  else
+    rm -rf "$dir.tmp"
+    echo "DEVSHOP: version '$pin' (${sha:0:12}) has no devshop runtime at $RUNTIME — kept $(readlink "$CURRENT" 2>/dev/null || echo none)"
+    exit 0
+  fi
 fi
 ln -sfn "$dir" "$CURRENT"
 echo "DEVSHOP: using $pin (${sha:0:12}) from $from"
