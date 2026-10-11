@@ -51,3 +51,7 @@ Revoke the token after the runs.
   without GitHub credentials, so the in-session evidence above may not apply at setup time; the
   token was not visible to the setup script. Route 0 needs the pin on the clone's branch (merge
   first, then pin the merge commit).
+- **Result (owner Run 1, lalista): passed** with the token written inline in the setup script
+  (environment variables don't reach it): fetched via `A:git+token`, plugin installed, skill and
+  SessionStart hook loaded. Run 2 not needed.
+

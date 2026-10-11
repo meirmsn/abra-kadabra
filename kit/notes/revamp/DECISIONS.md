@@ -186,6 +186,8 @@ Outcome: **open — direction set 2026-10-09:** the pinned devshop comes from th
 
 **Revisited 2026-10-10:** source = this repo's tagged v2 releases (no separate runtime repo).
 
+**Spike result 2026-10-11 (W10.1.2, LOG #16) — input for the owner's call, not a decision:** **D works with a private source.** A cloud setup script runs before the agent proxy, so it reaches GitHub directly: with a fine-grained read-only token (abra-kadabra only, Contents read) written inline in the script, it fetched a pinned commit and installed it as a user-scope plugin; the plugin's skill and SessionStart hook loaded in a lalista session. This falsifies A′'s "blocked in cloud" for setup-time fetches. Properties: zero project footprint; the pin is a SHA in the environment's setup script, and bumping it re-runs the script (environment cache rebuild); trade-offs: the token is readable by anyone using the environment, including the session (read-only, single repo — acceptable?), and the pin is per environment, not per project commit. Environment variables do not reach setup scripts, so the token can't live there.
+
 ## D-05 Plan tier assumptions — `decided`
 
 Network secrets exist on Pro/Max (not Team/Enterprise yet); server-managed settings

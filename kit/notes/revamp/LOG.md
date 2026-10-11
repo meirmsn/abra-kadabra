@@ -489,3 +489,16 @@ the in-session proxy scope check does not apply there, which reopens the token r
 set — so environment variables may not reach the setup script (to confirm). Route 0 failed because
 the pin is a PR-branch commit, absent from the clone, and couldn't be fetched without credentials.
 Script fixed to log route-0 reasons and a no-auth reachability check.
+
+**Owner runs 2–3, 2026-10-11:** Run on lalista with the token as an environment variable →
+`FETCH FAILED`, `token set:` empty, `github.com reachable: 200`. Docs confirm: environment
+variables are read when Claude Code starts, after the setup script; the setup script runs once
+per environment and is snapshotted (re-run on script/network change or ~7 days). Token moved
+inline into the setup script → **passed**: `A:git+token`, plugin 0.1.0 installed at user scope
+from `/opt/devshop-pin`, SessionStart hook ran and injected its line, skill listed as
+`devshop-probe:devshop-probe` and ran. Docs had suggested only repo/server-managed hooks run in
+cloud — user-scope plugin hooks run too. **W10.1.2 done**; A-09, A-22 validated; D-01 gets the
+spike result (option D viable with a private source). Residual for W10.4.4: confirm a second
+session started from the cached snapshot still has the plugin. Owner: revoke the spike token
+when done with the environment.
+
