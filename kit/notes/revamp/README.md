@@ -62,6 +62,11 @@ an explicit go/no-go; lalista is the pilot (web, then iOS).
 
 ## Next action
 
-M0 is done (review: [LOG.md](LOG.md) #15). M1 ([W10](workstreams/W10-v2.md)): **W10.3.1**
-lessons harvest (Claude, no owner input) runs now; in parallel the owner's steps are the
-W10.1.2 setup-script spike and the W10.2 L3 design pass.
+M0 is done (review: [LOG.md](LOG.md) #15). M1 ([W10](workstreams/W10-v2.md)):
+
+- **Claude:** W10.3.1 lessons harvest — needs no owner input; confirm with the owner before
+  starting, and respect the pacing rule (≤ ~2 devshop PRs waiting on the owner).
+- **Owner, when ready:** W10.1.2 setup-script spike (read-only token secret + pinned install);
+  W10.2 L3 design pass (one review round per pillar).
+
+Tasks marked `[!]` "deferred to the M4 exit" are not raised before then.
