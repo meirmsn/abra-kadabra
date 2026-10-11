@@ -39,3 +39,6 @@ clear `DEVSHOP:` warning until then.
 
 Expected: clone OK over SSH, bootstrap done, `DEVSHOP: using claude/gallant-keller-1f1ih8 …
 from environment default`, the probe2 hook line, and `DEVSHOP-PROBE2-SKILL spike-2`.
+
+**Owner run 1 (2026-10-11):** clone failed — the cloud image has no `ssh` binary. `env-setup.sh` now
+installs `openssh-client` first (log: `/tmp/devshop-ssh-install.log`).

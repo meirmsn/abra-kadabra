@@ -1,6 +1,7 @@
 # W10.1.2b — the WHOLE cloud environment setup script (replace everything that was there).
 # The only UI-held parts: the deploy key and the ref to bootstrap from. Everything else is code.
 set +e
+command -v ssh > /dev/null || { apt-get update -qq && apt-get install -y -qq openssh-client; } > /tmp/devshop-ssh-install.log 2>&1
 mkdir -p /root/.ssh && cat > /root/.ssh/devshop_deploy <<'KEY'
 PASTE THE PRIVATE KEY HERE (all lines, including BEGIN/END)
 KEY
