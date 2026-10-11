@@ -3,7 +3,7 @@
 Follow-up to W10.1.2 (owner, 2026-10-11): minimum UI work, version per project in code.
 
 **Design**
-- **Environment (UI, once, shared by all projects):** setup script = a read-only **deploy key** +
+- **Environment (UI, once, shared by all projects):** setup script = a read-only **token** (fine-grained, abra-kadabra only) +
   `git clone --bare` of the devshop into `/opt/devshop.git` + run `bootstrap.sh` from that copy
   (`env-setup.sh`). Holds no version.
 - **Devshop (code):** `bootstrap.sh` installs a **stub plugin** at user scope. The stub's `skills`
@@ -42,3 +42,7 @@ from environment default`, the probe2 hook line, and `DEVSHOP-PROBE2-SKILL spike
 
 **Owner run 1 (2026-10-11):** clone failed — the cloud image has no `ssh` binary. `env-setup.sh` now
 installs `openssh-client` first (log: `/tmp/devshop-ssh-install.log`).
+
+**Owner run 2:** SSH client installed, but `ssh.github.com` does not resolve and port 22 times out —
+the network policy allows HTTPS only. Deploy keys (SSH-only) are out; `env-setup.sh` now clones over
+HTTPS with a fine-grained read-only token (the route proven in W10.1.2). The deploy key can be deleted.
