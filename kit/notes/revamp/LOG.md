@@ -367,3 +367,29 @@ original authors + the rebaser (but rebased commits aren't signed); squash's aut
 **Considered and dropped**: rebase/merge-commit merges (clutter `main`, need commit-count limits);
 owner opens each PR + admin-override merge (works, but awkward). **Decision**: keep the machine-user
 setup as a **trial until 2026-10-25** (or W10.6), then keep or switch back (steps in D-13; A-24).
+
+---
+
+## #14 — 2026-10-11 · M0 wrap-up: CLAUDE.md revamp note; tag and scans wait on access
+
+**W0.8.1 done**: `CLAUDE.md` opens with a 10-line `## Revamp mode` section (PROCESS.md, PRs to
+`main`, v1 tooling not used, v1 frozen at `v1-final`, this section wins). The three
+contradicting v1 lines (`/ak-status` first, no-PR shipping flow, "don't propose a GitHub PR on
+devshop") are annotated as superseded.
+
+**W0.4.1 blocked**: annotated tag `v1-final` created locally at `525cd49` (current `main`), but
+`git push origin refs/tags/v1-final` → HTTP 403 from the session's git proxy, which only
+accepts pushes to the session branch; the GitHub tools have no tag creation. The owner pushes
+the tag. Lesson for v2: tags/releases are an owner (or CI) step, not something a cloud
+session can do.
+
+**W0.7.1 still pending**: owner added `meirmsn-agent` to lalista and home-os, but `add_repo`
+says "you don't have access" for both and the agent's repo list shows only abra-kadabra.
+Likely the collaborator invitations still need accepting as `meirmsn-agent`, and/or the
+Claude GitHub App isn't installed on those repos.
+
+**Owner call**: W0.5.2, W0.5.3, W0.6.2, W0.6.3 deferred to the end of the revamp; not raised
+again until then.
+
+**Next**: owner pushes the tag + fixes repo access → finish W0.7.1 → M0 exit. Meanwhile
+W10.3.1 (lessons harvest from v1).
