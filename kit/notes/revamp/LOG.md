@@ -350,3 +350,20 @@ the agent after the owner's approval. → W10.1.3, W10.4.3 done; W0.6.6's rulese
 not needed (same options on the classic rule); its remaining checks (auto-merge waits for
 approval, a push after approval dismisses it) fold into the walking-skeleton run (W10.6.4).
 The A-04 reviewer fixture is kept in [`spikes/a04-reviewer/`](spikes/a04-reviewer/) for W10.6.2.
+
+---
+
+## #13 — 2026-10-11 · Contribution credit test; agent identity goes on trial
+
+**What**: owner noticed the agent identity moves their GitHub contribution history to the agent.
+Test on PR #42: one branch commit authored as the owner, squash-merged by the owner with the
+default message — the `main` commit was authored by `meirmsn-agent` with
+`Co-authored-by: meirmsn`; afterwards the owner's profile gained only the review, the agent's the
+commit and opened PR. GitHub's docs confirm it: a commit counts only for the email that **authored**
+it on the default branch; "or co-author" applies to GitHub Enterprise Server only; rebasing credits
+original authors + the rebaser (but rebased commits aren't signed); squash's author isn't documented
+— observed = PR author (#41).
+
+**Considered and dropped**: rebase/merge-commit merges (clutter `main`, need commit-count limits);
+owner opens each PR + admin-override merge (works, but awkward). **Decision**: keep the machine-user
+setup as a **trial until 2026-10-25** (or W10.6), then keep or switch back (steps in D-13; A-24).
