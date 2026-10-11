@@ -1162,10 +1162,10 @@ Pillar **Build** · Scope **Supabase**
 
 #### L-59 · Every migration has a CI-tested rollback or an explicit noop
 
-**Rule.** In v2's Supabase home, every migration declares a rollback block or `noop`. CI
-round-trips each one against real Postgres (rollback, then forward again) and fails on a missing
-or malformed block instead of skipping it. _(Open question 3: or drop rollbacks for forward-only
-fixes; untested rollback SQL is not kept either way.)_
+**Rule.** In v2's Supabase home, every migration declares a rollback block (an explicit `noop`
+only when there is nothing to undo). CI round-trips each one against real Postgres (rollback,
+then forward again) and fails on a missing or malformed block instead of skipping it. Owner call
+(2026-10-11, PR 47): keep rollbacks, and test them.
 
 **Why.** 4 home-os PRs:
 

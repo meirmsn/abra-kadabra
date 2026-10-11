@@ -492,5 +492,8 @@ re-check against home-os in W10.3.2).
 - The identifier leaks came from the "worked incident" habit (paste the failing line verbatim into
   code, tests and skills) plus the lack of structured project config (L-47).
 
+**Owner call (PR 47 review)**: Supabase migrations keep rollback blocks, and CI tests them
+(L-59); forward-only was not chosen.
+
 **Next**: W10.3.2 (home-os lessons; re-check the ↻ rows), then W10.3.3 (disposition every FINDINGS
 row; lessons cite FINDINGS ids to speed it up).
