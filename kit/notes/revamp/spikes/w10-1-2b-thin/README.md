@@ -52,3 +52,6 @@ the stub; in the lalista session the dispatcher reported `DEVSHOP: using … fro
 default`, the pinned version's hook ran and `devshop-probe2` resolved to the same commit. The
 runtime hook also ran once during setup (bootstrap priming) — fixed: priming no longer runs it.
 
+**Final form (owner run 4, after #46 merged): passed.** Setup script = `env-setup.sh` (two lines,
+token + `HEAD:bootstrap.sh`); token not stored on disk; hook ran once; default = `HEAD` (`main`).
+
