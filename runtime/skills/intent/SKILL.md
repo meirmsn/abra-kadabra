@@ -33,6 +33,8 @@ Name it in your first reply; the owner can correct you.
 - Fill `/opt/devshop-current/templates/spec.md` into the project's `specs/<change>.md`: intent in
   the owner's words; decisions with their reasons; acceptance items `AC-1`, `AC-2`, … (what must be
   true, pass/fail); out of scope. UI changes add the core flow (2–4 steps) and a state table.
+- `specs/` holds spec files only, one per change. The reviewer takes the one `specs/**.md` file a
+  change adds or changes as its spec, so a README or template there makes the review could-not-run.
 - Capture decisions when the owner makes them, not turn by turn.
 - An item that can't be tested or can't be done goes back to the owner; never reword it to fit.
 - Run `/opt/devshop-current/scripts/spec-check.py specs/<change>.md` until it passes.
