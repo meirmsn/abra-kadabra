@@ -734,3 +734,29 @@ steps), toward the walking skeleton W10.6.
   **fixture moves to Cloudflare** (Workers + D1, Action-based deploy; A-27) — Cloudflare becomes the
   first stack home; lalista's Vercel/Supabase plans become an M2 precondition. New tasks W10.5.3
   (north-star harness) and W10.6.5 (reviewer eval).
+
+## #21 — 2026-10-12 · W10.3.3 every finding dispositioned
+
+**What moved**: W10.3.3 done. [FINDINGS.md](FINDINGS.md) has a **v2 disposition** column; all 134
+rows (122 findings + 12 opportunities) carry exactly one of: **v2 requirement** (82 — Shape 21,
+Safety 21, Verify 19, Reach 7, Environments 6, Build 5, Intent 2, Ship 1), **not applicable to v2**
+(15 — platform facts already designed around, and opportunities L3 didn't adopt), **won't fix — v1
+retired** (37 — bugs in v1 machinery v2 drops: devcontainer locks and sudo, husky, bypass
+trailers, `release.sh`, `/ak-*` skills, sync). Each requirement names its `L-nn` and TARGET L3
+bullet. Rule of thumb: when a lesson cites the finding and its rule prevents the bug class, it is a
+requirement; when only the mechanism was broken and v2 has none, it is won't fix.
+
+**Evidence**
+
+- A scratch script lists every `F-*`/`O-*` table row and checks the column: before, 134 missing;
+  after, 0 missing, no duplicate ids. Proven to fail: blanking one cell in a copy exits 1 and names
+  the row. Its first run also caught its own bug (escaped `\|` in three findings split the cells).
+- Prettier 3.8.1 clean on FINDINGS.md; only table rows and the header note changed.
+
+**Surprises — requirements with no explicit home in TARGET L3 or lessons.md** (flagged on the PR,
+TARGET not edited): the devshop's own changes getting the security lens (F-SEC-17); the reviewer
+ignoring test-only overrides in real runs (F-HOOK-10); gstack's setup not clobbering the devshop's
+SessionStart hook, and a minimum gstack version (F-GS-08, F-GS-04); licensing if the devshop goes
+public (F-NEW-13).
+
+**Next**: W10.4 v2 bootstrap (W10.4.1 in progress in a parallel session); owner: W10.5.1.
