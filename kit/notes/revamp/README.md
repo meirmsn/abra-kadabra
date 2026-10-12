@@ -38,13 +38,13 @@ an explicit go/no-go; lalista is the pilot (web, then iOS).
 
 ## Milestones (status roll-up — criteria in [PLAN.md](PLAN.md))
 
-| #   | Milestone                      | Status                                                           |
-| --- | ------------------------------ | ---------------------------------------------------------------- |
-| M0  | Stop the bleeding + groundwork | done                                                             |
-| M1  | Walking skeleton → go/no-go    | in progress — W10.1 spikes + W10.2 design done; W10.3–W10.7 open |
-| M2  | Pilot: lalista web on v2       | coarse                                                           |
-| M3  | iOS stack + Mac                | coarse                                                           |
-| M4  | Complete & retire v1           | coarse                                                           |
+| #   | Milestone                      | Status                                                                                                       |
+| --- | ------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| M0  | Stop the bleeding + groundwork | done                                                                                                         |
+| M1  | Walking skeleton → go/no-go    | in progress — W10.1 spikes, W10.2 design, W10.3 harvest done; W10.4 v2 bootstrap under way; W10.5–W10.7 open |
+| M2  | Pilot: lalista web on v2       | coarse                                                                                                       |
+| M3  | iOS stack + Mac                | coarse                                                                                                       |
+| M4  | Complete & retire v1           | coarse                                                                                                       |
 
 ## Files
 
@@ -65,8 +65,9 @@ an explicit go/no-go; lalista is the pilot (web, then iOS).
 
 M0 is done (review: [LOG.md](LOG.md) #15). M1 ([W10](workstreams/W10-v2.md)):
 
-- **Claude:** W10.4 v2 bootstrap in this repo (W10.4.1 first); respect the pacing rule (≤ ~2
-  devshop PRs waiting on the owner). W10.3 lessons harvest done: [lessons.md](lessons.md) +
+- **Claude:** W10.4 v2 bootstrap in this repo — W10.4.1 done (v1 off `main`, LOG #23); next
+  W10.4.4 and the rest of W10.4.2 (more CI checks); respect the pacing rule (≤ ~2 devshop PRs
+  waiting on the owner). W10.3 lessons harvest done: [lessons.md](lessons.md) +
   every FINDINGS row dispositioned (LOG #21).
 - **Owner, when ready:** W10.5.1 — create the fixture repo, Cloudflare account + scoped deploy
   token, and the fixture's cloud environment (checklist in [W10](workstreams/W10-v2.md)); then a
