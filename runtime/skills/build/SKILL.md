@@ -48,7 +48,8 @@ scripts named here; run them, never retype them as shell.
   read from the real signal (CI, the preview comment).
 - Run `/opt/devshop-current/scripts/pr-body-check.py <body file> "<title>"` until it passes, before
   the PR goes ready.
-- Create the PR as a draft, then mark it ready. **Don't run the reviewer yourself:** the devshop's
-  hook starts the independent reviewer on PR create and on ready (W10.6.7), and the review happens
-  there. A failing review blocks the call with its findings: fix, commit, try again.
+- Create the PR ready for review, not as a draft: it opens only once the review passes (TARGET
+  Verify 2). **Don't run the reviewer yourself:** the devshop's hook runs the independent reviewer
+  before the PR is created and before each later push (W10.6.7), and posts its verdict on the PR. A
+  failing review blocks the call with its findings: fix, commit, try again.
 - Then tell the owner in chat: the PR link and its one-line summary.

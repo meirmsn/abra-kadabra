@@ -1,0 +1,4 @@
+{
+  "title": "Add slugify() for URL-friendly names",
+  "body": "Adds slugify(), which turns any string into a URL-friendly name.\n\n**Preview:** none — a library function with no UI\n\n## What you should know\n\n- **Behaviour change:** new slugify(s): lowercases, turns each run of whitespace into one dash, drops every character other than a-z, 0-9 and dash, and throws a TypeError for anything that is not a string.\n- **Decisions:** which characters survive, and that non-strings throw rather than being converted.\n- **Changed after the go:** nothing\n- **Tests deleted or loosened:** none\n- **Manual steps for you:** none"
+}
