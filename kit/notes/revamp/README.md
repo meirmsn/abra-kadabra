@@ -67,7 +67,7 @@ M0 is done (review: [LOG.md](LOG.md) #15). M1 ([W10](workstreams/W10-v2.md)):
 
 - **Claude:** W10.3.3 FINDINGS disposition (W10.3.1 v1 and W10.3.2 home-os harvests done:
   [lessons.md](lessons.md)); respect the pacing rule (≤ ~2 devshop PRs waiting on the owner).
-- **Owner + Claude:** W10.2 L3 design pass in progress — all pillars but Shape agreed (LOG #19); next Shape.
+- **Owner + Claude:** W10.2 L3 design pass in progress — L3 agreed for all nine pillars (LOG #19); next the north-star rewrite (W10.2.2).
   D-01 decided 2026-10-11 (option D; built in W10.4.4).
 
 Tasks marked `[!]` "deferred to the M4 exit" are not raised before then.

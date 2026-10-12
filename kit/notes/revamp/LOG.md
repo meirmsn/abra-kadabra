@@ -628,7 +628,7 @@ as not carried.
 
 **Next**: W10.3.3 (disposition every FINDINGS row).
 
-## #19 — 2026-10-11 · W10.2 L3 design pass: all pillars but Shape
+## #19 — 2026-10-11 · W10.2 L3 design pass: all nine pillars
 
 **What moved**: W10.2 started (`[~]`) in parallel with W10.1.2 and W10.3.1, which both landed
 mid-session (D-01 decided; `lessons.md` done) — the branch was brought up to `main` and the
@@ -692,4 +692,11 @@ written to [TARGET.md § L3](TARGET.md#l3--a-few-bullets-per-pillar).
   Cloudflare home comes with the owner's personal website, started in parallel once lalista begins
   moving (M2).
 
-**Next**: Shape (D-07, D-10, the devshop ledger format); then the north-star rewrite (W10.2.2).
+- **Shape agreed:** D-10 decided (SemVer from `v2.0.0`, release PR via release-please, CI tags);
+  D-07 decided (gstack pinned per devshop release, never edited). Devshop ledger: project sessions
+  fire a devshop-owned routine with the lesson text — no project footprint, no devshop credentials
+  in project sessions (A-26, untested; on failure consult the owner). GitHub issues ruled out by test:
+  the proxy returns 403 for any repo not attached to the session, even with a caller-supplied token.
+  New finding F-NEW-17: any session can start sessions/routines on other repos — Safety bullet 9.
+
+**Next**: W10.2.2 north-star rewrite (all nine pillars).
