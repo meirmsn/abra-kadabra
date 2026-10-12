@@ -24,7 +24,7 @@ Done when: plan docs exist, adversarially reviewed, owner review session held, o
 
 - [-] **W0.2.1** v1 baseline — v1 is not being improved (D-14); the v1 numbers in LOG #1 and #5 serve as the reference
 - [-] **W0.2.2** Timed v1 pipeline run — replaced by the skeleton run W10.6.4
-- [x] **W0.2.3** `[owner]` Targets + capacity — one hard budget (always-loaded context stays tight; other sizes are warning signals); pacing rule instead of hours: at most ~2 devshop PRs waiting on the owner (cap removed 2026-10-12, LOG #26) — 2026-10-09 · PR #36
+- [x] **W0.2.3** `[owner]` Targets + capacity — one hard budget (always-loaded context stays tight; other sizes are warning signals); pacing rule instead of hours: at most ~2 devshop PRs waiting on the owner — 2026-10-09 · PR #36
 
 ## W0.3 Decisions — P0 · M0 · S
 
