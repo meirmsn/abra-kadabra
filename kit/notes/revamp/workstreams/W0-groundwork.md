@@ -63,7 +63,7 @@ Deferred (owner, 2026-10-10): nothing was committed (W0.7), the apps aren't in u
 Findings: F-SEC-07, F-SEC-08, F-CLOUD-03 (corrected), F-NEW-09, F-NEW-12.
 Done when: on abra-kadabra and lalista, a direct push to `main` and a force-push are rejected; home-os is archived (read-only). Verified by attempts recorded in LOG.
 
-- [x] **W0.6.1** `[owner]` Protection on `main` (abra-kadabra, lalista): require PR, block force-push/deletion, no bypass (incl. admins) — classic branch protection for now; lalista also requires 2 status checks; abra-kadabra has no CI yet (required check comes with W3.1.2) — 2026-10-10 · LOG #11
+- [x] **W0.6.1** `[owner]` Protection on `main` (abra-kadabra, lalista): require PR, block force-push/deletion, no bypass (incl. admins) — classic branch protection for now; lalista also requires 2 status checks; abra-kadabra has no CI yet (required check comes with W10.4.2) — 2026-10-10 · LOG #11
 - [!] **W0.6.2** `[owner]` _Deferred to the M4 exit (owner, 2026-10-11) — don't raise before then._ **Before lalista resumes** (deferred 2026-10-10; lalista paused): move secrets used by CI on `pull_request` (e.g. `SENTRY_AUTH_TOKEN`) out of repo scope into a `main`-only environment
 - [!] **W0.6.3** `[owner]` _Deferred to the M4 exit (owner, 2026-10-11) — don't raise before then._ Archive home-os on GitHub (read-only)
 - [-] **W0.6.4** Agent identity + CODEOWNERS — moved to W10.1.1 / W10.4.3

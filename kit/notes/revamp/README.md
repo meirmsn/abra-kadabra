@@ -38,13 +38,13 @@ an explicit go/no-go; lalista is the pilot (web, then iOS).
 
 ## Milestones (status roll-up — criteria in [PLAN.md](PLAN.md))
 
-| #   | Milestone                      | Status      |
-| --- | ------------------------------ | ----------- |
-| M0  | Stop the bleeding + groundwork | done        |
-| M1  | Walking skeleton → go/no-go    | in progress |
-| M2  | Pilot: lalista web on v2       | coarse      |
-| M3  | iOS stack + Mac                | coarse      |
-| M4  | Complete & retire v1           | coarse      |
+| #   | Milestone                      | Status                                                           |
+| --- | ------------------------------ | ---------------------------------------------------------------- |
+| M0  | Stop the bleeding + groundwork | done                                                             |
+| M1  | Walking skeleton → go/no-go    | in progress — W10.1 spikes + W10.2 design done; W10.3–W10.7 open |
+| M2  | Pilot: lalista web on v2       | coarse                                                           |
+| M3  | iOS stack + Mac                | coarse                                                           |
+| M4  | Complete & retire v1           | coarse                                                           |
 
 ## Files
 
