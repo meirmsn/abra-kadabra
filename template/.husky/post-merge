@@ -1,5 +1,0 @@
-# Auto-install deps if pnpm-lock.yaml changed in the pull/merge.
-git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD 2>/dev/null | grep -qE '(^|/)pnpm-lock\.yaml$' && {
-    echo "[husky post-merge] pnpm-lock.yaml changed — running pnpm install..."
-    pnpm install --frozen-lockfile
-} || true

@@ -1,37 +1,6 @@
 .env
-
-# Dependencies
+.env.*
+!.env.example
 node_modules/
-.pnpm-store/
-
-# Build output
-dist/
-/build/
-.next/
-*.tsbuildinfo
-
-# Turbo
-.turbo/
-
-# Next.js telemetry
-**/cache/config.json
-
-# Logs
 *.log
-
-# gstack runtime state (transient)
-.gstack/browse.json
-.gstack/browse-*.log
-
-# Injected hooks (created by init-devshop.sh)
-.hooks/
-
-# Scheduler runtime lock (transient — /loop + /schedule state)
-.claude/scheduled_tasks.lock
-
-# Linked git worktrees (parallel feature work — see CLAUDE.md § Worktree workflow)
-/.worktrees/
-
-# OS
 .DS_Store
-.vercel

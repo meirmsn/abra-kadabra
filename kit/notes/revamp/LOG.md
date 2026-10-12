@@ -775,3 +775,44 @@ dispositions updated to point at the new homes.
 **Evidence**: the disposition check from PR 55 still passes (134 rows, 0 missing); Prettier clean.
 
 **Next**: W10.4 v2 bootstrap.
+
+## #23 — 2026-10-12 · W10.4.1 first v2 PR: v1 off `main`, working secret scan
+
+**What moved**: `v1-final` checked first (annotated, peels to `525cd49`, as #14 says); since it,
+only `CLAUDE.md`, `bootstrap.sh` and the revamp notes changed. Removed 1729 v1 files (`.claude/`
+incl. vendored gstack, `.devcontainer/`, `.husky/`, `kit/` except `kit/notes/revamp/`, `specs/`,
+`template/`, root `BUILD-LOG.md`/`PLAN.md`, Node/lint tooling). Kept `kit/notes/revamp/` as is,
+`bootstrap.sh` (the cloud environments' entry point — the W10.1.2b spike it delegates to stays, a
+local dispatcher run against the new tree still prints `DEVSHOP: using …`), `CODEOWNERS`,
+`.editorconfig`, `.gitattributes`, `.prettierrc`, `.vscode/` (now formats on save). New: v2
+`CLAUDE.md`, `README.md` (layout), `docs/README.md` (docs map), `.gitleaks.toml`
+(`[extend] useDefault = true`), `scripts/secret-scan.sh`, `tests/`, CI (`ci.yml`).
+
+**Evidence**: `tests/gitleaks.test.sh` plants five generated fake secrets — against v1's config it
+fails ("expected exit 1 (leaks found), got 0": F-SEC-20 reproduced), with the new config all five
+are caught and a clean repo passes; 50/50 runs stable. `tests/secret-scan.test.sh` proves the CI
+scan fails on secrets added, added-then-removed and uncommitted, and fails closed on a bad base or
+missing gitleaks; six mutants of the script (and the v1 config) all killed. `/security-review`: no
+findings. CI result on the PR.
+
+**Owner calls in the session**: v1's husky/lint-staged/ESLint setup is not ported (its few lessons
+are recorded already; no stub files kept). An adversarial review of the hooks plan reshaped it.
+Hand-offs, not done here:
+
+- **W10.4.2**: pinned `prettier --check`, shellcheck, typecheck once there's code, a CI check
+  rejecting fixture-identity commits (L-41), the docs-map link check.
+- **W10.4.4**: SessionStart runs the detected stack's dependency install (timeout, loud `DEVSHOP:`
+  on failure); a session-local `core.hooksPath` to devshop-owned git hooks (chaining to the
+  project's, husky included) with a pre-push `gitleaks git` over unpushed commits; optionally a
+  PostToolUse formatter step using only the project's own formatter. `bootstrap.sh` should take
+  the repo URL from config, not a hard-coded account (L-01).
+- **JS/TS stack home (W10.5.2)**: pinned Prettier + ESLint `recommended`, formatting left to
+  Prettier; `lint-staged --no-stash` if ever used (v1 `BUILD-LOG` § lint-staged-rename-symlink);
+  hooks under bash strict mode (L-11); start from `v1-final:template/eslint.config.mjs`.
+- **Rollback-prose lint** → Supabase stack home (M2). `lessons.md` L-41 could gain the
+  `--no-stash` lesson (follow-up; that file was out of this session's scope).
+
+**Surprises**: links from the revamp notes into v1 paths now resolve only at `v1-final`; the CI
+scan is the only scan until W10.4.4 (a secret can reach a pushed branch before CI flags it).
+
+**Next**: owner marks `ci / secret-scan` required (W10.4.2); W10.4.4. (PR #57)

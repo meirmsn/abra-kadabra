@@ -1,50 +1,33 @@
 # Abra-Kadabra
 
-A one-person dev shop. Goes from rough notes to deployed, tested, observable web app. Currently web — [native upcoming](kit/notes/bootstrap/v+-native.md).
+A devshop for Claude Code. You say what you want, from a whole app to a one-line fix. Claude
+helps you sharpen it, specs it and builds it, iterating against adversarial review until the
+result is verified against your intent. Then you review the PR and its preview, and your
+approval ships it. Claude works inside walls it can't move.
 
-## Getting Started
+**Status:** v2 is being built in this repo (the 2026-Q4 revamp). It doesn't do anything for
+projects yet. Plan and tracker: [`kit/notes/revamp/`](kit/notes/revamp/README.md).
 
-### New project
+**v1** is frozen at the `v1-final` tag and is no longer on `main`. It is reference only (the revamp
+notes cite it as evidence), never instructions. To read it:
 
-1. Open the devshop (or any existing project) in its devcontainer
-2. Run `claude` in the terminal and say `/ak-new-project`
-3. Phase A creates a GitHub repo from the `template/` skeleton
-4. Clone the new repo on your host next to abra-kadabra, open in VS Code, reopen in container
-5. Run `/ak-new-project` again — Phase B walks through guided setup (accounts, scaffolding, integrations, security)
+```sh
+git fetch origin tag v1-final
+git worktree add ../v1 v1-final
+```
 
-### Existing project
+## Layout
 
-Run `/ak-migrate-project` (skeleton — two tiers: lightweight and full). See `kit/ROADMAP.md § /ak-migrate`.
+| Path                                    | What                                                                                      |
+| --------------------------------------- | ----------------------------------------------------------------------------------------- |
+| [`CLAUDE.md`](CLAUDE.md)                | Rules for Claude working in this repo (always loaded; kept short)                         |
+| [`docs/README.md`](docs/README.md)      | Docs map: every doc in the repo is linked from it                                         |
+| [`scripts/`](scripts)                   | Tested scripts for mechanical steps (`secret-scan.sh`: the scan CI runs)                  |
+| [`tests/`](tests)                       | Tests; `tests/run.sh` runs them all. Named after what they test (`gitleaks` → config)     |
+| [`.gitleaks.toml`](.gitleaks.toml)      | Secret-scanning config, proven by `tests/gitleaks.test.sh`                                |
+| [`.github/`](.github)                   | CI (`workflows/ci.yml`) and `CODEOWNERS` (the owner approves every change)                |
+| [`bootstrap.sh`](bootstrap.sh)          | Entry point the cloud environments' setup script runs; its path must not change           |
+| [`kit/notes/revamp/`](kit/notes/revamp) | Revamp plan, decisions, findings, lessons, log, and the spikes (until W10.4.4 moves them) |
 
-## Prerequisites
-
-- [Docker Desktop](https://www.docker.com/products/docker-desktop)
-- [VS Code](https://code.visualstudio.com) with the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension
-- **Claude access** — either:
-  - An [Anthropic API key](https://console.anthropic.com/) (`ANTHROPIC_API_KEY`), or
-  - A [Claude Pro/Team subscription](https://claude.ai/) (sign in via `claude` in the terminal)
-
-## Goals
-
-| Goal                                                                                                          | In practice                                                                                                                                                                                                                                                                                             |
-| ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **End-to-end automation** — idea to production, two touchpoints: review the PR, say "land it"                 | [Pipeline](kit/docs/guide/workflow.md): plan → implement → quality gates → ship → deploy → monitor. [New project](kit/docs/guide/workflow.md#starting-a-new-project) from template in one command. [Migrate existing projects](kit/ROADMAP.md) _(upcoming)_. Picks up where it left off if interrupted. |
-| **Separation** — devshop and project are independent; improve one without touching the other                  | [Two repos, one workspace](kit/docs/guide/architecture.md). Clean project repo — conventional commits, PRs, CI, [no devshop artifacts](kit/docs/guide/architecture.md#file-lifecycle). Works without the devshop (`pnpm install && pnpm turbo run dev`).                                                |
-| **Guardrails built in** — tests, security, and quality are mandatory; Claude can't weaken its own constraints | No code ships without tests, metrics, and [security review](kit/docs/OVERVIEW.md#security). Pre-commit enforcement on every commit. Root-owned config files. [15 quality gates](kit/docs/guide/workflow.md) before PR.                                                                                  |
-
-Design principle: **simple and debuggable** — boring solutions, three layers, one pipeline. When something breaks, the [conceptual model](kit/docs/OVERVIEW.md#concept) tells you where to look.
-
-## How it works
-
-See `kit/docs/OVERVIEW.md § Concept` for how the system works (three layers, two repos, pipeline, file lifecycle). The rest of `OVERVIEW.md` is the operational picture: workflow, file map, conventions, and glossary.
-
-Short version: you write rough notes, `/office-hours` turns them into a product design, `/autoplan` locks in architecture, `/ak-build` implements autonomously (spec → code → quality gates → PR), you review, `/ak-go-live` deploys.
-
-## Improving the devshop
-
-- `kit/FRICTION-LOG.md` — intake: recurring trip-ups / lessons, deduped + counted (promote to the backlogs below when an item earns it); file via `/ak-record-friction-log`
-- `kit/TODOS.md` — tactical: committed bugs + small fixes
-- `kit/ROADMAP.md` — strategic: new capabilities, major improvements
-- `kit/notes/` — research, design notes, build blueprints
-- `kit/docs/guide/` — full operational reference (update when changing conventions)
-- `kit/docs/FAQ.md` — design rationale and architecture decisions
+Planned, added when their task lands: skills (W10.6), stack homes `stacks/<name>/` (W10.5.2),
+the pinned install runtime (W10.4.4) and discipline guidelines under `docs/`.

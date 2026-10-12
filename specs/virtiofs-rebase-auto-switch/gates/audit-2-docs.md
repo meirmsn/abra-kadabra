@@ -1,6 +1,0 @@
-### [domain: docs] [section: A] [severity: medium]
-
-**File**: (commit bodies in range `0c4e78f..41f11b5`, surface `kit/scripts/virtiofs-rebase.sh`)
-**What**: New `kit/scripts/virtiofs-rebase.sh` touches a propagation-relevant surface (`kit/scripts/**`) but no commit body in the range carries an `**Existing projects:**` migration block (even the no-op `[auto]` form).
-**Why**: Missing migration block on a propagation surface — `kit/docs/guide/conventions.md § Existing-Project Migration Block` (line 532 + 591) requires the block whenever a diff touches `kit/scripts/**`, and Enforcement layer 3 (line 595) directs `/ak-docs-review § Section A` to flag its absence as a medium coverage finding. The block is required even when no migration is needed (the helper is a devshop-only merge tool not synced to projects, so the correct form is `[auto] — none`), so the reader knows the author considered the question.
-**Fix**: The `/ak-merge-devshop` squash body MUST carry `**Existing projects:** [auto] — none — virtiofs-rebase.sh is a /devshop-only /ak-merge-devshop Phase 1.0 helper; not in kit/manifest.txt, not synced by from-devshop.sh, not under template/. No project-side migration needed.` The squash-time gate (Phase 0.4.5 dimension (d)) will independently catch this before the squash lands on main, but the block should be authored deliberately, not left to the gate.
