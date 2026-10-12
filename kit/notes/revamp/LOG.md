@@ -901,11 +901,15 @@ on `main`). The setup log ended `RESULT: bootstrap done`; `/opt/devshop-current`
 1.91.13, which fixed `/autoplan` in sessions with a SessionStart hook, F-GS-04). The bootstrap
 installs it into `~/.claude/skills/gstack` after the devshop's own steps and runs `./setup` with
 stdin closed, `--no-team --no-plan-tune-hooks --no-timeline-stop-hook --no-browser --quiet`, then
-turns gstack's update check off. Before its setup, the bootstrap runs `bun install --frozen-lockfile`
+turns gstack's update check off. It checks that `bun` matches the version the pinned gstack is
+tested on (so the gstack pin pins Bun too; owner, 2026-10-12). Before its setup, the bootstrap runs `bun install --frozen-lockfile`
 and stops if that fails: gstack's setup falls back to an unfrozen install (re-resolving npm ranges,
 running install scripts as root) when its frozen attempt fails (found by the security review).
 Found on the way: with stdin open, gstack's setup could read the
-rest of the bootstrap, which reaches bash through the setup script's pipe.
+rest of the bootstrap, which reaches bash through the setup script's pipe. Tried and dropped:
+disabling `/gstack-upgrade` via `gstack-config set disabled_skills` — the real gstack refuses it
+(the fake in the test had accepted it; the real-CLI run caught it). Owner: gstack's upstream URL in
+`install/gstack.pin` is fine (a public dependency).
 
 **Evidence**: scenario test extended first (failed: no pin), then green: gstack at the pinned commit
 via the pin's own URL (git `insteadOf` to a local fake), exact flags, stdin closed, update check

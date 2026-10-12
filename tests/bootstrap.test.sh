@@ -53,6 +53,8 @@ git clone -q "$gs" "$work/gs" 2>/dev/null
   echo 'mkdir -p "$HOME/.claude/skills/autoplan" && echo fake >"$HOME/.claude/skills/autoplan/SKILL.md"'
 } >"$work/gs/setup"
 mkdir -p "$work/gs/bin"
+# Each gstack commit names the Bun it is tested on, as upstream's bin/gstack-bun-version.sh does.
+printf 'GSTACK_BUN_FLOOR="9.0.0"\nGSTACK_BUN_TESTED="9.9.9"\n' >"$work/gs/bin/gstack-bun-version.sh"
 # shellcheck disable=SC2016  # the fake gstack-config's source
 printf '#!/usr/bin/env bash\necho "$*" >>"$HOME/gstack-config.calls"\n' >"$work/gs/bin/gstack-config"
 chmod +x "$work/gs/setup" "$work/gs/bin/gstack-config"
@@ -114,6 +116,7 @@ chmod +x "$work/bin/claude"
 # A fake `bun`: records its calls in the gstack checkout's parent; fails if the checkout has BUN_FAIL.
 cat >"$work/bin/bun" <<'EOF'
 #!/usr/bin/env bash
+[ "$1" != --version ] || { echo "${FAKE_BUN_VERSION:-9.9.9}"; exit 0; }
 echo "bun $* (in $PWD)" >>"$HOME/bun.calls"
 [ ! -e BUN_FAIL ] || { echo "fake bun: lockfile out of date" >&2; exit 1; }
 EOF
@@ -226,6 +229,14 @@ grep -qx "bun install --frozen-lockfile (in $HOME/.claude/skills/gstack)" "$HOME
 # The pin is the only upgrade path: gstack's own update check is off (auto_upgrade is off by default).
 grep -qx "set update_check false" "$HOME/gstack-config.calls" 2>/dev/null || fail "gstack's update check wasn't turned off"
 echo "ok - gstack installed at the pinned commit; setup ran non-interactively with its hooks off; update check off"
+
+# Bun is tied to the gstack pin: a Bun other than the one the pinned gstack is tested on fails the
+# gstack step loudly, before anything is installed with it.
+FAKE_BUN_VERSION=1.0.0 setup_env main FAILED
+grep -q "FAILED: gstack: bun 1.0.0, but gstack .* is tested on bun 9.9.9" /tmp/devshop-setup.log \
+  || { cat /tmp/devshop-setup.log >&2; fail "a Bun mismatch wasn't logged as a gstack failure"; }
+{ [ ! -e "$HOME/bun.calls" ] && [ ! -e "$HOME/gstack-setup.args" ]; } || fail "gstack installed with the wrong Bun"
+echo "ok - a Bun other than the pinned gstack's tested one fails the gstack step, before installing"
 
 # A gstack failure is loud but can't stop the devshop (L-43): the plugin is installed and the
 # DEVSHOP: line still appears.

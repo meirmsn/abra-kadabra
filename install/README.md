@@ -28,7 +28,9 @@ W10.1.2b spike (`kit/notes/revamp/spikes/w10-1-2b-thin/`, kept as notes).
   in the next session, but a symlinked skills dir switched by the hook works in the same one.
 - **gstack** (TARGET Shape 7, D-07): [`install/gstack.pin`](gstack.pin) names one upstream commit.
   After the devshop's own steps, so a gstack failure can't stop them, the bootstrap fetches that
-  commit into `~/.claude/skills/gstack`, unmodified, installs its npm dependencies with
+  commit into `~/.claude/skills/gstack`, unmodified, checks that `bun` is the version that commit is
+  tested on (`GSTACK_BUN_TESTED` in its `bin/gstack-bun-version.sh`), so the gstack pin pins Bun
+  too, installs its npm dependencies with
   `bun install --frozen-lockfile` (failing closed: gstack's setup would otherwise fall back to an
   unfrozen install), and runs its `./setup` with stdin closed and
   `--no-team --no-plan-tune-hooks --no-timeline-stop-hook`, so gstack registers no Claude hooks and
@@ -66,6 +68,14 @@ installed hook for every case above.
   next rebuild.
 - gstack comes from `main`'s pin at cache build, not from the project's pinned devshop version.
 - gstack takes about 1.7 GB in the environment cache and about 20 s of setup.
+- Bun comes from the environment image. When the image's Bun stops matching the pinned gstack's
+  tested version, the gstack step fails loudly (the devshop still installs); then install a pinned
+  Bun release with a checksum, or move the gstack pin.
+- `/gstack-upgrade` stays available: gstack refuses to disable it ("it is how gstack upgrades and
+  routes"). Its update check is off, so nothing prompts an upgrade; one run by hand changes only
+  that session's VM.
+- Chromium for gstack's browser skills (`/qa`) is untested here; the image ships Playwright's in
+  `/opt/pw-browsers`. Decided with the A-13 smoke check on the fixture.
 - Upgrading gstack: change the SHA in `install/gstack.pin` by PR, then run the smoke check: in a
   fresh session the `DEVSHOP:` line still appears and `/autoplan` runs (F-GS-04, F-GS-08), plus the
   skills v2 uses (A-13).

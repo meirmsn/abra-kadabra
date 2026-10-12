@@ -54,6 +54,12 @@ install_gstack() {
   { rm -rf "$dir" && git init -q "$dir" && git -C "$dir" fetch -q --depth 1 "$url" "$sha" \
     && git -C "$dir" checkout -q --detach FETCH_HEAD; } >>"$glog" 2>&1 \
     || { step_failed "gstack: fetch $sha (see $glog)"; return; }
+  # Bun is tied to the pin: the pinned gstack names the Bun it is tested on, and only that one runs.
+  local tested found
+  tested=$(sed -n 's/^GSTACK_BUN_TESTED="\([^"]*\)"$/\1/p' "$dir/bin/gstack-bun-version.sh" 2>/dev/null)
+  found=$(PATH="$HOME/.bun/bin:$PATH" bun --version 2>/dev/null)
+  { [ -n "$tested" ] && [ "$found" = "$tested" ]; } \
+    || { step_failed "gstack: bun ${found:-not found}, but gstack $sha is tested on bun ${tested:-unknown}"; return; }
   # Its npm dependencies come only from its lockfile. gstack's setup falls back to an unfrozen
   # install when the frozen one fails, so install frozen first and stop here if that fails.
   (cd "$dir" && PATH="$HOME/.bun/bin:$PATH" timeout 600 bun install --frozen-lockfile </dev/null) >>"$glog" 2>&1 \
