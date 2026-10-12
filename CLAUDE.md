@@ -16,7 +16,6 @@ This repo is the devshop, being rewritten as v2 (the 2026-Q4 revamp). Work only 
   unblocked `[ ]` task in `kit/notes/revamp/workstreams/` (lowest open milestone first).
 - Write the check first (failing test, repro or attack), then make the change, then run the check
   again. A task is done when it has been shown to work, not when it has been written.
-- At most about 2 devshop PRs wait on the owner at once.
 
 ## How changes land
 
