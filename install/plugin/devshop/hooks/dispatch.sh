@@ -21,11 +21,8 @@ else
   copy="devshop copy of unknown date ($VERSIONS/copy-date missing or unreadable)"
 fi
 project_dir=$(git -C "${CLAUDE_PROJECT_DIR:-.}" rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-$PWD}")
-# The environment's note: the setup script's first comment line, recorded by the bootstrap.
-note=$(cat "$VERSIONS/env-note" 2>/dev/null)
-if [ -n "$note" ]; then env="env note \"$note\""; else env="env note unavailable"; fi
-# say <message> [<tail after the copy's date, the project and the env note>]
-say() { echo "DEVSHOP: $1 · $copy · project ${project_dir##*/} · $env${2:+; $2}"; }
+# say <message> [<tail after the copy's date and the project>]
+say() { echo "DEVSHOP: $1 · $copy · project ${project_dir##*/}${2:+; $2}"; }
 kept() {
   local c
   if c=$(readlink "$CURRENT" 2>/dev/null); then c=${c##*/}; echo "kept version ${c:0:12}"
