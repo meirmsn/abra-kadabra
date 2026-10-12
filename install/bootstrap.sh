@@ -33,6 +33,14 @@ date -u +%FT%TZ >"$VERSIONS/copy-date" || step_failed "write copy-date"
 # can't read the script or the environment's name, so it is read now, from the script's process: its
 # `-c` argument or the file it runs. Only that one line is kept; the token on a later line never is.
 # Empty when the script can't be read back (e.g. it came on stdin): the DEVSHOP: line says so.
+# lead_comment: the first comment line of the script on stdin, skipping `#!` lines (the environment
+# adds a shebang); stops at the first other line, so nothing after the comments is ever read.
+lead_comment() {
+  local line
+  while IFS= read -r line; do
+    case $line in '#!'*) continue ;; '#'*) printf '%s' "$line"; return ;; *) return ;; esac
+  done
+}
 env_note() {
   local pid=$PPID arg first n
   for _ in 1 2 3 4 5 6 7 8; do
@@ -40,8 +48,8 @@ env_note() {
     while IFS= read -r -d '' arg; do
       first=
       case $arg in
-        *HEAD:bootstrap.sh*) first=${arg%%$'\n'*} ;;
-        /*) [ -f "$arg" ] && grep -qF 'HEAD:bootstrap.sh' "$arg" 2>/dev/null && first=$(head -n1 -- "$arg") ;;
+        *HEAD:bootstrap.sh*) first=$(lead_comment <<<"$arg") ;;
+        /*) [ -f "$arg" ] && grep -qF 'HEAD:bootstrap.sh' "$arg" 2>/dev/null && first=$(lead_comment <"$arg") ;;
       esac
       if [ -n "$first" ]; then
         case $first in

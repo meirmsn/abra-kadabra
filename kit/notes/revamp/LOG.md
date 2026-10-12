@@ -1244,7 +1244,18 @@ shows the note; otherwise drop it.
 
 **Next**: owner's fresh-session check of this PR; the reviewer hook after W10.6.6.
 
-## #34 — 2026-10-12 · W10.5.2 done: deploys from `main`, per-PR previews in their own account
+## #34 — 2026-10-12 · W10.4.4: fresh-session check of #70; env note skips the shebang
+
+**Owner's check of #70 (abra-kadabra)**: `npm ci` ran at session start and Prettier was there. The
+env note read `"!/bin/bash"`: the environment runs the setup script as a file with a shebang added
+above the owner's comment, so the file path works and only the line choice was wrong. Fixed (test
+first): the note is the first comment line after any `#!` lines; reading still stops at the first
+non-comment line. The checklist's scratch remote got `main` through the hook, which rightly scanned
+all history and stopped on v1's known findings (LOG #11); seed such a remote with `--no-verify`.
+
+**Next**: owner's check of this fix; the reviewer hook after W10.6.6.
+
+## #35 — 2026-10-12 · W10.5.2 done: deploys from `main`, per-PR previews in their own account
 
 **What moved**: the rest of W10.5.2, after LOG #29.
 
