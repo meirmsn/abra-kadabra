@@ -26,6 +26,17 @@ W10.1.2b spike (`kit/notes/revamp/spikes/w10-1-2b-thin/`, kept as notes).
   `/opt/devshop-versions/<sha>` (no network), repoints `/opt/devshop-current`, and runs the version's
   `runtime/hooks/session-start.sh` if it has one. Why a stub: a plugin installed by a hook loads only
   in the next session, but a symlinked skills dir switched by the hook works in the same one.
+- **gstack** (TARGET Shape 7, D-07): [`install/gstack.pin`](gstack.pin) names one upstream commit.
+  After the devshop's own steps, so a gstack failure can't stop them, the bootstrap fetches that
+  commit into `~/.claude/skills/gstack`, unmodified, checks that `bun` is the version that commit is
+  tested on (`GSTACK_BUN_TESTED` in its `bin/gstack-bun-version.sh`), so the gstack pin pins Bun
+  too, installs its npm dependencies with
+  `bun install --frozen-lockfile` (failing closed: gstack's setup would otherwise fall back to an
+  unfrozen install), and runs its `./setup` with stdin closed and
+  `--no-team --no-plan-tune-hooks --no-timeline-stop-hook`, so gstack registers no Claude hooks and
+  leaves `~/.claude/settings.json` to the devshop plugin (F-GS-08). It then turns gstack's update
+  check off (`auto_upgrade` is off by default): the pin is the only upgrade path. `--no-browser`:
+  Chromium installs on a browser skill's first run. Output: `/tmp/devshop-gstack.log`.
 - **The project** holds one file, `.devshop-version`: a commit SHA for now (release tags once CI
   makes them, A-25). Bumping is a one-line PR. Without it the session uses `HEAD`: `main` as of the
   local copy.
@@ -55,6 +66,19 @@ installed hook for every case above.
 - Environments whose cache predates this install still run the spike's stub, which reads
   `spikes/w10-1-2b-thin/runtime`. The spike files stay, so those sessions keep working until their
   next rebuild.
-- Still to come in W10.4.4: the pinned gstack (installed by this bootstrap), then devshop-owned git
-  hooks (pre-push `gitleaks git`) via `runtime/hooks/session-start.sh`.
+- gstack comes from `main`'s pin at cache build, not from the project's pinned devshop version.
+- gstack takes about 1.7 GB in the environment cache and about 20 s of setup.
+- Bun comes from the environment image. When the image's Bun stops matching the pinned gstack's
+  tested version, the gstack step fails loudly (the devshop still installs); then install a pinned
+  Bun release with a checksum, or move the gstack pin.
+- `/gstack-upgrade` stays available: gstack refuses to disable it ("it is how gstack upgrades and
+  routes"). Its update check is off, so nothing prompts an upgrade; one run by hand changes only
+  that session's VM.
+- Chromium for gstack's browser skills (`/qa`) is untested here; the image ships Playwright's in
+  `/opt/pw-browsers`. Decided with the A-13 smoke check on the fixture.
+- Upgrading gstack: change the SHA in `install/gstack.pin` by PR, then run the smoke check: in a
+  fresh session the `DEVSHOP:` line still appears and `/autoplan` runs (F-GS-04, F-GS-08), plus the
+  skills v2 uses (A-13).
+- Still to come in W10.4.4: devshop-owned git hooks (pre-push `gitleaks git`) via
+  `runtime/hooks/session-start.sh`.
 - `runtime/skills/` is where the v2 skills land (W10.6).

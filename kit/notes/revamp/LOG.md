@@ -930,7 +930,7 @@ formatter parked in #24 is un-parked: a hook checks each file Claude edits (Pret
 and the devshop pre-push hook runs the `scripts/` checks as a backstop. Both go to W10.4.4.
 
 **Next**: `[owner]` mark `ci / lint` required on `main` once this merges; then W10.4.2 is done.
-(PR #63)
+(PR #63) — Done 2026-10-12: the owner marked it required after the merge (owner-reported).
 
 ## #27 — 2026-10-12 · W10.6.3 the PR body template and its shape check
 
@@ -965,7 +965,45 @@ Handed to W10.5.2.
 
 **Next**: W10.6.1 (Build skill fills the template, runs the check before ready). (PR #65)
 
-## #28 — 2026-10-12 · W10.5.2 fixture app, CI and deploy wiring (in progress); W10.5.3 design proposed
+## #28 — 2026-10-12 · W10.4.4 part 2: fresh-session check passed; pinned gstack
+
+**Fresh-session check (owner, after PR #59 merged):** cache rebuilt by a comment-only edit to the
+setup script. The first reply opened with `DEVSHOP: using HEAD (da33b9bceb4b) from environment
+default (no .devshop-version) · devshop copy of 2026-10-12 (0 days old)` (`da33b9b` = the #59 merge
+on `main`). The setup log ended `RESULT: bootstrap done`; `/opt/devshop-current` and the skill
+`devshop-version` agreed; the clone's remote URL had no token; `devshop@devshop` enabled.
+
+**Pinned gstack:** `install/gstack.pin` names one upstream commit (`e23f7b8`, v1.91.93.0 — past
+1.91.13, which fixed `/autoplan` in sessions with a SessionStart hook, F-GS-04). The bootstrap
+installs it into `~/.claude/skills/gstack` after the devshop's own steps and runs `./setup` with
+stdin closed, `--no-team --no-plan-tune-hooks --no-timeline-stop-hook --no-browser --quiet`, then
+turns gstack's update check off. It checks that `bun` matches the version the pinned gstack is
+tested on (so the gstack pin pins Bun too; owner, 2026-10-12). Before its setup, the bootstrap runs `bun install --frozen-lockfile`
+and stops if that fails: gstack's setup falls back to an unfrozen install (re-resolving npm ranges,
+running install scripts as root) when its frozen attempt fails (found by the security review).
+Found on the way: with stdin open, gstack's setup could read the
+rest of the bootstrap, which reaches bash through the setup script's pipe. Tried and dropped:
+disabling `/gstack-upgrade` via `gstack-config set disabled_skills` — the real gstack refuses it
+(the fake in the test had accepted it; the real-CLI run caught it). Owner: gstack's upstream URL in
+`install/gstack.pin` is fine (a public dependency).
+
+**Evidence**: scenario test extended first (failed: no pin), then green: gstack at the pinned commit
+via the pin's own URL (git `insteadOf` to a local fake), exact flags, stdin closed, update check
+off; a gstack whose setup fails or whose commit is missing is logged as `FAILED: gstack …` while the
+plugin installs and the `DEVSHOP:` line appears; lockfile drift stops before gstack's setup runs.
+5 mutants of the gstack step killed. Real run
+(private namespace, real CLI, real gstack): bootstrap done in 27 s; `settings.json` held only the
+devshop plugin; the frozen install took 235 packages from `bun.lock` and left the gstack tree
+unmodified; a session saw the `DEVSHOP:` line; `/autoplan` on a toy plan finished Phase 1 (CEO
+review) with no phase-guard message (F-GS-04, F-GS-08 locally).
+
+**Slip**: a nested heredoc ended an edit command early; its tail ran with empty variables and left
+two empty git repos at `/` in this container (no repo, config or skill touched; checked). Lesson:
+edits go through script files, never heredocs inside heredocs.
+
+**Next**: owner's fresh-session check for gstack (PR checklist); then the devshop git hooks.
+
+## #29 — 2026-10-12 · W10.5.2 fixture app, CI and deploy wiring (in progress); W10.5.3 design proposed
 
 **What moved**: first session in the `devshop-fixture` environment with the fixture repo attached.
 Fixture PR 2 adds a one-page Worker (lists one D1 table; `/healthz` checks the database), tests in
