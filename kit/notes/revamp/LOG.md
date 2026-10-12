@@ -1351,7 +1351,8 @@ after removing `env_note`/`lead_comment` from `install/bootstrap.sh` and the not
 (`npm ci --no-audit --no-fund`), with no failure line. `npx prettier --version` printed 3.9.9.
 **Passed**.
 
-**Handed off**: the reviewer hook is written into W10.4.4's "Left" line, and W10.6.6 points to it,
-so the session after W10.6.6 picks it up from the plan.
+**W10.4.4 closed (owner: split)**: the install/upgrade mechanism is done. The reviewer hook, the one
+part that waits on W10.6.6, is now its own task, W10.6.7, with the owner's spec. W10.6.6 points to
+it, and the docs that named W10.4.4 for the hook now name W10.6.7.
 
-**Next**: W10.6.6; then the W10.4.4 reviewer hook and the owner's fresh-session check of it.
+**Next**: W10.6.6; then W10.6.7 and the owner's fresh-session check of it.
