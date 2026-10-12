@@ -1167,4 +1167,8 @@ final commit, Review 5) points back at W10.6.2, which is done.
 tracker line. The verdict on the PR and the PR-body check become **W10.6.6**, needed before the
 north-star run (W10.6.4).
 
+The W10.4.4 session then asked how a hook finds `--spec`; the owner folded the answer into W10.6.6:
+the reviewer finds the one `specs/` file the branch adds or changes (none → it reviews against the
+PR's own words, and the failing test is the spec for a bug fix; two or more → could-not-run).
+
 **Next**: W10.6.6 as its own task; the W10.4.4 session adds the reviewer hook.
