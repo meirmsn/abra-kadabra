@@ -32,5 +32,6 @@ git worktree add ../v1 v1-final
 | [`runtime/`](runtime)                   | What `.devshop-version` selects: `skills/`, `hooks/`, `git-hooks/`, `scripts/`, `reviewer/` |
 | [`kit/notes/revamp/`](kit/notes/revamp) | Revamp plan, decisions, findings, lessons, log, and the spikes (kept as notes)              |
 
-Planned, added when their task lands: skills under `runtime/skills/` (W10.6), stack homes
-`stacks/<name>/` (W10.5.2) and discipline guidelines under `docs/`.
+Stack homes (`runtime/stacks/<name>/`) and discipline guidelines (`runtime/guidelines/`) live in
+`runtime/`, because only `runtime/` reaches a project's session. Their layouts are defined; none
+ship yet.

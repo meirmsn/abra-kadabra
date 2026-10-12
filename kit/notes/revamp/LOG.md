@@ -1356,3 +1356,36 @@ part that waits on W10.6.6, is now its own task, W10.6.7, with the owner's spec.
 it, and the docs that named W10.4.4 for the hook now name W10.6.7.
 
 **Next**: W10.6.6; then W10.6.7 and the owner's fresh-session check of it.
+
+## #38 — 2026-10-12 · W10.6.1: the Intent and Build skills, from the pinned install
+
+**What moved**: the two v2 skills, one page each, in `runtime/skills/`, so a session gets the
+copies its project pins.
+
+- **`intent`**: say the request's kind first (no change → just do it; bug fix → the failing test
+  is the spec, no "go"; anything else → the steps). `/office-hours` when the why is unsettled,
+  `/spec --file-only --no-gate` for the interview, the spec in the project's `specs/` from
+  `runtime/templates/spec.md` with items `AC-<n>`, checked by `runtime/scripts/spec-check.py`, the
+  adversarial spec review, the one-screen summary, and the "go" recorded on the spec's `**Go:**`
+  line (`spec-check.py --go`).
+- **`build`**: one writer, helpers only read; the project's rules, the stack homes
+  `runtime/scripts/stack-homes.sh` picks (its `STACKS:` line goes in the PR), and the discipline
+  guidelines; code, tests and docs end up describing the new behaviour; the PR body from the
+  template, checked by `pr-body-check.py` before ready; the reviewer is started by the W10.6.7 hook
+  on PR create/ready, never by the builder.
+- **Layouts** (what W10.5.3's decoy and spec plants wait on): a stack home is
+  `runtime/stacks/<stack>/` with `README.md` and `detect` (project paths or globs); guidelines are
+  `runtime/guidelines/<discipline>.md`. The README had planned top-level `stacks/` and `docs/`, but
+  only `runtime/` reaches a session. None ship yet.
+
+**Evidence**: each check was written and run failing first: `tests/skills-check.test.sh` (the
+real skills missing), `tests/spec-check.test.sh` and `tests/stack-homes.test.sh` (scripts
+missing), and the new `tests/bootstrap.test.sh` step (`skill intent: … resolves to ''`). After the
+change all pass; results are in the PR.
+
+**Mitigation**: TARGET Intent 5 has the independent reviewer review the spec; `review.sh` reviews
+only a diff against a spec. Until it has a spec mode, the skill hands the spec to a fresh
+read-only helper. Root cause: no spec-review mode in the reviewer.
+
+**Next**: the owner's fresh-session check in the fixture environment: `devshop:intent` and
+`devshop:build` listed, and the session uses them on a request.
