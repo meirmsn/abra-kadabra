@@ -693,10 +693,12 @@ written to [TARGET.md § L3](TARGET.md#l3--a-few-bullets-per-pillar).
   moving (M2).
 
 - **Shape agreed:** D-10 decided (SemVer from `v2.0.0`, release PR via release-please, CI tags);
-  D-07 decided (gstack pinned per devshop release, never edited). Devshop ledger: project sessions
-  fire a devshop-owned routine with the lesson text — no project footprint, no devshop credentials
-  in project sessions (A-26, untested; on failure consult the owner). GitHub issues ruled out by test:
-  the proxy returns 403 for any repo not attached to the session, even with a caller-supplied token.
-  New finding F-NEW-17: any session can start sessions/routines on other repos — Safety bullet 9.
+  D-07 decided (gstack pinned per devshop release, never edited). Devshop ledger = GitHub issues on
+  the devshop: Claude asks the owner, attaches the devshop with `add_repo`, files or comments (A-26,
+  untested; if it can't be made to work when built, ask the owner). Test: the GitHub proxy returns
+  403 for any repo not attached to the session, even with a caller-supplied token — so attaching is
+  required. A routine fired from the project session was considered (same reach, more to build).
+  New finding F-NEW-17: the session tools are a separate channel that can start sessions or attach
+  other repos — Safety bullet 9.
 
 **Next**: W10.2.2 north-star rewrite (all nine pillars).
