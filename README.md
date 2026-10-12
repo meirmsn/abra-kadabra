@@ -21,6 +21,7 @@ git worktree add ../v1 v1-final
 | --------------------------------------- | ----------------------------------------------------------------------------------------- |
 | [`CLAUDE.md`](CLAUDE.md)                | Rules for Claude working in this repo (always loaded; kept short)                         |
 | [`docs/README.md`](docs/README.md)      | Docs map: every doc in the repo is linked from it                                         |
+| [`scripts/`](scripts)                   | Tested scripts for mechanical steps (`secret-scan.sh`: the scan CI runs)                  |
 | [`tests/`](tests)                       | Tests; `tests/run.sh` runs them all. Named after what they test (`gitleaks` → config)     |
 | [`.gitleaks.toml`](.gitleaks.toml)      | Secret-scanning config, proven by `tests/gitleaks.test.sh`                                |
 | [`.github/`](.github)                   | CI (`workflows/ci.yml`) and `CODEOWNERS` (the owner approves every change)                |

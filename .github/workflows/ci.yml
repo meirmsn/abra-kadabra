@@ -37,21 +37,8 @@ jobs:
       - name: Tests (incl. the config catching planted secrets)
         run: tests/run.sh
 
-      - name: Scan the commits this change adds
+      - name: Secret scan (the commits this change adds, then the tree)
         env:
-          EVENT: ${{ github.event_name }}
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
-          PUSH_BEFORE: ${{ github.event.before }}
-        run: |
-          set -euo pipefail
-          if [ "$EVENT" = pull_request ]; then base=$PR_BASE; else base=$PUSH_BEFORE; fi
-          if [ -z "$base" ] || [ "$base" = 0000000000000000000000000000000000000000 ]; then
-            range=HEAD
-          else
-            range="$base..HEAD"
-          fi
-          echo "scanning $range"
-          gitleaks git . --config .gitleaks.toml --redact --no-banner --log-opts="$range"
-
-      - name: Scan the tree
-        run: gitleaks dir . --config .gitleaks.toml --redact --no-banner
+          # PR: everything since the base; push to main: everything since the previous tip.
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: scripts/secret-scan.sh "$BASE"

@@ -9,28 +9,13 @@ repo_root=$(cd "$(dirname "$0")/.." && pwd)
 config=$(cd "$(dirname "${1:-$repo_root/.gitleaks.toml}")" && pwd)/$(basename "${1:-.gitleaks.toml}")
 gitleaks=${GITLEAKS:-gitleaks}
 
-fail() { echo "FAIL: $*" >&2; exit 1; }
+source "$repo_root/tests/lib.sh"
 command -v "$gitleaks" >/dev/null || fail "gitleaks not found (set \$GITLEAKS or put it on PATH)"
 [ -f "$config" ] || fail "config not found: $config"
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-# Isolated git identity and config, so the test never reads or writes the real ones (L-41).
-export HOME="$work/home" GIT_CONFIG_NOSYSTEM=1
-mkdir -p "$HOME"
-git config --global user.name "Scan Test"
-git config --global user.email "scan-test@example.com"
-git config --global init.defaultBranch main
-
-# rand <charset> <length>: random string (pipefail off here: head closing the pipe is expected).
-rand() { (set +o pipefail; LC_ALL=C tr -dc "$1" </dev/urandom | head -c "$2"); }
-
-# new_repo <dir>: an empty repo with one harmless commit.
-new_repo() {
-  git init -q "$1"
-  printf 'hello\n' >"$1/README.md"
-  git -C "$1" add -A && git -C "$1" commit -qm "init"
-}
+isolate_git "$work"
 
 # scan <dir> <report>: run the config over the repo's history; echo gitleaks' exit code.
 scan() {
@@ -51,7 +36,7 @@ echo "ok - clean repo passes"
 # 2. Plants: each fake secret, committed, must be reported under its expected rule id.
 new_repo "$work/planted"
 p="$work/planted"
-printf 'aws_access_key_id = %s\n' "AKIA$(rand 'A-Z2-7' 16)" >"$p/aws.ini"
+printf 'aws_access_key_id = %s\n' "$(fake_aws_key)" >"$p/aws.ini"
 printf 'GH_TOKEN=%s\n' "ghp_$(rand 'A-Za-z0-9' 36)" >"$p/github.env"
 printf 'slack: %s\n' "xoxb-$(rand 0-9 12)-$(rand 0-9 12)-$(rand 'A-Za-z0-9' 24)" >"$p/slack.yml"
 {
