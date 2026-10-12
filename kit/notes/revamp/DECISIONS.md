@@ -64,7 +64,7 @@ devshop files into project repos publishes them if the project is public.
 
 Outcome: **decided (direction) 2026-10-09 — option B in a new form.** The new runtime repo has fresh history and no notes/project details: **private for now, public-safe by design**; flipping it public is decided after the distribution spike (A-09/A-10). abra-kadabra stays private as v1 + workshop. Concerns that ruled out publishing this repo: secrets in history (F-SEC-20), project/personal notes, a map of guardrail weaknesses, no license.
 
-**Revisited 2026-10-10:** no new repo. abra-kadabra stays private for now; it may go public later once W0.7's history scan is clean, every hit is rotated (W0.5), and the owner has read the notes for personal details / infrastructure identifiers. Flipping it public is still decided after the distribution spike (W10.1.2).
+**Revisited 2026-10-10:** no new repo. abra-kadabra stays private for now; it may go public later once W0.7's history scan is clean, every hit is rotated (W0.5), a license is chosen with third-party notices included (F-NEW-13, 2026-10-12), and the owner has read the notes for personal details / infrastructure identifiers. Flipping it public is still decided after the distribution spike (W10.1.2).
 
 **Revisited 2026-10-11:** history is **not** cleaned before going public. Project names, infrastructure identifiers (Supabase project refs, Vercel URLs, team slug) and personal details already in history are accepted. The one gate: re-scan the full history for secrets (`--all` + PR refs, as in W0.7.1) right before flipping, and the owner revokes/rotates every real hit. The 2026-10-09 "owner reads the notes" step is dropped.
 

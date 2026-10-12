@@ -760,3 +760,18 @@ SessionStart hook, and a minimum gstack version (F-GS-08, F-GS-04); licensing if
 public (F-NEW-13).
 
 **Next**: W10.4 v2 bootstrap (W10.4.1 in progress in a parallel session); owner: W10.5.1.
+
+## #22 — 2026-10-12 · Owner calls on the four W10.3.3 gaps
+
+**What moved**: the owner decided the four requirements LOG #21 found without a home (PR 55):
+the devshop's own changes go through the same reviewer, security lens included (F-SEC-17 →
+TARGET Verify 9); the reviewer's model, prompt and tools come only from the pinned devshop, with no
+test switches in real runs (F-HOOK-10 → TARGET Verify 3); gstack's install must leave the
+`DEVSHOP:` hook working and `/autoplan` running — a W10.4.4 done-when and part of every gstack
+upgrade smoke check, not a TARGET rule (F-GS-08, F-GS-04); a license with third-party notices
+joins the "may go public" conditions (F-NEW-13 → TARGET L2 Shape, DECISIONS D-14). FINDINGS
+dispositions updated to point at the new homes.
+
+**Evidence**: the disposition check from PR 55 still passes (134 rows, 0 missing); Prettier clean.
+
+**Next**: W10.4 v2 bootstrap.
