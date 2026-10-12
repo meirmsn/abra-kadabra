@@ -1623,7 +1623,40 @@ under `runtime/`.
 
 **Next:** the `DEVSHOP:` line fix; W10.6.7 runs in another session.
 
-## #44 — 2026-10-12 · W10.6.7 the reviewer runs by itself (in progress)
+## #44 — 2026-10-12 · The `DEVSHOP:` line reaches the owner in project sessions
+
+**Why**: in the owner's fixture check (LOG #43), Claude paraphrased the `DEVSHOP:` line instead of
+repeating it. Hook output reaches only Claude, and the rule to repeat it lives only in this repo's
+`CLAUDE.md`; projects carry no devshop rules (Shape 3).
+
+**What moved** (owner's choice): the plugin's SessionStart hook (`install/plugin/devshop/hooks/dispatch.sh`)
+collects everything it and the version's `session-start.sh` print, then emits one hook JSON object:
+
+- `systemMessage`: the lines, shown to the owner by Claude Code;
+- `hookSpecificOutput.additionalContext`: the same lines plus "Repeat every DEVSHOP: line above to
+  the owner word for word in your first reply.", the backup if the message isn't shown.
+
+`jq` builds it: per the hooks docs, stdout that fails to parse as JSON is dropped whole. Without
+`jq` the hook prints the plain lines and the request instead.
+
+**Evidence**: `tests/bootstrap.test.sh` was changed first and failed against the old hook (`SessionStart
+output is not JSON with a systemMessage`). It now checks the JSON for every pin case and the plain
+fallback with `jq` off `PATH` and with a `jq` that fails; all scenarios pass. Three mutants (no request in the context, plain
+output always, fallback without the request) are all killed.
+
+**Owner's decision** (2026-10-12, in chat, after LOG #43's options): the hook shows the line to the
+owner directly, with the request to Claude as backup; no spec, the decision is recorded here. If the
+apps don't show the message, nothing is reverted: Claude still gets the line and the request, and
+the result is recorded. Any other line the version's `session-start.sh` prints (such as a failed
+`scripts/setup.sh`) is now shown to the owner too.
+
+**Open (experiment)**: the hooks docs don't say whether the web and mobile apps show a SessionStart
+`systemMessage`. The owner's fresh-session check in the fixture environment answers it: does the owner
+see the line directly, on web and on the phone, and does Claude repeat it word for word?
+
+**Next**: that check (after a trivial setup-script edit so the environment's devshop copy rebuilds).
+
+## #45 — 2026-10-12 · W10.6.7 the reviewer runs by itself (in progress)
 
 **What moved**: the hook's contract went into the W10.6.7 line first, then the owner's calls were
 folded in. `runtime/hooks/review-hook.py` is registered by the plugin as a PreToolUse `gate` (PR
