@@ -10,7 +10,7 @@ Checks what can be checked without judgement; whether the words are true is the 
     other, none empty; each holds its labelled lines (see REQUIRED)
   - then the engineering details, collapsed: <details><summary>Engineering details</summary> …
     </details>; anything after that (a footer) has no heading
-  - no {{placeholder}} left; images are absolute https URLs; GitHub file links are pinned to a
+  - no {{placeholder}} left (outside code, where template syntax may be quoted); images are absolute https URLs; GitHub file links are pinned to a
     commit SHA, never a branch (L-30)
 Exit 0 = the body has the shape; 1 = problems (listed); 2 = can't run.
 """
@@ -26,6 +26,7 @@ REQUIRED = {
 }
 SUMMARY_MAX, TITLE_MAX = 120, 72
 COMMENT = re.compile(r"<!--.*?-->", re.S)
+CODE = re.compile(r"^ {0,3}(`{3,}|~{3,}).*?^ {0,3}\1|(`+)[^`\n].*?\2", re.S | re.M)  # fences, inline code
 HEADING = re.compile(r"^ {0,3}(#{1,2})\s+(.*?)\s*#*\s*$", re.M)
 DETAILS = re.compile(r"<details>\s*<summary>\s*Engineering details\s*</summary>(.*?)</details>", re.S | re.I)
 PREVIEW = re.compile(r"^\*\*Preview:\*\*\s*(.*)$", re.M)
@@ -48,7 +49,7 @@ def check(body, title):
         elif len(title) > TITLE_MAX:
             problems.append(f"title: {len(title)} characters, at most {TITLE_MAX}")
 
-    for m in re.finditer(r"\{\{.*?\}\}", body, re.S):
+    for m in re.finditer(r"\{\{.*?\}\}", CODE.sub("", body), re.S):
         problems.append(f"placeholder left: {m.group(0)[:60]}")
 
     text = COMMENT.sub("", body)

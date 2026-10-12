@@ -906,12 +906,14 @@ Choices made here (the owner can flip them): the preview line sits right under t
 inside the evidence, so it is the second thing seen on a phone. "Manual steps for you" sits in
 "what you should know", not in the collapsed details, because the owner must act on it.
 
-**Evidence**: `tests/pr-body-check.test.sh` written before the check. 27 cases: a filled-in body,
-one without an announcement and a native one pass; the unfilled template and 21 broken variants
-fail, each asserting the problem it targets (so none fails for an unrelated reason); a missing
-file and no arguments fail closed. 20 of 20 mutants of the check killed. Dogfood: the PR for this
-task uses the template for its own body, and the check passes on that body as read back from
-GitHub.
+**Evidence**: `tests/pr-body-check.test.sh` written before the check. 28 cases: a filled-in body,
+one without an announcement, a native one and one quoting template syntax in code pass; the
+unfilled template and 21 broken variants fail, each asserting the problem it targets (so none
+fails for an unrelated reason); a missing file and no arguments fail closed. 21 of 21 mutants of
+the check killed. Dogfood: the PR for this task uses the template for its own body, and the check
+passes on that body as read back from GitHub. Its first draft failed: the check took
+`{{placeholder}}` quoted in inline code for a leftover one. Fixed (code is skipped) after a
+failing regression case.
 
 **Surprises**: TARGET Review 3's preview link is "the deploy platform's own PR comment", which
 Vercel's bot posts. The fixture deploys with `wrangler` from a GitHub Action (W10.5.2), and that

@@ -72,6 +72,8 @@ check "no announcement (not user-facing) passes" 0 "$(variant no-announce \
   's = s[:s.index("## Announcement")] + s[s.index("## What you should know"):]')"
 check "native: no preview, simulator screenshots instead, passes" 0 "$(variant native \
   's = re.sub(r"\*\*Preview:\*\*.*", "**Preview:** none — native: simulator screenshots under Evidence", s)')"
+check "template syntax quoted in code is not a placeholder" 0 "$(variant quoted-code \
+  's = s.replace("rollback needs no database change.", "rollback needs no database change. Renders \x60{{ cart.total }}\x60:\n\n\x60\x60\x60\n{{ cart.items }}\n\x60\x60\x60")')"
 
 check "the unfilled template fails" 1 "$template" "placeholder left: {{"
 
