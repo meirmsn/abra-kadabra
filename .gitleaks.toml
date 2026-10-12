@@ -1,14 +1,8 @@
-[allowlist]
-description = "Known-safe public client keys (not secrets)"
-paths = [
-  '''\.env\.example$''',
-]
-regexTarget = "match"
-regexes = [
-  # Supabase anon key (public, embedded in client JS — not a secret)
-  '''SUPABASE_ANON_KEY''',
-  # PostHog public project key (designed to be client-side)
-  '''POSTHOG_KEY''',
-  # Sentry DSN (public, used in client error reporting)
-  '''SENTRY_DSN''',
-]
+# Secret-scanning config for gitleaks, used by CI (.github/workflows/ci.yml).
+# Starts from gitleaks' built-in rules. v1's config had no [extend] and so ran zero rules (F-SEC-20).
+# Proven by tests/gitleaks.test.sh, which plants fake secrets. Add an allowlist only for a reviewed
+# false positive, and keep the test green.
+title = "devshop secret scan"
+
+[extend]
+useDefault = true
