@@ -1072,6 +1072,29 @@ allowed to deploy to production due to environment protection rules.` (pull_requ
   deletion.
 - Previews: option (c), a separate preview-only Cloudflare account.
 
-**Next**: the owner sets the required checks and approves fixture PR 2; Claude merges and records
-the first deploy from `main`. Then the preview account (owner) and wiring. W10.5.3 waits on the
-owner's "go".
+**First deploy from `main` (same day)**
+
+- The owner set `lint`, `test` and `secret-scan` as required checks on the fixture's `main` and
+  approved fixture PR 2. Claude squash-merged it on green.
+- Push run on `main`, attempt 1. `lint`, `test` and `secret-scan` passed. The deploy job:
+  - created the D1 database (by name) and applied `0001_create_items.sql` remotely;
+  - deployed the Worker and reported its `workers.dev` URL;
+  - needed no token permission beyond Workers Scripts Edit + D1 Edit.
+
+  Then the smoke check failed: `/healthz` was ok on try 3, but the page request seconds later
+  returned 404 (`FAIL: the page did not load`). Root cause: the brand-new `workers.dev` route was
+  still propagating across the edge, and the script retried `/healthz` but not the page.
+
+- One re-run of the failed job (same commit, same script): `No migrations to apply!`, deploy ok,
+  `smoke: ok` on the first try. **Production is live and healthy.**
+- Fix: fixture PR 3. Each smoke try checks `/healthz` and the page, either failure is retried,
+  and two passing tries in a row are required. The check came first: the run-2 pattern, fed to
+  the old script in the test, fails with the same line as production.
+- Synthetic traffic (W10.5.3 design, owner): a request every minute for 5 minutes after each
+  deploy, then exponential back-off capped at one round an hour. It's one scheduled Worker
+  waking each minute, and each deploy restarts the schedule. The cap keeps the next-day check
+  and the pre-merge health check fed.
+
+**Next**: fixture PR 3; then the preview-only account (owner) and preview wiring, including one
+self-updating preview comment per PR (the PR body template links it, LOG #27). W10.5.3 waits on
+the owner's "go" and the harness repo.
