@@ -1516,7 +1516,22 @@ is no draft-to-ready step, so A-23 is obsolete. Recorded in TARGET, PLAN changel
 comment after. Probe whether a hook can post the comment with the session's GitHub access (status
 writes are refused).
 
-## #41 — 2026-10-12 · W10.5.3 done: spec plants, decoy stack home, fixture CLAUDE.md
+## #41 — 2026-10-12 · W10.6.6 follow-ups filed or fixed
+
+**What moved**: the five loose ends from W10.6.6 (PR #78's two low findings and LOG #40's notes)
+each got a FINDINGS row. F-NEW-25: the verdict comment no longer renders model text as mentions,
+markdown links or images (`@` and `[` escaped; bare URLs and `#123` still autolink), and paths in
+code spans stay literal. The test was written first and failed, and the escapes are
+mutation-tested. The reviewer's first pass on this change failed it (medium): the words claimed
+"no links" while bare URLs still autolink, and code spans would have shown entities. Both fixed, test
+first. F-NEW-26: `specs/` holds spec files only (Intent skill, reviewer README). F-NEW-27
+(post exactly the reviewed PR words) went onto the W10.6.7 line. F-NEW-23 (the reviewer can't run
+this repo's tests) waits for an owner call, proposed for W10.6.5. F-NEW-24 (a precision data point)
+goes to W10.6.5 without a prompt change.
+
+**Next**: W10.6.7 in a new session (the owner has its prompt).
+
+## #42 — 2026-10-12 · W10.5.3 done: spec plants, decoy stack home, fixture CLAUDE.md
 
 **What moved**: the rest of W10.5.3 after LOG #38, once W10.6.1 (#76) put the spec and stack-home
 formats on `main`. The W10.6.1 session got the hand-off as a message from this session (owner's
