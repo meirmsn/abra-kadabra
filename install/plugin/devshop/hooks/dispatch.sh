@@ -3,7 +3,7 @@
 # version the project pins in .devshop-version (else the environment default: HEAD = main as of the
 # local copy), extracting that version's runtime/ from the local copy the setup script cloned (no
 # network). Then runs the version's own runtime/hooks/session-start.sh, if it has one. Prints one
-# DEVSHOP: line, as hook JSON that shows it to the owner and asks Claude to repeat it (see the end).
+# DEVSHOP: line, as hook JSON that asks Claude to repeat it to the owner (see the end).
 # Never fails the session: problems go in that line.
 MIRROR=/opt/devshop.git
 VERSIONS=/opt/devshop-versions
@@ -70,8 +70,9 @@ dispatch() {
 }
 
 # Hook output reaches only Claude, and a project carries no devshop rule to repeat it (LOG #43). So
-# the lines go out as Claude Code's hook JSON: systemMessage shows them to the owner, and
-# additionalContext gives Claude the same lines plus the ask to repeat them. Malformed JSON would be
+# the lines go out as Claude Code's hook JSON: additionalContext gives Claude the lines plus the ask
+# to repeat them, which is how the owner sees them; systemMessage carries them too, for surfaces that
+# display it (the web app doesn't at session start, LOG #45). Malformed JSON would be
 # dropped whole, so jq builds it; without jq, the plain lines and the ask go out instead.
 ask="Repeat every DEVSHOP: line above to the owner word for word in your first reply."
 out=$(dispatch)
