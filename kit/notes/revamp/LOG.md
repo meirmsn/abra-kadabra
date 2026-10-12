@@ -1341,7 +1341,23 @@ after removing `env_note`/`lead_comment` from `install/bootstrap.sh` and the not
 
 **Next**: W10.6.6; then the reviewer hook and the owner's fresh-session check of it.
 
-## #37 — 2026-10-12 · W10.5.3: synthetic traffic, baseline reset, harness repo (in progress)
+## #37 — 2026-10-12 · W10.4.4: fresh-session check of #73 passed; hook handed off
+
+**Owner's fresh-session check of #73 (abra-kadabra)**: the line read `DEVSHOP: using HEAD
+(ce5512950c2c) from environment default (no .devshop-version) · devshop copy of 2026-10-12 19:55 UTC
+(0 days old) · project abra-kadabra`, with no env note. The copy contains `ce55129` (#73), and
+`/opt/devshop-versions/` has no `env-note`. The setup log ends `RESULT: bootstrap done` with no
+`FAILED`. `/tmp/devshop-project-setup.log` shows `added 1 package`, the output of `scripts/setup.sh`
+(`npm ci --no-audit --no-fund`), with no failure line. `npx prettier --version` printed 3.9.9.
+**Passed**.
+
+**W10.4.4 closed (owner: split)**: the install/upgrade mechanism is done. The reviewer hook, the one
+part that waits on W10.6.6, is now its own task, W10.6.7, with the owner's spec. W10.6.6 points to
+it, and the docs that named W10.4.4 for the hook now name W10.6.7.
+
+**Next**: W10.6.6; then W10.6.7 and the owner's fresh-session check of it.
+
+## #38 — 2026-10-12 · W10.5.3: synthetic traffic, baseline reset, harness repo (in progress)
 
 **What moved**: the owner said "go" on the W10.5.3 design (LOG #29), with option D for the harness
 repo and a Next.js + Supabase stub as the decoy stack home.

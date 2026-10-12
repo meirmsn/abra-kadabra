@@ -2,7 +2,7 @@
 
 `review.sh` reviews one committed change against its spec with a fresh, locked-down `claude -p` that
 has none of the builder's context (TARGET Verify 3–6, W10.6.2). A hook starts it from the "done" /
-open-PR step (W10.4.4), so the builder never chooses whether it runs. The interface (call, exit
+open-PR step (W10.6.7), so the builder never chooses whether it runs. The interface (call, exit
 codes, stdout line, verdict file and format) is in
 [W10-v2.md § W10.6.2](../../kit/notes/revamp/workstreams/W10-v2.md). Change it there first.
 
@@ -58,4 +58,4 @@ codes, stdout line, verdict file and format) is in
   2026-10-12): if the north-star run or the reviewer eval (W10.6.4–5) shows repeat questions,
   reset the count when a commit changes the spec file.
 - Publishing the verdict on the PR, per lens and tied to its commit (L-25), and checking the PR body
-  against the final commit (Review 5) are W10.6.6. The hook that starts the reviewer is W10.4.4.
+  against the final commit (Review 5) are W10.6.6. The hook that starts the reviewer is W10.6.7.
