@@ -922,4 +922,4 @@ this repo's whole history reports exactly the 19 `test.com` commits L-41 records
 domain-only first draft missed all 19 (that is why `test.com` is listed). On the repo: all four
 checks pass; `tests/run.sh` 7/7. CI result on the PR.
 
-**Next**: `[owner]` mark `ci / lint` required on `main`; then W10.4.2 is done.
+**Next**: `[owner]` mark `ci / lint` required on `main`; then W10.4.2 is done. (PR #63)
