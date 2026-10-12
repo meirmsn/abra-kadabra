@@ -69,10 +69,10 @@ M0 is done (review: [LOG.md](LOG.md) #15). M1 ([W10](workstreams/W10-v2.md)):
   W10.4.4 and the rest of W10.4.2 (more CI checks); respect the pacing rule (≤ ~2 devshop PRs
   waiting on the owner). W10.3 lessons harvest done: [lessons.md](lessons.md) +
   every FINDINGS row dispositioned (LOG #21).
-- **Owner, when ready:** W10.5.1 — create the fixture repo, Cloudflare account + scoped deploy
-  token, and the fixture's cloud environment (checklist in [W10](workstreams/W10-v2.md)); then a
-  session for W10.5.2–3 with the fixture attached. Before M2: check lalista's Vercel and Supabase
-  plans (F-NEW-18/19).
+- **Owner, when ready:** start a session in the `devshop-fixture` cloud environment with the
+  fixture repo attached, for W10.5.2–3 (template CI + Cloudflare deploy wiring, north-star
+  harness). W10.5.1 is done (LOG #25). Before M2: check lalista's Vercel and Supabase plans
+  (F-NEW-18/19).
 - Done: W10.2 — L3 agreed for all nine pillars + north-star rewritten and hardened (LOG #19,
   #20); fixture on Cloudflare. D-01 decided 2026-10-11 (option D; built in W10.4.4).
 
