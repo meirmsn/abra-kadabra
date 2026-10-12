@@ -815,4 +815,4 @@ Hand-offs, not done here:
 **Surprises**: links from the revamp notes into v1 paths now resolve only at `v1-final`; the CI
 scan is the only scan until W10.4.4 (a secret can reach a pushed branch before CI flags it).
 
-**Next**: owner marks `ci / secret-scan` required (W10.4.2); W10.4.4.
+**Next**: owner marks `ci / secret-scan` required (W10.4.2); W10.4.4. (PR #57)
