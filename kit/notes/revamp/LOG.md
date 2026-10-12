@@ -1340,3 +1340,80 @@ after removing `env_note`/`lead_comment` from `install/bootstrap.sh` and the not
 `--spec`); `runtime/reviewer/review.sh` on `main` still requires `--spec`, which a hook can't know.
 
 **Next**: W10.6.6; then the reviewer hook and the owner's fresh-session check of it.
+
+## #37 — 2026-10-12 · W10.5.3: synthetic traffic, baseline reset, harness repo (in progress)
+
+**What moved**: the owner said "go" on the W10.5.3 design (LOG #29), with option D for the harness
+repo and a Next.js + Supabase stub as the decoy stack home.
+
+- **Synthetic traffic** (fixture PR 5): a second Worker on a cron every minute.
+  - **Requests:** it calls the app through a **service binding**, because a Worker can't fetch
+    another Worker's `workers.dev` URL in the same account. This also keeps every URL out of the
+    repo.
+  - **Schedule:** a round every minute for 5 minutes after a deploy, then at minutes 6, 10, 18,
+    34 and 66, then hourly. It counts from the traffic Worker's own version timestamp, and the
+    deploy job uploads a new version right after the app's smoke check.
+  - **Rounds:** each requests `/healthz` and the paths in `traffic/routes.json`. A failed round
+    fails that cron run.
+  - **Previews:** fixture PR 4 (merged meanwhile by another session) made `deploy.sh` shared with
+    previews, so the traffic step is production-only.
+- **Reset to baseline** (fixture PR 7): `scripts/reset-to-baseline.sh <tag>` opens a normal PR.
+  - It restores everything outside `migrations/` to the tag and adds one generated forward
+    migration. `scripts/schema.mjs` writes it in D1's order (indexes and views, then added
+    columns, then new tables children first) and self-checks it with foreign keys on.
+  - It stops (exit 3) when a run dropped or changed a baseline table or column. Data rows are
+    not reset.
+  - CI's `test` job asserts the schema equals the tag's when the newest migration is a reset.
+- **Baseline:** `baseline-1` on the merge of fixture PR 7, made by the owner (F-NEW-22). The tag
+  had to wait for PR 7: a baseline without the reset script would delete it on the first reset.
+- **Harness repo** (option D): owner-held, private, protected like the fixture, squash only.
+  - The agent identity has Write only while the tooling is built and loses access before the
+    first real run. Plants are then applied by an Action the owner triggers, with a fixture-only
+    token, so the builder can't read them: a wall, not a habit.
+  - Harness PR 1 (merged): 8 same-shape ideas plus a picker that records each pick and prints
+    only the pitch.
+  - Harness PR 2: the plant runner, the `loosened-test` plant, and the `apply-plants` Action.
+    Records go on a `run-records` branch, because `main` is protected.
+
+**Evidence**
+
+- **Checks written first,** each failing before its code existed:
+  - traffic Worker: 13 tests; deploy script: 17, then 21 after the previews merge;
+  - traffic config check: 11 known-bad configs;
+  - reset: 12 cases in scratch repos;
+  - harness picker: 7 tests; harness plants and runner: 13 tests.
+- **Mutants:** traffic Worker 8 of 9 (the survivor equivalent, removed); idea picker 9 of 9;
+  plant runner 13 of 13, after closing 3 gaps the first pass found.
+- **Production** (deploy job logs after fixture PRs 5 and 7):
+  - `smoke: ok`, then `Deployed devshop-fixture-traffic triggers … schedule: * * * * *`, with
+    bindings `env.APP` and `env.CF_VERSION_METADATA`;
+  - no token permission beyond Workers Scripts Edit + D1 Edit was needed;
+  - a PR preview logged `deploy: no synthetic traffic for wrangler.preview.json (production only)`.
+- **Reset:**
+  - on a real local D1 (`wrangler d1 migrations apply --local`), rows in place: D1 refuses to drop
+    a parent table while child rows reference it (`FOREIGN KEY constraint failed`) but allows
+    dropping a referencing column. Generated migrations for both cases applied and restored the
+    baseline schema;
+  - a dry run against `baseline-1` in a scratch clone produced a no-op migration, and the schema
+    check passed.
+- **Plant on real fixture code:** `test/index.test.js:14`
+  `toContain("<li>First item</li>")` → `toBeDefined()`. The fixture suite still passes 21/21:
+  silent in CI, so only the reviewer can catch it.
+- **Walls:** a direct push to the harness repo's `main` as the agent was refused with `GH006`,
+  and `main` stayed at its first commit.
+
+**Surprises**
+
+- The design suggested reading the app's version from `/healthz` each minute. The traffic Worker's
+  own version timestamp does the same job with no requests between rounds. Known limit: a dashboard
+  rollback doesn't restart the schedule.
+- My first reset version passed its foreign-key test by alphabetical luck; swapping the table names
+  made it fail, and the fix followed. A test that can pass by accident isn't a check.
+- F-NEW-21: a clean base-merge push kept the owner's approval on fixture PR 7.
+- F-NEW-22: the session proxy refuses tag pushes.
+- The owner merged fixture PRs 5 and 7 as merge commits. The fixture now allows squash only.
+
+**Next**: the harness's four spec plants and the decoy wait for W10.6.1's formats. The reviewer
+already names acceptance items `AC-<n>` (W10.6.2), which the spec plants will target. Before the
+first real run (W10.6.4), the owner adds the fixture-only token to the harness repo and removes
+the agent from it.
