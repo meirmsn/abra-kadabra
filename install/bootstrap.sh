@@ -28,6 +28,33 @@ echo "$REF" >"$VERSIONS/default-ref" || step_failed "write default-ref"
 # environment cache rebuilds.
 date -u +%FT%TZ >"$VERSIONS/copy-date" || step_failed "write copy-date"
 
+# The environment's note: the first line of the setup script that is running this bootstrap, if it is
+# a comment (the owner dates it when editing the script, which also rebuilds the cache). Sessions
+# can't read the script or the environment's name, so it is read now, from the script's process: its
+# `-c` argument or the file it runs. Only that one line is kept; the token on a later line never is.
+# Empty when the script can't be read back (e.g. it came on stdin): the DEVSHOP: line says so.
+env_note() {
+  local pid=$PPID arg first n
+  for _ in 1 2 3 4 5 6 7 8; do
+    [ "$pid" -gt 1 ] 2>/dev/null || return
+    while IFS= read -r -d '' arg; do
+      first=
+      case $arg in
+        *HEAD:bootstrap.sh*) first=${arg%%$'\n'*} ;;
+        /*) [ -f "$arg" ] && grep -qF 'HEAD:bootstrap.sh' "$arg" 2>/dev/null && first=$(head -n1 -- "$arg") ;;
+      esac
+      if [ -n "$first" ]; then
+        case $first in
+          '#'*) n=${first#"#"}; n=${n#"${n%%[![:space:]]*}"}; printf '%s' "$n" | tr -cd '[:print:]' | cut -c1-120 ;;
+        esac
+        return
+      fi
+    done <"/proc/$pid/cmdline"
+    pid=$(awk '{print $4}' "/proc/$pid/stat" 2>/dev/null) || return
+  done
+}
+env_note >"$VERSIONS/env-note" 2>/dev/null || step_failed "write env-note"
+
 { rm -rf "$PLUGIN" && mkdir -p "$PLUGIN"; } || step_failed "mkdir $PLUGIN"
 git --git-dir="$MIRROR" archive "$REF:install/plugin" | tar -x -C "$PLUGIN" 2>>"$LOG" \
   || step_failed "extract install/plugin at $REF"
