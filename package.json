@@ -1,0 +1,8 @@
+{
+  "name": "devshop",
+  "private": true,
+  "description": "Pins the devshop's own dev tools; CI installs them with npm ci.",
+  "devDependencies": {
+    "prettier": "3.9.9"
+  }
+}
