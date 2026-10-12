@@ -1154,3 +1154,21 @@ W10.6.4–5 show repeat questions, reset when a commit changes the spec.
 **Next**: W10.4.4 hooks call `review.sh` per the interface; W10.6.3 puts the verdict on the PR;
 W10.6.5 measures precision and recall (A-12) on harder plants, including prompt injection in the
 diff.
+
+## #31 — 2026-10-12 · Reviewer follow-ups get owners (W10.6.6 added)
+
+**What moved**: after PR #61, a check of the tracker on `main` found that two next steps for the
+reviewer had no owner. The hook that starts the reviewer was only implied: W10.6.2's line names it,
+but W10.4.4's sub-items don't. Putting the verdict on the PR was handed to W10.6.3, which closed as
+the PR body template only. W10.6.3's own hand-off (the reviewer checks the PR body against the
+final commit, Review 5) points back at W10.6.2, which is done.
+
+**Owner calls**: the hook goes to the session already working on W10.4.4, by message, not a new
+tracker line. The verdict on the PR and the PR-body check become **W10.6.6**, needed before the
+north-star run (W10.6.4).
+
+The W10.4.4 session then asked how a hook finds `--spec`; the owner folded the answer into W10.6.6:
+the reviewer finds the one `specs/` file the branch adds or changes (none → it reviews against the
+PR's own words, and the failing test is the spec for a bug fix; two or more → could-not-run).
+
+**Next**: W10.6.6 as its own task; the W10.4.4 session adds the reviewer hook.

@@ -57,4 +57,5 @@ codes, stdout line, verdict file and format) is in
   owner decides something. Each further fail asks the owner again. Kept on purpose for now (owner,
   2026-10-12): if the north-star run or the reviewer eval (W10.6.4–5) shows repeat questions,
   reset the count when a commit changes the spec file.
-- Publishing the verdict on the PR, per lens and tied to its commit (L-25), is W10.6.3.
+- Publishing the verdict on the PR, per lens and tied to its commit (L-25), and checking the PR body
+  against the final commit (Review 5) are W10.6.6. The hook that starts the reviewer is W10.4.4.
