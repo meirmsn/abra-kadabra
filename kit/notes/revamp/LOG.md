@@ -737,7 +737,7 @@ steps), toward the walking skeleton W10.6.
 
 ## #21 — 2026-10-12 · W10.3.3 every finding dispositioned
 
-**What moved**: W10.3.3 done. [FINDINGS.md](FINDINGS.md) has a **v2 disposition** column; all 134
+**What moved**: W10.3.3 done (PR 55). [FINDINGS.md](FINDINGS.md) has a **v2 disposition** column; all 134
 rows (122 findings + 12 opportunities) carry exactly one of: **v2 requirement** (82 — Shape 21,
 Safety 21, Verify 19, Reach 7, Environments 6, Build 5, Intent 2, Ship 1), **not applicable to v2**
 (15 — platform facts already designed around, and opportunities L3 didn't adopt), **won't fix — v1
