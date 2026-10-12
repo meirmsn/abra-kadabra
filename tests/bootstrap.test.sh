@@ -115,6 +115,10 @@ repin "$gs_broken" gstack-broken
 repin "$(rand 'a-f0-9' 40)" gstack-missing
 repin "$gs_drift" gstack-drift
 repin "$gs_good" tools-bad "$(rand 'a-f0-9' 64)"
+# A version that walks out of /opt/devshop-tools is refused before anything is removed or written.
+git -C "$work/dev" checkout -q --detach origin/main
+sed -i 's|^gitleaks 0.0.1 |gitleaks ../../../escape |' "$work/dev/install/tools.pin"
+git -C "$work/dev" commit -qam "bad tool version" && git -C "$work/dev" push -q origin HEAD:refs/heads/tools-badver
 git --git-dir="$src" symbolic-ref HEAD refs/heads/main
 head=$(git -C "$work/dev" rev-parse origin/main)
 marker="PIN-MARKER-$(rand 'a-z0-9' 12)"
@@ -294,6 +298,10 @@ out=$(session '' tools-bad FAILED)
 grep -q "FAILED: tool gitleaks: checksum" /tmp/devshop-setup.log || { cat /tmp/devshop-setup.log >&2; fail "a bad gitleaks checksum wasn't logged as a failure"; }
 [ ! -e /opt/devshop-tools/bin/gitleaks ] || fail "gitleaks with a bad checksum was installed"
 check "tools-bad: devshop still installed" "$out" "^DEVSHOP: using HEAD " "$(git --git-dir="$src" rev-parse tools-bad)"
+out=$(session '' tools-badver FAILED)
+grep -q "FAILED: tool gitleaks: install/tools.pin line" /tmp/devshop-setup.log || { cat /tmp/devshop-setup.log >&2; fail "a tool version with ../ wasn't refused"; }
+{ [ ! -e /escape ] && [ ! -e /opt/escape ]; } || fail "a tool version escaped /opt/devshop-tools"
+echo "ok - a tool version that would leave /opt/devshop-tools is refused"
 
 # A gstack failure is loud but can't stop the devshop (L-43): the plugin is installed and the
 # DEVSHOP: line still appears.

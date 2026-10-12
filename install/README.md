@@ -80,9 +80,11 @@ Feedback, not walls: everything here runs in the session's VM, where the agent c
   the pinned gitleaks finds a secret in the commits the push adds (the repo's `.gitleaks.toml` if it
   has one), when the repo's own lint `scripts/lint.sh <base>` finds problems or can't run, or when
   the project's own pre-push fails. A missing gitleaks stops it too.
-- **The project's hooks still run.** Every other hook name links to
-  [`_chain`](../runtime/git-hooks/_chain), which runs the project's hook of the same name: from its
-  former `core.hooksPath`, else husky's `.husky/<hook>`, else `.git/hooks`.
+- **The project's hooks still run, if it configured them.** Every other hook name links to
+  [`_chain`](../runtime/git-hooks/_chain), which runs the project's hook of the same name from its
+  former `core.hooksPath` (e.g. husky's after `npm install`), else `.git/hooks`. Hook scripts that
+  are only committed (`.husky/*` with husky not set up) never run: git never runs committed hooks, so
+  checking out an untrusted branch doesn't run its code.
 - **Per-edit nudge.** The plugin's PostToolUse hook on Claude's edit tools runs the version's
   [`runtime/hooks/post-edit.sh`](../runtime/hooks/post-edit.sh), which runs the repo's own
   `scripts/lint-file.sh <file>`. Findings or "couldn't run" go back to Claude in the same turn;
@@ -117,6 +119,12 @@ and [`tests/post-edit.test.sh`](../tests/post-edit.test.sh).
   skills v2 uses (A-13).
 - The pre-push hook's lint checks the working tree, not exactly the commits pushed; CI checks the
   commits. Pushing to a URL rather than a remote name scans the whole history (slower, never less).
+- The repo's declared `scripts/lint.sh` and `scripts/lint-file.sh` run from the working tree, on
+  each push and edit, like its tests do. So a session working on an untrusted branch (a fork's PR)
+  runs that branch's versions: review such a branch in a clone without the devshop's hooks path.
+- A project that sets up husky after session start (`npm install` runs its `prepare`) points
+  `core.hooksPath` back at husky, turning the devshop's hooks off until the next session start,
+  which sets them back and keeps husky's chained.
 - A repo's `scripts/lint.sh` needs its own tools in the session (here `npm ci` for Prettier); when
   one is missing, the push stops and the check names it.
 - Still to come in W10.4.4: the hook that starts the independent reviewer on PR create/ready (after

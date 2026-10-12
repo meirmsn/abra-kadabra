@@ -128,13 +128,28 @@ commit_file "$work/h" a.txt "a"
 [ -f "$work/h/.git/pc-ran" ] || fail "the project's own pre-commit didn't run"
 out=$(push h) && rc=0 || rc=$?
 expect_blocked "the project's own pre-push still runs and can stop the push" "$out" "$rc" "project pre-push says no"
-# ...and husky's .husky/<hook> (run with sh -e, as husky does) when no hooks path was set.
+# ...but never hook scripts the project committed without configuring them in this clone: git never
+# runs committed hooks, so checking out an untrusted branch must not run its .husky/* (security review).
 new_project k
 mkdir -p "$work/k/.husky"
-printf 'echo "husky pre-push ran"\nexit 3\n' >"$work/k/.husky/pre-push"
+printf 'echo "unconfigured husky hook ran" >&2\nexit 3\n' >"$work/k/.husky/pre-push"
+# shellcheck disable=SC2016  # the committed hook's source
+printf 'echo "unconfigured husky hook ran" >"$(git rev-parse --git-dir)/pco-ran"\n' >"$work/k/.husky/post-checkout"
 CLAUDE_PROJECT_DIR="$work/k" "$start" >/dev/null
-commit_file "$work/k" b.txt "b"
+git -C "$work/k" add -A && git -C "$work/k" commit -qm "husky files" && git -C "$work/k" checkout -q -b other
+[ ! -e "$work/k/.git/pco-ran" ] || fail "a committed, unconfigured .husky/post-checkout ran on checkout"
 out=$(push k) && rc=0 || rc=$?
-expect_blocked "husky's pre-push is chained" "$out" "$rc" "husky pre-push ran"
+expect_pushed "committed but unconfigured .husky hooks never run" "$out" "$rc"
+grep -q "unconfigured husky hook ran" <<<"$out" && fail "an unconfigured .husky/pre-push ran"
+# ...and once the project configures husky (core.hooksPath .husky, as before the session), it runs.
+new_project m
+mkdir -p "$work/m/.husky"
+printf '#!/usr/bin/env sh\necho "husky pre-push ran"\nexit 3\n' >"$work/m/.husky/pre-push"
+chmod +x "$work/m/.husky/pre-push"
+git -C "$work/m" config core.hooksPath .husky
+CLAUDE_PROJECT_DIR="$work/m" "$start" >/dev/null
+commit_file "$work/m" b.txt "b"
+out=$(push m) && rc=0 || rc=$?
+expect_blocked "a configured husky pre-push is chained" "$out" "$rc" "husky pre-push ran"
 
 echo "all git hook scenarios passed"

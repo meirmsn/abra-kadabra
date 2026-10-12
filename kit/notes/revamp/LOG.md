@@ -1213,4 +1213,11 @@ project hooks and husky chained), `post-edit.test.sh`, `lint.test.sh`, `lint-fil
 `… · devshop copy of 2026-10-12 18:01 UTC (0 days old) · project proj`; `core.hooksPath` set; a push
 with a planted key stopped; a `Write` of `echo $1` came back to Claude as SC2086 in the same turn.
 
+**Security review**: nothing exploitable from outside. One medium finding, fixed: the first
+version also ran a committed `.husky/<hook>` when husky wasn't configured, so checking out an
+untrusted branch would run its `post-checkout` (reproduced by a test first; now only hooks the
+project configured in the clone run). Hardening taken: a tool `version` that could leave
+`/opt/devshop-tools` is refused (test first), tools unpack with `--no-same-owner`. Documented: the
+repo's declared lint scripts run from the working tree, like its tests.
+
 **Next**: the reviewer hook after W10.6.6; the owner's fresh-session check of this PR.
