@@ -1022,7 +1022,7 @@ could-not-run. A fail at round 3 asks the owner. The verdict is a JSON file unde
   CLAUDE.md wasn't loaded, and `claude-sonnet-5-5` resolved. Gap: `git diff/log --output=<file>`
   can still write. Hence the throwaway clone and the after-check. All of it is feedback, not a
   wall.
-- `tests/reviewer.test.sh` was written first and failed (no script). Its 32 checks now pass. It
+- `tests/reviewer.test.sh` was written first and failed (no script). Its 34 checks now pass. It
   runs a harness copy of the directory with a stub `claude` and covers the locked-down flags and
   the pinned model with `ANTHROPIC_MODEL` set, the outcome rule, rounds, the verdict file, and
   could-not-run for 7 bad replies, a claude error, a timeout, a missing claude, a changed real
@@ -1047,6 +1047,13 @@ could-not-run. A fail at round 3 asks the owner. The verdict is a JSON file unde
   clone shallow; `git fetch --unshallow` before `tests/run.sh`.
 - Only 5 of 20 live verdicts cite a test run as evidence. The rest reason from the code. The
   script doesn't require a run.
+
+**Owner calls in the session**: (1) keep the runnable fixtures and the strict test rule rather
+than loosen the reviewer. (2) Run `/security-review` on this PR. Result: no findings at
+confidence ≥ 8. It found a bash 5.2 bug (an `&` in the spec path was mangled in the prompt), now
+fixed with a regression test, and an overclaim in the reviewer README (allowlisted writes are not
+confined to the clone), now corrected. (3) Rounds don't reset after the owner decides, for now. If
+W10.6.4–5 show repeat questions, reset when a commit changes the spec.
 
 **Next**: W10.4.4 hooks call `review.sh` per the interface; W10.6.3 puts the verdict on the PR;
 W10.6.5 measures precision and recall (A-12) on harder plants, including prompt injection in the

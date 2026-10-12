@@ -112,8 +112,8 @@ if ! { git init -q "$scratch/repo" \
 fi
 
 prompt=$(<"$here/prompt.md") || cnr "prompt.md unreadable"
-prompt=${prompt//'{{SPEC}}'/$spec}
-prompt=${prompt//'{{ITEMS}}'/$items}
+prompt=${prompt//'{{SPEC}}'/"$spec"} # quoted: bash 5.2 expands an unquoted & here
+prompt=${prompt//'{{ITEMS}}'/"$items"}
 schema=$(<"$here/verdict.schema.json") || cnr "verdict.schema.json unreadable"
 
 # --- The locked-down reviewer (feedback, not a wall: TARGET Verify, "what this protects against").

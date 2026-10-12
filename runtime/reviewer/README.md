@@ -25,9 +25,11 @@ codes, stdout line, verdict file and format) is in
   are Read, Grep, Glob and Bash, and in `dontAsk` mode Bash runs only the `settings.json` allowlist.
   Edit and Write don't exist for it.
 - It works in a throwaway clone that holds only the base and head commits and has no remote. Some
-  allowlisted commands can still write files (`git diff --output=…`, a test run), but only inside
-  that clone. Afterwards the real worktree must show the same `HEAD` and status, or the result is
-  could-not-run.
+  allowlisted commands can still write files anywhere the user can: `git diff --output=<path>`, and
+  a test run, which executes the change's own code. The clone keeps ordinary writes away from the
+  real tree, and afterwards the real worktree must show the same `HEAD` and status, or the result is
+  could-not-run. A change whose tests write elsewhere (even over the reply file before it is read)
+  is not stopped by this. The builder can already run that code in its own session.
 - The outcome comes from the script: unmet `AC-<n>` or any finding above `low` (including `unsure`)
   is a fail. A reply that is malformed, incomplete or off-schema is could-not-run, never a pass.
 - No environment variable or argument changes the model, prompt, tools or permissions. Tests change
@@ -52,5 +54,7 @@ codes, stdout line, verdict file and format) is in
 - What "run" can run is the allowlist above. Stack homes (W10.5.2) will extend it per stack. There
   is no browser yet, so the design and QA lenses review by reading.
 - Rounds count distinct failing commits since the branch's last pass, and they don't reset when the
-  owner decides something. Each further fail asks the owner again.
+  owner decides something. Each further fail asks the owner again. Kept on purpose for now (owner,
+  2026-10-12): if the north-star run or the reviewer eval (W10.6.4–5) shows repeat questions,
+  reset the count when a commit changes the spec file.
 - Publishing the verdict on the PR, per lens and tied to its commit (L-25), is W10.6.3.

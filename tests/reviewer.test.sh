@@ -115,6 +115,11 @@ grep -qF "specs/x.md" <<<"$args" || fail "prompt lacks the spec path"
 grep -qF "AC-1, AC-2" <<<"$args" || fail "prompt lacks the spec's items"
 [ "$(cat "$STUB_LOG.cwd")" != "$r" ] || fail "claude ran in the real worktree, not a throwaway clone"
 echo "ok - call is locked down (flags, pinned model/tools/settings, throwaway clone)"
+# The spec path reaches the prompt verbatim (bash 5.2 would expand "&" in a ${x//p/r} replacement).
+cp "$r/specs/x.md" "$r/specs/a&b.md"; git -C "$r" add -A && git -C "$r" commit -qm "spec with & in its name"
+run "$r" pass --base main --spec 'specs/a&b.md'; expect "spec path with & passes" 0 pass
+grep -qF 'specs/a&b.md' "$STUB_LOG.args" || fail "spec path with & mangled in the prompt"
+echo "ok - spec path reaches the prompt verbatim"
 
 # --- The outcome rule: unmet item or any non-low finding fails; low findings are listed only.
 change "$r"; run "$r" unmet --base main --spec specs/x.md
