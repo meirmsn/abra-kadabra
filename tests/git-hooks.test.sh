@@ -114,6 +114,18 @@ for rc_want in 1 2 0; do
   [ "$(cat "$work/q/.git/lint-base")" = "$remote_before" ] || fail "lint.sh got base '$(cat "$work/q/.git/lint-base")', want the remote's $remote_before"
 done
 
+# A new branch's lint base is where it leaves the remote, even without a refs/remotes/origin/HEAD
+# (fresh cloud clones have none): an empty base would make history-wide checks scan everything.
+git -C "$work/q" update-ref -d refs/remotes/origin/HEAD 2>/dev/null || true
+main_tip=$(git -C "$work/q.git" rev-parse main)
+git -C "$work/q" checkout -q -b topic
+commit_file "$work/q" topic1.txt "one"
+commit_file "$work/q" topic2.txt "two"
+out=$(PUSH_REF=topic push q) && rc=0 || rc=$?
+expect_pushed "a new branch pushes" "$out" "$rc"
+[ "$(cat "$work/q/.git/lint-base")" = "$main_tip" ] || fail "new branch: lint.sh got base '$(cat "$work/q/.git/lint-base")', want where it leaves the remote ($main_tip)"
+echo "ok - a new branch's lint base is where it leaves the remote (no origin/HEAD needed)"
+
 # The project's own hooks still run, chained after the devshop's: from its old core.hooksPath...
 new_project h
 mkdir -p "$work/h/.hooks"
