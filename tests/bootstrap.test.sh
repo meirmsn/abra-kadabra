@@ -249,8 +249,9 @@ check "HEAD default (no .devshop-version)" "$out" \
 # Without jq the hook can't build JSON safely; it prints the plain lines and the ask instead, so
 # the line still reaches Claude (malformed JSON would be dropped whole).
 mkdir -p "$work/bin-nojq"
+# -L, not -e: a dangling symlink in a bin dir (seen on CI runners) is still a name already taken.
 for f in /usr/local/bin/* /usr/bin/* /bin/*; do
-  [ "${f##*/}" = jq ] || [ -e "$work/bin-nojq/${f##*/}" ] || ln -s "$f" "$work/bin-nojq/${f##*/}"
+  [ "${f##*/}" = jq ] || [ -L "$work/bin-nojq/${f##*/}" ] || ln -s "$f" "$work/bin-nojq/${f##*/}"
 done
 proj=$(mktemp -d "$work/proj.XXXX")
 cmd=$(jq -er '.hooks.SessionStart[0].hooks[0].command' "$HOME/plugin/hooks/hooks.json")
