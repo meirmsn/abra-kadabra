@@ -888,3 +888,46 @@ variables.
 
 **Next**: a session in the `devshop-fixture` environment with the fixture repo attached, for
 W10.5.2–3.
+
+## #26 — 2026-10-12 · W10.4.2 the lint checks handed off in #23
+
+**What moved**: new CI job `ci / lint` runs four checks, each a script in `scripts/` with a test of
+the same name in `tests/` (run by `tests/run.sh` in `ci / secret-scan`):
+
+- `format-check.sh`: `prettier --check .` with Prettier pinned in a new root `package.json` (exact
+  version, integrity in `package-lock.json`, `npm ci` in CI). It refuses any other Prettier version.
+- `shellcheck.sh`: shellcheck 0.11.0 (pinned with a sha256 in `ci.yml`; the release publishes no
+  checksums, so the pin is the hash of the asset as downloaded today) over every shell script git
+  knows of, by extension or shebang.
+- `commit-identity-check.sh` (L-41): rejects commits a change adds whose author or committer email
+  is at a domain reserved for tests (example.com/.net/.org, .test, .invalid, .localhost, .example)
+  or at `test.com`, the domain of v1's fixture identity. The tests' own identity (`tests/lib.sh`)
+  is one of them, so a test that leaks commits into a real repo is caught.
+- `docs-map-check.py`: every Markdown file git knows of is reachable from `docs/README.md` through
+  links, and no relative link or `#anchor` is broken (GitHub's heading slugs, duplicates included).
+
+Kept out: the spikes (`kit/notes/revamp/spikes/`) are skipped by Prettier and shellcheck. They are
+records, and some are the fixed inputs of the A-04 run. The docs map now links the seven docs it
+missed: the spike READMEs and specs, and the runtime skill. `tests/lib.sh` gained a `shellcheck
+shell=bash` directive. Typecheck waits for code.
+
+**Evidence**: tests written before the scripts. Each check fails on a known-bad input and fails
+closed on a missing tool or nothing to check (format: unformatted JSON, wrong Prettier version;
+shellcheck: SC2086 in a `.sh`, in an extensionless script and in an uncommitted one; identity: the
+tests' own identity, a test committer under a real author, eight reserved-domain forms, lookalike
+real domains pass; docs map: orphan, island, missing file, anchor, image, link outside the repo).
+24 mutants of the four scripts: 23 killed; the survivor (dropping format-check's `command -v`) is
+equivalent, as `--version` still fails closed. Replay of the real incident: the identity check over
+this repo's whole history reports exactly the 19 `test.com` commits L-41 records, and a reserved-
+domain-only first draft missed all 19 (that is why `test.com` is listed). On the repo: all four
+checks pass; `tests/run.sh` 7/7. CI's first run failed on the lookalike case `ada@myexample.com`:
+the runner's awk is gawk, which turns `\.` in a `-v` value into `.`, and the session's mawk
+doesn't. Reproduced with gawk, fixed by passing the regex through `ENVIRON`. Tests and mutants
+pass under both.
+
+**Owner calls in the session**: the lint must also run in a faster loop than CI. The PostToolUse
+formatter parked in #24 is un-parked: a hook checks each file Claude edits (Prettier, shellcheck),
+and the devshop pre-push hook runs the `scripts/` checks as a backstop. Both go to W10.4.4.
+
+**Next**: `[owner]` mark `ci / lint` required on `main` once this merges; then W10.4.2 is done.
+(PR #63)
