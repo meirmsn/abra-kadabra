@@ -1206,7 +1206,7 @@ read its environment's name).
 
 **Evidence**: tests written first, each failing before its change: `bootstrap.test.sh` (time and
 project in the line; tools pinned as in `ci.yml`, installed, a bad checksum refused),
-`git-hooks.test.sh` (13 cases, real `git push` and gitleaks: secrets in unpushed commits, removed
+`git-hooks.test.sh` (14 cases, real `git push` and gitleaks: secrets in unpushed commits, removed
 again, on a new branch; `--no-verify` bypasses; missing gitleaks; lint findings and can't-run;
 project hooks and husky chained), `post-edit.test.sh`, `lint.test.sh`, `lint-file.test.sh`. Real run
 (private namespace, real CLI, real downloads): tools installed at 8.30.1 and 0.11.0; the line read
