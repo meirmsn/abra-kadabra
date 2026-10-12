@@ -925,4 +925,9 @@ the runner's awk is gawk, which turns `\.` in a `-v` value into `.`, and the ses
 doesn't. Reproduced with gawk, fixed by passing the regex through `ENVIRON`. Tests and mutants
 pass under both.
 
-**Next**: `[owner]` mark `ci / lint` required on `main`; then W10.4.2 is done. (PR #63)
+**Owner calls in the session**: the lint must also run in a faster loop than CI. The PostToolUse
+formatter parked in #24 is un-parked: a hook checks each file Claude edits (Prettier, shellcheck),
+and the devshop pre-push hook runs the `scripts/` checks as a backstop. Both go to W10.4.4.
+
+**Next**: `[owner]` mark `ci / lint` required on `main` once this merges; then W10.4.2 is done.
+(PR #63)
