@@ -69,7 +69,7 @@ cat >"$work/good.md" <<'SPEC'
 SPEC
 
 check "a filled-in draft passes" 0 "$work/good.md"
-GO=1 check "--go: a draft whose go is pending fails" 1 "$work/good.md" "go"
+GO=1 check "--go: a draft whose go is pending fails" 1 "$work/good.md" "still pending"
 went=$(variant went 's = s.replace("**Go:** pending", "**Go:** \"go\", owner, 2026-10-12")')
 GO=1 check "--go: the owner's recorded go passes" 0 "$went"
 GO=1 check "--go: a go without its date fails" 1 \
