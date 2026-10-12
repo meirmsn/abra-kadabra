@@ -841,7 +841,55 @@ dependency install goes to W10.5.2; PostToolUse formatter parked.
 
 **Next**: owner's fresh-session check (PR checklist) → W10.4.4 stays `[~]`; pinned gstack. (PR #59)
 
-## #25 — 2026-10-12 · W10.4.4 part 2: fresh-session check passed; pinned gstack
+## #25 — 2026-10-12 · W10.5.1 fixture repo, Cloudflare account and cloud environment (owner)
+
+**What moved**: the owner set up the fixture step by step, with Claude checking each step from the
+session as the agent identity. The fixture is the private repo `devshop-fixture` (public-safe
+content: a README and CODEOWNERS so far), with the agent as a Write collaborator, classic
+protection on `main` like this repo (PR, 1 approval, code-owner review, approval of the latest
+push, stale approvals dismissed, conversation resolution, no bypass, no force-push or deletion),
+and the Claude GitHub App installed. Cloudflare: a **separate account** under the owner's login,
+not the one for the owner's personal site. A token can't be scoped below the account (Workers
+Scripts Edit reaches every Worker, D1 Edit every database), and the fixture's synthetic traffic
+would share the Free plan's daily request limit. The token has Workers Scripts Edit and D1 Edit
+on that account only. It is stored as `CLOUDFLARE_API_TOKEN` in the fixture's `production`
+environment (deployment branches: `main` only, no required reviewers), with
+`CLOUDFLARE_ACCOUNT_ID` as a variable there. Nothing is repo-level. Cloud environment
+`devshop-fixture`: the same two-line setup script with the same read-only devshop token, network
+Limited (package managers + `github.com`; the UI needs at least one domain), no environment
+variables.
+
+**Evidence**
+
+- As the agent, from a fresh clone: direct push and force push of an empty commit to `main` →
+  both `GH006: Protected branch update failed … Changes must be made through a pull request`;
+  `main` stayed at `6042661`. Collaborators API: owner admin, agent write. CODEOWNERS on `main`.
+- Check session started by Claude in the new environment (read-only, archived after):
+  `/tmp/devshop-clone.log` empty; `/opt/devshop.git` at `da33b9b` (current `main`); remote URL
+  holds no credential; context line `DEVSHOP: using HEAD (da33b9bceb4b) from environment default
+(no .devshop-version) · devshop copy of 2026-10-12 (0 days old)` — the PR #59 install, dated,
+  in a real session; 0 `CLOUDFLARE`/`CF_API`/`WRANGLER` variables; npm registry 200,
+  `api.cloudflare.com` and `example.com` refused by the proxy (403 on CONNECT), `github.com`
+  reachable.
+- **Owner-reported, not readable by the agent** (the proxy returns 403 on branch protection,
+  environments and Actions secrets): the protection rule's options, the `production` environment,
+  its branch rule and secret. Proof moves to W10.5.2 (deploy from `main` succeeds; a PR-branch
+  job asking for `production` is refused) and W10.6.4 (approval rules under attack).
+
+**Surprises**
+
+- Current Cloudflare accounts get a `workers.dev` subdomain automatically (Workers & Pages →
+  Account details); no "create application" step is needed before an Action-based deploy.
+- Rule for later projects (lalista at M2 if it moves to Cloudflare): **one provider account per
+  project**, because provider tokens rarely scope below the account. Same reasoning as one cloud
+  environment per project (D-01 revisited).
+- The preview deploy in W10.5's Done-when needs a deploy credential on PR runs, which the
+  `production` environment deliberately can't provide. Open question handed to W10.5.2.
+
+**Next**: a session in the `devshop-fixture` environment with the fixture repo attached, for
+W10.5.2–3.
+
+## #26 — 2026-10-12 · W10.4.4 part 2: fresh-session check passed; pinned gstack
 
 **Fresh-session check (owner, after PR #59 merged):** cache rebuilt by a comment-only edit to the
 setup script. The first reply opened with `DEVSHOP: using HEAD (da33b9bceb4b) from environment
