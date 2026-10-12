@@ -931,3 +931,36 @@ and the devshop pre-push hook runs the `scripts/` checks as a backstop. Both go 
 
 **Next**: `[owner]` mark `ci / lint` required on `main` once this merges; then W10.4.2 is done.
 (PR #63)
+
+## #27 — 2026-10-12 · W10.6.3 the PR body template and its shape check
+
+**What moved**: `runtime/templates/pr-body.md` is the body for every project PR, in TARGET § L3
+Review's order: one-line summary, a **Preview:** line, announcement (only when user-facing), what
+you should know (behaviour change, decisions with the spec link, changes after the "go", tests
+deleted or loosened, manual steps for the owner), evidence (screenshots, reviewer verdict per lens,
+CI, low findings), then engineering details collapsed in `<details>`. It lives in `runtime/`, so a
+project gets the version it pins. `runtime/scripts/pr-body-check.py BODY [TITLE]` checks the
+shape: title ≤ 72 chars, summary one line ≤ 120 chars, preview present before the sections and
+holding a link or `none — <reason>`, sections in order and non-empty with their labelled lines,
+details collapsed and closed, no `{{placeholder}}` left, images absolute and GitHub file links
+pinned to a commit SHA (L-30). Whether the words are true stays with the reviewer (Review 5, L-29).
+
+Choices made here (the owner can flip them): the preview line sits right under the summary, not
+inside the evidence, so it is the second thing seen on a phone. "Manual steps for you" sits in
+"what you should know", not in the collapsed details, because the owner must act on it.
+
+**Evidence**: `tests/pr-body-check.test.sh` written before the check. 28 cases: a filled-in body,
+one without an announcement, a native one and one quoting template syntax in code pass; the
+unfilled template and 21 broken variants fail, each asserting the problem it targets (so none
+fails for an unrelated reason); a missing file and no arguments fail closed. 21 of 21 mutants of
+the check killed. Dogfood: the PR for this task uses the template for its own body, and the check
+passes on that body as read back from GitHub. Its first draft failed: the check took
+`{{placeholder}}` quoted in inline code for a leftover one. Fixed (code is skipped) after a
+failing regression case.
+
+**Surprises**: TARGET Review 3's preview link is "the deploy platform's own PR comment", which
+Vercel's bot posts. The fixture deploys with `wrangler` from a GitHub Action (W10.5.2), and that
+posts no comment. So the deploy job must post one comment per PR and update it on every push.
+Handed to W10.5.2.
+
+**Next**: W10.6.1 (Build skill fills the template, runs the check before ready). (PR #65)
