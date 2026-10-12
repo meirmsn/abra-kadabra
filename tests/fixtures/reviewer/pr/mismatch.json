@@ -1,0 +1,4 @@
+{
+  "title": "Add slugify() for URL-friendly names",
+  "body": "Adds slugify(), as specified in specs/slugify.md.\n\n**Preview:** none — a library function with no UI\n\n## What you should know\n\n- **Behaviour change:** new slugify(s): lowercases, turns each run of whitespace into one dash, drops every character other than a-z, 0-9 and dash, and throws a TypeError for anything that is not a string. It also trims dashes from both ends, so \" a \" gives \"a\".\n- **Decisions:** as in specs/slugify.md\n- **Changed after the go:** nothing\n- **Tests deleted or loosened:** none\n- **Manual steps for you:** none\n\n## Evidence\n\n- **Tests:** one node:test test per acceptance item, AC-1 to AC-4, in test/slugify.test.js"
+}

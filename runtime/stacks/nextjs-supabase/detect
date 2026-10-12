@@ -1,0 +1,5 @@
+# Next.js: a "next" dependency in package.json (a key, not a word or another package), or its config.
+package.json: "next" *:
+next.config.*
+# Supabase: a local Supabase project.
+supabase/config.toml

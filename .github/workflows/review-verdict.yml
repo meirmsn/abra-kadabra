@@ -1,0 +1,32 @@
+# The reviewer's verdict on the PR (W10.6.6, TARGET Verify 7): passes once the PR has a passing
+# verdict comment (runtime/reviewer/pr-comment.sh) for its head commit, and fails when the verdict is
+# missing, stale or failing after the wait. Deterministic, no model (D-06). Not a required check: the
+# agent can post the comment itself and the PR's own copy of this file runs, so it is a tripwire, not a
+# wall. It waits because the comment lands just after the PR is opened or pushed; a run triggered by
+# the comment would report on the default branch, not on the PR.
+name: review-verdict
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+jobs:
+  verdict:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+      - name: Wait for the reviewer's verdict on the head commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: runtime/reviewer/verdict-wait.sh --repo "$REPO" --pr "$PR" --head "$HEAD_SHA" --wait 600 --every 20

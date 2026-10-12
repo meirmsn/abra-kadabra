@@ -23,9 +23,8 @@ Name it in your first reply; the owner can correct you.
 
 - Why, who or the problem not settled (a new product, a big or fuzzy feature)? Propose gstack's
   `/office-hours` first.
-- Every change, however small, gets gstack's `/spec --file-only --no-gate` interview (a short one
-  for a small change). Stop before it files an issue: the record is the spec file, and step 4
-  replaces its quality gate. Then the gstack plan reviews that fit.
+- Every change, however small, gets gstack's `/spec --file-only --no-gate` interview; stop before it
+  files an issue (the spec file is the record; step 4 replaces its gate). Then the plan reviews that fit.
 - A decision that rests on how a tool or version behaves: prove it with a quick experiment first.
 - Too big for one change? Propose a split, one spec each.
 
@@ -34,11 +33,12 @@ Name it in your first reply; the owner can correct you.
 - Fill `/opt/devshop-current/templates/spec.md` into the project's `specs/<change>.md`: intent in
   the owner's words; decisions with their reasons; acceptance items `AC-1`, `AC-2`, … (what must be
   true, pass/fail); out of scope. UI changes add the core flow (2–4 steps) and a state table.
+- `specs/` holds spec files only, one per change. The reviewer takes the one `specs/**.md` file a
+  change adds or changes as its spec, so a README or template there makes the review could-not-run.
 - Capture decisions when the owner makes them, not turn by turn.
 - An item that can't be tested or can't be done goes back to the owner; never reword it to fit.
 - Run `/opt/devshop-current/scripts/spec-check.py specs/<change>.md` until it passes. Commit and
-  push the draft on the change's branch as you go, so it outlives the session; nothing is built
-  before the "go".
+  push the draft as you go, so it outlives the session; nothing is built before the "go".
 
 ## 4. Adversarial spec review, before the owner sees it
 

@@ -1467,7 +1467,122 @@ read-only helper. Root cause: no spec-review mode in the reviewer.
 **Next**: the owner's fresh-session check in the fixture environment: `devshop:intent` and
 `devshop:build` listed, and the session uses them on a request.
 
-## #40 — 2026-10-12 · W10.6.1 done: owner's fresh-session check in the fixture environment
+## #40 — 2026-10-12 · W10.6.6 the reviewer finds the spec; its verdict goes on the PR
+
+**What moved**: the W10.6.2 interface note changed first. `review.sh --base <rev> [--pr <file>]`
+drops `--spec`. The spec is the one `specs/**.md` file the change adds, changes or renames; two or
+more are could-not-run. With none, the intent is the PR's words, else the commit messages, and a
+change that should have had a spec fails on the `intent` lens. `--pr` is a JSON file with the PR's
+title and body, which the W10.6.7 hook builds from the tool call it intercepts. The reviewer checks
+them against the commit (Review 5, the `pr` lens), and the verdict records their hash
+(`devshop-review/2`). The verdict reaches the PR as one comment per review (`pr-comment.sh`), and
+the `review-verdict` workflow (`verdict-wait.sh` → `verdict-check.sh`) shows a missing, stale or
+failing one for the head commit.
+
+**Owner calls**: (1) the verdict lives on the PR as a comment. The first pick was a commit status
+plus a comment, but the session's GitHub access refuses status writes (`HTTP 403: Write access to
+this GitHub API path is not permitted through this proxy`, tried once on this branch). (2) The PR
+opens only after the review passes, and each later push is reviewed first (TARGET Verify 2). There
+is no draft-to-ready step, so A-23 is obsolete. Recorded in TARGET, PLAN changelog and W10.6.6/7.
+
+**Evidence**
+
+- Tests written first, failing (`--spec is required`, missing scripts). `tests/reviewer.test.sh`:
+  the old cases kept; new ones for the spec (none, one, two, nested, changed, deleted, non-`.md`,
+  no `AC-`), `--pr` (verbatim into the prompt, not executed, hashed, the `pr` lens must match, 6 bad
+  files), no-spec intent. Mutants: W10.6.2's core logic 14/14 killed; W10.6.6's 21/22, the survivor
+  equivalent (`specs/*.md`: git's default pathspec `*` crosses `/`). Two survivors on the first pass
+  were real gaps, now tested.
+- `tests/reviewer-pr.test.sh`: rendering (per lens and item, the marker not forgeable from model
+  text), ok / missing / stale / failing, the latest marker decides, the wait with a stub `gh`, and
+  could-not-run for bad input. Mutants 27/28 killed, the survivor equivalent.
+- `tests/reviewer-live.sh 10` (real model, ~$0.02–0.03 per review): seeded 10/10 fail with exactly
+  AC-4 unmet; honest with true PR words 10/10 pass; PR body with a false claim 10/10 fail on `pr`;
+  new feature with no spec 10/10 fail on `intent`; two specs 10/10 could-not-run; honest bug fix
+  with no spec 9/10 pass.
+
+**Surprises**
+
+- The miss: one bug-fix run failed on an `unsure` code finding. Stripped characters can still leave
+  double dashes (`'a ! b'` → `'a--b'`), an issue that predates the fix, which the PR doesn't claim
+  to cover. `unsure` blocks by design (Verify 6). The fixture is not tuned to pass. A data point for
+  W10.6.5 (precision), and maybe a prompt line: issues that predate the change and lie outside its
+  stated scope are `low`.
+- A comment-triggered workflow reports on the default branch, not on the PR, so the PR's check
+  can't turn green when the comment lands. It waits instead: it polls the comments for up to 10
+  minutes after each push.
+
+**Next**: W10.6.7, the hook: review before PR create and before each push to an open PR, post the
+comment after. Probe whether a hook can post the comment with the session's GitHub access (status
+writes are refused).
+
+## #41 — 2026-10-12 · W10.6.6 follow-ups filed or fixed
+
+**What moved**: the five loose ends from W10.6.6 (PR #78's two low findings and LOG #40's notes)
+each got a FINDINGS row. F-NEW-25: the verdict comment no longer renders model text as mentions,
+markdown links or images (`@` and `[` escaped; bare URLs and `#123` still autolink), and paths in
+code spans stay literal. The test was written first and failed, and the escapes are
+mutation-tested. The reviewer's first pass on this change failed it (medium): the words claimed
+"no links" while bare URLs still autolink, and code spans would have shown entities. Both fixed, test
+first. F-NEW-26: `specs/` holds spec files only (Intent skill, reviewer README). F-NEW-27
+(post exactly the reviewed PR words) went onto the W10.6.7 line. F-NEW-23 (the reviewer can't run
+this repo's tests) waits for an owner call, proposed for W10.6.5. F-NEW-24 (a precision data point)
+goes to W10.6.5 without a prompt change.
+
+**Next**: W10.6.7 in a new session (the owner has its prompt).
+
+## #42 — 2026-10-12 · W10.5.3 done: spec plants, decoy stack home, fixture CLAUDE.md
+
+**What moved**: the rest of W10.5.3 after LOG #38, once W10.6.1 (#76) put the spec and stack-home
+formats on `main`. The W10.6.1 session got the hand-off as a message from this session (owner's
+request) and added the `<path>: <pattern>` detect form the decoy needs.
+
+- **Fixture `CLAUDE.md`** (fixture PR 8): the Build skill reads a project's `CLAUDE.md`; the
+  fixture had none, so its conventions (new routes in `traffic/routes.json`, append-only migrations,
+  deploys only from `main`, no ids in the repo) never reached a builder. It says nothing about the
+  harness. A reset restores every file outside `migrations/` to its tag, so the owner tagged
+  **`baseline-2`** on that merge; `baseline-1` would delete the new file.
+- **Spec plants** (harness PR 3): `untested-acceptance`, `false-verified`, `skipped-state-row`,
+  `reworded-acceptance`, on the PR's `specs/*.md` in W10.6.1's format. Plants in one run never pick
+  the same item; items already verified by review, the state table's header and non-spec files are
+  never touched. The harness now has all five plant types.
+- **Decoy** (this PR): `runtime/stacks/nextjs-supabase/`, detected by `package.json: "next" *:`,
+  `next.config.*` or `supabase/config.toml`. Its README says plainly it is a placeholder until
+  lalista's real home at M2, so a real Next.js project that loads it isn't misled.
+
+**Evidence**
+
+- `0ccde19` (fixture PR 8's merge): `lint`, `test` (with the schema check), `secret-scan` and the
+  production `deploy` passed; `baseline-2` points at it (`git ls-remote --tags`).
+- Spec plants, checks written first: 7 tests failed before the plants existed; all 27 harness
+  tests pass. The first mutation pass left 10 of 13 mutants alive (the test spec couldn't tell the
+  review-only item, the header row, a second test file, bracket leftovers, non-spec files or the
+  shared item set from real targets); after strengthening, 13 of 13 are killed. On a template-shaped
+  spec, all four plants in one run hit four different targets, and W10.6.1's real
+  `spec-check.py --go` passed before and after (silent to the shape check). The merged format on
+  `main` is byte-identical to the branch the plants were built against.
+- Decoy, check first: `tests/decoy-stack.test.sh` failed with no home, then passes 5 cases with
+  the real `stack-homes.sh` and `runtime/stacks/`: the fixture's shape and near misses (`next` in a
+  description, a `next build` script, `next-auth`) don't load it; a `next` dependency, a
+  `next.config.*` and a `supabase/config.toml` do. 4 of 4 detector mutants killed. On the real
+  fixture repo (`main`), `stack-homes.sh` prints `STACKS: none`.
+- **W10.5's Done-when, re-checked:** fixture repo with plain CI (`lint`, `test`, `secret-scan`
+  required on `main`); protection refused direct pushes as the agent (GH006, LOG #25, #38); per-PR
+  previews deployed on every PR this session (comment updated per push); production deploys only
+  from `main` (non-`main` refusal, LOG #29); harness: traffic, reset + baseline, idea pool, all five
+  plants and the apply Action, decoy. The apply Action's first live run is W10.6.4's.
+
+**Surprises**
+
+- The north-star's "expected set" for step 2 is `none` at M1: no Cloudflare stack home exists
+  until M2, so only the decoy half can be checked now (noted on W10.6.4).
+- A file added to the fixture after a baseline tag is deleted by the next reset to that tag; every
+  such change needs a new baseline (here `baseline-2`).
+
+**Next**: W10.6.4 (north-star run) once W10.6.7 lands; before it, the owner's harness steps listed
+there.
+
+## #43 — 2026-10-12 · W10.6.1 done: owner's fresh-session check in the fixture environment
 
 **Owner's check** (`devshop-fixture` environment, fixture repo, cache rebuilt after #76): the session
 ran devshop HEAD `06ba34c` from a copy made that day.
@@ -1506,4 +1621,4 @@ with a "repeat it" nudge as backup. Next, as its own PR.
 crude spec review at M1); the reviewer's spec mode is an M2 item. Stack homes and guidelines stay
 under `runtime/`.
 
-**Next:** the `DEVSHOP:` line fix; then W10.6.6 and W10.6.7 (other sessions).
+**Next:** the `DEVSHOP:` line fix; W10.6.7 runs in another session.

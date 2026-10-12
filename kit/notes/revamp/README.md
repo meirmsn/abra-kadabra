@@ -65,12 +65,13 @@ an explicit go/no-go; lalista is the pilot (web, then iOS).
 
 M0 is done (review: [LOG.md](LOG.md) #15). M1 ([W10](workstreams/W10-v2.md)):
 
-- **Claude:** W10.4 v2 bootstrap in this repo is done (W10.4.4 closed, LOG #37); W10.6.1 (Intent and Build skills) done (LOG #40); next the `DEVSHOP:` line fix (LOG #40), W10.6.6
-  (reviewer verdict on the PR), then W10.6.7 (the reviewer hook). W10.3 lessons harvest done: [lessons.md](lessons.md) +
+- **Claude:** W10.4 v2 bootstrap in this repo is done (W10.4.4 closed, LOG #37); W10.6.6
+  (reviewer verdict on the PR, spec found from the diff) done (LOG #40); W10.6.1
+  (Intent and Build skills) done (LOG #43); next W10.6.7 (the reviewer hook) and the `DEVSHOP:`
+  line fix (LOG #43). W10.3 lessons harvest done: [lessons.md](lessons.md) +
   every FINDINGS row dispositioned (LOG #21).
 - **Owner, when ready:** before M2, check lalista's Vercel and Supabase plans (F-NEW-18/19).
-  W10.5.1–2 are done (LOG #25, #35); W10.5.3's harness is built except the spec plants and the
-  decoy, whose formats W10.6.1 has now defined (spec template, `runtime/stacks/`; LOG #39–#40). Before the first north-star run, do the harness steps listed under W10.6.4.
+  W10.5 (fixture + north-star harness) is done (LOG #25, #35, #38, #42). Before the first north-star run, do the harness steps listed under W10.6.4.
 - Done: W10.2 — L3 agreed for all nine pillars + north-star rewritten and hardened (LOG #19,
   #20); fixture on Cloudflare. D-01 decided 2026-10-11 (option D; built in W10.4.4).
 
