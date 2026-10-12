@@ -72,7 +72,7 @@ dispatch() {
 # Hook output reaches only Claude, and a project carries no devshop rule to repeat it (LOG #43). So
 # the lines go out as Claude Code's hook JSON: additionalContext gives Claude the lines plus the ask
 # to repeat them, which is how the owner sees them; systemMessage carries them too, for surfaces that
-# display it (the web app doesn't at session start, LOG #45). Malformed JSON would be
+# display it (the macOS desktop app doesn't at session start, LOG #45). Malformed JSON would be
 # dropped whole, so jq builds it; without jq, the plain lines and the ask go out instead.
 ask="Repeat every DEVSHOP: line above to the owner word for word in your first reply."
 out=$(dispatch)

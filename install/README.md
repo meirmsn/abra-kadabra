@@ -50,7 +50,7 @@ W10.1.2b spike (`kit/notes/revamp/spikes/w10-1-2b-thin/`, kept as notes).
 The hook emits one line as Claude Code's hook JSON, because hook output otherwise reaches only Claude.
 `additionalContext` gives Claude the line plus "Repeat every DEVSHOP: line above to the owner word for
 word in your first reply", because a project carries no devshop rule saying so (LOG #43; this repo's
-CLAUDE.md also asks). That is how the owner sees it: the web app does not display a SessionStart
+CLAUDE.md also asks). That is how the owner sees it: the macOS desktop app does not display a SessionStart
 `systemMessage` (LOG #45), which the hook still sets for surfaces that do. `jq` builds the JSON, since
 output that fails to parse is dropped whole; without `jq`, the plain line and that request go out
 instead. Lines the version's own session-start script prints travel the same way. It always ends with

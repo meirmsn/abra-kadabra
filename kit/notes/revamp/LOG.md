@@ -1668,9 +1668,9 @@ project devshop-fixture`, word for word. **Passed.**
   output ended with the request to repeat it. `readlink /opt/devshop-current` →
   `/opt/devshop-versions/c6a84a5…`; `/opt/devshop.git` HEAD → `c6a84a5` (#83's merge); the installed
   `/opt/devshop-plugin/devshop/hooks/dispatch.sh` contains `systemMessage`.
-- **The experiment:** the web app does **not** display a SessionStart `systemMessage`. The
+- **The experiment:** the macOS desktop app does **not** display a SessionStart `systemMessage`. The
   owner's screenshots show only Claude's reply, and the expanded "Initialized session" row lists only
-  the four setup steps (container, clone, setup script, Claude Code). Not checked on the phone.
+  the four setup steps (container, clone, setup script, Claude Code). Not checked on the web app or the phone.
 
 **Result:** the owner sees the line because Claude repeats it, the backup in #83. The hook still
 sets `systemMessage` for surfaces that show it; `install/README.md` and the hook's comments no
