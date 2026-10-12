@@ -185,7 +185,7 @@ setup_env() {
     "git --git-dir=/opt/devshop.git show HEAD:bootstrap.sh | bash || true")
   case ${DEVSHOP_TEST_RUN:-c} in
     c) bash -c "$script" ;;
-    file) printf '%s\n' "$script" >/tmp/setup-script.sh && bash /tmp/setup-script.sh ;;
+    file) printf '#!/bin/bash\n%s\n' "$script" >/tmp/setup-script.sh && bash /tmp/setup-script.sh ;; # with the shebang the environment adds
     stdin) bash <<<"$script" ;;
   esac
   # Age the copy: the bootstrap records when it was made (DEVSHOP_TEST_COPY_AGE: a `date -d` offset).
