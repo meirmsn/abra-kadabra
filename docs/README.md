@@ -30,11 +30,19 @@ reachable from this page through links, or when a relative link or `#anchor` is 
   - [`commit-identity-check.sh`](../scripts/commit-identity-check.sh): rejects commits a change adds
     under a test identity, such as the one tests commit as (L-41).
   - [`docs-map-check.py`](../scripts/docs-map-check.py): this page's rule, above.
+- Skills: [`scripts/skills-check.py`](../scripts/skills-check.py) checks every skill in
+  `runtime/skills/` names itself after its directory, has a description, fits on one page, and
+  names only `/opt/devshop-current/` files its version has. Run on the real skills by
+  [`tests/skills-check.test.sh`](../tests/skills-check.test.sh), after feeding it bad ones.
 
 ## Skills
 
 - [`devshop-version`](../runtime/skills/devshop-version/SKILL.md): which devshop version a session
   runs and how old its local copy is.
+- [`intent`](../runtime/skills/intent/SKILL.md): the start of every request: its kind, then for a
+  change the spec, the adversarial spec review and the owner's "go" (TARGET § L3 Intent).
+- [`build`](../runtime/skills/build/SKILL.md): one writer builds code, tests and docs together,
+  loads what applies, and opens the PR from the template (TARGET § L3 Build).
 
 ## The install
 
@@ -53,6 +61,15 @@ reachable from this page through links, or when a relative link or `#anchor` is 
   body has that shape (sections and lines in order, preview present, no placeholder left,
   evidence pinned to a commit); whether the words are true is the reviewer's job. Proven by
   [`tests/pr-body-check.test.sh`](../tests/pr-body-check.test.sh).
+- Spec: [`runtime/templates/spec.md`](../runtime/templates/spec.md) is the template for a change's
+  spec in the project's `specs/` (TARGET § L3 Intent 2): intent, decisions, acceptance items
+  `AC-<n>`, core flow and states for UI, out of scope, and the owner's recorded "go".
+  [`runtime/scripts/spec-check.py`](../runtime/scripts/spec-check.py) checks that shape (`--go`:
+  the go is recorded). Proven by [`tests/spec-check.test.sh`](../tests/spec-check.test.sh).
+- Stack homes: [runtime/stacks/README.md](../runtime/stacks/README.md) is their layout;
+  [`runtime/scripts/stack-homes.sh`](../runtime/scripts/stack-homes.sh) picks the ones a project
+  uses. Proven by [`tests/stack-homes.test.sh`](../tests/stack-homes.test.sh).
+- Discipline guidelines: [runtime/guidelines/README.md](../runtime/guidelines/README.md).
 - Reviewer: [runtime/reviewer/README.md](../runtime/reviewer/README.md) is the independent
   reviewer script, how it is locked down and what that is worth, and its proof
   ([`tests/reviewer.test.sh`](../tests/reviewer.test.sh) in CI,
