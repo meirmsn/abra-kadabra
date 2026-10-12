@@ -2,7 +2,7 @@
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
 # rand <charset> <length>: random string (pipefail off here: head closing the pipe is expected).
-rand() { (set +o pipefail; LC_ALL=C tr -dc "$1" </dev/urandom | head -c "$2"); }
+rand() { (set +o pipefail; LC_ALL=C tr -dc "$1" </dev/urandom 2>/dev/null | head -c "$2"); }
 
 # fake_aws_key: an AWS-access-key-shaped fake, generated so test files hold no secret literal.
 fake_aws_key() { echo "AKIA$(rand 'A-Z2-7' 16)"; }
