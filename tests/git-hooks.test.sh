@@ -58,6 +58,20 @@ mkdir -p "$work/not-git"
 CLAUDE_PROJECT_DIR="$work/not-git" "$start" || fail "session-start failed outside a git repo"
 echo "ok - session start sets core.hooksPath, keeps the project's own path to chain to, is idempotent"
 
+# Session start runs the repo's declared setup (scripts/setup.sh, e.g. `npm ci`): silent when it
+# works, a loud DEVSHOP: line when it fails; nothing when the repo declares none.
+mkdir -p "$work/p/scripts"
+# shellcheck disable=SC2016  # the fake setup.sh's source
+printf '#!/usr/bin/env bash\necho ran >"$(git rev-parse --git-dir)/setup-ran"\n' >"$work/p/scripts/setup.sh"
+chmod +x "$work/p/scripts/setup.sh"
+out=$(CLAUDE_PROJECT_DIR="$work/p" "$start" 2>&1)
+{ [ -f "$work/p/.git/setup-ran" ] && [ -z "$out" ]; } || { echo "$out" >&2; fail "scripts/setup.sh didn't run silently"; }
+printf '#!/usr/bin/env bash\necho "no network" >&2\nexit 7\n' >"$work/p/scripts/setup.sh"
+out=$(CLAUDE_PROJECT_DIR="$work/p" "$start" 2>&1)
+grep -q "^DEVSHOP: the project's setup (scripts/setup.sh) failed (exit 7)" <<<"$out" || { echo "$out" >&2; fail "a failed setup wasn't reported"; }
+rm -rf "$work/p/scripts"
+echo "ok - session start runs the repo's scripts/setup.sh; a failure is a DEVSHOP: line"
+
 # A clean change pushes.
 commit_file "$work/p" app.txt "nothing secret"
 out=$(push p) && rc=0 || rc=$?
