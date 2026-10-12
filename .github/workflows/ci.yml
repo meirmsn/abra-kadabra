@@ -91,20 +91,8 @@ jobs:
       - name: Install pinned Node tools
         run: npm ci --ignore-scripts --no-audit --no-fund
 
-      - name: Formatting (pinned prettier --check)
-        if: ${{ !cancelled() }}
-        run: scripts/format-check.sh
-
-      - name: Shell scripts (shellcheck)
-        if: ${{ !cancelled() }}
-        run: scripts/shellcheck.sh
-
-      - name: Docs map (every doc reachable, no broken links)
-        if: ${{ !cancelled() }}
-        run: scripts/docs-map-check.py
-
-      - name: No commits under a test identity (L-41)
-        if: ${{ !cancelled() }}
+      # The repo's declared lint: the same script the devshop's pre-push hook runs in a session.
+      - name: Lint (formatting, shellcheck, docs map, commit identities)
         env:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: scripts/commit-identity-check.sh "$BASE"
+        run: scripts/lint.sh "$BASE"

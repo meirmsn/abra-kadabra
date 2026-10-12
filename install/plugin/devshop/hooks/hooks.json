@@ -9,6 +9,17 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x /opt/devshop-current/hooks/post-edit.sh ]; then exec /opt/devshop-current/hooks/post-edit.sh; fi"
+          }
+        ]
+      }
     ]
   }
 }

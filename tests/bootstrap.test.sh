@@ -38,6 +38,36 @@ read -r gstack_url gstack_sha <<<"$gstack_pin_line"
 [[ $gstack_url =~ ^https://[^@]+$ && $gstack_sha =~ ^[0-9a-f]{40}$ ]] \
   || fail "install/gstack.pin: want '<https URL> <40-hex sha>', got '$gstack_pin_line'"
 
+# The devshop's pinned tools at HEAD (L-45): "<name> <version> <sha256> <https URL>" per line, the
+# same version and checksum CI pins in ci.yml, so a session and CI run the same binaries.
+tools_pin=$(git -C "$repo_root" show "$head:install/tools.pin" 2>/dev/null | grep -v '^#') || fail "no install/tools.pin at HEAD"
+ci=$(git -C "$repo_root" show "$head:.github/workflows/ci.yml")
+for tool in gitleaks shellcheck; do
+  read -r _ version sum url < <(grep "^$tool " <<<"$tools_pin") || fail "install/tools.pin has no $tool line"
+  [[ $version =~ ^[0-9.]+$ && $sum =~ ^[0-9a-f]{64}$ && $url =~ ^https://[^@[:space:]]+$ ]] \
+    || fail "install/tools.pin: bad $tool line"
+  upper=$(tr '[:lower:]' '[:upper:]' <<<"$tool")
+  { grep -q "^  ${upper}_VERSION: $version$" <<<"$ci" && grep -q "^  ${upper}_SHA256: $sum$" <<<"$ci"; } \
+    || fail "install/tools.pin's $tool ($version, $sum) differs from ci.yml's pin"
+done
+echo "ok - install/tools.pin pins gitleaks and shellcheck exactly as ci.yml does"
+
+# Fake release downloads: a fake `curl` serves files by the URL's basename from $work/dl, so the
+# bootstrap downloads, checks and unpacks them exactly as from GitHub.
+mkdir -p "$work/dl" "$work/fk/gitleaks" "$work/fk/shellcheck-v0"
+printf '#!/usr/bin/env bash\necho "fake gitleaks $*"\n' >"$work/fk/gitleaks/gitleaks"
+printf '#!/usr/bin/env bash\necho "fake shellcheck $*"\n' >"$work/fk/shellcheck-v0/shellcheck"
+chmod +x "$work/fk/gitleaks/gitleaks" "$work/fk/shellcheck-v0/shellcheck"
+gl_url=$(awk '$1 == "gitleaks" { print $4 }' <<<"$tools_pin")
+sc_url=$(awk '$1 == "shellcheck" { print $4 }' <<<"$tools_pin")
+tar -czf "$work/dl/${gl_url##*/}" -C "$work/fk/gitleaks" gitleaks
+tar -cJf "$work/dl/${sc_url##*/}" -C "$work/fk" shellcheck-v0
+fake_tools_pin() { # fake_tools_pin [gitleaks sha]: tools.pin pointing at the fake downloads
+  printf 'gitleaks 0.0.1 %s %s\nshellcheck 0.0.1 %s %s\n' \
+    "${1:-$(sha256sum "$work/dl/${gl_url##*/}" | cut -d' ' -f1)}" "$gl_url" \
+    "$(sha256sum "$work/dl/${sc_url##*/}" | cut -d' ' -f1)" "$sc_url"
+}
+
 # A fake upstream gstack, reached through the pin's own URL (git insteadOf in the isolated config,
 # so the bootstrap fetches it exactly as from GitHub). Its ./setup records its arguments and
 # stdin and adds a skill; a second commit's ./setup fails.
@@ -77,12 +107,14 @@ git clone -q "$src" "$work/dev" 2>/dev/null
 repin() { # repin <gstack sha> <branch>: HEAD with the gstack pin set to <sha>, pushed as <branch>
   git -C "$work/dev" checkout -q --detach "$head"
   printf '%s %s\n' "$gstack_url" "$1" >"$work/dev/install/gstack.pin"
+  fake_tools_pin "${3:-}" >"$work/dev/install/tools.pin"
   git -C "$work/dev" commit -qam "pin gstack $1" && git -C "$work/dev" push -q origin "HEAD:refs/heads/$2"
 }
 repin "$gs_good" main
 repin "$gs_broken" gstack-broken
 repin "$(rand 'a-f0-9' 40)" gstack-missing
 repin "$gs_drift" gstack-drift
+repin "$gs_good" tools-bad "$(rand 'a-f0-9' 64)"
 git --git-dir="$src" symbolic-ref HEAD refs/heads/main
 head=$(git -C "$work/dev" rev-parse origin/main)
 marker="PIN-MARKER-$(rand 'a-z0-9' 12)"
@@ -113,6 +145,15 @@ case "$1 $2 ${3:-}" in
 esac
 EOF
 chmod +x "$work/bin/claude"
+cat >"$work/bin/curl" <<EOF
+#!/usr/bin/env bash
+# fake curl: -o <out> <url> → copy $work/dl/<basename of url>
+out= url=
+while [ \$# -gt 0 ]; do case "\$1" in -o) out=\$2; shift 2 ;; -*) shift ;; *) url=\$1; shift ;; esac; done
+[ -f "$work/dl/\${url##*/}" ] || { echo "fake curl: 404 \$url" >&2; exit 22; }
+cp "$work/dl/\${url##*/}" "\$out"
+EOF
+chmod +x "$work/bin/curl"
 # A fake `bun`: records its calls in the gstack checkout's parent; fails if the checkout has BUN_FAIL.
 cat >"$work/bin/bun" <<'EOF'
 #!/usr/bin/env bash
@@ -160,8 +201,11 @@ check() {
   lines=$(grep -c '^DEVSHOP:' <<<"$2" || true)
   [ "$lines" = 1 ] || { echo "$2" >&2; fail "$1: expected exactly one DEVSHOP: line, got $lines"; }
   grep -Eq "$3" <<<"$2" || { echo "$2" >&2; fail "$1: DEVSHOP: line doesn't match /$3/"; }
-  # Staleness is visible: every line dates the local devshop copy (W10.4.4).
-  grep -Eq "^DEVSHOP: .* · devshop copy of ${want_copy:-$(date -u +%F) \\(0 days old\\)}" <<<"$2" \
+  # Staleness is visible: every line dates the local devshop copy to the minute and names the
+  # project, so a same-day stale copy or the wrong environment shows (W10.4.4).
+  local copy_re
+  copy_re="$(date -u +%F) [0-9]{2}:[0-9]{2} UTC \\(0 days old\\)"
+  grep -Eq "^DEVSHOP: .* · devshop copy of ${want_copy:-$copy_re} · project proj\\.[A-Za-z0-9]{4}(;|$)" <<<"$2" \
     || { echo "$2" >&2; fail "$1: DEVSHOP: line doesn't date the devshop copy"; }
   [ "$(readlink /opt/devshop-current)" = "/opt/devshop-versions/$4" ] \
     || fail "$1: /opt/devshop-current -> $(readlink /opt/devshop-current), want version $4"
@@ -199,12 +243,12 @@ else
 fi
 
 # A stale copy shows its age (the copy refreshes only when the environment cache rebuilds).
-want_copy="$(date -u -d '9 days ago' +%F) \\(9 days old\\)"
+want_copy="$(date -u -d '9 days ago' +%F) [0-9]{2}:[0-9]{2} UTC \\(9 days old\\)"
 out=$(DEVSHOP_TEST_COPY_AGE='9 days ago' session '')
 check "HEAD default on a 9-day-old copy" "$out" "^DEVSHOP: using HEAD " "$head"
 unset want_copy
 
-want_copy="unknown date"
+want_copy="unknown date \\([^)]*\\)"
 out=$(DEVSHOP_TEST_COPY_AGE=missing session '')
 check "HEAD default, copy date missing" "$out" "^DEVSHOP: using HEAD " "$head"
 unset want_copy
@@ -238,6 +282,19 @@ grep -q "FAILED: gstack: bun 1.0.0, but gstack .* is tested on bun 9.9.9" /tmp/d
 { [ ! -e "$HOME/bun.calls" ] && [ ! -e "$HOME/gstack-setup.args" ]; } || fail "gstack installed with the wrong Bun"
 echo "ok - a Bun other than the pinned gstack's tested one fails the gstack step, before installing"
 
+# The pinned tools are installed where the devshop's hooks run them.
+for tool in gitleaks shellcheck; do
+  [ "$(/opt/devshop-tools/bin/$tool --version 2>/dev/null)" = "fake $tool --version" ] \
+    || { cat /tmp/devshop-setup.log >&2; fail "$tool isn't installed at /opt/devshop-tools/bin"; }
+done
+echo "ok - pinned gitleaks and shellcheck installed, checksum-verified, in /opt/devshop-tools/bin"
+
+# A download whose checksum doesn't match the pin is refused loudly; the devshop still installs.
+out=$(session '' tools-bad FAILED)
+grep -q "FAILED: tool gitleaks: checksum" /tmp/devshop-setup.log || { cat /tmp/devshop-setup.log >&2; fail "a bad gitleaks checksum wasn't logged as a failure"; }
+[ ! -e /opt/devshop-tools/bin/gitleaks ] || fail "gitleaks with a bad checksum was installed"
+check "tools-bad: devshop still installed" "$out" "^DEVSHOP: using HEAD " "$(git --git-dir="$src" rev-parse tools-bad)"
+
 # A gstack failure is loud but can't stop the devshop (L-43): the plugin is installed and the
 # DEVSHOP: line still appears.
 # Lockfile drift fails closed: gstack's own setup (whose fallback would re-resolve from the
@@ -258,7 +315,8 @@ done
 rm -rf /opt/* /tmp/devshop-*
 git clone -q --bare "$src" /opt/devshop.git
 rc=0
-(PATH=/usr/bin:/bin && git --git-dir=/opt/devshop.git show HEAD:bootstrap.sh | bash) || rc=$?
+mkdir -p "$work/bin-noclaude" && ln -sf "$work/bin/curl" "$work/bin/bun" "$work/bin-noclaude/"
+(PATH=$work/bin-noclaude:/usr/bin:/bin && git --git-dir=/opt/devshop.git show HEAD:bootstrap.sh | bash) || rc=$?
 [ "$rc" != 0 ] || fail "bootstrap without the claude CLI exited 0"
 { grep -q "FAILED: claude plugin install" /tmp/devshop-setup.log && grep -q "RESULT: bootstrap FAILED" /tmp/devshop-setup.log; } \
   || { cat /tmp/devshop-setup.log >&2; fail "setup log doesn't name the failed step"; }

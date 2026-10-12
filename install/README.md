@@ -37,6 +37,10 @@ W10.1.2b spike (`kit/notes/revamp/spikes/w10-1-2b-thin/`, kept as notes).
   leaves `~/.claude/settings.json` to the devshop plugin (F-GS-08). It then turns gstack's update
   check off (`auto_upgrade` is off by default): the pin is the only upgrade path. `--no-browser`:
   Chromium installs on a browser skill's first run. Output: `/tmp/devshop-gstack.log`.
+- **Pinned tools** (L-45): [`install/tools.pin`](tools.pin) names gitleaks and shellcheck at the
+  version and checksum CI pins (`tests/bootstrap.test.sh` fails if they differ). The bootstrap
+  downloads each, checks its sha256, and links it into `/opt/devshop-tools/bin`, where the devshop's
+  hooks run it. A bad or missing download is a loud `FAILED: tool …`; the other steps still run.
 - **The project** holds one file, `.devshop-version`: a commit SHA for now (release tags once CI
   makes them, A-25). Bumping is a one-line PR. Without it the session uses `HEAD`: `main` as of the
   local copy.
@@ -44,20 +48,52 @@ W10.1.2b spike (`kit/notes/revamp/spikes/w10-1-2b-thin/`, kept as notes).
 ## The `DEVSHOP:` line
 
 The hook prints one line, and CLAUDE.md has Claude repeat it in its first reply. It always ends with
-the local copy's date and age, because the copy only refreshes when the environment cache rebuilds.
+the local copy's date, time and age, because the copy only refreshes when the environment cache
+rebuilds and a same-day stale copy is otherwise invisible, then the project the session runs in. The
+session can't read its environment's name, and with one environment per project the project names it.
 
-| Case                                  | Line                                                                                                                    |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| No `.devshop-version`                 | `using HEAD (<sha12>) from environment default (no .devshop-version) · devshop copy of <date> (<n> days old)`           |
-| Pinned SHA in the copy                | `using <pin> (<sha12>) from project .devshop-version · devshop copy of …`                                               |
-| Pin not in the copy (newer, or wrong) | `version '<pin>' (…) is not in the local devshop copy — kept version <sha12> · devshop copy of …; the copy refreshes …` |
-| Pin older than this install           | `version '<pin>' (<sha12>) has no devshop runtime at runtime/ (older than the v2 install?) — kept version <sha12> · …`  |
-| Not a version (e.g. `--x`)            | `'<pin>' (…) is not a devshop version (a commit SHA) — kept version <sha12> · …`                                        |
+| Case                                  | Line                                                                                                                                       |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| No `.devshop-version`                 | `using HEAD (<sha12>) from environment default (no .devshop-version) · devshop copy of <date> <HH:MM> UTC (<n> days old) · project <name>` |
+| Pinned SHA in the copy                | `using <pin> (<sha12>) from project .devshop-version · devshop copy of …`                                                                  |
+| Pin not in the copy (newer, or wrong) | `version '<pin>' (…) is not in the local devshop copy — kept version <sha12> · devshop copy of …; the copy refreshes …`                    |
+| Pin older than this install           | `version '<pin>' (<sha12>) has no devshop runtime at runtime/ (older than the v2 install?) — kept version <sha12> · …`                     |
+| Not a version (e.g. `--x`)            | `'<pin>' (…) is not a devshop version (a commit SHA) — kept version <sha12> · …`                                                           |
 
 "Kept" means the session keeps the default version primed at setup. Proven by
 [`tests/bootstrap.test.sh`](../tests/bootstrap.test.sh). It replays the setup script (local bare
 clone, second line verbatim) in a private mount namespace with a scratch `/opt`, then runs the
 installed hook for every case above.
+
+## Git hooks and the per-edit nudge
+
+Feedback, not walls: everything here runs in the session's VM, where the agent can bypass it
+(`git push --no-verify`, changing `core.hooksPath`). The wall is required CI (`ci / lint`,
+`ci / secret-scan`), which runs the same checks outside the session (L-36).
+
+- **Where they come from.** The version's [`runtime/hooks/session-start.sh`](../runtime/hooks/session-start.sh)
+  points the project's `core.hooksPath` at [`runtime/git-hooks/`](../runtime/git-hooks) (via
+  `/opt/devshop-current`), keeping the project's own path in `devshop.chainHooksPath`. It is
+  session-local git config; nothing is committed to the project, and the hooks come from the version
+  the project pins. A later change of `core.hooksPath` is set back, with a `DEVSHOP:` line.
+- **Pre-push** ([`runtime/git-hooks/pre-push`](../runtime/git-hooks/pre-push)) stops the push when
+  the pinned gitleaks finds a secret in the commits the push adds (the repo's `.gitleaks.toml` if it
+  has one), when the repo's own lint `scripts/lint.sh <base>` finds problems or can't run, or when
+  the project's own pre-push fails. A missing gitleaks stops it too.
+- **The project's hooks still run.** Every other hook name links to
+  [`_chain`](../runtime/git-hooks/_chain), which runs the project's hook of the same name: from its
+  former `core.hooksPath`, else husky's `.husky/<hook>`, else `.git/hooks`.
+- **Per-edit nudge.** The plugin's PostToolUse hook on Claude's edit tools runs the version's
+  [`runtime/hooks/post-edit.sh`](../runtime/hooks/post-edit.sh), which runs the repo's own
+  `scripts/lint-file.sh <file>`. Findings or "couldn't run" go back to Claude in the same turn;
+  clean is silent. It only sees Claude's edit tools; the pre-push hook sees every change.
+- **The repo declares its checks.** The devshop carries no project-specific checks (Shape 3): a repo
+  declares `scripts/lint.sh` (full, also what its CI runs) and `scripts/lint-file.sh` (one file). This
+  repo's are [`scripts/lint.sh`](../scripts/lint.sh) and [`scripts/lint-file.sh`](../scripts/lint-file.sh);
+  a project gets them from its stack home (W10.5.2). Without them, only the secret scan runs.
+
+Proven by [`tests/git-hooks.test.sh`](../tests/git-hooks.test.sh) (real `git push`, real gitleaks)
+and [`tests/post-edit.test.sh`](../tests/post-edit.test.sh).
 
 ## Limits and next steps
 
@@ -79,7 +115,10 @@ installed hook for every case above.
 - Upgrading gstack: change the SHA in `install/gstack.pin` by PR, then run the smoke check: in a
   fresh session the `DEVSHOP:` line still appears and `/autoplan` runs (F-GS-04, F-GS-08), plus the
   skills v2 uses (A-13).
-- Still to come in W10.4.4: devshop-owned git hooks via `runtime/hooks/session-start.sh` (pre-push
-  `gitleaks git` plus the `scripts/` lint checks as a backstop) and a PostToolUse hook running the
-  fast checks on each file Claude edits. Both are feedback; required CI is the wall.
+- The pre-push hook's lint checks the working tree, not exactly the commits pushed; CI checks the
+  commits. Pushing to a URL rather than a remote name scans the whole history (slower, never less).
+- A repo's `scripts/lint.sh` needs its own tools in the session (here `npm ci` for Prettier); when
+  one is missing, the push stops and the check names it.
+- Still to come in W10.4.4: the hook that starts the independent reviewer on PR create/ready (after
+  W10.6.6 changes the reviewer's call to `review.sh --base <rev>`).
 - `runtime/skills/` is where the v2 skills land (W10.6).

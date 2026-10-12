@@ -1187,4 +1187,30 @@ merge (bootstrap at 08:11, merge at 08:58), and showed no gstack. Its `DEVSHOP:`
 old": day resolution hides a same-day stale copy, and nothing names the environment. The git-hooks
 PR adds the copy's time and the environment to the line.
 
-**Next**: the devshop git hooks (W10.4.4's last part).
+**Owner calls (2026-10-12)**: the hand-off from the W10.4.2 session (#63) is built here. The W10.6.2
+session handed over the hook that starts the reviewer; W10.6.6 (#68) changes the reviewer's call to
+`review.sh --base <rev>`, so that hook comes in a later PR, after W10.6.6. Hooks: a repo declares its
+own checks (`scripts/lint.sh`, `scripts/lint-file.sh`) and the devshop's hooks run them; the git
+pre-push hook is the main in-session layer (it sees every change), the PostToolUse hook only a
+nudge (Claude's edit tools); per edit, Prettier fixes (`--write`) and shellcheck reports. v1's
+"agent can't edit the hooks" guard is not ported: L-36 shows it never held, and required CI is the
+wall. No wall can fire before CI: everything before a push is inside the VM.
+
+**Built**: `runtime/hooks/session-start.sh` points `core.hooksPath` at `runtime/git-hooks/`
+(`pre-push`; every other hook links to `_chain`, which runs the project's own hook: former
+`core.hooksPath`, husky, or `.git/hooks`). `runtime/hooks/post-edit.sh` behind a PostToolUse hook.
+`install/tools.pin` (gitleaks, shellcheck; the bootstrap downloads, checks, links them into
+`/opt/devshop-tools/bin`). This repo's `scripts/lint.sh` (CI's `lint` job runs it) and
+`scripts/lint-file.sh`. The `DEVSHOP:` line gives the copy's time and the project (the session can't
+read its environment's name).
+
+**Evidence**: tests written first, each failing before its change: `bootstrap.test.sh` (time and
+project in the line; tools pinned as in `ci.yml`, installed, a bad checksum refused),
+`git-hooks.test.sh` (13 cases, real `git push` and gitleaks: secrets in unpushed commits, removed
+again, on a new branch; `--no-verify` bypasses; missing gitleaks; lint findings and can't-run;
+project hooks and husky chained), `post-edit.test.sh`, `lint.test.sh`, `lint-file.test.sh`. Real run
+(private namespace, real CLI, real downloads): tools installed at 8.30.1 and 0.11.0; the line read
+`… · devshop copy of 2026-10-12 18:01 UTC (0 days old) · project proj`; `core.hooksPath` set; a push
+with a planted key stopped; a `Write` of `echo $1` came back to Claude as SC2086 in the same turn.
+
+**Next**: the reviewer hook after W10.6.6; the owner's fresh-session check of this PR.
