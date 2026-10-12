@@ -7,13 +7,13 @@ where they belong (mostly L3). Every milestone review checks progress against th
 page and whether the page itself is still right
 ([PROCESS.md § 5](PROCESS.md#milestone-review-each-m-exit--the-whole-picture-check)).
 
-| Level | Form                     | Status                                                |
-| ----- | ------------------------ | ----------------------------------------------------- |
-| L0    | One sentence (ish)       | **agreed** 2026-10-08                                 |
-| L1    | One paragraph            | **agreed** 2026-10-08                                 |
-| L2    | One line per pillar      | **agreed** 2026-10-09                                 |
-| L3    | A few bullets per pillar | in progress — all but Reach + Shape agreed 2026-10-12 |
-| L4    | Milestones + tasks       | re-derived from L0–L3 (PLAN.md)                       |
+| Level | Form                     | Status                                        |
+| ----- | ------------------------ | --------------------------------------------- |
+| L0    | One sentence (ish)       | **agreed** 2026-10-08                         |
+| L1    | One paragraph            | **agreed** 2026-10-08                         |
+| L2    | One line per pillar      | **agreed** 2026-10-09                         |
+| L3    | A few bullets per pillar | in progress — all but Shape agreed 2026-10-12 |
+| L4    | Milestones + tasks       | re-derived from L0–L3 (PLAN.md)               |
 
 ## L0 — where we're going
 
@@ -65,7 +65,7 @@ is one guided step.
 - ~~**Verify:**~~ folded into [L3 Verify](#verify) (2026-10-11).
 - ~~**Review:**~~ folded into [L3 Review](#review) (2026-10-11).
 - ~~**Safety:**~~ folded into [L3 Safety](#safety) (2026-10-11).
-- **Reach:** Apple builds can also use GitHub-hosted macOS runners in CI; the Mac is for interactive work.
+- ~~**Reach:**~~ folded into [L3 Environments](#environments) and [L3 Reach](#reach) (2026-10-12).
 - **Shape:** an outside collaborator can clone and contribute without the devshop; several projects on different devshop versions at once; moving to the latest version may involve a project migration.
 
 ## L3 — a few bullets per pillar
@@ -186,6 +186,18 @@ _Agreed 2026-10-11 (LOG #19)._
 9. **Everything read from outside is data, not instructions** (web pages, issues, PR comments, tool output); the walls bound what an injected instruction could do.
 10. **The walls are tested:** the north-star scenario includes attempts GitHub must reject (direct push to `main`, force push, merge without approval, a workflow edit that tries to read a deploy secret).
 11. **Prefer the platform's own controls.** When a service we integrate offers a safety control (token scopes and expiry, branch-limited secrets, preview/promote/rollback, deployment protection), v2 uses it rather than building one, and each stack home records which ones are on and how they're configured. On today's GitHub plan with private repos, GitHub can't hold a deploy for approval, so the owner's PR approval + "only `main` deploys" is the deploy gate (approval ships). Vercel and Cloudflare both offer a manual promote-to-production step if a second click is ever wanted. Cloudflare is the likely default platform for new projects, so its stack home models these controls first.
+
+### Reach
+
+_Agreed 2026-10-12 (LOG #19)._
+
+1. **One home per stack** in the devshop (e.g. `stacks/web`, `stacks/nextjs`, `stacks/supabase`, `stacks/vercel`, `stacks/cloudflare`, `stacks/ios`): setup/template, guidelines, the platform safety controls in use ([Safety](#safety) bullet 11) and lessons. Cross-platform material (e.g. the UI guideline) lives in discipline guidelines, not stacks.
+2. **Loaded only when a task touches that stack.**
+3. **Stacks combine** (e.g. web + Next.js + Supabase + Vercel). **Which stacks a project uses is detected** from its own files (`package.json` dependencies, `wrangler.toml`, `supabase/`, an Xcode project), with an optional one-line override — nothing to drift. For a brand-new project the stacks come from the agreed plan (gstack eng review), recorded in its first spec, until the files exist.
+4. **Added when a real project needs it:** web + Next.js + Supabase + Vercel for the M2 pilot (lalista); **Cloudflare** with the owner's personal website, started in parallel once lalista begins moving to v2; iOS at M3 (lalista's voice app). The rest of the L2 list is capability to add, not built up front.
+5. **Every stack home is proven:** the devshop's CI scaffolds a fresh project from it and requires that project's CI to be green (L-46).
+6. **Stack homes grow from what ships:** a project's fix to tooling its stack home owns goes back to the stack home in the same work (L-51); lessons are promoted from the devshop ledger ([Ship](#ship) bullet 9).
+7. **Generic:** no project identifiers ever (L-01); project config lives in the project.
 
 ## North-star scenario (re-run at every milestone review)
 

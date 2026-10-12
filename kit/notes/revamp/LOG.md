@@ -628,7 +628,7 @@ as not carried.
 
 **Next**: W10.3.3 (disposition every FINDINGS row).
 
-## #19 — 2026-10-11 · W10.2 L3 design pass: Intent, Build, Verify, Review, Ship, Safety, Environments
+## #19 — 2026-10-11 · W10.2 L3 design pass: all pillars but Shape
 
 **What moved**: W10.2 started (`[~]`) in parallel with W10.1.2 and W10.3.1, which both landed
 mid-session (D-01 decided; `lessons.md` done) — the branch was brought up to `main` and the
@@ -687,4 +687,9 @@ written to [TARGET.md § L3](TARGET.md#l3--a-few-bullets-per-pillar).
 - **Environments agreed:** least-privilege network allowlist; **one cloud environment per project**
   (D-01 revisited) running the same minimal shared setup script; work survives only in GitHub.
 
-**Next**: Reach, then Shape (D-07, D-10, the devshop ledger format); then the north-star rewrite (W10.2.2).
+- **Reach agreed:** one home per stack, loaded only when touched; stacks detected from the project's
+  files (new projects: from the agreed plan); every stack home proven by a fresh scaffold's CI.
+  Cloudflare home comes with the owner's personal website, started in parallel once lalista begins
+  moving (M2).
+
+**Next**: Shape (D-07, D-10, the devshop ledger format); then the north-star rewrite (W10.2.2).
