@@ -888,3 +888,58 @@ variables.
 
 **Next**: a session in the `devshop-fixture` environment with the fixture repo attached, for
 W10.5.2–3.
+
+## #26 — 2026-10-12 · W10.5.2 fixture app, CI and deploy wiring (in progress); W10.5.3 design proposed
+
+**What moved**: first session in the `devshop-fixture` environment with the fixture repo attached.
+Fixture PR 2 adds a one-page Worker (lists one D1 table; `/healthz` checks the database), tests in
+the Workers runtime against a local D1 with the real migrations, and plain CI. CI runs `lint`,
+`test` (app tests + script tests, incl. the planted-secret test) and `secret-scan` (the devshop's
+pinned gitleaks 8.30.1 and its tested scan script). The deploy is a job in the same workflow:
+push to `main` only, `needs` all three checks on that commit, `environment: production`,
+`concurrency: production`. Its steps live in a tested `scripts/deploy.sh`: ensure the D1 database
+exists (by name, so no account or database id is in the repo; wrangler 4.149 resolves D1 by
+`database_name`), apply migrations before the code, deploy, then smoke-check the live
+`workers.dev` URL. It fails closed at every step and never prints a credential.
+
+**Evidence**
+
+- Check first: the app tests failed with no worker and pass 8/8 after. Mutation check: dropping
+  the HTML escaping fails the escaping test. `tests/deploy.test.sh` (fake `wrangler`/`curl`) failed
+  before the script existed and passes 13 cases after, covering the order and each failure path.
+  `wrangler deploy --dry-run` bundles with the `DB` binding; the migration applies to a local D1.
+- Fixture PR 2's CI on its head: `lint`, `test`, `secret-scan` green; `deploy` skipped (not
+  `main`).
+- **Wall probe failed (F-NEW-20).** A throwaway branch with a job asking for `production`, run on
+  `push` and on `pull_request` (draft PR), was not refused: both runs green, and the log says
+  `PROBE: job ran, no token`. A `main`-only deployment-branch rule refuses such a job before any
+  step, so the environment isn't in the state W10.5.1 recorded. No token leaked; the cause can't
+  be read from the session (environments are 403 to the agent). The first probe run failed for a
+  different reason: invalid YAML (a `: ` in a plain scalar), so zero jobs. That is not wall
+  evidence.
+
+**Open for the owner**
+
+- F-NEW-20: check the `production` environment (name, deployment branches = `main`, the secret);
+  then the probe is re-run until GitHub refuses it, and the refusal text is recorded. The deploy
+  PR waits for that.
+- Preview deploys need a credential on PR runs. Options: (a) none at M1, with screenshots from
+  local `wrangler dev`; (b) a `preview` environment holding a token for a **second, preview-only
+  Cloudflare account** (its own Workers + D1), so a PR job can only ever reach preview resources;
+  (c) same-account preview URLs. (c) is rejected because the token would reach production from a
+  PR run. Recommended: (b).
+- W10.5.3 design proposed (synthetic-traffic cron Worker, an owner-held harness repo for the
+  plant pool, the plant script, the idea pool and run records, a reset-to-baseline PR script, a
+  decoy stack home). It waits for the owner's "go".
+
+**Surprises**
+
+- `@cloudflare/vitest-pool-workers` is deprecated in favour of `@cloudflare/vitest-plugin`. With
+  vitest 4, npm 10 crashed resolving an optional peer chain; vitest 5 + the plugin install cleanly.
+- The Workers test integration doesn't isolate D1 between tests in a file. The setup resets D1 to
+  the migrated baseline before each test.
+- A `git add -A` on a branch without `.gitignore` swept in `node_modules`. GitHub's 100 MB limit
+  rejected the push (GH001), so nothing landed.
+
+**Next**: the owner's answers on F-NEW-20, previews and the W10.5.3 design; then the deploy from
+`main` and the refusal proof.
