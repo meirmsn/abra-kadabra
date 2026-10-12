@@ -1,3 +1,6 @@
 node_modules
 # Spikes are kept as notes: records of what was run (some are fixed reviewer inputs), not live code.
 kit/notes/revamp/spikes/
+
+# Review fixtures stay byte-exact: formatting changed a spec example ("a  b" -> "a b").
+tests/fixtures/

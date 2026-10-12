@@ -1,0 +1,72 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["acceptance", "findings", "lenses", "summary"],
+  "properties": {
+    "acceptance": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["item", "met", "evidence"],
+        "properties": {
+          "item": { "type": "string", "pattern": "^AC-[0-9]+$" },
+          "met": { "type": "boolean" },
+          "evidence": { "type": "string" }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["severity", "lens", "item", "file", "what", "fix"],
+        "properties": {
+          "severity": { "enum": ["high", "medium", "unsure", "low"] },
+          "lens": {
+            "enum": [
+              "intent",
+              "spec",
+              "tests",
+              "docs",
+              "code",
+              "security",
+              "design",
+              "qa"
+            ]
+          },
+          "item": { "type": "string" },
+          "file": { "type": "string" },
+          "what": { "type": "string" },
+          "fix": { "type": "string" }
+        }
+      }
+    },
+    "lenses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["lens", "applies", "note"],
+        "properties": {
+          "lens": {
+            "enum": [
+              "intent",
+              "spec",
+              "tests",
+              "docs",
+              "code",
+              "security",
+              "design",
+              "qa"
+            ]
+          },
+          "applies": { "type": "boolean" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "summary": { "type": "string" }
+  }
+}

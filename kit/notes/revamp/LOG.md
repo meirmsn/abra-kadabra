@@ -1003,7 +1003,177 @@ edits go through script files, never heredocs inside heredocs.
 
 **Next**: owner's fresh-session check for gstack (PR checklist); then the devshop git hooks.
 
-## #29 — 2026-10-12 · W10.4.4 part 3: gstack fresh-session check passed; git hooks next
+## #29 — 2026-10-12 · W10.5.2 fixture app, CI and deploy wiring (in progress); W10.5.3 design proposed
+
+**What moved**: first session in the `devshop-fixture` environment with the fixture repo attached.
+Fixture PR 2 adds a one-page Worker (lists one D1 table; `/healthz` checks the database), tests in
+the Workers runtime against a local D1 with the real migrations, and plain CI. CI runs `lint`,
+`test` (app tests + script tests, incl. the planted-secret test) and `secret-scan` (the devshop's
+pinned gitleaks 8.30.1 and its tested scan script). The deploy is a job in the same workflow:
+push to `main` only, `needs` all three checks on that commit, `environment: production`,
+`concurrency: production`. Its steps live in a tested `scripts/deploy.sh`: ensure the D1 database
+exists (by name, so no account or database id is in the repo; wrangler 4.149 resolves D1 by
+`database_name`), apply migrations before the code, deploy, then smoke-check the live
+`workers.dev` URL. It fails closed at every step and never prints a credential.
+
+**Evidence**
+
+- Check first: the app tests failed with no worker and pass 8/8 after. Mutation check: dropping
+  the HTML escaping fails the escaping test. `tests/deploy.test.sh` (fake `wrangler`/`curl`) failed
+  before the script existed and passes 13 cases after, covering the order and each failure path.
+  `wrangler deploy --dry-run` bundles with the `DB` binding; the migration applies to a local D1.
+- Fixture PR 2's CI on its head: `lint`, `test`, `secret-scan` green; `deploy` skipped (not
+  `main`).
+- **Wall probe failed (F-NEW-20).** A throwaway branch with a job asking for `production`, run on
+  `push` and on `pull_request` (draft PR), was not refused: both runs green, and the log says
+  `PROBE: job ran, no token`. A `main`-only deployment-branch rule refuses such a job before any
+  step, so the environment isn't in the state W10.5.1 recorded. No token leaked; the cause can't
+  be read from the session (environments are 403 to the agent). The first probe run failed for a
+  different reason: invalid YAML (a `: ` in a plain scalar), so zero jobs. That is not wall
+  evidence.
+
+**Open for the owner**
+
+- F-NEW-20: check the `production` environment (name, deployment branches = `main`, the secret);
+  then the probe is re-run until GitHub refuses it, and the refusal text is recorded. The deploy
+  PR waits for that.
+- Preview deploys need a credential on PR runs. Options: (a) none at M1, with screenshots from
+  local `wrangler dev`; (b) a `preview` environment holding a token for a **second, preview-only
+  Cloudflare account** (its own Workers + D1), so a PR job can only ever reach preview resources;
+  (c) same-account preview URLs. (c) is rejected because the token would reach production from a
+  PR run. Recommended: (b).
+- W10.5.3 design proposed (synthetic-traffic cron Worker, an owner-held harness repo for the
+  plant pool, the plant script, the idea pool and run records, a reset-to-baseline PR script, a
+  decoy stack home). It waits for the owner's "go".
+
+**Surprises**
+
+- `@cloudflare/vitest-pool-workers` is deprecated in favour of `@cloudflare/vitest-plugin`. With
+  vitest 4, npm 10 crashed resolving an optional peer chain; vitest 5 + the plugin install cleanly.
+- The Workers test integration doesn't isolate D1 between tests in a file. The setup resets D1 to
+  the migrated baseline before each test.
+- A `git add -A` on a branch without `.gitignore` swept in `node_modules`. GitHub's 100 MB limit
+  rejected the push (GH001), so nothing landed.
+
+**Owner's answers (same day)**
+
+- F-NEW-20 cause: the `production` environment, its secret and its variable had been set up in
+  **the devshop repo**, not the fixture. The fixture's `production` existed with no branch rule
+  and nothing in it, probably created automatically when the probe job named it. **Correction to
+  LOG #25:** the token was never in the fixture's environment then. The owner moved the secret
+  and variable to the fixture's environment, limited it to `main`, removed them from the devshop
+  repo, and rolled the token as a precaution: the devshop repo's environment had no branch rule,
+  so a workflow on any of its branches could have read the token.
+- Re-run of the same probe runs (attempt 2): both refused in about 2 s, with no runner and no
+  steps. GitHub's annotations: `Branch "claude/probe-production-refusal" is not allowed to deploy to
+production due to environment protection rules.` (push) and `Branch "refs/pull/1/merge" is not
+allowed to deploy to production due to environment protection rules.` (pull_request). The
+  probe PR is closed. The branch remains because the session's git proxy refuses branch
+  deletion.
+- Previews: option (c), a separate preview-only Cloudflare account.
+
+**First deploy from `main` (same day)**
+
+- The owner set `lint`, `test` and `secret-scan` as required checks on the fixture's `main` and
+  approved fixture PR 2. Claude squash-merged it on green.
+- Push run on `main`, attempt 1. `lint`, `test` and `secret-scan` passed. The deploy job:
+  - created the D1 database (by name) and applied `0001_create_items.sql` remotely;
+  - deployed the Worker and reported its `workers.dev` URL;
+  - needed no token permission beyond Workers Scripts Edit + D1 Edit.
+
+  Then the smoke check failed: `/healthz` was ok on try 3, but the page request seconds later
+  returned 404 (`FAIL: the page did not load`). Root cause: the brand-new `workers.dev` route was
+  still propagating across the edge, and the script retried `/healthz` but not the page.
+
+- One re-run of the failed job (same commit, same script): `No migrations to apply!`, deploy ok,
+  `smoke: ok` on the first try. **Production is live and healthy.**
+- Fix: fixture PR 3. Each smoke try checks `/healthz` and the page, either failure is retried,
+  and two passing tries in a row are required. The check came first: the run-2 pattern, fed to
+  the old script in the test, fails with the same line as production.
+- Synthetic traffic (W10.5.3 design, owner): a request every minute for 5 minutes after each
+  deploy, then exponential back-off capped at one round an hour. It's one scheduled Worker
+  waking each minute, and each deploy restarts the schedule. The cap keeps the next-day check
+  and the pre-merge health check fed.
+
+**Next**: fixture PR 3; then the preview-only account (owner) and preview wiring, including one
+self-updating preview comment per PR (the PR body template links it, LOG #27). W10.5.3 waits on
+the owner's "go" and the harness repo.
+
+## #30 — 2026-10-12 · W10.6.2 the independent reviewer script
+
+**What moved**: the reviewer's interface went into W10-v2.md § W10.6.2 first (PR #61, for the
+W10.4.4 hooks), then it was built to it in `runtime/reviewer/`. That is `review.sh` plus its pinned
+`prompt.md`, `verdict.schema.json` and Bash allowlist `settings.json`. It runs
+`claude -p --restricted --safe-mode` (no CLAUDE.md, skills, hooks or MCP; Read/Grep/Glob/Bash, with
+Bash only on the allowlist in `dontAsk` mode) in a throwaway clone of the base and head commits.
+It checks the real worktree is unchanged afterwards. The outcome comes from the script, not the
+model: an unmet `AC-<n>` or any non-`low` finding fails. Malformed or incomplete replies are
+could-not-run. A fail at round 3 asks the owner. The verdict is a JSON file under
+`.git/devshop/reviews/<branch>/`.
+
+**Evidence**
+
+- Lockdown probed before the interface was written, with the real CLI in a scratch clone that had
+  a planted CLAUDE.md. Allowlisted `git log` ran, `touch` was refused, Write was absent, the
+  CLAUDE.md wasn't loaded, and `claude-sonnet-5-5` resolved. Gap: `git diff/log --output=<file>`
+  can still write. Hence the throwaway clone and the after-check. All of it is feedback, not a
+  wall.
+- `tests/reviewer.test.sh` was written first and failed (no script). Its 34 checks now pass. It
+  runs a harness copy of the directory with a stub `claude` and covers the locked-down flags and
+  the pinned model with `ANTHROPIC_MODEL` set, the outcome rule, rounds, the verdict file, and
+  could-not-run for 7 bad replies, a claude error, a timeout, a missing claude, a changed real
+  worktree, dirty tree, unknown base, missing or AC-less spec, bad arguments and no repo. All
+  14 mutants of the script are killed; the one that first survived (could-not-run counted as a
+  round) led to a sharper test.
+- `tests/reviewer-live.sh 10` (real reviewer, real model): planted 10/10 `fail` with exactly AC-4
+  unmet, honest 10/10 `pass` with 0 findings; ~$0.02 and ~11 s per review.
+
+**Surprises**
+
+- **The spike's "honest" fixture fails the v2 reviewer.** On the first live run of 10, 9 failed
+  with the same blocking finding: no `package.json` or runner, Jest globals, so the tests can't
+  run. The spike only asked "implemented and has a test". TARGET Verify 4 and L-17 ask more, and
+  the reviewer was right. The fixtures in `tests/fixtures/reviewer/` keep the spike's spec and
+  `src/` byte for byte. They now use `node:test` plus a `package.json` (`npm test`, allowlisted).
+  The planted mistake is unchanged and invisible to its own green tests. The spike files stay as
+  they were.
+- Prettier rewrote the fixture spec's `"a  b"` (AC-2's two spaces) to `"a b"`. `tests/fixtures/` is
+  now in `.prettierignore`.
+- `tests/bootstrap.test.sh` fails in a shallow clone ("shallow update not allowed"). Cloud sessions
+  clone shallow; `git fetch --unshallow` before `tests/run.sh`.
+- Only 5 of 20 live verdicts cite a test run as evidence. The rest reason from the code. The
+  script doesn't require a run.
+
+**Owner calls in the session**: (1) keep the runnable fixtures and the strict test rule rather
+than loosen the reviewer. (2) Run `/security-review` on this PR. Result: no findings at
+confidence ≥ 8. It found a bash 5.2 bug (an `&` in the spec path was mangled in the prompt), now
+fixed with a regression test, and an overclaim in the reviewer README (allowlisted writes are not
+confined to the clone), now corrected. (3) Rounds don't reset after the owner decides, for now. If
+W10.6.4–5 show repeat questions, reset when a commit changes the spec.
+
+**Next**: W10.4.4 hooks call `review.sh` per the interface; W10.6.3 puts the verdict on the PR;
+W10.6.5 measures precision and recall (A-12) on harder plants, including prompt injection in the
+diff.
+
+## #31 — 2026-10-12 · Reviewer follow-ups get owners (W10.6.6 added)
+
+**What moved**: after PR #61, a check of the tracker on `main` found that two next steps for the
+reviewer had no owner. The hook that starts the reviewer was only implied: W10.6.2's line names it,
+but W10.4.4's sub-items don't. Putting the verdict on the PR was handed to W10.6.3, which closed as
+the PR body template only. W10.6.3's own hand-off (the reviewer checks the PR body against the
+final commit, Review 5) points back at W10.6.2, which is done.
+
+**Owner calls**: the hook goes to the session already working on W10.4.4, by message, not a new
+tracker line. The verdict on the PR and the PR-body check become **W10.6.6**, needed before the
+north-star run (W10.6.4).
+
+The W10.4.4 session then asked how a hook finds `--spec`; the owner folded the answer into W10.6.6:
+the reviewer finds the one `specs/` file the branch adds or changes (none → it reviews against the
+PR's own words, and the failing test is the spec for a bug fix; two or more → could-not-run).
+
+**Next**: W10.6.6 as its own task; the W10.4.4 session adds the reviewer hook.
+
+## #32 — 2026-10-12 · W10.4.4 part 3: gstack fresh-session check passed; git hooks next
 
 **Fresh-session check (owner, after PR #64 merged), abra-kadabra environment** (cache rebuilt by a
 comment edit): `DEVSHOP: using HEAD (cde1959ce7bf) … · devshop copy of 2026-10-12 (0 days old)`
