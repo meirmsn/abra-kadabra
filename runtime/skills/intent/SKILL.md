@@ -38,7 +38,7 @@ Name it in your first reply; the owner can correct you.
 - Capture decisions when the owner makes them, not turn by turn.
 - An item that can't be tested or can't be done goes back to the owner; never reword it to fit.
 - Run `/opt/devshop-current/scripts/spec-check.py specs/<change>.md` until it passes. Commit and
-  push the draft as you go, so it outlives the session; nothing is built before the "go".
+  push the draft on the change's branch as you go; nothing is built before the "go".
 
 ## 4. Adversarial spec review, before the owner sees it
 
