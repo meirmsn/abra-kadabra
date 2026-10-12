@@ -67,7 +67,12 @@ M0 is done (review: [LOG.md](LOG.md) #15). M1 ([W10](workstreams/W10-v2.md)):
 
 - **Claude:** W10.3.3 FINDINGS disposition (W10.3.1 v1 and W10.3.2 home-os harvests done:
   [lessons.md](lessons.md)); respect the pacing rule (≤ ~2 devshop PRs waiting on the owner).
-- W10.2 done: L3 agreed for all nine pillars + north-star rewritten (LOG #19, #20).
-  D-01 decided 2026-10-11 (option D; built in W10.4.4).
+- **Owner, when ready:** W10.5.1 — create the fixture repo, Cloudflare account + scoped deploy
+  token, and the fixture's cloud environment (checklist in [W10](workstreams/W10-v2.md)); then a
+  session for W10.5.2–3 with the fixture attached. Before M2: check lalista's Vercel and Supabase
+  plans (F-NEW-18/19).
+- **Claude, in parallel:** W10.4 v2 bootstrap in this repo (W10.4.1 first).
+- Done: W10.2 — L3 agreed for all nine pillars + north-star rewritten and hardened (LOG #19,
+  #20); fixture on Cloudflare. D-01 decided 2026-10-11 (option D; built in W10.4.4).
 
 Tasks marked `[!]` "deferred to the M4 exit" are not raised before then.
