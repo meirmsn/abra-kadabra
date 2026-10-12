@@ -15,5 +15,7 @@ A stack home `<stack>/` holds:
   A path that is absolute or leaves the project, a missing `README.md` or `detect`, or a `detect`
   with no paths, or a pattern `grep -E` can't read stops the script (exit 2); it never skips a home it can't judge.
 
-None ship yet: the first are built with the first projects that need them (M2). Proven by
+The first real homes are built with the first projects that need them (M2). Today there is one
+placeholder, [`nextjs-supabase/`](nextjs-supabase/README.md), which is also the north-star decoy:
+the fixture must never load it ([`tests/decoy-stack.test.sh`](../../tests/decoy-stack.test.sh)). Proven by
 [`tests/stack-homes.test.sh`](../../tests/stack-homes.test.sh).
