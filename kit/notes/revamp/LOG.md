@@ -1221,3 +1221,25 @@ project configured in the clone run). Hardening taken: a tool `version` that cou
 repo's declared lint scripts run from the working tree, like its tests.
 
 **Next**: the reviewer hook after W10.6.6; the owner's fresh-session check of this PR.
+
+## #33 — 2026-10-12 · W10.4.4: hooks fresh-session check; new-branch fix, env note, session setup
+
+**Fresh-session check of #69 (owner, abra-kadabra)**: the line read `… · devshop copy of 2026-10-12
+18:33 UTC (0 days old) · project abra-kadabra`; gitleaks 8.30.1 and shellcheck 0.11.0 installed, no
+`FAILED`; `core.hooksPath` set; a push of a fake key to a scratch remote was stopped by gitleaks; a
+`Write` of `echo $1` came back as SC2086. It also showed: (1) a bug: a new branch's lint base was
+empty without `refs/remotes/origin/HEAD` (fresh cloud clones have none), so the identity check
+scanned all history and v1's six `test@test.com` commits would stop every first push of a branch;
+(2) friction: without `npm ci`, every push and edit reported "prettier not found". The empty scratch
+remote made gitleaks scan all history too (six known v1 findings, LOG #11); real pushes to `origin`
+scan only the branch's new commits.
+
+**Fixed, tests first**: a new branch's base is the parent of its oldest commit not on the remote
+(the test reproduced the empty base first). Session start runs the repo's declared `scripts/setup.sh`
+(this repo: `npm ci`), loud on failure (owner, option a). The `DEVSHOP:` line ends with an env note:
+the setup script's first comment line, read during setup from the script's process; only that line
+is kept (a test plants a fake token on the next line and checks it is stored nowhere); `bash -c` and
+file runs tested, stdin gives `env note unavailable`. Owner: keep it only if the real environment
+shows the note; otherwise drop it.
+
+**Next**: owner's fresh-session check of this PR; the reviewer hook after W10.6.6.
