@@ -49,6 +49,10 @@ reachable from this page through links, or when a relative link or `#anchor` is 
   body has that shape (sections and lines in order, preview present, no placeholder left,
   evidence pinned to a commit); whether the words are true is the reviewer's job. Proven by
   [`tests/pr-body-check.test.sh`](../tests/pr-body-check.test.sh).
+- Reviewer: [runtime/reviewer/README.md](../runtime/reviewer/README.md) is the independent
+  reviewer script, how it is locked down and what that is worth, and its proof
+  ([`tests/reviewer.test.sh`](../tests/reviewer.test.sh) in CI,
+  [`tests/reviewer-live.sh`](../tests/reviewer-live.sh) in a session).
 
 ## The revamp (being built)
 
