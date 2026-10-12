@@ -45,7 +45,7 @@ env_note() {
       esac
       if [ -n "$first" ]; then
         case $first in
-          '#'*) n=${first#"#"}; n=${n#"${n%%[![:space:]]*}"}; printf '%s' "$n" | tr -cd '[:print:]' | cut -c1-120 ;;
+          '#'*) n=${first#"#"}; n=${n#"${n%%[![:space:]]*}"}; printf '%s' "$n" | tr -d '\000-\037\177' | head -c 160 ;;
         esac
         return
       fi
