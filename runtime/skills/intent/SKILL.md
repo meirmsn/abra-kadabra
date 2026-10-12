@@ -55,6 +55,6 @@ _Mitigation:_ TARGET has the independent reviewer do this; its spec mode is an M
 - Show the owner one screen: intent, decisions, acceptance items, out of scope, rough size, and the
   open questions from step 4.
 - On "go", record it on the spec's `**Go:**` line (their words, the date), run `spec-check.py --go`,
-  commit and push. Then `build`.
+  commit and push on the same branch. Then `build`.
 - After the go, a change to a decision or an acceptance item is raised with the owner, decided by
   them and recorded in the spec as theirs. The final review fails on any that isn't.
