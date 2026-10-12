@@ -133,4 +133,5 @@ and [`tests/post-edit.test.sh`](../tests/post-edit.test.sh).
   one is missing, the push stops and the check names it.
 - The hook that starts the independent reviewer on PR create and on pushes to an open PR is
   W10.6.7; it calls `review.sh --base <rev> --pr <file>` (W10.6.6).
-- `runtime/skills/` is where the v2 skills land (W10.6).
+- The v2 skills (`intent`, `build`, `devshop-version`) load from the pinned version's
+  `runtime/skills/`; `tests/bootstrap.test.sh` checks the plugin resolves each one there.
