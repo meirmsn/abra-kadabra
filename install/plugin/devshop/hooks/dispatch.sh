@@ -9,17 +9,20 @@ VERSIONS=/opt/devshop-versions
 CURRENT=/opt/devshop-current
 RUNTIME=runtime
 
-# Every line ends with the local copy's date and age: HEAD means main as of that date.
+# Every line ends with the local copy's date, time and age (HEAD means main as of then; a same-day
+# stale copy shows by its time) and the project the session runs in (one environment per project,
+# and the session can't read the environment's name).
 copied=$(cat "$VERSIONS/copy-date" 2>/dev/null)
 if [ -n "$copied" ] && copied_s=$(date -u -d "$copied" +%s 2>/dev/null); then
   days=$((($(date -u +%s) - copied_s) / 86400))
   [ "$days" = 1 ] && age="1 day old" || age="$days days old"
-  copy="devshop copy of ${copied%%T*} ($age)"
+  copy="devshop copy of $(date -u -d "@$copied_s" '+%F %H:%M') UTC ($age)"
 else
   copy="devshop copy of unknown date ($VERSIONS/copy-date missing or unreadable)"
 fi
-# say <message> [<tail after the copy's date>]
-say() { echo "DEVSHOP: $1 · $copy${2:+; $2}"; }
+project_dir=$(git -C "${CLAUDE_PROJECT_DIR:-.}" rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-$PWD}")
+# say <message> [<tail after the copy's date and the project>]
+say() { echo "DEVSHOP: $1 · $copy · project ${project_dir##*/}${2:+; $2}"; }
 kept() {
   local c
   if c=$(readlink "$CURRENT" 2>/dev/null); then c=${c##*/}; echo "kept version ${c:0:12}"

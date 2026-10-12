@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# The devshop's pre-push hook. Feedback, not a wall: `git push --no-verify` skips it, and required
+# CI runs the same checks outside the session. It stops the push when
+#   1. gitleaks (pinned, /opt/devshop-tools/bin) finds a secret in the commits this push adds, with
+#      the repo's .gitleaks.toml if it has one;
+#   2. the repo's own lint, `scripts/lint.sh <base>`, finds problems (exit 1) or can't run (other);
+#   3. the project's own pre-push hook fails (chained after the devshop's, husky included).
+# A missing tool stops the push too: it never passes.
+set -uo pipefail
+# shellcheck source=runtime/git-hooks/_lib.sh
+. "$(dirname "$(readlink -f "$0")")/_lib.sh"
+tools=/opt/devshop-tools/bin
+zero=0000000000000000000000000000000000000000
+remote=${1:-origin}
+refs=$(cat)
+cd "$(git rev-parse --show-toplevel)" || exit 1
+problems=()
+
+# 1. Secrets in the commits this push adds: <remote sha>..<local sha>, or for a new remote branch
+#    everything not already on the remote.
+config=()
+[ -f .gitleaks.toml ] && config=(--config .gitleaks.toml)
+base=
+if [ ! -x "$tools/gitleaks" ]; then
+  problems+=("gitleaks not found at $tools/gitleaks (the environment's setup installs it: /tmp/devshop-setup.log)")
+else
+  while read -r _ lsha _ rsha; do
+    { [ -n "${lsha:-}" ] && [ "$lsha" != "$zero" ]; } || continue
+    if [ "$rsha" = "$zero" ]; then opts="$lsha --not --remotes=$remote"; else opts="$rsha..$lsha" base=${base:-$rsha}; fi
+    "$tools/gitleaks" git . "${config[@]}" --redact --no-banner --log-opts="$opts" >&2 \
+      || problems+=("gitleaks: leaks found in the commits being pushed, or it couldn't scan them ($opts)")
+  done <<<"$refs"
+fi
+
+# 2. The repo's own lint, given the base the push builds on (empty for a new branch with no remote
+#    default to compare against).
+if [ -z "$base" ]; then
+  base=$(git merge-base HEAD "refs/remotes/$remote/HEAD" 2>/dev/null || true)
+fi
+if [ -x scripts/lint.sh ]; then
+  PATH="$tools:$PATH" scripts/lint.sh "$base" >&2
+  case $? in
+    0) ;;
+    1) problems+=("scripts/lint.sh found problems (output above)") ;;
+    *) problems+=("scripts/lint.sh couldn't run (output above names what's missing)") ;;
+  esac
+elif [ -e scripts/lint.sh ]; then
+  problems+=("scripts/lint.sh exists but isn't executable")
+else
+  echo "devshop pre-push: no repo lint declared (scripts/lint.sh); only the secret scan ran" >&2
+fi
+
+# 3. The project's own pre-push.
+project_hook pre-push "$@" <<<"$refs" || problems+=("the project's own pre-push hook failed (output above)")
+
+if [ ${#problems[@]} -gt 0 ]; then
+  echo "devshop pre-push: push stopped:" >&2
+  printf '  - %s\n' "${problems[@]}" >&2
+  echo "Fix and push again. This hook is feedback; required CI runs the same checks." >&2
+  exit 1
+fi

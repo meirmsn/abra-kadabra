@@ -1,0 +1,5 @@
+# Tools the devshop installs into every environment (L-45), at the version and checksum CI pins in
+# .github/workflows/ci.yml (tests/bootstrap.test.sh fails if they differ). Upgrade both together.
+# Format: <name> <version> <sha256 of the download> <https URL of the release download>.
+gitleaks 8.30.1 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+shellcheck 0.11.0 8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198 https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.xz

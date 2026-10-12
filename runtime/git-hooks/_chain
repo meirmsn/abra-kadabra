@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Every git hook the devshop doesn't use itself is a link to this file: it runs the project's own
+# hook of the same name, so pointing core.hooksPath at the devshop's hooks never turns them off.
+# shellcheck source=runtime/git-hooks/_lib.sh
+. "$(dirname "$(readlink -f "$0")")/_lib.sh"
+project_hook "${0##*/}" "$@"

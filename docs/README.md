@@ -19,8 +19,10 @@ reachable from this page through links, or when a relative link or `#anchor` is 
   the whole tree; [`tests/secret-scan.test.sh`](../tests/secret-scan.test.sh) proves it fails
   on a secret in either place. To run it locally, install gitleaks (the version pinned in
   `ci.yml`) and run `tests/run.sh`.
-- Lint ([`ci.yml`](../.github/workflows/ci.yml) job `lint`), each check a script proven by the
-  test of the same name in `tests/` (it feeds a known-bad input, and a missing tool fails):
+- Lint ([`ci.yml`](../.github/workflows/ci.yml) job `lint`) runs [`scripts/lint.sh`](../scripts/lint.sh),
+  the same script the devshop's pre-push hook runs in a session; [`scripts/lint-file.sh`](../scripts/lint-file.sh)
+  is the per-file version the per-edit nudge runs. Each check is a script proven by the test of the
+  same name in `tests/` (it feeds a known-bad input, and a missing tool fails):
   - [`format-check.sh`](../scripts/format-check.sh): `prettier --check .` with the version
     [`package.json`](../package.json) pins (`npm ci` installs it); `.prettierignore` skips the spikes.
   - [`shellcheck.sh`](../scripts/shellcheck.sh): shellcheck (version pinned in `ci.yml`) over every
@@ -37,8 +39,10 @@ reachable from this page through links, or when a relative link or `#anchor` is 
 ## The install
 
 - [install/README.md](../install/README.md): how a project's cloud session gets the devshop version
-  it pins (`.devshop-version`), what each `DEVSHOP:` line means, and the limits. Proven by
-  [`tests/bootstrap.test.sh`](../tests/bootstrap.test.sh).
+  it pins (`.devshop-version`), what each `DEVSHOP:` line means, the devshop's git hooks and per-edit
+  nudge, and the limits. Proven by [`tests/bootstrap.test.sh`](../tests/bootstrap.test.sh),
+  [`tests/git-hooks.test.sh`](../tests/git-hooks.test.sh) and
+  [`tests/post-edit.test.sh`](../tests/post-edit.test.sh).
 
 ## What projects get (`runtime/`)
 

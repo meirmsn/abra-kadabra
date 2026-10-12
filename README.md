@@ -28,8 +28,8 @@ git worktree add ../v1 v1-final
 | [`.gitleaks.toml`](.gitleaks.toml)      | Secret-scanning config, proven by `tests/gitleaks.test.sh`                                  |
 | [`.github/`](.github)                   | CI (`workflows/ci.yml`) and `CODEOWNERS` (the owner approves every change)                  |
 | [`bootstrap.sh`](bootstrap.sh)          | Entry point the cloud environments' setup script runs; its path must not change             |
-| [`install/`](install/README.md)         | The install: bootstrap, plugin, dispatcher, and the gstack pin (`gstack.pin`)               |
-| [`runtime/`](runtime)                   | What `.devshop-version` selects: `skills/`, `hooks/`, `templates/`, `scripts/`, `reviewer/` |
+| [`install/`](install/README.md)         | The install: bootstrap, plugin, dispatcher, the gstack and tools pins                       |
+| [`runtime/`](runtime)                   | What `.devshop-version` selects: `skills/`, `hooks/`, `git-hooks/`, `scripts/`, `reviewer/` |
 | [`kit/notes/revamp/`](kit/notes/revamp) | Revamp plan, decisions, findings, lessons, log, and the spikes (kept as notes)              |
 
 Planned, added when their task lands: skills under `runtime/skills/` (W10.6), stack homes

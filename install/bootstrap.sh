@@ -40,6 +40,31 @@ DEVSHOP_PRIME_ONLY=1 CLAUDE_PROJECT_DIR=/nonexistent bash "$PLUGIN/devshop/hooks
 claude plugin marketplace add "$PLUGIN" --scope user >>"$LOG" 2>&1 || step_failed "claude plugin marketplace add"
 claude plugin install devshop@devshop --scope user >>"$LOG" 2>&1 || step_failed "claude plugin install"
 
+# Pinned tools (L-45): each install/tools.pin line is downloaded, checked against its sha256, and
+# its binary linked into /opt/devshop-tools/bin, where the devshop's git hooks run it. A bad or
+# missing download is a loud failure; the other tools and steps still run (L-43).
+TOOLS=/opt/devshop-tools
+install_tools() {
+  local name version sum url dir tmp bin
+  mkdir -p "$TOOLS/bin" || { step_failed "tools: mkdir $TOOLS/bin"; return; }
+  while read -r name version sum url; do
+    if [[ ! $name =~ ^[a-z0-9-]+$ || ! $version =~ ^[0-9A-Za-z][0-9A-Za-z.+-]*$ || $version == *..* \
+      || ! $sum =~ ^[0-9a-f]{64}$ || ! $url =~ ^https://[^@[:space:]]+$ ]]; then
+      step_failed "tool ${name:-?}: install/tools.pin line is not '<name> <version> <sha256> <https URL>'"
+      continue
+    fi
+    dir="$TOOLS/$name-$version" tmp="$TOOLS/$name.download"
+    rm -rf "$dir" "$tmp" && mkdir -p "$dir"
+    curl -fsSL -o "$tmp" "$url" 2>>"$LOG" || { step_failed "tool $name: download $url"; continue; }
+    echo "$sum  $tmp" | sha256sum -c - >/dev/null 2>&1 \
+      || { step_failed "tool $name: checksum of $url is not the pinned $sum"; rm -f "$tmp"; continue; }
+    { tar --no-same-owner -xf "$tmp" -C "$dir" 2>>"$LOG" && rm -f "$tmp"; } || { step_failed "tool $name: unpack $url"; continue; }
+    bin=$(find "$dir" -type f -name "$name" -perm -u+x | head -1)
+    { [ -n "$bin" ] && ln -sfn "$bin" "$TOOLS/bin/$name"; } || step_failed "tool $name: no executable '$name' in $url"
+  done < <(git --git-dir="$MIRROR" show "$REF:install/tools.pin" | grep -v '^#')
+}
+install_tools
+
 # gstack (TARGET Shape 7): the one upstream commit install/gstack.pin names, installed unmodified
 # after the devshop's own steps, so a gstack failure can't stop them. Its setup runs with stdin
 # closed, team mode off and its own Claude hooks off, so it leaves ~/.claude/settings.json alone
