@@ -1530,3 +1530,54 @@ this repo's tests) waits for an owner call, proposed for W10.6.5. F-NEW-24 (a pr
 goes to W10.6.5 without a prompt change.
 
 **Next**: W10.6.7 in a new session (the owner has its prompt).
+
+## #42 — 2026-10-12 · W10.5.3 done: spec plants, decoy stack home, fixture CLAUDE.md
+
+**What moved**: the rest of W10.5.3 after LOG #38, once W10.6.1 (#76) put the spec and stack-home
+formats on `main`. The W10.6.1 session got the hand-off as a message from this session (owner's
+request) and added the `<path>: <pattern>` detect form the decoy needs.
+
+- **Fixture `CLAUDE.md`** (fixture PR 8): the Build skill reads a project's `CLAUDE.md`; the
+  fixture had none, so its conventions (new routes in `traffic/routes.json`, append-only migrations,
+  deploys only from `main`, no ids in the repo) never reached a builder. It says nothing about the
+  harness. A reset restores every file outside `migrations/` to its tag, so the owner tagged
+  **`baseline-2`** on that merge; `baseline-1` would delete the new file.
+- **Spec plants** (harness PR 3): `untested-acceptance`, `false-verified`, `skipped-state-row`,
+  `reworded-acceptance`, on the PR's `specs/*.md` in W10.6.1's format. Plants in one run never pick
+  the same item; items already verified by review, the state table's header and non-spec files are
+  never touched. The harness now has all five plant types.
+- **Decoy** (this PR): `runtime/stacks/nextjs-supabase/`, detected by `package.json: "next" *:`,
+  `next.config.*` or `supabase/config.toml`. Its README says plainly it is a placeholder until
+  lalista's real home at M2, so a real Next.js project that loads it isn't misled.
+
+**Evidence**
+
+- `0ccde19` (fixture PR 8's merge): `lint`, `test` (with the schema check), `secret-scan` and the
+  production `deploy` passed; `baseline-2` points at it (`git ls-remote --tags`).
+- Spec plants, checks written first: 7 tests failed before the plants existed; all 27 harness
+  tests pass. The first mutation pass left 10 of 13 mutants alive (the test spec couldn't tell the
+  review-only item, the header row, a second test file, bracket leftovers, non-spec files or the
+  shared item set from real targets); after strengthening, 13 of 13 are killed. On a template-shaped
+  spec, all four plants in one run hit four different targets, and W10.6.1's real
+  `spec-check.py --go` passed before and after (silent to the shape check). The merged format on
+  `main` is byte-identical to the branch the plants were built against.
+- Decoy, check first: `tests/decoy-stack.test.sh` failed with no home, then passes 5 cases with
+  the real `stack-homes.sh` and `runtime/stacks/`: the fixture's shape and near misses (`next` in a
+  description, a `next build` script, `next-auth`) don't load it; a `next` dependency, a
+  `next.config.*` and a `supabase/config.toml` do. 4 of 4 detector mutants killed. On the real
+  fixture repo (`main`), `stack-homes.sh` prints `STACKS: none`.
+- **W10.5's Done-when, re-checked:** fixture repo with plain CI (`lint`, `test`, `secret-scan`
+  required on `main`); protection refused direct pushes as the agent (GH006, LOG #25, #38); per-PR
+  previews deployed on every PR this session (comment updated per push); production deploys only
+  from `main` (non-`main` refusal, LOG #29); harness: traffic, reset + baseline, idea pool, all five
+  plants and the apply Action, decoy. The apply Action's first live run is W10.6.4's.
+
+**Surprises**
+
+- The north-star's "expected set" for step 2 is `none` at M1: no Cloudflare stack home exists
+  until M2, so only the decoy half can be checked now (noted on W10.6.4).
+- A file added to the fixture after a baseline tag is deleted by the next reset to that tag; every
+  such change needs a new baseline (here `baseline-2`).
+
+**Next**: W10.6.4 (north-star run) once W10.6.7 lands; before it, the owner's harness steps listed
+there.

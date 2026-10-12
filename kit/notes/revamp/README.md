@@ -70,8 +70,7 @@ M0 is done (review: [LOG.md](LOG.md) #15). M1 ([W10](workstreams/W10-v2.md)):
   hook). W10.3 lessons harvest done: [lessons.md](lessons.md) +
   every FINDINGS row dispositioned (LOG #21).
 - **Owner, when ready:** before M2, check lalista's Vercel and Supabase plans (F-NEW-18/19).
-  W10.5.1–2 are done (LOG #25, #35); W10.5.3's harness is built except the spec plants and the
-  decoy, which wait for W10.6.1 (LOG #38). Before the first north-star run, do the harness steps listed under W10.6.4.
+  W10.5 (fixture + north-star harness) is done (LOG #25, #35, #38, #42). Before the first north-star run, do the harness steps listed under W10.6.4.
 - Done: W10.2 — L3 agreed for all nine pillars + north-star rewritten and hardened (LOG #19,
   #20); fixture on Cloudflare. D-01 decided 2026-10-11 (option D; built in W10.4.4).
 
