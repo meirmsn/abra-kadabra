@@ -23,8 +23,9 @@ Name it in your first reply; the owner can correct you.
 
 - Why, who or the problem not settled (a new product, a big or fuzzy feature)? Propose gstack's
   `/office-hours` first.
-- Run gstack's `/spec --file-only --no-gate` interview and stop before it files an issue: the record
-  is the spec file, and step 4 replaces its quality gate. Then the gstack plan reviews that fit.
+- Every change, however small, gets gstack's `/spec --file-only --no-gate` interview (a short one
+  for a small change). Stop before it files an issue: the record is the spec file, and step 4
+  replaces its quality gate. Then the gstack plan reviews that fit.
 - A decision that rests on how a tool or version behaves: prove it with a quick experiment first.
 - Too big for one change? Propose a split, one spec each.
 
@@ -35,7 +36,9 @@ Name it in your first reply; the owner can correct you.
   true, pass/fail); out of scope. UI changes add the core flow (2–4 steps) and a state table.
 - Capture decisions when the owner makes them, not turn by turn.
 - An item that can't be tested or can't be done goes back to the owner; never reword it to fit.
-- Run `/opt/devshop-current/scripts/spec-check.py specs/<change>.md` until it passes.
+- Run `/opt/devshop-current/scripts/spec-check.py specs/<change>.md` until it passes. Commit and
+  push the draft on the change's branch as you go, so it outlives the session; nothing is built
+  before the "go".
 
 ## 4. Adversarial spec review, before the owner sees it
 
@@ -45,13 +48,13 @@ what is ambiguous; which items can't be tested; which edge cases and failure mod
 what scope was added beyond the ask; does literal code in it match the codebase. Its findings are
 claims to check. Fix what you're sure of; the rest go to the owner as questions.
 
-_Mitigation:_ TARGET has the independent reviewer do this; `reviewer/review.sh` has no spec mode yet.
+_Mitigation:_ TARGET has the independent reviewer do this; its spec mode is an M2 item.
 
 ## 5. The "go"
 
 - Show the owner one screen: intent, decisions, acceptance items, out of scope, rough size, and the
   open questions from step 4.
 - On "go", record it on the spec's `**Go:**` line (their words, the date), run `spec-check.py --go`,
-  and commit the spec on the change's branch. Then `build`.
+  commit and push. Then `build`.
 - After the go, a change to a decision or an acceptance item is raised with the owner, decided by
   them and recorded in the spec as theirs. The final review fails on any that isn't.
