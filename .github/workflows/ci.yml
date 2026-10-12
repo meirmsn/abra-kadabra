@@ -34,6 +34,11 @@ jobs:
           tar -xzf "$RUNNER_TEMP/$tarball" -C "$RUNNER_TEMP" gitleaks
           echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
 
+      # tests/bootstrap.test.sh replays the cloud setup in a private mount namespace with a scratch
+      # /opt; Ubuntu 24.04 blocks unprivileged user namespaces through AppArmor by default.
+      - name: Allow user namespaces (for the install scenario test)
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
       - name: Tests (incl. the config catching planted secrets)
         run: tests/run.sh
 

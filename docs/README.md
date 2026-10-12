@@ -19,6 +19,12 @@ linked, no broken links) comes with W10.4.2.
   on a secret in either place. To run it locally, install gitleaks (the version pinned in
   `ci.yml`) and run `tests/run.sh`.
 
+## The install
+
+- [install/README.md](../install/README.md): how a project's cloud session gets the devshop version
+  it pins (`.devshop-version`), what each `DEVSHOP:` line means, and the limits. Proven by
+  [`tests/bootstrap.test.sh`](../tests/bootstrap.test.sh).
+
 ## The revamp (being built)
 
 - [kit/notes/revamp/README.md](../kit/notes/revamp/README.md): start here. It links the plan,

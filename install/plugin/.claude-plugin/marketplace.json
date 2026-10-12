@@ -1,0 +1,11 @@
+{
+  "name": "devshop",
+  "owner": { "name": "devshop" },
+  "plugins": [
+    {
+      "name": "devshop",
+      "source": "./devshop",
+      "description": "The devshop's install stub: skills follow /opt/devshop-current, which the SessionStart hook points at the project's pinned devshop version"
+    }
+  ]
+}

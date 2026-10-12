@@ -816,3 +816,27 @@ Hand-offs, not done here:
 scan is the only scan until W10.4.4 (a secret can reach a pushed branch before CI flags it).
 
 **Next**: owner marks `ci / secret-scan` required (W10.4.2); W10.4.4. (PR #57)
+
+## #24 — 2026-10-12 · W10.4.4 part 1: the install moves out of spikes/, dated `DEVSHOP:` lines
+
+**What moved**: the W10.1.2b design now lives in `install/` (bootstrap, stub plugin, dispatcher:
+read from `main` when the environment cache builds) and `runtime/` (what a project's
+`.devshop-version` selects: `skills/`, optional `hooks/session-start.sh`). Root `bootstrap.sh`
+keeps its path and only delegates; the two-line setup script is unchanged. Every `DEVSHOP:` line
+ends with the local copy's date and age (the bootstrap records it). The bootstrap keeps the URL the
+clone used, without the token, instead of a hard-coded account (L-01). Malformed pins are refused
+before git sees them. The spike files stay as notes, and environments cached before this keep
+running the spike stub until their next rebuild. First runtime skill: `devshop-version`.
+
+**Evidence**: `tests/bootstrap.test.sh` written first. It replays the setup script (local bare
+clone; second line verbatim) in a private mount namespace with a scratch `/opt` and `/tmp`, then
+runs the installed hook. On the old main it passed HEAD, pinned SHA, unknown pin and pre-move pin.
+The new checks failed there first: URL kept the hard-coded account, lines carried no date. They
+pass after the move, and a missing copy date that first read as "0 days old" is fixed. 7 mutants of
+the install all killed. The real `claude` CLI (overlay on `/opt`) installed the plugin, listed
+`devshop:devshop-version` and showed the dated line in context.
+
+**Owner calls in the session**: gstack gets its own PR next, then the git hooks; stack-detected
+dependency install goes to W10.5.2; PostToolUse formatter parked.
+
+**Next**: owner's fresh-session check (PR checklist) → W10.4.4 stays `[~]`; pinned gstack. (PR #59)
