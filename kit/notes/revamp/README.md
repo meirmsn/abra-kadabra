@@ -67,8 +67,8 @@ M0 is done (review: [LOG.md](LOG.md) #15). M1 ([W10](workstreams/W10-v2.md)):
 
 - **Claude:** W10.4 v2 bootstrap in this repo is done (W10.4.4 closed, LOG #37); W10.6.6
   (reviewer verdict on the PR, spec found from the diff) done (LOG #40); W10.6.1
-  (Intent and Build skills) done (LOG #43); next W10.6.7 (the reviewer hook) and the `DEVSHOP:`
-  line fix (LOG #43). W10.3 lessons harvest done: [lessons.md](lessons.md) +
+  (Intent and Build skills) done (LOG #43); next W10.6.7 (the reviewer hook); the `DEVSHOP:`
+  line fix is up for review (LOG #44). W10.3 lessons harvest done: [lessons.md](lessons.md) +
   every FINDINGS row dispositioned (LOG #21).
 - **Owner, when ready:** before M2, check lalista's Vercel and Supabase plans (F-NEW-18/19).
   W10.5 (fixture + north-star harness) is done (LOG #25, #35, #38, #42). Before the first north-star run, do the harness steps listed under W10.6.4.

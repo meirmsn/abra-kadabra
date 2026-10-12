@@ -190,13 +190,29 @@ setup_env() {
 # session <pin or ''> [setup_env args]: start a session in a fresh project on a fresh VM from the
 # environment's cached setup (every cloud session starts from that snapshot); prints the hook's output.
 session() {
-  local proj cmd
+  local proj cmd raw
   setup_env "${@:2}" >&2
   proj=$(mktemp -d "$work/proj.XXXX")
   [ -z "$1" ] || printf '%s\n' "$1" >"$proj/.devshop-version"
   cmd=$(jq -er '.hooks.SessionStart[0].hooks[0].command' "$HOME/plugin/hooks/hooks.json")
-  (cd "$proj" && CLAUDE_PLUGIN_ROOT="$HOME/plugin" CLAUDE_PROJECT_DIR="$proj" bash -c "$cmd") \
+  raw=$(cd "$proj" && CLAUDE_PLUGIN_ROOT="$HOME/plugin" CLAUDE_PROJECT_DIR="$proj" bash -c "$cmd") \
     || fail "SessionStart hook exited non-zero"
+  hook_json "$raw"
+}
+
+# The hook's output is one JSON object (Claude Code's hook output): systemMessage shows its lines
+# to the owner, since hook output otherwise reaches only Claude; additionalContext gives Claude the
+# same lines and the ask to repeat them, because a project carries no devshop rule saying so (LOG
+# #43). hook_json <raw output>: checks that, then prints the lines for the case checks.
+NUDGE="Repeat every DEVSHOP: line above to the owner word for word in your first reply."
+hook_json() {
+  local msg ctx
+  msg=$(jq -er 'select(type == "object") | .systemMessage | strings' <<<"$1" 2>/dev/null) \
+    || { echo "$1" >&2; fail "SessionStart output is not JSON with a systemMessage"; }
+  ctx=$(jq -er '.hookSpecificOutput | select(.hookEventName == "SessionStart") | .additionalContext | strings' <<<"$1") \
+    || { echo "$1" >&2; fail "SessionStart output has no hookSpecificOutput.additionalContext"; }
+  [ "$ctx" = "$msg"$'\n\n'"$NUDGE" ] || { echo "$1" >&2; fail "additionalContext isn't the lines plus the ask to repeat them"; }
+  printf '%s\n' "$msg"
 }
 
 # check <case> <output> <grep -E pattern for its one DEVSHOP: line> <sha current must point at>
@@ -229,6 +245,22 @@ echo "ok - bootstrap keeps the clone's URL and drops the token"
 out=$(session '')
 check "HEAD default (no .devshop-version)" "$out" \
   "^DEVSHOP: using HEAD \(${head:0:12}\) from environment default \(no \.devshop-version\)" "$head"
+
+# Without jq the hook can't build JSON safely; it prints the plain lines and the ask instead, so
+# the line still reaches Claude (malformed JSON would be dropped whole).
+mkdir -p "$work/bin-nojq"
+for f in /usr/local/bin/* /usr/bin/* /bin/*; do
+  [ "${f##*/}" = jq ] || [ -e "$work/bin-nojq/${f##*/}" ] || ln -s "$f" "$work/bin-nojq/${f##*/}"
+done
+proj=$(mktemp -d "$work/proj.XXXX")
+cmd=$(jq -er '.hooks.SessionStart[0].hooks[0].command' "$HOME/plugin/hooks/hooks.json")
+raw=$(cd "$proj" && PATH="$work/bin-nojq" CLAUDE_PLUGIN_ROOT="$HOME/plugin" CLAUDE_PROJECT_DIR="$proj" bash -c "$cmd") \
+  || fail "SessionStart hook without jq exited non-zero"
+if ! grep -q '^DEVSHOP: using HEAD ' <<<"$raw" || [ "$(tail -1 <<<"$raw")" != "$NUDGE" ] || grep -q '^{' <<<"$raw"; then
+  echo "$raw" >&2
+  fail "without jq: want the plain DEVSHOP: line, then the ask to repeat it"
+fi
+echo "ok - without jq the hook prints the plain line and the ask to repeat it"
 
 out=$(session "$pinned")
 check "pinned SHA" "$out" "^DEVSHOP: using $pinned \(${pinned:0:12}\) from project \.devshop-version" "$pinned"
