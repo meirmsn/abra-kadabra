@@ -930,7 +930,7 @@ formatter parked in #24 is un-parked: a hook checks each file Claude edits (Pret
 and the devshop pre-push hook runs the `scripts/` checks as a backstop. Both go to W10.4.4.
 
 **Next**: `[owner]` mark `ci / lint` required on `main` once this merges; then W10.4.2 is done.
-(PR #63)
+(PR #63) — Done 2026-10-12: the owner marked it required after the merge (owner-reported).
 
 ## #27 — 2026-10-12 · W10.6.3 the PR body template and its shape check
 
