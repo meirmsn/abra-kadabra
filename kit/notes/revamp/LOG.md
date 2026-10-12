@@ -920,4 +920,4 @@ Vercel's bot posts. The fixture deploys with `wrangler` from a GitHub Action (W1
 posts no comment. So the deploy job must post one comment per PR and update it on every push.
 Handed to W10.5.2.
 
-**Next**: W10.6.1 (Build skill fills the template, runs the check before ready).
+**Next**: W10.6.1 (Build skill fills the template, runs the check before ready). (PR #65)
