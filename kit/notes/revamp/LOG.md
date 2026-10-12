@@ -839,4 +839,4 @@ the install all killed. The real `claude` CLI (overlay on `/opt`) installed the 
 **Owner calls in the session**: gstack gets its own PR next, then the git hooks; stack-detected
 dependency install goes to W10.5.2; PostToolUse formatter parked.
 
-**Next**: owner's fresh-session check (PR checklist) → W10.4.4 stays `[~]`; pinned gstack.
+**Next**: owner's fresh-session check (PR checklist) → W10.4.4 stays `[~]`; pinned gstack. (PR #59)
