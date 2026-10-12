@@ -61,6 +61,9 @@ gs_good=$(git -C "$work/gs" rev-parse HEAD)
 printf '#!/usr/bin/env bash\necho "fake gstack setup failed" >&2\nexit 1\n' >"$work/gs/setup"
 git -C "$work/gs" commit -qam "fake gstack, setup fails" && git -C "$work/gs" push -q origin HEAD:refs/heads/broken
 gs_broken=$(git -C "$work/gs" rev-parse HEAD)
+git -C "$work/gs" checkout -q "$gs_good" && touch "$work/gs/BUN_FAIL"
+git -C "$work/gs" add -A && git -C "$work/gs" commit -qm "fake gstack, lockfile drift" && git -C "$work/gs" push -q origin HEAD:refs/heads/drift
+gs_drift=$(git -C "$work/gs" rev-parse HEAD)
 
 # A source repo standing in for the devshop on GitHub. Its main is HEAD with only the gstack pin
 # changed, to the fake's good commit; that is the commit under test from here on. Two more
@@ -77,6 +80,7 @@ repin() { # repin <gstack sha> <branch>: HEAD with the gstack pin set to <sha>, 
 repin "$gs_good" main
 repin "$gs_broken" gstack-broken
 repin "$(rand 'a-f0-9' 40)" gstack-missing
+repin "$gs_drift" gstack-drift
 git --git-dir="$src" symbolic-ref HEAD refs/heads/main
 head=$(git -C "$work/dev" rev-parse origin/main)
 marker="PIN-MARKER-$(rand 'a-z0-9' 12)"
@@ -107,12 +111,19 @@ case "$1 $2 ${3:-}" in
 esac
 EOF
 chmod +x "$work/bin/claude"
+# A fake `bun`: records its calls in the gstack checkout's parent; fails if the checkout has BUN_FAIL.
+cat >"$work/bin/bun" <<'EOF'
+#!/usr/bin/env bash
+echo "bun $* (in $PWD)" >>"$HOME/bun.calls"
+[ ! -e BUN_FAIL ] || { echo "fake bun: lockfile out of date" >&2; exit 1; }
+EOF
+chmod +x "$work/bin/bun"
 export PATH="$work/bin:$PATH"
 
 # setup_env [main branch] [expected result: done|FAILED]: a fresh VM's environment setup, the
 # two-line setup script with line 2 verbatim.
 setup_env() {
-  rm -rf /opt/* /tmp/devshop-* "$HOME/plugin" "$HOME/marketplaces" "$HOME/.claude" "$HOME/gstack-setup.args" "$HOME/gstack-config.calls"
+  rm -rf /opt/* /tmp/devshop-* "$HOME/plugin" "$HOME/marketplaces" "$HOME/.claude" "$HOME/gstack-setup.args" "$HOME/gstack-config.calls" "$HOME/bun.calls"
   git clone -q --bare "$src" /opt/devshop.git
   [ "${1:-main}" = main ] || git --git-dir=/opt/devshop.git update-ref refs/heads/main "refs/heads/$1"
   # Line 1 clones with the token in the URL; the bootstrap must not keep it (nor name an account).
@@ -209,13 +220,23 @@ got=$(head -1 "$HOME/gstack-setup.args" 2>/dev/null)
 [ "$got" = "$want" ] || fail "gstack setup ran with '$got', want '$want'"
 grep -qx "stdin: 0 bytes" "$HOME/gstack-setup.args" || fail "gstack setup's stdin isn't closed: $(tail -1 "$HOME/gstack-setup.args")"
 [ -f "$HOME/.claude/skills/autoplan/SKILL.md" ] || fail "gstack setup's skills are missing"
+# gstack's npm dependencies come only from its lockfile: installed frozen before its setup runs.
+grep -qx "bun install --frozen-lockfile (in $HOME/.claude/skills/gstack)" "$HOME/bun.calls" 2>/dev/null \
+  || fail "gstack's dependencies weren't installed with --frozen-lockfile first: $(cat "$HOME/bun.calls" 2>/dev/null)"
 # The pin is the only upgrade path: gstack's own update check is off (auto_upgrade is off by default).
 grep -qx "set update_check false" "$HOME/gstack-config.calls" 2>/dev/null || fail "gstack's update check wasn't turned off"
 echo "ok - gstack installed at the pinned commit; setup ran non-interactively with its hooks off; update check off"
 
 # A gstack failure is loud but can't stop the devshop (L-43): the plugin is installed and the
 # DEVSHOP: line still appears.
-for broken in gstack-broken gstack-missing; do
+# Lockfile drift fails closed: gstack's own setup (whose fallback would re-resolve from the
+# registry) never runs.
+setup_env gstack-drift FAILED
+grep -q "FAILED: gstack: frozen dependency install" /tmp/devshop-setup.log || fail "lockfile drift wasn't logged as a gstack failure"
+[ ! -e "$HOME/gstack-setup.args" ] || fail "gstack setup ran after the frozen dependency install failed"
+echo "ok - gstack lockfile drift fails closed, before gstack's setup"
+
+for broken in gstack-broken gstack-missing gstack-drift; do
   out=$(session '' "$broken" FAILED)
   grep -q "FAILED: gstack" /tmp/devshop-setup.log || { cat /tmp/devshop-setup.log >&2; fail "$broken: log doesn't name the gstack failure"; }
   check "$broken: devshop still installed" "$out" "^DEVSHOP: using HEAD " "$(git --git-dir="$src" rev-parse "$broken")"

@@ -28,7 +28,9 @@ W10.1.2b spike (`kit/notes/revamp/spikes/w10-1-2b-thin/`, kept as notes).
   in the next session, but a symlinked skills dir switched by the hook works in the same one.
 - **gstack** (TARGET Shape 7, D-07): [`install/gstack.pin`](gstack.pin) names one upstream commit.
   After the devshop's own steps, so a gstack failure can't stop them, the bootstrap fetches that
-  commit into `~/.claude/skills/gstack`, unmodified, and runs its `./setup` with stdin closed and
+  commit into `~/.claude/skills/gstack`, unmodified, installs its npm dependencies with
+  `bun install --frozen-lockfile` (failing closed: gstack's setup would otherwise fall back to an
+  unfrozen install), and runs its `./setup` with stdin closed and
   `--no-team --no-plan-tune-hooks --no-timeline-stop-hook`, so gstack registers no Claude hooks and
   leaves `~/.claude/settings.json` to the devshop plugin (F-GS-08). It then turns gstack's update
   check off (`auto_upgrade` is off by default): the pin is the only upgrade path. `--no-browser`:

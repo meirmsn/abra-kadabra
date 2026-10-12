@@ -54,6 +54,10 @@ install_gstack() {
   { rm -rf "$dir" && git init -q "$dir" && git -C "$dir" fetch -q --depth 1 "$url" "$sha" \
     && git -C "$dir" checkout -q --detach FETCH_HEAD; } >>"$glog" 2>&1 \
     || { step_failed "gstack: fetch $sha (see $glog)"; return; }
+  # Its npm dependencies come only from its lockfile. gstack's setup falls back to an unfrozen
+  # install when the frozen one fails, so install frozen first and stop here if that fails.
+  (cd "$dir" && PATH="$HOME/.bun/bin:$PATH" timeout 600 bun install --frozen-lockfile </dev/null) >>"$glog" 2>&1 \
+    || { step_failed "gstack: frozen dependency install (bun.lock vs this bun; see $glog)"; return; }
   (cd "$dir" && PATH="$HOME/.bun/bin:$PATH" timeout 600 ./setup --host claude --no-team \
     --no-plan-tune-hooks --no-timeline-stop-hook --no-browser --quiet </dev/null) >>"$glog" 2>&1 \
     || { step_failed "gstack: setup exited $? (see $glog)"; return; }
