@@ -1254,3 +1254,25 @@ non-comment line. The checklist's scratch remote got `main` through the hook, wh
 all history and stopped on v1's known findings (LOG #11); seed such a remote with `--no-verify`.
 
 **Next**: owner's check of this fix; the reviewer hook after W10.6.6.
+
+## #35 — 2026-10-12 · W10.4.4: fresh-session check of #71; env note dropped
+
+**Owner's check of #71 (abra-kadabra)**: the devshop pre-push hook scanned the push's 1 new commit
+and passed; session setup ran `npm ci`; the `DEVSHOP:` line still ended `env note unavailable`.
+The real environment's setup file has wrapper lines before the owner's comment, so the first
+comment line after `#!` is never the owner's.
+
+**Owner decision**: drop the env note. The line's project still names the environment (one
+environment per project).
+
+**Done, test first**: `tests/bootstrap.test.sh` back to requiring the line to end with
+`· project <name>` (or its `;` tail) and to replaying the setup script's line 2 verbatim on stdin.
+Against the old HEAD it failed (`FAILED: write env-note`, line ending `· env note unavailable`);
+after removing `env_note`/`lead_comment` from `install/bootstrap.sh` and the note from
+`install/plugin/devshop/hooks/dispatch.sh` (both now byte-identical to before #70), all cases pass.
+`install/README.md` no longer describes the note.
+
+**Not started**: the reviewer hook. It waits for W10.6.6 (`review.sh --base <rev>` without
+`--spec`); `runtime/reviewer/review.sh` on `main` still requires `--spec`, which a hook can't know.
+
+**Next**: W10.6.6; then the reviewer hook and the owner's fresh-session check of it.
