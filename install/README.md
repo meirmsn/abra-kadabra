@@ -26,6 +26,13 @@ W10.1.2b spike (`kit/notes/revamp/spikes/w10-1-2b-thin/`, kept as notes).
   `/opt/devshop-versions/<sha>` (no network), repoints `/opt/devshop-current`, and runs the version's
   `runtime/hooks/session-start.sh` if it has one. Why a stub: a plugin installed by a hook loads only
   in the next session, but a symlinked skills dir switched by the hook works in the same one.
+- **gstack** (TARGET Shape 7, D-07): [`install/gstack.pin`](gstack.pin) names one upstream commit.
+  After the devshop's own steps, so a gstack failure can't stop them, the bootstrap fetches that
+  commit into `~/.claude/skills/gstack`, unmodified, and runs its `./setup` with stdin closed and
+  `--no-team --no-plan-tune-hooks --no-timeline-stop-hook`, so gstack registers no Claude hooks and
+  leaves `~/.claude/settings.json` to the devshop plugin (F-GS-08). It then turns gstack's update
+  check off (`auto_upgrade` is off by default): the pin is the only upgrade path. `--no-browser`:
+  Chromium installs on a browser skill's first run. Output: `/tmp/devshop-gstack.log`.
 - **The project** holds one file, `.devshop-version`: a commit SHA for now (release tags once CI
   makes them, A-25). Bumping is a one-line PR. Without it the session uses `HEAD`: `main` as of the
   local copy.
@@ -55,6 +62,11 @@ installed hook for every case above.
 - Environments whose cache predates this install still run the spike's stub, which reads
   `spikes/w10-1-2b-thin/runtime`. The spike files stay, so those sessions keep working until their
   next rebuild.
-- Still to come in W10.4.4: the pinned gstack (installed by this bootstrap), then devshop-owned git
-  hooks (pre-push `gitleaks git`) via `runtime/hooks/session-start.sh`.
+- gstack comes from `main`'s pin at cache build, not from the project's pinned devshop version.
+- gstack takes about 1.7 GB in the environment cache and about 20 s of setup.
+- Upgrading gstack: change the SHA in `install/gstack.pin` by PR, then run the smoke check: in a
+  fresh session the `DEVSHOP:` line still appears and `/autoplan` runs (F-GS-04, F-GS-08), plus the
+  skills v2 uses (A-13).
+- Still to come in W10.4.4: devshop-owned git hooks (pre-push `gitleaks git`) via
+  `runtime/hooks/session-start.sh`.
 - `runtime/skills/` is where the v2 skills land (W10.6).

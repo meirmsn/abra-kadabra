@@ -31,11 +31,54 @@ isolate_git "$work"
 head=$(git -C "$repo_root" rev-parse HEAD)
 git -C "$repo_root" merge-base --is-ancestor "$PRE_MOVE" HEAD 2>/dev/null || fail "pre-move commit $PRE_MOVE is not in HEAD's history (shallow clone? CI needs fetch-depth: 0)"
 
-# A source repo standing in for the devshop on GitHub: main = HEAD, plus a pinned side commit
-# that adds a runtime SessionStart script printing a marker.
+# The gstack pin at HEAD: one upstream commit (TARGET Shape 7), "<https URL> <40-hex sha>".
+gstack_pin_line=$(git -C "$repo_root" show "$head:install/gstack.pin" 2>/dev/null | grep -v '^#') \
+  || fail "no install/gstack.pin at HEAD"
+read -r gstack_url gstack_sha <<<"$gstack_pin_line"
+[[ $gstack_url =~ ^https://[^@]+$ && $gstack_sha =~ ^[0-9a-f]{40}$ ]] \
+  || fail "install/gstack.pin: want '<https URL> <40-hex sha>', got '$gstack_pin_line'"
+
+# A fake upstream gstack, reached through the pin's own URL (git insteadOf in the isolated config,
+# so the bootstrap fetches it exactly as from GitHub). Its ./setup records its arguments and
+# stdin and adds a skill; a second commit's ./setup fails.
+gs="$work/gstack.git"
+git init -q --bare "$gs"
+git -C "$gs" config uploadpack.allowAnySHA1InWant true
+git config --global url."$gs".insteadOf "$gstack_url"
+git clone -q "$gs" "$work/gs" 2>/dev/null
+# shellcheck disable=SC2016  # the fake setup's source: expands when it runs, not here
+{
+  echo '#!/usr/bin/env bash'
+  echo '{ echo "args: $*"; if [ -t 0 ]; then echo "stdin: tty"; else echo "stdin: $(wc -c) bytes"; fi; } >"$HOME/gstack-setup.args"'
+  echo 'mkdir -p "$HOME/.claude/skills/autoplan" && echo fake >"$HOME/.claude/skills/autoplan/SKILL.md"'
+} >"$work/gs/setup"
+mkdir -p "$work/gs/bin"
+# shellcheck disable=SC2016  # the fake gstack-config's source
+printf '#!/usr/bin/env bash\necho "$*" >>"$HOME/gstack-config.calls"\n' >"$work/gs/bin/gstack-config"
+chmod +x "$work/gs/setup" "$work/gs/bin/gstack-config"
+git -C "$work/gs" add -A && git -C "$work/gs" commit -qm "fake gstack" && git -C "$work/gs" push -q origin HEAD:refs/heads/main
+gs_good=$(git -C "$work/gs" rev-parse HEAD)
+printf '#!/usr/bin/env bash\necho "fake gstack setup failed" >&2\nexit 1\n' >"$work/gs/setup"
+git -C "$work/gs" commit -qam "fake gstack, setup fails" && git -C "$work/gs" push -q origin HEAD:refs/heads/broken
+gs_broken=$(git -C "$work/gs" rev-parse HEAD)
+
+# A source repo standing in for the devshop on GitHub. Its main is HEAD with only the gstack pin
+# changed, to the fake's good commit; that is the commit under test from here on. Two more
+# branches pin a gstack whose setup fails and a gstack commit that doesn't exist.
 src="$work/src.git"
 git init -q --bare "$src"
-git -C "$repo_root" push -q "$src" "$head:refs/heads/main"
+git -C "$repo_root" push -q "$src" "$head:refs/heads/tested"
+git clone -q "$src" "$work/dev" 2>/dev/null
+repin() { # repin <gstack sha> <branch>: HEAD with the gstack pin set to <sha>, pushed as <branch>
+  git -C "$work/dev" checkout -q --detach "$head"
+  printf '%s %s\n' "$gstack_url" "$1" >"$work/dev/install/gstack.pin"
+  git -C "$work/dev" commit -qam "pin gstack $1" && git -C "$work/dev" push -q origin "HEAD:refs/heads/$2"
+}
+repin "$gs_good" main
+repin "$gs_broken" gstack-broken
+repin "$(rand 'a-f0-9' 40)" gstack-missing
+git --git-dir="$src" symbolic-ref HEAD refs/heads/main
+head=$(git -C "$work/dev" rev-parse origin/main)
 marker="PIN-MARKER-$(rand 'a-z0-9' 12)"
 git clone -q "$src" "$work/side"
 mkdir -p "$work/side/$RUNTIME/hooks"
@@ -66,10 +109,12 @@ EOF
 chmod +x "$work/bin/claude"
 export PATH="$work/bin:$PATH"
 
-# setup_env: a fresh VM's environment setup — the two-line setup script, line 2 verbatim.
+# setup_env [main branch] [expected result: done|FAILED]: a fresh VM's environment setup, the
+# two-line setup script with line 2 verbatim.
 setup_env() {
-  rm -rf /opt/* /tmp/devshop-* "$HOME/plugin" "$HOME/marketplaces"
+  rm -rf /opt/* /tmp/devshop-* "$HOME/plugin" "$HOME/marketplaces" "$HOME/.claude" "$HOME/gstack-setup.args" "$HOME/gstack-config.calls"
   git clone -q --bare "$src" /opt/devshop.git
+  [ "${1:-main}" = main ] || git --git-dir=/opt/devshop.git update-ref refs/heads/main "refs/heads/$1"
   # Line 1 clones with the token in the URL; the bootstrap must not keep it (nor name an account).
   git --git-dir=/opt/devshop.git remote set-url origin "https://x-access-token:FAKE-TOKEN@example.com/acme/devshop.git"
   git --git-dir=/opt/devshop.git show HEAD:bootstrap.sh | bash || true
@@ -80,14 +125,14 @@ setup_env() {
     *) date -u -d "$DEVSHOP_TEST_COPY_AGE" +%FT%TZ >/opt/devshop-versions/copy-date ;;
   esac
   [ -f "$HOME/plugin/hooks/hooks.json" ] || { cat /tmp/devshop-setup.log >&2; fail "bootstrap installed no plugin"; }
-  grep -q "RESULT: bootstrap done" /tmp/devshop-setup.log || { cat /tmp/devshop-setup.log >&2; fail "setup log doesn't say done"; }
+  grep -q "RESULT: bootstrap ${2:-done}" /tmp/devshop-setup.log || { cat /tmp/devshop-setup.log >&2; fail "setup log doesn't say ${2:-done}"; }
 }
 
-# session <pin or ''>: start a session in a fresh project on a fresh VM from the environment's
-# cached setup (every cloud session starts from that snapshot); prints the hook's output.
+# session <pin or ''> [setup_env args]: start a session in a fresh project on a fresh VM from the
+# environment's cached setup (every cloud session starts from that snapshot); prints the hook's output.
 session() {
   local proj cmd
-  setup_env >&2
+  setup_env "${@:2}" >&2
   proj=$(mktemp -d "$work/proj.XXXX")
   [ -z "$1" ] || printf '%s\n' "$1" >"$proj/.devshop-version"
   cmd=$(jq -er '.hooks.SessionStart[0].hooks[0].command' "$HOME/plugin/hooks/hooks.json")
@@ -153,6 +198,28 @@ unset want_copy
 # .devshop-version is project content: anything but a version name is refused, never passed to git.
 out=$(session "--output=/tmp/x")
 check "a pin that isn't a version keeps the default" "$out" "^DEVSHOP: '--output=/tmp/x' \(project \.devshop-version\) is not a devshop version" "$head"
+
+# gstack (TARGET Shape 7): the bootstrap installs the pinned upstream commit unmodified and runs
+# its setup non-interactively, with team mode and gstack's own Claude hooks off (F-GS-08).
+setup_env
+[ "$(git -C "$HOME/.claude/skills/gstack" rev-parse HEAD 2>/dev/null)" = "$gs_good" ] \
+  || fail "gstack: ~/.claude/skills/gstack is not at the pinned commit"
+want="args: --host claude --no-team --no-plan-tune-hooks --no-timeline-stop-hook --no-browser --quiet"
+got=$(head -1 "$HOME/gstack-setup.args" 2>/dev/null)
+[ "$got" = "$want" ] || fail "gstack setup ran with '$got', want '$want'"
+grep -qx "stdin: 0 bytes" "$HOME/gstack-setup.args" || fail "gstack setup's stdin isn't closed: $(tail -1 "$HOME/gstack-setup.args")"
+[ -f "$HOME/.claude/skills/autoplan/SKILL.md" ] || fail "gstack setup's skills are missing"
+# The pin is the only upgrade path: gstack's own update check is off (auto_upgrade is off by default).
+grep -qx "set update_check false" "$HOME/gstack-config.calls" 2>/dev/null || fail "gstack's update check wasn't turned off"
+echo "ok - gstack installed at the pinned commit; setup ran non-interactively with its hooks off; update check off"
+
+# A gstack failure is loud but can't stop the devshop (L-43): the plugin is installed and the
+# DEVSHOP: line still appears.
+for broken in gstack-broken gstack-missing; do
+  out=$(session '' "$broken" FAILED)
+  grep -q "FAILED: gstack" /tmp/devshop-setup.log || { cat /tmp/devshop-setup.log >&2; fail "$broken: log doesn't name the gstack failure"; }
+  check "$broken: devshop still installed" "$out" "^DEVSHOP: using HEAD " "$(git --git-dir="$src" rev-parse "$broken")"
+done
 
 # Setup fails loudly but still does every step it can (L-43): without the claude CLI, the copy is
 # still cleaned and primed, and the log names the failed steps.
