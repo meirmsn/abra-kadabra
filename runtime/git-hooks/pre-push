@@ -32,10 +32,12 @@ else
   done <<<"$refs"
 fi
 
-# 2. The repo's own lint, given the base the push builds on (empty for a new branch with no remote
-#    default to compare against).
+# 2. The repo's own lint, given the base the push builds on: the remote branch's tip, or for a new
+#    branch the parent of its oldest commit not on the remote (no refs/remotes/<remote>/HEAD needed;
+#    fresh cloud clones have none). Empty only when nothing at all is on the remote.
 if [ -z "$base" ]; then
-  base=$(git merge-base HEAD "refs/remotes/$remote/HEAD" 2>/dev/null || true)
+  first=$(git rev-list --reverse HEAD --not --remotes="$remote" | head -1)
+  if [ -z "$first" ]; then base=$(git rev-parse HEAD); else base=$(git rev-parse -q --verify "$first^" || true); fi
 fi
 if [ -x scripts/lint.sh ]; then
   PATH="$tools:$PATH" scripts/lint.sh "$base" >&2
