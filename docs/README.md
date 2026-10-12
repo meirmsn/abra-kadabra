@@ -25,6 +25,16 @@ linked, no broken links) comes with W10.4.2.
   it pins (`.devshop-version`), what each `DEVSHOP:` line means, and the limits. Proven by
   [`tests/bootstrap.test.sh`](../tests/bootstrap.test.sh).
 
+## What projects get (`runtime/`)
+
+- PR body: [`runtime/templates/pr-body.md`](../runtime/templates/pr-body.md) is the template for
+  every project PR (TARGET § L3 Review): one-line summary, preview link, announcement (only when
+  user-facing), what you should know, evidence, then engineering details collapsed.
+  [`runtime/scripts/pr-body-check.py`](../runtime/scripts/pr-body-check.py) checks a filled-in
+  body has that shape (sections and lines in order, preview present, no placeholder left,
+  evidence pinned to a commit); whether the words are true is the reviewer's job. Proven by
+  [`tests/pr-body-check.test.sh`](../tests/pr-body-check.test.sh).
+
 ## The revamp (being built)
 
 - [kit/notes/revamp/README.md](../kit/notes/revamp/README.md): start here. It links the plan,
