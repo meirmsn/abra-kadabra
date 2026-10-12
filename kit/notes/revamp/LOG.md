@@ -840,3 +840,11 @@ the install all killed. The real `claude` CLI (overlay on `/opt`) installed the 
 dependency install goes to W10.5.2; PostToolUse formatter parked.
 
 **Next**: owner's fresh-session check (PR checklist) → W10.4.4 stays `[~]`; pinned gstack. (PR #59)
+
+## #25 — 2026-10-12 · W10.4.4 part 2: fresh-session check passed; pinned gstack
+
+**Fresh-session check (owner, after PR #59 merged):** cache rebuilt by a comment-only edit to the
+setup script. The first reply opened with `DEVSHOP: using HEAD (da33b9bceb4b) from environment
+default (no .devshop-version) · devshop copy of 2026-10-12 (0 days old)` (`da33b9b` = the #59 merge
+on `main`). The setup log ended `RESULT: bootstrap done`; `/opt/devshop-current` and the skill
+`devshop-version` agreed; the clone's remote URL had no token; `devshop@devshop` enabled.
