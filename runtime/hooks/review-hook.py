@@ -79,6 +79,24 @@ def classify(data):
     return None
 
 
+HEREDOC = re.compile(r"(?<!<)<<(?!<)(-?)\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\2")
+REVIEWED_COMMAND = re.compile(r"(^|[;&|(])\s*(gh\s+pr\s+(create|edit)|git\s+(\S+\s+)*?push)\b", re.M)
+
+
+def strip_heredocs(command):
+    """The command without its heredoc bodies: they are data, not commands, and their quotes needn't balance."""
+    out, pending = [], []
+    for line in command.split("\n"):
+        if pending:
+            dash, word = pending[0]
+            if (line.lstrip("\t") if dash else line) == word:
+                pending.pop(0)
+            continue
+        out.append(line)
+        pending = [(m.group(1) == "-", m.group(3)) for m in HEREDOC.finditer(line)]
+    return "\n".join(out)
+
+
 def segments(command):
     """The simple commands in a Bash command line, as word lists (split at ; && || | & ( ) and newlines)."""
     lex = shlex.shlex(command, posix=True, punctuation_chars=";&|()\n")
@@ -124,10 +142,11 @@ def operation(seg):
 
 
 def classify_bash(command, cwd):
+    command = strip_heredocs(command)
     try:
         ops = [o for o in map(operation, segments(command)) if o]
     except ValueError as e:
-        if re.search(r"\bgh\s+pr\s+(create|edit)\b|\bgit\b.*\bpush\b", command):
+        if REVIEWED_COMMAND.search(command):
             cnr(f"can't split the command into words ({e})")
         return None
     if not ops:

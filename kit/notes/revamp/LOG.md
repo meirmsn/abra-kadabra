@@ -1515,3 +1515,45 @@ is no draft-to-ready step, so A-23 is obsolete. Recorded in TARGET, PLAN changel
 **Next**: W10.6.7, the hook: review before PR create and before each push to an open PR, post the
 comment after. Probe whether a hook can post the comment with the session's GitHub access (status
 writes are refused).
+
+## #41 — 2026-10-12 · W10.6.7 the reviewer runs by itself (in progress)
+
+**What moved**: the hook's contract went into the W10.6.7 line first, then the owner's calls were
+folded in. `runtime/hooks/review-hook.py` is registered by the plugin as a PreToolUse `gate` (PR
+create through the GitHub tool or `gh pr create`, a `git push` to a branch with an open PR, an edit
+of the PR's title or body) and a PostToolUse `post`. Only `REVIEW: pass` with exit 0 lets the call
+through. Every other result blocks it: a fail returns its findings, and anything else says to ask
+the owner. After the call, the pass is posted as the `pr-comment.sh` comment. If GitHub's copy of
+the words differs from the reviewed one (PR #78 gained a footer after its review), the posted words
+are reviewed again and that verdict is posted. The marker now carries `words`, the sha256 of the
+reviewed words (`pr-words.sh`), and `review-verdict` (also run on `edited`) reads changed words as
+stale.
+
+**Owner calls**: (1) post only verdicts for a commit the PR contains: passes, and any re-review of
+the posted words; (2) catch edited words in the hook and in the check; (3) block the GitHub tools
+that commit on GitHub (`push_files`, `create_or_update_file`, `delete_file`) on a branch with an
+open PR.
+
+**Evidence**
+
+- Tests written first, failing (no hook registered, no `pr-words.sh`). `tests/review-hook.test.sh`
+  (stub `review.sh` and `gh`, a local origin) covers every case in the task, plus the registration
+  and a missing hook. `tests/reviewer-pr.test.sh` gained `pr-words.sh` (known-bad inputs refused)
+  and `--words`. Mutants: 40/40 killed. The first run left 11 survivors: 3 redundant checks, now
+  removed, and 8 test gaps, now tested.
+- The real harness runs it: with this branch's hook registered for the session only
+  (`.claude/settings.local.json`, not committed), `gh pr create --fill --dry-run` was blocked with
+  "the hook can't know the PR's words".
+- In this session, `tests/bootstrap.test.sh` and `tests/git-hooks.test.sh` fail on `main` too:
+  there's no `gitleaks` at `/opt/devshop-tools/bin`. They're not affected by this change, and CI
+  installs the pinned tools.
+
+**Surprises**
+
+- Dogfood caught a false block: a Bash heredoc whose body had an apostrophe and the words "git push"
+  couldn't be split into words, and the fallback matched "push" anywhere. Heredoc bodies are now
+  dropped before splitting, and the fallback matches only a command at a line start or after an
+  operator. Regression tests were written first and failed first.
+
+**Next**: this PR opened through the hook, and its `review-verdict` check green from the comment
+the hook posted; then the owner's fresh-session check (W10.6.7's done-when).

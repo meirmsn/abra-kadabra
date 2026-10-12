@@ -164,8 +164,34 @@ for c in "ls -la" "git status" "echo 'gh pr create'" "git log --grep push" "gh p
   run_hook gate Bash "$(bash_call "$c")"; allowed "unrelated: $c"
 done
 run_hook gate Read '{"file_path": "/etc/hosts"}'; allowed "Read"
+# Heredoc bodies are text, not commands: quotes in them don't need to balance (LOG #41: "there's").
+run_hook gate Bash "$(bash_call "cat >>notes.md <<'EOF'
+there's no git push here, and gh pr create neither
+EOF
+python3 - <<EOF
+print(\"it's fine\")
+EOF")"; allowed "heredoc bodies with an apostrophe and the words git push"
+run_hook gate Bash "$(bash_call "cat <<-EOF >x
+	git push origin feat/x
+	EOF")"; allowed "a <<- heredoc body"
 [ "$(reviews)" = 0 ] && [ ! -s "$work/gh/calls" ] || fail "an unrelated call ran a review or gh"
-ok "unrelated calls pass silently, with no review and no GitHub call"
+ok "unrelated calls pass silently, with no review and no GitHub call, heredoc bodies included"
+reset_state pass; open_pr 5 "Add x" "b" "$(git -C "$work/p" rev-parse HEAD~1)"
+run_hook gate Bash "$(bash_call "cat >n.md <<'EOF'
+it's text
+EOF
+git push origin feat/x")"; allowed "a push after a heredoc"
+[ "$(reviews)" = 1 ] || fail "a push after a heredoc was not reviewed"
+reset_state pass; open_pr 5 "Add x" "b" "$(git -C "$work/p" rev-parse HEAD~1)"
+run_hook gate Bash "$(bash_call "cat <<-EOF >x
+	it's text
+	EOF
+git push origin feat/x")"; allowed "a push after a <<- heredoc"
+[ "$(reviews)" = 1 ] || fail "a push after a <<- heredoc was not reviewed"
+reset_state pass; open_pr 5 "Add x" "b"
+run_hook gate Bash "$(bash_call "echo 'unclosed
+git push origin feat/x")"; blocked "a push the hook can't split from an unclosed quote"
+ok "a push after a heredoc is still reviewed, and a push it can't split is blocked"
 
 # --- 1. PR create with a failing review: blocked, findings returned, no verdict pending, nothing posted.
 reset_state fail
