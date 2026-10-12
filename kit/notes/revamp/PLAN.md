@@ -32,7 +32,7 @@ Milestones and epics. Tasks and their status live in `workstreams/`. Target pict
 
 ## Capacity and pacing
 
-- **Pacing rule (owner, 2026-10-09):** at most ~2 devshop PRs waiting on the owner at once; the agent starts new work only when that queue has room. No hours target.
+- **Pacing (owner, 2026-10-12):** no cap on devshop PRs waiting on the owner; parallel sessions open PRs as their tasks finish. Replaces the 2026-10-09 rule (at most ~2 waiting), which held back parallel sessions (LOG #26). No hours target.
 - Rough effort (agent-days, to be re-estimated at each milestone review): M0 ~3 (+ owner steps) · M1 ~15–20 · M2 ~15–20 · M3 ~15 · M4 ~10. Calendar time follows the owner's review pace.
 
 ## Workstreams → epics
@@ -115,3 +115,4 @@ is frozen and leaves `main` with W10.4.1).
 | 2026-10-11 | L3 agreed for all nine pillars; D-07 + D-10 decided; A-26 + F-NEW-17 added; Cloudflare home with the owner's personal website (M2, parallel); D-01 revisited (one cloud environment per project) (TARGET § L3); W10.2 in progress; air-gapped reviewer added under After the revamp                                                                                                                                       | LOG #19                                                    |
 | 2026-10-12 | North-star rewritten for all nine pillars; M1 exit = steps 1–6 (minus next-day check + rollback drill); W10.2 done                                                                                                                                                                                                                                                                                                        | LOG #20                                                    |
 | 2026-10-12 | North-star hardened after adversarial review; fixture moves to Cloudflare (F-NEW-18/19, A-27); W10.5.3 + W10.6.5 added; lalista plan check = M2 precondition                                                                                                                                                                                                                                                              | LOG #20                                                    |
+| 2026-10-12 | Pacing cap removed: no limit on devshop PRs waiting on the owner (was ~2)                                                                                                                                                                                                                                                                                                                                                 | LOG #26                                                    |

@@ -141,5 +141,5 @@ _Held 2026-10-09 (LOG #5), run top-down through [TARGET.md](TARGET.md) instead o
 - **The revamp does not run through `/ak-build`** (it's being replaced); CLAUDE.md's
   revamp-mode section (W0.8) says so.
 - **CI is the only gate whose result the agent can't change**; PR CI stays plain (D-06).
-- **Pacing:** at most ~2 devshop PRs waiting on the owner at once.
+- **Pacing:** no cap on devshop PRs waiting on the owner (the ~2 cap was removed 2026-10-12, LOG #26).
 - **Measure** before and after (W0.2).

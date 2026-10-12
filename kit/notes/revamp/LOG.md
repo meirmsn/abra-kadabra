@@ -888,3 +888,14 @@ variables.
 
 **Next**: a session in the `devshop-fixture` environment with the fixture repo attached, for
 W10.5.2–3.
+
+## #26 — 2026-10-12 · Pacing cap removed
+
+**What moved**: the owner removed the pacing rule's cap of ~2 devshop PRs waiting on them (W0.2.3,
+2026-10-09). With W10.4.4, W10.5, W10.4.2 and W10.6.2/3 able to run in parallel sessions, the cap
+held finished work back. Sessions now open PRs as their tasks finish; the owner reviews in arrival
+order. Updated: `CLAUDE.md` (rule removed), PROCESS § rules, PLAN § Capacity and pacing + changelog,
+W10 header, W0.2.3 note, README next action.
+
+**Watch**: review load is now the main limit on throughput (A-14); merges of `main` into open
+branches get more frequent because every session edits the tracker.
