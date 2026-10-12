@@ -1,0 +1,4 @@
+{
+  "title": "Fix slugify turning double spaces into double dashes",
+  "body": "slugify(\"a  b\") now gives \"a-b\" instead of \"a--b\".\n\n**Preview:** none — a library function with no UI\n\n## What you should know\n\n- **Behaviour change:** a run of spaces or tabs becomes one dash, not one dash per character.\n- **Decisions:** bug fix: the failing test is the spec (`a run of whitespace becomes one dash` in test/slugify.test.js).\n- **Changed after the go:** nothing\n- **Tests deleted or loosened:** none\n- **Manual steps for you:** none"
+}

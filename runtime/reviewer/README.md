@@ -1,23 +1,43 @@
 # The independent reviewer
 
 `review.sh` reviews one committed change against its spec with a fresh, locked-down `claude -p` that
-has none of the builder's context (TARGET Verify 3–6, W10.6.2). A hook starts it from the "done" /
-open-PR step (W10.6.7), so the builder never chooses whether it runs. The interface (call, exit
+has none of the builder's context (TARGET Verify 3–6, W10.6.2). It finds the spec itself: the one
+`specs/**.md` file the change adds or changes. With none (a bug fix, a change working from a task
+line) it reviews against the PR's own words, else the commit messages, and a change that should
+have had a spec fails. Given the PR's title and body, it also checks them against the commit
+(Review 5). A hook starts it before the PR is created and before each later push (W10.6.7), so the
+builder never chooses whether it runs, and the PR opens only once it passes (W10.6.6). The interface (call, exit
 codes, stdout line, verdict file and format) is in
 [W10-v2.md § W10.6.2](../../kit/notes/revamp/workstreams/W10-v2.md). Change it there first.
 
 ```sh
-/opt/devshop-current/reviewer/review.sh --base origin/main --spec specs/<change>.md
+/opt/devshop-current/reviewer/review.sh --base origin/main --pr <pr-words.json>
+# pr-words.json: {"title": "<the PR title>", "body": "<the PR body>"}; --pr is optional
 ```
 
 ## Files (all pinned with the devshop version)
 
-| File                     | What                                                                          |
-| ------------------------ | ----------------------------------------------------------------------------- |
-| `review.sh`              | The script. Model, tools, timeout and rounds-to-ask are constants at its top  |
-| [`prompt.md`](prompt.md) | The reviewer's prompt: spec and intent first, then the lenses; severity scale |
-| `verdict.schema.json`    | The schema the model's reply must match (`--json-schema`)                     |
-| `settings.json`          | Bash allowlist: read-only git and test commands. Anything else is refused     |
+| File                     | What                                                                            |
+| ------------------------ | ------------------------------------------------------------------------------- |
+| `review.sh`              | The script. Model, tools, timeout and rounds-to-ask are constants at its top    |
+| [`prompt.md`](prompt.md) | The reviewer's prompt: spec and intent first, then the lenses; severity scale   |
+| `verdict.schema.json`    | The schema the model's reply must match (`--json-schema`)                       |
+| `settings.json`          | Bash allowlist: read-only git and test commands. Anything else is refused       |
+| `pr-comment.sh`          | Renders a verdict file as the PR comment: per lens and item, tied to its commit |
+| `verdict-check.sh`       | Reads a PR's comments: is there a passing verdict for the head commit?          |
+| `verdict-wait.sh`        | The PR's `review-verdict` check: polls the comments until ok or time is up      |
+
+## On the PR
+
+Each review is recorded on the PR as one comment, rendered by `pr-comment.sh` from the verdict file
+(TARGET Verify 7, L-25). Its first line is a marker with the full commit and the outcome; text from
+the model has `<` escaped and newlines flattened, so it can't form a second one. The hook (W10.6.7)
+posts it right after the PR is created or pushed. The `review-verdict` workflow runs
+`verdict-wait.sh` on every PR push: it passes once the latest marker is a pass for the head commit,
+and fails when the verdict is missing, stale (for an older commit) or failing after 10 minutes. It
+waits because a run triggered by the comment would report on `main`, not on the PR. The session
+cannot post a commit status (its GitHub access refuses status writes), hence a comment. It is not a
+required check: the agent can post a comment itself, and the PR's own copy of the workflow runs.
 
 ## How it is locked down, and what that is worth
 
@@ -41,21 +61,31 @@ codes, stdout line, verdict file and format) is in
 ## Proof
 
 - [`tests/reviewer.test.sh`](../../tests/reviewer.test.sh) (in CI, stub `claude`) checks the
-  locked-down call, the outcome rule, rounds → ask-owner, the verdict file, and could-not-run for
-  every bad input. 14 mutants of the script are all killed.
+  locked-down call, the outcome rule, rounds → ask-owner, the verdict file, the spec found from the
+  diff (none, one, two, nested, changed, deleted, non-`.md`), the PR's words reaching the prompt
+  verbatim and checked (`pr` lens), and could-not-run for every bad input. Its W10.6.2 mutants (14)
+  and W10.6.6 mutants (21 of 22; the survivor is equivalent) are killed.
+- [`tests/reviewer-pr.test.sh`](../../tests/reviewer-pr.test.sh) (in CI, stub `gh`) checks the
+  comment (per lens, marker not forgeable from model text), ok / missing / stale / failing for the
+  head, the wait, and could-not-run for bad input. 27 of 28 mutants killed (the survivor is
+  equivalent).
 - [`tests/reviewer-live.sh`](../../tests/reviewer-live.sh) (`[runs]`, in a session only, because it
   calls the real model and CI runs no LLM jobs) runs the real reviewer on the A-04 fixtures in
   [`tests/fixtures/reviewer/`](../../tests/fixtures/reviewer) (spec: [`spec.md`](../../tests/fixtures/reviewer/spec.md)). The planted change (AC-4 skipped)
-  must fail with exactly AC-4 unmet, and the honest one must pass.
+  must fail with exactly AC-4 unmet, and the honest one must pass. W10.6.6 cases: the honest change
+  with true PR words passes and with a false claim fails on the `pr` lens; a new feature with no
+  spec fails on the `intent` lens; an honest bug fix with no spec (its failing test is the spec)
+  passes; two spec files are could-not-run.
 
 ## Limits
 
 - Only specs whose acceptance items are named `AC-<n>` are reviewed. Others are could-not-run.
+- A change with two or more spec files is could-not-run: one change, one spec (TARGET Intent 2).
 - What "run" can run is the allowlist above. Stack homes (W10.5.2) will extend it per stack. There
   is no browser yet, so the design and QA lenses review by reading.
 - Rounds count distinct failing commits since the branch's last pass, and they don't reset when the
   owner decides something. Each further fail asks the owner again. Kept on purpose for now (owner,
   2026-10-12): if the north-star run or the reviewer eval (W10.6.4–5) shows repeat questions,
   reset the count when a commit changes the spec file.
-- Publishing the verdict on the PR, per lens and tied to its commit (L-25), and checking the PR body
-  against the final commit (Review 5) are W10.6.6. The hook that starts the reviewer is W10.6.7.
+- Screenshots in the PR body (Review 5, L-29) are not checked yet: there is no browser.
+- The hook that starts the reviewer and posts its comment is W10.6.7.

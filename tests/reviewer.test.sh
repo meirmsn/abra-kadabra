@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Tests runtime/reviewer/review.sh with a stub `claude` (no model calls, so it runs in CI): the
 # locked-down call, the outcome rule (decided by the script, never the model), rounds → ask-owner,
-# the verdict file, and could-not-run for every bad input (fails closed, L-09, L-12). The real
+# the verdict file, the spec found from the diff (none → the PR's words or the commits; two or more →
+# could-not-run), the PR's words (--pr) reaching the reviewer, and could-not-run for every bad input
+# (fails closed, L-09, L-12). The real
 # model on the planted and honest fixtures is tests/reviewer-live.sh (run in a session, not CI).
 set -euo pipefail
 
@@ -40,9 +42,11 @@ reply() {
 }
 ac() { jq -n --arg i "$1" --argjson m "$2" '{item:$i,met:$m,evidence:"test/slugify.test.js"}'; }
 finding() { jq -n --arg s "$1" '{severity:$s,lens:"code",item:"",file:"src/slugify.js",what:"x",fix:"y"}'; }
-lenses='[{"lens":"tests","applies":true,"note":"ok"}]'
-# out <acceptance json array> [<findings json array>]
-out() { echo "{\"acceptance\":$1,\"findings\":${2:-[]},\"lenses\":$lenses,\"summary\":\"s\"}"; }
+# The pr lens row says whether the reply checked the PR's words (Review 5); it must match --pr.
+lenses='[{"lens":"tests","applies":true,"note":"ok"},{"lens":"pr","applies":false,"note":"no PR words"}]'
+lenses_pr='[{"lens":"tests","applies":true,"note":"ok"},{"lens":"pr","applies":true,"note":"checked"}]'
+# out <acceptance json array> [<findings json array>] [<lenses json array>]
+out() { echo "{\"acceptance\":$1,\"findings\":${2:-[]},\"lenses\":${3:-$lenses},\"summary\":\"s\"}"; }
 all_met="[$(ac AC-1 true),$(ac AC-2 true)]"
 
 reply "$work/pass.json" "$(out "$all_met")"
@@ -57,17 +61,31 @@ reply "$work/no-structured.json" "null"
 jq '.is_error=true' "$work/pass.json" >"$work/is-error.json"
 echo "I think it passes." >"$work/garbage.json"
 : >"$work/empty.json"
+# Replies for changes with no spec, and for runs given the PR's words.
+reply "$work/nospec-pass.json" "$(out "[]")"
+reply "$work/nospec-high.json" "$(out "[]" "[$(jq -n '{severity:"high",lens:"intent",item:"",file:"src/x.js",what:"a feature without a spec",fix:"write the spec"}')]")"
+reply "$work/pr-pass.json" "$(out "$all_met" "[]" "$lenses_pr")"
+reply "$work/pr-nospec-pass.json" "$(out "[]" "[]" "$lenses_pr")"
+reply "$work/pr-mismatch.json" "$(out "$all_met" "[$(jq -n '{severity:"medium",lens:"pr",item:"",file:"",what:"the body claims a test the diff lacks",fix:"fix the body"}')]" "$lenses_pr")"
+reply "$work/two-pr-lens.json" "$(out "$all_met" "[]" '[{"lens":"pr","applies":true,"note":"x"},{"lens":"pr","applies":false,"note":"y"}]')"
+reply "$work/no-pr-lens.json" "$(out "$all_met" "[]" '[{"lens":"tests","applies":true,"note":"ok"}]')"
 
-# A project repo: base has the spec, the branch adds the change.
+spec_text='# Spec\n\nAcceptance:\n1. AC-1: one.\n2. AC-2: two.\n'
+# new_project <repo> [<spec path>|-]: base is main; the branch adds the spec (default specs/x.md,
+# "-" for none) and the change.
 new_project() {
-  local r=$1
+  local r=$1 spec=${2:-specs/x.md}
   new_repo "$r"
   mkdir -p "$r/specs" "$r/src"
-  printf '# Spec\n\nAcceptance:\n1. AC-1: one.\n2. AC-2: two.\n' >"$r/specs/x.md"
-  git -C "$r" add -A && git -C "$r" commit -qm "spec"
   git -C "$r" checkout -qb feat/x
+  if [ "$spec" != - ]; then
+    mkdir -p "$r/$(dirname "$spec")"; printf %b "$spec_text" >"$r/$spec"
+    git -C "$r" add -A && git -C "$r" commit -qm "spec"
+  fi
   commit_file "$r" src/x.js "export const x = 1;"
 }
+# pr_words <file> <title> <body>: the --pr file a hook would write.
+pr_words() { jq -n --arg t "$2" --arg b "$3" '{title:$t,body:$b}' >"$1"; }
 # change <repo>: one more commit on the branch.
 change() { commit_file "$1" src/x.js "export const x = $RANDOM$RANDOM;"; }
 
@@ -84,7 +102,7 @@ expect() {
   [ "$rc" = "$2" ] || ok=0
   [[ "$line" == "REVIEW: $3 · "* ]] || ok=0
   if [ -n "$verdict" ] && [ -f "$verdict" ]; then
-    jq -e --arg o "$3" '.format=="devshop-review/1" and .outcome==$o' "$verdict" >/dev/null || ok=0
+    jq -e --arg o "$3" '.format=="devshop-review/2" and .outcome==$o' "$verdict" >/dev/null || ok=0
     [ -z "${4:-}" ] || jq -e "$4" "$verdict" >/dev/null || ok=0
   elif [ -n "${4:-}" ]; then ok=0
   fi
@@ -94,9 +112,9 @@ expect() {
 
 # --- The call is locked down, and nothing from the environment changes it.
 r="$work/p1"; new_project "$r"
-ANTHROPIC_MODEL=other-model CLAUDE_CODE_SUBAGENT_MODEL=other run "$r" pass --base main --spec specs/x.md
+ANTHROPIC_MODEL=other-model CLAUDE_CODE_SUBAGENT_MODEL=other run "$r" pass --base main
 expect "honest change passes" 0 pass \
-  '.round==1 and .blocking==0 and .low==0 and .spec=="specs/x.md" and .branch=="feat/x" and .reviewer.session_id=="stub-session" and .reviewer.model=="claude-sonnet-5-5" and (.acceptance|length)==2 and .reason==""'
+  '.round==1 and .blocking==0 and .low==0 and .spec=="specs/x.md" and .intent=="spec" and .pr==null and .branch=="feat/x" and .reviewer.session_id=="stub-session" and .reviewer.model=="claude-sonnet-5-5" and (.acceptance|length)==2 and .reason==""'
 [ "$(jq -r .commit "$verdict")" = "$(git -C "$r" rev-parse HEAD)" ] || fail "verdict not tied to HEAD"
 [ "$(jq -r .base "$verdict")" = "$(git -C "$r" rev-parse main)" ] || fail "verdict base is not the merge-base"
 [[ "$line" =~ ^REVIEW:\ pass\ ·\ round\ 1\ ·\ 0\ blocking,\ 0\ low\ ·\ [0-9a-f]{12}\ ·\ /.+\.json$ ]] || fail "stdout line format: $line"
@@ -113,64 +131,130 @@ grep -A1 -xF -- --model <<<"$args" | tail -1 | grep -qxF claude-sonnet-5-5 || fa
 grep -A1 -xF -- --settings <<<"$args" | tail -1 | grep -qxF "$work/reviewer/settings.json" || fail "settings not the pinned file"
 grep -qF "specs/x.md" <<<"$args" || fail "prompt lacks the spec path"
 grep -qF "AC-1, AC-2" <<<"$args" || fail "prompt lacks the spec's items"
+grep -qF "No PR words were given. Report the \`pr\` lens with \`applies: false\`." <<<"$args" || fail "prompt lacks the no-PR-words line"
 [ "$(cat "$STUB_LOG.cwd")" != "$r" ] || fail "claude ran in the real worktree, not a throwaway clone"
 echo "ok - call is locked down (flags, pinned model/tools/settings, throwaway clone)"
-# The spec path reaches the prompt verbatim (bash 5.2 would expand "&" in a ${x//p/r} replacement).
-cp "$r/specs/x.md" "$r/specs/a&b.md"; git -C "$r" add -A && git -C "$r" commit -qm "spec with & in its name"
-run "$r" pass --base main --spec 'specs/a&b.md'; expect "spec path with & passes" 0 pass
-grep -qF 'specs/a&b.md' "$STUB_LOG.args" || fail "spec path with & mangled in the prompt"
-echo "ok - spec path reaches the prompt verbatim"
+
 
 # --- The outcome rule: unmet item or any non-low finding fails; low findings are listed only.
-change "$r"; run "$r" unmet --base main --spec specs/x.md
+change "$r"; run "$r" unmet --base main
 expect "unmet acceptance item fails" 1 fail '.blocking==1'
-change "$r"; run "$r" medium --base main --spec specs/x.md
+change "$r"; run "$r" medium --base main
 expect "medium finding fails" 1 fail '.blocking==1'
 r="$work/p2"; new_project "$r"
-run "$r" unsure --base main --spec specs/x.md
+run "$r" unsure --base main
 expect "unsure finding counts as medium" 1 fail '.blocking==1'
 r="$work/p3"; new_project "$r"
-run "$r" low --base main --spec specs/x.md
+run "$r" low --base main
 expect "low findings pass, listed" 0 pass '.blocking==0 and .low==2 and (.findings|length)==2'
 
 # --- Rounds: distinct failing commits since the last pass; the third asks the owner.
 r="$work/rounds"; new_project "$r"
-run "$r" unmet --base main --spec specs/x.md; expect "round 1 fails" 1 fail '.round==1'
-run "$r" unmet --base main --spec specs/x.md; expect "re-run on the same commit is not a new round" 1 fail '.round==1'
-change "$r"; run "$r" unmet --base main --spec specs/x.md; expect "round 2 fails" 1 fail '.round==2'
-change "$r"; run "$r" garbage --base main --spec specs/x.md; expect "could-not-run is not a round" 2 could-not-run
-change "$r"; run "$r" unmet --base main --spec specs/x.md; expect "round 3 asks the owner" 3 ask-owner '.round==3 and .blocking==1'
-change "$r"; run "$r" pass --base main --spec specs/x.md; expect "a pass ends the streak" 0 pass '.round==4'
-change "$r"; run "$r" unmet --base main --spec specs/x.md; expect "after a pass, rounds restart" 1 fail '.round==1'
+run "$r" unmet --base main; expect "round 1 fails" 1 fail '.round==1'
+run "$r" unmet --base main; expect "re-run on the same commit is not a new round" 1 fail '.round==1'
+change "$r"; run "$r" unmet --base main; expect "round 2 fails" 1 fail '.round==2'
+change "$r"; run "$r" garbage --base main; expect "could-not-run is not a round" 2 could-not-run
+change "$r"; run "$r" unmet --base main; expect "round 3 asks the owner" 3 ask-owner '.round==3 and .blocking==1'
+change "$r"; run "$r" pass --base main; expect "a pass ends the streak" 0 pass '.round==4'
+change "$r"; run "$r" unmet --base main; expect "after a pass, rounds restart" 1 fail '.round==1'
 [ "$(find "$r/.git/devshop/reviews/feat__x" -name '[0-9][0-9][0-9]-*.json' | wc -l)" = 7 ] || fail "one verdict file per run expected"
 
 # --- Could-not-run: anything other than a well-formed, complete verdict, and every bad input.
 r="$work/cnr"; new_project "$r"
 for bad in garbage empty no-structured is-error missing-ac extra-ac bad-severity; do
-  run "$r" "$bad" --base main --spec specs/x.md
+  run "$r" "$bad" --base main
   expect "reply '$bad' is could-not-run" 2 could-not-run '.reason!="" and .blocking==0'
 done
-STUB_ACT="exit" run "$r" pass --base main --spec specs/x.md
+STUB_ACT="exit" run "$r" pass --base main
 expect "claude exiting non-zero is could-not-run" 2 could-not-run '.reason|test("exit")'
-STUB_ACT=touch-real run "$r" pass --base main --spec specs/x.md
+STUB_ACT=touch-real run "$r" pass --base main
 expect "a changed real worktree is could-not-run" 2 could-not-run '.reason|test("worktree")'
 rm -f "$r/stray.txt"
-(export PATH="/usr/bin:/bin"; run "$r" pass --base main --spec specs/x.md
+(export PATH="/usr/bin:/bin"; run "$r" pass --base main
   expect "no claude on PATH is could-not-run" 2 could-not-run '.reason|test("claude")')
 sed -i 's/^TIMEOUT=.*/TIMEOUT=1/' "$work/reviewer/review.sh"
-STUB_ACT="sleep" run "$r" pass --base main --spec specs/x.md
+STUB_ACT="sleep" run "$r" pass --base main
 expect "a timed-out review is could-not-run" 2 could-not-run '.reason|test("timed out")'
 cp "$repo_root/runtime/reviewer/review.sh" "$work/reviewer/review.sh"
 
-echo dirt >"$r/untracked.txt"; run "$r" pass --base main --spec specs/x.md
+echo dirt >"$r/untracked.txt"; run "$r" pass --base main
 expect "uncommitted changes are could-not-run" 2 could-not-run '.reason|test("uncommitted")'
 rm "$r/untracked.txt"
-run "$r" pass --base no-such-ref --spec specs/x.md; expect "unknown base is could-not-run" 2 could-not-run
-run "$r" pass --base main --spec specs/nope.md; expect "spec missing at HEAD is could-not-run" 2 could-not-run
+run "$r" pass --base no-such-ref; expect "unknown base is could-not-run" 2 could-not-run
+run "$r" pass; expect "missing --base is could-not-run" 2 could-not-run
+run "$r" pass --base main --spec specs/x.md; expect "--spec is no longer accepted" 2 could-not-run
+grep -qF "unknown argument '--spec'" "$work/err" || fail "--spec not refused as an unknown argument"
+run "$r" pass --base main --pr; expect "--pr without a value is could-not-run" 2 could-not-run
+run "$r" pass --base main --model opus; expect "an extra flag is refused" 2 could-not-run
+run "$work" pass --base main; expect "outside a git repo is could-not-run" 2 could-not-run
+
+# --- The spec is found from the diff: the one specs/**.md the branch adds, changes or renames.
+r="$work/s-amp"; new_project "$r" 'specs/a&b.md'
+run "$r" pass --base main; expect "a spec path with & is found" 0 pass '.spec=="specs/a&b.md"'
+grep -qF 'specs/a&b.md' "$STUB_LOG.args" || fail "spec path with & mangled in the prompt"
+echo "ok - spec path reaches the prompt verbatim"
+r="$work/s-nested"; new_project "$r" specs/area/y.md
+run "$r" pass --base main; expect "a spec in a subfolder of specs/ is found" 0 pass '.spec=="specs/area/y.md"'
+r="$work/s-two"; new_project "$r"
+commit_file "$r" specs/other.md "AC-1: other."
+run "$r" pass --base main; expect "two specs in the diff are could-not-run" 2 could-not-run '.reason|test("specs/other.md") and test("specs/x.md")'
+r="$work/s-changed"; new_project "$r" -
+mkdir -p "$r/specs"; git -C "$r" checkout -q main; printf %b "$spec_text" >"$r/specs/x.md"
+git -C "$r" add -A && git -C "$r" commit -qm "spec on main"; git -C "$r" checkout -q feat/x
+git -C "$r" merge -q --no-edit main
+run "$r" nospec-pass --base main; expect "a spec only on the base is not the change's spec" 0 pass '.spec=="" and .intent=="commits"'
+printf %b "$spec_text" "3. AC-3: three.\n" >"$r/specs/x.md"; git -C "$r" commit -qam "spec: add AC-3"
+run "$r" pass --base main
+expect "a spec the branch changes is found, its new AC-3 required" 2 could-not-run '.spec=="specs/x.md" and (.reason|test("AC-3"))'
+git -C "$r" rm -q specs/x.md && git -C "$r" commit -qm "drop spec"
+run "$r" nospec-pass --base main; expect "a deleted spec does not count" 0 pass '.spec==""'
+r="$work/s-asset"; new_project "$r"
+commit_file "$r" specs/x-flow.png "not markdown"
+run "$r" pass --base main; expect "a non-.md file under specs/ is not a spec" 0 pass '.spec=="specs/x.md"'
+r="$work/s-noac"; new_project "$r" -
 commit_file "$r" specs/empty.md "no items here"
-run "$r" pass --base main --spec specs/empty.md; expect "spec without AC items is could-not-run" 2 could-not-run
-run "$r" pass --spec specs/x.md; expect "missing --base is could-not-run" 2 could-not-run
-run "$r" pass --base main; expect "missing --spec is could-not-run" 2 could-not-run
-run "$r" pass --base main --spec specs/x.md --model opus; expect "an extra flag is refused" 2 could-not-run
-run "$work" pass --base main --spec specs/x.md; expect "outside a git repo is could-not-run" 2 could-not-run
+run "$r" nospec-pass --base main; expect "a found spec without AC items is could-not-run" 2 could-not-run '.reason|test("names no acceptance items")'
+
+# --- No spec: no acceptance items; the intent is the PR's words, else the commit messages.
+r="$work/nospec"; new_project "$r" -
+run "$r" nospec-pass --base main
+expect "no spec, no PR words: intent from the commits" 0 pass '.spec=="" and .intent=="commits" and (.acceptance|length)==0 and .pr==null'
+grep -qF "no spec file" "$STUB_LOG.args" || fail "prompt does not say there is no spec"
+grep -qF "commit messages" "$STUB_LOG.args" || fail "prompt does not point at the commit messages"
+run "$r" pass --base main; expect "no spec: a reply with acceptance items is could-not-run" 2 could-not-run '.reason|test("AC-1")'
+run "$r" nospec-high --base main; expect "no spec: a high intent finding fails" 1 fail '.blocking==1'
+
+# --- The PR's words (--pr): reach the prompt verbatim, recorded with their hash, checked (Review 5).
+r="$work/pr"; new_project "$r"
+words="$work/words.json"
+pr_words "$words" "Add x & {{ITEMS}}" $'One line.\n\n## What you should know\n- {{SPEC}} & $(touch pwned) `x`'
+run "$r" pr-pass --base main --pr "$words"
+expect "PR words given: pass, recorded" 0 pass \
+  ".intent==\"spec\" and .pr.title==\"Add x & {{ITEMS}}\" and .pr.sha256==\"$(sha256sum "$words" | cut -d' ' -f1)\""
+grep -qF 'Add x & {{ITEMS}}' "$STUB_LOG.args" || fail "PR title mangled in the prompt"
+# shellcheck disable=SC2016 # literal on purpose: the body must not be expanded
+grep -qF '{{SPEC}} & $(touch pwned) `x`' "$STUB_LOG.args" || fail "PR body mangled in the prompt"
+[ ! -e "$r/pwned" ] && [ ! -e "$work/pwned" ] || fail "the PR body was executed"
+grep -qF "AC-1, AC-2" "$STUB_LOG.args" || fail "items missing with PR words"
+echo "ok - PR words reach the prompt verbatim and are not executed"
+run "$r" pass --base main --pr "$words"; expect "PR words given, pr lens not applied: could-not-run" 2 could-not-run '.reason|test("pr lens")'
+run "$r" no-pr-lens --base main --pr "$words"; expect "no pr lens row: could-not-run" 2 could-not-run '.reason|test("pr lens")'
+run "$r" two-pr-lens --base main --pr "$words"; expect "two pr lens rows: could-not-run" 2 could-not-run '.reason|test("pr lens")'
+run "$r" pr-pass --base main; expect "pr lens applied without PR words: could-not-run" 2 could-not-run '.reason|test("pr lens")'
+change "$r"; run "$r" pr-mismatch --base main --pr "$words"; expect "words that don't match the commit fail" 1 fail '.blocking==1'
+r="$work/pr-nospec"; new_project "$r" -
+run "$r" pr-nospec-pass --base main --pr "$words"; expect "no spec, PR words: intent from the PR" 0 pass '.intent=="pr" and .spec==""'
+grep -qF "no spec file" "$STUB_LOG.args" || fail "prompt does not say there is no spec"
+for bad in missing notjson notitle emptytitle extrakey nonstring; do
+  f="$work/pr-$bad.json"
+  case $bad in
+    missing) rm -f "$f" ;;
+    notjson) echo "Title: x" >"$f" ;;
+    notitle) echo '{"body":"b"}' >"$f" ;;
+    emptytitle) pr_words "$f" "" "b" ;;
+    extrakey) echo '{"title":"t","body":"b","verdict":"pass"}' >"$f" ;;
+    nonstring) echo '{"title":"t","body":7}' >"$f" ;;
+  esac
+  run "$r" pr-nospec-pass --base main --pr "$f"; expect "--pr file '$bad' is could-not-run" 2 could-not-run '.reason|test("--pr")'
+done
 echo "all reviewer tests passed"

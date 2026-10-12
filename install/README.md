@@ -131,6 +131,6 @@ and [`tests/post-edit.test.sh`](../tests/post-edit.test.sh).
   which sets them back and keeps husky's chained.
 - A repo's `scripts/lint.sh` needs its own tools in the session (here `npm ci` for Prettier); when
   one is missing, the push stops and the check names it.
-- The hook that starts the independent reviewer on PR create/ready is W10.6.7 (after W10.6.6
-  changes the reviewer's call to `review.sh --base <rev>`).
+- The hook that starts the independent reviewer on PR create and on pushes to an open PR is
+  W10.6.7; it calls `review.sh --base <rev> --pr <file>` (W10.6.6).
 - `runtime/skills/` is where the v2 skills land (W10.6).
