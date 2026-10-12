@@ -889,7 +889,83 @@ variables.
 **Next**: a session in the `devshop-fixture` environment with the fixture repo attached, for
 W10.5.2–3.
 
-## #26 — 2026-10-12 · W10.5.2 fixture app, CI and deploy wiring (in progress); W10.5.3 design proposed
+## #26 — 2026-10-12 · W10.4.2 the lint checks handed off in #23
+
+**What moved**: new CI job `ci / lint` runs four checks, each a script in `scripts/` with a test of
+the same name in `tests/` (run by `tests/run.sh` in `ci / secret-scan`):
+
+- `format-check.sh`: `prettier --check .` with Prettier pinned in a new root `package.json` (exact
+  version, integrity in `package-lock.json`, `npm ci` in CI). It refuses any other Prettier version.
+- `shellcheck.sh`: shellcheck 0.11.0 (pinned with a sha256 in `ci.yml`; the release publishes no
+  checksums, so the pin is the hash of the asset as downloaded today) over every shell script git
+  knows of, by extension or shebang.
+- `commit-identity-check.sh` (L-41): rejects commits a change adds whose author or committer email
+  is at a domain reserved for tests (example.com/.net/.org, .test, .invalid, .localhost, .example)
+  or at `test.com`, the domain of v1's fixture identity. The tests' own identity (`tests/lib.sh`)
+  is one of them, so a test that leaks commits into a real repo is caught.
+- `docs-map-check.py`: every Markdown file git knows of is reachable from `docs/README.md` through
+  links, and no relative link or `#anchor` is broken (GitHub's heading slugs, duplicates included).
+
+Kept out: the spikes (`kit/notes/revamp/spikes/`) are skipped by Prettier and shellcheck. They are
+records, and some are the fixed inputs of the A-04 run. The docs map now links the seven docs it
+missed: the spike READMEs and specs, and the runtime skill. `tests/lib.sh` gained a `shellcheck
+shell=bash` directive. Typecheck waits for code.
+
+**Evidence**: tests written before the scripts. Each check fails on a known-bad input and fails
+closed on a missing tool or nothing to check (format: unformatted JSON, wrong Prettier version;
+shellcheck: SC2086 in a `.sh`, in an extensionless script and in an uncommitted one; identity: the
+tests' own identity, a test committer under a real author, eight reserved-domain forms, lookalike
+real domains pass; docs map: orphan, island, missing file, anchor, image, link outside the repo).
+24 mutants of the four scripts: 23 killed; the survivor (dropping format-check's `command -v`) is
+equivalent, as `--version` still fails closed. Replay of the real incident: the identity check over
+this repo's whole history reports exactly the 19 `test.com` commits L-41 records, and a reserved-
+domain-only first draft missed all 19 (that is why `test.com` is listed). On the repo: all four
+checks pass; `tests/run.sh` 7/7. CI's first run failed on the lookalike case `ada@myexample.com`:
+the runner's awk is gawk, which turns `\.` in a `-v` value into `.`, and the session's mawk
+doesn't. Reproduced with gawk, fixed by passing the regex through `ENVIRON`. Tests and mutants
+pass under both.
+
+**Owner calls in the session**: the lint must also run in a faster loop than CI. The PostToolUse
+formatter parked in #24 is un-parked: a hook checks each file Claude edits (Prettier, shellcheck),
+and the devshop pre-push hook runs the `scripts/` checks as a backstop. Both go to W10.4.4.
+
+**Next**: `[owner]` mark `ci / lint` required on `main` once this merges; then W10.4.2 is done.
+(PR #63)
+
+## #27 — 2026-10-12 · W10.6.3 the PR body template and its shape check
+
+**What moved**: `runtime/templates/pr-body.md` is the body for every project PR, in TARGET § L3
+Review's order: one-line summary, a **Preview:** line, announcement (only when user-facing), what
+you should know (behaviour change, decisions with the spec link, changes after the "go", tests
+deleted or loosened, manual steps for the owner), evidence (screenshots, reviewer verdict per lens,
+CI, low findings), then engineering details collapsed in `<details>`. It lives in `runtime/`, so a
+project gets the version it pins. `runtime/scripts/pr-body-check.py BODY [TITLE]` checks the
+shape: title ≤ 72 chars, summary one line ≤ 120 chars, preview present before the sections and
+holding a link or `none — <reason>`, sections in order and non-empty with their labelled lines,
+details collapsed and closed, no `{{placeholder}}` left, images absolute and GitHub file links
+pinned to a commit SHA (L-30). Whether the words are true stays with the reviewer (Review 5, L-29).
+
+Choices made here (the owner can flip them): the preview line sits right under the summary, not
+inside the evidence, so it is the second thing seen on a phone. "Manual steps for you" sits in
+"what you should know", not in the collapsed details, because the owner must act on it.
+
+**Evidence**: `tests/pr-body-check.test.sh` written before the check. 28 cases: a filled-in body,
+one without an announcement, a native one and one quoting template syntax in code pass; the
+unfilled template and 21 broken variants fail, each asserting the problem it targets (so none
+fails for an unrelated reason); a missing file and no arguments fail closed. 21 of 21 mutants of
+the check killed. Dogfood: the PR for this task uses the template for its own body, and the check
+passes on that body as read back from GitHub. Its first draft failed: the check took
+`{{placeholder}}` quoted in inline code for a leftover one. Fixed (code is skipped) after a
+failing regression case.
+
+**Surprises**: TARGET Review 3's preview link is "the deploy platform's own PR comment", which
+Vercel's bot posts. The fixture deploys with `wrangler` from a GitHub Action (W10.5.2), and that
+posts no comment. So the deploy job must post one comment per PR and update it on every push.
+Handed to W10.5.2.
+
+**Next**: W10.6.1 (Build skill fills the template, runs the check before ready). (PR #65)
+
+## #28 — 2026-10-12 · W10.5.2 fixture app, CI and deploy wiring (in progress); W10.5.3 design proposed
 
 **What moved**: first session in the `devshop-fixture` environment with the fixture repo attached.
 Fixture PR 2 adds a one-page Worker (lists one D1 table; `/healthz` checks the database), tests in

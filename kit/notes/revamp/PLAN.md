@@ -30,9 +30,9 @@ Milestones and epics. Tasks and their status live in `workstreams/`. Target pict
 | **M3** | iOS stack + Mac                | W10 (coarse)                            | Dedicated Mac set up (Claude non-admin); iOS stack home; lalista's voice-input iOS work built through v2 with a native preview substitute and the version → testing-track flow                                                                                                                                                 |
 | **M4** | Complete & retire v1           | W10 (coarse)                            | Reviewer measured; production-data grant mechanism; lessons loop proven; docs lean; v1 archived read-only; deferred M0 owner steps done (W0.5.2/W0.5.3 credentials, W0.6.2 CI secrets, W0.6.3 home-os archive)                                                                                                                 |
 
-## Capacity and pacing
+## Capacity
 
-- **Pacing rule (owner, 2026-10-09):** at most ~2 devshop PRs waiting on the owner at once; the agent starts new work only when that queue has room. No hours target.
+- No hours target.
 - Rough effort (agent-days, to be re-estimated at each milestone review): M0 ~3 (+ owner steps) · M1 ~15–20 · M2 ~15–20 · M3 ~15 · M4 ~10. Calendar time follows the owner's review pace.
 
 ## Workstreams → epics

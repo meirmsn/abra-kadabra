@@ -1,1 +1,3 @@
 node_modules
+# Spikes are kept as notes: records of what was run (some are fixed reviewer inputs), not live code.
+kit/notes/revamp/spikes/
