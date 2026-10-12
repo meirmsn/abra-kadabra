@@ -1433,3 +1433,85 @@ repo and a Next.js + Supabase stub as the decoy stack home.
 already names acceptance items `AC-<n>` (W10.6.2), which the spec plants will target. Before the
 first real run (W10.6.4), the owner adds the fixture-only token to the harness repo and removes
 the agent from it.
+
+## #39 — 2026-10-12 · W10.6.1: the Intent and Build skills, from the pinned install
+
+**What moved**: the two v2 skills, one page each, in `runtime/skills/`, so a session gets the
+copies its project pins.
+
+- **`intent`**: say the request's kind first (no change → just do it; bug fix → the failing test
+  is the spec, no "go"; anything else → the steps). `/office-hours` when the why is unsettled,
+  `/spec --file-only --no-gate` for the interview, the spec in the project's `specs/` from
+  `runtime/templates/spec.md` with items `AC-<n>`, checked by `runtime/scripts/spec-check.py`, the
+  adversarial spec review, the one-screen summary, and the "go" recorded on the spec's `**Go:**`
+  line (`spec-check.py --go`).
+- **`build`**: one writer, helpers only read; the project's rules, the stack homes
+  `runtime/scripts/stack-homes.sh` picks (its `STACKS:` line goes in the PR), and the discipline
+  guidelines; code, tests and docs end up describing the new behaviour; the PR body from the
+  template, checked by `pr-body-check.py` before ready; the reviewer is started by the W10.6.7 hook
+  on PR create/ready, never by the builder.
+- **Layouts** (what W10.5.3's decoy and spec plants wait on): a stack home is
+  `runtime/stacks/<stack>/` with `README.md` and `detect` (project paths or globs, or `<path>: <pattern>` to match a file's content, as the decoy's `package.json: "next" *:` needs); guidelines are
+  `runtime/guidelines/<discipline>.md`. The README had planned top-level `stacks/` and `docs/`, but
+  only `runtime/` reaches a session. None ship yet.
+
+**Evidence**: each check was written and run failing first: `tests/skills-check.test.sh` (the
+real skills missing), `tests/spec-check.test.sh` and `tests/stack-homes.test.sh` (scripts
+missing), and the new `tests/bootstrap.test.sh` step (`skill intent: … resolves to ''`). After the
+change all pass; results are in the PR.
+
+**Mitigation**: TARGET Intent 5 has the independent reviewer review the spec; `review.sh` reviews
+only a diff against a spec. Until it has a spec mode, the skill hands the spec to a fresh
+read-only helper. Root cause: no spec-review mode in the reviewer.
+
+**Next**: the owner's fresh-session check in the fixture environment: `devshop:intent` and
+`devshop:build` listed, and the session uses them on a request.
+
+## #40 — 2026-10-12 · W10.6.6 the reviewer finds the spec; its verdict goes on the PR
+
+**What moved**: the W10.6.2 interface note changed first. `review.sh --base <rev> [--pr <file>]`
+drops `--spec`. The spec is the one `specs/**.md` file the change adds, changes or renames; two or
+more are could-not-run. With none, the intent is the PR's words, else the commit messages, and a
+change that should have had a spec fails on the `intent` lens. `--pr` is a JSON file with the PR's
+title and body, which the W10.6.7 hook builds from the tool call it intercepts. The reviewer checks
+them against the commit (Review 5, the `pr` lens), and the verdict records their hash
+(`devshop-review/2`). The verdict reaches the PR as one comment per review (`pr-comment.sh`), and
+the `review-verdict` workflow (`verdict-wait.sh` → `verdict-check.sh`) shows a missing, stale or
+failing one for the head commit.
+
+**Owner calls**: (1) the verdict lives on the PR as a comment. The first pick was a commit status
+plus a comment, but the session's GitHub access refuses status writes (`HTTP 403: Write access to
+this GitHub API path is not permitted through this proxy`, tried once on this branch). (2) The PR
+opens only after the review passes, and each later push is reviewed first (TARGET Verify 2). There
+is no draft-to-ready step, so A-23 is obsolete. Recorded in TARGET, PLAN changelog and W10.6.6/7.
+
+**Evidence**
+
+- Tests written first, failing (`--spec is required`, missing scripts). `tests/reviewer.test.sh`:
+  the old cases kept; new ones for the spec (none, one, two, nested, changed, deleted, non-`.md`,
+  no `AC-`), `--pr` (verbatim into the prompt, not executed, hashed, the `pr` lens must match, 6 bad
+  files), no-spec intent. Mutants: W10.6.2's core logic 14/14 killed; W10.6.6's 21/22, the survivor
+  equivalent (`specs/*.md`: git's default pathspec `*` crosses `/`). Two survivors on the first pass
+  were real gaps, now tested.
+- `tests/reviewer-pr.test.sh`: rendering (per lens and item, the marker not forgeable from model
+  text), ok / missing / stale / failing, the latest marker decides, the wait with a stub `gh`, and
+  could-not-run for bad input. Mutants 27/28 killed, the survivor equivalent.
+- `tests/reviewer-live.sh 10` (real model, ~$0.02–0.03 per review): seeded 10/10 fail with exactly
+  AC-4 unmet; honest with true PR words 10/10 pass; PR body with a false claim 10/10 fail on `pr`;
+  new feature with no spec 10/10 fail on `intent`; two specs 10/10 could-not-run; honest bug fix
+  with no spec 9/10 pass.
+
+**Surprises**
+
+- The miss: one bug-fix run failed on an `unsure` code finding. Stripped characters can still leave
+  double dashes (`'a ! b'` → `'a--b'`), an issue that predates the fix, which the PR doesn't claim
+  to cover. `unsure` blocks by design (Verify 6). The fixture is not tuned to pass. A data point for
+  W10.6.5 (precision), and maybe a prompt line: issues that predate the change and lie outside its
+  stated scope are `low`.
+- A comment-triggered workflow reports on the default branch, not on the PR, so the PR's check
+  can't turn green when the comment lands. It waits instead: it polls the comments for up to 10
+  minutes after each push.
+
+**Next**: W10.6.7, the hook: review before PR create and before each push to an open PR, post the
+comment after. Probe whether a hook can post the comment with the session's GitHub access (status
+writes are refused).
