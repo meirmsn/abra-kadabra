@@ -1255,7 +1255,71 @@ all history and stopped on v1's known findings (LOG #11); seed such a remote wit
 
 **Next**: owner's check of this fix; the reviewer hook after W10.6.6.
 
-## #35 — 2026-10-12 · W10.4.4: fresh-session check of #71; env note dropped
+## #35 — 2026-10-12 · W10.5.2 done: deploys from `main`, per-PR previews in their own account
+
+**What moved**: the rest of W10.5.2, after LOG #29.
+
+- Fixture PR 3: the deploy smoke check needs two clean passes in a row, because the first deploy
+  404'd while the new route propagated.
+- Fixture PR 4: per-PR previews.
+- Fixture PR 6: preview cleanup through the Cloudflare API.
+
+The owner chose previews in a **separate, preview-only Cloudflare account** under the same login.
+D1 permissions can't be scoped to one database, so a same-account preview token could reach
+production's data. Cloudflare's new single-Worker tokens (2026-09-15) don't solve that, and they are
+reported to fail to create. The preview token is account-owned: legacy Workers Scripts Edit + D1 Edit,
+on that account only. It sits in the fixture's `preview` environment, with no branch restriction.
+
+Each PR gets its own Worker and D1 database (`devshop-fixture-pr-N`, migrations applied), so PRs
+with different migrations don't collide. The cost is the Free plan's ~10-database limit, and a
+failed create names it. The deploy reuses the tested production script through a config switch.
+One PR comment links the preview and is updated in place on every push. A close deletes the Worker
+and database; the cleanup runs `main`'s scripts and can be started by hand for any PR.
+
+**Evidence** (all read from the Actions API and job logs in the session)
+
+- **Production:** deploys from `main` after PRs 3, 4 and 6 passed their smoke checks. After PR 3,
+  the log showed `smoke: try 1/10 ok`, `try 2/10 ok`, `smoke: ok`.
+- **Preview, PR 4's own run:**
+  - its own database was created and migrated, and its own Worker deployed;
+  - the smoke check rode out propagation (ok, page 404, ok, ok), then passed;
+  - `preview-comment: deployed (created)`.
+- **Isolation probe** (a throwaway branch, the `preview` environment, the preview token):
+  - `accounts visible: 1 (preview account among them: yes; production among them: no)`;
+  - production D1 list `HTTP 401 … Authentication error`;
+  - preview D1 list `HTTP 200`.
+- **Cleanup:**
+  - PR 4's close failed: `wrangler delete` also reads KV namespaces, and the token has no KV
+    permission (`Authentication error [code: 10000]` on `/storage/kv/namespaces`).
+  - Fix (PR 6): call the API directly, with the token on stdin, so no new permission is needed.
+  - Live: PR 6's close logged `deleting Worker`, `deleting database`, `PR 6 removed`,
+    `preview-comment: removed (updated)`.
+  - The manual run for PR 4 logged `Worker … was already gone` (the failed `wrangler delete` had
+    removed it), `deleting database`, `PR 4 removed`.
+- **PR body check** (hand-off from LOG #27): PR 4's and PR 6's bodies, written from
+  `runtime/templates/pr-body.md` with the real preview-comment link, pass `pr-body-check.py`
+  (`shape ok`). The check first caught a 169-character summary. The same body with the link
+  replaced is refused.
+- **Checks written first:** every new script failed its tests before it existed.
+  - `tests/deploy.test.sh`: 20 cases.
+  - `tests/preview.test.sh`: 11 cases.
+  - `tests/node/*.test.mjs`: 9 cases, against a fake GitHub API.
+
+**Surprises**
+
+- Fake tools hide real permission checks: the `wrangler delete` KV lookup only showed up live.
+  Mitigation: every new Cloudflare call path gets one live run before its PR is called done.
+  Root cause: the fakes model wrangler's interface, not the permissions it needs.
+- Vitest's default file pattern also collected the Node script tests; the include is now pinned.
+- A single green request proves little during route propagation, which is why the smoke check
+  needs two passes in a row.
+- A stray `git checkout origin/main -- runtime` staged newer files onto an old branch. It was caught
+  before commit and undone.
+
+**Next**: W10.5.3 is in the owner's separate session (traffic schedule: every minute for 5 minutes
+after a deploy, then back-off to a 60-minute cap; LOG #29).
+
+## #36 — 2026-10-12 · W10.4.4: fresh-session check of #71; env note dropped
 
 **Owner's check of #71 (abra-kadabra)**: the devshop pre-push hook scanned the push's 1 new commit
 and passed; session setup ran `npm ci`; the `DEVSHOP:` line still ended `env note unavailable`.
