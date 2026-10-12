@@ -941,5 +941,23 @@ exists (by name, so no account or database id is in the repo; wrangler 4.149 res
 - A `git add -A` on a branch without `.gitignore` swept in `node_modules`. GitHub's 100 MB limit
   rejected the push (GH001), so nothing landed.
 
-**Next**: the owner's answers on F-NEW-20, previews and the W10.5.3 design; then the deploy from
-`main` and the refusal proof.
+**Owner's answers (same day)**
+
+- F-NEW-20 cause: the `production` environment, its secret and its variable had been set up in
+  **the devshop repo**, not the fixture. The fixture's `production` existed with no branch rule
+  and nothing in it, probably created automatically when the probe job named it. **Correction to
+  LOG #25:** the token was never in the fixture's environment then. The owner moved the secret
+  and variable to the fixture's environment, limited it to `main`, removed them from the devshop
+  repo, and rolled the token as a precaution: the devshop repo's environment had no branch rule,
+  so a workflow on any of its branches could have read the token.
+- Re-run of the same probe runs (attempt 2): both refused in about 2 s, with no runner and no
+  steps. GitHub's annotations: `Branch "claude/probe-production-refusal" is not allowed to deploy to
+production due to environment protection rules.` (push) and `Branch "refs/pull/1/merge" is not
+allowed to deploy to production due to environment protection rules.` (pull_request). The
+  probe PR is closed. The branch remains because the session's git proxy refuses branch
+  deletion.
+- Previews: option (c), a separate preview-only Cloudflare account.
+
+**Next**: the owner sets the required checks and approves fixture PR 2; Claude merges and records
+the first deploy from `main`. Then the preview account (owner) and wiring. W10.5.3 waits on the
+owner's "go".
