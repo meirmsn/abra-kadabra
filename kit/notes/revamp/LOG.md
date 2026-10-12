@@ -920,6 +920,9 @@ real domains pass; docs map: orphan, island, missing file, anchor, image, link o
 equivalent, as `--version` still fails closed. Replay of the real incident: the identity check over
 this repo's whole history reports exactly the 19 `test.com` commits L-41 records, and a reserved-
 domain-only first draft missed all 19 (that is why `test.com` is listed). On the repo: all four
-checks pass; `tests/run.sh` 7/7. CI result on the PR.
+checks pass; `tests/run.sh` 7/7. CI's first run failed on the lookalike case `ada@myexample.com`:
+the runner's awk is gawk, which turns `\.` in a `-v` value into `.`, and the session's mawk
+doesn't. Reproduced with gawk, fixed by passing the regex through `ENVIRON`. Tests and mutants
+pass under both.
 
 **Next**: `[owner]` mark `ci / lint` required on `main`; then W10.4.2 is done. (PR #63)

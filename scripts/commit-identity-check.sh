@@ -20,7 +20,9 @@ fi
 
 reserved='@((.+\.)?example\.(com|net|org)|(.+\.)?localhost|.+\.(example|test|invalid)|test\.com)$'
 log=$(git log --format='%h%x09%ae%x09%ce%x09%s' "$range") || { echo "FAIL: git log $range failed" >&2; exit 2; }
-bad=$(awk -F'\t' -v re="$reserved" '
+# The regex goes in through ENVIRON: gawk would turn its `\.` into `.` if passed with -v.
+bad=$(RESERVED=$reserved awk -F'\t' '
+  BEGIN { re = ENVIRON["RESERVED"] }
   { a = tolower($2); c = tolower($3) }
   a ~ re || c ~ re { printf "%s author <%s> committer <%s>: %s\n", $1, $2, $3, $4 }' <<<"$log")
 
