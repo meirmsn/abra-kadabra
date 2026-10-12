@@ -1845,7 +1845,7 @@ shown/hidden tables, moved up to L-73.)
   `conventions.md` § Non-Negotiables — Supabase home candidates. (The DB-hardening SQL and the
   upstream advisor moved up to L-82 after home-os showed real bites.)
 - Migration sequencing pre-flight (expand/contract vs a parallel deploy) — `go-live/SKILL.md` §
-  Step 1.6, `kit/ROADMAP.md` § Migration sequencing — the roadmap entry itself asks whether it ever fired.
+  Step 1.6, `kit/ROADMAP.md` § Migration sequencing — the roadmap entry itself asks whether it ever fired. Replaced at L3 Ship by a simpler rule: migrations backward-compatible by default, destructive steps separate with a tested reverse or a restore point ([TARGET § Ship](TARGET.md#ship)).
 - `ON DELETE` on `auth.users` FKs, PostgREST two-query hydration, seed.sql gotrue columns,
   load-bearing SQL sentinels, DB-constraint backstops — `migrations.md`, `database-queries.md`.
 - Date handling as `YYYY-MM-DD` strings — `date-handling.md` — implementation notes.

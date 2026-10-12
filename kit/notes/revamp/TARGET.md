@@ -7,13 +7,13 @@ where they belong (mostly L3). Every milestone review checks progress against th
 page and whether the page itself is still right
 ([PROCESS.md § 5](PROCESS.md#milestone-review-each-m-exit--the-whole-picture-check)).
 
-| Level | Form                     | Status                                                                      |
-| ----- | ------------------------ | --------------------------------------------------------------------------- |
-| L0    | One sentence (ish)       | **agreed** 2026-10-08                                                       |
-| L1    | One paragraph            | **agreed** 2026-10-08                                                       |
-| L2    | One line per pillar      | **agreed** 2026-10-09                                                       |
-| L3    | A few bullets per pillar | in progress — Intent, Build, Verify, Review, Ship, Safety agreed 2026-10-12 |
-| L4    | Milestones + tasks       | re-derived from L0–L3 (PLAN.md)                                             |
+| Level | Form                     | Status                                                |
+| ----- | ------------------------ | ----------------------------------------------------- |
+| L0    | One sentence (ish)       | **agreed** 2026-10-08                                 |
+| L1    | One paragraph            | **agreed** 2026-10-08                                 |
+| L2    | One line per pillar      | **agreed** 2026-10-09                                 |
+| L3    | A few bullets per pillar | in progress — all but Reach + Shape agreed 2026-10-12 |
+| L4    | Milestones + tasks       | re-derived from L0–L3 (PLAN.md)                       |
 
 ## L0 — where we're going
 
@@ -150,12 +150,26 @@ _Agreed 2026-10-12 (LOG #19)._
 1. **Merge only through the GitHub PR,** required checks green on the exact commit being merged, branch up to date with `main` (L-32); squash merge. By default Claude merges once the owner approves and checks pass; it waits for the owner to merge only when there's a reason ([Review](#review) bullet 8).
 2. **Production health is checked before merging,** so a deploy can't hide an existing failure (L-33).
 3. **Web and backend deploy automatically from `main`;** deploy secrets only in the `production` environment (Safety); database migrations run in the deploy pipeline, never from Claude's session.
+   - **Migrations are reversible in practice:** backward-compatible by default (expand / contract — the previous app version keeps working), so a code rollback never needs a database rollback. Destructive steps (dropping a column or table, rewriting data) go in a later, separate change, with either a reverse migration tested in CI (apply → reverse → apply on the local database) or, when data can't be restored that way, a confirmed backup / restore point taken just before deploy using the platform's own feature (Supabase backups/PITR, Cloudflare D1 Time Travel); the PR says which. The revert PR includes the reverse migration whenever one exists.
 4. **Manual steps listed in the PR** — anything the merge doesn't carry (dashboard settings, auth config, DNS, email templates) as a checklist for the owner, derived from the real deploy config (L-34).
 5. **Claude watches after deploy:** an immediate canary of the live app (gstack `/canary`) + error monitoring + the change's metrics in the session, and **one follow-up check the next day** (scheduled routine) for errors and metrics. "Can't reach" from Claude's side is could-not-run, not "down" (L-33). The first production use of a critical flow (sign-in, invite, payment) gets a real-account smoke test, or Claude asks the owner to do it (L-67).
 6. **If something looks wrong,** Claude alerts the owner in chat with the evidence and **both rollback paths prepared and checked:** a revert PR pushed with CI green on the reverted tree, and the platform's one-click rollback with the previous deployment confirmed available and healthy (its immutable per-deploy URL loads). The owner picks; rollback is the owner's call.
 7. **Metrics in the context of what exists:** observability (errors, performance) is always on, set up per stack. Product metrics are added only when the existing ones don't cover the new functionality — the spec says which existing signals cover it, or names the new ones needed. Claude checks them after deploy.
 8. **Native apps:** changes accumulate on `main`; Claude proposes a version when there's enough to ship; the owner cuts it, and each step (testing track, then stores) is the owner's call. Native PRs show simulator screenshots/video instead of a preview link.
 9. **Recording:** each ship updates the project's log and plan (what shipped, what was learned) and asks "what generalises beyond this project?" — answers go into one counted devshop ledger (L-35), format decided under Shape.
+
+### Environments
+
+_Agreed 2026-10-12 (LOG #19)._
+
+1. **Cloud sessions by default** — drive work from a computer, phone or tablet. **One cloud environment per project** (D-01 revisited): each holds only that project's tokens and network allowlist, and runs the same tiny shared setup script (read-only devshop token + one bootstrap line), so everything project-specific lives in the project's environment and the shared part stays trivial to change. The project's devshop version is `.devshop-version`; a stale local copy shows in the `DEVSHOP:` line.
+2. **One task, one branch, cut from a freshly fetched `main`** (L-42); sessions never share a branch; parallel work = parallel sessions.
+3. **Work survives only in GitHub:** the container is temporary, so Claude pushes the branch at every stopping point; a session resumes from the PR, the spec and the branch, never from a chat transcript.
+4. **Setup runs without prompts, fails loudly, and can't block its own repair** (L-43).
+5. **One pinned version of every tool everywhere** (Node, pnpm, CLIs, Playwright — same in CI, cloud and the Mac); CI actions pinned by SHA; upgrades on purpose with a smoke check (L-45).
+6. **Local services in their own containers** (databases etc., via Docker in the cloud), never connected to production; Supabase start-up speed in a cloud session is still untested (A-11) — tested at the walking skeleton.
+7. **The Mac** (set up at M3): dedicated, no personal accounts or files; Claude runs as a non-admin user with only the developer accounts it needs; native builds, simulators and devices, and the fallback when the cloud falls short (Claude says why); a macOS VM only if that proves insufficient. Apple builds in CI can use GitHub's hosted macOS runners.
+8. **Network: least-privilege allowlist** per project environment — package registries, GitHub, the project's sandbox services; additions are deliberate. It also limits what a prompt-injected agent could send anywhere.
 
 ### Safety
 

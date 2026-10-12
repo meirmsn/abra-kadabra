@@ -628,7 +628,7 @@ as not carried.
 
 **Next**: W10.3.3 (disposition every FINDINGS row).
 
-## #19 — 2026-10-11 · W10.2 L3 design pass: Intent, Build, Verify, Review, Ship, Safety
+## #19 — 2026-10-11 · W10.2 L3 design pass: Intent, Build, Verify, Review, Ship, Safety, Environments
 
 **What moved**: W10.2 started (`[~]`) in parallel with W10.1.2 and W10.3.1, which both landed
 mid-session (D-01 decided; `lessons.md` done) — the branch was brought up to `main` and the
@@ -682,4 +682,9 @@ written to [TARGET.md § L3](TARGET.md#l3--a-few-bullets-per-pillar).
   previous deployment confirmed healthy); product metrics added only where existing ones don't
   cover the new functionality.
 
-**Next**: Environments; then Reach + Shape.
+- Ship amended: migrations backward-compatible by default; destructive steps separate, with a
+  CI-tested reverse migration or a confirmed restore point.
+- **Environments agreed:** least-privilege network allowlist; **one cloud environment per project**
+  (D-01 revisited) running the same minimal shared setup script; work survives only in GitHub.
+
+**Next**: Reach, then Shape (D-07, D-10, the devshop ledger format); then the north-star rewrite (W10.2.2).

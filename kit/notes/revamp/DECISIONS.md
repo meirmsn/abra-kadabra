@@ -192,6 +192,8 @@ Outcome: **open — direction set 2026-10-09:** the pinned devshop comes from th
 
 **Decided 2026-10-11 (owner): option D** in the W10.1.2b form — one shared cloud environment whose setup script is a read-only token + `HEAD:bootstrap.sh`; stub plugin + SessionStart dispatcher; per-project `.devshop-version`. Built in W10.4.4. **Revisit trigger → D′** (private npm package fetched per session, no cache staleness; costs a paid private package + a CI publish step): move when D's limits bite in practice — sessions running on a stale devshop copy, or newer pins waiting on the environment cache to rebuild.
 
+**Revisited 2026-10-12 (owner, L3 Environments, LOG #19):** **one cloud environment per project** instead of one shared by all — each holds only that project's tokens (read-only observability, Safety) and network allowlist. Every environment runs the same minimal shared setup script (read-only devshop token + `HEAD:bootstrap.sh`), which is why the shared part stays as small as possible.
+
 ## D-05 Plan tier assumptions — `decided`
 
 Network secrets exist on Pro/Max (not Team/Enterprise yet); server-managed settings
