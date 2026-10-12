@@ -261,6 +261,16 @@ if ! grep -q '^DEVSHOP: using HEAD ' <<<"$raw" || [ "$(tail -1 <<<"$raw")" != "$
   fail "without jq: want the plain DEVSHOP: line, then the ask to repeat it"
 fi
 echo "ok - without jq the hook prints the plain line and the ask to repeat it"
+# A jq that fails takes the same fallback; nothing half-built goes out.
+printf '#!/usr/bin/env bash\nexit 1\n' >"$work/bin-nojq/jq" && chmod +x "$work/bin-nojq/jq"
+raw=$(cd "$proj" && PATH="$work/bin-nojq" CLAUDE_PLUGIN_ROOT="$HOME/plugin" CLAUDE_PROJECT_DIR="$proj" bash -c "$cmd") \
+  || fail "SessionStart hook with a failing jq exited non-zero"
+if ! grep -q '^DEVSHOP: using HEAD ' <<<"$raw" || [ "$(tail -1 <<<"$raw")" != "$NUDGE" ] || grep -q '^{' <<<"$raw"; then
+  echo "$raw" >&2
+  fail "failing jq: want the plain DEVSHOP: line, then the ask to repeat it"
+fi
+rm "$work/bin-nojq/jq"
+echo "ok - with a failing jq the hook prints the plain line and the ask to repeat it"
 
 out=$(session "$pinned")
 check "pinned SHA" "$out" "^DEVSHOP: using $pinned \(${pinned:0:12}\) from project \.devshop-version" "$pinned"

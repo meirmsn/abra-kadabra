@@ -1641,8 +1641,14 @@ collects everything it and the version's `session-start.sh` print, then emits on
 
 **Evidence**: `tests/bootstrap.test.sh` was changed first and failed against the old hook (`SessionStart
 output is not JSON with a systemMessage`). It now checks the JSON for every pin case and the plain
-fallback with `jq` off `PATH`; all scenarios pass. Three mutants (no request in the context, plain
+fallback with `jq` off `PATH` and with a `jq` that fails; all scenarios pass. Three mutants (no request in the context, plain
 output always, fallback without the request) are all killed.
+
+**Owner's decision** (2026-10-12, in chat, after LOG #43's options): the hook shows the line to the
+owner directly, with the request to Claude as backup; no spec, the decision is recorded here. If the
+apps don't show the message, nothing is reverted: Claude still gets the line and the request, and
+the result is recorded. Any other line the version's `session-start.sh` prints (such as a failed
+`scripts/setup.sh`) is now shown to the owner too.
 
 **Open (experiment)**: the hooks docs don't say whether the web and mobile apps show a SessionStart
 `systemMessage`. The owner's fresh-session check in the fixture environment answers it: does the owner
