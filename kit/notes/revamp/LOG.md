@@ -1340,3 +1340,18 @@ after removing `env_note`/`lead_comment` from `install/bootstrap.sh` and the not
 `--spec`); `runtime/reviewer/review.sh` on `main` still requires `--spec`, which a hook can't know.
 
 **Next**: W10.6.6; then the reviewer hook and the owner's fresh-session check of it.
+
+## #37 — 2026-10-12 · W10.4.4: fresh-session check of #73 passed; hook handed off
+
+**Owner's fresh-session check of #73 (abra-kadabra)**: the line read `DEVSHOP: using HEAD
+(ce5512950c2c) from environment default (no .devshop-version) · devshop copy of 2026-10-12 19:55 UTC
+(0 days old) · project abra-kadabra`, with no env note. The copy contains `ce55129` (#73), and
+`/opt/devshop-versions/` has no `env-note`. The setup log ends `RESULT: bootstrap done` with no
+`FAILED`. `/tmp/devshop-project-setup.log` shows `added 1 package`, the output of `scripts/setup.sh`
+(`npm ci --no-audit --no-fund`), with no failure line. `npx prettier --version` printed 3.9.9.
+**Passed**.
+
+**Handed off**: the reviewer hook is written into W10.4.4's "Left" line, and W10.6.6 points to it,
+so the session after W10.6.6 picks it up from the plan.
+
+**Next**: W10.6.6; then the W10.4.4 reviewer hook and the owner's fresh-session check of it.
