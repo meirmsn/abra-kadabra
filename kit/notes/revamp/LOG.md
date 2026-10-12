@@ -628,7 +628,7 @@ as not carried.
 
 **Next**: W10.3.3 (disposition every FINDINGS row).
 
-## #19 — 2026-10-11 · W10.2 L3 design pass: Intent, Build, Verify, Review, Safety
+## #19 — 2026-10-11 · W10.2 L3 design pass: Intent, Build, Verify, Review, Ship, Safety
 
 **What moved**: W10.2 started (`[~]`) in parallel with W10.1.2 and W10.3.1, which both landed
 mid-session (D-01 decided; `lessons.md` done) — the branch was brought up to `main` and the
@@ -677,4 +677,9 @@ written to [TARGET.md § L3](TARGET.md#l3--a-few-bullets-per-pillar).
   layout + tool lookups (related-tests mode, coverage, name search) + spec→test links, not a
   hand-kept index; the docs map is checked by CI.
 
-**Next**: Ship, Environments; then Reach + Shape.
+- **Ship agreed (2026-10-12):** merge on approval + green checks by default; canary now + a
+  next-day follow-up check; both rollback paths prepared and checked (revert PR with green CI;
+  previous deployment confirmed healthy); product metrics added only where existing ones don't
+  cover the new functionality.
+
+**Next**: Environments; then Reach + Shape.
