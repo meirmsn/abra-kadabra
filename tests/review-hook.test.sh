@@ -164,7 +164,7 @@ for c in "ls -la" "git status" "echo 'gh pr create'" "git log --grep push" "gh p
   run_hook gate Bash "$(bash_call "$c")"; allowed "unrelated: $c"
 done
 run_hook gate Read '{"file_path": "/etc/hosts"}'; allowed "Read"
-# Heredoc bodies are text, not commands: quotes in them don't need to balance (LOG #41: "there's").
+# Heredoc bodies are text, not commands: quotes in them don't need to balance (LOG #44: "there's").
 run_hook gate Bash "$(bash_call "cat >>notes.md <<'EOF'
 there's no git push here, and gh pr create neither
 EOF
