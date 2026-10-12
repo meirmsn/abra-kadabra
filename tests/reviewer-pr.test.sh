@@ -58,6 +58,14 @@ verdict "$work/nl.json" pass "$head_sha" '[{"severity":"low","lens":"code","item
 "$render" "$work/nl.json" >"$work/nl.md"
 ! grep -qE '^(\| fake|- \*\*high)' "$work/nl.md" || fail "a newline in model text made its own line"
 ok "model text stays on its own line"
+# Model or repo text must not ping people or render links and images in the comment.
+verdict "$work/md.json" pass "$head_sha" '[{"severity":"low","lens":"code","item":"","file":"a.js","what":"ask @owner-name, see [here](https://example.com/x) and ![t](https://example.com/p.png)","fix":"z"}]'
+"$render" "$work/md.json" >"$work/md.md"
+! grep -qF '@owner-name' "$work/md.md" || fail "an @mention survived in model text"
+! grep -qE '!?\[[^]]*\]\(' "$work/md.md" || fail "a markdown link or image survived in model text"
+grep -qF 'owner-name' "$work/md.md" || fail "the mentioned name must stay readable"
+grep -qF 'https://example.com/x' "$work/md.md" || fail "the link target must stay readable"
+ok "model text cannot mention people or render links or images"
 verdict "$work/f.json" fail "$head_sha" '[{"severity":"high","lens":"pr","item":"","file":"","what":"body claims a test","fix":"fix body"}]'
 "$render" "$work/f.json" >"$work/cf.md"
 grep -qF "**Reviewer: fail**" "$work/cf.md" || fail "fail headline"

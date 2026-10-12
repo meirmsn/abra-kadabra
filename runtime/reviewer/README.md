@@ -31,7 +31,8 @@ codes, stdout line, verdict file and format) is in
 
 Each review is recorded on the PR as one comment, rendered by `pr-comment.sh` from the verdict file
 (TARGET Verify 7, L-25). Its first line is a marker with the full commit and the outcome; text from
-the model has `<` escaped and newlines flattened, so it can't form a second one. The hook (W10.6.7)
+the model has `<` escaped and newlines flattened, so it can't form a second one, and `@` and `[`
+escaped, so it can't mention people or render links and images (F-NEW-25). The hook (W10.6.7)
 posts it right after the PR is created or pushed. The `review-verdict` workflow runs
 `verdict-wait.sh` on every PR push: it passes once the latest marker is a pass for the head commit,
 and fails when the verdict is missing, stale (for an older commit) or failing after 10 minutes. It
@@ -67,7 +68,7 @@ required check: the agent can post a comment itself, and the PR's own copy of th
   and W10.6.6 mutants (21 of 22; the survivor is equivalent) are killed.
 - [`tests/reviewer-pr.test.sh`](../../tests/reviewer-pr.test.sh) (in CI, stub `gh`) checks the
   comment (per lens, marker not forgeable from model text), ok / missing / stale / failing for the
-  head, the wait, and could-not-run for bad input. 27 of 28 mutants killed (the survivor is
+  head, the wait, and could-not-run for bad input. 29 of 30 mutants killed (the survivor is
   equivalent).
 - [`tests/reviewer-live.sh`](../../tests/reviewer-live.sh) (`[runs]`, in a session only, because it
   calls the real model and CI runs no LLM jobs) runs the real reviewer on the A-04 fixtures in
@@ -81,6 +82,8 @@ required check: the agent can post a comment itself, and the PR's own copy of th
 
 - Only specs whose acceptance items are named `AC-<n>` are reviewed. Others are could-not-run.
 - A change with two or more spec files is could-not-run: one change, one spec (TARGET Intent 2).
+  Every `.md` under `specs/` counts, so `specs/` holds spec files only (the Intent skill says so);
+  a README or template added there makes the review could-not-run, never a pass.
 - What "run" can run is the allowlist above. Stack homes (W10.5.2) will extend it per stack. There
   is no browser yet, so the design and QA lenses review by reading.
 - Rounds count distinct failing commits since the branch's last pass, and they don't reset when the

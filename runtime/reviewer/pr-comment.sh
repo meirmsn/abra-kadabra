@@ -2,7 +2,8 @@
 # Renders one reviewer verdict file (devshop-review/2) as the PR comment that records it on the PR
 # (W10.6.6, TARGET Verify 7, L-25): the result per lens and per acceptance item, tied to the full
 # commit it reviewed. The first line is the marker verdict-check.sh reads; nothing else in the comment
-# can form one, because text from the model or the repo has "<" escaped and newlines flattened.
+# can form one, because text from the model or the repo has "<" escaped and newlines flattened; "@"
+# and "[" are escaped too, so that text can't mention people or render links and images.
 #   usage: pr-comment.sh <verdict file>   → the comment's markdown on stdout
 # Exit 0 = rendered; 2 = not a readable devshop-review/2 verdict (nothing printed).
 set -uo pipefail
@@ -14,8 +15,10 @@ jq -e '.format == "devshop-review/2" and (.commit | type == "string" and test("^
   "$1" >/dev/null 2>&1 || { echo "pr-comment.sh: '$1' is not a devshop-review/2 verdict" >&2; exit 2; }
 
 jq -r '
-  # Text from the model or the repo: one line, no HTML, no table breaks.
-  def clean: tostring | gsub("[\r\n]+"; " ") | gsub("<"; "&lt;") | gsub("\\|"; "\\|");
+  # Text from the model or the repo: one line, no HTML, no table breaks, no @mentions, and no
+  # markdown links or images ("@" and "[" become entities, which render as themselves).
+  def clean: tostring | gsub("[\r\n]+"; " ") | gsub("<"; "&lt;") | gsub("\\|"; "\\|")
+    | gsub("@"; "&#64;") | gsub("\\["; "&#91;");
   . as $v
   | ([$v.findings[] | select(.severity != "low")]) as $blocking
   | ($v.lenses | map(.lens)) as $named
