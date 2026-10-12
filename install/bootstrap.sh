@@ -28,41 +28,6 @@ echo "$REF" >"$VERSIONS/default-ref" || step_failed "write default-ref"
 # environment cache rebuilds.
 date -u +%FT%TZ >"$VERSIONS/copy-date" || step_failed "write copy-date"
 
-# The environment's note: the first line of the setup script that is running this bootstrap, if it is
-# a comment (the owner dates it when editing the script, which also rebuilds the cache). Sessions
-# can't read the script or the environment's name, so it is read now, from the script's process: its
-# `-c` argument or the file it runs. Only that one line is kept; the token on a later line never is.
-# Empty when the script can't be read back (e.g. it came on stdin): the DEVSHOP: line says so.
-# lead_comment: the first comment line of the script on stdin, skipping `#!` lines (the environment
-# adds a shebang); stops at the first other line, so nothing after the comments is ever read.
-lead_comment() {
-  local line
-  while IFS= read -r line; do
-    case $line in '#!'*) continue ;; '#'*) printf '%s' "$line"; return ;; *) return ;; esac
-  done
-}
-env_note() {
-  local pid=$PPID arg first n
-  for _ in 1 2 3 4 5 6 7 8; do
-    [ "$pid" -gt 1 ] 2>/dev/null || return
-    while IFS= read -r -d '' arg; do
-      first=
-      case $arg in
-        *HEAD:bootstrap.sh*) first=$(lead_comment <<<"$arg") ;;
-        /*) [ -f "$arg" ] && grep -qF 'HEAD:bootstrap.sh' "$arg" 2>/dev/null && first=$(lead_comment <"$arg") ;;
-      esac
-      if [ -n "$first" ]; then
-        case $first in
-          '#'*) n=${first#"#"}; n=${n#"${n%%[![:space:]]*}"}; printf '%s' "$n" | tr -d '\000-\037\177' | head -c 160 ;;
-        esac
-        return
-      fi
-    done <"/proc/$pid/cmdline"
-    pid=$(awk '{print $4}' "/proc/$pid/stat" 2>/dev/null) || return
-  done
-}
-env_note >"$VERSIONS/env-note" 2>/dev/null || step_failed "write env-note"
-
 { rm -rf "$PLUGIN" && mkdir -p "$PLUGIN"; } || step_failed "mkdir $PLUGIN"
 git --git-dir="$MIRROR" archive "$REF:install/plugin" | tar -x -C "$PLUGIN" 2>>"$LOG" \
   || step_failed "extract install/plugin at $REF"

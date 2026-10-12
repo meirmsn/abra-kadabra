@@ -51,18 +51,14 @@ The hook prints one line, and CLAUDE.md has Claude repeat it in its first reply.
 the local copy's date, time and age, because the copy only refreshes when the environment cache
 rebuilds and a same-day stale copy is otherwise invisible, then the project the session runs in. The
 session can't read its environment's name, and with one environment per project the project names it.
-Last comes the env note: the setup script's first line, if it is a comment (start it with the
-environment's name and the date of your last edit). The bootstrap reads only that line while setup
-runs, from the script's process (`bash -c` or a file); when it can't (e.g. a script on stdin) the
-line says `env note unavailable`.
 
-| Case                                  | Line                                                                                                                                                                                   |
-| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| No `.devshop-version`                 | `using HEAD (<sha12>) from environment default (no .devshop-version) · devshop copy of <date> <HH:MM> UTC (<n> days old) · project <name> · env note "<setup script's first comment>"` |
-| Pinned SHA in the copy                | `using <pin> (<sha12>) from project .devshop-version · devshop copy of …`                                                                                                              |
-| Pin not in the copy (newer, or wrong) | `version '<pin>' (…) is not in the local devshop copy — kept version <sha12> · devshop copy of …; the copy refreshes …`                                                                |
-| Pin older than this install           | `version '<pin>' (<sha12>) has no devshop runtime at runtime/ (older than the v2 install?) — kept version <sha12> · …`                                                                 |
-| Not a version (e.g. `--x`)            | `'<pin>' (…) is not a devshop version (a commit SHA) — kept version <sha12> · …`                                                                                                       |
+| Case                                  | Line                                                                                                                                       |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| No `.devshop-version`                 | `using HEAD (<sha12>) from environment default (no .devshop-version) · devshop copy of <date> <HH:MM> UTC (<n> days old) · project <name>` |
+| Pinned SHA in the copy                | `using <pin> (<sha12>) from project .devshop-version · devshop copy of …`                                                                  |
+| Pin not in the copy (newer, or wrong) | `version '<pin>' (…) is not in the local devshop copy — kept version <sha12> · devshop copy of …; the copy refreshes …`                    |
+| Pin older than this install           | `version '<pin>' (<sha12>) has no devshop runtime at runtime/ (older than the v2 install?) — kept version <sha12> · …`                     |
+| Not a version (e.g. `--x`)            | `'<pin>' (…) is not a devshop version (a commit SHA) — kept version <sha12> · …`                                                           |
 
 "Kept" means the session keeps the default version primed at setup. Proven by
 [`tests/bootstrap.test.sh`](../tests/bootstrap.test.sh). It replays the setup script (local bare

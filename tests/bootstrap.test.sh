@@ -176,18 +176,7 @@ setup_env() {
   [ "${1:-main}" = main ] || git --git-dir=/opt/devshop.git update-ref refs/heads/main "refs/heads/$1"
   # Line 1 clones with the token in the URL; the bootstrap must not keep it (nor name an account).
   git --git-dir=/opt/devshop.git remote set-url origin "https://x-access-token:FAKE-TOKEN@example.com/acme/devshop.git"
-  # The setup script as the environment holds it: the owner's comment first, then the clone line
-  # (here a stand-in carrying a fake token; the clone already ran above), then line 2 verbatim. Run the
-  # ways an environment manager might (DEVSHOP_TEST_RUN): as `bash -c`, as a file, or on stdin.
-  local script
-  script=$(printf '%s\n' "# test-env · rebuilt 2026-01-01 10:00" \
-    "true https://x-access-token:FAKE-TOKEN@example.com/acme/devshop.git" \
-    "git --git-dir=/opt/devshop.git show HEAD:bootstrap.sh | bash || true")
-  case ${DEVSHOP_TEST_RUN:-c} in
-    c) bash -c "$script" ;;
-    file) printf '#!/bin/bash\n%s\n' "$script" >/tmp/setup-script.sh && bash /tmp/setup-script.sh ;; # with the shebang the environment adds
-    stdin) bash <<<"$script" ;;
-  esac
+  git --git-dir=/opt/devshop.git show HEAD:bootstrap.sh | bash || true
   # Age the copy: the bootstrap records when it was made (DEVSHOP_TEST_COPY_AGE: a `date -d` offset).
   case "${DEVSHOP_TEST_COPY_AGE:-}" in
     '') ;;
@@ -220,8 +209,7 @@ check() {
   # project, so a same-day stale copy or the wrong environment shows (W10.4.4).
   local copy_re
   copy_re="$(date -u +%F) [0-9]{2}:[0-9]{2} UTC \\(0 days old\\)"
-  local env_re='env note "test-env · rebuilt 2026-01-01 10:00"'
-  grep -Eq "^DEVSHOP: .* · devshop copy of ${want_copy:-$copy_re} · project proj\\.[A-Za-z0-9]{4} · ${want_env:-$env_re}(;|$)" <<<"$2" \
+  grep -Eq "^DEVSHOP: .* · devshop copy of ${want_copy:-$copy_re} · project proj\\.[A-Za-z0-9]{4}(;|$)" <<<"$2" \
     || { echo "$2" >&2; fail "$1: DEVSHOP: line doesn't date the devshop copy"; }
   [ "$(readlink /opt/devshop-current)" = "/opt/devshop-versions/$4" ] \
     || fail "$1: /opt/devshop-current -> $(readlink /opt/devshop-current), want version $4"
@@ -268,20 +256,6 @@ want_copy="unknown date \\([^)]*\\)"
 out=$(DEVSHOP_TEST_COPY_AGE=missing session '')
 check "HEAD default, copy date missing" "$out" "^DEVSHOP: using HEAD " "$head"
 unset want_copy
-
-# The environment's note: the setup script's first line, if it is a comment, read while setup runs
-# (the session can't read the script or the environment's name). From `bash -c` (above) or a file;
-# on stdin the script can't be read back, and the line says so.
-out=$(DEVSHOP_TEST_RUN="file" session '')
-check "env note from a setup script run as a file" "$out" "^DEVSHOP: using HEAD " "$head"
-want_env="env note unavailable"
-out=$(DEVSHOP_TEST_RUN="stdin" session '')
-check "env note unavailable when the script came on stdin" "$out" "^DEVSHOP: using HEAD " "$head"
-unset want_env
-# Only that one comment line is kept: the token on the next line is never stored or logged.
-! grep -rqs FAKE-TOKEN /opt/devshop-versions /opt/devshop-plugin /opt/devshop.git/config /tmp/devshop-setup.log \
-  || fail "the setup script's token reached the install"
-echo "ok - only the setup script's comment line is kept; its token never is"
 
 # .devshop-version is project content: anything but a version name is refused, never passed to git.
 out=$(session "--output=/tmp/x")
