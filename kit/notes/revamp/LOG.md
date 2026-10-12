@@ -1581,3 +1581,44 @@ request) and added the `<path>: <pattern>` detect form the decoy needs.
 
 **Next**: W10.6.4 (north-star run) once W10.6.7 lands; before it, the owner's harness steps listed
 there.
+
+## #43 — 2026-10-12 · W10.6.1 done: owner's fresh-session check in the fixture environment
+
+**Owner's check** (`devshop-fixture` environment, fixture repo, cache rebuilt after #76): the session
+ran devshop HEAD `06ba34c` from a copy made that day.
+
+- **Skills:** asked which devshop skills it has, it listed `devshop:intent`, `devshop:build` and
+  `devshop:devshop-version`, each described as the skill says.
+- **Status question** ("where are we?"): answered as a no-change request, with no spec and no "go".
+- **A change** ("show the app version in the page footer"), throwaway, not from the idea pool:
+  - it ran `/devshop:intent`, named the request a change, and asked the owner the one real
+    decision (version = git commit SHA);
+  - it proved the tool behaviour first: a no-credentials `wrangler` dry run showed
+    `--var APP_VERSION:<sha>` reaching the Worker as `env.APP_VERSION`;
+  - it wrote `specs/footer-version.md` (AC-1…9) and `spec-check.py` passed;
+  - the read-only helper review raised blocking findings, e.g. the version check ran after the D1
+    migrations; Claude checked them against the code before fixing;
+  - it showed a summary with two open questions, one flagging its own preview addition as beyond
+    the ask, and **stopped for the "go"**. No code was changed and no PR opened.
+
+**Passed.** The owner deleted the fixture branch afterwards; the fixture stays at its baseline.
+
+**Deviations, fixed here** (in `runtime/skills/intent/SKILL.md`):
+
+- It skipped gstack's `/spec` interview. TARGET Intent 1 gives every change the interview, so the
+  skill now says "every change, however small".
+- It committed and pushed the draft spec before the "go", to outlive the container. That is right:
+  the skill said "commit on go", which loses work. It now says to commit and push the draft as it
+  goes; only building waits for the go.
+- Not fixed: the summary ran longer than one phone screen. Watched in W10.6.4.
+
+**Found:** the `DEVSHOP:` line was not repeated word for word. The rule to repeat it lives only in
+this repo's `CLAUDE.md`, and projects carry no devshop rules (Shape 3), so in a project session
+nothing asks for it; Claude paraphrased it. Owner: the hook shows the line to the owner directly,
+with a "repeat it" nudge as backup. Next, as its own PR.
+
+**Owner decisions:** the adversarial spec review stays a read-only helper at M1 (TARGET allows a
+crude spec review at M1); the reviewer's spec mode is an M2 item. Stack homes and guidelines stay
+under `runtime/`.
+
+**Next:** the `DEVSHOP:` line fix; W10.6.7 runs in another session.
