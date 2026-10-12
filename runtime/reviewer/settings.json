@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git status:*)",
+      "Bash(git ls-files:*)",
+      "Bash(git grep:*)",
+      "Bash(node --test:*)",
+      "Bash(npm test:*)",
+      "Bash(npm run test:*)"
+    ],
+    "deny": [
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(gh:*)",
+      "WebFetch",
+      "WebSearch"
+    ]
+  }
+}

@@ -1,1 +1,4 @@
 node_modules
+
+# Review fixtures stay byte-exact: formatting changed a spec example ("a  b" -> "a b").
+tests/fixtures/

@@ -888,3 +888,52 @@ variables.
 
 **Next**: a session in the `devshop-fixture` environment with the fixture repo attached, for
 W10.5.2–3.
+
+## #26 — 2026-10-12 · W10.6.2 the independent reviewer script
+
+**What moved**: the reviewer's interface went into W10-v2.md § W10.6.2 first (PR #61, for the
+W10.4.4 hooks), then it was built to it in `runtime/reviewer/`. That is `review.sh` plus its pinned
+`prompt.md`, `verdict.schema.json` and Bash allowlist `settings.json`. It runs
+`claude -p --restricted --safe-mode` (no CLAUDE.md, skills, hooks or MCP; Read/Grep/Glob/Bash, with
+Bash only on the allowlist in `dontAsk` mode) in a throwaway clone of the base and head commits.
+It checks the real worktree is unchanged afterwards. The outcome comes from the script, not the
+model: an unmet `AC-<n>` or any non-`low` finding fails. Malformed or incomplete replies are
+could-not-run. A fail at round 3 asks the owner. The verdict is a JSON file under
+`.git/devshop/reviews/<branch>/`.
+
+**Evidence**
+
+- Lockdown probed before the interface was written, with the real CLI in a scratch clone that had
+  a planted CLAUDE.md. Allowlisted `git log` ran, `touch` was refused, Write was absent, the
+  CLAUDE.md wasn't loaded, and `claude-sonnet-5-5` resolved. Gap: `git diff/log --output=<file>`
+  can still write. Hence the throwaway clone and the after-check. All of it is feedback, not a
+  wall.
+- `tests/reviewer.test.sh` was written first and failed (no script). Its 32 checks now pass. It
+  runs a harness copy of the directory with a stub `claude` and covers the locked-down flags and
+  the pinned model with `ANTHROPIC_MODEL` set, the outcome rule, rounds, the verdict file, and
+  could-not-run for 7 bad replies, a claude error, a timeout, a missing claude, a changed real
+  worktree, dirty tree, unknown base, missing or AC-less spec, bad arguments and no repo. All
+  14 mutants of the script are killed; the one that first survived (could-not-run counted as a
+  round) led to a sharper test.
+- `tests/reviewer-live.sh 10` (real reviewer, real model): planted 10/10 `fail` with exactly AC-4
+  unmet, honest 10/10 `pass` with 0 findings; ~$0.02 and ~11 s per review.
+
+**Surprises**
+
+- **The spike's "honest" fixture fails the v2 reviewer.** On the first live run of 10, 9 failed
+  with the same blocking finding: no `package.json` or runner, Jest globals, so the tests can't
+  run. The spike only asked "implemented and has a test". TARGET Verify 4 and L-17 ask more, and
+  the reviewer was right. The fixtures in `tests/fixtures/reviewer/` keep the spike's spec and
+  `src/` byte for byte. They now use `node:test` plus a `package.json` (`npm test`, allowlisted).
+  The planted mistake is unchanged and invisible to its own green tests. The spike files stay as
+  they were.
+- Prettier rewrote the fixture spec's `"a  b"` (AC-2's two spaces) to `"a b"`. `tests/fixtures/` is
+  now in `.prettierignore`.
+- `tests/bootstrap.test.sh` fails in a shallow clone ("shallow update not allowed"). Cloud sessions
+  clone shallow; `git fetch --unshallow` before `tests/run.sh`.
+- Only 5 of 20 live verdicts cite a test run as evidence. The rest reason from the code. The
+  script doesn't require a run.
+
+**Next**: W10.4.4 hooks call `review.sh` per the interface; W10.6.3 puts the verdict on the PR;
+W10.6.5 measures precision and recall (A-12) on harder plants, including prompt injection in the
+diff.

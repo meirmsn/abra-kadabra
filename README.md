@@ -28,7 +28,7 @@ git worktree add ../v1 v1-final
 | [`.github/`](.github)                   | CI (`workflows/ci.yml`) and `CODEOWNERS` (the owner approves every change)            |
 | [`bootstrap.sh`](bootstrap.sh)          | Entry point the cloud environments' setup script runs; its path must not change       |
 | [`install/`](install/README.md)         | The install: bootstrap, plugin and dispatcher that select a project's pinned version  |
-| [`runtime/`](runtime)                   | What a project's `.devshop-version` selects: `skills/` and `hooks/` of that version   |
+| [`runtime/`](runtime)                   | What a project's `.devshop-version` selects: `skills/`, `hooks/` and the `reviewer/`  |
 | [`kit/notes/revamp/`](kit/notes/revamp) | Revamp plan, decisions, findings, lessons, log, and the spikes (kept as notes)        |
 
 Planned, added when their task lands: skills under `runtime/skills/` (W10.6), stack homes

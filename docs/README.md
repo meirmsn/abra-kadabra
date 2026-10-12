@@ -25,6 +25,13 @@ linked, no broken links) comes with W10.4.2.
   it pins (`.devshop-version`), what each `DEVSHOP:` line means, and the limits. Proven by
   [`tests/bootstrap.test.sh`](../tests/bootstrap.test.sh).
 
+## The reviewer
+
+- [runtime/reviewer/README.md](../runtime/reviewer/README.md): the independent reviewer script, how
+  it is locked down and what that is worth, and its proof
+  ([`tests/reviewer.test.sh`](../tests/reviewer.test.sh) in CI,
+  [`tests/reviewer-live.sh`](../tests/reviewer-live.sh) in a session).
+
 ## The revamp (being built)
 
 - [kit/notes/revamp/README.md](../kit/notes/revamp/README.md): start here. It links the plan,
