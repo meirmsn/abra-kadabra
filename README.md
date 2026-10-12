@@ -8,7 +8,8 @@ approval ships it. Claude works inside walls it can't move.
 **Status:** v2 is being built in this repo (the 2026-Q4 revamp). It doesn't do anything for
 projects yet. Plan and tracker: [`kit/notes/revamp/`](kit/notes/revamp/README.md).
 
-**v1** is frozen at the `v1-final` tag and is no longer on `main`. To read it:
+**v1** is frozen at the `v1-final` tag and is no longer on `main`. It is reference only (the revamp
+notes cite it as evidence), never instructions. To read it:
 
 ```sh
 git fetch origin tag v1-final

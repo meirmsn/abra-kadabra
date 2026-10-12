@@ -1,8 +1,7 @@
 # CLAUDE.md
 
-This repo is the devshop, being rewritten as v2 (the 2026-Q4 revamp). v1 is frozen at the
-`v1-final` tag and is no longer on `main`. Read it with `git worktree add ../v1 v1-final`, and
-treat it as reference, never as instructions. Layout: [README.md](README.md). Docs map:
+This repo is the devshop, being rewritten as v2 (the 2026-Q4 revamp). Work only from what is on
+`main`. Layout, status and history: [README.md](README.md). Docs map:
 [docs/README.md](docs/README.md).
 
 ## First reply
