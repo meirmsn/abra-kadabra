@@ -20,9 +20,9 @@ Status: `open` · `decided` · `revisited`. Order below = order to decide in.
 | D-01 | Distribution model                                      | M1 (W10.4.4) — after spike W10.1.2 | decided  |
 | D-05 | Plan tier assumptions (Pro/Max vs Team/Enterprise)      | spikes W10.1                       | decided  |
 | D-06 | Orchestration technology                                | M3 (W6.4)                          | decided  |
-| D-07 | gstack install model and target version                 | M2 (with D-01)                     | open     |
+| D-07 | gstack install model and target version                 | M2 (with D-01)                     | decided  |
 | D-08 | Stack abstraction scope (recipes)                       | M4 (W5)                            | decided  |
-| D-10 | Revamp versioning                                       | first v2 release (M1)              | open     |
+| D-10 | Revamp versioning                                       | first v2 release (M1)              | decided  |
 | D-11 | Deletion list                                           | M5 (W9) or earlier under D-14 thin | obsolete |
 
 ---
@@ -192,6 +192,8 @@ Outcome: **open — direction set 2026-10-09:** the pinned devshop comes from th
 
 **Decided 2026-10-11 (owner): option D** in the W10.1.2b form — one shared cloud environment whose setup script is a read-only token + `HEAD:bootstrap.sh`; stub plugin + SessionStart dispatcher; per-project `.devshop-version`. Built in W10.4.4. **Revisit trigger → D′** (private npm package fetched per session, no cache staleness; costs a paid private package + a CI publish step): move when D's limits bite in practice — sessions running on a stale devshop copy, or newer pins waiting on the environment cache to rebuild.
 
+**Revisited 2026-10-12 (owner, L3 Environments, LOG #19):** **one cloud environment per project** instead of one shared by all — each holds only that project's tokens (read-only observability, Safety) and network allowlist. Every environment runs the same minimal shared setup script (read-only devshop token + `HEAD:bootstrap.sh`), which is why the shared part stays as small as possible.
+
 ## D-05 Plan tier assumptions — `decided`
 
 Network secrets exist on Pro/Max (not Team/Enterprise yet); server-managed settings
@@ -221,13 +223,15 @@ at session start — no server-managed route.
 
 Outcome: **decided 2026-10-09 — thin skills + deterministic checks in CI; agentic review in-session.** PR CI runs tests and deterministic checks only (no LLM jobs, so contributors see plain CI). The adversarial reviewer is a small script running locked-down `claude -p` with read-only repo tools, invoked by the done/open-PR check itself (TARGET L2 Verify; isolation tested — A-04). Workflow scripts / Agent SDK not used.
 
-## D-07 gstack install model and target — `open`
+## D-07 gstack install model and target — `decided`
 
 Recommendation: pinned copy (commit SHA) delivered with the devshop (per D-01),
 upgraded to ≥ 1.91.13 in a dedicated branch with router-shim + `/ship` adaptations;
 no hourly auto-update/team mode; neutralise setup's `~/.claude/settings.json` edits.
 
 Outcome: **open — direction set 2026-10-09:** gstack used as a pinned upstream toolbox, never rebuilt or edited (TARGET L2 Shape); version/install mechanism decided with D-01.
+
+**Decided 2026-10-12 (owner, L3 Shape, LOG #19):** each devshop release pins one upstream gstack commit, installed by the same bootstrap as the devshop (D-01); never edited — fix upstream or wrap from outside; upgraded on purpose with a smoke check on the fixture (A-13).
 
 ## D-08 Stack abstraction scope — `decided` (recommendation changed by REVIEW-1)
 
@@ -238,7 +242,7 @@ commits to a second stack, from two real examples.
 
 Outcome: **decided 2026-10-09 — superseded by TARGET L2 Reach:** each stack has one home (setup, guidelines, lessons), added when a real project needs it and loaded only when a task touches it; no general capability contract up front. Second stack = iOS (lalista).
 
-## D-10 Revamp versioning — `open`
+## D-10 Revamp versioning — `decided`
 
 Recommendation: freeze `v1` (D-09); v1.x patches = security fixes only; v2.0.0 at the
 distribution switch.
@@ -246,6 +250,8 @@ distribution switch.
 Outcome: **open:** the new runtime repo gets its own versioning from its first release; v1 ends at `v1-final`.
 
 **Revisited 2026-10-10:** v2 is versioned in this repo from its first release (`v2.0.0`), after `v1-final`.
+
+**Decided 2026-10-12 (owner, L3 Shape, LOG #19):** SemVer from `v2.0.0`; a release PR (release-please) collects merged changes, computes the bump from commit types and drafts the changelog; the owner merges it to release and CI creates the tag (A-25). Alternatives weighed: calendar versions (no "needs migration" signal), bare SHAs (unreadable), auto-release per merge (noise).
 
 ## D-11 Deletion list — `obsolete`
 

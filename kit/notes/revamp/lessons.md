@@ -1837,15 +1837,15 @@ shown/hidden tables, moved up to L-73.)
 
 **No incident behind it** (reasoned rules; candidates for stack homes if v2 hits them)
 
-- Stop-and-ask category list — `CLAUDE.md` § Confidence Calibration — re-derive at L3 Intent.
+- Stop-and-ask category list — `CLAUDE.md` § Confidence Calibration — dropped at L3 Intent (every change now needs the owner's "go"). Kept here as the starting point if specs are ever auto-approved with listed exceptions ([TARGET § L3 Intent](TARGET.md#intent)).
 - Non-negotiables with no recorded bite (responsive 375–2560, light/dark, 3-line file headers,
   metrics per feature, TS-source packages, no ESLint formatting) — `CLAUDE.md` § Non-Negotiables —
-  re-decide at L3 Build/Ship.
+  re-decided at L3 Build ([TARGET § Build](TARGET.md#build)): responsive + light/dark kept cross-platform, file headers dropped, TS-source + Prettier to stack homes, metrics to Ship.
 - RLS-bypass least-privilege ladder, two-user RLS test, type-drift check — `security.md`,
   `conventions.md` § Non-Negotiables — Supabase home candidates. (The DB-hardening SQL and the
   upstream advisor moved up to L-82 after home-os showed real bites.)
 - Migration sequencing pre-flight (expand/contract vs a parallel deploy) — `go-live/SKILL.md` §
-  Step 1.6, `kit/ROADMAP.md` § Migration sequencing — the roadmap entry itself asks whether it ever fired.
+  Step 1.6, `kit/ROADMAP.md` § Migration sequencing — the roadmap entry itself asks whether it ever fired. Replaced at L3 Ship by a simpler rule: migrations backward-compatible by default, destructive steps separate with a tested reverse or a restore point ([TARGET § Ship](TARGET.md#ship)).
 - `ON DELETE` on `auth.users` FKs, PostgREST two-query hydration, seed.sql gotrue columns,
   load-bearing SQL sentinels, DB-constraint backstops — `migrations.md`, `database-queries.md`.
 - Date handling as `YYYY-MM-DD` strings — `date-handling.md` — implementation notes.

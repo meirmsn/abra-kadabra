@@ -81,6 +81,23 @@ Add a row when a manual step caught a real problem or repeated ≥ 3 times.
 | Assumptions register with cheapest falsifying test                                                           | A-01…A-03 falsified in minutes by docs/one command                   | Spec section "Assumptions" + spike step before implementation                                                   | candidate |
 | Top-down alignment (one sentence → paragraph → one line per pillar → details) before decisions               | Session 5: dissolved D-14/D-04/D-02/D-08/D-11 into agreed pillars    | The Intent step for apps/big features: agree L0/L1 with the owner before the spec                               | candidate |
 
+## After the revamp
+
+Agreed for after M4, not before. Moves into v2's own roadmap once v2 has one (v1's `kit/ROADMAP.md`
+is frozen and leaves `main` with W10.4.1).
+
+- **Air-gapped adversarial reviewer as a required check** (owner, 2026-10-11, LOG #19). Today's
+  reviewer runs in the session, where a rogue agent could disable it ([TARGET § Verify](TARGET.md#verify)).
+  Make it a wall: (1) its code and prompt live in a repo only the owner can change; (2) it runs
+  where the agent has no access (GitHub's runners, not the session); (3) its verdict is posted by an
+  identity the agent doesn't hold (not `meirmsn-agent` — so not a Claude cloud environment) and is
+  required to merge. Same script as the in-session reviewer. Costs: a reviewer repo + workflow, a
+  Claude credential as a secret in that environment, tokens per run (on ready-for-review and later
+  pushes). Residual risk: the PR content can try to talk the reviewer into passing — test it with
+  planted violations and injection attempts before relying on it. Revisits D-06 (AI review as a
+  separate required check; project CI stays plain); check first whether Anthropic's hosted Claude
+  Code Review can fill the role.
+
 ## Changelog
 
 | Date       | Change                                                                                                                                                                                                                                                                                                                                                                                                                    | Why                                                        |
@@ -95,3 +112,4 @@ Add a row when a manual step caught a real problem or repeated ≥ 3 times.
 | 2026-10-11 | Owner deferred W0.5.2, W0.5.3, W0.6.2, W0.6.3 to the end of the revamp: removed from M0 exit, added to M4 exit                                                                                                                                                                                                                                                                                                            | LOG #14                                                    |
 | 2026-10-11 | D-12 revisited: no history cleanup before going public — re-scan for secrets and rotate hits only; W10.3.1 seeded with "never project identifiers in the devshop"                                                                                                                                                                                                                                                         | LOG #14                                                    |
 | 2026-10-11 | M0 exit review: M0 done; M1 in progress; A-25 added (tags/releases come from CI, not the session)                                                                                                                                                                                                                                                                                                                         | LOG #15                                                    |
+| 2026-10-11 | L3 agreed for all nine pillars; D-07 + D-10 decided; A-26 + F-NEW-17 added; Cloudflare home with the owner's personal website (M2, parallel); D-01 revisited (one cloud environment per project) (TARGET § L3); W10.2 in progress; air-gapped reviewer added under After the revamp                                                                                                                                       | LOG #19                                                    |

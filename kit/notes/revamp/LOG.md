@@ -509,8 +509,8 @@ VM started from the cached filesystem rather than a clean re-run of the setup sc
 closed.
 
 **W10.1.2b, 2026-10-11 — thin, code-based install (owner: minimum UI work, version in code).**
-Local findings: a plugin installed by a SessionStart hook loads only in the *next* session; a
-stub plugin whose `skills` is a symlink switched by its SessionStart hook works in the *same*
+Local findings: a plugin installed by a SessionStart hook loads only in the _next_ session; a
+stub plugin whose `skills` is a symlink switched by its SessionStart hook works in the _same_
 session, including skills present only in the new target. Per-project pin via
 `.devshop-version`, default fallback, and bad-pin handling verified locally. Owner runs: (1) no
 `ssh` in the image; (2) with `openssh-client` installed, `ssh.github.com` doesn't resolve and port
@@ -627,3 +627,78 @@ as not carried.
   a function existed only in production — the drift class L-24 now covers.
 
 **Next**: W10.3.3 (disposition every FINDINGS row).
+
+## #19 — 2026-10-11 · W10.2 L3 design pass: all nine pillars
+
+**What moved**: W10.2 started (`[~]`) in parallel with W10.1.2 and W10.3.1, which both landed
+mid-session (D-01 decided; `lessons.md` done) — the branch was brought up to `main` and the
+Intent bullets re-checked against the harvest. **Intent L3 agreed** with the owner in chat and
+written to [TARGET.md § L3](TARGET.md#l3--a-few-bullets-per-pillar).
+
+- Cross-pillar rule (owner): the chat surfaces things and collects answers; decisions are then
+  recorded where they belong (spec, PR, decision log) and that record is the source of truth.
+- "Go" is needed for every change except bug fixes; no-change requests (analysis, status) need none.
+- Upstream gstack `/spec` (checked at 1.91.8: an interview skill whose output is a GitHub issue
+  plus a local archive, with a Codex quality gate) is used for the interview and draft only; the
+  spec file in the project's `specs/` is the record. Our adversarial spec review replaces its
+  Codex gate.
+- New: adversarial review of the spec before the "go" (v1 had none). Harvest lessons folded in:
+  L-02, L-03, L-19, L-20, L-73, L-76.
+- v1's stop-and-ask category list dropped, kept by reference as the starting point for possible
+  future spec auto-approval.
+
+- **Verify agreed:** one reviewer script (fresh, locked-down `claude -p`, read + run, never write)
+  for the spec review and the final review, started by a hook; diff checked against spec and intent
+  first, then the lenses; medium-or-unsure findings fixed, low listed; same checks run in the
+  session for speed, GitHub CI repeats only the deterministic part (now incl. an acceptance→test
+  mapping check). D-06 unchanged.
+- Discussed and deferred: an air-gapped reviewer (owner-only repo, GitHub runners, separate
+  identity, required check) as the wall against a rogue agent — recorded in
+  [PLAN.md § After the revamp](PLAN.md#after-the-revamp). Until then the in-session reviewer covers
+  corner-cutting; GitHub rules, plain CI and the owner's approval are the walls against a rogue
+  agent.
+
+- **Review agreed:** summary → announcement → what you should know → evidence → collapsed
+  details; preview link = the deploy platform's self-updating PR comment; approval ships by
+  default unless the owner says wait or Claude flags a reason to hold.
+
+- **Safety agreed:** walls outside the session; least-privilege read-only observability tokens;
+  production-data grant = principle now, mechanism at M4 (red flags checked, none blocking);
+  prefer the platform's own controls, recorded per stack home — Cloudflare first (likely default
+  platform for new projects).
+
+- **Build agreed:** one central agent writes the change (helpers read-only); guidelines loaded per
+  discipline + stack home + project; the end state of the test suite must describe the new
+  behaviour (existing tests reviewed, edited, removed, added). Verify's tests and docs lenses
+  sharpened: a test that passes against broken code is a finding; every deleted or loosened test
+  must be justified by the spec. v1 non-negotiables re-decided (headers dropped; responsive +
+  light/dark cross-platform).
+- Docs get the same end-state rule and adversarial depth as tests; related tests/docs are found by
+  layout + tool lookups (related-tests mode, coverage, name search) + spec→test links, not a
+  hand-kept index; the docs map is checked by CI.
+
+- **Ship agreed (2026-10-12):** merge on approval + green checks by default; canary now + a
+  next-day follow-up check; both rollback paths prepared and checked (revert PR with green CI;
+  previous deployment confirmed healthy); product metrics added only where existing ones don't
+  cover the new functionality.
+
+- Ship amended: migrations backward-compatible by default; destructive steps separate, with a
+  CI-tested reverse migration or a confirmed restore point.
+- **Environments agreed:** least-privilege network allowlist; **one cloud environment per project**
+  (D-01 revisited) running the same minimal shared setup script; work survives only in GitHub.
+
+- **Reach agreed:** one home per stack, loaded only when touched; stacks detected from the project's
+  files (new projects: from the agreed plan); every stack home proven by a fresh scaffold's CI.
+  Cloudflare home comes with the owner's personal website, started in parallel once lalista begins
+  moving (M2).
+
+- **Shape agreed:** D-10 decided (SemVer from `v2.0.0`, release PR via release-please, CI tags);
+  D-07 decided (gstack pinned per devshop release, never edited). Devshop ledger = GitHub issues on
+  the devshop: Claude asks the owner, attaches the devshop with `add_repo`, files or comments (A-26,
+  untested; if it can't be made to work when built, ask the owner). Test: the GitHub proxy returns
+  403 for any repo not attached to the session, even with a caller-supplied token — so attaching is
+  required. A routine fired from the project session was considered (same reach, more to build).
+  New finding F-NEW-17: the session tools are a separate channel that can start sessions or attach
+  other repos — Safety bullet 9.
+
+**Next**: W10.2.2 north-star rewrite (all nine pillars).
