@@ -324,6 +324,26 @@ run_hook gate Bash "$(bash_call "git push -u origin feat/x")"; allowed "push wit
 run_hook post Bash "$(bash_call "git push -u origin feat/x")"; allowed "post for push with no PR"
 ok "a push to a branch with no open PR is not reviewed"
 
+# A pass whose call then failed (the create errored, so no PR) must not be posted by a later call
+# (the reviewer's finding on this PR's first create through the hook, LOG #45).
+reset_state pass
+run_hook gate $MCP "$(mcp_create "Add x" "Adds x.")"; allowed "create passes, then the create itself fails"
+run_hook gate Bash "$(bash_call "git push origin feat/x")"; allowed "a later push with no open PR"
+run_hook post Bash "$(bash_call "git push origin feat/x")"; allowed "post after that push"
+[ -z "$err" ] || fail "a stale pass from a failed create surfaced on a later push: $err"
+reset_state pass
+run_hook gate $MCP "$(mcp_create "Add x" "Adds x.")"; allowed "create passes, then the create itself fails"
+open_pr 5 "Add x" "Adds x."
+run_hook post Bash "$(bash_call "git push origin feat/x")"; allowed "post for a push that recorded no pass"
+[ "$(posted 5)" = 0 ] || fail "a push posted a pass recorded for another call"
+reset_state pass; open_pr 5 "Add x" "b" "$(git -C "$work/p" rev-parse HEAD~1)"
+run_hook gate Bash "$(bash_call "git push origin feat/x")"; allowed "a push passes, then git rejects it"
+jq '.state = "closed"' "$work/gh/prs/5.json" >"$work/closed.json" && mv "$work/closed.json" "$work/gh/prs/5.json"
+run_hook gate Bash "$(bash_call "git push origin feat/x")"; allowed "the next push, after the PR was closed"
+run_hook post Bash "$(bash_call "git push origin feat/x")"; allowed "post after that push"
+[ -z "$err" ] || fail "a stale pass from a rejected push surfaced on the next push: $err"
+ok "a recorded pass is used only by the post for the same kind of call, and the next gate clears it"
+
 # --- 4. Every result other than a clean pass blocks.
 for mode in could-not-run ask-owner; do
   reset_state $mode

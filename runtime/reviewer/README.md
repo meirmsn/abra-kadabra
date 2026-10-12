@@ -102,7 +102,7 @@ a PostToolUse hook (`post`).
   passing create let through and its verdict posted and accepted by `verdict-check.sh`; a push to an
   open PR reviewed with the PR's words and blocked on a fail; every non-pass result blocking; words
   changed after the review re-reviewed and posted as they are on GitHub; edits reviewed first; the
-  plugin's registration. 40 of 40 mutants killed (the hook, and the `words` parts of the scripts above).
+  plugin's registration. 43 of 43 mutants killed (the hook, and the `words` parts of the scripts above).
 - [`tests/reviewer-live.sh`](../../tests/reviewer-live.sh) (`[runs]`, in a session only, because it
   calls the real model and CI runs no LLM jobs) runs the real reviewer on the A-04 fixtures in
   [`tests/fixtures/reviewer/`](../../tests/fixtures/reviewer) (spec: [`spec.md`](../../tests/fixtures/reviewer/spec.md)). The planted change (AC-4 skipped)

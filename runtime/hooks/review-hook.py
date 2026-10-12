@@ -344,6 +344,11 @@ def gate(call):
                         "Commit locally and `git push` instead (the push is reviewed).")
         return 0
     top, branch, slug, head = worktree(call["cwd"])
+    if branch:  # a pass recorded for an earlier call that then failed must not reach this call's post
+        try:
+            os.unlink(pending_path(top, branch))
+        except FileNotFoundError:
+            pass
     if call["kind"] == "push":
         return gate_push(call, top, branch, slug, head)
     if not branch:
@@ -372,7 +377,7 @@ def gate(call):
         title = call["title"] if call.get("title") is not None else pr["title"]
         words = canonical(title, call["body"] if call.get("body") is not None else pr.get("body"))
         number = pr["number"]
-    return decide(top, branch, head, base, words, number)
+    return decide(top, branch, head, base, words, number, call["kind"])
 
 
 def gate_push(call, top, branch, slug, head):
@@ -389,7 +394,7 @@ def gate_push(call, top, branch, slug, head):
     if not reviewed:
         return 0
     pr = reviewed[0]
-    return decide(top, branch, head, pr["base"]["ref"], canonical(pr["title"], pr.get("body")), pr["number"])
+    return decide(top, branch, head, pr["base"]["ref"], canonical(pr["title"], pr.get("body")), pr["number"], "push")
 
 
 def default_branch(top, slug):
@@ -399,14 +404,14 @@ def default_branch(top, slug):
     return gh_json(f"repos/{slug}").get("default_branch") or cnr("can't tell the default branch")
 
 
-def decide(top, branch, head, base, words, number):
+def decide(top, branch, head, base, words, number, kind):
     outcome, vpath, line, stderr = review(top, base, words)
     if outcome != "pass":
         raise Block(explain(outcome, vpath, line, stderr))
     path = pending_path(top, branch)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
-        json.dump({"commit": head, "verdict": vpath, "words": sha256(words), "base": base, "number": number}, f)
+        json.dump({"kind": kind, "commit": head, "verdict": vpath, "words": sha256(words), "base": base, "number": number}, f)
     print(line)
     return 0
 
@@ -423,6 +428,8 @@ def post(call):
     try:
         with open(path, encoding="utf-8") as f:
             pend = json.load(f)
+        if pend.get("kind") != call["kind"]:
+            raise ValueError("recorded for another kind of call")
     except (OSError, ValueError):
         if call["kind"] == "push":
             return 0  # a push to a branch with no open PR is not reviewed

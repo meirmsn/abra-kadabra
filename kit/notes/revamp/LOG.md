@@ -1679,7 +1679,7 @@ open PR.
 - Tests written first, failing (no hook registered, no `pr-words.sh`). `tests/review-hook.test.sh`
   (stub `review.sh` and `gh`, a local origin) covers every case in the task, plus the registration
   and a missing hook. `tests/reviewer-pr.test.sh` gained `pr-words.sh` (known-bad inputs refused)
-  and `--words`. Mutants: 40/40 killed. The first run left 11 survivors: 3 redundant checks, now
+  and `--words`. Mutants: 43/43 killed. The first run left 11 survivors: 3 redundant checks, now
   removed, and 8 test gaps, now tested.
 - The real harness runs it: with this branch's hook registered for the session only
   (`.claude/settings.local.json`, not committed), `gh pr create --fill --dry-run` was blocked with
@@ -1699,6 +1699,10 @@ throwaway clone`. Cause: a cloud session's clone is shallow, and `git fetch` fro
   into `review.sh`'s empty clone rejects the refs but exits 0. Fixed with `--update-shallow` (owner's
   go). The test was written first: `tests/reviewer.test.sh` runs the reviewer from a shallow clone,
   and it failed with the same reason before the fix.
+- The retry ran the real reviewer, and it failed the create on a medium finding: a pass recorded for
+  a call that then failed (a create that errored, a rejected push) stayed behind, and a later call's
+  post used it. Now every gate clears the branch's recorded pass first, and the pass carries its call
+  kind. The tests were written first (one for each rule), and both mutants are killed.
 
 **Next**: this PR opened through the hook, and its `review-verdict` check green from the comment
 the hook posted; then the owner's fresh-session check (W10.6.7's done-when).
