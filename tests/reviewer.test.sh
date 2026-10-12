@@ -257,4 +257,16 @@ for bad in missing notjson notitle emptytitle extrakey nonstring; do
   esac
   run "$r" pr-nospec-pass --base main --pr "$f"; expect "--pr file '$bad' is could-not-run" 2 could-not-run '.reason|test("--pr")'
 done
+# --- A shallow clone (how a cloud session checks out the repo, LOG #44): fetching its commits into
+# the throwaway clone must still work.
+r="$work/p-full"; new_project "$r"
+for i in 1 2 3; do git -C "$r" checkout -q main && commit_file "$r" "old$i.txt" "$i"; done
+git -C "$r" checkout -q feat/x && git -C "$r" merge -q --no-edit main
+change "$r"
+git clone -q --depth 3 --no-single-branch "file://$r" "$work/p-shallow"
+git -C "$work/p-shallow" checkout -q feat/x
+[ "$(git -C "$work/p-shallow" rev-parse --is-shallow-repository)" = true ] || fail "the test clone is not shallow"
+run "$work/p-shallow" pass --base origin/main
+expect "a shallow clone is reviewed" 0 pass '.spec=="specs/x.md"'
+
 echo "all reviewer tests passed"

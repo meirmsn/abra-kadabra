@@ -1661,6 +1661,11 @@ open PR.
   couldn't be split into words, and the fallback matched "push" anywhere. Heredoc bodies are now
   dropped before splitting, and the fallback matches only a command at a line start or after an
   operator. Regression tests were written first and failed first.
+- Opening this PR through the hook was blocked: `REVIEW: could-not-run … could not make the
+throwaway clone`. Cause: a cloud session's clone is shallow, and `git fetch` from a shallow repo
+  into `review.sh`'s empty clone rejects the refs but exits 0. Fixed with `--update-shallow` (owner's
+  go). The test was written first: `tests/reviewer.test.sh` runs the reviewer from a shallow clone,
+  and it failed with the same reason before the fix.
 
 **Next**: this PR opened through the hook, and its `review-verdict` check green from the comment
 the hook posted; then the owner's fresh-session check (W10.6.7's done-when).

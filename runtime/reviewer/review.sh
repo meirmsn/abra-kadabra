@@ -124,10 +124,11 @@ fi
 [ -n "$intent" ] || intent=commits
 command -v claude >/dev/null || cnr "claude not found on PATH"
 
-# --- A throwaway clone holding just the two commits, with no remote.
+# --- A throwaway clone holding just the two commits, with no remote. --update-shallow: a shallow
+#     repo (a cloud session's clone) is fetched from too; without it git rejects the refs, exit 0.
 scratch=$(mktemp -d) || cnr "mktemp failed"
 if ! { git init -q "$scratch/repo" \
-  && git -C "$scratch/repo" fetch -q --no-tags "$repo" "$base_sha:refs/heads/base" "$head:refs/heads/head" \
+  && git -C "$scratch/repo" fetch -q --update-shallow --no-tags "$repo" "$base_sha:refs/heads/base" "$head:refs/heads/head" \
   && git -C "$scratch/repo" checkout -q head; }; then
   cnr "could not make the throwaway clone"
 fi
