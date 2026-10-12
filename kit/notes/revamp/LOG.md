@@ -719,3 +719,18 @@ shape checks (budget, plain clone, guided upgrade, ledger flow).
 
 **Next**: W10.3.3 (FINDINGS disposition, Claude) and W10.4/W10.5 (v2 bootstrap, fixture — owner
 steps), toward the walking skeleton W10.6.
+
+- **Adversarial review of the scenario** (fresh-context reviewer, same day): as first written, the
+  agent under test planted the failures, ran the attacks and graded itself. Hardened: plants from
+  an owner-held pool applied by script after the builder finishes, a named detector per plant and
+  two new plants (false "verified by review", silent rewording); GitHub's refusal + `main` SHA as
+  evidence and five more attacks (branch-protection edit, push after approval, auto-merge, guarded
+  paths, planted secret); injection through fetched content; synthetic traffic + a planted
+  production fault that triggers the rollback drill (owner executes); a fresh idea each run from a
+  reset fixture; stale-verdict check; observable stack loading with a decoy; touchpoints counted
+  from the owner's own events. M1 bar gains the reviewer eval (A-12) and timings (A-11, A-16).
+- **Platform constraints found and checked:** Vercel Hobby blocks deploys of agent-authored commits
+  on private repos (F-NEW-18); Supabase Free pauses after ~7 days idle (F-NEW-19). Owner: the
+  **fixture moves to Cloudflare** (Workers + D1, Action-based deploy; A-27) — Cloudflare becomes the
+  first stack home; lalista's Vercel/Supabase plans become an M2 precondition. New tasks W10.5.3
+  (north-star harness) and W10.6.5 (reviewer eval).
