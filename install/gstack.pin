@@ -1,0 +1,5 @@
+# gstack, pinned (TARGET Shape 7, D-07): one upstream commit, installed unmodified by
+# install/bootstrap.sh into ~/.claude/skills/gstack. Upgrade on purpose: change the SHA in a PR
+# and run the smoke check (a fresh session shows the DEVSHOP: line and /autoplan runs; A-13).
+# Format: <https URL> <40-hex commit SHA>. This one: v1.91.93.0 (2026-10-12).
+https://github.com/garrytan/gstack.git e23f7b807ff4788f6d7c90af2ab82960bd8c5851

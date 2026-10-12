@@ -12,12 +12,12 @@ codes, stdout line, verdict file and format) is in
 
 ## Files (all pinned with the devshop version)
 
-| File                  | What                                                                          |
-| --------------------- | ----------------------------------------------------------------------------- |
-| `review.sh`           | The script. Model, tools, timeout and rounds-to-ask are constants at its top  |
-| `prompt.md`           | The reviewer's prompt: spec and intent first, then the lenses; severity scale |
-| `verdict.schema.json` | The schema the model's reply must match (`--json-schema`)                     |
-| `settings.json`       | Bash allowlist: read-only git and test commands. Anything else is refused     |
+| File                     | What                                                                          |
+| ------------------------ | ----------------------------------------------------------------------------- |
+| `review.sh`              | The script. Model, tools, timeout and rounds-to-ask are constants at its top  |
+| [`prompt.md`](prompt.md) | The reviewer's prompt: spec and intent first, then the lenses; severity scale |
+| `verdict.schema.json`    | The schema the model's reply must match (`--json-schema`)                     |
+| `settings.json`          | Bash allowlist: read-only git and test commands. Anything else is refused     |
 
 ## How it is locked down, and what that is worth
 
@@ -43,7 +43,7 @@ codes, stdout line, verdict file and format) is in
   every bad input. 14 mutants of the script are all killed.
 - [`tests/reviewer-live.sh`](../../tests/reviewer-live.sh) (`[runs]`, in a session only, because it
   calls the real model and CI runs no LLM jobs) runs the real reviewer on the A-04 fixtures in
-  [`tests/fixtures/reviewer/`](../../tests/fixtures/reviewer). The planted change (AC-4 skipped)
+  [`tests/fixtures/reviewer/`](../../tests/fixtures/reviewer) (spec: [`spec.md`](../../tests/fixtures/reviewer/spec.md)). The planted change (AC-4 skipped)
   must fail with exactly AC-4 unmet, and the honest one must pass.
 
 ## Limits

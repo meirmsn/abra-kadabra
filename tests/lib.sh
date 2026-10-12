@@ -1,4 +1,5 @@
 # Shared helpers for tests/*.test.sh (sourced, not run).
+# shellcheck shell=bash
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
 # rand <charset> <length>: random string (pipefail off here: head closing the pipe is expected).

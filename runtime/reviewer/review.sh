@@ -19,7 +19,7 @@ trap '[ -z "$scratch" ] || rm -rf "$scratch"' EXIT
 
 # Set once known; the verdict carries whatever is known when the review stops.
 repo="" head="" base_sha="" branch="" spec="" vdir=""
-model_out="" session="" cost=null
+session="" cost=null
 
 # finish <outcome> <reason> [<model reply json>]: write the verdict, print the line, exit.
 finish() {
@@ -34,7 +34,7 @@ finish() {
     local seq
     seq=$(printf '%03d' $(($(find "$vdir" -maxdepth 1 -name '[0-9][0-9][0-9]-*.json' | wc -l) + 1)))
     path="$vdir/$seq-${head:0:12}.json"
-    jq -n --arg outcome "$outcome" --argjson round "$round" --arg commit "$head" --arg base "$base_sha" \
+    if jq -n --arg outcome "$outcome" --argjson round "$round" --arg commit "$head" --arg base "$base_sha" \
       --arg branch "$branch" --arg spec "$spec" --arg devshop "$(basename "$(dirname "$here")")" \
       --arg model "$MODEL" --arg session "$session" --argjson cost "$cost" --argjson r "$reply" \
       --arg reason "$reason" --arg created "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{
@@ -46,9 +46,12 @@ finish() {
         blocking: ([$r.acceptance[] | select(.met | not) | .item] as $unmet
           | ($unmet | length) + ([$r.findings[] | select(.severity != "low" and (.item | IN($unmet[]) | not))] | length)),
         low: ([$r.findings[] | select(.severity == "low")] | length),
-        lenses: $r.lenses, reason: $reason, created: $created}' >"$path.tmp" \
-      && mv "$path.tmp" "$path" && ln -sfn "$(basename "$path")" "$vdir/latest.json" \
-      || { path=-; outcome=could-not-run code=2; reason="could not write the verdict file in $vdir"; }
+        lenses: $r.lenses, reason: $reason, created: $created}' >"$path.tmp"; then
+      if ! { mv "$path.tmp" "$path" && ln -sfn "$(basename "$path")" "$vdir/latest.json"; }; then path=-; fi
+    else
+      path=-
+    fi
+    if [ "$path" = - ]; then outcome=could-not-run code=2 reason="could not write the verdict file in $vdir"; fi
   fi
   local b=0 l=0
   [ "$path" = - ] || { b=$(jq .blocking "$path"); l=$(jq .low "$path"); }
@@ -102,10 +105,11 @@ command -v claude >/dev/null || cnr "claude not found on PATH"
 
 # --- A throwaway clone holding just the two commits, with no remote.
 scratch=$(mktemp -d) || cnr "mktemp failed"
-git init -q "$scratch/repo" \
+if ! { git init -q "$scratch/repo" \
   && git -C "$scratch/repo" fetch -q --no-tags "$repo" "$base_sha:refs/heads/base" "$head:refs/heads/head" \
-  && git -C "$scratch/repo" checkout -q head \
-  || cnr "could not make the throwaway clone"
+  && git -C "$scratch/repo" checkout -q head; }; then
+  cnr "could not make the throwaway clone"
+fi
 
 prompt=$(<"$here/prompt.md") || cnr "prompt.md unreadable"
 prompt=${prompt//'{{SPEC}}'/$spec}

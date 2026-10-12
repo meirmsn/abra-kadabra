@@ -111,7 +111,8 @@ grep -A1 -xF -- --tools <<<"$args" | tail -1 | grep -qxF "Read,Grep,Glob,Bash" |
 grep -A1 -xF -- --permission-mode <<<"$args" | tail -1 | grep -qxF dontAsk || fail "permission mode not dontAsk"
 grep -A1 -xF -- --model <<<"$args" | tail -1 | grep -qxF claude-sonnet-5-5 || fail "model not pinned (env leaked?)"
 grep -A1 -xF -- --settings <<<"$args" | tail -1 | grep -qxF "$work/reviewer/settings.json" || fail "settings not the pinned file"
-grep -qF "specs/x.md" <<<"$args" && grep -qF "AC-1, AC-2" <<<"$args" || fail "prompt lacks the spec or its items"
+grep -qF "specs/x.md" <<<"$args" || fail "prompt lacks the spec path"
+grep -qF "AC-1, AC-2" <<<"$args" || fail "prompt lacks the spec's items"
 [ "$(cat "$STUB_LOG.cwd")" != "$r" ] || fail "claude ran in the real worktree, not a throwaway clone"
 echo "ok - call is locked down (flags, pinned model/tools/settings, throwaway clone)"
 
@@ -136,7 +137,7 @@ change "$r"; run "$r" garbage --base main --spec specs/x.md; expect "could-not-r
 change "$r"; run "$r" unmet --base main --spec specs/x.md; expect "round 3 asks the owner" 3 ask-owner '.round==3 and .blocking==1'
 change "$r"; run "$r" pass --base main --spec specs/x.md; expect "a pass ends the streak" 0 pass '.round==4'
 change "$r"; run "$r" unmet --base main --spec specs/x.md; expect "after a pass, rounds restart" 1 fail '.round==1'
-[ "$(ls "$r/.git/devshop/reviews/feat__x" | grep -c "^[0-9]\{3\}-")" = 7 ] || fail "one verdict file per run expected"
+[ "$(find "$r/.git/devshop/reviews/feat__x" -name '[0-9][0-9][0-9]-*.json' | wc -l)" = 7 ] || fail "one verdict file per run expected"
 
 # --- Could-not-run: anything other than a well-formed, complete verdict, and every bad input.
 r="$work/cnr"; new_project "$r"
@@ -144,7 +145,7 @@ for bad in garbage empty no-structured is-error missing-ac extra-ac bad-severity
   run "$r" "$bad" --base main --spec specs/x.md
   expect "reply '$bad' is could-not-run" 2 could-not-run '.reason!="" and .blocking==0'
 done
-STUB_ACT=exit run "$r" pass --base main --spec specs/x.md
+STUB_ACT="exit" run "$r" pass --base main --spec specs/x.md
 expect "claude exiting non-zero is could-not-run" 2 could-not-run '.reason|test("exit")'
 STUB_ACT=touch-real run "$r" pass --base main --spec specs/x.md
 expect "a changed real worktree is could-not-run" 2 could-not-run '.reason|test("worktree")'
@@ -152,7 +153,7 @@ rm -f "$r/stray.txt"
 (export PATH="/usr/bin:/bin"; run "$r" pass --base main --spec specs/x.md
   expect "no claude on PATH is could-not-run" 2 could-not-run '.reason|test("claude")')
 sed -i 's/^TIMEOUT=.*/TIMEOUT=1/' "$work/reviewer/review.sh"
-STUB_ACT=sleep run "$r" pass --base main --spec specs/x.md
+STUB_ACT="sleep" run "$r" pass --base main --spec specs/x.md
 expect "a timed-out review is could-not-run" 2 could-not-run '.reason|test("timed out")'
 cp "$repo_root/runtime/reviewer/review.sh" "$work/reviewer/review.sh"
 

@@ -40,6 +40,39 @@ DEVSHOP_PRIME_ONLY=1 CLAUDE_PROJECT_DIR=/nonexistent bash "$PLUGIN/devshop/hooks
 claude plugin marketplace add "$PLUGIN" --scope user >>"$LOG" 2>&1 || step_failed "claude plugin marketplace add"
 claude plugin install devshop@devshop --scope user >>"$LOG" 2>&1 || step_failed "claude plugin install"
 
+# gstack (TARGET Shape 7): the one upstream commit install/gstack.pin names, installed unmodified
+# after the devshop's own steps, so a gstack failure can't stop them. Its setup runs with stdin
+# closed, team mode off and its own Claude hooks off, so it leaves ~/.claude/settings.json alone
+# (F-GS-08). --no-browser: Chromium installs on a browser skill's first run instead. Setup output:
+# /tmp/devshop-gstack.log.
+install_gstack() {
+  local url sha dir="$HOME/.claude/skills/gstack" glog=/tmp/devshop-gstack.log
+  read -r url sha < <(git --git-dir="$MIRROR" show "$REF:install/gstack.pin" | grep -v '^#')
+  [[ ${url:-} =~ ^https://[^@[:space:]]+$ && ${sha:-} =~ ^[0-9a-f]{40}$ ]] \
+    || { step_failed "gstack: install/gstack.pin at $REF is missing or not '<https URL> <sha>'"; return; }
+  log "gstack $sha from $url"
+  { rm -rf "$dir" && git init -q "$dir" && git -C "$dir" fetch -q --depth 1 "$url" "$sha" \
+    && git -C "$dir" checkout -q --detach FETCH_HEAD; } >>"$glog" 2>&1 \
+    || { step_failed "gstack: fetch $sha (see $glog)"; return; }
+  # Bun is tied to the pin: the pinned gstack names the Bun it is tested on, and only that one runs.
+  local tested found
+  tested=$(sed -n 's/^GSTACK_BUN_TESTED="\([^"]*\)"$/\1/p' "$dir/bin/gstack-bun-version.sh" 2>/dev/null)
+  found=$(PATH="$HOME/.bun/bin:$PATH" bun --version 2>/dev/null)
+  { [ -n "$tested" ] && [ "$found" = "$tested" ]; } \
+    || { step_failed "gstack: bun ${found:-not found}, but gstack $sha is tested on bun ${tested:-unknown}"; return; }
+  # Its npm dependencies come only from its lockfile. gstack's setup falls back to an unfrozen
+  # install when the frozen one fails, so install frozen first and stop here if that fails.
+  (cd "$dir" && PATH="$HOME/.bun/bin:$PATH" timeout 600 bun install --frozen-lockfile </dev/null) >>"$glog" 2>&1 \
+    || { step_failed "gstack: frozen dependency install (bun.lock vs this bun; see $glog)"; return; }
+  (cd "$dir" && PATH="$HOME/.bun/bin:$PATH" timeout 600 ./setup --host claude --no-team \
+    --no-plan-tune-hooks --no-timeline-stop-hook --no-browser --quiet </dev/null) >>"$glog" 2>&1 \
+    || { step_failed "gstack: setup exited $? (see $glog)"; return; }
+  # The pin is the only upgrade path: no "upgrade available" prompts (auto_upgrade is off by default).
+  "$dir/bin/gstack-config" set update_check false >>"$glog" 2>&1 \
+    || step_failed "gstack: turning off its update check (see $glog)"
+}
+install_gstack
+
 if [ "$failed" = 0 ]; then
   log "RESULT: bootstrap done (current -> $(readlink /opt/devshop-current))"
 else
