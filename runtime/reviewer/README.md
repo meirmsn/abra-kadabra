@@ -6,7 +6,7 @@ has none of the builder's context (TARGET Verify 3–6, W10.6.2). It finds the s
 line) it reviews against the PR's own words, else the commit messages, and a change that should
 have had a spec fails. Given the PR's title and body, it also checks them against the commit
 (Review 5). A hook starts it before the PR is created and before each later push (W10.6.7), so the
-builder never chooses whether it runs, and the PR opens only once it passes (W10.6.6). The interface (call, exit
+builder never chooses whether it runs, and the PR opens only once it passes (W10.6.6, [the hook](#the-hook)). The interface (call, exit
 codes, stdout line, verdict file and format) is in
 [W10-v2.md § W10.6.2](../../kit/notes/revamp/workstreams/W10-v2.md). Change it there first.
 
@@ -26,18 +26,44 @@ codes, stdout line, verdict file and format) is in
 | `pr-comment.sh`          | Renders a verdict file as the PR comment: per lens and item, tied to its commit |
 | `verdict-check.sh`       | Reads a PR's comments: is there a passing verdict for the head commit?          |
 | `verdict-wait.sh`        | The PR's `review-verdict` check: polls the comments until ok or time is up      |
+| `pr-words.sh`            | The PR's title and body as one canonical line, hashed the same way everywhere   |
 
 ## On the PR
 
 Each review is recorded on the PR as one comment, rendered by `pr-comment.sh` from the verdict file
 (TARGET Verify 7, L-25). Its first line is a marker with the full commit and the outcome; text from
-the model has `<` escaped and newlines flattened, so it can't form a second one. The hook (W10.6.7)
-posts it right after the PR is created or pushed. The `review-verdict` workflow runs
+the model has `<` escaped and newlines flattened, so it can't form a second one. The marker also
+carries `words`, the sha256 of the PR words the review read (`pr-words.sh`). The hook posts the
+comment right after the PR is created or pushed. The `review-verdict` workflow runs
 `verdict-wait.sh` on every PR push: it passes once the latest marker is a pass for the head commit,
-and fails when the verdict is missing, stale (for an older commit) or failing after 10 minutes. It
+and fails when the verdict is missing, stale (for an older commit, or for a title or body since
+edited: it also runs on `edited`) or failing after 10 minutes. It
 waits because a run triggered by the comment would report on `main`, not on the PR. The session
 cannot post a commit status (its GitHub access refuses status writes), hence a comment. It is not a
 required check: the agent can post a comment itself, and the PR's own copy of the workflow runs.
+
+## The hook
+
+[`runtime/hooks/review-hook.py`](../hooks/review-hook.py) runs the reviewer by itself (W10.6.7; its
+contract is the W10.6.7 line in W10-v2.md). The plugin registers it as a PreToolUse hook (`gate`) and
+a PostToolUse hook (`post`).
+
+- **What it reviews:** a PR create (the GitHub tool's `create_pull_request`, or `gh pr create`), a
+  `git push` to a branch that has an open PR, and an edit of the PR's title or body
+  (`update_pull_request`, `gh pr edit`). It reviews the committed `HEAD` against the PR's base, with
+  the words from the call (create, edit) or from the open PR (push). A create must come after the
+  push, so the reviewed commit is the PR's head. The GitHub tools that commit on GitHub
+  (`push_files`, `create_or_update_file`, `delete_file`) are blocked on a branch with an open PR,
+  because no review would see those commits.
+- **What it decides:** only `REVIEW: pass` with exit 0 lets the call through. A fail blocks the call
+  and returns the line and the blocking findings, so Claude fixes, commits and retries. Could-not-run,
+  ask-owner, a missing `review.sh`, a missing or doubled `REVIEW:` line, an exit that disagrees with
+  the line, words it can't know (`gh pr create --fill`, `--web`, a body on stdin) and any error of its
+  own block too, and tell Claude to stop and ask the owner.
+- **What it posts:** after the call, the pass, as the comment above, if the PR's head is the reviewed
+  commit. If GitHub's copy of the words differs from what was reviewed (a footer the server added, an
+  edit), it reviews the posted words again and posts that verdict, pass or not. Blocked reviews are
+  not posted: their commit never reaches the PR. They stay in the verdict files and the chat.
 
 ## How it is locked down, and what that is worth
 
@@ -69,6 +95,12 @@ required check: the agent can post a comment itself, and the PR's own copy of th
   comment (per lens, marker not forgeable from model text), ok / missing / stale / failing for the
   head, the wait, and could-not-run for bad input. 27 of 28 mutants killed (the survivor is
   equivalent).
+- [`tests/review-hook.test.sh`](../../tests/review-hook.test.sh) (in CI, stub `review.sh` and `gh`,
+  a local origin) checks the hook: a failing create blocked with its findings and nothing posted; a
+  passing create let through and its verdict posted and accepted by `verdict-check.sh`; a push to an
+  open PR reviewed with the PR's words and blocked on a fail; every non-pass result blocking; words
+  changed after the review re-reviewed and posted as they are on GitHub; edits reviewed first; the
+  plugin's registration. 36 of 36 mutants killed (the hook, and the `words` parts of the scripts above).
 - [`tests/reviewer-live.sh`](../../tests/reviewer-live.sh) (`[runs]`, in a session only, because it
   calls the real model and CI runs no LLM jobs) runs the real reviewer on the A-04 fixtures in
   [`tests/fixtures/reviewer/`](../../tests/fixtures/reviewer) (spec: [`spec.md`](../../tests/fixtures/reviewer/spec.md)). The planted change (AC-4 skipped)
@@ -88,4 +120,8 @@ required check: the agent can post a comment itself, and the PR's own copy of th
   2026-10-12): if the north-star run or the reviewer eval (W10.6.4–5) shows repeat questions,
   reset the count when a commit changes the spec file.
 - Screenshots in the PR body (Review 5, L-29) are not checked yet: there is no browser.
-- The hook that starts the reviewer and posts its comment is W10.6.7.
+- The hook reads shell commands word by word. Commands it can't see into get through unreviewed:
+  `bash -c '…'`, `eval`, a script that pushes, and `gh api` writes to the PR. This is feedback, not
+  a wall: the `review-verdict` check shows a missing or stale verdict however the change got there.
+- `gh pr create` and `gh pr edit` flags the hook doesn't know are refused (could-not-run) rather than
+  guessed at.

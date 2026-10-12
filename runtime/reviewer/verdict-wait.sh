@@ -2,7 +2,8 @@
 # The PR's verdict check (W10.6.6): polls the PR's comments through `gh` until verdict-check.sh says
 # ok for the head commit, or the wait runs out. It waits because the verdict comment is posted just
 # after the PR is created or pushed, and a comment-triggered run would report on the default branch,
-# not on the PR. Deterministic, no model (D-06). A tripwire, not a wall.
+# not on the PR. Each poll also hashes the PR's current title and body (pr-words.sh), so words
+# edited after the review read as stale (W10.6.7). Deterministic, no model (D-06). A tripwire, not a wall.
 #   usage: verdict-wait.sh --repo <owner/name> --pr <number> --head <sha> --wait <seconds> --every <seconds>
 # Stdout: verdict-check.sh's last line. Exit 0 = ok; 1 = still missing, stale or failing at the end
 # of the wait; 2 = could-not-run (bad arguments, no gh, a gh error, bad input).
@@ -27,9 +28,11 @@ command -v gh >/dev/null || cnr "gh not found"
 
 deadline=$(($(date +%s) + wait))
 while :; do
+  words=$(gh api "repos/$repo/pulls/$pr" | "$here/pr-words.sh" | sha256sum | cut -c1-64) \
+    && [[ "$words" =~ ^[0-9a-f]{64}$ ]] || cnr "could not read the PR's title and body"
   list=$(gh api --paginate "repos/$repo/issues/$pr/comments" --jq '.[] | {body}') || cnr "gh api failed"
   rc=0
-  line=$(jq -s . <<<"$list" | "$here/verdict-check.sh" --head "$head" --comments /dev/stdin) || rc=$?
+  line=$(jq -s . <<<"$list" | "$here/verdict-check.sh" --head "$head" --comments /dev/stdin --words "$words") || rc=$?
   [ "$rc" = 1 ] && [ "$(date +%s)" -lt "$deadline" ] || { echo "$line"; exit "$rc"; }
   sleep "$every"
 done

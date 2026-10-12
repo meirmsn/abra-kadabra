@@ -1,6 +1,7 @@
 # The reviewer's verdict on the PR (W10.6.6, TARGET Verify 7): passes once the PR has a passing
 # verdict comment (runtime/reviewer/pr-comment.sh) for its head commit, and fails when the verdict is
-# missing, stale or failing after the wait. Deterministic, no model (D-06). Not a required check: the
+# missing, stale (for an older commit, or for words since edited: it also runs on `edited`) or failing
+# after the wait. Deterministic, no model (D-06). Not a required check: the
 # agent can post the comment itself and the PR's own copy of this file runs, so it is a tripwire, not a
 # wall. It waits because the comment lands just after the PR is opened or pushed; a run triggered by
 # the comment would report on the default branch, not on the PR.
@@ -8,7 +9,7 @@ name: review-verdict
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, edited]
 
 permissions:
   contents: read

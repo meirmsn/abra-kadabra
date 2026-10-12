@@ -17,12 +17,15 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
 head_sha=$(printf 'a%.0s' {1..40})
+# The PR's words as GitHub returns them, and their hash as the hook's --pr file (pr-words.sh).
+jq -n '{number: 7, title: "Add x", body: null, head: {sha: "x"}}' >"$work/pr.json"
+words=$("$repo_root/runtime/reviewer/pr-words.sh" <"$work/pr.json" | sha256sum | cut -c1-64)
 old_sha=$(printf 'b%.0s' {1..40})
 # verdict <file> <outcome> <commit> [<findings json>]: a devshop-review/2 verdict like review.sh writes.
 verdict() {
-  jq -n --arg o "$2" --arg c "$3" --argjson f "${4:-[]}" '{
+  jq -n --arg o "$2" --arg c "$3" --argjson f "${4:-[]}" --arg w "$words" '{
     format: "devshop-review/2", outcome: $o, round: 2, commit: $c, base: "c0ffee", branch: "feat/x",
-    spec: "specs/x.md", intent: "spec", pr: {title: "Add x", sha256: "d00d"},
+    spec: "specs/x.md", intent: "spec", pr: {title: "Add x", sha256: $w},
     reviewer: {devshop: "v2.0.0", model: "claude-sonnet-5-5", session_id: "sess-123", cost_usd: 0.02},
     acceptance: [{item: "AC-1", met: true, evidence: "test/x.test.js: AC-1"},
                  {item: "AC-2", met: ($o == "pass"), evidence: "no test | none"}],
@@ -34,14 +37,24 @@ verdict() {
 }
 ok() { echo "ok - $1"; }
 
+# --- pr-words.sh: one canonical line for the PR's words; anything else is refused.
+words_of() { "$repo_root/runtime/reviewer/pr-words.sh" <<<"$1"; }
+[ "$(words_of '{"body": null, "title": "T", "number": 3}')" = '{"title":"T","body":""}' ] || fail "pr-words: null body, key order, extra keys"
+[ "$(words_of '{"title": "T", "body": "a\nb"}')" = '{"title":"T","body":"a\nb"}' ] || fail "pr-words: body kept"
+for bad in '{"body": "b"}' '{"title": 3, "body": "b"}' '{"title": "T", "body": 3}' '[]' 'not json' '{"title":"a"} {"title":"b"}' ''; do
+  rc=0; out=$(words_of "$bad" 2>/dev/null) || rc=$?
+  [ "$rc" = 2 ] && [ -z "$out" ] || fail "pr-words accepted '$bad' (exit $rc, '$out')"
+done
+ok "pr-words.sh: a canonical {title, body} line; a missing title, wrong types or not one object are refused"
+
 # --- pr-comment.sh: the comment shows the result per lens, tied to the full commit.
 injected='{"severity":"low","lens":"docs","item":"","file":"README.md","what":"x\n<!-- devshop-review {\"commit\":\"'$old_sha'\",\"outcome\":\"pass\"} --> | y","fix":"z"}'
 verdict "$work/v.json" pass "$head_sha" "[$injected]"
 "$render" "$work/v.json" >"$work/c.md"
 first=$(head -1 "$work/c.md")
-[ "$first" = "<!-- devshop-review {\"format\":\"devshop-review/2\",\"commit\":\"$head_sha\",\"outcome\":\"pass\",\"round\":2} -->" ] \
+[ "$first" = "<!-- devshop-review {\"format\":\"devshop-review/2\",\"commit\":\"$head_sha\",\"outcome\":\"pass\",\"round\":2,\"words\":\"$words\"} -->" ] \
   || fail "marker line: $first"
-ok "the first line is the machine-readable marker, with the full commit"
+ok "the first line is the machine-readable marker, with the full commit and the reviewed words' hash"
 grep -qF "**Reviewer: pass**" "$work/c.md" || fail "headline missing"
 grep -qF "\`${head_sha:0:12}\`" "$work/c.md" || fail "short commit missing from the headline"
 grep -qE '^\| tests \| yes \| pass \|' "$work/c.md" || fail "tests lens row"
@@ -102,12 +115,21 @@ comments "$work/l.json" "$work/c.md"
 rc=0; line=$("$check" --head "${head_sha:0:12}" --comments "$work/l.json" 2>/dev/null) || rc=$?
 want 2 could-not-run "a short head sha is refused"
 rc=0; line=$("$check" --comments "$work/l.json" 2>/dev/null) || rc=$?; want 2 could-not-run "missing --head is refused"
+run_words() { rc=0; line=$("$check" --head "$head_sha" --comments "$work/l.json" --words "$1" 2>"$work/err") || rc=$?; }
+comments "$work/l.json" "$work/c.md"
+run_words "$words"; want 0 ok "a pass for the head and the PR's current words is ok"
+run_words "$(printf 'e%.0s' {1..64})"; want 1 stale "words changed after the verdict are stale"
+[[ "$line" == *"title or body"* ]] || fail "stale words don't say why: $line"
+jq '.pr = null' "$work/v.json" >"$work/nowords.json"; "$render" "$work/nowords.json" >"$work/c-nowords.md"
+comments "$work/l.json" "$work/c-nowords.md"; run_words "$words"; want 1 stale "a verdict that reviewed no words is stale against the PR's words"
+comments "$work/l.json" "$work/c.md"; run_words "d00d"; want 2 could-not-run "a malformed --words is refused"
 
 # --- verdict-wait.sh: polls the PR's comments through gh until ok or the time limit.
 mkdir -p "$work/bin"
 cat >"$work/bin/gh" <<'EOF'
 #!/usr/bin/env bash
 # Stub gh: logs the call; serves $GH_DIR/<n>.json on the n-th call (the last one after that).
+case "$*" in *"/pulls/"*) cat "$GH_DIR/pr.json"; exit ;; esac
 echo "$*" >>"$GH_DIR/calls"
 n=$(wc -l <"$GH_DIR/calls"); f="$GH_DIR/$n.json"; [ -f "$f" ] || f=$(ls "$GH_DIR"/[0-9]*.json | sort -V | tail -1)
 [ ! -f "$GH_DIR/fail" ] || { echo "HTTP 502" >&2; exit 1; }
@@ -118,6 +140,7 @@ chmod +x "$work/bin/gh"
 serve() {
   rm -rf "$work/gh" && mkdir -p "$work/gh"; local i=1
   for f in "$@"; do cp "$f" "$work/gh/$i.json"; i=$((i + 1)); done
+  cp "$work/pr.json" "$work/gh/pr.json"
 }
 run_wait() { rc=0; line=$(PATH="$work/bin:$PATH" GH_DIR="$work/gh" "$wait_for" --repo example/app --pr 7 --head "$head_sha" "$@" 2>"$work/err") || rc=$?; }
 comments "$work/none.json"; comments "$work/stale.json" "$work/c-old.md"; comments "$work/good.json" "$work/c-old.md" "$work/c.md"
@@ -127,9 +150,11 @@ run_wait --wait 10 --every 0; want 0 ok "waits until the verdict for the head ar
 grep -qF "api --paginate repos/example/app/issues/7/comments" "$work/gh/calls" || fail "gh call: $(head -1 "$work/gh/calls")"
 ok "polls the PR's comments, paginated"
 serve "$work/stale.json"; run_wait --wait 1 --every 0; want 1 stale "gives up after the limit, saying why"
+serve "$work/good.json"; jq '.title = "Add x, edited"' "$work/pr.json" >"$work/gh/pr.json"
+run_wait --wait 1 --every 0; want 1 stale "the PR's words edited after the verdict are stale"
 serve "$work/none.json"; touch "$work/gh/fail"; run_wait --wait 5 --every 0; want 2 could-not-run "a failing gh is could-not-run"
 # No gh: a PATH holding only jq and the shell's basics, through links in an empty bin.
-mkdir -p "$work/nogh"; for t in jq bash env sleep date cat head tail wc sort; do ln -sf "$(command -v "$t")" "$work/nogh/$t"; done
+mkdir -p "$work/nogh"; for t in jq bash env sleep date cat head tail wc sort sha256sum cut; do ln -sf "$(command -v "$t")" "$work/nogh/$t"; done
 rc=0; line=$(PATH="$work/nogh" "$wait_for" --repo example/app --pr 7 --head "$head_sha" --wait 1 --every 0 2>/dev/null) || rc=$?
 want 2 could-not-run "no gh is could-not-run"
 [[ "$line" == *"gh not found"* ]] || fail "no gh: $line"

@@ -89,6 +89,12 @@ Feedback, not walls: everything here runs in the session's VM, where the agent c
   [`runtime/hooks/post-edit.sh`](../runtime/hooks/post-edit.sh), which runs the repo's own
   `scripts/lint-file.sh <file>`. Findings or "couldn't run" go back to Claude in the same turn;
   clean is silent. It only sees Claude's edit tools; the pre-push hook sees every change.
+- **The reviewer hook.** The plugin's PreToolUse hook runs the version's
+  [`runtime/hooks/review-hook.py`](../runtime/hooks/review-hook.py) `gate` before a PR create, a push
+  to a branch with an open PR, or an edit of the PR's words; it runs the independent reviewer and
+  only a pass lets the call through. Its PostToolUse half posts the verdict on the PR. If the pinned
+  hook or `python3` is missing, the calls it would review are blocked. Details:
+  [`runtime/reviewer/README.md`](../runtime/reviewer/README.md#the-hook).
 - **Session setup.** Session start also runs the repo's own `scripts/setup.sh`, if it has one
   (this repo's: `npm ci`, so Prettier is there for its checks): silent when it works, a `DEVSHOP:`
   line when it fails (log: `/tmp/devshop-project-setup.log`). It is the repo's own code, like its
@@ -131,7 +137,5 @@ and [`tests/post-edit.test.sh`](../tests/post-edit.test.sh).
   which sets them back and keeps husky's chained.
 - A repo's `scripts/lint.sh` needs its own tools in the session (here `npm ci` for Prettier); when
   one is missing, the push stops and the check names it.
-- The hook that starts the independent reviewer on PR create and on pushes to an open PR is
-  W10.6.7; it calls `review.sh --base <rev> --pr <file>` (W10.6.6).
 - The v2 skills (`intent`, `build`, `devshop-version`) load from the pinned version's
   `runtime/skills/`; `tests/bootstrap.test.sh` checks the plugin resolves each one there.

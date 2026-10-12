@@ -1,24 +1,27 @@
 #!/usr/bin/env bash
 # Says whether a PR carries a passing reviewer verdict for its head commit (W10.6.6, TARGET Verify 7):
-# the latest comment whose FIRST line is pr-comment.sh's marker decides. Deterministic, no network:
+# the latest comment whose FIRST line is pr-comment.sh's marker decides. With --words (the sha256 of
+# the PR's current words, pr-words.sh), a verdict that reviewed other words is stale (W10.6.7). Deterministic, no network:
 # verdict-wait.sh feeds it the PR's comments. A tripwire, not a wall: anyone who can comment on the
 # PR, the agent included, can post a marker.
-#   usage: verdict-check.sh --head <40-hex sha> --comments <file: JSON list of {"body": ...}>
+#   usage: verdict-check.sh --head <40-hex sha> --comments <file: JSON list of {"body": ...}> [--words <sha256>]
 # Stdout: one line, "VERDICT: <ok|missing|stale|failing|could-not-run> · <why>".
 # Exit 0 = ok; 1 = missing, stale or failing; 2 = could-not-run (bad arguments or input).
 set -uo pipefail
 
 cnr() { echo "VERDICT: could-not-run · $1"; exit 2; }
-head="" file=""
+head="" file="" words=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --head) [ $# -ge 2 ] || cnr "--head needs a value"; head=$2; shift 2 ;;
     --comments) [ $# -ge 2 ] || cnr "--comments needs a value"; file=$2; shift 2 ;;
+    --words) [ $# -ge 2 ] || cnr "--words needs a value"; words=$2; shift 2 ;;
     *) cnr "unknown argument '$1'" ;;
   esac
 done
 [[ "$head" =~ ^[0-9a-f]{40}$ ]] || cnr "--head must be a full 40-hex commit sha"
 [ -n "$file" ] || cnr "--comments is required"
+[ -z "$words" ] || [[ "$words" =~ ^[0-9a-f]{64}$ ]] || cnr "--words must be a 64-hex sha256"
 command -v jq >/dev/null || cnr "jq not found"
 list=$(cat -- "$file" 2>/dev/null) || cnr "cannot read '$file'"
 
@@ -34,6 +37,9 @@ jq -e 'type == "object" and (.commit | type == "string") and (.outcome | type ==
 commit=$(jq -r .commit <<<"$marker") outcome=$(jq -r .outcome <<<"$marker")
 if [ "$commit" != "$head" ]; then
   echo "VERDICT: stale · the latest verdict is for ${commit:0:12}, the head is ${head:0:12}"; exit 1
+fi
+if [ -n "$words" ] && [ "$(jq -r '.words // ""' <<<"$marker")" != "$words" ]; then
+  echo "VERDICT: stale · the PR's title or body changed after the review of ${head:0:12}"; exit 1
 fi
 if [ "$outcome" != pass ]; then
   echo "VERDICT: failing · the latest verdict for ${head:0:12} is $outcome"; exit 1
