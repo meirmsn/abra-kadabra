@@ -1002,3 +1002,19 @@ two empty git repos at `/` in this container (no repo, config or skill touched; 
 edits go through script files, never heredocs inside heredocs.
 
 **Next**: owner's fresh-session check for gstack (PR checklist); then the devshop git hooks.
+
+## #29 — 2026-10-12 · W10.4.4 part 3: gstack fresh-session check passed; git hooks next
+
+**Fresh-session check (owner, after PR #64 merged), abra-kadabra environment** (cache rebuilt by a
+comment edit): `DEVSHOP: using HEAD (cde1959ce7bf) … · devshop copy of 2026-10-12 (0 days old)`
+(`cde1959` = the #64 merge); setup log `gstack e23f7b8…` and `RESULT: bootstrap done`, no `FAILED`;
+installed gstack `e23f7b8`, `VERSION` 1.91.93.0; `settings.json` only the devshop entries;
+`/autoplan` on a one-line scratch plan ran through Phase 1 (CEO review) with **no phase-guard
+message** (F-GS-04, F-GS-08 in a real session). gstack's done-when is met.
+
+**Surprise**: an earlier attempt ran in the devshop-fixture environment, whose cache predated the
+merge (bootstrap at 08:11, merge at 08:58), and showed no gstack. Its `DEVSHOP:` line said "0 days
+old": day resolution hides a same-day stale copy, and nothing names the environment. The git-hooks
+PR adds the copy's time and the environment to the line.
+
+**Next**: the devshop git hooks (W10.4.4's last part).

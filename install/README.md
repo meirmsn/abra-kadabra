@@ -79,6 +79,7 @@ installed hook for every case above.
 - Upgrading gstack: change the SHA in `install/gstack.pin` by PR, then run the smoke check: in a
   fresh session the `DEVSHOP:` line still appears and `/autoplan` runs (F-GS-04, F-GS-08), plus the
   skills v2 uses (A-13).
-- Still to come in W10.4.4: devshop-owned git hooks (pre-push `gitleaks git`) via
-  `runtime/hooks/session-start.sh`.
+- Still to come in W10.4.4: devshop-owned git hooks via `runtime/hooks/session-start.sh` (pre-push
+  `gitleaks git` plus the `scripts/` lint checks as a backstop) and a PostToolUse hook running the
+  fast checks on each file Claude edits. Both are feedback; required CI is the wall.
 - `runtime/skills/` is where the v2 skills land (W10.6).
