@@ -65,8 +65,9 @@ an explicit go/no-go; lalista is the pilot (web, then iOS).
 
 M0 is done (review: [LOG.md](LOG.md) #15). M1 ([W10](workstreams/W10-v2.md)):
 
-- **Claude:** W10.4 v2 bootstrap in this repo is done (W10.4.4 closed, LOG #37); next W10.6.6
-  (reviewer verdict on the PR), then W10.6.7 (the reviewer hook). W10.3 lessons harvest done: [lessons.md](lessons.md) +
+- **Claude:** W10.4 v2 bootstrap in this repo is done (W10.4.4 closed, LOG #37); W10.6.6
+  (reviewer verdict on the PR, spec found from the diff) done (LOG #38); next W10.6.7 (the reviewer
+  hook). W10.3 lessons harvest done: [lessons.md](lessons.md) +
   every FINDINGS row dispositioned (LOG #21).
 - **Owner, when ready:** start a session in the `devshop-fixture` cloud environment with the
   fixture repo attached, for W10.5.2–3 (template CI + Cloudflare deploy wiring, north-star
