@@ -59,13 +59,25 @@ verdict "$work/nl.json" pass "$head_sha" '[{"severity":"low","lens":"code","item
 ! grep -qE '^(\| fake|- \*\*high)' "$work/nl.md" || fail "a newline in model text made its own line"
 ok "model text stays on its own line"
 # Model or repo text must not ping people or render links and images in the comment.
-verdict "$work/md.json" pass "$head_sha" '[{"severity":"low","lens":"code","item":"","file":"a.js","what":"ask @owner-name, see [here](https://example.com/x) and ![t](https://example.com/p.png)","fix":"z"}]'
+verdict "$work/md.json" pass "$head_sha" '[{"severity":"low","lens":"code","item":"","file":"node_modules/@scope/x<y>.js","what":"ask @owner-name, see [here](https://example.com/x), [ref][1] and ![t](https://example.com/p.png)","fix":"z"}]'
 "$render" "$work/md.json" >"$work/md.md"
 ! grep -qF '@owner-name' "$work/md.md" || fail "an @mention survived in model text"
 ! grep -qE '!?\[[^]]*\]\(' "$work/md.md" || fail "a markdown link or image survived in model text"
 grep -qF 'owner-name' "$work/md.md" || fail "the mentioned name must stay readable"
 grep -qF 'https://example.com/x' "$work/md.md" || fail "the link target must stay readable"
-ok "model text cannot mention people or render links or images"
+# shellcheck disable=SC2016 # literal backticks: the path must stay a plain code span
+grep -qF '`node_modules/@scope/x<y>.js`' "$work/md.md" || fail "a code-span value must stay literal (no entities)"
+! grep -F 'ask ' "$work/md.md" | grep -qF '[' || fail "a [ survived in model text (reference-style links)"
+verdict "$work/cs.json" pass "$head_sha" '[{"severity":"low","lens":"code","item":"","file":"a`b\n<!-- devshop-review {} -->.js","what":"w","fix":"z"}]'
+"$render" "$work/cs.json" >"$work/cs.md"
+# shellcheck disable=SC2016 # literal backticks
+grep -qF "\`a'b <!-- devshop-review {} -->.js\`" "$work/cs.md" || fail "a code-span value must be one line with no backtick"
+[ "$(grep -c '^<!-- devshop-review' "$work/cs.md")" = 1 ] || fail "a code-span value planted a marker line"
+jq '.spec="specs/@team/a.md"' "$work/v.json" >"$work/sp.json"
+# shellcheck disable=SC2016 # literal backticks
+"$render" "$work/sp.json" | grep -qxF 'Spec: `specs/@team/a.md`' || fail "the spec path must stay literal in its code span"
+ok "code-span values stay literal, on one line, with no backtick"
+ok "model text cannot mention people or render markdown links or images; code spans stay literal"
 verdict "$work/f.json" fail "$head_sha" '[{"severity":"high","lens":"pr","item":"","file":"","what":"body claims a test","fix":"fix body"}]'
 "$render" "$work/f.json" >"$work/cf.md"
 grep -qF "**Reviewer: fail**" "$work/cf.md" || fail "fail headline"
