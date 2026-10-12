@@ -2,12 +2,14 @@
 # Picks the stack homes a change in a project loads (TARGET § L3 Build 2 and Reach): each stack
 # home is a directory <stack>/ under this devshop version's stacks/, with a README.md (the home)
 # and a `detect` file listing project-relative paths or globs, one per line (# comments allowed).
-# A stack applies when any of its paths exists in the project.
+# A line may be `<path>: <pattern>`: then the file must also have a line matching the grep -E
+# pattern (e.g. `package.json: "next" *:`). A stack applies when any of its lines matches.
 # Usage: stack-homes.sh <project root>
 # Prints one line `STACKS: <stacks, comma-separated>` (or `STACKS: none`), the record of what was
 # loaded, then the README.md of each applying stack, one per line, for Claude to read.
 # Exit 0 = done; 2 = can't run: no project, or a stack home that can't be judged (no README.md or
-# detect, a detect with no paths, or a path that is absolute or leaves the project). Never skips one.
+# detect, a detect with no paths, a path that is absolute or leaves the project, or a pattern grep
+# can't read). Never skips one.
 set -uo pipefail
 
 root=${1:-}
@@ -28,11 +30,22 @@ for dir in "$stacks"/*/; do
     p=${p#"${p%%[![:space:]]*}"}
     p=${p%"${p##*[![:space:]]}"}
     [ -n "$p" ] || continue
+    pat=
+    case "$p" in
+      *:*)
+        pat=${p#*:} && pat=${pat#"${pat%%[![:space:]]*}"} && p=${p%%:*} && p=${p%"${p##*[![:space:]]}"}
+        rc=2
+        [ -z "$pat" ] || { grep -Eq -- "$pat" /dev/null 2>/dev/null; rc=$?; }
+        [ "$rc" = 1 ] || { echo "stack-homes: $s: detect pattern '$pat' for '$p' is empty or not a grep -E pattern" >&2; exit 2; }
+        ;;
+    esac
     case "/$p/" in
       //* | */../*) echo "stack-homes: $s: detect path '$p' is absolute or leaves the project" >&2; exit 2 ;;
     esac
     paths=$((paths + 1))
-    compgen -G "$root/$p" >/dev/null && hit=1
+    while IFS= read -r f; do
+      if [ -z "$pat" ] || { [ -f "$f" ] && grep -Eq -- "$pat" "$f"; }; then hit=1; fi
+    done < <(compgen -G "$root/$p")
   done <"$dir/detect"
   [ "$paths" -gt 0 ] || { echo "stack-homes: $s: detect lists no paths" >&2; exit 2; }
   [ "$hit" = 0 ] || found+=("$s")

@@ -58,6 +58,26 @@ run "a nested path in detect matches" 0 "$proj" \
   "STACKS: nextjs-supabase
 $rt/stacks/nextjs-supabase/README.md"
 
+# A detect line "<path>: <pattern>" needs a line matching the pattern (grep -E) in that file: the
+# decoy's near miss, where the fixture has a package.json too but no "next" dependency.
+rm -rf "$proj" && mkdir -p "$proj"
+home nextjs-supabase 'package.json: "next" *:'
+printf '{\n  "devDependencies": { "wrangler": "4.0.0" }\n}\n' >"$proj/package.json"
+touch "$proj/wrangler.json"
+run "a file that lacks the pattern doesn't match (the decoy stays out)" 0 "$proj" \
+  "STACKS: cloudflare
+$rt/stacks/cloudflare/README.md"
+printf '{\n  "dependencies": { "next": "15.0.0" }\n}\n' >"$proj/package.json"
+run "a file with the pattern matches" 0 "$proj" \
+  "STACKS: cloudflare, nextjs-supabase
+$rt/stacks/cloudflare/README.md
+$rt/stacks/nextjs-supabase/README.md"
+home broken 'package.json: ("unclosed'
+run "a pattern grep can't read can't run" 2 "$proj" '' "broken: detect pattern"
+home broken 'package.json:'
+run "a path with an empty pattern can't run" 2 "$proj" '' "broken: detect pattern"
+rm -rf "$rt/stacks/broken"
+
 # Fail closed: a stack home that can't be judged stops the run (exit 2), never silently skips.
 home broken 'x'
 rm "$rt/stacks/broken/detect"

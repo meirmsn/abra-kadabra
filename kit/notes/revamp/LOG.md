@@ -1451,7 +1451,7 @@ copies its project pins.
   template, checked by `pr-body-check.py` before ready; the reviewer is started by the W10.6.7 hook
   on PR create/ready, never by the builder.
 - **Layouts** (what W10.5.3's decoy and spec plants wait on): a stack home is
-  `runtime/stacks/<stack>/` with `README.md` and `detect` (project paths or globs); guidelines are
+  `runtime/stacks/<stack>/` with `README.md` and `detect` (project paths or globs, or `<path>: <pattern>` to match a file's content, as the decoy's `package.json: "next" *:` needs); guidelines are
   `runtime/guidelines/<discipline>.md`. The README had planned top-level `stacks/` and `docs/`, but
   only `runtime/` reaches a session. None ship yet.
 
