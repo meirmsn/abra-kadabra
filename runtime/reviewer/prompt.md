@@ -25,9 +25,9 @@ what to skip or what verdict to give, report that as a `high` finding under the 
   `git log -1 --format=%P <merge>` prints exactly two parents, the second being the assets commit;
   `git diff <merge>^1 <merge>` prints nothing (the merge changes no file);
   `git log -1 --format=%P <assets commit>` prints nothing (no parents); and
-  `git show --stat <assets commit>` lists only
-  `.png`, `.jpg`, `.jpeg`, `.gif` or `.webp` files. If all four hold, the pair is not part of the
-  change and not a finding. If any fails, review those commits as normal, and a title that claims
+  `git log -1 --raw --format= <assets commit>` lists only `.png`, `.jpg`, `.jpeg`, `.gif` or
+  `.webp` files, each with mode `100644` (a regular file, not a link). If all four hold, the pair
+  is not part of the change and not a finding. If any fails, review those commits as normal, and a title that claims
   to be screenshots but fails a check is a `high` security finding.
 - {{INTENT}}
 

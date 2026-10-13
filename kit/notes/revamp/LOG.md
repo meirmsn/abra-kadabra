@@ -2318,3 +2318,15 @@ browser** (screenshot in chat). The reviewer's last two lows are fixed before me
 check also confirms the merge has exactly two parents, the second the checked commit; the empty
 signing array expands safely on bash before 4.4. Left: the GitHub mobile app, and a look after the
 merge and the branch's deletion.
+
+**After the merge** (PR #95, squash): the branch was deleted; the API still serves the probe at its
+commit (same size and blob SHA); `main` has no image files and the screenshot commit is not in its
+history; the owner saw the probe still render in the browser after a forced refresh. **The GitHub
+mobile app showed a broken image** (owner's phone screenshot), and so does an old lalista PR from
+v1: the app can't load a private repo's `github.com/…/raw/…` images, which need the browser's
+session; only drag-and-drop `user-attachments` get signed URLs, and that upload has no API
+(F-NEW-49). Mitigation (owner's pick): `pr-assets.sh` prints each image linked to itself, and
+`pr-body-check.py` requires that link on a `github.com/…/raw/…` image, so a tap opens it in the
+browser (tests first: 2 new cases, each failing on `main`'s check). Also from the review: the
+reviewer's screenshot check now confirms each file is a regular file (mode `100644`). W10.6.11 stays
+open until the owner decides whether mobile needs inline images (an outside host, public by link).

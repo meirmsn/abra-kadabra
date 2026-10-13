@@ -85,8 +85,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   one parentless commit and moves the PR's branch to a merge of HEAD and that commit whose files
   are HEAD's, so the PR's files and diff don't change and nothing needs removing. `ship`'s push of
   the branch carries them to GitHub, which keeps them with the PR after the merge. It prints the
-  image lines (`https://github.com/<owner>/<repo>/raw/<sha>/<file>`) for the body's
-  **Screenshots:**, and refuses a repo that allows merge commits or rebase merges (they would carry
+  image lines (`https://github.com/<owner>/<repo>/raw/<sha>/<file>`, each linked to itself: the
+  GitHub mobile app can't show them inline, F-NEW-49) for the body's **Screenshots:**, and refuses a repo that allows merge commits or rebase merges (they would carry
   the images into the default branch). Proven by
   [`tests/pr-assets.test.sh`](../tests/pr-assets.test.sh), which also walks a PR's life on a local
   remote: retakes, fix rounds, a squash merge, the branch deleted, a fresh clone.
