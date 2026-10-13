@@ -1,0 +1,27 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "could-not-run",
+  "round": 0,
+  "commit": "fefb122051cc8ef83f82eccda1cbee77acdba056",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-starred-reworded-acceptance-b-r3",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "73f9cb03-9d71-411d-80a6-e6479316581f",
+    "cost_usd": 0.06738820000000001
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [],
+  "reason": "the reply covers acceptance items [AC-1, AC-2, AC-3, AC-4, AC-5], the change's spec has [AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7]",
+  "created": "2026-10-13T21:13:44Z"
+}

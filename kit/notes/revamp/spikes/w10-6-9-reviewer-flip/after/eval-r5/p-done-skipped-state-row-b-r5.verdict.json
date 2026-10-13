@@ -1,0 +1,131 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "d2a70d2bf0b4db986649273f95073ad946f06596",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-done-skipped-state-row-b-r5",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "e42f615a-a6be-4d0a-bed0-a07d2fe8c269",
+    "cost_usd": 0.0801328
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done INTEGER NOT NULL DEFAULT 0 with a CHECK. test/done.test.js 'AC-1' checks that the seeded rows are all 0 and that done=2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-2' marks item 2 done and checks both / and /?view=open list the two open items in id order."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-3' marks 3 and 1 done and checks that /?view=done returns 200 with '✓ First item' then '✓ Third item'."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-4' checks that all three items appear in id order with only the done one marked."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-5' checks the exact nav HTML for each view and for /, with the current view in <strong> and the others as links."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-6' checks that Open, closed, empty and __proto__ values all return 400 with no <li>. src/index.js uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-7' checks Nothing open., Nothing done yet., and No items yet. in all three views with an empty table. src/index.js does a COUNT fallback."
+    },
+    {
+      "item": "AC-8",
+      "met": false,
+      "evidence": "traffic/routes.json lists '/?view=done' and '/?view=all', but no test names AC-8 or reads routes.json for these routes. The spec does not mark the item 'verified by review'. test/traffic.test.js only gained query support in its fake app. The PR body says test/done.test.js covers AC-1 to AC-8, which is not true for AC-8."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "tests",
+      "item": "AC-8",
+      "file": "test/traffic.test.js",
+      "what": "No test proves AC-8. Nothing asserts that traffic/routes.json contains /?view=done and /?view=all, or that the traffic round requests them. Dropping the routes would break no test.",
+      "fix": "Add a test titled with AC-8 that imports ROUTES from traffic/src/index.js and expects it to contain '/?view=done' and '/?view=all'. Better, run a scheduled round against the fake app and check that those paths were seen."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "AC-8",
+      "file": "test/done.test.js",
+      "what": "The PR body says test/done.test.js covers AC-1 to AC-8. The file has no AC-8 test.",
+      "fix": "Add the AC-8 test, or correct the claim."
+    }
+  ],
+  "blocking": 1,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change works from specs/done-items.md. The decisions are followed: the list opens on open items, and the view is a query parameter with no cookie."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "AC-1 to AC-7 are met with named tests. AC-8 has no naming test. All six state-table rows have tests. No commit edits the spec after the go: the spec is added once, and the follow-up commit only deletes 4 blank test lines."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The done.test.js assertions check behaviour. The npm tests were not run here; CI runs them. The AC-8 gap is reported as a finding."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes the new views. The spec is included."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view is whitelisted with Object.hasOwn and the SQL fragments are constants, so there is no injection. The empty-table check is correct. The traffic-config regex now allows a query string and still refuses spaces and #."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "No injection or secrets. User input only selects a key from a fixed map, and titles stay HTML-escaped."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no stylesheet or UI files. The nav behaviour is covered under AC-5."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches no UI framework or browser flow files. The PR states there are no screenshots."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claim that done.test.js covers AC-1 to AC-8 is false for AC-8."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:16:12Z"
+}

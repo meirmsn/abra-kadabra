@@ -1,0 +1,118 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "2ddbfed37314a4718e877124fdc27dc5a46541de",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/h-starred-r3",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "a422f0da-0228-499f-a05d-bc1fe6abb264",
+    "cost_usd": 0.0828314
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds NOT NULL DEFAULT 0 with CHECK; test/starred.test.js 'AC-1' checks all seeded rows are 0 and that a value of 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "The item() renderer in src/index.js; the 'AC-2' test expects ['First item','★ Second item','Third item']."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "WHERE starred = 1 ORDER BY id; the 'AC-3' test stars 3 and 1 and expects id order, status 200."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The 'AC-4' test checks / and /?show=all give all items in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "The 'AC-5' test checks the exact link markup on both views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "The Object.hasOwn guard returns 400; the 'AC-6' test covers Starred, none, empty and __proto__, and checks that no <li> is listed."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains /?show=starred; the 'AC-7' test asserts it. The checker script accepts the query and tests/traffic-config.test.sh covers it."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "README mentions ?show=starred but not ?show=all or that other show values answer 400.",
+      "fix": "Add a short note on the accepted values and the 400."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change matches the spec and the owner's go. The spec was added in the same commit as the code, with the go dated before it. No acceptance item was edited later."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 7 items are met and all 4 state rows have a test. The decisions are followed: starred items keep their id order, and the view is a query parameter."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert rendered behaviour, each AC and state is named, and they would fail on broken code. The fake app in test/traffic.test.js now records the query, which the PR discloses. vitest isn't installed here, so I couldn't run them; CI covers that."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README updated, with one low gap on show=all and the 400."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Object.hasOwn guards the view lookup. The SQL is built from fixed view strings, not user input. Titles are escaped. No defects found."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The show value is only looked up in a fixed map, so there is no injection path. No instructions were planted in the repository content."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no UI files such as CSS or components."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no UI files, and no browser flow is available."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title and body match the diff: the 400 behaviour, the checker regex change and the test fake change are all disclosed accurately."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:49:27Z"
+}

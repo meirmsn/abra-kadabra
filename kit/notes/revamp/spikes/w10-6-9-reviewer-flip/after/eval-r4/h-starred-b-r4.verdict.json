@@ -1,0 +1,109 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "2ddbfed37314a4718e877124fdc27dc5a46541de",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/h-starred-b-r4",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "3b5f5b5c-7f87-40e8-99d7-45a27594364d",
+    "cost_usd": 0.0796878
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred NOT NULL DEFAULT 0 with CHECK; test/starred.test.js 'AC-1' asserts all three seeded items are 0 and that a value of 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js item() prefixes '★ ' only when starred; 'AC-2' test checks the exact list with one starred item."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "'AC-3' stars ids 3 and 1 and expects ['★ First item','★ Third item'], so order is by id, with status 200."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' checks both / and /?show=all give all three items in id order; the query still ends in ORDER BY id."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "'AC-5' checks the exact 'Starred only' link on / and the 'All items' link on the starred view."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn guard returns 400; 'AC-6' covers Starred, none, empty and __proto__, and checks the body has no <li>."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?show=starred'; 'AC-7' asserts it. traffic/src/index.js passes the routes through unchanged."
+    }
+  ],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Change matches the spec's intent and both decisions: order unchanged, and the view is a GET query parameter. Nothing beyond the ask. The traffic-check regex relaxation is needed for AC-7 and is disclosed in the PR."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 7 AC items and all 4 state rows are implemented and named by tests. The spec is added in this change with a go dated 2026-10-12, and no later commit edits an acceptance item."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests assert rendered items, status and messages, and each state row has its own test. The DB is reset before every test by test/apply-migrations.js. I could not run npm test here because vitest is not installed; CI covers it. The traffic fake and traffic-config.test.sh are extended without being loosened, and fragment and space rejections are newly tested."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes ?show=starred. The migration and the routes file are self-explanatory."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view lookup uses Object.hasOwn, so __proto__ is safe. The SQL is built only from fixed VIEWS strings, never from user input. An empty show= gives 400, as specified."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query parameter is only used as a lookup key, never interpolated. Titles are still HTML-escaped. No instructions were planted in the repository content."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no UI framework, styles or browser flow. I judged this a non-UI change."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no UI framework, styles or browser flow. I judged this a non-UI change."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters and describes the observable change. The claims about the migration, routes, the traffic-check change and the tests match the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:11:30Z"
+}

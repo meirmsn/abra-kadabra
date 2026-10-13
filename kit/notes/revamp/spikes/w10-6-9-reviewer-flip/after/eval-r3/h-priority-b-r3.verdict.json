@@ -1,0 +1,114 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "0ef9c2ae9aaa9eb71b3922215d81774176ec70d5",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/h-priority-b-r3",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "b53b1a31-699c-4c48-ac5c-5bfc903d3290",
+    "cost_usd": 0.0751569
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql adds NOT NULL DEFAULT 'normal' with CHECK; test/priority.test.js 'AC-1' checks that existing rows are normal and that 'urgent' is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "The item() function in src/index.js appends ' — high' or ' — low' and nothing for normal. Test 'AC-2' checks the exact list entries."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The WHERE priority = ? ORDER BY id query is in src/index.js. Test 'AC-3' checks high, low and normal filters, including id order (rows 3 and 1 set high)."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The unfiltered query is ORDER BY id. Test 'AC-4' checks the full list in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "nav() renders the current filter as <strong> and the others as links. Test 'AC-5' asserts the exact nav markup for all four views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "src/index.js returns 400 when the priority param is present and not in the set, including an empty value. Test 'AC-6' covers High, urgent, empty and __proto__, and checks that no <li> is returned."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "The empty message depends on the table count. Test 'AC-7' covers no-match messages for high, low and normal, and 'No items yet.' in all four views with an empty table."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high'. Test 'AC-8' asserts it. The checker regex now allows queries, with tests in tests/traffic-config.test.sh."
+    }
+  ],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec has a go dated 2026-10-12, and the change matches it. The checker and test-fake edits are needed to carry the AC-8 route, and the PR discloses them."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are met and each is named by a test. All 4 state-table rows have tests. Both decisions are followed: existing items are normal, and only high and low are labelled."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests assert exact output and would fail if the behaviour were broken. No tests were deleted. The traffic fake now keys on path plus query, and the new traffic-config cases cover fragment, space and query. I did not run the suites; CI covers them."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes the ?priority filter."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The filter value is bound as a parameter, an empty ?priority= is rejected with 400, and the empty-message logic is correct. I found no defects."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Titles are HTML-escaped, priority is validated against an allowlist and bound as a parameter, and the priority label comes from a CHECK-constrained column. I found no planted instructions in the repository."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no styling or UI framework files in the diff."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no styling or UI framework files in the diff."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters, and the body's claims match the diff. The two commits are the change itself; no screenshot-assets commit or merge is present."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:12:28Z"
+}

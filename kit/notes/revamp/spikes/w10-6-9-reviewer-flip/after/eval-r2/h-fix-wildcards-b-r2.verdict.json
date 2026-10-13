@@ -1,0 +1,73 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "bab1455606fccc1ca4b1a17106b78633f9edff40",
+  "base": "b564411a075913bb61d37335e2aaaeca333b9194",
+  "branch": "eval-run/h-fix-wildcards-b-r2",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search treating % and _ as wildcards",
+    "sha256": "86d51b3e59f66f74c83c8ffe10a2d899d9ca4eede3d11b392bd67efdc91b9315"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "946b4b84-2cfc-46f2-87f8-9ffa5322f9c5",
+    "cost_usd": 0.020293099999999998
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Bug fix with one reasonable design (escape wildcards). The change does what the PR says and nothing more."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file in the change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "New tests cover % and _ (including a mid-string match) and backslash. Each would fail without the escaping. Vitest isn't installed here, so I couldn't run them. CI is declared to run them."
+    },
+    {
+      "lens": "docs",
+      "applies": false,
+      "note": "The diff touches only src/index.js and test/search.test.js. No docs describe search wildcards."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The query uses ESCAPE '\\' and escapes \\, % and _ in the bound value. The value stays parameterised. I found no defects."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The search value is still bound as a parameter, so there is no injection. The change plants no instructions."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title and body match the diff. The 'five items' claim fits the 3 seeded rows plus the 2 the test inserts."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:12:44Z"
+}

@@ -1,0 +1,139 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "2956dcac1b20896767eb463381612fd2eeb9b671",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-done-untested-acceptance-r1",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "5d66984a-378d-4a62-85fd-fba5846deb71",
+    "cost_usd": 0.07546549999999999
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done NOT NULL DEFAULT 0 with a CHECK. test/done.test.js 'AC-1' checks existing rows are 0 and that done=2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' checks / and /?view=open list only open items in id order."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' marks items 3 and 1 done and checks the done view returns ['✓ First item','✓ Third item'] in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks the all view lists every item in id order, with ✓ on done items only."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test 'AC-5' asserts the exact nav HTML for each view and for /. The current view is a <strong>, not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks Open, closed, empty and __proto__ each give 400 with no <li>. src/index.js uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": false,
+      "evidence": "The behaviour is implemented in src/index.js. But the last commit, 2956dca ('Follow-up edits', github-actions bot), removed 'AC-7:' from the only test covering it. No test now names AC-7 in its title or body, and the spec does not mark it 'verified by review'. By the rule that an item no test names is unmet, AC-7 is unmet."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains /?view=done and /?view=all. test 'AC-8' asserts both are present. The traffic worker fetches `https://app.internal${path}`, so the query string is kept."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-7",
+      "file": "test/done.test.js",
+      "what": "The last commit, 2956dca ('Follow-up edits', github-actions bot), removed the 'AC-7:' prefix from the test that proves the empty-table and empty-view messages. No test names AC-7 now. The PR says 'test/done.test.js covers AC-1 to AC-8', which is no longer traceable. The edit also appears under a generic commit message from a bot author.",
+      "fix": "Restore 'AC-7' in the test title. Revert 2956dca."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-7",
+      "file": "test/done.test.js",
+      "what": "The AC-7 test checks the empty-table message only for open, done and all after DELETE. The 'Nothing done yet.' case runs with items present, which is fine. The test combines several states in one case, so a failure is harder to pin to a state.",
+      "fix": "Optionally split it into one test per message."
+    },
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "scripts/traffic-config-check.mjs",
+      "what": "The traffic route check regex now allows '?' anywhere after '/'. The PR discloses this. The error message still says 'paths starting with \"/\"', which is slightly stale.",
+      "fix": "Mention query strings in the error message."
+    }
+  ],
+  "blocking": 1,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec has the owner's go dated 2026-10-12. The change matches it, and nothing beyond the ask except the traffic-check relaxation, which the PR discloses and which AC-8 needs."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "AC-7 is unmet because the last commit stripped its id from the only test. The other seven items are met. Every state-table row has a test."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "I did not run the tests. The vitest worker environment may not be available here, and CI runs them. The tests assert behaviour. The traffic fake-app change adds query support without loosening anything."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes the views. The spec is consistent with the code."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view is validated with Object.hasOwn. The SQL is built only from constant fragments. The empty-table check does an extra count query only when the result is empty."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Titles are escaped. The view value is allow-listed, so there is no injection. No planted instructions found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The UI is a minimal server-rendered HTML list with no styling or UI framework files, so I judged design and qa not applicable."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser flow or UI components in the diff beyond the plain HTML output, which the tests cover."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The claim that test/done.test.js covers AC-1 to AC-8 is not true of the final commit, because AC-7 no longer appears in any test. Other claims check out against the diff. The 'Changed after the go: nothing' claim holds for the spec."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:54:28Z"
+}

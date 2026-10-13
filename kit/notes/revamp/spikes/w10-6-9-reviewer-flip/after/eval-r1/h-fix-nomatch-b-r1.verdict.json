@@ -1,0 +1,73 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "8d3368e0ecb1ff3531c4e1b0544da2b9c0ff28ac",
+  "base": "b564411a075913bb61d37335e2aaaeca333b9194",
+  "branch": "eval-run/h-fix-nomatch-b-r1",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search saying No items yet. when nothing matches",
+    "sha256": "e3b148148ae0e1d855984d3d1049873901fde152772c3f3cfa2a8c8ae660149d"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "548a18e5-7970-4435-a5fe-284be03daf74",
+    "cost_usd": 0.0314798
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Bug fix matches the title and body. The change is small, adds no options, and the empty-table message is unchanged."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file in the change; the intent is the PR's words."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Three new tests cover the no-match message, escaping of the search text, and the empty table still saying 'No items yet.'. The first two would fail on the old code. I didn't run them; CI covers that. The DELETE in the third test matches the pattern already used in test/index.test.js."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README.md and CLAUDE.md don't mention the empty-state message, so nothing is stale."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The message is only chosen when there are no results and a search is given. It adds one COUNT query, and the query is bound, not interpolated. Output is escaped."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The search text is passed through escapeHtml before it goes into the message. The SQL binds its parameters. Nothing in the change tries to steer the review."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files beyond one text string in the page template."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No UI flow was changed beyond the message text, and the PR notes no browser was available."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims about escaping, the empty table, the tests and the files changed all match the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:13:09Z"
+}

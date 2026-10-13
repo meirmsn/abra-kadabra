@@ -1,0 +1,114 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "1333fb3a90a4881b9b4bf802a9e01d6342c15472",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/h-done-v1-r2",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "scratchpad",
+    "model": "claude-sonnet-5-5",
+    "session_id": "876624b3-b2b8-4472-8c99-8a7ef74ae18a",
+    "cost_usd": 0.0821783
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done NOT NULL DEFAULT 0 with a CHECK. test/done.test.js 'AC-1' checks that the seeded rows are all 0 and that done=2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "The 'AC-2' test marks one item done and checks both / and ?view=open list only the open ones in id order. src/index.js uses WHERE done = 0 ORDER BY id."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The 'AC-3' test marks items 3 and 1 and expects ['✓ First item','✓ Third item'], so it checks the ✓ mark and id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The 'AC-4' test expects all three items in id order, with only the done one marked."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "The 'AC-5' test checks the exact nav HTML for each view and for /. The current view is a <strong>, not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "The 'AC-6' test checks 400 and no <li> for Open, closed, an empty value and __proto__. The code uses Object.hasOwn, so inherited keys like __proto__ are rejected."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "The 'AC-7' test covers Nothing open., Nothing done yet. and No items yet. in all three views after DELETE. The code falls back to the All message when the table has zero rows."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json lists /?view=done and /?view=all. The 'AC-8' test asserts both are present. The traffic Worker fetches routes by plain concatenation, so queries work."
+    }
+  ],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change matches the spec's go and its two decisions. The default view is open, and the view is a GET query parameter with no cookie."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "Every acceptance item and all six state-table rows have tests. No acceptance item was edited after the go. The spec was added in the same commit as the code."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert rendered items, messages and status codes against a real D1 binding. The traffic fake-app change only adds the query string to the recorded path. I did not run the tests (CI runs them on every push)."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes the new views and the open default. It does not mention the 400 response for an unknown view, which is minor."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view value is checked against an own-property allowlist. The SQL fragments are constants, so there is no injection. Titles are escaped. The empty-table fallback is correct."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query input is allowlisted and nothing is interpolated from user input. The change contains no instructions aimed at the reviewer."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The change adds only a minimal server-rendered nav and ✓ marks. Nothing styled, and no UI framework or CSS files are touched."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser flow to demonstrate. The behaviour is covered by Worker fetch tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title and body match the diff: the behaviour change, the 400 on other values, the traffic-check relaxation and the migration. The claim 'Tests deleted or loosened: none' holds."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T20:00:42Z"
+}

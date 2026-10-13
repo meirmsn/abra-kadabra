@@ -1,0 +1,118 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "2ddbfed37314a4718e877124fdc27dc5a46541de",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/h-starred-r1",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "ca757892-6ac6-4add-a267-27e74e689340",
+    "cost_usd": 0.0838293
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred NOT NULL DEFAULT 0 with a CHECK. test/starred.test.js 'AC-1' asserts all 3 seeded items are 0 and that a value of 2 is rejected. Migrations are re-applied before each test."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "'AC-2' asserts the list is [First item, ★ Second item, Third item]. It would fail if the ★ were missing or on the wrong item."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "'AC-3' stars ids 3 and 1 and expects [★ First item, ★ Third item] with status 200. That checks the filter and the id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' checks both / and /?show=all give all items in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "'AC-5' checks the exact 'Starred only' link on / and the 'All items' link on the starred view."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "'AC-6' sends Starred, none, an empty value and __proto__. Each must give 400 with no <li>. src/index.js uses Object.hasOwn, so __proto__ is rejected."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains /?show=starred. 'AC-7' asserts it. The traffic worker passes route strings straight to fetch, so the query is preserved, and the config check now accepts it."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README mentions ?show=starred but not that other show values answer 400, nor the ★ marker.",
+      "fix": "Add one clause saying show accepts all or starred and anything else is a 400."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec has an owner go dated 2026-10-12. The change matches its decisions: order is unchanged and the view is a query parameter. Nothing was added beyond the ask except the traffic-check regex relaxation, which AC-7 needs and the PR discloses."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 7 AC items are named by tests. All 4 state-table rows have a test. The spec was added in the same change, with no later edit to the acceptance items."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Assertions check behaviour: list contents, status codes, messages and links. The traffic fake now records the query; that is disclosed and no assertion is weakened. tests/traffic-config.test.sh adds reject cases for a fragment and a space, and a pass case for a query string. I did not run the tests here; CI covers that."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README was updated. One low gap, noted in the finding."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view lookup uses Object.hasOwn. The SQL is built only from fixed view fragments, with no user input. Both empty states are handled."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The show value is never interpolated into SQL or HTML. Titles are still escaped. No instructions were planted in the content under review."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is a minimal server-rendered list with no stylesheet or UI framework files. QA and design review do not apply."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches no UI components or styles, and there is no browser in the session."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The behaviour, test and traffic-check claims match the diff. 'Changed after the go: nothing' holds, since the spec was added in the same change with the go already recorded."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:49:32Z"
+}

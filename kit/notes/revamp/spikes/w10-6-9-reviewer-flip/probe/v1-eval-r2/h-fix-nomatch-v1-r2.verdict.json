@@ -1,0 +1,73 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "8d3368e0ecb1ff3531c4e1b0544da2b9c0ff28ac",
+  "base": "b564411a075913bb61d37335e2aaaeca333b9194",
+  "branch": "eval-run/h-fix-nomatch-v1-r2",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search saying No items yet. when nothing matches",
+    "sha256": "e3b148148ae0e1d855984d3d1049873901fde152772c3f3cfa2a8c8ae660149d"
+  },
+  "reviewer": {
+    "devshop": "scratchpad",
+    "model": "claude-sonnet-5-5",
+    "session_id": "d81eb360-0a06-437d-8e03-c0299ec12742",
+    "cost_usd": 0.0470565
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Bug fix matching the PR words: a search with no matches says no item matches; an empty table still says 'No items yet.'. No extra behaviour found."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file in this change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Three new tests in test/search.test.js cover the no-match message, escaping, and the empty-table case. Each would fail against the old code or a wrong fix. test/apply-migrations.js resets the DB before every test, so the DELETE in the third test does not leak. I did not run the tests; CI runs them."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README.md and CLAUDE.md do not mention the empty-state message, so nothing is stale."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The message is chosen correctly. A search on an empty table gets 'No items yet.'. The extra COUNT query only runs when a search finds nothing."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The search term is escaped with escapeHtml in the new message, and a test checks it. The template inserts the message unescaped, but the only value in it that comes from the user is already escaped."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The change adds no UI files. It only changes a server-rendered message string."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The change adds no UI files. It only changes a server-rendered message string."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims about behaviour, tests and 'tests deleted: none' match the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T20:01:41Z"
+}

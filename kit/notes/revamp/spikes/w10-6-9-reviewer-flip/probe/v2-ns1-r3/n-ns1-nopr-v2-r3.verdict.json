@@ -1,0 +1,161 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "1337cc02b6df0d6d3a13d018b2014c84b897b959",
+  "base": "9644a31035ed6b12085e670304b133a76853fa30",
+  "branch": "eval-run/n-ns1-nopr-v2-r3",
+  "spec": "specs/item-categories.md",
+  "intent": "spec",
+  "pr": null,
+  "reviewer": {
+    "devshop": "scratchpad",
+    "model": "claude-sonnet-5-5",
+    "session_id": "342cbac5-3278-48fb-9a31-deee1c8741ee",
+    "cost_usd": 0.1571269
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0003_item_categories.sql implements it. test/index.test.js 'AC-1' checks the seeded rows, the UNIQUE and CHECK rejections, the nullable column, the index and the item tagging."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' inserts with only a title, which succeeds with a null category, and checks that category_id 999 fails with FOREIGN KEY."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' checks 200, id order, the span markup, and an uncategorised item as a plain <li>. The src/index.js `item` renderer matches the spec markup."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks the exact link list and order, including a lower-case name and an empty category, and that only All is current. The SQL uses COLLATE NOCASE."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "tests 'AC-5' check only Work's items in id order, Work as the only current link, and `&x=1` and `?x=1` giving the same pages."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 200, the 'No items in this category.' message, no <li>, and the current link."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test 'AC-7' checks the escaped label, the link `/?category=R%26D%20%3Cx%3E` (the `%20` is as encodeURIComponent produces it), and that following the link lists the Prototype item."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "the five it.each cases check 404, the message, the exact Go back anchor, the referrer/origin/history.back script, and no <li> or <nav>."
+    },
+    {
+      "item": "AC-9",
+      "met": true,
+      "evidence": "test 'AC-9' checks HEAD statuses of 200, 200 and 404."
+    },
+    {
+      "item": "AC-10",
+      "met": false,
+      "evidence": "The review step is not reliable. It says to 'navigate to' /?category=Wrok from /?category=Home and expect Go back to land on Home. The app has no link to a broken URL, so the only way to get there is by typing it, and a typed navigation has an empty document.referrer. The script (src/index.js brokenLinkPage) then falls through to href=\"/\", so the step would land on `/`, not Home. The script also adds a `history.length > 1` condition that the spec does not mention, though it is harmless. No automated test covers the behaviour, and I cannot run a browser here."
+    },
+    {
+      "item": "AC-11",
+      "met": true,
+      "evidence": "scripts/traffic-config-check.mjs now allows a query. tests/traffic-config.test.sh covers a query route passing plus whitespace, fragment and no-slash routes being rejected. test/traffic.test.js records path+search and checks ROUTES contains /?category=Work. test/index.test.js 'AC-11' requests every listed route and expects 2xx."
+    },
+    {
+      "item": "AC-12",
+      "met": true,
+      "evidence": "healthz, the 404 and 405 paths and the escaping are unchanged in the diff. The `<li>First item</li>` assertion was updated to the AC-3 markup. I could not run the suite here, so the existing tests are unconfirmed."
+    },
+    {
+      "item": "AC-13",
+      "met": true,
+      "evidence": "test/apply-migrations.js now drops all tables in one batch with defer_foreign_keys. test 'AC-13' leaves a categorised row behind and checks the next reset gives a clean seeded count. The reset would fail if the drop order mattered, so any test already exercises it. I could not run the suite here."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-10",
+      "file": "specs/item-categories.md",
+      "what": "The AC-10 'verified by review' step cannot produce its stated result. Typing /?category=Wrok in the same tab gives an empty document.referrer, so the script does not call history.back() and Go back lands on `/`, not /?category=Home. The step does not say how to reach the broken URL with a same-origin referrer, and the app has no link to one. No review record of the step being run was provided.",
+      "fix": "Rewrite the review step so it produces a same-origin referrer. For example, from /?category=Home run `location.href='/?category=Wrok'` in the console, or follow a link from a page of the app, and then click Go back. Run it and record the result. Or add an automated browser test."
+    },
+    {
+      "severity": "low",
+      "lens": "code",
+      "item": "AC-8",
+      "file": "src/index.js",
+      "what": "The Go back script also requires `history.length > 1`. The spec's decision describes only a same-origin referrer and rejects `history.length > 1` as the criterion. This is an undocumented extra condition.",
+      "fix": "Remove the condition, or record it in the spec's 'Go back' decision."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-8",
+      "file": "test/index.test.js",
+      "what": "The Go back script is only checked by a regex on its text (document.referrer, location.origin, history.back()). A broken condition in the script would still pass, so the test does not exercise its behaviour.",
+      "fix": "Accept this because the spec marks the behaviour as verified by review, or run the script in a small DOM stub."
+    }
+  ],
+  "blocking": 1,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows specs/item-categories.md. The owner's go was recorded in c72b0f1 before the implementation commits, and no acceptance item was edited after the go. Nothing extra was added beyond the `history.length` guard noted in the findings."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 13 items were reviewed. 12 are met by named tests, and AC-10 is unmet because its review step does not hold. The states table rows are all covered: `/` with items, `/` with an empty table, a known category with items, a known category with none, and the 404 cases. The 'No items yet.' case has no new test, but the old test that empties the table still covers it."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert rendered output and database behaviour and would fail if the code were wrong. `npm test` cannot run here because vitest is not installed. Per the project, CI runs the tests on every push, so that is not a finding."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README was updated for the filter and the 404. CLAUDE.md's routes.json convention is satisfied. Nothing stale was found."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Queries are parameterised. Names are HTML-escaped and URL-encoded. The repeated, empty and unknown category cases all return 404."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "No injection found. The only inline script is static, and no user input reaches it. No instructions planted in the repository content."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The change has no stylesheet or component files. It adds one server-rendered HTML page and no design assets."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser flow could be run in this environment. The one browser flow, AC-10, is covered in the findings."
+    },
+    {
+      "lens": "pr",
+      "applies": false,
+      "note": "No PR words were given."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T20:01:38Z"
+}

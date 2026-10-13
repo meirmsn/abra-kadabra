@@ -1,0 +1,153 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "1337cc02b6df0d6d3a13d018b2014c84b897b959",
+  "base": "9644a31035ed6b12085e670304b133a76853fa30",
+  "branch": "eval-run/n-ns1-nopr-r3",
+  "spec": "specs/item-categories.md",
+  "intent": "spec",
+  "pr": null,
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "06149ddd-abad-4f97-a252-4b7571f0637f",
+    "cost_usd": 0.10620860000000001
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-1' checks seeded names, UNIQUE and CHECK rejections, nullable category_id, the index and the seeded item tags. migrations/0003 matches the spec."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' inserts with only a title and gets a null category_id. It also checks that an unknown category_id fails with a FOREIGN KEY error."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' checks id order, the exact span markup, and the plain <li> for an item with no category."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' asserts the full ordered link list (including an empty lower-case category), the hrefs, and that only All is current."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "Two tests named AC-5 cover Work-only items in id order, the current link, and the Work&x=1 and ?x=1 equivalences."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 200, the message, no <li>, and the Garden link as current."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test 'AC-7' checks the escaped span and link text, the encoded href, and that following the href lists the item."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "it.each 'AC-8' covers all 5 URLs: 404, message, Go back href, the script, and no <li> or <nav>."
+    },
+    {
+      "item": "AC-9",
+      "met": true,
+      "evidence": "test 'AC-9' checks HEAD statuses 200, 200 and 404."
+    },
+    {
+      "item": "AC-10",
+      "met": true,
+      "evidence": "The spec gives a concrete browser procedure. I read the script in src/index.js: a same-origin referrer calls history.back(), and an empty or foreign referrer follows href=\"/\". I did not run a browser. The script also adds a `history.length > 1` guard that the spec does not mention."
+    },
+    {
+      "item": "AC-11",
+      "met": true,
+      "evidence": "routes.json lists /?category=Work. tests/traffic-config.test.sh covers a query route passing and whitespace and # routes rejected. test/traffic.test.js records path plus query. test/index.test.js 'AC-11' requests every listed route and expects 2xx."
+    },
+    {
+      "item": "AC-12",
+      "met": true,
+      "evidence": "The existing healthz, 404, 405, h1, escaping and empty-table tests are retained. The <li> assertion is updated to the AC-3 markup. I could not run the suite here."
+    },
+    {
+      "item": "AC-13",
+      "met": true,
+      "evidence": "test/apply-migrations.js drops all tables in one batch with defer_foreign_keys ON. The AC-13 test would fail on leftover rows (count 4). I could not run it here."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "medium",
+      "lens": "tests",
+      "item": "",
+      "file": "test/index.test.js",
+      "what": "The `/`, no-items row of the state table is only checked for 'No items yet.' ('says so when the table is empty'). Nothing checks that the list is hidden, the filter links are shown with All current, or that Go back is absent. No test sets up any 200 state and checks that 'Go back' is hidden (the 'Go back' column).",
+      "fix": "In the empty-table test, also assert that currentLinks is ['All'], the Work and Home links are present, and there is no <ul>. Assert 'Go back' is absent in the 200-state tests."
+    },
+    {
+      "severity": "low",
+      "lens": "spec",
+      "item": "AC-10",
+      "file": "src/index.js",
+      "what": "The Go back script adds `history.length > 1` to the same-origin referrer check. The spec describes only the referrer check and rejects `history.length > 1` as the criterion. The extra guard is unrecorded behaviour.",
+      "fix": "Remove the guard, or record it in the spec's Go back decision."
+    }
+  ],
+  "blocking": 1,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change implements the spec's intent. Commit c72b0f1 records the owner's go on the spec before the implementation commits, and the later commits do not edit the acceptance items."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "Decisions are followed. One minor extra, the history.length guard, is unrecorded."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Every AC has a named test except AC-10, which the spec marks as verified by review. The state table is incompletely covered (see the finding). npm test could not run here because vitest is not installed, so this is not a finding."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README is updated for categories and the filter."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "No defects found. Categories are matched exactly, SQL is parameterised, and names are escaped in HTML and URL-encoded in hrefs."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "No injection found. Names and titles go through escapeHtml, and queries use bound parameters. No instructions were planted in the repo content."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff adds only server-rendered HTML in src/index.js, with no stylesheet or UI framework files. The browser flow is covered under AC-10."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches no UI framework or frontend files, and no browser tooling is available here."
+    },
+    {
+      "lens": "pr",
+      "applies": false,
+      "note": "No PR words were given."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:58:29Z"
+}

@@ -1,0 +1,123 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "0ef9c2ae9aaa9eb71b3922215d81774176ec70d5",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/h-priority-b-r4",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "4eaaf1bd-ab9c-4ad6-841b-680b44226d98",
+    "cost_usd": 0.0878468
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql adds NOT NULL DEFAULT 'normal' with a CHECK on the three values. test/priority.test.js 'AC-1' checks the seeded rows are normal (migrations are applied in order over the seed) and that 'urgent' is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js item() labels non-normal items. 'AC-2' test checks '— high', '— low' and no label on normal."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "WHERE priority = ? ORDER BY id. 'AC-3' test covers high, low and normal, including id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' test checks the unfiltered list is in id order. The unfiltered query is unchanged apart from the extra column."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "nav() renders all four filters with the current one in <strong>. 'AC-5' test asserts the exact nav HTML for all four views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "src/index.js returns 400 for any present but invalid value, including an empty one. 'AC-6' test covers High, urgent, '' and __proto__, and checks there is no <li>."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "'AC-7' test checks the no-match message for high, low and normal, and 'No items yet.' for an empty table in all four views."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high'. The 'AC-8' test asserts it. scripts/traffic-config-check.mjs now accepts a query string, and tests/traffic-config.test.sh covers that."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README documents the ?priority filter but not the high/low labels or the 400 on a bad value. This does not change behaviour.",
+      "fix": "Add one line to the README saying high and low items are labelled and an invalid priority answers 400."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows specs/item-priority.md. It adds no behaviour beyond the spec. The traffic-config-check relaxation is needed for AC-8 and is disclosed in the PR."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are implemented and named by a test. All 4 state-table rows have a test. The two decisions are followed. No commit edits the spec after the go."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "npm test could not run here because vitest is not installed. CI runs the tests. By reading, the tests assert real behaviour and would fail on broken code. The traffic fake-app change loosens no assertion."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README mentions the filter. One low gap, listed in the findings."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The priority value is validated against an allowlist. The query is parameterized. The no-match message is distinguished from an empty table by a COUNT query. No defects found."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The input is allowlisted and bound as a SQL parameter. Titles are still escaped. Nothing in the repository tried to steer the review."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no stylesheet or UI framework files. The change adds only a nav line and text labels."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The PR says there is no browser and no screenshots. The behaviour is covered by Worker-level HTTP tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is 58 characters and describes the observable change. The claims match the diff: the 400 on a bad value, the traffic-config-check change, the test changes and the migration."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:12:38Z"
+}

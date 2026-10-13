@@ -3,15 +3,19 @@
 # Not in CI: it calls the real model (D-06). Run it in a session where `claude` is logged in.
 #
 #   usage: run.sh --fixture <dir> (--harness <dir> | --replay <dir>) [--base-of-features <rev>]
-#                 --out <dir> <run> [<run> ...]
+#                 [--reviewer <dir>] --out <dir> <run> [<run> ...]
 #   <run> = <id>:<case>[:<plant>[:<seed>]]
 #     <case>  one of the cases below; its change is the local fixture branch eval/<case>
 #     <plant> a harness plant id; applied by the harness's own scripts/apply-plants.mjs, or with
 #             --replay replayed from <dir>/p-<case>-<plant>.plants.json by replay-plants.py
 #             (W10.6.8: no harness access), and committed as plant-run.sh commits it
 #             ("Follow-up edits", as github-actions[bot])
+#   --reviewer  the reviewer directory to run (default runtime/reviewer; W10.6.9 runs variants)
 #   --base-of-features  the base starred/done/priority were cut from (default baseline-2;
 #             eval/ci-base after prepare.sh)
+#   ns1, ns1-nopr  (W10.6.9) the north-star run-1 commit the reviewer passed then failed (fixture
+#             1337cc0 on baseline-3), with the PR words in pr/ns1.json and with none; make the local
+#             branches eval/ns1 and eval/ns1-nopr at that commit first
 #
 # Each run starts from the case's honest commit in a fresh worktree on its own branch
 # (eval-run/<id>), so every review is round 1 and no run sees another's plant. Removing the
@@ -30,6 +34,7 @@ case_base() {
   case $1 in
     starred | done | priority) echo "$feature_base" ;;
     fix-wildcards | fix-nomatch) echo eval/search-base ;;
+    ns1 | ns1-nopr) echo baseline-3 ;;
     *) echo "unknown case '$1'" >&2; return 2 ;;
   esac
 }
@@ -41,20 +46,21 @@ while [ $# -gt 0 ]; do
     --harness) harness=$(cd "$2" && pwd); shift 2 ;;
     --replay) replay=$(cd "$2" && pwd); shift 2 ;;
     --base-of-features) feature_base=$2; shift 2 ;;
+    --reviewer) reviewer=$(cd "$2" && pwd)/review.sh; shift 2 ;;
     --out) mkdir -p "$2"; out=$(cd "$2" && pwd); shift 2 ;;
     -*) echo "unknown option $1" >&2; exit 2 ;;
     *) break ;;
   esac
 done
 [ -n "$fixture" ] && [ -n "$harness$replay" ] && { [ -z "$harness" ] || [ -z "$replay" ]; } && [ -n "$out" ] && [ $# -gt 0 ] \
-  || { sed -n 4,15p "$0" >&2; exit 2; }
+  || { sed -n 4,19p "$0" >&2; exit 2; }
 
 run_one() {
   local id case plant seed base wt rc=0 line verdict
   IFS=: read -r id case plant seed <<<"$1"
   [[ "$id" =~ ^[a-z0-9-]+$ ]] || { echo "bad run id '$id'" >&2; return 2; }
   base=$(case_base "$case")
-  wt=$(mktemp -d)/wt
+  wt=$(mktemp -d)/wt-$id # unique name: parallel runs raced for git's .git/worktrees/wt<n> (W10.6.9)
   git -C "$fixture" worktree add -q -b "eval-run/$id" "$wt" "eval/$case"
   if [ -n "$plant" ]; then
     if [ -n "$replay" ]; then
@@ -69,7 +75,9 @@ run_one() {
       GIT_COMMITTER_EMAIL='41898282+github-actions[bot]@users.noreply.github.com' \
       git -C "$wt" commit -qam "Follow-up edits"
   fi
-  line=$(cd "$wt" && "$reviewer" --base "$base" --pr "$here/pr/$case.json") || rc=$?
+  local pr=()
+  [ ! -f "$here/pr/$case.json" ] || pr=(--pr "$here/pr/$case.json")
+  line=$(cd "$wt" && "$reviewer" --base "$base" "${pr[@]}") || rc=$?
   echo "$id: $line" >&2
   verdict=$(awk -F' · ' '{print $NF}' <<<"$line")
   if [ -f "$verdict" ]; then

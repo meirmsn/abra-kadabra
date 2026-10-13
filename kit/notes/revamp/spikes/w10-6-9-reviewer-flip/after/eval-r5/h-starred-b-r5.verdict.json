@@ -1,0 +1,109 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "2ddbfed37314a4718e877124fdc27dc5a46541de",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/h-starred-b-r5",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "1af722ae-0f75-40bd-bd7a-174583dff46c",
+    "cost_usd": 0.08306849999999999
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred NOT NULL DEFAULT 0 with a CHECK. test/starred.test.js 'AC-1' checks the three seeded rows are all 0 and that 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "The 'AC-2' test stars item 2 and expects ['First item','★ Second item','Third item']. The ★ prefix is in src/index.js `item`."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The 'AC-3' test stars 3 and 1 and expects only those, in id order, with a 200. The query uses WHERE starred = 1 ORDER BY id."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The 'AC-4' test checks both `/` and `/?show=all` return all three items in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "The 'AC-5' test checks the exact 'Starred only' link on `/` and the 'All items' link on the starred view."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "The 'AC-6' test sends Starred, none, an empty value and __proto__. Each gets a 400 with no <li>. The code uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?show=starred', and the 'AC-7' test asserts it. The config-check script and its shell test were updated to allow a query."
+    }
+  ],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec exists and its decisions are followed: id order is kept and the view is a query parameter with no cookie."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All four state-table rows have tests that set up the state. Each test checks the list, the message and the link. The spec commit has no later edits to acceptance items."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests run the Worker against D1 and would fail if the behaviour were wrong. The existing traffic test fake was extended to record the query string, which loosens nothing. I did not run the tests here; CI runs them."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes ?show=starred. Nothing stale found."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Input is validated against a fixed view map using Object.hasOwn. Parameterless SQL is built only from constants."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Titles are still HTML-escaped. The show value is never echoed or interpolated into SQL. The regex relaxation for routes still refuses spaces and #."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "Only a minimal server-rendered HTML page with no styling, assets or UI components changed. The change does not touch styling or client-side files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The PR says no browser was available. I found no UI flow beyond two links, and the tests cover them."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title and body match the diff: behaviour, traffic route check, migration, tests and README. Claims about CI and screenshots can't be checked from the repository."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:11:29Z"
+}

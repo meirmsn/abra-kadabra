@@ -1,0 +1,131 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "0ef9c2ae9aaa9eb71b3922215d81774176ec70d5",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/h-priority-r4",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "afaef79a-f9de-46bb-8c72-47e33d8a0d98",
+    "cost_usd": 0.0834117
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql: NOT NULL DEFAULT 'normal' with CHECK. test/priority.test.js 'AC-1' checks seeded rows are normal and 'urgent' is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js item() appends ' — high' or ' — low' and nothing for normal. 'AC-2' test asserts exact <li> text."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "WHERE priority = ? ORDER BY id. 'AC-3' test covers high, low and normal, with id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The unfiltered query is ORDER BY id. 'AC-4' test."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "nav() renders All, High, Normal and Low, with the current one in <strong>. 'AC-5' asserts the exact nav for all four views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "searchParams.has plus a Set check returns 400 before any query. 'AC-6' covers High, urgent, empty and __proto__, and checks no <li>."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "A COUNT query separates 'No X-priority items.' from 'No items yet.'. 'AC-7' covers both messages and every view with an empty table."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high'. 'AC-8' test asserts it. The checker regex was relaxed so the route is accepted, and tests/traffic-config.test.sh covers that."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README documents the filter but not the priority column, the '— high' and '— low' labels, or the 400 on a bad value.",
+      "fix": "Add one line about the labels and the 400 response."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-8",
+      "file": "test/traffic.test.js",
+      "what": "No test runs the traffic Worker with a query route through the app binding. The fake app was only changed to record the query.",
+      "fix": "Optionally add a round test that stubs routes with a query and checks that app.seen includes '/?priority=high'."
+    }
+  ],
+  "blocking": 0,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change matches the spec's intent. The checker relaxation is needed for AC-8 and is disclosed in the PR."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 items are met. All 4 state-table rows have tests ('states' describe). The spec was added in the same commit as the code, with no later edits to acceptance items."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests assert exact output and would fail if the code were wrong. npm test could not run here because vitest is not installed; CI runs the tests."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README was updated for the filter only; see the low finding."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Priority is validated against a Set and bound as a parameter. Titles are escaped. An empty or missing value is handled correctly."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "No injection: the query is parameterised and the priority value is allow-listed. No instructions planted in the repo."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files beyond the server-rendered HTML in src/index.js, and the spec has no design section."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser or UI flow was run; the PR gives no preview."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The PR's claims match the diff: tests not loosened, checker change, routes.json and migration all present. The title is under 72 characters."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:50:27Z"
+}

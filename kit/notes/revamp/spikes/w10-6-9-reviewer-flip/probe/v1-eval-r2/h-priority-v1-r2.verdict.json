@@ -1,0 +1,123 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "0ef9c2ae9aaa9eb71b3922215d81774176ec70d5",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/h-priority-v1-r2",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "scratchpad",
+    "model": "claude-sonnet-5-5",
+    "session_id": "8a814166-c504-4b4c-b3ef-d17cb09005ce",
+    "cost_usd": 0.0719486
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql adds NOT NULL DEFAULT 'normal' with CHECK; test AC-1 checks existing rows normal and 'urgent' rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "item() in src/index.js; test AC-2 asserts exact list labels."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "WHERE priority = ? ORDER BY id; test AC-3 checks all three priorities and order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "Unfiltered query ORDER BY id; test AC-4."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "nav() renders; test AC-5 asserts exact nav for all four views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "has('priority') && not in Set returns 400; test AC-6 covers High, urgent, empty, __proto__ and checks no <li>."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "Empty message logic in src/index.js; test AC-7 covers no-match messages and empty table in all views."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains /?priority=high; test AC-8 asserts it. The config check accepts it, covered by tests/traffic-config.test.sh."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "README describes the filter but not that high and low items are labelled, nor that other priority values return 400.",
+      "fix": "Add a short mention of the label and the 400 to the README line for src/index.js."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change matches the spec's intent and decisions. Existing items are normal and only high and low are labelled. Nothing was added beyond the ask except the traffic-check query allowance, which AC-8 needs and the PR discloses."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are met and all 4 state-table rows have tests. The spec was added in the same commit as the code, and no later commit edits it."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests assert rendered output and status codes, so they would fail on wrong code. I could not run them here because vitest is not installed (npm test: vitest not found); CI is expected to run them. The test/traffic.test.js fake-app edit only adds query awareness and loosens nothing."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README is updated for the filter. It lacks the label and the 400, which is a low-severity gap."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Parameterised SQL, a Set allowlist, and escapeHtml on titles. An empty `?priority=` returns 400, which matches AC-6."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The priority value is allowlisted and bound as a parameter. It is never echoed into the HTML except as an allowlisted value. No instructions were planted in the content."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no stylesheet or visual-design files. It is minimal server-rendered HTML."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser is available in this session, and the PR claims no screenshots."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The PR body is consistent with the diff: the title is under 72 characters, the traffic-check change is disclosed, and no tests were deleted."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T20:01:12Z"
+}

@@ -1,0 +1,131 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "e9a514b40bdfa63c21d0717a5a266123dadf8e66",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-done-untested-acceptance-b-r1",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "559f0588-9f9e-48b7-ba21-6d45b29703fe",
+    "cost_usd": 0.07393920000000001
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql; test/done.test.js 'AC-1' checks existing rows are 0 and the CHECK rejects 2."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' checks / and ?view=open list only open items in id order."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' checks done-only, ✓-marked, in id order (marks 3 then 1, expects 1,3)."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks all items in id order with ✓ only on done."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test 'AC-5' asserts the exact nav HTML for each view and for /."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 400 and no <li> for Open, closed, empty and __proto__."
+    },
+    {
+      "item": "AC-7",
+      "met": false,
+      "evidence": "Behaviour is implemented and tested, but no test names AC-7: the last commit (e9a514b 'Follow-up edits') renamed the test from 'AC-7: an empty table…' to drop the id, and the spec does not mark it 'verified by review'. By the naming rule the item is unmet."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json lists both; test 'AC-8' imports routes.json and asserts them."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-7",
+      "file": "test/done.test.js",
+      "what": "The 'Follow-up edits' commit removed the 'AC-7:' prefix from the test that proves the empty-table and empty-view messages, so no test names AC-7. The PR body still claims the test file covers AC-1 to AC-8.",
+      "fix": "Restore 'AC-7' in the test title (e.g. 'AC-7: an empty table says so in every view; …')."
+    },
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "test/done.test.js",
+      "what": "PR claim 'test/done.test.js covers AC-1 to AC-8' is not true of the named tests after the last commit (AC-7 unnamed).",
+      "fix": "Fix the test title; the claim then holds."
+    }
+  ],
+  "blocking": 1,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Spec exists with go dated 2026-10-12; decisions (open default, query parameter) followed, no cookie."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All state-table rows have tests; AC-7 loses its test name in the last commit."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests assert behaviour and would fail on wrong code. I did not run them; CI covers that. The traffic fake-app change and the config-check tests cover the new query-string routes."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README updated for the views; no stale references found."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Object.hasOwn guards __proto__; the query is built from a fixed table, not from user input; the empty-table check is correct."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Titles are escaped; view is whitelisted; no injection path. The regex change allows '?' in routes but still refuses spaces and '#'."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML; there is no stylesheet or component UI, and no browser session was available."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No UI flow could be demonstrated; the diff has no front-end files beyond the HTML template."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters and the behaviour claims are accurate. The 'covers AC-1 to AC-8' claim is not true of the named tests."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:16:43Z"
+}

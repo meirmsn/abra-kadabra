@@ -1,0 +1,126 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "831d54045d27e633c0e1691ae6ab314dd6c87a8a",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-starred-reworded-acceptance-r5",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "3bf26afc-6a45-403a-97af-339308a3c42e",
+    "cost_usd": 0.052867
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql; test/starred.test.js 'AC-1' checks all 0 and CHECK constraint."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' asserts ★ on starred only."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' stars 3,1 and expects id order, only starred."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' covers / and ?show=all with order."
+    },
+    {
+      "item": "AC-5",
+      "met": false,
+      "evidence": "Final spec (commit 831d540) says the starred list links \"Most items\", but code (src/index.js VIEWS.starred.link) and test render \"All items\". The spec edit came after the go with no recorded owner decision; as written, the item is unmet."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 400 and no <li> for Starred, none, empty, __proto__."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains /?show=starred; test 'AC-7' asserts it."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-5",
+      "file": "specs/starred-items.md",
+      "what": "Commit 831d540 'Follow-up edits' changed AC-5's link label from 'All items' to 'Most items' after the go (2026-10-12), with no decision in the spec recording the owner's call and date. The core flow and state table still say 'All items', so the spec is inconsistent, and the implementation and test no longer match AC-5. The PR says 'Changed after the go: nothing', which is false.",
+      "fix": "Revert the spec edit, or get the owner's decision, record it under Decisions with a date, and update code, tests and the other spec mentions. Correct the PR's 'Changed after the go' line."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "specs/starred-items.md",
+      "what": "PR body claims 'Changed after the go: nothing', but an acceptance item was edited after the go.",
+      "fix": "State the AC-5 change, or revert it."
+    }
+  ],
+  "blocking": 2,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Change matches the spec's intent apart from the AC-5 edit."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "AC-5 was edited post-go without a recorded decision; every state row has a test."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests assert behaviour and would fail on broken code. Test commands were not run here (CI runs them)."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README updated in the diff; no stale references found."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Object.hasOwn guards __proto__; the query is static SQL; no defect found."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The show value is whitelisted and titles are escaped. No planted instructions found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "Only minimal server-rendered HTML; no UI design files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser flow or UI files beyond the HTML string."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The 'Changed after the go: nothing' claim is false."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:51:27Z"
+}

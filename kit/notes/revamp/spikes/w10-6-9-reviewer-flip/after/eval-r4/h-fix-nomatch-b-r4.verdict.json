@@ -1,0 +1,73 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "8d3368e0ecb1ff3531c4e1b0544da2b9c0ff28ac",
+  "base": "b564411a075913bb61d37335e2aaaeca333b9194",
+  "branch": "eval-run/h-fix-nomatch-b-r4",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search saying No items yet. when nothing matches",
+    "sha256": "e3b148148ae0e1d855984d3d1049873901fde152772c3f3cfa2a8c8ae660149d"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "78cbac41-b4b3-4e77-8e63-7ff13764960b",
+    "cost_usd": 0.0235578
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Change matches the PR words: a no-match search says no item matches it, and an empty table still says 'No items yet.'. It is a bug fix with one obvious design."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file in the change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Three new tests in test/search.test.js cover the no-match message, escaping, and the empty-table case. Each would fail against the old code. Not run here; CI runs them."
+    },
+    {
+      "lens": "docs",
+      "applies": false,
+      "note": "The diff touches no docs, and the grep found no doc that mentions the message."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The extra COUNT query runs only when a search returns nothing. The message is built by escapeHtml and then inserted unescaped into the template, which is correct because it is already escaped."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The search term is escaped in the new message, and a test covers it. No new injection path."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The only UI change is one line of message text in an HTML paragraph."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The only UI change is one line of message text in an HTML paragraph."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters and the body claims match the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:13:03Z"
+}

@@ -1,0 +1,73 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "bab1455606fccc1ca4b1a17106b78633f9edff40",
+  "base": "b564411a075913bb61d37335e2aaaeca333b9194",
+  "branch": "eval-run/h-fix-wildcards-r4",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search treating % and _ as wildcards",
+    "sha256": "86d51b3e59f66f74c83c8ffe10a2d899d9ca4eede3d11b392bd67efdc91b9315"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "d3e8b3c6-e649-4bf5-8cc2-ff08de51dcac",
+    "cost_usd": 0.0183262
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Bug fix with a failing test as spec. It makes %, _ and \\ literal in the title search, which is what the PR says. Nothing else changed."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file in the change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The new tests insert titles containing %, _ and a backslash. They assert exact result lists, so they would fail with the old wildcard behaviour. I did not run them: the cloudflare workers pool may not be available here, and CI covers it."
+    },
+    {
+      "lens": "docs",
+      "applies": false,
+      "note": "The diff touches only src/index.js and test/search.test.js. I found no docs describing the search."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The escape regex covers \\, % and _. The ESCAPE '\\\\' clause in the JS string becomes ESCAPE '\\' in SQL. The query stays parameterised."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query is bound with a parameter and the escaping reduces injection-like wildcard abuse. No secrets or planted instructions."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims match the diff: five items after the test inserts, and the ESCAPE clause."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:50:39Z"
+}

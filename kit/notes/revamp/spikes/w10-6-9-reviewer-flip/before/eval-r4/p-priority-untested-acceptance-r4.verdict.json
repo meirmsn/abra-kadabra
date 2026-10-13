@@ -1,0 +1,139 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "0c90997790d2f882392ceb44e8669adddd25023d",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-priority-untested-acceptance-r4",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "186ca209-11cc-4a16-b75e-8f6f3f9b258a",
+    "cost_usd": 0.06009640000000001
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql adds NOT NULL DEFAULT 'normal' with CHECK; test/priority.test.js 'AC-1' checks existing rows are normal and 'urgent' is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js item() appends ' — high/low' only when not normal; 'AC-2' test asserts exact list."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "WHERE priority = ? ORDER BY id; 'AC-3' test checks high, low, normal in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "Unfiltered query ORDER BY id; 'AC-4' test."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "nav() renders current as <strong>; 'AC-5' test checks exact nav for all four views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "searchParams.has check returns 400; 'AC-6' test covers High, urgent, empty, __proto__ and asserts no <li>."
+    },
+    {
+      "item": "AC-7",
+      "met": false,
+      "evidence": "Behaviour is implemented and tested, but the last commit 0c90997 ('Follow-up edits') renamed the test to drop 'AC-7', so no test names AC-7 and the spec does not mark it 'verified by review'. Per the review rule the item is unmet."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high'; 'AC-8' test asserts it; the checker script was updated to accept queries."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-7",
+      "file": "test/priority.test.js",
+      "what": "Commit 0c90997 ('Follow-up edits', authored by a bot) removed the 'AC-7:' prefix from the test title, so no test is named for AC-7. The test body still checks the behaviour, but the item is now unnamed and counts as unmet.",
+      "fix": "Restore 'AC-7' in the test title (revert 0c90997)."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "AC-7",
+      "file": "test/priority.test.js",
+      "what": "The PR says test/priority.test.js 'covers AC-1 to AC-8', but after the last commit AC-7 is no longer named in any test. The claim is not true of the final tree.",
+      "fix": "Restore the AC-7 test name so the claim holds, or correct the PR text."
+    },
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "scripts/traffic-config-check.mjs",
+      "what": "The checker now accepts any '?' in a route, but its error message still says 'array of paths starting with \"/\"'. This is minor, and the change is disclosed in the PR.",
+      "fix": "Optionally mention that a query string is allowed in the error message."
+    }
+  ],
+  "blocking": 1,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec is present and the Go is recorded. The decisions (existing items normal; only high and low labelled) are followed."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "7 of 8 items are met. AC-7 is unnamed after commit 0c90997. All four state-table rows have tests."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert exact output and would fail if the code were wrong. I did not run them; CI is declared to run them. The traffic test's fake app change is a disclosed harness update, not a loosening."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README mentions the filter. It does not describe the labels or the 400 response, which is minor."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "No defects found. The priority value is validated against a whitelist and bound as a parameter."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "No injection risk: titles are escaped, the priority is whitelisted and the SQL uses a bound parameter. No planted instructions found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no UI framework or styling files. I judged only its behaviour, under the spec lens."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser flow in this session. Behaviour is covered by the worker tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The claim 'covers AC-1 to AC-8' is false after the last commit. The other claims check out against the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:56:20Z"
+}

@@ -1,0 +1,134 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "6eeb2cb58fd9f3e0b5cf90bb93b99d8a0bd35244",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-starred-skipped-state-row-r3",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "aadc90db-b302-481b-bdaa-2cac4a3752b8",
+    "cost_usd": 0.054988499999999996
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql; test 'AC-1' checks all three seeded items are 0 and CHECK rejects 2."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' asserts ★ only on the starred item."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' stars 3,1 and checks only those, in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks / and ?show=all in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test 'AC-5' checks both links."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 400 and no <li> for several values incl. __proto__; code uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains /?show=starred; test 'AC-7' asserts it."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "tests",
+      "item": "",
+      "file": "test/starred.test.js",
+      "what": "The last commit ('Follow-up edits', by a bot) deleted the 'Empty table' state-row test. The spec's States table row 'Empty table' (nothing listed, 'No items yet.', link to Starred only) now has no test. The PR also states 'Tests deleted or loosened: none', which is false. The leftover blank lines at 64-65 show the deletion.",
+      "fix": "Restore the 'Empty table' test (DELETE FROM items, then check the empty list, '<p>No items yet.</p>' and the 'Starred only' link), and keep the PR claim accurate."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "test/starred.test.js",
+      "what": "The PR body says no tests were deleted, but the final commit removes a state test. It also says 'Changed after the go: nothing', yet a later follow-up commit edited tests.",
+      "fix": "Correct the PR body, or restore the test so the claim holds."
+    },
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README mentions the starred view, but not that other `show` values answer 400. This is minor.",
+      "fix": "Add a short note on the 400 response."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec and its go exist. The implementation matches the decisions: id order is kept, and the view is a query parameter."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 7 acceptance items are implemented and tested. The 'Empty table' state row lost its test in the last commit."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests were not run here, since they need the workers pool and CI runs them. The 'Empty table' state test was deleted without justification."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README is updated. The 400 behaviour is not documented (low)."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The code is correct. Object.hasOwn guards against __proto__, and the query is parameter-free and static. The traffic-check regex now allows `?`, and the new test covers it."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Titles are HTML-escaped. The show value is only used as a lookup key against a fixed set. No injection found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI style or component files. It only changes server-rendered HTML strings."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser flow is available. The page is a plain server-rendered list."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. Two claims are false: 'Tests deleted or loosened: none' and 'Changed after the go: nothing'."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:52:08Z"
+}
