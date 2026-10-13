@@ -70,9 +70,14 @@ verdict file (TARGET Verify 7, L-25). Its first line is a marker with the full c
 and `words`, the sha256 of the PR words the review read; text from the model has `<` escaped and
 newlines flattened, so it can't form a second one, and `@` and `[` escaped, so it can't mention
 people or render markdown links and images (F-NEW-25; bare URLs and `#123` references still
-autolink). Paths shown in code spans stay literal. There is no CI check on it (owner, 2026-10-13):
-the agent could post a comment itself, so a check was no wall. The owner reads the verdict for the
-head commit before approving.
+autolink). Paths shown in code spans stay literal. It is short by default (owner, 2026-10-13): the
+second line is the headline (outcome, round, blocking and low counts, commit) and the rest (spec,
+the per-lens and per-item tables, findings, the reviewer's identity) is collapsed in one `<details>`
+block, which model text can't close. Each ship posts a new comment, so each verdict sits in the
+timeline just after the push it reviewed, and a push made without `ship` shows as a push with no
+verdict after it. Failed reviews push nothing and post nothing. There is no CI check on it (owner,
+2026-10-13): the agent could post a comment itself, so a check was no wall. The owner reads the
+verdict for the head commit before approving.
 
 ## How it is locked down, and what that is worth
 
