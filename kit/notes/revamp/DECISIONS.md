@@ -261,3 +261,21 @@ check-types (F-REV-06), per-gate n/a files (F-DOC-06), prose-pinning grep tests
 manifest/symlink/lock/sync model (D-01/D-02). Under D-14 B, most move to M1.
 
 Outcome: **obsolete 2026-10-09 (D-14):** v1 is not deleted piece by piece; it is retired as a whole once the pilot has moved to the new devshop. The candidates listed above are inputs to the lessons harvest (what _not_ to rebuild).
+
+## D-16 What the north-star grades, and which run-1 gaps block M1 — `decided`
+
+Context: the first north-star run (W10.6.4, LOG #53) failed steps 1–6, with 15 findings of very
+different weight. Chasing every one risks never getting the devshop running.
+
+- **Step 1 is about the process, not a question count.** The interview clarifies the intent; Claude
+  answers what the code and context can answer, writes the spec, has it reviewed adversarially
+  against the intent, and brings the owner only significant open points, recorded in the spec.
+  "One decision for the owner" was a scripting aid, not a target.
+- **A gap blocks M1 only if it lets a wrong change reach production or makes a run's result
+  untrustworthy.** Otherwise it is fixed in passing when cheap, or deferred with its reason in
+  FINDINGS as a known limit.
+
+Outcome: **decided 2026-10-13 (owner).** Blocking for run 2: F-NEW-36, F-NEW-37, F-NEW-40, F-NEW-43
+(in progress). Cheap, in passing: F-NEW-34, F-NEW-35, F-NEW-39, F-NEW-45. Deferred or accepted:
+F-NEW-38, F-NEW-41, F-NEW-42, F-NEW-44, F-NEW-46, F-NEW-47, F-NEW-48. `ns-1` step 1 is regraded as
+a pass with friction.
