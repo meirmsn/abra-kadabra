@@ -66,6 +66,14 @@ the existing checks moved into the two tiers and the fixture retrofitted in the 
   `lint`, `test` and `secret-scan` do. Only the owner can change it. Order: the owner swaps the
   required checks just before merging each PR, then open PRs merge `main` to get the new jobs
 - Evidence names the fixture by project name and PR number only, no URL or `owner/repo`
+- Changed after the go (owner, 2026-10-13, "option 1"): the reviewer can't read GitHub or the
+  fixture, so it could never confirm the former items 7 (this PR's CI green) and 8 (the
+  fixture retrofit, PR checks included). Those become the owner's checks at merge, outside the acceptance
+  items: this PR's `fast` and `slow` green on its head commit, and the fixture's retrofit (fixture
+  PR #11: its `ci.yml`, `lint.sh`, docs, and `fast`, `slow` and the deploy green). The former item 9
+  becomes AC-7, this repo's docs only. AC-1 gains the stricter rule the check already had: the
+  step that runs a tier's script has no `if` or `continue-on-error` of its own, which could skip
+  the tier as silently as a job-level one
 
 ## Acceptance items
 
@@ -73,7 +81,8 @@ the existing checks moved into the two tiers and the fixture retrofitted in the 
   naming the rule, for each of: no `fast` job; `fast` not running `scripts/check-fast.sh "$BASE"`;
   no `slow` job; `slow` not running `scripts/check-slow.sh`; `slow` not needing `fast` (string or
   list form both accepted when right); a job-level `if:` or `continue-on-error` on `fast` or
-  `slow`; a job with an `environment:` not needing both; the script named only in a comment line;
+  `slow`; the step running the script with its own `if:` or `continue-on-error`; a job with an
+  `environment:` not needing both; the script named only in a comment line;
   and exits 2 on a missing file, unparseable YAML, or PyYAML not importable. Shown by a test feeding
   each case
 - **AC-2** `runtime/templates/ci.yml` passes `ci-tiers-check.py`, shown by a test
@@ -89,21 +98,16 @@ the existing checks moved into the two tiers and the fixture retrofitted in the 
 - **AC-6** This repo's `ci.yml` has exactly the jobs `fast` and `slow` with the tools listed above,
   passes `ci-tiers-check.py`, and `scripts/lint.sh` runs that check on it (so `tests/lint.test.sh`
   covers five checks). Shown by `tests/run.sh`
-- **AC-7** On this repo's PR, CI's `fast` and `slow` both pass on the head commit — verified by
-  review: the PR's checks read from GitHub
-- **AC-8** In the fixture: `ci.yml` passes `ci-tiers-check.py`; `scripts/lint.sh` exits 2 without
-  `node_modules` and 0 after `scripts/setup.sh`; and its PR's `fast` and `slow` pass on the head
-  commit — verified by review: the check run in this session, both script runs, and the fixture
-  PR's checks read from GitHub
-- **AC-9** Docs match: in this repo `install/README.md`, `docs/README.md`, `README.md` and the
-  `build` skill; in the fixture its `CLAUDE.md` and `README.md`; and a workstream task line records
-  the change — verified by review: a grep for the old job names finds only history
+- **AC-7** Docs match in this repo: `install/README.md`, `docs/README.md`, `README.md` and the
+  `build` skill describe the tiers, and a workstream task line records the change — verified by
+  review: a grep for the old job names finds only history
 
 ## Out of scope
 
 - A real stack home or Playwright tests: the first comes with M2; the template is what it will use
 - Running `check-fast.sh` in the pre-push hook (decided against above)
 - Changing branch protection: the owner's step on each repo, in the order above
+- Confirming CI on this PR and the fixture's retrofit: the owner's checks at merge (decided above)
 - A wall that enforces the tier shape in project CI: the check is feedback; the wall for new
   projects stays TARGET Stacks 5 (scaffold from a stack home, require its CI green)
 - `CLAUDE.md`'s "run `tests/run.sh` before pushing": still true, as it runs both tiers

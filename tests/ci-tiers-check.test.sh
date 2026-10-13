@@ -73,6 +73,7 @@ check "AC-1: check-fast.sh named only in a comment line fails" 1 "$(variant fast
 # shellcheck disable=SC2016  # as above
 check "AC-1: check-fast.sh named only inside another command fails" 1 "$(variant fast-echo 'w["jobs"]["fast"]["steps"][1]["run"] = "echo scripts/check-fast.sh \"$BASE\""')" "'fast' doesn't run"
 check "AC-1: the running step with its own if: fails" 1 "$(variant fast-step-if 'w["jobs"]["fast"]["steps"][1]["if"] = "false"')" "'fast' doesn't run"
+check "AC-1: the running step with its own continue-on-error fails" 1 "$(variant slow-step-coe 'w["jobs"]["slow"]["steps"][0]["continue-on-error"] = True')" "'slow' doesn't run"
 check "AC-1: no slow job fails" 1 "$(variant no-slow 'del w["jobs"]["slow"]; w["jobs"]["deploy"]["needs"] = ["fast"]')" "no job 'slow'"
 check "AC-1: slow not running check-slow.sh fails" 1 "$(variant slow-other 'w["jobs"]["slow"]["steps"][0]["run"] = "npx playwright test"')" "'slow' doesn't run scripts/check-slow.sh"
 check "AC-1: slow not needing fast fails" 1 "$(variant slow-noneeds 'del w["jobs"]["slow"]["needs"]')" "'slow' doesn't need 'fast'"

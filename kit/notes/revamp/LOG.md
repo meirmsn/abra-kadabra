@@ -2028,8 +2028,8 @@ stay fast: a sandbox doesn't make a test end to end. The pre-push hook is unchan
 fixture is retrofitted in its own PR: `lint.sh` (so the hook lints there too), `setup.sh`, both
 tier scripts, and `deploy` needs `fast` and `slow`.
 
-**Evidence**: each check was written failing first. `tests/ci-tiers-check.test.sh` has 26 cases,
-including this repo's real `ci.yml` (exact jobs and tools), and 7 of 7 mutants are killed. `tests/run-tiers.test.sh` has 5 cases (3 of 3 mutants killed).
+**Evidence**: each check was written failing first. `tests/ci-tiers-check.test.sh` has 27 cases,
+including this repo's real `ci.yml` (exact jobs and tools), and 8 of 8 mutants are killed. `tests/run-tiers.test.sh` has 5 cases (3 of 3 mutants killed).
 `tests/check-tiers.test.sh` has 4. The AC-3 cases in `tests/git-hooks.test.sh` give 4 (3 of 3
 mutants killed). `tests/lint.test.sh` now covers five checks. Locally on the final head,
 `check-fast.sh` passed (23 fast test files) and `check-slow.sh` passed (1 slow), the slow one with
@@ -2045,6 +2045,10 @@ Locally, three suites only ran once the tools were copied out of `/opt` (the tes
 
 **Fixture**: fixture PR #11 passed its review, then `fast` and `slow` on its head; the owner
 approved and merged it, and on its `main` both tiers passed before the production deploy.
+
+**Changed after the go** (owner, "option 1"): the reviewer can't read GitHub or the fixture, so
+this PR's CI and the fixture's retrofit are the owner's checks at merge, not acceptance items, and
+AC-1 names the step-level `if` / `continue-on-error` rule (spec, Decisions).
 
 **Next**: this PR's `fast` and `slow` green on GitHub; then `[owner]` swap the required checks
 from `lint` and `secret-scan` to `fast` and `slow` just before merging, then mark W10.4.6 done.
