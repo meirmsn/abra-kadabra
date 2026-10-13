@@ -1,6 +1,6 @@
 # CI in two tiers, fast and slow, for the devshop and every project
 
-**Go:** pending
+**Go:** "do it all"; on the open questions: "1. yes use placeholder as you recommend 2. yes" (owner, 2026-10-13)
 
 ## Intent
 
