@@ -95,12 +95,13 @@ Feedback, not walls: everything here runs in the session's VM, where the agent c
   [`runtime/hooks/post-edit.sh`](../runtime/hooks/post-edit.sh), which runs the repo's own
   `scripts/lint-file.sh <file>`. Findings or "couldn't run" go back to Claude in the same turn;
   clean is silent. It only sees Claude's edit tools; the pre-push hook sees every change.
-- **The reviewer hook.** The plugin's PreToolUse hook runs the version's
-  [`runtime/hooks/review-hook.py`](../runtime/hooks/review-hook.py) `gate` before a PR create, a push
-  to a branch with an open PR, or an edit of the PR's words; it runs the independent reviewer and
-  only a pass lets the call through. Its PostToolUse half posts the verdict on the PR. If the pinned
-  hook or `python3` is missing, the calls it would review are blocked. Details:
-  [`runtime/reviewer/README.md`](../runtime/reviewer/README.md#the-hook).
+- **The review guard.** Changes reach a PR only through the version's
+  [`runtime/reviewer/ship.sh`](../runtime/reviewer/ship.sh), which runs the independent reviewer in
+  the VM and pushes code and words together only on a pass. The plugin's PreToolUse hook runs
+  [`runtime/hooks/review-guard.py`](../runtime/hooks/review-guard.py), which refuses the other ways
+  (`gh pr create`, a push to a branch with an open PR, the GitHub tools that create, edit or commit).
+  If the pinned guard or `python3` is missing, the fallback refuses the same calls. Details:
+  [`runtime/reviewer/README.md`](../runtime/reviewer/README.md#ship).
 - **Session setup.** Session start also runs the repo's own `scripts/setup.sh`, if it has one
   (this repo's: `npm ci`, so Prettier is there for its checks): silent when it works, a `DEVSHOP:`
   line when it fails (log: `/tmp/devshop-project-setup.log`). It is the repo's own code, like its

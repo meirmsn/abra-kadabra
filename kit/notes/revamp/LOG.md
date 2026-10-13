@@ -1788,5 +1788,29 @@ throwaway clone`. Cause: a cloud session's clone is shallow, and `git fetch` fro
   before GitHub showed the new head and gave up. Re-run by hand from the recorded pass, it posted
   the pass for that head. Fixed test first: the post re-reads the PR for up to 10 s.
 
-**Next**: this PR opened through the hook, and its `review-verdict` check green from the comment
-the hook posted; then the owner's fresh-session check (W10.6.7's done-when).
+- **Redesign (owner, 2026-10-13).** The PR did open through the hook, and its `review-verdict` check
+  went green from the comment the hook posted (head `dc5c3b70e949`). But the next fix deadlocked: a
+  push is reviewed with the PR's old body (which named a stale mutant count), and the body edit is
+  reviewed against the PR's old code (where the next review found a loop-wrapped push unseen). The
+  owner asked whether the flow was simple and reliable, and expected the review to be local before
+  anything reaches the PR. It wasn't: it inferred PR-bound calls from shell commands, reviewed code
+  and words apart, and leaned on a CI job that was no wall. Owner: replace it with `ship` (review in
+  the VM, then push, PR words and verdict together) and a guard that only refuses the other ways;
+  drop the `review-verdict` job, `verdict-check.sh` and `verdict-wait.sh`; reset rounds on new
+  issues with a cap of 6 failing commits. `596db38` (the post hook's wait for GitHub to show the
+  head) stays in the branch's history; the redesign deletes its code.
+
+**Evidence (redesign)**
+
+- Contract first (W10.6.7 line), then tests written first and failing: `tests/ship.test.sh` (no
+  `ship.sh`), `tests/review-guard.test.sh` (the post hook still registered), and the rounds cases in
+  `tests/reviewer.test.sh` (a new finding after a repeat asked the owner).
+- Mutants on the guard, `ship`, the rounds rule and `pr-words.sh`: 34/35 killed. The first pass left
+  5: the guard's redirection handling (unneeded once the guard stopped reading arguments: removed),
+  two missing tests (a branch name that quietly misparses unencoded; an error inside the guard), and
+  `ship`'s `REVIEW:` line count, equivalent (two lines also fail the exit check).
+- The harness runs the guard: with it registered for this session only, `gh pr create --dry-run`
+  was refused, pointing to `ship`.
+
+**Next**: PR #88 updated through `ship` (the dogfood: its review, push, words and verdict in one
+step); then the owner's fresh-session check (W10.6.7's done-when).

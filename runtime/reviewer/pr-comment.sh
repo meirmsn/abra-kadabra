@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Renders one reviewer verdict file (devshop-review/2) as the PR comment that records it on the PR
 # (W10.6.6, TARGET Verify 7, L-25): the result per lens and per acceptance item, tied to the full
-# commit it reviewed. The first line is the marker verdict-check.sh reads (with the sha256 of the PR
-# words it reviewed, `words`, or null; W10.6.7); nothing else in the comment can form one, because
+# commit it reviewed. The first line is a machine-readable marker (with the sha256 of the PR words
+# it reviewed, `words`, or null; W10.6.7); nothing else in the comment can form one, because
 # text from the model or the repo has "<" escaped and newlines flattened; "@" and "[" are escaped
 # too, so that text can't mention people or render markdown links and images (bare URLs and #123
 # references still autolink). Values shown in code spans are kept literal.

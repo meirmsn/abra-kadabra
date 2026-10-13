@@ -71,10 +71,12 @@ reachable from this page through links, or when a relative link or `#anchor` is 
   uses. Proven by [`tests/stack-homes.test.sh`](../tests/stack-homes.test.sh).
 - Discipline guidelines: [runtime/guidelines/README.md](../runtime/guidelines/README.md).
 - Reviewer: [runtime/reviewer/README.md](../runtime/reviewer/README.md) is the independent
-  reviewer script, how it is locked down and what that is worth, how its verdict reaches the PR
-  (a comment, and the `review-verdict` check for a missing or stale one), and its proof
-  ([`tests/reviewer.test.sh`](../tests/reviewer.test.sh) and
-  [`tests/reviewer-pr.test.sh`](../tests/reviewer-pr.test.sh) in CI,
+  reviewer script, how it is locked down and what that is worth, `ship` (review in the VM, then
+  code, words and the verdict comment go on the PR together), the guard that refuses other ways to a
+  PR, and its proof ([`tests/reviewer.test.sh`](../tests/reviewer.test.sh),
+  [`tests/reviewer-pr.test.sh`](../tests/reviewer-pr.test.sh),
+  [`tests/ship.test.sh`](../tests/ship.test.sh) and
+  [`tests/review-guard.test.sh`](../tests/review-guard.test.sh) in CI,
   [`tests/reviewer-live.sh`](../tests/reviewer-live.sh) in a session).
 
 ## The revamp (being built)
