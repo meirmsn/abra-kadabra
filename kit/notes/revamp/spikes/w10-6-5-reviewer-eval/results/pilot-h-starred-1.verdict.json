@@ -1,0 +1,126 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "53536c1ebd86716bf7c63018f77ea1b324f78de6",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/h-starred-1",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "b060cf8367a208460ce95a8b2ee2c1c66f17a89744515f0566c9da67b5e01a15"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "670bea4f-8a7b-5a88-8758-a79725a3b500",
+    "cost_usd": 0.12064989999999999
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred NOT NULL DEFAULT 0 with CHECK; test/starred.test.js 'AC-1' asserts seeded rows are [0,0,0] and a value of 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js item() prefixes ★ only when starred; 'AC-2' test asserts exact list [First, ★ Second, Third]."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "WHERE starred = 1 ORDER BY id; 'AC-3' test stars 3 and 1 and expects id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' test checks / and /?show=all give all three items in id order with the star in place."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "'AC-5' test asserts the exact 'Starred only' and 'All items' anchors on the respective views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn whitelist returns 400 with no list; the 'AC-6' test covers 'Starred', 'none', empty and '__proto__' values."
+    },
+    {
+      "item": "AC-7",
+      "met": false,
+      "evidence": "traffic/routes.json lists '/?show=starred', but scripts/traffic-config-check.mjs:70 only accepts routes matching /^\\/[^\\s?#]*$/, which rejects any '?'. The repo's own config check, run by tests/traffic-config.test.sh line 12 (via tests/run.sh in CI), now fails, so the route list is rejected by the repo's validation. The AC-7 test only checks that the JSON contains the string. I could not run commands (Bash was denied), so this is from reading the code."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "tests",
+      "item": "AC-7",
+      "file": "scripts/traffic-config-check.mjs",
+      "what": "The route validator regex /^\\/[^\\s?#]*$/ forbids '?'. The new route '/?show=starred' therefore fails the check with exit 1 ('must be a non-empty array of paths starting with \"/\"'). tests/traffic-config.test.sh ('the repo's traffic config passes') will fail, and so will CI's tests/run.sh. The PR does not mention this and says 'CI: not run yet'.",
+      "fix": "Allow a query string in the validator (e.g. /^\\/[^\\s#]*$/) and update the error message. Add a case in tests/traffic-config.test.sh that a route with a query passes, and run tests/run.sh."
+    },
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "",
+      "what": "The PR body lists no change to scripts/traffic-config-check.mjs. It is the file that rejects the new route.",
+      "fix": "Mention the validator change once it is fixed."
+    }
+  ],
+  "blocking": 1,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec exists. The behaviour matches it, with no extra scope found."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "6 of 7 items met. AC-7 is unmet because the route validator rejects the new route."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The starred tests assert behaviour. The traffic fake-app change is additive. The route-validator test breaks on the new route."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes ?show=starred. No stale docs found."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "src/index.js looks correct. The show value is whitelisted with Object.hasOwn and the SQL is a static string."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query value is only used as a lookup key, never in SQL or HTML. Titles are escaped. No planted instructions found."
+    },
+    {
+      "lens": "design",
+      "applies": true,
+      "note": "src/index.js renders HTML, but there was no browser to check it, so I only read the markup."
+    },
+    {
+      "lens": "qa",
+      "applies": true,
+      "note": "I could not run the app or the tests because Bash was denied. This verdict is from reading the code only."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The claims are mostly true. The omission is noted in the findings."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-12T23:59:24Z"
+}

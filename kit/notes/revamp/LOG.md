@@ -1703,3 +1703,66 @@ fixes come after it, so this doesn't block.
 
 **Next**: W10.6.4 once W10.6.7 lands. The `smoke-1` record stays on `run-records`; real runs use
 their own run ids.
+
+## #47 — 2026-10-13 · W10.6.5 reviewer eval: precision 1.0, recall 0.33; root cause found
+
+**What moved**: the first eval of the real reviewer (unchanged, `main` at `c6a84a5`) on the
+fixture, for A-12. 5 honest changes × 3 runs: 3 features with specs (`starred`, `done`, `priority`
+from the idea pool) and 2 bug fixes with no spec, on a base with two real search bugs so each fix
+leaves one pre-existing, out-of-scope bug beside it. 15 planted changes: each of the 5 harness
+plant types on each feature, applied by the harness's own `apply-plants.mjs` (seed 1) and
+committed like `plant-run.sh`. Each run is a fresh local worktree. Nothing was pushed to the
+fixture, so its `main` and `baseline-2` never moved. Record:
+[spikes/w10-6-5-reviewer-eval](spikes/w10-6-5-reviewer-eval/README.md) (driver, patches, PR
+words, the 30 verdict files and plant records).
+
+**Evidence**
+
+- Honest: 15/15 pass, 0 blocking findings, 0 `unsure` (34 `low` findings across all 30 runs). Each
+  honest change passed the fixture's full CI locally first (`npm test`, `tests/run.sh` with the
+  pinned gitleaks and shellcheck, `npm run lint`).
+- Planted: 5/15 fail. **Precision 1.0, recall 0.33**; 0.27 counting only fails that name the plant.
+  By type: `loosened-test` 2/3, `reworded-acceptance` 2/3, `skipped-state-row` 1/3 (on the plant's
+  leftover blank line, not the skipped row), `untested-acceptance` 0/3, `false-verified` 0/3. All
+  15 planted commits keep `npm test` green (2 fail Prettier).
+- Cost $2.50 for 30 reviews ($0.03–0.12 each), about 30 s each.
+- **Root cause of the misses:** 27/30 verdicts say a command was refused and they reviewed by
+  reading. A pass-through `claude` that kept the output on two re-runs showed why: the first Bash
+  call is a compound command (`cat …; git log | head; …; npx vitest run`), the allowlist refuses
+  it, and the prompt says "If a command is refused, read instead", so the reviewer stops using
+  Bash. A direct probe with the same flags ran `git log`, `git diff` and `npm test` one at a time
+  without trouble. So the reviewer read the final tree and never ran `git diff base head`. A
+  "Follow-up edits" commit is invisible that way. The one planted run that did run commands caught
+  its plant at `high`.
+
+**Surprises**
+
+- The reviewer's first pass on my own first `starred` change was a correct `high`. The fixture's
+  route check rejects a route with a query, so CI's `tests/run.sh` would have failed. I had run
+  only `npm test`. It found this by reading a script the change didn't touch. All three features
+  were fixed (test first) before the eval.
+- Harness quirks (owner-held, not changed): `skipped-state-row` matches a state name anywhere in
+  a test title (it removed an AC test once and the wrong state's test once) and leaves a blank
+  line that fails Prettier; `reworded-acceptance` can rewrite a quoted UI label; `false-verified`
+  marks a wrapped item mid-sentence.
+- This session cloned the harness before the agent identity lost access (LOG #46). Its clone stays
+  in this container only.
+
+**Owner calls, proposed** (not applied; the W10.6.2 interface note changes first if agreed):
+
+- Reviewer fix: the prompt says to run one simple command per Bash call (no pipes, `;` or `&&`),
+  that a refused command means rephrase it, not stop, and to start with `git log base..head` and
+  `git show` per commit. Then the gaps the plants hit: a test that names each `AC-<n>`, a
+  "verified by review" step that demonstrates something, a test per state-table row, and an
+  assertion that can never fail is at least `medium`. Then re-run this eval with the same driver
+  and seeds.
+- F-NEW-23 → **B** (review tests by reading; CI runs the suite). Every plant keeps `npm test`
+  green, so running tests would have caught none of them; the one real bug in the eval was found
+  by reading. What the reviewer lacked was git, not a test runner.
+- F-NEW-24 → **no prompt line.** 0 `unsure` in 30 runs; the 6 bug-fix runs never flagged the
+  pre-existing bug beside the fix. With LOG #40's run, that is 1 in 16 bug-fix runs. And the pilot's
+  correct `high` was a pre-existing limitation in a file the change didn't touch, which the change
+  made reachable: "pre-existing and out of scope is `low`" would have downgraded it.
+
+**Next**: the owner's three calls above. If the reviewer fix is agreed: interface note, prompt
+change (tested with `tests/reviewer.test.sh`), then this eval again.

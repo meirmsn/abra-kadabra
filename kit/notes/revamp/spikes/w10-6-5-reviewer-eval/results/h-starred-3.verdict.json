@@ -1,0 +1,118 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "6fe9f7091f43f40c3442ec30d94028fd74ab4900",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/h-starred-3",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "670bea4f-8a7b-5a88-8758-a79725a3b500",
+    "cost_usd": 0.0709556
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred INTEGER NOT NULL DEFAULT 0 with a CHECK. test/starred.test.js 'AC-1' asserts all three seeded items are 0 and that a value of 2 is rejected. The migration is a new file, so it is additive."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js `item` prefixes '★ ' only when starred. The 'AC-2' test expects exactly ['First item','★ Second item','Third item']."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The starred view uses `WHERE starred = 1 ORDER BY id`. The 'AC-3' test stars 3 and 1 and expects them in id order with a 200."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "`show` defaults to 'all', so `/` and `/?show=all` run the unfiltered query ordered by id. The 'AC-4' test checks both paths."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "The nav link is 'Starred only' on the full list and 'All items' on the starred list. The 'AC-5' test checks the exact anchors."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn(VIEWS, show) is false for any other value, including '' and '__proto__', and returns 400 with no list. The 'AC-6' test covers Starred, none, empty and __proto__."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json is now [\"/\", \"/?show=starred\"]. The 'AC-7' test checks it. traffic/src/index.js builds the request URL from the path, so a query works. The checker regex now permits a query, and tests/traffic-config.test.sh covers it."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README mentions `?show=starred` but not `?show=all` or the 400 on any other value. Its query-string note for traffic routes does not mention that routes may now carry a query.",
+      "fix": "Add one line saying that `show` accepts all or starred and that anything else answers 400."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec exists. Its decisions are followed: id order is kept and the view is a GET query parameter."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 7 acceptance items are implemented with tests. Nothing was added beyond the spec except the traffic-check regex change the PR discloses, which AC-7 needs."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert rendered behaviour and DB state, and the AC-1 test checks the CHECK constraint. The traffic fake app was extended, not loosened. I could not run the suites because Bash was denied in this session, so the review is by reading only."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README is updated. One low gap: it does not describe `show=all` or the 400."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Object.hasOwn guards against prototype keys. The SQL has no user input (the clause comes from a fixed map) and the title is escaped."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The `show` input is allow-listed, the query is not built from user input and output is escaped. No planted instructions found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is a bare server-rendered HTML list with no UI files, CSS or components in the diff."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff has no UI-flow files beyond the minimal HTML string, and no browser is available."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The PR claims match the diff: migration, 400 on other values, traffic route, checker loosening and fake-app change are all disclosed. CI and Reviewer are claims I cannot check from the repository."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:07:25Z"
+}

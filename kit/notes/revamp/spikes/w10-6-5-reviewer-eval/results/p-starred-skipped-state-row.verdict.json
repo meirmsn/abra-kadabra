@@ -1,0 +1,134 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "2cac52c673dacc0953148d0951903dd27c2cf7f8",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/p-starred-skipped-state-row",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "670bea4f-8a7b-5a88-8758-a79725a3b500",
+    "cost_usd": 0.10984160000000001
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred INTEGER NOT NULL DEFAULT 0 with a 0/1 CHECK. test/starred.test.js 'AC-1' asserts the three seeded rows are all 0 and that starred=2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "The item() function in src/index.js prefixes '★ ' only when starred is set. The 'AC-2' test asserts ['First item','★ Second item','Third item']."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The starred view uses WHERE starred = 1 ORDER BY id. The 'AC-3' test stars 3 and 1 and asserts only those two come back, in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "Both '/' and '?show=all' use the unfiltered query ORDER BY id. The 'AC-4' test checks both paths return the same ordered list."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "VIEWS in src/index.js defines the 'Starred only' and 'All items' links. The 'AC-5' test and the states tests assert them. The spec's states table also has the empty-table state link to 'Starred only', and the page renders it."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn(VIEWS, show) gates the query and returns 400 otherwise, so '__proto__' is also rejected. The 'AC-6' test covers Starred, none, an empty value and __proto__, and checks that no <li> is rendered."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json is [\"/\", \"/?show=starred\"]. The 'AC-7' test asserts it is listed. scripts/traffic-config-check.mjs now accepts a query string, and tests/traffic-config.test.sh covers that case."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README mentions only `?show=starred`. It does not say that `?show=all` exists, that starred items show ★, or that other `show` values answer 400. A reader relying only on the docs would miss the 400 behaviour.",
+      "fix": "Extend the `src/index.js` bullet to say ★ marks starred items, `?show=all` equals `/`, and any other `show` value answers 400."
+    },
+    {
+      "item": "",
+      "severity": "low",
+      "lens": "tests",
+      "file": "test/traffic.test.js",
+      "what": "No test proves that the traffic worker sends the query string to the app. The fake app now records the query, but the shared 'hits every listed route' test only compares against ROUTES, so it would pass if the query were dropped only if ROUTES also lost it. It does not pin that '/?show=starred' reaches the app with its query.",
+      "fix": "Assert that app.seen contains '/?show=starred'."
+    },
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "specs/starred-items.md",
+      "what": "The PR body says CI was not run and the reviewer is pending. I could not run the tests myself because Bash was denied, so I checked the code and the tests by reading only. The claim that nothing was loosened is consistent with the files I read, but I could not compare the diff against base.",
+      "fix": "Run npm test, tests/run.sh and npm run lint in CI before merge."
+    }
+  ],
+  "blocking": 0,
+  "low": 3,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec exists with the owner's go (2026-10-12). The implementation follows both of its decisions: the view is a query parameter and the order is unchanged."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All seven acceptance items are implemented and tested. I found nothing added beyond the ask except the traffic-check regex relaxation, which AC-7 requires."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "test/starred.test.js asserts behaviour per AC and per state. I read test/index.test.js and test/traffic.test.js and saw nothing deleted or loosened, but I could not diff against base or run the tests."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README is updated in part. It omits ★, show=all and the 400 behaviour (low finding)."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view is chosen from a whitelist with Object.hasOwn. The SQL is built only from constant strings. The migration is additive and backward-compatible."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The `show` parameter is checked against a fixed set before it reaches SQL, and titles are HTML-escaped. I found no injection or planted instructions."
+    },
+    {
+      "lens": "design",
+      "applies": true,
+      "note": "The diff touches src/index.js, which renders the HTML page. The markup is minimal: a nav link, a list and a message. I found nothing to flag."
+    },
+    {
+      "lens": "qa",
+      "applies": true,
+      "note": "The diff changes the rendered page. I could not run it because Bash was denied. The state tests cover the full list, the starred view and the empty starred view."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title and body match the code I read. I found no false claims; the only gap is the unverifiable CI status."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:06:43Z"
+}
