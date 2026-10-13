@@ -1,0 +1,114 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "0ef9c2ae9aaa9eb71b3922215d81774176ec70d5",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/h-priority-b-r5",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "006a5d8c-7ba6-4710-93cd-6c7eb637f936",
+    "cost_usd": 0.0981061
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql: NOT NULL DEFAULT 'normal' with CHECK. test/priority.test.js 'AC-1' asserts existing rows are normal and 'urgent' is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js item(); test 'AC-2' checks '— high', '— low' and no label on normal."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "WHERE priority = ? ORDER BY id; test 'AC-3' checks high, low and normal filters in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "Unfiltered query ORDER BY id; test 'AC-4' checks full list in order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "nav() renders All/High/Normal/Low with the current one in <strong>; test 'AC-5' checks exact nav HTML for all four views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Returns 400 when the priority param is present and not in the set, including an empty value; test 'AC-6' covers High, urgent, empty and __proto__, and checks no <li>."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "The COUNT query picks 'No X-priority items.' only when the table is non-empty; test 'AC-7' covers high, low and normal no-match plus empty table in all four views."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high'; the checker regex now permits a query; test 'AC-8' asserts it, and tests/traffic-config.test.sh covers it."
+    }
+  ],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change matches the spec's intent and decisions. Existing items default to normal, and only high and low are labelled. Nothing was added beyond the ask except the traffic-checker query allowance, which AC-8 requires."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are implemented and named by tests. All 4 state-table rows have tests. The spec was added in the change as one commit, with no later edits to it."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "vitest isn't installed here, so I couldn't run the tests; CI covers that. By reading, the tests assert exact HTML and lists, and each test starts from a fresh DB with migrations applied. The fakeApp change in test/traffic.test.js is additive, and no tests were deleted."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes the filter and the new route is listed. No stale docs found."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Parameterised SQL with a whitelist. The empty-string and prototype-key values are handled. The extra COUNT query is needed to tell 'No items yet.' from a no-match filter."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The priority value is whitelisted and bound as a parameter; titles are still escaped. No injected instructions found in the repository content."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "A minimal server-rendered HTML page with no styling, and the diff touches no UI files such as CSS or templates. Nav semantics are covered under the AC-5 tests."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser flow in the diff beyond plain links; the core flow is covered by HTTP-level tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title and body match the diff. The claims about the traffic checker, the fake app and the tests are true."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:12:22Z"
+}

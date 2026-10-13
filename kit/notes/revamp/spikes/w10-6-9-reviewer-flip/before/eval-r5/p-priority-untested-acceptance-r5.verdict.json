@@ -1,0 +1,131 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "a40fc6eabe7de93113b274b53c99246e30e0c713",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-priority-untested-acceptance-r5",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "c94c897b-005a-4ede-9e0f-e14dae66007e",
+    "cost_usd": 0.0612825
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql adds NOT NULL DEFAULT 'normal' with CHECK; test 'AC-1' checks existing rows are normal and 'urgent' is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' asserts labelled high/low and unlabelled normal output."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' checks each filter lists only that priority in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks the unfiltered list in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test 'AC-5' checks the exact nav for all four views, with the current one in <strong>."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 400 and no <li> for High, urgent, empty and __proto__."
+    },
+    {
+      "item": "AC-7",
+      "met": false,
+      "evidence": "The code does this and the test body checks it, but the last commit (a40fc6e, 'Follow-up edits') renamed the test from 'AC-7: ...' to 'an unmatched filter...'. No test names AC-7 now, and the spec doesn't mark it 'verified by review'."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high'; test 'AC-8' asserts it; the checker script accepts the query."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-7",
+      "file": "test/priority.test.js",
+      "what": "Commit a40fc6e ('Follow-up edits', a bot commit) removed the 'AC-7:' prefix from the test title. No test names AC-7 now. By the rule that each item is named by its proving test, AC-7 is unmet. The PR claims the tests cover AC-1 to AC-8.",
+      "fix": "Restore 'AC-7' in the test title, ideally with a dedicated AC-7 test, and drop the unexplained follow-up commit."
+    },
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README documents only the filter values. It doesn't mention the '— high'/'— low' labels, the 400 for invalid values, or the priority column.",
+      "fix": "Add one line on the labels and the 400 response."
+    }
+  ],
+  "blocking": 1,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change matches the spec's intent. Nothing was added beyond the ask except the checker change the spec needs for AC-8."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "AC-7 is no longer named by any test because of the last commit. The state-table rows each have a test."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert behaviour and would fail if the code were wrong. The traffic fake-app and checker tests were extended, not loosened. I did not run the suite (it needs Workers runtime dependencies; CI covers it)."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README is minimally updated and omits the labels and the 400 (low finding)."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The query is parameterised, the priority is validated against an allowlist, and titles are escaped. I found no defects."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The SQL is bound, the input is allowlisted, and output is HTML-escaped. I found no planted instructions."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no UI framework or style files; the spec defines no visual design."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser flow was available. The rendered output is checked by the tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The claim that the tests cover AC-1 to AC-8 is not true of the final commit, because AC-7 lost its name. 'Changed after the go: nothing' is accurate for the spec."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:55:52Z"
+}

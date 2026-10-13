@@ -2319,7 +2319,49 @@ check also confirms the merge has exactly two parents, the second the checked co
 signing array expands safely on bash before 4.4. Left: the GitHub mobile app, and a look after the
 merge and the branch's deletion.
 
-## #55 — 2026-10-13 · W10.6.12: the verdict comment, short by default
+## #55 — 2026-10-13 · W10.6.9 (F-NEW-40): the reviewer's flip measured and fixed
+
+**What moved**: the reviewer's pass-then-fail on one commit in run 1 (F-NEW-40), measured before
+changing anything, then fixed with the owner's chosen option and measured again. Record:
+[spikes/w10-6-9-reviewer-flip](spikes/w10-6-9-reviewer-flip/README.md). The fixture was attached
+read-only with the owner's OK; nothing was pushed to it.
+
+**Measured** (every case 5 times on identical input, fresh worktree each, the W10.6.5 eval driver):
+
+- **Eval set: no flips.** Honest 25/25 pass; planted 75/75 fail, every fail naming its plant.
+- **Run-1 commit (`1337cc0`, rebuilt locally): flips.** 5 of 10 fail, with and without PR words.
+  The flip is in severity, not detection. The run-1 pass verdict itself listed the rejected
+  `history.length > 1` check as a `low` "harmless extra guard". Over 10 runs it was `low` 7 times,
+  blocking once, unmentioned twice. A state-row coverage call flipped the same way.
+- **Options on that commit, 10 runs each:**
+  - prompt rule: 10/10 fail, the rejected check `medium`+ every time, same cost;
+  - `--effort high`: 10/10 fail but the check still `low` 8 of 10, 1.5× cost;
+  - Opus: like effort, 4× cost;
+  - review twice: about 75%, 2× cost.
+
+**Owner's call**: the prompt rule. **Fix**: `prompt.md`'s new rules:
+
+- a departure from a decision is at least `medium`, even as an extra guard the decision rejected;
+- a state row tested only in part is at least `medium`;
+- a departure from the spec is never `low`.
+
+Test first in `tests/reviewer.test.sh` (failed on the old prompt; 4 of 4 mutants killed).
+
+**After**: run-1 commit 10/10 fail, the rejected check `medium`+ in 10/10. Honest 25/25 pass.
+Planted 74/74 fail on their plant. $7.65 for 110 reviews (before: $7.33).
+
+**Surprises**
+
+- One planted review was could-not-run: the model's reply covered 5 of the spec's 7 items, and
+  `review.sh` failed closed. That is 1 in 220 here, not a flip.
+- `main` changed `prompt.md` (W10.6.11) while the first "after" run was going. The driver reads the
+  live file, so that run was stopped and discarded; the recorded run is on the merged prompt.
+- Parallel eval runs raced for git's worktree names. `run.sh` now names each worktree by its run id.
+
+**Next**: the rest of W10.6.9 (F-NEW-36, F-NEW-37), then W10.6.10. Run 2 is the next test of the
+rule on a real build.
+
+## #56 — 2026-10-13 · W10.6.12: the verdict comment, short by default
 
 **What moved**: owner feedback that seven ships on one PR posted seven long comments with tables.
 Options discussed first (one comment edited in place like the preview comment; one-line comments

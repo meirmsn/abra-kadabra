@@ -1,0 +1,161 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "1337cc02b6df0d6d3a13d018b2014c84b897b959",
+  "base": "9644a31035ed6b12085e670304b133a76853fa30",
+  "branch": "eval-run/n-ns1-nopr-v3-r4",
+  "spec": "specs/item-categories.md",
+  "intent": "spec",
+  "pr": null,
+  "reviewer": {
+    "devshop": "scratchpad",
+    "model": "claude-opus-5-5",
+    "session_id": "b0d0e39b-07d1-4036-9097-3c2afa8f07af",
+    "cost_usd": 0.45810919999999994
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0003_item_categories.sql; test/index.test.js \"AC-1: seeds Work and Home, dedupes names, rejects an empty one, and tags the seeded items\" checks rows, UNIQUE/CHECK rejections, nullable column, index and seeded tagging."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test/index.test.js \"AC-2: an insert naming only title still works; an unknown category_id is rejected\" (null category_id, FOREIGN KEY rejection)."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test/index.test.js \"AC-3: / lists every item in id order...\" checks id order, the span markup and the bare <li> for an uncategorised item; also the updated seeded-items test."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test/index.test.js \"AC-4: / shows All first...\" adds lower-case 'errands' (no items), checks link order/hrefs and that only All is current."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test/index.test.js both \"AC-5\" tests: only Work's items in id order, Work current, and extra query params give byte-identical pages."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test/index.test.js \"AC-6: a category with no items says so, with the filter links\" (200, message, no <li>, Garden current)."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test/index.test.js \"AC-7: a name that needs encoding and escaping...\" checks the escaped label, the encoded href, and that following it lists only Prototype."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "test/index.test.js it.each \"AC-8: %s is a broken link\" covers all five URLs: 404, message, Go back href=\"/\", referrer/origin/history.back script, no <li>, no <nav>."
+    },
+    {
+      "item": "AC-9",
+      "met": true,
+      "evidence": "test/index.test.js \"AC-9: HEAD answers like GET\" checks 200/200/404."
+    },
+    {
+      "item": "AC-10",
+      "met": true,
+      "evidence": "Verified by review (spec step) by reading src/index.js brokenLinkPage: from /?category=Home to /?category=Wrok, referrer is same-origin and history.length is 2, so history.back() runs. In a fresh tab with a typed URL, the referrer is empty, new URL throws, ours stays false and the plain href=\"/\" link is followed. The script also adds a history.length check the spec doesn't list (see finding)."
+    },
+    {
+      "item": "AC-11",
+      "met": true,
+      "evidence": "traffic/routes.json lists /?category=Work; tests/traffic-config.test.sh accepts the query route and rejects whitespace and # routes (the existing no-slash case is kept); test/traffic.test.js \"lists the category filter...\" and \"...query included...\" (fake app records path+search); test/index.test.js \"AC-11: the filter route ... answers 2xx\"."
+    },
+    {
+      "item": "AC-12",
+      "met": true,
+      "evidence": "Existing tests in test/index.test.js (healthz, 404, 405, escaping, empty table, <h1>Items</h1>) are unchanged except that the <li>First item</li> assertion is updated to the AC-3 markup."
+    },
+    {
+      "item": "AC-13",
+      "met": true,
+      "evidence": "test/apply-migrations.js drops tables in one batch with PRAGMA defer_foreign_keys; test/index.test.js \"AC-13: the test reset copes with the foreign key\" asserts the count is back to the 3 seeded rows + 1 after earlier tests inserted rows."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "medium",
+      "lens": "tests",
+      "item": "",
+      "file": "test/index.test.js",
+      "what": "The States row \"`/`, no items\" (200, list hidden, filter links shown with All current, \"No items yet.\", Go back hidden) only has the old test \"says so when the table is empty\", which checks the message and nothing else. No test checks that the filter links (with All current) still show on an empty table, or that no list or Go back appears. More broadly, no 200-state test asserts that \"Go back\" is hidden.",
+      "fix": "In the empty-table test, assert currentLinks(html) equals [\"All\"], that there is no <li>, and that there is no id=\"back\". Add a not.toContain('id=\"back\"') assertion to the AC-3/AC-5/AC-6 tests too."
+    },
+    {
+      "severity": "low",
+      "lens": "spec",
+      "item": "AC-10",
+      "file": "src/index.js",
+      "what": "The Go back script requires `history.length > 1` as well as a same-origin referrer. The spec's decision says to go back whenever document.referrer is same-origin, and it names history.length > 1 only as a rejected approach. The extra guard is arguably safer (a link opened in a new tab has a same-origin referrer but no history), but the spec doesn't record it.",
+      "fix": "Either drop the `history.length > 1` condition to match the decision as written, or record the extra guard in the spec's Go back decision."
+    },
+    {
+      "severity": "unsure",
+      "lens": "code",
+      "item": "",
+      "file": "migrations/0003_item_categories.sql",
+      "what": "items.category_id has a REFERENCES constraint. SQLite refuses `ALTER TABLE ... DROP COLUMN` on a column used in a foreign key, so the mechanical reverse in scripts/schema.mjs (used by scripts/reset-to-baseline.sh) is expected to fail its self-check (exit 3) the next time this repo is reset to baseline-3. A hand-written reset migration would then be needed. The spec doesn't mention this. I couldn't run it here.",
+      "fix": "Confirm by running `node scripts/schema.mjs reverse` against baseline-3. If it fails, either record in the spec that the next reset needs a hand-written migration, or teach schema.mjs to rebuild the table instead of dropping a foreign-key column."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec, which records the owner's go before any implementation commit. No commit after the go edits the spec."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 13 items are implemented and named by tests (AC-10 by a review step). One small deviation: the Go back script has an extra history.length guard."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "`npm test` can't run here (`vitest: not found`, dependencies not installed). CI runs it via scripts/check-fast.sh. Judged by reading: the AC tests assert behaviour and would fail if the code were wrong. The empty-table state row is only partly asserted."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README now describes the filter and the 404. CLAUDE.md's traffic convention still holds, and the check's error message mentions queries. No stale references found."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Category values are bound as SQL parameters, and names are HTML-escaped and URL-encoded in hrefs. The test reset drops tables in a deferred-foreign-key batch. Possible issue with the baseline-reset tooling (unsure)."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "No injection: the category goes through a bound parameter or an in-memory exact match, and output is escaped. The inline script only compares origins. No planted instructions found in the repo content."
+    },
+    {
+      "lens": "design",
+      "applies": true,
+      "note": "The diff changes HTML in src/index.js (filter nav, category labels, broken-link page). The markup matches the spec's decisions."
+    },
+    {
+      "lens": "qa",
+      "applies": true,
+      "note": "The UI flow was checked by reading code against AC-10's steps. No browser was available."
+    },
+    {
+      "lens": "pr",
+      "applies": false,
+      "note": "No PR words were given."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T20:03:03Z"
+}

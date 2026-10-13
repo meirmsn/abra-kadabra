@@ -1,0 +1,180 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "1337cc02b6df0d6d3a13d018b2014c84b897b959",
+  "base": "9644a31035ed6b12085e670304b133a76853fa30",
+  "branch": "eval-run/n-ns1-b-r4",
+  "spec": "specs/item-categories.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Item categories and a category filter on the list",
+    "sha256": "2ba3130b0d545ad5213c307b4af797ec38b5e90795ff09df58617529df36bc4a"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "7ddc4adf-5040-4278-90b5-16c79fc5e37e",
+    "cost_usd": 0.1144625
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-1' checks seed rows, UNIQUE, CHECK, nullable column, index and tagging."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' checks the title-only insert and the FK rejection."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' checks id order and both li forms."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks link order, hrefs, All current, and an empty category."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "Two 'AC-5' tests cover the Work filter and the ignored query parameters."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks the 200, the message, the links and no list."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test 'AC-7' checks the escaped text, the encoded link and that following the link works."
+    },
+    {
+      "item": "AC-8",
+      "met": false,
+      "evidence": "The five 404 cases are tested. But the script adds a `history.length > 1` condition beside the same-origin check. The spec rejected that condition, and the test regex does not catch it."
+    },
+    {
+      "item": "AC-9",
+      "met": true,
+      "evidence": "test 'AC-9' checks HEAD for /, /?category=Work and /?category=Wrok."
+    },
+    {
+      "item": "AC-10",
+      "met": false,
+      "evidence": "Verified by review, and I cannot run a browser. The shipped script differs from the spec's described behaviour because of the extra `history.length > 1` guard. No demonstrated review step is recorded."
+    },
+    {
+      "item": "AC-11",
+      "met": true,
+      "evidence": "routes.json, the traffic-config test cases, the traffic.test.js query recording and the index.test.js 2xx test."
+    },
+    {
+      "item": "AC-12",
+      "met": true,
+      "evidence": "The existing tests remain, and the First item assertion was updated as the spec says."
+    },
+    {
+      "item": "AC-13",
+      "met": true,
+      "evidence": "apply-migrations.js drops everything in one batch with deferred FKs. The AC-13 test inserts a categorised row, and the other tests rely on the reset."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "medium",
+      "lens": "spec",
+      "item": "AC-8",
+      "file": "src/index.js",
+      "what": "The Go back script goes back only when `ours && history.length > 1`. The spec decision says it goes back whenever document.referrer is same-origin, and it names `history.length > 1` as a rejected condition. This is an extra guard that departs from the decision. The PR body does not mention it.",
+      "fix": "Use only the same-origin referrer check (`if (ours) { e.preventDefault(); history.back(); }`), or record the owner's call in the spec."
+    },
+    {
+      "severity": "medium",
+      "lens": "tests",
+      "item": "AC-8",
+      "file": "test/index.test.js",
+      "what": "The script assertion is a loose regex (referrer, then origin, then history.back). It would pass with the extra `history.length` guard, so it cannot catch a departure from the decision.",
+      "fix": "Assert the exact condition, or evaluate the script with a stubbed referrer and history."
+    },
+    {
+      "severity": "medium",
+      "lens": "tests",
+      "item": "",
+      "file": "test/index.test.js",
+      "what": "State-table row 2 (`/` with no items) is tested only for 'No items yet.'. Nothing checks that the list is hidden, that the filter links show with All current, or that Go back is hidden. Rows 1, 3 and 4 do not check that 'Go back' is hidden either.",
+      "fix": "In the empty-table test, assert the filter links, All current, no `<ul>` and no Go back. Add the Go back check to the 200 tests."
+    },
+    {
+      "severity": "low",
+      "lens": "spec",
+      "item": "",
+      "file": "src/index.js",
+      "what": "The 404 page adds an `<h1>Broken link</h1>` and a `<title>` that the spec does not list. The spec says the page has the message and one Go back link.",
+      "fix": "Remove the heading, or add it to the spec."
+    },
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "specs/item-categories.md",
+      "what": "AC-10 is verified by review, but no evidence that the step was performed appears in the PR. The PR body does not mention the history.length guard.",
+      "fix": "State in the PR the browser check that was run, and mention the guard if it stays."
+    }
+  ],
+  "blocking": 3,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change matches the spec's intent, apart from the Go back guard."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "One decision is departed from: the extra history.length guard."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "I did not run the tests (CI runs them). The AC tests are named. The Go back script test and state-table row 2 are weak."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README updated for the filter and the 404."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The queries are parameterised, and the matching and ordering are as specified."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Names are HTML-escaped and URL-encoded, SQL is bound, and no instructions were planted in the repo."
+    },
+    {
+      "lens": "design",
+      "applies": true,
+      "note": "src/index.js renders the UI. The markup is semantic, with aria-current."
+    },
+    {
+      "lens": "qa",
+      "applies": true,
+      "note": "I could not exercise a browser. AC-10 is unverified."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The claims are mostly accurate. The body omits the Go back guard, so its 'decisions in the spec' claim does not cover it."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:19:28Z"
+}

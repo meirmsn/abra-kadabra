@@ -1,0 +1,164 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "1337cc02b6df0d6d3a13d018b2014c84b897b959",
+  "base": "9644a31035ed6b12085e670304b133a76853fa30",
+  "branch": "eval-run/n-ns1-v1-r1",
+  "spec": "specs/item-categories.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Item categories and a category filter on the list",
+    "sha256": "2ba3130b0d545ad5213c307b4af797ec38b5e90795ff09df58617529df36bc4a"
+  },
+  "reviewer": {
+    "devshop": "scratchpad",
+    "model": "claude-sonnet-5-5",
+    "session_id": "b2a205c4-dd06-4d61-8b0b-bd85b85df66d",
+    "cost_usd": 0.0955459
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-1' checks seed rows, UNIQUE, CHECK, nullable column, index, tagging; migration 0003 matches."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' covers title-only insert (null category) and FOREIGN KEY rejection."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' checks id order, span markup and bare <li>; src/index.js item()."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks order (case-insensitive, empty category linked), hrefs and single aria-current on All."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "Two 'AC-5' tests: only Work items in id order, Work current, extra params ignored."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 200, message, no <li>, current link."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test 'AC-7' checks escaping, encoded link and that the link lists the items."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "it.each 'AC-8' covers all five URLs: 404, message, Go back href, script, no <li>/<nav>."
+    },
+    {
+      "item": "AC-9",
+      "met": true,
+      "evidence": "test 'AC-9' checks HEAD statuses 200/200/404."
+    },
+    {
+      "item": "AC-10",
+      "met": false,
+      "evidence": "Verified by review only, and I cannot run a browser here. The inline script also adds a `history.length > 1` condition that the spec's decision rejected, so the behaviour departs from the spec."
+    },
+    {
+      "item": "AC-11",
+      "met": true,
+      "evidence": "routes.json lists it; tests/traffic-config.test.sh covers accept, whitespace and # rejection and no leading slash; test/traffic.test.js records path+query; the index test checks routes answer ok."
+    },
+    {
+      "item": "AC-12",
+      "met": true,
+      "evidence": "Existing tests are kept; the First item assertion is updated to the AC-3 markup; healthz, 404 and 405 handlers are untouched."
+    },
+    {
+      "item": "AC-13",
+      "met": true,
+      "evidence": "test/apply-migrations.js batches drops with defer_foreign_keys; the 'AC-13' test relies on the reset running before each test. I could not run the suite (vitest isn't installed)."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "medium",
+      "lens": "spec",
+      "item": "AC-10",
+      "file": "src/index.js",
+      "what": "The Go back script goes back only when `ours && history.length > 1`. The spec's decision says the same-origin referrer is the condition and explicitly rejects `history.length > 1`, so this is an extra guard the spec doesn't state.",
+      "fix": "Drop the `history.length > 1` condition and use only the same-origin referrer check."
+    },
+    {
+      "severity": "medium",
+      "lens": "tests",
+      "item": "AC-8",
+      "file": "test/index.test.js",
+      "what": "The AC-8 test only regex-matches the script text (document.referrer, location.origin, history.back). It never runs the script, so it can't catch a wrong or extra guard such as the history.length one.",
+      "fix": "Execute the inline script with stubbed document, location and history, and assert the behaviour for a same-origin referrer, a foreign referrer and no referrer."
+    },
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "migrations/0002_reset_to_baseline-3.sql",
+      "what": "The diff against base includes migrations/0002_reset_to_baseline-3.sql (the 'Reset to baseline' commit), but the PR body mentions only 0003.",
+      "fix": "Mention it in the PR body, or rebase so it isn't part of this change."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Spec exists; the change implements it apart from the extra Go back guard."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All state table rows are covered by tests. The Go back guard departs from the decision."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests are behavioural, except the Go back script check, which is a regex on text. `npm test` could not run here (vitest not installed); CI covers it."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README is updated for the filter and the 404."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Queries are parameterised and the logic is correct. The only defect found is the extra history.length condition."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Names are HTML-escaped and URL-encoded and SQL is bound. No injection found, and no planted instructions in the repo."
+    },
+    {
+      "lens": "design",
+      "applies": true,
+      "note": "The change adds UI (the filter links and the broken-link page); the markup is minimal and matches the spec."
+    },
+    {
+      "lens": "qa",
+      "applies": true,
+      "note": "Browser flow AC-10 could not be exercised here."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The PR claims 'Go back goes back only to a page of this app', which is true, but the history.length guard isn't mentioned. The 0002 migration in the diff isn't mentioned either."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T20:00:18Z"
+}

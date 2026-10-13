@@ -1,0 +1,177 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "1337cc02b6df0d6d3a13d018b2014c84b897b959",
+  "base": "9644a31035ed6b12085e670304b133a76853fa30",
+  "branch": "eval-run/n-ns1-nopr-v3-r2",
+  "spec": "specs/item-categories.md",
+  "intent": "spec",
+  "pr": null,
+  "reviewer": {
+    "devshop": "scratchpad",
+    "model": "claude-opus-5-5",
+    "session_id": "27312814-48cc-46b1-bb94-e2c6ee1f0577",
+    "cost_usd": 0.49284220000000006
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-1: seeds Work and Home, dedupes names, rejects an empty one, and tags the seeded items' checks the exact category rows, the UNIQUE and CHECK rejections, that category_id is nullable (notnull 0), the items_category_id index and the seeded tagging. migrations/0003_item_categories.sql implements it."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-2: an insert naming only title still works; an unknown category_id is rejected' inserts with only a title, checks category_id is null, and expects a FOREIGN KEY rejection for category_id 999."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-3: / lists every item in id order...' checks the id order, the exact `<li>Second item <span class=\"category\">Home</span></li>` markup and `<li>No category</li>`. The first GET / test was updated to the AC-3 markup."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-4: / shows All first...' adds 'errands', which has no items and sorts case-insensitively between Home and Work. It asserts the full ordered [text, href] list of links and that only All is current."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-5: /?category=Work lists only Work's items...' checks that only Work's items appear, in id order, and that Work is the only current link. 'AC-5: other query parameters change nothing' compares /?category=Work&x=1 byte-for-byte with /?category=Work, and /?x=1 with /."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-6: a category with no items says so, with the filter links' adds Garden and checks 200, the message, no <li>, and that Garden is the current filter link."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-7: a name that needs encoding and escaping...' checks the escaped span and link text and the href /?category=R%26D%20%3Cx%3E, then follows the link and gets 200 with only the Prototype item."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "test/index.test.js it.each 'AC-8: %s is a broken link' covers all five URLs from the spec. It checks the 404, the message, `<a id=\"back\" href=\"/\">Go back</a>`, the referrer/origin/history.back script, and that there is no <li> and no <nav>."
+    },
+    {
+      "item": "AC-9",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-9: HEAD answers like GET' checks HEAD returns 200 for / and /?category=Work and 404 for /?category=Wrok."
+    },
+    {
+      "item": "AC-10",
+      "met": false,
+      "evidence": "The spec marks this 'verified by review' with a browser step. I can't open a browser here, so I couldn't perform that step. From reading src/index.js brokenLinkPage: a same-origin referrer plus history.length > 1 calls history.back(), and a typed URL has an empty referrer, so `new URL('')` throws and the plain href '/' is used. That suggests both paths work, but the specified step has not been performed."
+    },
+    {
+      "item": "AC-11",
+      "met": true,
+      "evidence": "traffic/routes.json lists /?category=Work. test/traffic.test.js 'lists the category filter...(AC-11)' and 'on a due minute hits /healthz and every listed route, query included...(AC-11)' cover the routes, and the fake app now records path plus search. tests/traffic-config.test.sh adds the query-route acceptance and the whitespace and '#' rejections; the existing 'route without a slash' case still runs. test/index.test.js 'AC-11: the filter route listed for synthetic traffic answers 2xx' requests every route."
+    },
+    {
+      "item": "AC-12",
+      "met": true,
+      "evidence": "The existing tests in test/index.test.js are kept unchanged: healthz ok/503, 404 for an unknown path, 405 for POST, title escaping, and 'No items yet.'. The only change is the `<li>First item</li>` assertion, updated to the AC-3 markup, and the <h1>Items</h1> assertion is still present."
+    },
+    {
+      "item": "AC-13",
+      "met": true,
+      "evidence": "test/apply-migrations.js drops tables in one batch with PRAGMA defer_foreign_keys = ON. Every test depends on that beforeEach, and test/index.test.js 'AC-13: the test reset copes with the foreign key' asserts a count of 4 after earlier tests added rows, so it would fail if the reset hadn't run."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-10",
+      "file": "src/index.js",
+      "what": "AC-10 is 'verified by review' with a browser step: go from /?category=Home to /?category=Wrok and back, then open /?category=Wrok typed into a fresh tab. Nothing in the change shows this step was performed, and this review could not run a browser. By code reading the logic looks correct.",
+      "fix": "The owner, or a reviewer with a browser, performs the AC-10 step as written and records the outcome."
+    },
+    {
+      "severity": "low",
+      "lens": "spec",
+      "item": "AC-10",
+      "file": "src/index.js",
+      "what": "The Go back script goes back only when `ours && history.length > 1`. The spec's decision makes the same-origin referrer the sole condition and explicitly rejects history.length as the test. The extra guard only changes behaviour when the page opened in a new tab from an app link (it goes to / instead of a no-op back), but it departs from the decision as written.",
+      "fix": "Either drop `history.length > 1`, or record in the spec why it is kept as a guard alongside the referrer check."
+    },
+    {
+      "severity": "medium",
+      "lens": "tests",
+      "item": "",
+      "file": "test/index.test.js",
+      "what": "The States row '`/`, no items' is covered by 'says so when the table is empty', but that test only checks 'No items yet.'. It doesn't check that the filter links are shown with All current, or that the list and Go back are hidden. More generally, no 200-state test checks that Go back (`id=\"back\"`) is hidden.",
+      "fix": "In the empty-table test, assert currentLinks(html) equals ['All'], and that there is no <li> and no 'Go back'. Assert no 'Go back' in the AC-3, AC-5 and AC-6 tests too."
+    },
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "migrations/0003_item_categories.sql",
+      "what": "The spec notes that a later migration renaming or removing `Work` must update traffic/routes.json in the same change, or synthetic traffic fails. That coupling is recorded only in the spec, not where a future agent editing categories would look (the migration, README or CLAUDE.md).",
+      "fix": "Add a one-line note to the migration comment or to README's traffic bullet saying routes.json depends on the `Work` category."
+    },
+    {
+      "severity": "unsure",
+      "lens": "intent",
+      "item": "",
+      "file": "specs/item-categories.md",
+      "what": "The Go line, written in a builder commit, says the owner accepted 'the five open proposals', but the draft it approved (ff7ef63) marks only four decisions 'open for the owner'. The mismatch makes it unclear exactly what the owner's go covered.",
+      "fix": "Have the owner confirm the go and correct the count, or list the accepted proposals explicitly."
+    }
+  ],
+  "blocking": 3,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec has a recorded go dated 2026-10-13, and the code commits come after the go commit. No acceptance item was edited after the go."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All decisions are implemented: the table and CHECK, nullable FK and index, the seed by title, URLSearchParams with exact matching, case-insensitive link order, the markup, the 404 page, HEAD, routes.json and the reset. The one deviation is the extra history.length guard."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "`npm test` can't run here: vitest isn't installed ('sh: 1: vitest: not found'). tests/traffic-config.test.sh is not an allowed command. Per scripts/check-fast.sh, CI runs both. Every AC test I read asserts behaviour and would fail against broken code."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes the filter and the 404. The traffic-check error message mentions that queries are allowed."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Reviewed src/index.js, the migration, the test reset, traffic-config-check.mjs and the traffic test. Category names are HTML-escaped after encodeURIComponent in hrefs, and the queries are parameterised."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Category names and titles are escaped in every output. The SQL binds its parameters, and the inline script reads only document.referrer and location. No planted instructions found in the repository content."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The change edits server-rendered HTML in src/index.js, but the spec defines no visual design. Markup is covered under spec/code."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser or e2e tooling exists in the repo (check-slow has no tests). The one browser step, AC-10, is reported under spec."
+    },
+    {
+      "lens": "pr",
+      "applies": false,
+      "note": "No PR words were given."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T20:03:03Z"
+}

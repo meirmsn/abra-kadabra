@@ -1,0 +1,164 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "1337cc02b6df0d6d3a13d018b2014c84b897b959",
+  "base": "9644a31035ed6b12085e670304b133a76853fa30",
+  "branch": "eval-run/n-ns1-b-r3",
+  "spec": "specs/item-categories.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Item categories and a category filter on the list",
+    "sha256": "2ba3130b0d545ad5213c307b4af797ec38b5e90795ff09df58617529df36bc4a"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "06156004-7e3e-45c3-a64c-0ad4751b9149",
+    "cost_usd": 0.09436830000000002
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-1' checks seeds, UNIQUE, CHECK, nullable column, index and tagging."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' covers title-only insert and FOREIGN KEY rejection."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' checks id order and both li markups; the updated existing assertion also covers it."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks link order (case-insensitive), hrefs, All current only, and an empty category."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "Two 'AC-5' tests cover filtering, id order, aria-current and extra params."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 200, message, no li, current link."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test 'AC-7' checks escaping, encoded href and that the link works."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "it.each 'AC-8' covers all five cases: 404, message, Go back href, script, no li or nav. It does not pin the extra history.length condition."
+    },
+    {
+      "item": "AC-9",
+      "met": true,
+      "evidence": "test 'AC-9' checks HEAD statuses for the three paths."
+    },
+    {
+      "item": "AC-10",
+      "met": false,
+      "evidence": "The review step is concrete, but the implementation adds `history.length > 1`, which the spec's decision explicitly rejects. Behaviour departs from the spec, so I can't mark it verified."
+    },
+    {
+      "item": "AC-11",
+      "met": true,
+      "evidence": "routes.json, config-check test (accepts a query; rejects whitespace, '#' and a missing slash), traffic.test.js query-aware fake app, and the index test 'AC-11' requesting every route."
+    },
+    {
+      "item": "AC-12",
+      "met": true,
+      "evidence": "Existing healthz, 404, 405, escaping and empty-table tests are retained; the First item assertion is updated per the spec."
+    },
+    {
+      "item": "AC-13",
+      "met": true,
+      "evidence": "apply-migrations batch with defer_foreign_keys; test 'AC-13' checks the count is 4 after a categorised insert, which shows the reset ran."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "medium",
+      "lens": "spec",
+      "item": "AC-10",
+      "file": "src/index.js",
+      "what": "The Go back script goes back only if `ours && history.length > 1`. The spec decision rejects `history.length > 1` and says the script goes back whenever the referrer is same-origin. The extra guard is a departure the spec doesn't allow.",
+      "fix": "Use `if (ours) { e.preventDefault(); history.back(); }`, or get the owner to amend the decision."
+    },
+    {
+      "severity": "medium",
+      "lens": "tests",
+      "item": "AC-12",
+      "file": "test/index.test.js",
+      "what": "State table row '/, no items' says the filter links are shown with All current and the list is hidden. The only test ('says so when the table is empty') checks just the 'No items yet.' text. No test covers the 'Go back hidden' column for the 200 states either.",
+      "fix": "In the empty-table test, also assert the links, All as the only current link, no <li>, and no 'Go back' or script on the 200 pages."
+    },
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "README.md",
+      "what": "The PR's decisions summary says the broken-link page calls history.back() only when the referrer is same-origin, but the code also requires history.length > 1. The PR description is therefore inaccurate.",
+      "fix": "Remove the extra condition so the description is true, or mention it."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec exists; the change matches it apart from the history.length guard."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "One departure from a decision (history.length > 1). The spec commits after the draft record the owner's go and review fixes, and no acceptance item was edited afterwards."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Each AC has a named test except AC-10, which is a review step. The empty-state row is only partly covered. I did not run the tests; CI runs them."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README is updated for the filter and the 404."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The SQL is parameterised, names are escaped and encoded, and the logic is correct apart from the extra history.length guard."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "No injection found: output is escaped and queries are bound. The inline script is static. No planted instructions found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "No UI styling files in the diff; the markup is minimal HTML in src/index.js."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser-run flow is available in this review; AC-10 is by review, and I read the script instead."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is not given separately from the spec's. The body's claims are true except the same-origin-only claim, since the code adds history.length > 1. No assets commit is present in the log."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:20:03Z"
+}

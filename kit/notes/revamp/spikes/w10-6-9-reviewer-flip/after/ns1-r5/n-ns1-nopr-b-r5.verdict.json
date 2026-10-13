@@ -1,0 +1,161 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "1337cc02b6df0d6d3a13d018b2014c84b897b959",
+  "base": "9644a31035ed6b12085e670304b133a76853fa30",
+  "branch": "eval-run/n-ns1-nopr-b-r5",
+  "spec": "specs/item-categories.md",
+  "intent": "spec",
+  "pr": null,
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "d81fef14-15d6-4cfc-be05-7fa0d699c180",
+    "cost_usd": 0.1035095
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-1' checks seeded rows, UNIQUE, CHECK, nullable column, index, and the seeded item tagging; migration 0003 matches."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "'AC-2' test: a title-only insert gives a null category_id, and category_id 999 fails with FOREIGN KEY."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "'AC-3' test checks id order, the exact span markup and the plain <li> for an item with no category."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' test checks link order (case-insensitive), hrefs, All current only, and an empty category's link."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "Two 'AC-5' tests cover the filtered list, the current link, and that extra parameters change nothing."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "'AC-6' test checks 200, the message, no <li> and the current link."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "'AC-7' test checks the encoded href, the escaped name, and that the link lists the category's items."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "it.each 'AC-8' covers all five broken cases for 404, the message, the Go back href, a script regex, and no <li> or <nav>. The script test is only a regex, but it is adequate."
+    },
+    {
+      "item": "AC-9",
+      "met": true,
+      "evidence": "'AC-9' test checks HEAD statuses 200, 200 and 404."
+    },
+    {
+      "item": "AC-10",
+      "met": false,
+      "evidence": "The implementation departs from the decision: the click handler also requires history.length > 1, which the spec rejected. I could not run a browser here to demonstrate the review step."
+    },
+    {
+      "item": "AC-11",
+      "met": true,
+      "evidence": "routes.json lists /?category=Work. The regex change keeps rejecting whitespace and #. New traffic-config tests cover the query route, whitespace and a fragment. test/traffic.test.js records path plus query. The index test checks that every route answers 2xx."
+    },
+    {
+      "item": "AC-12",
+      "met": true,
+      "evidence": "The existing healthz, 404, 405, escaping and empty-table tests are kept. The <li>First item assertion is updated to the AC-3 markup. No test is named AC-12, but the existing tests cover this behaviour."
+    },
+    {
+      "item": "AC-13",
+      "met": true,
+      "evidence": "The reset drops tables in one batch with defer_foreign_keys. The 'AC-13' test leaves a categorised row behind and checks the row count is back to 4 on the next run."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "medium",
+      "lens": "spec",
+      "item": "AC-10",
+      "file": "src/index.js",
+      "what": "The Go back click handler goes back only if `ours && history.length > 1`. The spec's decision says to go back whenever document.referrer is same-origin. It names `history.length > 1` as a rejected condition, and here it is added as an extra guard. A same-origin referrer with history.length 1 would go to / instead of back.",
+      "fix": "Drop `&& history.length > 1` so the condition is just the same-origin referrer check."
+    },
+    {
+      "severity": "medium",
+      "lens": "tests",
+      "item": "AC-8",
+      "file": "test/index.test.js",
+      "what": "The States table says Go back is hidden on the 200 rows and the Filter links are hidden on the 404 row. Only the 404 page's Go back and missing nav are checked. No test asserts that 200 pages (including the empty-table and empty-category states) have no Go back link. The 'No items yet.' state is not checked for its filter links with All current. The script test is a loose regex that would also match the wrong condition.",
+      "fix": "Assert that the 200 pages contain no 'Go back' / id=\"back\", and that the empty-table page shows the nav with All current."
+    },
+    {
+      "severity": "low",
+      "lens": "code",
+      "item": "",
+      "file": "migrations/0002_reset_to_baseline-3.sql",
+      "what": "A generated no-op reset migration is part of the diff without any mention in the spec.",
+      "fix": "Confirm that it belongs to this change, or drop it."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change implements the spec's feature and adds nothing beyond it, except the guard noted in the spec findings."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "One departure from a decision: the history.length > 1 guard on Go back."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests are behavioural and name their AC items. The test suites were not run here; CI covers that. Gaps are listed in the findings."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README is updated for categories and the 404 filter. The routes.json query is not mentioned, but nothing in the docs is stale."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Queries are parameterised, names are escaped and encoded, and repeated or empty parameters are handled."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "No injection found. Names are HTML-escaped and URL-encoded, and SQL is bound. The inline script is static."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "This is a server-rendered page with no styling or component files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "A browser flow exists (Go back), but no browser tooling is available here, so I did not review it as UI QA."
+    },
+    {
+      "lens": "pr",
+      "applies": false,
+      "note": "No PR words were given."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:20:34Z"
+}

@@ -1,0 +1,114 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "0ef9c2ae9aaa9eb71b3922215d81774176ec70d5",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/h-priority-r3",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "a3102a98-8b54-48df-8fd7-3d586241cc14",
+    "cost_usd": 0.07938970000000001
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql adds NOT NULL DEFAULT 'normal' with CHECK. test/priority.test.js 'AC-1' checks the seeded items (inserted by 0001) are normal and that 'urgent' is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "The 'AC-2' test asserts the exact <li> text for high, normal and low items."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The 'AC-3' test checks the high, low and normal filters with ordering. Code in src/index.js binds the priority and orders by id."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The 'AC-4' test checks the unfiltered list in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "The 'AC-5' test asserts the full nav HTML for all four views, with the current filter in <strong> and not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "The 'AC-6' test covers High, urgent, empty and __proto__, expecting 400 and no <li>. The code uses searchParams.has plus a Set check."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "The 'AC-7' test checks the no-match messages for high, low and normal, and 'No items yet.' in all four views with an empty table."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains /?priority=high. The 'AC-8' test asserts it. The traffic script and test were adapted to accept query routes."
+    }
+  ],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec. The traffic-check regex change is required by AC-8 and is disclosed in the PR."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are met. All 4 state-table rows have tests in the 'states' describe block. The spec was not edited after the go, and the decisions are followed."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert behaviour. I did not run them here because the cloudflare vitest dependencies may not be installed. CI covers them. The traffic fake and the shell test were extended, with no tests loosened or deleted."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes the ?priority filter. No other docs go stale."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The query is parameterised. The 400 path comes before the DB query. The empty-message logic handles a table that is empty versus a filter with no match."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The title is escaped. The priority is validated against a whitelist before it is used, and the query binds it. No instructions were planted in the repository content."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with a nav line. There are no stylesheets, components or UI framework files in the diff."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches no UI framework or style files, and no browser is available in this session."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims match the diff: the migration, the routes, the traffic check, and no tests deleted."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:50:14Z"
+}

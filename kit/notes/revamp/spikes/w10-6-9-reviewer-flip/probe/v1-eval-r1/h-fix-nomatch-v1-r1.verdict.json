@@ -1,0 +1,73 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "8d3368e0ecb1ff3531c4e1b0544da2b9c0ff28ac",
+  "base": "b564411a075913bb61d37335e2aaaeca333b9194",
+  "branch": "eval-run/h-fix-nomatch-v1-r1",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search saying No items yet. when nothing matches",
+    "sha256": "e3b148148ae0e1d855984d3d1049873901fde152772c3f3cfa2a8c8ae660149d"
+  },
+  "reviewer": {
+    "devshop": "scratchpad",
+    "model": "claude-sonnet-5-5",
+    "session_id": "911465bf-2135-41da-af5a-7776eee80e5f",
+    "cost_usd": 0.0346193
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change does what the title and body say. It is a bug fix with one obvious design, and the failing test acts as the spec."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "There is no spec file in this change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Three new tests cover the no-match message, the escaping of the search, and the empty-table case. They would fail against the old code. I did not run them; the CI note covers that. The empty-table test deletes rows, which matches the existing pattern in test/index.test.js."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "No docs mention the old message. The only other references to 'No items yet.' are in tests, and they are still correct."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The search term is escaped in the new message. The empty-table case falls back to 'No items yet.'. The extra COUNT query only runs when a search finds nothing."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The search term is HTML-escaped in the new message, and a test covers it. I found no injection path, and the repository contains no planted instructions."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The change adds one line of message text and no new UI. No browser was available."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The change adds one line of message text and no new UI. No browser was available."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters and the body matches the diff. The claims about escaping, the empty-table message and the new tests are true."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T20:01:43Z"
+}

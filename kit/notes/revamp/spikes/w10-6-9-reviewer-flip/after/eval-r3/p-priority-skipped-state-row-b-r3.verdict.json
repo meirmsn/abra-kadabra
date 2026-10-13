@@ -1,0 +1,131 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "13cde31b15e9c5a6f08f8a6bca18a9f705488ef2",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-priority-skipped-state-row-b-r3",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "d04915b7-50d2-4882-8506-8e1312f3fe80",
+    "cost_usd": 0.07728470000000001
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql has a CHECK and a default of normal. test/priority.test.js 'AC-1' checks that the seeded rows are normal and that 'urgent' is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "The 'AC-2' test checks the '— high' and '— low' labels and that normal items get none."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The 'AC-3' test covers high, low and normal, including order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The 'AC-4' test checks that / lists all items in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "The 'AC-5' test asserts the exact nav HTML for all four views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "The 'AC-6' test checks 400 and no <li> for High, urgent, empty and __proto__."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "The 'AC-7' test covers the per-priority message and 'No items yet.' in every view of an empty table."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high'. The 'AC-8' test checks it, and the traffic-config check now accepts query strings."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "medium",
+      "lens": "tests",
+      "item": "",
+      "file": "test/priority.test.js",
+      "what": "The last commit ('Follow-up edits') deleted the state test 'All priorities: every item, All current'. The spec's States table has an 'All priorities' row: every item, no message, All current. No single test now sets up that state. AC-4 checks the list, and AC-5 checks that All is current. Nothing asserts that no message shows. The deletion has no spec justification, and the PR says no tests were deleted or loosened.",
+      "fix": "Restore the state test, and also assert that message(html) is null."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "",
+      "file": "test/priority.test.js",
+      "what": "The commit left a stray blank line after `describe(\"states\", () => {`.",
+      "fix": "Remove the blank line."
+    }
+  ],
+  "blocking": 1,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec and its decisions: existing items are normal, and only high and low are labelled. Nothing was added beyond the ask."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items have a test that names them. The State table row 'All priorities' lost its test in the last commit (see the finding)."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests look able to fail if the code were wrong. I did not run them here. CI runs them on every push. The deleted state test is a finding."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes the filter. The PR body notes the traffic route check change."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The 400 for an invalid or empty value, the parameterised query and the COUNT used to choose the empty message all look correct."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The priority value is checked against an allow-list and bound as a parameter. Titles are escaped. The route regex still refuses spaces and #."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "Only a minimal server-rendered nav was added, with no styling or UI files. I treated it as covered by the qa and spec checks."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser flow was demonstrated. The PR says there are no screenshots, and the tests cover the rendered HTML."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The claim 'Tests deleted or loosened: none' is not accurate, because the last commit deleted a state test. The other claims match the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:18:47Z"
+}

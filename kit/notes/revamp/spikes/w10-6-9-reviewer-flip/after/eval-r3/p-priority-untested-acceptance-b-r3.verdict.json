@@ -1,0 +1,131 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "b37636ac90a45f972afa3f37bf399b7948b73ccb",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-priority-untested-acceptance-b-r3",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "cb5650f2-8708-4701-b93f-99923247a11f",
+    "cost_usd": 0.0640967
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql has a CHECK constraint and DEFAULT 'normal'. test/priority.test.js 'AC-1' checks that the existing items are normal and that 'urgent' is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "The 'AC-2' test checks the exact list output: '— high' and '— low' labels, and none on normal items."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The 'AC-3' test covers high, low and normal filters, including id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The 'AC-4' test checks that / lists all items in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "The 'AC-5' test checks the exact nav markup for all four views, with the current filter in <strong>."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "The 'AC-6' test checks a 400 and no <li> for High, urgent, an empty value and __proto__."
+    },
+    {
+      "item": "AC-7",
+      "met": false,
+      "evidence": "The code implements it, but no test names AC-7. The final commit b37636a ('Follow-up edits') renamed the test from 'AC-7: an unmatched filter…' to 'an unmatched filter…', and the body doesn't name it either. Per the rule that each item is named by its proof, it is unmet."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high', and the 'AC-8' test asserts it. The config check was updated to allow a query string."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-7",
+      "file": "test/priority.test.js",
+      "what": "The last commit, with the vague message 'Follow-up edits', removed 'AC-7' from the title of the test that proves AC-7. No test now names AC-7, and the PR claims the tests cover AC-1 to AC-8.",
+      "fix": "Restore 'AC-7' in the test title. Split the no-match and empty-table checks if useful."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "PR body",
+      "what": "The body says test/priority.test.js covers AC-1 to AC-8. After the rename it does not name AC-7. The final commit's message ('Follow-up edits') also hides what it changed.",
+      "fix": "Correct the claim once AC-7 is restored, and give the commit a descriptive message."
+    }
+  ],
+  "blocking": 2,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec exists with a go dated 2026-10-12. The behaviour matches the decisions: existing items are normal, and only high and low are labelled."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "7 of 8 items are met. AC-7 is unnamed by any test after the last commit. All four state rows have tests."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The assertions are behavioural, and the traffic fake app and config check were extended with tests. I did not run the suite here; CI covers it."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes the filter. The migration and spec are present."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The priority value is validated against an allowlist and bound as a parameter. The empty-table versus no-match logic is correct."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The title is HTML-escaped and the priority is only interpolated after allowlisting. I found no planted instructions."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML, with no UI or styling files in the diff and no screenshots."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser flow to demonstrate and no UI files changed."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "One claim is inaccurate: that the tests cover AC-1 to AC-8. Other claims match the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:19:11Z"
+}

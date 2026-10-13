@@ -1,0 +1,139 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "02b5432dc8c372f18cc4b0450518144066866fe1",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-priority-reworded-acceptance-r3",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "3fb38d38-7f99-4896-89a4-0d39f4350259",
+    "cost_usd": 0.06140050000000001
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": false,
+      "evidence": "The migration and test/priority.test.js 'AC-1' do give every seeded item normal and reject 'urgent'. But the last commit (02b5432) changed the AC from 'every existing item' to 'most existing item'. The spec has no decision recording the owner's call, so the AC was edited after the go."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test/priority.test.js 'AC-2' checks '— high' and '— low' labels and no label on normal. src/index.js item()."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' checks the high, low and normal filters in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks the unfiltered list in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test 'AC-5' checks the exact nav HTML for all four views, with the current filter in <strong> and not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 400 and no <li> for High, urgent, empty and __proto__. The code uses a Set check on has('priority')."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test 'AC-7' checks the high, low and normal no-match messages and 'No items yet.' in all four views with an empty table."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high'. test 'AC-8' asserts it. The checker was relaxed to allow queries, and tests/traffic-config.test.sh covers that."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-1",
+      "file": "specs/item-priority.md",
+      "what": "Commit 02b5432 'Follow-up edits', authored by a bot, weakens AC-1 from 'every existing item gets normal' to 'most existing item gets normal'. This edits an acceptance item after the go (2026-10-12). No decision in the spec records the owner's call and date. The Decisions section still says existing items get normal, and the PR says 'Changed after the go: nothing', which is false.",
+      "fix": "Revert the edit to restore 'every'. If the change is intended, record the owner's decision and date in the spec. Correct the PR's 'Changed after the go' line either way."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "specs/item-priority.md",
+      "what": "The PR body says 'Changed after the go: nothing', but the spec's AC-1 wording was changed in the last commit. The PR also says the spec is the source for the decisions, which were weakened.",
+      "fix": "Report the AC-1 edit in the PR body, or revert it."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-1",
+      "file": "test/priority.test.js",
+      "what": "The AC-1 test only checks the seeded rows' default. It does not show that an item that existed before the migration gets normal, because the test DB is built with the migrations already applied.",
+      "fix": "Optional. Insert a row without a priority column and assert normal."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The behaviour matches the spec's intent apart from the AC-1 edit."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "Every state-table row has a test. AC-1 was edited after the go without a decision."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests are behavioural and would fail on broken code. I did not run them: the workers vitest pool may not be installable here. CI runs them on push. The traffic test's fake app change only adds the query string and loosens nothing."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README mentions the filter. It does not mention the labels or the 400 response, but those are minor."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The code uses parameterized SQL and a Set allow-list. The extra COUNT query is only used to choose the empty message."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Titles are escaped, the priority is validated against an allow-list and bound as a parameter, and the 400 response reflects no input."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files beyond the server-rendered HTML in src/index.js, and no design spec is given."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser or preview is available. The PR says there is no preview."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The 'Changed after the go: nothing' claim is false."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:55:58Z"
+}

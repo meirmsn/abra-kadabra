@@ -1,0 +1,172 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "1337cc02b6df0d6d3a13d018b2014c84b897b959",
+  "base": "9644a31035ed6b12085e670304b133a76853fa30",
+  "branch": "eval-run/n-ns1-v1-r4b",
+  "spec": "specs/item-categories.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Item categories and a category filter on the list",
+    "sha256": "2ba3130b0d545ad5213c307b4af797ec38b5e90795ff09df58617529df36bc4a"
+  },
+  "reviewer": {
+    "devshop": "scratchpad",
+    "model": "claude-sonnet-5-5",
+    "session_id": "a3d1092f-36dd-4f1f-945e-7ba4489f6daf",
+    "cost_usd": 0.10771810000000001
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-1' checks seed rows, UNIQUE, CHECK, nullable column, index, and item tagging; migration matches."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' checks title-only insert gives null category and unknown category_id fails with FOREIGN KEY."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' checks id order, labelled and unlabelled li markup."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks link order (case-insensitive), hrefs, only All current, empty category linked."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "Two AC-5 tests: only Work items in id order, Work sole current, extra params give identical pages."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 200, message, no li, current link."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test 'AC-7' checks escaping, encoded href, and that the link lists the item."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "it.each AC-8 covers all five paths: 404, message, Go back href, script, no li and no nav."
+    },
+    {
+      "item": "AC-9",
+      "met": true,
+      "evidence": "test 'AC-9' checks HEAD statuses 200/200/404."
+    },
+    {
+      "item": "AC-10",
+      "met": false,
+      "evidence": "Review-only item; I cannot run a browser to verify it. The shipped script also adds an unspecified `history.length > 1` condition (src/index.js brokenLinkPage), which the spec decision rejected as a condition, so the behaviour departs from the decision."
+    },
+    {
+      "item": "AC-11",
+      "met": true,
+      "evidence": "routes.json lists the route; tests/traffic-config.test.sh accepts the query and rejects whitespace, #, no slash; test/traffic.test.js records path+query; index.test.js 'AC-11' requests every route and expects ok."
+    },
+    {
+      "item": "AC-12",
+      "met": true,
+      "evidence": "Existing tests remain (healthz, 404, 405, escaping, empty table) with only the First item assertion updated per the spec."
+    },
+    {
+      "item": "AC-13",
+      "met": true,
+      "evidence": "test/apply-migrations.js batches drops with deferred FKs; test 'AC-13' checks the reset happens with a categorised row left behind."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "medium",
+      "lens": "spec",
+      "item": "AC-10",
+      "file": "src/index.js",
+      "what": "The Go back script goes back only when `ours && history.length > 1`. The spec decision says the script goes back when the referrer is same-origin, and it rejects `history.length > 1` as a condition. This is an extra guard the decision does not state.",
+      "fix": "Drop `&& history.length > 1` so the condition is only the same-origin referrer."
+    },
+    {
+      "severity": "medium",
+      "lens": "tests",
+      "item": "",
+      "file": "test/index.test.js",
+      "what": "The state-table rows are only partly covered. The 'No items yet.' test checks only the message, not that the filter links are shown (with All current) or that the list is hidden. No 200 test asserts that 'Go back' is hidden, so a Go back link leaking onto list pages would pass.",
+      "fix": "In the empty-table test, also assert the nav links with All current and no <li>. In the 200 tests, assert the page has no 'Go back' and no 'corrupted' message."
+    },
+    {
+      "severity": "low",
+      "lens": "spec",
+      "item": "",
+      "file": "src/index.js",
+      "what": "The 404 page adds a <title> and an <h1> of 'Broken link'. The spec does not call for this text. The 404 is spec'd to have the message and one Go back link.",
+      "fix": "Drop the 'Broken link' heading, or record it in the spec."
+    },
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "",
+      "what": "The PR body says the broken-link page has a plain `href=\"/\"` and an inline script that calls history.back() 'only when the referrer is same-origin'. The code also requires history.length > 1.",
+      "fix": "Remove the extra condition from the code, or describe it accurately."
+    }
+  ],
+  "blocking": 2,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec exists; it was checked against the change, and the go was recorded before the implementation commits."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "One departure from a decision (history.length guard). No acceptance item was edited after the go."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests cover every AC and would fail if the code were wrong, but the state-table assertions are partial. I could not run npm test here; CI covers that."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README is updated for categories and the filter. Nothing stale found."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "SQL is parameterised and the migration is additive. The only defect is the extra history.length guard."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Category names are HTML-escaped and URL-encoded, queries are bound, and no instructions are planted in the repository content."
+    },
+    {
+      "lens": "design",
+      "applies": true,
+      "note": "The change renders HTML pages, but there are no style or layout files. The only issue is the extra heading text."
+    },
+    {
+      "lens": "qa",
+      "applies": true,
+      "note": "The browser flow for AC-10 could not be exercised here."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The PR description's account of the Go back script omits the history.length condition."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T20:04:14Z"
+}

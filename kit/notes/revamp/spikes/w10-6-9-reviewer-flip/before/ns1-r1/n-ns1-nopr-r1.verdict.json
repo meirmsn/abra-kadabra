@@ -1,0 +1,153 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "1337cc02b6df0d6d3a13d018b2014c84b897b959",
+  "base": "9644a31035ed6b12085e670304b133a76853fa30",
+  "branch": "eval-run/n-ns1-nopr-r1",
+  "spec": "specs/item-categories.md",
+  "intent": "spec",
+  "pr": null,
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "5dd9585d-bdac-4462-9da2-44ef0774ea19",
+    "cost_usd": 0.0991693
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-1' checks seed rows, UNIQUE, CHECK, nullable column, index, and tagged items; migrations/0003 matches."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' covers a title-only insert (null category) and a FOREIGN KEY rejection."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' checks id order, the labelled markup and the unlabelled <li>."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks the link order (case-insensitive), hrefs, a category with no items, and All being the only current link."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "Two 'AC-5' tests cover the Work-only list, current link, and the &x=1 and ?x=1 equivalences."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks the 200 status, the message, no <li>, and the current link."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test 'AC-7' checks the escaping, the encoded href, and that following the link lists the item."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "test.each 'AC-8' covers all five URLs: 404, message, Go back link, script, no <li> and no <nav>."
+    },
+    {
+      "item": "AC-9",
+      "met": true,
+      "evidence": "test 'AC-9' checks HEAD statuses 200, 200 and 404."
+    },
+    {
+      "item": "AC-10",
+      "met": false,
+      "evidence": "This is a review-only browser step and I could not run a browser. The script also adds an unspecified `history.length > 1` condition. The spec's step 'navigate to /?category=Wrok' is ambiguous: typing the URL leaves no referrer, so it would land on / and not on Home. Nothing in the repo demonstrates the flow."
+    },
+    {
+      "item": "AC-11",
+      "met": true,
+      "evidence": "routes.json lists the route. tests/traffic-config.test.sh accepts a query route and rejects whitespace, '#' and a missing slash. test/traffic.test.js records path plus query. The 'AC-11' test in index.test.js checks that every listed route answers 2xx."
+    },
+    {
+      "item": "AC-12",
+      "met": true,
+      "evidence": "The existing healthz, 404, 405, h1 and 'No items yet.' tests remain, and the First item assertion is updated to the AC-3 markup. Those tests are not named AC-12 in their titles."
+    },
+    {
+      "item": "AC-13",
+      "met": true,
+      "evidence": "apply-migrations.js drops the tables in a batch with deferred foreign keys. The 'AC-13' test adds a categorised row and checks that the reset happened (count is 4)."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "medium",
+      "lens": "spec",
+      "item": "AC-10",
+      "file": "src/index.js",
+      "what": "The Go back handler goes back only if the referrer is same-origin AND `history.length > 1`. The spec's decision says same-origin referrer alone, and it rejects `history.length > 1` as a criterion. AC-10 has no demonstrated browser evidence.",
+      "fix": "Drop the `history.length > 1` condition, or record the owner's call in the spec. Run the AC-10 steps in a browser and note the result."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-12",
+      "file": "test/index.test.js",
+      "what": "The state-table rows for 200 pages (Go back hidden, filter links shown on an empty table) are not asserted. The existing 'No items yet.' test only checks the message. AC-12's existing tests are not named by AC id.",
+      "fix": "In the 'No items yet.' test and the 200 tests, also assert that the nav is present and that no 'Go back' link is shown. Name the AC-12 tests."
+    }
+  ],
+  "blocking": 1,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec's decisions, apart from the extra history.length condition in Go back."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "The spec's go is recorded in a commit before the implementation. No acceptance item was edited after the go."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests cover AC-1 to AC-9, AC-11 and AC-13, and would fail against broken code. I did not run the suite here; CI runs it."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README is updated for the filter and the 404 on a bad link."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The queries are parameterised, and the handling of an empty or repeated category value is correct."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Names are HTML-escaped and URL-encoded and SQL is bound. I found no instructions planted in the content."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no UI framework or stylesheet files; the review cannot cover design in a browser."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "A browser flow exists only for AC-10, which is review-only, and I could not run a browser."
+    },
+    {
+      "lens": "pr",
+      "applies": false,
+      "note": "No PR words were given."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:57:35Z"
+}

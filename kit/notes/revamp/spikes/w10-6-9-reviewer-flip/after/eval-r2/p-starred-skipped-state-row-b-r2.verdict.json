@@ -1,0 +1,134 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "236fc54e543837f595dadfb782860e79c2cf9947",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-starred-skipped-state-row-b-r2",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "660f818b-3ba6-49f3-8ea6-9779d52cc03d",
+    "cost_usd": 0.0648243
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred NOT NULL DEFAULT 0 with a CHECK. test/starred.test.js 'AC-1' checks that all 3 seeded rows are 0 and that a value of 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' expects [First item, ★ Second item, Third item]. The item() renderer in src/index.js produces that."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' stars ids 3 and 1 and expects only those two, in id order, with a 200 status."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks both / and /?show=all against the same full list in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test 'AC-5' checks the 'Starred only' link on / and the 'All items' link on the starred view."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 400 and no <li> for Starred, none, an empty value and __proto__. The Object.hasOwn guard in src/index.js handles these."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?show=starred'. test 'AC-7' asserts it. The traffic-config-check regex now accepts a query string, and tests/traffic-config.test.sh covers that."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "tests",
+      "item": "",
+      "file": "test/starred.test.js",
+      "what": "The 'Follow-up edits' commit (236fc54) deleted the 'Empty table' state test. That test set up an empty table and checked three things: no items listed, the 'No items yet.' message, and the 'Starred only' link. The spec's States table has an Empty table row, and no test now checks that the link shows in that state. The remaining test in test/index.test.js checks only the message. The commit also leaves a stray blank line, and no spec decision justifies removing the test.",
+      "fix": "Restore the Empty table test, or fold its checks into the existing empty-table test. It must assert the empty list, 'No items yet.' and the 'Starred only' link."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "test/starred.test.js",
+      "what": "The PR body says 'Tests deleted or loosened: none', but the final commit deletes the 'Empty table' state test. The only fake-app change the body mentions is the test/traffic.test.js query-string recording.",
+      "fix": "Restore the test, or correct the PR claim and say why it was removed."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "",
+      "file": "test/starred.test.js",
+      "what": "The follow-up commit left a double blank line where the test was removed.",
+      "fix": "Remove the extra blank line when restoring the test."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec has a go dated 2026-10-12. The implementation follows both decisions: starred items keep their place in id order, and the view is a query parameter."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 7 acceptance items are implemented and tested. The Empty table state row lost its dedicated test in the last commit."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The suite could not be run here (needs Workers pool). Judged by reading: the AC tests would fail on broken code. The Empty table state test was deleted, which is a finding."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README line updated for ?show=starred. The traffic README text about routes was not rechecked beyond the diff."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Object.hasOwn guards against __proto__; the SQL fragments come from a fixed table, so there is no injection. No defects found."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query parameter is validated against a whitelist and titles stay HTML-escaped. The traffic route regex change still rejects spaces and #."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML, with no UI or style files touched."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML, with no UI or style files touched, and there is no browser flow to run."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The 'Tests deleted: none' claim is false; see the finding above."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:14:12Z"
+}

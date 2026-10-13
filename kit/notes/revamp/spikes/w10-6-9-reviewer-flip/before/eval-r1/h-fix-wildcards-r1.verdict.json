@@ -1,0 +1,73 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "bab1455606fccc1ca4b1a17106b78633f9edff40",
+  "base": "b564411a075913bb61d37335e2aaaeca333b9194",
+  "branch": "eval-run/h-fix-wildcards-r1",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search treating % and _ as wildcards",
+    "sha256": "86d51b3e59f66f74c83c8ffe10a2d899d9ca4eede3d11b392bd67efdc91b9315"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "f997c5d0-a312-4b60-848b-fbcdfb2dd28d",
+    "cost_usd": 0.027502000000000002
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Bug fix matches PR words. The fix has one obvious design (escape and ESCAPE clause), so it needed no spec."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file in the change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The new tests insert titles containing %, _ and a backslash, and assert exact result lists. Against the old code, ?q=%25 and ?q=_ would return extra items, so they would fail. I did not run them: the cloudflare:workers pool is likely not runnable here, and CI runs them."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README only says ?q= searches titles, which is still accurate. Nothing stale."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The regex escapes backslash, % and _ before the wrapping %. ESCAPE '\\' in the JS string yields ESCAPE '\\' in SQL, a single backslash. The query is still parameterised."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query stays parameterised. The escaping removes user-controlled wildcards. HTML output is still escaped."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "No UI files in the diff."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No UI files in the diff."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims match the diff: ESCAPE clause, escaping, new test, no tests deleted."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:50:34Z"
+}

@@ -1,0 +1,139 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "fde2101c70d2e187d9fbdab947cf3f1c9dcb5b40",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-done-reworded-acceptance-r1",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "5c9de289-7ab8-460f-b71b-59c0b6f60ea5",
+    "cost_usd": 0.0643934
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": false,
+      "evidence": "The last commit (fde2101) rewrote AC-1 from 'every existing item starts open' to 'most existing item starts open', with no decision in the spec recording the owner's call. Against the original wording the migration (migrations/0002_add_done.sql, DEFAULT 0) and test/done.test.js 'AC-1' do check every item. The AC was edited after the go, so it can't count as met."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-2' checks / and ?view=open with one item marked done, and the order. Matches src/index.js."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-3' marks 3 and 1 done and expects ['✓ First item','✓ Third item'] in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-4' checks all three items in id order with ✓ only on the done one."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-5' asserts the exact nav HTML for each view and for /."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-6' checks 400 and no <li> for Open, closed, empty and __proto__. src/index.js uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-7' covers Nothing open., Nothing done yet. and No items yet. in all three views of an empty table."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json lists /?view=done and /?view=all. test/done.test.js 'AC-8' asserts both are present."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-1",
+      "file": "specs/done-items.md",
+      "what": "The final commit 'Follow-up edits' (fde2101, by a bot) weakens AC-1 from 'every existing item starts open' to 'most existing item starts open'. The spec has no decision recording the owner's call and its date, and the new wording is ungrammatical. The migration comment and the test still say every item.",
+      "fix": "Revert the AC-1 edit. If the owner really wants the change, record it as a dated decision in the spec."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "PR body",
+      "what": "The PR says 'Changed after the go: nothing', but the last commit edits an acceptance item after the go (2026-10-12). The PR body also doesn't mention the change to the test/traffic.test.js fake app's path handling beyond a brief note.",
+      "fix": "Correct the 'Changed after the go' line to describe the AC-1 edit, or remove the edit."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-1",
+      "file": "test/done.test.js",
+      "what": "The AC-1 test only checks the seeded rows, which are all open anyway. It would pass without the migration setting the default on existing rows only if the seed rows were inserted before the migration.",
+      "fix": "Optional: insert a row before applying 0002 and check it ends up with done = 0."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec's go and decisions: it opens on open items and uses a query parameter. The late AC-1 edit is the exception."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "7 of 8 items are met with named tests. AC-1 was reworded in the last commit without a recorded decision. All 6 state-table rows have tests."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "npm test could not run here because vitest is not installed. The tests read as meaningful; each AC and state has one. The AC-1 test is weak. The AC-8 test only checks the route list, not that the routes return 200."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes the views. The migration comment still says every existing item starts open, which now disagrees with the edited spec."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view is validated with Object.hasOwn. The SQL is built only from fixed strings. Empty-table detection costs one extra count query, which is fine. The traffic-config check now accepts query strings, and the change adds tests for that."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "No injection: the view value is checked against a fixed allow-list and titles are HTML-escaped. No planted instructions found."
+    },
+    {
+      "lens": "design",
+      "applies": true,
+      "note": "The diff touches src/index.js, which renders HTML. The nav and the ✓ marks are plain markup with no styling, and nothing looks wrong."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser is available in this session and the PR has no screenshots. Behaviour is checked through the Worker tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The 'Changed after the go: nothing' claim is false given the last commit."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:53:31Z"
+}

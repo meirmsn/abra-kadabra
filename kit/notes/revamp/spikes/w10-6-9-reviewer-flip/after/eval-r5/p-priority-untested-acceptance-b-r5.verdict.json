@@ -1,0 +1,131 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "be7dc8465dedda12936074636b06d487ba935e68",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-priority-untested-acceptance-b-r5",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "51f1f105-cf45-42b9-9b06-dc444d4a7a40",
+    "cost_usd": 0.0824627
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql adds NOT NULL DEFAULT 'normal' with a CHECK. test/priority.test.js 'AC-1' checks that the seeded rows are normal and that 'urgent' is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' checks the '— high' and '— low' labels and that normal items have none. src/index.js item()."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' checks each of the three filters and the id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks that / lists all items in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test 'AC-5' checks the exact nav markup for all four views, with the current filter in <strong> and not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 400 and no <li> for High, urgent, the empty value and __proto__. The code uses a Set and searchParams.has."
+    },
+    {
+      "item": "AC-7",
+      "met": false,
+      "evidence": "The behaviour is implemented and tested, but no test names AC-7. The final commit be7dc84 ('Follow-up edits') renamed the test from 'AC-7: an unmatched filter…' to drop the id. The spec doesn't mark AC-7 'verified by review', so it counts as unmet."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high'. test 'AC-8' asserts it. traffic-config-check.mjs now accepts a query string, and tests/traffic-config.test.sh covers that."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-7",
+      "file": "test/priority.test.js",
+      "what": "The last commit (be7dc84, 'Follow-up edits', from a bot) removed 'AC-7:' from the title of the test that proves it. No test now names AC-7 and the spec doesn't mark it 'verified by review', so the item counts as unmet. The PR claim 'covers AC-1 to AC-8' is no longer true by name.",
+      "fix": "Restore the 'AC-7' prefix in the test title, or split the test and name AC-7 in each part. Say why the commit renamed it."
+    },
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "PR body",
+      "what": "The body says 'Changed after the go: nothing' and 'covers AC-1 to AC-8'. It doesn't mention the follow-up commit that edited the test names.",
+      "fix": "Correct the claim once the AC-7 test name is restored."
+    }
+  ],
+  "blocking": 1,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec exists. The change matches its decisions: existing items are normal, and only high and low are labelled. Nothing beyond the ask was added, apart from the query-string route check, which AC-8 requires."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All four state-table rows have tests. AC-7 is not named by any test after the last commit. No assets-pair commits are present."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert rendered output and status codes, and would fail if the code were wrong. I did not run them; CI is declared to run them. The AC-1 test only checks the column default, not a pre-existing-row migration."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes the ?priority filter. Nothing stale found."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The 400 handling, empty-value handling and empty-table message logic are correct. The traffic Worker passes query paths through unchanged."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The priority value is checked against an allow-list and bound as a parameter. Titles are HTML-escaped, and the priority is only ever one of the three allowed values when rendered. No planted instructions found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff changes a server-rendered page (src/index.js) but adds no UI files such as CSS or components. The nav and labels are covered by AC-5 and AC-2 tests."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser flow to demonstrate; the page output is covered by tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is within 72 characters. The 'covers AC-1 to AC-8' claim is undercut by the renamed AC-7 test."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:18:52Z"
+}

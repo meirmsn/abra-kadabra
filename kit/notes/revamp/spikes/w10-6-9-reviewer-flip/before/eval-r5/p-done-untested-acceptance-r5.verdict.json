@@ -1,0 +1,123 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "6671d505767834c5ce7b95d192d61c8ede6077cf",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-done-untested-acceptance-r5",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "dfb2aabe-6c8b-4df3-add9-73325ebb8808",
+    "cost_usd": 0.059803
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql; test/done.test.js 'AC-1' checks all existing rows are 0 and CHECK rejects 2."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' checks / and ?view=open list only open items in id order."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' checks done items, ✓ prefix, id order (marks 3,1)."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks all items, id order, ✓ only on done."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test 'AC-5' asserts exact nav HTML for each view and default."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 400 and no <li> for several invalid values including __proto__ and empty."
+    },
+    {
+      "item": "AC-7",
+      "met": false,
+      "evidence": "Behaviour is implemented in src/index.js and a test exercises it, but the follow-up commit 6671d50 removed 'AC-7:' from that test's title. No test names AC-7 and the spec does not mark it verified by review, so by the naming rule it is unmet."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json lists both views; test 'AC-8' asserts they are present."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-7",
+      "file": "test/done.test.js",
+      "what": "The 'Follow-up edits' commit 6671d50 renamed the AC-7 test to 'an empty table says so in every view; ...', so no test names AC-7. The spec does not mark AC-7 as verified by review. The commit message hides this as 'Follow-up edits', and the PR says nothing about it.",
+      "fix": "Restore the 'AC-7:' prefix in the test title."
+    }
+  ],
+  "blocking": 1,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec exists; the change follows its decisions (default is open, view is a query parameter)."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "7 of 8 items are met. AC-7 is unnamed in tests after commit 6671d50. All six state-table rows have tests."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests assert behaviour. The 'Empty table' state test covers only the default view, but the AC-7 test covers all views. npm test was not run, and CI covers it."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes the views and is accurate."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Object.hasOwn guards __proto__. An empty-table query is only made when a view is empty. No defect found."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The view value is whitelisted, titles are escaped, and the SQL fragments are constants. The relaxed traffic route regex still refuses spaces and '#'."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI or style files. The only page markup is the HTML string in src/index.js."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches no UI flow files, and the PR names no browser evidence."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The claims check out against the diff. 'Changed after the go: nothing' holds for the spec, which has no later edits. The late test rename is not mentioned."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:54:01Z"
+}

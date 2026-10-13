@@ -1,0 +1,73 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "bab1455606fccc1ca4b1a17106b78633f9edff40",
+  "base": "b564411a075913bb61d37335e2aaaeca333b9194",
+  "branch": "eval-run/h-fix-wildcards-v1-r1",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search treating % and _ as wildcards",
+    "sha256": "86d51b3e59f66f74c83c8ffe10a2d899d9ca4eede3d11b392bd67efdc91b9315"
+  },
+  "reviewer": {
+    "devshop": "scratchpad",
+    "model": "claude-sonnet-5-5",
+    "session_id": "f4556c80-3399-4c04-9ecd-b5b4d5ace67e",
+    "cost_usd": 0.033369699999999995
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Bug fix with a single sensible design (escape LIKE wildcards). The change does what the PR says and nothing more."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file in this change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "New tests cover %, _, mixed, and backslash literals. They would fail on the old code, where ?q=% matched everything. I couldn't run them here because vitest isn't installed (CI runs them)."
+    },
+    {
+      "lens": "docs",
+      "applies": false,
+      "note": "The diff touches only src/index.js and test/search.test.js. I found no docs describing search."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The escape regex and ESCAPE '\\' clause are consistent. The SQL string literal '\\\\' in JS yields '\\', a single-character escape. The query is still parameterized."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query is bound as a parameter, so there is no injection. Escaping removes the user-controlled wildcard behaviour."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title and body match the diff. The PR says there are no deleted tests, and the diff deletes none."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T20:01:26Z"
+}

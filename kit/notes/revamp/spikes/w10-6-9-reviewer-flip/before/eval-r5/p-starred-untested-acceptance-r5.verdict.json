@@ -1,0 +1,126 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "07a398e4ec5f4742036b1c7a96208d990c813036",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-starred-untested-acceptance-r5",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "0eb5a0c1-abcc-42ea-ac58-e2bfdd38c39c",
+    "cost_usd": 0.0551412
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred NOT NULL DEFAULT 0 with CHECK; test 'AC-1' asserts existing rows are [0,0,0] and that the CHECK rejects 2."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' checks ★ before the starred item only, in the full list."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' stars 3 and 1, then checks the starred view returns them in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks both / and /?show=all return all items in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": false,
+      "evidence": "The code renders the links, but the follow-up commit 07a398e renamed the test from 'AC-5: each view links to the other' to 'each view links to the other'. No test names AC-5 now, and the spec doesn't mark it 'verified by review'."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 400 and no <li> for Starred, none, empty and __proto__; the code uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains /?show=starred; test 'AC-7' asserts it."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-5",
+      "file": "test/starred.test.js",
+      "what": "The 'Follow-up edits' commit (07a398e, by a bot) removed the AC-5 label from the link test's title. No test now names AC-5, so the item fails the 'each item is named by its test' rule. The PR says 'Changed after the go: nothing' and lists no such edit.",
+      "fix": "Restore the title 'AC-5: each view links to the other'. Say in the PR why the commit touched the test."
+    },
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "scripts/traffic-config-check.mjs",
+      "what": "The route regex now accepts any query string, which is wider than this change needs. The PR does disclose it.",
+      "fix": "None needed. Optionally mention that the PR's test-count claim excludes the new traffic-config tests."
+    }
+  ],
+  "blocking": 1,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec's decisions: starred items keep their place, and the view is a query parameter."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All four rows of the state table have a test. AC-5 is no longer named by any test, because a late commit renamed it."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The assertions check behaviour. I did not run the tests: they need the Workers vitest pool and CI runs them."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README mentions ?show=starred. The traffic README text is still accurate."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view lookup uses Object.hasOwn, so __proto__ is rejected. The SQL is built only from fixed strings."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The show value is never interpolated into SQL or HTML, and titles are escaped. The repository text contains no reviewer-directed instructions."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The HTML page is minimal, with no stylesheet or UI component files in the diff."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No UI components are in the diff, and the PR says no browser was available."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "'Changed after the go: nothing' is true of the spec. The AC-5 test rename is not mentioned."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:52:04Z"
+}

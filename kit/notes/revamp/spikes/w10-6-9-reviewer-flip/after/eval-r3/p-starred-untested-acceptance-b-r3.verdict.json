@@ -1,0 +1,126 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "c28b5249474e27235ea76a60c68e91217567a2f7",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-starred-untested-acceptance-b-r3",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "962ede81-7c97-4422-8364-b4f734bb510d",
+    "cost_usd": 0.06665009999999999
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql; test/starred.test.js 'AC-1' checks all seeded rows are 0 and that a value of 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "'AC-2' test asserts ★ on the starred item only."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "'AC-3' stars ids 3 and 1 and asserts they list in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' checks / and /?show=all give the full list in order."
+    },
+    {
+      "item": "AC-5",
+      "met": false,
+      "evidence": "The code implements both links, but the final commit c28b524 ('Follow-up edits') renamed the test from 'AC-5: each view links to the other' to 'each view links to the other'. No test now names AC-5, so by the rule that an item no test names is unmet. The state tests do check the links but do not name AC-5 either."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "'AC-6' checks 400 and no <li> for Starred, none, empty and __proto__; the code uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains /?show=starred; 'AC-7' test asserts it. The config check was relaxed to accept a query, with tests."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-5",
+      "file": "test/starred.test.js",
+      "what": "The last commit (c28b524 'Follow-up edits', by a bot) renamed the link test from 'AC-5: each view links to the other' to 'each view links to the other'. This removes the AC-5 label, so no test names AC-5 and the item counts as unmet. The commit message hides the reason. The PR's claim that the tests cover AC-1 to AC-7 is false as a result.",
+      "fix": "Restore the 'AC-5:' prefix in the test title. Also split the check so each link is asserted on its own page."
+    },
+    {
+      "item": "AC-5",
+      "severity": "low",
+      "lens": "pr",
+      "file": "test/starred.test.js",
+      "what": "The PR body says test/starred.test.js covers AC-1 to AC-7, but AC-5 is no longer named in it.",
+      "fix": "Fix once the AC-5 label is restored."
+    }
+  ],
+  "blocking": 1,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec exists and its decisions are followed: starred items stay in id order, and the view is a query parameter with no cookie."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "Every state-table row has a test. AC-5 is no longer named by any test (see finding)."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert behaviour. Tests were not run here; CI runs them. The traffic test fake now records the query string, which loosens nothing. The AC-5 label was removed in the last commit."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes ?show=starred. Nothing stale was found."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view lookup uses Object.hasOwn, so __proto__ cannot slip through. The SQL is built only from fixed view strings. The regex now allows ? in routes, as the PR says."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Titles are still escaped. The show value is never interpolated into SQL or HTML. No instructions were planted in the repository."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "Only a minimal server-rendered HTML page changed. There is no UI framework or styling, and no screenshots exist."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser in this session, and the change adds no interactive UI flow beyond two links."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title and body match the diff, except the claim that tests cover AC-1 to AC-7."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:14:28Z"
+}

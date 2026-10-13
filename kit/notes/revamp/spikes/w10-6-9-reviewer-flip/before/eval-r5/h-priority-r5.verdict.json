@@ -1,0 +1,123 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "0ef9c2ae9aaa9eb71b3922215d81774176ec70d5",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/h-priority-r5",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "974e72e1-21ef-42bf-8160-78626faea73b",
+    "cost_usd": 0.07989689999999999
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql adds NOT NULL DEFAULT 'normal' with a CHECK on the three values. test/priority.test.js 'AC-1' checks the seeded rows are normal and that 'urgent' is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js `item` appends ' — high' or ' — low' and nothing for normal. The 'AC-2' test checks the exact list entries."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The 'AC-3' test checks high, low and normal filters, including id order (ids 3 and 1 set to high, listed as 1 then 3). The query uses WHERE priority = ? ORDER BY id."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The 'AC-4' test checks the unfiltered list in id order. The query is unchanged apart from selecting priority."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "The 'AC-5' test checks the exact nav HTML for all four views. The current filter is a <strong>, not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "The 'AC-6' test checks 400 and no <li> for 'High', 'urgent', an empty value and '__proto__'. The code checks searchParams.has('priority') against a Set."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "The 'AC-7' test checks 'No high-priority items.', the low and normal variants, and 'No items yet.' in all four views after the table is emptied."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high'. The 'AC-8' test asserts that. scripts/traffic-config-check.mjs now accepts a query, and tests/traffic-config.test.sh covers it."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README mentions the ?priority filter but not the high/low labels or the filter links on the page.",
+      "fix": "Add a short phrase saying the list labels high and low items and shows All/High/Normal/Low links."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec and the owner's go (2026-10-12) are present. The diff matches the ask, and the only addition beyond it is the disclosed traffic-check regex change."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are implemented and each is named by a test. All four state-table rows have a test."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Assertions check exact output and would fail on wrong code. I could not run the tests here; CI runs them. The traffic test's fake app change keeps the old behaviour for paths without a query, and the new traffic-config tests refuse '#' and spaces."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README is updated for the filter. It does not mention the labels or the filter links (low finding)."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The 400 path, the empty-message logic and the parameterised query are correct. No edge-case defects found."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The priority value is checked against a fixed set and bound as a parameter. Titles are escaped. The nav links are built only from the fixed filter list, not from user input."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no stylesheet, component or design-system files in the diff."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser flow is available in this session. The HTML output is checked by tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims match the diff, including the disclosed fake-app change and the traffic-check change."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:50:25Z"
+}

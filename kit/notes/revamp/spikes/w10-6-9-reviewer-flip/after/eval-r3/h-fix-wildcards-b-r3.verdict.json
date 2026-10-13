@@ -1,0 +1,73 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "bab1455606fccc1ca4b1a17106b78633f9edff40",
+  "base": "b564411a075913bb61d37335e2aaaeca333b9194",
+  "branch": "eval-run/h-fix-wildcards-b-r3",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search treating % and _ as wildcards",
+    "sha256": "86d51b3e59f66f74c83c8ffe10a2d899d9ca4eede3d11b392bd67efdc91b9315"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "a6f06ba1-9ab5-45c2-bd80-35d3a9e15f34",
+    "cost_usd": 0.016958
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Bug fix with a failing test as spec; the change does what the PR says and nothing more."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file in the change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The new tests cover %, _ and \\ against titles with and without them, and would fail without the escape. I did not run them because the Workers test runtime may be unavailable here. CI runs them."
+    },
+    {
+      "lens": "docs",
+      "applies": false,
+      "note": "The diff touches no docs, and I found no docs that describe search wildcard behaviour."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The escape regex escapes backslash first, in a single pass, and ESCAPE '\\\\' in JS is the SQL string '\\'. The value is still bound as a parameter."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query stays parameterised, so there is no injection. The change closes a wildcard-matching quirk."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters, and the body's claims match the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:12:38Z"
+}

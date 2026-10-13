@@ -1,0 +1,131 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "353b6b70662295cebd44a1c1641e87e6309e658f",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-priority-untested-acceptance-r1",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "942ad5ec-de6c-4d86-8238-b6f74119d95e",
+    "cost_usd": 0.0563173
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "Migration 0002 adds the column with a CHECK and DEFAULT 'normal'. test/priority.test.js 'AC-1' checks the existing rows are normal and that 'urgent' is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "The 'AC-2' test checks the '— high' and '— low' labels and that normal items have none."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The 'AC-3' test checks high, low and normal filters in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The 'AC-4' test checks '/' lists all items in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "The 'AC-5' test checks the exact nav markup for all four views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "The 'AC-6' test checks status 400 and no <li> for High, urgent, empty and __proto__."
+    },
+    {
+      "item": "AC-7",
+      "met": false,
+      "evidence": "The behaviour is implemented and tested, but commit 353b6b7 ('Follow-up edits') renamed the test and removed the 'AC-7' tag from its title. No test now names AC-7, and the spec has no 'verified by review' mark for it."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high'. The 'AC-8' test imports the file and checks it."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-7",
+      "file": "test/priority.test.js",
+      "what": "The last commit, 353b6b7 'Follow-up edits', was made by a bot and strips 'AC-7:' from the test title. No test names AC-7 any more, so the item is unmet under the naming rule. The PR claims the tests cover AC-1 to AC-8, and that is no longer true.",
+      "fix": "Restore 'AC-7' in the test title. Drop the unexplained follow-up commit, or justify it."
+    },
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README mentions the filter but not that high and low items are labelled, and not that other values answer 400.",
+      "fix": "Add one line about the labels and the 400 response."
+    }
+  ],
+  "blocking": 1,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec's go and its decisions: existing items are normal, and only high and low are labelled."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "AC-7 is unnamed by any test after the last commit. The state table rows each have a test in the 'states' describe block."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The assertions check behaviour. I did not run the tests. The traffic-config shell test additions cover both the query string and the refused characters."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README is only lightly updated."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The SQL is parameterized, the title is escaped, and an empty priority value correctly gives 400."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "No injection found. The priority value is checked against a whitelist and bound as a parameter."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The change has only minimal server-rendered HTML and no UI or style files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser session, so no UI flow was demonstrated."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The claim that the tests cover AC-1 to AC-8 is false after the last commit. The body also doesn't mention that commit."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:56:13Z"
+}
