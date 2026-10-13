@@ -85,6 +85,19 @@ EOF
 variant inert "s.replace('theme.js', 'inert.js')"
 run "AC-3: a toggle that doesn't override the system fails" 1 "theme-toggle" "file://$site/inert.html"
 
+cat >"$site/darkonly.js" <<'EOF'
+// A toggle that can switch to dark but never to light: from a dark system it changes nothing.
+let dark = false;
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('[data-theme-toggle]')) return;
+  dark = !dark;
+  if (dark) document.documentElement.dataset.theme = 'dark';
+  else delete document.documentElement.dataset.theme;
+});
+EOF
+variant darkonly "s.replace('theme.js', 'darkonly.js')"
+run "AC-3: a toggle that overrides only one way (never to light) fails" 1 "system dark" "file://$site/darkonly.html"
+
 cat >"$site/forget.js" <<'EOF'
 // A toggle that switches the theme but never keeps the choice.
 const order = ['system', 'light', 'dark'];

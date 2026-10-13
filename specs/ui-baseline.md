@@ -28,12 +28,15 @@ just in case" and "should be responsive, not just phone" (owner, 2026-10-13).
 - The theme follows the system by default, and a theme toggle in the default page lets the viewer
   override it (owner, 2026-10-13). The toggle cycles system → light → dark → system and names the
   current choice; the choice is kept in the viewer's browser (`localStorage`, every access in
-  `try`/`catch`, so a blocked store just means "system"); a small `theme.js`, inlined in `<head>`,
-  sets `data-theme` on `<html>` before the first paint so there is no flash. Without JavaScript
-  the page follows the system. CSS: light values on `:root`; dark values on `:root[data-theme="dark"]`
-  and, identically, on `:root:not([data-theme="light"])` inside `@media (prefers-color-scheme:
-dark)`. A system font stack, no web fonts (nothing to fetch, nothing for a sandbox to block)
-  (Claude's proposal for the mechanism, 2026-10-13)
+  `try`/`catch`, so a blocked store just means "system"); a small `theme.js`, loaded in `<head>`
+  as a plain script or inlined there, sets `data-theme` on `<html>` before the first paint so there
+  is no flash. Without JavaScript the page follows the system. CSS: light values on `:root`; dark
+  values on `:root[data-theme="dark"]` and, identically, on `:root:not([data-theme="light"])`
+  inside `@media (prefers-color-scheme: dark)`. A system font stack, no web fonts (nothing to
+  fetch, nothing for a sandbox to block) (Claude's proposal for the mechanism, 2026-10-13)
+- Changed after the go: "inlined in `<head>`" became "loaded in `<head>` as a plain script or
+  inlined there", matching the guideline and the example, after the reviewer's low finding; the
+  owner chose to fix the reviewer's findings ("1, go ahead", owner, 2026-10-13)
 - Responsive across phone, tablet and desktop, not just phone (owner, 2026-10-13): one column on a
   phone, the page column widening and cards flowing into two columns from 768 px and three from
   1280 px, with a maximum line length for text. Checked at 375, 768 and 1280 px (Claude's proposal
