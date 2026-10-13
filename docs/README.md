@@ -81,13 +81,15 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   left, images pinned to a commit and never on `raw.githubusercontent.com`); whether the words are
   true is the reviewer's job. Proven by
   [`tests/pr-body-check.test.sh`](../tests/pr-body-check.test.sh).
-- PR screenshots: [`runtime/scripts/pr-assets.sh`](../runtime/scripts/pr-assets.sh) uploads them
-  through GitHub's REST git-data API as one orphan commit kept by its own ref,
-  `refs/devshop-assets/<branch>/<head12>-<commit12>` (not a branch: never cloned, starts no
-  workflow; never moved, so earlier links stay), and prints the image lines, pinned to that commit,
-  for the body's **Screenshots:**. It reads everything back and fails closed. Proven by
-  [`tests/pr-assets.test.sh`](../tests/pr-assets.test.sh) (stub `gh`). A cloud session's GitHub
-  proxy refuses that API (HTTP 403), so it can't upload from one yet; the route is open (W10.6.9).
+- PR screenshots: [`runtime/scripts/pr-assets.sh`](../runtime/scripts/pr-assets.sh) puts them in
+  one parentless commit and moves the PR's branch to a merge of HEAD and that commit whose files
+  are HEAD's, so the PR's files and diff don't change and nothing needs removing. `ship`'s push of
+  the branch carries them to GitHub, which keeps them with the PR after the merge. It prints the
+  image lines (`https://github.com/<owner>/<repo>/raw/<sha>/<file>`) for the body's
+  **Screenshots:**, and refuses a repo that allows merge commits or rebase merges (they would carry
+  the images into the default branch). Proven by
+  [`tests/pr-assets.test.sh`](../tests/pr-assets.test.sh), which also walks a PR's life on a local
+  remote: retakes, fix rounds, a squash merge, the branch deleted, a fresh clone.
 - Spec: [`runtime/templates/spec.md`](../runtime/templates/spec.md) is the template for a change's
   spec in the project's `specs/` (TARGET § L3 Intent 2): intent, decisions, acceptance items
   `AC-<n>`, core flow and states for UI, out of scope, and the owner's recorded "go".

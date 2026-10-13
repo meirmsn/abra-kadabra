@@ -30,7 +30,9 @@ REQUIRED = {
 }
 SUMMARY_MAX, TITLE_MAX = 120, 72
 COMMENT = re.compile(r"<!--.*?-->", re.S)
-CODE = re.compile(r"^ {0,3}(`{3,}|~{3,}).*?^ {0,3}\1|(`+)[^`\n].*?\2", re.S | re.M)  # fences, inline code
+# Fences, and inline code, which (as in Markdown) never crosses a blank line: a stray backtick can't
+# pair with one paragraphs later and hide what lies between from the checks.
+CODE = re.compile(r"^ {0,3}(`{3,}|~{3,}).*?^ {0,3}\1|(`+)[^`\n](?:(?!\n[ \t]*\n).)*?\2", re.S | re.M)
 HEADING = re.compile(r"^ {0,3}(#{1,2})\s+(.*?)\s*#*\s*$", re.M)
 DETAILS = re.compile(r"<details>\s*<summary>\s*Engineering details\s*</summary>(.*?)</details>", re.S | re.I)
 PREVIEW = re.compile(r"^\*\*Preview:\*\*\s*(.*)$", re.M)

@@ -2163,3 +2163,17 @@ the screenshots on the PR branch as the second parent of a merge commit whose fi
 GitHub mobile app, before and after merge.
 
 **Next**: W10.6.4.
+
+**The one probe push** (owner's go): `git push origin <commit>:refs/devshop-assets/…` from a
+detached worktree (the review guard refuses any push from a branch with an open PR) got `HTTP 403`
+from the session's git proxy; `git ls-remote` shows nothing was created. So a cloud session can push
+only its own branch, and the screenshots ride on it. **Route B, built test-first**:
+`pr-assets.sh` writes the images as a parentless commit S (local `git hash-object`, `mktree`,
+`commit-tree`) and moves the branch to a merge of HEAD and S with HEAD's tree, so the PR's files and
+diff don't change. `ship`'s ordinary push carries S; GitHub keeps it with the PR
+(`refs/pull/<n>/head`) after the merge and the branch's deletion. The script reads the repo's
+merge settings and refuses unless squash is the only method (a merge commit or rebase merge would
+carry S into the default branch). The test walks a PR's life on a local remote: two uploads, a
+retake, a fix round, a squash merge, the branch deleted, a fresh `file://` clone without S; 16 of 16
+mutants killed. The reviewer prompt names the two screenshot commits as not part of the change. The
+PR body check's inline code no longer crosses a blank line (the reviewer's low finding), test first.

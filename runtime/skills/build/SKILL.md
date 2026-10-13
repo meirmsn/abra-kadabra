@@ -50,8 +50,8 @@ scripts named here; run them, never retype them as shell.
   app user's words. Claim only what you have just read from the real signal (CI, the preview).
 - **Screenshots go on the PR, never only in chat:** for a UI change, one per core-flow step and
   state-table state at the final commit; `/opt/devshop-current/scripts/pr-assets.sh <image>...`
-  uploads them and prints the lines for **Screenshots:**. Exit 2 (always from a cloud session until
-  W10.6.9): ask the owner.
+  adds them to the branch without changing a file and prints the lines for **Screenshots:**; exit
+  2: ask the owner. After a new commit, take and add them again.
 - Once `/opt/devshop-current/scripts/pr-body-check.py <body file> "<title>"` passes, ship:
   `/opt/devshop-current/reviewer/ship.sh --title "<title>" --body-file <body file>`. Only on the
   independent reviewer's pass does it push, create or update the PR (ready) with those exact words
