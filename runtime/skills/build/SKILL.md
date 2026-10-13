@@ -50,7 +50,8 @@ scripts named here; run them, never retype them as shell.
   the PR goes ready.
 - Push the branch, then create the PR in its own call, ready for review, not as a draft, with the
   title and body given in the call (`--title` and `--body-file`, or the GitHub tool): it opens only
-  once the review passes (TARGET Verify 2). **Don't run the reviewer yourself:** the devshop's hook runs the independent reviewer
-  before the PR is created and before each later push (W10.6.7), and posts its verdict on the PR. A
-  failing review blocks the call with its findings: fix, commit, try again.
+  once the review passes (TARGET Verify 2). **Don't run the reviewer yourself:** the devshop's hook
+  runs the independent reviewer before the PR is created and before each later push (W10.6.7), and
+  posts its verdict on the PR. A failing review blocks the call with its findings: fix, commit, try
+  again.
 - Then tell the owner in chat: the PR link and its one-line summary.

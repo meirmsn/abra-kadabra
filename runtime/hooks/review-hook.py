@@ -27,7 +27,7 @@ REVIEWER = os.path.join(os.path.dirname(HERE), "reviewer")
 REVIEW, RENDER, WORDS = (os.path.join(REVIEWER, f) for f in ("review.sh", "pr-comment.sh", "pr-words.sh"))
 OUTCOME = {0: "pass", 1: "fail", 2: "could-not-run", 3: "ask-owner"}
 GITHUB_TOOL = re.compile(r"^mcp__.*github.*__([a-z_]+)$")
-REMOTE_COMMIT = ("push_files", "create_or_update_file", "delete_file")
+REMOTE_COMMIT = ("push_files", "create_or_update_file", "delete_file", "update_pull_request_branch")
 REVIEW_TIMEOUT = 1100  # seconds; review.sh stops itself at 900
 OWNER = "Stop and tell the owner what happened, with the line above; don't retry until they decide."
 
@@ -72,7 +72,7 @@ def classify(data):
                 "number": inp.get("pullNumber"), "title": inp.get("title"), "body": inp.get("body"),
                 "base": inp.get("base")}
     if m and m.group(1) in REMOTE_COMMIT:
-        return {"kind": "remote-commit", "slug": f"{inp.get('owner')}/{inp.get('repo')}",
+        return {"kind": "remote-commit", "slug": f"{inp.get('owner')}/{inp.get('repo')}", "tool": m.group(1),
                 "owner": inp.get("owner"), "branch": inp.get("branch")}
     if tool == "Bash":
         return classify_bash(str(inp.get("command", "")), cwd)
@@ -117,6 +117,10 @@ def segments(command):
     return out
 
 
+GIT_OTHER_REPO = ("--git-dir", "--work-tree", "--namespace")
+CHANGES_DIR = ("cd", "pushd", "popd")
+
+
 def operation(seg):
     """('push', args, dir) | ('create', args, None) | ('edit', args, None) | None for one simple command."""
     i = 0
@@ -127,14 +131,18 @@ def operation(seg):
         return None
     prog = os.path.basename(w[0])
     if prog == "git":
-        j, cdir = 1, None
+        j, cdir, other_repo = 1, None, False
         while j < len(w) and w[j].startswith("-"):
-            if w[j] in ("-C", "-c") and j + 1 < len(w):
+            opt = w[j].split("=", 1)[0]
+            other_repo = other_repo or opt in GIT_OTHER_REPO
+            if w[j] in ("-C", "-c", *GIT_OTHER_REPO) and j + 1 < len(w):
                 cdir = w[j + 1] if w[j] == "-C" else cdir
                 j += 2
             else:
                 j += 1
         if j < len(w) and w[j] == "push":
+            if other_repo:
+                cnr("git --git-dir/--work-tree/--namespace push: push from the worktree, or use git -C <dir>")
             return ("push", w[j + 1:], cdir)
     if prog == "gh" and w[1:3] in (["pr", "create"], ["pr", "edit"]):
         return (w[2], w[3:], None)
@@ -144,7 +152,8 @@ def operation(seg):
 def classify_bash(command, cwd):
     command = strip_heredocs(command)
     try:
-        ops = [o for o in map(operation, segments(command)) if o]
+        segs = segments(command)
+        ops = [o for o in map(operation, segs) if o]
     except ValueError as e:
         if REVIEWED_COMMAND.search(command):
             cnr(f"can't split the command into words ({e})")
@@ -153,6 +162,9 @@ def classify_bash(command, cwd):
         return None
     if len(ops) > 1:
         cnr("this command pushes, creates or edits a PR more than once; run them as separate calls")
+    if ops and any(seg[0] in CHANGES_DIR for seg in segs):
+        cnr("this command changes directory and pushes, creates or edits a PR; run them as separate calls "
+            "(or use git -C <dir>)")
     kind, args, cdir = ops[0]
     cwd = os.path.join(cwd, cdir) if cdir else cwd
     if kind == "push":
@@ -173,9 +185,10 @@ GH_VALUE = {"-t": "title", "--title": "title", "-b": "body", "--body": "body", "
             "--dry-run": "unknowable"}
 
 
-# What the shell would expand inside a word: $(…), `…`, ${…}, $VAR, $1. Quoting is gone once the
-# command is split, so a single-quoted '$X' is refused too.
-SHELL_EXPANSION = re.compile(r"\$[({A-Za-z_0-9]|`")
+# What the shell may expand inside a word: any "$" ($(…), ${…}, $VAR, and an unquoted $(…) that the
+# splitter leaves as a bare "$") or a backtick. Quoting is gone once the command is split, so a
+# single-quoted '$5' is refused too: such words go in a --body-file.
+SHELL_EXPANSION = re.compile(r"[$`]")
 
 
 def parse_gh(kind, args, cwd):
@@ -333,20 +346,27 @@ def explain(outcome, vpath, line, stderr):
             v = json.load(f)
     except (OSError, ValueError):
         v = {}
-    if outcome == "fail":
+    items = []
+    if outcome in ("fail", "ask-owner"):
         items = [f"- unmet {a.get('item')}: {a.get('evidence')}" for a in v.get("acceptance", []) if not a.get("met")]
         items += [f"- {x.get('severity')} · {x.get('lens')}{' · ' + x['file'] if x.get('file') else ''}: "
                   f"{x.get('what')} — fix: {x.get('fix')}" for x in v.get("findings", []) if x.get("severity") != "low"]
+    if outcome == "fail":
         return "\n".join([line, "The independent review failed, so the call was blocked. Blocking findings:", *items,
                           "Fix them, commit, and make the same call again (the review runs again by itself)."])
     reason = v.get("reason") or stderr.strip()[-300:]
-    return "\n".join([line, f"Reason: {reason}" if reason else "", OWNER]).replace("\n\n", "\n")
+    if items:
+        items = ["Blocking findings:", *items]
+    return "\n".join([line, f"Reason: {reason}" if reason else "", *items, OWNER]).replace("\n\n", "\n")
 
 
 # --- gate
 
 def gate(call):
     if call["kind"] == "remote-commit":
+        if call["tool"] == "update_pull_request_branch":
+            raise Block("Updating a PR's branch on GitHub makes a commit no review sees. Merge the base locally, "
+                        "commit, and `git push` instead (the push is reviewed).")
         if call.get("branch") and open_pr(call["slug"], call["branch"]):
             raise Block(f"Branch {call['branch']} has an open PR, and a commit made on GitHub is never reviewed. "
                         "Commit locally and `git push` instead (the push is reviewed).")

@@ -1679,7 +1679,7 @@ open PR.
 - Tests written first, failing (no hook registered, no `pr-words.sh`). `tests/review-hook.test.sh`
   (stub `review.sh` and `gh`, a local origin) covers every case in the task, plus the registration
   and a missing hook. `tests/reviewer-pr.test.sh` gained `pr-words.sh` (known-bad inputs refused)
-  and `--words`. Mutants: 46/46 killed. The first run left 11 survivors: 3 redundant checks, now
+  and `--words`. Mutants: 51/51 killed. The first run left 11 survivors: 3 redundant checks, now
   removed, and 8 test gaps, now tested.
 - The real harness runs it: with this branch's hook registered for the session only
   (`.claude/settings.local.json`, not committed), `gh pr create --fill --dry-run` was blocked with
@@ -1706,6 +1706,12 @@ throwaway clone`. Cause: a cloud session's clone is shallow, and `git fetch` fro
 - The next retry failed too (medium): in `--body "$(cat <<'EOF' …)"` or `--body "$(cat f)"` the
   shell expands the value, but the gate would have reviewed the literal text. Values with `$(`, a
   backtick, `${` or `$VAR` are now could-not-run ("use `--body-file`"). Tests first, 3 mutants killed.
+- Round 3 became ask-owner (owner: fix all and retry). Medium: a `cd` before the operation was
+  ignored, so the wrong worktree could be reviewed; a command that changes directory and creates,
+  pushes or edits is now refused. Low: `git --git-dir x push` went unreviewed (now refused); an
+  unquoted `--body $(cat f)` left a bare `$` (any `$` or backtick in a title or body is now
+  refused); `update_pull_request_branch` commits on GitHub unreviewed (now blocked); a Build skill
+  bullet was unwrapped. The hook's own gap: ask-owner printed no findings (now it does). Tests first.
 
 **Next**: this PR opened through the hook, and its `review-verdict` check green from the comment
 the hook posted; then the owner's fresh-session check (W10.6.7's done-when).

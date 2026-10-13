@@ -43,7 +43,7 @@ case $mode in
 esac
 outcome=$mode; case $mode in twolines | mismatch) outcome=pass ;; esac
 sha=null; [ -z "$pr" ] || sha="\"$(sha256sum "$pr" | cut -c1-64)\""
-findings='[]'; [ "$outcome" != fail ] || findings='[{"severity":"high","lens":"tests","item":"","file":"src/x.js","what":"AC-2 has no test","fix":"add a test for AC-2"}]'
+findings='[]'; [ "$outcome" != fail ] && [ "$outcome" != ask-owner ] || findings='[{"severity":"high","lens":"tests","item":"","file":"src/x.js","what":"AC-2 has no test","fix":"add a test for AC-2"}]'
 reason=""; [ "$outcome" != could-not-run ] || reason="two spec files"
 jq -n --arg o "$outcome" --arg c "$head" --argjson f "$findings" --argjson sha "$sha" --arg r "$reason" '{
   format: "devshop-review/2", outcome: $o, round: 1, commit: $c, base: $c, branch: "feat/x", spec: "",
@@ -131,7 +131,7 @@ pre=$(jq -er '.hooks.PreToolUse[0].matcher' "$hooks_json") || fail "the plugin r
 post=$(jq -er '.hooks.PostToolUse[] | select(.hooks[0].command | contains("review-hook")) | .matcher' "$hooks_json") \
   || fail "the plugin registers no PostToolUse review hook"
 for t in Bash mcp__github__create_pull_request mcp__github__update_pull_request mcp__github__push_files \
-  mcp__github__create_or_update_file mcp__github__delete_file; do
+  mcp__github__create_or_update_file mcp__github__delete_file mcp__github__update_pull_request_branch; do
   grep -Eqx "$pre" <<<"$t" || fail "PreToolUse matcher '$pre' misses $t"
 done
 for t in Bash mcp__github__create_pull_request mcp__github__update_pull_request; do
@@ -234,7 +234,7 @@ ok "after the create, the verdict comment lands on the PR and the review-verdict
 # --- gh pr create: words from --title/--body-file; flags in every form; base from --base.
 reset_state pass
 printf 'Body from a file.\n' >"$work/body.md"
-run_hook gate Bash "$(bash_call "cd $work/p && gh pr create --title='Add x' -F $work/body.md -Bmain --head feat/x")"
+run_hook gate Bash "$(bash_call "gh pr create --title='Add x' -F $work/body.md -Bmain --head feat/x")"
 allowed "gh pr create with a passing review"
 [ "$(cat "$work/stub/words.1")" = "$(jq -nc '{title: "Add x", body: "Body from a file.\n"}')" ] || fail "gh words: $(cat "$work/stub/words.1")"
 reset_state pass
@@ -271,7 +271,8 @@ for c in "gh pr create -t x --body \"\$(cat <<'EOF'
 The real body.
 EOF
 )\"" "gh pr create -t x --body \"\$(cat $work/body.md)\"" "gh pr create -t \"\$TITLE\" -b y" \
-  "gh pr create -t x -b \"see \${NOTE}\"" "gh pr create -t x -b \"\`cat f\`\"" "gh pr edit 5 --body \"\$(cat f)\""; do
+  "gh pr create -t x -b \"see \${NOTE}\"" "gh pr create -t x -b \"\`cat f\`\"" "gh pr edit 5 --body \"\$(cat f)\"" \
+  "gh pr create -t x --body \$(cat f)" "gh pr create -t x -b 'Costs \$5'"; do
   reset_state pass; open_pr 5 "Add x" "b"
   run_hook gate Bash "$(bash_call "$c")"; blocked "shell-expanded words: $c"
   grep -qF -- "--body-file" <<<"$err" || fail "$c: doesn't say to use --body-file: $err"
@@ -298,7 +299,18 @@ ok "a create whose HEAD isn't on origin is blocked: push first"
 reset_state pass
 run_hook gate Bash "$(bash_call "git push origin feat/x && gh pr create -t x -b y")"; blocked "push and create in one call"
 grep -q "separate" <<<"$err" || fail "doesn't say to run them separately: $err"
-ok "a push and a create in one Bash call are blocked: run them separately"
+for c in "cd $work/p && gh pr create -t x -b y" "cd $work/p; git push origin feat/x" "pushd $work/p && git push"; do
+  reset_state pass; open_pr 5 "Add x" "b"
+  run_hook gate Bash "$(bash_call "$c")"; blocked "a cd before a reviewed operation: $c"
+  grep -q "separate" <<<"$err" || fail "$c: doesn't say to run them separately: $err"
+done
+reset_state pass; run_hook gate Bash "$(bash_call "cd $work/p && ls")"; allowed "a cd with nothing reviewed"
+for c in "git --git-dir $work/p/.git push origin feat/x" "git --work-tree=$work/p push" "git --namespace n push"; do
+  reset_state pass; open_pr 5 "Add x" "b"
+  run_hook gate Bash "$(bash_call "$c")"; blocked "a push with git-dir options: $c"
+  grep -q "git -C" <<<"$err" || fail "$c: doesn't say to use git -C: $err"
+done
+ok "a push and a create in one Bash call, or after a cd, are blocked: run them separately; --git-dir pushes are refused"
 
 # --- 3. A push to a branch with an open PR is reviewed against the PR's current words.
 reset_state fail
@@ -364,9 +376,11 @@ for mode in could-not-run ask-owner; do
   grep -q "^REVIEW: $mode" <<<"$err" || fail "$mode: no REVIEW: line: $err"
   grep -qi "owner" <<<"$err" || fail "$mode doesn't escalate to the owner: $err"
 done
+grep -qF "AC-2 has no test" <<<"$(reset_state ask-owner; run_hook gate $MCP "$(mcp_create "Add x" "b")"; echo "$err")" \
+  || fail "ask-owner doesn't return its findings"
 grep -qF "two spec files" <<<"$(reset_state could-not-run; run_hook gate $MCP "$(mcp_create "Add x" "b")"; echo "$err")" \
   || fail "could-not-run doesn't return its reason"
-ok "could-not-run (exit 2) and ask-owner (exit 3) block and escalate to the owner"
+ok "could-not-run (exit 2) and ask-owner (exit 3) block and escalate to the owner, ask-owner with its findings"
 for mode in noline twolines mismatch crash; do
   reset_state $mode
   run_hook gate $MCP "$(mcp_create "Add x" "b")"; blocked "review.sh $mode"
@@ -461,6 +475,9 @@ for t in push_files create_or_update_file delete_file; do
   run_hook gate "mcp__github__$t" '{"owner":"example","repo":"app","branch":"other","path":"a","content":"x","message":"m","files":[]}'
   allowed "$t on a branch with no PR"
 done
+run_hook gate mcp__github__update_pull_request_branch '{"owner":"example","repo":"app","pullNumber":5}'
+blocked "update_pull_request_branch"
+grep -q "git push" <<<"$err" || fail "update_pull_request_branch: doesn't say to merge locally and git push: $err"
 [ "$(reviews)" = 0 ] || fail "remote-commit tools ran a review"
 ok "remote commits to a branch with an open PR are blocked; elsewhere they pass"
 

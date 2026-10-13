@@ -55,13 +55,14 @@ a PostToolUse hook (`post`).
   (`update_pull_request`, `gh pr edit`). It reviews the committed `HEAD` against the PR's base, with
   the words from the call (create, edit) or from the open PR (push). A create must come after the
   push, so the reviewed commit is the PR's head. The GitHub tools that commit on GitHub
-  (`push_files`, `create_or_update_file`, `delete_file`) are blocked on a branch with an open PR,
-  because no review would see those commits.
+  (`push_files`, `create_or_update_file`, `delete_file`) are blocked on a branch with an open PR, and
+  `update_pull_request_branch` always, because no review would see those commits. A command that
+  changes directory and creates, pushes or edits is refused: run them as separate calls.
 - **What it decides:** only `REVIEW: pass` with exit 0 lets the call through. A fail blocks the call
   and returns the line and the blocking findings, so Claude fixes, commits and retries. Could-not-run,
-  ask-owner, a missing `review.sh`, a missing or doubled `REVIEW:` line, an exit that disagrees with
-  the line, words it can't know (`gh pr create --fill`, `--web`, a body on stdin, a value the shell
-  expands such as `--body "$(cat …)"`: use `--body-file`) and any error of its
+  ask-owner (with its findings), a missing `review.sh`, a missing or doubled `REVIEW:` line, an exit that disagrees with
+  the line, words it can't know (`gh pr create --fill`, `--web`, a body on stdin, a title or body
+  holding `$` or a backtick, such as `--body "$(cat …)"`: use `--body-file`) and any error of its
   own block too, and tell Claude to stop and ask the owner.
 - **What it posts:** after the call, the pass, as the comment above, if the PR's head is the reviewed
   commit. If GitHub's copy of the words differs from what was reviewed (a footer the server added, an
@@ -103,7 +104,7 @@ a PostToolUse hook (`post`).
   passing create let through and its verdict posted and accepted by `verdict-check.sh`; a push to an
   open PR reviewed with the PR's words and blocked on a fail; every non-pass result blocking; words
   changed after the review re-reviewed and posted as they are on GitHub; edits reviewed first; the
-  plugin's registration. 46 of 46 mutants killed (the hook, and the `words` parts of the scripts above).
+  plugin's registration. 51 of 51 mutants killed (the hook, and the `words` parts of the scripts above).
 - [`tests/reviewer-live.sh`](../../tests/reviewer-live.sh) (`[runs]`, in a session only, because it
   calls the real model and CI runs no LLM jobs) runs the real reviewer on the A-04 fixtures in
   [`tests/fixtures/reviewer/`](../../tests/fixtures/reviewer) (spec: [`spec.md`](../../tests/fixtures/reviewer/spec.md)). The planted change (AC-4 skipped)
