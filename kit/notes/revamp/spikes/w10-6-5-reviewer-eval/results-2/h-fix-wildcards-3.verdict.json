@@ -1,0 +1,73 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "e2d374e05c54c8c2e26a0c2710ffe4d44dff149f",
+  "base": "7c1a0282cbe1b9c23455570153aff52634477380",
+  "branch": "eval-run/r2-h-fix-wildcards-3",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search treating % and _ as wildcards",
+    "sha256": "86d51b3e59f66f74c83c8ffe10a2d899d9ca4eede3d11b392bd67efdc91b9315"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "bab3a032-0eda-4e74-b5b1-3bd82fe12659",
+    "cost_usd": 0.0272733
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Bug fix. The change does what the title says. It has one reasonable design, escaping the LIKE pattern, so no spec was needed."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "There is no spec file and no acceptance items."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The new tests would fail without the fix: without ESCAPE, `%25` and `_` match every item. They cover `%`, `_`, and a mix of `%` with other characters. A separate test covers `\\`. No tests were deleted or loosened. I could not run them because vitest is not installed in this copy (`npm test` exits 127)."
+    },
+    {
+      "lens": "docs",
+      "applies": false,
+      "note": "The diff touches only src/index.js and test/search.test.js. I did not search for docs that describe the search."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The escape regex covers `\\`, `%` and `_`. The query is still bound as a parameter, and the `ESCAPE '\\\\'` in the JS string becomes `ESCAPE '\\'` in SQL. This is correct."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query stays parameterized. Escaping only changes LIKE semantics, so there is no injection concern."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims match the diff: 3 seeded items plus 2 inserted gives the five items the PR mentions, and the test name matches. The 'CI: not run yet' and 'Reviewer: pending' lines are not checkable from the repository."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:49:20Z"
+}

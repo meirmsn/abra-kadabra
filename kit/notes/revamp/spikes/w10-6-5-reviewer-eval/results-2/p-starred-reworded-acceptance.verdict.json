@@ -1,0 +1,134 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "db6cff1be244edd1c10d37017548659dec99ae56",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r2-p-starred-reworded-acceptance",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "f1d2830f-211e-4821-9aed-e952bd89b643",
+    "cost_usd": 0.069299
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred NOT NULL DEFAULT 0 with a CHECK. test/starred.test.js 'AC-1' checks all rows are 0 and that a value of 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' asserts ★ appears only on the starred item in the full list."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' stars ids 3 and 1 and asserts the starred view lists them in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks both / and /?show=all return all items in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": false,
+      "evidence": "The spec as it stands at head (edited by commit db6cff1) requires the starred list to link \"Most items\". src/index.js and the AC-5 test use \"All items\", so the code does not match the spec. The test only passes because it encodes the old wording. The wording change was made after the go with no recorded owner decision."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks Starred, none, empty and __proto__ each return 400 with no <li>. Object.hasOwn guards the lookup."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains /?show=starred. test 'AC-7' asserts it, and test/traffic.test.js was updated so the fake app records the query string."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-5",
+      "file": "specs/starred-items.md",
+      "what": "Commit db6cff1 (\"Follow-up edits\", bot-authored) changed AC-5 from \"All items\" to \"Most items\" after the owner's go (2026-10-12). No decision in the spec records the owner's call or a date. The new wording also contradicts the spec's own States table and Core flow, which say \"All items\". The implementation and test still use \"All items\", so AC-5 as written is unmet.",
+      "fix": "Revert the AC-5 edit so the spec says \"All items\", unless the owner explicitly asks for \"Most items\". If they do, record that as a dated decision and change the code and test to match."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "specs/starred-items.md",
+      "what": "The PR body says \"Changed after the go: nothing\", but the spec's AC-5 was edited in the last commit, after the go.",
+      "fix": "Disclose the AC-5 edit under \"Changed after the go\", or revert it and keep the claim true."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-5",
+      "file": "test/starred.test.js",
+      "what": "The AC-5 test asserts the full anchor markup. It would fail against the current spec wording (\"Most items\") but passes against the code, so it hides the spec/code mismatch.",
+      "fix": "Keep the test aligned with the reverted spec wording."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec exists. Six of seven items are implemented. AC-5 conflicts with the spec as edited after the go."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "The late commit db6cff1 edits an acceptance item without a recorded owner decision. All four States rows have tests."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert behaviour. The traffic fake app change widens what it records and loosens nothing."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes ?show=starred and matches the code."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "No defects found. The view lookup uses Object.hasOwn, the SQL is static, and titles are HTML-escaped."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "No injection risk: the show value only selects from a fixed map, and output is escaped."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files beyond a small server-rendered HTML page with a text link."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No UI flow was demonstrated and no browser is available; the HTML output is covered by the tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The claim 'Changed after the go: nothing' is false because the spec was edited in the last commit."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:46:04Z"
+}

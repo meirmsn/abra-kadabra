@@ -1,0 +1,114 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "44a22c398c95c706838c0706d742028bb735adb1",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/h-done-1",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "670bea4f-8a7b-5a88-8758-a79725a3b500",
+    "cost_usd": 0.0996387
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done INTEGER NOT NULL DEFAULT 0 with a CHECK on 0/1. test/done.test.js 'AC-1' checks the 3 existing items are 0 and that done=2 is rejected. The test is slightly weak because the seed may be inserted after the migration, but the NOT NULL DEFAULT 0 makes existing rows start open."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js defaults view to 'open' and uses WHERE done = 0 ORDER BY id. The 'AC-2' test checks both / and /?view=open and would fail if the filter were wrong."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The done view uses WHERE done = 1 ORDER BY id and item() prefixes '✓ '. The 'AC-3' test marks 3 then 1 and expects ['✓ First item','✓ Third item'], so it covers id order and the mark."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The all view has no WHERE clause. The 'AC-4' test expects every item in id order, with only the done one marked."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "nav() renders the current view as <strong> and the others as links. The 'AC-5' test asserts the exact nav HTML for each view and for /."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn guards the lookup, so '__proto__' is rejected, and an unknown view returns 400 before any query. The 'AC-6' test covers Open, closed, empty and __proto__, checks the status is 400 and checks the body has no <li>."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "The code falls back to 'No items yet.' when the COUNT is 0, and otherwise uses the view's own message. The 'AC-7' test covers Nothing open, Nothing done yet, and all three views on an empty table. State tests cover the default view."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json is [\"/\",\"/?view=done\",\"/?view=all\"]. The 'AC-8' test asserts both are present. scripts/traffic-config-check.mjs now accepts query strings, with a test in tests/traffic-config.test.sh. The fake app in test/traffic.test.js records pathname+search."
+    }
+  ],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change matches the spec's intent and decisions: it opens on open items and uses a ?view query parameter. Nothing beyond the ask was added; the traffic-check relaxation is needed for AC-8 and is disclosed."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are implemented and tested, and no out-of-scope work (a write route, a cookie) was added."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "test/done.test.js has one test per acceptance item and per state, with behavioural assertions. No tests were deleted or loosened; test/index.test.js still passes against the open-view default. I did not run the tests."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes the views and the traffic routes. CLAUDE.md conventions are followed, with the routes added and a new migration file used."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view is validated with Object.hasOwn and the SQL fragments come from a fixed table, so there is no injection. Titles are escaped. The extra COUNT query runs only for an empty non-all view."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The view parameter is allow-listed, item titles are HTML-escaped, and no planted instructions were found in the repo content."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "No UI files (CSS or frontend assets) are in the diff; the only markup is the server-rendered HTML in src/index.js, which has no styling. I checked it as markup in the tests lens."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser flow, and the PR itself states no browser was available. The HTML output is covered by tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title and body match the diff. The behaviour change, the 400 for other view values, the traffic-check change and the test fake change are all disclosed accurately."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:07:52Z"
+}

@@ -14,6 +14,12 @@ TOOLS=Read,Grep,Glob,Bash
 TIMEOUT=900 # seconds
 ROUNDS_TO_ASK=3
 FAILS_TO_ASK=6 # distinct failing commits since the last pass, new issues or not
+# Variables that tie a nested claude to the session that started it. The reviewer runs without them,
+# so its verdict's session_id is its own and it can't reach the builder's session (W10.6.5).
+SESSION_TIES=(CLAUDE_CODE_SESSION_ID CLAUDE_CODE_REMOTE_SESSION_ID CLAUDE_CODE_CHILD_SESSION
+  CLAUDE_CODE_MESSAGING_SOCKET CLAUDE_CODE_MESSAGING_TOKEN CLAUDE_SESSION_INGRESS_TOKEN_FILE
+  SESSION_INGRESS_URL CLAUDE_CODE_REMOTE_SDK_URL CLAUDE_CODE_POST_FOR_SESSION_INGRESS_V2
+  CLAUDE_CODE_SYNC_SESSION_REFS CLAUDE_CODE_TEE_SDK_STDOUT)
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 usage="usage: review.sh --base <rev> [--pr <file>]"
@@ -185,7 +191,7 @@ schema=$(<"$here/verdict.schema.json") || cnr "verdict.schema.json unreadable"
 
 # --- The locked-down reviewer (feedback, not a wall: TARGET Verify, "what this protects against").
 rc=0
-(cd "$scratch/repo" && timeout "$TIMEOUT" claude -p "$prompt" --restricted --safe-mode \
+(cd "$scratch/repo" && for v in "${SESSION_TIES[@]}"; do unset "$v"; done && timeout "$TIMEOUT" claude -p "$prompt" --restricted --safe-mode \
   --strict-mcp-config --no-session-persistence --disable-slash-commands --tools "$TOOLS" \
   --permission-mode dontAsk --settings "$here/settings.json" --model "$MODEL" \
   --output-format json --json-schema "$schema" </dev/null >"$scratch/out.json" 2>"$scratch/err") || rc=$?

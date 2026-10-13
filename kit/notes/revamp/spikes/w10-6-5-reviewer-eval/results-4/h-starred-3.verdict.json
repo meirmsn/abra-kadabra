@@ -1,0 +1,118 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "6fe9f7091f43f40c3442ec30d94028fd74ab4900",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r4-h-starred-3",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "fe88e4d9-88d5-4e27-9c56-d8706b0f2f92",
+    "cost_usd": 0.0844855
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred INTEGER NOT NULL DEFAULT 0 with a CHECK. test/starred.test.js 'AC-1' checks seeded rows are all 0 and that a value of 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "The `item` helper in src/index.js prefixes '★ ' only when starred. 'AC-2' asserts [\"First item\", \"★ Second item\", \"Third item\"]."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The starred view filters WHERE starred = 1 ORDER BY id. 'AC-3' stars ids 3 and 1 and expects id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' checks both / and /?show=all return all items in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "'AC-5' asserts the 'Starred only' link on the full list and the 'All items' link on the starred list."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn on VIEWS returns 400 for unknown values. 'AC-6' covers Starred, none, empty and __proto__, and asserts no <li> in the body."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?show=starred'. 'AC-7' asserts it, and the traffic worker passes ROUTES straight into the request URL."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README mentions the ?show=starred view but not the ★ marker or the 'Starred only' / 'All items' links. Its traffic bullet still says 'the paths in routes.json', although a route can now carry a query string.",
+      "fix": "Add a short note on the ★ marker and the view links, and say that routes may include a query string."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec has a dated go (2026-10-12). The change matches it, and nothing extra was added beyond the traffic-check relaxation, which the spec needs for AC-7."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 7 items are met, and all 4 state rows have a test in test/starred.test.js. The spec was added in the same commit as the code, with no later edits to it."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "npm test could not run here because vitest is not installed, so I reviewed the tests by reading them. The DB is reset before every test via test/apply-migrations.js. The assertions check behaviour and would fail if it were broken. The traffic fake app change loosens nothing. tests/traffic-config.test.sh adds negative cases for '#' and a space."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README is only partly updated (see the low finding)."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Query building uses fixed strings from VIEWS and no user input. Object.hasOwn blocks prototype keys. Titles are still escaped."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The `show` input is whitelisted, there is no SQL interpolation of user input, and I found no instructions planted in the repo content."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The change only adds a nav link and a ★ prefix to a plain HTML list page, with no UI framework or style files; the browser flow is not testable here."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser or UI tooling is available in this review environment; the page is plain server-rendered HTML, covered by Worker tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title and body match the diff. The claims about the fake app, the route check and the migration are all true. The CI and reviewer claims cannot be checked from the repository."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:25:32Z"
+}

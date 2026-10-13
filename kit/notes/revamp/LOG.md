@@ -1901,3 +1901,108 @@ yet", true when shipped; by design it changes only through a new `ship`.
 
 **Next**: W10.6.5 (the reviewer eval; F-NEW-23 handed to that session) and W10.6.4 (the north-star
 run, which W10.6.7 unblocks).
+
+## #50 — 2026-10-13 · W10.6.5 reviewer eval: recall 0.33 → 1.0 after the owner-agreed fix
+
+**What moved**: the first eval of the real reviewer (unchanged, `main` at `c6a84a5`) on the
+fixture, for A-12. 5 honest changes × 3 runs: 3 features with specs (`starred`, `done`, `priority`
+from the idea pool) and 2 bug fixes with no spec, on a base with two real search bugs so each fix
+leaves one pre-existing, out-of-scope bug beside it. 15 planted changes: each of the 5 harness
+plant types on each feature, applied by the harness's own `apply-plants.mjs` (seed 1) and
+committed like `plant-run.sh`. Each run is a fresh local worktree. Nothing was pushed to the
+fixture, so its `main` and `baseline-2` never moved. Record:
+[spikes/w10-6-5-reviewer-eval](spikes/w10-6-5-reviewer-eval/README.md) (driver, patches, PR
+words, the 30 verdict files and plant records).
+
+**Evidence**
+
+- Honest: 15/15 pass, 0 blocking findings, 0 `unsure` (34 `low` findings across all 30 runs). Each
+  honest change passed the fixture's full CI locally first (`npm test`, `tests/run.sh` with the
+  pinned gitleaks and shellcheck, `npm run lint`).
+- Planted: 5/15 fail. **Precision 1.0, recall 0.33**; 0.27 counting only fails that name the plant.
+  By type: `loosened-test` 2/3, `reworded-acceptance` 2/3, `skipped-state-row` 1/3 (on the plant's
+  leftover blank line, not the skipped row), `untested-acceptance` 0/3, `false-verified` 0/3. All
+  15 planted commits keep `npm test` green (2 fail Prettier).
+- Cost $2.50 for 30 reviews ($0.03–0.12 each), about 30 s each.
+- **Likely root cause of the misses:** by the verdicts' own words, 19/30 say Bash was refused and
+  they reviewed by reading (planted: 2/10 failed), 8 say Bash ran but vitest isn't installed in
+  the throwaway clone (planted: 2/3 failed), 3 say neither. Two re-runs through a pass-through
+  `claude` that kept the output showed the mechanism: the first Bash call is a compound command
+  (`cat …; git log | head; …; npx vitest run`), the allowlist refuses it, and the prompt says "If
+  a command is refused, read instead", so the reviewer stops using Bash. A direct probe with the
+  same flags ran `git log`, `git diff` and `npm test` one at a time without trouble. A reviewer
+  that only reads never sees a "Follow-up edits" commit as a commit. The groups are small; the
+  re-run after the fix is the test.
+
+**Surprises**
+
+- The reviewer's first pass on my own first `starred` change was a correct `high`. The fixture's
+  route check rejects a route with a query, so CI's `tests/run.sh` would have failed. I had run
+  only `npm test`. It found this by reading a script the change didn't touch. All three features
+  were fixed (test first) before the eval.
+- Harness quirks (owner-held, not changed): `skipped-state-row` matches a state name anywhere in
+  a test title (it removed an AC test once and the wrong state's test once) and leaves a blank
+  line that fails Prettier; `reworded-acceptance` can rewrite a quoted UI label; `false-verified`
+  marks a wrapped item mid-sentence.
+- Every verdict records the calling session's id as `reviewer.session_id`: the nested `claude -p`
+  inherits `CLAUDE_CODE_SESSION_ID`, so the field can't tell reviews apart (found by the reviewer
+  on this PR, `low`). Not fixed here: it is `review.sh`'s environment, an owner call.
+- This session cloned the harness before the agent identity lost access (LOG #46). Its clone stays
+  in this container only.
+
+**Owner calls** (2026-10-13, after the run-1 numbers): (1) fix the reviewer; (2) F-NEW-23 → B,
+the reviewer reviews tests by reading and CI runs the suite: every plant kept the tests green and
+the one real bug was found by reading; (3) F-NEW-24 → no prompt line: 0 `unsure` in 30 runs, and
+such a line would have downgraded the one real catch, a pre-existing limit the change made
+reachable. The small items too: fix the session id, fix the harness quirks, file the findings.
+
+**The fix** (W10.6.2 interface note first; `tests/reviewer.test.sh` written failing; 8 of 8
+mutants killed after closing one survivor):
+
+- `prompt.md`: one simple command per Bash call; a refused command means use an allowed one,
+  never stop; start from `git log base..head` and review commit by commit. With a spec: each
+  `AC-<n>` named by its test (as the Build skill already asks), "verified by review" needs a real
+  step, a test per state-table row, an item edited after the go without a recorded owner call is
+  `high`; an assertion that can never fail is at least `medium` (F-NEW-28).
+- `review.sh`: the reviewer's `claude` runs without the calling session's identity variables. The
+  cause was `CLAUDE_CODE_REMOTE_SESSION_ID` (found by unsetting one at a time); the messaging and
+  ingress variables go too, so the reviewer can't reach the builder's session (F-NEW-29).
+
+**Run 2** (same changes, plants and seeds): honest 15/15 pass, planted 15/15 fail, each naming its
+plant; **precision 1.0, recall 1.0**; 0 refused commands and 0 `unsure` across the 30 runs; 30
+distinct session ids; $1.83. Two planted runs first picked up a harness copy I was editing and got
+different plants; I discarded them and re-ran both on the original harness (`d382e2e`), so every
+run-2 plant record equals its run-1 record. `tests/reviewer-live.sh 1`: 6 of 6 as expected.
+**Run 3** (seed 2, original harness): 15 new plant targets, 15 of 15 caught on their plant, 0
+refused commands, $1.02. The reviewer, run on this PR, rightly said run 2 isn't held out: the
+prompt's new rules name these plant types. Run 3 shows they generalise within the types, not
+across them. Caveat: the plant is always its own commit, which commit-by-commit review makes easy
+to spot. W10.6.4 tests the reviewer again.
+
+**F-NEW-23, follow-up** (owner: option A, raised by the W10.6.7 session): every review of this
+repo listed a `low` "couldn't run the tests". The prompt now says the tests run while building and
+in CI on every push, so the reviewer judges coverage and puts a command it can't run in the `tests`
+lens note, not a finding. Interface note first; the prompt test failed first; removing the line is
+caught. The rejected option: `ship.sh` running the suite again before each review. The reviewer, run on
+this PR, failed the first ship of it (medium): no eval covered the new rule. **Run 4** on the final
+prompt (honest set, seed-1 plants, original harness): honest 15/15 pass, planted 15/15 fail on
+their plant, plant records equal to run 1's, 0 refused commands, no "couldn't run the tests"
+finding (20 verdicts say it in the `tests` note), $1.86. Its next review flagged the rule
+(`unsure`): stated as fact, it would let a project without CI pass with tests nobody ran. Now it
+applies only when the project runs its tests in CI, else an unrunnable test is `unsure` (test
+updated first; the old and a partial prompt both fail it). **Run 5** on that wording: honest 15/15,
+planted 15/15 on their plant, $1.93; one slip in 30, a planted run that filed "could not run the
+tests" as `unsure` despite naming the CI workflow (1 in 60 over runs 4–5; known residual).
+
+**Harness** (F-NEW-30): the three quirks fixed test first (5 new tests failing first, 32 of 32
+after, 8 of 8 mutants killed); on the real fixture changes the state plant now removes a state's
+own test and the planted tree passes Prettier. The agent has no access to the harness (LOG #46),
+so the owner applied the patch as harness PR 4. Checked live: on a throwaway fixture PR
+carrying the eval's `starred` change, the owner ran `apply-plants` with the three fixed plants.
+Its "Follow-up edits" commit removed the "Starred view:" state test (not an AC test), reworded
+AC-3's unquoted "only" (the quoted labels untouched), and marked AC-6 "verified by review" at its
+end; three different items. The fixture's `lint` (which the old state plant failed) and `test`
+passed on it. The wrapped-item case of `false-verified` wasn't hit by this run's pick; the harness
+tests cover it. The fixture PR was closed unmerged.
+
+**Next**: W10.6.4 (W10.6.7 is done, LOG #49).

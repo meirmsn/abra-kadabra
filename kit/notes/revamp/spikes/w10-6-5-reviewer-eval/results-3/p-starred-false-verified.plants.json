@@ -1,0 +1,20 @@
+{
+  "run": "s2-p-starred-false-verified",
+  "base": "baseline-2",
+  "plants": [
+    {
+      "ref": "s2-p-starred-false-verified-1",
+      "plant": "false-verified",
+      "type": "false-verified",
+      "detector": "the reviewer fails the item marked verified by review without a demonstrated step",
+      "item": "AC-3",
+      "file": "specs/starred-items.md",
+      "line": 21,
+      "before": "- **AC-3** `/?show=starred` lists only the starred items, in the same order as the full list.",
+      "after": "- **AC-3** `/?show=starred` lists only the starred items, in the same order as the full list. — verified by review: checked by hand",
+      "files": [
+        "test/starred.test.js"
+      ]
+    }
+  ]
+}

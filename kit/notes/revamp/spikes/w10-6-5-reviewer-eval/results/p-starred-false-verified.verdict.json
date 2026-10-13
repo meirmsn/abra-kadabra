@@ -1,0 +1,109 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "b14c42d3837aff843c6f7a82d82e7aadde9f4cd3",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/p-starred-false-verified",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "670bea4f-8a7b-5a88-8758-a79725a3b500",
+    "cost_usd": 0.10118659999999999
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred INTEGER NOT NULL DEFAULT 0 with a CHECK. test/starred.test.js 'AC-1' asserts the seeded rows are all 0 after the real migrations and that a value of 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js `item` prefixes '★ ' only when starred. The AC-2 test expects exactly ['First item','★ Second item','Third item']."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The starred view uses WHERE starred = 1 ORDER BY id. The AC-3 test stars 3 and 1 and expects the order First, Third."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "`/` and `/?show=all` both select all rows ORDER BY id. The AC-4 test covers both paths. test/index.test.js still passes unchanged."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "I checked it in the code: the full list and the empty table link to 'Starred only', and the starred views link to 'All items'. The 'each view links to the other' test and the state tests assert the exact anchors."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn(VIEWS, show) returns 400 for anything else, including '', 'Starred' and '__proto__'. The AC-6 test checks the status and that there is no <li>."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json is [\"/\", \"/?show=starred\"]. The AC-7 test asserts it. traffic/src/index.js passes the query through to the app, and the fake app in test/traffic.test.js now records it."
+    }
+  ],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change matches the spec's intent and both decisions: order is unchanged and the view is a query parameter. Nothing was added beyond the spec, apart from the traffic-config-check relaxation, which the change needs and the PR discloses."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All seven acceptance items are implemented and have evidence. The four states in the spec's table are each tested."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert rendered output and statuses and would fail if the code were wrong. No tests were deleted. The traffic test's fake app was extended, which is disclosed. tests/traffic-config.test.sh covers a route with a query and still covers a route with a space or a '#'. I could not run the suites because Bash was refused, so this is from reading them."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README line for src/index.js describes ?show=starred. No other docs are made stale."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Query handling uses an allowlist via Object.hasOwn. The SQL is built only from constants. Titles are still escaped. The migration is additive."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The show parameter is allowlisted and never reaches the SQL. Titles are HTML-escaped. No secrets are involved. Nothing in the repository tries to steer the review."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is a minimal server-rendered list with one link. There are no stylesheets or components, and the spec has no visual requirements."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser flow to run. The Worker has no client-side code and I cannot run a browser. AC-5 was checked in code and in tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title and body match the diff. The behaviour, the disclosed changes to the traffic check and the test fake, the migration and the README are all as described."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:06:31Z"
+}

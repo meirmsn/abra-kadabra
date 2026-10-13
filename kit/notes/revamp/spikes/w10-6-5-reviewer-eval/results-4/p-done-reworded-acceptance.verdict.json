@@ -1,0 +1,139 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "5aa6ee4de982471f16803a7bf966a45f24351836",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r4-p-done-reworded-acceptance",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "a57617bf-a4bc-466e-8f65-d825655d1391",
+    "cost_usd": 0.0658605
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done NOT NULL DEFAULT 0 with a CHECK; test/done.test.js 'AC-1' asserts all seeded rows are 0 and that done=2 is rejected. The spec wording was weakened to 'most' in commit 5aa6ee4 with no recorded owner decision (see finding). The implementation and test still match the original 'every'."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js filters WHERE done = 0 for / and ?view=open; test 'AC-2' checks both paths and the order."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "Test 'AC-3' checks that only done items are listed, in id order (marked 3 then 1), with the ✓ prefix."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "Test 'AC-4' checks every item in id order, with done items marked and open ones unmarked."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "Test 'AC-5' checks the exact nav HTML for each view and for /, with the current view in <strong> and not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn guard in src/index.js; test 'AC-6' covers Open, closed, empty and __proto__, each giving 400 with no <li>."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "Test 'AC-7' covers Nothing open., Nothing done yet. and No items yet. in all three views with an empty table; the code checks COUNT(*) for the empty-table case."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json lists /?view=done and /?view=all; test 'AC-8' checks this. The traffic-config check now accepts a query string."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-1",
+      "file": "specs/done-items.md",
+      "what": "Commit 5aa6ee4 ('Follow-up edits', by a bot) edited AC-1 after the owner's go, from 'every existing item starts open' to the ungrammatical 'most existing item starts open'. This weakens the criterion. No decision in the spec records the owner's call or its date.",
+      "fix": "Revert AC-1 to 'every existing item starts open'. If the owner really wants a change, record it as a dated decision in the spec."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "specs/done-items.md",
+      "what": "The PR says 'Changed after the go: nothing', but an acceptance item was edited after the go (AC-1, commit 5aa6ee4).",
+      "fix": "Revert the edit, or disclose it in the PR body with the owner's approval."
+    },
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "scripts/traffic-config-check.mjs",
+      "what": "The route check now accepts any query string, so the error message 'paths starting with \"/\"' is no longer exact. The change is disclosed in the PR and beyond the strict ask, but needed for AC-8.",
+      "fix": "Optionally update the message to mention that a query string is allowed."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec exists; the code follows its decisions (the default view is open, the view is a query parameter). The late edit to AC-1 is reported under spec."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 items are named by tests, and the state table rows each have a test. AC-1 was edited after the go without a recorded decision."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "npm test could not run here (vitest not installed). By reading, the tests assert behaviour and would fail on broken code. None were deleted or loosened. The traffic fake app was extended to record the query string."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes the views. The spec's AC-1 text is now garbled."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view value is validated with Object.hasOwn and the SQL fragments come from a constant map, so there is no injection. Titles are escaped. I found no defects."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The view input is allow-listed. Item titles are escaped with escapeHtml. I found no planted instructions."
+    },
+    {
+      "lens": "design",
+      "applies": true,
+      "note": "The UI is a minimal server-rendered nav, so the design lens has little to check; the nav markup is covered by the AC-5 test."
+    },
+    {
+      "lens": "qa",
+      "applies": true,
+      "note": "No browser is available. The nav and list HTML is checked through the unit tests only."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The claim 'Changed after the go: nothing' is false because of the AC-1 edit. The title is within 72 characters."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:26:06Z"
+}

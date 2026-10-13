@@ -1,0 +1,73 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "f8d4ef68a9f016a54d6cf7acceaaf129cb126c89",
+  "base": "7c1a0282cbe1b9c23455570153aff52634477380",
+  "branch": "eval-run/h-fix-nomatch-1",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search saying No items yet. when nothing matches",
+    "sha256": "e3b148148ae0e1d855984d3d1049873901fde152772c3f3cfa2a8c8ae660149d"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "670bea4f-8a7b-5a88-8758-a79725a3b500",
+    "cost_usd": 0.05513450000000001
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The PR's words match the diff. This is a small bug fix with one reasonable design. The message wording is dictated by the PR and the test."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "There is no spec file in this change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "test/search.test.js adds three tests: no matches, escaping, and an empty table with a search. Each asserts the exact <p> output, so each fails if the logic is wrong. No tests were deleted or loosened. I could not run the suite because Bash was denied."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README.md only says ?q= searches titles. It does not describe empty-state messages, so nothing is stale."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The count query runs only when a search finds nothing. The message is chosen correctly for three cases: empty table, search with no matches, and no search. The search text is escaped through escapeHtml. No dead code."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The user-supplied q is HTML-escaped before it goes into the message, and a test covers this. The page template inserts `empty` raw, but every value passed in is either a constant or escaped."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff changes one text string in the server-rendered HTML. It touches no CSS, layout or UI components."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches no UI flow beyond a text message, and the PR says no browser was available."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters and describes the observable change. The body's claims match the diff: the escaping, the unchanged 'No items yet.' for an empty table, no tests deleted, and the new tests."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:11:22Z"
+}

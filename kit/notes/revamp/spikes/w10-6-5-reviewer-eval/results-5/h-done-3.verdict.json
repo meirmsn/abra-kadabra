@@ -1,0 +1,123 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "44a22c398c95c706838c0706d742028bb735adb1",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r5-h-done-3",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "a35afa38-0dfd-418d-8478-ce6587e47705",
+    "cost_usd": 0.0730663
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done NOT NULL DEFAULT 0 with CHECK; test/done.test.js 'AC-1' asserts all seeded rows are 0 and that done=2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js defaults view to open, WHERE done = 0 ORDER BY id; 'AC-2' test checks / and ?view=open list only the open items in id order."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "'AC-3' test marks 3 and 1 done and expects ['✓ First item','✓ Third item'] from ?view=done."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' test expects all three items in id order with only the done one marked."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "'AC-5' test asserts the exact nav markup for each view and for /; the current view is a <strong>, not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn guard returns 400 before the query runs; 'AC-6' test covers Open, closed, empty and __proto__ and checks that no <li> is present."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "'AC-7' test covers Nothing open., Nothing done yet. and No items yet. in all three views after the table is emptied. The code uses a COUNT query for the empty-table case."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json lists /?view=done and /?view=all; 'AC-8' test asserts both are present. The traffic Worker fetches routes by appending them to the URL, so the query is kept."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-8",
+      "file": "test/done.test.js",
+      "what": "The AC-8 test only checks that routes.json contains the two paths. It doesn't check that the traffic Worker requests them with the query intact. The edited traffic.test.js fake app does record the query, though.",
+      "fix": "Optionally assert in test/traffic.test.js that a round requests /?view=done and /?view=all."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows specs/done-items.md and its recorded decisions: open view first, view as a query parameter. Nothing extra was added beyond the traffic-check regex change, which AC-8 needs."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items have named tests. All 6 state-table rows have a test in the 'states' describe block. No commit edits the spec after the go."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "I couldn't run npm test here because vitest isn't installed. .github/workflows/ci.yml exists and runs the tests there. The tests assert behaviour. The changes to traffic.test.js only add query recording, and the tests/traffic-config.test.sh additions are new cases for the regex change."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes the views. The one-line README edit covers the behaviour change."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The Object.hasOwn guard avoids prototype keys, SQL fragments come from a fixed table, and titles are escaped. I found no defects."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The view value is whitelisted and never interpolated unchecked. Titles are HTML-escaped. I found no planted instructions in the repo content."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is a server-rendered list with plain nav links, with no stylesheet or client UI files. I judged this as no UI to review."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "I could not demonstrate the page in a browser, and the PR says none was available."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The PR's claims match the diff: the behaviour change, the 400 for other view values, the traffic-check regex change and no deleted tests. The PR says the fake app in the synthetic-traffic test records the query, and it does."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:35:25Z"
+}

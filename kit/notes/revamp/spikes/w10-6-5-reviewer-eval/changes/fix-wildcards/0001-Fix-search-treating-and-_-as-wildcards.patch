@@ -1,0 +1,54 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Fixture Builder <builder@example.com>
+Date: Mon, 12 Oct 2026 23:57:08 +0000
+Subject: [PATCH] Fix search treating % and _ as wildcards
+
+---
+ src/index.js        |  4 +++-
+ test/search.test.js | 16 +++++++++++++++-
+ 2 files changed, 18 insertions(+), 2 deletions(-)
+
+diff --git a/src/index.js b/src/index.js
+index ac84035..f1fa7b6 100644
+--- a/src/index.js
++++ b/src/index.js
+@@ -33,7 +33,9 @@ export default {
+     if (pathname === "/") {
+       const q = searchParams.get("q") ?? "";
+       const { results } = q
+-        ? await env.DB.prepare("SELECT title FROM items WHERE title LIKE ? ORDER BY id").bind(`%${q}%`).all()
++        ? await env.DB.prepare("SELECT title FROM items WHERE title LIKE ? ESCAPE '\\' ORDER BY id")
++            .bind(`%${q.replace(/[\\%_]/g, "\\$&")}%`)
++            .all()
+         : await env.DB.prepare("SELECT title FROM items ORDER BY id").all();
+       return new Response(page(results, q), { headers: { "content-type": "text/html; charset=utf-8" } });
+     }
+diff --git a/test/search.test.js b/test/search.test.js
+index d0f526f..f5af414 100644
+--- a/test/search.test.js
++++ b/test/search.test.js
+@@ -1,5 +1,5 @@
+ // Searching the list by title (?q=).
+-import { exports } from "cloudflare:workers";
++import { env, exports } from "cloudflare:workers";
+ import { describe, expect, it } from "vitest";
+ 
+ const get = (path) => exports.default.fetch(`https://fixture.example.com${path}`);
+@@ -18,3 +18,17 @@ describe("search", () => {
+     expect(listed(await (await get("/?q=")).text())).toHaveLength(3);
+   });
+ });
++
++describe("search: wildcard characters are literal", () => {
++  it("a search for % or _ matches only titles that contain it", async () => {
++    await env.DB.prepare("INSERT INTO items (title) VALUES (?), (?)").bind("50% off", "snake_case").run();
++    expect(listed(await (await get("/?q=%25")).text())).toEqual(["50% off"]);
++    expect(listed(await (await get("/?q=_")).text())).toEqual(["snake_case"]);
++    expect(listed(await (await get("/?q=0%25 o")).text())).toEqual(["50% off"]);
++  });
++
++  it("a backslash is literal too", async () => {
++    await env.DB.prepare("INSERT INTO items (title) VALUES (?)").bind("C:\\temp").run();
++    expect(listed(await (await get("/?q=%5Ct")).text())).toEqual(["C:\\temp"]);
++  });
++});

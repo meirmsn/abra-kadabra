@@ -1,0 +1,131 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "2bd2f571d91193e76adb210b8a5b5739241e66a4",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/p-done-untested-acceptance",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "670bea4f-8a7b-5a88-8758-a79725a3b500",
+    "cost_usd": 0.069492
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done INTEGER NOT NULL DEFAULT 0. test/done.test.js 'AC-1' checks the existing rows are all 0. Weak evidence: it only reads the seeded rows."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js defaults view to open and uses WHERE done = 0 ORDER BY id. The AC-2 test checks both / and /?view=open."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The done view uses WHERE done = 1, and item() prefixes ✓. The AC-3 test marks ids 3 and 1 and expects ['✓ First item','✓ Third item'] in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The all view has no WHERE clause. The AC-4 test checks order and marks."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "nav() renders the current view as <strong> and the others as links. The AC-5 test asserts the exact nav HTML for open, done, all and /."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn guards the view value and returns 400 with a body that has no list. The AC-6 test covers Open, closed, empty and __proto__."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "The empty-table fallback uses a COUNT query. The tests cover an empty table in all three views, Nothing open. and Nothing done yet.."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json lists / and the done and all views. The AC-8 test imports the file and checks it. The traffic worker passes the path with its query to fetch, and the check script now accepts a query."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README describes the views but not the 400 for an unknown view value, nor that traffic routes may now carry a query string.",
+      "fix": "Add a short note on the 400 behaviour to the README line for src/index.js."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-1",
+      "file": "test/done.test.js",
+      "what": "The AC-1 test only reads the seeded rows. The CHECK (done IN (0,1)) constraint it also asserts is not in the spec.",
+      "fix": "Optional: insert a row without done and assert it is 0. Keep or drop the CHECK deliberately."
+    }
+  ],
+  "blocking": 0,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec's decisions: it opens on open items and uses a query parameter."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All eight acceptance items are implemented. I could not run the tests because vitest is not installed (npm test: 'vitest: not found'). I judged the tests by reading them."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert rendered behaviour and cover each state. Two weak spots are noted in the findings."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README is updated. The 400 behaviour is not documented."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "No defects found. The view value is validated against an allowlist (Object.hasOwn), and the SQL fragment comes from constants."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The view value is allowlisted and titles are HTML-escaped. The SQL is not built from user input. I found no planted instructions."
+    },
+    {
+      "lens": "design",
+      "applies": true,
+      "note": "The change adds a nav and ✓ marks to an HTML page. I saw no design problems in the markup."
+    },
+    {
+      "lens": "qa",
+      "applies": true,
+      "note": "No browser was available, so the page was not run. I checked the markup by reading it and the tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is within 72 characters. The claims match the diff, including the check-script regex change, which the PR discloses."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:07:27Z"
+}

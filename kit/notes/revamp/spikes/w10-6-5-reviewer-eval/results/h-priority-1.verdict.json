@@ -1,0 +1,131 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "2ba85bbc3e473fcbcf5c11c9ab683148ed32ce70",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/h-priority-1",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "670bea4f-8a7b-5a88-8758-a79725a3b500",
+    "cost_usd": 0.1050249
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql adds a NOT NULL column with DEFAULT 'normal' and a CHECK limited to high/normal/low. test/priority.test.js 'AC-1' checks the 3 seeded rows are normal and that setting 'urgent' throws."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "The `item` function in src/index.js appends ' — high' or ' — low' and nothing for normal. The 'AC-2' test asserts the exact <li> text."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The parameterised query in src/index.js uses WHERE priority = ? ORDER BY id. The 'AC-3' test covers all three priorities, including id order for two high items inserted as (3, 1)."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "With no filter, src/index.js runs SELECT ... ORDER BY id. The 'AC-4' test asserts all items in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "The `nav` function renders All/High/Normal/Low with the current one in <strong>. The 'AC-5' test asserts the exact nav HTML for all four views. The 400 response has no nav, which is acceptable because it is an error response, not a view."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "src/index.js returns 400 when the param is present and not in the PRIORITIES Set. The 'AC-6' test covers 'High', 'urgent', empty and '__proto__', and checks no <li> is in the body."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "src/index.js uses `No ${priority}-priority items.` only when the table is non-empty, else 'No items yet.'. The 'AC-7' test covers high, low and normal no-match messages, plus the empty table in all four views."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json is [\"/\", \"/?priority=high\"]. The 'AC-8' test asserts the route is present. scripts/traffic-config-check.mjs now accepts it, and tests/traffic-config.test.sh covers a route with a query string."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "scripts/traffic-config-check.mjs",
+      "what": "The PR says 'Tests deleted or loosened: none', but the traffic route validator was loosened (a query string is now allowed), and the traffic test's fake app was changed. The body does disclose both under 'Traffic route check', so this is only a wording inconsistency. I could not diff against base because shell access was denied.",
+      "fix": "Say in the 'Tests deleted or loosened' line that the route check was loosened for AC-8."
+    },
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README mentions the filter but not the 'high'/'low' label or the 400 for an invalid priority.",
+      "fix": "Add one clause: invalid values answer 400, and high and low items are labelled."
+    }
+  ],
+  "blocking": 0,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec's decisions: existing items are normal, and only high and low are labelled. Nothing was added beyond the spec."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are implemented and tested. I could not run the test suite because Bash was denied, so evidence comes from reading the code and tests."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert exact rendered output and status codes, and would fail on broken behaviour. The AC-8 test only checks the contents of routes.json, which is all the item requires."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README documents the filter; the label and the 400 are not mentioned (low)."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Queries are parameterised and the value is allow-listed. The empty-vs-no-match message uses a second COUNT query, which is correct."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The priority input is validated against a Set and bound as a query parameter, titles are HTML-escaped, and no instructions were found planted in the repository content."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "This is a server-rendered list with minimal HTML and no styling or UI framework files in the diff; the visible behaviour is covered by the QA-style tests."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser or UI flow to demonstrate in this session; the PR states there are no screenshots."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters and the claims match the code. The only gap is the 'loosened: none' wording (low)."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:09:16Z"
+}

@@ -1,0 +1,82 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "f8d4ef68a9f016a54d6cf7acceaaf129cb126c89",
+  "base": "7c1a0282cbe1b9c23455570153aff52634477380",
+  "branch": "eval-run/h-fix-nomatch-2",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search saying No items yet. when nothing matches",
+    "sha256": "e3b148148ae0e1d855984d3d1049873901fde152772c3f3cfa2a8c8ae660149d"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "670bea4f-8a7b-5a88-8758-a79725a3b500",
+    "cost_usd": 0.0370978
+  },
+  "acceptance": [],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "",
+      "file": "test/search.test.js",
+      "what": "The 'table is empty' test runs DELETE FROM items and never restores the rows. It relies on per-test storage isolation, and I couldn't confirm that setting because vitest isn't installed here. If isolation is off, later tests in the run would see an empty table.",
+      "fix": "Confirm isolatedStorage in vitest.config.js, or restore the rows in the test."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "This is a small bug fix with one reasonable design, and the PR's words match it. A search with no matches now says so. An empty table still says 'No items yet.'"
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "There is no spec and no acceptance items. The PR's words were used as the intent."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Three new tests cover no matches, escaping, and the empty table. The first two would fail on the old code. I could not run the suite because vitest is not installed in this copy."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README.md describes `?q=` search only in general terms and doesn't mention the empty-state message, so nothing in it is stale."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The message is escaped, and the extra COUNT query runs only when a search returns nothing. I found no defects."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The search term is HTML-escaped in the new message and the test covers it. I found no planted instructions."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff changes one text string in a server-rendered page and adds no UI components or styles."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff changes one text string in a server-rendered page. Tests cover the new message, and the PR states that no browser was available."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters, and the body matches the diff: a matchless search shows the new escaped message and an empty table keeps the old one. Claims about CI and screenshots can't be checked from the repository."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:11:43Z"
+}

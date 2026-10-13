@@ -1,0 +1,123 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "44a22c398c95c706838c0706d742028bb735adb1",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r4-h-done-1",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "0c46a665-e661-4ec5-98f1-90422cfad380",
+    "cost_usd": 0.0876243
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done NOT NULL DEFAULT 0 with CHECK; test/done.test.js 'AC-1' asserts seeded rows are all 0 and that done=2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js defaults view to open with WHERE done = 0 ORDER BY id; 'AC-2' checks / and ?view=open list only open items in id order."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "'AC-3' marks 3 and 1 done and expects ['✓ First item','✓ Third item'] (id order, ✓ prefix)."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' expects all three in id order with only the done one marked."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "'AC-5' asserts the exact nav HTML for each view and for /; the current view is a <strong>, the others are links."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn check returns 400 before querying; 'AC-6' covers Open, closed, empty and __proto__ and checks that no <li> is rendered."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "'AC-7' covers Nothing open., Nothing done yet. and No items yet. in all three views on an empty table. Code uses a COUNT(*) fallback."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains /?view=done and /?view=all. 'AC-8' asserts both. The traffic Worker builds the URL from the path, so a query works."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README describes the views but not that any other view value answers 400. It also doesn't say that traffic/routes.json entries may now carry a query string.",
+      "fix": "Add one line on the 400 and one on query-string routes in the traffic section."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec is present and carries the owner's go dated 2026-10-12. Its decisions are followed: the list opens on open items, and the view is a query parameter on a GET-only app."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are named by tests. Every row of the States table has a test in the 'states' describe block. No spec edit after the go, and no added scope beyond the traffic-check regex change that AC-8 requires."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "npm test can't run here (vitest isn't installed), so I judged the tests by reading them. They assert on the rendered list items, the messages and the status codes, and would fail if the code were wrong. Nothing was deleted or loosened. The fake app in test/traffic.test.js now records the query string, which is a widening and not a loosening."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README is updated for the views. The 400 and the query-string routes are not mentioned (low finding)."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The migration is additive, so the previous app version's SELECT title keeps working. Object.hasOwn guards __proto__. Titles are still escaped. No dead code found."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The view value is checked against an allowlist, and only fixed SQL fragments are interpolated. No injection path and no secrets."
+    },
+    {
+      "lens": "design",
+      "applies": true,
+      "note": "The diff changes the HTML page. The nav is minimal and follows the spec's wording. The PR has no screenshots."
+    },
+    {
+      "lens": "qa",
+      "applies": true,
+      "note": "The diff changes the HTML page. The core flow (Open, then Done, then All) is covered by the nav and view tests; no browser was run."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims check out against the diff: the behaviour change, the 400, the migration name, the routes, the traffic-check regex and the test change. CI and screenshots can't be verified from the repository."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:25:57Z"
+}

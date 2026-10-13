@@ -1,0 +1,118 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "6fe9f7091f43f40c3442ec30d94028fd74ab4900",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r4-h-starred-1",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "f2fbf477-064e-408b-a8f8-0933f362eacf",
+    "cost_usd": 0.08567519999999999
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred NOT NULL DEFAULT 0 with a CHECK. test/starred.test.js 'AC-1' asserts all three seeded rows are 0 and that a value of 2 is rejected. It relies on per-test storage isolation. I couldn't run it."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "The `item` renderer in src/index.js prefixes '★ ' only when starred. Test 'AC-2' checks the exact list with one starred item."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The starred view filters with WHERE starred = 1 ORDER BY id. Test 'AC-3' stars ids 3 and 1 and expects them in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "`/` and `?show=all` use the unfiltered query ORDER BY id. Test 'AC-4' covers both paths."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "Each view carries its link in VIEWS. Test 'AC-5' checks the exact anchors on both views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn(VIEWS, show) rejects other values with a 400 before any query runs. Test 'AC-6' covers 'Starred', 'none', empty and '__proto__', and checks there is no <li>."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json is now [\"/\", \"/?show=starred\"]. Test 'AC-7' asserts it. The traffic Worker builds the URL by string concatenation, so the query is preserved."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "code",
+      "item": "",
+      "file": "scripts/traffic-config-check.mjs",
+      "what": "The route validation regex now allows a query string, but the error message still says 'array of paths starting with \"/\"'. It no longer says that queries are allowed.",
+      "fix": "Reword the message to say that paths may carry a query and must not contain spaces or '#'."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec has an owner go dated 2026-10-12. The change matches its decisions: starred items keep their place, and the view is a query parameter."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 7 acceptance items are implemented and each is named by a test. All four state-table rows have a test. The spec was added in the same commit as the code and edited by no later commit."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert exact output and would fail if the code were wrong. I couldn't run them here because vitest isn't installed. The traffic fake-app change and the new shell cases add coverage and loosen nothing."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes ?show=starred. No stale docs found."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The SQL is built only from a fixed VIEWS table, and the key is validated with hasOwn. No defects found beyond the low finding."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The show parameter is checked against an allowlist. Titles stay escaped. No injection found."
+    },
+    {
+      "lens": "design",
+      "applies": true,
+      "note": "The page markup changed (a nav link and ★ markers), but the repo has no styling or UI framework. Nothing to judge beyond the HTML that the tests check."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser or UI tooling is available. The page is plain server-rendered HTML, and the PR states there are no screenshots."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is not literally given, only a heading, and it describes the change. The claims about migrations, routes, the README and the traffic check match the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:24:40Z"
+}

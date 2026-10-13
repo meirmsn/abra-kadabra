@@ -1,0 +1,45 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Fixture Builder <builder@example.com>
+Date: Tue, 13 Oct 2026 00:00:45 +0000
+Subject: [PATCH 3/3] Let synthetic-traffic routes carry a query string
+
+---
+ scripts/traffic-config-check.mjs | 2 +-
+ tests/traffic-config.test.sh     | 8 ++++++++
+ 2 files changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/scripts/traffic-config-check.mjs b/scripts/traffic-config-check.mjs
+index c61531b..6d713ff 100755
+--- a/scripts/traffic-config-check.mjs
++++ b/scripts/traffic-config-check.mjs
+@@ -67,7 +67,7 @@ if (traffic.name === app.name) problems.push("traffic must not share the app's W
+ if (
+   !Array.isArray(routes) ||
+   !routes.length ||
+-  !routes.every((r) => typeof r === "string" && /^\/[^\s?#]*$/.test(r))
++  !routes.every((r) => typeof r === "string" && /^\/[^\s#]*$/.test(r))
+ )
+   problems.push(`${routesPath} must be a non-empty array of paths starting with "/"`);
+ else if (!routes.includes("/")) problems.push(`${routesPath} must include "/"`);
+diff --git a/tests/traffic-config.test.sh b/tests/traffic-config.test.sh
+index 4b6bdfa..8eb64b9 100755
+--- a/tests/traffic-config.test.sh
++++ b/tests/traffic-config.test.sh
+@@ -33,9 +33,17 @@ bad "same name as the app" 1 "share the app" 's/"devshop-fixture-traffic"/"devsh
+ bad "empty route list" 1 "non-empty array" 's/x/x/' '[]'
+ bad "route without a slash" 1 "non-empty array" 's/x/x/' '["/", "items"]'
+ bad "route list without /" 1 'include "/"' 's/x/x/' '["/healthz"]'
++bad "route with a fragment" 1 "non-empty array" 's/x/x/' '["/", "/#top"]'
++bad "route with a space" 1 "non-empty array" 's/x/x/' '["/", "/?q=a b"]'
+ bad "unparseable traffic config" 2 "can't read" 's/{/{{/'
+ bad "unparseable route list" 2 "can't read" 's/x/x/' 'not json'
+ 
++# A route may carry a query string (a filtered view of a page).
++printf '["/", "/?show=starred&x=1"]\n' >"$work/routes.json"
++node "$check" "$repo_root/wrangler.jsonc" "$repo_root/traffic/wrangler.jsonc" "$work/routes.json" >"$work/out" 2>&1 ||
++  { cat "$work/out" >&2; fail "a route with a query string was rejected"; }
++echo "ok - a route with a query string passes"
++
+ # A comment marker inside a string is data, not a comment.
+ printf '{ "name": "a//b", }\n' >"$work/app.jsonc"
+ sed 's/"service": "devshop-fixture"/"service": "a\/\/b"/' "$repo_root/traffic/wrangler.jsonc" >"$work/traffic.jsonc"

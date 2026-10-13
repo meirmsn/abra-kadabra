@@ -1,0 +1,147 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "8d914203eac957b461e66c192bd0f09adc56dab1",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r2-p-done-untested-acceptance",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "5169ae44-cf74-4c43-a13a-833e81677d5e",
+    "cost_usd": 0.06575800000000001
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done NOT NULL DEFAULT 0 with CHECK; test/done.test.js 'AC-1' checks existing rows are 0 and done=2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' checks / and ?view=open list only open items in id order; src/index.js uses WHERE done = 0 ORDER BY id."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' marks 3 and 1 done, expects ['✓ First item','✓ Third item'] with status 200."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' expects all three items in id order with only the done one marked."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test 'AC-5' asserts the exact nav HTML for each view and for /; the current view is <strong>, not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 400 and no <li> for Open, closed, empty and __proto__; the code uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": false,
+      "evidence": "The behaviour is implemented and tested, but the follow-up commit 8d91420 removed 'AC-7:' from the test title. No test now names AC-7, and the spec does not mark it 'verified by review'. By the rule that an item no test names is unmet, it is unmet."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains /?view=done and /?view=all; test 'AC-8' asserts both are present."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-7",
+      "file": "test/done.test.js",
+      "what": "Commit 8d91420 ('Follow-up edits') renamed the AC-7 test to 'an empty table says so in every view...', dropping the AC-7 label. No test now names AC-7, so the item is unmet under the naming rule. The PR claims the file covers AC-1 to AC-8, which is no longer true by name.",
+      "fix": "Restore 'AC-7:' in the test title. Optionally split the test into one per message (Nothing open., Nothing done yet., No items yet. in each view)."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "AC-7",
+      "file": "specs/done-items.md",
+      "what": "The PR says test/done.test.js covers AC-1 to AC-8, but the AC-7 test lost its label in the last commit. The claim 'Changed after the go: nothing' also hides a late commit that edited a test.",
+      "fix": "Restore the label and correct the PR body."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "",
+      "file": "test/done.test.js",
+      "what": "The 'Empty table' state test only checks the default view. Other views are covered only in the combined test, which has lost its AC label.",
+      "fix": "Rely on the restored AC-7 test, or add the other views to the state test."
+    },
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README does not say that an unknown view answers 400, which the PR lists as a behaviour change.",
+      "fix": "Add one sentence about the 400 for other view values."
+    }
+  ],
+  "blocking": 1,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec's decisions: it opens on open items and uses a query parameter. It adds no write route."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "7 of 8 acceptance items are met. AC-7 lost its test label in the last commit. Every state-table row has a test."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The assertions check behaviour. I could not run npm test: vitest is not installed in this copy. The traffic fake-app test change widens the fake app and loosens nothing."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes the views but not the 400 response."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Object.hasOwn guards the view lookup. The SQL is built only from fixed strings. The empty-table check runs a second query only when the result is empty."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The view value is allow-listed, titles are HTML-escaped, and no injection path was found. The traffic route regex now allows '?', but not whitespace or '#'."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is a minimal server-rendered HTML list with no styling or UI components. No screenshots were available."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser in this session, so I could not check the UI flow. The nav HTML is covered by string-level tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is within 72 characters. The 'covers AC-1 to AC-8' claim is false by name, and 'Changed after the go: nothing' omits the late test edit."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:46:27Z"
+}

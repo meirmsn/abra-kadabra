@@ -1,0 +1,126 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "6fe9f7091f43f40c3442ec30d94028fd74ab4900",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r2-h-starred-1",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "253be032-1e8f-4aef-810d-9bcf27b2629d",
+    "cost_usd": 0.0733261
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred NOT NULL DEFAULT 0 with a CHECK. test/starred.test.js 'AC-1' asserts all 3 seeded items are 0 and that a value of 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js `item` prefixes '★ ' only when starred. The 'AC-2' test asserts the exact list with one starred item."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The starred view filters WHERE starred = 1 ORDER BY id. The 'AC-3' test stars 3 and 1 and expects id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "`show` defaults to 'all'. The 'AC-4' test checks both / and /?show=all against the exact list."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "The nav link is per view. The 'AC-5' test checks the exact anchors on both views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn(VIEWS, show) returns false for anything else, which gives a 400 before any query runs. The 'AC-6' test covers 'Starred', 'none', empty and '__proto__', and checks there is no <li>."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?show=starred'. The 'AC-7' test asserts it. scripts/traffic-config-check.mjs was updated so the route passes validation."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README mentions ?show=starred but not the ★ marker, the 'Starred only' / 'All items' links, or the 400 for other show values.",
+      "fix": "Add one line covering the marker, the links and the 400."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-7",
+      "file": "test/starred.test.js",
+      "what": "The AC-7 test only checks the JSON file contents. test/traffic.test.js does not exercise a query-string route end to end, although the fake app was changed to record the query.",
+      "fix": "Optionally add a traffic test that runs a round with '/?show=starred' and checks that the worker requests it with its query intact."
+    }
+  ],
+  "blocking": 0,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec with the owner's go exists. The behaviour matches it, and nothing beyond it was added except the traffic-check relaxation, which the PR discloses and the new route needs."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 7 acceptance items are met and all 4 state rows have tests. The spec was added in the same commit as the code, and no acceptance item was edited after the go."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert exact outputs. I could not run them because `npm test` failed with 'vitest: not found' (dependencies not installed). The review rests on reading them."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README was updated, but only partly (see the low finding)."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The `show` handling is correct, using Object.hasOwn to avoid prototype keys. The SQL is static, built from a fixed view table."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Titles are still escaped by escapeHtml. The `show` input is allow-listed and never reaches the SQL. No secrets or planted instructions found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is a minimal HTML list with a link. The diff has no CSS or UI framework files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No UI flow is specified beyond plain links, and the tests cover the pages. No browser session is available."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The PR claims are consistent with the diff: the tests, the traffic check change and the migration all match. The title is 'Star items and show only the starred ones', under 72 characters."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:45:17Z"
+}

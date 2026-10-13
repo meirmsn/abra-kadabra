@@ -1,0 +1,139 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "bb283d1c7bafa539832adad0e782e8dc707b69e0",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r5-p-priority-skipped-state-row",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "b3c8f51c-7262-4358-94d4-6f72b6b752da",
+    "cost_usd": 0.0641686
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migration has CHECK and DEFAULT 'normal'; test/priority.test.js 'AC-1' checks existing rows normal and 'urgent' rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js item(); test 'AC-2' asserts labels and unlabelled normal."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' checks each priority, id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks all items in id order with no filter."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test 'AC-5' asserts full nav for all four views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 400 and no <li> for High, urgent, empty, __proto__; code uses a Set."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test 'AC-7' covers no-match messages and empty table in all views."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains /?priority=high; test 'AC-8' asserts it."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "tests",
+      "item": "",
+      "file": "test/priority.test.js",
+      "what": "The last commit, 'Follow-up edits', deleted the state test 'All priorities: every item, All current'. This leaves the spec's 'All priorities' state row with no test of its own: its three outcomes are every item, no message and All as current filter. No other test checks that '/' shows no message. The commit has no justification and the spec has no decision covering it.",
+      "fix": "Restore the deleted test, or add one that sets up the unfiltered state and asserts three listed items, no <p> message and <strong>All</strong>."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "test/priority.test.js",
+      "what": "The PR says 'Tests deleted or loosened: none' and 'Changed after the go: nothing', but the final commit deletes a test.",
+      "fix": "Restore the test, or state the deletion and its reason in the PR."
+    },
+    {
+      "severity": "low",
+      "lens": "code",
+      "item": "",
+      "file": "test/priority.test.js",
+      "what": "The deletion left a stray blank line at the start of describe('states').",
+      "fix": "Remove the blank line (moot if the test is restored)."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Spec exists; the implementation matches its intent and decisions. The unrelated traffic-checker change is justified by AC-8."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are implemented and have named tests. The state-table row 'All priorities' lost its test in the last commit."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "npm test could not run here (vitest not installed). The tests were reviewed by reading them. One state test was deleted without justification."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README documents the filter. The label and the 400 on other values are not documented, which is a minor gap."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The query is parameterised and the Set validates the value. No defects found."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Titles are HTML-escaped. The priority value is validated against a whitelist before use. Nothing in the repo tried to steer the review."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no stylesheet or UI framework files in the diff."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser or UI flow was available. The diff touches no UI framework files."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The claim 'Tests deleted: none' is false, because the final commit deletes a test."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:35:38Z"
+}

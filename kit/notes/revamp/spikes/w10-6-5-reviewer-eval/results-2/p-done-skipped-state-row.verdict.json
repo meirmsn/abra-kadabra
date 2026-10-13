@@ -1,0 +1,147 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "b7d92476cac2cd174e532a022fd8396a08f7c106",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r2-p-done-skipped-state-row",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "bc2cee27-28ee-4484-9103-c9a4815843e3",
+    "cost_usd": 0.068022
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done NOT NULL DEFAULT 0 with a CHECK. test/done.test.js 'AC-1' checks that all existing rows are 0 and that done=2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "The 'AC-2' test checks both / and /?view=open list only the open items, in id order."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The 'AC-3' test marks items 3 and 1 done and expects ['✓ First item', '✓ Third item'] in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The 'AC-4' test checks all items in id order, with only the done one marked ✓."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "The 'AC-5' test checks the exact nav HTML for each view and for /. The current view is a <strong>, not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "The 'AC-6' test checks 400 and no <li> for Open, closed, an empty value and __proto__. src/index.js uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "The 'AC-7' test and the state tests check 'Nothing open.', 'Nothing done yet.' and 'No items yet.' in every view for an empty table."
+    },
+    {
+      "item": "AC-8",
+      "met": false,
+      "evidence": "traffic/routes.json lists the routes, but the only test naming AC-8 was deleted in commit b7d9247 ('Follow-up edits'). No remaining test names AC-8 and the spec does not mark it 'verified by review'. Nothing would fail if the routes were removed."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-8",
+      "file": "test/done.test.js",
+      "what": "The last commit (b7d9247, 'Follow-up edits', authored by a bot) deleted the 'AC-8: synthetic traffic requests the done and all views' test. AC-8 is now proven by no test and the spec has no 'verified by review' step. Dropping the test is an unjustified loosening.",
+      "fix": "Restore an AC-8 test that asserts traffic/routes.json contains '/?view=done' and '/?view=all'. Better, run the traffic worker against the fake app and assert that those paths are requested."
+    },
+    {
+      "item": "AC-8",
+      "severity": "medium",
+      "lens": "tests",
+      "file": "test/done.test.js",
+      "what": "The deletion left a stray blank line before the closing of the describe block. The test file header says each test names its acceptance item, but none now covers AC-8. test/traffic.test.js was changed to record queries but never asserts the done and all routes.",
+      "fix": "Add the AC-8 test back and tidy the blank line."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "PR body",
+      "what": "The PR claims 'test/done.test.js covers AC-1 to AC-8' and 'Tests deleted or loosened: none'. Both are false: the AC-8 test was deleted in the final commit.",
+      "fix": "Restore the test, or correct the PR body and get the owner's agreement to the change."
+    },
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README does not say that / defaults to the open view, that ?view=open exists, or that other values answer 400.",
+      "fix": "Add a short line on the views and the 400."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change works from a spec with the owner's go. Behaviour matches it apart from the AC-8 test that was removed."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "AC-1 to AC-7 are met and each has a test. AC-8 has no test after the last commit. Every row of the state table has a test."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The AC-8 test was deleted without justification. The other tests assert behaviour."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README mentions the views but not the default view or the 400."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view is allow-listed with Object.hasOwn, the SQL fragments are constants, and titles are escaped. No defects found."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "No injection: the query parameter only selects among constant WHERE clauses. No instructions planted in the repository content."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff has no UI files beyond server-rendered HTML in src/index.js, and no screenshots or browser were available."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser or UI flow to demonstrate in this review."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The claims that AC-1 to AC-8 are covered and that no tests were deleted are false."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:46:51Z"
+}

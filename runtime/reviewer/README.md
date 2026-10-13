@@ -78,7 +78,12 @@ head commit before approving.
 
 - `claude -p --restricted --safe-mode` loads no CLAUDE.md, skills, hooks, plugins or MCP. Its tools
   are Read, Grep, Glob and Bash, and in `dontAsk` mode Bash runs only the `settings.json` allowlist.
-  Edit and Write don't exist for it.
+  Edit and Write don't exist for it. The prompt has it run one simple command per call, keep
+  going after a refusal, and review commit by commit (W10.6.5: a reviewer that stopped at the
+  first refused compound command reviewed by reading and missed most planted mistakes).
+- Its `claude` runs without the calling session's identity variables (`SESSION_TIES` in
+  `review.sh`): a nested `claude` that inherits them reports the caller's session id and could
+  reach the caller's session.
 - It works in a throwaway clone that holds only the base and head commits and has no remote. Some
   allowlisted commands can still write files anywhere the user can: `git diff --output=<path>`, and
   a test run, which executes the change's own code. The clone keeps ordinary writes away from the
@@ -112,6 +117,9 @@ head commit before approving.
   the guard, matcher and fallback name the same tools.
 - Mutants for W10.6.7 (the guard, `ship`, the rounds rule, `pr-words.sh`): 39 of 40 killed, the
   survivor equivalent (LOG #48).
+- The W10.6.5 eval ([spike](../../kit/notes/revamp/spikes/w10-6-5-reviewer-eval/README.md)) ran
+  the real reviewer on the fixture: 15 honest changes all pass and 15 changes planted by the
+  north-star harness all fail, each on its plant (A-12).
 - [`tests/reviewer-live.sh`](../../tests/reviewer-live.sh) (`[runs]`, in a session only, because it
   calls the real model and CI runs no LLM jobs) runs the real reviewer on the A-04 fixtures in
   [`tests/fixtures/reviewer/`](../../tests/fixtures/reviewer) (spec: [`spec.md`](../../tests/fixtures/reviewer/spec.md)). The planted change (AC-4 skipped)

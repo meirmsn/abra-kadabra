@@ -1,0 +1,139 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "a4db8b23cc706b2b1a4285130c7b90524e46f807",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r5-p-done-untested-acceptance",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "ee573a17-be90-44d4-8ef4-449f346e245c",
+    "cost_usd": 0.06890489999999999
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done NOT NULL DEFAULT 0 with CHECK; test/done.test.js 'AC-1' checks existing rows are 0 and value 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js default view open; test 'AC-2' checks / and ?view=open list only open items in id order."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' marks 3,1 done and expects ['✓ First item','✓ Third item'] in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks all items in id order, done ones marked."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test 'AC-5' asserts exact nav markup for each view and for /; the current view is <strong>, not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks Open, closed, empty, __proto__ give 400 with no <li>; code uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": false,
+      "evidence": "Behaviour is implemented and tested, but no test names AC-7: the last commit (a4db8b2 'Follow-up edits') stripped the 'AC-7:' prefix from the test title, so the item is not named by any test."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json lists both views; test 'AC-8' asserts they are present."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-7",
+      "file": "test/done.test.js",
+      "what": "Commit a4db8b2 ('Follow-up edits', by a bot) removed 'AC-7:' from the empty-table test title. No test now names AC-7, which makes it unmet under the rule that each item is named by its proving test. The file's header says each test names its acceptance item or state, and the PR says the tests cover AC-1 to AC-8.",
+      "fix": "Restore 'AC-7:' in the test title (or add AC-7 to its body)."
+    },
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "PR body",
+      "what": "The PR claims test/done.test.js covers AC-1 to AC-8. That is no longer true by naming, because of the renamed AC-7 test. The 'Follow-up edits' commit is also not described.",
+      "fix": "Restore the AC-7 name so the claim holds."
+    },
+    {
+      "severity": "unsure",
+      "lens": "tests",
+      "item": "",
+      "file": "test/done.test.js",
+      "what": "I could not run the tests here (vitest is not installed). .github/workflows/ci.yml exists and should run them.",
+      "fix": "Confirm the CI run is green."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec's decisions: the list opens on open items, and the view is a query parameter."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "AC-7 is not named by any test after the last commit. All 6 state-table rows have a test."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests are behavioural. npm test could not run here (vitest missing). CI workflow ci.yml exists. Traffic test fake and the shell test were extended, not loosened."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes the views. The spec is included."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The default and invalid view handling is correct (view= gives 400, hasOwn guards __proto__). The SQL is built only from fixed constants. The extra COUNT query handles the empty-table message."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The view value is whitelisted. Titles are HTML-escaped. No injection path found. The regex change in traffic-config-check still refuses spaces and #."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "Only a minimal server-rendered HTML nav changed; there is no separate UI layer or styling files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser or UI flow is available in this session; the diff has no UI framework files."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The coverage claim of AC-1 to AC-8 is undermined by the AC-7 rename."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:34:26Z"
+}

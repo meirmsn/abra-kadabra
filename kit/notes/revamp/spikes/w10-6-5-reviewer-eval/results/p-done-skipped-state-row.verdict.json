@@ -1,0 +1,123 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "b8fe19e3477ef666febd0b6bfbb9581f517b2035",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/p-done-skipped-state-row",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "670bea4f-8a7b-5a88-8758-a79725a3b500",
+    "cost_usd": 0.07684389999999999
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done INTEGER NOT NULL DEFAULT 0 with CHECK. test/done.test.js 'AC-1' asserts the seeded rows are all 0 and that done=2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js defaults view to open, with WHERE done = 0 ORDER BY id. The 'AC-2' test checks both / and /?view=open after marking one item done."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The done view uses WHERE done = 1 ORDER BY id and the item template prefixes '✓ '. The 'AC-3' test marks ids 3 and 1 and expects ['✓ First item','✓ Third item'] in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The all view has no WHERE clause. The 'AC-4' test expects all three items in id order, with only the done one marked."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "nav() renders strong for the current view and links for the others. The 'AC-5' test asserts the exact nav HTML for each view and for /."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn check returns 400 with a plain-text body and no list. The 'AC-6' test covers Open, closed, empty string and __proto__, and asserts no <li> in the body."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "The empty-table path runs a COUNT query and uses 'No items yet.'. Otherwise the open and done views use their own messages. The 'AC-7' test and the Empty table, Nothing open and Nothing done state tests cover each case."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json is [\"/\",\"/?view=done\",\"/?view=all\"]. traffic/src/index.js requests `https://app.internal${path}`, so the query is kept. test/traffic.test.js asserts the app sees /healthz plus every entry of ROUTES, and its fake app now keeps the query string."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "code",
+      "item": "",
+      "file": "test/done.test.js",
+      "what": "A stray blank line sits before the closing `});` of the first describe block, left by the follow-up commit. It may trip a formatter or lint rule. I could not run lint, because my shell was denied.",
+      "fix": "Remove the blank line."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec has a go and its decisions are followed: the list opens on open items and the view is a query parameter. Nothing beyond the ask was added."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All eight acceptance items are implemented and covered by tests. I read the tests but could not run them, because my shell was denied."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests assert rendered behaviour against the real D1 migrations. No tests were deleted. The traffic fake app was extended to keep the query string. tests/traffic-config.test.sh gained cases for a fragment, a space and a query."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes the views. migrations/0002 is append-only, as CLAUDE.md requires."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "No correctness issues found. The extra COUNT query runs only on an empty non-all view. The only issue is the stray blank line."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The view value is checked against an allowlist with Object.hasOwn. The SQL fragment comes from constants, and titles are HTML-escaped. No planted instructions found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff changes only server-rendered HTML in src/index.js. It touches no stylesheet or UI component files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff has no browser-driven flow, and the PR says no browser was available. The HTML is covered by the Worker tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title and body match the diff: the behaviour change, the 400 on other values, the loosened route check and the unchanged tests. No false claims found."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:07:53Z"
+}

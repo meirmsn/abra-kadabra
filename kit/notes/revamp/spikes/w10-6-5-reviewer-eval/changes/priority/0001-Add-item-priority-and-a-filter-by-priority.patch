@@ -1,0 +1,308 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Fixture Builder <builder@example.com>
+Date: Mon, 12 Oct 2026 23:56:36 +0000
+Subject: [PATCH 1/2] Add item priority and a filter by priority
+
+---
+ README.md                        |   3 +-
+ migrations/0002_add_priority.sql |   2 +
+ specs/item-priority.md           |  51 ++++++++++++++
+ src/index.js                     |  42 ++++++++++--
+ test/priority.test.js            | 110 +++++++++++++++++++++++++++++++
+ test/traffic.test.js             |   9 +--
+ traffic/routes.json              |   2 +-
+ 7 files changed, 208 insertions(+), 11 deletions(-)
+ create mode 100644 migrations/0002_add_priority.sql
+ create mode 100644 specs/item-priority.md
+ create mode 100644 test/priority.test.js
+
+diff --git a/README.md b/README.md
+index deecda0..b39f4af 100644
+--- a/README.md
++++ b/README.md
+@@ -3,7 +3,8 @@
+ A tiny public-safe app used to exercise the devshop end to end: one page listing one D1 table,
+ running on Cloudflare Workers.
+ 
+-- `src/index.js` — the Worker: `/` lists `items`, `/healthz` checks the database.
++- `src/index.js` — the Worker: `/` lists `items` (`?priority=high|normal|low` only that priority),
++  `/healthz` checks the database.
+ - `traffic/` — the synthetic-traffic Worker: a cron every minute; a round (`/healthz` + the paths in
+   `traffic/routes.json`, through a service binding) runs each minute for 5 minutes after a deploy,
+   then after gaps of 2, 4, 8, 16 and 32 minutes, then hourly until the next deploy. A failed round
+diff --git a/migrations/0002_add_priority.sql b/migrations/0002_add_priority.sql
+new file mode 100644
+index 0000000..4af8fd3
+--- /dev/null
++++ b/migrations/0002_add_priority.sql
+@@ -0,0 +1,2 @@
++-- Item priority (specs/item-priority.md): high, normal or low; every existing item gets normal.
++ALTER TABLE items ADD COLUMN priority TEXT NOT NULL DEFAULT 'normal' CHECK (priority IN ('high', 'normal', 'low'));
+diff --git a/specs/item-priority.md b/specs/item-priority.md
+new file mode 100644
+index 0000000..597fb42
+--- /dev/null
++++ b/specs/item-priority.md
+@@ -0,0 +1,51 @@
++# Item priority
++
++**Go:** go, existing items are normal (2026-10-12)
++
++## Intent
++
++The owner: "Items should have a priority, and I want to filter the list to one priority." High and
++low items should stand out in the list, and a filter shows just one priority.
++
++## Decisions
++
++- Priorities are high, normal and low, and existing items get normal: every item then has a
++  priority and the filter never hides an item for having none; rejected: no priority until set
++  (owner, 2026-10-12)
++- Only high and low are shown next to a title, so the usual case stays quiet; rejected: a label on
++  every item (owner, 2026-10-12)
++
++## Acceptance items
++
++- **AC-1** A migration adds a priority to items (high, normal or low, nothing else), and every
++  existing item gets normal.
++- **AC-2** A high or low item shows its priority after its title ("— high", "— low"); normal items
++  show none.
++- **AC-3** `/?priority=<high|normal|low>` lists only the items of that priority, in id order.
++- **AC-4** `/` lists all items in id order, as before.
++- **AC-5** Every view shows the filters All, High, Normal and Low, and the current one is not a
++  link.
++- **AC-6** Any other `priority` value must answer 400 and list nothing.
++- **AC-7** A priority filter that matches nothing says "No high-priority items." (or normal, low);
++  an empty table says "No items yet." in every view.
++- **AC-8** `/?priority=high` is listed in `traffic/routes.json`, so synthetic traffic exercises it.
++
++## Core flow
++
++1. Open the list: every item, high and low ones labelled.
++2. Follow "High": just the high-priority items.
++3. Follow "All": back to every item.
++
++## States
++
++| State          | List shows             | Message                 | Current filter |
++| -------------- | ---------------------- | ----------------------- | -------------- |
++| All priorities | every item             | none                    | All            |
++| One priority   | items of that priority | none                    | that priority  |
++| No match       | nothing                | No high-priority items. | that priority  |
++| Empty table    | nothing                | No items yet.           | any            |
++
++## Out of scope
++
++- Setting an item's priority from the page: there is no write route yet.
++- Sorting by priority.
+diff --git a/src/index.js b/src/index.js
+index f735862..0f77684 100644
+--- a/src/index.js
++++ b/src/index.js
+@@ -6,12 +6,29 @@ const escapeHtml = (s) =>
+     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+   );
+ 
+-const page = (items) => `<!doctype html>
++// Priority filters (specs/item-priority.md), in the order the page shows them; "" is every item.
++const FILTERS = [
++  ["", "All"],
++  ["high", "High"],
++  ["normal", "Normal"],
++  ["low", "Low"],
++];
++const PRIORITIES = new Set(["high", "normal", "low"]);
++
++const nav = (current) =>
++  FILTERS.map(([p, label]) =>
++    p === current ? `<strong>${label}</strong>` : `<a href="/${p ? `?priority=${p}` : ""}">${label}</a>`,
++  ).join(" · ");
++
++const item = (i) => `<li>${escapeHtml(i.title)}${i.priority === "normal" ? "" : ` — ${i.priority}`}</li>`;
++
++const page = (items, current, empty) => `<!doctype html>
+ <html lang="en">
+ <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Items</title></head>
+ <body>
+ <h1>Items</h1>
+-${items.length ? `<ul>\n${items.map((i) => `<li>${escapeHtml(i.title)}</li>`).join("\n")}\n</ul>` : "<p>No items yet.</p>"}
++<nav>${nav(current)}</nav>
++${items.length ? `<ul>\n${items.map(item).join("\n")}\n</ul>` : `<p>${empty}</p>`}
+ </body>
+ </html>
+ `;
+@@ -27,11 +44,26 @@ export default {
+     if (request.method !== "GET" && request.method !== "HEAD") {
+       return new Response("Method Not Allowed", { status: 405, headers: { allow: "GET, HEAD" } });
+     }
+-    const { pathname } = new URL(request.url);
++    const { pathname, searchParams } = new URL(request.url);
+ 
+     if (pathname === "/") {
+-      const { results } = await env.DB.prepare("SELECT title FROM items ORDER BY id").all();
+-      return new Response(page(results), { headers: { "content-type": "text/html; charset=utf-8" } });
++      const priority = searchParams.get("priority") ?? "";
++      if (searchParams.has("priority") && !PRIORITIES.has(priority)) {
++        return new Response("Bad Request: priority must be high, normal or low", { status: 400 });
++      }
++      const { results } = priority
++        ? await env.DB.prepare("SELECT title, priority FROM items WHERE priority = ? ORDER BY id")
++            .bind(priority)
++            .all()
++        : await env.DB.prepare("SELECT title, priority FROM items ORDER BY id").all();
++      let empty = "No items yet.";
++      if (!results.length && priority) {
++        const { n } = await env.DB.prepare("SELECT COUNT(*) AS n FROM items").first();
++        if (n > 0) empty = `No ${priority}-priority items.`;
++      }
++      return new Response(page(results, priority, empty), {
++        headers: { "content-type": "text/html; charset=utf-8" },
++      });
+     }
+ 
+     if (pathname === "/healthz") {
+diff --git a/test/priority.test.js b/test/priority.test.js
+new file mode 100644
+index 0000000..e38836e
+--- /dev/null
++++ b/test/priority.test.js
+@@ -0,0 +1,110 @@
++// Item priority (specs/item-priority.md). Each test names the acceptance item or state it proves.
++import { env, exports } from "cloudflare:workers";
++import { describe, expect, it } from "vitest";
++
++const get = (path) => exports.default.fetch(`https://fixture.example.com${path}`);
++const setPriority = (priority, ...ids) =>
++  env.DB.prepare(`UPDATE items SET priority = ? WHERE id IN (${ids.map(() => "?").join(", ")})`)
++    .bind(priority, ...ids)
++    .run();
++const listed = (html) => [...html.matchAll(/<li>(.*?)<\/li>/g)].map((m) => m[1]);
++const message = (html) => html.match(/<p>(.*?)<\/p>/)?.[1] ?? null;
++
++describe("item priority", () => {
++  it("AC-1: existing items get normal, and only the three priorities are accepted", async () => {
++    const { results } = await env.DB.prepare("SELECT priority FROM items").all();
++    expect(results.map((r) => r.priority)).toEqual(["normal", "normal", "normal"]);
++    await expect(setPriority("urgent", 1)).rejects.toThrow();
++  });
++
++  it("AC-2: high and low items show their priority after the title, normal ones none", async () => {
++    await setPriority("high", 1);
++    await setPriority("low", 3);
++    expect(listed(await (await get("/")).text())).toEqual([
++      "First item — high",
++      "Second item",
++      "Third item — low",
++    ]);
++  });
++
++  it("AC-3: a priority filter lists only that priority, in id order", async () => {
++    await setPriority("high", 3, 1);
++    await setPriority("low", 2);
++    expect(listed(await (await get("/?priority=high")).text())).toEqual([
++      "First item — high",
++      "Third item — high",
++    ]);
++    expect(listed(await (await get("/?priority=low")).text())).toEqual(["Second item — low"]);
++    await setPriority("normal", 1);
++    expect(listed(await (await get("/?priority=normal")).text())).toEqual(["First item"]);
++  });
++
++  it("AC-4: with no filter the list is every item in id order", async () => {
++    await setPriority("low", 1);
++    expect(listed(await (await get("/")).text())).toEqual(["First item — low", "Second item", "Third item"]);
++  });
++
++  it("AC-5: every view shows All, High, Normal and Low, the current one not a link", async () => {
++    const all = '<a href="/">All</a>';
++    const link = (p, label) => `<a href="/?priority=${p}">${label}</a>`;
++    const want = {
++      "/": `<strong>All</strong> · ${link("high", "High")} · ${link("normal", "Normal")} · ${link("low", "Low")}`,
++      "/?priority=high": `${all} · <strong>High</strong> · ${link("normal", "Normal")} · ${link("low", "Low")}`,
++      "/?priority=normal": `${all} · ${link("high", "High")} · <strong>Normal</strong> · ${link("low", "Low")}`,
++      "/?priority=low": `${all} · ${link("high", "High")} · ${link("normal", "Normal")} · <strong>Low</strong>`,
++    };
++    for (const [path, nav] of Object.entries(want)) {
++      expect(await (await get(path)).text(), path).toContain(`<nav>${nav}</nav>`);
++    }
++  });
++
++  it("AC-6: rejects any other priority value with a 400 and no list", async () => {
++    for (const value of ["High", "urgent", "", "__proto__"]) {
++      const res = await get(`/?priority=${value}`);
++      expect(res.status, value).toBe(400);
++      expect(await res.text()).not.toContain("<li>");
++    }
++  });
++
++  it("AC-7: an unmatched filter names its priority; an empty table says No items yet.", async () => {
++    expect(message(await (await get("/?priority=high")).text())).toBe("No high-priority items.");
++    expect(message(await (await get("/?priority=low")).text())).toBe("No low-priority items.");
++    await setPriority("high", 1, 2, 3);
++    expect(message(await (await get("/?priority=normal")).text())).toBe("No normal-priority items.");
++    await env.DB.prepare("DELETE FROM items").run();
++    for (const path of ["/", "/?priority=high", "/?priority=normal", "/?priority=low"]) {
++      expect(message(await (await get(path)).text()), path).toBe("No items yet.");
++    }
++  });
++
++  it("AC-8: synthetic traffic requests the high-priority filter", async () => {
++    const { default: routes } = await import("../traffic/routes.json");
++    expect(routes).toContain("/?priority=high");
++  });
++});
++
++describe("states", () => {
++  it("All priorities: every item, All current", async () => {
++    const html = await (await get("/")).text();
++    expect(listed(html)).toHaveLength(3);
++    expect(html).toContain("<strong>All</strong>");
++  });
++
++  it("One priority: only that priority's items, its filter current", async () => {
++    await setPriority("low", 2);
++    const html = await (await get("/?priority=low")).text();
++    expect(listed(html)).toEqual(["Second item — low"]);
++    expect(html).toContain("<strong>Low</strong>");
++  });
++
++  it("No match: nothing listed and the filter's own message", async () => {
++    const html = await (await get("/?priority=low")).text();
++    expect(listed(html)).toEqual([]);
++    expect(message(html)).toBe("No low-priority items.");
++  });
++
++  it("Empty table: No items yet. with no filter", async () => {
++    await env.DB.prepare("DELETE FROM items").run();
++    expect(message(await (await get("/")).text())).toBe("No items yet.");
++  });
++});
+diff --git a/test/traffic.test.js b/test/traffic.test.js
+index 31cadd1..d0041a9 100644
+--- a/test/traffic.test.js
++++ b/test/traffic.test.js
+@@ -36,12 +36,13 @@ const fakeApp = (answers = {}) => {
+   return {
+     seen,
+     fetch: async (req) => {
+-      const { pathname } = new URL(req.url);
+-      seen.push({ path: pathname, ua: req.headers.get("user-agent") });
+-      const a = answers[pathname];
++      const { pathname, search } = new URL(req.url);
++      const path = pathname + search; // routes can carry a query (e.g. a filtered view)
++      seen.push({ path, ua: req.headers.get("user-agent") });
++      const a = answers[path];
+       if (a instanceof Error) throw a;
+       if (a) return new Response(a.body ?? "", { status: a.status ?? 200 });
+-      if (pathname === "/healthz") return new Response('{"ok":true,"items":3}');
++      if (path === "/healthz") return new Response('{"ok":true,"items":3}');
+       return new Response("<h1>Items</h1>");
+     },
+   };
+diff --git a/traffic/routes.json b/traffic/routes.json
+index 41ca9b1..8e04de2 100644
+--- a/traffic/routes.json
++++ b/traffic/routes.json
+@@ -1 +1 @@
+-["/"]
++["/", "/?priority=high"]

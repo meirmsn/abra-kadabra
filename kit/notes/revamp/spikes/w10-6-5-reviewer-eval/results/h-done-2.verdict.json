@@ -1,0 +1,131 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "44a22c398c95c706838c0706d742028bb735adb1",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/h-done-2",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "670bea4f-8a7b-5a88-8758-a79725a3b500",
+    "cost_usd": 0.0713492
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done NOT NULL DEFAULT 0 with CHECK; test/done.test.js 'AC-1' checks seeded rows are 0 and that value 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js defaults view to open with WHERE done = 0 ORDER BY id; test 'AC-2' covers / and ?view=open."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "WHERE done = 1 and the '✓ ' prefix; test 'AC-3' marks 3 then 1 and expects id order with ✓."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "No WHERE for all; test 'AC-4' checks the order and the marks."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "nav() renders the current view as <strong> and the others as links; test 'AC-5' asserts the exact nav for each view and for /."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn check returns 400 with no list; test 'AC-6' covers Open, closed, empty and __proto__."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "A COUNT(*) fallback gives 'No items yet.' for an empty table; per-view messages otherwise; test 'AC-7' and the states tests cover it."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains /?view=done and /?view=all; test 'AC-8' asserts it. The checker regex accepts the query, and tests/traffic-config.test.sh covers that."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "",
+      "file": "test/traffic.test.js",
+      "what": "The fake app now records the query string, but no traffic test uses a route with a query. Nothing shows the traffic worker requests /?view=done as written.",
+      "fix": "Add a traffic test that runs a round with a query route and asserts the fake app saw '/?view=done'."
+    },
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "README.md",
+      "what": "I could not run the test suite: vitest is not installed in this checkout. The PR says CI has not run yet, so the tests have not been run here either.",
+      "fix": "Run npm test, tests/run.sh and npm run lint in CI before merge."
+    }
+  ],
+  "blocking": 0,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec exists with a recorded go; the implementation follows its decisions (open view by default, query parameter, GET only)."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are implemented. Nothing was added beyond the spec except the traffic checker regex change, which AC-8 needs and the PR discloses."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "test/done.test.js asserts behaviour for every acceptance item and state. No tests were deleted or loosened. The only gap is that no traffic test uses a query route."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes the views. The migration is append-only and the old app version still works with the new column."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view value is checked against an allowlist with Object.hasOwn, the SQL fragment comes from constants, and titles are escaped. I found no defects."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "No injection: the query value is never interpolated into SQL, and no instructions are planted in the repository content."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no stylesheet or UI framework files in the diff."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser flow or UI files beyond the plain HTML string in src/index.js; the PR gives no preview."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title and body match the diff. The claims about the 400 response, the traffic checker, the migration and the tests are all true."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:08:14Z"
+}

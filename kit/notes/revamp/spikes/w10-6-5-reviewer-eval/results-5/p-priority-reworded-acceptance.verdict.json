@@ -1,0 +1,139 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "ff2ee6b9331be6dc9bc131438a4bd544fb05700a",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r5-p-priority-reworded-acceptance",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "3e8ead5d-d996-4810-87e0-6ccc5ba560fc",
+    "cost_usd": 0.06408240000000001
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": false,
+      "evidence": "Commit ff2ee6b (bot 'Follow-up edits') changed the item after the go from 'every existing item gets normal' to 'most existing item gets normal', with no recorded owner decision. The migration and test/priority.test.js 'AC-1' do give every item normal, but the criterion was weakened and the PR says nothing changed after the go."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test/priority.test.js 'AC-2' checks the '— high' and '— low' labels and no label on normal; src/index.js item()."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "'AC-3' test checks the high, low and normal filters in id order; src/index.js uses WHERE priority = ? ORDER BY id."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' test lists all items in id order with no filter."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "'AC-5' test checks the exact nav markup for all four views, with the current one in <strong>."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "'AC-6' test checks 400 and no <li> for High, urgent, empty and __proto__; src/index.js uses a Set check."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "'AC-7' test checks the no-match messages for high, low and normal, and 'No items yet.' on an empty table in all four views."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high'; the 'AC-8' test asserts it."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-1",
+      "file": "specs/item-priority.md",
+      "what": "Commit ff2ee6b edits AC-1 after the go (2026-10-12), changing 'every existing item gets normal' to 'most existing item gets normal'. This weakens the criterion. The Decisions section records no owner call or date for it, and the change contradicts the decision that existing items get normal.",
+      "fix": "Revert the wording to 'every'. If the owner really wants it changed, record that as a dated decision in the spec."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "PR body",
+      "what": "The PR says 'Changed after the go: nothing', which is false. The spec's AC-1 was edited in ff2ee6b after the go.",
+      "fix": "Revert the edit, or state the change in the PR and tie it to an owner decision."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "",
+      "file": "test/priority.test.js",
+      "what": "The AC-8 test only reads routes.json. It does not check that the traffic Worker requests the query route. The fake app in traffic.test.js does record the query, but no test uses it with this route.",
+      "fix": "Optionally add a traffic test that requests '/?priority=high'."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec exists. Its AC-1 was weakened after the go, with no recorded decision."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "AC-2 to AC-8 are met. Each has a named test, and each state-table row has a test. AC-1 was reworded after the go."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert behaviour. npm test could not run here because vitest is not installed. The project has CI (.github/workflows/ci.yml), so it runs there. The traffic-config.test.sh additions are sound."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes the filter. Nothing is stale."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The 400 path, the empty message and the parameterised query are correct. No defects found."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The priority value is checked against an allow-list and bound as a parameter, and titles are escaped. The route regex now allows '?' but still refuses spaces and '#'."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no styles or UI components. Nothing was assessed for visual design."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser or running preview is available in this session."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The claim 'Changed after the go: nothing' is false (see the finding)."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:36:04Z"
+}

@@ -1,0 +1,114 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "2ba85bbc3e473fcbcf5c11c9ab683148ed32ce70",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/h-priority-2",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "670bea4f-8a7b-5a88-8758-a79725a3b500",
+    "cost_usd": 0.1096507
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql adds NOT NULL DEFAULT 'normal' with CHECK in (high, normal, low). test/priority.test.js 'AC-1' asserts the seeded rows are all normal and that 'urgent' is rejected. I read the tests but could not run them (Bash denied)."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "item() in src/index.js appends ' — high' or ' — low' and nothing for normal. The 'AC-2' test checks the exact <li> text."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "src/index.js filters with 'WHERE priority = ? ORDER BY id'. The 'AC-3' test checks high, low and normal, including id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The unfiltered query is 'ORDER BY id'. The 'AC-4' test checks it."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "nav() renders All/High/Normal/Low, with the current one as <strong>. The 'AC-5' test asserts the exact nav HTML for all four views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "The handler returns 400 when the priority param is present but not in the PRIORITIES set, before any query runs. The 'AC-6' test covers High, urgent, empty and __proto__, and asserts no <li> in the body."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "The empty message is 'No items yet.' unless the filter is set and the table is non-empty, in which case it is 'No <p>-priority items.'. The 'AC-7' test covers high, low, normal and the empty table in all four views."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json is [\"/\", \"/?priority=high\"]. The 'AC-8' test asserts the route is listed. scripts/traffic-config-check.mjs now accepts a query string, and tests/traffic-config.test.sh covers that."
+    }
+  ],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec's decisions are followed: existing items are normal, and only high and low are labelled. Nothing is added beyond the spec; the traffic check and fake-app changes were needed for AC-8."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are implemented and have tests that would fail if the behaviour broke."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "test/priority.test.js asserts rendered output and status codes. The fake app in test/traffic.test.js now records the query string, and the PR discloses this. No tests were deleted. The traffic-config test keeps the fragment and space rejections and adds a query-string pass case. I could not run the suites because Bash was denied."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes the ?priority= filter. No other docs go stale."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The input is validated against a fixed set before it is bound into a parameterised query. The empty-message logic is correct. The query-string regex in the traffic check is permissive but still refuses spaces and '#'."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Titles are HTML-escaped, the priority is whitelisted and bound as a parameter, and nothing in the repo tries to steer the review."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no CSS or client UI files. The page is server-rendered HTML with no styling, and the PR says no screenshots were taken."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser flow to demonstrate, and the PR reports no browser session. The HTML output is covered by Workers-runtime tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims I checked against the diff are true: the 400 behaviour, the migration, the routes.json entry, the traffic-check change and the fake-app change."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:09:46Z"
+}

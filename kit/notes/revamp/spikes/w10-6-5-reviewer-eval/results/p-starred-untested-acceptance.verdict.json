@@ -1,0 +1,126 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "cbfd5c4b8fe442ecb6b78f4c95cd8c77aa19f83a",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/p-starred-untested-acceptance",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "670bea4f-8a7b-5a88-8758-a79725a3b500",
+    "cost_usd": 0.1040079
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred INTEGER NOT NULL DEFAULT 0 with a CHECK. test/starred.test.js 'AC-1' asserts the three seeded rows are all 0 and that a value of 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js `item` prefixes '★ ' only when starred. 'AC-2' asserts the exact list [First item, ★ Second item, Third item]."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The starred view filters WHERE starred = 1 ORDER BY id. 'AC-3' stars ids 3 and 1 and asserts only those two appear, in id order, with status 200."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'/' and '?show=all' use the same unfiltered query ORDER BY id. 'AC-4' checks both paths against the full ordered list."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "The VIEWS links are 'Starred only' on the full list and 'All items' on the starred list. The test 'each view links to the other' asserts both exact anchors. It has no AC id in its name."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn(VIEWS, show) rejects unknown values with 400, and the response has no list. The test covers 'Starred', 'none', empty and '__proto__' and checks there is no <li>."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json is [\"/\", \"/?show=starred\"]. The AC-7 test asserts it is listed. scripts/traffic-config-check.mjs now accepts a query string, and the traffic fake app records pathname+search, so the route is actually requested."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "scripts/traffic-config-check.mjs",
+      "what": "The PR says 'Tests deleted or loosened: none', but the route validation regex in the check script was loosened to allow '?'. The PR body does disclose this under 'Traffic route check', so the two statements are slightly inconsistent. I could not run git diff (Bash was refused), so I could not confirm whether any earlier test case about query strings was removed.",
+      "fix": "Say in the 'Tests deleted or loosened' line that the route check was relaxed on purpose, or confirm from the diff that no earlier test case was dropped."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-5",
+      "file": "test/starred.test.js",
+      "what": "The AC-5 test is named 'each view links to the other' and carries no AC id, unlike the other tests, which name the item they prove.",
+      "fix": "Rename it to start with 'AC-5:'."
+    }
+  ],
+  "blocking": 0,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec exists and the change follows its decisions: starred items keep their id order, and the view is a ?show= query parameter with no cookie."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All seven acceptance items are implemented. The four states in the spec's table are covered by tests. Nothing was added beyond the ask, apart from the CHECK constraint on the column, which is harmless."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests assert rendered output and would fail on broken code. I could not run the suite because Bash was refused, so I verified by reading only."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes ?show=starred and the rule that new routes go in routes.json. I found nothing stale."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The code is small and correct. Object.hasOwn guards against '__proto__', titles are escaped, and the SQL is a fixed string chosen from a whitelist."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "No injection risk: the show value only selects a whitelisted view, and output is HTML-escaped. I found no planted instructions in the repository."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The change only adds a ★ glyph and a text link to a plain unstyled HTML list. There are no CSS or template UI files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser or screenshot flow is available, and the page is server-rendered plain HTML covered by response tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title and body match the diff, with the minor wording point in the findings. CI and screenshot claims cannot be checked from the repository."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:06:11Z"
+}

@@ -1,0 +1,73 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "e2d374e05c54c8c2e26a0c2710ffe4d44dff149f",
+  "base": "7c1a0282cbe1b9c23455570153aff52634477380",
+  "branch": "eval-run/h-fix-wildcards-3",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search treating % and _ as wildcards",
+    "sha256": "86d51b3e59f66f74c83c8ffe10a2d899d9ca4eede3d11b392bd67efdc91b9315"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "670bea4f-8a7b-5a88-8758-a79725a3b500",
+    "cost_usd": 0.031410400000000005
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A bug fix. The change does what the PR says: it escapes %, _ and \\ and adds ESCAPE '\\'. Nothing extra was added."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file in this change; the PR's words are the intent."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "New tests insert titles containing %, _ and \\ and assert exact matches. They would fail against the old unescaped LIKE. No tests were deleted or loosened. I could not run them because vitest is not installed here, so I checked them by reading."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README only says ?q= searches titles. Nothing in it is stale."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The escape regex /[\\\\%_]/g with the \\\\$& replacement matches the ESCAPE '\\\\' clause in the SQL. The escaped value is still bound as a parameter, so it is not interpolated into the SQL."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The search value stays a bound parameter. The change adds no injection risk and plants no instructions."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files; src/index.js changes only the query."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims about the ESCAPE clause, the escaped characters, the new test and 'tests deleted: none' all match the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:11:04Z"
+}

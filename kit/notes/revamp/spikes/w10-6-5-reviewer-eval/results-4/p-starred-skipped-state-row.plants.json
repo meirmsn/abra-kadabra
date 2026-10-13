@@ -1,0 +1,18 @@
+{
+  "run": "r4-p-starred-skipped-state-row",
+  "base": "baseline-2",
+  "plants": [
+    {
+      "ref": "r4-p-starred-skipped-state-row-1",
+      "plant": "skipped-state-row",
+      "type": "skipped-state-row",
+      "detector": "the reviewer fails the skipped state-table row",
+      "state": "Starred view",
+      "spec": "specs/starred-items.md",
+      "file": "test/starred.test.js",
+      "line": 66,
+      "before": "it(\"Empty table: the empty message and a link to the starred view\", async () => {",
+      "after": "(test removed)"
+    }
+  ]
+}

@@ -1,0 +1,139 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "2ba85bbc3e473fcbcf5c11c9ab683148ed32ce70",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r2-h-priority-3",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "6fa808a3-5c7b-4758-b040-fd231b02189f",
+    "cost_usd": 0.0691813
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql adds NOT NULL DEFAULT 'normal' with a CHECK constraint. test/priority.test.js 'AC-1' checks that the seeded rows are normal and that 'urgent' is rejected. I could not run the suite."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "The item() renderer in src/index.js adds ' — high' or ' — low' and nothing for normal. The 'AC-2' test asserts the exact li texts."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The query uses WHERE priority = ? ORDER BY id. The 'AC-3' test checks high, low and normal with id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "With no filter the query is SELECT ... ORDER BY id. The 'AC-4' test asserts the full list in order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "nav() renders All, High, Normal and Low, with the current one as <strong>. The 'AC-5' test asserts the exact nav HTML for all four views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "searchParams.has('priority') combined with !PRIORITIES.has() returns 400. The 'AC-6' test covers High, urgent, empty and __proto__, and checks that no <li> is returned."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "The empty-message logic uses a COUNT query. The 'AC-7' test covers the no-match message for high, low and normal, and 'No items yet.' in all four views when the table is empty."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high'. The 'AC-8' test asserts it. The traffic worker passes the path, query included, into the request URL, and the checker script now accepts a query."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-1",
+      "file": "test/priority.test.js",
+      "what": "The AC-1 'existing items get normal' check only reads freshly seeded rows, which would also be normal from the column default. It does not show that rows present before the migration are backfilled.",
+      "fix": "Optionally insert a row before applying 0002 and assert it is normal afterwards, or accept the default as sufficient."
+    },
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README mentions the filter but not the '— high' and '— low' labels or the filter links. It also still calls the traffic routes 'paths', though they can now carry a query string.",
+      "fix": "Add a short note on the labels and nav, and say that routes may include a query string."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "",
+      "file": "test/priority.test.js",
+      "what": "I could not run the test suite: `npm test` failed with 'vitest: not found' because dependencies are not installed. The review of the tests is by reading only.",
+      "fix": "Run the suite in CI or with dependencies installed before merge."
+    }
+  ],
+  "blocking": 0,
+  "low": 3,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change matches the spec. The only extra is the traffic-checker query-string allowance, which the PR discloses and which AC-8 needs."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are implemented and named by tests. All four State-table rows have tests in the 'states' describe block. The spec was added in the same commit, with no later edits to the acceptance items."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The assertions check behaviour. The tests were not run because vitest is not installed. No tests were deleted or loosened; the traffic fake app was extended to record the query."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README was updated for the filter. Only minor gaps remain."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Parameterised SQL, input validated against a Set, and titles still escaped. No defects found."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The priority value is validated and bound as a parameter, and output is escaped. No planted instructions were found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is a minimal server-rendered list with no UI or style files in the diff."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff has no UI flow to demonstrate, and the PR says no browser was available."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters, and the claims I could check match the diff. The 'Tests deleted or loosened: none' and traffic-checker claims are accurate."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:48:39Z"
+}

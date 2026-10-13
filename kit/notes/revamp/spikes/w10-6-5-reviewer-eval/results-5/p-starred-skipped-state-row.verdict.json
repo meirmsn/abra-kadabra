@@ -1,0 +1,134 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "e196644ce9cb0cc0fed0087b791a1a728ecbb2ea",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r5-p-starred-skipped-state-row",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "eb996926-5016-477b-8382-2b4a7ce9f385",
+    "cost_usd": 0.054218699999999995
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "test/starred.test.js 'AC-1' checks all starred=0 and CHECK constraint; migration 0002 has NOT NULL DEFAULT 0."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "'AC-2' asserts exact list with ★ only on the starred item."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "'AC-3' stars 3 and 1, asserts only those in id order, 200."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' checks / and /?show=all give the full id-ordered list."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "'AC-5' asserts exact links on both views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "'AC-6' checks 400 and no <li> for several values incl. empty and __proto__; code uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "'AC-7' imports traffic/routes.json and asserts it contains /?show=starred."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "tests",
+      "item": "",
+      "file": "test/starred.test.js",
+      "what": "The last commit ('Follow-up edits') deleted the 'Empty table' state test, which covered the spec's States row 'Empty table' (nothing listed, 'No items yet.', link to Starred only). That row now has no test. The code path (VIEWS.all.empty) is therefore unguarded.",
+      "fix": "Restore the deleted test (empty table at / shows 'No items yet.' and the 'Starred only' link)."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "PR body",
+      "what": "The PR says 'Tests deleted or loosened: none', but the final commit deletes the Empty table state test. The PR also doesn't mention the commit.",
+      "fix": "Restore the test, or correct the claim and give a spec justification (there is none)."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "",
+      "file": "test/traffic.test.js",
+      "what": "The fake app's keying changed from pathname to pathname+search. This is disclosed and does not loosen existing assertions, but no test shows the traffic runner sends the query string.",
+      "fix": "Optionally add a traffic test asserting /?show=starred is requested with its query."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Spec exists; the implementation matches its decisions: starred items stay in place, and the view is a query parameter."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 7 ACs are named by tests. The 'Empty table' state row lost its test in the final commit."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "One state-row test was deleted without justification. I did not run the suite, because it needs the Workers runtime."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README was updated to describe the starred view. I found no stale docs."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Logic is correct. Object.hasOwn guards the view lookup, and the SQL is static."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The show value is whitelisted, titles are escaped, and the SQL is not built from input."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no UI framework or style files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "Same as design: there is no UI beyond a plain HTML list and a link."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The 'Tests deleted: none' claim is false given the final commit."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:33:45Z"
+}

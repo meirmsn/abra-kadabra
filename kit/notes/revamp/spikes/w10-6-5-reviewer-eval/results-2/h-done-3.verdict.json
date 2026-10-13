@@ -1,0 +1,131 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "44a22c398c95c706838c0706d742028bb735adb1",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r2-h-done-3",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "8bdc9e26-17b3-4b2e-a5b9-a2e1a9b20625",
+    "cost_usd": 0.0690146
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done NOT NULL DEFAULT 0 with CHECK; test/done.test.js 'AC-1' checks seeded rows are 0 and that done=2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js defaults view to open, WHERE done=0 ORDER BY id; 'AC-2' test covers / and ?view=open."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "'AC-3' test marks 3 and 1 done and expects ['✓ First item','✓ Third item'] in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' test expects all three in id order with only the done one marked."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "'AC-5' test asserts the exact nav HTML for each view and for /; the current view is a <strong>, not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn guard returns 400 with no list; 'AC-6' test covers Open, closed, empty and __proto__."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "'AC-7' test covers Nothing open, Nothing done yet and No items yet. in all three views of an empty table."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json lists both views; 'AC-8' test imports it and asserts both are present."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-8",
+      "file": "test/traffic.test.js",
+      "what": "The fake app now records the query string, but no traffic test checks that a route with a query is requested with its query. The traffic worker passes the path straight into the URL, so it works today, but nothing guards it.",
+      "fix": "Add a traffic test that a round requests '/?view=done' and sees the query string."
+    },
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README doesn't say that an unknown view answers 400, or that routes.json entries may now carry a query string.",
+      "fix": "Add a short note on both."
+    }
+  ],
+  "blocking": 0,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Spec with go present; the change matches the intent and decisions (open by default, query parameter)."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 items and all 6 state rows have named tests. The spec was added in the same change and was not edited after the go."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "I could not run npm test because vitest is not installed in the sandbox. I judged the tests by reading them, and they assert behaviour. The traffic test change loosens nothing."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README mentions the views; the 400 behaviour and query routes are not documented (low)."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Queries are static and use no user input in SQL. The hasOwn check blocks prototype keys, and titles are escaped."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The view value is whitelisted, titles are HTML-escaped and no secrets are involved. The traffic route regex now allows '?' but still refuses whitespace and '#'."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is a server-rendered unstyled HTML list with no design-system or UI component files in the diff."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser in this environment, and the PR has no preview or screenshots."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters and the claims match the diff. The 'Changed after the go: nothing' claim holds, since the spec is unchanged after its creation."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:47:16Z"
+}

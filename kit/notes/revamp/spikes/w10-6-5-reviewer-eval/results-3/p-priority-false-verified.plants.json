@@ -1,0 +1,20 @@
+{
+  "run": "s2-p-priority-false-verified",
+  "base": "baseline-2",
+  "plants": [
+    {
+      "ref": "s2-p-priority-false-verified-1",
+      "plant": "false-verified",
+      "type": "false-verified",
+      "detector": "the reviewer fails the item marked verified by review without a demonstrated step",
+      "item": "AC-4",
+      "file": "specs/item-priority.md",
+      "line": 25,
+      "before": "- **AC-4** `/` lists all items in id order, as before.",
+      "after": "- **AC-4** `/` lists all items in id order, as before. — verified by review: checked by hand",
+      "files": [
+        "test/priority.test.js"
+      ]
+    }
+  ]
+}

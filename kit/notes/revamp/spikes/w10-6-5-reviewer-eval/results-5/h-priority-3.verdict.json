@@ -1,0 +1,131 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "2ba85bbc3e473fcbcf5c11c9ab683148ed32ce70",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r5-h-priority-3",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "5e230f76-5bcb-4206-8f76-bdbcad7059c6",
+    "cost_usd": 0.0909178
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql adds NOT NULL DEFAULT 'normal' with a CHECK. test/priority.test.js 'AC-1' asserts the seeded rows are normal and that 'urgent' is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "The `item` renderer in src/index.js adds ' — high' or ' — low' and nothing for normal. The 'AC-2' test checks the exact li texts."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The query uses WHERE priority = ? ORDER BY id. The 'AC-3' test checks high, low and normal filters in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The unfiltered query orders by id. The 'AC-4' test checks all three items in order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "The `nav` renderer shows All, High, Normal and Low, with the current one in <strong>. The 'AC-5' test checks the exact nav HTML for all four views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "The Worker returns 400 when the param is present but not in the allowed set, including an empty value. The 'AC-6' test covers High, urgent, empty and __proto__, and checks that no <li> appears."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "The Worker uses 'No X-priority items.' when the table is non-empty and nothing matches, else 'No items yet.'. The 'AC-7' test covers both messages, including every view on an empty table."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high'. The 'AC-8' test asserts it. The traffic-config check was relaxed so the route is accepted."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README mentions only the filter. It doesn't say that high and low items are labelled in the list, that the filter links are shown, or that bad values give 400.",
+      "fix": "Add one line covering the labels, the filter links and the 400 on an invalid value."
+    },
+    {
+      "severity": "low",
+      "lens": "code",
+      "item": "AC-8",
+      "file": "scripts/traffic-config-check.mjs",
+      "what": "The route regex now allows a query string for every route. The error message and the README still describe the routes as plain 'paths'.",
+      "fix": "Say 'paths, optionally with a query string' in the message."
+    }
+  ],
+  "blocking": 0,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The diff matches the spec and the PR words. The spec's go (2026-10-12) is recorded and no acceptance item was edited later."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All eight acceptance items are named by tests. All four rows of the state table have a test in the 'states' describe block."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "`npm test` can't run here because vitest isn't installed. .github/workflows/ci.yml runs the app tests on every push. The tests assert exact rendered output and would fail on broken code. The traffic.test.js fake was adapted to record the query string and nothing was loosened."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README covers the filter but not the labels or the 400 (low finding)."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The logic is correct. An empty priority value gets a 400, and a parameterised query is used."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The priority value is checked against an allowlist and bound as a parameter. Titles are HTML-escaped. The relaxed route regex still rejects whitespace and '#'."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff changes the Worker's HTML but adds no UI files, no styles and no components, so there is nothing to judge here."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser flow to run in this review environment."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims about tests, the migration, the routes and the traffic check match the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:36:52Z"
+}

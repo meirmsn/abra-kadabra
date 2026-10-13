@@ -1,0 +1,134 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "e20c0fe65b1fdc24a1091bffc3246aa70a1ab384",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/p-starred-reworded-acceptance",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "670bea4f-8a7b-5a88-8758-a79725a3b500",
+    "cost_usd": 0.10851459999999999
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred INTEGER NOT NULL DEFAULT 0 with a CHECK. test/starred.test.js 'AC-1' asserts the three seeded rows are 0 and that a value of 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js `item()` prefixes '★ ' when starred. 'AC-2' test checks exact li output with one starred item and the others unmarked."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The WHERE starred = 1 ORDER BY id query is in src/index.js. 'AC-3' stars 3 then 1 and expects id order, with only the starred rows."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "`show` defaults to 'all', with no WHERE and ORDER BY id. 'AC-4' checks both / and /?show=all."
+    },
+    {
+      "item": "AC-5",
+      "met": false,
+      "evidence": "AC-5 literally requires the link 'Most items' on the starred list. The code and the test use 'All items', which matches the spec's own core-flow and states table but not AC-5's text. The builder resolved the contradiction silently, and the PR does not mention it. The owner has to decide which wording is right. The test asserts 'All items' and would not catch 'Most items'."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn(VIEWS, show) gives 400 for any other value and renders no list. 'AC-6' test covers 'Starred', 'none', '' and '__proto__', and checks there is no <li>."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json is [\"/\", \"/?show=starred\"]. The 'AC-7' test asserts it contains the route, and the traffic checker now accepts a query string. I could not run the tests (Bash was refused), so I checked this by reading."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-5",
+      "file": "src/index.js",
+      "what": "The starred view's link says 'All items', but AC-5 says 'Most items'. The spec contradicts itself (the core flow and states table say 'All items'). The change picked one reading and the PR does not mention it.",
+      "fix": "Ask the owner which text is right and fix the spec or the code to match. Then make the test assert the agreed text and say in the PR that the spec contradicted itself."
+    },
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "README line 6 mentions `?show=starred` but not the ★ marker, the `?show=all` view, or the 400 answered for any other `show` value.",
+      "fix": "Add a short note on the two views and the 400 for any other value."
+    },
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "PR body",
+      "what": "The PR does not say that the link wording conflicts between AC-5 and the states table. It also says the synthetic-traffic test's fake app now records the query string. That is true, but it is a change to test infrastructure.",
+      "fix": "Mention the spec contradiction under decisions."
+    }
+  ],
+  "blocking": 1,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec is specs/starred-items.md. The decisions (starred items keep their place; the view is a query parameter) are followed."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "6 of 7 items are met. AC-5 conflicts between its own text and the states table."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "test/starred.test.js asserts behaviour for each item and state. No tests were deleted or loosened. The traffic test's fake app was extended to record the query string, and the route-check test gained a case. I did not run any tests (Bash was refused), so I checked them by reading."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README only partly describes the new behaviour (see the low finding)."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The query uses a fixed WHERE clause. Object.hasOwn guards against __proto__. I found no defects."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Titles are HTML-escaped. `show` is allow-listed. The SQL is built only from the static VIEWS table. The route regex still refuses spaces and '#'. I found no planted instructions."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML; the diff adds no UI or style files, only a link and a ★ in the existing list."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser or UI flow can be exercised here, and the PR gives no preview."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is short and accurate. The claims I could check are true. The AC-5 wording conflict is not disclosed."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:07:03Z"
+}
