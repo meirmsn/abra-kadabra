@@ -1,0 +1,288 @@
+#!/usr/bin/env bash
+# Tests runtime/reviewer/ship.sh (W10.6.7): the one way Claude puts a change on a PR. It reviews the
+# committed HEAD with exactly the given title and body, locally; only a pass pushes the branch,
+# creates or updates the PR with exactly those words (set back once if GitHub changed them) and
+# posts the verdict comment. Runs a copy of runtime/ with a stub review.sh (driven by $STUB/modes)
+# and a stub `gh` (a fake PR store in $GH_DIR), against a local bare repo as origin.
+set -euo pipefail
+
+repo_root=$(cd "$(dirname "$0")/.." && pwd)
+source "$repo_root/tests/lib.sh"
+command -v jq >/dev/null || fail "jq not found"
+command -v python3 >/dev/null || fail "python3 not found"
+
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+isolate_git "$work"
+ok() { echo "ok - $1"; }
+
+# --- A copy of the runtime, with a stub review.sh in place of the real one.
+mkdir -p "$work/dev"
+cp -R "$repo_root/runtime/reviewer" "$work/dev/"
+ship="$work/dev/reviewer/ship.sh"
+cat >"$work/dev/reviewer/review.sh" <<'EOF'
+#!/usr/bin/env bash
+# Stub reviewer: logs its arguments and the --pr file; acts out line n of $STUB/modes on call n
+# (the last line after that): pass | fail | could-not-run | ask-owner | noline | twolines | mismatch | crash.
+echo "$*" >>"$STUB/calls"
+n=$(wc -l <"$STUB/calls")
+pr=""
+while [ $# -gt 0 ]; do case $1 in --pr) pr=$2; shift 2 ;; *) shift ;; esac; done
+[ -z "$pr" ] || cp "$pr" "$STUB/words.$n"
+mode=$(sed -n "${n}p" "$STUB/modes"); [ -n "$mode" ] || mode=$(tail -1 "$STUB/modes")
+head=$(git rev-parse HEAD)
+dir="$(git rev-parse --path-format=absolute --git-common-dir)/devshop/reviews/stub"
+mkdir -p "$dir"; v="$dir/$n-${head:0:12}.json"
+case $mode in
+  pass) rc=0 ;; fail | mismatch) rc=1 ;; could-not-run) rc=2 ;; ask-owner) rc=3 ;;
+  noline) echo "all good, trust me"; exit 0 ;;
+  crash) echo "boom" >&2; exit 5 ;;
+  twolines) rc=0 ;;
+esac
+outcome=$mode; case $mode in twolines | mismatch) outcome=pass ;; esac
+sha=null; [ -z "$pr" ] || sha="\"$(sha256sum "$pr" | cut -c1-64)\""
+findings='[]'
+case $outcome in fail | ask-owner) findings='[{"severity":"high","lens":"tests","item":"","file":"src/x.js","what":"AC-2 has no test","fix":"add a test for AC-2"}]' ;; esac
+reason=""; [ "$outcome" != could-not-run ] || reason="two spec files"
+jq -n --arg o "$outcome" --arg c "$head" --argjson f "$findings" --argjson sha "$sha" --arg r "$reason" '{
+  format: "devshop-review/2", outcome: $o, round: 1, commit: $c, base: $c, branch: "feat/x", spec: "",
+  intent: "pr", pr: (if $sha == null then null else {title: "t", sha256: $sha} end),
+  reviewer: {devshop: "test", model: "stub", session_id: "s-1", cost_usd: 0},
+  acceptance: [], findings: $f, blocking: ($f | length), low: 0,
+  lenses: [{lens: "pr", applies: true, note: ""}], reason: $r, created: "2026-10-13T00:00:00Z"}' >"$v"
+echo "REVIEW: $outcome · round 1 · $(jq .blocking "$v") blocking, 0 low · ${head:0:12} · $v"
+[ "$mode" != twolines ] || echo "REVIEW: pass · round 1 · 0 blocking, 0 low · ${head:0:12} · $v"
+exit $rc
+EOF
+chmod +x "$work/dev/reviewer/review.sh"
+
+# --- A stub gh over a store of PR files in $GH_DIR/prs (n.json). $GH_DIR/footer: text the server
+# appends to a body it is given on create; $GH_DIR/footer-always: on every write; $GH_DIR/rewrite:
+# the body GitHub keeps instead of the one given; $GH_DIR/retitle: text added to the title. $GH_DIR/fail:
+# every call fails; $GH_DIR/fail-comment: posting a comment fails.
+mkdir -p "$work/bin"
+cat >"$work/bin/gh" <<'EOF'
+#!/usr/bin/env bash
+echo "$*" >>"$GH_DIR/calls"
+[ ! -f "$GH_DIR/fail" ] || { echo "HTTP 502: bad gateway" >&2; exit 1; }
+[ "$1" = api ] || { echo "stub gh: only api" >&2; exit 1; }
+shift; method=GET path="" input=""
+while [ $# -gt 0 ]; do case $1 in -X) method=$2; shift 2 ;; --input) input=$(cat); shift 2 ;; *) path=$1; shift ;; esac; done
+tamper() { # tamper <pr file>: a rewrite or retitle GitHub makes on its own
+  [ ! -f "$GH_DIR/rewrite" ] || { jq --rawfile b "$GH_DIR/rewrite" '.body = $b' "$1" >"$1.t" && mv "$1.t" "$1"; }
+  [ ! -f "$GH_DIR/retitle" ] || { jq --rawfile t "$GH_DIR/retitle" '.title += $t' "$1" >"$1.t" && mv "$1.t" "$1"; }
+}
+foot() { # foot <write kind>: what the server appends to a body
+  if [ -f "$GH_DIR/footer-always" ]; then cat "$GH_DIR/footer-always"; elif [ "$1" = create ] && [ -f "$GH_DIR/footer" ]; then cat "$GH_DIR/footer"; fi
+}
+case "$method $path" in
+  "GET repos/example/app")
+    echo '{"default_branch": "main"}' ;;
+  "GET repos/example/app/pulls?"*)
+    q=$(python3 -c 'import sys, urllib.parse as u; q = u.parse_qs(sys.argv[1].split("?", 1)[1]); print(q.get("state", [""])[0], q.get("head", [""])[0])' "$path")
+    [[ "$q" == "open example:"* ]] || { echo "stub gh: unexpected query $path" >&2; exit 1; }
+    b=${q#open example:}
+    cat "$GH_DIR"/prs/*.json 2>/dev/null | jq -s --arg b "$b" '[.[] | select(.state == "open" and .head.ref == $b)]' ;;
+  "GET repos/example/app/pulls/"*) cat "$GH_DIR/prs/${path##*/}.json" ;;
+  "POST repos/example/app/pulls")
+    n=$(($(ls "$GH_DIR/prs" | wc -l) + 7))
+    sha=$(git --git-dir="$ORIGIN" rev-parse "refs/heads/$(jq -r .head <<<"$input")") || { echo "HTTP 422: no such head" >&2; exit 1; }
+    jq --argjson n "$n" --arg s "$sha" --arg f "$(foot create)" '{number: $n, state: "open", title: .title,
+      body: (.body + $f), head: {ref: .head, sha: $s}, base: {ref: .base}, html_url: "https://example.com/pr/\($n)"}' <<<"$input" >"$GH_DIR/prs/$n.json"
+    tamper "$GH_DIR/prs/$n.json"
+    cat "$GH_DIR/prs/$n.json" ;;
+  "PATCH repos/example/app/pulls/"*)
+    f="$GH_DIR/prs/${path##*/}.json"
+    sha=$(git --git-dir="$ORIGIN" rev-parse "refs/heads/$(jq -r .head.ref "$f")")
+    jq --argjson in "$input" --arg s "$sha" --arg f "$(foot patch)" '. + ($in | {title, body, base: (if .base then {ref: .base} else null end)} | with_entries(select(.value != null)))
+      | .body = (.body + $f) | .head.sha = $s' "$f" >"$f.tmp" && mv "$f.tmp" "$f"
+    tamper "$f"
+    cat "$f" ;;
+  "POST repos/example/app/issues/"*"/comments")
+    [ ! -f "$GH_DIR/fail-comment" ] || { echo "HTTP 403: comments refused" >&2; exit 1; }
+    n=${path#repos/example/app/issues/}; n=${n%/comments}
+    jq -c . <<<"$input" >>"$GH_DIR/comments.$n"; echo '{"id": 1}' ;;
+  *) echo "stub gh: unexpected $method $path" >&2; exit 1 ;;
+esac
+EOF
+chmod +x "$work/bin/gh"
+export ORIGIN="$work/remote/example/app.git"
+
+# --- The project: main and release on origin, a feature branch with one commit not yet pushed.
+git init -q --bare "$ORIGIN"
+new_repo "$work/p"
+git -C "$work/p" remote add origin "$ORIGIN"
+git -C "$work/p" push -q origin main main:release
+git -C "$work/p" remote set-head origin main
+git -C "$work/p" checkout -qb feat/x
+commit_file "$work/p" x.txt "the change"
+head_sha() { git -C "$work/p" rev-parse HEAD; }
+remote_sha() { git --git-dir="$ORIGIN" rev-parse -q --verify "refs/heads/feat/x" || echo none; }
+
+# reset_state [modes...]: fresh stub logs, no PRs, no comments; origin's feat/x as given ($REMOTE_AT).
+reset_state() {
+  rm -rf "$work/stub" "$work/gh" "$work/p/.git/devshop"
+  mkdir -p "$work/stub" "$work/gh/prs"
+  printf '%s\n' "${@:-pass}" >"$work/stub/modes"
+  : >"$work/stub/calls"; : >"$work/gh/calls"
+  git --git-dir="$ORIGIN" update-ref -d refs/heads/feat/x 2>/dev/null || true
+}
+printf 'Adds x.\n\nSecond line with "quotes" and ünïcode.\n' >"$work/body.md"
+# run_ship [args...] [-- PATH]: run ship.sh from the worktree root; sets rc and out (stdout+stderr).
+run_ship() {
+  rc=0
+  out=$(cd "$work/p" && PATH="$work/bin:$PATH" STUB="$work/stub" GH_DIR="$work/gh" "$ship" "$@" 2>&1) || rc=$?
+}
+want_rc() { [ "$rc" = "$1" ] || fail "$2: want exit $1, got $rc: $out"; }
+reviews() { wc -l <"$work/stub/calls" | tr -d ' '; }
+comments() { [ -f "$work/gh/comments.$1" ] && wc -l <"$work/gh/comments.$1" | tr -d ' ' || echo 0; }
+marker() { jq -r '.body | split("\n")[0]' "$work/gh/comments.$1" | sed -n "${2:-1}p" | sed -E 's/^<!-- devshop-review (.*) -->$/\1/'; }
+words_line() { jq -nc --arg t "$1" --rawfile b "$2" '{title: $t, body: $b}' | "$repo_root/runtime/reviewer/pr-words.sh"; }
+nothing_shipped() {
+  [ "$(remote_sha)" = "${2:-none}" ] || fail "$1: the branch was pushed"
+  [ -z "$(ls "$work/gh/prs")" ] || [ -n "${2:-}" ] || fail "$1: a PR was created"
+  ! grep -q -- "-X POST repos/example/app/issues" "$work/gh/calls" || fail "$1: a comment was posted"
+}
+
+# --- 1. A passing review with no PR: push, create with exactly the reviewed words, post the verdict.
+reset_state pass
+run_ship --title "Add x" --body-file "$work/body.md"
+want_rc 0 "ship with a passing review"
+grep -qx -- "--base origin/main --pr .*" "$work/stub/calls" || fail "review.sh call: $(cat "$work/stub/calls")"
+[ "$(cat "$work/stub/words.1")" = "$(words_line "Add x" "$work/body.md")" ] || fail "reviewed words: $(cat "$work/stub/words.1")"
+ok "the review gets HEAD, the default base, and exactly the given title and body"
+[ "$(remote_sha)" = "$(head_sha)" ] || fail "the branch was not pushed"
+pr="$work/gh/prs/7.json"
+[ -f "$pr" ] || fail "no PR was created: $(cat "$work/gh/calls")"
+[ "$(jq -r .title "$pr")" = "Add x" ] && [ "$(jq -r .body "$pr")" = "$(cat "$work/body.md")" ] || fail "PR words: $(cat "$pr")"
+[ "$(jq -r .base.ref "$pr")" = main ] && [ "$(jq -r .head.ref "$pr")" = feat/x ] || fail "PR base/head: $(cat "$pr")"
+[ "$(comments 7)" = 1 ] || fail "want 1 verdict comment, got $(comments 7)"
+m=$(marker 7)
+[ "$(jq -r .commit <<<"$m")" = "$(head_sha)" ] && [ "$(jq -r .outcome <<<"$m")" = pass ] || fail "marker: $m"
+[ "$(jq -r .words <<<"$m")" = "$(words_line "Add x" "$work/body.md" | sha256sum | cut -c1-64)" ] || fail "marker words: $m"
+[[ "$(tail -1 <<<"$out")" == "SHIPPED: PR #7 · https://example.com/pr/7 · $(head_sha | cut -c1-12)" ]] || fail "last line: $(tail -1 <<<"$out")"
+ok "a pass pushes HEAD, creates the PR with exactly those words, posts the verdict and says SHIPPED"
+
+# --- 2. A failing review: nothing reaches GitHub, and the findings come back.
+reset_state fail
+run_ship --title "Add x" --body-file "$work/body.md"
+want_rc 1 "ship with a failing review"
+nothing_shipped "failing review"
+grep -q "^REVIEW: fail" <<<"$out" || fail "no REVIEW: line: $out"
+{ grep -qF "AC-2 has no test" <<<"$out" && grep -qF "add a test for AC-2" <<<"$out"; } || fail "findings not shown: $out"
+grep -qi "commit" <<<"$out" || fail "doesn't say to fix, commit and ship again: $out"
+ok "a failing review pushes nothing, creates nothing, and returns its findings"
+
+# --- 3. Every other result stops before GitHub too.
+for mode in could-not-run ask-owner; do
+  reset_state $mode; run_ship --title "Add x" --body-file "$work/body.md"
+  want_rc "$([ $mode = ask-owner ] && echo 3 || echo 2)" "$mode"
+  nothing_shipped "$mode"
+  { grep -q "^REVIEW: $mode" <<<"$out" && grep -qi "owner" <<<"$out"; } || fail "$mode: $out"
+done
+reset_state ask-owner; run_ship --title "Add x" --body-file "$work/body.md"
+grep -qF "AC-2 has no test" <<<"$out" || fail "ask-owner doesn't show its findings: $out"
+reset_state could-not-run; run_ship --title "Add x" --body-file "$work/body.md"
+grep -qF "two spec files" <<<"$out" || fail "could-not-run doesn't show its reason: $out"
+for mode in noline twolines mismatch crash; do
+  reset_state $mode; run_ship --title "Add x" --body-file "$work/body.md"
+  want_rc 2 "review.sh $mode"; nothing_shipped "review.sh $mode"
+  grep -qi "owner" <<<"$out" || fail "$mode doesn't say to ask the owner: $out"
+done
+reset_state pass; chmod -x "$work/dev/reviewer/review.sh"
+run_ship --title "Add x" --body-file "$work/body.md"; want_rc 2 "review.sh not executable"; nothing_shipped "review.sh not executable"
+chmod +x "$work/dev/reviewer/review.sh"
+ok "could-not-run (2) and ask-owner (3) stop before GitHub and say to ask the owner; so does any result ship can't trust"
+
+# --- 4. Bad input stops before the review.
+reset_state pass
+for args in "--body-file $work/body.md" "--title  --body-file $work/body.md" "--title x" "--title x --body-file $work/nope.md" \
+  "--title x --body-file $work/body.md --force" "--title x --body-file $work/body.md --base"; do
+  read -ra argv <<<"$args"
+  run_ship "${argv[@]}"; want_rc 2 "bad arguments: $args"
+done
+echo dirty >"$work/p/x.txt"; run_ship --title x --body-file "$work/body.md"; want_rc 2 "dirty tree"
+git -C "$work/p" checkout -q x.txt
+git -C "$work/p" checkout -q --detach; run_ship --title x --body-file "$work/body.md"; want_rc 2 "detached HEAD"
+git -C "$work/p" checkout -q feat/x
+[ "$(reviews)" = 0 ] || fail "bad input ran a review"
+nothing_shipped "bad input"
+ok "no title, no or unreadable body file, unknown or incomplete flags, a dirty tree or a detached HEAD: exit 2, no review"
+
+# --- 5. An open PR: its base is used, and its title, body and head are updated together.
+reset_state pass
+git -C "$work/p" push -q origin feat/x
+jq -n --arg s "$(head_sha)" '{number: 9, state: "open", title: "Old", body: "Old body", head: {ref: "feat/x", sha: $s}, base: {ref: "release"}, html_url: "https://example.com/pr/9"}' >"$work/gh/prs/9.json"
+commit_file "$work/p" y.txt "a fix"
+run_ship --title "Add x, fixed" --body-file "$work/body.md"
+want_rc 0 "ship to an open PR"
+grep -qx -- "--base origin/release --pr .*" "$work/stub/calls" || fail "the open PR's base was not used: $(cat "$work/stub/calls")"
+[ "$(remote_sha)" = "$(head_sha)" ] || fail "the fix was not pushed"
+[ "$(jq -r .title "$work/gh/prs/9.json")" = "Add x, fixed" ] && [ "$(jq -r .body "$work/gh/prs/9.json")" = "$(cat "$work/body.md")" ] \
+  || fail "the open PR's words were not updated: $(cat "$work/gh/prs/9.json")"
+[ "$(ls "$work/gh/prs")" = 9.json ] || fail "a second PR was created"
+[ "$(comments 9)" = 1 ] && [ "$(jq -r .commit <<<"$(marker 9)")" = "$(head_sha)" ] || fail "no verdict for the new head on PR 9"
+ok "on an open PR: its base, the push and the new words go up together, with the verdict for the new head"
+reset_state pass; git -C "$work/p" push -q origin feat/x
+jq -n --arg s "$(head_sha)" '{number: 9, state: "open", title: "Old", body: "b", head: {ref: "feat/x", sha: $s}, base: {ref: "main"}, html_url: "u"}' >"$work/gh/prs/9.json"
+run_ship --title x --body-file "$work/body.md" --base release; want_rc 0 "ship with --base"
+grep -qx -- "--base origin/release --pr .*" "$work/stub/calls" && [ "$(jq -r .base.ref "$work/gh/prs/9.json")" = release ] || fail "--base not applied"
+ok "--base overrides the PR's base, and the PR's base is changed to it"
+
+# --- 6. What GitHub does to the words after ship sets them: anything it appends is left alone (it
+# can't change what was reviewed); a rewritten body or a changed title is reported (owner, 2026-10-13).
+for footer in '\n\n---\n_footer added by the server_' '\nany other text GitHub likes to add'; do
+  reset_state pass; printf '%b' "$footer" >"$work/gh/footer-always"
+  run_ship --title "Add x" --body-file "$work/body.md"; want_rc 0 "ship with text appended by GitHub"
+  jq -e --rawfile b "$work/body.md" --arg f "$(printf '%b' "$footer")" '.body == $b + $f' "$work/gh/prs/7.json" >/dev/null || fail "the appended text was touched: $(jq -r .body "$work/gh/prs/7.json")"
+  ! grep -q -- "-X PATCH" "$work/gh/calls" || fail "ship rewrote the body after GitHub appended to it"
+  { [ "$(reviews)" = 1 ] && [ "$(comments 7)" = 1 ]; } || fail "appended text caused a second review or no verdict"
+done
+rm -f "$work/gh/footer-always"
+reset_state pass; printf 'A different body.\n' >"$work/gh/rewrite"
+run_ship --title "Add x" --body-file "$work/body.md"; want_rc 2 "ship when GitHub rewrites the body"
+grep -q "changed the PR's title or body" <<<"$out" || fail "a rewritten body is not reported: $out"
+[ "$(comments 7)" = 1 ] || fail "the verdict comment was not posted (it records what was reviewed)"
+rm -f "$work/gh/rewrite"; reset_state pass; printf ' (edited)' >"$work/gh/retitle"
+run_ship --title "Add x" --body-file "$work/body.md"; want_rc 2 "ship when GitHub changes the title"
+rm -f "$work/gh/retitle"
+ok "text GitHub appends to the body is left alone; a rewritten body or a changed title is reported (exit 2)"
+
+# --- 7. Failures after the review say what was done.
+reset_state pass
+git -C "$work/p" push -q origin feat/x
+git clone -q "$ORIGIN" "$work/other" && git -C "$work/other" checkout -q feat/x && commit_file "$work/other" z.txt "someone else" \
+  && git -C "$work/other" push -q origin feat/x && rm -rf "$work/other"
+before=$(remote_sha)
+run_ship --title x --body-file "$work/body.md"; want_rc 2 "push rejected"
+nothing_shipped "push rejected" "$before"
+grep -qi "push" <<<"$out" || fail "a rejected push is not named: $out"
+git --git-dir="$ORIGIN" update-ref -d refs/heads/feat/x
+reset_state pass; touch "$work/gh/fail"
+run_ship --title x --body-file "$work/body.md"; want_rc 2 "gh failing"; rm -f "$work/gh/fail"
+[ "$(reviews)" = 0 ] && [ "$(remote_sha)" = none ] || fail "gh failing: reviewed or pushed anyway"
+reset_state pass; touch "$work/gh/fail-comment"
+run_ship --title x --body-file "$work/body.md"; want_rc 2 "comment refused"; rm -f "$work/gh/fail-comment"
+{ grep -qi "pushed" <<<"$out" && grep -qi "comment" <<<"$out"; } || fail "a refused comment doesn't say what was done: $out"
+mkdir -p "$work/nogh"; for t in git jq python3 env bash sha256sum cut sed tail wc cp mkdir cat dirname readlink mktemp rm tr grep head; do ln -sf "$(command -v "$t")" "$work/nogh/$t"; done
+reset_state pass; rc=0; out=$(cd "$work/p" && PATH="$work/nogh" STUB="$work/stub" GH_DIR="$work/gh" "$ship" --title x --body-file "$work/body.md" 2>&1) || rc=$?
+want_rc 2 "no gh"; [ "$(reviews)" = 0 ] || fail "no gh: reviewed anyway"
+ok "a rejected push, a failing or missing gh, or a refused comment: exit 2, saying what was done"
+
+# --- 8. A single-branch clone (how a session may check out the repo): the base is fetched by name,
+# so origin/<base> exists and is current (the reviewer's finding on PR #88, LOG #48).
+reset_state pass
+git -C "$work/p" push -q origin feat/x
+git -C "$work/p" checkout -q main && commit_file "$work/p" main-moves.txt "main moved" && git -C "$work/p" push -q origin main
+git -C "$work/p" checkout -q feat/x
+git clone -q --single-branch -b feat/x "$ORIGIN" "$work/sb"
+[ -z "$(git -C "$work/sb" for-each-ref refs/remotes/origin/main)" ] || fail "the test clone already tracks main"
+commit_file "$work/sb" sb.txt "from a single-branch clone"
+rc=0; out=$(cd "$work/sb" && PATH="$work/bin:$PATH" STUB="$work/stub" GH_DIR="$work/gh" "$ship" --title x --body-file "$work/body.md" 2>&1) || rc=$?
+want_rc 0 "ship from a single-branch clone"
+grep -qx -- "--base origin/main --pr .*" "$work/stub/calls" || fail "base: $(cat "$work/stub/calls")"
+[ "$(git -C "$work/sb" rev-parse origin/main)" = "$(git --git-dir="$ORIGIN" rev-parse refs/heads/main)" ] || fail "origin/main is not origin's main"
+rm -rf "$work/sb"
+ok "from a single-branch clone, the base is fetched by name and reviewed against origin's current base"
+
+echo "all ship tests passed"

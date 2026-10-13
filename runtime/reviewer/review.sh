@@ -13,6 +13,7 @@ MODEL=claude-sonnet-5-5
 TOOLS=Read,Grep,Glob,Bash
 TIMEOUT=900 # seconds
 ROUNDS_TO_ASK=3
+FAILS_TO_ASK=6 # distinct failing commits since the last pass, new issues or not
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 usage="usage: review.sh --base <rev> [--pr <file>]"
@@ -31,7 +32,11 @@ finish() {
   if [ -n "$vdir" ] && mkdir -p "$vdir"; then
     if [ "$outcome" = pass ] || [ "$outcome" = fail ]; then
       round=$(rounds_before)
-      if [ "$outcome" = fail ] && [ "$round" -ge "$ROUNDS_TO_ASK" ]; then outcome=ask-owner code=3; fi
+      if [ "$outcome" = fail ]; then
+        local fails=$round
+        round=$(fail_round "$reply")
+        if [ "$round" -ge "$ROUNDS_TO_ASK" ] || [ "$fails" -ge "$FAILS_TO_ASK" ]; then outcome=ask-owner code=3; fi
+      fi
     fi
     local seq
     seq=$(printf '%03d' $(($(find "$vdir" -maxdepth 1 -name '[0-9][0-9][0-9]-*.json' | wc -l) + 1)))
@@ -63,8 +68,32 @@ finish() {
 }
 cnr() { finish could-not-run "$1"; }
 
-# rounds_before: this review's round = distinct failing commits since the branch's last pass,
-# counting this commit. Could-not-run verdicts are not rounds.
+# The blocking items of a reply or verdict, one key each: an unmet AC-<n>, or a non-low finding's
+# lens and file.
+KEYS='[(.acceptance[] | select(.met | not) | "ac:" + .item), (.findings[] | select(.severity != "low") | "f:" + .lens + "|" + (.file // ""))] | unique'
+
+# fail_round <reply json>: 1, or the previous failing commit's round + 1 when this fail repeats one
+# of its blocking items (W10.6.7). Stops at the branch's last pass; could-not-run is skipped.
+fail_round() {
+  local f o c now
+  now=$(jq -c "$KEYS" <<<"$1") || { echo 1; return; }
+  for f in $(find "$vdir" -maxdepth 1 -name '[0-9][0-9][0-9]-*.json' | sort -r); do
+    o=$(jq -r .outcome "$f" 2>/dev/null) c=$(jq -r .commit "$f" 2>/dev/null)
+    case "$o" in
+      pass) break ;;
+      fail | ask-owner)
+        [ "$c" != "$head" ] || continue
+        if jq -e --argjson now "$now" "($KEYS) as \$then | any(\$now[]; IN(\$then[]))" "$f" >/dev/null 2>&1; then
+          echo $(($(jq .round "$f") + 1)); return
+        fi
+        break ;;
+    esac
+  done
+  echo 1
+}
+
+# rounds_before: distinct failing commits since the branch's last pass, counting this commit (a
+# pass's round; for a fail, the count the 6th-failing-commit cap uses). Could-not-run doesn't count.
 rounds_before() {
   local f o c seen=" $head "
   for f in $(find "$vdir" -maxdepth 1 -name '[0-9][0-9][0-9]-*.json' | sort -r); do
@@ -124,10 +153,11 @@ fi
 [ -n "$intent" ] || intent=commits
 command -v claude >/dev/null || cnr "claude not found on PATH"
 
-# --- A throwaway clone holding just the two commits, with no remote.
+# --- A throwaway clone holding just the two commits, with no remote. --update-shallow: a shallow
+#     repo (a cloud session's clone) is fetched from too; without it git rejects the refs, exit 0.
 scratch=$(mktemp -d) || cnr "mktemp failed"
 if ! { git init -q "$scratch/repo" \
-  && git -C "$scratch/repo" fetch -q --no-tags "$repo" "$base_sha:refs/heads/base" "$head:refs/heads/head" \
+  && git -C "$scratch/repo" fetch -q --update-shallow --no-tags "$repo" "$base_sha:refs/heads/base" "$head:refs/heads/head" \
   && git -C "$scratch/repo" checkout -q head; }; then
   cnr "could not make the throwaway clone"
 fi

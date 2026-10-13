@@ -48,8 +48,11 @@ scripts named here; run them, never retype them as shell.
   read from the real signal (CI, the preview comment).
 - Run `/opt/devshop-current/scripts/pr-body-check.py <body file> "<title>"` until it passes, before
   the PR goes ready.
-- Create the PR ready for review, not as a draft: it opens only once the review passes (TARGET
-  Verify 2). **Don't run the reviewer yourself:** the devshop's hook runs the independent reviewer
-  before the PR is created and before each later push (W10.6.7), and posts its verdict on the PR. A
-  failing review blocks the call with its findings: fix, commit, try again.
+- Ship it: `/opt/devshop-current/reviewer/ship.sh --title "<title>" --body-file <body file>`. It
+  runs the independent reviewer in the VM, and only on a pass pushes, creates or updates the PR
+  (ready, not a draft) with those exact words, and posts the verdict (TARGET Verify 2, W10.6.7). It
+  is the only way to a PR: `gh pr create` and pushes to a PR's branch are refused. Exit 1: fix the
+  findings, commit, ship again. Exit 2 or 3: stop and ask the owner.
+- Keep per-round detail out of the body (it goes stale with the next fix); ship again after any
+  change to code or words.
 - Then tell the owner in chat: the PR link and its one-line summary.

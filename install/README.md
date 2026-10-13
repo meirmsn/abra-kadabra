@@ -106,6 +106,13 @@ Feedback, not walls: everything here runs in the session's VM, where the agent c
   `/tmp/devshop-setup.log`); session start says so up front in a `DEVSHOP:` line, when the
   installed plugin registers the guard. It reads only the command's text, so a destructive command inside a
   script file or an interpreter gets through, and dcg ignores what a heredoc writes.
+- **The review guard.** Changes reach a PR only through the version's
+  [`runtime/reviewer/ship.sh`](../runtime/reviewer/ship.sh), which runs the independent reviewer in
+  the VM and pushes code and words together only on a pass. The plugin's PreToolUse hook runs
+  [`runtime/hooks/review-guard.py`](../runtime/hooks/review-guard.py), which refuses the other ways
+  (`gh pr create`, a push to a branch with an open PR, the GitHub tools that create, edit or commit).
+  If the pinned guard or `python3` is missing, the fallback refuses the same calls. Details:
+  [`runtime/reviewer/README.md`](../runtime/reviewer/README.md#ship).
 - **Session setup.** Session start also runs the repo's own `scripts/setup.sh`, if it has one
   (this repo's: `npm ci`, so Prettier is there for its checks): silent when it works, a `DEVSHOP:`
   line when it fails (log: `/tmp/devshop-project-setup.log`). It is the repo's own code, like its
@@ -149,7 +156,5 @@ Proven by [`tests/git-hooks.test.sh`](../tests/git-hooks.test.sh) (real `git pus
   which sets them back and keeps husky's chained.
 - A repo's `scripts/lint.sh` needs its own tools in the session (here `npm ci` for Prettier); when
   one is missing, the push stops and the check names it.
-- The hook that starts the independent reviewer on PR create and on pushes to an open PR is
-  W10.6.7; it calls `review.sh --base <rev> --pr <file>` (W10.6.6).
 - The v2 skills (`intent`, `build`, `devshop-version`) load from the pinned version's
   `runtime/skills/`; `tests/bootstrap.test.sh` checks the plugin resolves each one there.

@@ -1736,3 +1736,135 @@ lets `rm -rf /` written inside a heredoc through (v1's friction-log case now goe
 
 **Next**: the owner's fresh-session check after the environment rebuilds: `git reset --hard` from
 Claude is blocked with dcg's reason, and `ls` runs.
+
+## #48 — 2026-10-13 · W10.6.7 the reviewer runs by itself (in progress)
+
+**What moved**: the hook's contract went into the W10.6.7 line first, then the owner's calls were
+folded in. `runtime/hooks/review-hook.py` is registered by the plugin as a PreToolUse `gate` (PR
+create through the GitHub tool or `gh pr create`, a `git push` to a branch with an open PR, an edit
+of the PR's title or body) and a PostToolUse `post`. Only `REVIEW: pass` with exit 0 lets the call
+through. Every other result blocks it: a fail returns its findings, and anything else says to ask
+the owner. After the call, the pass is posted as the `pr-comment.sh` comment. If GitHub's copy of
+the words differs from the reviewed one (PR #78 gained a footer after its review), the posted words
+are reviewed again and that verdict is posted. The marker now carries `words`, the sha256 of the
+reviewed words (`pr-words.sh`), and `review-verdict` (also run on `edited`) reads changed words as
+stale.
+
+**Owner calls**: (1) post only verdicts for a commit the PR contains: passes, and any re-review of
+the posted words; (2) catch edited words in the hook and in the check; (3) block the GitHub tools
+that commit on GitHub (`push_files`, `create_or_update_file`, `delete_file`) on a branch with an
+open PR.
+
+**Evidence**
+
+- Tests written first, failing (no hook registered, no `pr-words.sh`). `tests/review-hook.test.sh`
+  (stub `review.sh` and `gh`, a local origin) covers every case in the task, plus the registration
+  and a missing hook. `tests/reviewer-pr.test.sh` gained `pr-words.sh` (known-bad inputs refused)
+  and `--words`. Mutants: 58/58 killed. The first run left 11 survivors: 3 redundant checks, now
+  removed, and 8 test gaps, now tested.
+- The real harness runs it: with this branch's hook registered for the session only
+  (`.claude/settings.local.json`, not committed), `gh pr create --fill --dry-run` was blocked with
+  "the hook can't know the PR's words".
+- In this session, `tests/bootstrap.test.sh` and `tests/git-hooks.test.sh` fail on `main` too:
+  there's no `gitleaks` at `/opt/devshop-tools/bin`. They're not affected by this change, and CI
+  installs the pinned tools.
+
+**Surprises**
+
+- Dogfood caught a false block: a Bash heredoc whose body had an apostrophe and the words "git push"
+  couldn't be split into words, and the fallback matched "push" anywhere. Heredoc bodies are now
+  dropped before splitting, and the fallback matches only a command at a line start or after an
+  operator. Regression tests were written first and failed first.
+- Opening this PR through the hook was blocked: `REVIEW: could-not-run … could not make the
+throwaway clone`. Cause: a cloud session's clone is shallow, and `git fetch` from a shallow repo
+  into `review.sh`'s empty clone rejects the refs but exits 0. Fixed with `--update-shallow` (owner's
+  go). The test was written first: `tests/reviewer.test.sh` runs the reviewer from a shallow clone,
+  and it failed with the same reason before the fix.
+- The retry ran the real reviewer, and it failed the create on a medium finding: a pass recorded for
+  a call that then failed (a create that errored, a rejected push) stayed behind, and a later call's
+  post used it. Now every gate clears the branch's recorded pass first, and the pass carries its call
+  kind. The tests were written first (one for each rule), and both mutants are killed.
+- The next retry failed too (medium): in `--body "$(cat <<'EOF' …)"` or `--body "$(cat f)"` the
+  shell expands the value, but the gate would have reviewed the literal text. Values with `$(`, a
+  backtick, `${` or `$VAR` are now could-not-run ("use `--body-file`"). Tests first, 3 mutants killed.
+- Round 3 became ask-owner (owner: fix all and retry). Medium: a `cd` before the operation was
+  ignored, so the wrong worktree could be reviewed; a command that changes directory and creates,
+  pushes or edits is now refused. Low: `git --git-dir x push` went unreviewed (now refused); an
+  unquoted `--body $(cat f)` left a bare `$` (any `$` or backtick in a title or body is now
+  refused); `update_pull_request_branch` commits on GitHub unreviewed (now blocked); a Build skill
+  bullet was unwrapped. The hook's own gap: ask-owner printed no findings (now it does). Tests first.
+
+- Round 4 became ask-owner too. Unsure (blocks): pushes wrapped in `bash -c`, `eval`, `sudo`,
+  `timeout`, `env -i` and the like go through unreviewed. Owner: keep that as a documented limit; the
+  `review-verdict` check is the backstop. Low, fixed test first: the branch name now goes into the
+  PR lookup URL-encoded (a ref with `&` could hide its open PR); the W10.6.2 `--pr` note now names
+  `pr-words.sh`. Low, not fixable here: the reviewer can't run this repo's tests (F-NEW-23).
+- **Round counter (data point for W10.6.4–5):** rounds 3 and 4 asked the owner although each round's
+  blocking findings were new and the earlier ones fixed. Owner's question: should the count reset
+  for a new issue? Proposed: reset when no blocking finding repeats the previous round's (matched by
+  lens and file), with a hard cap of reviews per branch that always asks. It changes the W10.6.2
+  interface, so it is its own task.
+- Round 5 passed, and the create went through: PR #88. GitHub then appended its footer to the body,
+  so the post hook re-reviewed the words as posted, as designed. That review failed (unsure):
+  redirections such as `git push 2>&1` and `gh pr create … >out` were read as arguments. Fixed test
+  first: redirections are dropped with their target. The fail verdict was posted on the PR; the
+  `review-verdict` check reads it as failing until a pass is posted. The hook's message after a
+  re-review also said "the call was blocked" though the PR existed; now it says to fix and push.
+- **Order of edits:** a push is reviewed with the PR's current words, and an edit of the words with
+  the PR's current head, so code and words can't change in one step. A body that lists every fix
+  goes stale with each new fix. The body now points here for round details. For the Build skill:
+  keep per-round detail out of the PR body.
+- The body edit's review (at the PR's head) failed (medium): the fallback pattern for a missing hook
+  didn't name `update_pull_request_branch` (caught only as a substring), and nothing tested the
+  hook's tool list, the matcher and the fallback against each other. Now one test reads all three.
+- The push with those fixes passed its review (`dc5c3b70e949`), but the post read the PR a moment
+  before GitHub showed the new head and gave up. Re-run by hand from the recorded pass, it posted
+  the pass for that head. Fixed test first: the post re-reads the PR for up to 10 s.
+
+- **Redesign (owner, 2026-10-13).** The PR did open through the hook, and its `review-verdict` check
+  went green from the comment the hook posted (head `dc5c3b70e949`). But the next fix deadlocked: a
+  push is reviewed with the PR's old body (which named a stale mutant count), and the body edit is
+  reviewed against the PR's old code (where the next review found a loop-wrapped push unseen). The
+  owner asked whether the flow was simple and reliable, and expected the review to be local before
+  anything reaches the PR. It wasn't: it inferred PR-bound calls from shell commands, reviewed code
+  and words apart, and leaned on a CI job that was no wall. Owner: replace it with `ship` (review in
+  the VM, then push, PR words and verdict together) and a guard that only refuses the other ways;
+  drop the `review-verdict` job, `verdict-check.sh` and `verdict-wait.sh`; reset rounds on new
+  issues with a cap of 6 failing commits. `596db38` (the post hook's wait for GitHub to show the
+  head) stays in the branch's history; the redesign deletes its code.
+
+**Evidence (redesign)**
+
+- Contract first (W10.6.7 line), then tests written first and failing: `tests/ship.test.sh` (no
+  `ship.sh`), `tests/review-guard.test.sh` (the post hook still registered), and the rounds cases in
+  `tests/reviewer.test.sh` (a new finding after a repeat asked the owner).
+- Mutants on the guard, `ship`, the rounds rule and `pr-words.sh`: 39/40 killed (34/35 before the
+  fixes below). The first pass left
+  5: the guard's redirection handling (unneeded once the guard stopped reading arguments: removed),
+  two missing tests (a branch name that quietly misparses unencoded; an error inside the guard), and
+  `ship`'s `REVIEW:` line count, equivalent (two lines also fail the exit check).
+- The harness runs the guard: with it registered for this session only, `gh pr create --dry-run`
+  was refused, pointing to `ship`.
+
+- **Dogfood: `ship` on PR #88.** First run: `REVIEW: fail` (medium), and nothing was pushed: in a
+  single-branch clone, `git fetch origin <base>` doesn't update `origin/<base>`, so the review would
+  diff against a stale or missing base. Fixed test first (a `--single-branch` clone in
+  `tests/ship.test.sh`, which also showed the default-branch fallback broken: `gh api --jq`, now
+  `| jq`). Lows fixed too: the guard now skips gh's global flags (`gh -R o/r pr create`) and sees
+  glued short flags (`gh pr edit -tTitle`); the W10.6.6 lines naming the removed check are marked.
+
+- Second run: `REVIEW: pass`; pushed, PR words set, verdict posted. Then exit 2: the session's
+  GitHub access appends an attribution footer to every PR body write, so set-back never stuck. Owner:
+  post what the reviewer saw and let GitHub append; `ship` now accepts the PR when the title is the
+  same and the body starts with the reviewed one, with no set-back and no footer text in the code.
+  A rewritten body or changed title is still reported. Tests first; 39/40 mutants killed.
+- Tests and the reviewer (F-NEW-23): the tests already run in the VM while building and in CI after
+  the push; the reviewer judges whether they cover the change. Proposed for W10.6.5: one prompt line
+  saying CI runs them, instead of a second run inside `ship`.
+
+- Merging `main` (#89, dcg back as a PreToolUse hook on Bash) left `hooks.json` with two
+  `PreToolUse` keys and no conflict marker; a JSON reader keeps one, so dcg would have been dropped.
+  Fixed: one array, dcg first (its test reads `PreToolUse[0]`), then the guard; the guard's test now
+  finds its entry by command and fails on a duplicate key (proven on a known-bad file).
+
+**Next**: ship again; then the owner's fresh-session check (W10.6.7's done-when).

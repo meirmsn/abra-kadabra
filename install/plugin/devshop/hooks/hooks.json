@@ -20,6 +20,16 @@
             "timeout": 30
           }
         ]
+      },
+      {
+        "matcher": "Bash|mcp__.*github.*__(create_pull_request|update_pull_request|update_pull_request_branch|push_files|create_or_update_file|delete_file)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "input=$(cat); h=/opt/devshop-current/hooks/review-guard.py; if [ -x \"$h\" ] && command -v python3 >/dev/null; then printf '%s' \"$input\" | \"$h\" && exit 0; exit 2; fi; if printf '%s' \"$input\" | grep -Eq 'create_pull_request|update_pull_request|update_pull_request_branch|push_files|create_or_update_file|delete_file|gh +pr +(create|edit)|git .*push'; then echo \"devshop: the review guard ($h) or python3 is missing, so this call is refused. Tell the owner.\" >&2; exit 2; fi",
+            "timeout": 120
+          }
+        ]
       }
     ],
     "PostToolUse": [

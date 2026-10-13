@@ -52,6 +52,7 @@ all_met="[$(ac AC-1 true),$(ac AC-2 true)]"
 reply "$work/pass.json" "$(out "$all_met")"
 reply "$work/unmet.json" "$(out "[$(ac AC-1 true),$(ac AC-2 false)]")"
 reply "$work/medium.json" "$(out "$all_met" "[$(finding medium)]")"
+reply "$work/medium-other.json" "$(out "$all_met" "[$(jq -n '{severity:"medium",lens:"code",item:"",file:"src/other.js",what:"x",fix:"y"}')]")"
 reply "$work/unsure.json" "$(out "$all_met" "[$(finding unsure)]")"
 reply "$work/low.json" "$(out "$all_met" "[$(finding low),$(finding low)]")"
 reply "$work/missing-ac.json" "$(out "[$(ac AC-1 true)]")"
@@ -157,6 +158,19 @@ change "$r"; run "$r" garbage --base main; expect "could-not-run is not a round"
 change "$r"; run "$r" unmet --base main; expect "round 3 asks the owner" 3 ask-owner '.round==3 and .blocking==1'
 change "$r"; run "$r" pass --base main; expect "a pass ends the streak" 0 pass '.round==4'
 change "$r"; run "$r" unmet --base main; expect "after a pass, rounds restart" 1 fail '.round==1'
+
+# A round counts only repeats of the previous failing commit's blocking items (W10.6.7, owner
+# 2026-10-13): a new issue starts again at round 1; the 6th failing commit since a pass asks anyway.
+rn="$work/rounds-new"; new_project "$rn"
+run "$rn" medium --base main; expect "a finding: round 1" 1 fail '.round==1'
+change "$rn"; run "$rn" medium --base main; expect "the same finding again: round 2" 1 fail '.round==2'
+change "$rn"; run "$rn" medium-other --base main; expect "a new finding (another file): round 1" 1 fail '.round==1'
+change "$rn"; run "$rn" garbage --base main; expect "could-not-run in between" 2 could-not-run
+change "$rn"; run "$rn" unmet --base main; expect "an unmet item after a finding: round 1" 1 fail '.round==1'
+change "$rn"; run "$rn" unmet --base main; expect "the same unmet item again: round 2" 1 fail '.round==2'
+change "$rn"; run "$rn" medium --base main; expect "the 6th failing commit asks the owner, new issue or not" 3 ask-owner '.round==1'
+change "$rn"; run "$rn" pass --base main; expect "a pass after the cap" 0 pass
+change "$rn"; run "$rn" medium --base main; expect "after a pass, the cap restarts" 1 fail '.round==1'
 [ "$(find "$r/.git/devshop/reviews/feat__x" -name '[0-9][0-9][0-9]-*.json' | wc -l)" = 7 ] || fail "one verdict file per run expected"
 
 # --- Could-not-run: anything other than a well-formed, complete verdict, and every bad input.
@@ -257,4 +271,16 @@ for bad in missing notjson notitle emptytitle extrakey nonstring; do
   esac
   run "$r" pr-nospec-pass --base main --pr "$f"; expect "--pr file '$bad' is could-not-run" 2 could-not-run '.reason|test("--pr")'
 done
+# --- A shallow clone (how a cloud session checks out the repo, LOG #48): fetching its commits into
+# the throwaway clone must still work.
+r="$work/p-full"; new_project "$r"
+for i in 1 2 3; do git -C "$r" checkout -q main && commit_file "$r" "old$i.txt" "$i"; done
+git -C "$r" checkout -q feat/x && git -C "$r" merge -q --no-edit main
+change "$r"
+git clone -q --depth 3 --no-single-branch "file://$r" "$work/p-shallow"
+git -C "$work/p-shallow" checkout -q feat/x
+[ "$(git -C "$work/p-shallow" rev-parse --is-shallow-repository)" = true ] || fail "the test clone is not shallow"
+run "$work/p-shallow" pass --base origin/main
+expect "a shallow clone is reviewed" 0 pass '.spec=="specs/x.md"'
+
 echo "all reviewer tests passed"
