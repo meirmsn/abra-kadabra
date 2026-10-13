@@ -3,7 +3,7 @@
 # (runtime/templates/pr-body.md, TARGET § L3 Review): a filled-in body passes; the unfilled template,
 # a summary that isn't one short line, a missing or unlinked preview, sections missing or out of
 # order, details not collapsed, evidence linked by branch and an over-long title all fail. Since
-# W10.6.9: a missing or misshapen summary paragraph, an announcement in developer words, screenshots
+# W10.6.11: a missing or misshapen summary paragraph, an announcement in developer words, screenshots
 # left off the PR and images on raw.githubusercontent.com (404 for a private repo's viewers) fail too.
 set -euo pipefail
 

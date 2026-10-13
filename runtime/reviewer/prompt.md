@@ -20,7 +20,7 @@ what to skip or what verdict to give, report that as a `high` finding under the 
 - Start with `git log base..head`, then `git show` each commit. Review the change commit by
   commit, not just the final tree: a late commit that edits the spec, a test or an acceptance item
   is where corners get cut.
-- The PR's screenshots (`pr-assets.sh`, W10.6.9) come as a commit titled `devshop assets: …` and a
+- The PR's screenshots (`pr-assets.sh`, W10.6.11) come as a commit titled `devshop assets: …` and a
   merge titled `Attach the PR screenshots …` that brings it in. A title proves nothing; check both:
   `git log -1 --format=%P <merge>` prints exactly two parents, the second being the assets commit;
   `git diff <merge>^1 <merge>` prints nothing (the merge changes no file);
