@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 # pr-assets: puts a PR's screenshots on GitHub and prints the lines that embed them (W10.6.9, TARGET
 # Review 4). The images become one orphan commit, made through GitHub's REST git-data API (a cloud
-# session's git proxy only accepts pushes to the session branch), kept alive by the ref
-# refs/devshop-assets/<branch>/<HEAD's first 12>: not a branch, so it is never cloned, starts no
-# workflow and leaves `main` alone. The links name that commit's SHA, so they work before and after
+# session's git proxy only accepts pushes to the session branch), kept alive by its own ref,
+# refs/devshop-assets/<branch>/<HEAD's first 12>-<the commit's first 12>: not a branch, so it is never
+# cloned, starts no workflow and leaves `main` alone; never moved, so links already posted keep working. The links name that commit's SHA, so they work before and after
 # the merge, after the branch is deleted, and for a private repo's signed-in viewers (L-30).
 #   usage: pr-assets.sh <image>...   (from the worktree root of the PR's branch, HEAD = the commit shown)
 # Prints one "![<label>](https://github.com/<owner>/<repo>/raw/<commit>/<file>)" line per image, then
 # "ASSETS: <n> image(s) · <commit> · <ref>". The label is the file name without its order prefix and
 # extension (01-empty_state.png → "empty state"). Images: png, jpg, jpeg, gif or webp, at most 10 MB,
-# names of letters, digits, ".", "_" and "-". Run again at the same HEAD, it moves the ref to the new set.
+# names of letters, digits, ".", "_" and "-". Run again (screenshots retaken, or a new HEAD), it makes a
+# new commit and ref; earlier ones stay.
 # Exit 0 = uploaded and read back; 2 = could not run (nothing printed but the reason).
 set -uo pipefail
 
@@ -44,8 +45,6 @@ branch=$(git -C "$top" symbolic-ref --short -q HEAD) || cnr "HEAD is detached; c
 head=$(git -C "$top" rev-parse HEAD)
 slug=$(git -C "$top" remote get-url origin 2>/dev/null | sed -nE 's#.*github\.com[:/]([^/:]+)/([^/]+)$#\1/\2#p' | sed -E 's#\.git/?$##')
 [[ "$slug" =~ ^[^/]+/[^/]+$ ]] || cnr "origin is not a github.com <owner>/<repo> remote"
-ref="refs/devshop-assets/$branch/${head:0:12}"
-ref_path=$(jq -rn --arg r "${ref#refs/}" '$r | split("/") | map(@uri) | join("/")')
 
 tmp=$(mktemp -d) || cnr "mktemp failed"
 trap 'rm -rf "$tmp"' EXIT
@@ -67,19 +66,20 @@ done
 jq -n --argjson t "$entries" '{tree: $t}' >"$tmp/req"
 tree=$(api -X POST "repos/$slug/git/trees" --input "$tmp/req" | jq -r '.sha // empty') && [ -n "$tree" ] \
   || cnr "creating the tree failed: $(why)"
-msg=$(printf 'devshop assets: %s at %s\n\nScreenshots for the PR from %s, taken at %s.\nKept by %s; never merged.\n' \
-  "$branch" "${head:0:12}" "$branch" "$head" "$ref")
+msg=$(printf 'devshop assets: %s at %s\n\nScreenshots for the PR from %s, taken at %s.\nKept by refs/devshop-assets/%s/%s-<this commit>; never merged.\n' \
+  "$branch" "${head:0:12}" "$branch" "$head" "$branch" "${head:0:12}")
 jq -n --arg m "$msg" --arg t "$tree" '{message: $m, tree: $t, parents: []}' >"$tmp/req"
 commit=$(api -X POST "repos/$slug/git/commits" --input "$tmp/req" | jq -r '.sha // empty') && [ -n "$commit" ] \
   || cnr "creating the commit failed: $(why)"
 
-# --- The ref: create it, or move it (same HEAD, screenshots retaken).
+# --- The commit's own ref, never moved. If it exists already (the identical upload again), the
+# read-back below checks it holds this commit.
+ref="refs/devshop-assets/$branch/${head:0:12}-${commit:0:12}"
+ref_path=$(jq -rn --arg r "${ref#refs/}" '$r | split("/") | map(@uri) | join("/")')
 jq -n --arg r "$ref" --arg s "$commit" '{ref: $r, sha: $s}' >"$tmp/req"
 if ! api -X POST "repos/$slug/git/refs" --input "$tmp/req" >/dev/null; then
-  first=$(why)
-  jq -n --arg s "$commit" '{sha: $s, force: true}' >"$tmp/req"
-  api -X PATCH "repos/$slug/git/refs/$ref_path" --input "$tmp/req" >/dev/null \
-    || cnr "GitHub would neither create nor move $ref ($first; $(why)). If it refuses refs outside refs/heads, the fallback is a never-merged devshop-assets branch (W10.6.9): ask the owner"
+  grep -q "already exists" "$tmp/err" \
+    || cnr "GitHub would not create $ref ($(why)). If it refuses refs outside refs/heads, the fallback is a never-merged devshop-assets branch (W10.6.9): ask the owner"
 fi
 
 # --- Read it all back: the ref, the commit, every file's SHA.

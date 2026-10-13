@@ -8,10 +8,10 @@
 PR body template (TARGET § L3 Review). Top-down, so the owner can stop reading at any level and
 judge from a phone. The paragraph under the summary is the second level, in this register: "Every
 item now shows its category (Work or Home to start), and the links above the list show just one
-category or all of them. A mistyped filter link says it seems corrupted and offers a way
-back."
-Replace every {{…}}; delete these comments and any section marked optional that doesn't apply. Check the result with runtime/scripts/pr-body-check.py before
-the PR goes ready. Claim only what you have just read from the real signal (L-28).
+category or all of them. A mistyped filter link says it seems corrupted and offers a way back."
+Replace every {{…}}; delete these comments and any section marked optional that doesn't apply.
+Check the result with runtime/scripts/pr-body-check.py before the PR goes ready. Claim only what
+you have just read from the real signal (L-28).
 -->
 
 ## Announcement

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Tests runtime/scripts/pr-assets.sh (W10.6.9): it puts a PR's screenshots on GitHub as one orphan
-# commit, through the REST git-data API, kept alive by refs/devshop-assets/<branch>/<head12> (not a
-# branch: never cloned, starts no workflow), and prints image lines pinned to that commit that
+# commit, through the REST git-data API, kept alive by its own ref,
+# refs/devshop-assets/<branch>/<head12>-<assets12> (not a branch: never cloned, starts no workflow;
+# never moved, so links already posted keep working), and prints image lines pinned to that commit that
 # pr-body-check.py accepts. It reads everything back and fails closed. Runs against a stub `gh` that
 # keeps a fake git-object store in $GH_DIR (blob SHAs from `git hash-object`, as GitHub's are).
 set -euo pipefail
@@ -16,10 +17,11 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 isolate_git "$work"
 ok() { echo "ok - $1"; }
+NAME="setup"
 
 # --- A stub gh: POST git/blobs|trees|commits|refs, PATCH git/refs/<ref>, GET git/ref/<ref>|commits/<sha>|
 # trees/<sha>. $GH_DIR/fail-<blobs|trees|commits|refs|patch|get>: that call fails; $GH_DIR/bad-blob: blob
-# SHAs come back wrong; $GH_DIR/wrong-ref: the ref reads back at another commit; $GH_DIR/wrong-tree: the
+# SHAs come back wrong; $GH_DIR/wrong-ref: the ref reads back at another commit (also when it already exists); $GH_DIR/wrong-tree: the
 # tree reads back with another file; $GH_DIR/refuse-ref: GitHub
 # refuses a ref outside refs/heads (422).
 mkdir -p "$work/bin"
@@ -111,9 +113,9 @@ names() { grep -qF -- "$1" "$work/out.log" || { cat "$work/out.log" >&2; fail "$
 
 # --- The happy path.
 NAME="three images upload" run 0 "$work/shots/01-add-item.png" "$work/shots/02-empty_state.png" "$work/shots/03-error.jpg"
-ref="refs/devshop-assets/feat/cart/${head:0:12}"
 commit=$(sed -nE 's/^ASSETS: 3 images · ([0-9a-f]{40}) · (.*)$/\1/p' "$work/out.log")
 [ -n "$commit" ] || { cat "$work/out.log"; fail "no ASSETS line with 3 images and a commit"; }
+ref="refs/devshop-assets/feat/cart/${head:0:12}-${commit:0:12}"
 names " · $ref"
 for want in "![add item](https://github.com/example/app/raw/$commit/01-add-item.png)" \
   "![empty state](https://github.com/example/app/raw/$commit/02-empty_state.png)" \
@@ -148,15 +150,40 @@ ok "an orphan commit naming the branch and HEAD, its tree holding each image byt
   || { cat "$work/check.log" "$work/body.md"; fail "pr-body-check.py refuses the printed lines"; }
 ok "pr-body-check.py accepts a body built from the printed lines"
 
-# --- Again at the same HEAD (screenshots retaken): the ref moves to the new commit.
+# --- Again at the same HEAD (screenshots retaken): a new commit with its own ref; the first stays.
+refkey() { jq -rn --arg r "$1" '$r | @uri'; }
 GH_DIR="$work/gh-again"; mkdir -p "$GH_DIR/store/refs"
 cp -R "$store/refs/." "$GH_DIR/store/refs/"
 (cd "$work/app" && "$script" "$work/shots/02-empty_state.png") >"$work/out.log" 2>&1 || { cat "$work/out.log"; fail "a second upload at the same HEAD failed"; }
 second=$(sed -nE 's/^ASSETS: 1 image · ([0-9a-f]{40}) · .*/\1/p' "$work/out.log")
 [ -n "$second" ] && [ "$second" != "$commit" ] || fail "second upload: no new commit"
-[ "$(cat "$GH_DIR/store/refs/$(jq -rn --arg r "$ref" '$r | @uri')")" = "$second" ] || fail "the ref was not moved"
-grep -q -- "-X PATCH" "$GH_DIR/calls" || fail "the existing ref was not updated with PATCH"
-ok "a second upload at the same HEAD moves the ref (force) to the new commit"
+[ "$(cat "$GH_DIR/store/refs/$(refkey "$ref")")" = "$commit" ] || fail "the first upload's ref was moved or lost"
+[ "$(cat "$GH_DIR/store/refs/$(refkey "refs/devshop-assets/feat/cart/${head:0:12}-${second:0:12}")")" = "$second" ] \
+  || fail "the second upload has no ref of its own"
+! grep -q -- "-X PATCH" "$GH_DIR/calls" || fail "a ref was moved"
+ok "a second upload at the same HEAD gets its own ref; the first upload's ref and links stay"
+# The very same upload again (GitHub gives the same commit): its ref exists at that commit, which is fine.
+(cd "$work/app" && "$script" "$work/shots/02-empty_state.png") >"$work/out.log" 2>&1 || { cat "$work/out.log"; fail "repeating an identical upload failed"; }
+grep -q "^ASSETS: 1 image · $second · " "$work/out.log" || fail "repeating an identical upload: another commit"
+ok "repeating an identical upload finds its ref already at that commit and succeeds"
+echo 0000000000000000000000000000000000000000 >"$GH_DIR/store/refs/$(refkey "refs/devshop-assets/feat/cart/${head:0:12}-${second:0:12}")"
+rc=0; (cd "$work/app" && "$script" "$work/shots/02-empty_state.png") >"$work/out.log" 2>&1 || rc=$?
+if [ "$rc" != 2 ] || ! grep -q "reads back" "$work/out.log"; then
+  cat "$work/out.log"; fail "an existing ref at another commit: expected exit 2 naming the read-back, got $rc"
+fi
+! grep -q '^!\[' "$work/out.log" || fail "an existing ref at another commit: image lines printed"
+ok "a ref that already exists at another commit fails closed"
+
+# --- A later commit on the branch (a fix round, or main merged in): a new upload for the new HEAD;
+# the earlier ones keep their refs.
+commit_file "$work/app" fix.txt "a fix"
+head2=$(git -C "$work/app" rev-parse HEAD)
+(cd "$work/app" && "$script" "$work/shots/01-add-item.png") >"$work/out.log" 2>&1 || { cat "$work/out.log"; fail "an upload after a new commit failed"; }
+third=$(sed -nE 's/^ASSETS: 1 image · ([0-9a-f]{40}) · .*/\1/p' "$work/out.log")
+names "refs/devshop-assets/feat/cart/${head2:0:12}-${third:0:12}"
+jq -e --arg h "$head2" '.message | contains($h)' "$GH_DIR/store/$third" >/dev/null || fail "the new upload doesn't name the new HEAD"
+[ "$(find "$GH_DIR/store/refs" -type f | wc -l)" = 3 ] || fail "earlier uploads' refs were not all kept"
+ok "after a new commit the upload names the new HEAD, and every earlier upload keeps its ref"
 
 # --- Refusals: bad input, a state ship can't trust, GitHub failing. Nothing printed as a success.
 NAME="no files" run 2; names "usage"
@@ -189,8 +216,8 @@ for step in blobs trees commits get; do
   ! grep -q '^!\[' "$work/out.log" || fail "gh failing at $step: image lines printed"
   ! grep -q '^ASSETS:' "$work/out.log" || fail "gh failing at $step: ASSETS line printed"
 done
-GH_FLAGS="fail-refs fail-patch" NAME="gh failing at the ref" run 2 "$work/shots/01-add-item.png"; names "ref"
-GH_FLAGS="refuse-ref" NAME="GitHub refusing a ref outside refs/heads" run 2 "$work/shots/01-add-item.png"; names "refs/devshop-assets"
+GH_FLAGS="fail-refs" NAME="gh failing at the ref" run 2 "$work/shots/01-add-item.png"; names "ref"
+GH_FLAGS="refuse-ref" NAME="GitHub refusing a ref outside refs/heads" run 2 "$work/shots/01-add-item.png"; names "fallback is a never-merged devshop-assets branch"
 GH_FLAGS="bad-blob" NAME="a blob that comes back with another SHA" run 2 "$work/shots/01-add-item.png"; names "SHA"
 GH_FLAGS="wrong-ref" NAME="the ref read back at another commit" run 2 "$work/shots/01-add-item.png"; names "reads back"
 GH_FLAGS="wrong-tree" NAME="the tree read back with another file" run 2 "$work/shots/01-add-item.png"; names "tree reads back"
