@@ -2183,3 +2183,9 @@ PR body check's inline code no longer crosses a blank line (the reviewer's low f
 signed-commits rule would refuse. `ship` was stopped before its push and the branch reset to the last
 signed commit; the script now passes `-S` when `commit.gpgsign` is on (test first, with a stub
 signer).
+
+**Reviewer exemption checked, not trusted** (the reviewer's `medium` security finding): the prompt
+first exempted the two screenshot commits by title, which the builder controls. Now the reviewer
+checks it with its allowed commands: the merge's `git diff <merge>^1 <merge>` is empty, the assets
+commit has no parents and only image files; otherwise they are reviewed as normal, and a title that
+claims screenshots but fails is a `high` security finding.
