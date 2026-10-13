@@ -2006,3 +2006,42 @@ passed on it. The wrapped-item case of `false-verified` wasn't hit by this run's
 tests cover it. The fixture PR was closed unmerged.
 
 **Next**: W10.6.4 (W10.6.7 is done, LOG #49).
+
+## #51 — 2026-10-13 · W10.4.6 CI in two tiers, fast and slow (in progress)
+
+**Why**: the owner asked whether lint in both CI and the pre-push hook wastes resources. It
+doesn't: CI is the wall and the hook is skippable feedback that saves a CI round trip. The waste
+was in CI itself: two jobs repeating the checkout, tool downloads and `npm ci` for checks that take
+seconds. The owner then asked for two tiers, chosen by concept (unit vs end to end), not time, and
+for new projects to pick the pattern up. Spec: `specs/ci-fast-slow-tiers.md`, with the owner's go.
+
+**What moved**: every project declares `scripts/check-fast.sh <base>` (secret scan, `lint.sh`,
+unit tests) and `scripts/check-slow.sh` (end-to-end tests; a placeholder that says so when there
+are none). CI runs job `fast`, then job `slow` with `needs: fast`, from the stack-agnostic
+`runtime/templates/ci.yml`. `runtime/scripts/ci-tiers-check.py` checks that shape (PyYAML,
+hash-pinned in CI; missing is "couldn't run"). This repo's lint runs it on its own `ci.yml`, and
+session start runs it on the project's, with one `DEVSHOP:` line when the CI is missing, breaks a
+rule, or can't be checked. The `build` skill points a project without CI at the template. Here,
+`tests/run.sh fast|slow` picks a tier by a `# tier: slow` header line; only
+`tests/bootstrap.test.sh` (the whole install) is slow. The three tests that sandbox with `unshare`
+stay fast: a sandbox doesn't make a test end to end. The pre-push hook is unchanged (owner). The
+fixture is retrofitted in its own PR: `lint.sh` (so the hook lints there too), `setup.sh`, both
+tier scripts, and `deploy` needs `fast` and `slow`.
+
+**Evidence**: each check was written failing first. `tests/ci-tiers-check.test.sh` has 24 cases,
+and 6 of 6 mutants are killed. `tests/run-tiers.test.sh` has 5 cases (3 of 3 mutants killed).
+`tests/check-tiers.test.sh` has 4. The AC-3 cases in `tests/git-hooks.test.sh` give 4 (3 of 3
+mutants killed). `tests/lint.test.sh` now covers five checks. Locally on the final head,
+`check-fast.sh` passed (23 fast test files) and `check-slow.sh` passed (1 slow), the slow one with
+a bare PATH (no gitleaks, shellcheck, dcg or npm packages). The fixture's own test has 6 cases
+(3 of 3 mutants killed), and its real `check-fast.sh` passed after `setup.sh`. The new check fails
+on the fixture's CI on `main` (no `fast`, no `slow`, deploy needs neither) and passes on the branch.
+
+**Surprises**: the adversarial spec review caught that an optional slow job can't be in a single
+template, which gave the always-present `check-slow.sh` placeholder. It also caught that three
+"fast" tests need user namespaces, so the rule became end to end vs unit, not sandboxed or not.
+Locally, three suites only ran once the tools were copied out of `/opt` (the tests mount a scratch
+`/opt`) and the clone was unshallowed (bootstrap pins a pre-move commit).
+
+**Next**: both PRs' `fast` and `slow` green on GitHub; then `[owner]` swap each repo's required
+checks from the old job names to `fast` and `slow` just before merging, then mark W10.4.6 done.
