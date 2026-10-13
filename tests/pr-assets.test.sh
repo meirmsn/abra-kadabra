@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tests runtime/scripts/pr-assets.sh (W10.6.11): it puts a PR's screenshots in one parentless commit S
+# Tests runtime/scripts/pr-assets.sh (W10.6.9d): it puts a PR's screenshots in one parentless commit S
 # and moves the branch to a merge commit M whose files are exactly HEAD's and whose second parent is S.
 # ship's ordinary push of the branch (the one push a cloud session's proxy allows) carries S to
 # GitHub; the printed image lines link S by SHA, and pr-body-check.py accepts them. Nothing in the

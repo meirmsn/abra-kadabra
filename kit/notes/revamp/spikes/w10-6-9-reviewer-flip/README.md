@@ -66,7 +66,7 @@ mutants (each line removed) are killed.
   blocking items name the plant's file or item (exit 1 on any that don't; tested on a known-bad
   verdict).
 - Verdicts: `before/`, `after/` (run ids tagged `-b`), `probe/`. The "after" run is on the prompt as
-  merged with `main` (it also gained the PR-screenshots paragraph, W10.6.11, which none of these
+  merged with `main` (it also gained the PR-screenshots paragraph, W10.6.11 (now W10.6.9d), which none of these
   changes exercise). A first "after" start was stopped and discarded: `main` changed `prompt.md`
   under it.
 

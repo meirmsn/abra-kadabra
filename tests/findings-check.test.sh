@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tests scripts/findings-check.py (W10.6.12): the findings ledger's mechanical rules. It must fail a
+# Tests scripts/findings-check.py (W10.6.13): the findings ledger's mechanical rules. It must fail a
 # missing or misordered section, a bad entry heading, field, grade or source, a Leverage or Score that
 # doesn't match its formula, a Seen count that doesn't match its lines, either list out of order, a
 # low-impact Fix entry seen fewer than 5 times, a Watch entry seen 5 times, a duplicate ID and a

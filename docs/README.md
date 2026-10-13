@@ -93,7 +93,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   the branch carries them to GitHub, which keeps them with the PR after the merge. It prints the
   image lines (`https://github.com/<owner>/<repo>/raw/<sha>/<file>`) for the body's
   **Screenshots:**, and refuses a repo that allows merge commits or rebase merges (they would carry
-  the images into the default branch). Proven by
+  the images into the default branch). The GitHub mobile app doesn't show them for a private repo
+  (F-NEW-50, open). Proven by
   [`tests/pr-assets.test.sh`](../tests/pr-assets.test.sh), which also walks a PR's life on a local
   remote: retakes, fix rounds, a squash merge, the branch deleted, a fresh clone.
 - Spec: [`runtime/templates/spec.md`](../runtime/templates/spec.md) is the template for a change's

@@ -2225,9 +2225,9 @@ it stays clean; each session files its own task line, so none is tracked in W10 
 **Next**: W10.6.9 (the blocking gaps, the in-passing ones), then W10.6.10 (run 2). W10.7 waits on a
 run that meets the M1 exit.
 
-## #54 — 2026-10-13 · W10.6.11: PR body for the owner's reading, screenshots on the PR
+## #54 — 2026-10-13 · W10.6.9d: PR body for the owner's reading, screenshots on the PR
 
-**What moved**: the owner's feedback on the PR bodies of a W10.6.4 run, filed first as W10.6.9, renumbered W10.6.11 when `main` gave that id to the run-1 gaps (LOG #53); it closes F-NEW-43. Tests
+**What moved**: the owner's feedback on the PR bodies of a W10.6.4 run, filed first as W10.6.9, renumbered W10.6.9d when `main` gave that id to the run-1 gaps (LOG #53); it closes F-NEW-43. Tests
 came first: 12 new cases in `tests/pr-body-check.test.sh` each failed on the old check, and every
 old case still passed.
 
@@ -2319,6 +2319,36 @@ check also confirms the merge has exactly two parents, the second the checked co
 signing array expands safely on bash before 4.4. Left: the GitHub mobile app, and a look after the
 merge and the branch's deletion.
 
+**After the merge** (PR #95, squash): the branch was deleted; the API still serves the probe at its
+commit (same size and blob SHA); `main` has no image files and the screenshot commit is not in its
+history; the owner saw the probe still render in the browser after a forced refresh. **The GitHub
+mobile app showed a broken image** (owner's phone screenshot), and so does an old lalista PR from
+v1: the app can't load a private repo's `github.com/…/raw/…` images, which need the browser's
+session; only drag-and-drop `user-attachments` get signed URLs, and that upload has no API
+(F-NEW-50). Mitigation (owner's pick): `pr-assets.sh` prints each image linked to itself, and
+`pr-body-check.py` requires that link on a `github.com/…/raw/…` image, so a tap opens it in the
+browser (tests first: 2 new cases, each failing on `main`'s check). Also from the review: the
+reviewer's screenshot check now confirms each file is a regular file (mode `100644`). W10.6.9d stays
+open until the owner decides whether mobile needs inline images (an outside host, public by link).
+
+**Task id** (owner): W10.6.9d, kept with the other run-1 findings under W10.6.9 and listed before
+W10.6.10, which now waits on both.
+
+**Image syntax in code gets mangled on the way to GitHub**: on PR #99, as on PR #95, `ship` stopped
+(exit 2) because the body GitHub kept differs from the reviewed one. Something on the session's path
+to GitHub drops the `!` from `![label](url)` when the URL isn't `https://`, even inside a code
+span; real `https://` images are untouched. `ship`'s read-back caught it both times. Bodies write
+such examples in words. Also from the review: the link check now counts each image, not each URL (a
+repo image linked once and shown bare elsewhere fails; test first).
+
+**Linked images dropped** (owner: B): on PR #99 the self-linked probe reached GitHub wrapped in a
+code span, so it showed as text; `ship` stopped (exit 2). So the session's path to GitHub leaves a
+bare `https://` image alone (PR #95), drops the `!` from image syntax with a non-https URL (even in
+code), and turns a linked image into code. Its rules aren't documented anywhere the session can
+read; `ship`'s read-back caught every case. The linked form and its body check are removed;
+`pr-assets.sh` prints bare images again. F-NEW-50 stays open with no mitigation from a session. Kept:
+the reviewer's file-mode check, F-NEW-50, F-NEW-43 fixed, the W10.6.9d rename.
+
 ## #55 — 2026-10-13 · W10.6.9 (F-NEW-40): the reviewer's flip measured and fixed
 
 **What moved**: the reviewer's pass-then-fail on one commit in run 1 (F-NEW-40), measured before
@@ -2354,7 +2384,7 @@ Planted 74/74 fail on their plant. $7.65 for 110 reviews (before: $7.33).
 
 - One planted review was could-not-run: the model's reply covered 5 of the spec's 7 items, and
   `review.sh` failed closed. That is 1 in 220 here, not a flip.
-- `main` changed `prompt.md` (W10.6.11) while the first "after" run was going. The driver reads the
+- `main` changed `prompt.md` (W10.6.11, now W10.6.9d) while the first "after" run was going. The driver reads the
   live file, so that run was stopped and discarded; the recorded run is on the merged prompt.
 - Parallel eval runs raced for git's worktree names. `run.sh` now names each worktree by its run id.
 
@@ -2403,7 +2433,24 @@ PR's merge (`c8fc846`), its two copied scripts byte-identical to the devshop's t
 
 **Next**: the rest of W10.6.9 (F-NEW-36, F-NEW-40, F-NEW-39), then W10.6.10.
 
-## #57 — 2026-10-13 · W10.6.12: one findings ledger, graded and counted
+## #57 — 2026-10-13 · W10.6.12: the verdict comment, short by default
+
+**What moved**: owner feedback that seven ships on one PR posted seven long comments with tables.
+Options discussed first (one comment edited in place like the preview comment; one-line comments
+plus one edited table; a new short comment per ship). **Owner calls**: a new comment per ship,
+short: once the tables can collapse, editing in place isn't needed, and a new comment keeps a
+lasting record per commit (the verdict files live in `.git` and go with the container) and sits in
+the timeline just after the push it reviewed. Failed reviews stay off the PR. A check that the head
+moved past the last verdict (F-NEW-38) is not built: it needs a CI job, and with one comment per ship a push
+made without `ship` already shows as a push with no verdict after it.
+
+- `pr-comment.sh`: the marker line, then the headline (outcome, round, counts, commit), then one
+  `<details>` block with the spec, tables, findings and reviewer identity. `ship.sh` unchanged.
+- Test first: `tests/reviewer-pr.test.sh` checks the layout (failed on the old renderer) and that
+  model text can't close the block. Mutants: the `<` escape dropped and the blank line after
+  `<summary>` dropped are killed; dropping the blank line before `</details>` survives, equivalent.
+
+## #58 — 2026-10-13 · W10.6.13: one findings ledger, graded and counted
 
 **What moved**: the owner's two v1 mechanisms, the friction log's counted entries and the old
 PLAN's Leverage grading, came back as one findings ledger after five rounds of proposal and
@@ -2420,11 +2467,11 @@ answers. The check came first and failed on the old file.
   4-times papercut would outrank a once-seen security hole 64 to 10), so the count gates entry
   instead: impact XS or S enters the Fix queue only after 5 sessions; a Watch entry seen 5 times
   must move or be held.
-- **Migration.** All 164 rows moved, IDs kept: the ID set before equals the set after. 156 went to
+- **Migration.** All 165 rows moved, IDs kept: the ID set before equals the set after. 156 went to
   Closed with their disposition as the outcome. Confidence and the dead v1 task columns were dropped;
-  the old tables stay readable at `15fe16a`. F-NEW-21 closed: `ns-1` showed a content push after
-  approval dismissed it (fixture PR 15). The 8 open findings were regraded by hand: 3 in the Fix
-  queue, 5 on the Watch list. F-NEW-20 to 22 had lacked their "found during" cell.
+  the old tables stay readable at `080ba83`. F-NEW-21 closed: `ns-1` showed a content push after
+  approval dismissed it (fixture PR 15). The 9 open findings were regraded by hand: 3 in the Fix
+  queue, 6 on the Watch list (including F-NEW-50, which PR #99 added on `main` meanwhile). F-NEW-20 to 22 had lacked their "found during" cell.
 - **Check.** `scripts/findings-check.py`: fields, both formulas, Seen counts, both lists' order, the
   rule of 5, unique IDs, the Closed table. `tests/findings-check.test.sh`: 42 cases, written before
   the script; 26 of 26 mutants killed (the first pass left 2 alive, which became 2 new cases).

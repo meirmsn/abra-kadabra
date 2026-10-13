@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Findings ledger check (W10.6.12): the mechanical rules of kit/notes/revamp/FINDINGS.md.
+"""Findings ledger check (W10.6.13): the mechanical rules of kit/notes/revamp/FINDINGS.md.
 
 Usage: scripts/findings-check.py [--ids] [file]   (default file: kit/notes/revamp/FINDINGS.md)
   --ids: print every entry's ID, live and closed, one per line in file order (no checks).
