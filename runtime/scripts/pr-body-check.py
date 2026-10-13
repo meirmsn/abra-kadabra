@@ -15,9 +15,7 @@ Checks what can be checked without judgement; whether the words are true is the 
     </details>; anything after that (a footer) has no heading
   - no {{placeholder}} left; images are absolute https URLs; GitHub file links are pinned to a
     commit SHA, never a branch (L-30); no image on raw.githubusercontent.com (a private repo's
-    viewers get 404); an image from github.com/<o>/<r>/raw/ is linked to itself, [![alt](url)](url), so
-    a tap opens it where the mobile app can't show it. Text in code (fences, inline) is quoted, not
-    checked for these.
+    viewers get 404). Text in code (fences, inline) is quoted, not checked for these.
 Exit 0 = the body has the shape; 1 = problems (listed); 2 = can't run.
 """
 import re
@@ -43,10 +41,6 @@ IMAGE = re.compile(r"!\[[^\]]*\]\(\s*<?([^)\s>]+)|<img\s[^>]*src=[\"']([^\"']+)"
 GITHUB_FILE = re.compile(
     r"https?://(?:github\.com/[^/\s]+/[^/\s]+/(?:blob|raw)|raw\.githubusercontent\.com/[^/\s]+/[^/\s]+)/([^/\s)]+)/")
 SHA = re.compile(r"^[0-9a-f]{40}$")
-# An image linked to itself: [![alt](url)](url). A private repo's github.com/<o>/<r>/raw/ image doesn't
-# load in the GitHub mobile app, so it must be a link the viewer can tap to open it (F-NEW-49).
-LINKED_IMAGE = re.compile(r"\[!\[[^\]]*\]\(\s*<?([^)\s>]+)>?\s*\)\]\(\s*<?([^)\s>]+)>?\s*\)")
-REPO_IMAGE = re.compile(r"^https://github\.com/[^/]+/[^/]+/raw/")
 # A sentence ends at . ! or ? (closing quotes or brackets allowed) before a capital, a digit or the
 # end, so "e.g. the bus" is one sentence.
 SENTENCE_END = re.compile(r"[.!?]+[\"'”’)]*(?=\s+[A-Z0-9\"“‘(]|\s*$)")
@@ -175,13 +169,6 @@ def check(body, title):
             problems.append("a heading after the engineering details")
 
     prose = CODE.sub("", text)  # quoted in code, an image or link is an example, not evidence
-    # Each occurrence counts: with the self-linked images taken out, any repo image left is bare.
-    unlinked = LINKED_IMAGE.sub(lambda m: "" if m.group(1) == m.group(2) else m.group(0), prose)
-    for m in IMAGE.finditer(unlinked):
-        url = m.group(1) or m.group(2)
-        if REPO_IMAGE.match(url):
-            problems.append(f"image from the repo without a link to itself, which the GitHub mobile app can't show "
-                            f"inline; link it to itself, [![alt](url)](url), as pr-assets.sh prints: {url}")
     for m in IMAGE.finditer(prose):
         url = m.group(1) or m.group(2)
         if not url.startswith("https://"):

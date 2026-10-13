@@ -2340,3 +2340,11 @@ to GitHub drops the `!` from `![label](url)` when the URL isn't `https://`, even
 span; real `https://` images are untouched. `ship`'s read-back caught it both times. Bodies write
 such examples in words. Also from the review: the link check now counts each image, not each URL (a
 repo image linked once and shown bare elsewhere fails; test first).
+
+**Linked images dropped** (owner: B): on PR #99 the self-linked probe reached GitHub wrapped in a
+code span, so it showed as text; `ship` stopped (exit 2). So the session's path to GitHub leaves a
+bare `https://` image alone (PR #95), drops the `!` from image syntax with a non-https URL (even in
+code), and turns a linked image into code. Its rules aren't documented anywhere the session can
+read; `ship`'s read-back caught every case. The linked form and its body check are removed;
+`pr-assets.sh` prints bare images again. F-NEW-49 stays open with no mitigation from a session. Kept:
+the reviewer's file-mode check, F-NEW-49, F-NEW-43 fixed, the W10.6.9d rename.

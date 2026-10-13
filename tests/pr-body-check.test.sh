@@ -55,7 +55,7 @@ You can now save your cart and pick it up later on any device you sign in on.
 ## Evidence
 
 - **Screenshots:**
-  - Step 1, save the cart: [![saved cart](https://github.com/acme/shop/raw/$sha/1-saved-cart.png)](https://github.com/acme/shop/raw/$sha/1-saved-cart.png)
+  - Step 1, save the cart: ![saved cart](https://github.com/acme/shop/raw/$sha/1-saved-cart.png)
   - Empty state: ![empty](https://github.com/user-attachments/assets/1b2c3d4e-0000-4000-8000-000000000000)
 - **Reviewer:** pass on every lens for commit ${sha:0:7}
 - **CI:** green for commit ${sha:0:7}
@@ -121,12 +121,6 @@ check "an image quoted in code is not a screenshot" 1 "$(variant shots-in-code \
   's = re.sub(r"- \*\*Screenshots:\*\*\n(  - .*\n)+", "- **Screenshots:** pr-assets.sh prints \x60![a](https://github.com/acme/shop/raw/x/a.png)\x60\n", s)')" "**Screenshots:** needs at least one image"
 check "a stray backtick doesn't hide a bad image paragraphs later" 1 "$(variant stray-backtick \
   "s = s.replace('carts were lost', 'carts were lost').replace('- **Behaviour change:** a', '- **Behaviour change:** a \x60stray').replace('https://github.com/acme/shop/raw/$sha', 'https://raw.githubusercontent.com/acme/shop/$sha').replace('rollback needs no database change.', 'rollback needs no \x60database change.')")" "raw.githubusercontent.com"
-check "a repo image without its link fails (the mobile app can't show it inline)" 1 "$(variant unlinked \
-  "s = s.replace('[![saved cart](https://github.com/acme/shop/raw/$sha/1-saved-cart.png)](https://github.com/acme/shop/raw/$sha/1-saved-cart.png)', '![saved cart](https://github.com/acme/shop/raw/$sha/1-saved-cart.png)')")" "link it to itself"
-check "a repo image linked once and also shown bare fails" 1 "$(variant linked-and-bare \
-  "s = s.replace('- **Reviewer:**', '- **Also:** ![again](https://github.com/acme/shop/raw/$sha/1-saved-cart.png)\n- **Reviewer:**')")" "link it to itself"
-check "a repo image linked elsewhere fails" 1 "$(variant mislinked \
-  "s = s.replace('](https://github.com/acme/shop/raw/$sha/1-saved-cart.png)\n', '](https://example.com/x)\n')")" "link it to itself"
 check "screenshots kept off the PR fail" 1 "$(variant shots-in-chat \
   's = re.sub(r"- \*\*Screenshots:\*\*\n(  - .*\n)+", "- **Screenshots:** taken; not embedded here (no image host in this session)\n", s)')" "**Screenshots:** needs at least one image"
 check "an image on raw.githubusercontent.com fails, even pinned" 1 "$(variant raw-host \

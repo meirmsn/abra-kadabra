@@ -80,14 +80,11 @@ g() { git -C "$work/app" "$@"; }
 NAME="three images" run 0 "$work/shots/01-add-item.png" "$work/shots/02-empty_state.png" "$work/shots/03-error.jpg"
 s=$(assets); [ -n "$s" ] || { cat "$work/out.log"; fail "no ASSETS line with the screenshots commit"; }
 m=$(g rev-parse HEAD)
-# Each image is also a link to itself: the GitHub mobile app can't load it inline from a private
-# repo, but a tap opens it in the browser (F-NEW-49).
-u=https://github.com/example/app/raw/$s
-for want in "[![add item]($u/01-add-item.png)]($u/01-add-item.png)" \
-  "[![empty state]($u/02-empty_state.png)]($u/02-empty_state.png)" \
-  "[![error]($u/03-error.jpg)]($u/03-error.jpg)"; do names "$want"; done
+for want in "![add item](https://github.com/example/app/raw/$s/01-add-item.png)" \
+  "![empty state](https://github.com/example/app/raw/$s/02-empty_state.png)" \
+  "![error](https://github.com/example/app/raw/$s/03-error.jpg)"; do names "$want"; done
 names "ASSETS: 3 images · $s · feat/cart at ${m:0:12}"
-ok "prints one linked image line per file, pinned to the screenshots commit by SHA, and the ASSETS line"
+ok "prints one image line per file, linking the screenshots commit by SHA, and the ASSETS line"
 [ "$(g rev-list --parents -n1 "$s" | wc -w)" = 1 ] || fail "the screenshots commit has parents"
 [ "$(g ls-tree --name-only "$s" | tr '\n' ' ')" = "01-add-item.png 02-empty_state.png 03-error.jpg " ] \
   || fail "screenshots tree: $(g ls-tree --name-only "$s")"
@@ -109,7 +106,7 @@ ok "it read the repo's merge settings (squash only), and wrote nothing to GitHub
   printf '**Preview:** none — test\n\n## What you should know\n\n- **Behaviour change:** x\n- **Decisions:** x\n'
   printf -- '- **Changed after the go:** nothing\n- **Tests deleted or loosened:** none\n- **Manual steps for you:** none\n\n'
   printf '## Evidence\n\n- **Screenshots:**\n'
-  grep '^\[!\[' "$work/out.log" | sed 's/^/  - step: /'
+  grep '^!\[' "$work/out.log" | sed 's/^/  - step: /'
   printf -- '- **Reviewer:** pass\n- **CI:** green\n- **Low findings:** none\n\n'
   printf '<details>\n<summary>Engineering details</summary>\n\nx\n\n</details>\n'
 } >"$work/body.md"

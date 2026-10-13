@@ -10,9 +10,7 @@
 # a clone of it never downloads it; so the script refuses a repo that also allows merge commits or
 # rebase merges.
 #   usage: pr-assets.sh <image>...   (from the PR branch's worktree, HEAD = the commit shown)
-# Prints one "[![<label>](<url>)](<url>)" line per image, <url> being
-# https://github.com/<owner>/<repo>/raw/<S>/<file>: linked to itself, because the GitHub mobile app
-# can't load it inline from a private repo, and a tap opens it in the browser (F-NEW-49). Then
+# Prints one "![<label>](https://github.com/<owner>/<repo>/raw/<S>/<file>)" line per image, then
 # "ASSETS: <n> image(s) · <S> · <branch> at <merge12>". The label is the file name without its order
 # prefix and extension (01-empty_state.png → "empty state"). Images: png, jpg, jpeg, gif or webp, at
 # most 10 MB, names of letters, digits, ".", "_" and "-". Run it again after retaking screenshots or
@@ -86,8 +84,7 @@ for f in "$@"; do
   name=${f##*/} label=${f##*/}
   label=${label%.*}
   label=$(sed -E 's/^[0-9]+[-_. ]*//; s/[-_]+/ /g' <<<"$label")
-  url="https://github.com/$slug/raw/$s/$name"
-  printf '[![%s](%s)](%s)\n' "${label:-$name}" "$url" "$url"
+  printf '![%s](https://github.com/%s/raw/%s/%s)\n' "${label:-$name}" "$slug" "$s" "$name"
 done
 n=$#; p=s; [ "$n" != 1 ] || p=""
 echo "ASSETS: $n image$p · $s · $branch at ${m:0:12}"
