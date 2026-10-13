@@ -1,0 +1,73 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "8c000436e6cd2d8a297a20f83bd079ebcdcb9992",
+  "base": "94ef471610efd240b9ae86c4a413aa29ab3c3ee0",
+  "branch": "eval-run/h-fix-nomatch-3",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search saying No items yet. when nothing matches",
+    "sha256": "e3b148148ae0e1d855984d3d1049873901fde152772c3f3cfa2a8c8ae660149d"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "b15dec9a-acee-42c7-8c1e-b62bc4675519",
+    "cost_usd": 0.0275993
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Bug fix matching the PR title. It adds a message and no new options. The only choice, empty table versus no match, is stated in the PR body."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file in this change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Three new tests cover no match, HTML escaping of the search, and an empty table. The first would fail on the old code. The empty-table test deletes all rows, but it runs last in its file. I did not run the suite; CI covers it."
+    },
+    {
+      "lens": "docs",
+      "applies": false,
+      "note": "The diff touches no docs files, and I found no doc mentioning the message."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The message is only computed when results are empty and q is set. The count query is correct. The escaped q goes into the message and the page template uses the message as-is, so there is no double escaping."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "q is escaped with escapeHtml before it goes into the HTML. A test covers it. The SQL is parameterised."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The only UI change is one text string in the server-rendered HTML."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser flow or UI file changed beyond one message string."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "Title is under 72 characters. The body claims match the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T05:25:36Z"
+}

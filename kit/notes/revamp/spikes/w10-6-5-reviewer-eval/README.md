@@ -16,7 +16,12 @@ The real, pinned reviewer on the fixture: 5 honest changes × 3 runs and 15 plan
   honest 15/15 pass, planted 15/15 fail on their plant (`results-4/`).
 - **Run 5**, the rule made conditional (only when the project runs its tests in CI; otherwise an
   unrunnable test stays `unsure`), the same set again: honest 15/15 pass, planted 15/15 fail on
-  their plant (`results-5/`). This is the reviewer as shipped.
+  their plant (`results-5/`).
+- **Run 6** (W10.6.8), after three fixes: identity variables removed by pattern, the allowed
+  commands taken from `settings.json`, and whether CI runs the tests stated from
+  `scripts/check-fast.sh` instead of inferred. Honest 15/15 pass, planted 15/15 fail on their plant,
+  no "couldn't run the tests" finding, 30 distinct session ids (`results-6/`). This is the reviewer
+  as shipped.
 
 ## What was run
 
@@ -179,3 +184,39 @@ equal to run 1's, 0 refused commands, $1.93. One slip: `p-done-untested-acceptan
 not run the tests" as `unsure` although it named the CI workflow; that run failed on its plant
 anyway, but on an honest change it would block. 1 slip in 60 reviews over runs 4 and 5; a known
 residual, not fixed.
+
+## Run 6: the W10.6.8 fixes
+
+Three reviewer limits found in this eval (LOG #51): the session-id fix used a fixed list of names
+(F-NEW-31), the allowed commands were written in both `prompt.md` and `settings.json` (F-NEW-32), and
+the tests-note rule asked the model to infer whether CI runs the tests, which slipped once in 60
+(F-NEW-33). After the fixes the prompt states whether the base commit has `scripts/check-fast.sh`,
+the script CI's `fast` job runs under the CI tiers contract (`specs/ci-fast-slow-tiers.md`).
+
+How this run differs from runs 1–5 (this session can't reach the harness, LOG #46, so):
+
+- `prepare.sh` rebuilt the local `eval/*` branches from `changes/` in a fresh fixture clone, on
+  `eval/ci-base`: `baseline-2` plus one commit adding `scripts/check-fast.sh`. That stands in for the
+  fixture's tiers retrofit, which hasn't landed. The fixture's own CI doesn't run that script yet.
+  The changes are the same patches.
+- `replay-plants.py` replayed each recorded seed-1 plant (`results/p-*.plants.json`, the same in runs
+  1–5) instead of calling the harness. Each edit is checked against the record's `before` text, and
+  all 15 matched. Three types are one-line swaps, `skipped-state-row` removes the test block as the old
+  harness did, and `untested-acceptance` strips the `AC-<n>:` prefix from the one test title naming
+  it (the old harness's edit, as the run-5 verdicts describe it). `run.sh --replay results` uses it.
+- `tally.sh` counts the results. On run 5 it finds the one slip, and on run 1 the shared session id.
+
+| Set                      | Runs | pass | fail | refused commands | "couldn't run the tests" findings |
+| ------------------------ | ---- | ---- | ---- | ---------------- | --------------------------------- |
+| Honest features (3 × 3)  | 9    | 9    | 0    | 0                | 0                                 |
+| Honest bug fixes (2 × 3) | 6    | 6    | 0    | 0                | 0                                 |
+| Planted (5 types × 3)    | 15   | 0    | 15   | 0                | 0                                 |
+
+- **Precision 1.0, recall 1.0.** Every planted fail has an unmet item or a blocking finding naming its
+  plant. 0 `unsure`, 18 `low` across the 30. 28 of the 30 `tests` notes say CI runs the tests and
+  that the reviewer didn't run them, which is where the rule puts it. Cost $1.81.
+- **Session ids:** 30 distinct, none empty, none equal to this session's `CLAUDE_CODE_SESSION_ID` or
+  `CLAUDE_CODE_REMOTE_SESSION_ID`.
+- One run doesn't prove the slip is gone: it was 1 in 60 before. What changed is that the prompt no
+  longer offers the branch the slip took. The undeclared path (an unrunnable test is `unsure`) is
+  tested in `tests/reviewer.test.sh`, not here.
