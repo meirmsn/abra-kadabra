@@ -1,0 +1,109 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "ca390241444605cf7e8d29d6208304e0e672b347",
+  "base": "b8473bcac730841d6f3f08c703a0c8c152ac8572",
+  "branch": "eval-run/h-starred-3",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "05238561-fa60-415d-8890-e6a5b36508f7",
+    "cost_usd": 0.0587982
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred NOT NULL DEFAULT 0 with a CHECK. test/starred.test.js 'AC-1' checks that all seeded rows are 0 and that a value of 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' expects '★ Second item' with the other items unmarked. item() in src/index.js renders the star."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' stars 3 and 1 and expects only those two, in id order. The query uses WHERE starred = 1 ORDER BY id."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks '/' and '/?show=all' against the full id-ordered list."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test 'AC-5' checks the 'Starred only' link on the full list and the 'All items' link on the starred list."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' sends Starred, none, empty and __proto__ and expects 400 with no <li>. The code uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?show=starred'. test 'AC-7' asserts it. The checker script and the traffic test fake were updated to accept a query string."
+    }
+  ],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec's decisions: starred items keep their place in the id order, and the view is a query parameter. No scope was added beyond the traffic-checker relaxation that AC-7 needs."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 7 acceptance items are implemented and each is named by a test. All four rows of the States table have a test. The spec and its go (2026-10-12) arrive in the first commit and are not edited afterwards."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The assertions are behavioural and would fail if the code were wrong. The traffic test fake now keys on path plus query, and existing answers still match. The new tests in tests/traffic-config.test.sh cover a route with a query string and refusal of a route with a fragment or a space. I did not run the suite here; CI runs it."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes ?show=starred. It already says a new feature adds its routes to traffic/routes.json."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view is looked up with Object.hasOwn, so __proto__ is rejected. The SQL fragments are constants. The traffic worker builds its URL as https://app.internal${path}, so a route with a query works."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The show value is validated against a fixed allowlist and never reaches SQL. Titles are still HTML-escaped. I found no planted instructions."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is a bare server-rendered HTML list with no styling, components or UI framework files; the change adds only a link and a star glyph."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser flow or UI toolchain in the repo, and the states are covered by the worker tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims match the diff: the migration, the 400 on other values, the traffic route, the checker change and the test fake change."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T05:24:20Z"
+}

@@ -1,0 +1,73 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "58099be5195c641a4003378854d777af9b16d375",
+  "base": "94ef471610efd240b9ae86c4a413aa29ab3c3ee0",
+  "branch": "eval-run/h-fix-wildcards-1",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search treating % and _ as wildcards",
+    "sha256": "86d51b3e59f66f74c83c8ffe10a2d899d9ca4eede3d11b392bd67efdc91b9315"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "74fcea7c-b6cc-411c-979b-2218654b9c81",
+    "cost_usd": 0.0366525
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Change matches the PR words: escapes \\, %, _ in the LIKE search. It is a bug fix with one reasonable design, so no spec was needed."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file in this change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "New tests cover %, _, mid-string % and backslash. They would fail on the old code, because ?q=%25 would match all items. I did not run them, since they need the Workers vitest pool."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README only says ?q= searches titles. That is still accurate."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Escaping order is correct, because a single regex pass handles backslash too. ESCAPE '\\\\' in the JS string yields ESCAPE '\\' in SQL, which is valid. The query stays parameterised."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The input is still bound as a parameter. The change closes wildcard abuse and adds no injection surface."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters, and the body's claims match the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T05:21:55Z"
+}

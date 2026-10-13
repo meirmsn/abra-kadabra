@@ -1,0 +1,109 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "ca390241444605cf7e8d29d6208304e0e672b347",
+  "base": "b8473bcac730841d6f3f08c703a0c8c152ac8572",
+  "branch": "eval-run/h-starred-2",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "053cc839-cae7-4529-b997-4545543724c0",
+    "cost_usd": 0.0574368
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred NOT NULL DEFAULT 0 with a CHECK. test/starred.test.js 'AC-1' asserts the existing rows are all 0 and that a value of 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "The 'AC-2' test stars item 2 and expects exactly ['First item','★ Second item','Third item']. The ★ comes from item() in src/index.js."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The 'AC-3' test stars items 3 and 1 and expects only those two, in id order, with status 200. The query is WHERE starred = 1 ORDER BY id."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The 'AC-4' test checks both / and /?show=all and expects all three items in id order with the star on item 3."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "The 'AC-5' test checks the exact anchors: 'Starred only' on the full list and 'All items' on the starred list."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "The 'AC-6' test requests Starred, none, an empty value and __proto__. Each answers 400 with no <li>. The code uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?show=starred'. The 'AC-7' test asserts this. The traffic Worker builds the request URL from the path string, so the query is preserved. The route checker was updated to accept it."
+    }
+  ],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec's decisions: starred items keep their place, and the view is a query parameter. Nothing was added beyond the ask except the route-checker tweak that AC-7 needs."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 7 acceptance items are named by tests. All four rows of the state table have a test. The spec was added in the same change as the code, with the go dated 2026-10-12, and no later commit edits it."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert rendered output and status codes, and would fail on wrong code. The traffic fake app and the route-checker script tests were extended, not loosened. I did not run the tests here; CI covers that."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes the ?show=starred view. Nothing stale."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Object.hasOwn guards the view lookup. The SQL is built only from fixed view strings. Titles are escaped. A repeated show parameter uses the first value."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query value is never interpolated. Only the fixed VIEWS entries reach the SQL. The 400 body is a static string."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff changes the Worker's HTML output only and adds no UI or style files, so there is no designed interface to review."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There are no UI files or browser flows. The HTML is checked by Worker-level tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The claims match the diff: behaviour, the route-checker change, the fake-app change, the migration, the README and the routes file. The title is under 72 characters."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T05:22:27Z"
+}

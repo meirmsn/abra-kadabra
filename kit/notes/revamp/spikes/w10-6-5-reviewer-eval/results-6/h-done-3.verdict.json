@@ -1,0 +1,123 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "9424565780e4de3993598250566cd071d82c9a72",
+  "base": "b8473bcac730841d6f3f08c703a0c8c152ac8572",
+  "branch": "eval-run/h-done-3",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "76cb51ce-c8a5-4260-b343-5b49dde5077c",
+    "cost_usd": 0.092722
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done NOT NULL DEFAULT 0 with a CHECK. test/done.test.js 'AC-1' asserts all seeded rows are 0 and that done=2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "'AC-2' checks / and /?view=open list only the open items in id order. src/index.js uses WHERE done = 0 ORDER BY id."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "'AC-3' marks ids 3 and 1 done and expects ['✓ First item','✓ Third item'] in id order with a 200."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' expects every item in id order, with only the done one marked ✓."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "'AC-5' asserts the exact nav HTML for each view and for /. The current view is a <strong>, the others are links."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "'AC-6' checks Open, closed, an empty value and __proto__ all give 400 with no <li>. The code uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "'AC-7' and the state tests cover Nothing open., Nothing done yet., and No items yet. in all three views once the table is empty."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json lists /?view=done and /?view=all. 'AC-8' asserts it. traffic-config-check now accepts query routes, covered by tests/traffic-config.test.sh."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README describes the views but not that any other view value answers 400, or the empty-view messages.",
+      "fix": "Add a short line on the 400 for unknown views."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change matches the spec's intent and decisions: it opens on open items and the view is a query parameter. Nothing is added beyond the ask except the traffic-check regex relaxation, which AC-8 needs."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are met. All 6 state-table rows have a test in the 'states' describe block. No commit edits the spec after the go."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert behaviour such as listed items and messages, and would fail on broken code. I could not run them here: vitest and wrangler are not installed, so 5 node --test files failed to import. CI runs them. The traffic fake app now records the query string, so the traffic test can check a route with a query."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README is updated. The one gap is minor (see the finding)."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view is validated with Object.hasOwn, the SQL has no user input, and the empty-table check runs only when a view is empty."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The view value is whitelisted and never reaches SQL or HTML. Titles are still escaped. I found no planted instructions in the repository."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no UI framework or styling files, so design review adds nothing."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser was available and there are no UI-flow steps beyond the tested HTML output."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The PR body's claims match the diff: the 400 behaviour, the traffic-check change, the fake app change and the migration. The title is under 72 characters."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T05:24:46Z"
+}

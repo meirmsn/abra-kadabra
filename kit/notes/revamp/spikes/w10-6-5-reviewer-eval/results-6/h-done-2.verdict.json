@@ -1,0 +1,123 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "9424565780e4de3993598250566cd071d82c9a72",
+  "base": "b8473bcac730841d6f3f08c703a0c8c152ac8572",
+  "branch": "eval-run/h-done-2",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "60e0f94a-d92e-4ab9-88b4-0007dc2ed2a5",
+    "cost_usd": 0.0727864
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done NOT NULL DEFAULT 0 with CHECK; test/done.test.js 'AC-1' checks all seeded rows are 0 and that 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "'AC-2' test checks / and ?view=open list only open items in id order after marking item 2 done."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "'AC-3' marks 3 and 1 done and expects ['✓ First item','✓ Third item'] in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' expects all three items in id order, with only the done one marked."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "'AC-5' asserts the exact nav HTML for each view and for /; the current view is a <strong>, not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "'AC-6' checks 400 and no <li> for Open, closed, empty and __proto__; src/index.js uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "'AC-7' covers Nothing open., Nothing done yet. and No items yet. in all three views after DELETE; the src/index.js COUNT fallback implements it."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json lists /?view=done and /?view=all; 'AC-8' checks it. scripts/traffic-config-check.mjs now accepts query strings, and tests/traffic-config.test.sh covers that."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-8",
+      "file": "test/done.test.js",
+      "what": "The AC-8 test only reads routes.json. It doesn't run the routes against the app, so it wouldn't catch a listed route that returns non-2xx.",
+      "fix": "Optionally fetch each route in routes.json against the Worker and assert 200."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Spec present with the owner's go (2026-10-12); the decisions on the default view and the query parameter are followed. The spec was not edited after the go."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are named by tests. All 6 state-table rows have a test. Nothing was added beyond the ask except the traffic-config checker change, which AC-8 needs and the PR discloses."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests assert rendered list items, messages and status codes, and would fail on broken code. No tests were deleted. test/traffic.test.js changed only to record the query string. I did not run the tests here; per the project, CI runs them."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes the views. CLAUDE.md and the README already say that a new feature adds its routes to traffic/routes.json."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view is validated with Object.hasOwn, so __proto__ and an empty value give 400. The SQL is built only from fixed strings. The empty-table fallback is correct."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query value is never interpolated into SQL or HTML, and titles are still escaped. The relaxed route regex still refuses spaces and #."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no UI framework or style files, and no screenshots exist. The only markup is the nav and list, checked by the AC-5 test."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser in the session and no UI flow beyond plain links, which the tests cover."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims match the diff: behaviour change, 400 on other values, migration, traffic checker change and no loosened tests."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T05:22:50Z"
+}

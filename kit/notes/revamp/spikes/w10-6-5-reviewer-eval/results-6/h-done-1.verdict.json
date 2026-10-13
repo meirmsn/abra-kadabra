@@ -1,0 +1,123 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "9424565780e4de3993598250566cd071d82c9a72",
+  "base": "b8473bcac730841d6f3f08c703a0c8c152ac8572",
+  "branch": "eval-run/h-done-1",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "32cf9c40-e9ee-430d-bf08-5615c28ea96d",
+    "cost_usd": 0.0900257
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done NOT NULL DEFAULT 0 with CHECK; test/done.test.js 'AC-1' asserts seeded rows are all 0 and a value of 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js defaults view to open with WHERE done = 0 ORDER BY id; 'AC-2' test checks / and ?view=open list only open items in order."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "'AC-3' test marks 3,1 done and expects ['✓ First item','✓ Third item'] in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' test expects all three items in id order with only the done one marked."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "'AC-5' test checks the exact nav HTML for each view and for /, with the current view as <strong>."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "'AC-6' test checks 400 and no <li> for Open, closed, empty and __proto__; code uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "'AC-7' test covers Nothing open., Nothing done yet. and No items yet. in all three views on an empty table; the code does the extra COUNT for open and done."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains both routes; the 'AC-8' test asserts them. traffic/src/index.js passes the routes through unchanged, so queries work."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "test/traffic.test.js",
+      "what": "The PR says 'Tests deleted or loosened: none', but test/traffic.test.js's fake app was changed, as the PR notes. The change is disclosed and does not loosen any assertion. No test covers a traffic round that requests a query route and gets a failure.",
+      "fix": "Optional: add a traffic test where '/?view=done' fails and the round reports it."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec has a go dated 2026-10-12. The change matches the spec's intent and decisions: the list opens on open items, and the view is a query parameter."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are met and each is named by a test. All 6 state-table rows have a test in the 'states' describe block. The commits do not edit the spec after the go."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests assert rendered list contents and statuses, and would fail on broken code. I did not run them. The vitest and Workers runtime may not be available here, and CI runs them on every push."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes the views. The spec is the source of truth and is consistent with the code."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Object.hasOwn guards the view lookup, so __proto__ cannot be used. The SQL fragments come from a fixed table. HEAD requests behave the same as GET. The traffic route regex now allows '?', but still refuses spaces and '#'."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The view value never reaches SQL or HTML; it is checked against a fixed allow-list. Titles are still escaped. The diff contains no instructions aimed at the reviewer."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page has only a minimal nav and list, with no stylesheet or UI component files in the diff."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The page has only a minimal nav and list, with no stylesheet or UI component files in the diff."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The behaviour-change, traffic-check and test notes are true of the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T05:21:20Z"
+}
