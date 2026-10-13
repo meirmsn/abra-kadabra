@@ -6,7 +6,8 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 rand() { (set +o pipefail; LC_ALL=C tr -dc "$1" </dev/urandom 2>/dev/null | head -c "$2"); }
 
 # fake_aws_key: an AWS-access-key-shaped fake, generated so test files hold no secret literal.
-fake_aws_key() { echo "AKIA$(rand 'A-Z2-7' 16)"; }
+# 16 distinct characters: gitleaks drops a key whose entropy is below 3, which repeats can cause (F-NEW-50).
+fake_aws_key() { echo "AKIA$(printf '%s\n' {A..Z} 2 3 4 5 6 7 | shuf -n 16 | tr -d '\n')"; }
 
 # isolate_git <dir>: point HOME and git config at <dir>, so tests never touch the real ones (L-41).
 isolate_git() {

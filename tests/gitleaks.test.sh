@@ -25,6 +25,14 @@ scan() {
   echo "$rc"
 }
 
+# 0. fake_aws_key's 16 random characters are distinct, so its entropy stays above the rule's 3 (F-NEW-50).
+for _ in $(seq 50); do
+  k=$(fake_aws_key)
+  [[ $k =~ ^AKIA[A-Z2-7]{16}$ ]] || fail "fake_aws_key: not AWS-key-shaped: $k"
+  [ "$(printf '%s' "${k#AKIA}" | fold -w1 | sort -u | wc -l)" = 16 ] || fail "fake_aws_key: repeated characters: $k"
+done
+echo "ok - fake_aws_key gives 16 distinct characters"
+
 # 1. Control: a repo with no secrets passes (exit 0) — the config parses and doesn't flag everything.
 new_repo "$work/clean"
 printf 'const greeting = "hello world";\napi_url = "https://example.com"\n' >"$work/clean/app.js"
