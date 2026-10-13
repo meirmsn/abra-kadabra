@@ -72,12 +72,21 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
 ## What projects get (`runtime/`)
 
 - PR body: [`runtime/templates/pr-body.md`](../runtime/templates/pr-body.md) is the template for
-  every project PR (TARGET § L3 Review): one-line summary, preview link, announcement (only when
-  user-facing), what you should know, evidence, then engineering details collapsed.
+  every project PR (TARGET § L3 Review): one-line summary, a 2–3 sentence paragraph, preview link,
+  announcement (a release note in the app user's words, only when user-facing), what you should
+  know, evidence, then engineering details collapsed.
   [`runtime/scripts/pr-body-check.py`](../runtime/scripts/pr-body-check.py) checks a filled-in
-  body has that shape (sections and lines in order, preview present, no placeholder left,
-  evidence pinned to a commit); whether the words are true is the reviewer's job. Proven by
+  body has that shape (sections and lines in order, the paragraph 2–3 sentences, preview present,
+  no developer words in the announcement, screenshots on the PR or "no UI change", no placeholder
+  left, images pinned to a commit and never on `raw.githubusercontent.com`); whether the words are
+  true is the reviewer's job. Proven by
   [`tests/pr-body-check.test.sh`](../tests/pr-body-check.test.sh).
+- PR screenshots: [`runtime/scripts/pr-assets.sh`](../runtime/scripts/pr-assets.sh) uploads them
+  through GitHub's REST git-data API as one orphan commit kept by
+  `refs/devshop-assets/<branch>/<head12>` (not a branch: never cloned, starts no workflow) and
+  prints the image lines, pinned to that commit, for the body's **Screenshots:**. It reads
+  everything back and fails closed. Proven by
+  [`tests/pr-assets.test.sh`](../tests/pr-assets.test.sh) (stub `gh`).
 - Spec: [`runtime/templates/spec.md`](../runtime/templates/spec.md) is the template for a change's
   spec in the project's `specs/` (TARGET § L3 Intent 2): intent, decisions, acceptance items
   `AC-<n>`, core flow and states for UI, out of scope, and the owner's recorded "go".

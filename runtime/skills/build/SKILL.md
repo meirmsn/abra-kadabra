@@ -46,15 +46,15 @@ scripts named here; run them, never retype them as shell.
 
 ## 4. The PR
 
-- Write the body from `/opt/devshop-current/templates/pr-body.md`. Claim only what you have just
-  read from the real signal (CI, the preview comment).
-- Run `/opt/devshop-current/scripts/pr-body-check.py <body file> "<title>"` until it passes, before
-  the PR goes ready.
-- Ship it: `/opt/devshop-current/reviewer/ship.sh --title "<title>" --body-file <body file>`. It
-  runs the independent reviewer in the VM, and only on a pass pushes, creates or updates the PR
-  (ready, not a draft) with those exact words, and posts the verdict (TARGET Verify 2, W10.6.7). It
-  is the only way to a PR: `gh pr create` and pushes to a PR's branch are refused. Exit 1: fix the
-  findings, commit, ship again. Exit 2 or 3: stop and ask the owner.
-- Keep per-round detail out of the body (it goes stale with the next fix); ship again after any
-  change to code or words.
+- Write the body from `/opt/devshop-current/templates/pr-body.md`, for the owner on a phone: the
+  summary, a 2–3 sentence paragraph on what changed and why it matters, the Announcement in the
+  app user's words. Claim only what you have just read from the real signal (CI, the preview).
+- **Screenshots go on the PR, never only in chat:** for a UI change, one per core-flow step and
+  state-table state at the final commit; `/opt/devshop-current/scripts/pr-assets.sh <image>...`
+  uploads them and prints the lines for **Screenshots:**; exit 2: ask the owner. Redo after commits.
+- Once `/opt/devshop-current/scripts/pr-body-check.py <body file> "<title>"` passes, ship:
+  `/opt/devshop-current/reviewer/ship.sh --title "<title>" --body-file <body file>`. Only on the
+  independent reviewer's pass does it push, create or update the PR (ready) with those exact words
+  and post the verdict; it is the only way to a PR. Exit 1: fix, commit, ship again; 2, 3: ask.
+- Keep per-round detail out of the body; ship again after any change to code or words.
 - Then tell the owner in chat: the PR link and its one-line summary.
