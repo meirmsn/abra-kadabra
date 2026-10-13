@@ -1745,6 +1745,9 @@ words, the 30 verdict files and plant records).
   a test title (it removed an AC test once and the wrong state's test once) and leaves a blank
   line that fails Prettier; `reworded-acceptance` can rewrite a quoted UI label; `false-verified`
   marks a wrapped item mid-sentence.
+- Every verdict records the calling session's id as `reviewer.session_id`: the nested `claude -p`
+  inherits `CLAUDE_CODE_SESSION_ID`, so the field can't tell reviews apart (found by the reviewer
+  on this PR, `low`). Not fixed here: it is `review.sh`'s environment, an owner call.
 - This session cloned the harness before the agent identity lost access (LOG #46). Its clone stays
   in this container only.
 
