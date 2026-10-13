@@ -42,7 +42,7 @@ read -r gstack_url gstack_sha <<<"$gstack_pin_line"
 # same version and checksum CI pins in ci.yml, so a session and CI run the same binaries.
 tools_pin=$(git -C "$repo_root" show "$head:install/tools.pin" 2>/dev/null | grep -v '^#') || fail "no install/tools.pin at HEAD"
 ci=$(git -C "$repo_root" show "$head:.github/workflows/ci.yml")
-for tool in gitleaks shellcheck; do
+for tool in gitleaks shellcheck dcg; do
   read -r _ version sum url < <(grep "^$tool " <<<"$tools_pin") || fail "install/tools.pin has no $tool line"
   [[ $version =~ ^[0-9.]+$ && $sum =~ ^[0-9a-f]{64}$ && $url =~ ^https://[^@[:space:]]+$ ]] \
     || fail "install/tools.pin: bad $tool line"
@@ -50,7 +50,7 @@ for tool in gitleaks shellcheck; do
   { grep -q "^  ${upper}_VERSION: $version$" <<<"$ci" && grep -q "^  ${upper}_SHA256: $sum$" <<<"$ci"; } \
     || fail "install/tools.pin's $tool ($version, $sum) differs from ci.yml's pin"
 done
-echo "ok - install/tools.pin pins gitleaks and shellcheck exactly as ci.yml does"
+echo "ok - install/tools.pin pins gitleaks, shellcheck and dcg exactly as ci.yml does"
 
 # Fake release downloads: a fake `curl` serves files by the URL's basename from $work/dl, so the
 # bootstrap downloads, checks and unpacks them exactly as from GitHub.
