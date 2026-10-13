@@ -2007,7 +2007,7 @@ tests cover it. The fixture PR was closed unmerged.
 
 **Next**: W10.6.4 (W10.6.7 is done, LOG #49).
 
-## #51 — 2026-10-13 · W10.4.6 CI in two tiers, fast and slow (in progress)
+## #51 — 2026-10-13 · W10.4.6 CI in two tiers, fast and slow
 
 **Why**: the owner asked whether lint in both CI and the pre-push hook wastes resources. It
 doesn't: CI is the wall and the hook is skippable feedback that saves a CI round trip. The waste
@@ -2050,5 +2050,7 @@ approved and merged it, and on its `main` both tiers passed before the productio
 this PR's CI and the fixture's retrofit are the owner's checks at merge, not acceptance items, and
 AC-1 names the step-level `if` / `continue-on-error` rule (spec, Decisions).
 
-**Next**: this PR's `fast` and `slow` green on GitHub; then `[owner]` swap the required checks
-from `lint` and `secret-scan` to `fast` and `slow` just before merging, then mark W10.4.6 done.
+**Done**: PR #92 had `fast` and `slow` green on its head (a1ebd87); the owner approved and merged
+it. Fixture PR #11 merged too, and on the fixture's `main` `fast`, `slow` and the production deploy
+passed. Whether the required checks on `main` were swapped to `fast` and `slow` is owner-held: the
+agent can't read branch protection.
