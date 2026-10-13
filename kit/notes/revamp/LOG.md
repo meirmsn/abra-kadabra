@@ -2340,6 +2340,7 @@ read-only with the owner's OK; nothing was pushed to it.
   - review twice: about 75%, 2× cost.
 
 **Owner's call**: the prompt rule. **Fix**: `prompt.md`'s new rules:
+
 - a departure from a decision is at least `medium`, even as an extra guard the decision rejected;
 - a state row tested only in part is at least `medium`;
 - a departure from the spec is never `low`.
