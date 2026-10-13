@@ -1869,7 +1869,40 @@ throwaway clone`. Cause: a cloud session's clone is shallow, and `git fetch` fro
 
 **Next**: ship again; then the owner's fresh-session check (W10.6.7's done-when).
 
-## #49 — 2026-10-13 · W10.6.5 reviewer eval: recall 0.33 → 1.0 after the owner-agreed fix
+## #49 — 2026-10-13 · W10.6.7 done: owner's fresh-session check of `ship` and the guard
+
+**Owner's check** (a fresh session on this repo, devshop HEAD `8597c6e05207`, copy of 2026-10-13
+04:14 UTC; the merge of PR #88, shipped through `ship` with a pass verdict, CI green):
+
+- **Parts:** `/opt/devshop-current/reviewer/ship.sh` and `/opt/devshop-current/hooks/review-guard.py`
+  present and executable.
+- **Direct PR create refused:** `gh pr create --dry-run -t probe -b probe` was blocked by the guard
+  ("gh pr create is refused"), pointing to `ship`; nothing created.
+- **A failing review stops at `ship`:** branch `check/fail` adds an untested `scripts/hello.sh`, and
+  its body falsely claims `tests/hello.test.sh`. `ship` printed `REVIEW: fail · round 1 · 3
+blocking` (high on `tests`: the claimed test doesn't exist; medium on `pr`: the false claim;
+  medium on `intent`: no stated purpose or go), exit 1. `git ls-remote origin check/fail` printed
+  nothing: never pushed, no PR.
+- **A passing review opens the PR:** branch `check/pass` clarifies one sentence in
+  `runtime/stacks/README.md` (checked against the script). `ship` printed `REVIEW: pass`, pushed
+  (pre-push secret scan and lint ran), and `SHIPPED: PR #90`, with the pass verdict comment for its
+  head.
+- **A direct push to the open PR refused:** a second commit on `check/pass`; `git push` was blocked
+  ("git push to check/pass, which has an open PR, is refused"). The session's stop hook then asked
+  for the push; Claude didn't get around the guard but shipped the commit: a new review passed, a
+  second verdict comment landed for the new head, and CI was green on it.
+
+**Passed.** W10.6.7 is done.
+
+**Seen in passing:** writing the check's files through a shell redirect to a path held in a
+variable was blocked by dcg (W10.4.5); the session wrote them with the file tool instead. A data
+point for dcg's false positives, not a W10.6.7 issue. A shipped PR body's CI line says "not run
+yet", true when shipped; by design it changes only through a new `ship`.
+
+**Next**: W10.6.5 (the reviewer eval; F-NEW-23 handed to that session) and W10.6.4 (the north-star
+run, which W10.6.7 unblocks).
+
+## #50 — 2026-10-13 · W10.6.5 reviewer eval: recall 0.33 → 1.0 after the owner-agreed fix
 
 **What moved**: the first eval of the real reviewer (unchanged, `main` at `c6a84a5`) on the
 fixture, for A-12. 5 honest changes × 3 runs: 3 features with specs (`starred`, `done`, `priority`
@@ -1972,4 +2005,4 @@ end; three different items. The fixture's `lint` (which the old state plant fail
 passed on it. The wrapped-item case of `false-verified` wasn't hit by this run's pick; the harness
 tests cover it. The fixture PR was closed unmerged.
 
-**Next**: W10.6.4 once W10.6.7 is done (LOG #48).
+**Next**: W10.6.4 (W10.6.7 is done, LOG #49).

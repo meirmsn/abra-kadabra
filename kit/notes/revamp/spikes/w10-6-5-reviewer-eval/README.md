@@ -1,7 +1,7 @@
 # W10.6.5 reviewer eval (A-12)
 
 The real, pinned reviewer on the fixture: 5 honest changes × 3 runs and 15 planted changes × 1 run,
-2026-10-12/13. LOG #49.
+2026-10-12/13. LOG #50.
 
 - **Run 1**, the reviewer as on `main` at `c6a84a5`: precision 1.0, **recall 0.33**. It mostly lost
   its Bash after one refused command and reviewed by reading (`results/`).
