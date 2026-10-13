@@ -48,18 +48,18 @@ an explicit go/no-go; lalista is the pilot (web, then iOS).
 
 ## Files
 
-| File                             | Purpose                                                                                |
-| -------------------------------- | -------------------------------------------------------------------------------------- |
-| [REVIEW-1.md](REVIEW-1.md)       | Adversarial review: errors found, critiques accepted/deferred, new decisions           |
-| [TARGET.md](TARGET.md)           | Target picture, agreed top-down (L0 sentence → L1 paragraph → L2 pillars) + north-star |
-| [ASSUMPTIONS.md](ASSUMPTIONS.md) | Load-bearing assumptions and the cheapest test for each                                |
-| [PLAN.md](PLAN.md)               | Principles, milestones + exit criteria, capacity, epics, codification queue, changelog |
-| `workstreams/Wn-*.md`            | Epics → tasks with status: W0 (M0), W10 (v2, M1+); W1–W9 superseded v1 reference       |
-| [FINDINGS.md](FINDINGS.md)       | Evidence register (117 findings + 10 opportunities), each mapped to work               |
-| [DECISIONS.md](DECISIONS.md)     | Owner decisions, in the order to make them                                             |
-| [PROCESS.md](PROCESS.md)         | Light process: lifecycle, done, verification, replanning, reviews                      |
-| [LOG.md](LOG.md)                 | Per-session journal                                                                    |
-| [lessons.md](lessons.md)         | v1 + home-os lessons that carry into v2, by pillar and by stack (W10.3.1–2)            |
+| File                             | Purpose                                                                                   |
+| -------------------------------- | ----------------------------------------------------------------------------------------- |
+| [REVIEW-1.md](REVIEW-1.md)       | Adversarial review: errors found, critiques accepted/deferred, new decisions              |
+| [TARGET.md](TARGET.md)           | Target picture, agreed top-down (L0 sentence → L1 paragraph → L2 pillars) + north-star    |
+| [ASSUMPTIONS.md](ASSUMPTIONS.md) | Load-bearing assumptions and the cheapest test for each                                   |
+| [PLAN.md](PLAN.md)               | Principles, milestones + exit criteria, capacity, epics, codification queue, changelog    |
+| `workstreams/Wn-*.md`            | Epics → tasks with status: W0 (M0), W10 (v2, M1+); W1–W9 superseded v1 reference          |
+| [FINDINGS.md](FINDINGS.md)       | Findings ledger: a Fix queue graded by Leverage, a Watch list counted by sessions, Closed |
+| [DECISIONS.md](DECISIONS.md)     | Owner decisions, in the order to make them                                                |
+| [PROCESS.md](PROCESS.md)         | Light process: lifecycle, done, verification, replanning, reviews                         |
+| [LOG.md](LOG.md)                 | Per-session journal                                                                       |
+| [lessons.md](lessons.md)         | v1 + home-os lessons that carry into v2, by pillar and by stack (W10.3.1–2)               |
 
 ## Next action
 
