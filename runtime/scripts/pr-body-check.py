@@ -13,8 +13,9 @@ Checks what can be checked without judgement; whether the words are true is the 
   - **Screenshots:** holds at least one image, or says "no UI change"
   - then the engineering details, collapsed: <details><summary>Engineering details</summary> …
     </details>; anything after that (a footer) has no heading
-  - no {{placeholder}} left (outside code, where template syntax may be quoted); images are absolute https URLs; GitHub file links are pinned to a
-    commit SHA, never a branch (L-30); no image on raw.githubusercontent.com (404 for a private repo's viewers)
+  - no {{placeholder}} left; images are absolute https URLs; GitHub file links are pinned to a
+    commit SHA, never a branch (L-30); no image on raw.githubusercontent.com (a private repo's
+    viewers get 404). Text in code (fences, inline) is quoted, not checked for these.
 Exit 0 = the body has the shape; 1 = problems (listed); 2 = can't run.
 """
 import re
@@ -153,7 +154,7 @@ def check(body, title):
                                 + ", ".join(words))
         if name == "Evidence" and label_present(content, "Screenshots"):
             shots = item(content, "Screenshots")
-            if not IMAGE.search(shots) and not re.match(r"\s*no UI change\b", shots, re.I):
+            if not IMAGE.search(CODE.sub("", shots)) and not re.match(r"\s*no UI change\b", shots, re.I):
                 problems.append("**Screenshots:** needs at least one image on the PR (one per core-flow step and "
                                 "state-table state), or 'no UI change'")
 
@@ -165,14 +166,15 @@ def check(body, title):
         if HEADING.search(text[details.end():]):
             problems.append("a heading after the engineering details")
 
-    for m in IMAGE.finditer(text):
+    prose = CODE.sub("", text)  # quoted in code, an image or link is an example, not evidence
+    for m in IMAGE.finditer(prose):
         url = m.group(1) or m.group(2)
         if not url.startswith("https://"):
             problems.append(f"image is not an absolute https URL (upload it, or link it by commit): {url}")
         elif url.startswith("https://raw.githubusercontent.com/"):
             problems.append(f"image on raw.githubusercontent.com, which a private repo's viewers get as 404; "
                             f"use https://github.com/<owner>/<repo>/raw/<sha>/<path>: {url}")
-    for m in GITHUB_FILE.finditer(text):
+    for m in GITHUB_FILE.finditer(prose):
         if not SHA.match(m.group(1)):
             problems.append(f"GitHub file linked by '{m.group(1)}', not a commit SHA (L-30): {m.group(0)}")
     return problems

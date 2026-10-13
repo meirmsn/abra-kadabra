@@ -87,6 +87,8 @@ check "a three-sentence paragraph passes" 0 "$(variant three-sentences \
   's = s.replace("finished on a laptop.", "finished on a laptop. Carts expire after a month.")')"
 check "an abbreviation is not a sentence end" 0 "$(variant abbrev \
   's = s.replace("on a phone", "on a phone, e.g. on the bus,")')"
+check "an image or GitHub link quoted in code is not checked" 0 "$(variant quoted-image \
+  's = s.replace("rollback needs no database change.", "rollback needs no database change. It prints \x60![x](https://github.com/<o>/<r>/raw/<commit>/a.png)\x60.")')"
 check "plain words that look technical pass in the announcement" 0 "$(variant announce-plain \
   's = s.replace("any device you sign in on.", "any device you sign in on, 24/7, and/or share it from https://shop.example.com/help. Up to 500 items.")')"
 
@@ -115,6 +117,8 @@ check "an announcement naming a status code fails" 1 "$(variant announce-status 
   's = s.replace("on any device you sign in on.", "on any device; a missing cart gives a 404 page.")')" "Announcement: developer words"
 check "an announcement with code fails" 1 "$(variant announce-code \
   's = s.replace("save your cart", "save your \x60cart\x60")')" "Announcement: developer words"
+check "an image quoted in code is not a screenshot" 1 "$(variant shots-in-code \
+  's = re.sub(r"- \*\*Screenshots:\*\*\n(  - .*\n)+", "- **Screenshots:** pr-assets.sh prints \x60![a](https://github.com/acme/shop/raw/x/a.png)\x60\n", s)')" "**Screenshots:** needs at least one image"
 check "screenshots kept off the PR fail" 1 "$(variant shots-in-chat \
   's = re.sub(r"- \*\*Screenshots:\*\*\n(  - .*\n)+", "- **Screenshots:** taken; not embedded here (no image host in this session)\n", s)')" "**Screenshots:** needs at least one image"
 check "an image on raw.githubusercontent.com fails, even pinned" 1 "$(variant raw-host \

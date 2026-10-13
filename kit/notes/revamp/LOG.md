@@ -2120,6 +2120,9 @@ old case still passed.
 - **Screenshots on the PR.** `**Screenshots:**` needs an image or "no UI change", so "not embedded
   here (no image host in this session)" fails. An image on `raw.githubusercontent.com` fails even
   when pinned: a private repo's viewers get a 404 there.
+- **Code is quoted, not checked.** The image and GitHub-link checks read code spans, while the
+  placeholder check skipped them, so a body quoting an image line in code failed (found writing
+  this PR's body). Now all three skip code. Two more cases, each failing on the previous version.
 - **The image host** (owner: option B, a hidden ref first). The session's git proxy accepts pushes
   to the session branch only (LOG W0.4.1), so `runtime/scripts/pr-assets.sh` uses GitHub's REST
   git-data API through `gh`. Each blob's SHA must equal `git hash-object` of the file. The tree and
