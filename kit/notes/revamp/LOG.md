@@ -2103,3 +2103,20 @@ owner switched to that file: one contract, not two. So this change adds no scrip
 **Order** (owner): `ship` first failed this change on one `medium`: merged before the CI tiers change, honest reviews here and in the fixture would get `unsure` for tests they can't run. The owner held it until the tiers change landed (LOG #51: this repo's PR #92, fixture PR 11, both with `scripts/check-fast.sh` at the root). Then `main` was merged in and it shipped again.
 
 **Next**: W10.6.4.
+
+## #53 — 2026-10-13 · W10.6.9: the verdict comment, short by default
+
+**What moved**: owner feedback that seven ships on one PR posted seven long comments with tables.
+Options discussed first (one comment edited in place like the preview comment; one-line comments
+plus one edited table; a new short comment per ship). **Owner calls**: a new comment per ship,
+short: once the tables can collapse, editing in place isn't needed, and a new comment keeps a
+lasting record per commit (the verdict files live in `.git` and go with the container) and sits in
+the timeline just after the push it reviewed. Failed reviews stay off the PR. A check that the head
+moved past the last verdict is not built: it needs a CI job, and with one comment per ship a push
+made without `ship` already shows as a push with no verdict after it.
+
+- `pr-comment.sh`: the marker line, then the headline (outcome, round, counts, commit), then one
+  `<details>` block with the spec, tables, findings and reviewer identity. `ship.sh` unchanged.
+- Test first: `tests/reviewer-pr.test.sh` checks the layout (failed on the old renderer) and that
+  model text can't close the block. Mutants: the `<` escape dropped and the blank line after
+  `<summary>` dropped are killed; dropping the blank line before `</details>` survives, equivalent.
