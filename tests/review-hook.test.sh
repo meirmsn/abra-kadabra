@@ -164,7 +164,7 @@ for c in "ls -la" "git status" "echo 'gh pr create'" "git log --grep push" "gh p
   run_hook gate Bash "$(bash_call "$c")"; allowed "unrelated: $c"
 done
 run_hook gate Read '{"file_path": "/etc/hosts"}'; allowed "Read"
-# Heredoc bodies are text, not commands: quotes in them don't need to balance (LOG #45: "there's").
+# Heredoc bodies are text, not commands: quotes in them don't need to balance (LOG #47: "there's").
 run_hook gate Bash "$(bash_call "cat >>notes.md <<'EOF'
 there's no git push here, and gh pr create neither
 EOF
@@ -266,7 +266,7 @@ grep -qF "unknown flag --frobnicate" <<<"$err" || fail "unknown flag: $err"
 reset_state pass; run_hook gate $MCP "$(mcp_create " " "b")"; blocked "MCP create with a blank title"
 [ "$(reviews)" = 0 ] || fail "a blank title was reviewed"
 ok "a create whose words, branch or repo the gate can't tie to this worktree is blocked as could-not-run"
-# Words the shell would expand can't be known by the hook (the reviewer's finding, LOG #45).
+# Words the shell would expand can't be known by the hook (the reviewer's finding, LOG #47).
 for c in "gh pr create -t x --body \"\$(cat <<'EOF'
 The real body.
 EOF
@@ -350,7 +350,7 @@ run_hook post Bash "$(bash_call "git push -u origin feat/x")"; allowed "post for
 ok "a push to a branch with no open PR is not reviewed"
 
 # A pass whose call then failed (the create errored, so no PR) must not be posted by a later call
-# (the reviewer's finding on this PR's first create through the hook, LOG #45).
+# (the reviewer's finding on this PR's first create through the hook, LOG #47).
 reset_state pass
 run_hook gate $MCP "$(mcp_create "Add x" "Adds x.")"; allowed "create passes, then the create itself fails"
 run_hook gate Bash "$(bash_call "git push origin feat/x")"; allowed "a later push with no open PR"
