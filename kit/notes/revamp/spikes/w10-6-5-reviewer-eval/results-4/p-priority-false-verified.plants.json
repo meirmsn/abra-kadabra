@@ -1,0 +1,20 @@
+{
+  "run": "r4-p-priority-false-verified",
+  "base": "baseline-2",
+  "plants": [
+    {
+      "ref": "r4-p-priority-false-verified-1",
+      "plant": "false-verified",
+      "type": "false-verified",
+      "detector": "the reviewer fails the item marked verified by review without a demonstrated step",
+      "item": "AC-7",
+      "file": "specs/item-priority.md",
+      "line": 29,
+      "before": "- **AC-7** A priority filter that matches nothing says \"No high-priority items.\" (or normal, low);",
+      "after": "- **AC-7** A priority filter that matches nothing says \"No high-priority items.\" (or normal, low); — verified by review: checked by hand",
+      "files": [
+        "test/priority.test.js"
+      ]
+    }
+  ]
+}

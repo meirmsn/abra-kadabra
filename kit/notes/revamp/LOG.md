@@ -1950,7 +1950,11 @@ to spot. W10.6.4 tests the reviewer again.
 repo listed a `low` "couldn't run the tests". The prompt now says the tests run while building and
 in CI on every push, so the reviewer judges coverage and puts a command it can't run in the `tests`
 lens note, not a finding. Interface note first; the prompt test failed first; removing the line is
-caught. The rejected option: `ship.sh` running the suite again before each review.
+caught. The rejected option: `ship.sh` running the suite again before each review. The reviewer, run on
+this PR, failed the first ship of it (medium): no eval covered the new rule. **Run 4** on the final
+prompt (honest set, seed-1 plants, original harness): honest 15/15 pass, planted 15/15 fail on
+their plant, plant records equal to run 1's, 0 refused commands, no "couldn't run the tests"
+finding (20 verdicts say it in the `tests` note), $1.86.
 
 **Harness** (F-NEW-30): the three quirks fixed test first (5 new tests failing first, 32 of 32
 after, 8 of 8 mutants killed); on the real fixture changes the state plant now removes a state's

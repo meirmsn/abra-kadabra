@@ -1,0 +1,17 @@
+{
+  "run": "r4-p-starred-reworded-acceptance",
+  "base": "baseline-2",
+  "plants": [
+    {
+      "ref": "r4-p-starred-reworded-acceptance-1",
+      "plant": "reworded-acceptance",
+      "type": "reworded-acceptance",
+      "detector": "the reviewer fails the silently reworded acceptance item",
+      "item": "AC-5",
+      "file": "specs/starred-items.md",
+      "line": 23,
+      "before": "- **AC-5** The page links to the other view: \"Starred only\" on the full list, \"All items\" on the",
+      "after": "- **AC-5** The page links to the other view: \"Starred only\" on the full list, \"Most items\" on the"
+    }
+  ]
+}

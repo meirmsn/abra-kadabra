@@ -1,0 +1,123 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "2ba85bbc3e473fcbcf5c11c9ab683148ed32ce70",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r4-h-priority-1",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "d8c1d26b-64d2-46f8-82e8-07ad7f319920",
+    "cost_usd": 0.0805466
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql: NOT NULL DEFAULT 'normal' with a CHECK on the three values. test/priority.test.js 'AC-1' checks the seeded rows are normal and that 'urgent' is rejected. The migrations are re-applied before every test (test/apply-migrations.js)."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "The 'AC-2' test asserts '— high' and '— low' after the title and nothing for normal. src/index.js `item` renders the label."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The 'AC-3' test covers high, low and normal, in id order, with ids inserted out of order (3, 1)."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The 'AC-4' test checks that / lists all items in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "The 'AC-5' test checks the exact nav HTML for all four views; the current filter is a <strong>, not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "The 'AC-6' test checks High, urgent, empty and __proto__ each answer 400 with no <li>. src/index.js validates against a Set when the parameter is present."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "The 'AC-7' test covers the no-match message for high, low and normal, and 'No items yet.' for an empty table in all four views."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high'. The 'AC-8' test asserts it. scripts/traffic-config-check.mjs now accepts a query string, and tests/traffic-config.test.sh covers that."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "",
+      "file": "test/traffic.test.js",
+      "what": "The fake app now records pathname plus search, but no test in the diff sends a route with a query through the traffic Worker and checks that the query reaches the app. The change is unexercised.",
+      "fix": "Add a traffic test that runs the Worker with '/?priority=high' in ROUTES and asserts that fakeApp.seen includes that exact path."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change matches the spec's intent and decisions: existing items are normal, and only high and low are labelled. Nothing is added beyond the ask except the traffic-config check relaxation, which the PR discloses and AC-8 needs."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items and all 4 state-table rows have a test that names them. No commit edits the spec after the go; the spec was added in the first commit."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "`npm test` could not run here because vitest is not installed. I judged the tests by reading them. They assert behaviour, and the DB is reset and re-migrated before each test. No tests were deleted or loosened."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes the new filter. No stale references."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The priority value is validated against a Set and the query is parameterised. The empty-table versus no-match logic is correct."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The priority is bound as a parameter, never interpolated into SQL. The title is still HTML-escaped. The priority is only echoed after validation against the Set. No planted instructions found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page has only minimal server-rendered HTML and no stylesheets, components or client code to review."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser or UI flow is available in this session; the rendered HTML is covered by tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The PR's claims match the diff. The title is under 72 characters."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:27:18Z"
+}

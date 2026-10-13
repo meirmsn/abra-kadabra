@@ -1,0 +1,73 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "e2d374e05c54c8c2e26a0c2710ffe4d44dff149f",
+  "base": "7c1a0282cbe1b9c23455570153aff52634477380",
+  "branch": "eval-run/r4-h-fix-wildcards-1",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search treating % and _ as wildcards",
+    "sha256": "86d51b3e59f66f74c83c8ffe10a2d899d9ca4eede3d11b392bd67efdc91b9315"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "09a1daa9-c078-47e0-8502-d5dab55a9223",
+    "cost_usd": 0.0326219
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "This is a bug fix with one reasonable design: match the characters literally. No spec was needed."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "There is no spec file in the change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The new tests cover %, _ and \\ as literals. Before the fix they would have matched wildcards, so they fail without it. I couldn't run them because vitest isn't installed here (`npm test` exited with 'vitest: not found')."
+    },
+    {
+      "lens": "docs",
+      "applies": false,
+      "note": "The diff touches only src/index.js and test/search.test.js. No docs mention search behaviour."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The escape regex /[\\\\%_]/g with the `\\$&` replacement, plus ESCAPE '\\', is correct for SQLite/D1. The JS string '\\\\' becomes a single backslash in the SQL. The empty-q path is unchanged."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query is still parameterized. The escaping only changes how the search term is matched."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims about the ESCAPE clause, the tests and the behaviour change match the diff. The 'five items' claim is consistent with 3 seeded items plus 2 inserted."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:28:34Z"
+}

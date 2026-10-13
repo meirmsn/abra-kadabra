@@ -1,0 +1,82 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "f8d4ef68a9f016a54d6cf7acceaaf129cb126c89",
+  "base": "7c1a0282cbe1b9c23455570153aff52634477380",
+  "branch": "eval-run/r4-h-fix-nomatch-3",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search saying No items yet. when nothing matches",
+    "sha256": "e3b148148ae0e1d855984d3d1049873901fde152772c3f3cfa2a8c8ae660149d"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "201bf334-ca0c-4572-9d55-b826f923b28c",
+    "cost_usd": 0.0235049
+  },
+  "acceptance": [],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "code",
+      "item": "",
+      "file": "src/index.js",
+      "what": "A search that matches nothing costs an extra COUNT(*) query. The `empty` parameter is also interpolated into the page as raw HTML, so a future caller passing unescaped text would be an injection risk.",
+      "fix": "Optional: pass a flag or a pre-escaped message type to `page`, or note in a comment that `empty` must be pre-escaped."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "This is a small bug fix with one obvious design. The change does what the title says, and nothing beyond it."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file in this change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "`npm test` could not run here because vitest is not installed. By reading, the three new tests would fail against the old code. They cover a no-match search, escaping of the search text, and the empty-table case. The empty-table test deletes all rows, but it is the last test in the file."
+    },
+    {
+      "lens": "docs",
+      "applies": false,
+      "note": "The diff touches no docs files, and no doc describes the empty message."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The logic is correct. The search text is escaped before it is interpolated, and the empty-table case still gives 'No items yet.'."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The user-supplied search text is escaped with `escapeHtml` and the test covers it. The SQL is parameterized."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff changes only message text, with no layout or style changes."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff changes only message text. The PR states no browser was available."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims match the diff: the escaped message, the empty-table message, no tests deleted or loosened, and the new tests."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:29:36Z"
+}

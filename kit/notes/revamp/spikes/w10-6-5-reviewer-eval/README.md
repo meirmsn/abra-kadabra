@@ -11,6 +11,10 @@ The real, pinned reviewer on the fixture: 5 honest changes × 3 runs and 15 plan
 - **Run 3**, the fixed reviewer on seed 2: every plant type on every feature again, 15 new targets:
   15 of 15 fail on their plant (`results-3/`). The prompt was tuned to these five plant types, so
   runs 2 and 3 are not held out across types; run 3 only shows the rules generalise within them.
+- **Run 4**, the final prompt (run 2's prompt plus the owner's F-NEW-23 follow-up: a test command
+  it can't run goes in the `tests` note, not a finding), same changes, plants and seeds as runs 1–2:
+  honest 15/15 pass, planted 15/15 fail on their plant (`results-4/`). This is the reviewer as
+  shipped.
 
 ## What was run
 
@@ -152,3 +156,13 @@ differs from seed 1's (other items, states and assertions). 15 of 15 fail, each 
 or blocking finding naming its plant; 0 refused commands; $1.02. Where the old harness's
 `skipped-state-row` removed an AC test instead of a state's (twice), the reviewer named the test
 actually removed.
+
+## Run 4: the final prompt
+
+Added after run 3 at the owner's call (F-NEW-23 follow-up): the tests run while building and in CI
+on every push, so a test command the reviewer can't run goes in the `tests` lens note, not as a
+finding. The reviewer, run on the eval PR, pointed out that no eval covered that rule, so the
+honest set and the seed-1 plants ran again on it, against the original harness (`d382e2e`):
+honest 15/15 pass, planted 15/15 fail, each naming its plant; every plant record equals run 1's;
+0 refused commands; no finding about not running tests (20 verdicts say it in the `tests` note);
+$1.86.
