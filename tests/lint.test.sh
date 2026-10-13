@@ -47,6 +47,7 @@ grep -q "shellcheck.sh couldn't run" "$work/out" || { cat "$work/out" >&2; fail 
 echo "ok - a check that can't run makes it exit 2 (never a pass), named"
 
 # CI's fast tier runs exactly this script, with the change's base.
+# shellcheck disable=SC2016  # the literal line, as check-fast.sh writes it
 grep -qx 'part scripts/lint.sh "${1:-}"' "$repo_root/scripts/check-fast.sh" || fail "check-fast.sh doesn't run scripts/lint.sh with the base"
 echo "ok - CI's fast tier (check-fast.sh) runs scripts/lint.sh with the base"
 
