@@ -1949,6 +1949,12 @@ to spot. W10.6.4 tests the reviewer again.
 **Harness** (F-NEW-30): the three quirks fixed test first (5 new tests failing first, 32 of 32
 after, 8 of 8 mutants killed); on the real fixture changes the state plant now removes a state's
 own test and the planted tree passes Prettier. The agent has no access to the harness (LOG #46),
-so the owner applied the patch as harness PR 4 (owner-reported).
+so the owner applied the patch as harness PR 4. Checked live: on a throwaway fixture PR
+carrying the eval's `starred` change, the owner ran `apply-plants` with the three fixed plants.
+Its "Follow-up edits" commit removed the "Starred view:" state test (not an AC test), reworded
+AC-3's unquoted "only" (the quoted labels untouched), and marked AC-6 "verified by review" at its
+end; three different items. The fixture's `lint` (which the old state plant failed) and `test`
+passed on it. The wrapped-item case of `false-verified` wasn't hit by this run's pick; the harness
+tests cover it. The fixture PR was closed unmerged.
 
 **Next**: W10.6.4 once W10.6.7 is done (LOG #48).
