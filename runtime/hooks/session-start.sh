@@ -24,6 +24,23 @@ if [ -x "$top/scripts/setup.sh" ]; then
   (cd "$top" && timeout 600 scripts/setup.sh) >/tmp/devshop-project-setup.log 2>&1 \
     || echo "DEVSHOP: the project's setup (scripts/setup.sh) failed (exit $?); its checks may not run: see /tmp/devshop-project-setup.log"
 fi
+
+# The project's CI in two tiers, fast and slow, as the devshop's template has it (spec
+# specs/ci-fast-slow-tiers.md). Feedback that reaches the owner, not a wall: required CI is.
+tmpl=/opt/devshop-current/templates/ci.yml
+ci="$top/.github/workflows/ci.yml"
+if [ ! -f "$ci" ]; then
+  echo "DEVSHOP: the project has no CI (.github/workflows/ci.yml); start from the devshop's two-tier template, $tmpl"
+else
+  found=$(timeout 30 /opt/devshop-current/scripts/ci-tiers-check.py "$ci" 2>&1)
+  rc=$?
+  case $rc in
+    0) ;;
+    1) echo "DEVSHOP: the project's CI doesn't follow the two tiers (fast, slow) of $tmpl: $(grep -v 'the two-tier shape is' <<<"$found" | sed 's/^ci-tiers-check: [^:]*: //' | paste -sd ';' - | sed 's/;/; /g')" ;;
+    *) echo "DEVSHOP: couldn't check the project's CI against $tmpl (exit $rc): $(head -1 <<<"$found")" ;;
+  esac
+fi
+
 cur=$(git -C "$proj" config --get core.hooksPath)
 [ "$cur" = "$hooks" ] && exit 0
 if git -C "$proj" config --get devshop.chainHooksPath >/dev/null; then

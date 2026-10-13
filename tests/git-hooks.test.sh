@@ -27,10 +27,13 @@ mkdir -p /opt/devshop-tools/bin && ln -s "$gitleaks_bin" /opt/devshop-tools/bin/
 start=/opt/devshop-current/hooks/session-start.sh
 [ -x "$start" ] || fail "no runtime/hooks/session-start.sh"
 
-# new_project <name>: a project clone with one pushed commit and a bare remote.
+# new_project <name>: a project clone with one pushed commit and a bare remote; its CI is the
+# devshop's two-tier template, so session start has nothing to say about it.
 new_project() {
   git init -q --bare "$work/$1.git"
   git clone -q "$work/$1.git" "$work/$1" 2>/dev/null
+  mkdir -p "$work/$1/.github/workflows"
+  cp "$repo_root/runtime/templates/ci.yml" "$work/$1/.github/workflows/ci.yml"
   commit_file "$work/$1" README.md "hello"
   git -C "$work/$1" push -q origin HEAD:main 2>/dev/null
 }
@@ -71,6 +74,28 @@ out=$(CLAUDE_PROJECT_DIR="$work/p" "$start" 2>&1)
 grep -q "^DEVSHOP: the project's setup (scripts/setup.sh) failed (exit 7)" <<<"$out" || { echo "$out" >&2; fail "a failed setup wasn't reported"; }
 rm -rf "$work/p/scripts"
 echo "ok - session start runs the repo's scripts/setup.sh; a failure is a DEVSHOP: line"
+
+# AC-3: session start checks the project's CI against the two-tier template: one DEVSHOP: line
+# naming the template when there is no ci.yml, when it breaks a rule (named), or when the check
+# can't run; nothing when it follows the template (the setup case above).
+ci_line() { # ci_line <case> <grep -E pattern for its one DEVSHOP: line about CI>
+  out=$(CLAUDE_PROJECT_DIR="$work/p" "$start" 2>&1)
+  [ "$(grep -c '^DEVSHOP:.*templates/ci.yml' <<<"$out")" = 1 ] || { echo "$out" >&2; fail "AC-3: $1: want exactly one DEVSHOP: line about CI"; }
+  grep -Eq "$2" <<<"$out" || { echo "$out" >&2; fail "AC-3: $1: the line doesn't match /$2/"; }
+  echo "ok - AC-3: $1"
+}
+ci="$work/p/.github/workflows/ci.yml"
+cp "$ci" "$work/ci.good"
+rm "$ci"
+ci_line "no ci.yml is reported, naming the template" "^DEVSHOP: the project has no CI \(\.github/workflows/ci\.yml\); start from the devshop's two-tier template, /opt/devshop-current/templates/ci\.yml$"
+sed '/^  slow:/,$d' "$work/ci.good" >"$ci"
+ci_line "a ci.yml without the slow tier is reported, naming the rule" "^DEVSHOP: the project's CI doesn't follow the two tiers \(fast, slow\) of /opt/devshop-current/templates/ci\.yml: no job 'slow'$"
+printf 'jobs: [unclosed\n' >"$ci"
+ci_line "a ci.yml the check can't parse is reported as unchecked" "^DEVSHOP: couldn't check the project's CI against /opt/devshop-current/templates/ci\.yml \(exit 2\): .*can't parse"
+cp "$work/ci.good" "$ci"
+out=$(CLAUDE_PROJECT_DIR="$work/p" "$start" 2>&1)
+[ -z "$out" ] || { echo "$out" >&2; fail "AC-3: session start spoke up about a ci.yml that follows the template"; }
+echo "ok - AC-3: a ci.yml that follows the template gets no line"
 
 # The Bash guard fails closed, so a missing dcg blocks every Bash command: session start says so up
 # front, when the installed plugin registers the guard. A plugin from before the guard: no line.
