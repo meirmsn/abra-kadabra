@@ -82,11 +82,12 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   true is the reviewer's job. Proven by
   [`tests/pr-body-check.test.sh`](../tests/pr-body-check.test.sh).
 - PR screenshots: [`runtime/scripts/pr-assets.sh`](../runtime/scripts/pr-assets.sh) uploads them
-  through GitHub's REST git-data API as one orphan commit kept by
-  `refs/devshop-assets/<branch>/<head12>` (not a branch: never cloned, starts no workflow) and
-  prints the image lines, pinned to that commit, for the body's **Screenshots:**. It reads
-  everything back and fails closed. Proven by
-  [`tests/pr-assets.test.sh`](../tests/pr-assets.test.sh) (stub `gh`).
+  through GitHub's REST git-data API as one orphan commit kept by its own ref,
+  `refs/devshop-assets/<branch>/<head12>-<commit12>` (not a branch: never cloned, starts no
+  workflow; never moved, so earlier links stay), and prints the image lines, pinned to that commit,
+  for the body's **Screenshots:**. It reads everything back and fails closed. Proven by
+  [`tests/pr-assets.test.sh`](../tests/pr-assets.test.sh) (stub `gh`). A cloud session's GitHub
+  proxy refuses that API (HTTP 403), so it can't upload from one yet; the route is open (W10.6.9).
 - Spec: [`runtime/templates/spec.md`](../runtime/templates/spec.md) is the template for a change's
   spec in the project's `specs/` (TARGET § L3 Intent 2): intent, decisions, acceptance items
   `AC-<n>`, core flow and states for UI, out of scope, and the owner's recorded "go".

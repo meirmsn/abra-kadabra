@@ -18,8 +18,7 @@ scripts named here; run them, never retype them as shell.
 
 ## 2. Load what applies, nothing else
 
-- **The project:** its `CLAUDE.md`, and the docs its docs map (`docs/README.md`) links for what you
-  touch.
+- **The project:** its `CLAUDE.md` and the docs its map (`docs/README.md`) links for what you touch.
 - **Stack homes:** run `/opt/devshop-current/scripts/stack-homes.sh <project root>` and read each
   file it prints. Its `STACKS:` line goes in the PR's engineering details.
 - **Disciplines:** for each discipline the change touches (frontend, backend, data, UI/UX,
@@ -51,10 +50,11 @@ scripts named here; run them, never retype them as shell.
   app user's words. Claim only what you have just read from the real signal (CI, the preview).
 - **Screenshots go on the PR, never only in chat:** for a UI change, one per core-flow step and
   state-table state at the final commit; `/opt/devshop-current/scripts/pr-assets.sh <image>...`
-  uploads them and prints the lines for **Screenshots:**; exit 2: ask the owner. Redo after commits.
+  uploads them and prints the lines for **Screenshots:**. Exit 2 (always from a cloud session until
+  W10.6.9): ask the owner.
 - Once `/opt/devshop-current/scripts/pr-body-check.py <body file> "<title>"` passes, ship:
   `/opt/devshop-current/reviewer/ship.sh --title "<title>" --body-file <body file>`. Only on the
   independent reviewer's pass does it push, create or update the PR (ready) with those exact words
   and post the verdict; it is the only way to a PR. Exit 1: fix, commit, ship again; 2, 3: ask.
-- Keep per-round detail out of the body; ship again after any change to code or words.
-- Then tell the owner in chat: the PR link and its one-line summary.
+- Keep per-round detail out of the body; ship again after any change to code or words. Then tell
+  the owner in chat: the PR link and its one-line summary.
