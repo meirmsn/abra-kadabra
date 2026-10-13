@@ -55,16 +55,23 @@ Per plant type (fail / the plant named in a blocking finding / noticed at any se
 
 ## Why recall is low
 
-1. **The reviewer's Bash is lost after one refusal (root cause).** 27 of 30 verdicts say a command
-   was refused and that they reviewed by reading. The three that don't are `h-done-1`,
-   `p-done-false-verified` and `p-done-loosened-test`; the last ran commands (it reports vitest
-   missing in the clone) and caught its plant at `high`. Two re-runs through a pass-through `claude` that kept the JSON output
-   (`results/probe-denials.jsonl`) show why: its first command is compound (`cat …; git log | head;
-   git diff … | tail; npx vitest run`), the allowlist refuses it, and the prompt's "If a command is
-   refused, read instead" makes it stop using Bash. A direct probe with the same flags ran
-   `git log`, `git diff` and `npm test` singly without trouble. So in those runs the reviewer never
-   ran `git diff base head` or looked at the commits: it read the final tree, where a "Follow-up
-   edits" commit is invisible and a planted spec line reads like any other.
+1. **The reviewer mostly lost its Bash (likely root cause).** What each verdict says about running
+   commands (its own words; no transcripts were kept):
+   - **Bash refused, reviewed by reading: 19.** Planted among them: 2 of 10 failed.
+   - **Bash ran, but vitest isn't installed in the throwaway clone (F-NEW-23): 8**: `h-done-2`,
+     `h-fix-*-2`, `h-fix-*-3`, `p-done-loosened-test`, `p-done-untested-acceptance`,
+     `p-priority-loosened-test`. Planted among them: 2 of 3 failed.
+   - **Neither: 3**: `h-done-1`, `p-done-false-verified`, `p-priority-skipped-state-row`. Planted:
+     1 of 2 failed.
+
+   The mechanism was seen directly in two re-runs through a pass-through `claude` that kept the
+   JSON output (`results/probe-denials.jsonl`): the first Bash call was compound (`cat …; git log |
+   head; git diff … | tail; npx vitest run`), the allowlist refused it, and the prompt's "If a
+   command is refused, read instead" left the reviewer reading for the rest of the run. A direct
+   probe with the same flags ran `git log`, `git diff` and `npm test` one at a time without
+   trouble. A reviewer that only reads sees the final tree, where a "Follow-up edits" commit is
+   invisible and a planted spec line reads like any other. The split above fits this cause, but
+   the groups are small; the re-run after the fix is the real test.
 2. **Prompt gaps the plants hit.** `untested-acceptance` and `false-verified` keep the test bodies,
    so the item is still tested; what breaks is the convention that a test names the item it
    proves, and a "verified by review: checked by hand" step that demonstrates nothing. The prompt

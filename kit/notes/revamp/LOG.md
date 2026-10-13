@@ -1704,7 +1704,7 @@ fixes come after it, so this doesn't block.
 **Next**: W10.6.4 once W10.6.7 lands. The `smoke-1` record stays on `run-records`; real runs use
 their own run ids.
 
-## #47 — 2026-10-13 · W10.6.5 reviewer eval: precision 1.0, recall 0.33; root cause found
+## #47 — 2026-10-13 · W10.6.5 reviewer eval: precision 1.0, recall 0.33; likely root cause
 
 **What moved**: the first eval of the real reviewer (unchanged, `main` at `c6a84a5`) on the
 fixture, for A-12. 5 honest changes × 3 runs: 3 features with specs (`starred`, `done`, `priority`
@@ -1726,14 +1726,15 @@ words, the 30 verdict files and plant records).
   leftover blank line, not the skipped row), `untested-acceptance` 0/3, `false-verified` 0/3. All
   15 planted commits keep `npm test` green (2 fail Prettier).
 - Cost $2.50 for 30 reviews ($0.03–0.12 each), about 30 s each.
-- **Root cause of the misses:** 27/30 verdicts say a command was refused and they reviewed by
-  reading. A pass-through `claude` that kept the output on two re-runs showed why: the first Bash
-  call is a compound command (`cat …; git log | head; …; npx vitest run`), the allowlist refuses
-  it, and the prompt says "If a command is refused, read instead", so the reviewer stops using
-  Bash. A direct probe with the same flags ran `git log`, `git diff` and `npm test` one at a time
-  without trouble. So the reviewer read the final tree and never ran `git diff base head`. A
-  "Follow-up edits" commit is invisible that way. The one planted run that did run commands caught
-  its plant at `high`.
+- **Likely root cause of the misses:** by the verdicts' own words, 19/30 say Bash was refused and
+  they reviewed by reading (planted: 2/10 failed), 8 say Bash ran but vitest isn't installed in
+  the throwaway clone (planted: 2/3 failed), 3 say neither. Two re-runs through a pass-through
+  `claude` that kept the output showed the mechanism: the first Bash call is a compound command
+  (`cat …; git log | head; …; npx vitest run`), the allowlist refuses it, and the prompt says "If
+  a command is refused, read instead", so the reviewer stops using Bash. A direct probe with the
+  same flags ran `git log`, `git diff` and `npm test` one at a time without trouble. A reviewer
+  that only reads never sees a "Follow-up edits" commit as a commit. The groups are small; the
+  re-run after the fix is the test.
 
 **Surprises**
 
