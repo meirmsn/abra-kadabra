@@ -1,0 +1,88 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Fixture Builder <builder@example.com>
+Date: Mon, 12 Oct 2026 23:56:41 +0000
+Subject: [PATCH] Add a title search to the list
+
+---
+ README.md           |  3 ++-
+ src/index.js        | 12 ++++++++----
+ test/search.test.js | 20 ++++++++++++++++++++
+ 3 files changed, 30 insertions(+), 5 deletions(-)
+ create mode 100644 test/search.test.js
+
+diff --git a/README.md b/README.md
+index deecda0..08d95f4 100644
+--- a/README.md
++++ b/README.md
+@@ -3,7 +3,8 @@
+ A tiny public-safe app used to exercise the devshop end to end: one page listing one D1 table,
+ running on Cloudflare Workers.
+ 
+-- `src/index.js` — the Worker: `/` lists `items`, `/healthz` checks the database.
++- `src/index.js` — the Worker: `/` lists `items` (`?q=` searches titles), `/healthz` checks the
++  database.
+ - `traffic/` — the synthetic-traffic Worker: a cron every minute; a round (`/healthz` + the paths in
+   `traffic/routes.json`, through a service binding) runs each minute for 5 minutes after a deploy,
+   then after gaps of 2, 4, 8, 16 and 32 minutes, then hourly until the next deploy. A failed round
+diff --git a/src/index.js b/src/index.js
+index f735862..ac84035 100644
+--- a/src/index.js
++++ b/src/index.js
+@@ -6,11 +6,12 @@ const escapeHtml = (s) =>
+     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+   );
+ 
+-const page = (items) => `<!doctype html>
++const page = (items, q) => `<!doctype html>
+ <html lang="en">
+ <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Items</title></head>
+ <body>
+ <h1>Items</h1>
++<form action="/"><input type="search" name="q" value="${escapeHtml(q)}" aria-label="Search titles"> <button>Search</button></form>
+ ${items.length ? `<ul>\n${items.map((i) => `<li>${escapeHtml(i.title)}</li>`).join("\n")}\n</ul>` : "<p>No items yet.</p>"}
+ </body>
+ </html>
+@@ -27,11 +28,14 @@ export default {
+     if (request.method !== "GET" && request.method !== "HEAD") {
+       return new Response("Method Not Allowed", { status: 405, headers: { allow: "GET, HEAD" } });
+     }
+-    const { pathname } = new URL(request.url);
++    const { pathname, searchParams } = new URL(request.url);
+ 
+     if (pathname === "/") {
+-      const { results } = await env.DB.prepare("SELECT title FROM items ORDER BY id").all();
+-      return new Response(page(results), { headers: { "content-type": "text/html; charset=utf-8" } });
++      const q = searchParams.get("q") ?? "";
++      const { results } = q
++        ? await env.DB.prepare("SELECT title FROM items WHERE title LIKE ? ORDER BY id").bind(`%${q}%`).all()
++        : await env.DB.prepare("SELECT title FROM items ORDER BY id").all();
++      return new Response(page(results, q), { headers: { "content-type": "text/html; charset=utf-8" } });
+     }
+ 
+     if (pathname === "/healthz") {
+diff --git a/test/search.test.js b/test/search.test.js
+new file mode 100644
+index 0000000..d0f526f
+--- /dev/null
++++ b/test/search.test.js
+@@ -0,0 +1,20 @@
++// Searching the list by title (?q=).
++import { exports } from "cloudflare:workers";
++import { describe, expect, it } from "vitest";
++
++const get = (path) => exports.default.fetch(`https://fixture.example.com${path}`);
++const listed = (html) => [...html.matchAll(/<li>(.*?)<\/li>/g)].map((m) => m[1]);
++
++describe("search", () => {
++  it("lists only the items whose title contains the search, ignoring case", async () => {
++    expect(listed(await (await get("/?q=SECOND")).text())).toEqual(["Second item"]);
++  });
++
++  it("keeps the search in the box, escaped", async () => {
++    expect(await (await get('/?q="><b>')).text()).toContain('value="&quot;&gt;&lt;b&gt;"');
++  });
++
++  it("lists every item with an empty search", async () => {
++    expect(listed(await (await get("/?q=")).text())).toHaveLength(3);
++  });
++});

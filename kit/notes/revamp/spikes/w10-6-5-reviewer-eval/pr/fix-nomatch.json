@@ -1,0 +1,4 @@
+{
+  "title": "Fix search saying No items yet. when nothing matches",
+  "body": "A search with no matches now says no item matches it, instead of claiming the list is empty.\n\n**Preview:** none — local review only\n\n## What you should know\n\n- **Behaviour change:** a search that matches nothing shows \"No items match “<search>”.\" (escaped). An empty table still says \"No items yet.\".\n- **Decisions:** bug fix: the failing test is the spec (`test/search.test.js`, \"no matches\").\n- **Changed after the go:** nothing\n- **Tests deleted or loosened:** none\n- **Manual steps for you:** none\n\n## Evidence\n\n- **Screenshots:** no browser in this session\n- **Reviewer:** pending\n- **CI:** not run yet\n- **Low findings:** none\n\n<details>\n<summary>Engineering details</summary>\n\n`src/index.js` counts the items when a search finds none and picks the message; the page template takes the message. The new tests failed before the fix.\n\n</details>\n"
+}

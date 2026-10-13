@@ -1,0 +1,78 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Fixture Builder <builder@example.com>
+Date: Mon, 12 Oct 2026 23:57:33 +0000
+Subject: [PATCH] Fix search saying No items yet. when nothing matches
+
+---
+ src/index.js        | 13 ++++++++++---
+ test/search.test.js | 19 ++++++++++++++++++-
+ 2 files changed, 28 insertions(+), 4 deletions(-)
+
+diff --git a/src/index.js b/src/index.js
+index ac84035..3e2e5cd 100644
+--- a/src/index.js
++++ b/src/index.js
+@@ -6,13 +6,13 @@ const escapeHtml = (s) =>
+     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+   );
+ 
+-const page = (items, q) => `<!doctype html>
++const page = (items, q, empty) => `<!doctype html>
+ <html lang="en">
+ <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Items</title></head>
+ <body>
+ <h1>Items</h1>
+ <form action="/"><input type="search" name="q" value="${escapeHtml(q)}" aria-label="Search titles"> <button>Search</button></form>
+-${items.length ? `<ul>\n${items.map((i) => `<li>${escapeHtml(i.title)}</li>`).join("\n")}\n</ul>` : "<p>No items yet.</p>"}
++${items.length ? `<ul>\n${items.map((i) => `<li>${escapeHtml(i.title)}</li>`).join("\n")}\n</ul>` : `<p>${empty}</p>`}
+ </body>
+ </html>
+ `;
+@@ -35,7 +35,14 @@ export default {
+       const { results } = q
+         ? await env.DB.prepare("SELECT title FROM items WHERE title LIKE ? ORDER BY id").bind(`%${q}%`).all()
+         : await env.DB.prepare("SELECT title FROM items ORDER BY id").all();
+-      return new Response(page(results, q), { headers: { "content-type": "text/html; charset=utf-8" } });
++      let empty = "No items yet.";
++      if (!results.length && q) {
++        const { n } = await env.DB.prepare("SELECT COUNT(*) AS n FROM items").first();
++        if (n > 0) empty = `No items match “${escapeHtml(q)}”.`;
++      }
++      return new Response(page(results, q, empty), {
++        headers: { "content-type": "text/html; charset=utf-8" },
++      });
+     }
+ 
+     if (pathname === "/healthz") {
+diff --git a/test/search.test.js b/test/search.test.js
+index d0f526f..c35133d 100644
+--- a/test/search.test.js
++++ b/test/search.test.js
+@@ -1,5 +1,5 @@
+ // Searching the list by title (?q=).
+-import { exports } from "cloudflare:workers";
++import { env, exports } from "cloudflare:workers";
+ import { describe, expect, it } from "vitest";
+ 
+ const get = (path) => exports.default.fetch(`https://fixture.example.com${path}`);
+@@ -18,3 +18,20 @@ describe("search", () => {
+     expect(listed(await (await get("/?q=")).text())).toHaveLength(3);
+   });
+ });
++
++describe("search: no matches", () => {
++  it("says no item matches the search, not that the list is empty", async () => {
++    const html = await (await get("/?q=zebra")).text();
++    expect(html).toContain("<p>No items match “zebra”.</p>");
++    expect(html).not.toContain("No items yet.");
++  });
++
++  it("escapes the search in that message", async () => {
++    expect(await (await get("/?q=%3Cb%3E")).text()).toContain("<p>No items match “&lt;b&gt;”.</p>");
++  });
++
++  it("still says No items yet. when the table is empty", async () => {
++    await env.DB.prepare("DELETE FROM items").run();
++    expect(await (await get("/?q=zebra")).text()).toContain("<p>No items yet.</p>");
++  });
++});

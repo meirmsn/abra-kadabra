@@ -1,0 +1,250 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Fixture Builder <builder@example.com>
+Date: Mon, 12 Oct 2026 23:54:23 +0000
+Subject: [PATCH 1/3] Add starred items and a starred-only view of the list
+
+---
+ migrations/0002_add_starred.sql |  2 +
+ specs/starred-items.md          | 47 ++++++++++++++++++
+ src/index.js                    | 26 ++++++++--
+ test/starred.test.js            | 87 +++++++++++++++++++++++++++++++++
+ test/traffic.test.js            |  9 ++--
+ traffic/routes.json             |  2 +-
+ 6 files changed, 163 insertions(+), 10 deletions(-)
+ create mode 100644 migrations/0002_add_starred.sql
+ create mode 100644 specs/starred-items.md
+ create mode 100644 test/starred.test.js
+
+diff --git a/migrations/0002_add_starred.sql b/migrations/0002_add_starred.sql
+new file mode 100644
+index 0000000..65e592c
+--- /dev/null
++++ b/migrations/0002_add_starred.sql
+@@ -0,0 +1,2 @@
++-- Starred items (specs/starred-items.md): a flag on items; every existing item starts unstarred.
++ALTER TABLE items ADD COLUMN starred INTEGER NOT NULL DEFAULT 0 CHECK (starred IN (0, 1));
+diff --git a/specs/starred-items.md b/specs/starred-items.md
+new file mode 100644
+index 0000000..1c52e3c
+--- /dev/null
++++ b/specs/starred-items.md
+@@ -0,0 +1,47 @@
++# Starred items
++
++**Go:** go, starred items stay in place in the full list (2026-10-12)
++
++## Intent
++
++The owner: "Let me star items and show only the starred ones." Starred items are the ones the
++owner wants to come back to; the starred view is a shorter list of just those.
++
++## Decisions
++
++- Starred items keep their place in the full list: the owner wants the order unchanged; rejected:
++  sorting starred items to the top (owner, 2026-10-12)
++- The view is a query parameter (`/?show=starred`), so each view has its own link and the app stays
++  GET-only; rejected: a cookie that remembers the view (owner, 2026-10-12)
++
++## Acceptance items
++
++- **AC-1** A migration adds a starred flag to items, and every existing item starts unstarred.
++- **AC-2** In the list, every starred item shows ★ before its title, and unstarred items show no ★.
++- **AC-3** `/?show=starred` lists only the starred items, in the same order as the full list.
++- **AC-4** `/` and `/?show=all` list all items in id order, as before.
++- **AC-5** The page links to the other view: "Starred only" on the full list, "All items" on the
++  starred list.
++- **AC-6** Any other `show` value must answer 400 and list nothing.
++- **AC-7** `/?show=starred` is listed in `traffic/routes.json`, so synthetic traffic exercises it.
++
++## Core flow
++
++1. Open the list: every item, starred ones marked ★.
++2. Follow "Starred only": just the starred items.
++3. Follow "All items": back to the full list.
++
++## States
++
++| State            | List shows    | Message               | Link to      |
++| ---------------- | ------------- | --------------------- | ------------ |
++| Full list        | every item    | none                  | Starred only |
++| Empty table      | nothing       | No items yet.         | Starred only |
++| Starred view     | starred items | none                  | All items    |
++| No starred items | nothing       | No starred items yet. | All items    |
++
++## Out of scope
++
++- Starring or unstarring from the page: there is no write route yet; items are starred in the
++  database.
++- Sorting or counting starred items.
+diff --git a/src/index.js b/src/index.js
+index f735862..f6cb25f 100644
+--- a/src/index.js
++++ b/src/index.js
+@@ -6,12 +6,21 @@ const escapeHtml = (s) =>
+     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+   );
+ 
+-const page = (items) => `<!doctype html>
++// The list's two views (specs/starred-items.md): every item, or only the starred ones.
++const VIEWS = {
++  all: { where: "", empty: "No items yet.", link: '<a href="/?show=starred">Starred only</a>' },
++  starred: { where: " WHERE starred = 1", empty: "No starred items yet.", link: '<a href="/">All items</a>' },
++};
++
++const item = (i) => `<li>${i.starred ? "★ " : ""}${escapeHtml(i.title)}</li>`;
++
++const page = (items, view) => `<!doctype html>
+ <html lang="en">
+ <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Items</title></head>
+ <body>
+ <h1>Items</h1>
+-${items.length ? `<ul>\n${items.map((i) => `<li>${escapeHtml(i.title)}</li>`).join("\n")}\n</ul>` : "<p>No items yet.</p>"}
++<nav>${view.link}</nav>
++${items.length ? `<ul>\n${items.map(item).join("\n")}\n</ul>` : `<p>${view.empty}</p>`}
+ </body>
+ </html>
+ `;
+@@ -27,11 +36,18 @@ export default {
+     if (request.method !== "GET" && request.method !== "HEAD") {
+       return new Response("Method Not Allowed", { status: 405, headers: { allow: "GET, HEAD" } });
+     }
+-    const { pathname } = new URL(request.url);
++    const { pathname, searchParams } = new URL(request.url);
+ 
+     if (pathname === "/") {
+-      const { results } = await env.DB.prepare("SELECT title FROM items ORDER BY id").all();
+-      return new Response(page(results), { headers: { "content-type": "text/html; charset=utf-8" } });
++      const show = searchParams.get("show") ?? "all";
++      if (!Object.hasOwn(VIEWS, show)) {
++        return new Response("Bad Request: show must be all or starred", { status: 400 });
++      }
++      const view = VIEWS[show];
++      const { results } = await env.DB.prepare(
++        `SELECT title, starred FROM items${view.where} ORDER BY id`,
++      ).all();
++      return new Response(page(results, view), { headers: { "content-type": "text/html; charset=utf-8" } });
+     }
+ 
+     if (pathname === "/healthz") {
+diff --git a/test/starred.test.js b/test/starred.test.js
+new file mode 100644
+index 0000000..e1adb73
+--- /dev/null
++++ b/test/starred.test.js
+@@ -0,0 +1,87 @@
++// Starred items (specs/starred-items.md). Each test names the acceptance item or state it proves.
++import { env, exports } from "cloudflare:workers";
++import { describe, expect, it } from "vitest";
++
++const get = (path) => exports.default.fetch(`https://fixture.example.com${path}`);
++const star = (...ids) =>
++  env.DB.prepare(`UPDATE items SET starred = 1 WHERE id IN (${ids.map(() => "?").join(", ")})`)
++    .bind(...ids)
++    .run();
++const listed = (html) => [...html.matchAll(/<li>(.*?)<\/li>/g)].map((m) => m[1]);
++
++describe("starred items", () => {
++  it("AC-1: the migration leaves every existing item unstarred", async () => {
++    const { results } = await env.DB.prepare("SELECT starred FROM items").all();
++    expect(results.map((r) => r.starred)).toEqual([0, 0, 0]);
++    await expect(env.DB.prepare("UPDATE items SET starred = 2 WHERE id = 1").run()).rejects.toThrow();
++  });
++
++  it("AC-2: marks starred items with a star and leaves the rest unmarked", async () => {
++    await star(2);
++    const html = await (await get("/")).text();
++    expect(listed(html)).toEqual(["First item", "★ Second item", "Third item"]);
++  });
++
++  it("AC-3: the starred view lists only starred items, in id order", async () => {
++    await star(3, 1);
++    const res = await get("/?show=starred");
++    expect(res.status).toBe(200);
++    expect(listed(await res.text())).toEqual(["★ First item", "★ Third item"]);
++  });
++
++  it("AC-4: the full list is unchanged with no parameter and with show=all", async () => {
++    await star(3);
++    for (const path of ["/", "/?show=all"]) {
++      expect(listed(await (await get(path)).text())).toEqual(["First item", "Second item", "★ Third item"]);
++    }
++  });
++
++  it("AC-5: each view links to the other", async () => {
++    expect(await (await get("/")).text()).toContain('<a href="/?show=starred">Starred only</a>');
++    expect(await (await get("/?show=starred")).text()).toContain('<a href="/">All items</a>');
++  });
++
++  it("AC-6: rejects any other show value with a 400 and no list", async () => {
++    for (const value of ["Starred", "none", "", "__proto__"]) {
++      const res = await get(`/?show=${value}`);
++      expect(res.status, value).toBe(400);
++      expect(await res.text()).not.toContain("<li>");
++    }
++  });
++
++  it("AC-7: synthetic traffic requests the starred view", async () => {
++    const { default: routes } = await import("../traffic/routes.json");
++    expect(routes).toContain("/?show=starred");
++  });
++});
++
++describe("states", () => {
++  it("Full list: every item, no message, a link to the starred view", async () => {
++    const html = await (await get("/")).text();
++    expect(listed(html)).toHaveLength(3);
++    expect(html).not.toContain("No items yet.");
++    expect(html).toContain("Starred only</a>");
++  });
++
++  it("Empty table: the empty message and a link to the starred view", async () => {
++    await env.DB.prepare("DELETE FROM items").run();
++    const html = await (await get("/")).text();
++    expect(listed(html)).toEqual([]);
++    expect(html).toContain("<p>No items yet.</p>");
++    expect(html).toContain("Starred only</a>");
++  });
++
++  it("Starred view: the starred items and a link back to all items", async () => {
++    await star(2);
++    const html = await (await get("/?show=starred")).text();
++    expect(listed(html)).toEqual(["★ Second item"]);
++    expect(html).toContain("All items</a>");
++  });
++
++  it("No starred items: its own message, not the empty-table one", async () => {
++    const html = await (await get("/?show=starred")).text();
++    expect(listed(html)).toEqual([]);
++    expect(html).toContain("<p>No starred items yet.</p>");
++    expect(html).not.toContain("No items yet.");
++  });
++});
+diff --git a/test/traffic.test.js b/test/traffic.test.js
+index 31cadd1..d0041a9 100644
+--- a/test/traffic.test.js
++++ b/test/traffic.test.js
+@@ -36,12 +36,13 @@ const fakeApp = (answers = {}) => {
+   return {
+     seen,
+     fetch: async (req) => {
+-      const { pathname } = new URL(req.url);
+-      seen.push({ path: pathname, ua: req.headers.get("user-agent") });
+-      const a = answers[pathname];
++      const { pathname, search } = new URL(req.url);
++      const path = pathname + search; // routes can carry a query (e.g. a filtered view)
++      seen.push({ path, ua: req.headers.get("user-agent") });
++      const a = answers[path];
+       if (a instanceof Error) throw a;
+       if (a) return new Response(a.body ?? "", { status: a.status ?? 200 });
+-      if (pathname === "/healthz") return new Response('{"ok":true,"items":3}');
++      if (path === "/healthz") return new Response('{"ok":true,"items":3}');
+       return new Response("<h1>Items</h1>");
+     },
+   };
+diff --git a/traffic/routes.json b/traffic/routes.json
+index 41ca9b1..ab3bcf8 100644
+--- a/traffic/routes.json
++++ b/traffic/routes.json
+@@ -1 +1 @@
+-["/"]
++["/", "/?show=starred"]
