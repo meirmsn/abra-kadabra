@@ -2388,15 +2388,17 @@ Checks came first; each new case failed on the old code.
   fixture PR merges outside a test run, the owner tags a new baseline (W10-v2 § W10.5).
 - **README (F-NEW-35, README half).** The fixture's reset section no longer names a harness.
 
-**Not yet shown** (owner asked how this was tested): `fast` going red on GitHub with the plant; the red
-result above is a local run of the same script. `tests/check-fast-template.test.sh` was written after the
+**Not yet shown** at merge (owner asked how this was tested): `fast` going red on GitHub with the plant
+(shown after merge, below). `tests/check-fast-template.test.sh` was written after the
 template, not before; mutants stand in (4 of 5 killed, the survivor equivalent). The template has not run
 in a real new project. F-NEW-49 is the first entry on a new watch list in FINDINGS (symptoms, likely
 causes, a count; v1's friction log until the `lesson` ledger exists), so a recurrence can be matched.
 
-**For the owner**: open a draft PR from fixture branch `probe/ac4-untested` against the PR 18 branch;
-`fast` must fail naming AC-4, then close it. After fixture PR 18 merges, tag `baseline-4` on its merge commit
-(`baseline-3` lacks the check). Once this PR merges, re-pin the fixture to it, so its
-`scripts/spec-check.py` matches the pin.
+**After merge** (same day): shown on GitHub. Fixture PR 20, a draft opened by the owner from
+`probe/ac4-untested-main` (`main` plus AC-4's test name stripped), failed `fast` with
+`spec-check: specs/item-categories.md: AC-4: no test names it`, and `slow` was skipped. Fixture PR 18 and
+this PR merged; the owner tagged `baseline-4` (`a28d7a5`); fixture PR 19 re-pinned the fixture to this
+PR's merge (`c8fc846`), its two copied scripts byte-identical to the devshop's there; the owner tagged
+`baseline-5` (`621a958`) on its merge.
 
 **Next**: the rest of W10.6.9 (F-NEW-36, F-NEW-40, F-NEW-39), then W10.6.10.
