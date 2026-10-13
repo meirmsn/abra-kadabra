@@ -51,7 +51,7 @@ REPO_IMAGE = re.compile(r"^https://github\.com/[^/]+/[^/]+/raw/")
 # end, so "e.g. the bus" is one sentence.
 SENTENCE_END = re.compile(r"[.!?]+[\"'”’)]*(?=\s+[A-Z0-9\"“‘(]|\s*$)")
 SENTENCES = (2, 3)
-# Words for developers, not for the person who uses the app (W10.6.11): code, acceptance item ids,
+# Words for developers, not for the person who uses the app (W10.6.9d): code, acceptance item ids,
 # routes, file names, HTTP status codes.
 DEV_WORDS = re.compile(
     r"`|\bAC-\d+\b|(?<![\w/.:])/[a-z0-9_:-]+(?:/[\w:.-]*)*|\b[\w-]+\.(?:md|py|sh|js|mjs|ts|tsx|jsx|json|"

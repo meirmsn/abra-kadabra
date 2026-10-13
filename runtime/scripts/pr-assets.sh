@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# pr-assets: puts a PR's screenshots on its branch and prints the lines that embed them (W10.6.11,
+# pr-assets: puts a PR's screenshots on its branch and prints the lines that embed them (W10.6.9d,
 # TARGET Review 4). The images become one parentless commit S, and the branch moves to a merge commit
 # whose files are exactly HEAD's and whose second parent is S. Nothing in the PR's files or diff
 # changes, so there is nothing to remove before the merge. ship's ordinary push of the branch (the
@@ -70,7 +70,7 @@ done
 tree=$(printf '%s' "$entries" | git -C "$top" mktree) || cnr "git mktree failed"
 s=$(printf 'devshop assets: %s at %s\n\nScreenshots for the PR from %s, taken at %s. Not part of the change: the\nmerge that brings them has the files of %s.\n' \
   "$branch" "${head:0:12}" "$branch" "$head" "${head:0:12}" | git -C "$top" commit-tree ${sign[@]+"${sign[@]}"} "$tree") || cnr "git commit-tree failed for the screenshots"
-m=$(printf 'Attach the PR screenshots taken at %s (no file changes)\n\nScreenshots commit: %s (devshop pr-assets.sh, W10.6.11).\n' "${head:0:12}" "$s" \
+m=$(printf 'Attach the PR screenshots taken at %s (no file changes)\n\nScreenshots commit: %s (devshop pr-assets.sh, W10.6.9d).\n' "${head:0:12}" "$s" \
   | git -C "$top" commit-tree ${sign[@]+"${sign[@]}"} "$(git -C "$top" rev-parse "HEAD^{tree}")" -p "$head" -p "$s") || cnr "git commit-tree failed for the merge"
 git -C "$top" update-ref -m "pr-assets: attach screenshots" "refs/heads/$branch" "$m" "$head" \
   || cnr "couldn't move $branch to the merge (did it move meanwhile?)"

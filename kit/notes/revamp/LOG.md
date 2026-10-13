@@ -2225,9 +2225,9 @@ it stays clean; each session files its own task line, so none is tracked in W10 
 **Next**: W10.6.9 (the blocking gaps, the in-passing ones), then W10.6.10 (run 2). W10.7 waits on a
 run that meets the M1 exit.
 
-## #54 — 2026-10-13 · W10.6.11: PR body for the owner's reading, screenshots on the PR
+## #54 — 2026-10-13 · W10.6.9d: PR body for the owner's reading, screenshots on the PR
 
-**What moved**: the owner's feedback on the PR bodies of a W10.6.4 run, filed first as W10.6.9, renumbered W10.6.11 when `main` gave that id to the run-1 gaps (LOG #53); it closes F-NEW-43. Tests
+**What moved**: the owner's feedback on the PR bodies of a W10.6.4 run, filed first as W10.6.9, renumbered W10.6.9d when `main` gave that id to the run-1 gaps (LOG #53); it closes F-NEW-43. Tests
 came first: 12 new cases in `tests/pr-body-check.test.sh` each failed on the old check, and every
 old case still passed.
 
@@ -2328,5 +2328,9 @@ session; only drag-and-drop `user-attachments` get signed URLs, and that upload 
 (F-NEW-49). Mitigation (owner's pick): `pr-assets.sh` prints each image linked to itself, and
 `pr-body-check.py` requires that link on a `github.com/…/raw/…` image, so a tap opens it in the
 browser (tests first: 2 new cases, each failing on `main`'s check). Also from the review: the
-reviewer's screenshot check now confirms each file is a regular file (mode `100644`). W10.6.11 stays
+reviewer's screenshot check now confirms each file is a regular file (mode `100644`). W10.6.9d stays
 open until the owner decides whether mobile needs inline images (an outside host, public by link).
+
+**Task id** (owner): W10.6.9d, kept with the other run-1 findings under W10.6.9 and listed before
+W10.6.10, which now waits on both.
+
