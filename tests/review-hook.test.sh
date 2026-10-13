@@ -266,6 +266,19 @@ grep -qF "unknown flag --frobnicate" <<<"$err" || fail "unknown flag: $err"
 reset_state pass; run_hook gate $MCP "$(mcp_create " " "b")"; blocked "MCP create with a blank title"
 [ "$(reviews)" = 0 ] || fail "a blank title was reviewed"
 ok "a create whose words, branch or repo the gate can't tie to this worktree is blocked as could-not-run"
+# Words the shell would expand can't be known by the hook (the reviewer's finding, LOG #45).
+for c in "gh pr create -t x --body \"\$(cat <<'EOF'
+The real body.
+EOF
+)\"" "gh pr create -t x --body \"\$(cat $work/body.md)\"" "gh pr create -t \"\$TITLE\" -b y" \
+  "gh pr create -t x -b \"see \${NOTE}\"" "gh pr create -t x -b \"\`cat f\`\"" "gh pr edit 5 --body \"\$(cat f)\""; do
+  reset_state pass; open_pr 5 "Add x" "b"
+  run_hook gate Bash "$(bash_call "$c")"; blocked "shell-expanded words: $c"
+  grep -qF -- "--body-file" <<<"$err" || fail "$c: doesn't say to use --body-file: $err"
+  [ "$(reviews)" = 0 ] || fail "$c: reviewed words the shell would change"
+done
+reset_state pass; run_hook gate Bash "$(bash_call "gh pr create -t 'Costs 5 USD' -b 'Plain words.'")"; allowed "plain quoted words"
+ok "words the shell would expand (\$(…), backticks, \$VAR) are blocked: use --body-file"
 reset_state pass
 run_hook gate $MCP "$(jq -nc '{owner: "example", repo: "app", title: "t", body: "b", head: "feat/x", base: "release"}')"
 allowed "create on another base"

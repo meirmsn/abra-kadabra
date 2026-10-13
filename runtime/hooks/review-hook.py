@@ -173,6 +173,11 @@ GH_VALUE = {"-t": "title", "--title": "title", "-b": "body", "--body": "body", "
             "--dry-run": "unknowable"}
 
 
+# What the shell would expand inside a word: $(…), `…`, ${…}, $VAR, $1. Quoting is gone once the
+# command is split, so a single-quoted '$X' is refused too.
+SHELL_EXPANSION = re.compile(r"\$[({A-Za-z_0-9]|`")
+
+
 def parse_gh(kind, args, cwd):
     """gh pr create / gh pr edit: the words, base, head and repo it names."""
     got, pos, i = {}, [], 0
@@ -200,6 +205,9 @@ def parse_gh(kind, args, cwd):
             val, i = args[i + 1], i + 2
         else:
             i += 1
+        if SHELL_EXPANSION.search(val):
+            cnr(f"gh pr {kind} {a}: the shell expands this value, so the hook can't know it; "
+                "write the body to a file and pass --body-file, with a plain --title")
         got[what] = val
     if "body-file" in got:
         if got["body-file"] == "-":
