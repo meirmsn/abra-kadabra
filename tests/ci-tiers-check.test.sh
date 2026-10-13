@@ -101,4 +101,25 @@ rc=0
 [ "$rc" = 2 ] || fail "no argument: expected exit 2, got $rc"
 echo "ok - no argument can't run"
 
+# AC-6: this repo's own ci.yml passes the check, has exactly the jobs fast and slow, and each job
+# sets up what its tier's tests need.
+ci="$repo_root/.github/workflows/ci.yml"
+check "AC-6: this repo's ci.yml passes" 0 "$ci"
+python3 - "$ci" <<'PY' || fail "AC-6: this repo's ci.yml lacks a tier's job or tool (above)"
+import sys, yaml
+jobs = yaml.safe_load(open(sys.argv[1]))["jobs"]
+assert set(jobs) == {"fast", "slow"}, f"jobs are {sorted(jobs)}, want fast and slow only"
+want = {
+    "fast": ["fetch-depth: 0", "gitleaks", "shellcheck", "dcg", "requirements-ci.txt", "npm ci",
+             "apparmor_restrict_unprivileged_userns=0", 'scripts/check-fast.sh "$BASE"'],
+    "slow": ["fetch-depth: 0", "apparmor_restrict_unprivileged_userns=0", "command -v jq",
+             "scripts/check-slow.sh"],
+}
+for name, needles in want.items():
+    text = yaml.safe_dump(jobs[name], width=1000)
+    missing = [n for n in needles if n not in text]
+    assert not missing, f"job {name} lacks {missing}"
+PY
+echo "ok - AC-6: this repo's ci.yml has exactly fast and slow, each with its tier's tools"
+
 echo "PASS: ci-tiers-check.py"

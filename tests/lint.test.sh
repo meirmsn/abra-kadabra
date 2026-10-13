@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Tests scripts/lint.sh, this repo's declared lint: CI's `fast` job (through scripts/check-fast.sh)
-# and the devshop's pre-push hook both run it, so they can't drift. It must run every check even after one fails, pass the base to
-# the commit-identity check, and exit 2 if any check couldn't run, else 1 on any findings, else 0.
+# and the devshop's pre-push hook both run it, so they can't drift. It must run every check even
+# after one fails, pass the base to the commit-identity check, and exit 2 if any check couldn't
+# run, else 1 on any findings, else 0.
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)

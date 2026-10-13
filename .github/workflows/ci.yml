@@ -104,5 +104,10 @@ jobs:
       - name: Allow user namespaces (for the install scenario test)
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
+      # The install test reads the plugin's JSON with jq, which the runner image ships; say so here
+      # if an image ever drops it, rather than deep in the test.
+      - name: Check jq (from the runner image)
+        run: command -v jq
+
       - name: Slow tier (the install, end to end)
         run: scripts/check-slow.sh
