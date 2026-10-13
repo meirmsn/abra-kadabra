@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# Tests runtime/scripts/ci-tiers-check.py, the shape check for a project's CI in two tiers (spec
+# specs/ci-fast-slow-tiers.md). A workflow with a `fast` job running check-fast.sh "$BASE" and a
+# `slow` job needing it and running check-slow.sh passes, and so does the template; each broken
+# rule fails, naming it (AC-1, AC-2); a missing or unparseable file, or no PyYAML, can't run.
+set -euo pipefail
+
+repo_root=$(cd "$(dirname "$0")/.." && pwd)
+script="$repo_root/runtime/scripts/ci-tiers-check.py"
+template="$repo_root/runtime/templates/ci.yml"
+source "$repo_root/tests/lib.sh"
+command -v python3 >/dev/null || fail "python3 not found"
+python3 -c 'import yaml' 2>/dev/null || fail "PyYAML not found (CI installs the pinned one)"
+
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+
+# check <name> <want exit> <workflow file> [problem the output must name]
+check() {
+  local rc=0
+  "$script" "$3" >"$work/out.log" 2>&1 || rc=$?
+  [ "$rc" = "$2" ] || { cat "$work/out.log" >&2; fail "$1: expected exit $2, got $rc"; }
+  [ -z "${4:-}" ] || grep -qF -- "$4" "$work/out.log" || { cat "$work/out.log" >&2; fail "$1: output doesn't name '$4'"; }
+  echo "ok - $1"
+}
+# variant <name> <python code changing w, the parsed good workflow>: write the changed copy, echo its path.
+variant() {
+  python3 -c 'import sys, yaml; w = yaml.safe_load(open(sys.argv[1])); exec(sys.argv[3]); yaml.safe_dump(w, open(sys.argv[2], "w"))' \
+    "$work/good.yml" "$work/$1.yml" "$2"
+  echo "$work/$1.yml"
+}
+
+cat >"$work/good.yml" <<'YAML'
+name: ci
+on:
+  pull_request:
+jobs:
+  fast:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Fast tier
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: scripts/check-fast.sh "$BASE"
+  slow:
+    needs: fast
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          echo "slow tier"
+          scripts/check-slow.sh
+  deploy:
+    needs: [fast, slow]
+    environment: production
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo deploy
+YAML
+
+# AC-1: the good shape passes, `needs` as a string or a list.
+check "AC-1: a workflow in the two-tier shape passes" 0 "$work/good.yml"
+check "AC-1: slow needing fast as a list passes" 0 "$(variant needs-list 'w["jobs"]["slow"]["needs"] = ["fast"]')"
+# AC-2: the template passes.
+check "AC-2: runtime/templates/ci.yml passes" 0 "$template"
+
+# AC-1: each broken rule fails and is named.
+check "AC-1: no fast job fails" 1 "$(variant no-fast 'w["jobs"]["quick"] = w["jobs"].pop("fast"); w["jobs"]["slow"]["needs"] = "quick"')" "no job 'fast'"
+check "AC-1: fast not running check-fast.sh fails" 1 "$(variant fast-other 'w["jobs"]["fast"]["steps"][1]["run"] = "npm test"')" "'fast' doesn't run scripts/check-fast.sh \"\$BASE\""
+check "AC-1: fast running check-fast.sh without the base fails" 1 "$(variant fast-nobase 'w["jobs"]["fast"]["steps"][1]["run"] = "scripts/check-fast.sh"')" "'fast' doesn't run scripts/check-fast.sh \"\$BASE\""
+# shellcheck disable=SC2016  # $BASE is workflow text, not expanded here
+check "AC-1: check-fast.sh named only in a comment line fails" 1 "$(variant fast-comment 'w["jobs"]["fast"]["steps"][1]["run"] = "# scripts/check-fast.sh \"$BASE\"\nnpm test"')" "'fast' doesn't run"
+# shellcheck disable=SC2016  # as above
+check "AC-1: check-fast.sh named only inside another command fails" 1 "$(variant fast-echo 'w["jobs"]["fast"]["steps"][1]["run"] = "echo scripts/check-fast.sh \"$BASE\""')" "'fast' doesn't run"
+check "AC-1: the running step with its own if: fails" 1 "$(variant fast-step-if 'w["jobs"]["fast"]["steps"][1]["if"] = "false"')" "'fast' doesn't run"
+check "AC-1: no slow job fails" 1 "$(variant no-slow 'del w["jobs"]["slow"]; w["jobs"]["deploy"]["needs"] = ["fast"]')" "no job 'slow'"
+check "AC-1: slow not running check-slow.sh fails" 1 "$(variant slow-other 'w["jobs"]["slow"]["steps"][0]["run"] = "npx playwright test"')" "'slow' doesn't run scripts/check-slow.sh"
+check "AC-1: slow not needing fast fails" 1 "$(variant slow-noneeds 'del w["jobs"]["slow"]["needs"]')" "'slow' doesn't need 'fast'"
+check "AC-1: slow needing something else fails" 1 "$(variant slow-wrongneeds 'w["jobs"]["slow"]["needs"] = ["lint"]')" "'slow' doesn't need 'fast'"
+check "AC-1: a job-level if: on fast fails" 1 "$(variant fast-if 'w["jobs"]["fast"]["if"] = "github.event_name == \"push\""')" "'fast' has a job-level 'if'"
+check "AC-1: a job-level if: on slow fails" 1 "$(variant slow-if 'w["jobs"]["slow"]["if"] = "false"')" "'slow' has a job-level 'if'"
+check "AC-1: continue-on-error on fast fails" 1 "$(variant fast-coe 'w["jobs"]["fast"]["continue-on-error"] = True')" "'fast' has a job-level 'continue-on-error'"
+check "AC-1: continue-on-error on slow fails" 1 "$(variant slow-coe 'w["jobs"]["slow"]["continue-on-error"] = True')" "'slow' has a job-level 'continue-on-error'"
+check "AC-1: a deploy not needing slow fails" 1 "$(variant deploy-noslow 'w["jobs"]["deploy"]["needs"] = ["fast"]')" "'deploy' has an environment but doesn't need 'slow'"
+check "AC-1: a deploy needing nothing fails" 1 "$(variant deploy-none 'del w["jobs"]["deploy"]["needs"]')" "'deploy' has an environment but doesn't need 'fast'"
+
+# AC-1: can't run: a missing file, unparseable YAML, no jobs mapping, no PyYAML.
+check "AC-1: a missing workflow can't run" 2 "$work/nope.yml" "can't read"
+printf 'jobs: [unclosed\n' >"$work/bad.yml"
+check "AC-1: unparseable YAML can't run" 2 "$work/bad.yml" "can't parse"
+printf 'name: ci\n' >"$work/nojobs.yml"
+check "AC-1: a workflow without jobs fails" 1 "$work/nojobs.yml" "no jobs"
+mkdir -p "$work/noyaml/yaml"
+printf 'raise ImportError("no PyYAML here")\n' >"$work/noyaml/yaml/__init__.py"
+rc=0
+PYTHONPATH="$work/noyaml" "$script" "$work/good.yml" >"$work/out.log" 2>&1 || rc=$?
+{ [ "$rc" = 2 ] && grep -q "PyYAML" "$work/out.log"; } || { cat "$work/out.log" >&2; fail "AC-1: no PyYAML: expected exit 2 naming PyYAML, got $rc"; }
+echo "ok - AC-1: no PyYAML can't run (never passes)"
+rc=0
+"$script" >"$work/out.log" 2>&1 || rc=$?
+[ "$rc" = 2 ] || fail "no argument: expected exit 2, got $rc"
+echo "ok - no argument can't run"
+
+echo "PASS: ci-tiers-check.py"
