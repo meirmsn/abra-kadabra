@@ -7,7 +7,8 @@
 #     review" is named by a test under TEST_DIRS (TARGET Verify): scripts/spec-check.py, a copy of
 #     the devshop's runtime/scripts/spec-check.py (needs python3, on GitHub's runners);
 #   - the stack's parts, from the stack home: lint, unit tests, ...
-# Keep a specs/ directory (a .gitkeep before the first spec): a missing one can't run.
+# Copy both scripts with their executable bit (exit 126, "couldn't run", otherwise). Keep a specs/
+# directory (a .gitkeep before the first spec): a missing one can't run.
 # Usage: scripts/check-fast.sh [base-sha]   (base as for secret-scan.sh)
 # Every part runs even after one fails. Exit 0 = clean; 1 = failures; 2 = a part couldn't run.
 set -uo pipefail
