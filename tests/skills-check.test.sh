@@ -56,3 +56,12 @@ for s in intent build devshop-version; do
   [ -f "$repo_root/runtime/skills/$s/SKILL.md" ] || fail "runtime/skills/$s/SKILL.md is missing"
 done
 check "the real runtime's skills (intent, build, devshop-version)" 0 "$repo_root/runtime"
+
+# AC-6 (specs/ui-baseline.md): the build skill's disciplines line sends a UI with no baseline to the
+# UI templates, a path skills-check (above) proves this version has.
+# shellcheck disable=SC2016 # literal backticks: the skill's Markdown
+grep -E '^- \*\*Disciplines:\*\*' -A2 "$repo_root/runtime/skills/build/SKILL.md" | tr '\n' ' ' |
+  grep -qE 'UI with no baseline: `/opt/devshop-current/templates/ui/`' ||
+  fail "AC-6: the build skill's disciplines line doesn't send a UI with no baseline to /opt/devshop-current/templates/ui/"
+[ -f "$repo_root/runtime/templates/ui/base.css" ] || fail "AC-6: runtime/templates/ui/ has no base.css"
+echo "ok - AC-6: build sends a UI with no baseline to the UI templates"
