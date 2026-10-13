@@ -2125,7 +2125,8 @@ evidence tables: [spikes/w10-6-4-north-star-ns-1](spikes/w10-6-4-north-star-ns-1
 
 **Result: M1 exit not met.** Steps 1–6 each fail on at least one item:
 
-- **Step 1:** about 8 owner decisions over two interview rounds, not one (F-NEW-41).
+- **Step 1:** about 8 owner decisions over two interview rounds, not one (F-NEW-41). Regraded as a
+  pass after the run (D-16, below).
 - **Step 2:** no CI job runs the previous version's tests against the new schema (F-NEW-44).
 - **Step 3:** CI has no acceptance→test check (F-NEW-37); nothing shows a stale verdict (F-NEW-38);
   one plant type could not run (F-NEW-39).
@@ -2209,5 +2210,17 @@ it stays clean; each session files its own task line, so none is tracked in W10 
 - The fixture's gitleaks self-test fails about 1 in 300 runs: gitleaks drops a random key that happens
   to contain a word (F-NEW-45). The builder measured it and proposed the fix as a separate task.
 
-**Next**: W10.6.9 (close the gaps: F-NEW-34–48), then W10.6.10 (run 2). W10.7 waits on a run that
-meets the M1 exit.
+**Owner calls after the run** (D-16):
+
+- **Step 1 measures the process, not a question count.** The interview clarifies the intent; Claude
+  answers what it can, writes the spec, has it reviewed against the intent, and brings the owner only
+  significant open points, recorded. "One decision" was a scripting aid. `ns-1` step 1 is regraded as
+  a pass with friction; TARGET is reworded.
+- **Not every gap blocks.** A gap blocks M1 only if it lets a wrong change reach production or makes
+  a run's result untrustworthy. Blocking for run 2: F-NEW-36, F-NEW-37, F-NEW-40, and F-NEW-43 (in
+  progress in its own session). In passing: F-NEW-34, F-NEW-35, F-NEW-39, F-NEW-45. Deferred or
+  accepted, with reasons in FINDINGS: F-NEW-38, F-NEW-41, F-NEW-42, F-NEW-44, F-NEW-46, F-NEW-47,
+  F-NEW-48.
+
+**Next**: W10.6.9 (the blocking gaps, the in-passing ones), then W10.6.10 (run 2). W10.7 waits on a
+run that meets the M1 exit.
