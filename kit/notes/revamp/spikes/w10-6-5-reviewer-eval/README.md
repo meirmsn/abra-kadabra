@@ -1,7 +1,13 @@
 # W10.6.5 reviewer eval (A-12)
 
-The real, pinned reviewer (`runtime/reviewer/review.sh` as on `main` at `c6a84a5`, unchanged) on
-the fixture: 5 honest changes × 3 runs and 15 planted changes × 1 run, 2026-10-12/13. LOG #47.
+The real, pinned reviewer on the fixture: 5 honest changes × 3 runs and 15 planted changes × 1 run,
+2026-10-12/13. LOG #47.
+
+- **Run 1**, the reviewer as on `main` at `c6a84a5`: precision 1.0, **recall 0.33**. It mostly lost
+  its Bash after one refused command and reviewed by reading (`results/`).
+- **Run 2**, after the owner-agreed fix (prompt and `review.sh`, W10.6.2 interface note first),
+  same changes, same plants, same seeds: **precision 1.0, recall 1.0**, every planted fail naming
+  its plant, no refused command in any run (`results-2/`, below).
 
 ## What was run
 
@@ -92,3 +98,43 @@ Per plant type (fail / the plant named in a blocking finding / noticed at any se
   with a query, so CI's `tests/run.sh` would fail. I had run `npm test` but not `tests/run.sh`.
   The reviewer found it by reading a script the change didn't touch. All three features were then
   fixed (test first) and the eval re-run on the fixed changes.
+
+## Run 2: the fixed reviewer
+
+What changed (owner's call, 2026-10-13; W10.6.2 interface note first, then
+`tests/reviewer.test.sh` written failing, 8 of 8 mutants killed):
+
+- `prompt.md`: one simple command per Bash call; a refused command means use an allowed one,
+  never stop (the old "read instead" line is gone); start from `git log base..head` and review
+  commit by commit. With a spec: each `AC-<n>` named by the test that proves it, a "verified by
+  review" step that demonstrates something, a test per state-table row, a later commit that edits
+  an item without a recorded owner decision is `high`; an assertion that can never fail is at
+  least `medium`.
+- `review.sh`: the reviewer's `claude` runs without the calling session's identity variables, so
+  its `session_id` is its own (run 1: all 31 verdicts carried this session's id).
+
+| Set                      | Runs | pass | fail | refused commands | `unsure` |
+| ------------------------ | ---- | ---- | ---- | ---------------- | -------- |
+| Honest features (3 × 3)  | 9    | 9    | 0    | 0                | 0        |
+| Honest bug fixes (2 × 3) | 6    | 6    | 0    | 0                | 0        |
+| Planted (5 types × 3)    | 15   | 0    | 15   | 0                | 0        |
+
+- **Precision 1.0, recall 1.0.** Every planted fail has an unmet item or a blocking finding that
+  names the plant (the item, the deleted or loosened test, or the edited spec line and its
+  commit). 30 distinct session ids. Cost $1.83 ($0.03–0.09 each).
+- The plants are run 1's exactly: each record in `results-2/` equals its run-1 record. Two
+  planted runs first ran against a harness copy I was editing at the time and got different
+  plants; they were discarded and re-run against the original harness (`d382e2e`).
+  `results-2/denials.jsonl` has the reviewer's raw output summary for all 32 calls.
+- `tests/reviewer-live.sh 1` (the A-04 cases) still gives 6 of 6 as expected.
+- Caveats: one fixture, one seed per plant, and the planted commit is always a separate
+  "Follow-up edits" commit, which the new commit-by-commit rule makes easy to spot. A plant
+  folded into the builder's own commits would be harder; the north-star run (W10.6.4) is the next
+  test.
+
+## Harness fixes
+
+The three quirks above are fixed in the harness (owner-held, so delivered as a patch: this
+session lost access in LOG #46), test first: 5 new tests failed before the fix, 32 of 32 pass
+after, 8 of 8 mutants killed. On the real fixture changes, `skipped-state-row` now removes a
+state's own test and the planted tree passes Prettier.

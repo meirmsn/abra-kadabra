@@ -24,7 +24,7 @@ reviewer="$work/reviewer/review.sh"
 mkdir -p "$work/bin"
 cat >"$work/bin/claude" <<'EOF'
 #!/usr/bin/env bash
-printf '%s\n' "$@" >"$STUB_LOG.args"; pwd >"$STUB_LOG.cwd"
+printf '%s\n' "$@" >"$STUB_LOG.args"; pwd >"$STUB_LOG.cwd"; env >"$STUB_LOG.env"
 git diff --quiet base head 2>/dev/null; [ $? = 1 ] || { echo "stub: no base..head diff here" >&2; exit 9; }
 case "${STUB_ACT:-}" in
   exit) echo "boom" >&2; exit 1 ;;
@@ -134,6 +134,34 @@ grep -qF "AC-1, AC-2" <<<"$args" || fail "prompt lacks the spec's items"
 grep -qF "No PR words were given. Report the \`pr\` lens with \`applies: false\`." <<<"$args" || fail "prompt lacks the no-PR-words line"
 [ "$(cat "$STUB_LOG.cwd")" != "$r" ] || fail "claude ran in the real worktree, not a throwaway clone"
 echo "ok - call is locked down (flags, pinned model/tools/settings, throwaway clone)"
+
+# --- The reviewer runs without the calling session's identity (W10.6.5): a nested claude that
+# inherits these reports the caller's session id and could reach the caller's session.
+tie_vars=(CLAUDE_CODE_SESSION_ID CLAUDE_CODE_REMOTE_SESSION_ID CLAUDE_CODE_CHILD_SESSION
+  CLAUDE_CODE_MESSAGING_SOCKET CLAUDE_CODE_MESSAGING_TOKEN CLAUDE_SESSION_INGRESS_TOKEN_FILE
+  SESSION_INGRESS_URL CLAUDE_CODE_REMOTE_SDK_URL CLAUDE_CODE_POST_FOR_SESSION_INGRESS_V2
+  CLAUDE_CODE_SYNC_SESSION_REFS CLAUDE_CODE_TEE_SDK_STDOUT)
+change "$r"
+for v in "${tie_vars[@]}"; do export "$v=caller-$v"; done
+export KEEP_ME=still-here
+run "$r" pass --base main
+for v in "${tie_vars[@]}"; do unset "$v"; done
+unset KEEP_ME
+[ "$rc" = 0 ] || fail "review with session variables set: exit $rc"
+for v in "${tie_vars[@]}"; do
+  ! grep -q "^$v=" "$STUB_LOG.env" || fail "$v reached the reviewer's claude"
+done
+grep -qx "KEEP_ME=still-here" "$STUB_LOG.env" || fail "other environment (auth, proxy) must still reach claude"
+echo "ok - the calling session's identity doesn't reach the reviewer"
+
+# --- The prompt tells the reviewer how to work and what the plants hit (W10.6.5).
+p=$(tr -s "\n" " " <"$STUB_LOG.args") # the prompt wraps lines; match across them
+for want in "one simple command per Bash call" "a refused command" "commit by commit" \
+  "named by the test that proves it" "verified by review" "state table" "can never fail"; do
+  grep -qiF "$want" <<<"$p" || fail "prompt lacks: $want"
+done
+! grep -qF "read instead" <<<"$p" || fail "prompt still says to read instead after a refusal"
+echo "ok - prompt: simple commands, commit by commit, AC naming, states, never-failing assertions"
 
 
 # --- The outcome rule: unmet item or any non-low finding fails; low findings are listed only.

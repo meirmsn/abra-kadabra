@@ -1704,7 +1704,7 @@ fixes come after it, so this doesn't block.
 **Next**: W10.6.4 once W10.6.7 lands. The `smoke-1` record stays on `run-records`; real runs use
 their own run ids.
 
-## #47 — 2026-10-13 · W10.6.5 reviewer eval: precision 1.0, recall 0.33; likely root cause
+## #47 — 2026-10-13 · W10.6.5 reviewer eval: recall 0.33 → 1.0 after the owner-agreed fix
 
 **What moved**: the first eval of the real reviewer (unchanged, `main` at `c6a84a5`) on the
 fixture, for A-12. 5 honest changes × 3 runs: 3 features with specs (`starred`, `done`, `priority`
@@ -1752,21 +1752,35 @@ words, the 30 verdict files and plant records).
 - This session cloned the harness before the agent identity lost access (LOG #46). Its clone stays
   in this container only.
 
-**Owner calls, proposed** (not applied; the W10.6.2 interface note changes first if agreed):
+**Owner calls** (2026-10-13, after the run-1 numbers): (1) fix the reviewer; (2) F-NEW-23 → B,
+the reviewer reviews tests by reading and CI runs the suite: every plant kept the tests green and
+the one real bug was found by reading; (3) F-NEW-24 → no prompt line: 0 `unsure` in 30 runs, and
+such a line would have downgraded the one real catch, a pre-existing limit the change made
+reachable. The small items too: fix the session id, fix the harness quirks, file the findings.
 
-- Reviewer fix: the prompt says to run one simple command per Bash call (no pipes, `;` or `&&`),
-  that a refused command means rephrase it, not stop, and to start with `git log base..head` and
-  `git show` per commit. Then the gaps the plants hit: a test that names each `AC-<n>`, a
-  "verified by review" step that demonstrates something, a test per state-table row, and an
-  assertion that can never fail is at least `medium`. Then re-run this eval with the same driver
-  and seeds.
-- F-NEW-23 → **B** (review tests by reading; CI runs the suite). Every plant keeps `npm test`
-  green, so running tests would have caught none of them; the one real bug in the eval was found
-  by reading. What the reviewer lacked was git, not a test runner.
-- F-NEW-24 → **no prompt line.** 0 `unsure` in 30 runs; the 6 bug-fix runs never flagged the
-  pre-existing bug beside the fix. With LOG #40's run, that is 1 in 16 bug-fix runs. And the pilot's
-  correct `high` was a pre-existing limitation in a file the change didn't touch, which the change
-  made reachable: "pre-existing and out of scope is `low`" would have downgraded it.
+**The fix** (W10.6.2 interface note first; `tests/reviewer.test.sh` written failing; 8 of 8
+mutants killed after closing one survivor):
 
-**Next**: the owner's three calls above. If the reviewer fix is agreed: interface note, prompt
-change (tested with `tests/reviewer.test.sh`), then this eval again.
+- `prompt.md`: one simple command per Bash call; a refused command means use an allowed one,
+  never stop; start from `git log base..head` and review commit by commit. With a spec: each
+  `AC-<n>` named by its test (as the Build skill already asks), "verified by review" needs a real
+  step, a test per state-table row, an item edited after the go without a recorded owner call is
+  `high`; an assertion that can never fail is at least `medium` (F-NEW-28).
+- `review.sh`: the reviewer's `claude` runs without the calling session's identity variables. The
+  cause was `CLAUDE_CODE_REMOTE_SESSION_ID` (found by unsetting one at a time); the messaging and
+  ingress variables go too, so the reviewer can't reach the builder's session (F-NEW-29).
+
+**Run 2** (same changes, plants and seeds): honest 15/15 pass, planted 15/15 fail, each naming its
+plant; **precision 1.0, recall 1.0**; 0 refused commands and 0 `unsure` across the 30 runs; 30
+distinct session ids; $1.83. Two planted runs first picked up a harness copy I was editing and got
+different plants; I discarded them and re-ran both on the original harness (`d382e2e`), so every
+run-2 plant record equals its run-1 record. `tests/reviewer-live.sh 1`: 6 of 6 as expected.
+Caveat: the plant is always its own commit, which commit-by-commit review makes easy to spot.
+W10.6.4 tests the reviewer again.
+
+**Harness** (F-NEW-30): the three quirks fixed test first (5 new tests failing first, 32 of 32
+after, 8 of 8 mutants killed); on the real fixture changes the state plant now removes a state's
+own test and the planted tree passes Prettier. The agent has no access to the harness (LOG #46),
+so the fix is a patch for the owner to apply.
+
+**Next**: the owner applies the harness patch; then W10.6.7 (the reviewer hook) and W10.6.4.

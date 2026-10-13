@@ -1,0 +1,126 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "6f173daf61f48072fa6aec8a65b60ad5c498ba9b",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r2-p-starred-skipped-state-row",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "fbaf576e-5ae6-4c1f-8fd8-924d0ca64c25",
+    "cost_usd": 0.054573500000000004
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql; test/starred.test.js 'AC-1' checks all three seeded items are 0 and the CHECK rejects 2."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' asserts ★ only on the starred item; src/index.js item()."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' stars 3 and 1 and expects id order, 200."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks '/' and '/?show=all' return the full list in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test 'AC-5' asserts the exact link markup in both views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 400 and no <li> for several values, including '' and '__proto__'."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?show=starred'; test 'AC-7' asserts it."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "tests",
+      "item": "",
+      "file": "test/starred.test.js",
+      "what": "The final commit 'Follow-up edits' (made by github-actions[bot]) deletes the 'Empty table' state test. The spec's States table has an 'Empty table' row (nothing listed, 'No items yet.', link to Starred only), and no remaining test sets up an empty table and checks it. A state-table row with no test is a high finding. The deletion has no justification in the spec.",
+      "fix": "Restore the 'Empty table' test, which empties the items table and checks the message and the Starred only link. Don't remove state coverage without a spec decision."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "PR body",
+      "what": "The body says 'Tests deleted or loosened: none' and 'Changed after the go: nothing'. The last commit deletes a test, so the first claim is false. The commit is also not mentioned anywhere in the PR.",
+      "fix": "Restore the test. If any test is removed, state it truthfully in the PR body."
+    }
+  ],
+  "blocking": 2,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec exists; the change follows its decisions (ids stay in order, query parameter). The traffic-check relaxation is needed for AC-7."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 7 acceptance items are met. The Empty table state row has no test after the last commit."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The Empty table test was deleted. The other tests assert behaviour. The traffic fake-app change keeps the existing checks."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README updated for ?show=starred."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view lookup uses Object.hasOwn, so __proto__ is safely rejected. The SQL has no user input."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The show value is whitelisted, titles are HTML-escaped, and there are no secrets. The route regex still refuses spaces and #."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files, only a server-rendered HTML string in src/index.js with no styles or components."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser or UI flow to exercise. The PR itself states no screenshots."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The 'Tests deleted: none' claim is false."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:45:37Z"
+}

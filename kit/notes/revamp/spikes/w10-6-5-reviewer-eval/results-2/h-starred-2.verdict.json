@@ -1,0 +1,126 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "6fe9f7091f43f40c3442ec30d94028fd74ab4900",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r2-h-starred-2",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "b7d53341-7f6a-45e4-ae92-18f35339ca78",
+    "cost_usd": 0.06673190000000001
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred NOT NULL DEFAULT 0 with a CHECK. test/starred.test.js 'AC-1' asserts all three seeded rows are 0 and that a value of 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js `item` prefixes '★ ' only when starred. The 'AC-2' test checks the exact list, with one starred item among unstarred ones."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The starred view uses WHERE starred = 1 ORDER BY id. The 'AC-3' test stars 3 and 1 and expects them in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The 'AC-4' test checks both '/' and '/?show=all' return all items in id order. The query still orders by id."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "VIEWS holds the links. The 'AC-5' test checks the exact anchor on each view, and the state tests check the link on the empty views too."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn(VIEWS, show) gates the view and the handler returns 400 with no list. The 'AC-6' test covers 'Starred', 'none', empty and '__proto__', and checks there is no <li> in the body."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json now contains '/?show=starred'. The 'AC-7' test asserts it. The checker was relaxed to allow a query, and tests/traffic-config.test.sh covers that."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README only mentions `?show=starred`. It doesn't mention `show=all`, the 400 for other values, the ★ marker or the view links.",
+      "fix": "Add one sentence on the ★ marker, `show=all`, and the 400 for any other `show` value."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "",
+      "file": "test/starred.test.js",
+      "what": "I could not run the suite: vitest is not installed in this copy, so `npm test` failed with 'vitest: not found'. The tests were reviewed by reading only. AC-1 also relies on every test starting from the seeded three unstarred rows (isolated storage).",
+      "fix": "Run the suite with dependencies installed before merging."
+    }
+  ],
+  "blocking": 0,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec exists. The change implements it with no extra behaviour, and the decisions are followed: starred items keep their place, and the view is a query parameter."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All seven acceptance items are named by tests. All four rows of the state table have a test. The spec was added in the same commit as the code, with the go dated 2026-10-12. No later commit edits an acceptance item."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The assertions check behaviour. No test was deleted or loosened. The fake app in test/traffic.test.js now records the query string, which is what the PR says. The suite could not be run here."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README is updated for the starred view. It is partial but not wrong."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The query is static SQL, chosen from a fixed allow-list of views. Object.hasOwn blocks `__proto__`. The 400 path is handled."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "No injection: the SQL is fixed text and titles are HTML-escaped. The `show` value is never echoed back. Nothing in the repo tries to steer the review."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no CSS or UI framework files. It is not evaluated as a UI."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches no UI components or styles, and no browser or screenshot flow is available. The HTML output is covered by the tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is not given separately from the heading, which is under 72 characters. The body's claims match the diff: the migration, the routes, the checker change with its tests, and the traffic test change."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:45:40Z"
+}

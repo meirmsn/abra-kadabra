@@ -1,0 +1,126 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "6fe9f7091f43f40c3442ec30d94028fd74ab4900",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r2-h-starred-3",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "d3a2006f-0b21-480e-806a-b09bfb21b060",
+    "cost_usd": 0.0741591
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred INTEGER NOT NULL DEFAULT 0 with a CHECK. test/starred.test.js 'AC-1' checks the three seeded rows are 0 and that a value of 2 is rejected. I couldn't run the suite (vitest not installed), so this rests on reading."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js item() prefixes '★ ' only when starred. 'AC-2' asserts the exact list [First item, ★ Second item, Third item]."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The starred view uses WHERE starred = 1 ORDER BY id. 'AC-3' stars 3 and 1 and expects them in id order with status 200."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' checks both / and /?show=all return all items in id order, with the star shown."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "'AC-5' checks the Starred only link on / and the All items link on the starred view."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn(VIEWS, show) guards against __proto__. 'AC-6' checks Starred, none, an empty value and __proto__ each give 400 with no <li>."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json now contains /?show=starred. 'AC-7' asserts that. The check script and traffic worker handle the query string correctly."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "",
+      "file": "test/traffic.test.js",
+      "what": "The fakeApp now records the query string and keys answers by path plus search, but no traffic test uses a route with a query. The change is unexercised, so nothing shows the traffic worker's check() handles a query route.",
+      "fix": "Add a traffic test that stubs ROUTES, or use a route like /?show=starred, and asserts the fake app saw the query and that a failure on it is reported."
+    },
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "scripts/traffic-config-check.mjs",
+      "what": "The check now accepts a query string, but its error text still says 'array of paths starting with \"/\"', and the README doesn't say routes may carry a query.",
+      "fix": "Update the message and the README line to say a path may include a query string."
+    }
+  ],
+  "blocking": 0,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec exists with a go dated 2026-10-12. Decisions are followed: starred items stay in id order, and the view is a query parameter."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 7 acceptance items and all 4 state rows have tests. No commit edits the spec after the go; the spec arrives in the same diff as the code. Nothing extra was added beyond the CHECK constraint, which is harmless."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests assert behaviour. I couldn't run them because vitest isn't installed. No tests were deleted or loosened. One low finding on the unused fakeApp change."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README is updated. One low finding on the stale wording about routes."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The show parameter is validated with hasOwn, so __proto__ and similar keys are rejected. Titles are escaped. No defects found."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query value is only used as a lookup key in a fixed map, and the SQL is built from static strings. No injection path found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches only the server-rendered HTML in src/index.js and adds no UI or style files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches only the server-rendered HTML in src/index.js and adds no UI or style files; there is no browser flow to run in this session."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title and body match the diff: the migration, ★, the show values with 400, the routes.json entry, the traffic-check relaxation and the fakeApp change. The body says the check refuses spaces and #; the new shell tests cover both."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:46:06Z"
+}
