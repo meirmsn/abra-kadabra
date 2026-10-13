@@ -59,6 +59,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
 
 - [`ci-fast-slow-tiers.md`](../specs/ci-fast-slow-tiers.md): CI in two tiers, fast and slow, for
   the devshop and every project.
+- [`ui-baseline.md`](../specs/ui-baseline.md): every web app starts from a design baseline, phone
+  first, light and dark.
 
 ## The install
 
