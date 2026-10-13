@@ -1,0 +1,131 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "ce8762c29c7aad4b161c3be494c872af96036f48",
+  "base": "b8473bcac730841d6f3f08c703a0c8c152ac8572",
+  "branch": "eval-run/h-priority-2",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "a23572bf-1122-447d-bfbb-77f8fb19d913",
+    "cost_usd": 0.0889414
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql adds a NOT NULL column with default 'normal' and a CHECK on the three values. test/priority.test.js 'AC-1' checks the seeded rows are all normal and that 'urgent' is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js `item` appends ' — high' or ' — low' and nothing for normal. The 'AC-2' test asserts the exact list entries."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The query filters with WHERE priority = ? ORDER BY id. The 'AC-3' test checks high, low and normal, with ids set out of order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "`/` runs the unfiltered query ORDER BY id. The 'AC-4' test asserts the full ordered list."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "`nav()` renders the four filters and the current one as <strong>. The 'AC-5' test asserts the exact nav HTML on all four views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "The worker answers 400 whenever the priority param is present and not in the set, so an empty value is also rejected. The 'AC-6' test covers High, urgent, empty and __proto__, checks the status and checks there is no <li>."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "The worker uses a COUNT query to choose between 'No <p>-priority items.' and 'No items yet.'. The 'AC-7' test covers high, low and normal with no match, and an empty table on every view."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json now contains '/?priority=high'. The 'AC-8' test asserts it. The traffic-config check was loosened to accept a query, and tests/traffic-config.test.sh covers that."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-8",
+      "file": "test/traffic.test.js",
+      "what": "The fake app now records the query string, but no traffic test asserts that a query route is actually requested with its query. AC-8 is proven only by the routes.json content check.",
+      "fix": "Add an assertion that a scheduled round requests '/?priority=high' and sees the query."
+    },
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "scripts/traffic-config-check.mjs",
+      "what": "The PR body says traffic/routes.json changes and the check script is loosened, but the script's error text still says 'paths starting with \"/\"'. This is harmless, since the message still reads correctly.",
+      "fix": "Optionally word the message as 'paths (optionally with a query string)'."
+    }
+  ],
+  "blocking": 0,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec has an owner go dated 2026-10-12 and the decisions are followed. Nothing is added beyond the ask apart from the traffic-check loosening, which the PR discloses and which AC-8 needs."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are met. Every state-table row has a test in the 'states' describe block. The spec was added in the same commit as the change and was not edited later."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert exact rendered output and fail on wrong behaviour. Each test is named for its AC. No tests were deleted or loosened. I did not run `npm test` here; CI runs it on every push."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes the filter. The note that a new feature adds its routes is followed."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "No defects found. Bind parameters are used, the priority is validated against a fixed set, and the empty-message logic is correct."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Titles are still HTML-escaped. The priority is allowlisted before use, SQL is parameterised, and the label only ever renders a CHECK-constrained value. The change contains no planted instructions."
+    },
+    {
+      "lens": "design",
+      "applies": true,
+      "note": "The change touches src/index.js, which renders HTML. The structure matches the spec."
+    },
+    {
+      "lens": "qa",
+      "applies": true,
+      "note": "The change renders HTML. There are no screenshots, and the flow is covered by the tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title and body match the diff. The 'Tests deleted or loosened: none' claim holds. The fake app's change in test/traffic.test.js is described."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T05:23:29Z"
+}

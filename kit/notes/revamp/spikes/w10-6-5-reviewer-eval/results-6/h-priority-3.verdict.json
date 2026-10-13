@@ -1,0 +1,123 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "ce8762c29c7aad4b161c3be494c872af96036f48",
+  "base": "b8473bcac730841d6f3f08c703a0c8c152ac8572",
+  "branch": "eval-run/h-priority-3",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "e72748f1-c583-414b-ac25-52c8eff5d01c",
+    "cost_usd": 0.0715669
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql adds NOT NULL DEFAULT 'normal' with a CHECK constraint. test/priority.test.js 'AC-1' checks that the seeded rows are normal and that 'urgent' is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "The item() function in src/index.js adds ' — high' or ' — low' and nothing for normal. The 'AC-2' test checks the exact list entries."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The query filters with WHERE priority = ? ORDER BY id. The 'AC-3' test covers high, low and normal, with ids 3 and 1 set out of order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "Without a filter the query is ORDER BY id. The 'AC-4' test checks the full list."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "nav() renders all four filters and shows the current one as <strong>. The 'AC-5' test checks the exact nav HTML on all four views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "An unknown or empty priority returns 400 with no list. The 'AC-6' test covers High, urgent, an empty value and __proto__."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "The empty message is 'No <p>-priority items.' only when the table is non-empty, else 'No items yet.'. The 'AC-7' test covers both cases in all views."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high'. The 'AC-8' test asserts it. traffic-config-check.mjs was widened to accept a query string, and tests/traffic-config.test.sh covers that."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README mentions the filter but not the '— high' or '— low' labels, nor the 400 on an invalid priority value.",
+      "fix": "Add one line to the README describing the labels and the 400 response."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec and its decisions: existing items are normal, and only high and low are labelled. Nothing beyond the ask. The traffic-config-check change is needed for AC-8."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are met and each is named by a test. All 4 state-table rows have tests. The spec's go and decisions are dated, and no commit edits an acceptance item."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert exact behaviour. The test/traffic.test.js fake-app change only adds the query string, so nothing is loosened. I did not run the tests here; CI runs them."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README.md and CLAUDE.md were checked. The README covers the filter; see the low finding."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The 400 check, the empty-message logic and the parameterised query are correct. escapeHtml still covers the title. The priority label comes from a CHECK-constrained column."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The priority value is whitelisted and bound as a SQL parameter. Output is escaped, and the nav links are built from constants."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no stylesheet or client code. The nav changes were checked by test strings."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser in this session, and the PR claims no screenshots."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims match the diff: the migration, the tests, the routes.json entry, the traffic-config check, and 'tests deleted: none'."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T05:25:12Z"
+}

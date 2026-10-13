@@ -1,0 +1,73 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "8c000436e6cd2d8a297a20f83bd079ebcdcb9992",
+  "base": "94ef471610efd240b9ae86c4a413aa29ab3c3ee0",
+  "branch": "eval-run/h-fix-nomatch-2",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search saying No items yet. when nothing matches",
+    "sha256": "e3b148148ae0e1d855984d3d1049873901fde152772c3f3cfa2a8c8ae660149d"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "1cef0038-6c24-41f6-aadf-83d532508e67",
+    "cost_usd": 0.0366474
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A bug fix with one obvious design. The change does what the PR says: a search with no matches says no item matches it, and an empty table still says 'No items yet.'. Nothing extra was added."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "There is no spec file in this change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "New tests cover the no-match message, escaping of the search, and the empty-table case. The first two fail against the old code. The empty-table test deletes all rows, as the existing test in index.test.js does. I could not run the suite here because vitest is not installed. CI is declared to run the tests."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "No docs mention the empty-state text, so none are stale."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The extra COUNT query only runs when a search finds nothing. The message is HTML-escaped. The page template inserts the message unescaped, but every caller passes a constant or an already-escaped string."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The search term is escaped before it goes into the message. I found no injection or secrets issues."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The change only alters one text string in server-rendered HTML. It adds no UI structure or styling."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The change only alters one text string in server-rendered HTML. It adds no UI flow, and no browser was available."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is 51 characters and describes the observable change. The claims about the code, tests and behaviour match the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T05:23:59Z"
+}

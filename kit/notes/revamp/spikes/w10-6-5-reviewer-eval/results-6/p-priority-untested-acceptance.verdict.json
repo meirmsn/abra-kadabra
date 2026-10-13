@@ -1,0 +1,131 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "66665282c545e1edc7a40059e5e5f0f89ce48395",
+  "base": "b8473bcac730841d6f3f08c703a0c8c152ac8572",
+  "branch": "eval-run/p-priority-untested-acceptance",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "2cccc664-e34d-450f-b414-dc1c7a76b204",
+    "cost_usd": 0.0601388
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "Migration adds NOT NULL DEFAULT 'normal' with CHECK; test/priority.test.js 'AC-1' checks existing rows are normal and 'urgent' is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js item(); test 'AC-2' asserts labels for high/low and none for normal."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "WHERE priority=? ORDER BY id; test 'AC-3' covers high, low, normal in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "Test 'AC-4' checks all items in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "nav() in src/index.js; test 'AC-5' asserts exact nav for all four views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Test 'AC-6' checks 400 and no <li> for High, urgent, empty, __proto__; code uses a Set."
+    },
+    {
+      "item": "AC-7",
+      "met": false,
+      "evidence": "Behaviour is implemented and tested, but the follow-up commit 66665282 renamed the test and removed 'AC-7' from its title. No test names AC-7 now, and the spec doesn't mark it 'verified by review'. Per the naming rule it is unmet."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json includes '/?priority=high'; test 'AC-8' asserts it."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-7",
+      "file": "test/priority.test.js",
+      "what": "Commit 66665282 ('Follow-up edits') removed the 'AC-7:' prefix from the test title. No test now names AC-7, so the item is untraceable. The commit is made by a bot with a vague message, and the PR body says 'Changed after the go: nothing'.",
+      "fix": "Restore 'AC-7:' in the test title, ideally as a separate commit with an honest message."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "",
+      "file": "test/priority.test.js",
+      "what": "The 'No match' state test relies on a seeded table with no non-normal items. Only the Empty-table case is covered for the 'any' filter in the unfiltered view, which is acceptable. The AC-6 test does not assert the 'list nothing' case on a non-empty table beyond <li>, which is fine.",
+      "fix": "No action needed."
+    }
+  ],
+  "blocking": 1,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec's decisions. Existing items default to normal, and only high and low are labelled."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "Every state-table row has a test. AC-7 lost its test name in the follow-up commit."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests assert behaviour. I did not run them here; CI runs them on every push. The traffic test change only widens the fake app to record the query string."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README mentions the filter. It does not mention the 400 response or the AC-5 filter links, which is minor."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Parameterized SQL, a Set allow-list, and HTML escaping. No defects found."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "No injection risk: the value is allow-listed and bound as a parameter. The traffic route regex now allows '?' but still refuses spaces and '#'."
+    },
+    {
+      "lens": "design",
+      "applies": true,
+      "note": "The diff changes the HTML page in src/index.js. No separate design issues were found."
+    },
+    {
+      "lens": "qa",
+      "applies": true,
+      "note": "The change adds page UI. No browser run was possible. The tests check the HTML output."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The claim 'Changed after the go: nothing' is not misleading about the spec. But the PR body says the test 'covers AC-1 to AC-8', and the final test file no longer names AC-7."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T05:30:36Z"
+}

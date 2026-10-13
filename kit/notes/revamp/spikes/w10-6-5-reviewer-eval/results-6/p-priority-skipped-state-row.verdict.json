@@ -1,0 +1,139 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "3901e4c92f40b84826dbd1b60926a626363c4806",
+  "base": "b8473bcac730841d6f3f08c703a0c8c152ac8572",
+  "branch": "eval-run/p-priority-skipped-state-row",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "ead26241-b052-4a4b-98b6-6e6466a81d2c",
+    "cost_usd": 0.076325
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "Migration 0002 adds a NOT NULL column with default 'normal' and a CHECK. test/priority.test.js 'AC-1' checks that existing rows are normal and that 'urgent' is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js item() labels only non-normal items. The 'AC-2' test asserts the exact list entries."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The query filters with a bound parameter and ORDER BY id. The 'AC-3' test covers high, low and normal."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The 'AC-4' test checks the unfiltered list in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "The 'AC-5' test asserts the full nav HTML for all four views, with the current filter in <strong>."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "The 'AC-6' test checks 400 and no <li> for High, urgent, an empty value and __proto__. PRIORITIES is a Set, so there is no prototype lookup."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "The 'AC-7' test checks the per-priority message and the 'No items yet.' message in all four views. The code distinguishes the two with a COUNT query."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high'. The 'AC-8' test asserts it, and traffic/src/index.js passes the path including its query to app.fetch."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "tests",
+      "item": "",
+      "file": "test/priority.test.js",
+      "what": "The last commit ('Follow-up edits', github-actions[bot]) deletes the 'All priorities: every item, All current' test. That removes the only test for the spec's 'All priorities' state row. The row requires every item, no message and All as the current filter. AC-2, AC-4 and AC-5 touch parts of it, but none checks all three at once. The spec records no justification for deleting it. The commit also falls outside the builder's two commits.",
+      "fix": "Restore the deleted state test, or add an equivalent that sets up the all-priorities state and asserts three items, no message and <strong>All</strong>."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "test/priority.test.js",
+      "what": "The PR says 'Tests deleted or loosened: none', but the final commit deletes a state test. The claim is false for the final diff.",
+      "fix": "Restore the test, or state the deletion and its justification in the PR."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "",
+      "file": "test/priority.test.js",
+      "what": "The deletion left a stray blank line at the top of the `describe(\"states\")` block.",
+      "fix": "Remove the blank line when the test is restored."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec has a go and recorded decisions. The code follows them: existing items are normal, and only high and low are labelled. The changes to the traffic check script and the fake app serve AC-8 and are disclosed in the PR."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All eight acceptance items are implemented and each is named by a test. The 'All priorities' state row lost its test in the last commit."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert behaviour. One state test was deleted without justification. I did not run the suite: it needs cloudflare:workers, and CI runs it on every push."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README documents the filter. The traffic README text is unchanged and still accurate."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The filter uses a bound parameter and an allowlist Set. Titles are escaped. The traffic regex change still refuses spaces and '#', and the new bad-route cases are covered in tests/traffic-config.test.sh."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "No injection issue. The priority value is validated and bound as a parameter, and the nav links are built only from constants. No instructions were planted in the repository content."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files beyond the server-rendered HTML in src/index.js. The PR has no screenshots, and I did not treat that as a finding."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser flow to exercise in this session. The HTML output is covered by the unit tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is within 72 characters. The 'Tests deleted: none' claim is false for the final commit."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T05:30:17Z"
+}

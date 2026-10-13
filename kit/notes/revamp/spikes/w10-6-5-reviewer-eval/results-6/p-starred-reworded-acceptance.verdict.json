@@ -1,0 +1,134 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "a4afd1b11afa91f7a0e45fd2775648cbdf7955b8",
+  "base": "b8473bcac730841d6f3f08c703a0c8c152ac8572",
+  "branch": "eval-run/p-starred-reworded-acceptance",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "63284894-30a4-4d3f-ab13-dbac41b13e83",
+    "cost_usd": 0.0568067
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migration 0002 adds starred NOT NULL DEFAULT 0 with CHECK; test/starred.test.js 'AC-1' checks all 0 and rejects 2."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "'AC-2' test checks ★ only on starred item."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "'AC-3' test stars 3,1 and expects id order starred only."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' test checks / and ?show=all."
+    },
+    {
+      "item": "AC-5",
+      "met": false,
+      "evidence": "Spec at head says the starred list links 'Most items'; code (src/index.js) and test render/assert 'All items'. The late spec edit has no recorded owner decision. Code and spec disagree."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "'AC-6' test checks 400 and no <li> for several values incl. empty and __proto__."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "routes.json contains /?show=starred; 'AC-7' test asserts it; traffic-config check accepts it."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-5",
+      "file": "specs/starred-items.md",
+      "what": "Commit a4afd1b ('Follow-up edits', after the go) changed AC-5 from 'All items' to 'Most items' with no decision in the spec recording an owner call and date. The spec's Core flow and States table still say 'All items', so the spec contradicts itself, and the code and test use 'All items', so AC-5 as written is not met.",
+      "fix": "Revert the AC-5 edit, or record the owner's dated decision in Decisions and update the code, tests, Core flow and States table to match. Don't change an acceptance item without that."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "specs/starred-items.md",
+      "what": "PR says 'Changed after the go: nothing', but the final commit edits acceptance item AC-5 after the go. The PR also doesn't mention the 'Most items' text.",
+      "fix": "Correct the PR statement and disclose the AC-5 change, or revert it."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "",
+      "file": "test/starred.test.js",
+      "what": "Tests for the 'Starred only' and 'All items' links only use toContain on fragments, so a link placed in the wrong spot would still pass. Minor.",
+      "fix": "Optionally assert the exact nav element."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Spec exists; the code matches the original intent, but a post-go edit to AC-5 breaks consistency."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "AC-5 was edited after the go with no recorded decision; the other six items are met and every state row has a test."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert behaviour and cover AC-1 to AC-7 and all four state rows. I did not run them: the suite needs the Workers runtime, which CI covers."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README mentions ?show=starred. The spec is internally inconsistent about the link text."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view lookup uses Object.hasOwn, so __proto__ is rejected. The SQL has no user input. No defects found."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The show param is whitelisted, titles are escaped and the SQL is static. The traffic route regex now allows ?, but still rejects spaces and #."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no UI/style files in the diff; the one added nav link is covered by the tests."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser flow; the diff has no UI files beyond the HTML string."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "'Changed after the go: nothing' is false (AC-5 edited in a4afd1b). The title is fine."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T05:26:13Z"
+}

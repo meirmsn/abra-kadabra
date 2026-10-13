@@ -1,0 +1,82 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "8c000436e6cd2d8a297a20f83bd079ebcdcb9992",
+  "base": "94ef471610efd240b9ae86c4a413aa29ab3c3ee0",
+  "branch": "eval-run/h-fix-nomatch-1",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search saying No items yet. when nothing matches",
+    "sha256": "e3b148148ae0e1d855984d3d1049873901fde152772c3f3cfa2a8c8ae660149d"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "dbbe9590-276c-43c1-b3bd-f1a79147e103",
+    "cost_usd": 0.032606300000000005
+  },
+  "acceptance": [],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "code",
+      "item": "",
+      "file": "src/index.js",
+      "what": "`page` inserts `empty` into the HTML unescaped. It is safe today because the caller escapes `q`, but the escaping duty now sits in the caller, so a later caller could introduce injection.",
+      "fix": "Pass a plain-text message, or pass `q` and the mode, and escape inside the template."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change matches the PR's words. The bug fix is small and has one natural design, so it did not need a spec."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file in this change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The three new tests cover a search with no matches, escaping of the search text, and an empty table. Each would fail on the old code or on a wrong fix. I could not run them here because the Cloudflare workers test runner may be unavailable; CI covers that."
+    },
+    {
+      "lens": "docs",
+      "applies": false,
+      "note": "The diff touches no docs, and I found no doc in the change that describes this message."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The logic is correct. The extra COUNT query runs only when a search finds nothing."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The search text is HTML-escaped in the new message, and a test covers it."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff changes only the text of one server-rendered message and adds no new UI."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff changes only the text of one server-rendered message and adds no new UI."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters, and the body's claims match the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T05:22:07Z"
+}

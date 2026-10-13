@@ -14,12 +14,11 @@ TOOLS=Read,Grep,Glob,Bash
 TIMEOUT=900 # seconds
 ROUNDS_TO_ASK=3
 FAILS_TO_ASK=6 # distinct failing commits since the last pass, new issues or not
-# Variables that tie a nested claude to the session that started it. The reviewer runs without them,
-# so its verdict's session_id is its own and it can't reach the builder's session (W10.6.5).
-SESSION_TIES=(CLAUDE_CODE_SESSION_ID CLAUDE_CODE_REMOTE_SESSION_ID CLAUDE_CODE_CHILD_SESSION
-  CLAUDE_CODE_MESSAGING_SOCKET CLAUDE_CODE_MESSAGING_TOKEN CLAUDE_SESSION_INGRESS_TOKEN_FILE
-  SESSION_INGRESS_URL CLAUDE_CODE_REMOTE_SDK_URL CLAUDE_CODE_POST_FOR_SESSION_INGRESS_V2
-  CLAUDE_CODE_SYNC_SESSION_REFS CLAUDE_CODE_TEE_SDK_STDOUT)
+# Variables that tie a nested claude to the session that started it, by name pattern (W10.6.8): the
+# reviewer runs without them, so its verdict's session_id is its own and it can't reach the builder's
+# session (W10.6.5). Patterns, not names, so one a later Claude Code version adds goes too. What its
+# claude needs to authenticate (ANTHROPIC_*, the proxy and CA settings) matches none of them.
+SESSION_TIE_PATTERNS=('CLAUDE_CODE_*SESSION*' '*INGRESS*' '*MESSAGING*' 'CLAUDE_CODE_*SDK*')
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 usage="usage: review.sh --base <rev> [--pr <file>]"
@@ -182,16 +181,52 @@ $(jq -r '"# " + .title + "\n\n" + .body' "$pr_file")
 else
   pr_text="No PR words were given. Report the \`pr\` lens with \`applies: false\`."
 fi
-# The values are spliced in by position, never substituted, so text in them is never expanded or
-# re-matched (bash 5.2 expands & in a \${x//p/r} replacement; a body could contain a placeholder).
-[[ "$prompt" == *'{{INTENT}}'*'{{PR}}'* ]] || cnr "prompt.md lacks its {{INTENT}} and {{PR}} placeholders"
-pre=${prompt%%'{{INTENT}}'*} rest=${prompt#*'{{INTENT}}'}
-prompt="$pre$intent_text${rest%%'{{PR}}'*}$pr_text${rest#*'{{PR}}'}"
+# The allowed commands, from settings.json only (W10.6.8): each Bash(<command>:*) entry, in order.
+# Unreadable, a Bash entry of another shape, or none at all: could-not-run, never a prompt that names
+# commands the reviewer can't run or misses ones it can.
+commands=$(jq -r '[.permissions.allow[] | select(type == "string" and startswith("Bash"))]
+  | if length == 0 then error("no Bash commands") else . end
+  | map(capture("^Bash\\((?<c>[^()*:]+):\\*\\)$").c // error("entry \(.)"))
+  | map("`" + . + "`") | if length == 1 then .[0] else (.[:-1] | join(", ")) + " and " + .[-1] end' \
+  "$here/settings.json" 2>/dev/null) && [ -n "$commands" ] \
+  || cnr "settings.json has no Bash allowlist of Bash(<command>:*) entries to name in the prompt"
+# Whether the project's CI runs its tests is stated, never inferred (W10.6.8, F-NEW-33): the project
+# declares scripts/check-fast.sh, its fast tier, which CI's fast job runs (specs/ci-fast-slow-tiers.md),
+# read at the base commit so a change can't declare it for itself.
+if [ "$(git -C "$repo" cat-file -t "$base_sha:scripts/check-fast.sh" 2>/dev/null)" = blob ]; then
+  ci_text="This project declares that its CI runs its tests on every push (\`scripts/check-fast.sh\` at the base commit): a test command that can't run here (its dependencies aren't installed, or it isn't allowed) goes in the \`tests\` lens note, not as a finding."
+else
+  ci_text="This project does not declare that its CI runs its tests (no \`scripts/check-fast.sh\` at the base commit): a test you can't run is an \`unsure\` finding, whose fix is a CI job that runs the tests through \`scripts/check-fast.sh\`."
+fi
+# The values are spliced in by position, in the order the placeholders appear, never substituted, so
+# text in them is never expanded or re-matched (bash 5.2 expands & in a \${x//p/r} replacement; a
+# body could contain a placeholder).
+[[ "$prompt" == *'{{COMMANDS}}'*'{{INTENT}}'*'{{PR}}'*'{{CI}}'* ]] \
+  || cnr "prompt.md lacks its {{COMMANDS}}, {{INTENT}}, {{PR}} and {{CI}} placeholders, in that order"
+spliced="" rest=$prompt
+# splice <placeholder> <value>: the text up to the placeholder, then the value; the rest stays.
+splice() { spliced+="${rest%%"$1"*}$2" rest=${rest#*"$1"}; }
+splice '{{COMMANDS}}' "$commands"
+splice '{{INTENT}}' "$intent_text"
+splice '{{PR}}' "$pr_text"
+splice '{{CI}}' "$ci_text"
+prompt="$spliced$rest"
 schema=$(<"$here/verdict.schema.json") || cnr "verdict.schema.json unreadable"
+
+# drop_session_ties: unset every exported variable whose name matches SESSION_TIE_PATTERNS.
+drop_session_ties() {
+  local v p
+  for v in $(compgen -e); do
+    for p in "${SESSION_TIE_PATTERNS[@]}"; do
+      # shellcheck disable=SC2053  # $p is a glob pattern on purpose
+      if [[ "$v" == $p ]]; then unset "$v"; break; fi
+    done
+  done
+}
 
 # --- The locked-down reviewer (feedback, not a wall: TARGET Verify, "what this protects against").
 rc=0
-(cd "$scratch/repo" && for v in "${SESSION_TIES[@]}"; do unset "$v"; done && timeout "$TIMEOUT" claude -p "$prompt" --restricted --safe-mode \
+(cd "$scratch/repo" && drop_session_ties && timeout "$TIMEOUT" claude -p "$prompt" --restricted --safe-mode \
   --strict-mcp-config --no-session-persistence --disable-slash-commands --tools "$TOOLS" \
   --permission-mode dontAsk --settings "$here/settings.json" --model "$MODEL" \
   --output-format json --json-schema "$schema" </dev/null >"$scratch/out.json" 2>"$scratch/err") || rc=$?

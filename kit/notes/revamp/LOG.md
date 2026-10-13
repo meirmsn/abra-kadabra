@@ -2054,3 +2054,52 @@ AC-1 names the step-level `if` / `continue-on-error` rule (spec, Decisions).
 it. Fixture PR #11 merged too, and on the fixture's `main` `fast`, `slow` and the production deploy
 passed. Whether the required checks on `main` were swapped to `fast` and `slow` is owner-held: the
 agent can't read branch protection.
+
+## #52 — 2026-10-13 · W10.6.8: three reviewer limits from the W10.6.5 eval
+
+**What moved**: the follow-up to LOG #50, filed first as F-NEW-31–33 and the W10.6.8 task line; the
+W10.6.2 interface note changed before any code. Tests came first: each new check in
+`tests/reviewer.test.sh` failed on the old code, and 13 of 13 mutants are killed.
+
+- **Session ties by pattern (F-NEW-31).** `review.sh` removes every variable matching
+  `CLAUDE_CODE_*SESSION*`, `*INGRESS*`, `*MESSAGING*` or `CLAUDE_CODE_*SDK*`, a superset of the old
+  11 names. The test sets those 11 plus made-up future names, and checks that auth and proxy
+  variables (`ANTHROPIC_*`, `CLAUDE_CODE_OAUTH_TOKEN`, `HTTPS_PROXY`, CA files) still get through. In
+  this cloud session the reviewer authenticates through the API endpoint and proxy variables, none of
+  which match. `tests/reviewer-live.sh` now fails a review whose `session_id` is empty, the caller's,
+  or another run's. `tests/reviewer-live.sh 1` gave 6 of 6 with 5 distinct ids of its own, and the
+  same script on a copy that keeps the session's variables gave `NOT OK`, carrying the caller's id.
+- **One source of allowed commands (F-NEW-32).** `prompt.md` has `{{COMMANDS}}`, and `review.sh`
+  fills it from the `settings.json` allowlist's `Bash(<command>:*)` entries. Unreadable, empty or
+  other-shaped entries are could-not-run. A test edits a copy of `settings.json` and the prompt
+  follows. The entries were reordered so the prompt lists them in the old order.
+- **CI stated, not inferred (F-NEW-33).** The prompt says whether the base commit has
+  `scripts/check-fast.sh` and has no branch asking the model to work it out. Declared: an unrunnable
+  test goes in the `tests` note. Not declared: it is `unsure`, with the fix "a CI job that runs the
+  tests". The backstop line: a finding whose only fix is to run the tests or confirm CI is never a
+  finding.
+
+**Owner calls**: the declaration was first `scripts/test.sh` (owner, picked from my proposal). Then
+the owner pointed me at the parallel "Lint in CI vs devshop hook" session, whose draft spec
+(`specs/ci-fast-slow-tiers.md`) makes `scripts/check-fast.sh` the script CI's `fast` job runs. The
+owner switched to that file: one contract, not two. So this change adds no script and doesn't touch
+`ci.yml`.
+
+**Eval run 6** (spike README § Run 6): honest 15/15 pass, planted 15/15 fail on their plant,
+**precision 1.0, recall 1.0** (before: 1.0 / 1.0 with 1 tests-note slip in 60). 0 refused commands,
+0 `unsure`, no "couldn't run the tests" finding, 30 distinct session ids, none the caller's. $1.81.
+
+**Surprises**
+
+- This session couldn't reach the harness (LOG #46) and had no fixture clone. With the owner's OK I
+  attached the fixture read-only (nothing pushed). The seed-1 plants were replayed from their
+  records by a new `replay-plants.py`, checked line by line against each record's `before` text, and
+  all 15 matched. `prepare.sh` rebuilt the cases from the spike's patches on a local base that adds
+  `scripts/check-fast.sh`.
+- `tests/run.sh` here: 18 of 21 files pass. `bootstrap`, `git-hooks` and `pre-bash` fail the same way
+  on unmodified `main` in this container (a shallow clone, and the push and dcg checks depend on the
+  environment). CI runs them.
+
+**Order** (owner): `ship` first failed this change on one `medium`: merged before the CI tiers change, honest reviews here and in the fixture would get `unsure` for tests they can't run. The owner held it until the tiers change landed (LOG #51: this repo's PR #92, fixture PR 11, both with `scripts/check-fast.sh` at the root). Then `main` was merged in and it shipped again.
+
+**Next**: W10.6.4.

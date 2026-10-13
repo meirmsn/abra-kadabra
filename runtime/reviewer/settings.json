@@ -1,15 +1,15 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git diff:*)",
       "Bash(git log:*)",
       "Bash(git show:*)",
+      "Bash(git diff:*)",
       "Bash(git status:*)",
       "Bash(git ls-files:*)",
       "Bash(git grep:*)",
-      "Bash(node --test:*)",
       "Bash(npm test:*)",
-      "Bash(npm run test:*)"
+      "Bash(npm run test:*)",
+      "Bash(node --test:*)"
     ],
     "deny": [
       "Bash(git push:*)",

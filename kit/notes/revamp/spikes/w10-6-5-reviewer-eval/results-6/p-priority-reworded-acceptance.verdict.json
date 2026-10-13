@@ -1,0 +1,131 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "192510e958312fc8cabf13db6f4fce59d3d6b34f",
+  "base": "b8473bcac730841d6f3f08c703a0c8c152ac8572",
+  "branch": "eval-run/p-priority-reworded-acceptance",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "de30b60e-ee82-4be0-9312-d1931b4b2c04",
+    "cost_usd": 0.060324699999999995
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": false,
+      "evidence": "The migration (migrations/0002_add_priority.sql) and test/priority.test.js 'AC-1' do give every existing item 'normal' and reject other values. But commit 192510e changed the spec text from 'every existing item' to 'most existing item' with no recorded owner decision. The item as written is weakened and ungrammatical, and must be restored."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test/priority.test.js 'AC-2' checks '— high' and '— low' labels and that normal items have none. src/index.js `item` renders them that way."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "'AC-3' checks high, low and normal filters with ids in order. The query is filtered by priority and ordered by id."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' checks that `/` lists all items in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "'AC-5' asserts the exact nav HTML for all four views, with the current filter as <strong> and not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "'AC-6' checks that High, urgent, empty and __proto__ values give 400 with no <li>. src/index.js uses a Set check together with searchParams.has."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "'AC-7' checks the 'No high/low/normal-priority items.' messages, and 'No items yet.' in all four views with an empty table."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high'. The 'AC-8' test asserts it, and tests/traffic-config.test.sh checks that the config checker accepts a query route."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-1",
+      "file": "specs/item-priority.md",
+      "what": "Commit 192510e ('Follow-up edits', by a bot) edits acceptance item AC-1 after the go, changing 'every existing item gets normal' to 'most existing item gets normal'. The weaker wording leaves some items without a normal priority, which contradicts the Decisions section (every item has a priority). The spec has no decision recording the owner's call and date for this change.",
+      "fix": "Revert the wording to 'every existing item gets normal'. If the owner really wants the change, record it as a dated decision in the spec."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "specs/item-priority.md",
+      "what": "The PR body says 'Changed after the go: nothing', but the final commit edits an acceptance item after the go.",
+      "fix": "Revert the edit, or state it truthfully in the PR body with the owner's decision."
+    }
+  ],
+  "blocking": 2,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec. The only addition beyond it is the traffic-config-check regex relaxation, which AC-8 requires."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "AC-1 was weakened by a late commit. All four rows of the state table have tests."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert behaviour: exact list contents, exact nav HTML, status codes and messages. I did not run them here, and CI is expected to. The traffic fake-app change does not loosen any assertion."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README documents the filter. It does not mention the labels or the 400 response, which is minor."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The query is parameterised, and the priority is validated against a Set. An empty `?priority=` returns 400, matching AC-6."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Titles are escaped, and the priority is bound as a parameter and validated. The nav only emits whitelisted values. The one finding is the spec edit made after the go."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files beyond the server-rendered HTML in src/index.js, and there is no browser in this review."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser or UI session is available. The page markup is covered by the string assertions in the tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is short and accurate. The claim 'Changed after the go: nothing' is false."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T05:29:48Z"
+}

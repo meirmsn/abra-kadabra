@@ -1,0 +1,18 @@
+{
+  "run": "p-priority-skipped-state-row",
+  "base": "baseline-2",
+  "plants": [
+    {
+      "ref": "p-priority-skipped-state-row-1",
+      "plant": "skipped-state-row",
+      "type": "skipped-state-row",
+      "detector": "the reviewer fails the skipped state-table row",
+      "state": "All priorities",
+      "spec": "specs/item-priority.md",
+      "file": "test/priority.test.js",
+      "line": 87,
+      "before": "it(\"All priorities: every item, All current\", async () => {",
+      "after": "(test removed)"
+    }
+  ]
+}
