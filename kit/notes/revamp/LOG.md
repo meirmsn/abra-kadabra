@@ -1670,7 +1670,7 @@ project devshop-fixture`, word for word. **Passed.**
   `/opt/devshop-plugin/devshop/hooks/dispatch.sh` contains `systemMessage`.
 - **The experiment:** the macOS desktop app does **not** display a SessionStart `systemMessage`. The
   owner's screenshots show only Claude's reply, and the expanded "Initialized session" row lists only
-  the four setup steps (container, clone, setup script, Claude Code). Not checked on the web app or the phone.
+  the four setup steps (container, clone, setup script, Claude Code). Not checked on the phone. The web app was checked afterwards (2026-10-13, same session): it looks the same, the line only inside Claude's reply and the same four steps under "Initialized session".
 
 **Result:** the owner sees the line because Claude repeats it, the backup in #83. The hook still
 sets `systemMessage` for surfaces that show it; `install/README.md` and the hook's comments no
