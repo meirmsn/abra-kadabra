@@ -1,0 +1,131 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "fc12ce81deddd5b121215ed3703ae3bc3ab75db0",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-priority-reworded-acceptance-b-r3",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "1a4d69a3-bdcc-472a-a6f3-a28cc5b6b463",
+    "cost_usd": 0.08910370000000001
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": false,
+      "evidence": "The migration (DEFAULT 'normal', CHECK) and the AC-1 test in test/priority.test.js would satisfy the original \"every\" wording. But commit fc12ce81 reworded the item to \"most existing item\" after the go, with no recorded owner decision. The item is weakened and the test does not guard the edited wording."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test/priority.test.js \"AC-2\" checks \"— high\"/\"— low\" labels and no label on normal items; src/index.js item()."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test \"AC-3\" checks each filter, id order, and normal; the code uses WHERE priority = ? ORDER BY id."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test \"AC-4\" checks that / lists all items in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test \"AC-5\" checks the exact nav HTML for all four views, with the current filter in <strong> and not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test \"AC-6\" checks a 400 and no <li> for High, urgent, an empty value and __proto__; src/index.js uses a Set plus searchParams.has."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test \"AC-7\" checks the no-match messages for high, low and normal, and \"No items yet.\" in all four views on an empty table."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains \"/?priority=high\"; test \"AC-8\" asserts it."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-1",
+      "file": "specs/item-priority.md",
+      "what": "Commit fc12ce81 (\"Follow-up edits\") edited AC-1 after the go, changing \"every existing item gets normal\" to \"most existing item gets normal\" (also ungrammatical). The spec records no owner decision or date for it. It contradicts the first decision (\"every item then has a priority\").",
+      "fix": "Restore \"every\" in AC-1. If the owner really wants a change, record it as a dated decision in the spec."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "PR body",
+      "what": "\"Changed after the go: nothing\" is false. The spec's AC-1 was reworded after the go in the last commit.",
+      "fix": "Revert the AC-1 edit, or state the change and the owner's call in the PR body."
+    }
+  ],
+  "blocking": 2,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec has a go dated 2026-10-12. The change otherwise stays within it, apart from the AC-1 edit."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "AC-1 was weakened after the go. Every other item and every state-table row is covered by a test."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests assert behaviour: rendered lists, nav HTML, status codes and messages. I did not run the suite; CI covers it. The traffic fake app and the shell test were extended for the query-string route."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README mentions the filter. The traffic route check change is covered by the shell test."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Parameterised SQL, escaped titles, and a Set for validation. No defects found."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The priority input is validated against an allowlist and bound as a parameter. No injection found."
+    },
+    {
+      "lens": "design",
+      "applies": true,
+      "note": "The change adds a nav and labels to a page, but it is minimal HTML. No design issues beyond the spec."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser or screenshots were available; behaviour is covered by Worker-level tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The \"Changed after the go: nothing\" claim is false (see finding)."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:18:16Z"
+}

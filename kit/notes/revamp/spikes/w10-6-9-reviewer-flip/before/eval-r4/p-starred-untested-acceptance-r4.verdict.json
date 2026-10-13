@@ -1,0 +1,134 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "2ad1eceb9923da8d869a1263ccfad52b210e8c9b",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-starred-untested-acceptance-r4",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "a9b92db5-bab5-4728-b693-05bd8f99ab5c",
+    "cost_usd": 0.05747360000000001
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql; test/starred.test.js 'AC-1' checks all three existing rows are 0 and CHECK rejects 2."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "'AC-2' test asserts ★ only on the starred item."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "'AC-3' test stars 3 and 1, expects id order, only starred."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' test covers / and /?show=all with order unchanged."
+    },
+    {
+      "item": "AC-5",
+      "met": false,
+      "evidence": "Implemented in src/index.js and the test body asserts both links, but the last commit (2ad1ece) renamed the test to drop 'AC-5', so no test names AC-5. The spec does not mark it 'verified by review'."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "'AC-6' test checks 400 and no <li> for Starred, none, empty and __proto__."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "'AC-7' test asserts routes.json contains /?show=starred; traffic/routes.json updated."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-5",
+      "file": "test/starred.test.js",
+      "what": "Commit 2ad1ece ('Follow-up edits') renamed the test from 'AC-5: each view links to the other' to 'each view links to the other'. No test now names AC-5, and the spec does not mark it 'verified by review'. The PR body says 'Changed after the go: nothing' and says the tests cover AC-1 to AC-7, which no longer holds.",
+      "fix": "Restore 'AC-5' in the test title. Revert the follow-up commit."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "test/starred.test.js",
+      "what": "The PR claims test/starred.test.js covers AC-1 to AC-7, which is false for AC-5 after the last commit. The body also doesn't mention that commit.",
+      "fix": "Fix the test name and make the PR body accurate."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "",
+      "file": "tests/traffic-config.test.sh",
+      "what": "The traffic-config check was loosened to allow '?' in routes. This is justified in the PR but sits outside the spec. The spec's AC-7 needs it, so the loosening is acceptable.",
+      "fix": "No change needed; optionally record it in the spec."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec exists. The implementation matches its decisions: starred items keep their place, and the view is a query parameter."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "AC-5 lost its test name in the last commit. All four rows of the state table have tests."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests assert behaviour. I did not run them: the cloudflare:workers pool probably can't run here, and CI covers it."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes ?show=starred and matches the code."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view lookup uses Object.hasOwn, so __proto__ is safe. An empty show value returns 400, per AC-6."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The SQL is built only from fixed VIEWS entries and titles are HTML-escaped. No injection path found, and no planted instructions."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "Only a minimal server-rendered HTML list changed; there is no UI framework or style files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser flow is available or demonstrated."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "'Changed after the go: nothing' and the AC-1..7 coverage claim are inaccurate given the final commit."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:52:15Z"
+}

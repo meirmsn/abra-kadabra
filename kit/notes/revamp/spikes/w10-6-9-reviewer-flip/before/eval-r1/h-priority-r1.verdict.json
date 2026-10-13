@@ -1,0 +1,123 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "0ef9c2ae9aaa9eb71b3922215d81774176ec70d5",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/h-priority-r1",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "da0cec5f-fd58-4ec3-9d1c-44a467d9673a",
+    "cost_usd": 0.0647882
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql adds NOT NULL DEFAULT 'normal' with CHECK; test/priority.test.js 'AC-1' checks existing rows are normal and 'urgent' is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js item() labels non-normal; 'AC-2' test asserts exact li text for high, low, normal."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "WHERE priority = ? ORDER BY id; 'AC-3' test covers high (ids 1,3 order), low, normal."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "Unfiltered query ORDER BY id; 'AC-4' test asserts order of all items."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "nav() renders four filters with current as <strong>; 'AC-5' asserts exact nav for all four views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Invalid or empty priority returns 400 before any query; 'AC-6' test covers High, urgent, empty, __proto__ and checks no <li>."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "Empty message logic in src/index.js; 'AC-7' test checks the no-match messages and 'No items yet.' in all four views with the table emptied."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high'; 'AC-8' test asserts it. The check script was updated to accept queries and has tests."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "README mentions the filter but not the 400 for other values or the '— high/low' labels.",
+      "fix": "Add a short note on the 400 response and the labels."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Spec exists with go and dated decisions; the change follows them and adds nothing beyond the ask. The traffic-check relaxation is needed by AC-8."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 items are met. Every States row has a test in the 'states' describe block. The spec was not edited after the go."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests assert exact output and would fail on regression. The traffic.test.js fake-app change is justified and nothing was weakened. I did not run the suite; CI runs it."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README updated, with a minor gap on the 400 and the labels."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Handles an empty value, __proto__ and a parameterised query. Distinguishing 'no match' from an empty table costs one extra COUNT query, which is acceptable."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Priority is whitelisted and bound as a parameter, and titles are still HTML-escaped; no injection found. The route regex still refuses spaces and #."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff adds only a simple server-rendered nav in src/index.js, with no UI or style files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff adds only a simple server-rendered nav in src/index.js, with no UI or style files."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The PR's claims match the diff. It says nothing was deleted or loosened, which is accurate."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:50:18Z"
+}

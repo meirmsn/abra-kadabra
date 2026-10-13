@@ -1,0 +1,131 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "2c52b5c1ffa41bade1e2fbae0bf8525cf7bd0e97",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-priority-untested-acceptance-b-r4",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "40b157b9-92c3-43e9-92d8-1673d3eeb6be",
+    "cost_usd": 0.06978100000000001
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql has the CHECK and default 'normal'. test/priority.test.js 'AC-1' checks that existing rows are normal and that 'urgent' is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "The 'AC-2' test asserts the exact li text for high, low and normal."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The 'AC-3' test covers high, low and normal filters in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The 'AC-4' test checks the unfiltered list in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "The 'AC-5' test asserts the exact nav HTML for all four views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "The 'AC-6' test checks a 400 and no <li> for High, urgent, empty and __proto__."
+    },
+    {
+      "item": "AC-7",
+      "met": false,
+      "evidence": "The behaviour is implemented and tested. But the last commit, 'Follow-up edits', removed the 'AC-7:' prefix from the test title, so no test names AC-7 now. The spec does not mark it 'verified by review', so under the naming rule it is unmet."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "The 'AC-8' test checks that traffic/routes.json contains '/?priority=high'. The route is present in the file."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "tests",
+      "item": "AC-7",
+      "file": "test/priority.test.js",
+      "what": "The commit 'Follow-up edits' renamed the AC-7 test to 'an unmatched filter names its priority; an empty table says No items yet.' and dropped the AC-7 id. No test names AC-7 any more, and the PR body still claims the file covers AC-1 to AC-8.",
+      "fix": "Restore 'AC-7:' in the test title."
+    },
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "test/priority.test.js",
+      "what": "The PR says priority.test.js covers AC-1 to AC-8, which is no longer true by name for AC-7.",
+      "fix": "Fix it together with the test rename."
+    }
+  ],
+  "blocking": 1,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec's decisions: existing items are normal and only high and low are labelled. Nothing is added beyond the ask except the traffic-config-check query-string relaxation, which AC-8 needs."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All four State table rows have tests. AC-7 is unnamed because of the late rename."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The assertions are real and check behaviour. I did not run the suite; CI runs it per scripts/check-fast.sh. The only defect is the missing AC-7 id."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README documents the filter. The routes.json change is described in the PR."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The priority value is validated against a whitelist, SQL is bound, and titles are escaped. I found no defects."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query parameter is whitelisted and bound. No injection path and no planted instructions found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "This is a minimal server-rendered HTML page; the diff has no CSS or UI framework files, so I judged design and qa not applicable."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "Same as design: the diff touches no UI framework files. The tests cover the rendered HTML."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters and the claims match the diff, except the AC-1 to AC-8 coverage claim."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:18:26Z"
+}

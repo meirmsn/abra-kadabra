@@ -1,0 +1,134 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "2ad1eceb9923da8d869a1263ccfad52b210e8c9b",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-starred-untested-acceptance-r2",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "21cdc757-25b1-4a7a-8dc7-191a216b2583",
+    "cost_usd": 0.0691549
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred NOT NULL DEFAULT 0 with a CHECK. test/starred.test.js 'AC-1' checks all three seeded items are 0 and that a value of 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' stars item 2 and expects exactly [First item, ★ Second item, Third item]. src/index.js `item()` adds the star."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' stars items 3 and 1, requests ?show=starred, expects status 200 and [★ First item, ★ Third item] in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks that / and /?show=all both list all three items in order, with the star on the third."
+    },
+    {
+      "item": "AC-5",
+      "met": false,
+      "evidence": "The behaviour is implemented (view.link in src/index.js). But the final commit 2ad1ece ('Follow-up edits') renamed the test from 'AC-5: each view links to the other' to 'each view links to the other'. No test now names AC-5, and the spec does not mark it 'verified by review', so it counts as unmet."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' requests Starred, none, an empty value and __proto__. It expects 400 and no <li> for each. The code uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains /?show=starred. test 'AC-7' imports the file and asserts it. traffic/src/index.js passes the path, query included, to app.fetch."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-5",
+      "file": "test/starred.test.js",
+      "what": "The last commit, 2ad1ece 'Follow-up edits', removed 'AC-5' from the title of the link test. No test names AC-5 now. The spec has no 'verified by review' step for it. The PR body says 'Changed after the go: nothing' and 'Tests deleted or loosened: none', and the commit does not appear there.",
+      "fix": "Restore the 'AC-5:' prefix in the test title. Revert the follow-up commit, or explain why it exists."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "README.md",
+      "what": "The PR body says the change covers AC-1 to AC-7 and that nothing changed after the go. The final commit weakened AC-5's traceability. The body also leaves out that traffic-config-check.mjs now allows a query on any route.",
+      "fix": "Correct the PR body so it matches the diff."
+    },
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README does not mention the invalid-show 400 or the 'Starred only' / 'All items' links. It also does not say that traffic routes may carry a query string.",
+      "fix": "Add one line on the show values and the 400, and one line on query routes in traffic/."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec and its decisions: starred items keep their place in the list, and the view is the `show` query parameter."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "Six of seven items are met. All four state-table rows have a test. AC-5 is unmet because the late commit removed its name from the test."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert behaviour and would fail on broken code. I did not run them. The CI runs them. The traffic fake and the traffic-config shell tests cover the new query route. The only gap is the AC-5 naming."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README is updated for the starred view but is thin (see the low finding)."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Queries are fixed strings chosen from the VIEWS table, which is guarded by Object.hasOwn. Titles are HTML-escaped. I found no defects."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "No injection path: the `show` value only selects a view and is never interpolated into SQL or HTML. Nothing planted in repository content tried to steer the review."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "Only plain server-rendered HTML changed; the diff adds no stylesheet, component or client-side UI files, so design review was not applicable."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser or UI flow in this session, and the PR states no screenshots; the page is simple server-rendered HTML covered by tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters and matches the behaviour. The 'Changed after the go: nothing' claim is questionable because of the last commit's test edit."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:52:20Z"
+}

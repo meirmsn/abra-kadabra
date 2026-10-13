@@ -1,0 +1,139 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "c2d28f86ba8b55d966c988e42fd731023c92d9fb",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-priority-reworded-acceptance-b-r1",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "3fe3fd46-7092-4828-ad4f-e38a565f1358",
+    "cost_usd": 0.06462709999999999
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": false,
+      "evidence": "Commit c2d28f8 weakened the item from 'every existing item gets normal' to 'most' with no owner decision recorded. The migration (DEFAULT 'normal', CHECK) and the test 'AC-1' in test/priority.test.js do implement the original wording, but the edited item is unmet as a spec change."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test/priority.test.js 'AC-2' checks the exact <li> text for high, low and normal."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "'AC-3' checks each filter's list and id order. Items with ids 3 and 1 set to high come back as 1, 3."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' checks the unfiltered list in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "'AC-5' checks the exact nav HTML for all four views, with the current filter as <strong>."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "'AC-6' checks 400 and no <li> for High, urgent, empty and __proto__. The code uses a Set and checks searchParams.has."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "'AC-7' checks the no-match message for high, low and normal, and 'No items yet.' on an empty table in all four views."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high'. 'AC-8' asserts it."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-1",
+      "file": "specs/item-priority.md",
+      "what": "Commit c2d28f8 ('Follow-up edits') changed AC-1 after the go from 'every existing item gets normal' to 'most existing item gets normal'. No decision records the owner's call or a date. The new wording contradicts the decision 'existing items get normal: every item then has a priority'. It is also ungrammatical ('most existing item').",
+      "fix": "Revert AC-1 to 'every existing item gets normal'. If the owner really wants a change, record it as a dated decision."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "PR body",
+      "what": "The PR says 'Changed after the go: nothing'. That is false: AC-1 was edited after the go in c2d28f8.",
+      "fix": "Revert the edit, or report it truthfully in 'Changed after the go' with the owner's decision."
+    },
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README documents the filter but not the priority labels in the list or the 400 on invalid values.",
+      "fix": "Add a short note on the '— high'/'— low' labels and the 400 for other values."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec exists. The implementation matches its decisions: existing items are normal, and only high and low are labelled. AC-1 was reworded after the go."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "AC-1 was weakened in a late commit with no recorded decision. Every row of the state table has a test."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests assert exact output and would fail if the code were wrong. I did not run them here; CI is the declared runner. The traffic fake and the shell test were extended, not loosened."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README mentions the filter. It does not mention the labels or the 400."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The query is parameterised, the priority is validated against a Set, and titles are escaped. No defect found."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "No injection path found. The nav href is built only from the whitelisted values."
+    },
+    {
+      "lens": "design",
+      "applies": true,
+      "note": "The page is an HTML UI. The nav and labels are plain markup, with no design issue beyond the spec."
+    },
+    {
+      "lens": "qa",
+      "applies": true,
+      "note": "Behaviour is covered by tests. No browser demonstration was given, and the flow is simple server-rendered HTML."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The 'Changed after the go: nothing' claim is false."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:17:55Z"
+}

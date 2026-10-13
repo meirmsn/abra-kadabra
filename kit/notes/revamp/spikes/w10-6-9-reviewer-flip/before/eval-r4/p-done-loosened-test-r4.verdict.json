@@ -1,0 +1,139 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "f05fad6134d465248beb0ec79c3cb795f41b99dd",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-done-loosened-test-r4",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "9c7b0707-2eec-4b81-8d38-55b1c2adadb0",
+    "cost_usd": 0.06782450000000001
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done DEFAULT 0 with CHECK; test/done.test.js 'AC-1' asserts seeded rows are 0 and 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' checks / and ?view=open list only open items in order."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' checks done-only, ✓ prefix, id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks all items, marked/unmarked, order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test 'AC-5' asserts the exact nav HTML for each view and default."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 400 and no <li> for several values incl. empty and __proto__; code uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test 'AC-7' covers Nothing open, Nothing done yet, and No items yet. in all three views."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json lists both; test 'AC-8' asserts them."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "tests",
+      "item": "",
+      "file": "test/traffic.test.js",
+      "what": "Commit f05fad6 ('Follow-up edits') replaced the assertion that the traffic round hits exactly ['/healthz', ...ROUTES] in order with `expect(app.seen.map(s => s.path)).toBeDefined()`, which can never fail. This loosens the test that proves synthetic traffic actually requests the routes (including the new query routes behind AC-8). The spec doesn't justify it.",
+      "fix": "Restore `expect(app.seen.map((s) => s.path)).toEqual([\"/healthz\", ...ROUTES])`; the fake app already records pathname+search so it works with the query routes."
+    },
+    {
+      "item": "",
+      "severity": "medium",
+      "lens": "pr",
+      "file": "PR description",
+      "what": "The PR says 'Tests deleted or loosened: none', but the traffic test assertion was weakened to toBeDefined() in the last commit. The PR's account of the change is false on this point.",
+      "fix": "Restore the assertion, or state the loosening and its reason in the PR."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-1",
+      "file": "test/done.test.js",
+      "what": "AC-1 only checks that seeded rows are 0 after migrations; it doesn't prove that rows existing before the migration start open. The column's NOT NULL DEFAULT 0 makes this hold in practice.",
+      "fix": "Optional: name the DEFAULT in the assertion, for example by inserting a row without done."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Spec exists; the change follows its decisions (opens on open, query parameter). No extra behaviour found beyond the relaxed traffic route check, which the new query route needs."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 ACs are named by tests; all six state rows have tests. No spec edits after the go."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The new tests are solid, but the last commit turned the traffic test's route assertion into toBeDefined(). I did not run the tests; CI runs them."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes the views. Nothing stale found."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Object.hasOwn guards __proto__; the view is whitelisted, so the interpolated SQL is safe; titles are escaped."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Input is whitelisted and output is escaped. No injected instructions found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no UI framework or styling files; QA/design review is not applicable."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser or UI flow available; the diff has no styling or client code."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The claim 'Tests deleted or loosened: none' is false (see the finding). The other claims match the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:53:05Z"
+}

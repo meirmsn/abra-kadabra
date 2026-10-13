@@ -95,6 +95,10 @@ head commit before approving.
   whether the base commit has `scripts/check-fast.sh`, the script CI's `fast` job runs (the CI
   tiers contract). Declared, a test it can't run is a `tests` note; not declared, it is `unsure`.
   A finding whose only fix is to run the tests or confirm CI is never a finding.
+- A departure from the spec is never `low` (W10.6.9): code that departs from a decision (even an
+  extra guard the decision rejected) or a state-table row tested only in part is at least
+  `medium`. Left to judgement, the same commit got `low` in some runs and blocking in others
+  (F-NEW-40).
 - It works in a throwaway clone that holds only the base and head commits and has no remote. Some
   allowlisted commands can still write files anywhere the user can: `git diff --output=<path>`, and
   a test run, which executes the change's own code. The clone keeps ordinary writes away from the
@@ -118,7 +122,8 @@ head commit before approving.
   (`pr` lens), a shallow clone, and could-not-run for every bad input. W10.6.8: the session
   variables removed by pattern (made-up future names too) while auth and proxy variables pass; the
   prompt's commands following an edited `settings.json` copy; whether `scripts/check-fast.sh` is at
-  the base (not added by the change) stated in the prompt; 13 of 13 mutants killed.
+  the base (not added by the change) stated in the prompt; 13 of 13 mutants killed. W10.6.9: the
+  never-`low` rules for decisions and state rows are in the prompt; 4 of 4 mutants killed.
 - [`tests/reviewer-pr.test.sh`](../../tests/reviewer-pr.test.sh) (in CI) checks the comment (per
   lens, marker not forgeable from model text) and `pr-words.sh`.
 - [`tests/ship.test.sh`](../../tests/ship.test.sh) (in CI, stub `review.sh` and `gh`, a local

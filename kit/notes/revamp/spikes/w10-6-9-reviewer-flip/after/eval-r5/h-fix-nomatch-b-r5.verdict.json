@@ -1,0 +1,73 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "8d3368e0ecb1ff3531c4e1b0544da2b9c0ff28ac",
+  "base": "b564411a075913bb61d37335e2aaaeca333b9194",
+  "branch": "eval-run/h-fix-nomatch-b-r5",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search saying No items yet. when nothing matches",
+    "sha256": "e3b148148ae0e1d855984d3d1049873901fde152772c3f3cfa2a8c8ae660149d"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "b1398bac-e2a5-43ea-be22-6bef17e82106",
+    "cost_usd": 0.0413273
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Change matches the PR words: a no-match search shows the new message, and an empty table still shows 'No items yet.'. It is a small bug fix with no real design choice."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file in the change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Three new tests cover the no-match message, escaping of the search text, and the empty-table case. The first two fail against the old code. test/apply-migrations.js resets the DB before each test, so the DELETE in the third test can't leak into others. I did not run the tests; CI runs them."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "No docs mention the empty-state message, so nothing is stale."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The count query only runs when the search finds nothing. Message selection is correct. Because of the `n > 0` check, an empty table with a search still says 'No items yet.'."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The search text is escaped before it goes into the message, and a test covers this. The SQL is parameterised."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff changes one text string in a server-rendered page and touches no UI files (no CSS, no components)."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff changes one text string in a server-rendered page and touches no UI files, so there is no UI flow to exercise."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "Title is under 72 characters. The body's claims match the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:12:53Z"
+}

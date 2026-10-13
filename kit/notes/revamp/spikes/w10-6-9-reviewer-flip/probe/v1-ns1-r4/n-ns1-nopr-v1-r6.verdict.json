@@ -1,0 +1,161 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "1337cc02b6df0d6d3a13d018b2014c84b897b959",
+  "base": "9644a31035ed6b12085e670304b133a76853fa30",
+  "branch": "eval-run/n-ns1-nopr-v1-r6",
+  "spec": "specs/item-categories.md",
+  "intent": "spec",
+  "pr": null,
+  "reviewer": {
+    "devshop": "scratchpad",
+    "model": "claude-sonnet-5-5",
+    "session_id": "90e61613-c5a7-409a-868d-63366b65a2b1",
+    "cost_usd": 0.1038322
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-1' checks seeded rows, UNIQUE and CHECK rejections, nullable column, index, and item tagging; migration 0003 matches."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' inserts title-only (null category_id) and asserts an unknown category_id throws FOREIGN KEY."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' asserts id order, the categorised li markup and the bare li for an uncategorised item."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' asserts the exact link order and hrefs (including a lower-case, empty category) and that only All is current."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "Two AC-5 tests: Work-only items in id order, Work current, and extra params leave the page unchanged."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' asserts 200, the message, no li, and the current link."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test 'AC-7' asserts escaped label, the encoded href, and that following the link lists the item."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "it.each AC-8 covers all five paths: 404, message, Go back href, referrer script, no li, no nav."
+    },
+    {
+      "item": "AC-9",
+      "met": true,
+      "evidence": "test 'AC-9' checks HEAD statuses 200, 200 and 404."
+    },
+    {
+      "item": "AC-10",
+      "met": false,
+      "evidence": "Verified by review, but the shipped script adds a `history.length > 1` guard that the spec's decision rejected, so I can't confirm it matches the decision. I could not run a browser here."
+    },
+    {
+      "item": "AC-11",
+      "met": true,
+      "evidence": "routes.json has the route. tests/traffic-config.test.sh covers the query accepted and whitespace/# rejected. test/traffic.test.js records path+search. test/index.test.js 'AC-11' asserts every route answers ok."
+    },
+    {
+      "item": "AC-12",
+      "met": true,
+      "evidence": "The existing healthz, 404, 405, escaping and empty-table tests remain, and the li assertion is updated to the AC-3 markup. The change deletes no test."
+    },
+    {
+      "item": "AC-13",
+      "met": true,
+      "evidence": "test/apply-migrations.js drops all tables in one batch with defer_foreign_keys. The AC-13 test asserts the item count is 4 after a categorised insert, so the reset ran."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "medium",
+      "lens": "spec",
+      "item": "AC-10",
+      "file": "src/index.js",
+      "what": "The Go back click handler uses `if (ours && history.length > 1)`. The spec decision says the script goes back when document.referrer is same-origin, and explicitly rejects `history.length > 1`. The extra guard is a departure from the decision, so a same-origin referrer with history.length of 1 goes home instead of back.",
+      "fix": "Use `if (ours) { e.preventDefault(); history.back(); }`."
+    },
+    {
+      "severity": "medium",
+      "lens": "tests",
+      "item": "",
+      "file": "test/index.test.js",
+      "what": "The States table rows are only partly asserted. The `/`-with-no-items row (existing 'says so when the table is empty') checks only the message, not that the filter links show with All current or that the list is hidden. No test for rows 1–4 asserts the 'Go back' link is hidden (no 'Go back' text or script on 200 pages).",
+      "fix": "Add assertions: on the empty `/`, the nav is present with All current and there is no `<ul>`; on 200 pages (all four success rows), the HTML does not contain 'Go back'."
+    },
+    {
+      "severity": "low",
+      "lens": "code",
+      "item": "",
+      "file": "src/index.js",
+      "what": "The `/?category=...` query selects `? AS category` bound to the name. This works but is an unusual detour compared with joining categories.",
+      "fix": "Optional: reuse the join query with a WHERE clause."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change matches the spec's intent. It adds nothing beyond the ask, apart from the extra history.length guard noted under spec."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "Decision departure on the Go back script (history.length guard). The only commit that edits the spec (c72b0f1) just records the go and accepts proposals; no acceptance item was edited."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "AC-1 to AC-9, AC-11 and AC-13 are named in tests. AC-10 is review-only, as the spec allows. State-table coverage is partial (see findings). I did not run the suite; CI runs it."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README is updated for the filter and the 404. No stale references found."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The SQL is parameterised, names are escaped and URL-encoded, and the repeated/empty parameter handling is correct. One extra guard in the script."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Category names are HTML-escaped. The inline script uses no user input. No injection found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files beyond server-rendered HTML in src/index.js, and has no stylesheet or component files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff has no UI flow that I could drive in this environment; the browser check for AC-10 is a review step the spec defines."
+    },
+    {
+      "lens": "pr",
+      "applies": false,
+      "note": "No PR words were given."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T20:04:53Z"
+}

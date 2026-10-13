@@ -1,0 +1,164 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "1337cc02b6df0d6d3a13d018b2014c84b897b959",
+  "base": "9644a31035ed6b12085e670304b133a76853fa30",
+  "branch": "eval-run/n-ns1-v2-r2",
+  "spec": "specs/item-categories.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Item categories and a category filter on the list",
+    "sha256": "2ba3130b0d545ad5213c307b4af797ec38b5e90795ff09df58617529df36bc4a"
+  },
+  "reviewer": {
+    "devshop": "scratchpad",
+    "model": "claude-sonnet-5-5",
+    "session_id": "18516c25-4d27-4a6e-b37a-d28d1b5b95b6",
+    "cost_usd": 0.1615396
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0003_item_categories.sql implements it; test/index.test.js 'AC-1' checks rows, UNIQUE and CHECK failures, nullable column, index and tagged items."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' inserts title-only (null category_id) and asserts an unknown category_id throws FOREIGN KEY."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' asserts id order, categorised markup and '<li>No category</li>'; src/index.js `item`."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' asserts the exact link list/hrefs in NOCASE order including an empty category, and only All current."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "tests 'AC-5' check Work-only items in id order, Work current, and that &x=1 / ?x=1 pages are identical to the base pages."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' asserts 200, 'No items in this category.', no <li>, and the current link."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test 'AC-7' asserts the escaped label, the encoded href, and that following the link lists the item."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "it.each 'AC-8' covers all five bad URLs: 404, message, Go back href '/', referrer script, no <li>, no <nav>."
+    },
+    {
+      "item": "AC-9",
+      "met": true,
+      "evidence": "test 'AC-9' checks HEAD statuses 200/200/404."
+    },
+    {
+      "item": "AC-10",
+      "met": true,
+      "evidence": "Verified by review as the spec allows. The review step is concrete. The script in brokenLinkPage calls history.back() for a same-origin referrer and otherwise leaves the href '/', so an empty referrer throws in `new URL` and falls through. Matches the spec flow. The extra `history.length > 1` guard is harmless."
+    },
+    {
+      "item": "AC-11",
+      "met": true,
+      "evidence": "routes.json lists /?category=Work. tests/traffic-config.test.sh covers accepting a query and rejecting whitespace, # and a missing slash. test/traffic.test.js asserts ROUTES contains it and the fake app sees path+query. The index test 'AC-11' asserts every route answers ok."
+    },
+    {
+      "item": "AC-12",
+      "met": true,
+      "evidence": "The existing healthz, 404, 405, escaping and empty-table tests are unchanged except the First item assertion, which now uses the AC-3 markup. The tests could not be run here: vitest is not installed."
+    },
+    {
+      "item": "AC-13",
+      "met": true,
+      "evidence": "test/apply-migrations.js drops in one batch with defer_foreign_keys. Test 'AC-13' asserts the count is 4 after the earlier tests leave categorised rows. It is weak but would fail if the reset broke."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "medium",
+      "lens": "tests",
+      "item": "",
+      "file": "test/index.test.js",
+      "what": "The States table is only partly tested. No test asserts 'Go back' is hidden on any 200 state (rows 1-4). The 'No items yet.' test (`/`, no items) does not check that the filter links show with All current. The unfiltered list and known-category pages are never checked for the absence of the broken-link message.",
+      "fix": "In the empty-table test, assert the nav links and All current, and that 'Go back' and 'corrupted' are absent. In the AC-3, AC-5 and AC-6 tests, assert 'Go back' is absent."
+    },
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "migrations/0002_reset_to_baseline-3.sql",
+      "what": "The diff includes a new no-op migration, 0002_reset_to_baseline-3.sql (`SELECT 1`), from the baseline reset commit. The PR body does not mention it.",
+      "fix": "Mention it in the PR body, or confirm it belongs to the base."
+    },
+    {
+      "severity": "low",
+      "lens": "code",
+      "item": "AC-10",
+      "file": "src/index.js",
+      "what": "The Go-back script adds a `history.length > 1` condition that the spec does not list. The spec only rejected using it as the sole test, so this is harmless but unspecified.",
+      "fix": "Drop the extra guard or record it in the spec."
+    }
+  ],
+  "blocking": 1,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change matches the spec's intent: item categories plus a list filter. Nothing was added beyond the spec, apart from the extra history.length guard."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 13 items are met. The spec go commit comes before the implementation commits and only recorded the owner's acceptance. No acceptance item was edited after the go."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "vitest is not installed here, so npm test could not run. That goes in this note, not as a finding. Tests name their ACs and would fail if the code were wrong. The State-table gaps are in the findings."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README now describes the filter and the 404. CLAUDE.md and the README already say new features add routes to routes.json. Nothing found stale."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Matching, encoding and escaping are correct. The traffic Worker passes the query through. The only finding is the unspecified history.length guard."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Names are HTML-escaped and URL-encoded. Queries are parameterised. The inline script uses no user input. No planted instructions found."
+    },
+    {
+      "lens": "design",
+      "applies": true,
+      "note": "The diff changes the HTML in src/index.js (nav, list and 404 page). The structure is plain and spec-conformant."
+    },
+    {
+      "lens": "qa",
+      "applies": true,
+      "note": "The UI flows are covered by the tests above. The Go-back behaviour (AC-10) was verified by reading the script, not in a browser."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The claims are true of the diff. The traffic regex change is disclosed. The only gap is that the 0002 reset migration is not mentioned."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T20:00:50Z"
+}

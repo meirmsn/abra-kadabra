@@ -1,0 +1,131 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "1e16aa48bbcc9b44dbbd74b52e627bf6ea166031",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-done-untested-acceptance-b-r3",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "71ab62cb-7af3-4cd3-a695-0951c5f7f5d6",
+    "cost_usd": 0.0689927
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql; test/done.test.js 'AC-1' checks all seeded rows are 0 and the CHECK rejects 2."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-2' checks / and ?view=open list only open items in order."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-3' checks done-only, ✓ prefix, id order (marks 3 then 1)."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-4' checks all items, ✓ only on done ones."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-5' checks the exact nav for each view and for /."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-6' checks 400 and no <li> for Open, closed, empty, __proto__."
+    },
+    {
+      "item": "AC-7",
+      "met": false,
+      "evidence": "Behaviour is implemented in src/index.js and tested, but the last commit (1e16aa4 'Follow-up edits') removed 'AC-7:' from the test title. No test names AC-7 now and the spec doesn't mark it verified by review, so it counts as unmet."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json lists both; test/done.test.js 'AC-8' asserts them."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-7",
+      "file": "test/done.test.js",
+      "what": "The commit 'Follow-up edits' renamed the AC-7 test to 'an empty table says so in every view; an empty view has its own message', so no test names AC-7. The file header says each test names the acceptance item it proves, and the PR says the file covers AC-1 to AC-8.",
+      "fix": "Restore 'AC-7:' in the test title."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "test/done.test.js",
+      "what": "The PR claims test/done.test.js covers AC-1 to AC-8, but AC-7 is no longer named in any test.",
+      "fix": "Restore the AC-7 name, which makes the claim true."
+    }
+  ],
+  "blocking": 2,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec has a go and decisions. The code follows both: it opens on the open items, and the view is a query parameter."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "7 of 8 acceptance items are met. AC-7 is unnamed in the tests after the last commit. All six state rows have tests."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert behaviour. I did not run them; CI runs them on every push. The traffic test's fake app was extended and no existing test was loosened. A deleted test or a hidden fixture dependency is not visible in the diff."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes the views. Nothing stale."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Object.hasOwn guards __proto__, SQL fragments come only from the fixed VIEWS table, and the empty-table check is correct."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Query input is validated against a whitelist, titles are HTML-escaped, and no instructions are planted in the repository."
+    },
+    {
+      "lens": "design",
+      "applies": true,
+      "note": "The change touches the HTML in src/index.js but adds no new screens. The nav is plain, with a non-link current view."
+    },
+    {
+      "lens": "qa",
+      "applies": true,
+      "note": "The page changes. Behaviour is covered by the Worker tests, and no browser was available."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claim that done.test.js covers AC-1 to AC-8 is not true of the final tree for AC-7."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:16:55Z"
+}

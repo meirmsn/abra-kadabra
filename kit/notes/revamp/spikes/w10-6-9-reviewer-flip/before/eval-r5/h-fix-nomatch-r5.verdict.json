@@ -1,0 +1,73 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "8d3368e0ecb1ff3531c4e1b0544da2b9c0ff28ac",
+  "base": "b564411a075913bb61d37335e2aaaeca333b9194",
+  "branch": "eval-run/h-fix-nomatch-r5",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search saying No items yet. when nothing matches",
+    "sha256": "e3b148148ae0e1d855984d3d1049873901fde152772c3f3cfa2a8c8ae660149d"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "77529333-8e9f-4003-832e-ea07ca50ff27",
+    "cost_usd": 0.024597300000000002
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change does what the title says. It is a small bug fix with one obvious design, so it needed no spec."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "There is no spec file in this change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Three new tests cover no matches, an escaped query and an empty table. The first two would fail on the old code. The empty-table test is a regression guard. The DELETE pattern matches test/index.test.js. I did not run the tests; CI covers them."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README.md only describes the `?q=` search at a general level. No doc mentions the empty-state message."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The message is escaped, and the extra COUNT query only runs when a search finds nothing. The message falls back to 'No items yet.' when the table is empty."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query is escaped through escapeHtml in both the message and the input value. The SQL uses bound parameters. The `empty` value is built only from the escaped query or a constant."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The only template change is the text of one empty-state message. No styles or components are touched."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff changes no UI structure or flow, only the wording of one message."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The body's claims match the diff: the new message is escaped, the empty table keeps its old text, and no tests were deleted."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:50:51Z"
+}
