@@ -75,7 +75,12 @@ case "$method $path" in
     [[ "$q" == "open example:"* ]] || { echo "stub gh: unexpected query $path" >&2; exit 1; }
     b=${q#open example:}
     cat "$GH_DIR"/prs/*.json 2>/dev/null | jq -s --arg b "$b" '[.[] | select(.state == "open" and .head.ref == $b)]' ;;
-  "GET repos/example/app/pulls/"*) cat "$GH_DIR/prs/${path##*/}.json" ;;
+  "GET repos/example/app/pulls/"*)
+    # $GH_DIR/lag: GitHub hasn't caught up with a push yet; that many reads still show the old head.
+    if [ -s "$GH_DIR/lag" ] && [ "$(cat "$GH_DIR/lag")" -gt 0 ]; then
+      echo $(($(cat "$GH_DIR/lag") - 1)) >"$GH_DIR/lag"
+      jq '.head.sha = "0000000000000000000000000000000000000000"' "$GH_DIR/prs/${path##*/}.json"
+    else cat "$GH_DIR/prs/${path##*/}.json"; fi ;;
   "POST repos/example/app/issues/"*"/comments")
     n=${path#repos/example/app/issues/}; n=${n%/comments}
     jq -c . >>"$GH_DIR/comments.$n"; echo '{"id": 1}' ;;
@@ -351,6 +356,13 @@ open_pr 5 "Add x" "PR body on GitHub"
 run_hook post Bash "$(bash_call "git push origin feat/x")"; allowed "post after push"
 [ "$(posted 5)" = 1 ] && [ "$(jq -r .commit <<<"$(marker 5)")" = "$(head_sha)" ] || fail "no verdict for the pushed head"
 ok "a passing push goes through, and its verdict lands on the PR for the new head"
+# GitHub lags behind the push for a moment (LOG #47: the post read the old head and gave up).
+reset_state pass; open_pr 5 "Add x" "PR body on GitHub" "$(git -C "$work/p" rev-parse HEAD~1)"
+run_hook gate Bash "$(bash_call "git push origin feat/x")"; allowed "push"
+open_pr 5 "Add x" "PR body on GitHub"; echo 2 >"$work/gh/lag"
+run_hook post Bash "$(bash_call "git push origin feat/x")"; allowed "post while GitHub still shows the old head"
+[ "$(posted 5)" = 1 ] || fail "the post gave up while GitHub caught up with the push"
+ok "the post waits for GitHub to show the pushed head"
 for c in "git push --all" "git push --delete origin feat/x" "git push upstream feat/x" "git push origin main:feat/x"; do
   reset_state pass; open_pr 5 "Add x" "b"
   run_hook gate Bash "$(bash_call "$c")"; blocked "push the gate can't tie to HEAD: $c"

@@ -21,6 +21,7 @@ import shlex
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.parse
 
 HERE = os.path.dirname(os.path.realpath(__file__))
@@ -30,6 +31,7 @@ OUTCOME = {0: "pass", 1: "fail", 2: "could-not-run", 3: "ask-owner"}
 GITHUB_TOOL = re.compile(r"^mcp__.*github.*__([a-z_]+)$")
 PR_TOOLS = ("create_pull_request", "update_pull_request")  # reviewed; hooks.json names the same tools
 REMOTE_COMMIT = ("push_files", "create_or_update_file", "delete_file", "update_pull_request_branch")
+HEAD_WAIT = 10  # seconds the post waits for GitHub to show the pushed head
 REVIEW_TIMEOUT = 1100  # seconds; review.sh stops itself at 900
 OWNER = "Stop and tell the owner what happened, with the line above; don't retry until they decide."
 
@@ -485,6 +487,11 @@ def post(call):
     pr = gh_json(f"repos/{slug}/pulls/{pend['number']}") if pend.get("number") else open_pr(slug, branch)
     if not pr:
         raise Block(f"devshop reviewer hook: no open PR for {branch}, so the verdict was not posted.")
+    for _ in range(HEAD_WAIT):  # GitHub can show the old head for a moment after a push
+        if pr["head"]["sha"] == pend["commit"]:
+            break
+        time.sleep(1)
+        pr = gh_json(f"repos/{slug}/pulls/{pr['number']}")
     if pr["head"]["sha"] != pend["commit"]:
         raise Block(f"devshop reviewer hook: the PR's head is {pr['head']['sha'][:12]}, the reviewed commit "
                     f"{pend['commit'][:12]}; the verdict was not posted. Did the call fail?")

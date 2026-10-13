@@ -1727,7 +1727,7 @@ open PR.
 - Tests written first, failing (no hook registered, no `pr-words.sh`). `tests/review-hook.test.sh`
   (stub `review.sh` and `gh`, a local origin) covers every case in the task, plus the registration
   and a missing hook. `tests/reviewer-pr.test.sh` gained `pr-words.sh` (known-bad inputs refused)
-  and `--words`. Mutants: 57/57 killed. The first run left 11 survivors: 3 redundant checks, now
+  and `--words`. Mutants: 58/58 killed. The first run left 11 survivors: 3 redundant checks, now
   removed, and 8 test gaps, now tested.
 - The real harness runs it: with this branch's hook registered for the session only
   (`.claude/settings.local.json`, not committed), `gh pr create --fill --dry-run` was blocked with
@@ -1784,6 +1784,9 @@ throwaway clone`. Cause: a cloud session's clone is shallow, and `git fetch` fro
 - The body edit's review (at the PR's head) failed (medium): the fallback pattern for a missing hook
   didn't name `update_pull_request_branch` (caught only as a substring), and nothing tested the
   hook's tool list, the matcher and the fallback against each other. Now one test reads all three.
+- The push with those fixes passed its review (`dc5c3b70e949`), but the post read the PR a moment
+  before GitHub showed the new head and gave up. Re-run by hand from the recorded pass, it posted
+  the pass for that head. Fixed test first: the post re-reads the PR for up to 10 s.
 
 **Next**: this PR opened through the hook, and its `review-verdict` check green from the comment
 the hook posted; then the owner's fresh-session check (W10.6.7's done-when).
