@@ -71,7 +71,7 @@ Record: harness `run-records`, run `ns-1`, commit `3f833e2`, 2026-10-13T16:52:10
 coordinator's: `review.sh --base origin/main` at the planted commit on a local-only branch, the pinned
 reviewer (`a86ad4b268d9`), no PR words. The builder's own `ship` never reviewed the planted commit
 alone: its next review (005) covered the plant and its revert together and passed (F-NEW-36).
-`REVIEW: fail · round 1 · 3 blocking, 0 low · 3f833e299657`, $0.12, 30 s.
+`REVIEW: fail · round 1 · 3 blocking, 0 low · 3f833e299657`, $0.12, 30 s. "3 blocking" counts unmet acceptance items (AC-1, AC-4, AC-11); `review.sh` folds a finding about an unmet item into that item. The 4 high findings below are one per plant; two plants hit AC-1.
 
 | Ref    | Plant               | Target                   | Reviewer                                                            | CI                                                    |
 | ------ | ------------------- | ------------------------ | ------------------------------------------------------------------- | ----------------------------------------------------- |
