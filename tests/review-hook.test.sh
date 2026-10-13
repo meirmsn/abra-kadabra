@@ -69,8 +69,11 @@ echo "$*" >>"$GH_DIR/calls"
 shift; method=GET path=""
 while [ $# -gt 0 ]; do case $1 in -X) method=$2; shift 2 ;; --input) shift 2 ;; *) path=$1; shift ;; esac; done
 case "$method $path" in
-  "GET repos/example/app/pulls?head=example:"*"&state=open")
-    b=${path#*head=example:}; b=${b%&state=open}
+  "GET repos/example/app/pulls?"*)
+    # Parse the query as GitHub does: split on "&", then decode each value.
+    q=$(python3 -c 'import sys, urllib.parse as u; q = u.parse_qs(sys.argv[1].split("?", 1)[1]); print(q.get("state", [""])[0], q.get("head", [""])[0])' "$path")
+    [[ "$q" == "open example:"* ]] || { echo "stub gh: unexpected query $path" >&2; exit 1; }
+    b=${q#open example:}
     cat "$GH_DIR"/prs/*.json 2>/dev/null | jq -s --arg b "$b" '[.[] | select(.state == "open" and .head.ref == $b)]' ;;
   "GET repos/example/app/pulls/"*) cat "$GH_DIR/prs/${path##*/}.json" ;;
   "POST repos/example/app/issues/"*"/comments")
@@ -348,6 +351,16 @@ run_hook gate Bash "$(bash_call "git push -u origin feat/x")"; allowed "push wit
 [ "$(reviews)" = 0 ] || fail "a push with no open PR was reviewed"
 run_hook post Bash "$(bash_call "git push -u origin feat/x")"; allowed "post for push with no PR"
 ok "a push to a branch with no open PR is not reviewed"
+
+# A branch name with query characters still finds its open PR (the reviewer's security low, LOG #47).
+reset_state pass
+git -C "$work/p" checkout -qb 'feat/y&state=closed'
+commit_file "$work/p" amp.txt "on an odd branch"
+jq -n --arg s "$(head_sha)" '{number: 6, state: "open", title: "Odd", body: "b", head: {ref: "feat/y&state=closed", sha: $s}, base: {ref: "main"}}' >"$work/gh/prs/6.json"
+run_hook gate Bash "$(bash_call "git push origin HEAD")"; allowed "push from a branch with & in its name"
+[ "$(reviews)" = 1 ] || fail "a branch name with & hid its open PR, so the push went unreviewed"
+git -C "$work/p" checkout -q feat/x
+ok "a branch name with query characters is encoded, so its open PR is found"
 
 # A pass whose call then failed (the create errored, so no PR) must not be posted by a later call
 # (the reviewer's finding on this PR's first create through the hook, LOG #47).

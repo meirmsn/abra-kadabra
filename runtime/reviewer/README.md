@@ -104,7 +104,7 @@ a PostToolUse hook (`post`).
   passing create let through and its verdict posted and accepted by `verdict-check.sh`; a push to an
   open PR reviewed with the PR's words and blocked on a fail; every non-pass result blocking; words
   changed after the review re-reviewed and posted as they are on GitHub; edits reviewed first; the
-  plugin's registration. 51 of 51 mutants killed (the hook, and the `words` parts of the scripts above).
+  plugin's registration. 52 of 52 mutants killed (the hook, and the `words` parts of the scripts above).
 - [`tests/reviewer-live.sh`](../../tests/reviewer-live.sh) (`[runs]`, in a session only, because it
   calls the real model and CI runs no LLM jobs) runs the real reviewer on the A-04 fixtures in
   [`tests/fixtures/reviewer/`](../../tests/fixtures/reviewer) (spec: [`spec.md`](../../tests/fixtures/reviewer/spec.md)). The planted change (AC-4 skipped)
@@ -126,8 +126,11 @@ a PostToolUse hook (`post`).
   2026-10-12): if the north-star run or the reviewer eval (W10.6.4–5) shows repeat questions,
   reset the count when a commit changes the spec file.
 - Screenshots in the PR body (Review 5, L-29) are not checked yet: there is no browser.
-- The hook reads shell commands word by word. Commands it can't see into get through unreviewed:
-  `bash -c '…'`, `eval`, a script that pushes, and `gh api` writes to the PR. This is feedback, not
-  a wall: the `review-verdict` check shows a missing or stale verdict however the change got there.
+- The hook reads shell commands word by word and recognizes a push, create or edit only as the
+  command itself. Wrapped ones get through unreviewed: `bash -c '…'`, `sh -c`, `eval`, `sudo`,
+  `timeout`, `nice`, `xargs`, `env` with options, a script that pushes, and `gh api` writes to the
+  PR. Kept on purpose (owner, 2026-10-13): this is feedback, not a wall, and chasing every shell form
+  refuses harmless commands. The backstop is the `review-verdict` check: a push the hook didn't
+  review leaves no verdict for its commit, so the check reads stale and fails.
 - `gh pr create` and `gh pr edit` flags the hook doesn't know are refused (could-not-run) rather than
   guessed at.

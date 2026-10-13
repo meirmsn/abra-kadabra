@@ -21,6 +21,7 @@ import shlex
 import subprocess
 import sys
 import tempfile
+import urllib.parse
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 REVIEWER = os.path.join(os.path.dirname(HERE), "reviewer")
@@ -297,7 +298,8 @@ def gh_json(path):
 
 
 def open_pr(slug, branch):
-    prs = gh_json(f"repos/{slug}/pulls?head={slug.split('/')[0]}:{branch}&state=open")
+    head = urllib.parse.quote(f"{slug.split('/')[0]}:{branch}", safe=":/")  # a ref name may hold & # = ?
+    prs = gh_json(f"repos/{slug}/pulls?head={head}&state=open")
     return prs[0] if isinstance(prs, list) and prs else None
 
 

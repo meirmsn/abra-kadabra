@@ -1727,7 +1727,7 @@ open PR.
 - Tests written first, failing (no hook registered, no `pr-words.sh`). `tests/review-hook.test.sh`
   (stub `review.sh` and `gh`, a local origin) covers every case in the task, plus the registration
   and a missing hook. `tests/reviewer-pr.test.sh` gained `pr-words.sh` (known-bad inputs refused)
-  and `--words`. Mutants: 51/51 killed. The first run left 11 survivors: 3 redundant checks, now
+  and `--words`. Mutants: 52/52 killed. The first run left 11 survivors: 3 redundant checks, now
   removed, and 8 test gaps, now tested.
 - The real harness runs it: with this branch's hook registered for the session only
   (`.claude/settings.local.json`, not committed), `gh pr create --fill --dry-run` was blocked with
@@ -1760,6 +1760,17 @@ throwaway clone`. Cause: a cloud session's clone is shallow, and `git fetch` fro
   unquoted `--body $(cat f)` left a bare `$` (any `$` or backtick in a title or body is now
   refused); `update_pull_request_branch` commits on GitHub unreviewed (now blocked); a Build skill
   bullet was unwrapped. The hook's own gap: ask-owner printed no findings (now it does). Tests first.
+
+- Round 4 became ask-owner too. Unsure (blocks): pushes wrapped in `bash -c`, `eval`, `sudo`,
+  `timeout`, `env -i` and the like go through unreviewed. Owner: keep that as a documented limit; the
+  `review-verdict` check is the backstop. Low, fixed test first: the branch name now goes into the
+  PR lookup URL-encoded (a ref with `&` could hide its open PR); the W10.6.2 `--pr` note now names
+  `pr-words.sh`. Low, not fixable here: the reviewer can't run this repo's tests (F-NEW-23).
+- **Round counter (data point for W10.6.4–5):** rounds 3 and 4 asked the owner although each round's
+  blocking findings were new and the earlier ones fixed. Owner's question: should the count reset
+  for a new issue? Proposed: reset when no blocking finding repeats the previous round's (matched by
+  lens and file), with a hard cap of reviews per branch that always asks. It changes the W10.6.2
+  interface, so it is its own task.
 
 **Next**: this PR opened through the hook, and its `review-verdict` check green from the comment
 the hook posted; then the owner's fresh-session check (W10.6.7's done-when).
