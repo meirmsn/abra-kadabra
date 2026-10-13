@@ -2483,3 +2483,24 @@ answers. The check came first and failed on the old file.
 and the PR-body template's "Low findings" line. Both are proposed to the owner in the PR.
 
 **Next**: W10.6.9's remaining items, then W10.6.10.
+
+## #59 — 2026-10-13 · W10.6.14: findings as tables with v1's glyphs
+
+**What moved**: the owner's review of #103 asked for v1's glyphs to scan the lists quickly. A
+summary table above each list was proposed first; the owner asked why not make the lists tables, so
+nothing is kept twice. Each list is now one table, a row per finding.
+
+- **Glyphs.** Grades carry v1's size glyphs (🟢🟢 XS, 🟢 S, 🟡 M, 🔴 L, 🔴🔴 XL); the colour is size,
+  so a red Impact is good news and a red Cost is not, as in v1. Leverage shows its band (🔥 5 or more,
+  🟡 2 to under 5, ⚪ under 2). Seen opens with dots toward the rule of 5 (●●○○○), then the dated
+  sightings separated by `<br>`.
+- **Check.** `findings-check.py` reads the three tables: exact headers, row shape, the glyph
+  matching each size, the band matching the Leverage, the dots matching the sightings. Test
+  rewritten for tables first: 44 cases, 29 of 29 mutants killed. 165 IDs before and after (main's
+  script on main's file against the new one); Closed rows unchanged.
+- **Low findings in project sessions.** The Build skill line approved after #103 didn't fit: the
+  skill was at 60 lines and 598 words against `skills-check.py`'s one page (60, 600). The rule went
+  into the PR-body template's **Low findings** placeholder instead, which the builder fills in when
+  it lists them. Splitting the Build skill is the owner's call.
+
+**Next**: W10.6.9's remaining items, then W10.6.10.
