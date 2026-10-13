@@ -1678,3 +1678,28 @@ longer claim it shows the line to the owner. A first try earlier was void: the e
 rebuilt, so the session ran the old hook.
 
 **Next:** W10.6.7 (another session).
+
+## #46 — 2026-10-13 · W10.6.4 prep: the harness's apply Action proven live; agent cut off
+
+**What moved**: the owner did W10.6.4's harness steps: the fixture-only token and the
+`FIXTURE_REPO` variable in the harness repo, then removed the agent identity as a collaborator. In
+between, one smoke test of the `apply-plants` Action, its first live run, on a throwaway fixture PR
+(a draft with one probe test, closed without merging).
+
+**Evidence**
+
+- Owner ran apply-plants with plant `loosened-test`, run id `smoke-1`: run green. On the PR
+  branch, exactly one new commit, "Follow-up edits" by `github-actions[bot]`, changing only
+  `expect(res.status).toBe(200)` to `toBeDefined()`. The fixture's `lint`, `test` and
+  `secret-scan` all passed on it (the plant is silent in CI). The `smoke-1` record (ref, file, line,
+  before/after, commit) is on the harness's `run-records` branch. In the job log both tokens show
+  only as `***` and no token-carrying URL is printed.
+- After the removal, `git ls-remote` on the harness repo as the agent: `repository … not found`.
+  Hiding the plants from the builder is now a wall, not a habit.
+
+**Surprises**: the plant push is the token owner's push, so under "approval of the most recent
+push" the owner can't approve a planted PR until someone else pushes; in a real run the builder's
+fixes come after it, so this doesn't block.
+
+**Next**: W10.6.4 once W10.6.7 lands. The `smoke-1` record stays on `run-records`; real runs use
+their own run ids.
