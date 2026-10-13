@@ -44,6 +44,13 @@ reachable from this page through links, or when a relative link or `#anchor` is 
 - [`build`](../runtime/skills/build/SKILL.md): one writer builds code, tests and docs together,
   loads what applies, and opens the PR from the template (TARGET § L3 Build).
 
+## Specs
+
+One file per change in [`specs/`](../specs), kept after merge as context (TARGET § L3 Intent).
+
+- [`ci-fast-slow-tiers.md`](../specs/ci-fast-slow-tiers.md): CI in two tiers, fast and slow, for
+  the devshop and every project.
+
 ## The install
 
 - [install/README.md](../install/README.md): how a project's cloud session gets the devshop version
