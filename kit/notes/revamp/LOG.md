@@ -2225,9 +2225,9 @@ it stays clean; each session files its own task line, so none is tracked in W10 
 **Next**: W10.6.9 (the blocking gaps, the in-passing ones), then W10.6.10 (run 2). W10.7 waits on a
 run that meets the M1 exit.
 
-## #54 — 2026-10-13 · W10.6.11: PR body for the owner's reading, screenshots on the PR
+## #54 — 2026-10-13 · W10.6.9d: PR body for the owner's reading, screenshots on the PR
 
-**What moved**: the owner's feedback on the PR bodies of a W10.6.4 run, filed first as W10.6.9, renumbered W10.6.11 when `main` gave that id to the run-1 gaps (LOG #53); it closes F-NEW-43. Tests
+**What moved**: the owner's feedback on the PR bodies of a W10.6.4 run, filed first as W10.6.9, renumbered W10.6.9d when `main` gave that id to the run-1 gaps (LOG #53); it closes F-NEW-43. Tests
 came first: 12 new cases in `tests/pr-body-check.test.sh` each failed on the old check, and every
 old case still passed.
 
@@ -2319,6 +2319,36 @@ check also confirms the merge has exactly two parents, the second the checked co
 signing array expands safely on bash before 4.4. Left: the GitHub mobile app, and a look after the
 merge and the branch's deletion.
 
+**After the merge** (PR #95, squash): the branch was deleted; the API still serves the probe at its
+commit (same size and blob SHA); `main` has no image files and the screenshot commit is not in its
+history; the owner saw the probe still render in the browser after a forced refresh. **The GitHub
+mobile app showed a broken image** (owner's phone screenshot), and so does an old lalista PR from
+v1: the app can't load a private repo's `github.com/…/raw/…` images, which need the browser's
+session; only drag-and-drop `user-attachments` get signed URLs, and that upload has no API
+(F-NEW-50). Mitigation (owner's pick): `pr-assets.sh` prints each image linked to itself, and
+`pr-body-check.py` requires that link on a `github.com/…/raw/…` image, so a tap opens it in the
+browser (tests first: 2 new cases, each failing on `main`'s check). Also from the review: the
+reviewer's screenshot check now confirms each file is a regular file (mode `100644`). W10.6.9d stays
+open until the owner decides whether mobile needs inline images (an outside host, public by link).
+
+**Task id** (owner): W10.6.9d, kept with the other run-1 findings under W10.6.9 and listed before
+W10.6.10, which now waits on both.
+
+**Image syntax in code gets mangled on the way to GitHub**: on PR #99, as on PR #95, `ship` stopped
+(exit 2) because the body GitHub kept differs from the reviewed one. Something on the session's path
+to GitHub drops the `!` from `![label](url)` when the URL isn't `https://`, even inside a code
+span; real `https://` images are untouched. `ship`'s read-back caught it both times. Bodies write
+such examples in words. Also from the review: the link check now counts each image, not each URL (a
+repo image linked once and shown bare elsewhere fails; test first).
+
+**Linked images dropped** (owner: B): on PR #99 the self-linked probe reached GitHub wrapped in a
+code span, so it showed as text; `ship` stopped (exit 2). So the session's path to GitHub leaves a
+bare `https://` image alone (PR #95), drops the `!` from image syntax with a non-https URL (even in
+code), and turns a linked image into code. Its rules aren't documented anywhere the session can
+read; `ship`'s read-back caught every case. The linked form and its body check are removed;
+`pr-assets.sh` prints bare images again. F-NEW-50 stays open with no mitigation from a session. Kept:
+the reviewer's file-mode check, F-NEW-50, F-NEW-43 fixed, the W10.6.9d rename.
+
 ## #55 — 2026-10-13 · W10.6.9 (F-NEW-40): the reviewer's flip measured and fixed
 
 **What moved**: the reviewer's pass-then-fail on one commit in run 1 (F-NEW-40), measured before
@@ -2354,7 +2384,7 @@ Planted 74/74 fail on their plant. $7.65 for 110 reviews (before: $7.33).
 
 - One planted review was could-not-run: the model's reply covered 5 of the spec's 7 items, and
   `review.sh` failed closed. That is 1 in 220 here, not a flip.
-- `main` changed `prompt.md` (W10.6.11) while the first "after" run was going. The driver reads the
+- `main` changed `prompt.md` (W10.6.11, now W10.6.9d) while the first "after" run was going. The driver reads the
   live file, so that run was stopped and discarded; the recorded run is on the merged prompt.
 - Parallel eval runs raced for git's worktree names. `run.sh` now names each worktree by its run id.
 
