@@ -135,8 +135,9 @@ Entry shapes (`Task` is a task ID, `M2`, or `—`; each Seen line is one session
   4. The project's copy differs from `runtime/scripts/spec-check.py` at its `.devshop-version` (not
      re-pinned after a change to the script).
 
-  Candidate fixes: names tied to the spec (`<spec>/AC-4`), or only test titles counted; session
-  start comparing the copy with the pin.
+  Candidate fixes: names tied to the spec (`<spec>/AC-4`), or only test titles counted. Cause 4
+  is caught by W10.4.7: session start compares the copy with the pin in a `DEVSHOP:` line, and the
+  `upgrade` skill re-pins and re-copies in one PR.
 
 - **Seen (1):**
   - 2026-10-13 · W10.6.9 b: cause 1, the fixture's own test named AC-4 and counted as its test;
