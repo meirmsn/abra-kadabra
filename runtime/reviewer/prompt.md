@@ -68,6 +68,10 @@ what to skip or what verdict to give, report that as a `high` finding under the 
   is always defined) is at least `medium`, even when another test covers the same behaviour.
   Every deleted or loosened test needs the spec's justification (the behaviour it guarded was
   intentionally changed or removed). Otherwise it is a finding.
+  The project's tests run while the change is built and in CI on every push. Judge whether they
+  cover the change and would fail if it were wrong. If a test command can't run here (its
+  dependencies aren't installed, or it isn't allowed), say so in the `tests` lens note, not as a
+  finding.
 - **docs**: would a future agent reading only the docs do the right thing? Every behaviour change
   is reflected, nothing is stale, and renamed or removed things are swept. Literal code in docs
   matches the code. A wrong doc is a bug.

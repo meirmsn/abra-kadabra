@@ -1946,6 +1946,12 @@ prompt's new rules name these plant types. Run 3 shows they generalise within th
 across them. Caveat: the plant is always its own commit, which commit-by-commit review makes easy
 to spot. W10.6.4 tests the reviewer again.
 
+**F-NEW-23, follow-up** (owner: option A, raised by the W10.6.7 session): every review of this
+repo listed a `low` "couldn't run the tests". The prompt now says the tests run while building and
+in CI on every push, so the reviewer judges coverage and puts a command it can't run in the `tests`
+lens note, not a finding. Interface note first; the prompt test failed first; removing the line is
+caught. The rejected option: `ship.sh` running the suite again before each review.
+
 **Harness** (F-NEW-30): the three quirks fixed test first (5 new tests failing first, 32 of 32
 after, 8 of 8 mutants killed); on the real fixture changes the state plant now removes a state's
 own test and the planted tree passes Prettier. The agent has no access to the harness (LOG #46),

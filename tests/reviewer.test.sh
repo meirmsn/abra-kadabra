@@ -160,7 +160,8 @@ echo "ok - the calling session's identity doesn't reach the reviewer"
 # shown by the live eval (kit/notes/revamp/spikes/w10-6-5-reviewer-eval), not here.
 p=$(tr -s "\n" " " <"$STUB_LOG.args") # the prompt wraps lines; match across them
 for want in "one simple command per Bash call" "a refused command" "commit by commit" \
-  "named by the test that proves it" "verified by review" "state table" "can never fail"; do
+  "named by the test that proves it" "verified by review" "state table" "can never fail" \
+  "in CI on every push" "in the \`tests\` lens note, not as a finding"; do
   grep -qiF "$want" <<<"$p" || fail "prompt lacks: $want"
 done
 ! grep -qF "read instead" <<<"$p" || fail "prompt still says to read instead after a refusal"
