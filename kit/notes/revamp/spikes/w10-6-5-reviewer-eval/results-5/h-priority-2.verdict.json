@@ -1,0 +1,123 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "2ba85bbc3e473fcbcf5c11c9ab683148ed32ce70",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r5-h-priority-2",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "7827b0cd-c0fc-4049-b68b-ef4a48124de1",
+    "cost_usd": 0.06462280000000001
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql adds NOT NULL DEFAULT 'normal' with a CHECK; test/priority.test.js 'AC-1' asserts the existing rows are normal and 'urgent' is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js item() adds ' — high' or ' — low' and nothing for normal; the 'AC-2' test checks all three cases."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The query filters with WHERE priority = ? ORDER BY id; the 'AC-3' test covers high, low and normal, including id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The unfiltered query is ORDER BY id; the 'AC-4' test checks the order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "nav() renders All, High, Normal and Low, with the current one as <strong>; the 'AC-5' test checks the exact nav for all four views. The 400 view has no list page, which matches AC-6."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Any priority param that is not in the set returns 400 with no list; the 'AC-6' test covers High, urgent, an empty value and __proto__."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "A COUNT query separates 'No <p>-priority items.' from 'No items yet.'; the 'AC-7' test covers the no-match and empty-table cases."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high'; the 'AC-8' test asserts it. The checker script now accepts a query string, and tests/traffic-config.test.sh covers that."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "README describes the filter but not the '— high' / '— low' labels or the filter links shown on every view.",
+      "fix": "Add one sentence on the labels and the nav."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec exists. The decisions are followed: existing items are normal and only high and low are labelled. The spec has a go dated before the commits, and no commit edits an acceptance item."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are met and each is named by a test. All 4 state-table rows have a test in the 'states' describe block."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "npm test could not run here because vitest is not installed. .github/workflows/ci.yml exists, so CI runs the tests. Reading the tests, they assert behaviour and would fail if the code were wrong. The traffic.test.js change only extends the fake app to record the query string, and no test was loosened."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README mentions the filter; the labels and the nav are not described (low finding)."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The queries are parameterised, the value is validated against a set, and the empty-state logic is correct. The relaxed route regex still refuses spaces and '#'."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The priority value is allow-listed and bound as a parameter, and titles are escaped. No planted instructions were found in the repository content."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "Not assessed: no browser was available and there are no CSS, template or frontend files; the page is a plain HTML string in src/index.js."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "Not assessed: no browser or running app was available, so no UI flow was exercised; behaviour was checked from the tests only."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The claims match the diff. The title is under 72 characters. The checker change and the fake-app change are both disclosed."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:36:25Z"
+}

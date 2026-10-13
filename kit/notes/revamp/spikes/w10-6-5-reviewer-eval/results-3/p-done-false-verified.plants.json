@@ -1,0 +1,20 @@
+{
+  "run": "s2-p-done-false-verified",
+  "base": "baseline-2",
+  "plants": [
+    {
+      "ref": "s2-p-done-false-verified-1",
+      "plant": "false-verified",
+      "type": "false-verified",
+      "detector": "the reviewer fails the item marked verified by review without a demonstrated step",
+      "item": "AC-4",
+      "file": "specs/done-items.md",
+      "line": 22,
+      "before": "- **AC-4** `/?view=all` lists every item in id order, done ones marked ✓ and open ones unmarked.",
+      "after": "- **AC-4** `/?view=all` lists every item in id order, done ones marked ✓ and open ones unmarked. — verified by review: checked by hand",
+      "files": [
+        "test/done.test.js"
+      ]
+    }
+  ]
+}

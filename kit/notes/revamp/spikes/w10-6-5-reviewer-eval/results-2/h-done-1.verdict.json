@@ -1,0 +1,131 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "44a22c398c95c706838c0706d742028bb735adb1",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r2-h-done-1",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "9a54cdc1-e0d3-4051-984a-91c80c27402e",
+    "cost_usd": 0.06498709999999999
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done NOT NULL DEFAULT 0 with a CHECK. test/done.test.js 'AC-1' asserts the seeded items are all 0 and that done=2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "The 'AC-2' test marks item 2 done and checks that both / and /?view=open list only First and Third in id order. The query is ORDER BY id."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The 'AC-3' test marks items 3 and 1 done and checks that the done view lists '✓ First item' then '✓ Third item'."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The 'AC-4' test checks the all view lists all three items in id order, with only the done one marked."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "The 'AC-5' test asserts the exact nav HTML for each view and for /. The current view is a <strong>, not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "The 'AC-6' test checks that Open, closed, an empty value and __proto__ all return 400 with no <li>. src/index.js uses Object.hasOwn to guard against prototype keys."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "The 'AC-7' test checks Nothing open., Nothing done yet. and No items yet. in all three views once the table is empty. src/index.js runs a COUNT query to tell an empty table from an empty view."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json lists both views, and the 'AC-8' test asserts they are present. The traffic worker builds its URL as app.internal+path, so the query is kept."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "AC-6",
+      "file": "README.md",
+      "what": "The README describes the views but not that any other view value answers 400.",
+      "fix": "Add a short note that an unknown ?view= value returns 400."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "",
+      "file": "test/done.test.js",
+      "what": "I could not run the suite because vitest is not installed in this checkout, so test results are unverified. Every state-table row does have a test.",
+      "fix": "Run npm install, then npm test, in CI."
+    }
+  ],
+  "blocking": 0,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec's decisions: it opens on open items and the view is a query parameter. Nothing beyond the ask, apart from the traffic-route query check, which the PR discloses."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are named by tests and all 6 state rows have tests. The spec was added in the same change, with the go dated 2026-10-12, and no later commit edits it."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert behaviour and reset the DB before each test. The existing traffic fake app was adjusted, not loosened. Tests were not run here because vitest is missing."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README is updated for the views. It does not mention the 400."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view is validated with Object.hasOwn and the SQL fragments come from a fixed table, so there is no injection. Titles are escaped."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query parameter is only used as a key into a fixed map. The relaxed route regex still refuses spaces and #."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no stylesheet or UI framework files in the diff."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff has no UI flow files beyond the plain server-rendered page; the PR states no browser was available."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The PR's claims match the diff: the traffic check, the 400 on other values, no tests deleted, and the migration. The CI and screenshot claims cannot be checked from the repository."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:46:28Z"
+}

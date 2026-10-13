@@ -1,0 +1,126 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "6fe9f7091f43f40c3442ec30d94028fd74ab4900",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r5-h-starred-3",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "529cf913-4cc9-4b54-b730-c463cede6ad4",
+    "cost_usd": 0.0632962
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred NOT NULL DEFAULT 0 with a CHECK; test/starred.test.js 'AC-1' checks the seeded items are all 0 and that a value of 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "The 'AC-2' test stars item 2 and asserts the exact list ['First item','★ Second item','Third item']."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The 'AC-3' test stars 3 and 1 and asserts the starred view lists ['★ First item','★ Third item'] in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The 'AC-4' test checks '/' and '/?show=all' return the full list in id order. src/index.js defaults show to 'all'."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "The 'AC-5' test asserts the exact link markup on both views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "The 'AC-6' test checks Starred, none, empty and __proto__ all return 400 with no <li>. src/index.js uses Object.hasOwn, so prototype keys are rejected."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?show=starred'. The 'AC-7' test asserts it, and the checker script now accepts a query string."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-7",
+      "file": "test/starred.test.js",
+      "what": "The AC-7 test only checks that routes.json contains the string. Nothing exercises the traffic Worker requesting a route with a query against the real app. The fake-app change in test/traffic.test.js only makes the fake record the query.",
+      "fix": "Optionally add a traffic test that runs a round with '/?show=starred' and asserts the path the app saw, including the query string."
+    },
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "scripts/traffic-config-check.mjs",
+      "what": "The checker's route regex was loosened to allow '?'. The spec doesn't call for this, though the PR discloses it and the starred route needs it. The error message still says 'paths starting with \"/\"'.",
+      "fix": "Accept as is, or note the query allowance in the message or docs."
+    }
+  ],
+  "blocking": 0,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Spec specs/starred-items.md exists with a go dated 2026-10-12. The change follows its decisions: order kept, query parameter, no cookie."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 7 acceptance items are implemented and named by tests. All 4 state-table rows have tests. No commit edits the spec after the go; the spec was added in the same commit as the code."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests assert exact output and would fail if the code were wrong. I could not run them: vitest isn't installed here. CI at .github/workflows/ci.yml runs the tests. The test/traffic.test.js edit changes only the fake app to record the query, which doesn't loosen any assertion."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes the ?show=starred view. No stale docs found."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view is chosen by a whitelist via Object.hasOwn, and the SQL is static (no user input). The migration is additive with a default."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The show parameter is whitelisted. Titles are still escaped. No injection or secrets found, and no planted instructions in the repository."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The change adds a single plain link and a ★ prefix to a server-rendered list. There are no UI components, styles or assets in the diff."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches no UI components or styles. The only page change is a plain link and a ★ in the HTML list, covered by Worker tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is short and accurate. Claims about migration, tests, routes and README match the diff. The 'tests loosened: none' claim holds. The checker regex change is disclosed."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:34:13Z"
+}

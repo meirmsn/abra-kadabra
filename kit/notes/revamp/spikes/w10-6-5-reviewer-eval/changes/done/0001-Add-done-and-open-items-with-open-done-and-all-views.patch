@@ -1,0 +1,317 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Fixture Builder <builder@example.com>
+Date: Mon, 12 Oct 2026 23:55:24 +0000
+Subject: [PATCH 1/2] Add done and open items, with open, done and all views of
+ the list
+
+---
+ README.md                    |   3 +-
+ migrations/0002_add_done.sql |   2 +
+ specs/done-items.md          |  52 +++++++++++++++
+ src/index.js                 |  40 ++++++++++--
+ test/done.test.js            | 119 +++++++++++++++++++++++++++++++++++
+ test/traffic.test.js         |   9 +--
+ traffic/routes.json          |   2 +-
+ 7 files changed, 216 insertions(+), 11 deletions(-)
+ create mode 100644 migrations/0002_add_done.sql
+ create mode 100644 specs/done-items.md
+ create mode 100644 test/done.test.js
+
+diff --git a/README.md b/README.md
+index deecda0..98a7eba 100644
+--- a/README.md
++++ b/README.md
+@@ -3,7 +3,8 @@
+ A tiny public-safe app used to exercise the devshop end to end: one page listing one D1 table,
+ running on Cloudflare Workers.
+ 
+-- `src/index.js` — the Worker: `/` lists `items`, `/healthz` checks the database.
++- `src/index.js` — the Worker: `/` lists the open `items` (`?view=done` the done ones, `?view=all` every
++  one), `/healthz` checks the database.
+ - `traffic/` — the synthetic-traffic Worker: a cron every minute; a round (`/healthz` + the paths in
+   `traffic/routes.json`, through a service binding) runs each minute for 5 minutes after a deploy,
+   then after gaps of 2, 4, 8, 16 and 32 minutes, then hourly until the next deploy. A failed round
+diff --git a/migrations/0002_add_done.sql b/migrations/0002_add_done.sql
+new file mode 100644
+index 0000000..3d8bfa2
+--- /dev/null
++++ b/migrations/0002_add_done.sql
+@@ -0,0 +1,2 @@
++-- Done and open items (specs/done-items.md): a flag on items; every existing item starts open.
++ALTER TABLE items ADD COLUMN done INTEGER NOT NULL DEFAULT 0 CHECK (done IN (0, 1));
+diff --git a/specs/done-items.md b/specs/done-items.md
+new file mode 100644
+index 0000000..bd3c826
+--- /dev/null
++++ b/specs/done-items.md
+@@ -0,0 +1,52 @@
++# Done and open items
++
++**Go:** go, open items first (2026-10-12)
++
++## Intent
++
++The owner: "I want to mark items as done and switch the list between open, done and all." The list
++is a to-do list: what is still open matters most, and done items stay visible on request.
++
++## Decisions
++
++- The list opens on the open items: what is left to do is what the owner checks most; rejected:
++  opening on all items (owner, 2026-10-12)
++- The view is a query parameter (`/?view=open|done|all`), so each view has its own link and the app
++  stays GET-only; rejected: a cookie that remembers the last view (owner, 2026-10-12)
++
++## Acceptance items
++
++- **AC-1** A migration adds a done flag to items, and every existing item starts open.
++- **AC-2** `/` and `/?view=open` list only the items that are not done, in id order.
++- **AC-3** `/?view=done` lists only the done items, in id order, each marked ✓ before its title.
++- **AC-4** `/?view=all` lists every item in id order, done ones marked ✓ and open ones unmarked.
++- **AC-5** Every view shows the three views as Open, Done and All, and the current one is not a
++  link.
++- **AC-6** Any other `view` value must answer 400 and list nothing.
++- **AC-7** With an empty table, every view says "No items yet."; otherwise a view with nothing in it
++  says "Nothing open." or "Nothing done yet.".
++- **AC-8** `/?view=done` and `/?view=all` are listed in `traffic/routes.json`, so synthetic traffic
++  exercises them.
++
++## Core flow
++
++1. Open the list: the open items.
++2. Follow "Done": the done items, marked ✓.
++3. Follow "All": everything, done items marked ✓.
++
++## States
++
++| State        | List shows    | Message           | Current view |
++| ------------ | ------------- | ----------------- | ------------ |
++| Open view    | open items    | none              | Open         |
++| Done view    | done items, ✓ | none              | Done         |
++| All view     | every item    | none              | All          |
++| Empty table  | nothing       | No items yet.     | any          |
++| Nothing open | nothing       | Nothing open.     | Open         |
++| Nothing done | nothing       | Nothing done yet. | Done         |
++
++## Out of scope
++
++- Marking items done or open from the page: there is no write route yet; items are marked in the
++  database.
++- Remembering the last view.
+diff --git a/src/index.js b/src/index.js
+index f735862..d0f7b71 100644
+--- a/src/index.js
++++ b/src/index.js
+@@ -6,12 +6,29 @@ const escapeHtml = (s) =>
+     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+   );
+ 
+-const page = (items) => `<!doctype html>
++// The list's views (specs/done-items.md), in the order the page shows them. The list opens on "open".
++const VIEWS = {
++  open: { label: "Open", where: " WHERE done = 0", empty: "Nothing open." },
++  done: { label: "Done", where: " WHERE done = 1", empty: "Nothing done yet." },
++  all: { label: "All", where: "", empty: "No items yet." },
++};
++
++const nav = (current) =>
++  Object.entries(VIEWS)
++    .map(([key, v]) =>
++      key === current ? `<strong>${v.label}</strong>` : `<a href="/?view=${key}">${v.label}</a>`,
++    )
++    .join(" · ");
++
++const item = (i) => `<li>${i.done ? "✓ " : ""}${escapeHtml(i.title)}</li>`;
++
++const page = (items, current, empty) => `<!doctype html>
+ <html lang="en">
+ <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Items</title></head>
+ <body>
+ <h1>Items</h1>
+-${items.length ? `<ul>\n${items.map((i) => `<li>${escapeHtml(i.title)}</li>`).join("\n")}\n</ul>` : "<p>No items yet.</p>"}
++<nav>${nav(current)}</nav>
++${items.length ? `<ul>\n${items.map(item).join("\n")}\n</ul>` : `<p>${empty}</p>`}
+ </body>
+ </html>
+ `;
+@@ -27,11 +44,24 @@ export default {
+     if (request.method !== "GET" && request.method !== "HEAD") {
+       return new Response("Method Not Allowed", { status: 405, headers: { allow: "GET, HEAD" } });
+     }
+-    const { pathname } = new URL(request.url);
++    const { pathname, searchParams } = new URL(request.url);
+ 
+     if (pathname === "/") {
+-      const { results } = await env.DB.prepare("SELECT title FROM items ORDER BY id").all();
+-      return new Response(page(results), { headers: { "content-type": "text/html; charset=utf-8" } });
++      const current = searchParams.get("view") ?? "open";
++      if (!Object.hasOwn(VIEWS, current)) {
++        return new Response("Bad Request: view must be open, done or all", { status: 400 });
++      }
++      const { results } = await env.DB.prepare(
++        `SELECT title, done FROM items${VIEWS[current].where} ORDER BY id`,
++      ).all();
++      let empty = VIEWS[current].empty;
++      if (!results.length && current !== "all") {
++        const { n } = await env.DB.prepare("SELECT COUNT(*) AS n FROM items").first();
++        if (n === 0) empty = VIEWS.all.empty;
++      }
++      return new Response(page(results, current, empty), {
++        headers: { "content-type": "text/html; charset=utf-8" },
++      });
+     }
+ 
+     if (pathname === "/healthz") {
+diff --git a/test/done.test.js b/test/done.test.js
+new file mode 100644
+index 0000000..fc73aa8
+--- /dev/null
++++ b/test/done.test.js
+@@ -0,0 +1,119 @@
++// Done and open items (specs/done-items.md). Each test names the acceptance item or state it proves.
++import { env, exports } from "cloudflare:workers";
++import { describe, expect, it } from "vitest";
++
++const get = (path) => exports.default.fetch(`https://fixture.example.com${path}`);
++const markDone = (...ids) =>
++  env.DB.prepare(`UPDATE items SET done = 1 WHERE id IN (${ids.map(() => "?").join(", ")})`)
++    .bind(...ids)
++    .run();
++const listed = (html) => [...html.matchAll(/<li>(.*?)<\/li>/g)].map((m) => m[1]);
++const message = (html) => html.match(/<p>(.*?)<\/p>/)?.[1] ?? null;
++
++describe("done and open items", () => {
++  it("AC-1: the migration leaves every existing item open", async () => {
++    const { results } = await env.DB.prepare("SELECT done FROM items").all();
++    expect(results.map((r) => r.done)).toEqual([0, 0, 0]);
++    await expect(env.DB.prepare("UPDATE items SET done = 2 WHERE id = 1").run()).rejects.toThrow();
++  });
++
++  it("AC-2: the list opens on the open items, also with view=open", async () => {
++    await markDone(2);
++    for (const path of ["/", "/?view=open"]) {
++      expect(listed(await (await get(path)).text()), path).toEqual(["First item", "Third item"]);
++    }
++  });
++
++  it("AC-3: the done view lists only done items, marked, in id order", async () => {
++    await markDone(3, 1);
++    const res = await get("/?view=done");
++    expect(res.status).toBe(200);
++    expect(listed(await res.text())).toEqual(["✓ First item", "✓ Third item"]);
++  });
++
++  it("AC-4: the all view lists every item in id order, done ones marked", async () => {
++    await markDone(2);
++    expect(listed(await (await get("/?view=all")).text())).toEqual([
++      "First item",
++      "✓ Second item",
++      "Third item",
++    ]);
++  });
++
++  it("AC-5: every view shows Open, Done and All, the current one not a link", async () => {
++    const want = {
++      open: '<strong>Open</strong> · <a href="/?view=done">Done</a> · <a href="/?view=all">All</a>',
++      done: '<a href="/?view=open">Open</a> · <strong>Done</strong> · <a href="/?view=all">All</a>',
++      all: '<a href="/?view=open">Open</a> · <a href="/?view=done">Done</a> · <strong>All</strong>',
++    };
++    for (const [view, nav] of Object.entries(want)) {
++      expect(await (await get(`/?view=${view}`)).text(), view).toContain(`<nav>${nav}</nav>`);
++    }
++    expect(await (await get("/")).text()).toContain(`<nav>${want.open}</nav>`);
++  });
++
++  it("AC-6: rejects any other view value with a 400 and no list", async () => {
++    for (const value of ["Open", "closed", "", "__proto__"]) {
++      const res = await get(`/?view=${value}`);
++      expect(res.status, value).toBe(400);
++      expect(await res.text()).not.toContain("<li>");
++    }
++  });
++
++  it("AC-7: an empty table says so in every view; an empty view has its own message", async () => {
++    await markDone(1, 2, 3);
++    expect(message(await (await get("/?view=open")).text())).toBe("Nothing open.");
++    await env.DB.prepare("UPDATE items SET done = 0").run();
++    expect(message(await (await get("/?view=done")).text())).toBe("Nothing done yet.");
++    await env.DB.prepare("DELETE FROM items").run();
++    for (const view of ["open", "done", "all"]) {
++      expect(message(await (await get(`/?view=${view}`)).text()), view).toBe("No items yet.");
++    }
++  });
++
++  it("AC-8: synthetic traffic requests the done and all views", async () => {
++    const { default: routes } = await import("../traffic/routes.json");
++    expect(routes).toEqual(expect.arrayContaining(["/?view=done", "/?view=all"]));
++  });
++});
++
++describe("states", () => {
++  it("Open view: open items, no message, Open current", async () => {
++    await markDone(1);
++    const html = await (await get("/")).text();
++    expect(listed(html)).toEqual(["Second item", "Third item"]);
++    expect(message(html)).toBe(null);
++    expect(html).toContain("<strong>Open</strong>");
++  });
++
++  it("Done view: done items marked, Done current", async () => {
++    await markDone(2);
++    const html = await (await get("/?view=done")).text();
++    expect(listed(html)).toEqual(["✓ Second item"]);
++    expect(html).toContain("<strong>Done</strong>");
++  });
++
++  it("All view: every item, All current", async () => {
++    const html = await (await get("/?view=all")).text();
++    expect(listed(html)).toHaveLength(3);
++    expect(html).toContain("<strong>All</strong>");
++  });
++
++  it("Empty table: No items yet. on the default view", async () => {
++    await env.DB.prepare("DELETE FROM items").run();
++    expect(message(await (await get("/")).text())).toBe("No items yet.");
++  });
++
++  it("Nothing open: everything done, the open view says so", async () => {
++    await markDone(1, 2, 3);
++    const html = await (await get("/")).text();
++    expect(listed(html)).toEqual([]);
++    expect(message(html)).toBe("Nothing open.");
++  });
++
++  it("Nothing done: nothing done yet, the done view says so", async () => {
++    const html = await (await get("/?view=done")).text();
++    expect(listed(html)).toEqual([]);
++    expect(message(html)).toBe("Nothing done yet.");
++  });
++});
+diff --git a/test/traffic.test.js b/test/traffic.test.js
+index 31cadd1..d0041a9 100644
+--- a/test/traffic.test.js
++++ b/test/traffic.test.js
+@@ -36,12 +36,13 @@ const fakeApp = (answers = {}) => {
+   return {
+     seen,
+     fetch: async (req) => {
+-      const { pathname } = new URL(req.url);
+-      seen.push({ path: pathname, ua: req.headers.get("user-agent") });
+-      const a = answers[pathname];
++      const { pathname, search } = new URL(req.url);
++      const path = pathname + search; // routes can carry a query (e.g. a filtered view)
++      seen.push({ path, ua: req.headers.get("user-agent") });
++      const a = answers[path];
+       if (a instanceof Error) throw a;
+       if (a) return new Response(a.body ?? "", { status: a.status ?? 200 });
+-      if (pathname === "/healthz") return new Response('{"ok":true,"items":3}');
++      if (path === "/healthz") return new Response('{"ok":true,"items":3}');
+       return new Response("<h1>Items</h1>");
+     },
+   };
+diff --git a/traffic/routes.json b/traffic/routes.json
+index 41ca9b1..2ed23e1 100644
+--- a/traffic/routes.json
++++ b/traffic/routes.json
+@@ -1 +1 @@
+-["/"]
++["/", "/?view=done", "/?view=all"]

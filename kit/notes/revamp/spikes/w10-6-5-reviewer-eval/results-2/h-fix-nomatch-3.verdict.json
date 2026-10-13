@@ -1,0 +1,82 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "f8d4ef68a9f016a54d6cf7acceaaf129cb126c89",
+  "base": "7c1a0282cbe1b9c23455570153aff52634477380",
+  "branch": "eval-run/r2-h-fix-nomatch-3",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search saying No items yet. when nothing matches",
+    "sha256": "e3b148148ae0e1d855984d3d1049873901fde152772c3f3cfa2a8c8ae660149d"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "36897f7e-d8ee-4362-81cd-37694c322690",
+    "cost_usd": 0.030803200000000003
+  },
+  "acceptance": [],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "",
+      "file": "test/search.test.js",
+      "what": "The empty-table test deletes every row from the shared DB. If storage isn't isolated per test, tests added after it would see an empty table. It is currently the last test, so nothing breaks. I couldn't run the suite: `vitest` isn't installed here.",
+      "fix": "Rely on per-test storage isolation, or restore the rows in an afterEach."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The diff matches the title and body. It changes only the no-match message; an empty table still says \"No items yet.\". This is a small bug fix with one obvious design."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file in this change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Three new tests cover no-match, escaping, and an empty table. The no-match test and the escaping test would fail against the old code. No tests were deleted or loosened. The suite could not be run because vitest is not installed."
+    },
+    {
+      "lens": "docs",
+      "applies": false,
+      "note": "The diff touches no docs, and no doc files in the diff describe this message."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The extra COUNT query runs only on a non-empty search with no results. The message is escaped, and the search value in the input was already escaped. I found no defects."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The user-supplied search is passed through escapeHtml before it goes into the message. The query uses a bound parameter. The message is interpolated unescaped into the page template, but every message is either a constant or already escaped."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff changes a text message in a server-rendered page. It adds no layout or styling, and there is no UI file to review."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser or UI flow was available. The PR says the same."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters and matches the commit. The claims about behaviour and the files changed are true of the diff. I couldn't check the claim that the new tests failed before the fix."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:50:09Z"
+}

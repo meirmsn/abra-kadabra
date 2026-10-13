@@ -1,0 +1,20 @@
+{
+  "run": "r5-p-starred-false-verified",
+  "base": "baseline-2",
+  "plants": [
+    {
+      "ref": "r5-p-starred-false-verified-1",
+      "plant": "false-verified",
+      "type": "false-verified",
+      "detector": "the reviewer fails the item marked verified by review without a demonstrated step",
+      "item": "AC-5",
+      "file": "specs/starred-items.md",
+      "line": 23,
+      "before": "- **AC-5** The page links to the other view: \"Starred only\" on the full list, \"All items\" on the",
+      "after": "- **AC-5** The page links to the other view: \"Starred only\" on the full list, \"All items\" on the — verified by review: checked by hand",
+      "files": [
+        "test/starred.test.js"
+      ]
+    }
+  ]
+}

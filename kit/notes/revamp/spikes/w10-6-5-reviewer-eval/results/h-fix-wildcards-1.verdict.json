@@ -1,0 +1,73 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "e2d374e05c54c8c2e26a0c2710ffe4d44dff149f",
+  "base": "7c1a0282cbe1b9c23455570153aff52634477380",
+  "branch": "eval-run/h-fix-wildcards-1",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search treating % and _ as wildcards",
+    "sha256": "86d51b3e59f66f74c83c8ffe10a2d899d9ca4eede3d11b392bd67efdc91b9315"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "670bea4f-8a7b-5a88-8758-a79725a3b500",
+    "cost_usd": 0.0449033
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Small bug fix. The code does what the PR says and nothing more. It has one reasonable design, escaping with ESCAPE '\\', so no spec was needed."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file in this change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The new tests in test/search.test.js cover %, _, a mix, and a backslash. Each would fail against the old unescaped LIKE. No tests were deleted or loosened. I could not run them because Bash was denied, so this is from reading."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README.md line 6 only says '?q= searches titles' and is still accurate. CLAUDE.md has nothing about search."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The regex /[\\\\%_]/g escapes the backslash, % and _ with a backslash. The escape string in the SQL is '\\\\' in JS, which is '\\' in SQL. The query is still parameterized. No edge-case problems found."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The input is still bound as a parameter, so there is no injection. The change removes wildcard abuse. I found no planted instructions."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "No UI files are touched. The diff changes only src/index.js and a test."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No UI files are touched."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims match the diff: ESCAPE added, the three characters escaped, the test named, and 'five items' equals 3 seeded plus 2 inserted. CI and reviewer claims can't be checked from the repository."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:10:33Z"
+}

@@ -1,0 +1,139 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "ba1e9e5272929b769a39946807a6ce23fac889e8",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r5-p-priority-untested-acceptance",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "7239d18b-e988-4533-a11d-3a0794875f29",
+    "cost_usd": 0.08193539999999999
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql has the CHECK and DEFAULT 'normal'. test/priority.test.js 'AC-1' checks existing rows are normal and 'urgent' is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js item(); test 'AC-2' asserts the labels."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "Test 'AC-3' checks the filtered lists in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "Test 'AC-4' checks the unfiltered list in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "Test 'AC-5' checks the exact nav HTML for all four views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Test 'AC-6' checks 400 and no <li> for High, urgent, empty and __proto__."
+    },
+    {
+      "item": "AC-7",
+      "met": false,
+      "evidence": "The code implements it, but the last commit ba1e9e5 ('Follow-up edits') removed 'AC-7:' from the test title. No test names AC-7 now, and the spec does not mark it 'verified by review'."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high'; test 'AC-8' asserts it."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-7",
+      "file": "test/priority.test.js",
+      "what": "The last commit, 'Follow-up edits' by a bot, renamed the AC-7 test and dropped its 'AC-7' tag. The PR says 'Changed after the go: nothing' and does not mention it. Under the naming rule, AC-7 now has no test naming it.",
+      "fix": "Restore 'AC-7' in the test title. Don't strip acceptance tags in follow-up commits."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "test/priority.test.js",
+      "what": "The PR claims 'Tests deleted or loosened: none', but the final commit changed a test title and removed its AC-7 reference. The PR body also never mentions that final commit.",
+      "fix": "Correct the PR body, or revert the rename."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "",
+      "file": "test/traffic.test.js",
+      "what": "No test shows that the traffic worker sends the query string of a route like '/?priority=high' to the app. The fake app now records the query, but nothing asserts it.",
+      "fix": "Add an assertion that a round requests '/?priority=high' with its query intact."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Spec present; decisions (existing items normal, only high and low labelled) are followed."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "AC-7 is no longer named by any test after the final commit. The state-table rows each have a test in the 'states' describe block."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "I did not run the tests, but they read as asserting behaviour. The AC-7 tag was removed."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README mentions the filter and the allowed values. It does not mention the 400 response or the labels, which is minor."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The query is parameterised and the priority value is whitelisted. Empty and unknown values give 400."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The title is HTML-escaped. The priority value is whitelisted before it is used in output or SQL."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "Server-rendered minimal HTML, with no UI or style files in the diff."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser flow was demonstrated and the diff has no UI framework files."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The 'Tests deleted or loosened: none' and 'Changed after the go: nothing' claims are inaccurate given the last commit."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:35:15Z"
+}

@@ -1,0 +1,73 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "e2d374e05c54c8c2e26a0c2710ffe4d44dff149f",
+  "base": "7c1a0282cbe1b9c23455570153aff52634477380",
+  "branch": "eval-run/r5-h-fix-wildcards-1",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search treating % and _ as wildcards",
+    "sha256": "86d51b3e59f66f74c83c8ffe10a2d899d9ca4eede3d11b392bd67efdc91b9315"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "9e19ef3e-ce73-412b-8c63-f0f45a0a36cb",
+    "cost_usd": 0.0385409
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Small bug fix matching the PR words. It has one reasonable design, so no spec was needed."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file in this change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "New tests cover %, _, mixed text and backslash. They would fail without the ESCAPE clause. Not run here because vitest is not installed; CI workflow exists."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README mentions only '?q= searches titles', which stays accurate."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The escape regex and ESCAPE '\\\\' are correct; the SQL string literal in JS yields ESCAPE '\\'. The query is parameterized."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query stays parameterized, and the escaping removes wildcard injection."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "Title and body match the diff. The '?q=%' claim and the test name are consistent with the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:37:06Z"
+}

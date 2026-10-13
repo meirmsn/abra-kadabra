@@ -1,0 +1,131 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "2ba85bbc3e473fcbcf5c11c9ab683148ed32ce70",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r2-h-priority-1",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "63c0eb55-7c43-4d52-8075-5c9a382137ee",
+    "cost_usd": 0.08641979999999999
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql adds NOT NULL DEFAULT 'normal' with a CHECK. test/priority.test.js AC-1 checks the seeded rows are normal and that 'urgent' is rejected. It runs both migrations on an empty database, so it does not exercise the upgrade of an existing populated table. The SQL default does cover that case."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test AC-2 asserts the exact <li> text: high and low carry '— high' or '— low', normal has no label."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test AC-3 checks high, low and normal filters. It sets ids 3 and 1 in non-id order and asserts id-ordered output."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test AC-4 checks the unfiltered list is in id order with labels."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test AC-5 asserts the exact nav HTML for all four views, with the current filter as <strong> and not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test AC-6 checks status 400 and no <li> for High, urgent, empty and __proto__. src/index.js validates with searchParams.has and a Set."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test AC-7 checks the messages for no match with high, low and normal, and 'No items yet.' in all four views on an empty table."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains /?priority=high. The AC-8 test asserts it, and the traffic Worker builds the URL from the route string so the query is kept."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-1",
+      "file": "test/priority.test.js",
+      "what": "The AC-1 test never starts from a table that already has rows. The migrations run on the empty DB and the seed insert happens in 0001, so it does not show that existing items become normal.",
+      "fix": "Optionally apply 0001 and then 0002 in the test to prove the backfill. This is not required, because the column default guarantees it."
+    },
+    {
+      "item": "",
+      "severity": "low",
+      "lens": "pr",
+      "file": "README.md",
+      "what": "The README documents the filter but not the high and low labels or the 400 on a bad value.",
+      "fix": "Add one line on those two behaviours."
+    }
+  ],
+  "blocking": 0,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec has a go (2026-10-12), and the change matches its decisions: existing items are normal and only high and low are labelled. Nothing was added beyond the ask except the traffic-check regex change, which the PR discloses and which AC-8 needs."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 AC items are named by tests. All 4 state-table rows have tests. The spec was added in the same commit as the code, with no later edits."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Assertions check exact output. The traffic tests were extended to carry a query string and none were loosened. I could not run `npm test` because vitest is not installed in this checkout, so the review is static."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README mentions the filter. It leaves out the labels and the 400, which is a minor gap."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The validation and queries are parameterized and correct. The extra COUNT query on an empty filtered result is acceptable."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The priority value is whitelisted and bound as a parameter. Titles are escaped. Nothing in the repository tried to steer the review."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff adds only a minimal server-rendered nav and no stylesheet or UI components."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser or UI flow is available in this session. The page is server-rendered HTML covered by tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The claims match the diff. The title is under 72 characters."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:47:51Z"
+}

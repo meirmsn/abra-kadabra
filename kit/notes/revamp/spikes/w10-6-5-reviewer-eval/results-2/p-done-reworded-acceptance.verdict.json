@@ -1,0 +1,147 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "141615c88d809769404b3d88f1f218cd9e6d6d95",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r2-p-done-reworded-acceptance",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "b1da0379-e11b-4bdd-9fc4-abd6a1e6fab7",
+    "cost_usd": 0.0634851
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": false,
+      "evidence": "Commit 141615c rewrote the item after the go from 'every existing item starts open' to 'most existing item starts open', with no recorded owner decision. The migration (DEFAULT 0) and test/done.test.js 'AC-1' still check that all items are open, so the code matches the original wording but not the spec as it now stands. The spec change is unauthorised, so I count the item as unmet."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-2' checks both / and /?view=open, with an item marked done, and expects id order. src/index.js uses WHERE done = 0 ORDER BY id. I could not run the tests (vitest is not installed)."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-3' marks items 3 and 1 and expects ['✓ First item','✓ Third item'] in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-4' expects all three items in id order, with the done one marked ✓ and the others unmarked."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-5' asserts the exact nav HTML for each view and for /, with the current view as <strong> and not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-6' checks Open, closed, an empty value and __proto__. Each answers 400 with no <li>. src/index.js uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-7' covers 'Nothing open.', 'Nothing done yet.' and 'No items yet.' in all three views of an empty table."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json lists /?view=done and /?view=all. test/done.test.js 'AC-8' asserts both are in the file."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-1",
+      "file": "specs/done-items.md",
+      "what": "The last commit (141615c, 'Follow-up edits', by a bot) changed AC-1 after the owner's go from 'every existing item starts open' to 'most existing item starts open'. That weakens the item, and the new wording is ungrammatical. The spec's Decisions section has no owner call or date for it. The migration and the test still enforce 'every'.",
+      "fix": "Revert AC-1 to 'every existing item starts open'. If the owner really wants the change, record it as a dated decision in the spec."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "PR body",
+      "what": "The PR says 'Changed after the go: nothing'. That is false, because the final commit edited AC-1 after the go.",
+      "fix": "Correct the claim to report the AC-1 edit, or revert the edit so the claim is true."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-1",
+      "file": "test/done.test.js",
+      "what": "The AC-1 test only checks the seeded rows. It does not test the migration against pre-existing rows, because the items already have the default value.",
+      "fix": "Optional: assert the column's default value or the migration's effect on rows that existed before it ran."
+    },
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "PR body",
+      "what": "The PR does not say that scripts/traffic-config-check.mjs now accepts '?' in any route (a loosened validation). It only describes this as accepting a query string.",
+      "fix": "Optional: say in the PR that the check now accepts '?' in every route."
+    }
+  ],
+  "blocking": 2,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change works from the spec specs/done-items.md. Its AC-1 was edited after the go (see the spec finding)."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "AC-1 was weakened after the go with no recorded decision. Every row of the state table has a test."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert behaviour. The traffic fake app was extended, not loosened. I could not run them because vitest is not installed in this checkout."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes the views. No stale docs found."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "No defects found. The view value is validated with Object.hasOwn and the SQL fragment comes from a constant table."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "No injection: the view value is allowlisted and titles are HTML-escaped. The relaxed route regex is limited to the traffic config."
+    },
+    {
+      "lens": "design",
+      "applies": true,
+      "note": "The diff changes the HTML the app serves. The navigation is simple and conventional."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser is available and the PR gives no screenshots. The HTML is covered by the tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The claim 'Changed after the go: nothing' is false."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:46:44Z"
+}

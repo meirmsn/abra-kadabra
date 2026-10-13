@@ -1,0 +1,23 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Fixture Builder <builder@example.com>
+Date: Mon, 12 Oct 2026 23:55:24 +0000
+Subject: [PATCH 2/3] Describe the starred view in the README
+
+---
+ README.md | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/README.md b/README.md
+index deecda0..8c52e92 100644
+--- a/README.md
++++ b/README.md
+@@ -3,7 +3,8 @@
+ A tiny public-safe app used to exercise the devshop end to end: one page listing one D1 table,
+ running on Cloudflare Workers.
+ 
+-- `src/index.js` — the Worker: `/` lists `items`, `/healthz` checks the database.
++- `src/index.js` — the Worker: `/` lists `items` (`?show=starred` only the starred ones), `/healthz`
++  checks the database.
+ - `traffic/` — the synthetic-traffic Worker: a cron every minute; a round (`/healthz` + the paths in
+   `traffic/routes.json`, through a service binding) runs each minute for 5 minutes after a deploy,
+   then after gaps of 2, 4, 8, 16 and 32 minutes, then hourly until the next deploy. A failed round

@@ -1,0 +1,73 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "e2d374e05c54c8c2e26a0c2710ffe4d44dff149f",
+  "base": "7c1a0282cbe1b9c23455570153aff52634477380",
+  "branch": "eval-run/r5-h-fix-wildcards-2",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search treating % and _ as wildcards",
+    "sha256": "86d51b3e59f66f74c83c8ffe10a2d899d9ca4eede3d11b392bd67efdc91b9315"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "4ffee487-6a8a-4fd8-b658-78700e667b3d",
+    "cost_usd": 0.037323800000000004
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Bug fix with one obvious design (escape the wildcard characters and add ESCAPE). The diff does what the title says and adds nothing else."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "There is no spec file in this change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The new tests cover %, _ and backslash, and they would fail against the old unescaped LIKE. I couldn't run them here because vitest isn't installed. CI runs `npm test` in the `test` job of .github/workflows/ci.yml."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README only says `?q=` searches titles, which is still true. Nothing in the docs mentions wildcard behaviour."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The `\\`, `%` and `_` characters are escaped before binding, and the query has ESCAPE '\\'. The query stays parameterised, so there is no injection path."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The search term is still passed as a bound parameter and the page output is still HTML-escaped. I found no planted instructions in the change."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files. It changes only src/index.js query logic and a test."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims match the diff: the ESCAPE clause, the new test, and five items (the three fixtures plus two inserted rows). The CI and reviewer lines are pending, and I can't check them from the repository."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:37:23Z"
+}

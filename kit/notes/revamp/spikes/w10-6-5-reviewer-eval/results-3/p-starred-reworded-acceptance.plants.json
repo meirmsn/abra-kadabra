@@ -1,0 +1,17 @@
+{
+  "run": "s2-p-starred-reworded-acceptance",
+  "base": "baseline-2",
+  "plants": [
+    {
+      "ref": "s2-p-starred-reworded-acceptance-1",
+      "plant": "reworded-acceptance",
+      "type": "reworded-acceptance",
+      "detector": "the reviewer fails the silently reworded acceptance item",
+      "item": "AC-3",
+      "file": "specs/starred-items.md",
+      "line": 21,
+      "before": "- **AC-3** `/?show=starred` lists only the starred items, in the same order as the full list.",
+      "after": "- **AC-3** `/?show=starred` lists mainly the starred items, in the same order as the full list."
+    }
+  ]
+}

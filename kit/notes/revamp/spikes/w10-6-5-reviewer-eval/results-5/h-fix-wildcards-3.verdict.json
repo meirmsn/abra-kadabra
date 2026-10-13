@@ -1,0 +1,73 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "e2d374e05c54c8c2e26a0c2710ffe4d44dff149f",
+  "base": "7c1a0282cbe1b9c23455570153aff52634477380",
+  "branch": "eval-run/r5-h-fix-wildcards-3",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search treating % and _ as wildcards",
+    "sha256": "86d51b3e59f66f74c83c8ffe10a2d899d9ca4eede3d11b392bd67efdc91b9315"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "d1253183-011e-49c7-9ea1-d3a1e5aef185",
+    "cost_usd": 0.0260459
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change does what the PR says: escapes %, _ and \\ in the title LIKE query and adds ESCAPE '\\'. Nothing extra. Treating these as literal is the only sensible design."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file in this change, so there are no acceptance items."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "New tests cover %, _, a mixed query and a backslash. Each would fail without the escaping. I could not run them here because vitest is not installed. .github/workflows/ci.yml exists, so CI runs them. No tests were deleted or loosened."
+    },
+    {
+      "lens": "docs",
+      "applies": false,
+      "note": "The diff touches only src/index.js and test/search.test.js. Neither the diff nor my search of src turned up docs that describe search behaviour."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The regex escape and ESCAPE '\\\\' are correct for SQLite. The only other use of q is the HTML output, which is already escaped. No other LIKE queries exist."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query is parameterised, and the wildcard escaping closes a pattern-injection gap. I found no planted instructions in the repository content."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters and matches the diff. The claims about the ESCAPE clause, the test and the behaviour change are true of the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:37:36Z"
+}

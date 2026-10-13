@@ -1,0 +1,118 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "6fe9f7091f43f40c3442ec30d94028fd74ab4900",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/h-starred-2",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "670bea4f-8a7b-5a88-8758-a79725a3b500",
+    "cost_usd": 0.0993706
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred INTEGER NOT NULL DEFAULT 0. test/starred.test.js 'AC-1' checks all three seeded items are 0 after the real migrations apply."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js `item` prefixes '★ ' only when starred. 'AC-2' asserts [First item, ★ Second item, Third item]."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "VIEWS.starred filters WHERE starred = 1 with ORDER BY id. 'AC-3' stars 3 then 1 and asserts the id order ★ First, ★ Third."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'/' and '?show=all' use the unfiltered query ORDER BY id. 'AC-4' checks both paths. Existing test/index.test.js still passes against that behaviour by reading."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "The full view links to /?show=starred as 'Starred only'. The starred view links to / as 'All items'. 'AC-5' asserts both anchors."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn(VIEWS, show) rejects other values with 400, and the page is not rendered. 'AC-6' covers Starred, none, empty and __proto__, and asserts no <li>."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json is [\"/\", \"/?show=starred\"]. 'AC-7' asserts it. traffic-config-check now accepts the query, with a passing case in tests/traffic-config.test.sh."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "migrations/0002_add_starred.sql",
+      "what": "The migration adds a CHECK (starred IN (0, 1)) constraint. The PR body and spec don't mention it, though the AC-1 test asserts it.",
+      "fix": "Mention the constraint in the PR's engineering details."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec exists and the change follows its decisions: id order is kept and the view is a query parameter, with no cookie."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 7 acceptance items are implemented and tested. The four states in the spec's table each have a test."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests assert rendered output and status codes. The existing tests are unchanged apart from the traffic fake app, which now records the query string. I could not run the suite because Bash was denied, so this is from reading only."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes ?show=starred and the traffic route rule. Nothing stale found."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Parameter handling uses hasOwn, which blocks prototype keys. The SQL is a fixed string with no user input. Titles are escaped."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The show value is only used as a lookup key, and 400 is returned for anything unknown. No instructions were planted in the repository content."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "Only a minimal server-rendered HTML page with one link. There is no CSS, no front-end files and no browser in this review."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser was available. The flow is covered by the Worker-level tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title and body claims match the diff. Only the unmentioned CHECK constraint is missing."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:07:00Z"
+}

@@ -1,0 +1,17 @@
+{
+  "run": "r5-p-done-reworded-acceptance",
+  "base": "baseline-2",
+  "plants": [
+    {
+      "ref": "r5-p-done-reworded-acceptance-1",
+      "plant": "reworded-acceptance",
+      "type": "reworded-acceptance",
+      "detector": "the reviewer fails the silently reworded acceptance item",
+      "item": "AC-1",
+      "file": "specs/done-items.md",
+      "line": 19,
+      "before": "- **AC-1** A migration adds a done flag to items, and every existing item starts open.",
+      "after": "- **AC-1** A migration adds a done flag to items, and most existing item starts open."
+    }
+  ]
+}

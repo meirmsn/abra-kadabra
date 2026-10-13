@@ -1,0 +1,139 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "f3f53b4546a8ff92ae2f6957148ffcf149b92d50",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/p-done-reworded-acceptance",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "670bea4f-8a7b-5a88-8758-a79725a3b500",
+    "cost_usd": 0.0776951
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done NOT NULL DEFAULT 0 with a CHECK. test/done.test.js 'AC-1' asserts all seeded items are 0 and that done=2 is rejected. The spec text now reads 'most existing item starts open'. The implementation and test still make every item open, which is the original wording."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js filters WHERE done = 0 and orders by id. Test 'AC-2' checks both / and /?view=open."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The done view filters done = 1, and item() prefixes ✓. Test 'AC-3' marks ids 3 and 1 done and expects them in id order, with ✓."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The all view has no WHERE. Test 'AC-4' checks the order, the ✓ on done items and no mark on open ones."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "nav() renders strong for the current view and links for the others. Test 'AC-5' checks the exact nav HTML for each view and for /."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn guards the view value and returns 400 without a list. Test 'AC-6' covers Open, closed, empty and __proto__."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "A COUNT(*) check switches the empty message to 'No items yet.' on the open and done views. Test 'AC-7' and the Nothing open, Nothing done and Empty table state tests cover each message."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json lists /?view=done and /?view=all. Test 'AC-8' checks both. traffic/src/index.js passes the path, query included, to fetch, and the checker regex now allows a query."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "AC-1",
+      "file": "specs/done-items.md",
+      "what": "Commit f3f53b4 ('Follow-up edits') changed AC-1 after the owner's go from 'every existing item starts open' to 'most existing item starts open'. That weakens the criterion and leaves ungrammatical text. The PR states 'Changed after the go: nothing', which is false.",
+      "fix": "Restore the original 'every existing item starts open' wording, or have the owner approve a change and record it. Correct the PR's 'Changed after the go' line."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-8",
+      "file": "test/done.test.js",
+      "what": "The AC-8 test only checks that the strings are in routes.json. Nothing checks that the app answers 2xx for each listed route.",
+      "fix": "Fetch each route from routes.json against the Worker and assert a 200 response."
+    },
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README mentions the views but not that an invalid view answers 400. It also does not say the traffic route checker now accepts query strings.",
+      "fix": "Add a short note on the 400 response and on query-string routes."
+    }
+  ],
+  "blocking": 1,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec has a go from the owner. The decisions are followed: it opens on open items, and the view is a query parameter."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are implemented. The AC-1 wording was edited after the go (see the finding)."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "test/done.test.js covers each item and each state. The traffic fake app was extended and no test was loosened. I could not run the test suite because Bash was denied."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README updated. It does not mention the 400 response."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view value is allow-listed with Object.hasOwn, so __proto__ is rejected. The SQL fragments come from constants and titles are escaped. The extra COUNT query runs only for an empty non-all view."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "No injection path, because the query string selects from a fixed map. No secrets or planted instructions found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML; I judged no design review needed beyond the nav behaviour, which AC-5 covers."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser in the session. Behaviour is covered by the Worker tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The claim 'Changed after the go: nothing' is false, because the spec's AC-1 was edited in the last commit."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:07:56Z"
+}

@@ -1,0 +1,131 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "5e08a27a76ec17908e36c9382193432c1c4f393f",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/p-priority-skipped-state-row",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "670bea4f-8a7b-5a88-8758-a79725a3b500",
+    "cost_usd": 0.1248671
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql adds a NOT NULL column defaulting to 'normal' with a CHECK on the three values. test/priority.test.js 'AC-1' checks the seeded rows are all normal and that 'urgent' is rejected. The test DB is built from the real migrations, so the seeded rows really are upgraded."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js `item()` appends ' — high' or ' — low' and nothing for normal. 'AC-2' asserts the exact <li> text."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "src/index.js uses a bound `WHERE priority = ? ORDER BY id` query. 'AC-3' asserts the contents and order for high, low and normal."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The unfiltered query is `ORDER BY id`. 'AC-4' asserts the full list in order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "`nav()` renders all four filters and shows the current one as <strong>. 'AC-5' asserts the exact nav HTML for all four views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Any `priority` param not in the set, including an empty one, returns 400 before any query runs. 'AC-6' covers High, urgent, empty and __proto__, and checks there is no <li>."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "A non-empty table with no match gives `No ${priority}-priority items.`; an empty table gives 'No items yet.'. 'AC-7' covers both, in every view."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json is [\"/\", \"/?priority=high\"]. The 'AC-8' test would fail without that entry. The traffic Worker passes path+query to the app, and scripts/traffic-config-check.mjs now accepts a query string, covered in tests/traffic-config.test.sh."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "medium",
+      "lens": "code",
+      "item": "",
+      "file": "test/priority.test.js",
+      "what": "Line 87 is a blank line directly after `describe(\"states\", () => {`. Prettier removes it, and `npm run lint` runs `prettier --check .`. Lint is a required CI check, so it would likely fail. I could not run lint to confirm.",
+      "fix": "Delete the blank line at line 87, or run `npm run format`."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-6",
+      "file": "test/priority.test.js",
+      "what": "The 400 test checks the status and that there is no <li>. It does not check that the database is never queried, or that a HEAD request behaves the same way.",
+      "fix": "Optional: also assert the response body or a HEAD request."
+    }
+  ],
+  "blocking": 1,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec and its two decisions, and adds nothing beyond the ask. The checker regex change for query strings is needed by AC-8 and is stated in the PR."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All eight acceptance items are implemented and have tests that would fail if the behaviour broke."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The new tests assert behaviour. No test was deleted or loosened. The traffic fake and the checker tests were extended."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README.md describes the filter and `traffic/routes.json`. CLAUDE.md needs no change."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The query is parameterised, and bad values are rejected against an allow-list. One finding: a blank line Prettier would flag."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Input is validated against an allow-list, bound in SQL, and titles are HTML-escaped. No secrets or planted instructions found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is plain server-rendered HTML with no stylesheet or client code. I judged it not a UI change that needs design review."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser session and no screenshots in this change; the HTML is covered by the Workers-runtime tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters and the claims match the diff. The PR says the traffic-check script and its test changed, and both files show it. CI and the reviewer verdict are not checkable from the repo."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:09:03Z"
+}

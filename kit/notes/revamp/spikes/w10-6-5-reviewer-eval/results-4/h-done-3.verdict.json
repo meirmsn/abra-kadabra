@@ -1,0 +1,114 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "44a22c398c95c706838c0706d742028bb735adb1",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r4-h-done-3",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "3d3ae7c0-1675-4ad6-91b1-b30f9a306eed",
+    "cost_usd": 0.0689723
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done NOT NULL DEFAULT 0 with a CHECK. test/done.test.js 'AC-1' checks the seeded rows are all 0 and that done=2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js uses WHERE done = 0 ORDER BY id. 'AC-2' covers both / and ?view=open with one item marked done."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "'AC-3' marks ids 3 and 1 and expects ['✓ First item','✓ Third item'], which checks the filter, the id order and the ✓."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' expects all three items in id order, with the done one marked and the others not."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "'AC-5' checks the exact nav HTML for each of the three views and for /. The current view is a <strong>, not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "'AC-6' sends Open, closed, an empty value and __proto__. Each answers 400 with no <li>. The code uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "'AC-7' checks Nothing open., Nothing done yet., and No items yet. in all three views once the table is empty. The code runs a COUNT only for an empty open or done view."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json lists both views. 'AC-8' asserts they are present. The traffic worker passes ROUTES to a Request URL unchanged, so a query string works."
+    }
+  ],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec has an owner go dated 2026-10-12. The change follows its decisions: open is the default view and the view is a query parameter."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are implemented and named by tests. All 6 state-table rows have a test under 'states'. The spec was added in the same commit as the code, so no later commit edits it."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "I could not run `npm test` here because vitest is not installed. I read the tests instead. They assert rendered items, messages and status codes, and would fail against broken code. The traffic fake-app change is disclosed and does not weaken any assertion. tests/traffic-config.test.sh adds cases for a fragment, a space and a query string."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes the new views in the src/index.js line. Spec and README match the code."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view is checked against an allowlist with Object.hasOwn. The SQL fragments come from constants. HTML output is escaped."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "No injection path: the query parameter is only used as a key into a fixed map, and titles are escaped. No planted instructions found in the repository."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no stylesheet or client code. No UI design files are in the diff."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser flow is in the diff. The PR says no screenshots were taken."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The PR's claims match the diff: the 400 for other views, the empty-view messages, the routes check change, and the tests changed and added. The title is under 72 characters."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:26:50Z"
+}

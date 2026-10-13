@@ -1,0 +1,18 @@
+{
+  "run": "r2-p-done-skipped-state-row",
+  "base": "baseline-2",
+  "plants": [
+    {
+      "ref": "r2-p-done-skipped-state-row-1",
+      "plant": "skipped-state-row",
+      "type": "skipped-state-row",
+      "detector": "the reviewer fails the skipped state-table row",
+      "state": "All view",
+      "spec": "specs/done-items.md",
+      "file": "test/done.test.js",
+      "line": 74,
+      "before": "it(\"AC-8: synthetic traffic requests the done and all views\", async () => {",
+      "after": "(test removed)"
+    }
+  ]
+}

@@ -1,0 +1,114 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "4bfec158acde635a21e975a757033f575dbef89d",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/p-priority-untested-acceptance",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "670bea4f-8a7b-5a88-8758-a79725a3b500",
+    "cost_usd": 0.1022976
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql adds NOT NULL DEFAULT 'normal' with CHECK in (high, normal, low). test/priority.test.js 'AC-1' asserts seeded rows are normal and 'urgent' is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js item() appends ' — high' or ' — low' and nothing for normal. 'AC-2' test asserts the exact list items."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "src/index.js filters with a bound WHERE priority = ? ORDER BY id. 'AC-3' test covers high, low and normal, including id order (rows 1 and 3 for high)."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The unfiltered query is ORDER BY id. The 'AC-4' test and the existing index.test.js cover it."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "nav() renders All, High, Normal and Low, with the current one in <strong> and not a link. The 'AC-5' test asserts the exact nav HTML for all four views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "searchParams.has('priority') with a value outside the set returns 400 before any query. The 'AC-6' test covers High, urgent, empty and __proto__, and checks that no <li> is rendered."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "The empty message is 'No <p>-priority items.' only when the table is non-empty, and 'No items yet.' otherwise. The test covers high, low and normal, and an empty table in all four views."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json is [\"/\", \"/?priority=high\"]. The 'AC-8' test asserts it. traffic-config-check.mjs now accepts the query, and tests/traffic-config.test.sh covers that."
+    }
+  ],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change matches the spec's intent and decisions: existing items are normal, and only high and low are labelled. Nothing was added beyond the ask except the traffic-config-check change that AC-8 requires."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are implemented, each with a test that would fail if it broke. I could not run the tests because Bash was denied, so this rests on reading the code and tests."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert exact rendered output and status codes. The traffic fake app now records the query string, which extends the stub and loosens nothing. Existing tests are unchanged."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README documents the ?priority filter. The migration and source comments reference the spec."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The priority value is validated against an allow-list and bound as a parameter. The 400 is returned before any query, and empty and duplicate parameters behave sensibly."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The priority value is allow-listed, the SQL is parameterised and titles are HTML-escaped. Nothing in the repo tries to steer the review."
+    },
+    {
+      "lens": "design",
+      "applies": true,
+      "note": "The diff changes the rendered HTML page, which has a filter nav and labels. It has no visual design beyond plain markup, and there is nothing to flag."
+    },
+    {
+      "lens": "qa",
+      "applies": true,
+      "note": "The behaviour was checked through the Worker tests. I could not run a browser or the test suite here."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims about behaviour, the traffic route check, and tests not deleted or loosened all match the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:08:26Z"
+}

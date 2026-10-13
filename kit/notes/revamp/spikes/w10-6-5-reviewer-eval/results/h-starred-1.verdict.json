@@ -1,0 +1,134 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "6fe9f7091f43f40c3442ec30d94028fd74ab4900",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/h-starred-1",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "670bea4f-8a7b-5a88-8758-a79725a3b500",
+    "cost_usd": 0.0762028
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred INTEGER NOT NULL DEFAULT 0 with a CHECK. test/starred.test.js 'AC-1' asserts all rows are 0 and that a value of 2 is rejected. The test seeds rows rather than migrating existing data, but the DEFAULT 0 covers existing rows."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js `item()` prefixes '★ ' only when starred. The 'AC-2' test checks the exact list with one starred item."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The starred view applies WHERE starred = 1 ORDER BY id. The 'AC-3' test stars 3 and 1 and expects id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "`/` and `?show=all` use the same query with no filter and ORDER BY id. The 'AC-4' test covers both paths."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "The all view renders 'Starred only' and the starred view renders 'All items'. The 'AC-5' test checks both links."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn(VIEWS, show) guards the lookup, otherwise it returns 400 with no list. The 'AC-6' test covers Starred, none, an empty value and __proto__, and asserts no <li>."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?show=starred'. The 'AC-7' test asserts it. The checker regex was loosened so the route is accepted, and tests/traffic-config.test.sh covers that."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README mentions `?show=starred` but not the ★ marker, the 'Starred only' / 'All items' links, or the 400 on other `show` values.",
+      "fix": "Add one sentence on the marker, the links and the 400 behaviour."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-7",
+      "file": "test/starred.test.js",
+      "what": "The AC-7 test only checks that the string is in routes.json. It does not show that the traffic worker's check() would get a 2xx from the real app for that path. test/traffic.test.js uses a fake app.",
+      "fix": "Optionally add a test that fetches every entry of routes.json from the real app and expects 2xx."
+    },
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "scripts/traffic-config-check.mjs",
+      "what": "The spec does not mention loosening the route validator to allow query strings. The PR discloses this and it is needed for AC-7, but the spec's out-of-scope and decisions sections don't cover it.",
+      "fix": "Keep the PR note. Optionally add a line to the spec."
+    }
+  ],
+  "blocking": 0,
+  "low": 3,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec exists. The change matches its intent, its two decisions (order unchanged, query parameter, GET-only) and its out-of-scope list. The only addition is the traffic checker's query-string allowance, which AC-7 requires."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 7 acceptance items are implemented, with tests that would fail if the behaviour broke."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests assert rendered output and status codes. The fakeApp change in test/traffic.test.js is disclosed, and it extends the fake rather than loosening any assertion. Not run: Bash was denied, so I judged from reading only."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README.md changed; see the low finding."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Object.hasOwn blocks prototype keys. The view SQL comes from a fixed map, not user input. I found no dead code or edge-case bugs."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The `show` parameter is validated against a fixed allowlist. Titles are HTML-escaped. The SQL is built only from constants. I found no secrets and no planted instructions."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is a minimal server-rendered list with no CSS or UI files, so there is no visual design to review."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser flow to demonstrate. The PR states no browser was available, and the HTML output is covered by tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title and body match the diff. The claims about behaviour, the migration, the checker change and the test changes are all true. The only gaps are the CI and reviewer lines, which can't be checked from the repository."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:06:34Z"
+}

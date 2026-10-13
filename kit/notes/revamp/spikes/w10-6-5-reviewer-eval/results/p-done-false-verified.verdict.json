@@ -1,0 +1,114 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "0be2846880e7eb37f35ccd0f3748bad5ded46f16",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/p-done-false-verified",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "670bea4f-8a7b-5a88-8758-a79725a3b500",
+    "cost_usd": 0.0870512
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done INTEGER NOT NULL DEFAULT 0. test/done.test.js 'AC-1' checks the three seeded rows are all 0."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js defaults view to open with WHERE done = 0 ORDER BY id. 'AC-2' tests / and /?view=open after marking item 2 done."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "'AC-3' marks items 3 and 1 and expects ['✓ First item','✓ Third item'] in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' expects all three items in id order with only the done one marked."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "'AC-5' asserts the exact nav HTML for each view and for /. The current view is a <strong> and the others are links."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn check returns 400 for unknown values. 'AC-6' covers Open, closed, empty and __proto__, and checks there is no <li>."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "I checked the code by hand. An empty table gives 'No items yet.' in any view through the COUNT fallback. Otherwise an empty view gives its own message. The 'empty table' and 'Nothing open/done' tests also cover it."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains /?view=done and /?view=all. The AC-8 test checks the file. traffic/src/index.js requests the path as given, and test/traffic.test.js and the config check were updated to accept a query."
+    }
+  ],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec's decisions: it opens on open items and uses a query parameter."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All eight acceptance items are implemented. Nothing was added beyond the ask, except a CHECK (done IN (0,1)) constraint, which is harmless."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert rendered behaviour and would fail on wrong code. No tests were deleted or loosened."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes the three views."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Views are looked up by Object.hasOwn and the SQL fragments are constants, so no input reaches the query. Titles are HTML-escaped."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The view parameter is whitelisted. I found no injection, secrets or planted instructions."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no stylesheet or client code. The change adds a nav line and a ✓ marker."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser flow can be run here, and the tests cover the rendered HTML."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title and body match the diff. I found no false claims."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:07:29Z"
+}

@@ -1,0 +1,118 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "6fe9f7091f43f40c3442ec30d94028fd74ab4900",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r4-h-starred-2",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "88e4a03c-cd4e-42a0-8ff5-aa7469a5a8b8",
+    "cost_usd": 0.062214000000000005
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred NOT NULL DEFAULT 0 with CHECK; test/starred.test.js 'AC-1' asserts seeded rows are all 0 and a value of 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js item() prefixes '★ ' only when starred; 'AC-2' test expects exactly ['First item','★ Second item','Third item']."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "VIEWS.starred filters WHERE starred = 1 ORDER BY id; 'AC-3' stars 3 then 1 and expects id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' checks '/' and '/?show=all' list all items in id order with a starred item in place."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "'AC-5' checks 'Starred only' link on / and 'All items' link on /?show=starred; the state tests also check the links on the empty views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn guard returns 400 with no list; 'AC-6' tests Starred, none, empty and __proto__."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?show=starred'; 'AC-7' test asserts it. The route-check script and traffic test fake were updated to allow a query."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-7",
+      "file": "test/starred.test.js",
+      "what": "AC-7 only checks that the route is listed. No test covers the traffic Worker requesting a route with a query end to end, though traffic.test.js's fake app now records the search string.",
+      "fix": "Optionally assert in traffic.test.js that a round requests '/?show=starred'."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change matches the spec and its go; nothing was added beyond it except the traffic-check relaxation, which the AC-7 route needs and the PR discloses."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 7 acceptance items and all 4 state-table rows have named tests. The spec has no later edits: it was added in one commit with the go dated before the work."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "npm test could not run here because vitest is not installed. I judged by reading: the tests assert rendered behaviour and would fail against broken code. The fake-app change in traffic.test.js loosens nothing. The new shell test cases cover both the rejected and the accepted route forms."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes ?show=starred. The traffic section already says routes come from routes.json."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Object.hasOwn guards the prototype-key case. The SQL is built only from fixed view constants, so there is no injection. HEAD requests go through the same path. No defects found."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The show value is never reflected into the page and the title is HTML-escaped. The only change to input validation is the route regex, which still refuses spaces and '#'."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches only a plain server-rendered HTML string, with no UI component or style files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches only a plain server-rendered HTML string, with no UI component or style files."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title and body match the diff: the migration, the 400 on other values, the routes.json entry, the traffic-check change and its tests are all as described. Claims about CI and the reviewer are not checkable from the repository."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:25:01Z"
+}

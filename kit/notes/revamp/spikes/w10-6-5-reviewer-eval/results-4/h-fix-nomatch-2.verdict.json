@@ -1,0 +1,82 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "f8d4ef68a9f016a54d6cf7acceaaf129cb126c89",
+  "base": "7c1a0282cbe1b9c23455570153aff52634477380",
+  "branch": "eval-run/r4-h-fix-nomatch-2",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search saying No items yet. when nothing matches",
+    "sha256": "e3b148148ae0e1d855984d3d1049873901fde152772c3f3cfa2a8c8ae660149d"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "141258ef-1816-4405-900b-378a03dc89e0",
+    "cost_usd": 0.0271744
+  },
+  "acceptance": [],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "code",
+      "item": "",
+      "file": "src/index.js",
+      "what": "`empty` is interpolated raw into the template. It is safe today because the only dynamic part is escaped, but the template now trusts its caller to pre-escape.",
+      "fix": "Pass a flag or the raw query and build the message inside the template."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change matches the PR words: the no-match message is added and an empty table keeps its message. It is a small bug fix with one obvious design."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file in this change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Three tests cover no-match, escaping and empty table. They would fail against the old code, except the empty-table test, which guards against regression. I could not run npm test here (vitest is not installed). The DELETE in the last test matches existing practice in test/index.test.js."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The diff touches no docs, and I found no docs describing this message."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The message is escaped and the extra COUNT query runs only when a search finds nothing. This is correct, and the template trust issue is only a low finding."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query is escaped in the message. The SQL is parameterized."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff changes one line of server-rendered text and adds no UI structure. No screenshots were available."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There was no browser in the session, so there is no UI flow to demonstrate."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is 52 characters and the claims match the diff. The failing-test claim is plausible."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:29:24Z"
+}

@@ -1,0 +1,131 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "44a22c398c95c706838c0706d742028bb735adb1",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/h-done-3",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "670bea4f-8a7b-5a88-8758-a79725a3b500",
+    "cost_usd": 0.1067504
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done INTEGER NOT NULL DEFAULT 0 with a CHECK. test/done.test.js 'AC-1' checks the seeded rows are all 0 and that done = 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js uses the default view 'open' with WHERE done = 0 ORDER BY id. 'AC-2' marks item 2 done and checks that / and /?view=open both list only the other two items."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The done view uses WHERE done = 1, and item() prefixes ✓. 'AC-3' marks 3 and 1 done and expects ['✓ First item','✓ Third item'] in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The all view has no WHERE clause. 'AC-4' expects all three items in id order with only the done one marked ✓."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "nav() renders the current view as <strong> and the others as links. 'AC-5' asserts the exact nav HTML for each view and for /."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn rejects unknown values, '__proto__' and the empty string, and returns 400 with no list. 'AC-6' covers Open, closed, '' and __proto__, and checks that no <li> appears."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "The code runs a COUNT query to choose between 'No items yet.' and the per-view message. 'AC-7' and the Empty table, Nothing open and Nothing done state tests cover all three messages."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json is [\"/\",\"/?view=done\",\"/?view=all\"]. 'AC-8' asserts both routes are present. traffic/src/index.js appends each route to the request URL, so the query is sent."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "scripts/traffic-config-check.mjs",
+      "what": "The PR says the checker 'now accepts' a route with a query string. The regex /^\\/[^\\s#]*$/ already allows '?', and I could not diff the old version because Bash was refused. If the script was not changed, the claim is inaccurate. If it was changed, I could not see how.",
+      "fix": "Confirm against the diff and drop or correct the claim in the PR body if the script is unchanged."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-1",
+      "file": "test/done.test.js",
+      "what": "AC-1 only checks freshly seeded rows. It does not prove that rows that existed before the migration start open, because the seed is applied after all migrations. The DEFAULT 0 clause does guarantee this.",
+      "fix": "Optional: apply 0001, insert a row, then apply 0002 and assert done = 0."
+    }
+  ],
+  "blocking": 0,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec has a go from the owner. The decisions are followed: the default view is open, and the view is a query parameter on a GET-only app."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are implemented. Nothing outside the spec's scope was added: there is no write route and no remembered view."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Each acceptance item and each state has a behavioural test. The traffic test fake now records the query string, and no tests were deleted. Only the low AC-1 note above."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes the views. The routes.json comment in the README stays accurate."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view value is checked against a whitelist with hasOwn, and the SQL fragments come only from constants. The empty-table logic is correct. No dead code."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query parameter is only whitelist-matched and never interpolated from input. Titles are still HTML-escaped. No instructions were planted in the repository content."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "I could not run a browser. The page is a minimal server-rendered HTML list, and the nav markup is covered by tests."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser in the session and no UI flow was demonstrated. The nav and states are covered by HTTP-level tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title and claims match the diff as far as I could read it. The one uncertain claim is the low finding on the traffic route checker."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:08:44Z"
+}

@@ -1,0 +1,18 @@
+{
+  "run": "s2-p-priority-skipped-state-row",
+  "base": "baseline-2",
+  "plants": [
+    {
+      "ref": "s2-p-priority-skipped-state-row-1",
+      "plant": "skipped-state-row",
+      "type": "skipped-state-row",
+      "detector": "the reviewer fails the skipped state-table row",
+      "state": "Empty table",
+      "spec": "specs/item-priority.md",
+      "file": "test/priority.test.js",
+      "line": 69,
+      "before": "it(\"AC-7: an unmatched filter names its priority; an empty table says No items yet.\", async () => {",
+      "after": "(test removed)"
+    }
+  ]
+}

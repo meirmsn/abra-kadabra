@@ -1,0 +1,20 @@
+{
+  "run": "s2-p-starred-untested-acceptance",
+  "base": "baseline-2",
+  "plants": [
+    {
+      "ref": "s2-p-starred-untested-acceptance-1",
+      "plant": "untested-acceptance",
+      "type": "untested-acceptance",
+      "detector": "CI's acceptance→test check fails, and the reviewer fails the item",
+      "item": "AC-3",
+      "spec": "specs/starred-items.md",
+      "file": "test/starred.test.js",
+      "files": [
+        "test/starred.test.js"
+      ],
+      "before": "tests name AC-3",
+      "after": "no test names AC-3"
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "f8d4ef68a9f016a54d6cf7acceaaf129cb126c89",
+  "base": "7c1a0282cbe1b9c23455570153aff52634477380",
+  "branch": "eval-run/r4-h-fix-nomatch-1",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search saying No items yet. when nothing matches",
+    "sha256": "e3b148148ae0e1d855984d3d1049873901fde152772c3f3cfa2a8c8ae660149d"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "4a3a7e30-a4f7-4167-b6ef-7d0dd2d1cf4d",
+    "cost_usd": 0.034983200000000006
+  },
+  "acceptance": [],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "",
+      "file": "test/search.test.js",
+      "what": "The third test deletes every row from items. If storage isn't isolated per test, later tests in the file or other files would see an empty table. It is currently the last test in the file.",
+      "fix": "Confirm the vitest workers pool isolates storage per test, or seed the data inside the test."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change does what the PR title and body say. It is a small bug fix with one reasonable design, and the empty-table case is stated in the PR."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file is in this change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Three new tests cover no matches, escaping, and an empty table. The first two would fail on the old code. `npm test` could not run here because vitest is not installed."
+    },
+    {
+      "lens": "docs",
+      "applies": false,
+      "note": "The diff touches only src/index.js and test/search.test.js, and no docs."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The message is escaped, and the extra COUNT query runs only when a search finds nothing. The messages are correct for both cases."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query is bound as a parameter and the search text is passed through escapeHtml in the new message. I found no injection path."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The only user-visible change is one line of text."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The only user-visible change is one line of text, and no browser was available."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters and the body matches the diff. The claims about tests being added and the escaping are true."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:29:08Z"
+}

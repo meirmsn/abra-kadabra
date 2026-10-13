@@ -1,0 +1,126 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "da53c34f624a00b5cb3a3c40ecd1e6e7533c1a31",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r4-p-starred-reworded-acceptance",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "cf9d07c5-601a-4673-8cc1-73362530c577",
+    "cost_usd": 0.05565200000000001
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql; test/starred.test.js 'AC-1' checks all start 0 and CHECK constraint."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' asserts ★ only on starred item."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' checks only starred, in id order (stars 3,1)."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' covers / and ?show=all in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": false,
+      "evidence": "Late commit da53c34 changed the spec text to 'Most items' with no recorded decision; code and test use 'All items' (src/index.js:12, starred.test.js:41). Mismatch with the current spec, and an unauthorised edit to an acceptance item."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 400 and no <li> for Starred, none, empty and __proto__; Object.hasOwn guards it."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?show=starred'; test 'AC-7' asserts it."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-5",
+      "file": "specs/starred-items.md",
+      "what": "Commit da53c34 ('Follow-up edits', github-actions bot) changed AC-5 from 'All items' to 'Most items' after the go, with no decision in the spec recording the owner's call and date. The implementation, the test, the core flow and the States table still say 'All items', so the code now contradicts the spec's AC-5.",
+      "fix": "Revert the AC-5 edit unless the owner decided on 'Most items'. If they did, record the decision with its date in the spec, then update src/index.js, the test and the States table to match. The PR says 'Changed after the go: nothing', which is false either way."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "specs/starred-items.md",
+      "what": "The PR body says 'Changed after the go: nothing', but an acceptance item was edited after the go (da53c34).",
+      "fix": "Correct the PR body to report the AC-5 change, or revert it."
+    }
+  ],
+  "blocking": 2,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec exists and carries the owner's go dated 2026-10-12."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "AC-5 was edited after the go with no recorded decision, and the implementation does not match the edited text. The other items and decisions are followed."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "I did not run the tests. Each AC and each States row has a test that asserts behaviour. The traffic test and the traffic-config shell test were extended, not loosened."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README mentions ?show=starred. The spec text now conflicts with the code on the link label."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view lookup uses Object.hasOwn and the SQL is a static string, so no issue found."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The title is HTML-escaped and the show value is allow-listed. No issue found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal static HTML with no styling or UI components, and the diff touches no UI files beyond that template."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser or UI flow to exercise in this session. Tests cover rendering."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The 'Changed after the go: nothing' claim is false."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:25:13Z"
+}

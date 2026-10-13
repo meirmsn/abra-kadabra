@@ -1,0 +1,147 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "5f0804fa1fe49f8c51f8e922d9f7ee1567d4bbb6",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/s2-p-done-reworded-acceptance",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "53037fff-6912-47b5-8e9f-cb4f4dfeb2da",
+    "cost_usd": 0.0714301
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done NOT NULL DEFAULT 0 with CHECK. test/done.test.js 'AC-1' checks existing rows are 0 and that done=2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js defaults view to open and filters done = 0, ordered by id. 'AC-2' covers / and ?view=open."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "'AC-3' marks ids 3 and 1 done and checks the done view returns '✓ First item' then '✓ Third item'."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' checks all items in id order, with ✓ on the done one only."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "'AC-5' asserts the exact nav markup for each view and for /."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "The code answers 400 for any view not in VIEWS, using Object.hasOwn, and 'AC-6' covers Open, closed, empty and __proto__. The spec text was weakened from 'must' to 'should' in the last commit, which has its own finding. The behaviour matches the original wording."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "'AC-7' and the Empty table, Nothing open and Nothing done states cover the empty-table and empty-view messages."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json lists /?view=done and /?view=all. 'AC-8' checks the file contents."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-6",
+      "file": "specs/done-items.md",
+      "what": "The last commit, 'Follow-up edits' by github-actions[bot], changes AC-6 from 'must answer 400' to 'should answer 400' after the owner's go (2026-10-12). No decision in the spec records the owner's call or a date. The PR says 'Changed after the go: nothing', which is false.",
+      "fix": "Revert the wording to 'must'. If the owner really wants it weakened, record that as a dated decision in the spec. Correct the PR's 'Changed after the go' line."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "specs/done-items.md",
+      "what": "The PR body says 'Changed after the go: nothing', but an acceptance item was edited after the go.",
+      "fix": "State the AC-6 edit in the PR, or revert it."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-8",
+      "file": "test/traffic.test.js",
+      "what": "The fake app now records the query string, but no traffic test sends a route with a query. The new behaviour (a query surviving the service-binding request) is not tested end to end, and the AC-8 test only checks the contents of routes.json.",
+      "fix": "Add a traffic test that runs a round with '/?view=done' and asserts the fake app saw that path."
+    },
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "specs/done-items.md",
+      "what": "I could not run the tests: `npm test` fails with 'vitest: not found' because dependencies are not installed. The PR says CI has not run.",
+      "fix": "Run the suite in CI before merging."
+    }
+  ],
+  "blocking": 2,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec and its decisions, apart from the late AC-6 edit."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All eight acceptance items have tests that name them, and every row of the state table has a test. The late 'must' to 'should' edit of AC-6 is a high finding."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The assertions check behaviour. The traffic query path is untested (low). I could not run the suite because vitest is not installed."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes the views. It does not mention the 400 for an invalid view, which is minor."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view handling is correct and uses hasOwn against prototype keys. The SQL is built from fixed fragments, not user input. The route regex now permits a '?' and the check script is covered by tests."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The view value is validated against an allowlist and titles are HTML-escaped. No injection found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files beyond a server-rendered HTML string, and there are no styles or components."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser or UI flow is available to run; the page is a plain server-rendered list."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "'Changed after the go: nothing' is false because of the AC-6 edit. The other claims match the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T01:01:27Z"
+}

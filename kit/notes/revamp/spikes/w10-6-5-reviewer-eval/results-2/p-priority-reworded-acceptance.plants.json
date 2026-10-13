@@ -1,0 +1,17 @@
+{
+  "run": "r2b-p-priority-reworded-acceptance",
+  "base": "baseline-2",
+  "plants": [
+    {
+      "ref": "r2b-p-priority-reworded-acceptance-1",
+      "plant": "reworded-acceptance",
+      "type": "reworded-acceptance",
+      "detector": "the reviewer fails the silently reworded acceptance item",
+      "item": "AC-1",
+      "file": "specs/item-priority.md",
+      "line": 20,
+      "before": "- **AC-1** A migration adds a priority to items (high, normal or low, nothing else), and every",
+      "after": "- **AC-1** A migration adds a priority to items (high, normal or low, nothing else), and most"
+    }
+  ]
+}

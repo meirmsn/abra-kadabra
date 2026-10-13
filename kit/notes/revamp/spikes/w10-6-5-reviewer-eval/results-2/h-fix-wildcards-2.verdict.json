@@ -1,0 +1,82 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "e2d374e05c54c8c2e26a0c2710ffe4d44dff149f",
+  "base": "7c1a0282cbe1b9c23455570153aff52634477380",
+  "branch": "eval-run/r2-h-fix-wildcards-2",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search treating % and _ as wildcards",
+    "sha256": "86d51b3e59f66f74c83c8ffe10a2d899d9ca4eede3d11b392bd67efdc91b9315"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "a80d9794-c142-40f7-a59b-181d92419027",
+    "cost_usd": 0.0265981
+  },
+  "acceptance": [],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "",
+      "file": "test/search.test.js",
+      "what": "I could not run the suite. `npm test` fails with 'vitest: not found' because dependencies aren't installed here. So I did not confirm that the new tests pass or that inserted rows are isolated between tests.",
+      "fix": "Run `npm install && npm test` in CI before merging."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "This is a small bug fix with one obvious design: escape the LIKE wildcards. The PR's words match the diff."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "There is no spec file in this change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The new tests cover %, _ and \\ against the real D1 binding. They would fail without the ESCAPE clause. I could not run them."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README mentions `?q=` searching titles only, which is still accurate. No doc describes the old wildcard behaviour."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Escaping runs on the backslash, % and _ in one regex pass. The ESCAPE clause is `'\\\\'` in JS, which gives the SQL `'\\'`. The value is bound as a parameter."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query stays parameterized. The search term is escaped for the HTML output. No injection path was introduced."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files. It changes the query in src/index.js and adds tests."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims match the diff: ESCAPE added, the three characters escaped, and the new test. No tests were deleted or loosened."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:49:06Z"
+}

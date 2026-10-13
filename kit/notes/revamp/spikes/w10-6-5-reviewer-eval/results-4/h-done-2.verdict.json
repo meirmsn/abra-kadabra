@@ -1,0 +1,123 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "44a22c398c95c706838c0706d742028bb735adb1",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r4-h-done-2",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "14b67352-1fe8-46f2-b1c4-786964abd6ff",
+    "cost_usd": 0.0878672
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done NOT NULL DEFAULT 0 with a CHECK. test/done.test.js 'AC-1' checks seeded rows are 0 and that done=2 is rejected. It cannot show that rows existing before the migration start open, but the default guarantees it."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js defaults view to open and filters done = 0 ORDER BY id. 'AC-2' in test/done.test.js checks both / and ?view=open."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The done view filters done = 1, and item() prefixes '✓ '. 'AC-3' marks ids 3 and 1 done and expects id order with ✓."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The all view has no WHERE clause. 'AC-4' expects every item in id order with only the done one marked."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "nav() renders Open, Done and All, with the current view in <strong> and no link. 'AC-5' asserts the exact nav HTML for all three views and for /."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn rejects unknown values, including __proto__ and the empty string, with a 400 and no list. 'AC-6' tests Open, closed, empty and __proto__."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "The empty-table check uses a COUNT query. 'AC-7' covers Nothing open, Nothing done yet, and No items yet. in all three views after DELETE."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json lists /?view=done and /?view=all. 'AC-8' asserts both are present. The traffic Worker fetches `https://app.internal${path}`, so the query is kept."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "",
+      "file": "test/traffic.test.js",
+      "what": "The fake app now records the query string, but no traffic test uses a route that carries a query. test/done.test.js AC-8 only checks that routes.json contains the strings. Nothing shows the traffic Worker actually requests '/?view=done' with its query intact.",
+      "fix": "Add a traffic test that runs a round and expects app.seen to include '/?view=done' and '/?view=all'. The existing ROUTES equality assertion at line 65 already covers this when it runs."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change matches the spec and its go: the list opens on open items, and the view is a query parameter. Nothing was added beyond the ask. The traffic-config checker relaxation is needed for AC-8 and is disclosed in the PR."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "Every acceptance item and every row of the state table has a test. The spec has no later edits; it was added in the same commit as the feature."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "npm test could not run here because vitest is not installed. I judged the tests by reading them. They assert behaviour and would fail on broken code. No tests were deleted or loosened; the fake app in traffic.test.js was only extended."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes the views. The traffic README line about adding routes is still accurate."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view value is validated against an allow-list with Object.hasOwn. The SQL fragment comes from a constant, not from input. I found no correctness problems."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query parameter is only used as an allow-list key, so there is no SQL injection. Titles are HTML-escaped. The repository content contained no planted instructions."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no stylesheets or UI framework files in the diff. Visual design is outside what I could check."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser in this session, and the PR gives no UI flow to demonstrate beyond the HTTP-level tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters, and the body's claims match the diff: 400 on other views, the traffic checker change, and the migration. The 'CI: not run yet' claim cannot be checked from the repository."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:26:27Z"
+}

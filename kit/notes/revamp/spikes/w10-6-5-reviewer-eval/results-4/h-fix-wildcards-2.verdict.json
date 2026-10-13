@@ -1,0 +1,73 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "e2d374e05c54c8c2e26a0c2710ffe4d44dff149f",
+  "base": "7c1a0282cbe1b9c23455570153aff52634477380",
+  "branch": "eval-run/r4-h-fix-wildcards-2",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search treating % and _ as wildcards",
+    "sha256": "86d51b3e59f66f74c83c8ffe10a2d899d9ca4eede3d11b392bd67efdc91b9315"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "8163a252-f0b4-4d6f-ace8-78c3d0871acf",
+    "cost_usd": 0.019461100000000002
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Small bug fix with one reasonable design (escape wildcards). The change matches the PR words. It adds no new options."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file in the change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "New tests cover %, _ and backslash literals, and each would fail without the escaping. `npm test` could not run here because vitest is not installed."
+    },
+    {
+      "lens": "docs",
+      "applies": false,
+      "note": "The diff touches only src/index.js and test/search.test.js. No docs describe search wildcards."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The escape regex and `ESCAPE '\\\\'` are consistent, and the backslash is escaped first via a single-pass replace. Parameters stay bound."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query stays parameterized. The escaping removes unintended wildcard matching."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims match the diff, including the behaviour change and the new test."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:28:44Z"
+}

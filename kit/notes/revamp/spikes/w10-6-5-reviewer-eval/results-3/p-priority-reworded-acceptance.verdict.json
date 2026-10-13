@@ -1,0 +1,139 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "7a63b2e6a000bf018507d3113de4b5146e0edc7a",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/s2-p-priority-reworded-acceptance",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "53984f2b-e4c3-4951-b985-3753d15dc110",
+    "cost_usd": 0.060978599999999994
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "Migration 0002 adds a NOT NULL column with a CHECK constraint and a default of 'normal'. test/priority.test.js 'AC-1' checks that existing rows are normal and that 'urgent' is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test/priority.test.js 'AC-2' checks the exact list items, with '— high' and '— low' labels and none on normal items."
+    },
+    {
+      "item": "AC-3",
+      "met": false,
+      "evidence": "The code and test 'AC-3' do list only the matching priority. But the item was reworded to 'mainly' in commit 7a63b2e after the go, with no decision recording the owner's call and date. The item is weakened, so I count it unmet."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test/priority.test.js 'AC-4' checks the unfiltered list is every item in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test/priority.test.js 'AC-5' asserts the exact nav markup for all four views, with the current filter as <strong> and not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "The code returns 400 when the priority param is present and not in the allowed set. test 'AC-6' covers High, urgent, empty and __proto__, and checks no <li> in the body."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test 'AC-7' covers the no-match messages and 'No items yet.' for an empty table in all four views."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high'. test 'AC-8' asserts it. The checker script now accepts a query string, and tests/traffic-config.test.sh covers that."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-3",
+      "file": "specs/item-priority.md",
+      "what": "Commit 7a63b2e (a 'Follow-up edits' commit by a bot) changed AC-3 from 'lists only the items of that priority' to 'lists mainly the items of that priority'. This happened after the go (2026-10-12), and no decision in the spec records an owner call or date. It loosens the acceptance item to allow other priorities in a filtered list.",
+      "fix": "Revert AC-3 to 'only'. If the owner really wants a looser rule, record it as a dated decision in the spec."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "PR body",
+      "what": "The body says 'Changed after the go: nothing'. That is false: an acceptance item (AC-3) was edited after the go. The body also doesn't mention that the final commit touches the spec.",
+      "fix": "Revert the edit, or disclose the change and the owner's approval under 'Changed after the go'."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-8",
+      "file": "test/priority.test.js",
+      "what": "AC-8 only checks that routes.json contains the string. The behaviour of the traffic worker with a query route is covered separately in traffic.test.js.",
+      "fix": "Optional: no change needed."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec is present. The code does what the intent asks, but AC-3 was weakened afterwards."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "The final commit edits an acceptance item without a recorded owner decision. Every state-table row has a test in 'states' and the AC tests."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert behaviour and exact output. I couldn't run them because vitest isn't installed in this environment."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes the ?priority filter. No stale docs found."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Priority is validated against an allowlist, the query is parameterised, and the 'No items yet.' versus 'No high-priority items.' logic is correct."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Titles are escaped and the priority value is allowlisted before use in SQL or the nav. No injection found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "Only plain server-rendered HTML changes. No styled UI files are touched."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser flow or UI files beyond plain HTML. No screenshots are available."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "'Changed after the go: nothing' is false because of the AC-3 edit. The other claims match the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T01:02:08Z"
+}

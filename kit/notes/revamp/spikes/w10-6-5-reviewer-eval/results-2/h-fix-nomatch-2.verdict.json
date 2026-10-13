@@ -1,0 +1,82 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "f8d4ef68a9f016a54d6cf7acceaaf129cb126c89",
+  "base": "7c1a0282cbe1b9c23455570153aff52634477380",
+  "branch": "eval-run/r2-h-fix-nomatch-2",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search saying No items yet. when nothing matches",
+    "sha256": "e3b148148ae0e1d855984d3d1049873901fde152772c3f3cfa2a8c8ae660149d"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "c367081d-2fb7-440f-8cd2-5c309cba2838",
+    "cost_usd": 0.03341040000000001
+  },
+  "acceptance": [],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "src/index.js",
+      "what": "The PR says the tests failed before the fix. I couldn't confirm that, because vitest isn't installed here and `npm test` failed with 'vitest: not found'. By reading the diff, the first two new tests would fail on the old code. The third (empty table) would pass on it.",
+      "fix": "Run the suite in CI or locally and confirm the result."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change does what the title says: a search with no matches and a non-empty table now shows a no-match message. An empty table still shows 'No items yet.'. It is a small bug fix with no new options."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "There is no spec file in this change, so there are no acceptance items."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The new tests in test/search.test.js cover the no-match message, HTML escaping of the search text, and the empty-table case. Each asserts rendered output. I could not run them (vitest is not installed here). No tests were deleted or loosened."
+    },
+    {
+      "lens": "docs",
+      "applies": false,
+      "note": "The README and CLAUDE.md say nothing about the empty-state message."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The extra COUNT query runs only when a search finds nothing. The search text is escaped in the message. I found no defects."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The search text is escaped before it goes into the HTML. The SQL is parameterised. The `empty` string is the only value interpolated into the page unescaped, and it is built from constants plus escaped text."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files beyond one server-rendered message string."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches no UI files beyond one server-rendered message string."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters and the body matches the diff. The only claim I couldn't check is that the new tests failed before the fix."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T00:49:54Z"
+}
