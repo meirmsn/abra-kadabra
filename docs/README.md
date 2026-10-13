@@ -16,7 +16,7 @@ reachable from this page through links, or when a relative link or `#anchor` is 
   ([spec](../specs/ci-fast-slow-tiers.md)): job `fast` runs [`scripts/check-fast.sh`](../scripts/check-fast.sh)
   (the secret scan, lint and every test not marked slow), then job `slow` runs
   [`scripts/check-slow.sh`](../scripts/check-slow.sh) (the tests marked `# tier: slow`: the whole
-  install). A test is slow when it tests the system end to end, not because it takes long.
+  install and the UI render check in Chromium, at the Playwright version `package.json` pins). A test is slow when it tests the system end to end, not because it takes long.
   `tests/run.sh fast|slow` runs one tier, `tests/run.sh` all. Proven by
   [`tests/check-tiers.test.sh`](../tests/check-tiers.test.sh) and
   [`tests/run-tiers.test.sh`](../tests/run-tiers.test.sh).
@@ -59,6 +59,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
 
 - [`ci-fast-slow-tiers.md`](../specs/ci-fast-slow-tiers.md): CI in two tiers, fast and slow, for
   the devshop and every project.
+- [`ui-baseline.md`](../specs/ui-baseline.md): every web app starts from a design baseline, phone
+  first, light and dark.
 
 ## The install
 
@@ -108,7 +110,14 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
 - Stack homes: [runtime/stacks/README.md](../runtime/stacks/README.md) is their layout;
   [`runtime/scripts/stack-homes.sh`](../runtime/scripts/stack-homes.sh) picks the ones a project
   uses. Proven by [`tests/stack-homes.test.sh`](../tests/stack-homes.test.sh).
-- Discipline guidelines: [runtime/guidelines/README.md](../runtime/guidelines/README.md).
+- Discipline guidelines: [runtime/guidelines/README.md](../runtime/guidelines/README.md). The UI
+  guideline [`ui.md`](../runtime/guidelines/ui.md) ([spec](../specs/ui-baseline.md)) starts every
+  interface from [`runtime/templates/ui/`](../runtime/templates/ui/): `base.css` (shadcn/ui's token
+  names, light and dark), `theme.js` (the theme toggle), an example page, and two checks a project
+  copies: `tokens-check.mjs` (every token defined in both themes, contrast pairs; proven by
+  [`tests/ui-tokens-check.test.sh`](../tests/ui-tokens-check.test.sh)) and `render-check.mjs`
+  (the page in Chromium at 375, 768 and 1280 px in both themes; proven by
+  [`tests/ui-render-check.test.sh`](../tests/ui-render-check.test.sh)).
 - Reviewer: [runtime/reviewer/README.md](../runtime/reviewer/README.md) is the independent
   reviewer script, how it is locked down and what that is worth, `ship` (review in the VM, then
   code, words and the verdict comment go on the PR together), the guard that refuses other ways to a
@@ -125,6 +134,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
 - Spikes, kept as notes (records of what was run, not live code):
   - A-04 reviewer stability: the fixed inputs, an [honest](../kit/notes/revamp/spikes/a04-reviewer/honest/spec.md)
     and a [seeded](../kit/notes/revamp/spikes/a04-reviewer/seeded/spec.md) spec.
+  - W10.8.1 UI baseline: the example page as rendered,
+    [README](../kit/notes/revamp/spikes/w10-8-ui-baseline/README.md).
   - W10.1.2 install probe: [README](../kit/notes/revamp/spikes/w10-1-2-install/README.md) and its
     [probe skill](../kit/notes/revamp/spikes/w10-1-2-install/plugin/skills/devshop-probe/SKILL.md).
   - W10.1.2b thin install: [README](../kit/notes/revamp/spikes/w10-1-2b-thin/README.md) and its

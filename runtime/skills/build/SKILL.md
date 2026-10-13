@@ -21,8 +21,8 @@ scripts named here; run them, never retype them as shell.
 - **The project:** its `CLAUDE.md` and the docs its map (`docs/README.md`) links for what you touch.
 - **Stack homes:** run `/opt/devshop-current/scripts/stack-homes.sh <project root>` and read each
   file it prints. Its `STACKS:` line goes in the PR's engineering details.
-- **Disciplines:** for each discipline the change touches (frontend, backend, data, UI/UX,
-  security…), the guideline in `/opt/devshop-current/guidelines/` if this version has one.
+- **Disciplines:** each one touched (frontend, backend, data, UI, security…): its guideline in
+  `/opt/devshop-current/guidelines/` if any; a UI with no baseline: `/opt/devshop-current/templates/ui/`.
 - On conflict the project wins; say so in the PR.
 - **CI:** none yet? Start from `/opt/devshop-current/templates/ci.yml`; declare
   `scripts/check-fast.sh` (unit) and `scripts/check-slow.sh` (end to end).
