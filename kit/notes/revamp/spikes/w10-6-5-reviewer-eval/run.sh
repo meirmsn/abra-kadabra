@@ -2,11 +2,16 @@
 # W10.6.5 reviewer eval (A-12): runs the real, pinned reviewer on honest and planted fixture changes.
 # Not in CI: it calls the real model (D-06). Run it in a session where `claude` is logged in.
 #
-#   usage: run.sh --fixture <dir> --harness <dir> --out <dir> <run> [<run> ...]
+#   usage: run.sh --fixture <dir> (--harness <dir> | --replay <dir>) [--base-of-features <rev>]
+#                 --out <dir> <run> [<run> ...]
 #   <run> = <id>:<case>[:<plant>[:<seed>]]
 #     <case>  one of the cases below; its change is the local fixture branch eval/<case>
-#     <plant> a harness plant id; applied by the harness's own scripts/apply-plants.mjs and
-#             committed as plant-run.sh commits it ("Follow-up edits", as github-actions[bot])
+#     <plant> a harness plant id; applied by the harness's own scripts/apply-plants.mjs, or with
+#             --replay replayed from <dir>/p-<case>-<plant>.plants.json by replay-plants.py
+#             (W10.6.8: no harness access), and committed as plant-run.sh commits it
+#             ("Follow-up edits", as github-actions[bot])
+#   --base-of-features  the base starred/done/priority were cut from (default baseline-2;
+#             eval/ci-base after prepare.sh)
 #
 # Each run starts from the case's honest commit in a fresh worktree on its own branch
 # (eval-run/<id>), so every review is round 1 and no run sees another's plant. Removing the
@@ -23,23 +28,26 @@ reviewer="$devshop/runtime/reviewer/review.sh"
 # case → the base the change was cut from (the PR's base)
 case_base() {
   case $1 in
-    starred | done | priority) echo baseline-2 ;;
+    starred | done | priority) echo "$feature_base" ;;
     fix-wildcards | fix-nomatch) echo eval/search-base ;;
     *) echo "unknown case '$1'" >&2; return 2 ;;
   esac
 }
 
-fixture="" harness="" out=""
+fixture="" harness="" replay="" out="" feature_base=baseline-2
 while [ $# -gt 0 ]; do
   case $1 in
     --fixture) fixture=$(cd "$2" && pwd); shift 2 ;;
     --harness) harness=$(cd "$2" && pwd); shift 2 ;;
+    --replay) replay=$(cd "$2" && pwd); shift 2 ;;
+    --base-of-features) feature_base=$2; shift 2 ;;
     --out) mkdir -p "$2"; out=$(cd "$2" && pwd); shift 2 ;;
     -*) echo "unknown option $1" >&2; exit 2 ;;
     *) break ;;
   esac
 done
-[ -n "$fixture" ] && [ -n "$harness" ] && [ -n "$out" ] && [ $# -gt 0 ] || { sed -n 4,9p "$0" >&2; exit 2; }
+[ -n "$fixture" ] && [ -n "$harness$replay" ] && { [ -z "$harness" ] || [ -z "$replay" ]; } && [ -n "$out" ] && [ $# -gt 0 ] \
+  || { sed -n 4,15p "$0" >&2; exit 2; }
 
 run_one() {
   local id case plant seed base wt rc=0 line verdict
@@ -49,8 +57,13 @@ run_one() {
   wt=$(mktemp -d)/wt
   git -C "$fixture" worktree add -q -b "eval-run/$id" "$wt" "eval/$case"
   if [ -n "$plant" ]; then
-    node "$harness/scripts/apply-plants.mjs" --repo "$wt" --base "$base" --plants "$plant" \
-      --run "$id" --seed "${seed:-1}" >"$out/$id.plants.json"
+    if [ -n "$replay" ]; then
+      python3 -I "$here/replay-plants.py" "$wt" "$replay/p-$case-$plant.plants.json"
+      cp "$replay/p-$case-$plant.plants.json" "$out/$id.plants.json"
+    else
+      node "$harness/scripts/apply-plants.mjs" --repo "$wt" --base "$base" --plants "$plant" \
+        --run "$id" --seed "${seed:-1}" >"$out/$id.plants.json"
+    fi
     GIT_AUTHOR_NAME='github-actions[bot]' GIT_COMMITTER_NAME='github-actions[bot]' \
       GIT_AUTHOR_EMAIL='41898282+github-actions[bot]@users.noreply.github.com' \
       GIT_COMMITTER_EMAIL='41898282+github-actions[bot]@users.noreply.github.com' \
