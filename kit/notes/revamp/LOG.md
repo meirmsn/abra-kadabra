@@ -2496,7 +2496,9 @@ nothing is kept twice. Each list is now one table, a row per finding.
   sightings separated by `<br>`.
 - **Check.** `findings-check.py` reads the three tables: exact headers, row shape, the glyph
   matching each size, the band matching the Leverage, the dots matching the sightings. Test
-  rewritten for tables first: 44 cases, 29 of 29 mutants killed. 165 IDs before and after (main's
+  rewritten for tables first: 45 cases, 30 of 30 mutants killed. The reviewer's one low finding (an
+  emptied live list failed the check, which the old script allowed) was fixed in the PR: a
+  regression in its own file, clear and quick. 165 IDs before and after (main's
   script on main's file against the new one); Closed rows unchanged.
 - **Low findings in project sessions.** The Build skill line approved after #103 didn't fit: the
   skill was at 60 lines and 598 words against `skills-check.py`'s one page (60, 600). The rule went

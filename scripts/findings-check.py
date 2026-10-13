@@ -17,7 +17,7 @@ it, `YYYY-MM-DD · what happened`, separated by `<br>`.
 The Fix queue is sorted by Leverage, the Watch list by Score, each highest first, ties by Impact.
 The rule of 5: a Fix row with Impact XS or S needs 5 sightings; a Watch row with 5 must move to the
 Fix queue or be closed. IDs (F-<AREA>-<n> or O-<n>) are unique across the file. Source is `devshop`
-or a project's name. Only Ref may be empty.
+or a project's name. Only Ref may be empty; a live table may have no rows, Closed may not.
 Exit 0 = clean; 1 = rule broken (each one listed); 2 = can't run (unreadable file, bad arguments).
 """
 import os
@@ -123,8 +123,8 @@ def read_table(section, body):
         if rec["Source"] and not SOURCE.match(rec["Source"]):
             err(f"{label}: bad Source '{rec['Source']}': want 'devshop' or a project's name (lowercase)")
         rows.append(rec)
-    if not rows:
-        err(f"{section}: no rows")
+    if not rows and section == "Closed":
+        err(f"{section}: no rows")  # a live list may be empty: every finding moved or closed
     return rows
 
 

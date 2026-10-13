@@ -106,7 +106,10 @@ bad "a bad Fix header fails" "Fix queue: header must be" "| Leverage | Task |" "
 bad "a bad Closed header fails" "Closed: header must be" "| ID       | Finding               | Source  | Outcome            | Ref         |" "| ID | Finding | Outcome | Ref |"
 bad "a row with a missing cell fails" "Closed row O-01: 3 cells, want 5" "| O-01     | An opportunity        | devshop | v2 requirement     |             |" "| O-01 | An opportunity | devshop |"
 bad "text after a table fails" "Closed: unexpected line" "| O-01     | An opportunity        | devshop | v2 requirement     |             |" "| O-01     | An opportunity        | devshop | v2 requirement     |             |\nmore words"
-bad "an empty table fails" "Closed: no rows" "| F-SEC-01 | A pipe \`a \\| b\` here  | devshop | won't fix — v1     | \`x.sh:1\`    |\n" "" "| O-01     | An opportunity        | devshop | v2 requirement     |             |\n" ""
+good "an empty Watch list passes (every finding moved or closed)" \
+  "| F-NEW-04 | **Seen four times.** a sym | 1) a cause; 2) another             | devshop | 🟢 S   | ●●●●○ 2026-10-10 · one.<br>2026-10-11 · two.<br>2026-10-12 · three.<br>2026-10-13 · four. | 8     |\n" "" \
+  "| F-NEW-05 | **Seen once.** odd         | unknown                            | lalista | 🟡 M   | ●○○○○ 2026-10-13 · once.                                                          | 3     |\n" ""
+bad "an empty Closed table fails" "Closed: no rows" "| F-SEC-01 | A pipe \`a \\| b\` here  | devshop | won't fix — v1     | \`x.sh:1\`    |\n" "" "| O-01     | An opportunity        | devshop | v2 requirement     |             |\n" ""
 
 # Cells
 bad "a bad ID fails" "bad ID 'X-5'" "| F-NEW-05 | **Seen once.**" "| X-5 | **Seen once.**"
