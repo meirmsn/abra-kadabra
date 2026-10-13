@@ -22,7 +22,7 @@ exit codes, stdout line, verdict file and format) is in
 | `review.sh`              | The reviewer. Model, tools, timeout and rounds-to-ask are constants at its top  |
 | [`prompt.md`](prompt.md) | The reviewer's prompt: spec and intent first, then the lenses; severity scale   |
 | `verdict.schema.json`    | The schema the model's reply must match (`--json-schema`)                       |
-| `settings.json`          | Bash allowlist: read-only git and test commands. Anything else is refused       |
+| `settings.json`          | Bash allowlist: read-only git and test commands; the prompt names these only    |
 | `pr-comment.sh`          | Renders a verdict file as the PR comment: per lens and item, tied to its commit |
 | `pr-words.sh`            | The PR's title and body as one canonical line: what is reviewed and posted      |
 
@@ -81,9 +81,18 @@ head commit before approving.
   Edit and Write don't exist for it. The prompt has it run one simple command per call, keep
   going after a refusal, and review commit by commit (W10.6.5: a reviewer that stopped at the
   first refused compound command reviewed by reading and missed most planted mistakes).
-- Its `claude` runs without the calling session's identity variables (`SESSION_TIES` in
-  `review.sh`): a nested `claude` that inherits them reports the caller's session id and could
-  reach the caller's session.
+- Its `claude` runs without the calling session's identity variables: a nested `claude` that
+  inherits them reports the caller's session id and could reach the caller's session. They go by
+  name pattern (`SESSION_TIE_PATTERNS` in `review.sh`: `CLAUDE_CODE_*SESSION*`, `*INGRESS*`,
+  `*MESSAGING*`, `CLAUDE_CODE_*SDK*`), so one a later Claude Code version adds goes too; what it
+  needs to authenticate (the API endpoint, proxy and CA settings) matches none of them.
+- The prompt names the commands it may run from `settings.json` alone: `review.sh` writes the
+  allowlist's `Bash(<command>:*)` entries in at `{{COMMANDS}}`, so the two can't drift. An
+  allowlist it can't read or name is could-not-run.
+- Whether the project's CI runs its tests is stated, not left to the model: the prompt says
+  whether the base commit has `scripts/check-fast.sh`, the script CI's `fast` job runs (the CI
+  tiers contract). Declared, a test it can't run is a `tests` note; not declared, it is `unsure`.
+  A finding whose only fix is to run the tests or confirm CI is never a finding.
 - It works in a throwaway clone that holds only the base and head commits and has no remote. Some
   allowlisted commands can still write files anywhere the user can: `git diff --output=<path>`, and
   a test run, which executes the change's own code. The clone keeps ordinary writes away from the
@@ -104,7 +113,10 @@ head commit before approving.
   locked-down call, the outcome rule, rounds (a repeat counts, a new issue starts again, the 6th
   failing commit asks the owner), the verdict file, the spec found from the diff (none, one, two,
   nested, changed, deleted, non-`.md`), the PR's words reaching the prompt verbatim and checked
-  (`pr` lens), a shallow clone, and could-not-run for every bad input.
+  (`pr` lens), a shallow clone, and could-not-run for every bad input. W10.6.8: the session
+  variables removed by pattern (made-up future names too) while auth and proxy variables pass; the
+  prompt's commands following an edited `settings.json` copy; whether `scripts/check-fast.sh` is at
+  the base (not added by the change) stated in the prompt; 13 of 13 mutants killed.
 - [`tests/reviewer-pr.test.sh`](../../tests/reviewer-pr.test.sh) (in CI) checks the comment (per
   lens, marker not forgeable from model text) and `pr-words.sh`.
 - [`tests/ship.test.sh`](../../tests/ship.test.sh) (in CI, stub `review.sh` and `gh`, a local
@@ -126,7 +138,9 @@ head commit before approving.
   must fail with exactly AC-4 unmet, and the honest one must pass. W10.6.6 cases: the honest change
   with true PR words passes and with a false claim fails on the `pr` lens; a new feature with no
   spec fails on the `intent` lens; an honest bug fix with no spec (its failing test is the spec)
-  passes; two spec files are could-not-run.
+  passes; two spec files are could-not-run. Every review that called the model must carry a
+  `session_id` of its own: not the caller's and not another run's (W10.6.8; a copy that keeps the
+  session's variables fails it).
 
 ## Limits
 

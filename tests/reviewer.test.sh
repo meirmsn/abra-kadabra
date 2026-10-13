@@ -137,23 +137,30 @@ grep -qF "No PR words were given. Report the \`pr\` lens with \`applies: false\`
 echo "ok - call is locked down (flags, pinned model/tools/settings, throwaway clone)"
 
 # --- The reviewer runs without the calling session's identity (W10.6.5): a nested claude that
-# inherits these reports the caller's session id and could reach the caller's session.
+# inherits these reports the caller's session id and could reach the caller's session. Removed by
+# name pattern (W10.6.8, F-NEW-31), so the names a later Claude Code version adds go too: the
+# second group are made-up future names no list in review.sh holds.
 tie_vars=(CLAUDE_CODE_SESSION_ID CLAUDE_CODE_REMOTE_SESSION_ID CLAUDE_CODE_CHILD_SESSION
   CLAUDE_CODE_MESSAGING_SOCKET CLAUDE_CODE_MESSAGING_TOKEN CLAUDE_SESSION_INGRESS_TOKEN_FILE
   SESSION_INGRESS_URL CLAUDE_CODE_REMOTE_SDK_URL CLAUDE_CODE_POST_FOR_SESSION_INGRESS_V2
-  CLAUDE_CODE_SYNC_SESSION_REFS CLAUDE_CODE_TEE_SDK_STDOUT)
+  CLAUDE_CODE_SYNC_SESSION_REFS CLAUDE_CODE_TEE_SDK_STDOUT
+  CLAUDE_CODE_SESSION_ATTENDED CLAUDE_CODE_FUTURE_SESSION_LINK SESSION_INGRESS_V3_URL
+  CLAUDE_CODE_REMOTE_MESSAGING_PORT CLAUDE_CODE_SDK_BRIDGE_URL)
+# What the reviewer's claude needs to authenticate and reach the API must still get through.
+keep_vars=(ANTHROPIC_BASE_URL ANTHROPIC_API_KEY CLAUDE_CODE_OAUTH_TOKEN CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST
+  CLAUDE_CODE_ORGANIZATION_UUID HTTPS_PROXY NO_PROXY NODE_EXTRA_CA_CERTS SSL_CERT_FILE KEEP_ME)
 change "$r"
-for v in "${tie_vars[@]}"; do export "$v=caller-$v"; done
-export KEEP_ME=still-here
+for v in "${tie_vars[@]}" "${keep_vars[@]}"; do export "$v=caller-$v"; done
 run "$r" pass --base main
-for v in "${tie_vars[@]}"; do unset "$v"; done
-unset KEEP_ME
+for v in "${tie_vars[@]}" "${keep_vars[@]}"; do unset "$v"; done
 [ "$rc" = 0 ] || fail "review with session variables set: exit $rc"
 for v in "${tie_vars[@]}"; do
   ! grep -q "^$v=" "$STUB_LOG.env" || fail "$v reached the reviewer's claude"
 done
-grep -qx "KEEP_ME=still-here" "$STUB_LOG.env" || fail "other environment (auth, proxy) must still reach claude"
-echo "ok - the calling session's identity doesn't reach the reviewer"
+for v in "${keep_vars[@]}"; do
+  grep -qx "$v=caller-$v" "$STUB_LOG.env" || fail "$v (auth, proxy) must still reach claude"
+done
+echo "ok - the calling session's identity doesn't reach the reviewer (by pattern; auth and proxy do)"
 
 # --- The prompt tells the reviewer how to work and what the plants hit (W10.6.5). A text check:
 # it guards against a rule being dropped by accident; whether the reviewer follows the rules is
@@ -161,11 +168,68 @@ echo "ok - the calling session's identity doesn't reach the reviewer"
 p=$(tr -s "\n" " " <"$STUB_LOG.args") # the prompt wraps lines; match across them
 for want in "one simple command per Bash call" "a refused command" "commit by commit" \
   "named by the test that proves it" "verified by review" "state table" "can never fail" \
-  "runs its tests in CI" "in the \`tests\` lens note, not as a finding" "Without such CI"; do
+  "only fix is to run the tests or to confirm that CI passed is never a finding"; do
   grep -qiF "$want" <<<"$p" || fail "prompt lacks: $want"
 done
 ! grep -qF "read instead" <<<"$p" || fail "prompt still says to read instead after a refusal"
 echo "ok - prompt: simple commands, commit by commit, AC naming, states, never-failing assertions"
+
+# --- The allowed commands come from settings.json only (W10.6.8, F-NEW-32): review.sh puts its
+# Bash allowlist into the prompt, so prompt.md names none itself.
+while IFS= read -r c; do
+  grep -qF "\`$c\`" <<<"$p" || fail "prompt doesn't name allowed command '$c'"
+done < <(jq -r '.permissions.allow[] | capture("^Bash\\((?<c>.*):\\*\\)$").c' "$work/reviewer/settings.json")
+! grep -qF "\`git grep\`" "$work/reviewer/prompt.md" || fail "prompt.md names the commands itself (settings.json is the one source)"
+grep -qF '{{COMMANDS}}' "$work/reviewer/prompt.md" || fail "prompt.md lacks {{COMMANDS}}"
+! grep -qF '{{COMMANDS}}' <<<"$p" || fail "{{COMMANDS}} left in the prompt"
+# A copy whose settings.json allows another command and drops one: the prompt follows.
+cp -r "$work/reviewer" "$work/reviewer-cmds"
+jq '.permissions.allow |= (map(select(. != "Bash(git grep:*)")) + ["Bash(make check:*)"])' \
+  "$work/reviewer/settings.json" >"$work/reviewer-cmds/settings.json"
+saved_reviewer=$reviewer reviewer="$work/reviewer-cmds/review.sh"
+change "$r"; run "$r" pass --base main
+expect "an edited allowlist still reviews" 0 pass
+pc=$(tr -s "\n" " " <"$STUB_LOG.args")
+grep -qF "\`make check\`" <<<"$pc" || fail "a command added to settings.json is not in the prompt"
+! grep -qF "\`git grep\`" <<<"$pc" || fail "a command removed from settings.json is still in the prompt"
+# An allowlist it can't use is could-not-run, never a prompt with no or wrong commands.
+bad_settings() { # <name> <settings.json content>
+  printf '%s' "$2" >"$work/reviewer-cmds/settings.json"
+  change "$r"; run "$r" pass --base main
+  expect "$1" 2 could-not-run '.reason|test("settings.json")'
+}
+bad_settings "settings.json not JSON is could-not-run" '{"permissions": '
+bad_settings "no Bash commands allowed is could-not-run" '{"permissions":{"allow":["Read"]}}'
+bad_settings "a Bash entry of another shape is could-not-run" '{"permissions":{"allow":["Bash(git log:*)","Bash(npm test)"]}}'
+sed 's/{{COMMANDS}}//' "$work/reviewer/prompt.md" >"$work/reviewer-cmds/prompt.md"
+cp "$work/reviewer/settings.json" "$work/reviewer-cmds/settings.json"
+change "$r"; run "$r" pass --base main
+expect "prompt.md without {{COMMANDS}} is could-not-run" 2 could-not-run '.reason|test("COMMANDS")'
+reviewer=$saved_reviewer
+echo "ok - the allowed commands in the prompt come from settings.json"
+
+# --- Whether the project's CI runs its tests is stated, not inferred (W10.6.8, F-NEW-33): the
+# project declares scripts/check-fast.sh, read from the base commit, so a change can't declare it itself.
+declared="This project declares that its CI runs its tests on every push"
+undeclared="This project does not declare that its CI runs its tests"
+! grep -qF "Without such CI" <<<"$p" || fail "prompt still asks the reviewer to infer whether CI runs the tests"
+grep -qF "$undeclared" <<<"$p" || fail "no scripts/check-fast.sh: prompt doesn't say the tests aren't declared"
+! grep -qF "$declared" <<<"$p" || fail "no scripts/check-fast.sh: prompt says they are declared"
+rd="$work/ci-declared"; new_repo "$rd"; mkdir -p "$rd/scripts" "$rd/src"
+commit_file "$rd" scripts/check-fast.sh "npm test"
+git -C "$rd" checkout -qb feat/x && commit_file "$rd" src/x.js "export const x = 1;"
+run "$rd" nospec-pass --base main
+expect "a change in a project that declares scripts/check-fast.sh" 0 pass
+pd=$(tr -s "\n" " " <"$STUB_LOG.args")
+grep -qF "$declared" <<<"$pd" || fail "scripts/check-fast.sh at the base: prompt doesn't say CI runs the tests"
+! grep -qF "$undeclared" <<<"$pd" || fail "scripts/check-fast.sh at the base: prompt says the tests aren't declared"
+rh="$work/ci-in-change"; new_repo "$rh"; mkdir -p "$rh/scripts" "$rh/src"
+git -C "$rh" checkout -qb feat/x && commit_file "$rh" scripts/check-fast.sh "true" && commit_file "$rh" src/x.js "export const x = 1;"
+run "$rh" nospec-pass --base main
+expect "a change that adds scripts/check-fast.sh itself" 0 pass
+ph=$(tr -s "\n" " " <"$STUB_LOG.args")
+grep -qF "$undeclared" <<<"$ph" || fail "scripts/check-fast.sh added by the change itself counted as declared"
+echo "ok - the prompt states whether CI runs the tests, from scripts/check-fast.sh at the base"
 
 
 # --- The outcome rule: unmet item or any non-low finding fails; low findings are listed only.

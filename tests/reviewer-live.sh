@@ -12,6 +12,9 @@
 #   no-spec        a new feature with no spec (W10.6.6)    exit 1, a blocking intent finding
 #   bugfix         an honest bug fix with no spec          exit 0
 #   two-specs      two spec files in the change            exit 2 (could-not-run, before any model call)
+# Every verdict's reviewer.session_id must be the reviewer's own (W10.6.8, F-NEW-31): non-empty, not
+# the calling session's (CLAUDE_CODE_SESSION_ID, CLAUDE_CODE_REMOTE_SESSION_ID) and not another run's,
+# so an identity leak shows whatever its cause.
 # Prints one line per run and a tally; any miss fails the script.
 set -euo pipefail
 
@@ -67,7 +70,8 @@ words() {
   esac
 }
 
-bad=0 total=0
+bad=0 total=0 seen_sessions=" "
+caller_sessions=" ${CLAUDE_CODE_SESSION_ID:-} ${CLAUDE_CODE_REMOTE_SESSION_ID:-} "
 for case in "${cases[@]}"; do
   for n in $(seq "$runs"); do
     total=$((total + 1))
@@ -77,11 +81,12 @@ for case in "${cases[@]}"; do
     rc=0
     line=$(cd "$r" && "$reviewer" "${args[@]}" 2>"$work/err") || rc=$?
     v=${line##* · }
-    unmet="(no verdict)" blocking_lenses="" cost=""
+    unmet="(no verdict)" blocking_lenses="" cost="" sid="" called=false
     if [ -f "$v" ]; then
       unmet=$(jq -r '[.acceptance[] | select(.met | not) | .item] | join(",")' "$v")
       blocking_lenses=$(jq -r '[.findings[] | select(.severity != "low") | .lens] | unique | join(",")' "$v")
       cost=$(jq -r '"$\(.reviewer.cost_usd)"' "$v")
+      sid=$(jq -r '.reviewer.session_id' "$v") called=$(jq '.reviewer.cost_usd != null' "$v")
     fi
     has() { [[ ",$blocking_lenses," == *",$1,"* ]]; }
     ok=0
@@ -92,6 +97,13 @@ for case in "${cases[@]}"; do
       no-spec) want="exit 1, a blocking intent finding"; [ "$rc" != 1 ] || ! has intent || ok=1 ;;
       two-specs) want="exit 2, two spec files"; [ "$rc" != 2 ] || ! grep -q "2 spec files" "$work/err" || ok=1 ;;
     esac
+    # A model was called (a verdict with a cost): its session id is the reviewer's own.
+    if [ "$ok" = 1 ] && [ "$called" = true ]; then
+      if [ -z "$sid" ] || [[ "$caller_sessions" == *" $sid "* ]] || [[ "$seen_sessions" == *" $sid "* ]]; then
+        ok=0 want="$want, and a session id of its own (got '$sid')"
+      fi
+      seen_sessions+="$sid "
+    fi
     if [ "$ok" = 1 ]; then echo "ok - $case #$n: $line [unmet: ${unmet:-none}; blocking: ${blocking_lenses:-none}] $cost"
     else
       bad=$((bad + 1)); echo "NOT OK - $case #$n: want $want; got exit $rc: $line [unmet: ${unmet:-none}; blocking: ${blocking_lenses:-none}]"
