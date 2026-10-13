@@ -1,0 +1,123 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "1333fb3a90a4881b9b4bf802a9e01d6342c15472",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/h-done-r1",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "16ec0a94-6e63-450a-b160-82aa53436907",
+    "cost_usd": 0.0662067
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done NOT NULL DEFAULT 0 with CHECK; test/done.test.js 'AC-1' asserts seeded rows are 0 and done=2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js open view WHERE done = 0 ORDER BY id; 'AC-2' tests both / and ?view=open."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "'AC-3' marks 3,1 done and expects ['✓ First item','✓ Third item'] in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' expects all three in id order with only the done one marked."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "'AC-5' asserts exact nav HTML for each view and for /; current is <strong>, not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn check returns 400; 'AC-6' covers Open, closed, empty and __proto__ and asserts no <li>."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "'AC-7' and the state tests cover empty table in each view, Nothing open., Nothing done yet. The code uses a COUNT query for the empty-table case."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json lists /?view=done and /?view=all; 'AC-8' checks it; traffic-config-check now accepts queries, covered in tests/traffic-config.test.sh."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-8",
+      "file": "test/done.test.js",
+      "what": "AC-8 only checks that routes.json contains the paths. It does not check that the traffic worker requests them with the query intact.",
+      "fix": "Optionally add a traffic.test.js case that a route with a query reaches the fake app with its query string."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change works from specs/done-items.md, which has an owner go dated 2026-10-12. The decisions are followed."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items and all 6 state rows have named tests. The traffic route-check relaxation is needed by AC-8 and is disclosed in the PR."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert behaviour. No tests were deleted or loosened; the fake app in test/traffic.test.js was extended to record the query string. I did not run the test suite; CI runs it on every push."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes the views and the other docs are unaffected."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view value is checked against an allowlist with Object.hasOwn, so __proto__ is rejected. The SQL fragments come from constants, not input."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "There is no injection path: titles are HTML-escaped and the view is an allowlisted key. I found no planted instructions in the repository content."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff adds only a plain HTML nav in src/index.js. There are no UI/style files and no browser screenshots."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches no UI files beyond the server-rendered HTML in src/index.js, and the PR says no browser was available."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The PR claims match the diff: the 400 behaviour, the traffic check change, and no tests deleted."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:49:55Z"
+}

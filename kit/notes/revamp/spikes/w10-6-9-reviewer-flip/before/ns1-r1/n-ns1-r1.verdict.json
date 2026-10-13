@@ -1,0 +1,156 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "1337cc02b6df0d6d3a13d018b2014c84b897b959",
+  "base": "9644a31035ed6b12085e670304b133a76853fa30",
+  "branch": "eval-run/n-ns1-r1",
+  "spec": "specs/item-categories.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Item categories and a category filter on the list",
+    "sha256": "2ba3130b0d545ad5213c307b4af797ec38b5e90795ff09df58617529df36bc4a"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "42eb7c9d-64cb-428c-a8f4-d5cc7908fda5",
+    "cost_usd": 0.10373650000000001
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-1' checks the seed rows, UNIQUE and CHECK failures, nullable column, index and tagging. Migration 0003 matches."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' covers a title-only insert (null category) and a FOREIGN KEY failure for an unknown id."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' checks id order, the labelled markup and the unlabelled `<li>`. src/index.js `item()` produces it."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks the exact link list and order (including a lower-case, empty category), and that only All is current."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "two 'AC-5' tests cover Work-only items in id order, Work as the only current link, and the extra params `&x=1` and `?x=1` giving identical pages."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 200, the message, no `<li>` and the current link."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test 'AC-7' checks the escaped label, the encoded href `R%26D%20%3Cx%3E`, and that following the link lists the item."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "it.each 'AC-8' covers all five paths: 404, message, Go back href and script, no `<li>` or `<nav>`."
+    },
+    {
+      "item": "AC-9",
+      "met": true,
+      "evidence": "test 'AC-9' checks HEAD statuses 200, 200 and 404."
+    },
+    {
+      "item": "AC-10",
+      "met": true,
+      "evidence": "The spec marks it verified by review with a concrete click-through. The script in brokenLinkPage implements it: same-origin referrer, then history.back(), otherwise the plain href. Statically it is correct."
+    },
+    {
+      "item": "AC-11",
+      "met": true,
+      "evidence": "routes.json has the route. tests/traffic-config.test.sh covers accepting a query and rejecting whitespace, `#` and a missing slash. test/traffic.test.js checks ROUTES contains it and that the fake app records path plus query. index.test.js 'AC-11' requests every route and expects 2xx."
+    },
+    {
+      "item": "AC-12",
+      "met": true,
+      "evidence": "The existing healthz, 404, 405, escaping and empty-table tests are retained. The `<li>First item</li>` assertion was updated to the AC-3 markup, as the spec says."
+    },
+    {
+      "item": "AC-13",
+      "met": true,
+      "evidence": "apply-migrations.js drops in one batch with defer_foreign_keys. Every test runs the beforeEach reset against the FK schema, and test 'AC-13' checks the reset leaves 3+1 rows."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "",
+      "file": "test/index.test.js",
+      "what": "The state table cells for 'Go back' hidden (200 rows) and the filter links on the empty-table `/` row are not asserted. Only the empty message is checked, in the existing test.",
+      "fix": "In the 'No items yet.' test, also assert the All link and no 'Go back'. Assert 'Go back' is absent in the AC-5 and AC-6 tests."
+    },
+    {
+      "severity": "low",
+      "lens": "code",
+      "item": "AC-10",
+      "file": "src/index.js",
+      "what": "The click handler also requires `history.length > 1`. The spec describes only the same-origin referrer check, and it rejected `history.length > 1` as the sole test. It is harmless as an extra guard but is not in the spec.",
+      "fix": "Drop the extra condition, or note it in the spec."
+    }
+  ],
+  "blocking": 0,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change matches the owner's intent. Nothing extra beyond the one history.length guard."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 13 acceptance items are met. The go commit changed only the Go line and the 'open' markers, not any acceptance item."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "AC tests are named and assert behaviour. The npm test suite was not run here and is left to CI. No tests were deleted or loosened beyond the spec-sanctioned changes."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README is updated to describe the filter and the 404. The spec records the traffic route."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Queries are parameterized, the category match is exact, and a repeated category gives 404. No defects found."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Names are HTML-escaped and URL-encoded, SQL uses binds, and the script has no injected data. Nothing in the repo attempts to direct the review."
+    },
+    {
+      "lens": "design",
+      "applies": true,
+      "note": "A minimal HTML UI changed (src/index.js). The markup and states follow the spec, and aria-current is set."
+    },
+    {
+      "lens": "qa",
+      "applies": true,
+      "note": "The UI flows are covered by tests of the rendered HTML. The browser Go back behaviour (AC-10) rests on review of the script."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The PR claims match the diff. The loosening of the traffic check regex is disclosed. The title is under 72 characters."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:57:06Z"
+}

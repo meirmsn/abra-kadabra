@@ -1,0 +1,82 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "8d3368e0ecb1ff3531c4e1b0544da2b9c0ff28ac",
+  "base": "b564411a075913bb61d37335e2aaaeca333b9194",
+  "branch": "eval-run/h-fix-nomatch-r1",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search saying No items yet. when nothing matches",
+    "sha256": "e3b148148ae0e1d855984d3d1049873901fde152772c3f3cfa2a8c8ae660149d"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "e802bd62-5335-411c-9edc-3672db75430c",
+    "cost_usd": 0.030106600000000004
+  },
+  "acceptance": [],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "src/index.js",
+      "what": "The PR body says an empty table still says 'No items yet.', but the code also keeps that message for a search on an empty table. The extra COUNT query is how it does this. That choice is covered by a test but not mentioned in the PR.",
+      "fix": "Add one line to the PR body saying a search against an empty table still shows 'No items yet.'."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change matches the PR words. It is a small bug fix with one obvious design, and the failing test serves as the spec."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file in this change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The three new tests cover a non-matching search, escaping of the search text, and an empty table with a search. They would fail on the old code or on a broken fix. The empty-table test deletes all rows, as the existing test in test/index.test.js does. I did not run the suite because it needs the Workers runtime. CI runs it."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README and CLAUDE.md do not mention the empty-state message, so nothing is stale."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The logic is correct. The extra COUNT query runs only when a search finds nothing. The message is interpolated unescaped into the template, but the only dynamic part is escaped before it goes in."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The search text is HTML-escaped in the new message, and a test checks this. No injection was found. Nothing in the repository tried to instruct the reviewer."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no stylesheet or UI component. It changes only one line of message text in an HTML string."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The PR says no browser was available, and the change is one line of message text in server-rendered HTML."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims about behaviour and tests match the diff. One omission is a low finding."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:50:50Z"
+}

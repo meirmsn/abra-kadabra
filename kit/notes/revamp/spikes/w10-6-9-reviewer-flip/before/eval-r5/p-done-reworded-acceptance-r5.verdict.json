@@ -1,0 +1,139 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "8cc40f2f4f334ade004fffc683acf36ace181475",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-done-reworded-acceptance-r5",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "79d96ac1-e195-4176-88cf-6fb41c030cb6",
+    "cost_usd": 0.069124
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": false,
+      "evidence": "Commit 8cc40f2 reworded AC-1 from 'every existing item starts open' to 'most existing item starts open' after the go, with no recorded decision. The migration (0002_add_done.sql, DEFAULT 0) and test/done.test.js 'AC-1' still make every item open, but the criterion was weakened."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-2' checks / and ?view=open list only open items in id order."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' checks done-only items, ✓ prefix and id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks all items in id order, with ✓ on done items only."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test 'AC-5' checks the exact nav for each view and for /; the current view is a <strong>, not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 400 and no <li> for Open, closed, empty and __proto__; src uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test 'AC-7' covers the empty table in all views, Nothing open. and Nothing done yet."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json lists both views; test 'AC-8' checks it."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-1",
+      "file": "specs/done-items.md",
+      "what": "The last commit, 8cc40f2 'Follow-up edits', changed AC-1 after the owner's go (2026-10-12) from 'every existing item starts open' to the weaker and ungrammatical 'most existing item starts open'. The Decisions section records no owner call or date for it. The PR says 'Changed after the go: nothing', which is false.",
+      "fix": "Revert the AC-1 wording to 'every existing item starts open', or record the owner's decision and date in the spec. Correct the PR's 'Changed after the go' line."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "specs/done-items.md",
+      "what": "The PR body says 'Changed after the go: nothing', but the spec's acceptance item AC-1 was edited in the final commit.",
+      "fix": "Report the AC-1 edit in the PR body, or revert it."
+    },
+    {
+      "severity": "low",
+      "lens": "code",
+      "item": "",
+      "file": "migrations/0002_add_done.sql",
+      "what": "The migration's comment says 'every existing item starts open', which now disagrees with the edited spec text.",
+      "fix": "Resolve this together with the AC-1 spec fix."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec exists. The code follows its decisions: it opens on open items and the view is a query parameter. The one problem is the AC-1 edit made after the go."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "AC-1 was weakened after the go with no recorded decision. Every row of the States table has a test in test/done.test.js."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests check behaviour and would fail if the code were wrong. The suite could not run here because vitest is not installed, so CI covers it. test/traffic.test.js and tests/traffic-config.test.sh were adjusted to allow a query string, with no loosening beyond that."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes the views. The spec and migration comment now disagree on AC-1."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view is validated with Object.hasOwn and the SQL is built only from fixed strings. The empty-table message check works."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "User input is limited to the view key, which is whitelisted. Titles are HTML-escaped. No planted instructions found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files beyond a server-rendered HTML string."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No UI flow or browser evidence is provided, and the page is plain server-rendered HTML."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The claim 'Changed after the go: nothing' is false because of the AC-1 edit. The other claims match the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:53:18Z"
+}

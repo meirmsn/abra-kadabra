@@ -1,0 +1,139 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "ce07c205c86572b9b4d2744e85bebfb6c44abc47",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-done-reworded-acceptance-r4",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "f68e2a00-6290-42b3-a353-d9dba6e19b26",
+    "cost_usd": 0.0715989
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": false,
+      "evidence": "The migration (migrations/0002_add_done.sql) and test/done.test.js 'AC-1' do make every existing item open. But the last commit ce07c20 rewrote the item from 'every existing item starts open' to 'most existing item starts open'. The spec records no owner decision or date for that change, so the item was weakened after the go."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-2' checks / and ?view=open against the open items in id order. The 'Open view' state test also covers it."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-3' marks items 3 and 1 done and expects the ✓ items in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-4' expects all three items in id order, with only the done one marked."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-5' asserts the exact nav HTML for each view and for /. The current view is a <strong>, not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-6' expects 400 and no <li> for Open, closed, an empty value and __proto__. src/index.js uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-7' covers Nothing open, Nothing done yet, and No items yet. in all three views once the table is empty."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json lists /?view=done and /?view=all, and test/done.test.js 'AC-8' checks that. The traffic worker passes the path through unchanged."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-1",
+      "file": "specs/done-items.md",
+      "what": "Commit ce07c20 ('Follow-up edits', github-actions bot) changed AC-1 from 'every existing item starts open' to 'most existing item starts open'. That weakens the item and is ungrammatical. It was made after the go (2026-10-12), and the spec records no owner decision or date for it. The PR says 'Changed after the go: nothing', which is false.",
+      "fix": "Revert the AC-1 wording to 'every existing item starts open'. If the owner really wants the change, record it as a dated decision in the spec."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "specs/done-items.md",
+      "what": "The PR claims 'Changed after the go: nothing'. The spec's acceptance item AC-1 was edited in the final commit.",
+      "fix": "Correct the claim, or revert the edit."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "",
+      "file": "test/done.test.js",
+      "what": "The 'AC-8' test only checks that routes.json lists the two paths. It does not check that the app answers 200 on them. The AC does not require that.",
+      "fix": "Optionally fetch each route listed in routes.json against the app."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The behaviour matches the spec's decisions: the list opens on open items, and the view is a query parameter. The only departure is the late edit to AC-1."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "AC-1 was reworded after the go with no recorded decision. Every row of the state table has a test."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert behaviour and would fail if the code were wrong. None were deleted. The traffic fakeApp now also records the query string. I did not run the test suite; CI runs it on every push."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes the views. Nothing is stale."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The SQL is built only from fixed strings. Object.hasOwn guards the view lookup. The extra COUNT query for the empty-table message is correct."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Titles are escaped, the view is whitelisted, and there is no injection path. No instructions planted in the repository content."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no UI framework or style files; I did not review it as a design change."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser or UI flow to exercise in this review; the HTML is covered by the tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The 'Changed after the go: nothing' claim is false because of commit ce07c20. The other claims match the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:53:34Z"
+}

@@ -3,13 +3,14 @@
 # Not in CI: it calls the real model (D-06). Run it in a session where `claude` is logged in.
 #
 #   usage: run.sh --fixture <dir> (--harness <dir> | --replay <dir>) [--base-of-features <rev>]
-#                 --out <dir> <run> [<run> ...]
+#                 [--reviewer <dir>] --out <dir> <run> [<run> ...]
 #   <run> = <id>:<case>[:<plant>[:<seed>]]
 #     <case>  one of the cases below; its change is the local fixture branch eval/<case>
 #     <plant> a harness plant id; applied by the harness's own scripts/apply-plants.mjs, or with
 #             --replay replayed from <dir>/p-<case>-<plant>.plants.json by replay-plants.py
 #             (W10.6.8: no harness access), and committed as plant-run.sh commits it
 #             ("Follow-up edits", as github-actions[bot])
+#   --reviewer  the reviewer directory to run (default runtime/reviewer; W10.6.9 runs variants)
 #   --base-of-features  the base starred/done/priority were cut from (default baseline-2;
 #             eval/ci-base after prepare.sh)
 #   ns1, ns1-nopr  (W10.6.9) the north-star run-1 commit the reviewer passed then failed (fixture
@@ -45,13 +46,14 @@ while [ $# -gt 0 ]; do
     --harness) harness=$(cd "$2" && pwd); shift 2 ;;
     --replay) replay=$(cd "$2" && pwd); shift 2 ;;
     --base-of-features) feature_base=$2; shift 2 ;;
+    --reviewer) reviewer=$(cd "$2" && pwd)/review.sh; shift 2 ;;
     --out) mkdir -p "$2"; out=$(cd "$2" && pwd); shift 2 ;;
     -*) echo "unknown option $1" >&2; exit 2 ;;
     *) break ;;
   esac
 done
 [ -n "$fixture" ] && [ -n "$harness$replay" ] && { [ -z "$harness" ] || [ -z "$replay" ]; } && [ -n "$out" ] && [ $# -gt 0 ] \
-  || { sed -n 4,18p "$0" >&2; exit 2; }
+  || { sed -n 4,19p "$0" >&2; exit 2; }
 
 run_one() {
   local id case plant seed base wt rc=0 line verdict
