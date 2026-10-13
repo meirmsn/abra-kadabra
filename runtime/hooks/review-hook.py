@@ -28,6 +28,7 @@ REVIEWER = os.path.join(os.path.dirname(HERE), "reviewer")
 REVIEW, RENDER, WORDS = (os.path.join(REVIEWER, f) for f in ("review.sh", "pr-comment.sh", "pr-words.sh"))
 OUTCOME = {0: "pass", 1: "fail", 2: "could-not-run", 3: "ask-owner"}
 GITHUB_TOOL = re.compile(r"^mcp__.*github.*__([a-z_]+)$")
+PR_TOOLS = ("create_pull_request", "update_pull_request")  # reviewed; hooks.json names the same tools
 REMOTE_COMMIT = ("push_files", "create_or_update_file", "delete_file", "update_pull_request_branch")
 REVIEW_TIMEOUT = 1100  # seconds; review.sh stops itself at 900
 OWNER = "Stop and tell the owner what happened, with the line above; don't retry until they decide."
@@ -98,16 +99,29 @@ def strip_heredocs(command):
     return "\n".join(out)
 
 
+PUNCT = set(";&|()<>\n")
+
+
 def segments(command):
-    """The simple commands in a Bash command line, as word lists (split at ; && || | & ( ) and newlines)."""
-    lex = shlex.shlex(command, posix=True, punctuation_chars=";&|()\n")
+    """The simple commands in a Bash command line, as word lists (split at ; && || | & ( ) and newlines).
+    Redirections (2>&1, >file, &>/dev/null, <in) are dropped with their target and fd number."""
+    lex = shlex.shlex(command, posix=True, punctuation_chars="".join(sorted(PUNCT)))
     lex.whitespace = " \t\r"
     lex.whitespace_split = True
     lex.commenters = ""
     words = list(lex)  # ValueError on an unclosed quote
-    out, seg = [], []
+    out, seg, target = [], [], False
     for w in words:
-        if w and set(w) <= set(";&|()\n"):
+        operator = bool(w) and set(w) <= PUNCT
+        if target and not operator:
+            target = False
+            continue
+        target = False
+        if operator and ("<" in w or ">" in w):
+            if seg and seg[-1].isdigit():
+                seg.pop()
+            target = True
+        elif operator:
             if seg:
                 out.append(seg)
             seg = []
@@ -341,8 +355,8 @@ def review(top, base, words):
     return m.group(1), m.group(2), lines[0], p.stderr
 
 
-def explain(outcome, vpath, line, stderr):
-    """The message for Claude about a review that isn't a pass."""
+def explain(outcome, vpath, line, stderr, after=False):
+    """The message for Claude about a review that isn't a pass (after=True: the call already went through)."""
     try:
         with open(vpath, encoding="utf-8") as f:
             v = json.load(f)
@@ -353,6 +367,9 @@ def explain(outcome, vpath, line, stderr):
         items = [f"- unmet {a.get('item')}: {a.get('evidence')}" for a in v.get("acceptance", []) if not a.get("met")]
         items += [f"- {x.get('severity')} · {x.get('lens')}{' · ' + x['file'] if x.get('file') else ''}: "
                   f"{x.get('what')} — fix: {x.get('fix')}" for x in v.get("findings", []) if x.get("severity") != "low"]
+    if outcome == "fail" and after:
+        return "\n".join([line, "The independent review failed. Blocking findings:", *items,
+                          "Fix them, commit, and push (the push is reviewed again by itself)."])
     if outcome == "fail":
         return "\n".join([line, "The independent review failed, so the call was blocked. Blocking findings:", *items,
                           "Fix them, commit, and make the same call again (the review runs again by itself)."])
@@ -476,7 +493,7 @@ def post(call):
     if sha256(words) != pend["words"]:
         outcome, vpath, line, stderr = review(top, pr["base"]["ref"], words)
         if vpath == "-":
-            raise Block(explain(outcome, vpath, line, stderr))
+            raise Block(explain(outcome, vpath, line, stderr, after=True))
     rendered = run([RENDER, vpath])
     if rendered.returncode != 0:
         cnr(f"pr-comment.sh: {rendered.stderr.strip()}")
@@ -487,7 +504,7 @@ def post(call):
     os.unlink(path)
     if outcome != "pass":
         raise Block("The PR's words on GitHub differ from the reviewed ones, so they were reviewed again as posted:\n"
-                    + explain(outcome, vpath, line, stderr))
+                    + explain(outcome, vpath, line, stderr, after=True))
     return 0
 
 

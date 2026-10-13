@@ -160,6 +160,15 @@ done
 rc=0; bash -c "$missing_cmd" <<<'{"tool_name":"Bash","tool_input":{"command":"ls -la"}}' >/dev/null 2>&1 || rc=$?
 [ "$rc" = 0 ] || fail "missing hook blocked an unrelated call (exit $rc)"
 ok "a missing hook blocks every call it would review, and only those"
+# The hook's tool list, the matcher and the fallback pattern name the same GitHub tools (LOG #47).
+hook_tools=$(python3 -c 'import importlib.util as u, sys
+s = u.spec_from_file_location("hook", sys.argv[1]); m = u.module_from_spec(s); s.loader.exec_module(m)
+print("\n".join(sorted(m.PR_TOOLS + m.REMOTE_COMMIT)))' "$hook")
+matcher_tools=$(sed -E 's/.*__\(([^)]*)\)$/\1/' <<<"$pre" | tr '|' '\n' | sort)
+fallback_tools=$(grep -oE "grep -Eq '[^']*'" <<<"$pre_cmd" | sed -E "s/^grep -Eq '(.*)'$/\1/" | tr '|' '\n' | grep -E '^[a-z_]+$' | sort)
+[ -n "$hook_tools" ] && [ "$hook_tools" = "$matcher_tools" ] && [ "$hook_tools" = "$fallback_tools" ] \
+  || fail "tool lists differ: hook [$(tr '\n' ' ' <<<"$hook_tools")] matcher [$(tr '\n' ' ' <<<"$matcher_tools")] fallback [$(tr '\n' ' ' <<<"$fallback_tools")]"
+ok "the hook, its matcher and its fallback name the same GitHub tools"
 
 # --- Calls that aren't ours pass untouched, without a review or a GitHub call.
 reset_state pass
@@ -282,6 +291,8 @@ EOF
   [ "$(reviews)" = 0 ] || fail "$c: reviewed words the shell would change"
 done
 reset_state pass; run_hook gate Bash "$(bash_call "gh pr create -t 'Costs 5 USD' -b 'Plain words.'")"; allowed "plain quoted words"
+reset_state pass; run_hook gate Bash "$(bash_call "gh pr create -t 'Add x' -b 'Plain words.' >$work/out.txt 2>&1")"; allowed "gh pr create with redirections"
+[ "$(jq -r .body "$work/stub/words.1")" = "Plain words." ] || fail "redirections changed the words: $(cat "$work/stub/words.1")"
 ok "words the shell would expand (\$(…), backticks, \$VAR) are blocked: use --body-file"
 reset_state pass
 run_hook gate $MCP "$(jq -nc '{owner: "example", repo: "app", title: "t", body: "b", head: "feat/x", base: "release"}')"
@@ -325,7 +336,8 @@ blocked "push with a failing review"
 grep -q "^REVIEW: fail" <<<"$err" || fail "push block without the REVIEW: line: $err"
 ok "a push to an open PR is reviewed with the PR's words, and a fail blocks it"
 for c in "git push" "git push -u origin feat/x" "git push origin HEAD" "git -C $work/p push --force-with-lease origin HEAD:refs/heads/feat/x" \
-  "git add -A; git push"; do
+  "git add -A; git push" "git push origin feat/x 2>&1" "git push 2>&1 | tail -3" "git push -u origin feat/x >$work/log 2>&1" \
+  "git push &>/dev/null" "git push origin feat/x 2> err.txt" "git push </dev/null"; do
   reset_state pass; open_pr 5 "Add x" "b" "$(git -C "$work/p" rev-parse HEAD~1)"
   run_hook gate Bash "$(bash_call "$c")"; allowed "push form: $c"
   [ "$(reviews)" = 1 ] || fail "push form not reviewed: $c"
@@ -446,6 +458,8 @@ open_pr 5 "Add x" "Adds x. Also fixes the login bug."
 run_hook post $MCP "$(mcp_create "Add x" "Adds x.")"; blocked "post with a changed body, re-review fails"
 [ "$(posted 5)" = 1 ] && [ "$(jq -r .outcome <<<"$(marker 5)")" = fail ] || fail "the failing re-review was not posted"
 grep -q "^REVIEW: fail" <<<"$err" || fail "the failing re-review is not returned to Claude: $err"
+! grep -q "call was blocked" <<<"$err" || fail "after the PR exists, the message says the call was blocked: $err"
+grep -q "push" <<<"$err" || fail "the failing re-review doesn't say to fix and push: $err"
 ok "a changed body that fails its re-review is posted as a fail and returned to Claude"
 # 5b. An edit of the words is reviewed before it runs.
 reset_state fail

@@ -1727,7 +1727,7 @@ open PR.
 - Tests written first, failing (no hook registered, no `pr-words.sh`). `tests/review-hook.test.sh`
   (stub `review.sh` and `gh`, a local origin) covers every case in the task, plus the registration
   and a missing hook. `tests/reviewer-pr.test.sh` gained `pr-words.sh` (known-bad inputs refused)
-  and `--words`. Mutants: 52/52 killed. The first run left 11 survivors: 3 redundant checks, now
+  and `--words`. Mutants: 57/57 killed. The first run left 11 survivors: 3 redundant checks, now
   removed, and 8 test gaps, now tested.
 - The real harness runs it: with this branch's hook registered for the session only
   (`.claude/settings.local.json`, not committed), `gh pr create --fill --dry-run` was blocked with
@@ -1771,6 +1771,19 @@ throwaway clone`. Cause: a cloud session's clone is shallow, and `git fetch` fro
   for a new issue? Proposed: reset when no blocking finding repeats the previous round's (matched by
   lens and file), with a hard cap of reviews per branch that always asks. It changes the W10.6.2
   interface, so it is its own task.
+- Round 5 passed, and the create went through: PR #88. GitHub then appended its footer to the body,
+  so the post hook re-reviewed the words as posted, as designed. That review failed (unsure):
+  redirections such as `git push 2>&1` and `gh pr create … >out` were read as arguments. Fixed test
+  first: redirections are dropped with their target. The fail verdict was posted on the PR; the
+  `review-verdict` check reads it as failing until a pass is posted. The hook's message after a
+  re-review also said "the call was blocked" though the PR existed; now it says to fix and push.
+- **Order of edits:** a push is reviewed with the PR's current words, and an edit of the words with
+  the PR's current head, so code and words can't change in one step. A body that lists every fix
+  goes stale with each new fix. The body now points here for round details. For the Build skill:
+  keep per-round detail out of the PR body.
+- The body edit's review (at the PR's head) failed (medium): the fallback pattern for a missing hook
+  didn't name `update_pull_request_branch` (caught only as a substring), and nothing tested the
+  hook's tool list, the matcher and the fallback against each other. Now one test reads all three.
 
 **Next**: this PR opened through the hook, and its `review-verdict` check green from the comment
 the hook posted; then the owner's fresh-session check (W10.6.7's done-when).
