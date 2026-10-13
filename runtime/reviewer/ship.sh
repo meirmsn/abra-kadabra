@@ -2,7 +2,7 @@
 # ship: the one way Claude puts a change on a PR (W10.6.7). Reviews the committed HEAD with exactly
 # the given title and body, locally (review.sh, beside this file); only a pass goes on: it pushes the
 # branch, creates the PR (or updates the open PR's title, body and base) with exactly those words,
-# sets them back once if GitHub changed them, and posts the verdict comment (pr-comment.sh). Code and
+# checks GitHub kept them (text it appends to the body is fine), and posts the verdict comment. Code and
 # words go up together. Contract: kit/notes/revamp/workstreams/W10-v2.md § W10.6.7.
 #   usage: ship.sh --title <text> --body-file <file> [--base <branch>]   (from the worktree root)
 # Exit 0 = shipped (last line "SHIPPED: PR #<n> · <url> · <commit12>"); 1 = the review failed:
@@ -28,7 +28,7 @@ done
 [ -n "$body_file" ] || cnr "--body-file is required"
 body=$(cat -- "$body_file" 2>/dev/null && echo x) || cnr "can't read the body file '$body_file'"
 body=${body%x}
-for t in git jq gh sha256sum; do command -v "$t" >/dev/null || cnr "$t not found"; done
+for t in git jq gh; do command -v "$t" >/dev/null || cnr "$t not found"; done
 [ -x "$here/review.sh" ] || cnr "$here/review.sh is missing or not executable"
 
 # --- The worktree: a branch, everything committed, a GitHub-style origin.
@@ -58,7 +58,6 @@ git fetch -q origin "+refs/heads/$base:refs/remotes/origin/$base" 2>/dev/null ||
 words_file=$(mktemp) || cnr "mktemp failed"
 trap 'rm -f "$words_file"' EXIT
 jq -n --arg t "$title" --arg b "$body" '{title: $t, body: $b}' | "$here/pr-words.sh" >"$words_file" || cnr "can't write the PR's words"
-words_sum=$(sha256sum <"$words_file" | cut -c1-64)
 rc=0
 out=$("$here/review.sh" --base "origin/$base" --pr "$words_file") || rc=$?
 lines=$(grep -c '^REVIEW: ' <<<"$out")
@@ -89,16 +88,14 @@ else
     || cnr "pushed $branch, but creating the PR failed; the verdict was not posted"
   number=$(jq -r .number <<<"$pr")
 fi
-words_now() { gh api "repos/$slug/pulls/$number" | "$here/pr-words.sh" | sha256sum | cut -c1-64; }
-changed=""
-if [ "$(words_now)" != "$words_sum" ]; then # GitHub changed them (a server footer): set them back once
-  gh api -X PATCH "repos/$slug/pulls/$number" --input - <<<"$(jq '{title, body}' <<<"$fields")" >/dev/null
-  [ "$(words_now)" = "$words_sum" ] || changed=1
-fi
+# What GitHub kept: the same title, and a body that starts with the reviewed one. Text GitHub
+# appends (an attribution footer) can't change what was reviewed; a rewrite or new title can.
+kept=$(gh api "repos/$slug/pulls/$number" | jq -r --arg t "$title" --arg b "$body" \
+  '.title == $t and ((.body // "") | startswith($b))') || kept=unknown
 comment=$("$here/pr-comment.sh" "$verdict") || cnr "pushed $branch and set PR #$number's words, but can't render the verdict"
 jq -n --arg b "$comment" '{body: $b}' | gh api -X POST "repos/$slug/issues/$number/comments" --input - >/dev/null \
   || cnr "pushed $branch and set PR #$number's words, but posting the verdict comment failed"
-if [ -n "$changed" ]; then
-  cnr "PR #$number is shipped and its verdict posted, but GitHub changed the PR's title or body after ship set them, twice"
+if [ "$kept" != true ]; then
+  cnr "PR #$number is shipped and its verdict posted, but GitHub changed the PR's title or body after ship set them (or couldn't be read back)"
 fi
 echo "SHIPPED: PR #$number · $(jq -r .html_url <<<"$pr") · ${head:0:12}"

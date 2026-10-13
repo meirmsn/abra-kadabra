@@ -1805,7 +1805,7 @@ throwaway clone`. Cause: a cloud session's clone is shallow, and `git fetch` fro
 - Contract first (W10.6.7 line), then tests written first and failing: `tests/ship.test.sh` (no
   `ship.sh`), `tests/review-guard.test.sh` (the post hook still registered), and the rounds cases in
   `tests/reviewer.test.sh` (a new finding after a repeat asked the owner).
-- Mutants on the guard, `ship`, the rounds rule and `pr-words.sh`: 38/39 killed (34/35 before the
+- Mutants on the guard, `ship`, the rounds rule and `pr-words.sh`: 39/40 killed (34/35 before the
   fixes below). The first pass left
   5: the guard's redirection handling (unneeded once the guard stopped reading arguments: removed),
   two missing tests (a branch name that quietly misparses unencoded; an error inside the guard), and
@@ -1819,5 +1819,14 @@ throwaway clone`. Cause: a cloud session's clone is shallow, and `git fetch` fro
   `tests/ship.test.sh`, which also showed the default-branch fallback broken: `gh api --jq`, now
   `| jq`). Lows fixed too: the guard now skips gh's global flags (`gh -R o/r pr create`) and sees
   glued short flags (`gh pr edit -tTitle`); the W10.6.6 lines naming the removed check are marked.
+
+- Second run: `REVIEW: pass`; pushed, PR words set, verdict posted. Then exit 2: the session's
+  GitHub access appends an attribution footer to every PR body write, so set-back never stuck. Owner:
+  post what the reviewer saw and let GitHub append; `ship` now accepts the PR when the title is the
+  same and the body starts with the reviewed one, with no set-back and no footer text in the code.
+  A rewritten body or changed title is still reported. Tests first; 39/40 mutants killed.
+- Tests and the reviewer (F-NEW-23): the tests already run in the VM while building and in CI after
+  the push; the reviewer judges whether they cover the change. Proposed for W10.6.5: one prompt line
+  saying CI runs them, instead of a second run inside `ship`.
 
 **Next**: ship again; then the owner's fresh-session check (W10.6.7's done-when).

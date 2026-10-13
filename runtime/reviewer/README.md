@@ -39,8 +39,9 @@ a PR (W10.6.7; contract on the W10.6.7 line in W10-v2.md):
    a dirty tree, a detached `HEAD`, bad arguments or a result it can't trust) push nothing and say
    to ask the owner.
 3. On a pass it pushes the branch, then creates the PR, or updates the open PR's title, body and
-   base, with exactly the reviewed words. If GitHub changed them (a server footer), it sets them back
-   once; a change that sticks is reported (exit 2). Then it posts the verdict comment and prints
+   base, with exactly the reviewed words. It reads them back: text GitHub appends to the body (an attribution footer)
+   is fine, since it can't change what was reviewed; a changed title or rewritten body is reported
+   (exit 2). Then it posts the verdict comment and prints
    `SHIPPED: PR #<n> · <url> · <commit12>`. A GitHub failure after the push is exit 2, saying what
    was done.
 
@@ -104,12 +105,12 @@ head commit before approving.
 - [`tests/ship.test.sh`](../../tests/ship.test.sh) (in CI, stub `review.sh` and `gh`, a local
   origin) checks `ship`: a pass pushes, creates or updates the PR with exactly the reviewed words and
   posts the verdict; a fail, ask-owner, could-not-run, any result it can't trust or bad input pushes
-  nothing; a server footer is set back, and one that sticks is reported; GitHub failures after the
+  nothing; text GitHub appends is left alone, and a rewritten body or changed title is reported; GitHub failures after the
   push say what was done.
 - [`tests/review-guard.test.sh`](../../tests/review-guard.test.sh) (in CI, stub `gh`) checks the
   guard: what it refuses and what it lets through, the plugin's registration and fallback, and that
   the guard, matcher and fallback name the same tools.
-- Mutants for W10.6.7 (the guard, `ship`, the rounds rule, `pr-words.sh`): 38 of 39 killed, the
+- Mutants for W10.6.7 (the guard, `ship`, the rounds rule, `pr-words.sh`): 39 of 40 killed, the
   survivor equivalent (LOG #47).
 - [`tests/reviewer-live.sh`](../../tests/reviewer-live.sh) (`[runs]`, in a session only, because it
   calls the real model and CI runs no LLM jobs) runs the real reviewer on the A-04 fixtures in

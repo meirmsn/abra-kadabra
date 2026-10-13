@@ -57,7 +57,8 @@ EOF
 chmod +x "$work/dev/reviewer/review.sh"
 
 # --- A stub gh over a store of PR files in $GH_DIR/prs (n.json). $GH_DIR/footer: text the server
-# appends to a body it is given on create; $GH_DIR/footer-always: on every write. $GH_DIR/fail:
+# appends to a body it is given on create; $GH_DIR/footer-always: on every write; $GH_DIR/rewrite:
+# the body GitHub keeps instead of the one given; $GH_DIR/retitle: text added to the title. $GH_DIR/fail:
 # every call fails; $GH_DIR/fail-comment: posting a comment fails.
 mkdir -p "$work/bin"
 cat >"$work/bin/gh" <<'EOF'
@@ -67,6 +68,10 @@ echo "$*" >>"$GH_DIR/calls"
 [ "$1" = api ] || { echo "stub gh: only api" >&2; exit 1; }
 shift; method=GET path="" input=""
 while [ $# -gt 0 ]; do case $1 in -X) method=$2; shift 2 ;; --input) input=$(cat); shift 2 ;; *) path=$1; shift ;; esac; done
+tamper() { # tamper <pr file>: a rewrite or retitle GitHub makes on its own
+  [ ! -f "$GH_DIR/rewrite" ] || { jq --rawfile b "$GH_DIR/rewrite" '.body = $b' "$1" >"$1.t" && mv "$1.t" "$1"; }
+  [ ! -f "$GH_DIR/retitle" ] || { jq --rawfile t "$GH_DIR/retitle" '.title += $t' "$1" >"$1.t" && mv "$1.t" "$1"; }
+}
 foot() { # foot <write kind>: what the server appends to a body
   if [ -f "$GH_DIR/footer-always" ]; then cat "$GH_DIR/footer-always"; elif [ "$1" = create ] && [ -f "$GH_DIR/footer" ]; then cat "$GH_DIR/footer"; fi
 }
@@ -84,12 +89,14 @@ case "$method $path" in
     sha=$(git --git-dir="$ORIGIN" rev-parse "refs/heads/$(jq -r .head <<<"$input")") || { echo "HTTP 422: no such head" >&2; exit 1; }
     jq --argjson n "$n" --arg s "$sha" --arg f "$(foot create)" '{number: $n, state: "open", title: .title,
       body: (.body + $f), head: {ref: .head, sha: $s}, base: {ref: .base}, html_url: "https://example.com/pr/\($n)"}' <<<"$input" >"$GH_DIR/prs/$n.json"
+    tamper "$GH_DIR/prs/$n.json"
     cat "$GH_DIR/prs/$n.json" ;;
   "PATCH repos/example/app/pulls/"*)
     f="$GH_DIR/prs/${path##*/}.json"
     sha=$(git --git-dir="$ORIGIN" rev-parse "refs/heads/$(jq -r .head.ref "$f")")
     jq --argjson in "$input" --arg s "$sha" --arg f "$(foot patch)" '. + ($in | {title, body, base: (if .base then {ref: .base} else null end)} | with_entries(select(.value != null)))
       | .body = (.body + $f) | .head.sha = $s' "$f" >"$f.tmp" && mv "$f.tmp" "$f"
+    tamper "$f"
     cat "$f" ;;
   "POST repos/example/app/issues/"*"/comments")
     [ ! -f "$GH_DIR/fail-comment" ] || { echo "HTTP 403: comments refused" >&2; exit 1; }
@@ -222,17 +229,24 @@ run_ship --title x --body-file "$work/body.md" --base release; want_rc 0 "ship w
 grep -qx -- "--base origin/release --pr .*" "$work/stub/calls" && [ "$(jq -r .base.ref "$work/gh/prs/9.json")" = release ] || fail "--base not applied"
 ok "--base overrides the PR's base, and the PR's base is changed to it"
 
-# --- 6. GitHub changes the words (a server footer): set back once; if it sticks, say so.
-reset_state pass; printf '\n\n---\n_footer added by the server_' >"$work/gh/footer"
-run_ship --title "Add x" --body-file "$work/body.md"; want_rc 0 "ship with a footer added on create"
-[ "$(jq -r .body "$work/gh/prs/7.json")" = "$(cat "$work/body.md")" ] || fail "the footer was not removed: $(jq -r .body "$work/gh/prs/7.json")"
-[ "$(reviews)" = 1 ] || fail "the footer caused a second review"
-reset_state pass; printf '\n\n---\n_footer on every write_' >"$work/gh/footer-always"
-run_ship --title "Add x" --body-file "$work/body.md"; want_rc 2 "ship with a footer that sticks"
-grep -q "changed the PR's title or body" <<<"$out" || fail "a sticking change is not reported: $out"
+# --- 6. What GitHub does to the words after ship sets them: anything it appends is left alone (it
+# can't change what was reviewed); a rewritten body or a changed title is reported (owner, 2026-10-13).
+for footer in '\n\n---\n_footer added by the server_' '\nany other text GitHub likes to add'; do
+  reset_state pass; printf '%b' "$footer" >"$work/gh/footer-always"
+  run_ship --title "Add x" --body-file "$work/body.md"; want_rc 0 "ship with text appended by GitHub"
+  jq -e --rawfile b "$work/body.md" --arg f "$(printf '%b' "$footer")" '.body == $b + $f' "$work/gh/prs/7.json" >/dev/null || fail "the appended text was touched: $(jq -r .body "$work/gh/prs/7.json")"
+  ! grep -q -- "-X PATCH" "$work/gh/calls" || fail "ship rewrote the body after GitHub appended to it"
+  { [ "$(reviews)" = 1 ] && [ "$(comments 7)" = 1 ]; } || fail "appended text caused a second review or no verdict"
+done
+rm -f "$work/gh/footer-always"
+reset_state pass; printf 'A different body.\n' >"$work/gh/rewrite"
+run_ship --title "Add x" --body-file "$work/body.md"; want_rc 2 "ship when GitHub rewrites the body"
+grep -q "changed the PR's title or body" <<<"$out" || fail "a rewritten body is not reported: $out"
 [ "$(comments 7)" = 1 ] || fail "the verdict comment was not posted (it records what was reviewed)"
-rm -f "$work/gh/footer" "$work/gh/footer-always"
-ok "words GitHub changed after ship set them are set back once; a change that sticks is reported (exit 2)"
+rm -f "$work/gh/rewrite"; reset_state pass; printf ' (edited)' >"$work/gh/retitle"
+run_ship --title "Add x" --body-file "$work/body.md"; want_rc 2 "ship when GitHub changes the title"
+rm -f "$work/gh/retitle"
+ok "text GitHub appends to the body is left alone; a rewritten body or a changed title is reported (exit 2)"
 
 # --- 7. Failures after the review say what was done.
 reset_state pass
