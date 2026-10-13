@@ -90,17 +90,20 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   image lines (`https://github.com/<owner>/<repo>/raw/<sha>/<file>`) for the body's
   **Screenshots:**, and refuses a repo that allows merge commits or rebase merges (they would carry
   the images into the default branch). The GitHub mobile app doesn't show them for a private repo
-  (F-NEW-49, open). Proven by
+  (F-NEW-50, open). Proven by
   [`tests/pr-assets.test.sh`](../tests/pr-assets.test.sh), which also walks a PR's life on a local
   remote: retakes, fix rounds, a squash merge, the branch deleted, a fresh clone.
 - Spec: [`runtime/templates/spec.md`](../runtime/templates/spec.md) is the template for a change's
   spec in the project's `specs/` (TARGET § L3 Intent 2): intent, decisions, acceptance items
   `AC-<n>`, core flow and states for UI, out of scope, and the owner's recorded "go".
   [`runtime/scripts/spec-check.py`](../runtime/scripts/spec-check.py) checks that shape (`--go`:
-  the go is recorded). Proven by [`tests/spec-check.test.sh`](../tests/spec-check.test.sh).
+  the go is recorded; `--tests <dir>`: every `AC-<n>` not "verified by review" is named by a test,
+  run by the project's CI). Proven by [`tests/spec-check.test.sh`](../tests/spec-check.test.sh).
 - CI: [`runtime/templates/ci.yml`](../runtime/templates/ci.yml) is every project's CI in two tiers
   ([spec](../specs/ci-fast-slow-tiers.md)): `fast` runs the project's `scripts/check-fast.sh "$BASE"`
-  (secret scan, lint, unit tests), `slow` needs it and runs `scripts/check-slow.sh` (end-to-end
+  (template [`runtime/templates/check-fast.sh`](../runtime/templates/check-fast.sh): secret scan; the
+  spec check with `--tests`, so an acceptance item no test names fails CI; lint, unit tests; proven by
+  [`tests/check-fast-template.test.sh`](../tests/check-fast-template.test.sh)), `slow` needs it and runs `scripts/check-slow.sh` (end-to-end
   tests; a project with none yet has one that says so). The stack-specific part lives in those
   scripts, so the template is the same for every stack. [`runtime/scripts/ci-tiers-check.py`](../runtime/scripts/ci-tiers-check.py)
   checks a workflow has that shape; session start runs it on the project's and says so in a

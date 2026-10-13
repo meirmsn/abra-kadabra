@@ -1,20 +1,30 @@
 #!/usr/bin/env python3
 """Shape check for a spec written from runtime/templates/spec.md (TARGET § L3 Intent 2 and 6).
 
-Usage: spec-check.py [--go] SPEC_FILE
-Checks what can be checked without judgement; whether the spec says what the owner meant is the
-spec review's job, and whether the change meets it is the reviewer's.
+Usage: spec-check.py [--go] [--tests PATH]... SPEC...
+SPEC is a spec file, or a directory whose *.md files (below it too) are specs; a directory with none
+passes and says so. Checks what can be checked without judgement; whether the spec says what the
+owner meant is the spec review's job, and whether the change meets it is the reviewer's.
   - a "# <title>" line, then a **Go:** line: "pending", or the owner's go with its date (YYYY-MM-DD)
   - sections, in order: ## Intent, ## Decisions, ## Acceptance items, ## Core flow (optional),
     ## States (optional), ## Out of scope; none other, none empty
   - Acceptance items holds only items "- **AC-<n>** <what must be true>", numbered AC-1, AC-2, …
-    in order; an item may end "verified by review: <the step to demonstrate>"
+    in order; an item may end "verified by review: <the step to demonstrate>" (an item goes on over
+    its indented continuation lines)
   - every AC-<n> named anywhere in the spec is one of those items (the reviewer reads every one)
   - States, when present, holds a table
   - no {{placeholder}} left (outside code)
   --go: the **Go:** line records the owner's go (not pending)
-Exit 0 = the spec has the shape; 1 = problems (listed); 2 = can't run.
+  --tests PATH: the acceptance→test check (TARGET Verify; project CI runs it). Every AC-<n> not
+    marked "verified by review" is named, as the word AC-<n>, in a file under one of the PATHs (a
+    file, or every file below a directory; node_modules and dot-directories skipped). It reads
+    names, not tests: whether the test proves the item is the reviewer's job. Known limit: AC
+    numbers are per spec, so with several specs a test naming AC-4 counts for each spec's AC-4.
+    A PATH that doesn't exist, or no files under the PATHs, can't run.
+Exit 0 = every spec has the shape (and its tests); 1 = problems (listed); 2 = can't run (a missing
+or unreadable spec or test path, bad arguments).
 """
+import os
 import re
 import sys
 
@@ -30,7 +40,7 @@ AC = re.compile(r"\bAC-(\d+)\b")
 VBR = re.compile(r"verified by review\b(:\s*(\S.*))?", re.I)
 
 
-def check(spec, need_go):
+def check(spec, need_go, tests=None):
     problems = []
     for m in re.finditer(r"\{\{.*?\}\}", CODE.sub("", spec), re.S):
         problems.append(f"placeholder left: {m.group(0)[:60]}")
@@ -69,21 +79,29 @@ def check(spec, need_go):
     if order != sorted(order, key=SECTIONS.index) or len(order) != len(set(order)):
         problems.append(f"sections out of order or repeated: {', '.join(order)} (want {', '.join(SECTIONS)})")
 
-    items = []
+    items = []  # [number, its text with continuation lines, its line's text]
     for line in body.get("Acceptance items", "").splitlines():
-        if not line.strip() or line.startswith("  "):  # blank, or a continuation of the item above
+        if not line.strip():
+            continue
+        if line.startswith("  "):  # a continuation of the item above
+            if items:
+                items[-1][1] += " " + line.strip()
             continue
         m = ITEM.match(line)
         if not m:
             problems.append(f"Acceptance items: '{line.strip()[:60]}' is not an item '- **AC-<n>** <text>'")
             continue
-        n, what = int(m.group(1)), m.group(2).strip()
-        items.append(n)
-        if not what:
+        items.append([int(m.group(1)), m.group(2).strip(), m.group(2).strip()])
+    reviewed = set()
+    for n, what, first in items:
+        if not first:
             problems.append(f"AC-{n}: no text on its line")
         v = VBR.search(what)
-        if v and not v.group(2):
-            problems.append(f"AC-{n}: 'verified by review' must name the step to demonstrate ('verified by review: <step>')")
+        if v:
+            reviewed.add(n)
+            if not v.group(2):
+                problems.append(f"AC-{n}: 'verified by review' must name the step to demonstrate ('verified by review: <step>')")
+    items = [n for n, _, _ in items]
     if not items and "Acceptance items" in body:
         problems.append("Acceptance items: no AC-<n> items")
     for want, got in enumerate(items, 1):
@@ -95,23 +113,81 @@ def check(spec, need_go):
 
     if "States" in body and not re.search(r"^\s*\|.*\|\s*$", body["States"], re.M):
         problems.append("States: no table (one row per state, one column per thing that shows or hides)")
+    if tests is not None:
+        for n in sorted(set(items) - reviewed):
+            if not re.search(rf"\bAC-{n}(?!\d)", tests):
+                problems.append(f"AC-{n}: no test names it (put AC-{n} in the name of the test that proves it, or mark the item 'verified by review: <step>')")
     return problems
 
 
+class CantRun(Exception):
+    pass
+
+
+def raise_cant_run(e):
+    raise CantRun(f"can't read {e.filename}: {e.strerror}")
+
+
+def walk(path, want):
+    """The files at path: itself, or those below it (node_modules and dot-directories skipped)."""
+    if os.path.isfile(path):
+        return [path]
+    if not os.path.isdir(path):
+        raise CantRun(f"no such file or directory: {path}")
+    found = []
+    for root, dirs, files in os.walk(path, onerror=raise_cant_run):
+        dirs[:] = sorted(d for d in dirs if d != "node_modules" and not d.startswith("."))
+        found += [os.path.join(root, f) for f in sorted(files) if want(f)]
+    return found
+
+
+def read(path, errors):
+    try:
+        with open(path, encoding="utf-8", errors=errors) as f:
+            return f.read()
+    except (OSError, UnicodeDecodeError) as e:
+        raise CantRun(f"can't read {path}: {e}")
+
+
 def main(argv):
-    args = argv[1:]
-    need_go = "--go" in args
-    args = [a for a in args if a != "--go"]
-    if len(args) != 1:
+    args, need_go, test_paths = argv[1:], False, []
+    specs = []
+    while args:
+        a = args.pop(0)
+        if a == "--go":
+            need_go = True
+        elif a == "--tests":
+            if not args:
+                specs = []
+                break
+            test_paths.append(args.pop(0))
+        else:
+            specs.append(a)
+    if not specs:
         print(__doc__.strip().splitlines()[2], file=sys.stderr)
         return 2
     try:
-        with open(args[0], encoding="utf-8") as f:
-            spec = f.read()
-    except OSError as e:
-        print(f"spec-check: can't read {args[0]}: {e}", file=sys.stderr)
+        tests = None
+        if test_paths:
+            files = [f for p in test_paths for f in walk(p, lambda f: not f.startswith("."))]
+            if not files:
+                raise CantRun(f"no test files under {', '.join(test_paths)}")
+            tests = "\n".join(read(f, "replace") for f in files)
+        found = []
+        for p in specs:
+            if os.path.isdir(p):
+                mds = walk(p, lambda f: f.endswith(".md"))
+                if not mds:
+                    print(f"spec-check: no specs in {p}")
+                found += mds
+            elif os.path.exists(p):
+                found.append(p)
+            else:
+                raise CantRun(f"can't read {p}: no such file")
+        problems = [f"{p}: {x}" for p in found for x in check(read(p, "strict"), need_go, tests)]
+    except CantRun as e:
+        print(f"spec-check: {e}", file=sys.stderr)
         return 2
-    problems = check(spec, need_go)
     for p in problems:
         print(f"spec-check: {p}")
     return 1 if problems else 0

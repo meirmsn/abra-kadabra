@@ -44,7 +44,8 @@ printf 'slack: %s\n' "xoxb-$(rand 0-9 12)-$(rand 0-9 12)-$(rand 'A-Za-z0-9' 24)"
   for _ in 1 2 3 4; do rand 'A-Za-z0-9+/' 64; echo; done
   printf -- '-----END %s-----\n' "RSA PRIVATE KEY"
 } >"$p/id_rsa"
-printf 'api_key = "%s"\n' "$(rand 'a-z0-9' 32)" >"$p/settings.toml"
+# Letters and digits alternate: gitleaks drops a generic-api-key value holding a stopword (`blog`, `view`, ...).
+printf 'api_key = "%s"\n' "$(for _ in $(seq 16); do rand a-z 1; rand 0-9 1; done)" >"$p/settings.toml"
 git -C "$p" add -A && git -C "$p" commit -qm "add config"
 
 rc=$(scan "$p" "$work/planted.json")
