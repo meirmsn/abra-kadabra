@@ -6,6 +6,8 @@
 # verbatim, then runs the installed plugin's SessionStart hook in a project for every pin case.
 # It runs in a private mount namespace with a scratch /opt and /tmp, so the real ones are never
 # touched (L-41). Tests the committed HEAD, not uncommitted changes.
+# Slow tier: it tests the whole install end to end (specs/ci-fast-slow-tiers.md).
+# tier: slow
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)

@@ -1,4 +1,8 @@
-# Plain CI (D-06): deterministic checks only, no LLM jobs. Both jobs are meant as required checks on main.
+# Plain CI (D-06): deterministic checks only, no LLM jobs. Two tiers (spec specs/ci-fast-slow-tiers.md),
+# the shape of runtime/templates/ci.yml; both jobs are the required checks on main. Never give
+# either a job-level `if` or `continue-on-error`: GitHub counts a skipped required job as passed.
+#   fast: scripts/check-fast.sh: secret scan, lint, and every test not marked slow.
+#   slow: scripts/check-slow.sh: the end-to-end tests (the whole install); runs only after fast passes.
 name: ci
 
 on:
@@ -22,13 +26,13 @@ env:
   DCG_SHA256: 09daf765e21457a756e69cc9f8bce41635836c6b958f5b27c7a6a6a376cbde21
 
 jobs:
-  secret-scan:
+  fast:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # the secret scan and the commit-identity check read the commits since the base
           persist-credentials: false
 
       - name: Install gitleaks (pinned, checksum-verified)
@@ -62,51 +66,48 @@ jobs:
           tar -xJf "$RUNNER_TEMP/$tarball" -C "$RUNNER_TEMP" dcg
           echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
 
+      # PyYAML for runtime/scripts/ci-tiers-check.py, hash-pinned, in a venv first on PATH.
+      - name: Install pinned Python packages
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet --require-hashes --only-binary=:all: -r .github/requirements-ci.txt
+          echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
+
       # Prettier at the version package.json pins, integrity-checked against package-lock.json.
       - name: Install pinned Node tools
         run: npm ci --ignore-scripts --no-audit --no-fund
 
-      # tests/bootstrap.test.sh replays the cloud setup in a private mount namespace with a scratch
-      # /opt; Ubuntu 24.04 blocks unprivileged user namespaces through AppArmor by default.
-      - name: Allow user namespaces (for the install scenario test)
+      # Three fast tests sandbox themselves with `unshare` (a private mount namespace and scratch
+      # /opt); Ubuntu 24.04 blocks unprivileged user namespaces through AppArmor by default.
+      - name: Allow user namespaces (for the sandboxed tests)
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
-      - name: Tests (incl. the config catching planted secrets and each lint check failing on bad input)
-        run: tests/run.sh
-
-      - name: Secret scan (the commits this change adds, then the tree)
+      - name: Fast tier (secret scan, lint, every test not marked slow)
         env:
           # PR: everything since the base; push to main: everything since the previous tip.
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: scripts/secret-scan.sh "$BASE"
+        run: scripts/check-fast.sh "$BASE"
 
-  # The repo's own lint. Each check is a script in scripts/, proven by the test of the same name
-  # (run in the job above). A missing tool fails the check, never passes it.
-  lint:
+  slow:
+    needs: fast
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # tests/bootstrap.test.sh pins a commit from before the runtime move
           persist-credentials: false
 
-      - name: Install shellcheck (pinned, checksum-verified)
-        run: |
-          set -euo pipefail
-          tarball="shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz"
-          curl -fsSLo "$RUNNER_TEMP/$tarball" \
-            "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/$tarball"
-          echo "$SHELLCHECK_SHA256  $RUNNER_TEMP/$tarball" | sha256sum -c -
-          tar -xJf "$RUNNER_TEMP/$tarball" -C "$RUNNER_TEMP" --strip-components=1 "shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
-          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      # tests/bootstrap.test.sh replays the cloud setup in a private mount namespace with a scratch
+      # /opt, as above.
+      - name: Allow user namespaces (for the install scenario test)
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
-      # Prettier at the version package.json pins, integrity-checked against package-lock.json.
-      - name: Install pinned Node tools
-        run: npm ci --ignore-scripts --no-audit --no-fund
+      # The install test reads the plugin's JSON with jq, which the runner image ships; say so here
+      # if an image ever drops it, rather than deep in the test.
+      - name: Check jq (from the runner image)
+        run: command -v jq
 
-      # The repo's declared lint: the same script the devshop's pre-push hook runs in a session.
-      - name: Lint (formatting, shellcheck, docs map, commit identities)
-        env:
-          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: scripts/lint.sh "$BASE"
+      - name: Slow tier (the install, end to end)
+        run: scripts/check-slow.sh

@@ -25,6 +25,8 @@ scripts named here; run them, never retype them as shell.
 - **Disciplines:** for each discipline the change touches (frontend, backend, data, UI/UX,
   security…), the guideline in `/opt/devshop-current/guidelines/` if this version has one.
 - On conflict the project wins; say so in the PR.
+- **CI:** none yet? Start from `/opt/devshop-current/templates/ci.yml`; declare
+  `scripts/check-fast.sh` (unit) and `scripts/check-slow.sh` (end to end).
 
 ## 3. Code, tests and docs together
 

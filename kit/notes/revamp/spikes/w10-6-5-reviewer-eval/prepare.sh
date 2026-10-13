@@ -10,7 +10,7 @@
 #                     baseline-2 itself, as runs 1-5 had it)
 #   eval/search-base  eval/ci-base plus changes/search-base
 #   eval/<case>       starred, done, priority on eval/ci-base; fix-* on eval/search-base
-# The fixture's own CI doesn't run check-fast.sh until its tiers retrofit lands: this stands in for it.
+# It stood in for the fixture's tiers retrofit (fixture PR 11), which landed after run 6.
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)

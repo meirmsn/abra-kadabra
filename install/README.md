@@ -74,8 +74,8 @@ installed hook for every case above.
 ## Git hooks and the per-edit nudge
 
 Feedback, not walls: everything here runs in the session's VM, where the agent can bypass it
-(`git push --no-verify`, changing `core.hooksPath`). The wall is required CI (`ci / lint`,
-`ci / secret-scan`), which runs the same checks outside the session (L-36).
+(`git push --no-verify`, changing `core.hooksPath`). The wall is required CI (`ci / fast`,
+`ci / slow`), which runs the same checks outside the session (L-36).
 
 - **Where they come from.** The version's [`runtime/hooks/session-start.sh`](../runtime/hooks/session-start.sh)
   points the project's `core.hooksPath` at [`runtime/git-hooks/`](../runtime/git-hooks) (via
@@ -117,10 +117,16 @@ Feedback, not walls: everything here runs in the session's VM, where the agent c
   (this repo's: `npm ci`, so Prettier is there for its checks): silent when it works, a `DEVSHOP:`
   line when it fails (log: `/tmp/devshop-project-setup.log`). It is the repo's own code, like its
   tests and lint scripts.
+- **CI in two tiers.** Session start checks the project's `.github/workflows/ci.yml` against the
+  version's [`templates/ci.yml`](../runtime/templates/ci.yml) with
+  [`scripts/ci-tiers-check.py`](../runtime/scripts/ci-tiers-check.py) (30 s limit): a `DEVSHOP:`
+  line when there is no `ci.yml`, when it breaks a rule (named), or when the check can't run (e.g.
+  no PyYAML); nothing when it follows the template. Feedback for the owner; required CI is the wall.
 - **The repo declares its checks.** The devshop carries no project-specific checks (Shape 3): a repo
-  declares `scripts/lint.sh` (full, also what its CI runs) and `scripts/lint-file.sh` (one file). This
-  repo's are [`scripts/lint.sh`](../scripts/lint.sh) and [`scripts/lint-file.sh`](../scripts/lint-file.sh);
-  a project gets them from its stack home (W10.5.2). Without them, only the secret scan runs.
+  declares `scripts/lint.sh` (full; the pre-push hook runs it), `scripts/lint-file.sh` (one file),
+  and CI's two tiers `scripts/check-fast.sh <base>` (secret scan, `lint.sh`, unit tests) and
+  `scripts/check-slow.sh` (end-to-end tests). This repo's are in [`scripts/`](../scripts); a project
+  gets them from its stack home (W10.5.2). Without `lint.sh`, only the secret scan runs on push.
 
 Proven by [`tests/git-hooks.test.sh`](../tests/git-hooks.test.sh) (real `git push`, real gitleaks),
 [`tests/post-edit.test.sh`](../tests/post-edit.test.sh) and

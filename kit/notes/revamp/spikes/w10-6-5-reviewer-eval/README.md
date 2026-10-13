@@ -187,7 +187,7 @@ residual, not fixed.
 
 ## Run 6: the W10.6.8 fixes
 
-Three reviewer limits found in this eval (LOG #51): the session-id fix used a fixed list of names
+Three reviewer limits found in this eval (LOG #52): the session-id fix used a fixed list of names
 (F-NEW-31), the allowed commands were written in both `prompt.md` and `settings.json` (F-NEW-32), and
 the tests-note rule asked the model to infer whether CI runs the tests, which slipped once in 60
 (F-NEW-33). After the fixes the prompt states whether the base commit has `scripts/check-fast.sh`,
@@ -196,8 +196,8 @@ the script CI's `fast` job runs under the CI tiers contract (`specs/ci-fast-slow
 How this run differs from runs 1–5 (this session can't reach the harness, LOG #46, so):
 
 - `prepare.sh` rebuilt the local `eval/*` branches from `changes/` in a fresh fixture clone, on
-  `eval/ci-base`: `baseline-2` plus one commit adding `scripts/check-fast.sh`. That stands in for the
-  fixture's tiers retrofit, which hasn't landed. The fixture's own CI doesn't run that script yet.
+  `eval/ci-base`: `baseline-2` plus one commit adding `scripts/check-fast.sh`. That stood in for the
+  fixture's tiers retrofit, which landed afterwards (fixture PR 11).
   The changes are the same patches.
 - `replay-plants.py` replayed each recorded seed-1 plant (`results/p-*.plants.json`, the same in runs
   1–5) instead of calling the harness. Each edit is checked against the record's `before` text, and

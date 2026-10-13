@@ -1,0 +1,71 @@
+# CI in two tiers (the devshop's template; copy to .github/workflows/ci.yml). Plain CI, no LLM jobs.
+#   fast: static checks and unit tests, scripts/check-fast.sh "$BASE" (secret scan, lint, unit tests).
+#   slow: end-to-end tests, scripts/check-slow.sh; runs only after fast passes.
+# What each tier runs lives in those two scripts, so this file stays the same for every stack. A
+# project with no slow tests yet keeps a check-slow.sh that says so and exits 0. Make `fast` and
+# `slow` the required checks on main. Never give either a job-level `if` or `continue-on-error`:
+# GitHub counts a skipped required job as passed. A deploy job needs both.
+# Checked by the devshop's ci-tiers-check.py at session start.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  GITLEAKS_VERSION: 8.30.1
+  # sha256 of gitleaks_8.30.1_linux_x64.tar.gz, from the release's checksums file.
+  GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+
+jobs:
+  fast:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 0 # the secret scan and other checks read the commits since the base
+          persist-credentials: false
+
+      # --- Stack tool installs (from the stack home), e.g. actions/setup-node. ---
+
+      - name: Install gitleaks (pinned, checksum-verified)
+        run: |
+          set -euo pipefail
+          tarball="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSLo "$RUNNER_TEMP/$tarball" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$tarball"
+          echo "$GITLEAKS_SHA256  $RUNNER_TEMP/$tarball" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/$tarball" -C "$RUNNER_TEMP" gitleaks
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+      - name: Project setup
+        run: if [ -x scripts/setup.sh ]; then scripts/setup.sh; fi
+
+      - name: Fast tier (secret scan, lint, unit tests)
+        env:
+          # PR: everything since the base; push to main: everything since the previous tip.
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: scripts/check-fast.sh "$BASE"
+
+  slow:
+    needs: fast
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # --- Stack tool installs (from the stack home), e.g. actions/setup-node, browsers. ---
+
+      - name: Project setup
+        run: if [ -x scripts/setup.sh ]; then scripts/setup.sh; fi
+
+      - name: Slow tier (end-to-end tests)
+        run: scripts/check-slow.sh

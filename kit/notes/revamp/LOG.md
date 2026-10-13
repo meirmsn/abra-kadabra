@@ -2007,7 +2007,53 @@ tests cover it. The fixture PR was closed unmerged.
 
 **Next**: W10.6.4 (W10.6.7 is done, LOG #49).
 
-## #51 — 2026-10-13 · W10.6.8: three reviewer limits from the W10.6.5 eval
+## #51 — 2026-10-13 · W10.4.6 CI in two tiers, fast and slow (in progress)
+
+**Why**: the owner asked whether lint in both CI and the pre-push hook wastes resources. It
+doesn't: CI is the wall and the hook is skippable feedback that saves a CI round trip. The waste
+was in CI itself: two jobs repeating the checkout, tool downloads and `npm ci` for checks that take
+seconds. The owner then asked for two tiers, chosen by concept (unit vs end to end), not time, and
+for new projects to pick the pattern up. Spec: `specs/ci-fast-slow-tiers.md`, with the owner's go.
+
+**What moved**: every project declares `scripts/check-fast.sh <base>` (secret scan, `lint.sh`,
+unit tests) and `scripts/check-slow.sh` (end-to-end tests; a placeholder that says so when there
+are none). CI runs job `fast`, then job `slow` with `needs: fast`, from the stack-agnostic
+`runtime/templates/ci.yml`. `runtime/scripts/ci-tiers-check.py` checks that shape (PyYAML,
+hash-pinned in CI; missing is "couldn't run"). This repo's lint runs it on its own `ci.yml`, and
+session start runs it on the project's, with one `DEVSHOP:` line when the CI is missing, breaks a
+rule, or can't be checked. The `build` skill points a project without CI at the template. Here,
+`tests/run.sh fast|slow` picks a tier by a `# tier: slow` header line; only
+`tests/bootstrap.test.sh` (the whole install) is slow. The three tests that sandbox with `unshare`
+stay fast: a sandbox doesn't make a test end to end. The pre-push hook is unchanged (owner). The
+fixture is retrofitted in its own PR: `lint.sh` (so the hook lints there too), `setup.sh`, both
+tier scripts, and `deploy` needs `fast` and `slow`.
+
+**Evidence**: each check was written failing first. `tests/ci-tiers-check.test.sh` has 27 cases,
+including this repo's real `ci.yml` (exact jobs and tools), and 8 of 8 mutants are killed. `tests/run-tiers.test.sh` has 5 cases (3 of 3 mutants killed).
+`tests/check-tiers.test.sh` has 4. The AC-3 cases in `tests/git-hooks.test.sh` give 4 (3 of 3
+mutants killed). `tests/lint.test.sh` now covers five checks. Locally on the final head,
+`check-fast.sh` passed (23 fast test files) and `check-slow.sh` passed (1 slow), the slow one with
+a bare PATH (no gitleaks, shellcheck, dcg or npm packages). The fixture's own test has 6 cases
+(3 of 3 mutants killed), and its real `check-fast.sh` passed after `setup.sh`. The new check fails
+on the fixture's CI on `main` (no `fast`, no `slow`, deploy needs neither) and passes on the branch.
+
+**Surprises**: the adversarial spec review caught that an optional slow job can't be in a single
+template, which gave the always-present `check-slow.sh` placeholder. It also caught that three
+"fast" tests need user namespaces, so the rule became end to end vs unit, not sandboxed or not.
+Locally, three suites only ran once the tools were copied out of `/opt` (the tests mount a scratch
+`/opt`) and the clone was unshallowed (bootstrap pins a pre-move commit).
+
+**Fixture**: fixture PR #11 passed its review, then `fast` and `slow` on its head; the owner
+approved and merged it, and on its `main` both tiers passed before the production deploy.
+
+**Changed after the go** (owner, "option 1"): the reviewer can't read GitHub or the fixture, so
+this PR's CI and the fixture's retrofit are the owner's checks at merge, not acceptance items, and
+AC-1 names the step-level `if` / `continue-on-error` rule (spec, Decisions).
+
+**Next**: this PR's `fast` and `slow` green on GitHub; then `[owner]` swap the required checks
+from `lint` and `secret-scan` to `fast` and `slow` just before merging, then mark W10.4.6 done.
+
+## #52 — 2026-10-13 · W10.6.8: three reviewer limits from the W10.6.5 eval
 
 **What moved**: the follow-up to LOG #50, filed first as F-NEW-31–33 and the W10.6.8 task line; the
 W10.6.2 interface note changed before any code. Tests came first: each new check in
@@ -2052,10 +2098,6 @@ owner switched to that file: one contract, not two. So this change adds no scrip
   on unmodified `main` in this container (a shallow clone, and the push and dcg checks depend on the
   environment). CI runs them.
 
-**Risk for W10.6.4**: until the fixture has `scripts/check-fast.sh` (the tiers retrofit), the
-reviewer is told the fixture doesn't declare that CI runs its tests. An honest fixture change whose
-tests can't run in the reviewer's clone (vitest isn't installed there) then gets an `unsure` and
-fails. The retrofit should land first or together with this. The same holds for this repo's own
-reviews until its `check-fast.sh` lands.
+**Order** (owner): `ship` first failed this change on one `medium`: merged before the CI tiers change, honest reviews here and in the fixture would get `unsure` for tests they can't run. The owner held it until the tiers change landed (LOG #51: this repo's PR #92, fixture PR 11, both with `scripts/check-fast.sh` at the root). Then `main` was merged in and it shipped again.
 
-**Next**: the CI tiers change (its own session), then W10.6.4.
+**Next**: W10.6.4.
