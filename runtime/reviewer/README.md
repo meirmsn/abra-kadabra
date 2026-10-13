@@ -85,7 +85,9 @@ head commit before approving.
   inherits them reports the caller's session id and could reach the caller's session. They go by
   name pattern (`SESSION_TIE_PATTERNS` in `review.sh`: `CLAUDE_CODE_*SESSION*`, `*INGRESS*`,
   `*MESSAGING*`, `CLAUDE_CODE_*SDK*`), so one a later Claude Code version adds goes too; what it
-  needs to authenticate (the API endpoint, proxy and CA settings) matches none of them.
+  needs to authenticate (the API endpoint, proxy and CA settings) matches none of them. If a later
+  version's auth variable did match, the reviewer's `claude` couldn't authenticate and the review
+  would be could-not-run: a loud failure, never a pass.
 - The prompt names the commands it may run from `settings.json` alone: `review.sh` writes the
   allowlist's `Bash(<command>:*)` entries in at `{{COMMANDS}}`, so the two can't drift. An
   allowlist it can't read or name is could-not-run.
