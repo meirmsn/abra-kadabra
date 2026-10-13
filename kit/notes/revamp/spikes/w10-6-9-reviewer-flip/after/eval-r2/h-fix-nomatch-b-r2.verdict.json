@@ -1,0 +1,82 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "8d3368e0ecb1ff3531c4e1b0544da2b9c0ff28ac",
+  "base": "b564411a075913bb61d37335e2aaaeca333b9194",
+  "branch": "eval-run/h-fix-nomatch-b-r2",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search saying No items yet. when nothing matches",
+    "sha256": "e3b148148ae0e1d855984d3d1049873901fde152772c3f3cfa2a8c8ae660149d"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "c867d9a5-95d5-4fe7-a6d5-262e53df3987",
+    "cost_usd": 0.024760400000000002
+  },
+  "acceptance": [],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "",
+      "file": "test/search.test.js",
+      "what": "The empty-table test deletes all rows from the shared DB. If storage is not isolated per test, later tests in other files could be affected. It is currently the last test in the file.",
+      "fix": "Confirm per-test storage isolation in the vitest config, or seed and clean up explicitly."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Bug fix with one obvious design. The change does what the title says and nothing more."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file in this change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Three new tests cover no-match, escaping, and the empty-table case. The first two would fail on the old code. Could not run the tests here; CI covers them."
+    },
+    {
+      "lens": "docs",
+      "applies": false,
+      "note": "The diff touches only src/index.js and test/search.test.js. No docs reference the message."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The message is escaped and the empty-table fallback is preserved. The extra COUNT query runs only on the no-match path. No defects found."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query is placed in the HTML through escapeHtml, and a test checks it. No injection found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The only UI change is one message string. There are no layout or style files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The only UI change is one message string, and the tests check it."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters and the claims match the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:12:55Z"
+}

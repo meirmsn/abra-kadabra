@@ -1,0 +1,73 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "8d3368e0ecb1ff3531c4e1b0544da2b9c0ff28ac",
+  "base": "b564411a075913bb61d37335e2aaaeca333b9194",
+  "branch": "eval-run/h-fix-nomatch-b-r3",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search saying No items yet. when nothing matches",
+    "sha256": "e3b148148ae0e1d855984d3d1049873901fde152772c3f3cfa2a8c8ae660149d"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "8368eb23-b360-48e0-a461-2881cc29b6d1",
+    "cost_usd": 0.024804
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Bug fix matches the PR words; no new options or behaviour beyond the message. Keeping 'No items yet.' for an empty table matches the PR."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file in the change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Three new tests cover no match, escaping, and the empty table. The first two fail against the old code. I did not run the suite here; CI covers it. The DELETE in the third test follows the existing pattern in test/index.test.js."
+    },
+    {
+      "lens": "docs",
+      "applies": false,
+      "note": "The diff touches only src/index.js and test/search.test.js. No docs reference the message."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The extra COUNT query runs only on an empty search result. The message is escaped. No defects found."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The search term is HTML-escaped in the new message, and a test covers it. The SQL stays parameterized."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "Only a text string changes; no layout or style files are touched."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No UI flow changes beyond one message string, and the tests cover it."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "Title is under 72 characters. Claims match the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:12:53Z"
+}

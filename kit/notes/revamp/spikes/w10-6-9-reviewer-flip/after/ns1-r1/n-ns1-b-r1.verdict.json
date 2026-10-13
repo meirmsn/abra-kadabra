@@ -1,0 +1,164 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "1337cc02b6df0d6d3a13d018b2014c84b897b959",
+  "base": "9644a31035ed6b12085e670304b133a76853fa30",
+  "branch": "eval-run/n-ns1-b-r1",
+  "spec": "specs/item-categories.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Item categories and a category filter on the list",
+    "sha256": "2ba3130b0d545ad5213c307b4af797ec38b5e90795ff09df58617529df36bc4a"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "7cae0fad-9337-4c53-81ca-ecd746dcd9c3",
+    "cost_usd": 0.09574970000000001
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-1' checks seed rows, UNIQUE, CHECK, nullable column, index, tagging; migration matches."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' title-only insert gives null category; bad category_id rejected with FOREIGN KEY."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' checks id order, labelled and unlabelled markup."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks order (case-insensitive), hrefs, only All current, empty category linked."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "tests 'AC-5' check Work-only list, current link, and that extra params change nothing."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 200, message, no li, links."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test 'AC-7' checks encoded link works and HTML escaping."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "it.each 'AC-8' covers all five URLs: 404, message, back link, script, no li/nav."
+    },
+    {
+      "item": "AC-9",
+      "met": true,
+      "evidence": "test 'AC-9' checks HEAD statuses for the three paths."
+    },
+    {
+      "item": "AC-10",
+      "met": false,
+      "evidence": "Review-only item. The script in src/index.js adds a `history.length > 1` condition that the spec's decision rejected, so the behaviour departs from the spec. No test covers the script's logic, and I could not run a browser."
+    },
+    {
+      "item": "AC-11",
+      "met": true,
+      "evidence": "routes.json lists /?category=Work; tests/traffic-config.test.sh accepts a query and rejects whitespace, # and missing slash; test/traffic.test.js sees the query route; index.test.js 'AC-11' checks 2xx."
+    },
+    {
+      "item": "AC-12",
+      "met": true,
+      "evidence": "Existing tests are kept, with the li assertion updated as the spec says; healthz, 404, 405 and escaping code paths are unchanged. I could not run the suite here (vitest is not installed)."
+    },
+    {
+      "item": "AC-13",
+      "met": true,
+      "evidence": "test/apply-migrations.js drops all tables in one batch with deferred foreign keys; test 'AC-13' checks the reset leaves only the seeded rows."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "medium",
+      "lens": "spec",
+      "item": "AC-10",
+      "file": "src/index.js",
+      "what": "The Go back script goes back only if `ours && history.length > 1`. The spec's decision says to go back when document.referrer is same-origin, and rejects history.length as a condition. The extra guard sends a same-origin arrival with history length 1 (for example a link opened in a new tab) to `/` instead of back.",
+      "fix": "Remove the `history.length > 1` guard so the condition is only the same-origin referrer."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-8",
+      "file": "test/index.test.js",
+      "what": "The Go back test checks only that document.referrer, location.origin and history.back() appear in order in the HTML. It would pass with the wrong logic, and the script's condition is untested.",
+      "fix": "Execute the script against a fake document, location and history for same-origin, cross-origin and empty referrers."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "",
+      "file": "test/index.test.js",
+      "what": "The States table's 'Go back hidden' and 'filter links shown' cells are not asserted for the 200 rows. The 'No items yet.' state with filter links is not checked either.",
+      "fix": "Assert that 200 pages contain neither 'Go back' nor the message 'This link seems to be corrupted.'. Add a check for the empty-table case."
+    }
+  ],
+  "blocking": 1,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec's intent."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "One departure: the extra history.length guard on Go back."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests are named per AC. vitest is not installed here, so I could not run the suite and left that to CI. A few gaps are listed in the findings."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README is updated for the new behaviour."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The query code is correct. Names are escaped and URL-encoded, and values are bound as parameters."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The HTML output is escaped and the SQL is parameterised. No planted instructions found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The UI is minimal server-rendered HTML with no stylesheet or component files; I reviewed the markup under the spec."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "I could not run a browser here; AC-10 relies on the spec's manual review step."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The PR body's claim that Go back goes back only for a same-origin referrer omits the extra history.length condition in the code."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:19:38Z"
+}

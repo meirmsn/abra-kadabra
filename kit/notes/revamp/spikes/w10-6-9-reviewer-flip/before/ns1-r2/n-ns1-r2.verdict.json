@@ -1,0 +1,164 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "1337cc02b6df0d6d3a13d018b2014c84b897b959",
+  "base": "9644a31035ed6b12085e670304b133a76853fa30",
+  "branch": "eval-run/n-ns1-r2",
+  "spec": "specs/item-categories.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Item categories and a category filter on the list",
+    "sha256": "2ba3130b0d545ad5213c307b4af797ec38b5e90795ff09df58617529df36bc4a"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "17651ef9-d1d4-4675-aa07-d85b720ca92f",
+    "cost_usd": 0.12798320000000002
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-1' checks the seed rows, the UNIQUE and CHECK rejections, a nullable category_id, the items_category_id index and the three seeded item tags. Matches migrations/0003."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' inserts with only a title and gets a null category. An unknown category_id fails with a FOREIGN KEY error."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' checks id order, the span markup and a plain <li> for an item with no category. The src/index.js `item` function matches."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks the link order (All, then NOCASE by name), the hrefs, that only All is current, and an empty category 'errands' still gets a link."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "Two tests named AC-5 cover the Work-only listing in id order, Work as the only current link, and `&x=1` and `?x=1` giving identical pages."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 200, the 'No items in this category.' message, no <li>, and the filter links with Garden current."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test 'AC-7' checks the escaped name and the encoded href `R%26D%20%3Cx%3E`. It then fetches that href and gets the category's items."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "it.each 'AC-8' covers all 5 URLs: 404, the message, the exact Go back anchor, a script pattern, no <li> and no <nav>."
+    },
+    {
+      "item": "AC-9",
+      "met": true,
+      "evidence": "test 'AC-9' checks HEAD for /, /?category=Work and /?category=Wrok (200, 200, 404)."
+    },
+    {
+      "item": "AC-10",
+      "met": true,
+      "evidence": "The spec gives a concrete browser procedure. I confirmed by reading brokenLinkPage that href is '/' and the click handler only calls history.back() when the referrer's origin equals location.origin. I did not run it in a browser."
+    },
+    {
+      "item": "AC-11",
+      "met": true,
+      "evidence": "routes.json lists /?category=Work. tests/traffic-config.test.sh covers the accepted query, and the rejected whitespace, `#` and missing-slash routes. test/traffic.test.js records path plus query. test/index.test.js 'AC-11' requests every listed route and expects 2xx."
+    },
+    {
+      "item": "AC-12",
+      "met": true,
+      "evidence": "The healthz, 404, 405, escaping and 'No items yet.' tests are unchanged. The `<li>First item</li>` assertion became the AC-3 markup. Not run here because vitest is missing."
+    },
+    {
+      "item": "AC-13",
+      "met": true,
+      "evidence": "test/apply-migrations.js drops all tables in one batch with defer_foreign_keys. The 'AC-13' test inserts a categorised row and expects exactly 4 items, which fails if the reset breaks."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "medium",
+      "lens": "tests",
+      "item": "",
+      "file": "test/index.test.js",
+      "what": "The States table has two rows with no test. `/` with no items is only checked for 'No items yet.' and never for the filter links being shown (the 'says so when the table is empty' test is unchanged). 'Go back' hidden on the 200 rows is never asserted anywhere.",
+      "fix": "In the empty-table test, also assert the nav with All current. In the 200-page tests, assert that the HTML contains no 'Go back' and no 'corrupted'."
+    },
+    {
+      "severity": "low",
+      "lens": "code",
+      "item": "AC-10",
+      "file": "src/index.js",
+      "what": "The click handler also requires `history.length > 1` besides the same-origin referrer. The spec rejects that check as a criterion and describes only the referrer check. It is harmless, since the link falls back to '/', but it goes beyond the spec.",
+      "fix": "Drop `&& history.length > 1`, or record it in the spec."
+    },
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "scripts/traffic-config-check.mjs",
+      "what": "The PR says no tests were loosened, and the check regex was relaxed to allow `?`. The PR does disclose this and the spec allows it, so the claim is mostly accurate. The wording 'Tests deleted or loosened: none' sits oddly next to it.",
+      "fix": "Optional: say outright that the validation regex was loosened per AC-11."
+    }
+  ],
+  "blocking": 1,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec has an owner go dated 2026-10-13, recorded in c72b0f1 before the implementation commits. That commit changed only the Go line and the 'open' markers, and no acceptance item was edited after the go."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 13 acceptance items are named by tests or by a concrete review step. Two State-table rows are not fully tested (see the finding)."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests are behavioural and would fail if the code were wrong. I could not run `npm test` here because vitest is not installed, so CI has to confirm the suite passes."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes the filter and the 404. CLAUDE.md's route guidance is consistent with the change."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Parameterised SQL; the LEFT JOIN and the NOCASE ordering are correct. The migration is additive. The only extra is the history.length condition."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Names and titles are HTML-escaped and URL-encoded, queries are bound, and the inline script uses only static content. No planted instructions found."
+    },
+    {
+      "lens": "design",
+      "applies": true,
+      "note": "The change adds user-facing HTML (filter nav and a broken-link page). It is minimal and semantic, with aria-current on the active link."
+    },
+    {
+      "lens": "qa",
+      "applies": true,
+      "note": "The 'Go back' behaviour in a real browser (AC-10) was verified by reading the code only."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title and body match the diff. 'Migration runs before the new code goes live' can't be checked from the repo."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:57:47Z"
+}

@@ -1,0 +1,131 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "ba93d325ec751d5e6c268145ded51b88fa22259c",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-done-skipped-state-row-b-r4",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "021a25a2-3850-4322-9b99-2387fb99798e",
+    "cost_usd": 0.06511159999999999
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done NOT NULL DEFAULT 0 with a CHECK; test/done.test.js 'AC-1' checks that the seeded items are 0 and that done=2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-2' checks / and ?view=open list only the open items in id order."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-3' marks 3 and 1 done and checks the order and the ✓ prefix."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-4' checks all items, in order, with ✓ on the done one."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-5' checks the exact nav markup for each view and for /."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-6' checks 400 and no <li> for Open, closed, empty and __proto__ values; the code uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-7' covers Nothing open., Nothing done yet. and No items yet. in all three views."
+    },
+    {
+      "item": "AC-8",
+      "met": false,
+      "evidence": "traffic/routes.json lists /?view=done and /?view=all, but no test names AC-8 or reads routes.json. Removing the routes would break no test. The spec does not mark the item 'verified by review'."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "tests",
+      "item": "AC-8",
+      "file": "test/done.test.js",
+      "what": "No test proves AC-8. Nothing asserts that traffic/routes.json contains /?view=done and /?view=all. The only route-related tests cover the checker's regex, with a made-up route list.",
+      "fix": "Add an 'AC-8' test that reads traffic/routes.json and expects it to include '/?view=done' and '/?view=all'. Preferably also request each route against the app and expect a 2xx."
+    },
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "scripts/traffic-config-check.mjs",
+      "what": "The traffic checker's regex change goes beyond the spec. The PR discloses it, and it is needed for the new routes.",
+      "fix": "None needed; the disclosure is sufficient."
+    }
+  ],
+  "blocking": 1,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec has a go dated 2026-10-12. Both decisions are followed: the default view is open, and the view is a query parameter."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "AC-1 to AC-7 are met and tested. AC-8 has no test. All six state-table rows have tests."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests for AC-1 to AC-7 and the states would fail if the code were wrong. AC-8 is untested. I did not run the suite here; CI runs it. The follow-up commit only deleted 4 blank lines from test/done.test.js."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes the views. The CLAUDE.md rule about adding routes to routes.json is followed."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Object.hasOwn guards the view lookup. The SQL fragments come from a fixed table, not from user input. The empty-table check is correct."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The view value is whitelisted. Output is HTML-escaped. No secrets or planted instructions found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with a nav line; no UI files (CSS, components) are in the diff."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser flow was available. The list page is server-rendered HTML and is covered by the worker tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The claims match the diff. The PR says test/traffic.test.js now records the query string, and it does. The title is under 72 characters."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:16:00Z"
+}

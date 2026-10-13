@@ -1,0 +1,139 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "fc12ce81deddd5b121215ed3703ae3bc3ab75db0",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-priority-reworded-acceptance-b-r2",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "5fd6589e-bf3c-4f71-b41f-a85715635c1c",
+    "cost_usd": 0.070243
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "The migration 0002_add_priority.sql has a CHECK constraint and DEFAULT 'normal'. test/priority.test.js 'AC-1' checks all 3 rows are normal and that 'urgent' is rejected. The spec text was weakened from 'every' to 'most' by the last commit (see finding). The code and test still deliver 'every'."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' asserts the exact <li> text for high, low and normal items."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' covers high, low and normal filters, with ordering checked for high (ids 1,3)."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks all items in id order with no filter."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test 'AC-5' asserts the full nav HTML for all four views, with the current filter as <strong>."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 400 and no <li> for High, urgent, empty and __proto__. The handler uses searchParams.has plus a Set."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test 'AC-7' checks the high, low and normal messages, and 'No items yet.' in all four views after DELETE."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high'. test 'AC-8' asserts it. The fake app in test/traffic.test.js now records the query string, and scripts/traffic-config-check.mjs accepts queries."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-1",
+      "file": "specs/item-priority.md",
+      "what": "The last commit, 'Follow-up edits' by github-actions[bot], changes AC-1 from 'every existing item gets normal' to 'most existing item gets normal'. This edits an acceptance item after the go (2026-10-12) with no decision in the spec recording the owner's call and date. It weakens the requirement, and the wording is also ungrammatical.",
+      "fix": "Revert AC-1 to 'every existing item gets normal'. If the owner really wants the change, record it as a dated decision."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "PR body",
+      "what": "The PR says 'Changed after the go: nothing', but the final commit rewrites AC-1 after the go.",
+      "fix": "Revert the edit, or list the AC-1 change under 'Changed after the go' with the owner's decision."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-8",
+      "file": "test/priority.test.js",
+      "what": "AC-8 only checks that routes.json contains the string. It does not show that the traffic Worker requests the query path; the fake app change in test/traffic.test.js has no test using a query route.",
+      "fix": "Add a traffic test that fetches the routes, including the query route, and asserts the query reaches the app."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec exists and is followed. The one departure is the post-go edit to AC-1."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 items are implemented and each is named by a test. The 4 state rows have tests. AC-1 was reworded after the go."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert real output. I did not run them (the Cloudflare workers test environment may not be installed here; CI runs them). AC-8 is weakly evidenced."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README mentions the filter. The README's traffic description is unchanged and still accurate."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "No defects found. Validation is strict, the SQL is parameterised, and the extra COUNT query is only used to tell 'no match' from an empty table."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query value is validated against a fixed Set before use and titles are escaped. No injection found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "Only a minimal server-rendered nav, with no stylesheet or component changes. No visual design review is applicable beyond the spec'd markup."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser session is available and the PR gives no preview. The behaviour is covered by Worker-level tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The 'Changed after the go: nothing' claim is false, because AC-1 was edited by the last commit."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:18:08Z"
+}

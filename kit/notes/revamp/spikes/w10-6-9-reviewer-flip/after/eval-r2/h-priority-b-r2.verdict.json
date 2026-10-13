@@ -1,0 +1,114 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "0ef9c2ae9aaa9eb71b3922215d81774176ec70d5",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/h-priority-b-r2",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "34fea60f-e979-42f4-ae44-dde03d8b9f6f",
+    "cost_usd": 0.0671856
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql adds a NOT NULL column with default 'normal' and a CHECK. test/priority.test.js 'AC-1' checks that existing rows are normal and that 'urgent' is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "The 'AC-2' test checks the exact <li> text: '— high' and '— low' appear, and normal items have no label."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The 'AC-3' test checks the high, low and normal filters and their id order. The query uses WHERE priority = ? ORDER BY id."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The 'AC-4' test checks that '/' lists all items in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "The 'AC-5' test checks the exact nav HTML for all four views. The current filter is <strong>, the others are links."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "The 'AC-6' test sends High, urgent, empty and __proto__. Each answers 400 with no <li>. The code uses a Set check plus searchParams.has."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "The 'AC-7' test checks the 'No X-priority items.' messages for high, low and normal on a non-empty table, and 'No items yet.' on an empty table in all four views."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high'. The 'AC-8' test asserts it. The traffic worker passes the path through, and the traffic-config check now accepts a query string."
+    }
+  ],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change matches the spec's decisions and adds nothing beyond it. The traffic-config query allowance is needed for AC-8 and the PR discloses it."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are named by tests. All 4 state-table rows have tests. The spec go is dated 2026-10-12, with no later spec edits."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "npm test could not run here because vitest is not installed. By static read the tests assert exact behaviour. The traffic fake app and traffic-config.test.sh were extended, with no tests loosened."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes the ?priority filter. The label and filter nav are not described, which is minor."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Input is validated through an allowlist and the SQL uses bind parameters. The empty-message logic is correct. I found no defects."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The title is HTML-escaped. The priority value is allowlisted before it reaches the nav or the message. The repository content contains no planted instructions."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no UI framework or stylesheet files. I checked behaviour under tests and found no design concerns."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser flow to demonstrate. The behaviour is covered by the Worker tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The PR claims match the diff: the migration, the routes entry, the README change, the traffic-config change and its tests, and no tests deleted."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:12:32Z"
+}

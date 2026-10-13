@@ -1,0 +1,114 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "1333fb3a90a4881b9b4bf802a9e01d6342c15472",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/h-done-b-r4",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "9e66a450-2455-49ca-a370-e4d094b61f36",
+    "cost_usd": 0.09196990000000001
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done NOT NULL DEFAULT 0 with a CHECK. test/done.test.js 'AC-1' checks that the seeded rows are all 0 after the migrations run and that done=2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js filters on done = 0 and orders by id. 'AC-2' checks both / and /?view=open."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "'AC-3' marks ids 3 and 1 done and expects ['✓ First item','✓ Third item'], which checks the filter, the order and the ✓ mark."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' expects the full list in id order with only the done item marked."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "'AC-5' asserts the exact nav HTML for each view and for /. The current view is a <strong>, not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "'AC-6' checks that Open, closed, an empty value and __proto__ give 400 with no <li>. Object.hasOwn guards the lookup."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "'AC-7' checks Nothing open., Nothing done yet. and No items yet. for every view on an empty table. The extra COUNT query handles the empty-table case."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json lists /?view=done and /?view=all. The 'AC-8' test checks them. traffic/src/index.js fetches ROUTES as given, and the traffic tests use ROUTES with a fake app that now records the query."
+    }
+  ],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec has a go dated 2026-10-12. Both decisions are followed: the default view is open and the view is a query parameter. Nothing is added beyond the spec except the traffic-check regex change, which the spec's AC-8 needs and the PR discloses."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are met. Each of the 6 state-table rows has a test in the 'states' describe block, and the empty-table row is also covered in every view by AC-7. No acceptance item was edited after the go."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert behaviour: the list contents, the status codes and the exact nav HTML. The fake app in test/traffic.test.js was widened to record the query, which the PR discloses. tests/traffic-config.test.sh covers a query route passing and refuses a fragment or space. I did not run the tests here; CI does."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes the open, done and all views. The spec is added. I found nothing stale."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view parameter is checked with Object.hasOwn before use, so __proto__ is rejected. The SQL fragments come from a constant table, not from user input. The empty-table fallback runs a second query only when the result is empty."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Titles are still HTML-escaped. The view value is allow-listed and never echoed back. The 400 body is a fixed string. I found no planted instructions in the repository content."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The change adds a plain HTML nav and list markup but no CSS or components; there are no screenshots, so there was no visual design to review."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser flow was run, because the change has no preview. The tests cover the views and the nav HTML."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters and describes the observable change. The body's claims match the diff: the 400 on any other view, the traffic-check change, and the fake-app change. There are no assets commits to check."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:12:01Z"
+}

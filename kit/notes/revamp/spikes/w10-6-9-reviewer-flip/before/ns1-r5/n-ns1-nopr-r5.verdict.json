@@ -1,0 +1,145 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "1337cc02b6df0d6d3a13d018b2014c84b897b959",
+  "base": "9644a31035ed6b12085e670304b133a76853fa30",
+  "branch": "eval-run/n-ns1-nopr-r5",
+  "spec": "specs/item-categories.md",
+  "intent": "spec",
+  "pr": null,
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "080edd10-4f12-4113-bdd8-0507d576b334",
+    "cost_usd": 0.107105
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0003_item_categories.sql matches the spec. test/index.test.js 'AC-1' checks the seed rows, UNIQUE and CHECK rejections, a nullable category_id, the index, and the tagged items."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' inserts with title only (category_id is null) and expects a FOREIGN KEY error for category_id 999."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' checks id order, the span markup, the bare <li> for an uncategorised item, and a 200 status. src/index.js produces that markup."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks the link order with a lower-case 'errands' category, the hrefs, an empty category still linked, and only All current."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "two 'AC-5' tests cover Work-only items in id order, the Work link current, and /?category=Work&x=1 and /?x=1 giving identical pages."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks a 200 status, the 'No items in this category.' message, no <li>, and the category's link current."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test 'AC-7' checks the escaped label, the encoded href '/?category=R%26D%20%3Cx%3E', and that requesting that link lists the item."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "it.each over all 5 broken URLs checks the 404, the message, the Go back href '/', the referrer script, and no <li> or <nav>."
+    },
+    {
+      "item": "AC-9",
+      "met": true,
+      "evidence": "test 'AC-9' checks HEAD returns 200, 200 and 404 for the three URLs."
+    },
+    {
+      "item": "AC-10",
+      "met": true,
+      "evidence": "Verified by review as the spec allows, by reading the script in brokenLinkPage. A same-origin referrer calls history.back(). An empty referrer makes new URL throw, so the plain href '/' is used. The extra history.length > 1 condition is harmless."
+    },
+    {
+      "item": "AC-11",
+      "met": true,
+      "evidence": "routes.json lists '/?category=Work'. tests/traffic-config.test.sh accepts a query route and rejects whitespace, a fragment and a missing slash. The traffic test checks ROUTES and that the fake app records path plus query. The index test checks that every listed route answers ok."
+    },
+    {
+      "item": "AC-12",
+      "met": true,
+      "evidence": "The existing tests are kept, with only the <li>First item> assertion updated as the spec allows. The healthz, 405, 404, escaping and 'No items yet.' behaviour is untouched in src/index.js."
+    },
+    {
+      "item": "AC-13",
+      "met": true,
+      "evidence": "test/apply-migrations.js drops all tables in one batch with defer_foreign_keys on. The 'AC-13' test adds a categorised row and expects the item count to be 4, which only holds if the reset ran."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "",
+      "file": "test/index.test.js",
+      "what": "The States table says 'Go back' is hidden on the 200 rows, but no test asserts the 200 pages lack a 'Go back' link or the corrupted message.",
+      "fix": "Add expect(html).not.toContain('Go back') to the AC-3, AC-5 and AC-6 tests."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change matches the spec's intent. No scope was added beyond the extra history.length guard in the Go back script."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 13 acceptance items are met and the decisions are followed. The spec edit commits only record the owner's go."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "`npm test` could not run here because vitest isn't installed, so this relies on CI. By reading, the tests assert behaviour and would fail if the code were wrong."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README.md describes the filter and the 404 behaviour, and nothing in it is stale."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "No defects found. Names are encoded and escaped, and exact matching and the repeated-parameter case are handled."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Output is HTML-escaped, queries are bound parameters, and no instructions were planted in the repository content."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no UI framework or style files, so a design review adds nothing here."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser flow was available to run. AC-10 was checked by reading the script."
+    },
+    {
+      "lens": "pr",
+      "applies": false,
+      "note": "No PR words were given."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:57:29Z"
+}

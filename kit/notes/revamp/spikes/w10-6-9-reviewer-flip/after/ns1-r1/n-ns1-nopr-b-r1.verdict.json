@@ -1,0 +1,161 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "1337cc02b6df0d6d3a13d018b2014c84b897b959",
+  "base": "9644a31035ed6b12085e670304b133a76853fa30",
+  "branch": "eval-run/n-ns1-nopr-b-r1",
+  "spec": "specs/item-categories.md",
+  "intent": "spec",
+  "pr": null,
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "b6a33f22-68a0-409b-925b-73708482d6dc",
+    "cost_usd": 0.1025625
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-1' checks seed rows, UNIQUE, CHECK, nullable column, index, tagged items; migration 0003 matches."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "'AC-2' test: title-only insert gives null category; category_id 999 rejected with FOREIGN KEY."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "'AC-3' test checks id order, the span markup and the plain li for an uncategorised item."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' test checks link order (case-insensitive), hrefs, only All current, and an empty category (errands) has a link."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "Two 'AC-5' tests cover the Work listing, current link, and extra query params."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "'AC-6' test checks 200, message, no li and the current link. It does not check that Go back is hidden (state-table gap)."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "'AC-7' test checks escaping, the encoded link, and that requesting it lists the item."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "it.each 'AC-8' covers all five URLs: 404, message, Go back href, script, no li, no nav."
+    },
+    {
+      "item": "AC-9",
+      "met": true,
+      "evidence": "'AC-9' test checks HEAD statuses 200/200/404."
+    },
+    {
+      "item": "AC-10",
+      "met": false,
+      "evidence": "Verified by review, but I cannot run a browser. The script also adds a `history.length > 1` condition the spec's decision does not state, so the behaviour departs from the decision."
+    },
+    {
+      "item": "AC-11",
+      "met": true,
+      "evidence": "routes.json lists the route. tests/traffic-config.test.sh covers accepting a query and rejecting whitespace and #. test/traffic.test.js records path plus query. The index test checks every route answers 2xx."
+    },
+    {
+      "item": "AC-12",
+      "met": true,
+      "evidence": "Existing healthz/404/405/escaping/empty tests are retained. The First item assertion is updated to the AC-3 markup."
+    },
+    {
+      "item": "AC-13",
+      "met": true,
+      "evidence": "The reset is batched with defer_foreign_keys. The 'AC-13' test inserts a categorised row and the next reset must drop it. It asserts the count is 4 within the same test, so it is weak evidence, but the whole suite exercises the reset."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "medium",
+      "lens": "spec",
+      "item": "AC-10",
+      "file": "src/index.js",
+      "what": "The Go back script goes back only if `ours && history.length > 1`. The decision defines the condition as a same-origin referrer and rejects `history.length > 1`. The extra guard is a condition the decision does not state.",
+      "fix": "Drop `&& history.length > 1` and use only the same-origin referrer check."
+    },
+    {
+      "severity": "medium",
+      "lens": "tests",
+      "item": "AC-6",
+      "file": "test/index.test.js",
+      "what": "The state-table rows are only partly checked. The 'no items' row for `/` (existing test) checks only the message, not that the list is hidden, the filter links are shown with All current, or Go back is hidden. The known-category rows and the empty-category row never assert that 'Go back' is hidden. The empty-category test does not assert the Go back link is absent.",
+      "fix": "Assert no 'Go back' (and no `<script>`) on the 200 pages. In the empty-table test, assert the nav with All current and no `<ul>`."
+    },
+    {
+      "item": "AC-8",
+      "severity": "low",
+      "lens": "tests",
+      "file": "test/index.test.js",
+      "what": "The Go back script assertion is a loose regex over text order (referrer, origin, history.back). It would still pass with the guard condition wrong.",
+      "fix": "Keep it, but tighten it once the `history.length` guard is removed."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Change matches the spec's intent, with no scope beyond it apart from the extra guard."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "One departure from a decision (history.length guard). The ordering, 404 behaviour and markup match."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests name their ACs. State-table coverage is partial. I did not run the suite; CI runs it."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README is updated for the filter and the 404. No stale references found."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Queries are parameterised and the logic is correct. Only the guard issue stands."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Names are escaped in HTML and URL-encoded in links, and SQL is bound. No planted instructions found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "Only a minimal server-rendered page; no UI component or style files in the diff."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser flow can be run here; AC-10's manual check is listed under acceptance."
+    },
+    {
+      "lens": "pr",
+      "applies": false,
+      "note": "No PR words were given."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:20:09Z"
+}

@@ -1,0 +1,73 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "bab1455606fccc1ca4b1a17106b78633f9edff40",
+  "base": "b564411a075913bb61d37335e2aaaeca333b9194",
+  "branch": "eval-run/h-fix-wildcards-v1-r2",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search treating % and _ as wildcards",
+    "sha256": "86d51b3e59f66f74c83c8ffe10a2d899d9ca4eede3d11b392bd67efdc91b9315"
+  },
+  "reviewer": {
+    "devshop": "scratchpad",
+    "model": "claude-sonnet-5-5",
+    "session_id": "eb52668a-3c09-4486-a74b-a946aa6ed972",
+    "cost_usd": 0.0327155
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Small bug fix to existing search. It has one obvious design, and the PR describes the literal-matching change as intended."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file in this change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "New tests cover %, _, a mixed '0% o' query and a backslash. Each would fail without the escaping. I did not run them: the cloudflare:workers pool is probably unavailable here, and CI runs them."
+    },
+    {
+      "lens": "docs",
+      "applies": false,
+      "note": "The diff touches no docs, and no docs mention the search's LIKE behaviour."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The escape regex escapes backslash first, via a single-pass replace. ESCAPE '\\' in the JS string is ESCAPE '\\' in SQL, which is correct. The query is still parameterised. No other LIKE use in src."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query stays bound-parameter, so no injection. Escaping removes wildcard abuse."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims match the diff: ESCAPE added, the three characters escaped, a new test, no tests deleted."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T20:01:23Z"
+}

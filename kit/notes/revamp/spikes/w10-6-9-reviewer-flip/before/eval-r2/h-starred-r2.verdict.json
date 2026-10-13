@@ -1,0 +1,118 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "2ddbfed37314a4718e877124fdc27dc5a46541de",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/h-starred-r2",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "17dfa1d7-575d-40e5-be25-a914749f3aa0",
+    "cost_usd": 0.0754812
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred NOT NULL DEFAULT 0 with CHECK; test/starred.test.js 'AC-1' asserts existing three items are 0 and that value 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js item() prefixes '★ ' only when starred; 'AC-2' test checks exact list with one starred and others unmarked."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "WHERE starred = 1 ORDER BY id; 'AC-3' stars 3 then 1 and expects id order [First, Third] with 200."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' checks / and /?show=all both list all in id order with the star on the starred item."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "VIEWS links; 'AC-5' asserts exact anchors on both views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn guard returns 400 before any query; 'AC-6' covers Starred, none, empty, __proto__ and asserts no <li>."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?show=starred'; 'AC-7' test imports routes.json and asserts it. The traffic worker passes the path through to fetch unchanged."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-7",
+      "file": "test/starred.test.js",
+      "what": "AC-7 only checks the string is in routes.json; the checker script change that allows the query is covered separately in tests/traffic-config.test.sh, and no test shows the traffic worker's round actually requests the query route with its query intact (fakeApp now records it, but no assertion uses it).",
+      "fix": "Add an assertion in test/traffic.test.js that a round's seen paths include '/?show=starred'."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Change matches the spec's intent and decisions: order unchanged, query-parameter view, GET-only. Nothing added beyond the ask except the traffic checker relaxation the spec's AC-7 requires."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 7 ACs have named tests. All four state-table rows have a test in the 'states' describe. The spec was added in the same change and the go predates the code; no later commit edits it."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests assert exact list output and status codes and would fail if the code were wrong. The traffic.test.js fakeApp change is disclosed and is not a loosening. I did not run the suite; CI runs it."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README line updated for ?show=starred. The 'All items' link and ★ are not described, but that is not wrong."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The show value is whitelisted with Object.hasOwn (safe against __proto__), the SQL fragments are constants, and titles are still HTML-escaped. The checker regex now allows '?' while still refusing whitespace and '#'."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "No injection path: the query parameter only selects between fixed views. No planted instructions were found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no UI framework or styling files; nothing to judge visually."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser flow was available. Rendering is covered by the HTML assertions in the tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title and body match the diff: the migration, the 400 behaviour, the routes.json entry, and the checker and fakeApp changes are all disclosed accurately."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:49:29Z"
+}

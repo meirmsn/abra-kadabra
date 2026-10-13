@@ -1,0 +1,123 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "1333fb3a90a4881b9b4bf802a9e01d6342c15472",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/h-done-b-r3",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "89907694-a49a-4407-87b1-dff8171ea883",
+    "cost_usd": 0.0811508
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done NOT NULL DEFAULT 0 with a CHECK. test/done.test.js 'AC-1' checks the three seeded rows are 0 and that done=2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js defaults view to open and filters WHERE done = 0 ORDER BY id. 'AC-2' checks / and /?view=open after marking item 2 done."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The done view filters done = 1, and item() adds the ✓ prefix. 'AC-3' marks 3 then 1 and expects the ✓ items in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The all view has no filter. 'AC-4' expects all three items in id order with only the done one marked."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "nav() renders the current view as <strong> and the others as links. 'AC-5' asserts the exact nav HTML for each view and for /."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn(VIEWS, current) guards the view and answers 400 with no list. 'AC-6' covers Open, closed, empty string and __proto__."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "The empty-table check falls back to 'No items yet.' when COUNT is 0. 'AC-7' covers Nothing open, Nothing done yet and an empty table in all three views."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json lists /?view=done and /?view=all. 'AC-8' imports the file and checks both. traffic-config-check.mjs now accepts a query string, and the shell test covers it."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-8",
+      "file": "test/done.test.js",
+      "what": "AC-8 only checks that routes.json contains the two strings. No test shows the traffic Worker requests a query route with its query intact. The only traffic-test change is to the fake app, which now records the query.",
+      "fix": "Add a test in test/traffic.test.js that runs a round with the real ROUTES and asserts the fake app saw /?view=done and /?view=all."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec's decisions: it opens on open items and the view is a query parameter. Nothing in the diff adds a write route or a cookie."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items and all 6 state rows have tests. Neither commit edits the spec after the go."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert behaviour. No test was deleted or loosened. The existing index tests still hold under the open default, since the seeded items are all open. `npm test` could not run here because vitest is not installed, and CI runs the tests on every push."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes the views. The traffic section needs no change."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view value is validated with Object.hasOwn. The SQL fragments are constants and nothing user-supplied reaches the query. The extra COUNT query runs only when a non-all view is empty."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The only new input is the view parameter, which is whitelisted. Titles are still HTML-escaped. The traffic route regex now allows ? but still refuses spaces and #."
+    },
+    {
+      "lens": "design",
+      "applies": true,
+      "note": "The diff changes src/index.js, which renders the page HTML. The nav is plain and the current view is not a link."
+    },
+    {
+      "lens": "qa",
+      "applies": true,
+      "note": "The page has a UI. The PR gives no browser session or screenshots, and the tests cover the rendered HTML."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The claims match the diff, including the 400 on other view values, the traffic-check change and the fake-app change. The title is under 72 characters."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:12:02Z"
+}

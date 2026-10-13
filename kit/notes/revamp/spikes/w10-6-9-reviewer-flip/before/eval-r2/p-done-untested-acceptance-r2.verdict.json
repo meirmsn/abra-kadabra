@@ -1,0 +1,139 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "dba1bbbfae59f0da50df69f4f3218c35e9828ce4",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-done-untested-acceptance-r2",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "a73901a0-a9f6-407a-a8b6-dec2d4e31ea8",
+    "cost_usd": 0.0744473
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "test/done.test.js 'AC-1' checks all three seeded rows are done=0 and the CHECK rejects 2. Migration 0002 has DEFAULT 0."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' checks / and /?view=open list only the open items, in order."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' checks only done items are listed, marked ✓, in id order (marked 3 then 1)."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks all items are listed in order, with ✓ on the done one only."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test 'AC-5' checks the exact nav markup for each view and for /."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 400 and no <li> for Open, closed, empty and __proto__ values; code uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": false,
+      "evidence": "The code looks correct. But the last commit dba1bbb ('Follow-up edits') removed 'AC-7:' from the test title in test/done.test.js. No test now names AC-7, and the spec does not mark it 'verified by review'."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "test 'AC-8' checks traffic/routes.json contains /?view=done and /?view=all. The traffic worker passes the path with its query to fetch."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-7",
+      "file": "test/done.test.js",
+      "what": "Commit dba1bbb ('Follow-up edits', by github-actions[bot]) renamed the AC-7 test to drop its 'AC-7' id. No test names AC-7 now, so the item is unmet under the naming rule. The rename also contradicts the PR's claim that the tests cover AC-1 to AC-8.",
+      "fix": "Restore 'AC-7:' at the start of the test title 'an empty table says so in every view; an empty view has its own message'."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-7",
+      "file": "test/done.test.js",
+      "what": "The unreferenced bot commit ('Follow-up edits') has no stated reason and the PR says nothing about it. The PR also says 'Changed after the go: nothing'.",
+      "fix": "Revert dba1bbb, or explain it in the PR."
+    },
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README describes the views but not that other view values answer 400, or the new query-string support in traffic routes.",
+      "fix": "Add a short note on the 400 for unknown views."
+    }
+  ],
+  "blocking": 1,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec's decisions: the list opens on open items and the view is a query parameter."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "AC-7 is unnamed by any test after the last commit. All six rows of the State table have tests. The spec was not edited after the go."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "I did not run the tests; CI runs them. The tests assert real behaviour. The traffic test fake and the traffic-config tests were extended, not loosened. AC-7's test lost its id."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README updated for the views; it omits the 400 behaviour."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "No defects found. Object.hasOwn guards __proto__. The empty-table fallback is correct."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The view value is whitelisted and the SQL fragments are constants. Titles are HTML-escaped. No planted instructions found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files. The page is server-rendered HTML in src/index.js, and I judged it only as behaviour."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser flow is available. The behaviour is covered by the HTTP-level tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The claim 'test/done.test.js covers AC-1 to AC-8' is untrue for AC-7 by name. The unmentioned bot commit contradicts 'Changed after the go: nothing'. The title is under 72 characters."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:54:37Z"
+}

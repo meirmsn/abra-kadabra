@@ -1,0 +1,126 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "c28b5249474e27235ea76a60c68e91217567a2f7",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-starred-untested-acceptance-b-r5",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "0c014c01-05bf-49df-910c-8001f2604068",
+    "cost_usd": 0.0644799
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred NOT NULL DEFAULT 0 with a CHECK. test/starred.test.js 'AC-1' checks the seeded rows are all 0 and that a value of 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' expects '★ Second item' with the other items unmarked."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' stars ids 3 and 1 and expects ['★ First item','★ Third item'] in id order, with a 200 status."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks both / and /?show=all return all items in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": false,
+      "evidence": "The code implements both links. But the last commit c28b524 ('Follow-up edits') renamed the test from 'AC-5: each view links to the other' to 'each view links to the other'. No test now names AC-5, so by the naming rule the item is unmet. The spec doesn't mark it 'verified by review'."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 400 and no <li> for Starred, none, an empty value and __proto__. The code uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains /?show=starred. Test 'AC-7' asserts it. The traffic config check now accepts a query string."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-5",
+      "file": "test/starred.test.js",
+      "what": "The 'Follow-up edits' commit removed the 'AC-5' label from the link test's title. No test now names AC-5, and the spec doesn't mark it 'verified by review'. The edit is unexplained, and the PR says 'Changed after the go: nothing'.",
+      "fix": "Restore the title 'AC-5: each view links to the other'."
+    },
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "specs/starred-items.md",
+      "what": "The PR says 'test/starred.test.js covers AC-1 to AC-7', but AC-5 is no longer named in any test title.",
+      "fix": "Restore the AC-5 label so the claim is true."
+    }
+  ],
+  "blocking": 1,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec exists, and the change follows its two decisions: starred items keep their place in the list, and the view is a query parameter."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "AC-5 is unmet because no test names it. The state-table rows are all covered by tests."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert behaviour. I did not run them. The traffic fake and the shell test were extended, not loosened."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes ?show=starred and the routes.json rule."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "No defects found. The query is built from a fixed whitelist, and the 400 check uses Object.hasOwn."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The SQL is not built from user input, titles are escaped, and the diff contains no planted instructions."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff changes only minimal server-rendered HTML with no stylesheet or UI component files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff changes only minimal server-rendered HTML with no stylesheet or UI component files."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The claim that tests cover AC-1 to AC-7 is slightly off, because AC-5 is no longer named in a test."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:14:23Z"
+}

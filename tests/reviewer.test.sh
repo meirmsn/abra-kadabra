@@ -173,6 +173,16 @@ for want in "one simple command per Bash call" "a refused command" "commit by co
 done
 ! grep -qF "read instead" <<<"$p" || fail "prompt still says to read instead after a refusal"
 echo "ok - prompt: simple commands, commit by commit, AC naming, states, never-failing assertions"
+# Severity of a departure from the spec is a rule, not a judgement call (W10.6.9, F-NEW-40): without
+# these lines the same commit got `low` in 7 runs of 10 and blocking in 1 for keeping a check its
+# spec had rejected, so the same commit passed and failed.
+for want in "Code that departs from a decision is at least \`medium\`" \
+  "or one it rejected, even as an extra guard beside the stated one" \
+  "a row whose tests check only part of what it says shows or hides is at least \`medium\`" \
+  "A departure from the spec is never \`low\`"; do
+  grep -qF "$want" <<<"$p" || fail "prompt lacks: $want"
+done
+echo "ok - prompt: a departure from a decision or a state row is never low"
 
 # --- The allowed commands come from settings.json only (W10.6.8, F-NEW-32): review.sh puts its
 # Bash allowlist into the prompt, so prompt.md names none itself.
