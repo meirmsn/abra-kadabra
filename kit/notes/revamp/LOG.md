@@ -2028,8 +2028,8 @@ stay fast: a sandbox doesn't make a test end to end. The pre-push hook is unchan
 fixture is retrofitted in its own PR: `lint.sh` (so the hook lints there too), `setup.sh`, both
 tier scripts, and `deploy` needs `fast` and `slow`.
 
-**Evidence**: each check was written failing first. `tests/ci-tiers-check.test.sh` has 24 cases,
-and 6 of 6 mutants are killed. `tests/run-tiers.test.sh` has 5 cases (3 of 3 mutants killed).
+**Evidence**: each check was written failing first. `tests/ci-tiers-check.test.sh` has 26 cases,
+including this repo's real `ci.yml` (exact jobs and tools), and 7 of 7 mutants are killed. `tests/run-tiers.test.sh` has 5 cases (3 of 3 mutants killed).
 `tests/check-tiers.test.sh` has 4. The AC-3 cases in `tests/git-hooks.test.sh` give 4 (3 of 3
 mutants killed). `tests/lint.test.sh` now covers five checks. Locally on the final head,
 `check-fast.sh` passed (23 fast test files) and `check-slow.sh` passed (1 slow), the slow one with
@@ -2043,5 +2043,8 @@ template, which gave the always-present `check-slow.sh` placeholder. It also cau
 Locally, three suites only ran once the tools were copied out of `/opt` (the tests mount a scratch
 `/opt`) and the clone was unshallowed (bootstrap pins a pre-move commit).
 
-**Next**: both PRs' `fast` and `slow` green on GitHub; then `[owner]` swap each repo's required
-checks from the old job names to `fast` and `slow` just before merging, then mark W10.4.6 done.
+**Fixture**: fixture PR #11 passed its review, then `fast` and `slow` on its head; the owner
+approved and merged it, and on its `main` both tiers passed before the production deploy.
+
+**Next**: this PR's `fast` and `slow` green on GitHub; then `[owner]` swap the required checks
+from `lint` and `secret-scan` to `fast` and `slow` just before merging, then mark W10.4.6 done.
