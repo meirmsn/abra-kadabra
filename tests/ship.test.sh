@@ -255,4 +255,20 @@ reset_state pass; rc=0; out=$(cd "$work/p" && PATH="$work/nogh" STUB="$work/stub
 want_rc 2 "no gh"; [ "$(reviews)" = 0 ] || fail "no gh: reviewed anyway"
 ok "a rejected push, a failing or missing gh, or a refused comment: exit 2, saying what was done"
 
+# --- 8. A single-branch clone (how a session may check out the repo): the base is fetched by name,
+# so origin/<base> exists and is current (the reviewer's finding on PR #88, LOG #47).
+reset_state pass
+git -C "$work/p" push -q origin feat/x
+git -C "$work/p" checkout -q main && commit_file "$work/p" main-moves.txt "main moved" && git -C "$work/p" push -q origin main
+git -C "$work/p" checkout -q feat/x
+git clone -q --single-branch -b feat/x "$ORIGIN" "$work/sb"
+[ -z "$(git -C "$work/sb" for-each-ref refs/remotes/origin/main)" ] || fail "the test clone already tracks main"
+commit_file "$work/sb" sb.txt "from a single-branch clone"
+rc=0; out=$(cd "$work/sb" && PATH="$work/bin:$PATH" STUB="$work/stub" GH_DIR="$work/gh" "$ship" --title x --body-file "$work/body.md" 2>&1) || rc=$?
+want_rc 0 "ship from a single-branch clone"
+grep -qx -- "--base origin/main --pr .*" "$work/stub/calls" || fail "base: $(cat "$work/stub/calls")"
+[ "$(git -C "$work/sb" rev-parse origin/main)" = "$(git --git-dir="$ORIGIN" rev-parse refs/heads/main)" ] || fail "origin/main is not origin's main"
+rm -rf "$work/sb"
+ok "from a single-branch clone, the base is fetched by name and reviewed against origin's current base"
+
 echo "all ship tests passed"

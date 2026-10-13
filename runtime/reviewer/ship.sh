@@ -48,10 +48,11 @@ number=$(jq -r '.[0].number // empty' <<<"$prs")
 if [ -z "$base" ]; then
   base=$(jq -r '.[0].base.ref // empty' <<<"$prs")
   [ -n "$base" ] || base=$(git symbolic-ref --short -q refs/remotes/origin/HEAD | sed 's#^origin/##')
-  [ -n "$base" ] || base=$(gh api "repos/$slug" --jq .default_branch 2>/dev/null) || true
+  [ -n "$base" ] || base=$(gh api "repos/$slug" 2>/dev/null | jq -r '.default_branch // empty') || true
   [ -n "$base" ] || cnr "can't tell the base branch; pass --base"
 fi
-git fetch -q origin "$base" 2>/dev/null || cnr "can't fetch the base branch '$base' from origin"
+# By name, so origin/<base> exists and is current even in a single-branch clone.
+git fetch -q origin "+refs/heads/$base:refs/remotes/origin/$base" 2>/dev/null || cnr "can't fetch the base branch '$base' from origin"
 
 # --- The review, of HEAD with exactly these words.
 words_file=$(mktemp) || cnr "mktemp failed"

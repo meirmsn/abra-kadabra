@@ -109,7 +109,7 @@ head commit before approving.
 - [`tests/review-guard.test.sh`](../../tests/review-guard.test.sh) (in CI, stub `gh`) checks the
   guard: what it refuses and what it lets through, the plugin's registration and fallback, and that
   the guard, matcher and fallback name the same tools.
-- Mutants for W10.6.7 (the guard, `ship`, the rounds rule, `pr-words.sh`): 34 of 35 killed, the
+- Mutants for W10.6.7 (the guard, `ship`, the rounds rule, `pr-words.sh`): 38 of 39 killed, the
   survivor equivalent (LOG #47).
 - [`tests/reviewer-live.sh`](../../tests/reviewer-live.sh) (`[runs]`, in a session only, because it
   calls the real model and CI runs no LLM jobs) runs the real reviewer on the A-04 fixtures in

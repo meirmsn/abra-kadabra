@@ -78,6 +78,11 @@ def segments(command):
     return out
 
 
+def edits_words(arg):
+    """Whether a gh pr edit argument sets the title, body or base: --title=x, -t x, or glued -tx."""
+    return arg.split("=", 1)[0] in GH_EDIT_WORDS or (not arg.startswith("--") and arg[:2] in GH_EDIT_WORDS)
+
+
 def command_words(seg):
     i = 0
     while i < len(seg) and (seg[i] in PREFIXES or re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", seg[i])):
@@ -98,10 +103,14 @@ def check_bash(command, cwd):
         if not w:
             continue
         prog = os.path.basename(w[0])
-        if prog == "gh" and w[1:3] == ["pr", "create"]:
-            refuse("gh pr create is refused")
-        if prog == "gh" and w[1:3] == ["pr", "edit"] and any(a.split("=", 1)[0] in GH_EDIT_WORDS for a in w[3:]):
-            refuse("gh pr edit of the title, body or base is refused")
+        if prog == "gh":
+            k = 1  # gh's global flags may come first: gh -R owner/repo pr create
+            while k < len(w) and w[k].startswith("-"):
+                k += 2 if w[k] in ("-R", "--repo") else 1
+            if w[k:k + 2] == ["pr", "create"]:
+                refuse("gh pr create is refused")
+            if w[k:k + 2] == ["pr", "edit"] and any(edits_words(a) for a in w[k + 2:]):
+                refuse("gh pr edit of the title, body or base is refused")
         if prog == "git":
             j, cdir = 1, cwd
             while j < len(w) and w[j].startswith("-"):

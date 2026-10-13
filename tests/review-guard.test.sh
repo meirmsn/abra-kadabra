@@ -108,7 +108,8 @@ reset_state
 for c in "gh pr create -t x -b y" "gh pr create --fill" "git push && gh pr create -t x -b y" "cd sub; gh pr create" \
   "gh pr create -t x -b y >out.txt 2>&1" "if true; then gh pr create -t x -b y; fi" "for i in 1; do gh pr create; done" \
   "{ gh pr create; }" "! gh pr create" "GH_DEBUG=1 gh pr create" "gh pr edit 5 --title y" "gh pr edit 5 --body=z" \
-  "gh pr edit -F b.md" "gh pr edit 5 -B release" "cat <<EOF
+  "gh pr edit -F b.md" "gh pr edit 5 -B release" "gh -R example/app pr create -t x -b y" "gh --repo=example/app pr edit 5 -t y" \
+  "gh pr edit 5 -tTitle" "gh pr edit 5 -bBody" "cat <<EOF
 text
 EOF
 gh pr create -t x -b y" "echo 'unclosed

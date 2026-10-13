@@ -1805,12 +1805,19 @@ throwaway clone`. Cause: a cloud session's clone is shallow, and `git fetch` fro
 - Contract first (W10.6.7 line), then tests written first and failing: `tests/ship.test.sh` (no
   `ship.sh`), `tests/review-guard.test.sh` (the post hook still registered), and the rounds cases in
   `tests/reviewer.test.sh` (a new finding after a repeat asked the owner).
-- Mutants on the guard, `ship`, the rounds rule and `pr-words.sh`: 34/35 killed. The first pass left
+- Mutants on the guard, `ship`, the rounds rule and `pr-words.sh`: 38/39 killed (34/35 before the
+  fixes below). The first pass left
   5: the guard's redirection handling (unneeded once the guard stopped reading arguments: removed),
   two missing tests (a branch name that quietly misparses unencoded; an error inside the guard), and
   `ship`'s `REVIEW:` line count, equivalent (two lines also fail the exit check).
 - The harness runs the guard: with it registered for this session only, `gh pr create --dry-run`
   was refused, pointing to `ship`.
 
-**Next**: PR #88 updated through `ship` (the dogfood: its review, push, words and verdict in one
-step); then the owner's fresh-session check (W10.6.7's done-when).
+- **Dogfood: `ship` on PR #88.** First run: `REVIEW: fail` (medium), and nothing was pushed: in a
+  single-branch clone, `git fetch origin <base>` doesn't update `origin/<base>`, so the review would
+  diff against a stale or missing base. Fixed test first (a `--single-branch` clone in
+  `tests/ship.test.sh`, which also showed the default-branch fallback broken: `gh api --jq`, now
+  `| jq`). Lows fixed too: the guard now skips gh's global flags (`gh -R o/r pr create`) and sees
+  glued short flags (`gh pr edit -tTitle`); the W10.6.6 lines naming the removed check are marked.
+
+**Next**: ship again; then the owner's fresh-session check (W10.6.7's done-when).
