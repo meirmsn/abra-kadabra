@@ -25,7 +25,7 @@ scan() {
   echo "$rc"
 }
 
-# 0. The fakes' entropy stays above their rules' thresholds (F-NEW-50): fake_aws_key's 16 characters are
+# 0. The fakes' entropy stays above their rules' thresholds (F-NEW-51): fake_aws_key's 16 characters are
 #    distinct (rule: 3); fake_api_key's letters are distinct and no digit repeats more than twice (rule: 3.5).
 for _ in $(seq 50); do
   k=$(fake_aws_key)

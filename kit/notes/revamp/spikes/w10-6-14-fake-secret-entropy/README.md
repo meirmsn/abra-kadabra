@@ -1,10 +1,10 @@
-# W10.6.12 fake secrets gitleaks misses (F-NEW-50)
+# W10.6.14 fake secrets gitleaks misses (F-NEW-51)
 
 `fast` failed once on a PR on 2026-10-13: `FAIL: secret added then removed in the change fails:
 expected fail, got exit 0`. `fake_aws_key` (`tests/lib.sh`) drew 16 characters with repeats, and now
 and then a key repeated so much that its entropy fell below the `aws-access-token` rule's 3, so
 gitleaks 8.30.1 dropped it. Same class as F-NEW-45 (LOG #56), whose fix covered other generators.
-This folder measures every fake that gitleaks scans in the tests, before and after. 2026-10-13, LOG #57.
+This folder measures every fake that gitleaks scans in the tests, before and after. 2026-10-13, LOG #59.
 
 `measure.sh <kind> <n>` writes `n` values from one generator, one per file, scans them with the
 pinned gitleaks and this repo's `.gitleaks.toml`, and counts the files without a finding under the

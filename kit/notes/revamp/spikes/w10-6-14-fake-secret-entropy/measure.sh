@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Counts how many generated fake secrets the pinned gitleaks misses (F-NEW-50, LOG #57).
+# Counts how many generated fake secrets the pinned gitleaks misses (F-NEW-51, LOG #59).
 # Usage: measure.sh <kind> <n> [config]   (config default: the repo's .gitleaks.toml)
 #   kind: aws-old    the AWS key generator before the fix: "AKIA" + 16 x rand 'A-Z2-7'
 #         aws        fake_aws_key from tests/lib.sh as checked out

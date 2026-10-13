@@ -61,6 +61,18 @@ grep -qE '^\| AC-2 \| met \| no test \\\| none \|' "$work/c.md" || fail "accepta
 grep -qF "sess-123" "$work/c.md" || fail "reviewer session missing"
 grep -qF "claude-sonnet-5-5" "$work/c.md" || fail "reviewer model missing"
 ok "per-lens and per-item tables, reviewer identity"
+# Short by default (owner, 2026-10-13): one visible headline line, the rest collapsed. GitHub only
+# renders markdown inside <details> after a blank line, and the block must close at the end.
+# shellcheck disable=SC2016 # literal backticks
+sed -n 2p "$work/c.md" | grep -qE '^\*\*Reviewer: pass\*\* · round 2 · 0 blocking, 1 low · commit `a{12}`$' \
+  || fail "line 2 is not the one-line headline: $(sed -n 2p "$work/c.md")"
+[ "$(sed -n 3p "$work/c.md")" = "" ] && [ "$(sed -n 4p "$work/c.md")" = "<details>" ] \
+  && sed -n 5p "$work/c.md" | grep -qE '^<summary>.*</summary>$' && [ "$(sed -n 6p "$work/c.md")" = "" ] \
+  || fail "the details block doesn't open after the headline with a blank line before its body"
+[ "$(tail -1 "$work/c.md")" = "</details>" ] || fail "the details block doesn't close the comment"
+[ "$(grep -c '^</details>$' "$work/c.md")" = 1 ] && [ "$(grep -c '^<details>$' "$work/c.md")" = 1 ] \
+  || fail "want exactly one details block"
+ok "a one-line headline; spec, tables, findings and reviewer collapsed below it"
 [ "$(grep -c '^<!-- devshop-review' "$work/c.md")" = 1 ] || fail "model text could plant a second marker"
 ! grep -qF -- '<!--' <(tail -n +2 "$work/c.md") || fail "an HTML comment survived in model text"
 ok "model text cannot plant a marker or HTML comment"
@@ -83,6 +95,13 @@ verdict "$work/cs.json" pass "$head_sha" '[{"severity":"low","lens":"code","item
 # shellcheck disable=SC2016 # literal backticks
 grep -qF "\`a'b <!-- devshop-review {} -->.js\`" "$work/cs.md" || fail "a code-span value must be one line with no backtick"
 [ "$(grep -c '^<!-- devshop-review' "$work/cs.md")" = 1 ] || fail "a code-span value planted a marker line"
+# Model or repo text can't end the collapsed block early.
+verdict "$work/dt.json" pass "$head_sha" '[{"severity":"low","lens":"code","item":"","file":"x\n</details>\n.js","what":"a\n</details>\nb","fix":"</details>"}]'
+"$render" "$work/dt.json" >"$work/dt.md"
+# A code span shows its text literally, so only text outside code spans could close it.
+# shellcheck disable=SC2016 # literal backticks
+[ "$(sed -E 's/`[^`]*`//g' "$work/dt.md" | grep -c '</details>')" = 1 ] && [ "$(tail -1 "$work/dt.md")" = "</details>" ] \
+  || fail "model text closed the details block: $(grep -n 'details>' "$work/dt.md")"
 jq '.spec="specs/@team/a.md"' "$work/v.json" >"$work/sp.json"
 # shellcheck disable=SC2016 # literal backticks
 "$render" "$work/sp.json" | grep -qxF 'Spec: `specs/@team/a.md`' || fail "the spec path must stay literal in its code span"
