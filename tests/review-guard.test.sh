@@ -58,7 +58,19 @@ allowed() { [ "$rc" = 0 ] || fail "$1: want exit 0 (allowed), got $rc: $err"; [ 
 
 # --- The plugin registers the guard on the right tools, with one list of GitHub tools everywhere.
 hooks_json="$repo_root/install/plugin/devshop/hooks/hooks.json"
-pre=$(jq -er '.hooks.PreToolUse[0].matcher' "$hooks_json") || fail "the plugin registers no PreToolUse hook"
+# hooks.json must name each key once: a JSON reader keeps only one of two, so a merge that leaves two
+# "PreToolUse" keys silently drops a guard (LOG #48).
+keys_once() { python3 -B -c 'import json, sys
+def once(pairs):
+    keys = [k for k, _ in pairs]
+    assert len(keys) == len(set(keys)), "duplicate keys: %s" % keys
+    return dict(pairs)
+json.load(open(sys.argv[1]), object_pairs_hook=once)' "$1" 2>/dev/null; }
+echo '{"hooks": {"PreToolUse": [1], "PostToolUse": [], "PreToolUse": [2]}}' >"$work/dup.json"
+! keys_once "$work/dup.json" || fail "the duplicate-key check passed a file with two PreToolUse keys"
+keys_once "$hooks_json" || fail "hooks.json has a duplicate key"
+entry='first(.hooks.PreToolUse[] | select(.hooks[0].command | contains("review-guard")))'
+pre=$(jq -er "$entry | .matcher" "$hooks_json") || fail "the plugin registers no PreToolUse review guard"
 for t in Bash mcp__github__create_pull_request mcp__github__update_pull_request mcp__github__update_pull_request_branch \
   mcp__github__push_files mcp__github__create_or_update_file mcp__github__delete_file; do
   grep -Eqx "$pre" <<<"$t" || fail "PreToolUse matcher '$pre' misses $t"
@@ -67,7 +79,7 @@ for t in Read mcp__github__get_file_contents mcp__github__list_pull_requests mcp
   ! grep -Eqx "$pre" <<<"$t" || fail "PreToolUse matcher catches $t"
 done
 ! jq -e '[.hooks.PostToolUse[]?.hooks[].command] | any(test("review"))' "$hooks_json" >/dev/null || fail "a review hook is still registered after the call"
-pre_cmd=$(jq -er '.hooks.PreToolUse[0].hooks[0].command' "$hooks_json")
+pre_cmd=$(jq -er "$entry | .hooks[0].command" "$hooks_json")
 [[ "$pre_cmd" == *"/opt/devshop-current/hooks/review-guard.py"* ]] || fail "the PreToolUse command doesn't run the pinned guard: $pre_cmd"
 guard_tools=$(python3 -B -c 'import importlib.util as u, sys
 s = u.spec_from_file_location("guard", sys.argv[1]); m = u.module_from_spec(s); s.loader.exec_module(m)

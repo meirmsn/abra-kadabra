@@ -3,3 +3,4 @@
 # Format: <name> <version> <sha256 of the download> <https URL of the release download>.
 gitleaks 8.30.1 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
 shellcheck 0.11.0 8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198 https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.xz
+dcg 0.14.4 09daf765e21457a756e69cc9f8bce41635836c6b958f5b27c7a6a6a376cbde21 https://github.com/Dicklesworthstone/destructive_command_guard/releases/download/v0.14.4/dcg-x86_64-unknown-linux-musl.tar.xz

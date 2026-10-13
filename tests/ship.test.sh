@@ -270,7 +270,7 @@ want_rc 2 "no gh"; [ "$(reviews)" = 0 ] || fail "no gh: reviewed anyway"
 ok "a rejected push, a failing or missing gh, or a refused comment: exit 2, saying what was done"
 
 # --- 8. A single-branch clone (how a session may check out the repo): the base is fetched by name,
-# so origin/<base> exists and is current (the reviewer's finding on PR #88, LOG #47).
+# so origin/<base> exists and is current (the reviewer's finding on PR #88, LOG #48).
 reset_state pass
 git -C "$work/p" push -q origin feat/x
 git -C "$work/p" checkout -q main && commit_file "$work/p" main-moves.txt "main moved" && git -C "$work/p" push -q origin main

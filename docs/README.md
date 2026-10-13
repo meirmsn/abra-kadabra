@@ -47,10 +47,11 @@ reachable from this page through links, or when a relative link or `#anchor` is 
 ## The install
 
 - [install/README.md](../install/README.md): how a project's cloud session gets the devshop version
-  it pins (`.devshop-version`), what each `DEVSHOP:` line means, the devshop's git hooks and per-edit
-  nudge, and the limits. Proven by [`tests/bootstrap.test.sh`](../tests/bootstrap.test.sh),
-  [`tests/git-hooks.test.sh`](../tests/git-hooks.test.sh) and
-  [`tests/post-edit.test.sh`](../tests/post-edit.test.sh).
+  it pins (`.devshop-version`), what each `DEVSHOP:` line means, the devshop's git hooks, per-edit
+  nudge and Bash guard (dcg), and the limits. Proven by [`tests/bootstrap.test.sh`](../tests/bootstrap.test.sh),
+  [`tests/git-hooks.test.sh`](../tests/git-hooks.test.sh),
+  [`tests/post-edit.test.sh`](../tests/post-edit.test.sh) and
+  [`tests/pre-bash.test.sh`](../tests/pre-bash.test.sh).
 
 ## What projects get (`runtime/`)
 

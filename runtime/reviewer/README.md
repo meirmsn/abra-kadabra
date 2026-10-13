@@ -111,7 +111,7 @@ head commit before approving.
   guard: what it refuses and what it lets through, the plugin's registration and fallback, and that
   the guard, matcher and fallback name the same tools.
 - Mutants for W10.6.7 (the guard, `ship`, the rounds rule, `pr-words.sh`): 39 of 40 killed, the
-  survivor equivalent (LOG #47).
+  survivor equivalent (LOG #48).
 - [`tests/reviewer-live.sh`](../../tests/reviewer-live.sh) (`[runs]`, in a session only, because it
   calls the real model and CI runs no LLM jobs) runs the real reviewer on the A-04 fixtures in
   [`tests/fixtures/reviewer/`](../../tests/fixtures/reviewer) (spec: [`spec.md`](../../tests/fixtures/reviewer/spec.md)). The planted change (AC-4 skipped)
