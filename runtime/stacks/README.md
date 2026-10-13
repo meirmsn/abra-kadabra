@@ -18,5 +18,5 @@ A stack home `<stack>/` holds:
 
 The first real homes are built with the first projects that need them (M2). Today there is one
 placeholder, [`nextjs-supabase/`](nextjs-supabase/README.md), which is also the north-star decoy:
-the fixture must never load it ([`tests/decoy-stack.test.sh`](../../tests/decoy-stack.test.sh)). Proven by
-[`tests/stack-homes.test.sh`](../../tests/stack-homes.test.sh).
+the fixture must never load it ([`tests/decoy-stack.test.sh`](../../tests/decoy-stack.test.sh)).
+Proven by [`tests/stack-homes.test.sh`](../../tests/stack-homes.test.sh).
