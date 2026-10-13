@@ -1,0 +1,114 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "1333fb3a90a4881b9b4bf802a9e01d6342c15472",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/h-done-b-r5",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "325fdcdc-c1b0-4516-ad26-a2df95cdcedc",
+    "cost_usd": 0.07025879999999998
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done NOT NULL DEFAULT 0 with CHECK; test/done.test.js 'AC-1' checks seeded rows are 0 and 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js WHERE done = 0 ORDER BY id; 'AC-2' test covers / and ?view=open with one item marked done."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "'AC-3' test: done view returns only done items in id order (3 and 1 marked), prefixed ✓."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' test checks all three in id order with only the done one marked."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "'AC-5' test asserts the exact nav HTML for each view and for /; the current view is <strong>, not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "'AC-6' test: Open, closed, empty and __proto__ values all give 400 with no <li>. The code uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "'AC-7' test covers Nothing open., Nothing done yet., and No items yet. in all three views on an empty table."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json lists both views; the 'AC-8' test checks them. The traffic worker passes route strings straight into the request URL, and the checker's regex now allows a query."
+    }
+  ],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec and its two decisions: it opens on open items and uses a query parameter. Nothing extra was added beyond the traffic-checker regex change the routes need."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are met, and each has a test that names it. All 6 state-table rows have tests."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests assert rendered output and status codes, and would fail against broken code. I did not run them here; CI runs them per scripts/check-fast.sh."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes the new views."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view is validated with Object.hasOwn, and the SQL fragments come only from the constant VIEWS table. The count query for an empty table is correct."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The view value is allow-listed and never put into SQL. Titles are still HTML-escaped. No instructions planted in the repository."
+    },
+    {
+      "lens": "design",
+      "applies": true,
+      "note": "The page is HTML but has only a minimal nav, with no stylesheet or design files. The nav markup is covered by the AC-5 test."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser flow was available. Rendered HTML is checked by tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The PR claims match the diff: the behaviour change, the traffic checker, the fake app change, and no deleted tests."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:11:52Z"
+}

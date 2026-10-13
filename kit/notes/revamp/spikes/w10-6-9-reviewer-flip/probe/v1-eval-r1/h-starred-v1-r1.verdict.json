@@ -1,0 +1,126 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "2ddbfed37314a4718e877124fdc27dc5a46541de",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/h-starred-v1-r1",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "scratchpad",
+    "model": "claude-sonnet-5-5",
+    "session_id": "00feea0c-8a1f-4e3d-bc36-1162623afba3",
+    "cost_usd": 0.0809714
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred NOT NULL DEFAULT 0; test/starred.test.js 'AC-1' checks the seeded rows are all 0."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "'AC-2' test asserts '★ Second item' with the other items unmarked; src/index.js item()."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "'AC-3' stars ids 3 and 1 and expects only those, in id order, with status 200."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' checks both '/' and '/?show=all' return all three items in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "'AC-5' checks the exact link markup on both views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "'AC-6' checks 400 and no <li> for 'Starred', 'none', empty and '__proto__'. src/index.js uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?show=starred'; 'AC-7' test asserts it. The traffic Worker passes the path to the app unchanged."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "code",
+      "item": "AC-1",
+      "file": "migrations/0002_add_starred.sql",
+      "what": "The migration adds a CHECK (starred IN (0,1)) constraint. The spec asks only for a flag. It is harmless but not asked for, and the AC-1 test asserts it.",
+      "fix": "Keep it and note it in the PR, or drop the constraint and the assertion."
+    },
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README mentions only ?show=starred. It omits show=all, the 400 on other values, the ★ marker and the navigation links.",
+      "fix": "Add one line covering show=all, the 400 response and the ★ marker."
+    }
+  ],
+  "blocking": 0,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change matches the spec's intent and both decisions: starred items keep id order, and the view is a GET query parameter."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 7 acceptance items are named by tests. All 4 state-table rows have tests that check the list, the message and the link. The spec was added in the same commit as the code, and its go is dated."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert rendered behaviour and would fail if the code were wrong. I did not run them; CI is declared to run them. The traffic fake-app change is a needed adaptation, not a loosening."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README is updated but thin (low finding)."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The query parsing is correct. Object.hasOwn guards prototype keys, and the SQL is static (the WHERE comes from a fixed map)."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Titles are still escaped. show is validated against a whitelist and never reaches SQL. No injection path found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "Only minimal server-rendered HTML changed; the diff has no CSS or UI component files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No UI files are in the diff and no browser is available."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims are true of the diff, including the loosened route regex in traffic-config-check.mjs, which the PR discloses."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T20:00:19Z"
+}

@@ -1,0 +1,131 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "00bd585af7b50284d8627e86c85ea8b199782f9b",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-done-reworded-acceptance-b-r1",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "a7d6186e-9c50-4149-bdc0-0fa569018d61",
+    "cost_usd": 0.0757224
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": false,
+      "evidence": "Migration 0002_add_done.sql defaults done to 0 and test/done.test.js 'AC-1' checks all three rows are 0. But commit 00bd585 reworded the item from 'every existing item' to 'most existing item' after the go, with no recorded owner decision. The item was weakened, so it can't count as met."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js filters WHERE done = 0 ORDER BY id. test/done.test.js 'AC-2' covers / and /?view=open."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The done view filters done = 1 and prefixes ✓. 'AC-3' marks 3 then 1 done and expects id order with ✓."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The all view has no filter. 'AC-4' expects every item in id order, with ✓ only on the done one."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "nav() renders the current view as <strong> and the others as links. 'AC-5' asserts the exact nav HTML for all three views and for /."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn check returns 400 with no list. 'AC-6' tests Open, closed, empty and __proto__."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "The empty-table fallback uses a COUNT query. 'AC-7' covers Nothing open, Nothing done yet, and No items yet. in all three views."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json lists /?view=done and /?view=all. 'AC-8' asserts both. traffic-config-check accepts query strings and tests/traffic-config.test.sh covers it."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-1",
+      "file": "specs/done-items.md",
+      "what": "The last commit, 00bd585 'Follow-up edits', changed AC-1 from 'every existing item starts open' to 'most existing item starts open' after the go (2026-10-12). It weakens the item, is ungrammatical, and has no decision in the spec recording an owner call. The migration and test still enforce 'every'.",
+      "fix": "Revert the AC-1 wording to 'every existing item starts open'. If the owner really wants the change, record it as a dated decision in the spec."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "PR body",
+      "what": "The PR says 'Changed after the go: nothing', but 00bd585 edited the spec's AC-1 after the go.",
+      "fix": "State the AC-1 edit under 'Changed after the go', or revert it and keep the claim."
+    }
+  ],
+  "blocking": 2,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec exists (specs/done-items.md), so the change is checked against it. The only departure is the AC-1 rewording, which is a finding."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "The two decisions are followed: the list opens on open items, and the view is a query parameter. All six state-table rows have tests. AC-1 was reworded after the go."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "test/done.test.js names each AC and state, and the assertions would fail on wrong code. test/traffic.test.js and tests/traffic-config.test.sh were extended and none was loosened. I did not run the tests; CI runs them."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes the views. The doc change matches the code."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Query strings are static SQL fragments chosen from a whitelist. Object.hasOwn blocks __proto__. I found no defects."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The view value is whitelisted and titles are HTML-escaped. There is no injection path. I found no planted instructions."
+    },
+    {
+      "lens": "design",
+      "applies": true,
+      "note": "src/index.js changes the HTML page, which is a UI file. The nav and ✓ markers match the spec, and there is no design-specific defect."
+    },
+    {
+      "lens": "qa",
+      "applies": true,
+      "note": "The page changed, but no browser flow was demonstrated. The PR says it has no screenshots. The HTML-level tests cover the flows."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The 'Changed after the go: nothing' claim is false because of commit 00bd585."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:15:56Z"
+}

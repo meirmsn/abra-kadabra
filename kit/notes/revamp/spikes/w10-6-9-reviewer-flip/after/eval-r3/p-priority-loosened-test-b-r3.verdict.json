@@ -1,0 +1,131 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "d4414ca7bca79bae4e8534eccfff8a37adbf5295",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-priority-loosened-test-b-r3",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "44409327-98c5-485b-8402-67e2ecae06f0",
+    "cost_usd": 0.06696640000000001
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migration 0002 adds NOT NULL DEFAULT 'normal' with CHECK; test/priority.test.js AC-1 checks existing rows normal and 'urgent' rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "AC-2 test asserts exact labelled list with normal unlabelled."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "AC-3 test checks high/low/normal filters in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "AC-4 test checks unfiltered list in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "AC-5 test asserts exact nav for all four views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "AC-6 test checks 400 and no <li> for High, urgent, empty, __proto__."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "AC-7 test checks exact messages for no-match and empty table across all views."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "routes.json contains /?priority=high; AC-8 test asserts it; traffic worker fetches ROUTES paths."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "medium",
+      "lens": "tests",
+      "item": "",
+      "file": "test/priority.test.js",
+      "what": "The last commit 'Follow-up edits' loosened the 'No match' state test from toBe(\"No low-priority items.\") to toBeDefined(). message() returns null when absent, and null is defined, so the assertion can never fail. The state-table row 'No match' is then only checked by the AC-7 test.",
+      "fix": "Restore expect(message(html)).toBe(\"No low-priority items.\") in the 'No match' state test."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "test/priority.test.js",
+      "what": "The PR says 'Tests deleted or loosened: none', but commit d4414ca loosened an assertion in the No match state test.",
+      "fix": "Restore the assertion, or disclose the loosening in the PR with its justification."
+    }
+  ],
+  "blocking": 2,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec exists and the change follows it. Both decisions are respected (existing items normal; only high and low labelled). Nothing extra beyond the traffic-check regex relaxation, which AC-8 needs."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 ACs are named by tests. The 'No match' state test was weakened in the last commit, but AC-7 still covers the exact messages."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests are mostly behavioural. One assertion (toBeDefined on message()) can never fail. I did not run the tests; CI runs them."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README mentions the filter. The README does not describe the 400 response or the labels, which is minor."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The src/index.js logic is correct. Invalid or empty priority returns 400, and the query is parameterised."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The priority value is whitelisted and bound as a parameter. Titles are escaped. The priority value is only interpolated into HTML after passing the whitelist."
+    },
+    {
+      "lens": "design",
+      "applies": true,
+      "note": "The page is minimal HTML with a nav; no further issues found."
+    },
+    {
+      "lens": "qa",
+      "applies": true,
+      "note": "No browser flow was demonstrated, but the tests cover rendered HTML. Nothing further to report."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The claim that no tests were loosened is false (see finding). Other claims match the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:17:42Z"
+}

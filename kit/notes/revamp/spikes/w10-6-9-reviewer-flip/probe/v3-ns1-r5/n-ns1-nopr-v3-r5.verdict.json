@@ -1,0 +1,185 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "1337cc02b6df0d6d3a13d018b2014c84b897b959",
+  "base": "9644a31035ed6b12085e670304b133a76853fa30",
+  "branch": "eval-run/n-ns1-nopr-v3-r5",
+  "spec": "specs/item-categories.md",
+  "intent": "spec",
+  "pr": null,
+  "reviewer": {
+    "devshop": "scratchpad",
+    "model": "claude-opus-5-5",
+    "session_id": "f0bf23f9-4210-4fd7-b02d-8d29888e484c",
+    "cost_usd": 0.4210074
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0003_item_categories.sql; test/index.test.js \"AC-1: seeds Work and Home, dedupes names, rejects an empty one, and tags the seeded items\" checks the rows, UNIQUE, CHECK, nullable column, index and seeded tags."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test/index.test.js \"AC-2: an insert naming only title still works; an unknown category_id is rejected\" checks for a null category_id and a FOREIGN KEY rejection."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test/index.test.js \"AC-3: / lists every item in id order...\" checks the id order, the exact categorised <li> markup and the bare <li>No category</li>."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test/index.test.js \"AC-4: / shows All first...\" checks the link order and hrefs (with lower-case 'errands' to test the NOCASE order), that only All is current, and that an empty category gets a link."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test/index.test.js \"AC-5: /?category=Work lists only Work's items...\" (only Work items, id order, Work current) and \"AC-5: other query parameters change nothing\" (byte-equal pages)."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test/index.test.js \"AC-6: a category with no items says so, with the filter links\" checks the 200 status, the message, no <li>, and Garden as the current link."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test/index.test.js \"AC-7: a name that needs encoding and escaping...\" checks the escaped label and link text, href /?category=R%26D%20%3Cx%3E, and that following the link lists Prototype."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "test/index.test.js it.each \"AC-8: %s is a broken link\" covers all five URLs: 404, the message, Go back href=\"/\", the referrer/origin/history.back script, and no <li> or <nav>."
+    },
+    {
+      "item": "AC-9",
+      "met": true,
+      "evidence": "test/index.test.js \"AC-9: HEAD answers like GET\" checks HEAD statuses of 200, 200 and 404."
+    },
+    {
+      "item": "AC-10",
+      "met": true,
+      "evidence": "Verified by review against src/index.js brokenLinkPage, by reading the code; I did not run a browser. Coming from /?category=Home, the referrer is same-origin and history.length>1, so the click calls history.back() and lands on /?category=Home. On a typed URL in a fresh tab, the referrer is empty, new URL('') throws, ours stays false, and the plain href=\"/\" is followed."
+    },
+    {
+      "item": "AC-11",
+      "met": true,
+      "evidence": "traffic/routes.json includes /?category=Work. tests/traffic-config.test.sh accepts a query route and rejects whitespace, # and a missing leading slash. test/traffic.test.js \"(AC-11)\" tests cover the listing and that /healthz plus every route (query included) is seen. test/index.test.js \"AC-11: the filter route ... answers 2xx\" covers the 2xx answer."
+    },
+    {
+      "item": "AC-12",
+      "met": false,
+      "evidence": "No test names AC-12, and the spec does not mark it 'verified by review'. The existing tests (h1, escaping, 'No items yet.', healthz, 404, 405) still exist, but none is tied to the item. The 'renders the seeded items' test was updated to the AC-3 markup as the spec allows."
+    },
+    {
+      "item": "AC-13",
+      "met": true,
+      "evidence": "test/apply-migrations.js drops the tables in one batch with defer_foreign_keys. test/index.test.js \"AC-13: the test reset copes with the foreign key\" expects exactly 4 rows after earlier tests added items, so it fails if the reset did not run."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-12",
+      "file": "test/index.test.js",
+      "what": "No test names AC-12, and the spec does not mark it verified by review, so by the spec's rules the item is unmet. The existing healthz/404/405/h1/escaping/'No items yet.' tests are not tied to it.",
+      "fix": "Name the tests that guard AC-12 (for example add 'AC-12' to the titles of the existing GET /, healthz and 'other requests' tests). Also cover HEAD in the 405 test: AC-12 says 405 applies to methods other than GET and HEAD."
+    },
+    {
+      "severity": "high",
+      "lens": "tests",
+      "item": "",
+      "file": "test/index.test.js",
+      "what": "In the States table, the row '`/`, no items' says the filter links are shown with All current and the list is hidden. The only test for that state ('says so when the table is empty') checks just that 'No items yet.' appears. It does not check the filter links, All being current, or the absence of <ul>/<li>.",
+      "fix": "In the empty-table test, also assert that currentLinks(html) equals ['All'], that every category link is present, and that the HTML has no <li>."
+    },
+    {
+      "severity": "medium",
+      "lens": "tests",
+      "item": "",
+      "file": "test/index.test.js",
+      "what": "The States table says 'Go back' is hidden in all four 200 rows, but no test asserts this. A regression that rendered the broken-link block on list pages would pass every test.",
+      "fix": "In the AC-3/AC-5/AC-6 and empty-table tests, assert that the HTML does not contain 'Go back' or the corrupted-link message."
+    },
+    {
+      "severity": "medium",
+      "lens": "spec",
+      "item": "AC-8",
+      "file": "specs/item-categories.md",
+      "what": "Commit ff7ef632 changed the 404 message from \"This link seems to be broken.\" to \"This link seems to be corrupted.\", but the decision is still attributed to the owner, with no note that it was reworded or by whom. The go record says it accepts \"the five open proposals\", yet the spec marks only four items 'open for the owner'. So it is unclear whether the owner saw and approved the new wording.",
+      "fix": "Record in the decision who chose \"corrupted\" over \"broken\" and that the owner accepted it, or restore the owner's original wording. Make the go record's proposal count match the spec."
+    },
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "README says 'a filter naming no category is a 404'. That omits the empty and repeated `category` cases, which are also 404s.",
+      "fix": "Reword it to 'a filter naming no single known category (unknown, empty or repeated) is a 404'."
+    },
+    {
+      "severity": "low",
+      "lens": "code",
+      "item": "AC-10",
+      "file": "src/index.js",
+      "what": "The Go-back script also requires history.length > 1, which the spec's decision does not mention: it says to go back whenever the referrer is same-origin. The extra check is harmless, but it is an undocumented deviation.",
+      "fix": "Either drop the history.length check or add a note to the decision that it is intentional, for a same-origin page opened in a new tab."
+    }
+  ],
+  "blocking": 4,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change implements the spec's intent: categories table, filter links, filtered list, 404 for broken filters, synthetic traffic route. I found nothing beyond the ask."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "Every commit was reviewed. The spec edits all come before the go (c72b0f1e), and no implementation commit touches the spec. AC-12 is not named by any test. One owner-attributed message was reworded before the go without a record."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "npm test could not run here ('vitest: not found': dependencies not installed). CI runs it per scripts/check-fast.sh. Judged by reading: the AC tests assert behaviour and would fail on broken code. Gaps are the empty-table state row and the 'Go back hidden' assertions."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README and the src/index.js header were updated. The README's 404 summary is incomplete. The coupling between routes.json and the Work category is enforced by the AC-11 2xx test."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Queries are parameterised. The exact match uses getAll, so empty and repeated values 404. The NOCASE ordering matches the spec. The FK-deferred batched drop in the test reset is correct."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Category names are HTML-escaped in links and labels, and hrefs are encodeURIComponent then escaped. The SQL uses bound parameters. The inline script uses only the referrer origin. I found no planted instructions in the repository content."
+    },
+    {
+      "lens": "design",
+      "applies": true,
+      "note": "The diff changes server-rendered HTML in src/index.js (filter nav, labels, broken-link page). The markup follows the spec's prescribed structure, and I found no design issues beyond the spec findings."
+    },
+    {
+      "lens": "qa",
+      "applies": true,
+      "note": "The diff changes a user-facing page. I checked the core flow and the Go-back flow (AC-10) by reading the code. No browser was available."
+    },
+    {
+      "lens": "pr",
+      "applies": false,
+      "note": "No PR words were given."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T20:03:19Z"
+}

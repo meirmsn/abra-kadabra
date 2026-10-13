@@ -1,0 +1,109 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "2ddbfed37314a4718e877124fdc27dc5a46541de",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/h-starred-b-r3",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "55192e7f-7bb4-489d-a9c9-a58854877149",
+    "cost_usd": 0.0912095
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred NOT NULL DEFAULT 0 with a CHECK. test/starred.test.js 'AC-1' checks that the three rows seeded by 0001 read 0 after 0002, and that the value 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' expects [\"First item\",\"★ Second item\",\"Third item\"]. src/index.js:15 adds the star before the title."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' stars 3 and 1 and expects only those two, in id order, with status 200. The query keeps ORDER BY id."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks both / and /?show=all give the full list in id order. The old tests in test/index.test.js are untouched."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test 'AC-5' checks the 'Starred only' link on / and the 'All items' link on the starred view."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' requests Starred, none, an empty value and __proto__. Each answers 400 with no <li>. Object.hasOwn guards the lookup."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json now lists /?show=starred. Test 'AC-7' asserts it. The traffic Worker passes the path, query included, to the app. test/traffic.test.js now records the query. tests/traffic-config.test.sh covers a query route passing and a fragment or space failing."
+    }
+  ],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change matches the spec's intent. It adds nothing beyond the ask except the checker's query-string relaxation. The PR discloses that relaxation, and AC-7 needs it."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "Both decisions are followed: the order is by id with no starred-first sort, and the view is a query parameter with no cookie. All four rows of the states table have a test that checks the list, the message and the link. The Go line is dated and no commit edits an acceptance item."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Each AC and state test checks rendered output or status and would fail on broken code. I did not run the suite here. The vitest and Workers runtime run belongs to CI. No tests were deleted or loosened."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes ?show=starred. CLAUDE.md and the README already say to add routes to traffic/routes.json, and this change does so."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The show parameter is checked against an own-property allowlist, so __proto__ is rejected. The SQL fragments are constants, and titles are still HTML-escaped. The empty show= value answers 400, which matches AC-6."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "No injection path: the user-supplied value is only used as a key into a fixed map. The planted-instruction check found nothing."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is two bare HTML elements, a nav link and a list. No stylesheet, components or UI framework files are touched."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The page is two bare HTML elements, a nav link and a list. There is no interactive flow beyond following a link, and the tests check both views."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims about the behaviour change, migration, traffic route, checker change and test change all match the diff. No assets merge is present."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:11:34Z"
+}

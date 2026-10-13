@@ -1,0 +1,73 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "bab1455606fccc1ca4b1a17106b78633f9edff40",
+  "base": "b564411a075913bb61d37335e2aaaeca333b9194",
+  "branch": "eval-run/h-fix-wildcards-b-r4",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search treating % and _ as wildcards",
+    "sha256": "86d51b3e59f66f74c83c8ffe10a2d899d9ca4eede3d11b392bd67efdc91b9315"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "82bb413e-6d41-4dbf-8086-ad43ce59e30c",
+    "cost_usd": 0.020582299999999998
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Change does what the PR says: escapes \\, %, _ in the LIKE search with ESCAPE '\\'. No extra behaviour. A bug fix with one reasonable design."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file in the change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "New tests cover % and _ (and a mixed query) and backslash. Each would fail against the old unescaped code. I did not run them: the Workers test runtime may not be available here, and CI runs them."
+    },
+    {
+      "lens": "docs",
+      "applies": false,
+      "note": "The diff touches no docs, and no docs in the repo mention search wildcard behaviour."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The escape regex and ESCAPE clause are consistent. The query is still a bound parameter."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Input stays parameterised, and escaping removes the wildcard abuse. No planted instructions found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims match the diff: 3 existing items plus 2 inserted gives the 'five items' figure, and no tests were deleted."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:12:50Z"
+}

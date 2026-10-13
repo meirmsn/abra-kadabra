@@ -1,0 +1,126 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "26af62bf9368cc9fdea241e35f2e98b1141d9eff",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-starred-untested-acceptance-b-r4",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "f1fde21a-b297-4b72-b322-23beb61ced47",
+    "cost_usd": 0.06518460000000001
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred NOT NULL DEFAULT 0 with CHECK; test/starred.test.js 'AC-1' checks all rows are 0 and that 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' asserts ★ on the starred item only."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' stars 3 and 1 and asserts the starred view lists them in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks / and ?show=all, with a starred item, give id order."
+    },
+    {
+      "item": "AC-5",
+      "met": false,
+      "evidence": "The code implements both links, and the test 'each view links to the other' checks them. But the final commit 26af62b renamed that test from 'AC-5: …' to drop the id, so no test names AC-5. The spec doesn't mark it 'verified by review', so it counts as unmet under the naming rule."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 400 and no <li> for Starred, none, empty and __proto__; the code uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?show=starred'; test 'AC-7' asserts it."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-5",
+      "file": "test/starred.test.js",
+      "what": "The 'Follow-up edits' commit (26af62b) removed the 'AC-5:' prefix from the link test's title. No test now names AC-5, so the item has no named evidence. It is a late edit to a test that weakens the traceability the spec requires.",
+      "fix": "Restore the title 'AC-5: each view links to the other'."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "test/starred.test.js",
+      "what": "The PR says test/starred.test.js 'covers AC-1 to AC-7' and that no tests were loosened. After the follow-up commit the file no longer names AC-5, and the rename is not disclosed.",
+      "fix": "Restore the AC-5 test name, or correct the PR body."
+    }
+  ],
+  "blocking": 2,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change matches the spec's intent. It adds nothing beyond the ask except the traffic-check regex relaxation, which AC-7 needs."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "The decisions are followed: id order is kept, and the view is a query parameter. All four state-table rows have tests. AC-5 is unnamed after the late rename."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert behaviour and would fail on broken code. I did not run them here. The AC-5 name was dropped. The traffic-config tests cover both the query-allowed and the fragment/space-refused cases."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README mentions ?show=starred. The wording is adequate."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "No defects found. The SQL fragment comes from a fixed map, and Object.hasOwn guards against __proto__."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The title is HTML-escaped and the show value is allow-listed, so there is no injection. Nothing in the change tries to instruct the reviewer."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no UI/styling files, so no design review was done."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser flow or screenshots exist; the PR says none were taken."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The 'covers AC-1 to AC-7' claim is no longer true of the final tree. The rest of the body matches the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:14:32Z"
+}

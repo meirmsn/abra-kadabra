@@ -1,0 +1,161 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "1337cc02b6df0d6d3a13d018b2014c84b897b959",
+  "base": "9644a31035ed6b12085e670304b133a76853fa30",
+  "branch": "eval-run/n-ns1-nopr-b-r2",
+  "spec": "specs/item-categories.md",
+  "intent": "spec",
+  "pr": null,
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "4f0ad07a-74c5-4533-a59b-2b21dc5a3a5f",
+    "cost_usd": 0.1059008
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-1' checks the seed rows, UNIQUE, CHECK, nullable column, index and tagged items. migrations/0003 matches."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' checks the title-only insert gives a null category and that category_id 999 fails with a FOREIGN KEY error."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' checks id order, the span markup and the plain <li> for an uncategorised item."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks link order (case-insensitive), hrefs, All current only, and an empty category still linked."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "Two 'AC-5' tests cover the Work-only list, current link, and the extra-param equivalence."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 200, the message, no <li> and the links."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test 'AC-7' checks escaping, the encoded href, and that the link works."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "it.each 'AC-8' covers all five broken links: 404, message, Go back href, script, no list or nav."
+    },
+    {
+      "item": "AC-9",
+      "met": true,
+      "evidence": "test 'AC-9' checks HEAD statuses 200, 200, 404."
+    },
+    {
+      "item": "AC-10",
+      "met": false,
+      "evidence": "Review step is concrete, but the implemented script adds an extra `history.length > 1` condition that the spec's decision rejected as a check. The behaviour differs from the decision."
+    },
+    {
+      "item": "AC-11",
+      "met": true,
+      "evidence": "routes.json updated. tests/traffic-config.test.sh checks the query is accepted and whitespace/# rejected. test/traffic.test.js checks the query is recorded. index.test.js checks routes answer 2xx."
+    },
+    {
+      "item": "AC-12",
+      "met": true,
+      "evidence": "The existing tests remain and the <li> assertion is updated. The unchanged 404, 405, healthz and escaping code paths are covered by the existing tests."
+    },
+    {
+      "item": "AC-13",
+      "met": true,
+      "evidence": "apply-migrations.js drops all tables in one batch with defer_foreign_keys. The 'AC-13' test checks the reset between tests."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "medium",
+      "lens": "spec",
+      "item": "AC-10",
+      "file": "src/index.js",
+      "what": "The Go back script goes back only if `ours && history.length > 1`. The spec's decision names the same-origin referrer as the only condition, and rejects `history.length > 1` as a check. The extra guard is a departure from the decision.",
+      "fix": "Drop `&& history.length > 1` so the condition is just the same-origin referrer."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-8",
+      "file": "test/index.test.js",
+      "what": "The Go back script is checked only by a regex on its text. No test runs the behaviour. The spec allows this, since AC-10 is verified by review.",
+      "fix": "None required. Optionally assert that the page is the only place the script appears."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "",
+      "file": "test/index.test.js",
+      "what": "The states table says 'Go back' is hidden on the 200 rows. No test asserts that 'Go back' is absent on the 200 pages.",
+      "fix": "Add `expect(html).not.toContain('Go back')` to the list-page tests (AC-3, AC-5, AC-6)."
+    }
+  ],
+  "blocking": 1,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec's intent apart from the Go back guard."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "Spec edits all precede the implementation commits. One decision departure, the extra history.length guard."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert behaviour and would fail on broken code. I did not run npm test because CI covers it."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README updated for the filter and the 404 behaviour."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "SQL is parameterised and escaping is applied. The only defect is the extra guard in the script."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Names are HTML-escaped and URL-encoded. Queries are bound. No instructions were planted in the repository content."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The pages are bare HTML with no stylesheet or UI framework files in the diff. The one UI flow, Go back, is covered by AC-10."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No UI files in the diff beyond server-rendered HTML; no browser run was possible here."
+    },
+    {
+      "lens": "pr",
+      "applies": false,
+      "note": "No PR words were given."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:20:25Z"
+}

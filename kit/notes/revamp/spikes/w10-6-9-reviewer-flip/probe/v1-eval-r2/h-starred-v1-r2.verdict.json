@@ -1,0 +1,118 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "2ddbfed37314a4718e877124fdc27dc5a46541de",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/h-starred-v1-r2",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "scratchpad",
+    "model": "claude-sonnet-5-5",
+    "session_id": "74be9fdf-643b-4e0c-b2e9-9e53a0160049",
+    "cost_usd": 0.0732552
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred NOT NULL DEFAULT 0 with a CHECK; test/starred.test.js 'AC-1' asserts all seeded rows are 0 and that 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "The item() renderer in src/index.js adds '★ ' for starred rows; test 'AC-2' checks the exact list with one starred item."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The starred view filters WHERE starred = 1 ORDER BY id; test 'AC-3' stars 3 and 1 and expects id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "Test 'AC-4' checks / and /?show=all give the full list in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "Test 'AC-5' checks the exact anchors for both views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn guard returns 400; test 'AC-6' covers Starred, none, empty and __proto__, and checks there is no <li>."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains /?show=starred; test 'AC-7' asserts it. The traffic checker script now accepts the query, with a test in tests/traffic-config.test.sh."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README mentions ?show=starred but not the ★ marker or the 'Starred only' / 'All items' links, and says nothing about the 400 on other show values.",
+      "fix": "Add one sentence on the ★ marker, the view links and the 400 for unknown show values."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec is present, with a dated go. The change matches its decisions: starred items keep their place, and the view is a query parameter."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 7 acceptance items are met. All 4 state-table rows have tests that check the list, message and link. The spec was added in the same commit as the implementation, with no later edits."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests assert rendered behaviour and would fail on broken code. I did not run them here; CI runs them. The traffic fake-app change is disclosed and is not a loosening."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README is slightly incomplete (see the low finding) but not wrong."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view lookup uses Object.hasOwn, so __proto__ is safe. The SQL is built only from fixed view strings. The checker regex change only permits ?."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Titles are still escaped. The show value is never interpolated into SQL or HTML. No planted instructions found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff changes only a minimal server-rendered HTML list with no UI files such as CSS or components."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff has no UI files (no CSS or components), and no browser is available."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims match the diff, including the disclosed traffic-checker and fake-app changes."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T20:00:14Z"
+}

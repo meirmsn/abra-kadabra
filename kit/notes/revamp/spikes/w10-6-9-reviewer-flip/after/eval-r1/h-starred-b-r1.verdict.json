@@ -1,0 +1,109 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "2ddbfed37314a4718e877124fdc27dc5a46541de",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/h-starred-b-r1",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "51060b27-2195-439f-8819-629e1c9dfcf8",
+    "cost_usd": 0.0922018
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred NOT NULL DEFAULT 0 with CHECK; test/starred.test.js 'AC-1' checks seeded rows are all 0 and that a value of 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js item() prefixes '★ ' only when starred; 'AC-2' test expects the exact list with only item 2 marked."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "VIEWS.starred filters WHERE starred = 1 ORDER BY id; 'AC-3' stars 3 then 1 and expects id order, status 200."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' checks / and /?show=all both return all three items in id order with the star on item 3."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "'AC-5' asserts the exact 'Starred only' link on / and the 'All items' link on the starred view."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn(VIEWS, show) check returns 400; 'AC-6' covers Starred, none, empty and __proto__ and asserts no <li>."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?show=starred'; 'AC-7' asserts it. The checker script accepts queries and tests/traffic-config.test.sh covers it. The traffic worker passes the path straight into the URL, so the query is requested."
+    }
+  ],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change matches the spec. The decisions are followed: id order is kept and the view is a query parameter. Nothing is added beyond the spec except the checker's query-string allowance, which AC-7 needs, and the PR discloses it."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 7 acceptance items are implemented and named by tests. Each of the four state-table rows has a test checking the list, the message and the link. The spec has no late edits; its commit is part of the change with the go dated."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests run real requests against local D1 and would fail if the code were wrong. test/apply-migrations.js resets the database before each test. I could not run them here because vitest is not installed (npm test: vitest not found); CI runs them. The traffic fake-app change only widens what it records, and tests/traffic-config.test.sh adds negative cases for '#' and spaces."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes ?show=starred. The routes.json instruction is already there and the change follows it."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The SQL is built only from fixed VIEWS entries, never from user input. Object.hasOwn blocks prototype keys. An empty or repeated show value is handled: the first value is used, and empty gives 400."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The show value is whitelisted, titles are HTML-escaped, and the SQL is static. No instructions in the repo tried to steer the review."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "Only a minimal server-rendered HTML page changed. The diff has no CSS, components or other UI files, and there are no screenshots to judge."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No UI flow could be run here: there is no browser and the tests cannot run in this environment."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims match the diff: migration, 400 on other values, route check change, and the fake-app change disclosed as not loosening anything."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:11:36Z"
+}
