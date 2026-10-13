@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Example app</title>
+    <script src="theme.js"></script>
+    <link rel="stylesheet" href="base.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="inner">
+        <a class="brand" href="#">Example app</a>
+        <button class="btn btn-outline" type="button" data-theme-toggle>
+          Theme: system
+        </button>
+      </div>
+    </header>
+
+    <main class="page">
+      <div class="stack">
+        <section>
+          <h1>This week</h1>
+          <p>
+            Plan the week, then tick things off as you go. Read the
+            <a href="#guide">short guide</a> if you are new here.
+          </p>
+        </section>
+
+        <section class="grid" aria-label="Summary">
+          <article class="card">
+            <h2>Open</h2>
+            <p class="muted">Three tasks are due before Friday.</p>
+            <a class="btn btn-primary" href="#tasks">See tasks</a>
+          </article>
+          <article class="card">
+            <h2>Shared</h2>
+            <p class="muted">Two lists are shared with your household.</p>
+            <a class="btn btn-secondary" href="#lists">Open lists</a>
+          </article>
+          <article class="card">
+            <h2>Done</h2>
+            <p class="muted">Twelve tasks finished this month. Nice work.</p>
+            <a class="btn btn-outline" href="#history">History</a>
+          </article>
+        </section>
+
+        <section id="tasks" aria-labelledby="tasks-title">
+          <h2 id="tasks-title">Tasks</h2>
+          <ul class="list">
+            <li>
+              <label class="check"
+                ><input type="checkbox" checked /> Book the dentist</label
+              >
+              <span class="badge">Today</span>
+            </li>
+            <li>
+              <label class="check"
+                ><input type="checkbox" /> Renew the car insurance</label
+              >
+              <span class="badge">Fri</span>
+            </li>
+            <li>
+              <label class="check"
+                ><input type="checkbox" /> Water the plants</label
+              >
+              <span class="badge">Sun</span>
+            </li>
+          </ul>
+        </section>
+
+        <section class="card" aria-labelledby="new-title">
+          <h2 id="new-title">New task</h2>
+          <form class="form" onsubmit="return false;">
+            <div class="field">
+              <label for="title">Title</label>
+              <input id="title" type="text" placeholder="What needs doing?" />
+            </div>
+            <div class="field">
+              <label for="list">List</label>
+              <select id="list">
+                <option>Home</option>
+                <option>Work</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="notes">Notes</label>
+              <textarea id="notes"></textarea>
+            </div>
+            <label class="check"
+              ><input type="checkbox" /> Remind me the day before</label
+            >
+            <div class="row">
+              <button class="btn btn-primary" type="submit">Save</button>
+              <button class="btn btn-secondary" type="button">Cancel</button>
+              <button class="btn btn-destructive" type="button">Delete</button>
+              <button class="btn btn-secondary" type="button" disabled>
+                Archived
+              </button>
+              <button
+                class="btn btn-primary"
+                type="button"
+                aria-busy="true"
+                disabled
+              >
+                Saving…
+              </button>
+            </div>
+          </form>
+        </section>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      Example page for the devshop UI baseline.
+    </footer>
+  </body>
+</html>

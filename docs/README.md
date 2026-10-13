@@ -16,7 +16,7 @@ reachable from this page through links, or when a relative link or `#anchor` is 
   ([spec](../specs/ci-fast-slow-tiers.md)): job `fast` runs [`scripts/check-fast.sh`](../scripts/check-fast.sh)
   (the secret scan, lint and every test not marked slow), then job `slow` runs
   [`scripts/check-slow.sh`](../scripts/check-slow.sh) (the tests marked `# tier: slow`: the whole
-  install). A test is slow when it tests the system end to end, not because it takes long.
+  install and the UI render check in Chromium, at the Playwright version `package.json` pins). A test is slow when it tests the system end to end, not because it takes long.
   `tests/run.sh fast|slow` runs one tier, `tests/run.sh` all. Proven by
   [`tests/check-tiers.test.sh`](../tests/check-tiers.test.sh) and
   [`tests/run-tiers.test.sh`](../tests/run-tiers.test.sh).
@@ -59,6 +59,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
 
 - [`ci-fast-slow-tiers.md`](../specs/ci-fast-slow-tiers.md): CI in two tiers, fast and slow, for
   the devshop and every project.
+- [`ui-baseline.md`](../specs/ui-baseline.md): every web app starts from a design baseline, phone
+  first, light and dark.
 
 ## The install
 
@@ -72,12 +74,24 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
 ## What projects get (`runtime/`)
 
 - PR body: [`runtime/templates/pr-body.md`](../runtime/templates/pr-body.md) is the template for
-  every project PR (TARGET § L3 Review): one-line summary, preview link, announcement (only when
-  user-facing), what you should know, evidence, then engineering details collapsed.
+  every project PR (TARGET § L3 Review): one-line summary, a 2–3 sentence paragraph, preview link,
+  announcement (a release note in the app user's words, only when user-facing), what you should
+  know, evidence, then engineering details collapsed.
   [`runtime/scripts/pr-body-check.py`](../runtime/scripts/pr-body-check.py) checks a filled-in
-  body has that shape (sections and lines in order, preview present, no placeholder left,
-  evidence pinned to a commit); whether the words are true is the reviewer's job. Proven by
+  body has that shape (sections and lines in order, the paragraph 2–3 sentences, preview present,
+  no developer words in the announcement, screenshots on the PR or "no UI change", no placeholder
+  left, images pinned to a commit and never on `raw.githubusercontent.com`); whether the words are
+  true is the reviewer's job. Proven by
   [`tests/pr-body-check.test.sh`](../tests/pr-body-check.test.sh).
+- PR screenshots: [`runtime/scripts/pr-assets.sh`](../runtime/scripts/pr-assets.sh) puts them in
+  one parentless commit and moves the PR's branch to a merge of HEAD and that commit whose files
+  are HEAD's, so the PR's files and diff don't change and nothing needs removing. `ship`'s push of
+  the branch carries them to GitHub, which keeps them with the PR after the merge. It prints the
+  image lines (`https://github.com/<owner>/<repo>/raw/<sha>/<file>`) for the body's
+  **Screenshots:**, and refuses a repo that allows merge commits or rebase merges (they would carry
+  the images into the default branch). Proven by
+  [`tests/pr-assets.test.sh`](../tests/pr-assets.test.sh), which also walks a PR's life on a local
+  remote: retakes, fix rounds, a squash merge, the branch deleted, a fresh clone.
 - Spec: [`runtime/templates/spec.md`](../runtime/templates/spec.md) is the template for a change's
   spec in the project's `specs/` (TARGET § L3 Intent 2): intent, decisions, acceptance items
   `AC-<n>`, core flow and states for UI, out of scope, and the owner's recorded "go".
@@ -93,7 +107,14 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
 - Stack homes: [runtime/stacks/README.md](../runtime/stacks/README.md) is their layout;
   [`runtime/scripts/stack-homes.sh`](../runtime/scripts/stack-homes.sh) picks the ones a project
   uses. Proven by [`tests/stack-homes.test.sh`](../tests/stack-homes.test.sh).
-- Discipline guidelines: [runtime/guidelines/README.md](../runtime/guidelines/README.md).
+- Discipline guidelines: [runtime/guidelines/README.md](../runtime/guidelines/README.md). The UI
+  guideline [`ui.md`](../runtime/guidelines/ui.md) ([spec](../specs/ui-baseline.md)) starts every
+  interface from [`runtime/templates/ui/`](../runtime/templates/ui/): `base.css` (shadcn/ui's token
+  names, light and dark), `theme.js` (the theme toggle), an example page, and two checks a project
+  copies: `tokens-check.mjs` (every token defined in both themes, contrast pairs; proven by
+  [`tests/ui-tokens-check.test.sh`](../tests/ui-tokens-check.test.sh)) and `render-check.mjs`
+  (the page in Chromium at 375, 768 and 1280 px in both themes; proven by
+  [`tests/ui-render-check.test.sh`](../tests/ui-render-check.test.sh)).
 - Reviewer: [runtime/reviewer/README.md](../runtime/reviewer/README.md) is the independent
   reviewer script, how it is locked down and what that is worth, `ship` (review in the VM, then
   code, words and the verdict comment go on the PR together), the guard that refuses other ways to a
@@ -110,6 +131,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
 - Spikes, kept as notes (records of what was run, not live code):
   - A-04 reviewer stability: the fixed inputs, an [honest](../kit/notes/revamp/spikes/a04-reviewer/honest/spec.md)
     and a [seeded](../kit/notes/revamp/spikes/a04-reviewer/seeded/spec.md) spec.
+  - W10.8.1 UI baseline: the example page as rendered,
+    [README](../kit/notes/revamp/spikes/w10-8-ui-baseline/README.md).
   - W10.1.2 install probe: [README](../kit/notes/revamp/spikes/w10-1-2-install/README.md) and its
     [probe skill](../kit/notes/revamp/spikes/w10-1-2-install/plugin/skills/devshop-probe/SKILL.md).
   - W10.1.2b thin install: [README](../kit/notes/revamp/spikes/w10-1-2b-thin/README.md) and its
