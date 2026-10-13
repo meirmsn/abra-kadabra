@@ -2,7 +2,7 @@
 # the shape of runtime/templates/ci.yml; both jobs are the required checks on main. Never give
 # either a job-level `if` or `continue-on-error`: GitHub counts a skipped required job as passed.
 #   fast: scripts/check-fast.sh: secret scan, lint, and every test not marked slow.
-#   slow: scripts/check-slow.sh: the end-to-end tests (the whole install); runs only after fast passes.
+#   slow: scripts/check-slow.sh: the end-to-end tests (the whole install, the UI render check); runs only after fast passes.
 name: ci
 
 on:
@@ -109,5 +109,13 @@ jobs:
       - name: Check jq (from the runner image)
         run: command -v jq
 
-      - name: Slow tier (the install, end to end)
+      # Playwright at the version package.json pins, and that version's Chromium, for
+      # tests/ui-render-check.test.sh (the UI baseline's render check in a real browser).
+      - name: Install pinned Node tools and Chromium
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Slow tier (the install and the render check, end to end)
         run: scripts/check-slow.sh
