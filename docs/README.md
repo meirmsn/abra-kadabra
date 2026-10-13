@@ -12,15 +12,23 @@ reachable from this page through links, or when a relative link or `#anchor` is 
 
 ## Checks
 
-- Secret scanning: [`.gitleaks.toml`](../.gitleaks.toml) is gitleaks' default rule set. CI
-  ([`ci.yml`](../.github/workflows/ci.yml)) runs [`tests/gitleaks.test.sh`](../tests/gitleaks.test.sh),
+- CI ([`ci.yml`](../.github/workflows/ci.yml)) runs two tiers, the required checks on `main`
+  ([spec](../specs/ci-fast-slow-tiers.md)): job `fast` runs [`scripts/check-fast.sh`](../scripts/check-fast.sh)
+  (the secret scan, lint and every test not marked slow), then job `slow` runs
+  [`scripts/check-slow.sh`](../scripts/check-slow.sh) (the tests marked `# tier: slow`: the whole
+  install). A test is slow when it tests the system end to end, not because it takes long.
+  `tests/run.sh fast|slow` runs one tier, `tests/run.sh` all. Proven by
+  [`tests/check-tiers.test.sh`](../tests/check-tiers.test.sh) and
+  [`tests/run-tiers.test.sh`](../tests/run-tiers.test.sh).
+- Secret scanning: [`.gitleaks.toml`](../.gitleaks.toml) is gitleaks' default rule set. CI's fast
+  tier runs [`tests/gitleaks.test.sh`](../tests/gitleaks.test.sh),
   which commits fake secrets to a scratch repo and fails unless every one is caught. CI then
   runs [`scripts/secret-scan.sh`](../scripts/secret-scan.sh) over the commits a change adds and
   the whole tree; [`tests/secret-scan.test.sh`](../tests/secret-scan.test.sh) proves it fails
   on a secret in either place. To run it locally, install gitleaks (the version pinned in
   `ci.yml`) and run `tests/run.sh`.
-- Lint ([`ci.yml`](../.github/workflows/ci.yml) job `lint`) runs [`scripts/lint.sh`](../scripts/lint.sh),
-  the same script the devshop's pre-push hook runs in a session; [`scripts/lint-file.sh`](../scripts/lint-file.sh)
+- Lint: CI's fast tier runs [`scripts/lint.sh`](../scripts/lint.sh), the same script the devshop's
+  pre-push hook runs in a session; [`scripts/lint-file.sh`](../scripts/lint-file.sh)
   is the per-file version the per-edit nudge runs. Each check is a script proven by the test of the
   same name in `tests/` (it feeds a known-bad input, and a missing tool fails):
   - [`format-check.sh`](../scripts/format-check.sh): `prettier --check .` with the version
@@ -30,6 +38,7 @@ reachable from this page through links, or when a relative link or `#anchor` is 
   - [`commit-identity-check.sh`](../scripts/commit-identity-check.sh): rejects commits a change adds
     under a test identity, such as the one tests commit as (L-41).
   - [`docs-map-check.py`](../scripts/docs-map-check.py): this page's rule, above.
+  - [`ci-tiers-check.py`](../runtime/scripts/ci-tiers-check.py) on this repo's own `ci.yml` (below).
 - Skills: [`scripts/skills-check.py`](../scripts/skills-check.py) checks every skill in
   `runtime/skills/` names itself after its directory, has a description, fits on one page, and
   names only `/opt/devshop-current/` files its version has. Run on the real skills by
@@ -74,6 +83,13 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   `AC-<n>`, core flow and states for UI, out of scope, and the owner's recorded "go".
   [`runtime/scripts/spec-check.py`](../runtime/scripts/spec-check.py) checks that shape (`--go`:
   the go is recorded). Proven by [`tests/spec-check.test.sh`](../tests/spec-check.test.sh).
+- CI: [`runtime/templates/ci.yml`](../runtime/templates/ci.yml) is every project's CI in two tiers
+  ([spec](../specs/ci-fast-slow-tiers.md)): `fast` runs the project's `scripts/check-fast.sh "$BASE"`
+  (secret scan, lint, unit tests), `slow` needs it and runs `scripts/check-slow.sh` (end-to-end
+  tests; a project with none yet has one that says so). The stack-specific part lives in those
+  scripts, so the template is the same for every stack. [`runtime/scripts/ci-tiers-check.py`](../runtime/scripts/ci-tiers-check.py)
+  checks a workflow has that shape; session start runs it on the project's and says so in a
+  `DEVSHOP:` line. Proven by [`tests/ci-tiers-check.test.sh`](../tests/ci-tiers-check.test.sh).
 - Stack homes: [runtime/stacks/README.md](../runtime/stacks/README.md) is their layout;
   [`runtime/scripts/stack-homes.sh`](../runtime/scripts/stack-homes.sh) picks the ones a project
   uses. Proven by [`tests/stack-homes.test.sh`](../tests/stack-homes.test.sh).
