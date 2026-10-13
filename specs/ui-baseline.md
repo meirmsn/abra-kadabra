@@ -1,6 +1,6 @@
 # Every web app starts from a design baseline: responsive, light and dark
 
-**Go:** pending
+**Go:** "go!" (owner, 2026-10-13)
 
 ## Intent
 
