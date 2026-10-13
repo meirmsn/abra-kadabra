@@ -2145,7 +2145,21 @@ repo ("modify shared resources"). Projects will need `gh api` writes allowed for
 the live run on the fixture will show the prompt. `tests/run.sh`: 22 of 25 files pass; `bootstrap`,
 `git-hooks` and `pre-bash` fail identically on a clean `main` worktree here (LOG #52).
 
-**Left**: the live check on the fixture, once the owner says it is free: does GitHub accept the
-ref, and do the images render in the browser and the GitHub mobile app, before and after merge?
+**First ship, and a live probe** (owner's go, 2026-10-13): `ship` passed the review (0 blocking, 2
+low) and opened PR #95, then stopped with exit 2: something on the session's path to GitHub dropped
+the `!` from a code-quoted image line in the body. Both low findings were fixed: each upload now
+gets its own never-moved ref, `refs/devshop-assets/<branch>/<head12>-<commit12>`; and a template
+line was rewrapped (14 of 14 mutants killed). The probe on this repo found the REST git-data path
+**closed**: the session's GitHub proxy answers "Write access to this GitHub API path is not
+permitted through this proxy" (HTTP 403) on the first blob, and `pr-assets.sh` failed closed. A plain
+`git push` of the same commit to the hidden ref never left the session: the review guard refuses any
+push while the branch has an open PR, and auto mode refused it too. Whether the git proxy accepts a
+ref outside `refs/heads/` is still unknown.
+
+**Left**: the owner's call on the upload route: (A) push the hidden ref with plain git (needs the
+guard to allow `refs/devshop-assets/*`, a permission rule, and the proxy to accept it), or (B) carry
+the screenshots on the PR branch as the second parent of a merge commit whose files equal the code
+(the push the proxy allows; nothing to remove). Then the live render check in the browser and the
+GitHub mobile app, before and after merge.
 
 **Next**: W10.6.4.
