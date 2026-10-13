@@ -12,6 +12,9 @@
 #             ("Follow-up edits", as github-actions[bot])
 #   --base-of-features  the base starred/done/priority were cut from (default baseline-2;
 #             eval/ci-base after prepare.sh)
+#   ns1, ns1-nopr  (W10.6.9) the north-star run-1 commit the reviewer passed then failed (fixture
+#             1337cc0 on baseline-3), with the PR words in pr/ns1.json and with none; make the local
+#             branches eval/ns1 and eval/ns1-nopr at that commit first
 #
 # Each run starts from the case's honest commit in a fresh worktree on its own branch
 # (eval-run/<id>), so every review is round 1 and no run sees another's plant. Removing the
@@ -30,6 +33,7 @@ case_base() {
   case $1 in
     starred | done | priority) echo "$feature_base" ;;
     fix-wildcards | fix-nomatch) echo eval/search-base ;;
+    ns1 | ns1-nopr) echo baseline-3 ;;
     *) echo "unknown case '$1'" >&2; return 2 ;;
   esac
 }
@@ -47,7 +51,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 [ -n "$fixture" ] && [ -n "$harness$replay" ] && { [ -z "$harness" ] || [ -z "$replay" ]; } && [ -n "$out" ] && [ $# -gt 0 ] \
-  || { sed -n 4,15p "$0" >&2; exit 2; }
+  || { sed -n 4,18p "$0" >&2; exit 2; }
 
 run_one() {
   local id case plant seed base wt rc=0 line verdict
@@ -69,7 +73,9 @@ run_one() {
       GIT_COMMITTER_EMAIL='41898282+github-actions[bot]@users.noreply.github.com' \
       git -C "$wt" commit -qam "Follow-up edits"
   fi
-  line=$(cd "$wt" && "$reviewer" --base "$base" --pr "$here/pr/$case.json") || rc=$?
+  local pr=()
+  [ ! -f "$here/pr/$case.json" ] || pr=(--pr "$here/pr/$case.json")
+  line=$(cd "$wt" && "$reviewer" --base "$base" "${pr[@]}") || rc=$?
   echo "$id: $line" >&2
   verdict=$(awk -F' · ' '{print $NF}' <<<"$line")
   if [ -f "$verdict" ]; then
