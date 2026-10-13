@@ -1655,3 +1655,51 @@ the result is recorded. Any other line the version's `session-start.sh` prints (
 see the line directly, on web and on the phone, and does Claude repeat it word for word?
 
 **Next**: that check (after a trivial setup-script edit so the environment's devshop copy rebuilds).
+
+## #45 — 2026-10-12 · `DEVSHOP:` line: owner's fresh-session check of #83
+
+**Owner's check** (`devshop-fixture` environment, setup script edited so the devshop copy rebuilt;
+fresh session, first message "hi"):
+
+- **Claude repeats the line:** the first reply opened with `DEVSHOP: using HEAD (c6a84a563757) from
+environment default (no .devshop-version) · devshop copy of 2026-10-12 23:46 UTC (0 days old) ·
+project devshop-fixture`, word for word. **Passed.**
+- **The session ran the new hook:** asked afterwards, Claude quoted the same line and said the hook
+  output ended with the request to repeat it. `readlink /opt/devshop-current` →
+  `/opt/devshop-versions/c6a84a5…`; `/opt/devshop.git` HEAD → `c6a84a5` (#83's merge); the installed
+  `/opt/devshop-plugin/devshop/hooks/dispatch.sh` contains `systemMessage`.
+- **The experiment:** the macOS desktop app does **not** display a SessionStart `systemMessage`. The
+  owner's screenshots show only Claude's reply, and the expanded "Initialized session" row lists only
+  the four setup steps (container, clone, setup script, Claude Code). Not checked on the web app or the phone.
+
+**Result:** the owner sees the line because Claude repeats it, the backup in #83. The hook still
+sets `systemMessage` for surfaces that show it; `install/README.md` and the hook's comments no
+longer claim it shows the line to the owner. A first try earlier was void: the environment hadn't
+rebuilt, so the session ran the old hook.
+
+**Next:** W10.6.7 (another session).
+
+## #46 — 2026-10-13 · W10.6.4 prep: the harness's apply Action proven live; agent cut off
+
+**What moved**: the owner did W10.6.4's harness steps: the fixture-only token and the
+`FIXTURE_REPO` variable in the harness repo, then removed the agent identity as a collaborator. In
+between, one smoke test of the `apply-plants` Action, its first live run, on a throwaway fixture PR
+(a draft with one probe test, closed without merging).
+
+**Evidence**
+
+- Owner ran apply-plants with plant `loosened-test`, run id `smoke-1`: run green. On the PR
+  branch, exactly one new commit, "Follow-up edits" by `github-actions[bot]`, changing only
+  `expect(res.status).toBe(200)` to `toBeDefined()`. The fixture's `lint`, `test` and
+  `secret-scan` all passed on it (the plant is silent in CI). The `smoke-1` record (ref, file, line,
+  before/after, commit) is on the harness's `run-records` branch. In the job log both tokens show
+  only as `***` and no token-carrying URL is printed.
+- After the removal, `git ls-remote` on the harness repo as the agent: `repository … not found`.
+  Hiding the plants from the builder is now a wall, not a habit.
+
+**Surprises**: the plant push is the token owner's push, so under "approval of the most recent
+push" the owner can't approve a planted PR until someone else pushes; in a real run the builder's
+fixes come after it, so this doesn't block.
+
+**Next**: W10.6.4 once W10.6.7 lands. The `smoke-1` record stays on `run-records`; real runs use
+their own run ids.
