@@ -12,10 +12,11 @@ A stack home `<stack>/` holds:
   `wrangler.toml` or `next.config.*`. A line may also be `<path>: <pattern>`, which matches only
   when that file has a line matching the `grep -E` pattern, e.g. `package.json: "next" *:` for a
   Next.js dependency. The stack applies when any line matches in the project.
-  A path that is absolute or leaves the project, a missing `README.md` or `detect`, or a `detect`
-  with no paths, or a pattern `grep -E` can't read stops the script (exit 2); it never skips a home it can't judge.
+  The script stops (exit 2), and never skips a home it can't judge, when a home has no `README.md`
+  or no `detect`, when its `detect` lists no paths, when a path is absolute or leaves the project,
+  or when a pattern is empty or not a valid `grep -E` pattern.
 
 The first real homes are built with the first projects that need them (M2). Today there is one
 placeholder, [`nextjs-supabase/`](nextjs-supabase/README.md), which is also the north-star decoy:
-the fixture must never load it ([`tests/decoy-stack.test.sh`](../../tests/decoy-stack.test.sh)). Proven by
-[`tests/stack-homes.test.sh`](../../tests/stack-homes.test.sh).
+the fixture must never load it ([`tests/decoy-stack.test.sh`](../../tests/decoy-stack.test.sh)).
+Proven by [`tests/stack-homes.test.sh`](../../tests/stack-homes.test.sh).
