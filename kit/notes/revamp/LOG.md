@@ -1655,3 +1655,26 @@ the result is recorded. Any other line the version's `session-start.sh` prints (
 see the line directly, on web and on the phone, and does Claude repeat it word for word?
 
 **Next**: that check (after a trivial setup-script edit so the environment's devshop copy rebuilds).
+
+## #45 — 2026-10-12 · `DEVSHOP:` line: owner's fresh-session check of #83
+
+**Owner's check** (`devshop-fixture` environment, setup script edited so the devshop copy rebuilt;
+fresh session, first message "hi"):
+
+- **Claude repeats the line:** the first reply opened with `DEVSHOP: using HEAD (c6a84a563757) from
+environment default (no .devshop-version) · devshop copy of 2026-10-12 23:46 UTC (0 days old) ·
+project devshop-fixture`, word for word. **Passed.**
+- **The session ran the new hook:** asked afterwards, Claude quoted the same line and said the hook
+  output ended with the request to repeat it. `readlink /opt/devshop-current` →
+  `/opt/devshop-versions/c6a84a5…`; `/opt/devshop.git` HEAD → `c6a84a5` (#83's merge); the installed
+  `/opt/devshop-plugin/devshop/hooks/dispatch.sh` contains `systemMessage`.
+- **The experiment:** the macOS desktop app does **not** display a SessionStart `systemMessage`. The
+  owner's screenshots show only Claude's reply, and the expanded "Initialized session" row lists only
+  the four setup steps (container, clone, setup script, Claude Code). Not checked on the web app or the phone.
+
+**Result:** the owner sees the line because Claude repeats it, the backup in #83. The hook still
+sets `systemMessage` for surfaces that show it; `install/README.md` and the hook's comments no
+longer claim it shows the line to the owner. A first try earlier was void: the environment hadn't
+rebuilt, so the session ran the old hook.
+
+**Next:** W10.6.7 (another session).
