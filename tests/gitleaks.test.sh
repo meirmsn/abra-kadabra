@@ -25,13 +25,22 @@ scan() {
   echo "$rc"
 }
 
-# 0. fake_aws_key's 16 random characters are distinct, so its entropy stays above the rule's 3 (F-NEW-50).
+# 0. The fakes' entropy stays above their rules' thresholds (F-NEW-50): fake_aws_key's 16 characters are
+#    distinct (rule: 3); fake_api_key's letters are distinct and no digit repeats more than twice (rule: 3.5).
 for _ in $(seq 50); do
   k=$(fake_aws_key)
   [[ $k =~ ^AKIA[A-Z2-7]{16}$ ]] || fail "fake_aws_key: not AWS-key-shaped: $k"
   [ "$(printf '%s' "${k#AKIA}" | fold -w1 | sort -u | wc -l)" = 16 ] || fail "fake_aws_key: repeated characters: $k"
 done
 echo "ok - fake_aws_key gives 16 distinct characters"
+for _ in $(seq 50); do
+  k=$(fake_api_key)
+  [[ $k =~ ^([a-z][0-9]){16}$ ]] || fail "fake_api_key: letters and digits don't alternate: $k"
+  [ "$(printf '%s' "$k" | tr -d '[:digit:]' | fold -w1 | sort -u | wc -l)" = 16 ] || fail "fake_api_key: repeated letters: $k"
+  [ "$(printf '%s' "$k" | tr -d '[:lower:]' | fold -w1 | sort | uniq -c | awk '$1 > 2' | wc -l)" = 0 ] ||
+    fail "fake_api_key: a digit more than twice: $k"
+done
+echo "ok - fake_api_key alternates 16 distinct letters with digits used at most twice"
 
 # 1. Control: a repo with no secrets passes (exit 0) — the config parses and doesn't flag everything.
 new_repo "$work/clean"
@@ -52,8 +61,7 @@ printf 'slack: %s\n' "xoxb-$(rand 0-9 12)-$(rand 0-9 12)-$(rand 'A-Za-z0-9' 24)"
   for _ in 1 2 3 4; do rand 'A-Za-z0-9+/' 64; echo; done
   printf -- '-----END %s-----\n' "RSA PRIVATE KEY"
 } >"$p/id_rsa"
-# Letters and digits alternate: gitleaks drops a generic-api-key value holding a stopword (`blog`, `view`, ...).
-printf 'api_key = "%s"\n' "$(for _ in $(seq 16); do rand a-z 1; rand 0-9 1; done)" >"$p/settings.toml"
+printf 'api_key = "%s"\n' "$(fake_api_key)" >"$p/settings.toml"
 git -C "$p" add -A && git -C "$p" commit -qm "add config"
 
 rc=$(scan "$p" "$work/planted.json")

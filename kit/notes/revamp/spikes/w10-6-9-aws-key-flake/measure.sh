@@ -3,7 +3,9 @@
 # Usage: measure.sh <kind> <n> [config]   (config default: the repo's .gitleaks.toml)
 #   kind: aws-old    the AWS key generator before the fix: "AKIA" + 16 x rand 'A-Z2-7'
 #         aws        fake_aws_key from tests/lib.sh as checked out
-#         github-pat, slack-bot-token, private-key, generic-api-key: the plants in tests/gitleaks.test.sh
+#         generic-api-key-old  the generic-api-key plant before the fix: 16 x (rand a-z 1, rand 0-9 1)
+#         generic-api-key      fake_api_key from tests/lib.sh as checked out
+#         github-pat, slack-bot-token, private-key: the other plants in tests/gitleaks.test.sh
 # Writes <n> values, one per file, scans them with `gitleaks dir`, prints each missed value and then
 # "<kind> n=<n> missed=<m>". Needs `gitleaks` on PATH (or $GITLEAKS); a missing tool exits 2.
 set -euo pipefail
@@ -30,7 +32,8 @@ case $kind in
       printf -- '-----END %s-----\n' "RSA PRIVATE KEY"
     }
     ;;
-  generic-api-key) rule=generic-api-key; gen() { printf 'api_key = "%s"\n' "$(for _ in $(seq 16); do rand a-z 1; rand 0-9 1; done)"; } ;;
+  generic-api-key-old) rule=generic-api-key; gen() { printf 'api_key = "%s"\n' "$(for _ in $(seq 16); do rand a-z 1; rand 0-9 1; done)"; } ;;
+  generic-api-key) rule=generic-api-key; gen() { printf 'api_key = "%s"\n' "$(fake_api_key)"; } ;;
   *) echo "FAIL: unknown kind $kind" >&2; exit 2 ;;
 esac
 

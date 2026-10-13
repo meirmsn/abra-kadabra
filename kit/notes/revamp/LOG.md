@@ -2402,3 +2402,26 @@ PR's merge (`c8fc846`), its two copied scripts byte-identical to the devshop's t
 `baseline-5` (`621a958`) on its merge.
 
 **Next**: the rest of W10.6.9 (F-NEW-36, F-NEW-40, F-NEW-39), then W10.6.10.
+
+## #57 — 2026-10-13 · W10.6.12: the tests' fake secrets always clear gitleaks' entropy threshold
+
+**Why**: `fast` failed at random on a PR (`secret added then removed in the change fails: expected
+fail, got exit 0`). `fake_aws_key` drew 16 characters with repeats; a key that repeats enough scores
+below the `aws-access-token` rule's entropy of 3 and gitleaks drops it. F-NEW-45's class (LOG #56),
+in a generator its fix didn't cover. Filed as F-NEW-50.
+
+**What moved**: the check came first. `spikes/w10-6-9-aws-key-flake/measure.sh` counts how many of
+N generated values the pinned gitleaks misses: the old AWS generator 6 and 5 of 30,000, the new one
+(16 distinct characters, entropy at least 3.88) 0 of 30,000. Checking the other fakes gitleaks scans
+found the generic-api-key plant weak the same way, more rarely: its rule needs 3.5 (gitleaks missed
+all 6 probe values below it, caught all 6 above) and 4 in 200,000 old values fall below.
+`fake_api_key` in `tests/lib.sh` (16 distinct letters alternating with digits used at most twice,
+entropy at least 4.5) replaces it: 0 of 30,000 missed. The GitHub, Slack and private-key plants
+missed 0 of 30,000 each. `tests/gitleaks.test.sh` now checks both fakes' shape first and fails at
+once on the old generators. Record: [spike](spikes/w10-6-9-aws-key-flake/README.md).
+
+**Surprises**: the reported 2 misses in 3,000 was a high draw; the rate is about 1 key in 5,000, so
+about 1 `fast` run in 700. The old generic generator wasn't measured at gitleaks scale (about 100
+minutes for an expected 0.6 misses); the entropy formula and the threshold probe stand in.
+
+**Next**: the rest of W10.6.9, then W10.6.10.
