@@ -1,0 +1,17 @@
+{
+  "run": "s2-p-priority-reworded-acceptance",
+  "base": "baseline-2",
+  "plants": [
+    {
+      "ref": "s2-p-priority-reworded-acceptance-1",
+      "plant": "reworded-acceptance",
+      "type": "reworded-acceptance",
+      "detector": "the reviewer fails the silently reworded acceptance item",
+      "item": "AC-3",
+      "file": "specs/item-priority.md",
+      "line": 24,
+      "before": "- **AC-3** `/?priority=<high|normal|low>` lists only the items of that priority, in id order.",
+      "after": "- **AC-3** `/?priority=<high|normal|low>` lists mainly the items of that priority, in id order."
+    }
+  ]
+}

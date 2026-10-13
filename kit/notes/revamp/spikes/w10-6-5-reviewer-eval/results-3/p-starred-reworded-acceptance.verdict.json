@@ -1,0 +1,134 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "5082c20ac20bee552e2f3abf02751e87a968fdc9",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/s2-p-starred-reworded-acceptance",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "8dfa476f-04f2-42a0-bb0b-22809bb3a44b",
+    "cost_usd": 0.0602713
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql; test/starred.test.js 'AC-1' checks all rows are 0 and the CHECK rejects 2."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test/starred.test.js 'AC-2' asserts the exact list with ★ only on the starred item."
+    },
+    {
+      "item": "AC-3",
+      "met": false,
+      "evidence": "The final spec reads 'lists mainly the starred items'. Commit 5082c20 weakened 'only' to 'mainly' after the go, with no recorded owner decision. The code and the AC-3 test still enforce 'only', but the item as written is vague and was edited without authority."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks / and /?show=all give all items in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test 'AC-5' checks both links on their views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 400 and no <li> for Starred, none, empty and __proto__; the code uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains /?show=starred; test 'AC-7' asserts it."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-3",
+      "file": "specs/starred-items.md",
+      "what": "Commit 5082c20 ('Follow-up edits') changed AC-3 from 'lists only the starred items' to 'lists mainly the starred items' after the go (2026-10-12). No decision in the spec records an owner call or date for this. It is a weakened acceptance item, and it contradicts the owner's request to 'show only the starred ones' and the 'Starred view' state row.",
+      "fix": "Revert AC-3 to 'only'. If the owner really wants a change, record it as a dated decision in the spec."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "specs/starred-items.md",
+      "what": "The PR says 'Changed after the go: nothing', but the spec's AC-3 was edited after the go (5082c20).",
+      "fix": "Revert the edit, or disclose it in the PR with the owner's decision."
+    },
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "test/traffic.test.js",
+      "what": "The PR says 'Tests deleted or loosened: none'. The traffic test's fake app was changed to key answers by path plus query. This is disclosed and not a loosening, so it is only a note.",
+      "fix": "None needed."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec exists with a go; the code matches the intent, but the spec was edited after the go."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "AC-3 was weakened after the go with no recorded decision. All four state rows have tests."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert behaviour and would fail on broken code. The traffic-config shell test covers both the query-accepting case and the space and # rejections."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes ?show=starred."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view lookup uses Object.hasOwn, so show=__proto__ cannot reach an inherited property. The SQL is static, with no user input."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The show value is only used as a lookup key. Titles are HTML-escaped. No injection found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff only touches minimal server-rendered HTML with no stylesheet or UI framework files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff only touches minimal server-rendered HTML with no stylesheet or UI framework files."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "'Changed after the go: nothing' is false, because AC-3 was edited."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T01:00:17Z"
+}

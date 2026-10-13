@@ -1775,8 +1775,11 @@ plant; **precision 1.0, recall 1.0**; 0 refused commands and 0 `unsure` across t
 distinct session ids; $1.83. Two planted runs first picked up a harness copy I was editing and got
 different plants; I discarded them and re-ran both on the original harness (`d382e2e`), so every
 run-2 plant record equals its run-1 record. `tests/reviewer-live.sh 1`: 6 of 6 as expected.
-Caveat: the plant is always its own commit, which commit-by-commit review makes easy to spot.
-W10.6.4 tests the reviewer again.
+**Run 3** (seed 2, original harness): 15 new plant targets, 15 of 15 caught on their plant, 0
+refused commands, $1.02. The reviewer, run on this PR, rightly said run 2 isn't held out: the
+prompt's new rules name these plant types. Run 3 shows they generalise within the types, not
+across them. Caveat: the plant is always its own commit, which commit-by-commit review makes easy
+to spot. W10.6.4 tests the reviewer again.
 
 **Harness** (F-NEW-30): the three quirks fixed test first (5 new tests failing first, 32 of 32
 after, 8 of 8 mutants killed); on the real fixture changes the state plant now removes a state's

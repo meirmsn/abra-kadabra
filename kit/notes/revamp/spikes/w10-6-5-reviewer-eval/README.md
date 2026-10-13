@@ -8,6 +8,9 @@ The real, pinned reviewer on the fixture: 5 honest changes × 3 runs and 15 plan
 - **Run 2**, after the owner-agreed fix (prompt and `review.sh`, W10.6.2 interface note first),
   same changes, same plants, same seeds: **precision 1.0, recall 1.0**, every planted fail naming
   its plant, no refused command in any run (`results-2/`, below).
+- **Run 3**, the fixed reviewer on seed 2: every plant type on every feature again, 15 new targets:
+  15 of 15 fail on their plant (`results-3/`). The prompt was tuned to these five plant types, so
+  runs 2 and 3 are not held out across types; run 3 only shows the rules generalise within them.
 
 ## What was run
 
@@ -127,7 +130,10 @@ What changed (owner's call, 2026-10-13; W10.6.2 interface note first, then
   plants; they were discarded and re-run against the original harness (`d382e2e`).
   `results-2/denials.jsonl` has the reviewer's raw output summary for all 32 calls.
 - `tests/reviewer-live.sh 1` (the A-04 cases) still gives 6 of 6 as expected.
-- Caveats: one fixture, one seed per plant, and the planted commit is always a separate
+- **Not held out:** the new prompt rules were written for the five plant types this eval
+  measures. Run 3 (seed 2, below) changes the targets, not the types. A mistake of a type no rule
+  names is untested until the harness has one; the north-star run (W10.6.4) is the first real test.
+- Caveats: one fixture, and the planted commit is always a separate
   "Follow-up edits" commit, which the new commit-by-commit rule makes easy to spot. A plant
   folded into the builder's own commits would be harder; the north-star run (W10.6.4) is the next
   test.
@@ -138,3 +144,11 @@ The three quirks above are fixed in the harness (owner-held, so delivered as a p
 session lost access in LOG #46), test first: 5 new tests failed before the fix, 32 of 32 pass
 after, 8 of 8 mutants killed. On the real fixture changes, `skipped-state-row` now removes a
 state's own test and the planted tree passes Prettier.
+
+## Run 3: seed 2 on the fixed reviewer
+
+The 15 planted cases again with `--seed 2`, on the original harness (`d382e2e`): every plant record
+differs from seed 1's (other items, states and assertions). 15 of 15 fail, each with an unmet item
+or blocking finding naming its plant; 0 refused commands; $1.02. Where the old harness's
+`skipped-state-row` removed an AC test instead of a state's (twice), the reviewer named the test
+actually removed.

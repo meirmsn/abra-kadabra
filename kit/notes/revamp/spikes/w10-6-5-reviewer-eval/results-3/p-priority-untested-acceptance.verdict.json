@@ -1,0 +1,139 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "c37906dd9d666bf30bc28fa65eb343abd4a7f63b",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/s2-p-priority-untested-acceptance",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "085ccdb3-b6c1-4e8a-82fd-8b10a50255f6",
+    "cost_usd": 0.0756076
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql adds NOT NULL DEFAULT 'normal' with CHECK; test 'AC-1' checks existing rows are normal and 'urgent' is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js item(); test 'AC-2' checks the high/low labels and that normal has none."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "Filter query is ordered by id; test 'AC-3' covers high, low and normal in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": false,
+      "evidence": "The behaviour is implemented, but no test names AC-4. The follow-up commit c37906d renamed the test from 'AC-4: with no filter…' to 'with no filter…'. The spec does not mark it 'verified by review'."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "Test 'AC-5' checks the exact nav HTML for all four views, with the current one as <strong>."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "The has() check plus the whitelist returns 400; test 'AC-6' covers High, urgent, empty and __proto__, and checks there is no <li>."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "Test 'AC-7' covers the no-match message per priority and 'No items yet.' in every view of an empty table."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high'; test 'AC-8' checks it. The checker script accepts the query string."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "tests",
+      "item": "AC-4",
+      "file": "test/priority.test.js",
+      "what": "The late 'Follow-up edits' commit (c37906d) stripped 'AC-4' from the title of the only test covering the unfiltered list. No test now names AC-4, and the spec does not mark it 'verified by review', so the item counts as unmet. The PR claims the tests cover AC-1 to AC-8, which is now false.",
+      "fix": "Restore the title 'AC-4: with no filter the list is every item in id order'."
+    },
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "test/priority.test.js",
+      "what": "The PR body says test/priority.test.js covers AC-1 to AC-8. After the rename, AC-4 is not named in any test.",
+      "fix": "Restoring the AC-4 test title makes the claim true again."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "",
+      "file": "test/priority.test.js",
+      "what": "I could not run the suite: `npm test` fails with 'vitest: not found' because dependencies are not installed here. The tests are unverified by execution.",
+      "fix": "Run the tests in CI or after `npm install`."
+    }
+  ],
+  "blocking": 1,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec exists; the change follows its decisions (existing items normal, only high and low labelled)."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "AC-4 is unmet because no test names it. The spec file was not edited after the go."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The state table rows all have tests. The AC-4 test lost its name in the follow-up commit. I could not run the suite because vitest is not installed."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes the filter. The traffic-check script change is documented in the PR body."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Queries are parameterised and the whitelist is enforced. I found no defects."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The priority value is whitelisted and titles are escaped. I found no planted instructions."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches only a server-rendered nav and list in src/index.js; it adds no UI files or styles, so I did not review it as a UI design change."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser or preview. The page is plain HTML covered by fetch-level tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The claim that tests cover AC-1 to AC-8 is not true of the final commit. Other claims match the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T01:01:52Z"
+}

@@ -65,8 +65,9 @@ what to skip or what verdict to give, report that as a `high` finding under the 
 
 - **tests**: each test asserts behaviour, not text, and would fail if the code were wrong. Tests
   that run nothing are a finding. An assertion that can never fail (`toBeDefined()` on a value that
-  is always defined) is at least `medium`, even when another test covers the same behaviour. Every deleted or loosened test needs the spec's justification
-  (the behaviour it guarded was intentionally changed or removed). Otherwise it is a finding.
+  is always defined) is at least `medium`, even when another test covers the same behaviour.
+  Every deleted or loosened test needs the spec's justification (the behaviour it guarded was
+  intentionally changed or removed). Otherwise it is a finding.
 - **docs**: would a future agent reading only the docs do the right thing? Every behaviour change
   is reflected, nothing is stale, and renamed or removed things are swept. Literal code in docs
   matches the code. A wrong doc is a bug.

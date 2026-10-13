@@ -154,7 +154,9 @@ done
 grep -qx "KEEP_ME=still-here" "$STUB_LOG.env" || fail "other environment (auth, proxy) must still reach claude"
 echo "ok - the calling session's identity doesn't reach the reviewer"
 
-# --- The prompt tells the reviewer how to work and what the plants hit (W10.6.5).
+# --- The prompt tells the reviewer how to work and what the plants hit (W10.6.5). A text check:
+# it guards against a rule being dropped by accident; whether the reviewer follows the rules is
+# shown by the live eval (kit/notes/revamp/spikes/w10-6-5-reviewer-eval), not here.
 p=$(tr -s "\n" " " <"$STUB_LOG.args") # the prompt wraps lines; match across them
 for want in "one simple command per Bash call" "a refused command" "commit by commit" \
   "named by the test that proves it" "verified by review" "state table" "can never fail"; do
