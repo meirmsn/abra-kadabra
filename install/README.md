@@ -103,7 +103,8 @@ Feedback, not walls: everything here runs in the session's VM, where the agent c
   passes silently. It fails closed: a missing dcg, one that fails or runs past 10 s, or hook input it
   can't parse blocks the command, with a message telling Claude to tell the owner. So a failed dcg
   download blocks every Bash command until the environment is rebuilt (`FAILED: tool dcg` in
-  `/tmp/devshop-setup.log`). It reads only the command's text, so a destructive command inside a
+  `/tmp/devshop-setup.log`); session start says so up front in a `DEVSHOP:` line, when the
+  installed plugin registers the guard. It reads only the command's text, so a destructive command inside a
   script file or an interpreter gets through, and dcg ignores what a heredoc writes.
 - **Session setup.** Session start also runs the repo's own `scripts/setup.sh`, if it has one
   (this repo's: `npm ci`, so Prettier is there for its checks): silent when it works, a `DEVSHOP:`

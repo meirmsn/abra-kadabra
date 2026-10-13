@@ -1716,13 +1716,20 @@ newest release at least two weeks old; the release ships a static `musl` build f
 `SHA256SUMS` file). dcg's own deny JSON goes back to Claude. The script fails closed where dcg
 doesn't: a missing dcg, a non-zero exit, more than 10 s, and (via `DCG_FAIL_CLOSED=1`) hook input it
 can't parse. dcg runs with its default packs; v1's `.dcg.toml` is not carried. `install/tools.pin`
-and `ci.yml` pin the same version and checksum. Feedback, not a wall (L-36).
+and `ci.yml` pin the same version and checksum. Feedback, not a wall (L-36). Session start (the
+version's `session-start.sh`) prints a `DEVSHOP:` line when the installed plugin registers the guard
+but dcg is missing, so a broken install shows in the first reply, not at the first blocked command
+(owner, in review).
 
 **Evidence**: `tests/pre-bash.test.sh`, written first, failed against `main` (`the plugin registers
 no PreToolUse hook`). With the change it passes against the real dcg: five destructive commands
 blocked with dcg's reason, five ordinary ones silent, unparseable input blocked, and missing,
 failing and hung dcg each blocked with exit 2. Four mutants (no `DCG_FAIL_CLOSED`, no timeout, a
-missing dcg passing, a failing dcg passing) are all killed.
+missing dcg passing, a failing dcg passing) are all killed. The session-start line's scenarios in
+`tests/git-hooks.test.sh` (missing dcg reported, also outside a git repo; silent with dcg installed;
+silent with a plugin from before the guard) failed before that change and pass after; two mutants
+(no plugin check, no dcg check) are killed. `tests/bootstrap.test.sh` now installs a fake dcg from
+the pinned tools and checks it lands in `/opt/devshop-tools/bin`.
 
 **Surprises**: dcg 0.14.4 fails open on unparseable input unless `DCG_FAIL_CLOSED=1` is set, and
 lets `rm -rf /` written inside a heredoc through (v1's friction-log case now goes the other way).

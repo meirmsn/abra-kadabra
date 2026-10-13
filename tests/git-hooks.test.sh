@@ -72,6 +72,25 @@ grep -q "^DEVSHOP: the project's setup (scripts/setup.sh) failed (exit 7)" <<<"$
 rm -rf "$work/p/scripts"
 echo "ok - session start runs the repo's scripts/setup.sh; a failure is a DEVSHOP: line"
 
+# The Bash guard fails closed, so a missing dcg blocks every Bash command: session start says so up
+# front, when the installed plugin registers the guard. A plugin from before the guard: no line.
+mkdir -p /opt/devshop-plugin/devshop/hooks
+plugin_hooks=/opt/devshop-plugin/devshop/hooks/hooks.json
+cp "$repo_root/install/plugin/devshop/hooks/hooks.json" "$plugin_hooks"
+out=$(CLAUDE_PROJECT_DIR="$work/p" "$start" 2>&1)
+grep -q "^DEVSHOP: dcg is not installed .*every Bash command will be blocked" <<<"$out" || { echo "$out" >&2; fail "a missing dcg wasn't reported at session start"; }
+out=$(CLAUDE_PROJECT_DIR="$work/not-git" "$start" 2>&1)
+grep -q "^DEVSHOP: dcg is not installed" <<<"$out" || { echo "$out" >&2; fail "a missing dcg wasn't reported outside a git repo"; }
+printf '#!/usr/bin/env bash\n' >"$work/dcg" && chmod +x "$work/dcg" && ln -s "$work/dcg" /opt/devshop-tools/bin/dcg
+out=$(CLAUDE_PROJECT_DIR="$work/p" "$start" 2>&1)
+[ -z "$out" ] || { echo "$out" >&2; fail "session start spoke up with dcg installed"; }
+rm /opt/devshop-tools/bin/dcg
+jq 'del(.hooks.PreToolUse)' "$repo_root/install/plugin/devshop/hooks/hooks.json" >"$plugin_hooks"
+out=$(CLAUDE_PROJECT_DIR="$work/p" "$start" 2>&1)
+[ -z "$out" ] || { echo "$out" >&2; fail "a missing dcg was reported though the plugin registers no Bash guard"; }
+rm -rf /opt/devshop-plugin
+echo "ok - session start reports a missing dcg when the plugin's Bash guard would block every command"
+
 # A clean change pushes.
 commit_file "$work/p" app.txt "nothing secret"
 out=$(push p) && rc=0 || rc=$?
