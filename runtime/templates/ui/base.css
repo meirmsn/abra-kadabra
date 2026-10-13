@@ -1,0 +1,489 @@
+/*
+ * Devshop UI baseline (runtime/guidelines/ui.md). A project copies this file and owns it: change the
+ * colours, add components. Token names are shadcn/ui's, so a React app adopting shadcn/ui keeps
+ * them. Light is :root; dark is :root[data-theme="dark"] (the toggle) and, with the same values,
+ * the system-dark rule below (no toggle choice). Only these three rules declare custom properties;
+ * tokens-check.mjs holds that, and that every var() used here and in pages is defined.
+ */
+
+:root {
+  color-scheme: light;
+
+  --background: oklch(0.99 0.003 250);
+  --foreground: oklch(0.21 0.02 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.02 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.02 260);
+  --primary: oklch(0.5 0.19 262);
+  --primary-foreground: oklch(0.985 0.005 250);
+  --secondary: oklch(0.955 0.008 255);
+  --secondary-foreground: oklch(0.27 0.03 260);
+  --muted: oklch(0.955 0.008 255);
+  --muted-foreground: oklch(0.47 0.02 260);
+  --accent: oklch(0.94 0.025 262);
+  --accent-foreground: oklch(0.32 0.09 262);
+  --destructive: oklch(0.52 0.2 27);
+  --destructive-foreground: oklch(0.985 0.005 250);
+  --border: oklch(0.9 0.01 255);
+  --input: oklch(0.82 0.012 255);
+  --ring: oklch(0.6 0.17 262);
+  --shadow:
+    0 1px 2px oklch(0.2 0.02 260 / 6%), 0 1px 3px oklch(0.2 0.02 260 / 8%);
+
+  --radius: 0.75rem;
+  --font-sans:
+    system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --tap: 44px; /* minimum control size (L-72, WCAG 2.5.5) */
+  --measure: 68ch; /* longest comfortable line of text */
+  --page-max: 72rem;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --background: oklch(0.17 0.015 260);
+  --foreground: oklch(0.96 0.005 250);
+  --card: oklch(0.21 0.018 260);
+  --card-foreground: oklch(0.96 0.005 250);
+  --popover: oklch(0.21 0.018 260);
+  --popover-foreground: oklch(0.96 0.005 250);
+  --primary: oklch(0.72 0.14 262);
+  --primary-foreground: oklch(0.18 0.03 262);
+  --secondary: oklch(0.27 0.02 260);
+  --secondary-foreground: oklch(0.96 0.005 250);
+  --muted: oklch(0.27 0.02 260);
+  --muted-foreground: oklch(0.74 0.02 255);
+  --accent: oklch(0.3 0.05 262);
+  --accent-foreground: oklch(0.92 0.03 262);
+  --destructive: oklch(0.66 0.19 25);
+  --destructive-foreground: oklch(0.17 0.02 25);
+  --border: oklch(0.3 0.02 260);
+  --input: oklch(0.4 0.02 260);
+  --ring: oklch(0.68 0.14 262);
+  --shadow: 0 1px 2px oklch(0 0 0 / 30%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --background: oklch(0.17 0.015 260);
+    --foreground: oklch(0.96 0.005 250);
+    --card: oklch(0.21 0.018 260);
+    --card-foreground: oklch(0.96 0.005 250);
+    --popover: oklch(0.21 0.018 260);
+    --popover-foreground: oklch(0.96 0.005 250);
+    --primary: oklch(0.72 0.14 262);
+    --primary-foreground: oklch(0.18 0.03 262);
+    --secondary: oklch(0.27 0.02 260);
+    --secondary-foreground: oklch(0.96 0.005 250);
+    --muted: oklch(0.27 0.02 260);
+    --muted-foreground: oklch(0.74 0.02 255);
+    --accent: oklch(0.3 0.05 262);
+    --accent-foreground: oklch(0.92 0.03 262);
+    --destructive: oklch(0.66 0.19 25);
+    --destructive-foreground: oklch(0.17 0.02 25);
+    --border: oklch(0.3 0.02 260);
+    --input: oklch(0.4 0.02 260);
+    --ring: oklch(0.68 0.14 262);
+    --shadow: 0 1px 2px oklch(0 0 0 / 30%);
+  }
+}
+
+/* ---- Base ---- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.5;
+  overflow-wrap: break-word;
+  -webkit-font-smoothing: antialiased;
+}
+
+img,
+svg,
+video {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0 0 var(--space-2);
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+h1 {
+  font-size: clamp(1.5rem, 1.2rem + 1.5vw, 2.25rem);
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  font-size: 1.125rem;
+}
+
+p {
+  max-width: var(--measure);
+  margin: 0 0 var(--space-4);
+}
+
+a {
+  color: var(--primary);
+  text-underline-offset: 0.2em;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+.muted {
+  color: var(--muted-foreground);
+}
+
+/* ---- Layout: one column on a phone, wider from 768 px, a 3-column grid from 1280 px ---- */
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--background);
+  border-bottom: 1px solid var(--border);
+}
+
+.site-header > .inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  max-width: var(--page-max);
+  margin-inline: auto;
+  padding: var(--space-2) var(--space-4);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  font-weight: 650;
+  font-size: 1.0625rem;
+  color: var(--foreground);
+  text-decoration: none;
+}
+
+.page {
+  width: 100%;
+  max-width: var(--page-max);
+  margin-inline: auto;
+  padding: var(--space-6) var(--space-4) var(--space-8);
+}
+
+.stack > * + * {
+  margin-top: var(--space-6);
+}
+
+.site-footer {
+  max-width: var(--page-max);
+  margin-inline: auto;
+  padding: var(--space-6) var(--space-4);
+  border-top: 1px solid var(--border);
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+}
+
+.grid {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 768px) {
+  .site-header > .inner,
+  .page,
+  .site-footer {
+    padding-inline: var(--space-8);
+  }
+
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* ---- Components ---- */
+
+.card {
+  background: var(--card);
+  color: var(--card-foreground);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+  box-shadow: var(--shadow);
+}
+
+.card > :last-child {
+  margin-bottom: 0;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--card);
+  color: var(--card-foreground);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.list > li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: var(--tap);
+  padding: var(--space-2) var(--space-4);
+}
+
+.list > li + li {
+  border-top: 1px solid var(--border);
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.125rem var(--space-2);
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-size: 0.8125rem;
+  font-weight: 550;
+  white-space: nowrap;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* ---- Controls: the L-72 contract, set once here ---- */
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/* Tappable at once, no double-tap zoom delay. */
+a,
+button,
+input,
+select,
+textarea,
+summary,
+label,
+[role='button'] {
+  touch-action: manipulation;
+}
+
+button,
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--tap);
+  min-width: var(--tap);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 0.25rem);
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+  font-weight: 550;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    filter 0.15s,
+    transform 0.08s;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: transparent;
+}
+
+.btn-secondary {
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+}
+
+.btn-destructive {
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+  border-color: transparent;
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--foreground);
+  border-color: var(--input);
+}
+
+@media (hover: hover) {
+  :where(button, .btn, [role='button']):hover:not(
+      :disabled,
+      [aria-disabled='true']
+    ) {
+    filter: brightness(0.95);
+  }
+}
+
+/* The pressed state: one low-specificity rule every control inherits. */
+:where(button, .btn, [role='button'], summary):active:not(
+    :disabled,
+    [aria-disabled='true']
+  ) {
+  transform: scale(0.97);
+  filter: brightness(0.9);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+:where(button, .btn):disabled,
+:where(button, .btn)[aria-disabled='true'] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Busy: disabled at once; the spinner shows only after a delay, so fast actions don't flicker. */
+[aria-busy='true'] {
+  cursor: progress;
+}
+
+:where(button, .btn)[aria-busy='true'] {
+  opacity: 0.85;
+}
+
+:where(button, .btn)[aria-busy='true']::before {
+  content: '';
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  opacity: 0;
+  animation:
+    busy-show 0s 250ms forwards,
+    busy-spin 0.7s linear infinite;
+}
+
+@keyframes busy-show {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes busy-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+/* Forms */
+
+.field {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.field > label {
+  font-weight: 550;
+}
+
+input:not([type='checkbox'], [type='radio'], [type='hidden']),
+select,
+textarea {
+  width: 100%;
+  min-height: var(--tap);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--input);
+  border-radius: calc(var(--radius) - 0.25rem);
+  background: var(--background);
+  color: var(--foreground);
+}
+
+textarea {
+  min-height: 6rem;
+  resize: vertical;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--tap);
+  cursor: pointer;
+}
+
+input[type='checkbox'],
+input[type='radio'] {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+  accent-color: var(--primary);
+}
+
+.form {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 40rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
