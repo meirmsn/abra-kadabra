@@ -60,7 +60,7 @@ run_one() {
   IFS=: read -r id case plant seed <<<"$1"
   [[ "$id" =~ ^[a-z0-9-]+$ ]] || { echo "bad run id '$id'" >&2; return 2; }
   base=$(case_base "$case")
-  wt=$(mktemp -d)/wt
+  wt=$(mktemp -d)/wt-$id # unique name: parallel runs raced for git's .git/worktrees/wt<n> (W10.6.9)
   git -C "$fixture" worktree add -q -b "eval-run/$id" "$wt" "eval/$case"
   if [ -n "$plant" ]; then
     if [ -n "$replay" ]; then
