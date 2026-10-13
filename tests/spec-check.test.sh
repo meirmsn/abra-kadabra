@@ -105,3 +105,58 @@ check "a missing file can't run" 2 "$work/nope.md"
 rc=0; "$script" >/dev/null 2>&1 || rc=$?
 [ "$rc" = 2 ] || fail "no argument: expected exit 2, got $rc"
 echo "ok - no argument can't run"
+
+# --tests: the acceptance→test check (TARGET Verify; F-NEW-37). Every AC-<n> not marked "verified
+# by review" must be named, as a word, in a file under a --tests path.
+# tcheck <name> <want exit> [problem the output must name] -- <spec-check arguments>
+tcheck() {
+  local name=$1 want=$2 needle=$3 rc=0
+  shift 4
+  "$script" "$@" >"$work/out.log" 2>&1 || rc=$?
+  [ "$rc" = "$want" ] || { cat "$work/out.log" >&2; fail "$name: expected exit $want, got $rc"; }
+  [ -z "$needle" ] || grep -qF -- "$needle" "$work/out.log" || { cat "$work/out.log" >&2; fail "$name: output doesn't name '$needle'"; }
+  echo "ok - $name"
+}
+mkdir -p "$work/t/unit" "$work/t/unit/node_modules/dep" "$work/specs/sub"
+cat >"$work/t/unit/cart.test.js" <<'T'
+it("AC-1: the cart follows the shopper", () => {});
+it("AC-2: a 30-day-old cart is empty", () => {});
+T
+cp "$work/good.md" "$work/specs/cart.md"
+tcheck "--tests: every item named by a test passes (AC-3 is verified by review)" 0 "" -- \
+  --tests "$work/t" "$work/good.md"
+sed -i 's/AC-2: a 30/a 30/' "$work/t/unit/cart.test.js"
+tcheck "--tests: an item whose test lost its AC name fails, naming it" 1 "AC-2" -- \
+  --tests "$work/t" "$work/good.md"
+grep -q "AC-1" "$work/out.log" && fail "--tests: AC-1 has a test but is reported"
+echo 'test("AC-21 is another item", () => {});' >"$work/t/unit/other.test.js"
+tcheck "--tests: AC-21 doesn't count as AC-2" 1 "AC-2" -- --tests "$work/t" "$work/good.md"
+echo '// AC-2' >"$work/t/unit/node_modules/dep/index.js"
+tcheck "--tests: a name under node_modules doesn't count" 1 "AC-2" -- --tests "$work/t" "$work/good.md"
+echo 'it("AC-2: expires", () => {});' >"$work/t/expiry.test.js"
+tcheck "--tests: a test in any --tests path counts" 0 "" -- --tests "$work/t/unit" --tests "$work/t" "$work/good.md"
+rm "$work/t/expiry.test.js"
+sed -i 's/AC-3\*\* The cart badge/AC-3** The cart\n  badge/' "$work/good.md"
+python3 - "$work/good.md" <<'P'
+import sys
+p = sys.argv[1]; s = open(p).read()
+s = s.replace("item count after sign-in. — verified by review: sign in", "item count after sign-in.\n  — verified by review: sign in")
+open(p, "w").write(s)
+P
+echo 'it("AC-2: expires", () => {});' >"$work/t/unit/expiry.test.js"
+tcheck "--tests: a 'verified by review' mark on the item's continuation line counts" 0 "" -- \
+  --tests "$work/t" "$work/good.md"
+sed 's/ — verified by review: sign in on a second browser and read the badge//' "$work/specs/cart.md" >"$work/specs/sub/badge.md"
+tcheck "--tests: a directory of specs is checked spec by spec, below it too" 1 "badge.md: AC-3" -- \
+  --tests "$work/t" "$work/specs"
+mkdir -p "$work/nospecs"
+tcheck "--tests: a directory with no specs passes and says so" 0 "no specs" -- --tests "$work/t" "$work/nospecs"
+tcheck "--tests: a path that doesn't exist can't run" 2 "nope" -- --tests "$work/nope" "$work/good.md"
+mkdir -p "$work/empty"
+tcheck "--tests: no test files under the paths can't run" 2 "no test files" -- --tests "$work/empty" "$work/good.md"
+tcheck "--tests: a missing spec can't run" 2 "nope.md" -- --tests "$work/t" "$work/nope.md"
+printf '# Bad\n\xff\xfe\n' >"$work/bad.md"
+tcheck "--tests: a spec that isn't UTF-8 can't run" 2 "bad.md" -- --tests "$work/t" "$work/bad.md"
+tcheck "--tests: a spec without acceptance items fails" 1 "Acceptance items" -- \
+  --tests "$work/t" "$(variant noacc 'import re; s = re.sub(r"## Acceptance items.*?(?=## Core flow)", "", s, flags=re.S)')"
+tcheck "--tests without a value can't run" 2 "" -- "$work/good.md" --tests

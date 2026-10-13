@@ -2360,3 +2360,43 @@ Planted 74/74 fail on their plant. $7.65 for 110 reviews (before: $7.33).
 
 **Next**: the rest of W10.6.9 (F-NEW-36, F-NEW-37), then W10.6.10. Run 2 is the next test of the
 rule on a real build.
+
+## #56 — 2026-10-13 · W10.6.9 part b: CI fails an untested acceptance item; fixture fixes
+
+**What moved**: F-NEW-37, which D-16 makes blocking for run 2, and three in-passing findings.
+Checks came first; each new case failed on the old code.
+
+- **Acceptance→test check (F-NEW-37).** `runtime/scripts/spec-check.py` checked a spec's shape
+  only. `--tests <path>` now fails each `AC-<n>` not marked "verified by review" that no file under
+  the test paths names. It takes a directory of specs and reads an item's continuation lines (the
+  fixture's AC-10 carries its "verified by review" mark there). A missing or unreadable spec or test
+  path exits 2. `tests/spec-check.test.sh` gained 14 cases; 12 of 12 mutants killed.
+- **Wired in twice.** `runtime/templates/check-fast.sh` (new) is a project's fast tier with the
+  secret scan and this check; `tests/check-fast-template.test.sh` shows a lost name fails it, and a
+  missing check, `python3` or `specs/` exits 2. The fixture's `check-fast.sh` runs it over `test/`
+  and `tests/` (fixture PR 18). With the run-1 plant reapplied (AC-4's test title stripped), the
+  fixture's `fast` tier exits 1 naming AC-4; clean, it exits 0.
+- **The check counted its own test.** The fixture's new test named `AC-4` to strip it, which made
+  it AC-4's "test". It now builds the name at run time. The general limit (names, not tests; AC
+  numbers shared across specs; the project's copy of the script unchecked against the pin) is
+  F-NEW-49.
+- **gitleaks flake (F-NEW-45).** Reproduced: 15 of 3,000 random values missed with the fixture's
+  config, 12 of 3,000 with this repo's. Alternating letters and digits: 0 of 3,000 and 50/50 test
+  runs, in both repos (this repo's test had the same flake).
+- **Stale baselines (F-NEW-34).** The reset refuses a tag whose `ci.yml` lacks the `fast` and `slow`
+  jobs: the real `baseline-2` is refused, `baseline-3` accepted. A rule covers the rest: after any
+  fixture PR merges outside a test run, the owner tags a new baseline (W10-v2 § W10.5).
+- **README (F-NEW-35, README half).** The fixture's reset section no longer names a harness.
+
+**Not yet shown** (owner asked how this was tested): `fast` going red on GitHub with the plant; the red
+result above is a local run of the same script. `tests/check-fast-template.test.sh` was written after the
+template, not before; mutants stand in (4 of 5 killed, the survivor equivalent). The template has not run
+in a real new project. F-NEW-49 is the first entry on a new watch list in FINDINGS (symptoms, likely
+causes, a count; v1's friction log until the `lesson` ledger exists), so a recurrence can be matched.
+
+**For the owner**: open a draft PR from fixture branch `probe/ac4-untested` against the PR 18 branch;
+`fast` must fail naming AC-4, then close it. After fixture PR 18 merges, tag `baseline-4` on its merge commit
+(`baseline-3` lacks the check). Once this PR merges, re-pin the fixture to it, so its
+`scripts/spec-check.py` matches the pin.
+
+**Next**: the rest of W10.6.9 (F-NEW-36, F-NEW-40, F-NEW-39), then W10.6.10.
