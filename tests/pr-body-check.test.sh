@@ -2,7 +2,9 @@
 # Tests runtime/scripts/pr-body-check.py, the shape check for the PR body template
 # (runtime/templates/pr-body.md, TARGET § L3 Review): a filled-in body passes; the unfilled template,
 # a summary that isn't one short line, a missing or unlinked preview, sections missing or out of
-# order, details not collapsed, evidence linked by branch and an over-long title all fail.
+# order, details not collapsed, evidence linked by branch and an over-long title all fail. Since
+# W10.6.11: a missing or misshapen summary paragraph, an announcement in developer words, screenshots
+# left off the PR and images on raw.githubusercontent.com (404 for a private repo's viewers) fail too.
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
@@ -33,6 +35,9 @@ sha=0123456789abcdef0123456789abcdef01234567
 cat >"$work/good.md" <<EOF
 Shoppers can save a cart and come back to it on another device.
 
+A signed-in shopper's cart now follows them to any device, instead of living in one browser. It matters
+because most carts are started on a phone and finished on a laptop.
+
 **Preview:** [the deploy comment on this PR](https://github.com/acme/shop/pull/12#issuecomment-1)
 
 ## Announcement
@@ -49,8 +54,9 @@ You can now save your cart and pick it up later on any device you sign in on.
 
 ## Evidence
 
-- **Screenshots:** ![saved cart](https://github.com/acme/shop/blob/$sha/docs/shots/cart.png)
-  and ![empty](https://github.com/user-attachments/assets/1b2c3d4e-0000-4000-8000-000000000000)
+- **Screenshots:**
+  - Step 1, save the cart: ![saved cart](https://github.com/acme/shop/raw/$sha/1-saved-cart.png)
+  - Empty state: ![empty](https://github.com/user-attachments/assets/1b2c3d4e-0000-4000-8000-000000000000)
 - **Reviewer:** pass on every lens for commit ${sha:0:7}
 - **CI:** green for commit ${sha:0:7}
 - **Low findings:** none
@@ -75,11 +81,50 @@ check "native: no preview, simulator screenshots instead, passes" 0 "$(variant n
 check "template syntax quoted in code is not a placeholder" 0 "$(variant quoted-code \
   's = s.replace("rollback needs no database change.", "rollback needs no database change. Renders \x60{{ cart.total }}\x60:\n\n\x60\x60\x60\n{{ cart.items }}\n\x60\x60\x60")')"
 
+check "no screenshots for a change without UI passes" 0 "$(variant no-ui \
+  's = re.sub(r"- \*\*Screenshots:\*\*\n(  - .*\n)+", "- **Screenshots:** no UI change\n", s)')"
+check "a three-sentence paragraph passes" 0 "$(variant three-sentences \
+  's = s.replace("finished on a laptop.", "finished on a laptop. Carts expire after a month.")')"
+check "an abbreviation is not a sentence end" 0 "$(variant abbrev \
+  's = s.replace("on a phone", "on a phone, e.g. on the bus,")')"
+check "an image or GitHub link quoted in code is not checked" 0 "$(variant quoted-image \
+  's = s.replace("rollback needs no database change.", "rollback needs no database change. It prints \x60![x](https://github.com/<o>/<r>/raw/<commit>/a.png)\x60.")')"
+check "plain words that look technical pass in the announcement" 0 "$(variant announce-plain \
+  's = s.replace("any device you sign in on.", "any device you sign in on, 24/7, and/or share it from https://shop.example.com/help. Up to 500 items.")')"
+
 check "the unfilled template fails" 1 "$template" "placeholder left: {{"
 
 check "a heading as the summary fails" 1 "$(variant heading-summary 's = "# " + s')" "plain one-line summary"
 check "a two-line summary fails" 1 "$(variant two-lines 's = s.replace("device.\n", "device.\nAnd more.\n", 1)')" "summary must be one line"
 check "an over-long summary fails" 1 "$(variant long-summary 's = "x" * 121 + s[s.index("\n"):]')" "summary: 121 characters"
+check "a body without the summary paragraph fails" 1 "$(variant no-paragraph \
+  's = re.sub(r"A signed-in.*?laptop\.\n\n", "", s, flags=re.S)')" "no summary paragraph"
+check "a one-sentence paragraph fails" 1 "$(variant one-sentence \
+  's = s.replace(" It matters\nbecause most carts are started on a phone and finished on a laptop.", "")')" "summary paragraph: 1 sentence"
+check "a four-sentence paragraph fails" 1 "$(variant four-sentences \
+  's = s.replace("finished on a laptop.", "finished on a laptop. One. Two.")')" "summary paragraph: 4 sentences"
+check "a list in place of the paragraph fails" 1 "$(variant list-paragraph \
+  's = s.replace("A signed-in shopper", "- A signed-in shopper")')" "summary paragraph must be plain prose"
+check "two paragraphs before the preview fail" 1 "$(variant two-paragraphs \
+  's = s.replace("finished on a laptop.\n", "finished on a laptop.\n\nAnd one more thing. Really.\n")')" "one paragraph"
+check "an announcement naming an acceptance item fails" 1 "$(variant announce-ac \
+  's = s.replace("any device you sign in on.", "any device you sign in on (AC-3).")')" "Announcement: developer words"
+check "an announcement naming a route fails" 1 "$(variant announce-route \
+  's = s.replace("pick it up later", "pick it up later at /cart/saved")')" "Announcement: developer words"
+check "an announcement naming a file fails" 1 "$(variant announce-file \
+  's = s.replace("You can now", "Per saved-cart.md, you can now")')" "Announcement: developer words"
+check "an announcement naming a status code fails" 1 "$(variant announce-status \
+  's = s.replace("on any device you sign in on.", "on any device; a missing cart gives a 404 page.")')" "Announcement: developer words"
+check "an announcement with code fails" 1 "$(variant announce-code \
+  's = s.replace("save your cart", "save your \x60cart\x60")')" "Announcement: developer words"
+check "an image quoted in code is not a screenshot" 1 "$(variant shots-in-code \
+  's = re.sub(r"- \*\*Screenshots:\*\*\n(  - .*\n)+", "- **Screenshots:** pr-assets.sh prints \x60![a](https://github.com/acme/shop/raw/x/a.png)\x60\n", s)')" "**Screenshots:** needs at least one image"
+check "a stray backtick doesn't hide a bad image paragraphs later" 1 "$(variant stray-backtick \
+  "s = s.replace('carts were lost', 'carts were lost').replace('- **Behaviour change:** a', '- **Behaviour change:** a \x60stray').replace('https://github.com/acme/shop/raw/$sha', 'https://raw.githubusercontent.com/acme/shop/$sha').replace('rollback needs no database change.', 'rollback needs no \x60database change.')")" "raw.githubusercontent.com"
+check "screenshots kept off the PR fail" 1 "$(variant shots-in-chat \
+  's = re.sub(r"- \*\*Screenshots:\*\*\n(  - .*\n)+", "- **Screenshots:** taken; not embedded here (no image host in this session)\n", s)')" "**Screenshots:** needs at least one image"
+check "an image on raw.githubusercontent.com fails, even pinned" 1 "$(variant raw-host \
+  "s = s.replace('https://github.com/acme/shop/raw/$sha', 'https://raw.githubusercontent.com/acme/shop/$sha')")" "raw.githubusercontent.com"
 check "a missing preview fails" 1 "$(variant no-preview 's = re.sub(r"\*\*Preview:\*\*.*\n", "", s)')" "no **Preview:** line"
 check "a preview without a link or a reason fails" 1 "$(variant bare-preview \
   's = re.sub(r"\*\*Preview:\*\*.*", "**Preview:** see the bot", s)')" "**Preview:** needs a link"
@@ -101,10 +146,10 @@ check "engineering details as a heading, not collapsed, fails" 1 "$(variant open
   's = s.replace("<details>\n<summary>Engineering details</summary>", "## Engineering details").replace("</details>", "")')" "no collapsed <details>"
 check "details that are never closed fail" 1 "$(variant unclosed 's = s.replace("</details>", "")')" "no collapsed <details>"
 check "a heading after the details fails" 1 "$(variant after-details 's = s + "\n## More\n\ntext\n"')" "a heading after the engineering details"
-check "evidence linked by branch fails (L-30)" 1 "$(variant branch-image "s = s.replace('blob/$sha', 'blob/main')")" "linked by 'main', not a commit SHA"
+check "evidence linked by branch fails (L-30)" 1 "$(variant branch-image "s = s.replace('raw/$sha', 'raw/main')")" "linked by 'main', not a commit SHA"
 check "raw evidence linked by branch fails (L-30)" 1 "$(variant raw-branch-image \
-  "s = s.replace('https://github.com/acme/shop/blob/$sha', 'https://raw.githubusercontent.com/acme/shop/feature/cart')")" "linked by 'feature', not a commit SHA"
-check "a relative image fails" 1 "$(variant relative-image "s = s.replace('https://github.com/acme/shop/blob/$sha/', '')")" "not an absolute https URL"
+  "s = s.replace('https://github.com/acme/shop/raw/$sha', 'https://raw.githubusercontent.com/acme/shop/feature/cart')")" "linked by 'feature', not a commit SHA"
+check "a relative image fails" 1 "$(variant relative-image "s = s.replace('https://github.com/acme/shop/raw/$sha/', '')")" "not an absolute https URL"
 TITLE=$(printf 'x%.0s' {1..73}) check "a title over 72 chars fails" 1 "$work/good.md" "title: 73 characters"
 
 check "a missing body file fails closed" 2 "$work/nonexistent.md" "can't read"

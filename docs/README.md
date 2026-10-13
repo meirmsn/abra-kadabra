@@ -72,12 +72,24 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
 ## What projects get (`runtime/`)
 
 - PR body: [`runtime/templates/pr-body.md`](../runtime/templates/pr-body.md) is the template for
-  every project PR (TARGET § L3 Review): one-line summary, preview link, announcement (only when
-  user-facing), what you should know, evidence, then engineering details collapsed.
+  every project PR (TARGET § L3 Review): one-line summary, a 2–3 sentence paragraph, preview link,
+  announcement (a release note in the app user's words, only when user-facing), what you should
+  know, evidence, then engineering details collapsed.
   [`runtime/scripts/pr-body-check.py`](../runtime/scripts/pr-body-check.py) checks a filled-in
-  body has that shape (sections and lines in order, preview present, no placeholder left,
-  evidence pinned to a commit); whether the words are true is the reviewer's job. Proven by
+  body has that shape (sections and lines in order, the paragraph 2–3 sentences, preview present,
+  no developer words in the announcement, screenshots on the PR or "no UI change", no placeholder
+  left, images pinned to a commit and never on `raw.githubusercontent.com`); whether the words are
+  true is the reviewer's job. Proven by
   [`tests/pr-body-check.test.sh`](../tests/pr-body-check.test.sh).
+- PR screenshots: [`runtime/scripts/pr-assets.sh`](../runtime/scripts/pr-assets.sh) puts them in
+  one parentless commit and moves the PR's branch to a merge of HEAD and that commit whose files
+  are HEAD's, so the PR's files and diff don't change and nothing needs removing. `ship`'s push of
+  the branch carries them to GitHub, which keeps them with the PR after the merge. It prints the
+  image lines (`https://github.com/<owner>/<repo>/raw/<sha>/<file>`) for the body's
+  **Screenshots:**, and refuses a repo that allows merge commits or rebase merges (they would carry
+  the images into the default branch). Proven by
+  [`tests/pr-assets.test.sh`](../tests/pr-assets.test.sh), which also walks a PR's life on a local
+  remote: retakes, fix rounds, a squash merge, the branch deleted, a fresh clone.
 - Spec: [`runtime/templates/spec.md`](../runtime/templates/spec.md) is the template for a change's
   spec in the project's `specs/` (TARGET § L3 Intent 2): intent, decisions, acceptance items
   `AC-<n>`, core flow and states for UI, out of scope, and the owner's recorded "go".

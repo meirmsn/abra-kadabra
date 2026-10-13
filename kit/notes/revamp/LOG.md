@@ -2224,3 +2224,97 @@ it stays clean; each session files its own task line, so none is tracked in W10 
 
 **Next**: W10.6.9 (the blocking gaps, the in-passing ones), then W10.6.10 (run 2). W10.7 waits on a
 run that meets the M1 exit.
+
+## #54 — 2026-10-13 · W10.6.11: PR body for the owner's reading, screenshots on the PR
+
+**What moved**: the owner's feedback on the PR bodies of a W10.6.4 run, filed first as W10.6.9, renumbered W10.6.11 when `main` gave that id to the run-1 gaps (LOG #53); it closes F-NEW-43. Tests
+came first: 12 new cases in `tests/pr-body-check.test.sh` each failed on the old check, and every
+old case still passed.
+
+- **Second level.** Under the one-line summary, one plain paragraph of 2–3 sentences on what
+  changed and why it matters, before the **Preview:** line. The template quotes the owner's example
+  as the register. The check counts sentences (an end before a capital or the end, so "e.g. the
+  bus" is one sentence) and refuses markup or a second paragraph.
+- **Announcement as a release note.** The template's guidance says what the person who uses the app
+  can now do, in their words. The check refuses developer words there: code, `AC-<n>`, routes, file
+  names and status codes ("a 404 page", "error 500"; "500 items" passes).
+- **Screenshots on the PR.** `**Screenshots:**` needs an image or "no UI change", so "not embedded
+  here (no image host in this session)" fails. An image on `raw.githubusercontent.com` fails even
+  when pinned: a private repo's viewers get a 404 there.
+- **Code is quoted, not checked.** The image and GitHub-link checks read code spans, while the
+  placeholder check skipped them, so a body quoting an image line in code failed (found writing
+  this PR's body). Now all three skip code. Two more cases, each failing on the previous version.
+- **The image host** (owner: option B, a hidden ref first). The session's git proxy accepts pushes
+  to the session branch only (LOG W0.4.1), so `runtime/scripts/pr-assets.sh` uses GitHub's REST
+  git-data API through `gh`. Each blob's SHA must equal `git hash-object` of the file. The tree and
+  an orphan commit naming the branch and HEAD follow, then `refs/devshop-assets/<branch>/<head12>`,
+  created or moved with force when the screenshots are retaken. Ref, commit and tree are all read
+  back, and the script prints `![label](https://github.com/<owner>/<repo>/raw/<commit>/<file>)`
+  lines. `tests/pr-assets.test.sh` runs it against a stub `gh` with a fake object store; 11 of 11
+  mutants are killed (the tree read-back survived at first, and the test gained a case for it).
+
+**Owner calls**: Git LFS ruled out: its pointers still land on `main`, its objects can't be deleted,
+and every clone downloads them. Adding and then removing the images on the PR branch was ruled out
+as fiddly. A `devshop-assets` branch is the fallback, if GitHub refuses a ref outside `refs/heads/`.
+
+**Decision**: the Build skill runs `pr-assets.sh` before writing the body, and `ship` doesn't run it
+after the pass. The links have to be in the words `ship` reviews and posts (F-NEW-27), and they
+depend on the upload. An upload for a change that then fails review only leaves a hidden ref.
+
+**Surprises**: in this session auto mode refused a probe write of an unreferenced blob to this
+repo ("modify shared resources"). Projects will need `gh api` writes allowed for `pr-assets.sh`;
+the live run on the fixture will show the prompt. `tests/run.sh`: 22 of 25 files pass; `bootstrap`,
+`git-hooks` and `pre-bash` fail identically on a clean `main` worktree here (LOG #52).
+
+**First ship, and a live probe** (owner's go, 2026-10-13): `ship` passed the review (0 blocking, 2
+low) and opened PR #95, then stopped with exit 2: something on the session's path to GitHub dropped
+the `!` from a code-quoted image line in the body. Both low findings were fixed: each upload now
+gets its own never-moved ref, `refs/devshop-assets/<branch>/<head12>-<commit12>`; and a template
+line was rewrapped (14 of 14 mutants killed). The probe on this repo found the REST git-data path
+**closed**: the session's GitHub proxy answers "Write access to this GitHub API path is not
+permitted through this proxy" (HTTP 403) on the first blob, and `pr-assets.sh` failed closed. A plain
+`git push` of the same commit to the hidden ref never left the session: the review guard refuses any
+push while the branch has an open PR, and auto mode refused it too. Whether the git proxy accepts a
+ref outside `refs/heads/` is still unknown.
+
+**Left**: the owner's call on the upload route: (A) push the hidden ref with plain git (needs the
+guard to allow `refs/devshop-assets/*`, a permission rule, and the proxy to accept it), or (B) carry
+the screenshots on the PR branch as the second parent of a merge commit whose files equal the code
+(the push the proxy allows; nothing to remove). Then the live render check in the browser and the
+GitHub mobile app, before and after merge.
+
+**Next**: W10.6.9 (LOG #53).
+
+**The one probe push** (owner's go): `git push origin <commit>:refs/devshop-assets/…` from a
+detached worktree (the review guard refuses any push from a branch with an open PR) got `HTTP 403`
+from the session's git proxy; `git ls-remote` shows nothing was created. So a cloud session can push
+only its own branch, and the screenshots ride on it. **Route B, built test-first**:
+`pr-assets.sh` writes the images as a parentless commit S (local `git hash-object`, `mktree`,
+`commit-tree`) and moves the branch to a merge of HEAD and S with HEAD's tree, so the PR's files and
+diff don't change. `ship`'s ordinary push carries S; GitHub keeps it with the PR
+(`refs/pull/<n>/head`) after the merge and the branch's deletion. The script reads the repo's
+merge settings and refuses unless squash is the only method (a merge commit or rebase merge would
+carry S into the default branch). The test walks a PR's life on a local remote: two uploads, a
+retake, a fix round, a squash merge, the branch deleted, a fresh `file://` clone without S; 16 of 16
+mutants killed. The reviewer prompt names the two screenshot commits as not part of the change. The
+PR body check's inline code no longer crosses a blank line (the reviewer's low finding), test first.
+
+**Signing** (found by the session's stop hook before anything was pushed): `git commit-tree` ignores
+`commit.gpgsign`, so the two screenshot commits were unsigned, which GitHub shows as Unverified and a
+signed-commits rule would refuse. `ship` was stopped before its push and the branch reset to the last
+signed commit; the script now passes `-S` when `commit.gpgsign` is on (test first, with a stub
+signer).
+
+**Reviewer exemption checked, not trusted** (the reviewer's `medium` security finding): the prompt
+first exempted the two screenshot commits by title, which the builder controls. Now the reviewer
+checks it with its allowed commands: the merge's `git diff <merge>^1 <merge>` is empty, the assets
+commit has no parents and only image files; otherwise they are reviewed as normal, and a title that
+claims screenshots but fails is a `high` security finding.
+
+**Live result** (PR #95, `ship` pass at round 2): GitHub kept the body as reviewed, image line
+included, and renders it as a plain `<img>` of the `github.com/…/raw/<sha>/…` URL; the API shows the
+file at that SHA with the local size and blob SHA. The **owner confirmed the probe renders in the
+browser** (screenshot in chat). The reviewer's last two lows are fixed before merge: its screenshot
+check also confirms the merge has exactly two parents, the second the checked commit; the empty
+signing array expands safely on bash before 4.4. Left: the GitHub mobile app, and a look after the
+merge and the branch's deletion.
