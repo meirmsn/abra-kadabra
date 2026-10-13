@@ -21,12 +21,12 @@ reachable from this page through links, or when a relative link or `#anchor` is 
   [`tests/check-tiers.test.sh`](../tests/check-tiers.test.sh) and
   [`tests/run-tiers.test.sh`](../tests/run-tiers.test.sh).
 - Secret scanning: [`.gitleaks.toml`](../.gitleaks.toml) is gitleaks' default rule set. CI's fast
-  tier runs [`tests/gitleaks.test.sh`](../tests/gitleaks.test.sh),
-  which commits fake secrets to a scratch repo and fails unless every one is caught. CI then
-  runs [`scripts/secret-scan.sh`](../scripts/secret-scan.sh) over the commits a change adds and
-  the whole tree; [`tests/secret-scan.test.sh`](../tests/secret-scan.test.sh) proves it fails
-  on a secret in either place. To run it locally, install gitleaks (the version pinned in
-  `ci.yml`) and run `tests/run.sh`.
+  tier first runs [`scripts/secret-scan.sh`](../scripts/secret-scan.sh) over the commits a change
+  adds and the whole tree, then, with the other tests,
+  [`tests/gitleaks.test.sh`](../tests/gitleaks.test.sh), which commits fake secrets to a scratch
+  repo and fails unless every one is caught; [`tests/secret-scan.test.sh`](../tests/secret-scan.test.sh)
+  proves the scan fails on a secret in either place. To run it locally, install gitleaks (the
+  version pinned in `ci.yml`) and run `tests/run.sh`.
 - Lint: CI's fast tier runs [`scripts/lint.sh`](../scripts/lint.sh), the same script the devshop's
   pre-push hook runs in a session; [`scripts/lint-file.sh`](../scripts/lint-file.sh)
   is the per-file version the per-edit nudge runs. Each check is a script proven by the test of the
