@@ -1,7 +1,7 @@
 # W10.6.5 reviewer eval (A-12)
 
 The real, pinned reviewer on the fixture: 5 honest changes × 3 runs and 15 planted changes × 1 run,
-2026-10-12/13. LOG #47.
+2026-10-12/13. LOG #49.
 
 - **Run 1**, the reviewer as on `main` at `c6a84a5`: precision 1.0, **recall 0.33**. It mostly lost
   its Bash after one refused command and reviewed by reading (`results/`).
@@ -33,7 +33,7 @@ The real, pinned reviewer on the fixture: 5 honest changes × 3 runs and 15 plan
 - `run.sh` is the driver. Verdict files: `results/*.verdict.json`; table: `results/results.tsv`.
 - Every verdict's `reviewer.session_id` is the same: the nested `claude -p` inherits the calling
   session's id from the environment (`CLAUDE_CODE_SESSION_ID`), so the field doesn't identify a
-  review. A reviewer defect, raised with the owner in LOG #47, not fixed here.
+  review. A reviewer defect, fixed for run 2 (F-NEW-29, below).
 
 ## Results
 

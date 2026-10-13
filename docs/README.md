@@ -47,10 +47,11 @@ reachable from this page through links, or when a relative link or `#anchor` is 
 ## The install
 
 - [install/README.md](../install/README.md): how a project's cloud session gets the devshop version
-  it pins (`.devshop-version`), what each `DEVSHOP:` line means, the devshop's git hooks and per-edit
-  nudge, and the limits. Proven by [`tests/bootstrap.test.sh`](../tests/bootstrap.test.sh),
-  [`tests/git-hooks.test.sh`](../tests/git-hooks.test.sh) and
-  [`tests/post-edit.test.sh`](../tests/post-edit.test.sh).
+  it pins (`.devshop-version`), what each `DEVSHOP:` line means, the devshop's git hooks, per-edit
+  nudge and Bash guard (dcg), and the limits. Proven by [`tests/bootstrap.test.sh`](../tests/bootstrap.test.sh),
+  [`tests/git-hooks.test.sh`](../tests/git-hooks.test.sh),
+  [`tests/post-edit.test.sh`](../tests/post-edit.test.sh) and
+  [`tests/pre-bash.test.sh`](../tests/pre-bash.test.sh).
 
 ## What projects get (`runtime/`)
 
@@ -71,10 +72,12 @@ reachable from this page through links, or when a relative link or `#anchor` is 
   uses. Proven by [`tests/stack-homes.test.sh`](../tests/stack-homes.test.sh).
 - Discipline guidelines: [runtime/guidelines/README.md](../runtime/guidelines/README.md).
 - Reviewer: [runtime/reviewer/README.md](../runtime/reviewer/README.md) is the independent
-  reviewer script, how it is locked down and what that is worth, how its verdict reaches the PR
-  (a comment, and the `review-verdict` check for a missing or stale one), and its proof
-  ([`tests/reviewer.test.sh`](../tests/reviewer.test.sh) and
-  [`tests/reviewer-pr.test.sh`](../tests/reviewer-pr.test.sh) in CI,
+  reviewer script, how it is locked down and what that is worth, `ship` (review in the VM, then
+  code, words and the verdict comment go on the PR together), the guard that refuses other ways to a
+  PR, and its proof ([`tests/reviewer.test.sh`](../tests/reviewer.test.sh),
+  [`tests/reviewer-pr.test.sh`](../tests/reviewer-pr.test.sh),
+  [`tests/ship.test.sh`](../tests/ship.test.sh) and
+  [`tests/review-guard.test.sh`](../tests/review-guard.test.sh) in CI,
   [`tests/reviewer-live.sh`](../tests/reviewer-live.sh) in a session).
 
 ## The revamp (being built)

@@ -5,41 +5,74 @@ has none of the builder's context (TARGET Verify 3–6, W10.6.2). It finds the s
 `specs/**.md` file the change adds or changes. With none (a bug fix, a change working from a task
 line) it reviews against the PR's own words, else the commit messages, and a change that should
 have had a spec fails. Given the PR's title and body, it also checks them against the commit
-(Review 5). A hook starts it before the PR is created and before each later push (W10.6.7), so the
-builder never chooses whether it runs, and the PR opens only once it passes (W10.6.6). The interface (call, exit
-codes, stdout line, verdict file and format) is in
+(Review 5). Claude never runs it directly: [`ship`](#ship) runs it in the VM before anything reaches
+the PR, and the PR opens or changes only once it passes (W10.6.6, W10.6.7). The interface (call,
+exit codes, stdout line, verdict file and format) is in
 [W10-v2.md § W10.6.2](../../kit/notes/revamp/workstreams/W10-v2.md). Change it there first.
 
 ```sh
-/opt/devshop-current/reviewer/review.sh --base origin/main --pr <pr-words.json>
-# pr-words.json: {"title": "<the PR title>", "body": "<the PR body>"}; --pr is optional
+/opt/devshop-current/reviewer/ship.sh --title "<the PR title>" --body-file <the PR body file>
 ```
 
 ## Files (all pinned with the devshop version)
 
 | File                     | What                                                                            |
 | ------------------------ | ------------------------------------------------------------------------------- |
-| `review.sh`              | The script. Model, tools, timeout and rounds-to-ask are constants at its top    |
+| `ship.sh`                | Review, then push and put the PR's words and the verdict on the PR              |
+| `review.sh`              | The reviewer. Model, tools, timeout and rounds-to-ask are constants at its top  |
 | [`prompt.md`](prompt.md) | The reviewer's prompt: spec and intent first, then the lenses; severity scale   |
 | `verdict.schema.json`    | The schema the model's reply must match (`--json-schema`)                       |
 | `settings.json`          | Bash allowlist: read-only git and test commands. Anything else is refused       |
 | `pr-comment.sh`          | Renders a verdict file as the PR comment: per lens and item, tied to its commit |
-| `verdict-check.sh`       | Reads a PR's comments: is there a passing verdict for the head commit?          |
-| `verdict-wait.sh`        | The PR's `review-verdict` check: polls the comments until ok or time is up      |
+| `pr-words.sh`            | The PR's title and body as one canonical line: what is reviewed and posted      |
+
+## ship
+
+`ship.sh --title <text> --body-file <file> [--base <branch>]` is the one way Claude puts a change on
+a PR (W10.6.7; contract on the W10.6.7 line in W10-v2.md):
+
+1. It reviews the committed `HEAD` with exactly that title and body, in the VM:
+   `review.sh --base origin/<base> --pr <words>`. The base is `--base`, else the open PR's base,
+   else origin's default branch.
+2. Only a pass goes on. A fail (exit 1) pushes nothing and prints the `REVIEW:` line and each
+   blocking finding: fix, commit, ship again. Ask-owner (exit 3) and could-not-run (exit 2, also for
+   a dirty tree, a detached `HEAD`, bad arguments or a result it can't trust) push nothing and say
+   to ask the owner.
+3. On a pass it pushes the branch, then creates the PR, or updates the open PR's title, body and
+   base, with exactly the reviewed words. It reads them back: text GitHub appends to the body (an attribution footer)
+   is fine, since it can't change what was reviewed; a changed title or rewritten body is reported
+   (exit 2). Then it posts the verdict comment and prints
+   `SHIPPED: PR #<n> · <url> · <commit12>`. A GitHub failure after the push is exit 2, saying what
+   was done.
+
+Code and words go up together, so the PR always shows the reviewed commit with the reviewed words.
+
+## The guard
+
+[`runtime/hooks/review-guard.py`](../hooks/review-guard.py), the plugin's PreToolUse hook, keeps the
+other ways to a PR closed. It reviews nothing; it refuses, pointing to `ship`:
+
+- `gh pr create`; `gh pr edit` with a title, body or base;
+- `git push` while the current branch has an open PR (and when that can't be checked: `gh` fails);
+- the GitHub tools `create_pull_request`, `update_pull_request` with a title, body or base,
+  `update_pull_request_branch`, and `push_files`, `create_or_update_file`, `delete_file` on a branch
+  with an open PR.
+
+Everything else passes, without a GitHub call. It reads commands word by word: heredoc bodies and
+quoted text are not commands. A command it can't split is refused if its text names one of those
+commands. If the pinned guard or `python3` is missing, the plugin's fallback refuses the same calls
+by name.
 
 ## On the PR
 
-Each review is recorded on the PR as one comment, rendered by `pr-comment.sh` from the verdict file
-(TARGET Verify 7, L-25). Its first line is a marker with the full commit and the outcome; text from
-the model has `<` escaped and newlines flattened, so it can't form a second one, and `@` and `[`
-escaped, so it can't mention people or render markdown links and images (F-NEW-25; bare URLs and
-`#123` references still autolink). Paths shown in code spans stay literal. The hook (W10.6.7)
-posts it right after the PR is created or pushed. The `review-verdict` workflow runs
-`verdict-wait.sh` on every PR push: it passes once the latest marker is a pass for the head commit,
-and fails when the verdict is missing, stale (for an older commit) or failing after 10 minutes. It
-waits because a run triggered by the comment would report on `main`, not on the PR. The session
-cannot post a commit status (its GitHub access refuses status writes), hence a comment. It is not a
-required check: the agent can post a comment itself, and the PR's own copy of the workflow runs.
+Each shipped review is recorded on the PR as one comment, rendered by `pr-comment.sh` from the
+verdict file (TARGET Verify 7, L-25). Its first line is a marker with the full commit, the outcome
+and `words`, the sha256 of the PR words the review read; text from the model has `<` escaped and
+newlines flattened, so it can't form a second one, and `@` and `[` escaped, so it can't mention
+people or render markdown links and images (F-NEW-25; bare URLs and `#123` references still
+autolink). Paths shown in code spans stay literal. There is no CI check on it (owner, 2026-10-13):
+the agent could post a comment itself, so a check was no wall. The owner reads the verdict for the
+head commit before approving.
 
 ## How it is locked down, and what that is worth
 
@@ -62,20 +95,28 @@ required check: the agent can post a comment itself, and the PR's own copy of th
 - No environment variable or argument changes the model, prompt, tools or permissions. Tests change
   only a copy of this directory and put a stub `claude` on `PATH`.
 - This is **feedback, not a wall.** An agent that controls its session can skip or fake all of
-  this. The walls are GitHub's rules, plain CI and the owner's approval, and a missing or stale
-  verdict on the PR is the tripwire (TARGET Verify, "what this protects against").
+  this. The walls are GitHub's rules, plain CI and the owner's approval (TARGET Verify, "what this
+  protects against").
 
 ## Proof
 
 - [`tests/reviewer.test.sh`](../../tests/reviewer.test.sh) (in CI, stub `claude`) checks the
-  locked-down call, the outcome rule, rounds → ask-owner, the verdict file, the spec found from the
-  diff (none, one, two, nested, changed, deleted, non-`.md`), the PR's words reaching the prompt
-  verbatim and checked (`pr` lens), and could-not-run for every bad input. Its W10.6.2 mutants (14)
-  and W10.6.6 mutants (21 of 22; the survivor is equivalent) are killed.
-- [`tests/reviewer-pr.test.sh`](../../tests/reviewer-pr.test.sh) (in CI, stub `gh`) checks the
-  comment (per lens, marker not forgeable from model text), ok / missing / stale / failing for the
-  head, the wait, and could-not-run for bad input. 33 of 34 mutants killed (the survivor is
-  equivalent).
+  locked-down call, the outcome rule, rounds (a repeat counts, a new issue starts again, the 6th
+  failing commit asks the owner), the verdict file, the spec found from the diff (none, one, two,
+  nested, changed, deleted, non-`.md`), the PR's words reaching the prompt verbatim and checked
+  (`pr` lens), a shallow clone, and could-not-run for every bad input.
+- [`tests/reviewer-pr.test.sh`](../../tests/reviewer-pr.test.sh) (in CI) checks the comment (per
+  lens, marker not forgeable from model text) and `pr-words.sh`.
+- [`tests/ship.test.sh`](../../tests/ship.test.sh) (in CI, stub `review.sh` and `gh`, a local
+  origin) checks `ship`: a pass pushes, creates or updates the PR with exactly the reviewed words and
+  posts the verdict; a fail, ask-owner, could-not-run, any result it can't trust or bad input pushes
+  nothing; text GitHub appends is left alone, and a rewritten body or changed title is reported; GitHub failures after the
+  push say what was done.
+- [`tests/review-guard.test.sh`](../../tests/review-guard.test.sh) (in CI, stub `gh`) checks the
+  guard: what it refuses and what it lets through, the plugin's registration and fallback, and that
+  the guard, matcher and fallback name the same tools.
+- Mutants for W10.6.7 (the guard, `ship`, the rounds rule, `pr-words.sh`): 39 of 40 killed, the
+  survivor equivalent (LOG #48).
 - The W10.6.5 eval ([spike](../../kit/notes/revamp/spikes/w10-6-5-reviewer-eval/README.md)) ran
   the real reviewer on the fixture: 15 honest changes all pass and 15 changes planted by the
   north-star harness all fail, each on its plant (A-12).
@@ -95,9 +136,11 @@ required check: the agent can post a comment itself, and the PR's own copy of th
   a README or template added there makes the review could-not-run, never a pass.
 - What "run" can run is the allowlist above. Stack homes (W10.5.2) will extend it per stack. There
   is no browser yet, so the design and QA lenses review by reading.
-- Rounds count distinct failing commits since the branch's last pass, and they don't reset when the
-  owner decides something. Each further fail asks the owner again. Kept on purpose for now (owner,
-  2026-10-12): if the north-star run or the reviewer eval (W10.6.4–5) shows repeat questions,
-  reset the count when a commit changes the spec file.
+- Rounds count only repeats: a fail is round 1 unless it repeats a blocking item (an unmet `AC-<n>`,
+  or a finding's lens and file) of the previous failing commit. Round 3 asks the owner, and so does
+  the 6th failing commit since the last pass, new issues or not (owner, 2026-10-13).
 - Screenshots in the PR body (Review 5, L-29) are not checked yet: there is no browser.
-- The hook that starts the reviewer and posts its comment is W10.6.7.
+- The guard sees a command only as the command itself. Wrapped ones get through: `bash -c '…'`,
+  `sh -c`, `eval`, `sudo`, `timeout`, `xargs`, a script that pushes, and `gh api` writes to the PR.
+  Kept on purpose (owner, 2026-10-13): this is feedback, not a wall. A change that bypasses `ship`
+  has no verdict comment for its commit.

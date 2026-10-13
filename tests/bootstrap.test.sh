@@ -42,7 +42,7 @@ read -r gstack_url gstack_sha <<<"$gstack_pin_line"
 # same version and checksum CI pins in ci.yml, so a session and CI run the same binaries.
 tools_pin=$(git -C "$repo_root" show "$head:install/tools.pin" 2>/dev/null | grep -v '^#') || fail "no install/tools.pin at HEAD"
 ci=$(git -C "$repo_root" show "$head:.github/workflows/ci.yml")
-for tool in gitleaks shellcheck; do
+for tool in gitleaks shellcheck dcg; do
   read -r _ version sum url < <(grep "^$tool " <<<"$tools_pin") || fail "install/tools.pin has no $tool line"
   [[ $version =~ ^[0-9.]+$ && $sum =~ ^[0-9a-f]{64}$ && $url =~ ^https://[^@[:space:]]+$ ]] \
     || fail "install/tools.pin: bad $tool line"
@@ -50,22 +50,26 @@ for tool in gitleaks shellcheck; do
   { grep -q "^  ${upper}_VERSION: $version$" <<<"$ci" && grep -q "^  ${upper}_SHA256: $sum$" <<<"$ci"; } \
     || fail "install/tools.pin's $tool ($version, $sum) differs from ci.yml's pin"
 done
-echo "ok - install/tools.pin pins gitleaks and shellcheck exactly as ci.yml does"
+echo "ok - install/tools.pin pins gitleaks, shellcheck and dcg exactly as ci.yml does"
 
 # Fake release downloads: a fake `curl` serves files by the URL's basename from $work/dl, so the
 # bootstrap downloads, checks and unpacks them exactly as from GitHub.
-mkdir -p "$work/dl" "$work/fk/gitleaks" "$work/fk/shellcheck-v0"
+mkdir -p "$work/dl" "$work/fk/gitleaks" "$work/fk/shellcheck-v0" "$work/fk/dcg"
 printf '#!/usr/bin/env bash\necho "fake gitleaks $*"\n' >"$work/fk/gitleaks/gitleaks"
 printf '#!/usr/bin/env bash\necho "fake shellcheck $*"\n' >"$work/fk/shellcheck-v0/shellcheck"
-chmod +x "$work/fk/gitleaks/gitleaks" "$work/fk/shellcheck-v0/shellcheck"
+printf '#!/usr/bin/env bash\necho "fake dcg $*"\n' >"$work/fk/dcg/dcg"
+chmod +x "$work/fk/gitleaks/gitleaks" "$work/fk/shellcheck-v0/shellcheck" "$work/fk/dcg/dcg"
 gl_url=$(awk '$1 == "gitleaks" { print $4 }' <<<"$tools_pin")
 sc_url=$(awk '$1 == "shellcheck" { print $4 }' <<<"$tools_pin")
+dcg_url=$(awk '$1 == "dcg" { print $4 }' <<<"$tools_pin")
 tar -czf "$work/dl/${gl_url##*/}" -C "$work/fk/gitleaks" gitleaks
 tar -cJf "$work/dl/${sc_url##*/}" -C "$work/fk" shellcheck-v0
+tar -cJf "$work/dl/${dcg_url##*/}" -C "$work/fk/dcg" dcg
 fake_tools_pin() { # fake_tools_pin [gitleaks sha]: tools.pin pointing at the fake downloads
-  printf 'gitleaks 0.0.1 %s %s\nshellcheck 0.0.1 %s %s\n' \
+  printf 'gitleaks 0.0.1 %s %s\nshellcheck 0.0.1 %s %s\ndcg 0.0.1 %s %s\n' \
     "${1:-$(sha256sum "$work/dl/${gl_url##*/}" | cut -d' ' -f1)}" "$gl_url" \
-    "$(sha256sum "$work/dl/${sc_url##*/}" | cut -d' ' -f1)" "$sc_url"
+    "$(sha256sum "$work/dl/${sc_url##*/}" | cut -d' ' -f1)" "$sc_url" \
+    "$(sha256sum "$work/dl/${dcg_url##*/}" | cut -d' ' -f1)" "$dcg_url"
 }
 
 # A fake upstream gstack, reached through the pin's own URL (git insteadOf in the isolated config,
@@ -340,11 +344,11 @@ grep -q "FAILED: gstack: bun 1.0.0, but gstack .* is tested on bun 9.9.9" /tmp/d
 echo "ok - a Bun other than the pinned gstack's tested one fails the gstack step, before installing"
 
 # The pinned tools are installed where the devshop's hooks run them.
-for tool in gitleaks shellcheck; do
+for tool in gitleaks shellcheck dcg; do
   [ "$(/opt/devshop-tools/bin/$tool --version 2>/dev/null)" = "fake $tool --version" ] \
     || { cat /tmp/devshop-setup.log >&2; fail "$tool isn't installed at /opt/devshop-tools/bin"; }
 done
-echo "ok - pinned gitleaks and shellcheck installed, checksum-verified, in /opt/devshop-tools/bin"
+echo "ok - pinned gitleaks, shellcheck and dcg installed, checksum-verified, in /opt/devshop-tools/bin"
 
 # A download whose checksum doesn't match the pin is refused loudly; the devshop still installs.
 out=$(session '' tools-bad FAILED)
