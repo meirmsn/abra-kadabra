@@ -2189,3 +2189,11 @@ first exempted the two screenshot commits by title, which the builder controls. 
 checks it with its allowed commands: the merge's `git diff <merge>^1 <merge>` is empty, the assets
 commit has no parents and only image files; otherwise they are reviewed as normal, and a title that
 claims screenshots but fails is a `high` security finding.
+
+**Live result** (PR #95, `ship` pass at round 2): GitHub kept the body as reviewed, image line
+included, and renders it as a plain `<img>` of the `github.com/…/raw/<sha>/…` URL; the API shows the
+file at that SHA with the local size and blob SHA. The **owner confirmed the probe renders in the
+browser** (screenshot in chat). The reviewer's last two lows are fixed before merge: its screenshot
+check also confirms the merge has exactly two parents, the second the checked commit; the empty
+signing array expands safely on bash before 4.4. Left: the GitHub mobile app, and a look after the
+merge and the branch's deletion.
