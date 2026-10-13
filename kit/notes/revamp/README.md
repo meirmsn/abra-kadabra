@@ -67,7 +67,9 @@ M0 is done (review: [LOG.md](LOG.md) #15). M1 ([W10](workstreams/W10-v2.md)):
 
 - **Claude:** W10.4 v2 bootstrap in this repo is done (W10.4.4 closed, LOG #37); W10.6.6
   (reviewer verdict on the PR, spec found from the diff) done (LOG #40); W10.6.1
-  (Intent and Build skills) done (LOG #43); next W10.6.7 (the reviewer hook); the `DEVSHOP:`
+  (Intent and Build skills) done (LOG #43); W10.6.7 (`ship` runs the reviewer in the VM before
+  anything reaches a PR; a guard refuses the other ways) done (LOG #48–#49); next W10.6.5 (the
+  reviewer eval) and W10.6.4 (the north-star run); the `DEVSHOP:`
   line now reaches the owner through Claude's first reply in project sessions (LOG #44–#45). W10.3 lessons harvest done: [lessons.md](lessons.md) +
   every FINDINGS row dispositioned (LOG #21).
 - **Owner, when ready:** before M2, check lalista's Vercel and Supabase plans (F-NEW-18/19).
