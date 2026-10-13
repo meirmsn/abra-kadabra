@@ -5,7 +5,9 @@
 # it reviewed, `words`, or null; W10.6.7); nothing else in the comment can form one, because
 # text from the model or the repo has "<" escaped and newlines flattened; "@" and "[" are escaped
 # too, so that text can't mention people or render markdown links and images (bare URLs and #123
-# references still autolink). Values shown in code spans are kept literal.
+# references still autolink). Values shown in code spans are kept literal. Short by default (owner,
+# 2026-10-13): the headline line shows; spec, tables, findings and reviewer sit in one <details>
+# block, which model text can't close early (its "<" is escaped).
 #   usage: pr-comment.sh <verdict file>   → the comment's markdown on stdout
 # Exit 0 = rendered; 2 = not a readable devshop-review/2 verdict (nothing printed).
 set -uo pipefail
@@ -32,7 +34,7 @@ jq -r '
      | unique_by(.lens) | sort_by(.lens as $l | ["intent","spec","tests","docs","code","security","design","qa","pr"] | index($l) // 99)) as $rows
   | "<!-- devshop-review \({format: $v.format, commit: $v.commit, outcome: $v.outcome, round: $v.round, words: ($v.pr.sha256? // null)} | tojson) -->",
     "**Reviewer: \($v.outcome)** · round \($v.round) · \($v.blocking // ($blocking | length)) blocking, \($v.low // 0) low · commit `\($v.commit[0:12])`",
-    "",
+    "", "<details>", "<summary>Spec, lenses, acceptance items, findings and reviewer</summary>", "",
     (if $v.spec != "" then "Spec: `\($v.spec | code)`"
      elif $v.intent == "pr" then "No spec: reviewed against the PR'"'"'s words"
      else "No spec: reviewed against the commit messages" end),
@@ -56,5 +58,6 @@ jq -r '
       ($v.findings[] | "- **\(.severity | clean)** · \(.lens | clean)\(if (.item // "") != "" then " · " + (.item | clean) else "" end)\(if (.file // "") != "" then " · `" + (.file | code) + "`" else "" end): \(.what | clean) — fix: \(.fix | clean)")
      else empty end),
     "",
-    "<sub>Independent reviewer · devshop \($v.reviewer.devshop | clean) · \($v.reviewer.model | clean) · session \($v.reviewer.session_id | clean) · $\($v.reviewer.cost_usd // "?" | clean)</sub>"
+    "<sub>Independent reviewer · devshop \($v.reviewer.devshop | clean) · \($v.reviewer.model | clean) · session \($v.reviewer.session_id | clean) · $\($v.reviewer.cost_usd // "?" | clean)</sub>",
+    "", "</details>"
 ' "$1" || { echo "pr-comment.sh: could not render '$1'" >&2; exit 2; }

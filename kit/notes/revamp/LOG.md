@@ -2402,3 +2402,20 @@ PR's merge (`c8fc846`), its two copied scripts byte-identical to the devshop's t
 `baseline-5` (`621a958`) on its merge.
 
 **Next**: the rest of W10.6.9 (F-NEW-36, F-NEW-40, F-NEW-39), then W10.6.10.
+
+## #57 — 2026-10-13 · W10.6.12: the verdict comment, short by default
+
+**What moved**: owner feedback that seven ships on one PR posted seven long comments with tables.
+Options discussed first (one comment edited in place like the preview comment; one-line comments
+plus one edited table; a new short comment per ship). **Owner calls**: a new comment per ship,
+short: once the tables can collapse, editing in place isn't needed, and a new comment keeps a
+lasting record per commit (the verdict files live in `.git` and go with the container) and sits in
+the timeline just after the push it reviewed. Failed reviews stay off the PR. A check that the head
+moved past the last verdict (F-NEW-38) is not built: it needs a CI job, and with one comment per ship a push
+made without `ship` already shows as a push with no verdict after it.
+
+- `pr-comment.sh`: the marker line, then the headline (outcome, round, counts, commit), then one
+  `<details>` block with the spec, tables, findings and reviewer identity. `ship.sh` unchanged.
+- Test first: `tests/reviewer-pr.test.sh` checks the layout (failed on the old renderer) and that
+  model text can't close the block. Mutants: the `<` escape dropped and the blank line after
+  `<summary>` dropped are killed; dropping the blank line before `</details>` survives, equivalent.
