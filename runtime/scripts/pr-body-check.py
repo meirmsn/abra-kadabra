@@ -175,14 +175,17 @@ def check(body, title):
             problems.append("a heading after the engineering details")
 
     prose = CODE.sub("", text)  # quoted in code, an image or link is an example, not evidence
-    linked = {m.group(1) for m in LINKED_IMAGE.finditer(prose) if m.group(1) == m.group(2)}
+    # Each occurrence counts: with the self-linked images taken out, any repo image left is bare.
+    unlinked = LINKED_IMAGE.sub(lambda m: "" if m.group(1) == m.group(2) else m.group(0), prose)
+    for m in IMAGE.finditer(unlinked):
+        url = m.group(1) or m.group(2)
+        if REPO_IMAGE.match(url):
+            problems.append(f"image from the repo without a link to itself, which the GitHub mobile app can't show "
+                            f"inline; link it to itself, [![alt](url)](url), as pr-assets.sh prints: {url}")
     for m in IMAGE.finditer(prose):
         url = m.group(1) or m.group(2)
         if not url.startswith("https://"):
             problems.append(f"image is not an absolute https URL (upload it, or link it by commit): {url}")
-        elif REPO_IMAGE.match(url) and url not in linked:
-            problems.append(f"image from the repo without a link to itself, which the GitHub mobile app can't show "
-                            f"inline; link it to itself, [![alt](url)](url), as pr-assets.sh prints: {url}")
         elif url.startswith("https://raw.githubusercontent.com/"):
             problems.append(f"image on raw.githubusercontent.com, which a private repo's viewers get as 404; "
                             f"use https://github.com/<owner>/<repo>/raw/<sha>/<path>: {url}")

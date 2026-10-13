@@ -2333,3 +2333,10 @@ open until the owner decides whether mobile needs inline images (an outside host
 
 **Task id** (owner): W10.6.9d, kept with the other run-1 findings under W10.6.9 and listed before
 W10.6.10, which now waits on both.
+
+**Image syntax in code gets mangled on the way to GitHub**: on PR #99, as on PR #95, `ship` stopped
+(exit 2) because the body GitHub kept differs from the reviewed one. Something on the session's path
+to GitHub drops the `!` from `![label](url)` when the URL isn't `https://`, even inside a code
+span; real `https://` images are untouched. `ship`'s read-back caught it both times. Bodies write
+such examples in words. Also from the review: the link check now counts each image, not each URL (a
+repo image linked once and shown bare elsewhere fails; test first).

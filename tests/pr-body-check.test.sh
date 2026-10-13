@@ -123,6 +123,8 @@ check "a stray backtick doesn't hide a bad image paragraphs later" 1 "$(variant 
   "s = s.replace('carts were lost', 'carts were lost').replace('- **Behaviour change:** a', '- **Behaviour change:** a \x60stray').replace('https://github.com/acme/shop/raw/$sha', 'https://raw.githubusercontent.com/acme/shop/$sha').replace('rollback needs no database change.', 'rollback needs no \x60database change.')")" "raw.githubusercontent.com"
 check "a repo image without its link fails (the mobile app can't show it inline)" 1 "$(variant unlinked \
   "s = s.replace('[![saved cart](https://github.com/acme/shop/raw/$sha/1-saved-cart.png)](https://github.com/acme/shop/raw/$sha/1-saved-cart.png)', '![saved cart](https://github.com/acme/shop/raw/$sha/1-saved-cart.png)')")" "link it to itself"
+check "a repo image linked once and also shown bare fails" 1 "$(variant linked-and-bare \
+  "s = s.replace('- **Reviewer:**', '- **Also:** ![again](https://github.com/acme/shop/raw/$sha/1-saved-cart.png)\n- **Reviewer:**')")" "link it to itself"
 check "a repo image linked elsewhere fails" 1 "$(variant mislinked \
   "s = s.replace('](https://github.com/acme/shop/raw/$sha/1-saved-cart.png)\n', '](https://example.com/x)\n')")" "link it to itself"
 check "screenshots kept off the PR fail" 1 "$(variant shots-in-chat \
