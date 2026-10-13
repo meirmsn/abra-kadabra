@@ -200,10 +200,11 @@ session() {
   hook_json "$raw"
 }
 
-# The hook's output is one JSON object (Claude Code's hook output): systemMessage shows its lines
-# to the owner, since hook output otherwise reaches only Claude; additionalContext gives Claude the
-# same lines and the ask to repeat them, because a project carries no devshop rule saying so (LOG
-# #43). hook_json <raw output>: checks that, then prints the lines for the case checks.
+# The hook's output is one JSON object (Claude Code's hook output): additionalContext gives Claude
+# the lines and the ask to repeat them, because a project carries no devshop rule saying so (LOG
+# #43), and that is how the owner sees them; systemMessage carries the same lines for surfaces that
+# display it (the macOS desktop app doesn't, LOG #45). hook_json <raw output>: checks that, then
+# prints the lines for the case checks.
 NUDGE="Repeat every DEVSHOP: line above to the owner word for word in your first reply."
 hook_json() {
   local msg ctx
