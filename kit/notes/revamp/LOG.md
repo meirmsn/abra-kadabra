@@ -2402,3 +2402,37 @@ PR's merge (`c8fc846`), its two copied scripts byte-identical to the devshop's t
 `baseline-5` (`621a958`) on its merge.
 
 **Next**: the rest of W10.6.9 (F-NEW-36, F-NEW-40, F-NEW-39), then W10.6.10.
+
+## #57 — 2026-10-13 · W10.6.12: one findings ledger, graded and counted
+
+**What moved**: the owner's two v1 mechanisms, the friction log's counted entries and the old
+PLAN's Leverage grading, came back as one findings ledger after five rounds of proposal and
+answers. The check came first and failed on the old file.
+
+- **Shape (owner's calls).** Two live lists, split by how clear the action is rather than by
+  severity: a **Fix queue** (clear actions, graded Impact · Risk · Cost, sorted by Leverage, v1's
+  formula unchanged) and a **Watch list** (an observation plus a guess, sorted by Score = Impact ×
+  Seen). Fixed, won't-fix and held findings go to **Closed**, which a new finding is matched
+  against too; a held one that recurs reopens. "Lesson" stops being its own ledger: a rule change
+  is one kind of fix.
+- **The rule of 5.** The owner's worry: a cheap low-impact fix ranks high on Leverage before anyone
+  knows it recurs (XS/XS/XS scores 4.0, M/M/M 3.6). Adding the count to Leverage was worse (a
+  4-times papercut would outrank a once-seen security hole 64 to 10), so the count gates entry
+  instead: impact XS or S enters the Fix queue only after 5 sessions; a Watch entry seen 5 times
+  must move or be held.
+- **Migration.** All 164 rows moved, IDs kept: the ID set before equals the set after. 156 went to
+  Closed with their disposition as the outcome. Confidence and the dead v1 task columns were dropped;
+  the old tables stay readable at `15fe16a`. F-NEW-21 closed: `ns-1` showed a content push after
+  approval dismissed it (fixture PR 15). The 8 open findings were regraded by hand: 3 in the Fix
+  queue, 5 on the Watch list. F-NEW-20 to 22 had lacked their "found during" cell.
+- **Check.** `scripts/findings-check.py`: fields, both formulas, Seen counts, both lists' order, the
+  rule of 5, unique IDs, the Closed table. `tests/findings-check.test.sh`: 42 cases, written before
+  the script; 26 of 26 mutants killed (the first pass left 2 alive, which became 2 new cases).
+- **Rule.** FINDINGS § How findings are handled: before shipping, match first, then fix now, Fix
+  queue or Watch list. PROCESS § 4 points there. TARGET Shape 8 and Ship 9 now name the findings
+  ledger, whose project-session form is GitHub issues labelled `finding` (A-26 renamed to match).
+
+**Not done here (other sessions own the files):** the Build skill's line for project sessions
+and the PR-body template's "Low findings" line. Both are proposed to the owner in the PR.
+
+**Next**: W10.6.9's remaining items, then W10.6.10.
