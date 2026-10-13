@@ -2103,3 +2103,46 @@ owner switched to that file: one contract, not two. So this change adds no scrip
 **Order** (owner): `ship` first failed this change on one `medium`: merged before the CI tiers change, honest reviews here and in the fixture would get `unsure` for tests they can't run. The owner held it until the tiers change landed (LOG #51: this repo's PR #92, fixture PR 11, both with `scripts/check-fast.sh` at the root). Then `main` was merged in and it shipped again.
 
 **Next**: W10.6.4.
+
+## #53 — 2026-10-13 · W10.6.9: PR body for the owner's reading, screenshots on the PR
+
+**What moved**: the owner's feedback on the PR bodies of a W10.6.4 run, filed first as W10.6.9. Tests
+came first: 12 new cases in `tests/pr-body-check.test.sh` each failed on the old check, and every
+old case still passed.
+
+- **Second level.** Under the one-line summary, one plain paragraph of 2–3 sentences on what
+  changed and why it matters, before the **Preview:** line. The template quotes the owner's example
+  as the register. The check counts sentences (an end before a capital or the end, so "e.g. the
+  bus" is one sentence) and refuses markup or a second paragraph.
+- **Announcement as a release note.** The template's guidance says what the person who uses the app
+  can now do, in their words. The check refuses developer words there: code, `AC-<n>`, routes, file
+  names and status codes ("a 404 page", "error 500"; "500 items" passes).
+- **Screenshots on the PR.** `**Screenshots:**` needs an image or "no UI change", so "not embedded
+  here (no image host in this session)" fails. An image on `raw.githubusercontent.com` fails even
+  when pinned: a private repo's viewers get a 404 there.
+- **The image host** (owner: option B, a hidden ref first). The session's git proxy accepts pushes
+  to the session branch only (LOG W0.4.1), so `runtime/scripts/pr-assets.sh` uses GitHub's REST
+  git-data API through `gh`. Each blob's SHA must equal `git hash-object` of the file. The tree and
+  an orphan commit naming the branch and HEAD follow, then `refs/devshop-assets/<branch>/<head12>`,
+  created or moved with force when the screenshots are retaken. Ref, commit and tree are all read
+  back, and the script prints `![label](https://github.com/<owner>/<repo>/raw/<commit>/<file>)`
+  lines. `tests/pr-assets.test.sh` runs it against a stub `gh` with a fake object store; 11 of 11
+  mutants are killed (the tree read-back survived at first, and the test gained a case for it).
+
+**Owner calls**: Git LFS ruled out: its pointers still land on `main`, its objects can't be deleted,
+and every clone downloads them. Adding and then removing the images on the PR branch was ruled out
+as fiddly. A `devshop-assets` branch is the fallback, if GitHub refuses a ref outside `refs/heads/`.
+
+**Decision**: the Build skill runs `pr-assets.sh` before writing the body, and `ship` doesn't run it
+after the pass. The links have to be in the words `ship` reviews and posts (F-NEW-27), and they
+depend on the upload. An upload for a change that then fails review only leaves a hidden ref.
+
+**Surprises**: in this session auto mode refused a probe write of an unreferenced blob to this
+repo ("modify shared resources"). Projects will need `gh api` writes allowed for `pr-assets.sh`;
+the live run on the fixture will show the prompt. `tests/run.sh`: 22 of 25 files pass; `bootstrap`,
+`git-hooks` and `pre-bash` fail identically on a clean `main` worktree here (LOG #52).
+
+**Left**: the live check on the fixture, once the owner says it is free: does GitHub accept the
+ref, and do the images render in the browser and the GitHub mobile app, before and after merge?
+
+**Next**: W10.6.4.
