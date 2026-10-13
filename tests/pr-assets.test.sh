@@ -148,6 +148,27 @@ for x in "$s" "$s2" "$s3"; do
 done
 ok "after a squash merge and the branch deleted: main holds only the change, a fresh clone has no screenshots, and the PR's ref still keeps them"
 
+# --- Signing: with commit.gpgsign on, both commits are signed like any other commit (git commit-tree
+# alone ignores that setting, and GitHub would show them Unverified). A stub stands in for ssh-keygen.
+cat >"$work/bin/fake-sign" <<'SIGNER'
+#!/usr/bin/env bash
+echo "$*" >>"$GH_DIR/signed"
+for f; do :; done
+printf -- '-----BEGIN SSH SIGNATURE-----\nZmFrZQ==\n-----END SSH SIGNATURE-----\n' >"$f.sig"
+SIGNER
+chmod +x "$work/bin/fake-sign"
+touch "$work/signing-key"
+g config commit.gpgsign true
+g config gpg.format ssh
+g config gpg.ssh.program "$work/bin/fake-sign"
+g config user.signingkey "$work/signing-key"
+NAME="signed commits" run 0 "$work/shots/01-add-item.png"
+for c in "$(assets)" "$(g rev-parse HEAD)"; do
+  g cat-file -p "$c" | grep -q '^gpgsig ' || fail "commit $c is not signed though commit.gpgsign is on"
+done
+g config --unset commit.gpgsign
+ok "with commit.gpgsign on, both commits are signed"
+
 # --- Refusals: the repo's merge settings, bad input, a state the screenshots can't be tied to.
 git -C "$work/app" checkout -qb feat/two main
 commit_file "$work/app" two.txt "two"

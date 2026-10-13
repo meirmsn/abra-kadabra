@@ -2177,3 +2177,9 @@ carry S into the default branch). The test walks a PR's life on a local remote: 
 retake, a fix round, a squash merge, the branch deleted, a fresh `file://` clone without S; 16 of 16
 mutants killed. The reviewer prompt names the two screenshot commits as not part of the change. The
 PR body check's inline code no longer crosses a blank line (the reviewer's low finding), test first.
+
+**Signing** (found by the session's stop hook before anything was pushed): `git commit-tree` ignores
+`commit.gpgsign`, so the two screenshot commits were unsigned, which GitHub shows as Unverified and a
+signed-commits rule would refuse. `ship` was stopped before its push and the branch reset to the last
+signed commit; the script now passes `-S` when `commit.gpgsign` is on (test first, with a stub
+signer).

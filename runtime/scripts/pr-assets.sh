@@ -55,7 +55,10 @@ settings=$(gh api "repos/$slug" 2>&1) || cnr "can't read $slug's merge settings:
 jq -e '.allow_merge_commit == false and .allow_rebase_merge == false' <<<"$settings" >/dev/null 2>&1 \
   || cnr "$slug allows merge commits or rebase merges, which would carry the screenshots into its default branch; make squash the only merge method, or ask the owner"
 
-# --- S: the images, parentless. Then the merge, with HEAD's own tree.
+# --- S: the images, parentless. Then the merge, with HEAD's own tree. Signed when commits are
+# (commit-tree ignores commit.gpgsign; GitHub would show them Unverified, and a rule may refuse them).
+sign=()
+[ "$(git -C "$top" config --bool commit.gpgsign 2>/dev/null)" != true ] || sign=(-S)
 entries=""
 for f in "$@"; do
   blob=$(git -C "$top" hash-object -w -- "$f") || cnr "git hash-object failed on ${f##*/}"
@@ -63,9 +66,9 @@ for f in "$@"; do
 done
 tree=$(printf '%s' "$entries" | git -C "$top" mktree) || cnr "git mktree failed"
 s=$(printf 'devshop assets: %s at %s\n\nScreenshots for the PR from %s, taken at %s. Not part of the change: the\nmerge that brings them has the files of %s.\n' \
-  "$branch" "${head:0:12}" "$branch" "$head" "${head:0:12}" | git -C "$top" commit-tree "$tree") || cnr "git commit-tree failed for the screenshots"
+  "$branch" "${head:0:12}" "$branch" "$head" "${head:0:12}" | git -C "$top" commit-tree "${sign[@]}" "$tree") || cnr "git commit-tree failed for the screenshots"
 m=$(printf 'Attach the PR screenshots taken at %s (no file changes)\n\nScreenshots commit: %s (devshop pr-assets.sh, W10.6.9).\n' "${head:0:12}" "$s" \
-  | git -C "$top" commit-tree "$(git -C "$top" rev-parse "HEAD^{tree}")" -p "$head" -p "$s") || cnr "git commit-tree failed for the merge"
+  | git -C "$top" commit-tree "${sign[@]}" "$(git -C "$top" rev-parse "HEAD^{tree}")" -p "$head" -p "$s") || cnr "git commit-tree failed for the merge"
 git -C "$top" update-ref -m "pr-assets: attach screenshots" "refs/heads/$branch" "$m" "$head" \
   || cnr "couldn't move $branch to the merge (did it move meanwhile?)"
 
