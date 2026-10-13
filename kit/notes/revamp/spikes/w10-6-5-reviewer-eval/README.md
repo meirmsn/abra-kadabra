@@ -141,7 +141,7 @@ What changed (owner's call, 2026-10-13; W10.6.2 interface note first, then
 ## Harness fixes
 
 The three quirks above are fixed in the harness (owner-held, so delivered as a patch: this
-session lost access in LOG #46), test first: 5 new tests failed before the fix, 32 of 32 pass
+session lost access in LOG #46; the owner applied it as harness PR 4), test first: 5 new tests failed before the fix, 32 of 32 pass
 after, 8 of 8 mutants killed. On the real fixture changes, `skipped-state-row` now removes a
 state's own test and the planted tree passes Prettier.
 
