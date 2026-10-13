@@ -37,8 +37,8 @@ W10.1.2b spike (`kit/notes/revamp/spikes/w10-1-2b-thin/`, kept as notes).
   leaves `~/.claude/settings.json` to the devshop plugin (F-GS-08). It then turns gstack's update
   check off (`auto_upgrade` is off by default): the pin is the only upgrade path. `--no-browser`:
   Chromium installs on a browser skill's first run. Output: `/tmp/devshop-gstack.log`.
-- **Pinned tools** (L-45): [`install/tools.pin`](tools.pin) names gitleaks and shellcheck at the
-  version and checksum CI pins (`tests/bootstrap.test.sh` fails if they differ). The bootstrap
+- **Pinned tools** (L-45): [`install/tools.pin`](tools.pin) names gitleaks, shellcheck and dcg at
+  the version and checksum CI pins (`tests/bootstrap.test.sh` fails if they differ). The bootstrap
   downloads each, checks its sha256, and links it into `/opt/devshop-tools/bin`, where the devshop's
   hooks run it. A bad or missing download is a loud `FAILED: tool …`; the other steps still run.
 - **The project** holds one file, `.devshop-version`: a commit SHA for now (release tags once CI
@@ -95,6 +95,17 @@ Feedback, not walls: everything here runs in the session's VM, where the agent c
   [`runtime/hooks/post-edit.sh`](../runtime/hooks/post-edit.sh), which runs the repo's own
   `scripts/lint-file.sh <file>`. Findings or "couldn't run" go back to Claude in the same turn;
   clean is silent. It only sees Claude's edit tools; the pre-push hook sees every change.
+- **Bash guard.** The plugin's PreToolUse hook on Bash runs the version's
+  [`runtime/hooks/pre-bash.sh`](../runtime/hooks/pre-bash.sh), which hands the command to the pinned
+  [dcg](https://github.com/Dicklesworthstone/destructive_command_guard) (Destructive Command Guard,
+  as in v1). dcg blocks destructive commands (`git reset --hard`, force pushes, `git clean -f`,
+  `git checkout -- .`, `rm -rf`, …) and tells Claude why and what to do instead; everything else
+  passes silently. It fails closed: a missing dcg, one that fails or runs past 10 s, or hook input it
+  can't parse blocks the command, with a message telling Claude to tell the owner. So a failed dcg
+  download blocks every Bash command until the environment is rebuilt (`FAILED: tool dcg` in
+  `/tmp/devshop-setup.log`); session start says so up front in a `DEVSHOP:` line, when the
+  installed plugin registers the guard. It reads only the command's text, so a destructive command inside a
+  script file or an interpreter gets through, and dcg ignores what a heredoc writes.
 - **Session setup.** Session start also runs the repo's own `scripts/setup.sh`, if it has one
   (this repo's: `npm ci`, so Prettier is there for its checks): silent when it works, a `DEVSHOP:`
   line when it fails (log: `/tmp/devshop-project-setup.log`). It is the repo's own code, like its
@@ -104,8 +115,9 @@ Feedback, not walls: everything here runs in the session's VM, where the agent c
   repo's are [`scripts/lint.sh`](../scripts/lint.sh) and [`scripts/lint-file.sh`](../scripts/lint-file.sh);
   a project gets them from its stack home (W10.5.2). Without them, only the secret scan runs.
 
-Proven by [`tests/git-hooks.test.sh`](../tests/git-hooks.test.sh) (real `git push`, real gitleaks)
-and [`tests/post-edit.test.sh`](../tests/post-edit.test.sh).
+Proven by [`tests/git-hooks.test.sh`](../tests/git-hooks.test.sh) (real `git push`, real gitleaks),
+[`tests/post-edit.test.sh`](../tests/post-edit.test.sh) and
+[`tests/pre-bash.test.sh`](../tests/pre-bash.test.sh) (real dcg).
 
 ## Limits and next steps
 

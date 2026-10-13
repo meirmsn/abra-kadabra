@@ -6,6 +6,15 @@
 # the agent can change it back, and required CI runs the same checks.
 hooks=/opt/devshop-current/git-hooks
 proj=${CLAUDE_PROJECT_DIR:-.}
+
+# The plugin's Bash guard (hooks/pre-bash.sh) fails closed, so without dcg every Bash command is
+# blocked. Say so now, not at the first blocked command. A plugin from before the guard doesn't
+# register it, so a missing dcg blocks nothing there.
+if grep -q 'hooks/pre-bash\.sh' /opt/devshop-plugin/devshop/hooks/hooks.json 2>/dev/null \
+  && [ ! -x /opt/devshop-tools/bin/dcg ]; then
+  echo "DEVSHOP: dcg is not installed (/opt/devshop-tools/bin/dcg), so every Bash command will be blocked this session; rebuild the environment (setup log: /tmp/devshop-setup.log)"
+fi
+
 git -C "$proj" rev-parse --git-dir >/dev/null 2>&1 || exit 0
 top=$(git -C "$proj" rev-parse --show-toplevel)
 
