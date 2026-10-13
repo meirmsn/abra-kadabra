@@ -13,8 +13,10 @@ The real, pinned reviewer on the fixture: 5 honest changes × 3 runs and 15 plan
   runs 2 and 3 are not held out across types; run 3 only shows the rules generalise within them.
 - **Run 4**, the final prompt (run 2's prompt plus the owner's F-NEW-23 follow-up: a test command
   it can't run goes in the `tests` note, not a finding), same changes, plants and seeds as runs 1–2:
-  honest 15/15 pass, planted 15/15 fail on their plant (`results-4/`). This is the reviewer as
-  shipped.
+  honest 15/15 pass, planted 15/15 fail on their plant (`results-4/`).
+- **Run 5**, the rule made conditional (only when the project runs its tests in CI; otherwise an
+  unrunnable test stays `unsure`), the same set again: honest 15/15 pass, planted 15/15 fail on
+  their plant (`results-5/`). This is the reviewer as shipped.
 
 ## What was run
 
@@ -166,3 +168,14 @@ honest set and the seed-1 plants ran again on it, against the original harness (
 honest 15/15 pass, planted 15/15 fail, each naming its plant; every plant record equals run 1's;
 0 refused commands; no finding about not running tests (20 verdicts say it in the `tests` note);
 $1.86.
+
+## Run 5: the conditional wording
+
+The reviewer, run on the eval PR, flagged run 4's rule (`unsure`): stated as fact, it would let a
+project without CI pass with tests nobody ran. The rule now applies only when the project runs its
+tests in CI (a workflow under `.github/workflows/`); without one, a test it can't run is `unsure`.
+Same set again on that prompt: honest 15/15 pass, planted 15/15 fail on their plant, plant records
+equal to run 1's, 0 refused commands, $1.93. One slip: `p-done-untested-acceptance` filed "could
+not run the tests" as `unsure` although it named the CI workflow; that run failed on its plant
+anyway, but on an honest change it would block. 1 slip in 60 reviews over runs 4 and 5; a known
+residual, not fixed.

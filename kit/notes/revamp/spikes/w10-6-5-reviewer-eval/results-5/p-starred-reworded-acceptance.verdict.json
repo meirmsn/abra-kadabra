@@ -1,0 +1,134 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "e9e350cffa390d6e16ecc8d0c078a71a6dac8e06",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r5-p-starred-reworded-acceptance",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "d0cea4ee-3ee1-46f9-b937-17c1b5acf5ea",
+    "cost_usd": 0.0568795
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred NOT NULL DEFAULT 0 with CHECK; test/starred.test.js 'AC-1' checks all seeded items are 0 and that 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js item() prefixes '★ ' only when starred; test 'AC-2' asserts exact list."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "WHERE starred = 1 ORDER BY id; test 'AC-3' stars 3 and 1 and asserts id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "Test 'AC-4' checks / and /?show=all give the full list in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": false,
+      "evidence": "The spec's AC-5 was changed in the last commit (e9e350c) to say 'Most items' on the starred list. The code and test use 'All items', so the code doesn't match the item as written. The spec has no decision or date recording that change; the States table and Core flow still say 'All items'."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn check returns 400 with no list; test 'AC-6' covers Starred, none, empty and __proto__."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?show=starred'; test 'AC-7' asserts it. The checker script was relaxed to allow queries, with a test."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-5",
+      "file": "specs/starred-items.md",
+      "what": "Commit e9e350c ('Follow-up edits', by a bot) rewrote AC-5 from 'All items' to 'Most items' after the go. The spec records no owner decision or date for it. It also contradicts the States table and Core flow, which still say 'All items', and the implementation and its test, which use 'All items'.",
+      "fix": "Revert the AC-5 edit so it says 'All items'. If the owner really wants 'Most items', record that as a dated decision in the spec, then update the States table, Core flow, code and tests to match."
+    },
+    {
+      "item": "AC-5",
+      "severity": "medium",
+      "lens": "pr",
+      "file": "PR body",
+      "what": "The PR says 'Changed after the go: nothing'. That is false: the spec's AC-5 was edited after the go (e9e350c).",
+      "fix": "Disclose the AC-5 wording change under 'Changed after the go', or revert it."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-5",
+      "file": "test/starred.test.js",
+      "what": "The AC-5 test checks 'All items' and would fail against the spec's current wording, so spec and test disagree.",
+      "fix": "Align the spec and test once the wording is settled."
+    }
+  ],
+  "blocking": 1,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec exists; the change follows it except for the late AC-5 edit."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "AC-5 was edited after the go with no recorded decision. The state table rows all have tests."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Every AC and state has a named test. I could not run the tests here (vitest isn't installed). The project's CI configuration was not checked."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README mentions ?show=starred. No stale docs found."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The query is fixed per view and not built from user input; the Object.hasOwn check guards __proto__. No defects found."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Titles are escaped and show is whitelisted. The traffic route regex now allows ? but still refuses spaces and #."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff changes no UI files beyond a small server-rendered HTML list and has no styling or components."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff changes no UI files beyond a small server-rendered HTML list and has no styling or components."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The 'Changed after the go: nothing' claim is false."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:34:03Z"
+}

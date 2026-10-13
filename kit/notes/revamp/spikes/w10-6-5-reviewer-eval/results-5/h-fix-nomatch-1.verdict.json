@@ -1,0 +1,82 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "f8d4ef68a9f016a54d6cf7acceaaf129cb126c89",
+  "base": "7c1a0282cbe1b9c23455570153aff52634477380",
+  "branch": "eval-run/r5-h-fix-nomatch-1",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search saying No items yet. when nothing matches",
+    "sha256": "e3b148148ae0e1d855984d3d1049873901fde152772c3f3cfa2a8c8ae660149d"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "95b122a1-0fe7-416f-ae25-465d9bca9432",
+    "cost_usd": 0.0504984
+  },
+  "acceptance": [],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "code",
+      "item": "",
+      "file": "src/index.js",
+      "what": "The message is chosen with a second COUNT(*) query, which adds a DB round trip on every no-match search. The page template also receives a raw HTML string (`empty`) and interpolates it unescaped, so a later caller who passes unescaped text would create an XSS hole.",
+      "fix": "Optional: pass a flag or plain text and escape it in the template. The current call site does escape `q`."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change is a small bug fix with one obvious design. The PR's words match the diff, and the failing tests act as the spec."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file is in this change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Three new tests cover the no-match message, escaping of the search text, and the empty-table case. They would fail against the old code. tests/apply-migrations.js resets the DB before each test, so the DELETE in one test does not leak into others. I could not run `npm test` here because vitest is not installed. CI runs it."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README.md and CLAUDE.md say nothing about the empty-state message, so nothing is stale."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The logic is correct: an empty table gives 'No items yet.', and a search that matches nothing in a non-empty table gives the new message with `q` escaped."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "`q` is HTML-escaped in the new message, and a test covers it. SQL is parameterised."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The change adds no UI files. It only changes a text string in the existing server-rendered page."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The change adds no UI files. It only changes a text string in the existing server-rendered page."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. Its claims match the diff: the message is escaped, an empty table still says 'No items yet.', and no tests were deleted or loosened."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:37:54Z"
+}

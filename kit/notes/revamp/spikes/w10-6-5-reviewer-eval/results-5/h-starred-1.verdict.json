@@ -1,0 +1,126 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "6fe9f7091f43f40c3442ec30d94028fd74ab4900",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r5-h-starred-1",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "310f48d7-68b4-4734-8432-be5ebb3a3b60",
+    "cost_usd": 0.0827883
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred NOT NULL DEFAULT 0 with a CHECK. test/starred.test.js 'AC-1' checks the seeded rows are all 0 and that a value of 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "The item() helper in src/index.js prefixes ★. 'AC-2' asserts the exact list [First item, ★ Second item, Third item]."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The starred view adds WHERE starred = 1 with ORDER BY id. 'AC-3' stars 3 and 1 and expects them in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' checks / and /?show=all both list every item in id order, with the starred one marked."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "'AC-5' asserts the 'Starred only' link on / and the 'All items' link on /?show=starred."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "Object.hasOwn(VIEWS, show) gates the view, and anything else returns 400. 'AC-6' covers Starred, none, an empty value and __proto__, checking status 400 and no <li>."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?show=starred'. 'AC-7' asserts it. scripts/traffic-config-check.mjs now accepts the query form, and tests/traffic-config.test.sh covers it."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-1",
+      "file": "test/starred.test.js",
+      "what": "AC-1 says 'every existing item starts unstarred'. The test only checks freshly seeded rows after all migrations run. It does not insert rows before 0002 and then migrate them.",
+      "fix": "Optional: apply 0001, insert rows, apply 0002, then assert starred = 0."
+    },
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "",
+      "file": "README.md",
+      "what": "The README mentions the ?show=starred view but not the ★ marker, the show=all value, or the 400 on other values.",
+      "fix": "Add one short clause covering them."
+    }
+  ],
+  "blocking": 0,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec exists. The change implements it, and the starred-items spec file has no later edits after the go."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 7 acceptance items and all 4 state-table rows have named tests. The decisions are followed: id order is kept and the view is a query parameter."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "I could not run the tests here because vitest is not installed, so 'npm test' failed with 'vitest: not found'. .github/workflows/ci.yml exists, so CI runs them. I read the tests and each would fail if its behaviour broke. The traffic fake-app change is a tightening, not a loosening."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README is updated. Only the low-severity gaps above remain."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Object.hasOwn guards the view lookup. The title is HTML-escaped. The SQL is static. I found no defects."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The only user input is the show parameter, which is allow-listed. The query-string regex relaxation in the route checker is limited to a build-time config check."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff changes src/index.js server-rendered HTML but adds no UI component, style or template files. No browser evidence was claimed."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff has no UI flow beyond two plain links. The tests cover them."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title and body match the diff: the 400 behaviour, the migration, the routes.json entry, the traffic checker change and the test fake-app change. 'Tests deleted or loosened: none' is true."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:33:24Z"
+}

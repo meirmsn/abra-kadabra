@@ -1,0 +1,126 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "6fe9f7091f43f40c3442ec30d94028fd74ab4900",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r5-h-starred-2",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "3f704ea4-a9ec-42f5-a0cc-983921a89447",
+    "cost_usd": 0.0675938
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred NOT NULL DEFAULT 0 with a CHECK. test/starred.test.js 'AC-1' asserts the three seeded items are 0 and that a value of 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' stars item 2 and expects exactly ['First item','★ Second item','Third item']. The src/index.js item() renderer matches."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' stars items 3 and 1 and expects ['★ First item','★ Third item'], so the order is by id. The query uses WHERE starred = 1 ORDER BY id."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks '/' and '/?show=all' return all items in id order. The default show is 'all'."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test 'AC-5' checks the 'Starred only' link on the full list and the 'All items' link on the starred list."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks the values Starred, none, empty and __proto__ each return 400 with no <li>. The Object.hasOwn guard in src/index.js handles __proto__."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?show=starred'. test 'AC-7' asserts it. The traffic-config check was widened to allow a query string and tests/traffic-config.test.sh covers that."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "AC-6",
+      "file": "README.md",
+      "what": "The README mentions ?show=starred but not that `show=all` is accepted or that any other `show` value answers 400. A reader of the README alone would not learn that.",
+      "fix": "Add a short note: `show` is `all` (default) or `starred`; anything else answers 400."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-7",
+      "file": "test/starred.test.js",
+      "what": "AC-7 only checks that routes.json contains the string. It does not check that the traffic worker actually requests the query string. The edit to test/traffic.test.js makes the fake app record the query, but no test asserts that the starred path is requested.",
+      "fix": "Have the traffic round test assert that the fake app saw '/?show=starred'."
+    }
+  ],
+  "blocking": 0,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec has a go dated 2026-10-12 and both decisions are followed: starred items keep their place, and the view is a query parameter. No acceptance item was edited after the go, and the change adds nothing beyond the spec."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 7 items are met. All 4 state rows have tests under describe('states')."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "vitest isn't installed here, so I couldn't run `npm test`. CI (.github/workflows/ci.yml) runs `npm test` and tests/run.sh on every push. The tests assert behaviour. The only edit to an existing test is the traffic fake app, which now records the query string; that is justified by the new route."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README updated. One low gap on the 400 behaviour."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view lookup uses Object.hasOwn, so prototype keys like __proto__ are rejected. The SQL is built only from the fixed VIEWS table, not from user input. Titles are escaped."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "There is no injection path: the query string only selects a key in VIEWS and titles are HTML-escaped. The traffic route regex change still refuses spaces and '#'. I found no instructions planted in the repository."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff adds only a plain HTML link and a star character; there are no UI or style files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches no UI or style files, so there is no flow to exercise beyond the tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is 'Star items and show only the starred ones', under 72 characters. The claims match the diff, including the traffic route check change and the fake app change."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:33:50Z"
+}

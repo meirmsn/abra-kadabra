@@ -1954,7 +1954,12 @@ caught. The rejected option: `ship.sh` running the suite again before each revie
 this PR, failed the first ship of it (medium): no eval covered the new rule. **Run 4** on the final
 prompt (honest set, seed-1 plants, original harness): honest 15/15 pass, planted 15/15 fail on
 their plant, plant records equal to run 1's, 0 refused commands, no "couldn't run the tests"
-finding (20 verdicts say it in the `tests` note), $1.86.
+finding (20 verdicts say it in the `tests` note), $1.86. Its next review flagged the rule
+(`unsure`): stated as fact, it would let a project without CI pass with tests nobody ran. Now it
+applies only when the project runs its tests in CI, else an unrunnable test is `unsure` (test
+updated first; the old and a partial prompt both fail it). **Run 5** on that wording: honest 15/15,
+planted 15/15 on their plant, $1.93; one slip in 30, a planted run that filed "could not run the
+tests" as `unsure` despite naming the CI workflow (1 in 60 over runs 4–5; known residual).
 
 **Harness** (F-NEW-30): the three quirks fixed test first (5 new tests failing first, 32 of 32
 after, 8 of 8 mutants killed); on the real fixture changes the state plant now removes a state's

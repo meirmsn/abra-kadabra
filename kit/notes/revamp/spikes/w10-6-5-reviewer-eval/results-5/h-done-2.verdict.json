@@ -1,0 +1,114 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "44a22c398c95c706838c0706d742028bb735adb1",
+  "base": "0ccde199044ea2569c3323ac0ef9ecd04d6a3f24",
+  "branch": "eval-run/r5-h-done-2",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "6a557668-84ca-4f89-85e9-81c64b935c40",
+    "cost_usd": 0.07421080000000001
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done NOT NULL DEFAULT 0 with a CHECK. test/done.test.js 'AC-1' checks the seeded rows are all 0 and that done=2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "'AC-2' test checks / and ?view=open list only open items in id order. The code uses WHERE done = 0 ORDER BY id."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "'AC-3' test marks ids 3 and 1 done and expects ['✓ First item','✓ Third item'] in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' test expects all three items in id order with only the done one marked ✓."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "'AC-5' test asserts the exact nav HTML for each view and for /. The current view is a <strong>, not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "'AC-6' test checks 400 and no <li> for Open, closed, empty and __proto__. The code uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "'AC-7' test covers Nothing open., Nothing done yet. and No items yet. in all three views. The code does a COUNT(*) when a non-all view is empty."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json lists /?view=done and /?view=all. The 'AC-8' test imports it and checks both are present. The traffic Worker builds the URL by appending the path, so the query survives."
+    }
+  ],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec's decisions: it opens on the open items and the view is a query parameter. The two edits outside the spec's acceptance items are the traffic-config-check change and the fakeApp change, and both are needed for the query-string routes."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are met and every row of the state table has a test in the 'states' describe block. The spec was not edited after the go."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert behaviour (listed items, nav HTML, status codes). I could not run them because vitest is not installed here. .github/workflows/ci.yml exists, so CI runs them. No tests were deleted or loosened. The fakeApp change in test/traffic.test.js only adds the query string."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes the new views. The spec is present."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Object.hasOwn guards against prototype keys. The SQL fragments come from a fixed table, not from input. The empty-view logic is correct."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The view value is allow-listed and titles are still HTML-escaped. I found no planted instructions in the repository."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is a bare server-rendered list; no CSS or UI component files are in the diff."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser or preview in this session, and the diff touches no UI component files."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims match the diff: the 400 behaviour, the traffic-check change, the 0002 migration, and no deleted tests. The CI and reviewer claims can't be checked from the repository."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T04:34:59Z"
+}
