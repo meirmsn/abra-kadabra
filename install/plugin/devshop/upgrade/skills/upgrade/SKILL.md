@@ -1,5 +1,5 @@
 ---
-name: devshop-upgrade
+name: upgrade
 description: Upgrade the project's devshop version (.devshop-version) in one PR, bringing the project's copies of devshop files with it. Use when the owner asks to upgrade or re-pin the devshop, or a DEVSHOP line says the project's copies of devshop files differ.
 ---
 

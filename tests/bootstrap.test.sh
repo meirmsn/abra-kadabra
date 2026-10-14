@@ -300,13 +300,13 @@ echo "ok - pinned SHA: the plugin loads skills intent, build, pr and devshop-ver
   || fail "the plugin doesn't declare ./upgrade/skills/ as an extra skills directory"
 for pin in "$pinned" "$PRE_MOVE"; do
   session "$pin" >/dev/null
-  f="$HOME/plugin/upgrade/skills/devshop-upgrade/SKILL.md"
-  grep -qx "name: devshop-upgrade" "$f" 2>/dev/null || fail "pin ${pin:0:12}: the plugin has no devshop-upgrade skill"
-  [ "$(readlink -f "$f")" = "$f" ] || fail "devshop-upgrade resolves outside the plugin: $(readlink -f "$f")"
+  f="$HOME/plugin/upgrade/skills/upgrade/SKILL.md"
+  grep -qx "name: upgrade" "$f" 2>/dev/null || fail "pin ${pin:0:12}: the plugin has no upgrade skill"
+  [ "$(readlink -f "$f")" = "$f" ] || fail "the upgrade skill resolves outside the plugin: $(readlink -f "$f")"
   [ -x "$HOME/plugin/upgrade/project-files-at.sh" ] || fail "pin ${pin:0:12}: the plugin has no project-files-at.sh"
 done
-[ ! -e "/opt/devshop-versions/$pinned/skills/devshop-upgrade" ] || fail "the pinned runtime also has a devshop-upgrade skill"
-echo "ok - the plugin carries devshop-upgrade for any pin, an old one included"
+[ ! -e "/opt/devshop-versions/$pinned/skills/upgrade" ] || fail "the pinned runtime also has an upgrade skill"
+echo "ok - the plugin carries upgrade (/devshop:upgrade) for any pin, an old one included"
 
 unknown=$(rand 'a-f0-9' 40)
 out=$(session "$unknown")

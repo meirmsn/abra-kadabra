@@ -1,7 +1,7 @@
 # Files the devshop places in a project (W10.4.7, L-49), read by scripts/project-files.py:
 #   <owner> <devshop path> <project path>
 # devshop: the project keeps an identical copy (executable bit included); session start reports
-#          drift from the pinned version, and the devshop-upgrade skill replaces it whole.
+#          drift from the pinned version, and the upgrade skill (/devshop:upgrade) replaces it whole.
 # seed:    a starting point the project adapts and owns; never overwritten or deleted, and the
 #          upgrade shows only how the template changed.
 devshop  scripts/secret-scan.sh            scripts/secret-scan.sh

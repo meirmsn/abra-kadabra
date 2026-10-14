@@ -61,7 +61,7 @@ reachable from this page through links, or when a relative link or `#anchor` is 
   loads what applies, and hands over to `pr` (TARGET § L3 Build).
 - [`pr`](../runtime/skills/pr/SKILL.md): the PR for a built change: the body from the template,
   screenshots, `ship.sh` through the reviewer, low findings, telling the owner (TARGET § L3 Review).
-- [`devshop-upgrade`](../install/plugin/devshop/upgrade/skills/devshop-upgrade/SKILL.md): moves a
+- [`upgrade`](../install/plugin/devshop/upgrade/skills/upgrade/SKILL.md): moves a
   project's `.devshop-version` in one PR, bringing its copies of devshop files along (below, Project
   files). It comes with the installed plugin, not the pinned version, so any pin has it; its
   [`project-files-at.sh`](../install/plugin/devshop/upgrade/project-files-at.sh) runs the target
@@ -127,7 +127,7 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   (the secret scan, the spec check), or `seed`, a template the project adapts and owns (CI, the fast
   tier). [`runtime/scripts/project-files.py`](../runtime/scripts/project-files.py) `check`s the
   copies against a version (session start reports drift from the pinned one in a `DEVSHOP:` line),
-  `plan`s an upgrade and `apply`s one copy; the `devshop-upgrade` skill drives it. Proven by
+  `plan`s an upgrade and `apply`s one copy; the `upgrade` skill drives it. Proven by
   [`tests/project-files.test.sh`](../tests/project-files.test.sh).
 - Stack homes: [runtime/stacks/README.md](../runtime/stacks/README.md) is their layout;
   [`runtime/scripts/stack-homes.sh`](../runtime/scripts/stack-homes.sh) picks the ones a project
