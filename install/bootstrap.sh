@@ -43,7 +43,20 @@ claude plugin install devshop@devshop --scope user >>"$LOG" 2>&1 || step_failed 
 # Pinned tools (L-45): each install/tools.pin line is downloaded, checked against its sha256, and
 # its binary linked into /opt/devshop-tools/bin, where the devshop's git hooks run it. A bad or
 # missing download is a loud failure; the other tools and steps still run (L-43).
+# /usr/local/bin/<name> links to /opt/devshop-tools/bin/<name>, so every process finds the tools on
+# the default PATH, a project's own checks included. A tool that didn't install leaves that link
+# resolving to nothing ("not found"). An entry there the devshop didn't make is left as it is.
 TOOLS=/opt/devshop-tools
+ON_PATH=/usr/local/bin
+link_on_path() { # link_on_path <name>
+  local link="$ON_PATH/$1" target="$TOOLS/bin/$1"
+  [ -L "$link" ] && [ "$(readlink "$link")" = "$target" ] && return
+  if [ -e "$link" ] || [ -L "$link" ]; then
+    step_failed "tool $1: $link exists and isn't the devshop's link to $target; left as it is, so the pinned $1 isn't the one on PATH"
+    return
+  fi
+  ln -s "$target" "$link" || step_failed "tool $1: link $link to $target"
+}
 install_tools() {
   local name version sum url dir tmp bin
   mkdir -p "$TOOLS/bin" || { step_failed "tools: mkdir $TOOLS/bin"; return; }
@@ -54,6 +67,9 @@ install_tools() {
       continue
     fi
     dir="$TOOLS/$name-$version" tmp="$TOOLS/$name.download"
+    # The old link goes first, so a failed install of a new version can't leave the old one running.
+    rm -f "$TOOLS/bin/$name"
+    link_on_path "$name"
     rm -rf "$dir" "$tmp" && mkdir -p "$dir"
     curl -fsSL -o "$tmp" "$url" 2>>"$LOG" || { step_failed "tool $name: download $url"; continue; }
     echo "$sum  $tmp" | sha256sum -c - >/dev/null 2>&1 \
