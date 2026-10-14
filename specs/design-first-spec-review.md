@@ -38,17 +38,25 @@ honest, proportionate spec.
 - The PR reviewer's matching lens (`runtime/reviewer/prompt.md`) is not built here: other sessions
   change `runtime/reviewer/`, and the reviewer has its own eval to re-run. It becomes its own `[ ]`
   task line in W10 (proposed, 2026-10-14)
-- The proof is a replay with the same helper the skill names (the `Plan` agent type), given only
-  the spec's path and the owner's words, in a checkout of the commit the spec was written on, so the
-  later fix isn't there to read: the first pinned-tools draft (commit `59dbdb7` on its branch) and
-  `specs/ci-fast-slow-tiers.md` (the commit before it merged, with the spec file added). Each spec
-  is reviewed once with the old § 4 wording and three times with the new one; the prompts, outputs
-  and grading go in `kit/notes/revamp/spikes/w10-6-20-design-first-review/`. Model runs are not
-  deterministic, so three runs per spec, not one (proposed, 2026-10-14)
-- "Flagged" means the helper's design answer says the spec treats a symptom or a workaround, or
-  that it is out of proportion, or puts forward a different design as the better one. For the
-  pinned-tools draft, the flag counts only if it names the off-PATH install (or linking the tools
-  onto PATH) as the cause or the better design
+- The detail list's "missing failure modes" folds into the design question "what new failure modes
+  does it add", so it isn't asked twice; every other detail question stays
+- The proof is a replay with the same helper the skill names (the `Plan` agent type). Its prompt is
+  the § 4 text of the wording under test, quoted as written, plus the spec's path and the owner's
+  words. Each spec is replayed from a `git archive` export of the commit it was written on, with no
+  `.git`, so the later fix can't be read from history: the first pinned-tools draft (commit
+  `59dbdb7` on its branch) and `specs/ci-fast-slow-tiers.md` (exported from `a0a55e4^` with that
+  spec's blob from `a0a55e4`, its Go line set back to pending, so the helper can't defer to a
+  recorded go). The owner's words are the spec's own Intent section, which records the request the
+  draft was written from; for pinned-tools that is before the owner's "huge solution" message. Each
+  spec is reviewed three times with the old § 4 wording and three times with the new one; prompts,
+  raw outputs and grading go in `kit/notes/revamp/spikes/w10-6-20-design-first-review/`. Three
+  runs, not one: model runs are not deterministic (proposed, 2026-10-14; adversarial review)
+- Grading is fixed before the runs. A run "flags" a spec only when its design answer calls the
+  spec's core design a workaround of a deeper cause, or out of proportion to the problem; naming an
+  alternative in passing is not a flag. For the pinned-tools draft, the flag counts only if it names
+  the off-PATH install (or linking the tools onto PATH) as the cause or the better design. The
+  replay helpers are told to read only their export; a grep of each helper's transcript for paths
+  outside it is recorded, and a run that read outside its export is discarded and re-run
 
 ## Acceptance items
 
@@ -56,14 +64,14 @@ honest, proportionate spec.
   whether the spec fixes the root cause or a workaround (naming the cause), what the simplest
   reliable design is (rejected and unlisted options included), whether the size is in proportion
   to the problem, and what new failure modes it adds; the detail questions it asked before are all
-  still asked — verified by review: the diff
+  still asked, missing failure modes as part of the design question — verified by review: the diff
 - **AC-2** `runtime/skills/intent/SKILL.md` § 2 tells the author to ask why the problem exists
   before choosing a fix, and to fix the cause when it is within reach — verified by review: the diff
 - **AC-3** The intent skill passes `scripts/skills-check.py` (its one-page cap and the always-loaded
   description budget), so the change adds no length past the cap
 - **AC-4** In the replay, the new wording flags the first pinned-tools draft in 3 of 3 runs, each
-  naming the off-PATH install or linking the tools onto PATH; the old wording's run is recorded
-  beside them — verified by review: the spike record
+  naming the off-PATH install or linking the tools onto PATH, and the old wording flags it in at
+  most 1 of 3 — verified by review: the spike record
 - **AC-5** In the replay, the new wording flags `specs/ci-fast-slow-tiers.md` in 0 of 3 runs —
   verified by review: the spike record
 - **AC-6** `kit/notes/revamp/workstreams/W10-v2.md` has a W10.6.20 line for this change and a new
