@@ -2695,5 +2695,6 @@ links the tool found on PATH into a scratch `/opt`, and in a session that tool n
 tools on PATH via `/opt/devshop-tools/bin`, via a `/usr/local/bin`-style link into it, and as plain
 copies as in CI (both failed the first way before).
 
-**Next**: after the merge and the environment's rebuild, the owner's fresh fixture session (W10.4.9's done-when).
+**Next**: after the merge and the environment's rebuild, the start of run 2 (W10.6.10) checks the
+pinned versions and the fixture's `check-fast` (W10.4.9's done-when).
 The suggested task "Spec review asks about design before details" (intent § 4) is the process fix.

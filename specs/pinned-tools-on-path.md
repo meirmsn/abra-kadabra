@@ -53,8 +53,8 @@ still fail loudly, never pass.
 
 - The fresh fixture session after the environment's rebuild (`gitleaks version` prints 8.30.1,
   `shellcheck --version` 0.11.0, and the fixture's `scripts/check-fast.sh origin/main` passes with
-  no manual download) can only run after the merge, so it is W10.4.9's done-when, recorded in the
-  LOG, not an acceptance item of this PR. Changed after the go: "Move to task done-when" (owner,
+  no manual download) can only run after the merge, so it is W10.4.9's done-when, checked at the
+  start of run 2 (W10.6.10, owner 2026-10-14) and recorded in the LOG, not an acceptance item of this PR. Changed after the go: "Move to task done-when" (owner,
   2026-10-14)
 
 ## Acceptance items
