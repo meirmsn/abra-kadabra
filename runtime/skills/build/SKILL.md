@@ -1,6 +1,6 @@
 ---
 name: build
-description: Build an approved change (its spec has the owner's "go") or a bug fix (its failing test). One agent writes code, tests and docs together, then opens the PR from the devshop's template.
+description: Build an approved change (its spec has the owner's "go") or a bug fix (its failing test): code, tests and docs together, then hand over to `devshop:pr`.
 ---
 
 # Build
@@ -43,18 +43,7 @@ scripts named here; run them, never retype them as shell.
 - Something the spec didn't foresee is a spec change: raise it with the owner (`intent`, step 5).
 - Small, logical commits; subjects describe the observable change.
 
-## 4. The PR
+## 4. Hand over
 
-- Write the body from `/opt/devshop-current/templates/pr-body.md`, for the owner on a phone: the
-  summary, a 2–3 sentence paragraph on what changed and why it matters, the Announcement in the
-  app user's words. Claim only what you have just read from the real signal (CI, the preview).
-- **Screenshots go on the PR, never only in chat:** for a UI change, one per core-flow step and
-  state-table state at the final commit; `/opt/devshop-current/scripts/pr-assets.sh <image>...`
-  adds them to the branch without changing a file and prints the lines for **Screenshots:**; exit
-  2: ask the owner. After a new commit, take and add them again.
-- Once `/opt/devshop-current/scripts/pr-body-check.py <body file> "<title>"` passes, ship:
-  `/opt/devshop-current/reviewer/ship.sh --title "<title>" --body-file <body file>`. Only on the
-  independent reviewer's pass does it push, create or update the PR (ready) with those exact words
-  and post the verdict; it is the only way to a PR. Exit 1: fix, commit, ship again; 2, 3: ask.
-- Keep per-round detail out of the body; ship again after any change to code or words. Then tell
-  the owner in chat: the PR link and its one-line summary.
+- Built, and the new and affected tests and fast checks pass: invoke `devshop:pr` to open the PR.
+- A later round (a reviewer fail, an owner comment) is built here under § 3, then `devshop:pr` again.

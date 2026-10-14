@@ -41,7 +41,8 @@ class Refuse(Exception):
 
 
 def refuse(why):
-    raise Refuse(f"devshop review guard: {why}\nChanges reach a PR through ship, which reviews them first: {SHIP}")
+    raise Refuse(f"devshop review guard: {why}\nChanges reach a PR through the devshop:pr skill, whose ship.sh "
+                 "reviews them first: " + SHIP)
 
 
 def strip_heredocs(command):

@@ -2557,3 +2557,34 @@ doesn't call the check, the coupling the skill warns about.
 
 **Next**: after the merge and the fixture environment's cache rebuild, the fixture's own upgrade PR
 through the skill (W10.4.7's last done-when).
+
+## #62 — 2026-10-14 · W10.6.16: Build hands the PR over to a `pr` skill
+
+**What moved**: the Build skill was at its one-page limit (60 lines, 598 words), so the low-findings
+rule the owner approved after #103 had gone into the PR template's placeholder (#106). Build's PR
+section is now its own skill, `pr`, which also holds that rule; Build is at 49 lines and 445 words,
+`pr` at 44 and 375.
+
+- **The split was attacked before the "go".** A read-only reviewer found that my first draft sent
+  later rounds (a reviewer fail, an owner comment) through `pr`, which has none of Build § 3's
+  rules; ns-1's rounds were both Build work. Later rounds are now built under Build § 3, then `pr`
+  again. It also found that the review guard's refusal handed Claude `ship.sh` directly, skipping
+  the skill: the refusal now names `devshop:pr`.
+- **Named `pr`, not `ship`:** gstack's `/ship` is in every project session, and TARGET's Ship is
+  merge and deploy. Skills hand over by the name a session invokes, `devshop:<name>`.
+- **Checks.** `skills-check.py` fails a handover to a skill the runtime lacks and descriptions over
+  the always-loaded budget, 150 words together (TARGET Shape 2; 121 here, was 93). Merging `main`
+  brought #108's `upgrade` skill (41 words): 162, so the check failed on its first contact; Build's
+  and `pr`'s descriptions were trimmed to 150 of 150. Tests first: each
+  new case failed on the old script, Build without its handover failed, and the guard test failed
+  on the old message. 8 of 8 mutants killed. `tests/run.sh`: 31 of 31 test files passed (after merging `main`).
+- **The reviewer's one low finding was fixed here:** a description continued on a second line (a
+  folded YAML one) was counted as its first line, so the budget check passed what it couldn't read.
+  It now fails such a description; its test failed first. In this task's own file, clear and quick.
+- **Findings:** F-NEW-52 to the Fix queue (owner): `ship.sh` should run `pr-body-check.py` itself.
+  Watch list: F-NEW-53 (parallel sessions collide on task, LOG and finding numbers), F-NEW-54 (the
+  per-skill hard limit against Shape 2), F-NEW-55 (`bootstrap.test.sh` in a shallow clone), F-NEW-56
+  (`upgrade` opens its PR through `ship.sh`, not `devshop:pr`).
+
+**Next**: the live check, a fixture session that invokes `devshop:pr`, once the owner says the
+fixture is free; then W10.6.9's remaining items and W10.6.10.
