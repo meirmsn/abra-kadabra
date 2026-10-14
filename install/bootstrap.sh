@@ -43,14 +43,33 @@ claude plugin install devshop@devshop --scope user >>"$LOG" 2>&1 || step_failed 
 # Pinned tools (L-45): each install/tools.pin line is downloaded, checked against its sha256, and
 # its binary linked into /opt/devshop-tools/bin, where the devshop's git hooks run it. A bad or
 # missing download is a loud failure; the other tools and steps still run (L-43).
+# /usr/local/bin/<name> links to /opt/devshop-tools/bin/<name>, so every process finds the tools on
+# the default PATH, a project's own checks included. A tool that didn't install leaves that link
+# resolving to nothing ("not found"). An entry there the devshop didn't make is left as it is.
 TOOLS=/opt/devshop-tools
+ON_PATH=/usr/local/bin
+link_on_path() { # link_on_path <name>
+  local link="$ON_PATH/$1" target="$TOOLS/bin/$1"
+  [ -L "$link" ] && [ "$(readlink "$link")" = "$target" ] && return
+  if [ -e "$link" ] || [ -L "$link" ]; then
+    step_failed "tool $1: $link exists and isn't the devshop's link to $target; left as it is, so the pinned $1 isn't the one on PATH"
+    return
+  fi
+  ln -s "$target" "$link" || step_failed "tool $1: link $link to $target"
+}
 install_tools() {
   local name version sum url dir tmp bin
   mkdir -p "$TOOLS/bin" || { step_failed "tools: mkdir $TOOLS/bin"; return; }
   while read -r name version sum url; do
-    if [[ ! $name =~ ^[a-z0-9-]+$ || ! $version =~ ^[0-9A-Za-z][0-9A-Za-z.+-]*$ || $version == *..* \
+    local bad="install/tools.pin line is not '<name> <version> <sha256> <https URL>'"
+    [[ $name =~ ^[a-z0-9-]+$ ]] || { step_failed "tool ${name:-?}: $bad"; continue; }
+    # The old link goes first, so a failed or refused install of a new version can't leave the old
+    # one running.
+    rm -f "$TOOLS/bin/$name"
+    link_on_path "$name"
+    if [[ ! $version =~ ^[0-9A-Za-z][0-9A-Za-z.+-]*$ || $version == *..* \
       || ! $sum =~ ^[0-9a-f]{64}$ || ! $url =~ ^https://[^@[:space:]]+$ ]]; then
-      step_failed "tool ${name:-?}: install/tools.pin line is not '<name> <version> <sha256> <https URL>'"
+      step_failed "tool $name: $bad"
       continue
     fi
     dir="$TOOLS/$name-$version" tmp="$TOOLS/$name.download"

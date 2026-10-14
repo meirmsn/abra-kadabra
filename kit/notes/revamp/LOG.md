@@ -2654,7 +2654,93 @@ session hits this; a finding to file.
 
 **Next**: put `/opt/devshop-tools/bin` on the session's PATH, or file it (owner's call).
 
-## #66 — 2026-10-14 · W10.6.9 part a: the harness reviews and grades the planted commit itself
+## #66 — 2026-10-14 · W10.6.20: design-first spec review tried and dropped; skill unchanged
+
+**What moved** (outcome: nothing in the skills changed; see the end of this entry): from the
+pinned-tools session's lesson (its first proposal passed the spec review with 15 detail findings
+while the root cause went unasked), the owner approved trying [a
+spec](../../../specs/design-first-spec-review.md): `intent` § 4 would ask four design questions
+before the detail list, § 2 would ask why the problem exists before choosing a fix, inline within
+the one-page cap (it fit: 59 lines, 600 words). The PR reviewer's lens was split out as W10.6.21
+(later dropped). Proof by replay ([spike](spikes/w10-6-20-design-first-review/README.md)): 18 fresh
+`Plan` helpers, old and new § 4 text quoted as written, each spec from a `git archive` export of the
+commit it was written on, grading rule committed before the runs.
+
+**Evidence**: new wording flagged the first pinned-tools draft 0/3 (bar 3/3), the CI tiers spec 1/3
+and the UI baseline spec 3/3 (bar 0/3 each). Old wording flagged none and gave no design verdict in
+9 of 9 runs; new wording gave one in 9 of 9. No run read outside its export.
+
+**Surprises**: all three new runs named the pinned-tools cause correctly (tools installed off PATH)
+and still judged the env-file hook a proportionate fix; none re-weighed the draft's own rejection
+of `/usr/local/bin`. "Rejected options included" produced new options, not a second look at the
+author's. On the honest specs the size flags were about checkers both specs added beyond the
+owner's words, which the old wording also called added scope.
+
+**Round 2** (owner: "B", one more round, then option C if it fails): the design questions also
+asked the helper to argue for the strongest option the author rejected and whether the change fixes
+where the problem starts. Same exports, bars and grading rule; 9 runs. Pinned-tools 0/3 (the helpers
+argued for new options, a shell-profile line or a script fallback, never for `/usr/local/bin`), CI
+tiers 2/3, UI baseline 3/3. Failed both bars, so option C: § 4 keeps its old wording; the § 2 clause
+was to ship (later dropped, below). Finding F-NEW-65 (Watch list); W10.6.21, the PR reviewer's
+lens, is to be rethought with it.
+
+**After the PR opened**: the owner dropped W10.6.21 (no reviewer lens) and asked for the issue in
+the findings instead: F-NEW-65 now covers both reviews, names the risk (a missed simpler fix bloats a
+project's code base) and what counts as a sighting.
+
+**Then**: adding the § 2 clause needed two other sentences shortened for the one-page cap, and the
+reviewer wanted that as the owner's decision. The owner chose "C": no skill change at all. The PR is
+the spec, the replay record and F-NEW-65.
+
+**Next**: if a review is seen again passing a design while a simpler fix at the cause existed, add a
+sighting to F-NEW-65; refine from the spike's 27 runs once a fix is clear.
+
+## #67 — 2026-10-14 · W10.4.9: the pinned tools are on PATH
+
+**What moved**: LOG #65's surprise, fixed at its root. The bootstrap installed the pinned gitleaks,
+shellcheck and dcg in `/opt/devshop-tools/bin`, off PATH, so each devshop hook carried its own
+workaround (pre-push and post-edit prepend the directory, pre-bash calls dcg by its full path) and
+everything else, a project's checks and this repo's `scripts/lint.sh` run by hand, found nothing.
+Now the bootstrap also links `/usr/local/bin/<tool>` to each one (spec
+`specs/pinned-tools-on-path.md`, owner's "go").
+
+- **First proposal, dropped.** A SessionStart step writing PATH to `$CLAUDE_ENV_FILE`. The
+  experiment held (Claude Code 2.1.299: a hook from `--settings` and one from `--plugin-dir` each got
+  the file, and a later Bash command found a probe binary from the prepended directory), but it put
+  a second mechanism on the wrong location, for Claude's commands only. The owner asked "what is the
+  source of the problem here?"; the adversarial review had attacked the spec's details, not its
+  design.
+- **Second review, design first.** It confirmed the root-cause fix and found a live bug: a failed
+  download of a new tool version left the old version's link, so the old binary kept running. The
+  bootstrap now drops a tool's link before installing it. The PR's reviewer then found the same hole
+  for a `tools.pin` line refused at validation (it skipped the drop); now only a bad name skips it.
+- **Checks.** Test first: `tests/bootstrap.test.sh` failed at AC-1 on the old bootstrap, then passed
+  all cases. It runs on a scratch `/usr/local/bin` (a tmpfs mirroring the real one, read-only
+  underneath, minus the tool names). Mutants: 4 of 4 killed (no PATH link → AC-1, old link kept →
+  AC-3, the drop after validation → AC-3's refused-line case, a foreign entry overwritten → AC-4).
+
+- **On the fixture, before the merge.** In this session the fixture's `scripts/check-fast.sh
+origin/main` failed with `FAIL: gitleaks not found` (exit 2), as in LOG #65. With the three links
+  added to this VM's `/usr/local/bin`, a plain shell printed gitleaks 8.30.1 and shellcheck 0.11.0
+  and the check exited 0.
+- **AC-6 moved.** The fresh fixture session after the rebuild can only run after the merge, so the
+  reviewer couldn't pass it: it is W10.4.9's done-when now, not an acceptance item (owner).
+
+**Surprises**: the nested `claude -p` of the experiment inherited this session's id and wrote into
+its env file, so the probe directory stayed on this session's PATH until the session ended. The
+first mutant run "passed" because the worktrees sat in `/tmp`, which the test hides under its
+scratch mount. And the change itself would have broken `tests/pre-bash.test.sh` and
+`tests/git-hooks.test.sh` in every devshop session (not CI, whose tools sit in `$RUNNER_TEMP`): each
+links the tool found on PATH into a scratch `/opt`, and in a session that tool now resolves into the
+`/opt` the scratch mount hides. Both copy the resolved binary out first; shown passing with the
+tools on PATH via `/opt/devshop-tools/bin`, via a `/usr/local/bin`-style link into it, and as plain
+copies as in CI (both failed the first way before).
+
+**Next**: after the merge and the environment's rebuild, the start of run 2 (W10.6.10) checks the
+pinned versions and the fixture's `check-fast` (W10.4.9's done-when).
+The design-first spec review this case prompted was tried and dropped (LOG #66, F-NEW-65).
+
+## #68 — 2026-10-14 · W10.6.9 part a: the harness reviews and grades the planted commit itself
 
 **What moved**: F-NEW-36 and F-NEW-39 are fixed in the harness, so a north-star run's reviewer score no
 longer depends on a session running the reviewer by hand. The owner's one `apply-plants` click:
@@ -2690,7 +2776,13 @@ with a $10 monthly limit, because that step runs fixture code (F-NEW-59).
 **Surprises**
 
 - The live run hit a plant bug the tests didn't: `untested-acceptance` stripped `AC-4` from another
-  spec's test too, since every spec numbers from `AC-1` (F-NEW-65, for the harness before run 2).
+  spec's test too, since every spec numbers from `AC-1` (F-NEW-66, for the harness before run 2).
 - Parallel sessions took this PR's finding and task numbers twice before it merged (F-NEW-53).
 
-**Next**: F-NEW-65 in the harness, then W10.6.10 (run 2).
+**Also closed**: W10.6.9 as a whole (its other parts landed in LOG #55 and #56) and W10.6.9d. For
+W10.6.9d, fixture PR 22 (the restyle) is the real PR its Done-when asked for: summary paragraph, plain
+announcement, six screenshots that render in the browser before and after the owner's merge (owner,
+2026-10-14). Those screenshots were linked at a pinned commit, not through `pr-assets.sh`, so that
+script's live use is still untried; the mobile app stays the accepted gap F-NEW-50.
+
+**Next**: F-NEW-66 in the harness, then W10.6.10 (run 2).
