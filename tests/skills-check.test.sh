@@ -109,10 +109,12 @@ check "the real runtime's skills (intent, build, pr, devshop-version)" 0 "$repo_
 # The /opt/devshop-current/ paths a plugin skill names come from the pinned version, which a session
 # always has, so they are checked against this version's runtime.
 plugin_skills="$repo_root/install/plugin/devshop/upgrade/skills"
-[ -f "$plugin_skills/devshop-upgrade/SKILL.md" ] || fail "install/plugin/devshop/upgrade/skills/devshop-upgrade/SKILL.md is missing"
-PLUGIN=$plugin_skills check "the real runtime's and plugin's skills together (devshop-upgrade)" 0 "$repo_root/runtime"
-[ ! -e "$repo_root/runtime/skills/upgrade" ] || fail "runtime/skills/upgrade is still there (moved to the plugin as devshop-upgrade)"
-echo "ok - runtime/skills/upgrade moved to the plugin as devshop-upgrade"
+[ -f "$plugin_skills/upgrade/SKILL.md" ] || fail "install/plugin/devshop/upgrade/skills/upgrade/SKILL.md is missing"
+grep -qx "name: upgrade" "$plugin_skills/upgrade/SKILL.md" || fail "the plugin's upgrade skill isn't named 'upgrade' (/devshop:upgrade)"
+PLUGIN=$plugin_skills check "the real runtime's and plugin's skills together (upgrade)" 0 "$repo_root/runtime"
+[ ! -e "$plugin_skills/devshop-upgrade" ] || fail "the plugin still has devshop-upgrade (renamed upgrade)"
+[ ! -e "$repo_root/runtime/skills/upgrade" ] || fail "runtime/skills/upgrade would clash with the plugin's upgrade skill"
+echo "ok - the plugin's skill is upgrade (/devshop:upgrade), and no runtime skill shares its name"
 
 # AC-6 (specs/ui-baseline.md): the build skill's disciplines line sends a UI with no baseline to the
 # UI templates, a path skills-check (above) proves this version has.
@@ -129,11 +131,11 @@ grep -qF '`devshop:pr`' "$repo_root/runtime/skills/build/SKILL.md" ||
   fail "the build skill doesn't hand over to \`devshop:pr\`"
 echo "ok - build hands the PR over to devshop:pr"
 
-# W10.6.19 (F-NEW-56): devshop-upgrade opens its PR through devshop:pr, which writes the body from the
+# W10.6.19 (F-NEW-56): the upgrade skill opens its PR through devshop:pr, which writes the body from the
 # template, not through ship.sh with words of its own.
 # shellcheck disable=SC2016 # literal backticks: the skill's Markdown
-grep -qF '`devshop:pr`' "$plugin_skills/devshop-upgrade/SKILL.md" ||
-  fail "devshop-upgrade doesn't hand its PR over to \`devshop:pr\`"
-! grep -qF 'ship.sh' "$plugin_skills/devshop-upgrade/SKILL.md" ||
-  fail "devshop-upgrade still runs ship.sh itself"
-echo "ok - devshop-upgrade hands its PR over to devshop:pr"
+grep -qF '`devshop:pr`' "$plugin_skills/upgrade/SKILL.md" ||
+  fail "upgrade doesn't hand its PR over to \`devshop:pr\`"
+! grep -qF 'ship.sh' "$plugin_skills/upgrade/SKILL.md" ||
+  fail "upgrade still runs ship.sh itself"
+echo "ok - upgrade hands its PR over to devshop:pr"
