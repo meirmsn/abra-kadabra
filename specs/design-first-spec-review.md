@@ -1,6 +1,6 @@
 # The spec review asks whether the design is right before it checks the details
 
-**Go:** pending
+**Go:** "go", after "2. B" and "3. A" (owner, 2026-10-14)
 
 ## Intent
 
