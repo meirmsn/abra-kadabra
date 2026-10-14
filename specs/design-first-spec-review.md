@@ -78,6 +78,10 @@ honest, proportionate spec.
   pinned-tools draft is no longer held out, since the wording was shaped after seeing its miss. If
   round 2 fails either bar, § 4 goes back to its old wording, only the § 2 clause ships, and the
   finding is recorded (option C)
+- Changed after the go (owner, 2026-10-14: "how about we don't do the change to the reviewer, and
+  write down the issue in the findings"): W10.6.21, the PR reviewer's lens, is dropped (`[-]`), and
+  F-NEW-65 records the blind spot for both reviews, to be refined in rounds when it is seen again;
+  AC-6 changed to match
 
 ## Acceptance items
 
@@ -95,13 +99,13 @@ honest, proportionate spec.
 - **AC-5** The finding (design questions in the review prompt neither caught the pinned-tools
   symptom fix nor stayed quiet on the honest specs) is recorded where W10.6.21 will read it before
   it is built — verified by review: the diff
-- **AC-6** `kit/notes/revamp/workstreams/W10-v2.md` has a W10.6.20 line for this change and a new
-  `[ ]` line for the PR reviewer's lens, and `kit/notes/revamp/LOG.md` has an entry for it —
-  verified by review: the diff
+- **AC-6** `kit/notes/revamp/workstreams/W10-v2.md` has a W10.6.20 line for this change and a
+  dropped (`[-]`) W10.6.21 line for the PR reviewer's lens with the owner's reason, and
+  `kit/notes/revamp/LOG.md` has an entry for it — verified by review: the diff
 
 ## Out of scope
 
-- The PR reviewer's prompt (`runtime/reviewer/`) and its eval: its own task (AC-6)
+- The PR reviewer's prompt (`runtime/reviewer/`) and its eval: not changed (owner, 2026-10-14; F-NEW-65)
 - The independent reviewer's spec mode (TARGET Intent 5, an M2 item)
 - A catalogue of design patterns or anti-patterns, and any new check script
 - Changing the pinned-tools spec or its build

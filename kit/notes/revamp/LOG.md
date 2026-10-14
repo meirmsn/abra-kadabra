@@ -2683,4 +2683,8 @@ tiers 2/3, UI baseline 3/3. Failed both bars, so option C: § 4 keeps its old wo
 "why does the problem exist" clause. Finding F-NEW-65 (Watch list); W10.6.21, the PR reviewer's
 lens, is to be rethought with it.
 
-**Next**: ship the § 2 clause through `ship`.
+**After the PR opened**: the owner dropped W10.6.21 (no reviewer lens) and asked for the issue in
+the findings instead: F-NEW-65 now covers both reviews, names the risk (a missed simpler fix bloats a
+project's code base) and what counts as a sighting.
+
+**Next**: the owner's call on the intro rewording the page cap forced; then `ship`.
