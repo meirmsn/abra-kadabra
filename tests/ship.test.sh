@@ -2,7 +2,8 @@
 # Tests runtime/reviewer/ship.sh (W10.6.7): the one way Claude puts a change on a PR. It reviews the
 # committed HEAD with exactly the given title and body, locally; only a pass pushes the branch,
 # creates or updates the PR with exactly those words (set back once if GitHub changed them) and
-# posts the verdict comment. Runs a copy of runtime/ with a stub review.sh (driven by $STUB/modes)
+# posts the verdict comment; words without the PR template's shape stop it before the review
+# (F-NEW-52). Runs a copy of runtime/ with a stub review.sh (driven by $STUB/modes)
 # and a stub `gh` (a fake PR store in $GH_DIR), against a local bare repo as origin.
 set -euo pipefail
 
@@ -18,7 +19,7 @@ ok() { echo "ok - $1"; }
 
 # --- A copy of the runtime, with a stub review.sh in place of the real one.
 mkdir -p "$work/dev"
-cp -R "$repo_root/runtime/reviewer" "$work/dev/"
+cp -R "$repo_root/runtime/reviewer" "$repo_root/runtime/scripts" "$work/dev/"
 ship="$work/dev/reviewer/ship.sh"
 cat >"$work/dev/reviewer/review.sh" <<'EOF'
 #!/usr/bin/env bash
@@ -127,7 +128,36 @@ reset_state() {
   : >"$work/stub/calls"; : >"$work/gh/calls"
   git --git-dir="$ORIGIN" update-ref -d refs/heads/feat/x 2>/dev/null || true
 }
-printf 'Adds x.\n\nSecond line with "quotes" and ünïcode.\n' >"$work/body.md"
+# A body with the PR template's shape (runtime/templates/pr-body.md), which ship checks first.
+cat >"$work/body.md" <<'BODY'
+Adds x to the app.
+
+The app now has x. It matters because "quotes" and ünïcode must reach the PR unchanged.
+
+**Preview:** none — a test of ship, no app
+
+## What you should know
+
+- **Behaviour change:** x is new.
+- **Decisions:** bug fix: the failing test is the spec
+- **Changed after the go:** nothing
+- **Tests deleted or loosened:** none
+- **Manual steps for you:** none
+
+## Evidence
+
+- **Screenshots:** no UI change
+- **Reviewer:** pass on every lens for commit abc1234
+- **CI:** green for commit abc1234
+- **Low findings:** none
+
+<details>
+<summary>Engineering details</summary>
+
+Nothing else to know.
+
+</details>
+BODY
 # run_ship [args...] [-- PATH]: run ship.sh from the worktree root; sets rc and out (stdout+stderr).
 run_ship() {
   rc=0
@@ -208,6 +238,35 @@ git -C "$work/p" checkout -q feat/x
 [ "$(reviews)" = 0 ] || fail "bad input ran a review"
 nothing_shipped "bad input"
 ok "no title, no or unreadable body file, unknown or incomplete flags, a dirty tree or a detached HEAD: exit 2, no review"
+
+# --- 4b. The PR's words must have the template's shape (F-NEW-52): checked before the review, so a
+# body that skipped the template never reaches the reviewer or GitHub.
+reset_state pass
+printf 'Adds x.\n' >"$work/bad.md"
+run_ship --title "Add x" --body-file "$work/bad.md"
+want_rc 1 "a body without the template's shape"; nothing_shipped "a body without the template's shape"
+[ "$(reviews)" = 0 ] || fail "a body without the template's shape was reviewed"
+{ grep -q "^pr-body: " <<<"$out" && grep -qi "ship again" <<<"$out"; } || fail "the body's problems aren't shown: $out"
+reset_state pass
+run_ship --title "$(printf 'x%.0s' {1..73})" --body-file "$work/body.md"
+want_rc 1 "a title over 72 characters"; nothing_shipped "a title over 72 characters"
+[ "$(reviews)" = 0 ] || fail "a long title was reviewed"
+reset_state pass; mv "$work/dev/scripts/pr-body-check.py" "$work/pr-body-check.py.away"
+run_ship --title "Add x" --body-file "$work/body.md"
+want_rc 2 "pr-body-check.py missing"; nothing_shipped "pr-body-check.py missing"
+[ "$(reviews)" = 0 ] || fail "reviewed without the body check"
+cat >"$work/dev/scripts/pr-body-check.py" <<'STUB'
+#!/bin/sh
+echo "pr-body: can't read the template" >&2
+exit 2
+STUB
+chmod +x "$work/dev/scripts/pr-body-check.py"; reset_state pass
+run_ship --title "Add x" --body-file "$work/body.md"
+want_rc 2 "pr-body-check.py can't run"; nothing_shipped "pr-body-check.py can't run"
+[ "$(reviews)" = 0 ] || fail "reviewed when the body check couldn't run"
+grep -qi "owner" <<<"$out" || fail "a body check that can't run doesn't say to ask the owner: $out"
+mv "$work/pr-body-check.py.away" "$work/dev/scripts/pr-body-check.py"
+ok "words without the template's shape stop before the review (exit 1); a missing or failing body check can't run (exit 2)"
 
 # --- 5. An open PR: its base is used, and its title, body and head are updated together.
 reset_state pass

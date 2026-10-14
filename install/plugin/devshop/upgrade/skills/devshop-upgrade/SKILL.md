@@ -1,26 +1,28 @@
 ---
-name: upgrade
+name: devshop-upgrade
 description: Upgrade the project's devshop version (.devshop-version) in one PR, bringing the project's copies of devshop files with it. Use when the owner asks to upgrade or re-pin the devshop, or a DEVSHOP line says the project's copies of devshop files differ.
 ---
 
 # Upgrade the devshop version
 
 One PR moves `.devshop-version` from OLD (the file's SHA; none means `HEAD`) to NEW and brings the
-files the devshop places in the project along (L-49). The version's `project-files.txt` names each
+files the devshop places in the project along (L-49). NEW's `runtime/project-files.txt` names each
 one and its owner: `devshop` (an identical copy) or `seed` (the project's own, started from a
-template). Run every step from the project root on a fresh branch from `main`. Abbreviations:
-`PF=/opt/devshop-current/scripts/project-files.py`, `D=/opt/devshop.git`.
+template). This skill comes with the install, not the pinned version, so it works from any pin; its
+wrapper runs NEW's own script. Run every step from the project root on a fresh branch from `main`.
+Abbreviations: `D=/opt/devshop.git`,
+`PF=/opt/devshop-plugin/devshop/upgrade/project-files-at.sh --devshop-git $D --at NEW`.
 
 ## 1. Pick NEW
 
 - NEW is what the owner names, else the newest `main` in the local copy:
   `git --git-dir=$D rev-parse HEAD`. Show the commits: `git --git-dir=$D log --oneline OLD..NEW`.
-- `plan` stops with "not in the devshop copy" when NEW is newer than the copy, which refreshes only
+- `$PF` stops with "not in the devshop copy" when NEW is newer than the copy, which refreshes only
   when the environment's cache rebuilds. Tell the owner to rebuild the environment, then stop.
 
 ## 2. Show the plan
 
-Run `$PF plan --devshop-git $D --from OLD --to NEW --project .` and show the owner its sections:
+Run `$PF plan --from OLD --to NEW --project .` and show the owner its sections:
 
 - **`devshop` files:** each diff from the project's copy to NEW. These come all or nothing: the
   owner takes them, or the upgrade waits. A copy the project needs to differ is a devshop bug (fix
@@ -33,19 +35,20 @@ Run `$PF plan --devshop-git $D --from OLD --to NEW --project .` and show the own
 
 ## 3. Apply what the owner confirmed
 
-- Each `devshop` file: `$PF apply --devshop-git $D --version NEW --project . --file <path>`. It
-  refuses seeds, unlisted paths and symlinks; a refusal is a stop, not a workaround.
+- Each `devshop` file: `$PF apply --version NEW --project . --file <path>`. It refuses seeds,
+  unlisted paths and symlinks; a refusal is a stop, not a workaround.
 - Each confirmed seed change: edit the project's file by hand, exactly as shown.
 - Write NEW (the full SHA) to `.devshop-version`.
-- Run `$PF check --devshop-git $D --version NEW --project .` (exit 0), then the project's
+- Run `$PF check --version NEW --project .` (exit 0), then the project's
   `scripts/check-fast.sh origin/main`. A red check stops the upgrade: an owned script and the seed
   that calls it can change together.
 
 ## 4. Open the PR
 
-Commit everything in one commit, then open the PR through `ship`
-(`/opt/devshop-current/reviewer/ship.sh`). The title says what moves, e.g. "Pin the devshop to
-<sha12>: <what the project gains>". The body lists each file with its owner and outcome (applied,
-changed, skipped and why), any file removed from the manifest, and the checks you ran.
+Commit everything in one commit, then invoke `devshop:pr`, which writes the body from the PR
+template (a pin from before it has no `pr` skill: follow `devshop:build`'s PR section). The title
+says what moves, e.g. "Pin the devshop to <sha12>: <what the project gains>". **What you should
+know** lists each file with its owner and outcome (applied, changed, skipped and why), any file
+removed from the manifest, and the checks you ran; no Announcement.
 
 A project's formatter must leave `devshop` copies alone, or every session reports them as drift.

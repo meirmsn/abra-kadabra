@@ -51,7 +51,7 @@ if [ -f "$top/.devshop-version" ]; then
   rc=$?
   case $rc in
     0 | 3) ;;
-    1) echo "DEVSHOP: the project's copies of devshop files differ from its pinned version ${pin:0:12}: $(sed -E 's/^([^:]*): (.*)$/\1 (\2)/' <<<"$found" | paste -sd ';' - | sed 's/;/; /g'); the upgrade skill shows each delta" ;;
+    1) echo "DEVSHOP: the project's copies of devshop files differ from its pinned version ${pin:0:12}: $(sed -E 's/^([^:]*): (.*)$/\1 (\2)/' <<<"$found" | paste -sd ';' - | sed 's/;/; /g'); the devshop-upgrade skill shows each delta" ;;
     *) echo "DEVSHOP: couldn't check the project's copies of devshop files (exit $rc): $(head -1 <<<"$found")" ;;
   esac
 fi
