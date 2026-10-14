@@ -73,8 +73,8 @@ def blob(gitdir, sha, path):
 
 
 def safe_rel(path):
-    parts = path.split("/")
-    return bool(path) and not path.startswith("/") and ".." not in parts and "" not in parts and "." not in parts
+    parts = path.split("/")  # an absolute path starts with an empty part
+    return ".." not in parts and "" not in parts and "." not in parts
 
 
 def manifest(gitdir, sha):

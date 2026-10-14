@@ -126,6 +126,7 @@ bad_manifest "a manifest line with two fields can't run" 'fields' 'devshop scrip
 bad_manifest "an absolute project path can't run" 'path' 'devshop scripts/scan.sh /etc/passwd'
 bad_manifest "a project path leaving the project can't run" 'path' 'devshop scripts/scan.sh ../x'
 bad_manifest "a devshop path leaving the repo can't run" 'path' 'devshop ../x scripts/scan.sh'
+bad_manifest "a './' path (one file, two spellings) can't run" 'path' 'devshop scripts/scan.sh ./scripts/scan.sh'
 bad_manifest "a project path listed twice can't run" 'twice' "$(printf 'devshop scripts/scan.sh a\nseed scripts/scan.sh a')"
 bad_manifest "a source the version lacks can't run" 'lacks' 'devshop scripts/nope.sh scripts/scan.sh'
 bad_manifest "an empty manifest can't run" 'no entries' '# nothing'
