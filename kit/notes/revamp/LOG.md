@@ -2588,3 +2588,68 @@ section is now its own skill, `pr`, which also holds that rule; Build is at 49 l
 
 **Next**: the live check, a fixture session that invokes `devshop:pr`, once the owner says the
 fixture is free; then W10.6.9's remaining items and W10.6.10.
+
+## #63 — 2026-10-14 · W10.4.8: the upgrade skill comes with the install
+
+**Why**: the owner looked for W10.4.7's `upgrade` skill in a fixture session and found only gstack's.
+Skills load from the pinned version, and the fixture pins `c8fc846`, from before the skill. So no
+project could take its first guided upgrade, and later upgrades would run the old version's script
+against the new version's manifest. Neither the proposal nor its adversarial review caught it: both
+asked what the upgrade does, not which version supplies it.
+
+**What moved**: the skill is now part of the installed plugin (`install/plugin/devshop/upgrade/`,
+from `main` at the cache build), declared by `plugin.json`'s `skills` field beside the pinned
+version's, and renamed `devshop-upgrade` so a version that still carries `upgrade` can't clash.
+`project-files-at.sh` runs the target version's own `project-files.py` from the local copy. Test
+first: `tests/project-files-at.test.sh` failed on the missing wrapper, `skills-check` on the missing
+skill, the bootstrap test on a plugin without the field; 9 of 9 mutants killed; all test files pass.
+In this session, Claude Code 2.1.296 loading the plugin with the environment pinned at `a86ad4b`
+listed `devshop:build`, `devshop-version`, `intent` and `devshop-upgrade`; `main`'s plugin listed
+the first three. On the fixture the wrapper ran `efaa9cb`'s script: copies the same, templates
+unchanged since `c8fc846`; with this environment's stale copy it stopped and said to rebuild.
+
+**Surprises**: `claude plugin validate` doesn't follow the `skills` symlink, so it can't show what a
+session lists; a one-shot `claude -p` with `--plugin-dir` can.
+
+**Next**: the owner's fresh fixture session after the cache rebuild, then the fixture's upgrade PR
+through `devshop-upgrade` (W10.4.7 and W10.4.8 close together).
+
+## #64 — 2026-10-14 · W10.6.18, W10.6.19: skill size rules; PR bodies checked by `ship.sh`
+
+**What moved**: the owner's calls on W10.6.16's open questions, in one PR (two small, linked tasks).
+
+- **Budget (W10.6.18).** The skill descriptions' budget is 200 words (owner); 150 had no room once
+  `upgrade` landed. W10.4.8 moved `upgrade` into the install plugin and checked it apart from the
+  runtime's skills, so the total went unchecked: `skills-check.py --plugin-skills` now checks both as
+  one set (shape, handovers, no shared name, one budget). 150 of 200 today. The one-page cap stays a
+  CI failure and TARGET Shape 2 says so (F-NEW-54, kept).
+- **PR bodies (W10.6.19).** `ship.sh` runs `pr-body-check.py` before the review (F-NEW-52), so a body
+  that skipped the template stops before the reviewer or GitHub. `devshop-upgrade` hands its PR over
+  to `devshop:pr` (F-NEW-56); a pin from before `pr` falls back to Build's PR section, which that
+  version still has. The `pr` skill no longer runs the check itself.
+- **Checks.** Tests first: each new case failed on the old code. Mutants: 6 of 6 in `skills-check.py`,
+  4 of 4 in `ship.sh` (a failing body check that couldn't run survived until its case was added).
+- **#104** renumbered itself (W10.6.11, W10.6.17, F-NEW-57 to F-NEW-59), so the owner's call there
+  needed nothing here.
+
+**Next**: W10.6.16's live check once the fixture is free; then W10.6.9's remaining items and W10.6.10.
+
+## #65 — 2026-10-14 · W10.4.7, W10.4.8 done; the upgrade skill is `/devshop:upgrade`
+
+**What moved**: after the environment's cache rebuild, the owner's fresh fixture session showed
+`DEVSHOP: using c8fc846c4b29… from project .devshop-version · devshop copy of 2026-10-14 03:11 UTC`,
+and `/devshop:devshop-upgrade` ran from the plugin although that pin has no upgrade skill: NEW was
+`b4308a2` (#110's merge), the plan through the plugin's wrapper found both copies the same and both
+templates unchanged, removals not listable (the old pin predates the manifest), `check` exit 0,
+`fast` exit 0, the review passed with nothing found, and fixture PR 21 (the pin only) went green and
+was merged by the owner. That is TARGET Shape's "a guided `.devshop-version` upgrade PR is merged".
+The owner asked why it isn't `/devshop:upgrade` like `intent` and `build`: the other name only
+avoided a clash with `efaa9cb`'s runtime skill, which nothing pins. Renamed test first
+(`skills-check` and the bootstrap test expect `upgrade`).
+
+**Surprises**: the fixture session's first `fast` run failed 2 of 9 script test files because
+`gitleaks` isn't on PATH; the devshop installs the pinned one in `/opt/devshop-tools/bin` for its
+own hooks only. The session fetched the pinned release by checksum and went green. Every project
+session hits this; a finding to file.
+
+**Next**: put `/opt/devshop-tools/bin` on the session's PATH, or file it (owner's call).

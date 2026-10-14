@@ -24,12 +24,12 @@ under `devshop:build` § 3; this skill only puts them on the PR.
 
 ## 2. Through the reviewer
 
-- Once `/opt/devshop-current/scripts/pr-body-check.py <body file> "<title>"` passes, run
-  `/opt/devshop-current/reviewer/ship.sh --title "<title>" --body-file <body file>`. Only on the
-  independent reviewer's pass does it push, create or update the PR (ready) with those exact words
-  and post the verdict; it is the only way to a PR.
-- Exit 1: fix it under `devshop:build` § 3 (a spec change: `devshop:intent` step 5), commit, and
-  run `ship.sh` again. Exit 2 or 3: ask the owner.
+- Run `/opt/devshop-current/reviewer/ship.sh --title "<title>" --body-file <body file>`. It checks
+  the words have the template's shape, then only on the independent reviewer's pass does it push,
+  create or update the PR (ready) with those exact words and post the verdict; it is the only way to
+  a PR.
+- Exit 1: fix what it lists, the words here, code under `devshop:build` § 3 (a spec change:
+  `devshop:intent` step 5); commit, and run `ship.sh` again. Exit 2 or 3: ask the owner.
 - Run it again after any change to code or words.
 
 ## 3. Low findings
