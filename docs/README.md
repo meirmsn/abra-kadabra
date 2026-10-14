@@ -56,8 +56,11 @@ reachable from this page through links, or when a relative link or `#anchor` is 
   change the spec, the adversarial spec review and the owner's "go" (TARGET § L3 Intent).
 - [`build`](../runtime/skills/build/SKILL.md): one writer builds code, tests and docs together,
   loads what applies, and opens the PR from the template (TARGET § L3 Build).
-- [`upgrade`](../runtime/skills/upgrade/SKILL.md): moves a project's `.devshop-version` in one PR,
-  bringing its copies of devshop files along (below, Project files).
+- [`devshop-upgrade`](../install/plugin/devshop/upgrade/skills/devshop-upgrade/SKILL.md): moves a
+  project's `.devshop-version` in one PR, bringing its copies of devshop files along (below, Project
+  files). It comes with the installed plugin, not the pinned version, so any pin has it; its
+  [`project-files-at.sh`](../install/plugin/devshop/upgrade/project-files-at.sh) runs the target
+  version's script (proven by [`tests/project-files-at.test.sh`](../tests/project-files-at.test.sh)).
 
 ## Specs
 
@@ -119,7 +122,7 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   (the secret scan, the spec check), or `seed`, a template the project adapts and owns (CI, the fast
   tier). [`runtime/scripts/project-files.py`](../runtime/scripts/project-files.py) `check`s the
   copies against a version (session start reports drift from the pinned one in a `DEVSHOP:` line),
-  `plan`s an upgrade and `apply`s one copy; the `upgrade` skill drives it. Proven by
+  `plan`s an upgrade and `apply`s one copy; the `devshop-upgrade` skill drives it. Proven by
   [`tests/project-files.test.sh`](../tests/project-files.test.sh).
 - Stack homes: [runtime/stacks/README.md](../runtime/stacks/README.md) is their layout;
   [`runtime/scripts/stack-homes.sh`](../runtime/scripts/stack-homes.sh) picks the ones a project

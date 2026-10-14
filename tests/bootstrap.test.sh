@@ -286,13 +286,27 @@ grep -qx "$marker" <<<"$out" || fail "pinned SHA: the pinned version's SessionSt
 echo "ok - pinned SHA: the pinned version's own SessionStart script ran"
 # The devshop's skills load from the pinned version in the same session: the installed plugin's
 # skills dir resolves to that version's skills/, each named as Claude Code lists it (W10.6.1).
-for skill in intent build devshop-version upgrade; do
+for skill in intent build devshop-version; do
   f="$HOME/plugin/skills/$skill/SKILL.md"
   [ "$(readlink -f "$f")" = "/opt/devshop-versions/$pinned/skills/$skill/SKILL.md" ] \
     || fail "skill $skill: the plugin's $f resolves to '$(readlink -f "$f")', not the pinned version's"
   grep -qx "name: $skill" "$f" || fail "skill $skill: its SKILL.md doesn't name it '$skill'"
 done
 echo "ok - pinned SHA: the plugin loads skills intent, build and devshop-version from the pinned version"
+# The upgrade skill comes with the installed plugin (main at the cache build), not the pinned
+# version, so a project pinned before it existed still has it (W10.4.8): the plugin declares its
+# directory, and it is there whatever the pin.
+[ "$(jq -c .skills "$HOME/plugin/.claude-plugin/plugin.json")" = '["./upgrade/skills/"]' ] \
+  || fail "the plugin doesn't declare ./upgrade/skills/ as an extra skills directory"
+for pin in "$pinned" "$PRE_MOVE"; do
+  session "$pin" >/dev/null
+  f="$HOME/plugin/upgrade/skills/devshop-upgrade/SKILL.md"
+  grep -qx "name: devshop-upgrade" "$f" 2>/dev/null || fail "pin ${pin:0:12}: the plugin has no devshop-upgrade skill"
+  [ "$(readlink -f "$f")" = "$f" ] || fail "devshop-upgrade resolves outside the plugin: $(readlink -f "$f")"
+  [ -x "$HOME/plugin/upgrade/project-files-at.sh" ] || fail "pin ${pin:0:12}: the plugin has no project-files-at.sh"
+done
+[ ! -e "/opt/devshop-versions/$pinned/skills/devshop-upgrade" ] || fail "the pinned runtime also has a devshop-upgrade skill"
+echo "ok - the plugin carries devshop-upgrade for any pin, an old one included"
 
 unknown=$(rand 'a-f0-9' 40)
 out=$(session "$unknown")
