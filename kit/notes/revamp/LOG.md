@@ -2782,7 +2782,8 @@ with a $10 monthly limit, because that step runs fixture code (F-NEW-59).
 **Also closed**: W10.6.9 as a whole (its other parts landed in LOG #55 and #56) and W10.6.9d. For
 W10.6.9d, fixture PR 22 (the restyle) is the real PR its Done-when asked for: summary paragraph, plain
 announcement, six screenshots that render in the browser before and after the owner's merge (owner,
-2026-10-14). Those screenshots were linked at a pinned commit, not through `pr-assets.sh`, so that
-script's live use is still untried; the mobile app stays the accepted gap F-NEW-50.
+2026-10-14). Its Done-when is narrowed to the browser, as the owner decided on 2026-10-13 (F-NEW-50: the mobile
+app can't load a private repo's images). The screenshots were linked at a pinned commit, not through
+`pr-assets.sh`, so that script's first live use moves to run 2 (W10.6.10).
 
 **Next**: F-NEW-66 in the harness, then W10.6.10 (run 2).
