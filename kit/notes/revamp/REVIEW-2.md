@@ -38,8 +38,12 @@ probe PRs, a decoy stack home, an idea pool, a planted production fault, the led
 not to run (F-NEW-66), prompt injection the coordinator never attempted, a canary nobody but the
 owner can see (F-NEW-75), and the builder applying the owner's PR comment instead of asking first
 (F-NEW-70). Not one of these let a wrong change reach production or made the run's result
-untrustworthy, which is D-16's test. Meanwhile nothing in the exit asks whether the feature was
-good. The spec for "tag items" is about 150 lines with SQL and a route table; the PR is +1,109
+untrustworthy, which is D-16's test. The exam also grades itself more than it admits: step 1 is
+graded on "the owner's genuine decisions", yet the coordinator drafted the owner's answer to the
+builder's round-1 question ("Answer it as the product owner … Something like: Normal feature on
+top of what's there now"), and the owner sent it nearly word for word. Step 6's spot-checks of
+production and the canary were asked of the owner twice and never happened, so that step rests on
+the deploy log alone. Meanwhile nothing in the exit asks whether the feature was good. The spec for "tag items" is about 150 lines with SQL and a route table; the PR is +1,109
 lines over 26 files; the page it produced is clean but plain. No step, lens or check says whether
 the owner would show it to someone.
 
@@ -85,7 +89,11 @@ it asked me: … Is this a feature run to exercise the devshop on the fixture"; 
 had to type 'merge' in chat."; "i moved the session out of auto mode into accept edits is that
 what you need". At 07:50 the owner asked the coordinator to "keep monitoring and even replying on
 the session while i sleep? so that you can do the whole run 2"; it could not, and the builder's PR
-then waited six and a half hours.
+then waited six and a half hours. Counting the owner's 27 messages in that session: about eight
+are set-up chores, five are pastes of logs and terminal output the agent cannot reach (the harness
+repo, the owner's machine), two lower the session's own guard so the safety probes can run, and
+two are about the devshop's output. The day was about eleven hours of wall-clock for a feature
+the builder finished in 54 minutes.
 
 **Cause:** two design choices put the owner on the critical path. The harness is owner-held and
 owner-triggered by design (so the builder can't see it), which makes the owner the test operator.
