@@ -30,11 +30,14 @@ honest, proportionate spec.
   paragraph; the design answers come first in the helper's findings. The skill is at 60 lines and
   589 words of its one-page cap (60 lines, 600 words; `scripts/skills-check.py`), so the detail list
   is reworded shorter rather than the cap raised. Rejected: a separate design-review helper (a
-  second agent run per spec, more ceremony for the same questions) (proposed, 2026-10-14)
+  second agent run per spec, more ceremony for the same questions); a sub-skill or a notes file
+  beside the skill holding the questions (a skill's description loads in every session, and either
+  is one more place to look, for four short questions) ("you can do inline as you said", owner,
+  2026-10-14)
 - Step 2 (sharpen) gets one clause: ask why the problem exists before choosing among the fixes on
   offer, and fix the cause when it is within reach. The author applies it while choosing; the
   review in § 4 checks it. Rejected: leaving step 2 alone (the review would then be the only place
-  that asks, after the spec is written) (proposed, 2026-10-14)
+  that asks, after the spec is written) ("yes", owner, 2026-10-14)
 - The PR reviewer's matching lens (`runtime/reviewer/prompt.md`) is not built here: other sessions
   change `runtime/reviewer/`, and the reviewer has its own eval to re-run. It becomes its own `[ ]`
   task line in W10 (proposed, 2026-10-14)
@@ -44,13 +47,21 @@ honest, proportionate spec.
   the § 4 text of the wording under test, quoted as written, plus the spec's path and the owner's
   words. Each spec is replayed from a `git archive` export of the commit it was written on, with no
   `.git`, so the later fix can't be read from history: the first pinned-tools draft (commit
-  `59dbdb7` on its branch) and `specs/ci-fast-slow-tiers.md` (exported from `a0a55e4^` with that
-  spec's blob from `a0a55e4`, its Go line set back to pending, so the helper can't defer to a
-  recorded go). The owner's words are the spec's own Intent section, which records the request the
+  `59dbdb7` on its branch) and two honest specs as controls, so a false alarm on good plans would
+  show: `specs/ci-fast-slow-tiers.md` (exported from `a0a55e4^` with that spec's blob from
+  `a0a55e4`) and `specs/ui-baseline.md` (exported from `960a834^` with its blob from `960a834`),
+  each with its Go line set back to pending, so the helper can't defer to a recorded go. Both
+  controls are final, approved versions; no honest first draft is on record. Rejected: a control
+  written for this test (the author would write the answer) (owner chose two controls, "2. B",
+  2026-10-14). The owner's words are the spec's own Intent section, which records the request the
   draft was written from; for pinned-tools that is before the owner's "huge solution" message. Each
   spec is reviewed three times with the old § 4 wording and three times with the new one; prompts,
   raw outputs and grading go in `kit/notes/revamp/spikes/w10-6-20-design-first-review/`. Three
   runs, not one: model runs are not deterministic (proposed, 2026-10-14; adversarial review)
+- If the old wording flags the pinned-tools draft in 2 or more of 3 runs, the replay can't show the
+  new wording helps: the build stops there and the result goes to the owner, who decides whether
+  the change is still worth making. The grading rule is not changed after the runs ("3. A", owner,
+  2026-10-14)
 - Grading is fixed before the runs. A run "flags" a spec only when its design answer calls the
   spec's core design a workaround of a deeper cause, or out of proportion to the problem; naming an
   alternative in passing is not a flag. For the pinned-tools draft, the flag counts only if it names
@@ -72,7 +83,8 @@ honest, proportionate spec.
 - **AC-4** In the replay, the new wording flags the first pinned-tools draft in 3 of 3 runs, each
   naming the off-PATH install or linking the tools onto PATH, and the old wording flags it in at
   most 1 of 3 — verified by review: the spike record
-- **AC-5** In the replay, the new wording flags `specs/ci-fast-slow-tiers.md` in 0 of 3 runs —
+- **AC-5** In the replay, the new wording flags `specs/ci-fast-slow-tiers.md` in 0 of 3 runs and
+  `specs/ui-baseline.md` in 0 of 3 runs —
   verified by review: the spike record
 - **AC-6** `kit/notes/revamp/workstreams/W10-v2.md` has a W10.6.20 line for this change and a new
   `[ ]` line for the PR reviewer's lens, and `kit/notes/revamp/LOG.md` has an entry for it —
