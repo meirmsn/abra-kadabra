@@ -2679,7 +2679,7 @@ Now the bootstrap also links `/usr/local/bin/<tool>` to each one (spec
   AC-3, the drop after validation → AC-3's refused-line case, a foreign entry overwritten → AC-4).
 
 - **On the fixture, before the merge.** In this session the fixture's `scripts/check-fast.sh
-  origin/main` failed with `FAIL: gitleaks not found` (exit 2), as in LOG #65. With the three links
+origin/main` failed with `FAIL: gitleaks not found` (exit 2), as in LOG #65. With the three links
   added to this VM's `/usr/local/bin`, a plain shell printed gitleaks 8.30.1 and shellcheck 0.11.0
   and the check exited 0.
 - **AC-6 moved.** The fresh fixture session after the rebuild can only run after the merge, so the
