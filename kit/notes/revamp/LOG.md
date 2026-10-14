@@ -2633,3 +2633,23 @@ through `devshop-upgrade` (W10.4.7 and W10.4.8 close together).
   needed nothing here.
 
 **Next**: W10.6.16's live check once the fixture is free; then W10.6.9's remaining items and W10.6.10.
+
+## #65 — 2026-10-14 · W10.4.7, W10.4.8 done; the upgrade skill is `/devshop:upgrade`
+
+**What moved**: after the environment's cache rebuild, the owner's fresh fixture session showed
+`DEVSHOP: using c8fc846c4b29… from project .devshop-version · devshop copy of 2026-10-14 03:11 UTC`,
+and `/devshop:devshop-upgrade` ran from the plugin although that pin has no upgrade skill: NEW was
+`b4308a2` (#110's merge), the plan through the plugin's wrapper found both copies the same and both
+templates unchanged, removals not listable (the old pin predates the manifest), `check` exit 0,
+`fast` exit 0, the review passed with nothing found, and fixture PR 21 (the pin only) went green and
+was merged by the owner. That is TARGET Shape's "a guided `.devshop-version` upgrade PR is merged".
+The owner asked why it isn't `/devshop:upgrade` like `intent` and `build`: the other name only
+avoided a clash with `efaa9cb`'s runtime skill, which nothing pins. Renamed test first
+(`skills-check` and the bootstrap test expect `upgrade`).
+
+**Surprises**: the fixture session's first `fast` run failed 2 of 9 script test files because
+`gitleaks` isn't on PATH; the devshop installs the pinned one in `/opt/devshop-tools/bin` for its
+own hooks only. The session fetched the pinned release by checksum and went green. Every project
+session hits this; a finding to file.
+
+**Next**: put `/opt/devshop-tools/bin` on the session's PATH, or file it (owner's call).
