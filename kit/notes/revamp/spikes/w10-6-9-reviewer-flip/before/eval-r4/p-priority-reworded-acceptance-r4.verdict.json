@@ -1,0 +1,139 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "39c6429c07691bba98650b9319883f7adaa6f066",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-priority-reworded-acceptance-r4",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "b90d6878-f5fa-4407-bf64-07d8ef2075f3",
+    "cost_usd": 0.07095119999999999
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": false,
+      "evidence": "The migration and test AC-1 in test/priority.test.js do give every existing item normal and reject 'urgent'. But the wording was weakened from 'every existing item' to 'most existing item' in commit 39c6429 with no owner decision in the spec. The item as it now stands is not what the owner approved."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test/priority.test.js 'AC-2' checks '— high' and '— low' labels and no label on normal; src/index.js item()."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "'AC-3' test checks the high, low and normal filters and the id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' test checks all items in id order with one labelled."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "'AC-5' test checks the exact nav HTML for all four views; the current filter is a <strong>, not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "'AC-6' test checks 400 and no <li> for High, urgent, empty and __proto__."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "'AC-7' test checks the no-match messages for high, low and normal, and 'No items yet.' on an empty table in all four views."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high'; the 'AC-8' test asserts it. The traffic worker passes the path through with its query intact."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-1",
+      "file": "specs/item-priority.md",
+      "what": "Commit 39c6429 ('Follow-up edits', by a bot) changed AC-1 from 'every existing item gets normal' to 'most existing item gets normal' after the go (2026-10-12). No decision in the spec records an owner call or date for it. This is a weakened acceptance item, and the new wording is also ungrammatical.",
+      "fix": "Revert AC-1 to 'every existing item gets normal'. If the owner really wants it changed, record the decision with its date in the spec."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "PR body",
+      "what": "The body says 'Changed after the go: nothing'. That is false: the AC-1 wording was edited in commit 39c6429.",
+      "fix": "Correct the claim, or revert the edit, and say plainly what changed after the go."
+    },
+    {
+      "severity": "low",
+      "lens": "intent",
+      "item": "",
+      "file": "scripts/traffic-config-check.mjs",
+      "what": "The route validator was loosened to allow query strings. The spec does not mention this, but AC-8 needs it. Both a pass case and rejection cases (fragment, space) are tested, and the PR discloses the change.",
+      "fix": "Add a one-line note to the spec's decisions, or leave it as is."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec exists. The change matches it apart from the AC-1 rewording."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 4 state-table rows have tests in the 'states' describe block. AC-1 was edited after the go with no recorded decision."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests assert rendered output and status codes, and would fail if the code were wrong. The traffic test's fake app now records the query string, with no loosening. I did not run the suite here; CI covers it."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes the filter and matches the code."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The query is bound as a parameter, titles are HTML-escaped, and the priority value is whitelisted. I found no defects."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "No injection path: the priority value is whitelisted and bound as a parameter. Only the AC-1 edit commit has an unrecorded provenance concern."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff changes src/index.js, which renders plain HTML, and adds no styling or UI component files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser flow to demonstrate, and the PR states no screenshots were taken."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters and describes the change. The claim 'Changed after the go: nothing' is false."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:55:35Z"
+}

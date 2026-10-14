@@ -2224,3 +2224,367 @@ it stays clean; each session files its own task line, so none is tracked in W10 
 
 **Next**: W10.6.9 (the blocking gaps, the in-passing ones), then W10.6.10 (run 2). W10.7 waits on a
 run that meets the M1 exit.
+
+## #54 — 2026-10-13 · W10.6.9d: PR body for the owner's reading, screenshots on the PR
+
+**What moved**: the owner's feedback on the PR bodies of a W10.6.4 run, filed first as W10.6.9, renumbered W10.6.9d when `main` gave that id to the run-1 gaps (LOG #53); it closes F-NEW-43. Tests
+came first: 12 new cases in `tests/pr-body-check.test.sh` each failed on the old check, and every
+old case still passed.
+
+- **Second level.** Under the one-line summary, one plain paragraph of 2–3 sentences on what
+  changed and why it matters, before the **Preview:** line. The template quotes the owner's example
+  as the register. The check counts sentences (an end before a capital or the end, so "e.g. the
+  bus" is one sentence) and refuses markup or a second paragraph.
+- **Announcement as a release note.** The template's guidance says what the person who uses the app
+  can now do, in their words. The check refuses developer words there: code, `AC-<n>`, routes, file
+  names and status codes ("a 404 page", "error 500"; "500 items" passes).
+- **Screenshots on the PR.** `**Screenshots:**` needs an image or "no UI change", so "not embedded
+  here (no image host in this session)" fails. An image on `raw.githubusercontent.com` fails even
+  when pinned: a private repo's viewers get a 404 there.
+- **Code is quoted, not checked.** The image and GitHub-link checks read code spans, while the
+  placeholder check skipped them, so a body quoting an image line in code failed (found writing
+  this PR's body). Now all three skip code. Two more cases, each failing on the previous version.
+- **The image host** (owner: option B, a hidden ref first). The session's git proxy accepts pushes
+  to the session branch only (LOG W0.4.1), so `runtime/scripts/pr-assets.sh` uses GitHub's REST
+  git-data API through `gh`. Each blob's SHA must equal `git hash-object` of the file. The tree and
+  an orphan commit naming the branch and HEAD follow, then `refs/devshop-assets/<branch>/<head12>`,
+  created or moved with force when the screenshots are retaken. Ref, commit and tree are all read
+  back, and the script prints `![label](https://github.com/<owner>/<repo>/raw/<commit>/<file>)`
+  lines. `tests/pr-assets.test.sh` runs it against a stub `gh` with a fake object store; 11 of 11
+  mutants are killed (the tree read-back survived at first, and the test gained a case for it).
+
+**Owner calls**: Git LFS ruled out: its pointers still land on `main`, its objects can't be deleted,
+and every clone downloads them. Adding and then removing the images on the PR branch was ruled out
+as fiddly. A `devshop-assets` branch is the fallback, if GitHub refuses a ref outside `refs/heads/`.
+
+**Decision**: the Build skill runs `pr-assets.sh` before writing the body, and `ship` doesn't run it
+after the pass. The links have to be in the words `ship` reviews and posts (F-NEW-27), and they
+depend on the upload. An upload for a change that then fails review only leaves a hidden ref.
+
+**Surprises**: in this session auto mode refused a probe write of an unreferenced blob to this
+repo ("modify shared resources"). Projects will need `gh api` writes allowed for `pr-assets.sh`;
+the live run on the fixture will show the prompt. `tests/run.sh`: 22 of 25 files pass; `bootstrap`,
+`git-hooks` and `pre-bash` fail identically on a clean `main` worktree here (LOG #52).
+
+**First ship, and a live probe** (owner's go, 2026-10-13): `ship` passed the review (0 blocking, 2
+low) and opened PR #95, then stopped with exit 2: something on the session's path to GitHub dropped
+the `!` from a code-quoted image line in the body. Both low findings were fixed: each upload now
+gets its own never-moved ref, `refs/devshop-assets/<branch>/<head12>-<commit12>`; and a template
+line was rewrapped (14 of 14 mutants killed). The probe on this repo found the REST git-data path
+**closed**: the session's GitHub proxy answers "Write access to this GitHub API path is not
+permitted through this proxy" (HTTP 403) on the first blob, and `pr-assets.sh` failed closed. A plain
+`git push` of the same commit to the hidden ref never left the session: the review guard refuses any
+push while the branch has an open PR, and auto mode refused it too. Whether the git proxy accepts a
+ref outside `refs/heads/` is still unknown.
+
+**Left**: the owner's call on the upload route: (A) push the hidden ref with plain git (needs the
+guard to allow `refs/devshop-assets/*`, a permission rule, and the proxy to accept it), or (B) carry
+the screenshots on the PR branch as the second parent of a merge commit whose files equal the code
+(the push the proxy allows; nothing to remove). Then the live render check in the browser and the
+GitHub mobile app, before and after merge.
+
+**Next**: W10.6.9 (LOG #53).
+
+**The one probe push** (owner's go): `git push origin <commit>:refs/devshop-assets/…` from a
+detached worktree (the review guard refuses any push from a branch with an open PR) got `HTTP 403`
+from the session's git proxy; `git ls-remote` shows nothing was created. So a cloud session can push
+only its own branch, and the screenshots ride on it. **Route B, built test-first**:
+`pr-assets.sh` writes the images as a parentless commit S (local `git hash-object`, `mktree`,
+`commit-tree`) and moves the branch to a merge of HEAD and S with HEAD's tree, so the PR's files and
+diff don't change. `ship`'s ordinary push carries S; GitHub keeps it with the PR
+(`refs/pull/<n>/head`) after the merge and the branch's deletion. The script reads the repo's
+merge settings and refuses unless squash is the only method (a merge commit or rebase merge would
+carry S into the default branch). The test walks a PR's life on a local remote: two uploads, a
+retake, a fix round, a squash merge, the branch deleted, a fresh `file://` clone without S; 16 of 16
+mutants killed. The reviewer prompt names the two screenshot commits as not part of the change. The
+PR body check's inline code no longer crosses a blank line (the reviewer's low finding), test first.
+
+**Signing** (found by the session's stop hook before anything was pushed): `git commit-tree` ignores
+`commit.gpgsign`, so the two screenshot commits were unsigned, which GitHub shows as Unverified and a
+signed-commits rule would refuse. `ship` was stopped before its push and the branch reset to the last
+signed commit; the script now passes `-S` when `commit.gpgsign` is on (test first, with a stub
+signer).
+
+**Reviewer exemption checked, not trusted** (the reviewer's `medium` security finding): the prompt
+first exempted the two screenshot commits by title, which the builder controls. Now the reviewer
+checks it with its allowed commands: the merge's `git diff <merge>^1 <merge>` is empty, the assets
+commit has no parents and only image files; otherwise they are reviewed as normal, and a title that
+claims screenshots but fails is a `high` security finding.
+
+**Live result** (PR #95, `ship` pass at round 2): GitHub kept the body as reviewed, image line
+included, and renders it as a plain `<img>` of the `github.com/…/raw/<sha>/…` URL; the API shows the
+file at that SHA with the local size and blob SHA. The **owner confirmed the probe renders in the
+browser** (screenshot in chat). The reviewer's last two lows are fixed before merge: its screenshot
+check also confirms the merge has exactly two parents, the second the checked commit; the empty
+signing array expands safely on bash before 4.4. Left: the GitHub mobile app, and a look after the
+merge and the branch's deletion.
+
+**After the merge** (PR #95, squash): the branch was deleted; the API still serves the probe at its
+commit (same size and blob SHA); `main` has no image files and the screenshot commit is not in its
+history; the owner saw the probe still render in the browser after a forced refresh. **The GitHub
+mobile app showed a broken image** (owner's phone screenshot), and so does an old lalista PR from
+v1: the app can't load a private repo's `github.com/…/raw/…` images, which need the browser's
+session; only drag-and-drop `user-attachments` get signed URLs, and that upload has no API
+(F-NEW-50). Mitigation (owner's pick): `pr-assets.sh` prints each image linked to itself, and
+`pr-body-check.py` requires that link on a `github.com/…/raw/…` image, so a tap opens it in the
+browser (tests first: 2 new cases, each failing on `main`'s check). Also from the review: the
+reviewer's screenshot check now confirms each file is a regular file (mode `100644`). W10.6.9d stays
+open until the owner decides whether mobile needs inline images (an outside host, public by link).
+
+**Task id** (owner): W10.6.9d, kept with the other run-1 findings under W10.6.9 and listed before
+W10.6.10, which now waits on both.
+
+**Image syntax in code gets mangled on the way to GitHub**: on PR #99, as on PR #95, `ship` stopped
+(exit 2) because the body GitHub kept differs from the reviewed one. Something on the session's path
+to GitHub drops the `!` from `![label](url)` when the URL isn't `https://`, even inside a code
+span; real `https://` images are untouched. `ship`'s read-back caught it both times. Bodies write
+such examples in words. Also from the review: the link check now counts each image, not each URL (a
+repo image linked once and shown bare elsewhere fails; test first).
+
+**Linked images dropped** (owner: B): on PR #99 the self-linked probe reached GitHub wrapped in a
+code span, so it showed as text; `ship` stopped (exit 2). So the session's path to GitHub leaves a
+bare `https://` image alone (PR #95), drops the `!` from image syntax with a non-https URL (even in
+code), and turns a linked image into code. Its rules aren't documented anywhere the session can
+read; `ship`'s read-back caught every case. The linked form and its body check are removed;
+`pr-assets.sh` prints bare images again. F-NEW-50 stays open with no mitigation from a session. Kept:
+the reviewer's file-mode check, F-NEW-50, F-NEW-43 fixed, the W10.6.9d rename.
+
+## #55 — 2026-10-13 · W10.6.9 (F-NEW-40): the reviewer's flip measured and fixed
+
+**What moved**: the reviewer's pass-then-fail on one commit in run 1 (F-NEW-40), measured before
+changing anything, then fixed with the owner's chosen option and measured again. Record:
+[spikes/w10-6-9-reviewer-flip](spikes/w10-6-9-reviewer-flip/README.md). The fixture was attached
+read-only with the owner's OK; nothing was pushed to it.
+
+**Measured** (every case 5 times on identical input, fresh worktree each, the W10.6.5 eval driver):
+
+- **Eval set: no flips.** Honest 25/25 pass; planted 75/75 fail, every fail naming its plant.
+- **Run-1 commit (`1337cc0`, rebuilt locally): flips.** 5 of 10 fail, with and without PR words.
+  The flip is in severity, not detection. The run-1 pass verdict itself listed the rejected
+  `history.length > 1` check as a `low` "harmless extra guard". Over 10 runs it was `low` 7 times,
+  blocking once, unmentioned twice. A state-row coverage call flipped the same way.
+- **Options on that commit, 10 runs each:**
+  - prompt rule: 10/10 fail, the rejected check `medium`+ every time, same cost;
+  - `--effort high`: 10/10 fail but the check still `low` 8 of 10, 1.5× cost;
+  - Opus: like effort, 4× cost;
+  - review twice: about 75%, 2× cost.
+
+**Owner's call**: the prompt rule. **Fix**: `prompt.md`'s new rules:
+
+- a departure from a decision is at least `medium`, even as an extra guard the decision rejected;
+- a state row tested only in part is at least `medium`;
+- a departure from the spec is never `low`.
+
+Test first in `tests/reviewer.test.sh` (failed on the old prompt; 4 of 4 mutants killed).
+
+**After**: run-1 commit 10/10 fail, the rejected check `medium`+ in 10/10. Honest 25/25 pass.
+Planted 74/74 fail on their plant. $7.65 for 110 reviews (before: $7.33).
+
+**Surprises**
+
+- One planted review was could-not-run: the model's reply covered 5 of the spec's 7 items, and
+  `review.sh` failed closed. That is 1 in 220 here, not a flip.
+- `main` changed `prompt.md` (W10.6.11, now W10.6.9d) while the first "after" run was going. The driver reads the
+  live file, so that run was stopped and discarded; the recorded run is on the merged prompt.
+- Parallel eval runs raced for git's worktree names. `run.sh` now names each worktree by its run id.
+
+**Next**: the rest of W10.6.9 (F-NEW-36, F-NEW-37), then W10.6.10. Run 2 is the next test of the
+rule on a real build.
+
+## #56 — 2026-10-13 · W10.6.9 part b: CI fails an untested acceptance item; fixture fixes
+
+**What moved**: F-NEW-37, which D-16 makes blocking for run 2, and three in-passing findings.
+Checks came first; each new case failed on the old code.
+
+- **Acceptance→test check (F-NEW-37).** `runtime/scripts/spec-check.py` checked a spec's shape
+  only. `--tests <path>` now fails each `AC-<n>` not marked "verified by review" that no file under
+  the test paths names. It takes a directory of specs and reads an item's continuation lines (the
+  fixture's AC-10 carries its "verified by review" mark there). A missing or unreadable spec or test
+  path exits 2. `tests/spec-check.test.sh` gained 14 cases; 12 of 12 mutants killed.
+- **Wired in twice.** `runtime/templates/check-fast.sh` (new) is a project's fast tier with the
+  secret scan and this check; `tests/check-fast-template.test.sh` shows a lost name fails it, and a
+  missing check, `python3` or `specs/` exits 2. The fixture's `check-fast.sh` runs it over `test/`
+  and `tests/` (fixture PR 18). With the run-1 plant reapplied (AC-4's test title stripped), the
+  fixture's `fast` tier exits 1 naming AC-4; clean, it exits 0.
+- **The check counted its own test.** The fixture's new test named `AC-4` to strip it, which made
+  it AC-4's "test". It now builds the name at run time. The general limit (names, not tests; AC
+  numbers shared across specs; the project's copy of the script unchecked against the pin) is
+  F-NEW-49.
+- **gitleaks flake (F-NEW-45).** Reproduced: 15 of 3,000 random values missed with the fixture's
+  config, 12 of 3,000 with this repo's. Alternating letters and digits: 0 of 3,000 and 50/50 test
+  runs, in both repos (this repo's test had the same flake).
+- **Stale baselines (F-NEW-34).** The reset refuses a tag whose `ci.yml` lacks the `fast` and `slow`
+  jobs: the real `baseline-2` is refused, `baseline-3` accepted. A rule covers the rest: after any
+  fixture PR merges outside a test run, the owner tags a new baseline (W10-v2 § W10.5).
+- **README (F-NEW-35, README half).** The fixture's reset section no longer names a harness.
+
+**Not yet shown** at merge (owner asked how this was tested): `fast` going red on GitHub with the plant
+(shown after merge, below). `tests/check-fast-template.test.sh` was written after the
+template, not before; mutants stand in (4 of 5 killed, the survivor equivalent). The template has not run
+in a real new project. F-NEW-49 is the first entry on a new watch list in FINDINGS (symptoms, likely
+causes, a count; v1's friction log until the `lesson` ledger exists), so a recurrence can be matched.
+
+**After merge** (same day): shown on GitHub. Fixture PR 20, a draft opened by the owner from
+`probe/ac4-untested-main` (`main` plus AC-4's test name stripped), failed `fast` with
+`spec-check: specs/item-categories.md: AC-4: no test names it`, and `slow` was skipped. Fixture PR 18 and
+this PR merged; the owner tagged `baseline-4` (`a28d7a5`); fixture PR 19 re-pinned the fixture to this
+PR's merge (`c8fc846`), its two copied scripts byte-identical to the devshop's there; the owner tagged
+`baseline-5` (`621a958`) on its merge.
+
+**Next**: the rest of W10.6.9 (F-NEW-36, F-NEW-40, F-NEW-39), then W10.6.10.
+
+## #57 — 2026-10-13 · W10.6.12: the verdict comment, short by default
+
+**What moved**: owner feedback that seven ships on one PR posted seven long comments with tables.
+Options discussed first (one comment edited in place like the preview comment; one-line comments
+plus one edited table; a new short comment per ship). **Owner calls**: a new comment per ship,
+short: once the tables can collapse, editing in place isn't needed, and a new comment keeps a
+lasting record per commit (the verdict files live in `.git` and go with the container) and sits in
+the timeline just after the push it reviewed. Failed reviews stay off the PR. A check that the head
+moved past the last verdict (F-NEW-38) is not built: it needs a CI job, and with one comment per ship a push
+made without `ship` already shows as a push with no verdict after it.
+
+- `pr-comment.sh`: the marker line, then the headline (outcome, round, counts, commit), then one
+  `<details>` block with the spec, tables, findings and reviewer identity. `ship.sh` unchanged.
+- Test first: `tests/reviewer-pr.test.sh` checks the layout (failed on the old renderer) and that
+  model text can't close the block. Mutants: the `<` escape dropped and the blank line after
+  `<summary>` dropped are killed; dropping the blank line before `</details>` survives, equivalent.
+
+## #58 — 2026-10-13 · W10.6.13: one findings ledger, graded and counted
+
+**What moved**: the owner's two v1 mechanisms, the friction log's counted entries and the old
+PLAN's Leverage grading, came back as one findings ledger after five rounds of proposal and
+answers. The check came first and failed on the old file.
+
+- **Shape (owner's calls).** Two live lists, split by how clear the action is rather than by
+  severity: a **Fix queue** (clear actions, graded Impact · Risk · Cost, sorted by Leverage, v1's
+  formula unchanged) and a **Watch list** (an observation plus a guess, sorted by Score = Impact ×
+  Seen). Fixed, won't-fix and held findings go to **Closed**, which a new finding is matched
+  against too; a held one that recurs reopens. "Lesson" stops being its own ledger: a rule change
+  is one kind of fix.
+- **The rule of 5.** The owner's worry: a cheap low-impact fix ranks high on Leverage before anyone
+  knows it recurs (XS/XS/XS scores 4.0, M/M/M 3.6). Adding the count to Leverage was worse (a
+  4-times papercut would outrank a once-seen security hole 64 to 10), so the count gates entry
+  instead: impact XS or S enters the Fix queue only after 5 sessions; a Watch entry seen 5 times
+  must move or be held.
+- **Migration.** All 165 rows moved, IDs kept: the ID set before equals the set after. 156 went to
+  Closed with their disposition as the outcome. Confidence and the dead v1 task columns were dropped;
+  the old tables stay readable at `080ba83`. F-NEW-21 closed: `ns-1` showed a content push after
+  approval dismissed it (fixture PR 15). The 9 open findings were regraded by hand: 3 in the Fix
+  queue, 6 on the Watch list (including F-NEW-50, which PR #99 added on `main` meanwhile). F-NEW-20 to 22 had lacked their "found during" cell.
+- **Check.** `scripts/findings-check.py`: fields, both formulas, Seen counts, both lists' order, the
+  rule of 5, unique IDs, the Closed table. `tests/findings-check.test.sh`: 42 cases, written before
+  the script; 26 of 26 mutants killed (the first pass left 2 alive, which became 2 new cases).
+- **Rule.** FINDINGS § How findings are handled: before shipping, match first, then fix now, Fix
+  queue or Watch list. PROCESS § 4 points there. TARGET Shape 8 and Ship 9 now name the findings
+  ledger, whose project-session form is GitHub issues labelled `finding` (A-26 renamed to match).
+
+**Not done here (other sessions own the files):** the Build skill's line for project sessions
+and the PR-body template's "Low findings" line. Both are proposed to the owner in the PR.
+
+**Next**: W10.6.9's remaining items, then W10.6.10.
+
+## #59 — 2026-10-13 · W10.6.14: the tests' fake secrets always clear gitleaks' entropy threshold
+
+**Why**: `fast` failed at random on a PR (`secret added then removed in the change fails: expected
+fail, got exit 0`). `fake_aws_key` drew 16 characters with repeats; a key that repeats enough scores
+below the `aws-access-token` rule's entropy of 3 and gitleaks drops it. F-NEW-45's class (LOG #56),
+in a generator its fix didn't cover. Filed as F-NEW-51.
+
+**What moved**: the check came first. `spikes/w10-6-14-fake-secret-entropy/measure.sh` counts how many of
+N generated values the pinned gitleaks misses: the old AWS generator 6 and 5 of 30,000, the new one
+(16 distinct characters, entropy at least 3.88) 0 of 30,000. Checking the other fakes gitleaks scans
+found the generic-api-key plant weak the same way, more rarely: its rule needs 3.5 (gitleaks missed
+all 6 probe values below it, caught all 6 above) and 4 in 200,000 old values fall below.
+`fake_api_key` in `tests/lib.sh` (16 distinct letters alternating with digits used at most twice,
+entropy at least 4.5) replaces it: 0 of 30,000 missed. The GitHub, Slack and private-key plants
+missed 0 of 30,000 each. `tests/gitleaks.test.sh` now checks both fakes' shape first and fails at
+once on the old generators. Record: [spike](spikes/w10-6-14-fake-secret-entropy/README.md).
+
+**Surprises**: the reported 2 misses in 3,000 was a high draw; the rate is about 1 key in 5,000, so
+about 1 `fast` run in 700. The old generic generator wasn't measured at gitleaks scale (about 100
+minutes for an expected 0.6 misses); the entropy formula and the threshold probe stand in.
+
+**Next**: the rest of W10.6.9, then W10.6.10.
+
+## #60 — 2026-10-14 · W10.6.15: findings as tables with v1's glyphs
+
+**What moved**: the owner's review of #103 asked for v1's glyphs to scan the lists quickly. A
+summary table above each list was proposed first; the owner asked why not make the lists tables, so
+nothing is kept twice. Each list is now one table, a row per finding.
+
+- **Glyphs.** Grades carry v1's size glyphs (🟢🟢 XS, 🟢 S, 🟡 M, 🔴 L, 🔴🔴 XL); the colour is size,
+  so a red Impact is good news and a red Cost is not, as in v1. Leverage shows its band (🔥 5 or more,
+  🟡 2 to under 5, ⚪ under 2). Seen opens with dots toward the rule of 5 (●●○○○), then the dated
+  sightings separated by `<br>`.
+- **Check.** `findings-check.py` reads the three tables: exact headers, row shape, the glyph
+  matching each size, the band matching the Leverage, the dots matching the sightings. Test
+  rewritten for tables first: 45 cases, 30 of 30 mutants killed. The reviewer's one low finding (an
+  emptied live list failed the check, which the old script allowed) was fixed in the PR: a
+  regression in its own file, clear and quick. 165 IDs before and after (main's
+  script on main's file against the new one); Closed rows unchanged.
+- **Low findings in project sessions.** The Build skill line approved after #103 didn't fit: the
+  skill was at 60 lines and 598 words against `skills-check.py`'s one page (60, 600). The rule went
+  into the PR-body template's **Low findings** placeholder instead, which the builder fills in when
+  it lists them. Splitting the Build skill is the owner's call.
+
+**Next**: W10.6.9's remaining items, then W10.6.10.
+
+## #61 — 2026-10-14 · W10.4.7: a project's copies of devshop files, checked and upgraded
+
+**Why**: a project's CI can't reach the devshop, so the project keeps copies of the scripts its CI
+runs (`secret-scan.sh`, `spec-check.py`) and adapts its CI from templates. Nothing noticed a stale
+copy: bumping `.devshop-version` changes what the session loads, not the copies (F-NEW-49 cause 4).
+v1's sync had the same job and earned L-49 doing it.
+
+**What moved**: proposed, reviewed adversarially and approved in chat (owner, 2026-10-13). The
+review changed four things: drift is checked only when the project pins a version (`HEAD` of a week-old
+local copy would report every devshop change, the devshop's own repo included); a `devshop`-owned
+delta is all or nothing; seeds are confirmed as project diffs, never template hunks (L-49's home-os
+regressions); a version newer than the local copy stops the upgrade with "rebuild the environment".
+Built test first: `runtime/project-files.txt` (2 `devshop`, 2 `seed` entries),
+`runtime/scripts/project-files.py` (`check`, `plan`, `apply`), the session-start line, the `upgrade`
+skill. `tests/project-files.test.sh` failed before the script existed; 43 cases pass; 30 of 30
+mutants killed. On the fixture (scratch `/opt` holding this branch): `main` re-pinned to it gets no
+line, one edited line plus a lost executable bit gets one line naming both; `baseline-3` (pin
+`a86ad4b`) planned to it shows `spec-check.py` missing and both templates' change with its commit,
+`apply` writes the copy and refuses the seed, `check` then passes.
+
+**Surprises**: a mutant survived because the empty-part rule already rejects an absolute path; the
+redundant clause went, and a `./` path got its own test (two spellings of one file). The applied
+copy alone doesn't make `baseline-3`'s check run: it has no `specs/` and its seed `check-fast.sh`
+doesn't call the check, the coupling the skill warns about.
+
+**Next**: after the merge and the fixture environment's cache rebuild, the fixture's own upgrade PR
+through the skill (W10.4.7's last done-when).
+
+## #62 — 2026-10-14 · W10.6.16: Build hands the PR over to a `pr` skill
+
+**What moved**: the Build skill was at its one-page limit (60 lines, 598 words), so the low-findings
+rule the owner approved after #103 had gone into the PR template's placeholder (#106). Build's PR
+section is now its own skill, `pr`, which also holds that rule; Build is at 49 lines and 445 words,
+`pr` at 44 and 375.
+
+- **The split was attacked before the "go".** A read-only reviewer found that my first draft sent
+  later rounds (a reviewer fail, an owner comment) through `pr`, which has none of Build § 3's
+  rules; ns-1's rounds were both Build work. Later rounds are now built under Build § 3, then `pr`
+  again. It also found that the review guard's refusal handed Claude `ship.sh` directly, skipping
+  the skill: the refusal now names `devshop:pr`.
+- **Named `pr`, not `ship`:** gstack's `/ship` is in every project session, and TARGET's Ship is
+  merge and deploy. Skills hand over by the name a session invokes, `devshop:<name>`.
+- **Checks.** `skills-check.py` fails a handover to a skill the runtime lacks and descriptions over
+  the always-loaded budget, 150 words together (TARGET Shape 2; 121 here, was 93). Merging `main`
+  brought #108's `upgrade` skill (41 words): 162, so the check failed on its first contact; Build's
+  and `pr`'s descriptions were trimmed to 150 of 150. Tests first: each
+  new case failed on the old script, Build without its handover failed, and the guard test failed
+  on the old message. 8 of 8 mutants killed. `tests/run.sh`: 31 of 31 test files passed (after merging `main`).
+- **The reviewer's one low finding was fixed here:** a description continued on a second line (a
+  folded YAML one) was counted as its first line, so the budget check passed what it couldn't read.
+  It now fails such a description; its test failed first. In this task's own file, clear and quick.
+- **Findings:** F-NEW-52 to the Fix queue (owner): `ship.sh` should run `pr-body-check.py` itself.
+  Watch list: F-NEW-53 (parallel sessions collide on task, LOG and finding numbers), F-NEW-54 (the
+  per-skill hard limit against Shape 2), F-NEW-55 (`bootstrap.test.sh` in a shallow clone), F-NEW-56
+  (`upgrade` opens its PR through `ship.sh`, not `devshop:pr`).
+
+**Next**: the live check, a fixture session that invokes `devshop:pr`, once the owner says the
+fixture is free; then W10.6.9's remaining items and W10.6.10.

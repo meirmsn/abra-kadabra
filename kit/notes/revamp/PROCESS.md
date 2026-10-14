@@ -99,14 +99,15 @@ V4/V5 = Dogfood. Rules:
 
 ## 4. Discoveries and replanning
 
-| Discovery                                  | Action                                                                                                                                        |
-| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Small issue in code you're touching        | Fix in the current task; mention in the PR                                                                                                    |
-| New issue elsewhere                        | `F-NEW-nn` row in [FINDINGS.md](FINDINGS.md) mapped to a task (or a new task)                                                                 |
-| Task wrong/unnecessary                     | `[-]` with reason; re-map its findings                                                                                                        |
-| Assumption behind an epic/milestone breaks | Stop; revisit/add a decision in [DECISIONS.md](DECISIONS.md) + [PLAN.md § Changelog](PLAN.md#changelog); ask the owner if scope/order changes |
+| Discovery                                  | Action                                                                                                                                              |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Small issue in code you're touching        | Fix in the current task; mention in the PR                                                                                                          |
+| New issue elsewhere, or anything noticed   | Before shipping, [FINDINGS.md § How findings are handled](FINDINGS.md#how-findings-are-handled): match first, then fix now, Fix queue or Watch list |
+| Task wrong/unnecessary                     | `[-]` with reason; re-map its findings                                                                                                              |
+| Assumption behind an epic/milestone breaks | Stop; revisit/add a decision in [DECISIONS.md](DECISIONS.md) + [PLAN.md § Changelog](PLAN.md#changelog); ask the owner if scope/order changes       |
 
-Never silently drop scope: every finding ends fixed, mapped, or `won't fix` with a reason.
+Never silently drop scope: every finding is fixed, on a live list, or closed with a reason. The
+reviewer's `low` findings follow the same rule: not fixed in their PR by default.
 [LOG.md](LOG.md) gets an entry **per work session or milestone**, not per task:
 what moved, surprises, next.
 

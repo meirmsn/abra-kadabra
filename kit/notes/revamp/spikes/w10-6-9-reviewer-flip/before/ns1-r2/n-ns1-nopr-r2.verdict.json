@@ -1,0 +1,145 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "1337cc02b6df0d6d3a13d018b2014c84b897b959",
+  "base": "9644a31035ed6b12085e670304b133a76853fa30",
+  "branch": "eval-run/n-ns1-nopr-r2",
+  "spec": "specs/item-categories.md",
+  "intent": "spec",
+  "pr": null,
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "efb8a6f0-d80b-43e9-b6fe-5c5320e482e4",
+    "cost_usd": 0.1077786
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-1' checks seed rows, UNIQUE and CHECK rejections, nullable column, index, and seeded item mapping against migrations/0003."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-2': title-only insert gives null category_id; category_id 999 fails with FOREIGN KEY."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "'AC-3' test checks id order, labelled markup and unlabelled <li>; src/index.js item() matches the spec markup."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' asserts link order (All, then case-insensitive name order), hrefs, a single aria-current on All, and an empty category's link."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "Two 'AC-5' tests: Work-only items in id order, Work current, and extra params identical to the base pages."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "'AC-6' test: 200, 'No items in this category.', no <li>, links shown with Garden current."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "'AC-7' test adds 'R&D <x>', checks the escaped label, the encoded href, and that following the href lists the item."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "it.each 'AC-8' covers all five bad links: 404, message, Go back href '/', referrer script, no <li> and no <nav>."
+    },
+    {
+      "item": "AC-9",
+      "met": true,
+      "evidence": "'AC-9' test checks HEAD status for /, /?category=Work (200) and /?category=Wrok (404)."
+    },
+    {
+      "item": "AC-10",
+      "met": true,
+      "evidence": "The spec gives a concrete browser procedure. I read the inline script in src/index.js brokenLinkPage: it goes back only for a same-origin referrer, otherwise the link's href '/' applies. That matches the spec. I did not run a browser."
+    },
+    {
+      "item": "AC-11",
+      "met": true,
+      "evidence": "routes.json lists /?category=Work. tests/traffic-config.test.sh covers query accepted and whitespace, '#' and no-slash rejected. test/traffic.test.js records path plus query and checks ROUTES. index.test.js 'AC-11' hits each route and expects 2xx. traffic/src/index.js passes the path with its query through."
+    },
+    {
+      "item": "AC-12",
+      "met": true,
+      "evidence": "The existing healthz, 404, 405, escaping and empty-table tests are retained. The <li>First item</li> assertion is updated to the AC-3 markup; the other handlers are unchanged."
+    },
+    {
+      "item": "AC-13",
+      "met": true,
+      "evidence": "test/apply-migrations.js drops all tables in one batch with defer_foreign_keys. The suite would fail in beforeEach if the reset broke; the 'AC-13' test only weakly proves it."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-13",
+      "file": "test/index.test.js",
+      "what": "The AC-13 test adds a row and expects a count of 4. It would pass with any reset that restores the seed, and it does not check the foreign key is enforced. A broken reset would be caught by beforeEach failing, not by this test.",
+      "fix": "Optionally also assert that PRAGMA foreign_key_list(items) lists categories, or that an orphan insert fails, after the reset."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change matches the owner's ask (a category per item and a list filter), and the spec records the owner's go dated before the implementation commits. No scope was added."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 13 items are met, and every State-table row has a test: the '/' with items, '/' with no items, known category with items, known category with none, and broken-link rows. The spec edits all precede the go commit, and no acceptance item was edited after it."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests name their AC ids and assert behaviour. I could not run npm test here because vitest is not installed; CI covers that. No tests were deleted or loosened."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README updated for the filter and the 404 behaviour."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The query is parameterised, the match is exact, the HEAD status equals GET, and repeated or empty values are handled."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Names are HTML-escaped and URL-encoded, SQL uses bound parameters, and no planted instructions were found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "Only a minimal server-rendered HTML page changed. There is no stylesheet or UI component, and the spec has no design requirements."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser or UI harness is available here. AC-10 was reviewed by reading the script, not run."
+    },
+    {
+      "lens": "pr",
+      "applies": false,
+      "note": "No PR words were given."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:58:17Z"
+}

@@ -1,0 +1,13 @@
+diff --git a/runtime/reviewer/review.sh b/runtime/reviewer/review.sh
+index a0b15d9..fc9e76a 100755
+--- a/runtime/reviewer/review.sh
++++ b/runtime/reviewer/review.sh
+@@ -9,7 +9,7 @@
+ # on the command line changes them (Verify 3, F-HOOK-10). Tests run a copy of the directory.
+ set -uo pipefail
+ 
+-MODEL=claude-sonnet-5-5
++MODEL=claude-opus-5-5
+ TOOLS=Read,Grep,Glob,Bash
+ TIMEOUT=900 # seconds
+ ROUNDS_TO_ASK=3

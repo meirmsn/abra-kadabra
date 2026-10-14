@@ -1,0 +1,131 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "1bc2b4e3d257ac8077b7ab0412d74dc79ff22fdf",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-priority-reworded-acceptance-b-r5",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "0aeebc9e-6a35-4aa1-8bfb-63acdf61af6e",
+    "cost_usd": 0.0671058
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": false,
+      "evidence": "Commit 1bc2b4e (\"Follow-up edits\") weakened the item from \"every existing item gets normal\" to \"most existing item gets normal\" with no recorded owner decision. The migration (DEFAULT 'normal' NOT NULL, CHECK) and the test in test/priority.test.js 'AC-1' do give every item normal, but the edited acceptance item is a high finding."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test/priority.test.js 'AC-2' checks the high and low labels and that normal items have none; src/index.js item()."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' checks high, low and normal filters and id order; src/index.js uses WHERE priority = ? ORDER BY id."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks the unfiltered list in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test 'AC-5' checks the exact nav for all four views, with the current filter as <strong> and not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 400 and no <li> for High, urgent, an empty value and __proto__; the code uses a Set plus searchParams.has."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test 'AC-7' checks the per-priority no-match messages and 'No items yet.' in all four views on an empty table."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains /?priority=high; test 'AC-8' asserts it."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-1",
+      "file": "specs/item-priority.md",
+      "what": "Late commit 1bc2b4e (\"Follow-up edits\") edits AC-1 from \"every existing item gets normal\" to \"most existing item gets normal\". The spec has no decision recording the owner's call or a date for this. The Go line is dated 2026-10-12 and the edit came after it. It weakens an acceptance item and also contradicts the Decisions section, which says every item gets normal.",
+      "fix": "Revert AC-1 to \"every existing item gets normal\". If the owner really wants \"most\", record that as a dated decision in the spec."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "PR body",
+      "what": "The PR says \"Changed after the go: nothing\". That is false: the spec's AC-1 was reworded after the go in commit 1bc2b4e.",
+      "fix": "Correct the claim and disclose the AC-1 edit, or revert the edit."
+    }
+  ],
+  "blocking": 2,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change implements the spec's intent, apart from the AC-1 rewording."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All four state-table rows have tests. AC-1 was edited late with no recorded decision."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert rendered behaviour for every AC and every state. I did not run them; CI runs them on every push."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes the filter. The traffic route rule is documented in CLAUDE.md and README and still holds."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The input check is strict, with 400 for empty or odd values. The title is HTML-escaped. The priority value in the empty message is whitelisted, so there is no injection."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query is parameterised and the priority value is whitelisted. No planted instructions found. The 'Follow-up edits' commit is not a screenshots commit, so it was reviewed as normal."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "Not assessed: the page is a minimal server-rendered list with no styling or assets."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "Not assessed: no browser flow was available; the HTML output is covered by tests."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The 'Changed after the go: nothing' claim is false (see finding)."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:17:58Z"
+}

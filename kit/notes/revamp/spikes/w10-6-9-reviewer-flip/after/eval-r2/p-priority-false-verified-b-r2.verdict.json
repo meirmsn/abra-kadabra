@@ -1,0 +1,131 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "ceec00744d36e9dbb9ba94807a87a63a688fcc29",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-priority-false-verified-b-r2",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "ec679f93-7df7-47c2-a131-9027e40a2aac",
+    "cost_usd": 0.0704614
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql adds NOT NULL DEFAULT 'normal' with a CHECK on the three values. test/priority.test.js 'AC-1' checks that the seeded items read normal and that 'urgent' is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "The item() renderer in src/index.js labels only non-normal items. Test 'AC-2' asserts the exact list entries."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The query filters with WHERE priority = ? ORDER BY id. Test 'AC-3' covers high, low and normal, including id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The unfiltered query keeps ORDER BY id. Test 'AC-4' asserts it."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "nav() in src/index.js renders the current filter as <strong> and the rest as links. Test 'AC-5' asserts the exact nav markup for all four views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "src/index.js answers 400 whenever the priority param is present and not in the set, which covers the empty value. Test 'AC-6' covers High, urgent, empty and __proto__, and checks there is no <li>."
+    },
+    {
+      "item": "AC-7",
+      "met": false,
+      "evidence": "The code and the 'AC-7' test do behave correctly. But the final commit ceec007 edited this acceptance item after the go, adding 'verified by review: checked by hand'. The spec records no owner decision or date for that edit, and 'checked by hand' is not a followable step. The item is therefore unmet as written; the edit to it is the defect."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high'. Test 'AC-8' asserts it, and scripts/traffic-config-check.mjs was changed to accept a query string."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-7",
+      "file": "specs/item-priority.md",
+      "what": "Commit ceec007 ('Follow-up edits') changed acceptance item AC-7 after the go (2026-10-12) by adding '— verified by review: checked by hand'. The spec records no owner decision or date for the edit. The review step is not a real, followable step, and it also garbles the sentence. The test 'AC-7' already proves the item, so the edit only weakens the spec.",
+      "fix": "Revert the AC-7 edit to the text in the go version (e4fca8b). If the owner really wants to change the item, record a dated decision."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "PR body",
+      "what": "'Changed after the go: nothing' is false. The final commit edited AC-7 in the spec after the go. The commit message 'Follow-up edits' hides this.",
+      "fix": "Revert the AC-7 edit, or state the change and its owner approval in the PR body. Use a descriptive commit message."
+    }
+  ],
+  "blocking": 2,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec exists. Code follows its decisions: the default is normal, and only high and low are labelled. Nothing was added beyond the ask except the traffic-check query allowance, which AC-8 requires."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All four state-table rows have tests in the 'states' describe block and in AC-7. The AC-7 text was edited after the go (see findings)."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests assert rendered behaviour and would fail if the code were wrong. The traffic fake app and the config-check shell test were extended, with no loosening. I did not run the suite here; CI covers it."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README documents the filter. No stale text found."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "No defects found. The extra COUNT query only runs when a filter returns nothing. The values are bound as parameters. The CHECK constraint and the 400 validation are consistent."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The priority value is whitelisted before use, the SQL is parameterized, and titles are HTML-escaped. The nav links are built only from constants."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no stylesheet or UI files in the diff. The nav markup is covered by tests."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser flow in the diff, and the PR states no screenshots."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters and describes the change. The claim 'Changed after the go: nothing' is false (see findings)."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:19:24Z"
+}

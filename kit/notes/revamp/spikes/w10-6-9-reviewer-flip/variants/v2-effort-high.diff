@@ -1,0 +1,21 @@
+diff --git a/runtime/reviewer/review.sh b/runtime/reviewer/review.sh
+index a0b15d9..10e35a8 100755
+--- a/runtime/reviewer/review.sh
++++ b/runtime/reviewer/review.sh
+@@ -12,6 +12,7 @@ set -uo pipefail
+ MODEL=claude-sonnet-5-5
+ TOOLS=Read,Grep,Glob,Bash
+ TIMEOUT=900 # seconds
++EFFORT_ARGS=(--effort high)
+ ROUNDS_TO_ASK=3
+ FAILS_TO_ASK=6 # distinct failing commits since the last pass, new issues or not
+ # Variables that tie a nested claude to the session that started it, by name pattern (W10.6.8): the
+@@ -228,7 +229,7 @@ drop_session_ties() {
+ rc=0
+ (cd "$scratch/repo" && drop_session_ties && timeout "$TIMEOUT" claude -p "$prompt" --restricted --safe-mode \
+   --strict-mcp-config --no-session-persistence --disable-slash-commands --tools "$TOOLS" \
+-  --permission-mode dontAsk --settings "$here/settings.json" --model "$MODEL" \
++  --permission-mode dontAsk --settings "$here/settings.json" --model "$MODEL" "${EFFORT_ARGS[@]}" \
+   --output-format json --json-schema "$schema" </dev/null >"$scratch/out.json" 2>"$scratch/err") || rc=$?
+ 
+ # The real worktree must be as it was, whatever the reviewer did.

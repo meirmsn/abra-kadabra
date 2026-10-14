@@ -41,6 +41,21 @@ else
   esac
 fi
 
+# The project's copies of devshop-owned files (the version's project-files.txt, W10.4.7) against the
+# version it pins. Only with a pin: without one there is no agreed version, and the default (HEAD of
+# the local copy) would report every devshop change as drift. Feedback, not a wall.
+if [ -f "$top/.devshop-version" ]; then
+  pin=$(tr -d '[:space:]' <"$top/.devshop-version")
+  found=$(timeout 30 /opt/devshop-current/scripts/project-files.py check --devshop-git /opt/devshop.git \
+    --version "$pin" --project "$top" 2>&1)
+  rc=$?
+  case $rc in
+    0 | 3) ;;
+    1) echo "DEVSHOP: the project's copies of devshop files differ from its pinned version ${pin:0:12}: $(sed -E 's/^([^:]*): (.*)$/\1 (\2)/' <<<"$found" | paste -sd ';' - | sed 's/;/; /g'); the upgrade skill shows each delta" ;;
+    *) echo "DEVSHOP: couldn't check the project's copies of devshop files (exit $rc): $(head -1 <<<"$found")" ;;
+  esac
+fi
+
 cur=$(git -C "$proj" config --get core.hooksPath)
 [ "$cur" = "$hooks" ] && exit 0
 if git -C "$proj" config --get devshop.chainHooksPath >/dev/null; then

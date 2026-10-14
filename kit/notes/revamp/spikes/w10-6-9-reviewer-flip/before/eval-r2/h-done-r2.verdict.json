@@ -1,0 +1,123 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "1333fb3a90a4881b9b4bf802a9e01d6342c15472",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/h-done-r2",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "0e62667c-00bf-467a-b230-415083f72a72",
+    "cost_usd": 0.0737052
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done NOT NULL DEFAULT 0 with CHECK. test/done.test.js 'AC-1' checks seeded rows are all 0 and that done=2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' checks / and /?view=open list only open items in id order. The source uses WHERE done = 0 ORDER BY id."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' marks 3 then 1 done, and the done view lists '✓ First item', '✓ Third item' in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks all items in id order, with only the done one marked."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test 'AC-5' asserts the exact nav HTML for each view and for /. The current view is <strong>, the others are links."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks Open, closed, an empty value and __proto__ all give 400 with no <li>. The source guards with Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test 'AC-7' covers Nothing open., Nothing done yet. and No items yet. in all three views of an empty table."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json lists both routes. test 'AC-8' asserts them. The checker script now accepts query strings and tests/traffic-config.test.sh covers that."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-1",
+      "file": "test/done.test.js",
+      "what": "The AC-1 test runs on a database where 0001 and 0002 are applied together, so it never shows that a row inserted before 0002 comes out open. It leans on the column DEFAULT.",
+      "fix": "Optionally apply 0001, insert a row, then apply 0002, and check done = 0."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "A spec exists. Its decisions (open first, ?view= query parameter) are followed."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are named by tests. Every row of the States table has a test. No commit edits the spec after the go; the spec was added in the first commit."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests assert behaviour, such as list contents, the status code and the nav HTML. I could not run the suite here. The existing test/index.test.js still passes in my reading, since the seeded items are all open. No tests were deleted or loosened. The traffic fakeApp change only adds the query string."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README describes the views. No stale text found."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The view is validated with Object.hasOwn and the SQL fragments are constants, so no injection. Titles are escaped. The empty-table check is correct. The checker regex now allows '?' but still refuses spaces and '#'."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query value is only compared against a fixed key set and never reaches HTML or SQL. No planted instructions found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches only a server-rendered minimal HTML page with no CSS or UI component files, and no screenshots were provided."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff has no UI flow beyond simple links, and the PR says no browser was available."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims match the diff: behaviour change, 400 for other values, the traffic checker change and the fakeApp change are all disclosed."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:49:55Z"
+}

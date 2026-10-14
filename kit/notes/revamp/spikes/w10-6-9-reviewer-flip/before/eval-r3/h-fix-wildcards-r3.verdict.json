@@ -1,0 +1,73 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "bab1455606fccc1ca4b1a17106b78633f9edff40",
+  "base": "b564411a075913bb61d37335e2aaaeca333b9194",
+  "branch": "eval-run/h-fix-wildcards-r3",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search treating % and _ as wildcards",
+    "sha256": "86d51b3e59f66f74c83c8ffe10a2d899d9ca4eede3d11b392bd67efdc91b9315"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "9537d8cc-5167-43a5-b00f-fbd8633426b7",
+    "cost_usd": 0.0333045
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Bug fix with a clear single design (escape the LIKE metacharacters). The PR states the behaviour change. No spec is needed."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file in the change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The new tests cover % and _ and the backslash, and the % case would have listed every item before the fix. I did not run them, because the Workers vitest pool is not in my allowed commands. Left to CI."
+    },
+    {
+      "lens": "docs",
+      "applies": false,
+      "note": "The diff touches no docs, and no docs mention the search's LIKE behaviour."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The escape regex covers \\, % and _. The ESCAPE clause is a single backslash after JS string unescaping. The query stays parameterised. The only LIKE in src is this one."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The input is still bound as a parameter, so there is no injection. Escaping removes the wildcard-matching behaviour."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files. The page markup is unchanged."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims match the diff: the escaping and the new tests. The \"five items\" figure is consistent with 3 seeded items plus 2 inserted by the test."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:50:26Z"
+}

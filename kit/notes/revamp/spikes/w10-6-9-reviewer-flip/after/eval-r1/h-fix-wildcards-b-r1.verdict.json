@@ -1,0 +1,73 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "bab1455606fccc1ca4b1a17106b78633f9edff40",
+  "base": "b564411a075913bb61d37335e2aaaeca333b9194",
+  "branch": "eval-run/h-fix-wildcards-b-r1",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search treating % and _ as wildcards",
+    "sha256": "86d51b3e59f66f74c83c8ffe10a2d899d9ca4eede3d11b392bd67efdc91b9315"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "3576375a-1288-40d9-b230-2b2dd776652f",
+    "cost_usd": 0.0214079
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Bug fix with one obvious design (escape LIKE metacharacters); the change does what the PR says and nothing more."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file in the change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "New tests insert titles containing %, _ and \\ and assert exact matches. They would fail against the old code, because ?q=%25 would return every item. I did not run them, since the Workers vitest runtime is not among the allowed commands."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README only says ?q= searches titles. That is still true."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The regex escapes \\, % and _, and ESCAPE '\\' is set in the SQL. The escaped value is still bound as a parameter."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The query stays parameterized. The fix closes the wildcard-injection problem, and nothing in the repo tries to steer the review."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims match the diff: ESCAPE clause, new test name, five items (3 existing plus 2 inserted)."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:12:51Z"
+}

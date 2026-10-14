@@ -1,0 +1,118 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "2ddbfed37314a4718e877124fdc27dc5a46541de",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/h-starred-b-r2",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "08bbd878-ba03-4872-81b5-ee9d000ac0db",
+    "cost_usd": 0.08969830000000001
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds starred NOT NULL DEFAULT 0 with a CHECK. test/starred.test.js 'AC-1' checks that the seeded rows are all 0 and that a value of 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' expects [\"First item\",\"★ Second item\",\"Third item\"]. This fails if the star is missing or put on the wrong item."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' stars ids 3 and 1 and expects only those two, in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks that / and /?show=all list all three items in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test 'AC-5' checks the exact 'Starred only' link on / and the 'All items' link on the starred view."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 400 and no <li> for Starred, none, an empty value and __proto__. The code uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json contains \"/?show=starred\", and test 'AC-7' asserts it. traffic/src/index.js appends the path to the request URL, so the query is sent."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "PR title",
+      "what": "The title says 'Star items', but starring is out of scope in the spec. Items can only be starred in the database. The change only displays and filters starred items.",
+      "fix": "Retitle to something like 'Mark starred items with ★ and add a starred-only view'."
+    }
+  ],
+  "blocking": 0,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec, and the decisions are respected: starred items keep their id order, and the view is a query parameter with no cookie. Nothing was added beyond the ask except the traffic-check regex change the spec's AC-7 needs, which the PR discloses."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 7 acceptance items are named by tests. All four rows of the states table have tests that check the list, the message and the link. No commit edits the spec after the go."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert on rendered list items and status codes, so they would fail on broken code. The traffic test's fake app now keys on path plus query, and the new case in tests/traffic-config.test.sh covers a query, a fragment and a space. I could not run the suite here. CI runs it."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes ?show=starred in the src/index.js bullet. Nothing else in the docs is stale."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The SQL is built only from fixed strings in VIEWS, so there is no injection risk. Object.hasOwn blocks prototype keys such as __proto__. Titles are still escaped."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The only user input is the show parameter, which is allow-listed. The change adds no secrets and no write routes. Nothing in the repository tried to instruct the review."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The page is minimal server-rendered HTML with no UI framework or stylesheet files in the diff, so I did not review it as a UI. The only markup added is a nav link."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser in this session, and the diff touches no UI files beyond a one-line HTML nav link."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The body's claims match the diff. The title overstates slightly, as noted in the finding."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:11:34Z"
+}

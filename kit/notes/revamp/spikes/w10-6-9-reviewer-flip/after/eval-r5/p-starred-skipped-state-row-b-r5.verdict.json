@@ -1,0 +1,126 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "11ffaf4ca0b75120170a39745463e78978d498d8",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/p-starred-skipped-state-row-b-r5",
+  "spec": "specs/starred-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Star items and show only the starred ones",
+    "sha256": "6ee2d41fb9df2ddd333d4c22cc0b549441d6b05f655ccdfbbfe3fbff3f0e644c"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "da901138-30a0-4a8c-8287-5ebdd6f7a716",
+    "cost_usd": 0.0643553
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_starred.sql adds a NOT NULL DEFAULT 0 CHECK column; test/starred.test.js 'AC-1' checks seeded rows are all 0 and that 2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "'AC-2' test asserts exact list with ★ only on the starred item."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "'AC-3' stars 3 then 1 and asserts id order of only starred items, status 200."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' checks / and /?show=all give all items in id order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "'AC-5' checks both link anchors."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "'AC-6' checks 400 and no <li> for Starred, none, empty, __proto__; Object.hasOwn guards prototype keys."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "traffic/routes.json includes /?show=starred; 'AC-7' test asserts it; checker script was updated to accept query strings."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "medium",
+      "lens": "tests",
+      "item": "",
+      "file": "test/starred.test.js",
+      "what": "The last commit ('Follow-up edits') deleted the 'Empty table' state test, which checked the empty message and the 'Starred only' link. The only remaining empty-table test (test/index.test.js:30) checks the message but not the link. The spec's state row 'Empty table' (No items yet. + link to Starred only) is therefore only partly covered. The link is untested for that state. The commit also left a stray double blank line.",
+      "fix": "Restore the deleted test (delete all items, expect no <li>, 'No items yet.', and the 'Starred only</a>' link)."
+    },
+    {
+      "severity": "low",
+      "lens": "pr",
+      "item": "",
+      "file": "specs/starred-items.md",
+      "what": "The PR body says test/starred.test.js covers 'each state'. The Empty table state is not fully covered after the final commit. The body says 'Tests deleted: none', but the final commit deletes a test it added earlier in the same change.",
+      "fix": "Restore the test, or correct the PR claim."
+    }
+  ],
+  "blocking": 1,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec exists and its decisions are followed: starred items keep their id order, and the view is a query parameter."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 7 ACs are named by tests. The Empty table state row is only partly tested; see the finding."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "I did not run the tests; CI runs them. The Empty table state test was removed in the final commit."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README mentions ?show=starred."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The SQL uses fixed fragments from a whitelist, and Object.hasOwn rejects prototype keys. No defect found."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The show param is whitelisted and titles are escaped. The traffic route checker still refuses spaces and #."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The change only adds a link and a ★ in plain HTML, with no UI files or styles."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The change has no browser-visible UI beyond plain HTML, and no screenshots exist."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The 'each state covered' and 'tests deleted: none' claims are not fully accurate; see the finding."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:14:02Z"
+}

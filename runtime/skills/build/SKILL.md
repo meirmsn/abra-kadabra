@@ -1,6 +1,6 @@
 ---
 name: build
-description: Build an approved change (its spec has the owner's "go") or a bug fix (its failing test). One agent writes code, tests and docs together, then opens the PR from the devshop's template.
+description: Build an approved change (its spec has the owner's "go") or a bug fix (its failing test): code, tests and docs together, then hand over to `devshop:pr`.
 ---
 
 # Build
@@ -18,12 +18,11 @@ scripts named here; run them, never retype them as shell.
 
 ## 2. Load what applies, nothing else
 
-- **The project:** its `CLAUDE.md`, and the docs its docs map (`docs/README.md`) links for what you
-  touch.
+- **The project:** its `CLAUDE.md` and the docs its map (`docs/README.md`) links for what you touch.
 - **Stack homes:** run `/opt/devshop-current/scripts/stack-homes.sh <project root>` and read each
   file it prints. Its `STACKS:` line goes in the PR's engineering details.
-- **Disciplines:** for each discipline the change touches (frontend, backend, data, UI/UX,
-  security…), the guideline in `/opt/devshop-current/guidelines/` if this version has one.
+- **Disciplines:** each one touched (frontend, backend, data, UI, security…): its guideline in
+  `/opt/devshop-current/guidelines/` if any; a UI with no baseline: `/opt/devshop-current/templates/ui/`.
 - On conflict the project wins; say so in the PR.
 - **CI:** none yet? Start from `/opt/devshop-current/templates/ci.yml`; declare
   `scripts/check-fast.sh` (unit) and `scripts/check-slow.sh` (end to end).
@@ -44,17 +43,7 @@ scripts named here; run them, never retype them as shell.
 - Something the spec didn't foresee is a spec change: raise it with the owner (`intent`, step 5).
 - Small, logical commits; subjects describe the observable change.
 
-## 4. The PR
+## 4. Hand over
 
-- Write the body from `/opt/devshop-current/templates/pr-body.md`. Claim only what you have just
-  read from the real signal (CI, the preview comment).
-- Run `/opt/devshop-current/scripts/pr-body-check.py <body file> "<title>"` until it passes, before
-  the PR goes ready.
-- Ship it: `/opt/devshop-current/reviewer/ship.sh --title "<title>" --body-file <body file>`. It
-  runs the independent reviewer in the VM, and only on a pass pushes, creates or updates the PR
-  (ready, not a draft) with those exact words, and posts the verdict (TARGET Verify 2, W10.6.7). It
-  is the only way to a PR: `gh pr create` and pushes to a PR's branch are refused. Exit 1: fix the
-  findings, commit, ship again. Exit 2 or 3: stop and ask the owner.
-- Keep per-round detail out of the body (it goes stale with the next fix); ship again after any
-  change to code or words.
-- Then tell the owner in chat: the PR link and its one-line summary.
+- Built, and the new and affected tests and fast checks pass: invoke `devshop:pr` to open the PR.
+- A later round (a reviewer fail, an owner comment) is built here under § 3, then `devshop:pr` again.

@@ -1,0 +1,10 @@
+# Files the devshop places in a project (W10.4.7, L-49), read by scripts/project-files.py:
+#   <owner> <devshop path> <project path>
+# devshop: the project keeps an identical copy (executable bit included); session start reports
+#          drift from the pinned version, and the upgrade skill replaces it whole.
+# seed:    a starting point the project adapts and owns; never overwritten or deleted, and the
+#          upgrade shows only how the template changed.
+devshop  scripts/secret-scan.sh            scripts/secret-scan.sh
+devshop  runtime/scripts/spec-check.py     scripts/spec-check.py
+seed     runtime/templates/ci.yml          .github/workflows/ci.yml
+seed     runtime/templates/check-fast.sh   scripts/check-fast.sh

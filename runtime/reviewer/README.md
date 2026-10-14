@@ -50,7 +50,7 @@ Code and words go up together, so the PR always shows the reviewed commit with t
 ## The guard
 
 [`runtime/hooks/review-guard.py`](../hooks/review-guard.py), the plugin's PreToolUse hook, keeps the
-other ways to a PR closed. It reviews nothing; it refuses, pointing to `ship`:
+other ways to a PR closed. It reviews nothing; it refuses, pointing to the `devshop:pr` skill and `ship`:
 
 - `gh pr create`; `gh pr edit` with a title, body or base;
 - `git push` while the current branch has an open PR (and when that can't be checked: `gh` fails);
@@ -70,9 +70,14 @@ verdict file (TARGET Verify 7, L-25). Its first line is a marker with the full c
 and `words`, the sha256 of the PR words the review read; text from the model has `<` escaped and
 newlines flattened, so it can't form a second one, and `@` and `[` escaped, so it can't mention
 people or render markdown links and images (F-NEW-25; bare URLs and `#123` references still
-autolink). Paths shown in code spans stay literal. There is no CI check on it (owner, 2026-10-13):
-the agent could post a comment itself, so a check was no wall. The owner reads the verdict for the
-head commit before approving.
+autolink). Paths shown in code spans stay literal. It is short by default (owner, 2026-10-13): the
+second line is the headline (outcome, round, blocking and low counts, commit) and the rest (spec,
+the per-lens and per-item tables, findings, the reviewer's identity) is collapsed in one `<details>`
+block, which model text can't close. Each ship posts a new comment, so each verdict sits in the
+timeline just after the push it reviewed, and a push made without `ship` shows as a push with no
+verdict after it. Failed reviews push nothing and post nothing. There is no CI check on it (owner,
+2026-10-13): the agent could post a comment itself, so a check was no wall. The owner reads the
+verdict for the head commit before approving.
 
 ## How it is locked down, and what that is worth
 
@@ -95,6 +100,10 @@ head commit before approving.
   whether the base commit has `scripts/check-fast.sh`, the script CI's `fast` job runs (the CI
   tiers contract). Declared, a test it can't run is a `tests` note; not declared, it is `unsure`.
   A finding whose only fix is to run the tests or confirm CI is never a finding.
+- A departure from the spec is never `low` (W10.6.9): code that departs from a decision (even an
+  extra guard the decision rejected) or a state-table row tested only in part is at least
+  `medium`. Left to judgement, the same commit got `low` in some runs and blocking in others
+  (F-NEW-40).
 - It works in a throwaway clone that holds only the base and head commits and has no remote. Some
   allowlisted commands can still write files anywhere the user can: `git diff --output=<path>`, and
   a test run, which executes the change's own code. The clone keeps ordinary writes away from the
@@ -118,7 +127,8 @@ head commit before approving.
   (`pr` lens), a shallow clone, and could-not-run for every bad input. W10.6.8: the session
   variables removed by pattern (made-up future names too) while auth and proxy variables pass; the
   prompt's commands following an edited `settings.json` copy; whether `scripts/check-fast.sh` is at
-  the base (not added by the change) stated in the prompt; 13 of 13 mutants killed.
+  the base (not added by the change) stated in the prompt; 13 of 13 mutants killed. W10.6.9: the
+  never-`low` rules for decisions and state rows are in the prompt; 4 of 4 mutants killed.
 - [`tests/reviewer-pr.test.sh`](../../tests/reviewer-pr.test.sh) (in CI) checks the comment (per
   lens, marker not forgeable from model text) and `pr-words.sh`.
 - [`tests/ship.test.sh`](../../tests/ship.test.sh) (in CI, stub `review.sh` and `gh`, a local

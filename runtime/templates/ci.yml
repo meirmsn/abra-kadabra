@@ -1,5 +1,6 @@
 # CI in two tiers (the devshop's template; copy to .github/workflows/ci.yml). Plain CI, no LLM jobs.
-#   fast: static checks and unit tests, scripts/check-fast.sh "$BASE" (secret scan, lint, unit tests).
+#   fast: static checks and unit tests, scripts/check-fast.sh "$BASE" (secret scan, spec check with
+#         acceptance→test, lint, unit tests); its template is runtime/templates/check-fast.sh.
 #   slow: end-to-end tests, scripts/check-slow.sh; runs only after fast passes.
 # What each tier runs lives in those two scripts, so this file stays the same for every stack. A
 # project with no slow tests yet keeps a check-slow.sh that says so and exits 0. Make `fast` and
@@ -46,7 +47,7 @@ jobs:
       - name: Project setup
         run: if [ -x scripts/setup.sh ]; then scripts/setup.sh; fi
 
-      - name: Fast tier (secret scan, lint, unit tests)
+      - name: Fast tier (secret scan, spec check, lint, unit tests)
         env:
           # PR: everything since the base; push to main: everything since the previous tip.
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}

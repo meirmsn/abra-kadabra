@@ -16,7 +16,7 @@ reachable from this page through links, or when a relative link or `#anchor` is 
   ([spec](../specs/ci-fast-slow-tiers.md)): job `fast` runs [`scripts/check-fast.sh`](../scripts/check-fast.sh)
   (the secret scan, lint and every test not marked slow), then job `slow` runs
   [`scripts/check-slow.sh`](../scripts/check-slow.sh) (the tests marked `# tier: slow`: the whole
-  install). A test is slow when it tests the system end to end, not because it takes long.
+  install and the UI render check in Chromium, at the Playwright version `package.json` pins). A test is slow when it tests the system end to end, not because it takes long.
   `tests/run.sh fast|slow` runs one tier, `tests/run.sh` all. Proven by
   [`tests/check-tiers.test.sh`](../tests/check-tiers.test.sh) and
   [`tests/run-tiers.test.sh`](../tests/run-tiers.test.sh).
@@ -40,9 +40,15 @@ reachable from this page through links, or when a relative link or `#anchor` is 
   - [`docs-map-check.py`](../scripts/docs-map-check.py): this page's rule, above.
   - [`ci-tiers-check.py`](../runtime/scripts/ci-tiers-check.py) on this repo's own `ci.yml` (below).
 - Skills: [`scripts/skills-check.py`](../scripts/skills-check.py) checks every skill in
-  `runtime/skills/` names itself after its directory, has a description, fits on one page, and
-  names only `/opt/devshop-current/` files its version has. Run on the real skills by
+  `runtime/skills/` names itself after its directory, has a description, fits on one page, names
+  only `/opt/devshop-current/` files its version has and hands over only to its version's skills
+  (`devshop:<name>`); all the descriptions together stay within the always-loaded budget (TARGET
+  Shape 2). Run on the real skills by
   [`tests/skills-check.test.sh`](../tests/skills-check.test.sh), after feeding it bad ones.
+- Findings: [`scripts/findings-check.py`](../scripts/findings-check.py) checks the findings ledger
+  ([FINDINGS.md](../kit/notes/revamp/FINDINGS.md)): each row's columns and glyphs, Leverage and Score
+  against their formulas, the Seen dots, both lists' order and the rule of 5. Run on the real ledger by
+  [`tests/findings-check.test.sh`](../tests/findings-check.test.sh), after feeding it bad ones.
 
 ## Skills
 
@@ -51,7 +57,11 @@ reachable from this page through links, or when a relative link or `#anchor` is 
 - [`intent`](../runtime/skills/intent/SKILL.md): the start of every request: its kind, then for a
   change the spec, the adversarial spec review and the owner's "go" (TARGET § L3 Intent).
 - [`build`](../runtime/skills/build/SKILL.md): one writer builds code, tests and docs together,
-  loads what applies, and opens the PR from the template (TARGET § L3 Build).
+  loads what applies, and hands over to `pr` (TARGET § L3 Build).
+- [`pr`](../runtime/skills/pr/SKILL.md): the PR for a built change: the body from the template,
+  screenshots, `ship.sh` through the reviewer, low findings, telling the owner (TARGET § L3 Review).
+- [`upgrade`](../runtime/skills/upgrade/SKILL.md): moves a project's `.devshop-version` in one PR,
+  bringing its copies of devshop files along (below, Project files).
 
 ## Specs
 
@@ -59,6 +69,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
 
 - [`ci-fast-slow-tiers.md`](../specs/ci-fast-slow-tiers.md): CI in two tiers, fast and slow, for
   the devshop and every project.
+- [`ui-baseline.md`](../specs/ui-baseline.md): every web app starts from a design baseline, phone
+  first, light and dark.
 
 ## The install
 
@@ -72,28 +84,58 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
 ## What projects get (`runtime/`)
 
 - PR body: [`runtime/templates/pr-body.md`](../runtime/templates/pr-body.md) is the template for
-  every project PR (TARGET § L3 Review): one-line summary, preview link, announcement (only when
-  user-facing), what you should know, evidence, then engineering details collapsed.
+  every project PR (TARGET § L3 Review): one-line summary, a 2–3 sentence paragraph, preview link,
+  announcement (a release note in the app user's words, only when user-facing), what you should
+  know, evidence, then engineering details collapsed.
   [`runtime/scripts/pr-body-check.py`](../runtime/scripts/pr-body-check.py) checks a filled-in
-  body has that shape (sections and lines in order, preview present, no placeholder left,
-  evidence pinned to a commit); whether the words are true is the reviewer's job. Proven by
+  body has that shape (sections and lines in order, the paragraph 2–3 sentences, preview present,
+  no developer words in the announcement, screenshots on the PR or "no UI change", no placeholder
+  left, images pinned to a commit and never on `raw.githubusercontent.com`); whether the words are
+  true is the reviewer's job. Proven by
   [`tests/pr-body-check.test.sh`](../tests/pr-body-check.test.sh).
+- PR screenshots: [`runtime/scripts/pr-assets.sh`](../runtime/scripts/pr-assets.sh) puts them in
+  one parentless commit and moves the PR's branch to a merge of HEAD and that commit whose files
+  are HEAD's, so the PR's files and diff don't change and nothing needs removing. `ship`'s push of
+  the branch carries them to GitHub, which keeps them with the PR after the merge. It prints the
+  image lines (`https://github.com/<owner>/<repo>/raw/<sha>/<file>`) for the body's
+  **Screenshots:**, and refuses a repo that allows merge commits or rebase merges (they would carry
+  the images into the default branch). The GitHub mobile app doesn't show them for a private repo
+  (F-NEW-50, open). Proven by
+  [`tests/pr-assets.test.sh`](../tests/pr-assets.test.sh), which also walks a PR's life on a local
+  remote: retakes, fix rounds, a squash merge, the branch deleted, a fresh clone.
 - Spec: [`runtime/templates/spec.md`](../runtime/templates/spec.md) is the template for a change's
   spec in the project's `specs/` (TARGET § L3 Intent 2): intent, decisions, acceptance items
   `AC-<n>`, core flow and states for UI, out of scope, and the owner's recorded "go".
   [`runtime/scripts/spec-check.py`](../runtime/scripts/spec-check.py) checks that shape (`--go`:
-  the go is recorded). Proven by [`tests/spec-check.test.sh`](../tests/spec-check.test.sh).
+  the go is recorded; `--tests <dir>`: every `AC-<n>` not "verified by review" is named by a test,
+  run by the project's CI). Proven by [`tests/spec-check.test.sh`](../tests/spec-check.test.sh).
 - CI: [`runtime/templates/ci.yml`](../runtime/templates/ci.yml) is every project's CI in two tiers
   ([spec](../specs/ci-fast-slow-tiers.md)): `fast` runs the project's `scripts/check-fast.sh "$BASE"`
-  (secret scan, lint, unit tests), `slow` needs it and runs `scripts/check-slow.sh` (end-to-end
+  (template [`runtime/templates/check-fast.sh`](../runtime/templates/check-fast.sh): secret scan; the
+  spec check with `--tests`, so an acceptance item no test names fails CI; lint, unit tests; proven by
+  [`tests/check-fast-template.test.sh`](../tests/check-fast-template.test.sh)), `slow` needs it and runs `scripts/check-slow.sh` (end-to-end
   tests; a project with none yet has one that says so). The stack-specific part lives in those
   scripts, so the template is the same for every stack. [`runtime/scripts/ci-tiers-check.py`](../runtime/scripts/ci-tiers-check.py)
   checks a workflow has that shape; session start runs it on the project's and says so in a
   `DEVSHOP:` line. Proven by [`tests/ci-tiers-check.test.sh`](../tests/ci-tiers-check.test.sh).
+- Project files: [`runtime/project-files.txt`](../runtime/project-files.txt) lists each file the
+  devshop places in a project and its owner (L-49): `devshop`, an identical copy the project keeps
+  (the secret scan, the spec check), or `seed`, a template the project adapts and owns (CI, the fast
+  tier). [`runtime/scripts/project-files.py`](../runtime/scripts/project-files.py) `check`s the
+  copies against a version (session start reports drift from the pinned one in a `DEVSHOP:` line),
+  `plan`s an upgrade and `apply`s one copy; the `upgrade` skill drives it. Proven by
+  [`tests/project-files.test.sh`](../tests/project-files.test.sh).
 - Stack homes: [runtime/stacks/README.md](../runtime/stacks/README.md) is their layout;
   [`runtime/scripts/stack-homes.sh`](../runtime/scripts/stack-homes.sh) picks the ones a project
   uses. Proven by [`tests/stack-homes.test.sh`](../tests/stack-homes.test.sh).
-- Discipline guidelines: [runtime/guidelines/README.md](../runtime/guidelines/README.md).
+- Discipline guidelines: [runtime/guidelines/README.md](../runtime/guidelines/README.md). The UI
+  guideline [`ui.md`](../runtime/guidelines/ui.md) ([spec](../specs/ui-baseline.md)) starts every
+  interface from [`runtime/templates/ui/`](../runtime/templates/ui/): `base.css` (shadcn/ui's token
+  names, light and dark), `theme.js` (the theme toggle), an example page, and two checks a project
+  copies: `tokens-check.mjs` (every token defined in both themes, contrast pairs; proven by
+  [`tests/ui-tokens-check.test.sh`](../tests/ui-tokens-check.test.sh)) and `render-check.mjs`
+  (the page in Chromium at 375, 768 and 1280 px in both themes; proven by
+  [`tests/ui-render-check.test.sh`](../tests/ui-render-check.test.sh)).
 - Reviewer: [runtime/reviewer/README.md](../runtime/reviewer/README.md) is the independent
   reviewer script, how it is locked down and what that is worth, `ship` (review in the VM, then
   code, words and the verdict comment go on the PR together), the guard that refuses other ways to a
@@ -110,6 +152,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
 - Spikes, kept as notes (records of what was run, not live code):
   - A-04 reviewer stability: the fixed inputs, an [honest](../kit/notes/revamp/spikes/a04-reviewer/honest/spec.md)
     and a [seeded](../kit/notes/revamp/spikes/a04-reviewer/seeded/spec.md) spec.
+  - W10.8.1 UI baseline: the example page as rendered,
+    [README](../kit/notes/revamp/spikes/w10-8-ui-baseline/README.md).
   - W10.1.2 install probe: [README](../kit/notes/revamp/spikes/w10-1-2-install/README.md) and its
     [probe skill](../kit/notes/revamp/spikes/w10-1-2-install/plugin/skills/devshop-probe/SKILL.md).
   - W10.1.2b thin install: [README](../kit/notes/revamp/spikes/w10-1-2b-thin/README.md) and its

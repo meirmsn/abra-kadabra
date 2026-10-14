@@ -1,0 +1,114 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "1333fb3a90a4881b9b4bf802a9e01d6342c15472",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/h-done-b-r1",
+  "spec": "specs/done-items.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Mark items done and switch between open, done and all",
+    "sha256": "df4da6ec697a53d26431be63787f56f2af115253639c7347301c2a81b4254825"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "ff9f13ce-364f-4ff1-a8af-da594e1d7c31",
+    "cost_usd": 0.0894218
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_done.sql adds done NOT NULL DEFAULT 0 with a CHECK; test/done.test.js 'AC-1' checks seeded rows are all 0 and that done=2 is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js uses WHERE done = 0 ORDER BY id; 'AC-2' tests / and ?view=open after marking item 2 done."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "'AC-3' marks 3 and 1 done and expects '✓ First item', '✓ Third item' in id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "'AC-4' expects all three items in id order with only the done one marked."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "'AC-5' asserts the exact nav HTML for each view and for /; the current view is <strong>, not a link."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "'AC-6' checks 400 and no <li> for Open, closed, empty and __proto__. The code uses Object.hasOwn."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "'AC-7' covers Nothing open., Nothing done yet., and No items yet. in all three views on an empty table."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json lists both views; 'AC-8' asserts them. tests/traffic-config.test.sh and the traffic.test.js fake app were updated to handle queries."
+    }
+  ],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec's two decisions: the list opens on open items, and the view is a query parameter. The one extra is the traffic-config query-string support, which AC-8 requires and the PR discloses."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are implemented and each has a named test. All 6 state-table rows have a test. The spec has no later edits."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "I could not run the tests here: vitest is not installed (npm test failed with 'vitest not found'). By reading, the assertions check behaviour and would fail if the code were wrong. The existing test/index.test.js still holds, because its items stay open. CI covers the run."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes the new views. The migration follows the append-only rule in CLAUDE.md."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Queries are parameter-free and built from a fixed VIEWS map, which is checked with Object.hasOwn. Titles are HTML-escaped. The empty-table check is an extra COUNT query that runs only when a view is empty."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "The view value is allow-listed, so there is no injection path. Nothing in the repository tries to instruct the reviewer."
+    },
+    {
+      "lens": "design",
+      "applies": true,
+      "note": "The change adds a small UI: a nav, ✓ marks and empty-state messages. It is minimal HTML with no styling, and the tests cover its content."
+    },
+    {
+      "lens": "qa",
+      "applies": true,
+      "note": "No browser is available. The rendered HTML is covered by response-body assertions in test/done.test.js."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title and body match the diff. The loosened route regex and the changed fake app are both disclosed, and the statement that no tests were loosened is accurate."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T21:12:06Z"
+}

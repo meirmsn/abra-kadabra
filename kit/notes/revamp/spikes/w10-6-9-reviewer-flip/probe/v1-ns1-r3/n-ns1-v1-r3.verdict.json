@@ -1,0 +1,164 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "1337cc02b6df0d6d3a13d018b2014c84b897b959",
+  "base": "9644a31035ed6b12085e670304b133a76853fa30",
+  "branch": "eval-run/n-ns1-v1-r3",
+  "spec": "specs/item-categories.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Item categories and a category filter on the list",
+    "sha256": "2ba3130b0d545ad5213c307b4af797ec38b5e90795ff09df58617529df36bc4a"
+  },
+  "reviewer": {
+    "devshop": "scratchpad",
+    "model": "claude-sonnet-5-5",
+    "session_id": "9c19e79f-d4d9-4839-a485-0aa7e66bbc05",
+    "cost_usd": 0.1062978
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-1' checks seeded rows, UNIQUE and CHECK rejections, nullable column, index and item tagging; migration matches."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' covers a title-only insert (null category) and a FOREIGN KEY rejection."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' checks id order, the categorised markup and the plain `<li>No category</li>`."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks link order (case-insensitive), hrefs, a single aria-current on All, and an empty category's link."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "Two 'AC-5' tests cover the filtered list, current link, and byte-identical pages with extra params."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 200, the message, no <li>, and the current link."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test 'AC-7' checks the escaped name, the encoded link, and that requesting the link lists the item."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "it.each 'AC-8' covers all five URLs: 404, message, Go back link, script, no <li> and no <nav>."
+    },
+    {
+      "item": "AC-9",
+      "met": true,
+      "evidence": "test 'AC-9' checks HEAD statuses 200/200/404."
+    },
+    {
+      "item": "AC-10",
+      "met": true,
+      "evidence": "The spec gives a followable manual step. The code's same-origin referrer logic satisfies it, though it adds an extra history.length guard (see finding)."
+    },
+    {
+      "item": "AC-11",
+      "met": true,
+      "evidence": "routes.json lists the route; tests/traffic-config.test.sh covers accepts-query, whitespace, # and no-slash; test/traffic.test.js checks the seen paths including the query; the 'AC-11' test in index.test.js checks 2xx."
+    },
+    {
+      "item": "AC-12",
+      "met": true,
+      "evidence": "Existing tests are retained; only the First item assertion was updated, as the spec allows."
+    },
+    {
+      "item": "AC-13",
+      "met": true,
+      "evidence": "apply-migrations.js drops tables in one batch with deferred FKs; the 'AC-13' test inserts a categorised row, and every test's reset must survive the FK."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "medium",
+      "lens": "spec",
+      "item": "AC-10",
+      "file": "src/index.js",
+      "what": "The Go back script goes back only when `ours && history.length > 1`. The spec's Go back decision rejects `history.length > 1` and gives only the same-origin referrer as the condition. This is an extra guard the decision doesn't state.",
+      "fix": "Drop the `history.length > 1` condition and use only the same-origin referrer check, or record the owner's call in the spec."
+    },
+    {
+      "severity": "medium",
+      "lens": "tests",
+      "item": "",
+      "file": "test/index.test.js",
+      "what": "The States table rows are only partly asserted. 'says so when the table is empty' (`/`, no items) checks only the message, not that the list is hidden or that the filter links are shown with All current. No 200 state test asserts 'Go back' is hidden. The AC-5 and AC-6 tests don't check that the message is absent where the table says 'none'.",
+      "fix": "Extend the empty-table test to assert no <li>, All current and the links present. Assert no 'Go back' and no 'corrupted' text on the 200 states."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-8",
+      "file": "test/index.test.js",
+      "what": "The AC-8 script check is a loose regex on text order (document.referrer, location.origin, history.back). It would still pass if the script never ran or never checked for same-origin.",
+      "fix": "Optionally evaluate the click handler with stubbed referrer and history values, or leave AC-10 to the manual step."
+    }
+  ],
+  "blocking": 2,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Change matches the spec's intent; no unrequested scope beyond the extra history.length guard."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "The spec's Go-back decision is departed from by the history.length guard. The owner's-go commit only changed 'open' proposal notes, not acceptance items."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Every AC has a named test except AC-10 (manual step). The States table is only partly covered. I did not run the tests; CI runs them."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README updated for the filter and the 404; nothing stale found."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Queries are parameterised; names are encoded and escaped; the HEAD and 405 paths are unchanged."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "No injection found: category names are URL-encoded and HTML-escaped, SQL is bound, and the inline script has no user data."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "Only minimal unstyled HTML markup changes; no stylesheet or component files in the diff."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser flow can be run here; AC-10 is a manual step in the spec."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The PR body says 'Tests deleted or loosened: none', but the traffic config check regex was loosened to allow `?`, which the body does disclose. The body describes the Go back script as only a same-origin check, but the code also has the history.length > 1 guard."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T20:00:24Z"
+}

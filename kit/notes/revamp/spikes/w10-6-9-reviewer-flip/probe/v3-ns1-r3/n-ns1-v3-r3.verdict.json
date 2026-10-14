@@ -1,0 +1,196 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "1337cc02b6df0d6d3a13d018b2014c84b897b959",
+  "base": "9644a31035ed6b12085e670304b133a76853fa30",
+  "branch": "eval-run/n-ns1-v3-r3",
+  "spec": "specs/item-categories.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Item categories and a category filter on the list",
+    "sha256": "2ba3130b0d545ad5213c307b4af797ec38b5e90795ff09df58617529df36bc4a"
+  },
+  "reviewer": {
+    "devshop": "scratchpad",
+    "model": "claude-opus-5-5",
+    "session_id": "865cda43-eda3-413a-9af8-2e08e1d18c02",
+    "cost_usd": 0.4119688
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-1: seeds Work and Home, dedupes names, rejects an empty one, and tags the seeded items' checks the rows, the UNIQUE and CHECK rejections, that category_id is nullable, the index_list and the seeded tags."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-2: an insert naming only title still works; an unknown category_id is rejected' checks a null category_id and the FOREIGN KEY rejection."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-3: / lists every item in id order…' checks the order of the titles, the span markup and the bare <li> for an item with no category."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-4: / shows All first…' adds lower-case 'errands' (empty), which tells case-insensitive from ASCII order, checks the hrefs and that only All is current."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "test/index.test.js two 'AC-5' tests: only Work's items in id order with Work current, and that `&x=1` and `/?x=1` give identical pages."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-6: a category with no items says so, with the filter links' checks 200, the message, no <li>, and Garden current."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-7…' checks the escaped label, the href /?category=R%26D%20%3Cx%3E, and that requesting it lists Prototype."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "test/index.test.js it.each 'AC-8: %s is a broken link' covers all five URLs: 404, the message, the Go back href '/', the referrer/origin/history.back script, and no <li> or <nav>."
+    },
+    {
+      "item": "AC-9",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-9: HEAD answers like GET' checks 200/200/404 for the three paths."
+    },
+    {
+      "item": "AC-10",
+      "met": false,
+      "evidence": "Verified by review only, and I could not do the browser step here. The step is also doubtful as written: /?category=Wrok has no in-app link, so 'navigate to' it means typing the URL, which sends no referrer, and the script then goes to `/`, not back to /?category=Home. The script also adds a `history.length > 1` condition that the spec doesn't have."
+    },
+    {
+      "item": "AC-11",
+      "met": true,
+      "evidence": "traffic/routes.json lists it. tests/traffic-config.test.sh 'AC-11: a route with a query string passes' plus new whitespace and '#' bad cases (the no-slash case already existed). test/traffic.test.js '(AC-11)' tests check ROUTES contains it and that seen paths include the query. test/index.test.js 'AC-11: … answers 2xx'."
+    },
+    {
+      "item": "AC-12",
+      "met": false,
+      "evidence": "No test names AC-12, and the spec doesn't mark it 'verified by review'. The existing healthz, 404, 405, escaping and 'No items yet.' tests are there, and the <li> assertion was updated as specified, but under the review rules an item no test names is unmet."
+    },
+    {
+      "item": "AC-13",
+      "met": true,
+      "evidence": "test/apply-migrations.js drops all tables in one batch with defer_foreign_keys. test/index.test.js 'AC-13: the test reset copes with the foreign key' runs after earlier tests have added rows and expects exactly 3+1 items. A failing reset would throw in beforeEach."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-12",
+      "file": "test/index.test.js",
+      "what": "No test names AC-12, and the spec doesn't mark it 'verified by review'. The regression guarantees (healthz, unknown-path 404, 405, <h1>Items</h1>, title escaping, 'No items yet.') rest on existing tests that aren't tied to the item.",
+      "fix": "Tag the existing regression tests (or a describe block around them) with AC-12, or add one AC-12 test that checks each listed behaviour."
+    },
+    {
+      "severity": "high",
+      "lens": "spec",
+      "item": "AC-10",
+      "file": "src/index.js",
+      "what": "AC-10 depends on a browser review I could not do, and the review step may not hold. Nothing in the app links to /?category=Wrok, so reaching it from /?category=Home means typing the URL. A typed URL sends no document.referrer, so with the spec'd referrer check, 'Go back' would land on `/` and not `/?category=Home`.",
+      "fix": "Have the owner run the AC-10 step in a real browser and record the result. If the first half fails as predicted, rewrite the step (or the mechanism) with an owner decision."
+    },
+    {
+      "severity": "medium",
+      "lens": "spec",
+      "item": "AC-10",
+      "file": "src/index.js",
+      "what": "The Go back script requires `ours && history.length > 1`. The spec's decision is to go back when the referrer is same-origin, and it explicitly rejects `history.length > 1` as the mechanism. Adding it as an extra condition is a design choice the spec doesn't record. It changes behaviour when the referrer is same-origin and history has one entry, e.g. a link opened in a new tab.",
+      "fix": "Remove the `history.length > 1` condition, or record it as a decision in the spec with the owner's approval."
+    },
+    {
+      "severity": "medium",
+      "lens": "pr",
+      "item": "",
+      "file": "src/index.js",
+      "what": "The PR says the script 'calls history.back() only when the referrer is same-origin'. The code also requires history.length > 1, the condition the spec rejects, and the PR doesn't mention it.",
+      "fix": "Describe the actual condition in the PR body, or align the code with the spec."
+    },
+    {
+      "severity": "medium",
+      "lens": "tests",
+      "item": "",
+      "file": "test/index.test.js",
+      "what": "The state-table rows are only partly checked. Row '`/`, no items' ('says so when the table is empty') checks only the message, not that the filter links show with All current and the list is hidden. No 200 row (rows 1–4) checks that 'Go back' is hidden.",
+      "fix": "In the empty-table test, assert currentLinks(html) equals ['All'] and no <li>. In the 200-state tests, assert the page has no 'Go back' / id=\"back\"."
+    },
+    {
+      "severity": "low",
+      "lens": "code",
+      "item": "AC-4",
+      "file": "test/index.test.js",
+      "what": "The comment 'lower-case: sorts between Home and Work' is wrong. Case-insensitively, 'errands' sorts before Home, as the assertion right below expects.",
+      "fix": "Change the comment to 'sorts first, before Home'."
+    },
+    {
+      "severity": "low",
+      "lens": "docs",
+      "item": "AC-11",
+      "file": "CLAUDE.md",
+      "what": "The convention still says a new route 'adds its path to traffic/routes.json'. Entries may now carry a query, and the spec's caveat (renaming or removing the Work category must update routes.json in the same change) is recorded only in the spec, not in the docs a future agent reads.",
+      "fix": "Say a route may include a query string, and note that /?category=Work in routes.json depends on the Work category existing."
+    }
+  ],
+  "blocking": 4,
+  "low": 2,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The spec has the owner's go (c72b0f1). No later commit edits the spec. The implementation matches the intent apart from the extra history.length condition on Go back."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All decisions are followed except the Go back condition. AC-12 has no test naming it, and AC-10 is review-only and could not be verified here."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "`npm test` cannot run here (vitest: not found, dependencies not installed). CI runs it via scripts/check-fast.sh. The tests read as behavioural and would fail on broken code. The state-table checks are partial (see findings)."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README is updated. The CLAUDE.md traffic convention is slightly stale."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Filtering, the exact match, the repeated/empty handling, escaping and URL encoding all look correct. The reset batch with deferred FKs is sound."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "Queries are parameterized and names are escaped in both text and href. The inline script reads only the referrer origin. No planted instructions found."
+    },
+    {
+      "lens": "design",
+      "applies": true,
+      "note": "The diff changes the HTML of `/` and adds a 404 page in src/index.js. The markup follows the spec. The 404 page adds an <h1>Broken link</h1> and a title, which the spec doesn't specify but which is harmless."
+    },
+    {
+      "lens": "qa",
+      "applies": true,
+      "note": "The UI flow for Go back (AC-10) needs a browser and wasn't done. As analysed, the first half of the review step likely fails, because a typed URL has no referrer."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters and accurate. The body leaves out the history.length condition. The other claims match the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T20:01:35Z"
+}

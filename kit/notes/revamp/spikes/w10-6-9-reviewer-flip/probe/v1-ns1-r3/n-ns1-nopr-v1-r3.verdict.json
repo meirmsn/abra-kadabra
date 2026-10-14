@@ -1,0 +1,161 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "fail",
+  "round": 1,
+  "commit": "1337cc02b6df0d6d3a13d018b2014c84b897b959",
+  "base": "9644a31035ed6b12085e670304b133a76853fa30",
+  "branch": "eval-run/n-ns1-nopr-v1-r3",
+  "spec": "specs/item-categories.md",
+  "intent": "spec",
+  "pr": null,
+  "reviewer": {
+    "devshop": "scratchpad",
+    "model": "claude-sonnet-5-5",
+    "session_id": "041c47e4-64a0-4ddc-bf9b-5feb801eec1b",
+    "cost_usd": 0.11293500000000001
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "test/index.test.js 'AC-1' checks seed rows, UNIQUE, CHECK, nullable column, index and item tagging; migration 0003 matches."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "test 'AC-2' covers title-only insert (null category) and FOREIGN KEY rejection."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "test 'AC-3' checks id order, categorised markup and plain <li>."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "test 'AC-4' checks link order (case-insensitive), hrefs, only All current, and an empty category linked."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "Two 'AC-5' tests cover the filtered list, aria-current, and ignored extra params."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "test 'AC-6' checks 200, message, no <li>, and the links with Garden current."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "test 'AC-7' checks escaping, the encoded link, and that the link lists the category's items."
+    },
+    {
+      "item": "AC-8",
+      "met": false,
+      "evidence": "All five cases are tested, but the Go back script has an extra `history.length > 1` guard that Decision 'Go back' explicitly rejected. The test regex doesn't check for it."
+    },
+    {
+      "item": "AC-9",
+      "met": true,
+      "evidence": "test 'AC-9' checks HEAD statuses 200/200/404."
+    },
+    {
+      "item": "AC-10",
+      "met": false,
+      "evidence": "The review step is concrete, but the shipped script adds `history.length > 1`, which the spec rejected, so the described behaviour isn't what the spec decided. I did not run it in a browser."
+    },
+    {
+      "item": "AC-11",
+      "met": true,
+      "evidence": "routes.json lists the route; tests/traffic-config.test.sh covers the accepted query, whitespace and # rejections; test/traffic.test.js records path+search and checks ROUTES; index.test.js requests every listed route."
+    },
+    {
+      "item": "AC-12",
+      "met": true,
+      "evidence": "Existing tests remain and the <li>First item</li> assertion is updated. Healthz, 404 and 405 code is untouched."
+    },
+    {
+      "item": "AC-13",
+      "met": true,
+      "evidence": "The reset batches drops with defer_foreign_keys; the 'AC-13' test inserts a categorised row and the later count of 4 shows the reset ran. The AC-1 and AC-3 tests would fail if rows leaked between tests."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "medium",
+      "lens": "spec",
+      "item": "AC-8",
+      "file": "src/index.js",
+      "what": "The Go back click handler is `if (ours && history.length > 1)`. The spec's 'Go back' decision rejects `history.length > 1` and says to go back whenever the referrer is same-origin. This adds a condition the decision doesn't state.",
+      "fix": "Use `if (ours) { e.preventDefault(); history.back(); }`, and tighten the test regex to fail if `history.length` appears."
+    },
+    {
+      "severity": "medium",
+      "lens": "tests",
+      "item": "AC-4",
+      "file": "test/index.test.js",
+      "what": "The States rows for `/` with no items and for the 200 states check only part of what the table says. The empty-table test asserts only 'No items yet.', not that the filter links show with All current. No 200 test asserts that 'Go back' is hidden. The 404 test does check that the list and links are hidden.",
+      "fix": "In the empty-table test, assert the nav with All current. In the 200 tests, assert `not.toContain('Go back')`."
+    },
+    {
+      "severity": "low",
+      "lens": "tests",
+      "item": "AC-8",
+      "file": "test/index.test.js",
+      "what": "The 'Go back' script test is a loose regex over the source text. It never runs the handler, and the AC-10 browser step is the only behavioural check.",
+      "fix": "Optionally unit-test the handler logic, or keep it as the manual AC-10 step."
+    }
+  ],
+  "blocking": 3,
+  "low": 1,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change follows the spec's intent: categories plus a list filter. The only departure is the extra Go back guard."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "The go was recorded in c72b0f1, which edits only proposal markers and the Go line and no acceptance items. One decision is departed from (Go back guard)."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "Tests name their AC ids and run real behaviour. I did not run `npm test`; CI covers that. States-table coverage is partial for the no-items and 200 rows."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "README is updated for the filter and the 404. Nothing stale found."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "Queries are parameterised and the filter logic is correct. The one defect is the extra history.length condition."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "All dynamic values are escaped or encoded, and the SQL is bound. No planted instructions found."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "Only a minimal server-rendered page changed, with no styling or UI components; the browser check for Go back is AC-10."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "No browser flow was demonstrated or run here; the Go back flow is covered by AC-10 manual review."
+    },
+    {
+      "lens": "pr",
+      "applies": false,
+      "note": "No PR words were given."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T20:00:58Z"
+}

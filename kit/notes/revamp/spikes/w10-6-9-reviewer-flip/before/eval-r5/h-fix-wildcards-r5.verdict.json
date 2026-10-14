@@ -1,0 +1,73 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "bab1455606fccc1ca4b1a17106b78633f9edff40",
+  "base": "b564411a075913bb61d37335e2aaaeca333b9194",
+  "branch": "eval-run/h-fix-wildcards-r5",
+  "spec": "",
+  "intent": "pr",
+  "pr": {
+    "title": "Fix search treating % and _ as wildcards",
+    "sha256": "86d51b3e59f66f74c83c8ffe10a2d899d9ca4eede3d11b392bd67efdc91b9315"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "f0fe132f-29b3-426d-9c4d-49785dfc5844",
+    "cost_usd": 0.017611599999999998
+  },
+  "acceptance": [],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "Single-line bug fix matching the PR words. The design is the standard one (escape plus ESCAPE clause), so no spec is needed."
+    },
+    {
+      "lens": "spec",
+      "applies": false,
+      "note": "No spec file in the change."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "New tests cover %, _, a mixed query and a backslash. Each would fail against the old unescaped LIKE. I did not run them, since the Workers vitest environment isn't among the allowed commands. No tests deleted or loosened."
+    },
+    {
+      "lens": "docs",
+      "applies": false,
+      "note": "The diff touches only src/index.js and test/search.test.js; no docs reference search wildcards."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The backslash is escaped along with % and _, and the ESCAPE '\\\\' literal in the JS string yields ESCAPE '\\' in SQL. Parameter binding is retained."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "No injection: the query is still bound. The fix removes an unintended wildcard match."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "The diff touches no UI files."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims match the diff: ESCAPE added, three characters escaped, a new test. The 'five items' figure is plausible from the 3 seeded rows plus 2 inserted."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:50:35Z"
+}

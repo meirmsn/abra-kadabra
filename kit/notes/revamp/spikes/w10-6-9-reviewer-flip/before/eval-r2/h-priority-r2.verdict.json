@@ -1,0 +1,114 @@
+{
+  "format": "devshop-review/2",
+  "outcome": "pass",
+  "round": 1,
+  "commit": "0ef9c2ae9aaa9eb71b3922215d81774176ec70d5",
+  "base": "4a8ad8465aeaeff4c86b6b6c52058e231877c804",
+  "branch": "eval-run/h-priority-r2",
+  "spec": "specs/item-priority.md",
+  "intent": "spec",
+  "pr": {
+    "title": "Give items a priority and filter the list by priority",
+    "sha256": "8aae4b182fbcc75c19a6eb5765a05dba12e0cf2bb6b74e582e0b65584d26b208"
+  },
+  "reviewer": {
+    "devshop": "runtime",
+    "model": "claude-sonnet-5-5",
+    "session_id": "9b2a6b95-65a1-4285-aa29-1e43936d71e4",
+    "cost_usd": 0.070415
+  },
+  "acceptance": [
+    {
+      "item": "AC-1",
+      "met": true,
+      "evidence": "migrations/0002_add_priority.sql adds NOT NULL DEFAULT 'normal' with a CHECK on the three values. test/priority.test.js 'AC-1' checks existing rows are normal and that 'urgent' is rejected."
+    },
+    {
+      "item": "AC-2",
+      "met": true,
+      "evidence": "src/index.js item() appends ' — high' or ' — low' and nothing for normal. 'AC-2' asserts the exact list items."
+    },
+    {
+      "item": "AC-3",
+      "met": true,
+      "evidence": "The WHERE priority = ? ORDER BY id query is covered by 'AC-3' for high, low and normal, including id order."
+    },
+    {
+      "item": "AC-4",
+      "met": true,
+      "evidence": "The unfiltered query orders by id. 'AC-4' asserts the full list in order."
+    },
+    {
+      "item": "AC-5",
+      "met": true,
+      "evidence": "nav() renders all four filters with the current one as <strong>. 'AC-5' asserts the exact nav HTML for all four views."
+    },
+    {
+      "item": "AC-6",
+      "met": true,
+      "evidence": "searchParams.has('priority') combined with a Set check returns 400. 'AC-6' covers High, urgent, empty and __proto__, and asserts no <li> in the body."
+    },
+    {
+      "item": "AC-7",
+      "met": true,
+      "evidence": "The empty message comes from a COUNT query. 'AC-7' covers no-match for high, low and normal, and 'No items yet.' in all four views when the table is empty."
+    },
+    {
+      "item": "AC-8",
+      "met": true,
+      "evidence": "traffic/routes.json contains '/?priority=high'. 'AC-8' asserts it. The checker regex now allows a query, and tests/traffic-config.test.sh covers that."
+    }
+  ],
+  "findings": [],
+  "blocking": 0,
+  "low": 0,
+  "lenses": [
+    {
+      "lens": "intent",
+      "applies": true,
+      "note": "The change matches the spec's intent and decisions. It adds nothing the spec doesn't call for beyond the traffic-checker query allowance, which the PR discloses and AC-8 requires."
+    },
+    {
+      "lens": "spec",
+      "applies": true,
+      "note": "All 8 acceptance items are met, and all four state-table rows have tests in the 'states' describe block. The spec was added in the same commit as the code, with the go dated 2026-10-12."
+    },
+    {
+      "lens": "tests",
+      "applies": true,
+      "note": "The tests assert exact rendered output and would fail on wrong code. Nothing was deleted or loosened. The traffic fake app now keys on path plus query. I could not run `npm test` because vitest isn't installed here, so CI has to cover that."
+    },
+    {
+      "lens": "docs",
+      "applies": true,
+      "note": "The README describes the `?priority=` filter. CLAUDE.md and the README on routes.json stay accurate."
+    },
+    {
+      "lens": "code",
+      "applies": true,
+      "note": "The priority value is validated against a Set and bound as a parameter. Titles are HTML-escaped. The 400 path and the empty-state logic are correct."
+    },
+    {
+      "lens": "security",
+      "applies": true,
+      "note": "No injection path: the query is parameterised, the label values come from a CHECK-constrained column, and the filter value is validated before use."
+    },
+    {
+      "lens": "design",
+      "applies": false,
+      "note": "The diff touches only a server-rendered minimal HTML page with no styling or UI files, and the PR says there are no screenshots."
+    },
+    {
+      "lens": "qa",
+      "applies": false,
+      "note": "There is no browser flow to demonstrate in this session; the PR says there is no browser."
+    },
+    {
+      "lens": "pr",
+      "applies": true,
+      "note": "The title is under 72 characters. The claims about the migration, the tests, the traffic checker and the README match the diff."
+    }
+  ],
+  "reason": "",
+  "created": "2026-10-13T19:50:22Z"
+}
