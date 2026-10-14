@@ -40,10 +40,11 @@ reachable from this page through links, or when a relative link or `#anchor` is 
   - [`docs-map-check.py`](../scripts/docs-map-check.py): this page's rule, above.
   - [`ci-tiers-check.py`](../runtime/scripts/ci-tiers-check.py) on this repo's own `ci.yml` (below).
 - Skills: [`scripts/skills-check.py`](../scripts/skills-check.py) checks every skill in
-  `runtime/skills/` names itself after its directory, has a description, fits on one page, names
-  only `/opt/devshop-current/` files its version has and hands over only to its version's skills
-  (`devshop:<name>`); all the descriptions together stay within the always-loaded budget (TARGET
-  Shape 2). Run on the real skills by
+  `runtime/skills/` and the install plugin's own (`--plugin-skills`) names itself after its
+  directory, has a description, fits on one page, names only `/opt/devshop-current/` files its
+  version has and hands over only to skills that exist (`devshop:<name>`); no two share a name, and
+  all the descriptions together stay within the always-loaded budget, 200 words (TARGET Shape 2).
+  Run on the real skills by
   [`tests/skills-check.test.sh`](../tests/skills-check.test.sh), after feeding it bad ones.
 - Findings: [`scripts/findings-check.py`](../scripts/findings-check.py) checks the findings ledger
   ([FINDINGS.md](../kit/notes/revamp/FINDINGS.md)): each row's columns and glyphs, Leverage and Score
@@ -94,8 +95,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   body has that shape (sections and lines in order, the paragraph 2–3 sentences, preview present,
   no developer words in the announcement, screenshots on the PR or "no UI change", no placeholder
   left, images pinned to a commit and never on `raw.githubusercontent.com`); whether the words are
-  true is the reviewer's job. Proven by
-  [`tests/pr-body-check.test.sh`](../tests/pr-body-check.test.sh).
+  true is the reviewer's job. `ship.sh` runs it before every review and refuses a body without the
+  shape (F-NEW-52). Proven by [`tests/pr-body-check.test.sh`](../tests/pr-body-check.test.sh).
 - PR screenshots: [`runtime/scripts/pr-assets.sh`](../runtime/scripts/pr-assets.sh) puts them in
   one parentless commit and moves the PR's branch to a merge of HEAD and that commit whose files
   are HEAD's, so the PR's files and diff don't change and nothing needs removing. `ship`'s push of
