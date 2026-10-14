@@ -2855,3 +2855,21 @@ clearer screenshot layout in PR bodies (F-NEW-73).
 **Next**: the owner's call. Proposed: a fresh analysis session reads `ns-1`, `ns-2`, D-16, TARGET and
 the live findings, and proposes the shortest path to the devshop reliably shipping apps with the owner
 at the direction level, rather than chasing each finding.
+
+## #70 — 2026-10-14 · Whole-picture review 2: the proposal after two north-star runs
+
+**What moved**: [REVIEW-2.md](REVIEW-2.md), the whole-picture review the owner asked for after run
+2 (W10.7.1's first half: against TARGET, adversarial with the plan and TARGET itself). It changes
+nothing else: no finding moved, no task line changed, no TARGET edit; every cut, deferral and
+milestone in it is an owner decision (its § 4). Evidence read: the notes, the shipped runtime and
+install, both run-2 transcripts in full, the fixture repo read-only (PR 26's body and comments as
+GitHub holds them, its screenshots), and two checks in this session: `gh api` works as the agent
+identity while `gh auth status` reports the token invalid (so F-NEW-68's cause is misread), and
+this repo's fast tier passes on the unchanged tree.
+
+**Headline**: by D-16's own rule run 2 passed; the exit as written grades the harness. Proposal:
+declare M1 met, retire the per-run exam and the graded ledger, fix the three environment items the
+owner asked for, then build the owner's website on Cloudflare as the first real project with a
+measurable quality bar.
+
+**Next**: the owner's decisions on REVIEW-2 § 4.

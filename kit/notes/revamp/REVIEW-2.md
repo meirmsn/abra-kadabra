@@ -67,18 +67,25 @@ homes "at M2". The fixture, an HTML-string Worker with three rows, cannot exerci
 
 Run 2's ten owner touchpoints: three genuine product decisions, one go, one approval, three
 scripted, two friction. The wall-clock was 8 h 34 min of which 6.5 h was the PR waiting for the
-owner's approval and then a separate "merge" message. Around the run the owner also moved a
-mis-placed tag, opened a reset PR by hand (no `gh` on their machine), ran the harness Action twice,
-pasted its logs into the coordinator, moved the coordinator out of auto mode for the safety
-probes, and checked production and the canary in a dashboard because nobody else can reach them
-(F-NEW-63, F-NEW-75). The owner's own messages in the coordinator session are the record: "how do
-i run the harness picker"; "fatal: no tag message?"; "gh: command not found" (pasted from their
-machine); "where do i get the summary/info you need from the apply-plants? i see 4 boxes, is there
-a way to get you the full log?"; "shoot it asked me: … Is this a feature run to exercise the
-devshop on the fixture"; "it didn't merge, i had to type 'merge' in chat."; "i moved the session
-out of auto mode into accept edits is that what you need". At 07:50 the owner asked the
-coordinator to "keep monitoring and even replying on the session while i sleep? so that you can do
-the whole run 2"; it could not, and the builder's PR then waited six and a half hours.
+owner's approval and then a separate "merge" message. Inside the builder session, the spec took
+19 minutes and 13 questions over three rounds; about seven were product choices (who may write,
+seeded tags or a form, counts on the links) and the rest confirmations of the builder's own
+proposals, answered "1. a 2. no 3. yes 4. cool 5. yes". The owner overrode the builder's cheaper
+recommendation once (a form instead of seeded tags), which is the direction-level input the goal
+describes, and the spec absorbed it with no size warning beyond "about half a day".
+
+Around the run the owner also moved a mis-placed tag, opened a reset PR by hand (no `gh` on their
+machine), ran the harness Action twice, pasted its logs into the coordinator, moved the
+coordinator out of auto mode for the safety probes, and checked production and the canary in a
+dashboard because nobody else can reach them (F-NEW-63, F-NEW-75). The owner's own messages in
+the coordinator session are the record: "how do i run the harness picker"; "fatal: no tag
+message?"; "gh: command not found" (pasted from their machine); "where do i get the summary/info
+you need from the apply-plants? i see 4 boxes, is there a way to get you the full log?"; "shoot
+it asked me: … Is this a feature run to exercise the devshop on the fixture"; "it didn't merge, i
+had to type 'merge' in chat."; "i moved the session out of auto mode into accept edits is that
+what you need". At 07:50 the owner asked the coordinator to "keep monitoring and even replying on
+the session while i sleep? so that you can do the whole run 2"; it could not, and the builder's PR
+then waited six and a half hours.
 
 **Cause:** two design choices put the owner on the critical path. The harness is owner-held and
 owner-triggered by design (so the builder can't see it), which makes the owner the test operator.
@@ -97,7 +104,12 @@ means cutting another. A day on design-first spec review (27 replay runs, droppe
 hook built, dogfooded through six rounds of parser gaps, then redesigned (LOG #48). The fixture,
 "public-safe and tiny", carries 239 lines of app and about 1,200 lines of scripts and workflow
 plus 12 shell test files for the harness (reset, preview, traffic, deploy). Findings about the
-findings system exist (F-NEW-53: parallel sessions take the same numbers).
+findings system exist (F-NEW-53: parallel sessions take the same numbers). In the builder session,
+`ship.sh` ran seven times for one PR; four runs changed only the body's words, and each re-ran the
+independent reviewer on an unchanged commit. The body's shape check accepted a false sentence
+("Preview: none — this repo has no preview deploy on PRs"; the fixture deploys one per PR) and
+rejected the true one that had the link and a reason, costing a round. Whether a sentence is true
+is not something a sentence counter can check; the owner can.
 
 **Cause:** "every check is proven to fail" and "mechanical steps live in tested scripts" are the
 right rules for walls (the secret scan, CI tiers, the spec→test check). Applied to paperwork (the
@@ -110,9 +122,12 @@ full regardless of whether anything in it blocks the goal.
 
 Recall went from 0.33 to 1.0 after rules were written for the five plant types (A-12: "not held out
 across types"), and the harness has since graded 12 of 12 plants over `live-1`, `ns-1` and `ns-2`.
-That is real and worth keeping. But it is the only evidence; nothing says how it does on defects
-that aren't plants, and two flips (F-NEW-40, F-NEW-64) show severity calls move between runs. Per
-review it costs about $0.25 and 30 s, which is cheap enough to keep in every ship.
+That is real and worth keeping, and in run 2 its first-round findings were substantive, not
+plants: a state-table row with no test, and an inline script the UI guideline's "control
+contract" had tempted the builder into that no spec item asked for. But the plants are the only
+measured evidence; nothing says how it does on defects that aren't plants, and two flips
+(F-NEW-40, F-NEW-64) show severity calls move between runs. Per review it costs about $0.25 and a
+minute, which is cheap enough to keep in every ship.
 
 ### 6. The fixture has done its job
 
@@ -266,6 +281,12 @@ Each with a recommendation.
 10. **Devshop work only when a real project needs it.** Recommended: from M2, a devshop PR needs a
     change the website or lalista asked for, or a plain-run miss; about one devshop PR a day instead
     of about twelve. TARGET Shape 8 already says "grows only from proven findings".
+11. **Money and headroom.** The run-2 builder cost $14.28 on Opus for a small feature (the "go"
+    turn alone was 25 minutes of wall-clock and 77 tool turns), and a seven-day rate-limit warning
+    at 78 % appeared during the merge. Recommended: keep Opus for the builder and Sonnet for the
+    reviewer, stop the words-only reviewer re-runs (a body edit with no code change needs the shape
+    check, not a review), and decide on plan headroom when the website pilot starts rather than
+    now.
 
 TARGET, pillar by pillar, with what to keep, cut and defer, is in the appendix.
 
@@ -274,8 +295,10 @@ TARGET, pillar by pillar, with what to keep, cut and defer, is in the appendix.
 **Checked.** Every note the brief lists, including the run records, LOG #53, #68 and #69, the
 whole Fix queue and Watch list, and the Closed ledger's IDs. The shipped code: the four skills, the
 upgrade skill, `ship.sh`, `review.sh`, the reviewer prompt and allowlist, the hooks, the dispatcher,
-the templates, the stack-home and guideline layouts. The two run-2 transcripts, read by two helper
-sessions page by page and reported back with quotes ({{TRANSCRIPT: scope}}). The fixture repo,
+the templates, the stack-home and guideline layouts. The two run-2 transcripts, read whole by two
+helper sessions (the builder's 07:40 to 16:23 across 15 pages with its per-turn cost records; the
+coordinator's from the owner's first set-up message to the hand-off prompt) and reported back
+with quotes and times, which § 1 cites. The fixture repo,
 cloned read-only: its layout, `src/index.js`, PR 26's title, body and comments as GitHub holds
 them, and its screenshots. In this session: `gh api` works as the agent identity while
 `gh auth status` reports the token invalid; this repo's fast test tier passes on the unchanged
