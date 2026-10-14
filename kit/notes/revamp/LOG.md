@@ -2613,3 +2613,23 @@ session lists; a one-shot `claude -p` with `--plugin-dir` can.
 
 **Next**: the owner's fresh fixture session after the cache rebuild, then the fixture's upgrade PR
 through `devshop-upgrade` (W10.4.7 and W10.4.8 close together).
+
+## #64 — 2026-10-14 · W10.6.18, W10.6.19: skill size rules; PR bodies checked by `ship.sh`
+
+**What moved**: the owner's calls on W10.6.16's open questions, in one PR (two small, linked tasks).
+
+- **Budget (W10.6.18).** The skill descriptions' budget is 200 words (owner); 150 had no room once
+  `upgrade` landed. W10.4.8 moved `upgrade` into the install plugin and checked it apart from the
+  runtime's skills, so the total went unchecked: `skills-check.py --plugin-skills` now checks both as
+  one set (shape, handovers, no shared name, one budget). 150 of 200 today. The one-page cap stays a
+  CI failure and TARGET Shape 2 says so (F-NEW-54, kept).
+- **PR bodies (W10.6.19).** `ship.sh` runs `pr-body-check.py` before the review (F-NEW-52), so a body
+  that skipped the template stops before the reviewer or GitHub. `devshop-upgrade` hands its PR over
+  to `devshop:pr` (F-NEW-56); a pin from before `pr` falls back to Build's PR section, which that
+  version still has. The `pr` skill no longer runs the check itself.
+- **Checks.** Tests first: each new case failed on the old code. Mutants: 6 of 6 in `skills-check.py`,
+  4 of 4 in `ship.sh` (a failing body check that couldn't run survived until its case was added).
+- **#104** renumbered itself (W10.6.11, W10.6.17, F-NEW-57 to F-NEW-59), so the owner's call there
+  needed nothing here.
+
+**Next**: W10.6.16's live check once the fixture is free; then W10.6.9's remaining items and W10.6.10.

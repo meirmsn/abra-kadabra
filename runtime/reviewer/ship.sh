@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# ship: the one way Claude puts a change on a PR (W10.6.7). Reviews the committed HEAD with exactly
-# the given title and body, locally (review.sh, beside this file); only a pass goes on: it pushes the
+# ship: the one way Claude puts a change on a PR (W10.6.7). First the title and body must have the PR
+# template's shape (pr-body-check.py, F-NEW-52). Then it reviews the committed HEAD with exactly the
+# given title and body, locally (review.sh, beside this file); only a pass goes on: it pushes the
 # branch, creates the PR (or updates the open PR's title, body and base) with exactly those words,
 # checks GitHub kept them (text it appends to the body is fine), and posts the verdict comment. Code and
 # words go up together. Contract: kit/notes/revamp/workstreams/W10-v2.md § W10.6.7.
 #   usage: ship.sh --title <text> --body-file <file> [--base <branch>]   (from the worktree root)
-# Exit 0 = shipped (last line "SHIPPED: PR #<n> · <url> · <commit12>"); 1 = the review failed:
-# nothing pushed, fix, commit, ship again; 3 = ask-owner; 2 = could-not-run (bad input, a result
+# Exit 0 = shipped (last line "SHIPPED: PR #<n> · <url> · <commit12>"); 1 = the words don't have the
+# template's shape, or the review failed: nothing pushed, fix, commit, ship again; 3 = ask-owner; 2 = could-not-run (bad input, a result
 # ship can't trust, or GitHub failing; what was done is said). For 2 and 3, stop and ask the owner.
 # Feedback, not a wall: the review guard refuses the other ways to a PR, but can be got around.
 set -uo pipefail
@@ -30,6 +31,19 @@ body=$(cat -- "$body_file" 2>/dev/null && echo x) || cnr "can't read the body fi
 body=${body%x}
 for t in git jq gh; do command -v "$t" >/dev/null || cnr "$t not found"; done
 [ -x "$here/review.sh" ] || cnr "$here/review.sh is missing or not executable"
+
+# --- The words have the PR template's shape, before anything is reviewed or pushed.
+body_check="$here/../scripts/pr-body-check.py"
+[ -x "$body_check" ] || cnr "$body_check is missing or not executable"
+crc=0
+cout=$("$body_check" "$body_file" "$title" 2>&1) || crc=$?
+case $crc in
+  0) ;;
+  1) printf '%s\n' "$cout"
+     echo "The PR's words don't have the template's shape; nothing was reviewed or pushed. Fix them and ship again."
+     exit 1 ;;
+  *) cnr "pr-body-check.py couldn't run (exit $crc): $cout" ;;
+esac
 
 # --- The worktree: a branch, everything committed, a GitHub-style origin.
 top=$(git rev-parse --show-toplevel 2>/dev/null) || cnr "not in a git worktree"

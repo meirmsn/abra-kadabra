@@ -31,14 +31,17 @@ exit codes, stdout line, verdict file and format) is in
 `ship.sh --title <text> --body-file <file> [--base <branch>]` is the one way Claude puts a change on
 a PR (W10.6.7; contract on the W10.6.7 line in W10-v2.md):
 
-1. It reviews the committed `HEAD` with exactly that title and body, in the VM:
+1. It checks the title and body have the PR template's shape
+   ([`pr-body-check.py`](../scripts/pr-body-check.py), F-NEW-52): a body without it is exit 1, with
+   the problems listed, before any review or push; a missing or broken check is exit 2.
+2. It reviews the committed `HEAD` with exactly that title and body, in the VM:
    `review.sh --base origin/<base> --pr <words>`. The base is `--base`, else the open PR's base,
    else origin's default branch.
-2. Only a pass goes on. A fail (exit 1) pushes nothing and prints the `REVIEW:` line and each
+3. Only a pass goes on. A fail (exit 1) pushes nothing and prints the `REVIEW:` line and each
    blocking finding: fix, commit, ship again. Ask-owner (exit 3) and could-not-run (exit 2, also for
    a dirty tree, a detached `HEAD`, bad arguments or a result it can't trust) push nothing and say
    to ask the owner.
-3. On a pass it pushes the branch, then creates the PR, or updates the open PR's title, body and
+4. On a pass it pushes the branch, then creates the PR, or updates the open PR's title, body and
    base, with exactly the reviewed words. It reads them back: text GitHub appends to the body (an attribution footer)
    is fine, since it can't change what was reviewed; a changed title or rewritten body is reported
    (exit 2). Then it posts the verdict comment and prints
