@@ -441,8 +441,8 @@ echo "ok - AC-4: a /usr/local/bin/<tool> the devshop didn't make is left unchang
 out=$(session '' tools-bad FAILED)
 grep -q "FAILED: tool gitleaks: checksum" /tmp/devshop-setup.log || { cat /tmp/devshop-setup.log >&2; fail "a bad gitleaks checksum wasn't logged as a failure"; }
 [ ! -e /opt/devshop-tools/bin/gitleaks ] || fail "gitleaks with a bad checksum was installed"
-out=$(on_path gitleaks --version 2>&1) && fail "AC-2: a gitleaks with a bad checksum runs from PATH: $out"
-grep -q "not found" <<<"$out" || fail "AC-2: a missing gitleaks doesn't say 'not found': $out"
+ran=$(on_path gitleaks --version 2>&1) && fail "AC-2: a gitleaks with a bad checksum runs from PATH: $ran"
+grep -q "not found" <<<"$ran" || fail "AC-2: a missing gitleaks doesn't say 'not found': $ran"
 [ "$(on_path shellcheck --version 2>&1)" = "fake shellcheck --version" ] || fail "AC-2: shellcheck lost with gitleaks"
 echo "ok - AC-2: a gitleaks that failed its checksum is not found on PATH, and logged"
 check "tools-bad: devshop still installed" "$out" "^DEVSHOP: using HEAD " "$(git --git-dir="$src" rev-parse tools-bad)"
