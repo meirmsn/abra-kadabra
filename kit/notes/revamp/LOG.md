@@ -2653,3 +2653,27 @@ own hooks only. The session fetched the pinned release by checksum and went gree
 session hits this; a finding to file.
 
 **Next**: put `/opt/devshop-tools/bin` on the session's PATH, or file it (owner's call).
+
+## #66 — 2026-10-14 · W10.6.20: design-first spec review, replay failed
+
+**What moved**: from the pinned-tools session's lesson (its first proposal passed the spec review
+with 15 detail findings while the root cause went unasked), the owner approved
+[a spec](../../../specs/design-first-spec-review.md): `intent` § 4 asks four design questions
+before the detail list, § 2 asks why the problem exists before choosing a fix, inline within the
+one-page cap (now 59 lines, 600 words; `skills-check.py` exit 0). The PR reviewer's lens is split
+out as W10.6.21. Proof by replay ([spike](spikes/w10-6-20-design-first-review/README.md)): 18
+fresh `Plan` helpers, old and new § 4 text quoted as written, each spec from a `git archive` export
+of the commit it was written on, grading rule committed before the runs.
+
+**Evidence**: new wording flagged the first pinned-tools draft 0/3 (bar 3/3), the CI tiers spec 1/3
+and the UI baseline spec 3/3 (bar 0/3 each). Old wording flagged none and gave no design verdict in
+9 of 9 runs; new wording gave one in 9 of 9. No run read outside its export.
+
+**Surprises**: all three new runs named the pinned-tools cause correctly (tools installed off PATH)
+and still judged the env-file hook a proportionate fix; none re-weighed the draft's own rejection
+of `/usr/local/bin`. "Rejected options included" produced new options, not a second look at the
+author's. On the honest specs the size flags were about checkers both specs added beyond the
+owner's words, which the old wording also called added scope.
+
+**Next**: per the owner's rule, stopped and asked the owner: ship the wording, change it and
+re-test on held-out cases, or drop it.

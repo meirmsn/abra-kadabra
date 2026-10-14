@@ -35,4 +35,49 @@ goes to the owner; this rule is not changed after the runs.
 
 ## Results
 
-_Filled in after the runs._
+2026-10-14, graded by the rule above. Raw reports: one file per run in `outputs/`, linked below. Contamination check: no run read outside its own export or ran
+git (the only hits were `find … -not -path './.git/*'` inside the export).
+
+| Spec               | Old wording flags | New wording flags | Bar           |
+| ------------------ | ----------------- | ----------------- | ------------- |
+| `pinned` (too big) | 0/3               | **0/3**           | new 3/3: fail |
+| `tiers` (honest)   | 0/3               | **1/3**           | new 0/3: fail |
+| `ui` (honest)      | 0/3               | **3/3**           | new 0/3: fail |
+
+**The replay fails AC-4 and AC-5.** Per run:
+
+- `pinned-old-1..3` ([1](outputs/pinned-old-1.md), [2](outputs/pinned-old-2.md), [3](outputs/pinned-old-3.md)): detail findings only (test breakage, the dcg rule, AC numbering). No design
+  verdict. Not flags
+- [`pinned-new-1`](outputs/pinned-new-1.md): "Putting a line in `CLAUDE_ENV_FILE` from the dispatcher fixes the cause and is
+  about the right size"; its unlisted option is a fallback in the project scripts. Not a flag
+- [`pinned-new-2`](outputs/pinned-new-2.md): "the spec has it right, but leaves one option out" (a line in `~/.bashrc`). Not a
+  flag
+- [`pinned-new-3`](outputs/pinned-new-3.md): "Root cause and design are right"; unlisted option: script fallback. Not a flag
+- `tiers-old-1..3` ([1](outputs/tiers-old-1.md), [2](outputs/tiers-old-2.md), [3](outputs/tiers-old-3.md)), `ui-old-1..3` ([1](outputs/ui-old-1.md), [2](outputs/ui-old-2.md),
+  [3](outputs/ui-old-3.md)): no design verdict. Not flags
+- [`tiers-new-1`](outputs/tiers-new-1.md): the checker is beyond the ask ("ask the owner whether the checker belongs"), the
+  tiers are justified. Part, not core: not a flag
+- [`tiers-new-2`](outputs/tiers-new-2.md): "The design doesn't save what the owner asked about … The cause of the waste is
+  that duplicated job setup": calls the core design not a fix for the cause. **Flag**
+- [`tiers-new-3`](outputs/tiers-new-3.md): tiers justified; "What isn't proportionate is the extra machinery" (the checker).
+  Part, not core: not a flag
+- [`ui-new-1`](outputs/ui-new-1.md): "The design is far bigger than the problem." **Flag**
+- [`ui-new-2`](outputs/ui-new-2.md): "The checks are much bigger than the problem." **Flag**
+- [`ui-new-3`](outputs/ui-new-3.md): "The two checks are much bigger than the problem." **Flag**
+
+## What it shows
+
+- The new wording changes what the helper says: 9 of 9 new runs gave a design verdict before the
+  details, 0 of 9 old runs did. The old wording never once questioned a design.
+- It did not find the pinned-tools root cause. All three new runs named the cause correctly (the
+  tools are installed off PATH) and then judged the env-file hook a fix for it. The draft argued
+  against linking into `/usr/local/bin` ("rests on the image keeping that directory on PATH … shares
+  it with other installers"), and no run challenged that rejection: "rejected options included"
+  made them list new options, not re-weigh the author's.
+- On the honest specs it flags size, mostly the extra checkers both specs added beyond the owner's
+  words. Whether those are false alarms is the owner's call: the owner approved both specs, and the
+  same points (the CI checker, the two UI checkers) were also raised as "scope beyond the ask" by the
+  old wording.
+
+Per the owner's rule (spec, "3. A"), the build stopped here and the result went to the owner; the
+grading rule was not changed after the runs.
