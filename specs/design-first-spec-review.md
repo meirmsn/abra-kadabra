@@ -68,6 +68,15 @@ honest, proportionate spec.
   the off-PATH install (or linking the tools onto PATH) as the cause or the better design. The
   replay helpers are told to read only their export; a grep of each helper's transcript for paths
   outside it is recorded, and a run that read outside its export is discarded and re-run
+- Changed after the go (owner, 2026-10-14, "B", after the first replay failed both bars, LOG #66):
+  one more round. The design questions also make the helper argue for the strongest option the
+  author rejected or didn't list, and ask whether the change fixes where the problem starts or only
+  where it shows (all three round-1 runs named the pinned-tools cause and still accepted the
+  draft's rejection of the simpler fix). Round 2 re-runs only the new wording (3 runs per spec, the
+  same exports, prompts built the same way) against the same bars, graded by the same rule. The
+  pinned-tools draft is no longer held out, since the wording was shaped after seeing its miss. If
+  round 2 fails either bar, § 4 goes back to its old wording, only the § 2 clause ships, and the
+  finding is recorded (option C)
 
 ## Acceptance items
 

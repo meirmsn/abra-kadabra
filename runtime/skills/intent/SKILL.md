@@ -40,12 +40,12 @@ Every request starts here (TARGET § L3 Intent). Ask in the chat; the spec is th
 ## 4. Adversarial spec review, before the owner sees it
 
 Give a fresh read-only helper (the `Plan` agent type, which can't edit) only the spec's path and the
-owner's own words. Ask it to attack the design first: is this the root cause or a workaround (name
-the cause); what is the simplest reliable design, rejected and unlisted options included; is the
-size in proportion to the problem; what new failure modes does it add. Then the details: does it
-match the intent and decisions; what is ambiguous or untestable; which edge cases are missing; what
-scope was added; does its literal code match the codebase. Its findings are claims to check. Fix
-what you're sure of; the rest go to the owner as questions.
+owner's own words. Ask it to attack the design first: does it fix where the problem starts or only
+where it shows (name the cause); argue for the strongest option the author rejected or didn't list;
+is the size in proportion; what new failure modes does it add. Then the details: does it match
+intent and decisions; what is ambiguous or untestable; which edge cases are missing; what scope was
+added; does its literal code match the codebase. Its findings are claims to check. Fix what you're
+sure of; the rest go to the owner as questions.
 
 _Mitigation:_ TARGET has the independent reviewer do this; its spec mode is an M2 item.
 

@@ -81,3 +81,13 @@ git (the only hits were `find … -not -path './.git/*'` inside the export).
 
 Per the owner's rule (spec, "3. A"), the build stopped here and the result went to the owner; the
 grading rule was not changed after the runs.
+
+## Round 2 (owner, 2026-10-14, "B"; set-up fixed before its runs)
+
+The § 4 design questions now also ask the helper to argue for the strongest option the author
+rejected or didn't list, and whether the change fixes where the problem starts or only where it
+shows. Only the new wording runs again: 3 runs per spec, the same exports, prompts built by the same
+script ([pinned](prompts/pinned-new-r2.md), [tiers](prompts/tiers-new-r2.md),
+[ui](prompts/ui-new-r2.md)). Same bars and the same grading rule as above. The pinned-tools draft is
+no longer held out: this wording was shaped after seeing why round 1 missed it. If either bar
+fails, § 4 goes back to its old wording and only the § 2 clause ships (option C).
