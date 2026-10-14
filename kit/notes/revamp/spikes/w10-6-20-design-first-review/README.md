@@ -44,7 +44,7 @@ git (the only hits were `find … -not -path './.git/*'` inside the export).
 | `tiers` (honest)   | 0/3               | **1/3**           | new 0/3: fail |
 | `ui` (honest)      | 0/3               | **3/3**           | new 0/3: fail |
 
-**The replay fails AC-4 and AC-5.** Per run:
+**The replay fails both bars** (AC-4 and AC-5 as first approved). Per run:
 
 - `pinned-old-1..3` ([1](outputs/pinned-old-1.md), [2](outputs/pinned-old-2.md), [3](outputs/pinned-old-3.md)): detail findings only (test breakage, the dcg rule, AC numbering). No design
   verdict. Not flags
