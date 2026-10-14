@@ -408,6 +408,7 @@ echo "ok - AC-1: pinned gitleaks, shellcheck and dcg run from the default PATH (
 git --git-dir=/opt/devshop.git show HEAD:bootstrap.sh | bash || true
 [ "$(grep -c 'RESULT: bootstrap done' /tmp/devshop-setup.log)" = 2 ] \
   || { cat /tmp/devshop-setup.log >&2; fail "AC-5: a second bootstrap didn't end done"; }
+! grep -q "FAILED: tool" /tmp/devshop-setup.log || { cat /tmp/devshop-setup.log >&2; fail "AC-5: a second bootstrap logged a tool failure"; }
 for tool in gitleaks shellcheck dcg; do
   [ "$(on_path "$tool" --version 2>&1)" = "fake $tool --version" ] || fail "AC-5: $tool not on PATH after a second bootstrap"
 done
@@ -422,6 +423,16 @@ out=$(on_path gitleaks --version 2>&1) && fail "AC-3: after a failed gitleaks bu
 grep -q "not found" <<<"$out" || fail "AC-3: a missing gitleaks doesn't say 'not found': $out"
 [ "$(on_path shellcheck --version 2>&1)" = "fake shellcheck --version" ] || fail "AC-3: shellcheck lost with gitleaks"
 echo "ok - AC-3: a failed gitleaks bump over an installed one leaves gitleaks not found, not the old one"
+# The same for a bump whose tools.pin line is refused (a version leaving /opt/devshop-tools): the
+# name is still linked on PATH, to nothing.
+setup_env
+git --git-dir=/opt/devshop.git update-ref refs/heads/main refs/heads/tools-badver
+git --git-dir=/opt/devshop.git show HEAD:bootstrap.sh | bash || true
+grep -q "FAILED: tool gitleaks: install/tools.pin line" /tmp/devshop-setup.log || { cat /tmp/devshop-setup.log >&2; fail "AC-3: the refused gitleaks line wasn't logged"; }
+[ "$(readlink /usr/local/bin/gitleaks)" = /opt/devshop-tools/bin/gitleaks ] || fail "AC-3: a refused gitleaks line left no PATH link"
+out=$(on_path gitleaks --version 2>&1) && fail "AC-3: after a refused gitleaks line, a gitleaks still runs from PATH: $out"
+grep -q "not found" <<<"$out" || fail "AC-3: a missing gitleaks doesn't say 'not found': $out"
+echo "ok - AC-3: a refused gitleaks line over an installed one leaves gitleaks not found, not the old one"
 
 # AC-4: a /usr/local/bin entry the devshop didn't make is left as it is, and logged.
 setup_env
