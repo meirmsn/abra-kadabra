@@ -61,15 +61,18 @@ install_tools() {
   local name version sum url dir tmp bin
   mkdir -p "$TOOLS/bin" || { step_failed "tools: mkdir $TOOLS/bin"; return; }
   while read -r name version sum url; do
-    if [[ ! $name =~ ^[a-z0-9-]+$ || ! $version =~ ^[0-9A-Za-z][0-9A-Za-z.+-]*$ || $version == *..* \
+    local bad="install/tools.pin line is not '<name> <version> <sha256> <https URL>'"
+    [[ $name =~ ^[a-z0-9-]+$ ]] || { step_failed "tool ${name:-?}: $bad"; continue; }
+    # The old link goes first, so a failed or refused install of a new version can't leave the old
+    # one running.
+    rm -f "$TOOLS/bin/$name"
+    link_on_path "$name"
+    if [[ ! $version =~ ^[0-9A-Za-z][0-9A-Za-z.+-]*$ || $version == *..* \
       || ! $sum =~ ^[0-9a-f]{64}$ || ! $url =~ ^https://[^@[:space:]]+$ ]]; then
-      step_failed "tool ${name:-?}: install/tools.pin line is not '<name> <version> <sha256> <https URL>'"
+      step_failed "tool $name: $bad"
       continue
     fi
     dir="$TOOLS/$name-$version" tmp="$TOOLS/$name.download"
-    # The old link goes first, so a failed install of a new version can't leave the old one running.
-    rm -f "$TOOLS/bin/$name"
-    link_on_path "$name"
     rm -rf "$dir" "$tmp" && mkdir -p "$dir"
     curl -fsSL -o "$tmp" "$url" 2>>"$LOG" || { step_failed "tool $name: download $url"; continue; }
     echo "$sum  $tmp" | sha256sum -c - >/dev/null 2>&1 \
