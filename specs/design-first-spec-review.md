@@ -26,8 +26,8 @@ honest, proportionate spec.
 
 ## Decisions
 
-- § 4 asks the four design questions first, then the existing detail questions, in the same
-  paragraph; the design answers come first in the helper's findings. The skill is at 60 lines and
+- (Superseded by option C below: § 4 keeps its old wording.) § 4 asks the four design questions
+  first, then the existing detail questions, in the same paragraph; the design answers come first in the helper's findings. The skill is at 60 lines and
   589 words of its one-page cap (60 lines, 600 words; `scripts/skills-check.py`), so the detail list
   is reworded shorter rather than the cap raised. Rejected: a separate design-review helper (a
   second agent run per spec, more ceremony for the same questions); a sub-skill or a notes file
@@ -68,7 +68,8 @@ honest, proportionate spec.
   the off-PATH install (or linking the tools onto PATH) as the cause or the better design. The
   replay helpers are told to read only their export; a grep of each helper's transcript for paths
   outside it is recorded, and a run that read outside its export is discarded and re-run
-- Changed after the go (owner, 2026-10-14, "B", after the first replay failed both bars, LOG #66):
+- Changed after the go (owner, 2026-10-14, "B", after the first replay failed both bars, LOG #66;
+  AC-1, AC-4 and AC-5 rewritten to this outcome when round 2 failed too):
   one more round. The design questions also make the helper argue for the strongest option the
   author rejected or didn't list, and ask whether the change fixes where the problem starts or only
   where it shows (all three round-1 runs named the pinned-tools cause and still accepted the
@@ -80,21 +81,20 @@ honest, proportionate spec.
 
 ## Acceptance items
 
-- **AC-1** `runtime/skills/intent/SKILL.md` § 4 asks the helper, before the detail questions,
-  whether the spec fixes the root cause or a workaround (naming the cause), what the simplest
-  reliable design is (rejected and unlisted options included), whether the size is in proportion
-  to the problem, and what new failure modes it adds; the detail questions it asked before are all
-  still asked, missing failure modes as part of the design question — verified by review: the diff
+- **AC-1** `runtime/skills/intent/SKILL.md` § 4 keeps its wording from before this change, since
+  the replay failed both rounds (option C; changed after the go by the owner's "B", 2026-10-14) —
+  verified by review: the diff
 - **AC-2** `runtime/skills/intent/SKILL.md` § 2 tells the author to ask why the problem exists
   before choosing a fix, and to fix the cause when it is within reach — verified by review: the diff
 - **AC-3** The intent skill passes `scripts/skills-check.py` (its one-page cap and the always-loaded
   description budget), so the change adds no length past the cap
-- **AC-4** In the replay, the new wording flags the first pinned-tools draft in 3 of 3 runs, each
-  naming the off-PATH install or linking the tools onto PATH, and the old wording flags it in at
-  most 1 of 3 — verified by review: the spike record
-- **AC-5** In the replay, the new wording flags `specs/ci-fast-slow-tiers.md` in 0 of 3 runs and
-  `specs/ui-baseline.md` in 0 of 3 runs —
-  verified by review: the spike record
+- **AC-4** The spike record holds both rounds of the replay: every run's report verbatim, the
+  contamination check, and each run graded by the rule fixed before the runs; round 1 shows the
+  old and new wording on all three specs, round 2 the new wording on all three — verified by review:
+  the spike record
+- **AC-5** The finding (design questions in the review prompt neither caught the pinned-tools
+  symptom fix nor stayed quiet on the honest specs) is recorded where W10.6.21 will read it before
+  it is built — verified by review: the diff
 - **AC-6** `kit/notes/revamp/workstreams/W10-v2.md` has a W10.6.20 line for this change and a new
   `[ ]` line for the PR reviewer's lens, and `kit/notes/revamp/LOG.md` has an entry for it —
   verified by review: the diff

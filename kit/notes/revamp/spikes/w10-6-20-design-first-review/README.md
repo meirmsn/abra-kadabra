@@ -91,3 +91,38 @@ script ([pinned](prompts/pinned-new-r2.md), [tiers](prompts/tiers-new-r2.md),
 [ui](prompts/ui-new-r2.md)). Same bars and the same grading rule as above. The pinned-tools draft is
 no longer held out: this wording was shaped after seeing why round 1 missed it. If either bar
 fails, § 4 goes back to its old wording and only the § 2 clause ships (option C).
+
+### Round 2 results
+
+2026-10-14, graded by the same rule. Contamination check: no run read outside its own export or ran
+git.
+
+| Spec               | Round 1 new | Round 2 new | Bar                     |
+| ------------------ | ----------- | ----------- | ----------------------- |
+| `pinned` (too big) | 0/3         | **0/3**     | 3/3: fail               |
+| `tiers` (honest)   | 1/3         | **2/3**     | 0/3: fail               |
+| `ui` (honest)      | 3/3         | **3/3**     | 0/3: fail               |
+
+- [`pinned-new-r2-1`](outputs/pinned-new-r2-1.md): "The spec fixes where the problem starts … The
+  fix is in the right layer"; strongest unlisted option: a PATH line in the shell profile. Not a flag
+- [`pinned-new-r2-2`](outputs/pinned-new-r2-2.md): "the fix lands where it should"; the env-file
+  approach is better than a script fallback. Not a flag
+- [`pinned-new-r2-3`](outputs/pinned-new-r2-3.md): "Size is in proportion"; strongest unlisted
+  option: a fallback in the project scripts. Not a flag
+- [`tiers-new-r2-1`](outputs/tiers-new-r2-1.md): "Cause versus symptom; the saving is smaller than
+  claimed … a lot for a question about duplicated lint". **Flag**
+- [`tiers-new-r2-2`](outputs/tiers-new-r2-2.md): "The cause is fixed, but the claimed saving isn't
+  stated correctly"; one job with two steps as an alternative. Not a flag
+- [`tiers-new-r2-3`](outputs/tiers-new-r2-3.md): "the waste is fixed by merging jobs and the tiers are
+  a separate goal … The tier design goes well beyond the question". **Flag**
+- [`ui-new-r2-1`](outputs/ui-new-r2-1.md): "most of the spec is two checkers, and the owner never
+  asked for them". **Flag**
+- [`ui-new-r2-2`](outputs/ui-new-r2-2.md): "Size is out of proportion." **Flag**
+- [`ui-new-r2-3`](outputs/ui-new-r2-3.md): "The size is out of proportion to 'a design baseline'."
+  **Flag**
+
+Asked to argue for rejected options, the helpers argued for new ones (a shell-profile line, a script
+fallback); none argued for the draft's own rejected option, linking into `/usr/local/bin`. **Round 2
+failed both bars, so option C applies:** § 4 keeps its old wording, the § 2 clause ships, and the
+finding is F-NEW-65 in [FINDINGS](../../FINDINGS.md).
+

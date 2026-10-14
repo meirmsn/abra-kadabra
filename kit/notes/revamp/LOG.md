@@ -2675,5 +2675,12 @@ of `/usr/local/bin`. "Rejected options included" produced new options, not a sec
 author's. On the honest specs the size flags were about checkers both specs added beyond the
 owner's words, which the old wording also called added scope.
 
-**Next**: per the owner's rule, stopped and asked the owner: ship the wording, change it and
-re-test on held-out cases, or drop it.
+**Round 2** (owner: "B", one more round, then option C if it fails): the design questions also
+asked the helper to argue for the strongest option the author rejected and whether the change fixes
+where the problem starts. Same exports, bars and grading rule; 9 runs. Pinned-tools 0/3 (the helpers
+argued for new options, a shell-profile line or a script fallback, never for `/usr/local/bin`), CI
+tiers 2/3, UI baseline 3/3. Failed both bars, so option C: § 4 keeps its old wording, § 2 gets the
+"why does the problem exist" clause. Finding F-NEW-65 (Watch list); W10.6.21, the PR reviewer's
+lens, is to be rethought with it.
+
+**Next**: ship the § 2 clause through `ship`.
