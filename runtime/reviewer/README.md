@@ -50,7 +50,7 @@ Code and words go up together, so the PR always shows the reviewed commit with t
 ## The guard
 
 [`runtime/hooks/review-guard.py`](../hooks/review-guard.py), the plugin's PreToolUse hook, keeps the
-other ways to a PR closed. It reviews nothing; it refuses, pointing to `ship`:
+other ways to a PR closed. It reviews nothing; it refuses, pointing to the `devshop:pr` skill and `ship`:
 
 - `gh pr create`; `gh pr edit` with a title, body or base;
 - `git push` while the current branch has an open PR (and when that can't be checked: `gh` fails);

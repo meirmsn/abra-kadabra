@@ -162,5 +162,5 @@ Proven by [`tests/git-hooks.test.sh`](../tests/git-hooks.test.sh) (real `git pus
   which sets them back and keeps husky's chained.
 - A repo's `scripts/lint.sh` needs its own tools in the session (here `npm ci` for Prettier); when
   one is missing, the push stops and the check names it.
-- The v2 skills (`intent`, `build`, `devshop-version`) load from the pinned version's
+- The v2 skills (`intent`, `build`, `pr`, `devshop-version`) load from the pinned version's
   `runtime/skills/`; `tests/bootstrap.test.sh` checks the plugin resolves each one there.
