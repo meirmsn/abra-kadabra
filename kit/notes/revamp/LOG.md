@@ -2507,7 +2507,30 @@ minutes for an expected 0.6 misses); the entropy formula and the threshold probe
 
 **Next**: the rest of W10.6.9, then W10.6.10.
 
-## #60 — 2026-10-14 · W10.4.7: a project's copies of devshop files, checked and upgraded
+## #60 — 2026-10-14 · W10.6.15: findings as tables with v1's glyphs
+
+**What moved**: the owner's review of #103 asked for v1's glyphs to scan the lists quickly. A
+summary table above each list was proposed first; the owner asked why not make the lists tables, so
+nothing is kept twice. Each list is now one table, a row per finding.
+
+- **Glyphs.** Grades carry v1's size glyphs (🟢🟢 XS, 🟢 S, 🟡 M, 🔴 L, 🔴🔴 XL); the colour is size,
+  so a red Impact is good news and a red Cost is not, as in v1. Leverage shows its band (🔥 5 or more,
+  🟡 2 to under 5, ⚪ under 2). Seen opens with dots toward the rule of 5 (●●○○○), then the dated
+  sightings separated by `<br>`.
+- **Check.** `findings-check.py` reads the three tables: exact headers, row shape, the glyph
+  matching each size, the band matching the Leverage, the dots matching the sightings. Test
+  rewritten for tables first: 45 cases, 30 of 30 mutants killed. The reviewer's one low finding (an
+  emptied live list failed the check, which the old script allowed) was fixed in the PR: a
+  regression in its own file, clear and quick. 165 IDs before and after (main's
+  script on main's file against the new one); Closed rows unchanged.
+- **Low findings in project sessions.** The Build skill line approved after #103 didn't fit: the
+  skill was at 60 lines and 598 words against `skills-check.py`'s one page (60, 600). The rule went
+  into the PR-body template's **Low findings** placeholder instead, which the builder fills in when
+  it lists them. Splitting the Build skill is the owner's call.
+
+**Next**: W10.6.9's remaining items, then W10.6.10.
+
+## #61 — 2026-10-14 · W10.4.7: a project's copies of devshop files, checked and upgraded
 
 **Why**: a project's CI can't reach the devshop, so the project keeps copies of the scripts its CI
 runs (`secret-scan.sh`, `spec-check.py`) and adapts its CI from templates. Nothing noticed a stale

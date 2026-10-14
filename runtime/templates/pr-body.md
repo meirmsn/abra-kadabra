@@ -41,7 +41,7 @@ commit, so they survive the merge and the branch's deletion (L-30). -->
 - **Screenshots:** {{one sub-item per core-flow step and state-table state, each "<step or state>: <image line from pr-assets.sh>"; or "no UI change"}}
 - **Reviewer:** {{the verdict per lens (spec, code, tests, docs, security, design/QA when UI), for commit <sha>}}
 - **CI:** {{the required checks' result for commit <sha>, read when this was written}}
-- **Low findings:** {{each low finding the reviewer listed; or "none"}}
+- **Low findings:** {{each low finding the reviewer listed, and whether you fixed it: only one that is clear, quick and important is fixed in this PR; one about the devshop itself is a finding, so tell the owner in chat; or "none"}}
 
 <details>
 <summary>Engineering details</summary>

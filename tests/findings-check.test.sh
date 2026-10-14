@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Tests scripts/findings-check.py (W10.6.13): the findings ledger's mechanical rules. It must fail a
-# missing or misordered section, a bad entry heading, field, grade or source, a Leverage or Score that
-# doesn't match its formula, a Seen count that doesn't match its lines, either list out of order, a
-# low-impact Fix entry seen fewer than 5 times, a Watch entry seen 5 times, a duplicate ID and a
-# malformed Closed table; pass a sound ledger and the boundaries; fail closed when it can't run; and
-# pass the real FINDINGS.md.
+# Tests scripts/findings-check.py (W10.6.13, W10.6.15): the findings ledger's mechanical rules. It
+# must fail a missing or misordered section, a bad table header or row, a bad ID, source, grade or
+# glyph, a Leverage or Score that doesn't match its formula, a Seen cell whose dots don't match its
+# sightings, either list out of order, a low-impact Fix row seen fewer than 5 times, a Watch row seen
+# 5 times and a duplicate ID; pass a sound ledger and the boundaries; fail closed when it can't run;
+# and pass the real FINDINGS.md.
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
@@ -16,7 +16,7 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
 # A sound ledger: the Fix queue sorted by Leverage with a tie broken by Impact, the Watch list by
-# Score, and Closed rows, one with an escaped pipe and one with an empty Ref.
+# Score, Closed rows with an escaped pipe and an empty Ref.
 sound() {
   cat <<'EOF'
 # Findings
@@ -25,58 +25,22 @@ Free text before the lists is not checked.
 
 ## Fix queue
 
-### F-NEW-02 · A tie on Leverage, higher impact
-- **Source:** fixture
-- **Grades:** Impact M · Risk XS · Cost XS · Leverage 12
-- **Observation:** a gap.
-- **Action:** close it.
-- **Task:** —
-- **Seen (1):**
-  - 2026-10-13 · run 1: seen.
+Free text before a table is fine.
 
-### F-NEW-03 · The tie, lower impact, seen five times
-- **Source:** fixture
-- **Grades:** Impact XS · Risk M · Cost XS · Leverage 12
-- **Observation:** small, but it keeps coming back.
-- **Action:** tidy it.
-- **Task:** —
-- **Seen (5):**
-  - 2026-10-09 · one.
-  - 2026-10-10 · two.
-  - 2026-10-11 · three.
-  - 2026-10-12 · four.
-  - 2026-10-13 · five.
-
-### F-NEW-01 · The first fix
-- **Source:** devshop
-- **Grades:** Impact L · Risk L · Cost M · Leverage 6.4
-- **Observation:** something broke.
-- **Action:** fix it.
-- **Task:** W1.1
-- **Seen (1):**
-  - 2026-10-13 · W1.1: it broke once.
+| ID       | Finding                        | Action    | Source  | Impact | Risk  | Cost  | Leverage | Task | Seen                                                                                               |
+| -------- | ------------------------------ | --------- | ------- | ------ | ----- | ----- | -------- | ---- | -------------------------------------------------------------------------------------------------- |
+| F-NEW-02 | **A tie, higher impact.** gap  | close it  | fixture | 🟡 M   | 🟢🟢 XS | 🟢🟢 XS | 🔥 12    | —    | ●○○○○ 2026-10-13 · run 1: seen.                                                                     |
+| F-NEW-03 | **The tie, lower impact.** odd | tidy it   | fixture | 🟢🟢 XS | 🟡 M  | 🟢🟢 XS | 🔥 12    | —    | ●●●●● 2026-10-09 · one.<br>2026-10-10 · two.<br>2026-10-11 · three.<br>2026-10-12 · four.<br>2026-10-13 · five. |
+| F-NEW-01 | **The first fix.** it broke    | fix it    | devshop | 🔴 L   | 🔴 L  | 🟡 M  | 🔥 6.4   | W1.1 | ●○○○○ 2026-10-13 · W1.1: it broke once.                                                            |
+| F-NEW-06 | **A cheap one.** small         | do it     | devshop | 🟡 M   | 🟢 S  | 🟡 M  | 🟡 2.4   | M2   | ●○○○○ 2026-10-13 · once.                                                                           |
+| F-NEW-07 | **A dear one.** big            | rebuild   | devshop | 🟡 M   | 🟢 S  | 🔴🔴 XL | ⚪ 0.7   | M2   | ●○○○○ 2026-10-13 · once.                                                                           |
 
 ## Watch list
 
-### F-NEW-04 · Seen four times
-- **Source:** devshop
-- **Grades:** Impact S · Score 8
-- **Observation:** a symptom to grep for.
-- **Guess:** a cause, and what might fix it.
-  1. A first likely cause.
-- **Seen (4):**
-  - 2026-10-10 · one.
-  - 2026-10-11 · two.
-  - 2026-10-12 · three.
-  - 2026-10-13 · four.
-
-### F-NEW-05 · Seen once
-- **Source:** lalista
-- **Grades:** Impact M · Score 3
-- **Observation:** odd.
-- **Guess:** unknown.
-- **Seen (1):**
-  - 2026-10-13 · once.
+| ID       | Finding                    | Guess                              | Source  | Impact | Seen                                                                              | Score |
+| -------- | -------------------------- | ---------------------------------- | ------- | ------ | --------------------------------------------------------------------------------- | ----- |
+| F-NEW-04 | **Seen four times.** a sym | 1) a cause; 2) another             | devshop | 🟢 S   | ●●●●○ 2026-10-10 · one.<br>2026-10-11 · two.<br>2026-10-12 · three.<br>2026-10-13 · four. | 8     |
+| F-NEW-05 | **Seen once.** odd         | unknown                            | lalista | 🟡 M   | ●○○○○ 2026-10-13 · once.                                                          | 3     |
 
 ## Closed
 
@@ -134,60 +98,59 @@ expect "a sound ledger passes" 0 "$(run_check "$work/f.md")"
 bad "a missing Closed section fails" "no '## Closed' section" "## Closed" "## Done"
 bad "a missing Fix queue fails" "no '## Fix queue' section" "## Fix queue" "## Queue"
 bad "a repeated section fails" "'## Closed' appears twice" "## Watch list" "## Closed"
-bad "sections out of order fail" "sections must come in the order" \
-  "## Fix queue" "## Watch list" "## Watch list\n\n### F-NEW-04" "## Fix queue\n\n### F-NEW-04"
+bad "sections out of order fail" "sections must come in the order" "## Fix queue" "## Watch list" "## Watch list\n\n| ID       | Finding                    |" "## Fix queue\n\n| ID       | Finding                    |"
+bad "a section without a table fails" "Watch list: no table" "## Watch list\n" "## Watch list\n\nNothing yet.\n\n## Old\n"
 
-# Entries and fields
-bad "a bad ID fails" "bad entry heading" "### F-NEW-05 · Seen once" "### X-5 · Seen once"
-bad "an entry without a title fails" "bad entry heading" "### F-NEW-05 · Seen once" "### F-NEW-05 · "
-bad "a missing Action fails" "F-NEW-01: missing field Action" "- **Action:** fix it.\n" ""
-bad "a missing Guess fails" "F-NEW-05: missing field Guess" "- **Guess:** unknown.\n" ""
-bad "a Watch entry with an Action fails" "F-NEW-05: unknown field Action" "- **Guess:** unknown." "- **Guess:** unknown.\n- **Action:** do it."
-bad "an empty field fails" "F-NEW-05: empty field Observation" "- **Observation:** odd." "- **Observation:**"
-bad "a repeated field fails" "F-NEW-05: field Observation twice" "- **Observation:** odd." "- **Observation:** odd.\n- **Observation:** again."
-bad "a bad source fails" "F-NEW-05: bad Source" "- **Source:** lalista" "- **Source:** Lalista Project"
-bad "stray text in an entry fails" "F-NEW-05: unexpected line" "- **Observation:** odd." "- **Observation:** odd.\nloose words"
-good "a field's indented sub-items pass" "- **Observation:** odd." "- **Observation:** odd:\n  - one part;\n  - another."
+# Tables
+bad "a bad Fix header fails" "Fix queue: header must be" "| Leverage | Task |" "| Leverage | Owner |"
+bad "a bad Closed header fails" "Closed: header must be" "| ID       | Finding               | Source  | Outcome            | Ref         |" "| ID | Finding | Outcome | Ref |"
+bad "a row with a missing cell fails" "Closed row O-01: 3 cells, want 5" "| O-01     | An opportunity        | devshop | v2 requirement     |             |" "| O-01 | An opportunity | devshop |"
+bad "text after a table fails" "Closed: unexpected line" "| O-01     | An opportunity        | devshop | v2 requirement     |             |" "| O-01     | An opportunity        | devshop | v2 requirement     |             |\nmore words"
+good "an empty Watch list passes (every finding moved or closed)" \
+  "| F-NEW-04 | **Seen four times.** a sym | 1) a cause; 2) another             | devshop | 🟢 S   | ●●●●○ 2026-10-10 · one.<br>2026-10-11 · two.<br>2026-10-12 · three.<br>2026-10-13 · four. | 8     |\n" "" \
+  "| F-NEW-05 | **Seen once.** odd         | unknown                            | lalista | 🟡 M   | ●○○○○ 2026-10-13 · once.                                                          | 3     |\n" ""
+bad "an empty Closed table fails" "Closed: no rows" "| F-SEC-01 | A pipe \`a \\| b\` here  | devshop | won't fix — v1     | \`x.sh:1\`    |\n" "" "| O-01     | An opportunity        | devshop | v2 requirement     |             |\n" ""
 
-# Grades and formulas
-bad "a grade off the scale fails" "F-NEW-05: bad Grades" "Impact M · Score 3" "Impact XXL · Score 3"
-bad "a wrong Leverage fails" "F-NEW-01: Leverage 7 should be 6.4" "Leverage 6.4" "Leverage 7"
-bad "a wrong Score fails" "F-NEW-05: Score 4 should be 3" "Impact M · Score 3" "Impact M · Score 4"
-bad "Watch grades on a Fix entry fail" "F-NEW-01: bad Grades" "Impact L · Risk L · Cost M · Leverage 6.4" "Impact L · Score 4"
-good "a Leverage written with one decimal passes" "Impact XS · Risk M · Cost XS · Leverage 12" "Impact XS · Risk M · Cost XS · Leverage 12.0"
+# Cells
+bad "a bad ID fails" "bad ID 'X-5'" "| F-NEW-05 | **Seen once.**" "| X-5 | **Seen once.**"
+bad "an empty Finding fails" "F-NEW-05: empty Finding" "| F-NEW-05 | **Seen once.** odd         |" "| F-NEW-05 |                            |"
+bad "an empty Guess fails" "F-NEW-05: empty Guess" "| unknown                            |" "|                                    |"
+bad "an empty Outcome fails" "Closed row O-01: empty Outcome" "| devshop | v2 requirement     |" "| devshop |                    |"
+bad "a bad source fails" "F-NEW-05: bad Source" "| lalista |" "| Lalista Project |"
+bad "a Closed row with a bad source fails" "O-01: bad Source" "| O-01     | An opportunity        | devshop |" "| O-01     | An opportunity        | Dev Shop |"
+bad "a duplicate ID fails" "F-NEW-01: ID appears twice" "| O-01     |" "| F-NEW-01 |"
+
+# Grades and glyphs
+bad "a grade off the scale fails" "F-NEW-05: bad Impact" "| lalista | 🟡 M   |" "| lalista | 🟡 XXL |"
+bad "a grade without its glyph fails" "F-NEW-05: bad Impact" "| lalista | 🟡 M   |" "| lalista | M      |"
+bad "the wrong glyph fails" "F-NEW-05: Impact M needs 🟡" "| lalista | 🟡 M   |" "| lalista | 🔴 M   |"
+bad "the wrong Cost glyph fails" "F-NEW-07: Cost XL needs 🔴🔴" "| 🔴🔴 XL | ⚪ 0.7" "| 🔴 XL | ⚪ 0.7"
+bad "a wrong Leverage fails" "F-NEW-01: Leverage 7 should be 6.4" "| 🔥 6.4   |" "| 🔥 7     |"
+bad "the wrong Leverage band fails" "F-NEW-06: Leverage 2.4 needs 🟡" "| 🟡 2.4   |" "| 🔥 2.4   |"
+bad "a low Leverage marked mid fails" "F-NEW-07: Leverage 0.7 needs ⚪" "| ⚪ 0.7   |" "| 🟡 0.7   |"
+bad "a wrong Score fails" "F-NEW-05: Score 4 should be 3" "| ●○○○○ 2026-10-13 · once.                                                          | 3     |" "| ●○○○○ 2026-10-13 · once.                                                          | 4     |"
+good "a Leverage written with one decimal passes" "| 🔥 12    | —    | ●●●●●" "| 🔥 12.0  | —    | ●●●●●"
+good "Leverage 5 is the top band" "| 🟡 M   | 🟢 S  | 🟡 M  | 🟡 2.4   |" "| 🔴🔴 XL | 🔴🔴 XL | 🔴 L | 🔥 5 |"
+good "Leverage 2 is the middle band" "| 🟡 M   | 🟢 S  | 🔴🔴 XL | ⚪ 0.7   |" "| 🔴🔴 XL | 🟢 S | 🔴 L | 🟡 2 |"
 
 # Seen
-bad "a Seen count above its lines fails" "F-NEW-05: Seen (2) but 1 line" "- **Seen (1):**\n  - 2026-10-13 · once." "- **Seen (2):**\n  - 2026-10-13 · once."
-bad "a Seen line without a date fails" "F-NEW-05: bad Seen line" "  - 2026-10-13 · once." "  - yesterday · once."
-good "a wrapped Seen line counts once" "  - 2026-10-13 · once." "  - 2026-10-13 · once, and a long\n    story wrapped here."
-bad "a Seen line indented wrongly fails" "F-NEW-05: bad Seen line" "  - 2026-10-13 · once." "  - 2026-10-13 · once.\n   - 2026-10-14 · three spaces."
-bad "Seen without a count fails" "F-NEW-05: unknown field Seen" "- **Seen (1):**\n  - 2026-10-13 · once." "- **Seen:** once."
+bad "Seen dots below the sightings fail" "F-NEW-05: Seen shows ●●○○○ but has 1 sighting" "| ●○○○○ 2026-10-13 · once.                                                          | 3" "| ●●○○○ 2026-10-13 · once.                                                          | 3"
+bad "Seen without dots fails" "F-NEW-05: bad Seen" "| ●○○○○ 2026-10-13 · once.                                                          | 3" "| 2026-10-13 · once.                                                          | 3"
+bad "a sighting without a date fails" "F-NEW-05: bad sighting 'yesterday · once.'" "| ●○○○○ 2026-10-13 · once.                                                          | 3" "| ●○○○○ yesterday · once.                                                          | 3"
+good "more than 5 sightings show the count" "| ●●●●● 2026-10-09 · one.<br>" "| ●●●●● 6 2026-10-08 · zero.<br>2026-10-09 · one.<br>"
+bad "more than 5 sightings without the count fail" "F-NEW-03: Seen shows ●●●●● but has 6 sightings" "| ●●●●● 2026-10-09 · one.<br>" "| ●●●●● 2026-10-08 · zero.<br>2026-10-09 · one.<br>"
 
 # Order
-bad "the Fix queue out of order fails" "Fix queue out of order" "Impact L · Risk L · Cost M · Leverage 6.4" "Impact L · Risk L · Cost XS · Leverage 64"
+bad "the Fix queue out of order fails" "Fix queue out of order" "| 🔴 L   | 🔴 L  | 🟡 M  | 🔥 6.4   |" "| 🔴 L   | 🔴 L  | 🟢🟢 XS | 🔥 64    |"
 bad "a Leverage tie in the wrong Impact order fails" "Fix queue out of order" \
-  "Impact M · Risk XS · Cost XS · Leverage 12" "Impact XS · Risk M · Cost XS · Leverage 12" \
-  "Impact XS · Risk M · Cost XS · Leverage 12\n- **Observation:** small" "Impact M · Risk XS · Cost XS · Leverage 12\n- **Observation:** small"
-bad "the Watch list out of order fails" "Watch list out of order" "Impact S · Score 8" "Impact XS · Score 4" "Impact M · Score 3" "Impact XL · Score 5"
+  "| fixture | 🟡 M   | 🟢🟢 XS | 🟢🟢 XS | 🔥 12" "| fixture | 🟢🟢 XS | 🟡 M | 🟢🟢 XS | 🔥 12" \
+  "| fixture | 🟢🟢 XS | 🟡 M  | 🟢🟢 XS | 🔥 12" "| fixture | 🟡 M | 🟢🟢 XS | 🟢🟢 XS | 🔥 12"
+bad "the Watch list out of order fails" "Watch list out of order" "| devshop | 🟢 S   | ●●●●○" "| devshop | 🟢🟢 XS | ●●●●○" "| 8     |" "| 4     |" "| lalista | 🟡 M   |" "| lalista | 🔴🔴 XL |" "| 3     |" "| 5     |"
 
 # The rule of 5
-bad "a low-impact Fix entry seen 4 times fails" "F-NEW-03: impact XS in the Fix queue needs 5 sightings" \
-  "- **Seen (5):**" "- **Seen (4):**" "  - 2026-10-13 · five.\n" ""
-bad "an impact-S Fix entry seen once fails" "F-NEW-02: impact S in the Fix queue needs 5 sightings" \
-  "Impact M · Risk XS · Cost XS · Leverage 12" "Impact S · Risk L · Cost M · Leverage 3.2"
-bad "a Watch entry seen 5 times fails" "F-NEW-04: seen 5 times" \
-  "Impact S · Score 8" "Impact S · Score 10" "- **Seen (4):**" "- **Seen (5):**" "  - 2026-10-13 · four." "  - 2026-10-13 · four.\n  - 2026-10-13 · five."
-
-# Closed table and IDs
-bad "a Closed row with a missing cell fails" "Closed row O-01: 3 cells" "| O-01     | An opportunity        | devshop | v2 requirement     |             |" "| O-01 | An opportunity | devshop |"
-bad "a Closed row without an outcome fails" "Closed row O-01: empty Outcome" "| devshop | v2 requirement     |" "| devshop |                    |"
-bad "a Closed row with a bad source fails" "Closed row O-01: bad Source" "| O-01     | An opportunity        | devshop |" "| O-01     | An opportunity        | Dev Shop |"
-bad "a bad Closed header fails" "Closed: header must be" "| ID       | Finding               | Source  | Outcome            | Ref         |" "| ID | Finding | Outcome | Ref |"
-bad "a duplicate ID fails" "F-NEW-01: ID appears twice" "| O-01     |" "| F-NEW-01 |"
-bad "a Closed table with no rows fails" "Closed: no rows" \
-  "| F-SEC-01 | A pipe \`a \\| b\` here  | devshop | won't fix — v1     | \`x.sh:1\`    |\n" "" \
-  "| O-01     | An opportunity        | devshop | v2 requirement     |             |\n" ""
-bad "text after the Closed table fails" "Closed: unexpected line" "| O-01     | An opportunity        | devshop | v2 requirement     |             |" "| O-01     | An opportunity        | devshop | v2 requirement     |             |\nmore words"
+bad "a low-impact Fix row seen 4 times fails" "F-NEW-03: impact XS in the Fix queue needs 5 sightings" "| ●●●●● 2026-10-09 · one.<br>" "| ●●●●○ "
+bad "an impact-S Fix row seen once fails" "F-NEW-06: impact S in the Fix queue needs 5 sightings" "| devshop | 🟡 M   | 🟢 S  | 🟡 M  | 🟡 2.4" "| devshop | 🟢 S   | 🟡 M  | 🟡 M  | 🟡 2.4"
+bad "a Watch row seen 5 times fails" "F-NEW-04: seen 5 times" "| ●●●●○ 2026-10-10 · one.<br>" "| ●●●●● 2026-10-09 · zero.<br>2026-10-10 · one.<br>" "| 8     |" "| 10    |"
 
 # Fails closed
 expect "a missing file can't run" 2 "$(run_check "$work/missing.md")" "can't read"
@@ -197,7 +160,7 @@ expect "an empty file fails" 1 "$(run_check "$work/empty.md")" "no '## Fix queue
 # --ids lists every ID, live and closed, in file order
 sound >"$work/f.md"
 "$script" --ids "$work/f.md" >"$work/ids.txt"
-[ "$(tr '\n' ' ' <"$work/ids.txt")" = "F-NEW-02 F-NEW-03 F-NEW-01 F-NEW-04 F-NEW-05 F-SEC-01 O-01 " ] || { cat "$work/ids.txt" >&2; fail "--ids lists the wrong IDs"; }
+[ "$(tr '\n' ' ' <"$work/ids.txt")" = "F-NEW-02 F-NEW-03 F-NEW-01 F-NEW-06 F-NEW-07 F-NEW-04 F-NEW-05 F-SEC-01 O-01 " ] || { cat "$work/ids.txt" >&2; fail "--ids lists the wrong IDs"; }
 echo "ok - --ids lists every ID in file order"
 
 # The real ledger
