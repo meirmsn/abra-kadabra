@@ -2671,11 +2671,12 @@ Now the bootstrap also links `/usr/local/bin/<tool>` to each one (spec
   design.
 - **Second review, design first.** It confirmed the root-cause fix and found a live bug: a failed
   download of a new tool version left the old version's link, so the old binary kept running. The
-  bootstrap now drops a tool's link before installing it.
+  bootstrap now drops a tool's link before installing it. The PR's reviewer then found the same hole
+  for a `tools.pin` line refused at validation (it skipped the drop); now only a bad name skips it.
 - **Checks.** Test first: `tests/bootstrap.test.sh` failed at AC-1 on the old bootstrap, then passed
   all cases. It runs on a scratch `/usr/local/bin` (a tmpfs mirroring the real one, read-only
-  underneath, minus the tool names). Mutants: 3 of 3 killed (no PATH link → AC-1, old link kept →
-  AC-3, a foreign entry overwritten → AC-4).
+  underneath, minus the tool names). Mutants: 4 of 4 killed (no PATH link → AC-1, old link kept →
+  AC-3, the drop after validation → AC-3's refused-line case, a foreign entry overwritten → AC-4).
 
 **Surprises**: the nested `claude -p` of the experiment inherited this session's id and wrote into
 its env file, so the probe directory stayed on this session's PATH until the session ended. The
