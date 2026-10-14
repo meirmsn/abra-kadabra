@@ -16,10 +16,13 @@ if [ -z "${DEVSHOP_TEST_NS:-}" ]; then
   DEVSHOP_TEST_NS=1 exec unshare "${ns[@]}" bash "$0" "$@"
 fi
 gitleaks_bin=$(command -v "${GITLEAKS:-gitleaks}") || fail "gitleaks not found (set \$GITLEAKS or put it on PATH)"
-mount -t tmpfs devshop-test-opt /opt || fail "can't mount a scratch /opt"
-
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
+# In a devshop session the gitleaks on PATH lives under /opt, which the scratch /opt hides: copy it.
+cp "$(readlink -f "$gitleaks_bin")" "$work/gitleaks" || fail "can't copy $gitleaks_bin"
+gitleaks_bin=$work/gitleaks
+mount -t tmpfs devshop-test-opt /opt || fail "can't mount a scratch /opt"
+
 isolate_git "$work"
 # The installed devshop: this checkout's runtime as the current version, the pinned tools in bin/.
 ln -s "$repo_root/runtime" /opt/devshop-current
