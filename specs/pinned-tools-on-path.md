@@ -16,78 +16,67 @@ still fail loudly, never pass.
 
 ## Decisions
 
-- The plugin's SessionStart dispatcher (`install/plugin/devshop/hooks/dispatch.sh`) puts
-  `/opt/devshop-tools/bin` at the front of PATH for the session's commands by appending one line to
-  `$CLAUDE_ENV_FILE`, which Claude Code sources for the session's Bash commands. Proven by experiment
-  on 2026-10-14 (Claude Code 2.1.299, nested `claude -p` in a cloud session; recorded in the LOG
-  entry): a SessionStart hook from `--settings` and one from a `--plugin-dir` plugin each got
-  `CLAUDE_ENV_FILE`, appended `export PATH="<dir>:$PATH"`, and a Bash command in that session then
-  resolved a probe binary from `<dir>`. The tests below simulate the sourcing; only AC-6 shows Claude
-  Code doing it on the owner's surface
-- The dispatcher, not a version's `runtime/hooks/session-start.sh`, and outside its version
-  selection: the tools are installed per environment, not per pinned version, so a project pinned to
-  a version from before this change (the fixture), or to a pin that doesn't resolve, gets them with
-  no upgrade
-- Rejected: symlinks into a directory already on the image's PATH (`/usr/local/bin`, or
-  `~/.local/bin`, which is on the cloud image's PATH ahead of `/usr/local/bin`). They would reach
-  every process, not just Claude's, and wouldn't need `CLAUDE_ENV_FILE`, but they rest on the image
-  keeping that directory on PATH (observed, not promised) and share it with other installers.
-  Rejected: an `env` setting, which can't extend `$PATH` (its value is taken literally)
-- The env-file line is single-quoted when written, so `$PATH` expands when Claude Code sources it,
-  not when the hook runs, and it prepends the directory unless PATH already starts with it:
-  `case ":$PATH" in :/opt/devshop-tools/bin:*) ;; *) PATH="/opt/devshop-tools/bin:$PATH" ;; esac; export PATH`.
-  Sourcing it any number of times leaves the directory first, once. Prepended, not appended: the
-  pinned versions win over any other copy on the image's PATH, so a session runs what CI runs
-- All three tools in `/opt/devshop-tools/bin` are exposed, dcg included: the directory is exactly the
-  pinned set, this repo's `tests/pre-bash.test.sh` looks for dcg on PATH, and the guard calls dcg by
-  its absolute path anyway. Rejected: a second directory with only gitleaks and shellcheck
-- A missing tool stays missing: nothing usable is linked for a failed download, so the project's
-  check reports it as not found. The dispatcher also prints one `DEVSHOP:` line naming each tool of
-  `install/tools.pin` (read from the local copy at the environment's default ref, the same file the
-  bootstrap installed from) that isn't an executable at `/opt/devshop-tools/bin/<name>` (`-x`, so a
-  dangling link from a failed re-install counts as missing), pointing at `/tmp/devshop-setup.log`.
-  dcg is left out of that line when the existing dcg line in `runtime/hooks/session-start.sh`
-  already reports it
-- Without `$CLAUDE_ENV_FILE` the dispatcher prints a `DEVSHOP:` line saying the pinned tools aren't
-  on PATH this session. Feedback, not a wall: required CI installs the same pinned versions itself
-- When the bootstrap primes the version (`DEVSHOP_PRIME_ONLY=1`, before the tools are installed and
-  without `CLAUDE_ENV_FILE`), the dispatcher skips both the env-file line and the tools check
-- The devshop's own hooks and git hooks keep calling the tools by `/opt/devshop-tools/bin`; hook
-  processes don't source the env file, and git hooks started from a Bash command inherit the new
-  PATH, which changes nothing for them
-- The proof lives in `tests/bootstrap.test.sh`, which already replays the install and runs the
-  installed dispatcher in a scratch `/opt` and `/tmp`
+- Root cause: the tools are installed off PATH, so every caller has to know their directory. The
+  devshop's own callers each work around it (`runtime/git-hooks/pre-push` and
+  `runtime/hooks/post-edit.sh` prepend it to PATH, `runtime/hooks/pre-bash.sh` calls dcg by its
+  absolute path); anything else misses the tools, this repo's `scripts/lint.sh` run by hand included.
+  The fix is where they are installed: after the bootstrap links a verified tool into
+  `/opt/devshop-tools/bin`, it also links `/usr/local/bin/<name>` to `/opt/devshop-tools/bin/<name>`.
+  `/usr/local/bin` is on the default PATH of every process, and the cloud image already links its
+  own tools there (owner, 2026-10-14). Rejected: a SessionStart step writing PATH to
+  `$CLAUDE_ENV_FILE` (a second mechanism on top of the wrong location, only for commands Claude
+  starts, depending on a Claude Code feature; owner, 2026-10-14)
+- A missing tool stays missing: every `install/tools.pin` name gets its `/usr/local/bin` link, which
+  points at `/opt/devshop-tools/bin/<name>`; a tool that didn't install leaves that link resolving to
+  nothing, so the project's check reports it as not found. The bootstrap also drops a tool's
+  `/opt/devshop-tools/bin/<name>` before installing it, so a failed install of a new version can't
+  leave the old one running (today it can). The bootstrap logs `FAILED: tool …` and ends
+  `RESULT: bootstrap FAILED` as today; `install/README.md` says a tool that isn't found means
+  checking `/tmp/devshop-setup.log`. No new `DEVSHOP:` line
+- The bootstrap never replaces what it didn't make: an existing `/usr/local/bin/<name>` that isn't
+  exactly a symlink whose target is `/opt/devshop-tools/bin/<name>` (a file, a directory, or a link
+  elsewhere, dangling or not) is left as it is and logged as `FAILED: tool <name>: …`
+  (the pinned copy is then not the one on PATH; required CI still is). Its own link is replaced, so
+  a re-run works
+- All three tools are linked, dcg included: the set is exactly `install/tools.pin`, this repo's
+  `tests/pre-bash.test.sh` looks for dcg on PATH, and the guard calls dcg by its absolute path, so
+  PATH changes nothing for it
+- The hooks' own PATH prepends stay: redundant now, harmless, and out of this change's files
+- The proof lives in `tests/bootstrap.test.sh`, which already replays the install in a private mount
+  namespace: it mounts an overlay on `/usr/local/bin` with its upper and work directories on the
+  scratch `/tmp`, so the real one is never touched, and fails with a clear message if that mount
+  can't be made, never skips. Each fresh-VM setup in the test starts from an empty upper layer
+- `install/README.md` also says a copy of a tool in a directory ahead of `/usr/local/bin` on PATH
+  (`~/.local/bin`, `~/.cargo/bin`, node's or bun's bin) would win over the pinned one
 
 ## Acceptance items
 
-- **AC-1** In `tests/bootstrap.test.sh`, after the installed plugin's SessionStart hook runs with
-  `CLAUDE_ENV_FILE` set and all pinned tools installed, a shell that sources that file resolves
-  `gitleaks`, `shellcheck` and `dcg` to `/opt/devshop-tools/bin`, ahead of a same-named decoy earlier
-  on the shell's original PATH
-- **AC-2** The same holds when the project pins the pre-move commit the test already uses
-  (`6190c0e0`, older than this change) and when its pin is not in the local copy
-- **AC-3** When a pinned tool failed to install (a bad checksum on a fresh install, and a failed
-  re-install that leaves a dangling link), the hook prints a `DEVSHOP:` line naming it, and a shell
-  that sources the env file over a PATH of only system directories with no copy of it fails to run
-  it with "not found" (non-zero exit)
-- **AC-4** Without `CLAUDE_ENV_FILE` the hook prints a `DEVSHOP:` line saying the pinned tools are
-  not on PATH, and its other lines are unchanged
-- **AC-5** Sourcing the env file twice, and running the hook twice with the same env file, leaves
-  `/opt/devshop-tools/bin` first on PATH and on it once
-- **AC-6** The bootstrap's priming run logs no missing-tool or not-on-PATH line
-- **AC-7** In a fresh fixture session after an environment rebuild, `gitleaks version` prints 8.30.1
-  and `shellcheck --version` prints 0.11.0 from the project's shell, and the fixture's fast check
-  (`scripts/check-fast.sh origin/main`) passes with no manual download — verified by review: the
-  owner's fresh fixture session
-- **AC-8** `install/README.md` § Pinned tools says the session's commands get the tools on PATH and
-  what a missing tool looks like, and `kit/notes/revamp/workstreams/W10-v2.md` has the task line —
-  verified by review: the diff
+- **AC-1** After the bootstrap installs the pinned tools, `gitleaks`, `shellcheck` and `dcg` run
+  the pinned binaries (their own version output, not another copy's) from a shell whose PATH is
+  `/usr/local/bin:/usr/bin:/bin`, shown by `tests/bootstrap.test.sh`
+- **AC-2** On a fresh install where gitleaks's download fails its checksum, `gitleaks` doesn't run
+  from that shell ("not found", non-zero exit) and the setup log has its `FAILED: tool` line, shown
+  by `tests/bootstrap.test.sh`
+- **AC-3** When a bootstrap moves gitleaks to a new version whose download fails, over an install
+  of the old version, `gitleaks` doesn't run from that shell either, shown by
+  `tests/bootstrap.test.sh`
+- **AC-4** An existing `/usr/local/bin/<name>` the devshop didn't make (a file, and a link
+  elsewhere) is left unchanged and logged as a `FAILED: tool` line, shown by
+  `tests/bootstrap.test.sh`
+- **AC-5** Running the bootstrap a second time over a good install leaves the links in place and
+  logs no failure for them, shown by `tests/bootstrap.test.sh`
+- **AC-6** Once this is on `main`, in a fresh fixture session after an environment rebuild,
+  `gitleaks version` prints 8.30.1 and `shellcheck --version` prints 0.11.0 from the project's
+  shell, and the fixture's fast check (`scripts/check-fast.sh origin/main`) passes with no manual
+  download — verified by review: the owner's fresh fixture session
+- **AC-7** `install/README.md` § Pinned tools says the tools are on PATH via `/usr/local/bin`, what
+  a missing tool looks like and where to look, and what wins over them on PATH; and
+  `kit/notes/revamp/workstreams/W10-v2.md` has task W10.4.9 — verified by review: the diff
 
 ## Out of scope
 
-- PATH for processes Claude Code doesn't start (no system-wide change)
-- Another SessionStart hook's env file resetting PATH after ours (order between hooks' env files is
-  Claude Code's)
+- Removing the hooks' own PATH prepends
+- Removing or detecting a copy of a tool earlier on PATH than `/usr/local/bin` (none on the image
+  today; the README names the risk)
 - CI, which installs the pinned tools itself
-- The dcg guard (`runtime/hooks/pre-bash.sh`) and the existing dcg `DEVSHOP:` line
 - Tools beyond `install/tools.pin`, and the owner's local devcontainer
