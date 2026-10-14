@@ -2680,7 +2680,12 @@ Now the bootstrap also links `/usr/local/bin/<tool>` to each one (spec
 **Surprises**: the nested `claude -p` of the experiment inherited this session's id and wrote into
 its env file, so the probe directory stayed on this session's PATH until the session ended. The
 first mutant run "passed" because the worktrees sat in `/tmp`, which the test hides under its
-scratch mount.
+scratch mount. And the change itself would have broken `tests/pre-bash.test.sh` and
+`tests/git-hooks.test.sh` in every devshop session (not CI, whose tools sit in `$RUNNER_TEMP`): each
+links the tool found on PATH into a scratch `/opt`, and in a session that tool now resolves into the
+`/opt` the scratch mount hides. Both copy the resolved binary out first; shown passing with the
+tools on PATH via `/opt/devshop-tools/bin`, via a `/usr/local/bin`-style link into it, and as plain
+copies as in CI (both failed the first way before).
 
 **Next**: after the merge and the environment's rebuild, the owner's fresh fixture session (AC-6).
 The suggested task "Spec review asks about design before details" (intent § 4) is the process fix.
