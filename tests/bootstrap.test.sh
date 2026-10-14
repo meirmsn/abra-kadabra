@@ -286,13 +286,13 @@ grep -qx "$marker" <<<"$out" || fail "pinned SHA: the pinned version's SessionSt
 echo "ok - pinned SHA: the pinned version's own SessionStart script ran"
 # The devshop's skills load from the pinned version in the same session: the installed plugin's
 # skills dir resolves to that version's skills/, each named as Claude Code lists it (W10.6.1).
-for skill in intent build devshop-version; do
+for skill in intent build pr devshop-version; do
   f="$HOME/plugin/skills/$skill/SKILL.md"
   [ "$(readlink -f "$f")" = "/opt/devshop-versions/$pinned/skills/$skill/SKILL.md" ] \
     || fail "skill $skill: the plugin's $f resolves to '$(readlink -f "$f")', not the pinned version's"
   grep -qx "name: $skill" "$f" || fail "skill $skill: its SKILL.md doesn't name it '$skill'"
 done
-echo "ok - pinned SHA: the plugin loads skills intent, build and devshop-version from the pinned version"
+echo "ok - pinned SHA: the plugin loads skills intent, build, pr and devshop-version from the pinned version"
 # The upgrade skill comes with the installed plugin (main at the cache build), not the pinned
 # version, so a project pinned before it existed still has it (W10.4.8): the plugin declares its
 # directory, and it is there whatever the pin.

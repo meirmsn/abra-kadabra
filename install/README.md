@@ -182,5 +182,5 @@ Proven by [`tests/git-hooks.test.sh`](../tests/git-hooks.test.sh) (real `git pus
   one is missing, the push stops and the check names it.
 - An upgrade can only target a version in the local copy; a newer one waits for the cache rebuild,
   and the `devshop-upgrade` skill says so and stops.
-- The v2 skills (`intent`, `build`, `devshop-version`) load from the pinned version's
+- The v2 skills (`intent`, `build`, `pr`, `devshop-version`) load from the pinned version's
   `runtime/skills/`; `tests/bootstrap.test.sh` checks the plugin resolves each one there.
