@@ -13,8 +13,9 @@ big and two honest ones.
   - `ui`: `specs/ui-baseline.md` from `960a834`, in an export of `960a834^`
   - `tiers` and `ui` are final, approved versions (no honest first draft is on record); their Go
     line is set back to `pending` so the helper can't defer to a recorded go
-- **Prompts** ([prompts/](prompts/)): the § 4 text of each wording quoted as written, the spec's
-  path, the owner's words (the spec's own Intent section) and an instruction to read only the
+- **Prompts** ([pinned old](prompts/pinned-old.md), [new](prompts/pinned-new.md);
+  [tiers old](prompts/tiers-old.md), [new](prompts/tiers-new.md); [ui old](prompts/ui-old.md),
+  [new](prompts/ui-new.md)): the § 4 text of each wording quoted as written, the spec's path, the owner's words (the spec's own Intent section) and an instruction to read only the
   export and not use git. `<replay>` stands for the scratch directory holding the exports. Built by
   a script from `origin/main` and the working tree, not retyped
 - **Helper**: a fresh `Plan` agent per run, as § 4 says. 3 runs per spec per wording: 18 runs

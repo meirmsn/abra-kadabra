@@ -5,27 +5,24 @@ description: Start of every request. Say its kind (no change, bug fix, change); 
 
 # Intent
 
-Every request starts here (TARGET § L3 Intent). The chat is where you ask and the owner answers; the
-spec is the record.
+Every request starts here (TARGET § L3 Intent). Ask in the chat; the spec is the record.
 
-## 1. Say the kind up front
-
-Name it in your first reply; the owner can correct you.
+## 1. Say the kind in your first reply (the owner can correct you)
 
 - **No change** (status, analysis, a question, an investigation): just do it. No spec, no "go".
 - **Bug fix:** restate the problem and the expected behaviour; the failing test is the spec. No
-  "go": go to `build`. A fix that involves a real choice (it changes behaviour people rely on, or
-  there are several reasonable fixes) is a change.
-- **Any other change:** the steps below. An analysis that ends in "we should change X" becomes a
-  change at that point.
+  "go": go to `build`. A fix with a real choice (it changes behaviour people rely on, or several
+  fixes are reasonable) is a change.
+- **Any other change:** the steps below, as is an analysis that ends in "we should change X".
 
 ## 2. Sharpen it
 
 - Why, who or the problem not settled (a new product, a big or fuzzy feature)? Propose gstack's
   `/office-hours` first.
-- Every change, however small, gets gstack's `/spec --file-only --no-gate` interview; stop before it
-  files an issue (the spec file is the record; step 4 replaces its gate). Then the plan reviews that fit.
-- A decision that rests on how a tool or version behaves: prove it with a quick experiment first.
+- Every change gets gstack's `/spec --file-only --no-gate` interview; stop before it files an issue
+  (the spec file is the record; step 4 replaces its gate). Then the plan reviews that fit.
+- Before choosing a fix, ask why the problem exists; fix the cause when it is within reach.
+- A decision resting on how a tool or version behaves: prove it with a quick experiment first.
 - Too big for one change? Propose a split, one spec each.
 
 ## 3. Write the spec
@@ -33,28 +30,30 @@ Name it in your first reply; the owner can correct you.
 - Fill `/opt/devshop-current/templates/spec.md` into the project's `specs/<change>.md`: intent in
   the owner's words; decisions with their reasons; acceptance items `AC-1`, `AC-2`, … (what must be
   true, pass/fail); out of scope. UI changes add the core flow (2–4 steps) and a state table.
-- `specs/` holds spec files only, one per change. The reviewer takes the one `specs/**.md` file a
-  change adds or changes as its spec, so a README or template there makes the review could-not-run.
+- `specs/` holds only spec files, one per change: the reviewer takes the one `specs/**.md` file a
+  change touches as its spec, so any other file there makes the review could-not-run.
 - Capture decisions when the owner makes them, not turn by turn.
-- An item that can't be tested or can't be done goes back to the owner; never reword it to fit.
+- An item that can't be tested or done goes back to the owner; never reword it to fit.
 - Run `/opt/devshop-current/scripts/spec-check.py specs/<change>.md` until it passes. Commit and
-  push the draft on the change's branch as you go; nothing is built before the "go".
+  push the draft on its branch as you go; nothing is built before the "go".
 
 ## 4. Adversarial spec review, before the owner sees it
 
 Give a fresh read-only helper (the `Plan` agent type, which can't edit) only the spec's path and the
-owner's own words. Ask it to attack the spec: does it match the intent and the recorded decisions;
-what is ambiguous; which items can't be tested; which edge cases and failure modes are missing;
-what scope was added beyond the ask; does literal code in it match the codebase. Its findings are
-claims to check. Fix what you're sure of; the rest go to the owner as questions.
+owner's own words. Ask it to attack the design first: is this the root cause or a workaround (name
+the cause); what is the simplest reliable design, rejected and unlisted options included; is the
+size in proportion to the problem; what new failure modes does it add. Then the details: does it
+match the intent and decisions; what is ambiguous or untestable; which edge cases are missing; what
+scope was added; does its literal code match the codebase. Its findings are claims to check. Fix
+what you're sure of; the rest go to the owner as questions.
 
 _Mitigation:_ TARGET has the independent reviewer do this; its spec mode is an M2 item.
 
 ## 5. The "go"
 
-- Show the owner one screen: intent, decisions, acceptance items, out of scope, rough size, and the
-  open questions from step 4.
+- Show the owner one screen: intent, decisions, acceptance items, out of scope, rough size,
+  step 4's open questions.
 - On "go", record it on the spec's `**Go:**` line (their words, the date), run `spec-check.py --go`,
-  commit and push on the same branch. Then `build`.
-- After the go, a change to a decision or an acceptance item is raised with the owner, decided by
-  them and recorded in the spec as theirs. The final review fails on any that isn't.
+  commit and push. Then `build`.
+- After the go, the owner decides any change to a decision or an acceptance item, recorded in the
+  spec as theirs; the final review fails on any that isn't.
