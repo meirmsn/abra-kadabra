@@ -2529,3 +2529,28 @@ nothing is kept twice. Each list is now one table, a row per finding.
   it lists them. Splitting the Build skill is the owner's call.
 
 **Next**: W10.6.9's remaining items, then W10.6.10.
+
+## #61 — 2026-10-14 · W10.6.16: Build hands the PR over to a `pr` skill
+
+**What moved**: the Build skill was at its one-page limit (60 lines, 598 words), so the low-findings
+rule the owner approved after #103 had gone into the PR template's placeholder (#106). Build's PR
+section is now its own skill, `pr`, which also holds that rule; Build is at 49 lines and 449 words,
+`pr` at 44 and 380.
+
+- **The split was attacked before the "go".** A read-only reviewer found that my first draft sent
+  later rounds (a reviewer fail, an owner comment) through `pr`, which has none of Build § 3's
+  rules; ns-1's rounds were both Build work. Later rounds are now built under Build § 3, then `pr`
+  again. It also found that the review guard's refusal handed Claude `ship.sh` directly, skipping
+  the skill: the refusal now names `devshop:pr`.
+- **Named `pr`, not `ship`:** gstack's `/ship` is in every project session, and TARGET's Ship is
+  merge and deploy. Skills hand over by the name a session invokes, `devshop:<name>`.
+- **Checks.** `skills-check.py` fails a handover to a skill the runtime lacks and descriptions over
+  the always-loaded budget, 150 words together (TARGET Shape 2; today 121, was 93). Tests first: each
+  new case failed on the old script, Build without its handover failed, and the guard test failed
+  on the old message. 7 of 7 mutants killed. `tests/run.sh`: 30 of 30 test files passed.
+- **Findings:** F-NEW-52 to the Fix queue (owner): `ship.sh` should run `pr-body-check.py` itself.
+  Watch list: F-NEW-53 (parallel sessions collide on task, LOG and finding numbers), F-NEW-54 (the
+  per-skill hard limit against Shape 2), F-NEW-55 (`bootstrap.test.sh` in a shallow clone).
+
+**Next**: the live check, a fixture session that invokes `devshop:pr`, once the owner says the
+fixture is free; then W10.6.9's remaining items and W10.6.10.
