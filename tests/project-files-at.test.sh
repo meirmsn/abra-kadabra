@@ -21,11 +21,14 @@ ds="$work/devshop"
 new_repo "$ds"
 v0=$(git -C "$ds" rev-parse HEAD)
 mkdir -p "$ds/runtime/scripts"
-for v in v1 v2; do
-  printf 'import sys\nprint("%s", *sys.argv[1:])\nsys.exit(7)\n' "$v" >"$ds/runtime/scripts/project-files.py"
-  git -C "$ds" add -A && git -C "$ds" commit -qm "$v"
-  printf -v "$v" '%s' "$(git -C "$ds" rev-parse HEAD)"
-done
+# version_script <name>: commit a project-files.py that prints <name> and its arguments, exits 7; echo the SHA.
+version_script() {
+  printf 'import sys\nprint("%s", *sys.argv[1:])\nsys.exit(7)\n' "$1" >"$ds/runtime/scripts/project-files.py"
+  git -C "$ds" add -A && git -C "$ds" commit -qm "$1"
+  git -C "$ds" rev-parse HEAD
+}
+v1=$(version_script v1)
+v2=$(version_script v2)
 
 # run <name> <want exit> <pattern the output must match, or ''> -- <wrapper args>
 run() {
@@ -52,7 +55,10 @@ run "a missing devshop git dir can't run" 2 'no devshop git dir' -- --devshop-gi
 mkdir -p "$work/nopy"
 for t in git mktemp rm cat dirname; do ln -s "$(command -v "$t")" "$work/nopy/$t"; done
 rc=0 && PATH="$work/nopy" "$BASH" "$wrapper" --devshop-git "$ds/.git" --at "$v1" check >"$work/out" 2>&1 || rc=$?
-[ "$rc" = 2 ] && grep -q python3 "$work/out" || { cat "$work/out" >&2; fail "no python3: expected exit 2 naming python3, got $rc"; }
+if [ "$rc" != 2 ] || ! grep -q python3 "$work/out"; then
+  cat "$work/out" >&2
+  fail "no python3: expected exit 2 naming python3, got $rc"
+fi
 echo "ok - no python3 can't run"
 
 # The real thing: with this repo as the copy, HEAD's project-files.py runs (its usage error, exit 2).
