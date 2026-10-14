@@ -2739,3 +2739,51 @@ copies as in CI (both failed the first way before).
 **Next**: after the merge and the environment's rebuild, the start of run 2 (W10.6.10) checks the
 pinned versions and the fixture's `check-fast` (W10.4.9's done-when).
 The design-first spec review this case prompted was tried and dropped (LOG #66, F-NEW-65).
+
+## #68 — 2026-10-14 · W10.6.9 part a: the harness reviews and grades the planted commit itself
+
+**What moved**: F-NEW-36 and F-NEW-39 are fixed in the harness, so a north-star run's reviewer score no
+longer depends on a session running the reviewer by hand. The owner's one `apply-plants` click:
+
+1. plants a copy of the PR head and never pushes it, so the builder sees nothing;
+2. fetches the reviewer the fixture pins (`.devshop-version` on the PR's base, the default branch only);
+3. reviews the planted commit as `ship` does, then runs the fixture's own acceptance check on it;
+4. grades the verdict against the plant record and saves verdict and grade on `run-records`.
+
+**How it was decided** (owner, with an adversarial review of each proposal): the first design ran
+four jobs on the builder's PR. The owner separated two questions: does the reviewer catch fresh bugs
+at a milestone (this task), and did a reviewer change make it worse (W10.6.17, F-NEW-58). The review
+of that proposal cut it to the smallest version: no held-out split yet, single-run scores, nothing
+on the builder's PR. The Claude key sits in a harness environment that only the review step reads,
+with a $10 monthly limit, because that step runs fixture code (F-NEW-59).
+
+**Evidence**
+
+- Harness change test first, from a session the owner gave a 1-day read-only token: 79 tests, each
+  new one failing on the old code; 54 mutants killed. A security review found 10 issues; 7 fixed
+  test first (the blocking one: a PR into a branch of its own could choose its reviewer), 3 written
+  up as accepted limits in the harness README. The owner applied it as harness PR 7.
+- F-NEW-39 on real code: on run 1's merged tests the state plant finds 4 of 5 rows (the fifth has
+  no text of its own); on run 1's plant-time tests (titled by item) it removes one row's checks,
+  and the fixture's lint, Prettier and 41 tests still pass.
+- Dry run before going live (everything local but the model): five plants on run 1's merged change,
+  the real reviewer, graded 5 of 5 ($0.13). The grader agreed with W10.6.5's by-eye grading on 15 of
+  15 planted reviews, and gave 0 of 15 on honest ones.
+- **Live run `live-1`** on fixture PR 23 (a draft with run 1's spec and tests): all four jobs green;
+  reviewer `b4308a2a6623`, `fail`, $0.10; **5 of 5 plants caught**, each by its own finding or
+  unmet item, checked by eye; the fixture's spec check failed naming the untested item (the CI half).
+
+**Surprises**
+
+- The live run hit a plant bug the tests didn't: `untested-acceptance` stripped `AC-4` from another
+  spec's test too, since every spec numbers from `AC-1` (F-NEW-66, for the harness before run 2).
+- Parallel sessions took this PR's finding and task numbers twice before it merged (F-NEW-53).
+
+**Also closed**: W10.6.9 as a whole (its other parts landed in LOG #55 and #56) and W10.6.9d. For
+W10.6.9d, fixture PR 22 (the restyle) is the real PR its Done-when asked for: summary paragraph, plain
+announcement, six screenshots that render in the browser before and after the owner's merge (owner,
+2026-10-14). Its Done-when is narrowed to the browser, as the owner decided on 2026-10-13 (F-NEW-50: the mobile
+app can't load a private repo's images). The screenshots were linked at a pinned commit, not through
+`pr-assets.sh`, so that script's first live use moves to run 2 (W10.6.10).
+
+**Next**: F-NEW-66 in the harness, then W10.6.10 (run 2).
