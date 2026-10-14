@@ -44,8 +44,8 @@ reachable from this page through links, or when a relative link or `#anchor` is 
   names only `/opt/devshop-current/` files its version has. Run on the real skills by
   [`tests/skills-check.test.sh`](../tests/skills-check.test.sh), after feeding it bad ones.
 - Findings: [`scripts/findings-check.py`](../scripts/findings-check.py) checks the findings ledger
-  ([FINDINGS.md](../kit/notes/revamp/FINDINGS.md)): each entry's fields, Leverage and Score against
-  their formulas, Seen counts, both lists' order and the rule of 5. Run on the real ledger by
+  ([FINDINGS.md](../kit/notes/revamp/FINDINGS.md)): each row's columns and glyphs, Leverage and Score
+  against their formulas, the Seen dots, both lists' order and the rule of 5. Run on the real ledger by
   [`tests/findings-check.test.sh`](../tests/findings-check.test.sh), after feeding it bad ones.
 
 ## Skills

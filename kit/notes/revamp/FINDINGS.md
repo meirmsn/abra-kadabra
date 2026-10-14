@@ -7,13 +7,13 @@ in a project that uses it (TARGET Shape 8, L-35). It has two live lists and a re
   the best fix to do next. Tasks are still picked by milestone, P0 before P1
   ([PROCESS § 1](PROCESS.md#1-task-lifecycle)); the queue says which finding earns a task.
 - **[Watch list](#watch-list):** what was noticed, with a guess, when the action isn't clear or the
-  impact is low. Sorted by Score. A repeat adds a Seen line instead of a new entry, so what keeps
+  impact is low. Sorted by Score. A repeat adds a sighting instead of a new row, so what keeps
   coming back rises to the top, and a single low finding isn't fixed on reflex.
 - **[Closed](#closed):** one row per finding fixed, not to be fixed, or held, so a recurrence can
   still be matched.
 
 [`scripts/findings-check.py`](../../../scripts/findings-check.py) checks the mechanical rules below
-(fields, formulas, order, the rule of 5); `tests/run.sh` runs it on this file. Until 2026-10-13
+(columns, glyphs, formulas, order, the rule of 5); `tests/run.sh` runs it on this file. Until 2026-10-13
 findings lived in per-area tables with a confidence mark and v1 task columns; every row moved here
 with its ID (W10.6.13). The old tables: `git show 080ba83:kit/notes/revamp/FINDINGS.md`.
 
@@ -22,24 +22,24 @@ with its ID (W10.6.13). The old tables: `git show 080ba83:kit/notes/revamp/FINDI
 **Before you ship, take stock** of what you noticed: a reviewer `low` finding, a surprise, friction,
 a workaround. For each:
 
-1. **Match first.** Search this file, Closed included, for its symptom. On a match, add a Seen line
-   (one per session) and regrade if the new sighting changes the picture. A held entry that recurs
+1. **Match first.** Search this file, Closed included, for its symptom. On a match, add a sighting to
+   its Seen cell (one per session) and regrade if the new sighting changes the picture. A held finding that recurs
    goes back to the Watch list.
 2. **Clear, quick and important** (impact M or more, cost XS): fix it now, in this PR if it is in
    your task's files, else as the next small task.
-3. **Clear action, impact M or more:** a Fix queue entry.
-4. **Otherwise** (the action is unclear, or the impact is XS or S): a Watch list entry with the
+3. **Clear action, impact M or more:** a Fix queue row.
+4. **Otherwise** (the action is unclear, or the impact is XS or S): a Watch list row with the
    observation and your guess.
 
 Most sessions add nothing. A reviewer `low` finding is not fixed in its PR unless it is one of the
-above; the verdict comment is its record when it isn't worth an entry.
+above; the verdict comment is its record when it isn't worth a row.
 
 - **The rule of 5:** a low-impact (XS, S) finding enters the Fix queue only once 5 sessions have hit
-  it. A Watch entry seen 5 times must move to the Fix queue or be closed as held, with the owner's
-  reason. A Watch entry with impact M or more moves as soon as its action is clear.
+  it. A Watch row seen 5 times must move to the Fix queue or be closed as held, with the owner's
+  reason. A Watch row with impact M or more moves as soon as its action is clear.
 - **A fix can be a rule:** a new or changed lesson ([lessons.md](lessons.md)), stack home or
   guideline is an action like any other.
-- **Closing:** when the fix ships, the entry leaves its list for a Closed row: the outcome and the
+- **Closing:** when the fix ships, the row moves from its list to Closed, with the outcome and the
   PR or LOG entry. New IDs take the next `F-NEW-nn`.
 - **Source:** `devshop` for work on the devshop itself, else the project's name (`fixture`).
 - Findings about a project's own code stay in that project. From a project session, devshop
@@ -50,161 +50,45 @@ above; the verdict comment is its record when it isn't worth an entry.
 
 One scale for Impact (if it recurs), Risk (if skipped) and Cost:
 
-| Size | Impact               | Risk if skipped                                  | Cost      |
-| ---- | -------------------- | ------------------------------------------------ | --------- |
-| XS   | housekeeping         | aesthetic only                                   | 15–30 min |
-| S    | a recurring papercut | friction on an uncommon path                     | 30–60 min |
-| M    | time saved per cycle | friction on a common path                        | 1.5–3 h   |
-| L    | a major gap closed   | a recurring cost on every cycle                  | 4–8 h     |
-| XL   | a class of bug gone  | live security exposure, or every project blocked | > 8 h     |
+| Size    | Impact               | Risk if skipped                                  | Cost      |
+| ------- | -------------------- | ------------------------------------------------ | --------- |
+| 🟢🟢 XS | housekeeping         | aesthetic only                                   | 15–30 min |
+| 🟢 S    | a recurring papercut | friction on an uncommon path                     | 30–60 min |
+| 🟡 M    | time saved per cycle | friction on a common path                        | 1.5–3 h   |
+| 🔴 L    | a major gap closed   | a recurring cost on every cycle                  | 4–8 h     |
+| 🔴🔴 XL | a class of bug gone  | live security exposure, or every project blocked | > 8 h     |
+
+The glyph shows size, as in v1: red is big, so a red Impact is good news and a red Cost is not.
 
 - **Leverage** = Impact × Risk ÷ Cost, one decimal. Impact and Risk count XS = 1 … XL = 5; Cost
-  divides by XS 0.25, S 0.75, M 2.5, L 5, XL 9 (v1's `PLAN.md`). Ties: higher Impact first.
-- **Score** = Impact × the number of Seen lines. Ties: higher Impact first.
+  divides by XS 0.25, S 0.75, M 2.5, L 5, XL 9 (v1's `PLAN.md`). Shown with its band: 🔥 5 or
+  more (do next), 🟡 2 to under 5, ⚪ under 2. Ties: higher Impact first.
+- **Score** = Impact × the number of sightings. Ties: higher Impact first.
+- **Seen** = dots toward the rule of 5 (●●○○○; past 5, ●●●●● and the count), then one sighting
+  per session that hit it, `YYYY-MM-DD · what happened`, separated by `<br>`.
 
-Entry shapes (`Task` is a task ID, `M2`, or `—`; each Seen line is one session):
-
-```md
-### F-NEW-nn · Title naming the thing and how it fails
-
-- **Source:** devshop
-- **Grades:** Impact M · Risk S · Cost M · Leverage 2.4 (Watch list: Impact S · Score 2)
-- **Observation:** what was noticed: the symptom someone would search for, and the evidence.
-- **Action:** what to do (Fix queue). **Guess:** likely causes and fixes (Watch list).
-- **Task:** W10.6.9 (Fix queue only)
-- **Seen (1):**
-  - 2026-10-13 · W10.6.4 `ns-1`: what happened this time.
-```
+Rows: **Finding** opens with a bold title naming the thing and how it fails, then the symptom
+someone would search for and the evidence. **Action** (Fix queue) is what to do; **Guess** (Watch
+list) is the likely causes and fixes. **Task** is a task ID, `M2`, or `—`.
 
 ## Fix queue
 
-### F-NEW-36 · A planted commit is never reviewed alone in a north-star run
-
-- **Source:** fixture
-- **Grades:** Impact L · Risk L · Cost M · Leverage 6.4
-- **Observation:** the plant disguise can't hide a commit from the builder, which tracks its own
-  head: it named the planted commit foreign 90 s after the push and reverted it on the owner's word,
-  so its own `ship` never reviewed the planted commit alone (the next review saw plant + revert and
-  passed). A run whose reviewer score depends on a manual step isn't trustworthy.
-- **Action:** the harness runs the pinned reviewer on the planted commit and records the verdict.
-  Blocking for run 2 (D-16).
-- **Task:** W10.6.9
-- **Seen (1):**
-  - 2026-10-13 · W10.6.4 `ns-1`: builder transcript and the run record.
-
-### F-NEW-44 · No CI job checks that a schema change is backward-compatible
-
-- **Source:** fixture
-- **Grades:** Impact L · Risk M · Cost L · Leverage 2.4
-- **Observation:** nothing runs the previous app version's tests against the new schema; the
-  builder argued compatibility in the spec instead (fixture `ci.yml`; spec `item-categories.md`).
-- **Action:** a CI job that runs the previous version's tests against the migrated schema.
-  Deferred (D-16): expensive to build; append-only migrations plus the reviewer cover it for now.
-- **Task:** M2
-- **Seen (1):**
-  - 2026-10-13 · W10.6.4 `ns-1`: the schema change in the run's feature.
-
-### F-NEW-42 · The builder merges without a production health check
-
-- **Source:** fixture
-- **Grades:** Impact M · Risk S · Cost M · Leverage 2.4
-- **Observation:** after the owner's approval the builder merged only when told "merge", and
-  without a production health check first (TARGET Ship).
-- **Action:** the ship step checks production health before merging. Deferred (D-16): the owner's
-  approval is the gate; a pre-merge health check adds little until production has real traffic.
-- **Task:** M2
-- **Seen (1):**
-  - 2026-10-13 · W10.6.4 `ns-1`: builder transcript 17:36–17:38.
+| ID       | Finding                                                                                                                                                                                                                                                                                                                                                                                                                              | Action                                                                                                                                                                            | Source  | Impact | Risk | Cost | Leverage | Task    | Seen                                                                       |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ | ---- | ---- | -------- | ------- | -------------------------------------------------------------------------- |
+| F-NEW-36 | **A planted commit is never reviewed alone in a north-star run.** The plant disguise can't hide a commit from the builder, which tracks its own head: it named the planted commit foreign 90 s after the push and reverted it on the owner's word, so its own `ship` never reviewed the planted commit alone (the next review saw plant + revert and passed). A run whose reviewer score depends on a manual step isn't trustworthy. | the harness runs the pinned reviewer on the planted commit and records the verdict. Blocking for run 2 (D-16).                                                                    | fixture | 🔴 L   | 🔴 L | 🟡 M | 🔥 6.4   | W10.6.9 | ●○○○○ 2026-10-13 · W10.6.4 `ns-1`: builder transcript and the run record.  |
+| F-NEW-44 | **No CI job checks that a schema change is backward-compatible.** Nothing runs the previous app version's tests against the new schema; the builder argued compatibility in the spec instead (fixture `ci.yml`; spec `item-categories.md`).                                                                                                                                                                                          | a CI job that runs the previous version's tests against the migrated schema. Deferred (D-16): expensive to build; append-only migrations plus the reviewer cover it for now.      | fixture | 🔴 L   | 🟡 M | 🔴 L | 🟡 2.4   | M2      | ●○○○○ 2026-10-13 · W10.6.4 `ns-1`: the schema change in the run's feature. |
+| F-NEW-42 | **The builder merges without a production health check.** After the owner's approval the builder merged only when told "merge", and without a production health check first (TARGET Ship).                                                                                                                                                                                                                                           | the ship step checks production health before merging. Deferred (D-16): the owner's approval is the gate; a pre-merge health check adds little until production has real traffic. | fixture | 🟡 M   | 🟢 S | 🟡 M | 🟡 2.4   | M2      | ●○○○○ 2026-10-13 · W10.6.4 `ns-1`: builder transcript 17:36–17:38.         |
 
 ## Watch list
 
-### F-NEW-49 · The acceptance→test check passes or can't run when it shouldn't
-
-- **Source:** devshop
-- **Grades:** Impact M · Score 3
-- **Observation:** `spec-check.py --tests` reads names, not tests. Symptoms: a PR whose test lost or
-  never had its `AC-<n>` name passes `fast`; the reviewer finds an item untested that CI passed; a
-  project's `fast` says `scripts/spec-check.py couldn't run`; the check behaves differently in a
-  project than in the devshop's tests.
-- **Guess:** likely causes, in order:
-  1. A stray `AC-<n>` under a test path (a comment, a helper, a test about the check) counts as the
-     item's test.
-  2. Two specs share an item number: a test naming `AC-4` counts for each spec's `AC-4`.
-  3. Exit 126: the project's copy of `spec-check.py` lost its executable bit. Exit 2: no `specs/`,
-     or `TEST_DIRS` names a folder the project lacks. Exit 127: no `python3`.
-  4. The project's copy differs from `runtime/scripts/spec-check.py` at its `.devshop-version` (not
-     re-pinned after a change to the script).
-
-  Candidate fixes: names tied to the spec (`<spec>/AC-4`), or only test titles counted; session
-  start comparing the copy with the pin.
-
-- **Seen (1):**
-  - 2026-10-13 · W10.6.9 b: cause 1, the fixture's own test named AC-4 and counted as its test;
-    fixed there by building the name at run time. Not yet run in a real new project.
-
-### F-NEW-50 · PR screenshots don't load in the GitHub mobile app
-
-- **Source:** devshop
-- **Grades:** Impact M · Score 3
-- **Observation:** the GitHub mobile app doesn't load a private repo's
-  `github.com/<owner>/<repo>/raw/<sha>/…` images inline (broken-image box); the browser does. True
-  of v1's PRs too (the owner checked an old lalista PR). Only drag-and-drop `user-attachments`
-  images get the signed URLs the app can load, and that upload has no API.
-- **Guess:** no fix from a cloud session (owner, 2026-10-13). Linking each image to itself (a tap
-  opens it in the browser) was built and dropped: the session's path to GitHub turns a linked image
-  in a PR body into code (PR #99, LOG #54). Root cause: GitHub's API offers no image upload with
-  signed URLs.
-- **Seen (1):**
-  - 2026-10-13 · W10.6.9d: PR #95 in the GitHub mobile app.
-
-### F-NEW-38 · Nothing on the PR shows a stale verdict
-
-- **Source:** fixture
-- **Grades:** Impact M · Score 3
-- **Observation:** while the head was the planted `3f833e2`, the only verdict was for `d26089a` and
-  the checks were green (fixture PR 14). The `review-verdict` check was removed in W10.6.7's
-  redesign.
-- **Guess:** the guard sends every push to an open PR through `ship`, which reviews, so this needs
-  a push the guard doesn't see. The verdict-comment task, W10.6.12 (owner, 2026-10-13), keeps one
-  new comment per ship, so a push with no verdict after it shows in the timeline; it builds no
-  check. A required check is the M2 option.
-- **Seen (1):**
-  - 2026-10-13 · W10.6.4 `ns-1`: fixture PR 14 checks on `3f833e2`.
-
-### F-NEW-48 · The synthetic-traffic canary skips rounds
-
-- **Source:** fixture
-- **Grades:** Impact M · Score 3
-- **Observation:** synthetic traffic ran 7 of the 10 rounds due after the PR 14 deploy: minutes 6,
-  10 and 66 never logged (Cloudflare Observability, `devshop-fixture-traffic`, 17:40–19:08). A
-  canary that skips rounds can miss a fault.
-- **Guess:** cause unknown (scheduler, cold start, or logging). Matters once a canary must catch
-  faults (D-16: M2).
-- **Seen (1):**
-  - 2026-10-13 · W10.6.4 `ns-1`: 3 of 10 rounds missing.
-
-### F-NEW-41 · The spec interview asks too many questions and shows gstack's banner
-
-- **Source:** fixture
-- **Grades:** Impact S · Score 2
-- **Observation:** the spec interview asked the owner about 8 decisions over two rounds (TARGET:
-  one decision), and gstack's `/spec` showed its onboarding banner and a promotional link to the
-  owner (builder transcript 15:11–15:57).
-- **Guess:** step 1 is graded on the process, not a question count, so `ns-1` step 1 passed with
-  friction (D-16). The banner noise and a separate intent→spec check are polish for later.
-- **Seen (1):**
-  - 2026-10-13 · W10.6.4 `ns-1`: step 1.
-
-### F-NEW-39 · The harness `skipped-state-row` plant finds nothing to remove
-
-- **Source:** fixture
-- **Grades:** Impact S · Score 2
-- **Observation:** the plant finds a state's test by the state's name in test titles; a builder that
-  names tests by `AC-<n>` leaves it nothing to remove (could-not-run, nothing pushed).
-- **Guess:** match a state's test by what it checks, not its title. Harness code, held by the owner
-  (W10.6.9, in passing).
-- **Seen (1):**
-  - 2026-10-13 · W10.6.4 `ns-1`: the `apply-plants` run.
+| ID       | Finding                                                                                                                                                                                                                                                                                                                                                                                     | Guess                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Source  | Impact | Seen                                                                                                                                                                               | Score |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| F-NEW-49 | **The acceptance→test check passes or can't run when it shouldn't.** `spec-check.py --tests` reads names, not tests. Symptoms: a PR whose test lost or never had its `AC-<n>` name passes `fast`; the reviewer finds an item untested that CI passed; a project's `fast` says `scripts/spec-check.py couldn't run`; the check behaves differently in a project than in the devshop's tests. | likely causes, in order: 1. A stray `AC-<n>` under a test path (a comment, a helper, a test about the check) counts as the item's test. 2. Two specs share an item number: a test naming `AC-4` counts for each spec's `AC-4`. 3. Exit 126: the project's copy of `spec-check.py` lost its executable bit. Exit 2: no `specs/`, or `TEST_DIRS` names a folder the project lacks. Exit 127: no `python3`. 4. The project's copy differs from `runtime/scripts/spec-check.py` at its `.devshop-version` (not re-pinned after a change to the script). Candidate fixes: names tied to the spec (`<spec>/AC-4`), or only test titles counted; session start comparing the copy with the pin. | devshop | 🟡 M   | ●○○○○ 2026-10-13 · W10.6.9 b: cause 1, the fixture's own test named AC-4 and counted as its test; fixed there by building the name at run time. Not yet run in a real new project. | 3     |
+| F-NEW-50 | **PR screenshots don't load in the GitHub mobile app.** The GitHub mobile app doesn't load a private repo's `github.com/<owner>/<repo>/raw/<sha>/…` images inline (broken-image box); the browser does. True of v1's PRs too (the owner checked an old lalista PR). Only drag-and-drop `user-attachments` images get the signed URLs the app can load, and that upload has no API.          | no fix from a cloud session (owner, 2026-10-13). Linking each image to itself (a tap opens it in the browser) was built and dropped: the session's path to GitHub turns a linked image in a PR body into code (PR #99, LOG #54). Root cause: GitHub's API offers no image upload with signed URLs.                                                                                                                                                                                                                                                                                                                                                                                       | devshop | 🟡 M   | ●○○○○ 2026-10-13 · W10.6.9d: PR #95 in the GitHub mobile app.                                                                                                                      | 3     |
+| F-NEW-38 | **Nothing on the PR shows a stale verdict.** While the head was the planted `3f833e2`, the only verdict was for `d26089a` and the checks were green (fixture PR 14). The `review-verdict` check was removed in W10.6.7's redesign.                                                                                                                                                          | the guard sends every push to an open PR through `ship`, which reviews, so this needs a push the guard doesn't see. The verdict-comment task, W10.6.12 (owner, 2026-10-13), keeps one new comment per ship, so a push with no verdict after it shows in the timeline; it builds no check. A required check is the M2 option.                                                                                                                                                                                                                                                                                                                                                             | fixture | 🟡 M   | ●○○○○ 2026-10-13 · W10.6.4 `ns-1`: fixture PR 14 checks on `3f833e2`.                                                                                                              | 3     |
+| F-NEW-48 | **The synthetic-traffic canary skips rounds.** Synthetic traffic ran 7 of the 10 rounds due after the PR 14 deploy: minutes 6, 10 and 66 never logged (Cloudflare Observability, `devshop-fixture-traffic`, 17:40–19:08). A canary that skips rounds can miss a fault.                                                                                                                      | cause unknown (scheduler, cold start, or logging). Matters once a canary must catch faults (D-16: M2).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | fixture | 🟡 M   | ●○○○○ 2026-10-13 · W10.6.4 `ns-1`: 3 of 10 rounds missing.                                                                                                                         | 3     |
+| F-NEW-41 | **The spec interview asks too many questions and shows gstack's banner.** The spec interview asked the owner about 8 decisions over two rounds (TARGET: one decision), and gstack's `/spec` showed its onboarding banner and a promotional link to the owner (builder transcript 15:11–15:57).                                                                                              | step 1 is graded on the process, not a question count, so `ns-1` step 1 passed with friction (D-16). The banner noise and a separate intent→spec check are polish for later.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | fixture | 🟢 S   | ●○○○○ 2026-10-13 · W10.6.4 `ns-1`: step 1.                                                                                                                                         | 2     |
+| F-NEW-39 | **The harness `skipped-state-row` plant finds nothing to remove.** The plant finds a state's test by the state's name in test titles; a builder that names tests by `AC-<n>` leaves it nothing to remove (could-not-run, nothing pushed).                                                                                                                                                   | match a state's test by what it checks, not its title. Harness code, held by the owner (W10.6.9, in passing).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | fixture | 🟢 S   | ●○○○○ 2026-10-13 · W10.6.4 `ns-1`: the `apply-plants` run.                                                                                                                         | 2     |
 
 ## Closed
 
