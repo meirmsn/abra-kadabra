@@ -2804,7 +2804,7 @@ F-NEW-64 doesn't block the run.
 
 **Result: M1 exit not met.**
 
-- **Step 1: pass.** A status answer with no spec; the interview (three rounds of real product choices),
+- **Step 1: pass.** A status answer with no spec; the interview (three rounds of real product choices; one question asked whether this was a run to exercise the devshop, F-NEW-35 recurring),
   an adversarial review that changed the spec, the recorded "go".
 - **Step 2: pass**, with F-NEW-44 (no backward-compatibility CI job) deferred under D-16.
 - **Step 3: not met.** The harness reviewed the planted commit itself and graded **3 of 3 caught**
