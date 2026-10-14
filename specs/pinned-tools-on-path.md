@@ -51,6 +51,12 @@ still fail loudly, never pass.
 - `install/README.md` also says a copy of a tool in a directory ahead of `/usr/local/bin` on PATH
   (`~/.local/bin`, `~/.cargo/bin`, node's or bun's bin) would win over the pinned one
 
+- The fresh fixture session after the environment's rebuild (`gitleaks version` prints 8.30.1,
+  `shellcheck --version` 0.11.0, and the fixture's `scripts/check-fast.sh origin/main` passes with
+  no manual download) can only run after the merge, so it is W10.4.9's done-when, recorded in the
+  LOG, not an acceptance item of this PR. Changed after the go: "Move to task done-when" (owner,
+  2026-10-14)
+
 ## Acceptance items
 
 - **AC-1** After the bootstrap installs the pinned tools, `gitleaks`, `shellcheck` and `dcg` run
@@ -67,11 +73,7 @@ still fail loudly, never pass.
   `tests/bootstrap.test.sh`
 - **AC-5** Running the bootstrap a second time over a good install leaves the links in place and
   logs no failure for them, shown by `tests/bootstrap.test.sh`
-- **AC-6** Once this is on `main`, in a fresh fixture session after an environment rebuild,
-  `gitleaks version` prints 8.30.1 and `shellcheck --version` prints 0.11.0 from the project's
-  shell, and the fixture's fast check (`scripts/check-fast.sh origin/main`) passes with no manual
-  download — verified by review: the owner's fresh fixture session
-- **AC-7** `install/README.md` § Pinned tools says the tools are on PATH via `/usr/local/bin`, what
+- **AC-6** `install/README.md` § Pinned tools says the tools are on PATH via `/usr/local/bin`, what
   a missing tool looks like and where to look, and what wins over them on PATH; and
   `kit/notes/revamp/workstreams/W10-v2.md` has task W10.4.9 — verified by review: the diff
 

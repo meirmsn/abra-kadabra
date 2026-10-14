@@ -2678,6 +2678,13 @@ Now the bootstrap also links `/usr/local/bin/<tool>` to each one (spec
   underneath, minus the tool names). Mutants: 4 of 4 killed (no PATH link → AC-1, old link kept →
   AC-3, the drop after validation → AC-3's refused-line case, a foreign entry overwritten → AC-4).
 
+- **On the fixture, before the merge.** In this session the fixture's `scripts/check-fast.sh
+  origin/main` failed with `FAIL: gitleaks not found` (exit 2), as in LOG #65. With the three links
+  added to this VM's `/usr/local/bin`, a plain shell printed gitleaks 8.30.1 and shellcheck 0.11.0
+  and the check exited 0.
+- **AC-6 moved.** The fresh fixture session after the rebuild can only run after the merge, so the
+  reviewer couldn't pass it: it is W10.4.9's done-when now, not an acceptance item (owner).
+
 **Surprises**: the nested `claude -p` of the experiment inherited this session's id and wrote into
 its env file, so the probe directory stayed on this session's PATH until the session ended. The
 first mutant run "passed" because the worktrees sat in `/tmp`, which the test hides under its
@@ -2688,5 +2695,5 @@ links the tool found on PATH into a scratch `/opt`, and in a session that tool n
 tools on PATH via `/opt/devshop-tools/bin`, via a `/usr/local/bin`-style link into it, and as plain
 copies as in CI (both failed the first way before).
 
-**Next**: after the merge and the environment's rebuild, the owner's fresh fixture session (AC-6).
+**Next**: after the merge and the environment's rebuild, the owner's fresh fixture session (W10.4.9's done-when).
 The suggested task "Spec review asks about design before details" (intent § 4) is the process fix.
