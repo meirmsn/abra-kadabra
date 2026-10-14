@@ -2547,7 +2547,10 @@ section is now its own skill, `pr`, which also holds that rule; Build is at 49 l
 - **Checks.** `skills-check.py` fails a handover to a skill the runtime lacks and descriptions over
   the always-loaded budget, 150 words together (TARGET Shape 2; today 121, was 93). Tests first: each
   new case failed on the old script, Build without its handover failed, and the guard test failed
-  on the old message. 7 of 7 mutants killed. `tests/run.sh`: 30 of 30 test files passed.
+  on the old message. 8 of 8 mutants killed. `tests/run.sh`: 30 of 30 test files passed.
+- **The reviewer's one low finding was fixed here:** a description continued on a second line (a
+  folded YAML one) was counted as its first line, so the budget check passed what it couldn't read.
+  It now fails such a description; its test failed first. In this task's own file, clear and quick.
 - **Findings:** F-NEW-52 to the Fix queue (owner): `ship.sh` should run `pr-body-check.py` itself.
   Watch list: F-NEW-53 (parallel sessions collide on task, LOG and finding numbers), F-NEW-54 (the
   per-skill hard limit against Shape 2), F-NEW-55 (`bootstrap.test.sh` in a shallow clone).

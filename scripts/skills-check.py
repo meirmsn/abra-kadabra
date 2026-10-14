@@ -4,7 +4,7 @@
 Usage: scripts/skills-check.py [RUNTIME_DIR]   (default: runtime/ beside this script)
 For every RUNTIME_DIR/skills/<name>/SKILL.md:
   - frontmatter between '---' lines, with 'name: <name>' (the directory's name, which is what
-    Claude Code lists) and a non-empty 'description:'
+    Claude Code lists) and a non-empty 'description:' on one line (so its words can be counted)
   - one page at most: MAX_LINES lines and MAX_WORDS words, frontmatter included
   - every /opt/devshop-current/<path> it names exists in RUNTIME_DIR, the files a session gets from
     the same pinned version (a skill never points at a script its version lacks)
@@ -37,6 +37,8 @@ def check(path, name, runtime, names):
     description = fields.get("description", "").strip()
     if not description:
         problems.append(f"{name}: frontmatter has no description")
+    elif re.search(r"^description:.*\n[ \t]", fm.group(1), re.M):
+        problems.append(f"{name}: description must be one line, or its words can't be counted")
     if len(lines) > MAX_LINES:
         problems.append(f"{name}: {len(lines)} lines, one page is at most {MAX_LINES}")
     words = len(text.split())

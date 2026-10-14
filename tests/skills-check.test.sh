@@ -61,6 +61,12 @@ description: $(for _ in $(seq 1 "$2"); do printf 'word '; done)
 
 Text."
 }
+# A description on more than one line would be counted short: the check can't read it, so it fails.
+check "a folded description fails" 1 "$(runtime folded "${good/description: A demo skill. Use when testing./description: >
+  A demo skill.
+  Use when testing.}")" "one line"
+check "a description continued on the next line fails" 1 "$(runtime continued "${good/description: A demo skill. Use when testing./description: A demo skill.
+  Use when testing.}")" "one line"
 check "descriptions at the always-loaded budget pass" 0 "$(described budget 150)"
 check "descriptions over the always-loaded budget fail" 1 "$(described over 151)" "always-loaded"
 # The budget is for all the descriptions together: two skills of 80 words each are over it.
