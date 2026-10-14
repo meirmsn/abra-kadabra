@@ -41,7 +41,7 @@ commit, so they survive the merge and the branch's deletion (L-30). -->
 - **Screenshots:** {{one sub-item per core-flow step and state-table state, each "<step or state>: <image line from pr-assets.sh>"; or "no UI change"}}
 - **Reviewer:** {{the verdict per lens (spec, code, tests, docs, security, design/QA when UI), for commit <sha>}}
 - **CI:** {{the required checks' result for commit <sha>, read when this was written}}
-- **Low findings:** {{each low finding the reviewer listed; or "none"}}
+- **Low findings:** {{each low finding the reviewer listed, and what you did with it; or "none"}}
 
 <details>
 <summary>Engineering details</summary>

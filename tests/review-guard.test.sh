@@ -53,7 +53,7 @@ run_guard() {
   err=$(cat "$work/err")
 }
 bash_call() { jq -nc --arg c "$1" '{command: $c}'; }
-refused() { [ "$rc" = 2 ] || fail "$1: want exit 2 (refused), got $rc: $err"; grep -q "ship" <<<"$err" || fail "$1: doesn't point to ship: $err"; }
+refused() { [ "$rc" = 2 ] || fail "$1: want exit 2 (refused), got $rc: $err"; grep -q "devshop:pr" <<<"$err" || fail "$1: doesn't point to the devshop:pr skill: $err"; grep -q "ship.sh" <<<"$err" || fail "$1: doesn't point to ship.sh: $err"; }
 allowed() { [ "$rc" = 0 ] || fail "$1: want exit 0 (allowed), got $rc: $err"; [ -z "$err" ] || fail "$1: allowed, but said: $err"; }
 
 # --- The plugin registers the guard on the right tools, with one list of GitHub tools everywhere.

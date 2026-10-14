@@ -40,12 +40,14 @@ reachable from this page through links, or when a relative link or `#anchor` is 
   - [`docs-map-check.py`](../scripts/docs-map-check.py): this page's rule, above.
   - [`ci-tiers-check.py`](../runtime/scripts/ci-tiers-check.py) on this repo's own `ci.yml` (below).
 - Skills: [`scripts/skills-check.py`](../scripts/skills-check.py) checks every skill in
-  `runtime/skills/` names itself after its directory, has a description, fits on one page, and
-  names only `/opt/devshop-current/` files its version has. Run on the real skills by
+  `runtime/skills/` names itself after its directory, has a description, fits on one page, names
+  only `/opt/devshop-current/` files its version has and hands over only to its version's skills
+  (`devshop:<name>`); all the descriptions together stay within the always-loaded budget (TARGET
+  Shape 2). Run on the real skills by
   [`tests/skills-check.test.sh`](../tests/skills-check.test.sh), after feeding it bad ones.
 - Findings: [`scripts/findings-check.py`](../scripts/findings-check.py) checks the findings ledger
-  ([FINDINGS.md](../kit/notes/revamp/FINDINGS.md)): each entry's fields, Leverage and Score against
-  their formulas, Seen counts, both lists' order and the rule of 5. Run on the real ledger by
+  ([FINDINGS.md](../kit/notes/revamp/FINDINGS.md)): each row's columns and glyphs, Leverage and Score
+  against their formulas, the Seen dots, both lists' order and the rule of 5. Run on the real ledger by
   [`tests/findings-check.test.sh`](../tests/findings-check.test.sh), after feeding it bad ones.
 
 ## Skills
@@ -55,7 +57,11 @@ reachable from this page through links, or when a relative link or `#anchor` is 
 - [`intent`](../runtime/skills/intent/SKILL.md): the start of every request: its kind, then for a
   change the spec, the adversarial spec review and the owner's "go" (TARGET § L3 Intent).
 - [`build`](../runtime/skills/build/SKILL.md): one writer builds code, tests and docs together,
-  loads what applies, and opens the PR from the template (TARGET § L3 Build).
+  loads what applies, and hands over to `pr` (TARGET § L3 Build).
+- [`pr`](../runtime/skills/pr/SKILL.md): the PR for a built change: the body from the template,
+  screenshots, `ship.sh` through the reviewer, low findings, telling the owner (TARGET § L3 Review).
+- [`upgrade`](../runtime/skills/upgrade/SKILL.md): moves a project's `.devshop-version` in one PR,
+  bringing its copies of devshop files along (below, Project files).
 
 ## Specs
 
@@ -112,6 +118,13 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   scripts, so the template is the same for every stack. [`runtime/scripts/ci-tiers-check.py`](../runtime/scripts/ci-tiers-check.py)
   checks a workflow has that shape; session start runs it on the project's and says so in a
   `DEVSHOP:` line. Proven by [`tests/ci-tiers-check.test.sh`](../tests/ci-tiers-check.test.sh).
+- Project files: [`runtime/project-files.txt`](../runtime/project-files.txt) lists each file the
+  devshop places in a project and its owner (L-49): `devshop`, an identical copy the project keeps
+  (the secret scan, the spec check), or `seed`, a template the project adapts and owns (CI, the fast
+  tier). [`runtime/scripts/project-files.py`](../runtime/scripts/project-files.py) `check`s the
+  copies against a version (session start reports drift from the pinned one in a `DEVSHOP:` line),
+  `plan`s an upgrade and `apply`s one copy; the `upgrade` skill drives it. Proven by
+  [`tests/project-files.test.sh`](../tests/project-files.test.sh).
 - Stack homes: [runtime/stacks/README.md](../runtime/stacks/README.md) is their layout;
   [`runtime/scripts/stack-homes.sh`](../runtime/scripts/stack-homes.sh) picks the ones a project
   uses. Proven by [`tests/stack-homes.test.sh`](../tests/stack-homes.test.sh).
