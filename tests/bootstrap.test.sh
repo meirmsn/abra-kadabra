@@ -22,6 +22,29 @@ fi
 mount -t tmpfs devshop-test-opt /opt || fail "can't mount a scratch /opt"
 mount -t tmpfs devshop-test-tmp /tmp || fail "can't mount a scratch /tmp"
 command -v jq >/dev/null || fail "jq not found"
+# The bootstrap links the pinned tools into /usr/local/bin. A scratch one stands in for it: the real
+# one stays reachable read-only at $real_ulb, and fresh_usr_local_bin mirrors it as links, minus
+# the pinned tools' names, so a fresh VM starts with none of them on PATH.
+real_ulb=/tmp/real-usr-local-bin
+mkdir -p "$real_ulb"
+{ mount --bind /usr/local/bin "$real_ulb" && mount -o remount,bind,ro "$real_ulb"; } \
+  || fail "can't keep a read-only view of the real /usr/local/bin"
+mount -t tmpfs devshop-test-usr-local-bin /usr/local/bin || fail "can't mount a scratch /usr/local/bin"
+fresh_usr_local_bin() {
+  local entry
+  find /usr/local/bin -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+  for entry in "$real_ulb"/* "$real_ulb"/.[!.]*; do
+    [ -e "$entry" ] || [ -L "$entry" ] || continue
+    case ${entry##*/} in gitleaks | shellcheck | dcg) continue ;; esac
+    ln -s "$entry" "/usr/local/bin/${entry##*/}"
+  done
+}
+# on_path <tool> [args]: runs <tool> as a project's command does, from the default PATH.
+on_path() { env -i HOME="$HOME" PATH=/usr/local/bin:/usr/bin:/bin bash -c '"$@"' on_path "$@"; }
+for tool in gitleaks dcg; do
+  ! PATH=/usr/bin:/bin command -v "$tool" >/dev/null \
+    || fail "a $tool in /usr/bin or /bin would hide whether the pinned one is on PATH"
+done
 
 # The last commit before the install moved out of spikes/ (W10.4.4); a pin to it must stay sane.
 PRE_MOVE=6190c0e011c0b14bc4689504ffad935ecf06cf5e
@@ -125,6 +148,10 @@ repin "$gs_good" tools-bad "$(rand 'a-f0-9' 64)"
 git -C "$work/dev" checkout -q --detach origin/main
 sed -i 's|^gitleaks 0.0.1 |gitleaks ../../../escape |' "$work/dev/install/tools.pin"
 git -C "$work/dev" commit -qam "bad tool version" && git -C "$work/dev" push -q origin HEAD:refs/heads/tools-badver
+# A new gitleaks version whose download fails its checksum, for a rebuild over an installed one.
+git -C "$work/dev" checkout -q --detach origin/main
+sed -i "s|^gitleaks 0.0.1 [0-9a-f]* |gitleaks 0.0.2 $(rand 'a-f0-9' 64) |" "$work/dev/install/tools.pin"
+git -C "$work/dev" commit -qam "gitleaks bump, bad checksum" && git -C "$work/dev" push -q origin HEAD:refs/heads/tools-bump-bad
 git --git-dir="$src" symbolic-ref HEAD refs/heads/main
 head=$(git -C "$work/dev" rev-parse origin/main)
 marker="PIN-MARKER-$(rand 'a-z0-9' 12)"
@@ -177,6 +204,7 @@ export PATH="$work/bin:$PATH"
 # setup_env [main branch] [expected result: done|FAILED]: a fresh VM's environment setup, the
 # two-line setup script with line 2 verbatim.
 setup_env() {
+  fresh_usr_local_bin
   rm -rf /opt/* /tmp/devshop-* "$HOME/plugin" "$HOME/marketplaces" "$HOME/.claude" "$HOME/gstack-setup.args" "$HOME/gstack-config.calls" "$HOME/bun.calls"
   git clone -q --bare "$src" /opt/devshop.git
   [ "${1:-main}" = main ] || git --git-dir=/opt/devshop.git update-ref refs/heads/main "refs/heads/$1"
@@ -366,10 +394,57 @@ for tool in gitleaks shellcheck dcg; do
 done
 echo "ok - pinned gitleaks, shellcheck and dcg installed, checksum-verified, in /opt/devshop-tools/bin"
 
+# AC-1: they are on the default PATH, so a project's own checks find them: /usr/local/bin links to
+# each one in /opt/devshop-tools/bin.
+setup_env
+for tool in gitleaks shellcheck dcg; do
+  [ "$(readlink "/usr/local/bin/$tool")" = "/opt/devshop-tools/bin/$tool" ] \
+    || { cat /tmp/devshop-setup.log >&2; fail "/usr/local/bin/$tool isn't a link to /opt/devshop-tools/bin/$tool"; }
+  [ "$(on_path "$tool" --version 2>&1)" = "fake $tool --version" ] || fail "AC-1: the pinned $tool doesn't run from the default PATH"
+done
+echo "ok - AC-1: pinned gitleaks, shellcheck and dcg run from the default PATH (/usr/local/bin)"
+
+# AC-5: a second bootstrap over a good install keeps the links and logs no failure.
+git --git-dir=/opt/devshop.git show HEAD:bootstrap.sh | bash || true
+[ "$(grep -c 'RESULT: bootstrap done' /tmp/devshop-setup.log)" = 2 ] \
+  || { cat /tmp/devshop-setup.log >&2; fail "AC-5: a second bootstrap didn't end done"; }
+for tool in gitleaks shellcheck dcg; do
+  [ "$(on_path "$tool" --version 2>&1)" = "fake $tool --version" ] || fail "AC-5: $tool not on PATH after a second bootstrap"
+done
+echo "ok - AC-5: a second bootstrap keeps the tools on PATH and logs no failure"
+
+# AC-3: a rebuild that moves gitleaks to a version whose download fails leaves no gitleaks on PATH,
+# not the old one.
+git --git-dir=/opt/devshop.git update-ref refs/heads/main refs/heads/tools-bump-bad
+git --git-dir=/opt/devshop.git show HEAD:bootstrap.sh | bash || true
+grep -q "FAILED: tool gitleaks: checksum" /tmp/devshop-setup.log || { cat /tmp/devshop-setup.log >&2; fail "AC-3: the bad gitleaks bump wasn't logged"; }
+out=$(on_path gitleaks --version 2>&1) && fail "AC-3: after a failed gitleaks bump, a gitleaks still runs from PATH: $out"
+grep -q "not found" <<<"$out" || fail "AC-3: a missing gitleaks doesn't say 'not found': $out"
+[ "$(on_path shellcheck --version 2>&1)" = "fake shellcheck --version" ] || fail "AC-3: shellcheck lost with gitleaks"
+echo "ok - AC-3: a failed gitleaks bump over an installed one leaves gitleaks not found, not the old one"
+
+# AC-4: a /usr/local/bin entry the devshop didn't make is left as it is, and logged.
+setup_env
+rm /usr/local/bin/gitleaks /usr/local/bin/dcg
+printf '#!/bin/sh\necho image gitleaks\n' >/usr/local/bin/gitleaks && chmod +x /usr/local/bin/gitleaks
+ln -s /nonexistent/dcg /usr/local/bin/dcg
+git --git-dir=/opt/devshop.git show HEAD:bootstrap.sh | bash || true
+for tool in gitleaks dcg; do
+  grep -q "FAILED: tool $tool: /usr/local/bin/$tool " /tmp/devshop-setup.log \
+    || { cat /tmp/devshop-setup.log >&2; fail "AC-4: a /usr/local/bin/$tool the devshop didn't make wasn't logged"; }
+done
+[ "$(on_path gitleaks)" = "image gitleaks" ] || fail "AC-4: the image's own /usr/local/bin/gitleaks was replaced"
+[ "$(readlink /usr/local/bin/dcg)" = /nonexistent/dcg ] || fail "AC-4: a foreign /usr/local/bin/dcg link was replaced"
+echo "ok - AC-4: a /usr/local/bin/<tool> the devshop didn't make is left unchanged and logged"
+
 # A download whose checksum doesn't match the pin is refused loudly; the devshop still installs.
 out=$(session '' tools-bad FAILED)
 grep -q "FAILED: tool gitleaks: checksum" /tmp/devshop-setup.log || { cat /tmp/devshop-setup.log >&2; fail "a bad gitleaks checksum wasn't logged as a failure"; }
 [ ! -e /opt/devshop-tools/bin/gitleaks ] || fail "gitleaks with a bad checksum was installed"
+out=$(on_path gitleaks --version 2>&1) && fail "AC-2: a gitleaks with a bad checksum runs from PATH: $out"
+grep -q "not found" <<<"$out" || fail "AC-2: a missing gitleaks doesn't say 'not found': $out"
+[ "$(on_path shellcheck --version 2>&1)" = "fake shellcheck --version" ] || fail "AC-2: shellcheck lost with gitleaks"
+echo "ok - AC-2: a gitleaks that failed its checksum is not found on PATH, and logged"
 check "tools-bad: devshop still installed" "$out" "^DEVSHOP: using HEAD " "$(git --git-dir="$src" rev-parse tools-bad)"
 out=$(session '' tools-badver FAILED)
 grep -q "FAILED: tool gitleaks: install/tools.pin line" /tmp/devshop-setup.log || { cat /tmp/devshop-setup.log >&2; fail "a tool version with ../ wasn't refused"; }
