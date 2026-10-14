@@ -2653,3 +2653,34 @@ own hooks only. The session fetched the pinned release by checksum and went gree
 session hits this; a finding to file.
 
 **Next**: put `/opt/devshop-tools/bin` on the session's PATH, or file it (owner's call).
+
+## #66 — 2026-10-14 · W10.4.9: the pinned tools are on PATH
+
+**What moved**: LOG #65's surprise, fixed at its root. The bootstrap installed the pinned gitleaks,
+shellcheck and dcg in `/opt/devshop-tools/bin`, off PATH, so each devshop hook carried its own
+workaround (pre-push and post-edit prepend the directory, pre-bash calls dcg by its full path) and
+everything else, a project's checks and this repo's `scripts/lint.sh` run by hand, found nothing.
+Now the bootstrap also links `/usr/local/bin/<tool>` to each one (spec
+`specs/pinned-tools-on-path.md`, owner's "go").
+
+- **First proposal, dropped.** A SessionStart step writing PATH to `$CLAUDE_ENV_FILE`. The
+  experiment held (Claude Code 2.1.299: a hook from `--settings` and one from `--plugin-dir` each got
+  the file, and a later Bash command found a probe binary from the prepended directory), but it put
+  a second mechanism on the wrong location, for Claude's commands only. The owner asked "what is the
+  source of the problem here?"; the adversarial review had attacked the spec's details, not its
+  design.
+- **Second review, design first.** It confirmed the root-cause fix and found a live bug: a failed
+  download of a new tool version left the old version's link, so the old binary kept running. The
+  bootstrap now drops a tool's link before installing it.
+- **Checks.** Test first: `tests/bootstrap.test.sh` failed at AC-1 on the old bootstrap, then passed
+  all cases. It runs on a scratch `/usr/local/bin` (a tmpfs mirroring the real one, read-only
+  underneath, minus the tool names). Mutants: 3 of 3 killed (no PATH link → AC-1, old link kept →
+  AC-3, a foreign entry overwritten → AC-4).
+
+**Surprises**: the nested `claude -p` of the experiment inherited this session's id and wrote into
+its env file, so the probe directory stayed on this session's PATH until the session ended. The
+first mutant run "passed" because the worktrees sat in `/tmp`, which the test hides under its
+scratch mount.
+
+**Next**: after the merge and the environment's rebuild, the owner's fresh fixture session (AC-6).
+The suggested task "Spec review asks about design before details" (intent § 4) is the process fix.
