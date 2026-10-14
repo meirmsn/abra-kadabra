@@ -2588,3 +2588,28 @@ section is now its own skill, `pr`, which also holds that rule; Build is at 49 l
 
 **Next**: the live check, a fixture session that invokes `devshop:pr`, once the owner says the
 fixture is free; then W10.6.9's remaining items and W10.6.10.
+
+## #63 — 2026-10-14 · W10.4.8: the upgrade skill comes with the install
+
+**Why**: the owner looked for W10.4.7's `upgrade` skill in a fixture session and found only gstack's.
+Skills load from the pinned version, and the fixture pins `c8fc846`, from before the skill. So no
+project could take its first guided upgrade, and later upgrades would run the old version's script
+against the new version's manifest. Neither the proposal nor its adversarial review caught it: both
+asked what the upgrade does, not which version supplies it.
+
+**What moved**: the skill is now part of the installed plugin (`install/plugin/devshop/upgrade/`,
+from `main` at the cache build), declared by `plugin.json`'s `skills` field beside the pinned
+version's, and renamed `devshop-upgrade` so a version that still carries `upgrade` can't clash.
+`project-files-at.sh` runs the target version's own `project-files.py` from the local copy. Test
+first: `tests/project-files-at.test.sh` failed on the missing wrapper, `skills-check` on the missing
+skill, the bootstrap test on a plugin without the field; 9 of 9 mutants killed; all test files pass.
+In this session, Claude Code 2.1.296 loading the plugin with the environment pinned at `a86ad4b`
+listed `devshop:build`, `devshop-version`, `intent` and `devshop-upgrade`; `main`'s plugin listed
+the first three. On the fixture the wrapper ran `efaa9cb`'s script: copies the same, templates
+unchanged since `c8fc846`; with this environment's stale copy it stopped and said to rebuild.
+
+**Surprises**: `claude plugin validate` doesn't follow the `skills` symlink, so it can't show what a
+session lists; a one-shot `claude -p` with `--plugin-dir` can.
+
+**Next**: the owner's fresh fixture session after the cache rebuild, then the fixture's upgrade PR
+through `devshop-upgrade` (W10.4.7 and W10.4.8 close together).

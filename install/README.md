@@ -26,6 +26,13 @@ W10.1.2b spike (`kit/notes/revamp/spikes/w10-1-2b-thin/`, kept as notes).
   `/opt/devshop-versions/<sha>` (no network), repoints `/opt/devshop-current`, and runs the version's
   `runtime/hooks/session-start.sh` if it has one. Why a stub: a plugin installed by a hook loads only
   in the next session, but a symlinked skills dir switched by the hook works in the same one.
+- **The upgrade step comes with the plugin, not the pinned version** (W10.4.8): the plugin's
+  `plugin.json` adds [`upgrade/skills/`](plugin/devshop/upgrade/skills/devshop-upgrade/SKILL.md) to
+  its skills, so `devshop-upgrade` is there whatever the project pins, a version from before the
+  skill existed included, and it matches the newest version in the local copy, which is what an
+  upgrade targets. Its [`project-files-at.sh`](plugin/devshop/upgrade/project-files-at.sh) runs the
+  target version's own `runtime/scripts/project-files.py` from the local copy, so the new version's
+  code reads the new version's manifest. Both reach an environment at its next cache rebuild.
 - **gstack** (TARGET Shape 7, D-07): [`install/gstack.pin`](gstack.pin) names one upstream commit.
   After the devshop's own steps, so a gstack failure can't stop them, the bootstrap fetches that
   commit into `~/.claude/skills/gstack`, unmodified, checks that `bun` is the version that commit is
@@ -42,7 +49,7 @@ W10.1.2b spike (`kit/notes/revamp/spikes/w10-1-2b-thin/`, kept as notes).
   downloads each, checks its sha256, and links it into `/opt/devshop-tools/bin`, where the devshop's
   hooks run it. A bad or missing download is a loud `FAILED: tool …`; the other steps still run.
 - **The project** holds one file, `.devshop-version`: a commit SHA for now (release tags once CI
-  makes them, A-25). The `upgrade` skill bumps it in a PR that also brings the project's copies of devshop files (below). Without it the session uses `HEAD`: `main` as of the
+  makes them, A-25). The `devshop-upgrade` skill bumps it in a PR that also brings the project's copies of devshop files (below). Without it the session uses `HEAD`: `main` as of the
   local copy.
 
 ## The `DEVSHOP:` line
@@ -131,8 +138,8 @@ Feedback, not walls: everything here runs in the session's VM, where the agent c
   executable bit (on disk or as committed), or that the check can't run; nothing when they match, or
   when the pinned version predates the manifest. Without a pin it stays silent, as the default
   (`HEAD` of the local copy) would report every devshop change. Seeds are never compared. The
-  [`upgrade`](../runtime/skills/upgrade/SKILL.md) skill re-pins the project and brings the copies in
-  one PR. Feedback, not a wall.
+  [`devshop-upgrade`](plugin/devshop/upgrade/skills/devshop-upgrade/SKILL.md) skill re-pins the
+  project and brings the copies in one PR. Feedback, not a wall.
 - **The repo declares its checks.** The devshop carries no project-specific checks (Shape 3): a repo
   declares `scripts/lint.sh` (full; the pre-push hook runs it), `scripts/lint-file.sh` (one file),
   and CI's two tiers `scripts/check-fast.sh <base>` (secret scan, `lint.sh`, unit tests) and
@@ -174,6 +181,6 @@ Proven by [`tests/git-hooks.test.sh`](../tests/git-hooks.test.sh) (real `git pus
 - A repo's `scripts/lint.sh` needs its own tools in the session (here `npm ci` for Prettier); when
   one is missing, the push stops and the check names it.
 - An upgrade can only target a version in the local copy; a newer one waits for the cache rebuild,
-  and the `upgrade` skill says so and stops.
-- The v2 skills (`intent`, `build`, `pr`, `devshop-version`, `upgrade`) load from the pinned version's
+  and the `devshop-upgrade` skill says so and stops.
+- The v2 skills (`intent`, `build`, `pr`, `devshop-version`) load from the pinned version's
   `runtime/skills/`; `tests/bootstrap.test.sh` checks the plugin resolves each one there.

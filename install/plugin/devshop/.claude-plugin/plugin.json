@@ -1,5 +1,6 @@
 {
   "name": "devshop",
   "version": "2.0.0-dev",
-  "description": "Install stub: the SessionStart hook selects the devshop version a project pins"
+  "description": "Install stub: the SessionStart hook selects the devshop version a project pins; the upgrade skill comes with the install",
+  "skills": ["./upgrade/skills/"]
 }

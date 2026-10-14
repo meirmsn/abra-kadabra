@@ -83,6 +83,21 @@ for s in intent build pr devshop-version; do
   [ -f "$repo_root/runtime/skills/$s/SKILL.md" ] || fail "runtime/skills/$s/SKILL.md is missing"
 done
 check "the real runtime's skills (intent, build, pr, devshop-version)" 0 "$repo_root/runtime"
+# The install's own skills (W10.4.8): the plugin's upgrade skill has the same shape, and no runtime
+# skill shares its name (a version's skill would otherwise shadow or duplicate it).
+plugin_upgrade="$repo_root/install/plugin/devshop/upgrade"
+[ -f "$plugin_upgrade/skills/devshop-upgrade/SKILL.md" ] || fail "install/plugin/devshop/upgrade/skills/devshop-upgrade/SKILL.md is missing"
+# Checked against this version's runtime: the /opt/devshop-current/ paths it names (ship.sh) come
+# from the pinned version, which a session always has.
+mkdir -p "$work/plugin-view"
+for e in "$repo_root"/runtime/*; do [ "$(basename "$e")" = skills ] || ln -s "$e" "$work/plugin-view/"; done
+ln -s "$plugin_upgrade/skills" "$work/plugin-view/skills"
+check "the plugin's own skills (devshop-upgrade)" 0 "$work/plugin-view"
+for d in "$plugin_upgrade"/skills/*/; do
+  [ ! -e "$repo_root/runtime/skills/$(basename "$d")" ] || fail "runtime/skills/$(basename "$d") shares its name with the plugin's skill"
+done
+[ ! -e "$repo_root/runtime/skills/upgrade" ] || fail "runtime/skills/upgrade is still there (moved to the plugin as devshop-upgrade)"
+echo "ok - no runtime skill shares a name with the plugin's"
 
 # AC-6 (specs/ui-baseline.md): the build skill's disciplines line sends a UI with no baseline to the
 # UI templates, a path skills-check (above) proves this version has.
