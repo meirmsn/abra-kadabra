@@ -2654,16 +2654,17 @@ session hits this; a finding to file.
 
 **Next**: put `/opt/devshop-tools/bin` on the session's PATH, or file it (owner's call).
 
-## #66 — 2026-10-14 · W10.6.20: design-first spec review, replay failed
+## #66 — 2026-10-14 · W10.6.20: design-first spec review tried and dropped; skill unchanged
 
-**What moved**: from the pinned-tools session's lesson (its first proposal passed the spec review
-with 15 detail findings while the root cause went unasked), the owner approved
-[a spec](../../../specs/design-first-spec-review.md): `intent` § 4 asks four design questions
-before the detail list, § 2 asks why the problem exists before choosing a fix, inline within the
-one-page cap (now 59 lines, 600 words; `skills-check.py` exit 0). The PR reviewer's lens is split
-out as W10.6.21. Proof by replay ([spike](spikes/w10-6-20-design-first-review/README.md)): 18
-fresh `Plan` helpers, old and new § 4 text quoted as written, each spec from a `git archive` export
-of the commit it was written on, grading rule committed before the runs.
+**What moved** (outcome: nothing in the skills changed; see the end of this entry): from the
+pinned-tools session's lesson (its first proposal passed the spec review with 15 detail findings
+while the root cause went unasked), the owner approved trying [a
+spec](../../../specs/design-first-spec-review.md): `intent` § 4 would ask four design questions
+before the detail list, § 2 would ask why the problem exists before choosing a fix, inline within
+the one-page cap (it fit: 59 lines, 600 words). The PR reviewer's lens was split out as W10.6.21
+(later dropped). Proof by replay ([spike](spikes/w10-6-20-design-first-review/README.md)): 18 fresh
+`Plan` helpers, old and new § 4 text quoted as written, each spec from a `git archive` export of the
+commit it was written on, grading rule committed before the runs.
 
 **Evidence**: new wording flagged the first pinned-tools draft 0/3 (bar 3/3), the CI tiers spec 1/3
 and the UI baseline spec 3/3 (bar 0/3 each). Old wording flagged none and gave no design verdict in
@@ -2679,8 +2680,8 @@ owner's words, which the old wording also called added scope.
 asked the helper to argue for the strongest option the author rejected and whether the change fixes
 where the problem starts. Same exports, bars and grading rule; 9 runs. Pinned-tools 0/3 (the helpers
 argued for new options, a shell-profile line or a script fallback, never for `/usr/local/bin`), CI
-tiers 2/3, UI baseline 3/3. Failed both bars, so option C: § 4 keeps its old wording, § 2 gets the
-"why does the problem exist" clause. Finding F-NEW-65 (Watch list); W10.6.21, the PR reviewer's
+tiers 2/3, UI baseline 3/3. Failed both bars, so option C: § 4 keeps its old wording; the § 2 clause
+was to ship (later dropped, below). Finding F-NEW-65 (Watch list); W10.6.21, the PR reviewer's
 lens, is to be rethought with it.
 
 **After the PR opened**: the owner dropped W10.6.21 (no reviewer lens) and asked for the issue in

@@ -29,7 +29,7 @@ deeper cause, or out of proportion to the problem. Naming an alternative in pass
 For `pinned`, a flag counts only if it names the off-PATH install (or linking the tools onto PATH,
 e.g. into `/usr/local/bin`) as the cause or the better design.
 
-Pass (spec AC-4, AC-5): new wording flags `pinned` 3/3; old wording flags `pinned` ≤ 1/3; new
+Pass (the spec's acceptance items as first approved; later renumbered): new wording flags `pinned` 3/3; old wording flags `pinned` ≤ 1/3; new
 wording flags `tiers` 0/3 and `ui` 0/3. If old flags `pinned` ≥ 2/3, the build stops and the result
 goes to the owner; this rule is not changed after the runs.
 

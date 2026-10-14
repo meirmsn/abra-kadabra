@@ -24,6 +24,10 @@ against ceremony), no catalogue of patterns. Possibly the author's own step 2 to
 lens in the PR reviewer. Proven by replaying the review on the first pinned-tools proposal and on an
 honest, proportionate spec.
 
+**Outcome:** not shipped. The design-first wording failed the replay in both rounds (option C), and
+the owner then dropped the § 2 clause too ("C"); the intent skill is unchanged. What remains is the
+replay record and F-NEW-65.
+
 ## Decisions
 
 - (Superseded by option C below: § 4 keeps its old wording.) § 4 asks the four design questions
@@ -34,7 +38,7 @@ honest, proportionate spec.
   beside the skill holding the questions (a skill's description loads in every session, and either
   is one more place to look, for four short questions) ("you can do inline as you said", owner,
   2026-10-14)
-- Step 2 (sharpen) gets one clause: ask why the problem exists before choosing among the fixes on
+- (Superseded by "C": the clause is dropped.) Step 2 (sharpen) gets one clause: ask why the problem exists before choosing among the fixes on
   offer, and fix the cause when it is within reach. The author applies it while choosing; the
   review in § 4 checks it. Rejected: leaving step 2 alone (the review would then be the only place
   that asks, after the spec is written) ("yes", owner, 2026-10-14)
