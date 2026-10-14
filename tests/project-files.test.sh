@@ -144,6 +144,10 @@ grep -Eq 'old\.txt.*(removed|dropped)' "$work/out" || fail "plan: the entry drop
 echo "ok - plan shows the template change and its commits, the dropped entry, and changes nothing"
 run "plan from a version without a manifest says removals can't be listed" 0 'removals can.t be listed' \
   -- plan --devshop-git "$dsgit" --from "$v0" --to "$v2" --project "$p"
+b="$work/bad-old" && git clone -q "$ds" "$b" && git -C "$b" checkout -q "$v1"
+printf 'locked x y\n' >"$b/runtime/project-files.txt" && git -C "$b" commit -qam "a broken manifest"
+run "plan from a version with a broken manifest still plans, saying removals can't be listed" 0 "removals can.t be listed: .*owner" \
+  -- plan --devshop-git "$b/.git" --from HEAD --to "$v2" --project "$p"
 run "plan to a version not in the copy stops and says to rebuild" 2 'rebuild' \
   -- plan --devshop-git "$dsgit" --from "$v1" --to 0000000000000000000000000000000000000000 --project "$p"
 run "plan to a version without a manifest can't run" 2 'no runtime/project-files\.txt' \

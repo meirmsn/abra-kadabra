@@ -2521,7 +2521,7 @@ delta is all or nothing; seeds are confirmed as project diffs, never template hu
 regressions); a version newer than the local copy stops the upgrade with "rebuild the environment".
 Built test first: `runtime/project-files.txt` (2 `devshop`, 2 `seed` entries),
 `runtime/scripts/project-files.py` (`check`, `plan`, `apply`), the session-start line, the `upgrade`
-skill. `tests/project-files.test.sh` failed before the script existed; 42 cases pass; 29 of 29
+skill. `tests/project-files.test.sh` failed before the script existed; 43 cases pass; 30 of 30
 mutants killed. On the fixture (scratch `/opt` holding this branch): `main` re-pinned to it gets no
 line, one edited line plus a lost executable bit gets one line naming both; `baseline-3` (pin
 `a86ad4b`) planned to it shows `spec-check.py` missing and both templates' change with its commit,

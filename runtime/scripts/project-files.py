@@ -186,6 +186,8 @@ def plan(a):
                   f"keeps it (never deleted): decide whether to delete it")
     except NoManifest:
         print(f"== {old[:12]} has no manifest: removals can't be listed")
+    except CantRun as e:
+        print(f"== {old[:12]}'s manifest can't be read, so removals can't be listed: {e}")
     return 0
 
 
