@@ -43,9 +43,11 @@ still fail loudly, never pass.
   PATH changes nothing for it
 - The hooks' own PATH prepends stay: redundant now, harmless, and out of this change's files
 - The proof lives in `tests/bootstrap.test.sh`, which already replays the install in a private mount
-  namespace: it mounts an overlay on `/usr/local/bin` with its upper and work directories on the
-  scratch `/tmp`, so the real one is never touched, and fails with a clear message if that mount
-  can't be made, never skips. Each fresh-VM setup in the test starts from an empty upper layer
+  namespace: it mounts a tmpfs on `/usr/local/bin` that mirrors the real one as links into a
+  read-only bind of it, minus the pinned tools' names, so the real one is never touched, and fails
+  with a clear message if either mount can't be made, never skips. Each fresh-VM setup in the test
+  rebuilds that mirror. Changed after the go from an overlay, which needs overlay support in a user
+  namespace on CI's runner: "Tmpfs mirror" (owner, 2026-10-14)
 - `install/README.md` also says a copy of a tool in a directory ahead of `/usr/local/bin` on PATH
   (`~/.local/bin`, `~/.cargo/bin`, node's or bun's bin) would win over the pinned one
 
