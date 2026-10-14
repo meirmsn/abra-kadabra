@@ -1,6 +1,6 @@
 # The project's own checks find the devshop's pinned tools
 
-**Go:** pending
+**Go:** "go", after "agreed!" to linking the tools into /usr/local/bin at bootstrap (owner, 2026-10-14)
 
 ## Intent
 
