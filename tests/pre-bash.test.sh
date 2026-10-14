@@ -17,11 +17,14 @@ if [ -z "${DEVSHOP_TEST_NS:-}" ]; then
   [ "$(id -u)" = 0 ] || ns+=(--map-root-user)
   DEVSHOP_TEST_NS=1 exec unshare "${ns[@]}" bash "$0" "$@"
 fi
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+# In a devshop session the dcg on PATH lives under /opt, which the scratch /opt hides: copy it.
+cp "$(readlink -f "$real_dcg")" "$work/dcg" || fail "can't copy $real_dcg"
+real_dcg=$work/dcg
 mount -t tmpfs devshop-test-opt /opt || fail "can't mount a scratch /opt"
 command -v jq >/dev/null || fail "jq not found"
 
-work=$(mktemp -d)
-trap 'rm -rf "$work"' EXIT
 export HOME="$work/home" && mkdir -p "$HOME"
 ln -s "$repo_root/runtime" /opt/devshop-current
 mkdir -p /opt/devshop-tools/bin

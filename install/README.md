@@ -48,6 +48,13 @@ W10.1.2b spike (`kit/notes/revamp/spikes/w10-1-2b-thin/`, kept as notes).
   the version and checksum CI pins (`tests/bootstrap.test.sh` fails if they differ). The bootstrap
   downloads each, checks its sha256, and links it into `/opt/devshop-tools/bin`, where the devshop's
   hooks run it. A bad or missing download is a loud `FAILED: tool …`; the other steps still run.
+  `/usr/local/bin/<tool>` links to it, so every process finds the pinned tools on the default PATH,
+  a project's own checks included ([spec](../specs/pinned-tools-on-path.md)). A tool that didn't
+  install is `not found` there (never an older copy): look for its `FAILED: tool` line in
+  `/tmp/devshop-setup.log`. An entry in `/usr/local/bin` the devshop didn't make is left as it is
+  and logged as a `FAILED: tool` line. A copy in a directory ahead of `/usr/local/bin` on the
+  session's PATH (`~/.local/bin`, `~/.cargo/bin`, node's or bun's bin) would win over the pinned one;
+  none does on the cloud image today, and required CI installs the same pins itself.
 - **The project** holds one file, `.devshop-version`: a commit SHA for now (release tags once CI
   makes them, A-25). The `upgrade` skill bumps it in a PR that also brings the project's copies of devshop files (below). Without it the session uses `HEAD`: `main` as of the
   local copy.
