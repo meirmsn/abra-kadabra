@@ -124,5 +124,6 @@ git.
 Asked to argue for rejected options, the helpers argued for new ones (a shell-profile line, a script
 fallback); none argued for the draft's own rejected option, linking into `/usr/local/bin`. **Round 2
 failed both bars, so option C applies:** § 4 keeps its old wording, the § 2 clause ships, and the
-finding is F-NEW-65 in [FINDINGS](../../FINDINGS.md).
+finding is F-NEW-65 in [FINDINGS](../../FINDINGS.md). The owner later dropped the § 2 clause too ("C"): it needed two other sentences of the skill
+shortened for the page cap, so the skill is unchanged.
 

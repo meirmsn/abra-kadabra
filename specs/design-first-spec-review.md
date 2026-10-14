@@ -69,7 +69,7 @@ honest, proportionate spec.
   replay helpers are told to read only their export; a grep of each helper's transcript for paths
   outside it is recorded, and a run that read outside its export is discarded and re-run
 - Changed after the go (owner, 2026-10-14, "B", after the first replay failed both bars, LOG #66;
-  AC-1, AC-4 and AC-5 rewritten to this outcome when round 2 failed too):
+  acceptance items rewritten to this outcome when round 2 failed too):
   one more round. The design questions also make the helper argue for the strongest option the
   author rejected or didn't list, and ask whether the change fixes where the problem starts or only
   where it shows (all three round-1 runs named the pinned-tools cause and still accepted the
@@ -81,25 +81,26 @@ honest, proportionate spec.
 - Changed after the go (owner, 2026-10-14: "how about we don't do the change to the reviewer, and
   write down the issue in the findings"): W10.6.21, the PR reviewer's lens, is dropped (`[-]`), and
   F-NEW-65 records the blind spot for both reviews, to be refined in rounds when it is seen again;
-  AC-6 changed to match
+  the acceptance items changed to match
+
+- Changed after the go (owner, 2026-10-14, "C"): the § 2 clause is dropped too, so the intent skill
+  is unchanged. Adding it needed two other sentences shortened to stay within the one-page cap, and
+  the owner chose no skill change over that rewording. This PR is the spec, the replay record and
+  F-NEW-65. Acceptance items renumbered to match
 
 ## Acceptance items
 
-- **AC-1** `runtime/skills/intent/SKILL.md` § 4 keeps its wording from before this change, since
-  the replay failed both rounds (option C; changed after the go by the owner's "B", 2026-10-14) —
-  verified by review: the diff
-- **AC-2** `runtime/skills/intent/SKILL.md` § 2 tells the author to ask why the problem exists
-  before choosing a fix, and to fix the cause when it is within reach — verified by review: the diff
-- **AC-3** The intent skill passes `scripts/skills-check.py` (its one-page cap and the always-loaded
-  description budget), so the change adds no length past the cap
-- **AC-4** The spike record holds both rounds of the replay: every run's report verbatim, the
+- **AC-1** `runtime/skills/intent/SKILL.md` is unchanged from `main`: the replay failed both rounds
+  (option C) and the owner then dropped the § 2 clause ("C", 2026-10-14) — verified by review: the
+  diff
+- **AC-2** The spike record holds both rounds of the replay: every run's report verbatim, the
   contamination check, and each run graded by the rule fixed before the runs; round 1 shows the
   old and new wording on all three specs, round 2 the new wording on all three — verified by review:
   the spike record
-- **AC-5** The finding (design questions in the review prompt neither caught the pinned-tools
-  symptom fix nor stayed quiet on the honest specs) is recorded where W10.6.21 will read it before
-  it is built — verified by review: the diff
-- **AC-6** `kit/notes/revamp/workstreams/W10-v2.md` has a W10.6.20 line for this change and a
+- **AC-3** F-NEW-65 records the finding (design questions in the review prompt neither caught the
+  pinned-tools symptom fix nor stayed quiet on the honest specs) for both the spec review and the PR
+  reviewer, with what counts as a sighting — verified by review: the diff
+- **AC-4** `kit/notes/revamp/workstreams/W10-v2.md` has a W10.6.20 line for this change and a
   dropped (`[-]`) W10.6.21 line for the PR reviewer's lens with the owner's reason, and
   `kit/notes/revamp/LOG.md` has an entry for it — verified by review: the diff
 

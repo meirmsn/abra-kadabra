@@ -2687,4 +2687,9 @@ lens, is to be rethought with it.
 the findings instead: F-NEW-65 now covers both reviews, names the risk (a missed simpler fix bloats a
 project's code base) and what counts as a sighting.
 
-**Next**: the owner's call on the intro rewording the page cap forced; then `ship`.
+**Then**: adding the § 2 clause needed two other sentences shortened for the one-page cap, and the
+reviewer wanted that as the owner's decision. The owner chose "C": no skill change at all. The PR is
+the spec, the replay record and F-NEW-65.
+
+**Next**: if a review is seen again passing a design while a simpler fix at the cause existed, add a
+sighting to F-NEW-65; refine from the spike's 27 runs once a fix is clear.

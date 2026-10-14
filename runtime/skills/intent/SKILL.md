@@ -5,7 +5,8 @@ description: Start of every request. Say its kind (no change, bug fix, change); 
 
 # Intent
 
-Every request starts here (TARGET § L3 Intent). Ask in the chat; the spec is the record.
+Every request starts here (TARGET § L3 Intent). The chat is where you ask and the owner answers; the
+spec is the record.
 
 ## 1. Say the kind up front
 
@@ -15,7 +16,8 @@ Name it in your first reply; the owner can correct you.
 - **Bug fix:** restate the problem and the expected behaviour; the failing test is the spec. No
   "go": go to `build`. A fix that involves a real choice (it changes behaviour people rely on, or
   there are several reasonable fixes) is a change.
-- **Any other change:** the steps below, as is an analysis that ends in "we should change X".
+- **Any other change:** the steps below. An analysis that ends in "we should change X" becomes a
+  change at that point.
 
 ## 2. Sharpen it
 
@@ -23,7 +25,6 @@ Name it in your first reply; the owner can correct you.
   `/office-hours` first.
 - Every change, however small, gets gstack's `/spec --file-only --no-gate` interview; stop before it
   files an issue (the spec file is the record; step 4 replaces its gate). Then the plan reviews that fit.
-- Before choosing a fix, ask why the problem exists; fix the cause when it is within reach.
 - A decision that rests on how a tool or version behaves: prove it with a quick experiment first.
 - Too big for one change? Propose a split, one spec each.
 
