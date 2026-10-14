@@ -2653,3 +2653,44 @@ own hooks only. The session fetched the pinned release by checksum and went gree
 session hits this; a finding to file.
 
 **Next**: put `/opt/devshop-tools/bin` on the session's PATH, or file it (owner's call).
+
+## #66 — 2026-10-14 · W10.6.20: design-first spec review tried and dropped; skill unchanged
+
+**What moved** (outcome: nothing in the skills changed; see the end of this entry): from the
+pinned-tools session's lesson (its first proposal passed the spec review with 15 detail findings
+while the root cause went unasked), the owner approved trying [a
+spec](../../../specs/design-first-spec-review.md): `intent` § 4 would ask four design questions
+before the detail list, § 2 would ask why the problem exists before choosing a fix, inline within
+the one-page cap (it fit: 59 lines, 600 words). The PR reviewer's lens was split out as W10.6.21
+(later dropped). Proof by replay ([spike](spikes/w10-6-20-design-first-review/README.md)): 18 fresh
+`Plan` helpers, old and new § 4 text quoted as written, each spec from a `git archive` export of the
+commit it was written on, grading rule committed before the runs.
+
+**Evidence**: new wording flagged the first pinned-tools draft 0/3 (bar 3/3), the CI tiers spec 1/3
+and the UI baseline spec 3/3 (bar 0/3 each). Old wording flagged none and gave no design verdict in
+9 of 9 runs; new wording gave one in 9 of 9. No run read outside its export.
+
+**Surprises**: all three new runs named the pinned-tools cause correctly (tools installed off PATH)
+and still judged the env-file hook a proportionate fix; none re-weighed the draft's own rejection
+of `/usr/local/bin`. "Rejected options included" produced new options, not a second look at the
+author's. On the honest specs the size flags were about checkers both specs added beyond the
+owner's words, which the old wording also called added scope.
+
+**Round 2** (owner: "B", one more round, then option C if it fails): the design questions also
+asked the helper to argue for the strongest option the author rejected and whether the change fixes
+where the problem starts. Same exports, bars and grading rule; 9 runs. Pinned-tools 0/3 (the helpers
+argued for new options, a shell-profile line or a script fallback, never for `/usr/local/bin`), CI
+tiers 2/3, UI baseline 3/3. Failed both bars, so option C: § 4 keeps its old wording; the § 2 clause
+was to ship (later dropped, below). Finding F-NEW-65 (Watch list); W10.6.21, the PR reviewer's
+lens, is to be rethought with it.
+
+**After the PR opened**: the owner dropped W10.6.21 (no reviewer lens) and asked for the issue in
+the findings instead: F-NEW-65 now covers both reviews, names the risk (a missed simpler fix bloats a
+project's code base) and what counts as a sighting.
+
+**Then**: adding the § 2 clause needed two other sentences shortened for the one-page cap, and the
+reviewer wanted that as the owner's decision. The owner chose "C": no skill change at all. The PR is
+the spec, the replay record and F-NEW-65.
+
+**Next**: if a review is seen again passing a design while a simpler fix at the cause existed, add a
+sighting to F-NEW-65; refine from the spike's 27 runs once a fix is clear.
