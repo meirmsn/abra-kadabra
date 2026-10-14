@@ -1,6 +1,6 @@
 ---
 name: pr
-description: Open or update the PR for a change `devshop:build` has built. The body from the devshop's template, screenshots, `ship.sh` through the independent reviewer, then tell the owner.
+description: Open or update the PR for a change `devshop:build` built: the template's body, screenshots, `ship.sh` through the reviewer, then tell the owner.
 ---
 
 # PR

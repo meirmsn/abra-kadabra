@@ -42,7 +42,7 @@ W10.1.2b spike (`kit/notes/revamp/spikes/w10-1-2b-thin/`, kept as notes).
   downloads each, checks its sha256, and links it into `/opt/devshop-tools/bin`, where the devshop's
   hooks run it. A bad or missing download is a loud `FAILED: tool …`; the other steps still run.
 - **The project** holds one file, `.devshop-version`: a commit SHA for now (release tags once CI
-  makes them, A-25). Bumping is a one-line PR. Without it the session uses `HEAD`: `main` as of the
+  makes them, A-25). The `upgrade` skill bumps it in a PR that also brings the project's copies of devshop files (below). Without it the session uses `HEAD`: `main` as of the
   local copy.
 
 ## The `DEVSHOP:` line
@@ -122,6 +122,17 @@ Feedback, not walls: everything here runs in the session's VM, where the agent c
   [`scripts/ci-tiers-check.py`](../runtime/scripts/ci-tiers-check.py) (30 s limit): a `DEVSHOP:`
   line when there is no `ci.yml`, when it breaks a rule (named), or when the check can't run (e.g.
   no PyYAML); nothing when it follows the template. Feedback for the owner; required CI is the wall.
+- **The project's copies of devshop files.** A project's CI can't reach the devshop, so the project
+  keeps copies of the scripts its CI runs. The version's
+  [`project-files.txt`](../runtime/project-files.txt) names them (owner `devshop`) and the templates
+  the project adapted (owner `seed`). When the project pins a version, session start runs
+  [`scripts/project-files.py`](../runtime/scripts/project-files.py) `check` against it (30 s
+  limit): a `DEVSHOP:` line naming each copy that differs, is missing, is a symlink or lost its
+  executable bit (on disk or as committed), or that the check can't run; nothing when they match, or
+  when the pinned version predates the manifest. Without a pin it stays silent, as the default
+  (`HEAD` of the local copy) would report every devshop change. Seeds are never compared. The
+  [`upgrade`](../runtime/skills/upgrade/SKILL.md) skill re-pins the project and brings the copies in
+  one PR. Feedback, not a wall.
 - **The repo declares its checks.** The devshop carries no project-specific checks (Shape 3): a repo
   declares `scripts/lint.sh` (full; the pre-push hook runs it), `scripts/lint-file.sh` (one file),
   and CI's two tiers `scripts/check-fast.sh <base>` (secret scan, `lint.sh`, unit tests) and
@@ -162,5 +173,7 @@ Proven by [`tests/git-hooks.test.sh`](../tests/git-hooks.test.sh) (real `git pus
   which sets them back and keeps husky's chained.
 - A repo's `scripts/lint.sh` needs its own tools in the session (here `npm ci` for Prettier); when
   one is missing, the push stops and the check names it.
-- The v2 skills (`intent`, `build`, `pr`, `devshop-version`) load from the pinned version's
+- An upgrade can only target a version in the local copy; a newer one waits for the cache rebuild,
+  and the `upgrade` skill says so and stops.
+- The v2 skills (`intent`, `build`, `pr`, `devshop-version`, `upgrade`) load from the pinned version's
   `runtime/skills/`; `tests/bootstrap.test.sh` checks the plugin resolves each one there.

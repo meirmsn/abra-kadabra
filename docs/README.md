@@ -60,6 +60,8 @@ reachable from this page through links, or when a relative link or `#anchor` is 
   loads what applies, and hands over to `pr` (TARGET § L3 Build).
 - [`pr`](../runtime/skills/pr/SKILL.md): the PR for a built change: the body from the template,
   screenshots, `ship.sh` through the reviewer, low findings, telling the owner (TARGET § L3 Review).
+- [`upgrade`](../runtime/skills/upgrade/SKILL.md): moves a project's `.devshop-version` in one PR,
+  bringing its copies of devshop files along (below, Project files).
 
 ## Specs
 
@@ -116,6 +118,13 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   scripts, so the template is the same for every stack. [`runtime/scripts/ci-tiers-check.py`](../runtime/scripts/ci-tiers-check.py)
   checks a workflow has that shape; session start runs it on the project's and says so in a
   `DEVSHOP:` line. Proven by [`tests/ci-tiers-check.test.sh`](../tests/ci-tiers-check.test.sh).
+- Project files: [`runtime/project-files.txt`](../runtime/project-files.txt) lists each file the
+  devshop places in a project and its owner (L-49): `devshop`, an identical copy the project keeps
+  (the secret scan, the spec check), or `seed`, a template the project adapts and owns (CI, the fast
+  tier). [`runtime/scripts/project-files.py`](../runtime/scripts/project-files.py) `check`s the
+  copies against a version (session start reports drift from the pinned one in a `DEVSHOP:` line),
+  `plan`s an upgrade and `apply`s one copy; the `upgrade` skill drives it. Proven by
+  [`tests/project-files.test.sh`](../tests/project-files.test.sh).
 - Stack homes: [runtime/stacks/README.md](../runtime/stacks/README.md) is their layout;
   [`runtime/scripts/stack-homes.sh`](../runtime/scripts/stack-homes.sh) picks the ones a project
   uses. Proven by [`tests/stack-homes.test.sh`](../tests/stack-homes.test.sh).

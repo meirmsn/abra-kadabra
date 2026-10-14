@@ -1,6 +1,6 @@
 ---
 name: build
-description: Build an approved change (its spec has the owner's "go") or a bug fix (its failing test). One agent writes code, tests and docs together, then hands over to `devshop:pr`, which opens the PR.
+description: Build an approved change (its spec has the owner's "go") or a bug fix (its failing test): code, tests and docs together, then hand over to `devshop:pr`.
 ---
 
 # Build

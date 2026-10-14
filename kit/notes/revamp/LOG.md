@@ -2530,12 +2530,40 @@ nothing is kept twice. Each list is now one table, a row per finding.
 
 **Next**: W10.6.9's remaining items, then W10.6.10.
 
-## #61 — 2026-10-14 · W10.6.16: Build hands the PR over to a `pr` skill
+## #61 — 2026-10-14 · W10.4.7: a project's copies of devshop files, checked and upgraded
+
+**Why**: a project's CI can't reach the devshop, so the project keeps copies of the scripts its CI
+runs (`secret-scan.sh`, `spec-check.py`) and adapts its CI from templates. Nothing noticed a stale
+copy: bumping `.devshop-version` changes what the session loads, not the copies (F-NEW-49 cause 4).
+v1's sync had the same job and earned L-49 doing it.
+
+**What moved**: proposed, reviewed adversarially and approved in chat (owner, 2026-10-13). The
+review changed four things: drift is checked only when the project pins a version (`HEAD` of a week-old
+local copy would report every devshop change, the devshop's own repo included); a `devshop`-owned
+delta is all or nothing; seeds are confirmed as project diffs, never template hunks (L-49's home-os
+regressions); a version newer than the local copy stops the upgrade with "rebuild the environment".
+Built test first: `runtime/project-files.txt` (2 `devshop`, 2 `seed` entries),
+`runtime/scripts/project-files.py` (`check`, `plan`, `apply`), the session-start line, the `upgrade`
+skill. `tests/project-files.test.sh` failed before the script existed; 43 cases pass; 30 of 30
+mutants killed. On the fixture (scratch `/opt` holding this branch): `main` re-pinned to it gets no
+line, one edited line plus a lost executable bit gets one line naming both; `baseline-3` (pin
+`a86ad4b`) planned to it shows `spec-check.py` missing and both templates' change with its commit,
+`apply` writes the copy and refuses the seed, `check` then passes.
+
+**Surprises**: a mutant survived because the empty-part rule already rejects an absolute path; the
+redundant clause went, and a `./` path got its own test (two spellings of one file). The applied
+copy alone doesn't make `baseline-3`'s check run: it has no `specs/` and its seed `check-fast.sh`
+doesn't call the check, the coupling the skill warns about.
+
+**Next**: after the merge and the fixture environment's cache rebuild, the fixture's own upgrade PR
+through the skill (W10.4.7's last done-when).
+
+## #62 — 2026-10-14 · W10.6.16: Build hands the PR over to a `pr` skill
 
 **What moved**: the Build skill was at its one-page limit (60 lines, 598 words), so the low-findings
 rule the owner approved after #103 had gone into the PR template's placeholder (#106). Build's PR
-section is now its own skill, `pr`, which also holds that rule; Build is at 49 lines and 449 words,
-`pr` at 44 and 380.
+section is now its own skill, `pr`, which also holds that rule; Build is at 49 lines and 445 words,
+`pr` at 44 and 375.
 
 - **The split was attacked before the "go".** A read-only reviewer found that my first draft sent
   later rounds (a reviewer fail, an owner comment) through `pr`, which has none of Build § 3's
@@ -2545,7 +2573,9 @@ section is now its own skill, `pr`, which also holds that rule; Build is at 49 l
 - **Named `pr`, not `ship`:** gstack's `/ship` is in every project session, and TARGET's Ship is
   merge and deploy. Skills hand over by the name a session invokes, `devshop:<name>`.
 - **Checks.** `skills-check.py` fails a handover to a skill the runtime lacks and descriptions over
-  the always-loaded budget, 150 words together (TARGET Shape 2; today 121, was 93). Tests first: each
+  the always-loaded budget, 150 words together (TARGET Shape 2; 121 here, was 93). Merging `main`
+  brought #108's `upgrade` skill (41 words): 162, so the check failed on its first contact; Build's
+  and `pr`'s descriptions were trimmed to 150 of 150. Tests first: each
   new case failed on the old script, Build without its handover failed, and the guard test failed
   on the old message. 8 of 8 mutants killed. `tests/run.sh`: 30 of 30 test files passed.
 - **The reviewer's one low finding was fixed here:** a description continued on a second line (a
@@ -2553,7 +2583,8 @@ section is now its own skill, `pr`, which also holds that rule; Build is at 49 l
   It now fails such a description; its test failed first. In this task's own file, clear and quick.
 - **Findings:** F-NEW-52 to the Fix queue (owner): `ship.sh` should run `pr-body-check.py` itself.
   Watch list: F-NEW-53 (parallel sessions collide on task, LOG and finding numbers), F-NEW-54 (the
-  per-skill hard limit against Shape 2), F-NEW-55 (`bootstrap.test.sh` in a shallow clone).
+  per-skill hard limit against Shape 2), F-NEW-55 (`bootstrap.test.sh` in a shallow clone), F-NEW-56
+  (`upgrade` opens its PR through `ship.sh`, not `devshop:pr`).
 
 **Next**: the live check, a fixture session that invokes `devshop:pr`, once the owner says the
 fixture is free; then W10.6.9's remaining items and W10.6.10.
