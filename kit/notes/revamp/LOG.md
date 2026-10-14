@@ -2577,7 +2577,7 @@ section is now its own skill, `pr`, which also holds that rule; Build is at 49 l
   brought #108's `upgrade` skill (41 words): 162, so the check failed on its first contact; Build's
   and `pr`'s descriptions were trimmed to 150 of 150. Tests first: each
   new case failed on the old script, Build without its handover failed, and the guard test failed
-  on the old message. 8 of 8 mutants killed. `tests/run.sh`: 30 of 30 test files passed.
+  on the old message. 8 of 8 mutants killed. `tests/run.sh`: 31 of 31 test files passed (after merging `main`).
 - **The reviewer's one low finding was fixed here:** a description continued on a second line (a
   folded YAML one) was counted as its first line, so the budget check passed what it couldn't read.
   It now fails such a description; its test failed first. In this task's own file, clear and quick.
