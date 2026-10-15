@@ -2993,3 +2993,17 @@ fails it, as does each single miss; run 6's table passes and run 1's fails; 14 o
 clone stopped; `check.sh` now refuses a used clone.
 
 **Next**: W10.10.1 (owner); the real check runs with the first reviewer change (W10.10.4).
+
+## #78 — 2026-10-15 · Website session findings: squash only, restart hook, design, findings route
+
+**What moved**: five findings from the website session (W10.10.1), matched first: none in the
+ledger. F-NEW-76 (set-up lacked "squash only", blocking PR 2's screenshots) is fixed in W10.10.1's
+owner steps. Fix queue: F-NEW-78 (`/spec` interview skipped) and F-NEW-79 (no route to the design
+skills without a `DESIGN.md`), both intent § 2, 🔥 12.0; F-NEW-77 (the SessionStart hook reads the
+wrong directory after a restart and skips the project checks silently), 🔥 8.0, a mitigation. The
+owner's decision: project findings reach the ledger through the owner and a devshop session; the
+`finding`-issues route and A-26 are dropped (TARGET Shape 8).
+
+**Surprises**: none.
+
+**Next**: the owner decides whether F-NEW-78 and 79 are built now; W10.10.1 continues.
