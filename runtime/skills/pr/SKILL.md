@@ -36,9 +36,9 @@ under `devshop:build` § 3; this skill only puts them on the PR.
 ## 3. Low findings
 
 - The reviewer's `low` findings don't block. Don't fix them in this PR unless one is clear, quick
-  and important. List each under **Low findings** with what you did.
-- One about the devshop itself is a finding for the devshop's ledger: tell the owner at the end of
-  the session.
+  and important. List each under **Low findings** with what you did; that list is their record.
+- One about the devshop itself goes to the owner at the end of the session only if it blocked this
+  task or will block the next change; otherwise the list above is enough.
 
 ## 4. Tell the owner
 

@@ -16,7 +16,7 @@ A stack home `<stack>/` holds:
   or no `detect`, when its `detect` lists no paths, when a path is absolute or leaves the project,
   or when a pattern is empty or not a valid `grep -E` pattern.
 
-The first real homes are built with the first projects that need them (M2). Today there is one
-placeholder, [`nextjs-supabase/`](nextjs-supabase/README.md), which is also the north-star decoy:
-the fixture must never load it ([`tests/decoy-stack.test.sh`](../../tests/decoy-stack.test.sh)).
+A real home is built with the first project that needs it. Today there is one placeholder,
+[`nextjs-supabase/`](nextjs-supabase/README.md), which loads only for a Next.js or Supabase project
+([`tests/decoy-stack.test.sh`](../../tests/decoy-stack.test.sh)).
 Proven by [`tests/stack-homes.test.sh`](../../tests/stack-homes.test.sh).

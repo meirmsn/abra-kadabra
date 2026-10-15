@@ -274,14 +274,14 @@ validated, PLATFORM § 5 updated.
 
 ## #9 — 2026-10-11 · Agent identity working (W10.1.1 done)
 
-**What**: owner created machine user `meirmsn-agent` (Write collaborator on abra-kadabra) and,
+**What**: owner created a machine user, the agent identity (Write collaborator on abra-kadabra) and,
 in a private window, disconnected claude.ai's GitHub connection and reconnected it while GitHub
 was logged in as the agent — simpler than `gh` + `/web-setup`, no CLI needed. The Claude App stays
 installed on `meirmsn` (repo owner); "Not installed" on the agent's own account is irrelevant.
 
-**Evidence** (fresh cloud session, PR #39): `gh api user` → `meirmsn-agent User`; repo permissions
-`admin:false, push:true`; branch push OK; PR #39 `user.login = meirmsn-agent`; PR activity
-subscription OK. This session also switched to the agent (`gh api user` → `meirmsn-agent`).
+**Evidence** (fresh cloud session, PR #39): `gh api user` → the agent identity, type `User`; repo permissions
+`admin:false, push:true`; branch push OK; PR #39 `user.login` = the agent identity; PR activity
+subscription OK. This session also switched to the agent (`gh api user` → the agent identity).
 **Surprise:** the workflow-file push was **accepted** — the browser connection uses the Claude
 App's user token, which has workflow write, so "no `workflow` scope" isn't available on this route
 → F-NEW-16 controls move to CODEOWNERS + secret placement (A-07).
@@ -292,7 +292,7 @@ App's user token, which has workflow write, so "no `workflow` scope" isn't avail
 
 ## #10 — 2026-10-11 · Agent can't get around `main` protection (W10.1.3)
 
-**What**: with the owner's explicit go-ahead, tried to change `main` as `meirmsn-agent` against the
+**What**: with the owner's explicit go-ahead, tried to change `main` as the agent identity against the
 classic branch protection already on `main` (from the parallel M0 session, PR #38).
 
 **Evidence**: direct push of an empty commit → `remote rejected … Changes must be made through a
@@ -334,7 +334,7 @@ revoking needs no dev env (dashboard delete), so the end-of-revamp task is "revo
 reissue as needed" (W0.5.3). Optional now: revoke the old GitHub PAT (W0.5.2) — it's
 account-wide and not tied to the paused apps.
 
-**Next**: agent identity is done (`meirmsn-agent`, LOG #9) and protection holds against it
+**Next**: agent identity is done (LOG #9) and protection holds against it
 (LOG #10) → owner installs the Claude GitHub App on lalista + home-os → finish W0.7.1 →
 W0.6.6 ruleset (with the A-20 call) → W0.4 tag.
 
@@ -357,7 +357,7 @@ The A-04 reviewer fixture is kept in [`spikes/a04-reviewer/`](spikes/a04-reviewe
 
 **What**: owner noticed the agent identity moves their GitHub contribution history to the agent.
 Test on PR #42: one branch commit authored as the owner, squash-merged by the owner with the
-default message — the `main` commit was authored by `meirmsn-agent` with
+default message — the `main` commit was authored by the agent identity with
 `Co-authored-by: meirmsn`; afterwards the owner's profile gained only the review, the agent's the
 commit and opened PR. GitHub's docs confirm it: a commit counts only for the email that **authored**
 it on the default branch; "or co-author" applies to GitHub Enterprise Server only; rebasing credits
@@ -2931,7 +2931,20 @@ the diff and the goal, not the author's conclusions. Twelve findings; the ones a
 
 **Next**: W10.9.6.
 
-## #73 — 2026-10-15 · W10.9.7: a words-only `ship` reviews the words only
+## #73 — 2026-10-15 · W10.9.6: the filing rule
+
+**What moved**: a finding is filed only when it blocked the task or will block the next real
+project; the rest stays in the PR's body or verdict comment. Written into PROCESS § 4, FINDINGS
+§ How findings are handled, the `pr` skill § 3, TARGET Ship 9 and CLAUDE.md, which also narrows
+"proven to fail" to walls and project-facing checks. LOG entries are capped at 150 words. The agent
+identity's GitHub handle is gone from the notes (21 occurrences → 0). W10.4.9 and W10.6.12 closed
+on the owner's word, checked against LOG #69 and PR 117's comments.
+
+**Surprises**: none that meet the filing rule; no ledger rows added.
+
+**Next**: W10.9.1.
+
+## #74 — 2026-10-15 · W10.9.7: a words-only `ship` reviews the words only
 
 **What moved**: `review.sh`, given the PR's words, reuses an earlier `pass` for the same commit,
 merge-base and intent: it runs the `pr` lens alone with `prompt-words.md`, keeps that pass's
@@ -2940,5 +2953,3 @@ Anything else is a full review. Interface note first (under W10.6.2), tests firs
 `claude`; 14 of 14 mutants killed after two tests were added, one equivalent condition removed.
 Shown on its own PR: a full review on the first `ship`, then a body-only `ship` with one `pr`-lens
 verdict.
-
-**Not done here**: W10.9.6 (asked for W10.9.7 only).
