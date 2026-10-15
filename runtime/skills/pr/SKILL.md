@@ -12,7 +12,8 @@ under `devshop:build` § 3; this skill only puts them on the PR.
 ## 1. The body
 
 - Write it from `/opt/devshop-current/templates/pr-body.md`: the summary, a 2–3 sentence paragraph
-  on what changed and why it matters, the Announcement in the app user's words. Claim only what you
+  on what changed and why it matters, the Announcement in the app user's words (guidance: `ship.sh`
+  checks the shape, the owner the words). Claim only what you
   have just read from the real signal (CI, the preview).
 - From the build: the `STACKS:` line goes in the engineering details; a conflict where the project
   won is said; **Changed after the go** lists the owner's answers recorded in the spec.

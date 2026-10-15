@@ -98,10 +98,10 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   announcement (a release note in the app user's words, only when user-facing), what you should
   know, evidence, then engineering details collapsed.
   [`runtime/scripts/pr-body-check.py`](../runtime/scripts/pr-body-check.py) checks a filled-in
-  body has that shape (sections and lines in order, the paragraph 2–3 sentences, preview present,
-  no developer words in the announcement, screenshots on the PR or "no UI change", no placeholder
-  left, images pinned to a commit and never on `raw.githubusercontent.com`); whether the words are
-  true is the reviewer's job. `ship.sh` runs it before every review and refuses a body without the
+  body has that shape (the summary line, sections and labelled lines in order, preview present,
+  screenshots on the PR or "no UI change", no placeholder left, images pinned to a commit and never
+  on `raw.githubusercontent.com`); it judges no words (W10.9.2): the paragraph's length and the
+  announcement's wording are guidance the reviewer and the owner check. `ship.sh` runs it before every review and refuses a body without the
   shape (F-NEW-52). Proven by [`tests/pr-body-check.test.sh`](../tests/pr-body-check.test.sh).
 - PR screenshots: [`runtime/scripts/pr-assets.sh`](../runtime/scripts/pr-assets.sh) puts them in
   one parentless commit and moves the PR's branch to a merge of HEAD and that commit whose files

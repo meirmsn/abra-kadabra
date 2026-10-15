@@ -127,6 +127,8 @@ check "an image quoted in code is not a screenshot" 1 "$(variant shots-in-code \
   's = re.sub(r"- \*\*Screenshots:\*\*.*\n\n(\|.*\n)+", "- **Screenshots:** pr-assets.sh prints \x60![a](https://github.com/acme/shop/raw/x/a.png)\x60\n", s)')" "**Screenshots:** needs at least one image"
 check "a stray backtick doesn't hide a bad image paragraphs later" 1 "$(variant stray-backtick \
   "s = s.replace('carts were lost', 'carts were lost').replace('- **Behaviour change:** a', '- **Behaviour change:** a \x60stray').replace('https://github.com/acme/shop/raw/$sha', 'https://raw.githubusercontent.com/acme/shop/$sha').replace('rollback needs no database change.', 'rollback needs no \x60database change.')")" "raw.githubusercontent.com"
+check "a screenshot table without images fails" 1 "$(variant table-no-images \
+  's = re.sub(r"!\[[^\]]*\]\([^)]*\)", "(pending)", s)')" "**Screenshots:** needs at least one image"
 check "screenshots kept off the PR fail" 1 "$(variant shots-in-chat \
   's = re.sub(r"- \*\*Screenshots:\*\*.*\n\n(\|.*\n)+", "- **Screenshots:** taken; not embedded here (no image host in this session)\n", s)')" "**Screenshots:** needs at least one image"
 check "an image on raw.githubusercontent.com fails, even pinned" 1 "$(variant raw-host \
