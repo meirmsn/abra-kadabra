@@ -2873,3 +2873,24 @@ owner asked for, then build the owner's website on Cloudflare as the first real 
 measurable quality bar.
 
 **Next**: the owner's decisions on REVIEW-2 § 4.
+
+## #71 — 2026-10-15 · D-17: the owner's decisions on review 2; M1 met, M2 is the website
+
+**What moved**: the owner read [REVIEW-2.md](REVIEW-2.md) and answered its eleven decisions in
+chat; recorded as [D-17](DECISIONS.md), with two amendments of theirs: a simple rollback on every
+deploy from day one, and the reviewer's browser at M2 rather than M3 (the Playwright set-up is
+already there). The ledger keeps its numeric grades as the owner's reading aid and loses its
+linter and the rule of five. M1 is declared met on runs 1 and 2 under D-16's rule; go/no-go = go.
+TARGET's north-star section carries the plain-run definition; Shape 2, Shape 8 and Ship 3 carry
+dated revisions. PLAN's milestones: M2 = the owner's website on Cloudflare, M3 = lalista web, M4 =
+iOS + Mac + retire v1. W10.9 (M1 close-out, five small tasks) and W10.10 (M2, coarse) added;
+W10.6.10, W10.6.16, W10.7.1 and W10.7.2 closed; W10.6.11 and W10.6.17 folded into W10.10.7.
+
+**Clarified**: "the fixture's conventions" meant its `CLAUDE.md` rules, which devshop sessions
+wrote there as the first draft of the Cloudflare stack home; they move into that home with the
+website (W10.10.2), and the fixture holds nothing the devshop needs.
+
+**Not done here**: the findings re-sort (W10.9.4, with the linter's removal) and every close-out
+change; this entry and D-17 are the record only.
+
+**Next**: W10.9.1.

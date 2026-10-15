@@ -38,13 +38,13 @@ an explicit go/no-go; lalista is the pilot (web, then iOS).
 
 ## Milestones (status roll-up — criteria in [PLAN.md](PLAN.md))
 
-| #   | Milestone                      | Status                                                                                                       |
-| --- | ------------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| M0  | Stop the bleeding + groundwork | done                                                                                                         |
-| M1  | Walking skeleton → go/no-go    | in progress — W10.1 spikes, W10.2 design, W10.3 harvest done; W10.4 v2 bootstrap under way; W10.5–W10.7 open |
-| M2  | Pilot: lalista web on v2       | coarse                                                                                                       |
-| M3  | iOS stack + Mac                | coarse                                                                                                       |
-| M4  | Complete & retire v1           | coarse                                                                                                       |
+| #   | Milestone                                             | Status                                                                                    |
+| --- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| M0  | Stop the bleeding + groundwork                        | done                                                                                      |
+| M1  | Walking skeleton → go/no-go                           | done 2026-10-15 (D-17: met on runs 1–2 under D-16's rule; go). Close-out tasks W10.9 open |
+| M2  | First real project: the owner's website on Cloudflare | next (W10.10)                                                                             |
+| M3  | First real app: lalista web on v2                     | coarse                                                                                    |
+| M4  | iOS stack + Mac; retire v1                            | coarse                                                                                    |
 
 ## Files
 
@@ -64,18 +64,13 @@ an explicit go/no-go; lalista is the pilot (web, then iOS).
 
 ## Next action
 
-M0 is done (review: [LOG.md](LOG.md) #15). M1 ([W10](workstreams/W10-v2.md)):
+M1 is done (D-17, [REVIEW-2.md](REVIEW-2.md), LOG #71). Next, in order:
 
-- **Claude:** W10.4 v2 bootstrap in this repo is done (W10.4.4 closed, LOG #37); W10.6.6
-  (reviewer verdict on the PR, spec found from the diff) done (LOG #40); W10.6.1
-  (Intent and Build skills) done (LOG #43); W10.6.7 (`ship` runs the reviewer in the VM before
-  anything reaches a PR; a guard refuses the other ways) done (LOG #48–#49); next W10.6.5 (the
-  reviewer eval) and W10.6.4 (the north-star run); the `DEVSHOP:`
-  line now reaches the owner through Claude's first reply in project sessions (LOG #44–#45). W10.3 lessons harvest done: [lessons.md](lessons.md) +
-  every FINDINGS row dispositioned (LOG #21).
-- **Owner, when ready:** before M2, check lalista's Vercel and Supabase plans (F-NEW-18/19).
-  W10.5 (fixture + north-star harness) is done (LOG #25, #35, #38, #42). Before the first north-star run, do the harness steps listed under W10.6.4.
-- Done: W10.2 — L3 agreed for all nine pillars + north-star rewritten and hardened (LOG #19,
-  #20); fixture on Cloudflare. D-01 decided 2026-10-11 (option D; built in W10.4.4).
+- **Claude:** the M1 close-out tasks W10.9 (small PRs: merge on approval and comment-as-question in
+  the `pr` skill; the screenshot table; the skill cap back to a warning; the ledger's linter removed
+  and the findings re-sorted per REVIEW-2 § 2), then the plain run on the fixture (W10.9.5), then
+  M2's first task: scaffold the website repo (W10.10.1).
+- **Owner:** allow the fixture's preview and production hosts in its environment (for the plain run)
+  and pick the plain run's change; before M3, lalista's plan check (F-NEW-18/19).
 
 Tasks marked `[!]` "deferred to the M4 exit" are not raised before then.
