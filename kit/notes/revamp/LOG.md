@@ -3004,6 +3004,6 @@ wrong directory after a restart and skips the project checks silently), 🔥 8.0
 owner's decision: project findings reach the ledger through the owner and a devshop session; the
 `finding`-issues route and A-26 are dropped (TARGET Shape 8).
 
-**Surprises**: the issues route is Shape 8, not Ship 8.
+**Surprises**: none.
 
 **Next**: the owner decides whether F-NEW-78 and 79 are built now; W10.10.1 continues.

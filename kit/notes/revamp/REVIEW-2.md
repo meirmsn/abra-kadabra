@@ -212,7 +212,9 @@ repo setting; both are outside the agent's reach, which is the point).
   it makes every noticed thing a row, and the Fix queue's top rows this week were the owner's own
   three requests, which needed no formula. **Simplify:** a flat list, one line per finding, no
   grades; `findings-check.py` and its test deleted; findings move to GitHub issues (TARGET Shape 8)
-  when the first real project needs the cross-repo flow, not before.
+  when the first real project needs the cross-repo flow, not before. _(2026-10-15, owner: the
+  issues route is dropped; project findings reach this repo's ledger through the owner, TARGET
+  Shape 8.)_
 - **Check-every-check (proven to fail, mutants):** keep for walls and for anything a project's CI
   runs (secret scan, spec→test, CI tiers, the UI checks). Stop for prose linters (`pr-body-check.py`
   sentence counting and word lists, `skills-check.py` budgets, `findings-check.py`): a wrong PR body
