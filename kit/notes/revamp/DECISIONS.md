@@ -311,7 +311,8 @@ owner's, with the two amendments they made.
 7. **Observability per project environment:** the project's preview and production hosts are
    allowed in its cloud environment, and a read-only Cloudflare token (logs and analytics only),
    kept as a GitHub secret the deploy workflow uses, runs a post-deploy canary check whose result
-   is a CI record. Hosts now for the fixture's plain run; the token and the job with the website.
+   is a CI record. All of it comes with the website (W10.10.1, W10.10.5); nothing is set up on
+   the fixture (amended the same day, below).
 8. **The agent identity is kept** after the D-13 trial (the enforced approval is the wall that
    makes "the owner approves every PR" true).
 9. **A measurable quality bar:** Lighthouse thresholds in the slow tier from the website on.
@@ -336,4 +337,5 @@ close-out task that removes the ledger's linter, not here.
 
 **Added 2026-10-15 (owner):** no more fixture work. The plain run on the fixture (W10.9.5) is
 dropped; the website's first change is the plain run (W10.10.1). The fixture, its environment and
-the harness stay as they are.
+the harness stay as they are, and item 7's "hosts now for the fixture" is withdrawn: the hosts,
+token and canary job all come with the website.
