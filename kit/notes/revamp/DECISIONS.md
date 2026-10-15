@@ -333,3 +333,7 @@ Outcome: **decided 2026-10-15 (owner).** Plan impact: M1 done; M2 = the owner's 
 Cloudflare; M3 = lalista web; M4 = iOS + Mac and v1 retired ([PLAN.md](PLAN.md),
 [W10-v2.md](workstreams/W10-v2.md) § M2). The findings re-sort in REVIEW-2 § 2 is applied by the
 close-out task that removes the ledger's linter, not here.
+
+**Added 2026-10-15 (owner):** no more fixture work. The plain run on the fixture (W10.9.5) is
+dropped; the website's first change is the plain run (W10.10.1). The fixture, its environment and
+the harness stay as they are.

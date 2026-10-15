@@ -2893,4 +2893,8 @@ website (W10.10.2), and the fixture holds nothing the devshop needs.
 **Not done here**: the findings re-sort (W10.9.4, with the linter's removal) and every close-out
 change; this entry and D-17 are the record only.
 
+**Added later the same day (owner)**: no more fixture work; W10.9.5 dropped, the website's first
+change is the plain run (W10.10.1, with its owner steps listed). The revamp README gains a short
+"Driving the revamp from a new session" section: two prompts, and what the owner does.
+
 **Next**: W10.9.1.
