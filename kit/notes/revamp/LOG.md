@@ -2895,6 +2895,10 @@ change; this entry and D-17 are the record only.
 
 **Added later the same day (owner)**: no more fixture work; W10.9.5 dropped, the website's first
 change is the plain run (W10.10.1, with its owner steps listed). The revamp README gains a short
-"Driving the revamp from a new session" section: two prompts, and what the owner does.
+"Driving the revamp from a new session" section: two prompts, and what the owner does. Then, on the
+owner's question whether this stops the noise: two more close-out tasks, W10.9.6 (the filing rule:
+only what blocked or will block a real project is filed; mutants for walls and project-facing
+checks only; short LOG entries) and W10.9.7 (a body-only `ship` reviews the words only, moved up
+from M2 after it cost five full reviews on this PR).
 
 **Next**: W10.9.1.
