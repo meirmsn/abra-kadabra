@@ -2944,7 +2944,31 @@ on the owner's word, checked against LOG #69 and PR 117's comments.
 
 **Next**: W10.9.1.
 
-## #74 — 2026-10-15 · W10.9.1 and W10.9.2: approval ships; the body check is shape only
+## #74 — 2026-10-15 · W10.9.4: the ledger loses its linter
+
+**What moved**: `scripts/findings-check.py`, its test and its docs-map entry are deleted, and
+FINDINGS no longer has the rule of 5 or Seen dots; the grades stay (D-17 item 3). REVIEW-2 § 2's
+sort is applied to the 29 live rows: the 5 must-fix rows are the Fix queue, each with its task
+(F-NEW-70 moved up from the Watch list and was regraded); the 10 folded, 10 no longer tracked and 4
+accepted rows are in Closed with one line of reason each. The Watch list is empty. The fold
+targets (W10.10.1, W10.10.2, W10.10.7, M3) now name the findings they carry.
+
+**Surprises**: the cloud-session facts (F-NEW-55, 68, 71) had no task to fold into; they went to
+W10.10.2's set-up list.
+
+**Next**: W10.9.1.
+
+## #75 — 2026-10-15 · W10.9.7: a words-only `ship` reviews the words only
+
+**What moved**: `review.sh`, given the PR's words, reuses an earlier `pass` for the same commit,
+merge-base and intent: it runs the `pr` lens alone with `prompt-words.md`, keeps that pass's
+acceptance items and names it (`scope: "words"`, `code_review`); the comment says "words only".
+Anything else is a full review. Interface note first (under W10.6.2), tests first with the stub
+`claude`; 14 of 14 mutants killed after two tests were added, one equivalent condition removed.
+Shown on its own PR: a full review on the first `ship`, then a body-only `ship` with one `pr`-lens
+verdict.
+
+## #76 — 2026-10-15 · W10.9.1 and W10.9.2: approval ships; the body check is shape only
 
 **What moved**: the `pr` skill now subscribes the session to its PR after `ship`, squash-merges on
 the owner's approval of the head with checks green (no "merge" message), and answers a comment that
@@ -2955,4 +2979,4 @@ labelled lines, placeholders, the preview line and image pinning stay checked.
 
 **Surprises**: none that meet the filing rule; no ledger rows added.
 
-**Next**: W10.9.1 stays `[~]` until a real PR merges on approval; then W10.9.4.
+**Next**: W10.9.1 stays `[~]` until a real PR merges on approval; then W10.10.1.

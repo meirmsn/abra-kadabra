@@ -3,7 +3,8 @@
 # change merge-base(--base, HEAD)..HEAD with a fresh, locked-down `claude -p` against its spec (the
 # one specs/**.md the change adds or changes; none → the PR's words from --pr, else the commit
 # messages), checks the PR's words against the commit when given (Review 5), decides the outcome
-# itself from the model's structured reply, and writes the verdict file. Interface (call, exit
+# itself from the model's structured reply, and writes the verdict file. When the commit already
+# passed and only the words can have changed, it reviews the words only (W10.9.7). Interface (call, exit
 # codes, stdout line, verdict file): kit/notes/revamp/workstreams/W10-v2.md § W10.6.2.
 # Model, prompt, tools and permissions come only from this directory; nothing in the environment or
 # on the command line changes them (Verify 3, F-HOOK-10). Tests run a copy of the directory.
@@ -27,7 +28,7 @@ trap '[ -z "$scratch" ] || rm -rf "$scratch"' EXIT
 
 # Set once known; the verdict carries whatever is known when the review stops.
 repo="" head="" base_sha="" branch="" spec="" intent="" pr_json=null vdir=""
-session="" cost=null
+session="" cost=null scope=full code_review="" passed_acceptance=null
 
 # finish <outcome> <reason> [<model reply json>]: write the verdict, print the line, exit.
 finish() {
@@ -49,7 +50,7 @@ finish() {
     if jq -n --arg outcome "$outcome" --argjson round "$round" --arg commit "$head" --arg base "$base_sha" \
       --arg branch "$branch" --arg spec "$spec" --arg intent "$intent" --argjson pr "$pr_json" --arg devshop "$(basename "$(dirname "$here")")" \
       --arg model "$MODEL" --arg session "$session" --argjson cost "$cost" --argjson r "$reply" \
-      --arg reason "$reason" --arg created "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{
+      --arg scope "$scope" --arg code_review "$code_review" --arg reason "$reason" --arg created "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{
         format: "devshop-review/2", outcome: $outcome, round: $round, commit: $commit, base: $base,
         branch: $branch, spec: $spec, intent: $intent, pr: $pr,
         reviewer: {devshop: $devshop, model: $model, session_id: $session, cost_usd: $cost},
@@ -58,7 +59,7 @@ finish() {
         blocking: ([$r.acceptance[] | select(.met | not) | .item] as $unmet
           | ($unmet | length) + ([$r.findings[] | select(.severity != "low" and (.item | IN($unmet[]) | not))] | length)),
         low: ([$r.findings[] | select(.severity == "low")] | length),
-        lenses: $r.lenses, reason: $reason, created: $created}' >"$path.tmp"; then
+        lenses: $r.lenses, scope: $scope, code_review: $code_review, reason: $reason, created: $created}' >"$path.tmp"; then
       if ! { mv "$path.tmp" "$path" && ln -sfn "$(basename "$path")" "$vdir/latest.json"; }; then path=-; fi
     else
       path=-
@@ -156,6 +157,23 @@ if [ -n "$pr_file" ]; then
   [ -n "$intent" ] || intent="pr"
 fi
 [ -n "$intent" ] || intent=commits
+
+# --- Words only (W10.9.7): with the PR's words given, a pass already recorded for this commit,
+#     merge-base (so the same diff and spec) and intent means the code has passed and only the words
+#     can have changed, so only they are reviewed. The verdict keeps that pass's acceptance items and names the full
+#     review the code passed in. Anything else is a full review.
+if [ -n "$pr_file" ] && [ -d "$vdir" ]; then
+  for f in $(find "$vdir" -maxdepth 1 -name '[0-9][0-9][0-9]-*.json' | sort -r); do
+    jq -e --arg c "$head" --arg b "$base_sha" --arg i "$intent" \
+      '.outcome == "pass" and .commit == $c and .base == $b and .intent == $i
+        and (.acceptance | type == "array")' "$f" >/dev/null 2>&1 || continue
+    passed_acceptance=$(jq -c .acceptance "$f") || cnr "could not read the earlier pass $f"
+    code_review=$(jq -r '.code_review // ""' "$f") || cnr "could not read the earlier pass $f"
+    [ -n "$code_review" ] || code_review=$(basename "$f")
+    scope=words
+    break
+  done
+fi
 command -v claude >/dev/null || cnr "claude not found on PATH"
 
 # --- A throwaway clone holding just the two commits, with no remote. --update-shallow: a shallow
@@ -167,7 +185,6 @@ if ! { git init -q "$scratch/repo" \
   cnr "could not make the throwaway clone"
 fi
 
-prompt=$(<"$here/prompt.md") || cnr "prompt.md unreadable"
 case "$intent" in
   spec) intent_text="The spec is \`$spec\`. Its acceptance items: $items." ;;
   pr) intent_text="There is no spec file in this change, so there are no acceptance items: return \`acceptance\` as []. The intent is the PR's words below." ;;
@@ -198,18 +215,25 @@ if [ "$(git -C "$repo" cat-file -t "$base_sha:scripts/check-fast.sh" 2>/dev/null
 else
   ci_text="This project does not declare that its CI runs its tests (no \`scripts/check-fast.sh\` at the base commit): a test you can't run is an \`unsure\` finding, whose fix is a CI job that runs the tests through \`scripts/check-fast.sh\`."
 fi
+# A full review fills prompt.md; a words-only one prompt-words.md, which has no intent or CI lines.
+if [ "$scope" = words ]; then
+  prompt_file=prompt-words.md marks=('{{COMMANDS}}' '{{PR}}') values=("$commands" "$pr_text")
+else
+  prompt_file=prompt.md marks=('{{COMMANDS}}' '{{INTENT}}' '{{PR}}' '{{CI}}')
+  values=("$commands" "$intent_text" "$pr_text" "$ci_text")
+fi
+prompt=$(<"$here/$prompt_file") || cnr "$prompt_file unreadable"
 # The values are spliced in by position, in the order the placeholders appear, never substituted, so
 # text in them is never expanded or re-matched (bash 5.2 expands & in a \${x//p/r} replacement; a
-# body could contain a placeholder).
-[[ "$prompt" == *'{{COMMANDS}}'*'{{INTENT}}'*'{{PR}}'*'{{CI}}'* ]] \
-  || cnr "prompt.md lacks its {{COMMANDS}}, {{INTENT}}, {{PR}} and {{CI}} placeholders, in that order"
+# body could contain a placeholder). The placeholders hold no glob characters.
+pattern="*$(printf '%s*' "${marks[@]}")"
+# shellcheck disable=SC2053  # $pattern is a glob pattern on purpose
+[[ "$prompt" == $pattern ]] || cnr "$prompt_file lacks its ${marks[*]} placeholders, in that order"
 spliced="" rest=$prompt
-# splice <placeholder> <value>: the text up to the placeholder, then the value; the rest stays.
-splice() { spliced+="${rest%%"$1"*}$2" rest=${rest#*"$1"}; }
-splice '{{COMMANDS}}' "$commands"
-splice '{{INTENT}}' "$intent_text"
-splice '{{PR}}' "$pr_text"
-splice '{{CI}}' "$ci_text"
+for i in "${!marks[@]}"; do
+  # The text up to the placeholder, then the value; the rest stays.
+  spliced+="${rest%%"${marks[$i]}"*}${values[$i]}" rest=${rest#*"${marks[$i]}"}
+done
 prompt="$spliced$rest"
 schema=$(<"$here/verdict.schema.json") || cnr "verdict.schema.json unreadable"
 
@@ -249,12 +273,23 @@ jq -e '
   and (.findings | type == "array" and all(.[]; (.severity | IN("high", "medium", "unsure", "low")) and (.lens | IN("intent", "spec", "tests", "docs", "code", "security", "design", "qa", "pr")) and ([.item, .file, .what, .fix] | all(type == "string"))))
   and (.lenses | type == "array" and all(.[]; (.lens | type == "string") and (.applies | type == "boolean")))' \
   <<<"$reply" >/dev/null 2>&1 || cnr "the reply does not match the verdict schema"
-got=$(jq -r '[.acceptance[].item] | sort_by(ltrimstr("AC-") | tonumber) | join(", ")' <<<"$reply")
-[ "$got" = "$items" ] || cnr "the reply covers acceptance items [$got], the change's spec has [$items]"
 # The pr lens row must say whether the PR's words were checked, and match whether they were given.
 jq -e --argjson want "$([ -n "$pr_file" ] && echo true || echo false)" \
   '[.lenses[] | select(.lens == "pr")] | length == 1 and .[0].applies == $want' <<<"$reply" >/dev/null \
   || cnr "the reply's pr lens does not match whether PR words were given (--pr)"
+got=$(jq -r '[.acceptance[].item] | sort_by(ltrimstr("AC-") | tonumber) | join(", ")' <<<"$reply")
+if [ "$scope" = words ]; then
+  [ -z "$got" ] || cnr "the words-only reply has acceptance items [$got]; it reviews the words only"
+else
+  [ "$got" = "$items" ] || cnr "the reply covers acceptance items [$got], the change's spec has [$items]"
+fi
+# Words only: every finding is about the words; the code's result is the earlier pass's.
+if [ "$scope" = words ]; then
+  jq -e 'all(.findings[]; .lens == "pr")' <<<"$reply" >/dev/null \
+    || cnr "the words-only reply has findings outside the pr lens"
+  reply=$(jq -c --argjson a "$passed_acceptance" '.acceptance = $a | .lenses = [.lenses[] | select(.lens == "pr")]' <<<"$reply") \
+    || cnr "could not merge the words-only reply with the earlier pass"
+fi
 
 # --- The outcome is the script's rule, not the model's say (L-13, Verify 6).
 if jq -e 'any(.acceptance[]; .met | not) or any(.findings[]; .severity != "low")' <<<"$reply" >/dev/null; then

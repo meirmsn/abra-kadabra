@@ -376,6 +376,107 @@ for bad in missing notjson notitle emptytitle extrakey nonstring; do
   esac
   run "$r" pr-nospec-pass --base main --pr "$f"; expect "--pr file '$bad' is could-not-run" 2 could-not-run '.reason|test("--pr")'
 done
+# --- Words only (W10.9.7): a pass already holds for HEAD and only the words changed, so the
+# reviewer reads the words with prompt-words.md and nothing else; anything that could change what
+# the code was reviewed against gets a full review.
+full_prompt="Step 1: the change against the spec and intent"
+words_prompt="The code at this commit has already passed review"
+reply "$work/words-pass.json" "$(out "[]" "[]" '[{"lens":"pr","applies":true,"note":"checked"}]')"
+reply "$work/words-mismatch.json" "$(out "[]" "[$(jq -n '{severity:"medium",lens:"pr",item:"",file:"",what:"the body claims a test the diff lacks",fix:"fix the body"}')]" '[{"lens":"pr","applies":true,"note":"checked"}]')"
+reply "$work/words-low.json" "$(out "[]" "[$(jq -n '{severity:"low",lens:"pr",item:"",file:"",what:"a long title",fix:"shorten"}')]" '[{"lens":"pr","applies":true,"note":"checked"}]')"
+reply "$work/words-with-ac.json" "$(out "$all_met" "[]" '[{"lens":"pr","applies":true,"note":"checked"}]')"
+reply "$work/words-code-finding.json" "$(out "[]" "[$(finding medium)]" '[{"lens":"pr","applies":true,"note":"checked"}]')"
+reply "$work/words-pr-not-applied.json" "$(out "[]" "[]" '[{"lens":"pr","applies":false,"note":"x"}]')"
+reply "$work/words-no-pr-row.json" "$(out "[]" "[]" '[{"lens":"tests","applies":true,"note":"x"}]')"
+# prompt_is <full|words>: which prompt the last claude call was given.
+prompt_is() {
+  local a; a=$(tr -s "\n" " " <"$STUB_LOG.args")
+  case $1 in
+    full) grep -qF "$full_prompt" <<<"$a" && ! grep -qF "$words_prompt" <<<"$a" ;;
+    words) grep -qF "$words_prompt" <<<"$a" && ! grep -qF "$full_prompt" <<<"$a" ;;
+  esac || fail "expected the $1 prompt"
+}
+r="$work/words"; new_project "$r"
+w1="$work/w1.json" w2="$work/w2.json" w3="$work/w3.json"
+pr_words "$w1" "Add x" "First body."
+pr_words "$w2" "Add x, tested" $'Second body: {{PR}} & $(touch pwned)'
+pr_words "$w3" "Add x" "Third body."
+run "$r" pr-pass --base main --pr "$w1"
+expect "first ship: a full review" 0 pass '.scope=="full" and .code_review==""'
+prompt_is full
+full1=$(basename "$verdict")
+run "$r" words-pass --base main --pr "$w2"
+expect "words changed on a passed commit: words only" 0 pass \
+  ".scope==\"words\" and .code_review==\"$full1\" and (.acceptance|length)==2 and all(.acceptance[]; .met)
+   and ([.lenses[].lens]==[\"pr\"]) and .pr.title==\"Add x, tested\" and .pr.sha256==\"$(sha256sum "$w2" | cut -d' ' -f1)\""
+prompt_is words
+# shellcheck disable=SC2016 # literal on purpose: the body must not be expanded
+grep -qF 'Second body: {{PR}} & $(touch pwned)' "$STUB_LOG.args" || fail "words-only prompt lacks the new body verbatim"
+[ ! -e "$r/pwned" ] && [ ! -e "$work/pwned" ] || fail "the PR body was executed"
+for flag in --restricted --safe-mode --strict-mcp-config --no-session-persistence --disable-slash-commands; do
+  grep -qxF -- "$flag" "$STUB_LOG.args" || fail "words-only call without $flag"
+done
+grep -A1 -xF -- --model "$STUB_LOG.args" | tail -1 | grep -qxF claude-sonnet-5-5 || fail "words-only model not pinned"
+[ "$(cat "$STUB_LOG.cwd")" != "$r" ] || fail "words-only review ran in the real worktree"
+pw=$(tr -s "\n" " " <"$STUB_LOG.args")
+while IFS= read -r c; do
+  grep -qF "\`$c\`" <<<"$pw" || fail "words-only prompt doesn't name allowed command '$c'"
+done < <(jq -r '.permissions.allow[] | capture("^Bash\\((?<c>.*):\\*\\)$").c' "$work/reviewer/settings.json")
+echo "ok - words-only call: same lock-down, words verbatim, allowed commands named"
+run "$r" words-pass --base main --pr "$w3"
+expect "words changed again: words only, still resting on the full review" 0 pass ".scope==\"words\" and .code_review==\"$full1\""
+reply "$work/words-extra-lens.json" "$(out "[]" "[]" '[{"lens":"tests","applies":true,"note":"ok"},{"lens":"pr","applies":true,"note":"checked"}]')"
+run "$r" words-extra-lens --base main --pr "$w3"
+expect "words only: a lens row besides pr is not recorded as reviewed" 0 pass '.scope=="words" and ([.lenses[].lens]==["pr"])'
+run "$r" words-low --base main --pr "$w1"
+expect "words-only low finding passes" 0 pass '.scope=="words" and .low==1'
+run "$r" words-mismatch --base main --pr "$w2"
+expect "words that don't match the commit fail, words only" 1 fail '.scope=="words" and .blocking==1 and .round==1'
+run "$r" words-pass --base main --pr "$w3"
+expect "after a words-only fail, fixed words: words only" 0 pass '.scope=="words"'
+for bad in words-with-ac words-code-finding words-pr-not-applied words-no-pr-row garbage; do
+  run "$r" "$bad" --base main --pr "$w2"
+  expect "words-only reply '$bad' is could-not-run" 2 could-not-run '.reason!=""'
+done
+run "$r" pass --base main
+expect "no PR words: a full review" 0 pass '.scope=="full" and .pr==null'
+prompt_is full
+run "$r" pr-nospec-pass --base HEAD~1 --pr "$w2"
+expect "another base: a full review" 0 pass '.scope=="full" and .intent=="pr"'
+prompt_is full
+change "$r"; run "$r" pr-pass --base main --pr "$w2"
+expect "a new commit: a full review" 0 pass '.scope=="full"'
+prompt_is full
+# Another merge-base with the same spec and intent: main has two commits, so main~1 is another base.
+r="$work/words-base"; new_repo "$r"; commit_file "$r" a.txt "1"
+git -C "$r" checkout -qb feat/x; mkdir -p "$r/specs" "$r/src"; printf %b "$spec_text" >"$r/specs/x.md"
+git -C "$r" add -A && git -C "$r" commit -qm "spec"; commit_file "$r" src/x.js "export const x = 1;"
+run "$r" pr-pass --base main --pr "$w1"; expect "a pass on one base" 0 pass '.scope=="full" and .intent=="spec"'
+run "$r" pr-pass --base main~1 --pr "$w2"; expect "another merge-base, same spec: a full review" 0 pass '.scope=="full" and .intent=="spec"'
+prompt_is full
+# Only a pass for this commit counts: a fail, or a pass with another intent, gives a full review.
+r="$work/words-fail"; new_project "$r"
+reply "$work/pr-unmet.json" "$(out "[$(ac AC-1 true),$(ac AC-2 false)]" "[]" "$lenses_pr")"
+run "$r" pr-unmet --base main --pr "$w1"; expect "a failing full review" 1 fail '.scope=="full"'
+run "$r" pr-pass --base main --pr "$w2"; expect "words changed on a failed commit: a full review" 0 pass '.scope=="full"'
+prompt_is full
+r="$work/words-intent"; new_project "$r" -
+run "$r" nospec-pass --base main; expect "no spec, no words: intent from the commits" 0 pass '.intent=="commits"'
+run "$r" pr-nospec-pass --base main --pr "$w1"; expect "words given after a commits-intent pass: a full review" 0 pass '.scope=="full" and .intent=="pr"'
+prompt_is full
+run "$r" words-pass --base main --pr "$w2"; expect "no spec, words changed: words only" 0 pass '.scope=="words" and .intent=="pr" and (.acceptance|length)==0'
+prompt_is words
+# The words prompt needs its placeholders, like prompt.md.
+cp -r "$work/reviewer" "$work/reviewer-words"
+sed 's/{{PR}}//' "$work/reviewer/prompt-words.md" >"$work/reviewer-words/prompt-words.md"
+saved_reviewer=$reviewer reviewer="$work/reviewer-words/review.sh"
+run "$r" words-pass --base main --pr "$w3"
+expect "prompt-words.md without {{PR}} is could-not-run" 2 could-not-run '.reason|test("prompt-words.md")'
+rm "$work/reviewer-words/prompt-words.md"
+run "$r" words-pass --base main --pr "$w3"
+expect "no prompt-words.md is could-not-run" 2 could-not-run '.reason|test("prompt-words.md")'
+reviewer=$saved_reviewer
+
 # --- A shallow clone (how a cloud session checks out the repo, LOG #48): fetching its commits into
 # the throwaway clone must still work.
 r="$work/p-full"; new_project "$r"

@@ -13,8 +13,8 @@ under `devshop:build` § 3; this skill only puts them on the PR.
 
 - Write it from `/opt/devshop-current/templates/pr-body.md`: the summary, a 2–3 sentence paragraph
   on what changed and why it matters, the Announcement in the app user's words (guidance: `ship.sh`
-  checks the shape, the owner the words). Claim only what you
-  have just read from the real signal (CI, the preview).
+  checks the shape, the owner the words). Claim only what you have just read from the real signal
+  (CI, the preview).
 - From the build: the `STACKS:` line goes in the engineering details; a conflict where the project
   won is said; **Changed after the go** lists the owner's answers recorded in the spec.
 - **Screenshots go on the PR, never only in chat:** for a UI change, one per core-flow step and
@@ -32,7 +32,8 @@ under `devshop:build` § 3; this skill only puts them on the PR.
   a PR.
 - Exit 1: fix what it lists, the words here, code under `devshop:build` § 3 (a spec change:
   `devshop:intent` step 5); commit, and run `ship.sh` again. Exit 2 or 3: ask the owner.
-- Run it again after any change to code or words.
+- Run it again after any change to code or words. With only the words changed, it reviews the
+  words alone (W10.9.7).
 
 ## 3. Low findings
 
@@ -44,14 +45,13 @@ under `devshop:build` § 3; this skill only puts them on the PR.
 ## 4. Tell the owner, then watch the PR
 
 - Once the PR is ready, in chat: its link and its one-line summary.
-- Subscribe the session to the PR's activity (`subscribe_pr_activity`). Its events (reviews,
-  comments, CI) wake the session; end the turn, never poll.
+- Subscribe the session to the PR's activity (`subscribe_pr_activity`). Its events wake the
+  session: end the turn, never poll.
 
 ## 5. Approval ships, comments are answered (TARGET Review 7–8)
 
 - The owner's approval of the PR's current head, with every required check green on it: squash-merge
-  (GitHub's merge tool, method `squash`) without asking for a "merge" message, then say in chat that
-  it merged. Checks still running: merge on their green event. Hold only when the approval or the
+  it without asking for a "merge" message, then say in chat that it merged. Checks still running: merge on their green event. Hold only when the approval or the
   chat says to wait, or for a concrete reason: say it and ask. A push after approval needs a new one.
 - A comment that would change a decision or acceptance item, a question included ("Could the list
   be sorted…?"), is a question to the owner: answer it on the PR with the options and what each
