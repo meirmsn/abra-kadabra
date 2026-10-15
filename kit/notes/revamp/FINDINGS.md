@@ -28,8 +28,8 @@ reviewer's verdict comment and is not tracked. Most sessions file nothing. For o
    its Seen cell (one per session) and regrade if the new sighting changes the picture. A held finding that recurs
    goes back to the Watch list.
 2. **Quick and in your task's files:** fix it now, in this PR.
-3. **Clear action:** a Fix queue row. **Unclear action:** a Watch list row with the observation and
-   your guess.
+3. **Clear action, impact M or more:** a Fix queue row. **Otherwise:** a Watch list row with the
+   observation and your guess (the rule of 5 below applies until W10.9.4 removes it).
 
 A filed row carries the grades below; nothing that isn't filed needs grading.
 
