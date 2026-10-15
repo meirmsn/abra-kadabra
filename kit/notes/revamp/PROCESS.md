@@ -99,17 +99,20 @@ V4/V5 = Dogfood. Rules:
 
 ## 4. Discoveries and replanning
 
-| Discovery                                  | Action                                                                                                                                              |
-| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Small issue in code you're touching        | Fix in the current task; mention in the PR                                                                                                          |
-| New issue elsewhere, or anything noticed   | Before shipping, [FINDINGS.md § How findings are handled](FINDINGS.md#how-findings-are-handled): match first, then fix now, Fix queue or Watch list |
-| Task wrong/unnecessary                     | `[-]` with reason; re-map its findings                                                                                                              |
-| Assumption behind an epic/milestone breaks | Stop; revisit/add a decision in [DECISIONS.md](DECISIONS.md) + [PLAN.md § Changelog](PLAN.md#changelog); ask the owner if scope/order changes       |
+| Discovery                                  | Action                                                                                                                                        |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Small issue in code you're touching        | Fix in the current task; mention in the PR                                                                                                    |
+| It blocked the task                        | Fix it in the task, or file it ([FINDINGS.md § How findings are handled](FINDINGS.md#how-findings-are-handled)) if the fix is out of the task |
+| It will block the next real project        | File it                                                                                                                                       |
+| Anything else noticed                      | Not filed: a line in the PR body or the reviewer's verdict comment is its record                                                              |
+| Task wrong/unnecessary                     | `[-]` with reason; re-map its findings                                                                                                        |
+| Assumption behind an epic/milestone breaks | Stop; revisit/add a decision in [DECISIONS.md](DECISIONS.md) + [PLAN.md § Changelog](PLAN.md#changelog); ask the owner if scope/order changes |
 
-Never silently drop scope: every finding is fixed, on a live list, or closed with a reason. The
-reviewer's `low` findings follow the same rule: not fixed in their PR by default.
-[LOG.md](LOG.md) gets an entry **per work session or milestone**, not per task:
-what moved, surprises, next.
+**The filing rule:** a finding is filed only when it blocked the task or will block the next real
+project. A filed row is graded as below; nothing else needs grading. Most sessions file nothing. A reviewer `low`
+finding is not fixed in its PR by default and is not filed unless the rule says so.
+[LOG.md](LOG.md) gets an entry **per work session or milestone**, not per task, of at most 150
+words: what moved, surprises, next.
 
 ## 5. Reviews
 
