@@ -27,6 +27,8 @@ made-up fixture with stub reviewers: one that passes everything fails it, and so
 honest fail, planted pass or could-not-run; one that tells them apart passes. `score.sh` passes run
 6's table and fails run 1's (5 of 15 planted caught).
 
+## Runs
+
 - **Run 1**, the reviewer as on `main` at `c6a84a5`: precision 1.0, **recall 0.33**. It mostly lost
   its Bash after one refused command and reviewed by reading (`results/`).
 - **Run 2**, after the owner-agreed fix (prompt and `review.sh`, W10.6.2 interface note first),
