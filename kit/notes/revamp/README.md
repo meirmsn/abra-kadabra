@@ -66,10 +66,10 @@ an explicit go/no-go; lalista is the pilot (web, then iOS).
 
 M1 is done (D-17, [REVIEW-2.md](REVIEW-2.md), LOG #71). Next, in order:
 
-- **Claude:** the M1 close-out tasks W10.9.1–W10.9.4 (small PRs: merge on approval and
+- **Claude:** the M1 close-out tasks W10.9.6 first, then W10.9.1–W10.9.4 and W10.9.7 (small PRs: merge on approval and
   comment-as-question in the `pr` skill; the screenshot table; the skill cap back to a warning; the
-  ledger's linter removed and the findings re-sorted per REVIEW-2 § 2; the filing rule, W10.9.6; the
-  body-only review, W10.9.7), then M2's first task:
+  ledger's linter removed and the findings re-sorted per REVIEW-2 § 2; the filing rule; the
+  body-only review), then M2's first task:
   scaffold the website repo and ship its first change as the plain run (W10.10.1). No more fixture
   work (owner, 2026-10-15).
 - **Owner:** the W10.10.1 owner steps when that task starts (repo, Cloudflare account and tokens,

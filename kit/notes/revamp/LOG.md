@@ -2883,7 +2883,7 @@ already there). The ledger keeps its numeric grades as the owner's reading aid a
 linter and the rule of five. M1 is declared met on runs 1 and 2 under D-16's rule; go/no-go = go.
 TARGET's north-star section carries the plain-run definition; Shape 2, Shape 8 and Ship 3 carry
 dated revisions. PLAN's milestones: M2 = the owner's website on Cloudflare, M3 = lalista web, M4 =
-iOS + Mac + retire v1. W10.9 (M1 close-out, five small tasks) and W10.10 (M2, coarse) added;
+iOS + Mac + retire v1. W10.9 (M1 close-out, small tasks) and W10.10 (M2) added;
 W10.6.10, W10.6.16, W10.7.1 and W10.7.2 closed; W10.6.11 and W10.6.17 folded into W10.10.7.
 
 **Clarified**: "the fixture's conventions" meant its `CLAUDE.md` rules, which devshop sessions
@@ -2902,3 +2902,31 @@ checks only; short LOG entries) and W10.9.7 (a body-only `ship` reviews the word
 from M2 after it cost five full reviews on this PR).
 
 **Next**: W10.9.1.
+
+## #72 — 2026-10-15 · Adversarial review of PR 117 against the owner's goal
+
+**What moved**: the owner asked for PR 117 to be attacked against the goal (slick, high-quality,
+reliable, safe, performant apps; the owner at direction level). A fresh-context reviewer was given
+the diff and the goal, not the author's conclusions. Twelve findings; the ones applied here:
+
+- **A safety regression caught:** W10.10.1 had put the preview token in the production account;
+  the fixture keeps a separate preview-only account so a PR workflow (which the agent can edit)
+  can't touch production. Restored, with required checks, no bypass and a one-time re-run of the
+  safety table on the new repo.
+- **"Slick" had no bar and no owner input:** the Lighthouse bar now has numbers and sits in the
+  scaffold's CI before the first change, with a byte budget, axe-core and page-meta checks; the
+  first change is the design direction (`/design-consultation`, `/design-shotgun`, the owner picks,
+  `DESIGN.md`), which every later review judges against.
+- **Order:** the stack home is written from what shipped (W10.10.2 after W10.10.1); the day-one
+  rollback rule lives in the scaffold's deploy job; the reviewer's eval-on-change (W10.10.7) comes
+  before the reviewer's browser (W10.10.4), whose proof is now a `DESIGN.md` break, not a bare page.
+- **Mechanisms, not sentences:** W10.9.1 names how approval ships (subscribe to the PR, merge on
+  the approval event); W10.9.2 cuts the body check to headings; W10.9.6 goes first and also covers
+  the `pr` skill, Ship 9 and the handle sweep; W10.10.5 drops synthetic traffic for a static site.
+- **"Do the next step" would have picked W10.8.3** (lalista's React choice): now `[!]` M3, and W10.10
+  sits under its own M2 heading. Stale TARGET dates (Mac, Reach 4 and 5, Safety 2 and 11, Shape 7,
+  the M1-exit line) carry dated revisions; the runtime text sweep rides W10.9.3.
+- Not applied: nothing of substance; the reviewer's verdict was that the direction is right and the
+  gaps were in M2's ordering and bar.
+
+**Next**: W10.9.6.

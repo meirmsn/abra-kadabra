@@ -65,7 +65,7 @@ Milestones and epics. Tasks and their status live in `workstreams/`. Target pict
 ```
 M0: W0.5 → W0.7 → W0.6 → W0.4 → W0.8
 M1: W10.1 spikes ─┬─▶ W10.4 boot ─┐
-    W10.2 L3 ─────┤               ├─▶ W10.6 skeleton ─▶ W10.7 go/no-go ─▶ M2 pilot ─▶ M3 iOS ─▶ M4
+    W10.2 L3 ─────┤               ├─▶ W10.6 skeleton ─▶ W10.7 go/no-go ─▶ W10.9 close-out ─▶ M2 website ─▶ M3 lalista ─▶ M4 iOS
     W10.3 harvest ┘   W10.5 fixture┘
 ```
 
@@ -117,4 +117,5 @@ is frozen and leaves `main` with W10.4.1).
 | 2026-10-12 | North-star hardened after adversarial review; fixture moves to Cloudflare (F-NEW-18/19, A-27); W10.5.3 + W10.6.5 added; lalista plan check = M2 precondition                                                                                                                                                                                                                                                              | LOG #20                                                    |
 | 2026-10-12 | Verify 2 and 7: the PR opens only after the reviewer passes (no draft-to-ready gate; A-23 obsolete); the verdict goes on the PR as one comment per review, and a deterministic check shows a missing or stale one. Commit statuses ruled out: the session's GitHub access refuses status writes (HTTP 403)                                                                                                                | Owner, W10.6.6                                             |
 | 2026-10-13 | First north-star run (W10.6.4): M1 exit not met. D-16: step 1 graded on the spec process, not a question count; only gaps that let a wrong change reach production or make a run untrustworthy block M1 (4 for run 2), the rest fixed in passing or deferred as known limits; W10.6.9 narrowed, W10.6.10 (run 2) added                                                                                                    | LOG #53, D-16                                              |
+| 2026-10-15 | Adversarial review of PR 117's plan (LOG #72): W10.10 reordered (walls and a numeric quality bar before the first change; the first change is the design direction to `DESIGN.md`; the stack home written from what shipped; the separate preview-only account kept), W10.9.1 given a mechanism, W10.9.6 first, stale TARGET dates revised                                                                                | LOG #72                                                    |
 | 2026-10-15 | Review 2 and D-17: M1 declared met (go); the per-run exam retired for a plain run; the ledger keeps its grades and loses its linter; skill cap back to a warning; M2 = the owner's website on Cloudflare, M3 = lalista web, M4 = iOS + Mac + retire v1; close-out tasks W10.9                                                                                                                                             | [REVIEW-2.md](REVIEW-2.md), D-17, LOG #70–#71              |

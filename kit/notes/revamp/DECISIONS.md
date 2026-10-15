@@ -321,7 +321,7 @@ owner's, with the two amendments they made.
 10. **Devshop changes only when a real project needs them** or a plain run misses; about one
     devshop PR a day.
 11. **Model and headroom:** Opus for the builder, Sonnet for the reviewer; a body-only `ship` runs
-    the reviewer's `pr` lens only (an M2 task, so it is not forgotten); plan headroom is decided
+    the reviewer's `pr` lens only (W10.9.7, moved up from M2 the same day); plan headroom is decided
     when the website starts.
 
 Clarification recorded with the answers: the fixture's own `CLAUDE.md` rules (migrations
