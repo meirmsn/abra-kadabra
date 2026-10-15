@@ -41,9 +41,10 @@ reachable from this page through links, or when a relative link or `#anchor` is 
   - [`ci-tiers-check.py`](../runtime/scripts/ci-tiers-check.py) on this repo's own `ci.yml` (below).
 - Skills: [`scripts/skills-check.py`](../scripts/skills-check.py) checks every skill in
   `runtime/skills/` and the install plugin's own (`--plugin-skills`) names itself after its
-  directory, has a description, fits on one page, names only `/opt/devshop-current/` files its
+  directory, has a description, names only `/opt/devshop-current/` files its
   version has and hands over only to skills that exist (`devshop:<name>`); no two share a name, and
   all the descriptions together stay within the always-loaded budget, 200 words (TARGET Shape 2).
+  A skill past one page (60 lines, 600 words) is a warning, not a failure (D-17).
   Run on the real skills by
   [`tests/skills-check.test.sh`](../tests/skills-check.test.sh), after feeding it bad ones.
 

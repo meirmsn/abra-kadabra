@@ -7,14 +7,15 @@ session; they are checked with them, as one set.
 For every RUNTIME_DIR/skills/<name>/SKILL.md and DIR/<name>/SKILL.md:
   - frontmatter between '---' lines, with 'name: <name>' (the directory's name, which is what
     Claude Code lists) and a non-empty 'description:' on one line (so its words can be counted)
-  - one page at most: MAX_LINES lines and MAX_WORDS words, frontmatter included
+  - one page at most: MAX_LINES lines and MAX_WORDS words, frontmatter included. A warning only
+    (D-17 item 4, W10.9.3): reported, never a failure
   - every /opt/devshop-current/<path> it names exists in RUNTIME_DIR, the files a session gets from
     the same pinned version (a skill never points at a script its version lacks)
   - every `devshop:<skill>` it hands over to is one of these skills (the plugin lists them so)
   - no plugin skill shares its name with a runtime skill
 All the descriptions together stay within MAX_DESCRIPTION_WORDS: they are loaded into every
 session, the devshop's share of the always-loaded budget (TARGET Shape 2, W10.6.16, W10.6.18).
-Exit 0 = every skill has the shape; 1 = problems (listed); 2 = can't run (no runtime, no skills, a
+Exit 0 = every skill has the shape (warnings, if any, listed); 1 = problems (listed); 2 = can't run (no runtime, no skills, a
 missing plugin skills dir, bad arguments).
 """
 import os
@@ -28,13 +29,13 @@ HANDOVER = re.compile(r"\bdevshop:([a-z][a-z0-9-]*)")
 
 
 def check(path, name, runtime, names):
-    problems = []
+    problems, warnings = [], []
     with open(path, encoding="utf-8") as f:
         text = f.read()
     lines = text.splitlines()
     fm = re.match(r"---\n(.*?)\n---\n", text, re.S)
     if not fm:
-        return [f"{name}: no frontmatter ('---' lines around name and description)"], 0
+        return [f"{name}: no frontmatter ('---' lines around name and description)"], [], 0
     fields = dict(re.findall(r"^([a-z-]+):[ \t]*(.*)$", fm.group(1), re.M))
     if fields.get("name") != name:
         problems.append(f"{name}: frontmatter name is '{fields.get('name', '')}', want '{name}' (its directory)")
@@ -44,16 +45,16 @@ def check(path, name, runtime, names):
     elif re.search(r"^description:.*\n[ \t]", fm.group(1), re.M):
         problems.append(f"{name}: description must be one line, or its words can't be counted")
     if len(lines) > MAX_LINES:
-        problems.append(f"{name}: {len(lines)} lines, one page is at most {MAX_LINES}")
+        warnings.append(f"{name}: {len(lines)} lines, one page is at most {MAX_LINES}")
     words = len(text.split())
     if words > MAX_WORDS:
-        problems.append(f"{name}: {words} words, one page is at most {MAX_WORDS}")
+        warnings.append(f"{name}: {words} words, one page is at most {MAX_WORDS}")
     for rel in sorted(set(PINNED.findall(text))):
         if not os.path.exists(os.path.join(runtime, rel)):
             problems.append(f"{name}: names /opt/devshop-current/{rel}, which this runtime doesn't have")
     for target in sorted(set(HANDOVER.findall(text)) - set(names)):
         problems.append(f"{name}: hands over to devshop:{target}, which this runtime doesn't have")
-    return problems, len(description.split())
+    return problems, warnings, len(description.split())
 
 
 def skill_dirs(skills):
@@ -85,7 +86,7 @@ def main(argv):
             return 2
         sets.append((plugin, skill_dirs(plugin)))
     every = [n for _, ns in sets for n in ns]
-    problems, description_words = [], 0
+    problems, warnings, description_words = [], [], 0
     for name in sorted({n for n in every if every.count(n) > 1}):
         problems.append(f"{name}: a plugin skill shares its name with a runtime skill")
     for base, ns in sets:
@@ -94,11 +95,14 @@ def main(argv):
             if not os.path.isfile(path):
                 problems.append(f"{name}: no SKILL.md")
                 continue
-            found, words = check(path, name, runtime, every)
+            found, warned, words = check(path, name, runtime, every)
             problems += found
+            warnings += warned
             description_words += words
     if description_words > MAX_DESCRIPTION_WORDS:
         problems.append(f"descriptions: {description_words} words, the always-loaded budget is {MAX_DESCRIPTION_WORDS}")
+    for w in warnings:
+        print(f"skills-check: warning: {w}")
     for p in problems:
         print(f"skills-check: {p}")
     if not problems:

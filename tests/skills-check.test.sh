@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Tests scripts/skills-check.py, the shape check for the devshop's own skills (runtime/skills/): each
-# SKILL.md names itself after its directory, has a description, fits on one page, every
+# SKILL.md names itself after its directory, has a description, is warned about past one page, every
 # /opt/devshop-current/<path> it names exists in the same runtime, and every `devshop:<skill>` it
 # hands over to is a skill of the same runtime or the install's plugin; all the descriptions together,
 # the plugin's included, stay within the always-loaded budget (TARGET Shape 2, W10.6.16, W10.6.18).
@@ -15,7 +15,6 @@ command -v python3 >/dev/null || fail "python3 not found"
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-# check <name> <want exit> <runtime dir> [problem the output must name]
 # check <name> <want exit> <runtime dir> [problem the output must name]; $PLUGIN, if set, is passed
 # as --plugin-skills.
 check() {
@@ -48,9 +47,13 @@ check "a skill without frontmatter fails" 1 "$(runtime nofm "Just text.")" "fron
 check "a path the runtime lacks fails" 1 \
   "$(runtime dangling "$good Then /opt/devshop-current/scripts/missing.sh.")" "/opt/devshop-current/scripts/missing.sh"
 long=$good$'\n'$(for i in $(seq 1 70); do echo "Line $i."; done)
-check "a skill over one page (lines) fails" 1 "$(runtime lines "$long")" "lines"
+# The one-page cap is a warning, not a failure (D-17 item 4, W10.9.3): reported, exit 0.
+check "a skill over one page (lines) is a warning" 0 "$(runtime lines "$long")" "warning: demo: 76 lines"
 wordy=$good$'\n'$(for i in $(seq 1 40); do echo "word word word word word word word word word word word word word word word word"; done)
-check "a skill over one page (words) fails" 1 "$(runtime words "$wordy")" "words"
+check "a skill over one page (words) is a warning" 0 "$(runtime words "$wordy")" "warning: demo: 6"
+# A warning never hides a failure beside it.
+check "a skill over one page with a path the runtime lacks fails" 1 \
+  "$(runtime lines-dangling "$long Then /opt/devshop-current/scripts/missing.sh.")" "/opt/devshop-current/scripts/missing.sh"
 check "a handover to a skill of the same runtime passes" 0 "$(runtime handover "$good Then invoke \`devshop:demo\`.")"
 check "a handover to a skill the runtime lacks fails" 1 \
   "$(runtime dangling-skill "$good Then invoke \`devshop:missing\`.")" "devshop:missing"

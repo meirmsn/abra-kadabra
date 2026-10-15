@@ -48,7 +48,8 @@ what is ambiguous; which items can't be tested; which edge cases and failure mod
 what scope was added beyond the ask; does literal code in it match the codebase. Its findings are
 claims to check. Fix what you're sure of; the rest go to the owner as questions.
 
-_Mitigation:_ TARGET has the independent reviewer do this; its spec mode is an M2 item.
+_Mitigation:_ TARGET has the independent reviewer do this; until the reviewer reviews specs, this
+helper does.
 
 ## 5. The "go"
 
