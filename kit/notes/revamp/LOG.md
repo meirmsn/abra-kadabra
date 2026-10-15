@@ -274,7 +274,7 @@ validated, PLATFORM § 5 updated.
 
 ## #9 — 2026-10-11 · Agent identity working (W10.1.1 done)
 
-**What**: owner created machine user (the agent identity) (Write collaborator on abra-kadabra) and,
+**What**: owner created a machine user, the agent identity (Write collaborator on abra-kadabra) and,
 in a private window, disconnected claude.ai's GitHub connection and reconnected it while GitHub
 was logged in as the agent — simpler than `gh` + `/web-setup`, no CLI needed. The Claude App stays
 installed on `meirmsn` (repo owner); "Not installed" on the agent's own account is irrelevant.
