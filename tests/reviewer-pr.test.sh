@@ -113,6 +113,17 @@ grep -qF "**Reviewer: fail**" "$work/cf.md" || fail "fail headline"
 grep -qE '^\| pr \| yes \| 1 blocking \|' "$work/cf.md" || fail "blocking lens row"
 grep -qE '^\| AC-2 \| \*\*unmet\*\* \|' "$work/cf.md" || fail "unmet item row"
 ok "a fail shows the blocking lens and the unmet item"
+# A words-only review (W10.9.7) says so in the headline and names the full review the code passed in.
+jq '.scope="words" | .code_review="001-aaaaaaaaaaaa.json" | .findings=[] | .low=0 | .lenses=[{lens:"pr",applies:true,note:"words checked"}]' "$work/v.json" >"$work/w.json"
+"$render" "$work/w.json" >"$work/cw.md"
+sed -n 2p "$work/cw.md" | grep -qE '^\*\*Reviewer: pass\*\* · words only · round 2 · ' || fail "words-only headline: $(sed -n 2p "$work/cw.md")"
+# shellcheck disable=SC2016 # literal backticks
+grep -qF 'Words only: the code at this commit passed the full review `001-aaaaaaaaaaaa.json`' "$work/cw.md" || fail "words-only line"
+grep -qE '^\| pr \| yes \| pass \|' "$work/cw.md" && [ "$(grep -cE '^\| [a-z]+ \| (yes|no) \|' "$work/cw.md")" = 1 ] || fail "words-only: want the pr lens row only"
+jq '.scope="full" | .code_review=""' "$work/v.json" >"$work/fs.json"
+"$render" "$work/fs.json" >"$work/cfs.md"
+if grep -qiF "words only" "$work/cfs.md" "$work/c.md"; then fail "a full review (or a verdict without scope) says words only"; fi
+ok "a words-only verdict says so and names the full review; a full one doesn't"
 jq '.format="devshop-review/1"' "$work/v.json" >"$work/v1.json"
 jq '.commit="aaaaaaaaaaaa"' "$work/v.json" >"$work/short.json"
 for bad in "$work/v1.json" "$work/short.json" "$work/nope.json" /dev/null; do

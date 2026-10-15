@@ -7,7 +7,8 @@
 # too, so that text can't mention people or render markdown links and images (bare URLs and #123
 # references still autolink). Values shown in code spans are kept literal. Short by default (owner,
 # 2026-10-13): the headline line shows; spec, tables, findings and reviewer sit in one <details>
-# block, which model text can't close early (its "<" is escaped).
+# block, which model text can't close early (its "<" is escaped). A words-only review (W10.9.7)
+# says so in the headline and names the full review the code passed in.
 #   usage: pr-comment.sh <verdict file>   → the comment's markdown on stdout
 # Exit 0 = rendered; 2 = not a readable devshop-review/2 verdict (nothing printed).
 set -uo pipefail
@@ -33,11 +34,12 @@ jq -r '
   | ($v.lenses + [$v.findings[] | .lens | select(IN($named[]) | not) | {lens: ., applies: true, note: ""}]
      | unique_by(.lens) | sort_by(.lens as $l | ["intent","spec","tests","docs","code","security","design","qa","pr"] | index($l) // 99)) as $rows
   | "<!-- devshop-review \({format: $v.format, commit: $v.commit, outcome: $v.outcome, round: $v.round, words: ($v.pr.sha256? // null)} | tojson) -->",
-    "**Reviewer: \($v.outcome)** · round \($v.round) · \($v.blocking // ($blocking | length)) blocking, \($v.low // 0) low · commit `\($v.commit[0:12])`",
+    "**Reviewer: \($v.outcome)**\(if $v.scope? == "words" then " · words only" else "" end) · round \($v.round) · \($v.blocking // ($blocking | length)) blocking, \($v.low // 0) low · commit `\($v.commit[0:12])`",
     "", "<details>", "<summary>Spec, lenses, acceptance items, findings and reviewer</summary>", "",
     (if $v.spec != "" then "Spec: `\($v.spec | code)`"
      elif $v.intent == "pr" then "No spec: reviewed against the PR'"'"'s words"
      else "No spec: reviewed against the commit messages" end),
+    (if $v.scope? == "words" then "", "Words only: the code at this commit passed the full review `\($v.code_review // "" | code)`; this review checked the PR'"'"'s title and body against it." else empty end),
     (if ($v.reason // "") != "" then "", "Could not run: \($v.reason | clean)" else empty end),
     (if ($rows | length) > 0 then
       "", "| Lens | Applies | Result | Note |", "| --- | --- | --- | --- |",
