@@ -147,9 +147,11 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   code, words and the verdict comment go on the PR together), the guard that refuses other ways to a
   PR, and its proof ([`tests/reviewer.test.sh`](../tests/reviewer.test.sh),
   [`tests/reviewer-pr.test.sh`](../tests/reviewer-pr.test.sh),
-  [`tests/ship.test.sh`](../tests/ship.test.sh) and
-  [`tests/review-guard.test.sh`](../tests/review-guard.test.sh) in CI,
-  [`tests/reviewer-live.sh`](../tests/reviewer-live.sh) in a session).
+  [`tests/ship.test.sh`](../tests/ship.test.sh),
+  [`tests/review-guard.test.sh`](../tests/review-guard.test.sh) and
+  [`tests/reviewer-eval.test.sh`](../tests/reviewer-eval.test.sh) in CI,
+  [`tests/reviewer-live.sh`](../tests/reviewer-live.sh) in a session), and the eval run by hand
+  before a change to how it reviews (W10.10.7).
 
 ## The revamp (being built)
 

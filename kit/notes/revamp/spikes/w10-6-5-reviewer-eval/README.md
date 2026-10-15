@@ -3,6 +3,32 @@
 The real, pinned reviewer on the fixture: 5 honest changes × 3 runs and 15 planted changes × 1 run,
 2026-10-12/13. LOG #50.
 
+## The check before a reviewer change (W10.10.7)
+
+This eval is the reviewer's eval-on-change. Before a PR that changes how the reviewer reviews
+(`runtime/reviewer/review.sh`, `prompt.md`, `settings.json`, `verdict.schema.json`, its model) or
+moves to a new Claude Code CLI, run it on the branch, in a session where `claude` is logged in:
+
+```sh
+kit/notes/revamp/spikes/w10-6-5-reviewer-eval/check.sh --fixture <a fresh clone of the fixture> --out <a new dir>
+```
+
+`check.sh` runs it as run 6 did (`prepare.sh`, the 30 runs through `run.sh` with the seed-1 plants
+replayed from `results/`, below) on the branch's `runtime/reviewer`, then `score.sh`. It passes only
+when all 15 honest runs pass and all 15 planted runs fail, the shipped reviewer's record (runs 4–6;
+0 flips in 100 repeats, W10.6.9). Any miss fails it, a could-not-run included: each one is printed
+as `MISS <run> honest|planted <outcome>`, with the counts per plant type. It records the CLI
+version it ran on (`claude-version`, F-NEW-57). About $2 and 15 minutes; not in CI, as it calls the
+real model (D-06). Put its summary lines in the PR's evidence. After a pass, `tally.sh <out>` lists
+each planted run's blocking findings, to check by eye that each names its plant.
+
+[`tests/reviewer-eval.test.sh`](../../../../../tests/reviewer-eval.test.sh) (in CI) runs it on a
+made-up fixture with stub reviewers: one that passes everything fails it, and so does a single
+honest fail, planted pass or could-not-run; one that tells them apart passes. `score.sh` passes run
+6's table and fails run 1's (5 of 15 planted caught).
+
+## Runs
+
 - **Run 1**, the reviewer as on `main` at `c6a84a5`: precision 1.0, **recall 0.33**. It mostly lost
   its Bash after one refused command and reviewed by reading (`results/`).
 - **Run 2**, after the owner-agreed fix (prompt and `review.sh`, W10.6.2 interface note first),

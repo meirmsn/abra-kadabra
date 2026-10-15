@@ -163,6 +163,12 @@ verdict for the head commit before approving.
 - The W10.6.5 eval ([spike](../../kit/notes/revamp/spikes/w10-6-5-reviewer-eval/README.md)) ran
   the real reviewer on the fixture: 15 honest changes all pass and 15 changes planted by the
   north-star harness all fail, each on its plant (A-12).
+- **Before a PR that changes how it reviews** (`review.sh`, `prompt.md`, `settings.json`,
+  `verdict.schema.json`, the model, a new Claude Code CLI), run that eval's `check.sh` on the
+  branch, by hand in a session (W10.10.7, [how](../../kit/notes/revamp/spikes/w10-6-5-reviewer-eval/README.md#the-check-before-a-reviewer-change-w10107)).
+  It passes only when every honest change passes and every planted one fails; a could-not-run is a
+  miss. [`tests/reviewer-eval.test.sh`](../../tests/reviewer-eval.test.sh) (in CI) proves a stub
+  reviewer that passes everything fails it.
 - [`tests/reviewer-live.sh`](../../tests/reviewer-live.sh) (`[runs]`, in a session only, because it
   calls the real model and CI runs no LLM jobs) runs the real reviewer on the A-04 fixtures in
   [`tests/fixtures/reviewer/`](../../tests/fixtures/reviewer) (spec: [`spec.md`](../../tests/fixtures/reviewer/spec.md)). The planted change (AC-4 skipped)

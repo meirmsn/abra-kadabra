@@ -2980,3 +2980,16 @@ labelled lines, placeholders, the preview line and image pinning stay checked.
 **Surprises**: none that meet the filing rule; no ledger rows added.
 
 **Next**: W10.9.1 stays `[~]` until a real PR merges on approval; then W10.10.1.
+
+## #77 — 2026-10-15 · W10.10.7: the reviewer's eval-on-change
+
+**What moved**: the W10.6.5 eval is now one command, `check.sh`, run by hand before any PR that
+changes how the reviewer reviews (the spike README, the reviewer README and CLAUDE.md say so). It
+runs the eval as run 6 did and `score.sh` fails on any miss, a could-not-run included; it records
+the CLI version (F-NEW-57). Test first: on a made-up fixture a stub reviewer that passes everything
+fails it, as does each single miss; run 6's table passes and run 1's fails; 14 of 14 mutants killed.
+
+**Surprises**: `run.sh` leaves its `eval-run/*` branches in the clone, so a second run on the same
+clone stopped; `check.sh` now refuses a used clone.
+
+**Next**: W10.10.1 (owner); the real check runs with the first reviewer change (W10.10.4).

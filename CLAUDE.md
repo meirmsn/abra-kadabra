@@ -25,6 +25,8 @@ This repo is the devshop, being rewritten as v2 (the 2026-Q4 revamp). Work only 
 - Commit subjects and PR titles describe the observable change, in ≤ 72 characters. A PR body
   opens with a one-line summary and is the evidence record: what was verified, how, and the
   result. Claim only state you have just read from the real signal.
+- A PR that changes how the reviewer reviews carries the reviewer eval's result
+  ([runtime/reviewer/README.md § Proof](runtime/reviewer/README.md#proof)).
 - Touch only the files your task owns. Never discard, reset or stash work you didn't write.
 
 ## Rules
