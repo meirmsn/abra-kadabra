@@ -149,7 +149,7 @@ _Agreed 2026-10-11 (LOG #19)._
 _Agreed 2026-10-12 (LOG #19)._
 
 1. **Merge only through the GitHub PR,** required checks green on the exact commit being merged, branch up to date with `main` (L-32); squash merge. By default Claude merges once the owner approves and checks pass; it waits for the owner to merge only when there's a reason ([Review](#review) bullet 8).
-2. **Production health is checked before merging,** so a deploy can't hide an existing failure (L-33).
+2. **Production health is checked before merging,** so a deploy can't hide an existing failure (L-33). **Revised 2026-10-15 (D-17):** deferred until a project has real traffic (F-NEW-42); the owner's approval is the gate until then.
 3. **Web and backend deploy automatically from `main`;** deploy secrets only in the `production` environment (Safety); database migrations run in the deploy pipeline, never from Claude's session. **Every deploy has a simple rollback from day one** (owner,
    2026-10-15, D-17): the deploy job records the previous version, and the platform's own
    rollback restores it; with append-only, backward-compatible migrations a code rollback never
