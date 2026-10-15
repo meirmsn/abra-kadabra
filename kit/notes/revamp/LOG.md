@@ -2967,3 +2967,16 @@ Anything else is a full review. Interface note first (under W10.6.2), tests firs
 `claude`; 14 of 14 mutants killed after two tests were added, one equivalent condition removed.
 Shown on its own PR: a full review on the first `ship`, then a body-only `ship` with one `pr`-lens
 verdict.
+
+## #76 — 2026-10-15 · W10.9.1 and W10.9.2: approval ships; the body check is shape only
+
+**What moved**: the `pr` skill now subscribes the session to its PR after `ship`, squash-merges on
+the owner's approval of the head with checks green (no "merge" message), and answers a comment that
+would change a decision or acceptance item with the options instead of building it. The PR template
+lays screenshots out as a table per state (label, light, dark). `pr-body-check.py` no longer counts
+the summary paragraph's sentences or scans the announcement for developer words; headings,
+labelled lines, placeholders, the preview line and image pinning stay checked.
+
+**Surprises**: none that meet the filing rule; no ledger rows added.
+
+**Next**: W10.9.1 stays `[~]` until a real PR merges on approval; then W10.10.1.

@@ -5,6 +5,8 @@
 # order, details not collapsed, evidence linked by branch and an over-long title all fail. Since
 # W10.6.9d: a missing or misshapen summary paragraph, an announcement in developer words, screenshots
 # left off the PR and images on raw.githubusercontent.com (404 for a private repo's viewers) fail too.
+# Since W10.9.2 the check is cut to shape: the summary paragraph's sentences and the announcement's
+# words are not checked (the owner is the check on words), and screenshots sit in a table per state.
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
@@ -54,9 +56,13 @@ You can now save your cart and pick it up later on any device you sign in on.
 
 ## Evidence
 
-- **Screenshots:**
-  - Step 1, save the cart: ![saved cart](https://github.com/acme/shop/raw/$sha/1-saved-cart.png)
-  - Empty state: ![empty](https://github.com/user-attachments/assets/1b2c3d4e-0000-4000-8000-000000000000)
+- **Screenshots:** one row per step and state
+
+| State                     | Light                                                                 | Dark                                                                      |
+| ------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Step 1, save the cart     | ![saved cart](https://github.com/acme/shop/raw/$sha/1-saved-cart.png) | ![saved cart](https://github.com/acme/shop/raw/$sha/1-saved-cart-dark.png) |
+| Empty state               | ![empty](https://github.com/user-attachments/assets/1b2c3d4e-0000-4000-8000-000000000000) | ![empty](https://github.com/user-attachments/assets/1b2c3d4e-0000-4000-8000-000000000001) |
+
 - **Reviewer:** pass on every lens for commit ${sha:0:7}
 - **CI:** green for commit ${sha:0:7}
 - **Low findings:** none
@@ -82,7 +88,7 @@ check "template syntax quoted in code is not a placeholder" 0 "$(variant quoted-
   's = s.replace("rollback needs no database change.", "rollback needs no database change. Renders \x60{{ cart.total }}\x60:\n\n\x60\x60\x60\n{{ cart.items }}\n\x60\x60\x60")')"
 
 check "no screenshots for a change without UI passes" 0 "$(variant no-ui \
-  's = re.sub(r"- \*\*Screenshots:\*\*\n(  - .*\n)+", "- **Screenshots:** no UI change\n", s)')"
+  's = re.sub(r"- \*\*Screenshots:\*\*.*\n\n(\|.*\n)+", "- **Screenshots:** no UI change\n", s)')"
 check "a three-sentence paragraph passes" 0 "$(variant three-sentences \
   's = s.replace("finished on a laptop.", "finished on a laptop. Carts expire after a month.")')"
 check "an abbreviation is not a sentence end" 0 "$(variant abbrev \
@@ -97,32 +103,34 @@ check "the unfilled template fails" 1 "$template" "placeholder left: {{"
 check "a heading as the summary fails" 1 "$(variant heading-summary 's = "# " + s')" "plain one-line summary"
 check "a two-line summary fails" 1 "$(variant two-lines 's = s.replace("device.\n", "device.\nAnd more.\n", 1)')" "summary must be one line"
 check "an over-long summary fails" 1 "$(variant long-summary 's = "x" * 121 + s[s.index("\n"):]')" "summary: 121 characters"
-check "a body without the summary paragraph fails" 1 "$(variant no-paragraph \
-  's = re.sub(r"A signed-in.*?laptop\.\n\n", "", s, flags=re.S)')" "no summary paragraph"
-check "a one-sentence paragraph fails" 1 "$(variant one-sentence \
-  's = s.replace(" It matters\nbecause most carts are started on a phone and finished on a laptop.", "")')" "summary paragraph: 1 sentence"
-check "a four-sentence paragraph fails" 1 "$(variant four-sentences \
-  's = s.replace("finished on a laptop.", "finished on a laptop. One. Two.")')" "summary paragraph: 4 sentences"
-check "a list in place of the paragraph fails" 1 "$(variant list-paragraph \
-  's = s.replace("A signed-in shopper", "- A signed-in shopper")')" "summary paragraph must be plain prose"
-check "two paragraphs before the preview fail" 1 "$(variant two-paragraphs \
-  's = s.replace("finished on a laptop.\n", "finished on a laptop.\n\nAnd one more thing. Really.\n")')" "one paragraph"
-check "an announcement naming an acceptance item fails" 1 "$(variant announce-ac \
-  's = s.replace("any device you sign in on.", "any device you sign in on (AC-3).")')" "Announcement: developer words"
-check "an announcement naming a route fails" 1 "$(variant announce-route \
-  's = s.replace("pick it up later", "pick it up later at /cart/saved")')" "Announcement: developer words"
-check "an announcement naming a file fails" 1 "$(variant announce-file \
-  's = s.replace("You can now", "Per saved-cart.md, you can now")')" "Announcement: developer words"
-check "an announcement naming a status code fails" 1 "$(variant announce-status \
-  's = s.replace("on any device you sign in on.", "on any device; a missing cart gives a 404 page.")')" "Announcement: developer words"
-check "an announcement with code fails" 1 "$(variant announce-code \
-  's = s.replace("save your cart", "save your \x60cart\x60")')" "Announcement: developer words"
+check "a body without the summary paragraph passes" 0 "$(variant no-paragraph \
+  's = re.sub(r"A signed-in.*?laptop\.\n\n", "", s, flags=re.S)')"
+check "a one-sentence paragraph passes (no sentence counting)" 0 "$(variant one-sentence \
+  's = s.replace(" It matters\nbecause most carts are started on a phone and finished on a laptop.", "")')"
+check "a four-sentence paragraph passes (no sentence counting)" 0 "$(variant four-sentences \
+  's = s.replace("finished on a laptop.", "finished on a laptop. One. Two.")')"
+check "a list in place of the paragraph passes" 0 "$(variant list-paragraph \
+  's = s.replace("A signed-in shopper", "- A signed-in shopper")')"
+check "two paragraphs before the preview pass" 0 "$(variant two-paragraphs \
+  's = s.replace("finished on a laptop.\n", "finished on a laptop.\n\nAnd one more thing. Really.\n")')"
+check "an announcement naming an acceptance item passes (no word list)" 0 "$(variant announce-ac \
+  's = s.replace("any device you sign in on.", "any device you sign in on (AC-3).")')"
+check "an announcement naming a route passes (no word list)" 0 "$(variant announce-route \
+  's = s.replace("pick it up later", "pick it up later at /cart/saved")')"
+check "an announcement naming a file passes (no word list)" 0 "$(variant announce-file \
+  's = s.replace("You can now", "Per saved-cart.md, you can now")')"
+check "an announcement naming a status code passes (no word list)" 0 "$(variant announce-status \
+  's = s.replace("on any device you sign in on.", "on any device; a missing cart gives a 404 page.")')"
+check "an announcement with code passes (no word list)" 0 "$(variant announce-code \
+  's = s.replace("save your cart", "save your \x60cart\x60")')"
 check "an image quoted in code is not a screenshot" 1 "$(variant shots-in-code \
-  's = re.sub(r"- \*\*Screenshots:\*\*\n(  - .*\n)+", "- **Screenshots:** pr-assets.sh prints \x60![a](https://github.com/acme/shop/raw/x/a.png)\x60\n", s)')" "**Screenshots:** needs at least one image"
+  's = re.sub(r"- \*\*Screenshots:\*\*.*\n\n(\|.*\n)+", "- **Screenshots:** pr-assets.sh prints \x60![a](https://github.com/acme/shop/raw/x/a.png)\x60\n", s)')" "**Screenshots:** needs at least one image"
 check "a stray backtick doesn't hide a bad image paragraphs later" 1 "$(variant stray-backtick \
   "s = s.replace('carts were lost', 'carts were lost').replace('- **Behaviour change:** a', '- **Behaviour change:** a \x60stray').replace('https://github.com/acme/shop/raw/$sha', 'https://raw.githubusercontent.com/acme/shop/$sha').replace('rollback needs no database change.', 'rollback needs no \x60database change.')")" "raw.githubusercontent.com"
+check "a screenshot table without images fails" 1 "$(variant table-no-images \
+  's = re.sub(r"!\[[^\]]*\]\([^)]*\)", "(pending)", s)')" "**Screenshots:** needs at least one image"
 check "screenshots kept off the PR fail" 1 "$(variant shots-in-chat \
-  's = re.sub(r"- \*\*Screenshots:\*\*\n(  - .*\n)+", "- **Screenshots:** taken; not embedded here (no image host in this session)\n", s)')" "**Screenshots:** needs at least one image"
+  's = re.sub(r"- \*\*Screenshots:\*\*.*\n\n(\|.*\n)+", "- **Screenshots:** taken; not embedded here (no image host in this session)\n", s)')" "**Screenshots:** needs at least one image"
 check "an image on raw.githubusercontent.com fails, even pinned" 1 "$(variant raw-host \
   "s = s.replace('https://github.com/acme/shop/raw/$sha', 'https://raw.githubusercontent.com/acme/shop/$sha')")" "raw.githubusercontent.com"
 check "a missing preview fails" 1 "$(variant no-preview 's = re.sub(r"\*\*Preview:\*\*.*\n", "", s)')" "no **Preview:** line"

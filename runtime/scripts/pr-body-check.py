@@ -2,14 +2,13 @@
 """Shape check for a PR body written from runtime/templates/pr-body.md (TARGET § L3 Review).
 
 Usage: pr-body-check.py BODY_FILE [TITLE]
-Checks what can be checked without judgement; whether the words are true is the reviewer's job.
+Checks the shape only; the words are the reviewer's and the owner's to judge (W10.9.2: no sentence
+counting, no word list).
   - title (if given): one line, 72 characters at most
   - first line: a one-line summary (plain text, at most 120 characters, then a blank line)
-  - then the summary paragraph: one plain paragraph of 2–3 sentences, before the **Preview:** line
   - a **Preview:** line before the first section, holding a link or "none — <reason>"
   - sections, in order: ## Announcement (optional), ## What you should know, ## Evidence, none
     other, none empty; each holds its labelled lines (see REQUIRED)
-  - the Announcement has no developer words: code, AC ids, routes, file names, status codes
   - **Screenshots:** holds at least one image, or says "no UI change"
   - then the engineering details, collapsed: <details><summary>Engineering details</summary> …
     </details>; anything after that (a footer) has no heading
@@ -41,16 +40,6 @@ IMAGE = re.compile(r"!\[[^\]]*\]\(\s*<?([^)\s>]+)|<img\s[^>]*src=[\"']([^\"']+)"
 GITHUB_FILE = re.compile(
     r"https?://(?:github\.com/[^/\s]+/[^/\s]+/(?:blob|raw)|raw\.githubusercontent\.com/[^/\s]+/[^/\s]+)/([^/\s)]+)/")
 SHA = re.compile(r"^[0-9a-f]{40}$")
-# A sentence ends at . ! or ? (closing quotes or brackets allowed) before a capital, a digit or the
-# end, so "e.g. the bus" is one sentence.
-SENTENCE_END = re.compile(r"[.!?]+[\"'”’)]*(?=\s+[A-Z0-9\"“‘(]|\s*$)")
-SENTENCES = (2, 3)
-# Words for developers, not for the person who uses the app (W10.6.9d): code, acceptance item ids,
-# routes, file names, HTTP status codes.
-DEV_WORDS = re.compile(
-    r"`|\bAC-\d+\b|(?<![\w/.:])/[a-z0-9_:-]+(?:/[\w:.-]*)*|\b[\w-]+\.(?:md|py|sh|js|mjs|ts|tsx|jsx|json|"
-    r"ya?ml|toml|sql|css|html?|lock)\b|\bHTTP\b|\bstatus code\b|\b404\b|"
-    r"\b[45]\d\d\s+(?:error|page|status|response|code)\b|\b(?:error|status|code)\s+[45]\d\d\b", re.I)
 
 
 def label_present(text, label):
@@ -62,33 +51,6 @@ def item(content, label):
     m = re.search(r"^\s*[-*]?\s*\*\*" + re.escape(label) + r":\*\*", content, re.M)
     nxt = re.search(r"^\s*[-*]?\s*\*\*[^*\n]+:\*\*", content[m.end():], re.M)
     return content[m.end():m.end() + nxt.start()] if nxt else content[m.end():]
-
-
-def check_paragraph(rest):
-    """The summary paragraph: the one plain paragraph between the summary and the **Preview:** line."""
-    blocks, cur = [], []
-    for line in rest:
-        if PREVIEW.match(line) or HEADING.match(line):
-            break
-        if line.strip():
-            cur.append(line.strip())
-        elif cur:
-            blocks.append(cur)
-            cur = []
-    if cur:
-        blocks.append(cur)
-    if not blocks:
-        return ["no summary paragraph: 2–3 sentences under the one-line summary, saying what changed and why it matters"]
-    problems = []
-    if len(blocks) > 1:
-        problems.append(f"the summary paragraph must be one paragraph before the **Preview:** line, found {len(blocks)}")
-    para = " ".join(blocks[0])
-    if re.match(r"^([#>|<!*+-]|\d+\.)", para):
-        problems.append(f"the summary paragraph must be plain prose, not markup: {para[:60]}")
-    n = len(SENTENCE_END.findall(para))
-    if not SENTENCES[0] <= n <= SENTENCES[1]:
-        problems.append(f"summary paragraph: {n} sentence{'s' if n != 1 else ''}, want {SENTENCES[0]}–{SENTENCES[1]}")
-    return problems
 
 
 def check(body, title):
@@ -114,8 +76,6 @@ def check(body, title):
         problems.append(f"summary: {len(summary)} characters, at most {SUMMARY_MAX}")
     if first + 1 < len(lines) and lines[first + 1].strip():
         problems.append("summary must be one line, followed by a blank line")
-    else:
-        problems += check_paragraph(lines[first + 1:])
 
     details = DETAILS.search(text)
     before_details = text[:details.start()] if details else text
@@ -149,11 +109,6 @@ def check(body, title):
         for label in REQUIRED.get(name, []):
             if not label_present(content, label):
                 problems.append(f"## {name}: no **{label}:** line")
-        if name == "Announcement":
-            words = sorted({m.group(0) for m in DEV_WORDS.finditer(content)})
-            if words:
-                problems.append("Announcement: developer words, write it for the person who uses the app: "
-                                + ", ".join(words))
         if name == "Evidence" and label_present(content, "Screenshots"):
             shots = item(content, "Screenshots")
             if not IMAGE.search(CODE.sub("", shots)) and not re.match(r"\s*no UI change\b", shots, re.I):
