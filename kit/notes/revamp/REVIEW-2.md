@@ -172,7 +172,7 @@ result. Every further fixture run costs the owner a set-up hour and yields harne
 | F-NEW-73 | The PR is what the owner judges on a phone. A table per state (label, light, dark) in the template and the shape check: one small PR.                                                                                                                                        |
 | F-NEW-70 | A question in a comment is a question. One line in the `pr` skill: a comment that changes a decision or item is answered with the options and waits. Needs room: see the skill cap under § 4.                                                                                |
 
-**Fold into something bigger** (9):
+**Fold into something bigger** (10 of the rows, plus F-NEW-23 from Closed):
 
 | ID                           | Into                                                                                                                                                                                                                               |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -190,7 +190,7 @@ the spec template's comment if it recurs); F-NEW-65 (a real blind spot with no f
 better than nothing; the owner's "what is the source of the problem?" at the go is the fix, and
 it costs no code).
 
-**Accept as a known limit** (5): F-NEW-50 (GitHub's mobile app and private images), F-NEW-38
+**Accept as a known limit** (4 of the rows; F-NEW-47 is already closed as accepted): F-NEW-50 (GitHub's mobile app and private images), F-NEW-38
 (stale verdict: the owner reads the verdict for the head before approving, and `ship` posts one per
 push), F-NEW-64 (severity flips exist; the eval shows 0 outcome flips in 100 on fixed inputs),
 F-NEW-48 (the canary skipping rounds matters when a canary must catch faults, on a real app with
