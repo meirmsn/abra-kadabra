@@ -30,7 +30,8 @@ under `devshop:build` § 3; this skill only puts them on the PR.
   a PR.
 - Exit 1: fix what it lists, the words here, code under `devshop:build` § 3 (a spec change:
   `devshop:intent` step 5); commit, and run `ship.sh` again. Exit 2 or 3: ask the owner.
-- Run it again after any change to code or words.
+- Run it again after any change to code or words. With only the words changed, it reviews the
+  words alone (W10.9.7).
 
 ## 3. Low findings
 

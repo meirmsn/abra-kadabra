@@ -2957,3 +2957,13 @@ targets (W10.10.1, W10.10.2, W10.10.7, M3) now name the findings they carry.
 W10.10.2's set-up list.
 
 **Next**: W10.9.1.
+
+## #75 — 2026-10-15 · W10.9.7: a words-only `ship` reviews the words only
+
+**What moved**: `review.sh`, given the PR's words, reuses an earlier `pass` for the same commit,
+merge-base and intent: it runs the `pr` lens alone with `prompt-words.md`, keeps that pass's
+acceptance items and names it (`scope: "words"`, `code_review`); the comment says "words only".
+Anything else is a full review. Interface note first (under W10.6.2), tests first with the stub
+`claude`; 14 of 14 mutants killed after two tests were added, one equivalent condition removed.
+Shown on its own PR: a full review on the first `ship`, then a body-only `ship` with one `pr`-lens
+verdict.

@@ -21,6 +21,7 @@ exit codes, stdout line, verdict file and format) is in
 | `ship.sh`                | Review, then push and put the PR's words and the verdict on the PR              |
 | `review.sh`              | The reviewer. Model, tools, timeout and rounds-to-ask are constants at its top  |
 | [`prompt.md`](prompt.md) | The reviewer's prompt: spec and intent first, then the lenses; severity scale   |
+| `prompt-words.md`        | The words-only prompt: the `pr` lens alone, for a commit that already passed    |
 | `verdict.schema.json`    | The schema the model's reply must match (`--json-schema`)                       |
 | `settings.json`          | Bash allowlist: read-only git and test commands; the prompt names these only    |
 | `pr-comment.sh`          | Renders a verdict file as the PR comment: per lens and item, tied to its commit |
@@ -36,7 +37,8 @@ a PR (W10.6.7; contract on the W10.6.7 line in W10-v2.md):
    the problems listed, before any review or push; a missing or broken check is exit 2.
 2. It reviews the committed `HEAD` with exactly that title and body, in the VM:
    `review.sh --base origin/<base> --pr <words>`. The base is `--base`, else the open PR's base,
-   else origin's default branch.
+   else origin's default branch. When `HEAD` already passed on this base and only the title or
+   body changed, `review.sh` reviews the words alone ([words only](#words-only)).
 3. Only a pass goes on. A fail (exit 1) pushes nothing and prints the `REVIEW:` line and each
    blocking finding: fix, commit, ship again. Ask-owner (exit 3) and could-not-run (exit 2, also for
    a dirty tree, a detached `HEAD`, bad arguments or a result it can't trust) push nothing and say
@@ -49,6 +51,17 @@ a PR (W10.6.7; contract on the W10.6.7 line in W10-v2.md):
    was done.
 
 Code and words go up together, so the PR always shows the reviewed commit with the reviewed words.
+
+## Words only
+
+A `ship` after a change to the title or body alone doesn't review the code again (W10.9.7; it cost
+five full reviews on one PR). Given `--pr`, `review.sh` looks in the branch's verdict directory for
+a `pass` with the same commit, merge-base and intent. With one, it runs the same locked-down call
+with [`prompt-words.md`](prompt-words.md): the `pr` lens and nothing else. The reply must have no
+acceptance items, only `pr` findings and one applying `pr` row, else could-not-run. The verdict has
+`scope: "words"`, the earlier pass's acceptance items and `code_review`, the full review the code
+passed in, and its comment says "words only" and names it. A new commit, another base, words given
+after a review without them (no spec) or no earlier pass gives a full review (`scope: "full"`).
 
 ## The guard
 
@@ -127,7 +140,10 @@ verdict for the head commit before approving.
   locked-down call, the outcome rule, rounds (a repeat counts, a new issue starts again, the 6th
   failing commit asks the owner), the verdict file, the spec found from the diff (none, one, two,
   nested, changed, deleted, non-`.md`), the PR's words reaching the prompt verbatim and checked
-  (`pr` lens), a shallow clone, and could-not-run for every bad input. W10.6.8: the session
+  (`pr` lens), a shallow clone, and could-not-run for every bad input. W10.9.7: words only after a
+  pass on the same commit, base and intent, and a full review otherwise (a new commit, another base,
+  a fail, another intent, no words); 12 of 12 mutants killed, plus 2 of 2 on the comment (a
+  13th, a spec condition, was equivalent: the same commit and base fix the spec; it was removed). W10.6.8: the session
   variables removed by pattern (made-up future names too) while auth and proxy variables pass; the
   prompt's commands following an edited `settings.json` copy; whether `scripts/check-fast.sh` is at
   the base (not added by the change) stated in the prompt; 13 of 13 mutants killed. W10.6.9: the
@@ -169,6 +185,9 @@ verdict for the head commit before approving.
   or a finding's lens and file) of the previous failing commit. Round 3 asks the owner, and so does
   the 6th failing commit since the last pass, new issues or not (owner, 2026-10-13).
 - Screenshots in the PR body (Review 5, L-29) are not checked yet: there is no browser.
+- A words-only review trusts the verdict files under `.git/devshop/reviews/`: a session that writes
+  a fake `pass` there gets the words-only review for its commit. Feedback, not a wall, like the rest:
+  the session could as well skip `ship`.
 - The guard sees a command only as the command itself. Wrapped ones get through: `bash -c '…'`,
   `sh -c`, `eval`, `sudo`, `timeout`, `xargs`, a script that pushes, and `gh api` writes to the PR.
   Kept on purpose (owner, 2026-10-13): this is feedback, not a wall. A change that bypasses `ship`
