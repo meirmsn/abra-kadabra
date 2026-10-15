@@ -224,6 +224,10 @@ repo setting; both are outside the agent's reach, which is the point).
 
 ## 3. The path
 
+_Superseded on 2026-10-15 by D-17, [PLAN.md](PLAN.md) and W10.9–W10.10 in
+[W10-v2.md](workstreams/W10-v2.md), which carry the owner's amendments (the day-one rollback
+rule, the reviewer's browser at M2). Kept as proposed._
+
 The smallest sequence from today to a real, non-trivial app for a real project. Each milestone
 ends on something observable, not a checklist.
 
@@ -259,7 +263,13 @@ more baselines and no more harness fixes.
 
 ## 4. Decisions for the owner
 
-Each with a recommendation.
+**Outcome (2026-10-15):** the owner answered all eleven; the decisions of record are in
+[D-17](DECISIONS.md), which supersedes the recommendations below where they differ. Three
+differ: item 3, the ledger keeps its numeric grades (the owner's reading aid) and loses only its
+linter and the rule of five; item 9, the reviewer gets a browser at M2, not M3; item 2 gained an
+amendment, a simple rollback on every deploy from day one. The rest were accepted as written.
+
+Each with a recommendation, as put to the owner.
 
 1. **Declare M1 met now, no run 3 with the harness.** Recommended: yes. Run 2 passed D-16's rule;
    what remains is environment set-up and skill wording, which the plain run checks.
