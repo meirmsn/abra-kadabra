@@ -36,8 +36,13 @@ This repo is the devshop, being rewritten as v2 (the 2026-Q4 revamp). Work only 
 - **Walls vs feedback:** GitHub's protection on `main`, required CI, credential scopes and the
   owner's approval are the walls. Hooks and in-session checks are feedback; never describe them
   as a security boundary.
-- **Every check is proven to fail:** a new check ships with a test that feeds it a known-bad
-  input. A missing tool or unparseable output fails; it never passes.
+- **Every check is proven to fail:** a new wall or project-facing check (the secret scan, CI tiers,
+  the spec→test check, the UI checks) ships with a test that feeds it a known-bad input, and its
+  mutants are killed. A missing tool or unparseable output fails; it never passes. Prose linters
+  and notes don't need this.
+- **File a finding only when it blocked the task or will block the next real project**
+  ([PROCESS § 4](kit/notes/revamp/PROCESS.md#4-discoveries-and-replanning)); the rest stays in the
+  PR. A LOG entry is at most 150 words.
 - **Mechanical steps live in tested scripts** with explicit arguments, never as shell snippets
   in prose for the model to retype.
 - **Root cause over band-aid.** Label a mitigation as one and name the root cause beside it.
