@@ -1,6 +1,6 @@
 # W10.6.10 north-star run `ns-2` (2026-10-14): the record
 
-The second run of the [north-star scenario](../../TARGET.md#north-star-scenario-re-run-at-every-milestone-review)
+The second run of the [north-star scenario](../../TARGET.md#north-star-scenario-the-map-the-milestone-proof-is-the-plain-run)
 on the fixture, after W10.6.9 and W10.6.9d. Summary, decisions and findings are in
 [LOG #69](../../LOG.md). This file holds the evidence tables, laid out like
 [`ns-1`](../w10-6-4-north-star-ns-1/README.md). All times are UTC. "Builder" is the fresh cloud

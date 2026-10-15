@@ -24,6 +24,8 @@ Status: `open` · `decided` · `revisited`. Order below = order to decide in.
 | D-08 | Stack abstraction scope (recipes)                       | M4 (W5)                            | decided  |
 | D-10 | Revamp versioning                                       | first v2 release (M1)              | decided  |
 | D-11 | Deletion list                                           | M5 (W9) or earlier under D-14 thin | obsolete |
+| D-16 | What the north-star grades; which run-1 gaps block M1   | run 2                              | decided  |
+| D-17 | After review 2: M1 met, the exam retired, first project | M2                                 | decided  |
 
 ---
 
@@ -279,3 +281,61 @@ Outcome: **decided 2026-10-13 (owner).** Blocking for run 2: F-NEW-36, F-NEW-37,
 (in progress). Cheap, in passing: F-NEW-34, F-NEW-35, F-NEW-39, F-NEW-45. Deferred or accepted:
 F-NEW-38, F-NEW-41, F-NEW-42, F-NEW-44, F-NEW-46, F-NEW-47, F-NEW-48. `ns-1` step 1 is regraded as
 a pass with friction.
+
+## D-17 After review 2: M1 met, the exam retired, the first real project — `decided`
+
+Context: [REVIEW-2.md](REVIEW-2.md) (LOG #70), the whole-picture review after north-star runs 1 and 2. The owner answered its eleven decisions in chat on 2026-10-15; each is recorded here as the
+owner's, with the two amendments they made.
+
+1. **M1 is met** on runs 1 and 2 under D-16's rule (no gap let a wrong change reach production or
+   made a run untrustworthy). No run 3 with the harness. Go/no-go (W10.7.2): **go**, the thin
+   devshop continues.
+2. **The per-milestone exam is retired:** plants per run, probe PRs per run, the decoy stack home,
+   the idea pool, steps 7–9 as graded steps, the planted production fault and the rollback drill.
+   The walls are re-verified once, with the existing safety table, when a repo's protection
+   changes. The milestone proof is a **plain run** (TARGET § North-star). **Owner's amendment:
+   every deploy has a simple rollback from day one:** the deploy job records the previous version
+   and the platform's own rollback restores it; migrations stay append-only and
+   backward-compatible so a code rollback never needs a database rollback; a full drill waits for
+   a real app with data.
+3. **The findings ledger keeps its rows, their written reasons and the numeric grades** (the
+   owner's reading aid on top of the words). Dropped: the enforcing linter
+   (`scripts/findings-check.py` and its test), the rule of five, and the duty to grade everything
+   noticed. Match-first stays.
+4. **The one-page skill cap is a warning again,** not a CI failure (Shape 2 as first agreed;
+   F-NEW-54 reversed).
+5. **First real project: the owner's website on Cloudflare,** then lalista; lalista's paid plans
+   (F-NEW-18, F-NEW-19) are decided when the website milestone ends.
+6. **Approval ships:** the agent merges on the owner's approval with CI green; no "merge" message.
+   The pre-merge production health check stays deferred until a project has real traffic.
+7. **Observability per project environment:** the project's preview and production hosts are
+   allowed in its cloud environment, and a read-only Cloudflare token (logs and analytics only),
+   kept as a GitHub secret the deploy workflow uses, runs a post-deploy canary check whose result
+   is a CI record. All of it comes with the website (W10.10.1, W10.10.5); nothing is set up on
+   the fixture (amended the same day, below).
+8. **The agent identity is kept** after the D-13 trial (the enforced approval is the wall that
+   makes "the owner approves every PR" true).
+9. **A measurable quality bar:** Lighthouse thresholds in the slow tier from the website on.
+   **Owner's amendment: the reviewer gets a browser at M2,** not M3, reusing the Playwright set-up
+   the render check already pins, so design and QA are judged on the first real project.
+10. **Devshop changes only when a real project needs them** or a plain run misses; about one
+    devshop PR a day.
+11. **Model and headroom:** Opus for the builder, Sonnet for the reviewer; a body-only `ship` runs
+    the reviewer's `pr` lens only (W10.9.7, moved up from M2 the same day); plan headroom is decided
+    when the website starts.
+
+Clarification recorded with the answers: the fixture's own `CLAUDE.md` rules (migrations
+append-only and backward-compatible, new routes get synthetic traffic, deploys only from `main` in
+CI) were written by devshop sessions as the first draft of the Cloudflare stack home, because none
+exists yet. They move into that home when the website is scaffolded; the fixture holds nothing the
+devshop needs.
+
+Outcome: **decided 2026-10-15 (owner).** Plan impact: M1 done; M2 = the owner's website on
+Cloudflare; M3 = lalista web; M4 = iOS + Mac and v1 retired ([PLAN.md](PLAN.md),
+[W10-v2.md](workstreams/W10-v2.md) § M2). The findings re-sort in REVIEW-2 § 2 is applied by the
+close-out task that removes the ledger's linter, not here.
+
+**Added 2026-10-15 (owner):** no more fixture work. The plain run on the fixture (W10.9.5) is
+dropped; the website's first change is the plain run (W10.10.1). The fixture, its environment and
+the harness stay as they are, and item 7's "hosts now for the fixture" is withdrawn: the hosts,
+token and canary job all come with the website.

@@ -706,7 +706,7 @@ written to [TARGET.md § L3](TARGET.md#l3--a-few-bullets-per-pillar).
 ## #20 — 2026-10-12 · W10.2.2 north-star rewritten — W10.2 done
 
 **What moved**: PR #51 (L3 for all nine pillars) merged on the owner's approval. The north-star
-scenario in [TARGET.md](TARGET.md#north-star-scenario-re-run-at-every-milestone-review) is
+scenario in [TARGET.md](TARGET.md#north-star-scenario-the-map-the-milestone-proof-is-the-plain-run) is
 rewritten to exercise all nine pillars: a status question with no spec; a two-line idea through
 `/spec`, spec review and "go"; planted failures the reviewer and CI must catch (untested acceptance
 item, skipped state-table row, loosened test); a spec-changing PR comment; bypass attempts GitHub
@@ -2855,3 +2855,78 @@ clearer screenshot layout in PR bodies (F-NEW-73).
 **Next**: the owner's call. Proposed: a fresh analysis session reads `ns-1`, `ns-2`, D-16, TARGET and
 the live findings, and proposes the shortest path to the devshop reliably shipping apps with the owner
 at the direction level, rather than chasing each finding.
+
+## #70 — 2026-10-14 · Whole-picture review 2: the proposal after two north-star runs
+
+**What moved**: [REVIEW-2.md](REVIEW-2.md), the whole-picture review the owner asked for after run
+2 (W10.7.1's first half: against TARGET, adversarial with the plan and TARGET itself). It changes
+nothing else: no finding moved, no task line changed, no TARGET edit; every cut, deferral and
+milestone in it is an owner decision (its § 4). Evidence read: the notes, the shipped runtime and
+install, both run-2 transcripts in full, the fixture repo read-only (PR 26's body and comments as
+GitHub holds them, its screenshots), and two checks in this session: `gh api` works as the agent
+identity while `gh auth status` reports the token invalid (so F-NEW-68's cause is misread), and
+this repo's fast tier passes on the unchanged tree.
+
+**Headline**: by D-16's own rule run 2 passed; the exit as written grades the harness. Proposal:
+declare M1 met, retire the per-run exam and the graded ledger, fix the three environment items the
+owner asked for, then build the owner's website on Cloudflare as the first real project with a
+measurable quality bar.
+
+**Next**: the owner's decisions on REVIEW-2 § 4.
+
+## #71 — 2026-10-15 · D-17: the owner's decisions on review 2; M1 met, M2 is the website
+
+**What moved**: the owner read [REVIEW-2.md](REVIEW-2.md) and answered its eleven decisions in
+chat; recorded as [D-17](DECISIONS.md), with two amendments of theirs: a simple rollback on every
+deploy from day one, and the reviewer's browser at M2 rather than M3 (the Playwright set-up is
+already there). The ledger keeps its numeric grades as the owner's reading aid and loses its
+linter and the rule of five. M1 is declared met on runs 1 and 2 under D-16's rule; go/no-go = go.
+TARGET's north-star section carries the plain-run definition; Shape 2, Shape 8 and Ship 3 carry
+dated revisions. PLAN's milestones: M2 = the owner's website on Cloudflare, M3 = lalista web, M4 =
+iOS + Mac + retire v1. W10.9 (M1 close-out, small tasks) and W10.10 (M2) added;
+W10.6.10, W10.6.16, W10.7.1 and W10.7.2 closed; W10.6.11 and W10.6.17 folded into W10.10.7.
+
+**Clarified**: "the fixture's conventions" meant its `CLAUDE.md` rules, which devshop sessions
+wrote there as the first draft of the Cloudflare stack home; they move into that home with the
+website (W10.10.2), and the fixture holds nothing the devshop needs.
+
+**Not done here**: the findings re-sort (W10.9.4, with the linter's removal) and every close-out
+change; this entry and D-17 are the record only.
+
+**Added later the same day (owner)**: no more fixture work; W10.9.5 dropped, the website's first
+change is the plain run (W10.10.1, with its owner steps listed). The revamp README gains a short
+"Driving the revamp from a new session" section: two prompts, and what the owner does. Then, on the
+owner's question whether this stops the noise: two more close-out tasks, W10.9.6 (the filing rule:
+only what blocked or will block a real project is filed; mutants for walls and project-facing
+checks only; short LOG entries) and W10.9.7 (a body-only `ship` reviews the words only, moved up
+from M2 after it cost five full reviews on this PR).
+
+**Next**: W10.9.1.
+
+## #72 — 2026-10-15 · Adversarial review of PR 117 against the owner's goal
+
+**What moved**: the owner asked for PR 117 to be attacked against the goal (slick, high-quality,
+reliable, safe, performant apps; the owner at direction level). A fresh-context reviewer was given
+the diff and the goal, not the author's conclusions. Twelve findings; the ones applied here:
+
+- **A safety regression caught:** W10.10.1 had put the preview token in the production account;
+  the fixture keeps a separate preview-only account so a PR workflow (which the agent can edit)
+  can't touch production. Restored, with required checks, no bypass and a one-time re-run of the
+  safety table on the new repo.
+- **"Slick" had no bar and no owner input:** the Lighthouse bar now has numbers and sits in the
+  scaffold's CI before the first change, with a byte budget, axe-core and page-meta checks; the
+  first change is the design direction (`/design-consultation`, `/design-shotgun`, the owner picks,
+  `DESIGN.md`), which every later review judges against.
+- **Order:** the stack home is written from what shipped (W10.10.2 after W10.10.1); the day-one
+  rollback rule lives in the scaffold's deploy job; the reviewer's eval-on-change (W10.10.7) comes
+  before the reviewer's browser (W10.10.4), whose proof is now a `DESIGN.md` break, not a bare page.
+- **Mechanisms, not sentences:** W10.9.1 names how approval ships (subscribe to the PR, merge on
+  the approval event); W10.9.2 cuts the body check to headings; W10.9.6 goes first and also covers
+  the `pr` skill, Ship 9 and the handle sweep; W10.10.5 drops synthetic traffic for a static site.
+- **"Do the next step" would have picked W10.8.3** (lalista's React choice): now `[!]` M3, and W10.10
+  sits under its own M2 heading. Stale TARGET dates (Mac, Reach 4 and 5, Safety 2 and 11, Shape 7,
+  the M1-exit line) carry dated revisions; the runtime text sweep rides W10.9.3.
+- Not applied: nothing of substance; the reviewer's verdict was that the direction is right and the
+  gaps were in M2's ordering and bar.
+
+**Next**: W10.9.6.
