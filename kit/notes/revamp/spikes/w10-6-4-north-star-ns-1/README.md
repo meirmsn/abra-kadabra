@@ -1,6 +1,6 @@
 # W10.6.4 north-star run `ns-1` (2026-10-13): the record
 
-The first run of the [north-star scenario](../../TARGET.md#north-star-scenario-re-run-at-every-milestone-review)
+The first run of the [north-star scenario](../../TARGET.md#north-star-scenario-the-map-the-milestone-proof-is-the-plain-run)
 on the fixture. Summary, decisions and findings are in [LOG #53](../../LOG.md). This file holds the
 evidence tables. All times are UTC. "Builder" is the fresh cloud session in the fixture environment.
 "Coordinator" is the session that ran the harness steps, the out-of-band review and the safety

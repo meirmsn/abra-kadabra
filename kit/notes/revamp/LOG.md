@@ -706,7 +706,7 @@ written to [TARGET.md § L3](TARGET.md#l3--a-few-bullets-per-pillar).
 ## #20 — 2026-10-12 · W10.2.2 north-star rewritten — W10.2 done
 
 **What moved**: PR #51 (L3 for all nine pillars) merged on the owner's approval. The north-star
-scenario in [TARGET.md](TARGET.md#north-star-scenario-re-run-at-every-milestone-review) is
+scenario in [TARGET.md](TARGET.md#north-star-scenario-the-map-the-milestone-proof-is-the-plain-run) is
 rewritten to exercise all nine pillars: a status question with no spec; a two-line idea through
 `/spec`, spec review and "go"; planted failures the reviewer and CI must catch (untested acceptance
 item, skipped state-table row, loosened test); a spec-changing PR comment; bypass attempts GitHub

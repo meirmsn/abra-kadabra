@@ -223,7 +223,7 @@ _Agreed 2026-10-12 (LOG #19)._
    - Untested (A-26): **when this is built and tested, if it can't be made to work, Claude asks the owner what to do** rather than switching to another option.
 9. **A fix closes its trackers:** the PR that ships a fix closes its tracker entries and rewrites the docs that described the old limitation.
 
-## North-star scenario (re-run at every milestone review)
+## North-star scenario (the map; the milestone proof is the plain run)
 
 **Revised 2026-10-15 (D-17, [REVIEW-2.md](REVIEW-2.md)).** The scenario below is kept as the
 map of what the devshop should do, and it was run twice (`ns-1`, `ns-2`); M1 was declared met
