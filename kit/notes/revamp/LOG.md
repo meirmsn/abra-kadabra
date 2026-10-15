@@ -2993,3 +2993,17 @@ fails it, as does each single miss; run 6's table passes and run 1's fails; 14 o
 clone stopped; `check.sh` now refuses a used clone.
 
 **Next**: W10.10.1 (owner); the real check runs with the first reviewer change (W10.10.4).
+
+## #78 — 2026-10-15 · Website session findings: squash only, the restart hook, the findings route
+
+**What moved**: three findings from the website session (W10.10.1), matched first: none in the
+ledger. F-NEW-76 (set-up lacked "squash only", which blocked website PR 2's screenshots) is fixed:
+W10.10.1's owner steps and outside check name the merge methods; Closed. F-NEW-77 (after a worker
+restart the SessionStart hook read the wrong directory and skipped the project checks silently) is
+a Fix queue row at 🔥 8.0: a loud-failure mitigation, root cause unknown. The owner's decision is
+recorded: project findings reach the ledger through the owner and a devshop session, as the
+method; the `finding`-issues route and A-26 are dropped (TARGET Shape 8, north-star step 9).
+
+**Surprises**: the issues route is Shape 8, not Ship 8.
+
+**Next**: the owner decides whether F-NEW-77 is built now; W10.10.1 continues.
