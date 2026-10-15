@@ -33,12 +33,18 @@ filter links above the list"), not how it is built. -->
 
 ## Evidence
 
-<!-- Screenshots go on the PR, never only in chat. For UI changes, one per core-flow step and per
-state in the spec's state table, taken at the final commit. Upload them with
-/opt/devshop-current/scripts/pr-assets.sh and paste the lines it prints: they are pinned to a
-commit, so they survive the merge and the branch's deletion (L-30). -->
+<!-- Screenshots go on the PR, never only in chat. For UI changes, one table row per core-flow step
+and per state in the spec's state table, light and dark side by side, taken at the final commit.
+Upload them with /opt/devshop-current/scripts/pr-assets.sh and paste the lines it prints: they are
+pinned to a commit, so they survive the merge and the branch's deletion (L-30). Without UI change:
+"no UI change" on the line and no table. -->
 
-- **Screenshots:** {{one sub-item per core-flow step and state-table state, each "<step or state>: <image line from pr-assets.sh>"; or "no UI change"}}
+- **Screenshots:** {{"one row per step and state", or "no UI change" and delete the table}}
+
+| State                       | Light                            | Dark                                                |
+| --------------------------- | -------------------------------- | --------------------------------------------------- |
+| {{core-flow step or state}} | {{image line from pr-assets.sh}} | {{image line from pr-assets.sh; or "no dark mode"}} |
+
 - **Reviewer:** {{the verdict per lens (spec, code, tests, docs, security, design/QA when UI), for commit <sha>}}
 - **CI:** {{the required checks' result for commit <sha>, read when this was written}}
 - **Low findings:** {{each low finding the reviewer listed, and what you did with it; or "none"}}

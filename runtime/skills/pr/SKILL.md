@@ -17,9 +17,10 @@ under `devshop:build` § 3; this skill only puts them on the PR.
 - From the build: the `STACKS:` line goes in the engineering details; a conflict where the project
   won is said; **Changed after the go** lists the owner's answers recorded in the spec.
 - **Screenshots go on the PR, never only in chat:** for a UI change, one per core-flow step and
-  state-table state at the final commit; `/opt/devshop-current/scripts/pr-assets.sh <image>...`
-  adds them to the branch without changing a file and prints the lines for **Screenshots:**; exit
-  2: ask the owner. After a new commit, take and add them again.
+  state-table state at the final commit, light and dark;
+  `/opt/devshop-current/scripts/pr-assets.sh <image>...` adds them to the branch without changing
+  a file and prints the image lines for the template's table (a row per step or state: label,
+  light, dark); exit 2: ask the owner. After a new commit, take and add them again.
 - Keep per-round detail out of the body.
 
 ## 2. Through the reviewer
@@ -39,6 +40,19 @@ under `devshop:build` § 3; this skill only puts them on the PR.
 - One about the devshop itself goes to the owner at the end of the session only if it blocked this
   task or will block the next change; otherwise the list above is enough.
 
-## 4. Tell the owner
+## 4. Tell the owner, then watch the PR
 
 - Once the PR is ready, in chat: its link and its one-line summary.
+- Subscribe the session to the PR's activity (`subscribe_pr_activity`). Its events (reviews,
+  comments, CI) wake the session; end the turn, never poll.
+
+## 5. Approval ships, comments are answered (TARGET Review 7–8)
+
+- The owner's approval of the PR's current head, with every required check green on it: squash-merge
+  (GitHub's merge tool, method `squash`) without asking for a "merge" message, then say in chat that
+  it merged. Checks still running: merge on their green event. Hold only when the approval or the
+  chat says to wait, or for a concrete reason: say it and ask. A push after approval needs a new one.
+- A comment that would change a decision or acceptance item, a question included ("Could the list
+  be sorted…?"), is a question to the owner: answer it on the PR with the options and what each
+  changes, and build nothing until they pick (`devshop:intent` § 5 records it). Other asks: build
+  under `devshop:build` § 3, then this skill again.
