@@ -61,7 +61,9 @@ owner's words (2026-10-16):
   on a push to `main`, both through `env:`, never interpolated into the script. And `ship.sh`, the
   one way a session sets or edits a PR's title and body (the reviewer re-runs on such an edit), runs
   the repo's own `scripts/pr-title-check.py` on the title when the repo has one, before the review;
-  a failing title stops `ship.sh` like a malformed body. Projects have no such script, so nothing
+  a failing title stops `ship.sh` like a malformed body. A title check that exists but can't run
+  (not executable) stops `ship.sh` as could-not-run, never lets the title through (owner,
+  2026-10-16, after the go, when the reviewer found the guard outside the spec). Projects have no such script, so nothing
   changes for them. CI keeps today's pull request triggers (adding `edited` would re-run both tiers
   on every body edit); a title edited by hand on GitHub after the last push is caught by the check
   on `main` after the merge (owner, 2026-10-16: keep the check where body and title edits are
@@ -124,7 +126,8 @@ owner's words (2026-10-16):
   now — verified by review: the diff of those files
 - **AC-11** `ship.sh` stops before the review, with the check's reason and nothing pushed, when the
   repo has an executable `scripts/pr-title-check.py` that fails the title; it goes on when that
-  check passes or the repo has none
+  check passes or the repo has none; it stops as could-not-run (exit 2, nothing pushed) when the
+  repo's `scripts/pr-title-check.py` exists but isn't executable (owner, 2026-10-16, after the go)
 - **AC-12** In the same install test, a project pinning a release tag while the copy holds a higher
   `vX.Y.Z` tag gets "newer release v<newest> in the copy (/devshop:upgrade)" on its `DEVSHOP:` line;
   pinning the newest tag, a SHA, or no pin adds nothing
