@@ -139,7 +139,8 @@ auto-unsubscribed, so the project's deploy comment never reaches it".
   within 3 minutes (both were the session's own, which may be filtered as echoes, so this doesn't
   prove a bot's edit would be lost); the deploy comment only ever changes by edits. A `send_later`
   check-in armed for 07:36:00 fired at 07:36:23 and reached the session while it was working; the
-  same into an idle session is tested before the build and recorded here. So after the
+  one armed for 07:51:00 into the idle session fired at 07:51:22 and started a new turn (a `user`
+  entry with `origin.kind` `task-notification`). So after the
   squash-merge, `devshop:pr` §5 arms a `send_later` check-in 5 minutes later, and at each check-in
   runs `change-metrics.sh post`: deploy comment final → it posts; not final → re-arm 5 minutes
   later; the script itself says "give up" once 60 minutes have passed since `merged_at`, and then
@@ -170,8 +171,8 @@ auto-unsubscribed, so the project's deploy comment never reaches it".
   - _An owner message:_ a `user` entry with `origin.kind` `human`, or a `queued_command` attachment
     (a message sent mid-turn), deduplicated by text and time; a skill's text (`isMeta`), a tool
     result and a compaction summary are not.
-  - _A wake:_ a `user` entry that starts a turn without `origin.kind` `human` (a check-in, a PR
-    event, a task notification), or a notification queued mid-turn.
+  - _A wake:_ a `user` entry that starts a turn with `origin.kind` other than `human` (a check-in
+    or PR event arrives as `task-notification`), or a notification queued mid-turn.
   - Subagents' own transcripts (`subagents/`) are not read; their time counts only while the main
     session waits for them.
 - **Where each number comes from** (owner's method, measured by hand on PR 7; definitions Claude's):
