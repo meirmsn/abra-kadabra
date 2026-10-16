@@ -212,7 +212,13 @@ async function reportText(cur) {
   if (fast === 'cancelled' || slow === 'cancelled')
     return notDeployed('checks were cancelled or timed out');
   if (deploy === 'cancelled') {
-    const newer = await newerRun();
+    // Superseded only when the checks passed and the deploy never started (the comment still merged,
+    // or none at all): GitHub's production concurrency group dropped it for a newer merge's deploy.
+    const waiting =
+      fast === 'success' &&
+      slow === 'success' &&
+      (state === null || state === 'merged');
+    const newer = waiting && (await newerRun());
     if (newer)
       return {
         state: 'superseded',

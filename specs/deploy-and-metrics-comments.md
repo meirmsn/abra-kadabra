@@ -80,12 +80,15 @@ auto-unsubscribed, so the project's deploy comment never reaches it".
   - a final comment of this attempt: left alone;
   - `deploy` succeeded but the comment isn't final (its write failed): writes live from `deploy`'s
     job outputs (the slot's outputs, passed through);
-  - `fast` and `slow` succeeded, `deploy` cancelled while the comment is still merged, and a newer
-    run on `main` exists: superseded, naming that run's commit;
+  - `fast` and `slow` succeeded, `deploy` cancelled while the comment is still merged (or there is
+    none, as `announce` missed the PR), and a newer run on `main` exists: superseded, naming that
+    run's commit;
   - otherwise not-deployed, with the reason: "checks failed on `main`" (`fast` or `slow` failed),
     "checks were cancelled or timed out" (`fast` or `slow` cancelled), "the run was cancelled"
     (`deploy` cancelled, no newer run), "the deploy didn't finish; production may have changed"
-    (`deploy` failed or cancelled while the comment is still deploying)
+    (`deploy` failed or cancelled while the comment is still deploying), "the deploy job failed
+    before it started" (`deploy` failed before its deploying step), "the deploy didn't run" (any
+    other result)
 
   (website draft's review, completed by this spec's review, 2026-10-16)
 

@@ -181,6 +181,9 @@ report_case "[$(c 1 merged 1)]" success success cancelled superseded \
   "**Not deployed on its own** · \`0123456\` · it ships with \`fedcba9\`'s deploy" \
   '"runs":[{"run_number":49,"head_sha":"'$sha'"},{"run_number":52,"head_sha":"'$newer'"},{"run_number":51,"head_sha":"'$sha'"}]'
 report_case "[$(c 1 merged 1)]" success success cancelled not-deployed 'the run was cancelled' '"runs":[]'
+newer_runs='"runs":[{"run_number":52,"head_sha":"'$newer'"}]'
+report_case '[]' success success cancelled superseded "it ships with \`fedcba9\`'s deploy" "$newer_runs"
+report_case "[$(c 1 merged 1)]" success skipped cancelled not-deployed 'the run was cancelled' "$newer_runs"
 report_case "[$(c 1 deploying 1)]" success success cancelled not-deployed "the deploy didn't finish; production may have changed"
 report_case "[$(c 1 deploying 1)]" success success failure not-deployed "the deploy didn't finish; production may have changed"
 report_case "[$(c 1 merged 1)]" success success failure not-deployed 'the deploy job failed before it started'
