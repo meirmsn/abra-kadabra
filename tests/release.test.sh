@@ -206,6 +206,8 @@ for bad in huge auto2 ""; do
   run "override '$bad'" 2 scripts/release.py next --bump "$bad"
 done
 run "override missing its value" 2 scripts/release.py plan --notes-file "$work/x.md" --bump
+run "plan, override huge" 2 scripts/release.py plan --notes-file "$work/x.md" --bump huge
+[ ! -e "$work/x.md" ] || fail "AC-13: plan with a bad override wrote notes"
 ok "AC-13: patch, minor and major override nothing-to-release, named in the notes; another choice can't run"
 c "perf: faster (#9)"
 run "next, patch" 0 scripts/release.py next
