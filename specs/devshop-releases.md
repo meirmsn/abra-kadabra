@@ -70,7 +70,8 @@ optional input on the button:
   title catches it. The button gets one input, "Manual override", a choice of `auto` (the default:
   the titles decide), `major`, `minor` or `patch`. A choice other than `auto` sets the bump from the
   last release, even when the titles alone give nothing to release (never when no commit follows
-  the last release: that is nothing to release); the run's log and the release
+  the last release: that is nothing to release; owner, 2026-10-16, after the go, when the
+  reviewer found an override could re-release the same commit: "Refuse"); the run's log and the release
   notes say the override was used and what the titles gave. The first release is always `v2.0.0`,
   so an override there is refused rather than ignored. Rejected: an "expected version" field that
   only checks (the owner's wording), and free-text versions (a typo could skip numbers)
