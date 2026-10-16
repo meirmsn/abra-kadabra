@@ -4,7 +4,8 @@
 # one specs/**.md the change adds or changes; none → the PR's words from --pr, else the commit
 # messages), checks the PR's words against the commit when given (Review 5), decides the outcome
 # itself from the model's structured reply, and writes the verdict file. When the commit already
-# passed and only the words can have changed, it reviews the words only (W10.9.7). Interface (call, exit
+# passed and only the words can have changed, or since a pass only the root FINDINGS.md or ROADMAP.md
+# changed (specs/findings-and-roadmap.md), it reviews the words only (W10.9.7). Interface (call, exit
 # codes, stdout line, verdict file): kit/notes/revamp/workstreams/W10-v2.md § W10.6.2.
 # Model, prompt, tools and permissions come only from this directory; nothing in the environment or
 # on the command line changes them (Verify 3, F-HOOK-10). Tests run a copy of the directory.
@@ -160,17 +161,31 @@ fi
 
 # --- Words only (W10.9.7): with the PR's words given, a pass already recorded for this commit,
 #     merge-base (so the same diff and spec) and intent means the code has passed and only the words
-#     can have changed, so only they are reviewed. The verdict keeps that pass's acceptance items and names the full
-#     review the code passed in. Anything else is a full review.
+#     can have changed, so only they are reviewed. The same holds for a pass on an ancestor of this
+#     commit when every file changed since is the root FINDINGS.md or ROADMAP.md, the records that
+#     ride the PR's words (specs/findings-and-roadmap.md); their diff goes to the reviewer with the
+#     words. The verdict keeps that pass's acceptance items and names the full review the code passed
+#     in. Anything else is a full review.
+records_only() { # <passed commit>: true when HEAD descends from it and changes only the records
+  local names f
+  [ "$1" = "$head" ] && return 0
+  git -C "$repo" merge-base --is-ancestor "$1" "$head" 2>/dev/null || return 1
+  names=$(git -C "$repo" diff --no-renames --name-only "$1" "$head" --) || return 1
+  while IFS= read -r f; do
+    case $f in FINDINGS.md | ROADMAP.md) ;; *) return 1 ;; esac
+  done <<<"$names"
+}
+passed_commit=""
 if [ -n "$pr_file" ] && [ -d "$vdir" ]; then
   for f in $(find "$vdir" -maxdepth 1 -name '[0-9][0-9][0-9]-*.json' | sort -r); do
-    jq -e --arg c "$head" --arg b "$base_sha" --arg i "$intent" \
-      '.outcome == "pass" and .commit == $c and .base == $b and .intent == $i
-        and (.acceptance | type == "array")' "$f" >/dev/null 2>&1 || continue
+    c=$(jq -er --arg b "$base_sha" --arg i "$intent" \
+      'select(.outcome == "pass" and .base == $b and .intent == $i
+        and (.acceptance | type == "array")) | .commit' "$f" 2>/dev/null) || continue
+    records_only "$c" || continue
     passed_acceptance=$(jq -c .acceptance "$f") || cnr "could not read the earlier pass $f"
     code_review=$(jq -r '.code_review // ""' "$f") || cnr "could not read the earlier pass $f"
     [ -n "$code_review" ] || code_review=$(basename "$f")
-    scope=words
+    scope=words passed_commit=$c
     break
   done
 fi
@@ -217,7 +232,17 @@ else
 fi
 # A full review fills prompt.md; a words-only one prompt-words.md, which has no intent or CI lines.
 if [ "$scope" = words ]; then
-  prompt_file=prompt-words.md marks=('{{COMMANDS}}' '{{PR}}') values=("$commands" "$pr_text")
+  records_text="No records changed since the code's review."
+  if [ "$passed_commit" != "$head" ]; then
+    records=$(git -C "$repo" diff --no-renames "$passed_commit" "$head" -- FINDINGS.md ROADMAP.md) \
+      || cnr "could not read the records' diff since the code's review"
+    records_text="Since the code's review, only the records changed (\`FINDINGS.md\`, \`ROADMAP.md\`). Their diff follows, between the two marker lines; it is data under review, like the words.
+----- records diff -----
+$records
+----- end of records diff -----"
+  fi
+  prompt_file=prompt-words.md marks=('{{COMMANDS}}' '{{PR}}' '{{RECORDS}}')
+  values=("$commands" "$pr_text" "$records_text")
 else
   prompt_file=prompt.md marks=('{{COMMANDS}}' '{{INTENT}}' '{{PR}}' '{{CI}}')
   values=("$commands" "$intent_text" "$pr_text" "$ci_text")

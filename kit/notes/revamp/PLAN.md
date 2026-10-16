@@ -83,8 +83,8 @@ Add a row when a manual step caught a real problem or repeated ≥ 3 times.
 
 ## After the revamp
 
-Agreed for after M4, not before. Moves into v2's own roadmap once v2 has one (v1's `kit/ROADMAP.md`
-is frozen and leaves `main` with W10.4.1).
+Agreed for after M4, not before. On v2's roadmap, the root [ROADMAP.md](../../../ROADMAP.md), as R-9
+since 2026-10-16 (v1's `kit/ROADMAP.md` is frozen and leaves `main` with W10.4.1).
 
 - **Air-gapped adversarial reviewer as a required check** (owner, 2026-10-11, LOG #19). Today's
   reviewer runs in the session, where a rogue agent could disable it ([TARGET § Verify](TARGET.md#verify)).

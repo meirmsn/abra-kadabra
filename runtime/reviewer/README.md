@@ -38,7 +38,8 @@ a PR (W10.6.7; contract on the W10.6.7 line in W10-v2.md):
 2. It reviews the committed `HEAD` with exactly that title and body, in the VM:
    `review.sh --base origin/<base> --pr <words>`. The base is `--base`, else the open PR's base,
    else origin's default branch. When `HEAD` already passed on this base and only the title or
-   body changed, `review.sh` reviews the words alone ([words only](#words-only)).
+   body changed, or since a pass only the root `FINDINGS.md` or `ROADMAP.md` changed, `review.sh`
+   reviews the words alone ([words only](#words-only)).
 3. Only a pass goes on. A fail (exit 1) pushes nothing and prints the `REVIEW:` line and each
    blocking finding: fix, commit, ship again. Ask-owner (exit 3) and could-not-run (exit 2, also for
    a dirty tree, a detached `HEAD`, bad arguments or a result it can't trust) push nothing and say
@@ -62,6 +63,13 @@ acceptance items, only `pr` findings and one applying `pr` row, else could-not-r
 `scope: "words"`, the earlier pass's acceptance items and `code_review`, the full review the code
 passed in, and its comment says "words only" and names it. A new commit, another base, words given
 after a review without them (no spec) or no earlier pass gives a full review (`scope: "full"`).
+
+**Records only** ([spec](../../specs/findings-and-roadmap.md)): a pass also counts for a later commit
+when that commit descends from it and every file changed since is the root `FINDINGS.md` or
+`ROADMAP.md`. These are the records a change writes after the reviewer's pass: its `low` findings,
+the owner's answer. The words-only prompt then also gets the records' diff, and the `pr` lens
+checks that the words account for every row or entry it adds, changes or deletes. A file anywhere
+else, a records file below the root included, gives a full review.
 
 ## The guard
 
@@ -142,7 +150,9 @@ verdict for the head commit before approving.
   nested, changed, deleted, non-`.md`), the PR's words reaching the prompt verbatim and checked
   (`pr` lens), a shallow clone, and could-not-run for every bad input. W10.9.7: words only after a
   pass on the same commit, base and intent, and a full review otherwise (a new commit, another base,
-  a fail, another intent, no words); 12 of 12 mutants killed, plus 2 of 2 on the comment (a
+  a fail, another intent, no words); records only after a pass on an ancestor, and a full review
+  for a records file below the root, records with code, or a pass that isn't an ancestor (6 of 6
+  mutants killed); 12 of 12 mutants killed, plus 2 of 2 on the comment (a
   13th, a spec condition, was equivalent: the same commit and base fix the spec; it was removed). W10.6.8: the session
   variables removed by pattern (made-up future names too) while auth and proxy variables pass; the
   prompt's commands following an edited `settings.json` copy; whether `scripts/check-fast.sh` is at

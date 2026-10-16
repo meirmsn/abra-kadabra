@@ -26,6 +26,7 @@ Status: `open` · `decided` · `revisited`. Order below = order to decide in.
 | D-11 | Deletion list                                           | M5 (W9) or earlier under D-14 thin | obsolete |
 | D-16 | What the north-star grades; which run-1 gaps block M1   | run 2                              | decided  |
 | D-17 | After review 2: M1 met, the exam retired, first project | M2                                 | decided  |
+| D-18 | A roadmap of decisions and a findings log, per repo     | M2                                 | decided  |
 
 ---
 
@@ -339,3 +340,15 @@ close-out task that removes the ledger's linter, not here.
 dropped; the website's first change is the plain run (W10.10.1). The fixture, its environment and
 the harness stay as they are, and item 7's "hosts now for the fixture" is withdrawn: the hosts,
 token and canary job all come with the website.
+
+## D-18 A roadmap of decisions and a findings log, per repo — `decided`
+
+Context: the website's first change sent 13 devshop findings to the owner, and three devshop
+sessions then argued the findings rule in parallel, with nine questions left open. The owner: keep
+a roadmap of what we decided, and a findings log of the noise "to not be fixing them on knee jerk
+reaction", so the truly repetitive ones show.
+
+Outcome: **decided 2026-10-16 (owner)**, as [specs/findings-and-roadmap.md](../../../specs/findings-and-roadmap.md).
+Every repo keeps a root `ROADMAP.md` and `FINDINGS.md`; findings are logged, not suppressed and
+not fixed on reflex; only the owner moves one to the roadmap. Supersedes D-17 item 3 (the ledger's
+grades) and W10.9.6 (the filing rule). The devshop's next task is the top `Open` roadmap entry.

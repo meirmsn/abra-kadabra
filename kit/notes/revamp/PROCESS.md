@@ -51,8 +51,9 @@ occurrence — that's how today's devshop grew 90k words of skills from one-off 
   status in README is updated only at milestone exit.
 - **Rolling-wave planning:** the current and next milestone have concrete tasks with
   done-when; later milestones stay coarse and are refined when they become next.
-- **Picking:** next = first unblocked `[ ]` task in the lowest open milestone, P0
-  before P1. ⚠ tasks are skipped unless their live-risk condition holds.
+- **Picking:** next = the top `Open` entry of the root [ROADMAP.md](../../../ROADMAP.md), whose
+  order is the owner's (since 2026-10-16; before, the first unblocked `[ ]` task in the lowest open
+  milestone). Its detail and done-when stay on the task line it links.
 - **Parallel sessions:** mark `[~]` on `main` (tiny PR or direct note in the PR
   description of the claiming session) before starting, so two sessions don't pick
   the same task; prefer one active epic at a time.
@@ -99,18 +100,19 @@ V4/V5 = Dogfood. Rules:
 
 ## 4. Discoveries and replanning
 
-| Discovery                                  | Action                                                                                                                                        |
-| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Small issue in code you're touching        | Fix in the current task; mention in the PR                                                                                                    |
-| It blocked the task                        | Fix it in the task, or file it ([FINDINGS.md § How findings are handled](FINDINGS.md#how-findings-are-handled)) if the fix is out of the task |
-| It will block the next real project        | File it                                                                                                                                       |
-| Anything else noticed                      | Not filed: a line in the PR body or the reviewer's verdict comment is its record                                                              |
-| Task wrong/unnecessary                     | `[-]` with reason; re-map its findings                                                                                                        |
-| Assumption behind an epic/milestone breaks | Stop; revisit/add a decision in [DECISIONS.md](DECISIONS.md) + [PLAN.md § Changelog](PLAN.md#changelog); ask the owner if scope/order changes |
+| Discovery                                                    | Action                                                                                                                                        |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| The task needs it, or it's in lines the change already edits | Fix it in the task                                                                                                                            |
+| Anything else noticed, a reviewer `low` finding included     | Log it in the root [FINDINGS.md](../../../FINDINGS.md), or add a sighting to the row it matches; don't fix it                                 |
+| `med` or `high`, or a row's third sighting                   | Ask the owner "roadmap or keep watching?" at hand-over                                                                                        |
+| Task wrong/unnecessary                                       | `[-]` with reason; re-map its findings                                                                                                        |
+| Assumption behind an epic/milestone breaks                   | Stop; revisit/add a decision in [DECISIONS.md](DECISIONS.md) + [PLAN.md § Changelog](PLAN.md#changelog); ask the owner if scope/order changes |
 
-**The filing rule:** a finding is filed only when it blocked the task or will block the next real
-project. A filed row is graded as below; nothing else needs grading. Most sessions file nothing. A reviewer `low`
-finding is not fixed in its PR by default and is not filed unless the rule says so.
+**Log, don't fix on reflex** ([spec](../../../specs/findings-and-roadmap.md), replacing the filing
+rule of 2026-10-15): the rules are in the template,
+[runtime/templates/findings.md](../../../runtime/templates/findings.md). A row has a severity and its
+sightings, nothing else. The reviewer's `low` findings are logged in one records-only commit after
+its pass, which `ship` reviews as words only.
 [LOG.md](LOG.md) gets an entry **per work session or milestone**, not per task, of at most 150
 words: what moved, surprises, next.
 

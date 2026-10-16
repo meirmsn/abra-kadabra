@@ -9,6 +9,10 @@ reachable from this page through links, or when a relative link or `#anchor` is 
 
 - [README.md](../README.md): what the devshop is, its status, and the repo layout.
 - [CLAUDE.md](../CLAUDE.md): rules for Claude working in this repo.
+- [ROADMAP.md](../ROADMAP.md): what the owner decided will happen to the devshop, in priority
+  order; the top `Open` entry is the next task.
+- [FINDINGS.md](../FINDINGS.md): what Claude noticed and didn't fix, kept to see what comes back
+  ([spec](../specs/findings-and-roadmap.md)).
 
 ## Checks
 
@@ -73,6 +77,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
 - [`design-first-spec-review.md`](../specs/design-first-spec-review.md): design questions first in
   the spec review, replayed and dropped (they missed the case they were for); the finding is
   F-NEW-65.
+- [`findings-and-roadmap.md`](../specs/findings-and-roadmap.md): every repo keeps a roadmap of
+  what the owner decided and a findings log of what Claude noticed.
 - [`pinned-tools-on-path.md`](../specs/pinned-tools-on-path.md): the project's own checks find the
   devshop's pinned gitleaks, shellcheck and dcg on PATH.
 - [`ui-baseline.md`](../specs/ui-baseline.md): every web app starts from a design baseline, phone
@@ -109,6 +115,11 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   (F-NEW-50, open). Proven by
   [`tests/pr-assets.test.sh`](../tests/pr-assets.test.sh), which also walks a PR's life on a local
   remote: retakes, fix rounds, a squash merge, the branch deleted, a fresh clone.
+- Roadmap and findings: [`runtime/templates/roadmap.md`](../runtime/templates/roadmap.md) and
+  [`runtime/templates/findings.md`](../runtime/templates/findings.md) are the templates, rules
+  included, for every repo's root `ROADMAP.md` (what the owner decided) and `FINDINGS.md` (what
+  Claude noticed); a project creates each on its first entry
+  ([spec](../specs/findings-and-roadmap.md)).
 - Spec: [`runtime/templates/spec.md`](../runtime/templates/spec.md) is the template for a change's
   spec in the project's `specs/` (TARGET § L3 Intent 2): intent, decisions, acceptance items
   `AC-<n>`, core flow and states for UI, out of scope, and the owner's recorded "go".

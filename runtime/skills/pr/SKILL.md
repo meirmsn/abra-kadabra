@@ -35,12 +35,18 @@ under `devshop:build` § 3; this skill only puts them on the PR.
 - Run it again after any change to code or words. With only the words changed, it reviews the
   words alone (W10.9.7).
 
-## 3. Low findings
+## 3. Findings
 
-- The reviewer's `low` findings don't block. Don't fix them in this PR unless one is clear, quick
-  and important. List each under **Low findings** with what you did; that list is their record.
-- One about the devshop itself goes to the owner at the end of the session only if it blocked this
-  task or will block the next change; otherwise the list above is enough.
+- The reviewer's `low` findings don't block and aren't fixed on reflex. Log each in `FINDINGS.md`
+  (the template's rules: match first, a sighting on a repeat) and list it under **Low findings**,
+  as one commit that changes only `FINDINGS.md` and `ROADMAP.md`; run `ship.sh` again, which
+  reviews the words only.
+- With the PR's link (§ 4), list each row logged as `med` or `high` and each whose sightings just
+  reached 3, and ask "roadmap or keep watching?". A "roadmap" before the approval moves it (row
+  deleted, a `ROADMAP.md` entry quoting the answer) in a records-only commit, then `ship.sh`; after
+  the merge, in a small roadmap PR. Nothing else is surfaced.
+- Findings about the devshop: one fenced block of plain lines (what happened, where) for the owner
+  to paste into a devshop session. They are never written in the project.
 
 ## 4. Tell the owner, then watch the PR
 

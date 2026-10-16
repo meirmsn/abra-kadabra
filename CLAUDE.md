@@ -12,8 +12,8 @@ This repo is the devshop, being rewritten as v2 (the 2026-Q4 revamp). Work only 
 
 ## Revamp work
 
-- Follow [kit/notes/revamp/PROCESS.md](kit/notes/revamp/PROCESS.md). The next task is the first
-  unblocked `[ ]` task in `kit/notes/revamp/workstreams/` (lowest open milestone first).
+- Follow [kit/notes/revamp/PROCESS.md](kit/notes/revamp/PROCESS.md). The next task is the top
+  `Open` entry of [ROADMAP.md](ROADMAP.md); its detail is on the task line it links.
 - Write the check first (failing test, repro or attack), then make the change, then run the check
   again. A task is done when it has been shown to work, not when it has been written.
 
@@ -42,9 +42,10 @@ This repo is the devshop, being rewritten as v2 (the 2026-Q4 revamp). Work only 
   the spec→test check, the UI checks) ships with a test that feeds it a known-bad input, and its
   mutants are killed. A missing tool or unparseable output fails; it never passes. Prose linters
   and notes don't need this.
-- **File a finding only when it blocked the task or will block the next real project**
-  ([PROCESS § 4](kit/notes/revamp/PROCESS.md#4-discoveries-and-replanning)); the rest stays in the
-  PR. A LOG entry is at most 150 words.
+- **Log findings, don't fix them on reflex:** what the task doesn't need is a row in
+  [FINDINGS.md](FINDINGS.md) (rules: [the template](runtime/templates/findings.md)); `med` and `high`
+  rows, and rows seen 3 times, go to the owner as "roadmap or keep watching?". Only the owner puts
+  work on [ROADMAP.md](ROADMAP.md). A LOG entry is at most 150 words.
 - **Mechanical steps live in tested scripts** with explicit arguments, never as shell snippets
   in prose for the model to retype.
 - **Root cause over band-aid.** Label a mitigation as one and name the root cause beside it.
