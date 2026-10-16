@@ -69,7 +69,8 @@ optional input on the button:
   breaking change titled `feat:` would ship as minor, and nothing but the owner's approval of each
   title catches it. The button gets one input, "Manual override", a choice of `auto` (the default:
   the titles decide), `major`, `minor` or `patch`. A choice other than `auto` sets the bump from the
-  last release, even when the titles alone give nothing to release; the run's log and the release
+  last release, even when the titles alone give nothing to release (never when no commit follows
+  the last release: that is nothing to release); the run's log and the release
   notes say the override was used and what the titles gave. The first release is always `v2.0.0`,
   so an override there is refused rather than ignored. Rejected: an "expected version" field that
   only checks (the owner's wording), and free-text versions (a typo could skip numbers)
@@ -157,7 +158,7 @@ optional input on the button:
   `major`, `minor` and `patch` defaulting to `auto`, passed to `plan` through `env:`;
   `scripts/release.py plan --bump <choice>` and `next --bump <choice>` give the titles' version for
   `auto`, and for `major`, `minor` or `patch` the bump from the last release (also when the titles
-  give nothing to release), with a line at the top of the notes naming the override and the titles'
+  give nothing to release, never when no commit follows the last release), with a line at the top of the notes naming the override and the titles'
   own result; an override on the first release, or any other choice, exits 2 with nothing written
 
 ## Out of scope

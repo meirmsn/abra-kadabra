@@ -181,6 +181,11 @@ ok "AC-7: the workflow's commands tag main's head v2.0.0 with the notes"
 ! workflow_run || fail "AC-5 AC-7: a second run on a released head didn't fail"
 has "second run" "nothing to release"
 [ "$(wc -l <"$work/gh.log")" = 1 ] || fail "AC-7: a second run called gh again"
+for b in major minor patch; do
+  ! workflow_run "$b" || fail "AC-5 AC-13: an override re-released main's already-released head"
+  has "override $b on a released head" "nothing to release"
+done
+[ "$(wc -l <"$work/gh.log")" = 1 ] || fail "AC-5 AC-13: an override on a released head called gh"
 ok "AC-5 AC-7: a second run on the same head fails with nothing to release and creates nothing"
 
 # AC-3: the bump after a release; nothing for non-bumping types or unprefixed subjects.
@@ -200,6 +205,7 @@ for pair in patch:v2.0.1 minor:v2.1.0 major:v3.0.0; do
 done
 run "override, plan" 0 scripts/release.py plan --notes-file "$work/over.md" --bump minor
 has "override, plan" "tag=v2.1.0"
+has "override, plan log" "Manual override: minor. The PR titles alone give nothing to release."
 head -1 "$work/over.md" | grep -qF "Manual override: minor." || fail "AC-13: the notes don't open with the override"
 grep -qF -- "- a test (#7)" "$work/over.md" || fail "AC-13: the overridden notes lack the subjects"
 for bad in huge auto2 ""; do

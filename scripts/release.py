@@ -120,7 +120,8 @@ def compute(at, override="auto"):
         titles = bump(last, "patch")
     else:
         titles = None
-    if override == "auto":
+    if override == "auto" or not subjects:
+        # No commit since the last release: nothing to release, whatever the override says.
         return titles, notes
     said = f"v{fmt(titles)}" if titles else "nothing to release"
     head = f"Manual override: {override}. The PR titles alone give {said}."
