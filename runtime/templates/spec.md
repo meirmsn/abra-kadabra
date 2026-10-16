@@ -25,7 +25,9 @@ decision changed after the go is recorded here as the owner's, with its date (In
 
 <!-- Numbered AC-1, AC-2, … in order: what must be true, each pass/fail. How it is tested can't
 narrow it (Intent 4). An item shown by a demonstrated step instead of a test ends
-"— verified by review: <the step>". -->
+"— verified by review: <the step>". Every item is checkable from the repo (its code, tests, files
+and commits): what only the owner can confirm (their chat, a dashboard) or what is true only after
+the merge (a live domain) goes in Decisions, as their recorded confirmation or a post-merge step. -->
 
 - **AC-1** {{What must be true}}
 
