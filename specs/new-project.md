@@ -57,7 +57,7 @@ placeholders and prose deploy facts (L-47) are what not to rebuild.
 - **The owner's steps are one list, `runtime/templates/new-project-steps.md`,** linked from the
   devshop's `README.md` so it can be read before any session exists in the new repo. Before the first
   session: a private repo created with a README (so `main` exists for the first PR), squash merging
-  the only merge method (F-NEW-76), the agent identity invited as a Write collaborator and the
+  the only merge method (F-NEW-76) with the squash commit message set to the PR title (`squash_merge_commit_title=PR_TITLE`: under GitHub's default a one-commit PR lands with its commit's subject, not the reviewed title; reported by the devshop releases session, R-11, 2026-10-16), the agent identity invited as a Write collaborator and the
   invitation accepted, a cloud environment with the shared two-line setup script and a Limited
   network (package registries, GitHub). After the first PR's CI has run: `main` protected (PR only,
   one approval, code-owner review, approval of the most recent push, dismiss stale approvals,
@@ -76,6 +76,9 @@ placeholders and prose deploy facts (L-47) are what not to rebuild.
   creates a throwaway private repo, a session there runs the skill, and the first PR's CI is green;
   then the repo is archived (owner, 2026-10-16). That run needs the skill on `main`, so it is a
   post-merge step recorded on the task line, not an acceptance item
+- **`.devshop-version` holds a commit SHA for now:** once the devshop cuts release tags (R-11,
+  `specs/devshop-releases.md`, not yet on `main`), a project pins a tag; moving `init` and the skill
+  to the newest tag belongs to that change or a follow-up, not this one (Claude, 2026-10-16)
 - **Project impact:** conditional. An existing project's next `devshop:upgrade` lists the new seed
   templates as template changes; it adopts or skips each, as for any seed. No devshop file changes
 - **Task line:** W10.4.10 in `kit/notes/revamp/workstreams/W10-v2.md` holds the status and the
