@@ -115,7 +115,7 @@ echo "ok: AC-1 merged creates the comment, retries the lookup, never moves back"
 state "[$(c 1 merged 1)]"
 run deploying
 expect_state deploying 1 "AC-2"
-has '**Deploying** `0123456` to production' "AC-2"
+has '**Deploying to production** · `0123456` · [run](https://example.com/runs/77)' "AC-2"
 state '[]'
 run deploying
 [ "$(ncomments)" = 1 ] && expect_state deploying 1 "AC-2 (created)"
@@ -258,5 +258,21 @@ run deploying API_TIMEOUT_MS=500
 { [ "$rc" = 1 ] && grep -q 'no answer in 500 ms' "$work/out.log"; } || { show; fail "AC-7: a hanging API should exit 1 on the timeout, got $rc"; }
 [ $(($(date +%s) - start)) -lt 10 ] || fail "AC-7: the timeout didn't cut the call short"
 echo "ok: AC-7 bad settings exit 2 without calling GitHub; API errors and timeouts exit 1"
+
+# devshop-deploy AC-6 (specs/devshop-deploy-comment.md): the headline settings.
+state "[$(c 1 merged 1)]"
+run deploying DEPLOYING_AS='Checking on `main`'
+has '**Checking on `main`** · `0123456`' "devshop-deploy AC-6"
+run deployed LIVE_AS='On `main`, ships in the next release'
+has '**On `main`, ships in the next release** · `0123456` · https://app.example.com' "devshop-deploy AC-6"
+state "[$(c 1 deploying 1)]"
+run report FAST=success SLOW=success DEPLOY=success LIVE_AS='On `main`, ships in the next release'
+has '**On `main`, ships in the next release** · `0123456`' "devshop-deploy AC-6 (report)"
+for bad in "LIVE_AS=*bold*" "DEPLOYING_AS=$(printf 'two\nlines')" "LIVE_AS=$(printf 'x%.0s' $(seq 61))"; do
+  state "[$(c 1 merged 1)]"
+  run deployed "$bad"
+  { [ "$rc" = 2 ] && [ ! -s "$work/calls" ]; } || { show; fail "devshop-deploy AC-6: '$bad' should exit 2 without calling GitHub, got $rc"; }
+done
+echo "ok: devshop-deploy AC-6 the headline settings"
 
 echo "PASS: deploy-comment.mjs"
