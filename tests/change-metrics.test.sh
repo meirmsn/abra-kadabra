@@ -404,4 +404,43 @@ post pr9.json --pr 9 --cost 10.50
 grep -qF -- 'reviewer passed 2 of 3' "$work/gh/posted" || { cat "$work/out" "$work/gh/posted" >&2; fail "devshop-deploy AC-3: the checkout's verdict file should count"; }
 echo "ok: devshop-deploy AC-2, AC-3 the merge commit's ci.yml decides; the checkout's verdicts count"
 
+# --- specs/metrics-clock-after-merge.md ---
+# clock AC-1: the session merges PR 3, then starts PR 9 on its own (no owner message before PR 9's
+# merge): the clock starts at PR 3's merge (09:30). Working: 10 s, 20 min, 1 min of 70 min.
+mkdir -p "$work/solo/p" "$work/none2/p"
+python3 - "$work/solo/p/s.jsonl" "$work/none2/p/s.jsonl" <<'EOF'
+import json, sys
+def entry(i, t, **e):
+    return dict(uuid=f"u{i}", timestamp=f"2026-01-01T{t}Z", **e)
+def asst(i, t, end=False, tool=None):
+    c = [{"type": "tool_use", **tool}] if tool else []
+    return entry(i, t, type="assistant", message={"content": c, "stop_reason": "end_turn" if end else "tool_use"})
+def result(i, t, tid):
+    return entry(i, t, type="user", message={"content": [{"type": "tool_result", "tool_use_id": tid, "content": "merged"}]})
+def wake(i, t):
+    return entry(i, t, type="user", origin={"kind": "task-notification"}, message={"content": "<task-notification/>"})
+merge = lambda n: {"id": f"m{n}", "name": "mcp__github__merge_pull_request", "input": {"pullNumber": n}}
+tail = [wake(4, "09:40:00"), asst(5, "09:59:00"), asst(6, "10:00:00", end=True),
+        wake(7, "10:39:00"), asst(8, "10:39:59", tool=merge(9)), result(9, "10:40:00", "m9"), asst(10, "10:40:30", end=True)]
+solo = [entry(1, "09:00:00", type="user", origin={"kind": "human"}, message={"content": "an earlier request"}),
+        asst(2, "09:29:59", tool=merge(3)), result(3, "09:30:00", "m3"), asst(11, "09:30:10", end=True)] + tail
+open(sys.argv[1], "w").writelines(json.dumps(e) + "\n" for e in solo)
+# No previous merge and no owner message: still no clock start.
+open(sys.argv[2], "w").writelines(json.dumps(e) + "\n" for e in tail)
+EOF
+rc=0
+python3 "$py" render --pr-data "$work/pr9-nocomment.json" --cost 1 --ci "$work/noannounce.yml" --now 2026-01-01T10:41:00Z \
+  --projects "$work/solo" >"$work/got" || rc=$?
+grep -qF -- 'no deploy comment · request to merge **70 min**' "$work/got" || { cat "$work/got" >&2; fail "clock AC-1: the clock should start at PR 3's merge"; }
+grep -qF -- '- **Time:** 21 min Claude working · 49 min waiting on you' "$work/got" || { cat "$work/got" >&2; fail "clock AC-1: times from PR 3's merge"; }
+grep -qF -- '- **Your input:** 0 answers in chat' "$work/got" || { cat "$work/got" >&2; fail "clock AC-1: no owner message means 0 answers, not unknown"; }
+echo "ok: clock AC-1 a change the session starts on its own is timed from the previous merge"
+# clock AC-2: with neither a previous merge nor an owner message, still unknown (the owner-message case
+# is the made-up session above, unchanged).
+rc=0
+python3 "$py" render --pr-data "$work/pr9-nocomment.json" --cost 1 --ci "$work/noannounce.yml" --now 2026-01-01T10:41:00Z \
+  --projects "$work/none2" >"$work/got" || rc=$?
+grep -qF -- 'request to merge **unknown**' "$work/got" || { cat "$work/got" >&2; fail "clock AC-2: no start without a previous merge or an owner message"; }
+echo "ok: clock AC-2 an owner message still starts the clock; nothing to start from stays unknown"
+
 echo "PASS: change-metrics"
