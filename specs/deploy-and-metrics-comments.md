@@ -1,6 +1,6 @@
 # A merged PR follows its deploy, then says how the change went
 
-**Go:** pending
+**Go:** "B. do (1) in this session", choosing the slot as a script, `scripts/deploy.sh` (owner, 2026-10-16)
 
 ## Intent
 
@@ -106,8 +106,8 @@ auto-unsubscribed, so the project's deploy comment never reaches it".
   comment ends not-deployed with "this project has no deploy step yet". The job keeps
   `environment: production` (the deploy's secrets live there); a project with no deploy script yet
   gets a GitHub deployment record that did nothing, accepted, since the comment says so. Rejected:
-  a block of steps the project rewrites inside the template, which drifts per stack (Claude,
-  2026-10-16, pending the owner's choice)
+  a block of steps the project rewrites inside the template, which drifts per stack (owner chose
+  the script, 2026-10-16)
 - **Setup docs:** the template's comments are the contract (what `scripts/deploy.sh` must write, and
   the two places a project edits), and `docs/README.md`'s CI entry says so; how a new project is
   set up in general is a separate question, not this change. How to write `deploy.sh` for a stack
