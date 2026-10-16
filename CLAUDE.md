@@ -21,7 +21,10 @@ This repo is the devshop, being rewritten as v2 (the 2026-Q4 revamp). Work only 
 
 - One task, one branch, cut from a freshly fetched `main`. Changes reach `main` only by PR. CI
   must be green and the owner approves.
-- If `main` moves, merge it into your branch. Don't rebase or force-push a pushed branch.
+- Merge `main` into your branch only when the PR has a merge conflict or the owner says it is next to
+  merge (or approves it); being behind `main` alone is no reason to touch the branch or re-run CI.
+  The owner merges PRs one at a time, in order, so each pays one update-and-CI round. Don't
+  rebase or force-push a pushed branch.
 - Commit subjects and PR titles start with a Conventional Commit type (`feat:`, `fix:`, `docs:`, …;
   `!` before the colon for a breaking change), then describe the observable change, in ≤ 72
   characters. The PR title is what lands on `main` and decides the release
