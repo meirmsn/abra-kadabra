@@ -48,14 +48,14 @@ auto-unsubscribed, so the project's deploy comment never reaches it".
 - **One comment, a state line under the marker:** `<!-- state:<state> run:<run id>/<attempt> -->`.
   The states and headlines (Claude, from the website draft, 2026-10-16):
 
-  | State        | Written by                                           | Headline                                                                                        |
-  | ------------ | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-  | merged       | the `announce` job, when the run on `main` starts    | **Merged** · `<sha>` · checks running on `main`, then the deploy · [run](<run url>)             |
-  | deploying    | the `deploy` job's first step, before the slot       | **Deploying** `<sha>` to production · [run](<run url>)                                          |
-  | live         | the `deploy` job, after the slot succeeded           | **Live in production** · `<sha>` · `<url>` (then the website's lines: versions, domain, undo)   |
-  | failed       | the `deploy` job, after the slot failed or timed out | the website's two texts: "may be live" (uploaded) or "production is unchanged" (not uploaded)   |
-  | not-deployed | the `report` job                                     | **Not deployed** · `<sha>` · `<reason>`; production is unchanged · [run](<run url>)             |
-  | superseded   | the `report` job                                     | **Not deployed on its own** · `<sha>` · it ships with `<newer sha>`'s deploy · [run](<run url>) |
+  | State        | Written by                                           | Headline                                                                                       |
+  | ------------ | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+  | merged       | the `announce` job, when the run on `main` starts    | **Merged** · `<sha>` · checks running on `main`, then the deploy · link to the run             |
+  | deploying    | the `deploy` job's first step, before the slot       | **Deploying** `<sha>` to production · link to the run                                          |
+  | live         | the `deploy` job, after the slot succeeded           | **Live in production** · `<sha>` · `<url>` (then the website's lines: versions, domain, undo)  |
+  | failed       | the `deploy` job, after the slot failed or timed out | the website's two texts: "may be live" (uploaded) or "production is unchanged" (not uploaded)  |
+  | not-deployed | the `report` job                                     | **Not deployed** · `<sha>` · `<reason>`; production is unchanged · link to the run             |
+  | superseded   | the `report` job                                     | **Not deployed on its own** · `<sha>` · it ships with `<newer sha>`'s deploy · link to the run |
 
   `live`, `failed`, `not-deployed` and `superseded` are the final states. A deploy comment with a
   marker and no state line counts as final.

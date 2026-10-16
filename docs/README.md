@@ -74,6 +74,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
 
 - [`ci-fast-slow-tiers.md`](../specs/ci-fast-slow-tiers.md): CI in two tiers, fast and slow, for
   the devshop and every project.
+- [`deploy-and-metrics-comments.md`](../specs/deploy-and-metrics-comments.md): a merged PR's deploy
+  comment follows the deploy to a final state, then the session posts how the change went.
 - [`design-first-spec-review.md`](../specs/design-first-spec-review.md): design questions first in
   the spec review, replayed and dropped (they missed the case they were for); the finding is
   F-NEW-65.
