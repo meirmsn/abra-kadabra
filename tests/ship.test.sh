@@ -268,6 +268,28 @@ grep -qi "owner" <<<"$out" || fail "a body check that can't run doesn't say to a
 mv "$work/pr-body-check.py.away" "$work/dev/scripts/pr-body-check.py"
 ok "words without the template's shape stop before the review (exit 1); a missing or failing body check can't run (exit 2)"
 
+# --- 4c. AC-11 (spec specs/devshop-releases.md): a repo with its own scripts/pr-title-check.py gets
+# the title checked before the review; a repo without one (any project) is unaffected (section 1).
+mkdir -p "$work/p/scripts"
+cp "$repo_root/scripts/pr-title-check.py" "$work/p/scripts/"
+git -C "$work/p" add -A && git -C "$work/p" commit -qm "a repo with a title rule"
+reset_state pass
+run_ship --title "Add x" --body-file "$work/body.md"
+want_rc 1 "a title the repo's check fails"; nothing_shipped "a title the repo's check fails"
+[ "$(reviews)" = 0 ] || fail "a title the repo's check fails was reviewed"
+{ grep -q "no Conventional Commit type" <<<"$out" && grep -qi "ship again" <<<"$out"; } || fail "the title's problem isn't shown: $out"
+reset_state pass
+run_ship --title "feat: add x" --body-file "$work/body.md"
+want_rc 0 "a title the repo's check passes"
+[ "$(jq -r .title "$work/gh/prs/7.json")" = "feat: add x" ] || fail "PR title: $(cat "$work/gh/prs/7.json")"
+chmod -x "$work/p/scripts/pr-title-check.py"
+git -C "$work/p" commit -qam "the title rule, not executable"
+reset_state pass
+run_ship --title "feat: add x" --body-file "$work/body.md"
+want_rc 2 "a title check that isn't executable"; nothing_shipped "a title check that isn't executable"
+git -C "$work/p" reset -q --hard HEAD~2
+ok "AC-11: the repo's own title check stops a bad title before the review (exit 1), passes a good one, and can't run when it isn't executable"
+
 # --- 5. An open PR: its base is used, and its title, body and head are updated together.
 reset_state pass
 git -C "$work/p" push -q origin feat/x

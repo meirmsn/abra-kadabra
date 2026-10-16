@@ -256,6 +256,8 @@ Outcome: **open:** the new runtime repo gets its own versioning from its first r
 
 **Decided 2026-10-12 (owner, L3 Shape, LOG #19):** SemVer from `v2.0.0`; a release PR (release-please) collects merged changes, computes the bump from commit types and drafts the changelog; the owner merges it to release and CI creates the tag (A-25). Alternatives weighed: calendar versions (no "needs migration" signal), bare SHAs (unreadable), auto-release per merge (noise).
 
+**Revisited 2026-10-16 (owner's go on [specs/devshop-releases.md](../../../specs/devshop-releases.md), R-11):** built, with release-please replaced by a tested script: a PR release-please opens with the workflow's token starts no CI, so it could never pass the required checks without a second credential. `scripts/release.py prepare` writes `VERSION` and the `CHANGELOG.md` section for a normal `chore(release)` PR; on its merge `release.yml` creates the tag and the GitHub release. PR titles carry Conventional Commit types (checked in CI's fast job and by `ship.sh`); the squash commit title is the PR title. Projects pin the tag.
+
 ## D-11 Deletion list — `obsolete`
 
 Candidates: CLAUDE.md-placement machinery (F-DOC-05), most `adversarial-review.sh`
