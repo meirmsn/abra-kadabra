@@ -1,6 +1,6 @@
 # A new project starts from the devshop v2 with green CI
 
-**Go:** pending
+**Go:** "go" (owner, 2026-10-16)
 
 ## Intent
 
