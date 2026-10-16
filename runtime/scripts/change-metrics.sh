@@ -64,7 +64,7 @@ if gh api "repos/$slug/actions/workflows/ci.yml/runs?branch=$(jq -rn --arg h "$h
     done
     jq --argjson r "$run" --argjson a "$attempts" '. + [$r + {attempts: $a}]' "$work/runs.json" >"$work/runs.next"
     mv "$work/runs.next" "$work/runs.json"
-  done < <(jq -c '.workflow_runs[] | {id, head_sha, conclusion, run_attempt}' "$work/runs-page.json")
+  done < <(jq -c '.workflow_runs[] | {id, head_sha, conclusion, run_attempt, created_at}' "$work/runs-page.json")
 else
   echo null >"$work/runs.json"
 fi
