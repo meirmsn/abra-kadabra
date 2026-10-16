@@ -21,7 +21,8 @@ Conventional Commit type ([`scripts/pr-title-check.py`](../scripts/pr-title-chec
 job and `ship.sh` run it), and the squash merge makes the title the subject on `main`. To release,
 the owner clicks "Run workflow" on [`release.yml`](../.github/workflows/release.yml) in the
 Actions tab, on `main`: its first step refuses anyone but the repository's owner and any branch
-but `main`; [`scripts/release.py`](../scripts/release.py) `plan` computes the next version from the
+but `main` (feedback against accidents, not a wall: a branch carrying its own workflow could still
+create a tag, F-NEW-96); [`scripts/release.py`](../scripts/release.py) `plan` computes the next version from the
 subjects since the last release (`!` major, `feat` minor, `fix`/`perf`/`revert` patch, nothing
 else releases) and its notes; then CI creates the tag on `main`'s head and the GitHub release with
 those notes (a session can't push tags, A-25). There is no release PR and no changelog file: the

@@ -52,9 +52,14 @@ After the first change merged (PR 128), before any release was cut (2026-10-16):
 - **Only the owner can release:** the workflow's first step fails the run unless the run is on
   `main` and both the actor who started it and the one who re-ran it (`github.actor`,
   `github.triggering_actor`) are the repository's owner (`github.repository_owner`), read through
-  `env:`. The agent identity has write access and could start the workflow through the API; this
-  stops it. The guard sits in a file on `main`, which changes only by a reviewed PR, so it holds
-  (a wall, with branch protection)
+  `env:`. It stops accidents (the agent identity, which has write access, starting this file on
+  `main` through the API), but it is feedback, not a wall: a `workflow_dispatch` run uses the
+  workflow file of the branch it is started on, so a branch carrying a copy without the guard, or
+  any branch workflow using the workflow token, can still create a new tag. Moving a published
+  release's tag stays impossible (release immutability), and a project only moves to a new
+  release through an upgrade PR the owner approves. The owner accepted this rather than a GitHub
+  App in a `main`-only environment or tags created by hand (owner, 2026-10-16, after the go, when
+  the reviewer found the bypass; logged as F-NEW-96)
 - **CI creates the tag and the GitHub release** (A-25: a session's git proxy refuses tag pushes):
   the workflow runs with `contents: write`, one run at a time, on a full clone with tags;
   `scripts/release.py plan --notes-file <path>` prints the tag and `main`'s head SHA and writes the

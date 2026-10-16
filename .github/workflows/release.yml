@@ -1,8 +1,9 @@
 # Devshop releases (spec specs/devshop-releases.md; D-10, A-25): a button. The owner clicks "Run
 # workflow" on main; it computes the next version and notes from main's subjects since the last
 # release (scripts/release.py) and creates the tag and the GitHub release. A session can't push
-# tags, so CI does. Only the repository's owner can release, and only from main: the agent identity
-# has write access and could start this through the API, so the first step refuses anyone else.
+# tags, so CI does. The first step refuses anyone but the repository's owner and any branch but
+# main. That stops accidents, not an attacker: a dispatched run uses the workflow file of the branch
+# it starts on, so a branch without this step could still tag (feedback, not a wall; F-NEW-96).
 # Every value reaches a script through env, never interpolated into it. Not a required check.
 name: release
 
