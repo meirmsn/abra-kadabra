@@ -71,12 +71,12 @@ want(r.get("if") == "always() && " + main_if and sorted(needs("report")) == ["de
 for k in ("FAST", "SLOW", "DEPLOY"):
     want(any(k in (s.get("env") or {}) for s in r["steps"]), f"report passes {k}")
 for j in ("announce", "report"):
-    want(jobs[j].get("continue-on-error") is True and jobs[j].get("timeout-minutes"), f"{j}: continue-on-error and a timeout")
+    want(jobs[j].get("continue-on-error") is True and jobs[j].get("timeout-minutes") == 2, f"{j}: continue-on-error and a 2-minute timeout")
 for j in ("announce", "deploy", "report"):
     for s in jobs[j]["steps"]:
         if "deploy-comment.mjs" in s.get("run", ""):
             if j == "deploy":
-                want(s.get("continue-on-error") is True and s.get("timeout-minutes"), f"{j}: comment step '{s['name']}' continue-on-error with a timeout")
+                want(s.get("continue-on-error") is True and s.get("timeout-minutes") == 1, f"{j}: comment step '{s['name']}' continue-on-error with a 1-minute timeout")
             env = s.get("env") or {}
             want(not any("secrets." in str(v) for v in env.values()), f"{j}: comment step '{s.get('name')}' has a secret")
             want(env.get("GITHUB_TOKEN") == "${{ github.token }}", f"{j}: comment step '{s.get('name')}' uses the job's token")

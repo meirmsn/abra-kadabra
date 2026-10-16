@@ -118,7 +118,7 @@ auto-unsubscribed, so the project's deploy comment never reaches it".
   2026-10-16)
 - **The comment never blocks or delays the merge or the deploy:** `announce` and `report` are
   `continue-on-error`, and so are the comment steps in `deploy`; each comment step and job has
-  `timeout-minutes: 1` (`report`: 2, for its retry), and every GitHub call in the script times out
+  `timeout-minutes: 1` (the `announce` and `report` jobs: 2, for their PR lookup's retry), and every GitHub call in the script times out
   after 10 seconds, so a slow GitHub API can't hold the deploy. They get the job's GitHub token only
   (`contents: read`, `pull-requests: write`, and `actions: read` for `report`, to find a newer run),
   never a deploy secret. `fast` and `slow` stay unchanged. The script needs only Node's built-ins,
