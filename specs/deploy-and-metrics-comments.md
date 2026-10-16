@@ -179,15 +179,20 @@ auto-unsubscribed, so the project's deploy comment never reaches it".
 - **Where each number comes from** (owner's method, measured by hand on PR 7; definitions Claude's):
   - _Request to live:_ the clock's start to the deploy comment's final state (`at`).
   - _Claude working:_ from each owner message or wake to the last assistant entry before the next
-    one, from the start to the merge; overlapping spans counted once.
-  - _Waiting on you:_ each `AskUserQuestion` from its call to its answer, plus each idle gap before
-    the merge that ended with the owner acting: their chat message, or a wake within 2 minutes after
-    their PR comment, review or approval in the PR data.
-  - _Waiting on CI:_ the other idle gaps before the merge, shown in the Time line only when 1 minute
-    or more, so the Time line adds up to the total (owner: "sounds good", 2026-10-16).
+    one, less the time an `AskUserQuestion` waits for its answer, from the start until the deploy
+    comment's final state, so the session's own work after the merge counts; overlapping spans
+    counted once (owner chose "Include post-merge work", 2026-10-16, after the PR 7 rebuild gave 10.2
+    min to the merge and 11.0 with it).
+  - _Waiting on you:_ the time from the start to the merge that isn't Claude working: before the PR
+    opens an idle session waits for the owner's reply, and while it is open the owner can approve at
+    any time. PR 7: 13 min. Rejected: counting only the gaps the owner ended and showing the rest as
+    "waiting on CI" (6 and 7 min on PR 7), which needs each gap's cause matched against GitHub's
+    times; so the Time line has no "waiting on CI" (owner: "idk, whats simple and resonable?";
+    Claude's pick, 2026-10-16)
   - _Deploying:_ the merge to the final state.
   - _Your input:_ answers in chat are the questions answered through `AskUserQuestion` plus the
-    owner's chat messages after the first one (the go is one); PR comments are the owner's
+    owner's chat messages after the first one (the go is one; owner chose "Questions + messages":
+    6 on PR 7, 5 questions and 1 message, where the hand count said 4, 2026-10-16); PR comments are the owner's
     comments and reviews with text; approvals are their `APPROVED` reviews. The owner is the account
     that approved the PR, else every account that isn't a bot (`[bot]` or type `Bot`) or the PR's
     author.
@@ -199,7 +204,9 @@ auto-unsubscribed, so the project's deploy comment never reaches it".
     "reviewer passed n of m" counts the `REVIEW:` lines (m) and those with outcome `pass` (n).
     Lighthouse is left out: it is in CI logs, in a form each stack writes its own way (owner:
     "yes", 2026-10-16).
-  - Minutes are rounded to the nearest whole minute.
+  - A time under 10 minutes shows minutes and seconds ("3 min 31 s"); longer ones are rounded to the
+    nearest whole minute (owner chose "Show seconds under 10 min", 2026-10-16, after PR 7's deploy,
+    3 min 31 s, rounded to 4 where the hand count said 3).
 - **A number that can't be measured shows "unknown",** never a guess, and never blocks or delays
   the merge or the deploy (owner)
 - **The headline names the outcome:** live: "request to live **27 min**"; failed: "**deploy
@@ -272,12 +279,12 @@ auto-unsubscribed, so the project's deploy comment never reaches it".
 - **AC-10** `runtime/project-files.txt` lists `runtime/scripts/deploy-comment.mjs` as `devshop`,
   project path `scripts/deploy-comment.mjs`, and `project-files.py check` passes on a project with
   an identical copy and reports one that differs
-- **AC-11** `change-metrics.py` on the anonymised PR 7 fixture prints exactly the Intent's comment:
-  27 min; 11 · 13 · 3 min; 4 answers · 1 PR comment · 1 approval; $4.05 ($3.88 + $0.17); 2 pushes
-  · 0 red CI runs · passed 2 of 2
+- **AC-11** `change-metrics.py` on the anonymised PR 7 fixture prints the Intent's comment with the
+  owner's answers of 2026-10-16: 27 min; 11 min · 13 min · 3 min 31 s; 6 answers · 1 PR comment · 1
+  approval; $4.05 ($3.88 + $0.17); 2 pushes · 0 red CI runs · passed 2 of 2
 - **AC-12** On sample transcripts it counts working time from each owner message or wake to the last
-  assistant entry before the next one; `AskUserQuestion` time and gaps the owner ended as waiting on
-  you; other gaps as waiting on CI, shown only from 1 minute; a mid-turn owner message once, not
+  assistant entry before the next one, less `AskUserQuestion` waits, until the final state; waiting
+  on you as the rest of the time to the merge; times under 10 minutes with seconds; a mid-turn owner message once, not
   three times; skill text and tool results not as owner messages; the clock from the session's
   first owner message, or, after an earlier merge in the session, from the first owner message after
   it; and two transcript files of one session (a restart) merged by uuid, each entry counted once
