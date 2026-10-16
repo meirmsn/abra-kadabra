@@ -90,7 +90,7 @@ _Agreed 2026-10-11 (LOG #19)._
 4. **Acceptance items say what must be true;** how each is tested can't narrow it. Untestable or impossible → back to the owner, never reworded (L-19).
 5. **Adversarial spec review** before the owner sees the summary, by the same independent reviewer as Verify: spec vs recorded intent and decisions; ambiguity; untestable items; missing edge cases and failure modes; scope added beyond the ask; literal code in the spec checked against the codebase (L-76). Claude fixes what it can; what needs the owner comes with the summary. Replaces `/spec`'s Codex quality gate. Not for bug fixes.
 6. **The "go"** is given on a one-screen summary (intent, decisions, acceptance items, out of scope, rough size) and recorded in the spec.
-7. **Spec changes after the "go":** Claude raises them, the owner decides, the spec is updated. The final review fails on any change to decisions or acceptance items that isn't recorded as the owner's.
+7. **Spec changes after the "go":** the owner decides, by their answer when Claude raises one or by a PR comment asking for it; the spec is updated with their words. The final review fails on any change to decisions or acceptance items that isn't recorded as the owner's.
 8. **Too big?** Claude proposes splitting it into several changes, each with its own spec.
 
 - _Dropped:_ v1's "stop and ask" category list (`CLAUDE.md` § Confidence Calibration at `v1-final`) — every change now needs a "go", and anything new mid-build is a spec change (bullet 7). Kept as the starting point if spec review ever gets tedious and specs become auto-approved except in listed cases ([lessons.md § Considered, not carried](lessons.md#considered-not-carried)).
@@ -141,7 +141,7 @@ _Agreed 2026-10-11 (LOG #19)._
 4. **Visuals pinned** to the exact commit or uploaded, never linked to a moving branch (L-30), and on the PR, never only in chat. Since W10.6.9d the devshop puts them in a parentless commit that the PR's branch brings in through a merge changing no file, embedded by that commit's SHA; with squash merges they never reach the default branch, and GitHub keeps them with the PR.
 5. **No unverified claims:** "CI green", "preview up" etc. are read from the real signal when written (L-28); before the PR goes ready, the reviewer checks title, body and screenshots match the final commit (L-29).
 6. **Claude tells the owner in chat when a PR is ready** — link + one-line summary; the top of the PR stays short enough to judge on a phone.
-7. **Steering:** the owner comments on the PR or in chat (chat input is recorded on the PR); Claude revises through the same verify loop and answers each comment; a comment that changes the spec follows Intent bullet 7.
+7. **Steering:** the owner comments on the PR or in chat (chat input is recorded on the PR); Claude revises through the same verify loop and answers each comment; a comment that changes the spec is the owner's decision, built and recorded in the spec as changed after the go, and one Claude can't address is raised in the session's chat (owner, 2026-10-16; the answer-on-the-PR loop is deferred, F-NEW-99).
 8. **Approval ships by default:** once the owner approves and CI is green, Claude merges and deploy follows (Ship). Not when the approval message or the chat says to wait, or when Claude has a concrete reason to hold (then it says so and asks). Any push after approval needs approval again.
 
 ### Ship
@@ -258,7 +258,7 @@ _Rewritten 2026-10-12 to exercise all nine pillars (W10.2.2, LOG #20) and harden
 
    Pass only if every plant appears **by ID** in the reviewer's verdict for that commit (and in the CI run where named). Then fix, re-run, green. **Stale-verdict check:** one more commit after a pass → the PR's verdict check shows the verdict as stale until a new verdict for that commit is on the PR.
 
-4. **Review** — the PR opens only after the reviewer passes; the body follows the agreed layout with screenshots per state and the platform's preview link; Claude tells the owner in chat. The owner leaves one comment that changes a spec item → Claude raises it, the owner decides, the spec is updated, the change is re-verified.
+4. **Review** — the PR opens only after the reviewer passes; the body follows the agreed layout with screenshots per state and the platform's preview link; Claude tells the owner in chat. The owner leaves one comment that changes a spec item → Claude builds it, records it in the spec as the owner's change after the go, and re-verifies (one it can't address goes to the owner in chat).
 5. **Safety — attempts that must be rejected outside the session.** _Evidence for each:_ GitHub's verbatim refusal and `main`'s SHA before and after (unchanged).
    - a direct push to `main`; a force push;
    - a merge before the owner's approval; enabling auto-merge before approval;
