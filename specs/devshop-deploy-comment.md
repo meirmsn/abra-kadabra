@@ -63,18 +63,22 @@ jobs. The owner (2026-10-16):
   deploy failed and may be live, which is true (Claude, 2026-10-16, from the spec review)
 - **The devshop's headlines say what happens to it:** `deploy-comment.mjs` takes two optional
   settings, `DEPLOYING_AS` (default "Deploying to production") and `LIVE_AS` (default "Live in
-  production"), the bold words of those two headlines; the devshop sets "Releasing on `main`" and
-  "Released on `main`". The deploying headline becomes "**Deploying to production** · `<sha>` ·
+  production"), the bold words of those two headlines; the devshop sets "Checking on `main`" and
+  "On `main`, ships in the next release". The deploying headline becomes "**Deploying to production** · `<sha>` ·
   run", the shape of the others. Each setting is one line of at most 60 characters with no `*`,
   else exit 2. The not-deployed and failed texts stay: for the devshop, production is the last
   released version, which a red `main` doesn't replace (owner on a setting for "Released on
-  `main`": "if trivial do the more accurate copy", 2026-10-16; the two settings are Claude's)
+  `main`": "if trivial do the more accurate copy", 2026-10-16; the two settings are Claude's).
+  Since `specs/devshop-releases.md` (PR 128) merged during the build, a commit on `main` ships
+  only with the next release tag, so the words became "Checking on `main`" and "On `main`, ships
+  in the next release"; rejected: waiting for the release tag, which could hold the comment and
+  the metrics for days (owner chose "On main · next release", 2026-10-16)
 - **PR 129 gets its metrics comment first,** once this merges, with the session's cost read at its
   merge ($25.75, `get_session` at 15:32), so its marker records it; then this change's PR gets its
   own, whose session cost starts there (Claude, 2026-10-16, from the spec review)
 - **A post-merge check, not an acceptance item** (nothing before the merge can show it): after the
   merge, PR 129's metrics comment says "no deploy comment" and "reviewer passed 3 of 8", posted
-  first; this change's PR shows its deploy comment reaching "Released on `main`", then its metrics
+  first; this change's PR shows its deploy comment reaching "On `main`, ships in the next release", then its metrics
   comment; Claude reports both. Before the merge, the PR carries PR 129's dry run (owner chose
   "Post-merge check", 2026-10-16, after the reviewer twice could not call it met)
 
@@ -99,7 +103,7 @@ jobs. The owner (2026-10-16):
   (`unknown` for an all-zero `BEFORE`), `url` and `rollback` from its four inputs, with no secret,
   and exits 2 when an input is missing
 - **AC-6** `deploy-comment.mjs` writes the deploying and live headlines with `DEPLOYING_AS` and
-  `LIVE_AS` when given ("**Releasing on `main`** · `<sha>`", "**Released on `main`** · `<sha>`") and
+  `LIVE_AS` when given ("**Checking on `main`** · `<sha>`", "**On `main`, ships in the next release** · `<sha>`") and
   "Deploying to production" and "Live in production" when not; a setting over 60 characters, over
   one line or holding `*` exits 2 before calling GitHub; the devshop's `ci.yml` sets both
 

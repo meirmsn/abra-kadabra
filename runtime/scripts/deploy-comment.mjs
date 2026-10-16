@@ -63,8 +63,8 @@ if (cmd === 'report')
       die(2, `${v} is not a job result (${RESULTS.join(', ')}): ${env[v]}`);
 // deploy.sh's outputs never stop the comment reaching a final state: a missing one shows as unknown,
 // and a URL that isn't https (or a site URL that isn't an https origin) is left out.
-// The bold words of the deploying and live headlines (the devshop: "Releasing on `main`", "Released on
-// `main`"); one line of at most 60 characters, no `*`.
+// The bold words of the deploying and live headlines (the devshop: "Checking on `main`", "On `main`,
+// ships in the next release"); one line of at most 60 characters, no `*`.
 const words = (v, d) => {
   const w = env[v] || d;
   if (w.length > 60 || /[\n\r*]/.test(w))

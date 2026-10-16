@@ -192,7 +192,7 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           RUN_ATTEMPT: ${{ github.run_attempt }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          DEPLOYING_AS: Releasing on `main`
+          DEPLOYING_AS: Checking on `main`
         run: node runtime/scripts/deploy-comment.mjs deploying
 
       - name: Release (scripts/deploy.sh writes what the comment reads; nothing is deployed)
@@ -218,7 +218,7 @@ jobs:
           SITE_URL: ${{ steps.deploy.outputs.site_url }}
           SITE_SMOKE: ${{ steps.deploy.outputs.site_smoke }}
           NONE: ${{ steps.deploy.outputs.none }}
-          LIVE_AS: Released on `main`
+          LIVE_AS: On `main`, ships in the next release
         run: node runtime/scripts/deploy-comment.mjs deployed
 
       - name: Tell the merged PR the deploy failed
@@ -272,5 +272,5 @@ jobs:
           SITE_URL: ${{ needs.deploy.outputs.site_url }}
           SITE_SMOKE: ${{ needs.deploy.outputs.site_smoke }}
           NONE: ${{ needs.deploy.outputs.none }}
-          LIVE_AS: Released on `main`
+          LIVE_AS: On `main`, ships in the next release
         run: node runtime/scripts/deploy-comment.mjs report

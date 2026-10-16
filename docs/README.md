@@ -42,8 +42,8 @@ creates the tag and the GitHub release (a session can't push tags, A-25). Projec
   [`tests/check-tiers.test.sh`](../tests/check-tiers.test.sh) and
   [`tests/run-tiers.test.sh`](../tests/run-tiers.test.sh).
 - The devshop's release: on `main`, after both tiers, the same `announce`, `deploy` and `report` jobs
-  as a project's give the merged PR its deploy comment (Releasing on `main`, then Released on
-  `main`); [`scripts/deploy.sh`](../scripts/deploy.sh) deploys nothing and writes what the comment
+  as a project's give the merged PR its deploy comment (Checking on `main`, then On `main`,
+  ships in the next release, since a release tag ships it); [`scripts/deploy.sh`](../scripts/deploy.sh) deploys nothing and writes what the comment
   reads ([spec](../specs/devshop-deploy-comment.md); proven by
   [`tests/deploy-sh.test.sh`](../tests/deploy-sh.test.sh) and
   [`tests/ci-template-deploy.test.sh`](../tests/ci-template-deploy.test.sh)).

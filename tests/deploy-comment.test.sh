@@ -261,13 +261,13 @@ echo "ok: AC-7 bad settings exit 2 without calling GitHub; API errors and timeou
 
 # devshop-deploy AC-6 (specs/devshop-deploy-comment.md): the headline settings.
 state "[$(c 1 merged 1)]"
-run deploying DEPLOYING_AS='Releasing on `main`'
-has '**Releasing on `main`** · `0123456`' "devshop-deploy AC-6"
-run deployed LIVE_AS='Released on `main`'
-has '**Released on `main`** · `0123456` · https://app.example.com' "devshop-deploy AC-6"
+run deploying DEPLOYING_AS='Checking on `main`'
+has '**Checking on `main`** · `0123456`' "devshop-deploy AC-6"
+run deployed LIVE_AS='On `main`, ships in the next release'
+has '**On `main`, ships in the next release** · `0123456` · https://app.example.com' "devshop-deploy AC-6"
 state "[$(c 1 deploying 1)]"
-run report FAST=success SLOW=success DEPLOY=success LIVE_AS='Released on `main`'
-has '**Released on `main`** · `0123456`' "devshop-deploy AC-6 (report)"
+run report FAST=success SLOW=success DEPLOY=success LIVE_AS='On `main`, ships in the next release'
+has '**On `main`, ships in the next release** · `0123456`' "devshop-deploy AC-6 (report)"
 for bad in "LIVE_AS=*bold*" "DEPLOYING_AS=$(printf 'two\nlines')" "LIVE_AS=$(printf 'x%.0s' $(seq 61))"; do
   state "[$(c 1 merged 1)]"
   run deployed "$bad"

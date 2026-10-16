@@ -75,9 +75,9 @@ else:
     want(idx("scripts/setup.sh") < 0, "deploy: no setup step (nothing is installed)")
     by_cmd = {c: next((st.get("env") or {} for st in jobs[j]["steps"] if f"deploy-comment.mjs {c}" in st.get("run", "")), {})
               for j, c in (("deploy", "deploying"), ("deploy", "deployed"), ("report", "report"))}
-    want(by_cmd["deploying"].get("DEPLOYING_AS") == "Releasing on `main`", "deploy: deploying says Releasing on `main`")
-    want(by_cmd["deployed"].get("LIVE_AS") == "Released on `main`" and by_cmd["report"].get("LIVE_AS") == "Released on `main`",
-         "deployed and report say Released on `main`")
+    want(by_cmd["deploying"].get("DEPLOYING_AS") == "Checking on `main`", "deploy: deploying says Checking on `main`")
+    want(by_cmd["deployed"].get("LIVE_AS") == "On `main`, ships in the next release" and by_cmd["report"].get("LIVE_AS") == "On `main`, ships in the next release",
+         "deployed and report say On `main`, ships in the next release")
 want(set(d.get("outputs", {})) >= {"url", "version", "previous_version", "rollback", "site_url", "site_smoke", "none"}, "deploy: exposes the slot's outputs")
 r = jobs["report"]
 want(r.get("if") == "always() && " + main_if and sorted(needs("report")) == ["deploy", "fast", "slow"], "report: if always() on main, needs fast, slow, deploy")
