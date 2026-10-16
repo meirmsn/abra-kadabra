@@ -101,6 +101,10 @@ import sys, yaml, os
 w = yaml.safe_load(open(sys.argv[1]))
 on = w.get("on", w.get(True))
 assert list(on) == ["workflow_dispatch"], on
+(name, inp), = on["workflow_dispatch"]["inputs"].items()
+assert name == "manual_override", name
+assert inp["type"] == "choice" and inp["options"] == ["auto", "major", "minor", "patch"], inp
+assert inp["default"] == "auto" and inp.get("required") is False, inp
 assert w["permissions"] == {"contents": "write"}, w["permissions"]
 assert w["concurrency"]["group"] and w["concurrency"]["cancel-in-progress"] is False
 (job,) = w["jobs"].values()
@@ -113,6 +117,8 @@ assert guard["env"] == {"REF": "${{ github.ref }}", "ACTOR": "${{ github.actor }
                         "OWNER": "${{ github.repository_owner }}"}, guard["env"]
 assert co["uses"].startswith("actions/checkout@") and co["with"]["fetch-depth"] == 0
 assert plan["id"] == "plan" and "scripts/release.py plan" in plan["run"] and '>>"$GITHUB_OUTPUT"' in plan["run"]
+assert plan["env"] == {"MANUAL_OVERRIDE": "${{ inputs.manual_override }}"}, plan.get("env")
+assert '--bump "$MANUAL_OVERRIDE"' in plan["run"], plan["run"]
 assert create["env"]["TAG"] == "${{ steps.plan.outputs.tag }}"
 assert create["env"]["SHA"] == "${{ steps.plan.outputs.sha }}"
 assert create["run"].startswith('gh release create "$TAG"') and '--target "$SHA"' in create["run"]
@@ -147,15 +153,24 @@ tag=\$3; sha=\$(sed -n 's/.*--target \([0-9a-f]*\).*/\1/p' <<<"\$*")
 git -C "$r" tag "\$tag" "\$sha"
 EOF
 chmod +x "$work/bin/gh"
-# workflow_run: plan, then create (a failing step ends the run, as on GitHub).
+# workflow_run [manual override]: plan, then create (a failing step ends the run, as on GitHub).
 workflow_run() {
   local out="$work/gh-output" tag sha
   : >"$out"
-  (cd "$r" && RUNNER_TEMP="$work/runner" GITHUB_OUTPUT="$out" bash -e "$work/steps/plan.sh") >"$work/out.log" 2>&1 || return 1
+  (cd "$r" && MANUAL_OVERRIDE=${1:-auto} RUNNER_TEMP="$work/runner" GITHUB_OUTPUT="$out" bash -e "$work/steps/plan.sh") >"$work/out.log" 2>&1 || return 1
   tag=$(sed -n 's/^tag=//p' "$out"); sha=$(sed -n 's/^sha=//p' "$out")
   (cd "$r" && PATH="$work/bin:$PATH" RUNNER_TEMP="$work/runner" GITHUB_REPOSITORY=example/devshop TAG=$tag SHA=$sha \
     bash -e "$work/steps/create.sh") >>"$work/out.log" 2>&1
 }
+# AC-13: an override on the first release is refused, writing nothing; auto is the titles' result.
+for b in major minor patch; do
+  run "override $b on the first release" 2 scripts/release.py plan --notes-file "$work/first.md" --bump "$b"
+  has "override $b on the first release" "first release is always v2.0.0"
+done
+[ ! -e "$work/first.md" ] || fail "AC-13: an override on the first release wrote notes"
+run "auto on the first release" 0 scripts/release.py next --bump auto
+head -1 "$work/out.log" | grep -qx v2.0.0 || fail "AC-13: auto isn't the titles' result"
+ok "AC-13: an override on the first release is refused; auto gives the titles' v2.0.0"
 head1=$(git -C "$r" rev-parse HEAD)
 workflow_run || { cat "$work/out.log" >&2; fail "AC-7: the workflow's steps failed"; }
 [ "$(git -C "$r" rev-parse "v2.0.0^{commit}")" = "$head1" ] || fail "AC-7: v2.0.0 isn't on main's head"
@@ -176,6 +191,22 @@ has "nothing" "nothing to release"
 run "plan, nothing" 1 scripts/release.py plan --notes-file "$work/none.md"
 [ ! -e "$work/none.md" ] || fail "plan wrote notes with nothing to release"
 ok "AC-3 AC-5: nothing to release exits 1 and plan writes nothing"
+
+# AC-13: an override releases even when the titles give nothing, and says so at the top of the notes.
+for pair in patch:v2.0.1 minor:v2.1.0 major:v3.0.0; do
+  run "override ${pair%%:*}" 0 scripts/release.py next --bump "${pair%%:*}"
+  head -1 "$work/out.log" | grep -qx "${pair#*:}" || { cat "$work/out.log" >&2; fail "AC-13: override ${pair%%:*} isn't ${pair#*:}"; }
+  has "override ${pair%%:*}" "Manual override: ${pair%%:*}. The PR titles alone give nothing to release."
+done
+run "override, plan" 0 scripts/release.py plan --notes-file "$work/over.md" --bump minor
+has "override, plan" "tag=v2.1.0"
+head -1 "$work/over.md" | grep -qF "Manual override: minor." || fail "AC-13: the notes don't open with the override"
+grep -qF -- "- a test (#7)" "$work/over.md" || fail "AC-13: the overridden notes lack the subjects"
+for bad in huge auto2 ""; do
+  run "override '$bad'" 2 scripts/release.py next --bump "$bad"
+done
+run "override missing its value" 2 scripts/release.py plan --notes-file "$work/x.md" --bump
+ok "AC-13: patch, minor and major override nothing-to-release, named in the notes; another choice can't run"
 c "perf: faster (#9)"
 run "next, patch" 0 scripts/release.py next
 head -1 "$work/out.log" | grep -qx v2.0.1 || { cat "$work/out.log" >&2; fail "perf isn't a patch"; }
@@ -206,3 +237,13 @@ git -C "$r" checkout -qb stray && c "stray" && git -C "$r" tag v3.11.1 && git -C
 run "plan, tag exists elsewhere" 2 scripts/release.py plan --notes-file "$work/stray.md"
 has "tag exists elsewhere" "v3.11.1 already exists"
 ok "AC-5: plan refuses a version whose tag already exists on a commit main doesn't reach"
+
+# AC-13: the button's override reaches plan through env, and the titles' result is shown beside it.
+c "fix: a last fix (#14)"
+before=$(wc -l <"$work/gh.log")
+workflow_run major || { cat "$work/out.log" >&2; fail "AC-13: the workflow with an override failed"; }
+grep -q "release create v4.0.0 " "$work/gh.log" || { cat "$work/gh.log" >&2; fail "AC-13: the override major didn't make v4.0.0"; }
+head -1 "$work/runner/release-notes.md" | grep -qF "Manual override: major. The PR titles alone give v3.11.1." \
+  || fail "AC-13: the release notes don't name the override and the titles' result"
+[ "$(wc -l <"$work/gh.log")" = $((before + 1)) ] || fail "AC-13: gh called more than once"
+ok "AC-13: the button's major override tags v4.0.0 where the titles give v3.11.1, and the notes say so"
