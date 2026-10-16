@@ -229,21 +229,22 @@ printf '3.0.0\n' >"$r/VERSION" && git -C "$r" commit -qam "chore: VERSION back t
 run "tag-plan, on another commit" 2 scripts/release.py tag-plan --notes-file "$work/notes.md"
 has "another commit" "is tagged on"
 git -C "$r" tag v3.2.0 HEAD~3
+git -C "$r" tag v3.10.0 HEAD~3
 printf '3.1.0\n' >"$r/VERSION" && git -C "$r" commit -qam "chore: VERSION below a release"
 run "tag-plan, not above" 2 scripts/release.py tag-plan --notes-file "$work/notes.md"
-has "not above" "isn't above the existing release v3.2.0"
-printf '3.3.0\n' >"$r/VERSION" && git -C "$r" commit -qam "feat: VERSION with no section"
+has "not above" "isn't above the existing release v3.10.0"
+printf '3.12.0\n' >"$r/VERSION" && git -C "$r" commit -qam "feat: VERSION with no section"
 run "tag-plan, no section" 2 scripts/release.py tag-plan --notes-file "$work/notes.md"
-has "no section" "no section for v3.3.0"
+has "no section" "no section for v3.12.0"
 ok "AC-6: tag-plan refuses a malformed VERSION, a tag elsewhere, a version not above, a missing section"
 
 # AC-3: versions compare as numbers, not text.
 git -C "$r" tag v3.9.0 HEAD
-c "x" && git -C "$r" tag v3.10.0 HEAD
-c "fix: after v3.10.0 (#18)"
+c "x" && git -C "$r" tag v3.11.0 HEAD
+c "fix: after v3.11.0 (#18)"
 run "next, numeric" 0 scripts/release.py next
-head -1 "$work/out.log" | grep -qx v3.10.1 || { cat "$work/out.log" >&2; fail "v3.10.0 isn't above v3.9.0"; }
-ok "AC-3: v3.10.0 is above v3.9.0"
+head -1 "$work/out.log" | grep -qx v3.11.1 || { cat "$work/out.log" >&2; fail "v3.10.0 isn't above v3.9.0"; }
+ok "AC-3: v3.11.0 is above v3.9.0"
 
 run "usage" 2 scripts/release.py
 has "usage" "usage:"

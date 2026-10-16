@@ -192,9 +192,9 @@ def cmd_tag_plan(notes_file):
             print(f"tag-plan: {tag} is already tagged on {commit[:12]}, nothing to do", file=sys.stderr)
             return 0
         raise Refused(f"{tag} is tagged on {tagged_at[:12]}, not on {commit[:12]}, the commit that set VERSION")
-    above = [t for v, t in releases().items() if v >= version]
+    above = [v for v in releases() if v >= version]
     if above:
-        raise Refused(f"VERSION {fmt(version)} isn't above the existing release {max(above)}")
+        raise Refused(f"VERSION {fmt(version)} isn't above the existing release v{fmt(max(above))}")
     sections = changelog_sections(open("CHANGELOG.md").read() if os.path.exists("CHANGELOG.md") else "")
     if fmt(version) not in sections:
         raise Refused(f"CHANGELOG.md has no section for v{fmt(version)}")

@@ -38,3 +38,13 @@ rc=0; "$script" --devshop-git "$work/nope.git" >/dev/null 2>&1 || rc=$?
 rc=0; "$script" >/dev/null 2>&1 || rc=$?
 [ "$rc" = 2 ] || fail "no arguments: want exit 2, got $rc"
 echo "ok - no git dir or no arguments can't run"
+
+# AC-9: the upgrade skill uses it for its default NEW (step 1) and writes NEW as named (step 3).
+skill="$repo_root/install/plugin/devshop/upgrade/skills/upgrade/SKILL.md"
+step() { awk -v h="## $1." 'index($0, h) == 1 { on = 1; next } /^## / { on = 0 } on' "$skill"; }
+# shellcheck disable=SC2016 # literal text in the skill, not expansions
+step 1 | grep -qF 'upgrade/latest-release.sh --devshop-git $D' || fail "AC-9: step 1 doesn't default NEW to latest-release.sh"
+# shellcheck disable=SC2016
+step 3 | grep -qF 'Write NEW as named (a release tag, else the full SHA) to `.devshop-version`' \
+  || fail "AC-9: step 3 doesn't write NEW as named"
+echo "ok - AC-9: the upgrade skill's step 1 defaults to the newest release, step 3 writes NEW as named"
