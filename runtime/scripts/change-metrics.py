@@ -154,11 +154,13 @@ class Session:
         cut = min(mine) if mine else None
         return [(t, n) for t, n in self.merges if n != pr and (cut is None or t < cut)]
 
-    def start(self, pr):
-        """The clock's start: the first owner message, or the first after this session's last earlier merge."""
+    def start(self, pr, merged=None):
+        """The clock's start: the first owner message, or the first after this session's last earlier
+        merge; with no owner message after that merge (before this PR's), the merge itself: the session
+        started this change on its own (specs/metrics-clock-after-merge.md)."""
         after = max((t for t, _ in self.earlier_merges(pr)), default=None)
-        firsts = [t for t, _ in self.owner if after is None or t > after]
-        return min(firsts) if firsts else None
+        firsts = [t for t, _ in self.owner if (after is None or t > after) and (merged is None or t <= merged)]
+        return min(firsts) if firsts else after
 
     def working(self, start, end):
         """Seconds Claude worked between start and end: all of it but the idle time, from the end of a
@@ -314,7 +316,7 @@ def render(a):
 
     entries = transcript(a.projects, a.session)
     sess = Session(entries)
-    start = sess.start(pr.get("number"))
+    start = sess.start(pr.get("number"), merged)
     if start and start > merged:
         start = None
     working = sess.working(start, end) if start else None
