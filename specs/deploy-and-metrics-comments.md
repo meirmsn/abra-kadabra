@@ -94,22 +94,27 @@ auto-unsubscribed, so the project's deploy comment never reaches it".
   and `slow` are barred from one), needs `fast` and `slow`, has concurrency group `production`
   without cancelling, and exposes the slot's outputs as job `outputs` for `report` (Claude, from the
   spec review, 2026-10-16)
-- **A slot for the project's deploy:** a block of steps between clearly marked comment lines in the
-  `deploy` job, after checkout and the `deploying` step, which the project replaces with its own
-  (setup, install, deploy); the block's last step has `id: deploy`. The slot's comment lists the
-  outputs the comment reads, with the website's names so its `deploy.sh` needs no change: `url` (the
+- **The slot is a script, like the two tiers:** the template's `deploy` job runs
+  `scripts/deploy.sh` when the project has one, after `scripts/setup.sh` (as `fast` and `slow` run
+  `check-fast.sh` and `check-slow.sh`), so the job's steps are the same for every stack. The
+  project's edits are the marked lines only: its tool installs (as in `fast` and `slow`) and the
+  deploy step's `env` (its secrets and settings). `scripts/deploy.sh` writes the outputs the comment
+  reads to `$GITHUB_OUTPUT`, with the website's names so its `deploy.sh` needs no change: `url` (the
   live https URL), `version`, `previous_version`, `rollback` (the line that undoes it), `deployed`
   (`yes` once the new version was uploaded) and `site_url` / `site_smoke` (the domain check:
-  `passed`, `failed` or `skipped`). Its `environment: production` line is part of the slot, left as
-  a comment until the project fills it: a job with an environment records a production deployment
-  on GitHub, which an empty slot must not. As shipped, the slot's one step sets `none=yes`, and the
-  comment ends not-deployed with "this project has no deploy step yet" (owner asked for the slot;
-  the placeholder's behaviour is Claude's, 2026-10-16)
-- **Setup docs:** the devshop has no project setup guide; a project starts from the template, so the
-  slot's how-to lives in the template's comments, and `docs/README.md`'s CI entry says the template
-  carries the deploy comment and the slot. The Cloudflare specifics (`wrangler`, versions,
-  rollback) go to the Cloudflare stack home when W10.10.2 builds it (where: Claude, 2026-10-16,
-  asked of the owner; Cloudflare: owner, 2026-10-16)
+  `passed`, `failed` or `skipped`). With no `scripts/deploy.sh`, the step writes `none=yes` and the
+  comment ends not-deployed with "this project has no deploy step yet". The job keeps
+  `environment: production` (the deploy's secrets live there); a project with no deploy script yet
+  gets a GitHub deployment record that did nothing, accepted, since the comment says so. Rejected:
+  v1's way, a 1,600-line new-project skill filling placeholders and a deploy described in
+  `CLAUDE.md` prose, which broke silently again and again (L-46, L-47); and a block of steps the
+  project rewrites, which drifts per stack (owner: "check what we did in devshop v1, and think what
+  is the simplest reliable approach on devshop v2"; the approach Claude's, 2026-10-16)
+- **Setup docs:** the template's comments are the contract (what `scripts/deploy.sh` must write, and
+  the two places a project edits), and `docs/README.md`'s CI entry says so; no new setup guide or
+  skill. How to write `deploy.sh` for a stack goes in that stack home's "Set-up" section: the
+  Cloudflare one when W10.10.2 builds it from the website's tested `deploy.sh`, not in this change
+  (owner, 2026-10-16)
 - **The comment never blocks or delays the merge or the deploy:** `announce` and `report` are
   `continue-on-error`, and so are the comment steps in `deploy`; each comment step and job has
   `timeout-minutes: 1` (`report`: 2, for its retry), and every GitHub call in the script times out
@@ -222,12 +227,13 @@ auto-unsubscribed, so the project's deploy comment never reaches it".
 ### How it reaches projects
 
 - The PR body says what a project adapts on upgrade: `devshop:upgrade` replaces
-  `scripts/deploy-comment.mjs`; the project wires `announce`, the `deploying`, live and failed
-  steps and `report` from the template, and moves its deploy into the slot. For the website: replace
-  its own `scripts/deploy-comment.mjs` and its marker (the upgrade does), move `deploy.sh`'s steps
-  into the slot unchanged, and add the new jobs. A project with no deploy keeps the copy and needs
-  nothing else. The website changes only in its own session with `devshop:upgrade`, after this
-  merges (owner)
+  `scripts/deploy-comment.mjs`, and shows the seed template's new jobs, which the project copies
+  into its `ci.yml`, filling the marked lines. For the website: its own `scripts/deploy-comment.mjs`
+  and marker are replaced by the upgrade; its `scripts/deploy.sh` and `scripts/setup.sh` already
+  fit; it fills `setup-node` into the tool installs and its Cloudflare settings into the deploy
+  step's `env`, and drops its old comment steps. A project with no deploy keeps the copy and gets
+  "no deploy step yet". The website changes only in its own session with `devshop:upgrade`, after
+  this merges (owner)
 
 ## Acceptance items
 
@@ -242,7 +248,8 @@ auto-unsubscribed, so the project's deploy comment never reaches it".
   versions, domain line, rollback line; "may be live" when uploaded, "production is unchanged" when
   not) over a merged or deploying comment and record a final state; with the website's old `env`
   (no run id) they still write the comment
-- **AC-4** `deployed` with `NONE=yes` (the unfilled slot) writes not-deployed with "this project has
+- **AC-4** In a project with no `scripts/deploy.sh`, the template's deploy step writes `none=yes`, and
+  `deployed` with `NONE=yes` writes not-deployed with "this project has
   no deploy step yet", never "Live in production"
 - **AC-5** `report` gives every combination of `fast`, `slow` and `deploy` results its row in the
   Decisions: superseded (with the newer commit), each not-deployed reason, live from `deploy`'s
@@ -259,10 +266,11 @@ auto-unsubscribed, so the project's deploy comment never reaches it".
   and every comment step are `continue-on-error` with a `timeout-minutes`; permissions as in the
   Decisions; no secret in any comment step's `env`; `fast` and `slow` unchanged — verified by
   review: read the template, and run `ci-tiers-check.py` on it
-- **AC-9** The template's slot is marked; its comment names the outputs the comment reads (`url`,
-  `version`, `previous_version`, `rollback`, `deployed`, `site_url`, `site_smoke`), keeps
-  `environment: production` commented until filled, and says how to fill it; `docs/README.md`'s CI
-  entry mentions the deploy comment and the slot
+- **AC-9** The template's `deploy` job runs `scripts/setup.sh` and `scripts/deploy.sh` when present;
+  its comments name the outputs `deploy.sh` writes (`url`, `version`, `previous_version`,
+  `rollback`, `deployed`, `site_url`, `site_smoke`) and mark the only lines a project edits (tool
+  installs, the deploy step's `env`); `docs/README.md`'s CI entry mentions the deploy comment and the
+  `deploy.sh` contract — verified by review: read the template and the entry
 - **AC-10** `runtime/project-files.txt` lists `runtime/scripts/deploy-comment.mjs` as `devshop`,
   project path `scripts/deploy-comment.mjs`, and `project-files.py check` passes on a project with
   an identical copy and reports one that differs
