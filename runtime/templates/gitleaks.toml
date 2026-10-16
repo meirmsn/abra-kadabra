@@ -1,0 +1,7 @@
+# Secret-scanning config for gitleaks, read by scripts/secret-scan.sh (CI's fast tier).
+# It runs gitleaks' built-in rules: without [extend] useDefault, gitleaks would run none.
+# Add an allowlist entry only for a reviewed false positive.
+title = "secret scan"
+
+[extend]
+useDefault = true
