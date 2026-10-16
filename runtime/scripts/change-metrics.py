@@ -425,15 +425,15 @@ def review_rounds(vdir, branch, sess, start, merged):
     found, corrupt = {}, False
     for path in sorted(glob.glob(os.path.join(vdir, "[0-9][0-9][0-9]-*.json"))) if vdir else []:
         v = read_verdict(path)
-        if v is None:
-            when = datetime.fromtimestamp(os.path.getmtime(path), timezone.utc)
-            corrupt = corrupt or start <= when <= hi
-            continue
         try:
-            when = ts(v.get("created"))
-        except ValueError:
+            when = ts(v.get("created")) if v else None
+        except (ValueError, TypeError, AttributeError):
             when = None
-        if when and start <= when <= hi and v.get("branch") in (None, branch):
+        if when is None:  # unreadable, or no readable time: in the window by its file time, it's unknown
+            mtime = datetime.fromtimestamp(os.path.getmtime(path), timezone.utc)
+            corrupt = corrupt or start <= mtime <= hi
+            continue
+        if start <= when <= hi and v.get("branch") == branch:
             found[os.path.realpath(path)] = v
     for t, outcome, path in sess.reviews:
         if start <= t <= hi and os.path.realpath(path) not in found:

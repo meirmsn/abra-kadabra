@@ -358,6 +358,16 @@ touch -d 2026-01-01T10:30:00Z "$vd/009-hhh.json"
 render pr9.json --cost 10.50 --prev-cost 4.25 --verdicts "$vd"
 grep -qF -- '($6.25 session + unknown reviewer)' "$work/got" || { cat "$work/got" >&2; fail "devshop-deploy AC-1: an unreadable file should make the cost unknown"; }
 rm "$vd/009-hhh.json"
+# So does one in the window whose time can't be read; a file with no branch isn't this branch's.
+printf '{"outcome":"pass","created":"soon","branch":"b","reviewer":{"cost_usd":1}}\n' >"$vd/010-jjj.json"
+touch -d 2026-01-01T10:30:00Z "$vd/010-jjj.json"
+render pr9.json --cost 10.50 --prev-cost 4.25 --verdicts "$vd"
+grep -qF -- '+ unknown reviewer)' "$work/got" || { cat "$work/got" >&2; fail "devshop-deploy AC-1: an unreadable time should make the cost unknown"; }
+rm "$vd/010-jjj.json"
+printf '{"outcome":"pass","created":"2026-01-01T10:30:00Z","reviewer":{"cost_usd":1}}\n' >"$vd/011-kkk.json"
+render pr9.json --cost 10.50 --prev-cost 4.25 --verdicts "$vd"
+grep -qF -- 'reviewer passed 2 of 5' "$work/got" || { cat "$work/got" >&2; fail "devshop-deploy AC-1: a file with no branch must not count"; }
+rm "$vd/011-kkk.json"
 # No clock start: the directory isn't used (it may hold another change's rounds).
 rc=0
 python3 "$py" render --pr-data "$work/pr9.json" --cost 1 --ci "$template" --now 2026-01-01T10:46:00Z --projects "$work/none" \
