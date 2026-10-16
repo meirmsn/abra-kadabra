@@ -133,8 +133,15 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   (template [`runtime/templates/check-fast.sh`](../runtime/templates/check-fast.sh): secret scan; the
   spec check with `--tests`, so an acceptance item no test names fails CI; lint, unit tests; proven by
   [`tests/check-fast-template.test.sh`](../tests/check-fast-template.test.sh)), `slow` needs it and runs `scripts/check-slow.sh` (end-to-end
-  tests; a project with none yet has one that says so). The stack-specific part lives in those
-  scripts, so the template is the same for every stack. [`runtime/scripts/ci-tiers-check.py`](../runtime/scripts/ci-tiers-check.py)
+  tests; a project with none yet has one that says so). On `main`, its `deploy` job runs the
+  project's `scripts/deploy.sh` after both tiers, and the merged PR gets one deploy comment that
+  follows it (Merged → Deploying → Live, or a final state saying why not):
+  [`runtime/scripts/deploy-comment.mjs`](../runtime/scripts/deploy-comment.mjs), a copy the project
+  keeps, run by the template's `announce`, `deploy` and `report` jobs; the template's comments name the
+  outputs `deploy.sh` writes for it ([spec](../specs/deploy-and-metrics-comments.md); proven by
+  [`tests/deploy-comment.test.sh`](../tests/deploy-comment.test.sh) and
+  [`tests/ci-template-deploy.test.sh`](../tests/ci-template-deploy.test.sh)). The stack-specific part
+  lives in those scripts, so the template is the same for every stack. [`runtime/scripts/ci-tiers-check.py`](../runtime/scripts/ci-tiers-check.py)
   checks a workflow has that shape; session start runs it on the project's and says so in a
   `DEVSHOP:` line. Proven by [`tests/ci-tiers-check.test.sh`](../tests/ci-tiers-check.test.sh).
 - Project files: [`runtime/project-files.txt`](../runtime/project-files.txt) lists each file the
