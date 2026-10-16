@@ -106,15 +106,13 @@ auto-unsubscribed, so the project's deploy comment never reaches it".
   comment ends not-deployed with "this project has no deploy step yet". The job keeps
   `environment: production` (the deploy's secrets live there); a project with no deploy script yet
   gets a GitHub deployment record that did nothing, accepted, since the comment says so. Rejected:
-  v1's way, a 1,600-line new-project skill filling placeholders and a deploy described in
-  `CLAUDE.md` prose, which broke silently again and again (L-46, L-47); and a block of steps the
-  project rewrites, which drifts per stack (owner: "check what we did in devshop v1, and think what
-  is the simplest reliable approach on devshop v2"; the approach Claude's, 2026-10-16)
+  a block of steps the project rewrites inside the template, which drifts per stack (Claude,
+  2026-10-16, pending the owner's choice)
 - **Setup docs:** the template's comments are the contract (what `scripts/deploy.sh` must write, and
-  the two places a project edits), and `docs/README.md`'s CI entry says so; no new setup guide or
-  skill. How to write `deploy.sh` for a stack goes in that stack home's "Set-up" section: the
-  Cloudflare one when W10.10.2 builds it from the website's tested `deploy.sh`, not in this change
-  (owner, 2026-10-16)
+  the two places a project edits), and `docs/README.md`'s CI entry says so; how a new project is
+  set up in general is a separate question, not this change. How to write `deploy.sh` for a stack
+  goes in that stack home: the Cloudflare one when W10.10.2 builds it, not in this change (owner,
+  2026-10-16)
 - **The comment never blocks or delays the merge or the deploy:** `announce` and `report` are
   `continue-on-error`, and so are the comment steps in `deploy`; each comment step and job has
   `timeout-minutes: 1` (`report`: 2, for its retry), and every GitHub call in the script times out
