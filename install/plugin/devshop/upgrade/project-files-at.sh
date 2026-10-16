@@ -23,7 +23,7 @@ done
 cmd=$1
 shift
 [ -d "$gitdir" ] || cant "no devshop git dir at $gitdir"
-case $at in -*) cant "'$at' is not a devshop version (a commit SHA)" ;; esac
+case $at in -*) cant "'$at' is not a devshop version (a release tag or commit SHA)" ;; esac
 command -v python3 >/dev/null || cant "python3 not found"
 sha=$(git --git-dir="$gitdir" rev-parse -q --verify "$at^{commit}" 2>/dev/null) \
   || cant "version '$at' is not in the devshop copy $gitdir; it refreshes when the environment's cache rebuilds: rebuild the environment, then retry"

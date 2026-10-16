@@ -52,7 +52,7 @@ def git(gitdir, *args):
 
 def resolve(gitdir, version):
     if not version or version.startswith("-"):
-        raise CantRun(f"'{version}' is not a devshop version (a commit SHA)")
+        raise CantRun(f"'{version}' is not a devshop version (a release tag or commit SHA)")
     r = git(gitdir, "rev-parse", "-q", "--verify", f"{version}^{{commit}}")
     if r.returncode != 0:
         raise CantRun(f"version '{version}' is not in the devshop copy {gitdir}; it refreshes when "

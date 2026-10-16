@@ -30,6 +30,9 @@ kept() {
   else echo "no devshop version is active, so no devshop skills this session"; fi
 }
 
+# is_release <name>: a release tag, vX.Y.Z with X >= 2 (v1's tags never count).
+is_release() { [[ $1 =~ ^v([2-9]|[1-9][0-9]+)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; }
+
 # dispatch: picks and primes the version, runs its session-start script; prints the lines.
 dispatch() {
   pinfile="${CLAUDE_PROJECT_DIR:-.}/.devshop-version"
@@ -38,11 +41,11 @@ dispatch() {
   else
     pin=$(cat "$VERSIONS/default-ref" 2>/dev/null); from="environment default (no .devshop-version)"
   fi
-  # Pins are commit SHAs for now (tags once CI makes releases); refuse anything that could be read as
-  # an option or a revision expression.
+  # A pin is a release tag (vX.Y.Z, made by CI: specs/devshop-releases.md) or a commit SHA (to try a
+  # branch); refuse anything that could be read as an option or a revision expression.
   case "$pin" in
     '' | -* | *[!A-Za-z0-9._/-]*)
-      say "'$pin' ($from) is not a devshop version (a commit SHA) — $(kept)"; return 0 ;;
+      say "'$pin' ($from) is not a devshop version (a release tag or commit SHA) — $(kept)"; return 0 ;;
   esac
   sha=$(git --git-dir="$MIRROR" rev-parse -q --verify "$pin^{commit}" 2>/dev/null)
   if [ -z "$sha" ]; then
@@ -63,7 +66,15 @@ dispatch() {
     fi
   fi
   ln -sfn "$dir" "$CURRENT"
-  say "using $pin (${sha:0:12}) from $from"
+  # A project pinning a release learns of a newer one in the copy (feedback; vX.Y.Z tags from v2 on).
+  newer=""
+  if [ "$from" = "project .devshop-version" ] && is_release "$pin"; then
+    newest=$(git --git-dir="$MIRROR" tag -l 'v*' 2>/dev/null | while read -r t; do ! is_release "$t" || echo "$t"; done | sort -V | tail -1)
+    if [ -n "$newest" ] && [ "$newest" != "$pin" ] && [ "$(printf '%s\n%s\n' "$pin" "$newest" | sort -V | tail -1)" = "$newest" ]; then
+      newer="newer release $newest in the copy (/devshop:upgrade)"
+    fi
+  fi
+  say "using $pin (${sha:0:12}) from $from" "$newer"
   if [ -z "${DEVSHOP_PRIME_ONLY:-}" ] && [ -x "$CURRENT/hooks/session-start.sh" ]; then
     "$CURRENT/hooks/session-start.sh" || say "version ${sha:0:12}'s session-start script failed (exit $?)"
   fi
