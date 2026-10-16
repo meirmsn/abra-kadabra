@@ -62,7 +62,10 @@ of the devshop's fix for finding 13.
   table row as a one-line record and loses its section, because the spec quotes the request from
   then on. The table's order is the priority; the top `Open` entry is next. This is the website's
   draft (its PR 6) without `In progress`, which the open PR shows. Rejected: an explicit "next"
-  marker (owner, 2026-10-16)
+  marker (owner, 2026-10-16). Changed after the go: entries moved over from the revamp's task list (the
+  devshop's R-1 to R-9) have no quote section and link their task line instead, which holds the
+  detail; new requests are quoted as above ("yes", owner, 2026-10-16, after the reviewer found the
+  moved-over entries had no quotes)
 - **Where each kind goes:** about the project: its own files. About the devshop: only the devshop's
   files. A project session never records a devshop finding in the project. At hand-over it lists
   them, one plain line each (what happened, where), in one block the owner pastes into a devshop
