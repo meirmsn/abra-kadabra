@@ -42,6 +42,9 @@ Name it in your first reply; the owner can correct you.
   change adds or changes as its spec, so a README or template there makes the review could-not-run.
 - Capture decisions when the owner makes them, not turn by turn.
 - An item that can't be tested or can't be done goes back to the owner; never reword it to fit.
+- Every item is checkable from the repo: what only the owner can confirm, or what is true only
+  after the merge, goes in Decisions (their recorded confirmation, a post-merge step), never in an
+  item the reviewer can't check.
 - Run `/opt/devshop-current/scripts/spec-check.py specs/<change>.md` until it passes. Commit and
   push the draft on the change's branch as you go; nothing is built before the "go".
 
