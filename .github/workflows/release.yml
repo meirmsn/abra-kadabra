@@ -9,6 +9,15 @@ name: release
 
 on:
   workflow_dispatch:
+    inputs:
+      # auto: the PR titles decide (`!` major, feat minor, fix/perf/revert patch). Pick major, minor or
+      # patch when a title got it wrong; the release notes then say so and what the titles gave.
+      manual_override:
+        description: 'Manual override: auto lets the PR titles decide the version'
+        type: choice
+        options: [auto, major, minor, patch]
+        default: auto
+        required: false
 
 permissions:
   contents: write
@@ -45,7 +54,9 @@ jobs:
 
       - name: Plan the release
         id: plan
-        run: scripts/release.py plan --notes-file "$RUNNER_TEMP/release-notes.md" >>"$GITHUB_OUTPUT"
+        env:
+          MANUAL_OVERRIDE: ${{ inputs.manual_override }}
+        run: scripts/release.py plan --notes-file "$RUNNER_TEMP/release-notes.md" --bump "$MANUAL_OVERRIDE" >>"$GITHUB_OUTPUT"
 
       - name: Create the tag and the GitHub release
         env:
