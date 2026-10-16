@@ -79,6 +79,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   F-NEW-65.
 - [`findings-and-roadmap.md`](../specs/findings-and-roadmap.md): every repo keeps a roadmap of
   what the owner decided and a findings log of what Claude noticed.
+- [`new-project.md`](../specs/new-project.md): a new project starts from the devshop with
+  green CI: the files placed, the owner's steps and the proof on a fresh repo.
 - [`pinned-tools-on-path.md`](../specs/pinned-tools-on-path.md): the project's own checks find the
   devshop's pinned gitleaks, shellcheck and dcg on PATH.
 - [`ui-baseline.md`](../specs/ui-baseline.md): every web app starts from a design baseline, phone
