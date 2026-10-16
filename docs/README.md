@@ -192,7 +192,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   tier). [`runtime/scripts/project-files.py`](../runtime/scripts/project-files.py) `check`s the
   copies against a version (session start reports drift from the pinned one in a `DEVSHOP:` line),
   `plan`s an upgrade, `apply`s one copy, and `init`s a new project (every entry, `.devshop-version`
-  pinned to a `vX.Y.Z` release tag, and `CODEOWNERS`, or nothing); the `upgrade` skill drives the first three. Proven by
+  pinned to a `vX.Y.Z` release tag, and `CODEOWNERS`, or nothing). The `upgrade` skill runs
+  `check`, `plan` and `apply`; the `new-project` skill runs `init`. Proven by
   [`tests/project-files.test.sh`](../tests/project-files.test.sh).
 - New project ([spec](../specs/new-project.md)): the
   [`new-project`](../runtime/skills/new-project/SKILL.md) skill runs `init` in a repo's first
