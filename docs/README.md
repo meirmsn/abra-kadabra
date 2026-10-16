@@ -24,7 +24,8 @@ Actions tab, on `main`: its first step refuses anyone but the repository's owner
 but `main` (feedback against accidents, not a wall: a branch carrying its own workflow could still
 create a tag, F-NEW-96); [`scripts/release.py`](../scripts/release.py) `plan` computes the next version from the
 subjects since the last release (`!` major, `feat` minor, `fix`/`perf`/`revert` patch, nothing
-else releases) and its notes; then CI creates the tag on `main`'s head and the GitHub release with
+else releases) and its notes, unless the button's "Manual override" input picks `major`, `minor` or
+`patch` instead of `auto` (for a title that got the type wrong; the notes then say so); then CI creates the tag on `main`'s head and the GitHub release with
 those notes (a session can't push tags, A-25). There is no release PR and no changelog file: the
 notes are on each release's page, and the owner's release immutability setting locks a published
 release's tag. `scripts/release.py next` previews the next release from a full clone with tags.
