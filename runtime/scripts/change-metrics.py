@@ -17,7 +17,8 @@ Sources:
     uuid (a restarted container resumes the session into a new file holding the old entries); the
     session is --session, else the newest transcript's. None found: the session's numbers are unknown.
   - --pr-data, written by change-metrics.sh: {"pr": the PR, "comments", "reviews", "review_comments",
-    "runs": the PR's pull_request runs of the ci workflow, each with "attempts" (earlier attempts'
+    "runs": the branch's pull_request runs of the ci workflow (those from the PR's opening to its merge
+    count), each with "attempts" (earlier attempts'
     conclusions)}.
   - --verdicts, the reviewer's verdict files for the PR's branch (<git common dir>/devshop/reviews/
     <branch, / as __>), one per round: the rounds and their cost, with the transcript's REVIEW: lines.
@@ -380,6 +381,12 @@ def render(a):
 
     # Quality
     runs = data.get("runs")
+    if runs is not None:
+        # The branch's runs from the PR's opening to its merge: a session can reuse a branch name for
+        # its next PR, and a merged PR's runs no longer name it.
+        opened = ts(pr.get("created_at"))
+        lo = opened - timedelta(minutes=1) if opened else None
+        runs = [r for r in runs if not r.get("created_at") or ((lo is None or ts(r["created_at"]) >= lo) and ts(r["created_at"]) <= merged)]
     if runs is None:
         pushes_txt, red_txt = "unknown pushes", "unknown red CI runs"
     else:
