@@ -72,6 +72,11 @@ jobs. The owner (2026-10-16):
 - **PR 129 gets its metrics comment first,** once this merges, with the session's cost read at its
   merge ($25.75, `get_session` at 15:32), so its marker records it; then this change's PR gets its
   own, whose session cost starts there (Claude, 2026-10-16, from the spec review)
+- **A post-merge check, not an acceptance item** (nothing before the merge can show it): after the
+  merge, PR 129's metrics comment says "no deploy comment" and "reviewer passed 3 of 8", posted
+  first; this change's PR shows its deploy comment reaching "Released on `main`", then its metrics
+  comment; Claude reports both. Before the merge, the PR carries PR 129's dry run (owner chose
+  "Post-merge check", 2026-10-16, after the reviewer twice could not call it met)
 
 ## Acceptance items
 
@@ -93,10 +98,7 @@ jobs. The owner (2026-10-16):
 - **AC-5** The devshop's `scripts/deploy.sh` writes `deployed=yes`, `version`, `previous_version`
   (`unknown` for an all-zero `BEFORE`), `url` and `rollback` from its four inputs, with no secret,
   and exits 2 when an input is missing
-- **AC-6** After the merge: PR 129's metrics comment says "no deploy comment" and "reviewer passed 3
-  of 8", posted first; this change's PR shows its deploy comment reaching "Released on `main`", then
-  its metrics comment — verified by review: the two PRs' comments
-- **AC-7** `deploy-comment.mjs` writes the deploying and live headlines with `DEPLOYING_AS` and
+- **AC-6** `deploy-comment.mjs` writes the deploying and live headlines with `DEPLOYING_AS` and
   `LIVE_AS` when given ("**Releasing on `main`** · `<sha>`", "**Released on `main`** · `<sha>`") and
   "Deploying to production" and "Live in production" when not; a setting over 60 characters, over
   one line or holding `*` exits 2 before calling GitHub; the devshop's `ci.yml` sets both

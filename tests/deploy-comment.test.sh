@@ -259,20 +259,20 @@ run deploying API_TIMEOUT_MS=500
 [ $(($(date +%s) - start)) -lt 10 ] || fail "AC-7: the timeout didn't cut the call short"
 echo "ok: AC-7 bad settings exit 2 without calling GitHub; API errors and timeouts exit 1"
 
-# devshop-deploy AC-7 (specs/devshop-deploy-comment.md): the headline settings.
+# devshop-deploy AC-6 (specs/devshop-deploy-comment.md): the headline settings.
 state "[$(c 1 merged 1)]"
 run deploying DEPLOYING_AS='Releasing on `main`'
-has '**Releasing on `main`** · `0123456`' "devshop-deploy AC-7"
+has '**Releasing on `main`** · `0123456`' "devshop-deploy AC-6"
 run deployed LIVE_AS='Released on `main`'
-has '**Released on `main`** · `0123456` · https://app.example.com' "devshop-deploy AC-7"
+has '**Released on `main`** · `0123456` · https://app.example.com' "devshop-deploy AC-6"
 state "[$(c 1 deploying 1)]"
 run report FAST=success SLOW=success DEPLOY=success LIVE_AS='Released on `main`'
-has '**Released on `main`** · `0123456`' "devshop-deploy AC-7 (report)"
+has '**Released on `main`** · `0123456`' "devshop-deploy AC-6 (report)"
 for bad in "LIVE_AS=*bold*" "DEPLOYING_AS=$(printf 'two\nlines')" "LIVE_AS=$(printf 'x%.0s' $(seq 61))"; do
   state "[$(c 1 merged 1)]"
   run deployed "$bad"
-  { [ "$rc" = 2 ] && [ ! -s "$work/calls" ]; } || { show; fail "devshop-deploy AC-7: '$bad' should exit 2 without calling GitHub, got $rc"; }
+  { [ "$rc" = 2 ] && [ ! -s "$work/calls" ]; } || { show; fail "devshop-deploy AC-6: '$bad' should exit 2 without calling GitHub, got $rc"; }
 done
-echo "ok: devshop-deploy AC-7 the headline settings"
+echo "ok: devshop-deploy AC-6 the headline settings"
 
 echo "PASS: deploy-comment.mjs"
