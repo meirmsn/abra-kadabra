@@ -12,6 +12,8 @@
 //   no deploy script. failed: DEPLOYED ("yes" once the new version was uploaded), PREVIOUS, ROLLBACK,
 //   SITE_URL, SITE_SMOKE. report: FAST, SLOW, DEPLOY, the jobs' results (success | failure | cancelled |
 //   skipped).
+//   DEPLOYING_AS and LIVE_AS (optional): the bold words of those headlines, by default "Deploying to
+//   production" and "Live in production".
 //   Settings for tests: LOOKUP_TRIES (default 7) and LOOKUP_WAIT_MS (default 5000) for finding the merged
 //   PR (merged and report: it may not be findable in the first seconds), API_TIMEOUT_MS (default 10000).
 // The comment's second line records its state: <!-- state:<state> run:<id>/<attempt> at:<UTC time> -->.
@@ -61,6 +63,16 @@ if (cmd === 'report')
       die(2, `${v} is not a job result (${RESULTS.join(', ')}): ${env[v]}`);
 // deploy.sh's outputs never stop the comment reaching a final state: a missing one shows as unknown,
 // and a URL that isn't https (or a site URL that isn't an https origin) is left out.
+// The bold words of the deploying and live headlines (the devshop: "Checking on `main`", "On `main`,
+// ships in the next release"); one line of at most 60 characters, no `*`.
+const words = (v, d) => {
+  const w = env[v] || d;
+  if (w.length > 60 || /[\n\r*]/.test(w))
+    die(2, `${v} must be one line of at most 60 characters, no *`);
+  return w;
+};
+const deployingAs = words('DEPLOYING_AS', 'Deploying to production');
+const liveAs = words('LIVE_AS', 'Live in production');
 const url = https(env.URL) ? env.URL : null;
 const siteUrl = /^https:\/\/[A-Za-z0-9.-]+$/.test(env.SITE_URL ?? '')
   ? env.SITE_URL
@@ -101,7 +113,7 @@ const texts = {
   }),
   deploying: () => ({
     state: 'deploying',
-    lines: [`**Deploying** ${short(sha)} to production · ${runLink}`],
+    lines: [`**${deployingAs}** · ${short(sha)} · ${runLink}`],
   }),
   deployed: () =>
     none
@@ -109,7 +121,7 @@ const texts = {
       : {
           state: 'live',
           lines: [
-            `**Live in production** · ${short(sha)} · ${url || 'URL unknown'}`,
+            `**${liveAs}** · ${short(sha)} · ${url || 'URL unknown'}`,
             '',
             `- New version: \`${env.VERSION || 'unknown'}\``,
             `- Replaced: \`${env.PREVIOUS || 'unknown'}\``,

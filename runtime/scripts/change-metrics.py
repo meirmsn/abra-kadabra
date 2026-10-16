@@ -5,6 +5,7 @@ passes only the session's cost, which no script can read. change-metrics.sh gath
 
 Usage:
   change-metrics.py render --pr-data FILE --cost USD|unknown [--prev-cost USD|unknown] [--ci FILE]
+                           [--verdicts DIR]
                            [--now ISO] [--projects DIR] [--session ID]
   change-metrics.py previous-pr --pr N [--projects DIR] [--session ID]
 render prints the comment. Exit 0 = printed; 3 = not yet: the deploy comment isn't final and less than
@@ -16,9 +17,12 @@ Sources:
     uuid (a restarted container resumes the session into a new file holding the old entries); the
     session is --session, else the newest transcript's. None found: the session's numbers are unknown.
   - --pr-data, written by change-metrics.sh: {"pr": the PR, "comments", "reviews", "review_comments",
-    "runs": the PR's pull_request runs of the ci workflow, each with "attempts" (earlier attempts'
+    "runs": the branch's pull_request runs of the ci workflow (those from the PR's opening to its merge
+    count), each with "attempts" (earlier attempts'
     conclusions)}.
-  - --ci, the project's workflow: without an `announce` job the project has no deploy comment, and the
+  - --verdicts, the reviewer's verdict files for the PR's branch (<git common dir>/devshop/reviews/
+    <branch, / as __>), one per round: the rounds and their cost, with the transcript's REVIEW: lines.
+  - --ci, the project's workflow as of the merge commit: without an `announce` job the project has no deploy comment, and the
     comment is posted at once.
 In the transcript an owner message is a user entry with origin.kind "human", or a queued_command
 attachment (sent mid-turn); a wake is a user entry with another origin (a check-in or PR event, a
@@ -306,7 +310,7 @@ def render(a):
     elif has_deploy_comment:
         state, end = dep[0], dep[1]
     else:
-        state, end = "none", now
+        state, end = "none", merged  # posted at once, or later: work after the merge is not this change's
 
     entries = transcript(a.projects, a.session)
     sess = Session(entries)
@@ -358,25 +362,31 @@ def render(a):
 
     # Cost
     session_cost = cost - prev_cost if cost is not None and prev_cost is not None else None
-    rounds = [(o, p) for t, o, p in sess.reviews if start and start <= t <= merged]
+    rounds, corrupt = review_rounds(a.verdicts, (pr.get("head") or {}).get("ref"), sess, start, merged)
     reviewer = None
-    if rounds:
-        costs = [verdict_cost(p) for _, p in rounds]
+    if rounds and not corrupt:
+        costs = [c for _, c in rounds]
         reviewer = sum(costs) if all(c is not None for c in costs) else None
     pr_outcomes, pr_costs = reviewer_from_pr(comments)
-    if reviewer is None and pr_costs and all(c is not None for c in pr_costs):
-        reviewer = sum(pr_costs)
+    if reviewer is None and not corrupt and pr_costs and all(c is not None for c in pr_costs):
+        reviewer = sum(pr_costs)  # a round's verdict file is gone: the PR's footers stand in
     if not rounds and pr_outcomes:
         rounds = [(o, None) for o in pr_outcomes]
     # No rounds: none ran when the transcript was read from the start; otherwise unknown.
     measured = bool(start)
-    if not rounds and measured:
+    if not rounds and measured and not corrupt:
         reviewer = 0.0
     # The total is the sum of the parts as shown, so the line adds up.
     total_cost = round(session_cost, 2) + round(reviewer, 2) if session_cost is not None and reviewer is not None else None
 
     # Quality
     runs = data.get("runs")
+    if runs is not None:
+        # The branch's runs from the PR's opening to its merge: a session can reuse a branch name for
+        # its next PR, and a merged PR's runs no longer name it.
+        opened = ts(pr.get("created_at"))
+        lo = opened - timedelta(minutes=1) if opened else None
+        runs = [r for r in runs if not r.get("created_at") or ((lo is None or ts(r["created_at"]) >= lo) and ts(r["created_at"]) <= merged)]
     if runs is None:
         pushes_txt, red_txt = "unknown pushes", "unknown red CI runs"
     else:
@@ -401,13 +411,50 @@ def render(a):
     return 0, "\n".join(lines)
 
 
-def verdict_cost(path):
+def read_verdict(path):
+    """The verdict file's JSON object, or None when it is missing or can't be read."""
     try:
         with open(path, encoding="utf-8") as fh:
-            c = json.load(fh).get("reviewer", {}).get("cost_usd")
-        return float(c) if c is not None else None
-    except (OSError, ValueError, TypeError, AttributeError):
+            v = json.load(fh)
+        return v if isinstance(v, dict) else None
+    except (OSError, ValueError):
         return None
+
+
+def review_rounds(vdir, branch, sess, start, merged):
+    """([(outcome, cost or None)], corrupt) for the reviewer's rounds of this change: the numbered
+    verdict files in the branch's directory created from the start to a minute after the merge, plus the
+    files the transcript's REVIEW: lines name in that window, each once. A could-not-run file is no
+    round. corrupt: a file in the window that can't be read, which makes the cost unknown."""
+    if not start:
+        return [], False  # the directory may hold another change's rounds
+    hi = merged + timedelta(minutes=1)
+    found, corrupt = {}, False
+    for path in sorted(glob.glob(os.path.join(vdir, "[0-9][0-9][0-9]-*.json"))) if vdir else []:
+        v = read_verdict(path)
+        try:
+            when = ts(v.get("created")) if v else None
+        except (ValueError, TypeError, AttributeError):
+            when = None
+        if when is None:  # unreadable, or no readable time: in the window by its file time, it's unknown
+            mtime = datetime.fromtimestamp(os.path.getmtime(path), timezone.utc)
+            corrupt = corrupt or start <= mtime <= hi
+            continue
+        if start <= when <= hi and v.get("branch") == branch:
+            found[os.path.realpath(path)] = v
+    for t, outcome, path in sess.reviews:
+        if start <= t <= hi and os.path.realpath(path) not in found:
+            v = read_verdict(path) or {}
+            v.setdefault("outcome", outcome)
+            found[os.path.realpath(path)] = v
+    rounds = []
+    for v in found.values():
+        if v.get("outcome") == "could-not-run":
+            continue
+        who = v.get("reviewer")
+        c = who.get("cost_usd") if isinstance(who, dict) else None
+        rounds.append((v.get("outcome"), float(c) if isinstance(c, (int, float)) else None))
+    return rounds, corrupt
 
 
 def announces(ci):
@@ -445,6 +492,7 @@ def main(argv):
     r.add_argument("--cost", required=True)
     r.add_argument("--prev-cost")
     r.add_argument("--ci")
+    r.add_argument("--verdicts")
     r.add_argument("--now")
     q = sub.add_parser("previous-pr")
     q.add_argument("--pr", type=int, required=True)

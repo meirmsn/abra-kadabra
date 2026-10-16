@@ -41,6 +41,12 @@ creates the tag and the GitHub release (a session can't push tags, A-25). Projec
   `tests/run.sh fast|slow` runs one tier, `tests/run.sh` all. Proven by
   [`tests/check-tiers.test.sh`](../tests/check-tiers.test.sh) and
   [`tests/run-tiers.test.sh`](../tests/run-tiers.test.sh).
+- The devshop's release: on `main`, after both tiers, the same `announce`, `deploy` and `report` jobs
+  as a project's give the merged PR its deploy comment (Checking on `main`, then On `main`,
+  ships in the next release, since a release tag ships it); [`scripts/deploy.sh`](../scripts/deploy.sh) deploys nothing and writes what the comment
+  reads ([spec](../specs/devshop-deploy-comment.md); proven by
+  [`tests/deploy-sh.test.sh`](../tests/deploy-sh.test.sh) and
+  [`tests/ci-template-deploy.test.sh`](../tests/ci-template-deploy.test.sh)).
 - Secret scanning: [`.gitleaks.toml`](../.gitleaks.toml) is gitleaks' default rule set. CI's fast
   tier first runs [`scripts/secret-scan.sh`](../scripts/secret-scan.sh) over the commits a change
   adds and the whole tree, then, with the other tests,
@@ -93,6 +99,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   the devshop and every project.
 - [`deploy-and-metrics-comments.md`](../specs/deploy-and-metrics-comments.md): a merged PR's deploy
   comment follows the deploy to a final state, then the session posts how the change went.
+- [`devshop-deploy-comment.md`](../specs/devshop-deploy-comment.md): the devshop's own PRs follow
+  their release, and the metrics count every reviewer round.
 - [`design-first-spec-review.md`](../specs/design-first-spec-review.md): design questions first in
   the spec review, replayed and dropped (they missed the case they were for); the finding is
   F-NEW-65.
