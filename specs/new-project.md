@@ -58,7 +58,7 @@ placeholders and prose deploy facts (L-47) are what not to rebuild.
   so a new project has none and must stay green on its first push to `main`; `tests/new-project.test.sh`
   runs `ci-tiers-check.py` on the placed `ci.yml`, and the throwaway repo's push to `main` shows it.
   If that job turns out to need an environment or a secret a new project lacks, that is a bug in that
-  change, raised with the owner, not worked around here (Claude, 2026-10-16)
+  change, raised with the owner, not worked around here (owner: "ok", 2026-10-16)
 - **The new project is stack-neutral at first.** The first PR is the skeleton alone, and its green
   CI on GitHub is the proof the skeleton works there. The stack comes with the first change: its
   spec names the stack (TARGET Reach 3) and loads its home; a home's `README.md` has a `## Set-up`
@@ -108,7 +108,7 @@ placeholders and prose deploy facts (L-47) are what not to rebuild.
   checkout with `/opt/devshop*` unreadable (L-50), against the README commit as base (a PR) and an
   empty base. On GitHub: the owner creates a throwaway private repo, the files `init` places from
   this branch go up as its first PR, and its CI must be green on the PR and on the push to `main`
-  before this change merges (owner: "a throwaway repo", 2026-10-16). The skill run end to end in a
+  before this change merges (owner: "a throwaway repo", 2026-10-16; the repo is `test-project`, attached to this session with push access: "test-project is the name, you have access now", 2026-10-16). The skill run end to end in a
   fresh session there needs the skill on `main` and an environment built after the merge, so it is a
   post-merge step on the task line; then the repo is archived
 - **`.devshop-version` holds a commit SHA for now:** once the devshop cuts release tags (R-11,
