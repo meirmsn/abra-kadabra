@@ -43,9 +43,9 @@ NEEDS = {"check": ("devshop-git", "version", "project"),
          "plan": ("devshop-git", "from", "to", "project"),
          "apply": ("devshop-git", "version", "project", "file"),
          "init": ("devshop-git", "version", "project", "codeowner")}
-# A GitHub user name: letters, digits and single inner hyphens, at most 39 characters.
 # A devshop release tag (TARGET Shape 5), the only pin init writes.
 RELEASE = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
+# A GitHub user name: letters, digits and single inner hyphens, at most 39 characters.
 HANDLE = re.compile(r"[A-Za-z0-9](-?[A-Za-z0-9]){0,38}")
 
 
