@@ -1,6 +1,6 @@
 # The devshop's own PRs follow their release, and the reviewer's rounds are all counted
 
-**Go:** pending
+**Go:** "1. ok 2. if trivial do the more accurate copy", on the metrics staying a separate comment and the devshop's headline words (owner, 2026-10-16)
 
 ## Intent
 
@@ -59,9 +59,14 @@ jobs. The owner (2026-10-16):
   commit's page, built at run time, so no repository name is in the repo) and `rollback`
   ("revert `<sha>`", a squash merge's one commit). A missing input exits 2, so the comment says the
   deploy failed and may be live, which is true (Claude, 2026-10-16, from the spec review)
-- **The headline stays "Live in production"** for the devshop too: its production is `main`, the
-  version projects pin. Rejected: a setting for other words ("Released on `main`"), one more moving
-  part (Claude, 2026-10-16, asked of the owner)
+- **The devshop's headlines say what happens to it:** `deploy-comment.mjs` takes two optional
+  settings, `DEPLOYING_AS` (default "Deploying to production") and `LIVE_AS` (default "Live in
+  production"), the bold words of those two headlines; the devshop sets "Releasing on `main`" and
+  "Released on `main`". The deploying headline becomes "**Deploying to production** · `<sha>` ·
+  run", the shape of the others. Each setting is one line of at most 60 characters with no `*`,
+  else exit 2. The not-deployed and failed texts stay: for the devshop, production is the last
+  released version, which a red `main` doesn't replace (owner on a setting for "Released on
+  `main`": "if trivial do the more accurate copy", 2026-10-16; the two settings are Claude's)
 - **PR 129 gets its metrics comment first,** once this merges, with the session's cost read at its
   merge ($25.75, `get_session` at 15:32), so its marker records it; then this change's PR gets its
   own, whose session cost starts there (Claude, 2026-10-16, from the spec review)
@@ -87,11 +92,14 @@ jobs. The owner (2026-10-16):
   (`unknown` for an all-zero `BEFORE`), `url` and `rollback` from its four inputs, with no secret,
   and exits 2 when an input is missing
 - **AC-6** After the merge: PR 129's metrics comment says "no deploy comment" and "reviewer passed 3
-  of 8", posted first; this change's PR shows its deploy comment reaching "Live in production", then
+  of 8", posted first; this change's PR shows its deploy comment reaching "Released on `main`", then
   its metrics comment — verified by review: the two PRs' comments
+- **AC-7** `deploy-comment.mjs` writes the deploying and live headlines with `DEPLOYING_AS` and
+  `LIVE_AS` when given ("**Releasing on `main`** · `<sha>`", "**Released on `main`** · `<sha>`") and
+  "Deploying to production" and "Live in production" when not; a setting over 60 characters, over
+  one line or holding `*` exits 2 before calling GitHub; the devshop's `ci.yml` sets both
 
 ## Out of scope
 
-- Different headline words for the devshop
 - Telling projects of a new devshop version, or when sessions pick it up
 - Changing how the reviewer stores its verdicts
