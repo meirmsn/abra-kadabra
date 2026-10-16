@@ -57,12 +57,16 @@ owner's words (2026-10-16):
   to that commit's parent gives, i.e. `main` moved after `prepare`; the fix is another release PR,
   where `prepare` regenerates the untagged section. Then `gh release create` makes the tag and the
   release with those notes. The workflow is not a required check
-- **The PR title check runs in the `fast` job** (already a required check): `scripts/pr-title-check.py`
-  reads the PR's title on a pull request and the head commit's subject on a push to `main`, both
-  through `env:`, never interpolated into the script. CI keeps today's pull request triggers (adding
-  `edited` would re-run both tiers on every body edit), so a title edited after the last push is
-  checked on `main` after the merge instead (a mitigation; root cause: GitHub runs no check on a
-  title edit without a run of its own)
+- **The title is checked wherever it is set:** in CI's `fast` job (already a required check),
+  `scripts/pr-title-check.py` reads the PR's title on a pull request and the head commit's subject
+  on a push to `main`, both through `env:`, never interpolated into the script. And `ship.sh`, the
+  one way a session sets or edits a PR's title and body (the reviewer re-runs on such an edit), runs
+  the repo's own `scripts/pr-title-check.py` on the title when the repo has one, before the review;
+  a failing title stops `ship.sh` like a malformed body. Projects have no such script, so nothing
+  changes for them. CI keeps today's pull request triggers (adding `edited` would re-run both tiers
+  on every body edit); a title edited by hand on GitHub after the last push is caught by the check
+  on `main` after the merge (owner, 2026-10-16: keep the check where body and title edits are
+  checked)
 - **Projects pin a release tag:** `.devshop-version` holds e.g. `v2.0.0`; a commit SHA stays valid
   for testing a branch (TARGET Shape 5). The dispatcher already resolves either in the local copy,
   whose bare clone carries tags (git prefers a tag over a branch of the same name); its wording,
@@ -71,6 +75,10 @@ owner's words (2026-10-16):
   becomes the newest `vX.Y.Z` tag in the local copy by version order (`main` only when there is
   none, or when the owner names it), and it writes NEW as named. A release made after the
   environment's cache was built isn't in the copy until it rebuilds, as for SHAs today
+- **A newer release shows in the `DEVSHOP:` line:** when the project pins a `vX.Y.Z` tag and the
+  local copy holds a higher one, the line adds "newer release v<newest> in the copy
+  (/devshop:upgrade)". Feedback only; a SHA pin or no pin adds nothing (owner, 2026-10-16: "if
+  trivial")
 - **`CHANGELOG.md`** sits at the root and is linked from `docs/README.md` (the docs-map check)
 - **This repo's CLAUDE.md** gains the prefix rule on its commit-subject line. Projects don't release,
   so their titles and the `pr` skill are untouched
@@ -115,6 +123,12 @@ owner's words (2026-10-16):
   (`project-files-at.sh`) and the drift check in `session-start.sh` accept a tag as the version
 - **AC-10** CLAUDE.md, `install/README.md`, D-10 and A-25's rows say how a release is cut and pinned
   now — verified by review: the diff of those files
+- **AC-11** `ship.sh` stops before the review, with the check's reason and nothing pushed, when the
+  repo has an executable `scripts/pr-title-check.py` that fails the title; it goes on when that
+  check passes or the repo has none
+- **AC-12** In the same install test, a project pinning a release tag while the copy holds a higher
+  `vX.Y.Z` tag gets "newer release v<newest> in the copy (/devshop:upgrade)" on its `DEVSHOP:` line;
+  pinning the newest tag, a SHA, or no pin adds nothing
 
 ## Out of scope
 
@@ -122,7 +136,6 @@ owner's words (2026-10-16):
   which the owner merges. Its merge is the live check of A-25 and AC-7 (the tag and release
   appear), recorded on R-11 and A-25 then; R-11 is `Done` only after it
 - A wall on tags (a ruleset so only CI can create, move or delete `v2.*` tags): logged as a finding
-- A `DEVSHOP:` line saying a newer release exists than the one pinned
 - Release-please, a GitHub App or a second token; v1's `release.sh` and its skill (v1 is frozen)
 - Conventional Commit prefixes in projects, and checks on the commit subjects inside a PR's branch
   (only the title lands, once the squash setting is changed)
