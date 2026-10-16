@@ -170,10 +170,15 @@ auto-unsubscribed, so the project's deploy comment never reaches it".
   numbers "unknown". `post` never fails the step it runs in (Claude, 2026-10-16)
 - **What counts in the transcript** (seen in a real one, 2026-10-16):
   - _An owner message:_ a `user` entry with `origin.kind` `human`, or a `queued_command` attachment
-    (a message sent mid-turn), deduplicated by text and time; a skill's text (`isMeta`), a tool
+    whose `origin.kind` is `human` (a message sent mid-turn), deduplicated by text and time; a skill's text (`isMeta`), a tool
     result and a compaction summary are not.
   - _A wake:_ a `user` entry that starts a turn with `origin.kind` other than `human` (a check-in
-    or PR event arrives as `task-notification`), or a notification queued mid-turn.
+    or PR event arrives as `task-notification`), or a `queued_command` with another origin (a
+    notification or a subagent's hand-back, queued mid-turn).
+  - _A turn's end:_ its last assistant entry, the one with `stop_reason` `end_turn`; a wake that
+    arrives mid-turn ends no turn, so the time the session waits for a subagent inside a turn is
+    working time (seen 2026-10-16 when the PR 7 fixture first gave 9 min 50 s by ending a span at
+    each wake; Claude).
   - Subagents' own transcripts (`subagents/`) are not read; their time counts only while the main
     session waits for them.
 - **Where each number comes from** (owner's method, measured by hand on PR 7; definitions Claude's):

@@ -141,7 +141,16 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   outputs `deploy.sh` writes for it ([spec](../specs/deploy-and-metrics-comments.md); proven by
   [`tests/deploy-comment.test.sh`](../tests/deploy-comment.test.sh) and
   [`tests/ci-template-deploy.test.sh`](../tests/ci-template-deploy.test.sh)). The stack-specific part
-  lives in those scripts, so the template is the same for every stack. [`runtime/scripts/ci-tiers-check.py`](../runtime/scripts/ci-tiers-check.py)
+  lives in those scripts, so the template is the same for every stack.
+- How a change went: once the deploy comment is final, the session posts a second comment on its
+  merged PR (time from the request to live, Claude working, waiting on the owner, deploying; the
+  owner's input; cost; pushes, red CI runs, reviewer rounds), `devshop:pr` § 5 checking in with
+  `send_later`. [`runtime/scripts/change-metrics.sh`](../runtime/scripts/change-metrics.sh) gathers
+  the PR's data with `gh api` and posts;
+  [`runtime/scripts/change-metrics.py`](../runtime/scripts/change-metrics.py) computes every number
+  from it and the session's transcript ([spec](../specs/deploy-and-metrics-comments.md); proven by
+  [`tests/change-metrics.test.sh`](../tests/change-metrics.test.sh), on a fixture rebuilt from a real
+  change and anonymised). [`runtime/scripts/ci-tiers-check.py`](../runtime/scripts/ci-tiers-check.py)
   checks a workflow has that shape; session start runs it on the project's and says so in a
   `DEVSHOP:` line. Proven by [`tests/ci-tiers-check.test.sh`](../tests/ci-tiers-check.test.sh).
 - Project files: [`runtime/project-files.txt`](../runtime/project-files.txt) lists each file the

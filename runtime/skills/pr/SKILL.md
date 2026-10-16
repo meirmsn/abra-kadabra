@@ -59,6 +59,12 @@ under `devshop:build` § 3; this skill only puts them on the PR.
 - The owner's approval of the PR's current head, with every required check green on it: squash-merge
   it without asking for a "merge" message, then say in chat that it merged. Checks still running: merge on their green event. Hold only when the approval or the
   chat says to wait, or for a concrete reason: say it and ask. A push after approval needs a new one.
+- **After the merge, how the change went.** The merge ends the PR's subscription, so arm
+  `send_later` 5 minutes ahead. At each check-in, read the session's cost (`get_session`:
+  `external_metadata.usage.cost_usd`, else `unknown`) and run
+  `/opt/devshop-current/scripts/change-metrics.sh post --pr <n> --cost <usd>`. Exit 3: the deploy
+  comment isn't final yet, arm `send_later` 5 minutes ahead again (it gives up an hour after the
+  merge). Exit 0: posted; say so in chat. Exit 2: say what it printed. Nothing waits on it.
 - A comment that would change a decision or acceptance item, a question included ("Could the list
   be sorted…?"), is a question to the owner: answer it on the PR with the options and what each
   changes, and build nothing until they pick (`devshop:intent` § 5 records it). Other asks: build
