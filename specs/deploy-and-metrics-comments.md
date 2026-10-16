@@ -21,6 +21,10 @@ it lands, how the change went":
    > - **Cost:** $4.05 ($3.88 session + $0.17 reviewer)
    > - **Quality:** 2 pushes · 0 red CI runs · reviewer passed 2 of 2
 
+(The numbers above are the owner's hand count. On 2026-10-16, rebuilding PR 7 with the scripts gave
+6 answers and 3 min 31 s deploying, and the owner's answers on the definitions made those the pinned
+numbers; see the Decisions and AC-11.)
+
 Why each matters to them: request to live is speed; waiting on you grows when questions are too
 many or too vague; your input measures autonomy ("a request, a go and an approval is the ideal");
 cost lets them compare changes; quality separates clean work from retries.
@@ -127,6 +131,9 @@ auto-unsubscribed, so the project's deploy comment never reaches it".
 - **The merged PR may not be findable in the first seconds:** `merged` retries the lookup for up to
   30 seconds, then exits 0 quietly; the interval and limit are settings, so the tests run fast
   (website draft's review)
+- **deploy.sh's outputs never block a final state:** a deploy that succeeded is written live even
+  when `url` or `version` is missing (shown as unknown); a URL that isn't https, or a site URL that
+  isn't an https origin, is left out (Claude, from the reviewer, 2026-10-16)
 - **The old interface keeps working:** `deployed` and `failed` with the website's current `env` (no
   run id) still write the comment, so an upgraded copy of the script doesn't break a project's
   existing calls before its `ci.yml` is rewired (Claude, from the spec review, 2026-10-16)

@@ -55,18 +55,16 @@ if (!legacy) {
 if ((!legacy || env.RUN_URL) && !https(env.RUN_URL))
   die(2, `${cmd} needs RUN_URL, an https URL`);
 const none = env.NONE === 'yes';
-const live =
-  cmd === 'deployed' || (cmd === 'report' && env.DEPLOY === 'success');
-if (live && !none) {
-  if (!https(env.URL)) die(2, `${cmd} needs URL, an https URL`);
-  if (!env.VERSION) die(2, `${cmd} needs VERSION`);
-}
 if (cmd === 'report')
   for (const v of ['FAST', 'SLOW', 'DEPLOY'])
     if (!RESULTS.includes(env[v]))
       die(2, `${v} is not a job result (${RESULTS.join(', ')}): ${env[v]}`);
-if (env.SITE_URL && !/^https:\/\/[A-Za-z0-9.-]+$/.test(env.SITE_URL))
-  die(2, 'SITE_URL is not an https:// origin');
+// deploy.sh's outputs never stop the comment reaching a final state: a missing one shows as unknown,
+// and a URL that isn't https (or a site URL that isn't an https origin) is left out.
+const url = https(env.URL) ? env.URL : null;
+const siteUrl = /^https:\/\/[A-Za-z0-9.-]+$/.test(env.SITE_URL ?? '')
+  ? env.SITE_URL
+  : null;
 const num = (v, d) =>
   v === undefined || v === ''
     ? d
@@ -84,9 +82,8 @@ const runLink = env.RUN_URL ? `[run](${env.RUN_URL})` : '';
 const undo = env.ROLLBACK ? `- To undo: ${env.ROLLBACK}` : '';
 const domain =
   {
-    passed: env.SITE_URL && `- Domain: ${env.SITE_URL} serves this build`,
-    failed:
-      env.SITE_URL && `- Domain: ${env.SITE_URL} did not serve this build`,
+    passed: siteUrl && `- Domain: ${siteUrl} serves this build`,
+    failed: siteUrl && `- Domain: ${siteUrl} did not serve this build`,
     skipped: '- Domain: not checked (`SITE_URL` is not set)',
   }[env.SITE_SMOKE] || '';
 const notDeployed = (reason) => ({
@@ -112,9 +109,9 @@ const texts = {
       : {
           state: 'live',
           lines: [
-            `**Live in production** · ${short(sha)} · ${env.URL}`,
+            `**Live in production** · ${short(sha)} · ${url || 'URL unknown'}`,
             '',
-            `- New version: \`${env.VERSION}\``,
+            `- New version: \`${env.VERSION || 'unknown'}\``,
             `- Replaced: \`${env.PREVIOUS || 'unknown'}\``,
             ...[domain, undo].filter(Boolean),
           ],

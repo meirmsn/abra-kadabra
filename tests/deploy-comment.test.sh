@@ -158,6 +158,20 @@ run failed RUN_ID= RUN_ATTEMPT= RUN_URL=
 { [ "$rc" = 0 ] && grep -qF 'production is unchanged. See the run.' <<<"$(body)"; } || { show; fail "AC-3: failed with no run id or run URL should still comment"; }
 run failed RUN_ID= RUN_ATTEMPT= RUN_URL=http://insecure.example.com
 [ "$rc" = 2 ] || { show; fail "AC-7: an old-style call's RUN_URL, when given, must be https"; }
+# deploy.sh's outputs never keep the comment from a final state: missing ones show as unknown, and a
+# URL that isn't https, or a site URL that isn't an https origin, is left out.
+state "[$(c 1 deploying 1)]"
+run deployed URL= VERSION=
+{ [ "$rc" = 0 ] && grep -qF '**Live in production** · `0123456` · URL unknown' <<<"$(body)" && grep -qF -- '- New version: `unknown`' <<<"$(body)"; } \
+  || { show; fail "AC-3: a deploy without url and version should still end live, with them unknown"; }
+expect_state live 1 "AC-3 (no url, no version)"
+state "[$(c 1 deploying 1)]"
+run report FAST=success SLOW=success DEPLOY=success URL= VERSION=
+expect_state live 1 "AC-5 (report: a successful deploy without url or version still ends live)"
+state "[$(c 1 deploying 1)]"
+run deployed URL=http://insecure.example.com SITE_URL=https://x.example.com/path SITE_SMOKE=passed
+expect_state live 1 "AC-3 (bad URLs)"
+! grep -qE 'insecure|x\.example\.com/path' <<<"$(body)" || { show; fail "AC-3: a URL that isn't https, or a site URL with a path, must be left out"; }
 echo "ok: AC-3 live and failed texts, a final state, the old interface kept"
 
 # AC-4: the unfilled slot (NONE=yes) ends not deployed, never live.
@@ -228,7 +242,7 @@ echo "ok: AC-6 forward-only per attempt; only the bot's comments"
 # AC-7: bad arguments or settings exit 2 before any call; API errors and timeouts exit 1.
 state "[$(c 1 merged 1)]"
 for bad in "nonsense" "deployed GITHUB_TOKEN=" "deployed DEPLOY_SHA=abc" "merged RUN_ID=x1" "merged RUN_ATTEMPT=" \
-  "merged RUN_URL=http://insecure.example.com" "deployed URL=" "deployed VERSION=" "deployed SITE_URL=https://x.example.com/path" \
+  "merged RUN_URL=http://insecure.example.com" \
   "report FAST=green SLOW=success DEPLOY=success" "report FAST=success SLOW=success" "deployed GITHUB_REPOSITORY=nope"; do
   read -r -a args <<<"$bad"
   run "${args[@]}"
