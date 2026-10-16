@@ -230,6 +230,10 @@ for t in scripts/scan.sh .github/workflows/ci.yml scripts/check.sh .devshop-vers
   done
 done
 [ "$(cat "$work/target")" = keep ] || fail "AC-2: init wrote through a symlink"
+r="$work/r-$RANDOM" && new_repo "$r" && printf 'a file\n' >"$r/.github"
+git -C "$r" add -A && git -C "$r" commit -qm "a file where a directory goes"
+init_into "AC-2: a file where a target's directory goes is refused" 2 '\.github/workflows/ci\.yml: .*not a directory' "$r" --codeowner example-owner
+untouched "$r"
 r="$work/r-out" && new_repo "$r" && mkdir -p "$work/elsewhere" && ln -s "$work/elsewhere" "$r/scripts"
 git -C "$r" add -A && git -C "$r" commit -qm "scripts is a link out"
 init_into "AC-2: a target whose directory leaves the project is refused" 2 'leaves the project' "$r" --codeowner example-owner

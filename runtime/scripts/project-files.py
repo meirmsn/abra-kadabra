@@ -21,8 +21,9 @@ Usage:
       Places a new project (specs/new-project.md): every entry of V's manifest, devshop and seed
       alike, with its content and mode; then .devshop-version (V's full SHA) and
       .github/CODEOWNERS (`* @HANDLE`). Every check runs before the first write: it refuses, writing
-      nothing, when a target exists (file, directory or symlink), a target's directory leaves the
-      project, or HANDLE isn't a GitHub user name. Other files (a README) are left alone. Exit 0.
+      nothing, when a target exists (file, directory or symlink), a target's directory is a file or
+      leaves the project, or HANDLE isn't a GitHub user name. Other files (a README) are left
+      alone. Exit 0.
 Exit 2 = can't run (bad arguments, no git, unknown version, bad manifest, refused apply or init).
 """
 import difflib
@@ -238,6 +239,12 @@ def inside(project, full):
     return parent == project or parent.startswith(project + os.sep)
 
 
+def parents(project, dst):
+    """The directories dst sits in, below the project, outermost first."""
+    parts = dst.split("/")[:-1]
+    return [os.path.join(project, *parts[:n]) for n in range(1, len(parts) + 1)]
+
+
 def init(a):
     gd, handle = a["devshop-git"], a["codeowner"]
     if not HANDLE.fullmatch(handle):
@@ -251,8 +258,11 @@ def init(a):
     refused = []
     for dst, _, _ in files:
         full = os.path.join(project, dst)
+        blocked = [d for d in parents(project, dst) if os.path.lexists(d) and not os.path.isdir(d)]
         if not inside(project, full):
             refused.append(f"{dst}: its directory leaves the project")
+        elif blocked:
+            refused.append(f"{dst}: {os.path.relpath(blocked[0], project)} is not a directory")
         elif os.path.lexists(full):
             refused.append(f"{dst}: already exists")
     if refused:
