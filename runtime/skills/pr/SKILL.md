@@ -68,4 +68,5 @@ under `devshop:build` § 3; this skill only puts them on the PR.
 - Every owner comment on the PR is addressed: build what it asks under `devshop:build` § 3, then this
   skill again; one that changes a decision or acceptance item is recorded in the spec as changed
   after the go (`devshop:intent` § 5). One you can't address (unclear, conflicting, or outside the
-  change): build nothing for it and tell the owner in the session's chat what it needs from them.
+  change): build nothing for it and tell the owner in the session's chat what it needs from them. A
+  comment that only asks a question is answered there too.
