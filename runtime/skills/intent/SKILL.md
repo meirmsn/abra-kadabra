@@ -67,5 +67,6 @@ helper does.
   open questions from step 4.
 - On "go", record it on the spec's `**Go:**` line (their words, the date), run `spec-check.py --go`,
   commit and push on the same branch. Then `build`.
-- After the go, a change to a decision or an acceptance item is raised with the owner, decided by
-  them and recorded in the spec as theirs. The final review fails on any that isn't.
+- After the go, a change to a decision or an acceptance item is the owner's decision: their answer
+  when you raise it, or their PR comment asking for it. Record its words and date in the spec as
+  theirs. The final review fails on any that isn't.
