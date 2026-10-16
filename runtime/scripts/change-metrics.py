@@ -7,10 +7,11 @@ Usage:
   change-metrics.py render --pr-data FILE --cost USD|unknown [--prev-cost USD|unknown] [--ci FILE]
                            [--verdicts DIR]
                            [--now ISO] [--projects DIR] [--session ID]
-  change-metrics.py previous-pr --pr N [--projects DIR] [--session ID]
+  change-metrics.py previous-pr --pr N [--merged TIME] [--projects DIR] [--session ID]
 render prints the comment. Exit 0 = printed; 3 = not yet: the deploy comment isn't final and less than
 60 minutes have passed since the merge; 2 = can't run (bad arguments, an unreadable PR data file, a PR
-not merged). previous-pr prints the number of the PR this session merged before PR N, or nothing.
+not merged). previous-pr prints the number of the PR this session merged before PR N, or nothing; --merged is PR N's
+merge time, which places a PR the owner merged.
 
 Sources:
   - The transcript: every <session>.jsonl under --projects (default ~/.claude/projects), merged by entry
@@ -148,17 +149,18 @@ class Session:
             return
         self.owner.append((t, text))
 
-    def earlier_merges(self, pr):
-        """(time, PR) of the other PRs this session merged before it merged `pr` (all, if it hasn't)."""
+    def earlier_merges(self, pr, merged=None):
+        """(time, PR) of the other PRs this session merged before `pr` merged: before the session merged
+        it, else before `merged` (the PR's merge time: the owner merged it), else all."""
         mine = [t for t, n in self.merges if n == pr]
-        cut = min(mine) if mine else None
+        cut = min(mine) if mine else merged
         return [(t, n) for t, n in self.merges if n != pr and (cut is None or t < cut)]
 
     def start(self, pr, merged=None):
         """The clock's start: the first owner message, or the first after this session's last earlier
         merge; with no owner message after that merge (before this PR's), the merge itself: the session
         started this change on its own (specs/metrics-clock-after-merge.md)."""
-        after = max((t for t, _ in self.earlier_merges(pr)), default=None)
+        after = max((t for t, _ in self.earlier_merges(pr, merged)), default=None)
         firsts = [t for t, _ in self.owner if (after is None or t > after) and (merged is None or t <= merged)]
         return min(firsts) if firsts else after
 
@@ -502,6 +504,7 @@ def main(argv):
     r.add_argument("--now")
     q = sub.add_parser("previous-pr")
     q.add_argument("--pr", type=int, required=True)
+    q.add_argument("--merged")
     for s in (r, q):
         s.add_argument("--projects", default=os.path.expanduser("~/.claude/projects"))
         s.add_argument("--session")
@@ -512,7 +515,13 @@ def main(argv):
     try:
         if a.cmd == "previous-pr":
             sess = Session(transcript(a.projects, a.session))
-            earlier = sess.earlier_merges(a.pr)
+            merged = None
+            if a.merged:
+                try:
+                    merged = ts(a.merged)
+                except ValueError:
+                    raise CantRun(f"--merged is not a time: {a.merged}")
+            earlier = sess.earlier_merges(a.pr, merged)
             if earlier:
                 print(max(earlier)[1])
             return 0
