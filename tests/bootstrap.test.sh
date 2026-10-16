@@ -332,9 +332,35 @@ for pin in "$pinned" "$PRE_MOVE"; do
   grep -qx "name: upgrade" "$f" 2>/dev/null || fail "pin ${pin:0:12}: the plugin has no upgrade skill"
   [ "$(readlink -f "$f")" = "$f" ] || fail "the upgrade skill resolves outside the plugin: $(readlink -f "$f")"
   [ -x "$HOME/plugin/upgrade/project-files-at.sh" ] || fail "pin ${pin:0:12}: the plugin has no project-files-at.sh"
+  [ -x "$HOME/plugin/upgrade/latest-release.sh" ] || fail "pin ${pin:0:12}: the plugin has no latest-release.sh"
 done
 [ ! -e "/opt/devshop-versions/$pinned/skills/upgrade" ] || fail "the pinned runtime also has an upgrade skill"
 echo "ok - the plugin carries upgrade (/devshop:upgrade) for any pin, an old one included"
+
+# AC-8 (spec specs/devshop-releases.md): a project pins a release tag, which CI made on the release
+# commit; the setup script's bare clone carries tags, so the tag resolves in the copy with no network.
+git --git-dir="$src" tag v2.0.0 "$pinned"
+out=$(session v2.0.0)
+check "AC-8: pinned release tag" "$out" "^DEVSHOP: using v2\.0\.0 \(${pinned:0:12}\) from project \.devshop-version · .*[^;]$" "$pinned"
+grep -qx "$marker" <<<"$out" || fail "AC-8: the tagged version's SessionStart script didn't run"
+out=$(session v2.0.1)
+check "AC-8: a release tag not in the copy keeps the default" "$out" "^DEVSHOP: version 'v2\.0\.1' \(project \.devshop-version\) is not in the local devshop copy" "$head"
+# AC-12: a newer release in the copy shows on the line of a project pinning an older one, by version
+# order (v2.10.0 is above v2.9.0); v1's tags never count.
+git --git-dir="$src" tag v2.9.0 "$head"
+git --git-dir="$src" tag v2.10.0 "$head"
+git --git-dir="$src" tag v11.0.0-rc.1 "$head"
+newer="; newer release v2\.10\.0 in the copy \(/devshop:upgrade\)$"
+out=$(session v2.0.0)
+check "AC-12: an older release pinned" "$out" "^DEVSHOP: using v2\.0\.0 \(${pinned:0:12}\) from project \.devshop-version · .*$newer" "$pinned"
+out=$(session v2.9.0)
+check "AC-12: v2.9.0 pinned, v2.10.0 is newer" "$out" "^DEVSHOP: using v2\.9\.0 .*$newer" "$head"
+for pin in v2.10.0 "$pinned" ''; do
+  out=$(session "$pin")
+  ! grep -q "newer release" <<<"$out" || { echo "$out" >&2; fail "AC-12: pin '$pin' got a newer-release note"; }
+done
+echo "ok - AC-12: the newest release, a SHA pin or no pin gets no newer-release note"
+for t in v2.0.0 v2.9.0 v2.10.0 v11.0.0-rc.1; do git --git-dir="$src" tag -d "$t" >/dev/null; done
 
 unknown=$(rand 'a-f0-9' 40)
 out=$(session "$unknown")

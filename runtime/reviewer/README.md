@@ -35,6 +35,9 @@ a PR (W10.6.7; contract on the W10.6.7 line in W10-v2.md):
 1. It checks the title and body have the PR template's shape
    ([`pr-body-check.py`](../scripts/pr-body-check.py), F-NEW-52): a body without it is exit 1, with
    the problems listed, before any review or push; a missing or broken check is exit 2.
+   When the repo has its own `scripts/pr-title-check.py` (the devshop does: a Conventional Commit
+   type, [spec](../../specs/devshop-releases.md); projects don't), the title must pass it too, in
+   the same way.
 2. It reviews the committed `HEAD` with exactly that title and body, in the VM:
    `review.sh --base origin/<base> --pr <words>`. The base is `--base`, else the open PR's base,
    else origin's default branch. When `HEAD` already passed on this base and only the title or

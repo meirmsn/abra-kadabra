@@ -55,8 +55,8 @@ W10.1.2b spike (`kit/notes/revamp/spikes/w10-1-2b-thin/`, kept as notes).
   and logged as a `FAILED: tool` line. A copy in a directory ahead of `/usr/local/bin` on the
   session's PATH (`~/.local/bin`, `~/.cargo/bin`, node's or bun's bin) would win over the pinned one;
   none does on the cloud image today, and required CI installs the same pins itself.
-- **The project** holds one file, `.devshop-version`: a commit SHA for now (release tags once CI
-  makes them, A-25). The `upgrade` skill bumps it in a PR that also brings the project's copies of devshop files (below). Without it the session uses `HEAD`: `main` as of the
+- **The project** holds one file, `.devshop-version`: a release tag such as `v2.0.0`, made by CI
+  ([releases](../docs/README.md#releases)), or a commit SHA to try a branch. The `upgrade` skill bumps it in a PR that also brings the project's copies of devshop files (below). Without it the session uses `HEAD`: `main` as of the
   local copy.
 
 ## The `DEVSHOP:` line
@@ -72,13 +72,14 @@ the local copy's date, time and age, because the copy only refreshes when the en
 rebuilds and a same-day stale copy is otherwise invisible, then the project the session runs in. The
 session can't read its environment's name, and with one environment per project the project names it.
 
-| Case                                  | Line                                                                                                                                       |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| No `.devshop-version`                 | `using HEAD (<sha12>) from environment default (no .devshop-version) · devshop copy of <date> <HH:MM> UTC (<n> days old) · project <name>` |
-| Pinned SHA in the copy                | `using <pin> (<sha12>) from project .devshop-version · devshop copy of …`                                                                  |
-| Pin not in the copy (newer, or wrong) | `version '<pin>' (…) is not in the local devshop copy — kept version <sha12> · devshop copy of …; the copy refreshes …`                    |
-| Pin older than this install           | `version '<pin>' (<sha12>) has no devshop runtime at runtime/ (older than the v2 install?) — kept version <sha12> · …`                     |
-| Not a version (e.g. `--x`)            | `'<pin>' (…) is not a devshop version (a commit SHA) — kept version <sha12> · …`                                                           |
+| Case                                  | Line                                                                                                                                                                         |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No `.devshop-version`                 | `using HEAD (<sha12>) from environment default (no .devshop-version) · devshop copy of <date> <HH:MM> UTC (<n> days old) · project <name>`                                   |
+| Pinned SHA in the copy                | `using <pin> (<sha12>) from project .devshop-version · devshop copy of …`                                                                                                    |
+| Pinned release tag in the copy        | `using v2.0.0 (<sha12>) from project .devshop-version · devshop copy of …`, plus `; newer release v2.1.0 in the copy (/devshop:upgrade)` when the copy holds a newer release |
+| Pin not in the copy (newer, or wrong) | `version '<pin>' (…) is not in the local devshop copy — kept version <sha12> · devshop copy of …; the copy refreshes …`                                                      |
+| Pin older than this install           | `version '<pin>' (<sha12>) has no devshop runtime at runtime/ (older than the v2 install?) — kept version <sha12> · …`                                                       |
+| Not a version (e.g. `--x`)            | `'<pin>' (…) is not a devshop version (a release tag or commit SHA) — kept version <sha12> · …`                                                                              |
 
 "Kept" means the session keeps the default version primed at setup. Proven by
 [`tests/bootstrap.test.sh`](../tests/bootstrap.test.sh). It replays the setup script (local bare

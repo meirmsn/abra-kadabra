@@ -44,6 +44,8 @@ run "runs the asked version's script with the arguments, exit passed through" 7 
   -- --devshop-git "$ds/.git" --at "$v1" plan --from a --to b
 run "another version runs its own script" 7 '^v2 check --devshop-git [^ ]+$' -- --devshop-git "$ds/.git" --at "$v2" check
 run "a version given by name runs" 7 '^v2 check --devshop-git [^ ]+$' -- --devshop-git "$ds/.git" --at main check
+git -C "$ds" tag v2.0.0 "$v2"
+run "AC-9: a release tag runs its version's script" 7 '^v2 check --devshop-git [^ ]+$' -- --devshop-git "$ds/.git" --at v2.0.0 check
 run "a version without the script can't run" 2 'has no runtime/scripts/project-files\.py' \
   -- --devshop-git "$ds/.git" --at "$v0" check
 run "a version not in the copy can't run and says to rebuild" 2 'rebuild' \

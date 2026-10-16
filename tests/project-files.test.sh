@@ -286,6 +286,7 @@ untouched "$i"
 
 # --- session start ---
 mount -t tmpfs devshop-test-opt /opt || fail "can't mount a scratch /opt"
+git -C "$ds" tag v2.0.0 "$v1" # a release tag pins the same version as its SHA (AC-9)
 git clone -q --bare "$ds" /opt/devshop.git
 ln -s "$repo_root/runtime" /opt/devshop-current
 start=/opt/devshop-current/hooks/session-start.sh
@@ -302,6 +303,12 @@ grep -Eq "^DEVSHOP: the project's copies of devshop files differ from its pinned
   || { echo "$out" >&2; fail "session start: no drift line naming the copy"; }
 [ "$(wc -l <<<"$out")" = 1 ] || { echo "$out" >&2; fail "session start: want one line"; }
 echo "ok - with a pin, drift is one DEVSHOP: line naming the copy"
+echo v2.0.0 >"$s/.devshop-version"
+out=$(start_lines "$s")
+grep -Eq "^DEVSHOP: the project's copies of devshop files differ from its pinned version v2\.0\.0: scripts/scan\.sh \(differs" <<<"$out" \
+  || { echo "$out" >&2; fail "AC-9: session start: no drift line for a release tag pin"; }
+echo "ok - AC-9: a release tag pin is checked as its version, and named in full"
+echo "$v1" >"$s/.devshop-version"
 git -C "$s" checkout -q -- scripts/scan.sh
 [ -z "$(start_lines "$s")" ] || fail "session start reported clean copies"
 echo "ok - clean copies get no line"
