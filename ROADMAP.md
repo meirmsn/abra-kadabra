@@ -36,3 +36,9 @@ on devshop v1 we had a way to cut a new devshop version, what is the equivalent 
 ```text
 use conventional commit prefixes, put it on roadmap, and implement (and test as much as you can reasonable can to make sure it will work)
 ```
+
+After the first change merged (PR 128), before any release, 2026-10-16:
+
+```text
+Do we really need a PR? I have done this in the past where we release the job, we do the release from action. And if I remember correctly there's no PR involved.
+```
