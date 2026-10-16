@@ -18,6 +18,8 @@ Name it in your first reply; the owner can correct you.
   `/opt/devshop-current/templates/roadmap.md`, which has the rules), in its own small PR with no
   spec. A request that picks up an entry names its `R-<n>` in the spec's Intent; the change that
   delivers it marks it `Done`.
+- **Set-up:** a repo with no `.devshop-version` and no `.github/workflows/ci.yml` is a new project:
+  `devshop:new-project`, no spec.
 - **Bug fix:** restate the problem and the expected behaviour; the failing test is the spec. No
   "go": go to `build`. A fix that involves a real choice (it changes behaviour people rely on, or
   there are several reasonable fixes) is a change.

@@ -87,6 +87,8 @@ Projects pin the tag; `/devshop:upgrade` defaults to the newest one. Proven by
   loads what applies, and hands over to `pr` (TARGET § L3 Build).
 - [`pr`](../runtime/skills/pr/SKILL.md): the PR for a built change: the body from the template,
   screenshots, `ship.sh` through the reviewer, low findings, telling the owner (TARGET § L3 Review).
+- [`new-project`](../runtime/skills/new-project/SKILL.md): a new repo's first session places the
+  devshop's files and opens the first PR with green CI (below, New project).
 - [`upgrade`](../install/plugin/devshop/upgrade/skills/upgrade/SKILL.md): moves a
   project's `.devshop-version` in one PR, bringing its copies of devshop files along (below, Project
   files). It comes with the installed plugin, not the pinned version, so any pin has it; its
@@ -110,6 +112,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   what the owner decided and a findings log of what Claude noticed.
 - [`metrics-clock-after-merge.md`](../specs/metrics-clock-after-merge.md): a change the session
   starts on its own is timed from the previous merge.
+- [`new-project.md`](../specs/new-project.md): a new project starts from the devshop with
+  green CI: the files placed, the owner's steps and the proof on a fresh repo.
 - [`pinned-tools-on-path.md`](../specs/pinned-tools-on-path.md): the project's own checks find the
   devshop's pinned gitleaks, shellcheck and dcg on PATH.
 - [`ui-baseline.md`](../specs/ui-baseline.md): every web app starts from a design baseline, phone
@@ -187,8 +191,18 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   (the secret scan, the spec check), or `seed`, a template the project adapts and owns (CI, the fast
   tier). [`runtime/scripts/project-files.py`](../runtime/scripts/project-files.py) `check`s the
   copies against a version (session start reports drift from the pinned one in a `DEVSHOP:` line),
-  `plan`s an upgrade and `apply`s one copy; the `upgrade` skill drives it. Proven by
+  `plan`s an upgrade, `apply`s one copy, and `init`s a new project (every entry, `.devshop-version`
+  pinned to a `vX.Y.Z` release tag, and `CODEOWNERS`, or nothing). The `upgrade` skill runs
+  `check`, `plan` and `apply`; the `new-project` skill runs `init`. Proven by
   [`tests/project-files.test.sh`](../tests/project-files.test.sh).
+- New project ([spec](../specs/new-project.md)): the
+  [`new-project`](../runtime/skills/new-project/SKILL.md) skill runs `init` in a repo's first
+  session and opens its first PR; [the owner's steps](../runtime/templates/new-project-steps.md)
+  come before and with it. The seeds that make a bare project green: `check-slow.sh`,
+  `gitleaks.toml`, [`tests-readme.md`](../runtime/templates/tests-readme.md), `gitkeep` and a
+  [`CLAUDE.md` starter](../runtime/templates/project-claude.md). Proven by
+  [`tests/new-project.test.sh`](../tests/new-project.test.sh): a placed project passes its own fast
+  and slow tiers with no devshop present, and fails them on a planted secret or an untested item.
 - Stack homes: [runtime/stacks/README.md](../runtime/stacks/README.md) is their layout;
   [`runtime/scripts/stack-homes.sh`](../runtime/scripts/stack-homes.sh) picks the ones a project
   uses. Proven by [`tests/stack-homes.test.sh`](../tests/stack-homes.test.sh).

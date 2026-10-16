@@ -17,10 +17,18 @@ Usage:
   project-files.py apply --devshop-git D --version V --project P --file <project path>
       Writes V's content and mode for one devshop file. Refuses seeds, unlisted paths, symlinks
       and paths whose directory leaves the project. Exit 0.
-Exit 2 = can't run (bad arguments, no git, unknown version, bad manifest, refused apply).
+  project-files.py init --devshop-git D --version V --project P --codeowner HANDLE
+      Places a new project (specs/new-project.md): every entry of V's manifest, devshop and seed
+      alike, with its content and mode; then .devshop-version (V) and .github/CODEOWNERS
+      (`* @HANDLE`). Every check runs before the first write: it refuses, writing nothing, when V
+      isn't a vX.Y.Z release tag in the copy (a SHA or a branch is refused), a target exists (file,
+      directory or symlink), a target's directory is a file or leaves the project, or HANDLE isn't
+      a GitHub user name. Other files (a README) are left alone. Exit 0.
+Exit 2 = can't run (bad arguments, no git, unknown version, bad manifest, refused apply or init).
 """
 import difflib
 import os
+import re
 import subprocess
 import sys
 
@@ -28,10 +36,16 @@ MANIFEST = "runtime/project-files.txt"
 OWNERS = ("devshop", "seed")
 USAGE = ("usage: project-files.py check --devshop-git D --version V --project P | "
          "plan --devshop-git D --from OLD --to NEW --project P | "
-         "apply --devshop-git D --version V --project P --file PATH")
+         "apply --devshop-git D --version V --project P --file PATH | "
+         "init --devshop-git D --version V --project P --codeowner HANDLE")
 NEEDS = {"check": ("devshop-git", "version", "project"),
          "plan": ("devshop-git", "from", "to", "project"),
-         "apply": ("devshop-git", "version", "project", "file")}
+         "apply": ("devshop-git", "version", "project", "file"),
+         "init": ("devshop-git", "version", "project", "codeowner")}
+# A devshop release tag (TARGET Shape 5), the only pin init writes.
+RELEASE = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
+# A GitHub user name: letters, digits and single inner hyphens, at most 39 characters.
+HANDLE = re.compile(r"[A-Za-z0-9](-?[A-Za-z0-9]){0,38}")
 
 
 class CantRun(Exception):
@@ -221,6 +235,64 @@ def apply(a):
     return 0
 
 
+def inside(project, full):
+    """Whether full's directory, symlinks resolved, is the project or below it."""
+    parent = os.path.realpath(os.path.dirname(full))
+    return parent == project or parent.startswith(project + os.sep)
+
+
+def parents(project, dst):
+    """The directories dst sits in, below the project, outermost first."""
+    parts = dst.split("/")[:-1]
+    return [os.path.join(project, *parts[:n]) for n in range(1, len(parts) + 1)]
+
+
+def init(a):
+    gd, handle = a["devshop-git"], a["codeowner"]
+    if not HANDLE.fullmatch(handle):
+        raise CantRun(f"--codeowner '{handle}' is not a GitHub user name (letters, digits, single "
+                      "inner hyphens, at most 39)")
+    tag = a["version"]
+    if not RELEASE.fullmatch(tag):
+        raise CantRun(f"--version '{tag}' is not a release tag (vX.Y.Z): a new project pins a "
+                      "devshop release, never a branch or a commit SHA")
+    r = git(gd, "rev-parse", "-q", "--verify", f"refs/tags/{tag}^{{commit}}")
+    if r.returncode != 0:
+        raise CantRun(f"release tag '{tag}' is not in the devshop copy {gd}; it refreshes when the "
+                      "environment's cache rebuilds: rebuild the environment, then retry")
+    sha = r.stdout.decode().strip()
+    files = [(dst, *blob(gd, sha, src)) for _, src, dst in manifest(gd, sha)]
+    files += [(".devshop-version", f"{tag}\n".encode(), "100644"),
+              (".github/CODEOWNERS", f"* @{handle}\n".encode(), "100644")]
+    project = os.path.realpath(a["project"])
+    refused = []
+    for dst, _, _ in files:
+        full = os.path.join(project, dst)
+        blocked = [d for d in parents(project, dst) if os.path.lexists(d) and not os.path.isdir(d)]
+        if not inside(project, full):
+            refused.append(f"{dst}: its directory leaves the project")
+        elif blocked:
+            refused.append(f"{dst}: {os.path.relpath(blocked[0], project)} is not a directory")
+        elif os.path.lexists(full):
+            refused.append(f"{dst}: already exists")
+    if refused:
+        raise CantRun("init writes only into a new project; nothing written: " + "; ".join(refused))
+    written = []
+    try:
+        for dst, data, mode in files:
+            full = os.path.join(project, dst)
+            os.makedirs(os.path.dirname(full), exist_ok=True)
+            with open(full, "xb") as f:
+                written.append(dst)
+                f.write(data)
+            os.chmod(full, 0o755 if mode == "100755" else 0o644)
+    except OSError as e:
+        raise CantRun(f"{e}; written before the failure, delete them and retry: {' '.join(written)}")
+    for dst, _, mode in files:
+        print(f"{dst} (mode {mode})")
+    return 0
+
+
 def parse(argv):
     if not argv or argv[0] not in NEEDS:
         raise CantRun(USAGE)
@@ -243,7 +315,7 @@ def parse(argv):
 def main(argv):
     try:
         cmd, args = parse(argv)
-        return {"check": check, "plan": plan, "apply": apply}[cmd](args)
+        return {"check": check, "plan": plan, "apply": apply, "init": init}[cmd](args)
     except NoManifest as e:
         print(f"project-files: {e}", file=sys.stderr)
         return 3 if argv[0] == "check" else 2

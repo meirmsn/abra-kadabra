@@ -16,6 +16,14 @@ git fetch origin tag v1-final
 git worktree add ../v1 v1-final
 ```
 
+## Start a new project
+
+Follow [the owner's steps](runtime/templates/new-project-steps.md): part 1 (the repo, its merge
+settings, the agent as a collaborator, the cloud environment) before the first session; then, in
+that session, ask to set up the new project. Its `new-project` skill places the devshop's files
+and opens the first PR with green CI, and part 2 (protecting `main`) comes in that PR's body
+([spec](specs/new-project.md)).
+
 ## Layout
 
 | Path                                    | What                                                                                         |
