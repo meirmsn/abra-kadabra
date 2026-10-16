@@ -13,21 +13,22 @@ reachable from this page through links, or when a relative link or `#anchor` is 
   order; the top `Open` entry is the next task.
 - [FINDINGS.md](../FINDINGS.md): what Claude noticed and didn't fix, kept to see what comes back
   ([spec](../specs/findings-and-roadmap.md)).
-- [CHANGELOG.md](../CHANGELOG.md): every devshop release, the version a project pins in
-  `.devshop-version` ([spec](../specs/devshop-releases.md)).
 
 ## Releases
 
 SemVer tags from `v2.0.0` (D-10); a major release needs a migration. Every PR title starts with a
 Conventional Commit type ([`scripts/pr-title-check.py`](../scripts/pr-title-check.py): CI's fast
 job and `ship.sh` run it), and the squash merge makes the title the subject on `main`. To release,
-on the owner's ask, a session on a fresh branch from `main` (fetched in full, with tags) runs
-[`scripts/release.py`](../scripts/release.py) `prepare`: it computes the next version from the
-subjects since the last release (`!` major, `feat` minor, `fix`/`perf`/`revert` patch) and writes
-`VERSION` and the `CHANGELOG.md` section; the PR is titled `chore(release): v<version>`. When the
-owner merges it, [`release.yml`](../.github/workflows/release.yml) runs `release.py tag-plan` and
-creates the tag and the GitHub release (a session can't push tags, A-25). Projects pin the tag;
-`/devshop:upgrade` defaults to the newest one. Proven by
+the owner clicks "Run workflow" on [`release.yml`](../.github/workflows/release.yml) in the
+Actions tab, on `main`: its first step refuses anyone but the repository's owner and any branch
+but `main` (feedback against accidents, not a wall: a branch carrying its own workflow could still
+create a tag, F-NEW-96); [`scripts/release.py`](../scripts/release.py) `plan` computes the next version from the
+subjects since the last release (`!` major, `feat` minor, `fix`/`perf`/`revert` patch, nothing
+else releases) and its notes; then CI creates the tag on `main`'s head and the GitHub release with
+those notes (a session can't push tags, A-25). There is no release PR and no changelog file: the
+notes are on each release's page, and the owner's release immutability setting locks a published
+release's tag. `scripts/release.py next` previews the next release from a full clone with tags.
+Projects pin the tag; `/devshop:upgrade` defaults to the newest one. Proven by
 [`tests/release.test.sh`](../tests/release.test.sh) and
 [`tests/pr-title-check.test.sh`](../tests/pr-title-check.test.sh).
 
@@ -41,6 +42,12 @@ creates the tag and the GitHub release (a session can't push tags, A-25). Projec
   `tests/run.sh fast|slow` runs one tier, `tests/run.sh` all. Proven by
   [`tests/check-tiers.test.sh`](../tests/check-tiers.test.sh) and
   [`tests/run-tiers.test.sh`](../tests/run-tiers.test.sh).
+- The devshop's release: on `main`, after both tiers, the same `announce`, `deploy` and `report` jobs
+  as a project's give the merged PR its deploy comment (Checking on `main`, then On `main`,
+  ships in the next release, since a release tag ships it); [`scripts/deploy.sh`](../scripts/deploy.sh) deploys nothing and writes what the comment
+  reads ([spec](../specs/devshop-deploy-comment.md); proven by
+  [`tests/deploy-sh.test.sh`](../tests/deploy-sh.test.sh) and
+  [`tests/ci-template-deploy.test.sh`](../tests/ci-template-deploy.test.sh)).
 - Secret scanning: [`.gitleaks.toml`](../.gitleaks.toml) is gitleaks' default rule set. CI's fast
   tier first runs [`scripts/secret-scan.sh`](../scripts/secret-scan.sh) over the commits a change
   adds and the whole tree, then, with the other tests,
@@ -95,6 +102,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   the devshop and every project.
 - [`deploy-and-metrics-comments.md`](../specs/deploy-and-metrics-comments.md): a merged PR's deploy
   comment follows the deploy to a final state, then the session posts how the change went.
+- [`devshop-deploy-comment.md`](../specs/devshop-deploy-comment.md): the devshop's own PRs follow
+  their release, and the metrics count every reviewer round.
 - [`design-first-spec-review.md`](../specs/design-first-spec-review.md): design questions first in
   the spec review, replayed and dropped (they missed the case they were for); the finding is
   F-NEW-65.

@@ -17,8 +17,8 @@ Abbreviations: `D=/opt/devshop.git`,
 
 - NEW is what the owner names, else the newest release in the local copy:
   `/opt/devshop-plugin/devshop/upgrade/latest-release.sh --devshop-git $D` (exit 1, no release yet:
-  `main`, `git --git-dir=$D rev-parse HEAD`). Show what changed: the release notes,
-  `git --git-dir=$D show NEW:CHANGELOG.md`, or the commits, `git --git-dir=$D log --oneline OLD..NEW`.
+  `main`, `git --git-dir=$D rev-parse HEAD`). Show what changed: the commits,
+  `git --git-dir=$D log --oneline OLD..NEW` (the release notes on GitHub group the same subjects).
   A major release (its first number changes) needs a migration: say so first.
 - `$PF` stops with "not in the devshop copy" when NEW is newer than the copy, which refreshes only
   when the environment's cache rebuilds. Tell the owner to rebuild the environment, then stop.

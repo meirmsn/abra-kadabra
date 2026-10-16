@@ -115,9 +115,13 @@ data = {
     ],
     "review_comments": [{"user": own, "created_at": "2026-01-01T10:30:30Z"}],
     "runs": [
-        {"id": 1, "head_sha": "a" * 40, "conclusion": "failure", "attempts": []},
-        {"id": 2, "head_sha": "b" * 40, "conclusion": "success", "attempts": ["failure"]},
+        {"id": 1, "head_sha": "a" * 40, "conclusion": "failure", "attempts": [], "created_at": "2026-01-01T10:25:30Z"},
+        {"id": 2, "head_sha": "b" * 40, "conclusion": "success", "attempts": ["failure"], "created_at": "2026-01-01T10:30:00Z"},
         {"id": 3, "head_sha": "c" * 40, "conclusion": "success", "attempts": []},
+        # The same branch name's runs for another PR, before this one opened and after it merged:
+        # not this PR's (a branch name a session reuses).
+        {"id": 4, "head_sha": "d" * 40, "conclusion": "failure", "attempts": [], "created_at": "2026-01-01T09:20:00Z"},
+        {"id": 5, "head_sha": "e" * 40, "conclusion": "failure", "attempts": [], "created_at": "2026-01-01T11:20:00Z"},
     ],
 }
 json.dump(data, open(f"{w}/pr9.json", "w"))
@@ -276,10 +280,20 @@ EOF
 chmod +x "$work/bin/gh"
 git -C "$work/proj" init -q
 git -C "$work/proj" remote add origin https://github.com/o/r.git
+# Two merge commits: one whose ci.yml announces (the template), a later one whose doesn't.
+git -C "$work/proj" -c user.name=t -c user.email=t@example.com commit -q --allow-empty -m base
+python3 -c 'import sys,yaml; d=yaml.safe_load(open(sys.argv[1])); d["jobs"].pop("announce"); yaml.safe_dump(d, open(sys.argv[2],"w"))' \
+  "$template" "$work/proj/.github/workflows/ci.yml"
+git -C "$work/proj" add -A && git -C "$work/proj" -c user.name=t -c user.email=t@example.com commit -qm "no announce"
+quiet_merge=$(git -C "$work/proj" rev-parse HEAD)
 cp "$template" "$work/proj/.github/workflows/ci.yml"
-# post <data file> [args...]: change-metrics.sh post in the project; sets $rc, output in $work/out.
+git -C "$work/proj" add -A && git -C "$work/proj" -c user.name=t -c user.email=t@example.com commit -qm "announce"
+announce_merge=$(git -C "$work/proj" rev-parse HEAD)
+merge=$announce_merge
+# post <data file> [args...]: change-metrics.sh post in the project (the PR merged as $merge); sets $rc,
+# output in $work/out.
 post() {
-  cp "$work/$1" "$work/gh/pr.json"; shift
+  jq --arg m "$merge" '.pr.merge_commit_sha = $m' "$work/$1" >"$work/gh/pr.json"; shift
   rm -f "$work/gh/posted" "$work/gh/calls"
   rc=0
   (cd "$work/proj" && HOME="$work/home" GH_DIR="$work/gh" CHANGE_METRICS_NOW=2026-01-01T10:46:00Z PATH="$work/bin:$PATH" "$sh" post "$@") >"$work/out" 2>&1 || rc=$?
@@ -320,5 +334,74 @@ post pr9.json --pr 9 --cost 1
 { [ "$rc" = 2 ] && grep -q 'gh api .* failed' "$work/out"; } || { cat "$work/out" >&2; fail "AC-15: gh failing should exit 2, got $rc"; }
 rm "$work/gh/fail"
 echo "ok: AC-15 post waits (exit 3), posts once, refuses bad arguments"
+
+# --- specs/devshop-deploy-comment.md ---
+# devshop-deploy AC-1: the rounds come from the branch's numbered verdict files in the window, plus the
+# transcript's REVIEW: lines (here v1 fail and v2 pass, $0.30), each once.
+vd="$work/vdir"
+mkdir -p "$vd"
+verdict() { # verdict <file> <outcome> <created> <cost> [branch]
+  printf '{"outcome":"%s","created":"2026-01-01T%sZ","branch":"%s","reviewer":{"cost_usd":%s}}\n' "$2" "$3" "${5:-b}" "$4" >"$vd/$1"
+}
+verdict 001-aaa.json fail 10:21:00 0.01
+verdict 002-bbb.json pass 10:24:00 0.02
+verdict 003-ccc.json could-not-run 10:24:30 null
+verdict 004-ddd.json ask-owner 10:26:00 0.04
+verdict 005-eee.json pass 09:59:00 1.00
+verdict 006-fff.json pass 10:41:30 1.00
+verdict 007-ggg.json pass 10:30:00 1.00 other-branch
+ln -s 002-bbb.json "$vd/latest.json"
+ln -s "$work/verdicts/v2.json" "$vd/008-v2.json" # the same round the transcript names: counted once
+render pr9.json --cost 10.50 --prev-cost 4.25 --verdicts "$vd"
+[ "$rc" = 0 ] || { cat "$work/err" >&2; fail "devshop-deploy AC-1: exit $rc"; }
+grep -qF -- '- **Cost:** $6.62 ($6.25 session + $0.37 reviewer)' "$work/got" || { cat "$work/got" >&2; fail "devshop-deploy AC-1: the rounds' cost"; }
+grep -qF -- 'reviewer passed 2 of 5' "$work/got" || { cat "$work/got" >&2; fail "devshop-deploy AC-1: want 5 rounds (fail, pass, ask-owner from the files; v1 fail, v2 pass), 2 passed"; }
+# A file in the window that can't be read makes the cost unknown.
+printf 'not json' >"$vd/009-hhh.json"
+touch -d 2026-01-01T10:30:00Z "$vd/009-hhh.json"
+render pr9.json --cost 10.50 --prev-cost 4.25 --verdicts "$vd"
+grep -qF -- '($6.25 session + unknown reviewer)' "$work/got" || { cat "$work/got" >&2; fail "devshop-deploy AC-1: an unreadable file should make the cost unknown"; }
+rm "$vd/009-hhh.json"
+# So does one in the window whose time can't be read; a file with no branch isn't this branch's.
+printf '{"outcome":"pass","created":"soon","branch":"b","reviewer":{"cost_usd":1}}\n' >"$vd/010-jjj.json"
+touch -d 2026-01-01T10:30:00Z "$vd/010-jjj.json"
+render pr9.json --cost 10.50 --prev-cost 4.25 --verdicts "$vd"
+grep -qF -- '+ unknown reviewer)' "$work/got" || { cat "$work/got" >&2; fail "devshop-deploy AC-1: an unreadable time should make the cost unknown"; }
+rm "$vd/010-jjj.json"
+printf '{"outcome":"pass","created":"2026-01-01T10:30:00Z","reviewer":{"cost_usd":1}}\n' >"$vd/011-kkk.json"
+render pr9.json --cost 10.50 --prev-cost 4.25 --verdicts "$vd"
+grep -qF -- 'reviewer passed 2 of 5' "$work/got" || { cat "$work/got" >&2; fail "devshop-deploy AC-1: a file with no branch must not count"; }
+rm "$vd/011-kkk.json"
+printf '{"outcome":"pass","created":"2026-01-01T10:30:00Z","branch":"b","reviewer":"odd"}\n' >"$vd/012-lll.json"
+render pr9.json --cost 10.50 --prev-cost 4.25 --verdicts "$vd"
+{ [ "$rc" = 0 ] && grep -qF -- '+ unknown reviewer)' "$work/got"; } || { cat "$work/got" "$work/err" >&2; fail "devshop-deploy AC-1: a malformed reviewer field should make the cost unknown, not crash"; }
+rm "$vd/012-lll.json"
+# No clock start: the directory isn't used (it may hold another change's rounds).
+rc=0
+python3 "$py" render --pr-data "$work/pr9.json" --cost 1 --ci "$template" --now 2026-01-01T10:46:00Z --projects "$work/none" \
+  --verdicts "$vd" >"$work/got" || rc=$?
+grep -qF -- 'reviewer unknown' "$work/got" || { cat "$work/got" >&2; fail "devshop-deploy AC-1: with no start the files must not count"; }
+echo "ok: devshop-deploy AC-1 every reviewer round, once, from the verdict files and the transcript"
+
+# devshop-deploy AC-2: no deploy comment awaited: posted at once, Claude working ends at the merge (the
+# owner's message at 10:50 and its turn after the merge don't count).
+rc=0
+python3 "$py" render --pr-data "$work/pr9-nocomment.json" --cost 1 --ci "$work/noannounce.yml" --now 2026-01-01T11:30:00Z \
+  --projects "$work/home/.claude/projects" >"$work/got" || rc=$?
+grep -qF -- '- **Time:** 9 min Claude working · 31 min waiting on you' "$work/got" || { cat "$work/got" >&2; fail "devshop-deploy AC-2: working should end at the merge"; }
+
+# devshop-deploy AC-2/AC-3 (change-metrics.sh): the merge commit's ci.yml decides, though today's
+# announces; the verdict directory is the checkout's, for the PR's branch.
+merge=$quiet_merge
+post pr9-nocomment.json --pr 9 --cost 10.50
+{ [ "$rc" = 0 ] && grep -qF 'no deploy comment · request to merge **40 min**' "$work/gh/posted"; } \
+  || { cat "$work/out" "$work/gh/posted" >&2; fail "devshop-deploy AC-2: a merge commit without announce should post at once"; }
+merge=$announce_merge
+mkdir -p "$work/proj/.git/devshop/reviews/b"
+printf '{"outcome":"pass","created":"2026-01-01T10:30:00Z","branch":"b","reviewer":{"cost_usd":0.05}}\n' \
+  >"$work/proj/.git/devshop/reviews/b/001-iii.json"
+post pr9.json --pr 9 --cost 10.50
+grep -qF -- 'reviewer passed 2 of 3' "$work/gh/posted" || { cat "$work/out" "$work/gh/posted" >&2; fail "devshop-deploy AC-3: the checkout's verdict file should count"; }
+echo "ok: devshop-deploy AC-2, AC-3 the merge commit's ci.yml decides; the checkout's verdicts count"
 
 echo "PASS: change-metrics"
