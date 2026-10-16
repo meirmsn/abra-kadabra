@@ -90,7 +90,7 @@ _Agreed 2026-10-11 (LOG #19)._
 4. **Acceptance items say what must be true;** how each is tested can't narrow it. Untestable or impossible → back to the owner, never reworded (L-19).
 5. **Adversarial spec review** before the owner sees the summary, by the same independent reviewer as Verify: spec vs recorded intent and decisions; ambiguity; untestable items; missing edge cases and failure modes; scope added beyond the ask; literal code in the spec checked against the codebase (L-76). Claude fixes what it can; what needs the owner comes with the summary. Replaces `/spec`'s Codex quality gate. Not for bug fixes.
 6. **The "go"** is given on a one-screen summary (intent, decisions, acceptance items, out of scope, rough size) and recorded in the spec.
-7. **Spec changes after the "go":** Claude raises them, the owner decides, the spec is updated. The final review fails on any change to decisions or acceptance items that isn't recorded as the owner's.
+7. **Spec changes after the "go":** the owner decides, by their answer when Claude raises one or by a PR comment asking for it; the spec is updated with their words. The final review fails on any change to decisions or acceptance items that isn't recorded as the owner's.
 8. **Too big?** Claude proposes splitting it into several changes, each with its own spec.
 
 - _Dropped:_ v1's "stop and ask" category list (`CLAUDE.md` § Confidence Calibration at `v1-final`) — every change now needs a "go", and anything new mid-build is a spec change (bullet 7). Kept as the starting point if spec review ever gets tedious and specs become auto-approved except in listed cases ([lessons.md § Considered, not carried](lessons.md#considered-not-carried)).
