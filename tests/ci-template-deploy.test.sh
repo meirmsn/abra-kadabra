@@ -2,6 +2,7 @@
 # Tests the deploy comment's wiring in runtime/templates/ci.yml (specs/deploy-and-metrics-comments.md):
 # AC-4 (the deploy step with and without scripts/deploy.sh), and the job shapes of AC-8 and AC-9, which
 # the reviewer also reads, and AC-10 (the copy a project keeps).
+# shellcheck disable=SC2016  # a fake deploy.sh's source: expands when it runs, not here
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
@@ -115,7 +116,7 @@ while read -r owner src dst; do
   [ "$(git -C "$repo_root" ls-tree HEAD "$src" | cut -c1-6)" != 100755 ] || chmod +x "$proj/$dst"
 done <"$repo_root/runtime/project-files.txt"
 git -C "$proj" add -A
-pf() { python3 "$repo_root/runtime/scripts/project-files.py" check --devshop-git "$repo_root" --version HEAD --project "$proj" >"$work/pf.log" 2>&1; }
+pf() { python3 "$repo_root/runtime/scripts/project-files.py" check --devshop-git "$(git -C "$repo_root" rev-parse --absolute-git-dir)" --version "$(git -C "$repo_root" rev-parse HEAD)" --project "$proj" >"$work/pf.log" 2>&1; }
 pf || { cat "$work/pf.log" >&2; fail "AC-10: an identical copy didn't pass"; }
 echo "// changed" >>"$proj/scripts/deploy-comment.mjs"
 ! pf || fail "AC-10: a changed copy passed"

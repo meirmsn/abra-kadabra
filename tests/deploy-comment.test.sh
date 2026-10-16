@@ -2,6 +2,7 @@
 # Tests runtime/scripts/deploy-comment.mjs (specs/deploy-and-metrics-comments.md, part 1) against a fake
 # GitHub API on localhost that keeps the PR's comments, so each call sees what the previous one wrote.
 # AC-1 to AC-7; AC-4's template half is tested in tests/ci-template-deploy.test.sh.
+# shellcheck disable=SC2016  # node -e sources and expected Markdown with backticks: not for this shell
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
@@ -106,7 +107,7 @@ grep -q "no merged PR's merge commit; no comment" "$work/out.log" || { show; fai
 for s in deploying live failed not-deployed superseded; do
   state "[$(c 1 "$s" 1)]"
   run merged
-  [ "$rc" = 0 ] && grep -q "old $s" <<<"$(body)" || { show; fail "AC-1: merged replaced a $s comment of the same attempt"; }
+  { [ "$rc" = 0 ] && grep -q "old $s" <<<"$(body)"; } || { show; fail "AC-1: merged replaced a $s comment of the same attempt"; }
 done
 echo "ok: AC-1 merged creates the comment, retries the lookup, never moves back"
 
@@ -151,7 +152,7 @@ run deployed RUN_ID= RUN_ATTEMPT= RUN_URL=
 has '**Live in production**' "AC-3 old env"
 state '[]'
 run failed RUN_ID= RUN_ATTEMPT=
-[ "$rc" = 0 ] && grep -qF 'production is unchanged' <<<"$(body)" || { show; fail "AC-3: failed with the old env should still comment"; }
+{ [ "$rc" = 0 ] && grep -qF 'production is unchanged' <<<"$(body)"; } || { show; fail "AC-3: failed with the old env should still comment"; }
 echo "ok: AC-3 live and failed texts, a final state, the old interface kept"
 
 # AC-4: the unfilled slot (NONE=yes) ends not deployed, never live.
@@ -191,7 +192,7 @@ report_case '[]' failure skipped skipped not-deployed 'checks failed on `main`'
 for s in live failed not-deployed superseded; do
   state "[$(c 1 "$s" 1)]"
   run report FAST=success SLOW=success DEPLOY=cancelled
-  [ "$rc" = 0 ] && grep -q "old $s" <<<"$(body)" || { show; fail "AC-5: report replaced a final $s comment"; }
+  { [ "$rc" = 0 ] && grep -q "old $s" <<<"$(body)"; } || { show; fail "AC-5: report replaced a final $s comment"; }
 done
 state '[{"id":1,"user":{"login":"github-actions[bot]"},"body":"<!-- devshop-deploy -->\nLive in production, an old comment"}]'
 run report FAST=failure SLOW=skipped DEPLOY=skipped
@@ -231,7 +232,7 @@ run deploying
 state '[]' '"hang":true'
 start=$(date +%s)
 run deploying API_TIMEOUT_MS=500
-[ "$rc" = 1 ] && grep -q 'no answer in 500 ms' "$work/out.log" || { show; fail "AC-7: a hanging API should exit 1 on the timeout, got $rc"; }
+{ [ "$rc" = 1 ] && grep -q 'no answer in 500 ms' "$work/out.log"; } || { show; fail "AC-7: a hanging API should exit 1 on the timeout, got $rc"; }
 [ $(($(date +%s) - start)) -lt 10 ] || fail "AC-7: the timeout didn't cut the call short"
 echo "ok: AC-7 bad settings exit 2 without calling GitHub; API errors and timeouts exit 1"
 
