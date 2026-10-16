@@ -50,7 +50,9 @@ jobs. The owner (2026-10-16):
   `deploy` and `report` jobs, calling `runtime/scripts/deploy-comment.mjs`, with the template's
   main-only `if`s, `needs`, `continue-on-error`, timeouts, permissions and `production` concurrency
   group; its `deploy` job has no environment, no secret and no setup step (nothing is deployed or
-  installed). Its header comment describes them (owner: "make this work for the devshop",
+  installed). Its header comment describes them. This supersedes `specs/ci-fast-slow-tiers.md` AC-6's
+  "exactly the jobs `fast` and `slow`" for this repo, whose test now allows those two plus the three
+  (owner: "make this work for the devshop",
   2026-10-16)
 - **The devshop's `scripts/deploy.sh`** deploys nothing. From `BUILD_SHA`, `BEFORE`
   (`github.event.before`), `GITHUB_SERVER_URL` and `GITHUB_REPOSITORY` it writes `deployed=yes`

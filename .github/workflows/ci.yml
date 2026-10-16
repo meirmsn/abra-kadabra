@@ -3,6 +3,9 @@
 # either a job-level `if` or `continue-on-error`: GitHub counts a skipped required job as passed.
 #   fast: scripts/check-fast.sh: secret scan, lint, and every test not marked slow.
 #   slow: scripts/check-slow.sh: the end-to-end tests (the whole install, the UI render check); runs only after fast passes.
+# On main, the merged PR's deploy comment follows the devshop's release (specs/devshop-deploy-comment.md):
+# `announce` (Merged), `deploy` after both tiers (Releasing on main, then Released on main), `report`
+# (a final state whatever happened); the template's jobs, with runtime/scripts/deploy-comment.mjs.
 name: ci
 
 on:
@@ -119,3 +122,147 @@ jobs:
 
       - name: Slow tier (the install and the render check, end to end)
         run: scripts/check-slow.sh
+
+  # Comments "Merged" on the merged PR as soon as the run on main starts (its deploy comment).
+  announce:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    continue-on-error: true
+    permissions:
+      contents: read
+      pull-requests: write # the deploy comment
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+
+      - name: Tell the merged PR it merged
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DEPLOY_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node runtime/scripts/deploy-comment.mjs merged
+
+  # The devshop's release: main only, after both tiers passed on this commit. Nothing is deployed:
+  # scripts/deploy.sh writes what the comment reads (the commit, the previous tip, its page, how to
+  # undo), so no environment, secret or setup.
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [fast, slow]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write # the deploy comment
+    concurrency:
+      group: production
+      cancel-in-progress: false
+    outputs: # for `report`, when this job's own comment step couldn't write
+      url: ${{ steps.deploy.outputs.url }}
+      version: ${{ steps.deploy.outputs.version }}
+      previous_version: ${{ steps.deploy.outputs.previous_version }}
+      rollback: ${{ steps.deploy.outputs.rollback }}
+      site_url: ${{ steps.deploy.outputs.site_url }}
+      site_smoke: ${{ steps.deploy.outputs.site_smoke }}
+      none: ${{ steps.deploy.outputs.none }}
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+
+      # The comment reports the deploy, it is not part of it: a comment GitHub refuses or a slow API
+      # shows as a failed step but never fails or holds up the deploy. No deploy secret in its env.
+      - name: Tell the merged PR it is deploying
+        continue-on-error: true
+        timeout-minutes: 1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DEPLOY_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          DEPLOYING_AS: Releasing on `main`
+        run: node runtime/scripts/deploy-comment.mjs deploying
+
+      - name: Release (scripts/deploy.sh writes what the comment reads; nothing is deployed)
+        id: deploy
+        env:
+          BUILD_SHA: ${{ github.sha }}
+          BEFORE: ${{ github.event.before }}
+        run: scripts/deploy.sh
+
+      - name: Tell the merged PR it is live
+        continue-on-error: true
+        timeout-minutes: 1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DEPLOY_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          URL: ${{ steps.deploy.outputs.url }}
+          VERSION: ${{ steps.deploy.outputs.version }}
+          PREVIOUS: ${{ steps.deploy.outputs.previous_version }}
+          ROLLBACK: ${{ steps.deploy.outputs.rollback }}
+          SITE_URL: ${{ steps.deploy.outputs.site_url }}
+          SITE_SMOKE: ${{ steps.deploy.outputs.site_smoke }}
+          NONE: ${{ steps.deploy.outputs.none }}
+          LIVE_AS: Released on `main`
+        run: node runtime/scripts/deploy-comment.mjs deployed
+
+      - name: Tell the merged PR the deploy failed
+        if: failure() || cancelled()
+        continue-on-error: true
+        timeout-minutes: 1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DEPLOY_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PREVIOUS: ${{ steps.deploy.outputs.previous_version }}
+          ROLLBACK: ${{ steps.deploy.outputs.rollback }}
+          DEPLOYED: ${{ steps.deploy.outputs.deployed }}
+          SITE_URL: ${{ steps.deploy.outputs.site_url }}
+          SITE_SMOKE: ${{ steps.deploy.outputs.site_smoke }}
+        run: node runtime/scripts/deploy-comment.mjs failed
+
+  # Ends the deploy comment in a final state whatever happened: checks failed or cancelled on main, the
+  # deploy superseded by a newer merge's, cancelled, or this job's own comment write lost.
+  report:
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [fast, slow, deploy]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    continue-on-error: true
+    permissions:
+      contents: read
+      pull-requests: write # the deploy comment
+      actions: read # to find a newer run on main
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+
+      - name: End the merged PR's deploy comment in a final state
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DEPLOY_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          FAST: ${{ needs.fast.result }}
+          SLOW: ${{ needs.slow.result }}
+          DEPLOY: ${{ needs.deploy.result }}
+          URL: ${{ needs.deploy.outputs.url }}
+          VERSION: ${{ needs.deploy.outputs.version }}
+          PREVIOUS: ${{ needs.deploy.outputs.previous_version }}
+          ROLLBACK: ${{ needs.deploy.outputs.rollback }}
+          SITE_URL: ${{ needs.deploy.outputs.site_url }}
+          SITE_SMOKE: ${{ needs.deploy.outputs.site_smoke }}
+          NONE: ${{ needs.deploy.outputs.none }}
+          LIVE_AS: Released on `main`
+        run: node runtime/scripts/deploy-comment.mjs report

@@ -24,6 +24,12 @@ reachable from this page through links, or when a relative link or `#anchor` is 
   `tests/run.sh fast|slow` runs one tier, `tests/run.sh` all. Proven by
   [`tests/check-tiers.test.sh`](../tests/check-tiers.test.sh) and
   [`tests/run-tiers.test.sh`](../tests/run-tiers.test.sh).
+- The devshop's release: on `main`, after both tiers, the same `announce`, `deploy` and `report` jobs
+  as a project's give the merged PR its deploy comment (Releasing on `main`, then Released on
+  `main`); [`scripts/deploy.sh`](../scripts/deploy.sh) deploys nothing and writes what the comment
+  reads ([spec](../specs/devshop-deploy-comment.md); proven by
+  [`tests/deploy-sh.test.sh`](../tests/deploy-sh.test.sh) and
+  [`tests/ci-template-deploy.test.sh`](../tests/ci-template-deploy.test.sh)).
 - Secret scanning: [`.gitleaks.toml`](../.gitleaks.toml) is gitleaks' default rule set. CI's fast
   tier first runs [`scripts/secret-scan.sh`](../scripts/secret-scan.sh) over the commits a change
   adds and the whole tree, then, with the other tests,
