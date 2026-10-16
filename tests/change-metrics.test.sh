@@ -174,6 +174,9 @@ EOF
 render pr7.json --cost 10.50 --prev-cost 4.25
 [ "$rc" = 0 ] || { cat "$work/err" >&2; fail "AC-12: render exit $rc for the PR the owner merged"; }
 grep -q 'unknown' "$work/got" && { cat "$work/got" >&2; fail "AC-12: a PR the owner merged, posted after a later merge, has an unknown time"; }
+# Its clock starts at 10:00, the first owner message after PR 3's merge; the deploy is live at 10:45.
+grep -qF '**How this change went** · request to live **45 min**' "$work/got" ||
+  { cat "$work/got" >&2; fail "AC-12: a PR the owner merged should start at the owner's message after PR 3's merge"; }
 echo "ok: AC-12 a PR the owner merged starts after the session's merge before it, even when posted after a later one"
 
 # AC-13: with the verdict files gone, the reviewer's cost comes from the PR's footers; with neither, unknown.
