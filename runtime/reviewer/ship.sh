@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # ship: the one way Claude puts a change on a PR (W10.6.7). First the title and body must have the PR
-# template's shape (pr-body-check.py, F-NEW-52). Then it reviews the committed HEAD with exactly the
+# template's shape (pr-body-check.py, F-NEW-52), and the title pass the repo's own
+# scripts/pr-title-check.py if it has one. Then it reviews the committed HEAD with exactly the
 # given title and body, locally (review.sh, beside this file); only a pass goes on: it pushes the
 # branch, creates the PR (or updates the open PR's title, body and base) with exactly those words,
 # checks GitHub kept them (text it appends to the body is fine), and posts the verdict comment. Code and
 # words go up together. Contract: kit/notes/revamp/workstreams/W10-v2.md § W10.6.7.
 #   usage: ship.sh --title <text> --body-file <file> [--base <branch>]   (from the worktree root)
 # Exit 0 = shipped (last line "SHIPPED: PR #<n> · <url> · <commit12>"); 1 = the words don't have the
-# template's shape, or the review failed: nothing pushed, fix, commit, ship again; 3 = ask-owner; 2 = could-not-run (bad input, a result
+# template's shape or the repo's title rule, or the review failed: nothing pushed, fix, commit, ship again; 3 = ask-owner; 2 = could-not-run (bad input, a result
 # ship can't trust, or GitHub failing; what was done is said). For 2 and 3, stop and ask the owner.
 # Feedback, not a wall: the review guard refuses the other ways to a PR, but can be got around.
 set -uo pipefail
@@ -48,6 +49,20 @@ esac
 # --- The worktree: a branch, everything committed, a GitHub-style origin.
 top=$(git rev-parse --show-toplevel 2>/dev/null) || cnr "not in a git worktree"
 cd "$top" || cnr "can't enter $top"
+# The repo's own title rule, if it has one, checked like the body's shape: before the review (the
+# devshop's: a Conventional Commit type, spec specs/devshop-releases.md). Projects have none.
+if [ -e scripts/pr-title-check.py ]; then
+  [ -x scripts/pr-title-check.py ] || cnr "scripts/pr-title-check.py is not executable"
+  trc=0
+  tout=$(scripts/pr-title-check.py "$title" 2>&1) || trc=$?
+  case $trc in
+    0) ;;
+    1) printf '%s\n' "$tout"
+       echo "The PR's title doesn't follow this repo's scripts/pr-title-check.py; nothing was reviewed or pushed. Fix it and ship again."
+       exit 1 ;;
+    *) cnr "scripts/pr-title-check.py couldn't run (exit $trc): $tout" ;;
+  esac
+fi
 branch=$(git symbolic-ref --short -q HEAD) || cnr "HEAD is detached; check out the branch to ship"
 [ -z "$(git status --porcelain)" ] || cnr "the worktree has uncommitted changes; commit them first (only a commit is reviewed)"
 head=$(git rev-parse HEAD)

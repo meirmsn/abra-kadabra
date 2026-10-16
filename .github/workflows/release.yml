@@ -1,0 +1,39 @@
+# Devshop releases (spec specs/devshop-releases.md; D-10, A-25): on every push to main, tag a release
+# whose release PR (scripts/release.py prepare) just merged. A session can't push tags, so CI does.
+# tag-plan decides: no VERSION change waiting for its tag → nothing happens; a VERSION or notes that
+# no longer match main's history → the run fails and nothing is tagged. Not a required check.
+name: release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+# One run at a time, none cancelled: two quick merges can't race to the same tag.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 0 # every commit and tag: the bump and the notes read the history since the last release
+          persist-credentials: false
+
+      - name: Plan the tag
+        id: plan
+        run: scripts/release.py tag-plan --notes-file "$RUNNER_TEMP/release-notes.md" >>"$GITHUB_OUTPUT"
+
+      - name: Create the tag and the GitHub release
+        if: steps.plan.outputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.plan.outputs.tag }}
+          SHA: ${{ steps.plan.outputs.sha }}
+        run: gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$SHA" --title "$TAG" --notes-file "$RUNNER_TEMP/release-notes.md"

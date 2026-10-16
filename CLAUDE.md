@@ -22,9 +22,12 @@ This repo is the devshop, being rewritten as v2 (the 2026-Q4 revamp). Work only 
 - One task, one branch, cut from a freshly fetched `main`. Changes reach `main` only by PR. CI
   must be green and the owner approves.
 - If `main` moves, merge it into your branch. Don't rebase or force-push a pushed branch.
-- Commit subjects and PR titles describe the observable change, in ≤ 72 characters. A PR body
-  opens with a one-line summary and is the evidence record: what was verified, how, and the
-  result. Claim only state you have just read from the real signal.
+- Commit subjects and PR titles start with a Conventional Commit type (`feat:`, `fix:`, `docs:`, …;
+  `!` before the colon for a breaking change), then describe the observable change, in ≤ 72
+  characters. The PR title is what lands on `main` and decides the release
+  ([releases](docs/README.md#releases)). A PR body opens with a one-line summary and is the
+  evidence record: what was verified, how, and the result. Claim only state you have just read from
+  the real signal.
 - A PR that changes how the reviewer reviews carries the reviewer eval's result
   ([runtime/reviewer/README.md § Proof](runtime/reviewer/README.md#proof)).
 - Touch only the files your task owns. Never discard, reset or stash work you didn't write.
