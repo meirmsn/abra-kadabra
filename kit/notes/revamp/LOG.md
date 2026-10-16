@@ -3028,7 +3028,7 @@ live on the owner's domain (PR 7's deploy comment, with the version it replaced)
 merging and required `fast`/`slow` checked from GitHub; the environments only in part. Specs: 177
 lines and 9 owner answers before the go (home page), 87 and 5 (projects). After set-up: 7 approvals,
 5 gos, 22 decisions, 4 other touchpoints (F-NEW-91; the owner confirming a quote, no row as PR #126
-now prevents it; new F-NEW-96 and 97). W10.10.1 is `[x]` by the owner's call: no cost or limit
+now prevents it; new F-NEW-97 and 98). W10.10.1 is `[x]` by the owner's call: no cost or limit
 numbers, and the four stay findings. W10.9.1: every PR merged within 3 minutes of approval, but a
 question comment got a commit, so `[~]`.
 
