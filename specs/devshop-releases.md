@@ -1,6 +1,6 @@
 # Devshop releases: projects pin a release tag, not a commit SHA
 
-**Go:** pending
+**Go:** "sounds good", after the spec added the title check in ship.sh and the newer-release note, with the squash commit title set to the PR title (owner, 2026-10-16)
 
 ## Intent
 
@@ -24,16 +24,15 @@ owner's words (2026-10-16):
   `test`, `ci`, `build`, `refactor`, `style`, `chore`. The subject still describes the observable
   change, and the title stays ≤ 72 characters (CLAUDE.md), not counting the ` (#n)` GitHub appends.
   The owner chose prefixes over a release PR where the owner picks the bump (owner, 2026-10-16)
-- **The subject on `main` is the PR's title:** this repo squash-merges only, but its squash title
-  setting is "commit or PR title" (read 2026-10-16), so a one-commit PR lands with its commit's
-  subject. Owner step before merging: set the default squash commit title to "Pull request title"
-  (Settings → General → Pull Requests). The push-to-`main` title check below goes red if that's ever
-  undone
+- **The subject on `main` is the PR's title:** this repo squash-merges only. Its squash title
+  setting was "commit or PR title" (read 2026-10-16), under which a one-commit PR lands with its
+  commit's subject; the owner set it to "Pull request title" (message: blank) the same day. The
+  push-to-`main` title check below goes red if that's ever undone
 - **The bump comes from the first-parent subjects on `main` since the last `vX.Y.Z` tag at or above
   `v2.0.0`:** a `!` before the colon is major ("this upgrade needs a migration", TARGET Shape 5);
   else any `feat` is minor; else any `fix`, `perf` or `revert` is a patch; else there is nothing to
   release. Breaking is marked by `!` only, not a `BREAKING CHANGE:` footer, because a squash commit's
-  body holds every commit message of the branch. Subjects without a known prefix bump nothing and are
+  body can hold the branch's commit messages (the setting's other options). Subjects without a known prefix bump nothing and are
   listed under "Other changes"
 - **The first release is `v2.0.0`,** whatever the subjects say; its notes cover `main`'s first-parent
   subjects since `v1-final` (84 today). `v1.*` tags and `v1-final` never count as releases here
