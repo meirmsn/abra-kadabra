@@ -38,6 +38,11 @@ scripts named here; run them, never retype them as shell.
 - Each acceptance item ends up named (`AC-<n>`) in the test that proves it, unless the spec marks it
   "verified by review".
 - Run the new and affected tests and the fast checks as you go; the full suite runs in CI.
+- Noticed something the change doesn't need? Fix it only when the task needs it or it sits in
+  lines you already edit. Otherwise log it, don't fix it: a row in the project's `FINDINGS.md`
+  (from `/opt/devshop-current/templates/findings.md`, which has the rules), or a sighting on the
+  row it matches. One about the devshop is kept for the hand-over block (`devshop:pr` § 3), never
+  written in the project.
 - Root cause over band-aid: a mitigation is labelled as one, with the root cause named beside it.
 - Fix loops: real logs before a second attempt, each retry fresh with what was tried; then ask.
 - Something the spec didn't foresee is a spec change: raise it with the owner (`intent`, step 5).

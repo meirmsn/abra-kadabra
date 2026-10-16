@@ -56,7 +56,7 @@ an explicit go/no-go; lalista is the pilot (web, then iOS).
 | [ASSUMPTIONS.md](ASSUMPTIONS.md) | Load-bearing assumptions and the cheapest test for each                                                                                      |
 | [PLAN.md](PLAN.md)               | Principles, milestones + exit criteria, capacity, epics, codification queue, changelog                                                       |
 | `workstreams/Wn-*.md`            | Epics → tasks with status: W0 (M0), W10 (v2, M1+); W1–W9 superseded v1 reference                                                             |
-| [FINDINGS.md](FINDINGS.md)       | Findings ledger: a Fix queue graded by Leverage, a Watch list counted by sessions, Closed                                                    |
+| [FINDINGS.md](FINDINGS.md)       | The findings archive, frozen 2026-10-16; live ones are in the root [FINDINGS.md](../../../FINDINGS.md)                                       |
 | [DECISIONS.md](DECISIONS.md)     | Owner decisions, in the order to make them                                                                                                   |
 | [PROCESS.md](PROCESS.md)         | Light process: lifecycle, done, verification, replanning, reviews                                                                            |
 | [LOG.md](LOG.md)                 | Per-session journal                                                                                                                          |
@@ -64,14 +64,9 @@ an explicit go/no-go; lalista is the pilot (web, then iOS).
 
 ## Next action
 
-M1 is done (D-17, [REVIEW-2.md](REVIEW-2.md), LOG #71). Next, in order:
+M1 is done (D-17, [REVIEW-2.md](REVIEW-2.md), LOG #71). Since 2026-10-16 the order of work is the
+root [ROADMAP.md](../../../ROADMAP.md): the top `Open` entry is next, and the owner reorders it.
 
-- **Claude:** the M1 close-out tasks W10.9.6 first, then W10.9.1–W10.9.4 and W10.9.7 (small PRs: merge on approval and
-  comment-as-question in the `pr` skill; the screenshot table; the skill cap back to a warning; the
-  ledger's linter removed and the findings re-sorted per REVIEW-2 § 2; the filing rule; the
-  body-only review), then M2's first task:
-  scaffold the website repo and ship its first change as the plain run (W10.10.1). No more fixture
-  work (owner, 2026-10-15).
 - **Owner:** the W10.10.1 owner steps when that task starts (repo, Cloudflare account and tokens,
   cloud environment), guided by the session; before M3, lalista's plan check (F-NEW-18/19).
 
@@ -79,7 +74,7 @@ M1 is done (D-17, [REVIEW-2.md](REVIEW-2.md), LOG #71). Next, in order:
 
 Open a session on this repo (the devshop's own environment) and say either **"where are we on the
 devshop revamp plan?"** (the answer comes from this page's milestone table and Next action, and
-the first unblocked `[ ]` task in [W10-v2.md](workstreams/W10-v2.md)) or **"do the next step in
+the top `Open` entry of the root [ROADMAP.md](../../../ROADMAP.md)) or **"do the next step in
 the devshop revamp plan"** (the session takes that task: writes the check first, makes the change,
 ships one PR through `runtime/reviewer/ship.sh`, and tells the owner the link; CLAUDE.md and
 [PROCESS.md](PROCESS.md) say so). The owner approves each PR; nothing merges otherwise. Tasks

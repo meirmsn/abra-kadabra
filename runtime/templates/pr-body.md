@@ -47,7 +47,7 @@ pinned to a commit, so they survive the merge and the branch's deletion (L-30). 
 
 - **Reviewer:** {{the verdict per lens (spec, code, tests, docs, security, design/QA when UI), for commit <sha>}}
 - **CI:** {{the required checks' result for commit <sha>, read when this was written}}
-- **Low findings:** {{each low finding the reviewer listed, and what you did with it; or "none"}}
+- **Low findings:** {{each low finding the reviewer listed and its FINDINGS.md row, and each other row or roadmap entry this PR adds, changes or deletes; or "none"}}
 
 <details>
 <summary>Engineering details</summary>

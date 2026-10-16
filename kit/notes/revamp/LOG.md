@@ -3007,3 +3007,16 @@ owner's decision: project findings reach the ledger through the owner and a devs
 **Surprises**: none.
 
 **Next**: the owner decides whether F-NEW-78 and 79 are built now; W10.10.1 continues.
+
+## #79 — 2026-10-16 · W10.9.8: a roadmap and a findings log in every repo
+
+**What moved**: three parallel sessions on the findings rule were archived. Every repo now keeps a
+root `ROADMAP.md` (the owner's decisions, in their order; the devshop's next task is its top
+`Open` entry) and `FINDINGS.md` (what was noticed and not fixed, with sightings; `med`/`high` put
+to the owner). The old ledger is archived. The website's 13 findings are F-NEW-80 to 92, none
+fixed. The reviewer gives a records-only commit after a pass the words-only review, so `low`
+findings ride the PR (D-18).
+
+**Surprises**: the first test of the ancestry check passed without it; rewritten so it can fail.
+
+**Next**: the owner places the `med` findings; then R-1.
