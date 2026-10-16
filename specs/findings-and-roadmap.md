@@ -73,17 +73,22 @@ of the devshop's fix for finding 13.
   project is blocked today does it get a local workaround, labelled as a mitigation and naming the
   devshop finding's ID, which that upgrade removes. Rejected: applying the devshop's future change
   in the project now (the project would depend on a devshop change that may not land as planned)
-- **The records change only through a change's PR, and its body says so:** a row or entry known
-  before `ship` goes in that PR, and the body's findings line names it, so the reviewer reads it as
-  part of the change. A record known only after `ship` (the reviewer's `low` findings on a pass,
-  the owner's answer to the surfacing list) is posted by the session as a PR comment headed
-  "For the records", and the project's next change writes every such comment on PRs merged since
-  `FINDINGS.md` and `ROADMAP.md` last changed. _Mitigation:_ the root cause is that any commit
-  after the reviewer's pass costs a full review; letting the reviewer pass a records-only commit
-  is a reviewer change, logged as F-NEW-93 for the owner to
-  place. A new request the owner wants "on the roadmap"
-  is its own small PR with no spec (no choice is involved, so the reviewer's `intent` lens passes
-  it)
+- **The builder loop stays as it is; the records ride the PR's words:** build, review, fix and
+  review again until the reviewer passes. `med` and `high` findings block, so they are fixed in
+  that loop and never become rows. What Claude noticed itself is logged before `ship`, in the
+  change. The reviewer's `low` findings arrive with the pass: Claude logs them in `FINDINGS.md`
+  (and lists them in the body's Low findings) as one records-only commit, and runs `ship` again.
+  The words-only review (W10.9.7) is extended so that this costs no full review: an earlier pass
+  whose commit is an ancestor of `HEAD`, with the same merge-base and intent, where every file
+  changed since is `FINDINGS.md` or `ROADMAP.md` at the repo root, gets the words-only review, and
+  that review also reads the records diff under the `pr` lens. Any other file changed means a full
+  review, as today. Rejected: a PR comment carried into the files by the next change (owner,
+  2026-10-16: flaky, and there may be no next change). This changes how the reviewer reviews, so
+  the PR carries the reviewer eval's result (CLAUDE.md)
+- **The owner's "roadmap" answers:** given before the approval, they are a records-only commit and
+  `ship` the same way. Given after the merge, they are a small roadmap PR, like a new request the
+  owner wants "on the roadmap": no spec (no choice is involved, so the reviewer's `intent` lens
+  passes it)
 - **Parallel sessions:** before `ship`, the session merges the latest `main` and takes the next free
   `F-` or `R-` number from it; a clash in the table is resolved by renumbering its own row
 - **The devshop's own files move to its root:** `ROADMAP.md` lists the devshop's open work in
@@ -93,8 +98,10 @@ of the devshop's fix for finding 13.
   are) so the IDs that `lessons.md` and the notes cite still resolve. Today's Fix queue goes:
   F-NEW-73 to the archive's Closed (shipped in PR #122); F-NEW-63 to Closed, held by W10.10.1
   (the website's environment allows its hosts) and W10.10.2; F-NEW-70 to Closed, held by W10.9.1;
-  F-NEW-75 to Closed, held by W10.10.5; F-NEW-42, 77, 78 and 79 to the root `FINDINGS.md` in the
-  new row format (42's pre-merge health check is deferred, not on the roadmap). Devshop IDs carry
+  F-NEW-75 and F-NEW-42 to Closed, held by W10.10.5, whose line gains the check of production's
+  health before the merge as well as after the deploy, now that the read-only token exists (owner,
+  2026-10-16: "this is the canary step, we should not skip"); F-NEW-77, 78 and 79 to the root
+  `FINDINGS.md` in the new row format. Devshop IDs carry
   on as `F-NEW-<n>`; project IDs start at `F-1`
 - **The 13 findings from the website's first change** (owner's messages, 2026-10-15) become
   F-NEW-80 to F-NEW-92, in the owner's order: (1) slow-tier proofs delete meta tags with line-wise
@@ -112,8 +119,7 @@ of the devshop's fix for finding 13.
 - **Where Claude reads the rule:** the templates `runtime/templates/findings.md` and
   `runtime/templates/roadmap.md` carry it in a comment; a project creates each file from its
   template on its first entry (not listed in `project-files.txt`: an empty file in every project is
-  what Shape 3 avoids). The skills say when: `build` § 3 logs what the task doesn't need and § 1
-  writes the "For the records" comments; `pr` § 3 surfaces and writes the devshop block; `intent`
+  what Shape 3 avoids). The skills say when: `build` § 3 logs what the task doesn't need; `pr` § 3 logs the `low` findings, ships again, surfaces and writes the devshop block; `intent`
   § 1 records "later" requests on the roadmap and answers "what's next?" with the top `Open`
   entry. PROCESS § 4, TARGET Shape 8 and Ship 9 are rewritten to say the same and link the
   templates
@@ -133,7 +139,7 @@ of the devshop's fix for finding 13.
   found
 - **AC-3** The devshop has `ROADMAP.md` and `FINDINGS.md` at its root in the templates' format.
   The roadmap holds every open (`[ ]` or `[~]`) W10 task but W10.9.6, and the PLAN.md § After the
-  revamp items, each linking to its detail. The findings hold F-NEW-42, F-NEW-77 to F-NEW-93 and
+  revamp items, each linking to its detail. The findings hold F-NEW-77 to F-NEW-92 and
   nothing else, 80 to 92 matching the list in the Decisions — verified by review: compare with the
   W10 file and the Decisions
 - **AC-4** Every row of today's Fix queue has the destination the Decisions give it, and
@@ -143,13 +149,19 @@ of the devshop's fix for finding 13.
 - **AC-5** W10.9.6 is `[-]`, replaced by this change; a W10.9 task for this change is `[x]`;
   DECISIONS has an entry for the change that supersedes D-17 item 3; LOG has one entry of at most
   150 words — verified by review: read them
-- **AC-6** `tests/run.sh` passes — verified by review: its output in the PR
+- **AC-6** With a stub `claude`, `review.sh` gives a words-only review after a pass when only
+  the root `FINDINGS.md` or `ROADMAP.md` changed since, and a full review when any other file
+  changed too (one in a subdirectory named `FINDINGS.md` included), or the earlier pass's commit
+  isn't an ancestor of `HEAD`; each case fails before the change. The words-only prompt is given
+  the records diff
+- **AC-7** The reviewer eval passes on the changed reviewer — verified by review: its result in
+  the PR (runtime/reviewer/README.md § Proof)
+- **AC-8** `tests/run.sh` passes — verified by review: its output in the PR
 
 ## Out of scope
 
 - Fixing any finding, the 13 from the website included (the owner decides which go on the roadmap
   from the surfacing list)
-- The reviewer passing a records-only commit without a full review (F-NEW-93)
 - Any check, linter or script that reads `ROADMAP.md` or `FINDINGS.md`
 - Changing the website: its PR 6 adopts the template in a website session
 - Moving the workstream files' task detail into `ROADMAP.md`
