@@ -6,6 +6,7 @@
 #          upgrade shows only how the template changed.
 devshop  scripts/secret-scan.sh               scripts/secret-scan.sh
 devshop  runtime/scripts/spec-check.py        scripts/spec-check.py
+devshop  runtime/scripts/deploy-comment.mjs   scripts/deploy-comment.mjs
 seed     runtime/templates/ci.yml             .github/workflows/ci.yml
 seed     runtime/templates/check-fast.sh      scripts/check-fast.sh
 seed     runtime/templates/check-slow.sh      scripts/check-slow.sh
