@@ -141,7 +141,7 @@ _Agreed 2026-10-11 (LOG #19)._
 4. **Visuals pinned** to the exact commit or uploaded, never linked to a moving branch (L-30), and on the PR, never only in chat. Since W10.6.9d the devshop puts them in a parentless commit that the PR's branch brings in through a merge changing no file, embedded by that commit's SHA; with squash merges they never reach the default branch, and GitHub keeps them with the PR.
 5. **No unverified claims:** "CI green", "preview up" etc. are read from the real signal when written (L-28); before the PR goes ready, the reviewer checks title, body and screenshots match the final commit (L-29).
 6. **Claude tells the owner in chat when a PR is ready** — link + one-line summary; the top of the PR stays short enough to judge on a phone.
-7. **Steering:** the owner comments on the PR or in chat (chat input is recorded on the PR); Claude revises through the same verify loop and answers each comment; a comment that changes the spec follows Intent bullet 7.
+7. **Steering:** the owner comments on the PR or in chat (chat input is recorded on the PR); Claude revises through the same verify loop and answers each comment; a comment that changes the spec is the owner's decision, built and recorded in the spec as changed after the go, and one Claude can't address is raised in the session's chat (owner, 2026-10-16; the answer-on-the-PR loop is deferred, F-NEW-99).
 8. **Approval ships by default:** once the owner approves and CI is green, Claude merges and deploy follows (Ship). Not when the approval message or the chat says to wait, or when Claude has a concrete reason to hold (then it says so and asks). Any push after approval needs approval again.
 
 ### Ship
@@ -258,7 +258,7 @@ _Rewritten 2026-10-12 to exercise all nine pillars (W10.2.2, LOG #20) and harden
 
    Pass only if every plant appears **by ID** in the reviewer's verdict for that commit (and in the CI run where named). Then fix, re-run, green. **Stale-verdict check:** one more commit after a pass → the PR's verdict check shows the verdict as stale until a new verdict for that commit is on the PR.
 
-4. **Review** — the PR opens only after the reviewer passes; the body follows the agreed layout with screenshots per state and the platform's preview link; Claude tells the owner in chat. The owner leaves one comment that changes a spec item → Claude raises it, the owner decides, the spec is updated, the change is re-verified.
+4. **Review** — the PR opens only after the reviewer passes; the body follows the agreed layout with screenshots per state and the platform's preview link; Claude tells the owner in chat. The owner leaves one comment that changes a spec item → Claude builds it, records it in the spec as the owner's change after the go, and re-verifies (one it can't address goes to the owner in chat).
 5. **Safety — attempts that must be rejected outside the session.** _Evidence for each:_ GitHub's verbatim refusal and `main`'s SHA before and after (unchanged).
    - a direct push to `main`; a force push;
    - a merge before the owner's approval; enabling auto-merge before approval;
