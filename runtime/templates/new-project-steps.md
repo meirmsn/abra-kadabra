@@ -8,6 +8,15 @@ fails goes back to the owner with what the session saw. The stack's own steps (a
 environments) come later, from its home's `## Set-up` section, with the first change that needs
 them.
 
+## Once, on the devshop's repo
+
+0. **Release immutability:** Settings → General → Releases: "Enable release immutability". A
+   project pins a devshop release tag (`vX.Y.Z` in `.devshop-version`, never a branch or a commit
+   SHA); with immutable releases, a published release and its tag can't be changed or moved, so a
+   pin always means the same files. Projects don't publish releases, so this is not a step per
+   project. Check: `gh api repos/<devshop owner>/<devshop repo>/releases/latest --jq .immutable` is
+   `true` (a session that can't reach the devshop's repo says so, and the owner confirms).
+
 ## Part 1: before the first session
 
 1. **Create the repo:** a new private GitHub repo, with a README (so `main` exists for the first

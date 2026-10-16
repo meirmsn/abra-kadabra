@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Tests that a new project placed by `project-files.py init` passes its own CI with no devshop
 # present (specs/new-project.md AC-3 to AC-5; L-46, L-50). A scratch devshop holds this tree's
-# manifest and the files it names; `init` places them into a repo holding only a README commit,
-# as GitHub creates it. The project then runs from a copy outside this checkout, in a private mount
+# manifest and the files it names, released as v2.0.0; `init` places them into a repo holding only
+# a README commit, as GitHub creates it. The project then runs from a copy outside this checkout, in a private mount
 # namespace where every /opt/devshop* is hidden and PATH has no devshop directory: its fast tier
 # (against the README commit, as a PR's CI does, and with an empty base) and slow tier pass, its
 # CI has the two tiers, a planted secret and an untested acceptance item fail it, and no placed
@@ -36,7 +36,8 @@ grep -v '^#' "$repo_root/runtime/project-files.txt" | while read -r _ src _; do
   mkdir -p "$ds/$(dirname "$src")" && cp -p "$repo_root/$src" "$ds/$src"
 done
 git init -q "$ds" && git -C "$ds" add -A && git -C "$ds" commit -qm "devshop snapshot"
-version=$(git -C "$ds" rev-parse HEAD)
+git -C "$ds" tag v2.0.0 # a new project pins a release tag
+version=v2.0.0
 
 # --- The new project, placed and committed ---
 p="$work/project"

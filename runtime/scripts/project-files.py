@@ -17,13 +17,14 @@ Usage:
   project-files.py apply --devshop-git D --version V --project P --file <project path>
       Writes V's content and mode for one devshop file. Refuses seeds, unlisted paths, symlinks
       and paths whose directory leaves the project. Exit 0.
-  project-files.py init --devshop-git D --version V --project P --codeowner HANDLE
+  project-files.py init --devshop-git D --version V|newest --project P --codeowner HANDLE
       Places a new project (specs/new-project.md): every entry of V's manifest, devshop and seed
-      alike, with its content and mode; then .devshop-version (V's full SHA) and
-      .github/CODEOWNERS (`* @HANDLE`). Every check runs before the first write: it refuses, writing
-      nothing, when a target exists (file, directory or symlink), a target's directory is a file or
-      leaves the project, or HANDLE isn't a GitHub user name. Other files (a README) are left
-      alone. Exit 0.
+      alike, with its content and mode; then .devshop-version (V) and .github/CODEOWNERS
+      (`* @HANDLE`). Every check runs before the first write: it refuses, writing nothing, when V
+      isn't a vX.Y.Z release tag in the copy (a SHA or a branch is refused), a target exists (file,
+      directory or symlink), a target's directory is a file or leaves the project, or HANDLE isn't
+      a GitHub user name. Other files (a README) are left alone. `newest` is the newest vX.Y.Z tag
+      at or above v2.0.0 in the copy, by version order. Exit 0.
 Exit 2 = can't run (bad arguments, no git, unknown version, bad manifest, refused apply or init).
 """
 import difflib
@@ -43,6 +44,8 @@ NEEDS = {"check": ("devshop-git", "version", "project"),
          "apply": ("devshop-git", "version", "project", "file"),
          "init": ("devshop-git", "version", "project", "codeowner")}
 # A GitHub user name: letters, digits and single inner hyphens, at most 39 characters.
+# A devshop release tag (TARGET Shape 5), the only pin init writes.
+RELEASE = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
 HANDLE = re.compile(r"[A-Za-z0-9](-?[A-Za-z0-9]){0,38}")
 
 
@@ -245,14 +248,36 @@ def parents(project, dst):
     return [os.path.join(project, *parts[:n]) for n in range(1, len(parts) + 1)]
 
 
+def newest(gitdir):
+    """The newest vX.Y.Z tag at or above v2.0.0 in the copy, by version order (v1 tags are v1's)."""
+    r = git(gitdir, "tag", "--list", "v*")
+    found = []
+    for t in r.stdout.decode().split():
+        m = RELEASE.fullmatch(t)
+        if m and int(m.group(1)) >= 2:
+            found.append((tuple(int(x) for x in m.groups()), t))
+    if r.returncode != 0 or not found:
+        raise CantRun(f"no devshop release (v2.0.0 or later) in the devshop copy {gitdir}; it "
+                      "refreshes when the environment's cache rebuilds: rebuild it, or ask the owner")
+    return max(found)[1]
+
+
 def init(a):
     gd, handle = a["devshop-git"], a["codeowner"]
     if not HANDLE.fullmatch(handle):
         raise CantRun(f"--codeowner '{handle}' is not a GitHub user name (letters, digits, single "
                       "inner hyphens, at most 39)")
-    sha = resolve(gd, a["version"])
+    tag = newest(gd) if a["version"] == "newest" else a["version"]
+    if not RELEASE.fullmatch(tag):
+        raise CantRun(f"--version '{tag}' is not a release tag (vX.Y.Z): a new project pins a "
+                      "devshop release, never a branch or a commit SHA")
+    r = git(gd, "rev-parse", "-q", "--verify", f"refs/tags/{tag}^{{commit}}")
+    if r.returncode != 0:
+        raise CantRun(f"release tag '{tag}' is not in the devshop copy {gd}; it refreshes when the "
+                      "environment's cache rebuilds: rebuild the environment, then retry")
+    sha = r.stdout.decode().strip()
     files = [(dst, *blob(gd, sha, src)) for _, src, dst in manifest(gd, sha)]
-    files += [(".devshop-version", f"{sha}\n".encode(), "100644"),
+    files += [(".devshop-version", f"{tag}\n".encode(), "100644"),
               (".github/CODEOWNERS", f"* @{handle}\n".encode(), "100644")]
     project = os.path.realpath(a["project"])
     refused = []

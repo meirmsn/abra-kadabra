@@ -21,9 +21,11 @@ did its part 1 before this session.
 
 - Ask the owner for their GitHub user name (it goes in `.github/CODEOWNERS`).
 - Run, from the project root:
-  `/opt/devshop-current/scripts/project-files.py init --devshop-git /opt/devshop.git --version "$(git --git-dir=/opt/devshop.git rev-parse HEAD)" --project . --codeowner <name>`
-- A refusal writes nothing: say what it named, stop. A failure after a write lists what it wrote:
-  delete those files, then stop.
+  `/opt/devshop-current/scripts/project-files.py init --devshop-git /opt/devshop.git --version newest --project . --codeowner <name>`
+  It pins the newest devshop release (`vX.Y.Z`), never a branch or a commit SHA.
+- A refusal writes nothing: say what it named, stop. "No devshop release": the environment's copy
+  predates the first release; the owner rebuilds the environment. A failure after a write lists
+  what it wrote: delete those files, then stop.
 - Run `scripts/check-fast.sh origin/main` and `scripts/check-slow.sh`. Both pass, or stop: a fresh
   project that fails its own checks is a devshop bug, so give the owner the output.
 

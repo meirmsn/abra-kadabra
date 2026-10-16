@@ -181,11 +181,16 @@ seed      runtime/templates/check.sh  scripts/check.sh
 EOF
 git -C "$ds" add -A && git -C "$ds" commit -qm "v3: an executable seed"
 v3=$(git -C "$ds" rev-parse HEAD)
-# init_into <name> <want exit> <pattern> <project> [args...]: init at v3.
+# init pins a release tag, never a SHA or a branch: v3 is released as v2.3.0, v0 as v0.1.0, and a
+# branch named like a release is not one.
+git -C "$ds" tag v2.3.0 "$v3" && git -C "$ds" tag -a -m "annotated" v2.3.1 "$v3" && git -C "$ds" tag v0.1.0 "$v0"
+git -C "$ds" branch v2.4.0 "$v3"
+for t in release-3 2.3.0 v2.3 v2.3.0-rc1 v02.3.0; do git -C "$ds" tag "$t" "$v3"; done # present, wrong shape
+# init_into <name> <want exit> <pattern> <project> [args...]: init at v2.3.0.
 init_into() {
   local name=$1 want=$2 pat=$3 proj=$4
   shift 4
-  run "$name" "$want" "$pat" -- init --devshop-git "$dsgit" --version "$v3" --project "$proj" "$@"
+  run "$name" "$want" "$pat" -- init --devshop-git "$dsgit" --version v2.3.0 --project "$proj" "$@"
 }
 # untouched <project>: init wrote nothing (the README commit only, nothing untracked).
 untouched() {
@@ -202,17 +207,25 @@ same "$v3:runtime/templates/check.sh" "$i/scripts/check.sh" || fail "AC-1: the e
 [ -x "$i/scripts/scan.sh" ] || fail "AC-1: the devshop copy lost its executable bit"
 [ -x "$i/scripts/check.sh" ] || fail "AC-1: the executable seed lost its executable bit"
 [ ! -x "$i/.github/workflows/ci.yml" ] || fail "AC-1: a 644 seed was written executable"
-[ "$(cat "$i/.devshop-version")" = "$v3" ] || fail "AC-1: .devshop-version isn't the version's full SHA"
+[ "$(cat "$i/.devshop-version")" = v2.3.0 ] || fail "AC-1: .devshop-version isn't the release tag"
 [ "$(cat "$i/.github/CODEOWNERS")" = "* @example-owner" ] || fail "AC-1: CODEOWNERS isn't '* @example-owner'"
 [ "$(cat "$i/README.md")" = hello ] || fail "AC-1: init changed the README"
 echo "ok - AC-1: contents, modes, the pin, CODEOWNERS; the README left alone"
 git -C "$i" add -A && git -C "$i" commit -qm "init"
 check "$i" "$v3" "AC-1: after init, committed, check passes (modes in the index too)" 0 ''
 j="$work/j" && new_repo "$j"
-run "AC-1: init takes a short version" 0 '' \
-  -- init --devshop-git "$dsgit" --version "${v3:0:12}" --project "$j" --codeowner a
-[ "$(cat "$j/.devshop-version")" = "$v3" ] || fail "AC-1: a short version wasn't written as the full SHA"
-echo "ok - AC-1: a short version is written as the full SHA"
+run "AC-1: init takes an annotated release tag" 0 '' \
+  -- init --devshop-git "$dsgit" --version v2.3.1 --project "$j" --codeowner a
+[ "$(cat "$j/.devshop-version")" = v2.3.1 ] || fail "AC-1: an annotated tag wasn't written as the tag"
+same "$v3:scripts/scan.sh" "$j/scripts/scan.sh" || fail "AC-1: an annotated tag placed another version's files"
+echo "ok - AC-1: an annotated tag is written as the tag, with its commit's files"
+git -C "$ds" tag v2.10.0 "$v1" && git -C "$ds" tag v1.99.0 "$v3"
+k="$work/k" && new_repo "$k"
+run "AC-1: init --version newest pins the newest release by version order" 0 '' \
+  -- init --devshop-git "$dsgit" --version newest --project "$k" --codeowner a
+[ "$(cat "$k/.devshop-version")" = v2.10.0 ] || fail "AC-1: newest isn't v2.10.0 (version order, not text order)"
+same "$v1:scripts/scan.sh" "$k/scripts/scan.sh" || fail "AC-1: newest placed another version's files"
+git -C "$ds" tag -d v2.10.0 >/dev/null
 
 # AC-2: every refusal writes nothing.
 printf 'keep\n' >"$work/target"
@@ -245,18 +258,27 @@ for h in "" "-lead" "trail-" "two--dashes" "under_score" "a@b" "@owner" "$(print
   untouched "$r"
 done
 r="$work/r-$RANDOM" && new_repo "$r"
-run "AC-2: a missing --codeowner is refused" 2 'codeowner' -- init --devshop-git "$dsgit" --version "$v3" --project "$r"
+run "AC-2: a missing --codeowner is refused" 2 'codeowner' -- init --devshop-git "$dsgit" --version v2.3.0 --project "$r"
 untouched "$r"
-run "AC-2: an unknown version is refused" 2 'not in the devshop copy' \
-  -- init --devshop-git "$dsgit" --version 0000000000000000000000000000000000000000 --project "$r" --codeowner a
-run "AC-2: a version with no manifest is refused" 2 'no runtime/project-files\.txt' \
-  -- init --devshop-git "$dsgit" --version "$v0" --project "$r" --codeowner a
+for v in "$v3" "${v3:0:12}" main release-3 2.3.0 v2.3 v2.3.0-rc1 v02.3.0; do
+  run "AC-2: version '$v' (not a vX.Y.Z release tag) is refused" 2 'is not a release tag' \
+    -- init --devshop-git "$dsgit" --version "$v" --project "$r" --codeowner a
+done
+run "AC-2: a branch named like a release is refused" 2 "release tag 'v2.4.0' is not in" \
+  -- init --devshop-git "$dsgit" --version v2.4.0 --project "$r" --codeowner a
+o="$work/old" && git init -q "$o" && git -C "$o" fetch -q "$ds" "$v3" && git -C "$o" tag v1.12.0 FETCH_HEAD
+run "AC-2: newest with no release at or above v2.0.0 is refused" 2 'no devshop release' \
+  -- init --devshop-git "$o/.git" --version newest --project "$r" --codeowner a
+run "AC-2: an unknown release tag is refused" 2 'not in the devshop copy' \
+  -- init --devshop-git "$dsgit" --version v9.9.9 --project "$r" --codeowner a
+run "AC-2: a release with no manifest is refused" 2 'no runtime/project-files\.txt' \
+  -- init --devshop-git "$dsgit" --version v0.1.0 --project "$r" --codeowner a
 untouched "$r"
 b="$work/bad-src" && git clone -q "$ds" "$b"
 printf 'devshop scripts/scan.sh scripts/scan.sh\nseed runtime/templates/gone.yml x.yml\n' >"$b/runtime/project-files.txt"
-git -C "$b" add -A && git -C "$b" commit -qm "a source the version lacks"
+git -C "$b" add -A && git -C "$b" commit -qm "a source the version lacks" && git -C "$b" tag v9.0.0
 run "AC-2: a manifest source missing at the version is refused" 2 'lacks' \
-  -- init --devshop-git "$b/.git" --version HEAD --project "$r" --codeowner a
+  -- init --devshop-git "$b/.git" --version v9.0.0 --project "$r" --codeowner a
 untouched "$r"
 init_into "AC-2: an initialised project is refused whole" 2 '' "$i" --codeowner other
 [ "$(cat "$i/.github/CODEOWNERS")" = "* @example-owner" ] || fail "AC-2: init rewrote an existing project"

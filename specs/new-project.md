@@ -26,10 +26,11 @@ placeholders and prose deploy facts (L-47) are what not to rebuild.
   devshop git dir (no network, as `check`/`plan`/`apply` do) and writes every entry, `devshop` and
   `seed` alike, with its content and its git mode (CI calls `scripts/check-fast.sh` and
   `scripts/check-slow.sh` directly, so a seed written without its executable bit is red CI); then
-  `.devshop-version` (V's full SHA) and `.github/CODEOWNERS`. Every check runs before the first
+  `.devshop-version` (V, a release tag) and `.github/CODEOWNERS`. Every check runs before the first
   write: it refuses, writing nothing, when any target (the manifest's and those two) already exists
-  or is a symlink, when a target's directory leaves the project, when V is unknown or has no
-  manifest, or when a source is missing at V. Files it doesn't target (the README GitHub creates, a
+  or is a symlink, when a target's directory leaves the project, when V isn't a `vX.Y.Z` release
+  tag in the devshop copy (a commit SHA or a branch is refused) or has no manifest, or when a
+  source is missing at V. Files it doesn't target (the README GitHub creates, a
   `.gitignore`, a LICENSE) are left alone. On success it lists what it wrote. Rejected: copying by
   hand from prose (v1's rsync and sed), and `apply` for seeds (it refuses seeds on purpose: an
   upgrade never writes them) (Claude, 2026-10-16)
@@ -75,7 +76,9 @@ placeholders and prose deploy facts (L-47) are what not to rebuild.
   1. Checks the preconditions, each with a stop message: `origin/main` exists (an empty repo has
      none: the owner creates it with a README); no `.devshop-version`; a clean tree on a branch cut
      from `origin/main`; `gitleaks` and `python3` on PATH.
-  2. Asks the owner's GitHub handle; runs `init` at `HEAD`'s SHA. On a failure after a write (disk,
+  2. Asks the owner's GitHub handle; runs `init --version newest`: the newest `vX.Y.Z` release tag
+     at or above `v2.0.0` in the devshop copy, picked by the tested script (none: it refuses, and
+     the skill tells the owner). On a failure after a write (disk,
      I/O), it deletes the untracked files `init` listed and stops.
   3. Runs `scripts/check-fast.sh origin/main` and `scripts/check-slow.sh`; both pass or it stops.
   4. Opens the first PR (`devshop:pr`), its body carrying the filled owner's steps.
@@ -111,9 +114,18 @@ placeholders and prose deploy facts (L-47) are what not to rebuild.
   before this change merges (owner: "a throwaway repo", 2026-10-16; the repo is `test-project`, attached to this session with push access: "test-project is the name, you have access now", 2026-10-16). The skill run end to end in a
   fresh session there needs the skill on `main` and an environment built after the merge, so it is a
   post-merge step on the task line; then the repo is archived
-- **`.devshop-version` holds a commit SHA for now:** once the devshop cuts release tags (R-11,
-  `specs/devshop-releases.md`, not yet on `main`), a project pins a tag; moving `init` and the skill
-  to the newest tag belongs to that change or a follow-up, not this one (Claude, 2026-10-16)
+- **A new project pins a devshop release tag, never a branch or a commit SHA:** `.devshop-version`
+  holds `vX.Y.Z`, and `init` refuses anything else. Release tags come from the devshop releases
+  change (R-11, `specs/devshop-releases.md`), landing the same day; this change assumes they work.
+  Changed after the go: "pin a devshop release tag (vX.Y.Z in .devshop-version), never a branch /
+  commit hash" and "release tags are coming today … you can assume they work" (owner, 2026-10-16).
+  Replaces the earlier decision to pin a commit SHA until releases exist
+- **The devshop's releases are immutable:** its repo has GitHub's "Enable release immutability" on,
+  so a published release and its tag can't be changed or moved, and a pin always means the same
+  files. It is a one-time step on the devshop's repo, listed first in the owner's steps; projects
+  don't publish releases, so it is not a per-project step. The session checks it from outside: the
+  newest release reads `immutable: true` in the releases API. Changed after the go: "turn on Enable
+  release immutability in github" (owner, 2026-10-16)
 - **Project impact:** conditional. An existing project's next `devshop:upgrade` lists the five new
   seed templates as new; the upgrade asks per file, and the project adopts or skips each. No devshop
   file changes
@@ -125,15 +137,18 @@ placeholders and prose deploy facts (L-47) are what not to rebuild.
 
 - **AC-1** `project-files.py init` into a repo holding only a README commit writes every entry of
   the version's manifest at its project path, byte-identical to the version's file and with its
-  executable bit (seeds included), plus `.devshop-version` holding the version's full SHA and
+  executable bit (seeds included), plus `.devshop-version` holding the release tag (given `newest`,
+  the newest `vX.Y.Z` tag at or above `v2.0.0` by version order) and
   `.github/CODEOWNERS` holding `* @HANDLE`, and leaves the README unchanged, shown by
   `tests/project-files.test.sh`
 - **AC-2** `init` writes nothing and exits 2 when any target, `.devshop-version` and
   `.github/CODEOWNERS` included, already exists as a file, a directory or a symlink; when a
-  target's directory leaves the project; when the version is unknown or has no manifest; when a
+  target's directory leaves the project; when the version isn't a `vX.Y.Z` tag in the devshop copy
+  (a commit SHA, a short SHA, a branch, a tag of another shape, or an unknown tag), when `newest`
+  finds no release at or above `v2.0.0`, or when the release has no manifest; when a
   manifest source is missing at that version; or when `--codeowner` is missing or doesn't match
   `^[A-Za-z0-9](-?[A-Za-z0-9]){0,38}$`, shown by `tests/project-files.test.sh`
-- **AC-3** After `init` at the devshop's current commit, committed, the placed project's
+- **AC-3** After `init` at a release tag on the devshop's current commit, committed, the placed project's
   `scripts/check-fast.sh` (with the README commit as base, and with an empty base) and
   `scripts/check-slow.sh` exit 0, and `ci-tiers-check.py` passes its `.github/workflows/ci.yml`,
   run from a copy outside the devshop checkout with `/opt/devshop*` unreadable, shown by
