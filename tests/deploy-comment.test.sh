@@ -153,6 +153,11 @@ has '**Live in production**' "AC-3 old env"
 state '[]'
 run failed RUN_ID= RUN_ATTEMPT=
 { [ "$rc" = 0 ] && grep -qF 'production is unchanged' <<<"$(body)"; } || { show; fail "AC-3: failed with the old env should still comment"; }
+state '[]'
+run failed RUN_ID= RUN_ATTEMPT= RUN_URL=
+{ [ "$rc" = 0 ] && grep -qF 'production is unchanged. See the run.' <<<"$(body)"; } || { show; fail "AC-3: failed with no run id or run URL should still comment"; }
+run failed RUN_ID= RUN_ATTEMPT= RUN_URL=http://insecure.example.com
+[ "$rc" = 2 ] || { show; fail "AC-7: an old-style call's RUN_URL, when given, must be https"; }
 echo "ok: AC-3 live and failed texts, a final state, the old interface kept"
 
 # AC-4: the unfilled slot (NONE=yes) ends not deployed, never live.
@@ -187,6 +192,7 @@ report_case "[$(c 1 merged 1)]" success skipped cancelled not-deployed 'the run 
 report_case "[$(c 1 deploying 1)]" success success cancelled not-deployed "the deploy didn't finish; production may have changed"
 report_case "[$(c 1 deploying 1)]" success success failure not-deployed "the deploy didn't finish; production may have changed"
 report_case "[$(c 1 merged 1)]" success success failure not-deployed 'the deploy job failed before it started'
+report_case "[$(c 1 merged 1)]" success success skipped not-deployed "the deploy didn't run"
 report_case "[$(c 1 deploying 1)]" success success success live '**Live in production** · `0123456` · https://app.example.com'
 report_case "[$(c 1 deploying 1)]" success success success not-deployed 'this project has no deploy step yet' '' NONE=yes URL= VERSION=
 # No comment at all: report creates it.

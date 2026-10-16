@@ -51,7 +51,8 @@ if (!legacy) {
   if (!/^\d+$/.test(env.RUN_ATTEMPT ?? ''))
     die(2, `RUN_ATTEMPT is not a number: ${env.RUN_ATTEMPT}`);
 }
-if ((cmd !== 'deployed' || !legacy) && !https(env.RUN_URL))
+// The first version's calls (no run id) may also lack RUN_URL; when given, it must be https.
+if ((!legacy || env.RUN_URL) && !https(env.RUN_URL))
   die(2, `${cmd} needs RUN_URL, an https URL`);
 const none = env.NONE === 'yes';
 const live =
