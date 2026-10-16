@@ -76,10 +76,10 @@ placeholders and prose deploy facts (L-47) are what not to rebuild.
   1. Checks the preconditions, each with a stop message: `origin/main` exists (an empty repo has
      none: the owner creates it with a README); no `.devshop-version`; a clean tree on a branch cut
      from `origin/main`; `gitleaks` and `python3` on PATH.
-  2. Asks the owner's GitHub handle; runs `init --version newest`: the newest `vX.Y.Z` release tag
-     at or above `v2.0.0` in the devshop copy, picked by the tested script (none: it refuses, and
-     the skill tells the owner). On a failure after a write (disk,
-     I/O), it deletes the untracked files `init` listed and stops.
+  2. Asks the owner's GitHub handle; runs `init` at the newest devshop release, which the releases
+     change's tested `latest-release.sh` prints (no release in the copy: it stops and tells the
+     owner to rebuild the environment). On a failure after a write (disk, I/O), it deletes the
+     untracked files `init` listed and stops.
   3. Runs `scripts/check-fast.sh origin/main` and `scripts/check-slow.sh`; both pass or it stops.
   4. Opens the first PR (`devshop:pr`), its body carrying the filled owner's steps.
   5. Keeps that PR unmerged until the owner has protected `main`; then checks the walls on it
@@ -137,15 +137,13 @@ placeholders and prose deploy facts (L-47) are what not to rebuild.
 
 - **AC-1** `project-files.py init` into a repo holding only a README commit writes every entry of
   the version's manifest at its project path, byte-identical to the version's file and with its
-  executable bit (seeds included), plus `.devshop-version` holding the release tag (given `newest`,
-  the newest `vX.Y.Z` tag at or above `v2.0.0` by version order) and
-  `.github/CODEOWNERS` holding `* @HANDLE`, and leaves the README unchanged, shown by
+  executable bit (seeds included), plus `.devshop-version` holding the release tag and `.github/CODEOWNERS` holding `* @HANDLE`, and leaves the README unchanged, shown by
   `tests/project-files.test.sh`
 - **AC-2** `init` writes nothing and exits 2 when any target, `.devshop-version` and
   `.github/CODEOWNERS` included, already exists as a file, a directory or a symlink; when a
   target's directory leaves the project; when the version isn't a `vX.Y.Z` tag in the devshop copy
-  (a commit SHA, a short SHA, a branch, a tag of another shape, or an unknown tag), when `newest`
-  finds no release at or above `v2.0.0`, or when the release has no manifest; when a
+  (a commit SHA, a short SHA, a branch, a tag of another shape, or an unknown tag) or the release
+  has no manifest; when a
   manifest source is missing at that version; or when `--codeowner` is missing or doesn't match
   `^[A-Za-z0-9](-?[A-Za-z0-9]){0,38}$`, shown by `tests/project-files.test.sh`
 - **AC-3** After `init` at a release tag on the devshop's current commit, committed, the placed project's

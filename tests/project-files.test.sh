@@ -219,13 +219,6 @@ run "AC-1: init takes an annotated release tag" 0 '' \
 [ "$(cat "$j/.devshop-version")" = v2.3.1 ] || fail "AC-1: an annotated tag wasn't written as the tag"
 same "$v3:scripts/scan.sh" "$j/scripts/scan.sh" || fail "AC-1: an annotated tag placed another version's files"
 echo "ok - AC-1: an annotated tag is written as the tag, with its commit's files"
-git -C "$ds" tag v2.10.0 "$v1" && git -C "$ds" tag v1.99.0 "$v3"
-k="$work/k" && new_repo "$k"
-run "AC-1: init --version newest pins the newest release by version order" 0 '' \
-  -- init --devshop-git "$dsgit" --version newest --project "$k" --codeowner a
-[ "$(cat "$k/.devshop-version")" = v2.10.0 ] || fail "AC-1: newest isn't v2.10.0 (version order, not text order)"
-same "$v1:scripts/scan.sh" "$k/scripts/scan.sh" || fail "AC-1: newest placed another version's files"
-git -C "$ds" tag -d v2.10.0 >/dev/null
 
 # AC-2: every refusal writes nothing.
 printf 'keep\n' >"$work/target"
@@ -266,9 +259,6 @@ for v in "$v3" "${v3:0:12}" main release-3 2.3.0 v2.3 v2.3.0-rc1 v02.3.0; do
 done
 run "AC-2: a branch named like a release is refused" 2 "release tag 'v2.4.0' is not in" \
   -- init --devshop-git "$dsgit" --version v2.4.0 --project "$r" --codeowner a
-o="$work/old" && git init -q "$o" && git -C "$o" fetch -q "$ds" "$v3" && git -C "$o" tag v1.12.0 FETCH_HEAD
-run "AC-2: newest with no release at or above v2.0.0 is refused" 2 'no devshop release' \
-  -- init --devshop-git "$o/.git" --version newest --project "$r" --codeowner a
 run "AC-2: an unknown release tag is refused" 2 'not in the devshop copy' \
   -- init --devshop-git "$dsgit" --version v9.9.9 --project "$r" --codeowner a
 run "AC-2: a release with no manifest is refused" 2 'no runtime/project-files\.txt' \
