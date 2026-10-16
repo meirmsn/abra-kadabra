@@ -160,6 +160,21 @@ echo "ok: AC-13 answers, the owner's comments and approval only, pushes, red run
 # AC-12: the clock starts after the session's earlier merge, which previous-pr names.
 [ "$(python3 "$py" previous-pr --pr 9 --projects "$work/home/.claude/projects")" = 3 ] || fail "AC-12: previous-pr should name PR 3"
 [ -z "$(python3 "$py" previous-pr --pr 3 --projects "$work/home/.claude/projects")" ] || fail "AC-12: nothing was merged before PR 3"
+# AC-12: a PR the owner merged (PR 7, at 10:30, between PR 3 and PR 9) and posted after the session's
+# later merge: the earlier merge is the one before its own merge time, not the session's latest.
+got=$(python3 "$py" previous-pr --pr 7 --merged 2026-01-01T10:30:00Z --projects "$work/home/.claude/projects")
+[ "$got" = 3 ] || fail "AC-12: previous-pr for a PR the owner merged should name PR 3, got '$got'"
+python3 - "$work" <<'EOF'
+import json, sys
+w = sys.argv[1]
+d = json.load(open(f"{w}/pr9.json"))
+d["pr"].update(number=7, merged_at="2026-01-01T10:30:00Z")
+json.dump(d, open(f"{w}/pr7.json", "w"))
+EOF
+render pr7.json --cost 10.50 --prev-cost 4.25
+[ "$rc" = 0 ] || { cat "$work/err" >&2; fail "AC-12: render exit $rc for the PR the owner merged"; }
+grep -q 'unknown' "$work/got" && { cat "$work/got" >&2; fail "AC-12: a PR the owner merged, posted after a later merge, has an unknown time"; }
+echo "ok: AC-12 a PR the owner merged starts after the session's merge before it, even when posted after a later one"
 
 # AC-13: with the verdict files gone, the reviewer's cost comes from the PR's footers; with neither, unknown.
 mv "$work/verdicts" "$work/verdicts.gone"

@@ -74,7 +74,9 @@ jq -n --slurpfile pr "$work/pr.json" --slurpfile c "$work/comments.json" --slurp
 
 # A later change in the session starts its cost where the session's last metrics comment left it.
 prev=()
-earlier=$(python3 "$here/change-metrics.py" previous-pr --pr "$pr") || cnr "can't read the transcript"
+merged_at=$(jq -r '.merged_at // ""' "$work/pr.json")
+earlier=$(python3 "$here/change-metrics.py" previous-pr --pr "$pr" ${merged_at:+--merged "$merged_at"}) ||
+  cnr "can't read the transcript"
 if [ -n "$earlier" ]; then
   was=$(list "repos/$slug/issues/$earlier/comments?per_page=100" |
     jq -r --arg me "$me" '[.[] | select(.user.login == $me) | .body // ""
