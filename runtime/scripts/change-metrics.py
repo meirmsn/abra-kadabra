@@ -444,7 +444,8 @@ def review_rounds(vdir, branch, sess, start, merged):
     for v in found.values():
         if v.get("outcome") == "could-not-run":
             continue
-        c = (v.get("reviewer") or {}).get("cost_usd")
+        who = v.get("reviewer")
+        c = who.get("cost_usd") if isinstance(who, dict) else None
         rounds.append((v.get("outcome"), float(c) if isinstance(c, (int, float)) else None))
     return rounds, corrupt
 

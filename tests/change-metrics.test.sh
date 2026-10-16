@@ -368,6 +368,10 @@ printf '{"outcome":"pass","created":"2026-01-01T10:30:00Z","reviewer":{"cost_usd
 render pr9.json --cost 10.50 --prev-cost 4.25 --verdicts "$vd"
 grep -qF -- 'reviewer passed 2 of 5' "$work/got" || { cat "$work/got" >&2; fail "devshop-deploy AC-1: a file with no branch must not count"; }
 rm "$vd/011-kkk.json"
+printf '{"outcome":"pass","created":"2026-01-01T10:30:00Z","branch":"b","reviewer":"odd"}\n' >"$vd/012-lll.json"
+render pr9.json --cost 10.50 --prev-cost 4.25 --verdicts "$vd"
+{ [ "$rc" = 0 ] && grep -qF -- '+ unknown reviewer)' "$work/got"; } || { cat "$work/got" "$work/err" >&2; fail "devshop-deploy AC-1: a malformed reviewer field should make the cost unknown, not crash"; }
+rm "$vd/012-lll.json"
 # No clock start: the directory isn't used (it may hold another change's rounds).
 rc=0
 python3 "$py" render --pr-data "$work/pr9.json" --cost 1 --ci "$template" --now 2026-01-01T10:46:00Z --projects "$work/none" \
