@@ -1,6 +1,6 @@
 # Devshop releases: projects pin a release tag, not a commit SHA
 
-**Go:** "sounds good", after the spec added the title check in ship.sh and the newer-release note, with the squash commit title set to the PR title (owner, 2026-10-16). Second change, a release button instead of a release PR: "yes" (owner, 2026-10-16)
+**Go:** "sounds good", after the spec added the title check in ship.sh and the newer-release note, with the squash commit title set to the PR title (owner, 2026-10-16). Second change, a release button instead of a release PR: "yes" (owner, 2026-10-16). Third change, a manual override on the button: "do it. Perhaps call it Manual Override (expected version sounds odd)." (owner, 2026-10-16)
 
 ## Intent
 
@@ -21,6 +21,11 @@ After the first change merged (PR 128), before any release was cut (2026-10-16):
 
 > Do we really need a PR? I have done this in the past where we release the job, we do the release
 > from action. And if I remember correctly there's no PR involved.
+
+After asking who decides between major, minor and patch (2026-10-16), on Claude's proposal of an
+optional input on the button:
+
+> do it. Perhaps call it Manual Override (expected version sounds odd).
 
 ## Decisions
 
@@ -60,6 +65,16 @@ After the first change merged (PR 128), before any release was cut (2026-10-16):
   release through an upgrade PR the owner approves. The owner accepted this rather than a GitHub
   App in a `main`-only environment or tags created by hand (owner, 2026-10-16, after the go, when
   the reviewer found the bypass; logged as F-NEW-96)
+- **A manual override on the button** (owner, 2026-10-16): the bump comes from the PR titles, so a
+  breaking change titled `feat:` would ship as minor, and nothing but the owner's approval of each
+  title catches it. The button gets one input, "Manual override", a choice of `auto` (the default:
+  the titles decide), `major`, `minor` or `patch`. A choice other than `auto` sets the bump from the
+  last release, even when the titles alone give nothing to release (never when no commit follows
+  the last release: that is nothing to release; owner, 2026-10-16, after the go, when the
+  reviewer found an override could re-release the same commit: "Refuse"); the run's log and the release
+  notes say the override was used and what the titles gave. The first release is always `v2.0.0`,
+  so an override there is refused rather than ignored. Rejected: an "expected version" field that
+  only checks (the owner's wording), and free-text versions (a typo could skip numbers)
 - **CI creates the tag and the GitHub release** (A-25: a session's git proxy refuses tag pushes):
   the workflow runs with `contents: write`, one run at a time, on a full clone with tags;
   `scripts/release.py plan --notes-file <path>` prints the tag and `main`'s head SHA and writes the
@@ -140,6 +155,12 @@ After the first change merged (PR 128), before any release was cut (2026-10-16):
 - **AC-12** In the same install test, a project pinning a release tag while the copy holds a higher
   `vX.Y.Z` tag gets "newer release v<newest> in the copy (/devshop:upgrade)" on its `DEVSHOP:` line;
   pinning the newest tag, a SHA, or no pin adds nothing
+- **AC-13** `.github/workflows/release.yml` has one input, `manual_override`, a choice of `auto`,
+  `major`, `minor` and `patch` defaulting to `auto`, passed to `plan` through `env:`;
+  `scripts/release.py plan --bump <choice>` and `next --bump <choice>` give the titles' version for
+  `auto`, and for `major`, `minor` or `patch` the bump from the last release (also when the titles
+  give nothing to release, never when no commit follows the last release), with a line at the top of the notes naming the override and the titles'
+  own result; an override on the first release, or any other choice, exits 2 with nothing written
 
 ## Out of scope
 

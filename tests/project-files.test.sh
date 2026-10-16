@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # Tests runtime/scripts/project-files.py, the check of a project's copies of devshop files against
 # a devshop version (W10.4.7, L-49), and the session-start line that reports their drift. A scratch
-# devshop repo has three versions: v0 (no manifest), v1 and v2 (each with runtime/project-files.txt).
+# devshop repo has four versions: v0 (no manifest), v1, v2 and v3 (each with runtime/project-files.txt;
+# v3 adds an executable seed).
 # `check` passes identical copies and ignores seeds; it fails a copy that differs, is missing, lost
 # its executable bit (in the index or on disk) or is a symlink; it can't run on an unknown version,
 # a bad manifest, a missing git or project. `plan` shows each delta; `apply` writes one devshop file
-# and refuses the rest. Session start runs in a private mount namespace with a scratch /opt (L-41).
+# and refuses the rest. `init` places every entry into a fresh repo, or writes nothing (AC-1, AC-2 of
+# specs/new-project.md). Session start runs in a private mount namespace with a scratch /opt (L-41).
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
@@ -168,6 +170,109 @@ apply scripts/scan.sh "apply refuses to write through a symlink" 2 'symlink'
 rm "$p/scripts/scan.sh" && rmdir "$p/scripts" && mkdir "$work/outside" && ln -s "$work/outside" "$p/scripts"
 apply scripts/scan.sh "apply refuses a path whose directory leaves the project" 2 'leaves the project'
 [ ! -e "$work/outside/scan.sh" ] || fail "apply wrote outside the project"
+
+# --- init (specs/new-project.md) ---
+# v3 adds an executable seed: init writes seeds with their git mode, as CI calls them directly.
+printf '#!/bin/sh\necho slow\n' >"$ds/runtime/templates/check.sh" && chmod +x "$ds/runtime/templates/check.sh"
+cat >"$ds/runtime/project-files.txt" <<'EOF'
+devshop   scripts/scan.sh             scripts/scan.sh
+seed      runtime/templates/ci.yml    .github/workflows/ci.yml
+seed      runtime/templates/check.sh  scripts/check.sh
+EOF
+git -C "$ds" add -A && git -C "$ds" commit -qm "v3: an executable seed"
+v3=$(git -C "$ds" rev-parse HEAD)
+# init pins a release tag, never a SHA or a branch: v3 is released as v2.3.0, v0 as v0.1.0, and a
+# branch named like a release is not one.
+git -C "$ds" tag v2.3.0 "$v3" && git -C "$ds" tag -a -m "annotated" v2.3.1 "$v3" && git -C "$ds" tag v0.1.0 "$v0"
+git -C "$ds" branch v2.4.0 "$v3"
+for t in release-3 2.3.0 v2.3 v2.3.0-rc1 v02.3.0; do git -C "$ds" tag "$t" "$v3"; done # present, wrong shape
+# init_into <name> <want exit> <pattern> <project> [args...]: init at v2.3.0.
+init_into() {
+  local name=$1 want=$2 pat=$3 proj=$4
+  shift 4
+  run "$name" "$want" "$pat" -- init --devshop-git "$dsgit" --version v2.3.0 --project "$proj" "$@"
+}
+# untouched <project>: init wrote nothing (the README commit only, nothing untracked).
+untouched() {
+  [ -z "$(git -C "$1" status --porcelain --untracked-files=all)" ] || { git -C "$1" status --short >&2; fail "init wrote into $1"; }
+}
+# same <version:path> <file>: the file is byte-identical to the version's.
+same() { git -C "$ds" show "$1" >"$work/want" && cmp -s "$work/want" "$2"; }
+
+i="$work/i" && new_repo "$i"
+init_into "AC-1: init writes every entry, .devshop-version and CODEOWNERS" 0 'scripts/check\.sh' "$i" --codeowner example-owner
+same "$v3:scripts/scan.sh" "$i/scripts/scan.sh" || fail "AC-1: the devshop copy isn't byte-identical"
+same "$v3:runtime/templates/ci.yml" "$i/.github/workflows/ci.yml" || fail "AC-1: the seed isn't the template"
+same "$v3:runtime/templates/check.sh" "$i/scripts/check.sh" || fail "AC-1: the executable seed isn't the template"
+[ -x "$i/scripts/scan.sh" ] || fail "AC-1: the devshop copy lost its executable bit"
+[ -x "$i/scripts/check.sh" ] || fail "AC-1: the executable seed lost its executable bit"
+[ ! -x "$i/.github/workflows/ci.yml" ] || fail "AC-1: a 644 seed was written executable"
+[ "$(cat "$i/.devshop-version")" = v2.3.0 ] || fail "AC-1: .devshop-version isn't the release tag"
+[ "$(cat "$i/.github/CODEOWNERS")" = "* @example-owner" ] || fail "AC-1: CODEOWNERS isn't '* @example-owner'"
+[ "$(cat "$i/README.md")" = hello ] || fail "AC-1: init changed the README"
+echo "ok - AC-1: contents, modes, the pin, CODEOWNERS; the README left alone"
+git -C "$i" add -A && git -C "$i" commit -qm "init"
+check "$i" "$v3" "AC-1: after init, committed, check passes (modes in the index too)" 0 ''
+j="$work/j" && new_repo "$j"
+run "AC-1: init takes an annotated release tag" 0 '' \
+  -- init --devshop-git "$dsgit" --version v2.3.1 --project "$j" --codeowner a
+[ "$(cat "$j/.devshop-version")" = v2.3.1 ] || fail "AC-1: an annotated tag wasn't written as the tag"
+same "$v3:scripts/scan.sh" "$j/scripts/scan.sh" || fail "AC-1: an annotated tag placed another version's files"
+echo "ok - AC-1: an annotated tag is written as the tag, with its commit's files"
+
+# AC-2: every refusal writes nothing.
+printf 'keep\n' >"$work/target"
+for t in scripts/scan.sh .github/workflows/ci.yml scripts/check.sh .devshop-version .github/CODEOWNERS; do
+  for kind in file dir symlink; do
+    r="$work/r-$RANDOM" && new_repo "$r" && mkdir -p "$r/$(dirname "$t")"
+    case $kind in
+      file) printf 'theirs\n' >"$r/$t" ;;
+      dir) mkdir "$r/$t" && touch "$r/$t/x" ;;
+      symlink) ln -s "$work/target" "$r/$t" ;;
+    esac
+    git -C "$r" add -A && git -C "$r" commit -qm "existing $t"
+    init_into "AC-2: an existing $t ($kind) is refused" 2 "$t" "$r" --codeowner example-owner
+    untouched "$r"
+  done
+done
+[ "$(cat "$work/target")" = keep ] || fail "AC-2: init wrote through a symlink"
+r="$work/r-$RANDOM" && new_repo "$r" && printf 'a file\n' >"$r/.github"
+git -C "$r" add -A && git -C "$r" commit -qm "a file where a directory goes"
+init_into "AC-2: a file where a target's directory goes is refused" 2 '\.github/workflows/ci\.yml: .*not a directory' "$r" --codeowner example-owner
+untouched "$r"
+r="$work/r-out" && new_repo "$r" && mkdir -p "$work/elsewhere" && ln -s "$work/elsewhere" "$r/scripts"
+git -C "$r" add -A && git -C "$r" commit -qm "scripts is a link out"
+init_into "AC-2: a target whose directory leaves the project is refused" 2 'leaves the project' "$r" --codeowner example-owner
+untouched "$r"
+[ -z "$(ls -A "$work/elsewhere")" ] || fail "AC-2: init wrote outside the project"
+for h in "" "-lead" "trail-" "two--dashes" "under_score" "a@b" "@owner" "$(printf 'x%.0s' {1..40})" "a b"; do
+  r="$work/r-$RANDOM" && new_repo "$r"
+  init_into "AC-2: codeowner '$h' is refused" 2 'codeowner' "$r" --codeowner "$h"
+  untouched "$r"
+done
+r="$work/r-$RANDOM" && new_repo "$r"
+run "AC-2: a missing --codeowner is refused" 2 'codeowner' -- init --devshop-git "$dsgit" --version v2.3.0 --project "$r"
+untouched "$r"
+for v in "$v3" "${v3:0:12}" main release-3 2.3.0 v2.3 v2.3.0-rc1 v02.3.0; do
+  run "AC-2: version '$v' (not a vX.Y.Z release tag) is refused" 2 'is not a release tag' \
+    -- init --devshop-git "$dsgit" --version "$v" --project "$r" --codeowner a
+done
+run "AC-2: a branch named like a release is refused" 2 "release tag 'v2.4.0' is not in" \
+  -- init --devshop-git "$dsgit" --version v2.4.0 --project "$r" --codeowner a
+run "AC-2: an unknown release tag is refused" 2 'not in the devshop copy' \
+  -- init --devshop-git "$dsgit" --version v9.9.9 --project "$r" --codeowner a
+run "AC-2: a release with no manifest is refused" 2 'no runtime/project-files\.txt' \
+  -- init --devshop-git "$dsgit" --version v0.1.0 --project "$r" --codeowner a
+untouched "$r"
+b="$work/bad-src" && git clone -q "$ds" "$b"
+printf 'devshop scripts/scan.sh scripts/scan.sh\nseed runtime/templates/gone.yml x.yml\n' >"$b/runtime/project-files.txt"
+git -C "$b" add -A && git -C "$b" commit -qm "a source the version lacks" && git -C "$b" tag v9.0.0
+run "AC-2: a manifest source missing at the version is refused" 2 'lacks' \
+  -- init --devshop-git "$b/.git" --version v9.0.0 --project "$r" --codeowner a
+untouched "$r"
+init_into "AC-2: an initialised project is refused whole" 2 '' "$i" --codeowner other
+[ "$(cat "$i/.github/CODEOWNERS")" = "* @example-owner" ] || fail "AC-2: init rewrote an existing project"
+untouched "$i"
 
 # --- session start ---
 mount -t tmpfs devshop-test-opt /opt || fail "can't mount a scratch /opt"

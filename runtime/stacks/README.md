@@ -8,6 +8,11 @@ the PR and the home of each stack that applies.
 A stack home `<stack>/` holds:
 
 - `README.md`: the home. It may link further files in the same directory.
+- In `README.md`, a `## Set-up` section once the home is real: the owner's steps the stack needs
+  (accounts, tokens, environments, hosts for the network allowlist), each with how the session
+  checks it from outside, then Claude's steps. A new project starts stack-neutral; its first
+  change names the stack in its spec and gives the owner these steps then
+  ([spec](../../specs/new-project.md)).
 - `detect`: project-relative paths or globs, one per line (`#` starts a comment), such as
   `wrangler.toml` or `next.config.*`. A line may also be `<path>: <pattern>`, which matches only
   when that file has a line matching the `grep -E` pattern, e.g. `package.json: "next" *:` for a
