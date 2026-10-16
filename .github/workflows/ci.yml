@@ -3,9 +3,10 @@
 # either a job-level `if` or `continue-on-error`: GitHub counts a skipped required job as passed.
 #   fast: scripts/check-fast.sh: secret scan, lint, and every test not marked slow.
 #   slow: scripts/check-slow.sh: the end-to-end tests (the whole install, the UI render check); runs only after fast passes.
-# On main, the merged PR's deploy comment follows the devshop's release (specs/devshop-deploy-comment.md):
-# `announce` (Merged), `deploy` after both tiers (Releasing on main, then Released on main), `report`
-# (a final state whatever happened); the template's jobs, with runtime/scripts/deploy-comment.mjs.
+# On main, the merged PR's deploy comment follows its merge (specs/devshop-deploy-comment.md):
+# `announce` (Merged), `deploy` after both tiers (Checking on `main`, then On `main`, ships in the
+# next release: a release tag ships it), `report` (a final state whatever happened); the template's
+# jobs, with runtime/scripts/deploy-comment.mjs.
 name: ci
 
 on:
