@@ -115,9 +115,13 @@ data = {
     ],
     "review_comments": [{"user": own, "created_at": "2026-01-01T10:30:30Z"}],
     "runs": [
-        {"id": 1, "head_sha": "a" * 40, "conclusion": "failure", "attempts": []},
-        {"id": 2, "head_sha": "b" * 40, "conclusion": "success", "attempts": ["failure"]},
+        {"id": 1, "head_sha": "a" * 40, "conclusion": "failure", "attempts": [], "created_at": "2026-01-01T10:25:30Z"},
+        {"id": 2, "head_sha": "b" * 40, "conclusion": "success", "attempts": ["failure"], "created_at": "2026-01-01T10:30:00Z"},
         {"id": 3, "head_sha": "c" * 40, "conclusion": "success", "attempts": []},
+        # The same branch name's runs for another PR, before this one opened and after it merged:
+        # not this PR's (a branch name a session reuses).
+        {"id": 4, "head_sha": "d" * 40, "conclusion": "failure", "attempts": [], "created_at": "2026-01-01T09:20:00Z"},
+        {"id": 5, "head_sha": "e" * 40, "conclusion": "failure", "attempts": [], "created_at": "2026-01-01T11:20:00Z"},
     ],
 }
 json.dump(data, open(f"{w}/pr9.json", "w"))
