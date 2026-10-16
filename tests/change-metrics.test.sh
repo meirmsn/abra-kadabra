@@ -189,6 +189,16 @@ python3 "$py" render --pr-data "$work/pr9.json" --cost 1 --ci "$template" --now 
 grep -qF -- '- **Time:** unknown Claude working · unknown waiting on you · 5 min deploying' "$work/got" || { cat "$work/got" >&2; fail "AC-14: no transcript"; }
 grep -qF -- 'unknown answers in chat · 2 PR comments' "$work/got" || { cat "$work/got" >&2; fail "AC-14: no transcript, input"; }
 grep -qF -- 'request to live **unknown**' "$work/got" || { cat "$work/got" >&2; fail "AC-14: no transcript, headline"; }
+grep -qF -- '- **Cost:** unknown ($1.00 session + unknown reviewer)' "$work/got" || { cat "$work/got" >&2; fail "AC-14: no transcript and no footers: the reviewer's cost is unknown"; }
+grep -qF -- '2 red CI runs · reviewer unknown' "$work/got" || { cat "$work/got" >&2; fail "AC-14: no transcript and no footers: the reviewer's rounds are unknown"; }
+# A transcript read from the start with no REVIEW: line: no reviewer ran, $0.00.
+mkdir -p "$work/plain/p"
+printf '%s\n' '{"type":"user","uuid":"u1","timestamp":"2026-01-01T10:00:00Z","origin":{"kind":"human"},"message":{"content":"the request"}}' \
+  '{"type":"assistant","uuid":"u2","timestamp":"2026-01-01T10:01:00Z","message":{"content":[],"stop_reason":"end_turn"}}' >"$work/plain/p/s.jsonl"
+python3 "$py" render --pr-data "$work/pr9.json" --cost 1 --ci "$template" --now 2026-01-01T10:46:00Z --projects "$work/plain" >"$work/got" \
+  || fail "AC-14: render with a plain transcript failed"
+grep -qF -- '- **Cost:** $1.00 ($1.00 session + $0.00 reviewer)' "$work/got" || { cat "$work/got" >&2; fail "AC-14: no REVIEW: line in a transcript means no reviewer ran"; }
+grep -qF -- '2 red CI runs · no reviewer rounds' "$work/got" || { cat "$work/got" >&2; fail "AC-14: no reviewer rounds"; }
 # headline <data> <want headline> <deploying shown: yes|no>
 headline() {
   render "$1" --cost 1

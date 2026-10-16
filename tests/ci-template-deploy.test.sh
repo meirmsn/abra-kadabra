@@ -59,6 +59,7 @@ want(any(r.strip() == "node scripts/deploy-comment.mjs merged" for r in runs("an
 d = jobs["deploy"]
 want(d.get("if") == main_if and sorted(needs("deploy")) == ["fast", "slow"], "deploy: pushes to main, needs fast and slow")
 want(d.get("environment", {}).get("name") == "production", "deploy: environment production")
+want(d.get("concurrency") == {"group": "production", "cancel-in-progress": False}, "deploy: concurrency group production, not cancelling")
 order = [r.strip() for r in runs("deploy")]
 idx = lambda needle: next((i for i, r in enumerate(order) if needle in r), -1)
 want(0 <= idx("deploy-comment.mjs deploying") < idx("scripts/deploy.sh") < idx("deploy-comment.mjs deployed") < idx("deploy-comment.mjs failed"),

@@ -203,10 +203,14 @@ auto-unsubscribed, so the project's deploy comment never reaches it".
     6 on PR 7, 5 questions and 1 message, where the hand count said 4, 2026-10-16); PR comments are the owner's
     comments and reviews with text; approvals are their `APPROVED` reviews. The owner is the account
     that approved the PR, else every account that isn't a bot (`[bot]` or type `Bot`) or the PR's
-    author.
+    author. All of these count up to the merge, where the change ends: the owner's input is "during
+    the change", and on PR 7 their messages after the merge were about other things (Claude, from
+    the owner's words, 2026-10-16).
   - _Cost:_ session cost (above) plus the reviewer's: each `REVIEW:` line `ship.sh` printed in the
     transcript names its verdict file, whose `reviewer.cost_usd` counts, failed rounds included;
-    when a verdict file is gone, the `$` in the PR's reviewer comment footers stands in.
+    when a verdict file is gone, the `$` in the PR's reviewer comment footers stands in. No
+    `REVIEW:` line in a transcript read from the clock's start means no reviewer ran ($0.00); with
+    no transcript and no footers, the reviewer's cost and rounds are unknown.
   - _Quality:_ pushes are the distinct head commits of the PR's `pull_request` runs of the `ci`
     workflow; red CI runs are those runs with any attempt concluded `failure` or `timed_out`;
     "reviewer passed n of m" counts the `REVIEW:` lines (m) and those with outcome `pass` (n).

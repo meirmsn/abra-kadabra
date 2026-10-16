@@ -368,7 +368,9 @@ def render(a):
         reviewer = sum(pr_costs)
     if not rounds and pr_outcomes:
         rounds = [(o, None) for o in pr_outcomes]
-    if not rounds:  # no reviewer ran
+    # No rounds: none ran when the transcript was read from the start; otherwise unknown.
+    measured = bool(start)
+    if not rounds and measured:
         reviewer = 0.0
     # The total is the sum of the parts as shown, so the line adds up.
     total_cost = round(session_cost, 2) + round(reviewer, 2) if session_cost is not None and reviewer is not None else None
@@ -382,7 +384,10 @@ def render(a):
         red = sum(1 for r in runs if any(c in ("failure", "timed_out") for c in [r.get("conclusion")] + list(r.get("attempts") or [])))
         red_txt = n_of(red, "red CI run", "red CI runs")
     passed = sum(1 for o, _ in rounds if o == "pass")
-    review_txt = f"reviewer passed {passed} of {len(rounds)}" if rounds else "reviewer: no rounds found"
+    if rounds:
+        review_txt = f"reviewer passed {passed} of {len(rounds)}"
+    else:
+        review_txt = "no reviewer rounds" if measured else "reviewer unknown"
 
     lines = [
         f"{METRICS_MARK} cost:{'unknown' if cost is None else f'{cost:.4f}'} -->",
