@@ -3035,3 +3035,16 @@ question comment got a commit, so `[~]`.
 **Surprises**: the start-up hook said "project user" again after a restart (F-NEW-77).
 
 **Next**: R-2.
+
+## #81 — 2026-10-16 · R-2: approval ships
+
+**What moved**: the owner replaced W10.9.1's comment rule: a PR comment is built, or raised in the
+session's chat when it can't be; answering on the PR and waiting there is deferred (F-NEW-99). The
+`pr` and `intent` skills and TARGET say so (PR #138). PR #138 then merged on the owner's approval
+alone, about 7 minutes after it, once CI was green on the approved commit. W10.9.1 is `[x]`, R-2
+`Done`.
+
+**Surprises**: `main` moved four times while PR #138 was open; each move meant a merge, a review and
+a CI run, about 10 minutes a round.
+
+**Next**: R-3.
