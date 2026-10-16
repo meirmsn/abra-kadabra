@@ -65,7 +65,8 @@ under `devshop:build` § 3; this skill only puts them on the PR.
   `/opt/devshop-current/scripts/change-metrics.sh post --pr <n> --cost <usd>`. Exit 3: the deploy
   comment isn't final yet, arm `send_later` 5 minutes ahead again (it gives up an hour after the
   merge). Exit 0: posted; say so in chat. Exit 2: say what it printed. Nothing waits on it.
-- A comment that would change a decision or acceptance item, a question included ("Could the list
-  be sorted…?"), is a question to the owner: answer it on the PR with the options and what each
-  changes, and build nothing until they pick (`devshop:intent` § 5 records it). Other asks: build
-  under `devshop:build` § 3, then this skill again.
+- Every owner comment on the PR is addressed: build what it asks under `devshop:build` § 3, then this
+  skill again; one that changes a decision or acceptance item is recorded in the spec as changed
+  after the go (`devshop:intent` § 5). One you can't address (unclear, conflicting, or outside the
+  change): build nothing for it and tell the owner in the session's chat what it needs from them. A
+  comment that only asks a question is answered there too.
