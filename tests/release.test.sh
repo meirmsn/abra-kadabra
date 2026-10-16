@@ -211,6 +211,11 @@ grep -qF -- "- a test (#7)" "$work/over.md" || fail "AC-13: the overridden notes
 for bad in huge auto2 ""; do
   run "override '$bad'" 2 scripts/release.py next --bump "$bad"
 done
+c "feat: a feature for the lower override (#7b)"
+run "override lower than the titles" 0 scripts/release.py next --bump patch
+head -1 "$work/out.log" | grep -qx v2.0.1 || { cat "$work/out.log" >&2; fail "AC-13: a patch override under a feat title isn't v2.0.1"; }
+has "override lower than the titles" "Manual override: patch. The PR titles alone give v2.1.0."
+git -C "$r" reset -q --hard HEAD~1
 run "override missing its value" 2 scripts/release.py plan --notes-file "$work/x.md" --bump
 run "plan, override huge" 2 scripts/release.py plan --notes-file "$work/x.md" --bump huge
 [ ! -e "$work/x.md" ] || fail "AC-13: plan with a bad override wrote notes"
