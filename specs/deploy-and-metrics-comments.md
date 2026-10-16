@@ -130,10 +130,11 @@ auto-unsubscribed, so the project's deploy comment never reaches it".
 - **The session reports, not CI:** CI can't see the request time, working and waiting time or the
   session's cost (owner, 2026-10-16)
 - **The scripts compute, the model only passes values:** `runtime/scripts/change-metrics.py`
-  computes every number from the transcript, the change's record and a PR data file, and renders
-  the comment; `runtime/scripts/change-metrics.sh` has `start`, `post` and `pr-data` (which gathers
-  the PR data with `gh api`). The model's only inputs are values scripts can't read: the session's
-  cost from `get_session` (owner: "The scripts compute the metrics, not the model")
+  computes every number from the transcript and a PR data file, and renders the comment;
+  `runtime/scripts/change-metrics.sh post --pr <n> --cost <usd>` gathers the PR data with `gh api`,
+  checks the deploy comment's state, and posts. The model's only input is the one value scripts
+  can't read: the session's cost now, from `get_session` (owner: "The scripts compute the metrics,
+  not the model")
 - **Staying awake past the merge, tested on 2026-10-16:** `subscribe_pr_activity` on an
   already-merged PR is accepted, but neither a new comment nor its edit on that PR woke the session
   within 3 minutes (both were the session's own, which may be filtered as echoes, so this doesn't
@@ -151,22 +152,19 @@ auto-unsubscribed, so the project's deploy comment never reaches it".
   itself, or the website before it upgrades): `post` doesn't wait; it posts right after the merge
   with "no deploy comment", so no session is held awake for an hour (Claude, from the spec review,
   2026-10-16)
-- **When the clock starts:** at the owner's message `devshop:intent` classified as a change, not at
-  session start, since one session can carry several changes. `devshop:intent` § 1 runs
-  `change-metrics.sh start --cost <usd or "none">`, which records that message (the latest owner
-  message in the transcript) and the session's cost then. **This adds one line to
-  `devshop:intent`, outside the files the owner listed** (Claude, 2026-10-16, asked of the owner)
-- **The change's record:** `start` writes `~/.claude/devshop/changes/<id>.json` (the start message's
-  uuid and time, the transcript's path, the cost); `post --pr <n>` matches the record to the PR by
-  the PR's branch, written into the record by `devshop:pr` §4 (`change-metrics.sh link --pr <n>`).
-  The transcript is the `.jsonl` under `~/.claude/projects/` that holds the start message. A missing
-  record or transcript (a container replaced, a change that skipped `start`) makes the session
-  numbers "unknown"; `start`, `link` and `post` never fail the step they run in (Claude, from the
-  spec review, 2026-10-16)
-- **Session cost:** `get_session`'s `external_metadata.usage.cost_usd` now minus at the start. The
-  field is absent in a session's first minutes (seen 2026-10-16: absent at 07:34, $3.96 at 07:46),
-  which is when a first change starts; when it is absent and the start message is the session's
-  first owner message, the start cost is 0 (Claude, from the spec review, 2026-10-16)
+- **When the clock starts: the session's start,** its first owner message; no step records the
+  start of a change. When the transcript shows this session merged an earlier PR, the clock starts
+  at the first owner message after that merge instead, worked out from the transcript alone. The
+  session's cost at the start is 0, or, after an earlier merge, the cost the session's metrics
+  comment on that PR recorded in its marker line (`<!-- devshop-metrics cost:<usd> -->`), else
+  "unknown". Rejected: a `start` step in `devshop:intent` recording the change's start and cost
+  (owner: "can't you just use the session start time? i'm afraid of having one more moving part",
+  2026-10-16)
+- **Finding the transcript:** the `<session id>.jsonl` files under `~/.claude/projects/*/`, merged
+  by entry uuid. Seen 2026-10-16: after a container restart the resumed session wrote a new file in
+  another folder (the working directory had changed), holding every earlier entry plus the new ones.
+  The session id is the one in the newest file's entries; no transcript found makes the session
+  numbers "unknown". `post` never fails the step it runs in (Claude, 2026-10-16)
 - **What counts in the transcript** (seen in a real one, 2026-10-16):
   - _An owner message:_ a `user` entry with `origin.kind` `human`, or a `queued_command` attachment
     (a message sent mid-turn), deduplicated by text and time; a skill's text (`isMeta`), a tool
@@ -176,17 +174,17 @@ auto-unsubscribed, so the project's deploy comment never reaches it".
   - Subagents' own transcripts (`subagents/`) are not read; their time counts only while the main
     session waits for them.
 - **Where each number comes from** (owner's method, measured by hand on PR 7; definitions Claude's):
-  - _Request to live:_ the start message to the deploy comment's final state (`at`).
+  - _Request to live:_ the clock's start to the deploy comment's final state (`at`).
   - _Claude working:_ from each owner message or wake to the last assistant entry before the next
     one, from the start to the merge; overlapping spans counted once.
   - _Waiting on you:_ each `AskUserQuestion` from its call to its answer, plus each idle gap before
     the merge that ended with the owner acting: their chat message, or a wake within 2 minutes after
     their PR comment, review or approval in the PR data.
   - _Waiting on CI:_ the other idle gaps before the merge, shown in the Time line only when 1 minute
-    or more, so the Time line adds up to the total.
+    or more, so the Time line adds up to the total (owner: "sounds good", 2026-10-16).
   - _Deploying:_ the merge to the final state.
   - _Your input:_ answers in chat are the questions answered through `AskUserQuestion` plus the
-    owner's chat messages after the start message (the go is one); PR comments are the owner's
+    owner's chat messages after the first one (the go is one); PR comments are the owner's
     comments and reviews with text; approvals are their `APPROVED` reviews. The owner is the account
     that approved the PR, else every account that isn't a bot (`[bot]` or type `Bot`) or the PR's
     author.
@@ -196,8 +194,8 @@ auto-unsubscribed, so the project's deploy comment never reaches it".
   - _Quality:_ pushes are the distinct head commits of the PR's `pull_request` runs of the `ci`
     workflow; red CI runs are those runs with any attempt concluded `failure` or `timed_out`;
     "reviewer passed n of m" counts the `REVIEW:` lines (m) and those with outcome `pass` (n).
-    Lighthouse is left out: it is in CI logs, in a form each stack writes its own way (Claude,
-    2026-10-16, asked of the owner).
+    Lighthouse is left out: it is in CI logs, in a form each stack writes its own way (owner:
+    "yes", 2026-10-16).
   - Minutes are rounded to the nearest whole minute.
 - **A number that can't be measured shows "unknown",** never a guess, and never blocks or delays
   the merge or the deploy (owner)
@@ -205,7 +203,7 @@ auto-unsubscribed, so the project's deploy comment never reaches it".
   failed** · request to failure **27 min**"; not-deployed: "**not deployed** (<reason>) · request
   to merge **24 min**"; superseded: "ships with `<sha>`'s deploy · request to merge **24 min**", the
   Time line then without "deploying" (owner: "If the deploy failed, post anyway and say so in the
-  headline"; words Claude's)
+  headline"; on these words: "i like that you put the reason", 2026-10-16)
 - **A separate comment, marked `<!-- devshop-metrics -->`,** posted as the session's account (it
   can't edit the bot's deploy comment); one per PR, a second `post` does nothing (owner)
 - **The session gone** (the container reclaimed before the deploy ends), or a PR the owner merged
@@ -274,24 +272,25 @@ auto-unsubscribed, so the project's deploy comment never reaches it".
 - **AC-12** On sample transcripts it counts working time from each owner message or wake to the last
   assistant entry before the next one; `AskUserQuestion` time and gaps the owner ended as waiting on
   you; other gaps as waiting on CI, shown only from 1 minute; a mid-turn owner message once, not
-  three times; skill text and tool results not as owner messages; and a second change in one
-  session only from its own start message
+  three times; skill text and tool results not as owner messages; the clock from the session's
+  first owner message, or, after an earlier merge in the session, from the first owner message after
+  it; and two transcript files of one session (a restart) merged by uuid, each entry counted once
 - **AC-13** It counts answers in chat, the owner's PR comments and approvals (not a third party's
   when the owner approved, never a bot's), pushes and red CI runs (a red first attempt later
   re-run green included), reviewer rounds and passes from the `REVIEW:` lines, and the reviewer's
   cost from the verdict files, falling back to the PR footers
-- **AC-14** A number that can't be measured (no start record, no cost, a missing verdict file and
-  footer) shows "unknown" and the rest still render; a start cost that was absent counts 0 only when
-  the start is the session's first owner message; each final state other than live gets its
-  headline
+- **AC-14** A number that can't be measured (no transcript, no cost, a missing verdict file and
+  footer, a later change whose earlier metrics comment has no cost) shows "unknown" and the rest
+  still render; the start cost is 0 for a session's first change, and the earlier comment's
+  recorded cost after an earlier merge; the comment's marker line records the session's cost; each
+  final state other than live gets its headline
 - **AC-15** `change-metrics.sh post` exits 3 ("not final yet") while the deploy comment isn't final
   and less than 60 minutes have passed since the merge; after 60 minutes it posts with the deploy
   "unknown"; with no `announce` job in the project's `ci.yml` it posts at once; it posts once, and a
-  second `post` on the same PR posts nothing; `start` records the latest owner message and the cost;
-  a missing record or transcript gives "unknown" numbers, not a failure; bad arguments exit 2
-- **AC-16** `devshop:intent` § 1 runs `start` for a change; `devshop:pr` §4 runs `link` and §5,
-  after the merge, arms `send_later` check-ins, runs `post` at each, re-arms on exit 3, and never
-  holds the merge for any of it; `skills-check.py` passes — verified by review: read the two skills
+  second `post` on the same PR posts nothing; bad arguments exit 2
+- **AC-16** `devshop:pr` §5, after the merge, arms `send_later` check-ins, runs `post` at each with
+  the cost from `get_session`, re-arms on exit 3, and never holds the merge for any of it;
+  `devshop:intent` is unchanged; `skills-check.py` passes — verified by review: read the skill
 
 ## Out of scope
 
