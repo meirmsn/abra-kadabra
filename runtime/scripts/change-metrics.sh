@@ -82,11 +82,22 @@ if [ -n "$earlier" ]; then
   prev=(--prev-cost "$was")
 fi
 
+# Whether a deploy comment is awaited follows the workflow as of the merge commit, not today's.
+ci=()
+merge=$(jq -r 'if .merged_at then .merge_commit_sha // "" else "" end' "$work/pr.json")
+if [ -n "$merge" ]; then
+  git cat-file -e "$merge^{commit}" 2>/dev/null || git fetch -q origin "$merge" 2>/dev/null ||
+    cnr "can't fetch the merge commit $merge"
+  git show "$merge:.github/workflows/ci.yml" >"$work/ci.yml" 2>/dev/null || : >"$work/ci.yml"
+  ci=(--ci "$work/ci.yml")
+fi
+# The reviewer's verdict files for the PR's branch, one per round (review.sh writes them there).
+vdir="$(cd "$(git rev-parse --git-common-dir)" && pwd -P)/devshop/reviews/${head//\//__}"
 now=()
 [ -z "${CHANGE_METRICS_NOW:-}" ] || now=(--now "$CHANGE_METRICS_NOW")
 rc=0
-python3 "$here/change-metrics.py" render --pr-data "$work/data.json" --cost "$cost" --ci .github/workflows/ci.yml \
-  "${prev[@]}" "${now[@]}" >"$work/body.md" || rc=$?
+python3 "$here/change-metrics.py" render --pr-data "$work/data.json" --cost "$cost" --verdicts "$vdir" \
+  "${ci[@]}" "${prev[@]}" "${now[@]}" >"$work/body.md" || rc=$?
 [ "$rc" = 3 ] && { echo "change-metrics: not yet: PR #$pr's deploy comment isn't final; check in again"; exit 3; }
 [ "$rc" = 0 ] || exit 2
 jq -n --rawfile b "$work/body.md" '{body: ($b | rtrimstr("\n"))}' | api -X POST "repos/$slug/issues/$pr/comments" --input - >/dev/null

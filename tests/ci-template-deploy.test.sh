@@ -38,10 +38,12 @@ printf '#!/usr/bin/env bash\nexit 3\n' >"$work/p/scripts/deploy.sh"
 ! (cd "$work/p" && GITHUB_OUTPUT="$work/out3" bash -e "$work/deploy-step.sh") >/dev/null 2>&1 || fail "AC-4: a failing deploy.sh must fail the step"
 echo "ok: AC-4 the deploy step runs scripts/deploy.sh, or writes none=yes without one"
 
-# AC-8, AC-9: the jobs' shapes.
-python3 - "$template" <<'EOF' || fail "AC-8/AC-9: the template's jobs don't have the spec's shape (above)"
+# AC-8, AC-9 (and devshop-deploy AC-4 for this repo's own ci.yml): the jobs' shapes.
+cat >"$work/shape.py" <<'EOF'
 import sys, yaml
 wf = yaml.safe_load(open(sys.argv[1]))
+kind = sys.argv[2]  # template | devshop
+script = "node scripts/deploy-comment.mjs" if kind == "template" else "node runtime/scripts/deploy-comment.mjs"
 jobs = wf["jobs"]
 problems = []
 def want(cond, msg):
@@ -55,16 +57,27 @@ for t in ("fast", "slow"):
     want("if" not in jobs[t] and "continue-on-error" not in jobs[t], f"{t} has a job-level if or continue-on-error")
 a = jobs["announce"]
 want(a.get("if") == main_if and not needs("announce"), "announce: pushes to main only, no needs")
-want(any(r.strip() == "node scripts/deploy-comment.mjs merged" for r in runs("announce")), "announce runs merged")
+want(any(r.strip() == f"{script} merged" for r in runs("announce")), "announce runs merged")
 d = jobs["deploy"]
 want(d.get("if") == main_if and sorted(needs("deploy")) == ["fast", "slow"], "deploy: pushes to main, needs fast and slow")
-want(d.get("environment", {}).get("name") == "production", "deploy: environment production")
+if kind == "template":
+    want((d.get("environment") or {}).get("name") == "production", "deploy: environment production")
+else:
+    want("environment" not in d, "deploy: no environment (nothing is deployed)")
 want(d.get("concurrency") == {"group": "production", "cancel-in-progress": False}, "deploy: concurrency group production, not cancelling")
 order = [r.strip() for r in runs("deploy")]
 idx = lambda needle: next((i for i, r in enumerate(order) if needle in r), -1)
 want(0 <= idx("deploy-comment.mjs deploying") < idx("scripts/deploy.sh") < idx("deploy-comment.mjs deployed") < idx("deploy-comment.mjs failed"),
      "deploy: deploying, then scripts/deploy.sh, then deployed and failed")
-want(idx("scripts/setup.sh") < idx("scripts/deploy.sh"), "deploy: scripts/setup.sh before scripts/deploy.sh")
+if kind == "template":
+    want(0 <= idx("scripts/setup.sh") < idx("scripts/deploy.sh"), "deploy: scripts/setup.sh before scripts/deploy.sh")
+else:
+    want(idx("scripts/setup.sh") < 0, "deploy: no setup step (nothing is installed)")
+    by_cmd = {c: next((st.get("env") or {} for st in jobs[j]["steps"] if f"deploy-comment.mjs {c}" in st.get("run", "")), {})
+              for j, c in (("deploy", "deploying"), ("deploy", "deployed"), ("report", "report"))}
+    want(by_cmd["deploying"].get("DEPLOYING_AS") == "Checking on `main`", "deploy: deploying says Checking on `main`")
+    want(by_cmd["deployed"].get("LIVE_AS") == "On `main`, ships in the next release" and by_cmd["report"].get("LIVE_AS") == "On `main`, ships in the next release",
+         "deployed and report say On `main`, ships in the next release")
 want(set(d.get("outputs", {})) >= {"url", "version", "previous_version", "rollback", "site_url", "site_smoke", "none"}, "deploy: exposes the slot's outputs")
 r = jobs["report"]
 want(r.get("if") == "always() && " + main_if and sorted(needs("report")) == ["deploy", "fast", "slow"], "report: if always() on main, needs fast, slow, deploy")
@@ -85,22 +98,31 @@ want(perms["announce"] == {"contents": "read", "pull-requests": "write"}, f"anno
 want(perms["deploy"] == {"contents": "read", "pull-requests": "write"}, f"deploy permissions {perms['deploy']}")
 want(perms["report"] == {"contents": "read", "pull-requests": "write", "actions": "read"}, f"report permissions {perms['report']}")
 text = open(sys.argv[1]).read()
-for out in ("url=", "version=", "previous_version=", "rollback=", "deployed=yes", "site_url=", "site_smoke="):
+for out in () if kind != "template" else ("url=", "version=", "previous_version=", "rollback=", "deployed=yes", "site_url=", "site_smoke="):
     want(out in text, f"the template's comment doesn't name the output {out}")
-want(text.count("# ---") >= 2 or text.count("--- ") >= 2, "the lines a project edits aren't marked")
+if kind == "template":
+    want(text.count("# ---") >= 2 or text.count("--- ") >= 2, "the lines a project edits aren't marked")
 for p in problems: print("problem:", p)
 sys.exit(1 if problems else 0)
 EOF
+devshop_ci="$repo_root/.github/workflows/ci.yml"
+python3 "$work/shape.py" "$template" template || fail "AC-8/AC-9: the template's jobs don't have the spec's shape (above)"
 python3 "$repo_root/runtime/scripts/ci-tiers-check.py" "$template" >/dev/null || fail "AC-8: the template fails ci-tiers-check.py"
 echo "ok: AC-8, AC-9 the template's comment jobs, deploy slot and outputs"
+python3 "$work/shape.py" "$devshop_ci" devshop || fail "devshop-deploy AC-4: this repo's ci.yml doesn't have the shape (above)"
+python3 "$repo_root/runtime/scripts/ci-tiers-check.py" "$devshop_ci" >/dev/null || fail "devshop-deploy AC-4: ci.yml fails ci-tiers-check.py"
+echo "ok: devshop-deploy AC-4 this repo's ci.yml has the comment jobs"
 
-# The check above fails on a known-bad template: one with the report job's always() removed.
+# The shape check fails on known-bad copies: the template's report without always(), the devshop's
+# deploy without its needs, or with the template's script path.
 sed 's/if: always() \&\& /if: /' "$template" >"$work/bad.yml"
-python3 - "$work/bad.yml" <<'EOF' && fail "the shape check passed a report job without always()"
-import sys, yaml
-r = yaml.safe_load(open(sys.argv[1]))["jobs"]["report"]
-sys.exit(0 if r["if"].startswith("always()") else 1)
-EOF
+! python3 "$work/shape.py" "$work/bad.yml" template >/dev/null || fail "the shape check passed a report job without always()"
+python3 -c 'import sys,yaml; d=yaml.safe_load(open(sys.argv[1])); d["jobs"]["deploy"].pop("needs"); yaml.safe_dump(d, open(sys.argv[2],"w"))' \
+  "$devshop_ci" "$work/bad-devshop.yml"
+! python3 "$work/shape.py" "$work/bad-devshop.yml" devshop >/dev/null || fail "devshop-deploy AC-4: the shape check passed a deploy without needs"
+sed 's#node runtime/scripts/deploy-comment.mjs merged#node scripts/deploy-comment.mjs merged#' "$devshop_ci" >"$work/bad-devshop2.yml"
+! python3 "$work/shape.py" "$work/bad-devshop2.yml" devshop >/dev/null || fail "devshop-deploy AC-4: the shape check passed the wrong script path"
+
 # AC-10: the script is a devshop-owned file: project-files.py passes an identical copy (executable bit
 # included) and reports one that differs. Run against this repo's HEAD, so it needs the change committed.
 git -C "$repo_root" cat-file -e HEAD:runtime/scripts/deploy-comment.mjs 2>/dev/null \
