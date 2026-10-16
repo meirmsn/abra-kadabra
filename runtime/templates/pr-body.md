@@ -27,7 +27,7 @@ filter links above the list"), not how it is built. -->
 
 - **Behaviour change:** {{what now works differently, in plain words}}
 - **Decisions:** {{the decisions that shaped it, each with its reason; link the spec, e.g. specs/<change>.md, or "bug fix: the failing test is the spec"}}
-- **Changed after the go:** {{each spec change after the owner's "go", with the owner's recorded answer; or "nothing"}}
+- **Changed after the go:** {{each spec change after the owner's "go", with the owner's recorded answer or PR comment; or "nothing"}}
 - **Tests deleted or loosened:** {{each one with the spec reason that justifies it; or "none"}}
 - **Manual steps for you:** {{what the merge doesn't carry (dashboard settings, auth config, DNS…), as a checklist from the real deploy config; or "none"}}
 
