@@ -13,21 +13,21 @@ reachable from this page through links, or when a relative link or `#anchor` is 
   order; the top `Open` entry is the next task.
 - [FINDINGS.md](../FINDINGS.md): what Claude noticed and didn't fix, kept to see what comes back
   ([spec](../specs/findings-and-roadmap.md)).
-- [CHANGELOG.md](../CHANGELOG.md): every devshop release, the version a project pins in
-  `.devshop-version` ([spec](../specs/devshop-releases.md)).
 
 ## Releases
 
 SemVer tags from `v2.0.0` (D-10); a major release needs a migration. Every PR title starts with a
 Conventional Commit type ([`scripts/pr-title-check.py`](../scripts/pr-title-check.py): CI's fast
 job and `ship.sh` run it), and the squash merge makes the title the subject on `main`. To release,
-on the owner's ask, a session on a fresh branch from `main` (fetched in full, with tags) runs
-[`scripts/release.py`](../scripts/release.py) `prepare`: it computes the next version from the
-subjects since the last release (`!` major, `feat` minor, `fix`/`perf`/`revert` patch) and writes
-`VERSION` and the `CHANGELOG.md` section; the PR is titled `chore(release): v<version>`. When the
-owner merges it, [`release.yml`](../.github/workflows/release.yml) runs `release.py tag-plan` and
-creates the tag and the GitHub release (a session can't push tags, A-25). Projects pin the tag;
-`/devshop:upgrade` defaults to the newest one. Proven by
+the owner clicks "Run workflow" on [`release.yml`](../.github/workflows/release.yml) in the
+Actions tab, on `main`: its first step refuses anyone but the repository's owner and any branch
+but `main`; [`scripts/release.py`](../scripts/release.py) `plan` computes the next version from the
+subjects since the last release (`!` major, `feat` minor, `fix`/`perf`/`revert` patch, nothing
+else releases) and its notes; then CI creates the tag on `main`'s head and the GitHub release with
+those notes (a session can't push tags, A-25). There is no release PR and no changelog file: the
+notes are on each release's page, and the owner's release immutability setting locks a published
+release's tag. `scripts/release.py next` previews the next release from a full clone with tags.
+Projects pin the tag; `/devshop:upgrade` defaults to the newest one. Proven by
 [`tests/release.test.sh`](../tests/release.test.sh) and
 [`tests/pr-title-check.test.sh`](../tests/pr-title-check.test.sh).
 

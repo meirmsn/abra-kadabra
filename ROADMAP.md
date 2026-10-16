@@ -22,7 +22,7 @@ too; an entry is `Done` when its task is `[x]`.
 | R-8  | 2026-10-16 | M4: the iOS stack and the Mac; retire v1, with the owner's deferred credential and archive steps — [M4](kit/notes/revamp/workstreams/W10-v2.md#m3m4--coarse-detailed-when-next), [W0.5, W0.6](kit/notes/revamp/workstreams/W0-groundwork.md)   | Open          |
 | R-9  | 2026-10-16 | After the revamp: the air-gapped adversarial reviewer as a required check — [PLAN.md § After the revamp](kit/notes/revamp/PLAN.md#after-the-revamp)                                                                                            | Open          |
 | R-10 | 2026-10-16 | Every repo keeps a roadmap and a findings log — [W10.9.8](kit/notes/revamp/workstreams/W10-v2.md#w109-m1-close-out--p0--s-each), [spec](specs/findings-and-roadmap.md)                                                                         | Done, PR #125 |
-| R-11 | 2026-10-16 | Devshop releases: Conventional Commit titles, a release PR the owner merges, CI tags it, projects pin release tags — [spec](specs/devshop-releases.md)                                                                                         | Open          |
+| R-11 | 2026-10-16 | Devshop releases: Conventional Commit titles, a release button only the owner can press, projects pin release tags — [spec](specs/devshop-releases.md)                                                                                         | Open          |
 
 ## R-11: Devshop releases
 

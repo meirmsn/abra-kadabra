@@ -1,17 +1,18 @@
-# Devshop releases (spec specs/devshop-releases.md; D-10, A-25): on every push to main, tag a release
-# whose release PR (scripts/release.py prepare) just merged. A session can't push tags, so CI does.
-# tag-plan decides: no VERSION change waiting for its tag → nothing happens; a VERSION or notes that
-# no longer match main's history → the run fails and nothing is tagged. Not a required check.
+# Devshop releases (spec specs/devshop-releases.md; D-10, A-25): a button. The owner clicks "Run
+# workflow" on main; it computes the next version and notes from main's subjects since the last
+# release (scripts/release.py) and creates the tag and the GitHub release. A session can't push
+# tags, so CI does. Only the repository's owner can release, and only from main: the agent identity
+# has write access and could start this through the API, so the first step refuses anyone else.
+# Every value reaches a script through env, never interpolated into it. Not a required check.
 name: release
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
 
-# One run at a time, none cancelled: two quick merges can't race to the same tag.
+# One run at a time, none cancelled: two quick clicks can't race to the same tag.
 concurrency:
   group: release
   cancel-in-progress: false
@@ -21,17 +22,31 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
+      # A re-run keeps the original actor in github.actor; github.triggering_actor is who re-ran it.
+      - name: Only the owner, only from main
+        env:
+          REF: ${{ github.ref }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          if [ "$REF" != refs/heads/main ]; then
+            echo "::error::release runs only from main, not $REF"; exit 1
+          fi
+          if [ -z "$OWNER" ] || [ "$ACTOR" != "$OWNER" ] || [ "$TRIGGERING_ACTOR" != "$OWNER" ]; then
+            echo "::error::only the repository's owner can release (started by '$ACTOR', run by '$TRIGGERING_ACTOR')"; exit 1
+          fi
+
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           fetch-depth: 0 # every commit and tag: the bump and the notes read the history since the last release
           persist-credentials: false
 
-      - name: Plan the tag
+      - name: Plan the release
         id: plan
-        run: scripts/release.py tag-plan --notes-file "$RUNNER_TEMP/release-notes.md" >>"$GITHUB_OUTPUT"
+        run: scripts/release.py plan --notes-file "$RUNNER_TEMP/release-notes.md" >>"$GITHUB_OUTPUT"
 
       - name: Create the tag and the GitHub release
-        if: steps.plan.outputs.tag != ''
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.plan.outputs.tag }}

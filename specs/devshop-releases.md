@@ -1,6 +1,6 @@
 # Devshop releases: projects pin a release tag, not a commit SHA
 
-**Go:** "sounds good", after the spec added the title check in ship.sh and the newer-release note, with the squash commit title set to the PR title (owner, 2026-10-16)
+**Go:** "sounds good", after the spec added the title check in ship.sh and the newer-release note, with the squash commit title set to the PR title (owner, 2026-10-16). Second change, a release button instead of a release PR: "yes" (owner, 2026-10-16)
 
 ## Intent
 
@@ -16,6 +16,11 @@ owner's words (2026-10-16):
 
 > use conventional commit prefixes, put it on roadmap, and implement (and test as much as you can
 > reasonable can to make sure it will work)
+
+After the first change merged (PR 128), before any release was cut (2026-10-16):
+
+> Do we really need a PR? I have done this in the past where we release the job, we do the release
+> from action. And if I remember correctly there's no PR involved.
 
 ## Decisions
 
@@ -36,26 +41,27 @@ owner's words (2026-10-16):
   listed under "Other changes"
 - **The first release is `v2.0.0`,** whatever the subjects say; its notes cover `main`'s first-parent
   subjects since `v1-final` (84 today). `v1.*` tags and `v1-final` never count as releases here
-- **Releases are cut by a tested script and a release PR, not by release-please:** D-10 named
-  release-please, but a PR it opens with the workflow's `GITHUB_TOKEN` starts no CI run (GitHub
-  doesn't trigger workflows from that token's events), so its PR could never pass the required
-  `fast` and `slow` checks without a second token or app in the repo. Instead
-  `scripts/release.py prepare`, run in a session on the owner's ask from a fresh branch off `main`,
-  writes the next version to `VERSION` and its notes to the top of `CHANGELOG.md`; the session opens
-  that as a normal PR titled `chore(release): v<version>`, which runs CI like any other and which
-  the owner approves and merges. Same shape D-10 decided (release PR, owner merges, CI tags), with
-  no new credential. Claude's proposal, for the owner's go. The script refuses a shallow clone or
-  one without tags (a cloud session's clone is both), since either silently shortens the history
+- **A release is a button, not a PR** (owner, 2026-10-16, replacing the release PR of the first
+  change): the owner clicks "Run workflow" on `.github/workflows/release.yml` (`workflow_dispatch`).
+  It computes the next version and notes from `main` and creates the tag and the GitHub release; no
+  PR, no commit, no `VERSION` or `CHANGELOG.md` file (the notes live on the release page). Rejected:
+  release-please (a PR it opens with the workflow's `GITHUB_TOKEN` starts no CI, so it could never
+  pass the required checks without a second credential) and the first change's release PR (a PR,
+  two CI tiers and a review round for a version number, and a failure mode when `main` moved after
+  it was prepared)
+- **Only the owner can release:** the workflow's first step fails the run unless the run is on
+  `main` and both the actor who started it and the one who re-ran it (`github.actor`,
+  `github.triggering_actor`) are the repository's owner (`github.repository_owner`), read through
+  `env:`. The agent identity has write access and could start the workflow through the API; this
+  stops it. The guard sits in a file on `main`, which changes only by a reviewed PR, so it holds
+  (a wall, with branch protection)
 - **CI creates the tag and the GitHub release** (A-25: a session's git proxy refuses tag pushes):
-  `.github/workflows/release.yml` runs on every push to `main` with `contents: write`, one run at a
-  time, on a full clone with tags. `scripts/release.py tag-plan` needs no "before" SHA, so a re-run,
-  a push of several commits and a first push all behave the same: it plans a tag only when `VERSION`
-  names a version with no tag yet; the tag goes on the commit that last changed `VERSION` (the
-  release PR's squash commit). It refuses (exit 2, so the run goes red and nothing is tagged) when
-  the version isn't above every v2 tag, or when the version or notes differ from what the history up
-  to that commit's parent gives, i.e. `main` moved after `prepare`; the fix is another release PR,
-  where `prepare` regenerates the untagged section. Then `gh release create` makes the tag and the
-  release with those notes. The workflow is not a required check
+  the workflow runs with `contents: write`, one run at a time, on a full clone with tags;
+  `scripts/release.py plan --notes-file <path>` prints the tag and `main`'s head SHA and writes the
+  notes, or exits 1 when nothing since the last release bumps the version (the run goes red, saying
+  so); then `gh release create` makes the tag on that SHA and the release. The script refuses a
+  shallow clone or one without tags, since either silently shortens the history. The published
+  release's tag is locked by the owner's release immutability setting (F-NEW-95)
 - **The title is checked wherever it is set:** in CI's `fast` job (already a required check),
   `scripts/pr-title-check.py` reads the PR's title on a pull request and the head commit's subject
   on a push to `main`, both through `env:`, never interpolated into the script. And `ship.sh`, the
@@ -74,13 +80,13 @@ owner's words (2026-10-16):
   and that of `project-files-at.sh` and `project-files.py`, says "a release tag or commit SHA", and
   messages show a tag in full (a SHA still as 12 characters). The `upgrade` skill's default NEW
   becomes the newest `vX.Y.Z` tag in the local copy by version order (`main` only when there is
-  none, or when the owner names it), and it writes NEW as named. A release made after the
+  none, or when the owner names it), and it writes NEW as named. It shows what changed as the
+  commits between OLD and NEW, which the local copy holds offline. A release made after the
   environment's cache was built isn't in the copy until it rebuilds, as for SHAs today
 - **A newer release shows in the `DEVSHOP:` line:** when the project pins a `vX.Y.Z` tag and the
   local copy holds a higher one, the line adds "newer release v<newest> in the copy
   (/devshop:upgrade)". Feedback only; a SHA pin or no pin adds nothing (owner, 2026-10-16: "if
   trivial")
-- **`CHANGELOG.md`** sits at the root and is linked from `docs/README.md` (the docs-map check)
 - **This repo's CLAUDE.md** gains the prefix rule on its commit-subject line. Projects don't release,
   so their titles and the `pr` skill are untouched
 
@@ -101,29 +107,27 @@ owner's words (2026-10-16):
 - **AC-4** The notes group subjects under "Breaking changes", "Features", "Fixes" and "Other changes"
   (unprefixed and non-bumping types), in history order, each without its prefix; an empty group is
   left out
-- **AC-5** `scripts/release.py prepare` writes the version to `VERSION` and puts its notes under a
-  `## v<version> (<date>)` heading at the top of `CHANGELOG.md` (creating it if missing, keeping
-  earlier sections, replacing the section of a version that has no tag yet), and refuses with
-  nothing written when there is nothing to release (exit 1) or when the working tree has
-  uncommitted changes (exit 2)
-- **AC-6** `scripts/release.py tag-plan --notes-file <path>` prints the tag and the SHA to tag, and
-  writes the notes, when `VERSION` names a version with no tag; prints nothing and exits 0 when
-  there is no `VERSION` or its tag exists on the commit that last changed it; and exits 2 when
-  `VERSION` isn't `X.Y.Z`, the tag exists on another commit, the version isn't above every v2 tag,
-  `CHANGELOG.md` has no section for it, or the version or notes differ from what the history up to
-  the parent of the commit that last changed `VERSION` gives
-- **AC-7** `.github/workflows/release.yml` runs on push to `main`, with `contents: write` and a
-  `concurrency` group, checks out with `fetch-depth: 0`, runs `tag-plan`, and runs `gh release create` with the planned tag, `--target` the planned SHA and the notes file only when a tag was
-  planned (checked by a test that parses the workflow, and by running its steps' commands against a
-  scratch repo)
+- **AC-5** `scripts/release.py plan --notes-file <path>` prints `tag=v<version>` and
+  `sha=<HEAD's full SHA>` and writes the notes when there is something to release, and exits 1 with
+  "nothing to release", writing nothing, when there isn't (`main`'s head already released included);
+  it exits 2 when the computed tag already exists on a commit `main` doesn't reach
+- **AC-6** `scripts/release.py` has no other command: no `prepare`, no `tag-plan`, and it writes no
+  `VERSION` or `CHANGELOG.md`
+- **AC-7** `.github/workflows/release.yml` runs only on `workflow_dispatch`, with `contents: write`
+  and a `concurrency` group; its first step fails unless the ref is `refs/heads/main` and the actor
+  and triggering actor are the repository owner, all read through `env:`; it checks out with
+  `fetch-depth: 0`, runs `plan`, then `gh release create` with the planned tag, `--target` the
+  planned SHA and the notes file (checked by a test that parses the workflow and runs its steps'
+  commands against a scratch repo with a fake `gh`, the guard with an owner, another actor, a
+  re-run by another actor and another branch)
 - **AC-8** In the install test that replays the setup script, a project whose `.devshop-version`
   holds a release tag gets the line `DEVSHOP: using <tag> (<sha12>) from project .devshop-version`
   and that tag's runtime; a tag missing from the copy gets the "not in the local devshop copy" line
 - **AC-9** The `upgrade` skill's step 1 picks the newest `vX.Y.Z` tag in the local copy as NEW unless
   the owner names a version, and step 3 writes NEW as named to `.devshop-version`; the wrapper
   (`project-files-at.sh`) and the drift check in `session-start.sh` accept a tag as the version
-- **AC-10** CLAUDE.md, `install/README.md`, D-10 and A-25's rows say how a release is cut and pinned
-  now — verified by review: the diff of those files
+- **AC-10** CLAUDE.md, `docs/README.md`, `install/README.md`, D-10 and A-25's rows say how a release
+  is cut (the button) and pinned now — verified by review: the diff of those files
 - **AC-11** `ship.sh` stops before the review, with the check's reason and nothing pushed, when the
   repo has an executable `scripts/pr-title-check.py` that fails the title; it goes on when that
   check passes or the repo has none; it stops as could-not-run (exit 2, nothing pushed) when the
@@ -134,10 +138,10 @@ owner's words (2026-10-16):
 
 ## Out of scope
 
-- Cutting `v2.0.0` itself: after this merges, a separate release PR made with `release.py prepare`,
-  which the owner merges. Its merge is the live check of A-25 and AC-7 (the tag and release
-  appear), recorded on R-11 and A-25 then; R-11 is `Done` only after it
-- A wall on tags (a ruleset so only CI can create, move or delete `v2.*` tags): logged as a finding
+- Cutting `v2.0.0` itself: after this merges, the owner clicks "Run workflow". That run is the live
+  check of A-25 (the tag and release appear) and, with the owner's try at moving `v2.0.0`, of
+  F-NEW-95; recorded on R-11 and A-25 then. R-11 is `Done` only after it
+- A wall on tags beyond release immutability: F-NEW-95
 - Release-please, a GitHub App or a second token; v1's `release.sh` and its skill (v1 is frozen)
 - Conventional Commit prefixes in projects, and checks on the commit subjects inside a PR's branch
   (only the title lands, once the squash setting is changed)
