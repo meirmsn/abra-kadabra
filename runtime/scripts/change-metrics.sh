@@ -40,7 +40,10 @@ list() { api --paginate "$1" | jq -s 'add // []'; }
 
 api "repos/$slug/pulls/$pr" >"$work/pr.json"
 list "repos/$slug/issues/$pr/comments?per_page=100" >"$work/comments.json"
-if jq -e 'any(.[]; (.body // "") | startswith("<!-- devshop-metrics"))' "$work/comments.json" >/dev/null; then
+# Only the session's own comments count: it is the PR's author, and anyone can write a look-alike.
+me=$(jq -r '.user.login' "$work/pr.json")
+if jq -e --arg me "$me" 'any(.[]; .user.login == $me and ((.body // "") | startswith("<!-- devshop-metrics")))' \
+  "$work/comments.json" >/dev/null; then
   echo "change-metrics: PR #$pr already has its metrics comment; nothing posted"
   exit 0
 fi
@@ -74,7 +77,8 @@ prev=()
 earlier=$(python3 "$here/change-metrics.py" previous-pr --pr "$pr") || cnr "can't read the transcript"
 if [ -n "$earlier" ]; then
   was=$(list "repos/$slug/issues/$earlier/comments?per_page=100" |
-    jq -r '[.[] | .body // "" | capture("^<!-- devshop-metrics cost:(?<c>[0-9.]+) -->").c] | first // "unknown"')
+    jq -r --arg me "$me" '[.[] | select(.user.login == $me) | .body // ""
+      | capture("^<!-- devshop-metrics cost:(?<c>[0-9.]+) -->").c] | first // "unknown"')
   prev=(--prev-cost "$was")
 fi
 

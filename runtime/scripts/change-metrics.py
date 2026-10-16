@@ -340,6 +340,8 @@ def render(a):
     time_parts = [f"{dur(working)} Claude working", f"{dur(waiting)} waiting on you"]
     if state in ("live", "failed"):
         time_parts.append(f"{dur(span(merged, end))} deploying")
+    elif state == "unknown":
+        time_parts.append("unknown deploying")
 
     # Your input
     who = owners(pr, reviews, comments)

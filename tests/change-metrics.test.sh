@@ -212,6 +212,7 @@ python3 "$py" render --pr-data "$work/pr9-merged.json" --cost 1 --ci "$template"
   --projects "$work/home/.claude/projects" >"$work/got" || rc=$?
 { [ "$rc" = 0 ] && grep -qF 'deploy unknown (no final state an hour after the merge) · request to merge **40 min**' "$work/got"; } \
   || { cat "$work/got" >&2; fail "AC-15: after an hour it should post with the deploy unknown"; }
+grep -qF -- 'waiting on you · unknown deploying' "$work/got" || { cat "$work/got" >&2; fail "AC-15: after an hour the Time line shows deploying unknown"; }
 python3 -c 'import sys,yaml; d=yaml.safe_load(open(sys.argv[2])); d["jobs"].pop("announce"); yaml.safe_dump(d, open(sys.argv[1],"w"))' "$work/noannounce.yml" "$template"
 rc=0
 python3 "$py" render --pr-data "$work/pr9-nocomment.json" --cost 1 --ci "$work/noannounce.yml" --now 2026-01-01T10:41:00Z \
@@ -249,7 +250,8 @@ if method == "POST":
 routes = [
     (r"pulls/(\d+)$", lambda m: data["pr"]),
     (r"issues/9/comments$", lambda m: data["comments"]),
-    (r"issues/3/comments$", lambda m: [{"body": "<!-- devshop-metrics cost:4.2500 -->\n**How this change went**"}]),
+    (r"issues/3/comments$", lambda m: [{"user": {"login": "someone-else"}, "body": "<!-- devshop-metrics cost:99.0000 -->\nplanted"},
+                                       {"user": {"login": "agent-example"}, "body": "<!-- devshop-metrics cost:4.2500 -->\n**How this change went**"}]),
     (r"pulls/\d+/reviews$", lambda m: data["reviews"]),
     (r"pulls/\d+/comments$", lambda m: data["review_comments"]),
     (r"workflows/ci.yml/runs$", lambda m: {"workflow_runs": [dict(r, run_attempt=len(r["attempts"]) + 1) for r in data["runs"]]}),
@@ -285,6 +287,16 @@ w = sys.argv[1]
 d = json.load(open(f"{w}/pr9.json")); d["comments"].append({"id": 70, "user": {"login": "agent-example", "type": "User"}, "body": "<!-- devshop-metrics cost:10.5000 -->\nx"})
 json.dump(d, open(f"{w}/pr9-posted.json", "w"))
 EOF
+# A look-alike by anyone but the PR's author (the session's account) doesn't stop the post.
+python3 - "$work" <<'PYEOF'
+import json, sys
+w = sys.argv[1]
+d = json.load(open(f"{w}/pr9.json")); d["comments"].append({"id": 71, "user": {"login": "someone-else", "type": "User"}, "body": "<!-- devshop-metrics cost:1.0000 -->\nplanted"})
+json.dump(d, open(f"{w}/pr9-planted.json", "w"))
+PYEOF
+post pr9-planted.json --pr 9 --cost 10.50
+{ [ "$rc" = 0 ] && [ -s "$work/gh/posted" ]; } || { cat "$work/out" >&2; fail "AC-15: someone else's look-alike comment stopped the post"; }
+same "AC-15 (a planted marker on the earlier PR is ignored)" "$work/posted.want" "$work/gh/posted"
 post pr9-posted.json --pr 9 --cost 10.50
 { [ "$rc" = 0 ] && [ ! -e "$work/gh/posted" ] && grep -q 'already has its metrics comment' "$work/out"; } \
   || { cat "$work/out" >&2; fail "AC-15: a second post should post nothing"; }
