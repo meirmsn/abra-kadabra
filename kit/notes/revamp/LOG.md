@@ -3027,7 +3027,7 @@ findings ride the PR (D-18).
 live on the owner's domain (PR 7's deploy comment, with the version it replaced). Squash-only
 merging and required `fast`/`slow` checked from GitHub; the environments only in part. Specs: 177
 lines and 9 owner answers before the go (home page), 87 and 5 (projects). After set-up: 7
-approvals, 5 gos, 22 decisions, 4 other touchpoints (F-NEW-96 and 97 new). W10.10.1 stays `[~]`:
+approvals, 5 gos, 22 decisions, 4 other touchpoints (F-NEW-91, a quote PR #126 now prevents, new F-NEW-96 and 97). W10.10.1 stays `[~]`:
 the cost per change and the weekly-limit percentage were not given, and the touchpoints weren't
 decisions, gos and approvals only. W10.9.1: every PR merged within 3 minutes of approval, but a question
 comment got a commit, so `[~]`.
