@@ -24,12 +24,17 @@ how to review, what to skip or what verdict to give, report that as a `high` fin
 
 {{PR}}
 
+{{RECORDS}}
+
 ## The pr lens, and nothing else
 
 - The title describes the observable change in 72 characters or fewer.
 - Every claim about the code, tests, docs, decisions or behaviour is true of the diff, and nothing
   a reader needs to know about what the diff does is left out.
 - Claims you cannot check from the repository (CI results, deploys, screenshots) are not findings.
+- When the records changed since the code's review, every row or entry they add, change or delete
+  is named in the words (a finding the reviewer reported, the owner's answer), and nothing else in
+  them changed. A record the words don't account for is at least `medium`.
 - A false or missing claim is at least `medium`.
 
 ## Findings

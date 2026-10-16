@@ -438,6 +438,40 @@ for bad in words-with-ac words-code-finding words-pr-not-applied words-no-pr-row
   run "$r" "$bad" --base main --pr "$w2"
   expect "words-only reply '$bad' is could-not-run" 2 could-not-run '.reason!=""'
 done
+# Records only (specs/findings-and-roadmap.md): after a pass, a commit that changes only the root
+# FINDINGS.md or ROADMAP.md gets the words-only review, resting on the same full review, with the
+# records' diff in the prompt; any other file, or a pass that isn't an ancestor, gets a full review.
+rr="$work/words-records"; new_project "$rr"
+run "$rr" pr-pass --base main --pr "$w1"
+expect "records: the code's full review" 0 pass '.scope=="full"'
+full2=$(basename "$verdict")
+commit_file "$rr" FINDINGS.md "| F-1 | low | a long title (reviewer) | 2026-10-16 · PR 1 |"
+run "$rr" words-pass --base main --pr "$w2"
+expect "only FINDINGS.md changed since the pass: words only" 0 pass \
+  ".scope==\"words\" and .code_review==\"$full2\" and .commit==\"$(git -C "$rr" rev-parse HEAD)\" and (.acceptance|length)==2"
+prompt_is words
+grep -qF '| F-1 | low | a long title (reviewer) |' "$STUB_LOG.args" || fail "the words-only prompt lacks the records' diff"
+commit_file "$rr" ROADMAP.md "| R-1 | 2026-10-16 | a request | Open |"
+run "$rr" words-pass --base main --pr "$w2"
+expect "then only ROADMAP.md: words only, still resting on the full review" 0 pass ".scope==\"words\" and .code_review==\"$full2\""
+prompt_is words
+mkdir -p "$rr/docs"; commit_file "$rr" docs/FINDINGS.md "not the root file"
+run "$rr" pr-pass --base main --pr "$w2"
+expect "a FINDINGS.md below the root: a full review" 0 pass '.scope=="full"'
+prompt_is full
+printf '| F-2 | low | y | 2026-10-16 · PR 1 |\n' >>"$rr/FINDINGS.md"; echo "export const y = 2;" >"$rr/src/y.js"
+git -C "$rr" add -A && git -C "$rr" commit -qm "records and code"
+run "$rr" pr-pass --base main --pr "$w1"
+expect "records with code in one commit: a full review" 0 pass '.scope=="full"'
+printf '| F-3 | low | z | 2026-10-16 · PR 1 |\n' >>"$rr/FINDINGS.md"
+git -C "$rr" add -A && git -C "$rr" commit -q --amend -m "the pass's commit, rewritten with one more record"
+run "$rr" pr-pass --base main --pr "$w2"
+expect "a pass on a commit that isn't an ancestor: a full review" 0 pass '.scope=="full"'
+prompt_is full
+r="$work/words"
+run "$r" words-pass --base main --pr "$w2"
+prompt_is words
+grep -qF 'No records changed since' "$STUB_LOG.args" || fail "words only with no records: the prompt doesn't say so"
 run "$r" pass --base main
 expect "no PR words: a full review" 0 pass '.scope=="full" and .pr==null'
 prompt_is full

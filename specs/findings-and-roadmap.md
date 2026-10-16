@@ -1,6 +1,6 @@
 # Every repo keeps a roadmap of what was decided and a findings log of what was noticed
 
-**Go:** pending
+**Go:** "go", noting that a devshop session simply uses the devshop's own findings and roadmap files (owner, 2026-10-16)
 
 ## Intent
 
@@ -66,7 +66,8 @@ of the devshop's fix for finding 13.
 - **Where each kind goes:** about the project: its own files. About the devshop: only the devshop's
   files. A project session never records a devshop finding in the project. At hand-over it lists
   them, one plain line each (what happened, where), in one block the owner pastes into a devshop
-  session, which matches and logs them under the same rules. A repeat of something already on a
+  session, which matches and logs them. A devshop session has no such block: it writes the
+  devshop's own two files directly (owner, 2026-10-16). A repeat of something already on a
   roadmap is not logged; Claude mentions it only if it makes the entry more urgent
 - **When a devshop fix will change the project:** the project does nothing ahead of it. The upgrade
   PR that brings the fix carries what the project must adapt (`devshop:upgrade`). Only when the
