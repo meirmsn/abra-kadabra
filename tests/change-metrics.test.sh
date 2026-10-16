@@ -431,7 +431,7 @@ EOF
 rc=0
 python3 "$py" render --pr-data "$work/pr9-nocomment.json" --cost 1 --ci "$work/noannounce.yml" --now 2026-01-01T10:41:00Z \
   --projects "$work/solo" >"$work/got" || rc=$?
-grep -qF -- 'no deploy comment · request to merge **70 min**' "$work/got" || { cat "$work/got" >&2; fail "clock AC-1: the clock should start at PR 3's merge"; }
+grep -qF -- 'no deploy comment · request to merge **1 h 10 min**' "$work/got" || { cat "$work/got" >&2; fail "clock AC-1: the clock should start at PR 3's merge"; }
 grep -qF -- '- **Time:** 21 min Claude working · 49 min waiting on you' "$work/got" || { cat "$work/got" >&2; fail "clock AC-1: times from PR 3's merge"; }
 grep -qF -- '- **Your input:** 0 answers in chat' "$work/got" || { cat "$work/got" >&2; fail "clock AC-1: no owner message means 0 answers, not unknown"; }
 echo "ok: clock AC-1 a change the session starts on its own is timed from the previous merge"
@@ -442,5 +442,20 @@ python3 "$py" render --pr-data "$work/pr9-nocomment.json" --cost 1 --ci "$work/n
   --projects "$work/none2" >"$work/got" || rc=$?
 grep -qF -- 'request to merge **unknown**' "$work/got" || { cat "$work/got" >&2; fail "clock AC-2: no start without a previous merge or an owner message"; }
 echo "ok: clock AC-2 an owner message still starts the clock; nothing to start from stays unknown"
+
+# --- specs/metrics-hours.md ---
+# hours AC-1: from an hour up, hours and minutes; under an hour unchanged (the 70-minute case above).
+python3 - "$py" <<'PYEOF' || fail "hours AC-1: durations"
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("cm", sys.argv[1]); cm = importlib.util.module_from_spec(spec)
+sys.dont_write_bytecode = True
+spec.loader.exec_module(cm)
+want = {211: "3 min 31 s", 600: "10 min", 27 * 60: "27 min", 59 * 60 + 29: "59 min", 59 * 60 + 36: "1 h",
+        3600: "1 h", 7200: "2 h", 221 * 60: "3 h 41 min", 25 * 3600 + 60: "25 h 1 min"}
+bad = {s: (cm.dur(s), w) for s, w in want.items() if cm.dur(s) != w}
+for s, (g, w) in bad.items(): print(f"dur({s}) = {g!r}, want {w!r}")
+sys.exit(1 if bad else 0)
+PYEOF
+echo "ok: hours AC-1 an hour or more shows hours and minutes"
 
 echo "PASS: change-metrics"
