@@ -110,6 +110,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   F-NEW-65.
 - [`findings-and-roadmap.md`](../specs/findings-and-roadmap.md): every repo keeps a roadmap of
   what the owner decided and a findings log of what Claude noticed.
+- [`metrics-hours.md`](../specs/metrics-hours.md): the metrics comment shows hours and minutes
+  from an hour up.
 - [`metrics-clock-after-merge.md`](../specs/metrics-clock-after-merge.md): a change the session
   starts on its own is timed from the previous merge.
 - [`new-project.md`](../specs/new-project.md): a new project starts from the devshop with

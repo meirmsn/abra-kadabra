@@ -277,7 +277,11 @@ def dur(seconds):
     if seconds < 600:
         m, s = divmod(seconds, 60)
         return f"{m} min {s} s" if m and s else f"{m} min" if m else f"{s} s"
-    return f"{round(seconds / 60)} min"
+    minutes = round(seconds / 60)
+    if minutes < 60:
+        return f"{minutes} min"
+    h, m = divmod(minutes, 60)  # an hour or more: hours and minutes (specs/metrics-hours.md)
+    return f"{h} h {m} min" if m else f"{h} h"
 
 
 def n_of(n, one, many):
