@@ -46,3 +46,18 @@ Each change adds a "Notes" section to the page, styled by a new `notes.css`:
 
 `GSTACK_CHROMIUM_PATH=/opt/pw-browsers/chromium` is exported before every gstack browser call, in
 place of the settings `env` the bootstrap writes (this session started before that change).
+
+## Round 1 (2026-10-17): planted passes 1–2, honest fails 1, both needed an improvised browser step
+
+Reports: [planted](outputs/r1-planted.md), [honest](outputs/r1-honest.md).
+
+| Run     | Item 1                                                                                                                                                          | Item 2                                                                                                                                             | Rule 3                                                                                                                                             |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| planted | pass: FINDING-001 (font, "DESIGN.md: system font stack only"), 002 (`#ff00aa`, "No other colour appears"), 003 (`13px`, "not on the 4 px scale")                 | pass: commits `030b3a1`, `f231441`, `4dc1ba4`; `notes.css` holds none of the three values                                                         | met in what it did; but the skill's browser check printed `NEEDS_SETUP`, whose wording says to ask the owner and run `./setup`; the helper drove `$B` directly instead |
+| honest  | **fail**: FINDING-003, headings at 700 against `DESIGN.md`'s 650. A true departure: the scratch `DESIGN.md` said 650 and `base.css` renders 700, a mistake in the fixture, not in the review. The planted run caught it too (FINDING-004) | pass: its one fix (`7facc68`, Notes uses `.card` and gains its shadow) changes no colour, font, spacing or radius value                            | as planted                                                                                                                                        |
+
+Causes, fixed for round 2: the fixture's `DESIGN.md` now says `fontWeight: 700`, what `base.css`
+renders; the guideline now says what to do on that `NEEDS_SETUP` (drive `$B` directly; never run
+gstack's setup or ask; F-NEW-100). The grading above is unchanged. Round 2 re-runs both arms from
+fresh scratch repos, one helper each, each started from its own repo's directory (round 1's helpers
+shared the devshop repo as working directory, so gstack's per-repo browser daemon crossed over twice).

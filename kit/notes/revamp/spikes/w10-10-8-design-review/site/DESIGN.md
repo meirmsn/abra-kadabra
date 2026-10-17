@@ -28,7 +28,7 @@ typography:
     lineHeight: 1.5
   heading:
     fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"
-    fontWeight: 650
+    fontWeight: 700
   mono:
     fontFamily: "ui-monospace, 'SF Mono', Menlo, Consolas, monospace"
 spacing:

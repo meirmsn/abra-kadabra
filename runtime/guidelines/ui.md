@@ -63,4 +63,7 @@ styles, scripts a page loads, its assets), after its tests pass and before `devs
   findings fixed and logged, for commit `<sha>`; run again on a later round that changes what a
   page renders, and rewrite the line. Can't run (no browser, the app won't start, the skill fails):
   the line says why, and the owner hears it with the PR's link. Its browser is the image's
-  Chromium, which the bootstrap sets as `GSTACK_CHROMIUM_PATH`.
+  Chromium, which the bootstrap sets as `GSTACK_CHROMIUM_PATH`. _Mitigation:_ gstack's browser
+  check (`gstack-browser-ensure`) ignores that variable, so the skill prints `NEEDS_SETUP` though
+  its browser works: with the variable set, drive `$B` directly; never run gstack's `./setup` or ask
+  the owner to (its download is blocked). Root cause: that check in the pinned gstack, F-NEW-100.
