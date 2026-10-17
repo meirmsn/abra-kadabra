@@ -206,6 +206,14 @@ export PATH="$work/bin:$PATH"
 setup_env() {
   fresh_usr_local_bin
   rm -rf /opt/* /tmp/devshop-* "$HOME/plugin" "$HOME/marketplaces" "$HOME/.claude" "$HOME/gstack-setup.args" "$HOME/gstack-config.calls" "$HOME/bun.calls"
+  # DEVSHOP_TEST_CHROMIUM=1: the image ships Playwright's Chromium at /opt/pw-browsers/chromium.
+  # DEVSHOP_TEST_SETTINGS: what ~/.claude/settings.json holds before the bootstrap.
+  if [ -n "${DEVSHOP_TEST_CHROMIUM:-}" ]; then
+    mkdir -p /opt/pw-browsers && printf '#!/bin/sh\n' >/opt/pw-browsers/chromium && chmod +x /opt/pw-browsers/chromium
+  fi
+  if [ -n "${DEVSHOP_TEST_SETTINGS:-}" ]; then
+    mkdir -p "$HOME/.claude" && printf '%s\n' "$DEVSHOP_TEST_SETTINGS" >"$HOME/.claude/settings.json"
+  fi
   git clone -q --bare "$src" /opt/devshop.git
   [ "${1:-main}" = main ] || git --git-dir=/opt/devshop.git update-ref refs/heads/main "refs/heads/$1"
   # Line 1 clones with the token in the URL; the bootstrap must not keep it (nor name an account).
@@ -404,6 +412,27 @@ grep -qx "bun install --frozen-lockfile (in $HOME/.claude/skills/gstack)" "$HOME
 # The pin is the only upgrade path: gstack's own update check is off (auto_upgrade is off by default).
 grep -qx "set update_check false" "$HOME/gstack-config.calls" 2>/dev/null || fail "gstack's update check wasn't turned off"
 echo "ok - gstack installed at the pinned commit; setup ran non-interactively with its hooks off; update check off"
+
+# gstack's browser in a cloud session (specs/design-review-in-build.md AC-4): the Chromium its
+# Playwright wants isn't in the image and can't be downloaded, so the bootstrap points gstack at
+# the image's own Chromium through Claude Code's settings env, which every session's shell gets.
+# Its cross-project learnings stay off, so /design-review never asks the owner about them.
+grep -qx "set cross_project_learnings false" "$HOME/gstack-config.calls" 2>/dev/null \
+  || fail "gstack's cross-project learnings weren't turned off"
+[ "$(jq -r '.env.GSTACK_CHROMIUM_PATH // "none"' "$HOME/.claude/settings.json" 2>/dev/null || echo none)" = none ] \
+  || fail "GSTACK_CHROMIUM_PATH set although the image has no /opt/pw-browsers/chromium"
+DEVSHOP_TEST_CHROMIUM=1 DEVSHOP_TEST_SETTINGS='{"enabledPlugins":{"x@y":true},"env":{"KEEP":"1"}}' setup_env
+got=$(jq -c '{p: .enabledPlugins, e: .env}' "$HOME/.claude/settings.json" 2>/dev/null)
+[ "$got" = '{"p":{"x@y":true},"e":{"KEEP":"1","GSTACK_CHROMIUM_PATH":"/opt/pw-browsers/chromium"}}' ] \
+  || fail "settings.json with the image's Chromium: want GSTACK_CHROMIUM_PATH added and the rest kept, got $got"
+DEVSHOP_TEST_CHROMIUM=1 setup_env
+[ "$(jq -r .env.GSTACK_CHROMIUM_PATH "$HOME/.claude/settings.json" 2>/dev/null)" = /opt/pw-browsers/chromium ] \
+  || fail "no settings.json before the bootstrap: GSTACK_CHROMIUM_PATH wasn't written"
+DEVSHOP_TEST_CHROMIUM=1 DEVSHOP_TEST_SETTINGS='{not json' setup_env main FAILED
+grep -q "FAILED: gstack browser: $HOME/.claude/settings.json" /tmp/devshop-setup.log \
+  || { cat /tmp/devshop-setup.log >&2; fail "an unreadable settings.json wasn't logged as a failure"; }
+[ "$(cat "$HOME/.claude/settings.json")" = '{not json' ] || fail "an unreadable settings.json was changed"
+echo "ok - gstack's browser uses the image's Chromium when there is one (settings kept; a bad settings.json is left and logged); cross-project learnings off"
 
 # Bun is tied to the gstack pin: a Bun other than the one the pinned gstack is tested on fails the
 # gstack step loudly, before anything is installed with it.
