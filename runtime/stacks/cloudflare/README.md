@@ -32,9 +32,12 @@ so in the PR.
 The template's `deploy` job (`runtime/templates/ci.yml`) runs the project's `scripts/deploy.sh` on
 `main` after `fast` and `slow`, in the `production` environment, concurrency group `production`
 without cancelling. The website's `scripts/deploy.sh` is the reference; a new project copies it and
-its test (`tests/deploy.test.sh`, fake `wrangler` and `curl`, no network) from the website until the
-devshop carries them as tested templates (deferred with TARGET Reach 5; FINDINGS F-NEW-100). What it
-does, in order, and why:
+its test (`tests/deploy.test.sh`, fake `wrangler` and `curl`, no network), and the preview scripts
+below, from the website until the devshop carries them as tested templates (deferred with TARGET
+Reach 5; FINDINGS F-NEW-100). A session is attached to its own repo, so it asks the owner to attach
+the website's repo read-only for that change (the owner agrees per TARGET Safety 9; this home was
+written the same way), names the files it copied and their source commit in the PR, and writes
+nothing there. What `deploy.sh` does, in order, and why:
 
 1. **Refuses the wrong Worker.** It reads the config's `name` with wrangler's own reader and exits 2
    unless it equals `$DEPLOY_NAME` (default `website`). The production account also holds a Worker

@@ -17,7 +17,7 @@ trap 'rm -rf "$work"' EXIT
 # A real home, not a hollow one: the sections W10.10.2 asks for, each as a heading.
 for h in 'Set-up' 'Deploy, with the day-one rollback' 'Previews' 'The quality bar' 'Platform controls in use' \
   'Cloud-session facts' 'Tests are named by spec and item' "What the website's first changes taught"; do
-  grep -q "^## $h" "$home/README.md" || fail "the home has no '## $h' section"
+  grep -qx "## $h" "$home/README.md" || fail "the home has no '## $h' section"
 done
 ! grep -qi 'placeholder' "$home/README.md" || fail "the home still calls itself a placeholder"
 
