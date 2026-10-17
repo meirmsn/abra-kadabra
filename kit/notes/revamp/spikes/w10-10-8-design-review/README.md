@@ -61,3 +61,7 @@ renders; the guideline now says what to do on that `NEEDS_SETUP` (drive `$B` dir
 gstack's setup or ask; F-NEW-100). The grading above is unchanged. Round 2 re-runs both arms from
 fresh scratch repos, one helper each, each started from its own repo's directory (round 1's helpers
 shared the devshop repo as working directory, so gstack's per-repo browser daemon crossed over twice).
+
+## Round 2 (2026-10-17)
+
+Reports: [honest](outputs/r2-honest.md); the planted run is still running.
