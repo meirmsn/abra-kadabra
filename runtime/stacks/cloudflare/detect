@@ -1,0 +1,4 @@
+# Cloudflare Workers: a wrangler config in the project (the website's wrangler.jsonc, the fixture's).
+wrangler.jsonc
+wrangler.json
+wrangler.toml
