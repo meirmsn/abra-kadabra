@@ -13,77 +13,106 @@ bootstrap and no skill uses them except `/spec` (REVIEW-2 § 2); the reviewer re
 
 ## Decisions
 
-- **Where it runs: a local run of the change's branch, not the preview.** The project's preview is
-  deployed by its PR workflow, and `ship.sh` is the only way to a PR, so before `ship` there is no
-  preview to review: "on the preview" and "before `ship`" can't both hold. A local run keeps "before
-  `ship`", so the owner never sees a PR that design review hasn't passed, and needs no preview host
-  in the session's network allowlist. `/design-review`'s diff-aware mode is built for it (a feature
-  branch, the app on a local port, only the pages the diff touches). Rejected: the preview after the
-  first `ship` (the owner is told about a PR that a second round then changes); a preview deployed
-  on every branch push (a workflow change in every project, and the preview token on pushes that are
-  not PRs). The preview stays the owner's to look at (proposed, 2026-10-17; the owner's call)
-- **What counts as a UI change:** a change whose spec has a Core flow (the spec template asks UI
-  changes for one), or a bug fix that changes what a page renders. A change to code no page renders
-  skips it, and the PR body says nothing about it
-- **How it runs:** after the change is built and its tests pass, before `devshop:pr`: start the app
-  locally the way the project's `CLAUDE.md` or stack home says, then `/design-review` on that URL,
-  which reads the project's `DESIGN.md` itself and calibrates to it. Its fix loop runs: its fixes
-  are commits on the change's branch by the same session, the only writer. A fix that would change a
-  spec decision or acceptance item is not made: it goes to the owner as a spec change (`intent`
-  step 5)
-- **Its findings, like the reviewer's:** each one it fixes is fixed in the branch; each one it defers
-  becomes a row in the project's `FINDINGS.md` (its severity mapped to the template's high, med,
-  low) or a sighting on the row it matches, in the same records-only commit as the reviewer's low
-  findings; `devshop:pr` § 3 then asks the owner "roadmap or keep watching?" for the med and high
-  ones, as it already does. Its `TODOS.md` step (Phase 11) is skipped: `FINDINGS.md` is the record
-- **What the owner sees:** one line under the PR's Evidence: the design score before and after, how
-  many findings it fixed and how many it logged, for the commit it reviewed. The template marks the
-  line as for UI changes only, and `pr-body-check.py` doesn't require it; rejected: a required label
-  (every PR without UI would carry it, and a check change needs its own failing tests and mutants
-  for a line the reviewer already reads). The reviewer's design/QA lens stays as it is (W10.10.4
-  gives it a browser later)
-- **When it can't run** (no browser, the app won't start locally, the skill errors): build doesn't
-  skip it in silence. The Evidence line says "could not run" and why, and the owner is told in chat
-  with the PR's link. It is feedback, not a wall (CLAUDE.md, Walls vs feedback): it doesn't block
-  `ship`, CI and the owner's approval do
-- **The proof, before the merge:** in this session, a scratch site made from the devshop's UI
-  baseline (`runtime/templates/ui/`) with a `DESIGN.md`, served on a local port, on a scratch
-  feature branch. Two runs of `/design-review` as the build skill words it: a page with three
-  planted breaks of its `DESIGN.md` (a font it doesn't name, a spacing value off its scale, a layout
-  that overflows at 375 px), and the honest page. Pass: the planted run reports all three and its
-  fix loop fixes them; the honest run reports no departure from `DESIGN.md`. Prompts, reports and
-  grading go in `kit/notes/revamp/spikes/w10-10-8-design-review/`. Grading is fixed before the runs
-  and not changed after. Rejected: proving it on the website repo (out of this session's scope) and
-  a CI test (CI stays plain, no agentic jobs; TARGET Verify 3)
+- **Where it runs (open, the owner's call): a local run of the change's branch, proposed.** The
+  project's preview deploys from its PR workflow, and `ship.sh` is the only way to a PR, so before
+  the first `ship` there is no preview: "on the preview" and "before `ship`" can't both hold. A local
+  run keeps "before `ship`": the PR is created ready, so the owner is notified only after design
+  review, and a design fix doesn't cost a second full reviewer round (about 10 minutes each). It is
+  the builder's own check; R-6 (W10.10.4) is the independent reviewer browsing, a different actor.
+  Rejected: the preview after the first `ship`, before telling the owner (the owner gets GitHub's
+  notice of a ready PR first, and every fix is a full review round); a preview on every branch push
+  (a workflow change in every project) (proposed, 2026-10-17)
+- **The browser:** gstack's browser doesn't start in a cloud session as installed (F-NEW-87): the
+  bootstrap installs gstack with `--no-browser`, and the Chromium its pinned Playwright wants isn't
+  in the image, whose network blocks the download. Probed in this session: its own check prints
+  `BROWSER_UNAVAILABLE` (wants `chromium_headless_shell-1234`; the image has `-1194`); with
+  `GSTACK_CHROMIUM_PATH=/opt/pw-browsers/chromium`, `browse goto` loads a local page. So the
+  bootstrap's gstack step, when the image has that Chromium, sets that variable for the session's
+  shells; without it, design review can't run and says so. Rejected: downloading gstack's Chromium
+  (blocked, ~115 MiB per session) (proposed, 2026-10-17)
+- **What counts as a UI change:** one that changes what a page renders (markup, styles, scripts a
+  page loads, its assets), whether or not the spec has a Core flow. Anything else skips it, and the
+  PR says nothing about it. A project with no `DESIGN.md` doesn't run it either: the Evidence line
+  says so (F-NEW-79 is the route to one)
+- **How it runs** (the step in `build` § 3, the detail in `runtime/guidelines/ui.md` § Design
+  review): after the change is built and its tests pass, with the tree committed, start the app
+  locally as the project's `CLAUDE.md` or stack home says, and run `/design-review` with that URL
+  and its scope set to the pages the change touches. Not gstack's diff-aware mode: that needs no URL
+  and looks only on ports 3000, 4000 and 8080. gstack's questions don't go to the owner; they are
+  answered as the guideline lists: no test framework bootstrap and no `CLAUDE.md` or `TESTING.md`
+  edits (the project's CI is its tests), no `DESIGN.md` written, no `TODOS.md` step, no Codex or
+  other outside voice (the project's code stays in the session), no cross-project learnings. The
+  bootstrap sets the gstack preferences it can (`cross_project_learnings false`)
+- **Its fixes (open, the owner's call): only what the change built, proposed.** Findings on the
+  pages and lines the change touches are fixed under `build` § 3's rules (commit subjects that
+  describe the change, tests edited when behaviour changes), not gstack's own commit format. The
+  rest is logged, not fixed, as `build` § 3 says for anything the change doesn't need. A fix that
+  would change a spec decision or acceptance item goes to the owner (`intent` step 5). After its
+  fixes, the new and affected tests and the fast checks run again. Rejected: gstack's whole fix
+  loop (it fixes every finding, polish and other pages included, which the reviewer's spec lens
+  would fail as added scope) (proposed, 2026-10-17)
+- **Its findings, like the reviewer's:** gstack's High is a blocker like the reviewer's med and high:
+  fixed before `ship`, or, when it can't be (outside the change, or a spec change), a `med` row
+  raised with the owner. Its Medium left unfixed is a `med` row and Polish a `low` row in the
+  project's `FINDINGS.md` (or a sighting on the row it matches). The rows are committed before
+  `ship`, so the reviewer sees them; `devshop:pr` § 3 asks "roadmap or keep watching?" for the
+  `med` ones, as it does today
+- **What the owner sees:** one line under the PR's Evidence, for UI changes only: design score and
+  AI-slop score before → after, findings fixed and logged, and the commit it reviewed; or why it
+  didn't run. It runs again on any later round that changes what a page renders, and the line is
+  rewritten for the new head. `pr-body-check.py` doesn't require it; rejected: a required label (a
+  check change with its own failing tests and mutants, for a line the reviewer already reads)
+- **When it can't run** (no browser, the app won't start locally, the skill errors): not skipped in
+  silence: the Evidence line says why, and the owner hears it with the PR's link. It is feedback,
+  not a wall (CLAUDE.md, Walls vs feedback): CI and the owner's approval stay the walls
+- **The proof (open, the owner's call): a scratch site in this session, proposed, and the website's
+  next UI change after the merge.** A local git repo made from `runtime/templates/ui/` with a
+  `DESIGN.md` in gstack's spec format, served on a local port, on a feature branch. Two runs of
+  `/design-review` as the guideline words them, in a shell started fresh with the bootstrap's
+  setting: a change with three planted breaks of `DESIGN.md` (a font it doesn't name, a spacing
+  value off its scale, a colour outside its palette; not a 375 px overflow, which the render check
+  already catches), and an honest change. Pass, fixed before the runs: the planted run names all
+  three as departures from `DESIGN.md` and fixes them in the branch; the honest run reports no
+  departure from `DESIGN.md` and commits no fix to its values; neither run asks a question or
+  writes a file the guideline rules out. Prompts, reports verbatim and grading go in
+  `kit/notes/revamp/spikes/w10-10-8-design-review/`. The gap, stated: this is not the website's own
+  environment; its first UI change after the merge is the live check, and its PR's Evidence line is
+  recorded on W10.10.8. Rejected: a CI test (CI stays plain, no agentic jobs; TARGET Verify 3)
 - **After the merge:** its value is judged as REVIEW-2 said: whether the owner's look-and-feel
-  comments on the website's PRs drop. That is watched on the next UI changes, not an item here
-- The build skill is at 54 lines and 508 words of its one-page cap (60 and 600, a warning only,
-  `scripts/skills-check.py`): the step is one bullet of at most four lines
+  comments on the website's PRs drop. Watched on the next UI changes, not an item here
+- Size: the build skill is at 54 lines and 508 words of its one-page cap (60 and 600, a warning
+  only); its step is one bullet, the detail goes in the UI guideline. The pr skill is already over
+  its cap (72 lines, 771 words): its change is a few words in an existing bullet
 
 ## Acceptance items
 
-- **AC-1** `runtime/skills/build/SKILL.md` has the step: for a UI change, after the tests pass and
-  before `devshop:pr`, `/design-review` on a local run against `DESIGN.md`; its fixes in the branch,
-  a fix that changes the spec raised with the owner, its deferred findings in `FINDINGS.md` like the
-  reviewer's, its `TODOS.md` step skipped, and a run that can't happen reported, not skipped —
-  verified by review: the diff
-- **AC-2** `runtime/skills/pr/SKILL.md` and `runtime/templates/pr-body.md` carry the design review's
-  Evidence line for UI changes only (score before and after, fixed, logged, the commit; or "could
-  not run" and why), `runtime/scripts/pr-body-check.py` is unchanged, and `devshop:pr` § 3 counts
-  design-review findings with the reviewer's — verified by review: the diff
-- **AC-3** `tests/skills-check.test.sh` and `tests/pr-body-check.test.sh` pass with the change —
-  verified by review: CI on the PR's head
-- **AC-4** The spike record holds both runs (prompt, report verbatim, the grading fixed before the
-  runs), and they pass it: the planted run reports and fixes all three breaks, the honest run reports
-  no departure from `DESIGN.md` — verified by review: the spike record
-- **AC-5** `kit/notes/revamp/workstreams/W10-v2.md` marks W10.10.8 `[x]` with this PR, `ROADMAP.md`
-  marks R-5 `Done`, and `kit/notes/revamp/LOG.md` has an entry for it — verified by review: the diff
+- **AC-1** `runtime/skills/build/SKILL.md` § 3 has the step, pointing at the guideline: for a change
+  that changes what a page renders, after its tests pass and before `devshop:pr` — verified by
+  review: the diff
+- **AC-2** `runtime/guidelines/ui.md` § Design review says: the local run, the URL and scope, no run
+  without `DESIGN.md`, each gstack override listed in Decisions, fixes limited to what the change
+  built under `build` § 3's rules, the tests and fast checks run again, the severity mapping, rows
+  committed before `ship`, the re-run on later rounds, and "could not run" reported — verified by
+  review: the diff
+- **AC-3** `runtime/templates/pr-body.md` and `runtime/skills/pr/SKILL.md` carry the Evidence line
+  (UI changes only), `runtime/scripts/pr-body-check.py` is unchanged, and
+  `tests/pr-body-check.test.sh` still passes — verified by review: the diff and CI on the PR's head
+- **AC-4** `install/bootstrap.sh` sets `GSTACK_CHROMIUM_PATH` for the session's shells when the
+  image has `/opt/pw-browsers/chromium`, sets `cross_project_learnings` to false, and does neither
+  when it can't; `tests/bootstrap.test.sh` fails without the change and passes with it
+- **AC-5** The spike record holds both runs (prompt, report verbatim, the grading fixed before the
+  runs), and they pass it — verified by review: the spike record
+- **AC-6** `kit/notes/revamp/workstreams/W10-v2.md` W10.10.8 and `ROADMAP.md` R-5 carry the owner's
+  answer on where it runs; W10.10.8 is `[x]` with the post-merge check named and R-5 `Done`;
+  F-NEW-87's browser part is updated; `kit/notes/revamp/LOG.md` has an entry — verified by review:
+  the diff
 
 ## Out of scope
 
 - The reviewer's browser and its design/QA lens (W10.10.4, R-6)
 - A design review on the deployed preview, and any change to a project's preview workflow
 - Native apps: gstack's on-device design review comes with the iOS stack (M4)
-- `/design-consultation` and `/design-shotgun` (a project's first design direction, W10.10.1)
+- `/design-consultation` and `/design-shotgun`, and the rest of F-NEW-87 (the OpenAI key, the
+  comparison board on 127.0.0.1)
 - A CI job or check script for design quality: the quality bar (Lighthouse, axe-core, the render
-  and token checks) is already the deterministic part
+  and token checks) is the deterministic part
