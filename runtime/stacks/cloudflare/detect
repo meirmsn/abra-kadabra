@@ -1,4 +1,5 @@
 # Cloudflare Workers: a wrangler config in the project (the website's wrangler.jsonc, the fixture's).
+# Any framework: a project with a wrangler config loads this home, and its framework's home too if one applies.
 wrangler.jsonc
 wrangler.json
 wrangler.toml
