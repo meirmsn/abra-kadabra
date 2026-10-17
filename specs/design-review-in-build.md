@@ -75,7 +75,7 @@ bootstrap and no skill uses them except `/spec` (REVIEW-2 § 2); the reviewer re
   three as departures from `DESIGN.md` and fixes them in the branch; the honest run reports no
   departure from `DESIGN.md` and commits no fix to its values; neither run asks a question or
   writes a file the guideline rules out. Prompts, reports verbatim and grading go in
-  `kit/notes/revamp/spikes/w10-10-8-design-review/`. The gap, stated: this is not the website's own
+  [the spike record](../kit/notes/revamp/spikes/w10-10-8-design-review/README.md). The gap, stated: this is not the website's own
   environment; its first UI change after the merge is the live check, and its PR's Evidence line is
   recorded on W10.10.8. Rejected: a CI test (CI stays plain, no agentic jobs; TARGET Verify 3)
 - **After the merge:** its value is judged as REVIEW-2 said: whether the owner's look-and-feel
