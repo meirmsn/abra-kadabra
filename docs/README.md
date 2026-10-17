@@ -118,6 +118,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   green CI: the files placed, the owner's steps and the proof on a fresh repo.
 - [`pinned-tools-on-path.md`](../specs/pinned-tools-on-path.md): the project's own checks find the
   devshop's pinned gitleaks, shellcheck and dcg on PATH.
+- [`reviewer-browser.md`](../specs/reviewer-browser.md): the reviewer judges a local run of the
+  site against `DESIGN.md`, with a browser that reaches only that run.
 - [`ui-baseline.md`](../specs/ui-baseline.md): every web app starts from a design baseline, phone
   first, light and dark.
 
