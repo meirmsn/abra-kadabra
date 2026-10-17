@@ -15,8 +15,9 @@ under `devshop:build` § 3; this skill only puts them on the PR.
   on what changed and why it matters, the Announcement in the app user's words (guidance: `ship.sh`
   checks the shape, the owner the words). Claim only what you have just read from the real signal
   (CI, the preview).
-- From the build: the `STACKS:` line goes in the engineering details; a conflict where the project
-  won is said; **Changed after the go** lists the owner's answers or PR comments recorded in the spec.
+- From the build: the `STACKS:` line goes in the engineering details, the design review's line
+  under Evidence; a conflict where the project won is said; **Changed after the go** lists the
+  owner's answers or PR comments recorded in the spec.
 - **Screenshots go on the PR, never only in chat:** for a UI change, one per core-flow step and
   state-table state at the final commit, light and dark;
   `/opt/devshop-current/scripts/pr-assets.sh <image>...` adds them to the branch without changing

@@ -37,3 +37,30 @@ baseline sets these once (`button`, `.btn`, `:active`, `aria-busy`); don't redo 
   installed in the slow CI job (`npx playwright install --with-deps chromium`).
 - Either exits 2 when it can't judge; that's never a pass.
 - **The PR** carries the six screenshots it writes (`<width>-<theme>.png`), pinned to the commit.
+
+## Design review (before `ship`)
+
+`build` runs gstack's `/design-review` on every change that changes what a page renders (markup,
+styles, scripts a page loads, its assets), after its tests pass and before `devshop:pr`
+([spec](../../specs/design-review-in-build.md)). It is feedback, not a wall.
+
+- **Not without `DESIGN.md`:** no `DESIGN.md` in the project, no run; the PR's line says so.
+- **On a local run:** commit first (it needs a clean tree), start the app locally as the project's
+  `CLAUDE.md` or stack home says, and run it with that URL, scoped to the pages the change touches
+  (not its diff-aware mode, which takes no URL and looks only on ports 3000, 4000 and 8080).
+- **Unattended:** its questions don't go to the owner. No test framework bootstrap, no edits to
+  `CLAUDE.md` or `TESTING.md`, no `DESIGN.md` written, no `TODOS.md` step, no Codex or other
+  outside voice (the code stays in the session), no learnings from other projects.
+- **Fixes only what the change built:** a finding on the pages and lines the change touches is
+  fixed under `build` § 3 (its commit subjects, tests edited when behaviour changes), not in
+  gstack's commit format; anything else is logged, not fixed. A fix that would change a spec
+  decision or acceptance item goes to the owner (`intent` step 5). Then run the new and affected
+  tests and the fast checks again.
+- **Its findings, like the reviewer's:** High is fixed before `ship`; one that can't be (outside
+  the change, or a spec change) is a `med` row the owner is asked about. Medium left unfixed is a
+  `med` row, Polish a `low` row in `FINDINGS.md`, committed before `ship`.
+- **On the PR,** under Evidence: `**Design review:**` design score and AI-slop score before → after,
+  findings fixed and logged, for commit `<sha>`; run again on a later round that changes what a
+  page renders, and rewrite the line. Can't run (no browser, the app won't start, the skill fails):
+  the line says why, and the owner hears it with the PR's link. Its browser is the image's
+  Chromium, which the bootstrap sets as `GSTACK_CHROMIUM_PATH`.
