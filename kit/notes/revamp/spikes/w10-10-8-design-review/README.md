@@ -62,6 +62,22 @@ gstack's setup or ask; F-NEW-100). The grading above is unchanged. Round 2 re-ru
 fresh scratch repos, one helper each, each started from its own repo's directory (round 1's helpers
 shared the devshop repo as working directory, so gstack's per-repo browser daemon crossed over twice).
 
-## Round 2 (2026-10-17)
+## Round 2 (2026-10-17): both pass
 
-Reports: [honest](outputs/r2-honest.md); the planted run is still running.
+Reports: [planted](outputs/r2-planted.md), [honest](outputs/r2-honest.md). Fresh scratch repos,
+the same grading.
+
+| Run     | Item 1                                                                                                                                                               | Item 2                                                                                                                                          | Rule 3                                                                                                                                                         |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| planted | pass: FINDING-001 (font, "a font DESIGN.md doesn't name"), 002 (`#ff00aa`, "outside the palette", quoting `DESIGN.md`), 003 (`13px`, "off the 4px scale")               | pass: commits `d2f7738`, `a40713b`, `1d4056d`; `notes.css` holds none of the three values                                                      | pass: no question asked; `NEEDS_SETUP` handled as the guideline says; no ruled-out file written; nothing sent out                                              |
+| honest  | pass: no finding calls a value a departure from `DESIGN.md` ("12 colours, all DESIGN.md/base.css tokens"; the font "the system stack DESIGN.md mandates")              | pass: its one fix (`2e9e551`, Notes uses `.card` and gains its shadow) changes no colour, font, spacing or radius value                         | pass, as planted                                                                                                                                               |
+
+**What this shows and doesn't.** The skill, run by a fresh agent from the guideline alone, finds
+planted departures from a spec-format `DESIGN.md`, fixes only the change's own lines in the
+project's commit format, logs the rest, and runs without asking, once the browser check's false
+`NEEDS_SETUP` is handled (F-NEW-100). It runs in about 5 to 7 minutes. Not shown here: the
+website's own environment, the settings `env` reaching a session's shell (this session started
+before the bootstrap change), and `FINDINGS.md` rows committed (a subagent's file write is refused
+by the harness; a builder session writes them itself). gstack's telemetry consent question also
+comes back on each run while its marker is unset; the guideline's "its questions don't go to the
+owner" covered it. The website's first UI change after the merge is the live check.
