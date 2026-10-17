@@ -15,8 +15,9 @@ trap 'rm -rf "$work"' EXIT
 
 [ -f "$home/README.md" ] && [ -f "$home/detect" ] || fail "no cloudflare stack home at runtime/stacks/cloudflare"
 # A real home, not a hollow one: the sections W10.10.2 asks for, each as a heading.
-for h in 'Set-up' 'Deploy, with the day-one rollback' 'Previews' 'The quality bar' 'Platform controls in use' \
-  'Cloud-session facts' 'Tests are named by spec and item' "What the website's first changes taught"; do
+for h in 'Set-up' 'Deploy, with the day-one rollback' 'Previews: one Worker per PR, in a separate account' \
+  'The quality bar, in the slow tier' 'Platform controls in use (TARGET Safety 12)' 'Cloud-session facts' \
+  'Tests are named by spec and item' "What the website's first changes taught"; do
   grep -qx "## $h" "$home/README.md" || fail "the home has no '## $h' section"
 done
 ! grep -qi 'placeholder' "$home/README.md" || fail "the home still calls itself a placeholder"
