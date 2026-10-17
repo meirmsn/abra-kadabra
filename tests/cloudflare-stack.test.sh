@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # The Cloudflare stack home (W10.10.2): runtime/stacks/cloudflare/ loads for a Cloudflare Workers
 # project (a wrangler config, as the website and the fixture have) and never for a project with only a
-# package.json or a Next.js project; its README is a real home (a `## Set-up` section), not a
-# placeholder. Runs the real runtime/scripts/stack-homes.sh against the real runtime/stacks/.
+# package.json or a Next.js project; its README is a real home (its eight sections, each by heading),
+# not a placeholder. Runs the real runtime/scripts/stack-homes.sh against the real runtime/stacks/.
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
