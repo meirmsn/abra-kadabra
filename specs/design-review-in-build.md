@@ -1,6 +1,6 @@
 # Build runs a design review on every UI change before it ships
 
-**Go:** pending
+**Go:** "1. A 2. A 3. A", the answers to the three open calls on the go screen (owner, 2026-10-17)
 
 ## Intent
 
@@ -13,7 +13,7 @@ bootstrap and no skill uses them except `/spec` (REVIEW-2 § 2); the reviewer re
 
 ## Decisions
 
-- **Where it runs (open, the owner's call): a local run of the change's branch, proposed.** The
+- **Where it runs: a local run of the change's branch** ("1. A", owner, 2026-10-17). The
   project's preview deploys from its PR workflow, and `ship.sh` is the only way to a PR, so before
   the first `ship` there is no preview: "on the preview" and "before `ship`" can't both hold. A local
   run keeps "before `ship`": the PR is created ready, so the owner is notified only after design
@@ -21,7 +21,7 @@ bootstrap and no skill uses them except `/spec` (REVIEW-2 § 2); the reviewer re
   the builder's own check; R-6 (W10.10.4) is the independent reviewer browsing, a different actor.
   Rejected: the preview after the first `ship`, before telling the owner (the owner gets GitHub's
   notice of a ready PR first, and every fix is a full review round); a preview on every branch push
-  (a workflow change in every project) (proposed, 2026-10-17)
+  (a workflow change in every project)
 - **The browser:** gstack's browser doesn't start in a cloud session as installed (F-NEW-87): the
   bootstrap installs gstack with `--no-browser`, and the Chromium its pinned Playwright wants isn't
   in the image, whose network blocks the download. Probed in this session: its own check prints
@@ -43,14 +43,14 @@ bootstrap and no skill uses them except `/spec` (REVIEW-2 § 2); the reviewer re
   edits (the project's CI is its tests), no `DESIGN.md` written, no `TODOS.md` step, no Codex or
   other outside voice (the project's code stays in the session), no cross-project learnings. The
   bootstrap sets the gstack preferences it can (`cross_project_learnings false`)
-- **Its fixes (open, the owner's call): only what the change built, proposed.** Findings on the
+- **Its fixes: only what the change built** ("2. A", owner, 2026-10-17). Findings on the
   pages and lines the change touches are fixed under `build` § 3's rules (commit subjects that
   describe the change, tests edited when behaviour changes), not gstack's own commit format. The
   rest is logged, not fixed, as `build` § 3 says for anything the change doesn't need. A fix that
   would change a spec decision or acceptance item goes to the owner (`intent` step 5). After its
   fixes, the new and affected tests and the fast checks run again. Rejected: gstack's whole fix
   loop (it fixes every finding, polish and other pages included, which the reviewer's spec lens
-  would fail as added scope) (proposed, 2026-10-17)
+  would fail as added scope)
 - **Its findings, like the reviewer's:** gstack's High is a blocker like the reviewer's med and high:
   fixed before `ship`, or, when it can't be (outside the change, or a spec change), a `med` row
   raised with the owner. Its Medium left unfixed is a `med` row and Polish a `low` row in the
@@ -65,8 +65,8 @@ bootstrap and no skill uses them except `/spec` (REVIEW-2 § 2); the reviewer re
 - **When it can't run** (no browser, the app won't start locally, the skill errors): not skipped in
   silence: the Evidence line says why, and the owner hears it with the PR's link. It is feedback,
   not a wall (CLAUDE.md, Walls vs feedback): CI and the owner's approval stay the walls
-- **The proof (open, the owner's call): a scratch site in this session, proposed, and the website's
-  next UI change after the merge.** A local git repo made from `runtime/templates/ui/` with a
+- **The proof: a scratch site in this session, and the website's next UI change after the merge**
+  ("3. A", owner, 2026-10-17). A local git repo made from `runtime/templates/ui/` with a
   `DESIGN.md` in gstack's spec format, served on a local port, on a feature branch. Two runs of
   `/design-review` as the guideline words them, in a shell started fresh with the bootstrap's
   setting: a change with three planted breaks of `DESIGN.md` (a font it doesn't name, a spacing
