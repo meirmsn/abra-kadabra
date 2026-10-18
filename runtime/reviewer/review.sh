@@ -54,7 +54,12 @@ cleanup() {
   stop_local_run || true
   [ -z "$scratch" ] || rm -rf "$scratch"
 }
-trap cleanup EXIT # bash runs it on HUP, INT and TERM too (an interrupted review leaves nothing)
+trap cleanup EXIT
+# Stated, though bash runs the EXIT trap on these too (specs/reviewer-browser.md): an interrupted
+# review leaves nothing of the local run.
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 # Set once known; the verdict carries whatever is known when the review stops.
 repo="" head="" base_sha="" branch="" spec="" intent="" pr_json=null vdir=""

@@ -236,8 +236,8 @@ says there is no local run, and the design and QA lenses review by reading.
   linked, that `devshop-browse /` runs first and the reviewer's own calls reach the local run, that
   nothing of it is left after (a `nohup` child, an interrupt, a server that escapes the group is
   could-not-run), and that a script the change adds, a words-only review or no script starts
-  nothing and names no `devshop-browse`; 13 of 13 mutants killed (the signal traps were equivalent:
-  bash runs the EXIT trap on them, and they were removed).
+  nothing and names no `devshop-browse`; 13 of 13 mutants killed; the HUP, INT and TERM traps the spec
+  names are kept, though removing one is an equivalent mutant (bash runs the EXIT trap on them).
   [`tests/reviewer-browse.test.sh`](../../tests/reviewer-browse.test.sh) (slow tier, real Chromium)
   checks `browse.mjs`: six screenshots, only values that differ from the browser's defaults (the UI
   baseline's example reports only its tokens), overflow as the render check defines it, other
