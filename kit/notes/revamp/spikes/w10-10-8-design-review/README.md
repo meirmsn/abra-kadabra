@@ -58,7 +58,7 @@ Reports: [planted](outputs/r1-planted.md), [honest](outputs/r1-honest.md).
 
 Causes, fixed for round 2: the fixture's `DESIGN.md` now says `fontWeight: 700`, what `base.css`
 renders; the guideline now says what to do on that `NEEDS_SETUP` (drive `$B` directly; never run
-gstack's setup or ask; F-NEW-100). The grading above is unchanged. Round 2 re-runs both arms from
+gstack's setup or ask; F-NEW-101). The grading above is unchanged. Round 2 re-runs both arms from
 fresh scratch repos, one helper each, each started from its own repo's directory (round 1's helpers
 shared the devshop repo as working directory, so gstack's per-repo browser daemon crossed over twice).
 
@@ -75,7 +75,7 @@ the same grading.
 **What this shows and doesn't.** The skill, run by a fresh agent from the guideline alone, finds
 planted departures from a spec-format `DESIGN.md`, fixes only the change's own lines in the
 project's commit format, logs the rest, and runs without asking, once the browser check's false
-`NEEDS_SETUP` is handled (F-NEW-100). It runs in about 5 to 7 minutes. Not shown here: the
+`NEEDS_SETUP` is handled (F-NEW-101). It runs in about 5 to 7 minutes. Not shown here: the
 website's own environment, the settings `env` reaching a session's shell (this session started
 before the bootstrap change), and `FINDINGS.md` rows committed (a subagent's file write is refused
 by the harness; a builder session writes them itself). gstack's telemetry consent question also

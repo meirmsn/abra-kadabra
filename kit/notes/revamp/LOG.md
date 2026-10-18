@@ -3049,7 +3049,23 @@ a CI run, about 10 minutes a round.
 
 **Next**: R-3.
 
-## #82 — 2026-10-17 · R-5: a design review in build
+## #82 — 2026-10-17 · R-3: the Cloudflare stack home
+
+**What moved**: `runtime/stacks/cloudflare/` (PR #144), written from the website's and the fixture's
+files, specs and PRs (both repos attached read-only, nothing written there): the shape of a Workers
+project, `deploy.sh` with the day-one rollback record, previews in the separate account, the slow
+tier's quality bar, the owner's set-up steps with outside checks, the platform controls (Safety 12),
+the cloud-session facts, tests named by spec and item, and the website's five lessons.
+`tests/cloudflare-stack.test.sh`, written first, failed without the home and passes with it. W10.10.2
+is `[x]`, R-3 `Done`.
+
+**Surprises**: the website's `build.sh` still says the framework is picked by the first change that
+needs one; three changes in, none did. The deploy and preview scripts stay prose pointing at the
+website's copies (F-NEW-100).
+
+**Next**: R-4.
+
+## #83 — 2026-10-17 · R-5: a design review in build
 
 **What moved**: build runs gstack's `/design-review` on a local run of every UI change before
 `ship` (the preview exists only after `ship`; owner, "1. A"), unattended, fixing only what the
@@ -3058,7 +3074,7 @@ gstack's browser never ran in a cloud session (F-NEW-87): its Playwright wants a
 lacks; the bootstrap now points it at the image's own. Proven on a scratch site in two rounds.
 
 **Surprises**: gstack's browser check ignores that path and prints `NEEDS_SETUP`, so the skill
-would ask the owner (F-NEW-100, mitigated). Round 1's honest arm failed on a value I got wrong in
+would ask the owner (F-NEW-101, mitigated). Round 1's honest arm failed on a value I got wrong in
 the fixture's `DESIGN.md`, which both runs caught.
 
-**Next**: the website's next UI change is the live check; R-3.
+**Next**: the website's next UI change is the live check; R-4.

@@ -66,4 +66,4 @@ styles, scripts a page loads, its assets), after its tests pass and before `devs
   Chromium, which the bootstrap sets as `GSTACK_CHROMIUM_PATH`. _Mitigation:_ gstack's browser
   check (`gstack-browser-ensure`) ignores that variable, so the skill prints `NEEDS_SETUP` though
   its browser works: with the variable set, drive `$B` directly; never run gstack's `./setup` or ask
-  the owner to (its download is blocked). Root cause: that check in the pinned gstack, F-NEW-100.
+  the owner to (its download is blocked). Root cause: that check in the pinned gstack, F-NEW-101.

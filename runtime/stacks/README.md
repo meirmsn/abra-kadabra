@@ -21,7 +21,12 @@ A stack home `<stack>/` holds:
   or no `detect`, when its `detect` lists no paths, when a path is absolute or leaves the project,
   or when a pattern is empty or not a valid `grep -E` pattern.
 
-A real home is built with the first project that needs it. Today there is one placeholder,
-[`nextjs-supabase/`](nextjs-supabase/README.md), which loads only for a Next.js or Supabase project
-([`tests/decoy-stack.test.sh`](../../tests/decoy-stack.test.sh)).
+A real home is built with the first project that needs it. Today there are two:
+
+- [`cloudflare/`](cloudflare/README.md): Cloudflare Workers, written from the owner's website
+  (W10.10.1) and the M1 fixture; loads for a project with a wrangler config
+  ([`tests/cloudflare-stack.test.sh`](../../tests/cloudflare-stack.test.sh)).
+- [`nextjs-supabase/`](nextjs-supabase/README.md): a placeholder until lalista (M3); loads only for
+  a Next.js or Supabase project ([`tests/decoy-stack.test.sh`](../../tests/decoy-stack.test.sh)).
+
 Proven by [`tests/stack-homes.test.sh`](../../tests/stack-homes.test.sh).

@@ -209,7 +209,13 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   and slow tiers with no devshop present, and fails them on a planted secret or an untested item.
 - Stack homes: [runtime/stacks/README.md](../runtime/stacks/README.md) is their layout;
   [`runtime/scripts/stack-homes.sh`](../runtime/scripts/stack-homes.sh) picks the ones a project
-  uses. Proven by [`tests/stack-homes.test.sh`](../tests/stack-homes.test.sh).
+  uses. Proven by [`tests/stack-homes.test.sh`](../tests/stack-homes.test.sh). The
+  [Cloudflare home](../runtime/stacks/cloudflare/README.md) (Workers: the deploy with its rollback
+  record, previews in a separate account, the quality bar, the owner's set-up steps, the platform
+  controls in use, cloud-session facts) is written from the owner's website and the M1 fixture;
+  [`tests/cloudflare-stack.test.sh`](../tests/cloudflare-stack.test.sh) proves it loads only for a
+  project with a wrangler config. [`nextjs-supabase/`](../runtime/stacks/nextjs-supabase/README.md)
+  is a placeholder until M3.
 - Discipline guidelines: [runtime/guidelines/README.md](../runtime/guidelines/README.md). The UI
   guideline [`ui.md`](../runtime/guidelines/ui.md) ([spec](../specs/ui-baseline.md)) starts every
   interface from [`runtime/templates/ui/`](../runtime/templates/ui/): `base.css` (shadcn/ui's token
