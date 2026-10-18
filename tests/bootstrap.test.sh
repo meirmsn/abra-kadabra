@@ -432,7 +432,14 @@ DEVSHOP_TEST_CHROMIUM=1 DEVSHOP_TEST_SETTINGS='{not json' setup_env main FAILED
 grep -q "FAILED: gstack browser: $HOME/.claude/settings.json" /tmp/devshop-setup.log \
   || { cat /tmp/devshop-setup.log >&2; fail "an unreadable settings.json wasn't logged as a failure"; }
 [ "$(cat "$HOME/.claude/settings.json")" = '{not json' ] || fail "an unreadable settings.json was changed"
-echo "ok - gstack's browser uses the image's Chromium when there is one (settings kept; a bad settings.json is left and logged); cross-project learnings off"
+DEVSHOP_TEST_CHROMIUM=1 DEVSHOP_TEST_SETTINGS=' ' setup_env
+[ "$(jq -r .env.GSTACK_CHROMIUM_PATH "$HOME/.claude/settings.json" 2>/dev/null)" = /opt/pw-browsers/chromium ] \
+  || fail "an empty settings.json: want GSTACK_CHROMIUM_PATH written, got '$(cat "$HOME/.claude/settings.json")'"
+DEVSHOP_TEST_CHROMIUM=1 DEVSHOP_TEST_SETTINGS='{"env":"x"}' setup_env main FAILED
+grep -q "FAILED: gstack browser: $HOME/.claude/settings.json has an env that isn't an object" /tmp/devshop-setup.log \
+  || { cat /tmp/devshop-setup.log >&2; fail "an env that isn't an object wasn't logged as such"; }
+[ "$(cat "$HOME/.claude/settings.json")" = '{"env":"x"}' ] || fail "a settings.json with a bad env was changed"
+echo "ok - gstack's browser uses the image's Chromium when there is one (settings kept; an empty one filled; a bad one, or a bad env, left and logged); cross-project learnings off"
 
 # Bun is tied to the gstack pin: a Bun other than the one the pinned gstack is tested on fails the
 # gstack step loudly, before anything is installed with it.
