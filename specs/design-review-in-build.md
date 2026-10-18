@@ -43,6 +43,10 @@ bootstrap and no skill uses them except `/spec` (REVIEW-2 § 2); the reviewer re
   edits (the project's CI is its tests), no `DESIGN.md` written, no `TODOS.md` step, no Codex or
   other outside voice (the project's code stays in the session), no cross-project learnings. The
   bootstrap sets the gstack preferences it can (`cross_project_learnings false`)
+  Found by the proof's first round, after the go, and within this decision (its questions don't go
+  to the owner): gstack's browser check ignores `GSTACK_CHROMIUM_PATH` and prints `NEEDS_SETUP`,
+  whose wording asks to run gstack's setup; the guideline says to drive `$B` directly and never run
+  the setup or ask. A mitigation; the cause is that check in the pinned gstack (F-NEW-100)
 - **Its fixes: only what the change built** ("2. A", owner, 2026-10-17). Findings on the
   pages and lines the change touches are fixed under `build` § 3's rules (commit subjects that
   describe the change, tests edited when behaviour changes), not gstack's own commit format. The
