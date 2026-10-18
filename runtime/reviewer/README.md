@@ -22,6 +22,8 @@ exit codes, stdout line, verdict file and format) is in
 | `review.sh`              | The reviewer. Model, tools, timeout and rounds-to-ask are constants at its top  |
 | [`prompt.md`](prompt.md) | The reviewer's prompt: spec and intent first, then the lenses; severity scale   |
 | `prompt-words.md`        | The words-only prompt: the `pr` lens alone, for a commit that already passed    |
+| `prompt-browse.md`       | The browse instructions `prompt.md` gets at `{{BROWSE}}` with a local run       |
+| `browse.mjs`             | `devshop-browse`: the reviewer's one browser command, on the local run only     |
 | `verdict.schema.json`    | The schema the model's reply must match (`--json-schema`)                       |
 | `settings.json`          | Bash allowlist: read-only git and test commands; the prompt names these only    |
 | `pr-comment.sh`          | Renders a verdict file as the PR comment: per lens and item, tied to its commit |
@@ -106,6 +108,38 @@ verdict after it. Failed reviews push nothing and post nothing. There is no CI c
 2026-10-13): the agent could post a comment itself, so a check was no wall. The owner reads the
 verdict for the head commit before approving.
 
+## The local run and the browser
+
+A project gets its UI changes browsed by declaring `scripts/local-run.sh`
+([spec](../../specs/reviewer-browser.md)): it serves the site on `127.0.0.1:$PORT` until stopped.
+`review.sh` reads that it exists at the **base** commit, so a change can't declare it for itself,
+and on every full review runs the head's copy in the throwaway clone:
+
+1. A free port, the script in its own process group with the session's variables dropped (as for
+   the reviewer's `claude`), its output logged. The real worktree's `node_modules` (the session's
+   install, not checked against the lockfile) is linked into the clone unless the head tracks one.
+2. Ready on any HTTP status within `LOCAL_RUN_WAIT` (60 s) while it is alive; then
+   `devshop-browse /` once. A run that exits, doesn't answer, or can't be browsed is could-not-run.
+3. The reviewer gets `devshop-browse` on its `PATH`, named in the prompt (the allowlist's
+   `Bash(devshop-browse:*)`; it is left out of the named commands otherwise), and
+   [`prompt-browse.md`](prompt-browse.md) at `{{BROWSE}}`: judge each touched page against the base
+   commit's `DESIGN.md`, a value it doesn't name at least `medium`, overflow at any width `high`.
+4. Afterwards the group gets TERM, then KILL; a process left or the port still answering is
+   could-not-run. An interrupted review cleans up the same way.
+
+`devshop-browse <path>` (`browse.mjs`) takes exactly one path starting with `/` and refuses
+anything else, or a path that resolves to another origin, before loading anything. It loads the
+page with the project's own Playwright (by path from its `node_modules`, never a global one) at 375,
+768 and 1280 px in light and dark, writes six screenshots (at most 4000 px tall) under
+`.devshop-browse/` in the clone, and prints their paths and the facts as JSON (at most 20 KB): the
+title, the fonts declared and drawn, the colours (per theme) and spacing (per width) that differ
+from the browser's defaults, overflow, console errors, and failed and blocked requests. Every
+request or WebSocket to another origin is aborted and listed, a font as "remote font not loaded";
+service workers are blocked. Exit 1 refused, 2 can't judge.
+
+With no `scripts/local-run.sh` at the base, and in a words-only review, nothing starts: the prompt
+says there is no local run, and the design and QA lenses review by reading.
+
 ## How it is locked down, and what that is worth
 
 - `claude -p --restricted --safe-mode` loads no CLAUDE.md, skills, hooks, plugins or MCP. Its tools
@@ -141,6 +175,11 @@ verdict for the head commit before approving.
   is a fail. A reply that is malformed, incomplete or off-schema is could-not-run, never a pass.
 - No environment variable or argument changes the model, prompt, tools or permissions. Tests change
   only a copy of this directory and put a stub `claude` on `PATH`.
+- The local run and `devshop-browse` ([below](#the-local-run-and-the-browser)) run the change's code
+  as a test run does. They can write through the linked `node_modules` (gitignored, so the worktree
+  check doesn't see it) or replace the `devshop-browse` wrapper on `PATH` (the same user). The
+  origin check and request blocking keep an honest reviewer on the local run; they stop nothing
+  the change's own code does.
 - This is **feedback, not a wall.** An agent that controls its session can skip or fake all of
   this. The walls are GitHub's rules, plain CI and the owner's approval (TARGET Verify, "what this
   protects against").
@@ -176,8 +215,8 @@ verdict for the head commit before approving.
 - The W10.6.5 eval ([spike](../../kit/notes/revamp/spikes/w10-6-5-reviewer-eval/README.md)) ran
   the real reviewer on the fixture: 15 honest changes all pass and 15 changes planted by the
   north-star harness all fail, each on its plant (A-12).
-- **Before a PR that changes how it reviews** (`review.sh`, `prompt.md`, `settings.json`,
-  `verdict.schema.json`, the model, a new Claude Code CLI), run that eval's `check.sh` on the
+- **Before a PR that changes how it reviews** (`review.sh`, `prompt.md`, `prompt-browse.md`,
+  `browse.mjs`, `settings.json`, `verdict.schema.json`, the model, a new Claude Code CLI), run that eval's `check.sh` on the
   branch, by hand in a session (W10.10.7, [how](../../kit/notes/revamp/spikes/w10-6-5-reviewer-eval/README.md#the-check-before-a-reviewer-change-w10107)).
   It passes only when every honest change passes and every planted one fails; a could-not-run is a
   miss. [`tests/reviewer-eval.test.sh`](../../tests/reviewer-eval.test.sh) (in CI) proves a stub
@@ -191,6 +230,24 @@ verdict for the head commit before approving.
   passes; two spec files are could-not-run. Every review that called the model must carry a
   `session_id` of its own: not the caller's and not another run's (W10.6.8; a copy that keeps the
   session's variables fails it).
+- The local run and the browser ([spec](../../specs/reviewer-browser.md)):
+  [`tests/reviewer.test.sh`](../../tests/reviewer.test.sh) (stub `claude` and `browse.mjs`) checks
+  that the base's script starts with `PORT`, the session's variables dropped and `node_modules`
+  linked, that `devshop-browse /` runs first and the reviewer's own calls reach the local run, that
+  nothing of it is left after (a `nohup` child, an interrupt, a server that escapes the group is
+  could-not-run), and that a script the change adds, a words-only review or no script starts
+  nothing and names no `devshop-browse`; 13 of 13 mutants killed; the HUP, INT and TERM traps the spec
+  names are kept, though removing one is an equivalent mutant (bash runs the EXIT trap on them).
+  [`tests/reviewer-browse.test.sh`](../../tests/reviewer-browse.test.sh) (slow tier, real Chromium)
+  checks `browse.mjs`: six screenshots, only values that differ from the browser's defaults (the UI
+  baseline's example reports only its tokens), overflow as the render check defines it, other
+  origins blocked (requests, WebSockets, fonts, service workers), refusals, and exit 2 when it
+  can't judge; 17 of 17 mutants killed (a redundant `//` guard was removed).
+  [`tests/reviewer-browser-live.sh`](../../tests/reviewer-browser-live.sh) (`[runs]`, in a session)
+  runs the real reviewer on [`tests/fixtures/reviewer-browser/`](../../tests/fixtures/reviewer-browser)
+  (spec: [`spec.md`](../../tests/fixtures/reviewer-browser/spec.md)): the notes page built to its
+  [`DESIGN.md`](../../tests/fixtures/reviewer-browser/base/DESIGN.md) must pass, and a serif font, a 13px padding and a layout
+  that scrolls sideways at 375 px must each fail on a blocking `design` or `qa` finding.
 
 ## Limits
 
@@ -198,12 +255,13 @@ verdict for the head commit before approving.
 - A change with two or more spec files is could-not-run: one change, one spec (TARGET Intent 2).
   Every `.md` under `specs/` counts, so `specs/` holds spec files only (the Intent skill says so);
   a README or template added there makes the review could-not-run, never a pass.
-- What "run" can run is the allowlist above. Stack homes (W10.5.2) will extend it per stack. There
-  is no browser yet, so the design and QA lenses review by reading.
+- What "run" can run is the allowlist above. Stack homes (W10.5.2) will extend it per stack. The
+  browser needs the project's `scripts/local-run.sh`; without one, the design and QA lenses review
+  by reading and say so. It loads pages; it doesn't click or type.
 - Rounds count only repeats: a fail is round 1 unless it repeats a blocking item (an unmet `AC-<n>`,
   or a finding's lens and file) of the previous failing commit. Round 3 asks the owner, and so does
   the 6th failing commit since the last pass, new issues or not (owner, 2026-10-13).
-- Screenshots in the PR body (Review 5, L-29) are not checked yet: there is no browser.
+- Screenshots in the PR body (Review 5, L-29) are not checked against the commit yet.
 - A words-only review trusts the verdict files under `.git/devshop/reviews/`: a session that writes
   a fake `pass` there gets the words-only review for its commit. Feedback, not a wall, like the rest:
   the session could as well skip `ship`.

@@ -122,7 +122,8 @@ jobs:
         run: command -v jq
 
       # Playwright at the version package.json pins, and that version's Chromium, for
-      # tests/ui-render-check.test.sh (the UI baseline's render check in a real browser).
+      # tests/ui-render-check.test.sh (the UI baseline's render check in a real browser) and
+      # tests/reviewer-browse.test.sh (the reviewer's devshop-browse).
       - name: Install pinned Node tools and Chromium
         run: |
           set -euo pipefail

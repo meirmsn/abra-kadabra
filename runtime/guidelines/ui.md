@@ -67,3 +67,21 @@ styles, scripts a page loads, its assets), after its tests pass and before `devs
   check (`gstack-browser-ensure`) ignores that variable, so the skill prints `NEEDS_SETUP` though
   its browser works: with the variable set, drive `$B` directly; never run gstack's `./setup` or ask
   the owner to (its download is blocked). Root cause: that check in the pinned gstack, F-NEW-101.
+
+## The reviewer's browser (a local run)
+
+The independent reviewer judges a UI change in a browser when the project declares
+`scripts/local-run.sh` ([spec](../../specs/reviewer-browser.md); how it runs:
+[the reviewer's README](../reviewer/README.md#the-local-run-and-the-browser)). Without it, the
+reviewer reviews UI by reading.
+
+- **The script** serves the site on `127.0.0.1:$PORT` (bound to that address explicitly, not
+  `localhost`, which may be `::1` only) and runs until stopped, e.g.
+  `exec python3 -m http.server --bind 127.0.0.1 "$PORT"` for static files, or the stack's dev
+  server with its host and port flags. It runs from the repo root with the session's
+  `node_modules`; it installs nothing and reaches no other host.
+- **Same origin only:** the reviewer's browser blocks every other origin, so a page that needs a
+  CDN font or script shows without it (fonts are listed as "remote font not loaded"). A redirect to
+  another host or port is a page that doesn't load.
+- **`DESIGN.md` at the base commit** is what the reviewer judges against: a change that edits it
+  records that as a decision in its spec.
