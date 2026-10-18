@@ -1,6 +1,6 @@
 # The reviewer judges a local run of the site against `DESIGN.md`
 
-**Go:** pending
+**Go:** "go" (owner, 2026-10-18)
 
 ## Intent
 
