@@ -130,9 +130,14 @@ SETTINGS="$HOME/.claude/settings.json"
 point_gstack_browser() {
   [ -x "$CHROMIUM" ] || { log "gstack browser: no $CHROMIUM in this image; /design-review can't run"; return; }
   local cur new
-  cur=$(cat "$SETTINGS" 2>/dev/null || echo '{}')
+  cur=$(cat "$SETTINGS" 2>/dev/null)
+  [[ $cur =~ [^[:space:]] ]] || cur='{}'
+  jq -e 'type == "object"' <<<"$cur" >/dev/null 2>&1 \
+    || { step_failed "gstack browser: $SETTINGS isn't a JSON object; left as it is"; return; }
+  jq -e '(.env // {}) | type == "object"' <<<"$cur" >/dev/null \
+    || { step_failed "gstack browser: $SETTINGS has an env that isn't an object; left as it is"; return; }
   new=$(jq --arg p "$CHROMIUM" '.env = ((.env // {}) + {GSTACK_CHROMIUM_PATH: $p})' <<<"$cur" 2>>"$LOG") \
-    || { step_failed "gstack browser: $SETTINGS isn't JSON; left as it is"; return; }
+    && [ -n "$new" ] || { step_failed "gstack browser: couldn't update $SETTINGS; left as it is"; return; }
   { mkdir -p "${SETTINGS%/*}" && printf '%s\n' "$new" >"$SETTINGS"; } \
     || step_failed "gstack browser: write $SETTINGS"
 }

@@ -47,7 +47,7 @@ W10.1.2b spike (`kit/notes/revamp/spikes/w10-1-2b-thin/`, kept as notes).
   Chromium would download on a browser skill's first run, which the network blocks (F-NEW-87), so
   when the image ships Playwright's Chromium at `/opt/pw-browsers/chromium` the bootstrap adds
   `GSTACK_CHROMIUM_PATH` to the `env` of `~/.claude/settings.json`, keeping the rest; a settings
-  file that isn't JSON is left as it is and logged as failed
+  file that isn't a JSON object, or whose `env` isn't one, is left as it is and logged as failed
   ([spec](../specs/design-review-in-build.md)). Output: `/tmp/devshop-gstack.log`.
 - **Pinned tools** (L-45): [`install/tools.pin`](tools.pin) names gitleaks, shellcheck and dcg at
   the version and checksum CI pins (`tests/bootstrap.test.sh` fails if they differ). The bootstrap

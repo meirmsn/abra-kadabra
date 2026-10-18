@@ -429,7 +429,7 @@ DEVSHOP_TEST_CHROMIUM=1 setup_env
 [ "$(jq -r .env.GSTACK_CHROMIUM_PATH "$HOME/.claude/settings.json" 2>/dev/null)" = /opt/pw-browsers/chromium ] \
   || fail "no settings.json before the bootstrap: GSTACK_CHROMIUM_PATH wasn't written"
 DEVSHOP_TEST_CHROMIUM=1 DEVSHOP_TEST_SETTINGS='{not json' setup_env main FAILED
-grep -q "FAILED: gstack browser: $HOME/.claude/settings.json" /tmp/devshop-setup.log \
+grep -q "FAILED: gstack browser: $HOME/.claude/settings.json isn't a JSON object" /tmp/devshop-setup.log \
   || { cat /tmp/devshop-setup.log >&2; fail "an unreadable settings.json wasn't logged as a failure"; }
 [ "$(cat "$HOME/.claude/settings.json")" = '{not json' ] || fail "an unreadable settings.json was changed"
 DEVSHOP_TEST_CHROMIUM=1 DEVSHOP_TEST_SETTINGS=' ' setup_env
