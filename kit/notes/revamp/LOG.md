@@ -3078,3 +3078,17 @@ would ask the owner (F-NEW-101, mitigated). Round 1's honest arm failed on a val
 the fixture's `DESIGN.md`, which both runs caught.
 
 **Next**: the website's next UI change is the live check; R-4.
+
+## #84 — 2026-10-18 · R-6: the reviewer gets a browser
+
+**What moved**: a project declares `scripts/local-run.sh`; `review.sh` runs it in the clone and
+gives the reviewer `devshop-browse`, the project's Playwright on the local run's origin only, judged
+against the base's `DESIGN.md` ([spec](../../../specs/reviewer-browser.md), PR #146). Tests first;
+all mutants killed. The live run: honest notes page passed; a serif font, a 13px padding and a
+375 px overflow each failed on their break. W10.10.4 is `[x]`, R-6 `Done`.
+
+**Surprises**: on a phone view Chromium widens `innerWidth` to fit overflow, so the edge check uses
+the layout width; `NODE_PATH` holds a global Playwright, so the project's is loaded by path; with
+service workers blocked a registration still resolves, the worker just never runs.
+
+**Next**: R-4.

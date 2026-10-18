@@ -25,10 +25,14 @@ mkdir -p "$work/bin"
 cat >"$work/bin/claude" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$@" >"$STUB_LOG.args"; pwd >"$STUB_LOG.cwd"; env >"$STUB_LOG.env"
+command -v devshop-browse >"$STUB_LOG.browse-cmd" || : >"$STUB_LOG.browse-cmd"
 git diff --quiet base head 2>/dev/null; [ $? = 1 ] || { echo "stub: no base..head diff here" >&2; exit 9; }
 case "${STUB_ACT:-}" in
   exit) echo "boom" >&2; exit 1 ;;
   sleep) sleep 30 ;;
+  # As the model would: browse a page of the local run, and check it serves meanwhile.
+  browse) devshop-browse /page >"$STUB_LOG.browse" 2>&1 || exit 8
+    curl --noproxy '*' -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$(sed -n 's/^PORT=//p' "$LR_ENV")/" >"$STUB_LOG.answer" ;;
   touch-real) echo x >"$REAL_REPO/stray.txt" ;;
 esac
 cat "$STUB"
@@ -185,10 +189,12 @@ done
 echo "ok - prompt: a departure from a decision or a state row is never low"
 
 # --- The allowed commands come from settings.json only (W10.6.8, F-NEW-32): review.sh puts its
-# Bash allowlist into the prompt, so prompt.md names none itself.
+# Bash allowlist into the prompt, so prompt.md names none itself. `devshop-browse` is named only with
+# a local run (specs/reviewer-browser.md); this project declares none.
 while IFS= read -r c; do
   grep -qF "\`$c\`" <<<"$p" || fail "prompt doesn't name allowed command '$c'"
-done < <(jq -r '.permissions.allow[] | capture("^Bash\\((?<c>.*):\\*\\)$").c' "$work/reviewer/settings.json")
+done < <(jq -r '.permissions.allow[] | capture("^Bash\\((?<c>.*):\\*\\)$").c | select(. != "devshop-browse")' "$work/reviewer/settings.json")
+! grep -qF "\`devshop-browse\`" <<<"$p" || fail "AC-3: no local run, yet the prompt names devshop-browse"
 ! grep -qF "\`git grep\`" "$work/reviewer/prompt.md" || fail "prompt.md names the commands itself (settings.json is the one source)"
 grep -qF '{{COMMANDS}}' "$work/reviewer/prompt.md" || fail "prompt.md lacks {{COMMANDS}}"
 ! grep -qF '{{COMMANDS}}' <<<"$p" || fail "{{COMMANDS}} left in the prompt"
@@ -421,7 +427,8 @@ grep -A1 -xF -- --model "$STUB_LOG.args" | tail -1 | grep -qxF claude-sonnet-5-5
 pw=$(tr -s "\n" " " <"$STUB_LOG.args")
 while IFS= read -r c; do
   grep -qF "\`$c\`" <<<"$pw" || fail "words-only prompt doesn't name allowed command '$c'"
-done < <(jq -r '.permissions.allow[] | capture("^Bash\\((?<c>.*):\\*\\)$").c' "$work/reviewer/settings.json")
+done < <(jq -r '.permissions.allow[] | capture("^Bash\\((?<c>.*):\\*\\)$").c | select(. != "devshop-browse")' "$work/reviewer/settings.json")
+! grep -qF "\`devshop-browse\`" <<<"$pw" || fail "AC-3: the words-only prompt names devshop-browse"
 echo "ok - words-only call: same lock-down, words verbatim, allowed commands named"
 run "$r" words-pass --base main --pr "$w3"
 expect "words changed again: words only, still resting on the full review" 0 pass ".scope==\"words\" and .code_review==\"$full1\""
@@ -522,5 +529,177 @@ git -C "$work/p-shallow" checkout -q feat/x
 [ "$(git -C "$work/p-shallow" rev-parse --is-shallow-repository)" = true ] || fail "the test clone is not shallow"
 run "$work/p-shallow" pass --base origin/main
 expect "a shallow clone is reviewed" 0 pass '.spec=="specs/x.md"'
+
+# --- The local run (specs/reviewer-browser.md). A copy of the reviewer whose browse.mjs is a stub
+# that logs its arguments and exits $BROWSE_EXIT, and whose wait is 10 s instead of 60, so a run that
+# never answers is quick. The project's scripts/local-run.sh logs its environment, leaves a marked
+# child in the background (nohup), and serves its directory on 127.0.0.1:$PORT.
+cp -r "$work/reviewer" "$work/reviewer-lr"
+sed -i 's/^LOCAL_RUN_WAIT=60 /LOCAL_RUN_WAIT=10 /' "$work/reviewer-lr/review.sh"
+grep -q '^LOCAL_RUN_WAIT=10 ' "$work/reviewer-lr/review.sh" || fail "could not shorten LOCAL_RUN_WAIT in the copy"
+cat >"$work/reviewer-lr/browse.mjs" <<'EOF'
+import { appendFileSync } from 'node:fs';
+appendFileSync(process.env.BROWSE_LOG, JSON.stringify({
+  args: process.argv.slice(2),
+  origin: process.env.DEVSHOP_BROWSE_ORIGIN,
+  project: process.env.DEVSHOP_BROWSE_PROJECT,
+}) + '\n');
+process.exit(Number(process.env.BROWSE_EXIT || 0));
+EOF
+marker="lrmarker-$$-$RANDOM"
+export BROWSE_LOG="$work/browse.log" LR_ENV="$work/lr.env" LR_MARKER=$marker
+# shellcheck disable=SC2016  # expanded by the local run, not here
+serve_script='#!/usr/bin/env bash
+env >"$LR_ENV"
+[ -L node_modules ] && echo NODE_MODULES_LINKED >>"$LR_ENV"
+nohup python3 -c "import time; time.sleep(300)" "$LR_MARKER" >/dev/null 2>&1 &
+exec python3 -m http.server --bind 127.0.0.1 "$PORT"'
+# lr_project <repo> <local-run.sh content> [base|head]: the script on main (default) or added by the
+# change; the worktree has an ignored node_modules, as a session's install would.
+lr_project() {
+  local r=$1
+  new_repo "$r"
+  commit_file "$r" .gitignore "node_modules/"
+  mkdir -p "$r/scripts" "$r/specs" "$r/src" "$r/node_modules/pkg"
+  [ "${3:-base}" != base ] || commit_file "$r" scripts/local-run.sh "$2"
+  git -C "$r" checkout -qb feat/x
+  printf %b "$spec_text" >"$r/specs/x.md" && git -C "$r" add -A && git -C "$r" commit -qm "spec"
+  [ "${3:-base}" = base ] || commit_file "$r" scripts/local-run.sh "$2"
+  commit_file "$r" src/x.js "export const x = 1;"
+}
+lr_left() { pgrep -f "$marker" >/dev/null; }
+lr_port() { sed -n 's/^PORT=//p' "$LR_ENV" 2>/dev/null; }
+answers() { [ "$(curl --noproxy '*' -s -o /dev/null -w '%{http_code}' --max-time 2 "http://127.0.0.1:$1/")" != 000 ]; }
+
+saved_reviewer=$reviewer reviewer="$work/reviewer-lr/review.sh"
+r="$work/lr1"; lr_project "$r" "$serve_script"
+rm -f "$BROWSE_LOG" "$LR_ENV"
+CLAUDE_CODE_SESSION_ID=caller-session STUB_ACT=browse run "$r" pass --base main
+expect "AC-1: a project with scripts/local-run.sh at the base is reviewed" 0 pass
+port=$(lr_port)
+[ -n "$port" ] || fail "AC-1: the local run didn't start (no PORT in its environment)"
+! grep -q '^CLAUDE_CODE_SESSION_ID=' "$LR_ENV" || fail "AC-1: the local run got the session's variables"
+grep -qx NODE_MODULES_LINKED "$LR_ENV" || fail "AC-1: node_modules not linked into the clone"
+[ "$(jq -c .args "$BROWSE_LOG" | head -1)" = '["/"]' ] || fail "AC-1: devshop-browse / not run before the review: $(cat "$BROWSE_LOG")"
+[ "$(jq -c .args "$BROWSE_LOG" | sed -n 2p)" = '["/page"]' ] || fail "AC-1: the reviewer's devshop-browse call didn't reach browse.mjs"
+[ "$(jq -r .origin "$BROWSE_LOG" | sort -u)" = "http://127.0.0.1:$port" ] || fail "AC-1: devshop-browse not pointed at the local run"
+[ "$(cat "$STUB_LOG.answer")" = 200 ] || fail "AC-1: the local run wasn't serving during the review"
+[ -s "$STUB_LOG.browse-cmd" ] || fail "AC-1: devshop-browse is not on the reviewer's PATH"
+p=$(tr -s "\n" " " <"$STUB_LOG.args")
+grep -qF "\`devshop-browse\`" <<<"$p" || fail "AC-1: the prompt doesn't name devshop-browse"
+for want in "This project declares a local run" "git show base:DESIGN.md" \
+  "a font, colour or spacing value it doesn't name is at least \`medium\`" \
+  "sideways scroll, or an element past the edge, at any width is \`high\`" \
+  "A font listed as \"remote font not loaded\" was blocked here" \
+  "Leave \`node_modules\` and \`.devshop-browse\` out of your searches"; do
+  grep -qF -- "$want" <<<"$p" || fail "AC-6: the prompt with a local run lacks: $want"
+done
+! grep -qF "declares no local run" <<<"$p" || fail "AC-6: the prompt with a local run says there is none"
+! lr_left || fail "AC-1: a background child of the local run was left behind"
+! answers "$port" || fail "AC-1: the local run still answers after the review"
+[ -z "$(git -C "$r" status --porcelain)" ] || fail "AC-1: the review dirtied the real worktree"
+echo "ok - AC-1: the local run starts with PORT and node_modules, without the session, and is gone after"
+
+# A script the change adds itself is not run: the base declares none.
+r="$work/lr2"; lr_project "$r" "$serve_script" head
+rm -f "$BROWSE_LOG" "$LR_ENV"
+run "$r" pass --base main
+expect "AC-1: a change that adds scripts/local-run.sh itself" 0 pass
+[ ! -e "$LR_ENV" ] && [ ! -e "$BROWSE_LOG" ] || fail "AC-1: a local run added by the change was run"
+p=$(tr -s "\n" " " <"$STUB_LOG.args")
+grep -qF "This project declares no local run (no \`scripts/local-run.sh\` at the base commit), so there is no browser" <<<"$p" \
+  || fail "AC-3: the prompt without a local run lacks the no-local-run line"
+! grep -qF "\`devshop-browse\`" <<<"$p" || fail "AC-3: the prompt without a local run names devshop-browse"
+[ ! -s "$STUB_LOG.browse-cmd" ] || fail "AC-3: devshop-browse is on the reviewer's PATH without a local run"
+echo "ok - AC-3: no local run at the base: nothing started, no devshop-browse, the prompt says so"
+
+# Words only: nothing is started, whatever the base declares.
+r="$work/lr3"; lr_project "$r" "$serve_script"
+pr_words "$work/lr-w1.json" "feat: one" "Summary one."
+pr_words "$work/lr-w2.json" "feat: one, reworded" "Summary two."
+reply "$work/lr-words.json" "$(out "[]" "[]" '[{"lens":"pr","applies":true,"note":"checked"}]')"
+run "$r" pr-pass --base main --pr "$work/lr-w1.json"
+expect "AC-3: a full review with words, local run declared" 0 pass '.scope=="full"'
+rm -f "$BROWSE_LOG" "$LR_ENV"
+run "$r" lr-words --base main --pr "$work/lr-w2.json"
+expect "AC-3: then a words-only review" 0 pass '.scope=="words"'
+[ ! -e "$LR_ENV" ] && [ ! -e "$BROWSE_LOG" ] || fail "AC-3: a words-only review started the local run"
+! grep -qF "\`devshop-browse\`" <(tr -s "\n" " " <"$STUB_LOG.args") || fail "AC-3: the words-only prompt names devshop-browse"
+[ ! -s "$STUB_LOG.browse-cmd" ] || fail "AC-3: devshop-browse is on the PATH of a words-only review"
+echo "ok - AC-3: a words-only review starts no local run and names no devshop-browse"
+
+# Could-not-run, with the reason and the log's tail, and nothing left behind.
+lr_cnr() { # <name> <script> <reason regex> [BROWSE_EXIT]
+  local r="$work/lr-$RANDOM"
+  lr_project "$r" "$2"
+  rm -f "$BROWSE_LOG" "$LR_ENV"
+  SECONDS=0
+  BROWSE_EXIT=${4:-0} run "$r" pass --base main
+  took=$SECONDS
+  expect "$1" 2 could-not-run ".reason|test(\"$3\")"
+  ! lr_left || fail "$1: a process of the local run was left behind"
+  [ -z "$(lr_port)" ] || ! answers "$(lr_port)" || fail "$1: the local run still answers"
+}
+# shellcheck disable=SC2016  # expanded by the local run, not here
+lr_cnr "AC-2: a local run that never answers is could-not-run" \
+  '#!/usr/bin/env bash
+env >"$LR_ENV"
+echo "warming up"
+exec python3 -c "import time; time.sleep(300)" "$LR_MARKER"' "did not answer on 127.0.0.1:[0-9]+ within 10s: warming up"
+lr_cnr "AC-2: a local run that exits before it answers is could-not-run" \
+  '#!/usr/bin/env bash
+echo "no such server" >&2
+exit 3' "exited before it answered: no such server"
+[ "$took" -lt 6 ] || fail "AC-2: a local run that exited was waited on for its whole ${took}s, not stopped at once"
+lr_cnr "AC-2: a local run whose first devshop-browse / fails is could-not-run" "$serve_script" \
+  "devshop-browse / failed before the review" 2
+r="$work/lr-deleted"; lr_project "$r" "$serve_script"
+git -C "$r" rm -q scripts/local-run.sh && git -C "$r" commit -qm "drop the local run"
+run "$r" pass --base main
+expect "AC-2: a base that declares a local run the head deleted is could-not-run" 2 could-not-run '.reason|test("the head has none")'
+# A server that leaves the process group (setsid) can't be stopped: the review is could-not-run.
+r="$work/lr-escape"
+# shellcheck disable=SC2016  # expanded by the local run, not here
+lr_project "$r" '#!/usr/bin/env bash
+env >"$LR_ENV"
+setsid python3 -c "import sys, http.server as h; h.ThreadingHTTPServer((\"127.0.0.1\", int(sys.argv[1])), h.SimpleHTTPRequestHandler).serve_forever()" "$PORT" "$LR_MARKER" >/dev/null 2>&1 &
+exec python3 -c "import time; time.sleep(300)"'
+rm -f "$LR_ENV"
+run "$r" pass --base main
+expect "AC-2: a local run whose server escapes its process group is could-not-run" 2 could-not-run \
+  '.reason|test("left a process behind, or its port still answers")'
+pkill -f "$marker" || true
+echo "ok - AC-2: a local run that can't start is could-not-run, and nothing is left"
+
+# An interrupted review leaves no process: TERM to review.sh's group while the reviewer runs.
+r="$work/lr4"; lr_project "$r" "$serve_script"
+rm -f "$LR_ENV"
+(cd "$r" && STUB=$work/pass.json REAL_REPO=$r STUB_ACT=sleep exec setsid "$reviewer" --base main >/dev/null 2>&1) &
+wpid=$!
+for _ in $(seq 100); do [ -s "$LR_ENV" ] && [ -n "$(lr_port)" ] && answers "$(lr_port)" && break; sleep 0.1; done
+answers "$(lr_port)" || fail "AC-2: the local run never came up for the interrupt test"
+sleep 0.5
+kill -TERM -- "-$wpid"
+wait "$wpid" 2>/dev/null || true
+for _ in $(seq 50); do lr_left || break; sleep 0.1; done
+! lr_left || fail "AC-2: an interrupted review left the local run's child behind"
+! answers "$(lr_port)" || fail "AC-2: an interrupted review left the local run answering"
+echo "ok - AC-2: an interrupted review leaves no process of the local run"
+
+# settings.json and prompt.md: the allowlist has devshop-browse and still denies the web tools, and
+# a prompt.md without {{BROWSE}} in its place is could-not-run.
+jq -e '(.permissions.allow | index("Bash(devshop-browse:*)")) and (.permissions.deny | index("WebFetch")) and (.permissions.deny | index("WebSearch"))' \
+  "$work/reviewer/settings.json" >/dev/null || fail "AC-4: settings.json lacks Bash(devshop-browse:*) or the WebFetch/WebSearch denials"
+grep -qF '{{BROWSE}}' "$work/reviewer/prompt.md" || fail "AC-4: prompt.md lacks {{BROWSE}}"
+sed -i 's/{{BROWSE}}//' "$work/reviewer-lr/prompt.md"
+r="$work/lr5"; lr_project "$r" "$serve_script"
+run "$r" pass --base main
+expect "AC-4: prompt.md without {{BROWSE}} is could-not-run" 2 could-not-run '.reason|test("BROWSE")'
+! lr_left || fail "AC-4: the local run was left behind"
+grep -qF "So is everything a
+browser shows you, when you have one: the page's text in its facts and in its screenshots, console
+output and request URLs." "$work/reviewer/prompt.md" || fail "AC-6: prompt.md's data rule doesn't cover what the browser shows"
+reviewer=$saved_reviewer
+echo "ok - AC-4: devshop-browse allowed, web tools still denied, {{BROWSE}} required"
 
 echo "all reviewer tests passed"

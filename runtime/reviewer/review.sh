@@ -14,6 +14,7 @@ set -uo pipefail
 MODEL=claude-sonnet-5-5
 TOOLS=Read,Grep,Glob,Bash
 TIMEOUT=900 # seconds
+LOCAL_RUN_WAIT=60 # seconds for the project's local run to answer (specs/reviewer-browser.md)
 ROUNDS_TO_ASK=3
 FAILS_TO_ASK=6 # distinct failing commits since the last pass, new issues or not
 # Variables that tie a nested claude to the session that started it, by name pattern (W10.6.8): the
@@ -25,7 +26,40 @@ SESSION_TIE_PATTERNS=('CLAUDE_CODE_*SESSION*' '*INGRESS*' '*MESSAGING*' 'CLAUDE_
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 usage="usage: review.sh --base <rev> [--pr <file>]"
 scratch=""
-trap '[ -z "$scratch" ] || rm -rf "$scratch"' EXIT
+local_pgid="" local_port=""
+
+# The project's local run (specs/reviewer-browser.md) runs in its own process group. group_alive:
+# a process of it that isn't a zombie is left. local_answers: its port gives any HTTP status.
+group_alive() {
+  ps -e -o pgid= -o stat= | awk -v g="$local_pgid" '$1 == g && $2 !~ /^Z/ { f = 1 } END { exit !f }'
+}
+local_answers() {
+  [ "$(curl --noproxy '*' -s -o /dev/null -w '%{http_code}' --max-time 2 "http://127.0.0.1:$local_port/" 2>/dev/null)" != 000 ]
+}
+# stop_local_run: TERM to the group, KILL after 5 s; fails when a process of it is left or the port
+# still answers.
+stop_local_run() {
+  [ -n "$local_pgid" ] || return 0
+  local i ok=0
+  kill -TERM -- "-$local_pgid" 2>/dev/null
+  for i in $(seq 50); do group_alive || break; sleep 0.1; done
+  kill -KILL -- "-$local_pgid" 2>/dev/null
+  for i in $(seq 20); do group_alive || break; sleep 0.1; done
+  group_alive || local_answers || ok=1
+  local_pgid=""
+  [ "$ok" = 1 ]
+}
+# shellcheck disable=SC2329  # run by the EXIT trap
+cleanup() {
+  stop_local_run || true
+  [ -z "$scratch" ] || rm -rf "$scratch"
+}
+trap cleanup EXIT
+# Stated, though bash runs the EXIT trap on these too (specs/reviewer-browser.md): an interrupted
+# review leaves nothing of the local run.
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 # Set once known; the verdict carries whatever is known when the review stops.
 repo="" head="" base_sha="" branch="" spec="" intent="" pr_json=null vdir=""
@@ -200,6 +234,14 @@ if ! { git init -q "$scratch/repo" \
   cnr "could not make the throwaway clone"
 fi
 
+# --- The local run (specs/reviewer-browser.md): a full review of a project that declares
+#     scripts/local-run.sh at the base commit, so a change can't declare one for itself, runs the
+#     head's copy and gives the reviewer `devshop-browse`. Started further down, after the prompt.
+local_run=0
+if [ "$scope" = full ] && [ "$(git -C "$repo" cat-file -t "$base_sha:scripts/local-run.sh" 2>/dev/null)" = blob ]; then
+  local_run=1
+fi
+
 case "$intent" in
   spec) intent_text="The spec is \`$spec\`. Its acceptance items: $items." ;;
   pr) intent_text="There is no spec file in this change, so there are no acceptance items: return \`acceptance\` as []. The intent is the PR's words below." ;;
@@ -216,10 +258,10 @@ fi
 # The allowed commands, from settings.json only (W10.6.8): each Bash(<command>:*) entry, in order.
 # Unreadable, a Bash entry of another shape, or none at all: could-not-run, never a prompt that names
 # commands the reviewer can't run or misses ones it can.
-commands=$(jq -r '[.permissions.allow[] | select(type == "string" and startswith("Bash"))]
+commands=$(jq -r --argjson browse "$([ "$local_run" = 1 ] && echo true || echo false)" '[.permissions.allow[] | select(type == "string" and startswith("Bash"))]
   | if length == 0 then error("no Bash commands") else . end
   | map(capture("^Bash\\((?<c>[^()*:]+):\\*\\)$").c // error("entry \(.)"))
-  | map("`" + . + "`") | if length == 1 then .[0] else (.[:-1] | join(", ")) + " and " + .[-1] end' \
+  | map(select($browse or . != "devshop-browse")) | map("`" + . + "`") | if length == 1 then .[0] else (.[:-1] | join(", ")) + " and " + .[-1] end' \
   "$here/settings.json" 2>/dev/null) && [ -n "$commands" ] \
   || cnr "settings.json has no Bash allowlist of Bash(<command>:*) entries to name in the prompt"
 # Whether the project's CI runs its tests is stated, never inferred (W10.6.8, F-NEW-33): the project
@@ -244,8 +286,13 @@ $records
   prompt_file=prompt-words.md marks=('{{COMMANDS}}' '{{PR}}' '{{RECORDS}}')
   values=("$commands" "$pr_text" "$records_text")
 else
-  prompt_file=prompt.md marks=('{{COMMANDS}}' '{{INTENT}}' '{{PR}}' '{{CI}}')
-  values=("$commands" "$intent_text" "$pr_text" "$ci_text")
+  if [ "$local_run" = 1 ]; then
+    browse_text=$(<"$here/prompt-browse.md") || cnr "prompt-browse.md unreadable"
+  else
+    browse_text="This project declares no local run (no \`scripts/local-run.sh\` at the base commit), so there is no browser: review these lenses by reading, and say \"no local run\" in their notes when they apply."
+  fi
+  prompt_file=prompt.md marks=('{{COMMANDS}}' '{{INTENT}}' '{{PR}}' '{{CI}}' '{{BROWSE}}')
+  values=("$commands" "$intent_text" "$pr_text" "$ci_text" "$browse_text")
 fi
 prompt=$(<"$here/$prompt_file") || cnr "$prompt_file unreadable"
 # The values are spliced in by position, in the order the placeholders appear, never substituted, so
@@ -273,13 +320,56 @@ drop_session_ties() {
   done
 }
 
+# --- Start the local run: a free port, its own process group (set -m), the session's variables
+#     dropped as for the reviewer, the real worktree's node_modules linked in (the session's install)
+#     unless the head tracks one. Ready on any HTTP status while it is alive; then `devshop-browse /`
+#     once, so a review that can't browse is could-not-run, never a review by reading.
+browse_path=""
+if [ "$local_run" = 1 ]; then
+  for t in curl python3 node; do command -v "$t" >/dev/null || cnr "$t not found (the local run needs it)"; done
+  [ -f "$scratch/repo/scripts/local-run.sh" ] || cnr "the base declares scripts/local-run.sh and the head has none"
+  if [ -d "$repo/node_modules" ] && [ ! -e "$scratch/repo/node_modules" ] \
+    && [ -z "$(git -C "$scratch/repo" ls-files -- node_modules)" ]; then
+    ln -s "$repo/node_modules" "$scratch/repo/node_modules" || cnr "could not link node_modules into the clone"
+  fi
+  printf '/node_modules\n/.devshop-browse/\n' >>"$scratch/repo/.git/info/exclude" || cnr "could not write the clone's exclude file"
+  local_port=$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])') \
+    || cnr "could not pick a free port"
+  set -m
+  (cd "$scratch/repo" && drop_session_ties && PORT=$local_port exec bash scripts/local-run.sh) \
+    </dev/null >"$scratch/local-run.log" 2>&1 &
+  local_pgid=$!
+  set +m
+  ready=0
+  for _ in $(seq $((LOCAL_RUN_WAIT * 4))); do
+    group_alive || break
+    if local_answers; then ready=1; break; fi
+    sleep 0.25
+  done
+  if [ "$ready" = 0 ]; then
+    why="did not answer on 127.0.0.1:$local_port within ${LOCAL_RUN_WAIT}s"
+    group_alive || why="exited before it answered"
+    cnr "the local run (scripts/local-run.sh) $why: $(tail -c 300 "$scratch/local-run.log" | tr '\n' ' ')"
+  fi
+  mkdir -p "$scratch/bin" || cnr "mkdir failed"
+  { printf '#!/usr/bin/env bash\nexport DEVSHOP_BROWSE_ORIGIN=%q DEVSHOP_BROWSE_PROJECT=%q DEVSHOP_BROWSE_OUT=%q\nexec node %q "$@"\n' \
+    "http://127.0.0.1:$local_port" "$scratch/repo" "$scratch/repo/.devshop-browse" "$here/browse.mjs" \
+    >"$scratch/bin/devshop-browse" && chmod 0755 "$scratch/bin/devshop-browse"; } || cnr "could not write devshop-browse"
+  (cd "$scratch/repo" && drop_session_ties && "$scratch/bin/devshop-browse" /) >"$scratch/browse-check.log" 2>&1 \
+    || cnr "devshop-browse / failed before the review: $(tail -c 300 "$scratch/browse-check.log" | tr '\n' ' ')"
+  rm -rf "$scratch/repo/.devshop-browse"
+  browse_path="$scratch/bin:"
+fi
+
 # --- The locked-down reviewer (feedback, not a wall: TARGET Verify, "what this protects against").
 rc=0
-(cd "$scratch/repo" && drop_session_ties && timeout "$TIMEOUT" claude -p "$prompt" --restricted --safe-mode \
+(cd "$scratch/repo" && drop_session_ties && export PATH="$browse_path$PATH" && timeout "$TIMEOUT" claude -p "$prompt" --restricted --safe-mode \
   --strict-mcp-config --no-session-persistence --disable-slash-commands --tools "$TOOLS" \
   --permission-mode dontAsk --settings "$here/settings.json" --model "$MODEL" \
   --output-format json --json-schema "$schema" </dev/null >"$scratch/out.json" 2>"$scratch/err") || rc=$?
 
+# The local run stops before anything else is judged, and none of it may be left.
+stop_local_run || cnr "the local run left a process behind, or its port still answers, after the review"
 # The real worktree must be as it was, whatever the reviewer did.
 [ "$(git -C "$repo" rev-parse -q --verify HEAD)" = "$head" ] && [ -z "$(git -C "$repo" status --porcelain)" ] \
   || cnr "the real worktree changed during the review"
