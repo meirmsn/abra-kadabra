@@ -42,8 +42,13 @@ W10.1.2b spike (`kit/notes/revamp/spikes/w10-1-2b-thin/`, kept as notes).
   unfrozen install), and runs its `./setup` with stdin closed and
   `--no-team --no-plan-tune-hooks --no-timeline-stop-hook`, so gstack registers no Claude hooks and
   leaves `~/.claude/settings.json` to the devshop plugin (F-GS-08). It then turns gstack's update
-  check off (`auto_upgrade` is off by default): the pin is the only upgrade path. `--no-browser`:
-  Chromium installs on a browser skill's first run. Output: `/tmp/devshop-gstack.log`.
+  check off (`auto_upgrade` is off by default): the pin is the only upgrade path, and its
+  cross-project learnings off, so `/design-review` asks nothing. `--no-browser`: gstack's own
+  Chromium would download on a browser skill's first run, which the network blocks (F-NEW-87), so
+  when the image ships Playwright's Chromium at `/opt/pw-browsers/chromium` the bootstrap adds
+  `GSTACK_CHROMIUM_PATH` to the `env` of `~/.claude/settings.json`, keeping the rest; a settings
+  file that isn't a JSON object, or whose `env` isn't one, is left as it is and logged as failed
+  ([spec](../specs/design-review-in-build.md)). Output: `/tmp/devshop-gstack.log`.
 - **Pinned tools** (L-45): [`install/tools.pin`](tools.pin) names gitleaks, shellcheck and dcg at
   the version and checksum CI pins (`tests/bootstrap.test.sh` fails if they differ). The bootstrap
   downloads each, checks its sha256, and links it into `/opt/devshop-tools/bin`, where the devshop's

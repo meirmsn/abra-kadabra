@@ -114,8 +114,34 @@ install_gstack() {
   # The pin is the only upgrade path: no "upgrade available" prompts (auto_upgrade is off by default).
   "$dir/bin/gstack-config" set update_check false >>"$glog" 2>&1 \
     || step_failed "gstack: turning off its update check (see $glog)"
+  # /design-review runs unattended (specs/design-review-in-build.md): no question about learnings
+  # from other projects.
+  "$dir/bin/gstack-config" set cross_project_learnings false >>"$glog" 2>&1 \
+    || step_failed "gstack: turning off cross-project learnings (see $glog)"
 }
 install_gstack
+
+# gstack's browser (F-NEW-87): its Playwright wants a Chromium build the image doesn't have, and the
+# network blocks the download. When the image ships Playwright's own Chromium, point gstack at it
+# through Claude Code's settings env, which every session's shell gets. Root cause: gstack is
+# installed with --no-browser and pins a newer Playwright than the image's.
+CHROMIUM=/opt/pw-browsers/chromium
+SETTINGS="$HOME/.claude/settings.json"
+point_gstack_browser() {
+  [ -x "$CHROMIUM" ] || { log "gstack browser: no $CHROMIUM in this image; /design-review can't run"; return; }
+  local cur new
+  cur=$(cat "$SETTINGS" 2>/dev/null)
+  [[ $cur =~ [^[:space:]] ]] || cur='{}'
+  jq -e 'type == "object"' <<<"$cur" >/dev/null 2>&1 \
+    || { step_failed "gstack browser: $SETTINGS isn't a JSON object; left as it is"; return; }
+  jq -e '(.env // {}) | type == "object"' <<<"$cur" >/dev/null \
+    || { step_failed "gstack browser: $SETTINGS has an env that isn't an object; left as it is"; return; }
+  new=$(jq --arg p "$CHROMIUM" '.env = ((.env // {}) + {GSTACK_CHROMIUM_PATH: $p})' <<<"$cur" 2>>"$LOG") \
+    && [ -n "$new" ] || { step_failed "gstack browser: couldn't update $SETTINGS; left as it is"; return; }
+  { mkdir -p "${SETTINGS%/*}" && printf '%s\n' "$new" >"$SETTINGS"; } \
+    || step_failed "gstack browser: write $SETTINGS"
+}
+point_gstack_browser
 
 if [ "$failed" = 0 ]; then
   log "RESULT: bootstrap done (current -> $(readlink /opt/devshop-current))"
