@@ -1,0 +1,17 @@
+/* The Notes section, with three planted breaks of DESIGN.md (a font it doesn't name, a spacing
+   value off its scale, a colour outside its palette). */
+.notes {
+  padding: 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  font-family: 'Comic Neue', cursive;
+}
+.notes h2 {
+  margin: 0 0 var(--space-2);
+  color: #ff00aa;
+}
+.notes p {
+  color: var(--muted-foreground);
+  margin: 0;
+}

@@ -38,6 +38,9 @@ scripts named here; run them, never retype them as shell.
 - Each acceptance item ends up named (`AC-<n>`) in the test that proves it, unless the spec marks it
   "verified by review".
 - Run the new and affected tests and the fast checks as you go; the full suite runs in CI.
+- A change to what a page renders: once its tests pass and before `devshop:pr`, gstack's
+  `/design-review` on a local run (none without `DESIGN.md`), as
+  `/opt/devshop-current/guidelines/ui.md` § Design review says.
 - Noticed something the change doesn't need? Fix it only when the task needs it or it sits in
   lines you already edit. Otherwise log it, don't fix it: a row in the project's `FINDINGS.md`
   (from `/opt/devshop-current/templates/findings.md`, which has the rules), or a sighting on the

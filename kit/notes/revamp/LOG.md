@@ -3064,3 +3064,17 @@ needs one; three changes in, none did. The deploy and preview scripts stay prose
 website's copies (F-NEW-100).
 
 **Next**: R-4.
+
+## #83 — 2026-10-17 · R-5: a design review in build
+
+**What moved**: build runs gstack's `/design-review` on a local run of every UI change before
+`ship` (the preview exists only after `ship`; owner, "1. A"), unattended, fixing only what the
+change built, its findings mapped onto `FINDINGS.md`. The rules are in `runtime/guidelines/ui.md`.
+gstack's browser never ran in a cloud session (F-NEW-87): its Playwright wants a Chromium the image
+lacks; the bootstrap now points it at the image's own. Proven on a scratch site in two rounds.
+
+**Surprises**: gstack's browser check ignores that path and prints `NEEDS_SETUP`, so the skill
+would ask the owner (F-NEW-101, mitigated). Round 1's honest arm failed on a value I got wrong in
+the fixture's `DESIGN.md`, which both runs caught.
+
+**Next**: the website's next UI change is the live check; R-4.

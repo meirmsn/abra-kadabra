@@ -108,6 +108,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
 - [`design-first-spec-review.md`](../specs/design-first-spec-review.md): design questions first in
   the spec review, replayed and dropped (they missed the case they were for); the finding is
   F-NEW-65.
+- [`design-review-in-build.md`](../specs/design-review-in-build.md): build runs gstack's
+  `/design-review` on a local run of every UI change before it ships.
 - [`findings-and-roadmap.md`](../specs/findings-and-roadmap.md): every repo keeps a roadmap of
   what the owner decided and a findings log of what Claude noticed.
 - [`metrics-hours.md`](../specs/metrics-hours.md): the metrics comment shows hours and minutes
@@ -221,7 +223,9 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   copies: `tokens-check.mjs` (every token defined in both themes, contrast pairs; proven by
   [`tests/ui-tokens-check.test.sh`](../tests/ui-tokens-check.test.sh)) and `render-check.mjs`
   (the page in Chromium at 375, 768 and 1280 px in both themes; proven by
-  [`tests/ui-render-check.test.sh`](../tests/ui-render-check.test.sh)).
+  [`tests/ui-render-check.test.sh`](../tests/ui-render-check.test.sh)). Its § Design review is how
+  `build` runs gstack's `/design-review` before `ship`
+  ([spec](../specs/design-review-in-build.md)).
 - Reviewer: [runtime/reviewer/README.md](../runtime/reviewer/README.md) is the independent
   reviewer script, how it is locked down and what that is worth, `ship` (review in the VM, then
   code, words and the verdict comment go on the PR together), the guard that refuses other ways to a

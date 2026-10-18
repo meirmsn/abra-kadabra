@@ -1,0 +1,14 @@
+/* The Notes section: only the baseline's tokens. */
+.notes {
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+.notes h2 {
+  margin: 0 0 var(--space-2);
+}
+.notes p {
+  color: var(--muted-foreground);
+  margin: 0;
+}
