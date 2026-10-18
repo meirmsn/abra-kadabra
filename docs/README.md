@@ -39,7 +39,7 @@ Projects pin the tag; `/devshop:upgrade` defaults to the newest one. Proven by
   ([spec](../specs/ci-fast-slow-tiers.md)): job `fast` runs [`scripts/check-fast.sh`](../scripts/check-fast.sh)
   (the secret scan, lint and every test not marked slow), then job `slow` runs
   [`scripts/check-slow.sh`](../scripts/check-slow.sh) (the tests marked `# tier: slow`: the whole
-  install and the UI render check in Chromium, at the Playwright version `package.json` pins). A test is slow when it tests the system end to end, not because it takes long.
+  install, the UI render check and the reviewer's `devshop-browse` in Chromium, at the Playwright version `package.json` pins). A test is slow when it tests the system end to end, not because it takes long.
   `tests/run.sh fast|slow` runs one tier, `tests/run.sh` all. Proven by
   [`tests/check-tiers.test.sh`](../tests/check-tiers.test.sh) and
   [`tests/run-tiers.test.sh`](../tests/run-tiers.test.sh).
@@ -229,14 +229,17 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   `build` runs gstack's `/design-review` before `ship`
   ([spec](../specs/design-review-in-build.md)).
 - Reviewer: [runtime/reviewer/README.md](../runtime/reviewer/README.md) is the independent
-  reviewer script, how it is locked down and what that is worth, `ship` (review in the VM, then
+  reviewer script, its browser on the project's local run, how it is locked down and what that is
+  worth, `ship` (review in the VM, then
   code, words and the verdict comment go on the PR together), the guard that refuses other ways to a
   PR, and its proof ([`tests/reviewer.test.sh`](../tests/reviewer.test.sh),
   [`tests/reviewer-pr.test.sh`](../tests/reviewer-pr.test.sh),
   [`tests/ship.test.sh`](../tests/ship.test.sh),
-  [`tests/review-guard.test.sh`](../tests/review-guard.test.sh) and
+  [`tests/review-guard.test.sh`](../tests/review-guard.test.sh),
+  [`tests/reviewer-browse.test.sh`](../tests/reviewer-browse.test.sh) and
   [`tests/reviewer-eval.test.sh`](../tests/reviewer-eval.test.sh) in CI,
-  [`tests/reviewer-live.sh`](../tests/reviewer-live.sh) in a session), and the eval run by hand
+  [`tests/reviewer-live.sh`](../tests/reviewer-live.sh) and
+  [`tests/reviewer-browser-live.sh`](../tests/reviewer-browser-live.sh) in a session), and the eval run by hand
   before a change to how it reviews (W10.10.7).
 
 ## The revamp (being built)
