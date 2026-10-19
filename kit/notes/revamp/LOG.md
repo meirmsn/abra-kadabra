@@ -3092,3 +3092,17 @@ the layout width; `NODE_PATH` holds a global Playwright, so the project's is loa
 service workers blocked a registration still resolves, the worker just never runs.
 
 **Next**: R-4.
+
+## #85 — 2026-10-19 · W10.10.9: a new project, end to end
+
+**What moved**: a fresh session on the throwaway repo `test-project` ran the `new-project` skill:
+`init` at `v2.0.0`, the first PR green and reviewed, the walls refused a direct push and an
+unapproved merge, the owner approved and merged, CI on `main` green; the repo is archived.
+W10.10.9 is `[x]`.
+
+**Surprises**: the owner's protection came out as a classic rule, which the agent can't read, so part
+2 was only partly checked (F-NEW-114). The review guard blocked the wall test's push to `main`
+(F-NEW-113). The skill's first-PR title has no Conventional Commit prefix, which R-12's check would
+fail.
+
+**Next**: R-12.
