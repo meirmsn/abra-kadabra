@@ -172,10 +172,13 @@ in.
    apex.
 4. **A read-only Cloudflare token (Account Analytics Read)** in a GitHub environment of its own,
    `observability`, with no branch rule: the pre-merge health check and the post-deploy canary read
-   it (D-17 item 7, W10.10.5). For a Worker that serves static assets only, read zone analytics
-   (`httpRequestsAdaptiveGroups` by `edgeResponseStatus`): `workersInvocationsAdaptive` counts
-   nothing for it (the website's first canary saw 0 requests while fetching every route), so an
-   error count built on it is blind and only the page fetches catch an outage.
+   it (D-17 item 7, W10.10.5). For a Worker that serves static assets only, the token also needs
+   Zone Analytics Read on the site's zone, still read-only and no zone edit rights, to read zone
+   analytics (`httpRequestsAdaptiveGroups` by `edgeResponseStatus`): `workersInvocationsAdaptive`
+   counts nothing for it (the website's first canary saw 0 requests while fetching every route), so
+   an error count built on it is blind and only the page fetches catch an outage. The website's
+   follow-up to its PR #10 makes that switch; until it lands, this is the owner's choice, not a
+   verified query.
 5. **The cloud environment's network allowlist:** besides the registries and GitHub, the production
    host and the preview account's `workers.dev` subdomain, and the domain. They are known after the
    first deploy; the session names them then. Check: from a session, `curl -sI` on each answers.
@@ -189,17 +192,17 @@ the template's `ci.yml` with its tool-install and deploy `env` lines filled, `qu
 
 ## Platform controls in use (TARGET Safety 12)
 
-| Control                               | How it is set                                                                                                                                 |
-| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Token scopes                          | Workers Scripts Edit (+ D1 Edit when needed); no zone rights (the domain is attached by hand); a read-only token for observability            |
-| Two accounts                          | production token only in `production`; preview-only account's token only in `preview`                                                         |
-| Branch-limited secrets                | the `production` environment's deployment branch rule: `main` only                                                                            |
-| The deploy gate                       | GitHub can't hold a private repo's deploy for approval, so the owner's PR approval plus main-only deploys is it                               |
-| Versions and rollback                 | every deploy records the version it replaces; `wrangler rollback <version> --name <worker>` or the dashboard                                  |
-| One deploy at a time                  | `concurrency: production`, `cancel-in-progress: false`                                                                                        |
-| No version preview URLs on production | `preview_urls: false`; previews are separate Workers in the preview account                                                                   |
-| Logs                                  | `observability.enabled` (Workers Logs); analytics and logs read with the read-only token (W10.10.5); zone analytics for a static-asset Worker |
-| Only the site's Worker                | `scripts/deploy.sh` refuses a config naming any other Worker                                                                                  |
+| Control                               | How it is set                                                                                                                                                                                                  |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Token scopes                          | Workers Scripts Edit (+ D1 Edit when needed); no zone edit rights (the domain is attached by hand); a read-only token for observability, with Zone Analytics Read on the site's zone for a static-asset Worker |
+| Two accounts                          | production token only in `production`; preview-only account's token only in `preview`                                                                                                                          |
+| Branch-limited secrets                | the `production` environment's deployment branch rule: `main` only                                                                                                                                             |
+| The deploy gate                       | GitHub can't hold a private repo's deploy for approval, so the owner's PR approval plus main-only deploys is it                                                                                                |
+| Versions and rollback                 | every deploy records the version it replaces; `wrangler rollback <version> --name <worker>` or the dashboard                                                                                                   |
+| One deploy at a time                  | `concurrency: production`, `cancel-in-progress: false`                                                                                                                                                         |
+| No version preview URLs on production | `preview_urls: false`; previews are separate Workers in the preview account                                                                                                                                    |
+| Logs                                  | `observability.enabled` (Workers Logs); analytics and logs read with the read-only token (W10.10.5); zone analytics for a static-asset Worker                                                                  |
+| Only the site's Worker                | `scripts/deploy.sh` refuses a config naming any other Worker                                                                                                                                                   |
 
 ## Cloud-session facts
 
