@@ -74,3 +74,19 @@ step "feat: a feature" || { cat "$work/out.log" >&2; fail "AC-2: the step fails 
 step "$(printf 'fix: a commit subject (#12)\n\nIts body.')" || { cat "$work/out.log" >&2; fail "AC-2: the step fails a good commit message"; }
 ! step "A title without a type" || fail "AC-2: the step passes a title without a type"
 echo "ok - AC-2: CI's fast job checks the title through env, and its command fails a bad one"
+
+# The titles the devshop's skills hand out pass the check: new-project's first PR and the upgrade
+# skill's example (W10.11.0). A skill whose title can't be found fails, never passes.
+skill_title() { # <file> <regex with one group>
+  python3 - "$1" "$2" <<'PY'
+import re, sys
+m = re.search(sys.argv[2], " ".join(open(sys.argv[1]).read().split()))
+sys.exit(1) if not m else print(m.group(1))
+PY
+}
+np=$(skill_title "$repo_root/runtime/skills/new-project/SKILL.md" 'One commit, "([^"]+)"') ||
+  fail "the new-project skill names no first-PR title"
+up=$(skill_title "$repo_root/install/plugin/devshop/upgrade/skills/upgrade/SKILL.md" 'The title says what moves, e\.g\. "([^"]+)"') ||
+  fail "the upgrade skill gives no example title"
+expect "new-project's first-PR title passes" 0 'ok' -- "$np"
+expect "the upgrade skill's example title passes" 0 'ok' -- "$up"
