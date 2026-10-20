@@ -1,6 +1,8 @@
 # One project contract: what every project must provide, checked
 
-**Go:** pending
+**Go:** on the go screen's five questions, "1. B 2. A 3. A 4. A 5. A" (owner, 2026-10-20): the owner/when split,
+the two checks beside, absent optional items as a plain line, the AC rule with the spec name once a
+repo has several specs, F-NEW-107 and F-NEW-109 moved here
 
 ## Intent
 
@@ -29,8 +31,8 @@ project away from the contract) is part of this.
 
 ## Decisions
 
-Where a decision below says "asked on the go screen", the owner's answer is recorded on it at the
-go, with the date.
+Where a decision below says "asked on the go screen", the owner answered on the go line above
+(2026-10-20) with the option the decision describes.
 
 - **The contract is `runtime/project-contract.txt`**, a text file read by people and by the check:
   UTF-8 with LF line ends, blocks separated by blank lines, `#` starting a comment line. Each block
