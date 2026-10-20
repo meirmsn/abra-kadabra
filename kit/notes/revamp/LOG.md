@@ -3121,3 +3121,18 @@ one routes name, one AC rule. Tests first; 32 of 32 mutants killed.
 is one upgrade PR each. Without a pin gate the devshop repo itself would go red every session.
 
 **Next**: a release; the website's and the fixture's upgrade PRs.
+
+## #87 — 2026-10-20 · M2 milestone review
+
+**What moved**: [REVIEW-3.md](REVIEW-3.md), PROCESS § 5 at M2's exit, with a fresh adversarial
+review. It changes nothing; its § 9 is the owner's. M2: live site, seven website PRs, the Cloudflare
+home and the reviewer's browser are recorded; Lighthouse on the live site, the published link and
+cost per change are not, and R-5 and R-6 have no website record yet. Findings: 31 walked, none
+closed by R-13, five by the Cloudflare home (deleted on the owner's answer), three added: 29 open.
+M3 detailed as W10.11.0–11, entry tasks first: lalista's walls, data safety, the guardrail call-out.
+
+**Surprises**: the upgrade and new-project skills' titles fail `v2.1.0`'s title check. A-11:
+`supabase start` can't pull its images through this environment's network policy. Attaching the
+website and lalista was refused by the session's permission check.
+
+**Next**: the owner's decisions on REVIEW-3 § 9.
