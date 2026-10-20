@@ -33,7 +33,9 @@ session, so anything only they hold is marked **not read**._
   $12.58 and the owner's wait was 95 % of its elapsed time.
 - **Proposal:** close M2 with one plain run on the website at `v2.1.x` (it is also the first live
   check of R-5, R-6 and R-13); fix the title bug first; make lalista's walls and a data-safety
-  section in the Next.js + Supabase home M3's entry tasks; freeze the records machinery.
+  section in the Next.js + Supabase home M3's entry tasks; freeze the records machinery (owner,
+  2026-10-20: no PR-a-day rule; the devshop does now only what blocks the next real step or
+  protects production data).
 
 ## 1. M2's exit, criterion by criterion
 
@@ -310,8 +312,8 @@ Each with a recommendation, as put to the owner.
 7. **TARGET edits** (§ 4: data safety as a Safety item; Ship 2 and 5 updated; Safety 7 ruled out
    for M3; the interview for features only; Reach narrowed). Recommended: yes, as one docs PR.
 8. **M3's tasks and order** (§ 7, W10.11.0–11). Recommended: as listed; the entry tasks first.
-9. **Housekeeping, no decision needed unless you object:** A-15 and A-24 marked as D-17 decided
-   them; A-28 and A-29 added; the root README's status lines updated (F-NEW-121).
+9. **Housekeeping, no decision needed unless you object** (proposed, not done here): A-15 and A-24
+   marked as D-17 decided them; A-28 and A-29 added; the root README's status lines updated (F-NEW-121).
 
 ## 10. What I checked, and what I couldn't
 
