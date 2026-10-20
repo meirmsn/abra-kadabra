@@ -22,10 +22,14 @@ so in the PR.
   jobs run it after `actions/setup-node` with `node-version-file: .nvmrc` and `cache: npm` (the
   template's "stack tool installs" lines). `.gitignore`: `node_modules/`, `.wrangler/`, `dist/`,
   `.dev.vars*`, `.env*`, and the generated preview config `wrangler.preview.json`.
-- **Routes:** every page is in `quality/routes.json`; a change that adds a page adds its path, so the
-  quality bar and the deploy's checks cover it (the fixture's `traffic/routes.json`, same rule). The
-  fixture gave each route synthetic traffic; a static site gets a smoke check instead, and the
-  canary fetches every listed path at the start and the end of its window (W10.10.5).
+- **Routes:** every page is in `quality/routes.json`, the one name for the list; a change that adds
+  a page adds its path, so the quality bar and the deploy's checks cover it. The fixture gave each
+  route synthetic traffic; a static site gets a smoke check instead, and the canary fetches every
+  listed path at the start and the end of its window (W10.10.5).
+- **Running locally:** `scripts/local-run.sh` serves the built site on `127.0.0.1:$PORT` with
+  `wrangler dev` (the same Worker that deploys) until stopped: the one way, used by the quality bar
+  below, the design review before `ship` and the reviewer's browser (the project contract's
+  `scripts/local-run.sh`; this home's [`supplies`](supplies) makes it required here).
 
 ## Deploy, with the day-one rollback
 
@@ -112,9 +116,9 @@ review caught it (LOG #72).
 
 ## The quality bar, in the slow tier
 
-`scripts/check-slow.sh` builds the site and serves it with `wrangler dev` on a free local port (the
-same Worker that deploys), waits until `/build.txt` is the commit, then on every page in
-`quality/routes.json`:
+`scripts/check-slow.sh` builds the site and serves it through `scripts/local-run.sh` on a free local
+port (`wrangler dev`, the same Worker that deploys), waits until `/build.txt` is the commit, then on
+every page in `quality/routes.json`:
 
 - the render check (`scripts/ui/render-check.mjs`, the devshop's copy, unchanged; UI guideline);
 - the page check (`scripts/quality/page-check.mjs`): a non-empty title and description and an
@@ -178,17 +182,29 @@ in.
    counts nothing for it (the website's first canary saw 0 requests while fetching every route), so
    an error count built on it is blind and only the page fetches catch an outage. The website's
    follow-up to its PR #10 makes that switch; until it lands, this is the owner's choice, not a
-   verified query.
+   verified query. Two facts for the canary and the health check, from the website's PR #10: a
+   canary job can't share the deploy's concurrency group (GitHub keeps one pending job per group and
+   a newly queued one cancels it, so a queued canary could cancel the next merge's waiting deploy);
+   the website keeps the canary out of the group and ends it "superseded" when `/build.txt` shows a
+   newer commit, checked with GitHub's compare API. And a health check holding a secret on
+   `pull_request` runs the PR's own code with it; the website runs it on `pull_request_target` with
+   a checkout of `main`, at a cost: the PR that adds or changes `health.yml` gets no run of its own,
+   a broken health on `main` blocks every PR until the owner removes it from the required checks,
+   and a re-run reuses the original run's commit of `main`.
 5. **The cloud environment's network allowlist:** besides the registries and GitHub, the production
    host and the preview account's `workers.dev` subdomain, and the domain. They are known after the
    first deploy; the session names them then. Check: from a session, `curl -sI` on each answers.
 
 Claude's part, with the first change that names the stack: `wrangler.jsonc`, `package.json` and
-`.nvmrc`, `scripts/build.sh`, `scripts/deploy.sh` and its test, `scripts/preview.sh`,
-`scripts/preview-config.mjs`, `scripts/preview-comment.mjs` and `.github/workflows/preview.yml`,
-the template's `ci.yml` with its tool-install and deploy `env` lines filled, `quality/routes.json`,
-`quality/budget.json` and `scripts/quality/`, `scripts/check-slow.sh` as above, and the project's
-`CLAUDE.md` conventions (this page's rules, in the project's words).
+`.nvmrc`, `scripts/setup.sh`, `scripts/build.sh`, `scripts/local-run.sh`, `scripts/deploy.sh` and
+its test, `scripts/preview.sh`, `scripts/preview-config.mjs`, `scripts/preview-comment.mjs` and
+`.github/workflows/preview.yml`, the template's `ci.yml` with its tool-install and deploy `env`
+lines filled, `quality/routes.json`, `quality/budget.json` and `scripts/quality/`,
+`scripts/check-slow.sh` as above with `scripts/ui/render-check.mjs`, and the project's `CLAUDE.md`
+conventions (this page's rules, in the project's words). The four optional items of the project
+contract a project here always carries are in [`supplies`](supplies): `scripts/setup.sh`,
+`scripts/deploy.sh`, `scripts/local-run.sh`, `scripts/ui/render-check.mjs`; session start reports
+one that is missing.
 
 ## Platform controls in use (TARGET Safety 12)
 
@@ -221,11 +237,12 @@ Seen in the fixture's and the website's sessions (F-NEW-55, F-NEW-68, F-NEW-71; 
 
 ## Tests are named by spec and item
 
-Every test that proves an acceptance item names it: `AC-<n>` in the test's name or description, so
-`scripts/spec-check.py --tests` (CI's fast tier) finds it (F-NEW-49). `spec-check.py` matches
-numbers per spec, so a second spec's `AC-1` is already "named" by the first spec's tests
-(F-NEW-92): the website labels them `<spec> AC-<n>` (`font-fallback AC-1`, `projects AC-2`), and the
-reviewer reads those labels. Script tests run from `tests/run.sh`, which changes into `tests/`, so a
+Every test that proves an acceptance item names it as the project contract's rule says (the `must`
+of `scripts/spec-check.py`, printed by `scripts/contract-check.py --list`): `AC-<n>` in the test's
+name or description, with the spec's file name before it (`<spec> AC-<n>`: `font-fallback AC-1`,
+`projects AC-2`) once the repo has more than one spec, since `spec-check.py` matches numbers per
+spec and reads nothing of the prefix (F-NEW-49, F-NEW-92); the reviewer reads those labels. Script
+tests run from `tests/run.sh`, which changes into `tests/`, so a
 test using repo-relative paths does `cd "$repo_root"` itself (F-NEW-89). Fast tests need no
 browser; a test that needs one is slow and runs from `check-slow.sh`.
 

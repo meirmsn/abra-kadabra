@@ -3106,3 +3106,18 @@ W10.10.9 is `[x]`.
 fail.
 
 **Next**: R-12.
+
+## #86 — 2026-10-20 · R-13: one project contract, checked
+
+**What moved**: `runtime/project-contract.txt` lists the 25 items the devshop relies on in a project
+(owner, when, check, must, for); `scripts/contract-check.py`, a devshop copy, checks them in the
+project's fast tier and, with the version's own copy and the stack homes' `supplies`, at session
+start ([spec](../../../specs/project-contract.md)). The manifest gained the new copies and an
+`optional` field for the UI checks; R-12's title check is the first entry (template step, ci-tiers
+rule, F-NEW-108's transitive `needs`). One local run (`scripts/local-run.sh`), lint in the template,
+one routes name, one AC rule. Tests first; 32 of 32 mutants killed.
+
+**Surprises**: the pinned version runs the hook, so projects see nothing until they upgrade: step 2
+is one upgrade PR each. Without a pin gate the devshop repo itself would go red every session.
+
+**Next**: a release; the website's and the fixture's upgrade PRs.

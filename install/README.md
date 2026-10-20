@@ -60,9 +60,13 @@ W10.1.2b spike (`kit/notes/revamp/spikes/w10-1-2b-thin/`, kept as notes).
   and logged as a `FAILED: tool` line. A copy in a directory ahead of `/usr/local/bin` on the
   session's PATH (`~/.local/bin`, `~/.cargo/bin`, node's or bun's bin) would win over the pinned one;
   none does on the cloud image today, and required CI installs the same pins itself.
-- **The project** holds one file, `.devshop-version`: a release tag such as `v2.0.0`, made by CI
-  ([releases](../docs/README.md#releases)), or a commit SHA to try a branch. The `upgrade` skill bumps it in a PR that also brings the project's copies of devshop files (below). Without it the session uses `HEAD`: `main` as of the
-  local copy.
+- **The project** holds the items of the project contract
+  ([`runtime/project-contract.txt`](../runtime/project-contract.txt), [spec](../specs/project-contract.md)):
+  `.devshop-version` (a release tag such as `v2.0.0`, made by CI,
+  [releases](../docs/README.md#releases), or a commit SHA to try a branch), the copies of devshop
+  files its CI runs, the seeds it adapted, and its own files; `scripts/contract-check.py --list` in
+  a project prints them. The `upgrade` skill bumps the pin in a PR that also brings the copies
+  (below). Without a pin the session uses `HEAD`: `main` as of the local copy.
 
 ## The `DEVSHOP:` line
 
@@ -153,11 +157,20 @@ Feedback, not walls: everything here runs in the session's VM, where the agent c
   (`HEAD` of the local copy) would report every devshop change. Seeds are never compared. The
   [`upgrade`](plugin/devshop/upgrade/skills/upgrade/SKILL.md) skill re-pins the
   project and brings the copies in one PR. Feedback, not a wall.
-- **The repo declares its checks.** The devshop carries no project-specific checks (Shape 3): a repo
-  declares `scripts/lint.sh` (full; the pre-push hook runs it), `scripts/lint-file.sh` (one file),
-  and CI's two tiers `scripts/check-fast.sh <base>` (secret scan, `lint.sh`, unit tests) and
-  `scripts/check-slow.sh` (end-to-end tests). This repo's are in [`scripts/`](../scripts); a project
-  gets them from its stack home (W10.5.2). Without `lint.sh`, only the secret scan runs on push.
+- **The project contract.** In a pinned project, session start runs the version's
+  [`scripts/contract-check.py`](../runtime/scripts/contract-check.py) over the version's
+  [`project-contract.txt`](../runtime/project-contract.txt) (30 s limit), with each applying stack
+  home's `supplies` ([stack homes](../runtime/stacks/README.md)): one `DEVSHOP:` line naming each
+  required item missing or malformed, or why it couldn't run; the optional items the project
+  doesn't have on one plain line to Claude; nothing when every item is there. The project's own
+  fast tier runs the same check from its copies. A repo with neither `.devshop-version` nor
+  `.github/workflows/ci.yml` gets one line naming `/devshop:new-project` instead. The devshop
+  carries no project-specific checks (Shape 3): a repo declares its own in the contract's items,
+  CI's two tiers `scripts/check-fast.sh <base>` (secret scan, spec check, contract check, lint
+  where the repo has `scripts/lint.sh`, unit tests) and `scripts/check-slow.sh` (end-to-end tests),
+  with `scripts/lint.sh` (the pre-push hook runs it; without it only the secret scan runs on push)
+  and `scripts/lint-file.sh` (one file) optional. This repo's are in [`scripts/`](../scripts); a
+  project gets its stack's from its stack home. Feedback, not a wall.
 
 Proven by [`tests/git-hooks.test.sh`](../tests/git-hooks.test.sh) (real `git push`, real gitleaks),
 [`tests/post-edit.test.sh`](../tests/post-edit.test.sh) and

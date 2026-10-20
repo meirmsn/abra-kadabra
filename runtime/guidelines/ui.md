@@ -14,7 +14,8 @@ The project's own rules win on conflict; say so in the PR.
   - `base.css` and `theme.js`: copy them; the project owns them (its colours, more components).
     Load `theme.js` in `<head>` as a plain script, or inline it, so there's no flash of the wrong
     theme. [`example.html`](../templates/ui/example.html) shows every piece in use.
-  - `tokens-check.mjs` and `render-check.mjs`: copy them unchanged into `scripts/ui/`; a newer
+  - `tokens-check.mjs` and `render-check.mjs`: copy them unchanged into `scripts/ui/`; they are
+    optional `devshop` copies in the project contract, so session start reports drift and a newer
     devshop version's upgrade re-copies them.
 - **Tokens only:** colours, radius and spacing come from the theme's tokens (shadcn/ui's names);
   name only tokens the theme defines, for light and dark (L-78). A new colour gets a light and a
@@ -45,9 +46,11 @@ styles, scripts a page loads, its assets), after its tests pass and before `devs
 ([spec](../../specs/design-review-in-build.md)). It is feedback, not a wall.
 
 - **Not without `DESIGN.md`:** no `DESIGN.md` in the project, no run; the PR's line says so.
-- **On a local run:** commit first (it needs a clean tree), start the app locally as the project's
-  `CLAUDE.md` or stack home says, and run it with that URL, scoped to the pages the change touches
-  (not its diff-aware mode, which takes no URL and looks only on ports 3000, 4000 and 8080).
+- **On a local run:** commit first (it needs a clean tree), start the app with the project's
+  `scripts/local-run.sh` (`PORT=<free port> scripts/local-run.sh`, the one way to run the site
+  locally; the project contract lists it), and run it with `http://127.0.0.1:<port>`, scoped to the
+  pages the change touches (not its diff-aware mode, which takes no URL and looks only on ports
+  3000, 4000 and 8080). No `scripts/local-run.sh`: it can't run, and the PR's line says so.
 - **Unattended:** its questions don't go to the owner. No test framework bootstrap, no edits to
   `CLAUDE.md` or `TESTING.md`, no `DESIGN.md` written, no `TODOS.md` step, no Codex or other
   outside voice (the code stays in the session), no learnings from other projects.
