@@ -74,5 +74,5 @@ reviewer, the design review and `check-slow.sh`; lint in the template or out of 
 routes-list name; one AC-naming rule); the manifest grows to cover what `runtime/guidelines/ui.md`
 already says the upgrade re-copies; a stack home declares which optional items it supplies.
 R-12's `pr-title-check.py` is the first entry done this way. Then one short PR per project
-(website, fixture) from what the check reports. The survey behind it is the R-6 session's audit
-(2026-10-19); F-NEW-104 and F-NEW-105 are this entry (rows deleted here); F-NEW-103 closes with it.
+(website, fixture) from what the check reports. The survey behind it is
+[the audit of 2026-10-19](kit/notes/revamp/project-contract-audit-2026-10-19.md); F-NEW-104 and F-NEW-105 are this entry (rows deleted here); F-NEW-103 closes with it.
