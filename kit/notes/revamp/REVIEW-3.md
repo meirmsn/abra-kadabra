@@ -292,6 +292,26 @@ Cloudflare and keeps Supabase, free, in a new project, with a keep-alive job (a 
 7, yes, as one docs PR. Item 8: the order stands; lalista has no real users, so its existing data
 may be dropped to simplify. Item 9, yes. F-NEW-77: roadmap (R-14, as W10.11.12).
 
+**The plain run and M2 (owner, 2026-10-20: "yes M2 is met").** Website PR #15, "feat: a sun/moon
+theme switch replaces the three-state theme button", read from its session's transcript (the
+website repo could not be attached), at the devshop's `v2.1.1`:
+
+| Graded                                 | Result                                                                                                |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| The change is what was asked           | The owner asked, chose across four decisions (a two-state slider, its lens), said go and approved     |
+| A reviewer verdict for the merged head | Pass, round 1, 0 blocking, 1 low; the reviewer's browser ran (no console errors at 375, 768, 1280 px) |
+| Nothing wrong reached production       | The owner checked PR #15's deploy and canary comments ("looks good")                                  |
+| Touchpoints                            | 2 go (the request, the go), 4 decisions in 3 messages, 1 approval, 0 friction                         |
+
+Also recorded: the session start line named `v2.1.1` and ran the contract check (R-13); the
+build's design review ran (design A, AI-slop A; a new component, so no before) (R-5); Lighthouse
+on the live domain, mobile: 99, 100, 100, 100 (owner); the spec asked 6 questions, 4 answered
+before the go, and its adversarial review fixed 3 blocking gaps; about $8 of session cost and 79
+minutes from the request to the merge, 52 of them the owner answering. One devshop friction:
+`ship.sh` refused the body twice because the **Preview:** line needs a link before the PR exists
+(F-NEW-94, second sighting). The one M2 criterion not met: the owner publishes the link, which
+waits on the owner's projects content, not on the devshop. M2 is met; M3 is next.
+
 Each with a recommendation, as put to the owner.
 
 1. **lalista's walls before M3, not at M4** (W0.6.2, W0.5.3; you deferred them "until the end of

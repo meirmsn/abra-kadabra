@@ -3137,7 +3137,22 @@ website and lalista was refused by the session's permission check.
 
 **Next**: the owner's decisions on REVIEW-3 § 9.
 
-## #88 — 2026-10-20 · REVIEW-3 § 9 decided
+## #88 — 2026-10-20 · M2 met: the website's plain run
+
+**What moved**: the owner declared M2 met. The plain run was website PR #15 (a sun/moon theme
+switch) at `v2.1.1`, read from its session's transcript: 0 friction touchpoints (2 go, 4
+decisions, 1 approval), the reviewer passed in one round with its browser, the build's design
+review ran (A, A), Lighthouse on the live site 99/100/100/100, production checked by the owner.
+About $8 and 79 minutes. Publishing the link waits on the owner's projects content. Recorded in
+REVIEW-3 § 9, W10.10.8, PLAN and the revamp README. Devshop PRs #153 (titles) and #154 (the
+render check tests the outcome, not the control's shape) merged on the way.
+
+**Surprises**: `ship.sh` refused the body twice for a Preview link that can't exist before the PR
+(F-NEW-94, second sighting).
+
+**Next**: M3's entry, REVIEW-3 § 9 items 1, 4, 7 and 8.
+
+## #89 — 2026-10-20 · REVIEW-3 § 9 decided
 
 **What moved**: the owner's answers to REVIEW-3 § 9, as D-19. lalista moves to Cloudflare (Workers,
 OpenNext) and keeps Supabase, free, in a new project with a keep-alive job; it has no real users,

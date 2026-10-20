@@ -335,17 +335,28 @@ for (const scheme of SCHEMES) {
     await context.close();
     continue;
   }
+  // The control's shape is the project's (a button that cycles, one button per choice, a menu):
+  // each round clicks every visible control inside the toggle, or the toggle itself when it is the
+  // control, until the page shows the other theme.
+  const controls = toggle.locator(
+    ':scope:is(button, [role="button"], a[href], input), :scope :is(button, [role="button"], [role="radio"], [role="menuitem"], [role="menuitemradio"], [role="option"], a[href], input:not([type="hidden"]), label)'
+  );
   const start = await bgNow(page);
   let reached = false;
-  for (let i = 0; i < 3 && !reached; i++) {
-    await toggle.click();
-    reached = (await bgNow(page)) !== start;
+  for (let round = 0; round < 3 && !reached; round++) {
+    const n = Math.min(await controls.count(), 10);
+    for (let i = 0; i < n && !reached; i++) {
+      const c = controls.nth(i);
+      if (!(await c.isVisible())) continue;
+      await c.click();
+      reached = (await bgNow(page)) !== start;
+    }
   }
   if (!reached) {
     find(
       'theme-toggle',
       where,
-      `three clicks on the toggle never switched the page to ${other}`
+      `three rounds of clicks on the toggle's controls never switched the page to ${other}`
     );
   } else {
     const chosen = await bgNow(page);

@@ -8,8 +8,11 @@ The project's own rules win on conflict; say so in the PR.
 
 - **Responsive, designed phone first:** one column at 375 px, wider from 768 px, more columns from
   1280 px. Nothing scrolls sideways; text lines stay readable (`--measure`).
-- **Light and dark:** the system setting by default, and a theme toggle (`[data-theme-toggle]`)
-  that overrides it and is remembered in that browser.
+- **Light and dark:** the system setting by default, and a theme control that overrides it both
+  ways and is remembered in that browser. Its shape is the project's, in `DESIGN.md` (a button that
+  cycles, one button per choice, a menu): mark the control, or the group holding its buttons, with
+  `[data-theme-toggle]`. The render check tests only the outcome; the project's own tests prove
+  how its control behaves.
 - **Start from [`runtime/templates/ui/`](../templates/ui/)** when the project has no baseline yet:
   - `base.css` and `theme.js`: copy them; the project owns them (its colours, more components).
     Load `theme.js` in `<head>` as a plain script, or inline it, so there's no flash of the wrong
