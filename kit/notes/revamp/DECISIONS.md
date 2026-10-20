@@ -27,6 +27,7 @@ Status: `open` · `decided` · `revisited`. Order below = order to decide in.
 | D-16 | What the north-star grades; which run-1 gaps block M1   | run 2                              | decided  |
 | D-17 | After review 2: M1 met, the exam retired, first project | M2                                 | decided  |
 | D-18 | A roadmap of decisions and a findings log, per repo     | M2                                 | decided  |
+| D-19 | After review 3: lalista on Cloudflare, walls before M3  | M3                                 | decided  |
 
 ---
 
@@ -356,3 +357,23 @@ Outcome: **decided 2026-10-16 (owner)**, as [specs/findings-and-roadmap.md](../.
 Every repo keeps a root `ROADMAP.md` and `FINDINGS.md`; findings are logged, not suppressed and
 not fixed on reflex; only the owner moves one to the roadmap. Supersedes D-17 item 3 (the ledger's
 grades) and W10.9.6 (the filing rule). The devshop's next task is the top `Open` roadmap entry.
+
+## D-19 After review 3: lalista on Cloudflare, its walls before M3 — `decided`
+
+Context: [REVIEW-3.md](REVIEW-3.md) § 9 at M2's exit. D-17 item 5 left lalista's platform and
+money call (F-NEW-18, F-NEW-19) to the end of the website milestone, and W0.6.2 and W0.5.3 had
+been deferred to M4 although W0.6.2's own condition is "before lalista resumes".
+
+Outcome: **decided 2026-10-20 (owner, in chat)**:
+
+1. **lalista's walls before M3** (W0.6.2 and W0.5.3 pulled forward as W10.11.1, one sitting).
+   Tokens lalista won't need are deleted, not rotated; only the ones kept are rotated.
+2. **lalista moves to Cloudflare** (Workers, through the OpenNext adapter) and **keeps Supabase,
+   on the free plan, in a new project**, with a scheduled keep-alive job. The keep-alive is a
+   mitigation: the root cause is the free plan pausing idle projects, which only a paid plan
+   removes. Sentry stays.
+3. **lalista has no real users; its existing data may be dropped** to simplify M3: no data is
+   migrated, and the frozen project is not restored unless its schema exists nowhere else.
+4. **TARGET's edits** from REVIEW-3 § 4, as one docs PR; **M3's tasks in REVIEW-3 § 7's order**,
+   with the move to Cloudflare in W10.11.2 and F-NEW-77 (R-14) before lalista adopts v2.
+5. Supersedes D-17 item 5 and the M4 deferral of W0.6.2 and W0.5.3.
