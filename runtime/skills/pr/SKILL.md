@@ -27,6 +27,11 @@ under `devshop:build` § 3; this skill only puts them on the PR.
 
 ## 2. Through the reviewer
 
+- The title starts with a Conventional Commit type (`feat:`, `fix:`, `docs:`, `chore:`, …; `!`
+  before the colon for a breaking change), then the observable change, in ≤ 72 characters: the
+  project's `scripts/pr-title-check.py` checks it in `ship` and in CI. The body ends where the
+  template ends: no attribution footer, which the platform replaces with its own, so `ship`'s
+  read-back fails (F-NEW-102).
 - Run `/opt/devshop-current/reviewer/ship.sh --title "<title>" --body-file <body file>`. It checks
   the words have the template's shape, then only on the independent reviewer's pass does it push,
   create or update the PR (ready) with those exact words and post the verdict; it is the only way to

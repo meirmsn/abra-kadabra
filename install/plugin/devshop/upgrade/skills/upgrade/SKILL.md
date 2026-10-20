@@ -51,9 +51,9 @@ Run `$PF plan --from OLD --to NEW --project .` and show the owner its sections:
 
 Commit everything in one commit, then invoke `devshop:pr`, which writes the body from the PR
 template (a pin from before it has no `pr` skill: follow `devshop:build`'s PR section). The title
-says what moves, e.g. "Pin the devshop to v2.1.0: <what the project gains>". **What you should
-know** lists each file with its owner and outcome (applied, changed, skipped and why), any file
-removed from the manifest, and the checks you ran; no Announcement.
+says what moves, e.g. "chore: pin the devshop to v2.1.1, <what the project gains>". **What you
+should know** lists each file with its owner and outcome (applied, changed, skipped and why), any
+file removed from the manifest, and the checks you ran; no Announcement.
 
 A project's formatter must leave `devshop` copies alone (`.prettierignore` for the `.mjs` ones), or
 every session reports them as drift. What `scripts/contract-check.py` then reports goes in the same PR.
