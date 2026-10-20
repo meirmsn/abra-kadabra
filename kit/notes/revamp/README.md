@@ -66,8 +66,10 @@ an explicit go/no-go; lalista is the pilot (web, then iOS).
 
 ## Next action
 
-M1 is done (D-17, [REVIEW-2.md](REVIEW-2.md), LOG #71). M2's review is [REVIEW-3.md](REVIEW-3.md) (LOG #87); its § 9 waits on the owner. Since 2026-10-16 the order of work is the
-root [ROADMAP.md](../../../ROADMAP.md): the top `Open` entry is next, and the owner reorders it.
+M1 is done (D-17, [REVIEW-2.md](REVIEW-2.md), LOG #71). M2's review is
+[REVIEW-3.md](REVIEW-3.md) (LOG #87); its § 9 waits on the owner. Since 2026-10-16 the order of
+work is the root [ROADMAP.md](../../../ROADMAP.md): the top `Open` entry is next, and the owner
+reorders it.
 
 - **Owner:** the W10.10.1 owner steps when that task starts (repo, Cloudflare account and tokens,
   cloud environment), guided by the session; before M3, lalista's plan check (F-NEW-18/19).
