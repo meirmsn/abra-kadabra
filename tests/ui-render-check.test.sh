@@ -113,6 +113,27 @@ EOF
 variant forget "s.replace('theme.js', 'forget.js')"
 run "AC-3: a choice that doesn't survive a reload fails" 1 "reload" "file://$site/forget.html"
 
+cat >"$site/segmented.js" <<'EOF'
+// A segmented control: one button per choice inside a [data-theme-toggle] group, kept in storage.
+(function () {
+  var root = document.documentElement;
+  var saved = null;
+  try { saved = localStorage.getItem('theme'); } catch (e) {}
+  if (saved === 'light' || saved === 'dark') root.dataset.theme = saved;
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-choice]');
+    if (!b) return;
+    var c = b.getAttribute('data-choice');
+    if (c === 'system') delete root.dataset.theme;
+    else root.dataset.theme = c;
+    try { if (c === 'system') localStorage.removeItem('theme'); else localStorage.setItem('theme', c); } catch (e) {}
+  });
+})();
+EOF
+segmented='<div role="group" aria-label="Theme" data-theme-toggle><button class="btn btn-outline" type="button" data-choice="system" style="display:none">Auto</button><button class="btn btn-outline" type="button" data-choice="system">System</button><button class="btn btn-outline" type="button" data-choice="light">Light</button><button class="btn btn-outline" type="button" data-choice="dark">Dark</button></div>'
+variant segmented "__import__('re').sub(r'<button[^>]*data-theme-toggle>.*?</button>', '''$segmented''', s, count=1, flags=16).replace('theme.js', 'segmented.js')"
+run "AC-3: a segmented theme control (one button per choice, one hidden) passes" 0 "" "file://$site/segmented.html"
+
 variant nomain "s.replace('<main', '<div').replace('</main>', '</div>')"
 run "AC-3: no <main> fails" 1 "main" "file://$site/nomain.html"
 
