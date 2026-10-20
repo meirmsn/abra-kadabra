@@ -248,7 +248,7 @@ if grep -En '(^|[^A-Za-z])(runtime|install|kit)/|/opt/' "$contract"; then fail "
 echo "ok - AC-1: the real contract names no devshop path"
 
 # AC-10: the contract, the manifest and the templates agree.
-python3 - "$repo_root" "$script" <<'PY' || fail "AC-10: the contract, manifest and templates disagree (above)"
+python3 -B - "$repo_root" "$script" <<'PY' || fail "AC-10: the contract, manifest and templates disagree (above)"
 import importlib.util, os, re, subprocess, sys
 root, script = sys.argv[1], sys.argv[2]
 spec = importlib.util.spec_from_file_location("cc", script)
