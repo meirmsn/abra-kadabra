@@ -59,9 +59,10 @@ PRs) without access to devshop
 the generic tooling lives on devshop, and the particular lives in each project
 ```
 
-On the proposed shape below, "yes", then "do step 0" (2026-10-20). Placed before R-12 at the
-owner's acceptance of "the next task, before R-12", so R-12's title check enters through the
-contract rather than beside it.
+On the proposed shape below, "yes", then "do step 0" (2026-10-20): step 0 is this roadmap entry,
+step 1 the spec and build in a session of its own, step 2 one short PR per project from what the
+check reports. Placed before R-12 at the owner's acceptance of "the next task, before R-12", so
+R-12's title check enters through the contract rather than beside it.
 
 ### Claude's notes
 
