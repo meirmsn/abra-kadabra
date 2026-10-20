@@ -5,8 +5,9 @@ helps you sharpen it, specs it and builds it, iterating against adversarial revi
 result is verified against your intent. Then you review the PR and its preview, and your
 approval ships it. Claude works inside walls it can't move.
 
-**Status:** v2 is being built in this repo (the 2026-Q4 revamp). It doesn't do anything for
-projects yet. Plan and tracker: [`kit/notes/revamp/`](kit/notes/revamp/README.md).
+**Status:** v2 is being built in this repo (the 2026-Q4 revamp). It runs the owner's website on
+Cloudflare, which has the first stack home ([`runtime/stacks/`](runtime/stacks/README.md)); the
+first real app comes next. Plan and tracker: [`kit/notes/revamp/`](kit/notes/revamp/README.md).
 
 **v1** is frozen at the `v1-final` tag and is no longer on `main`. It is reference only (the revamp
 notes cite it as evidence), never instructions. To read it:
@@ -41,5 +42,5 @@ and opens the first PR with green CI, and part 2 (protecting `main`) comes in th
 | [`kit/notes/revamp/`](kit/notes/revamp) | Revamp plan, decisions, findings, lessons, log, and the spikes (kept as notes)                                                                       |
 
 Stack homes (`runtime/stacks/<name>/`) and discipline guidelines (`runtime/guidelines/`) live in
-`runtime/`, because only `runtime/` reaches a project's session. Their layouts are defined; none
-ship yet.
+`runtime/`, because only `runtime/` reaches a project's session. The Cloudflare home and the UI
+guideline ship; `nextjs-supabase/` is a placeholder until lalista (M3).

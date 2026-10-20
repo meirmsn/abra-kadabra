@@ -284,7 +284,13 @@ to 121 logged (F-NEW-118 is the title fix itself); no more full walks of the log
 again when it is seen again or when the task it touches starts; F-NEW-77 still waits for the
 owner. Item 6 changed: no PR-a-day rule; the devshop does now only what blocks the next real step
 or protects production data, and the rest waits for evidence. A-11: the owner will allow the
-registry hosts, in lalista's environment, when M3 starts. Items 1, 4, 7 and 8 are open.
+registry hosts, in lalista's environment, when M3 starts. ~~Items 1, 4, 7 and 8 are open.~~
+
+**Outcome, the rest (owner, 2026-10-20, in chat; D-19):** item 1, yes, but tokens lalista won't
+need are deleted, not rotated (Sentry stays, so its token is rotated). Item 4: lalista moves to
+Cloudflare and keeps Supabase, free, in a new project, with a keep-alive job (a mitigation). Item
+7, yes, as one docs PR. Item 8: the order stands; lalista has no real users, so its existing data
+may be dropped to simplify. Item 9, yes. F-NEW-77: roadmap (R-14, as W10.11.12).
 
 **The plain run and M2 (owner, 2026-10-20: "yes M2 is met").** Website PR #15, "feat: a sun/moon
 theme switch replaces the three-state theme button", read from its session's transcript (the

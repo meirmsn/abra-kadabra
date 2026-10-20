@@ -3151,3 +3151,16 @@ render check tests the outcome, not the control's shape) merged on the way.
 (F-NEW-94, second sighting).
 
 **Next**: M3's entry, REVIEW-3 § 9 items 1, 4, 7 and 8.
+
+## #89 — 2026-10-20 · REVIEW-3 § 9 decided
+
+**What moved**: the owner's answers to REVIEW-3 § 9, as D-19. lalista moves to Cloudflare (Workers,
+OpenNext) and keeps Supabase, free, in a new project with a keep-alive job; it has no real users,
+so its data may be dropped. Its walls come before M3 (W10.11.1), deleting the tokens it won't need
+and rotating only the kept ones. TARGET edited (data safety as Safety 13, Ship 2 and 5, Safety 7
+ruled out for M3, the interview for features, Reach narrowed). M3 detailed as W10.11; F-NEW-77 is
+R-14 (W10.11.12); A-15 and A-24 closed, A-28 to A-30 added; the README's status fixed (F-NEW-121).
+
+**Surprises**: the `intent` skill still interviews every change; TARGET now says features only.
+
+**Next**: W10.11.2, the OpenNext experiment in a lalista session.

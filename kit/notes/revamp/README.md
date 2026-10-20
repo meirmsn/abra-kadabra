@@ -43,7 +43,7 @@ an explicit go/no-go; lalista is the pilot (web, then iOS).
 | M0  | Stop the bleeding + groundwork                        | done                                                                                      |
 | M1  | Walking skeleton → go/no-go                           | done 2026-10-15 (D-17: met on runs 1–2 under D-16's rule; go). Close-out tasks W10.9 open |
 | M2  | First real project: the owner's website on Cloudflare | done 2026-10-20 (owner; plain run website PR #15, [REVIEW-3](REVIEW-3.md))                |
-| M3  | First real app: lalista web on v2                     | next; tasks proposed in REVIEW-3 § 7                                                      |
+| M3  | First real app: lalista web on v2                     | next; detailed as W10.11; lalista moves to Cloudflare (D-19)                              |
 | M4  | iOS stack + Mac; retire v1                            | coarse                                                                                    |
 
 ## Files
@@ -67,12 +67,13 @@ an explicit go/no-go; lalista is the pilot (web, then iOS).
 ## Next action
 
 M1 is done (D-17, [REVIEW-2.md](REVIEW-2.md), LOG #71). M2's review is
-[REVIEW-3.md](REVIEW-3.md) (LOG #87); its § 9 waits on the owner. Since 2026-10-16 the order of
+[REVIEW-3.md](REVIEW-3.md) (LOG #87); M2 is met (LOG #88); the owner decided its § 9 (D-19, LOG #89), and M3 is detailed
+as W10.11. Since 2026-10-16 the order of
 work is the root [ROADMAP.md](../../../ROADMAP.md): the top `Open` entry is next, and the owner
 reorders it.
 
 - **Owner:** the W10.10.1 owner steps when that task starts (repo, Cloudflare account and tokens,
-  cloud environment), guided by the session; before M3, lalista's plan check (F-NEW-18/19).
+  cloud environment), guided by the session; before M3, lalista's walls and accounts in one sitting (W10.11.1, D-19).
 
 ## Driving the revamp from a new session
 
