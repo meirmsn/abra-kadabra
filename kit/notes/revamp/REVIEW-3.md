@@ -269,7 +269,18 @@ of the cost.
 
 ## 9. Decisions for the owner
 
-Each with a recommendation.
+**Outcome so far (owner, 2026-10-20, in chat):** item 2, yes: the title fix now, then the owner
+cuts `v2.1.1`, the website upgrades, and a small website change is the plain run (item 5: M2
+closes on that run; the website was already on `v2.1.0`). The gaps in § 1 need no devshop work:
+Lighthouse on the live domain, the published link, cost per change and the touchpoints are all
+recorded on that run. Item 3: the five rows closed by the Cloudflare home are deleted, F-NEW-119
+to 121 logged (F-NEW-118 is the title fix itself); no more full walks of the log: a row is read
+again when it is seen again or when the task it touches starts; F-NEW-77 still waits for the
+owner. Item 6 changed: no PR-a-day rule; the devshop does now only what blocks the next real step
+or protects production data, and the rest waits for evidence. A-11: the owner will allow the
+registry hosts, in lalista's environment, when M3 starts. Items 1, 4, 7 and 8 are open.
+
+Each with a recommendation, as put to the owner.
 
 1. **lalista's walls before M3, not at M4** (W0.6.2, W0.5.3; you deferred them "until the end of
    the revamp", but W0.6.2's own condition is "before lalista resumes"). Recommended: yes, as
