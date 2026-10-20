@@ -165,8 +165,8 @@ mitigates two that stay.
 rule (`runtime/stacks/cloudflare/README.md`, lines 246 and 253–266), so by the template's rule the
 rows should be deleted. They are closed for Cloudflare only: 81 (`og:image` against the site under
 test), 82 (fonts in the byte budget) and 90 (prove the blocked-fonts state) don't depend on the
-stack and belong in `runtime/guidelines/ui.md` before lalista (W10.11.7 below). Deleted on the
-owner's answer (§ 9, Outcome).
+stack and belong in `runtime/guidelines/ui.md` before lalista (W10.11.7 below, now their only
+record). Deleted on the owner's answer (§ 9, Outcome).
 
 **Still watching (26)**, with what M3 does to them:
 
@@ -183,7 +183,7 @@ R-13.
 and the open `med` rows 78, 79, 87, 88, 91, 92, 96, 102.
 
 **New from this review** (F-NEW-119 to 121 written to `FINDINGS.md` on the owner's answer; F-NEW-118
-is fixed by its own PR, W10.11.0, so it gets no row):
+is to be fixed by its own PR, W10.11.0, next, so it gets no row):
 
 | Proposed row | Severity | What                                                                                                            |
 | ------------ | -------- | --------------------------------------------------------------------------------------------------------------- |
