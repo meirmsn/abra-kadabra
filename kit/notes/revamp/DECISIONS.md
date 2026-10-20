@@ -372,7 +372,7 @@ Outcome: **decided 2026-10-20 (owner, in chat)**:
    on the free plan, in a new project**, with a scheduled keep-alive job. The keep-alive is a
    mitigation: the root cause is the free plan pausing idle projects, which only a paid plan
    removes. Sentry stays.
-3. **lalista has no real users; its existing data may be dropped** to simplify M3: no data is
+3. **lalista has no real users; its existing data may be dropped** to simplify M3 (the restore-point tooling is still set up before the first migration: tooling needed later is set up ahead unless it is a huge thing): no data is
    migrated, and the frozen project is not restored unless its schema exists nowhere else.
 4. **TARGET's edits** from REVIEW-3 § 4, as one docs PR; **M3's tasks in REVIEW-3 § 7's order**,
    with the move to Cloudflare proven first (W10.11.2) and made when lalista adopts v2 (W10.11.6), and F-NEW-77 (R-14) before lalista adopts v2.
