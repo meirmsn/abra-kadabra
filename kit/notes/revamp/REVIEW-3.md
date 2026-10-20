@@ -1,12 +1,13 @@
 # Review 3: M2's exit, and what M3 needs before lalista moves
 
-_The M2 milestone review ([PROCESS § 5](PROCESS.md#milestone-review-each-m-exit--the-whole-picture-check)),
-2026-10-20, with the fresh adversarial review PROCESS asks for before M3. It changed nothing when
-written: every cut, task and TARGET edit below is a decision for the owner (§ 9). The findings sort
-(§ 6) was applied on the owner's answer the same day (§ 9, Outcome).
-Evidence: this repo at `424d75a` (`v2.1.0`), its merged PRs' comments, a fresh-context reviewer
-given the goal rather than these conclusions, and the checks in § 10. The website and lalista repos
-could not be attached this session, so anything only they hold is marked **not read**._
+_The M2 milestone review
+([PROCESS § 5](PROCESS.md#milestone-review-each-m-exit--the-whole-picture-check)), 2026-10-20, with
+the fresh adversarial review PROCESS asks for before M3. It changed nothing when written: every
+cut, task and TARGET edit below is a decision for the owner (§ 9). The findings sort (§ 6) was
+applied on the owner's answer the same day (§ 9, Outcome). Evidence: this repo at `424d75a`
+(`v2.1.0`), its merged PRs' comments, a fresh-context reviewer given the goal rather than these
+conclusions, and the checks in § 10. The website and lalista repos could not be attached this
+session, so anything only they hold is marked **not read**._
 
 ## In one screen
 
@@ -16,10 +17,12 @@ could not be attached this session, so anything only they hold is marked **not r
   link, cost per change. Not met as written: the owner's touchpoints were not "decisions, go and
   approval only" (4 others on the first change). And the two M2 features that matter most for
   quality, the design review in build (R-5) and the reviewer's browser (R-6), have run only on
-  scratch pages: they reach the website only with its upgrade to `v2.1.0`, which has not happened.
-- **The next step is already blocked:** the upgrade skill's own example PR title and the
-  new-project skill's first-PR title both fail `v2.1.0`'s `pr-title-check.py` (exit 1). The
-  website's upgrade PR, LOG #86's "Next", hits this first.
+  scratch pages: the website is on `v2.1.0` (owner, 2026-10-20), but no website change records
+  either yet.
+- **The next step costs a wasted round:** the upgrade skill's own example PR title and the
+  new-project skill's first-PR title both fail `v2.1.0`'s `pr-title-check.py` (exit 1). `ship.sh`
+  catches it before the push; an upgrade PR that brings the check in fails it in CI. The website's
+  next upgrade hits it.
 - **M3 changes the risk and nothing is built for it.** M2 proved the loop on a static site with no
   data. lalista has a database, users, Vercel previews and v1-era secrets. Three gaps can hurt
   production or data: lalista's repo-scope secrets and rotation are deferred to M4 though M3
@@ -43,7 +46,7 @@ could not be attached this session, so anything only they hold is marked **not r
 | …with touchpoints decisions, go, approval only   | First change: 7 approvals, 5 gos, 22 decisions and **4 others** (F-NEW-91, 97, 98, a quote); closed "by the owner's call". After PR 7: not read        | not met as written  |
 | The Lighthouse bar holds on the live site        | The bar runs in the slow tier against the PR's preview (`runtime/stacks/cloudflare/README.md` § quality bar). No run against the live site is recorded | no record           |
 | The Cloudflare home exists, fixture rules in it  | PR #144, `tests/cloudflare-stack.test.sh`                                                                                                              | met                 |
-| The reviewer judges UI in a browser              | PR #146 on a scratch page (honest pass; font, padding and 375 px breaks each fail). Never on the website: it needs `v2.1.0`                            | met on scratch only |
+| The reviewer judges UI in a browser              | PR #146 on a scratch page (honest pass; font, padding and 375 px breaks each fail). No website record yet (it is on `v2.1.0`, owner)                   | met on scratch only |
 | The owner publishes the link                     | Nothing records it                                                                                                                                     | no record           |
 | (W10.10.1's done-when) cost per change, weekly % | Waived by the owner ("It's okay to close without the numbers")                                                                                         | waived              |
 
@@ -65,12 +68,12 @@ is the first change's record (W10.10.1), graded as D-17 grades it:
 | Nothing wrong reached production         | Deploy comments "Live in production"; the canary exists since PR #10, after these changes |
 | Touchpoints decisions, go, approval only | 4 other touchpoints, now findings                                                         |
 
-**Proposed:** the M2 proof is one plain run on the website at `v2.1.x`: the upgrade PR (after the
-title fix, § 9 item 2), then a UI change the owner wants. It grades the four things, and it is the
-first time three M2 features meet a real project: the design review in build (R-5), the reviewer's
-browser (R-6) and the project contract at session start (R-13). Record, from GitHub: the PR's
-**Design review:** line, the reviewer's browse result, the canary comment, a Lighthouse run against
-the live domain, the "How this change went" comment (cost, times, rounds), and the owner's
+**Proposed:** the M2 proof is one plain run on the website at `v2.1.x`: the upgrade to `v2.1.1`
+(after the title fix, § 9 item 2), then a UI change the owner wants. It grades the four things, and
+it is the first time three M2 features meet a real project: the design review in build (R-5), the
+reviewer's browser (R-6) and the project contract at session start (R-13). Record, from GitHub: the
+PR's **Design review:** line, the reviewer's browse result, the canary comment, a Lighthouse run
+against the live domain, the "How this change went" comment (cost, times, rounds), and the owner's
 touchpoints tagged go / decision / approval / friction. A devshop session records it here with the
 website attached read-only, which needs the owner to allow `add_repo` for that session.
 
@@ -180,12 +183,11 @@ and the open `med` rows 78, 79, 87, 88, 91, 92, 96, 102.
 **New from this review** (F-NEW-119 to 121 written to `FINDINGS.md` on the owner's answer; F-NEW-118
 is fixed by its own PR, W10.11.0, so it gets no row):
 
-| Proposed row | Severity | What                                                                                                                                                                                  |
-| ------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| F-NEW-118    | med      | The upgrade skill's example title ("Pin the devshop to v2.1.0: …") and the new-project skill's first-PR title ("Start from the devshop") fail `v2.1.0`'s `pr-title-check.py` (exit 1) |
-| F-NEW-119    | med      | TARGET Safety 3 (guardrail files called out in the PR) has no mechanism; CI's checks run from the PR's own tree                                                                       |
-| F-NEW-120    | low      | `change-metrics` reported a negative session cost on PR #148 ($-1.11)                                                                                                                 |
-| F-NEW-121    | low      | The root README still says v2 "doesn't do anything for projects yet" and that no stack home ships                                                                                     |
+| Proposed row | Severity | What                                                                                                            |
+| ------------ | -------- | --------------------------------------------------------------------------------------------------------------- |
+| F-NEW-119    | med      | TARGET Safety 3 (guardrail files called out in the PR) has no mechanism; CI's checks run from the PR's own tree |
+| F-NEW-120    | low      | `change-metrics` reported a negative session cost on PR #148 ($-1.11)                                           |
+| F-NEW-121    | low      | The root README still says v2 "doesn't do anything for projects yet" and that no stack home ships               |
 
 ## 7. M3, detailed
 
@@ -289,11 +291,12 @@ Each with a recommendation, as put to the owner.
    W10.11.1, one sitting.
 2. **Fix the title bug now** (W10.11.0, one small PR). Recommended: yes, before the website's
    upgrade PR.
-3. **The findings sort** (applied, see Outcome; 85 and 96 left as they are, F-NEW-77 still open): delete F-NEW-80, 81, 82, 89, 90 (closed by the Cloudflare home); correct
-   85 and 96 as in § 6; add F-NEW-118 to 121. Then "roadmap or keep watching?" on F-NEW-77 (5
-   sightings) and the `med` rows 78, 79, 87, 88, 91, 92, 96, 102. Recommended: roadmap 77 (root
-   cause before lalista, where a wrong version matters), 92 (it is W10.11.5) and 102 (every cloud
-   PR); keep watching the rest.
+3. **The findings sort** (applied, see Outcome; 85 and 96 left as they are, F-NEW-77 still open):
+   delete F-NEW-80, 81, 82, 89, 90 (closed by the Cloudflare home); correct 85 and 96
+   as in § 6; add F-NEW-119 to 121. Then "roadmap or keep watching?" on F-NEW-77 (5 sightings) and
+   the `med` rows 78, 79, 87, 88, 91, 92, 96, 102. Recommended: roadmap 77 (root cause before
+   lalista, where a wrong version matters), 92 (it is W10.11.5) and 102 (every cloud PR); keep
+   watching the rest.
 4. **The platform and money call** (F-NEW-18, 19), due "when the website milestone ends". No
    recommendation on money; note that a move to Cloudflare reuses the home and the canary but costs
    a migration off Vercel and Next.js's Workers adapter, while Vercel Pro keeps the app as it is.
@@ -301,8 +304,9 @@ Each with a recommendation, as put to the owner.
    website at `v2.1.x` (§ 2). Recommended: the plain run; it is the first real check of R-5, R-6
    and R-13, and it gives M3 its first cost-per-change number.
 6. **Lean-out before M3:** freeze `change-metrics` (fix only F-NEW-120), no new devshop machinery
-   unless lalista or the website asks for it, and hold devshop PRs to about one a day (D-17 item
-   10, not met this week). Recommended: yes.
+   unless lalista or the website asks for it, and hold devshop PRs to about one a day (D-17 item 10,
+   not met this week). Recommended: yes. _Superseded by the owner: no PR-a-day rule (Outcome
+   above)._
 7. **TARGET edits** (§ 4: data safety as a Safety item; Ship 2 and 5 updated; Safety 7 ruled out
    for M3; the interview for features only; Reach narrowed). Recommended: yes, as one docs PR.
 8. **M3's tasks and order** (§ 7, W10.11.0–11). Recommended: as listed; the entry tasks first.
