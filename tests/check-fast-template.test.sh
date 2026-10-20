@@ -3,7 +3,9 @@
 # runs the secret scan with the base and the spec check (runtime/scripts/spec-check.py, the real
 # one) over specs/ with the tests under TEST_DIRS, every part even after one fails, and exits with
 # the worst. A test that loses its AC-<n> name fails it (F-NEW-37); a missing spec-check.py, no
-# python3, no specs/ or a spec that can't be read make it exit 2, never pass.
+# python3, no specs/ or a spec that can't be read make it exit 2, never pass. The contract check and
+# lint are parts too (specs/project-contract.md AC-3), stubbed here: the real contract check is proven
+# by tests/contract-check.test.sh and, inside a placed project, tests/new-project.test.sh.
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
@@ -21,6 +23,11 @@ cp "$repo_root/runtime/scripts/spec-check.py" "$p/scripts/"
 printf '#!/usr/bin/env bash\necho "secret-scan $*" >>"%s/ran"\nexit "$(cat "%s/secret-scan.rc")"\n' "$work" "$work" \
   >"$p/scripts/secret-scan.sh"
 chmod +x "$p/scripts/secret-scan.sh"
+# The contract check is a stub too: it records that it ran and exits with contract-check.rc's number.
+# shellcheck disable=SC2016  # the stub's source
+printf '#!/usr/bin/env bash\necho "contract-check $*" >>"%s/ran"\nexit "$(cat "%s/contract-check.rc")"\n' "$work" "$work" \
+  >"$p/scripts/contract-check.py"
+chmod +x "$p/scripts/contract-check.py"
 cat >"$p/specs/notes.md" <<'SPEC'
 # Notes
 
@@ -53,6 +60,7 @@ T
 run() {
   local rc=0
   echo 0 >"$work/secret-scan.rc"
+  echo 0 >"$work/contract-check.rc"
   rm -f "$work/ran"
   (cd "$p" && env "$@" scripts/check-fast.sh b4se) >"$work/out" 2>&1 || rc=$?
   echo "$rc"
@@ -64,9 +72,37 @@ want() { # want <exit> <name> [text the output must hold]
 }
 
 got=$(run)
-want 0 "every acceptance item named by a test passes"
-[ "$(cat "$work/ran")" = "secret-scan b4se" ] || fail "the secret scan didn't get the base: $(cat "$work/ran")"
-echo "ok - the secret scan runs with the base"
+want 0 "every acceptance item named by a test passes" "no scripts/lint.sh: lint is the stack's part"
+[ "$(head -1 "$work/ran")" = "secret-scan b4se" ] || fail "the secret scan didn't get the base: $(cat "$work/ran")"
+grep -q '^contract-check $' "$work/ran" || fail "AC-3: the contract check didn't run: $(cat "$work/ran")"
+echo "ok - AC-3: the secret scan runs with the base, the contract check after the spec check, and no lint is said"
+
+# AC-3: a failing contract check fails the tier with the other parts still run; a missing one can't run.
+echo 1 >"$work/contract-check.rc"
+(cd "$p" && scripts/check-fast.sh b4se) >"$work/out" 2>&1 && got=0 || got=$?
+want 1 "AC-3: a failing contract check fails the tier" "scripts/contract-check.py failed"
+grep -q "secret-scan b4se" "$work/ran" || fail "AC-3: the secret scan didn't run beside the failing contract check"
+mv "$p/scripts/contract-check.py" "$work/"
+got=$(run)
+want 2 "AC-3: a missing contract-check.py can't run (2), never passes" "scripts/contract-check.py couldn't run"
+mv "$work/contract-check.py" "$p/scripts/"
+
+# AC-3: lint runs as a part when the project has it executable, with the base; its exits count.
+# shellcheck disable=SC2016  # the stub's source
+printf '#!/usr/bin/env bash\necho "lint $*" >>"%s/ran"\nexit "$(cat "%s/lint.rc")"\n' "$work" "$work" >"$p/scripts/lint.sh"
+chmod +x "$p/scripts/lint.sh"
+echo 1 >"$work/lint.rc"
+got=$(run)
+want 1 "AC-3: lint findings fail the tier" "scripts/lint.sh failed"
+grep -q '^lint b4se$' "$work/ran" || fail "AC-3: lint didn't get the base: $(cat "$work/ran")"
+echo 2 >"$work/lint.rc"
+got=$(run)
+want 2 "AC-3: lint that can't run can't run the tier" "scripts/lint.sh couldn't run"
+echo 0 >"$work/lint.rc"
+got=$(run)
+want 0 "AC-3: clean lint passes"
+grep -q "no scripts/lint.sh" "$work/out" && fail "AC-3: the no-lint line printed with lint present"
+rm "$p/scripts/lint.sh"
 
 sed -i 's/AC-2: an empty/an empty/' "$p/tests/notes.test.sh"
 got=$(run)

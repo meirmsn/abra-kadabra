@@ -3,6 +3,8 @@
 # specs/ci-fast-slow-tiers.md). A workflow with a `fast` job running check-fast.sh "$BASE" and a
 # `slow` job needing it and running check-slow.sh passes, and so does the template; each broken
 # rule fails, naming it (AC-1, AC-2); a missing or unparseable file, or no PyYAML, can't run.
+# specs/project-contract.md AC-7: `fast` also runs the PR title check, and a deploy's `needs` may
+# reach the tiers through another job (F-NEW-108); a cycle or an unknown job terminates with 1.
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
@@ -39,6 +41,10 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
+      - name: PR title
+        env:
+          TITLE: ${{ github.event.pull_request.title || github.event.head_commit.message }}
+        run: scripts/pr-title-check.py "$(head -n 1 <<<"$TITLE")"
       - name: Fast tier
         env:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
@@ -66,13 +72,21 @@ check "AC-2: runtime/templates/ci.yml passes" 0 "$template"
 
 # AC-1: each broken rule fails and is named.
 check "AC-1: no fast job fails" 1 "$(variant no-fast 'w["jobs"]["quick"] = w["jobs"].pop("fast"); w["jobs"]["slow"]["needs"] = "quick"')" "no job 'fast'"
-check "AC-1: fast not running check-fast.sh fails" 1 "$(variant fast-other 'w["jobs"]["fast"]["steps"][1]["run"] = "npm test"')" "'fast' doesn't run scripts/check-fast.sh \"\$BASE\""
-check "AC-1: fast running check-fast.sh without the base fails" 1 "$(variant fast-nobase 'w["jobs"]["fast"]["steps"][1]["run"] = "scripts/check-fast.sh"')" "'fast' doesn't run scripts/check-fast.sh \"\$BASE\""
+check "AC-1: fast not running check-fast.sh fails" 1 "$(variant fast-other 'w["jobs"]["fast"]["steps"][2]["run"] = "npm test"')" "'fast' doesn't run scripts/check-fast.sh \"\$BASE\""
+check "AC-1: fast running check-fast.sh without the base fails" 1 "$(variant fast-nobase 'w["jobs"]["fast"]["steps"][2]["run"] = "scripts/check-fast.sh"')" "'fast' doesn't run scripts/check-fast.sh \"\$BASE\""
 # shellcheck disable=SC2016  # $BASE is workflow text, not expanded here
-check "AC-1: check-fast.sh named only in a comment line fails" 1 "$(variant fast-comment 'w["jobs"]["fast"]["steps"][1]["run"] = "# scripts/check-fast.sh \"$BASE\"\nnpm test"')" "'fast' doesn't run"
+check "AC-1: check-fast.sh named only in a comment line fails" 1 "$(variant fast-comment 'w["jobs"]["fast"]["steps"][2]["run"] = "# scripts/check-fast.sh \"$BASE\"\nnpm test"')" "'fast' doesn't run"
 # shellcheck disable=SC2016  # as above
-check "AC-1: check-fast.sh named only inside another command fails" 1 "$(variant fast-echo 'w["jobs"]["fast"]["steps"][1]["run"] = "echo scripts/check-fast.sh \"$BASE\""')" "'fast' doesn't run"
-check "AC-1: the running step with its own if: fails" 1 "$(variant fast-step-if 'w["jobs"]["fast"]["steps"][1]["if"] = "false"')" "'fast' doesn't run"
+check "AC-1: check-fast.sh named only inside another command fails" 1 "$(variant fast-echo 'w["jobs"]["fast"]["steps"][2]["run"] = "echo scripts/check-fast.sh \"$BASE\""')" "'fast' doesn't run"
+check "AC-1: the running step with its own if: fails" 1 "$(variant fast-step-if 'w["jobs"]["fast"]["steps"][2]["if"] = "false"')" "'fast' doesn't run"
+# specs/project-contract.md AC-7: the title check in fast, and needs followed through other jobs.
+check "AC-7: fast without the title step fails, naming the rule" 1 "$(variant no-title 'del w["jobs"]["fast"]["steps"][1]')" "'fast' doesn't run scripts/pr-title-check.py"
+check "AC-7: the title step with its own if: fails" 1 "$(variant title-if 'w["jobs"]["fast"]["steps"][1]["if"] = "github.event_name == \"pull_request\""')" "'fast' doesn't run scripts/pr-title-check.py"
+check "AC-7: the title step with continue-on-error fails" 1 "$(variant title-coe 'w["jobs"]["fast"]["steps"][1]["continue-on-error"] = True')" "'fast' doesn't run scripts/pr-title-check.py"
+check "AC-7: a canary with an environment needing only the deploy passes (F-NEW-108)" 0 "$(variant canary 'w["jobs"]["canary"] = {"needs": "deploy", "environment": "observability", "runs-on": "ubuntu-24.04", "steps": [{"run": "echo canary"}]}')"
+check "AC-7: a canary whose needs reach neither tier fails" 1 "$(variant canary-none 'w["jobs"]["lint"] = {"runs-on": "ubuntu-24.04", "steps": [{"run": "echo lint"}]}; w["jobs"]["canary"] = {"needs": ["lint"], "environment": "observability", "runs-on": "ubuntu-24.04", "steps": [{"run": "echo canary"}]}')" "'canary' has an environment but doesn't need 'fast'"
+check "AC-7: a needs cycle terminates with 1" 1 "$(variant cycle 'w["jobs"]["a"] = {"needs": "b", "runs-on": "x", "steps": []}; w["jobs"]["b"] = {"needs": "a", "environment": "e", "runs-on": "x", "steps": []}')" "'b' has an environment but doesn't need 'fast'"
+check "AC-7: a needs naming a job the workflow lacks fails" 1 "$(variant ghost 'w["jobs"]["deploy"]["needs"] = ["fast", "slow", "ghost"]')" "'deploy' needs 'ghost', which is not a job"
 check "AC-1: the running step with its own continue-on-error fails" 1 "$(variant slow-step-coe 'w["jobs"]["slow"]["steps"][0]["continue-on-error"] = True')" "'slow' doesn't run"
 check "AC-1: no slow job fails" 1 "$(variant no-slow 'del w["jobs"]["slow"]; w["jobs"]["deploy"]["needs"] = ["fast"]')" "no job 'slow'"
 check "AC-1: slow not running check-slow.sh fails" 1 "$(variant slow-other 'w["jobs"]["slow"]["steps"][0]["run"] = "npx playwright test"')" "'slow' doesn't run scripts/check-slow.sh"
@@ -84,6 +98,8 @@ check "AC-1: continue-on-error on fast fails" 1 "$(variant fast-coe 'w["jobs"]["
 check "AC-1: continue-on-error on slow fails" 1 "$(variant slow-coe 'w["jobs"]["slow"]["continue-on-error"] = True')" "'slow' has a job-level 'continue-on-error'"
 check "AC-1: a deploy not needing slow fails" 1 "$(variant deploy-noslow 'w["jobs"]["deploy"]["needs"] = ["fast"]')" "'deploy' has an environment but doesn't need 'slow'"
 check "AC-1: a deploy needing nothing fails" 1 "$(variant deploy-none 'del w["jobs"]["deploy"]["needs"]')" "'deploy' has an environment but doesn't need 'fast'"
+check "AC-7: the template passes with its title step" 0 "$template"
+grep -q 'scripts/pr-title-check.py' "$template" || fail "AC-7: the template has no title step"
 
 # AC-1: can't run: a missing file, unparseable YAML, no jobs mapping, no PyYAML.
 check "AC-1: a missing workflow can't run" 2 "$work/nope.yml" "can't read"

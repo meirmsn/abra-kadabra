@@ -113,3 +113,12 @@ git add -A && git commit -qm "a spec whose item no test names"
 tier "AC-4: an acceptance item no test names fails the fast tier" 1 '^scripts/spec-check\.py failed$' -- scripts/check-fast.sh "$base"
 grep -q 'AC-1: no test names it' "$work/out" || { cat "$work/out" >&2; fail "AC-4: the spec check didn't name AC-1"; }
 echo "ok - AC-4: the spec check names the untested item"
+
+# specs/project-contract.md AC-4: the placed project's fast tier runs the contract check with no
+# devshop present (the clean runs above passed it), and a required item deleted fails it, named.
+git reset -q --hard "$base"
+grep -q '^== scripts/contract-check.py' "$work/out" || { cat "$work/out" >&2; fail "project-contract AC-4: the fast tier didn't run the contract check"; }
+git rm -q scripts/check-slow.sh && git commit -qm "drop the slow tier"
+tier "project-contract AC-4: a deleted required item fails the fast tier" 1 '^scripts/contract-check\.py failed$' -- scripts/check-fast.sh "$base"
+grep -q '^scripts/check-slow.sh: missing' "$work/out" || { cat "$work/out" >&2; fail "project-contract AC-4: the contract check didn't name the item"; }
+echo "ok - project-contract AC-4: the contract check names the missing item"

@@ -29,15 +29,47 @@ fi
 # specs/ci-fast-slow-tiers.md). Feedback that reaches the owner, not a wall: required CI is.
 tmpl=/opt/devshop-current/templates/ci.yml
 ci="$top/.github/workflows/ci.yml"
-if [ ! -f "$ci" ]; then
-  echo "DEVSHOP: the project has no CI (.github/workflows/ci.yml); start from the devshop's two-tier template, $tmpl"
-else
+pinned="$top/.devshop-version"
+if [ ! -f "$ci" ] && [ ! -f "$pinned" ]; then
+  # Neither the pin nor CI: a repo the devshop hasn't set up (specs/project-contract.md).
+  echo "DEVSHOP: no devshop files yet (.devshop-version, .github/workflows/ci.yml): a new project is set up by /devshop:new-project"
+elif [ -f "$ci" ]; then
   found=$(timeout 30 /opt/devshop-current/scripts/ci-tiers-check.py "$ci" 2>&1)
   rc=$?
   case $rc in
     0) ;;
     1) echo "DEVSHOP: the project's CI doesn't follow the two tiers (fast, slow) of $tmpl: $(grep -v 'the two-tier shape is' <<<"$found" | sed 's/^ci-tiers-check: [^:]*: //' | paste -sd ';' - | sed 's/;/; /g')" ;;
     *) echo "DEVSHOP: couldn't check the project's CI against $tmpl (exit $rc): $(head -1 <<<"$found")" ;;
+  esac
+fi
+
+# The project contract (this version's project-contract.txt, spec specs/project-contract.md): every
+# item the devshop relies on, checked with the version's own copy of the check, so a project missing
+# its copy is still checked. Items a stack home `supplies` are required when the stack applies. Only
+# with a pin, as for the copies below: a repo with no pin has no agreed contract version. Required
+# items missing or malformed: one DEVSHOP: line. Absent optional items: one plain line, for Claude.
+# Feedback, not a wall: the project's own fast tier runs the same check in CI.
+if [ -f "$pinned" ]; then
+  supplies=()
+  if homes=$(/opt/devshop-current/scripts/stack-homes.sh "$top" 2>&1); then
+    while IFS= read -r home; do
+      [ -f "$(dirname "$home")/supplies" ] && supplies+=(--supplies "$(dirname "$home")/supplies")
+    done < <(tail -n +2 <<<"$homes")
+    found=$(timeout 30 /opt/devshop-current/scripts/contract-check.py --contract /opt/devshop-current/project-contract.txt \
+      --project "$top" "${supplies[@]}" 2>&1)
+    rc=$?
+  else
+    found="the stack homes couldn't be read (stack-homes.sh): $(head -1 <<<"$homes")"
+    rc=2
+  fi
+  case $rc in
+    0 | 1)
+      absent=$(grep '^absent (optional): ' <<<"$found" | sed 's/^absent (optional): //' | paste -sd ',' - | sed 's/,/, /g')
+      [ -z "$absent" ] || echo "contract: optional items this project doesn't have: $absent (scripts/contract-check.py --list says what each is for)"
+      problems=$(grep -v '^absent (optional): ' <<<"$found" | grep . | sed -E 's/^([^:]*): ([^;]*).*$/\1 (\2)/' | paste -sd ';' - | sed 's/;/; /g')
+      [ -z "$problems" ] || echo "DEVSHOP: the project doesn't meet the project contract: $problems; the contract is scripts/project-contract.txt in the project (scripts/contract-check.py --list)"
+      ;;
+    *) echo "DEVSHOP: couldn't check the project against the project contract (exit $rc): $(head -1 <<<"$found")" ;;
   esac
 fi
 

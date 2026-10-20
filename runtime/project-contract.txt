@@ -1,0 +1,194 @@
+# The project contract: what every project provides, and what relies on it (R-13).
+#
+# One block per item, blank lines between, every field once:
+#   item:  the path in the project, from its root; a trailing / is a directory
+#   owner: devshop  an identical copy of a devshop file, replaced whole by the upgrade; not edited
+#                   in the project and left alone by its formatter
+#          seed     placed once from a template, then the project's own
+#          project  the project writes it
+#   when:  required  red when missing or failing its check
+#          optional  named when absent; checked when present; a stack home's `supplies` file can
+#                    make it required for projects on that stack
+#   check: file (a regular file with content, not a symlink), executable (a file with its executable
+#          bit, on disk and as committed), directory, version-pin (one release tag vX.Y.Z or one
+#          40-hex commit)
+#   must:  what the item does, for the collaborator and the reviewer
+#   for:   who relies on it
+# scripts/contract-check.py reads it: in CI's fast tier through scripts/check-fast.sh, and at the
+# start of every devshop session. `scripts/contract-check.py --list` prints it. It names files in
+# this project only, never a path outside it.
+
+item: .devshop-version
+owner: project
+when: required
+check: version-pin
+must: Pins the devshop version this project uses: a release tag (vX.Y.Z), or a 40-hex commit to try a branch. Set up by the first session; moved only by the upgrade, in its own PR.
+for: the devshop's session start (which version runs) and its upgrade
+
+item: .github/CODEOWNERS
+owner: project
+when: required
+check: file
+must: Names the owner as code owner of every file (`* @<handle>`), so GitHub asks for their review on every PR.
+for: GitHub's code-owner review, one of the walls on main
+
+item: .github/workflows/ci.yml
+owner: seed
+when: required
+check: file
+must: CI in two tiers: a job `fast` running `scripts/check-fast.sh "$BASE"` with the PR title check, a job `slow` needing it and running `scripts/check-slow.sh`, neither with a job-level `if` or `continue-on-error`; on main the deploy and its comment. Both tiers are the required checks on main.
+for: GitHub's required checks; the devshop's session start (the two-tier shape) and change metrics
+
+item: scripts/check-fast.sh
+owner: seed
+when: required
+check: executable
+must: The fast tier, `scripts/check-fast.sh [base]`: the secret scan since base, the spec check with the tests, the contract check, lint where the project has it, the stack's unit tests; every part runs, exit 0 clean, 1 failures, 2 a part couldn't run.
+for: CI's `fast` job; the reviewer (its presence at the base says CI runs the tests); the project's CLAUDE.md (run before pushing)
+
+item: scripts/check-slow.sh
+owner: seed
+when: required
+check: executable
+must: The slow tier: the end-to-end tests, or, until the first one exists, a script that says so and exits 0. Exit 0 clean, 1 failures, 2 couldn't run.
+for: CI's `slow` job
+
+item: scripts/secret-scan.sh
+owner: devshop
+when: required
+check: executable
+must: Scans the commits since base and the whole tree for secrets with gitleaks and `.gitleaks.toml`; exit 1 on a leak, 2 without gitleaks.
+for: `scripts/check-fast.sh`
+
+item: scripts/spec-check.py
+owner: devshop
+when: required
+check: executable
+must: Checks every spec in `specs/` has the template's shape, and with `--tests` that every acceptance item not "verified by review" is named by a test. A test names the item it proves as `AC-<n>`, with the spec's file name before it (`<spec> AC-<n>`) once the repo has more than one spec: the check matches numbers per spec and reads nothing of the prefix.
+for: `scripts/check-fast.sh`; the devshop's intent skill and reviewer read the same shape
+
+item: scripts/pr-title-check.py
+owner: devshop
+when: required
+check: executable
+must: The PR title, which becomes the squash commit's subject on main, starts with a Conventional Commit type (`feat:`, `fix:`, …) and stays within 72 characters.
+for: CI's `fast` job (the title step); the devshop's `ship.sh` before a review
+
+item: scripts/contract-check.py
+owner: devshop
+when: required
+check: executable
+must: Checks this contract against the project: required items red when missing or malformed, optional ones named as absent, exit 2 when the contract can't be read. `--list` prints the contract.
+for: `scripts/check-fast.sh`; the devshop's session start
+
+item: scripts/project-contract.txt
+owner: devshop
+when: required
+check: file
+must: This file.
+for: `scripts/contract-check.py`
+
+item: scripts/deploy-comment.mjs
+owner: devshop
+when: required
+check: executable
+must: Writes the merged PR's deploy comment (Merged, Deploying, Live or a final state) from the environment the CI template's `announce`, `deploy` and `report` jobs give it.
+for: `.github/workflows/ci.yml` on main
+
+item: .gitleaks.toml
+owner: seed
+when: required
+check: file
+must: The secret scan's rules; gitleaks' defaults to start.
+for: `scripts/secret-scan.sh`; the devshop's pre-push hook
+
+item: specs/
+owner: project
+when: required
+check: directory
+must: One spec per change, `specs/<change>.md`, from the devshop's template, with its acceptance items `AC-<n>` and the owner's go; kept after the merge. Spec files only: a README there breaks the review.
+for: `scripts/spec-check.py`; the devshop's reviewer (the one spec a change adds or changes is what it reviews against)
+
+item: CLAUDE.md
+owner: seed
+when: required
+check: file
+must: What the project is and how changes land, for whoever works in it: the walls, running the fast tier before a push, where the roadmap and findings go, the stack's rules in the project's words, this contract's rule.
+for: every session in the project; the devshop's build skill
+
+item: scripts/setup.sh
+owner: project
+when: optional
+check: executable
+must: Installs what the checks need (`npm ci`, …), idempotent, no network beyond the registries.
+for: CI's three jobs, before each tier; the devshop's session start
+
+item: scripts/lint.sh
+owner: project
+when: optional
+check: executable
+must: The project's lint over the change since base, `scripts/lint.sh [base]`: exit 0 clean, 1 findings, 2 couldn't run. The stack home says what it runs.
+for: `scripts/check-fast.sh` when present; the devshop's pre-push hook (without it only the secret scan runs on push)
+
+item: scripts/lint-file.sh
+owner: project
+when: optional
+check: executable
+must: Lints one file, `scripts/lint-file.sh <path>`, with the same exits as `scripts/lint.sh`.
+for: the devshop's per-edit nudge
+
+item: scripts/deploy.sh
+owner: project
+when: optional
+check: executable
+must: Deploys main to production from CI and writes to `$GITHUB_OUTPUT` what the deploy comment reads: `url`, `version`, `previous_version`, `rollback`, `deployed`, `site_url`, `site_smoke`. Without it nothing is deployed and the comment says so. The stack home says how.
+for: `.github/workflows/ci.yml`'s `deploy` job; `scripts/deploy-comment.mjs`
+
+item: scripts/local-run.sh
+owner: project
+when: optional
+check: executable
+must: Serves the site on `127.0.0.1:$PORT` (bound to that address) until stopped, from the repo root with the installed `node_modules`; installs nothing, reaches no other host. The one way to run the site locally.
+for: the devshop's reviewer (its browser, judged against DESIGN.md); the design review before ship; `scripts/check-slow.sh` where the stack home says so
+
+item: scripts/ui/tokens-check.mjs
+owner: devshop
+when: optional
+check: file
+must: The UI baseline's fast check: every `var()` defined in both themes, contrast pairs; `node scripts/ui/tokens-check.mjs --theme <css> <files…>`.
+for: `scripts/check-fast.sh` in a project with a UI
+
+item: scripts/ui/render-check.mjs
+owner: devshop
+when: optional
+check: file
+must: The UI baseline's slow check: each page at 375, 768 and 1280 px in both themes, in Chromium; `node scripts/ui/render-check.mjs --url <page> --out <dir>`; needs Playwright pinned in `package.json`.
+for: `scripts/check-slow.sh` in a project with a UI
+
+item: DESIGN.md
+owner: project
+when: optional
+check: file
+must: The project's design: what every page is judged against. Without it the design review doesn't run and the reviewer judges UI against the theme's tokens only.
+for: the devshop's reviewer and the design review
+
+item: ROADMAP.md
+owner: project
+when: optional
+check: file
+must: What the owner decided will happen, in their words, from the devshop's template; created on its first entry.
+for: the devshop's intent and pr skills; its reviewer (a records-only commit)
+
+item: FINDINGS.md
+owner: project
+when: optional
+check: file
+must: What Claude noticed and didn't fix, from the devshop's template; created on its first row.
+for: the devshop's build and pr skills; its reviewer (a records-only commit)
+
+item: docs/README.md
+owner: project
+when: optional
+check: file
+must: The project's doc map: every doc reachable from it.
+for: the devshop's build skill (what to load for what it touches)

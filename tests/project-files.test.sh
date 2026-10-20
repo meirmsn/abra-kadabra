@@ -7,7 +7,9 @@
 # its executable bit (in the index or on disk) or is a symlink; it can't run on an unknown version,
 # a bad manifest, a missing git or project. `plan` shows each delta; `apply` writes one devshop file
 # and refuses the rest. `init` places every entry into a fresh repo, or writes nothing (AC-1, AC-2 of
-# specs/new-project.md). Session start runs in a private mount namespace with a scratch /opt (L-41).
+# specs/new-project.md). A 4th field `optional` (specs/project-contract.md AC-6): `check` skips an
+# absent optional copy and compares a present one, `init` doesn't place it, `plan` shows its state.
+# Session start runs in a private mount namespace with a scratch /opt (L-41).
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
@@ -132,6 +134,42 @@ bad_manifest "a './' path (one file, two spellings) can't run" 'path' 'devshop s
 bad_manifest "a project path listed twice can't run" 'twice' "$(printf 'devshop scripts/scan.sh a\nseed scripts/scan.sh a')"
 bad_manifest "a source the version lacks can't run" 'lacks' 'devshop scripts/nope.sh scripts/scan.sh'
 bad_manifest "an empty manifest can't run" 'no entries' '# nothing'
+bad_manifest "AC-6: a 4th field other than 'optional' can't run" "4th field" 'devshop scripts/scan.sh scripts/scan.sh maybe'
+bad_manifest "AC-6: five fields can't run" 'fields' 'devshop scripts/scan.sh scripts/scan.sh optional x'
+bad_manifest "AC-6: 'optional' on a seed can't run" 'devshop only' 'seed runtime/templates/ci.yml ci.yml optional'
+
+# AC-6: an optional devshop copy (specs/project-contract.md): absent is fine, present is compared.
+printf 'console.log("ui v4")\n' >"$ds/runtime/templates/ui.mjs"
+cat >"$ds/runtime/project-files.txt" <<'EOF'
+devshop   scripts/scan.sh             scripts/scan.sh
+seed      runtime/templates/ci.yml    .github/workflows/ci.yml
+devshop   runtime/templates/ui.mjs    scripts/ui/ui.mjs  optional
+EOF
+git -C "$ds" add -A && git -C "$ds" commit -qm "v4: an optional copy"
+v4=$(git -C "$ds" rev-parse HEAD)
+o="$work/o" && new_project "$o" "$v1" && git -C "$ds" show "$v4:scripts/scan.sh" >"$o/scripts/scan.sh"
+check "$o" "$v4" "AC-6: an absent optional copy is not drift" 0 ''
+mkdir -p "$o/scripts/ui" && printf 'console.log("edited")\n' >"$o/scripts/ui/ui.mjs"
+check "$o" "$v4" "AC-6: a present optional copy that differs is drift" 1 '^scripts/ui/ui\.mjs: differs'
+printf 'keep\n' >"$work/target"
+rm "$o/scripts/ui/ui.mjs" && ln -s "$work/target" "$o/scripts/ui/ui.mjs"
+check "$o" "$v4" "AC-6: a symlink where an optional copy would be is drift" 1 '^scripts/ui/ui\.mjs: .*symlink'
+rm "$o/scripts/ui/ui.mjs"
+run "AC-6: plan shows an absent optional copy as not there" 0 'scripts/ui/ui\.mjs \(devshop, optional.*doesn.t have it' \
+  -- plan --devshop-git "$dsgit" --from "$v1" --to "$v4" --project "$o"
+run "AC-6: apply writes an optional copy on request" 0 'scripts/ui/ui\.mjs: written' \
+  -- apply --devshop-git "$dsgit" --version "$v4" --project "$o" --file scripts/ui/ui.mjs
+check "$o" "$v4" "AC-6: after apply the optional copy matches" 0 ''
+run "AC-6: plan shows a present optional copy's state" 0 'scripts/ui/ui\.mjs \(devshop, optional.*same as the new version' \
+  -- plan --devshop-git "$dsgit" --from "$v1" --to "$v4" --project "$o"
+git -C "$ds" tag v2.4.1 "$v4"
+n="$work/n" && new_repo "$n"
+run "AC-6: init doesn't place an optional copy" 0 'scripts/scan\.sh' -- init --devshop-git "$dsgit" --version v2.4.1 --project "$n" --codeowner a
+[ ! -e "$n/scripts/ui/ui.mjs" ] || fail "AC-6: init placed an optional copy"
+grep -q 'ui.mjs' "$work/out" && fail "AC-6: init listed an optional copy"
+echo "ok - AC-6: init leaves optional copies to the project"
+git -C "$ds" checkout -q "$v2" -- runtime/project-files.txt && git -C "$ds" rm -q --cached runtime/templates/ui.mjs && rm "$ds/runtime/templates/ui.mjs" \
+  && git -C "$ds" commit -qm "back to v2's manifest" # the versions below build on v2's manifest
 
 # --- plan ---
 plan() { run "$@" -- plan --devshop-git "$dsgit" --from "$v1" --to "$v2" --project "$p"; }
