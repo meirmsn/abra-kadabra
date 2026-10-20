@@ -375,5 +375,5 @@ Outcome: **decided 2026-10-20 (owner, in chat)**:
 3. **lalista has no real users; its existing data may be dropped** to simplify M3: no data is
    migrated, and the frozen project is not restored unless its schema exists nowhere else.
 4. **TARGET's edits** from REVIEW-3 § 4, as one docs PR; **M3's tasks in REVIEW-3 § 7's order**,
-   with the move to Cloudflare in W10.11.2 and F-NEW-77 (R-14) before lalista adopts v2.
+   with the move to Cloudflare proven first (W10.11.2) and made when lalista adopts v2 (W10.11.6), and F-NEW-77 (R-14) before lalista adopts v2.
 5. Supersedes D-17 item 5 and the M4 deferral of W0.6.2 and W0.5.3.
