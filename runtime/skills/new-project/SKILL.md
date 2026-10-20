@@ -32,8 +32,9 @@ did its part 1 before this session.
 
 ## 3. The first PR
 
-- One commit, "Start from the devshop"; then `devshop:pr`. The body's **What you should know**
-  carries the owner's part 2 of the steps, filled in with this repo's exact names.
+- One commit, "chore: start from the devshop", the PR's title too; then `devshop:pr`. The body's
+  **What you should know** carries the owner's part 2 of the steps, filled in with this repo's
+  exact names.
 - Leave it unmerged until the owner has done part 2 (protection on `main` names the checks CI's
   first run created). Then check each step from outside as the list says, and ask for the
   approval. A check that fails goes back to the owner with what you saw.

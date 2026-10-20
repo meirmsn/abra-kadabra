@@ -45,7 +45,7 @@ new_repo "$p"
 readme=$(git -C "$p" rev-parse HEAD)
 "$repo_root/runtime/scripts/project-files.py" init --devshop-git "$ds/.git" --version "$version" \
   --project "$p" --codeowner example-owner >"$work/out" 2>&1 || { cat "$work/out" >&2; fail "init failed"; }
-git -C "$p" add -A && git -C "$p" commit -qm "Start from the devshop"
+git -C "$p" add -A && git -C "$p" commit -qm "chore: start from the devshop"
 "$repo_root/runtime/scripts/ci-tiers-check.py" "$p/.github/workflows/ci.yml" >"$work/out" 2>&1 \
   || { cat "$work/out" >&2; fail "AC-3: the placed ci.yml doesn't have the two tiers"; }
 echo "ok - AC-3: the placed CI has the two tiers"

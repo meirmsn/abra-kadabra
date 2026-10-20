@@ -23,10 +23,14 @@ under `devshop:build` § 3; this skill only puts them on the PR.
   `/opt/devshop-current/scripts/pr-assets.sh <image>...` adds them to the branch without changing
   a file and prints the image lines for the template's table (a row per step or state: label,
   light, dark); exit 2: ask the owner. After a new commit, take and add them again.
-- Keep per-round detail out of the body.
+- Keep per-round detail out of the body. It ends where the template ends: no attribution footer,
+  which the platform swaps for its own, so `ship`'s read-back of the body fails.
 
 ## 2. Through the reviewer
 
+- The title starts with a Conventional Commit type (`feat:`, `fix:`, `docs:`, `chore:`, …; `!`
+  before the colon for a breaking change), then the observable change, in ≤ 72 characters: the
+  project's `scripts/pr-title-check.py` checks it in `ship` and in CI.
 - Run `/opt/devshop-current/reviewer/ship.sh --title "<title>" --body-file <body file>`. It checks
   the words have the template's shape, then only on the independent reviewer's pass does it push,
   create or update the PR (ready) with those exact words and post the verdict; it is the only way to
