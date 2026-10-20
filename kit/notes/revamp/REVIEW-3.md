@@ -1,8 +1,9 @@
 # Review 3: M2's exit, and what M3 needs before lalista moves
 
 _The M2 milestone review ([PROCESS § 5](PROCESS.md#milestone-review-each-m-exit--the-whole-picture-check)),
-2026-10-20, with the fresh adversarial review PROCESS asks for before M3. It changes nothing: every
-cut, task and TARGET edit below is a decision for the owner (§ 9), the findings sort included (§ 6).
+2026-10-20, with the fresh adversarial review PROCESS asks for before M3. It changed nothing when
+written: every cut, task and TARGET edit below is a decision for the owner (§ 9). The findings sort
+(§ 6) was applied on the owner's answer the same day (§ 9, Outcome).
 Evidence: this repo at `424d75a` (`v2.1.0`), its merged PRs' comments, a fresh-context reviewer
 given the goal rather than these conclusions, and the checks in § 10. The website and lalista repos
 could not be attached this session, so anything only they hold is marked **not read**._
@@ -135,7 +136,7 @@ went" comments on devshop PRs #131–#151 (18 of 20 merged PRs carry one).
 | Test files / specs                       | 51 / 4                   | 76 / 14                                                           |
 | Revamp notes (words, all `.md`)          | 106,186                  | 113,093; LOG 33k                                                  |
 | Skills over the 60-line warning          | —                        | `pr` 73, `intent` 72                                              |
-| Open findings                            | 29 live (after the sort) | 31                                                                |
+| Open findings                            | 29 live (after the sort) | 31; 29 after this sort                                            |
 | Cost per devshop PR (session + reviewer) | run 2: $14.28 builder    | median $12.58, total $276 over 17; reviewer $11 of it             |
 | Request → live per devshop PR            | run 2: 8 h 34 min        | median 4 h 34 min (23 min to 56 h 46 min)                         |
 | Claude working / waiting on the owner    | —                        | median 25 min / 214 min; waiting is 95 % of elapsed               |
@@ -159,8 +160,8 @@ mitigates two that stay.
 rule (`runtime/stacks/cloudflare/README.md`, lines 246 and 253–266), so by the template's rule the
 rows should be deleted. They are closed for Cloudflare only: 81 (`og:image` against the site under
 test), 82 (fonts in the byte budget) and 90 (prove the blocked-fonts state) don't depend on the
-stack and belong in `runtime/guidelines/ui.md` before lalista (W10.11.5 below). Not deleted here:
-the owner confirms (§ 9 item 3).
+stack and belong in `runtime/guidelines/ui.md` before lalista (W10.11.7 below). Deleted on the
+owner's answer (§ 9, Outcome).
 
 **Still watching (26)**, with what M3 does to them:
 
@@ -176,7 +177,8 @@ R-13.
 **For the owner, "roadmap or keep watching?":** F-NEW-77 (5 sightings, the only row at 3 or more)
 and the open `med` rows 78, 79, 87, 88, 91, 92, 96, 102.
 
-**New from this review** (proposed rows, not yet written to `FINDINGS.md`):
+**New from this review** (F-NEW-119 to 121 written to `FINDINGS.md` on the owner's answer; F-NEW-118
+is fixed by its own PR, W10.11.0, so it gets no row):
 
 | Proposed row | Severity | What                                                                                                                                                                                  |
 | ------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -287,7 +289,7 @@ Each with a recommendation, as put to the owner.
    W10.11.1, one sitting.
 2. **Fix the title bug now** (W10.11.0, one small PR). Recommended: yes, before the website's
    upgrade PR.
-3. **The findings sort:** delete F-NEW-80, 81, 82, 89, 90 (closed by the Cloudflare home); correct
+3. **The findings sort** (applied, see Outcome; 85 and 96 left as they are, F-NEW-77 still open): delete F-NEW-80, 81, 82, 89, 90 (closed by the Cloudflare home); correct
    85 and 96 as in § 6; add F-NEW-118 to 121. Then "roadmap or keep watching?" on F-NEW-77 (5
    sightings) and the `med` rows 78, 79, 87, 88, 91, 92, 96, 102. Recommended: roadmap 77 (root
    cause before lalista, where a wrong version matters), 92 (it is W10.11.5) and 102 (every cloud
