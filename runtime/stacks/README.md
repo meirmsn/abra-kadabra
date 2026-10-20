@@ -20,6 +20,12 @@ A stack home `<stack>/` holds:
   The script stops (exit 2), and never skips a home it can't judge, when a home has no `README.md`
   or no `detect`, when its `detect` lists no paths, when a path is absolute or leaves the project,
   or when a pattern is empty or not a valid `grep -E` pattern.
+- `supplies` (optional): the optional items of the project contract
+  ([`runtime/project-contract.txt`](../project-contract.txt), [spec](../../specs/project-contract.md))
+  that every project on this stack carries, one per line (`#` starts a comment), spelled as the
+  contract spells them. When the stack applies, session start requires them; a line naming anything
+  but an optional contract item makes the check can't-run, never a pass. A home without the file
+  supplies nothing. Proven by [`tests/contract-check.test.sh`](../../tests/contract-check.test.sh).
 
 A real home is built with the first project that needs it. Today there are two:
 

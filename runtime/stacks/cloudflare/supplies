@@ -1,0 +1,6 @@
+# Optional items of the project contract (the devshop's runtime/project-contract.txt) that every
+# project on this stack carries, so they are required for it at session start. One item per line.
+scripts/setup.sh
+scripts/deploy.sh
+scripts/local-run.sh
+scripts/ui/render-check.mjs

@@ -3,11 +3,14 @@
 
 Usage: ci-tiers-check.py WORKFLOW   (a project's .github/workflows/ci.yml)
 Rules; runtime/templates/ci.yml follows them:
-  - a job `fast` with a step running `scripts/check-fast.sh "$BASE"`
+  - a job `fast` with a step running `scripts/check-fast.sh "$BASE"` and a step running
+    `scripts/pr-title-check.py` (the PR's title, spec specs/project-contract.md)
   - a job `slow` that needs `fast`, with a step running `scripts/check-slow.sh`
   - neither job has a job-level `if` or `continue-on-error`: GitHub counts a skipped required job
     as passed
-  - any other job with an `environment` (a deploy) needs both
+  - any other job with an `environment` (a deploy) needs both, directly or through the jobs it
+    needs (a canary that needs the deploy, F-NEW-108); a `needs` naming a job the workflow lacks is
+    a problem
 A step runs a script when one line of its `run`, not a comment, starts with the script's path, and
 the step itself has no `if` or `continue-on-error`.
 Feedback, not a wall: session start and this repo's lint run it; required CI is the wall.
@@ -16,6 +19,7 @@ Exit 0 = the shape holds; 1 = problems (listed); 2 = can't run (no file, unparse
 import sys
 
 TIERS = {"fast": 'scripts/check-fast.sh "$BASE"', "slow": "scripts/check-slow.sh"}
+TITLE = "scripts/pr-title-check.py"
 
 
 def cant_run(msg):
@@ -40,11 +44,27 @@ def runs(job, command):
     return False
 
 
+def reaches(jobs, name):
+    """Every job `name` needs, directly or through other jobs; a cycle or an unknown job stops."""
+    seen, todo = set(), list(needs(jobs[name]))
+    while todo:
+        n = todo.pop()
+        if n in seen:
+            continue
+        seen.add(n)
+        if isinstance(jobs.get(n), dict):
+            todo += needs(jobs[n])
+    return seen
+
+
 def problems(workflow):
     jobs = workflow.get("jobs") if isinstance(workflow, dict) else None
     if not isinstance(jobs, dict) or not jobs:
         return ["no jobs"]
     found = []
+    for name, job in jobs.items():
+        if isinstance(job, dict):
+            found += [f"'{name}' needs '{n}', which is not a job" for n in needs(job) if n not in jobs]
     for tier, command in TIERS.items():
         job = jobs.get(tier)
         if not isinstance(job, dict):
@@ -52,6 +72,8 @@ def problems(workflow):
             continue
         if not runs(job, command):
             found.append(f"'{tier}' doesn't run {command} (in a step without its own 'if')")
+        if tier == "fast" and not runs(job, TITLE):
+            found.append(f"'fast' doesn't run {TITLE} (the PR title check, in a step without its own 'if')")
         for key in ("if", "continue-on-error"):
             if key in job:
                 found.append(f"'{tier}' has a job-level '{key}' (a skipped required job counts as passed)")
@@ -61,9 +83,10 @@ def problems(workflow):
     for name, job in jobs.items():
         if name in TIERS or not isinstance(job, dict) or "environment" not in job:
             continue
+        reached = reaches(jobs, name)
         for tier in TIERS:
-            if tier not in needs(job):
-                found.append(f"'{name}' has an environment but doesn't need '{tier}'")
+            if tier not in reached:
+                found.append(f"'{name}' has an environment but doesn't need '{tier}' (directly or through what it needs)")
     return found
 
 

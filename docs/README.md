@@ -120,6 +120,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   green CI: the files placed, the owner's steps and the proof on a fresh repo.
 - [`pinned-tools-on-path.md`](../specs/pinned-tools-on-path.md): the project's own checks find the
   devshop's pinned gitleaks, shellcheck and dcg on PATH.
+- [`project-contract.md`](../specs/project-contract.md): one project contract, what every project
+  must provide, checked at session start and in its `fast` tier.
 - [`reviewer-browser.md`](../specs/reviewer-browser.md): the reviewer judges a local run of the
   site against `DESIGN.md`, with a browser that reaches only that run.
 - [`ui-baseline.md`](../specs/ui-baseline.md): every web app starts from a design baseline, phone
@@ -168,9 +170,12 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   the go is recorded; `--tests <dir>`: every `AC-<n>` not "verified by review" is named by a test,
   run by the project's CI). Proven by [`tests/spec-check.test.sh`](../tests/spec-check.test.sh).
 - CI: [`runtime/templates/ci.yml`](../runtime/templates/ci.yml) is every project's CI in two tiers
-  ([spec](../specs/ci-fast-slow-tiers.md)): `fast` runs the project's `scripts/check-fast.sh "$BASE"`
+  ([spec](../specs/ci-fast-slow-tiers.md)): `fast` runs the PR title check
+  ([`scripts/pr-title-check.py`](../scripts/pr-title-check.py), the project's copy) and the project's
+  `scripts/check-fast.sh "$BASE"`
   (template [`runtime/templates/check-fast.sh`](../runtime/templates/check-fast.sh): secret scan; the
-  spec check with `--tests`, so an acceptance item no test names fails CI; lint, unit tests; proven by
+  spec check with `--tests`, so an acceptance item no test names fails CI; the contract check; lint
+  where the project has `scripts/lint.sh`; unit tests; proven by
   [`tests/check-fast-template.test.sh`](../tests/check-fast-template.test.sh)), `slow` needs it and runs `scripts/check-slow.sh` (end-to-end
   tests; a project with none yet has one that says so). On `main`, its `deploy` job runs the
   project's `scripts/deploy.sh` after both tiers, and the merged PR gets one deploy comment that
@@ -192,10 +197,20 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   change and anonymised). [`runtime/scripts/ci-tiers-check.py`](../runtime/scripts/ci-tiers-check.py)
   checks a workflow has that shape; session start runs it on the project's and says so in a
   `DEVSHOP:` line. Proven by [`tests/ci-tiers-check.test.sh`](../tests/ci-tiers-check.test.sh).
+- The project contract: [`runtime/project-contract.txt`](../runtime/project-contract.txt) lists every
+  item the devshop relies on finding in a project, with its owner (`devshop` copy, `seed`, `project`),
+  whether it is required or optional, what the check verifies, what it must do and who relies on it
+  ([spec](../specs/project-contract.md)). [`runtime/scripts/contract-check.py`](../runtime/scripts/contract-check.py)
+  checks a project against it: as a `devshop` copy in the project's fast tier, and at session start
+  with the version's own copy and the applying stack homes' `supplies` (one `DEVSHOP:` line for
+  required items missing or malformed, a plain line for absent optional ones). `--list` prints the
+  contract for a collaborator. The manifest below and the templates agree with it by test. Proven
+  by [`tests/contract-check.test.sh`](../tests/contract-check.test.sh).
 - Project files: [`runtime/project-files.txt`](../runtime/project-files.txt) lists each file the
   devshop places in a project and its owner (L-49): `devshop`, an identical copy the project keeps
-  (the secret scan, the spec check), or `seed`, a template the project adapts and owns (CI, the fast
-  tier). [`runtime/scripts/project-files.py`](../runtime/scripts/project-files.py) `check`s the
+  (the secret scan, the spec check, the title check, the contract and its check; the UI checks marked
+  `optional`, brought only where the project has them), or `seed`, a template the project adapts and
+  owns (CI, the fast tier). [`runtime/scripts/project-files.py`](../runtime/scripts/project-files.py) `check`s the
   copies against a version (session start reports drift from the pinned one in a `DEVSHOP:` line),
   `plan`s an upgrade, `apply`s one copy, and `init`s a new project (every entry, `.devshop-version`
   pinned to a `vX.Y.Z` release tag, and `CODEOWNERS`, or nothing). The `upgrade` skill runs

@@ -132,8 +132,8 @@ grep -qE '^devshop +runtime/scripts/deploy-comment\.mjs +scripts/deploy-comment\
 proj="$work/project"
 mkdir -p "$proj"
 git -C "$proj" init -q
-while read -r owner src dst; do
-  [ "$owner" = devshop ] || continue
+while read -r owner src dst optional; do
+  [ "$owner" = devshop ] && [ -z "$optional" ] || continue # optional copies: a project has them only when it needs them
   mkdir -p "$proj/$(dirname "$dst")"
   git -C "$repo_root" show "HEAD:$src" >"$proj/$dst"
   [ "$(git -C "$repo_root" ls-tree HEAD "$src" | cut -c1-6)" != 100755 ] || chmod +x "$proj/$dst"

@@ -4,9 +4,18 @@
 #          drift from the pinned version, and the upgrade skill (/devshop:upgrade) replaces it whole.
 # seed:    a starting point the project adapts and owns; never overwritten or deleted, and the
 #          upgrade shows only how the template changed.
+# A fourth field `optional` (devshop files only) marks a copy a project has only when it needs it
+# (the UI checks): init doesn't place it, check compares it only where it exists, the upgrade
+# re-copies it where it exists. The project contract (runtime/project-contract.txt) lists every
+# entry here with what it must do; tests/contract-check.test.sh holds the two together.
 devshop  scripts/secret-scan.sh               scripts/secret-scan.sh
 devshop  runtime/scripts/spec-check.py        scripts/spec-check.py
 devshop  runtime/scripts/deploy-comment.mjs   scripts/deploy-comment.mjs
+devshop  scripts/pr-title-check.py            scripts/pr-title-check.py
+devshop  runtime/scripts/contract-check.py    scripts/contract-check.py
+devshop  runtime/project-contract.txt         scripts/project-contract.txt
+devshop  runtime/templates/ui/tokens-check.mjs scripts/ui/tokens-check.mjs  optional
+devshop  runtime/templates/ui/render-check.mjs scripts/ui/render-check.mjs  optional
 seed     runtime/templates/ci.yml             .github/workflows/ci.yml
 seed     runtime/templates/check-fast.sh      scripts/check-fast.sh
 seed     runtime/templates/check-slow.sh      scripts/check-slow.sh

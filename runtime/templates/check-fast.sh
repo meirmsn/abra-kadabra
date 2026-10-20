@@ -6,8 +6,11 @@
 #   - the spec check: every spec in specs/ has the shape, and every AC-<n> not marked "verified by
 #     review" is named by a test under TEST_DIRS (TARGET Verify): scripts/spec-check.py, a copy of
 #     the devshop's runtime/scripts/spec-check.py (needs python3, on GitHub's runners);
-#   - the stack's parts, from the stack home: lint, unit tests, ...
-# Copy both scripts with their executable bit (exit 126, "couldn't run", otherwise). Keep a specs/
+#   - the project contract check: every file the tooling relies on is there and well-formed:
+#     scripts/contract-check.py over scripts/project-contract.txt, both copies of the devshop's;
+#   - lint, when the project has scripts/lint.sh (the stack home says what it runs);
+#   - the stack's parts, from the stack home: unit tests, ...
+# Copy the scripts with their executable bit (exit 126, "couldn't run", otherwise). Keep a specs/
 # directory (a .gitkeep before the first spec): a missing one can't run.
 # Usage: scripts/check-fast.sh [base-sha]   (base as for secret-scan.sh)
 # Every part runs even after one fails. Exit 0 = clean; 1 = failures; 2 = a part couldn't run.
@@ -32,5 +35,7 @@ for d in "${TEST_DIRS[@]}"; do tests+=(--tests "$d"); done
 
 part scripts/secret-scan.sh "${1:-}"
 part scripts/spec-check.py "${tests[@]}" specs
-# --- Stack parts (from the stack home), e.g. part scripts/lint.sh; part npm test ---
+part scripts/contract-check.py
+if [ -x scripts/lint.sh ]; then part scripts/lint.sh "${1:-}"; else echo "no scripts/lint.sh: lint is the stack's part"; fi
+# --- Stack parts (from the stack home), e.g. part npm test ---
 exit "$worst"

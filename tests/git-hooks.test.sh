@@ -90,7 +90,13 @@ ci_line() { # ci_line <case> <grep -E pattern for its one DEVSHOP: line about CI
 ci="$work/p/.github/workflows/ci.yml"
 cp "$ci" "$work/ci.good"
 rm "$ci"
-ci_line "no ci.yml is reported, naming the template" "^DEVSHOP: the project has no CI \(\.github/workflows/ci\.yml\); start from the devshop's two-tier template, /opt/devshop-current/templates/ci\.yml$"
+# specs/project-contract.md AC-5: with neither the pin nor ci.yml, one line names the new-project skill.
+out=$(CLAUDE_PROJECT_DIR="$work/p" "$start" 2>&1)
+[ "$(grep -c '^DEVSHOP:' <<<"$out")" = 1 ] || { echo "$out" >&2; fail "AC-5: neither pin nor ci.yml: want exactly one DEVSHOP: line"; }
+grep -Eq "^DEVSHOP: no devshop files yet \(\.devshop-version, \.github/workflows/ci\.yml\): a new project is set up by /devshop:new-project$" <<<"$out" \
+  || { echo "$out" >&2; fail "AC-5: the line doesn't name /devshop:new-project"; }
+grep -Eq 'templates/ci\.yml|contract' <<<"$out" && { echo "$out" >&2; fail "AC-5: a new repo also hears about the CI template or the contract"; }
+echo "ok - AC-5: a repo with neither the pin nor ci.yml gets one line naming /devshop:new-project"
 sed '/^  slow:/,$d' "$work/ci.good" >"$ci"
 ci_line "a ci.yml without the slow tier is reported, naming the rule" "^DEVSHOP: the project's CI doesn't follow the two tiers \(fast, slow\) of /opt/devshop-current/templates/ci\.yml: no job 'slow'$"
 printf 'jobs: [unclosed\n' >"$ci"
@@ -98,7 +104,78 @@ ci_line "a ci.yml the check can't parse is reported as unchecked" "^DEVSHOP: cou
 cp "$work/ci.good" "$ci"
 out=$(CLAUDE_PROJECT_DIR="$work/p" "$start" 2>&1)
 [ -z "$out" ] || { echo "$out" >&2; fail "AC-3: session start spoke up about a ci.yml that follows the template"; }
-echo "ok - AC-3: a ci.yml that follows the template gets no line"
+echo "ok - AC-3: a ci.yml that follows the template gets no line (and nothing about the contract without a pin)"
+
+# specs/project-contract.md AC-5: in a pinned project, session start checks the project contract with
+# the version's own copy (runtime/project-contract.txt here) and the stack homes' `supplies`. A fixture
+# of its own: every required item of the real contract, built from this tree's manifest.
+mkdir -p /opt/devshop-versions/stacks-test/stacks/cf /opt/devshop-versions/stacks-test/stacks/other
+new_project c
+c="$work/c"
+mkdir -p "$c/scripts/ui" "$c/specs" "$c/.github"
+grep -v '^#' "$repo_root/runtime/project-files.txt" | while read -r _ src dst optional; do
+  [ -n "$src" ] && [ -z "$optional" ] || continue
+  mkdir -p "$c/$(dirname "$dst")" && cp -p "$repo_root/$src" "$c/$dst"
+done
+echo v2.0.0 >"$c/.devshop-version"
+echo "* @example-owner" >"$c/.github/CODEOWNERS"
+touch "$c/specs/.gitkeep"
+printf '#!/usr/bin/env bash\nexit 0\n' >"$c/scripts/setup.sh" && chmod +x "$c/scripts/setup.sh"
+git -C "$c" add -A && git -C "$c" commit -qm "every required item"
+contract_lines() { CLAUDE_PROJECT_DIR="$c" "$start" 2>&1 | grep -i 'contract' || true; }
+out=$(contract_lines)
+grep -q '^DEVSHOP:' <<<"$out" && { echo "$out" >&2; fail "AC-5: a project meeting the contract got a DEVSHOP: line"; }
+grep -Eq '^contract: optional items this project doesn.t have: .*DESIGN\.md' <<<"$out" || { echo "$out" >&2; fail "AC-5: absent optional items aren't named on a plain line"; }
+grep -q 'scripts/setup.sh' <<<"$out" && { echo "$out" >&2; fail "AC-5: a present optional item was named as absent"; }
+[ "$(wc -l <<<"$out")" = 1 ] || { echo "$out" >&2; fail "AC-5: want one plain line about the contract"; }
+echo "ok - AC-5: every required item present: no DEVSHOP: line, one plain line naming the absent optional items"
+rm "$c/scripts/check-slow.sh" && chmod -x "$c/scripts/secret-scan.sh"
+out=$(contract_lines)
+[ "$(grep -c '^DEVSHOP:' <<<"$out")" = 1 ] || { echo "$out" >&2; fail "AC-5: want exactly one DEVSHOP: line about the contract"; }
+grep -Eq "^DEVSHOP: the project doesn't meet the project contract: scripts/check-slow\.sh \(missing\); scripts/secret-scan\.sh \(is not executable" <<<"$out" \
+  || { echo "$out" >&2; fail "AC-5: the line doesn't name each item and problem"; }
+echo "ok - AC-5: a missing and a malformed required item are one DEVSHOP: line naming each"
+git -C "$c" checkout -q -- scripts/check-slow.sh && chmod +x "$c/scripts/secret-scan.sh"
+# Every optional item present: nothing at all about the contract.
+for f in scripts/lint.sh scripts/lint-file.sh scripts/deploy.sh scripts/local-run.sh; do
+  printf '#!/usr/bin/env bash\nexit 0\n' >"$c/$f" && chmod +x "$c/$f"
+done
+cp "$repo_root/runtime/templates/ui/tokens-check.mjs" "$repo_root/runtime/templates/ui/render-check.mjs" "$c/scripts/ui/"
+mkdir -p "$c/docs" && for f in DESIGN.md ROADMAP.md FINDINGS.md docs/README.md; do echo "# $f" >"$c/$f"; done
+out=$(contract_lines)
+[ -z "$out" ] || { echo "$out" >&2; fail "AC-5: with every item present, session start still spoke about the contract"; }
+echo "ok - AC-5: with every optional item present too, nothing about the contract"
+# A stack home's supplies make its items required, when the stack applies; a home that doesn't apply
+# changes nothing. A scratch version with two stack homes stands in for the runtime's.
+rm /opt/devshop-current
+v=/opt/devshop-versions/stacks-test
+for d in hooks scripts templates project-contract.txt; do ln -s "$repo_root/runtime/$d" "$v/$d"; done
+echo "# cf" >"$v/stacks/cf/README.md" && echo "wrangler.jsonc" >"$v/stacks/cf/detect" && printf 'scripts/local-run.sh\nDESIGN.md\n' >"$v/stacks/cf/supplies"
+echo "# other" >"$v/stacks/other/README.md" && echo "other.toml" >"$v/stacks/other/detect" && echo "ROADMAP.md" >"$v/stacks/other/supplies"
+ln -s "$v" /opt/devshop-current
+rm "$c/scripts/local-run.sh" "$c/DESIGN.md" "$c/ROADMAP.md"
+out=$(contract_lines)
+grep -q '^DEVSHOP:' <<<"$out" && { echo "$out" >&2; fail "AC-5: a stack that doesn't apply made its items required"; }
+echo "ok - AC-5: a stack home that doesn't apply changes nothing"
+echo '{}' >"$c/wrangler.jsonc"
+out=$(contract_lines)
+grep -Eq "^DEVSHOP: the project doesn't meet the project contract: scripts/local-run\.sh \(missing \(a project on this stack has it\)\); DESIGN\.md \(missing" <<<"$out" \
+  || { echo "$out" >&2; fail "AC-5: an applying stack's supplied items aren't required"; }
+grep -q 'ROADMAP.md (missing' <<<"$out" && { echo "$out" >&2; fail "AC-5: the non-applying stack's item was required"; }
+echo "ok - AC-5: an applying stack home's supplies are required, named as the stack's"
+rm "$v/stacks/other/detect"
+out=$(contract_lines)
+grep -Eq "^DEVSHOP: couldn't check the project against the project contract \(exit 2\): the stack homes couldn't be read" <<<"$out" \
+  || { echo "$out" >&2; fail "AC-5: a stack home that can't be judged isn't reported"; }
+echo "ok - AC-5: stack-homes.sh exit 2 is one couldn't-check line"
+echo "other.toml" >"$v/stacks/other/detect"
+printf 'nope.txt\n' >"$v/stacks/cf/supplies"
+out=$(contract_lines)
+grep -Eq "^DEVSHOP: couldn't check the project against the project contract \(exit 2\): contract-check: .*not an optional item" <<<"$out" \
+  || { echo "$out" >&2; fail "AC-5: a bad supplies file isn't reported"; }
+echo "ok - AC-5: a supplies file naming a non-item is one couldn't-check line"
+rm /opt/devshop-current && ln -s "$repo_root/runtime" /opt/devshop-current
+rm "$c/wrangler.jsonc"
 
 # The Bash guard fails closed, so a missing dcg blocks every Bash command: session start says so up
 # front, when the installed plugin registers the guard. A plugin from before the guard: no line.

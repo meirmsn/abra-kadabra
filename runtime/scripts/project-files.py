@@ -2,10 +2,12 @@
 """A project's copies of devshop files against a devshop version (W10.4.7, L-49).
 
 The version's runtime/project-files.txt lists each file the devshop places in a project, one per
-line: `<owner> <devshop path> <project path>` (`#` starts a comment). Owner `devshop`: the project
-keeps an identical copy, executable bit included. Owner `seed`: a starting point the project adapts
-and owns; never compared, never written. Versions are read from a devshop git dir (the session's
-local copy, /opt/devshop.git), so no network.
+line: `<owner> <devshop path> <project path> [optional]` (`#` starts a comment). Owner `devshop`: the
+project keeps an identical copy, executable bit included. Owner `seed`: a starting point the project
+adapts and owns; never compared, never written. A devshop entry marked `optional` is a copy the
+project has only when it needs it: not placed by init, compared only where it exists (a symlink
+there counts), written by apply on request. Versions are read from a devshop git dir (the
+session's local copy, /opt/devshop.git), so no network.
 
 Usage:
   project-files.py check --devshop-git D --version V --project P
@@ -19,7 +21,7 @@ Usage:
       and paths whose directory leaves the project. Exit 0.
   project-files.py init --devshop-git D --version V --project P --codeowner HANDLE
       Places a new project (specs/new-project.md): every entry of V's manifest, devshop and seed
-      alike, with its content and mode; then .devshop-version (V) and .github/CODEOWNERS
+      alike but the optional ones, with its content and mode; then .devshop-version (V) and .github/CODEOWNERS
       (`* @HANDLE`). Every check runs before the first write: it refuses, writing nothing, when V
       isn't a vX.Y.Z release tag in the copy (a SHA or a branch is refused), a target exists (file,
       directory or symlink), a target's directory is a file or leaves the project, or HANDLE isn't
@@ -92,7 +94,7 @@ def safe_rel(path):
 
 
 def manifest(gitdir, sha):
-    """[(owner, source, project path)] of the version's manifest; NoManifest when it has none."""
+    """[(owner, source, project path, optional)] of the version's manifest; NoManifest when it has none."""
     found = blob(gitdir, sha, MANIFEST)
     if found is None:
         raise NoManifest(f"version {sha[:12]} has no {MANIFEST} (older than W10.4.7): nothing to check")
@@ -103,11 +105,17 @@ def manifest(gitdir, sha):
             continue
         fields = line.split()
         where = f"{MANIFEST}:{n} at {sha[:12]}"
-        if len(fields) != 3:
-            raise CantRun(f"{where}: want 3 fields (owner, devshop path, project path), got {len(fields)}")
-        owner, src, dst = fields
+        if len(fields) not in (3, 4):
+            raise CantRun(f"{where}: want 3 fields (owner, devshop path, project path) and an optional "
+                          f"4th 'optional', got {len(fields)}")
+        owner, src, dst = fields[:3]
+        optional = len(fields) == 4
+        if optional and fields[3] != "optional":
+            raise CantRun(f"{where}: unknown 4th field '{fields[3]}' (want 'optional')")
         if owner not in OWNERS:
             raise CantRun(f"{where}: unknown owner '{owner}' (want {' or '.join(OWNERS)})")
+        if optional and owner != "devshop":
+            raise CantRun(f"{where}: 'optional' goes with owner devshop only; a {owner} is placed once and never compared")
         for p in (src, dst):
             if not safe_rel(p):
                 raise CantRun(f"{where}: path '{p}' must be relative and stay inside its repo")
@@ -116,7 +124,7 @@ def manifest(gitdir, sha):
         seen.add(dst)
         if blob(gitdir, sha, src) is None:
             raise CantRun(f"{where}: version {sha[:12]} lacks '{src}'")
-        entries.append((owner, src, dst))
+        entries.append((owner, src, dst, optional))
     if not entries:
         raise CantRun(f"{MANIFEST} at {sha[:12]} has no entries")
     return entries
@@ -154,8 +162,8 @@ def problems(gitdir, sha, project, src, dst):
 def check(a):
     sha = resolve(a["devshop-git"], a["version"])
     drift = []
-    for owner, src, dst in manifest(a["devshop-git"], sha):
-        if owner == "devshop":
+    for owner, src, dst, optional in manifest(a["devshop-git"], sha):
+        if owner == "devshop" and not (optional and not os.path.lexists(os.path.join(a["project"], dst))):
             drift += [f"{dst}: {p}" for p in problems(a["devshop-git"], sha, a["project"], src, dst)]
     for line in drift:
         print(line)
@@ -172,11 +180,15 @@ def plan(a):
     old = resolve(gd, a["from"])
     entries = manifest(gd, new)
     print(f"project-files plan: {old[:12]} -> {new[:12]}")
-    for owner, src, dst in entries:
+    for owner, src, dst, optional in entries:
         if owner == "devshop":
-            found = problems(gd, new, project, src, dst)
-            print(f"== {dst} (devshop, from {src}): {'; '.join(found) if found else 'same as the new version'}")
             full = os.path.join(project, dst)
+            if optional and not os.path.lexists(full):
+                print(f"== {dst} (devshop, optional, from {src}): the project doesn't have it; nothing to bring")
+                continue
+            found = problems(gd, new, project, src, dst)
+            label = "devshop, optional" if optional else "devshop"
+            print(f"== {dst} ({label}, from {src}): {'; '.join(found) if found else 'same as the new version'}")
             mine = open(full, "rb").read() if os.path.isfile(full) and not os.path.islink(full) else b""
             sys.stdout.writelines(difflib.unified_diff(text(mine), text(blob(gd, new, src)[0]),
                                                        f"project/{dst}", f"{new[:12]}/{src}"))
@@ -194,8 +206,8 @@ def plan(a):
             sys.stdout.writelines(difflib.unified_diff(text(before[0] if before else b""), text(after[0]),
                                                        f"{old[:12]}/{src}", f"{new[:12]}/{src}"))
     try:
-        dropped = [e for e in manifest(gd, old) if e[2] not in {d for _, _, d in entries}]
-        for owner, src, dst in dropped:
+        dropped = [e for e in manifest(gd, old) if e[2] not in {d for _, _, d, _ in entries}]
+        for owner, src, dst, _ in dropped:
             print(f"== {dst} ({owner}): removed from the manifest since {old[:12]}; the project "
                   f"keeps it (never deleted): decide whether to delete it")
     except NoManifest:
@@ -211,7 +223,7 @@ def apply(a):
     entry = [e for e in manifest(gd, sha) if e[2] == dst]
     if not entry:
         raise CantRun(f"'{dst}' is not in {MANIFEST} at {sha[:12]}")
-    owner, src, _ = entry[0]
+    owner, src, _, _ = entry[0]
     if owner != "devshop":
         raise CantRun(f"'{dst}' is a seed: the project owns it; edit it by hand after the owner confirms")
     project = os.path.realpath(a["project"])
@@ -261,7 +273,7 @@ def init(a):
         raise CantRun(f"release tag '{tag}' is not in the devshop copy {gd}; it refreshes when the "
                       "environment's cache rebuilds: rebuild the environment, then retry")
     sha = r.stdout.decode().strip()
-    files = [(dst, *blob(gd, sha, src)) for _, src, dst in manifest(gd, sha)]
+    files = [(dst, *blob(gd, sha, src)) for _, src, dst, optional in manifest(gd, sha) if not optional]
     files += [(".devshop-version", f"{tag}\n".encode(), "100644"),
               (".github/CODEOWNERS", f"* @{handle}\n".encode(), "100644")]
     project = os.path.realpath(a["project"])

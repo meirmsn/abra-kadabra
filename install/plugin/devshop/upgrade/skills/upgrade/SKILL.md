@@ -7,8 +7,9 @@ description: Upgrade the project's devshop version (.devshop-version) in one PR,
 
 One PR moves `.devshop-version` from OLD (the file's release tag or SHA; none means `HEAD`) to NEW and brings the
 files the devshop places in the project along (L-49). NEW's `runtime/project-files.txt` names each
-one and its owner: `devshop` (an identical copy) or `seed` (the project's own, started from a
-template). This skill comes with the install, not the pinned version, so it works from any pin; its
+one and its owner: `devshop` (an identical copy; one marked `optional` is brought only where the
+project has it) or `seed` (the project's own, started from a template). This skill comes with the
+install, not the pinned version, so it works from any pin; its
 wrapper runs NEW's own script. Run every step from the project root on a fresh branch from `main`.
 Abbreviations: `D=/opt/devshop.git`,
 `PF=/opt/devshop-plugin/devshop/upgrade/project-files-at.sh --devshop-git $D --at NEW`.
@@ -43,8 +44,8 @@ Run `$PF plan --from OLD --to NEW --project .` and show the owner its sections:
 - Each confirmed seed change: edit the project's file by hand, exactly as shown.
 - Write NEW as named (a release tag, else the full SHA) to `.devshop-version`.
 - Run `$PF check --version NEW --project .` (exit 0), then the project's
-  `scripts/check-fast.sh origin/main`. A red check stops the upgrade: an owned script and the seed
-  that calls it can change together.
+  `scripts/check-fast.sh origin/main`. A red check stops the upgrade: an owned script and its seed
+  can change together.
 
 ## 4. Open the PR
 
@@ -54,4 +55,5 @@ says what moves, e.g. "Pin the devshop to v2.1.0: <what the project gains>". **W
 know** lists each file with its owner and outcome (applied, changed, skipped and why), any file
 removed from the manifest, and the checks you ran; no Announcement.
 
-A project's formatter must leave `devshop` copies alone, or every session reports them as drift.
+A project's formatter must leave `devshop` copies alone (`.prettierignore` for the `.mjs` ones), or
+every session reports them as drift. What `scripts/contract-check.py` then reports goes in the same PR.

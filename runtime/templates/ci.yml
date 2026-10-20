@@ -1,6 +1,8 @@
 # CI in two tiers (the devshop's template; copy to .github/workflows/ci.yml). Plain CI, no LLM jobs.
-#   fast: static checks and unit tests, scripts/check-fast.sh "$BASE" (secret scan, spec check with
-#         acceptance→test, lint, unit tests); its template is runtime/templates/check-fast.sh.
+#   fast: the PR title check (scripts/pr-title-check.py: a Conventional Commit type), then static
+#         checks and unit tests, scripts/check-fast.sh "$BASE" (secret scan, spec check with
+#         acceptance→test, the project contract check, lint where the project has it, unit tests);
+#         its template is runtime/templates/check-fast.sh.
 #   slow: end-to-end tests, scripts/check-slow.sh; runs only after fast passes.
 # What each tier runs lives in those two scripts, so this file stays the same for every stack. A
 # project with no slow tests yet keeps a check-slow.sh that says so and exits 0. Make `fast` and
@@ -53,7 +55,14 @@ jobs:
       - name: Project setup
         run: if [ -x scripts/setup.sh ]; then scripts/setup.sh; fi
 
-      - name: Fast tier (secret scan, spec check, lint, unit tests)
+      # The PR's title, or on a push the head commit's first line (the squash merge makes it from the
+      # title), starts with a Conventional Commit type. Passed through env, never interpolated.
+      - name: PR title (a Conventional Commit type)
+        env:
+          TITLE: ${{ github.event.pull_request.title || github.event.head_commit.message }}
+        run: scripts/pr-title-check.py "$(head -n 1 <<<"$TITLE")"
+
+      - name: Fast tier (secret scan, spec check, contract check, lint, unit tests)
         env:
           # PR: everything since the base; push to main: everything since the previous tip.
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}

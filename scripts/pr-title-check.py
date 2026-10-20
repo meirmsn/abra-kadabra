@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""PR title check (spec specs/devshop-releases.md): the title, which becomes the squash commit's
-subject on main, starts with a Conventional Commit type, because scripts/release.py computes the
-next version from those subjects.
+"""PR title check: the title, which becomes the squash commit's subject on main, starts with a
+Conventional Commit type, so release notes and the next version can be computed from the subjects on
+main. The devshop's own copy and every project's (the project contract lists it).
 
 Usage: scripts/pr-title-check.py TITLE
   Form: <type>[(<scope>)][!]: <subject>, type one of TYPES; `!` marks a breaking change (a major
   release). At most 72 characters, not counting the " (#n)" GitHub appends on merge.
-CI's fast job runs it on the PR's title and on the subject of each push to main; ship.sh runs it on
-the title it sets.
+CI's fast job runs it on the PR's title and on the subject of each push to main; the devshop's
+ship.sh runs it on the title it sets.
 Exit 0 = the title has the form; 1 = it doesn't (the reason is printed); 2 = no title given.
 """
 import re

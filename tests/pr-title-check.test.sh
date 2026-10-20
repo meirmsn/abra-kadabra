@@ -28,6 +28,10 @@ for type in feat fix perf revert docs test ci build refactor style chore; do
   expect "type $type passes" 0 'ok' -- "$type: add a thing"
 done
 expect "a scope passes" 0 'ok' -- "fix(install): keep the token out of the remote URL"
+# specs/project-contract.md AC-8: the script is a devshop copy every project carries, so it names no
+# file that exists only in the devshop.
+if grep -nE 'release\.py|devshop-releases' "$script"; then fail "project-contract AC-8: pr-title-check.py names a devshop-only file"; fi
+echo "ok - project-contract AC-8: pr-title-check.py names no devshop-only file"
 expect "breaking with ! passes" 0 'ok' -- "feat!: projects pin a release tag"
 expect "breaking with a scope and ! passes" 0 'ok' -- "feat(upgrade)!: write the tag"
 t72="feat: $(printf 'x%.0s' $(seq 66))"
