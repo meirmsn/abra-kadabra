@@ -42,8 +42,8 @@ an explicit go/no-go; lalista is the pilot (web, then iOS).
 | --- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | M0  | Stop the bleeding + groundwork                        | done                                                                                      |
 | M1  | Walking skeleton → go/no-go                           | done 2026-10-15 (D-17: met on runs 1–2 under D-16's rule; go). Close-out tasks W10.9 open |
-| M2  | First real project: the owner's website on Cloudflare | next (W10.10)                                                                             |
-| M3  | First real app: lalista web on v2                     | coarse                                                                                    |
+| M2  | First real project: the owner's website on Cloudflare | done 2026-10-20 (owner; plain run website PR #15, [REVIEW-3](REVIEW-3.md))                |
+| M3  | First real app: lalista web on v2                     | next; tasks proposed in REVIEW-3 § 7                                                      |
 | M4  | iOS stack + Mac; retire v1                            | coarse                                                                                    |
 
 ## Files
