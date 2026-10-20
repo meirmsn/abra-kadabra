@@ -76,8 +76,12 @@ just in case" and "should be responsive, not just phone" (owner, 2026-10-13).
   the browser paints them (3:1 for large text: 24 px, or 18.66 px bold), which also catches
   hard-coded colours (Claude's proposal, 2026-10-13)
 - Render check, theme and layout: the page background differs between system light and system
-  dark; the toggle (`[data-theme-toggle]`, a visible control) overrides the system both ways and
-  its choice survives a reload; the page has a `<main>` that is wider at 1280 px than at 375 px
+  dark; the toggle (`[data-theme-toggle]`, a visible control, or a group holding the controls)
+  overrides the system both ways and its choice survives a reload: each round clicks every visible
+  control in it, up to three rounds, so a cycling button and one button per choice both pass; a
+  menu passes only if its items sit inside the group, untested (owner, 2026-10-20: the devshop
+  checks the outcome, never the control's shape; the website's segmented control failed the
+  one-button version); the page has a `<main>` that is wider at 1280 px than at 375 px
   (Claude's proposal, 2026-10-13)
 - Render check definitions. A control is `a[href]`, `button`, `input` (not hidden), `select`,
   `textarea`, `summary` or `[role=button]`; a checkbox or radio is measured by its label when it
@@ -115,15 +119,15 @@ just in case" and "should be responsive, not just phone" (owner, 2026-10-13).
 - **AC-3** `render-check.mjs --url <url> --out <dir>` loads the page at 375 px (phone emulation),
   768 px and 1280 px, each with the system in light and in dark, and exits 0 on `example.html`;
   exits 1, naming the rule, the width and the element, for each of: no viewport meta; horizontal
-  scroll; an element past the edge hidden by `overflow-x: hidden`; the same page background in
-  both system themes; no theme toggle; a toggle that doesn't override the system in either
-  direction; a choice that doesn't survive a reload; no `<main>`, or one no wider at 1280 px than
-  at 375 px; text below its contrast
+  scroll; an element past the edge hidden by `overflow-x: hidden`; the same page background in both
+  system themes; no theme toggle; a toggle that doesn't override the system in either direction (a
+  segmented control, one button per choice with one of them hidden, passes); a choice that doesn't
+  survive a reload; no `<main>`, or one no wider at 1280 px than at 375 px; text below its contrast
   threshold (e.g. a hard-coded dark text colour in dark mode); a visible control smaller than 44 ×
   44 px, including a row of short links in a nav; a button with no pressed state; it doesn't flag a
-  link inside a sentence; and exits 2 when Playwright can't be loaded, the browser can't start,
-  the page fails to load or answers 400 or above, or the page throws an error. Shown by a test
-  feeding a page with each fault
+  link inside a sentence; and exits 2 when Playwright can't be loaded, the browser can't start, the
+  page fails to load or answers 400 or above, or the page throws an error. Shown by a test feeding a
+  page with each fault
 - **AC-4** The render check writes six full-page screenshots to `<dir>`, `<width>-<theme>.png` for
   widths 375, 768 and 1280 and themes `light` and `dark` (system setting, no override). Shown by
   the same test
