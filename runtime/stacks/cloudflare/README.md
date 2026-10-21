@@ -240,8 +240,8 @@ Seen in the fixture's and the website's sessions (F-NEW-55, F-NEW-68, F-NEW-71; 
 Every test that proves an acceptance item names it as the project contract's rule says (the `must`
 of `scripts/spec-check.py`, printed by `scripts/contract-check.py --list`): `AC-<n>` in the test's
 name or description, with the spec's file name before it (`<spec> AC-<n>`: `font-fallback AC-1`,
-`projects AC-2`) once the repo has more than one spec, since `spec-check.py` matches numbers per
-spec and reads nothing of the prefix (F-NEW-49, F-NEW-92); the reviewer reads those labels. Script
+`projects AC-2`), even with one spec: `spec-check.py` counts only that name, so a bare `AC-1` names
+nothing (F-NEW-49, F-NEW-92); the reviewer reads those labels. Script
 tests run from `tests/run.sh`, which changes into `tests/`, so a
 test using repo-relative paths does `cd "$repo_root"` itself (F-NEW-89). Fast tests need no
 browser; a test that needs one is slow and runs from `check-slow.sh`.
