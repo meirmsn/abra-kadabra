@@ -64,7 +64,7 @@ item: scripts/spec-check.py
 owner: devshop
 when: required
 check: executable
-must: Checks every spec in `specs/` has the template's shape, and with `--tests` that every acceptance item not "verified by review" is named by a test. A test names the item it proves as `AC-<n>`, with the spec's file name before it (`<spec> AC-<n>`) once the repo has more than one spec: the check matches numbers per spec and reads nothing of the prefix.
+must: Checks every spec in `specs/` has the template's shape, and with `--tests` that every acceptance item not "verified by review" is named by a test. A test names the item it proves as `<spec> AC-<n>`, the spec's file name without `.md` before it (`specs/cart.md`'s AC-2: `cart AC-2`), even in a repo with one spec: a bare `AC-<n>`, or another spec's, names nothing. No two specs share a file name.
 for: `scripts/check-fast.sh`; the devshop's intent skill and reviewer read the same shape
 
 item: scripts/pr-title-check.py

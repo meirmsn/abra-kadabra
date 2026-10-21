@@ -13,14 +13,15 @@ owner meant is the spec review's job, and whether the change meets it is the rev
     its indented continuation lines)
   - every AC-<n> named anywhere in the spec is one of those items (the reviewer reads every one)
   - States, when present, holds a table
+  - no two specs share a file name (a test's "<spec> AC-<n>" names one spec's item)
   - no {{placeholder}} left (outside code)
   --go: the **Go:** line records the owner's go (not pending)
   --tests PATH: the acceptance→test check (TARGET Verify; project CI runs it). Every AC-<n> not
-    marked "verified by review" is named, as the word AC-<n>, in a file under one of the PATHs (a
-    file, or every file below a directory; node_modules and dot-directories skipped). It reads
-    names, not tests: whether the test proves the item is the reviewer's job. Known limit: AC
-    numbers are per spec, so with several specs a test naming AC-4 counts for each spec's AC-4.
-    A PATH that doesn't exist, or no files under the PATHs, can't run.
+    marked "verified by review" is named as "<spec> AC-<n>", the spec's file name without ".md"
+    and one space before it (specs/cart.md's AC-2: "cart AC-2"), in a file under one of the PATHs
+    (a file, or every file below a directory; node_modules and dot-directories skipped). AC numbers
+    are per spec, so a bare AC-2, or another spec's, names nothing (F-NEW-92). It reads names, not
+    tests: whether the test proves the item is the reviewer's job. A PATH that doesn't exist, or no files under the PATHs, can't run.
 Exit 0 = every spec has the shape (and its tests); 1 = problems (listed); 2 = can't run (a missing
 or unreadable spec or test path, bad arguments).
 """
@@ -40,7 +41,7 @@ AC = re.compile(r"\bAC-(\d+)\b")
 VBR = re.compile(r"verified by review\b(:\s*(\S.*))?", re.I)
 
 
-def check(spec, need_go, tests=None):
+def check(spec, need_go, tests=None, spec_id=""):
     problems = []
     for m in re.finditer(r"\{\{.*?\}\}", CODE.sub("", spec), re.S):
         problems.append(f"placeholder left: {m.group(0)[:60]}")
@@ -115,8 +116,8 @@ def check(spec, need_go, tests=None):
         problems.append("States: no table (one row per state, one column per thing that shows or hides)")
     if tests is not None:
         for n in sorted(set(items) - reviewed):
-            if not re.search(rf"\bAC-{n}(?!\d)", tests):
-                problems.append(f"AC-{n}: no test names it (put AC-{n} in the name of the test that proves it, or mark the item 'verified by review: <step>')")
+            if not re.search(rf"(?<![\w./-]){re.escape(spec_id)} AC-{n}(?!\d)", tests):
+                problems.append(f"AC-{n}: no test names it (put '{spec_id} AC-{n}' in the name of the test that proves it, or mark the item 'verified by review: <step>')")
     return problems
 
 
@@ -147,6 +148,11 @@ def read(path, errors):
             return f.read()
     except (OSError, UnicodeDecodeError) as e:
         raise CantRun(f"can't read {path}: {e}")
+
+
+def spec_name(path):
+    """The name a test puts before AC-<n>: the spec's file name without .md."""
+    return os.path.splitext(os.path.basename(path))[0]
 
 
 def main(argv):
@@ -184,7 +190,14 @@ def main(argv):
                 found.append(p)
             else:
                 raise CantRun(f"can't read {p}: no such file")
-        problems = [f"{p}: {x}" for p in found for x in check(read(p, "strict"), need_go, tests)]
+        problems = []
+        by_name = {}
+        for p in found:
+            by_name.setdefault(spec_name(p), []).append(p)
+        for n, ps in sorted(by_name.items()):
+            if len(ps) > 1:
+                problems.append(f"{', '.join(ps)}: specs with the same file name; a test's '{n} AC-<n>' would name each one's items")
+        problems += [f"{p}: {x}" for p in found for x in check(read(p, "strict"), need_go, tests, spec_name(p))]
     except CantRun as e:
         print(f"spec-check: {e}", file=sys.stderr)
         return 2

@@ -3179,3 +3179,17 @@ fails too" did not repeat. lalista's CI reads its gitleaks pin from `.devcontain
 Not tested: Sentry on Workers, Realtime, a real deploy.
 
 **Next**: W10.11.1, the owner's sitting.
+
+## #91 — 2026-10-21 · W10.11.5: spec→test names carry the spec's name
+
+**What moved**: `spec-check.py --tests` counts an item as tested only when a test names it as
+`<spec> AC-<n>`, the spec's file name without `.md`, so a second spec's items are no longer
+"named" by the first spec's tests (F-NEW-92, closed). A bare `AC-<n>`, or another spec's
+(`old-cart`, `mycart`), names nothing; two specs sharing a file name fail. Known-bad tests failed
+before the change; 12 of 12 mutants killed. The contract's rule, the tests README, the Cloudflare
+home and the build skill say the same; the reviewer's prompt doesn't yet (F-NEW-126, needs its eval).
+
+**Surprises**: none. Not checked from here: whether the website's tests all carry the prefix; its
+upgrade to this release shows it.
+
+**Next**: R-14 (W10.11.12), before lalista adopts v2.
