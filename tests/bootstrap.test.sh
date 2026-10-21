@@ -238,6 +238,7 @@ session() {
   local proj cmd raw
   setup_env "${@:2}" >&2
   proj=$(mktemp -d "$work/proj.XXXX")
+  [ -z "${DEVSHOP_TEST_GIT:-}" ] || git init -q "$proj" # DEVSHOP_TEST_GIT=1: the project is a git repo
   [ -z "$1" ] || printf '%s\n' "$1" >"$proj/.devshop-version"
   cmd=$(jq -er '.hooks.SessionStart[0].hooks[0].command' "$HOME/plugin/hooks/hooks.json")
   raw=$(cd "$proj" && CLAUDE_PLUGIN_ROOT="$HOME/plugin" CLAUDE_PROJECT_DIR="$proj" bash -c "$cmd") \
@@ -288,9 +289,14 @@ url=$(git --git-dir=/opt/devshop.git config --get remote.origin.url)
 ! grep -rq FAKE-TOKEN /opt/devshop.git/config || fail "the token is still in /opt/devshop.git/config"
 echo "ok - bootstrap keeps the clone's URL and drops the token"
 
-out=$(session '')
+# A git repo with no pin (the version's own script skipped: HEAD's would add its own lines).
+out=$(DEVSHOP_TEST_GIT=1 DEVSHOP_PRIME_ONLY=1 session '')
 check "HEAD default (no .devshop-version)" "$out" \
-  "^DEVSHOP: using HEAD \(${head:0:12}\) from environment default \(no \.devshop-version\)" "$head"
+  "^DEVSHOP: using HEAD \(${head:0:12}\) from environment default \(no \.devshop-version\) · [^;]*$" "$head"
+# A directory that is neither a git repo nor holds one: the line says no pin was read (F-NEW-77).
+out=$(session '')
+check "HEAD default, the session's directory not a git repo" "$out" \
+  "^DEVSHOP: using HEAD \(${head:0:12}\) from environment default \(the session's directory .*/proj\.[A-Za-z0-9]{4} is not a git repo and holds 0 repos, so no project \.devshop-version was read\)" "$head"
 
 # Without jq the hook can't build JSON safely; it prints the plain lines and the ask instead, so
 # the line still reaches Claude (malformed JSON would be dropped whole).
