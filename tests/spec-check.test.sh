@@ -181,6 +181,9 @@ tcheck "--tests: two specs with the same file name fail (their tests' names woul
   --tests "$work/t" "$work/specs"
 check "two specs with the same file name fail without --tests too" 1 "$work/specs" "same file name"
 rm "$work/specs/sub/cart.md"
+tcheck "--tests: the same spec passed twice is one spec, not two with the same file name" 1 "badge.md: AC-3" -- \
+  --tests "$work/t" "$work/specs" "$work/specs/cart.md" "$work/specs/../specs/cart.md"
+grep -q "same file name" "$work/out.log" && fail "--tests: one spec passed twice is reported as two"
 mkdir -p "$work/nospecs"
 tcheck "--tests: a directory with no specs passes and says so" 0 "no specs" -- --tests "$work/t" "$work/nospecs"
 tcheck "--tests: a path that doesn't exist can't run" 2 "nope" -- --tests "$work/nope" "$work/cart.md"

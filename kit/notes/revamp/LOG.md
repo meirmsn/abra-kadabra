@@ -3186,7 +3186,7 @@ Not tested: Sentry on Workers, Realtime, a real deploy.
 `<spec> AC-<n>`, the spec's file name without `.md`, so a second spec's items are no longer
 "named" by the first spec's tests (F-NEW-92, closed). A bare `AC-<n>`, or another spec's
 (`old-cart`, `mycart`), names nothing; two specs sharing a file name fail. Known-bad tests failed
-before the change; 12 of 12 mutants killed. The contract's rule, the tests README, the Cloudflare
+before the change; 14 of 14 mutants killed. The contract's rule, the tests README, the Cloudflare
 home and the build skill say the same; the reviewer's prompt doesn't yet (F-NEW-126, needs its eval).
 
 **Surprises**: none. Not checked from here: whether the website's tests all carry the prefix; its

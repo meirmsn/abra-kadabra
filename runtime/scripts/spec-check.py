@@ -21,7 +21,8 @@ owner meant is the spec review's job, and whether the change meets it is the rev
     and one space before it (specs/cart.md's AC-2: "cart AC-2"), in a file under one of the PATHs
     (a file, or every file below a directory; node_modules and dot-directories skipped). AC numbers
     are per spec, so a bare AC-2, or another spec's, names nothing (F-NEW-92). It reads names, not
-    tests: whether the test proves the item is the reviewer's job. A PATH that doesn't exist, or no files under the PATHs, can't run.
+    tests: whether the test proves the item is the reviewer's job. A PATH that doesn't exist, or no
+    files under the PATHs, can't run.
 Exit 0 = every spec has the shape (and its tests); 1 = problems (listed); 2 = can't run (a missing
 or unreadable spec or test path, bad arguments).
 """
@@ -190,6 +191,8 @@ def main(argv):
                 found.append(p)
             else:
                 raise CantRun(f"can't read {p}: no such file")
+        seen = set()  # a spec passed twice, or by two paths, is one spec
+        found = [p for p in found if not (os.path.realpath(p) in seen or seen.add(os.path.realpath(p)))]
         problems = []
         by_name = {}
         for p in found:
