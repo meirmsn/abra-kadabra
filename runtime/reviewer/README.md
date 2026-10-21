@@ -50,11 +50,12 @@ a PR (W10.6.7; contract on the W10.6.7 line in W10-v2.md):
    a dirty tree, a detached `HEAD`, bad arguments or a result it can't trust) push nothing and say
    to ask the owner.
 4. On a pass it pushes the branch, then creates the PR, or updates the open PR's title, body and
-   base, with exactly the reviewed words. It reads them back: text GitHub appends to the body (an attribution footer)
-   is fine, since it can't change what was reviewed, and so is the body's own closing footer
-   appended again; a changed title or rewritten body is reported (exit 2), and so is a body that
-   links a Claude session, the footer GitHub adds when the body ends without the plain one. A PR
-   it creates always comes back with that link, so a new PR's body is set once more first. Then it posts the verdict comment and prints
+   base, with exactly the reviewed words. It reads them back: text GitHub appends to the body (an
+   attribution footer) is fine, since it can't change what was reviewed, and so is the body's own
+   closing footer appended again; a changed title or rewritten body is reported (exit 2), and so is
+   a body that links a Claude session, the footer GitHub adds when the body ends without the plain
+   one. A PR it creates always comes back with that link, so a new PR's body is set once more
+   first. Then it posts the verdict comment and prints
    `SHIPPED: PR #<n> · <url> · <commit12>`. A GitHub failure after the push is exit 2, saying what
    was done.
 
