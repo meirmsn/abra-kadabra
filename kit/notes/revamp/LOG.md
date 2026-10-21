@@ -3179,3 +3179,17 @@ fails too" did not repeat. lalista's CI reads its gitleaks pin from `.devcontain
 Not tested: Sentry on Workers, Realtime, a real deploy.
 
 **Next**: W10.11.1, the owner's sitting.
+
+## #91 — 2026-10-21 · W10.11.12: the hook after a restart
+
+**What moved**: F-NEW-77's root cause: the dispatcher trusted `${CLAUDE_PROJECT_DIR:-.}` to be the
+repo. A restarted worker starts it in the base directory, `/home/user`, which holds the clone, so it
+read no pin and said "no .devshop-version". It now reads the one repo below, and says so on the line;
+with none or several below, the line says no pin was read. The bootstrap test starts the hook that
+way: it failed before the fix and passes after.
+
+**Surprises**: this session's `claude` process was launched with `PWD=/home/user` too, before it
+moved into the repo. Why a restart hands the hook that directory is upstream and was not observed
+directly; the test models the sightings.
+
+**Next**: W10.11.1, the owner's sitting, then W10.11.6.
