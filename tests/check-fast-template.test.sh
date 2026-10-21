@@ -52,8 +52,8 @@ cat >"$p/specs/notes.md" <<'SPEC'
 - Sharing notes.
 SPEC
 cat >"$p/tests/notes.test.sh" <<'T'
-echo "ok - AC-1: a saved note is listed"
-echo "ok - AC-2: an empty note is refused"
+echo "ok - notes AC-1: a saved note is listed"
+echo "ok - notes AC-2: an empty note is refused"
 T
 
 # run [env assignments...]: run the copy with base "b4se" (secret scan passing); echo its exit code.
@@ -104,11 +104,11 @@ want 0 "AC-3: clean lint passes"
 grep -q "no scripts/lint.sh" "$work/out" && fail "AC-3: the no-lint line printed with lint present"
 rm "$p/scripts/lint.sh"
 
-sed -i 's/AC-2: an empty/an empty/' "$p/tests/notes.test.sh"
+sed -i 's/notes AC-2: an empty/an empty/' "$p/tests/notes.test.sh"
 got=$(run)
 want 1 "a test that lost its AC name fails the tier, naming the item" "AC-2: no test names it"
 grep -q "secret-scan b4se" "$work/ran" || fail "the secret scan didn't run"
-sed -i 's/ok - an empty/ok - AC-2: an empty/' "$p/tests/notes.test.sh"
+sed -i 's/ok - an empty/ok - notes AC-2: an empty/' "$p/tests/notes.test.sh"
 
 echo 1 >"$work/secret-scan.rc"
 (cd "$p" && scripts/check-fast.sh b4se) >"$work/out" 2>&1 && got=0 || got=$?

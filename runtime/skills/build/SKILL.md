@@ -35,8 +35,9 @@ scripts named here; run them, never retype them as shell.
   and paths.
 - Review the tests **and** docs around what you touch: edit those whose behaviour changed, remove
   those for behaviour the spec removed, add what's new. Their end state describes the new behaviour.
-- Each acceptance item ends up named (`AC-<n>`) in the test that proves it, unless the spec marks it
-  "verified by review".
+- Each acceptance item ends up named in the test that proves it, as `<spec> AC-<n>` with the
+  spec's file name (`specs/cart.md`'s AC-2: `cart AC-2`), unless the spec marks it "verified by
+  review".
 - Run the new and affected tests and the fast checks as you go; the full suite runs in CI.
 - A change to what a page renders: once its tests pass and before `devshop:pr`, gstack's
   `/design-review` on a local run (none without `DESIGN.md`), as
