@@ -157,7 +157,10 @@ head=$(git -C "$work/dev" rev-parse origin/main)
 marker="PIN-MARKER-$(rand 'a-z0-9' 12)"
 git clone -q "$src" "$work/side"
 mkdir -p "$work/side/$RUNTIME/hooks"
-printf '#!/usr/bin/env bash\necho %s\n' "$marker" >"$work/side/$RUNTIME/hooks/session-start.sh"
+# It also says which project directory the dispatcher gave it.
+# shellcheck disable=SC2016 # expands in the written script, not here
+printf '#!/usr/bin/env bash\necho %s\necho "%s-dir ${CLAUDE_PROJECT_DIR:-$PWD}"\n' "$marker" "$marker" \
+  >"$work/side/$RUNTIME/hooks/session-start.sh"
 chmod +x "$work/side/$RUNTIME/hooks/session-start.sh"
 git -C "$work/side" add -A && git -C "$work/side" commit -qm "pinned test version"
 git -C "$work/side" push -q origin HEAD:refs/heads/side
@@ -344,6 +347,45 @@ for pin in "$pinned" "$PRE_MOVE"; do
 done
 [ ! -e "/opt/devshop-versions/$pinned/skills/upgrade" ] || fail "the pinned runtime also has an upgrade skill"
 echo "ok - the plugin carries upgrade (/devshop:upgrade) for any pin, an old one included"
+
+# F-NEW-77 (R-14): after a worker restart, the hook starts in the session's base directory (in a
+# cloud session, /home/user, which holds the repo's clone), not in the repo: CLAUDE_PROJECT_DIR is
+# that directory, or unset with the hook's working directory there. The project's pin is still read,
+# from the one git repo directly below; the pinned version's own script gets the repo; and the line
+# says where the session started, so the restart shows.
+setup_env >&2
+base=$(mktemp -d "$work/base.XXXX")
+proj="$base/proj.$(rand 'A-Za-z0-9' 4)"
+git init -q "$proj" && printf '%s\n' "$pinned" >"$proj/.devshop-version"
+mkdir "$base/not-a-repo"
+for how in CLAUDE_PROJECT_DIR cwd; do
+  if [ "$how" = cwd ]; then
+    raw=$(cd "$base" && env -u CLAUDE_PROJECT_DIR CLAUDE_PLUGIN_ROOT="$HOME/plugin" bash -c "$cmd") \
+      || fail "F-NEW-77 ($how): the hook exited non-zero"
+  else
+    raw=$(cd / && CLAUDE_PLUGIN_ROOT="$HOME/plugin" CLAUDE_PROJECT_DIR="$base" bash -c "$cmd") \
+      || fail "F-NEW-77 ($how): the hook exited non-zero"
+  fi
+  out=$(hook_json "$raw")
+  check "F-NEW-77: restarted worker, the base directory as $how" "$out" \
+    "^DEVSHOP: using $pinned \(${pinned:0:12}\) from project \.devshop-version · .*; the session started in $base, not in the repo$" "$pinned"
+  grep -qx "$marker-dir $proj" <<<"$out" \
+    || { echo "$out" >&2; fail "F-NEW-77 ($how): the pinned version's script wasn't given the repo $proj"; }
+done
+# With two repos below, the hook can't tell which is the project: the default is used, and the line
+# says the project's pin was not read, never just "no .devshop-version".
+git init -q "$base/other"
+no_pin() { # no_pin <repos below>: the default's line when the base directory holds that many repos
+  local out
+  out=$(hook_json "$(cd / && CLAUDE_PLUGIN_ROOT="$HOME/plugin" CLAUDE_PROJECT_DIR="$base" bash -c "$cmd")")
+  grep -Eq "^DEVSHOP: using HEAD \(${head:0:12}\) from environment default \(the session's directory $base is not a git repo and holds $1 repos, so no project \.devshop-version was read\) · " <<<"$out" \
+    || { echo "$out" >&2; fail "F-NEW-77: $1 repos below the base directory: the line doesn't say the pin wasn't read"; }
+  [ "$(readlink /opt/devshop-current)" = "/opt/devshop-versions/$head" ] || fail "F-NEW-77: $1 repos: current isn't the default"
+  echo "ok - F-NEW-77: $1 repos below the base directory: the default, and the line says no pin was read"
+}
+no_pin 2
+mv "$base/other" "$proj" "$work/"
+no_pin 0
 
 # AC-8 (spec specs/devshop-releases.md): a project pins a release tag, which CI made on the release
 # commit; the setup script's bare clone carries tags, so the tag resolves in the copy with no network.
