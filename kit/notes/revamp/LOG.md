@@ -3164,3 +3164,18 @@ R-14 (W10.11.12); A-15 and A-24 closed, A-28 to A-30 added; the README's status 
 **Surprises**: the `intent` skill still interviews every change; TARGET now says features only.
 
 **Next**: W10.11.2, the OpenNext experiment in a lalista session.
+
+## #90 — 2026-10-21 · W10.11.2: lalista on Cloudflare, proven locally
+
+**What moved**: in a lalista cloud session on a scratch clone, devshop `3c7867b`, lalista unchanged.
+OpenNext built the app in 39 s with no source change; `wrangler dev` against a local Supabase served
+every page, sign-in and RLS reads. Bundle 2,444 KiB gzip, under Free's 3 MiB. No image or caching
+change needed. A-11 validated there: `supabase start` 2 min 32 s cold, 39 s warm, `db reset` 39 s.
+A-28's build half holds; its deploy waits for W10.11.6. The owner's calls are on W10.11.1.
+
+**Surprises**: Supabase CLI 2.48.3 rejects lalista's `config.toml`; 2.121.0 works. Images came
+from Docker Hub, not ghcr (blob host denied) or ECR (quota refusal), so REVIEW-3's "Docker Hub
+fails too" did not repeat. lalista's CI reads its gitleaks pin from `.devcontainer/compose.yml`.
+Not tested: Sentry on Workers, Realtime, a real deploy.
+
+**Next**: W10.11.1, the owner's sitting.
