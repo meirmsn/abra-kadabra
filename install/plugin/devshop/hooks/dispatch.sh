@@ -21,9 +21,32 @@ if [ -n "$copied" ] && copied_s=$(date -u -d "$copied" +%s 2>/dev/null); then
 else
   copy="devshop copy of unknown date ($VERSIONS/copy-date missing or unreadable)"
 fi
-project_dir=$(git -C "${CLAUDE_PROJECT_DIR:-.}" rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-$PWD}")
+# The project's directory. After a worker restart the hook starts in the session's base directory
+# (in a cloud session, /home/user, which holds the repo's clone), not in the repo (F-NEW-77): there,
+# the one git repo directly below is the project, and the line says where the session started. With
+# none or several below, nothing names the project, and the line says no pin was read.
+start=${CLAUDE_PROJECT_DIR:-$PWD}
+started="" unread=""
+if ! project_dir=$(git -C "$start" rev-parse --show-toplevel 2>/dev/null); then
+  project_dir=$start
+  if [ ! -f "$start/.devshop-version" ]; then
+    repos=()
+    for d in "$start"/*/; do
+      [ ! -e "$d.git" ] || repos+=("${d%/}")
+    done
+    if [ "${#repos[@]}" = 1 ]; then
+      project_dir=${repos[0]}; started="the session started in $start, not in the repo"
+    else
+      unread="the session's directory $start is not a git repo and holds ${#repos[@]} repos, so no project .devshop-version was read"
+    fi
+  fi
+fi
 # say <message> [<tail after the copy's date and the project>]
-say() { echo "DEVSHOP: $1 · $copy · project ${project_dir##*/}${2:+; $2}"; }
+say() {
+  local tail=${2:-}
+  [ -z "$started" ] || tail=${tail:+$tail; }$started
+  echo "DEVSHOP: $1 · $copy · project ${project_dir##*/}${tail:+; $tail}"
+}
 kept() {
   local c
   if c=$(readlink "$CURRENT" 2>/dev/null); then c=${c##*/}; echo "kept version ${c:0:12}"
@@ -35,11 +58,11 @@ is_release() { [[ $1 =~ ^v([2-9]|[1-9][0-9]+)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$
 
 # dispatch: picks and primes the version, runs its session-start script; prints the lines.
 dispatch() {
-  pinfile="${CLAUDE_PROJECT_DIR:-.}/.devshop-version"
+  pinfile="$project_dir/.devshop-version"
   if [ -f "$pinfile" ]; then
     pin=$(tr -d '[:space:]' <"$pinfile"); from="project .devshop-version"
   else
-    pin=$(cat "$VERSIONS/default-ref" 2>/dev/null); from="environment default (no .devshop-version)"
+    pin=$(cat "$VERSIONS/default-ref" 2>/dev/null); from="environment default (${unread:-no .devshop-version})"
   fi
   # A pin is a release tag (vX.Y.Z, made by CI: specs/devshop-releases.md) or a commit SHA (to try a
   # branch); refuse anything that could be read as an option or a revision expression.
@@ -76,7 +99,7 @@ dispatch() {
   fi
   say "using $pin (${sha:0:12}) from $from" "$newer"
   if [ -z "${DEVSHOP_PRIME_ONLY:-}" ] && [ -x "$CURRENT/hooks/session-start.sh" ]; then
-    "$CURRENT/hooks/session-start.sh" || say "version ${sha:0:12}'s session-start script failed (exit $?)"
+    CLAUDE_PROJECT_DIR=$project_dir "$CURRENT/hooks/session-start.sh" || say "version ${sha:0:12}'s session-start script failed (exit $?)"
   fi
 }
 
