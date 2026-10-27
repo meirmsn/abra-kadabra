@@ -10,7 +10,7 @@ the product you want; agents plan, spec, build and review; your input steers and
 the changes. Made for one person running their own products.
 
 Used to build [lalista](https://lalista.store) ([repo](https://github.com/meirmsn/lalista)),
-[home-os](https://github.com/meirmsn/home-os) (repo; the site is down) and
+[home-os](https://github.com/meirmsn/home-os) and
 [meirmsn.dev](https://meirmsn.dev). Suggestions welcome; see Feedback below.
 
 **One change, from the request to production:**
@@ -83,19 +83,13 @@ environments). Human in the loop: [@meirmsn](https://github.com/meirmsn); robot 
 
 ## What it does
 
-- You describe a change in chat, from a one-line fix to a whole app; it comes back as a
-  one-screen spec in your own words (intent, decisions, acceptance items, out of scope) that you
-  say "go" to.
-- A second agent that never saw the builder's chat reviews the change against that spec before
-  you see the PR; its verdict sits on the PR, tied to the commit it reviewed.
 - Each PR is written to be judged on a phone: a one-line summary, a release note in your users'
   words, what you should know, a preview to try, screenshots in light and dark, the engineering
   details.
-- Your approval ships: the merge deploys from `main`; the deploy and the canary after it report
-  on the PR, with the previous version and the way to undo it; a last comment sums up the time,
-  your input, the cost and the rounds.
 - A new project starts green in its first session: files placed, CI in two tiers, and a checklist
   of the steps only you can do.
+- After the merge, the deploy and the canary report on the PR, with the previous version and the
+  way to undo it, and a last comment sums up the time, your input, the cost and the rounds.
 - What the agent noticed but didn't fix is logged with a severity and its sightings; you hear of
   it when it is medium or higher, or has come back three times.
 
@@ -269,14 +263,12 @@ owner's button; a breaking change is a major version and means "this upgrade nee
 - Runs only as a Claude Code cloud session on a GitHub repository; there is no local or Mac path
   yet, so no native builds.
 - One stack is real in v2 (Cloudflare Workers); Next.js with Supabase, which v1 ran lalista and
-  home-os on, is a placeholder in v2 until lalista moves, and iOS has not started.
-- Needs you at the keyboard for the "go" and the approval; nothing merges otherwise, and the first
-  set-up has steps only an owner can do.
+  home-os on, is a placeholder in v2, and iOS has not started.
 - The review is feedback, not a wall, and a PR can weaken a check in a copy it carries and go
   green on it; the owner's reading of the diff is the catch.
-- Each change costs money: a few dollars for a small website change, tens for a large devshop
-  change.
+- Each change costs money: a few dollars for a small website change.
 - Written for one person's projects and changing often; no support and no compatibility promise.
+  If any of this is your problem too, the Feedback section below is where to say so.
 
 ## Run it
 
