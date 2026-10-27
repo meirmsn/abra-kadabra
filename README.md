@@ -132,8 +132,8 @@ judging each touched page against that `DESIGN.md`.
 - gstack (Garry Tan's skills for Claude Code) is the pinned upstream toolbox for the thinking and
   design steps (`/office-hours`, `/spec`, `/design-review`): one commit, never edited.
 - Tried and dropped: v1 ran every change through 19 gates and carried about 225k words of docs and
-  90k words of skills that drifted apart; v2 has six skills meant to fit a page each and a 200-word
-  budget for what is always loaded. A spec interview on every change cost 9 to 22 owner answers
+  90k words of skills that drifted apart; v2 has six skills, each meant to fit a page (five in `runtime/`, the
+  upgrade with the install), and a 200-word budget for what is always loaded. A spec interview on every change cost 9 to 22 owner answers
   per website change and was skipped in practice, so it is now for features only. Design questions
   first in the spec review missed the case they were for and were dropped.
 
