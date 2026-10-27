@@ -49,12 +49,12 @@ a change means reading its PR, not auditing the agent.
 
 Built by hand with the process it automates, codifying only the steps that proved their worth. v1
 (April to June 2026) grew out of lalista's own tooling into a devcontainer with a firewall and a
-19-gate pipeline that lalista and home-os were built with. v2 (October 2026) is a rewrite in this repo from
-a harvest of v1's lessons: one target picture agreed top-down, then small PRs under the rule that
-the check comes before the change. The agent wrote v2's specs, code, tests, docs and notes (all but
-two of its PRs) and, once the reviewer existed, ran it on each; I made the decisions, gave each "go" and each
-approval, and did the steps only an owner can (accounts, branch rules, cloud environments).
-Human in the loop: [@meirmsn](https://github.com/meirmsn); robot hands:
+19-gate pipeline that lalista and home-os were built with. v2 (October 2026) is a rewrite in this
+repo from a harvest of v1's lessons: one target picture agreed top-down, then small PRs under the
+rule that the check comes before the change. The agent wrote v2's specs, code, tests, docs and notes
+(all but two of its PRs) and, once the reviewer existed, ran it on each; I made the decisions, gave
+each "go" and each approval, and did the steps only an owner can (accounts, branch rules, cloud
+environments). Human in the loop: [@meirmsn](https://github.com/meirmsn); robot hands:
 [@meirmsn-agent](https://github.com/meirmsn-agent).
 
 ### Learnings so far
