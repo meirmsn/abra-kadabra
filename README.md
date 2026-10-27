@@ -1,12 +1,11 @@
 # Abra-Kadabra
 
-> **Status: Work in progress** · last touched 2026-10. What is this? A running prototype of how an
-> AI dev shop could run, not a supported product. Used to build lalista, home-os and meirmsn.dev.
-> Suggestions welcome; see Feedback below.
+> **Status: Work in progress** · last touched 2026-10
 
-A dev shop run by Claude Code agents: you bring the strategy and the product you want; agents
-plan, spec, build and review; your input steers and your approval ships the changes. Made for one
-person running their own products.
+A running prototype of how an AI dev shop could run, with Claude Code agents: you bring the
+strategy and the product you want; agents plan, spec, build and review; your input steers and your
+approval ships the changes. Used to build lalista, home-os and meirmsn.dev, by one person running
+their own products. Not a supported product; suggestions welcome (see Feedback below).
 
 **One change, from the request to production:**
 
