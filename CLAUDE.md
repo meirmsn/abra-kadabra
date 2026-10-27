@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 This repo is the devshop, being rewritten as v2 (the 2026-Q4 revamp). Work only from what is on
-`main`. Layout, status and history: [README.md](README.md). Docs map:
+`main`. Status and history: [README.md](README.md). Layout and the docs map:
 [docs/README.md](docs/README.md).
 
 ## First reply
