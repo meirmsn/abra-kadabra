@@ -4,8 +4,9 @@
 
 A running prototype of a dev shop run by Claude Code agents: you bring the strategy and the
 product you want; agents plan, spec, build and review; your input steers and your approval ships
-the changes. Made for one person running their own products. Used to build lalista, home-os and
-meirmsn.dev. Suggestions welcome; see Feedback below.
+the changes. Made for one person running their own products.
+
+Used to build lalista, home-os and meirmsn.dev. Suggestions welcome; see Feedback below.
 
 **One change, from the request to production:**
 
