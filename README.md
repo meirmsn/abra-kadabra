@@ -41,14 +41,19 @@ walls the agent can't move: main takes only PRs you approved · required CI · n
 Every request, from a whole app to a one-line fix, starts as a conversation in which Claude helps
 you sharpen what you want into a one-screen spec you say "go" to. One agent builds the change with
 its tests and docs; a second agent with none of the builder's context reviews it against the spec,
-and only a pass opens the PR. The PR reads top-down: one line, a release note in your users'
-words, what you should know, a preview you can try yourself, evidence (screenshots when the UI
-changed, the reviewer's verdict, CI), and the engineering details. Your approval merges it; the
-deploy and a canary of the live site report back on the PR, and lastly a summary is posted to it
-with how long the change took and what it cost. What the agent noticed and didn't fix is logged,
-and comes back to you only when it recurs. The other half of the devshop is the walls: what the
-agent can never do (push to `main`, merge without you, hold a production secret), so that trusting
-a change means reading its PR, not auditing the agent.
+and only a pass opens the PR.
+
+The PR reads top-down: one line, a release note in your users' words, what you should know, a
+preview you can try yourself, evidence (screenshots when the UI changed, the reviewer's verdict,
+CI), and the engineering details.
+
+Your approval merges it; the deploy and a canary of the live site report back on the PR, and
+lastly a summary is posted to it with how long the change took and what it cost. What the agent
+noticed and didn't fix is logged, and comes back to you only when it recurs.
+
+The other half of the devshop is the walls: what the agent can never do (push to `main`, merge
+without you, hold a production secret), so that trusting a change means reading its PR, not
+auditing the agent.
 
 ## Approach
 
