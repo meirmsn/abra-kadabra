@@ -2,7 +2,8 @@
 
 > **Status: Work in progress** · last touched 2026-10
 
-**Describe the app you want. Get one that is slick, reliable and secure.**
+**Describe the app you want. Get one that is slick, reliable and secure, and ships only when you
+say so.**
 
 This is a running prototype of a dev shop run by Claude Code agents: you bring the strategy and
 the product you want; agents plan, spec, build and review; your input steers and your approval ships
