@@ -8,11 +8,11 @@
 you ──▶ "I want …"           a whole app, a feature, or a bug fix
          │
          ▼
-       intent   Claude sharpens it with you into a spec
+       intent   Claude sharpens it with you into a spec (split into smaller changes if too large)
          │
          ▼  you approve the spec and say "go"
-       build    one agent writes code, tests and docs together, loads the skills and guidelines
-         │      the change needs, and keeps to the spec and the project's design file
+       build    one agent loads the skills and guidelines the change needs, then writes code,
+         │      tests and docs together, keeping to the spec and the project's design file
          ▼
        review   a second agent, with none of the builder's context, checks the diff against the
          │      spec, and the tests and docs with it; fail → back to build, until it passes
