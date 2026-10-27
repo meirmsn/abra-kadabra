@@ -5,24 +5,27 @@
 > Suggestions welcome; see Feedback below.
 
 ```text
-you ──▶ "I want …"            a whole app, or a one-line fix
-         │
+you ──▶ "I want …"           a whole app, a feature, or a bug fix
+         │                   (a question or an analysis is answered right away, no spec)
          ▼
-       intent   Claude sharpens it with you into a spec: your words, decisions, acceptance items
-         │      (a read-only helper attacks the spec before you see it)
-         ▼  "go"
-       build    one agent writes code, tests and docs together
-         │
+       intent   Claude sharpens it with you into a spec; a second agent then reads the spec
+         │      against what you said and flags the gaps, before you see it
+         ▼  you approve the spec and say "go"
+       build    one agent writes code, tests and docs together, loads the skills and guidelines
+         │      the change needs, and keeps to the spec and the project's design file
          ▼
-       ship     a second agent, with none of the builder's context, reviews the diff against the spec
-         │        fail → back to build            pass → the PR opens, with the verdict on it
+       review   a second agent, with none of the builder's context, checks the diff against the
+         │      spec, and the tests and docs with it; fail → back to build, until it passes
+         ▼
+       ship     the PR opens, with the verdict on it
+         │
          ▼
 you ──▶ read the PR (summary, release note, preview, evidence), comment to steer, or approve
          │
          ▼  approve
        merge → deploy from main → canary → a summary on the PR: how long it took, what it cost
 
-walls the agent can't move: main takes PRs only · required CI · your approval · no production secrets
+walls the agent can't move: main takes only PRs you approved · required CI · no production secrets
 ```
 
 A dev shop run by Claude Code agents: you bring the strategy and the product you want; agents
