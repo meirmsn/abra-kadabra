@@ -4,6 +4,10 @@
 > AI dev shop could run, not a supported product. Used to build lalista, home-os and meirmsn.dev.
 > Suggestions welcome; see Feedback below.
 
+A dev shop run by Claude Code agents: you bring the strategy and the product you want; agents
+plan, spec, build and review; your input steers and your approval ships the changes. Made for one
+person running their own products.
+
 **One change, from the request to production:**
 
 ```text
@@ -30,10 +34,6 @@ you ──▶ read the PR (summary, release note, preview, evidence), comment to
 walls the agent can't move: main takes only PRs you approved · required CI · no production secrets
 ```
 
-A dev shop run by Claude Code agents: you bring the strategy and the product you want; agents
-plan, spec, build and review; your input steers and your approval ships the changes. Made for one
-person running their own products.
-
 Every request, from a whole app to a one-line fix, starts as a conversation in which Claude helps
 you sharpen what you want into a one-screen spec you say "go" to. One agent builds the change with
 its tests and docs; a second agent with none of the builder's context reviews it against the spec,
@@ -58,12 +58,15 @@ approval, and did the steps only an owner can (accounts, branch rules, cloud env
 Human in the loop: [@meirmsn](https://github.com/meirmsn); robot hands:
 [@meirmsn-agent](https://github.com/meirmsn-agent).
 
-What the process taught: a check that was never shown to fail does not exist; and nothing inside
-the agent's session is a boundary. What shapes the agent's next session (the devshop version a
-project pins, the reviewer's prompt and tools, the checks a project carries) changes only through
-a PR you approve, and a session that bends its own settings bends them for itself alone. The
-walls are GitHub's rules on `main`, plain CI and your approval; the mechanical checks inside them
-are the guards, and everything else is feedback.
+### Learnings so far
+
+- A check that was never shown to fail does not exist.
+- Nothing inside the agent's session is a boundary. What shapes the agent's next session (the
+  devshop version a project pins, the reviewer's prompt and tools, the checks a project carries)
+  changes only through a PR you approve; a session that bends its own settings bends them for
+  itself alone.
+- The walls are GitHub's rules on `main`, plain CI and your approval; the mechanical checks inside
+  them are the guards, and everything else is feedback.
 
 ## What it does
 
