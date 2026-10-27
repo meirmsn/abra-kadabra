@@ -6,10 +6,10 @@
 
 ```text
 you ──▶ "I want …"           a whole app, a feature, or a bug fix
-         │                   (a question or an analysis is answered right away, no spec)
+         │
          ▼
-       intent   Claude sharpens it with you into a spec; a second agent then reads the spec
-         │      against what you said and flags the gaps, before you see it
+       intent   Claude sharpens it with you into a spec
+         │
          ▼  you approve the spec and say "go"
        build    one agent writes code, tests and docs together, loads the skills and guidelines
          │      the change needs, and keeps to the spec and the project's design file
@@ -17,7 +17,7 @@ you ──▶ "I want …"           a whole app, a feature, or a bug fix
        review   a second agent, with none of the builder's context, checks the diff against the
          │      spec, and the tests and docs with it; fail → back to build, until it passes
          ▼
-       ship     the PR opens, with the verdict on it
+       ship     the PR opens only on a pass, with the verdict on it
          │
          ▼
 you ──▶ read the PR (summary, release note, preview, evidence), comment to steer, or approve
