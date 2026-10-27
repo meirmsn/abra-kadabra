@@ -4,6 +4,8 @@
 > AI dev shop could run, not a supported product. Used to build lalista, home-os and meirmsn.dev.
 > Suggestions welcome; see Feedback below.
 
+**One change, from the request to production:**
+
 ```text
 you ──▶ "I want …"           a whole app, a feature, or a bug fix
          │
@@ -48,18 +50,20 @@ a change means reading its PR, not auditing the agent.
 
 Built by hand with the process it automates, codifying only the steps that proved their worth. v1
 (April to June 2026) grew out of lalista's own tooling into a devcontainer with a firewall and a
-19-gate pipeline, and built lalista and home-os. v2 (October 2026) is a rewrite in this repo from
+19-gate pipeline that lalista and home-os were built with. v2 (October 2026) is a rewrite in this repo from
 a harvest of v1's lessons: one target picture agreed top-down, then small PRs under the rule that
 the check comes before the change. The agent wrote v2's specs, code, tests, docs and notes (all but
-two of its PRs) and ran its own reviewer on each; I made the decisions, gave each "go" and each
+two of its PRs) and, once the reviewer existed, ran it on each; I made the decisions, gave each "go" and each
 approval, and did the steps only an owner can (accounts, branch rules, cloud environments).
 Human in the loop: [@meirmsn](https://github.com/meirmsn); robot hands:
 [@meirmsn-agent](https://github.com/meirmsn-agent).
 
-What the process taught: a check that was never shown to fail does not exist (v1's secret scan
-had no rules loaded and passed everything, unnoticed until the revamp's analysis); and
-nothing inside the agent's session is a boundary. The only walls are GitHub's rules on `main`,
-plain CI and the owner's approval; everything else is feedback.
+What the process taught: a check that was never shown to fail does not exist; and nothing inside
+the agent's session is a boundary. What shapes the agent's next session (the devshop version a
+project pins, the reviewer's prompt and tools, the checks a project carries) changes only through
+a PR you approve, and a session that bends its own settings bends them for itself alone. The
+walls are GitHub's rules on `main`, plain CI and your approval; the mechanical checks inside them
+are the guards, and everything else is feedback.
 
 ## What it does
 
@@ -93,7 +97,7 @@ acceptance item for evidence, then applies the lenses that fit (code, security, 
 tests, docs). Only a pass pushes the branch and opens or updates the PR with exactly the words
 that were reviewed, then posts the verdict as a comment tied to that commit. A hook refuses the
 other roads (`gh pr create`, a push on a branch with an open PR). The same shape runs before the
-"go": a read-only helper attacks the spec against the owner's intent before the owner sees it.
+"go": a read-only helper checks the spec against the owner's own words before the owner sees it.
 
 - Three outcomes: pass, fail, could-not-run; the last never passes. The verdict is JSON against a
   schema, and anything the reviewer can't parse or trust fails closed.
