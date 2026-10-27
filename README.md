@@ -40,7 +40,7 @@ words, what you should know, a preview you can try yourself, evidence (screensho
 changed, the reviewer's verdict, CI), and the engineering details. Your approval merges it; the
 deploy and a canary of the live site report back on the PR, and lastly a summary is posted to it
 with how long the change took and what it cost. What the agent noticed and didn't fix is logged,
-and comes back to you only when it recurs. The other half of the experiment is the walls: what the
+and comes back to you only when it recurs. The other half of the devshop is the walls: what the
 agent can never do (push to `main`, merge without you, hold a production secret), so that trusting
 a change means reading its PR, not auditing the agent.
 
