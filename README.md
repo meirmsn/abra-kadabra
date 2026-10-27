@@ -2,8 +2,11 @@
 
 > **Status: Work in progress** · last touched 2026-10
 
-A running prototype of a dev shop run by Claude Code agents: you bring the strategy and the
-product you want; agents plan, spec, build and review; your input steers and your approval ships
+**Describe the app in your head. Get one you'd put your name on, from agents that can't ship a
+thing without you.**
+
+This is a running prototype of a dev shop run by Claude Code agents: you bring the strategy and
+the product you want; agents plan, spec, build and review; your input steers and your approval ships
 the changes. Made for one person running their own products.
 
 Used to build [lalista](https://lalista.store) ([repo](https://github.com/meirmsn/lalista)),
