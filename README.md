@@ -60,13 +60,14 @@ environments). Human in the loop: [@meirmsn](https://github.com/meirmsn); robot 
 
 ### Learnings so far
 
+- Nothing inside the agent's session is a real boundary: given a reason, an agent finds a way
+  around a hook or a check it can reach.
+- So the constraints that matter sit out of the agent's reach, and they change only through a PR
+  you approve: the devshop version a project pins, the reviewer's prompt and tools, the checks a
+  project carries. The agent never grants itself more than you have already approved.
+- Here those walls are GitHub's rules on `main`, plain CI and your approval; the mechanical checks
+  they run are the guards, and everything else is feedback.
 - A check that was never shown to fail does not exist.
-- Nothing inside the agent's session is a boundary. What shapes the agent's next session (the
-  devshop version a project pins, the reviewer's prompt and tools, the checks a project carries)
-  changes only through a PR you approve; a session that bends its own settings bends them for
-  itself alone.
-- The walls are GitHub's rules on `main`, plain CI and your approval; the mechanical checks inside
-  them are the guards, and everything else is feedback.
 
 ## What it does
 
