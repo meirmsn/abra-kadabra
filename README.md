@@ -2,8 +2,7 @@
 
 > **Status: Work in progress** · last touched 2026-10
 
-**Describe the app in your head. Get one you'd put your name on, from agents that can't ship a
-thing without you.**
+**Describe the app you want. Get one that is slick, reliable and secure.**
 
 This is a running prototype of a dev shop run by Claude Code agents: you bring the strategy and
 the product you want; agents plan, spec, build and review; your input steers and your approval ships
