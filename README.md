@@ -241,8 +241,8 @@ owner's button; a breaking change is a major version and means "this upgrade nee
 - 2026-10-19 · A new project set up end to end on a throwaway repo; v2.1.0.
 - 2026-10-20 · M2 met: the owner's website runs a plain change through v2 (Lighthouse
   99/100/100/100); one project contract; lalista's move to Cloudflare decided.
-- 2026-10-21 · lalista builds and runs locally on Workers; last commit. Paused before lalista's
-  move, as above.
+- 2026-10-21 · lalista builds and runs locally on Workers; the last commit before this README.
+  Paused before lalista's move, as above.
 
 ## Known limitations
 
