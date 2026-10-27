@@ -65,14 +65,21 @@ environments). Human in the loop: [@meirmsn](https://github.com/meirmsn); robot 
 
 ### Learnings so far
 
-- Nothing inside the agent's session is a real boundary: given a reason, an agent finds a way
-  around a hook or a check it can reach.
-- So the constraints that matter sit out of the agent's reach, and they change only through a PR
-  you approve: the devshop version a project pins, the reviewer's prompt and tools, the checks a
-  project carries. The agent never grants itself more than you have already approved.
-- Here those walls are GitHub's rules on `main`, plain CI and your approval; the mechanical checks
-  they run are the guards, and everything else is feedback.
-- A check that was never shown to fail does not exist.
+- Nothing inside the agent's session is a real boundary: a determined agent finds a way around a
+  hook or a check it can reach.
+- For constraints to work they must sit out of the agent's reach, and change only through a PR
+  that only a human can approve. That way the agent can never grant itself more than you have
+  already granted it.
+- On this devshop the walls are GitHub's rules on `main`, plain CI and human approval of every PR
+  (the agent works under its own GitHub identity); the mechanical checks they run are the guards,
+  and everything else is feedback.
+- Agents always find something to improve, and will happily chase long tails. Nothing is fixed on
+  reflex: each suggestion is logged with its sightings, and it is built once it has come back
+  enough times.
+- Adversarial review is a must, but it only checks what you taught it to check, so it grows like a
+  mentee, from your corrections. You are the last reviewer: when the agent didn't do as you wanted,
+  because the guidance was thin or the model wasn't up to it, your correction goes back into the
+  guidance. Don't expect it to work your way until the cases you keep hitting are covered.
 
 ## What it does
 
