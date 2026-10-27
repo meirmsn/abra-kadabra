@@ -6,7 +6,9 @@ A running prototype of a dev shop run by Claude Code agents: you bring the strat
 product you want; agents plan, spec, build and review; your input steers and your approval ships
 the changes. Made for one person running their own products.
 
-Used to build lalista, home-os and meirmsn.dev. Suggestions welcome; see Feedback below.
+Used to build [lalista](https://lalista.store) ([repo](https://github.com/meirmsn/lalista)),
+[home-os](https://github.com/meirmsn/home-os) (repo; the site is down) and
+[meirmsn.dev](https://meirmsn.dev). Suggestions welcome; see Feedback below.
 
 **One change, from the request to production:**
 
