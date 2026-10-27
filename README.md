@@ -248,8 +248,8 @@ owner's button; a breaking change is a major version and means "this upgrade nee
 
 - Runs only as a Claude Code cloud session on a GitHub repository; there is no local or Mac path
   yet, so no native builds.
-- One stack is real (Cloudflare Workers); Next.js with Supabase is a placeholder, and iOS has not
-  started.
+- One stack is real in v2 (Cloudflare Workers); Next.js with Supabase, which v1 ran lalista and
+  home-os on, is a placeholder in v2 until lalista moves, and iOS has not started.
 - Needs you at the keyboard for the "go" and the approval; nothing merges otherwise, and the first
   set-up has steps only an owner can do.
 - The review is feedback, not a wall, and a PR can weaken a check in a copy it carries and go
