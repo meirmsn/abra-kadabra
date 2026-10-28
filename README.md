@@ -106,14 +106,14 @@ or updates the PR with exactly the words that were reviewed, then posts the verd
 tied to that commit. A hook refuses the other roads (`gh pr create`, a push on a branch with an open
 PR).
 
-#### What it checks
+#### What it does
 
-- **Three outcomes:** pass, fail, could-not-run; the last never passes. The verdict is JSON against
+- **Produces three outcomes:** pass, fail, could-not-run; the last never passes. The verdict is JSON against
   a schema, and anything the reviewer can't parse or trust fails closed.
-- **Tests and docs at the same depth as code:** would this test fail if the code were wrong; is a
+- **Checks tests and docs at the same depth as code:** would this test fail if the code were wrong; is a
   deleted or loosened test justified by the spec; would a future agent reading only the docs do
   the right thing.
-- **Findings:** medium or above is fixed or goes to the owner; low is logged, not fixed on reflex.
+- **Raises findings:** medium or above is fixed or goes to the owner; low is logged, not fixed on reflex.
   After three rounds on the same thing, the agent asks.
 
 #### How it is kept honest
