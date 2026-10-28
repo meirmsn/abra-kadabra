@@ -182,10 +182,13 @@ doc is a bug and an unproven check is no check.**
 
 #### The repo carries everything
 
-A session resumes from the PR, the spec and the branch, never from a chat transcript. The docs form
-one hierarchy under a **docs map**, and CI fails when a doc is unreachable from it or a link is
-broken. Tests are named after what they test and **name the acceptance item** they prove, and a
-project's CI fails an item no test names (this repo does not yet run that check on itself).
+A new session starts from the project's `CLAUDE.md`, which points at the docs map and the tests, and
+reads from there only what its change touches: the lay of the land first, the details on demand. A
+session that resumes work does it from the PR, the spec and the branch, never from a chat
+transcript. The docs form one hierarchy under a **docs map**, and CI fails when a doc is unreachable
+from it or a link is broken. Tests are named after what they test and **name the acceptance item**
+they prove, and a project's CI fails an item no test names (this repo does not yet run that check on
+itself).
 
 #### Every check is proven to fail
 
