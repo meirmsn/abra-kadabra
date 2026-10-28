@@ -212,7 +212,7 @@ retype.
 - **No unverified claims:** PR bodies claim only what was just read from the real signal (CI, the
   preview), and the reviewer checks the words against the commit.
 - **Lessons carry only what bit:** the lessons harvested from v1 and the two apps carry only what
-  caught a real problem or kept recurring; the rest is listed as considered and not carried.
+  caught a real problem or kept recurring.
 
 ### 🚀 Operations: roadmap, bugs, triage, deployment
 
