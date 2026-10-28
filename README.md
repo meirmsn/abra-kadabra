@@ -91,7 +91,7 @@ auditing the agent**.
 
 ## How it works
 
-### Adversarial review
+### 🔍 Adversarial review
 
 **The builder never grades its own work: a second agent with none of its context reviews the
 change against the spec, and the PR cannot open until it passes.**
@@ -120,12 +120,12 @@ PR).
 
 - **The reviewer has its own eval:** a set of changes with planted spec violations. It runs before
   any change to the reviewer itself, and its result goes in that PR.
+- **Intent-spec review:** a read-only helper checks the spec against the owner's own words
+  before the owner sees it.
 - **Review only what changed:** a new title or body on a commit that already passed gets a
   words-only review, which still checks the words against that code; a commit that only adds rows
   to the findings log or the roadmap gets the same. Any other commit, docs included, gets a full
   review.
-- **Before the "go" too:** a read-only helper checks the spec against the owner's own words
-  before the owner sees it.
 
 #### What it is not
 
@@ -133,7 +133,7 @@ PR).
   rules on `main`, plain CI and the owner's approval; a push with no verdict after it is the
   tripwire. An air-gapped reviewer as a required check is on the roadmap.
 
-### Product, design and engineering, separated
+### 🧭 Product, design and engineering, separated
 
 **Product, design and engineering each hand the next step a written artefact (the spec, the
 design file and its review, the tests and docs), and the chat is never the record.**
@@ -172,7 +172,7 @@ with the install), and a 200-word budget for what is always loaded. A spec inter
 cost 9 to 22 owner answers per website change and was skipped in practice, so it is now for features
 only. Design questions first in the spec review missed the case they were for and were dropped.
 
-### Tests and docs written for the next agent
+### 📚 Tests and docs written for the next agent
 
 **Every test and doc is written for an agent session that has no memory of this one, so a wrong
 doc is a bug and an unproven check is no check.**
@@ -206,7 +206,7 @@ for the model to retype.
 - **Lessons carry only what bit:** the lessons harvested from v1 and the two apps carry only what
   caught a real problem or kept recurring; the rest is listed as considered and not carried.
 
-### Operations: roadmap, bugs, triage, deployment
+### 🚀 Operations: roadmap, bugs, triage, deployment
 
 **The owner decides and the agent records: a roadmap of what was decided, a findings log of what
 was noticed, and a deploy that reports back on the PR.**
@@ -245,7 +245,7 @@ is a breaking change) and creates the tag.
 - **Approval ships:** on the owner's approval with green checks, the agent squash-merges without
   asking for a merge message; a push after approval needs a new approval.
 
-### Versioning and migration: where it is paused
+### 📌 Versioning and migration: where it is paused
 
 **Each project pins a devshop version and carries copies of the few files its CI runs; keeping
 those copies honest across versions is where the work stopped.**
