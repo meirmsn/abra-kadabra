@@ -27,17 +27,19 @@ that showed, and build the piece after. It covers the steps I kept doing by hand
 - **Walls:** all of it set up so the agents cannot sidestep it: what I have approved so far does
   not change without me noticing.
 
-**v1** came out of lalista and was used as is to build home-os, with the development environment
-on my own machine. **v2** is a rewrite so that everything runs in cloud sessions, which were easy
-to interact with from my phone as well; my personal website was built with it. Human in the loop:
-[@meirmsn](https://github.com/meirmsn); robot hands:
+**v1** came out of lalista and was used as is to build home-os, with the development environment on
+my own machine. **v2** is a rewrite so that everything runs in cloud sessions, which were easy to
+interact with from my phone, which was very convenient; my personal website was built with it. Human
+in the loop: [@meirmsn](https://github.com/meirmsn); robot hands:
 [@meirmsn-agent](https://github.com/meirmsn-agent).
 
 **The recursion.** The manual work of setting up a system that builds apps is the same work the
 system is meant to do: I open PRs by hand in the shape I want the machine to use, I keep a roadmap
 by hand and pick the next task from it, as I want its projects to. The recursion ends in me: I am
-the base case, the manual start the automated version is refined from, the way a rough tool is
-used to make a finer one.
+the base case, the manual start the automated version is bootstrapped from. From there, each
+refinement of the devshop comes out of running it: the automated loop builds, I steer where it falls
+short, and the correction goes into the next version, the way a rough tool is used to make a finer
+one.
 
 ## What it does
 
