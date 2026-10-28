@@ -294,9 +294,9 @@ migration".
   the agent didn't do as you wanted, because the guidance was thin or the model wasn't up to it,
   your correction goes back into the guidance. Don't expect it to work your way until the cases
   you keep hitting are covered.
-- **Bootstrapped by hand.** A system that builds apps is bootstrapped by hand with the very work
-  it will automate. The recursion ends in you, and each manual round makes the next automated one
-  finer.
+- **A flywheel, not a switch.** A system that builds apps is bootstrapped with the very work it
+  will automate. No turn is all manual or all automatic: each one automates a little of what the
+  last did by hand, and runs a little faster. The recursion ends in you.
 
 ## Build log
 
