@@ -238,8 +238,8 @@ one with the time and cost the change took.
   a destructive step goes in its own later change, with a tested reverse migration or a restore
   point.
 - **Production health** is a required check before the merge and a canary after the deploy.
-- **Measured:** the website's last change took about 79 minutes and $8 from request to live, and
-  asked three things of me: two decisions, the go and the approval.
+- **An example change:** the website's last one took about 79 minutes and $8 from request to live,
+  and asked three things of me: two decisions, the go and the approval.
 - **One cloud environment per project** holds only that project's tokens and network allowlist.
 
 ### 📌 Versioning and migration: where it is paused
