@@ -256,14 +256,20 @@ of the devshop.
 #### What a project keeps
 
 A project's CI must pass with no devshop present, so the project holds a few devshop files of its
-own: `.devshop-version`, the pinned version; identical copies of the devshop checks its CI runs (the
-secret scan, the spec-to-test check, the PR title check, the contract check), never edited in the
-project; and the CI files it started from the devshop's templates and now owns. At session start, a
-copy that no longer matches the pinned version is reported, whether it was edited in the project (a
-formatter, usually) or left behind by a half-done upgrade; the `upgrade` skill moves the pin and
-refreshes the copies together, in one PR. A new devshop version is released from a button only I
-press; CI names it from the merged PR titles and tags it. Versions are SemVer; a breaking change is
-a major version, whose upgrade PR is meant to carry the migration, done by the agent.
+own:
+
+- **The pinned version**, in `.devshop-version`.
+- **Identical copies of the devshop checks its CI runs** (the secret scan, the spec-to-test check,
+  the PR title check, the contract check), never edited in the project.
+- **The CI files it started from the devshop's templates** and now owns.
+
+At session start, a copy that no longer matches the pinned version is reported, whether it was
+edited in the project (a formatter, usually) or left behind by a half-done upgrade; the `upgrade`
+skill moves the pin and refreshes the copies together, in one PR.
+
+A new devshop version is released from a button only I press; CI names it from the merged PR titles
+and tags it. Versions are SemVer; a breaking change is a major version, whose upgrade PR is meant to
+carry the migration, done by the agent.
 
 #### The problem, and where it stopped
 
