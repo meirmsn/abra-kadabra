@@ -242,7 +242,7 @@ one with the time and cost the change took.
   waiting on me, and cost about $8.
 - **One cloud environment per project** holds only that project's tokens and network allowlist.
 
-### 📌 Versioning and migration: where it is paused
+### 📌 Versioning and migration
 
 **Each project pins a devshop version and carries copies of the few files its CI runs; keeping
 those copies honest across versions is where the work stopped.**
@@ -250,17 +250,18 @@ those copies honest across versions is where the work stopped.**
 #### How a project gets the devshop
 
 Its cloud environment clones the devshop read-only with a two-line setup script. At session start a
-hook extracts the **pinned version** and switches to it, so several versions run side by side and
-the project's tree stays clean of the devshop.
+hook extracts the **pinned version** and switches to it, so the project's tree stays clean of the devshop.
 
 #### What a project keeps
 
-A pinned version number, identical copies of the four checks its CI runs (the secret scan, the spec
-check, the title check, the contract check), the CI files it adapted from the devshop's templates,
-and its own files. At session start a copy that differs from the pin is reported, and the `upgrade`
-skill moves the pin and re-copies in one PR. A new devshop version is released from a button only I
-press; CI names it from the merged PR titles and tags it. Versions are SemVer, and a breaking change
-is a major version: "this upgrade needs a migration".
+A project's CI must pass with no devshop present, so the project holds a few devshop files of its
+own: `.devshop-version`, the pinned version; identical copies of the devshop checks its CI runs (the
+secret scan, the spec-to-test check, the PR title check, the contract check), never edited in the
+project; and the CI files it started from the devshop's templates and now owns. At session start, a
+copy that no longer matches the pinned version is reported, and the `upgrade` skill moves the pin
+and refreshes the copies in one PR. A new devshop version is released from a button only I press;
+CI names it from the merged PR titles and tags it. Versions are SemVer; a breaking change is a major
+version, whose upgrade PR is meant to carry the migration, done by the agent.
 
 #### The problem, and where it stopped
 
