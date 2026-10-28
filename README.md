@@ -270,17 +270,6 @@ A new devshop version is released from a button only I press; CI names it from t
 and tags it. Versions are SemVer; a breaking change is a major version, whose upgrade PR is meant to
 carry the migration, done by the agent.
 
-#### Where it stopped
-
-- **The open problem:** every devshop change reaches a project only through an upgrade PR that
-  project has to take. And between upgrades nothing holds a copy to the pinned version: a PR can
-  weaken a copied check, and CI runs the PR's own copy, so it goes green; only reading the diff
-  catches it. A job running from `main`, out of the PR's reach, that flags such edits is the planned
-  fix.
-- **The last step done:** 2026-10-21, lalista shown to build and run locally on Cloudflare Workers.
-  Next is its move from v1 to v2, the first real migration, after some account and branch-rule
-  steps only I can do.
-
 ## Learnings so far
 
 - **No boundary inside the session.** Nothing inside the agent's session is a real boundary: a
