@@ -250,8 +250,8 @@ those copies honest across versions is where the work stopped.**
 #### How a project gets the devshop
 
 Its cloud environment clones the devshop read-only with a two-line setup script. At session start a
-hook extracts the **pinned version** and switches to it, so the project's tree stays clean of the
-devshop.
+hook takes the **pinned version** out of that clone and uses it, so the project's tree stays clean
+of the devshop.
 
 #### What a project keeps
 
