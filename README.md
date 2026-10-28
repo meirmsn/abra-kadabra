@@ -193,11 +193,11 @@ itself).
 #### Every check is proven to fail
 
 Every check that guards something (the secret scan, the spec check) comes with its own test, which
-plants a bad input and expects the check to catch it. That test is then run against deliberately
-broken copies of the check, by hand, to see that it catches each break; the PR records the result. A
-check whose tool is missing, or whose output can't be read, fails rather than passes. Mechanical
-steps live in **tested scripts** with explicit arguments, never as shell in prose for the model to
-retype.
+plants a bad input and expects the check to catch it. That test is then run against copies of the
+check broken on purpose, to prove it fails when the check does; without that proof, a check can rot
+without anyone noticing. A check whose tool is missing, or whose output can't be read, fails rather
+than passes. Mechanical steps live in **tested scripts** with explicit arguments, never as shell in
+prose for the model to retype.
 
 #### Budgets and bounds
 
