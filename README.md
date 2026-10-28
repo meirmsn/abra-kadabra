@@ -244,8 +244,7 @@ one with the time and cost the change took.
 
 ### 📌 Versioning and migration
 
-**Each project pins a devshop version and carries copies of the few files its CI runs; keeping
-those copies honest across versions is where the work stopped.**
+**Each project pins a devshop version and carries copies of the few files its CI runs; keeping those copies honest across versions is the open problem.**
 
 #### How a project gets the devshop
 
@@ -313,8 +312,7 @@ carry the migration, done by the agent.
 - **2026-10-19** · A new project set up end to end on a throwaway repo; v2.1.0.
 - **2026-10-20** · M2 met: my website runs a plain change through v2 (Lighthouse
   99/100/100/100); one project contract; lalista's move to Cloudflare decided.
-- **2026-10-21** · lalista builds and runs locally on Workers; the last commit before this README.
-  Paused before lalista's move, as above.
+- **2026-10-21** · lalista builds and runs locally on Workers; the last commit before this README. Paused before lalista's move to v2.
 
 ## Known limitations
 
