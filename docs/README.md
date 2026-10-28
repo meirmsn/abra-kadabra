@@ -118,6 +118,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   starts on its own is timed from the previous merge.
 - [`new-project.md`](../specs/new-project.md): a new project starts from the devshop with
   green CI: the files placed, the owner's steps and the proof on a fresh repo.
+- [`other-projects-detail.md`](../specs/other-projects-detail.md): other projects appear here by
+  name, role, stack and distilled lesson only, never by PR number or feature.
 - [`pinned-tools-on-path.md`](../specs/pinned-tools-on-path.md): the project's own checks find the
   devshop's pinned gitleaks, shellcheck and dcg on PATH.
 - [`project-contract.md`](../specs/project-contract.md): one project contract, what every project
