@@ -261,11 +261,10 @@ own:
 - **The pinned version**, in `.devshop-version`.
 - **Identical copies of the devshop checks its CI runs** (the secret scan, the spec-to-test check,
   the PR title check, the contract check), never edited in the project.
+  - At session start, a copy that no longer matches the pinned version is reported, whether it was
+    edited in the project (a formatter, usually) or left behind by a half-done upgrade; the
+    `upgrade` skill moves the pin and refreshes the copies together, in one PR.
 - **The CI files it started from the devshop's templates** and now owns.
-
-At session start, a copy that no longer matches the pinned version is reported, whether it was
-edited in the project (a formatter, usually) or left behind by a half-done upgrade; the `upgrade`
-skill moves the pin and refreshes the copies together, in one PR.
 
 A new devshop version is released from a button only I press; CI names it from the merged PR titles
 and tags it. Versions are SemVer; a breaking change is a major version, whose upgrade PR is meant to
