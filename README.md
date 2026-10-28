@@ -273,8 +273,10 @@ carry the migration, done by the agent.
 #### Where it stopped
 
 - **The open problem:** every devshop change reaches a project only through an upgrade PR that
-  project has to take, and a project could weaken one of its copied checks and still go green; only
-  reading the diff catches it.
+  project has to take. And between upgrades nothing holds a copy to the pinned version: a PR can
+  weaken a copied check, and CI runs the PR's own copy, so it goes green; only reading the diff
+  catches it. A job running from `main`, out of the PR's reach, that flags such edits is the planned
+  fix.
 - **The last step done:** 2026-10-21, lalista shown to build and run locally on Cloudflare Workers.
   Next is its move from v1 to v2, the first real migration, after some account and branch-rule
   steps only I can do.
