@@ -118,9 +118,8 @@ PR).
 
 #### How it is kept honest
 
-- **Measured:** an eval of planted spec violations, run by hand before any change to how it
-  reviews, whose result goes in that PR. Its recall was 0.33 until its Bash tool turned out to be
-  missing, then 1.0.
+- **The reviewer has its own eval:** a set of changes with planted spec violations. It runs before
+  any change to the reviewer itself, and its result goes in that PR.
 - **Tried and changed:** a full review on every change to the PR's words cost five reviews on one
   PR, so a change to title or body alone now gets a words-only review.
 - **Before the "go" too:** a read-only helper checks the spec against the owner's own words
