@@ -2,8 +2,8 @@
 
 > **Status: Work in progress** · last touched 2026-10
 
-**Describe the app you want. Get one that is slick, reliable and secure, and ships only when you
-say so.**
+**Describe the app you want. Get one that is slick, reliable and secure, with you in control at
+every step.**
 
 This is a running prototype of a dev shop run by Claude Code agents: you bring the strategy and
 the product you want; agents plan, spec, build and review; your input steers and your approval ships
@@ -48,10 +48,11 @@ The PR reads top-down: one line, a release note in your users' words, what you s
 preview you can try yourself, evidence (screenshots when the UI changed, the reviewer's verdict,
 CI), and the engineering details.
 
-Your approval merges it; the deploy and a canary of the live site report back on the PR, and
-lastly a summary is posted to it with how long the change took and what it cost. Any issue the
-agent noticed outside the spec is logged, not fixed, so the PR stays scoped; it comes back to you
-only when it recurs.
+Your approval merges it; the deploy and a canary of the live site report back on the PR, rollback
+instructions included, and lastly a summary is posted to it with the time and cost taken for the
+change. Any issue the agent noticed outside the spec is logged, not fixed, so the PR stays scoped;
+it comes back to you only when it recurs. A new project starts green in its first session: seed
+files placed, CI included, and a checklist of the steps only you can do.
 
 The other half of the devshop is the walls: what the agent can never do (push to `main`, merge
 without you, hold a production secret), so that trusting a change means reading its PR, not
@@ -60,12 +61,15 @@ auditing the agent.
 ## Approach
 
 While building lalista with coding agents, I kept whatever seemed generic enough to reuse on other
-projects in a separate system: this repo. It covers the steps I kept doing by hand. Getting clear on
-what to build for a project, exploring the assumptions and the blind spots, into a product plan and
-then a spec. A builder that takes the spec and implements it. A checker that verifies the result
-against the intention, tests and docs included, so the next agent knows where things stand and
-nothing built so far regresses. And all of it set up so the agents cannot sidestep it: what I
-approved so far does not change without me noticing.
+projects in a separate system: this repo. It covers the steps I kept doing by hand:
+
+- Getting clear on what to build for a project, exploring the assumptions and the blind spots,
+  creating a product plan and then a spec.
+- A builder that takes the spec and implements it.
+- A checker that verifies the result against the intention, tests and docs included, so the next
+  agent knows where things stand and nothing built so far regresses.
+- All of it set up so the agents cannot sidestep it: what I have approved so far does not change
+  without me noticing.
 
 v1 came out of lalista and was used as is to build home-os, with the development environment on my
 own machine. v2 is a rewrite so that everything runs in cloud sessions, which were easy to interact
@@ -98,18 +102,6 @@ tool is used to make a finer one.
   guidance. Don't expect it to work your way until the cases you keep hitting are covered.
 - A system that builds apps is bootstrapped by hand with the very work it will automate. The
   recursion ends in you, and each manual round makes the next automated one finer.
-
-## What it does
-
-- Each PR is written to be judged on a phone: a one-line summary, a release note in your users'
-  words, what you should know, a preview to try, screenshots in light and dark, the engineering
-  details.
-- A new project starts green in its first session: files placed, CI in two tiers, and a checklist
-  of the steps only you can do.
-- After the merge, the deploy and the canary report on the PR, with the previous version and the
-  way to undo it, and a last comment sums up the time, your input, the cost and the rounds.
-- What the agent noticed but didn't fix is logged with a severity and its sightings; you hear of
-  it when it is medium or higher, or has come back three times.
 
 ## How it works
 
