@@ -192,10 +192,12 @@ itself).
 
 #### Every check is proven to fail
 
-A check that guards something ships with a test that feeds it a known-bad input, and its PR records
-the mutants killed, by hand, no mutation tool; a missing tool or unparseable output fails, never
-passes. Mechanical steps live in **tested scripts** with explicit arguments, never as shell in prose
-for the model to retype.
+Every check that guards something (the secret scan, the spec check) comes with its own test, which
+plants a bad input and expects the check to catch it. That test is then run against deliberately
+broken copies of the check, by hand, to see that it catches each break; the PR records the result. A
+check whose tool is missing, or whose output can't be read, fails rather than passes. Mechanical
+steps live in **tested scripts** with explicit arguments, never as shell in prose for the model to
+retype.
 
 #### Budgets and bounds
 
