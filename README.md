@@ -211,8 +211,8 @@ prose for the model to retype.
   row with a severity and its sightings.
 - **No unverified claims:** PR bodies claim only what was just read from the real signal (CI, the
   preview), and the reviewer checks the words against the commit.
-- **Lessons carry only what bit:** the lessons harvested from v1 and the two apps carry only what
-  caught a real problem or kept recurring.
+- **Lessons are distilled:** a lesson keeps the insight and the rule it earned, not the incident
+  and its context; only what caught a real problem or kept recurring becomes one.
 
 ### 🚀 Operations: roadmap, bugs, triage, deployment
 
