@@ -133,9 +133,9 @@ PR).
   rules on `main`, plain CI and the owner's approval; a push with no verdict after it is the
   tripwire. An air-gapped reviewer as a required check is on the roadmap.
 
-### 🧭 Product, design and engineering, separated
+### 🧭 Product, design, and engineering, separated
 
-**Product, design and engineering each hand the next step a written artefact (the spec, the
+**Product, design, and engineering each hand the next step a written artifact (the spec, the
 design file and its review, the tests and docs), and the chat is never the record.**
 
 #### Three skills, one hand-off each
@@ -159,10 +159,11 @@ run before the PR, and the reviewer's browser judging each touched page against 
 - **Decisions are written where they belong** (the spec, the PR, the decision log) when the owner
   makes them; a decision changed after the "go" is recorded as the owner's, and the review fails
   on one that isn't.
-- **One home per stack,** loaded only when a project uses it. Cloudflare Workers is the one that
-  exists, written from what the owner's website shipped.
+- **One home per stack:** each stack's set-up, guidelines and lessons live together, loaded only
+  when a project uses that stack, so the next project on it starts from what the last one learned
+  (Cloudflare Workers is the one that exists).
 - **gstack** (Garry Tan's skills for Claude Code) is the pinned upstream toolbox for the thinking
-  and design steps (`/office-hours`, `/spec`, `/design-review`): one commit, never edited.
+  and design steps (`/office-hours`, `/spec`, `/design-review`).
 
 #### Tried and dropped
 
