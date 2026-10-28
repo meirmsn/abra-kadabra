@@ -108,13 +108,13 @@ PR).
 
 #### What it does
 
-- **Checks tests and docs at the same depth as code:** would this test fail if the code were wrong; is a
-  deleted or loosened test justified by the spec; would a future agent reading only the docs do
+- **Checks tests and docs at the same depth as code:** would this test fail if the code were wrong;
+  is a deleted or loosened test justified by the spec; would a future agent reading only the docs do
   the right thing.
-- **Produces three outcomes:** pass, fail, could-not-run; the last never passes. The verdict is JSON against
-  a schema, and anything the reviewer can't parse or trust fails closed.
-- **Raises findings:** medium or above is fixed or goes to the owner; low is logged, not fixed on reflex.
-  After three rounds on the same thing, the agent asks.
+- **Produces three outcomes:** pass, fail, could-not-run; the last never passes. The verdict is JSON
+  against a schema, and anything the reviewer can't parse or trust fails closed.
+- **Raises findings:** medium or above is fixed or goes to the owner; low is logged, not fixed on
+  reflex. After three rounds on the same thing, the agent asks.
 
 #### How it is kept honest
 
@@ -172,11 +172,8 @@ v1 ran every change through 19 gates and carried about 225k words of docs and 90
 that drifted apart; v2 has six skills, each meant to fit a page (five in `runtime/`, the upgrade
 with the install), and a 200-word budget for what is always loaded. gstack's spec interview on every
 change cost 9 to 22 owner answers per website change, and the builder tended to skip it and ask its
-own questions instead (the owner still saw and approved every spec), so the owner decided it is for
-features only (the shipped skill still asks it on every change until that lands). An attempt to make
-the spec review ask design questions first (is this the root cause or a workaround, is there a
-simpler design) was replayed on the oversized proposal it was written for and waved it through in
-every run, so it was dropped.
+own questions instead, so the owner decided it is for features only (the shipped skill still asks it
+on every change until that lands).
 
 ### 📚 Tests and docs written for the next agent
 
