@@ -59,15 +59,24 @@ auditing the agent.
 
 ## Approach
 
-Built by hand with the process it automates, codifying only the steps that proved their worth. v1
-(April to June 2026) grew out of lalista's own tooling into a devcontainer with a firewall and a
-19-gate pipeline that lalista and home-os were built with. v2 (October 2026) is a rewrite in this
-repo from a harvest of v1's lessons: one target picture agreed top-down, then small PRs under the
-rule that the check comes before the change. The agent wrote v2's specs, code, tests, docs and notes
-(all but two of its PRs) and, once the reviewer existed, ran it on each; I made the decisions, gave
-each "go" and each approval, and did the steps only an owner can (accounts, branch rules, cloud
-environments). Human in the loop: [@meirmsn](https://github.com/meirmsn); robot hands:
+While building lalista with coding agents, I kept whatever seemed generic enough to reuse on other
+projects in a separate system: this repo. It covers the steps I kept doing by hand. Getting clear
+on what to build, exploring the assumptions and the blind spots, into a product plan and then a
+spec. A builder that takes the spec and implements it. A checker that verifies the result against
+the intention, tests and docs included, so the next agent knows where things stand and nothing
+built so far regresses. And all of it set up so the agents cannot sidestep it: what I approved does
+not change without me noticing.
+
+v1 came out of lalista and was used as is to build home-os, with the development environment on
+my own machine. v2 is a rewrite so that everything runs in cloud sessions; my personal website was
+built with it. Human in the loop: [@meirmsn](https://github.com/meirmsn); robot hands:
 [@meirmsn-agent](https://github.com/meirmsn-agent).
+
+There is a recursion in this. The manual work of setting up a system that builds apps is the same
+work the system is meant to do: I open PRs by hand in the shape I want the machine to use, I keep
+a roadmap by hand and pick the next task from it, as I want its projects to. The recursion ends in
+me: I am the base case, the manual start the automated version is refined from, the way a rough
+tool is used to make a finer one.
 
 ### Learnings so far
 
@@ -86,6 +95,8 @@ environments). Human in the loop: [@meirmsn](https://github.com/meirmsn); robot 
   mentee, from your corrections. You are the last reviewer: when the agent didn't do as you wanted,
   because the guidance was thin or the model wasn't up to it, your correction goes back into the
   guidance. Don't expect it to work your way until the cases you keep hitting are covered.
+- A system that builds apps is bootstrapped by hand with the very work it will automate. The
+  recursion ends in you, and each manual round makes the next automated one finer.
 
 ## What it does
 
