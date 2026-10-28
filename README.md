@@ -270,16 +270,14 @@ A new devshop version is released from a button only I press; CI names it from t
 and tags it. Versions are SemVer; a breaking change is a major version, whose upgrade PR is meant to
 carry the migration, done by the agent.
 
-#### The problem, and where it stopped
+#### Where it stopped
 
-- **The problem:** every devshop change that touches a copy reaches a project only through an
-  upgrade PR, one per project. And a check weakened inside a project's copy goes green on the
-  weakened copy; only my reading of the diff catches it.
-- **"Needs a migration" is a label so far:** the upgrade skill says it and shows the diffs, but no
-  migration has been written, and the one real one, lalista from v1 to v2, has not run.
-- **Where it stopped:** 2026-10-21, after lalista was shown to build and run locally on Cloudflare
-  Workers. The next step is a set of account and branch-rule steps only I can do for lalista, then
-  the move itself.
+- **The open problem:** every devshop change reaches a project only through an upgrade PR that
+  project has to take, and a project could weaken one of its copied checks and still go green; only
+  reading the diff catches it.
+- **The last step done:** 2026-10-21, lalista shown to build and run locally on Cloudflare Workers.
+  Next is its move from v1 to v2, the first real migration, after some account and branch-rule
+  steps only I can do.
 
 ## Learnings so far
 
