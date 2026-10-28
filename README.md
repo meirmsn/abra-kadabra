@@ -140,14 +140,14 @@ design file and its review, the tests and docs), and the chat is never the recor
 
 #### Three skills, one hand-off each
 
-`intent` names the kind of request (no change, bug fix,
-change) and, for a change, writes a spec file in the project's `specs/`: intent in the owner's
+`intent` names the kind of request (a change, a bug fix, or no change, such as a question about the
+project) and, for a change, writes a spec file in the project's `specs/`: intent in the owner's
 words, decisions with their reasons, numbered acceptance items, out of scope; a UI change adds its
 core flow and a state table. The owner's "go" is recorded on the spec, which stays after the merge
 as context for later sessions. `build` is one writer: it loads only what applies (the project's
-rules, the stack's home, the guideline of each discipline it touches), changes code, tests and
-docs together, and names each acceptance item in the test that proves it. `pr` writes the PR's
-words from a template and hands them to `ship`.
+rules, the stack's home, the guideline of each discipline it touches), changes code, tests and docs
+together, and names each acceptance item in the test that proves it. `pr` writes the PR's words from
+a template and hands them to `ship`.
 
 #### Design
 
