@@ -15,8 +15,9 @@ Used to build [lalista](https://lalista.store) ([repo](https://github.com/meirms
 
 ## Approach
 
-While building lalista with coding agents, I kept whatever seemed generic enough to reuse on other
-projects in a separate system: this repo. It covers the steps I kept doing by hand:
+This repo grew alongside lalista, one step ahead of it. I would put into the devshop the bare bones
+of what I knew was generic, let it build the next piece of lalista, refine the devshop from what
+that showed, and build the piece after. It covers the steps I kept doing by hand:
 
 - **Intent:** getting clear on what to build for a project, exploring the assumptions and the
   blind spots, creating a product plan and then a spec.
