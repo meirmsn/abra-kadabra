@@ -163,7 +163,8 @@ run before the PR, and the reviewer's browser judging each touched page against 
   when a project uses that stack, so the next project on it starts from what the last one learned
   (Cloudflare Workers is the one that exists).
 - **gstack** (Garry Tan's skills for Claude Code) is the pinned upstream toolbox for the thinking
-  and design steps (`/office-hours`, `/spec`, `/design-review`).
+  and design steps: `/office-hours` and `/spec` with the planning reviews that fit, and
+  `/design-review`.
 
 #### Tried and dropped
 
