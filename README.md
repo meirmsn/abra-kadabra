@@ -123,9 +123,9 @@ PR).
 - **Intent-spec review:** a read-only helper checks the spec against the owner's own words
   before the owner sees it.
 - **Review only what changed:** a new title or body on a commit that already passed gets a
-  words-only review, which still checks the words against that code; a commit that only adds rows
-  to the findings log or the roadmap gets the same. Any other commit, docs included, gets a full
-  review.
+  words-only review: the reviewer reads the diff again, but only to check that every claim in the
+  words is true of it, not to judge the code. A commit that only adds rows to the findings log or
+  the roadmap gets the same. Any other commit, docs included, gets a full review.
 
 #### What it is not
 
