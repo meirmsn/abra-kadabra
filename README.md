@@ -108,11 +108,11 @@ PR).
 
 #### What it does
 
-- **Produces three outcomes:** pass, fail, could-not-run; the last never passes. The verdict is JSON against
-  a schema, and anything the reviewer can't parse or trust fails closed.
 - **Checks tests and docs at the same depth as code:** would this test fail if the code were wrong; is a
   deleted or loosened test justified by the spec; would a future agent reading only the docs do
   the right thing.
+- **Produces three outcomes:** pass, fail, could-not-run; the last never passes. The verdict is JSON against
+  a schema, and anything the reviewer can't parse or trust fails closed.
 - **Raises findings:** medium or above is fixed or goes to the owner; low is logged, not fixed on reflex.
   After three rounds on the same thing, the agent asks.
 
