@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 This repo is the devshop, being rewritten as v2 (the 2026-Q4 revamp). Work only from what is on
-`main`. Layout, status and history: [README.md](README.md). Docs map:
+`main`. Status and history: [README.md](README.md). Layout and the docs map:
 [docs/README.md](docs/README.md).
 
 ## First reply
@@ -40,8 +40,9 @@ This repo is the devshop, being rewritten as v2 (the 2026-Q4 revamp). Work only 
 - **No project or personal identifiers in this repo, ever:** no production or preview URLs, no
   database project refs, team slugs, monitoring org ids, `owner/repo` slugs, GitHub handles, email
   addresses or Claude session links (in commit messages and PR bodies too: no `Claude-Session:`
-  trailer). Tests use synthetic values (`example.com`, made-up identities). A project's name
-  plus enough context to explain a change is fine. Project config lives in the project.
+  trailer). The one exception: the README names and links the owner's projects. Tests use synthetic
+  values (`example.com`, made-up identities). A project's name plus enough context to explain a
+  change is fine. Project config lives in the project.
 - **Walls vs feedback:** GitHub's protection on `main`, required CI, credential scopes and the
   owner's approval are the walls. Hooks and in-session checks are feedback; never describe them
   as a security boundary.
