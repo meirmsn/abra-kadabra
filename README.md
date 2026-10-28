@@ -278,7 +278,7 @@ owner's button; a breaking change is a major version and means "this upgrade nee
   green on it; the owner's reading of the diff is the catch.
 - Each change costs money: a few dollars for a small website change.
 - Written for one person's projects and changing often; no support and no compatibility promise.
-  If any of this is your problem too, the Feedback section below is where to say so.
+  If any of this is a problem you face, the Feedback section below is where to say so.
 
 ## Run it
 
