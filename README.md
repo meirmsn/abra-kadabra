@@ -60,16 +60,17 @@ auditing the agent.
 ## Approach
 
 While building lalista with coding agents, I kept whatever seemed generic enough to reuse on other
-projects in a separate system: this repo. It covers the steps I kept doing by hand. Getting clear
-on what to build, exploring the assumptions and the blind spots, into a product plan and then a
-spec. A builder that takes the spec and implements it. A checker that verifies the result against
-the intention, tests and docs included, so the next agent knows where things stand and nothing
-built so far regresses. And all of it set up so the agents cannot sidestep it: what I approved does
-not change without me noticing.
+projects in a separate system: this repo. It covers the steps I kept doing by hand. Getting clear on
+what to build for a project, exploring the assumptions and the blind spots, into a product plan and
+then a spec. A builder that takes the spec and implements it. A checker that verifies the result
+against the intention, tests and docs included, so the next agent knows where things stand and
+nothing built so far regresses. And all of it set up so the agents cannot sidestep it: what I
+approved so far does not change without me noticing.
 
-v1 came out of lalista and was used as is to build home-os, with the development environment on
-my own machine. v2 is a rewrite so that everything runs in cloud sessions; my personal website was
-built with it. Human in the loop: [@meirmsn](https://github.com/meirmsn); robot hands:
+v1 came out of lalista and was used as is to build home-os, with the development environment on my
+own machine. v2 is a rewrite so that everything runs in cloud sessions, which were easy to interact
+with from my phone as well; my personal website was built with it. Human in the loop:
+[@meirmsn](https://github.com/meirmsn); robot hands:
 [@meirmsn-agent](https://github.com/meirmsn-agent).
 
 There is a recursion in this. The manual work of setting up a system that builds apps is the same
