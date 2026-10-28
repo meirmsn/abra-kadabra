@@ -120,8 +120,10 @@ PR).
 
 - **The reviewer has its own eval:** a set of changes with planted spec violations. It runs before
   any change to the reviewer itself, and its result goes in that PR.
-- **Tried and changed:** a full review on every change to the PR's words cost five reviews on one
-  PR, so a change to title or body alone now gets a words-only review.
+- **Review only what changed:** a new title or body on a commit that already passed gets a
+  words-only review, which still checks the words against that code; a commit that only adds rows
+  to the findings log or the roadmap gets the same. Any other commit, docs included, gets a full
+  review.
 - **Before the "go" too:** a read-only helper checks the spec against the owner's own words
   before the owner sees it.
 
