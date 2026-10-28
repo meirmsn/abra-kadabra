@@ -1,8 +1,8 @@
 # Abra-Kadabra
 
-> **Status: Work in progress** · last touched 2026-10
+> **Status: Work in progress**
 
-**Describe the app you want. Get one that is slick, reliable and secure, with you in control at
+**Describe the app you want. Get one built to be slick, reliable and secure, with you in control at
 every step.**
 
 This is a running prototype of a dev shop run by Claude Code agents: you bring the strategy and
@@ -22,16 +22,14 @@ that showed, and build the piece after. It covers the steps I kept doing by hand
 - **Intent:** getting clear on what to build for a project, exploring the assumptions and the
   blind spots, creating a product plan and then a spec.
 - **Build:** a builder that takes the spec and implements it.
-- **Verify:** a checker that verifies the result against the intention, tests and docs included,
-  so the next agent knows where things stand and nothing built so far regresses.
-- **Walls:** all of it set up so the agents cannot sidestep it: what I have approved so far does
-  not change without me noticing.
+- **Verify:** a checker that verifies the result against the intention, tests and docs included, so
+  the next agent knows where things stand and what was built so far is less likely to regress.
+- **Walls:** all of it set up so the agents cannot sidestep it: what I have approved so far is not
+  meant to change without me noticing.
 
 **v1** came out of lalista and was used as is to build home-os, with the development environment on
 my own machine. **v2** is a rewrite so that everything runs in cloud sessions, which were easy to
-interact with from my phone, which was very convenient; my personal website was built with it. Human
-in the loop: [@meirmsn](https://github.com/meirmsn); robot hands:
-[@meirmsn-agent](https://github.com/meirmsn-agent).
+interact with from my phone, which was very convenient; my personal website was built with it.
 
 **The recursion.** The manual work of setting up a system that builds apps is the same work the
 system is meant to do: I open PRs by hand in the shape I want the machine to use, I keep a roadmap
@@ -96,7 +94,7 @@ auditing the agent**.
 **The builder never grades its own work: a second agent with none of its context reviews the
 change against the spec, and the PR cannot open until it passes.**
 
-#### The one road to a PR
+#### The one road the agent is given to a PR
 
 `ship.sh` runs `review.sh`, which starts a fresh, locked-down `claude -p` in a throwaway clone: it
 can read, run the tests and browse a local run of the app, and can neither edit nor push. The
@@ -171,8 +169,8 @@ run before the PR, and the reviewer's browser judging each touched page against 
 v1 ran every change through 19 gates and carried about 225k words of docs and 90k words of skills
 that drifted apart; v2 has six skills, each meant to fit a page (five in `runtime/`, the upgrade
 with the install), and a 200-word budget for what is always loaded. gstack's spec interview on every
-change cost 9 to 22 owner answers per website change, and the builder tended to skip it and ask its
-own questions instead, so I decided it is for features only (the shipped skill still asks it on
+change cost 9 to 22 answers from me per website change, and the builder tended to skip it and ask
+its own questions instead, so I decided it is for features only (the shipped skill still asks it on
 every change until that lands).
 
 ### 📚 Tests and docs written for the next agent
@@ -314,7 +312,6 @@ carry the migration, done by the agent.
 - **2026-10-20** · M2 met: my website runs a plain change through v2 (Lighthouse
   99/100/100/100); one project contract; lalista's move to Cloudflare decided.
 - **2026-10-21** · lalista builds and runs locally on Workers; the last commit before this README.
-  Paused before lalista's move to v2.
 
 ## Known limitations
 
