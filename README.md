@@ -224,34 +224,21 @@ was noticed, and a deploy that reports back on the PR.**
 A `ROADMAP.md` of what the owner decided, in their words and their order (the top open entry is the
 next task), and a `FINDINGS.md` of what the agent noticed and didn't fix.
 
-**Intake** is the first step of `intent`: a question is answered, a bug fix gets a failing test as
-its spec and no "go", a change gets a spec, "put it on the roadmap" gets an entry quoting the
-request.
+**Every request is sorted first:** a question is answered; a bug fix gets a failing test as its
+spec; a change gets a spec; "put it on the roadmap" gets an entry quoting the request.
 
 #### Deployment
 
-A merged PR deploys from `main` only, with deploy secrets in a `production` environment that only
-`main` can use; a comment on the PR follows the deploy (Merged, Deploying, Live, with the previous
-version and how to undo it), and a second comment records how the change went. The devshop itself is
-released from a button only the owner can press: CI computes the version from the PR titles (a `!`
-is a breaking change) and creates the tag.
+A merged PR deploys from `main` only, and the secrets it needs exist only there. The PR then gets
+two comments: one that follows the deploy to live, with the previous version and how to undo it,
+and one that records how the change went.
 
 - **Rollback from day one:** each deploy records the previous version and how to undo it;
   migrations are append-only by rule, so a code rollback never needs a database rollback.
-- **Production health** is a required check before the merge and a canary after the deploy, on
-  the one project with traffic.
-- **Measured on the PR:** the website's last change cost about $8 and 79 minutes from request to
-  live, with the owner's touchpoints being decisions, the go and the approval; two recent devshop
-  changes cost $6 and $34.
-
-#### Identity and environments
-
-- **The agent's identity:** its own GitHub account with Write access, which cannot approve its own
-  PRs; `main` takes PRs only, with the owner's review, and CODEOWNERS covers everything.
-- **One cloud environment per project** holds that project's tokens and network allowlist; the
-  agent holds no production secrets, and production access is read-only observability.
-- **Approval ships:** on the owner's approval with green checks, the agent squash-merges without
-  asking for a merge message; a push after approval needs a new approval.
+- **Production health** is a required check before the merge and a canary after the deploy.
+- **Measured:** the website's last change took about 79 minutes and $8 from request to live, and
+  asked three things of me: two decisions, the go and the approval.
+- **One cloud environment per project** holds only that project's tokens and network allowlist.
 
 ### 📌 Versioning and migration: where it is paused
 
@@ -266,24 +253,23 @@ the project's tree stays clean of the devshop.
 
 #### What a project keeps
 
-It is a contract of 25 items: `.devshop-version`, identical copies of the checks its CI runs (the
-secret scan, the spec check, the title check, the contract check), the seeds it adapted (CI, the
-fast tier) and its own files. Drift between a copy and the pin shows on a `DEVSHOP:` line at session
-start, and the `upgrade` skill opens one PR that moves the pin and re-copies. Releases are SemVer
-from the owner's button; a breaking change is a major version and means "this upgrade needs a
-migration".
+A pinned version number, identical copies of the four checks its CI runs (the secret scan, the spec
+check, the title check, the contract check), the CI files it adapted from the devshop's templates,
+and its own files. At session start a copy that differs from the pin is reported, and the `upgrade`
+skill moves the pin and re-copies in one PR. A new devshop version is released from a button only I
+press; CI names it from the merged PR titles and tags it. Versions are SemVer, and a breaking change
+is a major version: "this upgrade needs a migration".
 
 #### The problem, and where it stopped
 
 - **The problem:** every devshop change that touches a copy reaches a project only through an
-  upgrade PR, one per project, and the devshop's own repo would go red every session without a
-  special case. A check weakened inside a project's copy goes green on the weakened copy; only the
-  owner's reading of the diff catches it.
+  upgrade PR, one per project. And a check weakened inside a project's copy goes green on the
+  weakened copy; only my reading of the diff catches it.
 - **"Needs a migration" is a label so far:** the upgrade skill says it and shows the diffs, but no
   migration has been written, and the one real one, lalista from v1 to v2, has not run.
 - **Where it stopped:** 2026-10-21, after lalista was shown to build and run locally on Cloudflare
-  Workers. The next step is a sitting of steps only the owner can do (lalista's accounts, tokens
-  and branch rules), then the move itself.
+  Workers. The next step is a set of account and branch-rule steps only I can do for lalista, then
+  the move itself.
 
 ## Learnings so far
 
