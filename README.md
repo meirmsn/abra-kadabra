@@ -113,14 +113,15 @@ PR).
   the right thing.
 - **Produces three outcomes:** pass, fail, could-not-run; the last never passes. The verdict is JSON
   against a schema, and anything the reviewer can't parse or trust fails closed.
-- **Raises findings:** medium or above is fixed or comes to me; low is logged, not fixed on reflex.
+- **Raises findings:** medium or above is fixed or comes to you; low is logged, not fixed on reflex.
   After three rounds on the same thing, the agent asks.
 
 #### How it is kept honest
 
 - **The reviewer has its own eval:** a set of changes with planted spec violations. It runs before
   any change to the reviewer itself, and its result goes in that PR.
-- **Intent-spec review:** a read-only helper checks the spec against my own words before I see it.
+- **Intent-spec review:** a read-only helper checks the spec against your own words before you see
+  it.
 - **Review only what changed:** a new title or body on a commit that already passed gets a
   words-only review: the reviewer reads the diff again, but only to check that every claim in the
   words is true of it, not to judge the code. A commit that only adds rows to the findings log or
@@ -129,7 +130,7 @@ PR).
 #### What it is not
 
 - **Not a wall:** an agent that controls its own session could skip it. The walls are GitHub's rules
-  on `main`, plain CI and my approval; a push with no verdict after it is the tripwire. An
+  on `main`, plain CI and your approval; a push with no verdict after it is the tripwire. An
   air-gapped reviewer as a required check is on the roadmap.
 
 ### 🧭 Product, design, and engineering, separated
@@ -140,13 +141,13 @@ design file and its review, the tests and docs), and the chat is never the recor
 #### Three skills, one hand-off each
 
 `intent` names the kind of request (a change, a bug fix, or no change, such as a question about the
-project) and, for a change, writes a spec file in the project's `specs/`: intent in my own words,
+project) and, for a change, writes a spec file in the project's `specs/`: intent in your own words,
 decisions with their reasons, numbered acceptance items, out of scope; a UI change adds its core
-flow and a state table. My "go" is recorded on the spec, which stays after the merge as context for
-later sessions. `build` is one writer: it loads only what applies (the project's rules, the stack's
-home, the guideline of each discipline it touches), changes code, tests and docs together, and names
-each acceptance item in the test that proves it. `pr` writes the PR's words from a template and
-hands them to `ship`.
+flow and a state table. Your "go" is recorded on the spec, which stays after the merge as context
+for later sessions. `build` is one writer: it loads only what applies (the project's rules, the
+stack's home, the guideline of each discipline it touches), changes code, tests and docs together,
+and names each acceptance item in the test that proves it. `pr` writes the PR's words from a
+template and hands them to `ship`.
 
 #### Design
 
@@ -155,8 +156,9 @@ run before the PR, and the reviewer's browser judging each touched page against 
 
 #### What holds it together
 
-- **Decisions are written where they belong** (the spec, the PR, the decision log) when I make them;
-  a decision changed after the "go" is recorded as mine, and the review fails on one that isn't.
+- **Decisions are written where they belong** (the spec, the PR, the decision log) when you make
+  them; a decision changed after the "go" is recorded as yours, and the review fails on one that
+  isn't.
 - **One home per stack:** each stack's set-up, guidelines and lessons live together, loaded only
   when a project uses that stack, so the next project on it starts from what the last one learned
   (Cloudflare Workers is the one that exists).
@@ -214,12 +216,12 @@ prose for the model to retype.
 
 ### 🚀 Operations: roadmap, bugs, triage, deployment
 
-**I decide and the agent records: a roadmap of what was decided, a findings log of what
+**You decide and the agent records: a roadmap of what was decided, a findings log of what
 was noticed, and a deploy that reports back on the PR.**
 
 #### Roadmap and findings
 
-A `ROADMAP.md` of what I decided, in my words and my order (the top open entry is the
+A `ROADMAP.md` of what you decided, in your words and your order (the top open entry is the
 next task), and a `FINDINGS.md` of what the agent noticed and didn't fix.
 
 **Every request is sorted first:** a question is answered; a bug fix gets a failing test as its
@@ -322,7 +324,7 @@ is a major version: "this upgrade needs a migration".
 - **One stack:** Cloudflare Workers is real in v2; Next.js with Supabase, which v1 ran lalista and
   home-os on, is a placeholder in v2, and iOS has not started.
 - **The review is feedback, not a wall,** and a PR can weaken a check in a copy it carries and go
-  green on it; my reading of the diff is the catch.
+  green on it; your reading of the diff is the catch.
 - **Each change costs money:** a few dollars for a small website change.
 - **One person's tool:** written for one person's projects and changing often; no support and no
   compatibility promise. If any of this is a problem you face, the Feedback section below is where
@@ -331,7 +333,7 @@ is a major version: "this upgrade needs a migration".
 ## Run it
 
 - **To use it** you need a GitHub repository you administer, a Claude Code cloud environment and a
-  second GitHub account for the agent. With those: do [the steps only an owner can
+  second GitHub account for the agent. With those: do [the steps only you can
   do](runtime/templates/new-project-steps.md), then ask the first session to set up the project
   ([the `new-project` skill](runtime/skills/new-project/SKILL.md)).
 - **To read it:** [the docs map](docs/README.md) links every doc, and
