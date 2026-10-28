@@ -169,9 +169,12 @@ run before the PR, and the reviewer's browser judging each touched page against 
 
 v1 ran every change through 19 gates and carried about 225k words of docs and 90k words of skills
 that drifted apart; v2 has six skills, each meant to fit a page (five in `runtime/`, the upgrade
-with the install), and a 200-word budget for what is always loaded. A spec interview on every change
-cost 9 to 22 owner answers per website change and was skipped in practice, so it is now for features
-only. Design questions first in the spec review missed the case they were for and were dropped.
+with the install), and a 200-word budget for what is always loaded. gstack's spec interview on every
+change cost 9 to 22 owner answers per website change, and the builder tended to skip it and ask its
+own questions instead (the owner still saw and approved every spec), so the interview is now for
+features only. An attempt to make the spec review ask design questions first (is this the root cause
+or a workaround, is there a simpler design) was replayed on the oversized proposal it was written
+for and waved it through in every run, so it was dropped.
 
 ### 📚 Tests and docs written for the next agent
 
