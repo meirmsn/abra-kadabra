@@ -48,7 +48,7 @@ What they asked for:
   owner confirms them at the go.
 
 - **"Other project" means every project the devshop serves.** That is lalista, home-os and the
-  owner's website (M2), which is cited the same way ("website PR n") in `runtime/stacks/cloudflare/`,
+  owner's website (M2): "treat it like the lalista and home-os projects" (owner, 2026-10-28). The website is cited the same way ("website PR n") in `runtime/stacks/cloudflare/`,
   `specs/`, both FINDINGS files and the revamp notes. The devshop's own fixture, harness and test
   repos are devshop history and keep their PR numbers. So do the devshop's own PRs, commits and
   ids (L-n, W10.n, F-…), and v1 devshop paths as of `v1-final`.
@@ -65,8 +65,7 @@ What they asked for:
 - **Git history is not touched.** D-12 (revisited 2026-10-11) accepts project names and details
   already in history and drops the "owner reads the notes" gate before going public. So after this
   change the current tree complies, but history, merged commit subjects and merged PR bodies still
-  hold the old text. Whether the owner's new wish reopens D-12 is the owner's call, raised at the
-  go. This change does not reopen it.
+  hold the old text. The owner keeps D-12: "keep, don't reopen" (owner, 2026-10-28).
 - **No mechanical check; this stays a prose rule.**
   - Most of the problem is feature and spec names, and no pattern matches those without listing
     them, which would put them in this repo.
@@ -75,8 +74,8 @@ What they asked for:
   - After the sweep, a project-name version (`lalista|home-os|website` + "PR") would find
     nothing. It would only catch a regression of the PR-number shape, and it would need the
     owner's project names in devshop config.
-  - The sweep's evidence is the greps in the PR body instead. (Proposed; the owner confirms at the
-    go.)
+  - The sweep's evidence is the greps in the PR body instead. The owner agreed: "yes" (owner,
+    2026-10-28).
 - **The change report names no detail.** The PR body and the hand-over message list each changed
   file with the kind of detail removed and a line count. They don't repeat removed names, because
   the rule covers PR text too.
