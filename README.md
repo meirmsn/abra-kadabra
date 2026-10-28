@@ -230,11 +230,13 @@ spec; a change gets a spec; "put it on the roadmap" gets an entry quoting the re
 #### Deployment
 
 A merged PR deploys from `main` only, and the secrets it needs exist only there. The PR then gets
-two comments: one that follows the deploy to live, with the previous version and how to undo it,
-and one that records how the change went.
+two comments: one that follows the deploy to live, with the previous version and how to undo it, and
+one with the time and cost the change took.
 
-- **Rollback from day one:** each deploy records the previous version and how to undo it;
-  migrations are append-only by rule, so a code rollback never needs a database rollback.
+- **Rollback from day one:** each deploy records the previous version and how to undo it; migrations
+  are backward-compatible by rule, so rolling the code back does not need rolling the database back;
+  a destructive step goes in its own later change, with a tested reverse migration or a restore
+  point.
 - **Production health** is a required check before the merge and a canary after the deploy.
 - **Measured:** the website's last change took about 79 minutes and $8 from request to live, and
   asked three things of me: two decisions, the go and the approval.
