@@ -322,10 +322,10 @@ carry the migration, done by the agent.
 - **The review is feedback, not a wall,** and a PR can weaken a check in a copy it carries and go
   green on it; your reading of the diff is the catch.
 - **Each change costs money:** a few dollars for a small website change.
-- **One control next to the walls is feedback:** the devshop's own release button is meant to be
-  mine alone, but a branch can carry a copy of the workflow without that check and mint a release
-  tag. It cannot touch `main`, my approval or a secret, and a project moves to a release only
-  through an upgrade PR I approve.
+- **Devshop releases are not fully walled yet:** the release button is meant to be mine alone, but
+  a branch can carry a copy of the workflow without that check and mint a release tag. It cannot
+  touch `main`, my approval or a secret, and a project moves to a release only through an upgrade
+  PR I approve.
 - **One person's tool:** written for one person's projects and changing often; no support and no
   compatibility promise. If any of this is a problem you face, the Feedback section below is where
   to say so.
