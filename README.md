@@ -2,6 +2,8 @@
 
 > **Status: Work in progress**
 
+![Abra-Kadabra: a running prototype of a dev shop run by Claude Code agents](docs/images/social-preview.png)
+
 **Describe the app you want. Get one built to be slick, reliable and secure, with you in control at
 every step.**
 
