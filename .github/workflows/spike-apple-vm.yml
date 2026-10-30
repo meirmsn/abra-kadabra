@@ -130,6 +130,10 @@ jobs:
           time xcodebuild test-without-building -project Hello.xcodeproj -scheme HelloiOS -destination "id=$dev" \
             -resultBundlePath "$RUNNER_TEMP/ios.xcresult" -test-timeouts-enabled YES \
             -maximum-test-execution-time-allowance 180 2>&1 | grep -E 'UITEST|Test Case|error|\*\*' | tail -40
-          xcrun simctl io "$dev" screenshot "$RUNNER_TEMP/sim.png" && sips -g pixelWidth -g pixelHeight "$RUNNER_TEMP/sim.png"
+          # Run 2: `simctl io screenshot` after the test failed ("Error creating the image"); the
+          # test's own attachment is the screenshot.
+          mkdir -p "$RUNNER_TEMP/att"
+          xcrun xcresulttool export attachments --path "$RUNNER_TEMP/ios.xcresult" --output-path "$RUNNER_TEMP/att"
+          cp "$(ls "$RUNNER_TEMP"/att/*.png | head -1)" "$RUNNER_TEMP/sim.png"
           sips -s format jpeg -s formatOptions 40 -Z 900 "$RUNNER_TEMP/sim.png" --out "$RUNNER_TEMP/sim.jpg" >/dev/null && \
             { echo "SHOT-BEGIN"; base64 -i "$RUNNER_TEMP/sim.jpg" | fold -w 1000; echo "SHOT-END"; }
