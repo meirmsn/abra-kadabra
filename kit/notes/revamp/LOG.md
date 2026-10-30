@@ -135,11 +135,11 @@ Added: O-11, O-12, A-17, A-18, epic W6.8 (routing + advisor, A/B before relying 
 - Decisions: D-14 thin rewrite in a **new runtime repo** (v1 as reference, lessons harvest
   first, go/no-go at the walking skeleton); D-12 new repo private for now, public-safe by
   design; D-13 GitHub App (spike); D-04, D-02, D-06, D-08 settled by the pillars; D-09 no
-  freeze needed (lalista paused, home-os frozen; lalista = pilot); D-15 hybrid; D-03 PR flow;
+  freeze needed (the pilot web app paused, the 2nd pilot web app frozen; the pilot web app is the pilot); D-15 hybrid; D-03 PR flow;
   D-11 obsolete; D-01/D-05/D-07/D-10 open with direction.
-- Re-plan: M0 reordered (credentials → history scan → rulesets + archive home-os → tag
+- Re-plan: M0 reordered (credentials → history scan → rulesets + archive the 2nd pilot web app → tag
   `v1-final` → CLAUDE.md note); M1 = walking skeleton → go/no-go, detailed in
-  [W10-v2.md](workstreams/W10-v2.md); M2 pilot lalista web, M3 iOS + Mac, M4 retire v1
+  [W10-v2.md](workstreams/W10-v2.md); M2 pilot: the pilot web app, M3 iOS + Mac, M4 retire v1
   (coarse). W1–W9 superseded (`[-]`); findings dispositioned by W10.3.3.
 - Pacing rule instead of capacity hours: ≤ ~2 devshop PRs waiting on the owner.
 
@@ -180,7 +180,7 @@ identifiers in notes, flagged by the W0.7 scan for the owner.
 changelog; README; TARGET Shape note; W0.7 done-when (also flag identifiers); W10.4 is now
 "v2 bootstrap in this repo" (W10.4.1 = first v2 PR removes v1 from `main`).
 
-**Note**: removing v1 from `main` changes what `/devshop` sessions load; fine while lalista
+**Note**: removing v1 from `main` changes what `/devshop` sessions load; fine while the pilot web app
 is paused, and it must happen only after `v1-final` is tagged (W0.4).
 
 **Next**: unchanged — M0 in order, starting with W0.5 (owner).
@@ -308,14 +308,14 @@ ruleset B (A-20).
 
 ## #11 — 2026-10-10/11 · M0: protection verified, abra-kadabra history scanned, rotation deferred
 
-**W0.6 (owner)**: classic branch protection on `main` of abra-kadabra and lalista (require
+**W0.6 (owner)**: classic branch protection on `main` of abra-kadabra and the pilot web app (require
 PR, no force-push/deletion, no admin bypass). Verified from fresh clones with an empty
 commit: `git push origin HEAD:main` and `git push -f` both rejected with
 `GH006: Protected branch update failed … Changes must be made through a pull request`
-(lalista also: `2 of 2 required status checks are expected`). abra-kadabra has no CI
+(the pilot web app also: `2 of 2 required status checks are expected`). abra-kadabra has no CI
 workflows yet → no required check until W3.1.2. Ruleset conversion (approvals, PR-only
-admin bypass, auto-merge on) waits for the agent identity → W0.6.6. home-os archive in
-progress (owner); reversible, so a later cleanup just unarchives.
+admin bypass, auto-merge on) waits for the agent identity → W0.6.6. Archiving the 2nd pilot web app is
+in progress (owner); reversible, so a later cleanup just unarchives.
 
 **W0.7 (abra-kadabra only)**: gitleaks 8.30.1 (release checksum verified), scratch config
 `[extend] useDefault = true`, `--log-opts=--all --redact`, full history (unshallowed).
@@ -325,8 +325,8 @@ progress (owner); reversible, so a later cleanup just unarchives.
   Supabase local-stack demo JWTs (payload issuer `supabase-demo`, checked by prefix match).
 - `template/.devcontainer/.env.example` — placeholder: JWT header + `...`.
 - `.claude/skills/gstack/` ×3 — upstream test fixtures + gstack's public telemetry anon key.
-  No personal details or infra identifiers flagged beyond gstack's own project URL. lalista
-  and home-os not reachable from cloud sessions (Claude GitHub App not installed) → pending.
+  No personal details or infra identifiers flagged beyond gstack's own project URL. The pilot web app
+  and the 2nd pilot web app not reachable from cloud sessions (Claude GitHub App not installed) → pending.
 
 **W0.5 (owner decision)**: deferred to the end of the revamp — nothing was committed, the
 apps aren't in use, old dev envs are stale, Supabase project is frozen. Key insight:
@@ -335,7 +335,7 @@ reissue as needed" (W0.5.3). Optional now: revoke the old GitHub PAT (W0.5.2) �
 account-wide and not tied to the paused apps.
 
 **Next**: agent identity is done (LOG #9) and protection holds against it
-(LOG #10) → owner installs the Claude GitHub App on lalista + home-os → finish W0.7.1 →
+(LOG #10) → owner installs the Claude GitHub App on the pilot web app + the 2nd pilot web app → finish W0.7.1 →
 W0.6.6 ruleset (with the A-20 call) → W0.4 tag.
 
 ---
@@ -385,28 +385,28 @@ that relied on the stale dev env's token, so the push prompted for a username; s
 remote to SSH fixed it. Lesson for v2: tags/releases are an owner (or CI) step, not something a cloud
 session can do.
 
-**W0.7.1 done**: once the agent had access to lalista and home-os, all three histories were
+**W0.7.1 done**: once the agent had access to the pilot web app and the 2nd pilot web app, all three histories were
 scanned with gitleaks 8.30.1 (release checksum verified), scratch config
 `[extend] useDefault = true`, `--log-opts=--all --redact`, full clones **plus every PR head ref**
-(`refs/pull/*/head`). The PR refs matter: squash merges delete branch history, so lalista goes
-from 93 to 567 commits and home-os from 39 to 411; abra-kadabra 616 → 770 (LOG #11 missed them).
+(`refs/pull/*/head`). The PR refs matter: squash merges delete branch history, so the pilot web app goes
+from 93 to 567 commits and the 2nd pilot web app from 39 to 411; abra-kadabra 616 → 770 (LOG #11 missed them).
 
-| Repo         | Commits | Hits | Verdict                                                                                                        |
-| ------------ | ------- | ---- | -------------------------------------------------------------------------------------------------------------- |
-| abra-kadabra | 770     | 7    | same 7 false positives as LOG #11                                                                              |
-| lalista      | 567     | 6    | Supabase demo JWTs (`iss=supabase-demo`, anon + service_role) ×5, `.env.example` placeholder (JWT header only) |
-| home-os      | 411     | 4    | Supabase demo JWTs ×2, `.env.example` placeholder ×2                                                           |
+| Repo                  | Commits | Hits | Verdict                                                                                                        |
+| --------------------- | ------- | ---- | -------------------------------------------------------------------------------------------------------------- |
+| abra-kadabra          | 770     | 7    | same 7 false positives as LOG #11                                                                              |
+| The pilot web app     | 567     | 6    | Supabase demo JWTs (`iss=supabase-demo`, anon + service_role) ×5, `.env.example` placeholder (JWT header only) |
+| The 2nd pilot web app | 411     | 4    | Supabase demo JWTs ×2, `.env.example` placeholder ×2                                                           |
 
 Hits were classified by decoding only the JWT payload's `iss`/`role`/`ref` (no values printed).
-Nothing to rotate. **Flagged for D-12** (not secrets): Supabase project refs for lalista (also
-3× in abra-kadabra) and home-os; Vercel production + preview URLs incl. the team slug; lalista's
+Nothing to rotate. **Flagged for D-12** (not secrets): Supabase project refs for the pilot web app (also
+3× in abra-kadabra) and the 2nd pilot web app; Vercel production + preview URLs incl. the team slug; the pilot web app's
 Sentry org ingest id (DSN key elided); owner email in commits/docs. Lesson for v2's scanner
 (W10.4.1): scan PR refs too, not only branches.
 
 **Owner call**: W0.5.2, W0.5.3, W0.6.2, W0.6.3 deferred to the end of the revamp; not raised
 again until then.
 
-**Owner calls on project references**: abra-kadabra's history mentions lalista/home-os in 303
+**Owner calls on project references**: abra-kadabra's history mentions the pilot web app/the 2nd pilot web app in 303
 commits (174 files on `main`; ~9 hold specific identifiers). Not cleaned: if the repo goes
 public, re-scan for secrets and rotate hits only (D-12 revisited). For v2: never project identifiers
 (URLs, project refs, team slugs, Sentry ids) in the devshop; project context only where it
@@ -424,7 +424,7 @@ Light review per PROCESS § 5 — no skeleton exists yet, so step 1 (north-star 
 
 **Exit criteria** (PLAN, as amended in #14): review session held (W0.1.3) ✓; history scanned with
 a working config, all three repos incl. PR refs (W0.7.1) ✓; no-bypass protection on abra-kadabra
-and lalista verified by rejected pushes, also as the agent (W0.6.1/.5) ✓; `v1-final` tagged and
+and the pilot web app verified by rejected pushes, also as the agent (W0.6.1/.5) ✓; `v1-final` tagged and
 verified with `git ls-remote` (W0.4.1) ✓; CLAUDE.md revamp note merged (W0.8.1, PR #44) ✓.
 Owner-deferred steps sit in the M4 exit. **M0 done.**
 
@@ -490,7 +490,7 @@ set — so environment variables may not reach the setup script (to confirm). Ro
 the pin is a PR-branch commit, absent from the clone, and couldn't be fetched without credentials.
 Script fixed to log route-0 reasons and a no-auth reachability check.
 
-**Owner runs 2–3, 2026-10-11:** Run on lalista with the token as an environment variable →
+**Owner runs 2–3, 2026-10-11:** Run on the pilot web app with the token as an environment variable →
 `FETCH FAILED`, `token set:` empty, `github.com reachable: 200`. Docs confirm: environment
 variables are read when Claude Code starts, after the setup script; the setup script runs once
 per environment and is snapshotted (re-run on script/network change or ~7 days). Token moved
@@ -502,7 +502,7 @@ spike result (option D viable with a private source). Residual for W10.4.4: conf
 session started from the cached snapshot still has the plugin. Owner: revoke the spike token
 when done with the environment.
 
-**Owner run 4, 2026-10-11 11:44 — cache reuse:** a second lalista session in the same
+**Owner run 4, 2026-10-11 11:44 — cache reuse:** a second session of the pilot web app in the same
 environment had the plugin installed and enabled from `/opt/devshop-pin`; the hook ran again and
 injected its line; the skill ran. The hook log still held the first session's 10:45 entry, so the
 VM started from the cached filesystem rather than a clean re-run of the setup script. Residual
@@ -521,7 +521,7 @@ runtime hook once during setup — fixed. D-01 gets the refined design as the re
 
 **W10.1.2b final form, 2026-10-11 13:02 (after #46 merged):** the environment setup script is two
 generic lines — clone with the token, then `show HEAD:bootstrap.sh | bash` (root entry point on
-`main`; names no branch, path or version). Owner run on lalista passed: clean clone; token absent
+`main`; names no branch, path or version). Owner run on the pilot web app passed: clean clone; token absent
 from `/opt/devshop.git/config` (remote rewritten); `DEVSHOP: using HEAD (7fa3832…) from
 environment default`; the version's hook ran **once**, at session start (priming fix confirmed);
 probe skill resolved to the same commit.
@@ -540,7 +540,7 @@ identifier rule, FINDINGS cross-ref): core guides · ops/architecture/stack guid
 FRICTION-LOG + TODOS + CLAUDE.md · ROADMAP + CHANGELOG + BUILD-LOG · pipeline skills' incident
 notes · ship-side skills + identifier hunt. ~165 candidate lessons merged and re-judged against the
 bar into 64; single-incident project rules went to "not carried" (14 of them marked ↻ for a
-re-check against home-os in W10.3.2).
+re-check against the 2nd pilot web app in W10.3.2).
 
 **Evidence**
 
@@ -580,17 +580,17 @@ re-check against home-os in W10.3.2).
   hover change, immediate press state, a processing state past a threshold, restore on failure.
   It replaces the ↻ "iOS press cue" row, which now leaves 4 ↻ rows for W10.3.2.
 
-**Next**: W10.3.2 (home-os lessons; re-check the ↻ rows), then W10.3.3 (disposition every FINDINGS
+**Next**: W10.3.2 (lessons from the 2nd pilot web app; re-check the ↻ rows), then W10.3.3 (disposition every FINDINGS
 row; lessons cite FINDINGS ids to speed it up).
 
-## #18 — 2026-10-11 · W10.3.2 lessons harvest from home-os
+## #18 — 2026-10-11 · W10.3.2 lessons harvest from the 2nd pilot web app
 
-**What moved**: W10.3.2 done (PR 50). home-os was attached to the session read-only and mined in
+**What moved**: W10.3.2 done (PR 50). The 2nd pilot web app was attached to the session read-only and mined in
 three passes: root docs, migration headers and CI comments by hand; `specs/` (16 features' gotchas,
 review findings and gate shards) and the PR history (all 57 PRs listed, the 32 non-dependabot
 bodies and comments read; no issues, no human review threads) by two delegated readers, with
 their key claims re-checked against the files. Result in [lessons.md](lessons.md): **10 new
-lessons** (L-73–L-82), home-os evidence added to **15** existing ones, 11 home-os rules recorded
+lessons** (L-73–L-82), the 2nd pilot web app evidence added to **15** existing ones, 11 of its rules recorded
 as not carried.
 
 - New: conditional UI as a state table (L-73, moved up from ↻), server enforces client limits
@@ -609,21 +609,21 @@ as not carried.
 **Evidence**
 
 - 82 lessons, IDs 1–82 each defined once, no dangling `L-nn` references (scripted).
-- No URL, project ref, team slug, deploy or project id, handle or email from home-os in
-  `lessons.md` (grep for host, ref, slug and id shapes plus home-os's own values; the only URL-like
+- No URL, project ref, team slug, deploy or project id, handle or email from the 2nd pilot web app in
+  `lessons.md` (grep for host, ref, slug and id shapes plus the 2nd pilot web app's own values; the only URL-like
   hits are generic: `*.supabase.co`, a loopback address, `http://`/`https://` as scheme words).
 - Prettier clean on the changed docs (same version as base passes).
-- Spot checks of delegated claims against the source: PR 22's body (the speculative race fix),
-  migration 016's header (41 warnings), the advisor gate results in three review files.
+- Spot checks of delegated claims against the source: a PR body (the speculative race fix), a
+  migration header (41 warnings), the advisor gate results in three review files.
 
 **Surprises**
 
-- home-os's custom advisor probe was worse than "couldn't run": the one time it connected it
+- The 2nd pilot web app's custom advisor probe was worse than "couldn't run": the one time it connected it
   reported per-row `auth.uid()` as clean over 20 offending policies. Strong evidence for L-11 and
   for using upstream lints (L-82). Its template copy is v1 (frozen); W10.3.3 dispositions F-VER-04.
-- Rollback blocks, not flaky tests, were home-os's dominant CI cost (~20 cycles over 8+ PRs). The
+- Rollback blocks, not flaky tests, were the 2nd pilot web app's dominant CI cost (~20 cycles over 8+ PRs). The
   owner kept rollbacks in PR 47; L-59 now notes the round-trip must be cheap to run before pushing.
-- Two production bugs (PR 22, PR 24) were hot-fixed by pasting SQL into the production editor, and
+- Two production bugs were hot-fixed by pasting SQL into the production editor, and
   a function existed only in production — the drift class L-24 now covers.
 
 **Next**: W10.3.3 (disposition every FINDINGS row).
@@ -689,7 +689,7 @@ written to [TARGET.md § L3](TARGET.md#l3--a-few-bullets-per-pillar).
 
 - **Reach agreed:** one home per stack, loaded only when touched; stacks detected from the project's
   files (new projects: from the agreed plan); every stack home proven by a fresh scaffold's CI.
-  Cloudflare home comes with the owner's personal website, started in parallel once lalista begins
+  Cloudflare home comes with the owner's personal website, started in parallel once the pilot web app begins
   moving (M2).
 
 - **Shape agreed:** D-10 decided (SemVer from `v2.0.0`, release PR via release-please, CI tags);
@@ -732,7 +732,7 @@ steps), toward the walking skeleton W10.6.
 - **Platform constraints found and checked:** Vercel Hobby blocks deploys of agent-authored commits
   on private repos (F-NEW-18); Supabase Free pauses after ~7 days idle (F-NEW-19). Owner: the
   **fixture moves to Cloudflare** (Workers + D1, Action-based deploy; A-27) — Cloudflare becomes the
-  first stack home; lalista's Vercel/Supabase plans become an M2 precondition. New tasks W10.5.3
+  first stack home; the pilot web app's Vercel/Supabase plans become an M2 precondition. New tasks W10.5.3
   (north-star harness) and W10.6.5 (reviewer eval).
 
 ## #21 — 2026-10-12 · W10.3.3 every finding dispositioned
@@ -880,7 +880,7 @@ variables.
 
 - Current Cloudflare accounts get a `workers.dev` subdomain automatically (Workers & Pages →
   Account details); no "create application" step is needed before an Action-based deploy.
-- Rule for later projects (lalista at M2 if it moves to Cloudflare): **one provider account per
+- Rule for later projects (the pilot web app at M2 if it moves to Cloudflare): **one provider account per
   project**, because provider tokens rarely scope below the account. Same reasoning as one cloud
   environment per project (D-01 revisited).
 - The preview deploy in W10.5's Done-when needs a deploy credential on PR runs, which the
@@ -1548,7 +1548,7 @@ request) and added the `<path>: <pattern>` detect form the decoy needs.
   never touched. The harness now has all five plant types.
 - **Decoy** (this PR): `runtime/stacks/nextjs-supabase/`, detected by `package.json: "next" *:`,
   `next.config.*` or `supabase/config.toml`. Its README says plainly it is a placeholder until
-  lalista's real home at M2, so a real Next.js project that loads it isn't misled.
+  the pilot web app's real home at M2, so a real Next.js project that loads it isn't misled.
 
 **Evidence**
 
@@ -2322,7 +2322,7 @@ merge and the branch's deletion.
 **After the merge** (PR #95, squash): the branch was deleted; the API still serves the probe at its
 commit (same size and blob SHA); `main` has no image files and the screenshot commit is not in its
 history; the owner saw the probe still render in the browser after a forced refresh. **The GitHub
-mobile app showed a broken image** (owner's phone screenshot), and so does an old lalista PR from
+mobile app showed a broken image** (owner's phone screenshot), and so does an old PR of the pilot web app from
 v1: the app can't load a private repo's `github.com/…/raw/…` images, which need the browser's
 session; only drag-and-drop `user-attachments` get signed URLs, and that upload has no API
 (F-NEW-50). Mitigation (owner's pick): `pr-assets.sh` prints each image linked to itself, and
@@ -2540,8 +2540,8 @@ v1's sync had the same job and earned L-49 doing it.
 **What moved**: proposed, reviewed adversarially and approved in chat (owner, 2026-10-13). The
 review changed four things: drift is checked only when the project pins a version (`HEAD` of a week-old
 local copy would report every devshop change, the devshop's own repo included); a `devshop`-owned
-delta is all or nothing; seeds are confirmed as project diffs, never template hunks (L-49's home-os
-regressions); a version newer than the local copy stops the upgrade with "rebuild the environment".
+delta is all or nothing; seeds are confirmed as project diffs, never template hunks (L-49's regressions in the 2nd
+pilot web app); a version newer than the local copy stops the upgrade with "rebuild the environment".
 Built test first: `runtime/project-files.txt` (2 `devshop`, 2 `seed` entries),
 `runtime/scripts/project-files.py` (`check`, `plan`, `apply`), the session-start line, the `upgrade`
 skill. `tests/project-files.test.sh` failed before the script existed; 43 cases pass; 30 of 30
@@ -2882,7 +2882,7 @@ deploy from day one, and the reviewer's browser at M2 rather than M3 (the Playwr
 already there). The ledger keeps its numeric grades as the owner's reading aid and loses its
 linter and the rule of five. M1 is declared met on runs 1 and 2 under D-16's rule; go/no-go = go.
 TARGET's north-star section carries the plain-run definition; Shape 2, Shape 8 and Ship 3 carry
-dated revisions. PLAN's milestones: M2 = the owner's website on Cloudflare, M3 = lalista web, M4 =
+dated revisions. PLAN's milestones: M2 = the owner's website on Cloudflare, M3 = the pilot web app, M4 =
 iOS + Mac + retire v1. W10.9 (M1 close-out, small tasks) and W10.10 (M2) added;
 W10.6.10, W10.6.16, W10.7.1 and W10.7.2 closed; W10.6.11 and W10.6.17 folded into W10.10.7.
 
@@ -2923,7 +2923,7 @@ the diff and the goal, not the author's conclusions. Twelve findings; the ones a
 - **Mechanisms, not sentences:** W10.9.1 names how approval ships (subscribe to the PR, merge on
   the approval event); W10.9.2 cuts the body check to headings; W10.9.6 goes first and also covers
   the `pr` skill, Ship 9 and the handle sweep; W10.10.5 drops synthetic traffic for a static site.
-- **"Do the next step" would have picked W10.8.3** (lalista's React choice): now `[!]` M3, and W10.10
+- **"Do the next step" would have picked W10.8.3** (the pilot web app's React choice): now `[!]` M3, and W10.10
   sits under its own M2 heading. Stale TARGET dates (Mac, Reach 4 and 5, Safety 2 and 11, Shape 7,
   the M1-exit line) carry dated revisions; the runtime text sweep rides W10.9.3.
 - Not applied: nothing of substance; the reviewer's verdict was that the direction is right and the
@@ -2997,7 +2997,7 @@ clone stopped; `check.sh` now refuses a used clone.
 ## #78 — 2026-10-15 · Website session findings: squash only, restart hook, design, findings route
 
 **What moved**: five findings from the website session (W10.10.1), matched first: none in the
-ledger. F-NEW-76 (set-up lacked "squash only", blocking PR 2's screenshots) is fixed in W10.10.1's
+ledger. F-NEW-76 (set-up lacked "squash only", blocking the first UI PR's screenshots) is fixed in W10.10.1's
 owner steps. Fix queue: F-NEW-78 (`/spec` interview skipped) and F-NEW-79 (no route to the design
 skills without a `DESIGN.md`), both intent § 2, 🔥 12.0; F-NEW-77 (the SessionStart hook reads the
 wrong directory after a restart and skips the project checks silently), 🔥 8.0, a mitigation. The
@@ -3023,10 +3023,10 @@ findings ride the PR (D-18).
 
 ## #80 — 2026-10-16 · R-1: the website's first change, recorded
 
-**What moved**: W10.10.1's record, read from the website repo's PRs 2–7 and specs. The home page is
-live on the owner's domain (PR 7's deploy comment, with the version it replaced). Squash-only
+**What moved**: W10.10.1's record, read from the website repo's first six PRs and specs. The first page
+is live on the owner's domain (its deploy comment, with the version it replaced). Squash-only
 merging and required `fast`/`slow` checked from GitHub; the environments only in part. Specs: 177
-lines and 9 owner answers before the go (home page), 87 and 5 (projects). After set-up: 7 approvals,
+lines and 9 owner answers before the go (the first page), 87 and 5 (the second). After set-up: 7 approvals,
 5 gos, 22 decisions, 4 other touchpoints (F-NEW-91; the owner confirming a quote, no row as PR #126
 now prevents it; new F-NEW-97 and 98). W10.10.1 is `[x]` by the owner's call: no cost or limit
 numbers, and the four stay findings. W10.9.1: every PR merged within 3 minutes of approval, but a
@@ -3125,25 +3125,25 @@ is one upgrade PR each. Without a pin gate the devshop repo itself would go red 
 ## #87 — 2026-10-20 · M2 milestone review
 
 **What moved**: [REVIEW-3.md](REVIEW-3.md), PROCESS § 5 at M2's exit, with a fresh adversarial
-review. It changes nothing; its § 9 is the owner's. M2: live site, seven website PRs, the Cloudflare
+review. It changes nothing; its § 9 is the owner's. M2: live site, seven PRs in the website, the Cloudflare
 home and the reviewer's browser are recorded; Lighthouse on the live site, the published link and
 cost per change are not, and R-5 and R-6 have no website record yet. Findings: 31 walked, none
 closed by R-13, five by the Cloudflare home (deleted on the owner's answer), three added: 29 open.
-M3 detailed as W10.11.0–11, entry tasks first: lalista's walls, data safety, the guardrail call-out.
+M3 detailed as W10.11.0–11, entry tasks first: the pilot web app's walls, data safety, the guardrail call-out.
 
 **Surprises**: the upgrade and new-project skills' titles fail `v2.1.0`'s title check. A-11:
 `supabase start` can't pull its images through this environment's network policy. Attaching the
-website and lalista was refused by the session's permission check.
+website and the pilot web app was refused by the session's permission check.
 
 **Next**: the owner's decisions on REVIEW-3 § 9.
 
 ## #88 — 2026-10-20 · M2 met: the website's plain run
 
-**What moved**: the owner declared M2 met. The plain run was website PR #15 (a sun/moon theme
-switch) at `v2.1.1`, read from its session's transcript: 0 friction touchpoints (2 go, 4
+**What moved**: the owner declared M2 met. The plain run was a UI change on the website at
+`v2.1.1`, read from its session's transcript: 0 friction touchpoints (2 go, 4
 decisions, 1 approval), the reviewer passed in one round with its browser, the build's design
 review ran (A, A), Lighthouse on the live site 99/100/100/100, production checked by the owner.
-About $8 and 79 minutes. Publishing the link waits on the owner's projects content. Recorded in
+About $8 and 79 minutes. Publishing the link waits on the owner's content. Recorded in
 REVIEW-3 § 9, W10.10.8, PLAN and the revamp README. Devshop PRs #153 (titles) and #154 (the
 render check tests the outcome, not the control's shape) merged on the way.
 
@@ -3154,7 +3154,7 @@ render check tests the outcome, not the control's shape) merged on the way.
 
 ## #89 — 2026-10-20 · REVIEW-3 § 9 decided
 
-**What moved**: the owner's answers to REVIEW-3 § 9, as D-19. lalista moves to Cloudflare (Workers,
+**What moved**: the owner's answers to REVIEW-3 § 9, as D-19. The pilot web app moves to Cloudflare (Workers,
 OpenNext) and keeps Supabase, free, in a new project with a keep-alive job; it has no real users,
 so its data may be dropped. Its walls come before M3 (W10.11.1), deleting the tokens it won't need
 and rotating only the kept ones. TARGET edited (data safety as Safety 13, Ship 2 and 5, Safety 7
@@ -3163,19 +3163,19 @@ R-14 (W10.11.12); A-15 and A-24 closed, A-28 to A-30 added; the README's status 
 
 **Surprises**: the `intent` skill still interviews every change; TARGET now says features only.
 
-**Next**: W10.11.2, the OpenNext experiment in a lalista session.
+**Next**: W10.11.2, the OpenNext experiment in a session of the pilot web app.
 
-## #90 — 2026-10-21 · W10.11.2: lalista on Cloudflare, proven locally
+## #90 — 2026-10-21 · W10.11.2: the pilot web app on Cloudflare, proven locally
 
-**What moved**: in a lalista cloud session on a scratch clone, devshop `3c7867b`, lalista unchanged.
+**What moved**: in a cloud session of the pilot web app on a scratch clone, devshop `3c7867b`, the pilot web app unchanged.
 OpenNext built the app in 39 s with no source change; `wrangler dev` against a local Supabase served
 every page, sign-in and RLS reads. Bundle 2,444 KiB gzip, under Free's 3 MiB. No image or caching
 change needed. A-11 validated there: `supabase start` 2 min 32 s cold, 39 s warm, `db reset` 39 s.
 A-28's build half holds; its deploy waits for W10.11.6. The owner's calls are on W10.11.1.
 
-**Surprises**: Supabase CLI 2.48.3 rejects lalista's `config.toml`; 2.121.0 works. Images came
+**Surprises**: Supabase CLI 2.48.3 rejects the pilot web app's `config.toml`; 2.121.0 works. Images came
 from Docker Hub, not ghcr (blob host denied) or ECR (quota refusal), so REVIEW-3's "Docker Hub
-fails too" did not repeat. lalista's CI reads its gitleaks pin from `.devcontainer/compose.yml`.
+fails too" did not repeat. The pilot web app's CI reads its gitleaks pin from `.devcontainer/compose.yml`.
 Not tested: Sentry on Workers, Realtime, a real deploy.
 
 **Next**: W10.11.1, the owner's sitting.
@@ -3192,7 +3192,7 @@ home and the build skill say the same; the reviewer's prompt doesn't yet (F-NEW-
 **Surprises**: none. Not checked from here: whether the website's tests all carry the prefix; its
 upgrade to this release shows it.
 
-**Next**: R-14 (W10.11.12), before lalista adopts v2.
+**Next**: R-14 (W10.11.12), before the pilot web app adopts v2.
 
 ## #92 — 2026-10-21 · W10.11.12: the hook after a restart
 

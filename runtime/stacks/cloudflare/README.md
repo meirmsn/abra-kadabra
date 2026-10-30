@@ -81,7 +81,7 @@ get the job's GitHub token only.
   `wrangler delete` or a `--remote` migration from a session. Rollback is the owner's call (TARGET
   Ship 6): the session prepares the revert PR and names the platform rollback from the deploy record.
 - No account ids, database ids, tokens or deploy hosts in the repo's config. The site's public domain
-  may appear in page content when its spec says so (the website: the email, `og:url`, `og:image`).
+  may appear in page content when its spec says so (for example a contact address, `og:url`, `og:image`).
 - **Migrations are append-only and backward-compatible** (expand / contract): add a file under
   `migrations/`, never edit or delete one that is on `main`; the previous app version must keep
   working, so a code rollback never needs a data rollback (D-17 item 2). They run in the deploy job,
@@ -156,7 +156,7 @@ in.
    those two), kept as `CLOUDFLARE_API_TOKEN` in a GitHub environment named `production`, with
    `CLOUDFLARE_ACCOUNT_ID` as a variable or secret beside it, and the environment's deployment
    branch rule set to `main` alone. Check: a workflow job on a branch that asks for `production` is
-   refused by GitHub before any step runs (the website's PR 2 probe), and the deploy job on `main`
+   refused by GitHub before any step runs (the website's first UI PR), and the deploy job on `main`
    succeeds.
 2. **A separate, preview-only Cloudflare account**, whose token (same scopes) is the only one in a
    GitHub environment named `preview`, with its own `CLOUDFLARE_ACCOUNT_ID`. Check: the first PR's
@@ -179,16 +179,14 @@ in.
    it (D-17 item 7, W10.10.5). For a Worker that serves static assets only, the token also needs
    Zone Analytics Read on the site's zone, still read-only and no zone edit rights, to read zone
    analytics (`httpRequestsAdaptiveGroups` by `edgeResponseStatus`): `workersInvocationsAdaptive`
-   counts nothing for it (the website's first canary saw 0 requests while fetching every route), so
-   an error count built on it is blind and only the page fetches catch an outage. The website's
-   follow-up to its PR #10 makes that switch; until it lands, this is the owner's choice, not a
-   verified query. Two facts for the canary and the health check, from the website's PR #10: a
-   canary job can't share the deploy's concurrency group (GitHub keeps one pending job per group and
-   a newly queued one cancels it, so a queued canary could cancel the next merge's waiting deploy);
-   the website keeps the canary out of the group and ends it "superseded" when `/build.txt` shows a
-   newer commit, checked with GitHub's compare API. And a health check holding a secret on
-   `pull_request` runs the PR's own code with it; the website runs it on `pull_request_target` with
-   a checkout of `main`, at a cost: the PR that adds or changes `health.yml` gets no run of its own,
+   counts nothing for it (a first canary saw 0 requests while fetching every route), so an error
+   count built on it is blind and only the page fetches catch an outage. Until a project has made
+   that switch, the zone query is the owner's choice, not a verified query. Two rules for the canary
+   and the health check: a canary job stays out of the deploy's concurrency group (GitHub keeps one
+   pending job per group and a newly queued one cancels it, so a queued canary could cancel the next
+   merge's waiting deploy), and it stops early when production already serves a newer commit,
+   checked with GitHub's compare API. A health check holding a secret on `pull_request` runs the
+   PR's own code with it, so it runs on `pull_request_target` with a checkout of `main`, at a cost: the PR that adds or changes `health.yml` gets no run of its own,
    a broken health on `main` blocks every PR until the owner removes it from the required checks,
    and a re-run reuses the original run's commit of `main`.
 5. **The cloud environment's network allowlist:** besides the registries and GitHub, the production
