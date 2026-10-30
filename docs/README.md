@@ -306,3 +306,6 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
     [probe skill](../kit/notes/revamp/spikes/w10-1-2-install/plugin/skills/devshop-probe/SKILL.md).
   - W10.1.2b thin install: [README](../kit/notes/revamp/spikes/w10-1-2b-thin/README.md) and its
     [probe skill](../kit/notes/revamp/spikes/w10-1-2b-thin/runtime/skills/devshop-probe2/SKILL.md).
+  - M4 Apple VM: what a throwaway macOS VM builds, tests and runs (for
+    [the Apple proposal](../kit/notes/revamp/apple-native-proposal.md)),
+    [README](../kit/notes/revamp/spikes/m4-apple-vm/README.md).
