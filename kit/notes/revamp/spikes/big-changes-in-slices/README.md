@@ -45,4 +45,11 @@ evidence; 1, 4, 5 and 6 are the ones the skill adds.
 
 ## Result
 
-_Filled after the runs, in the commit that adds `outputs/`._
+- **Set-up flaw, found after the first control run:** `scratch-ROADMAP.md`'s comment is the
+  roadmap template as this PR changes it, so the control could read the new slice rule; its
+  entries' shape (line 6) is not evidence. The control is run again on
+  [`scratch-ROADMAP-main.md`](scratch-ROADMAP-main.md), the template's comment as on `main`; the
+  `split` run keeps the new comment, which is what a real project would have.
+- [Control run 1](outputs/control-1.md), verbatim. Graded with the other runs below.
+
+_The second control run, the `split` run and the grading follow in the next commit._
