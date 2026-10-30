@@ -47,9 +47,34 @@ evidence; 1, 4, 5 and 6 are the ones the skill adds.
 
 - **Set-up flaw, found after the first control run:** `scratch-ROADMAP.md`'s comment is the
   roadmap template as this PR changes it, so the control could read the new slice rule; its
-  entries' shape (line 6) is not evidence. The control is run again on
+  entries' shape (line 6) is not evidence. The control was run again on
   [`scratch-ROADMAP-main.md`](scratch-ROADMAP-main.md), the template's comment as on `main`; the
   `split` run keeps the new comment, which is what a real project would have.
-- [Control run 1](outputs/control-1.md), verbatim. Graded with the other runs below.
+- Outputs, verbatim: [control run 1](outputs/control-1.md), [control run 2](outputs/control-2.md),
+  [the `split` run](outputs/split.md). One run each (2026-10-30).
 
-_The second control run, the `split` run and the grading follow in the next commit._
+| Line                                     | Control 1       | Control 2                 | `split`                                 |
+| ---------------------------------------- | --------------- | ------------------------- | --------------------------------------- |
+| 1 nothing specced before the approval    | pass            | pass                      | pass                                    |
+| 2 the skeleton first, deployed, one step | pass, loosely¹  | pass, loosely¹            | pass: the list page, deployed, add an item |
+| 3 vertical, one PR each                  | pass            | pass                      | pass                                    |
+| 4 the design direction second            | miss            | miss                      | pass: slice 2, `DESIGN.md` on the list page |
+| 5 what the whole leaves out; the block's place | miss; asked² | miss; asked²              | pass: six exclusions; "at the top, R-3 to R-8" |
+| 6 the entries follow the template        | not evidence³   | miss: no approval quote, slice 1 not an entry | pass: R-3 to R-8, request and approval quoted, siblings named |
+
+¹ Both controls put "sign-in and the shell" first: it deploys and a member can open its page, but
+nothing can be done once signed in; the skeleton rule's "one end-to-end step" is met only by the
+sign-in itself. ² Both controls ask the owner where the block goes instead of proposing a place,
+and name nothing the whole leaves out. ³ Control 1's entries follow the new slice rule, which it
+read from the scratch roadmap's comment.
+
+**Pass** for the spec's AC-5: the `split` run meets every line; each control misses lines 4 and 5
+(control 2 also line 6). As the grading says, lines 1 to 3 are met by both wordings, so what the
+dry run shows is that the skill adds lines 4 to 6: the design direction's place, the screen's
+exclusions and placement, and the entries' shape. The real check is the first whole app through
+v2.
+
+**Also seen, not graded:** the `split` run folded "light and dark" into the design direction slice
+although the baseline already gives both themes (`ui.md` § The baseline), a reading a real session
+would correct at the spec; it proposed the plan document as `docs/plan.md` and linked it from each
+entry; it skipped `/office-hours` as settled by the request, where both controls proposed it.

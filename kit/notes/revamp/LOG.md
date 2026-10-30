@@ -3202,7 +3202,7 @@ for a UI with no `DESIGN.md`; the owner's approval is a go on shape and order; o
 entries, one per slice; a plan document for a whole app). `intent` hands over to it, interviews
 features only (D-19, F-NEW-122 closed) and is back on its page (60 lines, 588 words from 72 and
 723). `ui.md` § Design direction: `/design-consultation` under an override list, hand-built
-variants on a published page. Dry run on a made-up app: result in the next commit.
+variants on a published page. Dry run on a made-up app: the `split` run meets every grading line; the old wording misses the design slice, the exclusions and the entries' shape.
 
 **Surprises**: the skills check counts the install plugin's `upgrade` description in the
 always-loaded budget; the two new descriptions shrank to land at 200 of 200 words. The UI tooling
