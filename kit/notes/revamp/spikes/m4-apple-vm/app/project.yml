@@ -1,0 +1,42 @@
+# XcodeGen spec for the spike's hello-world SwiftUI app (macOS and iOS), with one UI test each.
+name: Hello
+options:
+  bundleIdPrefix: com.example.spike
+  deploymentTarget:
+    macOS: "14.0"
+    iOS: "17.0"
+settings:
+  base:
+    GENERATE_INFOPLIST_FILE: YES
+    MARKETING_VERSION: "0.1"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"
+    DEVELOPMENT_TEAM: ""
+targets:
+  HelloMac:
+    type: application
+    platform: macOS
+    sources: [Hello]
+    scheme:
+      testTargets: [HelloMacUITests]
+  HelloMacUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources: [HelloUITests]
+    dependencies: [{ target: HelloMac }]
+  HelloiOS:
+    type: application
+    platform: iOS
+    sources: [Hello]
+    settings:
+      base:
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+    scheme:
+      testTargets: [HelloiOSUITests]
+  HelloiOSUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [HelloUITests]
+    dependencies: [{ target: HelloiOS }]
