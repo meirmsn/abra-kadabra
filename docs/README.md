@@ -119,6 +119,9 @@ Projects pin the tag; `/devshop:upgrade` defaults to the newest one. Proven by
   runs and how old its local copy is.
 - [`intent`](../runtime/skills/intent/SKILL.md): the start of every request: its kind, then for a
   change the spec, the adversarial spec review and the owner's "go" (TARGET § L3 Intent).
+- [`split`](../runtime/skills/split/SKILL.md): a request too big for one change is sliced on one
+  screen, approved by the owner, recorded on the roadmap one entry per slice, then specced one at
+  a time ([spec](../specs/big-changes-in-slices.md)).
 - [`build`](../runtime/skills/build/SKILL.md): one writer builds code, tests and docs together,
   loads what applies, and hands over to `pr` (TARGET § L3 Build).
 - [`pr`](../runtime/skills/pr/SKILL.md): the PR for a built change: the body from the template,
@@ -306,6 +309,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
     and a [seeded](../kit/notes/revamp/spikes/a04-reviewer/seeded/spec.md) spec.
   - W10.8.1 UI baseline: the example page as rendered,
     [README](../kit/notes/revamp/spikes/w10-8-ui-baseline/README.md).
+  - The split dry run: [README](../kit/notes/revamp/spikes/big-changes-in-slices/README.md), a
+    made-up app through the old `intent` wording and the new `split` skill, graded before the runs.
   - W10.1.2 install probe: [README](../kit/notes/revamp/spikes/w10-1-2-install/README.md) and its
     [probe skill](../kit/notes/revamp/spikes/w10-1-2-install/plugin/skills/devshop-probe/SKILL.md).
   - W10.1.2b thin install: [README](../kit/notes/revamp/spikes/w10-1-2b-thin/README.md) and its

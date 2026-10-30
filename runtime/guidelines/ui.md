@@ -42,6 +42,32 @@ baseline sets these once (`button`, `.btn`, `:active`, `aria-busy`); don't redo 
 - Either exits 2 when it can't judge; that's never a pass.
 - **The PR** carries the six screenshots it writes (`<width>-<theme>.png`), pinned to the commit.
 
+## Design direction (once per product)
+
+A project with a UI and no `DESIGN.md` gets its design direction as its own slice, the second
+after the walking skeleton and before any slice that styles a page beyond the baseline
+(`devshop:split`; [spec](../../specs/big-changes-in-slices.md)). The skeleton ships on the baseline
+above, so the project has a preview to publish the direction's pages on. The slice runs gstack's
+`/design-consultation` and lands `DESIGN.md` and the theme CSS in one PR, whose spec records
+`DESIGN.md` as the decision (the reviewer judges a change that adds it against the head's).
+
+- **Unattended where it can be:** product questions are answered from the plan document; the
+  owner answers the memorable-thing question and makes the picks. No Codex or other outside voice,
+  no learnings from other projects, and no write to `CLAUDE.md` (the project's own; the skill
+  offers one with `DESIGN.md`).
+- **Published, not opened:** with no design binary the skill writes one self-contained HTML
+  preview with the real faces and palette and runs `open`, which does nothing here. Publish that
+  page where the project's previews publish, or as a private page, and send the owner the link.
+- **Variants, then the pick:** two or three hand-built HTML variants with the real tokens, distinct
+  directions (if the headline could be swapped between two without anyone noticing, they are too
+  alike), on one published page. The owner picks and comments; iterate if asked. The pick and its
+  reasons go in `DESIGN.md`'s decisions log. Variants of a single screen later: only when the
+  owner asks, while that slice is sharpened; the pick then feeds its core flow and states.
+- **`DESIGN.md` as the skill writes it,** with its tokens and the derived theme CSS under the
+  baseline's names (`tokens-check.mjs` and the reviewer read those), and fonts self-hosted as the
+  stack home says. Never gstack's image binary or its comparison board (an OpenAI key and a
+  server on 127.0.0.1, F-NEW-87).
+
 ## Design review (before `ship`)
 
 `build` runs gstack's `/design-review` on every change that changes what a page renders (markup,
