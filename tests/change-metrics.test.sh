@@ -190,7 +190,7 @@ render pr9.json --cost 10.50 --prev-cost 4.25 --prev-posted 2026-01-01T09:35:00Z
 same "AC-12/AC-13 (the made-up session)" "$work/pr9.want" "$work/got"
 echo "ok: AC-12 working and waiting time, the clock after the earlier merge, one count per message across a restart"
 echo "ok: AC-13 answers, the owner's comments and approval only, pushes, red runs with earlier attempts, reviewer rounds and cost"
-echo "ok: metrics-model-and-tokens AC-1, AC-2, AC-3 the tokens once per message in the window, subagents included, turns, context at merge, the models"
+echo "ok: metrics-model-and-tokens AC-1, metrics-model-and-tokens AC-2, metrics-model-and-tokens AC-3 the tokens once per message in the window, subagents included, turns, context at merge, the models"
 # AC-12: the clock starts after the session's earlier merge, which previous-pr names.
 [ "$(python3 "$py" previous-pr --pr 9 --projects "$work/home/.claude/projects")" = 3 ] || fail "AC-12: previous-pr should name PR 3"
 [ -z "$(python3 "$py" previous-pr --pr 3 --projects "$work/home/.claude/projects")" ] || fail "AC-12: nothing was merged before PR 3"
