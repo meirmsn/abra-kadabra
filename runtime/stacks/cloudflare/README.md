@@ -81,7 +81,7 @@ get the job's GitHub token only.
   `wrangler delete` or a `--remote` migration from a session. Rollback is the owner's call (TARGET
   Ship 6): the session prepares the revert PR and names the platform rollback from the deploy record.
 - No account ids, database ids, tokens or deploy hosts in the repo's config. The site's public domain
-  may appear in page content when its spec says so (the website: the email, `og:url`, `og:image`).
+  may appear in page content when its spec says so (for example a contact address, `og:url`, `og:image`).
 - **Migrations are append-only and backward-compatible** (expand / contract): add a file under
   `migrations/`, never edit or delete one that is on `main`; the previous app version must keep
   working, so a code rollback never needs a data rollback (D-17 item 2). They run in the deploy job,

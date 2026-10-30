@@ -45,8 +45,9 @@ This repo is the devshop, being rewritten as v2 (the 2026-Q4 revamp). Work only 
 - **Other projects are described, never named:** outside the README, a project the devshop serves
   appears only by its plain description ("the pilot web app"), its role in the plan, the stack the
   devshop needs to know and the lesson it taught, with the evidence as shape and count ("twice in
-  one project"). Never its name, PR or issue numbers, feature, screen, spec, table or function names,
-  quotes from it, or what its product does for its users; commit messages and PR text included.
+  one project"). Never its name, PR or issue numbers, feature, screen, spec, table or function names
+  or file paths that carry them, quotes from it, or what its product does for its users; commit
+  messages and PR text included.
 - **Walls vs feedback:** GitHub's protection on `main`, required CI, credential scopes and the
   owner's approval are the walls. Hooks and in-session checks are feedback; never describe them
   as a security boundary.

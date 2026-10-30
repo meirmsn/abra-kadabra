@@ -63,12 +63,12 @@ the owner uses the devshop on a change they want, and four things are graded fro
 owner, and attaching the website here was refused by the session's permission check. What exists
 is the first change's record (W10.10.1), graded as D-17 grades it:
 
-| Graded                                   | First change (PRs 2–7)                                                                    |
-| ---------------------------------------- | ----------------------------------------------------------------------------------------- |
-| The change is what was asked             | The owner merged each; no record of their judgement beyond the approval                   |
-| A reviewer verdict for the merged head   | Not checked here (the PR comments in the website are not read)                            |
-| Nothing wrong reached production         | Deploy comments "Live in production"; the canary exists since PR #10, after these changes |
-| Touchpoints decisions, go, approval only | 4 other touchpoints, now findings                                                         |
+| Graded                                   | First change (six PRs)                                                  |
+| ---------------------------------------- | ----------------------------------------------------------------------- |
+| The change is what was asked             | The owner merged each; no record of their judgement beyond the approval |
+| A reviewer verdict for the merged head   | Not checked here (the PR comments in the website are not read)          |
+| Nothing wrong reached production         | Deploy comments "Live in production"; the canary came in a later change |
+| Touchpoints decisions, go, approval only | 4 other touchpoints, now findings                                       |
 
 **Proposed:** the M2 proof is one plain run on the website at `v2.1.x`: the upgrade to `v2.1.1`
 (after the title fix, § 9 item 2), then a UI change the owner wants. It grades the four things, and
@@ -298,9 +298,9 @@ website repo could not be attached), at the devshop's `v2.1.1`:
 
 | Graded                                 | Result                                                                                                |
 | -------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| The change is what was asked           | The owner asked, chose across four decisions (a two-state slider, its lens), said go and approved     |
+| The change is what was asked           | The owner asked, made four decisions, said go and approved                                            |
 | A reviewer verdict for the merged head | Pass, round 1, 0 blocking, 1 low; the reviewer's browser ran (no console errors at 375, 768, 1280 px) |
-| Nothing wrong reached production       | The owner checked PR #15's deploy and canary comments ("looks good")                                  |
+| Nothing wrong reached production       | The owner checked the change's deploy and canary comments and was satisfied                           |
 | Touchpoints                            | 2 go (the request, the go), 4 decisions in 3 messages, 1 approval, 0 friction                         |
 
 Also recorded: the session start line named `v2.1.1` and ran the contract check (R-13); the
