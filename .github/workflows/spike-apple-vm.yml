@@ -118,15 +118,15 @@ jobs:
         working-directory: kit/notes/revamp/spikes/m4-apple-vm/app
         run: |
           set -o pipefail
-          # Runs 1-2 sat over 15 min in this step with the output filtered; run 3 shows each stage.
+          # Run 2 passed in 4 min 15 s cold. Run 4 picked the device from -showdestinations, which
+          # listed only a placeholder; this is run 2's selection again, timed stage by stage.
           xcodebuild -version
-          xcodebuild -showdestinations -project Hello.xcodeproj -scheme HelloiOS | grep 'iOS Simulator' | head -5
-          dev=$(xcodebuild -showdestinations -project Hello.xcodeproj -scheme HelloiOS | grep 'platform:iOS Simulator' | grep -v 'placeholder' | head -1 | sed -E 's/.*id:([^,]+),.*/\1/')
+          dev=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(x["udid"] for k,v in d.items() if "iOS" in k for x in v if x["name"].startswith("iPhone")))')
           echo "simulator $dev"
           time xcrun simctl boot "$dev"
           time xcrun simctl bootstatus "$dev"
           time xcodebuild build-for-testing -project Hello.xcodeproj -scheme HelloiOS -destination "id=$dev" \
-            CODE_SIGNING_ALLOWED=NO 2>&1 | tail -5
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tail -3
           time xcodebuild test-without-building -project Hello.xcodeproj -scheme HelloiOS -destination "id=$dev" \
             -resultBundlePath "$RUNNER_TEMP/ios.xcresult" -test-timeouts-enabled YES \
             -maximum-test-execution-time-allowance 180 2>&1 | grep -E 'UITEST|Test Case|error|\*\*' | tail -40
