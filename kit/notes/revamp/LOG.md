@@ -3194,6 +3194,22 @@ upgrade to this release shows it.
 
 **Next**: R-14 (W10.11.12), before the pilot web app adopts v2.
 
+## #93 — 2026-10-30 · A big change is built as slices
+
+**What moved**: [specs/big-changes-in-slices.md](../../../specs/big-changes-in-slices.md): a `split`
+skill before any spec (the walking skeleton first, vertical slices, the design direction second
+for a UI with no `DESIGN.md`; the owner's approval is a go on shape and order; ordinary roadmap
+entries, one per slice; a plan document for a whole app). `intent` hands over to it, interviews
+features only (D-19, F-NEW-122 closed) and is back on its page (60 lines, 588 words from 72 and
+723). `ui.md` § Design direction: `/design-consultation` under an override list, hand-built
+variants on a published page. Dry run on a made-up app: result in the next commit.
+
+**Surprises**: the skills check counts the install plugin's `upgrade` description in the
+always-loaded budget; the two new descriptions shrank to land at 200 of 200 words. The UI tooling
+strategy session's proposal overlaps; the seam went to it (it keeps its four specs).
+
+**Next**: that session's spec A; W10.11.1, then W10.11.6.
+
 ## #92 — 2026-10-21 · W10.11.12: the hook after a restart
 
 **What moved**: F-NEW-77's root cause: the dispatcher trusted `${CLAUDE_PROJECT_DIR:-.}` to be the
