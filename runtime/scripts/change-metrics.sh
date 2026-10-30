@@ -80,7 +80,7 @@ earlier=$(python3 "$here/change-metrics.py" previous-pr --pr "$pr" ${merged_at:+
   cnr "can't read the transcript"
 if [ -n "$earlier" ]; then
   list "repos/$slug/issues/$earlier/comments?per_page=100" |
-    jq --arg me "$me" '[.[] | select(.user.login == $me and ((.body // "") | startswith("<!-- devshop-metrics")))] | first // {}' \
+    jq --arg me "$me" '[.[] | select(.user.login == $me and ((.body // "") | test("^<!-- devshop-metrics cost:[0-9.]+ -->")))] | first // {}' \
     >"$work/prev.json"
   was=$(jq -r '(.body // "") | capture("^<!-- devshop-metrics cost:(?<c>[0-9.]+) -->").c // "unknown"' "$work/prev.json")
   was_at=$(jq -r '.created_at // "unknown"' "$work/prev.json")

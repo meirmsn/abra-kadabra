@@ -61,7 +61,9 @@ answer to each on 2026-10-30 ("Models on Cost, Tokens line", "Both", "Same windo
   same comment whose marker gives `--prev-cost`, `unknown` when it has none, like `--prev-cost`.
   `--cost` minus `--prev-cost` already measures that window, so the two lines explain each other,
   and the Tokens line says which window it is: "the session since its comment on PR #163", or "the
-  whole session". Known gaps, inherited from the cost rule and not closed here: a PR the owner
+  whole session" (a render given `--prev-posted` on a transcript that names no earlier merge, which
+  `change-metrics.sh` never does, says "the session since its previous comment"; Claude, from the
+  reviewer's first round, 2026-10-30). Known gaps, inherited from the cost rule and not closed here: a PR the owner
   merged with no session merge before it bills the whole session; a comment posted while the
   earlier PR's is still waiting gets an unknown start; the dollars start at the `get_session` read
   and the tokens at the comment's time, so the message that ran `post` is in one comment's tokens
@@ -139,8 +141,9 @@ session since its comment on PR #163`. Units, rounding half-up: under 1,000 plai
 - **AC-2** The Tokens line continues with "<n> turns (<m> wake-ups)", the owner messages plus wakes
   of the session's own files in the window and the wakes among them, then "<context> context at
   merge", the input side of the last message with usage at or before `merged_at` (one exactly at it
-  counts; one after it never), then the window: "the session since its comment on PR #<n>" with
-  `--prev-posted`, else "the whole session"; the parts are separated by " · "
+  counts; one after it never; a subagent's message never), then the window: "the session since its
+  comment on PR #<n>" with `--prev-posted` ("the session since its previous comment" when the
+  transcript names no earlier merge), else "the whole session"; the parts are separated by " · "
 - **AC-3** The Cost line reads "$<total> ($<session> session on <models> + $<reviewer> reviewer on
   <models>)": the session's models are the window's distinct `message.model` values in first-seen
   order, comma separated, else "an unknown model"; the reviewer's "on <models>" appears only with

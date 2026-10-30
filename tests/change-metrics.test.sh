@@ -121,7 +121,12 @@ with open(f"{w}/home/.claude/projects/-new-dir/{S}/subagents/agent-abc.jsonl", "
          "origin": {"kind": "human"}, "message": {"content": "the subagent's prompt"}},
         {"type": "assistant", "uuid": "sub-2", "isSidechain": True, "sessionId": S, "timestamp": "2026-01-01T10:05:01Z",
          "message": {"id": "msg_sub", "model": "model-b-example", "stop_reason": "end_turn", "content": [{"type": "text", "text": "."}],
-                     "usage": {"input_tokens": 0, "output_tokens": 500, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0}}}])
+                     "usage": {"input_tokens": 0, "output_tokens": 500, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0}}},
+        # At the merge too, after the session's own message of that second: not the context at merge
+        # (metrics-model-and-tokens AC-2), which is what the session itself re-reads.
+        {"type": "assistant", "uuid": "sub-3", "isSidechain": True, "sessionId": S, "timestamp": "2026-01-01T10:40:00Z",
+         "message": {"id": "msg_sub2", "model": "model-b-example", "stop_reason": "end_turn", "content": [{"type": "text", "text": "."}],
+                     "usage": {"input_tokens": 0, "output_tokens": 0, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0}}}])
 bot, agent = {"login": "github-actions[bot]", "type": "Bot"}, {"login": "agent-example", "type": "User"}
 own, other = {"login": "owner-example", "type": "User"}, {"login": "someone-else", "type": "User"}
 deploy = lambda st, at, text: {"id": 99, "user": bot, "created_at": "2026-01-01T10:40:05Z", "body": f"<!-- devshop-deploy -->\n<!-- state:{st} run:5/1 at:2026-01-01T{at}Z -->\n{text}"}
@@ -257,6 +262,11 @@ python3 "$py" render --pr-data "$work/pr9.json" --cost 1 --ci "$template" --now 
   || fail "AC-14: render with a plain transcript failed"
 grep -qF -- '- **Cost:** $1.00 ($1.00 session on an unknown model + $0.00 reviewer)' "$work/got" || { cat "$work/got" >&2; fail "AC-14: no REVIEW: line in a transcript means no reviewer ran; metrics-model-and-tokens AC-3: no rounds, no reviewer model"; }
 grep -qxF -- '- **Tokens:** unknown tokens · 1 turn (0 wake-ups) · unknown context at merge · the whole session' "$work/got" || { cat "$work/got" >&2; fail "metrics-model-and-tokens AC-4: a transcript without usage shows its turns, the rest unknown"; }
+# metrics-model-and-tokens AC-2: a window start on a transcript that names no earlier PR (a direct render; post
+# passes the time only when the transcript names one).
+python3 "$py" render --pr-data "$work/pr9.json" --cost 1 --ci "$template" --now 2026-01-01T10:46:00Z --projects "$work/plain" \
+  --prev-posted 2026-01-01T09:35:00Z >"$work/got" || fail "metrics-model-and-tokens AC-2: render with a window start on a plain transcript failed"
+grep -qF -- 'unknown context at merge · the session since its previous comment' "$work/got" || { cat "$work/got" >&2; fail "metrics-model-and-tokens AC-2: a window with no PR to name"; }
 grep -qF -- '2 red CI runs · no reviewer rounds' "$work/got" || { cat "$work/got" >&2; fail "AC-14: no reviewer rounds"; }
 # metrics-model-and-tokens AC-4: an unknown previous comment time has no window; a bad one can't run.
 render pr9.json --cost 10.50 --prev-cost 4.25 --prev-posted unknown
@@ -328,6 +338,8 @@ routes = [
     (r"pulls/(\d+)$", lambda m: data["pr"]),
     (r"issues/9/comments$", lambda m: data["comments"]),
     (r"issues/3/comments$", lambda m: [{"user": {"login": "someone-else"}, "created_at": "2026-01-01T09:00:00Z", "body": "<!-- devshop-metrics cost:99.0000 -->\nplanted"},
+                                       # The session's own marker in another shape (no cost) is not the comment: the next one is.
+                                       {"user": {"login": "agent-example"}, "created_at": "2026-01-01T09:10:00Z", "body": "<!-- devshop-metrics -->\nodd"},
                                        {"user": {"login": "agent-example"}, "created_at": "2026-01-01T09:35:00Z", "body": "<!-- devshop-metrics cost:4.2500 -->\n**How this change went**"}]),
     (r"pulls/\d+/reviews$", lambda m: data["reviews"]),
     (r"pulls/\d+/comments$", lambda m: data["review_comments"]),

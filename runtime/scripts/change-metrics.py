@@ -418,6 +418,7 @@ def render(a):
 
     entries = transcript(a.projects, a.session)
     sess = Session(entries)
+    own = Usage(entries)  # the session's own messages: the context at merge is theirs
     usage = Usage(entries + subagents(a.projects, a.session))
     start = sess.start(pr.get("number"), merged)
     if start and start > merged:
@@ -481,8 +482,10 @@ def render(a):
             counts_txt = "unknown tokens"
         turns = [t for t, _ in sess.owner if (win_start is None or t > win_start) and t <= now]
         wakes = [t for t in sess.wakes if (win_start is None or t > win_start) and t <= now]
-        at_merge = [c for t, _, c in usage.messages if c and t <= merged]
+        at_merge = [c for t, _, c in own.messages if c and t <= merged]
         context = count(sum(at_merge[-1][i] for i in (0, 2, 3))) if at_merge else "unknown"
+        # The window's name: the PR the session merged before this one (change-metrics.sh passes
+        # --prev-posted only when there is one; a render without that knowledge names no PR).
         earlier = sess.earlier_merges(pr.get("number"), merged)
         if win_start is None:
             window_txt = "the whole session"
