@@ -29,6 +29,11 @@ understand what this means, right?"
 
 ## Decisions
 
+- **The README is the one exception.** While this change was open, `main` gained a README for
+  visitors that names and links the owner's projects, and CLAUDE.md's identifiers bullet says so
+  ("The one exception: the README names and links the owner's projects"). The README keeps its
+  names and links; the new bullet applies outside it. Changed after the go: the owner chose to keep
+  the exception: "1" (owner, 2026-10-30); rejected: sweeping the README too.
 - **No names. Other projects appear only by a fixed plain description.** Someone reading this repo
   can't know what a project's name means (owner, 2026-10-30). The descriptions:
   - **"the pilot web app"** for the M3 project (proposed by Claude and accepted at the go);
@@ -108,11 +113,12 @@ understand what this means, right?"
   - quotes from the project;
   - descriptions of its product or users.
 
-  It covers commit messages and PR text. The identifiers bullet no longer says "A project's name
+  It covers commit messages and PR text, and applies outside the README. The identifiers bullet no
+  longer says "A project's name
   plus enough context to explain a change is fine" — verified by review: read both bullets.
 
 - **AC-2** A case-insensitive `git grep` for either of the two project names (hyphen, space,
-  underscore or no separator) finds nothing in the tree. The command is in the PR body, not in this
+  underscore or no separator) finds nothing in the tree outside `README.md`. The command is in the PR body, not in this
   repo, since it holds the names.
 - **AC-3** `git grep -n -i -E "website('s)? +PRs?\b" -- . ':!specs/' specs/other-projects-detail.md`
   finds nothing (merged specs excluded, owner 2026-10-30).

@@ -7,12 +7,48 @@ reachable from this page through links, or when a relative link or `#anchor` is 
 
 ## The repo
 
-- [README.md](../README.md): what the devshop is, its status, and the repo layout.
+- [README.md](../README.md): what the devshop is, for a visitor: status, what it does, how it works,
+  the build log and its limits. The repo layout is below.
+- [LICENSE](../LICENSE): MIT.
 - [CLAUDE.md](../CLAUDE.md): rules for Claude working in this repo.
 - [ROADMAP.md](../ROADMAP.md): what the owner decided will happen to the devshop, in priority
   order; the top `Open` entry is the next task.
 - [FINDINGS.md](../FINDINGS.md): what Claude noticed and didn't fix, kept to see what comes back
   ([spec](../specs/findings-and-roadmap.md)).
+
+### Layout
+
+| Path                                       | What                                                                                                                                                 |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`CLAUDE.md`](../CLAUDE.md)                | Rules for Claude working in this repo (always loaded; kept short)                                                                                    |
+| [`scripts/`](../scripts)                   | Tested scripts for mechanical steps, incl. CI's two tiers (`check-fast.sh`, `check-slow.sh`)                                                         |
+| [`package.json`](../package.json)          | Pins the repo's own Node tools (Prettier, Playwright); `npm ci` installs them                                                                        |
+| [`tests/`](../tests)                       | Tests; `tests/run.sh [fast\|slow]` runs a tier or all. Named after what they test                                                                    |
+| [`.gitleaks.toml`](../.gitleaks.toml)      | Secret-scanning config, proven by `tests/gitleaks.test.sh`                                                                                           |
+| [`.github/`](../.github)                   | CI (`workflows/ci.yml`), the release button (`workflows/release.yml`) and `CODEOWNERS` (the owner approves every change)                             |
+| [`bootstrap.sh`](../bootstrap.sh)          | Entry point the cloud environments' setup script runs; its path must not change                                                                      |
+| [`install/`](../install/README.md)         | The install: bootstrap, plugin, dispatcher, the gstack and tools pins                                                                                |
+| [`runtime/`](../runtime)                   | What `.devshop-version` selects: `skills/`, `hooks/`, `git-hooks/`, `scripts/`, `reviewer/`, and `project-contract.txt`, what every project provides |
+| [`kit/notes/revamp/`](../kit/notes/revamp) | Revamp plan, decisions, findings, lessons, log, and the spikes (kept as notes)                                                                       |
+| [`docs/images/`](images)                   | The social preview image for the repository's settings                                                                                               |
+
+Stack homes (`runtime/stacks/<name>/`) and discipline guidelines (`runtime/guidelines/`) live in
+`runtime/`, because only `runtime/` reaches a project's session. The Cloudflare home and the UI
+guideline ship; `nextjs-supabase/` is a placeholder until the pilot web app (M3).
+
+**v1** is frozen at the `v1-final` tag and is no longer on `main`. It is reference only (the revamp
+notes cite it as evidence), never instructions. To read it:
+
+```sh
+git fetch origin tag v1-final
+git worktree add ../v1 v1-final
+```
+
+**A new project** follows [the owner's steps](../runtime/templates/new-project-steps.md): part 1
+(the repo, its merge settings, the agent as a collaborator, the cloud environment) before the first
+session; then, in that session, ask to set up the new project. Its `new-project` skill places the
+devshop's files and opens the first PR with green CI, and part 2 (protecting `main`) comes in that
+PR's body ([spec](../specs/new-project.md)).
 
 ## Releases
 
