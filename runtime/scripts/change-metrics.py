@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """How a change went: the metrics comment the session posts on its merged PR once the PR's deploy comment
-reaches a final state (specs/deploy-and-metrics-comments.md, part 2). Computes every number; the model
-passes only the session's cost, which no script can read. change-metrics.sh gathers the PR data and posts.
+reaches a final state (specs/deploy-and-metrics-comments.md, part 2; the models and the token split:
+specs/metrics-model-and-tokens.md). Computes every number; the model passes only the session's cost, which
+no script can read. change-metrics.sh gathers the PR data and posts.
 
 Usage:
-  change-metrics.py render --pr-data FILE --cost USD|unknown [--prev-cost USD|unknown] [--ci FILE]
-                           [--verdicts DIR]
+  change-metrics.py render --pr-data FILE --cost USD|unknown [--prev-cost USD|unknown]
+                           [--prev-posted ISO|unknown] [--ci FILE] [--verdicts DIR]
                            [--now ISO] [--projects DIR] [--session ID]
   change-metrics.py previous-pr --pr N [--merged TIME] [--projects DIR] [--session ID]
 render prints the comment. Exit 0 = printed; 3 = not yet: the deploy comment isn't final and less than
@@ -17,6 +18,12 @@ Sources:
   - The transcript: every <session>.jsonl under --projects (default ~/.claude/projects), merged by entry
     uuid (a restarted container resumes the session into a new file holding the old entries); the
     session is --session, else the newest transcript's. None found: the session's numbers are unknown.
+    The tokens and models also read the session's subagents, <session>/subagents/agent-*.jsonl, whose
+    user entries are no owner messages or wakes. One API message is one assistant entry per content
+    block, each repeating its message.id and usage: counted once per id.
+  - --prev-posted, the time of the session's previous metrics comment: the tokens and the turns cover
+    the session since then (the window --cost minus --prev-cost covers), or the whole session without
+    it; "unknown" makes the Tokens line unknown.
   - --pr-data, written by change-metrics.sh: {"pr": the PR, "comments", "reviews", "review_comments",
     "runs": the branch's pull_request runs of the ci workflow (those from the PR's opening to its merge
     count), each with "attempts" (earlier attempts'
@@ -44,6 +51,8 @@ FINAL = ("live", "failed", "not-deployed", "superseded")
 GIVE_UP = timedelta(minutes=60)
 REVIEW = re.compile(r"^REVIEW: ([a-z-]+) · round (\d+) · .* · (\S+)$", re.M)
 FOOTER_COST = re.compile(r"· \$([0-9.]+)</sub>")
+FOOTER_MODEL = re.compile(r"Independent reviewer · devshop [^·]* · ([^·]+?) · session ")
+USAGE = ("input_tokens", "output_tokens", "cache_creation_input_tokens", "cache_read_input_tokens")
 
 
 class CantRun(Exception):
@@ -59,14 +68,35 @@ def ts(s):
 # --- the transcript ---
 
 
-def transcript(projects, session):
+def session_id(projects, session):
+    """The session: --session, else the newest transcript's; None when there is none."""
+    if session:
+        return session
     files = glob.glob(os.path.join(projects, "*", "*.jsonl"))
+    if not files:
+        return None
+    return os.path.splitext(os.path.basename(max(files, key=os.path.getmtime)))[0]
+
+
+def transcript(projects, session):
+    """The session's own entries, merged by uuid across its files."""
+    session = session_id(projects, session)
     if not session:
-        if not files:
-            return []
-        session = os.path.splitext(os.path.basename(max(files, key=os.path.getmtime)))[0]
+        return []
+    return read_entries(glob.glob(os.path.join(projects, "*", f"{session}.jsonl")))
+
+
+def subagents(projects, session):
+    """The entries of the session's subagents' transcripts (usage and models only are read from them)."""
+    session = session_id(projects, session)
+    if not session:
+        return []
+    return read_entries(glob.glob(os.path.join(projects, "*", session, "subagents", "agent-*.jsonl")))
+
+
+def read_entries(files):
     seen, entries = set(), []
-    for f in sorted(p for p in files if os.path.basename(p) == f"{session}.jsonl"):
+    for f in sorted(files):
         with open(f, encoding="utf-8") as fh:
             for line in fh:
                 try:
@@ -180,6 +210,43 @@ class Session:
         return measure(subtract([(start, end)], holes)) if end > start else 0.0
 
 
+class Usage:
+    """The API messages of the assistant entries given (the session's and its subagents'), one per
+    message.id (an entry with none is its own message): (time of the first entry, model, counts or None),
+    counts being (input, output, cache writes, cache reads)."""
+
+    def __init__(self, entries):
+        self.messages, seen = [], set()
+        for e in sorted(entries, key=lambda e: e["timestamp"]):
+            if e.get("type") != "assistant":
+                continue
+            m = e.get("message") or {}
+            key = m.get("id") or ("entry", e.get("uuid"), e["timestamp"])
+            if key in seen:
+                continue
+            seen.add(key)
+            u = m.get("usage")
+            counts = None
+            if isinstance(u, dict):
+                try:
+                    counts = tuple(int(u.get(k) or 0) for k in USAGE)
+                except (TypeError, ValueError):
+                    counts = None
+            model = m.get("model")
+            self.messages.append((ts(e["timestamp"]), model if isinstance(model, str) and model else None, counts))
+
+    def window(self, start, end):
+        return [x for x in self.messages if (start is None or x[0] > start) and x[0] <= end]
+
+
+def models_of(messages):
+    out = []
+    for _, model, _ in messages:
+        if model and model not in out:
+            out.append(model)
+    return out
+
+
 def merged_pr(name, inp):
     """The PR number a tool call merges, or None."""
     if name.endswith("merge_pull_request"):
@@ -253,8 +320,9 @@ def owners(pr, reviews, comments):
 
 
 def reviewer_from_pr(comments):
-    """(outcomes, costs) from the reviewer's verdict comments on the PR (ship.sh posts only passes)."""
-    outcomes, costs = [], []
+    """(outcomes, costs, models) from the reviewer's verdict comments on the PR (ship.sh posts only
+    passes); the model is the footer's third field."""
+    outcomes, costs, models = [], [], []
     for c in comments:
         body = c.get("body") or ""
         m = re.match(r"<!-- devshop-review (\{.*?\}) -->", body)
@@ -266,7 +334,9 @@ def reviewer_from_pr(comments):
             outcomes.append(None)
         f = FOOTER_COST.search(body)
         costs.append(float(f.group(1)) if f else None)
-    return outcomes, costs
+        f = FOOTER_MODEL.search(body)
+        models.append(f.group(1).strip() if f else None)
+    return outcomes, costs, models
 
 
 # --- rendering ---
@@ -294,6 +364,24 @@ def money(x):
     return "unknown" if x is None else f"${x:.2f}"
 
 
+def count(n):
+    """A token count: plain under 1,000; thousands from there ("36k"); millions with one decimal from
+    999,500 ("1M", "3.2M"); half-up throughout (specs/metrics-model-and-tokens.md)."""
+    if n is None:
+        return "unknown"
+    if n < 1000:
+        return str(n)
+    k = (n + 500) // 1000
+    if k < 1000:
+        return f"{k}k"
+    whole, tenth = divmod((n + 50000) // 100000, 10)
+    return f"{whole}.{tenth}M" if tenth else f"{whole}M"
+
+
+def on(models):
+    return " on " + (", ".join(models) if models else "an unknown model")
+
+
 def render(a):
     try:
         with open(a.pr_data, encoding="utf-8") as fh:
@@ -303,6 +391,14 @@ def render(a):
         raise CantRun(f"can't read the PR data {a.pr_data}: {e}")
     cost = parse_cost(a.cost, "--cost")
     prev_cost = parse_cost(a.prev_cost, "--prev-cost") if a.prev_cost is not None else 0.0
+    prev_posted = None  # the tokens' window starts at the session's start
+    if a.prev_posted == "unknown":
+        prev_posted = "unknown"
+    elif a.prev_posted is not None:
+        try:
+            prev_posted = ts(a.prev_posted)
+        except ValueError:
+            raise CantRun(f"--prev-posted is not a time or 'unknown': {a.prev_posted}")
     merged = ts(pr.get("merged_at"))
     if not merged:
         raise CantRun(f"PR #{pr.get('number')} isn't merged")
@@ -322,6 +418,8 @@ def render(a):
 
     entries = transcript(a.projects, a.session)
     sess = Session(entries)
+    own = Usage(entries)  # the session's own messages: the context at merge is theirs
+    usage = Usage(entries + subagents(a.projects, a.session))
     start = sess.start(pr.get("number"), merged)
     if start and start > merged:
         start = None
@@ -368,18 +466,53 @@ def render(a):
     pr_comments += sum(1 for r in reviews if r["user"].get("login") in who and r.get("state") != "APPROVED" and (r.get("body") or "").strip() and before(r, "submitted_at"))
     approvals = sum(1 for r in reviews if r["user"].get("login") in who and r.get("state") == "APPROVED")
 
+    # Tokens: the session since its previous metrics comment, the window the cost difference covers
+    # (specs/metrics-model-and-tokens.md).
+    win_start = None if prev_posted in (None, "unknown") else prev_posted
+    messages = usage.window(win_start, now)
+    session_models = models_of(messages)  # with no window start, the whole session's: names, not counts
+    if not entries or prev_posted == "unknown":
+        tokens_txt = "unknown"
+    else:
+        with_usage = [c for _, _, c in messages if c]
+        if with_usage:
+            sums = [sum(c[i] for c in with_usage) for i in range(4)]
+            counts_txt = f"{count(sums[0])} input · {count(sums[1])} output · {count(sums[2])} cache writes · {count(sums[3])} cache reads"
+        else:
+            counts_txt = "unknown tokens"
+        turns = [t for t, _ in sess.owner if (win_start is None or t > win_start) and t <= now]
+        wakes = [t for t in sess.wakes if (win_start is None or t > win_start) and t <= now]
+        at_merge = [c for t, _, c in own.messages if c and t <= merged]
+        context = count(sum(at_merge[-1][i] for i in (0, 2, 3))) if at_merge else "unknown"
+        # The window's name: the PR the session merged before this one (change-metrics.sh passes
+        # --prev-posted only when there is one; a render without that knowledge names no PR).
+        earlier = sess.earlier_merges(pr.get("number"), merged)
+        if win_start is None:
+            window_txt = "the whole session"
+        elif earlier:
+            window_txt = f"the session since its comment on PR #{max(earlier)[1]}"
+        else:
+            window_txt = "the session since its previous comment"
+        tokens_txt = " · ".join([counts_txt, f"{n_of(len(turns) + len(wakes), 'turn', 'turns')} ({n_of(len(wakes), 'wake-up', 'wake-ups')})",
+                                 f"{context} context at merge", window_txt])
+
     # Cost
     session_cost = cost - prev_cost if cost is not None and prev_cost is not None else None
     rounds, corrupt = review_rounds(a.verdicts, (pr.get("head") or {}).get("ref"), sess, start, merged)
     reviewer = None
     if rounds and not corrupt:
-        costs = [c for _, c in rounds]
+        costs = [c for _, c, _ in rounds]
         reviewer = sum(costs) if all(c is not None for c in costs) else None
-    pr_outcomes, pr_costs = reviewer_from_pr(comments)
+    pr_outcomes, pr_costs, pr_models = reviewer_from_pr(comments)
     if reviewer is None and not corrupt and pr_costs and all(c is not None for c in pr_costs):
         reviewer = sum(pr_costs)  # a round's verdict file is gone: the PR's footers stand in
     if not rounds and pr_outcomes:
-        rounds = [(o, None) for o in pr_outcomes]
+        rounds = [(o, None, m) for o, m in zip(pr_outcomes, pr_models)]
+    # The reviewer's models: the verdict files' when any names one, else the footers'.
+    reviewer_models = []
+    for m in [m for _, _, m in rounds if m] or [m for m in pr_models if m]:
+        if m not in reviewer_models:
+            reviewer_models.append(m)
     # No rounds: none ran when the transcript was read from the start; otherwise unknown.
     measured = bool(start)
     if not rounds and measured and not corrupt:
@@ -401,7 +534,7 @@ def render(a):
         pushes_txt = n_of(len({r.get("head_sha") for r in runs}), "push", "pushes")
         red = sum(1 for r in runs if any(c in ("failure", "timed_out") for c in [r.get("conclusion")] + list(r.get("attempts") or [])))
         red_txt = n_of(red, "red CI run", "red CI runs")
-    passed = sum(1 for o, _ in rounds if o == "pass")
+    passed = sum(1 for o, _, _ in rounds if o == "pass")
     if rounds:
         review_txt = f"reviewer passed {passed} of {len(rounds)}"
     else:
@@ -413,7 +546,8 @@ def render(a):
         "",
         f"- **Time:** {' · '.join(time_parts)}",
         f"- **Your input:** {answers_txt} · {n_of(pr_comments, 'PR comment', 'PR comments')} · {n_of(approvals, 'approval', 'approvals')}",
-        f"- **Cost:** {money(total_cost)} ({money(session_cost)} session + {money(reviewer)} reviewer)",
+        f"- **Cost:** {money(total_cost)} ({money(session_cost)} session{on(session_models)} + {money(reviewer)} reviewer{on(reviewer_models) if rounds and reviewer is not None else ''})",
+        f"- **Tokens:** {tokens_txt}",
         f"- **Quality:** {pushes_txt} · {red_txt} · {review_txt}",
     ]
     return 0, "\n".join(lines)
@@ -430,7 +564,7 @@ def read_verdict(path):
 
 
 def review_rounds(vdir, branch, sess, start, merged):
-    """([(outcome, cost or None)], corrupt) for the reviewer's rounds of this change: the numbered
+    """([(outcome, cost or None, model or None)], corrupt) for the reviewer's rounds of this change: the numbered
     verdict files in the branch's directory created from the start to a minute after the merge, plus the
     files the transcript's REVIEW: lines name in that window, each once. A could-not-run file is no
     round. corrupt: a file in the window that can't be read, which makes the cost unknown."""
@@ -461,7 +595,8 @@ def review_rounds(vdir, branch, sess, start, merged):
             continue
         who = v.get("reviewer")
         c = who.get("cost_usd") if isinstance(who, dict) else None
-        rounds.append((v.get("outcome"), float(c) if isinstance(c, (int, float)) else None))
+        m = who.get("model") if isinstance(who, dict) else None
+        rounds.append((v.get("outcome"), float(c) if isinstance(c, (int, float)) else None, m if isinstance(m, str) and m else None))
     return rounds, corrupt
 
 
@@ -499,6 +634,7 @@ def main(argv):
     r.add_argument("--pr-data", required=True)
     r.add_argument("--cost", required=True)
     r.add_argument("--prev-cost")
+    r.add_argument("--prev-posted")
     r.add_argument("--ci")
     r.add_argument("--verdicts")
     r.add_argument("--now")

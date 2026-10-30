@@ -152,6 +152,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   from an hour up.
 - [`metrics-clock-after-merge.md`](../specs/metrics-clock-after-merge.md): a change the session
   starts on its own is timed from the previous merge.
+- [`metrics-model-and-tokens.md`](../specs/metrics-model-and-tokens.md): the metrics comment names
+  the models and splits the tokens behind the dollars, over the session since its previous comment.
 - [`new-project.md`](../specs/new-project.md): a new project starts from the devshop with
   green CI: the files placed, the owner's steps and the proof on a fresh repo.
 - [`other-projects-detail.md`](../specs/other-projects-detail.md): other projects appear here by a
@@ -226,8 +228,11 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   lives in those scripts, so the template is the same for every stack.
 - How a change went: once the deploy comment is final, the session posts a second comment on its
   merged PR (time from the request to live, Claude working, waiting on the owner, deploying; the
-  owner's input; cost; pushes, red CI runs, reviewer rounds), `devshop:pr` § 5 checking in with
-  `send_later`. [`runtime/scripts/change-metrics.sh`](../runtime/scripts/change-metrics.sh) gathers
+  owner's input; cost, with the session's and the reviewer's models; the tokens split as input,
+  output, cache writes and cache reads, the turns and wake-ups, the context at merge, over the
+  session since its previous comment, read from the transcript
+  ([spec](../specs/metrics-model-and-tokens.md)); pushes, red CI runs, reviewer rounds),
+  `devshop:pr` § 5 checking in with `send_later`. [`runtime/scripts/change-metrics.sh`](../runtime/scripts/change-metrics.sh) gathers
   the PR's data with `gh api` and posts;
   [`runtime/scripts/change-metrics.py`](../runtime/scripts/change-metrics.py) computes every number
   from it and the session's transcript ([spec](../specs/deploy-and-metrics-comments.md); proven by
