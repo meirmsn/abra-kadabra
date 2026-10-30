@@ -7,27 +7,27 @@ history) and record the plan impact in [PLAN.md § Changelog](PLAN.md#changelog)
 
 Status: `open` · `decided` · `revisited`. Order below = order to decide in.
 
-| ID   | Decision                                                | Blocks                             | Status   |
-| ---- | ------------------------------------------------------- | ---------------------------------- | -------- |
-| D-14 | **Thin devshop vs incremental revamp** (strategic fork) | everything after M0                | decided  |
-| D-12 | May the devshop (or parts of it) be public?             | D-01, W4.2                         | decided  |
-| D-13 | Separate GitHub identity for the agent                  | D-04, W0.6, W1.5                   | decided  |
-| D-04 | Where the security boundary is                          | M0 (W0.6), M1                      | decided  |
-| D-09 | Live projects during the revamp (freeze v1)             | M0 (W0.4)                          | decided  |
-| D-15 | Tracking system: markdown vs GitHub Issues              | M0                                 | decided  |
-| D-03 | How devshop changes land                                | M0 (W0.8)                          | decided  |
-| D-02 | Fate of the local devcontainer                          | W1 scope, W4.4                     | decided  |
-| D-01 | Distribution model                                      | M1 (W10.4.4) — after spike W10.1.2 | decided  |
-| D-05 | Plan tier assumptions (Pro/Max vs Team/Enterprise)      | spikes W10.1                       | decided  |
-| D-06 | Orchestration technology                                | M3 (W6.4)                          | decided  |
-| D-07 | gstack install model and target version                 | M2 (with D-01)                     | decided  |
-| D-08 | Stack abstraction scope (recipes)                       | M4 (W5)                            | decided  |
-| D-10 | Revamp versioning                                       | first v2 release (M1)              | decided  |
-| D-11 | Deletion list                                           | M5 (W9) or earlier under D-14 thin | obsolete |
-| D-16 | What the north-star grades; which run-1 gaps block M1   | run 2                              | decided  |
-| D-17 | After review 2: M1 met, the exam retired, first project | M2                                 | decided  |
-| D-18 | A roadmap of decisions and a findings log, per repo     | M2                                 | decided  |
-| D-19 | After review 3: lalista on Cloudflare, walls before M3  | M3                                 | decided  |
+| ID   | Decision                                                         | Blocks                             | Status   |
+| ---- | ---------------------------------------------------------------- | ---------------------------------- | -------- |
+| D-14 | **Thin devshop vs incremental revamp** (strategic fork)          | everything after M0                | decided  |
+| D-12 | May the devshop (or parts of it) be public?                      | D-01, W4.2                         | decided  |
+| D-13 | Separate GitHub identity for the agent                           | D-04, W0.6, W1.5                   | decided  |
+| D-04 | Where the security boundary is                                   | M0 (W0.6), M1                      | decided  |
+| D-09 | Live projects during the revamp (freeze v1)                      | M0 (W0.4)                          | decided  |
+| D-15 | Tracking system: markdown vs GitHub Issues                       | M0                                 | decided  |
+| D-03 | How devshop changes land                                         | M0 (W0.8)                          | decided  |
+| D-02 | Fate of the local devcontainer                                   | W1 scope, W4.4                     | decided  |
+| D-01 | Distribution model                                               | M1 (W10.4.4) — after spike W10.1.2 | decided  |
+| D-05 | Plan tier assumptions (Pro/Max vs Team/Enterprise)               | spikes W10.1                       | decided  |
+| D-06 | Orchestration technology                                         | M3 (W6.4)                          | decided  |
+| D-07 | gstack install model and target version                          | M2 (with D-01)                     | decided  |
+| D-08 | Stack abstraction scope (recipes)                                | M4 (W5)                            | decided  |
+| D-10 | Revamp versioning                                                | first v2 release (M1)              | decided  |
+| D-11 | Deletion list                                                    | M5 (W9) or earlier under D-14 thin | obsolete |
+| D-16 | What the north-star grades; which run-1 gaps block M1            | run 2                              | decided  |
+| D-17 | After review 2: M1 met, the exam retired, first project          | M2                                 | decided  |
+| D-18 | A roadmap of decisions and a findings log, per repo              | M2                                 | decided  |
+| D-19 | After review 3: the pilot web app on Cloudflare, walls before M3 | M3                                 | decided  |
 
 ---
 
@@ -49,7 +49,7 @@ Status: `open` · `decided` · `revisited`. Order below = order to decide in.
   compare task count, effort, and risk retired per milestone (owner + Claude, in the
   review session).
 
-Outcome: **decided 2026-10-09 — thin rewrite.** Build a new, lean devshop in a **new runtime repo**, with frozen v1 (abra-kadabra) as the reference. A lessons harvest from v1 + home-os + FINDINGS comes first; an explicit **go/no-go** follows the walking skeleton (fallback: incremental path A). Agreed top-down via [TARGET.md](TARGET.md) L0–L2 (LOG #5). "Small" means no bloat, not minimum size: one hard budget (always-loaded context), other sizes are warning signals.
+Outcome: **decided 2026-10-09 — thin rewrite.** Build a new, lean devshop in a **new runtime repo**, with frozen v1 (abra-kadabra) as the reference. A lessons harvest from v1 + the 2nd pilot web app + FINDINGS comes first; an explicit **go/no-go** follows the walking skeleton (fallback: incremental path A). Agreed top-down via [TARGET.md](TARGET.md) L0–L2 (LOG #5). "Small" means no bloat, not minimum size: one hard budget (always-loaded context), other sizes are warning signals.
 
 **Revisited 2026-10-10:** the rewrite happens **in this repo**, not a new one — tag `v1-final`, the first v2 PR removes v1 from `main`, v1 stays readable from the tag. Reason: the new repo's only unique benefit was clean history for a possible public release; the revamp retires the weaknesses the notes describe, and the history scan + rotation (W0.7 → W0.5) neutralises leaked secrets (LOG #6).
 
@@ -116,12 +116,12 @@ Outcome: **decided 2026-10-09 — recommendation adopted** (TARGET L2 Safety): C
 
 ## D-09 Live projects during the revamp — `decided` (moved to M0 by REVIEW-1)
 
-Nothing pins live projects today (F-VER-01), so devshop changes reach lalista/home-os
+Nothing pins live projects today (F-VER-01), so devshop changes reach the pilot web app/the 2nd pilot web app
 immediately. Recommendation: tag `v1-frozen` + `v1` branch; live project containers
 mount a `/devshop` worktree at that ref (host-side step); only security fixes are
 cherry-picked to `v1`; projects move to the new model one at a time.
 
-Outcome: **decided 2026-10-09 — superseded by the rewrite.** lalista is paused (no devshop work now) and home-os is frozen (lessons source only), so no freeze mechanism is needed: tag `v1-final`, v1 takes security fixes only. **lalista is the pilot** of the new devshop after the go/no-go (web first, then iOS).
+Outcome: **decided 2026-10-09 — superseded by the rewrite.** The pilot web app is paused (no devshop work now) and the 2nd pilot web app is frozen (lessons source only), so no freeze mechanism is needed: tag `v1-final`, v1 takes security fixes only. **The pilot web app is the pilot** of the new devshop after the go/no-go (web first, then iOS).
 
 ## D-15 Tracking system — `decided` (added by REVIEW-1)
 
@@ -190,7 +190,7 @@ Outcome: **open — direction set 2026-10-09:** the pinned devshop comes from th
 
 **Revisited 2026-10-10:** source = this repo's tagged v2 releases (no separate runtime repo).
 
-**Spike result 2026-10-11 (W10.1.2, LOG #16) — input for the owner's call, not a decision:** **D works with a private source.** A cloud setup script runs before the agent proxy, so it reaches GitHub directly: with a fine-grained read-only token (abra-kadabra only, Contents read) written inline in the script, it fetched a pinned commit and installed it as a user-scope plugin; the plugin's skill and SessionStart hook loaded in a lalista session. This falsifies A′'s "blocked in cloud" for setup-time fetches. Properties: zero project footprint; the pin is a SHA in the environment's setup script, and bumping it re-runs the script (environment cache rebuild); trade-offs: the token is readable by anyone using the environment, including the session (read-only, single repo — acceptable?), and the pin is per environment, not per project commit. Environment variables do not reach setup scripts, so the token can't live there.
+**Spike result 2026-10-11 (W10.1.2, LOG #16) — input for the owner's call, not a decision:** **D works with a private source.** A cloud setup script runs before the agent proxy, so it reaches GitHub directly: with a fine-grained read-only token (abra-kadabra only, Contents read) written inline in the script, it fetched a pinned commit and installed it as a user-scope plugin; the plugin's skill and SessionStart hook loaded in a session of the pilot web app. This falsifies A′'s "blocked in cloud" for setup-time fetches. Properties: zero project footprint; the pin is a SHA in the environment's setup script, and bumping it re-runs the script (environment cache rebuild); trade-offs: the token is readable by anyone using the environment, including the session (read-only, single repo — acceptable?), and the pin is per environment, not per project commit. Environment variables do not reach setup scripts, so the token can't live there.
 
 **Spike result 2026-10-11 (W10.1.2b) — the refined option D, recommended:** one cloud environment for all projects whose setup script holds only a read-only fine-grained token + one line that clones the devshop (bare, HTTPS) into `/opt/devshop.git` and runs `bootstrap.sh` from it. The bootstrap installs a **stub plugin** whose skills are a symlink to `/opt/devshop-current`; its SessionStart hook reads the project's **`.devshop-version`** and points the symlink at that version, extracted from the local copy (no network). Version per project in code; bumping is a one-line PR; nothing in the environment to keep in sync. Limits: the local copy refreshes when the environment cache rebuilds (~weekly, or on a setup-script edit) — a newer pin warns until then; the token is readable by anyone using the environment. Ruled out: deploy keys (no ssh client, and the network policy blocks SSH); installing the real plugin from the hook (loads only next session).
 
@@ -244,7 +244,7 @@ Recommendation: **minimal now** — move vendor-specific scripts/docs under
 Build the capability contract / resolver / contract tests only when a real project
 commits to a second stack, from two real examples.
 
-Outcome: **decided 2026-10-09 — superseded by TARGET L2 Reach:** each stack has one home (setup, guidelines, lessons), added when a real project needs it and loaded only when a task touches it; no general capability contract up front. Second stack = iOS (lalista).
+Outcome: **decided 2026-10-09 — superseded by TARGET L2 Reach:** each stack has one home (setup, guidelines, lessons), added when a real project needs it and loaded only when a task touches it; no general capability contract up front. Second stack = iOS (the pilot web app).
 
 ## D-10 Revamp versioning — `decided`
 
@@ -310,7 +310,7 @@ owner's, with the two amendments they made.
    noticed. Match-first stays.
 4. **The one-page skill cap is a warning again,** not a CI failure (Shape 2 as first agreed;
    F-NEW-54 reversed).
-5. **First real project: the owner's website on Cloudflare,** then lalista; lalista's paid plans
+5. **First real project: the owner's website on Cloudflare,** then the pilot web app; the pilot web app's paid plans
    (F-NEW-18, F-NEW-19) are decided when the website milestone ends.
 6. **Approval ships:** the agent merges on the owner's approval with CI green; no "merge" message.
    The pre-merge production health check stays deferred until a project has real traffic.
@@ -337,7 +337,7 @@ exists yet. They move into that home when the website is scaffolded; the fixture
 devshop needs.
 
 Outcome: **decided 2026-10-15 (owner).** Plan impact: M1 done; M2 = the owner's website on
-Cloudflare; M3 = lalista web; M4 = iOS + Mac and v1 retired ([PLAN.md](PLAN.md),
+Cloudflare; M3 = the pilot web app; M4 = iOS + Mac and v1 retired ([PLAN.md](PLAN.md),
 [W10-v2.md](workstreams/W10-v2.md) § M2). The findings re-sort in REVIEW-2 § 2 is applied by the
 close-out task that removes the ledger's linter, not here.
 
@@ -358,22 +358,22 @@ Every repo keeps a root `ROADMAP.md` and `FINDINGS.md`; findings are logged, not
 not fixed on reflex; only the owner moves one to the roadmap. Supersedes D-17 item 3 (the ledger's
 grades) and W10.9.6 (the filing rule). The devshop's next task is the top `Open` roadmap entry.
 
-## D-19 After review 3: lalista on Cloudflare, its walls before M3 — `decided`
+## D-19 After review 3: the pilot web app on Cloudflare, its walls before M3 — `decided`
 
-Context: [REVIEW-3.md](REVIEW-3.md) § 9 at M2's exit. D-17 item 5 left lalista's platform and
+Context: [REVIEW-3.md](REVIEW-3.md) § 9 at M2's exit. D-17 item 5 left the pilot web app's platform and
 money call (F-NEW-18, F-NEW-19) to the end of the website milestone, and W0.6.2 and W0.5.3 had
-been deferred to M4 although W0.6.2's own condition is "before lalista resumes".
+been deferred to M4 although W0.6.2's own condition is "before the pilot web app resumes".
 
 Outcome: **decided 2026-10-20 (owner, in chat)**:
 
-1. **lalista's walls before M3** (W0.6.2 and W0.5.3 pulled forward as W10.11.1, one sitting).
-   Tokens lalista won't need are deleted, not rotated; only the ones kept are rotated.
-2. **lalista moves to Cloudflare** (Workers, through the OpenNext adapter) and **keeps Supabase,
+1. **The pilot web app's walls before M3** (W0.6.2 and W0.5.3 pulled forward as W10.11.1, one sitting).
+   Tokens the pilot web app won't need are deleted, not rotated; only the ones kept are rotated.
+2. **The pilot web app moves to Cloudflare** (Workers, through the OpenNext adapter) and **keeps Supabase,
    on the free plan, in a new project**, with a scheduled keep-alive job. The keep-alive is a
    mitigation: the root cause is the free plan pausing idle projects, which only a paid plan
    removes. Sentry stays.
-3. **lalista has no real users; its existing data may be dropped** to simplify M3 (the restore-point tooling is still set up before the first migration: tooling needed later is set up ahead unless it is a huge thing): no data is
+3. **The pilot web app has no real users; its existing data may be dropped** to simplify M3 (the restore-point tooling is still set up before the first migration: tooling needed later is set up ahead unless it is a huge thing): no data is
    migrated, and the frozen project is not restored unless its schema exists nowhere else.
 4. **TARGET's edits** from REVIEW-3 § 4, as one docs PR; **M3's tasks in REVIEW-3 § 7's order**,
-   with the move to Cloudflare proven first (W10.11.2) and made when lalista adopts v2 (W10.11.6), and F-NEW-77 (R-14) before lalista adopts v2.
+   with the move to Cloudflare proven first (W10.11.2) and made when the pilot web app adopts v2 (W10.11.6), and F-NEW-77 (R-14) before the pilot web app adopts v2.
 5. Supersedes D-17 item 5 and the M4 deferral of W0.6.2 and W0.5.3.

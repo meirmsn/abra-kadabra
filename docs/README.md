@@ -34,7 +34,7 @@ reachable from this page through links, or when a relative link or `#anchor` is 
 
 Stack homes (`runtime/stacks/<name>/`) and discipline guidelines (`runtime/guidelines/`) live in
 `runtime/`, because only `runtime/` reaches a project's session. The Cloudflare home and the UI
-guideline ship; `nextjs-supabase/` is a placeholder until lalista (M3).
+guideline ship; `nextjs-supabase/` is a placeholder until the pilot web app (M3).
 
 **v1** is frozen at the `v1-final` tag and is no longer on `main`. It is reference only (the revamp
 notes cite it as evidence), never instructions. To read it:
@@ -154,6 +154,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   starts on its own is timed from the previous merge.
 - [`new-project.md`](../specs/new-project.md): a new project starts from the devshop with
   green CI: the files placed, the owner's steps and the proof on a fresh repo.
+- [`other-projects-detail.md`](../specs/other-projects-detail.md): other projects appear here by a
+  plain description and the lesson, never by name, PR number or feature.
 - [`pinned-tools-on-path.md`](../specs/pinned-tools-on-path.md): the project's own checks find the
   devshop's pinned gitleaks, shellcheck and dcg on PATH.
 - [`project-contract.md`](../specs/project-contract.md): one project contract, what every project

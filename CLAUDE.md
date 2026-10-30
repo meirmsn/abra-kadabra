@@ -41,8 +41,13 @@ This repo is the devshop, being rewritten as v2 (the 2026-Q4 revamp). Work only 
   database project refs, team slugs, monitoring org ids, `owner/repo` slugs, GitHub handles, email
   addresses or Claude session links (in commit messages and PR bodies too: no `Claude-Session:`
   trailer). The one exception: the README names and links the owner's projects. Tests use synthetic
-  values (`example.com`, made-up identities). A project's name plus enough context to explain a
-  change is fine. Project config lives in the project.
+  values (`example.com`, made-up identities). Project config lives in the project.
+- **Other projects are described, never named:** outside the README, a project the devshop serves
+  appears only by its plain description ("the pilot web app"), its role in the plan, the stack the
+  devshop needs to know and the lesson it taught, with the evidence as shape and count ("twice in
+  one project"). Never its name, PR or issue numbers, feature, screen, spec, table or function names
+  or file paths that carry them, quotes from it, or what its product does for its users; commit
+  messages and PR text included.
 - **Walls vs feedback:** GitHub's protection on `main`, required CI, credential scopes and the
   owner's approval are the walls. Hooks and in-session checks are feedback; never describe them
   as a security boundary.

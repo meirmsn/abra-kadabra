@@ -34,7 +34,7 @@ weaken. The implementation has outgrown itself:
 
 **How we get there (D-14):** a lean rewrite **in this repo** (v1 kept at the `v1-final` tag as
 the reference) and a lessons harvest first; a walking skeleton on a fixture project, then
-an explicit go/no-go; lalista is the pilot (web, then iOS).
+an explicit go/no-go; the pilot web app is the pilot (web, then iOS).
 
 ## Milestones (status roll-up — criteria in [PLAN.md](PLAN.md))
 
@@ -42,8 +42,8 @@ an explicit go/no-go; lalista is the pilot (web, then iOS).
 | --- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | M0  | Stop the bleeding + groundwork                        | done                                                                                      |
 | M1  | Walking skeleton → go/no-go                           | done 2026-10-15 (D-17: met on runs 1–2 under D-16's rule; go). Close-out tasks W10.9 open |
-| M2  | First real project: the owner's website on Cloudflare | done 2026-10-20 (owner; plain run website PR #15, [REVIEW-3](REVIEW-3.md))                |
-| M3  | First real app: lalista web on v2                     | next; detailed as W10.11; lalista moves to Cloudflare (D-19)                              |
+| M2  | First real project: the owner's website on Cloudflare | done 2026-10-20 (owner; the plain run on the website, [REVIEW-3](REVIEW-3.md))            |
+| M3  | First real app: the pilot web app on v2               | next; detailed as W10.11; the pilot web app moves to Cloudflare (D-19)                    |
 | M4  | iOS stack + Mac; retire v1                            | coarse                                                                                    |
 
 ## Files
@@ -61,7 +61,7 @@ an explicit go/no-go; lalista is the pilot (web, then iOS).
 | [DECISIONS.md](DECISIONS.md)                                                 | Owner decisions, in the order to make them                                                                                                                                                |
 | [PROCESS.md](PROCESS.md)                                                     | Light process: lifecycle, done, verification, replanning, reviews                                                                                                                         |
 | [LOG.md](LOG.md)                                                             | Per-session journal                                                                                                                                                                       |
-| [lessons.md](lessons.md)                                                     | v1 + home-os lessons that carry into v2, by pillar and by stack (W10.3.1–2)                                                                                                               |
+| [lessons.md](lessons.md)                                                     | Lessons from v1 and the 2nd pilot web app that carry into v2, by pillar and by stack (W10.3.1–2)                                                                                          |
 | [project-contract-audit-2026-10-19.md](project-contract-audit-2026-10-19.md) | What the devshop expects a project to provide: 39 items, how each is enforced, where the website and the fixture differ; the survey behind R-13                                           |
 
 ## Next action
@@ -73,7 +73,7 @@ work is the root [ROADMAP.md](../../../ROADMAP.md): the top `Open` entry is next
 reorders it.
 
 - **Owner:** the W10.10.1 owner steps when that task starts (repo, Cloudflare account and tokens,
-  cloud environment), guided by the session; before M3, lalista's walls and accounts in one sitting (W10.11.1, D-19).
+  cloud environment), guided by the session; before M3, the pilot web app's walls and accounts in one sitting (W10.11.1, D-19).
 
 ## Driving the revamp from a new session
 
