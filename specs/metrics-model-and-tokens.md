@@ -1,6 +1,6 @@
 # The metrics comment names the models and splits the tokens behind the dollars
 
-**Go:** pending
+**Go:** "Go", after choosing "Models on Cost, Tokens line", "Both" and "Same window, labelled" on the three questions (owner, 2026-10-30)
 
 ## Intent
 
@@ -30,7 +30,8 @@ description must not grow, and its one-page size is a warning to watch.
 
 ## Decisions
 
-The three the owner asked to decide are marked _(owner's question n)_ and recorded with their answer.
+The three the owner asked to decide are marked _(owner's question n)_; the owner chose the proposed
+answer to each on 2026-10-30 ("Models on Cost, Tokens line", "Both", "Same window, labelled").
 
 - **The tokens and the models come from the transcript, not from `get_session`:** every assistant
   entry of a session's `.jsonl` carries `message.usage` (`input_tokens`, `output_tokens`,
@@ -54,7 +55,7 @@ The three the owner asked to decide are marked _(owner's question n)_ and record
   `message.id` across every file read (seen 2026-10-30: 31 entries, 17 messages; summing entries
   doubles the numbers). A message's time is its first entry's timestamp (entries of one message are
   up to 3 s apart). An entry with no `message.id` counts on its own (Claude, 2026-10-30)
-- **The window the tokens cover is the one the dollars cover** _(owner's question 3; proposed)_:
+- **The window the tokens cover is the one the dollars cover** _(owner's question 3; owner: "Same window, labelled", 2026-10-30)_:
   from the session's previous metrics comment to this render, or the whole session for its first
   comment. `change-metrics.sh` passes that comment's `created_at` as `--prev-posted`, read from the
   same comment whose marker gives `--prev-cost`, `unknown` when it has none, like `--prev-cost`.
@@ -68,8 +69,8 @@ The three the owner asked to decide are marked _(owner's question n)_ and record
   whose dollars can only be estimated by pro-rating, and a guess never shows (owner's rule); and
   recording the change's start in `devshop:intent` (rejected before, "one more moving part")
 - **The Cost line names the models beside the dollars they explain; the tokens get a line of their
-  own** _(owner's question 1; proposed, a departure from their stated preference of everything on
-  the Cost line, because that line would wrap twice on a phone)_: `$17.85 ($17.82 session on
+  own** _(owner's question 1; owner: "Models on Cost, Tokens line", 2026-10-30, over their first
+  preference of everything on the Cost line, which would wrap twice on a phone)_: `$17.85 ($17.82 session on
 claude-fable-5-1 + $0.03 reviewer on claude-sonnet-5-5)`. The session's models are the distinct
   `message.model` values of the window's messages, first-seen order, comma separated; "on an unknown
   model" when none can be read. The reviewer's "on <models>" appears only when rounds were counted:
@@ -84,8 +85,8 @@ session since its comment on PR #163`. Units, rounding half-up: under 1,000 plai
   1,000 in thousands with no decimals ("36k", "272k", 2,500 is "3k"); from 999,500 up in millions
   with one decimal, ".0" dropped ("1M" for 999,500 and for 1,049,999, "1.1M" for 1,050,000, "3.2M",
   "160M")
-- **Two numbers flag the pattern earlier than the tokens** _(owner's question 2; proposed: both,
-  since both come from the transcript for free)_: _turns_, the owner messages and wakes in the
+- **Two numbers flag the pattern earlier than the tokens** _(owner's question 2; owner: "Both",
+  2026-10-30; both come from the transcript for free)_: _turns_, the owner messages and wakes in the
   window, with how many were wake-ups (a wake-up is what the transcript already counts as one: a
   check-in, a PR event, a subagent's hand-back), and the _context at merge_: the input side of the
   last API message at or before `merged_at` (`input_tokens` + `cache_creation_input_tokens` +
