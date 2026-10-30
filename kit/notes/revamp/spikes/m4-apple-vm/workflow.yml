@@ -1,0 +1,135 @@
+# Spike (temporary, removed before the PR): what works inside a macOS VM on Apple silicon?
+# GitHub's arm64 macOS runners are Virtualization.framework VMs, so they stand in for a local
+# throwaway VM. Record of the run: kit/notes/revamp/spikes/m4-apple-vm/README.md.
+name: spike-apple-vm
+
+on:
+  push:
+    branches: [claude/fervent-feynman-2j1sg4]
+    paths:
+      - .github/workflows/spike-apple-vm.yml
+      - kit/notes/revamp/spikes/m4-apple-vm/**
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: kit/notes/revamp/spikes/m4-apple-vm
+
+jobs:
+  linux-swift:
+    if: ${{ !contains(github.event.head_commit.message, '[ios-only]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with: { persist-credentials: false }
+      - name: Portable Swift builds and tests on Linux
+        working-directory: kit/notes/revamp/spikes/m4-apple-vm/TranscriptCore
+        run: |
+          swift --version
+          time swift test 2>&1 | tail -20
+
+  ml-probe:
+    if: ${{ !contains(github.event.head_commit.message, '[ios-only]') }}
+    strategy:
+      fail-fast: false
+      matrix: { os: [macos-15, macos-26] }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with: { persist-credentials: false }
+      - name: Machine
+        run: |
+          sw_vers
+          echo "VM: kern.hv_vmm_present=$(sysctl -n kern.hv_vmm_present)"
+          sysctl -n machdep.cpu.brand_string hw.ncpu hw.memsize
+          system_profiler SPHardwareDataType SPDisplaysDataType | sed 's/Serial.*//; s/UUID.*//'
+          xcodebuild -version
+      - name: Portable Swift on macOS
+        working-directory: kit/notes/revamp/spikes/m4-apple-vm/TranscriptCore
+        run: swift test 2>&1 | tail -8
+      - name: Metal
+        run: swift probes/metal.swift
+      - name: Core ML
+        continue-on-error: true
+        run: |
+          # Run 1: coremltools has no native build for the image's Python 3.15 ("BlobWriter not loaded").
+          brew install -q python@3.12
+          "$(brew --prefix python@3.12)/bin/python3.12" -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install -q coremltools numpy
+          "$RUNNER_TEMP/venv/bin/python" probes/make_model.py "$RUNNER_TEMP/probe.mlpackage"
+          xcrun coremlcompiler compile "$RUNNER_TEMP/probe.mlpackage" "$RUNNER_TEMP"
+          swiftc -O probes/coreml_probe.swift -o "$RUNNER_TEMP/coreml_probe"
+          "$RUNNER_TEMP/coreml_probe" "$RUNNER_TEMP/probe.mlmodelc"
+      - name: MLX
+        continue-on-error: true
+        run: |
+          python3 -m venv "$RUNNER_TEMP/mlx"
+          "$RUNNER_TEMP/mlx/bin/pip" install -q mlx
+          "$RUNNER_TEMP/mlx/bin/python" probes/mlx_probe.py
+
+  macos-ui:
+    if: ${{ !contains(github.event.head_commit.message, '[ios-only]') }}
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with: { persist-credentials: false }
+      - name: Generate the project
+        working-directory: kit/notes/revamp/spikes/m4-apple-vm/app
+        run: brew install xcodegen && xcodegen --version && xcodegen generate
+      - name: Build and UI-test the macOS app (ad-hoc signed)
+        working-directory: kit/notes/revamp/spikes/m4-apple-vm/app
+        run: |
+          set -o pipefail
+          time xcodebuild test -project Hello.xcodeproj -scheme HelloMac -destination 'platform=macOS' \
+            -resultBundlePath "$RUNNER_TEMP/mac.xcresult" CODE_SIGN_IDENTITY=- 2>&1 | grep -E 'UITEST|Test Case|error|warning: .*sign|\*\*' | tail -40
+      - name: Screenshot out of the result bundle
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/att"
+          xcrun xcresulttool export attachments --path "$RUNNER_TEMP/mac.xcresult" --output-path "$RUNNER_TEMP/att" || true
+          ls -la "$RUNNER_TEMP/att"
+          f=$(ls "$RUNNER_TEMP"/att/*.png 2>/dev/null | head -1)
+          [ -n "$f" ] && sips -s format jpeg -s formatOptions 40 -Z 900 "$f" --out "$RUNNER_TEMP/shot.jpg" >/dev/null && \
+            { echo "SHOT-BEGIN"; base64 -i "$RUNNER_TEMP/shot.jpg" | fold -w 1000; echo "SHOT-END"; }
+      - name: Screen capture without XCUITest (screencapture after open)
+        if: always()
+        continue-on-error: true
+        run: |
+          app=$(find ~/Library/Developer/Xcode/DerivedData -name HelloMac.app -type d | head -1)
+          open "$app"; sleep 5
+          screencapture -x "$RUNNER_TEMP/desk.png" && sips -g pixelWidth -g pixelHeight "$RUNNER_TEMP/desk.png"
+          osascript -e 'tell application "System Events" to get name of every window of process "HelloMac"' || true
+
+  ios-sim:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with: { persist-credentials: false }
+      - name: Generate the project
+        working-directory: kit/notes/revamp/spikes/m4-apple-vm/app
+        run: brew install xcodegen && xcodegen generate
+      - name: Build and UI-test the iOS app on a simulator
+        working-directory: kit/notes/revamp/spikes/m4-apple-vm/app
+        run: |
+          set -o pipefail
+          # Runs 1-2 sat over 15 min in this step with the output filtered; run 3 shows each stage.
+          xcodebuild -version
+          xcodebuild -showdestinations -project Hello.xcodeproj -scheme HelloiOS | grep 'iOS Simulator' | head -5
+          dev=$(xcodebuild -showdestinations -project Hello.xcodeproj -scheme HelloiOS | grep 'platform:iOS Simulator' | grep -v 'placeholder' | head -1 | sed -E 's/.*id:([^,]+),.*/\1/')
+          echo "simulator $dev"
+          time xcrun simctl boot "$dev"
+          time xcrun simctl bootstatus "$dev"
+          time xcodebuild build-for-testing -project Hello.xcodeproj -scheme HelloiOS -destination "id=$dev" \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tail -5
+          time xcodebuild test-without-building -project Hello.xcodeproj -scheme HelloiOS -destination "id=$dev" \
+            -resultBundlePath "$RUNNER_TEMP/ios.xcresult" -test-timeouts-enabled YES \
+            -maximum-test-execution-time-allowance 180 2>&1 | grep -E 'UITEST|Test Case|error|\*\*' | tail -40
+          xcrun simctl io "$dev" screenshot "$RUNNER_TEMP/sim.png" && sips -g pixelWidth -g pixelHeight "$RUNNER_TEMP/sim.png"
+          sips -s format jpeg -s formatOptions 40 -Z 900 "$RUNNER_TEMP/sim.png" --out "$RUNNER_TEMP/sim.jpg" >/dev/null && \
+            { echo "SHOT-BEGIN"; base64 -i "$RUNNER_TEMP/sim.jpg" | fold -w 1000; echo "SHOT-END"; }

@@ -19,6 +19,7 @@ defaults:
 
 jobs:
   linux-swift:
+    if: ${{ !contains(github.event.head_commit.message, '[ios-only]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -31,6 +32,7 @@ jobs:
           time swift test 2>&1 | tail -20
 
   ml-probe:
+    if: ${{ !contains(github.event.head_commit.message, '[ios-only]') }}
     strategy:
       fail-fast: false
       matrix: { os: [macos-15, macos-26] }
@@ -70,6 +72,7 @@ jobs:
           "$RUNNER_TEMP/mlx/bin/python" probes/mlx_probe.py
 
   macos-ui:
+    if: ${{ !contains(github.event.head_commit.message, '[ios-only]') }}
     runs-on: macos-15
     timeout-minutes: 30
     steps:
@@ -104,7 +107,7 @@ jobs:
 
   ios-sim:
     runs-on: macos-15
-    timeout-minutes: 40
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with: { persist-credentials: false }
@@ -115,10 +118,18 @@ jobs:
         working-directory: kit/notes/revamp/spikes/m4-apple-vm/app
         run: |
           set -o pipefail
-          dev=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(x["udid"] for k,v in d.items() if "iOS" in k for x in v if x["name"].startswith("iPhone")))')
+          # Runs 1-2 sat over 15 min in this step with the output filtered; run 3 shows each stage.
+          xcodebuild -version
+          xcodebuild -showdestinations -project Hello.xcodeproj -scheme HelloiOS | grep 'iOS Simulator' | head -5
+          dev=$(xcodebuild -showdestinations -project Hello.xcodeproj -scheme HelloiOS | grep 'platform:iOS Simulator' | grep -v 'placeholder' | head -1 | sed -E 's/.*id:([^,]+),.*/\1/')
           echo "simulator $dev"
-          time xcodebuild test -project Hello.xcodeproj -scheme HelloiOS -destination "id=$dev" \
-            -resultBundlePath "$RUNNER_TEMP/ios.xcresult" CODE_SIGNING_ALLOWED=NO 2>&1 | grep -E 'UITEST|Test Case|error|\*\*' | tail -40
+          time xcrun simctl boot "$dev"
+          time xcrun simctl bootstatus "$dev"
+          time xcodebuild build-for-testing -project Hello.xcodeproj -scheme HelloiOS -destination "id=$dev" \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tail -5
+          time xcodebuild test-without-building -project Hello.xcodeproj -scheme HelloiOS -destination "id=$dev" \
+            -resultBundlePath "$RUNNER_TEMP/ios.xcresult" -test-timeouts-enabled YES \
+            -maximum-test-execution-time-allowance 180 2>&1 | grep -E 'UITEST|Test Case|error|\*\*' | tail -40
           xcrun simctl io "$dev" screenshot "$RUNNER_TEMP/sim.png" && sips -g pixelWidth -g pixelHeight "$RUNNER_TEMP/sim.png"
           sips -s format jpeg -s formatOptions 40 -Z 900 "$RUNNER_TEMP/sim.png" --out "$RUNNER_TEMP/sim.jpg" >/dev/null && \
             { echo "SHOT-BEGIN"; base64 -i "$RUNNER_TEMP/sim.jpg" | fold -w 1000; echo "SHOT-END"; }
