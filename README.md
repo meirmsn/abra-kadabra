@@ -7,9 +7,9 @@
 **Describe the app you want. Get one built to be slick, reliable and secure, with you in control at
 every step.**
 
-This is a running prototype of a dev shop run by Claude Code agents: you bring the strategy and
-the product you want; agents plan, spec, build and review; your input steers and your approval ships
-the changes. Made for one person running their own products.
+A running prototype of a dev shop run by Claude Code agents: you bring the strategy and the
+product you want; agents plan, spec, build and review; your input steers and your approval ships.
+Made for one person running their own products.
 
 Used to build [lalista](https://lalista.store) ([repo](https://github.com/meirmsn/lalista)),
 [home-os](https://github.com/meirmsn/home-os) and
