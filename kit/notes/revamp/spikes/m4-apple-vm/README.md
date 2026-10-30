@@ -37,7 +37,7 @@ before the PR and is kept here as [`workflow.yml`](workflow.yml).
 | macOS app: build + XCUITest            | **passed**, 55–70 s cold (one test 6.5 s)                       | not run                                       |
 | Screenshot from the test               | exported with `xcresulttool export attachments`: [the image](outputs/macos-uitest-after-click.jpg) | not run |
 | `screencapture`, System Events         | worked (1024×768; the app's window listed)                      | not run                                       |
-| iOS Simulator: build + XCUITest        | {{IOS}}                                                         | not run                                       |
+| iOS Simulator: build + XCUITest        | **passed** (Xcode 16.4, iPhone 16 Pro): boot 53 s (first-boot data migration), build 2 min 23 s, test 51 s; screenshot attachment exported (not viewed here, see below)                                                        | not run                                       |
 
 Linux (`ubuntu-24.04`): Swift 6.4.1, `swift test` 4 passed, 24 s cold.
 
@@ -45,7 +45,12 @@ In this cloud session (Linux, the devshop's network policy): **could not run** p
 `download.swift.org` is denied (403 from the proxy) and Docker Hub refused the `swift:6.2` image (429,
 the anonymous pull limit, as REVIEW-3 saw for Supabase's images).
 
-**Surprises.** Run 1's Core ML probe failed before reaching Core ML: coremltools 9.0 has no native
+**Surprises.** The iOS screenshot was exported in the VM but could not be read back here: the
+spike carried images out in the job log (base64), and this session reads logs only through the
+GitHub API, which returns them inline only when short; the log file and artifacts live on GitHub's
+storage host, which this environment's network policy refuses (403). `simctl io screenshot` after
+the test failed ("Error creating the image") because the test had shut the simulator down. Run 4
+failed on the spike's own device selection (`-showdestinations` listed only a placeholder). Run 1's Core ML probe failed before reaching Core ML: coremltools 9.0 has no native
 build for the image's default Python 3.15 ("BlobWriter not loaded"); run 2 used Homebrew's Python
 3.12. The macOS 15 and 26 images differ in CPU speed by 2–4× on the same test (noisy neighbours or
 host generation; not investigated). Asking Core ML for the Neural Engine in a VM raises no error: it

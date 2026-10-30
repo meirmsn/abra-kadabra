@@ -16,8 +16,8 @@ screenshots it in a VM, and the results come back as files the agent reads (imag
 
 - **Now (phases 1–2):** the VMs are **GitHub's hosted macOS runners**, which are Virtualization
   framework VMs on Apple silicon. No Mac of the owner's is involved at all, so there is no host to
-  protect. The spike ran a SwiftUI app's UI test with a screenshot, MLX on the VM's GPU and portable
-  Swift on Linux this way.
+  protect. The spike ran a SwiftUI app's UI tests (macOS and the iOS Simulator) with a screenshot, MLX on
+  the VM's GPU and portable Swift on Linux this way.
 - **Later, only if speed, cost or the network allowlist demand it (phase 3):** the same workflow on
   **throwaway Tart VMs on a dedicated Mac mini**, behind a host that runs nothing but the VM tool,
   a runner launcher and an egress proxy.
@@ -83,20 +83,20 @@ The spikes ran on 2026-10-30 ([record](spikes/m4-apple-vm/README.md)); GitHub's 
 reported `kern.hv_vmm_present=1`, "Apple M1 (Virtual)", 3 cores, 7 GB, model `VirtualMac2,1`, so they
 stand in for any Virtualization-framework VM.
 
-| What                                                           | Result                                                                                                                                                                                                |
-| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Portable Swift package (the transcript-joining logic), Linux   | `swift test` passed, 4 tests, Swift 6.4.1 on `ubuntu-24.04`, 24 s cold                                                                                                                                |
-| Same, in this cloud session                                    | **Could not run:** `download.swift.org` is denied by the network policy (403) and Docker Hub refused the `swift` image (429, anonymous pull limit)                                                    |
-| Same package, macOS VM                                         | Passed on macOS 15 and macOS 26.6.2 (Xcode 26.6), 33–42 s cold                                                                                                                                        |
-| SwiftUI macOS app, ad-hoc signed, one XCUITest with screenshot | **Passed** in 55–70 s (build + test, cold): the app launched, the test clicked the button, read the label, attached a screenshot; `xcresulttool` exported it and the agent read it                    |
-| Plain `screencapture` and System Events, outside XCUITest      | Worked (1024×768 capture; System Events listed the app's window): the image ships TCC grants                                                                                                          |
-| Metal                                                          | One "Apple Paravirtual device", unified memory, about 4.8 GB working set; GPU family `mac2` only, none of `apple7`–`apple9`, not `metal3`                                                             |
-| MLX 0.32.4 (Python)                                            | **Runs on the VM's GPU:** 2048² fp32 matmuls at 1.37–1.42 TFLOP/s on GPU vs 0.14–0.54 on the 3 CPU cores                                                                                              |
-| Core ML: devices seen, plan, speed per compute unit            | Core ML lists **only the CPU and the paravirtual GPU: no Neural Engine** (`MLModel.availableComputeDevices`, macOS 15 and 26). Asking for `.cpuAndNeuralEngine` still runs, slower: a silent fallback |
-| iOS Simulator: UI test and screenshot                          | {{IOS}}                                                                                                                                                                                               |
+| What                                                           | Result                                                                                                                                                                                                                                                    |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Portable Swift package (the transcript-joining logic), Linux   | `swift test` passed, 4 tests, Swift 6.4.1 on `ubuntu-24.04`, 24 s cold                                                                                                                                                                                    |
+| Same, in this cloud session                                    | **Could not run:** `download.swift.org` is denied by the network policy (403) and Docker Hub refused the `swift` image (429, anonymous pull limit)                                                                                                        |
+| Same package, macOS VM                                         | Passed on macOS 15 and macOS 26.6.2 (Xcode 26.6), 33–42 s cold                                                                                                                                                                                            |
+| SwiftUI macOS app, ad-hoc signed, one XCUITest with screenshot | **Passed** in 55–70 s (build + test, cold): the app launched, the test clicked the button, read the label, attached a screenshot; `xcresulttool` exported it and the agent read it                                                                        |
+| Plain `screencapture` and System Events, outside XCUITest      | Worked (1024×768 capture; System Events listed the app's window): the image ships TCC grants                                                                                                                                                              |
+| Metal                                                          | One "Apple Paravirtual device", unified memory, about 4.8 GB working set; GPU family `mac2` only, none of `apple7`–`apple9`, not `metal3`                                                                                                                 |
+| MLX 0.32.4 (Python)                                            | **Runs on the VM's GPU:** 2048² fp32 matmuls at 1.37–1.42 TFLOP/s on GPU vs 0.14–0.54 on the 3 CPU cores                                                                                                                                                  |
+| Core ML: devices seen, plan, speed per compute unit            | Core ML lists **only the CPU and the paravirtual GPU: no Neural Engine** (`MLModel.availableComputeDevices`, macOS 15 and 26). Asking for `.cpuAndNeuralEngine` still runs, slower: a silent fallback                                                     |
+| iOS Simulator: UI test and screenshot                          | **Passed** (macOS 15 image, Xcode 16.4, iPhone 16 Pro): first boot 53 s, build 2 min 23 s, test 51 s (4–6 min cold in all); the test's screenshot exported like the macOS one. `simctl io screenshot` after the test failed (simulator already shut down) |
 
 What this settles: **a throwaway macOS VM is enough to build, run, UI-test and screenshot a SwiftUI
-app, and to run MLX on a GPU**, with no signing identity. What it doesn't: Neural Engine work and
+app, on macOS and on the iOS Simulator, and to run MLX on a GPU**, with no signing identity. What it doesn't: Neural Engine work and
 performance numbers, which need bare metal (§ 7).
 
 ## 3. The options
