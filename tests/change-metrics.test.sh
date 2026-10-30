@@ -71,6 +71,8 @@ owner("09:00:00", "an earlier request")
 asst("09:29:00", tool={"id": "m3", "name": "mcp__github__merge_pull_request", "input": {"pullNumber": 3}}, big=True)
 result("09:30:00", "m3", "merged")
 asst("09:30:10", end=True, big=True)
+wake("09:32:00")  # a wake before the window: none of PR 9's turns
+asst("09:32:30", end=True, big=True)
 # PR 3's metrics comment is posted at 09:35: the tokens' window for PR 9 starts there.
 # This change.
 owner("10:00:00", "the request")
@@ -205,7 +207,7 @@ json.dump(d, open(f"{w}/pr7.json", "w"))
 EOF
 render pr7.json --cost 10.50 --prev-cost 4.25 --prev-posted 2026-01-01T09:35:00Z
 [ "$rc" = 0 ] || { cat "$work/err" >&2; fail "AC-12: render exit $rc for the PR the owner merged"; }
-grep -q 'unknown' "$work/got" && { cat "$work/got" >&2; fail "AC-12: a PR the owner merged, posted after a later merge, has an unknown time"; }
+sed -n 2,4p "$work/got" | grep -q 'unknown' && { cat "$work/got" >&2; fail "AC-12: a PR the owner merged, posted after a later merge, has an unknown time"; }
 # Its clock starts at 10:00, the first owner message after PR 3's merge; the deploy is live at 10:45.
 grep -qF '**How this change went** · request to live **45 min**' "$work/got" ||
   { cat "$work/got" >&2; fail "AC-12: a PR the owner merged should start at the owner's message after PR 3's merge"; }
@@ -255,6 +257,7 @@ python3 "$py" render --pr-data "$work/pr9.json" --cost 1 --ci "$template" --now 
   || fail "AC-14: render with a plain transcript failed"
 grep -qF -- '- **Cost:** $1.00 ($1.00 session on an unknown model + $0.00 reviewer)' "$work/got" || { cat "$work/got" >&2; fail "AC-14: no REVIEW: line in a transcript means no reviewer ran; metrics-model-and-tokens AC-3: no rounds, no reviewer model"; }
 grep -qxF -- '- **Tokens:** unknown tokens · 1 turn (0 wake-ups) · unknown context at merge · the whole session' "$work/got" || { cat "$work/got" >&2; fail "metrics-model-and-tokens AC-4: a transcript without usage shows its turns, the rest unknown"; }
+grep -qF -- '2 red CI runs · no reviewer rounds' "$work/got" || { cat "$work/got" >&2; fail "AC-14: no reviewer rounds"; }
 # metrics-model-and-tokens AC-4: an unknown previous comment time has no window; a bad one can't run.
 render pr9.json --cost 10.50 --prev-cost 4.25 --prev-posted unknown
 { [ "$rc" = 0 ] && grep -qxF -- '- **Tokens:** unknown' "$work/got"; } || { cat "$work/got" "$work/err" >&2; fail "metrics-model-and-tokens AC-4: --prev-posted unknown should make the Tokens line unknown"; }
@@ -263,7 +266,6 @@ head -1 "$work/got" | grep -qxF '<!-- devshop-metrics cost:10.5000 -->' || fail 
 render pr9.json --cost 10.50 --prev-cost 4.25 --prev-posted yesterday
 [ "$rc" = 2 ] || fail "metrics-model-and-tokens AC-4: a --prev-posted that is no time should exit 2, got $rc"
 echo "ok: metrics-model-and-tokens AC-4 unknown tokens, part by part"
-grep -qF -- '2 red CI runs · no reviewer rounds' "$work/got" || { cat "$work/got" >&2; fail "AC-14: no reviewer rounds"; }
 # headline <data> <want headline> <deploying shown: yes|no>
 headline() {
   render "$1" --cost 1
@@ -418,6 +420,9 @@ ln -s "$work/verdicts/v2.json" "$vd/008-v2.json" # the same round the transcript
 render pr9.json --cost 10.50 --prev-cost 4.25 --prev-posted 2026-01-01T09:35:00Z --verdicts "$vd"
 [ "$rc" = 0 ] || { cat "$work/err" >&2; fail "devshop-deploy AC-1: exit $rc"; }
 grep -qF -- "- **Cost:** \$6.62 (\$6.25 session on $models + \$0.37 reviewer on rev-example)" "$work/got" || { cat "$work/got" >&2; fail "devshop-deploy AC-1: the rounds' cost; metrics-model-and-tokens AC-3: the verdict files' model, once"; }
+# With footers naming another model, the verdict files' still win (metrics-model-and-tokens AC-3).
+render pr9-footer.json --cost 10.50 --prev-cost 4.25 --prev-posted 2026-01-01T09:35:00Z --verdicts "$vd"
+grep -qF -- '+ $0.37 reviewer on rev-example)' "$work/got" || { cat "$work/got" >&2; fail "metrics-model-and-tokens AC-3: the verdict files' model should win over the footers'"; }
 grep -qF -- 'reviewer passed 2 of 5' "$work/got" || { cat "$work/got" >&2; fail "devshop-deploy AC-1: want 5 rounds (fail, pass, ask-owner from the files; v1 fail, v2 pass), 2 passed"; }
 # A file in the window that can't be read makes the cost unknown.
 printf 'not json' >"$vd/009-hhh.json"

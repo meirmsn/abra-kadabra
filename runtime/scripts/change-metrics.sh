@@ -5,7 +5,7 @@
 # file) computes every number from it and the session's transcript.
 #   usage: change-metrics.sh post --pr <n> --cost <usd|unknown>
 #     --cost: the session's cost now, get_session's external_metadata.usage.cost_usd (no script can
-#     read it); "unknown" when the field is absent.
+#     read it); "unknown" when the field is absent. The tokens and models come from the transcript.
 # Exit 0 = posted, or already posted (a second run posts nothing); 3 = not yet: the deploy comment isn't
 # final and the merge was less than an hour ago, so check in again; 2 = can't run (bad arguments, no
 # GitHub remote, gh failing, the PR not merged). Never blocks anything: the merge and the deploy are done.
@@ -72,16 +72,19 @@ jq -n --slurpfile pr "$work/pr.json" --slurpfile c "$work/comments.json" --slurp
   --slurpfile rc "$work/review-comments.json" --slurpfile runs "$work/runs.json" \
   '{pr: $pr[0], comments: $c[0], reviews: $r[0], review_comments: $rc[0], runs: $runs[0]}' >"$work/data.json"
 
-# A later change in the session starts its cost where the session's last metrics comment left it.
+# A later change in the session starts its cost, and its tokens' window, where the session's last metrics
+# comment left them: that comment's recorded cost and its time (specs/metrics-model-and-tokens.md).
 prev=()
 merged_at=$(jq -r '.merged_at // ""' "$work/pr.json")
 earlier=$(python3 "$here/change-metrics.py" previous-pr --pr "$pr" ${merged_at:+--merged "$merged_at"}) ||
   cnr "can't read the transcript"
 if [ -n "$earlier" ]; then
-  was=$(list "repos/$slug/issues/$earlier/comments?per_page=100" |
-    jq -r --arg me "$me" '[.[] | select(.user.login == $me) | .body // ""
-      | capture("^<!-- devshop-metrics cost:(?<c>[0-9.]+) -->").c] | first // "unknown"')
-  prev=(--prev-cost "$was")
+  list "repos/$slug/issues/$earlier/comments?per_page=100" |
+    jq --arg me "$me" '[.[] | select(.user.login == $me and ((.body // "") | startswith("<!-- devshop-metrics")))] | first // {}' \
+    >"$work/prev.json"
+  was=$(jq -r '(.body // "") | capture("^<!-- devshop-metrics cost:(?<c>[0-9.]+) -->").c // "unknown"' "$work/prev.json")
+  was_at=$(jq -r '.created_at // "unknown"' "$work/prev.json")
+  prev=(--prev-cost "$was" --prev-posted "$was_at")
 fi
 
 # Whether a deploy comment is awaited follows the workflow as of the merge commit, not today's.
