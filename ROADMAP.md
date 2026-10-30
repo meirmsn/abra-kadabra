@@ -26,7 +26,7 @@ too; an entry is `Done` when its task is `[x]`.
 | R-13 | 2026-10-20 | One project contract: what every project must provide, in one file the devshop checks at session start and in `fast`; the duplicates collapsed; the manifest covers what the upgrade claims to re-copy; R-12 is its first entry — [spec](specs/project-contract.md)     | Done, PR #151                                |
 | R-12 | 2026-10-19 | Projects' PR titles carry a Conventional Commit prefix too, placed by the devshop: a `pr-title-check.py` in the project files, checked in `fast` and by `ship.sh` — [spec](specs/project-contract.md)                                                                   | Done, PR #151 (the contract's first entry)   |
 | R-14 | 2026-10-20 | The session-start hook reads the wrong directory after a restart and runs without the project's pin, silently (F-NEW-77): root cause and fix, before lalista adopts v2 — [W10.11.12](kit/notes/revamp/workstreams/W10-v2.md#w1011-the-first-real-app--p0--l)            | Done (W10.11.12)                             |
-| R-15 | 2026-10-30 | The metrics comment names the model(s) and splits the tokens (input, output, cache reads, cache writes) beside the dollars, and says which window of the session they cover — [spec](specs/metrics-model-and-tokens.md)                                                 | Open                                         |
+| R-15 | 2026-10-30 | The metrics comment names the model(s) and splits the tokens (input, output, cache reads, cache writes) beside the dollars, and says which window of the session they cover — [spec](specs/metrics-model-and-tokens.md)                                                 | Done, PR #169                                |
 
 ## R-14: The session-start hook reads the wrong directory after a restart
 
@@ -42,15 +42,3 @@ instead of the repo and said "no .devshop-version · project user" in a repo tha
 CI-tier, project-files and git-hooks checks were skipped without a word. Root cause unknown: the
 line names the directory it read, the clue to find it. Sightings: 2026-10-15 (website session;
 devshop roadmap session), 2026-10-16 (W10.9.8; R-1), 2026-10-17 (R-3), each after a restart.
-
-## R-15: The metrics comment names the models and splits the tokens
-
-Asked 2026-10-30, in chat, about the "How this change went" comment the devshop posts on a merged PR:
-
-```text
-perhaps in that comment we should put the model used and tokens used?
-```
-
-Then: "Can you show me the task suggestion and put everything in the prompt so that we can start
-working on this right away." The brief that followed (two PRs from one session, $109.38 and $17.85,
-the second almost all cache reads on wake-ups between the merges) is quoted in the spec's Intent.
