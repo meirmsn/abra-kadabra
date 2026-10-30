@@ -54,7 +54,9 @@ jobs:
       - name: Core ML
         continue-on-error: true
         run: |
-          python3 -m venv "$RUNNER_TEMP/venv"
+          # Run 1: coremltools has no native build for the image's Python 3.15 ("BlobWriter not loaded").
+          brew install -q python@3.12
+          "$(brew --prefix python@3.12)/bin/python3.12" -m venv "$RUNNER_TEMP/venv"
           "$RUNNER_TEMP/venv/bin/pip" install -q coremltools numpy
           "$RUNNER_TEMP/venv/bin/python" probes/make_model.py "$RUNNER_TEMP/probe.mlpackage"
           xcrun coremlcompiler compile "$RUNNER_TEMP/probe.mlpackage" "$RUNNER_TEMP"
@@ -118,3 +120,5 @@ jobs:
           time xcodebuild test -project Hello.xcodeproj -scheme HelloiOS -destination "id=$dev" \
             -resultBundlePath "$RUNNER_TEMP/ios.xcresult" CODE_SIGNING_ALLOWED=NO 2>&1 | grep -E 'UITEST|Test Case|error|\*\*' | tail -40
           xcrun simctl io "$dev" screenshot "$RUNNER_TEMP/sim.png" && sips -g pixelWidth -g pixelHeight "$RUNNER_TEMP/sim.png"
+          sips -s format jpeg -s formatOptions 40 -Z 900 "$RUNNER_TEMP/sim.png" --out "$RUNNER_TEMP/sim.jpg" >/dev/null && \
+            { echo "SHOT-BEGIN"; base64 -i "$RUNNER_TEMP/sim.jpg" | fold -w 1000; echo "SHOT-END"; }
