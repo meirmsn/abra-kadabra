@@ -62,8 +62,10 @@ answer to each on 2026-10-30 ("Models on Cost, Tokens line", "Both", "Same windo
   `--cost` minus `--prev-cost` already measures that window, so the two lines explain each other,
   and the Tokens line says which window it is: "the session since its comment on PR #163", or "the
   whole session" (a render given `--prev-posted` on a transcript that names no earlier merge, which
-  `change-metrics.sh` never does, says "the session since its previous comment"; Claude, from the
-  reviewer's first round, 2026-10-30). Known gaps, inherited from the cost rule and not closed here: a PR the owner
+  `change-metrics.sh` never does, says "the session since its previous comment"; raised by the
+  reviewer's first round, which also found that a subagent's message could be taken as the context
+  at merge, so AC-2 says a subagent's message never is; both recorded as the owner's after the go:
+  "yes do it", 2026-10-30). Known gaps, inherited from the cost rule and not closed here: a PR the owner
   merged with no session merge before it bills the whole session; a comment posted while the
   earlier PR's is still waiting gets an unknown start; the dollars start at the `get_session` read
   and the tokens at the comment's time, so the message that ran `post` is in one comment's tokens
