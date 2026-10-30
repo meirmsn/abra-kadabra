@@ -12,7 +12,7 @@ it lands, how the change went":
    **failed**. If the deploy never happens, it ends in a final state […], never stuck at 'checks
    running'."
 2. "A metrics comment posted by the Claude session once the deploy comment reaches a final state,
-   about five lines", with real numbers from one of the website's deploys:
+   about five lines", with real numbers from the website's PR 7:
 
    > **How this change went** · request to live **27 min**
    >
@@ -21,7 +21,7 @@ it lands, how the change went":
    > - **Cost:** $4.05 ($3.88 session + $0.17 reviewer)
    > - **Quality:** 2 pushes · 0 red CI runs · reviewer passed 2 of 2
 
-(The numbers above are the owner's hand count. On 2026-10-16, rebuilding the measured change with the scripts gave
+(The numbers above are the owner's hand count. On 2026-10-16, rebuilding PR 7 with the scripts gave
 6 answers and 3 min 31 s deploying, and the owner's answers on the definitions made those the pinned
 numbers; see the Decisions and AC-11.)
 
@@ -191,27 +191,27 @@ auto-unsubscribed, so the project's deploy comment never reaches it".
     each wake; Claude).
   - Subagents' own transcripts (`subagents/`) are not read; their time counts only while the main
     session waits for them.
-- **Where each number comes from** (owner's method, measured by hand on one website change; definitions Claude's):
+- **Where each number comes from** (owner's method, measured by hand on PR 7; definitions Claude's):
   - _Request to live:_ the clock's start to the deploy comment's final state (`at`).
   - _Claude working:_ from each owner message or wake to the last assistant entry before the next
     one, less the time an `AskUserQuestion` waits for its answer, from the start until the deploy
     comment's final state, so the session's own work after the merge counts; overlapping spans
-    counted once (owner chose "Include post-merge work", 2026-10-16, after the rebuild gave 10.2
+    counted once (owner chose "Include post-merge work", 2026-10-16, after the PR 7 rebuild gave 10.2
     min to the merge and 11.0 with it).
   - _Waiting on you:_ the time from the start to the merge that isn't Claude working: before the PR
     opens an idle session waits for the owner's reply, and while it is open the owner can approve at
-    any time. The measured change: 13 min. Rejected: counting only the gaps the owner ended and showing the rest as
-    "waiting on CI" (6 and 7 min on the measured change), which needs each gap's cause matched against GitHub's
+    any time. PR 7: 13 min. Rejected: counting only the gaps the owner ended and showing the rest as
+    "waiting on CI" (6 and 7 min on PR 7), which needs each gap's cause matched against GitHub's
     times; so the Time line has no "waiting on CI" (owner: "idk, whats simple and resonable?";
     Claude's pick, 2026-10-16)
   - _Deploying:_ the merge to the final state.
   - _Your input:_ answers in chat are the questions answered through `AskUserQuestion` plus the
     owner's chat messages after the first one (the go is one; owner chose "Questions + messages":
-    6 on the measured change, 5 questions and 1 message, where the hand count said 4, 2026-10-16); PR comments are the owner's
+    6 on PR 7, 5 questions and 1 message, where the hand count said 4, 2026-10-16); PR comments are the owner's
     comments and reviews with text; approvals are their `APPROVED` reviews. The owner is the account
     that approved the PR, else every account that isn't a bot (`[bot]` or type `Bot`) or the PR's
     author. All of these count up to the merge, where the change ends: the owner's input is "during
-    the change", and on the measured change their messages after the merge were about other things (Claude, from
+    the change", and on PR 7 their messages after the merge were about other things (Claude, from
     the owner's words, 2026-10-16).
   - _Cost:_ session cost (above) plus the reviewer's: each `REVIEW:` line `ship.sh` printed in the
     transcript names its verdict file, whose `reviewer.cost_usd` counts, failed rounds included;
@@ -224,7 +224,7 @@ auto-unsubscribed, so the project's deploy comment never reaches it".
     Lighthouse is left out: it is in CI logs, in a form each stack writes its own way (owner:
     "yes", 2026-10-16).
   - A time under 10 minutes shows minutes and seconds ("3 min 31 s"); longer ones are rounded to the
-    nearest whole minute (owner chose "Show seconds under 10 min", 2026-10-16, after the measured change's deploy,
+    nearest whole minute (owner chose "Show seconds under 10 min", 2026-10-16, after PR 7's deploy,
     3 min 31 s, rounded to 4 where the hand count said 3).
 - **A number that can't be measured shows "unknown",** never a guess, and never blocks or delays
   the merge or the deploy (owner)
@@ -241,9 +241,9 @@ auto-unsubscribed, so the project's deploy comment never reaches it".
 - **Test data holds no identifiers:** the PR 7 test case is a fixture rebuilt from that session's
   events and the PR's GitHub data, anonymised (made-up logins, `example.com`, fake ids, times kept
   relative). The transcript parsing is tested on a real local transcript's entry shapes, also
-  anonymised, since that session is readable here only through `list_events`, in another shape
+  anonymised, since PR 7's session is readable here only through `list_events`, in another shape
   (CLAUDE.md's identifier rule; Claude, from the spec review, 2026-10-16)
-- **The measured change's numbers are pinned:** the test expects the owner's numbers. If a definition here can't
+- **The PR 7 numbers are pinned:** the test expects the owner's numbers. If a definition here can't
   give one of them, the build stops and the difference goes to the owner before the definition or
   the expected number changes (owner: "Reconstruct PR #7's numbers above as a test case if you
   can")

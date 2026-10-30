@@ -167,6 +167,6 @@ of the devshop's fix for finding 13.
 - Fixing any finding, the 13 from the website included (the owner decides which go on the roadmap
   from the surfacing list)
 - Any check, linter or script that reads `ROADMAP.md` or `FINDINGS.md`
-- Changing the website: its open roadmap PR adopts the template in a website session
+- Changing the website: its PR 6 adopts the template in a website session
 - Moving the workstream files' task detail into `ROADMAP.md`
 - Reordering the devshop roadmap beyond a first proposal; the owner reorders it

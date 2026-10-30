@@ -68,8 +68,13 @@ understand what this means, right?"
   as `kit/notes/projects/<name>.md` is cited by its shape.
 - **Quoted owner words keep their wording.** Where a quote in ROADMAP, a spec or the notes holds a
   project name, the name is swapped for its description in square brackets, so the edit shows.
-- **Merged specs and files that projects copy.** A merged spec is reworded outside its AC items only,
-  so its recorded go and items stay true. A file that projects keep a copy of
+- **Merged specs are left as they are.** The reviewer takes the one spec file a change touches as
+  its spec, so a change that edits merged specs can't be reviewed. The merged specs keep their
+  website PR numbers (about a dozen, no names and no product detail), as do the fixture
+  `tests/fixtures/change-metrics-pr7` and its test. Changed after the go: the owner chose this
+  option: "1" (owner, 2026-10-30); rejected: three follow-up PRs, one per merged spec. The original
+  plan was to reword merged specs outside their AC items.
+- **Files that projects copy.** A file that projects keep a copy of
   (`runtime/project-files.txt`) gets comment-only edits, and they reach projects with the next
   devshop release.
 - **The CLAUDE.md change.** One new bullet goes under § Rules, next to the identifiers bullet. The
@@ -109,12 +114,14 @@ understand what this means, right?"
 - **AC-2** A case-insensitive `git grep` for either of the two project names (hyphen, space,
   underscore or no separator) finds nothing in the tree. The command is in the PR body, not in this
   repo, since it holds the names.
-- **AC-3** `git grep -n -i -E "website('s)? +PRs?\b"` finds nothing.
-- **AC-4** Every PR number left in the tree belongs to the devshop or its fixture, harness or test
-  repos — verified by review: read every line of `git grep -n -i -E "PRs? *#?[0-9]+"`.
-- **AC-5** Every line the sweep changed, and every line that names one of the three descriptions,
-  carries only what the AC-1 bullet allows — verified by review: read the PR diff and
-  `git grep -n -i -E "pilot web app|website"` against the bullet.
+- **AC-3** `git grep -n -i -E "website('s)? +PRs?\b" -- . ':!specs/' specs/other-projects-detail.md`
+  finds nothing (merged specs excluded, owner 2026-10-30).
+- **AC-4** Every PR number left in the tree outside the merged specs and the `change-metrics-pr7`
+  fixture and its test belongs to the devshop or its fixture, harness or test repos — verified by
+  review: read every line of `git grep -n -i -E "PRs? *#?[0-9]+" -- . ':!specs/'` and this spec.
+- **AC-5** Every line the sweep changed, and every line outside the merged specs that names one of
+  the three descriptions, carries only what the AC-1 bullet allows — verified by review: read the
+  PR diff and `git grep -n -i -E "pilot web app|website" -- . ':!specs/'` against the bullet.
 - **AC-6** No lesson is lost. `kit/notes/revamp/lessons.md` keeps its 62 `### L-` headings with
   the same ids and titles, each with a rule and a **Why**, and every "Considered, not carried" entry
   keeps its id and reason — verified by review: diff the heading list and read the changed Why
@@ -128,8 +135,8 @@ understand what this means, right?"
 
   Verified by review: read those passages.
 
-- **AC-8** Merged specs keep their **Go:** line and AC items unchanged — verified by review: the
-  diff of `specs/` touches no `**Go:**` or `**AC-` line except in this spec.
+- **AC-8** No merged spec changes — verified by review: the diff of `specs/` touches only this
+  spec.
 - **AC-9** `docs/README.md` lists this spec, and `tests/run.sh` passes.
 
 ## Out of scope
