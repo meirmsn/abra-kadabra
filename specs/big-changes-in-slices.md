@@ -1,6 +1,6 @@
 # A whole app or a big feature is built as slices, each its own change
 
-**Go:** pending
+**Go:** "1. you would have a split skill, and call it from intent when applicable, rigth? if yes, go" and, on the consultation as the second slice, no separate shotgun skill and the interview folded in, "agree with you, go!" (owner, 2026-10-30)
 
 ## Intent
 
