@@ -83,7 +83,7 @@ bootstrap and no skill uses them except `/spec` (REVIEW-2 § 2); the reviewer re
   environment; its first UI change after the merge is the live check, and its PR's Evidence line is
   recorded on W10.10.8. Rejected: a CI test (CI stays plain, no agentic jobs; TARGET Verify 3)
 - **After the merge:** its value is judged as REVIEW-2 said: whether the owner's look-and-feel
-  comments on the website's PRs drop. Watched on the next UI changes, not an item here
+  comments on PRs in the website drop. Watched on the next UI changes, not an item here
 - Size: the build skill is at 54 lines and 508 words of its one-page cap (60 and 600, a warning
   only); its step is one bullet, the detail goes in the UI guideline. The pr skill is already over
   its cap (72 lines, 771 words): its change is a few words in an existing bullet

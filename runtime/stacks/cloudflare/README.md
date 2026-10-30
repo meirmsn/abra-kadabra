@@ -156,7 +156,7 @@ in.
    those two), kept as `CLOUDFLARE_API_TOKEN` in a GitHub environment named `production`, with
    `CLOUDFLARE_ACCOUNT_ID` as a variable or secret beside it, and the environment's deployment
    branch rule set to `main` alone. Check: a workflow job on a branch that asks for `production` is
-   refused by GitHub before any step runs (the website's PR 2 probe), and the deploy job on `main`
+   refused by GitHub before any step runs (the website's first UI PR), and the deploy job on `main`
    succeeds.
 2. **A separate, preview-only Cloudflare account**, whose token (same scopes) is the only one in a
    GitHub environment named `preview`, with its own `CLOUDFLARE_ACCOUNT_ID`. Check: the first PR's
@@ -182,7 +182,7 @@ in.
    counts nothing for it (the website's first canary saw 0 requests while fetching every route), so
    an error count built on it is blind and only the page fetches catch an outage. The website's
    follow-up to its PR #10 makes that switch; until it lands, this is the owner's choice, not a
-   verified query. Two facts for the canary and the health check, from the website's PR #10: a
+   verified query. Two facts for the canary and the health check, from the website's canary change: a
    canary job can't share the deploy's concurrency group (GitHub keeps one pending job per group and
    a newly queued one cancels it, so a queued canary could cancel the next merge's waiting deploy);
    the website keeps the canary out of the group and ends it "superseded" when `/build.txt` shows a

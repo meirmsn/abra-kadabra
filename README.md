@@ -43,4 +43,4 @@ and opens the first PR with green CI, and part 2 (protecting `main`) comes in th
 
 Stack homes (`runtime/stacks/<name>/`) and discipline guidelines (`runtime/guidelines/`) live in
 `runtime/`, because only `runtime/` reaches a project's session. The Cloudflare home and the UI
-guideline ship; `nextjs-supabase/` is a placeholder until lalista (M3).
+guideline ship; `nextjs-supabase/` is a placeholder until the pilot web app (M3).
