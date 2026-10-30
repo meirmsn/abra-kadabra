@@ -2997,7 +2997,7 @@ clone stopped; `check.sh` now refuses a used clone.
 ## #78 — 2026-10-15 · Website session findings: squash only, restart hook, design, findings route
 
 **What moved**: five findings from the website session (W10.10.1), matched first: none in the
-ledger. F-NEW-76 (set-up lacked "squash only", blocking PR 2's screenshots) is fixed in W10.10.1's
+ledger. F-NEW-76 (set-up lacked "squash only", blocking the first UI PR's screenshots) is fixed in W10.10.1's
 owner steps. Fix queue: F-NEW-78 (`/spec` interview skipped) and F-NEW-79 (no route to the design
 skills without a `DESIGN.md`), both intent § 2, 🔥 12.0; F-NEW-77 (the SessionStart hook reads the
 wrong directory after a restart and skips the project checks silently), 🔥 8.0, a mitigation. The
