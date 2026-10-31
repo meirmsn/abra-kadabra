@@ -20,6 +20,11 @@ from it on its first entry; delete this comment and the example row there.
   request.
 - Section: one per Open entry, quoting the owner's request word for word in a fenced text block,
   with where and when they said it. Claude's own notes, if any, go under a heading that says so.
+- A slice (devshop:split; specs/big-changes-in-slices.md in the devshop): an ordinary R-<n> row,
+  one per slice, in the order the owner approved, the block consecutive and placed where they said.
+  Its section quotes the owner's original request and their approval of the split, word for word,
+  and names the other slices' IDs; the slice's own detail goes under Claude's notes. The quoted
+  approval is the owner's go for the entry. The spec that delivers a slice names its R-<n>.
 -->
 
 | ID  | Added      | What                     | Status |

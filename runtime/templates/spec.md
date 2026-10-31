@@ -12,6 +12,9 @@ line (their words, then the date as YYYY-MM-DD) and check again with --go.
 
 ## Intent
 
+<!-- A change that picks up a roadmap entry names its R-<n> here; the change that delivers it marks
+the entry Done. A slice (devshop:split) also links the plan document when there is one. -->
+
 {{What the owner asked for and why, in their words}}
 
 ## Decisions
