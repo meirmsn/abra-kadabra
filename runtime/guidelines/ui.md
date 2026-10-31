@@ -90,7 +90,9 @@ styles, scripts a page loads, its assets), after its tests pass and before `devs
   tests and the fast checks again.
 - **Its findings, like the reviewer's:** High is fixed before `ship`; one that can't be (outside
   the change, or a spec change) is a `med` row the owner is asked about. Medium left unfixed is a
-  `med` row, Polish a `low` row in `FINDINGS.md`, committed before `ship`.
+  `med` row, Polish a `low` row in `FINDINGS.md`, committed before `ship`. This holds on every
+  surface, customer-facing or internal ([`design.md`](design.md) § The surface): a Medium on the
+  lines the change touches is fixed, not left.
 - **On the PR,** under Evidence: `**Design review:**` design score and AI-slop score before → after,
   findings fixed and logged, for commit `<sha>`; run again on a later round that changes what a
   page renders, and rewrite the line. Can't run (no browser, the app won't start, the skill fails):
