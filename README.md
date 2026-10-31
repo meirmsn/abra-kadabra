@@ -319,11 +319,16 @@ carry the migration, done by the agent.
 
 - **Cloud only:** runs only as a Claude Code cloud session on a GitHub repository; there is no
   local or Mac path yet, so no native builds.
-- **One stack:** Cloudflare Workers is real in v2; Next.js with Supabase, which v1 ran lalista and
-  home-os on, is a placeholder in v2, and iOS has not started.
+- **One stack:** Cloudflare Workers is real in v2. Next.js with Supabase, which v1 ran lalista and
+  home-os on, is still a placeholder in v2: lalista builds and runs locally on Workers, keeping
+  Supabase, but has not moved yet. iOS has not started.
 - **The review is feedback, not a wall,** and a PR can weaken a check in a copy it carries and go
-  green on it; your reading of the diff is the catch.
-- **Each change costs money:** a few dollars for a small website change.
+  green on it; your reading of the diff is the catch. I track the fixes as
+  [W10.11.4](kit/notes/revamp/workstreams/W10-v2.md) (a comment from `main` when a PR changes a check) and
+  [R-9](ROADMAP.md) (a reviewer the builder can't reach).
+- **Each change costs money:** about $8 for the last small website change I recorded, more when a
+  long session keeps re-reading its context; the comment on each merged PR shows the cost, the
+  models and the tokens.
 - **Devshop releases are not fully walled yet:** the release button is meant to be mine alone, but
   a branch can carry a copy of the workflow without that check and mint a release tag. It cannot
   touch `main`, my approval or a secret, and a project moves to a release only through an upgrade
