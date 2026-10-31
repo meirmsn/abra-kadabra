@@ -3207,3 +3207,17 @@ moved into the repo. Why a restart hands the hook that directory is upstream and
 directly; the test models the sightings.
 
 **Next**: W10.11.1, the owner's sitting, then W10.11.6.
+
+## #93 — 2026-10-30 · The Apple proposal: macOS and iOS in throwaway VMs
+
+**What moved**: the owner asked for a design to build native macOS and iOS apps with the host
+protected. [apple-native-proposal.md](apple-native-proposal.md): the agent stays in its cloud
+session; GitHub's hosted macOS VMs build, UI-test and screenshot first, local Tart VMs on a dedicated
+Mac only if needed, real hardware only for reviewed builds. It revisits TARGET Environments 7; the
+owner's calls are its § 10. Spike ([record](spikes/m4-apple-vm/README.md)): a SwiftUI UI test with
+its screenshot passed in a VM, ad-hoc signed; MLX ran on the paravirtual GPU.
+
+**Surprises**: Core ML in the VM lists no Neural Engine and falls back silently. This session can't
+fetch a Swift toolchain (host denied, Docker Hub 429) nor GitHub's artifact storage host (403).
+
+**Next**: the owner's decisions in § 10.

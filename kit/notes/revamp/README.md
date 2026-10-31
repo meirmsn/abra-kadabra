@@ -63,6 +63,7 @@ an explicit go/no-go; the pilot web app is the pilot (web, then iOS).
 | [LOG.md](LOG.md)                                                             | Per-session journal                                                                                                                                                                       |
 | [lessons.md](lessons.md)                                                     | Lessons from v1 and the 2nd pilot web app that carry into v2, by pillar and by stack (W10.3.1–2)                                                                                          |
 | [project-contract-audit-2026-10-19.md](project-contract-audit-2026-10-19.md) | What the devshop expects a project to provide: 39 items, how each is enforced, where the website and the fixture differ; the survey behind R-13                                           |
+| [apple-native-proposal.md](apple-native-proposal.md)                         | Proposal (2026-10-30): native macOS and iOS apps built in throwaway macOS VMs, the host protected; its spike is [m4-apple-vm](spikes/m4-apple-vm/README.md)                               |
 
 ## Next action
 
