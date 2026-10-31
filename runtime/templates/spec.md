@@ -13,7 +13,9 @@ line (their words, then the date as YYYY-MM-DD) and check again with --go.
 ## Intent
 
 <!-- A change that picks up a roadmap entry names its R-<n> here; the change that delivers it marks
-the entry Done. A slice (devshop:split) also links the plan document when there is one. -->
+the entry Done. A slice (devshop:split) also links the plan document when there is one. A change
+that changes what a page renders names its surface, customer-facing or internal, and the DESIGN.md
+tokens and components it uses; anything DESIGN.md must gain is a decision. -->
 
 {{What the owner asked for and why, in their words}}
 

@@ -284,7 +284,11 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   [`tests/cloudflare-stack.test.sh`](../tests/cloudflare-stack.test.sh) proves it loads only for a
   project with a wrangler config. [`nextjs-supabase/`](../runtime/stacks/nextjs-supabase/README.md)
   is a placeholder until M3.
-- Discipline guidelines: [runtime/guidelines/README.md](../runtime/guidelines/README.md). The UI
+- Discipline guidelines: [runtime/guidelines/README.md](../runtime/guidelines/README.md). The
+  design guideline [`design.md`](../runtime/guidelines/design.md)
+  ([spec](../specs/design-guideline.md)) is what a product looks like, read with `ui.md` by every
+  change that changes what a page renders: `DESIGN.md` first, the surface, the placeholder rule,
+  components and motion, the definition of done. The UI
   guideline [`ui.md`](../runtime/guidelines/ui.md) ([spec](../specs/ui-baseline.md)) starts every
   interface from [`runtime/templates/ui/`](../runtime/templates/ui/): `base.css` (shadcn/ui's token
   names, light and dark), `theme.js` (the theme toggle), an example page, and two checks a project
@@ -319,6 +323,9 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
     [README](../kit/notes/revamp/spikes/w10-8-ui-baseline/README.md).
   - The split dry run: [README](../kit/notes/revamp/spikes/big-changes-in-slices/README.md), a
     made-up app through the old `intent` wording and the new `split` skill, graded before the runs.
+  - The design-guideline dry run: [README](../kit/notes/revamp/spikes/design-guideline/README.md),
+    a small UI task on a scratch project with a `DESIGN.md`, through `main`'s `build` § 2 and this
+    change's, graded before the runs.
   - W10.1.2 install probe: [README](../kit/notes/revamp/spikes/w10-1-2-install/README.md) and its
     [probe skill](../kit/notes/revamp/spikes/w10-1-2-install/plugin/skills/devshop-probe/SKILL.md).
   - W10.1.2b thin install: [README](../kit/notes/revamp/spikes/w10-1-2b-thin/README.md) and its
