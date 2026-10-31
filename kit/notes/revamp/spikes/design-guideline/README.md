@@ -46,6 +46,29 @@ recorded and no pass is claimed. If both control runs also pass both lines, the 
 forced read made no difference on this task; the guideline still lands and the sentence stays as
 cheap insurance unless the owner drops it.
 
-## Result
+## Result (2026-10-31, one fresh copy and one fresh helper per run)
 
-_Filled in after the runs._
+| Line                              | Control 1 | Control 2 | Guided 1 | Guided 2 |
+| --------------------------------- | --------- | --------- | -------- | -------- |
+| 1 `DESIGN.md` before the first edit | pass (3rd file read) | pass (1st file read) | pass (2nd, after a directory listing) | pass (2nd, after a missing `CLAUDE.md`) |
+| 2 only `DESIGN.md`'s values       | pass      | pass      | pass     | pass     |
+
+**All four runs pass both lines, so the spec's pass rule ("at least one control run misses a
+line") is not met, and the pre-registered reading applies:** the forced read made no measurable
+difference on this task. Both controls found `DESIGN.md` on their own: `main`'s `ui.md`, which § 2
+already loads, names it, and a builder exploring a four-file project opens it. What the guided arm
+changed is the order and the reading, not the outcome: both guided helpers read `DESIGN.md` first
+or second, then `design.md`, then `ui.md`, before any project file; the controls read the
+guidelines README and `ui.md` first (control 1) or `DESIGN.md` then the guidelines (control 2).
+Every run took the display stack and the copper values from `DESIGN.md`, through new tokens in
+`base.css`, and no run added a literal value outside it. The guideline lands on the owner's go;
+the one sentence in `build` § 2 stays as cheap insurance (the spec's decision), and the real check
+is the first UI slice of a project with a `DESIGN.md` that is not four files long.
+
+**Also seen, not graded:** all four runs left `highlight-foreground` out of the theme because the
+scratch `DESIGN.md`'s light pair is 3.76:1 and `tokens-check` pairs `--X-foreground` on `--X` at
+4.5:1 (a flaw in the scratch file, which a real `DESIGN.md` check would catch: the next change);
+guided run 2 set the figure at `font-weight: 550` where `DESIGN.md` gives the display face weight
+400 (a weight, which line 2 doesn't grade; the reviewer's design lens would); guided run 2's first
+render run hit a sibling run's server on the same port and was re-run on a free one; both guided
+runs found the repo's pinned Playwright has no Chromium in this image (F-NEW-132).

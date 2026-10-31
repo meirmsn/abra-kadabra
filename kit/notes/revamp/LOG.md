@@ -3194,6 +3194,23 @@ upgrade to this release shows it.
 
 **Next**: R-14 (W10.11.12), before the pilot web app adopts v2.
 
+## #94 — 2026-10-31 · A design guideline, and the UI tooling decision
+
+**What moved**: the UI tooling analysis (gstack stays the one design voice; no new design skill;
+four changes: this guideline, impeccable's detector engine in the bootstrap, a `DESIGN.md` shape
+check, the React home's defaults) and its first change,
+[specs/design-guideline.md](../../../specs/design-guideline.md): `runtime/guidelines/design.md`
+(`DESIGN.md` first, what enforces what, the surface, the placeholder rule, components and motion,
+done, never), one sentence in `build` § 2 (60 lines, 574 words), the `CLAUDE.md` starter and spec
+template lines, a pointer in `ui.md` § Design review. The owner's calls: all five, the forced read
+instead of an `@DESIGN.md` import, Medium fixed on internal surfaces too.
+
+**Surprises**: the dry run's two controls read `DESIGN.md` unprompted and passed both grading lines,
+so the forced read showed no difference on a four-file project; recorded as the spec foresaw. The
+image's Chromium moved past the pinned Playwright's build (F-NEW-132).
+
+**Next**: the detector engine in the bootstrap (spec B); the shape check (C); the home at M3 (D).
+
 ## #93 — 2026-10-30 · A big change is built as slices
 
 **What moved**: [specs/big-changes-in-slices.md](../../../specs/big-changes-in-slices.md): a `split`
