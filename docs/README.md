@@ -149,6 +149,9 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
 - [`design-first-spec-review.md`](../specs/design-first-spec-review.md): design questions first in
   the spec review, replayed and dropped (they missed the case they were for); the finding is
   F-NEW-65.
+- [`design-guideline.md`](../specs/design-guideline.md): a design guideline every UI change reads
+  after the project's `DESIGN.md`: the surface rule, the placeholder rule, the component and motion
+  defaults, and what done means for UI.
 - [`design-review-in-build.md`](../specs/design-review-in-build.md): build runs gstack's
   `/design-review` on a local run of every UI change before it ships.
 - [`findings-and-roadmap.md`](../specs/findings-and-roadmap.md): every repo keeps a roadmap of
