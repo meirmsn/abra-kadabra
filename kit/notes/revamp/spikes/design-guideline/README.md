@@ -18,13 +18,16 @@ small UI task. The grading below is committed before any run (the commits' order
   baseline can't satisfy it: `base.css` has no display face and no copper, so the builder must
   take both values from somewhere.
 - **Prompts,** built by [`build-prompts.sh`](build-prompts.sh) from real files, never retyped: the
-  control gets `origin/main`'s `build` § 2 and `runtime/guidelines/` (materialised with
-  `git archive`); the guided arm gets this change's working tree. Each prompt quotes § 2 verbatim,
+  [control](prompts/control.md) gets `origin/main`'s `build` § 2 and `runtime/guidelines/`
+  (materialised with `git archive`); the [guided](prompts/guided.md) arm gets this change's
+  working tree. Each prompt quotes § 2 verbatim,
   points the guidelines path at the run's directory, forbids gstack commands and commits, and asks
   for two things: the files read in order with a `-- first edit --` marker, and `git diff`.
 - **Helpers:** a fresh `general-purpose` agent per run, which may edit the scratch copy (outside any
   project; the build skill's "helpers never edit" is about a project's code). Two runs per arm.
-  Each output is saved verbatim under `outputs/`.
+  Each output is saved verbatim under `outputs/`: [control 1](outputs/control-1.md),
+  [control 2](outputs/control-2.md), [guided 1](outputs/guided-1.md),
+  [guided 2](outputs/guided-2.md).
 
 ## Grading rule (fixed before the runs)
 
