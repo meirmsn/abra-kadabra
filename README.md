@@ -324,7 +324,7 @@ carry the migration, done by the agent.
   Supabase, but has not moved yet. iOS has not started.
 - **The review is feedback, not a wall,** and a PR can weaken a check in a copy it carries and go
   green on it; your reading of the diff is the catch. I track the fixes as
-  [W10.11.4](kit/notes/revamp/workstreams/W10-v2.md) (checks run from `main`) and
+  [W10.11.4](kit/notes/revamp/workstreams/W10-v2.md) (a comment from `main` when a PR changes a check) and
   [R-9](ROADMAP.md) (a reviewer the builder can't reach).
 - **Each change costs money:** about $8 for the last small website change I recorded, more when a
   long session keeps re-reading its context; the comment on each merged PR shows the cost, the
