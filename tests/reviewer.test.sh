@@ -630,7 +630,7 @@ echo "ok - AC-3: a words-only review starts no local run and names no devshop-br
 
 # Could-not-run, with the reason and the log's tail, and nothing left behind.
 lr_cnr() { # <name> <script> <reason regex> [BROWSE_EXIT]
-  local r="$work/lr-$RANDOM"
+  local r; r=$(mktemp -d "$work/lr-XXXXXX")
   lr_project "$r" "$2"
   rm -f "$BROWSE_LOG" "$LR_ENV"
   SECONDS=0
