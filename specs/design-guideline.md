@@ -1,6 +1,6 @@
 # A design guideline: read `DESIGN.md` first, the surface rule, and what done means for UI
 
-**Go:** pending
+**Go:** "1. yes 2. ok 3. internal also med" (owner, 2026-10-31, the three questions on the go screen: all five calls, the forced read instead of the import, and Medium fixed on internal surfaces too)
 
 ## Intent
 
@@ -18,7 +18,7 @@ in the bootstrap, a `DESIGN.md` shape check in the fast tier, and the React home
 Shown five numbered calls (1 install the pinned detector engine; 2 a lighter treatment for internal
 screens; 3 shadcn/ui as the React default over Basecoat; 4 a new guideline file rather than
 extending `ui.md`; 5 the order A, B, C, then D with the React app), the owner answered "agree with
-your 4 recs" (2026-10-31); which four is confirmed at the go. The design-direction route itself
+your 4 recs" (2026-10-31), and at the go confirmed it meant all five ("1. yes"). The design-direction route itself
 landed with [`big-changes-in-slices.md`](big-changes-in-slices.md), whose out-of-scope names the
 rest as "its own change after this one".
 
@@ -43,8 +43,8 @@ rest as "its own change after this one".
   importing `DESIGN.md` into every session through the project's `CLAUDE.md`, which the owner's
   brief named as what Claude Code often needs: every non-UI change would pay for it, and what
   enforces the design file is the design review and the reviewer, not the import; the read only
-  helps the builder get it right the first time. A reversal of the brief, put to the owner at the
-  go (Claude's proposal, 2026-10-31)
+  helps the builder get it right the first time. A reversal of the brief, accepted at the go
+  ("2. ok", owner, 2026-10-31)
 - **What enforces what, said honestly in the guideline:** the independent reviewer reads the PR,
   the project and `DESIGN.md`, never the devshop's guidelines; today it finds a font, colour or
   spacing value `DESIGN.md` doesn't name and a `DESIGN.md` edit without a recorded decision
@@ -54,15 +54,14 @@ rest as "its own change after this one".
 - **The surface rule:** a change that changes what a page renders names its surface in its spec,
   `customer-facing` or `internal` (admin pages, operator tools); unnamed, or a change with no spec
   (a bug fix), means customer-facing. Both get `DESIGN.md`, tokens only, the two checks, the design
-  review with its High findings fixed, the six screenshots and the reviewer. The delta: on a
-  customer-facing surface the design review's Medium findings on the touched lines are fixed too,
-  Polish logged; on an internal surface only High is fixed, Medium and Polish are logged as
-  `ui.md` § Design review already says. `ui.md` § Design review gains one sentence pointing at the
-  rule. An internal product's direction slice may take one direction instead of two or three, the
-  owner's call at that slice's go; § Design direction itself is not edited. Rejected: the full
-  treatment everywhere (five to seven minutes a change and the owner's phone time; the brief
-  reserves the heavy loops for what customers see) (owner, 2026-10-31, call 2; the delta is
-  Claude's)
+  review with its High and Medium findings on the touched lines fixed and Polish logged, the six
+  screenshots and the reviewer. The owner's go made Medium the same on both ("3. internal also
+  med"), so `ui.md` § Design review's severity mapping stands for every surface and gains one
+  sentence saying so. What internal skips is the direction's variants: an internal product's
+  direction slice may take one direction instead of two or three, the owner's call at that slice's
+  go; § Design direction itself is not edited. Rejected: the full treatment everywhere (the brief
+  reserves the heavy loops for what customers see); rejected at the go: internal fixing only High
+  (owner, 2026-10-31, call 2 and "3. internal also med")
 - **The placeholder rule, once `DESIGN.md` exists:** from the design-direction slice on, the
   baseline's blue accent or its system font stack as the display voice with no `DESIGN.md` decision
   is a design finding. Before it (the walking skeleton, a bug fix on a project with no `DESIGN.md`,
@@ -122,7 +121,7 @@ rest as "its own change after this one".
 
 - **AC-1** `runtime/guidelines/design.md` exists, at most 120 lines and 1200 words, with: the
   forced read, what in `DESIGN.md` is normative and what applies with none; what enforces what;
-  the surface rule with its default and its delta; the placeholder rule and when it starts; the
+  the surface rule with its default and what internal skips; the placeholder rule and when it starts; the
   components and motion defaults; the one-voice rule; the definition of done; the forbid list —
   verified by review: reading the file
 - **AC-2** `runtime/skills/build/SKILL.md` § 2's disciplines bullet says a change that changes
