@@ -46,9 +46,7 @@ workstreams); a project has only `ROADMAP.md` and `specs/`.
   along a seam, owner, 2026-10-14, TARGET Shape 2), and a compact rewrite with the split step inside
   came to 71 lines and 780 words. With the step out and § 3–5 tightened (rules the spec template's
   comments already hold are not repeated), `intent` fits the page; `split` is about 25 lines; the
-  descriptions stay within their 200-word budget, the install plugin's `upgrade` counted with
-  them (200 used after the build; the draft said 150, which left the plugin out: a factual
-  correction after the go, 2026-10-31). Rejected: keep it in `intent` and
+  descriptions stay within their 200-word budget (150 used). Rejected: keep it in `intent` and
   accept the warning (against the owner's seam rule); one big spec with phases (one spec is one
   change, one PR, one reviewer run); specs for every slice up front (the first slice's build
   changes the next spec; rolling wave, PROCESS § 1)
