@@ -49,7 +49,10 @@ W10.1.2b spike (`kit/notes/revamp/spikes/w10-1-2b-thin/`, kept as notes).
   when the image ships Playwright's Chromium at `/opt/pw-browsers/chromium` the bootstrap adds
   `GSTACK_CHROMIUM_PATH` to the `env` of `~/.claude/settings.json`, keeping the rest; a settings
   file that isn't a JSON object, or whose `env` isn't one, is left as it is and logged as failed
-  ([spec](../specs/design-review-in-build.md)). Output: `/tmp/devshop-gstack.log`.
+  ([spec](../specs/design-review-in-build.md)). Output: `/tmp/devshop-gstack.log`. When the pin
+  moves is a milestone review's decision, with the upstream gap in view, never upstream's cadence
+  (owner, 2026-11-01; [PROCESS.md § 5](../kit/notes/revamp/PROCESS.md#5-reviews)); a re-pin moves
+  the engine pin with it.
 - **impeccable's design detector engine** ([spec](../specs/design-detector-in-bootstrap.md)):
   [`install/impeccable.pin`](impeccable.pin) names one version of the npm platform package
   `@impeccable/cli-linux-x64` and the sha256 of the binary inside it (equal to the pinned gstack's own
