@@ -95,7 +95,10 @@ just in case" and "should be responsive, not just phone" (owner, 2026-10-13).
 - Playwright pinned to 1.56.1: the version whose Chromium (build 1194) cloud sessions have
   preinstalled under `PLAYWRIGHT_BROWSERS_PATH`, so a session never downloads a browser (seen
   2026-10-13). This repo's slow CI job runs `npm ci` and installs that version's Chromium (Claude's
-  proposal, 2026-10-13)
+  proposal, 2026-10-13). Re-pinned to 1.63.0 on 2026-11-01: the image's Chromium had moved to
+  build 1243, which 1.63.0 ships, and 1.56.1 found no browser in a session (a bug fix, PR #174);
+  the reason stands. This note and the dated pointer in AC-7 are the owner's call on the stale
+  pin text left after that fix (owner, 2026-11-01: "just fix it, don't create an entry")
 - Timing: built and shipped now; the owner merges after W10.6.4, the north-star run, so the run
   measures the devshop it started on. The fixture's page is restyled in its own later task, with
   the owner's OK, after W10.6.4; the owner then tags a new reset baseline (owner, 2026-10-13)
@@ -138,7 +141,8 @@ just in case" and "should be responsive, not just phone" (owner, 2026-10-13).
 - **AC-6** The `build` skill's existing disciplines line tells a UI change in a project without
   the baseline to start from `/opt/devshop-current/templates/ui/`, within one page, and
   `skills-check.py` passes (it checks the path exists). Shown by `tests/skills-check.test.sh`
-- **AC-7** This repo: `package.json` pins Playwright 1.56.1; the render test is marked slow and
+- **AC-7** This repo: `package.json` pins Playwright 1.56.1 (1.63.0 since 2026-11-01; see the
+  pin's decision above); the render test is marked slow and
   CI's `slow` job runs `npm ci` and installs that version's Chromium; the guidelines README and
   the docs map name the new files; the workstream file has the task lines (this slice, the fixture
   restyle after W10.6.4, the M2 decision on B or C, the reviewer's browser) — verified by review:
