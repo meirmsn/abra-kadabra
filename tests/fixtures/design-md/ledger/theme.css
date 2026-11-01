@@ -1,0 +1,57 @@
+/* The ledger fixture's theme, derived from DESIGN.md under the baseline's token names. */
+:root {
+  color-scheme: light;
+  --background: #fafafa;
+  --foreground: #1f2328;
+  --card: #ffffff;
+  --card-foreground: var(--foreground);
+  --primary: oklch(0.5 0.19 262);
+  --primary-foreground: #ffffff;
+  --muted-foreground: #5d6670;
+  --highlight: oklch(0.62 0.16 48);
+  --highlight-foreground: oklch(0.99 0.005 60);
+  --border: #e1e4e8;
+  --shadow: 0 1px 2px oklch(0.2 0.02 260 / 6%);
+  --radius: 0.75rem;
+  --radius-sm: 0.25rem;
+  --font-display: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-weight-display: 400;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-4: 1rem;
+  --space-8: 2rem;
+  --tap: 44px;
+  --measure: 68ch;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #15181c;
+  --foreground: #f0f2f4;
+  --card: #1c2026;
+  --card-foreground: var(--foreground);
+  --primary: oklch(0.72 0.14 262);
+  --primary-foreground: #15181c;
+  --muted-foreground: #a5adb8;
+  --highlight: oklch(0.76 0.13 55);
+  --highlight-foreground: oklch(0.2 0.03 50);
+  --border: #2c323a;
+  --shadow: 0 1px 2px oklch(0 0 0 / 30%);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --background: #15181c;
+    --foreground: #f0f2f4;
+    --card: #1c2026;
+    --card-foreground: var(--foreground);
+    --primary: oklch(0.72 0.14 262);
+    --primary-foreground: #15181c;
+    --muted-foreground: #a5adb8;
+    --highlight: oklch(0.76 0.13 55);
+    --highlight-foreground: oklch(0.2 0.03 50);
+    --border: #2c323a;
+    --shadow: 0 1px 2px oklch(0 0 0 / 30%);
+  }
+}

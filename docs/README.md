@@ -297,11 +297,16 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   components and motion, the definition of done. The UI
   guideline [`ui.md`](../runtime/guidelines/ui.md) ([spec](../specs/ui-baseline.md)) starts every
   interface from [`runtime/templates/ui/`](../runtime/templates/ui/): `base.css` (shadcn/ui's token
-  names, light and dark), `theme.js` (the theme toggle), an example page, and two checks a project
+  names, light and dark), `theme.js` (the theme toggle), an example page, and three checks a project
   copies: `tokens-check.mjs` (every token defined in both themes, contrast pairs; proven by
-  [`tests/ui-tokens-check.test.sh`](../tests/ui-tokens-check.test.sh)) and `render-check.mjs`
+  [`tests/ui-tokens-check.test.sh`](../tests/ui-tokens-check.test.sh)), `render-check.mjs`
   (the page in Chromium at 375, 768 and 1280 px in both themes; proven by
-  [`tests/ui-render-check.test.sh`](../tests/ui-render-check.test.sh)). Its § Design review is how
+  [`tests/ui-render-check.test.sh`](../tests/ui-render-check.test.sh)) and `design-md-check.mjs`
+  (`DESIGN.md`'s shape and the theme derived from it, in the fast tier once the project has one;
+  proven by [`tests/ui-design-md-check.test.sh`](../tests/ui-design-md-check.test.sh) on two
+  fixtures, [the baseline's own](../tests/fixtures/design-md/baseline/DESIGN.md) against `base.css`
+  and [a ledger](../tests/fixtures/design-md/ledger/DESIGN.md) with a display face;
+  [spec](../specs/design-md-check.md)). Its § Design review is how
   `build` runs gstack's `/design-review` before `ship`
   ([spec](../specs/design-review-in-build.md)).
 - Reviewer: [runtime/reviewer/README.md](../runtime/reviewer/README.md) is the independent

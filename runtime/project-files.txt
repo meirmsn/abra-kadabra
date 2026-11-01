@@ -16,6 +16,7 @@ devshop  runtime/scripts/contract-check.py    scripts/contract-check.py
 devshop  runtime/project-contract.txt         scripts/project-contract.txt
 devshop  runtime/templates/ui/tokens-check.mjs scripts/ui/tokens-check.mjs  optional
 devshop  runtime/templates/ui/render-check.mjs scripts/ui/render-check.mjs  optional
+devshop  runtime/templates/ui/design-md-check.mjs scripts/ui/design-md-check.mjs  optional
 seed     runtime/templates/ci.yml             .github/workflows/ci.yml
 seed     runtime/templates/check-fast.sh      scripts/check-fast.sh
 seed     runtime/templates/check-slow.sh      scripts/check-slow.sh
