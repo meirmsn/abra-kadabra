@@ -75,7 +75,7 @@ Projects pin the tag; `/devshop:upgrade` defaults to the newest one. Proven by
   ([spec](../specs/ci-fast-slow-tiers.md)): job `fast` runs [`scripts/check-fast.sh`](../scripts/check-fast.sh)
   (the secret scan, lint and every test not marked slow), then job `slow` runs
   [`scripts/check-slow.sh`](../scripts/check-slow.sh) (the tests marked `# tier: slow`: the whole
-  install, the UI render check and the reviewer's `devshop-browse` in Chromium, at the Playwright version `package.json` pins). A test is slow when it tests the system end to end, not because it takes long.
+  install, the UI render check and the reviewer's `devshop-browse` in Chromium, at the Playwright version `package.json` pins, and the pinned design detector engine on a planted page, which `install/impeccable.sh` places in the job and the bootstrap in a session). A test is slow when it tests the system end to end, not because it takes long.
   `tests/run.sh fast|slow` runs one tier, `tests/run.sh` all. Proven by
   [`tests/check-tiers.test.sh`](../tests/check-tiers.test.sh) and
   [`tests/run-tiers.test.sh`](../tests/run-tiers.test.sh).
@@ -329,6 +329,9 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   - The design-guideline dry run: [README](../kit/notes/revamp/spikes/design-guideline/README.md),
     a small UI task on a scratch project with a `DESIGN.md`, through `main`'s `build` § 2 and this
     change's, graded before the runs.
+  - The design-detector dry run: [README](../kit/notes/revamp/spikes/design-detector/README.md),
+    `/design-review` on a scratch site with planted tells after the bootstrap's script placed the
+    engine, graded before the run.
   - W10.1.2 install probe: [README](../kit/notes/revamp/spikes/w10-1-2-install/README.md) and its
     [probe skill](../kit/notes/revamp/spikes/w10-1-2-install/plugin/skills/devshop-probe/SKILL.md).
   - W10.1.2b thin install: [README](../kit/notes/revamp/spikes/w10-1-2b-thin/README.md) and its

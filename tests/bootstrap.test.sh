@@ -93,7 +93,7 @@ echo "ok - design-detector-in-bootstrap AC-3: install/impeccable.pin names insta
 # A fake npm platform package for the engine, served by the fake curl below by the tarball's
 # basename: package/bin/impeccable is a script, as the real package's is a binary. 0.0.1 is good;
 # 0.0.3 has no bin/impeccable; 0.0.4's is a symlink (never a regular file); 0.0.2 has no tarball.
-mkdir -p "$work/fk/imp/package/bin" "$work/fk/imp-nobin/package" "$work/fk/imp-link/package/bin"
+mkdir -p "$work/dl" "$work/fk/imp/package/bin" "$work/fk/imp-nobin/package" "$work/fk/imp-link/package/bin"
 printf '#!/usr/bin/env bash\necho "fake impeccable $*"\n' >"$work/fk/imp/package/bin/impeccable"
 chmod +x "$work/fk/imp/package/bin/impeccable"
 echo '{"name":"@impeccable/cli-linux-x64"}' >"$work/fk/imp/package/package.json"

@@ -82,7 +82,9 @@ styles, scripts a page loads, its assets), after its tests pass and before `devs
   3000, 4000 and 8080). No `scripts/local-run.sh`: it can't run, and the PR's line says so.
 - **Unattended:** its questions don't go to the owner. No test framework bootstrap, no edits to
   `CLAUDE.md` or `TESTING.md`, no `DESIGN.md` written, no `TODOS.md` step, no Codex or other
-  outside voice (the code stays in the session), no learnings from other projects.
+  outside voice (the code stays in the session), no learnings from other projects. The detector
+  engine is the bootstrap's ([spec](../../specs/design-detector-in-bootstrap.md)): gstack's offer to
+  install one, when it appears, is declined ("continue without").
 - **Fixes only what the change built:** a finding on the pages and lines the change touches is
   fixed under `build` § 3 (its commit subjects, tests edited when behaviour changes), not in
   gstack's commit format; anything else is logged, not fixed. A fix that would change a spec
@@ -95,7 +97,10 @@ styles, scripts a page loads, its assets), after its tests pass and before `devs
   lines the change touches is fixed, not left.
 - **On the PR,** under Evidence: `**Design review:**` design score and AI-slop score before → after,
   findings fixed and logged, for commit `<sha>`; run again on a later round that changes what a
-  page renders, and rewrite the line. Can't run (no browser, the app won't start, the skill fails):
+  page renders, and rewrite the line. The review opens with impeccable's detector when the bootstrap
+  placed its engine (gstack prints `IMPECCABLE_READY`); a detector hit is evidence the review
+  confirms in the rendered page, never a finding by itself, and the line says whether it ran:
+  "detector: ran, N → M findings (engine `<version>`)" or "detector: did not run: `<why>`". Can't run (no browser, the app won't start, the skill fails):
   the line says why, and the owner hears it with the PR's link. Its browser is the image's
   Chromium, which the bootstrap sets as `GSTACK_CHROMIUM_PATH`. _Mitigation:_ gstack's browser
   check (`gstack-browser-ensure`) ignores that variable, so the skill prints `NEEDS_SETUP` though
