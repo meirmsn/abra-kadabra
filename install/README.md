@@ -63,7 +63,8 @@ W10.1.2b spike (`kit/notes/revamp/spikes/w10-1-2b-thin/`, kept as notes).
   install question. To place it, it copies the verified file into a staging directory beside the
   version directory (`~/.impeccable/bin/.staging.*`, removed on every exit), checks the copy again
   and renames it into place, so the final move stays on one filesystem: `$TMPDIR` and `$HOME` can be
-  two, and a move across them copies and could leave a partial engine at the final path. It removes every other `x.y.z` directory under `~/.impeccable/bin/` (nothing
+  two, and a move across them copies and could leave a partial engine at the final path. It
+  removes every other `x.y.z` directory under `~/.impeccable/bin/` (nothing
   else there), so gstack's "newest version" pick is always the pinned engine; on a developer's own
   machine that would remove an engine installed by hand. A bad pin line, a failed fetch, a tarball without the member or with a
   symlink, a checksum mismatch or a machine that isn't Linux x86_64 places nothing, removes
