@@ -1,6 +1,6 @@
 # A `DESIGN.md` shape check in the fast tier
 
-**Go:** pending
+**Go:** "Agree go" (owner, 2026-11-01, on the go screen with its four questions and the recommendations: the keys are the baseline's names, the reverse direction stays, `tokens-check.mjs` stays out of the template, a prose-shaped `DESIGN.md` is can't judge until converted)
 
 ## Intent
 
@@ -45,8 +45,7 @@ closes that gap in the fast tier, before any browser.
   it" bullet gains the clause that says so (one clause; spec A left that section to the slices
   change, and this is the first change since with a reason to touch it). Rejected: reading a mapping
   from `DESIGN.md` (a second vocabulary for the reviewer and the builder to hold, and a devshop
-  extension to gstack's format either way) (Claude's proposal, 2026-11-01; **owner's call at the
-  go**)
+  extension to gstack's format either way) (Claude's proposal, 2026-11-01; owner, "Agree go", 2026-11-01)
 - **The shape, rule by rule.** Each finding is one stdout line
   `design-md-check: <rule>: <message naming the key or token>`, then a count line, exit 1, as
   `tokens-check.mjs` prints; can't judge is one stderr line `design-md-check: can't judge: …`, exit 2.
@@ -111,7 +110,7 @@ closes that gap in the fast tier, before any browser.
     `--shadow` (a shadow list, not a colour by shape) stay the theme's. This direction is the
     spec's addition to the owner's "values equal", and the reason is the Why above. Rejected: one
     direction only, which lets a colour tuned in CSS and never written back pass (Claude's
-    proposal, 2026-11-01; **owner's call at the go**)
+    proposal, 2026-11-01; owner, "Agree go", 2026-11-01)
 - **Usage `scripts/ui/design-md-check.mjs --theme <theme.css> <DESIGN.md>`,** exit 0 clean, 1
   findings, 2 can't judge (bad arguments, `--theme` with an empty or missing value, a missing or
   unreadable file, no front matter, YAML outside the subset, a theme of another shape, a `DESIGN.md`
@@ -141,8 +140,7 @@ closes that gap in the fast tier, before any browser.
   diff. Rejected: a synthetic `DESIGN.md` of the baseline for every project (the baseline is the
   design there, and the file would be a brand nobody chose); rejected for scope: running
   `tokens-check.mjs` from the same part (its file list is the stack home's; spec A paired that
-  wiring with the stack homes) (Claude's proposal, 2026-11-01; **owner's call at the go on the
-  second**)
+  wiring with the stack homes) (Claude's proposal, 2026-11-01; the second: owner, "Agree go", 2026-11-01)
 - **The devshop's own proof:** `tests/ui-design-md-check.test.sh` (fast tier; every case prints
   `design-md-check AC-<n>`) feeds the check a known-bad `DESIGN.md` or theme per rule named above,
   the can't-judge inputs, and two good pairs committed by hand under `tests/fixtures/design-md/`,
@@ -173,7 +171,7 @@ closes that gap in the fast tier, before any browser.
   (LOG #95) (Claude's proposal, 2026-11-01)
 - **Not here:** the React home (D); `runtime/reviewer/`; a wall on the design review's findings
   (this check blocks through required CI like every fast-tier part, which is what the owner asked
-  for); wiring `tokens-check.mjs` into the template (unless the owner says so at the go); the stack
+  for); wiring `tokens-check.mjs` into the template; the stack
   homes' `supplies` and READMEs; gstack's `components` group, `{path}` references outside the four
   groups, and the prose sections' content; a check that `DESIGN.md`'s fonts are self-hosted (the
   reviewer's browser sees that); contrast (`tokens-check.mjs`'s)
@@ -230,7 +228,7 @@ closes that gap in the fast tier, before any browser.
   project's `check-fast.sh` (the upgrade shows the template's diff; the stack home's next change
   takes it and names the theme file `THEME_CSS` points at)
 - `runtime/reviewer/` (prompt, `review.sh`, eval), and any wall on the design review's findings
-- Wiring `tokens-check.mjs` into the template's fast tier (the owner's call at the go), and the
+- Wiring `tokens-check.mjs` into the template's fast tier (owner, "Agree go", 2026-11-01), and the
   stack homes' `supplies` and READMEs
 - gstack's `components` token group, references outside the four groups, the prose sections'
   content, fonts' self-hosting, contrast (that is `tokens-check.mjs`'s)
