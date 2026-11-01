@@ -45,3 +45,43 @@ A helper that can't start its browser, or reads outside its scratch repo, is a c
 recorded, and re-run once; a second could-not-run is recorded, no pass is claimed, and the owner
 hears it. The baseline is the earlier spike's reports (`Detector: not installed`, the install offer
 declined); no control run here.
+
+## The engine placed (2026-11-01)
+
+[`outputs/place-engine.txt`](outputs/place-engine.txt): `install/impeccable.sh install/impeccable.pin
+"$HOME"` against the real registry printed `placed /root/.impeccable/bin/0.1.3/impeccable` in 0.53 s;
+the file's sha256 is the pin's (`afc7a424…`), 15 991 120 bytes, mode 755. From the scratch repo,
+gstack's probe then printed `IMPECCABLE_READY: /root/.impeccable/bin/0.1.3/impeccable`.
+
+## Result (2026-11-01, one fresh helper, one run, 1106 s)
+
+The hand-back, verbatim: [`outputs/run-1.md`](outputs/run-1.md).
+
+| Line                            | Result                                                                                                                                                                               |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1 engine found                  | pass: `IMPECCABLE_READY: /root/.impeccable/bin/0.1.3/impeccable` in the set-up lines, the placed path                                                                                 |
+| 2 the detector counted          | pass: `Detector: 5 → 0 (engine 0.1.3; DOM mode, page launch)`; the baseline scan `DETECT_TOP total=5 rules=5`                                                                          |
+| 3 the planted tells, by rule id | pass: FINDING-002 `[ai-color-palette]`, FINDING-003 `[overused-font]`, FINDING-004 `[hero-eyebrow-chip]`; also FINDING-001 `[low-contrast]` and FINDING-005 `[nested-cards]`           |
+| 4 no install offer, no question | pass: no `DESIGN_DETECTOR_INSTALL_OFFER` line, no question put to the owner; gstack's telemetry was off, so its consent question didn't come back either                                |
+
+**Pass.** The review opened with the detector, confirmed each hit in the rendered page, fixed the
+five detector findings on the page's own lines in four commits (`launch.html` only), and its summary
+line reads as the guideline now words it: "detector: ran, 5 → 0 findings (engine 0.1.3)".
+
+**What else the run showed.** `nested-cards` fires in DOM mode (the rendered page) and not in the
+engine's file-scan mode on the same markup, which is why `tests/design-detector.test.sh` asserts the
+three ids and not that one. The helper's § 5 lists what did not work as the skill or the guideline
+words it, each a devshop finding: gstack's browse binary (`$B`) is not built in this environment and
+gstack has no `node_modules`, because the bootstrap's gstack step stopped at its Bun check (the
+image's Bun is 1.4.4, the pinned gstack is tested on 1.4.2; this session's `/tmp/devshop-setup.log`
+says so), so the guideline's F-NEW-101 mitigation assumes a binary that isn't there and the helper
+ran the browse CLI from source under bun (F-NEW-135, med); full-page screenshots wedge the browse
+daemon (F-NEW-136); dcg blocks three of the skill's own steps (F-NEW-137). None touched the
+detector, which needs neither the browse binary nor gstack's dependencies.
+
+## Mutants (2026-11-01)
+
+[`outputs/mutants.txt`](outputs/mutants.txt): the fixture with the eyebrow removed fails the test
+naming `[hero-eyebrow-chip]` (the engine reported `nested-cards` in its place); the pin with another
+checksum fails the sha256 case; no engine exits 2 naming `install/impeccable.sh`; the unmutated test
+passes.
