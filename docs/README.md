@@ -146,6 +146,9 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   comment follows the deploy to a final state, then the session posts how the change went.
 - [`devshop-deploy-comment.md`](../specs/devshop-deploy-comment.md): the devshop's own PRs follow
   their release, and the metrics count every reviewer round.
+- [`design-detector-in-bootstrap.md`](../specs/design-detector-in-bootstrap.md): every cloud session
+  has impeccable's design detector engine, placed by the bootstrap from a pinned npm package, so
+  gstack's `/design-review` opens with its deterministic rules.
 - [`design-first-spec-review.md`](../specs/design-first-spec-review.md): design questions first in
   the spec review, replayed and dropped (they missed the case they were for); the finding is
   F-NEW-65.
