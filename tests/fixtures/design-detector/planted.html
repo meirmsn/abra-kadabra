@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Launch</title>
+<!-- A planted page for the design detector (specs/design-detector-in-bootstrap.md): the AI-slop
+     tells the engine's file-scan mode reports. Each tell is marked. Synthetic content. -->
+<style>
+  /* tell: Inter as the display and body face (overused-font) */
+  body { font-family: Inter, sans-serif; margin: 0; color: #1a1a2e; }
+  /* tell: a purple-violet gradient hero (ai-color-palette), white text on violet (low-contrast) */
+  .hero { background: linear-gradient(135deg, #7c3aed, #a855f7); color: #ffffff; padding: 64px 24px; }
+  /* tell: a tracked ALL-CAPS eyebrow above an oversized h1 (hero-eyebrow-chip) */
+  .eyebrow { text-transform: uppercase; letter-spacing: 0.2em; font-size: 12px; margin: 0 0 8px; }
+  h1 { font-family: Inter, sans-serif; font-size: 56px; margin: 0; }
+  /* tell: nested rounded cards (nested-cards; not reported in file mode by 0.1.3) */
+  .card { border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1); background: #ffffff; }
+  .card .card { border-radius: 12px; }
+  main { padding: 24px; }
+</style>
+</head>
+<body>
+<section class="hero">
+  <p class="eyebrow">Introducing</p>
+  <h1>Unlock your potential</h1>
+</section>
+<main>
+  <div class="card">
+    <div class="card">
+      <div class="card">Three cards deep.</div>
+    </div>
+  </div>
+</main>
+</body>
+</html>

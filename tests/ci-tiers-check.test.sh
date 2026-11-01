@@ -133,13 +133,13 @@ want = {
     "fast": ["fetch-depth: 0", "gitleaks", "shellcheck", "dcg", "requirements-ci.txt", "npm ci",
              "apparmor_restrict_unprivileged_userns=0", 'scripts/check-fast.sh "$BASE"'],
     "slow": ["fetch-depth: 0", "apparmor_restrict_unprivileged_userns=0", "command -v jq",
-             "scripts/check-slow.sh"],
+             'install/impeccable.sh install/impeccable.pin "$HOME"', "scripts/check-slow.sh"],
 }
 for name, needles in want.items():
     text = yaml.safe_dump(jobs[name], width=1000)
     missing = [n for n in needles if n not in text]
     assert not missing, f"job {name} lacks {missing}"
 PY
-echo "ok - AC-6: this repo's ci.yml has fast and slow, each with its tier's tools, and the comment jobs"
+echo "ok - AC-6: this repo's ci.yml has fast and slow, each with its tier's tools (the slow job places the design detector engine: design-detector-in-bootstrap AC-5), and the comment jobs"
 
 echo "PASS: ci-tiers-check.py"
