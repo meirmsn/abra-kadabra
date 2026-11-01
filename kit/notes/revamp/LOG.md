@@ -3267,13 +3267,12 @@ reviewer's missing notion of a shipped spec F-NEW-134 (med, to the owner).
 the npm platform package (checksum-verified, never GitHub) at gstack's READY path; the bootstrap
 runs it after the gstack step, CI's slow job before the slow tier. `tests/design-detector.test.sh`
 proves the pinned engine on a planted page and the UI template, exit 2 with no engine; the
-bootstrap test gains its cases and the pin-moves-with-gstack check; the guideline, PR line and
-docs. The spike: `/design-review` opened with the detector (5 → 0, the three planted ids tagged),
+bootstrap test gains its cases and the pin-moves-with-gstack check; guideline, PR line, docs. The spike: `/design-review` opened with the detector (5 → 0, the three planted ids tagged),
 no install question. On the owner's word at hand-over, the gstack step now accepts a Bun at or
 above the tested one (F-NEW-135's cause).
 
 **Surprises**: the gstack step had failed in every environment, Bun 1.4.4 against gstack's 1.4.2:
 no `$B`, no skills linked. The browse daemon wedges on full-page screenshots (F-NEW-136); dcg
-blocks three skill steps (F-NEW-137). `nested-cards` fires in DOM mode only.
+blocks three skill steps (F-NEW-137).
 
 **Next**: spec C, the `DESIGN.md` shape check; then D at M3.
