@@ -3239,3 +3239,24 @@ moved into the repo. Why a restart hands the hook that directory is upstream and
 directly; the test models the sightings.
 
 **Next**: W10.11.1, the owner's sitting, then W10.11.6.
+
+## #95 — 2026-11-01 · The Playwright pin follows the image's Chromium (F-NEW-132)
+
+**What moved**: `package.json` pins Playwright 1.63.0, the image's own version (under
+`/opt/node-tools`), whose `browsers.json` names Chromium 1243, the build `/opt/pw-browsers` now
+holds. A bug fix: before, `tests/run.sh slow` in a session failed `reviewer-browse.test.sh` and
+`ui-render-check.test.sh` with "Executable doesn't exist at
+`/opt/pw-browsers/chromium_headless_shell-1194/…`"; after `npm ci`, all 3 slow files pass with
+`/opt/pw-browsers` untouched and nothing downloaded. The F-NEW-132 row deleted. No spec note:
+see Surprises.
+
+**Surprises**: Playwright 1.63 wants Node ≥ 20 (1.56 took 18); the image has 22, and CI's slow
+job (the runner's own Node) is the check for the runner.
+`bootstrap.test.sh` fails on a shallow clone, as its message says; `git fetch --unshallow` first.
+Deleting the widest findings row re-padded the table (a sighting on F-NEW-130). The dated note the
+re-pin owes `specs/ui-baseline.md` could not ship with it: the reviewer took the spec as the change's
+and was could-not-run twice on a reply covering 7 of its 8 items (and AC-7 still says 1.56.1). The
+note came out, a mitigation the owner chose ("go", 2026-11-01); the owed notes are F-NEW-133, the
+reviewer's missing notion of a shipped spec F-NEW-134 (med, to the owner).
+
+**Next**: the detector engine (spec B), the shape check (C), the home at M3 (D).
