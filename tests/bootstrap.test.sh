@@ -581,6 +581,42 @@ grep -q "^\[[0-9:]*\] impeccable 0.0.1 placed $imp_bin$" /tmp/devshop-setup.log 
 [ "$(grep -o '^\[[0-9:]*\] \(gstack\|impeccable\) ' /tmp/devshop-setup.log | head -1 | awk '{print $2}')" = gstack ] \
   || { cat /tmp/devshop-setup.log >&2; fail "design-detector-in-bootstrap AC-2: the engine step didn't run after the gstack step"; }
 echo "ok - design-detector-in-bootstrap AC-1, AC-2: the engine is placed at gstack's path, 0755, pinned bytes, other versions removed and a non-version entry kept, logged after gstack"
+# F-NEW-138: the verified engine is staged beside the version directory, under ~/.impeccable/bin/,
+# and moved from there, so the final move stays on one filesystem ($TMPDIR and $HOME can be two, and
+# a move across them copies, which can fail midway). A recording `mv` on PATH shows the final move's
+# source; no staging entry is left after a placement, a refusal or a failed final move.
+real_mv=$(command -v mv)
+mkdir -p "$work/bin-mv"
+# shellcheck disable=SC2016 # expands in the written script, not here
+printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$*" >>"$HOME/mv.calls"\nexec %q "$@"\n' "$real_mv" >"$work/bin-mv/mv"
+chmod +x "$work/bin-mv/mv"
+no_staging() { # no_staging <case>: nothing named .staging.* is left under ~/.impeccable/bin
+  local left
+  left=$(find "$HOME/.impeccable/bin" -mindepth 1 -maxdepth 1 -name '.staging.*' 2>/dev/null)
+  [ -z "$left" ] || fail "F-NEW-138: $1: a staging entry is left under ~/.impeccable/bin: $left"
+}
+rm -f "$HOME/mv.calls"
+PATH="$work/bin-mv:$PATH" DEVSHOP_TEST_STALE_ENGINE=1 setup_env
+final_mv=$(grep " $imp_bin$" "$HOME/mv.calls" 2>/dev/null | tail -1)
+[[ $final_mv =~ ^-f\ $HOME/\.impeccable/bin/\.staging\.[^/\ ]+/impeccable\ $imp_bin$ ]] \
+  || fail "F-NEW-138: the engine's final move isn't from a staging directory under ~/.impeccable/bin: '${final_mv:-no move to $imp_bin}'"
+[ "$(sha256sum "$imp_bin" | cut -d' ' -f1)" = "$imp_fake_sum" ] || fail "F-NEW-138: the staged engine placed isn't the pinned bytes"
+no_staging "after a placement"
+# A final move that fails (the version directory is read-only: a read-only bind mount, which stops
+# root too) places no file, leaves no staging entry, and is a FAILED step.
+setup_env
+imp_dir="$HOME/.impeccable/bin/0.0.1"
+rm -f "$imp_dir/impeccable"
+{ mount --bind "$imp_dir" "$imp_dir" && mount -o remount,bind,ro "$imp_dir"; } \
+  || fail "F-NEW-138: can't make the version directory read-only"
+git --git-dir=/opt/devshop.git show HEAD:bootstrap.sh | bash || true
+umount "$imp_dir" || fail "F-NEW-138: can't unmount the read-only version directory"
+last_run=$(tail -n +"$(grep -n '\] bootstrap start ' /tmp/devshop-setup.log | tail -1 | cut -d: -f1)" /tmp/devshop-setup.log)
+grep -q "FAILED: impeccable: can't move the engine into $imp_dir" <<<"$last_run" \
+  || { echo "$last_run" >&2; fail "F-NEW-138: a failed final move wasn't logged as a FAILED impeccable step"; }
+[ ! -e "$imp_bin" ] || fail "F-NEW-138: a failed final move left a file at $imp_bin"
+no_staging "after a failed final move"
+echo "ok - F-NEW-138: the engine is staged under ~/.impeccable/bin and moved within it; a failed final move places nothing; no staging entry is left"
 
 # AC-1: they are on the default PATH, so a project's own checks find them: /usr/local/bin links to
 # each one in /opt/devshop-tools/bin.
@@ -661,6 +697,7 @@ imp_refused() { # imp_refused <branch> <log pattern>
   [ -z "$(find "$HOME/.impeccable" -type f -name impeccable ! -path '*/9.9.9/*' 2>/dev/null)" ] \
     || fail "design-detector-in-bootstrap AC-1: $1: an engine was placed: $(find "$HOME/.impeccable" -type f)"
   [ -x "$HOME/.impeccable/bin/9.9.9/impeccable" ] || fail "design-detector-in-bootstrap AC-1: $1: the stale engine was removed on a refusal"
+  no_staging "after the $1 refusal"
   check "$1: devshop still installed" "$out" "^DEVSHOP: using HEAD " "$(git --git-dir="$src" rev-parse "$1")"
 }
 imp_refused impeccable-bad "checksum"
