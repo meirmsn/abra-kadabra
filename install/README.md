@@ -35,9 +35,10 @@ W10.1.2b spike (`kit/notes/revamp/spikes/w10-1-2b-thin/`, kept as notes).
   code reads the new version's manifest. Both reach an environment at its next cache rebuild.
 - **gstack** (TARGET Shape 7, D-07): [`install/gstack.pin`](gstack.pin) names one upstream commit.
   After the devshop's own steps, so a gstack failure can't stop them, the bootstrap fetches that
-  commit into `~/.claude/skills/gstack`, unmodified, checks that `bun` is the version that commit is
-  tested on (`GSTACK_BUN_TESTED` in its `bin/gstack-bun-version.sh`), so the gstack pin pins Bun
-  too, installs its npm dependencies with
+  commit into `~/.claude/skills/gstack`, unmodified, checks that `bun` is at least the version that
+  commit is tested on (`GSTACK_BUN_TESTED` in its `bin/gstack-bun-version.sh`; an older Bun fails
+  the step before anything is installed, a newer one is logged with both versions: the image's Bun
+  moves on its own, F-NEW-135), installs its npm dependencies with
   `bun install --frozen-lockfile` (failing closed: gstack's setup would otherwise fall back to an
   unfrozen install), and runs its `./setup` with stdin closed and
   `--no-team --no-plan-tune-hooks --no-timeline-stop-hook`, so gstack registers no Claude hooks and
@@ -49,6 +50,24 @@ W10.1.2b spike (`kit/notes/revamp/spikes/w10-1-2b-thin/`, kept as notes).
   `GSTACK_CHROMIUM_PATH` to the `env` of `~/.claude/settings.json`, keeping the rest; a settings
   file that isn't a JSON object, or whose `env` isn't one, is left as it is and logged as failed
   ([spec](../specs/design-review-in-build.md)). Output: `/tmp/devshop-gstack.log`.
+- **impeccable's design detector engine** ([spec](../specs/design-detector-in-bootstrap.md)):
+  [`install/impeccable.pin`](impeccable.pin) names one version of the npm platform package
+  `@impeccable/cli-linux-x64` and the sha256 of the binary inside it (equal to the pinned gstack's own
+  pin for that version), plus the gstack commit it was checked against; `tests/bootstrap.test.sh`
+  fails when the gstack pin moves without that line, so the two pins move together. After the gstack
+  step, the bootstrap runs [`install/impeccable.sh`](impeccable.sh) (read from the mirror at the
+  default ref, as the pin is), which fetches the tarball from `registry.npmjs.org` (never GitHub,
+  which the cloud network blocks), extracts the one member `package/bin/impeccable`, checks its
+  sha256 against the pin and only then places it at `~/.impeccable/bin/<version>/impeccable`
+  (0755), gstack's READY path, where `/design-review` opens with its deterministic rules and asks no
+  install question. It removes every other `x.y.z` directory under `~/.impeccable/bin/` (nothing
+  else there), so gstack's "newest version" pick is always the pinned engine; on a developer's own
+  machine that would remove an engine installed by hand. A bad pin line, a failed fetch, a tarball without the member or with a
+  symlink, a checksum mismatch or a machine that isn't Linux x86_64 places nothing, removes
+  nothing, and is a `FAILED: impeccable:` line in the log (the bootstrap ends `FAILED`, every other
+  step still runs): the review then runs without the detector and its PR line says so. CI's slow
+  job runs the same script before the slow tier; a session from before this change runs it once by
+  hand (`install/impeccable.sh install/impeccable.pin "$HOME"`) before `tests/run.sh slow`.
 - **Pinned tools** (L-45): [`install/tools.pin`](tools.pin) names gitleaks, shellcheck and dcg at
   the version and checksum CI pins (`tests/bootstrap.test.sh` fails if they differ). The bootstrap
   downloads each, checks its sha256, and links it into `/opt/devshop-tools/bin`, where the devshop's

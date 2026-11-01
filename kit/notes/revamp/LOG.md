@@ -3260,3 +3260,19 @@ note came out, a mitigation the owner chose ("go", 2026-11-01); the owed notes a
 reviewer's missing notion of a shipped spec F-NEW-134 (med, to the owner).
 
 **Next**: the detector engine (spec B), the shape check (C), the home at M3 (D).
+
+## #96 — 2026-11-01 · The design detector engine in the bootstrap (spec B)
+
+**What moved**: `install/impeccable.pin` and `install/impeccable.sh` place impeccable's engine from
+the npm platform package (checksum-verified, never GitHub) at gstack's READY path; the bootstrap
+runs it after the gstack step, CI's slow job before the slow tier. `tests/design-detector.test.sh`
+proves the pinned engine on a planted page and the UI template, exit 2 with no engine; the
+bootstrap test gains its cases and the pin-moves-with-gstack check; guideline, PR line, docs. The spike: `/design-review` opened with the detector (5 → 0, the three planted ids tagged),
+no install question. On the owner's word at hand-over, the gstack step now accepts a Bun at or
+above the tested one (F-NEW-135's cause).
+
+**Surprises**: the gstack step had failed in every environment, Bun 1.4.4 against gstack's 1.4.2:
+no `$B`, no skills linked. The browse daemon wedges on full-page screenshots (F-NEW-136); dcg
+blocks three skill steps (F-NEW-137).
+
+**Next**: spec C, the `DESIGN.md` shape check; then D at M3.

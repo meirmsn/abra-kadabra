@@ -1,0 +1,63 @@
+# The gstack step's commands after its fetch, run by hand on this image's Bun (2026-11-01):
+# bun install --frozen-lockfile, ./setup with the bootstrap's flags, the two config settings.
+# The package list bun printed is cut.
+== bun 1.4.4, tested 1.4.2
+== bun install --frozen-lockfile
+bun install v1.4.4 (38afee6c8)
+Resolving dependencies
+Resolved, downloaded and extracted [1]
+235 packages installed [4.87s]
+exit=0
+== setup
+bun install v1.4.4 (38afee6c8)
+Checked 244 installs across 297 packages (no changes) [10.00ms]
+$ bash scripts/build.sh
+$ mkdir -p extension/lib && cp node_modules/xterm/lib/xterm.js extension/lib/xterm.js && cp node_modules/xterm/css/xterm.css extension/lib/xterm.css && cp node_modules/xterm-addon-fit/lib/xterm-addon-fit.js extension/lib/xterm-addon-fit.js
+Rendering skills for: claude (recorded in /root/.claude/skills/gstack/.gstack-installed-hosts; GSTACK_RENDER_HOSTS=all renders every host)
+$ bun run scripts/gen-skill-docs.ts --host claude
+GENERATED: SKILL.md
+GENERATED: deslop-shared-libs/SKILL.md
+GENERATED: setup-deploy/SKILL.md
+GENERATED: ios-design-review/SKILL.md
+GENERATED: document-release/SKILL.md
+GENERATED: gstack-upgrade/SKILL.md
+GENERATED: ios-sync/SKILL.md
+GENERATED: plan-devex-review/SKILL.md
+GENERATED: sync-gbrain/SKILL.md
+GENERATED: diagram/SKILL.md
+GENERATED: land-and-deploy/SKILL.md
+GENERATED: spec/SKILL.md
+GENERATED: codex/SKILL.md
+GENERATED: retro/SKILL.md
+GENERATED: context-save/SKILL.md
+GENERATED: office-hours/SKILL.md
+GENERATED: plan-design-review/SKILL.md
+GENERATED: setup-browser-cookies/SKILL.md
+GENERATED: review/SKILL.md
+GENERATED: pair-agent/SKILL.md
+GENERATED: plan-tune/SKILL.md
+GENERATED: benchmark-models/SKILL.md
+GENERATED: devex-review/SKILL.md
+GENERATED: eval-plan/SKILL.md
+GENERATED: test-audit/SKILL.md
+GENERATED: design-shotgun/SKILL.md
+GENERATED: benchmark/SKILL.md
+GENERATED: browse/SKILL.md
+GENERATED: ios-qa/SKILL.md
+GENERATED: ios-fix/SKILL.md
+GENERATED: qa/SKILL.md
+GENERATED: qa/templates/functional-report-template.md
+GENERATED: plan-eng-review/SKILL.md
+GENERATED: make-pdf/SKILL.md
+GENERATED: freeze/SKILL.md
+GENERATED: context-restore/SKILL.md
+GENERATED: qa-only/SKILL.md
+GENERATED: ship/SKILL.md
+GENERATED: ios-clean/SKILL.md
+GENERATED: canary/SKILL.md
+GENERATED: document-generate/SKILL.md
+GENERATED: design-html/SKILL.md
+GENERATED: health/SKILL.md
+GENERATED: careful/SKILL.md
+GENERATED: scrape/SKILL.md
+GENERATED: skillify/SKILL.md

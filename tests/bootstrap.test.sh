@@ -77,6 +77,37 @@ for tool in gitleaks shellcheck dcg; do
 done
 echo "ok - install/tools.pin pins gitleaks, shellcheck and dcg exactly as ci.yml does"
 
+# The design detector engine's pin at HEAD (specs/design-detector-in-bootstrap.md): one
+# "<version> <sha256>" line, and one "gstack <commit>" line naming the gstack commit the engine pin
+# was checked against, which must be install/gstack.pin's: moving gstack forces a look at the engine.
+imp_pin=$(git -C "$repo_root" show "$head:install/impeccable.pin" 2>/dev/null | grep -Ev '^(#|[[:space:]]*$)') \
+  || fail "design-detector-in-bootstrap AC-3: no install/impeccable.pin at HEAD"
+read -r imp_version imp_sum < <(grep -v '^gstack ' <<<"$imp_pin") || true
+[[ ${imp_version:-} =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && ${imp_sum:-} =~ ^[0-9a-f]{64}$ ]] \
+  || fail "design-detector-in-bootstrap AC-3: install/impeccable.pin: want one '<version> <sha256>' line, got '$imp_pin'"
+imp_gstack=$(awk '$1 == "gstack" { print $2 }' <<<"$imp_pin")
+[ "$imp_gstack" = "$gstack_sha" ] \
+  || fail "design-detector-in-bootstrap AC-3: install/impeccable.pin was checked against gstack '${imp_gstack:-none}', but install/gstack.pin pins $gstack_sha: re-check the engine pin against the new gstack and update the line"
+echo "ok - design-detector-in-bootstrap AC-3: install/impeccable.pin names install/gstack.pin's commit"
+
+# A fake npm platform package for the engine, served by the fake curl below by the tarball's
+# basename: package/bin/impeccable is a script, as the real package's is a binary. 0.0.1 is good;
+# 0.0.3 has no bin/impeccable; 0.0.4's is a symlink (never a regular file); 0.0.2 has no tarball.
+mkdir -p "$work/dl" "$work/fk/imp/package/bin" "$work/fk/imp-nobin/package" "$work/fk/imp-link/package/bin"
+printf '#!/usr/bin/env bash\necho "fake impeccable $*"\n' >"$work/fk/imp/package/bin/impeccable"
+chmod +x "$work/fk/imp/package/bin/impeccable"
+echo '{"name":"@impeccable/cli-linux-x64"}' >"$work/fk/imp/package/package.json"
+cp "$work/fk/imp/package/package.json" "$work/fk/imp-nobin/package/"
+cp "$work/fk/imp/package/package.json" "$work/fk/imp-link/package/"
+ln -s /bin/sh "$work/fk/imp-link/package/bin/impeccable"
+tar -czf "$work/dl/cli-linux-x64-0.0.1.tgz" -C "$work/fk/imp" package
+tar -czf "$work/dl/cli-linux-x64-0.0.3.tgz" -C "$work/fk/imp-nobin" package
+tar -czf "$work/dl/cli-linux-x64-0.0.4.tgz" -C "$work/fk/imp-link" package
+imp_fake_sum=$(sha256sum "$work/fk/imp/package/bin/impeccable" | cut -d' ' -f1)
+fake_impeccable_pin() { # fake_impeccable_pin <gstack sha> [version] [sha256]: a pin at the fake package
+  printf '%s %s\ngstack %s\n' "${2:-0.0.1}" "${3:-$imp_fake_sum}" "$1"
+}
+
 # Fake release downloads: a fake `curl` serves files by the URL's basename from $work/dl, so the
 # bootstrap downloads, checks and unpacks them exactly as from GitHub.
 mkdir -p "$work/dl" "$work/fk/gitleaks" "$work/fk/shellcheck-v0" "$work/fk/dcg"
@@ -137,6 +168,7 @@ repin() { # repin <gstack sha> <branch>: HEAD with the gstack pin set to <sha>, 
   git -C "$work/dev" checkout -q --detach "$head"
   printf '%s %s\n' "$gstack_url" "$1" >"$work/dev/install/gstack.pin"
   fake_tools_pin "${3:-}" >"$work/dev/install/tools.pin"
+  fake_impeccable_pin "$1" >"$work/dev/install/impeccable.pin"
   git -C "$work/dev" commit -qam "pin gstack $1" && git -C "$work/dev" push -q origin "HEAD:refs/heads/$2"
 }
 repin "$gs_good" main
@@ -152,6 +184,19 @@ git -C "$work/dev" commit -qam "bad tool version" && git -C "$work/dev" push -q 
 git -C "$work/dev" checkout -q --detach origin/main
 sed -i "s|^gitleaks 0.0.1 [0-9a-f]* |gitleaks 0.0.2 $(rand 'a-f0-9' 64) |" "$work/dev/install/tools.pin"
 git -C "$work/dev" commit -qam "gitleaks bump, bad checksum" && git -C "$work/dev" push -q origin HEAD:refs/heads/tools-bump-bad
+# The engine step's refusals (specs/design-detector-in-bootstrap.md AC-1): a checksum that isn't the
+# download's, a version with no tarball (a failed fetch: no network, 403, 404), a tarball without
+# package/bin/impeccable, one whose member is a symlink, and a pin line that isn't "<version> <sha256>".
+imp_branch() { # imp_branch <branch> <pin content>
+  git -C "$work/dev" checkout -q --detach origin/main
+  printf '%s\n' "$2" >"$work/dev/install/impeccable.pin"
+  git -C "$work/dev" commit -qam "impeccable pin: $1" && git -C "$work/dev" push -q origin "HEAD:refs/heads/$1"
+}
+imp_branch impeccable-bad "$(fake_impeccable_pin "$gs_good" 0.0.1 "$(rand 'a-f0-9' 64)")"
+imp_branch impeccable-nofetch "$(fake_impeccable_pin "$gs_good" 0.0.2 "$imp_fake_sum")"
+imp_branch impeccable-nobin "$(fake_impeccable_pin "$gs_good" 0.0.3 "$imp_fake_sum")"
+imp_branch impeccable-link "$(fake_impeccable_pin "$gs_good" 0.0.4 "$imp_fake_sum")"
+imp_branch impeccable-badpin "$(printf 'latest\ngstack %s\n' "$gs_good")"
 git --git-dir="$src" symbolic-ref HEAD refs/heads/main
 head=$(git -C "$work/dev" rev-parse origin/main)
 marker="PIN-MARKER-$(rand 'a-z0-9' 12)"
@@ -208,7 +253,14 @@ export PATH="$work/bin:$PATH"
 # two-line setup script with line 2 verbatim.
 setup_env() {
   fresh_usr_local_bin
-  rm -rf /opt/* /tmp/devshop-* "$HOME/plugin" "$HOME/marketplaces" "$HOME/.claude" "$HOME/gstack-setup.args" "$HOME/gstack-config.calls" "$HOME/bun.calls"
+  rm -rf /opt/* /tmp/devshop-* "$HOME/plugin" "$HOME/marketplaces" "$HOME/.claude" "$HOME/.impeccable" "$HOME/gstack-setup.args" "$HOME/gstack-config.calls" "$HOME/bun.calls"
+  # DEVSHOP_TEST_STALE_ENGINE=1: an engine of another version is already under ~/.impeccable/bin,
+  # beside an entry that isn't a version directory (the prune takes only <semver> directories).
+  if [ -n "${DEVSHOP_TEST_STALE_ENGINE:-}" ]; then
+    mkdir -p "$HOME/.impeccable/bin/9.9.9" "$HOME/.impeccable/bin/notes" \
+      && printf '#!/bin/sh\n' >"$HOME/.impeccable/bin/9.9.9/impeccable" && chmod +x "$HOME/.impeccable/bin/9.9.9/impeccable" \
+      && echo keep >"$HOME/.impeccable/bin/notes/keep.txt"
+  fi
   # DEVSHOP_TEST_CHROMIUM=1: the image ships Playwright's Chromium at /opt/pw-browsers/chromium.
   # DEVSHOP_TEST_SETTINGS: what ~/.claude/settings.json holds before the bootstrap.
   if [ -n "${DEVSHOP_TEST_CHROMIUM:-}" ]; then
@@ -489,13 +541,21 @@ grep -q "FAILED: gstack browser: $HOME/.claude/settings.json has an env that isn
 [ "$(cat "$HOME/.claude/settings.json")" = '{"env":"x"}' ] || fail "a settings.json with a bad env was changed"
 echo "ok - gstack's browser uses the image's Chromium when there is one (settings kept; an empty one filled; a bad one, or a bad env, left and logged); cross-project learnings off"
 
-# Bun is tied to the gstack pin: a Bun other than the one the pinned gstack is tested on fails the
-# gstack step loudly, before anything is installed with it.
+# Bun is tied to the gstack pin from below (specs/design-detector-in-bootstrap.md AC-10): a Bun older
+# than the one the pinned gstack is tested on fails the gstack step loudly, before anything is
+# installed with it; a newer one runs the step and is logged with both versions (the image's Bun
+# moves on its own, F-NEW-135).
 FAKE_BUN_VERSION=1.0.0 setup_env main FAILED
 grep -q "FAILED: gstack: bun 1.0.0, but gstack .* is tested on bun 9.9.9" /tmp/devshop-setup.log \
-  || { cat /tmp/devshop-setup.log >&2; fail "a Bun mismatch wasn't logged as a gstack failure"; }
-{ [ ! -e "$HOME/bun.calls" ] && [ ! -e "$HOME/gstack-setup.args" ]; } || fail "gstack installed with the wrong Bun"
-echo "ok - a Bun other than the pinned gstack's tested one fails the gstack step, before installing"
+  || { cat /tmp/devshop-setup.log >&2; fail "design-detector-in-bootstrap AC-10: a Bun below the tested one wasn't logged as a gstack failure"; }
+{ [ ! -e "$HOME/bun.calls" ] && [ ! -e "$HOME/gstack-setup.args" ]; } || fail "design-detector-in-bootstrap AC-10: gstack installed with a Bun below the tested one"
+FAKE_BUN_VERSION=9.9.10 setup_env
+grep -q "^\[[0-9:]*\] gstack: bun 9.9.10 (tested on 9.9.9)$" /tmp/devshop-setup.log \
+  || { cat /tmp/devshop-setup.log >&2; fail "design-detector-in-bootstrap AC-10: a newer Bun wasn't logged with both versions"; }
+grep -qx "bun install --frozen-lockfile (in $HOME/.claude/skills/gstack)" "$HOME/bun.calls" 2>/dev/null \
+  || fail "design-detector-in-bootstrap AC-10: with a newer Bun, gstack's dependencies weren't installed"
+[ -f "$HOME/gstack-setup.args" ] || fail "design-detector-in-bootstrap AC-10: with a newer Bun, gstack's setup didn't run"
+echo "ok - design-detector-in-bootstrap AC-10: a Bun below the pinned gstack's tested one fails the step before installing; a newer one runs it and is logged"
 
 # The pinned tools are installed where the devshop's hooks run them.
 for tool in gitleaks shellcheck dcg; do
@@ -503,6 +563,24 @@ for tool in gitleaks shellcheck dcg; do
     || { cat /tmp/devshop-setup.log >&2; fail "$tool isn't installed at /opt/devshop-tools/bin"; }
 done
 echo "ok - pinned gitleaks, shellcheck and dcg installed, checksum-verified, in /opt/devshop-tools/bin"
+
+# The design detector engine (specs/design-detector-in-bootstrap.md AC-1, AC-2): the step after
+# gstack's places the pinned package's binary at gstack's READY path, 0755, checksum-verified, logs
+# it, and removes any other version beside it, so gstack's "newest" pick is the pinned engine.
+DEVSHOP_TEST_STALE_ENGINE=1 setup_env
+imp_bin="$HOME/.impeccable/bin/0.0.1/impeccable"
+[ "$(stat -c %a "$imp_bin" 2>/dev/null)" = 755 ] || { cat /tmp/devshop-setup.log >&2; fail "design-detector-in-bootstrap AC-1: $imp_bin isn't there with mode 755"; }
+[ "$("$imp_bin" --version)" = "fake impeccable --version" ] || fail "design-detector-in-bootstrap AC-1: $imp_bin doesn't run"
+[ "$(sha256sum "$imp_bin" | cut -d' ' -f1)" = "$imp_fake_sum" ] || fail "design-detector-in-bootstrap AC-1: $imp_bin isn't the pinned bytes"
+[ ! -e "$HOME/.impeccable/bin/9.9.9" ] || fail "design-detector-in-bootstrap AC-1: the stale 9.9.9 engine wasn't removed"
+[ "$(cat "$HOME/.impeccable/bin/notes/keep.txt" 2>/dev/null)" = keep ] \
+  || fail "design-detector-in-bootstrap AC-1: the prune removed bin/notes, which isn't a version directory"
+grep -q "^\[[0-9:]*\] impeccable 0.0.1 placed $imp_bin$" /tmp/devshop-setup.log \
+  || { cat /tmp/devshop-setup.log >&2; fail "design-detector-in-bootstrap AC-2: the log doesn't say 'impeccable 0.0.1 placed $imp_bin'"; }
+# After gstack's step: the log's gstack line comes first.
+[ "$(grep -o '^\[[0-9:]*\] \(gstack\|impeccable\) ' /tmp/devshop-setup.log | head -1 | awk '{print $2}')" = gstack ] \
+  || { cat /tmp/devshop-setup.log >&2; fail "design-detector-in-bootstrap AC-2: the engine step didn't run after the gstack step"; }
+echo "ok - design-detector-in-bootstrap AC-1, AC-2: the engine is placed at gstack's path, 0755, pinned bytes, other versions removed and a non-version entry kept, logged after gstack"
 
 # AC-1: they are on the default PATH, so a project's own checks find them: /usr/local/bin links to
 # each one in /opt/devshop-tools/bin.
@@ -571,6 +649,26 @@ out=$(session '' tools-badver FAILED)
 grep -q "FAILED: tool gitleaks: install/tools.pin line" /tmp/devshop-setup.log || { cat /tmp/devshop-setup.log >&2; fail "a tool version with ../ wasn't refused"; }
 { [ ! -e /escape ] && [ ! -e /opt/escape ]; } || fail "a tool version escaped /opt/devshop-tools"
 echo "ok - a tool version that would leave /opt/devshop-tools is refused"
+
+# The engine step's refusals (specs/design-detector-in-bootstrap.md AC-1, AC-2): each places nothing,
+# removes nothing (a stale engine stays), is logged as a FAILED step with the bootstrap FAILED, and
+# the devshop still installs.
+imp_refused() { # imp_refused <branch> <log pattern>
+  local out
+  out=$(DEVSHOP_TEST_STALE_ENGINE=1 session '' "$1" FAILED)
+  grep -q "FAILED: impeccable: .*$2" /tmp/devshop-setup.log \
+    || { cat /tmp/devshop-setup.log >&2; fail "design-detector-in-bootstrap AC-2: $1: log doesn't say 'FAILED: impeccable: ...$2'"; }
+  [ -z "$(find "$HOME/.impeccable" -type f -name impeccable ! -path '*/9.9.9/*' 2>/dev/null)" ] \
+    || fail "design-detector-in-bootstrap AC-1: $1: an engine was placed: $(find "$HOME/.impeccable" -type f)"
+  [ -x "$HOME/.impeccable/bin/9.9.9/impeccable" ] || fail "design-detector-in-bootstrap AC-1: $1: the stale engine was removed on a refusal"
+  check "$1: devshop still installed" "$out" "^DEVSHOP: using HEAD " "$(git --git-dir="$src" rev-parse "$1")"
+}
+imp_refused impeccable-bad "checksum"
+imp_refused impeccable-nofetch "fetch"
+imp_refused impeccable-nobin "package/bin/impeccable"
+imp_refused impeccable-link "package/bin/impeccable"
+imp_refused impeccable-badpin "install/impeccable.pin"
+echo "ok - design-detector-in-bootstrap AC-1, AC-2: a bad checksum, a failed fetch, a tarball without the binary or with a symlink, and a bad pin line each place nothing, keep what was there, and are logged"
 
 # A gstack failure is loud but can't stop the devshop (L-43): the plugin is installed and the
 # DEVSHOP: line still appears.
