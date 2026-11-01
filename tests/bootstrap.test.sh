@@ -602,6 +602,19 @@ final_mv=$(grep " $imp_bin$" "$HOME/mv.calls" 2>/dev/null | tail -1)
   || fail "F-NEW-138: the engine's final move isn't from a staging directory under ~/.impeccable/bin: '${final_mv:-no move to $imp_bin}'"
 [ "$(sha256sum "$imp_bin" | cut -d' ' -f1)" = "$imp_fake_sum" ] || fail "F-NEW-138: the staged engine placed isn't the pinned bytes"
 no_staging "after a placement"
+# The copy into the stage is the step that crosses filesystems, so it is checked against the pin
+# again: a copy that doesn't match (a `cp` on PATH that corrupts the staged copy) places nothing and
+# leaves no stage.
+mkdir -p "$work/bin-cp"
+# shellcheck disable=SC2016 # expands in the written script, not here
+printf '#!/usr/bin/env bash\n%q "$@" || exit\ncase "${!#}" in */.staging.*/impeccable) echo corrupt >>"${!#}" ;; esac\n' \
+  "$(command -v cp)" >"$work/bin-cp/cp"
+chmod +x "$work/bin-cp/cp"
+PATH="$work/bin-cp:$PATH" setup_env main FAILED
+grep -q "FAILED: impeccable: the engine copied into $HOME/.impeccable/bin/\.staging\.[^ ]* has checksum [0-9a-f]*, the pin says $imp_fake_sum; nothing placed" /tmp/devshop-setup.log \
+  || { cat /tmp/devshop-setup.log >&2; fail "F-NEW-138: a staged copy that doesn't match the pin wasn't refused"; }
+[ ! -e "$imp_bin" ] || fail "F-NEW-138: a staged copy that doesn't match the pin was placed at $imp_bin"
+no_staging "after a staged copy that doesn't match the pin"
 # A final move that fails (the version directory is read-only: a read-only bind mount, which stops
 # root too) places no file, leaves no staging entry, and is a FAILED step.
 setup_env
@@ -616,7 +629,7 @@ grep -q "FAILED: impeccable: can't move the engine into $imp_dir" <<<"$last_run"
   || { echo "$last_run" >&2; fail "F-NEW-138: a failed final move wasn't logged as a FAILED impeccable step"; }
 [ ! -e "$imp_bin" ] || fail "F-NEW-138: a failed final move left a file at $imp_bin"
 no_staging "after a failed final move"
-echo "ok - F-NEW-138: the engine is staged under ~/.impeccable/bin and moved within it; a failed final move places nothing; no staging entry is left"
+echo "ok - F-NEW-138: the engine is staged under ~/.impeccable/bin and moved within it; a staged copy that fails the pin or a failed final move places nothing; no staging entry is left"
 
 # AC-1: they are on the default PATH, so a project's own checks find them: /usr/local/bin links to
 # each one in /opt/devshop-tools/bin.
