@@ -614,6 +614,7 @@ PATH="$work/bin-cp:$PATH" setup_env main FAILED
 grep -q "FAILED: impeccable: the engine copied into $HOME/.impeccable/bin/\.staging\.[^ ]* has checksum [0-9a-f]*, the pin says $imp_fake_sum; nothing placed" /tmp/devshop-setup.log \
   || { cat /tmp/devshop-setup.log >&2; fail "F-NEW-138: a staged copy that doesn't match the pin wasn't refused"; }
 [ ! -e "$imp_bin" ] || fail "F-NEW-138: a staged copy that doesn't match the pin was placed at $imp_bin"
+[ ! -e "${imp_bin%/impeccable}" ] || fail "F-NEW-138: a refused staged copy left an empty version directory ${imp_bin%/impeccable}"
 no_staging "after a staged copy that doesn't match the pin"
 # A final move that fails (the version directory is read-only: a read-only bind mount, which stops
 # root too) places no file, leaves no staging entry, and is a FAILED step.
