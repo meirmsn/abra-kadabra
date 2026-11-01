@@ -1,0 +1,13 @@
+# impeccable's design detector engine (specs/design-detector-in-bootstrap.md): one version of the
+# npm platform package @impeccable/cli-linux-x64, placed by install/impeccable.sh (the bootstrap and
+# CI's slow job run it) at ~/.impeccable/bin/<version>/impeccable, gstack's READY path.
+# Format: <version> <sha256 of package/bin/impeccable, the binary itself>. The version is the npm
+# package's, which gstack reads from the directory name and compares with the versions it has
+# tested; the binary's own --version prints another number (impeccable's skills version, 4.0.0).
+# The sha256 is the binary's, so it can be compared by eye with ENGINE_PINS['<version>']['linux-x64']
+# in the pinned gstack's lib/design-detect-contract.ts (equal for 0.1.3, checked 2026-11-01).
+# "gstack <commit>" names the gstack commit (install/gstack.pin) whose TESTED_ENGINE_VERSIONS and
+# ENGINE_PINS this pin was checked against; tests/bootstrap.test.sh fails when the gstack pin moves
+# without this line: re-check the engine against the new gstack, then update both.
+0.1.3 afc7a424e0bd6c606b7be4c773c70e87284afbdb41d748eb9a34f8a4478e57da
+gstack e23f7b807ff4788f6d7c90af2ab82960bd8c5851

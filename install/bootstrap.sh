@@ -143,6 +143,29 @@ point_gstack_browser() {
 }
 point_gstack_browser
 
+# impeccable's design detector engine (specs/design-detector-in-bootstrap.md): the one version
+# install/impeccable.pin names, placed by install/impeccable.sh at ~/.impeccable/bin/<version>/impeccable,
+# where gstack's /design-review finds it (its READY path), from the npm platform package: a
+# checksum-verified download from registry.npmjs.org, never GitHub. After the gstack step, and like it
+# a loud failure that stops nothing else (L-43): nothing placed, the review then runs without the
+# detector and says so. The script and the pin come from the mirror at $REF: the bootstrap has no
+# checkout.
+install_impeccable() {
+  local dir out version
+  dir=$(mktemp -d /tmp/devshop-impeccable.XXXXXX) || { step_failed "impeccable: mktemp"; return; }
+  { git --git-dir="$MIRROR" show "$REF:install/impeccable.pin" >"$dir/impeccable.pin" \
+    && git --git-dir="$MIRROR" show "$REF:install/impeccable.sh" >"$dir/impeccable.sh"; } 2>>"$LOG" \
+    || { step_failed "impeccable: install/impeccable.pin or install/impeccable.sh missing at $REF"; rm -rf "$dir"; return; }
+  version=$(awk '!/^(#|gstack |[[:space:]]*$)/ { print $1; exit }' "$dir/impeccable.pin")
+  if out=$(bash "$dir/impeccable.sh" "$dir/impeccable.pin" "$HOME" 2>&1); then
+    log "impeccable ${version:-?} $out" # "impeccable <version> placed <path>"
+  else
+    step_failed "impeccable: ${out#impeccable: }"
+  fi
+  rm -rf "$dir"
+}
+install_impeccable
+
 if [ "$failed" = 0 ]; then
   log "RESULT: bootstrap done (current -> $(readlink /opt/devshop-current))"
 else

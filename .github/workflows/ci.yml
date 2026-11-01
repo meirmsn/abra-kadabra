@@ -130,7 +130,12 @@ jobs:
           npm ci --ignore-scripts --no-audit --no-fund
           npx playwright install --with-deps chromium
 
-      - name: Slow tier (the install and the render check, end to end)
+      # impeccable's design detector engine at the version install/impeccable.pin names, placed as the
+      # cloud bootstrap places it, for tests/design-detector.test.sh (specs/design-detector-in-bootstrap.md).
+      - name: Place the pinned design detector engine
+        run: install/impeccable.sh install/impeccable.pin "$HOME"
+
+      - name: Slow tier (the install, the render check and the design detector, end to end)
         run: scripts/check-slow.sh
 
   # Comments "Merged" on the merged PR as soon as the run on main starts (its deploy comment).
