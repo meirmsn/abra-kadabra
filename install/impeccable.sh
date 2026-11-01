@@ -10,8 +10,8 @@
 # registry.npmjs.org (the one host; never GitHub, which the cloud network blocks), extracts the one
 # member package/bin/impeccable into a fresh temporary directory, checks its sha256 against the pin,
 # and only then moves it into place, replacing what was there, and removes every other
-# <home>/.impeccable/bin/<version>/ directory, so gstack's "newest version" choice is always the
-# pinned engine. Always fetches: one path, and a wrong file in place is replaced.
+# <home>/.impeccable/bin/<semver>/ directory (nothing else under bin/), so gstack's "newest
+# version" choice is always the pinned engine. Always fetches: one path, and a wrong file in place is replaced.
 # Prints "placed <path>" on success. A pin line that isn't "<version> <sha256>", a failed fetch, a
 # tarball without the member or with one that isn't a regular file, a checksum mismatch, or a
 # machine that isn't Linux x86_64 places nothing, removes nothing, says why on stderr and exits 1.
@@ -60,6 +60,8 @@ chmod 0755 "$bin" || refuse "can't set the mode on the engine"
 mv -f "$bin" "$dir/impeccable" || refuse "can't move the engine into $dir"
 for other in "$home/.impeccable/bin"/*/; do
   other=${other%/}
-  [ "$other" = "$dir" ] || rm -rf -- "$other"
+  # Only version directories go, and only real ones (an unmatched glob is the literal pattern).
+  [ -d "$other" ] && [[ ${other##*/} =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && [ "$other" != "$dir" ] || continue
+  rm -rf -- "$other"
 done
 echo "placed $dir/impeccable"

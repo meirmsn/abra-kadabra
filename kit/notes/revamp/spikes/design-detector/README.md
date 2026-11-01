@@ -19,7 +19,8 @@ committed before the engine is placed and before any run (the commits' order is 
   violet, Inter as the display face, a tracked ALL-CAPS eyebrow above an oversized h1, three nested
   rounded cards. Served with `python3 -m http.server --bind 127.0.0.1 <port>` from the branch.
 - **The helper:** one fresh `general-purpose` agent, given only `ui.md` § Design review, the scratch
-  repo's path, its branch and `http://127.0.0.1:<port>/launch.html` as the scope. It invokes
+  repo's path, its branch and `http://127.0.0.1:<port>/launch.html` as the scope; its prompt,
+  verbatim: [`outputs/run-1-prompt.md`](outputs/run-1-prompt.md). It invokes
   `/design-review` and returns gstack's final report verbatim, the set-up lines gstack printed
   (`IMPECCABLE_*`), every question it would have put to the owner, and the commits it wrote. No
   edits outside the scratch repo. `GSTACK_CHROMIUM_PATH=/opt/pw-browsers/chromium` as the bootstrap
