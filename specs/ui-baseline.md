@@ -140,7 +140,8 @@ just in case" and "should be responsive, not just phone" (owner, 2026-10-13).
 - **AC-6** The `build` skill's existing disciplines line tells a UI change in a project without
   the baseline to start from `/opt/devshop-current/templates/ui/`, within one page, and
   `skills-check.py` passes (it checks the path exists). Shown by `tests/skills-check.test.sh`
-- **AC-7** This repo: `package.json` pins Playwright 1.56.1; the render test is marked slow and
+- **AC-7** This repo: `package.json` pins Playwright 1.56.1 (1.63.0 since 2026-11-01; see the
+  pin's decision above); the render test is marked slow and
   CI's `slow` job runs `npm ci` and installs that version's Chromium; the guidelines README and
   the docs map name the new files; the workstream file has the task lines (this slice, the fixture
   restyle after W10.6.4, the M2 decision on B or C, the reviewer's browser) — verified by review:
