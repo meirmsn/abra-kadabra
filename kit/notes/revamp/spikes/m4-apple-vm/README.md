@@ -56,5 +56,8 @@ build for the image's default Python 3.15 ("BlobWriter not loaded"); run 2 used 
 host generation; not investigated). Asking Core ML for the Neural Engine in a VM raises no error: it
 quietly runs elsewhere, so an app must log the compute units it actually got.
 
+**Next.** [air-test.md](air-test.md): the owner's one-hour test of the same app in a Tart VM on
+their MacBook Air, with agent-desktop and the VM's network walls (the proposal's revised design).
+
 **Not tested.** A real model (FluidAudio, Qwen3-ASR) in the VM; a local Tart VM; network isolation;
 anything on macOS 27.

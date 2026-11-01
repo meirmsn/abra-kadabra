@@ -3221,3 +3221,17 @@ its screenshot passed in a VM, ad-hoc signed; MLX ran on the paravirtual GPU.
 fetch a Swift toolchain (host denied, Docker Hub 429) nor GitHub's artifact storage host (403).
 
 **Next**: the owner's decisions in § 10.
+
+## #94 — 2026-11-01 · The Apple proposal, revised for private repos
+
+**What moved**: the owner's answers in chat on PR 166: private repositories must work, and the agent
+should drive Xcode on the owner's Mac with strictly limited access. The proposal now puts the agent
+in a throwaway Tart VM on that Mac, attached through Remote Control, with agent-desktop for the GUI;
+GitHub's macOS runners only run `slow` once per push. The owner's own-account setup (one folder,
+computer use for Xcode, App Sandbox) is option E: the same controls inside the VM are the plan. A
+one-hour checklist for the Air is in the spike.
+
+**Surprises**: Tart is now OpenAI's (`brew install openai/tools/tart`); agent-desktop installs from
+npm.
+
+**Next**: the owner's test on the Air, then § 10's decisions.
