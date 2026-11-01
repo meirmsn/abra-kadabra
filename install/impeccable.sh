@@ -67,11 +67,13 @@ bindir="$home/.impeccable/bin"
 dir="$bindir/$version"
 mkdir -p "$dir" || refuse "can't make $dir"
 stage=$(mktemp -d "$bindir/.staging.XXXXXX") || refuse "can't make a staging directory in $bindir"
-cp -- "$bin" "$stage/impeccable" || refuse "can't copy the engine into $stage"
+cp -- "$bin" "$stage/impeccable" 2>"$tmp/cp.err" \
+  || refuse "can't copy the engine into $stage: $(tr '\n' ' ' <"$tmp/cp.err")"
 got=$(sha256sum "$stage/impeccable" | cut -d' ' -f1)
 [ "$got" = "$sum" ] || refuse "the engine copied into $stage has checksum $got, the pin says $sum; nothing placed"
 chmod 0755 "$stage/impeccable" || refuse "can't set the mode on the engine"
-mv -f "$stage/impeccable" "$dir/impeccable" || refuse "can't move the engine into $dir"
+mv -f "$stage/impeccable" "$dir/impeccable" 2>"$tmp/mv.err" \
+  || refuse "can't move the engine into $dir: $(tr '\n' ' ' <"$tmp/mv.err")"
 for other in "$bindir"/*/; do
   other=${other%/}
   # Only version directories go, and only real ones (an unmatched glob is the literal pattern).
