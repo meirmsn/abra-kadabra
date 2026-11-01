@@ -254,9 +254,12 @@ export PATH="$work/bin:$PATH"
 setup_env() {
   fresh_usr_local_bin
   rm -rf /opt/* /tmp/devshop-* "$HOME/plugin" "$HOME/marketplaces" "$HOME/.claude" "$HOME/.impeccable" "$HOME/gstack-setup.args" "$HOME/gstack-config.calls" "$HOME/bun.calls"
-  # DEVSHOP_TEST_STALE_ENGINE=1: an engine of another version is already under ~/.impeccable/bin.
+  # DEVSHOP_TEST_STALE_ENGINE=1: an engine of another version is already under ~/.impeccable/bin,
+  # beside an entry that isn't a version directory (the prune takes only <semver> directories).
   if [ -n "${DEVSHOP_TEST_STALE_ENGINE:-}" ]; then
-    mkdir -p "$HOME/.impeccable/bin/9.9.9" && printf '#!/bin/sh\n' >"$HOME/.impeccable/bin/9.9.9/impeccable" && chmod +x "$HOME/.impeccable/bin/9.9.9/impeccable"
+    mkdir -p "$HOME/.impeccable/bin/9.9.9" "$HOME/.impeccable/bin/notes" \
+      && printf '#!/bin/sh\n' >"$HOME/.impeccable/bin/9.9.9/impeccable" && chmod +x "$HOME/.impeccable/bin/9.9.9/impeccable" \
+      && echo keep >"$HOME/.impeccable/bin/notes/keep.txt"
   fi
   # DEVSHOP_TEST_CHROMIUM=1: the image ships Playwright's Chromium at /opt/pw-browsers/chromium.
   # DEVSHOP_TEST_SETTINGS: what ~/.claude/settings.json holds before the bootstrap.
@@ -570,12 +573,14 @@ imp_bin="$HOME/.impeccable/bin/0.0.1/impeccable"
 [ "$("$imp_bin" --version)" = "fake impeccable --version" ] || fail "design-detector-in-bootstrap AC-1: $imp_bin doesn't run"
 [ "$(sha256sum "$imp_bin" | cut -d' ' -f1)" = "$imp_fake_sum" ] || fail "design-detector-in-bootstrap AC-1: $imp_bin isn't the pinned bytes"
 [ ! -e "$HOME/.impeccable/bin/9.9.9" ] || fail "design-detector-in-bootstrap AC-1: the stale 9.9.9 engine wasn't removed"
+[ "$(cat "$HOME/.impeccable/bin/notes/keep.txt" 2>/dev/null)" = keep ] \
+  || fail "design-detector-in-bootstrap AC-1: the prune removed bin/notes, which isn't a version directory"
 grep -q "^\[[0-9:]*\] impeccable 0.0.1 placed $imp_bin$" /tmp/devshop-setup.log \
   || { cat /tmp/devshop-setup.log >&2; fail "design-detector-in-bootstrap AC-2: the log doesn't say 'impeccable 0.0.1 placed $imp_bin'"; }
 # After gstack's step: the log's gstack line comes first.
 [ "$(grep -o '^\[[0-9:]*\] \(gstack\|impeccable\) ' /tmp/devshop-setup.log | head -1 | awk '{print $2}')" = gstack ] \
   || { cat /tmp/devshop-setup.log >&2; fail "design-detector-in-bootstrap AC-2: the engine step didn't run after the gstack step"; }
-echo "ok - design-detector-in-bootstrap AC-1, AC-2: the engine is placed at gstack's path, 0755, pinned bytes, other versions removed, logged after gstack"
+echo "ok - design-detector-in-bootstrap AC-1, AC-2: the engine is placed at gstack's path, 0755, pinned bytes, other versions removed and a non-version entry kept, logged after gstack"
 
 # AC-1: they are on the default PATH, so a project's own checks find them: /usr/local/bin links to
 # each one in /opt/devshop-tools/bin.

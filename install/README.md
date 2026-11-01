@@ -60,9 +60,9 @@ W10.1.2b spike (`kit/notes/revamp/spikes/w10-1-2b-thin/`, kept as notes).
   which the cloud network blocks), extracts the one member `package/bin/impeccable`, checks its
   sha256 against the pin and only then places it at `~/.impeccable/bin/<version>/impeccable`
   (0755), gstack's READY path, where `/design-review` opens with its deterministic rules and asks no
-  install question. It removes every other version directory beside it, so gstack's "newest
-  version" pick is always the pinned engine; on a developer's own machine that would remove an
-  engine installed by hand. A bad pin line, a failed fetch, a tarball without the member or with a
+  install question. It removes every other `x.y.z` directory under `~/.impeccable/bin/` (nothing
+  else there), so gstack's "newest version" pick is always the pinned engine; on a developer's own
+  machine that would remove an engine installed by hand. A bad pin line, a failed fetch, a tarball without the member or with a
   symlink, a checksum mismatch or a machine that isn't Linux x86_64 places nothing, removes
   nothing, and is a `FAILED: impeccable:` line in the log (the bootstrap ends `FAILED`, every other
   step still runs): the review then runs without the detector and its PR line says so. CI's slow
