@@ -1,6 +1,6 @@
 # The design detector engine in every cloud session, from a pinned npm package
 
-**Go:** pending
+**Go:** "2. keep 3. accept" then "ok" on the five departures from the brief's shape (owner, 2026-11-01, the three questions on the go screen: all five adjustments kept, the prune kept, the one-time command in an existing environment accepted)
 
 ## Intent
 
