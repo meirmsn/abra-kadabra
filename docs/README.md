@@ -140,6 +140,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
 
 - [`big-changes-in-slices.md`](../specs/big-changes-in-slices.md): a whole app or a big feature
   is split into slices on the owner's approval, recorded on the roadmap and built one PR each
+- [`bootstrap-result-at-session-start.md`](../specs/bootstrap-result-at-session-start.md): the
+  session-start `DEVSHOP:` line says when the environment's bootstrap failed, and which steps.
 - [`ci-fast-slow-tiers.md`](../specs/ci-fast-slow-tiers.md): CI in two tiers, fast and slow, for
   the devshop and every project.
 - [`deploy-and-metrics-comments.md`](../specs/deploy-and-metrics-comments.md): a merged PR's deploy
