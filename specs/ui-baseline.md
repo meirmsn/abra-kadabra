@@ -95,7 +95,9 @@ just in case" and "should be responsive, not just phone" (owner, 2026-10-13).
 - Playwright pinned to 1.56.1: the version whose Chromium (build 1194) cloud sessions have
   preinstalled under `PLAYWRIGHT_BROWSERS_PATH`, so a session never downloads a browser (seen
   2026-10-13). This repo's slow CI job runs `npm ci` and installs that version's Chromium (Claude's
-  proposal, 2026-10-13)
+  proposal, 2026-10-13). Re-pinned to 1.63.0 on 2026-11-01: the image's Chromium had moved to
+  build 1243, which 1.63.0 ships, and 1.56.1 found no browser in a session (F-NEW-132, a bug fix);
+  the reason stands, and AC-7 reads with the version `package.json` pins
 - Timing: built and shipped now; the owner merges after W10.6.4, the north-star run, so the run
   measures the devshop it started on. The fixture's page is restyled in its own later task, with
   the owner's OK, after W10.6.4; the owner then tags a new reset baseline (owner, 2026-10-13)
