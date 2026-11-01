@@ -23,6 +23,8 @@ scripts named here; run them, never retype them as shell.
   file it prints. Its `STACKS:` line goes in the PR's engineering details.
 - **Disciplines:** each one touched (frontend, backend, data, UI, security…): its guideline in
   `/opt/devshop-current/guidelines/` if any; a UI with no baseline: `/opt/devshop-current/templates/ui/`.
+  A change to what a page renders reads the project's `DESIGN.md` first (its front matter is the
+  tokens, its prose the reasons), then `/opt/devshop-current/guidelines/design.md` and `ui.md`.
 - On conflict the project wins; say so in the PR.
 - **CI:** none yet? Start from `/opt/devshop-current/templates/ci.yml`; declare
   `scripts/check-fast.sh` (unit) and `scripts/check-slow.sh` (end to end).
