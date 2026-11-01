@@ -97,7 +97,8 @@ just in case" and "should be responsive, not just phone" (owner, 2026-10-13).
   2026-10-13). This repo's slow CI job runs `npm ci` and installs that version's Chromium (Claude's
   proposal, 2026-10-13). Re-pinned to 1.63.0 on 2026-11-01: the image's Chromium had moved to
   build 1243, which 1.63.0 ships, and 1.56.1 found no browser in a session (a bug fix, PR #174);
-  the reason stands, and AC-7 reads with the version `package.json` pins
+  the reason stands. This note and the dated pointer in AC-7 are the owner's call on the stale
+  pin text left after that fix (owner, 2026-11-01: "just fix it, don't create an entry")
 - Timing: built and shipped now; the owner merges after W10.6.4, the north-star run, so the run
   measures the devshop it started on. The fixture's page is restyled in its own later task, with
   the owner's OK, after W10.6.4; the owner then tags a new reset baseline (owner, 2026-10-13)
