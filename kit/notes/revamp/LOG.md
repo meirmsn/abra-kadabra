@@ -3247,13 +3247,16 @@ directly; the test models the sightings.
 holds. A bug fix: before, `tests/run.sh slow` in a session failed `reviewer-browse.test.sh` and
 `ui-render-check.test.sh` with "Executable doesn't exist at
 `/opt/pw-browsers/chromium_headless_shell-1194/…`"; after `npm ci`, all 3 slow files pass with
-`/opt/pw-browsers` untouched and nothing downloaded. A dated note on the pin's decision in
-`specs/ui-baseline.md`; the F-NEW-132 row deleted.
+`/opt/pw-browsers` untouched and nothing downloaded. The F-NEW-132 row deleted. No spec note:
+see Surprises.
 
 **Surprises**: Playwright 1.63 wants Node ≥ 20 (1.56 took 18); the image has 22, and CI's slow
 job (the runner's own Node) is the check for the runner.
 `bootstrap.test.sh` fails on a shallow clone, as its message says; `git fetch --unshallow` first.
-Deleting the widest findings row re-padded the table (a sighting on F-NEW-130). The reviewer takes
-one spec file per change, so the same note for `specs/reviewer-browser.md` is F-NEW-133, not written.
+Deleting the widest findings row re-padded the table (a sighting on F-NEW-130). The dated note the
+re-pin owes `specs/ui-baseline.md` could not ship with it: the reviewer took the spec as the change's
+and was could-not-run twice on a reply covering 7 of its 8 items (and AC-7 still says 1.56.1). The
+note came out, a mitigation the owner chose ("go", 2026-11-01); the owed notes are F-NEW-133, the
+reviewer's missing notion of a shipped spec F-NEW-134 (med, to the owner).
 
 **Next**: the detector engine (spec B), the shape check (C), the home at M3 (D).
