@@ -41,8 +41,13 @@ os=$(uname -s) arch=$(uname -m)
 [ "$os" = Linux ] && [ "$arch" = x86_64 ] || refuse "this is $os $arch; the pinned package is for Linux x86_64, nothing placed"
 
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/impeccable.XXXXXX") || refuse "can't make a temporary directory"
-stage=""
-cleanup() { rm -rf -- "$tmp" ${stage:+"$stage"}; }
+stage="" made_dir=""
+# The version directory goes too when this run made it and it holds no engine (rmdir takes only an
+# empty one), so a refusal leaves no empty <version> directory for gstack's newest-version pick.
+cleanup() {
+  rm -rf -- "$tmp" ${stage:+"$stage"}
+  [ -z "$made_dir" ] || rmdir -- "$made_dir" 2>/dev/null || true
+}
 trap cleanup EXIT
 trap 'exit 1' HUP INT TERM
 
@@ -65,13 +70,15 @@ got=$(sha256sum "$bin" | cut -d' ' -f1)
 # exit; the prune below takes only <semver> directories, never the stage.
 bindir="$home/.impeccable/bin"
 dir="$bindir/$version"
-mkdir -p "$dir" || refuse "can't make $dir"
+mkdir -p "$bindir" || refuse "can't make $bindir"
 stage=$(mktemp -d "$bindir/.staging.XXXXXX") || refuse "can't make a staging directory in $bindir"
 cp -- "$bin" "$stage/impeccable" 2>"$tmp/cp.err" \
   || refuse "can't copy the engine into $stage: $(tr '\n' ' ' <"$tmp/cp.err")"
 got=$(sha256sum "$stage/impeccable" | cut -d' ' -f1)
 [ "$got" = "$sum" ] || refuse "the engine copied into $stage has checksum $got, the pin says $sum; nothing placed"
 chmod 0755 "$stage/impeccable" || refuse "can't set the mode on the engine"
+[ -d "$dir" ] || made_dir=$dir
+mkdir -p "$dir" || refuse "can't make $dir"
 mv -f "$stage/impeccable" "$dir/impeccable" 2>"$tmp/mv.err" \
   || refuse "can't move the engine into $dir: $(tr '\n' ' ' <"$tmp/mv.err")"
 for other in "$bindir"/*/; do
