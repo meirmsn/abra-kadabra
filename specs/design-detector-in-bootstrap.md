@@ -162,6 +162,19 @@ package.
   installed", the offer declined); no control run. A helper that can't start its browser is a
   could-not-run, re-run once; a second is recorded, no pass is claimed, and the owner hears it.
   Rejected: a CI test of the review (CI runs no LLM jobs) (Claude's proposal, 2026-11-01)
+- **Changed after the go: the bootstrap's gstack step accepts the image's newer Bun** ("fix the
+  gstack on this pr as well", owner, 2026-11-01, on F-NEW-135 at hand-over). Found by this change's
+  spike: the step required `bun --version` to equal the version the pinned gstack is tested on
+  (`GSTACK_BUN_TESTED`, 1.4.2), the image now ships 1.4.4, so in every current environment the step
+  failed before gstack's dependency install, its setup and its two config settings, and gstack's
+  browse binary and linked skills were missing. The step now accepts a Bun at or above the tested
+  version (gstack's own `gstack_bun_status` calls that `ok`; below it is `untested` or `too-old`),
+  logs `gstack: bun <found> (tested on <tested>)`, and still refuses an older or unreadable one as
+  before. Root cause: an equality check against an image this repo doesn't pin, the Bun twin of
+  F-NEW-132. Rejected: a gstack re-pin to a commit tested on 1.4.4 (gstack's upstream is GitHub,
+  unreachable from a session; a re-pin moves the engine pin and the smoke check with it, its own
+  change); pinning Bun in this repo (the image's). What stays open, as a `low` row: no session-start
+  line says the bootstrap failed
 - **Not here:** gstack's pin (its own change; this one follows it); the `/impeccable` skill, its
   editor hook and its installer (a second design voice, spec A); any wall on detector findings (it is
   feedback: the design review fixes High on the touched lines as today, CI and the owner's approval
@@ -204,6 +217,9 @@ package.
 - **AC-8** The PR's Evidence shows each mutant in Decisions run once and failing — verified by
   review: the PR body
 - **AC-9** `kit/notes/revamp/LOG.md` has an entry — verified by review: the diff
+- **AC-10** `install/bootstrap.sh`'s gstack step runs on with a Bun newer than the version the pinned
+  gstack is tested on, logging both versions, and still fails loudly, before installing, on an older
+  one; `tests/bootstrap.test.sh` proves both
 
 ## Out of scope
 

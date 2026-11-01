@@ -35,9 +35,10 @@ W10.1.2b spike (`kit/notes/revamp/spikes/w10-1-2b-thin/`, kept as notes).
   code reads the new version's manifest. Both reach an environment at its next cache rebuild.
 - **gstack** (TARGET Shape 7, D-07): [`install/gstack.pin`](gstack.pin) names one upstream commit.
   After the devshop's own steps, so a gstack failure can't stop them, the bootstrap fetches that
-  commit into `~/.claude/skills/gstack`, unmodified, checks that `bun` is the version that commit is
-  tested on (`GSTACK_BUN_TESTED` in its `bin/gstack-bun-version.sh`), so the gstack pin pins Bun
-  too, installs its npm dependencies with
+  commit into `~/.claude/skills/gstack`, unmodified, checks that `bun` is at least the version that
+  commit is tested on (`GSTACK_BUN_TESTED` in its `bin/gstack-bun-version.sh`; an older Bun fails
+  the step before anything is installed, a newer one is logged with both versions: the image's Bun
+  moves on its own, F-NEW-135), installs its npm dependencies with
   `bun install --frozen-lockfile` (failing closed: gstack's setup would otherwise fall back to an
   unfrozen install), and runs its `./setup` with stdin closed and
   `--no-team --no-plan-tune-hooks --no-timeline-stop-hook`, so gstack registers no Claude hooks and

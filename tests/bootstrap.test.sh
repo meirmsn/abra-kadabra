@@ -538,13 +538,21 @@ grep -q "FAILED: gstack browser: $HOME/.claude/settings.json has an env that isn
 [ "$(cat "$HOME/.claude/settings.json")" = '{"env":"x"}' ] || fail "a settings.json with a bad env was changed"
 echo "ok - gstack's browser uses the image's Chromium when there is one (settings kept; an empty one filled; a bad one, or a bad env, left and logged); cross-project learnings off"
 
-# Bun is tied to the gstack pin: a Bun other than the one the pinned gstack is tested on fails the
-# gstack step loudly, before anything is installed with it.
+# Bun is tied to the gstack pin from below (specs/design-detector-in-bootstrap.md AC-10): a Bun older
+# than the one the pinned gstack is tested on fails the gstack step loudly, before anything is
+# installed with it; a newer one runs the step and is logged with both versions (the image's Bun
+# moves on its own, F-NEW-135).
 FAKE_BUN_VERSION=1.0.0 setup_env main FAILED
 grep -q "FAILED: gstack: bun 1.0.0, but gstack .* is tested on bun 9.9.9" /tmp/devshop-setup.log \
-  || { cat /tmp/devshop-setup.log >&2; fail "a Bun mismatch wasn't logged as a gstack failure"; }
-{ [ ! -e "$HOME/bun.calls" ] && [ ! -e "$HOME/gstack-setup.args" ]; } || fail "gstack installed with the wrong Bun"
-echo "ok - a Bun other than the pinned gstack's tested one fails the gstack step, before installing"
+  || { cat /tmp/devshop-setup.log >&2; fail "design-detector-in-bootstrap AC-10: a Bun below the tested one wasn't logged as a gstack failure"; }
+{ [ ! -e "$HOME/bun.calls" ] && [ ! -e "$HOME/gstack-setup.args" ]; } || fail "design-detector-in-bootstrap AC-10: gstack installed with a Bun below the tested one"
+FAKE_BUN_VERSION=9.9.10 setup_env
+grep -q "^\[[0-9:]*\] gstack: bun 9.9.10 (tested on 9.9.9)$" /tmp/devshop-setup.log \
+  || { cat /tmp/devshop-setup.log >&2; fail "design-detector-in-bootstrap AC-10: a newer Bun wasn't logged with both versions"; }
+grep -qx "bun install --frozen-lockfile (in $HOME/.claude/skills/gstack)" "$HOME/bun.calls" 2>/dev/null \
+  || fail "design-detector-in-bootstrap AC-10: with a newer Bun, gstack's dependencies weren't installed"
+[ -f "$HOME/gstack-setup.args" ] || fail "design-detector-in-bootstrap AC-10: with a newer Bun, gstack's setup didn't run"
+echo "ok - design-detector-in-bootstrap AC-10: a Bun below the pinned gstack's tested one fails the step before installing; a newer one runs it and is logged"
 
 # The pinned tools are installed where the devshop's hooks run them.
 for tool in gitleaks shellcheck dcg; do
