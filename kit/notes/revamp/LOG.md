@@ -3321,3 +3321,16 @@ no-clause check also refused a "couldn't read" note. The F-NEW-135 row deleted.
 is an awk built-in, so `awk -v log=` fails; the variable is `logfile`.
 
 **Next**: the owner's next roadmap entry.
+
+## #100 — 2026-11-02 · Skills regression eval: the runner spike
+
+**What moved**: the owner asked for a regression eval for the skills. Split first, so no spec yet.
+The spike met its exit criterion: a scratch project pinned to the branch's commit through the local
+devshop copy ran the real skills; on "go" the session recorded the Go line, ran `spec-check.py
+--go` and built. Prices: about $0.70 an intent turn, $2 a one-flag change through build. Record,
+finding→case table and proposed split: [spikes/skills-eval-runner](spikes/skills-eval-runner/README.md). F-NEW-142 to 145 logged.
+
+**Surprises**: in a repo with a pin but no devshop files, the session skipped `intent` for a small
+change (one run). No skill holds F-NEW-88's rule. A nested session re-points the shared runtime.
+
+**Next**: the owner approves the split, then the first slice's spec.
