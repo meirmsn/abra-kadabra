@@ -42,8 +42,11 @@ draw; F-NEW-145 logs the first as a sighting.
   as init refuses a SHA), then its devshop copies re-applied at the branch's SHA (`apply`), so
   `check` and `contract-check.py` pass. A bare repo is not what the skills meet in a project.
 - **Permissions shape behaviour:** running the child with permissions bypassed was refused by this
-  session's auto mode, so the child ran on an allowlist (`git`, `node`, `npm test`, the devshop's
-  scripts). The 9 refused calls (`scripts/check-fast.sh`, the project's `scripts/*.py`, a broken-test
+  session's auto mode, so the child ran with `--permission-mode acceptEdits` and this
+  `--allowedTools` list: `Skill Read Write Edit Glob Grep Agent TodoWrite`, and Bash for `git:*`,
+  `node:*`, `npm test:*`, `/opt/devshop-current/scripts/*`, `python3 /opt/devshop-current/scripts/*`,
+  `ls:*` and `cat:*`; each turn also had `--max-budget-usd 8`. The driver itself was not kept: slice
+  1 builds the runner as a tested script. The 9 refused calls (`scripts/check-fast.sh`, the project's `scripts/*.py`, a broken-test
   demonstration) made the build skip the fast tier and say so. A case's allowlist is part of the
   case; refused calls are printed and fail a case whose rule needs them.
 - **The shared runtime moves:** the child's hook re-points `/opt/devshop-current` for every session
