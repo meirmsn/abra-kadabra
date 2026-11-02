@@ -3328,7 +3328,7 @@ is an awk built-in, so `awk -v log=` fails; the variable is `logfile`.
 The spike met its exit criterion: a scratch project pinned to the branch's commit through the local
 devshop copy ran the real skills; on "go" the session recorded the Go line, ran `spec-check.py
 --go` and built. Prices: about $0.70 an intent turn, $2 a one-flag change through build. Record,
-finding→case table and proposed split: [spikes/skills-eval-runner](spikes/skills-eval-runner/README.md). F-NEW-142 to 145 logged.
+finding→case table and proposed split: [spikes/skills-eval-runner](spikes/skills-eval-runner/README.md). F-NEW-142 to 146 logged.
 
 **Surprises**: in a repo with a pin but no devshop files, the session skipped `intent` for a small
 change (one run). No skill holds F-NEW-88's rule. A nested session re-points the shared runtime.
