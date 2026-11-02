@@ -281,6 +281,13 @@ for (const [k, raw] of Object.entries(group('colors'))) {
       'colour-without-dark',
       `colors.${k} has no dark value colors.dark-${k}`
     );
+  if (raw === null || String(raw).trim() === '') {
+    find(
+      'not-a-colour',
+      `colors.${k} is empty; a bare # colour reads as a YAML comment, so quote it`
+    );
+    continue;
+  }
   const v = resolveRef(raw, `colors.${k}`);
   if (v === null) continue;
   if (!isColourToken(v)) {
@@ -310,6 +317,10 @@ for (const [role, def] of Object.entries(group('typography'))) {
     continue;
   }
   if ('fontFamily' in def) {
+    if (def.fontFamily === null) {
+      find('empty-font', `typography.${role}.fontFamily is empty`);
+      continue;
+    }
     const v = resolveRef(def.fontFamily, `typography.${role}.fontFamily`);
     if (v === null) continue;
     if (v.trim() === '')
@@ -331,6 +342,10 @@ const lengths = (g, out) => {
         'bad-key',
         `${g}.${k}: a key is lower-case letters, digits and hyphens`
       );
+      continue;
+    }
+    if (raw === null || String(raw).trim() === '') {
+      find('not-a-length', `${g}.${k} is empty`);
       continue;
     }
     const v = resolveRef(raw, `${g}.${k}`);

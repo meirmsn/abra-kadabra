@@ -127,6 +127,13 @@ bad "AC-1: a dark value without its light is a finding" "dark-without-light" "$C
   dark-accent: \"#336699\""
 bad "AC-1: a value that isn't hex or oklch() is a finding" "not-a-colour" "${COLORS/\"#dddddd\"/\"rgb(221 221 221)\"}"
 bad "AC-1: a required colour missing is a finding" "missing-colour" "${COLORS/  border: \"#dddddd\"/}"
+bad "AC-1: an unquoted # colour, a YAML comment, is an empty value and a finding" "not-a-colour" "${COLORS/\"#dddddd\"/#dddddd}"
+bad "AC-1: an empty spacing value is a finding" "not-a-length" "$COLORS" "$TYPOGRAPHY" "${SPACING/1rem/}"
+bad "AC-1: an empty fontFamily with no quotes is a finding" "empty-font" "$COLORS" "${TYPOGRAPHY/\"ui-monospace, monospace\"/}"
+bad "AC-1: a bad spacing key is a finding" "bad-key" "$COLORS" "$TYPOGRAPHY" "$SPACING
+  Big_1: 2rem"
+bad "AC-1: a bad rounded key is a finding" "bad-key" "$COLORS" "$TYPOGRAPHY" "$SPACING" "$ROUNDED
+  Big: 2rem"
 bad "AC-1: no typography.body.fontFamily is a finding" "missing-font" "$COLORS" "${TYPOGRAPHY/    fontFamily: \"system-ui, sans-serif\"/}"
 bad "AC-1: an empty fontFamily is a finding" "empty-font" "$COLORS" "${TYPOGRAPHY/\"ui-monospace, monospace\"/\"\"}"
 bad "AC-1: a role named sans is a finding" "bad-key" "$COLORS" "$TYPOGRAPHY
