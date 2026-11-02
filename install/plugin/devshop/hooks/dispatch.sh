@@ -41,10 +41,42 @@ if ! project_dir=$(git -C "$start" rev-parse --show-toplevel 2>/dev/null); then
     fi
   fi
 fi
-# say <message> [<tail after the copy's date and the project>]
+# The bootstrap's result (specs/bootstrap-result-at-session-start.md): the setup log survives into
+# sessions, and a failed bootstrap otherwise goes unsaid. Only the bootstrap's own log() lines count
+# ("[HH:MM:SS] <text>"), from its last "bootstrap start" (the log is appended to, and the priming run
+# reads it before its own RESULT): a RESULT that says FAILED names each failed step once, in order,
+# as the text after "FAILED: " up to the first colon. A missing log, a done run or a run with no
+# RESULT line adds nothing; a log that can't be read is said. Feedback for the owner, guarding nothing.
+SETUP_LOG=/tmp/devshop-setup.log
+bootstrap_note() {
+  local text
+  [ -e "$SETUP_LOG" ] || return 0
+  text=$(cat -- "$SETUP_LOG" 2>/dev/null) || { echo "couldn't read $SETUP_LOG to check the bootstrap's result"; return 0; }
+  awk -v logfile="$SETUP_LOG" '
+    function reset() { n = 0; split("", seen); result = "" }
+    BEGIN { reset() }
+    /^\[[0-9][0-9]:[0-9][0-9]:[0-9][0-9]\] bootstrap start / { reset(); next }
+    /^\[[0-9][0-9]:[0-9][0-9]:[0-9][0-9]\] FAILED: / {
+      s = $0; sub(/^\[[0-9:]*\] FAILED: /, "", s); sub(/:.*/, "", s)
+      if (!(s in seen)) { seen[s] = 1; steps[++n] = s }
+      next
+    }
+    /^\[[0-9][0-9]:[0-9][0-9]:[0-9][0-9]\] RESULT: bootstrap FAILED/ { result = "FAILED"; next }
+    /^\[[0-9][0-9]:[0-9][0-9]:[0-9][0-9]\] RESULT: bootstrap done/ { result = "done"; next }
+    END {
+      if (result != "FAILED") exit
+      list = ""
+      for (i = 1; i <= n; i++) list = list (i > 1 ? ", " : "") steps[i]
+      printf "bootstrap FAILED%s: see %s\n", (list == "" ? "" : " (" list ")"), logfile
+    }' <<<"$text"
+}
+boot=$(bootstrap_note)
+# say <message> [<tail after the copy's date and the project>] [main]: the main line (the one naming
+# the version, or that it was kept) ends with the bootstrap's result, so it is said once.
 say() {
   local tail=${2:-}
   [ -z "$started" ] || tail=${tail:+$tail; }$started
+  [ "${3:-}" != main ] || [ -z "$boot" ] || tail=${tail:+$tail; }$boot
   echo "DEVSHOP: $1 · $copy · project ${project_dir##*/}${tail:+; $tail}"
 }
 kept() {
@@ -68,12 +100,12 @@ dispatch() {
   # branch); refuse anything that could be read as an option or a revision expression.
   case "$pin" in
     '' | -* | *[!A-Za-z0-9._/-]*)
-      say "'$pin' ($from) is not a devshop version (a release tag or commit SHA) — $(kept)"; return 0 ;;
+      say "'$pin' ($from) is not a devshop version (a release tag or commit SHA) — $(kept)" "" main; return 0 ;;
   esac
   sha=$(git --git-dir="$MIRROR" rev-parse -q --verify "$pin^{commit}" 2>/dev/null)
   if [ -z "$sha" ]; then
     say "version '$pin' ($from) is not in the local devshop copy — $(kept)" \
-      "the copy refreshes when the environment cache rebuilds (about weekly) or when the setup script is edited"
+      "the copy refreshes when the environment cache rebuilds (about weekly) or when the setup script is edited" main
     return 0
   fi
   dir="$VERSIONS/$sha"
@@ -84,7 +116,7 @@ dispatch() {
       mv "$dir.tmp" "$dir"
     else
       rm -rf "$dir.tmp"
-      say "version '$pin' (${sha:0:12}) has no devshop runtime at $RUNTIME/ (older than the v2 install?) — $(kept)"
+      say "version '$pin' (${sha:0:12}) has no devshop runtime at $RUNTIME/ (older than the v2 install?) — $(kept)" "" main
       return 0
     fi
   fi
@@ -97,7 +129,7 @@ dispatch() {
       newer="newer release $newest in the copy (/devshop:upgrade)"
     fi
   fi
-  say "using $pin (${sha:0:12}) from $from" "$newer"
+  say "using $pin (${sha:0:12}) from $from" "$newer" main
   if [ -z "${DEVSHOP_PRIME_ONLY:-}" ] && [ -x "$CURRENT/hooks/session-start.sh" ]; then
     CLAUDE_PROJECT_DIR=$project_dir "$CURRENT/hooks/session-start.sh" || say "version ${sha:0:12}'s session-start script failed (exit $?)"
   fi
