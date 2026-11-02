@@ -3300,7 +3300,7 @@ it reaches every project whatever its pin, at each environment's next cache rebu
 `bootstrap.test.sh` cases failed first, then passed; five mutants killed, one only after the
 no-clause check also refused a "couldn't read" note. The F-NEW-135 row deleted.
 
-**Surprises**: the adversarial review caught that "every line" would print the clause twice, and
-that `log` is an awk built-in, which `-v log=` breaks.
+**Surprises**: the adversarial review caught that "every line" would print the clause twice. `log`
+is an awk built-in, so `awk -v log=` fails; the variable is `logfile`.
 
 **Next**: the owner's next roadmap entry.
