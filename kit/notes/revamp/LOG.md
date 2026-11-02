@@ -3277,7 +3277,21 @@ blocks three skill steps (F-NEW-137).
 
 **Next**: spec C, the `DESIGN.md` shape check; then D at M3.
 
-## #97 — 2026-11-01 · The `DESIGN.md` shape check (spec C)
+## #97 — 2026-11-01 · The engine is staged on the same filesystem before its final move (F-NEW-138)
+
+**What moved**: `install/impeccable.sh` copies the verified engine into
+`~/.impeccable/bin/.staging.*`, checks the copy against the pin again and renames it into place, so
+the final move stays on one filesystem; the trap removes the stage on every exit. A bug fix: the
+new `bootstrap.test.sh` case failed first (the final move came from `$TMPDIR`), then passed; no
+stage is left after a placement, a refusal or a failed final move (a read-only bind mount stops
+root too), and a mutant that keeps the stage fails the test. The F-NEW-138 row deleted.
+
+**Surprises**: the test's scratch `/tmp` hides a mutant worktree kept under `/tmp`; keep it
+elsewhere.
+
+**Next**: the bootstrap-result spec (F-NEW-135) at its go.
+
+## #98 — 2026-11-01 · The `DESIGN.md` shape check (spec C)
 
 **What moved**: `runtime/templates/ui/design-md-check.mjs`, the third optional UI copy: a
 `DESIGN.md`'s front matter has `colors` in light and `dark-<name>`, `typography`, `spacing`,
