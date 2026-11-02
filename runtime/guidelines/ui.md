@@ -17,9 +17,9 @@ The project's own rules win on conflict; say so in the PR.
   - `base.css` and `theme.js`: copy them; the project owns them (its colours, more components).
     Load `theme.js` in `<head>` as a plain script, or inline it, so there's no flash of the wrong
     theme. [`example.html`](../templates/ui/example.html) shows every piece in use.
-  - `tokens-check.mjs` and `render-check.mjs`: copy them unchanged into `scripts/ui/`; they are
-    optional `devshop` copies in the project contract, so session start reports drift and a newer
-    devshop version's upgrade re-copies them.
+  - `tokens-check.mjs`, `render-check.mjs` and `design-md-check.mjs`: copy them unchanged into
+    `scripts/ui/`; they are optional `devshop` copies in the project contract, so session start
+    reports drift and a newer devshop version's upgrade re-copies them.
 - **Tokens only:** colours, radius and spacing come from the theme's tokens (shadcn/ui's names);
   name only tokens the theme defines, for light and dark (L-78). A new colour gets a light and a
   dark value.
@@ -33,7 +33,13 @@ baseline sets these once (`button`, `.btn`, `:active`, `aria-busy`); don't redo 
 ## Checks
 
 - **Fast tier:** `node scripts/ui/tokens-check.mjs --theme <theme.css> <files…>`: every `var()` is
-  defined in both themes, the dark rules agree, and colour pairs reach 4.5:1.
+  defined in both themes, the dark rules agree, and colour pairs reach 4.5:1. With a `DESIGN.md`,
+  `scripts/ui/design-md-check.mjs --theme <theme.css> DESIGN.md` (the template's `check-fast.sh`
+  runs it when the file exists; `THEME_CSS` names the theme): the front matter has `colors` with
+  light and `dark-<name>` values, `typography`, `spacing`, `rounded.default` and a `## Decisions`
+  section, and the theme is derived from it both ways: every front-matter token equals its theme
+  token, and every literal colour, `--space-*`, `--radius*` and `--font-*` family in the theme is
+  one the front matter names ([spec](../../specs/design-md-check.md)).
 - **Slow tier:** `node scripts/ui/render-check.mjs --url <page> --out <dir>` on each changed page
   (served locally or the preview): at 375, 768 and 1280 px in both system themes it checks
   overflow, contrast as painted, 44 px targets, the pressed state, the toggle and a widening
@@ -65,7 +71,10 @@ above, so the project has a preview to publish the direction's pages on. The sli
   owner asks, while that slice is sharpened; the pick then feeds its core flow and states.
 - **`DESIGN.md` as the skill writes it,** with its tokens and the derived theme CSS under the
   baseline's names (`tokens-check.mjs` and the reviewer read those), and fonts self-hosted as the
-  stack home says. Never gstack's image binary or its comparison board (an OpenAI key and a
+  stack home says. The slice renames inside the skill's file shape: `colors` keys are the baseline's
+  token names with the dark value of `<name>` as `dark-<name>`, `spacing` keys its steps, `rounded`
+  has `default`, each `fontFamily` carries the full stack the theme declares, and the body has a
+  `## Decisions` section; `design-md-check.mjs` holds that, so the derivation is `name` → `--name`. Never gstack's image binary or its comparison board (an OpenAI key and a
   server on 127.0.0.1, F-NEW-87).
 
 ## Design review (before `ship`)

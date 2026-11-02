@@ -165,12 +165,19 @@ check: file
 must: The UI baseline's slow check: each page at 375, 768 and 1280 px in both themes, in Chromium; `node scripts/ui/render-check.mjs --url <page> --out <dir>`; needs Playwright pinned in `package.json`.
 for: `scripts/check-slow.sh` in a project with a UI
 
+item: scripts/ui/design-md-check.mjs
+owner: devshop
+when: optional
+check: executable
+must: The UI baseline's DESIGN.md shape check: the front matter has the token groups with light and dark values and a Decisions section, and the theme CSS is derived from it under the baseline's token names, both ways; `scripts/ui/design-md-check.mjs --theme <css> DESIGN.md`.
+for: `scripts/check-fast.sh` in a project with a `DESIGN.md`
+
 item: DESIGN.md
 owner: project
 when: optional
 check: file
-must: The project's design: what every page is judged against. Without it the design review doesn't run and the reviewer judges UI against the theme's tokens only.
-for: the devshop's reviewer and the design review
+must: The project's design, in gstack's spec format with the devshop's token names: what every page is judged against, and what the theme CSS is derived from. Without it the design review doesn't run, the shape check doesn't run, and the reviewer judges UI against the theme's tokens only.
+for: the devshop's reviewer and the design review; `scripts/ui/design-md-check.mjs` in `scripts/check-fast.sh`
 
 item: ROADMAP.md
 owner: project

@@ -157,6 +157,9 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
 - [`design-guideline.md`](../specs/design-guideline.md): a design guideline every UI change reads
   after the project's `DESIGN.md`: the surface rule, the placeholder rule, the component and motion
   defaults, and what done means for UI.
+- [`design-md-check.md`](../specs/design-md-check.md): a `DESIGN.md` shape check in a project's
+  fast tier: the front matter's token groups with light and dark values, the decisions section, and
+  the theme CSS derived from them under the baseline's token names.
 - [`design-review-in-build.md`](../specs/design-review-in-build.md): build runs gstack's
   `/design-review` on a local run of every UI change before it ships.
 - [`findings-and-roadmap.md`](../specs/findings-and-roadmap.md): every repo keeps a roadmap of
@@ -296,11 +299,16 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   components and motion, the definition of done. The UI
   guideline [`ui.md`](../runtime/guidelines/ui.md) ([spec](../specs/ui-baseline.md)) starts every
   interface from [`runtime/templates/ui/`](../runtime/templates/ui/): `base.css` (shadcn/ui's token
-  names, light and dark), `theme.js` (the theme toggle), an example page, and two checks a project
+  names, light and dark), `theme.js` (the theme toggle), an example page, and three checks a project
   copies: `tokens-check.mjs` (every token defined in both themes, contrast pairs; proven by
-  [`tests/ui-tokens-check.test.sh`](../tests/ui-tokens-check.test.sh)) and `render-check.mjs`
+  [`tests/ui-tokens-check.test.sh`](../tests/ui-tokens-check.test.sh)), `render-check.mjs`
   (the page in Chromium at 375, 768 and 1280 px in both themes; proven by
-  [`tests/ui-render-check.test.sh`](../tests/ui-render-check.test.sh)). Its § Design review is how
+  [`tests/ui-render-check.test.sh`](../tests/ui-render-check.test.sh)) and `design-md-check.mjs`
+  (`DESIGN.md`'s shape and the theme derived from it, in the fast tier once the project has one;
+  proven by [`tests/ui-design-md-check.test.sh`](../tests/ui-design-md-check.test.sh) on two
+  fixtures, [the baseline's own](../tests/fixtures/design-md/baseline/DESIGN.md) against `base.css`
+  and [a ledger](../tests/fixtures/design-md/ledger/DESIGN.md) with a display face;
+  [spec](../specs/design-md-check.md)). Its § Design review is how
   `build` runs gstack's `/design-review` before `ship`
   ([spec](../specs/design-review-in-build.md)).
 - Reviewer: [runtime/reviewer/README.md](../runtime/reviewer/README.md) is the independent

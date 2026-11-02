@@ -3291,7 +3291,24 @@ elsewhere.
 
 **Next**: the bootstrap-result spec (F-NEW-135) at its go.
 
-## #98 — 2026-11-02 · The session-start line says when the bootstrap failed (F-NEW-135)
+## #98 — 2026-11-01 · The `DESIGN.md` shape check (spec C)
+
+**What moved**: `runtime/templates/ui/design-md-check.mjs`, the third optional UI copy: a
+`DESIGN.md`'s front matter has `colors` in light and `dark-<name>`, `typography`, `spacing`,
+`rounded.default` and a `## Decisions` section, and the theme CSS equals it both ways under the
+baseline's token names. Exit 0/1/2 like its siblings; its own block-YAML reader (no dependency).
+The template's fast tier runs it when `DESIGN.md` exists, else says the baseline is the design.
+Contract, manifest, `ui.md`, `design.md`, docs. `tests/ui-design-md-check.test.sh`: a known-bad
+input per rule, two committed fixtures (one is `base.css` written as a `DESIGN.md`).
+
+**Surprises**: gstack's consultation writes its own slugs (`surface`, `text`, `on-primary`,
+`rounded: sm/md/lg`, one face per family); the spikes had renamed them without saying so. The spec
+now says the slice renames, the owner's call at the go. A guard blocked an edit whose text held a
+recursive delete; the test's cleanup names files instead.
+
+**Next**: the home at M3 (D), which fills `THEME_CSS` and wires all three checks.
+
+## #99 — 2026-11-02 · The session-start line says when the bootstrap failed (F-NEW-135)
 
 **What moved**: the plugin's dispatcher reads the setup log's last run and, when its RESULT says
 FAILED, ends the main `DEVSHOP:` line with `; bootstrap FAILED (<steps>): see

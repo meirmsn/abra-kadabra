@@ -10,7 +10,10 @@ in the PR.
 
 - **Read the project's `DESIGN.md` before the first edit.** Its front matter is the normative
   tokens (typography, colours, spacing, radius); its prose is the reasons and the rules of use.
-  Build from the tokens, through the theme CSS that carries them under the baseline's names.
+  Build from the tokens, through the theme CSS that carries them under the baseline's names: the
+  front matter's keys are those names (gstack's own slugs renamed by the direction slice, the dark
+  value of `<name>` as `dark-<name>`, a `## Decisions` section), and `design-md-check.mjs` in the
+  fast tier proves the theme's values equal the front matter's, both ways.
 - **No `DESIGN.md` yet** (the walking skeleton, a bug fix before the direction slice, an app whose
   owner asked for no direction): the baseline in `ui.md` is the design. Don't invent a brand; the
   direction slice is where one is chosen (`ui.md` § Design direction).
@@ -56,7 +59,8 @@ the baseline is a starting point, not a look. System body text is fine where `DE
 
 ## Done, for a change that changes what a page renders
 
-1. The fast-tier checks pass (`tokens-check`; the project's own).
+1. The fast-tier checks pass (`tokens-check`; `design-md-check` once `DESIGN.md` exists; the
+   project's own).
 2. `render-check` passes at 375, 768 and 1280 px in light and dark; its six screenshots, pinned to
    the final commit, are on the PR, with a row per core-flow step and state.
 3. The PR's **Design review:** line carries the scores and the findings fixed and logged for the
