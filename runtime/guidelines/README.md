@@ -10,6 +10,7 @@ harvest's engineering lessons (Build 8, [lessons.md](../../kit/notes/revamp/less
   first, what enforces what, the surface, the placeholder rule, components and motion, done, never
   ([spec](../../specs/design-guideline.md)).
 - [`ui.md`](ui.md): every user interface: responsive, light and dark with a toggle, the control
-  contract, starting from [`runtime/templates/ui/`](../templates/ui/) and checked by its two
-  scripts. Proven by [`tests/ui-tokens-check.test.sh`](../../tests/ui-tokens-check.test.sh) and
-  [`tests/ui-render-check.test.sh`](../../tests/ui-render-check.test.sh).
+  contract, starting from [`runtime/templates/ui/`](../templates/ui/) and checked by its three
+  scripts. Proven by [`tests/ui-tokens-check.test.sh`](../../tests/ui-tokens-check.test.sh),
+  [`tests/ui-render-check.test.sh`](../../tests/ui-render-check.test.sh) and
+  [`tests/ui-design-md-check.test.sh`](../../tests/ui-design-md-check.test.sh).
