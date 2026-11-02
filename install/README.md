@@ -106,6 +106,11 @@ instead. Lines the version's own session-start script prints travel the same way
 the local copy's date, time and age, because the copy only refreshes when the environment cache
 rebuilds and a same-day stale copy is otherwise invisible, then the project the session runs in. The
 session can't read its environment's name, and with one environment per project the project names it.
+Notes follow; the last says the bootstrap failed, if it did: the setup log (`/tmp/devshop-setup.log`)
+survives into sessions, and a failed bootstrap was otherwise unsaid
+([spec](../specs/bootstrap-result-at-session-start.md)). The dispatcher reads only the bootstrap's own
+lines from its last run and names each failed step once, as the text after `FAILED: ` up to the first
+colon (`tool dcg`, `gstack`), on the main line only. Feedback for the owner; it guards nothing.
 
 | Case                                  | Line                                                                                                                                                                         |
 | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -117,6 +122,7 @@ session can't read its environment's name, and with one environment per project 
 | Pin not in the copy (newer, or wrong) | `version '<pin>' (…) is not in the local devshop copy — kept version <sha12> · devshop copy of …; the copy refreshes …`                                                      |
 | Pin older than this install           | `version '<pin>' (<sha12>) has no devshop runtime at runtime/ (older than the v2 install?) — kept version <sha12> · …`                                                       |
 | Not a version (e.g. `--x`)            | `'<pin>' (…) is not a devshop version (a release tag or commit SHA) — kept version <sha12> · …`                                                                              |
+| Bootstrap failed (log's last run)     | any line above, plus `; bootstrap FAILED (<steps>): see /tmp/devshop-setup.log`; with a log that can't be read, `; couldn't read /tmp/devshop-setup.log …`                   |
 
 "Kept" means the session keeps the default version primed at setup. Proven by
 [`tests/bootstrap.test.sh`](../tests/bootstrap.test.sh). It replays the setup script (local bare
