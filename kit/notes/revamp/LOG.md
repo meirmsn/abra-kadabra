@@ -3290,3 +3290,17 @@ root too), and a mutant that keeps the stage fails the test. The F-NEW-138 row d
 elsewhere.
 
 **Next**: the bootstrap-result spec (F-NEW-135) at its go.
+
+## #98 — 2026-11-02 · The session-start line says when the bootstrap failed (F-NEW-135)
+
+**What moved**: the plugin's dispatcher reads the setup log's last run and, when its RESULT says
+FAILED, ends the main `DEVSHOP:` line with `; bootstrap FAILED (<steps>): see
+/tmp/devshop-setup.log`; an unreadable log is said. In the dispatcher, not the version's script, so
+it reaches every project whatever its pin, at each environment's next cache rebuild. The new
+`bootstrap.test.sh` cases failed first, then passed; five mutants killed, one only after the
+no-clause check also refused a "couldn't read" note. The F-NEW-135 row deleted.
+
+**Surprises**: the adversarial review caught that "every line" would print the clause twice, and
+that `log` is an awk built-in, which `-v log=` breaks.
+
+**Next**: the owner's next roadmap entry.
