@@ -517,7 +517,12 @@ for (const [token, e] of Object.entries(expected)) {
       );
     else {
       const got = resolve(light, light[token]);
-      if (got !== null && !same(got, e.light))
+      if (got === null)
+        find(
+          'theme-differs',
+          `${token} is '${light[token]}' in :root, a var() that reaches no declared token, but ${e.from} is '${e.light}'`
+        );
+      else if (!same(got, e.light))
         find(
           'theme-differs',
           `${token} is '${light[token]}' in :root but ${e.from} is '${e.light}'`
@@ -541,7 +546,12 @@ for (const [token, e] of Object.entries(expected)) {
         );
       else {
         const got = resolve(all, rule[token]);
-        if (got !== null && !same(got, e.dark))
+        if (got === null)
+          find(
+            'theme-differs',
+            `${token} is '${rule[token]}' in ${ruleName}, a var() that reaches no declared token, but ${from} is '${e.dark}'`
+          );
+        else if (!same(got, e.dark))
           find(
             'theme-differs',
             `${token} is '${rule[token]}' in ${ruleName} but ${from} is '${e.dark}'`
@@ -551,7 +561,8 @@ for (const [token, e] of Object.entries(expected)) {
   }
 }
 
-// The other way: a literal the front matter doesn't name. var() aliases are derived, not findings.
+// The other way: a literal the front matter doesn't name. A var() alias is derived when its chain
+// ends at a token the front matter names; an alias to an unnamed literal is reported too.
 const NAMED_COLOURS = new Set(
   'aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown burlywood cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod gray green greenyellow grey honeydew hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey lightpink lightsalmon lightseagreen lightskyblue lightslategray lightslategrey lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin navajowhite navy oldlace olive olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue purple rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen transparent currentcolor'.split(
     ' '
@@ -571,16 +582,36 @@ const unnamedShape = (token, value) =>
   token.startsWith('--space-') ||
   token.startsWith('--radius') ||
   (token.startsWith('--font-') && isFamilyList(value));
-for (const [ruleName, rule, isDark] of [
-  [':root', light, false],
-  [DARK_SELECTOR, dark, true],
-  [`the system-dark rule ${SYSTEM_DARK_SELECTOR}`, systemDark, true],
+const namedIn = (token, isDark) => {
+  const e = expected[token];
+  return Boolean(e && (isDark ? e.dark !== undefined : e.light !== undefined));
+};
+for (const [ruleName, rule, all, isDark] of [
+  [':root', light, light, false],
+  [DARK_SELECTOR, dark, darkAll, true],
+  [
+    `the system-dark rule ${SYSTEM_DARK_SELECTOR}`,
+    systemDark,
+    systemDarkAll,
+    true,
+  ],
 ]) {
-  for (const [token, value] of Object.entries(rule)) {
-    if (/^var\(/.test(value)) continue;
-    const e = expected[token];
-    const named = e && (isDark ? e.dark !== undefined : e.light !== undefined);
-    if (named || !unnamedShape(token, value)) continue;
+  for (const [token, raw] of Object.entries(rule)) {
+    if (namedIn(token, isDark)) continue;
+    // Follow an alias chain: derived if it reaches a named token; a literal at its end is judged.
+    let value = raw;
+    let derived = false;
+    for (let hop = 0; hop <= MAX_HOPS; hop++) {
+      const m = value.match(/^var\(\s*(--[A-Za-z0-9_-]+)\s*(?:,[\s\S]*)?\)$/);
+      if (!m) break;
+      if (namedIn(m[1], isDark) || !(m[1] in all)) {
+        derived = true; // a named target, or an undeclared one (tokens-check's undefined-token)
+        break;
+      }
+      value = all[m[1]];
+    }
+    if (derived || /^var\(/.test(value) || !unnamedShape(token, value))
+      continue;
     const want = isDark ? `colors.dark-${token.slice(2)}` : `the front matter`;
     find(
       'theme-not-in-design',
