@@ -1,6 +1,6 @@
 # The session-start line says when the bootstrap failed
 
-**Go:** pending
+**Go:** "Go" (owner, 2026-11-02)
 
 ## Intent
 
@@ -43,7 +43,7 @@ Feedback, like every hook: it tells the owner, it guards nothing.
   log could hold, gets `; bootstrap FAILED: see /tmp/devshop-setup.log` (Claude, 2026-11-01)
 - **A log that exists but can't be read is said, not skipped:** the line gets
   `; couldn't read /tmp/devshop-setup.log to check the bootstrap's result`, since staying silent
-  is the failure this change fixes; beyond the owner's words, so it is asked at the go (Claude,
+  is the failure this change fixes; beyond the owner's words, put to them with the go (Claude,
   2026-11-01)
 - **The check, as the owner set it:** `tests/bootstrap.test.sh` asserts the clause with the failed
   step's name after a real failed bootstrap (`session '' <branch> FAILED`) and its absence after a
