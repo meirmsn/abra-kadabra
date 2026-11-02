@@ -736,6 +736,86 @@ for broken in gstack-broken gstack-missing gstack-drift; do
   check "$broken: devshop still installed" "$out" "^DEVSHOP: using HEAD " "$(git --git-dir="$src" rev-parse "$broken")"
 done
 
+# The session-start line says when the bootstrap failed (specs/bootstrap-result-at-session-start.md):
+# the main DEVSHOP: line ends with the failed steps of the log's last run and points at the log;
+# nothing else in the hook's output carries the clause.
+LOG_NOTE="see /tmp/devshop-setup\\.log"
+boot_clause() { # boot_clause <case> <output> <want: a steps list, 'none' for no parentheses, '' for no clause>
+  local n
+  n=$(grep -c 'bootstrap FAILED' <<<"$2" || true)
+  if [ -z "$3" ]; then
+    [ "$n" = 0 ] || { echo "$2" >&2; fail "$1: the hook's output has a bootstrap clause, but the bootstrap didn't end FAILED"; }
+  else
+    local want="\\($3\\)"
+    [ "$3" != none ] || want=""
+    [ "$n" = 1 ] || { echo "$2" >&2; fail "$1: want the bootstrap clause exactly once in the hook's output, got $n"; }
+    grep -Eq "^DEVSHOP: .* · project [^;]*(; .*)?; bootstrap FAILED ?$want: $LOG_NOTE$" <<<"$2" \
+      || { echo "$2" >&2; fail "$1: the main DEVSHOP: line doesn't end with '; bootstrap FAILED${want:+ $3}: see /tmp/devshop-setup.log'"; }
+  fi
+  echo "ok - $1"
+}
+out=$(session '' gstack-broken FAILED)
+boot_clause "bootstrap-result-at-session-start AC-1: a failed bootstrap's step is on the line" "$out" "gstack"
+out=$(DEVSHOP_TEST_GIT=1 session "$pinned" tools-bad FAILED)
+boot_clause "bootstrap-result-at-session-start AC-1: with a pin, once, on the main line, not on the version's own lines" "$out" "tool gitleaks"
+out=$(session '')
+boot_clause "bootstrap-result-at-session-start AC-2: a bootstrap that ended done adds nothing" "$out" ""
+# Written logs, as the bootstrap's log() writes them ("[HH:MM:SS] <text>"), on a done install.
+with_log() { # with_log <log content | --none | --dir>: the hook's lines with that setup log
+  local p
+  rm -rf /tmp/devshop-setup.log
+  case $1 in
+    --none) ;;
+    --dir) mkdir /tmp/devshop-setup.log ;;
+    *) printf '%s\n' "$1" >/tmp/devshop-setup.log ;;
+  esac
+  p=$(mktemp -d "$work/proj.XXXX")
+  hook_json "$(cd "$p" && CLAUDE_PLUGIN_ROOT="$HOME/plugin" CLAUDE_PROJECT_DIR="$p" bash -c "$cmd")"
+}
+setup_env >&2
+S='[10:00:00] bootstrap start ref=HEAD copy-head=abc1234'
+DONE='[10:05:00] RESULT: bootstrap done (current -> /opt/devshop-versions/x)'
+BAD='[10:05:00] RESULT: bootstrap FAILED (see FAILED lines above)'
+boot_clause "bootstrap-result-at-session-start AC-2: a log whose run ended done" "$(with_log "$S
+[10:01:00] FAILED: noise from a tool, not the bootstrap's own line
+claude: FAILED: also not the bootstrap's
+$DONE")" ""
+boot_clause "bootstrap-result-at-session-start AC-2: a run with no RESULT line" "$(with_log "$S
+[10:01:00] FAILED: gstack: setup exited 1")" ""
+boot_clause "bootstrap-result-at-session-start AC-2: no log" "$(with_log --none)" ""
+boot_clause "bootstrap-result-at-session-start AC-2: a FAILED run, then a done run" "$(with_log "$S
+[10:01:00] FAILED: gstack: setup exited 1
+$BAD
+$S
+$DONE")" ""
+boot_clause "bootstrap-result-at-session-start AC-1: steps once each, in order; only the bootstrap's own lines" "$(with_log "$S
+$DONE
+$S
+[10:01:00] FAILED: tool gitleaks: checksum of https://example.com/g.tgz is not the pinned 00
+claude: FAILED: impeccable-lookalike: not the bootstrap's line
+[10:01:30] FAILED: write default-ref
+[10:02:00] FAILED: gstack: bun 1.0.0, but gstack x is tested on bun 9.9.9
+[10:03:00] FAILED: tool gitleaks: /usr/local/bin/gitleaks exists and isn't the devshop's link
+[10:04:00] FAILED: impeccable: checksum of package/bin/impeccable is 11
+$BAD")" "tool gitleaks, write default-ref, gstack, impeccable"
+boot_clause "bootstrap-result-at-session-start AC-1: an earlier FAILED run's steps don't count" "$(with_log "$S
+[10:01:00] FAILED: gstack: setup exited 1
+$BAD
+$S
+[10:11:00] FAILED: impeccable: fetch failed
+${BAD/10:05/10:15}")" "impeccable"
+boot_clause "bootstrap-result-at-session-start AC-1: a log with no start line is one run" "$(with_log "[10:01:00] FAILED: claude plugin install
+$BAD")" "claude plugin install"
+boot_clause "bootstrap-result-at-session-start AC-1: a FAILED run with no FAILED line" "$(with_log "$S
+$BAD")" none
+out=$(with_log --dir)
+grep -Eq "^DEVSHOP: .* · project [^;]*(; .*)?; couldn't read /tmp/devshop-setup\\.log to check the bootstrap's result$" <<<"$out" \
+  || { echo "$out" >&2; fail "bootstrap-result-at-session-start AC-3: a log that can't be read isn't said on the main line"; }
+[ "$(grep -c "couldn't read /tmp/devshop-setup" <<<"$out" || true)" = 1 ] \
+  || { echo "$out" >&2; fail "bootstrap-result-at-session-start AC-3: the unreadable log is said more than once"; }
+rm -rf /tmp/devshop-setup.log
+echo "ok - bootstrap-result-at-session-start AC-3: a log that can't be read is said on the main line"
+
 # Setup fails loudly but still does every step it can (L-43): without the claude CLI, the copy is
 # still cleaned and primed, and the log names the failed steps.
 rm -rf /opt/* /tmp/devshop-*
