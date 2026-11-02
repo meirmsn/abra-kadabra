@@ -140,7 +140,8 @@ git -C "$c" checkout -q -- scripts/check-slow.sh && chmod +x "$c/scripts/secret-
 for f in scripts/lint.sh scripts/lint-file.sh scripts/deploy.sh scripts/local-run.sh; do
   printf '#!/usr/bin/env bash\nexit 0\n' >"$c/$f" && chmod +x "$c/$f"
 done
-cp "$repo_root/runtime/templates/ui/tokens-check.mjs" "$repo_root/runtime/templates/ui/render-check.mjs" "$c/scripts/ui/"
+cp "$repo_root/runtime/templates/ui/tokens-check.mjs" "$repo_root/runtime/templates/ui/render-check.mjs" \
+  "$repo_root/runtime/templates/ui/design-md-check.mjs" "$c/scripts/ui/"
 mkdir -p "$c/docs" && for f in DESIGN.md ROADMAP.md FINDINGS.md docs/README.md; do echo "# $f" >"$c/$f"; done
 out=$(contract_lines)
 [ -z "$out" ] || { echo "$out" >&2; fail "AC-5: with every item present, session start still spoke about the contract"; }
