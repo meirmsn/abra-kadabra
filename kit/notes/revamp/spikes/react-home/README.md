@@ -45,6 +45,7 @@ media query), and pass them? Synthetic throughout; no project's files were read.
 | Tailwind's own `--font-sans`                                                                           | emitted in `@layer theme`; the theme's unlayered `:root` value wins, so `font-sans` and the body read the theme's stack                               |
 | `--font-display: var(--font-display)` in the bridge, `--font-display: Georgia, serif` in `:root`       | `.font-display { font-family: var(--font-display) }`; the self-reference is emitted in `@layer theme` only, so the theme's value wins                |
 | `next/font/local` with `variable: '--font-sans'` and a self-hosted Inter woff2                          | `.inter_…__variable { --font-sans: "inter", "inter Fallback" }`: the token on a generated class, outside the three rules, with a generated family list |
+| A hand-written `components.json` (`new-york`, `app/globals.css`, the five aliases) against the pinned CLI's own `rawConfigSchema` (`shadcn/schema`) | valid; without `tailwind.baseColor` invalid (a required string); `style` takes any string, so the schema doesn't prove the style exists |
 | The theme split in two files (`theme.css` imported by `globals.css`)                                  | also passes all three checks, with `theme.css` as the theme; a `.dark` block written into `globals.css` would then go unseen                         |
 
 Two of shadcn/ui's new-york-v4 sources at the tag use Radix's runtime variables in `var()`
