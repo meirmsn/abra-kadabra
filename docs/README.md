@@ -178,6 +178,9 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   devshop's pinned gitleaks, shellcheck and dcg on PATH.
 - [`project-contract.md`](../specs/project-contract.md): one project contract, what every project
   must provide, checked at session start and in its `fast` tier.
+- [`react-home-ui-defaults.md`](../specs/react-home-ui-defaults.md): the Next.js home's UI
+  defaults: shadcn/ui's CLI pinned, the theme as one Tailwind v4 file under the baseline's token
+  names, and the home's fast and slow tiers running the three UI checks.
 - [`reviewer-browser.md`](../specs/reviewer-browser.md): the reviewer judges a local run of the
   site against `DESIGN.md`, with a browser that reaches only that run.
 - [`ui-baseline.md`](../specs/ui-baseline.md): every web app starts from a design baseline, phone
@@ -342,6 +345,9 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   - The design-detector dry run: [README](../kit/notes/revamp/spikes/design-detector/README.md),
     `/design-review` on a scratch site with planted tells after the bootstrap's script placed the
     engine, graded before the run.
+  - The React home spike: [README](../kit/notes/revamp/spikes/react-home/README.md), a scratch
+    Next.js app with Tailwind v4 and a shadcn/ui button on the baseline's tokens, through the three
+    UI checks.
   - W10.1.2 install probe: [README](../kit/notes/revamp/spikes/w10-1-2-install/README.md) and its
     [probe skill](../kit/notes/revamp/spikes/w10-1-2-install/plugin/skills/devshop-probe/SKILL.md).
   - W10.1.2b thin install: [README](../kit/notes/revamp/spikes/w10-1-2b-thin/README.md) and its
