@@ -745,12 +745,14 @@ boot_clause() { # boot_clause <case> <output> <want: a steps list, 'none' for no
   n=$(grep -c 'bootstrap FAILED' <<<"$2" || true)
   if [ -z "$3" ]; then
     [ "$n" = 0 ] || { echo "$2" >&2; fail "$1: the hook's output has a bootstrap clause, but the bootstrap didn't end FAILED"; }
+    ! grep -q "couldn't read /tmp/devshop-setup" <<<"$2" \
+      || { echo "$2" >&2; fail "$1: the hook's output says the setup log couldn't be read"; }
   else
     local want="\\($3\\)"
     [ "$3" != none ] || want=""
     [ "$n" = 1 ] || { echo "$2" >&2; fail "$1: want the bootstrap clause exactly once in the hook's output, got $n"; }
     grep -Eq "^DEVSHOP: .* · project [^;]*(; .*)?; bootstrap FAILED ?$want: $LOG_NOTE$" <<<"$2" \
-      || { echo "$2" >&2; fail "$1: the main DEVSHOP: line doesn't end with '; bootstrap FAILED${want:+ $3}: see /tmp/devshop-setup.log'"; }
+      || { echo "$2" >&2; fail "$1: the main DEVSHOP: line doesn't end with '; bootstrap FAILED${want:+ ($3)}: see /tmp/devshop-setup.log'"; }
   fi
   echo "ok - $1"
 }
