@@ -63,7 +63,7 @@ and folded in; what only the owner can decide is in the four open questions name
   route to build and prove, and it would redo by hand the CLI's dependency and alias handling. The
   owner's call: allow the host and keep the CLI (Claude's recommendation), or the script (Claude's
   proposal, 2026-11-02)
-- **How a project gets the home's files (open question 2).** The home's files
+- **How a project gets the home's files: a tested script (owner, "2. A", 2026-11-03).** The home's files
   (`globals.css`, `components.json`, `.npmrc`, `check-fast.sh`, `check-slow.sh`) and the
   baseline's `theme.js` are not in `runtime/project-files.txt`, whose seeds every project gets at
   init whatever its stack. Claude's recommendation: a tested script in the home,
@@ -107,9 +107,9 @@ and folded in; what only the owner can decide is in the four open questions name
     and `p-4` is `--space-4` while the steps are linear, as the baseline's are. The copies size
     their parts by that scale (`h-9`, `px-2.5`, `gap-1.5`), and clearing it would collapse them. So
     a copy's dimension is a multiple of a named step, which `design.md` would call a value
-    `DESIGN.md` doesn't name. Claude's recommendation: the home says a multiple of `--space-1`
-    inside the copies is derived, and the project's own code uses the named steps (open question
-    3);
+    `DESIGN.md` doesn't name. The home says a multiple of `--space-1` inside the copies is
+    derived, and the project's own code uses the named steps (owner, "3. A (just because B makes it
+    unusuable which seems lke a no go)", 2026-11-03);
   - fonts: `font-sans` and `font-mono` read the theme's `--font-sans` and `--font-mono`, whose
     unlayered `:root` values win over Tailwind's defaults (spike); a role face beyond them gets
     `--font-<role>: var(--font-<role>)`, whose self-reference Tailwind emits only in its theme layer,
