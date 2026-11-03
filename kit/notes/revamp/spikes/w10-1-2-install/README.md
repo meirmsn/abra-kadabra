@@ -19,7 +19,7 @@ devshop at a **pinned commit** from this **private** repo, with its skills and h
 2. New cloud environment (or edit a spare one): add environment variable
    `DEVSHOP_READ_TOKEN` = the token (not a network secret — those are never sent to GitHub,
    LOG #7); paste `setup.sh` as the setup script.
-3. Start a session in it on a repo **other than abra-kadabra** (lalista is fine — nothing is
+3. Start a session in it on a repo **other than abra-kadabra** (the pilot web app is fine — nothing is
    changed there) and paste:
    > W10.1.2 check. Show `/tmp/devshop-setup.log` (route + RESULT lines), `cat /tmp/devshop-probe-hook.log`,
    > say whether a DEVSHOP-PROBE-HOOK line is in your context, then run the devshop-probe skill.
@@ -51,7 +51,7 @@ Revoke the token after the runs.
   without GitHub credentials, so the in-session evidence above may not apply at setup time; the
   token was not visible to the setup script. Route 0 needs the pin on the clone's branch (merge
   first, then pin the merge commit).
-- **Result (owner Run 1, lalista): passed** with the token written inline in the setup script
+- **Result (owner Run 1, the pilot web app): passed** with the token written inline in the setup script
   (environment variables don't reach it): fetched via `A:git+token`, plugin installed, skill and
   SessionStart hook loaded. Run 2 not needed. A second session from the environment cache had the
   plugin too (no re-fetch).

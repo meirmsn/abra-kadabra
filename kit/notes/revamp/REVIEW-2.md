@@ -24,7 +24,7 @@ Evidence: the notes, the shipped code in `runtime/` and `install/`, the two run-
 - **Proposal:** declare M1 met; retire the per-run exam (plants, probes, decoy, idea pool) and the
   graded ledger; fix three environment items the owner already asked for; then build the owner's
   own website on Cloudflare as the first real project, with a measurable quality bar, and move to
-  lalista once that holds. Stop iterating on the fixture after one plain run.
+  the pilot web app once that holds. Stop iterating on the fixture after one plain run.
 
 ## 1. Diagnosis: what blocks "good apps with me at the direction level"
 
@@ -250,11 +250,11 @@ comments on PRs drop. **Done when** the site is live on the owner's domain, at l
 have shipped through v2 with no friction touchpoints, the Lighthouse bar holds on the live site,
 and the owner publishes the link.
 
-**M3, the first real app (lalista web).** Precondition: the owner's money call on Vercel and
+**M3, the first real app (the pilot web app).** Precondition: the owner's money call on Vercel and
 Supabase (F-NEW-18, F-NEW-19) or a move to Cloudflare. The Next.js + Supabase + Vercel stack home
-grows while lalista moves; the reviewer gets a browser and runs the project's fast tier in its
+grows while the pilot web app moves; the reviewer gets a browser and runs the project's fast tier in its
 clone; the canary becomes a CI job with a read-only token; the next-day check is a scheduled task.
-**Done when** lalista's next five features ship through v2 only, v1 is retired for it, no change
+**Done when** the pilot web app's next five features ship through v2 only, v1 is retired for it, no change
 caused a production incident, and touchpoints per change are decisions, go and approval.
 
 **M4, iOS and the Mac.** As planned, after M3. Not detailed until M3 is done.
@@ -278,15 +278,15 @@ Each with a recommendation, as put to the owner.
 2. **Retire the per-milestone exam.** Drop from the north-star: plants per run, the safety probe
    PRs per run (the walls are GitHub settings; re-verify them once with the existing table when a
    repo's protection changes), the decoy stack home, the idea pool, steps 7–9 as graded steps, the
-   planted production fault and the rollback drill (rebuilt as a real incident drill on lalista at
+   planted production fault and the rollback drill (rebuilt as a real incident drill on the pilot web app at
    M3). Keep: the plain run. Recommended: yes.
 3. **Flatten the findings ledger and delete its linter.** Recommended: yes. Keep match-first; no
    grades, no dots, no formulas.
 4. **The skill cap goes back to a warning** (TARGET Shape 2 as first agreed; F-NEW-54 reversed).
    Recommended: yes. Two run-2 findings need one line each and the cap forbids it.
-5. **First real project: the owner's website on Cloudflare, then lalista.** Recommended: the
+5. **First real project: the owner's website on Cloudflare, then the pilot web app.** Recommended: the
    website first. It is the stack the fixture already proved, it costs no new plan, and "slick"
-   is the whole point of a personal site. Decide lalista's paid plans when M2 is done.
+   is the whole point of a personal site. Decide the pilot web app's paid plans when M2 is done.
 6. **Approval ships, no "merge" message.** Recommended: yes, as TARGET Review 8 already says.
    The pre-merge production health check stays deferred (F-NEW-42) until real traffic exists.
 7. **Observability per project environment: hosts allowed and a read-only token, from the
@@ -299,7 +299,7 @@ Each with a recommendation, as put to the owner.
    slow tier from M2, the reviewer with a browser at M3. Without a bar, "slick" is whatever the
    builder produces.
 10. **Devshop work only when a real project needs it.** Recommended: from M2, a devshop PR needs a
-    change the website or lalista asked for, or a plain-run miss; about one devshop PR a day instead
+    change the website or the pilot web app asked for, or a plain-run miss; about one devshop PR a day instead
     of about twelve. TARGET Shape 8 already says "grows only from proven findings".
 11. **Money and headroom.** The run-2 builder cost $14.28 on Opus for a small feature (the "go"
     turn alone was 25 minutes of wall-clock and 77 tool turns), and a seven-day rate-limit warning
@@ -328,7 +328,7 @@ tree (30 files); PR counts from the GitHub API.
 only from the records. The fixture's preview and production (the session's network policy blocks
 them, as the builder's did). Branch protection and environment settings (the agent can't read
 them; taken from the owner's reports). The Cloudflare dashboard and the canary rounds. The
-reviewer's behaviour on defects that aren't plants: no data exists. lalista's current state and
+reviewer's behaviour on defects that aren't plants: no data exists. The pilot web app's current state and
 its Vercel and Supabase plans. The owner's own time spent, beyond what the transcripts show. I did
 not re-run the reviewer eval or any north-star step.
 

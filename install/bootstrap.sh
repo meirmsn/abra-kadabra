@@ -98,12 +98,17 @@ install_gstack() {
   { rm -rf "$dir" && git init -q "$dir" && git -C "$dir" fetch -q --depth 1 "$url" "$sha" \
     && git -C "$dir" checkout -q --detach FETCH_HEAD; } >>"$glog" 2>&1 \
     || { step_failed "gstack: fetch $sha (see $glog)"; return; }
-  # Bun is tied to the pin: the pinned gstack names the Bun it is tested on, and only that one runs.
+  # Bun is tied to the pin from below: the pinned gstack names the Bun it is tested on (gstack's own
+  # supported minimum); an older one fails here, before anything is installed with it; a newer one
+  # runs and is logged with both versions. The image's Bun moves on its own, and requiring equality
+  # failed this step in every environment once it did (F-NEW-135).
   local tested found
   tested=$(sed -n 's/^GSTACK_BUN_TESTED="\([^"]*\)"$/\1/p' "$dir/bin/gstack-bun-version.sh" 2>/dev/null)
   found=$(PATH="$HOME/.bun/bin:$PATH" bun --version 2>/dev/null)
-  { [ -n "$tested" ] && [ "$found" = "$tested" ]; } \
+  { [[ ${tested:-} =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && ${found:-} =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+    && [ "$(printf '%s\n' "$tested" "$found" | sort -V | head -1)" = "$tested" ]; } \
     || { step_failed "gstack: bun ${found:-not found}, but gstack $sha is tested on bun ${tested:-unknown}"; return; }
+  [ "$found" = "$tested" ] || log "gstack: bun $found (tested on $tested)"
   # Its npm dependencies come only from its lockfile. gstack's setup falls back to an unfrozen
   # install when the frozen one fails, so install frozen first and stop here if that fails.
   (cd "$dir" && PATH="$HOME/.bun/bin:$PATH" timeout 600 bun install --frozen-lockfile </dev/null) >>"$glog" 2>&1 \
@@ -142,6 +147,29 @@ point_gstack_browser() {
     || step_failed "gstack browser: write $SETTINGS"
 }
 point_gstack_browser
+
+# impeccable's design detector engine (specs/design-detector-in-bootstrap.md): the one version
+# install/impeccable.pin names, placed by install/impeccable.sh at ~/.impeccable/bin/<version>/impeccable,
+# where gstack's /design-review finds it (its READY path), from the npm platform package: a
+# checksum-verified download from registry.npmjs.org, never GitHub. After the gstack step, and like it
+# a loud failure that stops nothing else (L-43): nothing placed, the review then runs without the
+# detector and says so. The script and the pin come from the mirror at $REF: the bootstrap has no
+# checkout.
+install_impeccable() {
+  local dir out version
+  dir=$(mktemp -d /tmp/devshop-impeccable.XXXXXX) || { step_failed "impeccable: mktemp"; return; }
+  { git --git-dir="$MIRROR" show "$REF:install/impeccable.pin" >"$dir/impeccable.pin" \
+    && git --git-dir="$MIRROR" show "$REF:install/impeccable.sh" >"$dir/impeccable.sh"; } 2>>"$LOG" \
+    || { step_failed "impeccable: install/impeccable.pin or install/impeccable.sh missing at $REF"; rm -rf "$dir"; return; }
+  version=$(awk '!/^(#|gstack |[[:space:]]*$)/ { print $1; exit }' "$dir/impeccable.pin")
+  if out=$(bash "$dir/impeccable.sh" "$dir/impeccable.pin" "$HOME" 2>&1); then
+    log "impeccable ${version:-?} $out" # "impeccable <version> placed <path>"
+  else
+    step_failed "impeccable: ${out#impeccable: }"
+  fi
+  rm -rf "$dir"
+}
+install_impeccable
 
 if [ "$failed" = 0 ]; then
   log "RESULT: bootstrap done (current -> $(readlink /opt/devshop-current))"

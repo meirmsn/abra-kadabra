@@ -119,7 +119,7 @@ echo "ok - no git can't run"
 
 # bad_manifest <name> <pattern> <manifest text>: a version whose manifest is broken can't run.
 bad_manifest() {
-  local b="$work/bad-$RANDOM"
+  local b; b=$(mktemp -d "$work/bad-XXXXXX")
   git clone -q "$ds" "$b"
   printf '%s\n' "$3" >"$b/runtime/project-files.txt"
   git -C "$b" add -A && git -C "$b" commit -qm "bad manifest"
@@ -262,7 +262,7 @@ echo "ok - AC-1: an annotated tag is written as the tag, with its commit's files
 printf 'keep\n' >"$work/target"
 for t in scripts/scan.sh .github/workflows/ci.yml scripts/check.sh .devshop-version .github/CODEOWNERS; do
   for kind in file dir symlink; do
-    r="$work/r-$RANDOM" && new_repo "$r" && mkdir -p "$r/$(dirname "$t")"
+    r=$(mktemp -d "$work/r-XXXXXX") && new_repo "$r" && mkdir -p "$r/$(dirname "$t")"
     case $kind in
       file) printf 'theirs\n' >"$r/$t" ;;
       dir) mkdir "$r/$t" && touch "$r/$t/x" ;;
@@ -274,7 +274,7 @@ for t in scripts/scan.sh .github/workflows/ci.yml scripts/check.sh .devshop-vers
   done
 done
 [ "$(cat "$work/target")" = keep ] || fail "AC-2: init wrote through a symlink"
-r="$work/r-$RANDOM" && new_repo "$r" && printf 'a file\n' >"$r/.github"
+r=$(mktemp -d "$work/r-XXXXXX") && new_repo "$r" && printf 'a file\n' >"$r/.github"
 git -C "$r" add -A && git -C "$r" commit -qm "a file where a directory goes"
 init_into "AC-2: a file where a target's directory goes is refused" 2 '\.github/workflows/ci\.yml: .*not a directory' "$r" --codeowner example-owner
 untouched "$r"
@@ -284,11 +284,11 @@ init_into "AC-2: a target whose directory leaves the project is refused" 2 'leav
 untouched "$r"
 [ -z "$(ls -A "$work/elsewhere")" ] || fail "AC-2: init wrote outside the project"
 for h in "" "-lead" "trail-" "two--dashes" "under_score" "a@b" "@owner" "$(printf 'x%.0s' {1..40})" "a b"; do
-  r="$work/r-$RANDOM" && new_repo "$r"
+  r=$(mktemp -d "$work/r-XXXXXX") && new_repo "$r"
   init_into "AC-2: codeowner '$h' is refused" 2 'codeowner' "$r" --codeowner "$h"
   untouched "$r"
 done
-r="$work/r-$RANDOM" && new_repo "$r"
+r=$(mktemp -d "$work/r-XXXXXX") && new_repo "$r"
 run "AC-2: a missing --codeowner is refused" 2 'codeowner' -- init --devshop-git "$dsgit" --version v2.3.0 --project "$r"
 untouched "$r"
 for v in "$v3" "${v3:0:12}" main release-3 2.3.0 v2.3 v2.3.0-rc1 v02.3.0; do

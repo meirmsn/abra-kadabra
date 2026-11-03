@@ -100,7 +100,9 @@ is no browser yet").
   repo's `node_modules` for Playwright. It reviews four changes of the page, once each: an honest
   one, and one per planted break (a font `DESIGN.md` doesn't name; a spacing value off its scale;
   a layout that scrolls sideways at 375 px). CI tests the machinery with a stub `claude` and the
-  real Chromium of the Playwright this repo pins (1.56.1)
+  real Chromium of the Playwright this repo pins (1.56.1 then; 1.63.0 since 2026-11-01, when the
+  pin followed the cloud image's Chromium, PR #174; this note is the owner's call on the stale pin
+  text, 2026-11-01: "just fix it, don't create an entry")
 - **This is feedback, not a wall:** the walls stay GitHub's rules, plain CI and the owner's
   approval. The origin check and request blocking keep an honest reviewer on the local run. The
   change's code runs in the local run as it already does in a test run, and could replace the

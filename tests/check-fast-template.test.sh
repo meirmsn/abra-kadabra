@@ -5,7 +5,9 @@
 # the worst. A test that loses its AC-<n> name fails it (F-NEW-37); a missing spec-check.py, no
 # python3, no specs/ or a spec that can't be read make it exit 2, never pass. The contract check and
 # lint are parts too (specs/project-contract.md AC-3), stubbed here: the real contract check is proven
-# by tests/contract-check.test.sh and, inside a placed project, tests/new-project.test.sh.
+# by tests/contract-check.test.sh and, inside a placed project, tests/new-project.test.sh. The
+# DESIGN.md shape check is a part when the project has a DESIGN.md (specs/design-md-check.md AC-5),
+# stubbed here too; the real one is proven by tests/ui-design-md-check.test.sh.
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
@@ -103,6 +105,37 @@ got=$(run)
 want 0 "AC-3: clean lint passes"
 grep -q "no scripts/lint.sh" "$work/out" && fail "AC-3: the no-lint line printed with lint present"
 rm "$p/scripts/lint.sh"
+
+# design-md-check AC-5: without a DESIGN.md the tier says the baseline is the design and runs no
+# check; with one, the shape check is a part, called with --theme and DESIGN.md, whose exits count,
+# and a missing copy can't run.
+got=$(run)
+want 0 "design-md-check AC-5: without a DESIGN.md the tier says the baseline is the design" "no DESIGN.md: the baseline is the design"
+grep -q "design-md-check" "$work/ran" 2>/dev/null && fail "design-md-check AC-5: the shape check ran without a DESIGN.md"
+printf -- '---\nname: x\n---\n' >"$p/DESIGN.md"
+sed -i 's|^THEME_CSS=""|THEME_CSS="src/theme.css"|' "$p/scripts/check-fast.sh"
+grep -q '^THEME_CSS="src/theme.css"' "$p/scripts/check-fast.sh" || fail "design-md-check AC-5: THEME_CSS isn't a variable the project fills"
+got=$(run)
+want 2 "design-md-check AC-5: a DESIGN.md without the check's copy can't run, never passes" "scripts/ui/design-md-check.mjs couldn't run"
+mkdir -p "$p/scripts/ui"
+# shellcheck disable=SC2016  # the stub's source
+printf '#!/usr/bin/env bash\necho "design-md-check $*" >>"%s/ran"\nexit "$(cat "%s/design-md-check.rc")"\n' "$work" "$work" \
+  >"$p/scripts/ui/design-md-check.mjs"
+chmod +x "$p/scripts/ui/design-md-check.mjs"
+echo 1 >"$work/design-md-check.rc"
+got=$(run)
+want 1 "design-md-check AC-5: shape findings fail the tier" "scripts/ui/design-md-check.mjs failed"
+grep -q '^design-md-check --theme src/theme.css DESIGN.md$' "$work/ran" || fail "design-md-check AC-5: the check didn't get --theme and DESIGN.md: $(cat "$work/ran")"
+grep -q '^contract-check $' "$work/ran" || fail "design-md-check AC-5: the contract check didn't run beside the failing shape check"
+grep -q "no DESIGN.md" "$work/out" && fail "design-md-check AC-5: the no-DESIGN.md line printed with one present"
+echo 2 >"$work/design-md-check.rc"
+got=$(run)
+want 2 "design-md-check AC-5: a shape check that can't judge can't run the tier" "scripts/ui/design-md-check.mjs couldn't run"
+echo 0 >"$work/design-md-check.rc"
+got=$(run)
+want 0 "design-md-check AC-5: a clean shape check passes"
+rm "$p/DESIGN.md" "$p/scripts/ui/design-md-check.mjs"
+rmdir "$p/scripts/ui"
 
 sed -i 's/notes AC-2: an empty/an empty/' "$p/tests/notes.test.sh"
 got=$(run)

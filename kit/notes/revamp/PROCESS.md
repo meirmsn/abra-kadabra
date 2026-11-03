@@ -138,12 +138,15 @@ _Held 2026-10-09 (LOG #5), run top-down through [TARGET.md](TARGET.md) instead o
 3. **Direction:** does what we have still lead to TARGET.md? Is TARGET.md still right
    given what we learned? Changes go to DECISIONS + PLAN changelog.
 4. Re-baseline metrics (W0.2); walk open findings; detail the next milestone.
+   Walk the pins too: the gstack pin, and with it the Bun it is tested on and the design detector
+   engine pin (`install/README.md`), is re-pinned or kept here, with the upstream gap in view, never
+   on upstream's cadence (owner, 2026-11-01: stay on the pin until something needs newer gstack).
 5. A fresh adversarial review (like REVIEW-1) before M2 and M3, when architecture lands.
 
 ## 6. Ground rules during the revamp
 
 - **Rewrite beside v1, don't patch it** (D-14): v1 is the reference; v2 is proven on a fixture, then on the pilot.
-- **v1 takes security fixes only** (`v1-final`, W0.4); lalista is paused until it pilots v2 (D-09).
+- **v1 takes security fixes only** (`v1-final`, W0.4); the pilot web app is paused until it pilots v2 (D-09).
 - **The revamp does not run through `/ak-build`** (it's being replaced); CLAUDE.md's
   revamp-mode section (W0.8) says so.
 - **CI is the only gate whose result the agent can't change**; PR CI stays plain (D-06).

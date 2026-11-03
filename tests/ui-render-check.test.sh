@@ -41,7 +41,8 @@ body() { echo "s.replace('<main class=\"page\">', '<main class=\"page\">$1', 1)"
 
 # run <name> <want exit> <text the output must name, or ''> <url> [out dir]
 run() {
-  local name=$1 want=$2 needle=$3 url=$4 out=${5:-$work/out-$RANDOM} rc=0 log
+  local name=$1 want=$2 needle=$3 url=$4 out=${5:-} rc=0 log
+  [ -n "$out" ] || out=$(mktemp -d "$work/out-XXXXXX")
   log=$(node "$check" --url "$url" --out "$out" 2>&1) || rc=$?
   [ "$rc" = "$want" ] || { echo "$log" >&2; fail "$name: expected exit $want, got $rc"; }
   [ -z "$needle" ] || grep -qF -- "$needle" <<<"$log" || { echo "$log" >&2; fail "$name: output doesn't name '$needle'"; }

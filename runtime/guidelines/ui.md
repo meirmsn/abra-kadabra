@@ -17,9 +17,9 @@ The project's own rules win on conflict; say so in the PR.
   - `base.css` and `theme.js`: copy them; the project owns them (its colours, more components).
     Load `theme.js` in `<head>` as a plain script, or inline it, so there's no flash of the wrong
     theme. [`example.html`](../templates/ui/example.html) shows every piece in use.
-  - `tokens-check.mjs` and `render-check.mjs`: copy them unchanged into `scripts/ui/`; they are
-    optional `devshop` copies in the project contract, so session start reports drift and a newer
-    devshop version's upgrade re-copies them.
+  - `tokens-check.mjs`, `render-check.mjs` and `design-md-check.mjs`: copy them unchanged into
+    `scripts/ui/`; they are optional `devshop` copies in the project contract, so session start
+    reports drift and a newer devshop version's upgrade re-copies them.
 - **Tokens only:** colours, radius and spacing come from the theme's tokens (shadcn/ui's names);
   name only tokens the theme defines, for light and dark (L-78). A new colour gets a light and a
   dark value.
@@ -33,7 +33,13 @@ baseline sets these once (`button`, `.btn`, `:active`, `aria-busy`); don't redo 
 ## Checks
 
 - **Fast tier:** `node scripts/ui/tokens-check.mjs --theme <theme.css> <files…>`: every `var()` is
-  defined in both themes, the dark rules agree, and colour pairs reach 4.5:1.
+  defined in both themes, the dark rules agree, and colour pairs reach 4.5:1. With a `DESIGN.md`,
+  `scripts/ui/design-md-check.mjs --theme <theme.css> DESIGN.md` (the template's `check-fast.sh`
+  runs it when the file exists; `THEME_CSS` names the theme): the front matter has `colors` with
+  light and `dark-<name>` values, `typography`, `spacing`, `rounded.default` and a `## Decisions`
+  section, and the theme is derived from it both ways: every front-matter token equals its theme
+  token, and every literal colour, `--space-*`, `--radius*` and `--font-*` family in the theme is
+  one the front matter names ([spec](../../specs/design-md-check.md)).
 - **Slow tier:** `node scripts/ui/render-check.mjs --url <page> --out <dir>` on each changed page
   (served locally or the preview): at 375, 768 and 1280 px in both system themes it checks
   overflow, contrast as painted, 44 px targets, the pressed state, the toggle and a widening
@@ -41,6 +47,35 @@ baseline sets these once (`button`, `.btn`, `:active`, `aria-busy`); don't redo 
   installed in the slow CI job (`npx playwright install --with-deps chromium`).
 - Either exits 2 when it can't judge; that's never a pass.
 - **The PR** carries the six screenshots it writes (`<width>-<theme>.png`), pinned to the commit.
+
+## Design direction (once per product)
+
+A project with a UI and no `DESIGN.md` gets its design direction as its own slice, the second
+after the walking skeleton and before any slice that styles a page beyond the baseline
+(`devshop:split`; [spec](../../specs/big-changes-in-slices.md)). The skeleton ships on the baseline
+above, so the project has a preview to publish the direction's pages on. The slice runs gstack's
+`/design-consultation` and lands `DESIGN.md` and the theme CSS in one PR, whose spec records
+`DESIGN.md` as the decision (the reviewer judges a change that adds it against the head's).
+
+- **Unattended where it can be:** product questions are answered from the plan document; the
+  owner answers the memorable-thing question and makes the picks. No Codex or other outside voice,
+  no learnings from other projects, and no write to `CLAUDE.md` (the project's own; the skill
+  offers one with `DESIGN.md`).
+- **Published, not opened:** with no design binary the skill writes one self-contained HTML
+  preview with the real faces and palette and runs `open`, which does nothing here. Publish that
+  page where the project's previews publish, or as a private page, and send the owner the link.
+- **Variants, then the pick:** two or three hand-built HTML variants with the real tokens, distinct
+  directions (if the headline could be swapped between two without anyone noticing, they are too
+  alike), on one published page. The owner picks and comments; iterate if asked. The pick and its
+  reasons go in `DESIGN.md`'s decisions log. Variants of a single screen later: only when the
+  owner asks, while that slice is sharpened; the pick then feeds its core flow and states.
+- **`DESIGN.md` as the skill writes it,** with its tokens and the derived theme CSS under the
+  baseline's names (`tokens-check.mjs` and the reviewer read those), and fonts self-hosted as the
+  stack home says. The slice renames inside the skill's file shape: `colors` keys are the baseline's
+  token names with the dark value of `<name>` as `dark-<name>`, `spacing` keys its steps, `rounded`
+  has `default`, each `fontFamily` carries the full stack the theme declares, and the body has a
+  `## Decisions` section; `design-md-check.mjs` holds that, so the derivation is `name` → `--name`. Never gstack's image binary or its comparison board (an OpenAI key and a
+  server on 127.0.0.1, F-NEW-87).
 
 ## Design review (before `ship`)
 
@@ -56,7 +91,9 @@ styles, scripts a page loads, its assets), after its tests pass and before `devs
   3000, 4000 and 8080). No `scripts/local-run.sh`: it can't run, and the PR's line says so.
 - **Unattended:** its questions don't go to the owner. No test framework bootstrap, no edits to
   `CLAUDE.md` or `TESTING.md`, no `DESIGN.md` written, no `TODOS.md` step, no Codex or other
-  outside voice (the code stays in the session), no learnings from other projects.
+  outside voice (the code stays in the session), no learnings from other projects. The detector
+  engine is the bootstrap's ([spec](../../specs/design-detector-in-bootstrap.md)): gstack's offer to
+  install one, when it appears, is declined ("continue without").
 - **Fixes only what the change built:** a finding on the pages and lines the change touches is
   fixed under `build` § 3 (its commit subjects, tests edited when behaviour changes), not in
   gstack's commit format; anything else is logged, not fixed. A fix that would change a spec
@@ -64,10 +101,15 @@ styles, scripts a page loads, its assets), after its tests pass and before `devs
   tests and the fast checks again.
 - **Its findings, like the reviewer's:** High is fixed before `ship`; one that can't be (outside
   the change, or a spec change) is a `med` row the owner is asked about. Medium left unfixed is a
-  `med` row, Polish a `low` row in `FINDINGS.md`, committed before `ship`.
+  `med` row, Polish a `low` row in `FINDINGS.md`, committed before `ship`. This holds on every
+  surface, customer-facing or internal ([`design.md`](design.md) § The surface): a Medium on the
+  lines the change touches is fixed, not left.
 - **On the PR,** under Evidence: `**Design review:**` design score and AI-slop score before → after,
   findings fixed and logged, for commit `<sha>`; run again on a later round that changes what a
-  page renders, and rewrite the line. Can't run (no browser, the app won't start, the skill fails):
+  page renders, and rewrite the line. The review opens with impeccable's detector when the bootstrap
+  placed its engine (gstack prints `IMPECCABLE_READY`); a detector hit is evidence the review
+  confirms in the rendered page, never a finding by itself, and the line says whether it ran:
+  "detector: ran, N → M findings (engine `<version>`)" or "detector: did not run: `<why>`". Can't run (no browser, the app won't start, the skill fails):
   the line says why, and the owner hears it with the PR's link. Its browser is the image's
   Chromium, which the bootstrap sets as `GSTACK_CHROMIUM_PATH`. _Mitigation:_ gstack's browser
   check (`gstack-browser-ensure`) ignores that variable, so the skill prints `NEEDS_SETUP` though

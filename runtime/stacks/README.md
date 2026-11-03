@@ -32,7 +32,7 @@ A real home is built with the first project that needs it. Today there are two:
 - [`cloudflare/`](cloudflare/README.md): Cloudflare Workers, written from the owner's website
   (W10.10.1) and the M1 fixture; loads for a project with a wrangler config
   ([`tests/cloudflare-stack.test.sh`](../../tests/cloudflare-stack.test.sh)).
-- [`nextjs-supabase/`](nextjs-supabase/README.md): a placeholder until lalista (M3); loads only for
+- [`nextjs-supabase/`](nextjs-supabase/README.md): a placeholder until the pilot web app (M3); loads only for
   a Next.js or Supabase project ([`tests/decoy-stack.test.sh`](../../tests/decoy-stack.test.sh)).
 
 Proven by [`tests/stack-homes.test.sh`](../../tests/stack-homes.test.sh).

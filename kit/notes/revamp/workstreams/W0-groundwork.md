@@ -4,11 +4,11 @@ Needed whatever happens next. `[owner]` = needs the owner (GitHub settings, cred
 Status markers: `[ ]` todo · `[~]` doing · `[x]` done (verified) · `[!]` blocked · `[-]` dropped.
 Done line: `- [x] **ID** text — YYYY-MM-DD · PR #n` (or commit when no PR).
 
-**Owner-deferred to the end of the revamp (2026-10-11): W0.5.2, W0.5.3, W0.6.2, W0.6.3** — not raised again until then. W0.6.2 and W0.5.3's lalista part moved to W10.11.1, before M3 (D-19).
+**Owner-deferred to the end of the revamp (2026-10-11): W0.5.2, W0.5.3, W0.6.2, W0.6.3** — not raised again until then. W0.6.2 and W0.5.3's part for the pilot web app moved to W10.11.1, before M3 (D-19).
 
 **M0 order (agreed 2026-10-09, most exposure first):** W0.5 rotate credentials → W0.7 history
-secret scan → W0.6 rulesets + archive home-os → W0.4 tag `v1-final` → W0.8 CLAUDE.md note.
-Context: lalista is paused and home-os frozen, so no live project needs protecting from v1 changes (D-09).
+secret scan → W0.6 rulesets + archive the 2nd pilot web app → W0.4 tag `v1-final` → W0.8 CLAUDE.md note.
+Context: the pilot web app is paused and the 2nd pilot web app frozen, so no live project needs protecting from v1 changes (D-09).
 
 ## W0.1 Revamp scaffolding + plan review — P0 · M0 · S
 
@@ -34,14 +34,14 @@ Done when: listed decisions have outcomes in [DECISIONS.md](../DECISIONS.md) and
 - [x] **W0.3.2** D-12 private for now (revisited 2026-10-10: no new repo; public later only after scan + rotation) — 2026-10-09 · PR #36
 - [x] **W0.3.3** D-13 GitHub App for the agent (spike moved to W10.1.1) — 2026-10-09 · PR #36
 - [x] **W0.3.4** D-04 boundary = GitHub + credentials; read-only production observability — 2026-10-09 · PR #36
-- [x] **W0.3.5** D-09 no freeze needed; tag `v1-final`; lalista = pilot — 2026-10-09 · PR #36
+- [x] **W0.3.5** D-09 no freeze needed; tag `v1-final`; the pilot web app is the pilot — 2026-10-09 · PR #36
 - [x] **W0.3.6** D-15 hybrid (markdown plan, Issues for tasks in this repo) — 2026-10-09 · PR #36
 - [x] **W0.3.7** D-03 PR → CI → owner merges — 2026-10-09 · PR #36
 - [x] **W0.3.8** Re-plan M1+ per D-14 — [W10-v2.md](W10-v2.md), PLAN changelog — 2026-10-09 · PR #36
 
 ## W0.4 Tag `v1-final` — P0 · M0 · S
 
-Finding: F-VER-01 (no longer live: lalista paused, home-os frozen — D-09).
+Finding: F-VER-01 (no longer live: the pilot web app paused, the 2nd pilot web app frozen — D-09).
 
 - [x] **W0.4.1** `[owner]` Tag `v1-final` at current `main`; v1 takes security fixes only (stated in W0.8 note) — V1: `git ls-remote --tags origin` shows annotated `v1-final` peeling to `525cd49` — 2026-10-11 · owner-pushed (LOG #14)
   - The cloud session can't push tags (git proxy 403, no GitHub tool for tags) — the owner pushed it
@@ -56,16 +56,16 @@ Deferred (owner, 2026-10-10): nothing was committed (W0.7), the apps aren't in u
 
 - [x] **W0.5.1** List affected credentials — from `template/.devcontainer/.env.example` + `init-devshop.sh`: `GITHUB_TOKEN`/`GH_TOKEN`/`DEVSHOP_GITHUB_TOKEN`, `VERCEL_TOKEN`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY` (+ anon key), `SENTRY_AUTH_TOKEN` (+ DSN), `ANTHROPIC_API_KEY_QA`, `DEVCONTAINER_ROOT_PASSWORD`, `NTFY_URL` topic — per project + devshop — 2026-10-10 · LOG #11
 - [!] **W0.5.2** `[owner]` _Deferred to the M4 exit (owner, 2026-10-11) — don't raise before then._ Optional now: revoke the old GitHub PAT(s) (account-wide, admin + `workflow`; not tied to the paused apps)
-- [!] **W0.5.3** `[owner]` _Deferred to the M4 exit (owner, 2026-10-11) — don't raise before then; lalista's part moved to W10.11.1, before M3 (owner, 2026-10-20, D-19): tokens it won't need deleted, only the kept ones rotated._ **Once the v2 devshop works (after W10.6.4):** revoke every credential in W0.5.1 on every machine; issue new ones only as needed, least privilege (no admin; no `workflow` scope for agent-used tokens); LOG records "revoked <date>" (never values)
+- [!] **W0.5.3** `[owner]` _Deferred to the M4 exit (owner, 2026-10-11) — don't raise before then; the pilot web app's part moved to W10.11.1, before M3 (owner, 2026-10-20, D-19): tokens it won't need deleted, only the kept ones rotated._ **Once the v2 devshop works (after W10.6.4):** revoke every credential in W0.5.1 on every machine; issue new ones only as needed, least privilege (no admin; no `workflow` scope for agent-used tokens); LOG records "revoked <date>" (never values)
 
 ## W0.6 No-bypass rulesets on the real repos — P0 · M0 · M
 
 Findings: F-SEC-07, F-SEC-08, F-CLOUD-03 (corrected), F-NEW-09, F-NEW-12.
-Done when: on abra-kadabra and lalista, a direct push to `main` and a force-push are rejected; home-os is archived (read-only). Verified by attempts recorded in LOG.
+Done when: on abra-kadabra and the pilot web app, a direct push to `main` and a force-push are rejected; the 2nd pilot web app is archived (read-only). Verified by attempts recorded in LOG.
 
-- [x] **W0.6.1** `[owner]` Protection on `main` (abra-kadabra, lalista): require PR, block force-push/deletion, no bypass (incl. admins) — classic branch protection for now; lalista also requires 2 status checks; abra-kadabra has no CI yet (required check comes with W10.4.2) — 2026-10-10 · LOG #11
-- [-] **W0.6.2** `[owner]` _Moved to W10.11.1, before M3 (owner, 2026-10-20, D-19)._ **Before lalista resumes** (deferred 2026-10-10; lalista paused): move secrets used by CI on `pull_request` (e.g. `SENTRY_AUTH_TOKEN`) out of repo scope into a `main`-only environment
-- [!] **W0.6.3** `[owner]` _Deferred to the M4 exit (owner, 2026-10-11) — don't raise before then._ Archive home-os on GitHub (read-only)
+- [x] **W0.6.1** `[owner]` Protection on `main` (abra-kadabra, the pilot web app): require PR, block force-push/deletion, no bypass (incl. admins) — classic branch protection for now; the pilot web app also requires 2 status checks; abra-kadabra has no CI yet (required check comes with W10.4.2) — 2026-10-10 · LOG #11
+- [-] **W0.6.2** `[owner]` _Moved to W10.11.1, before M3 (owner, 2026-10-20, D-19)._ **Before the pilot web app resumes** (deferred 2026-10-10; the pilot web app paused): move secrets used by CI on `pull_request` (e.g. `SENTRY_AUTH_TOKEN`) out of repo scope into a `main`-only environment
+- [!] **W0.6.3** `[owner]` _Deferred to the M4 exit (owner, 2026-10-11) — don't raise before then._ Archive the 2nd pilot web app on GitHub (read-only)
 - [-] **W0.6.4** Agent identity + CODEOWNERS — moved to W10.1.1 / W10.4.3
 - [x] **W0.6.5** Verification attempts (direct push, force-push) — V3 against GitHub: both rejected (`GH006 … Changes must be made through a pull request`) on both repos — 2026-10-10 · LOG #11
   - 2026-10-11: re-run as the agent identity: direct push, force-push and contents-API write to `main` all refused (LOG #10)
@@ -75,9 +75,9 @@ Done when: on abra-kadabra and lalista, a direct push to `main` and a force-push
 ## W0.7 History secret scan with a working config — P0 · M0 · S
 
 Finding: F-SEC-20 (reproduced: v1's `.gitleaks.toml` detects nothing). v1 is retiring, so v1's own config is not repaired; the scan uses a scratch config with `[extend] useDefault = true`.
-Done when: full history of abra-kadabra, lalista and home-os scanned; findings (if any) rotated via W0.5; result in LOG. Also flag (for the owner, not rotation) personal details and infrastructure identifiers (project refs, internal URLs) — input to a later public/private call (D-12).
+Done when: full history of abra-kadabra, the pilot web app and the 2nd pilot web app scanned; findings (if any) rotated via W0.5; result in LOG. Also flag (for the owner, not rotation) personal details and infrastructure identifiers (project refs, internal URLs) — input to a later public/private call (D-12).
 
-- [x] **W0.7.1** Scan all three histories with gitleaks defaults (scratch config) — V3; feed any hit into W0.5. Scope: `--all` plus every PR head ref (`refs/pull/*/head`) — squash merges delete branch history that only PR refs keep. abra-kadabra 770 commits / 7 hits, lalista 567 / 6, home-os 411 / 4 — **all false positives** (Supabase local-stack demo JWTs `iss=supabase-demo`, `.env.example` placeholders, gstack upstream fixtures); nothing to rotate. Flagged for D-12: Supabase project refs (lalista, home-os), Vercel prod/preview URLs incl. team slug, lalista's Sentry org ingest id, owner email — 2026-10-11 · LOG #14 · PR #44
+- [x] **W0.7.1** Scan all three histories with gitleaks defaults (scratch config) — V3; feed any hit into W0.5. Scope: `--all` plus every PR head ref (`refs/pull/*/head`) — squash merges delete branch history that only PR refs keep. abra-kadabra 770 commits / 7 hits, the pilot web app 567 / 6, the 2nd pilot web app 411 / 4 — **all false positives** (Supabase local-stack demo JWTs `iss=supabase-demo`, `.env.example` placeholders, gstack upstream fixtures); nothing to rotate. Flagged for D-12: Supabase project refs (the pilot web app, the 2nd pilot web app), Vercel prod/preview URLs incl. team slug, the pilot web app's Sentry org ingest id, owner email — 2026-10-11 · LOG #14 · PR #44
 - [-] **W0.7.2** Fix `.gitleaks.toml` in v1 + template — v1 retiring; v2 starts with a working config (W10.4.1)
 - [-] **W0.7.3** Cherry-pick to v1 / propagate — not needed
 

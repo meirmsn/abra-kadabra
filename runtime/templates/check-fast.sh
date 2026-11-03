@@ -9,6 +9,10 @@
 #   - the project contract check: every file the tooling relies on is there and well-formed:
 #     scripts/contract-check.py over scripts/project-contract.txt, both copies of the devshop's;
 #   - lint, when the project has scripts/lint.sh (the stack home says what it runs);
+#   - the DESIGN.md shape check, when the project has a DESIGN.md: its front matter has the shape
+#     and the theme CSS (THEME_CSS below) is derived from it: scripts/ui/design-md-check.mjs, a copy
+#     of the devshop's runtime/templates/ui/design-md-check.mjs (ui.md § Checks). Without a
+#     DESIGN.md the baseline is the design and one line says so;
 #   - the stack's parts, from the stack home: unit tests, ...
 # Copy the scripts with their executable bit (exit 126, "couldn't run", otherwise). Keep a specs/
 # directory (a .gitkeep before the first spec): a missing one can't run.
@@ -37,5 +41,11 @@ part scripts/secret-scan.sh "${1:-}"
 part scripts/spec-check.py "${tests[@]}" specs
 part scripts/contract-check.py
 if [ -x scripts/lint.sh ]; then part scripts/lint.sh "${1:-}"; else echo "no scripts/lint.sh: lint is the stack's part"; fi
+THEME_CSS="" # the theme CSS the pages load, derived from DESIGN.md's tokens, e.g. src/ui/base.css
+if [ -f DESIGN.md ]; then
+  part scripts/ui/design-md-check.mjs --theme "$THEME_CSS" DESIGN.md
+else
+  echo "no DESIGN.md: the baseline is the design (ui.md § Design direction)"
+fi
 # --- Stack parts (from the stack home), e.g. part npm test ---
 exit "$worst"

@@ -34,7 +34,7 @@ reachable from this page through links, or when a relative link or `#anchor` is 
 
 Stack homes (`runtime/stacks/<name>/`) and discipline guidelines (`runtime/guidelines/`) live in
 `runtime/`, because only `runtime/` reaches a project's session. The Cloudflare home and the UI
-guideline ship; `nextjs-supabase/` is a placeholder until lalista (M3).
+guideline ship; `nextjs-supabase/` is a placeholder until the pilot web app (M3).
 
 **v1** is frozen at the `v1-final` tag and is no longer on `main`. It is reference only (the revamp
 notes cite it as evidence), never instructions. To read it:
@@ -75,7 +75,7 @@ Projects pin the tag; `/devshop:upgrade` defaults to the newest one. Proven by
   ([spec](../specs/ci-fast-slow-tiers.md)): job `fast` runs [`scripts/check-fast.sh`](../scripts/check-fast.sh)
   (the secret scan, lint and every test not marked slow), then job `slow` runs
   [`scripts/check-slow.sh`](../scripts/check-slow.sh) (the tests marked `# tier: slow`: the whole
-  install, the UI render check and the reviewer's `devshop-browse` in Chromium, at the Playwright version `package.json` pins). A test is slow when it tests the system end to end, not because it takes long.
+  install, the UI render check and the reviewer's `devshop-browse` in Chromium, at the Playwright version `package.json` pins, and the pinned design detector engine on a planted page, which `install/impeccable.sh` places in the job and the bootstrap in a session). A test is slow when it tests the system end to end, not because it takes long.
   `tests/run.sh fast|slow` runs one tier, `tests/run.sh` all. Proven by
   [`tests/check-tiers.test.sh`](../tests/check-tiers.test.sh) and
   [`tests/run-tiers.test.sh`](../tests/run-tiers.test.sh).
@@ -119,6 +119,9 @@ Projects pin the tag; `/devshop:upgrade` defaults to the newest one. Proven by
   runs and how old its local copy is.
 - [`intent`](../runtime/skills/intent/SKILL.md): the start of every request: its kind, then for a
   change the spec, the adversarial spec review and the owner's "go" (TARGET § L3 Intent).
+- [`split`](../runtime/skills/split/SKILL.md): a request too big for one change is sliced on one
+  screen, approved by the owner, recorded on the roadmap one entry per slice, then specced one at
+  a time ([spec](../specs/big-changes-in-slices.md)).
 - [`build`](../runtime/skills/build/SKILL.md): one writer builds code, tests and docs together,
   loads what applies, and hands over to `pr` (TARGET § L3 Build).
 - [`pr`](../runtime/skills/pr/SKILL.md): the PR for a built change: the body from the template,
@@ -135,15 +138,28 @@ Projects pin the tag; `/devshop:upgrade` defaults to the newest one. Proven by
 
 One file per change in [`specs/`](../specs), kept after merge as context (TARGET § L3 Intent).
 
+- [`big-changes-in-slices.md`](../specs/big-changes-in-slices.md): a whole app or a big feature
+  is split into slices on the owner's approval, recorded on the roadmap and built one PR each
+- [`bootstrap-result-at-session-start.md`](../specs/bootstrap-result-at-session-start.md): the
+  session-start `DEVSHOP:` line says when the environment's bootstrap failed, and which steps.
 - [`ci-fast-slow-tiers.md`](../specs/ci-fast-slow-tiers.md): CI in two tiers, fast and slow, for
   the devshop and every project.
 - [`deploy-and-metrics-comments.md`](../specs/deploy-and-metrics-comments.md): a merged PR's deploy
   comment follows the deploy to a final state, then the session posts how the change went.
 - [`devshop-deploy-comment.md`](../specs/devshop-deploy-comment.md): the devshop's own PRs follow
   their release, and the metrics count every reviewer round.
+- [`design-detector-in-bootstrap.md`](../specs/design-detector-in-bootstrap.md): every cloud session
+  has impeccable's design detector engine, placed by the bootstrap from a pinned npm package, so
+  gstack's `/design-review` opens with its deterministic rules.
 - [`design-first-spec-review.md`](../specs/design-first-spec-review.md): design questions first in
   the spec review, replayed and dropped (they missed the case they were for); the finding is
   F-NEW-65.
+- [`design-guideline.md`](../specs/design-guideline.md): a design guideline every UI change reads
+  after the project's `DESIGN.md`: the surface rule, the placeholder rule, the component and motion
+  defaults, and what done means for UI.
+- [`design-md-check.md`](../specs/design-md-check.md): a `DESIGN.md` shape check in a project's
+  fast tier: the front matter's token groups with light and dark values, the decisions section, and
+  the theme CSS derived from them under the baseline's token names.
 - [`design-review-in-build.md`](../specs/design-review-in-build.md): build runs gstack's
   `/design-review` on a local run of every UI change before it ships.
 - [`findings-and-roadmap.md`](../specs/findings-and-roadmap.md): every repo keeps a roadmap of
@@ -152,8 +168,12 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   from an hour up.
 - [`metrics-clock-after-merge.md`](../specs/metrics-clock-after-merge.md): a change the session
   starts on its own is timed from the previous merge.
+- [`metrics-model-and-tokens.md`](../specs/metrics-model-and-tokens.md): the metrics comment names
+  the models and splits the tokens behind the dollars, over the session since its previous comment.
 - [`new-project.md`](../specs/new-project.md): a new project starts from the devshop with
   green CI: the files placed, the owner's steps and the proof on a fresh repo.
+- [`other-projects-detail.md`](../specs/other-projects-detail.md): other projects appear here by a
+  plain description and the lesson, never by name, PR number or feature.
 - [`pinned-tools-on-path.md`](../specs/pinned-tools-on-path.md): the project's own checks find the
   devshop's pinned gitleaks, shellcheck and dcg on PATH.
 - [`project-contract.md`](../specs/project-contract.md): one project contract, what every project
@@ -224,8 +244,11 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   lives in those scripts, so the template is the same for every stack.
 - How a change went: once the deploy comment is final, the session posts a second comment on its
   merged PR (time from the request to live, Claude working, waiting on the owner, deploying; the
-  owner's input; cost; pushes, red CI runs, reviewer rounds), `devshop:pr` § 5 checking in with
-  `send_later`. [`runtime/scripts/change-metrics.sh`](../runtime/scripts/change-metrics.sh) gathers
+  owner's input; cost, with the session's and the reviewer's models; the tokens split as input,
+  output, cache writes and cache reads, the turns and wake-ups, the context at merge, over the
+  session since its previous comment, read from the transcript
+  ([spec](../specs/metrics-model-and-tokens.md)); pushes, red CI runs, reviewer rounds),
+  `devshop:pr` § 5 checking in with `send_later`. [`runtime/scripts/change-metrics.sh`](../runtime/scripts/change-metrics.sh) gathers
   the PR's data with `gh api` and posts;
   [`runtime/scripts/change-metrics.py`](../runtime/scripts/change-metrics.py) computes every number
   from it and the session's transcript ([spec](../specs/deploy-and-metrics-comments.md); proven by
@@ -269,14 +292,23 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   [`tests/cloudflare-stack.test.sh`](../tests/cloudflare-stack.test.sh) proves it loads only for a
   project with a wrangler config. [`nextjs-supabase/`](../runtime/stacks/nextjs-supabase/README.md)
   is a placeholder until M3.
-- Discipline guidelines: [runtime/guidelines/README.md](../runtime/guidelines/README.md). The UI
+- Discipline guidelines: [runtime/guidelines/README.md](../runtime/guidelines/README.md). The
+  design guideline [`design.md`](../runtime/guidelines/design.md)
+  ([spec](../specs/design-guideline.md)) is what a product looks like, read with `ui.md` by every
+  change that changes what a page renders: `DESIGN.md` first, the surface, the placeholder rule,
+  components and motion, the definition of done. The UI
   guideline [`ui.md`](../runtime/guidelines/ui.md) ([spec](../specs/ui-baseline.md)) starts every
   interface from [`runtime/templates/ui/`](../runtime/templates/ui/): `base.css` (shadcn/ui's token
-  names, light and dark), `theme.js` (the theme toggle), an example page, and two checks a project
+  names, light and dark), `theme.js` (the theme toggle), an example page, and three checks a project
   copies: `tokens-check.mjs` (every token defined in both themes, contrast pairs; proven by
-  [`tests/ui-tokens-check.test.sh`](../tests/ui-tokens-check.test.sh)) and `render-check.mjs`
+  [`tests/ui-tokens-check.test.sh`](../tests/ui-tokens-check.test.sh)), `render-check.mjs`
   (the page in Chromium at 375, 768 and 1280 px in both themes; proven by
-  [`tests/ui-render-check.test.sh`](../tests/ui-render-check.test.sh)). Its § Design review is how
+  [`tests/ui-render-check.test.sh`](../tests/ui-render-check.test.sh)) and `design-md-check.mjs`
+  (`DESIGN.md`'s shape and the theme derived from it, in the fast tier once the project has one;
+  proven by [`tests/ui-design-md-check.test.sh`](../tests/ui-design-md-check.test.sh) on two
+  fixtures, [the baseline's own](../tests/fixtures/design-md/baseline/DESIGN.md) against `base.css`
+  and [a ledger](../tests/fixtures/design-md/ledger/DESIGN.md) with a display face;
+  [spec](../specs/design-md-check.md)). Its § Design review is how
   `build` runs gstack's `/design-review` before `ship`
   ([spec](../specs/design-review-in-build.md)).
 - Reviewer: [runtime/reviewer/README.md](../runtime/reviewer/README.md) is the independent
@@ -302,6 +334,14 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
     and a [seeded](../kit/notes/revamp/spikes/a04-reviewer/seeded/spec.md) spec.
   - W10.8.1 UI baseline: the example page as rendered,
     [README](../kit/notes/revamp/spikes/w10-8-ui-baseline/README.md).
+  - The split dry run: [README](../kit/notes/revamp/spikes/big-changes-in-slices/README.md), a
+    made-up app through the old `intent` wording and the new `split` skill, graded before the runs.
+  - The design-guideline dry run: [README](../kit/notes/revamp/spikes/design-guideline/README.md),
+    a small UI task on a scratch project with a `DESIGN.md`, through `main`'s `build` § 2 and this
+    change's, graded before the runs.
+  - The design-detector dry run: [README](../kit/notes/revamp/spikes/design-detector/README.md),
+    `/design-review` on a scratch site with planted tells after the bootstrap's script placed the
+    engine, graded before the run.
   - W10.1.2 install probe: [README](../kit/notes/revamp/spikes/w10-1-2-install/README.md) and its
     [probe skill](../kit/notes/revamp/spikes/w10-1-2-install/plugin/skills/devshop-probe/SKILL.md).
   - W10.1.2b thin install: [README](../kit/notes/revamp/spikes/w10-1-2b-thin/README.md) and its

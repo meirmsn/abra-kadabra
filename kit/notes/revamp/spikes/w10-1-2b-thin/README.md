@@ -32,7 +32,7 @@ clear `DEVSHOP:` warning until then.
    access" unchecked**.
 3. Environment → Setup script: replace everything with `env-setup.sh`, pasting the contents of
    `devshop_deploy` (private key) between the `KEY` lines. Delete the old spike token line/block.
-4. New lalista session in that environment, paste:
+4. A new session of the pilot web app in that environment; paste:
    > W10.1.2b check — read-only, change nothing, never print keys or the setup script. Show
    > `/tmp/devshop-clone.log` and `/tmp/devshop-setup.log`; quote every context line starting
    > with DEVSHOP; `cat /tmp/devshop-probe2-hook.log`; run the devshop-probe2 skill and quote it.
@@ -48,7 +48,7 @@ the network policy allows HTTPS only. Deploy keys (SSH-only) are out; `env-setup
 HTTPS with a fine-grained read-only token (the route proven in W10.1.2). The deploy key can be deleted.
 
 **Owner run 3 (2026-10-11 12:49): passed.** HTTPS + token clone clean; bootstrap from code installed
-the stub; in the lalista session the dispatcher reported `DEVSHOP: using … from environment
+the stub; in the session of the pilot web app the dispatcher reported `DEVSHOP: using … from environment
 default`, the pinned version's hook ran and `devshop-probe2` resolved to the same commit. The
 runtime hook also ran once during setup (bootstrap priming) — fixed: priming no longer runs it.
 

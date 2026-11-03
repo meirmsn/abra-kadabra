@@ -1,4 +1,4 @@
-# Review 3: M2's exit, and what M3 needs before lalista moves
+# Review 3: M2's exit, and what M3 needs before the pilot web app moves
 
 _The M2 milestone review
 ([PROCESS § 5](PROCESS.md#milestone-review-each-m-exit--the-whole-picture-check)), 2026-10-20, with
@@ -6,13 +6,13 @@ the fresh adversarial review PROCESS asks for before M3. It changed nothing when
 cut, task and TARGET edit below is a decision for the owner (§ 9). The findings sort (§ 6) was
 applied on the owner's answer the same day (§ 9, Outcome). Evidence: this repo at `424d75a`
 (`v2.1.0`), its merged PRs' comments, a fresh-context reviewer given the goal rather than these
-conclusions, and the checks in § 10. The website and lalista repos could not be attached this
+conclusions, and the checks in § 10. The website and the pilot web app repos could not be attached this
 session, so anything only they hold is marked **not read**._
 
 ## In one screen
 
 - **M2 is mostly met, and the gaps are records, not failures.** The site is live on the owner's
-  domain, seven website PRs merged through v2, the Cloudflare home exists, the reviewer judges UI in
+  domain, seven PRs in the website merged through v2, the Cloudflare home exists, the reviewer judges UI in
   a browser. Not recorded anywhere: the Lighthouse bar on the _live_ site, the owner publishing the
   link, cost per change. Not met as written: the owner's touchpoints were not "decisions, go and
   approval only" (4 others on the first change). And the two M2 features that matter most for
@@ -24,15 +24,15 @@ session, so anything only they hold is marked **not read**._
   catches it before the push; an upgrade PR that brings the check in fails it in CI. The website's
   next upgrade hits it.
 - **M3 changes the risk and nothing is built for it.** M2 proved the loop on a static site with no
-  data. lalista has a database, users, Vercel previews and v1-era secrets. Three gaps can hurt
-  production or data: lalista's repo-scope secrets and rotation are deferred to M4 though M3
-  resumes lalista (W0.6.2 is literally "before lalista resumes"); nothing keeps preview builds off
+  data. The pilot web app has a database, users, Vercel previews and v1-era secrets. Three gaps can hurt
+  production or data: the pilot web app's repo-scope secrets and rotation are deferred to M4 though M3
+  resumes the pilot web app (W0.6.2 is literally "before the pilot web app resumes"); nothing keeps preview builds off
   production data; nothing enforces TARGET Ship 3's migration rules.
 - **The process grew back.** Since REVIEW-2 (6 days): `runtime/` +78 % lines, tests 51 → 76
   files, specs 4 → 14, 27 devshop PRs against D-17's "about one a day"; the median devshop PR cost
   $12.58 and the owner's wait was 95 % of its elapsed time.
 - **Proposal:** close M2 with one plain run on the website at `v2.1.x` (it is also the first live
-  check of R-5, R-6 and R-13); fix the title bug first; make lalista's walls and a data-safety
+  check of R-5, R-6 and R-13); fix the title bug first; make the pilot web app's walls and a data-safety
   section in the Next.js + Supabase home M3's entry tasks; freeze the records machinery (owner,
   2026-10-20: no PR-a-day rule; the devshop does now only what blocks the next real step or
   protects production data).
@@ -43,9 +43,9 @@ session, so anything only they hold is marked **not read**._
 
 | Criterion                                        | Record                                                                                                                                                 | Status              |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------- |
-| The site is live on the owner's domain           | W10.10.1's record: PR 7's deploy comment ("Live in production", the version it replaced); LOG #80                                                      | met                 |
-| ≥ 5 changes shipped through v2                   | Website PRs 2–7 (W10.10.1) and #10 (W10.10.5): 7 merged, 7 approvals, 5 gos. Later website PRs: not read                                               | met                 |
-| …with touchpoints decisions, go, approval only   | First change: 7 approvals, 5 gos, 22 decisions and **4 others** (F-NEW-91, 97, 98, a quote); closed "by the owner's call". After PR 7: not read        | not met as written  |
+| The site is live on the owner's domain           | W10.10.1's record: the latest deploy comment ("Live in production", the version it replaced); LOG #80                                                  | met                 |
+| ≥ 5 changes shipped through v2                   | The website's first six PRs (W10.10.1) and its canary change (W10.10.5): 7 merged, 7 approvals, 5 gos. Later PRs: not read                             | met                 |
+| …with touchpoints decisions, go, approval only   | First change: 7 approvals, 5 gos, 22 decisions and **4 others** (F-NEW-91, 97, 98, a quote); closed "by the owner's call". Later changes: not read     | not met as written  |
 | The Lighthouse bar holds on the live site        | The bar runs in the slow tier against the PR's preview (`runtime/stacks/cloudflare/README.md` § quality bar). No run against the live site is recorded | no record           |
 | The Cloudflare home exists, fixture rules in it  | PR #144, `tests/cloudflare-stack.test.sh`                                                                                                              | met                 |
 | The reviewer judges UI in a browser              | PR #146 on a scratch page (honest pass; font, padding and 375 px breaks each fail). No website record yet (it is on `v2.1.0`, owner)                   | met on scratch only |
@@ -63,12 +63,12 @@ the owner uses the devshop on a change they want, and four things are graded fro
 owner, and attaching the website here was refused by the session's permission check. What exists
 is the first change's record (W10.10.1), graded as D-17 grades it:
 
-| Graded                                   | First change (PRs 2–7)                                                                    |
-| ---------------------------------------- | ----------------------------------------------------------------------------------------- |
-| The change is what was asked             | The owner merged each; no record of their judgement beyond the approval                   |
-| A reviewer verdict for the merged head   | Not checked here (the website's PR comments are not read)                                 |
-| Nothing wrong reached production         | Deploy comments "Live in production"; the canary exists since PR #10, after these changes |
-| Touchpoints decisions, go, approval only | 4 other touchpoints, now findings                                                         |
+| Graded                                   | First change (six PRs)                                                  |
+| ---------------------------------------- | ----------------------------------------------------------------------- |
+| The change is what was asked             | The owner merged each; no record of their judgement beyond the approval |
+| A reviewer verdict for the merged head   | Not checked here (the PR comments in the website are not read)          |
+| Nothing wrong reached production         | Deploy comments "Live in production"; the canary came in a later change |
+| Touchpoints decisions, go, approval only | 4 other touchpoints, now findings                                       |
 
 **Proposed:** the M2 proof is one plain run on the website at `v2.1.x`: the upgrade to `v2.1.1`
 (after the title fix, § 9 item 2), then a UI change the owner wants. It grades the four things, and
@@ -81,16 +81,16 @@ website attached read-only, which needs the owner to allow `add_repo` for that s
 
 ## 3. Assumptions M3 builds on
 
-| Assumption                                                                                            | Status                                                                                                                                                                                                                                                                    | Before M3                                                                                                                                                              |
-| ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| F-NEW-18: Vercel deploys agent-authored commits of a private repo                                     | Known false on Hobby (archive); the precondition was to be decided "when the website milestone ends" (D-17 item 5)                                                                                                                                                        | Owner's call now (§ 9 item 4); then test it with one agent-authored merge (new **A-28**)                                                                               |
-| F-NEW-19: Supabase Free pauses after ~7 idle days                                                     | Known; same decision                                                                                                                                                                                                                                                      | Same call                                                                                                                                                              |
-| **A-11** Supabase starts locally in a cloud session, fast enough per change                           | **Tested here today, blocked:** as root, `dockerd` starts in this environment and `supabase@2.48.3` runs, but `supabase start` fails pulling `supabase/postgres` (the image registry's CDN host gets a 403 from the network policy; Docker Hub fails too). Speed untested | The owner allows the registry hosts in lalista's environment; re-run the timing there. Without it, the reviewer's local run and CI-like tests in the session can't run |
-| New **A-29**: preview builds can be kept off production data (Supabase branching or a second project) | Untested; nothing in `runtime/` mentions it                                                                                                                                                                                                                               | Read lalista's Vercel Preview env (owner, or attached read-only) for the production URL or ref; test the chosen isolation once                                         |
-| **A-13** gstack runs here without forking                                                             | Partly: `/design-review` ran in R-5 with a labelled mitigation (F-NEW-101); `/design-shotgun` can't run in a cloud session (F-NEW-87); `/qa`, `/review` never run                                                                                                         | Accept partly validated; lalista's design direction uses the hand-built-variants route that worked on the website                                                      |
-| **A-24** the agent identity is acceptable day to day                                                  | Trial ends 2026-10-25; D-17 item 8 already keeps it                                                                                                                                                                                                                       | Mark accepted (bookkeeping)                                                                                                                                            |
-| **A-27** Workers + D1 deploy whatever the author, and don't pause                                     | Deploys of agent-authored merges shown on the website (PR 7, #10); idle pause untested                                                                                                                                                                                    | Matters only if lalista moves to Cloudflare                                                                                                                            |
-| **A-15** a thin devshop delivers the chain                                                            | Decided at go/no-go (D-17); row still says `untested`                                                                                                                                                                                                                     | Mark validated by D-17 (bookkeeping)                                                                                                                                   |
+| Assumption                                                                                            | Status                                                                                                                                                                                                                                                                    | Before M3                                                                                                                                                                        |
+| ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F-NEW-18: Vercel deploys agent-authored commits of a private repo                                     | Known false on Hobby (archive); the precondition was to be decided "when the website milestone ends" (D-17 item 5)                                                                                                                                                        | Owner's call now (§ 9 item 4); then test it with one agent-authored merge (new **A-28**)                                                                                         |
+| F-NEW-19: Supabase Free pauses after ~7 idle days                                                     | Known; same decision                                                                                                                                                                                                                                                      | Same call                                                                                                                                                                        |
+| **A-11** Supabase starts locally in a cloud session, fast enough per change                           | **Tested here today, blocked:** as root, `dockerd` starts in this environment and `supabase@2.48.3` runs, but `supabase start` fails pulling `supabase/postgres` (the image registry's CDN host gets a 403 from the network policy; Docker Hub fails too). Speed untested | The owner allows the registry hosts in the pilot web app's environment; re-run the timing there. Without it, the reviewer's local run and CI-like tests in the session can't run |
+| New **A-29**: preview builds can be kept off production data (Supabase branching or a second project) | Untested; nothing in `runtime/` mentions it                                                                                                                                                                                                                               | Read the pilot web app's Vercel Preview env (owner, or attached read-only) for the production URL or ref; test the chosen isolation once                                         |
+| **A-13** gstack runs here without forking                                                             | Partly: `/design-review` ran in R-5 with a labelled mitigation (F-NEW-101); `/design-shotgun` can't run in a cloud session (F-NEW-87); `/qa`, `/review` never run                                                                                                         | Accept partly validated; the pilot web app's design direction uses the hand-built-variants route that worked on the website                                                      |
+| **A-24** the agent identity is acceptable day to day                                                  | Trial ends 2026-10-25; D-17 item 8 already keeps it                                                                                                                                                                                                                       | Mark accepted (bookkeeping)                                                                                                                                                      |
+| **A-27** Workers + D1 deploy whatever the author, and don't pause                                     | Deploys of agent-authored merges shown on the website (two merges); idle pause untested                                                                                                                                                                                   | Matters only if the pilot web app moves to Cloudflare                                                                                                                            |
+| **A-15** a thin devshop delivers the chain                                                            | Decided at go/no-go (D-17); row still says `untested`                                                                                                                                                                                                                     | Mark validated by D-17 (bookkeeping)                                                                                                                                             |
 
 ## 4. Direction
 
@@ -165,14 +165,14 @@ mitigates two that stay.
 rule (`runtime/stacks/cloudflare/README.md`, lines 246 and 253–266), so by the template's rule the
 rows should be deleted. They are closed for Cloudflare only: 81 (`og:image` against the site under
 test), 82 (fonts in the byte budget) and 90 (prove the blocked-fonts state) don't depend on the
-stack and belong in `runtime/guidelines/ui.md` before lalista (W10.11.7 below, now their only
+stack and belong in `runtime/guidelines/ui.md` before the pilot web app (W10.11.7 below, now their only
 record). Deleted on the owner's answer (§ 9, Outcome).
 
 **Still watching (26)**, with what M3 does to them:
 
-| Hits every M3 change (9)                                                                                                                                                                                                                                                                                                                                                                                                                     | Hits M3 sometimes (7)          | Not M3 (10)                                |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | ------------------------------------------ |
-| **77** (med, **5 sightings**: `dispatch.sh` still falls back to `${CLAUDE_PROJECT_DIR:-.}`; on lalista a restart could run the default devshop, not the pin), **78** (med), **79** (med), **87** (med, browser part fixed), **88** (med), **91** (med), **92** (med; R-13 wrote the `<spec> AC-<n>` rule but `spec-check.py` reads no prefix, so a second spec's `AC-1` is still "named"), **101** (low, mitigation labelled), **102** (med) | 86, 94, 98, 106, 113, 114, 115 | 84, 85, 93, 96, 97, 99, 100, 111, 112, 117 |
+| Hits every M3 change (9)                                                                                                                                                                                                                                                                                                                                                                                                                               | Hits M3 sometimes (7)          | Not M3 (10)                                |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------ | ------------------------------------------ |
+| **77** (med, **5 sightings**: `dispatch.sh` still falls back to `${CLAUDE_PROJECT_DIR:-.}`; on the pilot web app a restart could run the default devshop, not the pin), **78** (med), **79** (med), **87** (med, browser part fixed), **88** (med), **91** (med), **92** (med; R-13 wrote the `<spec> AC-<n>` rule but `spec-check.py` reads no prefix, so a second spec's `AC-1` is still "named"), **101** (low, mitigation labelled), **102** (med) | 86, 94, 98, 106, 113, 114, 115 | 84, 85, 93, 96, 97, 99, 100, 111, 112, 117 |
 
 Corrections found on the walk: F-NEW-85 overstates (the body check accepts an em dash, en dash or
 hyphen after `none`; only "none yet:" and the template's silence remain); F-NEW-96's risk was
@@ -195,16 +195,16 @@ is to be fixed by its own PR, W10.11.0, next, so it gets no row):
 
 Proposed as W10.11 for [W10-v2.md](workstreams/W10-v2.md) once the owner agrees the order (§ 9
 item 8). Rolling wave: these are concrete with a done-when; M4 stays coarse. The rule from D-17
-item 10 holds: the devshop changes only when lalista asks for it, except the entry tasks, which
-exist because lalista is a real app with data.
+item 10 holds: the devshop changes only when the pilot web app asks for it, except the entry tasks, which
+exist because the pilot web app is a real app with data.
 
-**Entry (before the first lalista change):**
+**Entry (before the first change in the pilot web app):**
 
 - **W10.11.0** Fix the template titles (F-NEW-118): the upgrade skill's and new-project's titles
   carry a Conventional Commit type; a test runs `pr-title-check.py` on both. _Done when:_ the
   website's upgrade PR passes its title check. Also unblocks § 2's plain run.
-- **W10.11.1** `[owner]` lalista's walls (W0.6.2 and W0.5.3 pulled forward from M4; W0.6.2 says
-  "before lalista resumes"): every CI secret in a `production` environment limited to `main`, none
+- **W10.11.1** `[owner]` the pilot web app's walls (W0.6.2 and W0.5.3 pulled forward from M4; W0.6.2 says
+  "before the pilot web app resumes"): every CI secret in a `production` environment limited to `main`, none
   at repo scope; v1-era tokens rotated (Vercel, Supabase service role, Sentry); a ruleset, not a
   classic rule (F-NEW-114); squash only; the agent identity as a Write collaborator. _Done when:_
   the session checks from outside (repo secrets list empty, the safety table's refusals once).
@@ -223,14 +223,14 @@ exist because lalista is a real app with data.
   comment. _Done when:_ a PR that weakens `check-fast.sh` gets the comment, from a job the PR can't
   edit (attack scenario).
 - **W10.11.5** Spec→test namespacing (F-NEW-92): `spec-check.py` matches `<spec> AC-<n>`, so a
-  second spec's items aren't named by the first's tests. Before lalista's second spec.
-- **W10.11.6** lalista adopts v2: one PR placing the pinned files into the existing repo, v1's
-  devshop files removed, both tiers green, the contract check passing. A-11 re-run in lalista's
+  second spec's items aren't named by the first's tests. Before the pilot web app's second spec.
+- **W10.11.6** the pilot web app adopts v2: one PR placing the pinned files into the existing repo, v1's
+  devshop files removed, both tiers green, the contract check passing. A-11 re-run in the pilot web app's
   environment with the registry hosts allowed.
 
 **The work:**
 
-- **W10.11.7** The design baseline for React (W10.8.3's B or C), lalista's `DESIGN.md` by the
+- **W10.11.7** The design baseline for React (W10.8.3's B or C), the pilot web app's `DESIGN.md` by the
   route that worked on the website (hand-built variants published as a page, F-NEW-87), and F-NEW-81,
   82 and 90 into `ui.md`.
 - **W10.11.8** The reviewer on a real app: runs the project's fast tier in its clone (F-NEW-23, 59,
@@ -240,7 +240,7 @@ exist because lalista is a real app with data.
   the next-day check as a scheduled task; the incident drill (a planted production fault, the
   rollback the owner executes).
 - **W10.11.10** Five features through v2, each a plain run with its record (cost per change and
-  weekly % recorded this time); v1 retired for lalista.
+  weekly % recorded this time); v1 retired for the pilot web app.
 - **W10.11.11** The Next.js + Supabase home written from what shipped, as R-3 was.
 
 Rough effort: M3 ~15 agent-days stays; the entry tasks are about 4 of them, plus one owner sitting
@@ -253,18 +253,18 @@ verdict: _"M2 proved the pipeline on a static site that holds no data. M3 change
 those risks has anything built against it yet. Meanwhile the devshop grew about 75 % in 6 days,
 mostly in records machinery."_ Its findings, after I re-checked the ones marked verified:
 
-| Sev  | Finding                                                                                                                                | Checked                                             | Where it went           |
-| ---- | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ----------------------- |
-| high | lalista's secrets and rotation are deferred to M4, but M3 resumes lalista; a branch workflow on `pull_request` sees repo-scope secrets | W0-groundwork lines 59, 67 read                     | W10.11.1, § 9 item 1    |
-| high | Preview builds can reach production data; nothing covers preview databases                                                             | `runtime/` has no such rule; lalista's env not read | W10.11.3                |
-| high | TARGET Ship 3's migration rules don't exist                                                                                            | grep of `runtime/`                                  | W10.11.3                |
-| med  | CI's checks run from the PR's tree; Safety 3 is unbuilt, so "required CI" is a wall only when the CI files are unchanged               | `grep -ri guardrail runtime/` finds nothing         | W10.11.4, F-NEW-119     |
-| med  | The reviewer on a real app needs the fast tier and a local database (A-11)                                                             | A-11 tested today: blocked by the network policy    | W10.11.6, 8             |
-| med  | The spec→test check proves nothing for a second spec                                                                                   | `spec-check.py` docstring, "Known limit"            | W10.11.5                |
-| med  | The upgrade and new-project titles fail the title check                                                                                | ran `pr-title-check.py` on both: exit 1             | W10.11.0                |
-| med  | No skill watches production or prepares a rollback; a failing `health` check would block the revert PR                                 | grep of skills; incident not observed               | W10.11.9                |
-| med  | Process grew back (+78 % runtime, 27 PRs in 6 days); two design reviews overlap (R-5's `/design-review` and R-6's browser lens)        | measured, § 5                                       | § 9 item 6              |
-| low  | Merging `main` into an approved branch costs a re-approval and ~10 minutes a round                                                     | LOG #81                                             | already ruled (PR #141) |
+| Sev  | Finding                                                                                                                                                    | Checked                                                       | Where it went           |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ----------------------- |
+| high | The pilot web app's secrets and rotation are deferred to M4, but M3 resumes the pilot web app; a branch workflow on `pull_request` sees repo-scope secrets | W0-groundwork lines 59, 67 read                               | W10.11.1, § 9 item 1    |
+| high | Preview builds can reach production data; nothing covers preview databases                                                                                 | `runtime/` has no such rule; the pilot web app's env not read | W10.11.3                |
+| high | TARGET Ship 3's migration rules don't exist                                                                                                                | grep of `runtime/`                                            | W10.11.3                |
+| med  | CI's checks run from the PR's tree; Safety 3 is unbuilt, so "required CI" is a wall only when the CI files are unchanged                                   | `grep -ri guardrail runtime/` finds nothing                   | W10.11.4, F-NEW-119     |
+| med  | The reviewer on a real app needs the fast tier and a local database (A-11)                                                                                 | A-11 tested today: blocked by the network policy              | W10.11.6, 8             |
+| med  | The spec→test check proves nothing for a second spec                                                                                                       | `spec-check.py` docstring, "Known limit"                      | W10.11.5                |
+| med  | The upgrade and new-project titles fail the title check                                                                                                    | ran `pr-title-check.py` on both: exit 1                       | W10.11.0                |
+| med  | No skill watches production or prepares a rollback; a failing `health` check would block the revert PR                                                     | grep of skills; incident not observed                         | W10.11.9                |
+| med  | Process grew back (+78 % runtime, 27 PRs in 6 days); two design reviews overlap (R-5's `/design-review` and R-6's browser lens)                            | measured, § 5                                                 | § 9 item 6              |
+| low  | Merging `main` into an approved branch costs a re-approval and ~10 minutes a round                                                                         | LOG #81                                                       | already ruled (PR #141) |
 
 Where I disagree: it proposes dropping one of the two design reviews. They do different jobs: the
 build's `/design-review` lets the builder fix its own work before review; the reviewer's lens is the
@@ -284,23 +284,23 @@ to 121 logged (F-NEW-118 is the title fix itself); no more full walks of the log
 again when it is seen again or when the task it touches starts; F-NEW-77 still waits for the
 owner. Item 6 changed: no PR-a-day rule; the devshop does now only what blocks the next real step
 or protects production data, and the rest waits for evidence. A-11: the owner will allow the
-registry hosts, in lalista's environment, when M3 starts. ~~Items 1, 4, 7 and 8 are open.~~
+registry hosts, in the pilot web app's environment, when M3 starts. ~~Items 1, 4, 7 and 8 are open.~~
 
-**Outcome, the rest (owner, 2026-10-20, in chat; D-19):** item 1, yes, but tokens lalista won't
-need are deleted, not rotated (Sentry stays, so its token is rotated). Item 4: lalista moves to
+**Outcome, the rest (owner, 2026-10-20, in chat; D-19):** item 1, yes, but tokens the pilot web app won't
+need are deleted, not rotated (Sentry stays, so its token is rotated). Item 4: the pilot web app moves to
 Cloudflare and keeps Supabase, free, in a new project, with a keep-alive job (a mitigation). Item
-7, yes, as one docs PR. Item 8: the order stands; lalista has no real users, so its existing data
+7, yes, as one docs PR. Item 8: the order stands; the pilot web app has no real users, so its existing data
 may be dropped to simplify. Item 9, yes. F-NEW-77: roadmap (R-14, as W10.11.12).
 
-**The plain run and M2 (owner, 2026-10-20: "yes M2 is met").** Website PR #15, "feat: a sun/moon
-theme switch replaces the three-state theme button", read from its session's transcript (the
+**The plain run and M2 (owner, 2026-10-20: "yes M2 is met").** A small UI change on the website, read from its session's
+transcript (the
 website repo could not be attached), at the devshop's `v2.1.1`:
 
 | Graded                                 | Result                                                                                                |
 | -------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| The change is what was asked           | The owner asked, chose across four decisions (a two-state slider, its lens), said go and approved     |
+| The change is what was asked           | The owner asked, made four decisions, said go and approved                                            |
 | A reviewer verdict for the merged head | Pass, round 1, 0 blocking, 1 low; the reviewer's browser ran (no console errors at 375, 768, 1280 px) |
-| Nothing wrong reached production       | The owner checked PR #15's deploy and canary comments ("looks good")                                  |
+| Nothing wrong reached production       | The owner checked the change's deploy and canary comments and was satisfied                           |
 | Touchpoints                            | 2 go (the request, the go), 4 decisions in 3 messages, 1 approval, 0 friction                         |
 
 Also recorded: the session start line named `v2.1.1` and ran the contract check (R-13); the
@@ -314,8 +314,8 @@ waits on the owner's projects content, not on the devshop. M2 is met; M3 is next
 
 Each with a recommendation, as put to the owner.
 
-1. **lalista's walls before M3, not at M4** (W0.6.2, W0.5.3; you deferred them "until the end of
-   the revamp", but W0.6.2's own condition is "before lalista resumes"). Recommended: yes, as
+1. **The pilot web app's walls before M3, not at M4** (W0.6.2, W0.5.3; you deferred them "until the end of
+   the revamp", but W0.6.2's own condition is "before the pilot web app resumes"). Recommended: yes, as
    W10.11.1, one sitting.
 2. **Fix the title bug now** (W10.11.0, one small PR). Recommended: yes, before the website's
    upgrade PR.
@@ -323,7 +323,7 @@ Each with a recommendation, as put to the owner.
    delete F-NEW-80, 81, 82, 89, 90 (closed by the Cloudflare home); correct 85 and 96
    as in § 6; add F-NEW-119 to 121. Then "roadmap or keep watching?" on F-NEW-77 (5 sightings) and
    the `med` rows 78, 79, 87, 88, 91, 92, 96, 102. Recommended: roadmap 77 (root cause before
-   lalista, where a wrong version matters), 92 (it is W10.11.5) and 102 (every cloud PR); keep
+   the pilot web app, where a wrong version matters), 92 (it is W10.11.5) and 102 (every cloud PR); keep
    watching the rest.
 4. **The platform and money call** (F-NEW-18, 19), due "when the website milestone ends". No
    recommendation on money; note that a move to Cloudflare reuses the home and the canary but costs
@@ -332,7 +332,7 @@ Each with a recommendation, as put to the owner.
    website at `v2.1.x` (§ 2). Recommended: the plain run; it is the first real check of R-5, R-6
    and R-13, and it gives M3 its first cost-per-change number.
 6. **Lean-out before M3:** freeze `change-metrics` (fix only F-NEW-120), no new devshop machinery
-   unless lalista or the website asks for it, and hold devshop PRs to about one a day (D-17 item 10,
+   unless the pilot web app or the website asks for it, and hold devshop PRs to about one a day (D-17 item 10,
    not met this week). Recommended: yes. _Superseded by the owner: no PR-a-day rule (Outcome
    above)._
 7. **TARGET edits** (§ 4: data safety as a Safety item; Ship 2 and 5 updated; Safety 7 ruled out
@@ -353,8 +353,8 @@ Docker daemon started as root in this session, `supabase start` with the CLI pin
 image pull refused by the network policy (the proxy's status lists the refused host). This repo's
 fast tier on the unchanged tree: 40 of 40 files passed.
 
-**Couldn't.** The website and lalista repos: attaching them was refused by the session's
+**Couldn't.** The website and the pilot web app repos: attaching them was refused by the session's
 permission check, so their PRs after #10, their pins, Lighthouse on the live site, the canary's
-later runs, lalista's secrets, protection and Vercel env are not read. No plain run (it needs the
+later runs, the pilot web app's secrets, protection and Vercel env are not read. No plain run (it needs the
 owner in the website's session). Supabase's start-up time (the pull never finished). The owner's
 own time beyond the "waiting on you" figures.
