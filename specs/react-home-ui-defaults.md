@@ -28,45 +28,51 @@ which `tokens-check.mjs` can't judge, and its fast tier would run none of the UI
 The experiment came first: [the spike record](../kit/notes/revamp/spikes/react-home/README.md)
 (2026-11-02), a scratch Next.js app with Tailwind v4 and a shadcn/ui button on the baseline's
 tokens. Every "spike:" below points at a row there. The adversarial review's findings were checked
-and folded in; what only the owner can decide is in the four open questions named below.
+and folded in; the owner answered the four questions it left on 2026-11-03.
 
 ## Decisions
 
-- **The pin: the `shadcn` CLI at 4.23.0, exact; the committed copies are the record.** shadcn/ui is
-  not a runtime library: its CLI copies component source into the project, which owns it from then
-  on. A project on this stack pins `shadcn` `4.23.0` in `devDependencies` (the latest on
-  2026-11-02, published 2026-10-27) and runs that local binary (`npx shadcn add <name>`, never
-  `shadcn@latest`), with `tailwindcss` and `@tailwindcss/postcss` `4.3.3`. The CLI's version pins
-  how a component is fetched and rewritten, not its source: it reads the registry at
-  `ui.shadcn.com` as it is that day, so the copy committed in `components/ui/` is what the project
-  runs, and a re-added component is a diff to review. The home's `.npmrc` (`save-exact=true`) makes
-  every dependency the CLI or a session adds (`radix-ui`, `class-variance-authority`, `clsx`,
-  `tailwind-merge`, `lucide-react`, …) an exact version. `components.json` is placed from the home's
-  template, never written by `shadcn init`, which would write shadcn/ui's own theme over the
-  home's: `style` `new-york` (what the pinned CLI picks for a Tailwind v4 project; its sources are
-  `new-york-v4` in shadcn/ui's repository), `rsc` and `tsx` true, `tailwind.config` empty,
-  `tailwind.css` `app/globals.css`, `tailwind.baseColor` `neutral` (required by the CLI's schema;
-  only `init` reads it), `tailwind.cssVariables` true, `tailwind.prefix` empty, `iconLibrary`
-  `lucide`, the aliases `components` `@/components`, `ui` `@/components/ui`, `lib` `@/lib`, `utils`
-  `@/lib/utils`, `hooks` `@/hooks` (spike: the pinned CLI's own schema accepts it). Moving the CLI's
-  pin is a change of its own. Rejected: Basecoat (spec A, the owner's call 3); `shadcn@latest` (the
-  fetch and rewrite would change under the project too) (Claude's proposal, 2026-11-02; open
-  question 1)
-- **The CLI needs `ui.shadcn.com` (open question 1).** That host is denied by this environment's
-  network policy (spike: the proxy answered 403), so the home's set-up gains an owner's step: allow
-  `ui.shadcn.com` in the network policy of the project's cloud environment; the session checks it
-  with `curl -sI https://ui.shadcn.com/` answering. Where it isn't allowed, `shadcn add` can't run
-  and the change says so plainly; the home names no hand-copy route, which would be a mechanical
-  step outside a tested script. Rejected for now: a tested script that copies a component from
-  shadcn/ui's GitHub source at the CLI's tag (`apps/v4/registry/new-york-v4/ui/<name>.tsx`, which
-  answers here). It would pin the source too and need no new host, but it is a second component
-  route to build and prove, and it would redo by hand the CLI's dependency and alias handling. The
-  owner's call: allow the host and keep the CLI (Claude's recommendation), or the script (Claude's
-  proposal, 2026-11-02)
+- **The pin is the project's; the devshop copies components from shadcn/ui's source at it.**
+  shadcn/ui is not a runtime library: its `shadcn` package on npm is a command, with no component
+  in it, that downloads each component from `ui.shadcn.com` as that site is on the day and writes
+  it into the project, which owns it from then on. A project on this stack pins its own version:
+  `shadcn` in its `package.json` `devDependencies`, exact (the home names `4.23.0`, the latest on
+  2026-11-02 and the version the spike read, as a starting point, not a requirement), with
+  `tailwindcss` and `@tailwindcss/postcss` exact too (the home names `4.3.3`). The devshop owns
+  only the tested script that reads that pin:
+  `runtime/stacks/nextjs-supabase/shadcn-add.sh <project> <component>...`, run from the session's
+  devshop copy. It reads the exact `shadcn` version from the project's `package.json` (a range, a
+  tag or none is exit 2), reads shadcn/ui's registry index for the new-york-v4 style at the
+  release tag `shadcn@<version>` on GitHub
+  (`apps/v4/registry/new-york-v4/ui/_registry.ts`), and for each component and the components it
+  needs (`registryDependencies`, followed to the end) copies its files from that tag into the
+  project (`ui/<name>.tsx` to `components/ui/<name>.tsx`, `lib/utils.ts` to `lib/utils.ts`,
+  `hooks/<name>` to `hooks/<name>`), rewriting the source's imports to the project's
+  (`@/registry/new-york-v4/ui/` to `@/components/ui/`, `@/registry/new-york-v4/lib/` to `@/lib/`,
+  `@/registry/new-york-v4/hooks/` to `@/hooks/`, and the bare `cn` module to `@/lib/utils`); then
+  installs the npm `dependencies` the items name that the project lacks, with
+  `npm install --save-exact`. A file that exists and differs is refused, named, and nothing is
+  written (exit 1), so re-adding is a diff the builder makes on purpose. It exits 2, never 0, on a
+  component the index doesn't name, an index it can't read with its strict reader (it evaluates
+  nothing it downloads), a file it can't fetch, or a failed install. A component's own colour
+  tokens (`cssVars`, as the sidebar's) aren't copied: the theme's tokens come from `DESIGN.md`, so
+  the change that adds such a component adds them there (a decision) and in the theme.
+  `components.json` is still placed, so `npx shadcn` (`diff`, `view`) works wherever a project
+  allows `ui.shadcn.com`; it is never written by `shadcn init`, which would write shadcn/ui's own
+  theme over the home's. Its fields: `style` `new-york`, `rsc` and `tsx` true, `tailwind.config`
+  empty, `tailwind.css` `app/globals.css`, `tailwind.baseColor` `neutral` (required by the
+  command's schema; only `init` reads it), `tailwind.cssVariables` true, `tailwind.prefix` empty,
+  `iconLibrary` `lucide`, the aliases `components` `@/components`, `ui` `@/components/ui`, `lib`
+  `@/lib`, `utils` `@/lib/utils`, `hooks` `@/hooks` (spike: the command's own schema accepts it).
+  The home's `.npmrc` (`save-exact=true`) keeps every dependency a session adds exact. Rejected:
+  the `shadcn` command with `ui.shadcn.com` allowed in each project's environment (the live site's
+  source on the day, not the pinned version's, and a network step per environment); a devshop-wide
+  shadcn/ui version (the library's version is the project's); Basecoat (spec A, the owner's call 3) (owner, "each project should use whatever version of shadcn they want, not depend on the
+  devshop for that" and "1. B", 2026-11-03)
 - **How a project gets the home's files: a tested script (owner, "2. A", 2026-11-03).** The home's files
   (`globals.css`, `components.json`, `.npmrc`, `check-fast.sh`, `check-slow.sh`) and the
   baseline's `theme.js` are not in `runtime/project-files.txt`, whose seeds every project gets at
-  init whatever its stack. Claude's recommendation: a tested script in the home,
+  init whatever its stack. A tested script in the home,
   `runtime/stacks/nextjs-supabase/place.sh <project>`, which copies each file to its path
   (`app/globals.css`, `components.json`, `.npmrc`, `scripts/check-fast.sh`,
   `scripts/check-slow.sh`, `public/theme.js`), leaves an identical file alone, and refuses a file
@@ -190,14 +196,20 @@ and folded in; what only the owner can decide is in the four open questions name
   CSS-in-JS library (`styled-components`, `@emotion/*`) and no `<style jsx>`. A rule for the
   builder that the reviewer sees in the diff, not a check. Rejected: a fast-tier check for it (a new
   project-facing check for a rule no change has broken yet) (Claude's proposal, 2026-11-02)
-- **Motion (open question 4).** One authored moment per page, named in `DESIGN.md`'s motion
-  section (`design.md`): on this stack it is CSS (`@keyframes` and its rule in a stylesheet), or a
-  block copied from a kit's source with the kit's licence file whose imports are React and the
-  project's own; a block that imports `motion` or `framer-motion` brings a motion kit as a
-  dependency and isn't used. `tw-animate-css`, the package shadcn/ui's overlays and accordion take
-  their enter and exit classes from, is not added: without it those classes compile to nothing and
-  the overlays open without animation, the baseline's behaviour. Rejected: adding it (a motion pack
-  as a dependency) (Claude's proposal, 2026-11-02)
+- **Motion is the project's call; the home gives the default.** Whether a project animates, where,
+  and with which dependency is its own decision, in `DESIGN.md`'s motion section: shadcn/ui's
+  `tw-animate-css`, a motion library, or none. The home's default is shadcn/ui's: `tw-animate-css`,
+  exact (CSS only, MIT, no dependencies; the home names `1.4.0`), imported right after Tailwind in
+  `app/globals.css`, so the overlays and the accordion open and close as shadcn/ui ships them; a
+  project that wants none removes the import and the package. `prefers-reduced-motion` is respected
+  either way (the base layer's rule). `design.md` changes to match: its motion bullet becomes "the
+  project's decision in `DESIGN.md`'s motion section, the stack home's default otherwise, with at
+  most one authored moment per page unless `DESIGN.md` says more", and "a motion kit as a
+  dependency" leaves its Never list ("the same entrance on every page" and `transition: all` stay).
+  Rejected: the guideline's rule as spec A wrote it, "no motion kit as a dependency" (Claude's
+  reading of the owner's "selective motion blocks", 2026-10-31, which the owner didn't recognise)
+  (owner, "each project should know if he wants animations or not, and if he wants animations then
+  you could use the one from [shadcn] or whatever dependency", 2026-11-03)
 - **The fast tier: the home's `check-fast.sh`.** It is the template's with three places filled:
   `THEME_CSS="app/globals.css"`; `TOKENS_SKIP`, beside it; and the stack part. The stack part runs
   `node scripts/ui/tokens-check.mjs --theme "$THEME_CSS"` over every file `git ls-files` lists as
@@ -250,13 +262,14 @@ and folded in; what only the owner can decide is in the four open questions name
   does, the home's `detect` splits. A `low` row in `FINDINGS.md` (Claude's proposal, 2026-11-02)
 - **The home's README:** the placeholder line narrows to "placeholder except § UI" (W10.11.11
   writes the rest from what ships), and a `## UI: shadcn/ui on the baseline's tokens` section says
-  the decisions above in the home's words: the pins, `place.sh` and what it places where, the
+  the decisions above in the home's words: the pins, `place.sh` and what it places where, `shadcn-add.sh`, the
   bridge, the palette classes at the pin, the toggle, controls, fonts, motion, the two tiers and the
   two-homes order, the owner's set-up step and its check, and a link to the spike record.
   `runtime/stacks/README.md`'s line for the home says the same in one clause (Claude's proposal,
   2026-11-02)
 - **Docs, in files this change owns:** `design.md` § Components and motion's "The Next.js home pins
-  the version" links the home's section; `ui.md` § The baseline's "Start from
+  the version" links the home's section, and its motion bullet and Never list change as Motion
+  says; `ui.md` § The baseline's "Start from
   `runtime/templates/ui/`" bullet gains that a Next.js project takes the home's `globals.css` in
   place of `base.css` (one clause); `docs/README.md` links the spike record and the new tests;
   W10.8.3 and W10.11.7 get dated notes; `kit/notes/revamp/LOG.md` an entry. No shipped spec is
@@ -280,7 +293,7 @@ and folded in; what only the owner can decide is in the four open questions name
   three token rules, text for text; it declares custom properties only in those rules and in
   `@theme inline`; `tokens-check.mjs --theme` on it exits 0, and `design-md-check.mjs --theme` on it
   with `tests/fixtures/design-md/baseline/DESIGN.md` exits 0
-- **AC-2** Its bridge holds `--color-*: initial` and exactly one `--color-<name>: var(--<name>)` for
+- **AC-2** It opens with `@import 'tailwindcss'` then `@import 'tw-animate-css'`; its bridge holds `--color-*: initial` and exactly one `--color-<name>: var(--<name>)` for
   each `:root` token whose whole value is hex or `oklch()`, and no other `--color-` entry;
   `--radius-*: initial` and `--radius-sm`, `-md`, `-lg` and `-xl` each `var(--radius)`;
   `--spacing: var(--space-1)`; its `dark` variant is the text quoted in Decisions
@@ -319,20 +332,28 @@ and folded in; what only the owner can decide is in the four open questions name
   real contract, and a project it applies to that lacks one of them is red
 - **AC-10** The home's `components.json` is valid JSON with the fields and values Decisions lists,
   and its `.npmrc` is `save-exact=true`; the home's README names `shadcn` `4.23.0`, `tailwindcss`
-  and `@tailwindcss/postcss` `4.3.3`, and the owner's step for `ui.shadcn.com`
-- **AC-11** How a project gets the home's files, as the owner's answer to open question 2 decides
-  (with Claude's recommendation: `place.sh` places each file at its path in an empty project, leaves
-  identical files alone, refuses a differing file naming it and touching nothing with exit 1, and
-  exits 2 on a missing project)
-- **AC-12** The home's README § UI, `runtime/stacks/README.md`, `design.md` § Components and
+  and `@tailwindcss/postcss` `4.3.3` and `tw-animate-css` `1.4.0` as the versions it proved, each
+  the project's to move
+- **AC-11** `place.sh <project>` places each home file at its path in an empty project, leaves
+  identical files alone, refuses a differing file naming it and writing nothing (exit 1), and exits
+  2 on a project that isn't a directory
+- **AC-12** `shadcn-add.sh`, run against a fixture source (a local copy of a registry index and its
+  files standing in for the tag; a stub `npm` recording its arguments): it fetches from the tag
+  named by the project's exact `shadcn` version, copies a component and the components it needs to
+  their paths with the imports rewritten, places `lib/utils.ts`, and installs the missing
+  dependencies with `--save-exact` and nothing already present; it refuses a differing existing
+  file, naming it and writing nothing (exit 1); it exits 2 on a project with no `shadcn`, a range
+  or a tag in place of a version, a component the index lacks, an index its reader can't read, a
+  file it can't fetch, and a failed install
+- **AC-13** The home's README § UI, `runtime/stacks/README.md`, `design.md` § Components and
   motion, `ui.md` § The baseline and `docs/README.md` say what Decisions says, including the fonts,
   motion, CSS-in-JS and toggle rules; `design.md` stays within 120 lines and 1200 words;
   `scripts/docs-map-check.py` passes; no file under `specs/` other than this one changes — verified
   by review: the diff and CI on the PR's head
-- **AC-13** `tests/run.sh` passes with the two new test files in it, and the PR's Evidence lists
+- **AC-14** `tests/run.sh` passes with the two new test files in it, and the PR's Evidence lists
   each new rule's mutant and the case that killed it — verified by review: the Evidence section and
   CI on the PR's head
-- **AC-14** `kit/notes/revamp/LOG.md` has an entry; W10.8.3 and W10.11.7 carry dated notes;
+- **AC-15** `kit/notes/revamp/LOG.md` has an entry; W10.8.3 and W10.11.7 carry dated notes;
   `FINDINGS.md` has the three `low` rows Decisions names (silent Tailwind classes and the shorthand,
   the `supplies` reach, the upgrade not showing a home's file) — verified by review: the diff
 
@@ -344,6 +365,7 @@ and folded in; what only the owner can decide is in the four open questions name
 - Changes to `tokens-check.mjs`, `design-md-check.mjs` or `render-check.mjs`, including reading
   Tailwind's `(--name)` shorthand or knowing runtime variables (findings)
 - A check for CSS-in-JS, for classes Tailwind can't build, or for the motion rule
-- A route that copies components without the CLI, unless the owner picks it (open question 1)
+- The `shadcn` command's other features (`diff`, `view`, other styles or bases); a project that
+  allows `ui.shadcn.com` may use them
 - A stack-scoped manifest for the upgrade (a finding)
 - A Next.js build in the devshop's CI
