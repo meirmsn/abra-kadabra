@@ -9,7 +9,7 @@
 # report as undefined tokens. Root cause: tokens-check.mjs reads every var() name as a theme token.
 # Usage: scripts/ui-tokens.sh <theme.css> <library dir>
 # Exit 0 = clean; 1 = findings; 2 = couldn't run (an argument missing, no theme, no check copy, git
-# failing, nothing to check). Never a pass when it can't run.
+# failing). Never a pass when it can't run.
 set -uo pipefail
 
 cant() {
@@ -33,6 +33,7 @@ while IFS= read -r f; do
   case $f in "$library"/*) continue ;; esac
   files+=("$f")
 done <<<"$listed"
-[ ${#files[@]} -gt 0 ] || cant "no files to check besides the theme"
+# Nothing else tracked yet (a fresh project): the check reads the theme on its own.
+[ ${#files[@]} -gt 0 ] || files=("$theme")
 
 node scripts/ui/tokens-check.mjs --theme "$theme" "${files[@]}"

@@ -191,6 +191,17 @@ mv "$work/dotgit" "$p/.git"
 got=$(tier)
 want 0 "react-home-ui-defaults AC-3: back to clean"
 
+# A fresh project with only the theme and the library tracked: the theme is checked on its own.
+f="$work/fresh-tier"
+mkdir -p "$f/components/ui"
+"$home/place.sh" "$f" >/dev/null || fail "place.sh couldn't place into a fresh project"
+cp "$p/components/ui/select.tsx" "$f/components/ui/"
+(cd "$f" && git init -q && git add -A && git commit -qm start)
+rc=0
+(cd "$f" && scripts/ui-tokens.sh app/globals.css components/ui) >"$work/out" 2>&1 || rc=$?
+got=$rc
+want 0 "react-home-ui-defaults AC-3: with only the theme and the library tracked, the theme is checked on its own" "tokens-check: ok"
+
 # ---- AC-4: with a DESIGN.md, the template's design part derives the home's theme ----
 cp "$repo_root/tests/fixtures/design-md/baseline/DESIGN.md" "$p/DESIGN.md"
 got=$(tier)
