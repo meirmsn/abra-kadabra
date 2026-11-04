@@ -1,6 +1,6 @@
-# The React home's UI defaults: shadcn/ui on the baseline's tokens, pinned in the Next.js home
+# The React home's UI defaults: shadcn/ui on the baseline's tokens, at each project's own version
 
-**Go:** pending
+**Go:** "Go with all 10." (owner, 2026-11-04, on the second review's ten changes; the four questions answered 2026-11-03: "1. B", "2. A", "3. A", and motion as the project's call)
 
 ## Intent
 
@@ -11,136 +11,96 @@ spec A's decisions name: "React stack homes use shadcn/ui, the theme CSS derived
 stylesheets (the detector's DOM mode can't see CSS-in-JS); the Next.js home pins the library at
 M3", and spec C left to it: "the stack home fills `THEME_CSS` in its `check-fast.sh` and wires all
 three UI checks (`tokens-check.mjs`, `design-md-check.mjs`, `render-check.mjs`) on its stack". The
-spec must settle "the library pin", "Tailwind's role", "where the theme CSS lives in a Next.js
-project and how `THEME_CSS` names it", "the derivation on this stack" under the three selectors the
-checks require, "the theme toggle (`[data-theme-toggle]`) on this stack", "the wiring" of the fast
-and slow tiers and `supplies`, "styles in stylesheets, no CSS-in-JS; one authored motion moment per
-page as `design.md` says; fonts self-hosted", and "every check is proven to fail". Out of scope by
-the owner's words: "the reviewer's prompt, any wall on design findings, the pilot web app's own repo
-(this change edits only the devshop)". Workstream lines W10.8.3 and W10.11.7; roadmap R-7 (M3) stays
-open. Surface: none; this change renders no page of a product.
+spec must settle the library pin, Tailwind's role, where the theme lives and how `THEME_CSS` names
+it, the derivation under the three selectors the checks require, the theme toggle, the wiring of
+the tiers and `supplies` ("or say why not"), "styles in stylesheets, no CSS-in-JS; one authored
+motion moment per page as `design.md` says; fonts self-hosted", and "every check is proven to fail".
+Out of scope by the owner's words: "the reviewer's prompt, any wall on design findings, the pilot
+web app's own repo (this change edits only the devshop)". Workstream lines W10.8.3 and W10.11.7;
+roadmap R-7 (M3) stays open. Surface: none; this change renders no page of a product.
 
-Why: the pilot web app (Next.js with Supabase, on Workers through the OpenNext adapter, W10.11.2)
-is the first React project. Without a home that says how shadcn/ui's theme takes the baseline's
-shape, its first UI change would start from shadcn/ui's own theme (`:root` plus a `.dark` class),
-which `tokens-check.mjs` can't judge, and its fast tier would run none of the UI checks.
+The owner then set two principles (2026-11-03): "each project should use whatever version of shadcn
+they want, not depend on the devshop for that", and on motion, "Roughly speaking the Dev Shop maybe
+give some defaults, but definitely each project should know you know if he wants animations or
+not". After a second adversarial review asked for "practicality and simplicity and what we
+ultimately want to achieve with the dev shop of working on multiple projects", the owner took all
+ten of its changes ("Go with all 10.", 2026-11-04): this spec is the smaller version that leaves.
+
+Why: the pilot web app (Next.js with Supabase and Tailwind v4, on Workers through the OpenNext
+adapter, W10.11.2) is the first React project. Without a home that says how shadcn/ui's theme takes
+the baseline's shape, its UI work would start from shadcn/ui's own theme (`:root` plus a `.dark`
+class), which `tokens-check.mjs` can't judge, and its fast tier would run none of the UI checks.
 
 The experiment came first: [the spike record](../kit/notes/revamp/spikes/react-home/README.md)
 (2026-11-02), a scratch Next.js app with Tailwind v4 and a shadcn/ui button on the baseline's
-tokens. Every "spike:" below points at a row there. The adversarial review's findings were checked
-and folded in; the owner answered the four questions it left on 2026-11-03.
+tokens. Every "spike:" below points at a row there.
 
 ## Decisions
 
-- **The pin is the project's; the devshop copies components from shadcn/ui's source at it.**
-  shadcn/ui is not a runtime library: its `shadcn` package on npm is a command, with no component
-  in it, that downloads each component from `ui.shadcn.com` as that site is on the day and writes
-  it into the project, which owns it from then on. A project on this stack pins its own version:
-  `shadcn` in its `package.json` `devDependencies`, exact (the home names `4.23.0`, the latest on
-  2026-11-02 and the version the spike read, as a starting point, not a requirement), with
-  `tailwindcss` and `@tailwindcss/postcss` exact too (the home names `4.3.3`). The devshop owns
-  only the tested script that reads that pin:
-  `runtime/stacks/nextjs-supabase/shadcn-add.sh <project> <component>...`, run from the session's
-  devshop copy. It reads the exact `shadcn` version from the project's `package.json` (a range, a
-  tag or none is exit 2), reads shadcn/ui's registry index for the new-york-v4 style at the
-  release tag `shadcn@<version>` on GitHub
-  (`apps/v4/registry/new-york-v4/ui/_registry.ts`), and for each component and the components it
-  needs (`registryDependencies`, followed to the end) copies its files from that tag into the
-  project (`ui/<name>.tsx` to `components/ui/<name>.tsx`, `lib/utils.ts` to `lib/utils.ts`,
-  `hooks/<name>` to `hooks/<name>`), rewriting the source's imports to the project's
-  (`@/registry/new-york-v4/ui/` to `@/components/ui/`, `@/registry/new-york-v4/lib/` to `@/lib/`,
-  `@/registry/new-york-v4/hooks/` to `@/hooks/`, and the bare `cn` module to `@/lib/utils`); then
-  installs the npm `dependencies` the items name that the project lacks, with
-  `npm install --save-exact`. A file that exists and differs is refused, named, and nothing is
-  written (exit 1), so re-adding is a diff the builder makes on purpose. It exits 2, never 0, on a
-  component the index doesn't name, an index it can't read with its strict reader (it evaluates
-  nothing it downloads), a file it can't fetch, or a failed install. A component's own colour
-  tokens (`cssVars`, as the sidebar's) aren't copied: the theme's tokens come from `DESIGN.md`, so
-  the change that adds such a component adds them there (a decision) and in the theme.
-  `components.json` is still placed, so `npx shadcn` (`diff`, `view`) works wherever a project
-  allows `ui.shadcn.com`; it is never written by `shadcn init`, which would write shadcn/ui's own
-  theme over the home's. Its fields: `style` `new-york`, `rsc` and `tsx` true, `tailwind.config`
-  empty, `tailwind.css` `app/globals.css`, `tailwind.baseColor` `neutral` (required by the
-  command's schema; only `init` reads it), `tailwind.cssVariables` true, `tailwind.prefix` empty,
-  `iconLibrary` `lucide`, the aliases `components` `@/components`, `ui` `@/components/ui`, `lib`
-  `@/lib`, `utils` `@/lib/utils`, `hooks` `@/hooks` (spike: the command's own schema accepts it).
-  The home's `.npmrc` (`save-exact=true`) keeps every dependency a session adds exact. Rejected:
-  the `shadcn` command with `ui.shadcn.com` allowed in each project's environment (the live site's
-  source on the day, not the pinned version's, and a network step per environment); a devshop-wide
-  shadcn/ui version (the library's version is the project's); Basecoat (spec A, the owner's call 3) (owner, "each project should use whatever version of shadcn they want, not depend on the
-  devshop for that" and "1. B", 2026-11-03)
-- **How a project gets the home's files: a tested script (owner, "2. A", 2026-11-03).** The home's files
-  (`globals.css`, `components.json`, `.npmrc`, `check-fast.sh`, `check-slow.sh`) and the
-  baseline's `theme.js` are not in `runtime/project-files.txt`, whose seeds every project gets at
-  init whatever its stack. A tested script in the home,
-  `runtime/stacks/nextjs-supabase/place.sh <project>`, which copies each file to its path
-  (`app/globals.css`, `components.json`, `.npmrc`, `scripts/check-fast.sh`,
-  `scripts/check-slow.sh`, `public/theme.js`), leaves an identical file alone, and refuses a file
-  that exists and differs, naming it, without touching any file (exit 1; exit 2 on a project that
-  isn't a directory or a home file it can't read). A project that already holds the template's
-  `check-fast.sh` gets the home's lines merged by hand in that change, which the refusal names. The
-  upgrade doesn't show when a home's file changes: a `low` row in `FINDINGS.md`, with a stack-scoped
-  manifest as its fix. Rejected: a table in the README for a session to copy from (a mechanical
-  step in prose); a stack-scoped manifest now (a change to init, the upgrade and the contract, not
-  this one's) (Claude's proposal, 2026-11-02)
-- **Tailwind v4 is the styling layer; the theme is one file, `app/globals.css`.** The home's
-  `globals.css` holds, in this order: `@import 'tailwindcss'`; the `dark` variant; the bridge; the
-  three token rules; the `@font-face` rules once the project has faces; the base layer. The home's
-  `check-fast.sh` sets `THEME_CSS="app/globals.css"`. One file because shadcn/ui's CLI writes a
-  component's tokens into the file `components.json` names: with that file the theme, a `.dark`
-  block it writes makes `tokens-check.mjs` exit 2 and a light-only token is a finding in both checks
-  (spike). The checks read the file as they read `base.css`: their reader skips `@theme inline`'s
-  declarations (no rule inside), the variant's rules declare nothing, and `@font-face` holds no
-  custom property (spike; the review confirmed it in the reader). The token rules are `base.css`'s
-  three rules verbatim, so a project with no `DESIGN.md` has the baseline as its design (`ui.md`);
-  the direction slice changes their values to `DESIGN.md`'s. Rejected: a separate `theme.css`
-  imported by `globals.css` (passes too, spike, but a `.dark` block the CLI writes into
-  `globals.css` goes unseen); shadcn/ui's own theme (`:root` plus `.dark`: `tokens-check.mjs` can't
-  judge it, spike) (Claude's proposal, 2026-11-02)
-- **The bridge: only the theme's values reach a utility.** In `@theme inline` (`inline`: a utility
-  reads `var(--<name>)` itself):
-  - colours: `--color-*: initial`, then `--color-<name>: var(--<name>)` for each colour token, a
-    token in `:root` whose whole value is hex or `oklch()`, and no other `--color-` entry. Clearing
-    the palette makes a class naming a colour the theme lacks (`text-white`, `bg-red-500`) compile
-    to nothing (spike);
-  - radius: `--radius-*: initial`, then `--radius-sm`, `-md`, `-lg` and `-xl` (the steps the copies
-    use), each `var(--radius-<k>)` when the theme declares that token and `var(--radius)` when it
-    doesn't. The baseline's theme has only `--radius`, so all four are `var(--radius)`; a
-    `DESIGN.md` that adds `rounded.<k>` gets `--radius-<k>` in the theme (spec C) and its bridge line
-    in the same change, so the copies paint only radii `DESIGN.md` names. Rejected: shadcn/ui's
-    `calc(var(--radius) ± 2px or 4px)` (lengths `DESIGN.md` doesn't name);
-  - spacing: `--spacing: var(--space-1)`, so Tailwind's scale is multiples of `DESIGN.md`'s step `1`
-    and `p-4` is `--space-4` while the steps are linear, as the baseline's are. The copies size
-    their parts by that scale (`h-9`, `px-2.5`, `gap-1.5`), and clearing it would collapse them. So
-    a copy's dimension is a multiple of a named step, which `design.md` would call a value
-    `DESIGN.md` doesn't name. The home says a multiple of `--space-1` inside the copies is
-    derived, and the project's own code uses the named steps (owner, "3. A (just because B makes it
-    unusuable which seems lke a no go)", 2026-11-03);
-  - fonts: `font-sans` and `font-mono` read the theme's `--font-sans` and `--font-mono`, whose
-    unlayered `:root` values win over Tailwind's defaults (spike); a role face beyond them gets
-    `--font-<role>: var(--font-<role>)`, whose self-reference Tailwind emits only in its theme layer,
-    where the theme's value wins (spike);
-  - shadows and the type scale stay Tailwind's: `DESIGN.md` has no shadow group, and its
-    typography roles' sizes are prose to the shape check (spec C), as the baseline's own sizes are.
-
-  The cost, said plainly: Tailwind skips a class it can't build without a word, so a class naming a
-  token the bridge lacks paints nothing; no check sees the class, the render check and the reviewer
-  see its effect. `tokens-check.mjs` doesn't read Tailwind's `(--name)` shorthand either. Both go to
-  `FINDINGS.md` as one `low` row (Claude's proposal, 2026-11-02)
-
-- **The copies' palette classes get their token from the base layer.** At the pin, the new-york-v4
-  sources name the palette four ways (read from the tag): `text-white` on the destructive `button`
-  and `badge`, `bg-white` on the `slider-thumb`, `bg-black/50` on the `dialog`, `alert-dialog`,
-  `sheet` and `drawer` overlays. With the palette cleared those classes paint nothing, so a
-  destructive label would inherit `--foreground` on `--destructive`. The base layer gives
-  `[data-slot='button'][data-variant='destructive']` and
-  `[data-slot='badge'][data-variant='destructive']` `color: var(--destructive-foreground)`, and
-  `[data-slot='slider-thumb']` `background-color: var(--background)`. The overlays' scrim has no
-  token in the baseline: the change that adds the first overlay adds a scrim colour to `DESIGN.md`
-  (a decision) and its base-layer rule; until then an overlay has no scrim. The home's README lists
-  the four classes at the pin, and a later pin re-reads them. Rejected: mapping `--color-white` and
-  `--color-black` to tokens (a white that is not white in dark); editing the copies (a diff on every
-  re-add) (Claude's proposal, 2026-11-02)
+- **The version is the project's; a devshop script copies components at it.** shadcn/ui's `shadcn`
+  package on npm is a command with no component in it: it downloads each one from `ui.shadcn.com`
+  as the site is that day, a host cloud sessions block (spike). A project pins its own version as
+  `shadcn` in its `package.json`, exact; the home names `4.23.0`, the version the spike read, as a
+  starting point. The devshop's tested
+  `runtime/stacks/nextjs-supabase/shadcn-add.mjs <project> <component>...`, run from the session's
+  devshop copy, reads that version and fetches each component's source from shadcn/ui's release
+  tag `shadcn@<version>` on GitHub (`apps/v4/registry/new-york-v4/ui/<name>.tsx`), which sessions
+  reach. It follows the file's own imports, with no registry index to parse: an import of
+  `@/registry/new-york-v4/ui/<other>` copies that component too, of `…/hooks/<name>` the hook, and
+  of `…/lib/utils` or the bare `cn` module shadcn/ui's sources use the `cn` helper
+  (`lib/utils.ts`); each is rewritten to the project's `@/components/ui/`, `@/hooks/` and
+  `@/lib/utils`. Any other package it imports that the project's `package.json` lacks (`react`,
+  `react-dom` and `next` aside) is installed with `npm install --save-exact`. It writes
+  `components/ui/`, `hooks/` and `lib/` at the project's root. A file that exists and differs is
+  shown as a diff and nothing is written (exit 1), so a re-add is a diff the builder makes on
+  purpose. It exits 2, never 0, on no `package.json`, no `shadcn` in it, a range or tag in place of a
+  version, a component the tag lacks, an `@/` import it doesn't know, a file it can't fetch, or a
+  failed install. A component's own colour tokens aren't copied: the theme's tokens come from
+  `DESIGN.md`. `SHADCN_SOURCE` overrides the source's base (with `{version}` in it) for its tests.
+  No `components.json` and no `shadcn init`: the command isn't run, and `init` or `add` would write
+  shadcn/ui's theme and `.dark` blocks into the project's. Rejected: the command with
+  `ui.shadcn.com` allowed per environment; a devshop-wide version; reading the registry's
+  TypeScript index or its JSON index (a parser to keep up with upstream, and the JSON index is
+  style-neutral: it names no `radix-ui` for the button) (owner, "1. B", 2026-11-03, and "Go with all
+  10.", 2026-11-04)
+- **How a project gets the home's files: `place.sh`, file by file.** The home's tested
+  `runtime/stacks/nextjs-supabase/place.sh <project>` places `app/globals.css` (the home's),
+  `public/theme.js` (the baseline's), `scripts/ui-tokens.sh` (the home's) and the three devshop
+  copies `scripts/ui/tokens-check.mjs`, `render-check.mjs` and `design-md-check.mjs`, each on its
+  own: a missing file is placed (scripts keep their executable bit), an identical one left alone, and
+  one that differs is shown as a diff and left untouched while the others are placed; exit 1 when
+  any differed, 0 otherwise, 2 on a project that isn't a directory or a source it can't read. So on
+  an existing app (the pilot web app has its own `app/globals.css`) it places what's missing and
+  shows what to merge. It never edits `scripts/check-fast.sh` or `scripts/check-slow.sh`, which every
+  project already has from the templates. The upgrade doesn't show when a home's file changes: a
+  `low` row in `FINDINGS.md` (owner, "2. A", 2026-11-03, and "Go with all 10.", 2026-11-04)
+- **Tailwind v4 is the styling layer; the theme is one file, `app/globals.css`.** In this order:
+  `@import 'tailwindcss'`; `@import 'tw-animate-css'` (the motion default below); the `dark`
+  variant; the bridge; the three token rules; the project's `@font-face` rules; the base layer.
+  `THEME_CSS="app/globals.css"`. One file so a token block written into it by hand or by a tool is
+  where the checks look: a `.dark` block makes `tokens-check.mjs` exit 2 and a light-only token is a
+  finding (spike). The checks read it as they read `base.css`: their reader skips `@theme inline`'s
+  declarations, the variant's rules declare nothing, `@font-face` holds no custom property (spike;
+  the first review confirmed it in the reader). The token rules are `base.css`'s three rules
+  verbatim, so a project with no `DESIGN.md` has the baseline as its design; the direction slice
+  changes their values. Rejected: a separate `theme.css` (a block written into `globals.css` goes
+  unseen); shadcn/ui's own theme (`tokens-check.mjs` can't judge it, spike) (Claude's proposal,
+  2026-11-02)
+- **The bridge adds the theme's tokens to Tailwind and takes nothing away.** In `@theme inline`
+  (a utility reads `var(--<name>)` itself): `--color-<name>: var(--<name>)` for each colour token, a
+  token in `:root` whose whole value is hex or `oklch()`; `--radius-sm`, `-md`, `-lg` and `-xl`, the
+  steps the components use, each `var(--radius)` (a `DESIGN.md` that adds `rounded.<k>` points that
+  step at `--radius-<k>` in the same change); `--spacing: var(--space-1)`, so Tailwind's scale is
+  multiples of `DESIGN.md`'s step `1`. Tailwind's palette, shadows and type scale stay: the pilot
+  web app already uses Tailwind v4, and clearing the palette would make its existing colour classes
+  paint nothing. The cost: a palette class off the design still paints; the reviewer finds a value
+  `DESIGN.md` doesn't name (`design.md`). A class naming a token the bridge lacks compiles to
+  nothing without a word, and `tokens-check.mjs` doesn't read Tailwind's `(--name)` shorthand: one
+  `low` row in `FINDINGS.md`. Inside `components/ui/`, a multiple of `--space-1` (the components'
+  `h-9`, `px-2.5`) counts as derived; the project's own code uses the named steps (owner, "3. A",
+  2026-11-03). Fonts: `font-sans` and `font-mono` read the theme's tokens, whose unlayered `:root`
+  values win over Tailwind's defaults; a role face gets `--font-<role>: var(--font-<role>)` (spike)
+  (Claude's proposal, 2026-11-02; the palette kept: owner, "Go with all 10.", 2026-11-04)
 - **Dark mode and the toggle.** The variant is exactly:
 
   ```css
@@ -159,133 +119,93 @@ and folded in; the owner answered the four questions it left on 2026-11-03.
   }
   ```
 
-  so shadcn/ui's `dark:` classes follow the same rules as the tokens (spike: both compile);
-  shadcn/ui's `.dark` class is not used. `theme.js` is copied unchanged to `public/theme.js` and
-  loaded by `<script src="/theme.js">` in the root layout's `<head>`, a plain script before the
-  first paint, with the `@next/next/no-sync-scripts` lint rule disabled on that line and its reason;
-  under a content-security policy that uses a nonce, the layout passes it to that tag. `<html>`
-  carries `suppressHydrationWarning`, since `theme.js` sets `data-theme` before React hydrates. The
-  toggle is a shadcn/ui `Button` with `data-theme-toggle` and `suppressHydrationWarning`, rendered
-  by a server component in the root layout: `theme.js` labels it only when it first runs and on a
-  click, and the root layout's markup is the one part of the page that persists across client
-  navigation, so a toggle anywhere else would show the server's label after a navigation. Spike:
-  the render check's toggle rule passes both ways and after a reload. Rejected: `next-themes`
-  (shadcn/ui's suggestion; a second toggle beside the tested `theme.js`); an inline copy of
-  `theme.js` (a second copy that drifts from the baseline's, where the file stays byte-identical)
-  (Claude's proposal, 2026-11-02)
+  so the components' `dark:` classes follow the token rules' selectors (spike); shadcn/ui's `.dark`
+  class is not used. `theme.js` (placed at `public/theme.js`) is loaded by `<script src="/theme.js">`
+  in the root layout's `<head>`, before the first paint, the `@next/next/no-sync-scripts` lint rule
+  disabled on that line with its reason, and given the page's nonce where the project's
+  content-security policy uses one; `<html>` carries `suppressHydrationWarning`. The toggle is a
+  shadcn/ui `Button` with `data-theme-toggle` and `suppressHydrationWarning`, in the root layout,
+  which persists across client navigation (`theme.js` labels it only when it first runs and on a
+  click). Spike: the render check's toggle rule passes both ways and after a reload. Rejected:
+  `next-themes` (a second toggle beside the tested `theme.js`) (Claude's proposal, 2026-11-02)
 
-- **Controls: 44 px and the baseline's busy state, without editing the copies.** shadcn/ui's sizes
-  are under 44 px (its button is 36 px tall: spike, `target-size` on every button without the rule).
-  The base layer sets `min-height: var(--tap)` on `[data-slot='button']`, `[data-slot='input']` and
-  `[data-slot='select-trigger']`, and `min-width: var(--tap)` on `[data-slot='button']`; a minimum
-  overrides a utility's smaller `height` whatever the layer. The copies carry hover, focus-visible,
-  disabled and a pressed change of their own (spike: the render check's pressed rule passes on the
-  default and outline buttons); the base layer adds `base.css`'s busy rules (`aria-busy`, the
-  delayed spinner and its two keyframes) for `[data-slot='button']`, and `base.css`'s reduced-motion
-  rule, the body's background, text colour and font, and the border colour. Smaller controls
-  (checkbox, switch, radio) are the project's; the render check finds them. Rejected: editing each
-  copy's classes (a diff on every re-add) (Claude's proposal, 2026-11-02)
-- **Fonts self-hosted, as plain `@font-face`.** woff2 files under `public/fonts/` with their licence
-  file, `@font-face` rules with `font-display: swap` in `app/globals.css`, preloaded by
-  `<link rel="preload" as="font" type="font/woff2" crossorigin>` in the root layout; each font
-  token names its face, then a generic family (F-NEW-90). Rejected: `next/font` (spike:
-  `next/font/local` puts the token on a generated class, outside the three rules the checks read,
-  with a generated family list `DESIGN.md` can't name; `next/font/google` downloads the files when
-  the app builds) (Claude's proposal, 2026-11-02)
-- **Styles in stylesheets.** Tailwind compiles the classes into the stylesheet Next.js serves; no
-  CSS-in-JS library (`styled-components`, `@emotion/*`) and no `<style jsx>`. A rule for the
-  builder that the reviewer sees in the diff, not a check. Rejected: a fast-tier check for it (a new
-  project-facing check for a rule no change has broken yet) (Claude's proposal, 2026-11-02)
-- **Motion is the project's call; the home gives the default.** Whether a project animates, where,
-  and with which dependency is its own decision, in `DESIGN.md`'s motion section: shadcn/ui's
-  `tw-animate-css`, a motion library, or none. The home's default is shadcn/ui's: `tw-animate-css`,
-  exact (CSS only, MIT, no dependencies; the home names `1.4.0`), imported right after Tailwind in
-  `app/globals.css`, so the overlays and the accordion open and close as shadcn/ui ships them; a
-  project that wants none removes the import and the package. `prefers-reduced-motion` is respected
-  either way (the base layer's rule). `design.md` changes to match: its motion bullet becomes "the
-  project's decision in `DESIGN.md`'s motion section, the stack home's default otherwise, with at
-  most one authored moment per page unless `DESIGN.md` says more", and "a motion kit as a
-  dependency" leaves its Never list ("the same entrance on every page" and `transition: all` stay).
-  Rejected: the guideline's rule as spec A wrote it, "no motion kit as a dependency" (Claude's
-  reading of the owner's "selective motion blocks", 2026-10-31, which the owner didn't recognise)
-  (owner, "each project should know if he wants animations or not, and if he wants animations then
-  you could use the one from [shadcn] or whatever dependency", 2026-11-03)
-- **The fast tier: the home's `check-fast.sh`.** It is the template's with three places filled:
-  `THEME_CSS="app/globals.css"`; `TOKENS_SKIP`, beside it; and the stack part. The stack part runs
-  `node scripts/ui/tokens-check.mjs --theme "$THEME_CSS"` over every file `git ls-files` lists as
-  `*.css`, `*.ts`, `*.tsx`, `*.jsx` or `*.mdx`, except the theme itself and the files in
-  `TOKENS_SKIP`. _Mitigation:_ `TOKENS_SKIP` lists the copies that, at the pin, put a variable
-  their library or their own inline style sets at run time inside `var()`:
-  `components/ui/navigation-menu.tsx` and `components/ui/select.tsx` (Radix's), and
-  `components/ui/sidebar.tsx` and `components/ui/toggle-group.tsx` (their own). The check would
-  report those as undefined tokens. Root cause: `tokens-check.mjs` reads every `var()` name as a
-  theme token and has no way to know a runtime variable. Every other copy, edited or not, is
-  checked. A missing `scripts/ui/tokens-check.mjs` is "couldn't run", exit 2, never a finding (`node`
-  on a missing file exits 1); so is `git ls-files` failing, and the check's own exit 2 when the list
-  is empty. The design part is the template's, unchanged. A project with `src/` sets `THEME_CSS`,
-  `TOKENS_SKIP` and `components.json`'s paths to match. A test holds the home's file equal to the
-  template outside those three places, so a template change reaches it. Rejected: wiring
-  `tokens-check.mjs` into the template (the owner kept it out at spec C's go); skipping all of
-  `components/ui/` (copies edited to use an undefined token would go unchecked) (Claude's proposal,
-  2026-11-02)
-- **The slow tier: the home's `check-slow.sh`.** It starts `scripts/local-run.sh` on a free local
-  port in its own process group, waits up to `LOCAL_RUN_WAIT` seconds (default 300) for any HTTP
-  answer at `/`, then runs `node scripts/ui/render-check.mjs --url http://127.0.0.1:<port><path>
---out <SHOTS_DIR>/<slug>` for every path in `quality/routes.json` (a JSON list of paths starting
-  with `/`, the Cloudflare home's name for it; `SHOTS_DIR` defaults to `ui-shots`), every path even
-  after one fails, stops the server's group and exits with the worst. A path's slug is `root` for
-  `/`; otherwise the path without its leading and trailing `/`, each `/` turned into `__` and each
-  character outside `A-Za-z0-9._-` into `-`. It exits 2, never 0, when `scripts/local-run.sh` is
-  missing or not executable, the render check's copy is missing, `quality/routes.json` is missing,
-  unreadable, not a list, empty, holds a path without a leading `/` or two paths with one slug, or
-  the server exits or doesn't answer in time (its log's last lines printed). The project's own
-  end-to-end tests go below a marked line. A signed-in page renders the sign-in page it redirects
-  to; the list holds public pages until W10.11.9's authenticated step. What `scripts/local-run.sh`
-  runs stays the project's (on the pilot web app, the OpenNext build and `wrangler dev`, written
-  with W10.11.6). **On a project both homes load** (the pilot web app has a `wrangler.jsonc`, so the
-  Cloudflare home applies too): this file is its `check-slow.sh`, and the Cloudflare home's quality
-  bar (the page check, Lighthouse, the byte budget), which that home describes for a static site and
-  has no template of, joins it below the marked line when W10.11.6 or W10.11.11 writes it for a
-  Next.js app; its `/build.txt` wait is the static site's and doesn't apply. Rejected: the
-  Cloudflare home's broken-page proof in the seed (a served Next.js page can't be edited per run;
-  the devshop's slow test proves the render check fails a broken page through this script instead)
+- **The base layer:** `min-height: var(--tap)` on `[data-slot='button']`, `[data-slot='input']`
+  and `[data-slot='select-trigger']`, `min-width: var(--tap)` on `[data-slot='button']` (shadcn/ui's
+  button is 36 px tall; spike: `target-size` fails on every button without it); `base.css`'s busy
+  rules (`aria-busy`, the delayed spinner, its two keyframes) for `[data-slot='button']`;
+  `base.css`'s reduced-motion rule; the body's background, text colour and font; the border colour.
+  Hover, focus, disabled and pressed come with the components (spike: the pressed rule passes)
   (Claude's proposal, 2026-11-02)
-- **`supplies`:** `scripts/ui/tokens-check.mjs`, `scripts/ui/render-check.mjs` and
-  `scripts/local-run.sh`, the three the home's tiers run every time. Not
-  `scripts/ui/design-md-check.mjs`: `DESIGN.md` is optional on every stack (spec C), `supplies`
-  can't say "once a `DESIGN.md` exists", and the fast tier's part already makes a missing copy
-  "couldn't run" once one does. What it does: session start reports a missing one for every project
-  the home loads for, from the devshop version that carries this file; CI's contract check runs
-  without `supplies`, so CI is unchanged (feedback, not a wall). So the pilot web app's adoption
-  (W10.11.6) brings the three with it or its sessions name them as missing until it does; and a
-  Supabase project with no web page would be asked for them too. None exists today; the day one
-  does, the home's `detect` splits. A `low` row in `FINDINGS.md` (Claude's proposal, 2026-11-02)
-- **The home's README:** the placeholder line narrows to "placeholder except § UI" (W10.11.11
-  writes the rest from what ships), and a `## UI: shadcn/ui on the baseline's tokens` section says
-  the decisions above in the home's words: the pins, `place.sh` and what it places where, `shadcn-add.sh`, the
-  bridge, the palette classes at the pin, the toggle, controls, fonts, motion, the two tiers and the
-  two-homes order, the owner's set-up step and its check, and a link to the spike record.
+- **Fonts self-hosted, as plain `@font-face`:** woff2 under `public/fonts/` with the licence file,
+  `font-display: swap`, preloaded in the root layout; each font token names its face, then a generic
+  family (F-NEW-90). Rejected: `next/font` (spike: the token lands on a generated class outside the
+  three rules, with a family list `DESIGN.md` can't name) (Claude's proposal, 2026-11-02)
+- **Styles in stylesheets:** Tailwind's compiled stylesheet; no CSS-in-JS library and no
+  `<style jsx>`. A rule the reviewer sees in the diff, not a check (Claude's proposal, 2026-11-02)
+- **Motion is the project's call; the home gives the default.** Whether a project animates, where,
+  and with what dependency is its decision in `DESIGN.md`'s motion section. The home's default is
+  shadcn/ui's: `tw-animate-css` (CSS only, MIT, no dependencies; the home names `1.4.0`), imported
+  in `app/globals.css`, so dialogs and menus open as shadcn/ui ships them; a project that wants none
+  removes it. `prefers-reduced-motion` is respected either way. `design.md`'s motion bullet says
+  that, with no count of moments, and "a motion kit as a dependency" leaves its Never list ("the
+  same entrance on every page" and `transition: all` stay). Rejected: spec A's "no motion kit as a
+  dependency" (Claude's reading of the owner's "selective motion blocks", which the owner didn't
+  recognise) (owner, 2026-11-03, and "Go with all 10.", 2026-11-04)
+- **The fast tier: one line in the project's own `check-fast.sh`.** The home's tested
+  `scripts/ui-tokens.sh <theme.css> <library dir>` runs `node scripts/ui/tokens-check.mjs --theme
+<theme.css>` over every file `git ls-files` lists as `*.css`, `*.ts`, `*.tsx`, `*.jsx` or `*.mdx`,
+  except the theme and the library directory; the project's `check-fast.sh` (from the template)
+  sets `THEME_CSS="app/globals.css"` and calls it as a stack part:
+  `part scripts/ui-tokens.sh "$THEME_CSS" components/ui`. The template's design part runs
+  `design-md-check.mjs` once `DESIGN.md` exists, unchanged. _Mitigation:_ the library directory is
+  left out because its components use variables Radix or their own inline styles set at run time
+  (`var(--radix-select-trigger-height)`, spike), which the check would report as undefined; root
+  cause: `tokens-check.mjs` reads every `var()` as a theme token. The components' colours, radius
+  and spacing reach a page through the bridge, which is checked. It exits 2, never a finding, on a
+  missing argument, a missing theme or `scripts/ui/tokens-check.mjs`, or `git ls-files` failing;
+  the check's own exits pass through. Rejected: a forked `check-fast.sh` in the home (two files to
+  keep equal) (owner, "Go with all 10.", 2026-11-04)
+- **The slow tier is a paragraph, not a template.** The project's `check-slow.sh` runs
+  `render-check.mjs` on every path in `quality/routes.json` over `scripts/local-run.sh`, as the
+  Cloudflare home's quality bar does, waiting for `/` to answer rather than for `/build.txt`. The
+  pilot web app loads both homes, and its real slow tier (the OpenNext build and `wrangler dev`) is
+  W10.11.6's to write; the Cloudflare home has no template either (owner, "Go with all 10.",
+  2026-11-04)
+- **No `supplies`, and why not.** For the pilot web app the Cloudflare home already supplies
+  `render-check.mjs` and `local-run.sh`; a missing token check copy already makes the fast tier exit
+  2 through `ui-tokens.sh`, and the template's design part does the same for `design-md-check.mjs`
+  once `DESIGN.md` exists. A `supplies` line would also reach a Supabase project with no web page,
+  and would report before an app adopts (owner, "Go with all 10.", 2026-11-04)
+- **An existing app adopts in two steps.** The pilot web app's own theme almost surely fails
+  `tokens-check.mjs`, and its adoption (W10.11.6) needs both tiers green. So: adopt with `THEME_CSS`
+  empty and the `ui-tokens.sh` line out; move the theme to the baseline's names, with `DESIGN.md`, in
+  its direction slice (W10.11.7), and add the line there. `place.sh` shows what to merge (owner, "Go
+  with all 10.", 2026-11-04)
+- **The home's README:** the placeholder line narrows to "placeholder except § UI" (W10.11.11 writes
+  the rest), and `## UI: shadcn/ui on the baseline's tokens` says the decisions above in the home's
+  words: the versions are the project's (with the ones the home proved), `place.sh` and
+  `shadcn-add.mjs`, the bridge, the toggle, the base layer, fonts, motion, the fast-tier line, the
+  slow tier, the adoption order, why no `supplies`, and a link to the spike record.
   `runtime/stacks/README.md`'s line for the home says the same in one clause (Claude's proposal,
   2026-11-02)
-- **Docs, in files this change owns:** `design.md` § Components and motion's "The Next.js home pins
-  the version" links the home's section, and its motion bullet and Never list change as Motion
-  says; `ui.md` § The baseline's "Start from
-  `runtime/templates/ui/`" bullet gains that a Next.js project takes the home's `globals.css` in
-  place of `base.css` (one clause); `docs/README.md` links the spike record and the new tests;
-  W10.8.3 and W10.11.7 get dated notes; `kit/notes/revamp/LOG.md` an entry. No shipped spec is
-  edited (LOG #95) (Claude's proposal, 2026-11-02)
-- **The proof:** `tests/nextjs-home.test.sh` (fast) and `tests/nextjs-home-render.test.sh` (slow,
-  the real render check in Chromium); every case prints `react-home-ui-defaults AC-<n>`. The fast
-  test runs the home's real files with the real `tokens-check.mjs` and `design-md-check.mjs` in a
-  scratch git project, with stubs for the non-UI parts; the slow test serves pages from a fake
-  `scripts/local-run.sh` (`python3 -m http.server`). `tests/contract-check.test.sh` gains the home's
-  `supplies` count. The PR's Evidence records each new rule's mutant and the case that killed it. No
-  Next.js build in the devshop's CI: the build is the spike's record, not a test the devshop can
-  install for (Claude's proposal, 2026-11-02)
-- **Not here:** the pilot web app's repo and its `scripts/local-run.sh`, `scripts/setup.sh` and
-  deploy (W10.11.6, W10.11.11); the reviewer's prompt; a wall on design findings; changes to the
-  three checks; a CSS-in-JS check; F-NEW-81, 82 and 90 into `ui.md` (W10.11.7); a `DESIGN.md` for
-  the pilot web app (its direction slice)
+- **Docs, in files this change owns:** `design.md` § Components and motion says each project pins
+  its own shadcn/ui version as the Next.js home describes (for spec A's "the Next.js home pins the
+  version"), and its motion bullet and Never list change as Motion says; `ui.md` § The baseline's
+  "Start from `runtime/templates/ui/`" bullet gains that a Next.js project takes the home's files
+  through `place.sh`; `docs/README.md` links the new test; W10.8.3 and W10.11.7 get dated notes;
+  `kit/notes/revamp/LOG.md` an entry. No shipped spec is edited (LOG #95) (Claude's proposal,
+  2026-11-02)
+- **The proof:** `tests/nextjs-home.test.sh`, fast, every case printing
+  `react-home-ui-defaults AC-<n>`: the home's real `globals.css` with the real `tokens-check.mjs`
+  and `design-md-check.mjs` in a scratch git project run through the real template `check-fast.sh`
+  with the one line added (stubs for its non-UI parts), `place.sh` on scratch projects, and
+  `shadcn-add.mjs` against synthetic component sources in a local directory with a stub `npm`. The
+  PR's Evidence records each new rule's mutant and the case that killed it, and a re-run of the
+  spike's build and render check with the final `globals.css` (Claude's proposal, 2026-11-02;
+  scaled down: owner, "Go with all 10.", 2026-11-04)
+- **Not here:** the pilot web app's repo; a forked `check-fast.sh`, a `check-slow.sh` template,
+  `components.json`, `.npmrc` and `supplies` (cut by the go); the reviewer's prompt; a wall on design
+  findings; changes to the three checks; a CSS-in-JS check; F-NEW-81, 82 and 90 into `ui.md`
 
 ## Acceptance items
 
@@ -293,79 +213,59 @@ and folded in; the owner answered the four questions it left on 2026-11-03.
   three token rules, text for text; it declares custom properties only in those rules and in
   `@theme inline`; `tokens-check.mjs --theme` on it exits 0, and `design-md-check.mjs --theme` on it
   with `tests/fixtures/design-md/baseline/DESIGN.md` exits 0
-- **AC-2** It opens with `@import 'tailwindcss'` then `@import 'tw-animate-css'`; its bridge holds `--color-*: initial` and exactly one `--color-<name>: var(--<name>)` for
-  each `:root` token whose whole value is hex or `oklch()`, and no other `--color-` entry;
-  `--radius-*: initial` and `--radius-sm`, `-md`, `-lg` and `-xl` each `var(--radius)`;
-  `--spacing: var(--space-1)`; its `dark` variant is the text quoted in Decisions
-- **AC-3** Its base layer holds `min-height: var(--tap)` for the button, input and select-trigger
-  slots and `min-width: var(--tap)` for the button's; `color: var(--destructive-foreground)` for the
-  destructive button and badge; `background-color: var(--background)` for the slider thumb;
-  `base.css`'s busy rules for the button slot; and `base.css`'s reduced-motion rule
-- **AC-4** The home's `check-fast.sh` is the template's `check-fast.sh` but for the `THEME_CSS` line
-  (`app/globals.css`), the `TOKENS_SKIP` line (the four copies) and the stack part
-- **AC-5** In a scratch git project with the home's `check-fast.sh`, its `globals.css` as
+- **AC-2** It opens with `@import 'tailwindcss'` then `@import 'tw-animate-css'`; its bridge holds
+  exactly one `--color-<name>: var(--<name>)` for each `:root` token whose whole value is hex or
+  `oklch()`, no other `--color-` entry and no `--color-*: initial`, `--radius-sm`, `-md`, `-lg` and
+  `-xl` each `var(--radius)`, and `--spacing: var(--space-1)`; its `dark` variant is the text quoted
+  in Decisions; its base layer holds `min-height: var(--tap)` for the button, input and
+  select-trigger slots, `min-width: var(--tap)` for the button's, `base.css`'s busy rules for the
+  button slot and `base.css`'s reduced-motion rule
+- **AC-3** In a scratch git project whose `scripts/check-fast.sh` is the template's with
+  `THEME_CSS="app/globals.css"` and the one `ui-tokens.sh` line, the home's `globals.css` as
   `app/globals.css` and the real token check: the tier passes, with `tokens-check.mjs` given
   `--theme app/globals.css` and the tracked `*.css`, `*.ts`, `*.tsx`, `*.jsx` and `*.mdx` files
-  except the theme and `TOKENS_SKIP`; a `components/ui/select.tsx` using `var(--radix-…)` passes;
-  the tier fails (exit 1, every other part still run) on a page using a token the theme lacks, a
-  copy under `components/ui/` outside `TOKENS_SKIP` doing the same, a bridge entry naming a token
-  the theme lacks, and a light-only colour added to `:root`; it can't run (exit 2) on a `.dark`
-  block in the theme, a missing `scripts/ui/tokens-check.mjs`, a missing theme, and no git
-  repository
-- **AC-6** The same project with `tests/fixtures/design-md/baseline/DESIGN.md` as its `DESIGN.md`
+  except the theme and `components/ui/`; a `components/ui/` file using `var(--radix-…)` passes; the
+  tier fails (exit 1, every other part still run) on a page using a token the theme lacks, a bridge
+  entry naming a token the theme lacks, and a light-only colour added to `:root`; `ui-tokens.sh`
+  exits 2 on a `.dark` block in the theme, a missing `scripts/ui/tokens-check.mjs`, a missing theme,
+  a missing argument, and no git repository
+- **AC-4** The same project with `tests/fixtures/design-md/baseline/DESIGN.md` as its `DESIGN.md`
   and the real `design-md-check.mjs`: the tier passes; with a colour token added to the theme's
   `:root` and both dark rules that the `DESIGN.md` doesn't name, it fails with
   `theme-not-in-design`
-- **AC-7** The home's `check-slow.sh` with a stub render check and a `scripts/local-run.sh` serving
-  files on `127.0.0.1:$PORT`: each path in `quality/routes.json` is rendered with
-  `--url http://127.0.0.1:<port><path>` and `--out <SHOTS_DIR>/<slug>` by the slug rule (`/` is
-  `root`, `/a/b/` is `a__b`); a path whose check exits 1 fails the tier and every path still runs;
-  one that exits 2 makes it exit 2; it exits 2 with no `scripts/local-run.sh`, no render check copy,
-  no `quality/routes.json`, one that isn't a JSON list, an empty list, a path without a leading `/`,
-  two paths with one slug, a server that exits at once and one that never answers within
-  `LOCAL_RUN_WAIT`; the server no longer answers once the tier ends
-- **AC-8** With the real render check in Chromium, the home's `check-slow.sh` over a
-  `scripts/local-run.sh` serving the baseline's example page passes and leaves the six screenshots;
-  with that page's viewport meta removed it fails (exit 1)
-- **AC-9** `runtime/stacks/nextjs-supabase/supplies` names `scripts/ui/tokens-check.mjs`,
-  `scripts/ui/render-check.mjs` and `scripts/local-run.sh` and nothing else; it parses against the
-  real contract, and a project it applies to that lacks one of them is red
-- **AC-10** The home's `components.json` is valid JSON with the fields and values Decisions lists,
-  and its `.npmrc` is `save-exact=true`; the home's README names `shadcn` `4.23.0`, `tailwindcss`
-  and `@tailwindcss/postcss` `4.3.3` and `tw-animate-css` `1.4.0` as the versions it proved, each
-  the project's to move
-- **AC-11** `place.sh <project>` places each home file at its path in an empty project, leaves
-  identical files alone, refuses a differing file naming it and writing nothing (exit 1), and exits
-  2 on a project that isn't a directory
-- **AC-12** `shadcn-add.sh`, run against a fixture source (a local copy of a registry index and its
-  files standing in for the tag; a stub `npm` recording its arguments): it fetches from the tag
-  named by the project's exact `shadcn` version, copies a component and the components it needs to
-  their paths with the imports rewritten, places `lib/utils.ts`, and installs the missing
-  dependencies with `--save-exact` and nothing already present; it refuses a differing existing
-  file, naming it and writing nothing (exit 1); it exits 2 on a project with no `shadcn`, a range
-  or a tag in place of a version, a component the index lacks, an index its reader can't read, a
-  file it can't fetch, and a failed install
-- **AC-13** The home's README § UI, `runtime/stacks/README.md`, `design.md` § Components and
-  motion, `ui.md` § The baseline and `docs/README.md` say what Decisions says, including the fonts,
-  motion, CSS-in-JS and toggle rules; `design.md` stays within 120 lines and 1200 words;
-  `scripts/docs-map-check.py` passes; no file under `specs/` other than this one changes — verified
-  by review: the diff and CI on the PR's head
-- **AC-14** `tests/run.sh` passes with the two new test files in it, and the PR's Evidence lists
-  each new rule's mutant and the case that killed it — verified by review: the Evidence section and
-  CI on the PR's head
-- **AC-15** `kit/notes/revamp/LOG.md` has an entry; W10.8.3 and W10.11.7 carry dated notes;
-  `FINDINGS.md` has the three `low` rows Decisions names (silent Tailwind classes and the shorthand,
-  the `supplies` reach, the upgrade not showing a home's file) — verified by review: the diff
+- **AC-5** `place.sh <project>` on an empty project places the six files at their paths, the
+  scripts executable, and exits 0; run again it changes nothing and exits 0; with one file present
+  and different it shows that file's diff, leaves it untouched, places the others, and exits 1; on a
+  path that isn't a directory it exits 2
+- **AC-6** `shadcn-add.mjs`, with `SHADCN_SOURCE` pointing at synthetic sources and a stub `npm`:
+  it reads the project's exact `shadcn` version and fetches from that version's directory; it
+  copies a component, a component it imports, a hook it imports and `lib/utils.ts`, with the
+  imports rewritten to `@/components/ui/`, `@/hooks/` and `@/lib/utils`; it installs the imported
+  packages the project lacks with `--save-exact`, once, and none it already has; with a differing
+  file already present it shows the diff, writes nothing, runs no install, and exits 1; it exits 2
+  with no `package.json`, no `shadcn` in it, a range in place of a version, a component the source
+  lacks, an unknown `@/` import, and a failed install
+- **AC-7** The home's README § UI says the versions are the project's (naming `shadcn` `4.23.0`,
+  `tailwindcss` and `@tailwindcss/postcss` `4.3.3` and `tw-animate-css` `1.4.0` as the ones it
+  proved), the fast-tier line, the slow tier, the adoption order, the toggle, fonts, motion and why
+  no `supplies`; `runtime/stacks/README.md`, `design.md` § Components and motion and its Never list,
+  `ui.md` § The baseline and `docs/README.md` say what Decisions says; `design.md` stays within 120
+  lines and 1200 words; `scripts/docs-map-check.py` passes; no file under `specs/` other than this
+  one changes — verified by review: the diff and CI on the PR's head
+- **AC-8** `tests/run.sh` passes with the new test file in it, and the PR's Evidence lists each new
+  rule's mutant and the case that killed it, and the spike's build and render check re-run with the
+  final `globals.css` — verified by review: the Evidence section and CI on the PR's head
+- **AC-9** `kit/notes/revamp/LOG.md` has an entry; W10.8.3 and W10.11.7 carry dated notes;
+  `FINDINGS.md` has the two `low` rows Decisions names (silent Tailwind classes and the shorthand;
+  the upgrade not showing a home's file) — verified by review: the diff
 
 ## Out of scope
 
-- The pilot web app's repo: its `components.json`, `globals.css`, `scripts/local-run.sh`, deploy and
-  `DESIGN.md` (W10.11.6, W10.11.7, W10.11.11)
+- The pilot web app's repo: its theme, `check-fast.sh`, `check-slow.sh`, `scripts/local-run.sh`,
+  deploy and `DESIGN.md` (W10.11.6, W10.11.7, W10.11.11)
 - `runtime/reviewer/` (prompt, `review.sh`, eval) and any wall on design findings
-- Changes to `tokens-check.mjs`, `design-md-check.mjs` or `render-check.mjs`, including reading
-  Tailwind's `(--name)` shorthand or knowing runtime variables (findings)
-- A check for CSS-in-JS, for classes Tailwind can't build, or for the motion rule
-- The `shadcn` command's other features (`diff`, `view`, other styles or bases); a project that
-  allows `ui.shadcn.com` may use them
-- A stack-scoped manifest for the upgrade (a finding)
-- A Next.js build in the devshop's CI
+- Changes to `tokens-check.mjs`, `design-md-check.mjs` or `render-check.mjs` (reading Tailwind's
+  `(--name)` shorthand, knowing runtime variables: findings)
+- The `shadcn` command, `components.json`, other shadcn/ui styles and bases
+- A forked `check-fast.sh`, a `check-slow.sh` template, `supplies`, `.npmrc`
+- A Next.js build in the devshop's CI (the spike's re-run is the build's evidence)
