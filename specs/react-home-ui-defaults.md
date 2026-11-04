@@ -55,7 +55,11 @@ tokens. Every "spike:" below points at a row there.
   shown as a diff and nothing is written (exit 1), so a re-add is a diff the builder makes on
   purpose. It exits 2, never 0, on no `package.json`, no `shadcn` in it, a range or tag in place of a
   version, a component the tag lacks, an `@/` import it doesn't know, a file it can't fetch, or a
-  failed install. A component's own colour tokens aren't copied: the theme's tokens come from
+  failed install. Changed after the go: it also exits 2 on a relative import, and on a name read
+  from a downloaded file that isn't a component, hook or npm package name (`..` in a component name,
+  a leading `-` that npm would read as an option), since a downloaded file is outside data and never
+  picks a path or an option (the reviewer's round-1 security finding; owner, "Yes.", 2026-11-04). A
+  component's own colour tokens aren't copied: the theme's tokens come from
   `DESIGN.md`. `SHADCN_SOURCE` overrides the source's base (with `{version}` in it) for its tests.
   No `components.json` and no `shadcn init`: the command isn't run, and `init` or `add` would write
   shadcn/ui's theme and `.dark` blocks into the project's. Rejected: the command with
@@ -244,7 +248,8 @@ tokens. Every "spike:" below points at a row there.
   packages the project lacks with `--save-exact`, once, and none it already has; with a differing
   file already present it shows the diff, writes nothing, runs no install, and exits 1; it exits 2
   with no `package.json`, no `shadcn` in it, a range in place of a version, a component the source
-  lacks, an unknown `@/` import, and a failed install
+  lacks, an unknown `@/` import, a relative import, a component or hook name with `..` read from a
+  downloaded file, an import that isn't an npm package name, and a failed install
 - **AC-7** The home's README § UI says the versions are the project's (naming `shadcn` `4.23.0`,
   `tailwindcss` and `@tailwindcss/postcss` `4.3.3` and `tw-animate-css` `1.4.0` as the ones it
   proved), the fast-tier line, the slow tier, the adoption order, the toggle, fonts, motion and why
@@ -257,7 +262,8 @@ tokens. Every "spike:" below points at a row there.
   final `globals.css` — verified by review: the Evidence section and CI on the PR's head
 - **AC-9** `kit/notes/revamp/LOG.md` has an entry; W10.8.3 and W10.11.7 carry dated notes;
   `FINDINGS.md` has the two `low` rows Decisions names (silent Tailwind classes and the shorthand;
-  the upgrade not showing a home's file) — verified by review: the diff
+  the upgrade not showing a home's file) and, changed after the go, a third, F-NEW-144: the
+  script's HTTP branch is untested (owner, "Yes.", 2026-11-04) — verified by review: the diff
 
 ## Out of scope
 
