@@ -1,0 +1,221 @@
+/*
+ * The Next.js home's theme (runtime/stacks/nextjs-supabase/README.md § UI): the Tailwind v4 entry and
+ * the theme CSS in one file, app/globals.css, which THEME_CSS names. place.sh places it; the project
+ * owns it from then on. The three token rules are the UI baseline's (runtime/templates/ui/base.css),
+ * verbatim, until the design-direction slice derives them from DESIGN.md; only they and the bridge
+ * declare custom properties, so tokens-check.mjs and design-md-check.mjs read this file as they read
+ * base.css.
+ */
+
+@import 'tailwindcss';
+/* The motion default, shadcn/ui's enter and exit classes; a project that wants none removes it. */
+@import 'tw-animate-css';
+
+/* Tailwind's dark: variant follows the baseline's two dark rules (the toggle, and the system's). */
+@custom-variant dark {
+  &:where([data-theme='dark'], [data-theme='dark'] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(
+      :root:not([data-theme='light']),
+      :root:not([data-theme='light']) *
+    ) {
+      @slot;
+    }
+  }
+}
+
+/* The bridge: Tailwind's utilities read the theme's tokens. A new colour token gets its line here. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: var(--radius);
+  --radius-md: var(--radius);
+  --radius-lg: var(--radius);
+  --radius-xl: var(--radius);
+  --spacing: var(--space-1);
+}
+
+/* ---- Tokens ---- */
+
+:root {
+  color-scheme: light;
+
+  --background: oklch(0.99 0.003 250);
+  --foreground: oklch(0.21 0.02 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.02 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.02 260);
+  --primary: oklch(0.5 0.19 262);
+  --primary-foreground: oklch(0.985 0.005 250);
+  --secondary: oklch(0.955 0.008 255);
+  --secondary-foreground: oklch(0.27 0.03 260);
+  --muted: oklch(0.955 0.008 255);
+  --muted-foreground: oklch(0.47 0.02 260);
+  --accent: oklch(0.94 0.025 262);
+  --accent-foreground: oklch(0.32 0.09 262);
+  --destructive: oklch(0.52 0.2 27);
+  --destructive-foreground: oklch(0.985 0.005 250);
+  --border: oklch(0.9 0.01 255);
+  --input: oklch(0.82 0.012 255);
+  --ring: oklch(0.6 0.17 262);
+  --shadow:
+    0 1px 2px oklch(0.2 0.02 260 / 6%), 0 1px 3px oklch(0.2 0.02 260 / 8%);
+
+  --radius: 0.75rem;
+  --font-sans:
+    system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --tap: 44px; /* minimum control size (L-72, WCAG 2.5.5) */
+  --measure: 68ch; /* longest comfortable line of text */
+  --page-max: 72rem;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --background: oklch(0.17 0.015 260);
+  --foreground: oklch(0.96 0.005 250);
+  --card: oklch(0.21 0.018 260);
+  --card-foreground: oklch(0.96 0.005 250);
+  --popover: oklch(0.21 0.018 260);
+  --popover-foreground: oklch(0.96 0.005 250);
+  --primary: oklch(0.72 0.14 262);
+  --primary-foreground: oklch(0.18 0.03 262);
+  --secondary: oklch(0.27 0.02 260);
+  --secondary-foreground: oklch(0.96 0.005 250);
+  --muted: oklch(0.27 0.02 260);
+  --muted-foreground: oklch(0.74 0.02 255);
+  --accent: oklch(0.3 0.05 262);
+  --accent-foreground: oklch(0.92 0.03 262);
+  --destructive: oklch(0.66 0.19 25);
+  --destructive-foreground: oklch(0.17 0.02 25);
+  --border: oklch(0.3 0.02 260);
+  --input: oklch(0.4 0.02 260);
+  --ring: oklch(0.68 0.14 262);
+  --shadow: 0 1px 2px oklch(0 0 0 / 30%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --background: oklch(0.17 0.015 260);
+    --foreground: oklch(0.96 0.005 250);
+    --card: oklch(0.21 0.018 260);
+    --card-foreground: oklch(0.96 0.005 250);
+    --popover: oklch(0.21 0.018 260);
+    --popover-foreground: oklch(0.96 0.005 250);
+    --primary: oklch(0.72 0.14 262);
+    --primary-foreground: oklch(0.18 0.03 262);
+    --secondary: oklch(0.27 0.02 260);
+    --secondary-foreground: oklch(0.96 0.005 250);
+    --muted: oklch(0.27 0.02 260);
+    --muted-foreground: oklch(0.74 0.02 255);
+    --accent: oklch(0.3 0.05 262);
+    --accent-foreground: oklch(0.92 0.03 262);
+    --destructive: oklch(0.66 0.19 25);
+    --destructive-foreground: oklch(0.17 0.02 25);
+    --border: oklch(0.3 0.02 260);
+    --input: oklch(0.4 0.02 260);
+    --ring: oklch(0.68 0.14 262);
+    --shadow: 0 1px 2px oklch(0 0 0 / 30%);
+  }
+}
+
+/* ---- Fonts: the project's @font-face rules (self-hosted woff2, font-display: swap) ---- */
+
+/* ---- Base ---- */
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+  }
+
+  /* 44 px controls (L-72): a minimum wins over a component's smaller height. */
+  [data-slot='button'],
+  [data-slot='input'],
+  [data-slot='select-trigger'] {
+    min-height: var(--tap);
+  }
+
+  [data-slot='button'] {
+    min-width: var(--tap);
+  }
+
+  /* Busy: disabled at once; the spinner shows only after a delay, so fast actions don't flicker. */
+  [aria-busy='true'] {
+    cursor: progress;
+  }
+
+  [data-slot='button'][aria-busy='true'] {
+    opacity: 0.85;
+  }
+
+  [data-slot='button'][aria-busy='true']::before {
+    content: '';
+    width: 1em;
+    height: 1em;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    opacity: 0;
+    animation:
+      busy-show 0s 250ms forwards,
+      busy-spin 0.7s linear infinite;
+  }
+
+  @keyframes busy-show {
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes busy-spin {
+    to {
+      transform: rotate(1turn);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+    }
+  }
+}
