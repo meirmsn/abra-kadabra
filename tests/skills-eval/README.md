@@ -51,29 +51,30 @@ didn't finish, or its stream can't be read; never a pass). Exit 1 on any FAIL, e
 
 Each line of [rules.txt](rules.txt), and whether a run shows it followed, not only present.
 
-| Skill           | Rule line (why)                                     | Present (free tier) | Followed (model tier)                       |
-| --------------- | --------------------------------------------------- | ------------------- | ------------------------------------------- |
-| intent          | "Every request starts here" (trigger)               | checked             | 3 of 3 with `--plugin-dir` only (F-NEW-147) |
-| intent          | "nothing is built before the "go"" (trigger)        | checked             | 3 of 3 with `--plugin-dir` only (F-NEW-147) |
-| intent          | "Run … spec-check.py … until it passes"             | checked             | 3 of 3 with `--plugin-dir` only (F-NEW-147) |
-| intent          | the kind said in the first reply                    | checked             | no case                                     |
-| intent          | the `/spec` interview for a feature (F-NEW-78)      | checked             | R-17                                        |
-| intent          | the `Plan` helper's review (F-NEW-91)               | checked             | R-17                                        |
-| intent          | the go on the `**Go:**` line (F-NEW-91)             | checked             | R-17                                        |
-| build           | tests named `<spec> AC-<n>`                         | checked             | R-18                                        |
-| build           | the `STACKS:` line in the PR                        | checked             | R-18                                        |
-| build           | `DESIGN.md` read first for a page change            | checked             | no case                                     |
-| build           | the hand-over to `devshop:pr`, and again (F-NEW-69) | checked             | no case (needs GitHub)                      |
-| pr              | `ship.sh` through the reviewer                      | checked             | no case (needs GitHub)                      |
-| pr              | a spec change after the go recorded (F-NEW-70)      | checked             | no case                                     |
-| pr              | subscribe to the PR                                 | checked             | no case (needs GitHub)                      |
-| split           | the walking skeleton first                          | checked             | no case                                     |
-| split           | the design direction second (F-NEW-79)              | checked             | R-18                                        |
-| new-project     | ask for the GitHub user name (F-NEW-115)            | checked             | no case                                     |
-| new-project     | never pin a branch or a SHA                         | checked             | no case                                     |
-| devshop-version | quote the `DEVSHOP:` line word for word             | checked             | no case                                     |
-| upgrade         | show the plan first                                 | checked             | no case                                     |
-| upgrade         | hand the PR to `devshop:pr`                         | checked             | no case                                     |
+| Skill           | Rule line (why)                                | Present (free tier) | Followed (model tier)                       |
+| --------------- | ---------------------------------------------- | ------------------- | ------------------------------------------- |
+| intent          | "Every request starts here" (trigger)          | checked             | 3 of 3 with `--plugin-dir` only (F-NEW-147) |
+| intent          | "nothing is built before the "go"" (trigger)   | checked             | 3 of 3 with `--plugin-dir` only (F-NEW-147) |
+| intent          | "Run … spec-check.py … until it passes"        | checked             | 3 of 3 with `--plugin-dir` only (F-NEW-147) |
+| intent          | the kind said in the first reply               | checked             | no case                                     |
+| intent          | the `/spec` interview for a feature (F-NEW-78) | checked             | R-17                                        |
+| intent          | the `Plan` helper's review (F-NEW-91)          | checked             | R-17                                        |
+| intent          | the go on the `**Go:**` line (F-NEW-91)        | checked             | R-17                                        |
+| build           | tests named `<spec> AC-<n>`                    | checked             | R-18                                        |
+| build           | the `STACKS:` line in the PR                   | checked             | R-18                                        |
+| build           | `DESIGN.md` read first for a page change       | checked             | no case                                     |
+| build           | the hand-over to `devshop:pr`                  | checked             | no case (needs GitHub)                      |
+| build           | a later round back to `devshop:pr` (F-NEW-69)  | checked             | no case (needs GitHub)                      |
+| pr              | `ship.sh` through the reviewer                 | checked             | no case (needs GitHub)                      |
+| pr              | a spec change after the go recorded (F-NEW-70) | checked             | no case                                     |
+| pr              | subscribe to the PR                            | checked             | no case (needs GitHub)                      |
+| split           | the walking skeleton first                     | checked             | no case                                     |
+| split           | the design direction second (F-NEW-79)         | checked             | R-18                                        |
+| new-project     | ask for the GitHub user name (F-NEW-115)       | checked             | no case                                     |
+| new-project     | never pin a branch or a SHA                    | checked             | no case                                     |
+| devshop-version | quote the `DEVSHOP:` line word for word        | checked             | no case                                     |
+| upgrade         | show the plan first                            | checked             | no case                                     |
+| upgrade         | hand the PR to `devshop:pr`                    | checked             | no case                                     |
 
 ## The first run
 
