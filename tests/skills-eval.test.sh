@@ -120,12 +120,7 @@ for v in GH_TOKEN GITHUB_TOKEN GIT_ASKPASS GIT_CONFIG_COUNT CLAUDE_CODE_SESSION_
 done
 grep -qx ANTHROPIC_BASE_URL "$work/stub.env" || fail "skills-eval AC-10: the child lost ANTHROPIC_BASE_URL (auth must pass)"
 grep -A1 -x -- --permission-mode "$work/stub.args" | grep -qx auto || fail "skills-eval AC-10: not permission mode auto"
-! grep -qx -- --plugin-dir "$work/stub.args" || fail "skills-eval AC-10: --plugin-dir passed without SKILLS_EVAL_PLUGIN_DIR"
 echo "ok - skills-eval AC-10: session ties and GitHub credentials removed, auth kept, mode auto"
-SKILLS_EVAL_PLUGIN_DIR=/example/plugin run_eval "the plugin from a directory" 0 good
-grep -A1 -x -- --plugin-dir "$work/stub.args" | grep -qx /example/plugin || fail "SKILLS_EVAL_PLUGIN_DIR isn't passed as --plugin-dir"
-seen "the plugin-dir note" "^note: the plugin was loaded from /example/plugin"
-echo "ok - SKILLS_EVAL_PLUGIN_DIR loads the plugin from a directory, and the run says so"
 
 run_eval "a code edit" 1 edit
 seen "skills-eval AC-9: a FAIL line" "^FAIL trigger run 1 sha=.* /work/greeter/cli.js was written before"
@@ -148,6 +143,8 @@ echo "ok - skills-eval AC-11: a link that isn't back fails and keeps the record"
 
 run_eval "an unknown case" 2 good 1 nope
 seen "skills-eval AC-12: unknown case" "^CNR nope: unknown case"
+run_eval "a case name that leaves the cases dir" 2 good 1 ../trigger
+seen "skills-eval AC-12: a path as a case" "a case name is lower-case"
 [ ! -e "$work/stub.called" ] || fail "skills-eval AC-12: claude was called for an unknown case"
 SKILLS_EVAL_REF=nope run_eval "a ref that isn't a commit" 2 good
 seen "skills-eval AC-12: a bad ref" "'nope' is not a commit"

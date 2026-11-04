@@ -7,9 +7,6 @@
 #   env:   SKILLS_EVAL_REF     the commit under test (default HEAD; then runtime/ must be committed)
 #          SKILLS_EVAL_MODEL   a model for the child (default: the CLI's own)
 #          SKILLS_EVAL_BUDGET  dollars per owner turn (default 5)
-#          SKILLS_EVAL_PLUGIN_DIR  also load the devshop plugin from this directory (--plugin-dir). A
-#                      mitigation for F-NEW-147, where the installed plugin loads none of the
-#                      runtime's skills; off by default, so a run tests the path real sessions take
 #          DEVSHOP_GIT, DEVSHOP_CURRENT, SKILLS_EVAL_RECORD: the local devshop copy, the shared
 #          runtime link and the record of its target (defaults: the environment's; tests override)
 # Each run: a fresh `mktemp -d` project placed by project-files.py at the copy's newest release,
@@ -40,6 +37,7 @@ case=${2:-trigger}
 
 cnr() { echo "CNR $case: $1"; exit 2; }
 [[ "$runs" =~ ^[1-9][0-9]*$ ]] || cnr "runs must be a positive integer, got '$runs'"
+[[ "$case" =~ ^[a-z0-9-]+$ ]] || cnr "a case name is lower-case letters, digits and dashes"
 turns_file="$eval_dir/cases/$case.turns"
 [ -f "$turns_file" ] || cnr "unknown case (no $turns_file)"
 mapfile -t turns < <(grep -v '^#' "$turns_file" | grep -v '^[[:space:]]*$')
@@ -110,7 +108,6 @@ turn() {
     done
     args=(-p "$3" --output-format stream-json --verbose --permission-mode auto --max-budget-usd "$budget")
     [ -z "${SKILLS_EVAL_MODEL:-}" ] || args+=(--model "$SKILLS_EVAL_MODEL")
-    [ -z "${SKILLS_EVAL_PLUGIN_DIR:-}" ] || args+=(--plugin-dir "$SKILLS_EVAL_PLUGIN_DIR")
     [ -z "${4:-}" ] || args+=(--resume "$4")
     CLAUDE_PROJECT_DIR=$1 timeout 3000 claude "${args[@]}" >>"$2" 2>>"$2.err"
   )
@@ -139,7 +136,6 @@ for i in $(seq "$runs"); do
   echo "$outcome $case run $i sha=${sha:0:12} $facts $reason"
   case $outcome in PASS) pass=$((pass + 1)) ;; FAIL) failed=$((failed + 1)) ;; *) couldnt=$((couldnt + 1)) ;; esac
 done
-[ -z "${SKILLS_EVAL_PLUGIN_DIR:-}" ] || echo "note: the plugin was loaded from $SKILLS_EVAL_PLUGIN_DIR (--plugin-dir), not as installed"
 echo "tally: $case: $pass pass, $failed fail, $couldnt could-not-run of $runs; cost \$$total_cost"
 if [ "$failed" -gt 0 ]; then exit_code=1; elif [ "$couldnt" -gt 0 ]; then exit_code=2; else exit_code=0; fi
 exit "$exit_code"

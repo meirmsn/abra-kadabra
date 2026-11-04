@@ -51,41 +51,44 @@ didn't finish, or its stream can't be read; never a pass). Exit 1 on any FAIL, e
 
 Each line of [rules.txt](rules.txt), and whether a run shows it followed, not only present.
 
-| Skill           | Rule line (why)                                     | Present (free tier) | Followed (model tier)          |
-| --------------- | --------------------------------------------------- | ------------------- | ------------------------------ |
-| intent          | "Every request starts here" (trigger)               | checked             | `trigger`: 3 of 3 (2026-11-04) |
-| intent          | "nothing is built before the "go"" (trigger)        | checked             | `trigger`: 3 of 3 (2026-11-04) |
-| intent          | "Run … spec-check.py … until it passes"             | checked             | `trigger`: 3 of 3 (2026-11-04) |
-| intent          | the kind said in the first reply                    | checked             | no case                        |
-| intent          | the `/spec` interview for a feature (F-NEW-78)      | checked             | R-17                           |
-| intent          | the `Plan` helper's review (F-NEW-91)               | checked             | R-17                           |
-| intent          | the go on the `**Go:**` line (F-NEW-91)             | checked             | R-17                           |
-| build           | tests named `<spec> AC-<n>`                         | checked             | R-18                           |
-| build           | the `STACKS:` line in the PR                        | checked             | R-18                           |
-| build           | `DESIGN.md` read first for a page change            | checked             | no case                        |
-| build           | the hand-over to `devshop:pr`, and again (F-NEW-69) | checked             | no case (needs GitHub)         |
-| pr              | `ship.sh` through the reviewer                      | checked             | no case (needs GitHub)         |
-| pr              | a spec change after the go recorded (F-NEW-70)      | checked             | no case                        |
-| pr              | subscribe to the PR                                 | checked             | no case (needs GitHub)         |
-| split           | the walking skeleton first                          | checked             | no case                        |
-| split           | the design direction second (F-NEW-79)              | checked             | R-18                           |
-| new-project     | ask for the GitHub user name (F-NEW-115)            | checked             | no case                        |
-| new-project     | never pin a branch or a SHA                         | checked             | no case                        |
-| devshop-version | quote the `DEVSHOP:` line word for word             | checked             | no case                        |
-| upgrade         | show the plan first                                 | checked             | no case                        |
-| upgrade         | hand the PR to `devshop:pr`                         | checked             | no case                        |
+| Skill           | Rule line (why)                                     | Present (free tier) | Followed (model tier)                       |
+| --------------- | --------------------------------------------------- | ------------------- | ------------------------------------------- |
+| intent          | "Every request starts here" (trigger)               | checked             | 3 of 3 with `--plugin-dir` only (F-NEW-147) |
+| intent          | "nothing is built before the "go"" (trigger)        | checked             | 3 of 3 with `--plugin-dir` only (F-NEW-147) |
+| intent          | "Run … spec-check.py … until it passes"             | checked             | 3 of 3 with `--plugin-dir` only (F-NEW-147) |
+| intent          | the kind said in the first reply                    | checked             | no case                                     |
+| intent          | the `/spec` interview for a feature (F-NEW-78)      | checked             | R-17                                        |
+| intent          | the `Plan` helper's review (F-NEW-91)               | checked             | R-17                                        |
+| intent          | the go on the `**Go:**` line (F-NEW-91)             | checked             | R-17                                        |
+| build           | tests named `<spec> AC-<n>`                         | checked             | R-18                                        |
+| build           | the `STACKS:` line in the PR                        | checked             | R-18                                        |
+| build           | `DESIGN.md` read first for a page change            | checked             | no case                                     |
+| build           | the hand-over to `devshop:pr`, and again (F-NEW-69) | checked             | no case (needs GitHub)                      |
+| pr              | `ship.sh` through the reviewer                      | checked             | no case (needs GitHub)                      |
+| pr              | a spec change after the go recorded (F-NEW-70)      | checked             | no case                                     |
+| pr              | subscribe to the PR                                 | checked             | no case (needs GitHub)                      |
+| split           | the walking skeleton first                          | checked             | no case                                     |
+| split           | the design direction second (F-NEW-79)              | checked             | R-18                                        |
+| new-project     | ask for the GitHub user name (F-NEW-115)            | checked             | no case                                     |
+| new-project     | never pin a branch or a SHA                         | checked             | no case                                     |
+| devshop-version | quote the `DEVSHOP:` line word for word             | checked             | no case                                     |
+| upgrade         | show the plan first                                 | checked             | no case                                     |
+| upgrade         | hand the PR to `devshop:pr`                         | checked             | no case                                     |
 
 ## The first run
 
 2026-11-04, on this repo's commit `af9efff82278`, Claude Code 2.1.318, the CLI's default model,
 permission mode `auto`.
 
-| Run                                                                                | Result                                                                                                                                                                                     | Cost  |
-| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----- |
-| 3 × `trigger`, the plugin as installed                                             | 3 CNR: "devshop:intent isn't among the session's skills". The installed plugin loads none of the runtime's skills on this CLI (F-NEW-147); the first session built the change with no spec | $1.17 |
-| 3 × `trigger`, `SKILLS_EVAL_PLUGIN_DIR=/opt/devshop-plugin/devshop`                | 3 PASS, 90–108 s each, 0 refused calls                                                                                                                                                     | $1.49 |
-| 1 × a plant: intent's first line says "edit the code directly", the rest unchanged | PASS: the rest of the skill still says spec first, and the session followed it. One contradictory line is below what this case can see                                                     | $0.44 |
-| 1 × a plant: intent's whole body says "edit the code directly"                     | FAIL: "changed outside specs/ before any go: README.md, cli.js, tests/cli.test.js"                                                                                                         | $0.23 |
+| Run                                                                                              | Result                                                                                                                                                                                     | Cost  |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----- |
+| 3 × `trigger`, the plugin as installed                                                           | 3 CNR: "devshop:intent isn't among the session's skills". The installed plugin loads none of the runtime's skills on this CLI (F-NEW-147); the first session built the change with no spec | $1.17 |
+| 3 × `trigger`, with `--plugin-dir /opt/devshop-plugin/devshop` added by hand (not in the runner) | 3 PASS, 90–108 s each, 0 refused calls                                                                                                                                                     | $1.49 |
+| 1 × a plant: intent's first line says "edit the code directly", the rest unchanged               | PASS: the rest of the skill still says spec first, and the session followed it. One contradictory line is below what this case can see                                                     | $0.44 |
+| 1 × a plant: intent's whole body says "edit the code directly"                                   | FAIL: "changed outside specs/ before any go: README.md, cli.js, tests/cli.test.js"                                                                                                         | $0.23 |
+
+The last three rows ran with one line added to the runner by hand, passing `--plugin-dir`, so the
+skills loaded despite F-NEW-147; whether the runner keeps that option is the owner's call.
 
 What it taught: the model tier's first find was not a skill edit but the environment, a CLI update
 that drops the skills (logged high). The trigger case catches a skill that stops asking for a spec,

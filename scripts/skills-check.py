@@ -37,6 +37,7 @@ HANDOVER = re.compile(r"\bdevshop:([a-z][a-z0-9-]*)")
 NAMED_REF = re.compile(r"`(devshop:)?([a-z][a-z0-9-]*)`(,)? (§|step) (\d+)")
 FILE_REF = re.compile(r"`/opt/devshop-current/([^`\s]+)` § ([^.;:,)`]+)")
 OWN_REF = re.compile(r"(?:§|\bstep) (\d+)")
+DOC_BEFORE = re.compile(r"^\(?`?(TARGET|[A-Z][A-Z0-9_-]+|\S+\.md)`?$")
 SECTION = re.compile(r"^## (\d+)\.", re.M)
 HEADINGS = re.compile(r"^#{1,6} +(.*?) *$", re.M)
 
@@ -63,6 +64,9 @@ def references(name, text, runtime, sections):
             problems.append(f"{name}: names /opt/devshop-current/{rel} § {rest}, which has no such heading")
     rest = FILE_REF.sub(" ", NAMED_REF.sub(" ", flat))
     for m in OWN_REF.finditer(rest):
+        before = rest[:m.start()].split()
+        if before and DOC_BEFORE.search(before[-1]):
+            continue  # "TARGET § 5", "specs/x.md § 3", "`README.md` step 2": another document's
         if m.group(1) not in sections[name]:
             problems.append(f"{name}: names {m.group(0)}, which it doesn't have (no '## {m.group(1)}.' heading)")
     return problems

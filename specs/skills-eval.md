@@ -63,12 +63,6 @@ slices are judged on a real run. The spike that priced it:
 - **The first run** is 3 runs of `trigger` on this branch, then 1 run on a planted commit whose
   intent says to edit code directly, which must FAIL. Their lines go in the PR body. A stability
   check, not a baseline (review, 2026-11-04)
-- **Added after the go, for the owner to confirm:** the first run found that the installed plugin
-  loads none of the runtime's skills on Claude Code 2.1.318 (F-NEW-147), so every run could not
-  run. `SKILLS_EVAL_PLUGIN_DIR` makes the runner also pass `--plugin-dir`, so the cases can still be
-  shown to pass and fail on real sessions; it is off by default, a mitigation (the root cause is
-  F-NEW-147's), and a run using it says so. Raised to the owner at the hand-over (Claude,
-  2026-11-04)
 - **Results stay out of the repo:** each run works in a fresh `mktemp -d`; transcripts carry
   session ids. The grader's tests use hand-written event streams, never real transcripts (CLAUDE.md
   rule; review, 2026-11-04)

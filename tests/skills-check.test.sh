@@ -136,6 +136,8 @@ check "skills-eval AC-2: a bare step the skill lacks fails" 1 \
   "$(pair_rt own-step 'Carry on from step 3.')" "step 3"
 check "skills-eval AC-2: a TARGET reference is not checked" 0 \
   "$(pair_rt target 'Every request starts here (TARGET § L3 Intent 8).')"
+check "skills-eval AC-2: another document's numbered section is not the skill's own" 0 \
+  "$(pair_rt docref 'As TARGET § 5 says, and `specs/cart.md` § 7, and README.md step 9.')"
 check "skills-eval AC-3: a guideline heading that exists passes" 0 \
   "$(pair_rt file-ok 'Run it as `/opt/devshop-current/guidelines/ui.md` § Design review says, or § Design direction there.')"
 check "skills-eval AC-3: a guideline heading that doesn't exist fails" 1 \
