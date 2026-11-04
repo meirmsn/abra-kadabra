@@ -3326,7 +3326,7 @@ is an awk built-in, so `awk -v log=` fails; the variable is `logfile`.
 
 **What moved**: the Next.js home's § UI: one `app/globals.css` (Tailwind v4, the `dark` variant on
 the baseline's selectors, a bridge, `base.css`'s token rules, 44 px and busy rules), `place.sh`,
-`shadcn-add.mjs` and `ui-tokens.sh`, all in `tests/nextjs-home.test.sh`; 27 mutants killed. Each
+`shadcn-add.mjs` and `ui-tokens.sh`, all in `tests/nextjs-home.test.sh`; 31 mutants killed. Each
 project pins its own shadcn/ui version; motion is the project's call (`design.md` changed to say so).
 
 **Surprises**: shadcn/ui's npm package holds no components: it downloads them from a host cloud
