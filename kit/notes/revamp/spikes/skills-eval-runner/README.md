@@ -65,7 +65,9 @@ draw; F-NEW-145 logs the first as a sighting.
 
 ## The brief, checked
 
-- Findings F-NEW-69, 70, 78, 88, 91 and 115 are "rule present, not followed". F-NEW-79 was a
+- Findings F-NEW-69, 78, 88, 91 and 115 are "rule present, not followed". F-NEW-70's rule was
+  superseded by the owner on 2026-10-16 (comments are built, or raised in chat), so what it
+  recorded is now right. F-NEW-79 was a
   missing rule (nothing in `runtime/` named the design skills then; `split` § 2 and `ui.md` do
   now). F-NEW-122 was the skill text out of step with TARGET (fixed by PR #170): a review matter,
   not a behaviour a case can catch.
@@ -96,3 +98,14 @@ Each case grades what its rule's skill line says, quoted in the grader.
 Build's own artifacts join slice 2: tests named `<spec> AC-<n>` (`spec-check.py --tests`), the
 `STACKS:` line in the PR body's engineering details, `DESIGN.md` read before the first edit of a
 page, and the PR body passing `pr-body-check.py`.
+
+## Since the spike (2026-11-04)
+
+Two adversarial reviews of this proposal changed it; the owner took their answers. The split is
+now R-16 to R-18 on the roadmap: R-16 ([specs/skills-eval.md](../../../../../specs/skills-eval.md))
+adds a free tier (rule lines and section references in `scripts/skills-check.py`) and the runner
+`tests/skills-eval.sh` with the one case above. The table above is superseded where they differ:
+F-NEW-70's case is dropped (its rule changed), F-NEW-69's needs a reviewer fail that `claude -p`
+can't reach without GitHub, and `new-project` can't run on a pinned project. Permissions: the
+child gets the container's GitHub tokens whatever its mode, so the runner removes them (a
+mitigation) and runs in `auto`; that, not the credential risk, decided against bypassing.
