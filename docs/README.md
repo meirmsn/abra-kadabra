@@ -294,7 +294,10 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   controls in use, cloud-session facts) is written from the owner's website and the M1 fixture;
   [`tests/cloudflare-stack.test.sh`](../tests/cloudflare-stack.test.sh) proves it loads only for a
   project with a wrangler config. [`nextjs-supabase/`](../runtime/stacks/nextjs-supabase/README.md)
-  is a placeholder until M3.
+  is a placeholder until M3 except its UI section: shadcn/ui on the baseline's tokens at the
+  project's own version, its theme file, `place.sh`, `shadcn-add.mjs` and the fast tier's
+  `ui-tokens.sh`, proven by [`tests/nextjs-home.test.sh`](../tests/nextjs-home.test.sh)
+  ([spec](../specs/react-home-ui-defaults.md)).
 - Discipline guidelines: [runtime/guidelines/README.md](../runtime/guidelines/README.md). The
   design guideline [`design.md`](../runtime/guidelines/design.md)
   ([spec](../specs/design-guideline.md)) is what a product looks like, read with `ui.md` by every

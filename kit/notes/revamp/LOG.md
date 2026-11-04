@@ -3321,3 +3321,16 @@ no-clause check also refused a "couldn't read" note. The F-NEW-135 row deleted.
 is an awk built-in, so `awk -v log=` fails; the variable is `logfile`.
 
 **Next**: the owner's next roadmap entry.
+
+## #100 — 2026-11-04 · The Next.js home's UI defaults (spec D)
+
+**What moved**: the Next.js home's § UI: one `app/globals.css` (Tailwind v4, the `dark` variant on
+the baseline's selectors, a bridge, `base.css`'s token rules, 44 px and busy rules), `place.sh`,
+`shadcn-add.mjs` and `ui-tokens.sh`, all in `tests/nextjs-home.test.sh`; 27 mutants killed. Each
+project pins its own shadcn/ui version; motion is the project's call (`design.md` changed to say so).
+
+**Surprises**: shadcn/ui's npm package holds no components: it downloads them from a host cloud
+sessions block, so the script copies from the release tag on GitHub. The owner's two reviews cut the
+first spec by half (no `supplies`, no forked tiers, Tailwind's palette kept).
+
+**Next**: the pilot web app's adoption (W10.11.6), then its direction slice (W10.11.7).
