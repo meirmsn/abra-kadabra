@@ -3321,3 +3321,44 @@ no-clause check also refused a "couldn't read" note. The F-NEW-135 row deleted.
 is an awk built-in, so `awk -v log=` fails; the variable is `logfile`.
 
 **Next**: the owner's next roadmap entry.
+
+## #100 — 2026-10-30 · The Apple proposal: macOS and iOS in throwaway VMs
+
+**What moved**: the owner asked for a design to build native macOS and iOS apps with the host
+protected. [apple-native-proposal.md](apple-native-proposal.md): the agent stays in its cloud
+session; GitHub's hosted macOS VMs build, UI-test and screenshot first, local Tart VMs on a dedicated
+Mac only if needed, real hardware only for reviewed builds. It revisits TARGET Environments 7; the
+owner's calls are its § 10. Spike ([record](spikes/m4-apple-vm/README.md)): a SwiftUI UI test with
+its screenshot passed in a VM, ad-hoc signed; MLX ran on the paravirtual GPU.
+
+**Surprises**: Core ML in the VM lists no Neural Engine and falls back silently. This session can't
+fetch a Swift toolchain (host denied, Docker Hub 429) nor GitHub's artifact storage host (403).
+
+**Next**: the owner's decisions in § 10.
+
+## #101 — 2026-11-01 · The Apple proposal, revised for private repos
+
+**What moved**: the owner's answers in chat on PR 166: private repositories must work, and the agent
+should drive Xcode on the owner's Mac with strictly limited access. The proposal now puts the agent
+in a throwaway Tart VM on that Mac, attached through Remote Control, with agent-desktop for the GUI;
+GitHub's macOS runners only run `slow` once per push. The owner's own-account setup (one folder,
+computer use for Xcode, App Sandbox) is option E: the same controls inside the VM are the plan. A
+one-hour checklist for the Air is in the spike.
+
+**Surprises**: Tart is now OpenAI's (`brew install openai/tools/tart`); agent-desktop installs from
+npm.
+
+**Next**: the owner's test on the Air, then § 10's decisions.
+
+## #102 — 2026-11-04 · The Apple proposal after the audit and the naming rule
+
+**What moved**: `main` merged in. Its rule on other projects meant rewording the proposal: the first
+Apple app is now described by its stack, and the spike's sample code uses neutral names (the
+screenshot with the old label was removed). From the browser and credential audit of 2026-11-03: the
+agent is a standard user inside the VM, Claude Code's sandbox is set by a managed file, gstack's
+real-profile skills are denied, no web browser runs in the VM, and the attack tests add sudo, signing
+identities and unsandboxed browsers. terminal-mac was looked at and not adopted (agent on the host).
+
+**Surprises**: none.
+
+**Next**: the owner's test on the Air, then § 10's decisions.
