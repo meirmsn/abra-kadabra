@@ -37,7 +37,7 @@ HANDOVER = re.compile(r"\bdevshop:([a-z][a-z0-9-]*)")
 NAMED_REF = re.compile(r"`(devshop:)?([a-z][a-z0-9-]*)`(,)? (§|step) (\d+)")
 FILE_REF = re.compile(r"`/opt/devshop-current/([^`\s]+)` § ([^.;:,)`]+)")
 OWN_REF = re.compile(r"(?:§|\bstep) (\d+)")
-DOC_BEFORE = re.compile(r"^\(?`?(TARGET|[A-Z][A-Z0-9_-]+|\S+\.md)`?$")
+DOC_BEFORE = re.compile(r"^\(?`?(TARGET|\S+\.md)`?$")
 SECTION = re.compile(r"^## (\d+)\.", re.M)
 HEADINGS = re.compile(r"^#{1,6} +(.*?) *$", re.M)
 

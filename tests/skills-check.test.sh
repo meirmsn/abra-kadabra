@@ -132,6 +132,8 @@ check "skills-eval AC-2: a bare reference to the skill's own section passes" 0 \
   "$(pair_rt own-ok 'A later round is built here under § 1, from step 1.')"
 check "skills-eval AC-2: a bare § to a section the skill lacks fails" 1 \
   "$(pair_rt own-gone 'A later round is built here under § 4.')" "demo: names § 4"
+check "skills-eval AC-2: a bare § after an upper-case word is still the skill's own" 1 \
+  "$(pair_rt caps-gone 'NOTE § 4 has it.')" "demo: names § 4"
 check "skills-eval AC-2: a bare step the skill lacks fails" 1 \
   "$(pair_rt own-step 'Carry on from step 3.')" "step 3"
 check "skills-eval AC-2: a TARGET reference is not checked" 0 \
