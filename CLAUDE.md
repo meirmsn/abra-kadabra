@@ -32,7 +32,9 @@ This repo is the devshop, being rewritten as v2 (the 2026-Q4 revamp). Work only 
   evidence record: what was verified, how, and the result. Claim only state you have just read from
   the real signal.
 - A PR that changes how the reviewer reviews carries the reviewer eval's result
-  ([runtime/reviewer/README.md § Proof](runtime/reviewer/README.md#proof)).
+  ([runtime/reviewer/README.md § Proof](runtime/reviewer/README.md#proof)); one that changes a skill
+  carries the skills eval's result for the cases of the skills it touches
+  ([tests/skills-eval/README.md](tests/skills-eval/README.md)).
 - Touch only the files your task owns. Never discard, reset or stash work you didn't write.
 
 ## Rules

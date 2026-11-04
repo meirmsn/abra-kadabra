@@ -3321,3 +3321,29 @@ no-clause check also refused a "couldn't read" note. The F-NEW-135 row deleted.
 is an awk built-in, so `awk -v log=` fails; the variable is `logfile`.
 
 **Next**: the owner's next roadmap entry.
+
+## #100 — 2026-11-02 · Skills regression eval: the runner spike
+
+**What moved**: the owner asked for a regression eval for the skills. Split first, so no spec yet.
+The spike met its exit criterion: a scratch project pinned to the branch's commit through the local
+devshop copy ran the real skills; on "go" the session recorded the Go line, ran `spec-check.py
+--go` and built. Prices: about $0.70 an intent turn, $2 a one-flag change through build. Record,
+finding→case table and proposed split: [spikes/skills-eval-runner](spikes/skills-eval-runner/README.md). F-NEW-142 to 146 logged.
+
+**Surprises**: in a repo with a pin but no devshop files, the session skipped `intent` for a small
+change (one run). No skill holds F-NEW-88's rule. A nested session re-points the shared runtime.
+
+**Next**: the owner approves the split, then the first slice's spec.
+
+## #101 — 2026-11-04 · Skills eval, slice 1 (R-16): built and run
+
+**What moved**: the owner delegated the open questions to the adversarial review and took its
+answers: R-16 to R-19 on the roadmap. R-16 built: a free tier in `skills-check.py` (section
+references, rule lines in `tests/skills-eval/rules.txt`) and `tests/skills-eval.sh` with one case,
+both proven on known-bad inputs; F-NEW-88 moved to R-19, F-NEW-144 raised to med.
+
+**Surprises**: the first real run found the environment, not a skill: on Claude Code 2.1.318 the
+installed plugin loads none of the runtime's skills (F-NEW-147, high). With `--plugin-dir`, 3 of 3
+passed; a plant of one contradictory line passed too, a whole-skill plant failed.
+
+**Next**: the owner on F-NEW-147, then R-17 on these numbers.
