@@ -24,6 +24,9 @@ const DEFAULT_SOURCE =
   'https://raw.githubusercontent.com/shadcn-ui/ui/shadcn%40{version}/apps/v4/registry/new-york-v4';
 const REG = '@/registry/new-york-v4/';
 const PROVIDED = new Set(['react', 'react-dom', 'next']);
+const NAME = /^[a-z0-9][a-z0-9-]*$/; // a component or hook name, from the command line or a file
+// An npm package name, scoped or not; anything else (a leading '-', a path) is refused.
+const PACKAGE = /^(@[a-z0-9][a-z0-9._~-]*\/)?[a-z0-9][a-z0-9._~-]*$/;
 
 function cant(msg) {
   console.error(`shadcn-add: can't run: ${msg}`);
@@ -34,7 +37,7 @@ const [projectArg, ...names] = process.argv.slice(2);
 if (!projectArg || names.length === 0)
   cant('usage: shadcn-add.mjs <project> <component>...');
 for (const n of names)
-  if (!/^[a-z0-9][a-z0-9-]*$/.test(n)) cant(`'${n}' is not a component name`);
+  if (!NAME.test(n)) cant(`'${n}' is not a component name`);
 const project = resolve(projectArg);
 
 let pkg;
@@ -97,10 +100,14 @@ function rewrite(text, file) {
       to = '@/lib/utils';
     } else if (spec.startsWith(`${REG}ui/`)) {
       const n = spec.slice(`${REG}ui/`.length);
+      if (!NAME.test(n))
+        cant(`${file} imports '${spec}', whose name isn't a component name`);
       queue.push({ kind: 'ui', name: n });
       to = `@/components/ui/${n}`;
     } else if (spec.startsWith(`${REG}hooks/`)) {
       const n = spec.slice(`${REG}hooks/`.length);
+      if (!NAME.test(n))
+        cant(`${file} imports '${spec}', whose name isn't a hook name`);
       queue.push({ kind: 'hooks', name: n });
       to = `@/hooks/${n}`;
     } else if (spec.startsWith('@/') || spec.startsWith('.')) {
@@ -112,6 +119,8 @@ function rewrite(text, file) {
       const name = spec.startsWith('@')
         ? parts.slice(0, 2).join('/')
         : parts[0];
+      if (!PACKAGE.test(name))
+        cant(`${file} imports '${spec}', which isn't an npm package name`);
       if (!PROVIDED.has(name)) packages.add(name);
       return whole;
     } else return whole;
@@ -179,7 +188,7 @@ if (missing.length > 0) {
   console.log(`shadcn-add: npm install --save-exact ${missing.join(' ')}`);
   const r = spawnSync(
     'npm',
-    ['install', '--save-exact', '--no-audit', '--no-fund', ...missing],
+    ['install', '--save-exact', '--no-audit', '--no-fund', '--', ...missing],
     {
       cwd: project,
       stdio: 'inherit',

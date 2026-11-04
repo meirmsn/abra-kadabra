@@ -266,6 +266,10 @@ printf 'export { cn } from "cn"\n' >"$src/lib/utils.ts"
 cat >"$src/ui/odd.tsx" <<'TSX'
 import { x } from "@/registry/new-york-v4/blocks/x"
 TSX
+printf 'import { x } from "@/registry/new-york-v4/ui/../../escape"\n' >"$src/ui/climb.tsx"
+printf 'import { x } from "@/registry/new-york-v4/hooks/../x"\n' >"$src/ui/climbhook.tsx"
+printf 'import { x } from "--registry=example.com"\n' >"$src/ui/flag.tsx"
+printf 'import { x } from "./local"\n' >"$src/ui/relative.tsx"
 # The stub npm records its arguments and exits with npm.rc's number.
 # shellcheck disable=SC2016  # the stub's source
 printf '#!/usr/bin/env bash\necho "npm $*" >>"%s/npm-ran"\nexit "$(cat "%s/npm.rc")"\n' "$work" "$work" >"$work/bin/npm"
@@ -302,7 +306,7 @@ done
 grep -q 'export { cn } from "cn"' "$s/lib/utils.ts" || fail "react-home-ui-defaults AC-6: lib/utils.ts was rewritten into itself"
 ! grep -q 'registry' "$s/components/ui/dialog.tsx" "$s/components/ui/button.tsx" || fail "react-home-ui-defaults AC-6: a registry import is left"
 echo "ok - react-home-ui-defaults AC-6: imports rewritten to @/components/ui/, @/hooks/ and @/lib/utils"
-[ "$(cat "$work/npm-ran")" = "npm install --save-exact --no-audit --no-fund class-variance-authority cn lucide-react" ] ||
+[ "$(cat "$work/npm-ran")" = "npm install --save-exact --no-audit --no-fund -- class-variance-authority cn lucide-react" ] ||
   fail "react-home-ui-defaults AC-6: npm wasn't asked for exactly the missing packages, once, exact: $(cat "$work/npm-ran")"
 echo "ok - react-home-ui-defaults AC-6: the missing packages installed once with --save-exact; radix-ui (present), react-dom and next/link (the app's own) not"
 printf '// the project own button\n' >"$s/components/ui/button.tsx"
@@ -331,6 +335,14 @@ got=$(add nope)
 want 2 "react-home-ui-defaults AC-6: a component the source lacks can't run" "has no component 'nope'"
 got=$(add odd)
 want 2 "react-home-ui-defaults AC-6: an @/ import it doesn't know can't run" "doesn't know how to place"
+got=$(add relative)
+want 2 "react-home-ui-defaults AC-6: a relative import can't run" "doesn't know how to place"
+got=$(add climb)
+want 2 "react-home-ui-defaults AC-6: a component name with '..' from a downloaded file can't run" "isn't a component name"
+got=$(add climbhook)
+want 2 "react-home-ui-defaults AC-6: a hook name with '..' can't run" "isn't a hook name"
+got=$(add flag)
+want 2 "react-home-ui-defaults AC-6: an import that would be an npm option can't run" "isn't an npm package name"
 [ ! -e "$s/components" ] || fail "react-home-ui-defaults AC-6: files written before a can't-run"
 echo 1 >"$work/npm.rc"
 got=$(add button)
