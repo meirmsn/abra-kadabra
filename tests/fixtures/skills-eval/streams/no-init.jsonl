@@ -1,0 +1,4 @@
+{"type": "system", "subtype": "hook_response", "hook_event": "SessionStart", "hook_name": "SessionStart:startup", "output": "{\"systemMessage\": \"DEVSHOP: using 0123456789abcdef0123456789abcdef01234567 (0123456789ab) from project .devshop-version \\u00b7 devshop copy of 2026-01-01 00:00 UTC (0 days old) \\u00b7 project greeter\"}"}
+{"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Skill", "input": {"skill": "devshop:intent", "args": "Add a --shout flag"}}]}}
+{"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Write", "input": {"file_path": "/work/greeter/specs/shout-flag.md", "content": "..."}}]}}
+{"type": "result", "subtype": "success", "is_error": false, "total_cost_usd": 0.71, "duration_ms": 118000, "permission_denials": [{"tool_name": "Bash"}]}

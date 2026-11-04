@@ -1,0 +1,2 @@
+# trigger: a small change through intent (specs/skills-eval.md). One owner turn per line.
+Add a --shout flag to cli.js that prints the greeting in upper case.

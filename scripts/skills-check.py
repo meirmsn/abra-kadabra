@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Shape check for the devshop's own skills, run by tests/skills-check.test.sh in CI (W10.6.1).
 
-Usage: scripts/skills-check.py [RUNTIME_DIR] [--plugin-skills DIR]   (default: runtime/ beside this
+Usage: scripts/skills-check.py [RUNTIME_DIR] [--plugin-skills DIR] [--rules FILE]   (default: runtime/ beside this
 script). DIR holds the install plugin's own skills (W10.4.8), loaded beside the runtime's in every
 session; they are checked with them, as one set.
 For every RUNTIME_DIR/skills/<name>/SKILL.md and DIR/<name>/SKILL.md:
@@ -13,10 +13,17 @@ For every RUNTIME_DIR/skills/<name>/SKILL.md and DIR/<name>/SKILL.md:
     the same pinned version (a skill never points at a script its version lacks)
   - every `devshop:<skill>` it hands over to is one of these skills (the plugin lists them so)
   - no plugin skill shares its name with a runtime skill
+  - every section reference resolves (specs/skills-eval.md): `devshop:<x>` § N, `<x>` § N and
+    `<x>`, step N name a "## N." heading of skill <x>; a bare "§ N" or "step N" one of its own;
+    `/opt/devshop-current/<file>` § <Heading> a heading of that file the text after the § starts
+    with (its "(…)" tail ignored). Others (TARGET, specs) aren't in the runtime and aren't checked
+  - with --rules FILE: each "<skill> | <why> | <text>" line's text still appears in that skill,
+    whitespace folded (lines wrap); "#" lines and blank lines are skipped. A malformed line or an
+    unknown skill can't run
 All the descriptions together stay within MAX_DESCRIPTION_WORDS: they are loaded into every
 session, the devshop's share of the always-loaded budget (TARGET Shape 2, W10.6.16, W10.6.18).
 Exit 0 = every skill has the shape (warnings, if any, listed); 1 = problems (listed); 2 = can't run (no runtime, no skills, a
-missing plugin skills dir, bad arguments).
+missing plugin skills dir, a missing or malformed rules file, bad arguments).
 """
 import os
 import re
@@ -26,6 +33,56 @@ MAX_LINES, MAX_WORDS = 60, 600
 MAX_DESCRIPTION_WORDS = 200
 PINNED = re.compile(r"/opt/devshop-current/([A-Za-z0-9._/-]*[A-Za-z0-9_/-])")
 HANDOVER = re.compile(r"\bdevshop:([a-z][a-z0-9-]*)")
+# Section references, matched on the text with its whitespace folded (a reference can wrap).
+NAMED_REF = re.compile(r"`(devshop:)?([a-z][a-z0-9-]*)`(,)? (§|step) (\d+)")
+FILE_REF = re.compile(r"`/opt/devshop-current/([^`\s]+)` § ([^.;:,)`]+)")
+OWN_REF = re.compile(r"(?:§|\bstep) (\d+)")
+SECTION = re.compile(r"^## (\d+)\.", re.M)
+HEADINGS = re.compile(r"^#{1,6} +(.*?) *$", re.M)
+
+
+def fold(text):
+    return " ".join(text.split())
+
+
+def references(name, text, runtime, sections):
+    """Problems with the section references in a skill's text; sections maps a skill to its numbers."""
+    problems, flat = [], fold(text)
+    for m in NAMED_REF.finditer(flat):
+        target, number = m.group(2), m.group(5)
+        if target in sections and number not in sections[target]:
+            problems.append(f"{name}: names {m.group(0)}, which {target} doesn't have (no '## {number}.' heading)")
+    for m in FILE_REF.finditer(flat):
+        rel, rest = m.group(1), m.group(2).strip()
+        path = os.path.join(runtime, rel)
+        if not os.path.isfile(path):
+            continue  # the path check reports a missing file
+        with open(path, encoding="utf-8") as f:
+            heads = [re.sub(r" *\(.*$", "", h).strip() for h in HEADINGS.findall(f.read())]
+        if not any(h and rest.startswith(h) for h in heads):
+            problems.append(f"{name}: names /opt/devshop-current/{rel} § {rest}, which has no such heading")
+    rest = FILE_REF.sub(" ", NAMED_REF.sub(" ", flat))
+    for m in OWN_REF.finditer(rest):
+        if m.group(1) not in sections[name]:
+            problems.append(f"{name}: names {m.group(0)}, which it doesn't have (no '## {m.group(1)}.' heading)")
+    return problems
+
+
+def read_rules(path, names):
+    """The rules file's (skill, why, text) entries, or raise ValueError naming the bad line."""
+    entries = []
+    with open(path, encoding="utf-8") as f:
+        for n, line in enumerate(f, 1):
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = [p.strip() for p in line.split(" | ")]
+            if len(parts) != 3 or not all(parts):
+                raise ValueError(f"rules {path}:{n}: want '<skill> | <why> | <text>'")
+            if parts[0] not in names:
+                raise ValueError(f"rules {path}:{n}: unknown skill '{parts[0]}'")
+            entries.append(tuple(parts))
+    return entries
 
 
 def check(path, name, runtime, names):
@@ -62,7 +119,14 @@ def skill_dirs(skills):
 
 
 def main(argv):
-    args, plugin = argv[1:], None
+    args, plugin, rules = argv[1:], None, None
+    if "--rules" in args:
+        k = args.index("--rules")
+        if k + 1 >= len(args):
+            print("skills-check: --rules needs a file", file=sys.stderr)
+            return 2
+        rules = args[k + 1]
+        del args[k:k + 2]
     if "--plugin-skills" in args:
         k = args.index("--plugin-skills")
         if k + 1 >= len(args):
@@ -89,6 +153,7 @@ def main(argv):
     problems, warnings, description_words = [], [], 0
     for name in sorted({n for n in every if every.count(n) > 1}):
         problems.append(f"{name}: a plugin skill shares its name with a runtime skill")
+    texts = {}
     for base, ns in sets:
         for name in ns:
             path = os.path.join(base, name, "SKILL.md")
@@ -99,6 +164,20 @@ def main(argv):
             problems += found
             warnings += warned
             description_words += words
+            with open(path, encoding="utf-8") as f:
+                texts[name] = f.read()
+    sections = {n: set(SECTION.findall(t)) for n, t in texts.items()}
+    for name, text in texts.items():
+        problems += references(name, text, runtime, sections)
+    if rules is not None:
+        try:
+            entries = read_rules(rules, set(every))
+        except (OSError, ValueError) as e:
+            print(f"skills-check: can't read the rules: {e}", file=sys.stderr)
+            return 2
+        for skill, why, text in entries:
+            if skill in texts and fold(text) not in fold(texts[skill]):
+                problems.append(f"{skill}: rule line ({why}) is gone: {text}")
     if description_words > MAX_DESCRIPTION_WORDS:
         problems.append(f"descriptions: {description_words} words, the always-loaded budget is {MAX_DESCRIPTION_WORDS}")
     for w in warnings:
