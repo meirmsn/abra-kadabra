@@ -14,8 +14,8 @@ before the PR and is kept here as [`workflow.yml`](workflow.yml).
 
 **What ran** (all in this directory):
 
-- [`TranscriptCore/`](TranscriptCore): a portable Swift package (the logic that gives each aligned
-  word the speaker whose turn overlaps it most), with 4 XCTest cases.
+- [`IntervalCore/`](IntervalCore): a portable Swift package (the logic that gives each timed item the
+  label of the span that overlaps it most), with 4 XCTest cases.
 - [`app/`](app): a hello-world SwiftUI app for macOS and iOS (XcodeGen `project.yml`) and one XCUITest
   that clicks a button, checks the label and attaches a screenshot. Signed ad hoc
   (`CODE_SIGN_IDENTITY=-`) on macOS, unsigned for the simulator.
@@ -35,7 +35,7 @@ before the PR and is kept here as [`workflow.yml`](workflow.yml).
 | Core ML, 500 predictions, ms           | cpuOnly 194, cpuAndGPU 193, cpuAndNeuralEngine 225, all 191     | 84, 53, 124, 78                               |
 | MLX 0.32.4, 20 × 2048² matmul fp32     | GPU 1.42 TFLOP/s; CPU 0.14–0.21                                 | GPU 1.19–1.37 TFLOP/s; CPU 0.43–0.54           |
 | macOS app: build + XCUITest            | **passed**, 55–70 s cold (one test 6.5 s)                       | not run                                       |
-| Screenshot from the test               | exported with `xcresulttool export attachments`: [the image](outputs/macos-uitest-after-click.jpg) | not run |
+| Screenshot from the test               | exported with `xcresulttool export attachments` and read back as an image: the app's window with the label after the click | not run |
 | `screencapture`, System Events         | worked (1024×768; the app's window listed)                      | not run                                       |
 | iOS Simulator: build + XCUITest        | **passed** (Xcode 16.4, iPhone 16 Pro): boot 53 s (first-boot data migration), build 2 min 23 s, test 51 s; screenshot attachment exported (not viewed here, see below)                                                        | not run                                       |
 
@@ -44,6 +44,11 @@ Linux (`ubuntu-24.04`): Swift 6.4.1, `swift test` 4 passed, 24 s cold.
 In this cloud session (Linux, the devshop's network policy): **could not run** portable Swift.
 `download.swift.org` is denied (403 from the proxy) and Docker Hub refused the `swift:6.2` image (429,
 the anonymous pull limit, as REVIEW-3 saw for Supabase's images).
+
+**Renamed after the runs (2026-11-04).** The package and the app's strings first used words that
+said what the first app does; both now use neutral names (`IntervalCore`, "Items found",
+"Count items") under the rule on other projects, with the logic and the tests unchanged. The macOS
+screenshot showed the old label and was removed. The workflow copy uses the new path.
 
 **Surprises.** The iOS screenshot was exported in the VM but could not be read back here: the
 spike carried images out in the job log (base64), and this session reads logs only through the

@@ -1,8 +1,9 @@
 # Native Apple apps with the host protected: a proposal
 
-> **Status:** proposal for the owner, 2026-10-30, **revised 2026-11-01** after the owner's answers in
+> **Status:** proposal for the owner, 2026-10-30, **revised 2026-11-01 and 2026-11-04** after the owner's answers in
 > chat: private repositories must work, and the agent should drive Xcode on the owner's own Mac with
-> strictly limited access to it. Nothing here is built; the decisions are § 10. It revisits TARGET's
+> strictly limited access to it; then a browser and credential audit of the devshop (2026-11-03) and
+> the rule on describing other projects. Nothing here is built; the decisions are § 10. It revisits TARGET's
 > Environments 7 (D-02, D-17: "Claude runs as a non-admin user on a dedicated Mac; a macOS VM only if
 > that proves insufficient") against a stricter goal the owner set on 2026-10-30: **the agents must
 > not be able to harm or read the computer they run on.** The spikes it rests on are in
@@ -18,7 +19,8 @@
   the copy is deleted afterwards. Nothing of Claude's runs on the Mac itself.
 - **Inside the box:** a git clone of the project, Xcode, the Simulator, a GitHub token that opens only
   that repository, Claude Code's Remote Control, and [agent-desktop](https://github.com/vercel-labs/agent-desktop)
-  (it reads and clicks apps through the accessibility tree). This cloud session attaches to the VM's
+  (it reads and clicks apps through the accessibility tree), all used by a standard user, not an
+  administrator. No web browser runs there. This cloud session attaches to the VM's
   project folder, with the owner approving the attach, and runs its commands there: builds, UI tests,
   screenshots it reads back, clicking through the running app, the debugger.
 - **The walls around the box:** no folder of the Mac's shared in (one read-only model folder at
@@ -77,8 +79,8 @@ mechanical steps are tested scripts with explicit arguments; every wall or proje
 with a known-bad test and killed mutants; a missing tool or unreadable output fails, never passes;
 proposals and evidence live in `kit/notes/revamp/`, decisions in `DECISIONS.md`.
 
-**What TARGET already says about Apple.** Native apps are in reach (Reach 8; iOS for lalista's voice
-input; the Apple stack is M4). Native PRs show simulator screenshots instead of a preview link (Ship
+**What TARGET already says about Apple.** Native apps are in reach (Reach 8; the pilot web app's iOS
+app is next; the Apple stack is M4). Native PRs show simulator screenshots instead of a preview link (Ship
 8). Changes accumulate on `main` until the owner cuts a version (Ship 8). The Mac was to be dedicated
 with Claude as a non-admin user (Environments 7). GitHub's hosted macOS runners were already named as
 the CI path.
@@ -93,7 +95,7 @@ stand in for any Virtualization-framework VM.
 
 | What                                                           | Result                                                                                                                                                                                                                                                    |
 | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Portable Swift package (the transcript-joining logic), Linux   | `swift test` passed, 4 tests, Swift 6.4.1 on `ubuntu-24.04`, 24 s cold                                                                                                                                                                                    |
+| Portable Swift package (interval-labelling logic), Linux       | `swift test` passed, 4 tests, Swift 6.4.1 on `ubuntu-24.04`, 24 s cold                                                                                                                                                                                    |
 | Same, in this cloud session                                    | **Could not run:** `download.swift.org` is denied by the network policy (403) and Docker Hub refused the `swift` image (429, anonymous pull limit)                                                                                                        |
 | Same package, macOS VM                                         | Passed on macOS 15 and macOS 26.6.2 (Xcode 26.6), 33–42 s cold                                                                                                                                                                                            |
 | SwiftUI macOS app, ad-hoc signed, one XCUITest with screenshot | **Passed** in 55–70 s (build + test, cold): the app launched, the test clicked the button, read the label, attached a screenshot; `xcresulttool` exported it and the agent read it                                                                        |
@@ -130,6 +132,16 @@ project folder recoverable, nothing else. And a push from the owner's account is
 approval wall disappears. **The same three controls inside the VM are G.** F is a stopgap for
 headless work only.
 
+**Also looked at: terminal-mac** (open source, MIT, 2026-11-03). It runs a macOS VM on Apple's
+framework and lets an agent see and click its desktop through screenshots, with a terminal viewer for
+the owner. It doesn't fit as the main road. The agent runs on the host and drives the guest through an
+MCP server there, which is the setup this proposal avoids. It has no shell or Xcode in the guest, and
+no clone or reset. Its default network reaches the local network, as its own security section says.
+It calls itself an early release candidate, with live testing in a guest still pending. Ideas worth
+taking: its helper refuses to run unless the machine is a VM (`hw.model` starting `VirtualMac`), which
+the in-VM tools can copy; and watching the VM from the owner's terminal. Revisit if it gains
+accessibility snapshots, clone or reset, and network isolation.
+
 ## 4. Recommended architecture
 
 ```text
@@ -159,8 +171,22 @@ headless work only.
   `--net-softnet --no-clipboard` and no shares but the model folder; `kill-all` stops and deletes every
   task VM. A watchdog deletes a VM older than its time limit. The owner runs it; nothing in the VM can.
 - **The base image**, built on purpose by a script the owner runs (Packer, Tart's plugin): a Cirrus
-  Xcode image pinned by digest, plus Claude Code, agent-desktop, XcodeGen, the devshop's pinned tools
-  and Accessibility granted to agent-desktop inside the guest. Agents never change it.
+  Xcode image pinned by digest, plus Claude Code, agent-desktop, XcodeGen and the devshop's pinned
+  tools. Agents never change it. Inside it, the agent is **not an administrator**: Cirrus' images log
+  in as `admin` with sudo and a published password, so the recipe gives that account a new password
+  the agent never sees and logs in as a standard `agent` user instead. Accessibility and the UI
+  tests' permissions are granted to `agent`, and Claude Code's sandbox is switched on by a managed
+  settings file `agent` can't edit. That file also denies gstack's skills that read a real browser
+  profile (cookie import, connecting to Chrome, scraping): the VM has no real profile, but the
+  devshop's install brings those skills along. These layers protect the two credentials the VM
+  holds; the VM boundary stays the wall for the Mac.
+- **No web browser in the VM.** A browser renders whatever it's pointed at, and a browser audit of the
+  devshop (2026-11-03) found every one the devshop starts today runs as root with Chromium's sandbox
+  off. The VM runs Apple tooling only. The reviewer's browser, the render check and gstack's web
+  design review stay in the session's cloud container. Any browser that does run in the VM runs as
+  `agent` with its sandbox on and without the VM's tokens in its environment.
+- **Rebuilt on purpose, and kept current:** on each Xcode bump, and when Apple or Chrome ship security
+  fixes, so the image's own browser and system don't sit unpatched.
 - **The egress proxy** in a Linux container on the Mac (Apple's `container`, which runs each container
   in its own light VM), with the domain allowlist; softnet lets the VM reach only that proxy.
 - **In the repo:** a stack home `runtime/stacks/apple/` (`detect`: `Package.swift`, `*.xcodeproj`,
@@ -170,8 +196,8 @@ headless work only.
 
 **Tiers, on the existing two-tier contract:**
 
-- **`fast` (Linux, every push):** the portable Swift packages (`swift test`): chunking, joining speaker
-  turns with words, transcript formats. Plus the usual secret scan, spec check, contract check, lint.
+- **`fast` (Linux, every push):** the portable Swift packages (`swift test`): chunking long inputs, joining
+  the models' results, output formats. Plus the usual secret scan, spec check, contract check, lint.
 - **`slow` (hosted macOS VM, every push):** `xcodebuild` build and tests, XCUITest screens with
   screenshots, the CLI on short fixtures. A few minutes, so cents per push on a private repo, with an
   Actions spending limit as the cap. It needs the CI template to let a stack choose `runs-on` (§ 9).
@@ -196,6 +222,7 @@ a different Mac than the VMs (§ 10, item 3).
 | **Persistence**      | A fresh clone per task, deleted after; the watchdog deletes any VM past its limit; the base image changes only when the owner rebuilds it.                                                                                                                                                                                                                                               | The VM is discarded after the job; caches are per branch and model files hash-checked after restore.                                                                                                |
 | **Resources**        | CPU and memory set per VM, disk fixed, at most 2 VMs (licence), the task's time limit, and `apple-vm.sh kill-all`.                                                                                                                                                                                                                                                                       | `timeout-minutes`; cancelling the run; the Actions spending limit.                                                                                                                                  |
 | **The code itself**  | Runs only in the VM. The app keeps the App Sandbox on, so a build the owner later installs is confined too.                                                                                                                                                                                                                                                                              | Runs only in the job's VM; reaches the owner as a notarized build from `release`.                                                                                                                   |
+| **Browsers**         | None for web work: that stays in the cloud container. Any that runs runs as `agent`, sandbox on, without the VM's tokens in its environment.                                                                                                                                                                                                                                             | Only the project's own app is loaded in `slow`.                                                                                                                                                     |
 | **Supply chain**     | `Package.resolved` committed with exact versions; `models.lock` (repository, revision, file, sha256) checked by a tested fetch script; the base image pinned by digest; the proxy's allowlist.                                                                                                                                                                                           | Same lock files; the runner image and Xcode pinned.                                                                                                                                                 |
 | **Physical iPhones** | **Postponed.** TestFlight from `release` to the owner's phone: no USB, no host. macOS 27 adds USB passthrough to VMs, a later option for a dedicated test phone.                                                                                                                                                                                                                         | Same.                                                                                                                                                                                               |
 
@@ -229,63 +256,66 @@ rule.
 the reviewer a screens lens changes how it reviews, so that change carries the reviewer eval.
 
 **Open:** how the devshop's own tooling (`ship.sh`, the reviewer, the hooks) runs when the session's
-commands run in the VM: from the base image's install, or by pushing from the VM and shipping from
-the session's container. Phase 2 settles it (§ 9).
+commands run in the VM. The reviewer's browser step can't run there (no web browser in the VM), which
+points to pushing from the VM and shipping from the session's container. Whether a session attached
+to a folder can still run commands in its own container is unconfirmed. Phase 2 settles it (§ 9).
 
-## 7. The first project, checked against the design
+## 7. The first app, checked against the design
 
-The meeting transcriber: Swift/SwiftUI on macOS; diarization with pyannote Community-1 through
-FluidAudio on Core ML (Neural Engine); transcription with Qwen3-ASR-1.7B on MLX (GPU); word timestamps
-with Qwen3-ForcedAligner; 30–150 minute recordings; target a MacBook Air M4; CLI first, then a GUI.
+The first Apple app, described by the stack the devshop needs to know: a macOS app in
+Swift/SwiftUI, built as a command-line engine first and a GUI after. It runs open-source models on
+the device: a Core ML pipeline meant for the Neural Engine, through an open-source Swift package, and
+a 1.7-billion-parameter model on MLX meant for the GPU, with a second, smaller MLX model after it.
+That's about 3–5 GB of weights. Its inputs run up to 150 minutes, and the second model takes at most
+5 minutes per call, so inputs are cut into chunks. The target machine is a MacBook Air M4.
 
-- **Can an agent build and run the CLI on a test recording in the VM and read the transcript?** Yes
-  by construction: the spike built and ran Swift in a VM and ran MLX on its GPU; in the VM on the Mac
-  the agent reads the output file directly.
-  The full pipeline is phase 3's acceptance item, on a 2–5 minute fixture.
+- **Can an agent build and run the engine on a test input in the VM and read its output?** Yes by
+  construction: the spike built and ran Swift in a VM and ran MLX on its GPU, and in the VM on the
+  Mac the agent reads the output file directly. The full pipeline is phase 3's acceptance item, on a
+  2–5 minute fixture.
 - **Do Core ML and MLX run in a VM?** MLX: yes, on the paravirtual GPU (spike). The VM's Metal reports
   only the `mac2` family, so an MLX kernel that needs a newer feature could fail there; phase 3 finds
   out on the real model. Core ML: runs, but the VM has **no Neural Engine** (the spike asked Core ML
-  for its devices: CPU and the paravirtual GPU only), so FluidAudio's models fall back to GPU or CPU
-  without an error: right for **correctness** (diarization error and word error rate against references, with a tolerance, since
-  fp16 on the Neural Engine and on the GPU can differ slightly), wrong for **speed**.
+  for its devices: CPU and the paravirtual GPU only), so the Core ML pipeline falls back to GPU or CPU
+  without an error. That's right for **correctness** (error rates against reference outputs, with a
+  tolerance, since fp16 on the Neural Engine and on the GPU can differ slightly) and wrong for
+  **speed**.
 - **Fallback for accuracy and performance.** Accuracy runs in the VM and in `slow` on short fixtures.
-  Performance and long recordings (30–150 min) run on real hardware from a reviewed build: a
-  `benchmark` command in the CLI (real-time factor per stage, peak memory, compute units used via
-  `MLComputePlan`, thermal state over the run) that the owner runs on the Air M4 (§ 10, item 6), or that a
-  rented bare-metal M4 runs if automated tracking is ever wanted. The Air is fanless: a Mac mini's numbers
-  over 150 minutes would flatter it.
+  Performance and long inputs (30–150 min) run on real hardware from a signed build: a `benchmark`
+  command in the engine (real-time factor per stage, peak memory, compute units used via
+  `MLComputePlan`, thermal state over the run) that the owner runs on the Air M4 (§ 10, item 6), or
+  that a rented bare-metal M4 runs if automated tracking is ever wanted. The Air is fanless: a Mac
+  mini's numbers over 150 minutes would flatter it.
 - **Memory in the VM.** GitHub's runner has 7 GB and about 4.8 GB of GPU working set; the VM on the
-  Air would get about 8 GB (§ 9, item 4). Qwen3-ASR-
-  1.7B at 8 bit (about 2–2.7 GB resident, reported) fits; bf16 (about 4–5 GB) is marginal: CI uses
-  quantized weights, and the product's choice is measured on the Air.
+  Air would get about 8 GB (§ 9, item 4). The 1.7B model at 8 bit (about 2–2.7 GB resident, reported)
+  fits; at bf16 (about 4–5 GB) it is marginal. CI uses quantized weights, and the product's choice is
+  measured on the Air.
 - **Testing the GUI.** XCUITest screens with screenshots and accessibility trees (proven on a hello
-  app), driven against a short fixture so the flow (open a recording, progress, the labelled
-  transcript, export) runs in seconds.
+  app), and agent-desktop for exploring, driven against a short fixture so the core flow runs in
+  seconds.
 - **Where 3–5 GB of models live.** On the Mac: one models folder outside any home folder, filled by
   `fetch-models.sh` from `models.lock` with hashes checked, shared into each VM **read-only**, so no
   task downloads them. In CI: `actions/cache` keyed on `models.lock`'s hash, hash-checked after every
   restore. Tests read models from a `MODELS_DIR` and never download. The app itself downloads models
   on first launch for users, which is product scope, not CI.
-- **Licences to respect:** FluidAudio Apache-2.0; pyannote Community-1 weights CC-BY-4.0 (attribution;
-  gated on Hugging Face, though FluidAudio publishes its own Core ML conversion, ungated status
-  _unconfirmed_); Qwen3-ASR and the aligner Apache-2.0; MLX MIT. The aligner takes at most 5 minutes
-  of audio per call, so long recordings are chunked along the diarization's segments; that chunking is
-  portable logic for the `fast` tier.
+- **Licences to respect:** the Swift package and the MLX models are Apache-2.0 and MLX is MIT; one
+  set of Core ML weights is CC-BY-4.0, so the app carries an attribution, and whether its upstream
+  download is gated is _unconfirmed_. The chunking is portable logic for the `fast` tier.
 
 ## 8. Rollout
 
 Effort in agent-days, as PLAN.md counts it; owner steps named.
 
-| Phase                                  | What                                                                                                                                                                                                                                                                         | Done when                                                                                                                                                                                                               | Effort                                    |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| **0. Proposal and spikes**             | This document and its spikes                                                                                                                                                                                                                                                 | The owner's decisions in § 10, recorded as a D-row                                                                                                                                                                      | done                                      |
-| **1. The test on the Air**             | [The checklist](spikes/m4-apple-vm/air-test.md): Tart, an Xcode image, the walls, the spike's app built and UI-tested in the VM, agent-desktop clicking it, the Air's memory; optionally Remote Control                                                                      | The owner's filled-in results; the record updated from them                                                                                                                                                             | owner, ~1 hour                            |
-| **2. The VM lane on the Mac**          | `apple-vm.sh` with known-bad tests; the base image recipe; the egress proxy; the Remote Control attach; how `ship.sh` and the reviewer run from a VM session; attack scenarios                                                                                               | From inside a VM each attack fails: read a host path, reach the Mac or the LAN, reach a host off the allowlist, survive into the next task, change the base image, exceed CPU or memory. A session ships a PR from a VM | 5–7 + owner: half a day on the Mac        |
-| **3. The engine** (smallest useful)    | The Apple stack home; the CI template's macOS `slow`; `models.lock` and `fetch-models.sh`; in the transcriber's private repo: a portable core package (`fast` on Linux) and the CLI running FluidAudio diarization and Qwen3-ASR (MLX) on a 2–5 minute fixture inside the VM | A PR shows `fast` and `slow` green with the fixture's transcript and error rates in its evidence                                                                                                                        | 4–6 + owner: the repo, the spending limit |
-| **4. The GUI**                         | SwiftUI app around the engine; the screens test; screenshots on the PR; agent-desktop exploration in build; the native part of `ui.md`; the reviewer's screens lens (with its eval)                                                                                          | A UI change's PR carries screenshots per step and state, and the reviewer judges them                                                                                                                                   | 3–4                                       |
-| **5. Performance**                     | A `benchmark` command; long fixtures; the owner's run on the Air from a signed build                                                                                                                                                                                         | One recorded benchmark of a 60+ minute recording: real-time factor, peak memory and compute units per stage                                                                                                             | 2                                         |
-| **6. Signing and release**             | Apple Developer Program; Developer ID certificate and App Store Connect key in a `release` environment; `release.yml` (archive, sign, notarize, staple); TestFlight for iOS                                                                                                  | The owner presses release and installs a notarized build Gatekeeper accepts; a branch's copy of the workflow can't read the secrets (attack scenario)                                                                   | 2–3 + owner: enrolment, certificates      |
-| **7. iOS** (lalista's voice input, M4) | The same VM with simulator destinations; TestFlight to the owner's phone; devices deferred                                                                                                                                                                                   | As phase 4, on iOS                                                                                                                                                                                                      | 2–3 on top                                |
+| Phase                                        | What                                                                                                                                                                                                                                                                       | Done when                                                                                                                                                                                                                                                                                                                                                                       | Effort                                    |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| **0. Proposal and spikes**                   | This document and its spikes                                                                                                                                                                                                                                               | The owner's decisions in § 10, recorded as a D-row                                                                                                                                                                                                                                                                                                                              | done                                      |
+| **1. The test on the Air**                   | [The checklist](spikes/m4-apple-vm/air-test.md): Tart, an Xcode image, the walls, the spike's app built and UI-tested in the VM, agent-desktop clicking it, the Air's memory; optionally Remote Control                                                                    | The owner's filled-in results; the record updated from them                                                                                                                                                                                                                                                                                                                     | owner, ~1 hour                            |
+| **2. The VM lane on the Mac**                | `apple-vm.sh` with known-bad tests; the base image recipe; the egress proxy; the Remote Control attach; how `ship.sh` and the reviewer run from a VM session; attack scenarios                                                                                             | From inside a VM each attack fails: read a host path, reach the Mac or the LAN, reach a host off the allowlist, survive into the next task, change the base image, exceed CPU or memory, use sudo as `agent`, find a signing identity (`security find-identity -v`) or a `.p12` or `.mobileprovision` file, start a browser with `--no-sandbox`. A session ships a PR from a VM | 5–7 + owner: half a day on the Mac        |
+| **3. The engine** (smallest useful)          | The Apple stack home; the CI template's macOS `slow`; `models.lock` and `fetch-models.sh`; in the first app's private repo: a portable core package (`fast` on Linux) and the engine running its Core ML pipeline and its MLX models on a 2–5 minute fixture inside the VM | A PR shows `fast` and `slow` green with the fixture's output and error rates in its evidence                                                                                                                                                                                                                                                                                    | 4–6 + owner: the repo, the spending limit |
+| **4. The GUI**                               | SwiftUI app around the engine; the screens test; screenshots on the PR; agent-desktop exploration in build; the native part of `ui.md`; the reviewer's screens lens (with its eval)                                                                                        | A UI change's PR carries screenshots per step and state, and the reviewer judges them                                                                                                                                                                                                                                                                                           | 3–4                                       |
+| **5. Performance**                           | A `benchmark` command; long fixtures; the owner's run on the Air from a signed build                                                                                                                                                                                       | One recorded benchmark on a 60+ minute input: real-time factor, peak memory and compute units per stage                                                                                                                                                                                                                                                                         | 2                                         |
+| **6. Signing and release**                   | Apple Developer Program; Developer ID certificate and App Store Connect key in a `release` environment; `release.yml` (archive, sign, notarize, staple); TestFlight for iOS                                                                                                | The owner presses release and installs a notarized build Gatekeeper accepts; a branch's copy of the workflow can't read the secrets (attack scenario)                                                                                                                                                                                                                           | 2–3 + owner: enrolment, certificates      |
+| **7. iOS** (the pilot web app's iOS app, M4) | The same VM with simulator destinations; TestFlight to the owner's phone; devices deferred                                                                                                                                                                                 | As phase 4, on iOS                                                                                                                                                                                                                                                                                                                                                              | 2–3 on top                                |
 
 ## 9. Open questions and risks
 
@@ -293,56 +323,59 @@ Effort in agent-days, as PLAN.md counts it; owner steps named.
    so the VM holds one. Code in the VM could read it. The proxy narrows where it could go, and the
    owner signs the device out after a run of tasks; how long such a login lives, and how quickly
    signing out cuts it, is _unconfirmed_. Phase 2 measures it.
-2. **The devshop's tooling in a VM session:** whether `ship.sh`, the reviewer and the hooks run inside
-   the VM (installed in the base image) or the session pushes from the VM and ships from its own
-   container is unsettled; so is how a session attached to a folder splits work between the two.
+2. **The devshop's tooling in a VM session:** the reviewer's browser keeps it out of the VM, so the
+   lean is to push from the VM and ship from the session's container; how a session attached to a
+   folder splits work between the two is unconfirmed.
 3. **Remote Control's own limits** (its docs and this session's tools): the folder must be a git
    repository's root, not in a hidden directory; the folder must be trusted once interactively; the
    server exits after about 10 minutes without network; a session stays tied to the first computer it
    attaches to; the owner approves every attach.
 4. **Memory on the Air.** A VM of 8 GB on a 16 GB Air leaves about 8 GB for macOS and the owner's
-   apps. A hello-world UI test fit in GitHub's 7 GB VM; the transcriber adds 2–2.7 GB for the speech
-   model at 8 bit, plus the aligner and Xcode. Phase 1 measures it; a 24 or 32 GB Air, or a Mac mini,
+   apps. A hello-world UI test fit in GitHub's 7 GB VM; the first app adds 2–2.7 GB for its 1.7B
+   model at 8 bit, plus the second model and Xcode. Phase 1 measures it; a 24 or 32 GB Air, or a Mac mini,
    is comfortable.
-5. **agent-desktop on Xcode and SwiftUI apps is untested;** its macOS "shell surfaces" are listed as
+5. **Permissions for a standard user:** Cirrus' scripts pre-grant Accessibility and screen recording
+   to their `admin` account; granting them to `agent` instead (and the UI tests' automation mode
+   without an administrator) is untested. Phase 2's base image proves it.
+6. **agent-desktop on Xcode and SwiftUI apps is untested;** its macOS "shell surfaces" are listed as
    planned. Its optional helper that sends screen descriptions to a model provider stays off.
-6. **No Neural Engine in a VM:** seen in GitHub's VMs (Core ML lists CPU and GPU only); no Apple
+7. **No Neural Engine in a VM:** seen in GitHub's VMs (Core ML lists CPU and GPU only); no Apple
    document says so either way. Performance work needs real hardware regardless, and the CLI logs the
    compute units it got, so a silent fallback shows.
-7. **The VM's GPU is a paravirtual device at a low feature level** (`mac2` only in the spike). MLX ran;
+8. **The VM's GPU is a paravirtual device at a low feature level** (`mac2` only in the spike). MLX ran;
    a model whose kernels need newer families may not. Phase 3 finds out on the real models.
-8. **Licence:** the "two additional instances per Mac" clause is quoted from secondary sources; the
+9. **Licence:** the "two additional instances per Mac" clause is quoted from secondary sources; the
    current licence text was not readable from here. It caps the Mac at two VMs at once.
-9. **Tart's owner changed:** OpenAI has maintained Tart since 2026-06-05 under FSL-1.1-ALv2 (free for
-   anything but a competing product; each version Apache-2.0 after two years). Lume (MIT) is the
-   fallback, on the same framework, without Tart's network isolation.
-10. **A VM can't run a newer macOS than its host,** so the base image follows the Air's macOS.
-11. **The CI template assumes Linux:** every job in `runtime/templates/ci.yml` says
+10. **Tart's owner changed:** OpenAI has maintained Tart since 2026-06-05 under FSL-1.1-ALv2 (free for
+    anything but a competing product; each version Apache-2.0 after two years). Lume (MIT) is the
+    fallback, on the same framework, without Tart's network isolation.
+11. **A VM can't run a newer macOS than its host,** so the base image follows the Air's macOS.
+12. **The CI template assumes Linux:** every job in `runtime/templates/ci.yml` says
     `runs-on: ubuntu-24.04`; a macOS `slow` needs a runner label the stack chooses
     (`ci-tiers-check.py` doesn't read `runs-on`).
-12. **From this cloud session:** a Swift toolchain can't be fetched (`download.swift.org` denied,
+13. **From this cloud session:** a Swift toolchain can't be fetched (`download.swift.org` denied,
     Docker Hub rate-limited), and GitHub's artifact storage host is denied (403), so CI artifacts are
     read from job logs unless the project's environment allows that host. The VM lane doesn't need it.
-13. **Model hosts:** Hugging Face was not reachable from this session's research; the proxy's
-    allowlist and the project's environment need its download hosts, and whether FluidAudio's Core ML
-    diarization weights are gated is _unconfirmed_.
-14. **Prices** for Xcode Cloud, EC2 Mac, Scaleway, MacStadium and the Mac mini were read from search
+14. **Model hosts:** Hugging Face was not reachable from this session's research; the proxy's
+    allowlist and the project's environment need its download hosts, and whether the Core ML weights'
+    upstream download is gated is _unconfirmed_.
+15. **Prices** for Xcode Cloud, EC2 Mac, Scaleway, MacStadium and the Mac mini were read from search
     results of the vendors' pages, not the pages themselves.
 
 ## 10. Decisions for the owner
 
-| #   | Decision                                                                                                   | Recommendation                                                                                                                                                                                                                               |
-| --- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Replace TARGET Environments 7 ("Claude as a non-admin user on a dedicated Mac; a VM only if insufficient") | **Yes:** "the agent never runs on a Mac host; it works inside a throwaway macOS VM on the owner's Mac; real hardware only for signed builds" (a D-20 row)                                                                                    |
-| 2   | Run the one-hour test on the Air                                                                           | **Yes, first:** it answers memory, agent-desktop and the walls before any build                                                                                                                                                              |
-| 3   | Which Mac hosts the VMs                                                                                    | **The Air to start,** if the test's memory pressure stays green or yellow. A Mac mini when the VMs should run unattended, or if memory pressure goes red; it also keeps the owner's data off the machine the VMs run on                      |
-| 4   | Required macOS CI for private repos                                                                        | **A hosted macOS runner for `slow`, once per push, with an Actions spending limit.** The alternative, a one-job runner in a VM on the Mac, is free but makes CI depend on the Mac being on                                                   |
-| 5   | A claude.ai login inside the VM (Remote Control needs one)                                                 | **Accept it,** with the proxy's allowlist and a sign-out after each run of tasks; revisit if a scoped login appears                                                                                                                          |
-| 6   | Where performance and Neural Engine benchmarks run                                                         | **The Air,** from a signed build, one command                                                                                                                                                                                                |
-| 7   | Signing pipeline                                                                                           | **A `release` environment on GitHub,** limited to `main`, started by the owner (the devshop's release-button pattern); Xcode Cloud for iOS TestFlight is the alternative that keeps keys at Apple                                            |
-| 8   | Physical iPhone testing                                                                                    | **Postpone;** TestFlight to the owner's phone covers manual checks                                                                                                                                                                           |
-| 9   | Models for CI and the product                                                                              | Quantized Qwen3-ASR (8 bit) in the VM and CI; the product's precision chosen from the Air's benchmark. Keep Parakeet (FluidAudio, Core ML) as a measured alternative                                                                         |
-| 10  | Order on the roadmap                                                                                       | **Phase 1 now** (the owner's hour); phases 2–3 next to M3, since they live on the Mac and in the transcriber's own repo; only the devshop pieces (the Apple home, the CI template's runner label) queue behind lalista's adoption (W10.11.6) |
+| #   | Decision                                                                                                   | Recommendation                                                                                                                                                                                                                                       |
+| --- | ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Replace TARGET Environments 7 ("Claude as a non-admin user on a dedicated Mac; a VM only if insufficient") | **Yes:** "the agent never runs on a Mac host; it works inside a throwaway macOS VM on the owner's Mac; real hardware only for signed builds" (a D-20 row)                                                                                            |
+| 2   | Run the one-hour test on the Air                                                                           | **Yes, first:** it answers memory, agent-desktop and the walls before any build                                                                                                                                                                      |
+| 3   | Which Mac hosts the VMs                                                                                    | **The Air to start,** if the test's memory pressure stays green or yellow. A Mac mini when the VMs should run unattended, or if memory pressure goes red; it also keeps the owner's data off the machine the VMs run on                              |
+| 4   | Required macOS CI for private repos                                                                        | **A hosted macOS runner for `slow`, once per push, with an Actions spending limit.** The alternative, a one-job runner in a VM on the Mac, is free but makes CI depend on the Mac being on                                                           |
+| 5   | A claude.ai login inside the VM (Remote Control needs one)                                                 | **Accept it,** with the proxy's allowlist and a sign-out after each run of tasks; revisit if a scoped login appears                                                                                                                                  |
+| 6   | Where performance and Neural Engine benchmarks run                                                         | **The Air,** from a signed build, one command                                                                                                                                                                                                        |
+| 7   | Signing pipeline                                                                                           | **A `release` environment on GitHub,** limited to `main`, started by the owner (the devshop's release-button pattern); Xcode Cloud for iOS TestFlight is the alternative that keeps keys at Apple                                                    |
+| 8   | Physical iPhone testing                                                                                    | **Postpone;** TestFlight to the owner's phone covers manual checks                                                                                                                                                                                   |
+| 9   | Models for CI and the product                                                                              | The 1.7B model quantized to 8 bit in the VM and CI; the product's precision chosen from the Air's benchmark. Keep a Core ML alternative to the MLX model as a measured option                                                                        |
+| 10  | Order on the roadmap                                                                                       | **Phase 1 now** (the owner's hour); phases 2–3 next to M3, since they live on the Mac and in the first app's own repo; only the devshop pieces (the Apple home, the CI template's runner label) queue behind the pilot web app's adoption (W10.11.6) |
 
 ## Sources
 
@@ -374,7 +407,4 @@ Read on 2026-10-30. First-party pages where reachable; otherwise the vendor page
   [self-hosted environments](https://code.claude.com/docs/en/self-hosted-environments),
   [sandboxing](https://code.claude.com/docs/en/sandboxing),
   [desktop iOS Simulator](https://code.claude.com/docs/en/desktop-ios-simulator).
-- Models: [FluidAudio](https://github.com/FluidInference/FluidAudio),
-  [pyannote Community-1](https://huggingface.co/pyannote/speaker-diarization-community-1),
-  [Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR), [mlx-audio-swift](https://github.com/Blaizzy/mlx-audio-swift),
-  [MLX](https://github.com/ml-explore/mlx).
+- [MLX](https://github.com/ml-explore/mlx); the first app's model and package pages were read the same day and are not listed here (the rule on other projects).

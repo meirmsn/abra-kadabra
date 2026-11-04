@@ -16,6 +16,7 @@ as described and note what you used.
   and the macOS version.
 - **Free disk:** the Xcode image is tens of GB (_check_ its size on the package page below), and the
   test needs about as much again for builds. Have at least 100 GB free (an estimate).
+- **Homebrew** on the Mac: `brew --version`. If it isn't found, install it from brew.sh first.
 - **Close heavy apps** so the memory readings mean something.
 
 ## 1. Install Tart and get an Xcode image (20–40 min, mostly download)
@@ -69,10 +70,10 @@ Each line says what should happen. Write down what did.
 2. `agent-desktop permissions --guide` and grant Accessibility as it says (inside the VM only).
 3. Start the app built in step 4:
    `open "$(find ~/Library/Developer/Xcode/DerivedData -name HelloMac.app -type d | head -1)"`
-4. `agent-desktop snapshot --app HelloMac -i`: in the JSON, find the button "Find speakers" and its
+4. `agent-desktop snapshot --app HelloMac -i`: in the JSON, find the button "Count items" and its
    ref (looks like `@s…:e…`).
 5. `agent-desktop click <that ref>`, then the snapshot again: the label should read
-   "Speakers found: 2".
+   "Items found: 2".
 
 ## 6. Optional: let the cloud session in (10 min)
 

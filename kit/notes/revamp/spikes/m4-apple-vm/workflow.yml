@@ -26,7 +26,7 @@ jobs:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with: { persist-credentials: false }
       - name: Portable Swift builds and tests on Linux
-        working-directory: kit/notes/revamp/spikes/m4-apple-vm/TranscriptCore
+        working-directory: kit/notes/revamp/spikes/m4-apple-vm/IntervalCore
         run: |
           swift --version
           time swift test 2>&1 | tail -20
@@ -49,7 +49,7 @@ jobs:
           system_profiler SPHardwareDataType SPDisplaysDataType | sed 's/Serial.*//; s/UUID.*//'
           xcodebuild -version
       - name: Portable Swift on macOS
-        working-directory: kit/notes/revamp/spikes/m4-apple-vm/TranscriptCore
+        working-directory: kit/notes/revamp/spikes/m4-apple-vm/IntervalCore
         run: swift test 2>&1 | tail -8
       - name: Metal
         run: swift probes/metal.swift

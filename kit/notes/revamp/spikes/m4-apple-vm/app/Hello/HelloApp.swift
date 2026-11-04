@@ -12,10 +12,10 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Text("Speakers found: \(count)")
+            Text("Items found: \(count)")
                 .font(.title)
                 .accessibilityIdentifier("countLabel")
-            Button("Find speakers") { count += 2 }
+            Button("Count items") { count += 2 }
                 .accessibilityIdentifier("findButton")
         }
         .padding(40)

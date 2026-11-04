@@ -15,7 +15,7 @@ final class HelloUITests: XCTestCase {
         #endif
         let text = label.label + " " + ((label.value as? String) ?? "")
         print("UITEST: label after click: \(text)")
-        XCTAssertTrue(text.contains("Speakers found: 2"), "label was: \(text)")
+        XCTAssertTrue(text.contains("Items found: 2"), "label was: \(text)")
         let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         shot.name = "after-click"
         shot.lifetime = .keepAlways

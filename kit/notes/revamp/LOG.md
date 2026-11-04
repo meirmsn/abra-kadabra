@@ -3349,3 +3349,16 @@ one-hour checklist for the Air is in the spike.
 npm.
 
 **Next**: the owner's test on the Air, then § 10's decisions.
+
+## #102 — 2026-11-04 · The Apple proposal after the audit and the naming rule
+
+**What moved**: `main` merged in. Its rule on other projects meant rewording the proposal: the first
+Apple app is now described by its stack, and the spike's sample code uses neutral names (the
+screenshot with the old label was removed). From the browser and credential audit of 2026-11-03: the
+agent is a standard user inside the VM, Claude Code's sandbox is set by a managed file, gstack's
+real-profile skills are denied, no web browser runs in the VM, and the attack tests add sudo, signing
+identities and unsandboxed browsers. terminal-mac was looked at and not adopted (agent on the host).
+
+**Surprises**: none.
+
+**Next**: the owner's test on the Air, then § 10's decisions.
