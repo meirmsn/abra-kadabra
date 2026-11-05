@@ -14,7 +14,9 @@ Workers through the OpenNext adapter has a wrangler config too, so the
 
 What a React page here is built from, for the [design](../../guidelines/design.md) and
 [UI](../../guidelines/ui.md) guidelines ([spec](../../../specs/react-home-ui-defaults.md); what it
-rests on: the [spike](../../../kit/notes/revamp/spikes/react-home/README.md)). The project's own
+rests on: the [spike](../../../kit/notes/revamp/spikes/react-home/README.md); proven by
+[`tests/nextjs-home.test.sh`](../../../tests/nextjs-home.test.sh) and, on a real app that is built and
+render-checked, [`tests/nextjs-home-app.test.sh`](../../../tests/nextjs-home-app.test.sh)). The project's own
 `DESIGN.md` and rules win on conflict; say so in the PR.
 
 **The versions are the project's.** Tailwind v4 is the styling layer and shadcn/ui the components.

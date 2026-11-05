@@ -206,7 +206,20 @@ tokens. Every "spike:" below points at a row there.
   `shadcn-add.mjs` against synthetic component sources in a local directory with a stub `npm`. The
   PR's Evidence records each new rule's mutant and the case that killed it, and a re-run of the
   spike's build and render check with the final `globals.css` (Claude's proposal, 2026-11-02;
-  scaled down: owner, "Go with all 10.", 2026-11-04)
+  scaled down: owner, "Go with all 10.", 2026-11-04). Changed after the go: the owner asked for a way
+  to test this "to prevent that we go to a project, we break the project ... for something obvious",
+  then, of the permanent end-to-end test and its adversarial review, "if yes, do it" (2026-11-05).
+  So the PR's one-off real-app run becomes `tests/nextjs-home-app.test.sh`, slow tier: a synthetic
+  Next.js app committed at `tests/fixtures/nextjs-home-app/` with every dependency locked
+  (`package-lock.json`, `npm ci`), so no upstream release can turn the devshop's CI red; `place.sh`;
+  `shadcn-add.mjs` fetching a button and a dialog from the real release tag, installing nothing;
+  `ui-tokens.sh` and `design-md-check.mjs`; `next build`; `next start` on a free local port; the
+  render check at every width in both themes, with the devshop's own pinned Playwright. A failed
+  `npm ci` or fetch fails it as "can't run", never a pass. It runs in the devshop's slow tier only;
+  projects never run it. The fast test gains a stub `curl` for the HTTP branch (F-NEW-144, deleted
+  as fixed) and holds the app's versions equal to the ones the home's README names. Rejected: an
+  existing-app run in the slow test (the fast test's `place.sh` cases already prove it); unlocked
+  installs (an upstream release would redden unrelated devshop PRs)
 - **Not here:** the pilot web app's repo; a forked `check-fast.sh`, a `check-slow.sh` template,
   `components.json`, `.npmrc` and `supplies` (cut by the go); the reviewer's prompt; a wall on design
   findings; changes to the three checks; a CSS-in-JS check; F-NEW-81, 82 and 90 into `ui.md`
@@ -262,8 +275,20 @@ tokens. Every "spike:" below points at a row there.
   final `globals.css` — verified by review: the Evidence section and CI on the PR's head
 - **AC-9** `kit/notes/revamp/LOG.md` has an entry; W10.8.3 and W10.11.7 carry dated notes;
   `FINDINGS.md` has the two `low` rows Decisions names (silent Tailwind classes and the shorthand;
-  the upgrade not showing a home's file) and, changed after the go, a third, F-NEW-144: the
-  script's HTTP branch is untested (owner, "Yes.", 2026-11-04) — verified by review: the diff
+  the upgrade not showing a home's file); the third, F-NEW-144 (the script's HTTP branch untested;
+  owner, "Yes.", 2026-11-04), is deleted as fixed by AC-10 (owner, "if yes, do it", 2026-11-05) —
+  verified by review: the diff
+- **AC-10** With a stub `curl` and no `SHADCN_SOURCE`, `shadcn-add.mjs` fetches
+  `https://raw.githubusercontent.com/shadcn-ui/ui/shadcn%40<version>/apps/v4/registry/new-york-v4/ui/<name>.tsx`;
+  curl's exit 22 is a component not at the tag (exit 2), any other failing exit is can't fetch
+  (exit 2, nothing written); and `tests/fixtures/nextjs-home-app/package.json` pins the `shadcn`,
+  `tailwindcss`, `@tailwindcss/postcss`, `tw-animate-css` and Next.js versions the home's README
+  names (changed after the go: owner, "if yes, do it", 2026-11-05)
+- **AC-11** `tests/nextjs-home-app.test.sh` (slow): the fixture app, installed with `npm ci`, gets the
+  home's files from `place.sh` and a button and a dialog from the release through `shadcn-add.mjs`
+  with nothing to install, passes `ui-tokens.sh` and `design-md-check.mjs`, builds with
+  `next build`, and passes the render check at 375, 768 and 1280 px in light and dark; a failed
+  `npm ci` fails it as can't run (changed after the go: owner, "if yes, do it", 2026-11-05)
 
 ## Out of scope
 
@@ -274,4 +299,3 @@ tokens. Every "spike:" below points at a row there.
   `(--name)` shorthand, knowing runtime variables: findings)
 - The `shadcn` command, `components.json`, other shadcn/ui styles and bases
 - A forked `check-fast.sh`, a `check-slow.sh` template, `supplies`, `.npmrc`
-- A Next.js build in the devshop's CI (the spike's re-run is the build's evidence)

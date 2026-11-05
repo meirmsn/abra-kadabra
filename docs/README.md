@@ -297,7 +297,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   project with a wrangler config. [`nextjs-supabase/`](../runtime/stacks/nextjs-supabase/README.md)
   is a placeholder until M3 except its UI section: shadcn/ui on the baseline's tokens at the
   project's own version, its theme file, `place.sh`, `shadcn-add.mjs` and the fast tier's
-  `ui-tokens.sh`, proven by [`tests/nextjs-home.test.sh`](../tests/nextjs-home.test.sh)
+  `ui-tokens.sh`, proven by [`tests/nextjs-home.test.sh`](../tests/nextjs-home.test.sh) and, end to end on a real
+  Next.js app built and render-checked, [`tests/nextjs-home-app.test.sh`](../tests/nextjs-home-app.test.sh)
   ([spec](../specs/react-home-ui-defaults.md)).
 - Discipline guidelines: [runtime/guidelines/README.md](../runtime/guidelines/README.md). The
   design guideline [`design.md`](../runtime/guidelines/design.md)
