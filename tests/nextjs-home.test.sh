@@ -360,4 +360,50 @@ got=$(add button)
 want 2 "react-home-ui-defaults AC-6: a failed install can't run, and writes nothing" "npm install failed"
 [ ! -e "$s/components" ] || fail "react-home-ui-defaults AC-6: files written though the install failed"
 
+# The HTTP branch, with a stub curl on PATH (no network): the default source is the release tag on
+# GitHub's raw host; curl's exit 22 (an HTTP error) is "not at the tag", any other exit "can't fetch".
+# shellcheck disable=SC2016  # the stub's source
+cat >"$work/bin/curl" <<'STUB'
+#!/usr/bin/env bash
+url=${*: -1}
+echo "$url" >>"$CURL_LOG"
+[ "$(cat "$CURL_MODE")" = down ] && exit 7
+f="$CURL_ROOT/${url#*/new-york-v4/}"
+[ -f "$f" ] || exit 22
+cat "$f"
+STUB
+chmod +x "$work/bin/curl"
+export CURL_LOG="$work/curl-log" CURL_MODE="$work/curl-mode" CURL_ROOT="$src"
+unset SHADCN_SOURCE
+fresh_app 4.9.1
+echo serve >"$CURL_MODE"
+rm -f "$CURL_LOG"
+got=$(add button)
+want 0 "react-home-ui-defaults AC-10: by default it fetches over HTTP from the release tag" "from shadcn@4.9.1"
+grep -qxF "https://raw.githubusercontent.com/shadcn-ui/ui/shadcn%404.9.1/apps/v4/registry/new-york-v4/ui/button.tsx" "$CURL_LOG" ||
+  fail "react-home-ui-defaults AC-10: the URL isn't the release tag's: $(cat "$CURL_LOG")"
+echo "ok - react-home-ui-defaults AC-10: the URL is shadcn@<version>'s new-york-v4 source on GitHub's raw host"
+fresh_app 4.9.1
+got=$(add nope)
+want 2 "react-home-ui-defaults AC-10: an HTTP error (curl exit 22) is a component not at the tag" "has no component 'nope'"
+echo down >"$CURL_MODE"
+got=$(add button)
+want 2 "react-home-ui-defaults AC-10: any other curl failure can't fetch" "can't fetch"
+[ ! -e "$s/components" ] || fail "react-home-ui-defaults AC-10: files written though the fetch failed"
+
+# The end-to-end app (tests/nextjs-home-app.test.sh) pins the versions the home's README says it proved.
+python3 - "$repo_root/tests/fixtures/nextjs-home-app/package.json" "$home/README.md" <<'PY' || fail "react-home-ui-defaults AC-10: the end-to-end app's versions and the README's differ"
+import json, re, sys
+pkg = json.load(open(sys.argv[1]))
+deps = {**pkg["dependencies"], **pkg["devDependencies"]}
+readme = open(sys.argv[2]).read()
+for name, words in (("shadcn", "`shadcn` "), ("tailwindcss", "`tailwindcss` "), ("tw-animate-css", "`tw-animate-css` "), ("next", "Next.js ")):
+    m = re.search(re.escape(words) + r"(?:and `@tailwindcss/postcss` )?(\d+\.\d+\.\d+)", readme)
+    if not m or m.group(1) != deps[name]:
+        print(f"{name}: README {m.group(1) if m else '(none)'}, app {deps[name]}", file=sys.stderr); sys.exit(1)
+if deps["@tailwindcss/postcss"] != deps["tailwindcss"]:
+    print("@tailwindcss/postcss differs from tailwindcss", file=sys.stderr); sys.exit(1)
+PY
+echo "ok - react-home-ui-defaults AC-10: the end-to-end app pins the versions the README names"
+
 echo "PASS: the Next.js home's theme, fast-tier part, place.sh and shadcn-add.mjs"
