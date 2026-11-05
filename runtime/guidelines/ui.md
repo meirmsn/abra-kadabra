@@ -16,7 +16,10 @@ The project's own rules win on conflict; say so in the PR.
 - **Start from [`runtime/templates/ui/`](../templates/ui/)** when the project has no baseline yet:
   - `base.css` and `theme.js`: copy them; the project owns them (its colours, more components).
     Load `theme.js` in `<head>` as a plain script, or inline it, so there's no flash of the wrong
-    theme. [`example.html`](../templates/ui/example.html) shows every piece in use.
+    theme. [`example.html`](../templates/ui/example.html) shows every piece in use. A Next.js
+    project takes the [Next.js home](../stacks/nextjs-supabase/README.md#ui-shadcnui-on-the-baselines-tokens)'s
+    `globals.css` in place of `base.css`, placed with `theme.js` and the three checks by its
+    `place.sh`.
   - `tokens-check.mjs`, `render-check.mjs` and `design-md-check.mjs`: copy them unchanged into
     `scripts/ui/`; they are optional `devshop` copies in the project contract, so session start
     reports drift and a newer devshop version's upgrade re-copies them.

@@ -178,6 +178,10 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   devshop's pinned gitleaks, shellcheck and dcg on PATH.
 - [`project-contract.md`](../specs/project-contract.md): one project contract, what every project
   must provide, checked at session start and in its `fast` tier.
+- [`react-home-ui-defaults.md`](../specs/react-home-ui-defaults.md): the Next.js home's UI
+  defaults: shadcn/ui at each project's own version, copied from its release by `shadcn-add.mjs`
+  (the CLI isn't run), the theme as one Tailwind v4 file under the baseline's token names, placed by
+  `place.sh`, and one fast-tier line that runs the token check.
 - [`reviewer-browser.md`](../specs/reviewer-browser.md): the reviewer judges a local run of the
   site against `DESIGN.md`, with a browser that reaches only that run.
 - [`ui-baseline.md`](../specs/ui-baseline.md): every web app starts from a design baseline, phone
@@ -291,7 +295,11 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   controls in use, cloud-session facts) is written from the owner's website and the M1 fixture;
   [`tests/cloudflare-stack.test.sh`](../tests/cloudflare-stack.test.sh) proves it loads only for a
   project with a wrangler config. [`nextjs-supabase/`](../runtime/stacks/nextjs-supabase/README.md)
-  is a placeholder until M3.
+  is a placeholder until M3 except its UI section: shadcn/ui on the baseline's tokens at the
+  project's own version, its theme file, `place.sh`, `shadcn-add.mjs` and the fast tier's
+  `ui-tokens.sh`, proven by [`tests/nextjs-home.test.sh`](../tests/nextjs-home.test.sh) and, end to end on a real
+  Next.js app built and render-checked, [`tests/nextjs-home-app.test.sh`](../tests/nextjs-home-app.test.sh)
+  ([spec](../specs/react-home-ui-defaults.md)).
 - Discipline guidelines: [runtime/guidelines/README.md](../runtime/guidelines/README.md). The
   design guideline [`design.md`](../runtime/guidelines/design.md)
   ([spec](../specs/design-guideline.md)) is what a product looks like, read with `ui.md` by every
@@ -342,6 +350,9 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   - The design-detector dry run: [README](../kit/notes/revamp/spikes/design-detector/README.md),
     `/design-review` on a scratch site with planted tells after the bootstrap's script placed the
     engine, graded before the run.
+  - The React home spike: [README](../kit/notes/revamp/spikes/react-home/README.md), a scratch
+    Next.js app with Tailwind v4 and a shadcn/ui button on the baseline's tokens, through the three
+    UI checks.
   - W10.1.2 install probe: [README](../kit/notes/revamp/spikes/w10-1-2-install/README.md) and its
     [probe skill](../kit/notes/revamp/spikes/w10-1-2-install/plugin/skills/devshop-probe/SKILL.md).
   - W10.1.2b thin install: [README](../kit/notes/revamp/spikes/w10-1-2b-thin/README.md) and its
