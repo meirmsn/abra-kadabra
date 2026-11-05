@@ -22,6 +22,8 @@ cleanup() {
   rm -rf "$work"
 }
 trap cleanup EXIT
+# isolate_git moves HOME; Playwright finds its browsers under the real HOME unless told where.
+export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"
 isolate_git "$work"
 app="$work/app"
 cp -R "$fixture" "$app"
