@@ -370,6 +370,22 @@ echo "ok - AC-1 (F-NEW-147): the plugin's runtime skills ($got) resolve inside t
 [ "$(jq -r .name "$HOME/plugin/.claude-plugin/plugin.json")" = ak ] || fail "the installed plugin isn't named ak"
 grep -qx "claude plugin install ak@ak --scope user" "$HOME/claude-calls.log" || fail "the bootstrap doesn't install ak@ak"
 echo "ok - AC-3: the bootstrap installs the plugin as ak@ak, so its skills are ak:<name>"
+# AC-2: the bootstrap itself writes the default version and the copy's date inside the marketplace
+# folder, after the extraction that empties it; the DEVSHOP: line reads them from there.
+[ "$(cat "$versions/default-ref" 2>/dev/null)" = HEAD ] \
+  || fail "AC-2: $versions/default-ref is '$(cat "$versions/default-ref" 2>&1)', want HEAD, the bootstrap's default ref"
+copied=$(cat "$versions/copy-date" 2>/dev/null) || fail "AC-2: $versions/copy-date is missing"
+copied_s=$(date -u -d "$copied" +%s 2>/dev/null) || fail "AC-2: $versions/copy-date is not a date: '$copied'"
+[ $(($(date -u +%s) - copied_s)) -lt 3600 ] || fail "AC-2: $versions/copy-date ($copied) isn't this bootstrap's"
+[ ! -e /opt/devshop-versions ] || fail "AC-2: the bootstrap still writes /opt/devshop-versions"
+proj=$(mktemp -d "$work/proj.XXXX")
+cmd=$(jq -er '.hooks.SessionStart[0].hooks[0].command' "$HOME/plugin/hooks/hooks.json")
+out=$(hook_json "$(cd "$proj" && DEVSHOP_PRIME_ONLY=1 CLAUDE_PLUGIN_ROOT="$HOME/plugin" CLAUDE_PROJECT_DIR="$proj" bash -c "$cmd")")
+grep -Fq "using HEAD (${head:0:12}) from environment default" <<<"$out" \
+  || { echo "$out" >&2; fail "AC-2: the DEVSHOP: line doesn't name the default version from $versions/default-ref"; }
+grep -Fq "devshop copy of $(date -u -d "@$copied_s" '+%F %H:%M') UTC (0 days old)" <<<"$out" \
+  || { echo "$out" >&2; fail "AC-2: the DEVSHOP: line doesn't date the copy from $versions/copy-date ($copied)"; }
+echo "ok - AC-2: the bootstrap writes default-ref and copy-date to $versions, and the DEVSHOP: line reads them"
 
 # A git repo with no pin (the version's own script skipped: HEAD's would add its own lines).
 out=$(DEVSHOP_TEST_GIT=1 DEVSHOP_PRIME_ONLY=1 session '')
