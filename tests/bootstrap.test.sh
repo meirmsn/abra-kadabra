@@ -360,7 +360,7 @@ for f in "$mkt"/devshop/skills/*/SKILL.md; do
   esac
 done
 got=$(for d in $got; do echo "${d##*/}"; done | sort | paste -sd ' ' -)
-want=$(git -C "$repo_root" ls-tree --name-only "$head:$RUNTIME/skills/" | sort | paste -sd ' ' -)
+want=$(git --git-dir="$src" ls-tree --name-only "$head:$RUNTIME/skills/" | sort | paste -sd ' ' -)
 [ -n "$want" ] && [ "$got" = "$want" ] \
   || fail "F-NEW-147: the plugin's skills/ in $mkt offers '$got' inside the marketplace folder, want the runtime's '$want'"
 echo "ok - F-NEW-147: the plugin's runtime skills ($got) resolve inside the marketplace folder $mkt"
