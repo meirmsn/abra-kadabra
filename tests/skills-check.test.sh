@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Tests scripts/skills-check.py, the shape check for the devshop's own skills (runtime/skills/): each
 # SKILL.md names itself after its directory, has a description, is warned about past one page, every
-# /opt/devshop-current/<path> it names exists in the same runtime, and every `devshop:<skill>` it
+# /opt/devshop-current/<path> it names exists in the same runtime, and every `ak:<skill>` it
 # hands over to is a skill of the same runtime or the install's plugin; all the descriptions together,
 # the plugin's included, stay within the always-loaded budget (TARGET Shape 2, W10.6.16, W10.6.18).
 # Then runs it on the real runtime/ and plugin, which must hold the v2 skills (W10.6.1).
@@ -54,9 +54,13 @@ check "a skill over one page (words) is a warning" 0 "$(runtime words "$wordy")"
 # A warning never hides a failure beside it.
 check "a skill over one page with a path the runtime lacks fails" 1 \
   "$(runtime lines-dangling "$long Then /opt/devshop-current/scripts/missing.sh.")" "/opt/devshop-current/scripts/missing.sh"
-check "a handover to a skill of the same runtime passes" 0 "$(runtime handover "$good Then invoke \`devshop:demo\`.")"
+check "a handover to a skill of the same runtime passes" 0 "$(runtime handover "$good Then invoke \`ak:demo\`.")"
 check "a handover to a skill the runtime lacks fails" 1 \
-  "$(runtime dangling-skill "$good Then invoke \`devshop:missing\`.")" "devshop:missing"
+  "$(runtime dangling-skill "$good Then invoke \`ak:missing\`.")" "ak:missing"
+# The plugin is ak (owner, 2026-11-06): a hand-over by its old name, devshop:<skill>, names a skill
+# no session lists, even when the skill exists.
+check "a handover by the plugin's old name fails" 1 \
+  "$(runtime old-name "$good Then invoke \`devshop:demo\`.")" "devshop:demo"
 # described <name> <words>: a runtime with one skill whose description has that many words.
 described() {
   runtime "$1" "---
@@ -87,10 +91,12 @@ plugin() {
 }
 pgood=${good//name: demo/name: extra}
 PLUGIN=$(plugin p-good extra "$pgood") check "a plugin skill of the same shape passes" 0 "$(runtime p-good-rt "$good")"
-PLUGIN=$(plugin p-handover extra "$pgood Then invoke \`devshop:demo\`.") \
+PLUGIN=$(plugin p-handover extra "$pgood Then invoke \`ak:demo\`.") \
   check "a plugin skill handing over to a runtime skill passes" 0 "$(runtime p-handover-rt "$good")"
-PLUGIN=$(plugin p-dangling extra "$pgood Then invoke \`devshop:missing\`.") \
-  check "a plugin skill handing over to a skill nobody has fails" 1 "$(runtime p-dangling-rt "$good")" "devshop:missing"
+PLUGIN=$(plugin p-dangling extra "$pgood Then invoke \`ak:missing\`.") \
+  check "a plugin skill handing over to a skill nobody has fails" 1 "$(runtime p-dangling-rt "$good")" "ak:missing"
+PLUGIN=$(plugin p-old-name extra "$pgood Then invoke \`devshop:demo\`.") \
+  check "a plugin skill handing over by the plugin's old name fails" 1 "$(runtime p-old-name-rt "$good")" "devshop:demo"
 PLUGIN=$(plugin p-shape extra "Just text.") check "a plugin skill without frontmatter fails" 1 "$(runtime p-shape-rt "$good")" "frontmatter"
 PLUGIN=$(plugin p-clash demo "$good") check "a plugin skill named like a runtime skill fails" 1 "$(runtime p-clash-rt "$good")" "shares its name"
 # The budget counts the plugin's descriptions too: 101 words in the runtime and 101 in the plugin.
@@ -113,11 +119,11 @@ check "the real runtime's skills (intent, build, pr, devshop-version)" 0 "$repo_
 # always has, so they are checked against this version's runtime.
 plugin_skills="$repo_root/install/plugin/devshop/upgrade/skills"
 [ -f "$plugin_skills/upgrade/SKILL.md" ] || fail "install/plugin/devshop/upgrade/skills/upgrade/SKILL.md is missing"
-grep -qx "name: upgrade" "$plugin_skills/upgrade/SKILL.md" || fail "the plugin's upgrade skill isn't named 'upgrade' (/devshop:upgrade)"
+grep -qx "name: upgrade" "$plugin_skills/upgrade/SKILL.md" || fail "the plugin's upgrade skill isn't named 'upgrade' (/ak:upgrade)"
 PLUGIN=$plugin_skills check "the real runtime's and plugin's skills together (upgrade)" 0 "$repo_root/runtime"
 [ ! -e "$plugin_skills/devshop-upgrade" ] || fail "the plugin still has devshop-upgrade (renamed upgrade)"
 [ ! -e "$repo_root/runtime/skills/upgrade" ] || fail "runtime/skills/upgrade would clash with the plugin's upgrade skill"
-echo "ok - the plugin's skill is upgrade (/devshop:upgrade), and no runtime skill shares its name"
+echo "ok - the plugin's skill is upgrade (/ak:upgrade), and no runtime skill shares its name"
 
 # AC-6 (specs/ui-baseline.md): the build skill's disciplines line sends a UI with no baseline to the
 # UI templates, a path skills-check (above) proves this version has.
@@ -130,15 +136,15 @@ echo "ok - AC-6: build sends a UI with no baseline to the UI templates"
 
 # W10.6.16: Build hands the PR over to the pr skill, by the name a session can invoke.
 # shellcheck disable=SC2016 # literal backticks: the skill's Markdown
-grep -qF '`devshop:pr`' "$repo_root/runtime/skills/build/SKILL.md" ||
-  fail "the build skill doesn't hand over to \`devshop:pr\`"
-echo "ok - build hands the PR over to devshop:pr"
+grep -qF '`ak:pr`' "$repo_root/runtime/skills/build/SKILL.md" ||
+  fail "the build skill doesn't hand over to \`ak:pr\`"
+echo "ok - build hands the PR over to ak:pr"
 
-# W10.6.19 (F-NEW-56): the upgrade skill opens its PR through devshop:pr, which writes the body from the
+# W10.6.19 (F-NEW-56): the upgrade skill opens its PR through ak:pr, which writes the body from the
 # template, not through ship.sh with words of its own.
 # shellcheck disable=SC2016 # literal backticks: the skill's Markdown
-grep -qF '`devshop:pr`' "$plugin_skills/upgrade/SKILL.md" ||
-  fail "upgrade doesn't hand its PR over to \`devshop:pr\`"
+grep -qF '`ak:pr`' "$plugin_skills/upgrade/SKILL.md" ||
+  fail "upgrade doesn't hand its PR over to \`ak:pr\`"
 ! grep -qF 'ship.sh' "$plugin_skills/upgrade/SKILL.md" ||
   fail "upgrade still runs ship.sh itself"
-echo "ok - upgrade hands its PR over to devshop:pr"
+echo "ok - upgrade hands its PR over to ak:pr"

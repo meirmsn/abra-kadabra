@@ -50,6 +50,10 @@ done
 PRE_MOVE=6190c0e011c0b14bc4689504ffad935ecf06cf5e
 # Where a devshop version keeps its runtime (skills/, hooks/); before the move it was under spikes/.
 RUNTIME=runtime
+# The local marketplace folder the bootstrap installs the plugin from, and where the extracted
+# versions live: inside it, since Claude Code follows the plugin's skills link only there (F-NEW-147).
+mkt=/opt/devshop-plugin
+versions=$mkt/versions
 
 work=$(mktemp -d)
 isolate_git "$work"
@@ -277,8 +281,8 @@ setup_env() {
   # Age the copy: the bootstrap records when it was made (DEVSHOP_TEST_COPY_AGE: a `date -d` offset).
   case "${DEVSHOP_TEST_COPY_AGE:-}" in
     '') ;;
-    missing) rm -f /opt/devshop-versions/copy-date ;;
-    *) date -u -d "$DEVSHOP_TEST_COPY_AGE" +%FT%TZ >/opt/devshop-versions/copy-date ;;
+    missing) rm -f $versions/copy-date ;;
+    *) date -u -d "$DEVSHOP_TEST_COPY_AGE" +%FT%TZ >$versions/copy-date ;;
   esac
   [ -f "$HOME/plugin/hooks/hooks.json" ] || { cat /tmp/devshop-setup.log >&2; fail "bootstrap installed no plugin"; }
   grep -q "RESULT: bootstrap ${2:-done}" /tmp/devshop-setup.log || { cat /tmp/devshop-setup.log >&2; fail "setup log doesn't say ${2:-done}"; }
@@ -326,7 +330,7 @@ check() {
   copy_re="$(date -u +%F) [0-9]{2}:[0-9]{2} UTC \\(0 days old\\)"
   grep -Eq "^DEVSHOP: .* · devshop copy of ${want_copy:-$copy_re} · project proj\\.[A-Za-z0-9]{4}(;|$)" <<<"$2" \
     || { echo "$2" >&2; fail "$1: DEVSHOP: line doesn't date the devshop copy"; }
-  [ "$(readlink /opt/devshop-current)" = "/opt/devshop-versions/$4" ] \
+  [ "$(readlink /opt/devshop-current)" = "$versions/$4" ] \
     || fail "$1: /opt/devshop-current -> $(readlink /opt/devshop-current), want version $4"
   [ -d /opt/devshop-current/skills ] || fail "$1: the current version has no skills/"
   echo "ok - $1"
@@ -340,6 +344,27 @@ url=$(git --git-dir=/opt/devshop.git config --get remote.origin.url)
 [ "$url" = "https://example.com/acme/devshop.git" ] || fail "remote URL after bootstrap: '$url', want the clone's URL without the token"
 ! grep -rq FAKE-TOKEN /opt/devshop.git/config || fail "the token is still in /opt/devshop.git/config"
 echo "ok - bootstrap keeps the clone's URL and drops the token"
+
+# F-NEW-147: Claude Code reads a plugin installed from a local marketplace folder in place, and from
+# 2.1.318 on follows a symlink in it only when the link resolves inside that folder; a skills/ that
+# resolves elsewhere is skipped without a word, and the session gets only the plugin's own upgrade
+# skill. So every runtime skill the plugin offers resolves inside the marketplace folder.
+n=0
+for f in "$mkt"/devshop/skills/*/SKILL.md; do
+  [ -f "$f" ] || continue
+  case $(readlink -f "$f") in
+    "$mkt"/*) n=$((n + 1)) ;;
+    *) fail "F-NEW-147: the plugin's $f resolves to $(readlink -f "$f"), outside the marketplace folder $mkt, so Claude Code skips it" ;;
+  esac
+done
+[ "$n" -ge 4 ] || fail "F-NEW-147: the plugin's skills/ in $mkt offers $n skills, want the runtime's (intent, build, pr, ...)"
+echo "ok - F-NEW-147: the plugin's $n runtime skills resolve inside the marketplace folder $mkt"
+# The plugin is ak (owner, 2026-11-06): its skills are ak:<name>, installed as ak@ak.
+[ "$(jq -r .name "$mkt/.claude-plugin/marketplace.json")" = ak ] || fail "the marketplace isn't named ak"
+[ "$(jq -r '.plugins[0].name' "$mkt/.claude-plugin/marketplace.json")" = ak ] || fail "the marketplace's plugin isn't named ak"
+[ "$(jq -r .name "$HOME/plugin/.claude-plugin/plugin.json")" = ak ] || fail "the installed plugin isn't named ak"
+grep -qx "claude plugin install ak@ak --scope user" "$HOME/claude-calls.log" || fail "the bootstrap doesn't install ak@ak"
+echo "ok - the bootstrap installs the plugin as ak@ak, so its skills are ak:<name>"
 
 # A git repo with no pin (the version's own script skipped: HEAD's would add its own lines).
 out=$(DEVSHOP_TEST_GIT=1 DEVSHOP_PRIME_ONLY=1 session '')
@@ -385,7 +410,7 @@ echo "ok - pinned SHA: the pinned version's own SessionStart script ran"
 # skills dir resolves to that version's skills/, each named as Claude Code lists it (W10.6.1).
 for skill in intent build pr devshop-version; do
   f="$HOME/plugin/skills/$skill/SKILL.md"
-  [ "$(readlink -f "$f")" = "/opt/devshop-versions/$pinned/skills/$skill/SKILL.md" ] \
+  [ "$(readlink -f "$f")" = "$versions/$pinned/skills/$skill/SKILL.md" ] \
     || fail "skill $skill: the plugin's $f resolves to '$(readlink -f "$f")', not the pinned version's"
   grep -qx "name: $skill" "$f" || fail "skill $skill: its SKILL.md doesn't name it '$skill'"
 done
@@ -403,8 +428,8 @@ for pin in "$pinned" "$PRE_MOVE"; do
   [ -x "$HOME/plugin/upgrade/project-files-at.sh" ] || fail "pin ${pin:0:12}: the plugin has no project-files-at.sh"
   [ -x "$HOME/plugin/upgrade/latest-release.sh" ] || fail "pin ${pin:0:12}: the plugin has no latest-release.sh"
 done
-[ ! -e "/opt/devshop-versions/$pinned/skills/upgrade" ] || fail "the pinned runtime also has an upgrade skill"
-echo "ok - the plugin carries upgrade (/devshop:upgrade) for any pin, an old one included"
+[ ! -e "$versions/$pinned/skills/upgrade" ] || fail "the pinned runtime also has an upgrade skill"
+echo "ok - the plugin carries upgrade (/ak:upgrade) for any pin, an old one included"
 
 # F-NEW-77 (R-14): after a worker restart, the hook starts in the session's base directory (in a
 # cloud session, /home/user, which holds the repo's clone), not in the repo: CLAUDE_PROJECT_DIR is
@@ -438,7 +463,7 @@ no_pin() { # no_pin <repos below>: the default's line when the base directory ho
   out=$(hook_json "$(cd / && CLAUDE_PLUGIN_ROOT="$HOME/plugin" CLAUDE_PROJECT_DIR="$base" bash -c "$cmd")")
   grep -Eq "^DEVSHOP: using HEAD \(${head:0:12}\) from environment default \(the session's directory $base is not a git repo and holds $1 repos, so no project \.devshop-version was read\) · " <<<"$out" \
     || { echo "$out" >&2; fail "F-NEW-77: $1 repos below the base directory: the line doesn't say the pin wasn't read"; }
-  [ "$(readlink /opt/devshop-current)" = "/opt/devshop-versions/$head" ] || fail "F-NEW-77: $1 repos: current isn't the default"
+  [ "$(readlink /opt/devshop-current)" = "$versions/$head" ] || fail "F-NEW-77: $1 repos: current isn't the default"
   echo "ok - F-NEW-77: $1 repos below the base directory: the default, and the line says no pin was read"
 }
 no_pin 2
@@ -458,7 +483,7 @@ check "AC-8: a release tag not in the copy keeps the default" "$out" "^DEVSHOP: 
 git --git-dir="$src" tag v2.9.0 "$head"
 git --git-dir="$src" tag v2.10.0 "$head"
 git --git-dir="$src" tag v11.0.0-rc.1 "$head"
-newer="; newer release v2\.10\.0 in the copy \(/devshop:upgrade\)$"
+newer="; newer release v2\.10\.0 in the copy \(/ak:upgrade\)$"
 out=$(session v2.0.0)
 check "AC-12: an older release pinned" "$out" "^DEVSHOP: using v2\.0\.0 \(${pinned:0:12}\) from project \.devshop-version · .*$newer" "$pinned"
 out=$(session v2.9.0)
@@ -776,7 +801,7 @@ with_log() { # with_log <log content | --none | --dir>: the hook's lines with th
 }
 setup_env >&2
 S='[10:00:00] bootstrap start ref=HEAD copy-head=abc1234'
-DONE='[10:05:00] RESULT: bootstrap done (current -> /opt/devshop-versions/x)'
+DONE='[10:05:00] RESULT: bootstrap done (current -> $versions/x)'
 BAD='[10:05:00] RESULT: bootstrap FAILED (see FAILED lines above)'
 boot_clause "bootstrap-result-at-session-start AC-2: a log whose run ended done" "$(with_log "$S
 [10:01:00] FAILED: noise from a tool, not the bootstrap's own line
@@ -828,7 +853,7 @@ mkdir -p "$work/bin-noclaude" && ln -sf "$work/bin/curl" "$work/bin/bun" "$work/
 [ "$rc" != 0 ] || fail "bootstrap without the claude CLI exited 0"
 { grep -q "FAILED: claude plugin install" /tmp/devshop-setup.log && grep -q "RESULT: bootstrap FAILED" /tmp/devshop-setup.log; } \
   || { cat /tmp/devshop-setup.log >&2; fail "setup log doesn't name the failed step"; }
-[ "$(readlink /opt/devshop-current)" = "/opt/devshop-versions/$head" ] || fail "a failed plugin install stopped the priming"
+[ "$(readlink /opt/devshop-current)" = "$versions/$head" ] || fail "a failed plugin install stopped the priming"
 echo "ok - a failed step is logged, makes setup exit non-zero, and the other steps still run"
 
 rm -rf "$work"
