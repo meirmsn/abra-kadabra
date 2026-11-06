@@ -41,7 +41,7 @@ class Refuse(Exception):
 
 
 def refuse(why):
-    raise Refuse(f"devshop review guard: {why}\nChanges reach a PR through the devshop:pr skill, whose ship.sh "
+    raise Refuse(f"devshop review guard: {why}\nChanges reach a PR through the ak:pr skill, whose ship.sh "
                  "reviews them first: " + SHIP)
 
 
