@@ -90,7 +90,9 @@ placeholders and prose deploy facts (L-47) are what not to rebuild.
   the only merge method (F-NEW-76) with the squash commit message set to the PR title
   (`squash_merge_commit_title=PR_TITLE`: under GitHub's default a one-commit PR lands with its
   commit's subject, not the reviewed title; reported by the devshop releases session, R-11,
-  2026-10-16); the agent identity invited as a Write collaborator and the invitation accepted; the
+  2026-10-16) and its body to the PR's (`squash_merge_commit_message=PR_BODY`: under GitHub's
+  default the branch's commit messages, a session's trailers included, land on `main` unreviewed;
+  F-NEW-144, 2026-11-06); the agent identity invited as a Write collaborator and the invitation accepted; the
   Claude GitHub App given access to the repo; a cloud environment with the shared two-line setup
   script and a Limited network (package registries, GitHub). After the first PR's CI has run:
   `main` protected (PR only, one approval, code-owner review, approval of the most recent push,

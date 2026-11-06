@@ -24,10 +24,12 @@ them.
    `git ls-remote origin main` names a commit.
 2. **Squash merging only, titled by the PR:** Settings → General → Pull Requests: allow squash
    merging only (merge commits and rebase merging off), its default commit message "Pull request
-   title". Under GitHub's default, a one-commit PR lands with its commit's subject instead of the
-   reviewed title, and a merge commit or rebase would carry a PR's screenshots into `main`. Check:
-   `gh api repos/<owner>/<repo>` has `allow_squash_merge` true, `allow_merge_commit` and
-   `allow_rebase_merge` false, `squash_merge_commit_title` `PR_TITLE`.
+   title and description". Under GitHub's default, a one-commit PR lands with its commit's subject
+   instead of the reviewed title, the squash message is the branch's commit messages (what no review
+   reads, a session's trailers included), and a merge commit or rebase would carry a PR's
+   screenshots into `main`. Check: `gh api repos/<owner>/<repo>` has `allow_squash_merge` true,
+   `allow_merge_commit` and `allow_rebase_merge` false, `squash_merge_commit_title` `PR_TITLE`,
+   `squash_merge_commit_message` `PR_BODY`.
 3. **The agent as a collaborator:** invite the agent identity with Write access (not Admin), and
    accept the invitation as the agent. Check: `gh api repos/<owner>/<repo> --jq .permissions` has
    `push` true and `admin` false.
