@@ -16,19 +16,25 @@ W10.1.2b spike (`kit/notes/revamp/spikes/w10-1-2b-thin/`, kept as notes).
   `git --git-dir=/opt/devshop.git show HEAD:bootstrap.sh | bash`. So whatever is on `main` reaches
   every environment at its next cache rebuild.
 - **`install/bootstrap.sh`** drops the token from the clone's remote URL (keeping the URL itself,
-  L-01), records the copy's date in `/opt/devshop-versions/copy-date`, extracts `install/plugin/` to
-  `/opt/devshop-plugin`, primes `/opt/devshop-current` with the default version (`HEAD`), and
-  installs the plugin at user scope. It never prompts, runs every step even after a failure, and
+  L-01), extracts `install/plugin/` to `/opt/devshop-plugin`, records the default version and the
+  copy's date in `/opt/devshop-plugin/versions/` (`default-ref`, `copy-date`), primes
+  `/opt/devshop-current` with the default version (`HEAD`), and installs the plugin, `ak@ak`, at
+  user scope, so its skills are `ak:<name>`. It never prompts, runs every step even after a failure, and
   logs to `/tmp/devshop-setup.log`.
 - **The plugin** (`install/plugin/devshop/`) is a stub: its `skills` is a symlink to
   `/opt/devshop-current/skills`, and its SessionStart hook (`hooks/dispatch.sh`) reads the project's
   `.devshop-version` (else the default), extracts that version's `runtime/` from the local copy into
-  `/opt/devshop-versions/<sha>` (no network), repoints `/opt/devshop-current`, and runs the version's
-  `runtime/hooks/session-start.sh` if it has one. Why a stub: a plugin installed by a hook loads only
-  in the next session, but a symlinked skills dir switched by the hook works in the same one.
+  `/opt/devshop-plugin/versions/<sha>` (no network), repoints `/opt/devshop-current`, and runs the
+  version's `runtime/hooks/session-start.sh` if it has one. Why a stub: a plugin installed by a hook
+  loads only in the next session, but a symlinked skills dir switched by the hook works in the same
+  one. Why the versions sit inside the marketplace folder: Claude Code reads a plugin from a local
+  marketplace in place and, from 2.1.318 on, follows a symlink in it only when the link resolves
+  inside that folder; one that resolves elsewhere is skipped without a word
+  ([spec](../specs/ak-plugin.md)). The plugin's folder keeps the name `devshop`, since older pinned
+  versions read files under `/opt/devshop-plugin/devshop/`.
 - **The upgrade step comes with the plugin, not the pinned version** (W10.4.8): the plugin's
   `plugin.json` adds [`upgrade/skills/`](plugin/devshop/upgrade/skills/upgrade/SKILL.md) to
-  its skills, so `upgrade` (`/devshop:upgrade`) is there whatever the project pins, a version from before the
+  its skills, so `upgrade` (`/ak:upgrade`) is there whatever the project pins, a version from before the
   skill existed included, and it matches the newest version in the local copy, which is what an
   upgrade targets. Its [`project-files-at.sh`](plugin/devshop/upgrade/project-files-at.sh) runs the
   target version's own `runtime/scripts/project-files.py` from the local copy, so the new version's
@@ -112,17 +118,17 @@ survives into sessions, and a failed bootstrap was otherwise unsaid
 lines from its last run and names each failed step once, as the text after `FAILED: ` up to the first
 colon (`tool dcg`, `gstack`), on the main line only. Feedback for the owner; it guards nothing.
 
-| Case                                  | Line                                                                                                                                                                         |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| No `.devshop-version`                 | `using HEAD (<sha12>) from environment default (no .devshop-version) · devshop copy of <date> <HH:MM> UTC (<n> days old) · project <name>`                                   |
-| Pinned SHA in the copy                | `using <pin> (<sha12>) from project .devshop-version · devshop copy of …`                                                                                                    |
-| Started in the base directory         | the line of the one repo below it, plus `; the session started in <dir>, not in the repo` (a restarted worker, F-NEW-77)                                                     |
-| Not a repo, none or several below     | `using HEAD (<sha12>) from environment default (the session's directory <dir> is not a git repo and holds <n> repos, so no project .devshop-version was read) · …`           |
-| Pinned release tag in the copy        | `using v2.0.0 (<sha12>) from project .devshop-version · devshop copy of …`, plus `; newer release v2.1.0 in the copy (/devshop:upgrade)` when the copy holds a newer release |
-| Pin not in the copy (newer, or wrong) | `version '<pin>' (…) is not in the local devshop copy — kept version <sha12> · devshop copy of …; the copy refreshes …`                                                      |
-| Pin older than this install           | `version '<pin>' (<sha12>) has no devshop runtime at runtime/ (older than the v2 install?) — kept version <sha12> · …`                                                       |
-| Not a version (e.g. `--x`)            | `'<pin>' (…) is not a devshop version (a release tag or commit SHA) — kept version <sha12> · …`                                                                              |
-| Bootstrap failed (log's last run)     | any line above, plus `; bootstrap FAILED (<steps>): see /tmp/devshop-setup.log`; with a log that can't be read, `; couldn't read /tmp/devshop-setup.log …`                   |
+| Case                                  | Line                                                                                                                                                                    |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No `.devshop-version`                 | `using HEAD (<sha12>) from environment default (no .devshop-version) · devshop copy of <date> <HH:MM> UTC (<n> days old) · project <name>`                              |
+| Pinned SHA in the copy                | `using <pin> (<sha12>) from project .devshop-version · devshop copy of …`                                                                                               |
+| Started in the base directory         | the line of the one repo below it, plus `; the session started in <dir>, not in the repo` (a restarted worker, F-NEW-77)                                                |
+| Not a repo, none or several below     | `using HEAD (<sha12>) from environment default (the session's directory <dir> is not a git repo and holds <n> repos, so no project .devshop-version was read) · …`      |
+| Pinned release tag in the copy        | `using v2.0.0 (<sha12>) from project .devshop-version · devshop copy of …`, plus `; newer release v2.1.0 in the copy (/ak:upgrade)` when the copy holds a newer release |
+| Pin not in the copy (newer, or wrong) | `version '<pin>' (…) is not in the local devshop copy — kept version <sha12> · devshop copy of …; the copy refreshes …`                                                 |
+| Pin older than this install           | `version '<pin>' (<sha12>) has no devshop runtime at runtime/ (older than the v2 install?) — kept version <sha12> · …`                                                  |
+| Not a version (e.g. `--x`)            | `'<pin>' (…) is not a devshop version (a release tag or commit SHA) — kept version <sha12> · …`                                                                         |
+| Bootstrap failed (log's last run)     | any line above, plus `; bootstrap FAILED (<steps>): see /tmp/devshop-setup.log`; with a log that can't be read, `; couldn't read /tmp/devshop-setup.log …`              |
 
 "Kept" means the session keeps the default version primed at setup. Proven by
 [`tests/bootstrap.test.sh`](../tests/bootstrap.test.sh). It replays the setup script (local bare
@@ -198,7 +204,7 @@ Feedback, not walls: everything here runs in the session's VM, where the agent c
   required item missing or malformed, or why it couldn't run; the optional items the project
   doesn't have on one plain line to Claude; nothing when every item is there. The project's own
   fast tier runs the same check from its copies. A repo with neither `.devshop-version` nor
-  `.github/workflows/ci.yml` gets one line naming `/devshop:new-project` instead. The devshop
+  `.github/workflows/ci.yml` gets one line naming `/ak:new-project` instead. The devshop
   carries no project-specific checks (Shape 3): a repo declares its own in the contract's items,
   CI's two tiers `scripts/check-fast.sh <base>` (secret scan, spec check, contract check, lint
   where the repo has `scripts/lint.sh`, unit tests) and `scripts/check-slow.sh` (end-to-end tests),

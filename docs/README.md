@@ -65,7 +65,7 @@ else releases) and its notes, unless the button's "Manual override" input picks 
 those notes (a session can't push tags, A-25). There is no release PR and no changelog file: the
 notes are on each release's page, and the owner's release immutability setting locks a published
 release's tag. `scripts/release.py next` previews the next release from a full clone with tags.
-Projects pin the tag; `/devshop:upgrade` defaults to the newest one. Proven by
+Projects pin the tag; `/ak:upgrade` defaults to the newest one. Proven by
 [`tests/release.test.sh`](../tests/release.test.sh) and
 [`tests/pr-title-check.test.sh`](../tests/pr-title-check.test.sh).
 
@@ -107,13 +107,16 @@ Projects pin the tag; `/devshop:upgrade` defaults to the newest one. Proven by
 - Skills: [`scripts/skills-check.py`](../scripts/skills-check.py) checks every skill in
   `runtime/skills/` and the install plugin's own (`--plugin-skills`) names itself after its
   directory, has a description, names only `/opt/devshop-current/` files its
-  version has and hands over only to skills that exist (`devshop:<name>`); no two share a name, and
+  version has and hands over only to skills that exist (`ak:<name>`; the old `devshop:<name>` fails); no two share a name, and
   all the descriptions together stay within the always-loaded budget, 200 words (TARGET Shape 2).
   A skill past one page (60 lines, 600 words) is a warning, not a failure (D-17).
   Run on the real skills by
   [`tests/skills-check.test.sh`](../tests/skills-check.test.sh), after feeding it bad ones.
 
 ## Skills
+
+The plugin is `ak`, so a session lists these as `ak:<name>` (`ak:intent`, `ak:build`, …;
+[spec](../specs/ak-plugin.md)). v1's `ak-` commands, such as `/ak-build`, are being retired.
 
 - [`devshop-version`](../runtime/skills/devshop-version/SKILL.md): which devshop version a session
   runs and how old its local copy is.
@@ -252,7 +255,7 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   output, cache writes and cache reads, the turns and wake-ups, the context at merge, over the
   session since its previous comment, read from the transcript
   ([spec](../specs/metrics-model-and-tokens.md)); pushes, red CI runs, reviewer rounds),
-  `devshop:pr` § 5 checking in with `send_later`. [`runtime/scripts/change-metrics.sh`](../runtime/scripts/change-metrics.sh) gathers
+  `ak:pr` § 5 checking in with `send_later`. [`runtime/scripts/change-metrics.sh`](../runtime/scripts/change-metrics.sh) gathers
   the PR's data with `gh api` and posts;
   [`runtime/scripts/change-metrics.py`](../runtime/scripts/change-metrics.py) computes every number
   from it and the session's transcript ([spec](../specs/deploy-and-metrics-comments.md); proven by

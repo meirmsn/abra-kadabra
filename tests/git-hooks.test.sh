@@ -93,10 +93,10 @@ rm "$ci"
 # specs/project-contract.md AC-5: with neither the pin nor ci.yml, one line names the new-project skill.
 out=$(CLAUDE_PROJECT_DIR="$work/p" "$start" 2>&1)
 [ "$(grep -c '^DEVSHOP:' <<<"$out")" = 1 ] || { echo "$out" >&2; fail "AC-5: neither pin nor ci.yml: want exactly one DEVSHOP: line"; }
-grep -Eq "^DEVSHOP: no devshop files yet \(\.devshop-version, \.github/workflows/ci\.yml\): a new project is set up by /devshop:new-project$" <<<"$out" \
-  || { echo "$out" >&2; fail "AC-5: the line doesn't name /devshop:new-project"; }
+grep -Eq "^DEVSHOP: no devshop files yet \(\.devshop-version, \.github/workflows/ci\.yml\): a new project is set up by /ak:new-project$" <<<"$out" \
+  || { echo "$out" >&2; fail "AC-5: the line doesn't name /ak:new-project"; }
 grep -Eq 'templates/ci\.yml|contract' <<<"$out" && { echo "$out" >&2; fail "AC-5: a new repo also hears about the CI template or the contract"; }
-echo "ok - AC-5: a repo with neither the pin nor ci.yml gets one line naming /devshop:new-project"
+echo "ok - AC-5: a repo with neither the pin nor ci.yml gets one line naming /ak:new-project"
 sed '/^  slow:/,$d' "$work/ci.good" >"$ci"
 ci_line "a ci.yml without the slow tier is reported, naming the rule" "^DEVSHOP: the project's CI doesn't follow the two tiers \(fast, slow\) of /opt/devshop-current/templates/ci\.yml: no job 'slow'$"
 printf 'jobs: [unclosed\n' >"$ci"

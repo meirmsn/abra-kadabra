@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Posts "How this change went" on the session's merged PR once its deploy comment reaches a final state
-# (specs/deploy-and-metrics-comments.md, part 2). Run by devshop:pr § 5 at each check-in after the merge,
+# (specs/deploy-and-metrics-comments.md, part 2). Run by ak:pr § 5 at each check-in after the merge,
 # from the project's root; it gathers the PR's data with `gh api`, and change-metrics.py (beside this
 # file) computes every number from it and the session's transcript.
 #   usage: change-metrics.sh post --pr <n> --cost <usd|unknown>
