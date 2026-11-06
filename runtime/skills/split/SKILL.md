@@ -20,7 +20,7 @@ is specced until the owner approves the split.
 ## 2. Slice it
 
 - **The walking skeleton first:** the thinnest path that deploys and shows one end-to-end step a
-  user can exercise (a page; a call, for an app with no UI). In a new repo, `devshop:new-project`
+  user can exercise (a page; a call, for an app with no UI). In a new repo, `ak:new-project`
   comes first and is not a slice: set-up, no spec, unmerged until the owner's part 2; the roadmap
   PR and the first slice follow its merge, and the stack's owner set-up steps are part of the
   first slice's go.

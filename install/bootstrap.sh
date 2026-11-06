@@ -6,8 +6,10 @@
 # and each failure is logged and makes the exit status non-zero (L-43). Log: /tmp/devshop-setup.log.
 set -uo pipefail
 MIRROR=/opt/devshop.git
-VERSIONS=/opt/devshop-versions
 PLUGIN=/opt/devshop-plugin
+# The extracted versions live inside the plugin's marketplace folder: Claude Code follows the
+# plugin's skills link only when it resolves inside that folder (F-NEW-147, specs/ak-plugin.md).
+VERSIONS=$PLUGIN/versions
 REF=${1:-HEAD}
 LOG=/tmp/devshop-setup.log
 failed=0
@@ -22,15 +24,16 @@ url=$(git --git-dir="$MIRROR" config --get remote.origin.url) || step_failed "no
 clean=$(printf '%s' "${url:-}" | sed -E 's#^([A-Za-z][A-Za-z0-9+.-]*://)[^/@]*@#\1#')
 [ -z "$clean" ] || git --git-dir="$MIRROR" remote set-url origin "$clean" || step_failed "remote set-url"
 
+{ rm -rf "$PLUGIN" && mkdir -p "$PLUGIN"; } || step_failed "mkdir $PLUGIN"
+git --git-dir="$MIRROR" archive "$REF:install/plugin" | tar -x -C "$PLUGIN" 2>>"$LOG" \
+  || step_failed "extract install/plugin at $REF"
+
+# After the extraction, which empties $PLUGIN, and before the priming, which reads default-ref.
 mkdir -p "$VERSIONS" || step_failed "mkdir $VERSIONS"
 echo "$REF" >"$VERSIONS/default-ref" || step_failed "write default-ref"
 # When the local copy was made: every DEVSHOP: line shows its age, since it refreshes only when the
 # environment cache rebuilds.
 date -u +%FT%TZ >"$VERSIONS/copy-date" || step_failed "write copy-date"
-
-{ rm -rf "$PLUGIN" && mkdir -p "$PLUGIN"; } || step_failed "mkdir $PLUGIN"
-git --git-dir="$MIRROR" archive "$REF:install/plugin" | tar -x -C "$PLUGIN" 2>>"$LOG" \
-  || step_failed "extract install/plugin at $REF"
 
 # Prime /opt/devshop-current with the default version, so the cached environment has one even
 # before the first session; priming doesn't run the version's own session-start script.
@@ -38,7 +41,7 @@ DEVSHOP_PRIME_ONLY=1 CLAUDE_PROJECT_DIR=/nonexistent bash "$PLUGIN/devshop/hooks
   || step_failed "prime /opt/devshop-current"
 
 claude plugin marketplace add "$PLUGIN" --scope user >>"$LOG" 2>&1 || step_failed "claude plugin marketplace add"
-claude plugin install devshop@devshop --scope user >>"$LOG" 2>&1 || step_failed "claude plugin install"
+claude plugin install ak@ak --scope user >>"$LOG" 2>&1 || step_failed "claude plugin install"
 
 # Pinned tools (L-45): each install/tools.pin line is downloaded, checked against its sha256, and
 # its binary linked into /opt/devshop-tools/bin, where the devshop's git hooks run it. A bad or

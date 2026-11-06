@@ -1,13 +1,13 @@
 ---
 name: pr
-description: Open or update the PR for a change `devshop:build` built: the template's body, screenshots, `ship.sh` through the reviewer, then tell the owner.
+description: Open or update the PR for a change `ak:build` built: the template's body, screenshots, `ship.sh` through the reviewer, then tell the owner.
 ---
 
 # PR
 
 The PR is what the owner judges, on a phone (TARGET § L3 Review). The mechanical steps are the
 scripts named here; run them, never retype them as shell. Code changes, in any round, are built
-under `devshop:build` § 3; this skill only puts them on the PR.
+under `ak:build` § 3; this skill only puts them on the PR.
 
 ## 1. The body
 
@@ -37,8 +37,8 @@ under `devshop:build` § 3; this skill only puts them on the PR.
   the words have the template's shape, then only on the independent reviewer's pass does it push,
   create or update the PR (ready) with those exact words and post the verdict; it is the only way to
   a PR.
-- Exit 1: fix what it lists, the words here, code under `devshop:build` § 3 (a spec change:
-  `devshop:intent` step 5); commit, and run `ship.sh` again. Exit 2 or 3: ask the owner.
+- Exit 1: fix what it lists, the words here, code under `ak:build` § 3 (a spec change:
+  `ak:intent` step 5); commit, and run `ship.sh` again. Exit 2 or 3: ask the owner.
 - Run it again after any change to code or words. With only the words changed, it reviews the
   words alone (W10.9.7).
 
@@ -72,8 +72,8 @@ under `devshop:build` § 3; this skill only puts them on the PR.
   `/opt/devshop-current/scripts/change-metrics.sh post --pr <n> --cost <usd>`. Exit 3: the deploy
   comment isn't final yet, arm `send_later` 5 minutes ahead again (it gives up an hour after the
   merge). Exit 0: posted; say so in chat. Exit 2: say what it printed. Nothing waits on it.
-- Every owner comment on the PR is addressed: build what it asks under `devshop:build` § 3, then this
+- Every owner comment on the PR is addressed: build what it asks under `ak:build` § 3, then this
   skill again; one that changes a decision or acceptance item is recorded in the spec as changed
-  after the go (`devshop:intent` § 5). One you can't address (unclear, conflicting, or outside the
+  after the go (`ak:intent` § 5). One you can't address (unclear, conflicting, or outside the
   change): build nothing for it and tell the owner in the session's chat what it needs from them. A
   comment that only asks a question is answered there too.
