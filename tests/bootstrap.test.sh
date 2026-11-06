@@ -217,6 +217,8 @@ pinned=$(git -C "$work/side" rev-parse HEAD)
 
 # A fake `claude` CLI: `plugin marketplace add <dir>` remembers the marketplace, `plugin install
 # <plugin>@<marketplace>` copies the plugin's source dir, as the real CLI copies it into its cache.
+# (A session reads a plugin from a local marketplace folder in place, not from that copy: Claude Code
+# 2.1.319's init event names /opt/devshop-plugin/devshop as its path. The F-NEW-147 check reads there.)
 mkdir -p "$work/bin"
 cat >"$work/bin/claude" <<'EOF'
 #!/usr/bin/env bash
@@ -349,16 +351,19 @@ echo "ok - bootstrap keeps the clone's URL and drops the token"
 # 2.1.318 on follows a symlink in it only when the link resolves inside that folder; a skills/ that
 # resolves elsewhere is skipped without a word, and the session gets only the plugin's own upgrade
 # skill. So every runtime skill the plugin offers resolves inside the marketplace folder.
-n=0
+got=""
 for f in "$mkt"/devshop/skills/*/SKILL.md; do
   [ -f "$f" ] || continue
   case $(readlink -f "$f") in
-    "$mkt"/*) n=$((n + 1)) ;;
+    "$mkt"/*) got="$got ${f%/SKILL.md}" ;;
     *) fail "F-NEW-147: the plugin's $f resolves to $(readlink -f "$f"), outside the marketplace folder $mkt, so Claude Code skips it" ;;
   esac
 done
-[ "$n" -ge 4 ] || fail "F-NEW-147: the plugin's skills/ in $mkt offers $n skills, want the runtime's (intent, build, pr, ...)"
-echo "ok - F-NEW-147: the plugin's $n runtime skills resolve inside the marketplace folder $mkt"
+got=$(for d in $got; do echo "${d##*/}"; done | sort | paste -sd ' ' -)
+want=$(git -C "$repo_root" ls-tree --name-only "$head:$RUNTIME/skills/" | sort | paste -sd ' ' -)
+[ -n "$want" ] && [ "$got" = "$want" ] \
+  || fail "F-NEW-147: the plugin's skills/ in $mkt offers '$got' inside the marketplace folder, want the runtime's '$want'"
+echo "ok - F-NEW-147: the plugin's runtime skills ($got) resolve inside the marketplace folder $mkt"
 # The plugin is ak (owner, 2026-11-06): its skills are ak:<name>, installed as ak@ak.
 [ "$(jq -r .name "$mkt/.claude-plugin/marketplace.json")" = ak ] || fail "the marketplace isn't named ak"
 [ "$(jq -r '.plugins[0].name' "$mkt/.claude-plugin/marketplace.json")" = ak ] || fail "the marketplace's plugin isn't named ak"
@@ -801,7 +806,7 @@ with_log() { # with_log <log content | --none | --dir>: the hook's lines with th
 }
 setup_env >&2
 S='[10:00:00] bootstrap start ref=HEAD copy-head=abc1234'
-DONE='[10:05:00] RESULT: bootstrap done (current -> $versions/x)'
+DONE='[10:05:00] RESULT: bootstrap done (current -> /opt/devshop-plugin/versions/x)'
 BAD='[10:05:00] RESULT: bootstrap FAILED (see FAILED lines above)'
 boot_clause "bootstrap-result-at-session-start AC-2: a log whose run ended done" "$(with_log "$S
 [10:01:00] FAILED: noise from a tool, not the bootstrap's own line
