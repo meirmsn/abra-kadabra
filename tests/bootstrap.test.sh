@@ -363,13 +363,13 @@ got=$(for d in $got; do echo "${d##*/}"; done | sort | paste -sd ' ' -)
 want=$(git --git-dir="$src" ls-tree --name-only "$head:$RUNTIME/skills/" | sort | paste -sd ' ' -)
 [ -n "$want" ] && [ "$got" = "$want" ] \
   || fail "F-NEW-147: the plugin's skills/ in $mkt offers '$got' inside the marketplace folder, want the runtime's '$want'"
-echo "ok - F-NEW-147: the plugin's runtime skills ($got) resolve inside the marketplace folder $mkt"
+echo "ok - AC-1 (F-NEW-147): the plugin's runtime skills ($got) resolve inside the marketplace folder $mkt"
 # The plugin is ak (owner, 2026-11-06): its skills are ak:<name>, installed as ak@ak.
 [ "$(jq -r .name "$mkt/.claude-plugin/marketplace.json")" = ak ] || fail "the marketplace isn't named ak"
 [ "$(jq -r '.plugins[0].name' "$mkt/.claude-plugin/marketplace.json")" = ak ] || fail "the marketplace's plugin isn't named ak"
 [ "$(jq -r .name "$HOME/plugin/.claude-plugin/plugin.json")" = ak ] || fail "the installed plugin isn't named ak"
 grep -qx "claude plugin install ak@ak --scope user" "$HOME/claude-calls.log" || fail "the bootstrap doesn't install ak@ak"
-echo "ok - the bootstrap installs the plugin as ak@ak, so its skills are ak:<name>"
+echo "ok - AC-3: the bootstrap installs the plugin as ak@ak, so its skills are ak:<name>"
 
 # A git repo with no pin (the version's own script skipped: HEAD's would add its own lines).
 out=$(DEVSHOP_TEST_GIT=1 DEVSHOP_PRIME_ONLY=1 session '')

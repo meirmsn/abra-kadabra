@@ -59,7 +59,7 @@ check "a handover to a skill the runtime lacks fails" 1 \
   "$(runtime dangling-skill "$good Then invoke \`ak:missing\`.")" "ak:missing"
 # The plugin is ak (owner, 2026-11-06): a hand-over by its old name, devshop:<skill>, names a skill
 # no session lists, even when the skill exists.
-check "a handover by the plugin's old name fails" 1 \
+check "AC-5: a handover by the plugin's old name fails" 1 \
   "$(runtime old-name "$good Then invoke \`devshop:demo\`.")" "devshop:demo"
 # described <name> <words>: a runtime with one skill whose description has that many words.
 described() {
@@ -96,7 +96,7 @@ PLUGIN=$(plugin p-handover extra "$pgood Then invoke \`ak:demo\`.") \
 PLUGIN=$(plugin p-dangling extra "$pgood Then invoke \`ak:missing\`.") \
   check "a plugin skill handing over to a skill nobody has fails" 1 "$(runtime p-dangling-rt "$good")" "ak:missing"
 PLUGIN=$(plugin p-old-name extra "$pgood Then invoke \`devshop:demo\`.") \
-  check "a plugin skill handing over by the plugin's old name fails" 1 "$(runtime p-old-name-rt "$good")" "devshop:demo"
+  check "AC-5: a plugin skill handing over by the plugin's old name fails" 1 "$(runtime p-old-name-rt "$good")" "devshop:demo"
 PLUGIN=$(plugin p-shape extra "Just text.") check "a plugin skill without frontmatter fails" 1 "$(runtime p-shape-rt "$good")" "frontmatter"
 PLUGIN=$(plugin p-clash demo "$good") check "a plugin skill named like a runtime skill fails" 1 "$(runtime p-clash-rt "$good")" "shares its name"
 # The budget counts the plugin's descriptions too: 101 words in the runtime and 101 in the plugin.
@@ -148,3 +148,20 @@ grep -qF '`ak:pr`' "$plugin_skills/upgrade/SKILL.md" ||
 ! grep -qF 'ship.sh' "$plugin_skills/upgrade/SKILL.md" ||
   fail "upgrade still runs ship.sh itself"
 echo "ok - upgrade hands its PR over to ak:pr"
+
+# AC-4 (specs/ak-plugin.md): the plugin is ak, so nothing hands over by `devshop:<skill>` any more;
+# only this test, which feeds the old name to the check, still writes it. stray <root>: lists the
+# files under <root>'s runtime, install, scripts, tests and docs that name `devshop:<skill>`.
+stray() {
+  (cd "$1" && grep -rlE 'devshop:[a-z]' -- runtime install scripts tests docs 2>/dev/null) |
+    grep -vx 'tests/skills-check.test.sh' || true
+}
+mkdir -p "$work/ac4/runtime/skills/demo" "$work/ac4/tests" "$work/ac4/docs"
+echo "Then invoke \`ak:demo\`." >"$work/ac4/runtime/skills/demo/SKILL.md"
+cp "$0" "$work/ac4/tests/skills-check.test.sh"
+[ -z "$(stray "$work/ac4")" ] || fail "AC-4: the stray check flags ak: hand-overs or its own test"
+echo "See /devshop:upgrade." >"$work/ac4/docs/README.md"
+[ "$(stray "$work/ac4")" = docs/README.md ] || fail "AC-4: the stray check misses a /devshop:<skill> in docs"
+found=$(stray "$repo_root")
+[ -z "$found" ] || fail "AC-4: these still name devshop:<skill>, the plugin's old name: ${found//$'\n'/ }"
+echo "ok - AC-4: nothing outside this test names devshop:<skill>, and a stray one is caught"
