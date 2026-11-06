@@ -303,4 +303,31 @@ commit_file "$work/m" b.txt "b"
 out=$(push m) && rc=0 || rc=$?
 expect_blocked "a configured husky pre-push is chained" "$out" "$rc" "husky pre-push ran"
 
+# commit-msg: a message linking a Claude session is stopped (the project's rules ban it; the cloud
+# session's attribution adds a Claude-Session: trailer, which lands on main with a squash merge).
+new_project s
+CLAUDE_PROJECT_DIR="$work/s" "$start" >/dev/null
+commit_msg() { # commit_msg <message>: commit a new file with it; prints the output, returns git's status.
+  printf '%s\n' "$RANDOM" >>"$work/s/f.txt" && git -C "$work/s" add -A && git -C "$work/s" commit -q -m "$1" 2>&1
+}
+before=$(git -C "$work/s" rev-parse HEAD)
+out=$(commit_msg "$(printf 'feat: x\n\nClaude-Session: https://claude.ai/code/session_01AbCdExample')") && rc=0 || rc=$?
+{ [ "$rc" != 0 ] && grep -q "links a Claude session" <<<"$out" && [ "$(git -C "$work/s" rev-parse HEAD)" = "$before" ]; } \
+  || { echo "$out" >&2; fail "a commit message with a Claude-Session: trailer was not stopped (exit $rc)"; }
+out=$(commit_msg "fix: see https://claude.ai/code/session_01AbCdExample for why") && rc=0 || rc=$?
+[ "$rc" != 0 ] || { echo "$out" >&2; fail "a session link in a commit body was not stopped"; }
+echo "ok - commit-msg stops a message linking a Claude session, trailer or prose"
+out=$(commit_msg "docs: the rule bans claude.ai/code/session_ links") && rc=0 || rc=$?
+[ "$rc" = 0 ] || { echo "$out" >&2; fail "a message that only names the pattern was stopped"; }
+printf 'https://claude.ai/code/session_01InTheDiff\n' >>"$work/s/f.txt" && git -C "$work/s" add -A
+out=$(GIT_EDITOR=true git -C "$work/s" commit -q -v -e -m "test: a verbose commit whose diff holds a link" 2>&1) && rc=0 || rc=$?
+[ "$rc" = 0 ] || { echo "$out" >&2; fail "a verbose commit whose diff (below the scissors, not the message) holds a link was stopped"; }
+echo "ok - commit-msg passes a message that only names the pattern"
+mkdir -p "$work/s/.git/hooks"
+printf '#!/usr/bin/env bash\necho "project commit-msg says no" >&2\nexit 3\n' >"$work/s/.git/hooks/commit-msg"
+chmod +x "$work/s/.git/hooks/commit-msg"
+out=$(commit_msg "feat: y") && rc=0 || rc=$?
+{ [ "$rc" != 0 ] && grep -q "project commit-msg says no" <<<"$out"; } || { echo "$out" >&2; fail "the project's own commit-msg isn't chained"; }
+echo "ok - the project's own commit-msg still runs after the devshop's"
+
 echo "all git hook scenarios passed"

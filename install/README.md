@@ -144,6 +144,9 @@ Feedback, not walls: everything here runs in the session's VM, where the agent c
   the pinned gitleaks finds a secret in the commits the push adds (the repo's `.gitleaks.toml` if it
   has one), when the repo's own lint `scripts/lint.sh <base>` finds problems or can't run, or when
   the project's own pre-push fails. A missing gitleaks stops it too.
+- **Commit-msg** ([`runtime/git-hooks/commit-msg`](../runtime/git-hooks/commit-msg)) stops a commit
+  whose message links a Claude session (`claude.ai/code/session_…`, such as the `Claude-Session:`
+  trailer a cloud session's attribution adds), then runs the project's own commit-msg.
 - **The project's hooks still run, if it configured them.** Every other hook name links to
   [`_chain`](../runtime/git-hooks/_chain), which runs the project's hook of the same name from its
   former `core.hooksPath` (e.g. husky's after `npm install`), else `.git/hooks`. Hook scripts that
