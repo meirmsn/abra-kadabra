@@ -1,6 +1,6 @@
 ---
 name: intent
-description: Start of every request: say its kind; a change gets a spec with AC-<n> items, an adversarial review and the owner's "go" before building; too big: `devshop:split`.
+description: Start of every request: say its kind; a change gets a spec with AC-<n> items, an adversarial review and the owner's "go" before building; too big: `ak:split`.
 ---
 
 # Intent
@@ -16,7 +16,7 @@ Name it in your first reply, for the owner to correct.
 - **Later** ("put it on the roadmap"): a `ROADMAP.md` entry quoting the request word for word
   (`/opt/devshop-current/templates/roadmap.md` has the rules), its own small PR, no spec.
 - **Set-up:** a repo with no `.devshop-version` and no `.github/workflows/ci.yml`:
-  `devshop:new-project`, no spec; a whole app continues at § 2 once that PR is up.
+  `ak:new-project`, no spec; a whole app continues at § 2 once that PR is up.
 - **Bug fix:** restate the problem and the expected behaviour; the failing test is the spec. No
   "go": `build`. A fix with a real choice (behaviour people rely on, several fair fixes) is a change.
 - **Any other change:** the steps below; so is an analysis that ends in "we should change X".
@@ -26,7 +26,7 @@ Name it in your first reply, for the owner to correct.
 - Why, who or the problem not settled (a new product, a big or fuzzy feature)? Propose gstack's
   `/office-hours`. A decision that rests on how a tool behaves: an experiment first.
 - **Too big for one change** (a whole app; a feature no one PR could show working):
-  `devshop:split` before any spec; it comes back here with the first slice.
+  `ak:split` before any spec; it comes back here with the first slice.
 - A feature gets gstack's `/spec --file-only --no-gate` interview, stopped before it files an
   issue, then the plan reviews that fit. No interview for a small change (one screen or one rule,
   no new model), which gets a one-paragraph spec, nor for a slice the plan document details.

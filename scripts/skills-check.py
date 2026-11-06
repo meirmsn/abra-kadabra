@@ -11,7 +11,8 @@ For every RUNTIME_DIR/skills/<name>/SKILL.md and DIR/<name>/SKILL.md:
     (D-17 item 4, W10.9.3): reported, never a failure
   - every /opt/devshop-current/<path> it names exists in RUNTIME_DIR, the files a session gets from
     the same pinned version (a skill never points at a script its version lacks)
-  - every `devshop:<skill>` it hands over to is one of these skills (the plugin lists them so)
+  - every `ak:<skill>` it hands over to is one of these skills (the plugin, ak, lists them so), and
+    none hands over by the plugin's old name, `devshop:<skill>`, which no session lists
   - no plugin skill shares its name with a runtime skill
 All the descriptions together stay within MAX_DESCRIPTION_WORDS: they are loaded into every
 session, the devshop's share of the always-loaded budget (TARGET Shape 2, W10.6.16, W10.6.18).
@@ -25,7 +26,9 @@ import sys
 MAX_LINES, MAX_WORDS = 60, 600
 MAX_DESCRIPTION_WORDS = 200
 PINNED = re.compile(r"/opt/devshop-current/([A-Za-z0-9._/-]*[A-Za-z0-9_/-])")
-HANDOVER = re.compile(r"\bdevshop:([a-z][a-z0-9-]*)")
+PLUGIN_NAME = "ak"
+HANDOVER = re.compile(r"\bak:([a-z][a-z0-9-]*)")
+OLD_HANDOVER = re.compile(r"\bdevshop:([a-z][a-z0-9-]*)")
 
 
 def check(path, name, runtime, names):
@@ -53,7 +56,9 @@ def check(path, name, runtime, names):
         if not os.path.exists(os.path.join(runtime, rel)):
             problems.append(f"{name}: names /opt/devshop-current/{rel}, which this runtime doesn't have")
     for target in sorted(set(HANDOVER.findall(text)) - set(names)):
-        problems.append(f"{name}: hands over to devshop:{target}, which this runtime doesn't have")
+        problems.append(f"{name}: hands over to {PLUGIN_NAME}:{target}, which this runtime doesn't have")
+    for target in sorted(set(OLD_HANDOVER.findall(text))):
+        problems.append(f"{name}: hands over to devshop:{target}, the plugin's old name; the skill is {PLUGIN_NAME}:{target}")
     return problems, warnings, len(description.split())
 
 

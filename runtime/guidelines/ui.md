@@ -55,7 +55,7 @@ baseline sets these once (`button`, `.btn`, `:active`, `aria-busy`); don't redo 
 
 A project with a UI and no `DESIGN.md` gets its design direction as its own slice, the second
 after the walking skeleton and before any slice that styles a page beyond the baseline
-(`devshop:split`; [spec](../../specs/big-changes-in-slices.md)). The skeleton ships on the baseline
+(`ak:split`; [spec](../../specs/big-changes-in-slices.md)). The skeleton ships on the baseline
 above, so the project has a preview to publish the direction's pages on. The slice runs gstack's
 `/design-consultation` and lands `DESIGN.md` and the theme CSS in one PR, whose spec records
 `DESIGN.md` as the decision (the reviewer judges a change that adds it against the head's).
@@ -83,7 +83,7 @@ above, so the project has a preview to publish the direction's pages on. The sli
 ## Design review (before `ship`)
 
 `build` runs gstack's `/design-review` on every change that changes what a page renders (markup,
-styles, scripts a page loads, its assets), after its tests pass and before `devshop:pr`
+styles, scripts a page loads, its assets), after its tests pass and before `ak:pr`
 ([spec](../../specs/design-review-in-build.md)). It is feedback, not a wall.
 
 - **Not without `DESIGN.md`:** no `DESIGN.md` in the project, no run; the PR's line says so.

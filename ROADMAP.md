@@ -27,6 +27,7 @@ too; an entry is `Done` when its task is `[x]`.
 | R-12 | 2026-10-19 | Projects' PR titles carry a Conventional Commit prefix too, placed by the devshop: a `pr-title-check.py` in the project files, checked in `fast` and by `ship.sh` — [spec](specs/project-contract.md)                                                                   | Done, PR #151 (the contract's first entry)   |
 | R-14 | 2026-10-20 | The session-start hook reads the wrong directory after a restart and runs without the project's pin, silently (F-NEW-77): root cause and fix, before the pilot web app adopts v2 — [W10.11.12](kit/notes/revamp/workstreams/W10-v2.md#w1011-the-first-real-app--p0--l)  | Done (W10.11.12)                             |
 | R-15 | 2026-10-30 | The metrics comment names the model(s) and splits the tokens (input, output, cache reads, cache writes) beside the dollars, and says which window of the session they cover — [spec](specs/metrics-model-and-tokens.md)                                                 | Done, PR #169                                |
+| R-20 | 2026-11-06 | The runtime's skills load again on Claude Code 2.1.318 and later (F-NEW-147), and the plugin is named `ak`, so they read `ak:intent`, `ak:build` and so on (owner, 2026-11-06: "Yeah, do it with AK and fix them.") — [spec](specs/ak-plugin.md)                        | Done, PR #187                                |
 
 ## R-14: The session-start hook reads the wrong directory after a restart
 

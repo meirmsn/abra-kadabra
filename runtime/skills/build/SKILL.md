@@ -1,6 +1,6 @@
 ---
 name: build
-description: Build an approved change (its spec has the owner's "go") or a bug fix (its failing test): code, tests and docs together, then hand over to `devshop:pr`.
+description: Build an approved change (its spec has the owner's "go") or a bug fix (its failing test): code, tests and docs together, then hand over to `ak:pr`.
 ---
 
 # Build
@@ -41,13 +41,13 @@ scripts named here; run them, never retype them as shell.
   spec's file name (`specs/cart.md`'s AC-2: `cart AC-2`), unless the spec marks it "verified by
   review".
 - Run the new and affected tests and the fast checks as you go; the full suite runs in CI.
-- A change to what a page renders: once its tests pass and before `devshop:pr`, gstack's
+- A change to what a page renders: once its tests pass and before `ak:pr`, gstack's
   `/design-review` on a local run (none without `DESIGN.md`), as
   `/opt/devshop-current/guidelines/ui.md` § Design review says.
 - Noticed something the change doesn't need? Fix it only when the task needs it or it sits in
   lines you already edit. Otherwise log it, don't fix it: a row in the project's `FINDINGS.md`
   (from `/opt/devshop-current/templates/findings.md`, which has the rules), or a sighting on the
-  row it matches. One about the devshop is kept for the hand-over block (`devshop:pr` § 3), never
+  row it matches. One about the devshop is kept for the hand-over block (`ak:pr` § 3), never
   written in the project.
 - Root cause over band-aid: a mitigation is labelled as one, with the root cause named beside it.
 - Fix loops: real logs before a second attempt, each retry fresh with what was tried; then ask.
@@ -56,5 +56,5 @@ scripts named here; run them, never retype them as shell.
 
 ## 4. Hand over
 
-- Built, and the new and affected tests and fast checks pass: invoke `devshop:pr` to open the PR.
-- A later round (a reviewer fail, an owner comment) is built here under § 3, then `devshop:pr` again.
+- Built, and the new and affected tests and fast checks pass: invoke `ak:pr` to open the PR.
+- A later round (a reviewer fail, an owner comment) is built here under § 3, then `ak:pr` again.

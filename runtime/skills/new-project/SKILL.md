@@ -13,7 +13,7 @@ did its part 1 before this session.
 
 - `origin/main` exists. An empty repo has none: the owner creates the repo with a README.
 - No `.devshop-version` and no `.github/workflows/ci.yml`: else this isn't a new project; go to
-  `devshop:intent`.
+  `ak:intent`.
 - A clean tree, on a fresh branch cut from `origin/main`.
 - `gitleaks` and `python3` run.
 
@@ -32,7 +32,7 @@ did its part 1 before this session.
 
 ## 3. The first PR
 
-- One commit, "chore: start from the devshop", the PR's title too; then `devshop:pr`. The body's
+- One commit, "chore: start from the devshop", the PR's title too; then `ak:pr`. The body's
   **What you should know** carries the owner's part 2 of the steps, filled in with this repo's
   exact names.
 - Leave it unmerged until the owner has done part 2 (protection on `main` names the checks CI's
@@ -41,6 +41,6 @@ did its part 1 before this session.
 
 ## 4. After the merge
 
-The stack comes with the first change: the owner's next request goes through `devshop:intent`, and
+The stack comes with the first change: the owner's next request goes through `ak:intent`, and
 its spec names the stack. That stack's home (`/opt/devshop-current/stacks/`) has a `## Set-up`
 section with its own owner steps, given to the owner the same way.
