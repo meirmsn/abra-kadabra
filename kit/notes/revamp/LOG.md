@@ -3335,3 +3335,18 @@ sessions block, so the script copies from the release tag on GitHub. The owner's
 first spec by half (no `supplies`, no forked tiers, Tailwind's palette kept).
 
 **Next**: the pilot web app's adoption (W10.11.6), then its direction slice (W10.11.7).
+
+## #102 — 2026-11-06 · The plugin is `ak`, and its runtime skills load again (R-20, F-NEW-147)
+
+**What moved**: Claude Code 2.1.318+ follows a local-marketplace plugin's symlink only when it
+resolves inside the marketplace folder; the skills link ended in `/opt/devshop-versions`, so sessions
+got only `upgrade`. The versions now live in `/opt/devshop-plugin/versions`, `/opt/devshop-current`
+still switches them, and the plugin is `ak@ak`: every hand-over reads `ak:<name>`, and
+`skills-check.py` fails the old name. Proven by a real bootstrap and real sessions in a private mount
+namespace: seven `ak:` skills, and five for a pin from before `split`.
+
+**Surprises**: the CLI's validator text states the rule; the manifest's `skills` entry adds, never
+replaces. The cache copy is never read. dcg blocked an edit script for quoting `rm -rf`
+(F-NEW-140 again).
+
+**Next**: the skills-eval branch takes this from `main` (its own session).
