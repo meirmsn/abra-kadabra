@@ -92,7 +92,7 @@ placeholders and prose deploy facts (L-47) are what not to rebuild.
   commit's subject, not the reviewed title; reported by the devshop releases session, R-11,
   2026-10-16) and its body to the PR's (`squash_merge_commit_message=PR_BODY`: under GitHub's
   default the branch's commit messages, a session's trailers included, land on `main` unreviewed;
-  F-NEW-144, 2026-11-06); the agent identity invited as a Write collaborator and the invitation accepted; the
+  F-NEW-144; the owner's go, 2026-11-07: "Regarding the medium ones, do what the adversarial review proposed", the review having proposed this setting); the agent identity invited as a Write collaborator and the invitation accepted; the
   Claude GitHub App given access to the repo; a cloud environment with the shared two-line setup
   script and a Limited network (package registries, GitHub). After the first PR's CI has run:
   `main` protected (PR only, one approval, code-owner review, approval of the most recent push,
