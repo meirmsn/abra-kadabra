@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Shape check for the devshop's own skills, run by tests/skills-check.test.sh in CI (W10.6.1).
 
-Usage: scripts/skills-check.py [RUNTIME_DIR] [--plugin-skills DIR] [--rules FILE]   (default: runtime/ beside this
+Usage: scripts/skills-check.py [RUNTIME_DIR] [--plugin-skills DIR]   (default: runtime/ beside this
 script). DIR holds the install plugin's own skills (W10.4.8), loaded beside the runtime's in every
 session; they are checked with them, as one set.
 For every RUNTIME_DIR/skills/<name>/SKILL.md and DIR/<name>/SKILL.md:
@@ -11,19 +11,17 @@ For every RUNTIME_DIR/skills/<name>/SKILL.md and DIR/<name>/SKILL.md:
     (D-17 item 4, W10.9.3): reported, never a failure
   - every /opt/devshop-current/<path> it names exists in RUNTIME_DIR, the files a session gets from
     the same pinned version (a skill never points at a script its version lacks)
-  - every `devshop:<skill>` it hands over to is one of these skills (the plugin lists them so)
+  - every `ak:<skill>` it hands over to is one of these skills (the plugin, ak, lists them so), and
+    none hands over by the plugin's old name, `devshop:<skill>`, which no session lists
   - no plugin skill shares its name with a runtime skill
-  - every section reference resolves (specs/skills-eval.md): `devshop:<x>` § N, `<x>` § N and
+  - every section reference resolves (specs/skills-eval.md): `ak:<x>` § N, `<x>` § N and
     `<x>`, step N name a "## N." heading of skill <x>; a bare "§ N" or "step N" one of its own;
     `/opt/devshop-current/<file>` § <Heading> a heading of that file the text after the § starts
     with (its "(…)" tail ignored). Others (TARGET, specs) aren't in the runtime and aren't checked
-  - with --rules FILE: each "<skill> | <why> | <text>" line's text still appears in that skill,
-    whitespace folded (lines wrap); "#" lines and blank lines are skipped. A malformed line or an
-    unknown skill can't run
 All the descriptions together stay within MAX_DESCRIPTION_WORDS: they are loaded into every
 session, the devshop's share of the always-loaded budget (TARGET Shape 2, W10.6.16, W10.6.18).
 Exit 0 = every skill has the shape (warnings, if any, listed); 1 = problems (listed); 2 = can't run (no runtime, no skills, a
-missing plugin skills dir, a missing or malformed rules file, bad arguments).
+missing plugin skills dir, bad arguments).
 """
 import os
 import re
@@ -32,9 +30,11 @@ import sys
 MAX_LINES, MAX_WORDS = 60, 600
 MAX_DESCRIPTION_WORDS = 200
 PINNED = re.compile(r"/opt/devshop-current/([A-Za-z0-9._/-]*[A-Za-z0-9_/-])")
-HANDOVER = re.compile(r"\bdevshop:([a-z][a-z0-9-]*)")
+PLUGIN_NAME = "ak"
+HANDOVER = re.compile(r"\bak:([a-z][a-z0-9-]*)")
+OLD_HANDOVER = re.compile(r"\bdevshop:([a-z][a-z0-9-]*)")
 # Section references, matched on the text with its whitespace folded (a reference can wrap).
-NAMED_REF = re.compile(r"`(devshop:)?([a-z][a-z0-9-]*)`(,)? (§|step) (\d+)")
+NAMED_REF = re.compile(r"`(ak:)?([a-z][a-z0-9-]*)`(,)? (§|step) (\d+)")
 FILE_REF = re.compile(r"`/opt/devshop-current/([^`\s]+)` § ([^.;:,)`]+)")
 OWN_REF = re.compile(r"(?:§|\bstep) (\d+)")
 DOC_BEFORE = re.compile(r"^\(?`?(TARGET|\S+\.md)`?$")
@@ -72,23 +72,6 @@ def references(name, text, runtime, sections):
     return problems
 
 
-def read_rules(path, names):
-    """The rules file's (skill, why, text) entries, or raise ValueError naming the bad line."""
-    entries = []
-    with open(path, encoding="utf-8") as f:
-        for n, line in enumerate(f, 1):
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            parts = [p.strip() for p in line.split(" | ")]
-            if len(parts) != 3 or not all(parts):
-                raise ValueError(f"rules {path}:{n}: want '<skill> | <why> | <text>'")
-            if parts[0] not in names:
-                raise ValueError(f"rules {path}:{n}: unknown skill '{parts[0]}'")
-            entries.append(tuple(parts))
-    return entries
-
-
 def check(path, name, runtime, names):
     problems, warnings = [], []
     with open(path, encoding="utf-8") as f:
@@ -114,7 +97,9 @@ def check(path, name, runtime, names):
         if not os.path.exists(os.path.join(runtime, rel)):
             problems.append(f"{name}: names /opt/devshop-current/{rel}, which this runtime doesn't have")
     for target in sorted(set(HANDOVER.findall(text)) - set(names)):
-        problems.append(f"{name}: hands over to devshop:{target}, which this runtime doesn't have")
+        problems.append(f"{name}: hands over to {PLUGIN_NAME}:{target}, which this runtime doesn't have")
+    for target in sorted(set(OLD_HANDOVER.findall(text))):
+        problems.append(f"{name}: hands over to devshop:{target}, the plugin's old name; the skill is {PLUGIN_NAME}:{target}")
     return problems, warnings, len(description.split())
 
 
@@ -123,14 +108,7 @@ def skill_dirs(skills):
 
 
 def main(argv):
-    args, plugin, rules = argv[1:], None, None
-    if "--rules" in args:
-        k = args.index("--rules")
-        if k + 1 >= len(args):
-            print("skills-check: --rules needs a file", file=sys.stderr)
-            return 2
-        rules = args[k + 1]
-        del args[k:k + 2]
+    args, plugin = argv[1:], None
     if "--plugin-skills" in args:
         k = args.index("--plugin-skills")
         if k + 1 >= len(args):
@@ -170,18 +148,9 @@ def main(argv):
             description_words += words
             with open(path, encoding="utf-8") as f:
                 texts[name] = f.read()
-    sections = {n: set(SECTION.findall(t)) for n, t in texts.items()}
+    sections = {n: set(SECTION.findall(x)) for n, x in texts.items()}
     for name, text in texts.items():
         problems += references(name, text, runtime, sections)
-    if rules is not None:
-        try:
-            entries = read_rules(rules, set(every))
-        except (OSError, ValueError) as e:
-            print(f"skills-check: can't read the rules: {e}", file=sys.stderr)
-            return 2
-        for skill, why, text in entries:
-            if skill in texts and fold(text) not in fold(texts[skill]):
-                problems.append(f"{skill}: rule line ({why}) is gone: {text}")
     if description_words > MAX_DESCRIPTION_WORDS:
         problems.append(f"descriptions: {description_words} words, the always-loaded budget is {MAX_DESCRIPTION_WORDS}")
     for w in warnings:

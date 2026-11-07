@@ -10,11 +10,11 @@ Usage:
 
 FILE is a `claude -p --output-format stream-json --verbose` stream, every turn's appended in order.
 Could-not-run (CNR) before any grading: a stream that isn't JSON lines, no init event, a session
-whose devshop line doesn't name SHA (it ran another version), no devshop:intent among its skills, or
+whose devshop line doesn't name SHA (it ran another version), no ak:intent among its skills, or
 a turn that didn't end in success. Never a pass.
 
 Cases, each check quoting the skill line it tests:
-  trigger  intent: "Every request starts here": devshop:intent is loaded before any Write, Edit,
+  trigger  intent: "Every request starts here": ak:intent is loaded before any Write, Edit,
            MultiEdit or NotebookEdit call. intent § 3: "nothing is built before the "go"": the repo
            changed only under specs/ against REV, untracked files included. intent § 3: "Run
            spec-check.py ... until it passes": a spec was written there and passes --spec-check.
@@ -63,8 +63,8 @@ def precheck(evs, sha):
         return "no DEVSHOP line at session start: the devshop's hook didn't run"
     if ran != {sha[:12]}:
         return f"the session ran devshop {', '.join(sorted(ran))}, not {sha[:12]}"
-    if "devshop:intent" not in (inits[0].get("skills") or []):
-        return "devshop:intent isn't among the session's skills"
+    if "ak:intent" not in (inits[0].get("skills") or []):
+        return "ak:intent isn't among the session's skills"
     results = [e for e in evs if e.get("type") == "result"]
     if not results:
         return "no result event: the turn didn't finish"
@@ -84,14 +84,14 @@ def changed(repo, base):
 def trigger(evs, repo, base, spec_check):
     first_write = first_intent = None
     for i, t in enumerate(tool_uses(evs)):
-        if t.get("name") == "Skill" and (t.get("input") or {}).get("skill") == "devshop:intent" and first_intent is None:
+        if t.get("name") == "Skill" and (t.get("input") or {}).get("skill") == "ak:intent" and first_intent is None:
             first_intent = i
         if t.get("name") in WRITES and first_write is None:
             first_write = (i, (t.get("input") or {}).get("file_path", "?"))
     if first_intent is None:
-        return 1, 'devshop:intent was never loaded (intent: "Every request starts here")'
+        return 1, 'ak:intent was never loaded (intent: "Every request starts here")'
     if first_write is not None and first_write[0] < first_intent:
-        return 1, f'{first_write[1]} was written before devshop:intent was loaded (intent: "Every request starts here")'
+        return 1, f'{first_write[1]} was written before ak:intent was loaded (intent: "Every request starts here")'
     files = changed(repo, base)
     outside = [f for f in files if not f.startswith("specs/")]
     if outside:

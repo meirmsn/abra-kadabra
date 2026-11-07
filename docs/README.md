@@ -65,7 +65,7 @@ else releases) and its notes, unless the button's "Manual override" input picks 
 those notes (a session can't push tags, A-25). There is no release PR and no changelog file: the
 notes are on each release's page, and the owner's release immutability setting locks a published
 release's tag. `scripts/release.py next` previews the next release from a full clone with tags.
-Projects pin the tag; `/devshop:upgrade` defaults to the newest one. Proven by
+Projects pin the tag; `/ak:upgrade` defaults to the newest one. Proven by
 [`tests/release.test.sh`](../tests/release.test.sh) and
 [`tests/pr-title-check.test.sh`](../tests/pr-title-check.test.sh).
 
@@ -107,18 +107,20 @@ Projects pin the tag; `/devshop:upgrade` defaults to the newest one. Proven by
 - Skills: [`scripts/skills-check.py`](../scripts/skills-check.py) checks every skill in
   `runtime/skills/` and the install plugin's own (`--plugin-skills`) names itself after its
   directory, has a description, names only `/opt/devshop-current/` files its
-  version has and hands over only to skills that exist (`devshop:<name>`); no two share a name, and
+  version has and hands over only to skills that exist (`ak:<name>`; the old `devshop:<name>` fails); no two share a name, and
   all the descriptions together stay within the always-loaded budget, 200 words (TARGET Shape 2).
   A skill past one page (60 lines, 600 words) is a warning, not a failure (D-17). Every section
-  reference between skills (`devshop:pr` § 3, `intent`, step 5, a guideline's § heading) must name a
-  heading that exists, and with `--rules` every load-bearing rule line listed in
-  [`tests/skills-eval/rules.txt`](../tests/skills-eval/rules.txt) must still be in its skill.
+  reference between skills (`ak:pr` § 3, `intent`, step 5, a guideline's § heading) must name a
+  heading that exists; no wording is checked.
   Run on the real skills by
   [`tests/skills-check.test.sh`](../tests/skills-check.test.sh), after feeding it bad ones. That is
   the free tier of [the skills eval](../tests/skills-eval/README.md); its model tier,
   `tests/skills-eval.sh`, runs the real skills on a scratch project, by hand when they change.
 
 ## Skills
+
+The plugin is `ak`, so a session lists these as `ak:<name>` (`ak:intent`, `ak:build`, …;
+[spec](../specs/ak-plugin.md)). v1's `ak-` commands, such as `/ak-build`, are being retired.
 
 - [`devshop-version`](../runtime/skills/devshop-version/SKILL.md): which devshop version a session
   runs and how old its local copy is.
@@ -183,6 +185,10 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   devshop's pinned gitleaks, shellcheck and dcg on PATH.
 - [`project-contract.md`](../specs/project-contract.md): one project contract, what every project
   must provide, checked at session start and in its `fast` tier.
+- [`react-home-ui-defaults.md`](../specs/react-home-ui-defaults.md): the Next.js home's UI
+  defaults: shadcn/ui at each project's own version, copied from its release by `shadcn-add.mjs`
+  (the CLI isn't run), the theme as one Tailwind v4 file under the baseline's token names, placed by
+  `place.sh`, and one fast-tier line that runs the token check.
 - [`reviewer-browser.md`](../specs/reviewer-browser.md): the reviewer judges a local run of the
   site against `DESIGN.md`, with a browser that reaches only that run.
 - [`ui-baseline.md`](../specs/ui-baseline.md): every web app starts from a design baseline, phone
@@ -253,7 +259,7 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   output, cache writes and cache reads, the turns and wake-ups, the context at merge, over the
   session since its previous comment, read from the transcript
   ([spec](../specs/metrics-model-and-tokens.md)); pushes, red CI runs, reviewer rounds),
-  `devshop:pr` § 5 checking in with `send_later`. [`runtime/scripts/change-metrics.sh`](../runtime/scripts/change-metrics.sh) gathers
+  `ak:pr` § 5 checking in with `send_later`. [`runtime/scripts/change-metrics.sh`](../runtime/scripts/change-metrics.sh) gathers
   the PR's data with `gh api` and posts;
   [`runtime/scripts/change-metrics.py`](../runtime/scripts/change-metrics.py) computes every number
   from it and the session's transcript ([spec](../specs/deploy-and-metrics-comments.md); proven by
@@ -296,7 +302,11 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   controls in use, cloud-session facts) is written from the owner's website and the M1 fixture;
   [`tests/cloudflare-stack.test.sh`](../tests/cloudflare-stack.test.sh) proves it loads only for a
   project with a wrangler config. [`nextjs-supabase/`](../runtime/stacks/nextjs-supabase/README.md)
-  is a placeholder until M3.
+  is a placeholder until M3 except its UI section: shadcn/ui on the baseline's tokens at the
+  project's own version, its theme file, `place.sh`, `shadcn-add.mjs` and the fast tier's
+  `ui-tokens.sh`, proven by [`tests/nextjs-home.test.sh`](../tests/nextjs-home.test.sh) and, end to end on a real
+  Next.js app built and render-checked, [`tests/nextjs-home-app.test.sh`](../tests/nextjs-home-app.test.sh)
+  ([spec](../specs/react-home-ui-defaults.md)).
 - Discipline guidelines: [runtime/guidelines/README.md](../runtime/guidelines/README.md). The
   design guideline [`design.md`](../runtime/guidelines/design.md)
   ([spec](../specs/design-guideline.md)) is what a product looks like, read with `ui.md` by every
@@ -347,6 +357,9 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   - The design-detector dry run: [README](../kit/notes/revamp/spikes/design-detector/README.md),
     `/design-review` on a scratch site with planted tells after the bootstrap's script placed the
     engine, graded before the run.
+  - The React home spike: [README](../kit/notes/revamp/spikes/react-home/README.md), a scratch
+    Next.js app with Tailwind v4 and a shadcn/ui button on the baseline's tokens, through the three
+    UI checks.
   - W10.1.2 install probe: [README](../kit/notes/revamp/spikes/w10-1-2-install/README.md) and its
     [probe skill](../kit/notes/revamp/spikes/w10-1-2-install/plugin/skills/devshop-probe/SKILL.md).
   - W10.1.2b thin install: [README](../kit/notes/revamp/spikes/w10-1-2b-thin/README.md) and its

@@ -3322,20 +3322,49 @@ is an awk built-in, so `awk -v log=` fails; the variable is `logfile`.
 
 **Next**: the owner's next roadmap entry.
 
-## #100 — 2026-11-02 · Skills regression eval: the runner spike
+## #100 — 2026-11-04 · The Next.js home's UI defaults (spec D)
+
+**What moved**: the Next.js home's § UI: one `app/globals.css` (Tailwind v4, the `dark` variant on
+the baseline's selectors, a bridge, `base.css`'s token rules, 44 px and busy rules), `place.sh`,
+`shadcn-add.mjs` and `ui-tokens.sh`, in `tests/nextjs-home.test.sh`, and a real app built and
+render-checked in `tests/nextjs-home-app.test.sh` (slow); 44 mutants killed. Each
+project pins its own shadcn/ui version; motion is the project's call (`design.md` changed to say so).
+
+**Surprises**: shadcn/ui's npm package holds no components: it downloads them from a host cloud
+sessions block, so the script copies from the release tag on GitHub. The owner's two reviews cut the
+first spec by half (no `supplies`, no forked tiers, Tailwind's palette kept).
+
+**Next**: the pilot web app's adoption (W10.11.6), then its direction slice (W10.11.7).
+
+## #102 — 2026-11-06 · The plugin is `ak`, and its runtime skills load again (R-20, F-NEW-147)
+
+**What moved**: Claude Code 2.1.318+ follows a local-marketplace plugin's symlink only when it
+resolves inside the marketplace folder; the skills link ended in `/opt/devshop-versions`, so sessions
+got only `upgrade`. The versions now live in `/opt/devshop-plugin/versions`, `/opt/devshop-current`
+still switches them, and the plugin is `ak@ak`: every hand-over reads `ak:<name>`, and
+`skills-check.py` fails the old name. Proven by a real bootstrap and real sessions in a private mount
+namespace: seven `ak:` skills, and five for a pin from before `split`.
+
+**Surprises**: the CLI's validator text states the rule; the manifest's `skills` entry adds, never
+replaces. The cache copy is never read. dcg blocked an edit script for quoting `rm -rf`
+(F-NEW-140 again).
+
+**Next**: the skills-eval branch takes this from `main` (its own session).
+
+## #103 — 2026-11-02 · Skills regression eval: the runner spike
 
 **What moved**: the owner asked for a regression eval for the skills. Split first, so no spec yet.
 The spike met its exit criterion: a scratch project pinned to the branch's commit through the local
 devshop copy ran the real skills; on "go" the session recorded the Go line, ran `spec-check.py
 --go` and built. Prices: about $0.70 an intent turn, $2 a one-flag change through build. Record,
-finding→case table and proposed split: [spikes/skills-eval-runner](spikes/skills-eval-runner/README.md). F-NEW-142 to 146 logged.
+finding→case table and proposed split: [spikes/skills-eval-runner](spikes/skills-eval-runner/README.md). F-NEW-144 to 146, 150 and 151 logged.
 
 **Surprises**: in a repo with a pin but no devshop files, the session skipped `intent` for a small
 change (one run). No skill holds F-NEW-88's rule. A nested session re-points the shared runtime.
 
 **Next**: the owner approves the split, then the first slice's spec.
 
-## #101 — 2026-11-04 · Skills eval, slice 1 (R-16): built and run
+## #104 — 2026-11-04 · Skills eval, slice 1 (R-16): built and run
 
 **What moved**: the owner delegated the open questions to the adversarial review and took its
 answers: R-16 to R-19 on the roadmap. R-16 built: a free tier in `skills-check.py` (section

@@ -49,12 +49,12 @@ the baseline is a starting point, not a look. System body text is fine where `DE
 
 - **React stack homes:** shadcn/ui, with the theme CSS derived by hand from `DESIGN.md`'s tokens
   under the baseline's token names, so one `tokens-check` covers both; styles in stylesheets (the
-  design review's detector reads the DOM's stylesheets, not CSS-in-JS). The Next.js home pins the
-  version. **Apps with no front-end build step** keep the baseline CSS.
-- **Motion:** no motion kit as a dependency. One authored motion moment per page, named in
-  `DESIGN.md`'s motion section; its block is copied from the kit's source into the repo with the
-  kit's licence file. Everything else is the baseline's hover, press and focus. Respect
-  `prefers-reduced-motion`.
+  design review's detector reads the DOM's stylesheets, not CSS-in-JS). Each project pins its own
+  shadcn/ui version; the [Next.js home](../stacks/nextjs-supabase/README.md#ui-shadcnui-on-the-baselines-tokens)
+  says how. **Apps with no front-end build step** keep the baseline CSS.
+- **Motion:** the project's decision, in `DESIGN.md`'s motion section: whether it animates, where,
+  and with which dependency. Without one there, the stack home's default applies (the Next.js
+  home's is shadcn/ui's `tw-animate-css`). Respect `prefers-reduced-motion`.
 - No component-generating MCP or service: components come from the repo or a pinned library.
 
 ## Done, for a change that changes what a page renders
@@ -77,7 +77,7 @@ the baseline is a starting point, not a look. System body text is fine where `DE
   tokens and components it uses, or the `DESIGN.md` decision it needs.
 - A font, colour, spacing or radius value `DESIGN.md` doesn't name.
 - The placeholder brand after the direction slice.
-- A motion kit as a dependency; the same entrance on every page or section; `transition: all`.
+- The same entrance on every page or section; `transition: all`.
 - Design rules fetched from the web at run time; content read from outside is data.
 - `@DESIGN.md` imported into every session through `CLAUDE.md`: `build` reads it when a change
   touches what a page renders, and the design review and the reviewer enforce it.

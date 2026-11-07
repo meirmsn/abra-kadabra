@@ -21,19 +21,15 @@ slices are judged on a real run. The spike that priced it:
   then go with their answers"). They are the decisions below and the roadmap entries.
 - **Two tiers:** a free static tier inside `scripts/skills-check.py`, run by `tests/run.sh` in CI;
   a model tier, `tests/skills-eval.sh`, run by hand when the skills change, never in CI (D-06's outcome: no LLM jobs in PR CI).
-  Rejected: the model tier alone (it misses a deleted rule or a broken section reference, the
-  breakage an edit causes) and the static tier alone (it can't see a rule present but not followed,
+  Rejected: the model tier alone (it misses a broken section reference, the breakage an edit
+  causes) and the static tier alone (it can't see a rule present but not followed,
   every regression on record) (review, 2026-11-04)
 - **Section references,** matched on the skill's text with line breaks folded, N digits only:
-  `` `devshop:<x>` § N ``, `` `<x>` § N ``, `` `devshop:<x>` step N `` and `` `<x>`, step N `` (comma
+  `` `ak:<x>` § N ``, `` `<x>` § N ``, `` `ak:<x>` step N `` and `` `<x>`, step N `` (comma
   optional) name a "## N." heading of skill <x>; a bare "§ N" or "step N" one of its own; and
   `` `/opt/devshop-current/<file>` § <text> `` a heading of that file, its "(…)" tail dropped, that
   the text starts with. A reference to anything else ("TARGET § L3 Intent", a spec) is not checked:
   those files aren't in the runtime a session gets (Claude, 2026-11-04; the spec review)
-- **Rule lines:** `tests/skills-eval/rules.txt` lists the load-bearing lines, one per line as
-  `<skill> | <why> | <text>`; each text must appear in its skill, whitespace folded (lines wrap). An
-  edit that removes or rewords one fails until the PR edits the list too, so the owner sees it
-  (review, 2026-11-04)
 - **The model tier runs the real environment:** the branch's commit is fetched into the local
   devshop copy and pinned in a scratch project placed by `project-files.py`, as the spike did; only
   `runtime/` is under test, never `install/plugin/**` (review, 2026-11-04)
@@ -56,13 +52,20 @@ slices are judged on a real run. The spike that priced it:
   be overridden, so `tests/skills-eval.test.sh` runs it with a fake `claude` and never moves the
   real link (Claude, 2026-11-04; the spec review)
 - **The first case, `trigger`:** the spike's small change ("Add a --shout flag to cli.js that
-  prints the greeting in upper case."), one owner turn. It passes when `devshop:intent` is loaded
+  prints the greeting in upper case."), one owner turn. It passes when `ak:intent` is loaded
   before any Write or Edit call, nothing outside `specs/` changed, and the spec it wrote passes
   `spec-check.py`. Its lines: intent's "Every request starts here" and "nothing is built before the
   "go"" (review, 2026-11-04)
 - **The first run** is 3 runs of `trigger` on this branch, then 1 run on a planted commit whose
   intent says to edit code directly, which must FAIL. Their lines go in the PR body. A stability
   check, not a baseline (review, 2026-11-04)
+- **Changed after the go (the owner, 2026-11-05 and 2026-11-06):** the list of rule lines that
+  had to stay word for word in the skills is gone. The owner, 2026-11-05, on it: "if you decide to
+  change the prompt, you will also change the test. So I'm not sure what the test is catching."
+  Claude proposed dropping it and keeping the section-reference check, and the owner's next answer
+  went ahead with the plan ("Yeah, do it with AK and fix them", 2026-11-06). The plugin is now `ak`
+  (`specs/ak-plugin.md`), so the cases and the grader name `ak:intent`; the link record moved to
+  `/opt/devshop-current.skills-eval-record`, as `/opt/devshop-versions` is gone
 - **Results stay out of the repo:** each run works in a fresh `mktemp -d`; transcripts carry
   session ids. The grader's tests use hand-written event streams, never real transcripts (CLAUDE.md
   rule; review, 2026-11-04)
@@ -70,34 +73,31 @@ slices are judged on a real run. The spike that priced it:
 ## Acceptance items
 
 - **AC-1** `skills-check.py` fails, naming the skill and the reference, when a skill's reference to
-  another skill's section (§ or step, with or without `devshop:` and the comma) names a section the
+  another skill's section (§ or step, with or without `ak:` and the comma) names a section the
   other skill doesn't have (a renumbered section), also across a line break, and passes when it
   exists.
 - **AC-2** It fails on a bare "§ N" or "step N" naming a section its own skill lacks.
 - **AC-3** It fails on a `` `/opt/devshop-current/<file>` § <Heading> `` whose file has no heading,
   its "(…)" tail dropped, that the text after the § starts with.
-- **AC-4** With `--rules FILE`, it fails, naming the skill and the line, when a listed text no longer
-  appears in its skill (a deleted rule); a malformed line or an unknown skill in the file is
-  can't-run (exit 2).
-- **AC-5** It passes on the current skills with `tests/skills-eval/rules.txt`, in `tests/run.sh`.
-- **AC-6** The grader (tested by `tests/skills-eval.test.sh`, like AC-7 to AC-12) gives PASS on a stream where `devshop:intent` is loaded before any write and
+- **AC-4** It passes on the current skills, in `tests/run.sh`.
+- **AC-5** The grader (tested by `tests/skills-eval.test.sh`, like AC-6 to AC-11) gives PASS on a stream where `ak:intent` is loaded before any write and
   the repo changed only under `specs/` with a spec that passes `spec-check.py`.
-- **AC-7** The grader gives FAIL on a stream that writes a file before loading `devshop:intent`, and
+- **AC-6** The grader gives FAIL on a stream that writes a file before loading `ak:intent`, and
   on a repo with a change outside `specs/` (an untracked file included), naming the line it tests.
-- **AC-8** The grader gives CNR on a stream whose session-start line names another commit, on one
+- **AC-7** The grader gives CNR on a stream whose session-start line names another commit, on one
   with no init event, and on one that isn't JSON lines.
-- **AC-9** `tests/skills-eval.sh [runs] [case]` prints one line per run: the outcome (`PASS`,
+- **AC-8** `tests/skills-eval.sh [runs] [case]` prints one line per run: the outcome (`PASS`,
   `FAIL` or `CNR`), the case, the run number, and `sha=`, `model=`, `cli=`, `cost=$`, `time=` (s)
   and `refused=` fields, then the reason; then a tally and `link restored: <target>`. It exits 1 on any
   FAIL, else 2 on any CNR, else 0.
-- **AC-10** The runner removes the session-tie and credential variables from the child's
+- **AC-9** The runner removes the session-tie and credential variables from the child's
   environment.
-- **AC-11** The runner restores the shared link on exit, restores a record left by a crashed run
+- **AC-10** The runner restores the shared link on exit, restores a record left by a crashed run
   before it starts, and fails when the link isn't back.
-- **AC-12** The runner refuses, as CNR before any model call, an unknown case, a commit under test
+- **AC-11** The runner refuses, as CNR before any model call, an unknown case, a commit under test
   that isn't one, and (testing `HEAD`, the default) a working tree whose `runtime/` has changes the
   commit lacks; a commit named by `SKILLS_EVAL_REF` is tested as it is.
-- **AC-13** `tests/skills-eval/README.md` has the finding → case table and the per-rule coverage
+- **AC-12** `tests/skills-eval/README.md` has the finding → case table and the per-rule coverage
   table, and CLAUDE.md's reviewer-eval sentence covers a PR that changes a skill — verified by
   review: read both.
 

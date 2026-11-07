@@ -1,2 +1,2 @@
-{"type": "system", "subtype": "init", "model": "claude-example-1", "claude_code_version": "9.9.9", "skills": ["devshop:intent", "devshop:build", "spec"], "session_id": "00000000-0000-0000-0000-000000000000"}
+{"type": "system", "subtype": "init", "model": "claude-example-1", "claude_code_version": "9.9.9", "skills": ["ak:intent", "ak:build", "spec"], "session_id": "00000000-0000-0000-0000-000000000000"}
 this is not json

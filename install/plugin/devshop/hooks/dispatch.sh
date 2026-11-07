@@ -6,7 +6,8 @@
 # DEVSHOP: line, as hook JSON that asks Claude to repeat it to the owner (see the end).
 # Never fails the session: problems go in that line.
 MIRROR=/opt/devshop.git
-VERSIONS=/opt/devshop-versions
+# Inside the marketplace folder, the only place Claude Code follows the skills link to (F-NEW-147).
+VERSIONS=/opt/devshop-plugin/versions
 CURRENT=/opt/devshop-current
 RUNTIME=runtime
 
@@ -126,7 +127,7 @@ dispatch() {
   if [ "$from" = "project .devshop-version" ] && is_release "$pin"; then
     newest=$(git --git-dir="$MIRROR" tag -l 'v*' 2>/dev/null | while read -r t; do ! is_release "$t" || echo "$t"; done | sort -V | tail -1)
     if [ -n "$newest" ] && [ "$newest" != "$pin" ] && [ "$(printf '%s\n%s\n' "$pin" "$newest" | sort -V | tail -1)" = "$newest" ]; then
-      newer="newer release $newest in the copy (/devshop:upgrade)"
+      newer="newer release $newest in the copy (/ak:upgrade)"
     fi
   fi
   say "using $pin (${sha:0:12}) from $from" "$newer" main

@@ -32,7 +32,7 @@ ci="$top/.github/workflows/ci.yml"
 pinned="$top/.devshop-version"
 if [ ! -f "$ci" ] && [ ! -f "$pinned" ]; then
   # Neither the pin nor CI: a repo the devshop hasn't set up (specs/project-contract.md).
-  echo "DEVSHOP: no devshop files yet (.devshop-version, .github/workflows/ci.yml): a new project is set up by /devshop:new-project"
+  echo "DEVSHOP: no devshop files yet (.devshop-version, .github/workflows/ci.yml): a new project is set up by /ak:new-project"
 elif [ -f "$ci" ]; then
   found=$(timeout 30 /opt/devshop-current/scripts/ci-tiers-check.py "$ci" 2>&1)
   rc=$?
@@ -85,7 +85,7 @@ if [ -f "$top/.devshop-version" ]; then
   rc=$?
   case $rc in
     0 | 3) ;;
-    1) echo "DEVSHOP: the project's copies of devshop files differ from its pinned version $label: $(sed -E 's/^([^:]*): (.*)$/\1 (\2)/' <<<"$found" | paste -sd ';' - | sed 's/;/; /g'); the upgrade skill (/devshop:upgrade) shows each delta" ;;
+    1) echo "DEVSHOP: the project's copies of devshop files differ from its pinned version $label: $(sed -E 's/^([^:]*): (.*)$/\1 (\2)/' <<<"$found" | paste -sd ';' - | sed 's/;/; /g'); the upgrade skill (/ak:upgrade) shows each delta" ;;
     *) echo "DEVSHOP: couldn't check the project's copies of devshop files (exit $rc): $(head -1 <<<"$found")" ;;
   esac
 fi

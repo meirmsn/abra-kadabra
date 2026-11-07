@@ -77,7 +77,7 @@ draw; F-NEW-145 logs the first as a sighting.
 - The reviewer-eval gaps are as stated: runs 2–3 are not held out (its README says so), the five
   planted types are all spec and test plants, the W10.6.9 severity rule is proven only on the
   prompt's text, `check.sh` needs a clone of an external fixture repo, and there are three suites
-  with no single command. Logged as F-NEW-142 and F-NEW-143.
+  with no single command. Logged as F-NEW-150 and F-NEW-151 (renumbered from 142 and 143, which `main` took first).
 
 ## Finding → case
 

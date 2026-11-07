@@ -38,26 +38,26 @@ graded() {
   echo "ok - $1"
 }
 good=$(project good "$fx/shout-flag.md")
-graded "skills-eval AC-6: intent first, only a spec written, the spec passes: PASS" 0 "PASS intent loaded first" good "$good"
-graded "skills-eval AC-7: a file written before intent is loaded: FAIL" 1 "FAIL /work/greeter/cli.js was written before devshop:intent" edit-first "$good"
-graded "skills-eval AC-7: intent never loaded: FAIL" 1 "FAIL devshop:intent was never loaded" no-intent "$good"
+graded "skills-eval AC-5: intent first, only a spec written, the spec passes: PASS" 0 "PASS intent loaded first" good "$good"
+graded "skills-eval AC-6: a file written before intent is loaded: FAIL" 1 "FAIL /work/greeter/cli.js was written before ak:intent" edit-first "$good"
+graded "skills-eval AC-6: intent never loaded: FAIL" 1 "FAIL ak:intent was never loaded" no-intent "$good"
 edited=$(project edited "$fx/shout-flag.md")
 echo '// shout' >>"$edited/cli.js"
-graded "skills-eval AC-7: code changed before the go: FAIL, quoting the rule" 1 "FAIL changed outside specs/ before any go: cli.js (intent § 3" good "$edited"
+graded "skills-eval AC-6: code changed before the go: FAIL, quoting the rule" 1 "FAIL changed outside specs/ before any go: cli.js (intent § 3" good "$edited"
 untracked=$(project untracked "$fx/shout-flag.md")
 echo 'notes' >"$untracked/NOTES.md"
-graded "skills-eval AC-7: an untracked file outside specs/: FAIL" 1 "FAIL changed outside specs/ before any go: NOTES.md" good "$untracked"
-graded "skills-eval AC-7: no spec written: FAIL" 1 "FAIL no spec written" good "$(project nospec)"
+graded "skills-eval AC-6: an untracked file outside specs/: FAIL" 1 "FAIL changed outside specs/ before any go: NOTES.md" good "$untracked"
+graded "skills-eval AC-6: no spec written: FAIL" 1 "FAIL no spec written" good "$(project nospec)"
 printf '# A spec\n\n**Go:** pending\n\n## Intent\n\nText.\n' >"$work/bad-spec.md"
-graded "skills-eval AC-7: a spec that fails spec-check.py: FAIL" 1 "FAIL the spec fails spec-check.py" good "$(project badspec "$work/bad-spec.md")"
-graded "skills-eval AC-8: the session ran another devshop commit: CNR" 2 "CNR the session ran devshop fedcba987654, not 0123456789ab" wrong-sha "$good"
-graded "skills-eval AC-8: no init event: CNR" 2 "CNR no init event" no-init "$good"
-graded "skills-eval AC-8: not JSON lines: CNR" 2 "CNR the stream isn't JSON lines" not-json "$good"
-graded "skills-eval AC-8: a turn that didn't finish: CNR" 2 "CNR no result event" no-result "$good"
-graded "skills-eval AC-8: an unknown case: CNR" 2 "CNR unknown case" good "$good" nope
+graded "skills-eval AC-6: a spec that fails spec-check.py: FAIL" 1 "FAIL the spec fails spec-check.py" good "$(project badspec "$work/bad-spec.md")"
+graded "skills-eval AC-7: the session ran another devshop commit: CNR" 2 "CNR the session ran devshop fedcba987654, not 0123456789ab" wrong-sha "$good"
+graded "skills-eval AC-7: no init event: CNR" 2 "CNR no init event" no-init "$good"
+graded "skills-eval AC-7: not JSON lines: CNR" 2 "CNR the stream isn't JSON lines" not-json "$good"
+graded "skills-eval AC-7: a turn that didn't finish: CNR" 2 "CNR no result event" no-result "$good"
+graded "skills-eval AC-7: an unknown case: CNR" 2 "CNR unknown case" good "$good" nope
 out=$(python3 "$grade" facts --stream "$fx/streams/good.jsonl")
 [ "$out" = "model=claude-example-1 cli=9.9.9 cost=0.71 time=118 refused=1" ] || fail "facts: got '$out'"
-echo "ok - skills-eval AC-9: the facts read from the stream"
+echo "ok - skills-eval AC-8: the facts read from the stream"
 
 # --- The runner, with a fake claude.
 # A devshop repo holding what the runner and project-files.py read, and its local copy with a release.
@@ -108,50 +108,50 @@ linked() { [ "$(readlink "$work/opt/current")" = "$work/opt/orig" ] || fail "$1:
 
 run_eval "two good runs" 0 good 2
 for i in 1 2; do
-  seen "skills-eval AC-9: run $i's line" "^PASS trigger run $i sha=${src_sha:0:12} model=claude-example-1 cli=9.9.9 cost=\\\$0.71 time=118s refused=1 intent loaded first"
+  seen "skills-eval AC-8: run $i's line" "^PASS trigger run $i sha=${src_sha:0:12} model=claude-example-1 cli=9.9.9 cost=\\\$0.71 time=118s refused=1 intent loaded first"
 done
 # shellcheck disable=SC2016 # a literal $ in the pattern
-seen "skills-eval AC-9: the tally" '^tally: trigger: 2 pass, 0 fail, 0 could-not-run of 2; cost \$1.42$'
-seen "skills-eval AC-11: the link line" "^link restored: $work/opt/orig$"
-linked "skills-eval AC-11" && [ ! -e "$work/opt/record" ] || fail "skills-eval AC-11: the record is left behind"
-echo "ok - skills-eval AC-9, AC-11: one line per run, the tally, the link restored after the child moved it"
+seen "skills-eval AC-8: the tally" '^tally: trigger: 2 pass, 0 fail, 0 could-not-run of 2; cost \$1.42$'
+seen "skills-eval AC-10: the link line" "^link restored: $work/opt/orig$"
+linked "skills-eval AC-10" && [ ! -e "$work/opt/record" ] || fail "skills-eval AC-10: the record is left behind"
+echo "ok - skills-eval AC-8, AC-10: one line per run, the tally, the link restored after the child moved it"
 for v in GH_TOKEN GITHUB_TOKEN GIT_ASKPASS GIT_CONFIG_COUNT CLAUDE_CODE_SESSION_ID CLAUDE_CODE_REMOTE_SESSION_ID; do
-  ! grep -qx "$v" "$work/stub.env" || fail "skills-eval AC-10: the child got $v"
+  ! grep -qx "$v" "$work/stub.env" || fail "skills-eval AC-9: the child got $v"
 done
-grep -qx ANTHROPIC_BASE_URL "$work/stub.env" || fail "skills-eval AC-10: the child lost ANTHROPIC_BASE_URL (auth must pass)"
-grep -A1 -x -- --permission-mode "$work/stub.args" | grep -qx auto || fail "skills-eval AC-10: not permission mode auto"
-echo "ok - skills-eval AC-10: session ties and GitHub credentials removed, auth kept, mode auto"
+grep -qx ANTHROPIC_BASE_URL "$work/stub.env" || fail "skills-eval AC-9: the child lost ANTHROPIC_BASE_URL (auth must pass)"
+grep -A1 -x -- --permission-mode "$work/stub.args" | grep -qx auto || fail "skills-eval AC-9: not permission mode auto"
+echo "ok - skills-eval AC-9: session ties and GitHub credentials removed, auth kept, mode auto"
 
 run_eval "a code edit" 1 edit
-seen "skills-eval AC-9: a FAIL line" "^FAIL trigger run 1 sha=.* /work/greeter/cli.js was written before"
-linked "skills-eval AC-9: after a FAIL"
-echo "ok - skills-eval AC-9: a known-bad run fails (exit 1)"
+seen "skills-eval AC-8: a FAIL line" "^FAIL trigger run 1 sha=.* /work/greeter/cli.js was written before"
+linked "skills-eval AC-8: after a FAIL"
+echo "ok - skills-eval AC-8: a known-bad run fails (exit 1)"
 run_eval "another commit's devshop" 2 wrong-sha
-seen "skills-eval AC-9: a CNR line" "^CNR trigger run 1 .*the session ran devshop fedcba987654"
-echo "ok - skills-eval AC-9: a run on the wrong version could not run (exit 2)"
+seen "skills-eval AC-8: a CNR line" "^CNR trigger run 1 .*the session ran devshop fedcba987654"
+echo "ok - skills-eval AC-8: a run on the wrong version could not run (exit 2)"
 
 ln -sfn "$work/opt/other" "$work/opt/current" && printf '%s\n' "$work/opt/orig" >"$work/opt/record"
 run_eval "a crashed run's record" 0 good
-seen "skills-eval AC-11: the stale record" "^restored the link a crashed run left: $work/opt/orig$"
-linked "skills-eval AC-11: after a crashed run's record"
-echo "ok - skills-eval AC-11: a crashed run's record is restored before the run"
+seen "skills-eval AC-10: the stale record" "^restored the link a crashed run left: $work/opt/orig$"
+linked "skills-eval AC-10: after a crashed run's record"
+echo "ok - skills-eval AC-10: a crashed run's record is restored before the run"
 run_eval "the link clobbered" 2 clobber
-seen "skills-eval AC-11: the link not back" "^CNR the link $work/opt/current is not back"
-[ -f "$work/opt/record" ] || fail "skills-eval AC-11: the record is gone though the link isn't back"
+seen "skills-eval AC-10: the link not back" "^CNR the link $work/opt/current is not back"
+[ -f "$work/opt/record" ] || fail "skills-eval AC-10: the record is gone though the link isn't back"
 rm -rf "$work/opt/current" "$work/opt/record" && ln -sfn "$work/opt/orig" "$work/opt/current"
-echo "ok - skills-eval AC-11: a link that isn't back fails and keeps the record"
+echo "ok - skills-eval AC-10: a link that isn't back fails and keeps the record"
 
 run_eval "an unknown case" 2 good 1 nope
-seen "skills-eval AC-12: unknown case" "^CNR nope: unknown case"
+seen "skills-eval AC-11: unknown case" "^CNR nope: unknown case"
 run_eval "a case name that leaves the cases dir" 2 good 1 ../trigger
-seen "skills-eval AC-12: a path as a case" "a case name is lower-case"
-[ ! -e "$work/stub.called" ] || fail "skills-eval AC-12: claude was called for an unknown case"
+seen "skills-eval AC-11: a path as a case" "a case name is lower-case"
+[ ! -e "$work/stub.called" ] || fail "skills-eval AC-11: claude was called for an unknown case"
 SKILLS_EVAL_REF=nope run_eval "a ref that isn't a commit" 2 good
-seen "skills-eval AC-12: a bad ref" "'nope' is not a commit"
+seen "skills-eval AC-11: a bad ref" "'nope' is not a commit"
 echo 'changed' >>"$src/runtime/skills/intent/SKILL.md"
 run_eval "uncommitted runtime/" 2 good
-seen "skills-eval AC-12: uncommitted runtime/" "runtime/ has changes HEAD lacks"
-[ ! -e "$work/stub.called" ] || fail "skills-eval AC-12: claude was called with runtime/ uncommitted"
+seen "skills-eval AC-11: uncommitted runtime/" "runtime/ has changes HEAD lacks"
+[ ! -e "$work/stub.called" ] || fail "skills-eval AC-11: claude was called with runtime/ uncommitted"
 SKILLS_EVAL_REF=$src_sha run_eval "a named commit, tested as it is" 0 good
-echo "ok - skills-eval AC-12: unknown case, bad ref and uncommitted runtime/ refused before any model call"
+echo "ok - skills-eval AC-11: unknown case, bad ref and uncommitted runtime/ refused before any model call"
 echo "all skills-eval scenarios passed"
