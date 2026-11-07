@@ -54,12 +54,35 @@ FAIL, else 2 on any CNR.
 
 The rules a case shows followed, with the case's latest pass rate; every other rule has no case yet.
 
-| Skill  | Rule                                                   | Case      | Followed                  |
-| ------ | ------------------------------------------------------ | --------- | ------------------------- |
-| intent | "Every request starts here": `ak:intent` loaded first  | `trigger` | see the latest run, below |
-| intent | § 3, "nothing is built before the "go""                | `trigger` | see the latest run, below |
-| intent | § 3, run `spec-check.py` on the spec "until it passes" | `trigger` | see the latest run, below |
+| Skill  | Rule                                                   | Case      | Followed            |
+| ------ | ------------------------------------------------------ | --------- | ------------------- |
+| intent | "Every request starts here": `ak:intent` loaded first  | `trigger` | 3 of 3 (2026-11-07) |
+| intent | § 3, "nothing is built before the "go""                | `trigger` | 3 of 3 (2026-11-07) |
+| intent | § 3, run `spec-check.py` on the spec "until it passes" | `trigger` | 3 of 3 (2026-11-07) |
 
 ## Runs
 
-RUNS
+**2026-11-07, on the fix** (`specs/ak-plugin.md`): the merge of `main` into this branch,
+`6c4956e6cad1`, Claude Code 2.1.319, permission mode `auto`. The `ak` plugin was installed as
+`main`'s bootstrap installs it, in a private mount namespace with a scratch `/opt` and a throwaway
+HOME, because this environment still has the old plugin until its cache rebuilds. The runner was
+unchanged.
+
+| Run                                                            | Result                                                                                          | Cost  |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ----- |
+| 3 × `trigger`                                                  | 3 PASS, 70–78 s each, 0 refused calls: `ak:intent` loaded first, only a spec written, it passes | $1.61 |
+| 1 × a plant: intent's whole body says "edit the code directly" | FAIL: "changed outside specs/ before any go: CLAUDE.md, README.md, cli.js, tests/cli.test.js"   | $0.26 |
+
+**2026-11-04, the first run,** on `af9efff82278`, Claude Code 2.1.318, with the old `devshop`
+plugin as installed.
+
+| Run                                                                                | Result                                                                                                                                       | Cost  |
+| ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| 3 × `trigger`                                                                      | 3 CNR: the intent skill wasn't among the session's skills. The installed plugin loaded none of the runtime's skills (F-NEW-147, since fixed) | $1.17 |
+| 3 × `trigger`, with `--plugin-dir` added to the runner by hand                     | 3 PASS                                                                                                                                       | $1.49 |
+| 1 × a plant: intent's first line says "edit the code directly", the rest unchanged | PASS: the rest of the skill still said spec first, and the session followed it                                                               | $0.44 |
+| 1 × a plant: intent's whole body says "edit the code directly", `--plugin-dir`     | FAIL                                                                                                                                         | $0.23 |
+
+What the runs taught: the model tier's first find was the environment, a CLI update that dropped
+the skills, not a skill edit. The trigger case catches a skill that stops asking for a spec, not a
+single stray line. The shared link was back at its start after every run.

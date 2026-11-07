@@ -3376,3 +3376,16 @@ installed plugin loads none of the runtime's skills (F-NEW-147, high). With `--p
 passed; a plant of one contradictory line passed too, a whole-skill plant failed.
 
 **Next**: the owner on F-NEW-147, then R-17 on these numbers.
+
+## #105 — 2026-11-07 · Skills eval on the ak fix
+
+**What moved**: `main` merged in (the plugin is `ak`, its skills load again). The eval names
+`ak:intent`; its link record moved beside `/opt/devshop-current`; the word-for-word rule list is
+gone at the owner's word, the section-reference check stays. Run on the fix, installed as `main`'s
+bootstrap does in a private mount namespace: 3 of 3 `trigger` PASS, and a whole-skill plant FAILs,
+with the runner unchanged.
+
+**Surprises**: `main` had taken F-NEW-142, 143 and LOG #100 first; this branch's became 150, 151,
+#103 and #104. A bind of `/opt` without `--rbind` drops `claude` itself, a nested mount.
+
+**Next**: the owner's review of PR #183; then R-17.
