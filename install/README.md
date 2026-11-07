@@ -148,8 +148,9 @@ Feedback, not walls: everything here runs in the session's VM, where the agent c
   the project pins. A later change of `core.hooksPath` is set back, with a `DEVSHOP:` line.
 - **Pre-push** ([`runtime/git-hooks/pre-push`](../runtime/git-hooks/pre-push)) stops the push when
   the pinned gitleaks finds a secret in the commits the push adds (the repo's `.gitleaks.toml` if it
-  has one), when the repo's own lint `scripts/lint.sh <base>` finds problems or can't run, or when
-  the project's own pre-push fails. A missing gitleaks stops it too.
+  has one), when the repo's own lint `scripts/lint.sh <base>` finds problems or can't run, when a
+  lockfile the push adds resolves from a registry that isn't public (`scripts/secret-scan.sh
+--lockfiles <base>`, before the host goes public), or when the project's own pre-push fails. A missing gitleaks stops it too.
 - **Commit-msg** ([`runtime/git-hooks/commit-msg`](../runtime/git-hooks/commit-msg)) stops a commit
   whose message links a Claude session (`claude.ai/code/session_…`, such as the `Claude-Session:`
   trailer a cloud session's attribution adds), then runs the project's own commit-msg.

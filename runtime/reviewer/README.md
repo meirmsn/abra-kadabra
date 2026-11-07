@@ -140,6 +140,12 @@ from the browser's defaults, overflow, console errors, and failed and blocked re
 request or WebSocket to another origin is aborted and listed, a font as "remote font not loaded";
 service workers are blocked. Exit 1 refused, 2 can't judge.
 
+"The project's Playwright can't be loaded" means the project's `node_modules` lacks it: add
+Playwright as a devDependency and install it (`scripts/setup.sh`'s `npm ci`). Never link
+`node_modules` to the environment's preinstalled tree: npm then trusts that tree's hidden lockfile
+and writes its packages, resolved from an internal mirror, into the project's lockfile (F-NEW-146,
+now stopped by the secret scan's lockfile check).
+
 With no `scripts/local-run.sh` at the base, and in a words-only review, nothing starts: the prompt
 says there is no local run, and the design and QA lenses review by reading.
 
