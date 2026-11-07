@@ -138,8 +138,12 @@ installed hook for every case above.
 ## Git hooks and the per-edit nudge
 
 Feedback, not walls: everything here runs in the session's VM, where the agent can bypass it
-(`git push --no-verify`, changing `core.hooksPath`). The wall is required CI (`ci / fast`,
-`ci / slow`), which runs the same checks outside the session (L-36).
+(`git push --no-verify`, changing `core.hooksPath`). The review guard refuses those two spelled
+out in a Bash command (`--no-verify` on a commit, merge or push, commit's `-n`, `-c core.hooksPath`),
+so the hooks aren't skipped by habit; a script still gets past it. The wall is required CI
+(`ci / fast`, `ci / slow`), which runs the same checks outside the session (L-36), but only after
+the push: what the hooks stop before then (a secret, an internal host, a session link) would
+already be on the branch.
 
 - **Where they come from.** The version's [`runtime/hooks/session-start.sh`](../runtime/hooks/session-start.sh)
   points the project's `core.hooksPath` at [`runtime/git-hooks/`](../runtime/git-hooks) (via

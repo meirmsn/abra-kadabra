@@ -5,7 +5,8 @@ nothing. It refuses the other ways of putting a change on a PR and lets everythi
 
   - Bash: `gh pr create`; `gh pr edit` with a title, body or base; `git push` while the current
     branch of the repo it runs in (after a cd earlier in the command) has an open PR, or when that
-    can't be checked.
+    can't be checked; a git commit, merge or push that skips the git hooks (--no-verify, commit -n,
+    -c core.hooksPath).
   - GitHub tools: create_pull_request; update_pull_request with a title, body or base;
     update_pull_request_branch; push_files, create_or_update_file, delete_file on a branch with an
     open PR.
@@ -99,6 +100,30 @@ def edits_words(arg):
     return arg.split("=", 1)[0] in GH_EDIT_WORDS or (not arg.startswith("--") and arg[:2] in GH_EDIT_WORDS)
 
 
+# The devshop's pre-push and commit-msg hooks stop a secret, an internal host or a session link
+# before it is public; CI sees it only after the push.
+NO_HOOKS = "this skips the devshop's git hooks, which stop a secret, an internal host or a session link before it goes public"
+# commit's short options that take a value: in a cluster (-am x), what follows one is that value.
+COMMIT_VALUED = set("mFCctS")
+
+
+def skips_hooks(sub, args):
+    """Whether git <sub> args skips the hooks: --no-verify or an unambiguous prefix of it (git takes
+    one; --no-v is the shortest), or commit's -n, alone or in a cluster (push's -n is a dry run)."""
+    for a in args:
+        if a == "--":
+            return False
+        if a.startswith("--no-v") and "--no-verify".startswith(a):
+            return True
+        if sub == "commit" and re.fullmatch(r"-[A-Za-z]+", a):
+            for ch in a[1:]:
+                if ch == "n":
+                    return True
+                if ch in COMMIT_VALUED:
+                    break
+    return False
+
+
 def command_words(seg):
     i = 0
     while i < len(seg) and (seg[i] in PREFIXES or re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", seg[i])):
@@ -145,12 +170,16 @@ def check_command(w, cwd):
         j, cdir = 1, cwd
         while j < len(w) and w[j].startswith("-"):
             if w[j] in ("-C", "-c", "--git-dir", "--work-tree", "--namespace") and j + 1 < len(w):
+                if w[j] == "-c" and w[j + 1].lower().startswith("core.hookspath"):
+                    refuse(NO_HOOKS + " (-c core.hooksPath)")
                 if w[j] == "-C":
                     d = os.path.expanduser(w[j + 1])
                     cdir = d if os.path.isabs(d) else None if cdir is None else os.path.join(cdir, d)
                 j += 2
             else:
                 j += 1
+        if j < len(w) and w[j] in ("push", "commit", "merge") and skips_hooks(w[j], w[j + 1:]):
+            refuse(NO_HOOKS + f" (git {w[j]})")
         if j < len(w) and w[j] == "push":
             if cdir is None:
                 refuse("git push after a cd the guard can't follow, so which repo it pushes can't be checked")

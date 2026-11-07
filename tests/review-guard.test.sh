@@ -165,6 +165,24 @@ run_guard Bash "$(bash_call "git push")"; refused "push from a branch with & in 
 git -C "$work/p" checkout -q feat/x
 ok "a push is refused while the branch has an open PR, or when that can't be checked; before the PR it passes"
 
+# --- Skipping the devshop's git hooks is refused: --no-verify on a commit, merge or push (git takes a
+# long option's unambiguous prefix), commit's -n, alone or in a cluster, and hooks pointed elsewhere
+# with -c core.hooksPath. The pre-push and commit-msg hooks are what stops a secret, an internal host
+# or a session link before it is public; CI only sees it after.
+reset_state
+for c in "git push --no-verify" "git push --no-verify origin feat/x" "git push origin feat/x --no-ver" \
+  "git commit --no-verify -m x" "git commit -n -m x" "git commit -anm x" "git commit -a -n" \
+  "git merge --no-verify main" "git -c core.hooksPath=/dev/null push" "git -c core.hookspath=x commit -m y" \
+  "cd $work/q && git push --no-verify"; do
+  run_guard Bash "$(bash_call "$c")"; refused "skipping the hooks: $c"
+  grep -q "skips the devshop's git hooks" <<<"$err" || fail "skipping the hooks: $c: the refusal doesn't say why: $err"
+done
+for c in "git push -n" "git commit -m 'a note on --no-verify'" "git commit -mn" "git commit -am 'the -n flag'" \
+  "git log -n 3" "git -c core.editor=true commit -m x" "git commit --no-edit" "git commit -m x -- -n"; do
+  run_guard Bash "$(bash_call "$c")"; allowed "not skipping the hooks: $c"
+done
+ok "--no-verify, commit -n and -c core.hooksPath are refused; a dry-run push and the words in a message pass"
+
 # --- A cd in the command moves the push to that repo: the guard asks about the repo the push runs in,
 # not the session's (a same-named branch in another repo with an open PR refused it).
 reset_state; open_pr feat/x app
