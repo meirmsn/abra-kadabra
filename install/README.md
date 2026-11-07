@@ -139,7 +139,7 @@ installed hook for every case above.
 
 Feedback, not walls: everything here runs in the session's VM, where the agent can bypass it
 (`git push --no-verify`, changing `core.hooksPath`). The review guard refuses those two spelled
-out in a Bash command (`--no-verify` on a commit, merge or push, commit's `-n`, `-c core.hooksPath`),
+out in a Bash command (`--no-verify` on a commit, merge or push, commit's `-n`, `-c` or `--config-env` with `core.hooksPath`),
 so the hooks aren't skipped by habit; a script still gets past it. The wall is required CI
 (`ci / fast`, `ci / slow`), which runs the same checks outside the session (L-36), but only after
 the push: what the hooks stop before then (a secret, an internal host, a session link) would

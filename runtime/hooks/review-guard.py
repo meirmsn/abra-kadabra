@@ -169,9 +169,11 @@ def check_command(w, cwd):
     if prog == "git":
         j, cdir = 1, cwd
         while j < len(w) and w[j].startswith("-"):
-            if w[j] in ("-C", "-c", "--git-dir", "--work-tree", "--namespace") and j + 1 < len(w):
-                if w[j] == "-c" and w[j + 1].lower().startswith("core.hookspath"):
-                    refuse(NO_HOOKS + " (-c core.hooksPath)")
+            if w[j].lower().startswith("--config-env=core.hookspath"):
+                refuse(NO_HOOKS + " (--config-env core.hooksPath)")
+            if w[j] in ("-C", "-c", "--config-env", "--git-dir", "--work-tree", "--namespace") and j + 1 < len(w):
+                if w[j] in ("-c", "--config-env") and w[j + 1].lower().startswith("core.hookspath"):
+                    refuse(NO_HOOKS + f" ({w[j]} core.hooksPath)")
                 if w[j] == "-C":
                     d = os.path.expanduser(w[j + 1])
                     cdir = d if os.path.isabs(d) else None if cdir is None else os.path.join(cdir, d)

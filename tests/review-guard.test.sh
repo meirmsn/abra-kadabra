@@ -173,6 +173,7 @@ reset_state
 for c in "git push --no-verify" "git push --no-verify origin feat/x" "git push origin feat/x --no-ver" \
   "git commit --no-verify -m x" "git commit -n -m x" "git commit -anm x" "git commit -a -n" \
   "git merge --no-verify main" "git -c core.hooksPath=/dev/null push" "git -c core.hookspath=x commit -m y" \
+  "git --config-env=core.hooksPath=H push" "git --config-env core.hooksPath=H commit -m x" \
   "cd $work/q && git push --no-verify"; do
   run_guard Bash "$(bash_call "$c")"; refused "skipping the hooks: $c"
   grep -q "skips the devshop's git hooks" <<<"$err" || fail "skipping the hooks: $c: the refusal doesn't say why: $err"
