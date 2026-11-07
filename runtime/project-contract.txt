@@ -57,8 +57,8 @@ item: scripts/secret-scan.sh
 owner: devshop
 when: required
 check: executable
-must: Scans the commits since base and the whole tree for secrets with gitleaks and `.gitleaks.toml`; exit 1 on a leak, 2 without gitleaks.
-for: `scripts/check-fast.sh`
+must: Scans the commits since base and the whole tree for secrets with gitleaks and `.gitleaks.toml`, and their lockfiles for a registry that isn't public (`--lockfiles` alone, without gitleaks); exit 1 on a leak, 2 without gitleaks.
+for: `scripts/check-fast.sh`; the devshop's pre-push hook (`--lockfiles`)
 
 item: scripts/spec-check.py
 owner: devshop

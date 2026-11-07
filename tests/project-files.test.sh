@@ -182,6 +182,18 @@ grep -Eq 'old\.txt.*(removed|dropped)' "$work/out" || fail "plan: the entry drop
 [ -f "$p/old.txt" ] || fail "plan deleted a project file"
 [ "$(git -C "$p" status --porcelain)" = "" ] || fail "plan changed the project"
 echo "ok - plan shows the template change and its commits, the dropped entry, and changes nothing"
+# A project with no pin (F-NEW-150): its seeds came from some older template, so OLD..NEW would
+# show nothing for a template that changed before HEAD. `--from none` compares each seed with the
+# project's own file, and says it does.
+run "plan with no pin compares each seed with the project's file" 0 'ci\.yml \(seed, from runtime/templates/ci\.yml\): no pin' \
+  -- plan --devshop-git "$dsgit" --from none --to "$v2" --project "$p"
+{ grep -q '^-our own ci$' "$work/out" && grep -q '^+three$' "$work/out"; } || fail "plan with no pin: the project's seed vs NEW's template isn't shown"
+grep -q 'removals can.t be listed' "$work/out" || fail "plan with no pin: doesn't say removals can't be listed"
+[ "$(git -C "$p" status --porcelain)" = "" ] || fail "plan with no pin changed the project"
+git -C "$ds" show "$v2:runtime/templates/ci.yml" >"$p/.github/workflows/ci.yml"
+run "plan with no pin: a seed equal to NEW's template says so" 0 'ci\.yml \(seed, .*\): no pin; the project.s file is the new template' \
+  -- plan --devshop-git "$dsgit" --from none --to "$v2" --project "$p"
+git -C "$p" checkout -q -- .github/workflows/ci.yml
 run "plan from a version without a manifest says removals can't be listed" 0 'removals can.t be listed' \
   -- plan --devshop-git "$dsgit" --from "$v0" --to "$v2" --project "$p"
 b="$work/bad-old" && git clone -q "$ds" "$b" && git -C "$b" checkout -q "$v1"

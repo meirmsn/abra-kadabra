@@ -265,6 +265,37 @@ expect_pushed "a new branch pushes" "$out" "$rc"
 [ "$(cat "$work/q/.git/lint-base")" = "$main_tip" ] || fail "new branch: lint.sh got base '$(cat "$work/q/.git/lint-base")', want where it leaves the remote ($main_tip)"
 echo "ok - a new branch's lint base is where it leaves the remote (no origin/HEAD needed)"
 
+# Lockfiles resolve only from a public registry (F-NEW-146), checked before the push makes a mirror's
+# host public: the project's scripts/secret-scan.sh --lockfiles <base>, a devshop copy.
+new_project l
+CLAUDE_PROJECT_DIR="$work/l" "$start" >/dev/null
+mkdir -p "$work/l/scripts" && cp -p "$repo_root/scripts/secret-scan.sh" "$work/l/scripts/" && commit_file "$work/l" a.txt "a"
+git -C "$work/l" push -q origin HEAD:main 2>/dev/null
+lockfile() { printf '{"packages": {"node_modules/a": {"resolved": "%s/a.tgz"}}}\n' "$1"; }
+commit_file "$work/l" package-lock.json "$(lockfile https://mirror.internal.example.com)"
+out=$(push l) && rc=0 || rc=$?
+expect_blocked "a lockfile on an internal mirror blocks the push" "$out" "$rc" "lockfile resolves from a registry that isn't public"
+grep -q "mirror.internal.example.com" <<<"$out" && { echo "$out" >&2; fail "the push output names the mirror's whole host"; }
+commit_file "$work/l" package-lock.json "$(lockfile https://registry.npmjs.org)"
+out=$(push l) && rc=0 || rc=$?
+expect_blocked "a mirror URL fixed in a later commit of the same push still blocks it" "$out" "$rc" "lockfile resolves"
+git -C "$work/l" reset -q --hard origin/main
+commit_file "$work/l" package-lock.json "$(lockfile https://registry.npmjs.org)"
+out=$(push l) && rc=0 || rc=$?
+expect_pushed "a lockfile on the public registry pushes" "$out" "$rc"
+# Only what this push adds: a mirror URL already on the remote (pushed past the hook, since fixed)
+# doesn't block a later push; CI's scan of that change is where it was caught.
+commit_file "$work/l" package-lock.json "$(lockfile https://mirror.internal.example.com)"
+commit_file "$work/l" package-lock.json "$(lockfile https://registry.npmjs.org/again)"
+push l --no-verify >/dev/null || fail "the --no-verify push failed"
+commit_file "$work/l" c.txt "c"
+out=$(push l) && rc=0 || rc=$?
+expect_pushed "a mirror URL already on the remote doesn't block a later push" "$out" "$rc"
+printf '#!/usr/bin/env bash\necho "FAIL: unknown base --lockfiles" >&2\nexit 2\n' >"$work/l/scripts/secret-scan.sh"
+commit_file "$work/l" b.txt "b"
+out=$(push l) && rc=0 || rc=$?
+expect_blocked "a secret-scan.sh copy that can't check lockfiles blocks the push, naming the upgrade" "$out" "$rc" "couldn't check the lockfiles.*upgrade"
+
 # The project's own hooks still run, chained after the devshop's: from its old core.hooksPath...
 new_project h
 mkdir -p "$work/h/.hooks"
@@ -302,5 +333,32 @@ CLAUDE_PROJECT_DIR="$work/m" "$start" >/dev/null
 commit_file "$work/m" b.txt "b"
 out=$(push m) && rc=0 || rc=$?
 expect_blocked "a configured husky pre-push is chained" "$out" "$rc" "husky pre-push ran"
+
+# commit-msg: a message linking a Claude session is stopped (the project's rules ban it; the cloud
+# session's attribution adds a Claude-Session: trailer, which lands on main with a squash merge).
+new_project s
+CLAUDE_PROJECT_DIR="$work/s" "$start" >/dev/null
+commit_msg() { # commit_msg <message>: commit a new file with it; prints the output, returns git's status.
+  printf '%s\n' "$RANDOM" >>"$work/s/f.txt" && git -C "$work/s" add -A && git -C "$work/s" commit -q -m "$1" 2>&1
+}
+before=$(git -C "$work/s" rev-parse HEAD)
+out=$(commit_msg "$(printf 'feat: x\n\nClaude-Session: https://claude.ai/code/session_01AbCdExample')") && rc=0 || rc=$?
+{ [ "$rc" != 0 ] && grep -q "links a Claude session" <<<"$out" && [ "$(git -C "$work/s" rev-parse HEAD)" = "$before" ]; } \
+  || { echo "$out" >&2; fail "a commit message with a Claude-Session: trailer was not stopped (exit $rc)"; }
+out=$(commit_msg "fix: see https://claude.ai/code/session_01AbCdExample for why") && rc=0 || rc=$?
+[ "$rc" != 0 ] || { echo "$out" >&2; fail "a session link in a commit body was not stopped"; }
+echo "ok - commit-msg stops a message linking a Claude session, trailer or prose"
+out=$(commit_msg "docs: the rule bans claude.ai/code/session_ links") && rc=0 || rc=$?
+[ "$rc" = 0 ] || { echo "$out" >&2; fail "a message that only names the pattern was stopped"; }
+printf 'https://claude.ai/code/session_01InTheDiff\n' >>"$work/s/f.txt" && git -C "$work/s" add -A
+out=$(GIT_EDITOR=true git -C "$work/s" commit -q -v -e -m "test: a verbose commit whose diff holds a link" 2>&1) && rc=0 || rc=$?
+[ "$rc" = 0 ] || { echo "$out" >&2; fail "a verbose commit whose diff (below the scissors, not the message) holds a link was stopped"; }
+echo "ok - commit-msg passes a message that only names the pattern"
+mkdir -p "$work/s/.git/hooks"
+printf '#!/usr/bin/env bash\necho "project commit-msg says no" >&2\nexit 3\n' >"$work/s/.git/hooks/commit-msg"
+chmod +x "$work/s/.git/hooks/commit-msg"
+out=$(commit_msg "feat: y") && rc=0 || rc=$?
+{ [ "$rc" != 0 ] && grep -q "project commit-msg says no" <<<"$out"; } || { echo "$out" >&2; fail "the project's own commit-msg isn't chained"; }
+echo "ok - the project's own commit-msg still runs after the devshop's"
 
 echo "all git hook scenarios passed"

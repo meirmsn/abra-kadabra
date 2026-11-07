@@ -138,8 +138,12 @@ installed hook for every case above.
 ## Git hooks and the per-edit nudge
 
 Feedback, not walls: everything here runs in the session's VM, where the agent can bypass it
-(`git push --no-verify`, changing `core.hooksPath`). The wall is required CI (`ci / fast`,
-`ci / slow`), which runs the same checks outside the session (L-36).
+(`git push --no-verify`, changing `core.hooksPath`). The review guard refuses those two spelled
+out in a Bash command (`--no-verify` on a commit, merge or push, commit's `-n`, `-c` or `--config-env` with `core.hooksPath`),
+so the hooks aren't skipped by habit; a script still gets past it. The wall is required CI
+(`ci / fast`, `ci / slow`), which runs the same checks outside the session (L-36), but only after
+the push: what the hooks stop before then (a secret, an internal host, a session link) would
+already be on the branch.
 
 - **Where they come from.** The version's [`runtime/hooks/session-start.sh`](../runtime/hooks/session-start.sh)
   points the project's `core.hooksPath` at [`runtime/git-hooks/`](../runtime/git-hooks) (via
@@ -148,8 +152,12 @@ Feedback, not walls: everything here runs in the session's VM, where the agent c
   the project pins. A later change of `core.hooksPath` is set back, with a `DEVSHOP:` line.
 - **Pre-push** ([`runtime/git-hooks/pre-push`](../runtime/git-hooks/pre-push)) stops the push when
   the pinned gitleaks finds a secret in the commits the push adds (the repo's `.gitleaks.toml` if it
-  has one), when the repo's own lint `scripts/lint.sh <base>` finds problems or can't run, or when
-  the project's own pre-push fails. A missing gitleaks stops it too.
+  has one), when the repo's own lint `scripts/lint.sh <base>` finds problems or can't run, when a
+  lockfile the push adds resolves from a registry that isn't public (`scripts/secret-scan.sh
+--lockfiles <base>`, before the host goes public), or when the project's own pre-push fails. A missing gitleaks stops it too.
+- **Commit-msg** ([`runtime/git-hooks/commit-msg`](../runtime/git-hooks/commit-msg)) stops a commit
+  whose message links a Claude session (`claude.ai/code/session_…`, such as the `Claude-Session:`
+  trailer a cloud session's attribution adds), then runs the project's own commit-msg.
 - **The project's hooks still run, if it configured them.** Every other hook name links to
   [`_chain`](../runtime/git-hooks/_chain), which runs the project's hook of the same name from its
   former `core.hooksPath` (e.g. husky's after `npm install`), else `.git/hooks`. Hook scripts that

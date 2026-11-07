@@ -87,7 +87,8 @@ Projects pin the tag; `/ak:upgrade` defaults to the newest one. Proven by
   [`tests/ci-template-deploy.test.sh`](../tests/ci-template-deploy.test.sh)).
 - Secret scanning: [`.gitleaks.toml`](../.gitleaks.toml) is gitleaks' default rule set. CI's fast
   tier first runs [`scripts/secret-scan.sh`](../scripts/secret-scan.sh) over the commits a change
-  adds and the whole tree, then, with the other tests,
+  adds and the whole tree, its lockfiles included (they resolve only from a public registry or one
+  the committed `.npmrc` names: gitleaks' defaults skip lockfiles, F-NEW-146), then, with the other tests,
   [`tests/gitleaks.test.sh`](../tests/gitleaks.test.sh), which commits fake secrets to a scratch
   repo and fails unless every one is caught; [`tests/secret-scan.test.sh`](../tests/secret-scan.test.sh)
   proves the scan fails on a secret in either place. To run it locally, install gitleaks (the

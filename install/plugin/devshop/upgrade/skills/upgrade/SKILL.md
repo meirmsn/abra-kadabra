@@ -5,7 +5,7 @@ description: Upgrade the project's devshop version (.devshop-version) in one PR,
 
 # Upgrade the devshop version
 
-One PR moves `.devshop-version` from OLD (the file's release tag or SHA; none means `HEAD`) to NEW and brings the
+One PR moves `.devshop-version` from OLD (the file's release tag or SHA; with no file, `none`) to NEW and brings the
 files the devshop places in the project along (L-49). NEW's `runtime/project-files.txt` names each
 one and its owner: `devshop` (an identical copy; one marked `optional` is brought only where the
 project has it) or `seed` (the project's own, started from a template). This skill comes with the
@@ -19,14 +19,18 @@ Abbreviations: `D=/opt/devshop.git`,
 - NEW is what the owner names, else the newest release in the local copy:
   `/opt/devshop-plugin/devshop/upgrade/latest-release.sh --devshop-git $D` (exit 1, no release yet:
   `main`, `git --git-dir=$D rev-parse HEAD`). Show what changed: the commits,
-  `git --git-dir=$D log --oneline OLD..NEW` (the release notes on GitHub group the same subjects).
+  `git --git-dir=$D log --oneline OLD..NEW` (the release notes on GitHub group the same subjects;
+  with no pin there is no OLD: say what changed can't be listed).
   A major release (its first number changes) needs a migration: say so first.
 - `$PF` stops with "not in the devshop copy" when NEW is newer than the copy, which refreshes only
   when the environment's cache rebuilds. Tell the owner to rebuild the environment, then stop.
 
 ## 2. Show the plan
 
-Run `$PF plan --from OLD --to NEW --project .` and show the owner its sections:
+Run `$PF plan --from OLD --to NEW --project .` and show the owner its sections. With no pin, OLD is
+`none`: the project's seeds came from a template of unknown age, so each seed is compared with NEW's
+template instead (`HEAD` would hide every change made before it). A NEW from before that option
+stops on `none` as "not in the devshop copy": say the seeds weren't compared.
 
 - **`devshop` files:** each diff from the project's copy to NEW. These come all or nothing: the
   owner takes them, or the upgrade waits. A copy the project needs to differ is a devshop bug (fix

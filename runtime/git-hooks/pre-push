@@ -4,7 +4,10 @@
 #   1. gitleaks (pinned, /opt/devshop-tools/bin) finds a secret in the commits this push adds, with
 #      the repo's .gitleaks.toml if it has one;
 #   2. the repo's own lint, `scripts/lint.sh <base>`, finds problems (exit 1) or can't run (other);
-#   3. the project's own pre-push hook fails (chained after the devshop's, husky included).
+#   3. a lockfile resolves from a registry that isn't public, before the push makes its host public
+#      (F-NEW-146): `scripts/secret-scan.sh --lockfiles <base>`, the project's devshop copy, which CI's
+#      fast tier runs too; a copy too old for it stops the push and names the upgrade;
+#   4. the project's own pre-push hook fails (chained after the devshop's, husky included).
 # A missing tool stops the push too: it never passes.
 set -uo pipefail
 # shellcheck source=runtime/git-hooks/_lib.sh
@@ -52,7 +55,19 @@ else
   echo "devshop pre-push: no repo lint declared (scripts/lint.sh); only the secret scan ran" >&2
 fi
 
-# 3. The project's own pre-push.
+# 3. Lockfiles, over the same base as the lint.
+if [ -x scripts/secret-scan.sh ]; then
+  scripts/secret-scan.sh --lockfiles "$base" >&2
+  case $? in
+    0) ;;
+    1) problems+=("a lockfile resolves from a registry that isn't public (output above)") ;;
+    *) problems+=("scripts/secret-scan.sh couldn't check the lockfiles (output above); a copy older than its --lockfiles: bring it with /ak:upgrade") ;;
+  esac
+else
+  echo "devshop pre-push: no scripts/secret-scan.sh (a project contract item); lockfiles not checked" >&2
+fi
+
+# 4. The project's own pre-push.
 project_hook pre-push "$@" <<<"$refs" || problems+=("the project's own pre-push hook failed (output above)")
 
 if [ ${#problems[@]} -gt 0 ]; then
