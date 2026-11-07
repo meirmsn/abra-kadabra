@@ -2,7 +2,7 @@
 # The skills eval's model tier (specs/skills-eval.md): runs the devshop's skills, as a commit has
 # them, in a real devshop session on a scratch project, and grades each run. Not a *.test.sh: it
 # calls a model, and CI runs no LLM jobs (D-06). Run it when the skills change, in a cloud session
-# where `claude` is logged in; the free tier (skills-check.py --rules) runs in CI on its own.
+# where `claude` is logged in; the free tier (skills-check.py) runs in CI on its own.
 #   usage: tests/skills-eval.sh [runs, default 1] [case, default trigger]
 #   env:   SKILLS_EVAL_REF     the commit under test (default HEAD; then runtime/ must be committed)
 #          SKILLS_EVAL_MODEL   a model for the child (default: the CLI's own)
