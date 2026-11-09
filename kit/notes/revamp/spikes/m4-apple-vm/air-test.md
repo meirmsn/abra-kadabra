@@ -14,8 +14,10 @@ as described and note what you used.
 
 - **The Mac:** Apple menu → About This Mac: write down the chip, the memory (16, 24 or 32 GB)
   and the macOS version.
-- **Free disk:** the Xcode image is tens of GB (_check_ its size on the package page below), and the
-  test needs about as much again for builds. Have at least 100 GB free (an estimate).
+- **Free disk:** at least **200 GB**. On the owner's Air the image folder reached 163 GB: 87 GB for
+  `base` on disk (a 140 GB disk, stored sparse) plus Tart's cached download (`tart prune` frees it
+  later). The `air-test` copy shares `base`'s disk (copy-on-write), so it starts small and grows
+  only with what the test writes.
 - **Homebrew** on the Mac: `brew --version`. If it isn't found, install it from brew.sh first.
 - **Close heavy apps** so the memory readings mean something.
 
