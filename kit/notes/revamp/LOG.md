@@ -3322,7 +3322,36 @@ is an awk built-in, so `awk -v log=` fails; the variable is `logfile`.
 
 **Next**: the owner's next roadmap entry.
 
-## #100 — 2026-10-30 · The Apple proposal: macOS and iOS in throwaway VMs
+## #100 — 2026-11-04 · The Next.js home's UI defaults (spec D)
+
+**What moved**: the Next.js home's § UI: one `app/globals.css` (Tailwind v4, the `dark` variant on
+the baseline's selectors, a bridge, `base.css`'s token rules, 44 px and busy rules), `place.sh`,
+`shadcn-add.mjs` and `ui-tokens.sh`, in `tests/nextjs-home.test.sh`, and a real app built and
+render-checked in `tests/nextjs-home-app.test.sh` (slow); 44 mutants killed. Each
+project pins its own shadcn/ui version; motion is the project's call (`design.md` changed to say so).
+
+**Surprises**: shadcn/ui's npm package holds no components: it downloads them from a host cloud
+sessions block, so the script copies from the release tag on GitHub. The owner's two reviews cut the
+first spec by half (no `supplies`, no forked tiers, Tailwind's palette kept).
+
+**Next**: the pilot web app's adoption (W10.11.6), then its direction slice (W10.11.7).
+
+## #102 — 2026-11-06 · The plugin is `ak`, and its runtime skills load again (R-20, F-NEW-147)
+
+**What moved**: Claude Code 2.1.318+ follows a local-marketplace plugin's symlink only when it
+resolves inside the marketplace folder; the skills link ended in `/opt/devshop-versions`, so sessions
+got only `upgrade`. The versions now live in `/opt/devshop-plugin/versions`, `/opt/devshop-current`
+still switches them, and the plugin is `ak@ak`: every hand-over reads `ak:<name>`, and
+`skills-check.py` fails the old name. Proven by a real bootstrap and real sessions in a private mount
+namespace: seven `ak:` skills, and five for a pin from before `split`.
+
+**Surprises**: the CLI's validator text states the rule; the manifest's `skills` entry adds, never
+replaces. The cache copy is never read. dcg blocked an edit script for quoting `rm -rf`
+(F-NEW-140 again).
+
+**Next**: the skills-eval branch takes this from `main` (its own session).
+
+## #103 — 2026-10-30 · The Apple proposal: macOS and iOS in throwaway VMs
 
 **What moved**: the owner asked for a design to build native macOS and iOS apps with the host
 protected. [apple-native-proposal.md](apple-native-proposal.md): the agent stays in its cloud
@@ -3336,7 +3365,7 @@ fetch a Swift toolchain (host denied, Docker Hub 429) nor GitHub's artifact stor
 
 **Next**: the owner's decisions in § 10.
 
-## #101 — 2026-11-01 · The Apple proposal, revised for private repos
+## #104 — 2026-11-01 · The Apple proposal, revised for private repos
 
 **What moved**: the owner's answers in chat on PR 166: private repositories must work, and the agent
 should drive Xcode on the owner's Mac with strictly limited access. The proposal now puts the agent
@@ -3350,7 +3379,7 @@ npm.
 
 **Next**: the owner's test on the Air, then § 10's decisions.
 
-## #102 — 2026-11-04 · The Apple proposal after the audit and the naming rule
+## #105 — 2026-11-04 · The Apple proposal after the audit and the naming rule
 
 **What moved**: `main` merged in. Its rule on other projects meant rewording the proposal: the first
 Apple app is now described by its stack, and the spike's sample code uses neutral names (the

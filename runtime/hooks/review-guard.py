@@ -4,7 +4,9 @@
 nothing. It refuses the other ways of putting a change on a PR and lets everything else through:
 
   - Bash: `gh pr create`; `gh pr edit` with a title, body or base; `git push` while the current
-    branch has an open PR (or when that can't be checked).
+    branch of the repo it runs in (after a cd earlier in the command) has an open PR, or when that
+    can't be checked; a git commit, merge or push that skips the git hooks (--no-verify, commit -n,
+    -c core.hooksPath).
   - GitHub tools: create_pull_request; update_pull_request with a title, body or base;
     update_pull_request_branch; push_files, create_or_update_file, delete_file on a branch with an
     open PR.
@@ -41,7 +43,7 @@ class Refuse(Exception):
 
 
 def refuse(why):
-    raise Refuse(f"devshop review guard: {why}\nChanges reach a PR through the devshop:pr skill, whose ship.sh "
+    raise Refuse(f"devshop review guard: {why}\nChanges reach a PR through the ak:pr skill, whose ship.sh "
                  "reviews them first: " + SHIP)
 
 
@@ -60,8 +62,9 @@ def strip_heredocs(command):
 
 
 def segments(command):
-    """The simple commands in a command line, as word lists (redirections stay as words: the guard
-    never reads a command's arguments beyond its name, so they can't change its answer)."""
+    """The simple commands in a command line, as word lists, each with the punctuation that ends it
+    (redirections stay as words: the guard reads no argument it doesn't name, so they can't change
+    its answer)."""
     lex = shlex.shlex(command, posix=True, punctuation_chars="".join(sorted(PUNCT)))
     lex.whitespace = " \t\r"
     lex.whitespace_split = True
@@ -69,19 +72,56 @@ def segments(command):
     out, seg = [], []
     for w in lex:  # ValueError on an unclosed quote
         if w and set(w) <= PUNCT:
-            if seg:
-                out.append(seg)
+            out.append((seg, w))
             seg = []
         else:
             seg.append(w)
     if seg:
-        out.append(seg)
+        out.append((seg, ""))
     return out
+
+
+def moved(cdir, w):
+    """The directory a cd or pushd leaves the shell in, or None when the guard can't tell (a
+    variable, `cd -`, popd, a directory that isn't there: `cd gone; git push` pushes from where the
+    shell was): a push after that is checked nowhere, so it is refused."""
+    if cdir is None or w[0] == "popd":
+        return None
+    args = [a for a in w[1:] if a not in ("-L", "-P", "--")]
+    target = args[0] if args else "~"
+    if target == "-" or "$" in target or "`" in target:
+        return None
+    d = os.path.normpath(os.path.join(cdir, os.path.expanduser(target)))
+    return d if os.path.isdir(d) else None
 
 
 def edits_words(arg):
     """Whether a gh pr edit argument sets the title, body or base: --title=x, -t x, or glued -tx."""
     return arg.split("=", 1)[0] in GH_EDIT_WORDS or (not arg.startswith("--") and arg[:2] in GH_EDIT_WORDS)
+
+
+# The devshop's pre-push and commit-msg hooks stop a secret, an internal host or a session link
+# before it is public; CI sees it only after the push.
+NO_HOOKS = "this skips the devshop's git hooks, which stop a secret, an internal host or a session link before it goes public"
+# commit's short options that take a value: in a cluster (-am x), what follows one is that value.
+COMMIT_VALUED = set("mFCctS")
+
+
+def skips_hooks(sub, args):
+    """Whether git <sub> args skips the hooks: --no-verify or an unambiguous prefix of it (git takes
+    one; --no-v is the shortest), or commit's -n, alone or in a cluster (push's -n is a dry run)."""
+    for a in args:
+        if a == "--":
+            return False
+        if a.startswith("--no-v") and "--no-verify".startswith(a):
+            return True
+        if sub == "commit" and re.fullmatch(r"-[A-Za-z]+", a):
+            for ch in a[1:]:
+                if ch == "n":
+                    return True
+                if ch in COMMIT_VALUED:
+                    break
+    return False
 
 
 def command_words(seg):
@@ -99,29 +139,54 @@ def check_bash(command, cwd):
         if NAMED.search(command):
             refuse("this command can't be split into words, and it names gh pr create/edit or git push")
         return
-    for seg in segs:
+    # A cd moves the commands after it to another repo (a session may work on two, with the same
+    # branch name in each); a subshell's cd ends with it. Pipelines are read as sequences.
+    cdir, saved = cwd, []
+    for seg, end in segs:
         w = command_words(seg)
-        if not w:
-            continue
-        prog = os.path.basename(w[0])
-        if prog == "gh":
-            k = 1  # gh's global flags may come first: gh -R owner/repo pr create
-            while k < len(w) and w[k].startswith("-"):
-                k += 2 if w[k] in ("-R", "--repo") else 1
-            if w[k:k + 2] == ["pr", "create"]:
-                refuse("gh pr create is refused")
-            if w[k:k + 2] == ["pr", "edit"] and any(edits_words(a) for a in w[k + 2:]):
-                refuse("gh pr edit of the title, body or base is refused")
-        if prog == "git":
-            j, cdir = 1, cwd
-            while j < len(w) and w[j].startswith("-"):
-                if w[j] in ("-C", "-c", "--git-dir", "--work-tree", "--namespace") and j + 1 < len(w):
-                    cdir = os.path.join(cdir, w[j + 1]) if w[j] == "-C" else cdir
-                    j += 2
-                else:
-                    j += 1
-            if j < len(w) and w[j] == "push":
-                check_push(cdir)
+        if w:
+            cdir = check_command(w, cdir)
+        for ch in end:
+            if ch == "(":
+                saved.append(cdir)
+            elif ch == ")" and saved:
+                cdir = saved.pop()
+
+
+def check_command(w, cwd):
+    """Checks one simple command run in cwd; returns the directory the shell is in after it."""
+    prog = os.path.basename(w[0])
+    if prog in ("cd", "pushd", "popd"):
+        return moved(cwd, w)
+    if prog == "gh":
+        k = 1  # gh's global flags may come first: gh -R owner/repo pr create
+        while k < len(w) and w[k].startswith("-"):
+            k += 2 if w[k] in ("-R", "--repo") else 1
+        if w[k:k + 2] == ["pr", "create"]:
+            refuse("gh pr create is refused")
+        if w[k:k + 2] == ["pr", "edit"] and any(edits_words(a) for a in w[k + 2:]):
+            refuse("gh pr edit of the title, body or base is refused")
+    if prog == "git":
+        j, cdir = 1, cwd
+        while j < len(w) and w[j].startswith("-"):
+            if w[j].lower().startswith("--config-env=core.hookspath"):
+                refuse(NO_HOOKS + " (--config-env core.hooksPath)")
+            if w[j] in ("-C", "-c", "--config-env", "--git-dir", "--work-tree", "--namespace") and j + 1 < len(w):
+                if w[j] in ("-c", "--config-env") and w[j + 1].lower().startswith("core.hookspath"):
+                    refuse(NO_HOOKS + f" ({w[j]} core.hooksPath)")
+                if w[j] == "-C":
+                    d = os.path.expanduser(w[j + 1])
+                    cdir = d if os.path.isabs(d) else None if cdir is None else os.path.join(cdir, d)
+                j += 2
+            else:
+                j += 1
+        if j < len(w) and w[j] in ("push", "commit", "merge") and skips_hooks(w[j], w[j + 1:]):
+            refuse(NO_HOOKS + f" (git {w[j]})")
+        if j < len(w) and w[j] == "push":
+            if cdir is None:
+                refuse("git push after a cd the guard can't follow, so which repo it pushes can't be checked")
+            check_push(cdir)
+    return cwd
 
 
 def git(cwd, *args):

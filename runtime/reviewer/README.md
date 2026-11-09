@@ -82,7 +82,7 @@ else, a records file below the root included, gives a full review.
 ## The guard
 
 [`runtime/hooks/review-guard.py`](../hooks/review-guard.py), the plugin's PreToolUse hook, keeps the
-other ways to a PR closed. It reviews nothing; it refuses, pointing to the `devshop:pr` skill and `ship`:
+other ways to a PR closed. It reviews nothing; it refuses, pointing to the `ak:pr` skill and `ship`:
 
 - `gh pr create`; `gh pr edit` with a title, body or base;
 - `git push` while the current branch has an open PR (and when that can't be checked: `gh` fails);
@@ -139,6 +139,12 @@ title, the fonts declared and drawn, the colours (per theme) and spacing (per wi
 from the browser's defaults, overflow, console errors, and failed and blocked requests. Every
 request or WebSocket to another origin is aborted and listed, a font as "remote font not loaded";
 service workers are blocked. Exit 1 refused, 2 can't judge.
+
+"The project's Playwright can't be loaded" means the project's `node_modules` lacks it: add
+Playwright as a devDependency and install it (`scripts/setup.sh`'s `npm ci`). Never link
+`node_modules` to the environment's preinstalled tree: npm then trusts that tree's hidden lockfile
+and writes its packages, resolved from an internal mirror, into the project's lockfile (F-NEW-146,
+now stopped by the secret scan's lockfile check).
 
 With no `scripts/local-run.sh` at the base, and in a words-only review, nothing starts: the prompt
 says there is no local run, and the design and QA lenses review by reading.

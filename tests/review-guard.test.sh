@@ -17,7 +17,8 @@ isolate_git "$work"
 ok() { echo "ok - $1"; }
 guard="$repo_root/runtime/hooks/review-guard.py"
 
-# --- A stub gh: GET repos/<slug>/pulls?head=<owner>:<branch>&state=open over $GH_DIR/prs.
+# --- A stub gh: GET repos/<slug>/pulls?head=<owner>:<branch>&state=open over $GH_DIR/prs, for the
+# repos example/app and example/other (a PR file's .repo, app when it has none).
 mkdir -p "$work/bin"
 cat >"$work/bin/gh" <<'EOF'
 #!/usr/bin/env bash
@@ -25,11 +26,12 @@ echo "$*" >>"$GH_DIR/calls"
 [ ! -f "$GH_DIR/fail" ] || { echo "HTTP 502: bad gateway" >&2; exit 1; }
 path=$2
 case "$1 $path" in
-  "api repos/example/app/pulls?"*)
+  "api repos/example/app/pulls?"* | "api repos/example/other/pulls?"*)
+    r=${path#repos/example/}; r=${r%%/*}
     q=$(python3 -c 'import sys, urllib.parse as u; q = u.parse_qs(sys.argv[1].split("?", 1)[1]); print(q.get("state", [""])[0], q.get("head", [""])[0])' "$path")
     [[ "$q" == "open example:"* ]] || { echo "stub gh: unexpected query $path" >&2; exit 1; }
     b=${q#open example:}
-    cat "$GH_DIR"/prs/*.json 2>/dev/null | jq -s --arg b "$b" '[.[] | select(.state == "open" and .head.ref == $b)]' ;;
+    cat "$GH_DIR"/prs/*.json 2>/dev/null | jq -s --arg b "$b" --arg r "$r" '[.[] | select(.state == "open" and .head.ref == $b and (.repo // "app") == $r)]' ;;
   *) echo "stub gh: unexpected $*" >&2; exit 1 ;;
 esac
 EOF
@@ -41,9 +43,15 @@ new_repo "$work/p"
 git -C "$work/p" remote add origin "$work/remote/example/app.git"
 git -C "$work/p" push -q origin main
 git -C "$work/p" checkout -qb feat/x
+# A second repo whose branch has the same name, as in a session working on two repos.
+git init -q --bare "$work/remote/example/other.git"
+new_repo "$work/q"
+git -C "$work/q" remote add origin "$work/remote/example/other.git"
+git -C "$work/q" push -q origin main
+git -C "$work/q" checkout -qb feat/x
 
 reset_state() { rm -rf "$work/gh"; mkdir -p "$work/gh/prs"; : >"$work/gh/calls"; }
-open_pr() { jq -n --arg b "${1:-feat/x}" '{number: 5, state: "open", head: {ref: $b}}' >"$work/gh/prs/5.json"; }
+open_pr() { jq -n --arg b "${1:-feat/x}" --arg r "${2:-app}" '{number: 5, repo: $r, state: "open", head: {ref: $b}}' >"$work/gh/prs/5.json"; }
 # run_guard <tool name> <tool input json> [PATH]: as Claude Code runs it; sets rc and err.
 run_guard() {
   local input
@@ -53,7 +61,7 @@ run_guard() {
   err=$(cat "$work/err")
 }
 bash_call() { jq -nc --arg c "$1" '{command: $c}'; }
-refused() { [ "$rc" = 2 ] || fail "$1: want exit 2 (refused), got $rc: $err"; grep -q "devshop:pr" <<<"$err" || fail "$1: doesn't point to the devshop:pr skill: $err"; grep -q "ship.sh" <<<"$err" || fail "$1: doesn't point to ship.sh: $err"; }
+refused() { [ "$rc" = 2 ] || fail "$1: want exit 2 (refused), got $rc: $err"; grep -q "ak:pr" <<<"$err" || fail "$1: doesn't point to the ak:pr skill: $err"; grep -q "ship.sh" <<<"$err" || fail "$1: doesn't point to ship.sh: $err"; }
 allowed() { [ "$rc" = 0 ] || fail "$1: want exit 0 (allowed), got $rc: $err"; [ -z "$err" ] || fail "$1: allowed, but said: $err"; }
 
 # --- The plugin registers the guard on the right tools, with one list of GitHub tools everywhere.
@@ -156,6 +164,47 @@ reset_state; open_pr 'feat/y&x=1'
 run_guard Bash "$(bash_call "git push")"; refused "push from a branch with & in its name, which has an open PR"
 git -C "$work/p" checkout -q feat/x
 ok "a push is refused while the branch has an open PR, or when that can't be checked; before the PR it passes"
+
+# --- Skipping the devshop's git hooks is refused: --no-verify on a commit, merge or push (git takes a
+# long option's unambiguous prefix), commit's -n, alone or in a cluster, and hooks pointed elsewhere
+# with -c core.hooksPath. The pre-push and commit-msg hooks are what stops a secret, an internal host
+# or a session link before it is public; CI only sees it after.
+reset_state
+for c in "git push --no-verify" "git push --no-verify origin feat/x" "git push origin feat/x --no-ver" \
+  "git commit --no-verify -m x" "git commit -n -m x" "git commit -anm x" "git commit -a -n" \
+  "git merge --no-verify main" "git -c core.hooksPath=/dev/null push" "git -c core.hookspath=x commit -m y" \
+  "git --config-env=core.hooksPath=H push" "git --config-env core.hooksPath=H commit -m x" \
+  "cd $work/q && git push --no-verify"; do
+  run_guard Bash "$(bash_call "$c")"; refused "skipping the hooks: $c"
+  grep -q "skips the devshop's git hooks" <<<"$err" || fail "skipping the hooks: $c: the refusal doesn't say why: $err"
+done
+for c in "git push -n" "git commit -m 'a note on --no-verify'" "git commit -mn" "git commit -am 'the -n flag'" \
+  "git log -n 3" "git -c core.editor=true commit -m x" "git commit --no-edit" "git commit -m x -- -n"; do
+  run_guard Bash "$(bash_call "$c")"; allowed "not skipping the hooks: $c"
+done
+ok "--no-verify, commit -n and -c core.hooksPath are refused; a dry-run push and the words in a message pass"
+
+# --- A cd in the command moves the push to that repo: the guard asks about the repo the push runs in,
+# not the session's (a same-named branch in another repo with an open PR refused it).
+reset_state; open_pr feat/x app
+for c in "cd $work/q && git push" "cd $work/q; git push -u origin feat/x" "cd ../q && git push" "pushd $work/q && git push"; do
+  run_guard Bash "$(bash_call "$c")"; allowed "push in the other repo, whose branch has no PR: $c"
+done
+for c in "git push" "(cd $work/q && git status); git push" "cd $work/q && cd $work/p && git push" "cd $work/q && git -C $work/p push"; do
+  run_guard Bash "$(bash_call "$c")"; refused "push in the repo whose branch has an open PR: $c"
+done
+reset_state; open_pr feat/x other
+for c in "cd $work/q && git push" "cd \"$work/q\" && git push" "git status; cd $work/q
+git push"; do
+  run_guard Bash "$(bash_call "$c")"; refused "push after a cd into the repo with the open PR: $c"
+done
+run_guard Bash "$(bash_call "git push")"; allowed "push in the session's repo, whose branch has no PR"
+# Directories named like the unexpanded words, so only reading them as the shell would refuses.
+mkdir -p "$work/p/\$DIR" "$work/p/-"
+for c in "cd \"\$DIR\" && git push" "cd - && git push" "popd && git push" "cd $work/gone; git push"; do
+  run_guard Bash "$(bash_call "$c")"; refused "push after a cd the guard can't follow: $c"
+done
+ok "a push is checked in the repo a cd in the command moves to; a cd it can't follow refuses the push"
 
 # --- Commits made on GitHub: refused on a branch with an open PR.
 reset_state; open_pr
