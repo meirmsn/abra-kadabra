@@ -3391,3 +3391,16 @@ identities and unsandboxed browsers. terminal-mac was looked at and not adopted 
 **Surprises**: none.
 
 **Next**: the owner's test on the Air, then § 10's decisions.
+
+## #106 — 2026-11-09 · The Apple proposal: Apple's Xcode plugin, the test's first steps
+
+**What moved**: Apple's Xcode plugin entered Claude Code's official plugin directory (2026-11-06). The
+proposal puts it inside the VM, where Claude Code runs through Remote Control, and drops most of the
+build and log scripts it planned. The owner's test on the Air began: Tart installed, the Xcode image
+downloaded. The checklist now carries the install that worked on macOS 15, and a check for the plugin.
+
+**Surprises**: on macOS 15, Homebrew's Tart needs softnet built for macOS 26, and Tart 2.35.0 and
+later crash at launch there (built with Xcode 27); Tart 2.34.0 with softnet 0.21.1 runs. A new
+decision asks to move the host to macOS 26 before the real setup.
+
+**Next**: the rest of the owner's test, then § 10's decisions.

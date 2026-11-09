@@ -3,7 +3,8 @@
 > **Status:** proposal for the owner, 2026-10-30, **revised 2026-11-01 and 2026-11-04** after the owner's answers in
 > chat: private repositories must work, and the agent should drive Xcode on the owner's own Mac with
 > strictly limited access to it; then a browser and credential audit of the devshop (2026-11-03) and
-> the rule on describing other projects. Nothing here is built; the decisions are § 10. It revisits TARGET's
+> the rule on describing other projects; then Apple's Xcode plugin for Claude Code and the first steps
+> of the owner's test (2026-11-09). Nothing here is built; the decisions are § 10. It revisits TARGET's
 > Environments 7 (D-02, D-17: "Claude runs as a non-admin user on a dedicated Mac; a macOS VM only if
 > that proves insufficient") against a stricter goal the owner set on 2026-10-30: **the agents must
 > not be able to harm or read the computer they run on.** The spikes it rests on are in
@@ -18,7 +19,8 @@
   Virtualization framework. Each task gets a fresh VM copied in seconds from a clean Xcode image, and
   the copy is deleted afterwards. Nothing of Claude's runs on the Mac itself.
 - **Inside the box:** a git clone of the project, Xcode, the Simulator, a GitHub token that opens only
-  that repository, Claude Code's Remote Control, and [agent-desktop](https://github.com/vercel-labs/agent-desktop)
+  that repository, Claude Code's Remote Control with **Apple's Xcode plugin** (build, run, test, SwiftUI
+  previews, simulators, build diagnostics, Apple's documentation), and [agent-desktop](https://github.com/vercel-labs/agent-desktop)
   (it reads and clicks apps through the accessibility tree), all used by a standard user, not an
   administrator. No web browser runs there. This cloud session attaches to the VM's
   project folder, with the owner approving the attach, and runs its commands there: builds, UI tests,
@@ -236,7 +238,19 @@ VM, the reviewer, any check in the session.
 start), and approves the session's request to attach to the VM's project folder. From then on the
 session's commands run in the VM.
 
-**Building and testing:** `xcodebuild build` and `test` as anywhere; `xcresulttool export
+**Apple's Xcode plugin first.** Apple's own Xcode plugin entered Claude Code's official plugin
+directory on 2026-11-06 (author Apple Inc.): build, run and test schemes, render SwiftUI previews,
+drive simulators and devices, read build logs and diagnostics, search Apple's developer
+documentation. The directory holds no code: installing it runs `xcrun agent plugin path
+--plugin-format claude`, which links the plugin that ships inside the Mac's Xcode. So it works only
+where Claude Code runs on a Mac with that Xcode: inside the VM, through Remote Control, never on the
+owner's Mac. It replaces most of the build, test and log-reading scripts this proposal would
+otherwise write, and adds what no script gave: seeing a SwiftUI view without running the whole app.
+Third-party reports say Xcode must be open with the project and external agents allowed once in its
+Intelligence settings (_unconfirmed_; the base image does that step).
+
+**Building and testing without the plugin** (CI has no Claude in it, and the plugin may not cover
+everything): `xcodebuild build` and `test` as anywhere; `xcresulttool export
 attachments` for the UI tests' screenshots (proven in the spike), which the agent opens as images
 directly from the VM's disk; `swift run` for the CLI on fixtures.
 
@@ -310,7 +324,7 @@ Effort in agent-days, as PLAN.md counts it; owner steps named.
 | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
 | **0. Proposal and spikes**                   | This document and its spikes                                                                                                                                                                                                                                               | The owner's decisions in § 10, recorded as a D-row                                                                                                                                                                                                                                                                                                                              | done                                      |
 | **1. The test on the Air**                   | [The checklist](spikes/m4-apple-vm/air-test.md): Tart, an Xcode image, the walls, the spike's app built and UI-tested in the VM, agent-desktop clicking it, the Air's memory; optionally Remote Control                                                                    | The owner's filled-in results; the record updated from them                                                                                                                                                                                                                                                                                                                     | owner, ~1 hour                            |
-| **2. The VM lane on the Mac**                | `apple-vm.sh` with known-bad tests; the base image recipe; the egress proxy; the Remote Control attach; how `ship.sh` and the reviewer run from a VM session; attack scenarios                                                                                             | From inside a VM each attack fails: read a host path, reach the Mac or the LAN, reach a host off the allowlist, survive into the next task, change the base image, exceed CPU or memory, use sudo as `agent`, find a signing identity (`security find-identity -v`) or a `.p12` or `.mobileprovision` file, start a browser with `--no-sandbox`. A session ships a PR from a VM | 5–7 + owner: half a day on the Mac        |
+| **2. The VM lane on the Mac**                | `apple-vm.sh` with known-bad tests; the base image recipe (with Apple's Xcode plugin, which removes most of the build and log scripts); the egress proxy; the Remote Control attach; how `ship.sh` and the reviewer run from a VM session; attack scenarios                | From inside a VM each attack fails: read a host path, reach the Mac or the LAN, reach a host off the allowlist, survive into the next task, change the base image, exceed CPU or memory, use sudo as `agent`, find a signing identity (`security find-identity -v`) or a `.p12` or `.mobileprovision` file, start a browser with `--no-sandbox`. A session ships a PR from a VM | 5–7 + owner: half a day on the Mac        |
 | **3. The engine** (smallest useful)          | The Apple stack home; the CI template's macOS `slow`; `models.lock` and `fetch-models.sh`; in the first app's private repo: a portable core package (`fast` on Linux) and the engine running its Core ML pipeline and its MLX models on a 2–5 minute fixture inside the VM | A PR shows `fast` and `slow` green with the fixture's output and error rates in its evidence                                                                                                                                                                                                                                                                                    | 4–6 + owner: the repo, the spending limit |
 | **4. The GUI**                               | SwiftUI app around the engine; the screens test; screenshots on the PR; agent-desktop exploration in build; the native part of `ui.md`; the reviewer's screens lens (with its eval)                                                                                        | A UI change's PR carries screenshots per step and state, and the reviewer judges them                                                                                                                                                                                                                                                                                           | 3–4                                       |
 | **5. Performance**                           | A `benchmark` command; long fixtures; the owner's run on the Air from a signed build                                                                                                                                                                                       | One recorded benchmark on a 60+ minute input: real-time factor, peak memory and compute units per stage                                                                                                                                                                                                                                                                         | 2                                         |
@@ -350,16 +364,25 @@ Effort in agent-days, as PLAN.md counts it; owner steps named.
     anything but a competing product; each version Apache-2.0 after two years). Lume (MIT) is the
     fallback, on the same framework, without Tart's network isolation.
 11. **A VM can't run a newer macOS than its host,** so the base image follows the Air's macOS.
-12. **The CI template assumes Linux:** every job in `runtime/templates/ci.yml` says
+12. **The host's macOS: Tahoe is where the tools are going.** On the Air's macOS 15 (2026-11-09):
+    current Tart installs from Homebrew only with softnet 0.24.0 or later, which requires macOS 26;
+    Tart 2.35.0 and later are built with Xcode 27 and crash at launch on macOS 15 (a Swift library
+    missing there), although their formula says macOS 13. The last pair that runs is Tart 2.34.0
+    with softnet 0.21.1, installed by hand with their published checksums. Apple's Xcode plugin needs
+    "the latest Xcode", probably Xcode 27 and with it a macOS 26 guest, which needs a macOS 26 host.
+13. **Apple's Xcode plugin:** the Xcode version that ships `xcrun agent`, whether Xcode's external
+    agent approval can be given once in the base image, and how it behaves in a VM are
+    _unconfirmed_. The owner's test checks the first in the VM.
+14. **The CI template assumes Linux:** every job in `runtime/templates/ci.yml` says
     `runs-on: ubuntu-24.04`; a macOS `slow` needs a runner label the stack chooses
     (`ci-tiers-check.py` doesn't read `runs-on`).
-13. **From this cloud session:** a Swift toolchain can't be fetched (`download.swift.org` denied,
+15. **From this cloud session:** a Swift toolchain can't be fetched (`download.swift.org` denied,
     Docker Hub rate-limited), and GitHub's artifact storage host is denied (403), so CI artifacts are
     read from job logs unless the project's environment allows that host. The VM lane doesn't need it.
-14. **Model hosts:** Hugging Face was not reachable from this session's research; the proxy's
+16. **Model hosts:** Hugging Face was not reachable from this session's research; the proxy's
     allowlist and the project's environment need its download hosts, and whether the Core ML weights'
     upstream download is gated is _unconfirmed_.
-15. **Prices** for Xcode Cloud, EC2 Mac, Scaleway, MacStadium and the Mac mini were read from search
+17. **Prices** for Xcode Cloud, EC2 Mac, Scaleway, MacStadium and the Mac mini were read from search
     results of the vendors' pages, not the pages themselves.
 
 ## 10. Decisions for the owner
@@ -376,6 +399,7 @@ Effort in agent-days, as PLAN.md counts it; owner steps named.
 | 8   | Physical iPhone testing                                                                                    | **Postpone;** TestFlight to the owner's phone covers manual checks                                                                                                                                                                                   |
 | 9   | Models for CI and the product                                                                              | The 1.7B model quantized to 8 bit in the VM and CI; the product's precision chosen from the Air's benchmark. Keep a Core ML alternative to the MLX model as a measured option                                                                        |
 | 10  | Order on the roadmap                                                                                       | **Phase 1 now** (the owner's hour); phases 2–3 next to M3, since they live on the Mac and in the first app's own repo; only the devshop pieces (the Apple home, the CI template's runner label) queue behind the pilot web app's adoption (W10.11.6) |
+| 11  | Update the host Mac to macOS 26 Tahoe before the real setup                                                | **Yes,** after the test: current Tart, softnet and, most likely, Apple's Xcode plugin need it (§ 9); the test itself runs on macOS 15 with the pinned pair                                                                                           |
 
 ## Sources
 
