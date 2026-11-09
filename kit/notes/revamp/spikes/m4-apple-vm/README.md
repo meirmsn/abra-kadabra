@@ -61,8 +61,24 @@ build for the image's default Python 3.15 ("BlobWriter not loaded"); run 2 used 
 host generation; not investigated). Asking Core ML for the Neural Engine in a VM raises no error: it
 quietly runs elsewhere, so an app must log the compute units it actually got.
 
-**Next.** [air-test.md](air-test.md): the owner's one-hour test of the same app in a Tart VM on
-their MacBook Air, with agent-desktop and the VM's network walls (the proposal's revised design).
+## The owner's test on the Air (2026-11-09)
 
-**Not tested.** A real model (FluidAudio, Qwen3-ASR) in the VM; a local Tart VM; network isolation;
-anything on macOS 27.
+[air-test.md](air-test.md), run by the owner step by step in chat on a MacBook Air M4 (32 GB,
+macOS 15.6.1), results as reported:
+
+| Step                                | Result                                                                                                                                                                         |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Install Tart                        | Homebrew's failed (softnet needs macOS 26); Tart 2.38.0 crashed at launch; Tart 2.34.0 with softnet 0.21.1 ran, checksums matching OpenAI's formulas                            |
+| Image                               | `macos-sequoia-xcode:26.6` as `base`: 140 GB disk, 87 GB on it; guest macOS 15.7.7, Xcode 26.6                                                                                  |
+| Start isolated (4 CPU, 8 GB)        | Reached a desktop. Softnet asked for the owner's password once                                                                                                                  |
+| Walls                               | No shared folders; router and Mac unreachable (timeouts); GitHub reachable (`HTTP/2 200`); paste from the Mac didn't work                                                      |
+| macOS UI test                       | `** TEST SUCCEEDED **`, 18.4 s                                                                                                                                                  |
+| The Mac during the test             | Memory pressure yellow and flat, 0 bytes swap, 27.45 of 32 GB in use (the VM's 8 GB plus the owner's apps)                                                                       |
+| agent-desktop                       | Installed; snapshot read the app; its click changed the label to "Items found: 2"                                                                                               |
+| Apple's Xcode plugin                | `xcrun agent plugin path` ran Xcode 26.6's `mcpbridge`, which refused to start: "built for macOS 26.0 which is newer than running OS". The plugin needs a macOS 26 guest      |
+| Remote Control                      | Logged in (the clipboard was turned on for the login only, then off again). `claude remote-control --spawn=same-dir` connected and registered a bridge environment               |
+| A cloud session in the VM           | Attaching this cloud session to the folder isn't offered on the owner's account. A new session started in the bridge environment, after the owner allowed it on a trusted device; with the owner approving each command, it reported macOS 15.7.7, `VirtualMac2,1`, user `admin`, the PR's commit, Xcode 26.6, `Macintosh HD` only, GitHub `200` |
+| Found on the way                    | That session started with the owner's claude.ai connectors attached (mail, files, calendar, docs). A Claude login in the VM brings them in                                     |
+
+**Not tested.** A real model of the first app in the VM; the iOS Simulator on the Air; anything on
+macOS 26 or 27.

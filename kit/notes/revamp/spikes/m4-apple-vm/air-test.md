@@ -103,7 +103,13 @@ inside the VM. The VM is deleted in step 7, but the login stays valid until you 
 
 1. In the VM, install Claude Code (the official installer from the Claude Code docs), sign in, then
    in the project folder: `claude remote-control`. Trust the folder when asked.
-2. Tell the cloud session; it asks to attach to that folder, and you approve the request.
+2. Tell the cloud session. Signing in emails a long link the VM can't receive by paste; in the
+   owner's run, the VM was restarted without `--no-clipboard` for the login only, then with it again.
+   Run `claude remote-control --spawn=same-dir`; it registers the VM as a bridge environment. The
+   cloud session starts a session there (attaching a cloud session to the folder directly wasn't
+   offered on the owner's account), after the owner allows it on a trusted device, and the owner
+   approves that session's commands. It starts with the account's connectors attached: keep it to
+   read-only checks.
 3. In the VM's Terminal: `xcrun agent plugin path --plugin-format claude`. A path means this Xcode
    ships Apple's Xcode plugin for Claude Code; an error means it needs a newer Xcode (§ 9 of the
    proposal). Write down which.

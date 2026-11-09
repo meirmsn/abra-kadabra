@@ -111,6 +111,13 @@ What this settles: **a throwaway macOS VM is enough to build, run, UI-test and s
 app, on macOS and on the iOS Simulator, and to run MLX on a GPU**, with no signing identity. What it doesn't: Neural Engine work and
 performance numbers, which need bare metal (§ 7).
 
+**The owner's test on the Air (2026-11-09)** ([record](spikes/m4-apple-vm/README.md)) ran the design
+itself on a MacBook Air M4 (32 GB, macOS 15.6.1). A Tart VM held its walls: no shared folders, the
+router and the Mac unreachable, the internet reachable, no clipboard. The sample app built and passed
+its UI test in 18.4 s with no swap on the Mac. agent-desktop clicked it. A cloud session started in
+the VM through Remote Control and reported back. Two things didn't work on macOS 15: Apple's Xcode
+plugin needs macOS 26, and current Tart needs it too (§ 9).
+
 ## 3. The options
 
 Ratings are for this devshop: one owner, agents in cloud sessions, a Pro/Max Claude plan and GitHub
@@ -235,8 +242,11 @@ VM, the reviewer, any check in the session.
 ## 6. How agents interact
 
 **Starting a task:** the owner runs `apple-vm.sh start` on the Mac (later, a scheduled or on-demand
-start), and approves the session's request to attach to the VM's project folder. From then on the
-session's commands run in the VM.
+start); inside the VM, `claude remote-control` registers it as a bridge environment. The cloud
+session then starts a session in that environment, which runs in the VM and reports back (proven on
+the Air). Attaching a cloud session to a folder directly isn't offered on the owner's account. Starting
+sessions on the owner's computers needs the owner's one-time approval on a trusted device, and the
+session in the VM asks before each command unless its permissions say otherwise.
 
 **Apple's Xcode plugin first.** Apple's own Xcode plugin entered Claude Code's official plugin
 directory on 2026-11-06 (author Apple Inc.): build, run and test schemes, render SwiftUI previews,
@@ -336,7 +346,10 @@ Effort in agent-days, as PLAN.md counts it; owner steps named.
 1. **The Claude login inside the VM.** Remote Control needs a claude.ai login and refuses API keys,
    so the VM holds one. Code in the VM could read it. The proxy narrows where it could go, and the
    owner signs the device out after a run of tasks; how long such a login lives, and how quickly
-   signing out cuts it, is _unconfirmed_. Phase 2 measures it.
+   signing out cuts it, is _unconfirmed_. Phase 2 measures it. **The login also brings the account's
+   connectors:** in the owner's test, the session in the VM started with mail, files, calendar and
+   docs connectors attached. The fix: a separate Claude account for the VM with no connectors, or
+   connectors turned off for those sessions (decision 12).
 2. **The devshop's tooling in a VM session:** the reviewer's browser keeps it out of the VM, so the
    lean is to push from the VM and ship from the session's container; how a session attached to a
    folder splits work between the two is unconfirmed.
@@ -369,10 +382,11 @@ Effort in agent-days, as PLAN.md counts it; owner steps named.
     Tart 2.35.0 and later are built with Xcode 27 and crash at launch on macOS 15 (a Swift library
     missing there), although their formula says macOS 13. The last pair that runs is Tart 2.34.0
     with softnet 0.21.1, installed by hand with their published checksums. Apple's Xcode plugin needs
-    "the latest Xcode", probably Xcode 27 and with it a macOS 26 guest, which needs a macOS 26 host.
-13. **Apple's Xcode plugin:** the Xcode version that ships `xcrun agent`, whether Xcode's external
-    agent approval can be given once in the base image, and how it behaves in a VM are
-    _unconfirmed_. The owner's test checks the first in the VM.
+    a macOS 26 guest, shown in the owner's test, and so a macOS 26 host.
+13. **Apple's Xcode plugin:** Xcode 26.6 already ships it (`xcrun agent` runs its `mcpbridge`), but
+    that tool is built for macOS 26 and refused to start in the macOS 15 VM. Whether Xcode's external
+    agent approval can be given once in the base image, and how the plugin behaves in a VM, are
+    _unconfirmed_.
 14. **The CI template assumes Linux:** every job in `runtime/templates/ci.yml` says
     `runs-on: ubuntu-24.04`; a macOS `slow` needs a runner label the stack chooses
     (`ci-tiers-check.py` doesn't read `runs-on`).
@@ -384,6 +398,11 @@ Effort in agent-days, as PLAN.md counts it; owner steps named.
     upstream download is gated is _unconfirmed_.
 17. **Prices** for Xcode Cloud, EC2 Mac, Scaleway, MacStadium and the Mac mini were read from search
     results of the vendors' pages, not the pages themselves.
+18. **Watch: GPU and Neural Engine for VMs.** A post (2026-11) says macOS 27.3 lets a VM use the host's
+    GPU and Neural Engine for Core AI, through private Virtualization APIs, a restricted entitlement
+    and code-signing enforcement (AMFI) relaxed on the host. Not confirmed, and not adopted: relaxing
+    AMFI weakens the owner's Mac itself, and a direct path into the host's drivers widens the VM
+    boundary. Revisit if Apple ships it as a public, documented device configuration.
 
 ## 10. Decisions for the owner
 
@@ -399,11 +418,12 @@ Effort in agent-days, as PLAN.md counts it; owner steps named.
 | 8   | Physical iPhone testing                                                                                    | **Postpone;** TestFlight to the owner's phone covers manual checks                                                                                                                                                                                   |
 | 9   | Models for CI and the product                                                                              | The 1.7B model quantized to 8 bit in the VM and CI; the product's precision chosen from the Air's benchmark. Keep a Core ML alternative to the MLX model as a measured option                                                                        |
 | 10  | Order on the roadmap                                                                                       | **Phase 1 now** (the owner's hour); phases 2–3 next to M3, since they live on the Mac and in the first app's own repo; only the devshop pieces (the Apple home, the CI template's runner label) queue behind the pilot web app's adoption (W10.11.6) |
-| 11  | Update the host Mac to macOS 26 Tahoe before the real setup                                                | **Yes,** after the test: current Tart, softnet and, most likely, Apple's Xcode plugin need it (§ 9); the test itself runs on macOS 15 with the pinned pair                                                                                           |
+| 11  | Update the host Mac to macOS 26 Tahoe before the real setup                                                | **Yes, when convenient:** Apple's Xcode plugin needs a macOS 26 guest (shown in the owner's test), so a macOS 26 host, and current Tart and softnet need it too. Everything else in the test worked on macOS 15 with the pinned pair                 |
+| 12  | Which Claude account the VM signs in with                                                                  | **A separate Claude account with no connectors,** or connectors turned off for the VM's sessions: the test showed a login in the VM brings the account's mail, files and calendar connectors                                                         |
 
 ## Sources
 
-Read on 2026-10-30. First-party pages where reachable; otherwise the vendor page as quoted by search.
+Read from 2026-10-30 to 2026-11-09. First-party pages where reachable; otherwise the vendor page as quoted by search.
 
 - Apple: [Virtualization: using iCloud with macOS VMs](https://developer.apple.com/documentation/virtualization/using-icloud-with-macos-virtual-machines),
   [`VZMacGraphicsDeviceConfiguration`](https://developer.apple.com/documentation/virtualization/vzmacgraphicsdeviceconfiguration),

@@ -3404,3 +3404,17 @@ later crash at launch there (built with Xcode 27); Tart 2.34.0 with softnet 0.21
 decision asks to move the host to macOS 26 before the real setup.
 
 **Next**: the rest of the owner's test, then § 10's decisions.
+
+## #107 — 2026-11-09 · The owner's test on the Air
+
+**What moved**: the owner ran the checklist on a MacBook Air M4 (32 GB, macOS 15.6.1). A Tart VM
+held its walls; the sample app passed its UI test in 18.4 s with no swap; agent-desktop clicked it; a
+cloud session started inside the VM through Remote Control and reported back. The record and the
+proposal carry the results.
+
+**Surprises**: Apple's Xcode plugin ships in Xcode 26.6 but needs a macOS 26 guest, so a macOS 26
+host. The VM's Claude login brought the owner's mail, files and calendar connectors with it: a new
+decision asks for a separate account without connectors. Attaching a cloud session to a folder isn't
+offered on the owner's account; starting a session in the VM's bridge environment works.
+
+**Next**: the owner's decisions in § 10.
