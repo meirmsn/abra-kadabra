@@ -29,7 +29,7 @@ too; an entry is `Done` when its task is `[x]`.
 | R-15 | 2026-10-30 | The metrics comment names the model(s) and splits the tokens (input, output, cache reads, cache writes) beside the dollars, and says which window of the session they cover — [spec](specs/metrics-model-and-tokens.md) | Done, PR #169 |
 | R-20 | 2026-11-06 | The runtime's skills load again on Claude Code 2.1.318 and later (F-NEW-147), and the plugin is named `ak`, so they read `ak:intent`, `ak:build` and so on (owner, 2026-11-06: "Yeah, do it with AK and fix them.") — [spec](specs/ak-plugin.md) | Done, PR #187 |
 | R-21 | 2026-11-10 | Pinned tools survive a release-host outage: cached for the session, a sanctioned repair, and a session that can't push says so up front (F-NEW-158, F-NEW-159) | Done, PR #191 |
-| R-22 | 2026-11-10 | Parallel branches stop conflicting on shared lists and counters: lists derived from one manifest, tests that count from it, finding IDs that can't collide (F-NEW-161) | Open |
+| R-22 | 2026-11-10 | Parallel branches stop conflicting on shared lists and counters: lists derived from one manifest, tests that count from it, finding IDs that can't collide (F-NEW-161) | Done, PR #193 |
 | R-23 | 2026-11-10 | Shared changes and flaky-test fixes land first, in their own small PR; a flake seen twice gets that PR, not a re-run (F-NEW-164) | Open |
 
 ## R-14: The session-start hook reads the wrong directory after a restart
