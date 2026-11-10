@@ -24,40 +24,52 @@ checks it after set-up, so a repo without it ships until a merge breaks `main`.
   setting"): with the setting right, the squash commit is the reviewed title and body whatever the
   commits say. Rejected: running `pr-title-check.py` on each commit subject (a mitigation that
   refuses subjects that never reach `main`); reworded skills alone (feedback that can be missed)
-- **Exit 2, before the review** (Claude's proposal, 2026-11-10): only someone with admin on the repo
-  can change the setting, and the agent has Write, so it is could-not-run ("ask the owner"), not a
-  fail to fix and ship again. It runs before `review.sh`, so no review is spent on a PR that would
-  land wrong. The message names the repo, each wrong field with the value GitHub reported, and
-  where to change it (Settings → General → Pull Requests, default commit message "Pull request
-  title and description")
-- **Read from the same `gh api repos/<slug>` call** (Claude's proposal, 2026-11-10): `ship.sh` reads
-  the repo once; the base fallback to `default_branch` uses the same response. A failed call, output
-  that isn't JSON, or a missing or null field is could-not-run, never a pass
+- **Exit 2** (Claude's proposal, 2026-11-10): only an admin of the repo can change the setting and
+  the agent has Write, so it is could-not-run, "stop and ask the owner", not a fail to fix and ship
+  again (exit 1). Not exit 3: that is the reviewer's ask-owner verdict, and the pr skill treats 2
+  and 3 alike. The message names the repo, each wrong field with the value GitHub reported, and the
+  fix: Settings → General → Pull Requests, allow squash merging, its default commit message "Pull
+  request title and description"
+- **Where it runs** (Claude's proposal, 2026-11-10): right after the origin slug is parsed, so after
+  the body and title checks (words that fail them are still exit 1 first) and before the open-PR
+  lookup, the base fetch and `review.sh`. Nothing is pushed and no PR is created, updated or
+  commented on
+- **One read of the repo** (Claude's proposal, 2026-11-10): `ship.sh` reads `gh api repos/<slug>`
+  once; the base fallback to `default_branch` uses the same response. A failed call, output that
+  isn't JSON, or a missing or null field is could-not-run, never a pass. This is new: today that
+  call's failure is ignored and it is made only when the base is unknown, so a run with `--base` or
+  an open PR now also stops when the call fails
+- **This repo is already set** (checked 2026-11-10 with `gh api`: `PR_TITLE`, `PR_BODY`)
 - **Post-merge step, the owner's:** set the website repo's default squash message to "Pull request
-  title and description"; and this repo's, if its next `ship` reports it
+  title and description"
 
 ## Acceptance items
 
-- **AC-1** `ship.sh` exits 2 before calling `review.sh`, pushing or touching any PR when the repo
-  reports `squash_merge_commit_title` other than `PR_TITLE` (GitHub's default `COMMIT_OR_PR_TITLE`
-  included), and its output names that field and the value reported. Shown by `tests/ship.test.sh`
+- **AC-1** `ship.sh` exits 2 without calling `review.sh`, pushing, or making any `-X` call to
+  GitHub when the repo reports `squash_merge_commit_title` other than `PR_TITLE` (GitHub's default
+  `COMMIT_OR_PR_TITLE` included), and its output names that field and the value reported. Shown by
+  `tests/ship.test.sh`
 - **AC-2** The same holds when `squash_merge_commit_message` is other than `PR_BODY`
   (`COMMIT_MESSAGES`, `BLANK`). Shown by `tests/ship.test.sh`
-- **AC-3** The same holds when either field is missing or null, when `gh api repos/<slug>` fails,
-  and when it prints something that isn't JSON. Shown by `tests/ship.test.sh`
+- **AC-3** The same holds when either field is missing or null, when the `repos/<slug>` call alone
+  fails, and when it prints something that isn't JSON. Shown by `tests/ship.test.sh`, whose stub
+  `gh` gains those modes for that path and reports `PR_TITLE` and `PR_BODY` by default
 - **AC-4** With `PR_TITLE` and `PR_BODY`, `ship.sh` behaves as before: every existing case in
-  `tests/ship.test.sh` passes, with the stub repo reporting those values
-- **AC-5** The repo is read once per run: `gh api repos/<slug>` appears once in the stub's call log
-  on a run that also needs the default branch (no `--base`, no open PR, no `origin/HEAD`). Shown
-  by `tests/ship.test.sh`
-- **AC-6** `ship.sh`'s header comment, `runtime/reviewer/README.md` § ship and the new-project steps'
-  squash item say that `ship` checks the setting and stops with exit 2 when it is wrong —
-  verified by review: read the three passages
+  `tests/ship.test.sh` passes
+- **AC-5** On a run that needs the default branch from GitHub (the single-branch clone: no
+  `--base`, no open PR, no `origin/HEAD`), the stub's call log has exactly one `api repos/<slug>`
+  line. Shown by `tests/ship.test.sh`
+- **AC-6** `ship.sh`'s header comment (the exit 2 list included), `runtime/reviewer/README.md`
+  § ship and the new-project steps' squash item say that `ship` checks the setting and stops with
+  exit 2 when it is wrong; the two places that say projects have no `scripts/pr-title-check.py`
+  (`ship.sh`'s comment above the title check, README § ship step 1) say projects have it too —
+  verified by review: read the passages
 
 ## Out of scope
 
 - Checking commit subjects, or the other merge settings (`allow_squash_merge`, merge commits and
-  rebase merges: `pr-assets.sh` checks those two before screenshots)
+  rebase merges, which `pr-assets.sh` checks before screenshots), unless the owner adds them
 - Changing any repo's settings: only the owner can
-- A CI check of the setting: CI's token reads the same response, but a wall here is the owner's
-  call, not this change's
+- A CI check of the setting
+- What happens after `ship`: the setting changed before the merge, or a merge that sets its own
+  commit title

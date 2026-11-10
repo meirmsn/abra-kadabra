@@ -188,6 +188,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   `place.sh`, and one fast-tier line that runs the token check.
 - [`reviewer-browser.md`](../specs/reviewer-browser.md): the reviewer judges a local run of the
   site against `DESIGN.md`, with a browser that reaches only that run.
+- [`squash-title-setting.md`](../specs/squash-title-setting.md): `ship` stops when the repo's
+  squash merge isn't titled by the PR and described by its body.
 - [`ui-baseline.md`](../specs/ui-baseline.md): every web app starts from a design baseline, phone
   first, light and dark.
 
