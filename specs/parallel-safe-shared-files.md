@@ -1,6 +1,6 @@
 # Parallel branches stop conflicting on shared lists and counters
 
-**Go:** pending
+**Go:** "go" (owner, 2026-11-10)
 
 ## Intent
 
