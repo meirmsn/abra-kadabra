@@ -3418,3 +3418,16 @@ decision asks for a separate account without connectors. Attaching a cloud sessi
 offered on the owner's account; starting a session in the VM's bridge environment works.
 
 **Next**: the owner's decisions in § 10.
+
+## #108 — 2026-11-10 · D-20: native Apple apps in a throwaway VM
+
+**What moved**: the owner answered the Apple proposal's twelve questions one at a time in chat, now
+D-20. The agent works only inside a throwaway VM on the owner's Mac (the Air now, a Mac mini later).
+Required macOS CI runs on GitHub's runners with a spending limit. The Air stays on macOS 15 for about
+half a year, so phase 2 uses the pinned Tart and no Xcode plugin. Signing is deferred. TARGET's
+Environments 7 now says so.
+
+**Surprises**: the GitHub account the sessions act as is the owner's own while the agent's is
+suspended. So no Claude login goes into a VM until it is back.
+
+**Next**: phase 2, the VM machinery, as the owner puts it on the roadmap.
