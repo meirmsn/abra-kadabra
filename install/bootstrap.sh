@@ -60,6 +60,20 @@ link_on_path() { # link_on_path <name>
   fi
   ln -s "$target" "$link" || step_failed "tool $1: link $link to $target"
 }
+# fetch_tool <name> <out> <url>: a release download, tried 4 times with backoff (2, 4, 8 s), so a
+# brief outage of the release host (a 504) doesn't leave a tool missing for the whole session
+# (F-NEW-158). DEVSHOP_TOOL_RETRY_DELAY sets the first wait in seconds (the tests use 0).
+fetch_tool() {
+  local try delay=${DEVSHOP_TOOL_RETRY_DELAY:-2}
+  [[ $delay =~ ^[0-9]+$ ]] || delay=2
+  for try in 1 2 3 4; do
+    curl -fsSL -o "$2" "$3" 2>>"$LOG" && return 0
+    [ "$try" -lt 4 ] || return 1
+    log "retrying tool $1 in ${delay}s (try $try of 4 failed): $3"
+    sleep "$delay"
+    delay=$((delay * 2))
+  done
+}
 install_tools() {
   local name version sum url dir tmp bin
   mkdir -p "$TOOLS/bin" || { step_failed "tools: mkdir $TOOLS/bin"; return; }
@@ -77,7 +91,7 @@ install_tools() {
     fi
     dir="$TOOLS/$name-$version" tmp="$TOOLS/$name.download"
     rm -rf "$dir" "$tmp" && mkdir -p "$dir"
-    curl -fsSL -o "$tmp" "$url" 2>>"$LOG" || { step_failed "tool $name: download $url"; continue; }
+    fetch_tool "$name" "$tmp" "$url" || { step_failed "tool $name: download $url (4 tries)"; continue; }
     echo "$sum  $tmp" | sha256sum -c - >/dev/null 2>&1 \
       || { step_failed "tool $name: checksum of $url is not the pinned $sum"; rm -f "$tmp"; continue; }
     { tar --no-same-owner -xf "$tmp" -C "$dir" 2>>"$LOG" && rm -f "$tmp"; } || { step_failed "tool $name: unpack $url"; continue; }
