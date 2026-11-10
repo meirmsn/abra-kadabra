@@ -7,7 +7,9 @@
 # lint are parts too (specs/project-contract.md AC-3), stubbed here: the real contract check is proven
 # by tests/contract-check.test.sh and, inside a placed project, tests/new-project.test.sh. The
 # DESIGN.md shape check is a part when the project has a DESIGN.md (specs/design-md-check.md AC-5),
-# stubbed here too; the real one is proven by tests/ui-design-md-check.test.sh.
+# stubbed here too; the real one is proven by tests/ui-design-md-check.test.sh. The count check
+# runs for each collection the project declares (specs/parallel-safe-shared-files.md AC-8), the
+# real one, proven by tests/count-check.test.sh.
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
@@ -136,6 +138,28 @@ got=$(run)
 want 0 "design-md-check AC-5: a clean shape check passes"
 rm "$p/DESIGN.md" "$p/scripts/ui/design-md-check.mjs"
 rmdir "$p/scripts/ui"
+
+# parallel-safe-shared-files AC-8: an empty COLLECTIONS list runs no count check and says so; a
+# declared collection runs the real scripts/count-check.py over TEST_DIRS, and a test that
+# hard-codes its count fails the tier; a missing copy can't run.
+got=$(run)
+want 0 "parallel-safe-shared-files AC-8: an empty COLLECTIONS list says there is nothing to count" "no COLLECTIONS: no count check"
+grep -q '^COLLECTIONS=()' "$p/scripts/check-fast.sh" || fail "parallel-safe-shared-files AC-8: COLLECTIONS isn't an empty list the project fills"
+mkdir -p "$p/items"
+touch "$p/items/a" "$p/items/b" "$p/items/c"
+sed -i 's|^COLLECTIONS=()|COLLECTIONS=(items)|' "$p/scripts/check-fast.sh"
+got=$(run)
+want 2 "parallel-safe-shared-files AC-8: a declared collection without the check's copy can't run" "scripts/count-check.py couldn't run"
+cp "$repo_root/runtime/scripts/count-check.py" "$p/scripts/"
+got=$(run)
+want 0 "parallel-safe-shared-files AC-8: a declared collection with no hard-coded count passes" "count-check: no hard-coded count"
+printf 'expect(tiles).toHaveLength(3);\n' >"$p/tests/tiles.test.js"
+got=$(run)
+want 1 "parallel-safe-shared-files AC-8: a test that hard-codes the collection's count fails the tier" "tests/tiles.test.js:1:"
+grep -q '^contract-check $' "$work/ran" || fail "parallel-safe-shared-files AC-8: the contract check didn't run beside the failing count check"
+rm "$p/tests/tiles.test.js" "$p/items/a" "$p/items/b" "$p/items/c" "$p/scripts/count-check.py"
+rmdir "$p/items"
+sed -i 's|^COLLECTIONS=(items)|COLLECTIONS=()|' "$p/scripts/check-fast.sh"
 
 sed -i 's/notes AC-2: an empty/an empty/' "$p/tests/notes.test.sh"
 got=$(run)

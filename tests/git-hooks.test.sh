@@ -142,6 +142,7 @@ for f in scripts/lint.sh scripts/lint-file.sh scripts/deploy.sh scripts/local-ru
 done
 cp "$repo_root/runtime/templates/ui/tokens-check.mjs" "$repo_root/runtime/templates/ui/render-check.mjs" \
   "$repo_root/runtime/templates/ui/design-md-check.mjs" "$c/scripts/ui/"
+cp -p "$repo_root/runtime/scripts/count-check.py" "$c/scripts/"
 mkdir -p "$c/docs" && for f in DESIGN.md ROADMAP.md FINDINGS.md docs/README.md; do echo "# $f" >"$c/$f"; done
 out=$(contract_lines)
 [ -z "$out" ] || { echo "$out" >&2; fail "AC-5: with every item present, session start still spoke about the contract"; }

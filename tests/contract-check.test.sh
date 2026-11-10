@@ -239,12 +239,13 @@ for want in .devshop-version .github/CODEOWNERS .github/workflows/ci.yml scripts
   grep -q "^$want  [a-z]*  required$" "$work/out" || fail "AC-1: '$want' is not a required item of the real contract"
 done
 for want in scripts/setup.sh scripts/lint.sh scripts/lint-file.sh scripts/deploy.sh scripts/local-run.sh \
-  scripts/ui/tokens-check.mjs scripts/ui/render-check.mjs scripts/ui/design-md-check.mjs DESIGN.md ROADMAP.md FINDINGS.md \
-  docs/README.md; do
+  scripts/ui/tokens-check.mjs scripts/ui/render-check.mjs scripts/ui/design-md-check.mjs scripts/count-check.py DESIGN.md ROADMAP.md \
+  FINDINGS.md docs/README.md; do
   grep -q "^$want  [a-z]*  optional$" "$work/out" || fail "AC-1: '$want' is not an optional item of the real contract"
 done
-[ "$(grep -c '^[^ ]' "$work/out")" = 26 ] || { cat "$work/out" >&2; fail "AC-1: the real contract has $(grep -c '^[^ ]' "$work/out") items, want 26"; }
-echo "ok - AC-1: the real contract has the 14 required and 12 optional items (design-md-check AC-6: the shape check among them)"
+[ "$(grep -c '^[^ ]' "$work/out")" = 27 ] || { cat "$work/out" >&2; fail "AC-1: the real contract has $(grep -c '^[^ ]' "$work/out") items, want 27"; }
+echo "ok - AC-1: the real contract has the 14 required and 13 optional items (design-md-check AC-6: the shape check among them;
+  parallel-safe-shared-files AC-10: the count check)"
 if grep -En '(^|[^A-Za-z])(runtime|install|kit)/|/opt/' "$contract"; then fail "AC-1: the real contract names a devshop path"; fi
 echo "ok - AC-1: the real contract names no devshop path"
 

@@ -9,6 +9,11 @@ harvest's engineering lessons (Build 8, [lessons.md](../../kit/notes/revamp/less
   changes what a page renders (there is no "design" discipline; `build` names it): `DESIGN.md`
   first, what enforces what, the surface, the placeholder rule, components and motion, done, never
   ([spec](../../specs/design-guideline.md)).
+- [`parallel.md`](parallel.md): every change that adds an item to a collection (a page, a game, a
+  route): one file per item, the lists, counts and versions derived from them, tests and specs that
+  state the rule and not the count, and the count check that enforces it
+  ([spec](../../specs/parallel-safe-shared-files.md); proven by
+  [`tests/count-check.test.sh`](../../tests/count-check.test.sh)).
 - [`ui.md`](ui.md): every user interface: responsive, light and dark with a toggle, the control
   contract, starting from [`runtime/templates/ui/`](../templates/ui/) and checked by its three
   scripts. Proven by [`tests/ui-tokens-check.test.sh`](../../tests/ui-tokens-check.test.sh),

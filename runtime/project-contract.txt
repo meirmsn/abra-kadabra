@@ -172,6 +172,13 @@ check: executable
 must: The UI baseline's DESIGN.md shape check: the front matter has the token groups with light and dark values and a Decisions section, and the theme CSS is derived from it under the baseline's token names, both ways; `scripts/ui/design-md-check.mjs --theme <css> DESIGN.md`.
 for: `scripts/check-fast.sh` in a project with a `DESIGN.md`
 
+item: scripts/count-check.py
+owner: devshop
+when: optional
+check: executable
+must: The count check: no test hard-codes how many items a collection holds; `scripts/count-check.py --tests <dir>... <collection>...`, a collection being a directory, a .json array or `<file>.json#<key>`.
+for: `scripts/check-fast.sh` in a project that lists collections in `COLLECTIONS`
+
 item: DESIGN.md
 owner: project
 when: optional
