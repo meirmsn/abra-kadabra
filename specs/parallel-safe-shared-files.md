@@ -21,85 +21,100 @@ templates, skills and checks; the project's own files change in the project, not
 
 ## Decisions
 
-- **Each item adds its own file; anything that lists, counts or versions the items is derived from
-  them, never edited by hand:** two branches that each append a line at the end of the same list
-  still conflict in git (adjacent edits), so one shared manifest moves the conflict into one file
-  instead of removing it. One file per item in a directory (or a manifest a branch never edits by
-  appending, see Q1), with the tile list, the shell list, the README line and the version built
-  from it, leaves nothing shared to edit. Rejected: a single hand-appended manifest as the end
-  state (proposed, Claude, 2026-11-10; Q1)
+Each decision below is Claude's proposal of 2026-11-10, awaiting the owner's answer at the go.
+
+- **The lists, counts and versions are derived from the items, never edited by hand.** The
+  manifest's own shape is the owner's choice: (a) one manifest file, as asked, which still
+  conflicts when two branches append to its end (adjacent lines), but in one file whose resolution
+  is "keep both"; or (b) one file per item in a directory, which leaves nothing shared to edit.
+  Claude proposes (b) where the stack allows it, (a) otherwise
 - **The rules live in one new guideline, `runtime/guidelines/parallel.md`,** which `ak:build` § 2
-  loads for any change that adds an item to a collection (a page, a game, a route, a finding), and
-  `ak:split` § 2 points to when slices each add an item (the first such slice sets up the per-item
-  layout and the derived lists). Rejected: repeating the rules in both skills (proposed, Claude,
-  2026-11-10)
-- **A version is a hash of what it versions,** computed at build time (e.g. the service worker's
-  cache version from the shell files' contents), never a number a branch bumps (proposed, Claude,
-  2026-11-10)
+  loads for a change that adds an item to a collection (a page, a game, a route), and `ak:split`
+  § 2 links when slices each add an item: the first such slice sets up the layout and the derived
+  lists. Rejected: repeating the rules in both skills
+- **A version is a hash of what it versions,** computed at build time (e.g. a service worker's
+  cache version from the shell files' contents), never a number a branch bumps
 - **Decisions go in the item's own spec,** whose `## Decisions` section is already one file per
-  change; a project keeps no shared append-only decisions log. Rejected: a new `decisions/<item>.md`
-  file per item, as a second home for the same thing (proposed, Claude, 2026-11-10; Q3)
+  change. A project with a shared decisions log stops appending to it and leaves it as history.
+  Rejected: a new decisions file per item, as a second home for the same thing
 - **Finding IDs can't collide: `F-<YYYY-MM-DD>-<slug>`,** the date the row is logged and a
-  2-to-5-word kebab-case slug of what was noticed (`F-2026-11-10-shared-list-conflicts`); the
-  devshop's rows the same (no `NEW`). Two sessions that pick the same date and slug noticed the same
-  thing, which the match-first rule already makes one row. The rule "next free number, checked
-  against the latest main; on a clash, renumber" goes from the template and its spec. Existing IDs
-  stay as they are (`F-NEW-<n>`, `F-<n>`), since notes, lessons and the roadmap cite them; nothing
-  parses them. Rejected: renumbering every row; a random suffix (unreadable) (proposed, Claude,
-  2026-11-10; Q2)
-- **Rows still conflict when two branches append to the table's end;** the template says to insert
-  a new row at its place in ID order (dates, then slugs), which spreads same-day rows apart, and the
-  conflict that is left is resolved by keeping both rows. Whether GitHub honours a `merge=union`
-  attribute on `FINDINGS.md`, which would remove it, is untested (proposed, Claude, 2026-11-10; Q4)
-- **`R-<n>` roadmap IDs stay sequential:** only the owner adds entries, one records PR at a time,
-  so they don't race (proposed, Claude, 2026-11-10)
-- **A new check, `runtime/scripts/count-check.py`,** placed in projects as `scripts/count-check.py`
-  (a devshop copy, `runtime/project-files.txt`) and run by `check-fast.sh` when the project declares
-  a collection in its `COLLECTIONS` list: it fails when a test file states the collection's current
-  item count as a literal in a count assertion. It is a heuristic and is called feedback, not a
-  wall (proposed, Claude, 2026-11-10; Q5)
-- **In this PR, `ROADMAP.md`'s R-21 row is marked Done with PR #191** (R-21 had no PR of its own
-  to do it; asked by the devshop session that runs R-21 to R-23 in order) and R-22's row Done with
-  this PR (the spec template's rule). This task's first instruction was not to edit `ROADMAP.md`
-  because sibling sessions ran in parallel; they now run one at a time (Q6)
+  2-to-5-word lowercase kebab-case slug of what was noticed (`F-2026-11-10-shared-list-conflicts`),
+  for projects and the devshop alike (no `NEW`). In the devshop, a slug describes, never names,
+  another project or its features, as every devshop text does (CLAUDE.md). A duplicate ID found when
+  merging `main`: the same thing becomes one row with both sightings; a different thing gets a word
+  added to the incoming row's slug. Existing IDs stay as they are (`F-NEW-<n>`, `F-<n>`), since
+  notes, lessons and the roadmap cite them, and nothing parses them. Rejected: renumbering every
+  row; a random suffix (unreadable)
+- **Where a new row goes:** after the existing rows, in ID order among the dated rows, so rows of
+  different days don't touch. Two rows that still land side by side conflict in git; the
+  resolution is "keep both". Whether GitHub honours a `merge=union` attribute, which would remove
+  that conflict, is untested and stays out of this change
+- **This supersedes one decision of `specs/findings-and-roadmap.md`** ("Parallel sessions: … the
+  next free `F-` or `R-` number"): that spec's line gains a note that F- IDs follow this spec from
+  2026-11-10, and keeps its R- half. **`R-<n>` roadmap IDs stay sequential:** only the owner adds
+  entries, one records PR at a time, so they don't race
+- **A new check, `runtime/scripts/count-check.py`,** runs in the project's fast tier: in required
+  CI, so a wall's input, held to the bar of every project-facing check (a known-bad input per form,
+  mutants killed, exit 2 on what it can't read). It is a heuristic over single lines, so a line it
+  misreads can carry the marker `count-check: allow` in a comment, which the reviewer sees in the
+  diff. It is placed only where needed: an `optional` devshop copy in `runtime/project-files.txt`
+  (`scripts/count-check.py`). `check-fast.sh` is a seed, so an existing project gets its new
+  `COLLECTIONS` block as a template diff at its next upgrade
+- **This PR also marks `ROADMAP.md`'s R-21 row `Done, PR #191`,** which PR #191 didn't do itself,
+  and R-22's row Done with this PR, as the spec template's rule says. Asked by the devshop session
+  that runs R-21 to R-23 one at a time; this task's first brief said not to edit `ROADMAP.md`
+  because the three ran in parallel then. The owner confirms or drops it at the go
 
 ## Acceptance items
 
 - **AC-1** `runtime/guidelines/parallel.md` exists, is listed in `runtime/guidelines/README.md`,
-  and says: a branch adding an item adds its own file and edits no shared list; the list, shell
-  list, README list line, counts and versions are derived from the items at build or test time; a
-  version is a hash of what it versions; a test or spec states the rule over a collection ("a tile
-  per item") and never its current count; decisions go in the item's spec, not a shared log
+  and says: a branch adding an item edits no hand-kept shared list; the item list, shell list,
+  README list line, counts and versions are derived from the items at build or test time; a
+  version is a hash of what it versions; a test or spec states the rule over a collection ("one
+  tile per item") and never its current count; decisions go in the item's spec, not a shared log;
+  how the project declares a collection for `count-check.py` — verified by review: the file and
+  its index line
 - **AC-2** `runtime/skills/build/SKILL.md` § 2 loads `parallel.md` for a change that adds an item to
   a collection, and `runtime/skills/split/SKILL.md` § 2 says the first slice that adds an item sets
-  up the per-item layout and the derived lists, linking `parallel.md`
+  up the layout and the derived lists, linking `parallel.md` — verified by review: the two diffs
 - **AC-3** `runtime/templates/spec.md`'s acceptance-items comment says an item over a collection
-  states the rule, not the current count
-- **AC-4** `runtime/templates/findings.md` and `specs/findings-and-roadmap.md` give the ID as
-  `F-<YYYY-MM-DD>-<slug>` with the slug's form, say existing numbered IDs stay, say where a new row
-  goes (ID order) and how a leftover conflict is resolved (keep both rows), and no longer say "next
-  free number" for findings
-- **AC-5** `count-check.py <collection> <tests-path>...` exits 1 and names file and line for each
-  test line that asserts the collection's current count as a literal, in each of these forms:
-  `toHaveLength(N)`, `toHaveCount(N)`, `.length).toBe(N)` / `.toEqual(N)`, `.length === N` /
-  `== N`, `.count()).toBe(N)`, `assert len(…) == N`, `assertEqual(len(…), N)`; a known-bad fixture
-  per form is in its test
-- **AC-6** `count-check.py` exits 0 on the same forms when the count comes from the collection
-  (`toHaveLength(items.length)`), when the literal is a different number, and on a literal N
-  outside a count assertion
-- **AC-7** A collection is a directory (its item count is the number of entries in it, dot-files
-  skipped) or a JSON file holding an array (its length); `count-check.py` exits 2, never 0, on a
-  missing collection, a JSON file that doesn't parse or isn't an array, a missing tests path, or no
-  test files under the paths
-- **AC-8** `runtime/templates/check-fast.sh` runs `count-check.py` for each entry of a
-  `COLLECTIONS` list (empty by default, which runs nothing and says so); `count-check.py` is in
-  `runtime/project-files.txt` and `runtime/project-contract.txt`, and the contract test passes
-- **AC-9** The mutants of `count-check.py`'s detection (each assertion form dropped, the count
-  compared off by one, the exit-2 paths turned into passes) are each killed by its test
-- **AC-10** `FINDINGS.md`'s new row for anything this change logs uses the new ID form, and no
-  existing row's ID changes — verified by review: the diff of `FINDINGS.md`
-- **AC-11** `ROADMAP.md`'s R-21 row reads `Done, PR #191` and R-22's reads Done with this PR's
-  number, and no other row changes — verified by review: the diff of `ROADMAP.md`
+  states the rule, not the current count — verified by review: the diff
+- **AC-4** `runtime/templates/findings.md` and `specs/findings-and-roadmap.md` give the finding ID
+  as `F-<YYYY-MM-DD>-<slug>` with the slug's form and its no-identifiers rule, say existing IDs
+  stay, say where a new row goes and how a duplicate ID and a leftover conflict are resolved, no
+  longer say "next free number" for findings, and keep the `R-<n>` rule unchanged — verified by
+  review: the two diffs
+- **AC-5** `count-check.py --tests PATH... COLLECTION...` exits 1 and names the file and line of
+  each line under the PATHs that asserts a collection's current item count N as a number literal,
+  in each of these forms: `toHaveLength(N)`, `toHaveCount(N)`, `.length).toBe(N)`,
+  `.length).toEqual(N)`, `.length === N`, `.length == N`, `N === ….length`, `.count()).toBe(N)`,
+  `assert.equal(….length, N)`, `assert.strictEqual(….length, N)`, `assert len(…) == N`,
+  `N == len(…)`, `assertEqual(len(…), N)`; `tests/count-check.test.sh` feeds a known-bad file per
+  form
+- **AC-6** `count-check.py` exits 0 when those forms take the count from the collection
+  (`toHaveLength(items.length)`), when the literal is another number, on N outside a count
+  assertion, and on a flagged line that carries `count-check: allow`
+- **AC-7** A COLLECTION is a directory (N is its entries, files and subdirectories, dot-entries
+  skipped), a `.json` file holding an array (N is its length), or `<file>.json#<key>`, an array
+  under that top-level key. A collection of fewer than 2 items passes and says it is too small to
+  check. The PATHs are read as `spec-check.py --tests` reads them (every file below a directory;
+  `node_modules` and dot-directories skipped). `count-check.py` exits 2, never 0, on a missing
+  collection, a JSON file that doesn't parse, a JSON value or key that isn't an array, a missing
+  PATH, no files under the PATHs, or no COLLECTION
+- **AC-8** `runtime/templates/check-fast.sh` has a `COLLECTIONS` list, empty by default, which runs
+  nothing and says so; when it has entries it runs `scripts/count-check.py` over `TEST_DIRS` and
+  them. `tests/check-fast-template.test.sh` shows both: the empty list's message, and a declared
+  collection with a known-bad test failing the tier
+- **AC-9** Each mutant of `count-check.py` is killed by `tests/count-check.test.sh`: each assertion
+  form dropped, the count off by one, the too-small threshold moved, the allow marker ignored, each
+  exit-2 path turned into a pass
+- **AC-10** `count-check.py` is in `runtime/project-files.txt` as an `optional` devshop copy and in
+  `runtime/project-contract.txt`, and `tests/contract-check.test.sh` passes
+- **AC-11** A row this change adds to `FINDINGS.md` uses the new ID form, and no existing row's ID
+  changes — verified by review: the diff of `FINDINGS.md`
+- **AC-12** If the owner keeps the roadmap decision: `ROADMAP.md`'s R-21 row reads `Done, PR #191`,
+  R-22's reads Done with this PR's number, and no other row changes — verified by review: the diff
+  of `ROADMAP.md`
 
 ## Out of scope
 
@@ -108,5 +123,7 @@ templates, skills and checks; the project's own files change in the project, not
 - A generator for the derived lists or the hashed version: that is the project's build, in its
   stack
 - Renumbering existing finding IDs, or changing `R-<n>` roadmap IDs
-- A check on specs' wording that states a count (guidance only, AC-3)
-- Merge drivers or `.gitattributes` changes, until Q4's experiment
+- A check on specs' wording that states a count (the template's guidance only, AC-3)
+- Counts held in a named constant, assertions over several lines, and shell tests' `-eq`: the check
+  reads single lines in the forms of AC-5
+- Merge drivers or `.gitattributes` changes
