@@ -72,11 +72,44 @@ bootstrap_note() {
     }' <<<"$text"
 }
 boot=$(bootstrap_note)
+# The pinned tools (specs/pinned-tools-survive-outage.md): the environment cache is built about
+# weekly, and a tool whose download failed then would be missing in every session on it. So each
+# session start runs the sanctioned repair (repair-tools.sh: the local copy's pin, checksum-verified,
+# at most a minute), first, before the line and the version's own script; not while the bootstrap
+# primes (it installs the tools itself, right after). The line says what was repaired, what is still
+# missing and what that costs, or that the pin couldn't be read; nothing when no tool was missing.
+REPAIR_CMD=/opt/devshop-plugin/devshop/hooks/repair-tools.sh
+tool_cost() {
+  case $1 in
+    dcg) echo "every Bash command is blocked, so this session can't push or open a PR: don't push through the GitHub API" ;;
+    gitleaks) echo "this session can't push" ;;
+    *) echo "the checks that use it fail, which can stop a push" ;;
+  esac
+}
+tools_note() {
+  local out line repaired="" missing="" unreadable="" note=""
+  [ -z "${DEVSHOP_PRIME_ONLY:-}" ] || return 0
+  out=$(bash "$(dirname "${BASH_SOURCE[0]}")/repair-tools.sh" 2>/dev/null)
+  while IFS= read -r line; do
+    case $line in
+      "repair-tools: repaired "*) repaired+=${repaired:+, }${line#repair-tools: repaired } ;;
+      "repair-tools: missing "*) line=${line#repair-tools: missing }; missing+="${missing:+, }$line ($(tool_cost "$line"))" ;;
+      "repair-tools: unreadable "*) unreadable=${line#repair-tools: unreadable } ;;
+    esac
+  done <<<"$out"
+  if [ -n "$unreadable" ]; then echo "couldn't read the pinned tools ($unreadable)"; return 0; fi
+  [ -z "$repaired" ] || note="repaired at session start: $repaired"
+  [ -z "$missing" ] || note=${note:+$note; }"still missing: $missing: run $REPAIR_CMD, or start a new session once the release host answers"
+  [ -z "$note" ] || echo "$note"
+}
+tools=$(tools_note)
 # say <message> [<tail after the copy's date and the project>] [main]: the main line (the one naming
-# the version, or that it was kept) ends with the bootstrap's result, so it is said once.
+# the version, or that it was kept) ends with the pinned tools' repair, then the bootstrap's result,
+# so each is said once.
 say() {
   local tail=${2:-}
   [ -z "$started" ] || tail=${tail:+$tail; }$started
+  [ "${3:-}" != main ] || [ -z "$tools" ] || tail=${tail:+$tail; }$tools
   [ "${3:-}" != main ] || [ -z "$boot" ] || tail=${tail:+$tail; }$boot
   echo "DEVSHOP: $1 · $copy · project ${project_dir##*/}${tail:+; $tail}"
 }
