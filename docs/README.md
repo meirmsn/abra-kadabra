@@ -178,6 +178,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   green CI: the files placed, the owner's steps and the proof on a fresh repo.
 - [`other-projects-detail.md`](../specs/other-projects-detail.md): other projects appear here by a
   plain description and the lesson, never by name, PR number or feature.
+- [`parallel-safe-shared-files.md`](../specs/parallel-safe-shared-files.md): parallel branches
+  stop conflicting on shared lists and counters (R-22; draft, awaiting the owner's go).
 - [`pinned-tools-on-path.md`](../specs/pinned-tools-on-path.md): the project's own checks find the
   devshop's pinned gitleaks, shellcheck and dcg on PATH.
 - [`pinned-tools-survive-outage.md`](../specs/pinned-tools-survive-outage.md): a pinned tool the
