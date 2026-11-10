@@ -190,8 +190,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   `place.sh`, and one fast-tier line that runs the token check.
 - [`reviewer-browser.md`](../specs/reviewer-browser.md): the reviewer judges a local run of the
   site against `DESIGN.md`, with a browser that reaches only that run.
-- [`reviewer-local-run-build.md`](../specs/reviewer-local-run-build.md): the reviewer runs the
-  project's `scripts/build.sh` and links each workspace package's `node_modules` before its local
+- [`reviewer-local-run-build.md`](../specs/reviewer-local-run-build.md): the reviewer installs a
+  pnpm workspace offline in its clone and runs the project's `scripts/build.sh` before its local
   run, and smoke-runs a local run a change adds.
 - [`ui-baseline.md`](../specs/ui-baseline.md): every web app starts from a design baseline, phone
   first, light and dark.
