@@ -1,6 +1,6 @@
 # Pinned tools survive a release-host outage
 
-**Go:** pending
+**Go:** "go" (owner, 2026-11-10)
 
 ## Intent
 
