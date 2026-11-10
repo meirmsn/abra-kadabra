@@ -21,13 +21,14 @@ templates, skills and checks; the project's own files change in the project, not
 
 ## Decisions
 
-Each decision below is Claude's proposal of 2026-11-10, awaiting the owner's answer at the go.
+Each decision below is Claude's proposal of 2026-11-10, with the answers the managing devshop
+session gave the same day to Claude's questions; the owner's go approves them as written.
 
 - **The lists, counts and versions are derived from the items, never edited by hand.** The
-  manifest's own shape is the owner's choice: (a) one manifest file, as asked, which still
-  conflicts when two branches append to its end (adjacent lines), but in one file whose resolution
-  is "keep both"; or (b) one file per item in a directory, which leaves nothing shared to edit.
-  Claude proposes (b) where the stack allows it, (a) otherwise
+  manifest is one file per item in a directory where the stack allows it, which leaves nothing
+  shared to edit; otherwise one manifest file, which still conflicts when two branches append to
+  its end (adjacent lines), but only there, resolved by keeping both. Rejected: one manifest
+  everywhere, as it keeps the shared edit F-NEW-161 is about
 - **The rules live in one new guideline, `runtime/guidelines/parallel.md`,** which `ak:build` § 2
   loads for a change that adds an item to a collection (a page, a game, a route), and `ak:split`
   § 2 links when slices each add an item: the first such slice sets up the layout and the derived
@@ -57,13 +58,16 @@ Each decision below is Claude's proposal of 2026-11-10, awaiting the owner's ans
   CI, so a wall's input, held to the bar of every project-facing check (a known-bad input per form,
   mutants killed, exit 2 on what it can't read). It is a heuristic over single lines, so a line it
   misreads can carry the marker `count-check: allow` in a comment, which the reviewer sees in the
-  diff. It is placed only where needed: an `optional` devshop copy in `runtime/project-files.txt`
+  diff, and its failure message names the marker. It blocks: a check that only warns gets
+  ignored, and the marker is the safety valve. It is placed only where needed: an `optional` devshop copy in `runtime/project-files.txt`
   (`scripts/count-check.py`). `check-fast.sh` is a seed, so an existing project gets its new
   `COLLECTIONS` block as a template diff at its next upgrade
 - **This PR also marks `ROADMAP.md`'s R-21 row `Done, PR #191`,** which PR #191 didn't do itself,
   and R-22's row Done with this PR, as the spec template's rule says. Asked by the devshop session
   that runs R-21 to R-23 one at a time; this task's first brief said not to edit `ROADMAP.md`
-  because the three ran in parallel then. The owner confirms or drops it at the go
+  because the three ran in parallel then
+- **`merge=union` on `FINDINGS.md` is logged, not changed:** a `low` row with the new ID form, to
+  watch whether GitHub honours it
 
 ## Acceptance items
 
@@ -89,8 +93,8 @@ Each decision below is Claude's proposal of 2026-11-10, awaiting the owner's ans
   in each of these forms: `toHaveLength(N)`, `toHaveCount(N)`, `.length).toBe(N)`,
   `.length).toEqual(N)`, `.length === N`, `.length == N`, `N === ….length`, `.count()).toBe(N)`,
   `assert.equal(….length, N)`, `assert.strictEqual(….length, N)`, `assert len(…) == N`,
-  `N == len(…)`, `assertEqual(len(…), N)`; `tests/count-check.test.sh` feeds a known-bad file per
-  form
+  `N == len(…)`, `assertEqual(len(…), N)`, and the message names the `count-check: allow` marker
+  as the fix for a misread line; `tests/count-check.test.sh` feeds a known-bad file per form
 - **AC-6** `count-check.py` exits 0 when those forms take the count from the collection
   (`toHaveLength(items.length)`), when the literal is another number, on N outside a count
   assertion, and on a flagged line that carries `count-check: allow`
@@ -110,9 +114,9 @@ Each decision below is Claude's proposal of 2026-11-10, awaiting the owner's ans
   exit-2 path turned into a pass
 - **AC-10** `count-check.py` is in `runtime/project-files.txt` as an `optional` devshop copy and in
   `runtime/project-contract.txt`, and `tests/contract-check.test.sh` passes
-- **AC-11** A row this change adds to `FINDINGS.md` uses the new ID form, and no existing row's ID
-  changes — verified by review: the diff of `FINDINGS.md`
-- **AC-12** If the owner keeps the roadmap decision: `ROADMAP.md`'s R-21 row reads `Done, PR #191`,
+- **AC-11** `FINDINGS.md` gains a `low` row, in the new ID form, on whether GitHub honours
+  `merge=union`, and no existing row's ID changes — verified by review: the diff of `FINDINGS.md`
+- **AC-12** `ROADMAP.md`'s R-21 row reads `Done, PR #191`,
   R-22's reads Done with this PR's number, and no other row changes — verified by review: the diff
   of `ROADMAP.md`
 
