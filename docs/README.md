@@ -181,6 +181,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   plain description and the lesson, never by name, PR number or feature.
 - [`pinned-tools-on-path.md`](../specs/pinned-tools-on-path.md): the project's own checks find the
   devshop's pinned gitleaks, shellcheck and dcg on PATH.
+- [`pinned-tools-survive-outage.md`](../specs/pinned-tools-survive-outage.md): a pinned tool the
+  cache build couldn't download is repaired at session start, or the session is told what it costs.
 - [`prior-art-registry.md`](../specs/prior-art-registry.md): a registry of the outside repos
   Claude has analysed, keyed by commit, so a repo seen before isn't analysed again from scratch.
 - [`project-contract.md`](../specs/project-contract.md): one project contract, what every project

@@ -43,61 +43,22 @@ DEVSHOP_PRIME_ONLY=1 CLAUDE_PROJECT_DIR=/nonexistent bash "$PLUGIN/devshop/hooks
 claude plugin marketplace add "$PLUGIN" --scope user >>"$LOG" 2>&1 || step_failed "claude plugin marketplace add"
 claude plugin install ak@ak --scope user >>"$LOG" 2>&1 || step_failed "claude plugin install"
 
-# Pinned tools (L-45): each install/tools.pin line is downloaded, checked against its sha256, and
-# its binary linked into /opt/devshop-tools/bin, where the devshop's git hooks run it. A bad or
-# missing download is a loud failure; the other tools and steps still run (L-43).
-# /usr/local/bin/<name> links to /opt/devshop-tools/bin/<name>, so every process finds the tools on
-# the default PATH, a project's own checks included. A tool that didn't install leaves that link
-# resolving to nothing ("not found"). An entry there the devshop didn't make is left as it is.
-TOOLS=/opt/devshop-tools
-ON_PATH=/usr/local/bin
-link_on_path() { # link_on_path <name>
-  local link="$ON_PATH/$1" target="$TOOLS/bin/$1"
-  [ -L "$link" ] && [ "$(readlink "$link")" = "$target" ] && return
-  if [ -e "$link" ] || [ -L "$link" ]; then
-    step_failed "tool $1: $link exists and isn't the devshop's link to $target; left as it is, so the pinned $1 isn't the one on PATH"
-    return
-  fi
-  ln -s "$target" "$link" || step_failed "tool $1: link $link to $target"
-}
-# fetch_tool <name> <out> <url>: a release download, tried 4 times with backoff (2, 4, 8 s), so a
-# brief outage of the release host (a 504) doesn't leave a tool missing for the whole session
-# (F-NEW-158). DEVSHOP_TOOL_RETRY_DELAY sets the first wait in seconds (the tests use 0).
-fetch_tool() {
-  local try delay=${DEVSHOP_TOOL_RETRY_DELAY:-2}
-  [[ $delay =~ ^[0-9]+$ ]] || delay=2
-  for try in 1 2 3 4; do
-    curl -fsSL -o "$2" "$3" 2>>"$LOG" && return 0
-    [ "$try" -lt 4 ] || return 1
-    log "retrying tool $1 in ${delay}s (try $try of 4 failed): $3"
-    sleep "$delay"
-    delay=$((delay * 2))
-  done
-}
+# Pinned tools (L-45): install/plugin/devshop/tools.sh, the devshop's one installer and the one place
+# install/tools.pin is parsed (specs/pinned-tools-survive-outage.md), in its build mode: each tool
+# downloaded (4 tries with backoff, F-NEW-158), checked against its sha256, and linked into
+# /opt/devshop-tools/bin, where the devshop's git hooks run it, and from /usr/local/bin, so every
+# process finds it on the default PATH. Each failure is its own FAILED line; the other tools and
+# steps still run (L-43). The plugin's dispatcher runs the same script in its repair mode at every
+# session start, so a download that failed here is tried again per session.
 install_tools() {
-  local name version sum url dir tmp bin
-  mkdir -p "$TOOLS/bin" || { step_failed "tools: mkdir $TOOLS/bin"; return; }
-  while read -r name version sum url; do
-    local bad="install/tools.pin line is not '<name> <version> <sha256> <https URL>'"
-    [[ $name =~ ^[a-z0-9-]+$ ]] || { step_failed "tool ${name:-?}: $bad"; continue; }
-    # The old link goes first, so a failed or refused install of a new version can't leave the old
-    # one running.
-    rm -f "$TOOLS/bin/$name"
-    link_on_path "$name"
-    if [[ ! $version =~ ^[0-9A-Za-z][0-9A-Za-z.+-]*$ || $version == *..* \
-      || ! $sum =~ ^[0-9a-f]{64}$ || ! $url =~ ^https://[^@[:space:]]+$ ]]; then
-      step_failed "tool $name: $bad"
-      continue
-    fi
-    dir="$TOOLS/$name-$version" tmp="$TOOLS/$name.download"
-    rm -rf "$dir" "$tmp" && mkdir -p "$dir"
-    fetch_tool "$name" "$tmp" "$url" || { step_failed "tool $name: download $url (4 tries)"; continue; }
-    echo "$sum  $tmp" | sha256sum -c - >/dev/null 2>&1 \
-      || { step_failed "tool $name: checksum of $url is not the pinned $sum"; rm -f "$tmp"; continue; }
-    { tar --no-same-owner -xf "$tmp" -C "$dir" 2>>"$LOG" && rm -f "$tmp"; } || { step_failed "tool $name: unpack $url"; continue; }
-    bin=$(find "$dir" -type f -name "$name" -perm -u+x | head -1)
-    { [ -n "$bin" ] && ln -sfn "$bin" "$TOOLS/bin/$name"; } || step_failed "tool $name: no executable '$name' in $url"
-  done < <(git --git-dir="$MIRROR" show "$REF:install/tools.pin" | grep -v '^#')
+  local pin
+  pin=$(mktemp /tmp/devshop-tools-pin.XXXXXX) || { step_failed "tools: mktemp"; return; }
+  if git --git-dir="$MIRROR" show "$REF:install/tools.pin" >"$pin" 2>>"$LOG"; then
+    bash "$PLUGIN/devshop/tools.sh" build "$pin" /opt/devshop-tools /usr/local/bin "$LOG" || failed=1
+  else
+    step_failed "tools: no install/tools.pin at $REF"
+  fi
+  rm -f "$pin"
 }
 install_tools
 
@@ -164,6 +125,25 @@ point_gstack_browser() {
     || step_failed "gstack browser: write $SETTINGS"
 }
 point_gstack_browser
+
+# The sanctioned repair of the pinned tools (specs/pinned-tools-survive-outage.md) as an allow rule, so
+# a session may run that one command without the owner approving it by hand; with or without
+# Chromium, keeping what the settings hold. Untested whether auto mode honours it: ASSUMPTIONS.md.
+REPAIR_RULE='Bash(/opt/devshop-plugin/devshop/hooks/repair-tools.sh)'
+allow_repair_command() {
+  local cur new
+  cur=$(cat "$SETTINGS" 2>/dev/null)
+  [[ $cur =~ [^[:space:]] ]] || cur='{}'
+  jq -e 'type == "object"' <<<"$cur" >/dev/null 2>&1 \
+    || { step_failed "repair allow rule: $SETTINGS isn't a JSON object; left as it is"; return; }
+  jq -e '((.permissions // {}) | type == "object") and ((.permissions.allow // []) | type == "array")' <<<"$cur" >/dev/null \
+    || { step_failed "repair allow rule: $SETTINGS has permissions or permissions.allow of the wrong type; left as it is"; return; }
+  new=$(jq --arg r "$REPAIR_RULE" '.permissions = ((.permissions // {}) + {allow: (((.permissions.allow // []) - [$r]) + [$r])})' <<<"$cur" 2>>"$LOG") \
+    && [ -n "$new" ] || { step_failed "repair allow rule: couldn't update $SETTINGS; left as it is"; return; }
+  { mkdir -p "${SETTINGS%/*}" && printf '%s\n' "$new" >"$SETTINGS"; } \
+    || step_failed "repair allow rule: write $SETTINGS"
+}
+allow_repair_command
 
 # impeccable's design detector engine (specs/design-detector-in-bootstrap.md): the one version
 # install/impeccable.pin names, placed by install/impeccable.sh at ~/.impeccable/bin/<version>/impeccable,

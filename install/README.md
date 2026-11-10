@@ -112,7 +112,14 @@ instead. Lines the version's own session-start script prints travel the same way
 the local copy's date, time and age, because the copy only refreshes when the environment cache
 rebuilds and a same-day stale copy is otherwise invisible, then the project the session runs in. The
 session can't read its environment's name, and with one environment per project the project names it.
-Notes follow; the last says the bootstrap failed, if it did: the setup log (`/tmp/devshop-setup.log`)
+Notes follow. Next to last, the pinned tools' repair ([spec](../specs/pinned-tools-survive-outage.md)):
+the environment cache is built about weekly, and a tool whose download failed then would be missing
+in every session on it, so each session start runs the repair command below, before the line and
+the version's own script, and says what it repaired, what is still missing and what that costs (`dcg`: every Bash command
+is blocked, so no push or PR, and don't push through the GitHub API; `gitleaks`: no push; another
+tool: the checks that use it fail), with `run /opt/devshop-plugin/devshop/hooks/repair-tools.sh, or
+start a new session once the release host answers`, or that the pin couldn't be read; nothing when
+no tool was missing. The last says the bootstrap failed, if it did: the setup log (`/tmp/devshop-setup.log`)
 survives into sessions, and a failed bootstrap was otherwise unsaid
 ([spec](../specs/bootstrap-result-at-session-start.md)). The dispatcher reads only the bootstrap's own
 lines from its last run and names each failed step once, as the text after `FAILED: ` up to the first
@@ -128,12 +135,31 @@ colon (`tool dcg`, `gstack`), on the main line only. Feedback for the owner; it 
 | Pin not in the copy (newer, or wrong) | `version '<pin>' (…) is not in the local devshop copy — kept version <sha12> · devshop copy of …; the copy refreshes …`                                                 |
 | Pin older than this install           | `version '<pin>' (<sha12>) has no devshop runtime at runtime/ (older than the v2 install?) — kept version <sha12> · …`                                                  |
 | Not a version (e.g. `--x`)            | `'<pin>' (…) is not a devshop version (a release tag or commit SHA) — kept version <sha12> · …`                                                                         |
+| A pinned tool was missing             | any line above, plus `; repaired at session start: <tools>`, `; still missing: <tool> (<cost>), …` or `; couldn't read the pinned tools (<why>)`                        |
 | Bootstrap failed (log's last run)     | any line above, plus `; bootstrap FAILED (<steps>): see /tmp/devshop-setup.log`; with a log that can't be read, `; couldn't read /tmp/devshop-setup.log …`              |
 
 "Kept" means the session keeps the default version primed at setup. Proven by
 [`tests/bootstrap.test.sh`](../tests/bootstrap.test.sh). It replays the setup script (local bare
 clone, second line verbatim) in a private mount namespace with a scratch `/opt`, then runs the
 installed hook for every case above.
+
+## Pinned tools and their repair
+
+[`plugin/devshop/tools.sh`](plugin/devshop/tools.sh) is the one installer of the tools in
+[`tools.pin`](tools.pin) and the one place it is parsed
+([spec](../specs/pinned-tools-survive-outage.md)): each download checked against its sha256 and linked
+into `/opt/devshop-tools/bin`, and from `/usr/local/bin`. Its `build` mode is the bootstrap's step
+(every tool, 4 tries with backoff, F-NEW-158). Its `repair` mode installs only the missing tools,
+each fetched at most twice, all within 60 s, with `PATH=/usr/bin:/bin`, under a lock so two runs
+in one container never write the same paths; log: `/tmp/devshop-tools-repair.log`.
+[`plugin/devshop/hooks/repair-tools.sh`](plugin/devshop/hooks/repair-tools.sh), no arguments, runs
+it on the local copy's pin at its default ref: at every session start (not while the bootstrap
+primes), and by hand when a tool is still missing. The bootstrap adds it to `permissions.allow` in
+`~/.claude/settings.json`, so a session may run it without the owner approving it by hand (whether
+auto mode honours that is in [ASSUMPTIONS.md](../kit/notes/revamp/ASSUMPTIONS.md)). Feedback, not a
+wall: a session runs as root and can change what it runs. It retries the same release host; it
+doesn't cache the binaries elsewhere, so a lasting outage of that host still leaves the tool
+missing, and the line says so.
 
 ## Git hooks and the per-edit nudge
 
@@ -173,10 +199,13 @@ already be on the branch.
   as in v1). dcg blocks destructive commands (`git reset --hard`, force pushes, `git clean -f`,
   `git checkout -- .`, `rm -rf`, …) and tells Claude why and what to do instead; everything else
   passes silently. It fails closed: a missing dcg, one that fails or runs past 10 s, or hook input it
-  can't parse blocks the command, with a message telling Claude to tell the owner. So a failed dcg
-  download blocks every Bash command until the environment is rebuilt (`FAILED: tool dcg` in
-  `/tmp/devshop-setup.log`); session start says so up front in a `DEVSHOP:` line, when the
-  installed plugin registers the guard. It reads only the command's text, so a destructive command inside a
+  can't parse blocks the command, with a message telling Claude to tell the owner. A dcg whose
+  download failed at the cache build (`FAILED: tool dcg` in `/tmp/devshop-setup.log`) is repaired
+  at session start; if it is still missing, the `DEVSHOP:` line says so, and so does the version's
+  own line, when the installed plugin registers the guard. The plugin's
+  [`hooks/bash-gate.sh`](plugin/devshop/hooks/bash-gate.sh) runs first: while dcg is missing it lets
+  through the exact command `/opt/devshop-plugin/devshop/hooks/repair-tools.sh` (compared byte for
+  byte), so a session can repair the tool that unblocks Bash; everything else goes to the guard. It reads only the command's text, so a destructive command inside a
   script file or an interpreter gets through, and dcg ignores what a heredoc writes.
 - **The review guard.** Changes reach a PR only through the version's
   [`runtime/reviewer/ship.sh`](../runtime/reviewer/ship.sh), which runs the independent reviewer in
