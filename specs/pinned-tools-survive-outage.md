@@ -45,7 +45,8 @@ walls (CI's secret scan and lint, `main`'s protection, the owner's approval) are
   the version's `session-start.sh` runs, so a `dcg` repaired at start gets no "dcg is not
   installed" line (review, 2026-11-10)
 - **One installer, `install/plugin/devshop/tools.sh <build|repair> <tools.pin> <tools dir> <PATH dir> <log>`:**
-  the tool step leaves `install/bootstrap.sh` for the plugin folder, so it is on disk wherever the
+  the tool step, `fetch_tool`'s retry (PR #189) with it, leaves `install/bootstrap.sh` for the
+  plugin folder, which makes it the one place `tools.pin` is parsed; it is on disk wherever the
   plugin is, with explicit arguments and a test of each mode. `build` is today's step: every tool,
   4 tries with backoff, the old link removed first. `repair`: only the missing tools, each download
   `curl --connect-timeout 10` with at most 2 tries, all of it within one overall limit of 60 s, after
@@ -91,7 +92,8 @@ walls (CI's secret scan and lint, `main`'s protection, the owner's approval) are
 - **Environment settings are not touched:** no setup-script or image change (the owner's, through
   the environment tools' approval prompts) (task, 2026-11-10)
 - **Open, for the owner:** a mirror ("cached"), and the degraded PR path; see the questions at the
-  go. Until answered, this spec has neither (Claude, 2026-11-10)
+  go. Until answered, this spec has neither. Proposed: no mirror now; a lasting outage seen later
+  is logged as a finding and brings the mirror back as a candidate (Claude, 2026-11-10)
 
 ## Acceptance items
 
