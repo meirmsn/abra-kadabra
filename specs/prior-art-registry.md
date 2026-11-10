@@ -1,6 +1,6 @@
 # A registry of the outside repos Claude has analysed
 
-**Go:** pending
+**Go:** "go" (owner, 2026-11-10)
 
 ## Intent
 
@@ -22,16 +22,16 @@ analysis itself goes to the owner in chat now. This change records it as the fir
   commit Claude analysed. For people to read, it also records that commit's date and the tag that
   points at it, or "no tag". A SHA names exact content. A date or a tag does not: a day has many
   commits, and a tag can move. Rejected: a date or a version number as the key (Claude, 2026-11-10;
-  pending the owner)
+  the owner's go, 2026-11-10)
 - **Where:** `kit/notes/prior-art/`, as devshop-only notes, not in `runtime/`, because projects don't
   analyse outside repos yet. Rejected: a section of `lessons.md`, which would mix harvested lessons
-  with verdicts on third-party code (Claude, 2026-11-10; pending the owner)
+  with verdicts on third-party code (Claude, 2026-11-10; the owner's go, 2026-11-10)
 - **One index, one note per repo:** `kit/notes/prior-art/README.md` holds the format and the table.
   Each row has the repo's URL, the SHA, the commit date, the tag, the date analysed, a one-line
   verdict and a link to the note. A re-analysis updates the same row and note: the note gets the new
   SHA and a "Since <old sha12>" section on what changed, and keeps the earlier verdicts with their
   dates. If the old SHA is gone upstream (force-pushed history), the note says so (Claude, 2026-11-10;
-  pending the owner)
+  the owner's go, 2026-11-10)
 - **Every insight goes in one of three lists, each item with its reason:**
   - "Could adopt", naming the devshop finding or rule it bears on
   - "Already have", saying where
@@ -39,7 +39,7 @@ analysis itself goes to the owner in chat now. This change records it as the fir
 
   A "Could adopt" item goes to the owner as "roadmap or keep watching?", the same way a `med` finding
   does. The owner's answer is written back into the note with its date. Only the owner puts work on
-  `ROADMAP.md` (Claude, 2026-11-10; pending the owner)
+  `ROADMAP.md` (Claude, 2026-11-10; the owner's go, 2026-11-10)
 
 - **The check is a tested script:** `scripts/prior-art.py check <url> [--index <path>]`, with the
   index defaulting to `kit/notes/prior-art/README.md`. It writes one line to stdout and exits 0:
@@ -53,15 +53,14 @@ analysis itself goes to the owner in chat now. This change records it as the fir
   `git@host:`, is exit 2. URLs match when they differ only in the case of the host or the path, a
   trailing `.git` or a trailing `/`. GitHub treats owner and repo names as case-insensitive. It
   parses table cells by the `|` separators, so Prettier's padding doesn't matter (CLAUDE.md:
-  mechanical steps live in tested scripts) (Claude, 2026-11-10; pending the owner)
+  mechanical steps live in tested scripts). The owner kept the script over a table alone: "2. yes keep" (owner, 2026-11-10)
 
 - **A renamed or moved repo is a known limit:** the old URL says "seen", while the new one says
-  "new" until a row is added for it. The script doesn't follow redirects (Claude, 2026-11-10;
-  pending the owner)
+  "new" until a row is added for it. The script doesn't follow redirects: "3. ok" (owner, 2026-11-10)
 - **Outside repos are named:** CLAUDE.md's no-identifiers rule gains one exception: a third-party
   public repo's URL, in `install/*.pin` and `kit/notes/prior-art/`. The owner's projects and people
   stay out of these notes, as they do everywhere else. The rule lists the README as its only
-  exception today, so this is the owner's call (pending the owner)
+  exception today: "1. OK" (owner, 2026-11-10)
 
 ## Acceptance items
 
