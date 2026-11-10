@@ -208,5 +208,24 @@ run_repair
   || { echo "rc=$rc out=$out" >&2; fail "pinned-tools-survive-outage AC-8: a ref without tools.pin wasn't said"; }
 echo "ok - pinned-tools-survive-outage AC-8: repair-tools.sh says an unreadable default ref or pin and downloads nothing"
 
+# AC-10: tools.sh is the only installer: the bootstrap and repair-tools.sh hand it the pin and
+# download, check and parse nothing themselves; the dispatcher runs repair-tools.sh; and the
+# SessionStart hook's timeout covers the repair's 60 s and the version's own script (up to 600 s).
+boot=$repo_root/install/bootstrap.sh
+dispatch=$repo_root/install/plugin/devshop/hooks/dispatch.sh
+# shellcheck disable=SC2016 # literal text searched for in the scripts
+{
+  grep -q 'bash "$PLUGIN/devshop/tools.sh" build ' "$boot" || fail "pinned-tools-survive-outage AC-10: the bootstrap doesn't run tools.sh build"
+  grep -q 'bash "$tools_sh" repair ' "$repair_sh" || fail "pinned-tools-survive-outage AC-10: repair-tools.sh doesn't run tools.sh repair"
+  grep -q '/repair-tools.sh" 2>/dev/null)' "$dispatch" || fail "pinned-tools-survive-outage AC-10: the dispatcher doesn't run repair-tools.sh"
+}
+for f in "$boot" "$repair_sh" "$dispatch"; do
+  ! grep -v '^ *#' "$f" | grep -Eq 'curl |sha256sum|read -r name version' \
+    || fail "pinned-tools-survive-outage AC-10: ${f#"$repo_root/"} downloads, checks or parses tools itself"
+done
+[ "$(jq -r '.hooks.SessionStart[0].hooks[0].timeout' "$repo_root/install/plugin/devshop/hooks/hooks.json")" = 720 ] \
+  || fail "pinned-tools-survive-outage AC-10: hooks.json's SessionStart timeout isn't 720 s"
+echo "ok - pinned-tools-survive-outage AC-10: tools.sh is the only installer, and the SessionStart hook's timeout is 720 s"
+
 rm -rf "$work"
 echo "all tools scenarios passed"
