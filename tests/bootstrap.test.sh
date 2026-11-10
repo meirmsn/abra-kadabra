@@ -241,6 +241,11 @@ cat >"$work/bin/curl" <<EOF
 # fake curl: -o <out> <url> → copy $work/dl/<basename of url>
 out= url=
 while [ \$# -gt 0 ]; do case "\$1" in -o) out=\$2; shift 2 ;; -*) shift ;; *) url=\$1; shift ;; esac; done
+# A <basename>.504 file holding n: the next n fetches of that URL answer 504 (F-NEW-158).
+flaky="$work/dl/\${url##*/}.504"
+if [ -s "\$flaky" ] && [ "\$(cat "\$flaky")" -gt 0 ]; then
+  echo \$(( \$(cat "\$flaky") - 1 )) >"\$flaky"; echo "fake curl: 504 \$url" >&2; exit 22
+fi
 [ -f "$work/dl/\${url##*/}" ] || { echo "fake curl: 404 \$url" >&2; exit 22; }
 cp "$work/dl/\${url##*/}" "\$out"
 EOF
@@ -254,6 +259,8 @@ echo "bun $* (in $PWD)" >>"$HOME/bun.calls"
 EOF
 chmod +x "$work/bin/bun"
 export PATH="$work/bin:$PATH"
+# Failed downloads are retried with backoff (F-NEW-158); no waiting in the tests.
+export DEVSHOP_TOOL_RETRY_DELAY=0
 
 # setup_env [main branch] [expected result: done|FAILED]: a fresh VM's environment setup, the
 # two-line setup script with line 2 verbatim.
@@ -697,6 +704,25 @@ for tool in gitleaks shellcheck dcg; do
   [ "$(on_path "$tool" --version 2>&1)" = "fake $tool --version" ] || fail "AC-5: $tool not on PATH after a second bootstrap"
 done
 echo "ok - AC-5: a second bootstrap keeps the tools on PATH and logs no failure"
+
+# F-NEW-158: a release download that answers 504 is retried with backoff, so a brief GitHub outage
+# doesn't leave a tool missing; one that keeps failing is still a FAILED step.
+echo 2 >"$work/dl/${gl_url##*/}.504"
+DEVSHOP_TOOL_RETRY_DELAY=0 setup_env main
+[ "$(on_path gitleaks --version 2>&1)" = "fake gitleaks --version" ] \
+  || { cat /tmp/devshop-setup.log >&2; fail "F-NEW-158: gitleaks missing after two 504s"; }
+[ "$(grep -c "retrying tool gitleaks" /tmp/devshop-setup.log)" = 2 ] \
+  || { cat /tmp/devshop-setup.log >&2; fail "F-NEW-158: the two retries weren't logged"; }
+echo "ok - F-NEW-158: a tool download that answers 504 twice is retried and installed"
+echo 9 >"$work/dl/${gl_url##*/}.504"
+DEVSHOP_TOOL_RETRY_DELAY=0 setup_env main FAILED
+grep -q "FAILED: tool gitleaks: download .* (4 tries)" /tmp/devshop-setup.log \
+  || { cat /tmp/devshop-setup.log >&2; fail "F-NEW-158: a download failing every try wasn't a FAILED step"; }
+[ "$(grep -c "retrying tool gitleaks" /tmp/devshop-setup.log)" = 3 ] \
+  || { cat /tmp/devshop-setup.log >&2; fail "F-NEW-158: a lasting failure wasn't tried 4 times"; }
+[ "$(cat "$work/dl/${gl_url##*/}.504")" = 5 ] || fail "F-NEW-158: the download wasn't fetched exactly 4 times"
+rm -f "$work/dl/${gl_url##*/}.504"
+echo "ok - F-NEW-158: a download that fails all 4 tries is a FAILED step"
 
 # AC-3: a rebuild that moves gitleaks to a version whose download fails leaves no gitleaks on PATH,
 # not the old one.
