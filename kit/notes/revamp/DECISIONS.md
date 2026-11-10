@@ -163,6 +163,8 @@ Outcome: **decided 2026-10-09 — A, branch → PR → CI → owner merges**, fo
 - **B. Keep local first-class with full hardening.**
 - **C. Cloud-only** — use Remote Control for macOS/iOS/offline work.
 
+**Superseded for the Mac by [D-20](#d-20-native-apple-apps-the-agent-works-only-in-a-throwaway-vm--decided) (2026-11-10):** the agent works only inside a throwaway macOS VM on the owner's Mac.
+
 Outcome: **decided 2026-10-09 — cloud-first; local = a dedicated Mac** (TARGET L2 Environments): native builds, simulators, devices, and fallback when the cloud falls short. Claude runs there as a non-admin user with only the developer accounts it needs (macOS VM only if insufficient). The v1 devcontainer + root-owned-copies model retires with v1; local services run in walled-off containers.
 
 ## D-01 Distribution model — `decided` (reopened by REVIEW-1; decided 2026-10-11 after spike W10.1.2)
