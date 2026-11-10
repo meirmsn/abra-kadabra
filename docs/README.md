@@ -180,6 +180,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   plain description and the lesson, never by name, PR number or feature.
 - [`pinned-tools-on-path.md`](../specs/pinned-tools-on-path.md): the project's own checks find the
   devshop's pinned gitleaks, shellcheck and dcg on PATH.
+- [`pinned-tools-survive-outage.md`](../specs/pinned-tools-survive-outage.md): a pinned tool the
+  cache build couldn't download is repaired at session start, or the session is told what it costs.
 - [`project-contract.md`](../specs/project-contract.md): one project contract, what every project
   must provide, checked at session start and in its `fast` tier.
 - [`react-home-ui-defaults.md`](../specs/react-home-ui-defaults.md): the Next.js home's UI
