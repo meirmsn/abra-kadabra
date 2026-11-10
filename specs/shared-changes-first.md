@@ -21,8 +21,9 @@ check can back it are for this spec to decide.
 
 ## Decisions
 
-Each decision below is Claude's proposal of 2026-11-10, revised after the adversarial spec review;
-the owner's go approves them as written, with their answer on the check.
+Each decision below is Claude's proposal of 2026-11-10, revised after the adversarial spec review
+and with the managing devshop session's answer on the check the same day; the owner's go approves
+them as written.
 
 - **What "shared" means:** code, config or a test that more than one item, page or feature uses,
   or that every branch's CI runs (a project's `shared/` directory, a layout, a helper, a test over
@@ -73,20 +74,18 @@ the owner's go approves them as written, with their answer on the check.
 - **This PR marks `ROADMAP.md`'s R-23 row `Done, PR #<n>`**, as the spec template's rule says,
   asked by the devshop session that runs R-21 to R-23 one at a time (the first brief said not to
   edit `ROADMAP.md` because the three ran in parallel then)
-- **Whether a check backs the rule: the owner chooses at the go.** Claude recommends **A**. With A,
-  a repeat of F-NEW-164 after this change brings the question back.
-  - **A. Prose only, for now.** Lowest cost. Nothing catches a session that ignores the rule
-    except the owner reading the PR.
-  - **B. A blocking fast-tier path check.** A project lists `SHARED` paths beside `COLLECTIONS`
-    in `check-fast.sh`, and a diff that touches one and a file outside them, its tests, specs and
-    records fails. It can't tell a feature PR carrying a shared change from the shared PR adapting
-    its call sites, so most real shared PRs would need an allow marker.
-  - **C. A flake-sighting script** that lists a test failing on 2 or more open PRs whose diffs
-    don't touch it, run by the session before any re-run. It is sound and catches what the
-    session would otherwise miss, but it is a new tested script with a GitHub dependency
-    (mutants, a known-bad input, exit 2 on what it can't read), roughly a change of its own.
-  - **D. A reviewer rule** that flags a PR carrying a shared change beside a feature. This
-    changes how the reviewer reviews, so it needs the paid reviewer eval and a new planted case.
+- **No check backs the rule for now; it is prose (option A).** A repeat of F-NEW-164 after this
+  change brings the question back. Proposed by Claude; the managing devshop session chose A
+  (2026-11-10). Rejected:
+  - **B, a blocking fast-tier path check** (a project's `SHARED` paths beside `COLLECTIONS` in
+    `check-fast.sh`; a diff touching one and a file outside them, its tests, specs and records
+    fails): it can't tell a feature PR carrying a shared change from the shared PR adapting its
+    call sites, so it would false-fire on every legitimate shared PR;
+  - **C, a flake-sighting script** (a test failing on 2 or more open PRs whose diffs don't touch
+    it): sound, but a tested script with a GitHub dependency, a change of its own;
+  - **D, a reviewer rule** flagging a shared change beside a feature: it changes how the reviewer
+    reviews, so it needs the paid reviewer eval and a new planted case, for a rule with one
+    sighting
 
 ## Acceptance items
 
@@ -129,7 +128,6 @@ the owner's go approves them as written, with their answer on the check.
 
 ## Out of scope
 
-- A mechanical check, unless the owner picks B, C or D at the go; that choice would be
-  recorded here and the items above extended
+- A mechanical check (options B, C and D above)
 - Automatic flake detection in CI, retry wrappers or quarantine lists
 - Changes in any project's own files; they arrive at the project's next upgrade
