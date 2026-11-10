@@ -60,7 +60,8 @@ walls (CI's secret scan and lint, `main`'s protection, the owner's approval) are
 - **The repair logs to its own file, `/tmp/devshop-tools-repair.log`:** the bootstrap's clause
   (specs/bootstrap-result-at-session-start.md) keeps reading `/tmp/devshop-setup.log` unchanged, the
   record of the build (Claude, 2026-11-10)
-- **The main `DEVSHOP:` line says the outcome, after the bootstrap clause:**
+- **The main `DEVSHOP:` line says the outcome, before the bootstrap clause,** which stays last as
+  specs/bootstrap-result-at-session-start.md has it:
   - `; repaired at session start: <tools>` when the repair installed them;
   - `; still missing: <tool> (<cost>), …: run /opt/devshop-plugin/devshop/hooks/repair-tools.sh, or start a new session once the release host answers`
     when it didn't, each tool once, in `tools.pin` order. The costs: `dcg` "every Bash command is
@@ -70,7 +71,8 @@ walls (CI's secret scan and lint, `main`'s protection, the owner's approval) are
     can't be read: no download then;
   - nothing when no tool is missing. A tool installed whose `/usr/local/bin` link is taken by
     something the devshop didn't make counts as repaired; the build's existing FAILED step for that
-    is unchanged (Claude, 2026-11-10)
+    is unchanged (Claude, 2026-11-10; changed after the go from "after the bootstrap clause":
+    owner, 2026-11-10, choosing "Tools clause before (Recommended)")
 - **A sanctioned repair command, `/opt/devshop-plugin/devshop/hooks/repair-tools.sh`, no
   arguments:** the session-start repair, run by hand mid-session (for an outage still on at session
   start). It runs `tools.sh repair` on the local copy's pin and exits 0 when no tool is missing
