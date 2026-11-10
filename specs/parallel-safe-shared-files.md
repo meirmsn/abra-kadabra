@@ -60,8 +60,11 @@ session gave the same day to Claude's questions; the owner's go approves them as
   rewrites the table); a list instead of a table (it reopens the row format of 2026-10-16). Owner,
   2026-11-10, choosing option A of three: "A"
 - **This supersedes one decision of `specs/findings-and-roadmap.md`** ("Parallel sessions: … the
-  next free `F-` or `R-` number"): that spec's line gains a note that F- IDs follow this spec from
-  2026-11-10, and keeps its R- half. **`R-<n>` roadmap IDs stay sequential:** only the owner adds
+  next free `F-` or `R-` number") for `F-` IDs, and leaves its `R-` half; that spec stays as it
+  was, as the record of 2026-10-16, and the findings template carries the rule. Changed after the
+  go: the reviewer takes the one spec file a change touches as its spec, so a note there made the
+  review could-not-run. Rejected: a separate PR for the note. Owner, 2026-11-10, choosing option 1
+  of two: "1" **`R-<n>` roadmap IDs stay sequential:** only the owner adds
   entries, one records PR at a time, so they don't race
 - **A new check, `runtime/scripts/count-check.py`,** runs in the project's fast tier: in required
   CI, so a wall's input, held to the bar of every project-facing check (a known-bad input per form,
@@ -92,11 +95,11 @@ session gave the same day to Claude's questions; the owner's go approves them as
   up the layout and the derived lists, linking `parallel.md` — verified by review: the two diffs
 - **AC-3** `runtime/templates/spec.md`'s acceptance-items comment says an item over a collection
   states the rule, not the current count — verified by review: the diff
-- **AC-4** `runtime/templates/findings.md` and `specs/findings-and-roadmap.md` give the finding ID
-  as `F-<YYYY-MM-DD>-<slug>` with the slug's form and its no-identifiers rule, say existing IDs
-  stay, say where a new row goes and how a duplicate ID and a leftover conflict are resolved, no
-  longer say "next free number" for findings, and keep the `R-<n>` rule unchanged — verified by
-  review: the two diffs
+- **AC-4** `runtime/templates/findings.md` gives the finding ID
+  as `F-<YYYY-MM-DD>-<slug>` with the slug's form and its no-identifiers rule, says existing IDs
+  stay, says where a new row goes and how a duplicate ID and a leftover conflict are resolved, no
+  longer says "next free number" for findings, and `runtime/templates/roadmap.md` keeps the
+  `R-<n>` rule unchanged — verified by review: the two diffs
 - **AC-5** `count-check.py --tests PATH... COLLECTION...` exits 1 and names the file and line of
   each line under the PATHs that asserts a collection's current item count N as a number literal,
   in each of these forms: `toHaveLength(N)`, `toHaveCount(N)`, `.length).toBe(N)`,

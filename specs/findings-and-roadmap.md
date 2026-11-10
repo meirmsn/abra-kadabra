@@ -94,11 +94,7 @@ of the devshop's fix for finding 13.
   owner wants "on the roadmap": no spec (no choice is involved, so the reviewer's `intent` lens
   passes it)
 - **Parallel sessions:** before `ship`, the session merges the latest `main` and takes the next free
-  `F-` or `R-` number from it; a clash in the table is resolved by renumbering its own row. From
-  2026-11-10 the `F-` half is replaced: a finding's ID is `F-<YYYY-MM-DD>-<slug>`, which parallel
-  branches can't both take, placed in ID order, older numbered IDs kept
-  ([parallel-safe-shared-files](parallel-safe-shared-files.md), the owner's go of 2026-11-10). The
-  `R-` half stands: only the owner adds roadmap entries, one records PR at a time
+  `F-` or `R-` number from it; a clash in the table is resolved by renumbering its own row
 - **The devshop's own files move to its root:** `ROADMAP.md` lists the devshop's open work in
   priority order, one line each linking to the task's detail in `kit/notes/revamp/workstreams/`,
   and replaces "the first unblocked `[ ]` task" as how the next task is picked (CLAUDE.md, PROCESS
