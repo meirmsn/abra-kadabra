@@ -812,7 +812,7 @@ hook_lines() { # hook_lines: the installed SessionStart hook's lines, in a fresh
   p=$(mktemp -d "$work/proj.XXXX")
   hook_json "$(cd "$p" && CLAUDE_PLUGIN_ROOT="$HOME/plugin" CLAUDE_PROJECT_DIR="$p" bash -c "$(scmd)")"
 }
-calls() { grep -c "$1" "$work/curl.calls" 2>/dev/null || true; }
+calls() { if [ -f "$work/curl.calls" ]; then grep -c "$1" "$work/curl.calls" || true; else echo 0; fi; }
 REPAIR=/opt/devshop-plugin/devshop/hooks/repair-tools.sh
 STILL=": run $REPAIR, or start a new session once the release host answers"
 GL_COST="this session can't push"
