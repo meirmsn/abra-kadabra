@@ -23,6 +23,9 @@ FINDINGS.md from it on its first row; delete this comment there.
 - Where: a new row goes after the numbered rows, in ID order among the dated ones. Merging main,
   a duplicate ID for the same thing becomes one row with both sightings; for a different thing,
   add a word to your own row's slug. Two new rows that still meet in a conflict: keep both.
+- Compact rows: one space beside each pipe, never padded to line up, and the file kept out of
+  the formatter (`.prettierignore`). A formatter pads each column to its longest cell, so one long
+  row would rewrite every row and conflict with every branch.
 - Severity: high (it can break production, lose data or open a security hole), med (it costs time
   on a common path or on every change), low (anything else).
 - Seen: one "YYYY-MM-DD · <PR or session>" per session that hit it, separated by <br>.

@@ -50,6 +50,15 @@ session gave the same day to Claude's questions; the owner's go approves them as
   different days don't touch. Two rows that still land side by side conflict in git; the
   resolution is "keep both". Whether GitHub honours a `merge=union` attribute, which would remove
   that conflict, is untested and stays out of this change
+- **The record tables are kept compact, outside the formatter (changed after the go):** Prettier
+  pads every column of a Markdown table to its longest cell, so a row with a longer ID or text
+  rewrites every row, and the first dated ID rewrote all of `FINDINGS.md`'s. `FINDINGS.md` and
+  `ROADMAP.md` go in `.prettierignore`, and their table rows are written compact (`| a | b |`, one
+  space beside each pipe), so a row never touches another; both are compacted once in this PR, a
+  formatting-only diff. The findings and roadmap templates tell projects the same, and a lint
+  check holds the devshop's two files to it. Rejected: keeping the formatter (any longer cell still
+  rewrites the table); a list instead of a table (it reopens the row format of 2026-10-16). Owner,
+  2026-11-10, choosing option A of three: "A"
 - **This supersedes one decision of `specs/findings-and-roadmap.md`** ("Parallel sessions: … the
   next free `F-` or `R-` number"): that spec's line gains a note that F- IDs follow this spec from
   2026-11-10, and keeps its R- half. **`R-<n>` roadmap IDs stay sequential:** only the owner adds
@@ -119,6 +128,14 @@ session gave the same day to Claude's questions; the owner's go approves them as
 - **AC-12** `ROADMAP.md`'s R-21 row reads `Done, PR #191`,
   R-22's reads Done with this PR's number, and no other row changes — verified by review: the diff
   of `ROADMAP.md`
+
+- **AC-13** `scripts/table-rows-check.py FILE...` exits 1 and names the file and line of each table
+  row with two or more spaces beside a pipe, exits 0 on compact rows, and exits 2, never 0, on a
+  missing file or a file with no table; `tests/table-rows-check.test.sh` feeds it a padded row
+  and kills its mutants
+- **AC-14** `scripts/lint.sh` runs `table-rows-check.py` over `FINDINGS.md` and `ROADMAP.md`, both
+  are in `.prettierignore`, and both hold only compact rows; `runtime/templates/findings.md` and
+  `runtime/templates/roadmap.md` say to keep the file out of the formatter and write rows compact
 
 ## Out of scope
 
