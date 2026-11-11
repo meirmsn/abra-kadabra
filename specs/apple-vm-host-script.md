@@ -1,6 +1,6 @@
 # The VM lane's host script and its first attacks
 
-**Go:** pending
+**Go:** "Correct. Apply the fixes per the adversarial review, and then you get the go." (owner, 2026-11-11)
 
 ## Intent
 
