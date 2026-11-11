@@ -148,8 +148,15 @@ item: scripts/local-run.sh
 owner: project
 when: optional
 check: executable
-must: Serves the site on `127.0.0.1:$PORT` (bound to that address) until stopped, from the repo root with the installed `node_modules`; installs nothing, reaches no other host. The one way to run the site locally.
-for: the devshop's reviewer (its browser, judged against DESIGN.md); the design review before ship; `scripts/check-slow.sh` where the stack home says so
+must: Serves the site on `127.0.0.1:$PORT` (bound to that address) until stopped, from the repo root, with the installed `node_modules` and what `scripts/build.sh` built when the project has one; installs nothing, builds nothing, reaches no other host. The one way to run the site locally.
+for: the devshop's reviewer (its browser, judged against DESIGN.md; a change that adds it gets a smoke run); the design review before ship; `scripts/check-slow.sh` where the stack home says so
+
+item: scripts/build.sh
+owner: project
+when: optional
+check: executable
+must: Builds what `scripts/local-run.sh` serves, from the repo root with the installed `node_modules`, `BUILD_SHA` naming the commit; installs nothing, reaches no other host (telemetry off), needs no secret (the reviewer runs it in its clone with the session's environment); exit 0 built.
+for: the devshop's reviewer, before its local run (within `BUILD_WAIT`); the design review before ship and `scripts/check-slow.sh`, before `scripts/local-run.sh`; `scripts/deploy.sh` where the stack home says so
 
 item: scripts/ui/tokens-check.mjs
 owner: devshop
@@ -171,6 +178,13 @@ when: optional
 check: executable
 must: The UI baseline's DESIGN.md shape check: the front matter has the token groups with light and dark values and a Decisions section, and the theme CSS is derived from it under the baseline's token names, both ways; `scripts/ui/design-md-check.mjs --theme <css> DESIGN.md`.
 for: `scripts/check-fast.sh` in a project with a `DESIGN.md`
+
+item: scripts/count-check.py
+owner: devshop
+when: optional
+check: executable
+must: The count check: no test hard-codes how many items a collection holds; `scripts/count-check.py --tests <dir>... <collection>...`, a collection being a directory, a .json array or `<file>.json#<key>`.
+for: `scripts/check-fast.sh` in a project that lists collections in `COLLECTIONS`
 
 item: DESIGN.md
 owner: project

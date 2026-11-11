@@ -25,6 +25,13 @@ on:
 permissions:
   contents: read
 
+# One run per PR head (F-NEW-163): a PR's runs share a group, so a second run for the same PR
+# (opened and synchronize fired together) cancels the older one; a run on main gets a group of
+# its own and cancels nothing, so a merge's deploy and comment jobs always run.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   GITLEAKS_VERSION: 8.30.1
   # sha256 of gitleaks_8.30.1_linux_x64.tar.gz, from the release's checksums file.
