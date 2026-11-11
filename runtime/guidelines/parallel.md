@@ -1,12 +1,13 @@
 # Parallel work on shared lists and shared code
 
 Read by every change that adds an item to a collection: a page, a game, a route, a menu entry, a
-cache entry ([spec](../../specs/parallel-safe-shared-files.md)); and by every change that turns out
-to need a change to shared code ([spec](../../specs/shared-changes-first.md)). Several sessions often work at
-once, one branch each, merged one at a time. A file every branch edits conflicts on every branch
-after each merge. GitHub then runs no CI on the conflicted PRs, and each fix costs a round of
-merging `main` and running CI again. Once, ten branches of one project each conflicted in the same
-six places. The rules below leave a branch nothing shared to edit, and land what must be shared first.
+cache entry ([spec](../../specs/parallel-safe-shared-files.md)); and by every change that turns
+out to need a change to shared code ([spec](../../specs/shared-changes-first.md)). Several
+sessions often work at once, one branch each, merged one at a time. A file every branch edits
+conflicts on every branch after each merge. GitHub then runs no CI on the conflicted PRs, and each
+fix costs a round of merging `main` and running CI again. Once, ten branches of one project each
+conflicted in the same six places. The rules below leave a branch nothing shared to edit, and
+land what must be shared first.
 
 ## One file per item, everything else derived
 

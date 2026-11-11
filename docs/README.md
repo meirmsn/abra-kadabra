@@ -196,7 +196,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
 - [`reviewer-browser.md`](../specs/reviewer-browser.md): the reviewer judges a local run of the
   site against `DESIGN.md`, with a browser that reaches only that run.
 - [`shared-changes-first.md`](../specs/shared-changes-first.md): a shared change or a flaky test's
-  fix lands first, in its own small PR; a flake seen twice gets that PR, not a re-run (R-23).
+  fix lands first, in its own small PR; a failing unrelated test is never re-run, its cause is
+  fixed (R-23).
 - [`ui-baseline.md`](../specs/ui-baseline.md): every web app starts from a design baseline, phone
   first, light and dark.
 
