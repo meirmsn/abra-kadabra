@@ -392,7 +392,7 @@ if [ "$local_run" = 1 ] || [ "$smoke" = 1 ]; then
     && [ -z "$(git -C "$scratch/repo" ls-files -- node_modules)" ]; then
     ln -s "$repo/node_modules" "$scratch/repo/node_modules" || cnr "could not link node_modules into the clone"
   fi
-  printf '/node_modules\nnode_modules/\n/.devshop-browse/\n' >>"$scratch/repo/.git/info/exclude" || cnr "could not write the clone's exclude file"
+  printf '/node_modules\n/.devshop-browse/\n' >>"$scratch/repo/.git/info/exclude" || cnr "could not write the clone's exclude file"
   # The build, before the port is picked: the head's scripts/build.sh, with BUILD_SHA the head.
   build_note=""
   if at "$head" scripts/build.sh; then
