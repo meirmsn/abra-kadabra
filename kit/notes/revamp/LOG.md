@@ -3350,3 +3350,84 @@ replaces. The cache copy is never read. dcg blocked an edit script for quoting `
 (F-NEW-140 again).
 
 **Next**: the skills-eval branch takes this from `main` (its own session).
+
+## #103 — 2026-10-30 · The Apple proposal: macOS and iOS in throwaway VMs
+
+**What moved**: the owner asked for a design to build native macOS and iOS apps with the host
+protected. [apple-native-proposal.md](apple-native-proposal.md): the agent stays in its cloud
+session; GitHub's hosted macOS VMs build, UI-test and screenshot first, local Tart VMs on a dedicated
+Mac only if needed, real hardware only for reviewed builds. It revisits TARGET Environments 7; the
+owner's calls are its § 10. Spike ([record](spikes/m4-apple-vm/README.md)): a SwiftUI UI test with
+its screenshot passed in a VM, ad-hoc signed; MLX ran on the paravirtual GPU.
+
+**Surprises**: Core ML in the VM lists no Neural Engine and falls back silently. This session can't
+fetch a Swift toolchain (host denied, Docker Hub 429) nor GitHub's artifact storage host (403).
+
+**Next**: the owner's decisions in § 10.
+
+## #104 — 2026-11-01 · The Apple proposal, revised for private repos
+
+**What moved**: the owner's answers in chat on PR 166: private repositories must work, and the agent
+should drive Xcode on the local Mac with strictly limited access. The proposal now puts the agent
+in a throwaway Tart VM on that Mac, attached through Remote Control, with agent-desktop for the GUI;
+GitHub's macOS runners only run `slow` once per push. The owner's own-account setup (one folder,
+computer use for Xcode, App Sandbox) is option E: the same controls inside the VM are the plan. A
+one-hour checklist for the Air is in the spike.
+
+**Surprises**: Tart is now OpenAI's (`brew install openai/tools/tart`); agent-desktop installs from
+npm.
+
+**Next**: the owner's test on the Air, then § 10's decisions.
+
+## #105 — 2026-11-04 · The Apple proposal after the audit and the naming rule
+
+**What moved**: `main` merged in. Its rule on other projects meant rewording the proposal: the first
+Apple app is now described by its stack, and the spike's sample code uses neutral names (the
+screenshot with the old label was removed). From the browser and credential audit of 2026-11-03: the
+agent is a standard user inside the VM, Claude Code's sandbox is set by a managed file, gstack's
+real-profile skills are denied, no web browser runs in the VM, and the attack tests add sudo, signing
+identities and unsandboxed browsers. terminal-mac was looked at and not adopted (agent on the host).
+
+**Surprises**: none.
+
+**Next**: the owner's test on the Air, then § 10's decisions.
+
+## #106 — 2026-11-09 · The Apple proposal: Apple's Xcode plugin, the test's first steps
+
+**What moved**: Apple's Xcode plugin entered Claude Code's official plugin directory (2026-11-06). The
+proposal puts it inside the VM, where Claude Code runs through Remote Control, and drops most of the
+build and log scripts it planned. The owner's test on the Air began: Tart installed, the Xcode image
+downloaded. The checklist now carries the install that worked on macOS 15, and a check for the plugin.
+
+**Surprises**: on macOS 15, Homebrew's Tart needs softnet built for macOS 26, and Tart 2.35.0 and
+later crash at launch there (built with Xcode 27); Tart 2.34.0 with softnet 0.21.1 runs. A new
+decision asks to move the host to macOS 26 before the real setup.
+
+**Next**: the rest of the owner's test, then § 10's decisions.
+
+## #107 — 2026-11-09 · The owner's test on the Air
+
+**What moved**: the owner ran the checklist on a MacBook Air M4 (32 GB, macOS 15.6.1). A Tart VM
+held its walls; the sample app passed its UI test in 18.4 s with no swap; agent-desktop clicked it; a
+cloud session started inside the VM through Remote Control and reported back. The record and the
+proposal carry the results.
+
+**Surprises**: Apple's Xcode plugin ships in Xcode 26.6 but needs a macOS 26 guest, so a macOS 26
+host. The VM's Claude login brought the owner's mail, files and calendar connectors with it: a new
+decision asks for a separate account without connectors. Attaching a cloud session to a folder isn't
+offered on the owner's account; starting a session in the VM's bridge environment works.
+
+**Next**: the owner's decisions in § 10.
+
+## #108 — 2026-11-10 · D-20: native Apple apps in a throwaway VM
+
+**What moved**: the owner answered the Apple proposal's twelve questions one at a time in chat, now
+D-20. The agent works only inside a throwaway VM on the local Mac (the Air now, a Mac mini later).
+Required macOS CI runs on GitHub's runners with a spending limit. The Air stays on macOS 15 for about
+half a year, so phase 2 uses the pinned Tart and no Xcode plugin. Signing is deferred. TARGET's
+Environments 7 now says so.
+
+**Surprises**: the GitHub account the sessions act as is the owner's own while the agent's is
+suspended. So no Claude login goes into a VM until it is back.
+
+**Next**: phase 2, the VM machinery, as the owner puts it on the roadmap.

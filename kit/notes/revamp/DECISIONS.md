@@ -28,6 +28,7 @@ Status: `open` · `decided` · `revisited`. Order below = order to decide in.
 | D-17 | After review 2: M1 met, the exam retired, first project          | M2                                 | decided  |
 | D-18 | A roadmap of decisions and a findings log, per repo              | M2                                 | decided  |
 | D-19 | After review 3: the pilot web app on Cloudflare, walls before M3 | M3                                 | decided  |
+| D-20 | Native Apple apps: the agent works only in a throwaway VM        | M4                                 | decided  |
 
 ---
 
@@ -161,6 +162,8 @@ Outcome: **decided 2026-10-09 — A, branch → PR → CI → owner merges**, fo
   (F-SEC-01/02/03/13/15).
 - **B. Keep local first-class with full hardening.**
 - **C. Cloud-only** — use Remote Control for macOS/iOS/offline work.
+
+**Superseded for the Mac by [D-20](#d-20-native-apple-apps-the-agent-works-only-in-a-throwaway-vm--decided) (2026-11-10):** the agent works only inside a throwaway macOS VM on the local Mac.
 
 Outcome: **decided 2026-10-09 — cloud-first; local = a dedicated Mac** (TARGET L2 Environments): native builds, simulators, devices, and fallback when the cloud falls short. Claude runs there as a non-admin user with only the developer accounts it needs (macOS VM only if insufficient). The v1 devcontainer + root-owned-copies model retires with v1; local services run in walled-off containers.
 
@@ -377,3 +380,40 @@ Outcome: **decided 2026-10-20 (owner, in chat)**:
 4. **TARGET's edits** from REVIEW-3 § 4, as one docs PR; **M3's tasks in REVIEW-3 § 7's order**,
    with the move to Cloudflare proven first (W10.11.2) and made when the pilot web app adopts v2 (W10.11.6), and F-NEW-77 (R-14) before the pilot web app adopts v2.
 5. Supersedes D-17 item 5 and the M4 deferral of W0.6.2 and W0.5.3.
+
+## D-20 Native Apple apps: the agent works only in a throwaway VM — `decided`
+
+Context: [apple-native-proposal.md](apple-native-proposal.md) § 10, after the owner's test on their
+MacBook Air ([record](spikes/m4-apple-vm/README.md)). The owner set the goal on 2026-10-30: the
+agents must not be able to harm or read the computer they run on. The owner answered one decision at
+a time in chat; their words are quoted.
+
+Outcome: **decided 2026-11-09 and 2026-11-10 (owner, in chat)**:
+
+1. **The agent only ever works inside a throwaway macOS VM on the local Mac, never on a Mac
+   directly** ("yes"). This replaces TARGET Environments 7's "non-admin user on a dedicated Mac; a
+   macOS VM only if that proves insufficient" (D-02 direction, D-17).
+2. **The test on the Air:** done, 2026-11-09.
+3. **The VMs run on the local MacBook Air now, a dedicated Mac mini later** ("A now, B later"),
+   when the Air being closed gets in the way.
+4. **Required macOS CI for private repos runs on GitHub's hosted macOS runner, once per push** ("A"),
+   with an Actions spending limit, $20 a month to start (the recommendation the owner took).
+5. **A Claude login in the VM, on the owner's main account** ("i dont use the connectors so can use
+   my main (and only) account?"): connectors disconnected, signed in once in the base image, the
+   device removed monthly and on any suspicion. Until GitHub restores the agent's own account, the
+   owner's personal GitHub account is used ("in the meantime iguess w should use my personal"), and
+   no Claude login goes into a VM while it is.
+6. **Performance and Neural Engine benchmarks run on the owner's Air, from a signed build** ("A").
+7. **Where signing happens: deferred to the signing phase** ("need to pick now or acn we pick
+   later?"). Whatever is chosen, no agent or VM holds the signing keys.
+8. **Physical iPhone testing is postponed; TestFlight meanwhile** ("A").
+9. **The 1.7B model at 8 bit in the VM and CI; the product's precision chosen from the Air's
+   benchmark** ("A").
+10. **Phases 2–3 (the VM machinery, the first Apple app's engine) run alongside M3** ("A"); only the
+    devshop pieces (the Apple stack home, the CI template's macOS runner) wait for the pilot web
+    app's adoption (W10.11.6).
+11. **The Air stays on macOS 15 for now** ("I'll keep it as is, and then maybe in half a year or some,
+    longer time frame, I'll upgrade everything"). So phase 2 uses the pinned Tart 2.34.0 and softnet
+    0.21.1, and a macOS 15 image without Apple's Xcode plugin. The image is rebuilt with the plugin
+    after the owner updates.
+12. **No separate Claude account for the VM** (settled with 5).
