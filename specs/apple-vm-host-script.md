@@ -190,8 +190,8 @@ any service on the Mac listening on all its addresses was reachable from the VM.
   space), a dirty checkout, an
   interrupted run (nothing left behind), and a fake `tart` that prints nothing.
 - **AC-13** A mutant run, `tests/apple-vm-mutants.test.sh`, removes or inverts each guard of AC-6
-  and AC-7, each pass condition of AC-9 to AC-11, the nonce check of AC-4 and each disk threshold of AC-5 in a temporary copy,
-  and the test of AC-12 fails on every mutant.
+  and AC-7, each pass condition of AC-9 to AC-11, the nonce check of AC-4 and each disk threshold
+  of AC-5 in a temporary copy, and the test of AC-12 fails on every mutant.
 - **AC-14** Neither script nor the probe uses a feature macOS's bash 3.2 lacks (`declare -A`,
   `mapfile`, `readarray`, `${x,,}`, `${x^^}`, `declare -n`, `local -n`, `[[ -v`, `|&`, `&>>`,
   `coproc`, `wait -n`, `${x@`, `;&`, `$EPOCHSECONDS`, a negative array index, `setsid`), checked by a
