@@ -35,7 +35,7 @@ too; an entry is `Done` when its task is `[x]`.
 | R-27 | 2026-11-11 | The VM lane, slice 2: the egress allowlist proxy, with softnet blocking every address but the proxy's; from inside a VM, reaching a host off the list, bypassing the proxy, IPv6 and DNS all fail | Open |
 | R-28 | 2026-11-11 | The VM lane, slice 3: the base image recipe: a standard `agent` user who can still run UI tests and agent-desktop, an admin password the agent never sees, the tools, a managed settings file, then the one Claude login and a check that a VM session lists no connectors; attacks: sudo, a signing identity, a `.p12` or `.mobileprovision` file, a browser without its sandbox, editing the managed settings | Open |
 | R-29 | 2026-11-11 | The VM lane, slice 4: a session in the VM: the Remote Control attach, how long a VM login lasts, and how `ship.sh` and the reviewer run for it; done when a session ships a PR from a VM | Open |
-| R-25 | 2026-11-11 | The first Apple app in its own private repo, on R-24's VMs: the engine first, then the GUI (phases 3 and 4) — [proposal § 8](kit/notes/revamp/apple-native-proposal.md#8-rollout) | Open |
+| R-25 | 2026-11-11 | The first Apple app in its own private repo, on the VM lane (R-24, R-27 to R-29): the engine first, then the GUI (phases 3 and 4) — [proposal § 8](kit/notes/revamp/apple-native-proposal.md#8-rollout) | Open |
 | R-26 | 2026-11-11 | The pilot web app's iOS app, in the web app's own repo, starting with how that repo is organized to hold both; takes turns with R-25 on the local Mac, neither waits for the other to finish (phase 7, part of R-8) — [proposal § 8](kit/notes/revamp/apple-native-proposal.md#8-rollout) | Open |
 
 ## R-14: The session-start hook reads the wrong directory after a restart
@@ -118,8 +118,9 @@ app, or its own?":
 
 ### Claude's notes
 
-- R-24 is the proposal's phase 2; its done-when is the attack list there. The Air stays on macOS 15
-  (D-20 item 11), so no Xcode plugin in the base image yet.
+- The proposal's phase 2 is split across R-24, R-27, R-28 and R-29 (below); its done-when, the
+  attack list there, is shared among them, and R-24 carries the first part. The Air stays on macOS
+  15 (D-20 item 11), so no Xcode plugin in the base image yet.
 - R-25 and R-26 take turns because the Air's memory fits one VM at a time.
 - The devshop's own Apple pieces (the Apple stack home, the CI template's macOS runner) still wait
   for the pilot web app's adoption, W10.11.6 (D-20 item 10).
@@ -153,6 +154,9 @@ And yes, the GitHub agent account is back in use.
 The slices, in order: R-24, R-27, R-28, R-29. R-25 and R-26 build on all four.
 
 ### Claude's notes on the slices
+
+The owner approved the split's shape and order; the detail of each slice below, and in its row
+(the guards, the attack lists), is Claude's proposal, which each slice's spec and go settle.
 
 - **R-24, the host script and the first attacks.** No daemon on the Mac: each `apple-vm.sh`
   command deletes task VMs past their time limit, after a warning. The script refuses a third VM,
