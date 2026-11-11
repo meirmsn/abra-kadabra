@@ -402,7 +402,8 @@ Outcome: **decided 2026-11-09 and 2026-11-10 (owner, in chat)**:
    my main (and only) account?"): connectors disconnected, signed in once in the base image, the
    device removed monthly and on any suspicion. Until GitHub restores the agent's own account, the
    owner's personal GitHub account is used ("in the meantime iguess w should use my personal"), and
-   no Claude login goes into a VM while it is.
+   no Claude login goes into a VM while it is. Met 2026-11-11 (owner, in chat): "And yes, the GitHub agent account
+   is back in use."
 6. **Performance and Neural Engine benchmarks run on the owner's Air, from a signed build** ("A").
 7. **Where signing happens: deferred to the signing phase** ("need to pick now or acn we pick
    later?"). Whatever is chosen, no agent or VM holds the signing keys.

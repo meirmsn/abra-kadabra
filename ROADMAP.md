@@ -31,7 +31,10 @@ too; an entry is `Done` when its task is `[x]`.
 | R-21 | 2026-11-10 | Pinned tools survive a release-host outage: cached for the session, a sanctioned repair, and a session that can't push says so up front (F-NEW-158, F-NEW-159) | Done, PR #191 |
 | R-22 | 2026-11-10 | Parallel branches stop conflicting on shared lists and counters: lists derived from one manifest, tests that count from it, finding IDs that can't collide (F-NEW-161) | Done, PR #193 |
 | R-23 | 2026-11-10 | Shared changes and flaky-test fixes land first, in their own small PR; a flake seen twice gets that PR, not a re-run (F-NEW-164) | Done, PR #194 |
-| R-24 | 2026-11-11 | Phase 2 of the Apple design, the VM lane on the local Mac: the host script (start, list, stop, kill all), the base image recipe, the egress allowlist proxy, the attack tests, and a check that a VM session lists no connectors; on macOS 15 with the pinned Tart (D-20) — [proposal § 8](kit/notes/revamp/apple-native-proposal.md#8-rollout) | Open |
+| R-24 | 2026-11-11 | The VM lane, slice 1: the host script (`apple-vm.sh start`, `list`, `stop`, `kill-all`, with a time limit, a two-VM cap and free-disk check, never touching `base`), tested with a fake Tart; from inside a VM on the local Mac a scripted attack run fails to read a host path, reach the Mac or the LAN, leave anything for the next task, change `base`, fill the Mac's disk, or exceed its CPU or memory (D-20) — [proposal § 8](kit/notes/revamp/apple-native-proposal.md#8-rollout) | Open |
+| R-27 | 2026-11-11 | The VM lane, slice 2: the egress allowlist proxy, with softnet blocking every address but the proxy's; from inside a VM, reaching a host off the list, bypassing the proxy, IPv6 and DNS all fail | Open |
+| R-28 | 2026-11-11 | The VM lane, slice 3: the base image recipe: a standard `agent` user who can still run UI tests and agent-desktop, an admin password the agent never sees, the tools, a managed settings file, then the one Claude login and a check that a VM session lists no connectors; attacks: sudo, a signing identity, a `.p12` or `.mobileprovision` file, a browser without its sandbox, editing the managed settings | Open |
+| R-29 | 2026-11-11 | The VM lane, slice 4: a session in the VM: the Remote Control attach, how long a VM login lasts, and how `ship.sh` and the reviewer run for it; done when a session ships a PR from a VM | Open |
 | R-25 | 2026-11-11 | The first Apple app in its own private repo, on R-24's VMs: the engine first, then the GUI (phases 3 and 4) — [proposal § 8](kit/notes/revamp/apple-native-proposal.md#8-rollout) | Open |
 | R-26 | 2026-11-11 | The pilot web app's iOS app, in the web app's own repo, starting with how that repo is organized to hold both; takes turns with R-25 on the local Mac, neither waits for the other to finish (phase 7, part of R-8) — [proposal § 8](kit/notes/revamp/apple-native-proposal.md#8-rollout) | Open |
 
@@ -93,7 +96,7 @@ The findings, as logged:
 
 - F-NEW-164: Shared changes and fixes to shared or flaky tests ride inside unrelated feature PRs: a shell prompt every item uses shipped inside one item's PR, so every other branch adapted its tests; a fix for a flaky test (a size measured mid-animation) sat in a branch near the end of the queue while that flake failed CI on at least three other PRs; two more flakes stayed unfixed. No devshop rule says a change to shared code or a shared flake fix goes first in its own small PR, or that a session seeing an unrelated flake twice proposes that PR instead of re-running.
 
-## R-24, R-25, R-26: The VM lane, then the two Apple apps
+## R-24, R-27, R-28, R-29, R-25, R-26: The VM lane, then the two Apple apps
 
 Asked 2026-11-11, in chat in a devshop session, after PR #166 (D-20) merged, when Claude asked what
 comes next. The two app names are replaced by the descriptions in brackets (the rule on other
@@ -121,3 +124,53 @@ app, or its own?":
 - The devshop's own Apple pieces (the Apple stack home, the CI template's macOS runner) still wait
   for the pilot web app's adoption, W10.11.6 (D-20 item 10).
 - The Actions spending limit ($20 a month) is set when R-25's private repo starts (D-20).
+
+### The split of the VM lane
+
+Asked 2026-11-11, in chat in a devshop session: Claude proposed splitting R-24 into four slices
+(`ak:split`). The owner's answers, word for word, the same day. To "skip gstack's plan reviews on
+this split, or run them?":
+
+```text
+A
+```
+
+To the split as first proposed:
+
+```text
+Do an adversarial review of this plan.
+```
+
+To the split as revised after that review (the four slices below, in this order, at the top of the
+roadmap ahead of R-25 and R-26), and to "confirm the agent's GitHub account is back in use":
+
+```text
+A
+
+And yes, the GitHub agent account is back in use.
+```
+
+The slices, in order: R-24, R-27, R-28, R-29. R-25 and R-26 build on all four.
+
+### Claude's notes on the slices
+
+- **R-24, the host script and the first attacks.** No daemon on the Mac: each `apple-vm.sh`
+  command deletes task VMs past their time limit, after a warning. The script refuses a third VM,
+  a name already taken and any action on `base`; `base` is pinned by digest; the Tart folder is an
+  argument, not each Terminal's exports. The attacks are a script in this repo that the Mac runs
+  into the VM and that writes a report on the Mac; the PR carries it, and a known-bad run (the same
+  script on a VM without softnet) that must report failures. Where the script lives is settled in
+  its spec. No token or login goes into a VM in this slice.
+- **R-27, the proxy.** Before any credential is in a VM, because without softnet's block an agent
+  can simply skip the proxy. Tart 2.34.0 has `--net-softnet-block` and `--net-softnet-allow`, and
+  softnet 0.21.1 accepts `--block=0.0.0.0/0` with exceptions (read from their source at those
+  tags). Open: IPv6 and DNS, and where the proxy runs, since Apple's `container` likely needs
+  macOS 26 (a small Linux VM under Tart is the fallback). The first list: GitHub, Anthropic and
+  Remote Control's hosts; model hosts come with phase 3.
+- **R-28, the base image.** The login is the recipe's last step, run by the owner with the
+  clipboard on for that step only, and the no-connectors check runs before any session. Its
+  known-bad case is a session with a connector attached. D-20 item 5's gate is met (the owner's
+  confirmation above). Apple's Xcode plugin is not in it (D-20 item 11).
+- **R-29, a session in the VM.** Attaching a cloud session to a VM folder isn't offered on the
+  owner's account, so the VM session has no cloud container beside it; its spec settles how
+  `ship.sh` and the reviewer, whose browser stays out of the VM, run for it.
