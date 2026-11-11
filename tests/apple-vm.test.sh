@@ -59,6 +59,7 @@ new_env() {
   echo "PROBE persist-check blocked no marker" >"$FAKE/probe/persist-check"
   echo "PROBE cpu-mem-info value 4 8589934592" >"$FAKE/probe/cpu-mem-info"
   echo "PROBE load value loaded" >"$FAKE/probe/load"
+  echo "PROBE disk-free value freed 21 GB" >"$FAKE/probe/disk-free"
   echo "PROBE disk-fill value filled" >"$FAKE/probe/disk-fill"
   echo "123 380.5 $((7 * GB)) com.apple.Virtualization.VirtualMachine" >"$FAKE/vmsamples"
 }
@@ -344,16 +345,17 @@ ok "apple-vm-host-script AC-10: each broken wall is a FAIL line and fails the ru
 
 new_env
 : >"$FAKE/probe/host-path"
-attack_fails "a probe with no output" ERROR host-path
+attack_fails "a probe with no output" FAIL host-path
+grep -q "^FAIL host-path probe couldn't run" "$T/report" || fail "no can't-run detail"
 new_env
 printf '%s\n' '192.0.2.1:53' >"$FAKE/nc_open"
-attack_fails "a listener that never answers" ERROR mac
+attack_fails "a listener that never answers" FAIL mac
 new_env
 printf '%s\n' '192.0.2.10:*' '192.168.64.1:*' >"$FAKE/nc_open"
-attack_fails "a router that answers nothing" ERROR lan
+attack_fails "a router that answers nothing" FAIL lan
 new_env
 : >"$FAKE/vmsamples"
-attack_fails "no VM process to sample" ERROR cpu-mem
+attack_fails "no VM process to sample" FAIL cpu-mem
 ok "apple-vm-host-script AC-9: a probe that can't run, or has no control, fails the run"
 
 new_env
@@ -371,7 +373,18 @@ git -C "$T/repo" commit -qam "short disk wait for the test"
 run_cmd "$ATK" run --tart-dir "$D" --report "$T/report" --disk-fill
 expect_rc 1 "a VM never stopped for disk"
 expect_line FAIL disk
-ok "apple-vm-host-script AC-10: the disk attack passes only when the supervisor stops the VM"
+new_env
+printf '#!/bin/bash\nrm -f "%s"\n' "$D/apple-vm/task-91" >"$FAKE/hook-disk-fill"
+chmod +x "$FAKE/hook-disk-fill"
+run_cmd "$ATK" run --tart-dir "$D" --report "$T/report" --disk-fill
+expect_rc 1 "a VM whose state vanished during the disk attack"
+expect_line FAIL disk
+new_env
+echo "PROBE disk-free error freed only 4 GB" >"$FAKE/probe/disk-free"
+run_cmd "$ATK" run --tart-dir "$D" --report "$T/report" --disk-fill
+expect_rc 1 "a guest that couldn't free 20 GB"
+grep -q "^FAIL disk probe couldn't run" "$T/report" || fail "no can't-run disk line: $(cat "$T/report")"
+ok "apple-vm-host-script AC-10: the disk attack passes only when the supervisor stops the VM for disk"
 
 new_env
 echo "PROBE load value loaded" >"$FAKE/probe/load"
@@ -409,7 +422,13 @@ echo "PROBE clipboard blocked never arrived" >"$FAKE/probe/clipboard"
 run_cmd "$ATK" known-bad --tart-dir "$D" --report "$T/report"
 expect_rc 1 "known-bad with one wall holding"
 expect_line PASS clipboard
-ok "apple-vm-host-script AC-11: known-bad fails when a probe can't see the broken wall"
+new_env
+reach_all
+: >"$FAKE/probe/clipboard"
+run_cmd "$ATK" known-bad --tart-dir "$D" --report "$T/report"
+expect_rc 1 "known-bad with a probe that couldn't run"
+grep -q "^FAIL clipboard probe couldn't run" "$T/report" || fail "no can't-run line: $(cat "$T/report")"
+ok "apple-vm-host-script AC-11: known-bad fails when a probe can't see the broken wall, or can't run"
 
 new_env
 reach_all

@@ -5,7 +5,7 @@
 # "reached" means the attack got through, "blocked" that the wall held. The Mac decides PASS or FAIL.
 # Usage: apple-vm-probe.sh <probe> [args...]
 #   gateway | host-path | connect <id> <ip>:<port>... | clipboard <word> |
-#   persist-write <word> | persist-check <word> | cpu-mem-info | load <seconds> | disk-fill
+#   persist-write <word> | persist-check <word> | cpu-mem-info | load <seconds> | disk-free | disk-fill
 # PROBE_ROOT prefixes the guest paths it reads and writes (tests only; empty in a VM).
 set -u -o pipefail
 
@@ -99,7 +99,7 @@ case $probe in
     kill $pids 2>/dev/null
     out value "loaded 8 busy loops and 10 GB for $secs s" ;;
 
-  disk-fill)
+  disk-free)
     before=$(df -Pk / | awk 'NR == 2 { print $4 }')
     case $before in '' | *[!0-9]*) out error "can't read the guest's free space" ;; esac
     # Delete files the image holds, so the clone rewrites shared blocks, not only empty ones.
@@ -110,8 +110,12 @@ case $probe in
     done
     freed=$(( ($(df -Pk / | awk 'NR == 2 { print $4 }') - before) / 1048576 ))
     [ "$freed" -ge 20 ] || out error "freed only $freed GB"
+    out value "freed $freed GB" ;;
+
+  disk-fill)
+    # Writes until the disk is full or the VM is stopped under it; no line when stopped.
     dd if=/dev/urandom of=/Users/admin/fill bs=1m >/dev/null 2>&1
-    out value "freed $freed GB, then wrote until the disk was full" ;;
+    out value "wrote until the disk was full" ;;
 
   *) echo "PROBE ${probe:-none} error unknown probe"; exit 0 ;;
 esac

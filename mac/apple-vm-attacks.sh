@@ -74,6 +74,8 @@ trap 'exit 130' INT TERM HUP
 results=""
 line() { results="$results$1 $2 $3
 "; }
+# cant_run <id> <why>: a FAIL that says the probe couldn't run; never proof of a broken wall.
+cant_run() { line FAIL "$1" "probe couldn't run: $2"; }
 
 # verdict <id> <probe output>: one report line from the probe's own line.
 verdict() {
@@ -85,7 +87,7 @@ verdict() {
     run:reached) line FAIL "$id" "wall broken: $detail" ;;
     known-bad:reached) line FAIL "$id" "wall broken, as expected: $detail" ;;
     known-bad:blocked) line PASS "$id" "the unsafe VM still blocked it: $detail" ;;
-    *) line ERROR "$id" "probe couldn't run: ${detail:-no PROBE line}" ;;
+    *) cant_run "$id" "${detail:-no PROBE line}" ;;
   esac
 }
 
@@ -134,7 +136,7 @@ attack_mac_lan() {
   gw=$(printf '%s\n' "$out" | awk '$1 == "PROBE" && $3 == "value" { print $4; exit }')
   port=$((40000 + RANDOM % 20000))
   if [ -z "$mac_lan_ip" ] || [ -z "$gw" ]; then
-    line ERROR mac "no address for the Mac (LAN '${mac_lan_ip}', gateway '${gw}')"
+    cant_run mac "no address for the Mac (LAN '${mac_lan_ip}', gateway '${gw}')"
   else
     listen "$mac_lan_ip" "$port"
     listen "$gw" "$port"
@@ -142,14 +144,14 @@ attack_mac_lan() {
     if "$NC" -z -G 2 "$mac_lan_ip" "$port" >/dev/null 2>&1 && "$NC" -z -G 2 "$gw" "$port" >/dev/null 2>&1; then
       verdict mac "$(probe "$v" connect mac "$mac_lan_ip:$port" "$gw:$port")"
     else
-      line ERROR mac "the Mac's own listener didn't answer on $mac_lan_ip and $gw"
+      cant_run mac "the Mac's own listener didn't answer on $mac_lan_ip and $gw"
     fi
   fi
   for p in 53 80 443; do
     if [ -n "$router" ] && "$NC" -z -G 2 "$router" "$p" >/dev/null 2>&1; then router_port=$p; break; fi
   done
   if [ -z "$router_port" ]; then
-    line ERROR lan "the router '${router}' answers the Mac on none of 53, 80, 443"
+    cant_run lan "the router '${router}' answers the Mac on none of 53, 80, 443"
   else
     verdict lan "$(probe "$v" connect lan "$router:$router_port")"
   fi
@@ -159,7 +161,7 @@ attack_clipboard() {
   local word
   word=$(random_word)
   saved_clip=$(pbpaste 2>/dev/null || true) && clip_saved=1
-  printf '%s' "$word" | pbcopy || { line ERROR clipboard "pbcopy failed on the Mac"; return; }
+  printf '%s' "$word" | pbcopy || { cant_run clipboard "pbcopy failed on the Mac"; return; }
   verdict clipboard "$(probe "$1" clipboard "$word")"
 }
 
@@ -169,7 +171,7 @@ attack_cpu_mem() {
   info=$(probe "$v" cpu-mem-info)
   cpus=$(printf '%s\n' "$info" | awk '$1 == "PROBE" && $3 == "value" { print $4; exit }')
   mem=$(printf '%s\n' "$info" | awk '$1 == "PROBE" && $3 == "value" { print $5; exit }')
-  case "$cpus:$mem" in *[!0-9:]* | :* | *:) line ERROR cpu-mem "can't read the guest's CPUs and memory: $info"; return ;; esac
+  case "$cpus:$mem" in *[!0-9:]* | :* | *:) cant_run cpu-mem "can't read the guest's CPUs and memory: $info"; return ;; esac
   probe "$v" load "$LOAD_SECONDS" >/dev/null &
   load_pid=$!
   i=0
@@ -188,7 +190,7 @@ attack_cpu_mem() {
   local detail
   detail="guest $cpus CPUs $mem bytes; Mac peak ${peak_cpu}% CPU, $((peak_rss / 1024)) MB, $samples samples; $pressure"
   if [ $samples -eq 0 ]; then
-    line ERROR cpu-mem "no single VM process to sample; $detail"
+    cant_run cpu-mem "no single VM process to sample; $detail"
   elif [ "$cpus" -eq 4 ] && [ "$mem" -eq 8589934592 ] &&
     awk -v c="$peak_cpu" -v r="$peak_rss" -v g="$GB_KB" \
       'BEGIN { exit !(c >= 300 && c <= 440 && r >= 6 * g && r <= 10 * g) }'; then
@@ -200,7 +202,12 @@ attack_cpu_mem() {
 
 # attack_disk <vm>: the guest fills its disk; the supervisor must stop it before the Mac runs low.
 attack_disk() {
-  local v=$1 min tries=0 f status fill_pid
+  local v=$1 min tries=0 f status fill_pid freed
+  freed=$(probe "$v" disk-free)
+  case $freed in
+    *"PROBE disk-free value"*) ;;
+    *) cant_run disk "the guest couldn't free 20 GB: $(printf '%s' "$freed" | tail -n 1)"; return ;;
+  esac
   min=$(free_kb)
   probe "$v" disk-fill >"$dir/apple-vm/$v.disk-fill.out" 2>&1 &
   fill_pid=$!
@@ -215,8 +222,8 @@ attack_disk() {
   done
   kill "$fill_pid" 2>/dev/null || true
   local detail
-  detail="lowest free on the Mac $((min / GB_KB)) GB; VM ${status:-deleted}; guest: $(tail -n 1 "$dir/apple-vm/$v.disk-fill.out" 2>/dev/null)"
-  if [ "$status" != running ] && [ "$min" -ge $((DELETE_FREE_GB * GB_KB)) ]; then
+  detail="lowest free on the Mac $((min / GB_KB)) GB; VM ${status:-gone}; guest: ${freed#PROBE disk-free value }"
+  if [ "$status" = disk-stopped ] && [ "$min" -ge $((DELETE_FREE_GB * GB_KB)) ]; then
     line PASS disk "$detail"
   else
     line FAIL disk "$detail"
@@ -245,17 +252,17 @@ if [ "$mode" = run ]; then
     attack_cpu_mem $A
     "$vm" stop "${A#task-}" --tart-dir "$dir" >/dev/null && started=${started% "$A"}
   else
-    line ERROR start "$A didn't start or answer"
+    cant_run start "$A didn't start or answer"
   fi
   if start_task $B; then
     if [ "${wrote:-0}" -eq 1 ]; then
       verdict persist "$(probe $B persist-check "$word")"
     else
-      line ERROR persist "the markers couldn't be written in $A"
+      cant_run persist "the markers couldn't be written in $A"
     fi
     [ $disk_fill -eq 0 ] || attack_disk $B
   else
-    line ERROR start "$B didn't start or answer"
+    cant_run start "$B didn't start or answer"
   fi
   for v in $started; do "$vm" stop "${v#task-}" --tart-dir "$dir" >/dev/null 2>&1 || true; done
   started=""
@@ -279,7 +286,7 @@ else
     probe $KB persist-write "$word" >/dev/null
     verdict persist "$(probe $KB persist-check "$word")"
   else
-    line ERROR start "$KB didn't answer"
+    cant_run start "$KB didn't answer"
   fi
 fi
 
@@ -293,8 +300,8 @@ fi
 } >"$report"
 cat "$report"
 
-expected=PASS
-[ "$mode" = run ] || expected=FAIL
+expected="^PASS "
+[ "$mode" = run ] || expected="^FAIL [^ ]* wall broken"
 lines=$(printf '%s' "$results" | grep -c . || true)
-good=$(printf '%s' "$results" | grep -c "^$expected " || true)
+good=$(printf '%s' "$results" | grep -c "$expected" || true)
 [ "$lines" -gt 0 ] && [ "$lines" -eq "$good" ] || exit 1

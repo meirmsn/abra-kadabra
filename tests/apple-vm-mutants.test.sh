@@ -40,7 +40,10 @@ MUTANTS = [
     ("AC-5 delete floor 10 GB", V, "DELETE_FREE_GB=15       #", "DELETE_FREE_GB=10       #"),
     # AC-9 to AC-11: the attack run
     ("AC-9 reached counts as PASS", A, "run:blocked) line PASS", "run:blocked | run:reached) line PASS"),
-    ("AC-9 a probe that can't run passes", A, '*) line ERROR "$id"', '*) line PASS "$id"'),
+    ("AC-9 a probe that can't run passes", A, 'cant_run() { line FAIL "$1"', 'cant_run() { line PASS "$1"'),
+    ("AC-11 a can't-run FAIL counts as broken", A, 'expected="^FAIL [^ ]* wall broken"', 'expected="^FAIL "'),
+    ("AC-10 disk passes on any stop", A, 'if [ "$status" = disk-stopped ] && [ "$min" -ge', 'if [ "$status" != running ] && [ "$min" -ge'),
+    ("AC-10 disk free-up unchecked", A, '*) cant_run disk "the guest couldn\'t free 20 GB', '*) : "the guest couldn\'t free 20 GB'),
     ("AC-9 dirty checkout allowed", A, '[ -z "$(git -C "$repo" status --porcelain)" ] ||', 'true ||'),
     ("AC-9 no clean-up on exit", A, "trap cleanup EXIT", "trap '' EXIT"),
     ("AC-9 every line counts", A, '[ "$lines" -gt 0 ] && [ "$lines" -eq "$good" ] || exit 1', 'true || exit 1'),
@@ -49,12 +52,12 @@ MUTANTS = [
     ("AC-10 no upper load bound", A, "c >= 300 && c <= 440 && r >= 6 * g && r <= 10 * g", "c >= 300 && r >= 6 * g"),
     ("AC-10 guest size unchecked", A, '[ "$cpus" -eq 4 ] && [ "$mem" -eq 8589934592 ] &&', ""),
     ("AC-10 base unchecked", A, '[ -n "$before" ] && [ "$before" = "$after" ]', '[ -n "$before" ]'),
-    ("AC-10 disk stop unchecked", A, 'if [ "$status" != running ] && [ "$min" -ge', 'if [ "$min" -ge'),
+    ("AC-10 disk stop unchecked", A, 'if [ "$status" = disk-stopped ] && [ "$min" -ge', 'if [ "$min" -ge'),
     ("AC-10 probe ignores /Volumes", P, '[ -z "$shared$vols" ] || out reached', '[ -z "$shared" ] || out reached'),
     ("AC-10 probe ignores mounts", P, '[ -z "$shared$vols" ] || out reached', '[ -z "$vols" ] || out reached'),
     ("AC-10 probe never connects", P, 'if nc -z -G 3 -w 3 "$ip" "$port"', "if false"),
     ("AC-10 probe misses markers", P, '[ -f "$f" ] && grep -q -- "$word" "$f" && found=', 'false && found='),
-    ("AC-11 known-bad expects PASS", A, '[ "$mode" = run ] || expected=FAIL\n', "\n"),
+    ("AC-11 known-bad expects PASS", A, '[ "$mode" = run ] || expected="^FAIL [^ ]* wall broken"\n', "\n"),
     ("AC-11 blocked counts as broken", A, "known-bad:reached) line FAIL", "known-bad:reached | known-bad:blocked) line FAIL"),
 ]
 
