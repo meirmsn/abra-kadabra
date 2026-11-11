@@ -2,7 +2,8 @@
 # Tests scripts/lint.sh, this repo's declared lint: CI's `fast` job (through scripts/check-fast.sh)
 # and the devshop's pre-push hook both run it, so they can't drift. It must run every check even
 # after one fails, pass the base to the commit-identity check, and exit 2 if any check couldn't
-# run, else 1 on any findings, else 0.
+# run, else 1 on any findings, else 0. The compact-row check gets the two record tables
+# (specs/parallel-safe-shared-files.md AC-14).
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
@@ -13,7 +14,7 @@ trap 'rm -rf "$work"' EXIT
 mkdir -p "$work/scripts" "$work/runtime/scripts"
 cp "$repo_root/scripts/lint.sh" "$work/scripts/"
 # Stub checks: each records that it ran (and its arguments) and exits with its .rc file's number.
-checks=(format-check.sh shellcheck.sh docs-map-check.py commit-identity-check.sh ci-tiers-check.py)
+checks=(format-check.sh shellcheck.sh docs-map-check.py commit-identity-check.sh ci-tiers-check.py table-rows-check.py)
 for c in "${checks[@]}"; do
   dir=scripts
   [ "$c" != ci-tiers-check.py ] || dir=runtime/scripts
@@ -31,19 +32,22 @@ run() {
   echo "$rc"
 }
 
-[ "$(run 0 0 0 0 0)" = 0 ] || { cat "$work/out" >&2; fail "all clean: want 0"; }
-[ "$(wc -l <"$work/ran")" = 5 ] || fail "not every check ran"
+[ "$(run 0 0 0 0 0 0)" = 0 ] || { cat "$work/out" >&2; fail "all clean: want 0"; }
+[ "$(wc -l <"$work/ran")" = 6 ] || fail "not every check ran"
 grep -qx "commit-identity-check.sh b4se" "$work/ran" || fail "the base didn't reach commit-identity-check.sh: $(cat "$work/ran")"
 grep -qx "ci-tiers-check.py .github/workflows/ci.yml" "$work/ran" || fail "AC-6: ci-tiers-check.py didn't check this repo's ci.yml: $(cat "$work/ran")"
-echo "ok - all five checks run (AC-6: incl. the CI shape check on ci.yml), the base reaches the commit-identity check, clean is 0"
+grep -qx "table-rows-check.py FINDINGS.md ROADMAP.md" "$work/ran" || fail "parallel-safe-shared-files AC-14: the row check didn't get both records: $(cat "$work/ran")"
+echo "ok - all six checks run (AC-6: incl. the CI shape check on ci.yml; parallel-safe-shared-files AC-14: the row check on both records), the base reaches the commit-identity check, clean is 0"
 
-[ "$(run 1 0 0 0 0)" = 1 ] || fail "findings in the first check: want 1"
-[ "$(wc -l <"$work/ran")" = 5 ] || fail "a failing check stopped the others"
+[ "$(run 1 0 0 0 0 0)" = 1 ] || fail "findings in the first check: want 1"
+[ "$(wc -l <"$work/ran")" = 6 ] || fail "a failing check stopped the others"
 echo "ok - findings exit 1, and every check still runs"
 
-[ "$(run 0 0 0 0 1)" = 1 ] || fail "AC-6: CI shape findings: want 1"
+[ "$(run 0 0 0 0 1 0)" = 1 ] || fail "AC-6: CI shape findings: want 1"
 grep -q "ci-tiers-check.py found problems" "$work/out" || { cat "$work/out" >&2; fail "AC-6: CI shape findings not named"; }
-[ "$(run 0 2 1 0 0)" = 2 ] || fail "one check couldn't run: want 2"
+[ "$(run 0 0 0 0 0 1)" = 1 ] || fail "parallel-safe-shared-files AC-14: padded record rows: want 1"
+grep -q "table-rows-check.py found problems" "$work/out" || { cat "$work/out" >&2; fail "AC-14: padded rows not named"; }
+[ "$(run 0 2 1 0 0 0)" = 2 ] || fail "one check couldn't run: want 2"
 grep -q "shellcheck.sh couldn't run" "$work/out" || { cat "$work/out" >&2; fail "lint.sh doesn't name the check that couldn't run"; }
 echo "ok - a check that can't run makes it exit 2 (never a pass), named"
 

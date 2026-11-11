@@ -239,12 +239,13 @@ for want in .devshop-version .github/CODEOWNERS .github/workflows/ci.yml scripts
   grep -q "^$want  [a-z]*  required$" "$work/out" || fail "AC-1: '$want' is not a required item of the real contract"
 done
 for want in scripts/setup.sh scripts/lint.sh scripts/lint-file.sh scripts/deploy.sh scripts/local-run.sh scripts/build.sh \
-  scripts/ui/tokens-check.mjs scripts/ui/render-check.mjs scripts/ui/design-md-check.mjs DESIGN.md ROADMAP.md FINDINGS.md \
-  docs/README.md; do
+  scripts/ui/tokens-check.mjs scripts/ui/render-check.mjs scripts/ui/design-md-check.mjs scripts/count-check.py DESIGN.md ROADMAP.md \
+  FINDINGS.md docs/README.md; do
   grep -q "^$want  [a-z]*  optional$" "$work/out" || fail "AC-1: '$want' is not an optional item of the real contract"
 done
-[ "$(grep -c '^[^ ]' "$work/out")" = 27 ] || { cat "$work/out" >&2; fail "AC-1: the real contract has $(grep -c '^[^ ]' "$work/out") items, want 27"; }
-echo "ok - AC-1: the real contract has the 14 required and 13 optional items (design-md-check AC-6: the shape check among them)"
+[ "$(grep -c '^[^ ]' "$work/out")" = 28 ] || { cat "$work/out" >&2; fail "AC-1: the real contract has $(grep -c '^[^ ]' "$work/out") items, want 28"; }
+echo "ok - AC-1: the real contract has the 14 required and 14 optional items (design-md-check AC-6: the shape check among them;
+  parallel-safe-shared-files AC-10: the count check)"
 # reviewer-local-run-build AC-6: the build item, and a local run that serves what it built.
 # shellcheck disable=SC2016 # literal backticks: the contract's Markdown
 grep -qF 'must: Builds what `scripts/local-run.sh` serves, from the repo root with the installed `node_modules`, `BUILD_SHA` naming the commit; installs nothing' "$work/out" \

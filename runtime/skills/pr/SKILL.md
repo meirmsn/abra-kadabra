@@ -63,6 +63,8 @@ under `ak:build` § 3; this skill only puts them on the PR.
 - Once the PR is ready, in chat: its link and its one-line summary.
 - Subscribe the session to the PR's activity (`subscribe_pr_activity`). Its events wake the
   session: end the turn, never poll.
+- CI fails on a test the change doesn't touch: never re-run it; reproduce it, find its cause and
+  propose the fix PR (`/opt/devshop-current/guidelines/flaky-tests.md`).
 
 ## 5. Approval ships, comments are answered (TARGET Review 7–8)
 

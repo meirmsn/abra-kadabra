@@ -16,8 +16,16 @@ FINDINGS.md from it on its first row; delete this comment there.
   urgent.
 - Match first: on a row for the same thing, add a line to its Seen cell (one per session), not a
   new row.
-- ID: the next free number, F-<n> (the devshop: F-NEW-<n>), checked against the latest main
-  before ship; on a clash, renumber your own row.
+- ID: F-<YYYY-MM-DD>-<slug>, the date the row is logged and 2 to 5 lowercase kebab-case words
+  for what was noticed (F-2026-11-10-shared-list-conflicts), so parallel branches never take the
+  same ID. In the devshop the slug describes another project, never names it or its features.
+  Older numbered IDs (F-<n>, F-NEW-<n>) stay as they are.
+- Where: a new row goes after the numbered rows, in ID order among the dated ones. Merging main,
+  a duplicate ID for the same thing becomes one row with both sightings; for a different thing,
+  add a word to your own row's slug. Two new rows that still meet in a conflict: keep both.
+- Compact rows: one space beside each pipe, never padded to line up, and the file kept out of
+  the formatter (`.prettierignore`). A formatter pads each column to its longest cell, so one long
+  row would rewrite every row and conflict with every branch.
 - Severity: high (it can break production, lose data or open a security hole), med (it costs time
   on a common path or on every change), low (anything else).
 - Seen: one "YYYY-MM-DD · <PR or session>" per session that hit it, separated by <br>.

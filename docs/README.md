@@ -98,13 +98,16 @@ Projects pin the tag; `/ak:upgrade` defaults to the newest one. Proven by
   is the per-file version the per-edit nudge runs. Each check is a script proven by the test of the
   same name in `tests/` (it feeds a known-bad input, and a missing tool fails):
   - [`format-check.sh`](../scripts/format-check.sh): `prettier --check .` with the version
-    [`package.json`](../package.json) pins (`npm ci` installs it); `.prettierignore` skips the spikes.
+    [`package.json`](../package.json) pins (`npm ci` installs it); `.prettierignore` skips the spikes and the two record tables.
   - [`shellcheck.sh`](../scripts/shellcheck.sh): shellcheck (version pinned in `ci.yml`) over every
     shell script, found by extension or shebang; the spikes are skipped.
   - [`commit-identity-check.sh`](../scripts/commit-identity-check.sh): rejects commits a change adds
     under a test identity, such as the one tests commit as (L-41).
   - [`docs-map-check.py`](../scripts/docs-map-check.py): this page's rule, above.
   - [`ci-tiers-check.py`](../runtime/scripts/ci-tiers-check.py) on this repo's own `ci.yml` (below).
+  - [`table-rows-check.py`](../scripts/table-rows-check.py): `FINDINGS.md` and `ROADMAP.md` keep
+    compact table rows, so one long row never rewrites the others
+    ([spec](../specs/parallel-safe-shared-files.md)).
 - Skills: [`scripts/skills-check.py`](../scripts/skills-check.py) checks every skill in
   `runtime/skills/` and the install plugin's own (`--plugin-skills`) names itself after its
   directory, has a description, names only `/opt/devshop-current/` files its
@@ -178,6 +181,8 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
   green CI: the files placed, the owner's steps and the proof on a fresh repo.
 - [`other-projects-detail.md`](../specs/other-projects-detail.md): other projects appear here by a
   plain description and the lesson, never by name, PR number or feature.
+- [`parallel-safe-shared-files.md`](../specs/parallel-safe-shared-files.md): parallel branches
+  stop conflicting on shared lists and counters (R-22).
 - [`pinned-tools-on-path.md`](../specs/pinned-tools-on-path.md): the project's own checks find the
   devshop's pinned gitleaks, shellcheck and dcg on PATH.
 - [`pinned-tools-survive-outage.md`](../specs/pinned-tools-survive-outage.md): a pinned tool the
@@ -193,6 +198,9 @@ One file per change in [`specs/`](../specs), kept after merge as context (TARGET
 - [`reviewer-local-run-build.md`](../specs/reviewer-local-run-build.md): the reviewer installs a
   pnpm workspace offline in its clone and runs the project's `scripts/build.sh` before its local
   run, and smoke-runs a local run a change adds.
+- [`shared-changes-first.md`](../specs/shared-changes-first.md): a shared change or a flaky test's
+  fix lands first, in its own small PR; a failing unrelated test is never re-run, its cause is
+  fixed (R-23).
 - [`ui-baseline.md`](../specs/ui-baseline.md): every web app starts from a design baseline, phone
   first, light and dark.
 

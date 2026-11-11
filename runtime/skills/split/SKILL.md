@@ -29,6 +29,9 @@ is specced until the owner approves the split.
 - **Then vertical slices,** each shippable and visible to a user, each one PR the owner can judge
   in a sitting; never a layer ("the schema", "the API", "the UI"). Only the next one or two carry
   detail; the rest stay one line.
+- **Slices that each add an item** (a page, a game): the first one sets up the layout and the
+  derived lists, so each later slice only adds its own file
+  (`/opt/devshop-current/guidelines/parallel.md`).
 
 ## 3. One screen, then the owner's approval
 
